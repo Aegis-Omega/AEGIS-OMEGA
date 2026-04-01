@@ -36,3 +36,33 @@
 {"ts": "2026-04-01T00:58:52.727269+00:00", "event": "SYNTROPY_PROMOTION", "term": "overconfidence", "old_z": 1, "new_z": 2, "new_level": "EQUILIBRATION"}
 {"ts": "2026-04-01T00:58:52.732927+00:00", "event": "SYNTROPY_PROMOTION", "term": "stress_level", "old_z": 0, "new_z": 1, "new_level": "RADIATION"}
 {"ts": "2026-04-01T00:58:52.733118+00:00", "event": "DREAM_COMPLETE", "cycle": 1, "epiphanies_this_cycle": 3, "total_epiphanies": 3, "total_edges": 7}
+{"ts": "2026-04-01T01:07:07.618429+00:00", "event": "RESOLVER_INIT", "status": "ok"}
+{"ts": "2026-04-01T01:07:07.624447+00:00", "event": "EGO_INIT", "ego_id": "SWARM_SELF_AXIOM", "z_level": 4, "level": "SOVEREIGN_EGO"}
+{"ts": "2026-04-01T01:07:07.650653+00:00", "event": "RESOLVER_INIT", "status": "ok"}
+{"ts": "2026-04-01T01:07:07.654573+00:00", "event": "EGO_INIT", "ego_id": "SWARM_SELF_AXIOM", "z_level": 4, "level": "SOVEREIGN_EGO"}
+{"ts": "2026-04-01T01:07:29.207526+00:00", "event": "RESOLVE_NEW", "term": "metacognition", "z_level": 0, "phase": 0.0}
+{"ts": "2026-04-01T01:07:29.434009+00:00", "event": "RESOLVE_NEW", "term": "hallucination", "z_level": 0, "phase": -0.0082}
+{"ts": "2026-04-01T01:07:29.434319+00:00", "event": "INGEST", "edge_id": "376cfd400760", "subject": "metacognition", "relation": "measures", "object": "hallucination", "resonance": 0.939097, "total_edges": 1}
+{"ts": "2026-04-01T01:07:29.671516+00:00", "event": "RESOLVE_NEW", "term": "hallucination", "z_level": 0, "phase": -0.0082}
+{"ts": "2026-04-01T01:07:29.915500+00:00", "event": "RESOLVE_NEW", "term": "overconfidence", "z_level": 0, "phase": -0.0}
+{"ts": "2026-04-01T01:07:29.915761+00:00", "event": "INGEST", "edge_id": "bcf5be8f3882", "subject": "hallucination", "relation": "caused_by", "object": "overconfidence", "resonance": 0.788852, "total_edges": 2}
+{"ts": "2026-04-01T01:07:30.166536+00:00", "event": "RESOLVE_NEW", "term": "homeostasis", "z_level": 0, "phase": -0.0082}
+{"ts": "2026-04-01T01:07:30.401300+00:00", "event": "RESOLVE_NEW", "term": "stress_level", "z_level": 0, "phase": 0.0}
+{"ts": "2026-04-01T01:07:30.401529+00:00", "event": "INGEST", "edge_id": "e8c1b84007fa", "subject": "homeostasis", "relation": "regulates", "object": "stress_level", "resonance": -0.497512, "total_edges": 3}
+{"ts": "2026-04-01T01:07:30.651127+00:00", "event": "RESOLVE_NEW", "term": "overconfidence", "z_level": 0, "phase": 0.0}
+{"ts": "2026-04-01T01:07:30.887681+00:00", "event": "RESOLVE_NEW", "term": "homeostasis", "z_level": 0, "phase": -0.0082}
+{"ts": "2026-04-01T01:07:30.887934+00:00", "event": "INGEST", "edge_id": "4e7ce52a04e6", "subject": "overconfidence", "relation": "degrades", "object": "homeostasis", "resonance": -0.857691, "total_edges": 4}
+{"ts": "2026-04-01T01:07:38.237992+00:00", "event": "DREAM_START", "cycle": 1, "edge_count": 4}
+{"ts": "2026-04-01T01:07:38.238966+00:00", "event": "EPIPHANY", "cycle": 1, "node_a": "metacognition", "node_b": "overconfidence", "path_weight": 0.740809, "total_epiphanies": 1}
+{"ts": "2026-04-01T01:07:38.470893+00:00", "event": "RESOLVE_NEW", "term": "metacognition", "z_level": 0, "phase": 0.0}
+{"ts": "2026-04-01T01:07:38.698347+00:00", "event": "RESOLVE_NEW", "term": "overconfidence", "z_level": 0, "phase": -0.0082}
+{"ts": "2026-04-01T01:07:38.698601+00:00", "event": "INGEST", "edge_id": "a44ff1a25413", "subject": "metacognition", "relation": "resonates_with", "object": "overconfidence", "resonance": 0.428492, "total_edges": 5}
+{"ts": "2026-04-01T01:07:38.703382+00:00", "event": "SYNTROPY_PROMOTION", "term": "metacognition", "old_z": 0, "new_z": 1, "new_level": "RADIATION"}
+{"ts": "2026-04-01T01:07:38.708138+00:00", "event": "SYNTROPY_PROMOTION", "term": "overconfidence", "old_z": 0, "new_z": 1, "new_level": "RADIATION"}
+{"ts": "2026-04-01T01:07:38.708294+00:00", "event": "EPIPHANY", "cycle": 1, "node_a": "hallucination", "node_b": "homeostasis", "path_weight": 0.676592, "total_epiphanies": 2}
+{"ts": "2026-04-01T01:07:38.933769+00:00", "event": "RESOLVE_NEW", "term": "hallucination", "z_level": 0, "phase": -0.0}
+{"ts": "2026-04-01T01:07:39.167178+00:00", "event": "RESOLVE_NEW", "term": "homeostasis", "z_level": 0, "phase": -0.0}
+{"ts": "2026-04-01T01:07:39.167462+00:00", "event": "INGEST", "edge_id": "7d503192e44b", "subject": "hallucination", "relation": "resonates_with", "object": "homeostasis", "resonance": -0.552488, "total_edges": 6}
+{"ts": "2026-04-01T01:07:39.172719+00:00", "event": "SYNTROPY_PROMOTION", "term": "hallucination", "old_z": 0, "new_z": 1, "new_level": "RADIATION"}
+{"ts": "2026-04-01T01:07:39.177868+00:00", "event": "SYNTROPY_PROMOTION", "term": "homeostasis", "old_z": 0, "new_z": 1, "new_level": "RADIATION"}
+{"ts": "2026-04-01T01:07:39.178002+00:00", "event": "DREAM_COMPLETE", "cycle": 1, "epiphanies_this_cycle": 2, "total_epiphanies": 2, "total_edges": 6}
