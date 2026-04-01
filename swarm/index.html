@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SWARM — Live Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0f;
+      color: #d4d4e8;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      display: grid;
+      grid-template-rows: 48px 1fr;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    header {
+      background: #12121c;
+      border-bottom: 1px solid #2a2a40;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+    }
+
+    header h1 { font-size: 14px; letter-spacing: 4px; color: #7c7cff; }
+
+    .stat {
+      font-size: 11px;
+      color: #5a5a7a;
+    }
+    .stat span { color: #a0a0ff; font-weight: bold; }
+
+    #conn-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #333;
+      margin-left: auto;
+      transition: background 0.3s;
+    }
+    #conn-dot.live { background: #00ff88; box-shadow: 0 0 6px #00ff88; }
+    #conn-dot.dead { background: #ff4444; }
+
+    main {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      overflow: hidden;
+    }
+
+    #feed {
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .event {
+      border-left: 3px solid #2a2a40;
+      padding: 6px 10px;
+      background: #10101a;
+      border-radius: 0 4px 4px 0;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .event.DREAM_START  { border-color: #7c7cff; }
+    .event.THOUGHT      { border-color: #3a3a60; }
+    .event.EPIPHANY     {
+      border-color: #ffcc00;
+      background: #1a1a0a;
+      box-shadow: 0 0 12px rgba(255,204,0,0.15);
+    }
+    .event.PING         { border-color: #2a2a2a; opacity: 0.5; }
+    .event.SNAPSHOT     { border-color: #00ff88; }
+
+    .event-meta {
+      font-size: 10px;
+      color: #4a4a6a;
+      margin-bottom: 3px;
+      display: flex;
+      gap: 8px;
+    }
+    .event-type { font-weight: bold; }
+    .event-type.DREAM_START { color: #7c7cff; }
+    .event-type.THOUGHT     { color: #6060a0; }
+    .event-type.EPIPHANY    { color: #ffcc00; }
+    .event-type.PING        { color: #333; }
+
+    .event-content { line-height: 1.5; color: #c4c4d8; }
+    .event.EPIPHANY .event-content { color: #ffe066; }
+
+    aside {
+      border-left: 1px solid #1a1a2a;
+      background: #0c0c18;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    aside h2 {
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: #4a4a7a;
+      padding: 10px 14px;
+      border-bottom: 1px solid #1a1a2a;
+    }
+
+    #epiphanies {
+      overflow-y: auto;
+      padding: 10px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .epi-card {
+      background: #14140e;
+      border: 1px solid #3a3a00;
+      border-radius: 4px;
+      padding: 8px;
+      font-size: 11px;
+      color: #ffe066;
+      line-height: 1.5;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .epi-card .epi-meta {
+      font-size: 9px;
+      color: #5a5a30;
+      margin-top: 4px;
+    }
+
+    #agents {
+      border-top: 1px solid #1a1a2a;
+      padding: 10px;
+      min-height: 80px;
+    }
+
+    #agents h2 {
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: #4a4a7a;
+      margin-bottom: 6px;
+    }
+
+    .agent-row {
+      font-size: 10px;
+      color: #6060a0;
+      padding: 2px 0;
+    }
+    .agent-row .agent-id { color: #8080c0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>S W A R M</h1>
+    <div class="stat">Events: <span id="ev-count">0</span></div>
+    <div class="stat">Epiphanies: <span id="epi-count">0</span></div>
+    <div class="stat">Agents: <span id="agent-count">0</span></div>
+    <div id="conn-dot" title="WebSocket status"></div>
+  </header>
+  <main>
+    <div id="feed"></div>
+    <aside>
+      <h2>EPIPHANIES</h2>
+      <div id="epiphanies"></div>
+      <div id="agents"><h2>AGENTS</h2><div id="agent-list"></div></div>
+    </aside>
+  </main>
+
+  <script>
+    const feed       = document.getElementById('feed');
+    const epiPanel   = document.getElementById('epiphanies');
+    const agentList  = document.getElementById('agent-list');
+    const evCount    = document.getElementById('ev-count');
+    const epiCount   = document.getElementById('epi-count');
+    const agentCount = document.getElementById('agent-count');
+    const connDot    = document.getElementById('conn-dot');
+
+    let totalEvents = 0;
+    let epiphanyTotal = 0;
+    const agents = {};
+
+    function fmtTime(iso) {
+      try { return new Date(iso).toLocaleTimeString(); }
+      catch { return ''; }
+    }
+
+    function addEvent(ev) {
+      if (ev.type === 'SNAPSHOT') return;   // handled separately
+      totalEvents++;
+      evCount.textContent = totalEvents;
+
+      const div = document.createElement('div');
+      div.className = `event ${ev.type}`;
+      div.innerHTML = `
+        <div class="event-meta">
+          <span class="event-type ${ev.type}">${ev.type}</span>
+          <span>${ev.agent_id || ''}</span>
+          <span>cycle ${ev.cycle || '—'}</span>
+          <span>${fmtTime(ev.timestamp)}</span>
+        </div>
+        <div class="event-content">${escHtml(ev.content || '')}</div>
+      `;
+      feed.appendChild(div);
+      // Keep max 150 nodes in DOM
+      while (feed.children.length > 150) feed.removeChild(feed.firstChild);
+      feed.scrollTop = feed.scrollHeight;
+
+      if (ev.agent_id) {
+        agents[ev.agent_id] = (agents[ev.agent_id] || 0) + 1;
+        renderAgents();
+      }
+
+      if (ev.type === 'EPIPHANY') addEpiphany(ev);
+    }
+
+    function addEpiphany(ev) {
+      epiphanyTotal++;
+      epiCount.textContent = epiphanyTotal;
+      const card = document.createElement('div');
+      card.className = 'epi-card';
+      card.innerHTML = `${escHtml(ev.content)}<div class="epi-meta">${fmtTime(ev.timestamp)}</div>`;
+      epiPanel.insertBefore(card, epiPanel.firstChild);
+    }
+
+    function renderAgents() {
+      const ids = Object.keys(agents);
+      agentCount.textContent = ids.length;
+      agentList.innerHTML = ids.map(id =>
+        `<div class="agent-row"><span class="agent-id">${escHtml(id)}</span> · ${agents[id]} events</div>`
+      ).join('');
+    }
+
+    function escHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ── WebSocket ──────────────────────────────────────────────────────────────
+    const WS_URL = `ws://${location.host}/ws`;
+    let ws, reconnectDelay = 1000;
+
+    function connect() {
+      ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        connDot.className = 'live';
+        connDot.title = 'Connected';
+        reconnectDelay = 1000;
+      };
+
+      ws.onmessage = (msg) => {
+        let data;
+        try { data = JSON.parse(msg.data); } catch { return; }
+
+        if (data.type === 'SNAPSHOT') {
+          // Paint initial events
+          (data.events || []).forEach(addEvent);
+          (data.epiphanies || []).forEach(ev => {
+            epiphanyTotal++;
+            epiCount.textContent = epiphanyTotal;
+            const card = document.createElement('div');
+            card.className = 'epi-card';
+            card.innerHTML = `${escHtml(ev.content)}<div class="epi-meta">${fmtTime(ev.timestamp)}</div>`;
+            epiPanel.appendChild(card);
+          });
+        } else {
+          addEvent(data);
+        }
+      };
+
+      ws.onclose = () => {
+        connDot.className = 'dead';
+        connDot.title = 'Disconnected — reconnecting…';
+        setTimeout(connect, reconnectDelay);
+        reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+      };
+
+      ws.onerror = () => ws.close();
+    }
+
+    connect();
+  </script>
+</body>
+</html>
