@@ -66,3 +66,5 @@
 {"ts": "2026-04-01T01:07:39.172719+00:00", "event": "SYNTROPY_PROMOTION", "term": "hallucination", "old_z": 0, "new_z": 1, "new_level": "RADIATION"}
 {"ts": "2026-04-01T01:07:39.177868+00:00", "event": "SYNTROPY_PROMOTION", "term": "homeostasis", "old_z": 0, "new_z": 1, "new_level": "RADIATION"}
 {"ts": "2026-04-01T01:07:39.178002+00:00", "event": "DREAM_COMPLETE", "cycle": 1, "epiphanies_this_cycle": 2, "total_epiphanies": 2, "total_edges": 6}
+{"ts": "2026-04-01T04:24:54.725147+00:00", "event": "RESOLVER_INIT", "status": "ok"}
+{"ts": "2026-04-01T04:24:54.734654+00:00", "event": "EGO_INIT", "ego_id": "SWARM_SELF_AXIOM", "z_level": 4, "level": "SOVEREIGN_EGO"}
