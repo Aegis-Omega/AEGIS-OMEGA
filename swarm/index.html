@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SWARM — Live Dashboard</title>
+  <title>SWARM — Quantum Singularity</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: #0a0a0f;
+      background: #04040a;
       color: #d4d4e8;
       font-family: 'Courier New', monospace;
       font-size: 13px;
@@ -19,26 +19,23 @@
     }
 
     header {
-      background: #12121c;
+      background: rgba(12,12,28,0.92);
       border-bottom: 1px solid #2a2a40;
       display: flex;
       align-items: center;
       padding: 0 20px;
       gap: 16px;
+      z-index: 20;
     }
 
     header h1 { font-size: 14px; letter-spacing: 4px; color: #7c7cff; }
 
-    .stat {
-      font-size: 11px;
-      color: #5a5a7a;
-    }
+    .stat { font-size: 11px; color: #5a5a7a; }
     .stat span { color: #a0a0ff; font-weight: bold; }
 
     #conn-dot {
       width: 8px; height: 8px; border-radius: 50%;
-      background: #333;
-      margin-left: auto;
+      background: #333; margin-left: auto;
       transition: background 0.3s;
     }
     #conn-dot.live { background: #00ff88; box-shadow: 0 0 6px #00ff88; }
@@ -46,251 +43,599 @@
 
     main {
       display: grid;
-      grid-template-columns: 1fr 320px;
+      grid-template-columns: 1fr 300px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ── Canvas panel ── */
+    #vis-panel {
+      position: relative;
       overflow: hidden;
     }
 
+    #singularity {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ── Event feed overlay ── */
+    #feed-wrap {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 200px;
+      background: linear-gradient(transparent, rgba(4,4,10,0.96) 28%);
+      pointer-events: none;
+    }
+
     #feed {
-      overflow-y: auto;
-      padding: 12px;
+      position: absolute;
+      bottom: 8px; left: 12px; right: 12px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
     }
 
     .event {
-      border-left: 3px solid #2a2a40;
-      padding: 6px 10px;
-      background: #10101a;
-      border-radius: 0 4px 4px 0;
-      animation: fadeIn 0.3s ease;
+      border-left: 2px solid #2a2a40;
+      padding: 4px 8px;
+      background: rgba(14,14,24,0.85);
+      border-radius: 0 3px 3px 0;
+      animation: fadeIn 0.25s ease;
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-4px); }
+      from { opacity: 0; transform: translateY(4px); }
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    .event.DREAM_START  { border-color: #7c7cff; }
-    .event.THOUGHT      { border-color: #3a3a60; }
-    .event.EPIPHANY     {
-      border-color: #ffcc00;
-      background: #1a1a0a;
-      box-shadow: 0 0 12px rgba(255,204,0,0.15);
+    .event.DREAM_START { border-color: #7c7cff; }
+    .event.THOUGHT     { border-color: #3a3a60; }
+    .event.EPIPHANY    { border-color: #ffcc00; background: rgba(20,20,8,0.9); }
+    .event.PING        { border-color: #222; opacity: 0.35; }
+
+    .ev-meta {
+      font-size: 10px; color: #4a4a6a; margin-bottom: 2px;
+      display: flex; gap: 8px;
     }
-    .event.PING         { border-color: #2a2a2a; opacity: 0.5; }
-    .event.SNAPSHOT     { border-color: #00ff88; }
+    .ev-type { font-weight: bold; }
+    .ev-type.DREAM_START { color: #7c7cff; }
+    .ev-type.THOUGHT     { color: #6060a0; }
+    .ev-type.EPIPHANY    { color: #ffcc00; }
+    .ev-type.PING        { color: #2a2a2a; }
+    .ev-body { line-height: 1.4; color: #b4b4c8; font-size: 11px; }
+    .event.EPIPHANY .ev-body { color: #ffe066; }
 
-    .event-meta {
-      font-size: 10px;
-      color: #4a4a6a;
-      margin-bottom: 3px;
-      display: flex;
-      gap: 8px;
-    }
-    .event-type { font-weight: bold; }
-    .event-type.DREAM_START { color: #7c7cff; }
-    .event-type.THOUGHT     { color: #6060a0; }
-    .event-type.EPIPHANY    { color: #ffcc00; }
-    .event-type.PING        { color: #333; }
-
-    .event-content { line-height: 1.5; color: #c4c4d8; }
-    .event.EPIPHANY .event-content { color: #ffe066; }
-
+    /* ── Sidebar ── */
     aside {
       border-left: 1px solid #1a1a2a;
       background: #0c0c18;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      z-index: 5;
     }
 
     aside h2 {
-      font-size: 11px;
-      letter-spacing: 2px;
-      color: #4a4a7a;
-      padding: 10px 14px;
-      border-bottom: 1px solid #1a1a2a;
+      font-size: 10px; letter-spacing: 2px; color: #4a4a7a;
+      padding: 10px 14px; border-bottom: 1px solid #1a1a2a;
     }
 
     #epiphanies {
-      overflow-y: auto;
-      padding: 10px;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      overflow-y: auto; padding: 8px; flex: 1;
+      display: flex; flex-direction: column; gap: 6px;
     }
 
     .epi-card {
-      background: #14140e;
-      border: 1px solid #3a3a00;
-      border-radius: 4px;
-      padding: 8px;
-      font-size: 11px;
-      color: #ffe066;
-      line-height: 1.5;
+      background: #14140e; border: 1px solid #3a3a00;
+      border-radius: 3px; padding: 7px; font-size: 11px;
+      color: #ffe066; line-height: 1.5;
       animation: fadeIn 0.4s ease;
     }
 
-    .epi-card .epi-meta {
-      font-size: 9px;
-      color: #5a5a30;
-      margin-top: 4px;
-    }
+    .epi-meta { font-size: 9px; color: #5a5a30; margin-top: 3px; }
 
-    #agents {
+    #legend {
       border-top: 1px solid #1a1a2a;
-      padding: 10px;
-      min-height: 80px;
+      padding: 10px 14px;
+    }
+    #legend h2 { border: none; padding: 0; margin-bottom: 7px; }
+
+    .leg-row {
+      display: flex; align-items: center; gap: 7px;
+      padding: 2px 0; font-size: 10px; color: #5a5a7a;
     }
 
-    #agents h2 {
-      font-size: 11px;
-      letter-spacing: 2px;
-      color: #4a4a7a;
-      margin-bottom: 6px;
+    .leg-dot {
+      width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
     }
 
-    .agent-row {
-      font-size: 10px;
-      color: #6060a0;
-      padding: 2px 0;
-    }
-    .agent-row .agent-id { color: #8080c0; }
+    #agents { border-top: 1px solid #1a1a2a; padding: 10px 14px; }
+    #agents h2 { border: none; padding: 0; margin-bottom: 6px; }
+    .agent-row { font-size: 10px; color: #6060a0; padding: 2px 0; }
+    .agent-id  { color: #8080c0; }
   </style>
 </head>
 <body>
   <header>
     <h1>S W A R M</h1>
-    <div class="stat">Events: <span id="ev-count">0</span></div>
+    <div class="stat">Hyperedges: <span id="ev-count">0</span></div>
     <div class="stat">Epiphanies: <span id="epi-count">0</span></div>
-    <div class="stat">Agents: <span id="agent-count">0</span></div>
+    <div class="stat">Nodes: <span id="node-count">0</span></div>
+    <div class="stat">Dream: <span id="dream-count">0</span></div>
     <div id="conn-dot" title="WebSocket status"></div>
   </header>
   <main>
-    <div id="feed"></div>
+    <div id="vis-panel">
+      <canvas id="singularity"></canvas>
+      <div id="feed-wrap"><div id="feed"></div></div>
+    </div>
     <aside>
       <h2>EPIPHANIES</h2>
       <div id="epiphanies"></div>
+      <div id="legend">
+        <h2>FREQUENCY LEVELS</h2>
+        <div class="leg-row"><div class="leg-dot" style="background:#ffd700"></div>z=4 SOVEREIGN_EGO · 523 Hz</div>
+        <div class="leg-row"><div class="leg-dot" style="background:#00ff88"></div>z=3 VECTOR_RESOLUTION · 415 Hz</div>
+        <div class="leg-row"><div class="leg-dot" style="background:#00ccff"></div>z=2 EQUILIBRATION · 330 Hz</div>
+        <div class="leg-row"><div class="leg-dot" style="background:#7c7cff"></div>z=1 RADIATION · 294 Hz</div>
+        <div class="leg-row"><div class="leg-dot" style="background:#4444aa"></div>z=0 INERTIA · 262 Hz</div>
+      </div>
       <div id="agents"><h2>AGENTS</h2><div id="agent-list"></div></div>
     </aside>
   </main>
 
   <script>
+    // ── DOM ────────────────────────────────────────────────────────────────────
     const feed       = document.getElementById('feed');
     const epiPanel   = document.getElementById('epiphanies');
     const agentList  = document.getElementById('agent-list');
     const evCount    = document.getElementById('ev-count');
     const epiCount   = document.getElementById('epi-count');
-    const agentCount = document.getElementById('agent-count');
+    const nodeCount  = document.getElementById('node-count');
+    const dreamCount = document.getElementById('dream-count');
     const connDot    = document.getElementById('conn-dot');
+    const canvas     = document.getElementById('singularity');
+    const ctx        = canvas.getContext('2d');
 
-    let totalEvents = 0;
-    let epiphanyTotal = 0;
-    const agents = {};
+    let totalEdges = 0, epiphanyTotal = 0, dreamTotal = 0;
+    const agentsMap = {};
 
-    function fmtTime(iso) {
-      try { return new Date(iso).toLocaleTimeString(); }
-      catch { return ''; }
+    // ── Manifold state ─────────────────────────────────────────────────────────
+    // z-level → color, orbital radius (scale applied at draw time)
+    const Z_COLOR  = ['#4444aa', '#7c7cff', '#00ccff', '#00ff88', '#ffd700'];
+    const Z_ORBIT  = [300, 220, 150, 85, 0];   // px at scale=1
+
+    // nodes[id] = { z, phase, angle, angSpd, activeTimer }
+    const nodes    = {};
+    // edges = [{ a, b, epiphany }]
+    const edges    = [];
+    // active epiphany arcs (fade out)
+    const epiArcs  = [];
+    // particles flowing along edges
+    const particles= [];
+
+    // ── Seeded RNG for star field ──────────────────────────────────────────────
+    function mulberry32(seed) {
+      return function() {
+        seed = (seed + 0x6D2B79F5) | 0;
+        let z = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        z = z + Math.imul(z ^ (z >>> 7), 61 | z) ^ z;
+        return ((z ^ (z >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    const starRng = mulberry32(0xDEADBEEF);
+    let stars = [];
+
+    function buildStars() {
+      const rng = mulberry32(0xDEADBEEF);
+      stars = [];
+      for (let i = 0; i < 220; i++) {
+        stars.push({
+          x: rng(),   // 0-1 normalized
+          y: rng(),
+          r: rng() * 0.8 + 0.2,
+          a: rng() * 0.5 + 0.2,
+        });
+      }
     }
 
-    function addEvent(ev) {
-      if (ev.type === 'SNAPSHOT') return;   // handled separately
-      totalEvents++;
-      evCount.textContent = totalEvents;
+    // ── Canvas resize ──────────────────────────────────────────────────────────
+    function resize() {
+      const p = document.getElementById('vis-panel');
+      canvas.width  = p.clientWidth;
+      canvas.height = p.clientHeight;
+    }
+    window.addEventListener('resize', () => { resize(); buildStars(); });
+    resize();
+    buildStars();
 
-      const div = document.createElement('div');
-      div.className = `event ${ev.type}`;
-      div.innerHTML = `
-        <div class="event-meta">
-          <span class="event-type ${ev.type}">${ev.type}</span>
-          <span>${ev.agent_id || ''}</span>
-          <span>cycle ${ev.cycle || '—'}</span>
+    const CX = () => canvas.width  / 2;
+    const CY = () => canvas.height / 2;
+    const SC = () => Math.min(canvas.width, canvas.height) / 700;
+
+    // ── Node management ────────────────────────────────────────────────────────
+    function addNode(id, z, phase) {
+      if (nodes[id]) {
+        if (z > nodes[id].z) {
+          nodes[id].z = z;
+          nodes[id].activeTimer = 1.2;
+        }
+        return;
+      }
+      const sameZ  = Object.values(nodes).filter(n => n.z === z).length;
+      const angSpd = z === 4 ? 0 : (0.015 + Math.random() * 0.02) * (Math.random() < 0.5 ? 1 : -1);
+      nodes[id] = {
+        z,
+        phase:       typeof phase === 'number' ? phase : Math.random() * Math.PI * 2,
+        angle:       (sameZ * 2.3999) % (Math.PI * 2),  // golden angle spread
+        angSpd,
+        activeTimer: 0,
+      };
+      nodeCount.textContent = Object.keys(nodes).length;
+    }
+
+    function addEdge(a, b, epiphany) {
+      if (edges.find(e => (e.a===a&&e.b===b)||(e.a===b&&e.b===a))) return;
+      edges.push({ a, b, epiphany: !!epiphany });
+      // Seed 3 particles on this edge
+      for (let i = 0; i < 3; i++) {
+        particles.push({
+          a, b,
+          t:     Math.random(),
+          speed: 0.0025 + Math.random() * 0.003,
+          color: epiphany ? '#ffd700' : Z_COLOR[nodes[a]?.z || 0],
+        });
+      }
+    }
+
+    // Known manifold from audit log (seed so visualization works offline)
+    function seedManifold() {
+      addNode('SWARM_SELF_AXIOM', 4, 0.0);
+      addNode('metacognition',    2, 0.30);
+      addNode('overconfidence',   2, 1.10);
+      addNode('hallucination',    1, 0.70);
+      addNode('homeostasis',      1, 2.10);
+      addNode('stress_level',     1, 3.40);
+
+      addEdge('SWARM_SELF_AXIOM', 'metacognition');
+      addEdge('SWARM_SELF_AXIOM', 'hallucination');
+      addEdge('SWARM_SELF_AXIOM', 'overconfidence');
+      addEdge('metacognition',   'overconfidence', true);
+      addEdge('hallucination',   'homeostasis',    true);
+      addEdge('overconfidence',  'stress_level',   true);
+
+      totalEdges    = 6;
+      evCount.textContent   = totalEdges;
+      epiphanyTotal = 5;
+      epiCount.textContent  = epiphanyTotal;
+    }
+
+    // ── Draw helpers ───────────────────────────────────────────────────────────
+    function rgba(hex, a) {
+      const r = parseInt(hex.slice(1,3), 16);
+      const g = parseInt(hex.slice(3,5), 16);
+      const b = parseInt(hex.slice(5,7), 16);
+      return `rgba(${r},${g},${b},${(+a).toFixed(3)})`;
+    }
+
+    function glow(x, y, r, color, alpha) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0,   rgba(color, alpha));
+      g.addColorStop(0.5, rgba(color, alpha * 0.4));
+      g.addColorStop(1,   rgba(color, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function nodePos(id) {
+      const n = nodes[id];
+      if (!n || n.z === 4) return { x: CX(), y: CY() };
+      const r = Z_ORBIT[n.z] * SC();
+      return { x: CX() + Math.cos(n.angle) * r, y: CY() + Math.sin(n.angle) * r };
+    }
+
+    function arcBetween(ax, ay, bx, by, color, alpha, dashed) {
+      const dx = bx - ax, dy = by - ay;
+      const len = Math.sqrt(dx*dx + dy*dy) || 1;
+      const bow = len * 0.18;
+      const cpx = (ax+bx)/2 - (dy/len)*bow;
+      const cpy = (ay+by)/2 + (dx/len)*bow;
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.quadraticCurveTo(cpx, cpy, bx, by);
+      ctx.strokeStyle = rgba(color, alpha);
+      ctx.lineWidth   = dashed ? 1.5 : 0.7;
+      if (dashed) ctx.setLineDash([4, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // ── Animation ─────────────────────────────────────────────────────────────
+    let t = 0;
+
+    function drawBackground() {
+      ctx.fillStyle = '#04040a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Star field
+      stars.forEach(s => {
+        ctx.beginPath();
+        ctx.arc(s.x * canvas.width, s.y * canvas.height, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = rgba('#c8c8ff', s.a);
+        ctx.fill();
+      });
+    }
+
+    function drawSingularity() {
+      const cx = CX(), cy = CY(), sc = SC();
+
+      // Orbital tracks
+      for (let z = 0; z < 4; z++) {
+        const r = Z_ORBIT[z] * sc;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.strokeStyle = rgba(Z_COLOR[z], 0.07);
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 10]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Lensing halos (concentric rings)
+      for (let i = 1; i <= 5; i++) {
+        const r = (i * 55 + Math.sin(t * 0.4 + i * 1.3) * 4) * sc;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.strokeStyle = rgba('#ffd700', 0.025 + i * 0.01);
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+      }
+
+      // Spinning lensing arcs
+      for (let i = 0; i < 3; i++) {
+        const ang = t * 0.25 + (i * Math.PI * 2 / 3);
+        const r   = (22 + i * 9) * sc;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, ang, ang + Math.PI * 1.3);
+        ctx.strokeStyle = rgba('#ffd700', 0.35 - i * 0.1);
+        ctx.lineWidth = 2 - i * 0.5;
+        ctx.stroke();
+      }
+
+      // Core glow
+      glow(cx, cy, 90 * sc, '#ffd700', 0.35 + Math.sin(t * 1.1) * 0.08);
+      glow(cx, cy, 32 * sc, '#ffffff', 0.65);
+
+      // Core dot
+      ctx.beginPath();
+      ctx.arc(cx, cy, 5.5 * sc, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+
+      // Ego label
+      ctx.font      = `${10 * sc}px Courier New`;
+      ctx.fillStyle = rgba('#ffd700', 0.7);
+      ctx.textAlign = 'center';
+      ctx.fillText('SWARM_SELF_AXIOM', cx, cy + 18 * sc);
+    }
+
+    function drawEdges() {
+      edges.forEach(({ a, b, epiphany }) => {
+        const pa = nodePos(a), pb = nodePos(b);
+        const color = epiphany ? '#ffd700' : Z_COLOR[nodes[a]?.z || 0];
+        arcBetween(pa.x, pa.y, pb.x, pb.y, color, epiphany ? 0.2 : 0.12, epiphany);
+      });
+    }
+
+    function drawEpiArcs() {
+      for (let i = epiArcs.length - 1; i >= 0; i--) {
+        const arc = epiArcs[i];
+        const pa  = nodePos(arc.a), pb = nodePos(arc.b);
+        arcBetween(pa.x, pa.y, pb.x, pb.y, '#ffd700', arc.alpha * 0.85, true);
+        // Glow along midpoint
+        glow((pa.x+pb.x)/2, (pa.y+pb.y)/2, 20 * SC(), '#ffd700', arc.alpha * 0.3);
+        arc.alpha -= 0.0018;
+        if (arc.alpha <= 0) epiArcs.splice(i, 1);
+      }
+    }
+
+    function drawParticles() {
+      particles.forEach(p => {
+        if (!nodes[p.a] || !nodes[p.b]) return;
+        const pa = nodePos(p.a), pb = nodePos(p.b);
+        const x  = pa.x + (pb.x - pa.x) * p.t;
+        const y  = pa.y + (pb.y - pa.y) * p.t;
+        ctx.beginPath();
+        ctx.arc(x, y, 1.8, 0, Math.PI * 2);
+        ctx.fillStyle = rgba(p.color, 0.55);
+        ctx.fill();
+        p.t += p.speed;
+        if (p.t > 1) p.t = 0;
+      });
+    }
+
+    function drawNodes() {
+      const sc = SC();
+      Object.entries(nodes).forEach(([id, node]) => {
+        if (node.z === 4) return;   // ego drawn in drawSingularity
+        node.angle += node.angSpd * 0.016;
+
+        const pos   = nodePos(id);
+        const color = Z_COLOR[node.z];
+        const baseR = (8 + node.z * 3) * sc;
+        const pulse = 0.7 + Math.sin(t * (1 + node.z * 0.25) + node.phase) * 0.3;
+
+        // Glow
+        glow(pos.x, pos.y, baseR * 3.5 * pulse, color, 0.35);
+
+        // Phase ring
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, baseR + 4 * sc, 0, node.phase % (Math.PI * 2));
+        ctx.strokeStyle = rgba(color, 0.45);
+        ctx.lineWidth   = 1;
+        ctx.stroke();
+        node.phase += 0.004 * (node.z + 1);
+
+        // Core
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, baseR, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+
+        // Label
+        ctx.font      = `${10 * sc}px Courier New`;
+        ctx.fillStyle = rgba(color, 0.82);
+        ctx.textAlign = 'center';
+        ctx.fillText(
+          id.length > 16 ? id.slice(0, 14) + '…' : id,
+          pos.x,
+          pos.y + baseR + 12 * sc
+        );
+
+        // Active flash
+        if (node.activeTimer > 0) {
+          glow(pos.x, pos.y, baseR * 5, '#ffffff', node.activeTimer * 0.7);
+          node.activeTimer -= 0.04;
+        }
+      });
+    }
+
+    function frame() {
+      t += 0.016;
+      drawBackground();
+      drawSingularity();
+      drawEdges();
+      drawEpiArcs();
+      drawParticles();
+      drawNodes();
+      requestAnimationFrame(frame);
+    }
+
+    // ── Event display ──────────────────────────────────────────────────────────
+    function fmtTime(iso) {
+      try { return new Date(iso).toLocaleTimeString(); } catch { return ''; }
+    }
+
+    function esc(s) {
+      return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function pushEvent(ev) {
+      if (ev.type === 'SNAPSHOT') return;
+      if (ev.type === 'DREAM_START') {
+        dreamTotal++;
+        dreamCount.textContent = dreamTotal;
+      }
+
+      const d = document.createElement('div');
+      d.className = `event ${ev.type}`;
+      d.innerHTML = `
+        <div class="ev-meta">
+          <span class="ev-type ${ev.type}">${ev.type}</span>
+          <span>${esc(ev.agent_id || '')}</span>
           <span>${fmtTime(ev.timestamp)}</span>
         </div>
-        <div class="event-content">${escHtml(ev.content || '')}</div>
+        <div class="ev-body">${esc(ev.content || '')}</div>
       `;
-      feed.appendChild(div);
-      // Keep max 150 nodes in DOM
-      while (feed.children.length > 150) feed.removeChild(feed.firstChild);
-      feed.scrollTop = feed.scrollHeight;
+      feed.appendChild(d);
+      while (feed.children.length > 10) feed.removeChild(feed.firstChild);
 
       if (ev.agent_id) {
-        agents[ev.agent_id] = (agents[ev.agent_id] || 0) + 1;
+        agentsMap[ev.agent_id] = (agentsMap[ev.agent_id] || 0) + 1;
         renderAgents();
       }
 
-      if (ev.type === 'EPIPHANY') addEpiphany(ev);
+      if (ev.type === 'EPIPHANY') handleEpiphany(ev);
     }
 
-    function addEpiphany(ev) {
+    function handleEpiphany(ev) {
       epiphanyTotal++;
       epiCount.textContent = epiphanyTotal;
+
+      // Add epiphany card
       const card = document.createElement('div');
       card.className = 'epi-card';
-      card.innerHTML = `${escHtml(ev.content)}<div class="epi-meta">${fmtTime(ev.timestamp)}</div>`;
+      card.innerHTML = `${esc(ev.content || '')}<div class="epi-meta">${fmtTime(ev.timestamp)}</div>`;
       epiPanel.insertBefore(card, epiPanel.firstChild);
+
+      // Parse node pair from content  e.g. "metacognition ↔ overconfidence"
+      const m = (ev.content || '').match(/([a-z_A-Z]\w*)\s*[↔⟷<>\-]+\s*([a-z_A-Z]\w*)/);
+      if (m) {
+        const [, a, b] = m;
+        if (!nodes[a]) addNode(a, 1, Math.random() * Math.PI * 2);
+        if (!nodes[b]) addNode(b, 1, Math.random() * Math.PI * 2);
+        addEdge(a, b, true);
+        epiArcs.push({ a, b, alpha: 1.0 });
+        if (nodes[a]) nodes[a].activeTimer = 1.2;
+        if (nodes[b]) nodes[b].activeTimer = 1.2;
+      }
     }
 
     function renderAgents() {
-      const ids = Object.keys(agents);
-      agentCount.textContent = ids.length;
-      agentList.innerHTML = ids.map(id =>
-        `<div class="agent-row"><span class="agent-id">${escHtml(id)}</span> · ${agents[id]} events</div>`
+      agentList.innerHTML = Object.entries(agentsMap).map(([id, n]) =>
+        `<div class="agent-row"><span class="agent-id">${esc(id)}</span> · ${n} events</div>`
       ).join('');
     }
 
-    function escHtml(s) {
-      return String(s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-
     // ── WebSocket ──────────────────────────────────────────────────────────────
-    const WS_URL = `ws://${location.host}/ws`;
     let ws, reconnectDelay = 1000;
 
     function connect() {
-      ws = new WebSocket(WS_URL);
+      ws = new WebSocket(`ws://${location.host}/ws`);
 
       ws.onopen = () => {
         connDot.className = 'live';
-        connDot.title = 'Connected';
-        reconnectDelay = 1000;
+        connDot.title     = 'Connected';
+        reconnectDelay    = 1000;
       };
 
-      ws.onmessage = (msg) => {
-        let data;
-        try { data = JSON.parse(msg.data); } catch { return; }
+      ws.onmessage = ({ data: raw }) => {
+        let msg;
+        try { msg = JSON.parse(raw); } catch { return; }
 
-        if (data.type === 'SNAPSHOT') {
-          // Paint initial events
-          (data.events || []).forEach(addEvent);
-          (data.epiphanies || []).forEach(ev => {
-            epiphanyTotal++;
-            epiCount.textContent = epiphanyTotal;
-            const card = document.createElement('div');
-            card.className = 'epi-card';
-            card.innerHTML = `${escHtml(ev.content)}<div class="epi-meta">${fmtTime(ev.timestamp)}</div>`;
-            epiPanel.appendChild(card);
-          });
+        if (msg.type === 'SNAPSHOT') {
+          (msg.events     || []).forEach(pushEvent);
+          (msg.epiphanies || []).forEach(handleEpiphany);
+          if (msg.manifold) applyManifold(msg.manifold);
         } else {
-          addEvent(data);
+          pushEvent(msg);
         }
       };
 
       ws.onclose = () => {
         connDot.className = 'dead';
-        connDot.title = 'Disconnected — reconnecting…';
+        connDot.title     = 'Disconnected — reconnecting…';
         setTimeout(connect, reconnectDelay);
-        reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+        reconnectDelay    = Math.min(reconnectDelay * 2, 30000);
       };
 
       ws.onerror = () => ws.close();
     }
 
+    function applyManifold(state) {
+      (state.nodes || []).forEach(n => addNode(n.id, n.z || 0, n.phase || 0));
+      (state.edges || []).forEach(e => addEdge(e.a, e.b, e.epiphany));
+    }
+
+    // ── Boot ───────────────────────────────────────────────────────────────────
+    seedManifold();
+    frame();
     connect();
+
+    // Sync with live server if available
+    fetch('/state')
+      .then(r => r.json())
+      .then(state => {
+        (state.epiphanies || []).forEach(handleEpiphany);
+        if (state.manifold) applyManifold(state.manifold);
+      })
+      .catch(() => {});   // server offline — seed data already loaded
   </script>
 </body>
 </html>
