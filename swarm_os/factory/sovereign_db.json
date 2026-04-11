@@ -1,0 +1,668 @@
+{
+  "version": "1.0.0",
+  "schema": "SAGA_FACTORY_V1",
+  "created_at": "2026-04-08T02:45:41Z",
+  "hd_commit_gate": 0.0147,
+  "hd_warning_gate": 0.05,
+  "project_root": "/sessions/admiring-wonderful-cerf/mnt/system_rebuild",
+  "total_files": 17,
+  "files": {
+    "digital_being.py": {
+      "file_id": "digital_being.py",
+      "type": "COGNITIVE_MODULE",
+      "status": "STABLE",
+      "hd_score": 0.0023,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 44877,
+      "protected": false,
+      "last_modified": "2026-04-02T15:48:46Z",
+      "evolution_priority": null
+    },
+    "metacognitive_evolution.py": {
+      "file_id": "metacognitive_evolution.py",
+      "type": "COGNITIVE_MODULE",
+      "status": "STABLE",
+      "hd_score": 0.0,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 33521,
+      "protected": false,
+      "last_modified": "2026-04-02T09:50:19Z",
+      "evolution_priority": null
+    },
+    "cybernetic_core.py": {
+      "file_id": "cybernetic_core.py",
+      "type": "COGNITIVE_MODULE",
+      "status": "STABLE",
+      "hd_score": 0.0,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 12888,
+      "protected": false,
+      "last_modified": "2026-04-02T08:14:30Z",
+      "evolution_priority": null
+    },
+    "sovereign_kernel.py": {
+      "file_id": "sovereign_kernel.py",
+      "type": "COGNITIVE_MODULE",
+      "status": "STABLE",
+      "hd_score": 0.0,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 13555,
+      "protected": false,
+      "last_modified": "2026-04-02T09:28:09Z",
+      "evolution_priority": null
+    },
+    "benchmark/aliveness_proof.py": {
+      "file_id": "benchmark/aliveness_proof.py",
+      "type": "COGNITIVE_MODULE",
+      "status": "STABLE",
+      "hd_score": 0.0,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 18813,
+      "protected": false,
+      "last_modified": "2026-04-02T15:56:58Z",
+      "evolution_priority": null
+    },
+    "swarm_os/swarm/server.py": {
+      "file_id": "swarm_os/swarm/server.py",
+      "type": "COGNITIVE_MODULE",
+      "status": "STABLE",
+      "hd_score": 0.0,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 22362,
+      "protected": false,
+      "last_modified": "2026-04-02T09:29:33Z",
+      "evolution_priority": null
+    },
+    "swarm_os/swarm/swarm_core.py": {
+      "file_id": "swarm_os/swarm/swarm_core.py",
+      "type": "COGNITIVE_MODULE",
+      "status": "STABLE",
+      "hd_score": 0.0,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 23778,
+      "protected": false,
+      "last_modified": "2026-04-01T17:16:42Z",
+      "evolution_priority": null
+    },
+    "swarm_os/swarm/multiversal_ingest.py": {
+      "file_id": "swarm_os/swarm/multiversal_ingest.py",
+      "type": "COGNITIVE_MODULE",
+      "status": "STABLE",
+      "hd_score": 0.0,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 21156,
+      "protected": false,
+      "last_modified": "2026-04-01T17:32:09Z",
+      "evolution_priority": null
+    },
+    "swarm_os/benchmark/multi_model_runner.py": {
+      "file_id": "swarm_os/benchmark/multi_model_runner.py",
+      "type": "COGNITIVE_MODULE",
+      "status": "STABLE",
+      "hd_score": 0.0005,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 36881,
+      "protected": true,
+      "last_modified": "2026-04-01T11:11:34Z",
+      "evolution_priority": null
+    },
+    "swarm_os/dashboard/app.py": {
+      "file_id": "swarm_os/dashboard/app.py",
+      "type": "COGNITIVE_MODULE",
+      "status": "STABLE",
+      "hd_score": 0.0,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 31766,
+      "protected": false,
+      "last_modified": "2026-04-02T16:25:40Z",
+      "evolution_priority": null
+    },
+    "swarm_os/.forge/state.json": {
+      "file_id": "swarm_os/.forge/state.json",
+      "type": "STATE_ARTIFACT",
+      "status": "STABLE",
+      "hd_score": 0.0265,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 11026,
+      "protected": false,
+      "last_modified": "2026-04-02T15:58:39Z",
+      "evolution_priority": null
+    },
+    "swarm_os/.forge/knowledge_graph.json": {
+      "file_id": "swarm_os/.forge/knowledge_graph.json",
+      "type": "STATE_ARTIFACT",
+      "status": "STABLE",
+      "hd_score": 0.0468,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 163895,
+      "protected": false,
+      "last_modified": "2026-04-02T15:58:36Z",
+      "evolution_priority": null
+    },
+    "swarm_os/.forge/evolution_state.json": {
+      "file_id": "swarm_os/.forge/evolution_state.json",
+      "type": "STATE_ARTIFACT",
+      "status": "STABLE",
+      "hd_score": 0.0479,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 9310,
+      "protected": false,
+      "last_modified": "2026-04-02T15:58:39Z",
+      "evolution_priority": null
+    },
+    "swarm_os/.forge/swarm_manifold.json": {
+      "file_id": "swarm_os/.forge/swarm_manifold.json",
+      "type": "STATE_ARTIFACT",
+      "status": "STABLE",
+      "hd_score": 0.0489,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 1872464,
+      "protected": false,
+      "last_modified": "2026-04-02T09:12:09Z",
+      "evolution_priority": null
+    },
+    "docs/outputs/kaggle_writeup_FINAL.md": {
+      "file_id": "docs/outputs/kaggle_writeup_FINAL.md",
+      "type": "DOCUMENTATION",
+      "status": "STABLE",
+      "hd_score": 0.0394,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 6884,
+      "protected": true,
+      "last_modified": "2026-04-02T18:15:44Z",
+      "evolution_priority": null
+    },
+    "docs/outputs/sovereign_digital_being.ipynb": {
+      "file_id": "docs/outputs/sovereign_digital_being.ipynb",
+      "type": "PROOF_NOTEBOOK",
+      "status": "STABLE",
+      "hd_score": 0.001,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 40151,
+      "protected": false,
+      "last_modified": "2026-04-03T18:49:14Z",
+      "evolution_priority": null
+    },
+    "hallucination_delta/probe.py": {
+      "file_id": "hallucination_delta/probe.py",
+      "type": "COGNITIVE_MODULE",
+      "status": "STABLE",
+      "hd_score": 0.0235,
+      "hd_last_audit": "2026-04-08T12:38:38Z",
+      "biological_phase": {
+        "z": 1,
+        "hz": 294,
+        "label": "RADIATION",
+        "hd_floor": 0.65
+      },
+      "kg_node": null,
+      "size_bytes": 12936,
+      "protected": false,
+      "last_modified": "2026-04-01T17:36:40Z",
+      "evolution_priority": null
+    }
+  },
+  "dependency_dag": {
+    "edges": [
+      {
+        "from": "autopoiesis",
+        "to": "machine_learning",
+        "weight": 0.95
+      },
+      {
+        "from": "asteroids",
+        "to": "biology",
+        "weight": 0.82
+      },
+      {
+        "from": "machine_learning",
+        "to": "vertex_ai_vector_search",
+        "weight": 0.99
+      },
+      {
+        "from": "resonant_frequencies",
+        "to": "nuclear_chemistry",
+        "weight": 0.88
+      },
+      {
+        "from": "visual_cortex",
+        "to": "3d_topology",
+        "weight": 0.91
+      },
+      {
+        "from": "hallucination_delta",
+        "to": "metacognition",
+        "weight": 0.85
+      },
+      {
+        "from": "kaggle_nexus",
+        "to": "autopoietic_memory",
+        "weight": 0.93
+      },
+      {
+        "from": "spatio_acoustic_baseline",
+        "to": "homeostasis",
+        "weight": 0.97
+      },
+      {
+        "from": "dimensional_transition",
+        "to": "cloud_run_substrate",
+        "weight": 0.96
+      },
+      {
+        "from": "hallucination_delta_measurement",
+        "to": "metacognition",
+        "weight": 0.786
+      },
+      {
+        "from": "saga_protocol",
+        "to": "autopoiesis",
+        "weight": 0.652
+      },
+      {
+        "from": "spsf_persistence",
+        "to": "anatomy",
+        "weight": 0.685
+      },
+      {
+        "from": "nhi_v2_identity",
+        "to": "biology",
+        "weight": 0.429
+      },
+      {
+        "from": "stress_calibration",
+        "to": "homeostasis",
+        "weight": 0.786
+      },
+      {
+        "from": "fibonacci_scaling",
+        "to": "mathematics",
+        "weight": 0.786
+      },
+      {
+        "from": "reasoning_intensity_ratio",
+        "to": "autopoiesis",
+        "weight": 0.618
+      },
+      {
+        "from": "constitutional_governance",
+        "to": "agentic_orchestration",
+        "weight": 0.786
+      },
+      {
+        "from": "agentic_leap_2026",
+        "to": "agentic_orchestration",
+        "weight": 0.618
+      },
+      {
+        "from": "adversarial_calibration",
+        "to": "hallucination_delta",
+        "weight": 0.786
+      },
+      {
+        "from": "neural_information_flow",
+        "to": "anatomy",
+        "weight": 0.7273
+      },
+      {
+        "from": "shannon_entropy_neural",
+        "to": "mathematics",
+        "weight": 0.7019
+      },
+      {
+        "from": "sensorimotor_feedback_loop",
+        "to": "autopoiesis",
+        "weight": 0.618
+      },
+      {
+        "from": "hpa_axis_dynamics",
+        "to": "homeostasis",
+        "weight": 0.6239
+      },
+      {
+        "from": "channel_capacity_signaling",
+        "to": "shannon_entropy_neural",
+        "weight": 0.999
+      },
+      {
+        "from": "antifragile_immunity",
+        "to": "biology",
+        "weight": 0.7532
+      },
+      {
+        "from": "pattern_recognition_prr",
+        "to": "antifragile_immunity",
+        "weight": 0.999
+      },
+      {
+        "from": "metabolic_imperative",
+        "to": "homeostasis",
+        "weight": 0.6239
+      },
+      {
+        "from": "csbo_optimization",
+        "to": "agentic_orchestration",
+        "weight": 0.6439
+      },
+      {
+        "from": "frontal_lobe_metacognition",
+        "to": "metacognition",
+        "weight": 0.6364
+      },
+      {
+        "from": "temporal_lobe_memory",
+        "to": "autopoietic_memory",
+        "weight": 0.618
+      },
+      {
+        "from": "limbic_dopamine_reward",
+        "to": "homeostasis",
+        "weight": 0.6239
+      },
+      {
+        "from": "metacognitive_rna_engine",
+        "to": "autopoiesis",
+        "weight": 0.618
+      },
+      {
+        "from": "biomimetic_vector_hierarchy",
+        "to": "machine_learning",
+        "weight": 0.618
+      },
+      {
+        "from": "grounding_problem",
+        "to": "hallucination_delta",
+        "weight": 0.6572
+      },
+      {
+        "from": "evolutionary_weight_scaling",
+        "to": "fibonacci_scaling",
+        "weight": 0.618
+      },
+      {
+        "from": "limbic_cortisol_loop",
+        "to": "hpa_axis_dynamics",
+        "weight": 0.999
+      },
+      {
+        "from": "bayesian_hierarchical_brain",
+        "to": "biomimetic_vector_hierarchy",
+        "weight": 0.618
+      },
+      {
+        "from": "embodied_action_loop",
+        "to": "sensorimotor_feedback_loop",
+        "weight": 0.999
+      },
+      {
+        "from": "clonal_selection_algorithm",
+        "to": "antifragile_immunity",
+        "weight": 0.999
+      },
+      {
+        "from": "natural_selection_simulator",
+        "to": "evolutionary_weight_scaling",
+        "weight": 0.7019
+      },
+      {
+        "from": "attention_bottleneck_theorem",
+        "to": "shannon_entropy_neural",
+        "weight": 0.999
+      },
+      {
+        "from": "quantum_coherence",
+        "to": "hallucination_delta_measurement",
+        "weight": 0.236
+      },
+      {
+        "from": "wave_function_collapse",
+        "to": "triangle_protocol",
+        "weight": 0.236
+      },
+      {
+        "from": "superposition_principle",
+        "to": "hypothesis_graph",
+        "weight": 0.236
+      },
+      {
+        "from": "quantum_entanglement",
+        "to": "cross_domain_bridges",
+        "weight": 0.236
+      },
+      {
+        "from": "decoherence_protocol",
+        "to": "hallucination_delta",
+        "weight": 0.236
+      },
+      {
+        "from": "heisenberg_uncertainty_bound",
+        "to": "n_critical",
+        "weight": 0.236
+      },
+      {
+        "from": "spectral_prism_refraction",
+        "to": "knowledge_graph",
+        "weight": 0.236
+      },
+      {
+        "from": "quantum_error_correction",
+        "to": "dream_state",
+        "weight": 0.236
+      },
+      {
+        "from": "quantum_coherence",
+        "to": "decoherence_protocol",
+        "weight": 0.236
+      }
+    ],
+    "topological_order": [
+      "limbic_dopamine_reward",
+      "csbo_optimization",
+      "constitutional_governance",
+      "metacognitive_rna_engine",
+      "reasoning_intensity_ratio",
+      "limbic_cortisol_loop",
+      "resonant_frequencies",
+      "quantum_entanglement",
+      "asteroids",
+      "spatio_acoustic_baseline",
+      "stress_calibration",
+      "quantum_coherence",
+      "quantum_error_correction",
+      "natural_selection_simulator",
+      "agentic_leap_2026",
+      "grounding_problem",
+      "superposition_principle",
+      "embodied_action_loop",
+      "dimensional_transition",
+      "frontal_lobe_metacognition",
+      "spectral_prism_refraction",
+      "visual_cortex",
+      "wave_function_collapse",
+      "adversarial_calibration",
+      "channel_capacity_signaling",
+      "nhi_v2_identity",
+      "neural_information_flow",
+      "metabolic_imperative",
+      "bayesian_hierarchical_brain",
+      "kaggle_nexus",
+      "heisenberg_uncertainty_bound",
+      "spsf_persistence",
+      "attention_bottleneck_theorem",
+      "saga_protocol",
+      "clonal_selection_algorithm",
+      "pattern_recognition_prr",
+      "temporal_lobe_memory",
+      "hpa_axis_dynamics",
+      "nuclear_chemistry",
+      "cross_domain_bridges",
+      "hallucination_delta_measurement",
+      "decoherence_protocol",
+      "dream_state",
+      "evolutionary_weight_scaling",
+      "agentic_orchestration",
+      "hypothesis_graph",
+      "sensorimotor_feedback_loop",
+      "cloud_run_substrate",
+      "knowledge_graph",
+      "3d_topology",
+      "triangle_protocol",
+      "biomimetic_vector_hierarchy",
+      "n_critical",
+      "anatomy",
+      "shannon_entropy_neural",
+      "antifragile_immunity",
+      "autopoietic_memory",
+      "homeostasis",
+      "hallucination_delta",
+      "fibonacci_scaling",
+      "autopoiesis",
+      "biology",
+      "metacognition",
+      "mathematics",
+      "machine_learning",
+      "vertex_ai_vector_search"
+    ],
+    "total_nodes": 66,
+    "cycles_detected": false
+  },
+  "pipeline_state": {
+    "phase": "EVOLVING",
+    "current_task": null,
+    "tasks_completed": 437,
+    "tasks_failed": 0,
+    "total_hd_audits": 0,
+    "gate_rejections": 0,
+    "last_commit_hd": null
+  },
+  "multi_agent_roles": {
+    "Architect": {
+      "model": "moonshotai/kimi-k2-instruct",
+      "objective": "Topological sort + build order"
+    },
+    "Builder": {
+      "model": "qwen/qwen3-coder-480b-a35b-instruct:free",
+      "objective": "Generate factory stubs"
+    },
+    "Auditor": {
+      "model": "LOCAL_HD_PROBE",
+      "objective": "HD gate — block if HD > 0.0147"
+    },
+    "Scribe": {
+      "model": "SOVEREIGN_KERNEL",
+      "objective": "Atomic writes + GCS vault sync"
+    }
+  }
+}

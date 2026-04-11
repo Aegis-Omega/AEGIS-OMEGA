@@ -8,7 +8,7 @@ Phase structure (repeating):
     Collect (graph_sig, program, reward) into GrammarInducer corpus.
 
   Phase B  GRAMMAR INDUCTION    (every induct_every steps)
-    Run inducer on corpus → new macros with MDL saving > 0.
+    Run inducer on corpus -> new macros with MDL saving > 0.
     Add macros to MacroLibrary.
     Expand GrammarPolicy head to include new macros.
     Clear induction corpus (start fresh).
@@ -92,7 +92,7 @@ def check_metabolic_gate(state_path: Path) -> None:
     print(f"[METABOLIC GATE] PASS — optimal zone (stress in 0.30-0.80, ATP >= 10%)")
 
 
-# ── MACRO → KNOWLEDGE GRAPH INJECTION ────────────────────────────────────────
+# ── MACRO -> KNOWLEDGE GRAPH INJECTION ────────────────────────────────────────
 
 def inject_macros_to_kg(new_rules: list, state_path: Path) -> int:
     """
@@ -188,7 +188,7 @@ class MDLTracker:
         return total
 
 
-# ── CONVERT RULE INDICES → RULE IDS ─────────────────────────────────────────
+# ── CONVERT RULE INDICES -> RULE IDS ─────────────────────────────────────────
 
 def indices_to_ids(indices: torch.Tensor, library: MacroLibrary) -> list[str]:
     rule_ids = library.rule_ids()
@@ -272,7 +272,7 @@ def train(args):
                 # ── Photonic Memory Bridge: inject macros as Verified Axioms ──
                 kg_count = inject_macros_to_kg(new_rules, state_path)
                 if kg_count:
-                    print(f"[PHOTONIC BRIDGE] {kg_count} macros → knowledge_graph (Triangle Protocol)")
+                    print(f"[PHOTONIC BRIDGE] {kg_count} macros -> knowledge_graph (Triangle Protocol)")
             inducer.clear()
 
         # ── Phase A: Policy Training ──────────────────────────────────────
@@ -284,7 +284,7 @@ def train(args):
         rule_idx, logp = pol.sample(graph, max_len=MAX_PROGRAM_LEN)
         rule_ids       = indices_to_ids(rule_idx, library)
 
-        # Execute via grammar VM (expands macros → primitives → DSLVM)
+        # Execute via grammar VM (expands macros -> primitives → DSLVM)
         pred = gvm.run(rule_ids, task["input"])
         acc  = accuracy(pred, task["output"])
 
@@ -303,9 +303,12 @@ def train(args):
 
         reward = acc + CVS_WEIGHT * cvs - mdl_penalty
 
-        # PPO
-        v_est = val(graph.x.mean(0, keepdim=True)).squeeze()
-        adv   = reward - v_est.item()
+        # PPO — two separate backward passes require separate graph nodes.
+        # Detach graph mean before feeding value network so the two losses
+        # do not share computation graph nodes.
+        graph_mean_detached = graph.x.mean(0, keepdim=True).detach()
+        v_est  = val(graph_mean_detached).squeeze()
+        adv    = reward - v_est.item()
         loss_p = -logp * adv
         loss_v = (v_est - reward) ** 2
 

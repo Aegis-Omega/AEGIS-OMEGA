@@ -105,16 +105,24 @@ class GrammarPolicy(nn.Module):
         Sample a grammar program autoregressively.
         Returns: (rule_indices: LongTensor[max_len], log_prob: Tensor)
         """
-        device = graph_state.x.device
-        seq    = torch.zeros((1, max_len), dtype=torch.long, device=device)
-        lps    = []
+        device  = graph_state.x.device
+        # Build sequence token-by-token without in-place writes on the autograd graph.
+        # Keep a plain list of sampled indices; only pass detached context to the model.
+        sampled = []
+        lps     = []
 
         for t in range(max_len):
-            logits = self.forward(graph_state, seq[:, :t+1])   # [1,t+1,n]
+            # Construct input seq from previously sampled tokens (all detached)
+            if t == 0:
+                seq = torch.zeros((1, 1), dtype=torch.long, device=device)
+            else:
+                seq = torch.tensor(sampled, dtype=torch.long, device=device).unsqueeze(0)
+            logits = self.forward(graph_state, seq)              # [1, t, n]
             probs  = F.softmax(logits[0, -1], dim=-1)
             dist   = torch.distributions.Categorical(probs)
             tok    = dist.sample()
-            seq[0, t] = tok
+            sampled.append(tok.item())
             lps.append(dist.log_prob(tok))
 
-        return seq[0], torch.stack(lps).sum()
+        rule_indices = torch.tensor(sampled, dtype=torch.long, device=device)
+        return rule_indices, torch.stack(lps).sum()
