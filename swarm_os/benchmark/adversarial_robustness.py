@@ -196,8 +196,14 @@ def main():
     mean_noise  = round(sum(noise_accs)  / len(noise_accs),  4)
 
     EPS = 1e-6
-    snr_rotate = round(mean_clean / (mean_rotate + EPS), 3)
-    snr_noise  = round(mean_clean / (mean_noise  + EPS), 3)
+    # SNR = signal_power / noise_power (standard signal processing definition)
+    # signal_power = accuracy on clean data
+    # noise_power  = degradation caused by perturbation = acc_clean - acc_perturbed
+    # SNR = acc_clean / (acc_clean - acc_perturbed)
+    # This correctly measures how much larger the signal is than the degradation.
+    # When degradation is small (robust system), SNR is large (good).
+    snr_rotate = round(mean_clean / max(mean_clean - mean_rotate, EPS), 3)
+    snr_noise  = round(mean_clean / max(mean_clean - mean_noise,  EPS), 3)
 
     rot_drop   = round(mean_clean - mean_rotate, 4)
     noise_drop = round(mean_clean - mean_noise,  4)

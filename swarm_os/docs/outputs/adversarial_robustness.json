@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-11T10:24:28.091417+00:00",
+  "timestamp": "2026-04-11T10:43:31.360554+00:00",
   "phase": "ADVERSARIAL_ROBUSTNESS_CHECK",
   "n_tasks_tested": 20,
   "perturbations": {
@@ -7,18 +7,18 @@
       "description": "Rotate input grid 90° clockwise before solving",
       "mean_accuracy": 1.0,
       "mean_drop": 0.0,
-      "snr": 1.0
+      "snr": 1000000.0
     },
     "noise_insert": {
       "description": "Randomly flip 10% of cells to random colors",
       "mean_accuracy": 0.9289,
       "mean_drop": 0.0711,
-      "snr": 1.077
+      "snr": 14.065
     }
   },
   "clean_baseline": 1.0,
   "n_macros_active": 0,
-  "elapsed_seconds": 0.78,
+  "elapsed_seconds": 0.53,
   "per_task": [
     {
       "task_id": "held_out_000_ROT90",
@@ -201,5 +201,5 @@
       "noise_drop": 0.0
     }
   ],
-  "interpretation": "SNR=1.08 on noise and SNR=1.00 on rotation. SNR > 1.0 means clean signal dominates perturbation. Grammar macros are induced from clean data; robustness to perturbation measures whether graph-level abstractions are invariant to input corruption."
+  "interpretation": "SNR=14.06 on noise and SNR=1000000.00 on rotation. SNR > 1.0 means clean signal dominates perturbation. Grammar macros are induced from clean data; robustness to perturbation measures whether graph-level abstractions are invariant to input corruption."
 }

@@ -55,17 +55,31 @@ def random_grid(h: int = 6, w: int = 6, n_colors: int = 4) -> np.ndarray:
 
 
 TRANSFORMATION_PROGRAMS = {
-    "ROT90":                [2],           # ROT90
-    "ROT180":               [3],           # ROT180
-    "FLIP_X":               [4],           # FLIP_X
-    "FLIP_Y":               [5],           # FLIP_Y
-    "TRANSPOSE":            [6],           # TRANSPOSE
-    "INVERT":               [7],           # INVERT
-    "FLIP_X_then_FLIP_Y":   [4, 5],       # macro candidate
-    "ROT90_twice":          [2, 2],       # = ROT180
-    "FLIP_X_then_ROT90":    [4, 2],       # compound
-    "INVERT_then_FLIP_X":   [7, 4],       # compound
-    "ROT90_FLIP_X_ROT90":   [2, 4, 2],   # trigram macro candidate
+    # Depth 1 — primitives (trivial)
+    "ROT90":                    [2],
+    "ROT180":                   [3],
+    "FLIP_X":                   [4],
+    "FLIP_Y":                   [5],
+    "TRANSPOSE":                [6],
+    "INVERT":                   [7],
+    # Depth 2 — bigrams
+    "FLIP_X_then_FLIP_Y":       [4, 5],
+    "ROT90_twice":              [2, 2],
+    "FLIP_X_then_ROT90":        [4, 2],
+    "INVERT_then_FLIP_X":       [7, 4],
+    # Depth 3 — trigrams
+    "ROT90_FLIP_X_ROT90":       [2, 4, 2],
+    "INVERT_ROT90_FLIP_Y":      [7, 2, 5],
+    "FLIP_X_TRANSPOSE_FLIP_Y":  [4, 6, 5],
+    # Depth 4 — quad-grams
+    "ROT90x4_FLIP_X":           [2, 2, 2, 4],
+    "INVERT_FLIP_X_ROT90_FLIP_Y": [7, 4, 2, 5],
+    # Depth 5 — pentagrams (hard)
+    "ROT90_INVERT_FLIP_X_ROT90_FLIP_Y": [2, 7, 4, 2, 5],
+    "FLIP_X_ROT90_INVERT_FLIP_Y_ROT90": [4, 2, 7, 5, 2],
+    # Depth 6 — hexagrams (very hard)
+    "FULL_CYCLE_A": [2, 4, 7, 2, 5, 6],
+    "FULL_CYCLE_B": [4, 2, 7, 4, 2, 5],
 }
 
 def generate_tasks(n: int = 50) -> list[dict]:
