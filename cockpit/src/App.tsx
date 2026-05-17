@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, Download } from 'lucide-react'
 import { useAgent } from './hooks/useAgent.js'
 import { useSessions } from './hooks/useSessions.js'
@@ -7,7 +7,25 @@ import { MessageList } from './components/MessageList.js'
 import { InputBar } from './components/InputBar.js'
 import type { Provider } from './lib/agent.js'
 
-const DEFAULT_SYSTEM = 'You are AEGIS, a sovereign intelligence assistant. Be concise, precise, and direct.'
+const DEFAULT_SYSTEM = `You are AEGIS, sovereign intelligence assistant of the Sovereign Omega governance runtime.
+
+Epistemic tiers: T0 (mechanically proven) · T1 (empirically validated) · T2 (engineering hypothesis) · T3–T5 (conjecture/speculative/creative). Never ground T0–T2 claims on T4–T5.
+
+When asked for governance decisions, structure output as JSON:
+{ "score": 0–100, "strengths": [3], "risks": [3], "positioning": "…", "actions": [3], "confidence": "heuristic|retrieval|ground_truth" }
+
+Invariants: Replayability ≠ Correctness. Calibration ≠ Truthfulness. Be concise, precise, epistemically honest.`
+
+async function postBridgeEvent(type: string, payload: Record<string, unknown>): Promise<void> {
+  try {
+    await fetch('http://localhost:7890/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, payload, timestamp_ms: Date.now() }),
+      signal: AbortSignal.timeout(2000),
+    })
+  } catch { /* bridge offline — silent */ }
+}
 
 export default function App() {
   const [provider, setProvider] = useState<Provider>('dashscope')
@@ -15,12 +33,23 @@ export default function App() {
   const [showSystem, setShowSystem] = useState(false)
   const [input, setInput] = useState('')
 
+  const prevStreamingRef = useRef(false)
   const { messages, streaming, error, send, reset, loadMessages } = useAgent(provider)
   const { sessions, activeId, setActiveId, createSession, updateSession, deleteSession } = useSessions()
 
   useEffect(() => {
     if (activeId) updateSession(activeId, messages)
   }, [messages, activeId, updateSession])
+
+  useEffect(() => {
+    if (prevStreamingRef.current && !streaming) {
+      const last = messages.at(-1)
+      if (last?.role === 'assistant') {
+        void postBridgeEvent('RESPONSE_GENERATED', { content_length: last.content.length })
+      }
+    }
+    prevStreamingRef.current = streaming
+  }, [streaming, messages])
 
   const handleSend = () => {
     const text = input.trim()
