@@ -38,6 +38,8 @@ cockpit/dist/
 cockpit/.env
 platform-picker/dist/
 platform-picker/.env
+hook-generator/dist/
+hook-generator/.env
 
 # ── OS / build ──────────────────────────────────────────────────
 .DS_Store

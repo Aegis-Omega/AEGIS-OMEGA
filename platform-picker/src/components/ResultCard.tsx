@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { Copy, Check } from 'lucide-react'
 import type { PlatformRanking } from '../lib/matcher.js'
 
 const EMOJI: Record<string, string> = {
@@ -13,7 +15,16 @@ interface ResultCardProps {
 }
 
 export function ResultCard({ ranking: r, rank }: ResultCardProps) {
+  const [copied, setCopied] = useState(false)
   const isTop = rank === 0
+
+  const handleCopy = async () => {
+    const text = `${r.platform} — Score: ${r.score}/10\n${r.reason}\nBest for: ${r.best_for}`
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <div className={`bg-brand-surface border rounded-2xl p-5 transition-all ${
       isTop ? 'border-brand-glow/50 shadow-lg shadow-brand-accent/10' : 'border-brand-border'
@@ -28,8 +39,17 @@ export function ResultCard({ ranking: r, rank }: ResultCardProps) {
             </span>
           )}
         </div>
-        <div className="text-2xl font-bold text-brand-glow">
-          {r.score}<span className="text-sm text-brand-muted font-normal">/10</span>
+        <div className="flex items-center gap-2">
+          <div className="text-2xl font-bold text-brand-glow">
+            {r.score}<span className="text-sm text-brand-muted font-normal">/10</span>
+          </div>
+          <button
+            onClick={handleCopy}
+            className="text-brand-muted hover:text-brand-glow transition-colors"
+            title="Copy result"
+          >
+            {copied ? <Check size={15} className="text-green-400" /> : <Copy size={15} />}
+          </button>
         </div>
       </div>
 
