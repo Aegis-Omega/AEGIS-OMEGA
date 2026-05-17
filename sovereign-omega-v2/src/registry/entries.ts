@@ -76,6 +76,19 @@ export const REGISTRY_ENTRIES: readonly SemanticNode[] = Object.freeze([
     [e('test/unit/sequence.test.ts', 'tested_by')],
     HS.SUBATOMIC, false, 'UUIDv7 generation — only permitted Date.now() use; overflow guard'),
 
+  n('src/event/workflow.ts', 'event', null, 1, MA.STANDARD,
+    [PC.TEST_COVERED],
+    [e('src/core/types.ts', 'depends_on'), e('src/event/workflow-recorder.ts', 'grounds'),
+     e('test/unit/workflow.test.ts', 'tested_by')],
+    HS.MOLECULAR, false, 'E5 cognitive workflow payload schemas — 8 AI-mediated development event types'),
+
+  n('src/event/workflow-recorder.ts', 'event', null, 1, MA.STANDARD,
+    [PC.TEST_COVERED],
+    [e('src/core/semantics.ts', 'depends_on'), e('src/event/workflow.ts', 'depends_on'),
+     e('test/unit/workflow.test.ts', 'tested_by')],
+    HS.MOLECULAR, false,
+    'E5 recorder — assertReplaySafe gate before IDB write; rejects non-E5 types and unsafe payloads'),
+
   n('src/event/mutation-registry.ts', 'event', null, 0, MA.GATE_GUARDED,
     [PC.TEST_COVERED],
     [e('src/core/types.ts', 'depends_on'), e('src/gate/mutation-governance.ts', 'grounds')],
