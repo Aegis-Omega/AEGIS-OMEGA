@@ -1,16 +1,18 @@
 import { useState } from 'react'
-import { Sparkles, Loader2, AlertCircle, TrendingUp } from 'lucide-react'
+import { Sparkles, TrendingUp } from 'lucide-react'
 import { rankPlatforms, type MatcherInput } from './lib/matcher.js'
 import { ResultCard } from './components/ResultCard.js'
-import type { PlatformRanking } from './lib/matcher.js'
+import { useAsyncForm } from '@shared/hooks/useAsyncForm'
+import { ErrorAlert } from '@shared/components/ErrorAlert'
+import { LoadingSpinner } from '@shared/components/LoadingSpinner'
 
 const FIELDS: { key: keyof MatcherInput; label: string; placeholder: string }[] = [
-  { key: 'niche',              label: 'Your niche',          placeholder: 'e.g. fitness, cooking, comedy, finance…' },
-  { key: 'content_style',      label: 'Content style',       placeholder: 'e.g. talking head, B-roll, tutorials, skits…' },
-  { key: 'target_age',         label: 'Target age group',    placeholder: 'e.g. 18–24, 25–34, teens…' },
-  { key: 'posting_frequency',  label: 'Posting frequency',   placeholder: 'e.g. daily, 3x/week, weekends only…' },
-  { key: 'monetisation_goal',  label: 'Monetisation goal',   placeholder: 'e.g. brand deals, creator fund, sell products…' },
-  { key: 'current_following',  label: 'Current following',   placeholder: 'e.g. 0 (starting), 5k, 50k…' },
+  { key: 'niche',             label: 'Your niche',         placeholder: 'e.g. fitness, cooking, comedy, finance…' },
+  { key: 'content_style',     label: 'Content style',      placeholder: 'e.g. talking head, B-roll, tutorials, skits…' },
+  { key: 'target_age',        label: 'Target age group',   placeholder: 'e.g. 18–24, 25–34, teens…' },
+  { key: 'posting_frequency', label: 'Posting frequency',  placeholder: 'e.g. daily, 3x/week, weekends only…' },
+  { key: 'monetisation_goal', label: 'Monetisation goal',  placeholder: 'e.g. brand deals, creator fund, sell products…' },
+  { key: 'current_following', label: 'Current following',  placeholder: 'e.g. 0 (starting), 5k, 50k…' },
 ]
 
 const EMPTY: MatcherInput = {
@@ -18,30 +20,20 @@ const EMPTY: MatcherInput = {
   posting_frequency: '', monetisation_goal: '', current_following: '',
 }
 
-type State = 'idle' | 'loading' | 'results' | 'error'
-
 export default function App() {
   const [form, setForm] = useState<MatcherInput>(EMPTY)
-  const [state, setState] = useState<State>('idle')
-  const [results, setResults] = useState<PlatformRanking[]>([])
-  const [errorMsg, setErrorMsg] = useState('')
+  const { state, result, errorMsg, submit, reset: resetAsync } = useAsyncForm(rankPlatforms)
 
   const valid = Object.values(form).every(v => v.trim().length > 0)
+  const results = result ?? []
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!valid || state === 'loading') return
-    setState('loading')
-    try {
-      setResults(await rankPlatforms(form))
-      setState('results')
-    } catch (err) {
-      setErrorMsg((err as Error).message)
-      setState('error')
-    }
+    if (!valid) return
+    await submit(form)
   }
 
-  const reset = () => { setForm(EMPTY); setState('idle'); setResults([]); setErrorMsg('') }
+  const reset = () => { setForm(EMPTY); resetAsync() }
 
   return (
     <div className="min-h-screen bg-brand-bg text-brand-text">
@@ -72,12 +64,7 @@ export default function App() {
               </div>
             ))}
 
-            {state === 'error' && (
-              <div className="flex items-start gap-2 text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3 text-sm">
-                <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
+            {state === 'error' && <ErrorAlert message={errorMsg} />}
 
             <button
               type="submit"
@@ -91,10 +78,7 @@ export default function App() {
         )}
 
         {state === 'loading' && (
-          <div className="text-center py-20">
-            <Loader2 size={36} className="animate-spin text-brand-glow mx-auto mb-4" />
-            <p className="text-brand-muted text-sm">Analysing your profile…</p>
-          </div>
+          <LoadingSpinner message="Analysing your profile…" colorClass="text-brand-glow" />
         )}
 
         {state === 'results' && (

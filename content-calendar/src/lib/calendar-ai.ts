@@ -1,3 +1,5 @@
+import { callDashScope } from '@shared/lib/dashscope'
+
 export interface CalendarInput {
   niche: string
   platforms: string
@@ -42,10 +44,6 @@ Each post object:
 Space posts evenly across the week. Rotate content pillars. No markdown outside JSON.`
 
 export async function generateCalendar(input: CalendarInput): Promise<WeekPlan[]> {
-  const apiKey = import.meta.env.VITE_DASHSCOPE_API_KEY
-  if (!apiKey) throw new Error('VITE_DASHSCOPE_API_KEY is not configured')
-
-  const model = import.meta.env.VITE_DASHSCOPE_MODEL ?? 'qwen-plus'
   const userMessage = `
 Niche: ${input.niche}
 Platforms: ${input.platforms}
@@ -55,29 +53,10 @@ Content pillar 2: ${input.pillar2}
 Content pillar 3: ${input.pillar3}
 `.trim()
 
-  const res = await fetch(
-    'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userMessage },
-        ],
-      }),
-    },
-  )
-
-  if (!res.ok) throw new Error(`DashScope ${res.status}: ${await res.text()}`)
-
-  const data = await res.json() as { choices: { message: { content: string } }[] }
-  let raw = data.choices[0]?.message?.content ?? ''
-  raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-
-  const parsed = JSON.parse(raw) as { weeks?: WeekPlan[] } | WeekPlan[]
+  const parsed = await callDashScope<{ weeks?: WeekPlan[] } | WeekPlan[]>({
+    systemPrompt: SYSTEM_PROMPT,
+    userMessage,
+  })
   return Array.isArray(parsed) ? parsed : (parsed.weeks ?? [])
 }
 

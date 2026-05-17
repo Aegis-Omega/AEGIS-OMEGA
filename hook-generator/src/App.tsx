@@ -1,43 +1,35 @@
 import { useState } from 'react'
-import { Zap, Loader2, AlertCircle } from 'lucide-react'
+import { Zap } from 'lucide-react'
 import { generateHooks, type HookInput, type HookResult, type Platform, type Tone } from './lib/hooks-ai.js'
 import { HookCard } from './components/HookCard.js'
+import { useAsyncForm } from '@shared/hooks/useAsyncForm'
+import { ErrorAlert } from '@shared/components/ErrorAlert'
+import { LoadingSpinner } from '@shared/components/LoadingSpinner'
 
 const PLATFORMS: Platform[] = ['TikTok', 'YouTube Shorts', 'Instagram Reels', 'All platforms']
 const TONES: Tone[] = ['Entertaining', 'Educational', 'Controversial', 'Inspirational', 'Relatable']
-
-type State = 'idle' | 'loading' | 'results' | 'error'
 
 const EMPTY: HookInput = { niche: '', platform: 'TikTok', topic: '', tone: 'Entertaining' }
 
 export default function App() {
   const [form, setForm] = useState<HookInput>(EMPTY)
-  const [state, setState] = useState<State>('idle')
-  const [results, setResults] = useState<HookResult[]>([])
-  const [errorMsg, setErrorMsg] = useState('')
+  const { state, result, errorMsg, submit, reset: resetAsync } = useAsyncForm(generateHooks)
 
   const valid = form.niche.trim().length > 0 && form.topic.trim().length > 0
+  const results: HookResult[] = result ?? []
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!valid || state === 'loading') return
-    setState('loading')
-    try {
-      setResults(await generateHooks(form))
-      setState('results')
-    } catch (err) {
-      setErrorMsg((err as Error).message)
-      setState('error')
-    }
+    if (!valid) return
+    await submit(form)
   }
 
-  const reset = () => { setForm(EMPTY); setState('idle'); setResults([]); setErrorMsg('') }
+  const reset = () => { setForm(EMPTY); resetAsync() }
 
   return (
     <div className="min-h-screen bg-hook-bg text-hook-text">
       <div className="max-w-2xl mx-auto px-4 py-16">
 
-        {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 bg-hook-accent/10 border border-hook-accent/30 rounded-full px-4 py-1.5 text-hook-glow text-sm font-medium mb-6">
             <Zap size={14} />
@@ -49,7 +41,6 @@ export default function App() {
           </p>
         </div>
 
-        {/* Form */}
         {(state === 'idle' || state === 'error') && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -97,12 +88,7 @@ export default function App() {
               />
             </div>
 
-            {state === 'error' && (
-              <div className="flex items-start gap-2 text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3 text-sm">
-                <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
+            {state === 'error' && <ErrorAlert message={errorMsg} />}
 
             <button
               type="submit"
@@ -115,21 +101,16 @@ export default function App() {
           </form>
         )}
 
-        {/* Loading */}
         {state === 'loading' && (
-          <div className="text-center py-20">
-            <Loader2 size={36} className="animate-spin text-hook-glow mx-auto mb-4" />
-            <p className="text-hook-muted text-sm">Generating viral hooks…</p>
-          </div>
+          <LoadingSpinner message="Generating viral hooks…" colorClass="text-hook-glow" />
         )}
 
-        {/* Results */}
         {state === 'results' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <Zap size={18} className="text-hook-glow" />
-                <h2 className="font-semibold text-hook-text">10 hooks for "{form.topic}"</h2>
+                <h2 className="font-semibold text-hook-text">10 hooks for &ldquo;{form.topic}&rdquo;</h2>
               </div>
               <span className="text-hook-muted text-xs">{form.platform} · {form.tone}</span>
             </div>

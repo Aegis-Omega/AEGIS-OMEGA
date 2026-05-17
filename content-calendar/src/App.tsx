@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { CalendarDays, Loader2, AlertCircle, Download } from 'lucide-react'
+import { CalendarDays, Download } from 'lucide-react'
 import { generateCalendar, calendarToText, type CalendarInput, type WeekPlan } from './lib/calendar-ai.js'
 import { WeekTable } from './components/WeekTable.js'
-
-type State = 'idle' | 'loading' | 'results' | 'error'
+import { useAsyncForm } from '@shared/hooks/useAsyncForm'
+import { ErrorAlert } from '@shared/components/ErrorAlert'
+import { LoadingSpinner } from '@shared/components/LoadingSpinner'
 
 const EMPTY: CalendarInput = {
   niche: '', platforms: '', frequency: '',
@@ -21,23 +22,15 @@ const FIELDS: { key: keyof CalendarInput; label: string; placeholder: string }[]
 
 export default function App() {
   const [form, setForm] = useState<CalendarInput>(EMPTY)
-  const [state, setState] = useState<State>('idle')
-  const [weeks, setWeeks] = useState<WeekPlan[]>([])
-  const [errorMsg, setErrorMsg] = useState('')
+  const { state, result, errorMsg, submit, reset: resetAsync } = useAsyncForm(generateCalendar)
 
   const valid = Object.values(form).every(v => v.trim().length > 0)
+  const weeks: WeekPlan[] = result ?? []
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!valid || state === 'loading') return
-    setState('loading')
-    try {
-      setWeeks(await generateCalendar(form))
-      setState('results')
-    } catch (err) {
-      setErrorMsg((err as Error).message)
-      setState('error')
-    }
+    if (!valid) return
+    await submit(form)
   }
 
   const handleDownload = () => {
@@ -51,7 +44,7 @@ export default function App() {
     URL.revokeObjectURL(url)
   }
 
-  const reset = () => { setForm(EMPTY); setState('idle'); setWeeks([]); setErrorMsg('') }
+  const reset = () => { setForm(EMPTY); resetAsync() }
   const pillars: [string, string, string] = [form.pillar1, form.pillar2, form.pillar3]
 
   return (
@@ -84,12 +77,7 @@ export default function App() {
               </div>
             ))}
 
-            {state === 'error' && (
-              <div className="flex items-start gap-2 text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-3 text-sm">
-                <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
+            {state === 'error' && <ErrorAlert message={errorMsg} />}
 
             <button
               type="submit"
@@ -103,10 +91,7 @@ export default function App() {
         )}
 
         {state === 'loading' && (
-          <div className="text-center py-20">
-            <Loader2 size={36} className="animate-spin text-cal-glow mx-auto mb-4" />
-            <p className="text-cal-muted text-sm">Building your content plan…</p>
-          </div>
+          <LoadingSpinner message="Building your content plan…" colorClass="text-cal-glow" />
         )}
 
         {state === 'results' && (
