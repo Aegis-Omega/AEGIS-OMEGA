@@ -144,10 +144,12 @@ M1/M2/M3 are called sequentially under `_lock`, but the memoryview regions have 
 transactional isolation. A concurrent read of M1 during M2 execution sees torn state.
 The lock protects the write sequence but not read consistency.
 
-### H-03 · `gate/hoeffding.ts` implements Bernstein, not Hoeffding
+### ~~H-03 · `gate/hoeffding.ts` implements Bernstein, not Hoeffding~~
 File name is a historical artifact from v1. The implementation is correct (Bernstein
-anytime-valid confidence sequences per Waudby-Smith & Ramdas 2024). The name is misleading
-for anyone auditing the codebase. Low priority rename.
+anytime-valid confidence sequences per Waudby-Smith & Ramdas 2024).
+**Fix applied:** Header comment at lines 4–9 of `hoeffding.ts` documents the naming
+discrepancy, the Bernstein/Waudby-Smith rationale, and the legacy constraint.
+**Status:** ✅ RESOLVED — annotation confirmed present
 
 ### H-04 · swarm_os and sovereign-omega-v2 are parallel, not integrated
 Both are Kaggle competitors (Tarik Skalić, operator) but on different tracks:
@@ -167,12 +169,15 @@ The CLAUDE.md non-equivalence table applies to their relationship:
 | T0 — Critical | 6 | 5 | 1 (F-06 — /guardian decision) |
 | T1 — Important | 4 | 4 | 0 |
 | T2 — Pre-listing | 5 | 2 | 3 (F-13, F-14 post-deployment; F-15 informational) |
-| Holonic | 4 | 0 | 4 (H-01 to H-04) |
+| Holonic | 4 | 1 | 3 (H-01, H-02 open; H-04 informational) |
 
 **Layer B Python is production-ready** — 10 of 11 fixable findings resolved.
 F-06 (constitutional files) awaits /guardian decision.
 F-08 (swap counter page size) should be verified on target AMD RX 570 hardware before P3.
 
-**TypeScript Layer A is sound** — Gate 8 passes 101/101, all invariants enforced mechanically.
+**TypeScript Layer A is sound** — Gate 8 passes 184/184 (19 test files), all invariants enforced mechanically.
+Tier classification system (T0–T5) and SchemaRegistry added with full test coverage (33 new tests).
+PR #16 adversarial audit (ChatGPT): all 3 review comments addressed and confirmed fixed.
 
 **Commercial products are Gumroad-ready** — F-11 and F-12 fixed, all builds pass.
+Gumroad zips regenerated: platform-picker.zip (128 KB), hook-generator.zip (127 KB), content-calendar.zip (125 KB).
