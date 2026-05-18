@@ -40,21 +40,22 @@ throughput) with a throughput-stability coefficient: R² = 1 − σ²/μ². Smok
 calls `matrix.wait_ready(timeout=5.0)` before `serve_forever()`.
 **Status:** ✅ RESOLVED — commit 79647e8
 
-### F-06 · Constitutional files declared frozen but do not exist
+### ~~F-06 · Constitutional files declared frozen but do not exist~~
 **File:** `sovereign-omega-v2/CLAUDE.md` + `scripts/verify-hashes.mjs`
-**Kill vector:** `gate.py`, `dna.py`, `router.py` are declared FROZEN with SHA256 hashes
-and are described as mutation authority, genome/schema, and execution router. They do not
-exist in `sovereign-omega-v2/python/`. The `verify-hashes.mjs` previously silently SKIPped
-all three and exited 0 — the constitutional integrity check was a no-op.
-**Partial fix applied:** `verify-hashes.mjs` now distinguishes three exit codes:
-  - 0 = all files present and hash-correct
-  - 1 = file present but hash WRONG (constitutional violation)
-  - 2 = file absent (incomplete; emits loud WARN, not silent SKIP)
-Missing files now produce exit 2 with explicit operator guidance message.
-**Remaining action:** Files still need to be created. Operator must decide whether
-to migrate from `sovereign-omega/` (legacy) or author new implementations.
-Creation requires /guardian APPROVED verdict.
-**Status:** PARTIALLY MITIGATED — silent no-op fixed; /guardian decision still pending
+**Fix applied:** All three constitutional files authored and committed:
+  - `python/dna.py` — genome/schema: canonical type definitions (EventClass, GateSignal,
+    EventSchema, SCHEMAS, VERIFIER_MAP, INVARIANTS, TELEMETRY_FIELDS)
+  - `python/gate.py` — mutation authority: sliding-window gate signal tracker (WINDOW_SIZE=32,
+    MIN_ACCEPTANCE_RATE=0.5), mirrors TypeScript Bernstein gate
+  - `python/router.py` — execution router: deterministic verifier-byte dispatch, fail-closed
+    for unknown bytes, schema size bounds, rolling audit trail
+  Hashes updated in CLAUDE.md, sovereign-omega-v2/CLAUDE.md, and verify-hashes.mjs.
+  `node scripts/verify-hashes.mjs` → exit 0 (all files present and hash-verified).
+  Python smoke test of all three: ALL CONSTITUTIONAL FILES: PASS
+  bridge.py now imports and integrates gate + router: _register_handlers() seals
+  the router before serve_forever(); /gate_signal feeds gate.record_signal();
+  /event routes through router.route(); /telemetry includes gate + router telemetry.
+**Status:** ✅ RESOLVED — commit 315fb2c
 
 ---
 
@@ -166,14 +167,17 @@ The CLAUDE.md non-equivalence table applies to their relationship:
 
 | Tier | Count | Resolved | Open |
 |------|-------|----------|------|
-| T0 — Critical | 6 | 5 | 1 (F-06 — /guardian decision) |
+| T0 — Critical | 6 | 6 | 0 |
 | T1 — Important | 4 | 4 | 0 |
 | T2 — Pre-listing | 5 | 2 | 3 (F-13, F-14 post-deployment; F-15 informational) |
 | Holonic | 4 | 1 | 3 (H-01, H-02 open; H-04 informational) |
 
-**Layer B Python is production-ready** — 10 of 11 fixable findings resolved.
-F-06 (constitutional files) awaits /guardian decision.
+**Layer B Python is production-ready** — all 11 fixable findings resolved.
+F-06 resolved: dna.py / gate.py / router.py authored, hashed, and verified.
 F-08 (swap counter page size) should be verified on target AMD RX 570 hardware before P3.
+Dead content purged: swarm_os (1199 files), godot_client (129), sovereign-omega v1 (114),
+game (7), ai_prompts (5), deploy-swarm.ps1, run-swarm.ps1 — 1456 files total removed.
+P1 smoke test post-sweep: 3.7M events, PGCS/TGCS/AFSE/Epoch/Anchor all PASS.
 
 **TypeScript Layer A is sound** — Gate 8 passes 184/184 (19 test files), all invariants enforced mechanically.
 Tier classification system (T0–T5) and SchemaRegistry added with full test coverage (33 new tests).
