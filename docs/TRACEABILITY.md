@@ -193,7 +193,7 @@ governance throughput, not implementation throughput."
 Threshold: < 1/1000 cycles per sequence unit → governance falling behind event production.
 
 **All provenance gaps are now closed. The system has full epistemic traceability.**
-Gate 8: **330 tests**, 24 test files, all passing.
+Gate 8: **383 tests**, 26 test files, all passing.
 
 ---
 
@@ -343,3 +343,100 @@ All 10 factories are pure functions; no Date.now(), no external state.
 **T1** → docs/IDE_RUNTIME_SPEC.md §Constitutional Invariants for the IDE Layer
 → "IDEOrchestrator.update() must not read from any external source — params only."
 `panelSequence()` is monotonically non-decreasing; verified by ide.test.ts.
+
+---
+
+## Layer H — SITR Constitutional Runtime Defense (TypeScript)
+
+### src/sitr/types.ts — 6 types + 1 error class
+`SITRState (6 literals) | ContainmentAction (5 literals) | ContainmentDirective |
+InterventionRecord | OrchestrationAnomaly | ReplayViolation | SITRTelemetrySnapshot` →
+**T0** → docs/SITR_CONSTITUTION.md RULE-01..10
+→ "SITR is constitutional runtime stabilization — not a truth engine."
+Monotonic escalation lattice: STABLE → DEGRADED → UNSTABLE → CONSTITUTIONAL_RISK →
+CONTAINED → COMPROMISED. Terminal state: COMPROMISED.
+
+### src/sitr/lattice.ts — monotonic escalation functions
+`SITR_ESCALATION_ORDER | stateOrdinal | canEscalateTo | escalate | isTerminalState` →
+**T0** → docs/SITR_CONSTITUTION.md RULE-02
+→ "No de-escalation without explicit constitutional reset event."
+Pure functions only; identical inputs always produce identical ordinals.
+
+### src/sitr/intervention.ts — append-only intervention log
+`InterventionLog.append() / getAll() / length` →
+**T0** → docs/SITR_CONSTITUTION.md RULE-04
+→ "Intervention entries must arrive in strictly increasing sequence order."
+Pattern: identical to AgentMemory / MutationLedger — monotonic sequence enforcement.
+
+### src/sitr/replay.ts — permanent violation log
+`ReplayViolationLog.record() / getAll() / hasViolations() / violationCount` →
+**T0** → docs/SITR_CONSTITUTION.md RULE-03
+→ "Replay violations are irreversible facts of the system's history."
+
+### src/sitr/orchestration.ts — frame anomaly detection
+`detectOrchestrationAnomalies | anomalyToRequiredState` →
+**T0** → docs/SITR_CONSTITUTION.md RULE-07..08
+→ Detects: non-replay-safe frames (critical), non-monotonic sequences (high).
+Pure functions; no mutable state. Consumes CoordinationFrame[] from Gate 11.
+
+### src/sitr/telemetry.ts — SITR telemetry computation
+`computeEscalationRate | buildSITRTelemetry` →
+**T1** → docs/SITR_CONSTITUTION.md §Escalation Lattice
+→ `escalation_rate = interventions / totalSequences`, bounded [0,1].
+
+### src/sitr/runtime.ts — constitutional immune system entry point
+`SITRRuntime.observe() / issueDirective() / currentState() / telemetry()` →
+**T0** → docs/SITR_CONSTITUTION.md §7-Phase Frame Execution Context (Phase 3)
+→ "SITR reads post-commit E5; emits ContainmentDirective[] back into E5."
+Escalation rules in `observe()`:
+- non-replay-safe frame → CONSTITUTIONAL_RISK
+- invariant_satisfied=false → UNSTABLE + ReplayViolation recorded
+- orchestration_pressure_index > 0.9 → DEGRADED
+- workflow_replay_integrity < 1 → DEGRADED
+
+---
+
+## Layer I — AOIE Structural Classification Oracle (TypeScript)
+
+### src/aoie/types.ts — 4 state enums + 3 data interfaces
+`GlobalState | ArbitrationState | IdentityContinuityState | ConstitutionalDriftState |
+SnapshotPhase | RuntimeSnapshot | PolicyMutation | EpistemicAssertion | AOIEClassification` →
+**T1** → docs/AOIE_SPEC.md §GlobalState Classification Rules
+→ "AOIE is PASSIVE. AOIE is OBSERVATIONAL. AOIE cannot mutate any runtime state."
+`SnapshotPhase` encodes the 7-phase frame contract; AOIE rejects all except 'post_enforcement'.
+
+### src/aoie/canonicalize.ts — deterministic serialization
+`canonicalizeSnapshot | canonicalizePolicyMutation | canonicalizeAssertion` →
+**T0** → RFC 8785 (external standard) via src/core/canonicalize.ts:canonicalizeJCS
+→ Thin wrappers delegating to JCS canonicalization. No side effects.
+
+### src/aoie/hash.ts — FNV-1a identity fingerprints
+`hashSnapshot | snapshotsAreIdentical | computeIdentityDrift` →
+**T1** → docs/AOIE_SPEC.md §Identity Continuity Subsystem
+→ FNV-1a 32-bit (no crypto dependency, no async); same pattern as introspection.ts.
+`computeIdentityDrift` returns [0,1]; threshold >0.3 → BROKEN.
+
+### src/aoie/arbitration.ts + identity.ts + drift.ts — signal classifiers
+`classifyArbitration | classifyIdentityContinuity | classifyConstitutionalDrift` →
+**T1** → docs/AOIE_SPEC.md §Arbitration / §Identity / §Constitutional Drift Subsystems
+→ All pure functions; deterministic; no global state. Rules:
+  Arbitration: DEADLOCKED > CONTESTED > RESOLVED (zero-hash unverified; conflicting mutations)
+  Identity: BROKEN (>0.3) > DRIFTED (>0) > CONTINUOUS
+  Drift: DIVERGED (>0.5) > DRIFTING (>0.1) > STABLE
+
+### src/aoie/lattice.ts — AOIE global state composition
+`classifyGlobalState | compareGlobalStates | AOIE_SEVERITY_ORDER` →
+**T1** → docs/AOIE_SPEC.md §GlobalState Classification Rules
+→ COMPROMISED if any broken signal; ALERT if any intermediate signal; SECURE otherwise.
+
+### src/aoie/freeze.ts — typed freeze wrappers
+`freezeClassification | freezeSnapshot` →
+**T1** → docs/AOIE_SPEC.md §AOIEClassification Schema
+→ "Every output is deep-frozen immediately." Typed wrappers over deepFreeze.
+
+### src/aoie/runtime.ts — stateless classification entry point
+`classifyRuntime(params): AOIEClassification` →
+**T1** → docs/AOIE_SPEC.md §Snapshot Phase Requirement + §Pure Function Design Rationale
+→ Phase guard: rejects any snapshot with `phase !== 'post_enforcement'` (SITRConstraintError).
+→ Composes: arbitration + identity + drift + lattice → frozen AOIEClassification.
+→ Deterministic: 3× same params → byte-identical output. Verified in aoie.test.ts.
