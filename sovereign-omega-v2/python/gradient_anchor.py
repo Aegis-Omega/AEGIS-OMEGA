@@ -120,11 +120,13 @@ class GradientAnchorCalibrator:
     ):
         self._anchors = {t.token_id: t for t in (anchor_tokens or DEFAULT_ANCHOR_TOKENS)}
         self._lr_fixed = to_fixed(learning_rate)
+        self._momentum_beta = to_fixed(0.9)  # EMA momentum coefficient
         self._state = GradientAnchorState()
+        self._velocities: Dict[str, int] = {}  # token_id → Q16.16 velocity
 
-        # Initialise W_scale to 1.0 (INT_SCALE) for all anchor tokens
         for token_id in self._anchors:
             self._state.w_scales[token_id] = INT_SCALE
+            self._velocities[token_id] = 0  # zero initial velocity
 
     def calibrate_epoch(self, epoch: int) -> List[DriftMeasurement]:
         """
@@ -146,10 +148,15 @@ class GradientAnchorCalibrator:
             # D = drift / expected (normalised)
             drift_index = drift_float / from_fixed(expected) if expected != 0 else 0.0
 
-            # Compute correction: pull measured toward expected
-            # Correction = -lr * (measured - expected)
+            # Compute correction with momentum (Nesterov-style)
+            # velocity = β * velocity + (1 - β) * (-lr * error)
             error_fixed = measured - expected
-            correction = -fixed_mul(self._lr_fixed, error_fixed)
+            gradient_fixed = -fixed_mul(self._lr_fixed, error_fixed)
+            prev_velocity = self._velocities.get(token_id, 0)
+            new_velocity = fixed_mul(self._momentum_beta, prev_velocity) + \
+                           fixed_mul(INT_SCALE - self._momentum_beta, gradient_fixed)
+            self._velocities[token_id] = new_velocity
+            correction = new_velocity
 
             # Apply correction — clamped to prevent overshoot
             new_w_scale = measured + correction
@@ -228,3 +235,15 @@ class GradientAnchorCalibrator:
             )
         self._anchors[token.token_id] = token
         self._state.w_scales[token.token_id] = INT_SCALE
+
+    def convergence_epochs(self) -> int:
+        """Number of consecutive epochs with D=0 (convergence depth)."""
+        count = 0
+        n = len(self._anchors)
+        measurements = self._state.measurements
+        for i in range(len(measurements) - 1, -1, -n):
+            batch = measurements[max(0, i - n + 1):i + 1]
+            if not all(m.passes_criterion for m in batch):
+                break
+            count += 1
+        return count

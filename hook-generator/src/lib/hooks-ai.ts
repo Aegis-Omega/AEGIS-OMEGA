@@ -19,6 +19,7 @@ export interface HookResult {
   type: HookType
   platform_fit: string
   score: number
+  why?: string
 }
 
 export interface HookInput {
@@ -28,17 +29,17 @@ export interface HookInput {
   tone: Tone
 }
 
-const SYSTEM_PROMPT = `You are a viral short-form content strategist with deep expertise in TikTok, YouTube Shorts, and Instagram Reels.
+const SYSTEM_PROMPT = `You are a viral content strategist who has studied 10,000+ viral short-form videos. You understand the psychology of scroll-stopping content.
 
-Given a creator's niche, target platform, topic, and tone, generate exactly 10 viral hook options.
+Think step by step:
+1. Identify what makes this topic emotionally compelling
+2. Consider which hook types work best for this platform and niche
+3. Apply the top psychological triggers: curiosity gap, social proof, controversy, personal transformation, fear of missing out
 
-Respond ONLY as valid JSON — an array of exactly 10 objects with these keys:
-  "hook" (the complete opening hook sentence, max 15 words),
-  "type" (one of: Curiosity gap, Controversy, Social proof, Number/list, Pain point, Bold claim, Story opener, Question, Direct value, Pattern interrupt),
-  "platform_fit" (2-5 word label, e.g. "TikTok viral format"),
-  "score" (integer 1-10, higher = more likely to stop the scroll).
+Then output ONLY valid JSON (no markdown):
+{"hooks":[{"hook":"...","type":"curiosity|controversy|social_proof|number|pain_point|transformation|fomo","platform_fit":X,"score":X,"why":"one sentence explanation"},...]}
 
-Sort descending by score. Vary the types — do not repeat a type more than twice. No markdown, no explanation outside the JSON array.`
+Generate exactly 10 hooks, ranked by viral potential (score 1-10).`
 
 export async function generateHooks(input: HookInput): Promise<HookResult[]> {
   const userMessage = `
@@ -49,6 +50,10 @@ Tone: ${input.tone}
 `.trim()
 
   const parsed = await callDashScope<unknown>({ systemPrompt: SYSTEM_PROMPT, userMessage })
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    const obj = parsed as Record<string, unknown>
+    if (Array.isArray(obj['hooks'])) return obj['hooks'] as HookResult[]
+  }
   const arr: unknown[] = Array.isArray(parsed)
     ? parsed
     : ((parsed as Record<string, unknown[]>)[Object.keys(parsed as object)[0]] ?? [])

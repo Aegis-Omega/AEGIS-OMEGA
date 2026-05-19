@@ -176,6 +176,13 @@ def quantise_compress(data: bytes) -> bytes:
             min_fixed = to_fixed(min_val).to_bytes(4, 'little', signed=True)
             result = b'\x02' + scale_fixed + min_fixed + delta
 
+            # Try RLE on the delta bytes for additional compression
+            rle_delta = _rle_encode(delta)
+            if len(rle_delta) < len(delta):
+                rle_result = b'\x03' + scale_fixed + min_fixed + rle_delta
+                if len(rle_result) < len(result):
+                    result = rle_result
+
             if len(result) < len(data):
                 return result
         except Exception:
@@ -186,7 +193,7 @@ def quantise_compress(data: bytes) -> bytes:
 
 def quantise_decompress(data: bytes) -> bytes:
     """Inverse of quantise_compress."""
-    if len(data) == 0 or data[0] not in (0x01, 0x02):
+    if len(data) == 0 or data[0] not in (0x01, 0x02, 0x03):
         return data
 
     marker = data[0]
@@ -215,7 +222,55 @@ def quantise_decompress(data: bytes) -> bytes:
         ])
         return floats.tobytes()
 
+    if marker == 0x03:
+        scale = from_fixed(int.from_bytes(data[1:5], 'little', signed=True))
+        min_val = from_fixed(int.from_bytes(data[5:9], 'little', signed=True))
+        delta = _rle_decode(data[9:])
+        # same dequantise logic as 0x02
+        quantised = [delta[0]]
+        for i in range(1, len(delta)):
+            quantised.append((quantised[-1] + delta[i]) & 0xFF)
+        floats = array.array('f', [min_val + (q / scale) for q in quantised])
+        return floats.tobytes()
+
     return data
+
+
+def _rle_encode(data: bytes) -> bytes:
+    """Run-length encode bytes. Format: [0xFF, count, byte] for runs of 3+, else raw byte."""
+    if not data:
+        return data
+    out = bytearray()
+    i = 0
+    while i < len(data):
+        b = data[i]
+        run = 1
+        while i + run < len(data) and data[i + run] == b and run < 255:
+            run += 1
+        if run >= 3:
+            out.extend([0xFF, run, b])
+        else:
+            for _ in range(run):
+                out.append(b if b != 0xFF else 0xFE)  # escape 0xFF as 0xFE in raw mode
+        i += run
+    return bytes(out)
+
+
+def _rle_decode(data: bytes) -> bytes:
+    """Decode RLE-encoded bytes."""
+    out = bytearray()
+    i = 0
+    while i < len(data):
+        if data[i] == 0xFF and i + 2 < len(data):
+            count = data[i + 1]
+            byte = data[i + 2]
+            out.extend([byte] * count)
+            i += 3
+        else:
+            b = data[i]
+            out.append(0xFF if b == 0xFE else b)
+            i += 1
+    return bytes(out)
 
 
 # ── PGCS Controller ──────────────────────────────────────────────────────────

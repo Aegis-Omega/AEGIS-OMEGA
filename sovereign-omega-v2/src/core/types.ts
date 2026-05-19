@@ -68,6 +68,10 @@ export enum EventType {
   SYSTEM_OUTPUT = 'SYSTEM_OUTPUT',
   HUMAN_OVERRIDE = 'HUMAN_OVERRIDE',
 
+  // Backpressure
+  BACKPRESSURE_ENGAGED = 'BACKPRESSURE_ENGAGED',
+  BACKPRESSURE_RELEASED = 'BACKPRESSURE_RELEASED',
+
   // E5 — Cognitive Workflow (AI-mediated development substrate)
   // These make the development process itself a first-class replayable event stream.
   AGENT_PATCH_PROPOSED = 'AGENT_PATCH_PROPOSED',

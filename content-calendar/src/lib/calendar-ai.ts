@@ -11,11 +11,15 @@ export interface CalendarInput {
 
 export interface DayPost {
   day: number
-  platform: string
-  content_pillar: string
+  platform?: string
+  content_pillar?: string
+  pillar?: 'educational' | 'entertaining' | 'promotional' | string
+  topic?: string
   hook: string
   format: string
-  notes: string
+  notes?: string
+  production_note?: string
+  cta?: string
 }
 
 export interface WeekPlan {
@@ -24,24 +28,17 @@ export interface WeekPlan {
   posts: DayPost[]
 }
 
-const SYSTEM_PROMPT = `You are an expert short-form content strategist.
+const SYSTEM_PROMPT = `You are a content planning expert who has helped 500+ creators build consistent audiences. You understand content pillars, posting rhythms, and what drives sustained growth.
 
-Given a creator's niche, platforms, posting frequency, and 3 content pillars, generate a 4-week content calendar.
+Think step by step:
+1. Map each content pillar to specific angles that serve the audience
+2. Plan variety: mix educational, entertaining, and promotional content
+3. Create hooks that make each post scroll-stopping
+4. Add specific production notes that save filming time
 
-Respond ONLY as valid JSON — an object with key "weeks" containing an array of 4 week objects, each with:
-  "week" (integer 1-4),
-  "theme" (2-5 word week theme),
-  "posts" (array of post objects based on the posting frequency).
-
-Each post object:
-  "day" (day of week 1=Mon to 7=Sun),
-  "platform" (one of the specified platforms),
-  "content_pillar" (which of the 3 pillars),
-  "hook" (opening hook sentence, max 12 words),
-  "format" (e.g. Talking head, B-roll, Tutorial, Duet, POV),
-  "notes" (1 brief production tip).
-
-Space posts evenly across the week. Rotate content pillars. No markdown outside JSON.`
+Then output ONLY valid JSON (no markdown):
+{"weeks":[{"week":1,"posts":[{"day":1,"pillar":"educational|entertaining|promotional","topic":"...","hook":"...","format":"talking_head|screen_record|broll|text_overlay|duet","production_note":"...","cta":"..."},...]},...]}
+`
 
 export async function generateCalendar(input: CalendarInput): Promise<WeekPlan[]> {
   const userMessage = `

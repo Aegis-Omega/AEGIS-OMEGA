@@ -155,3 +155,47 @@ def fixed_mul(a: int, b: int) -> int:
 def fixed_clamp(x: int, lo: int, hi: int) -> int:
     """Clamp Q16.16 fixed-point value to [lo, hi]."""
     return max(lo, min(hi, x))
+
+
+def fixed_div(a: int, b: int) -> int:
+    """Divide Q16.16 a by b. Returns Q16.16 result."""
+    if b == 0:
+        return INT_MAX if a >= 0 else -INT_MAX
+    return (a << INT_SHIFT_BITS) // b
+
+
+def fixed_sqrt(x: int) -> int:
+    """Integer square root of Q16.16 x. Returns Q16.16 result."""
+    if x <= 0:
+        return 0
+    # Newton-Raphson in fixed-point: converges in ~8 iterations
+    # Initial estimate: shift right by half the total bits
+    r = x >> (INT_SHIFT_BITS >> 1)
+    if r == 0:
+        r = 1
+    for _ in range(8):
+        r = (r + fixed_div(x, r)) >> 1
+    return r
+
+
+def fixed_exp_decay(value: int, decay: int, target: int) -> int:
+    """Exponential decay: value = value * decay + target * (1 - decay). All Q16.16."""
+    return fixed_mul(value, decay) + fixed_mul(target, INT_SCALE - decay)
+
+
+def popcount32(x: int) -> int:
+    """Count set bits in lower 32 bits of x (deterministic, no CPU dependency)."""
+    x = x & 0xFFFFFFFF
+    x = x - ((x >> 1) & 0x55555555)
+    x = (x & 0x33333333) + ((x >> 2) & 0x33333333)
+    x = (x + (x >> 4)) & 0x0F0F0F0F
+    return ((x * 0x01010101) & 0xFFFFFFFF) >> 24
+
+
+def bit_interleave(a: int, b: int) -> int:
+    """Interleave lower 16 bits of a and b (Z-order/Morton encoding). Deterministic."""
+    result = 0
+    for i in range(16):
+        result |= ((a >> i) & 1) << (2 * i)
+        result |= ((b >> i) & 1) << (2 * i + 1)
+    return result

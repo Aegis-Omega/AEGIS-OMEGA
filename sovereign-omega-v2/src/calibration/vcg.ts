@@ -141,6 +141,74 @@ export class VCGTracker {
 
   getEpochId(): string { return this.epochId }
 
+  /**
+   * Wilson score interval for the current calibration estimate.
+   * alpha: significance level (e.g. 0.05 for 95% CI).
+   * Returns { lower, upper } bounds on the calibration accuracy proportion.
+   * Uses Wilson score: center = (successes + z²/2) / (n + z²),
+   * halfwidth = z * sqrt(n * p * (1-p) + z²/4) / (n + z²).
+   */
+  getConfidenceInterval(alpha: number): { lower: number; upper: number } {
+    if (alpha <= 0 || alpha >= 1) throw new RangeError('alpha must be in (0, 1)')
+
+    const n = this.samples.length
+    if (n === 0) return { lower: 0, upper: 1 }
+
+    // Map alpha to z-score (normal approximation)
+    // For alpha=0.05 (95% CI), z≈1.96; for alpha=0.10 (90% CI), z≈1.645
+    // Use standard normal quantile approximation (Beasley-Springer-Moro)
+    const z = wilsonZ(1 - alpha / 2)
+
+    // successes = number of correct predictions (where prediction ≈ actual)
+    const successes = this.samples.reduce((count, s) => {
+      // A "success" is when the claimed confidence matches the outcome
+      // Use threshold: success if |claimed - actual| < 0.5
+      const actual = s.actual_correct ? 1 : 0
+      return count + (Math.abs(s.claimed_confidence - actual) < 0.5 ? 1 : 0)
+    }, 0)
+
+    const p = successes / n
+    const z2 = z * z
+    const center = (successes + z2 / 2) / (n + z2)
+    const halfWidth = z * Math.sqrt(n * p * (1 - p) + z2 / 4) / (n + z2)
+
+    return {
+      lower: Math.max(0, center - halfWidth),
+      upper: Math.min(1, center + halfWidth),
+    }
+  }
+
+  /**
+   * Calibration bias: mean(predicted) - mean(actual) over all results.
+   * Positive = overconfident, negative = underconfident.
+   * Returns 0 when no samples are available.
+   */
+  getCalibrationBias(): number {
+    if (this.samples.length === 0) return 0
+    let sumPredicted = 0
+    let sumActual = 0
+    for (const s of this.samples) {
+      sumPredicted += s.claimed_confidence
+      sumActual += s.actual_correct ? 1 : 0
+    }
+    return (sumPredicted - sumActual) / this.samples.length
+  }
+
+  /**
+   * Brier score: mean squared error between confidence predictions and binary outcomes.
+   * Perfect calibration = 0, worst = 1.
+   * Returns 0 when no samples are available.
+   */
+  getBrierScore(): number {
+    if (this.samples.length === 0) return 0
+    const sumSquaredError = this.samples.reduce((sum, s) => {
+      const actual = s.actual_correct ? 1 : 0
+      const diff = s.claimed_confidence - actual
+      return sum + diff * diff
+    }, 0)
+    return sumSquaredError / this.samples.length
+  }
+
   // ─── Private helpers ───────────────────────────────────
 
   private decayFactor(ageMs: number): number {
@@ -195,6 +263,30 @@ export class VCGTracker {
       epoch_start_ms: currentMs,
     })
   }
+}
+
+// ─── Module helpers ───────────────────────────────────────
+
+/**
+ * Rational approximation to the normal quantile function (inverse CDF).
+ * Accurate to ~1.5e-5 for p in (0, 1). Abramowitz & Stegun 26.2.17.
+ * Used exclusively by getConfidenceInterval — no Date.now(), no side effects.
+ */
+function wilsonZ(p: number): number {
+  if (p <= 0 || p >= 1) return 0
+  // Rational approximation constants
+  const c0 = 2.515517
+  const c1 = 0.802853
+  const c2 = 0.010328
+  const d1 = 1.432788
+  const d2 = 0.189269
+  const d3 = 0.001308
+  const sign = p >= 0.5 ? 1 : -1
+  const q = p >= 0.5 ? p : 1 - p
+  const t = Math.sqrt(-2 * Math.log(1 - q))
+  const num = c0 + c1 * t + c2 * t * t
+  const den = 1 + d1 * t + d2 * t * t + d3 * t * t * t
+  return sign * (t - num / den)
 }
 
 /**

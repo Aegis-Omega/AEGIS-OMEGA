@@ -137,3 +137,63 @@ export function computeLCBFromSamples(samples: readonly number[], alpha = 0.05):
   }
   return seq.lcb()
 }
+
+/**
+ * Minimum sample size to detect an effect at given power and significance level.
+ * Uses the standard formula: n = (z_alpha + z_power)² / effectSize²
+ * where z values come from the normal quantile function.
+ *
+ * @param targetPower - desired statistical power (e.g. 0.80)
+ * @param effectSize  - standardised effect size to detect (> 0)
+ * @param alpha       - significance level (e.g. 0.05)
+ * @returns minimum number of events (integer, ceiled)
+ */
+export function computeMinSampleSize(
+  targetPower: number,
+  effectSize: number,
+  alpha: number,
+): number {
+  if (targetPower <= 0 || targetPower >= 1) throw new RangeError('targetPower must be in (0, 1)')
+  if (effectSize <= 0) throw new RangeError('effectSize must be positive')
+  if (alpha <= 0 || alpha >= 1) throw new RangeError('alpha must be in (0, 1)')
+
+  const zAlpha = normalQuantile(1 - alpha)
+  const zPower = normalQuantile(targetPower)
+  return Math.ceil((zAlpha + zPower) ** 2 / (effectSize * effectSize))
+}
+
+/**
+ * Anytime-valid p-value derived from the e-process value.
+ * p = min(1, 1/eValue). Always valid regardless of when the sequence is stopped.
+ * This replaces fixed-sample p-values for sequential testing.
+ *
+ * @param eValue - current e-process value (from ConfidenceSequence.eValue())
+ * @returns anytime-valid p-value in [0, 1]
+ */
+export function getPValue(eValue: number): number {
+  if (eValue <= 0) return 1
+  return Math.min(1, 1 / eValue)
+}
+
+// ─── Module helpers ───────────────────────────────────────
+
+/**
+ * Rational approximation to the normal quantile (inverse CDF).
+ * Abramowitz & Stegun 26.2.17. Accurate to ~1.5e-5 for p ∈ (0, 1).
+ * No Date.now(), no side effects — pure arithmetic.
+ */
+function normalQuantile(p: number): number {
+  if (p <= 0 || p >= 1) return 0
+  const c0 = 2.515517
+  const c1 = 0.802853
+  const c2 = 0.010328
+  const d1 = 1.432788
+  const d2 = 0.189269
+  const d3 = 0.001308
+  const sign = p >= 0.5 ? 1 : -1
+  const q = p >= 0.5 ? p : 1 - p
+  const t = Math.sqrt(-2 * Math.log(1 - q))
+  const num = c0 + c1 * t + c2 * t * t
+  const den = 1 + d1 * t + d2 * t * t + d3 * t * t * t
+  return sign * (t - num / den)
+}

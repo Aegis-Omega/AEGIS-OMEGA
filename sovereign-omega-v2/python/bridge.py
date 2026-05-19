@@ -86,6 +86,56 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'gate_sealed': gate.is_sealed,
                 'router_sealed': router.is_sealed,
             })
+
+        elif self.path == '/metrics':
+            snap = matrix.emit_vcg_telemetry()
+            pgcs_snap = matrix._pgcs.snapshot(snap['sequence'])
+            gate_t = gate.telemetry()
+            router_t = router.telemetry()
+
+            lines = [
+                '# HELP aegis_sequence Current event sequence number',
+                '# TYPE aegis_sequence counter',
+                f'aegis_sequence {snap["sequence"]}',
+                '# HELP aegis_epoch Current epoch number',
+                '# TYPE aegis_epoch counter',
+                f'aegis_epoch {snap["epoch"]}',
+                '# HELP aegis_vcg_error_avg Average VCG error (Q16.16 normalized)',
+                '# TYPE aegis_vcg_error_avg gauge',
+                f'aegis_vcg_error_avg {snap["avg_vcg_error"]:.6f}',
+                '# HELP aegis_drift_index Gradient anchor drift index D',
+                '# TYPE aegis_drift_index gauge',
+                f'aegis_drift_index {snap["drift_index"]:.6f}',
+                '# HELP aegis_pgcs_disk_swap_bytes_in PGCS disk swap bytes in',
+                '# TYPE aegis_pgcs_disk_swap_bytes_in counter',
+                f'aegis_pgcs_disk_swap_bytes_in {pgcs_snap.disk_swap_bytes_in}',
+                '# HELP aegis_pgcs_disk_swap_bytes_out PGCS disk swap bytes out',
+                '# TYPE aegis_pgcs_disk_swap_bytes_out counter',
+                f'aegis_pgcs_disk_swap_bytes_out {pgcs_snap.disk_swap_bytes_out}',
+                '# HELP aegis_gate_acceptance_rate Gate signal acceptance rate',
+                '# TYPE aegis_gate_acceptance_rate gauge',
+                f'aegis_gate_acceptance_rate {gate_t["gate_acceptance_rate"]:.6f}',
+                '# HELP aegis_gate_total_signals Total gate signals received',
+                '# TYPE aegis_gate_total_signals counter',
+                f'aegis_gate_total_signals {gate_t["gate_total_signals"]}',
+                '# HELP aegis_router_total_events Total events routed',
+                '# TYPE aegis_router_total_events counter',
+                f'aegis_router_total_events {router_t["router_total_events"]}',
+                '# HELP aegis_router_rejected Total events rejected',
+                '# TYPE aegis_router_rejected counter',
+                f'aegis_router_rejected {router_t["router_rejected"]}',
+                '# HELP aegis_failsafe_corruption_count Epoch corruption count',
+                '# TYPE aegis_failsafe_corruption_count counter',
+                f'aegis_failsafe_corruption_count {snap["corruption_count"]}',
+            ]
+            body = ('\n'.join(lines) + '\n').encode()
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/plain; version=0.0.4')
+            self.send_header('Content-Length', len(body))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
         else:
             self._respond(404, {'error': 'NOT_FOUND'})
 

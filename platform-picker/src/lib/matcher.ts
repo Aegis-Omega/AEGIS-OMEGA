@@ -7,8 +7,11 @@ export type Platform = (typeof PLATFORMS)[number]
 export interface PlatformRanking {
   platform: Platform
   score: number
-  reason: string
-  best_for: string
+  reasoning?: string
+  reason?: string
+  strengths?: string[]
+  weaknesses?: string[]
+  best_for?: string
 }
 
 export interface MatcherInput {
@@ -20,14 +23,22 @@ export interface MatcherInput {
   current_following: string
 }
 
-const SYSTEM_PROMPT = `You are a short-form video platform expert.
-Given a creator's profile, rank these platforms: ${PLATFORMS.join(', ')}.
-Respond ONLY as valid JSON — an array of objects with keys:
-  "platform" (one of the platforms above),
-  "score" (integer 1-10, higher = better fit),
-  "reason" (one sentence why),
-  "best_for" (2-4 word label e.g. "viral dance content").
-Sort descending by score. No markdown, no explanation outside the JSON array.`
+const SYSTEM_PROMPT = `You are an expert short-form content strategist with deep knowledge of TikTok, YouTube Shorts, Instagram Reels, and Snapchat Spotlight algorithms.
+
+Think step by step:
+1. First assess the creator's content type and audience fit for each platform
+2. Consider monetisation potential for their specific goal
+3. Evaluate the competitive landscape for their niche on each platform
+4. Score each dimension: audience_fit (0-10), monetisation (0-10), competition (0-10, higher = less competition = better), growth_potential (0-10)
+
+Then output ONLY valid JSON in this exact format (no markdown, no explanation):
+{"rankings":[{"platform":"TikTok","score":X,"reasoning":"...","strengths":["..."],"weaknesses":["..."]},...],"recommendation":"...","key_insight":"one sentence summary"}`
+
+export interface MatcherResponse {
+  rankings: PlatformRanking[]
+  recommendation: string
+  key_insight: string
+}
 
 export async function rankPlatforms(input: MatcherInput): Promise<PlatformRanking[]> {
   const userMessage = `
@@ -40,6 +51,10 @@ Current following size: ${input.current_following}
 `.trim()
 
   const parsed = await callDashScope<unknown>({ systemPrompt: SYSTEM_PROMPT, userMessage })
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    const obj = parsed as Record<string, unknown>
+    if (Array.isArray(obj['rankings'])) return obj['rankings'] as PlatformRanking[]
+  }
   const arr: unknown[] = Array.isArray(parsed)
     ? parsed
     : ((parsed as Record<string, unknown[]>)[Object.keys(parsed as object)[0]] ?? [])
