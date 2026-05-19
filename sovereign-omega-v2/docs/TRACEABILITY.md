@@ -803,3 +803,64 @@ Gates 45–48 complete the proof hardening phase. All identified correctness sur
 | Holonic composition (all layers simultaneous correctness) | 48 | ✅ |
 
 The runtime is now proven correct not just per-layer but across all constitutional layers simultaneously. The dominant remaining risks are operational: persistent storage integration, Byzantine transport under real network conditions, validator PKI (HSM), and multi-node replay audit — all require live infrastructure beyond the scope of isolated verification.
+
+---
+
+## Layer AQ — SITR State Machine Stress (Gate 49)
+
+**Epistemic Tier: T0 (mechanically proven)**
+
+Proves the monotonic escalation law: `SITRRuntime.currentState()` can only ascend the lattice via `observe()` — it never de-escalates regardless of subsequent input. All observable state transitions from the public API are catalogued and verified:
+
+- `DEGRADED` — `workflow_replay_integrity < 1` OR `orchestration_pressure_index > 0.9`
+- `UNSTABLE` — `workflowFrame.invariant_satisfied = false` OR non-monotonic frame sequence (severity 'high')
+- `CONSTITUTIONAL_RISK` — `replay_safe = false` (severity 'critical', via `anomalyToRequiredState`)
+- `CONTAINED`/`COMPROMISED` — not reachable via `observe()`; verified via lattice functions directly
+
+Key monotonicity proofs: CONSTITUTIONAL_RISK persists through 10 subsequent clean frames; UNSTABLE cannot be overridden by weaker DEGRADED-level telemetry; stateOrdinal is strictly non-decreasing across any escalation sequence. Lattice correctness: `stateOrdinal` assigns ordinals 0–5 to all 6 states; `compareStates` satisfies antisymmetry for all 15 distinct pairs; `isTerminalState` is true only for COMPROMISED; `canEscalateTo` is correct for STABLE (can escalate to all 5 above) and COMPROMISED (can escalate to none). `SITR_ESCALATION_ORDER` constant matches the complete ordered list. Determinism: same 10-frame mixed sequence → same state × 3, same violation count × 3. Test-only gate — no `src/` changes.
+
+| File | Tier | Gate | Role |
+|------|------|------|------|
+| `test/integration/sitr-stress.test.ts` | T0 | 49 | 27 escalation, monotonicity, lattice, and determinism tests |
+
+Test count after Gate 49: **1125 → see combined commit**
+
+---
+
+## Layer AR — Constitutional Runtime Fuzz (Gate 50)
+
+**Epistemic Tier: T0 (mechanically proven)**
+
+Proves the constitutional verdict engine correctly maps all input signal combinations to the right verdict tier. All 10 verdict branches are verified: PERMIT (SITR STABLE + AOIE SECURE + clean invariants); DEFER (SITR DEGRADED, UNSTABLE, or AOIE ALERT); REJECT (SITR CONSTITUTIONAL_RISK); ESCALATE (AOIE COMPROMISED, T0 invariant violation via `corruption_count=1`, T0 via `gate_sealed=false`, and combined REJECT+ESCALATE priority). Priority law verified: ESCALATE beats REJECT (CONSTITUTIONAL_RISK + COMPROMISED AOIE → ESCALATE).
+
+Decision log accumulation: `decisions().length` equals evaluate() call count; `reject_count` and `escalation_count` track their respective verdict types accurately; source `ConstitutionalRuntime` is unchanged after `evaluate()` (immutable functional update). `AOIEClassification` objects constructed directly from interface to test all three `GlobalState` values without running the full AOIE classification engine. 20-frame alternating stress sequence (every 5th frame CONSTITUTIONAL_RISK, every 7th AOIE ALERT) → same verdict string × 3 — confirms no accumulated state leakage across the convergence surface. Test-only gate — no `src/` changes.
+
+| File | Tier | Gate | Role |
+|------|------|------|------|
+| `test/integration/constitutional-fuzz.test.ts` | T0 | 50 | 22 verdict mapping, accumulation, telemetry, and determinism tests |
+
+---
+
+## Layer AS — Frame Kernel Adversarial (Gate 51)
+
+**Epistemic Tier: T0 (mechanically proven)**
+
+Proves `runFrame()` correctness at every edge of its input space — not just the golden path. Six proof groups:
+
+(1) **Empty/minimal inputs** — empty `frames[]` executes with `phase_1_frame_count=0`; empty `workflowFrames[]` leaves SITR STABLE; both empty → PERMIT; 3 clean frames → `phase_1_frame_count=3`.
+
+(2) **Workflow violations** — single `invariant_satisfied=false` → SITR at least UNSTABLE and verdict at least DEFER; 3 violations all recorded in `sitr.violations()`; workflow violation + DEGRADED telemetry → state stays at or above UNSTABLE (escalate takes max).
+
+(3) **Telemetry stress** — `workflow_replay_integrity < 1` → SITR DEGRADED; `orchestration_pressure_index > 0.9` → SITR DEGRADED; both combined → still DEGRADED (monotonic, not additive).
+
+(4) **Frame ordering anomalies** — `replay_safe: false` → SITR CONSTITUTIONAL_RISK and verdict REJECT; non-monotonic frame sequence → SITR at least UNSTABLE; non-replay-safe dominates non-monotonic (CONSTITUTIONAL_RISK > UNSTABLE).
+
+(5) **Sequential pipeline** — 5-frame feed (each result's `sitr` and `constitutional` feed the next) → final verdict deterministic × 3; clean pipeline → PERMIT throughout; input runtimes proven unchanged after execution (immutable — original SITR and ConstitutionalRuntime unmodified).
+
+(6) **Structural guarantees** — result is frozen; `phase_trace` is frozen; `phase_trace.phase_6_verdict` matches `constitutional.currentVerdict()` for both PERMIT and REJECT cases; `is_replay_reconstructable = true`; `schema_version = '1.0.0'`. Test-only gate — no `src/` changes.
+
+| File | Tier | Gate | Role |
+|------|------|------|------|
+| `test/integration/frame-kernel-adversarial.test.ts` | T0 | 51 | 24 adversarial edge-case tests across 6 proof groups |
+
+Test count after Gates 49–51: **1196 tests, 62 files**
