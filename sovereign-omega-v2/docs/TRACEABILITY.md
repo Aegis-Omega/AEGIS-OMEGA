@@ -460,3 +460,19 @@ Divergence surfaces closed by Gate 27:
 - **Endian assumptions**: proven via Proof A (SHA-256 byte output on canonical governance bytes)
 
 Test count after Gate 27: **669 tests, 37 files**
+
+---
+
+## Layer X — SHP Transition Certifier / Replay DFA (Gate 28)
+
+**Epistemic Tier: T0 (mechanically enforced phase ordering)**
+
+Closes the gap between the TLA+ formal specification and the runtime. The SHP 5-phase cycle is now a DFA — invalid phase transitions throw `SHPExecutionError` at runtime. Each phase boundary produces a `FrameTransitionRecord` with a chained `transition_hash`, forming a tamper-evident cryptographic proof log of execution order. `certifyExecution()` re-derives all hashes independently and returns an `ExecutionCertificate`.
+
+Invariants enforced: INV-SHP-01 (ASSESS before LOCK), INV-SHP-02 (LOCK is single commit point), INV-SHP-05 (no phase reordering or skipping).
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `src/frame/dfa.ts` | T0 | 28 | `SHPTransitionMachine`, `transition()`, `certifyExecution()`, `FrameTransitionRecord`, `ExecutionCertificate` |
+
+Test count after Gate 28: **697 tests, 38 files**
