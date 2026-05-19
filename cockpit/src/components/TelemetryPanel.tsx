@@ -126,6 +126,28 @@ export function TelemetryPanel() {
                   <Metric label="Epoch" value={String(d.epoch)} />
                   <Metric label="Sequence" value={d.sequence.toLocaleString()} dim />
                 </div>
+
+                {/* Layer B extended metrics — shown when TGCS/AFSE bridge wired */}
+                {(d.afse_r2 != null || d.holonic_scaling_score != null) && (
+                  <div className="border-t border-aegis-border pt-1 space-y-0.5">
+                    <div className="text-xs text-aegis-muted font-medium mb-0.5">Layer B</div>
+                    {d.afse_r2 != null && (
+                      <div className="flex items-center justify-between text-xs py-0.5">
+                        <span className="text-aegis-muted">AFSE R²</span>
+                        <div className="flex items-center gap-1.5">
+                          <MiniBar value={d.afse_r2} max={1} color={d.afse_r2 >= 0.98 ? 'bg-green-400' : 'bg-yellow-400'} />
+                          <span className="font-mono text-aegis-text">{d.afse_r2.toFixed(4)}</span>
+                        </div>
+                      </div>
+                    )}
+                    {d.tgcs_variance != null && (
+                      <Metric label="TGCS σ²" value={d.tgcs_variance.toFixed(6)} dim={d.tgcs_variance === 0} />
+                    )}
+                    {d.holonic_scaling_score != null && (
+                      <Metric label="Holonic scale" value={d.holonic_scaling_score.toFixed(4)} />
+                    )}
+                  </div>
+                )}
               </>
             )
           })()}

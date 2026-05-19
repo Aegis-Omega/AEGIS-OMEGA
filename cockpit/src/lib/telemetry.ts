@@ -19,6 +19,10 @@ export interface TelemetrySnapshot {
   corruption_count: number
   calibrator_passes_100k: boolean
   gate?: GateTelemetry
+  // Extended Layer B metrics — emitted when TGCS/AFSE are wired into bridge
+  afse_r2?: number
+  tgcs_variance?: number
+  holonic_scaling_score?: number
 }
 
 export interface RalphCycleStatus {
