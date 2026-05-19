@@ -226,3 +226,30 @@ A T0 violation at SUBATOMIC propagates upward and invalidates every scale above 
 | 5 | **P** PROPAGATE | AOIE | Reads post-enforcement snapshot; classifies GlobalState |
 | 6 | **H** HARMONIZE | CGS | Reads SITR + AOIE + invariants → GovernanceDecision + Guardian E5 events |
 | 7 | Frame finalization | Hash committed; replay checkpoint stored |
+
+---
+
+## Layer L — SHP Execution Identity Primitives (Gate 15)
+
+**Epistemic Tier: T0 (subatomic — foundational type layer)**
+
+Gate 15 crystallizes the SHP model into a standalone `src/shp/` module — the pure
+type system and invariant registry that every holonic scale must satisfy. This layer
+sits below all others: it defines the formal execution identity that `runFrame()`
+(Layer K) instantiates at the ORGANISM scale.
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `src/shp/types.ts` | T0 | 15 | Phase, SHP_PHASE_ORDER, phaseOrdinal, SHPExecutionIdentity |
+| `src/shp/execution.ts` | T0 | 15 | SHPKernel interface, SHP_EXECUTION_INVARIANTS (8 rules), SHPInvariantId |
+| `src/shp/guard.ts` | T0 | 15 | checkSHPInvariants(), validatePhaseTransition(), validatePhaseSequence() |
+| `src/shp/factory.ts` | T0 | 15 | Phase-specific identity factories with FNV-1a deterministic commitHash |
+
+Eight formal invariants: INV-SHP-01..08 (see `src/shp/execution.ts` and `docs/SHP_EXECUTION_MODEL.md`)
+
+Field presence contract (enforced at factory construction + runtime guard):
+- `classification` must not exist in READ/ASSESS phases (INV-SHP-06)
+- `constraintResult` must not exist in PROPAGATE/HARMONIZE phases (INV-SHP-07)
+- `commitHash` must be non-empty (INV-SHP-08)
+
+Test count after Gate 15: **471 tests, 29 files**

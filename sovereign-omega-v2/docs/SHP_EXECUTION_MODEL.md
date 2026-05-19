@@ -148,3 +148,50 @@ SITR ∩ AOIE = ∅ (by LOCK boundary)
 
 This is the T0 constitutional statement of the AEGIS frame execution model.
 It cannot be modified without a `/guardian APPROVED` verdict.
+
+---
+
+## Gate 15 Extension — `src/shp/` Type Primitives
+
+**Epistemic Tier: T0 · Gate 15**
+
+Gate 15 crystallizes the SHP model into a standalone type-level module (`src/shp/`)
+that any holonic scale can import independently of the ORGANISM-scale `runFrame()`.
+
+### Eight Formal Invariants
+
+| ID | Rule | Runtime Guard |
+|----|------|---------------|
+| INV-SHP-01 | ASSESS must occur before LOCK | `phaseOrdinal` ordering |
+| INV-SHP-02 | LOCK is a single immutable commit point | `validatePhaseTransition` |
+| INV-SHP-03 | PROPAGATE may only use commitHash + frozen state | `SHPKernel.propagate()` contract |
+| INV-SHP-04 | HARMONIZE is purely observational feedback | `SHPKernel.harmonize()` contract |
+| INV-SHP-05 | No phase may be reordered or skipped | `validatePhaseSequence` |
+| INV-SHP-06 | `classification` must not exist before LOCK | `checkSHPInvariants` |
+| INV-SHP-07 | `constraintResult` must not exist after LOCK | `checkSHPInvariants` |
+| INV-SHP-08 | `commitHash` is the only cross-phase identifier | `checkSHPInvariants` |
+
+### Field Presence Contract
+
+```
+READ / ASSESS:          constraintResult permitted | classification FORBIDDEN
+LOCK:                   neither field present
+PROPAGATE / HARMONIZE:  classification permitted | constraintResult FORBIDDEN
+```
+
+### Deterministic `commitHash`
+
+All factory functions compute `commitHash` via FNV-1a 32-bit hash of
+`(holonId:sequence:stateKey)`. No `Date.now()`, no UUIDv7. Same inputs always
+produce the same hash — enabling replay verification and cross-phase identity tracking.
+
+### Module Map
+
+| File | Role |
+|------|------|
+| `src/shp/types.ts` | Phase, SHP_PHASE_ORDER, phaseOrdinal, SHPExecutionIdentity |
+| `src/shp/execution.ts` | SHPKernel interface, SHP_EXECUTION_INVARIANTS (8 entries) |
+| `src/shp/guard.ts` | checkSHPInvariants(), validatePhaseTransition(), validatePhaseSequence() |
+| `src/shp/factory.ts` | createReadIdentity() … createHarmonizeIdentity() |
+
+Test coverage: 24 tests in `test/unit/shp.test.ts`
