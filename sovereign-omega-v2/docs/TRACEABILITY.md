@@ -204,9 +204,9 @@ Test count after Gate 14: ~470 tests (28 files → 28+ files)
 ```
 [Subatomic]  byte invariants, hash chaining, fixed-point arithmetic
 [Atomic]     individual files — each a complete holon with declared invariants
-[Molecular]  modules: core/, event/, gate/, calibration/, agents/, ide/, sitr/, aoie/, constitutional/, enforcement/, frame/, shp/, ledger/
-[Cellular]   subsystems: Agent Ecology, SITR Immunity, AOIE Oracle, Constitutional Assembly, Frame Kernel, Merkle Replay Ledger
-[Organism]   sovereign-omega-v2 governance runtime (Gates 1–18)
+[Molecular]  modules: core/, event/, gate/, calibration/, agents/, ide/, sitr/, aoie/, constitutional/, enforcement/, frame/, shp/, ledger/, consensus/, crdt/
+[Cellular]   subsystems: Agent Ecology, SITR Immunity, AOIE Oracle, Constitutional Assembly, Frame Kernel, Merkle Replay Ledger, HotStuff Ω Consensus, CRDT Lattice, Policy Amendment Engine
+[Organism]   sovereign-omega-v2 governance runtime (Gates 1–21)
 [FIELD]      AOIE + Claude + ChatGPT + Qwen + Drive corpus + operators
 ```
 
@@ -297,3 +297,67 @@ and the SITR/AOIE phase separation invariants proven in Layers H, I, and L.
 SHP.tla models the full 5-phase cycle (READ→ASSESS→LOCK→PROPAGATE→HARMONIZE) with
 the commitment boundary as the sole irreversible transition (INV-SHP-02).
 HarmonizeToRead resets `locked` and increments `sequence`, beginning a new frame.
+
+---
+
+## Layer O — HotStuff Ω Consensus Stub (Gate 19)
+
+**Epistemic Tier: T2 (engineering hypothesis — deterministic BFT stub)**
+
+Typed deterministic stub of the HotStuff BFT protocol (Yin et al. 2019).
+Validators vote on replay equivalence (matching `frame_hash`), not semantic truth.
+No network I/O — consensus is a pure function over vote sets.
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `src/consensus/types.ts` | T2 | 19 | ValidatorId, Vote, QuorumCertificate, ConsensusBlock, ValidatorSet |
+| `src/consensus/crypto.ts` | T2 | 19 | signVote/verifyVote — synchronous FNV-1a stub (Ed25519 seam) |
+| `src/consensus/quorum.ts` | T2 | 19 | validateValidatorSet (n≥3f+1), collectValidVotes, isQuorum, formQC |
+| `src/consensus/kernel.ts` | T2 | 19 | runConsensusRound() — pure (block, vs, votes) → ConsensusResult |
+
+Safety: threshold = 2f+1; invalid/duplicate/unknown-validator votes rejected; QC `deepFreeze`-d.
+
+Test count after Gate 19: **545 tests, 32 files**
+
+---
+
+## Layer P — CRDT Convergence Lattice (Gate 20)
+
+**Epistemic Tier: T2 (engineering hypothesis — monotonic merge)**
+
+Monotonic semilattice join operations for distributed state merge.
+All joins satisfy: commutativity, associativity, idempotency, monotonicity.
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `src/crdt/types.ts` | T2 | 20 | CRDTConflictError |
+| `src/crdt/sitr.ts` | T2 | 20 | joinSITRState() — max in escalation order; foldSITRStates(); sitrLeq() |
+| `src/crdt/verdict.ts` | T2 | 20 | joinVerdict() — most-restrictive wins; foldVerdicts(); verdictLeq() |
+| `src/crdt/ledger.ts` | T2 | 20 | joinLedgerEntries() — G-Set CRDT; CRDTConflictError on fork |
+
+Lattice bottoms: SITRState → 'STABLE'; ConstitutionalVerdict → 'PERMIT'; LedgerEntries → [].
+
+Test count after Gate 20: **570 tests, 33 files**
+
+---
+
+## Layer Q — Guardian Policy Runtime (Gate 21)
+
+**Epistemic Tier: T0 (constitutional enforcement extension)**
+
+Bounded policy amendment lifecycle with Guardian verdict gate.
+All amendments flow through E5 as constitutional events. The runtime NEVER modifies
+constitutional primitives directly — all changes are E5 events consumed by Phase 4.
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `src/constitutional/amendment.ts` | T0 | 21 | PolicyAmendment, AmendmentStatus, PolicyAmendmentError |
+| `src/constitutional/policy.ts` | T0 | 21 | PolicyAmendmentEngine — propose, recordVerdict, apply |
+
+Amendment invariants:
+- `apply()` requires `status === 'APPROVED'` (Guardian APPROVED verdict)
+- `apply()` requires `invariants_passed === true` (no regression)
+- amendment_id is deterministic: FNV-1a(target + delta + sequence)
+- All amendments are `deepFreeze`-d; engine uses immutable functional update
+
+Test count after Gate 21: **593 tests, 34 files**
