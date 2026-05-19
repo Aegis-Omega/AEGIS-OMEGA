@@ -490,3 +490,17 @@ Implements `ConstitutionalIdentity(T) = TopologyHash(T)`. A `GovernanceTopology`
 | `src/frame/topology.ts` | T0 | 29 | `GovernanceTopology`, `buildTopology()`, `computeTopologyHash()`, `topologiesConverge()`, `verifyTopology()` |
 
 Test count after Gate 29: **721 tests, 39 files**
+
+---
+
+## Layer Z — Replay Lineage Certifier (Gate 30)
+
+**Epistemic Tier: T0 (constitutional causal chain)**
+
+`TopologyLineage` is an append-only chain of `GovernanceTopology` snapshots where `entry[n].previous_topology_hash = entry[n-1].topology_hash`, anchored to `GENESIS_TOPOLOGY_HASH`. Provides the full causal history of constitutional state transitions. `certifyLineage()` re-derives every `lineage_hash` independently and verifies the hash chain — enabling a node joining mid-session to verify all prior epochs without trusting the peer's state.
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `src/frame/lineage.ts` | T0 | 30 | `TopologyLineage`, `buildLineageEntry()`, `certifyLineage()`, `computeLineageHash()`, `LineageCertificate` |
+
+Test count after Gate 30: **742 tests, 40 files**
