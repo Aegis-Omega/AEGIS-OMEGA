@@ -35,8 +35,9 @@ describe('constants', () => {
     expect(SWARM_SCHEMA_VERSION).toBe('1.0.0')
   })
 
-  it('DEFAULT_QUORUM_THRESHOLD is 0.67', () => {
-    expect(DEFAULT_QUORUM_THRESHOLD).toBe(0.67)
+  it('DEFAULT_QUORUM_THRESHOLD is 1/φ (golden ratio reciprocal ≈ 0.6180339887)', () => {
+    expect(DEFAULT_QUORUM_THRESHOLD).toBe((Math.sqrt(5) - 1) / 2)
+    expect(DEFAULT_QUORUM_THRESHOLD).toBeCloseTo(0.6180339887, 9)
   })
 })
 
@@ -103,11 +104,11 @@ describe('tallyVotes — quorum logic', () => {
     expect(result.vote_count).toBe(1)
   })
 
-  it('split (2 of 3) with default threshold → quorum_reached=false', async () => {
-    // 2/3 ≈ 0.6667 < 0.67 — just below quorum
+  it('split (2 of 3) with default threshold → quorum_reached=true', async () => {
+    // 2/3 ≈ 0.6667 >= 1/φ ≈ 0.6180 — clears the golden ratio threshold
     const votes = [vote('n1', HB), vote('n2', HB), vote('n3', HA)]
     const result = await tallyVotes(votes)
-    expect(result.quorum_reached).toBe(false)
+    expect(result.quorum_reached).toBe(true)
   })
 
   it('split (2 of 3) with custom threshold 0.60 → quorum_reached=true', async () => {

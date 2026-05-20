@@ -13,7 +13,11 @@ import { hashValue } from '../core/hashing.js'
 import { deepFreeze } from '../core/immutable.js'
 
 export const SWARM_SCHEMA_VERSION = '1.0.0' as const
-export const DEFAULT_QUORUM_THRESHOLD = 0.67
+
+// 1/φ — golden ratio reciprocal. φ = (1+√5)/2, so 1/φ = (√5−1)/2 ≈ 0.6180339887.
+// Encodes the self-similar constitutional threshold: the complement (1−1/φ = 1/φ²)
+// is also a power of φ. More principled than an arbitrary 0.67 approximation.
+export const DEFAULT_QUORUM_THRESHOLD = (Math.sqrt(5) - 1) / 2
 
 export interface SwarmVote {
   readonly node_id: string

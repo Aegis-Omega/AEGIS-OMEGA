@@ -1,7 +1,8 @@
 // ============================================================
 // Gate 58 — Swarm Convergence Adversarial
-// ~22 tests: tallyVotes at 100-vote scale, 67/33 exact-boundary
-//   quorum (0.67 ≥ 0.67 → true), 66/34 sub-threshold (false),
+// ~22 tests: tallyVotes at 100-vote scale. DEFAULT_QUORUM_THRESHOLD
+//   is 1/φ ≈ 0.6180339887 (golden ratio reciprocal).
+//   Boundary: 62/100 = 0.62 ≥ 1/φ → true; 61/100 = 0.61 < 1/φ → false.
 //   3-way split with known winner, tie-breaking (lex first hash),
 //   custom threshold, sequence mismatch, 10× concurrent
 //   determinism, convergence_hash sensitivity.
@@ -9,8 +10,8 @@
 // Gaps filled vs test/unit/swarm.test.ts:
 //   - 100-vote unanimous tally (vote_count=100)
 //   - 70/30 split → quorum_reached=true
-//   - Exact boundary: 67/100 = 0.67 ≥ threshold → true
-//   - Sub-threshold: 66/100 = 0.66 < threshold → false
+//   - Golden ratio boundary: 62/100 = 0.62 ≥ 1/φ → true
+//   - Sub-threshold: 61/100 = 0.61 < 1/φ → false
 //   - 3-way split: 50/30/20 → quorum_hash correct (max wins)
 //   - Tie 50/50: lexicographically first topology_hash wins
 //   - Custom threshold 0.5: 50/100 = exactly 0.5 → true
@@ -55,24 +56,24 @@ describe('Swarm: 100-vote scale tests', () => {
     expect(result.quorum_hash).toBe(HA)
   })
 
-  it('70/30 split → quorum_reached=true (0.70 ≥ 0.67)', async () => {
+  it('70/30 split → quorum_reached=true (0.70 ≥ 1/φ)', async () => {
     const result = await tallyVotes([...votes(70, HA), ...votes(30, HB)])
     expect(result.quorum_reached).toBe(true)
     expect(result.quorum_hash).toBe(HA)
     expect(result.vote_count).toBe(70)
   })
 
-  it('exact boundary: 67/100 = 0.67 ≥ threshold → quorum_reached=true', async () => {
-    const result = await tallyVotes([...votes(67, HA), ...votes(33, HB)])
+  it('golden ratio boundary: 62/100 = 0.62 ≥ 1/φ → quorum_reached=true', async () => {
+    const result = await tallyVotes([...votes(62, HA), ...votes(38, HB)])
     expect(result.quorum_reached).toBe(true)
-    expect(result.vote_count).toBe(67)
+    expect(result.vote_count).toBe(62)
     expect(result.quorum_hash).toBe(HA)
   })
 
-  it('sub-threshold: 66/100 = 0.66 < 0.67 → quorum_reached=false', async () => {
-    const result = await tallyVotes([...votes(66, HA), ...votes(34, HB)])
+  it('sub-threshold: 61/100 = 0.61 < 1/φ ≈ 0.618 → quorum_reached=false', async () => {
+    const result = await tallyVotes([...votes(61, HA), ...votes(39, HB)])
     expect(result.quorum_reached).toBe(false)
-    expect(result.vote_count).toBe(66)
+    expect(result.vote_count).toBe(61)
   })
 })
 
@@ -90,7 +91,7 @@ describe('Swarm: multi-hash scenarios', () => {
     const result = await tallyVotes([...votes(50, HA), ...votes(50, HB)])
     expect(result.quorum_hash).toBe(HA)
     expect(result.vote_count).toBe(50)
-    // 50/100 = 0.50 < 0.67 → quorum_reached=false (tie below threshold)
+    // 50/100 = 0.50 < 1/φ ≈ 0.618 → quorum_reached=false (tie below threshold)
     expect(result.quorum_reached).toBe(false)
   })
 
@@ -101,7 +102,7 @@ describe('Swarm: multi-hash scenarios', () => {
     // HA < HB < HC < HD → HA wins
     expect(result.quorum_hash).toBe(HA)
     expect(result.vote_count).toBe(25)
-    expect(result.quorum_reached).toBe(false)  // 25/100 = 0.25 < 0.67
+    expect(result.quorum_reached).toBe(false)  // 25/100 = 0.25 < 1/φ
   })
 })
 
@@ -142,7 +143,7 @@ describe('Swarm: error cases', () => {
     await expect(tallyVotes(mixed)).rejects.toThrow(SwarmError)
   })
 
-  it('single vote → quorum_reached=true (1/1 = 1.0 ≥ 0.67)', async () => {
+  it('single vote → quorum_reached=true (1/1 = 1.0 ≥ 1/φ)', async () => {
     const result = await tallyVotes([{ node_id: 'n0', topology_hash: HA, sequence: seq(5) }])
     expect(result.quorum_reached).toBe(true)
     expect(result.vote_count).toBe(1)
