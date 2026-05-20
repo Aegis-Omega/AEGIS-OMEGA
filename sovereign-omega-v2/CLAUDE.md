@@ -10,6 +10,8 @@ Architecture: FROZEN
 
 ## What This System Is
 
+Constitutional runtime stabilized. Replay sovereignty active. Martingale boundedness integrated. φ-governed convergence unified. Reduction-first governance enforced.
+
 Each component in AEGIS is simultaneously a whole and a part — an atomic-scale holon
 in a recursively nested hierarchy governed by invariant-preserving feedback loops.
 
@@ -120,6 +122,42 @@ Paperclip: company orchestration (paperclip/company.yaml + paperclip/agents/)
 Skills: /plugin marketplace add obra/superpowers then npx antigravity-awesome-skills --claude
 MCP: Google Drive (research corpus), Gmail, Google Calendar — configured in .mcp.json
 SAGA: Agent identity via saga/identity.py (SPIFFE/SVID — stub awaiting PKI integration)
+
+---
+
+## Authoritative Execution Core
+
+```
+/event-log      — append-only canonical source of state transitions
+/replay-engine  — authoritative truth; replay kernel
+/dfa-engine     — phase-locked deterministic execution
+/checkpoint-vm  — bounded capsule execution with entropy accounting
+```
+
+All remaining systems are subordinate orchestration infrastructure.
+
+---
+
+## Production Constitutional Status
+
+| Status | State |
+|--------|-------|
+| REPLAY SOVEREIGNTY | ACTIVE — `replay(genesis, events)` → identical topology hash across Linux/macOS/Docker/WASM/ARM/x86 |
+| MARTINGALE BOUNDEDNESS | ACTIVE — `E[S_{n+1}|F_n] = S_n`; suspension if `!is_anchored ∨ !drift_bounded ∨ !entropy_bounded` |
+| φ-CONVERGENCE | ACTIVE — `MUTATION_RATE_LIMIT = DEFAULT_QUORUM_THRESHOLD = (√5−1)/2 ≈ 0.6180` |
+| HOLONIC GOVERNANCE | ACTIVE — R→A→L→P→H; propagation legal only through replay-certified commit boundaries |
+| FIBONACCI PACING | ACTIVE — checkpoint spacing/branching only; NOT intelligence mysticism |
+| OWNERSHIP SOVEREIGNTY | ACTIVE — authority derives from replay legality, not permissions |
+| REDUCTION-FIRST | ACTIVE — expansion phase terminated; empirical justification required |
+| ECOLOGY BOUNDED | ACTIVE — adaptive/recursive/bounded/replay-governed; NOT sovereign AI |
+
+**Prohibited in all subsystems (T0_ABORT — no exception paths):**
+
+```
+hidden memory · unrestricted recursion · autonomous mutation authority · unverifiable adaptation
+replay divergence · topology non-determinism · unbounded ecology · privileged orchestration
+centralized sovereign intelligence
+```
 
 ---
 

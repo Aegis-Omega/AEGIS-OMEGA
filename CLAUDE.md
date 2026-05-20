@@ -20,8 +20,13 @@ A T0 violation at any scale propagates upward and invalidates everything above i
 /content-calendar/     Commercial product — content calendar ($19)
 /hub/                  Landing page connecting all 3 products
 /packages/shared/      Shared infrastructure (DashScope, useAsyncForm, components)
-/docs/                 Architecture diagram (Mermaid)
+/studio/               AEGIS Studio — constitutional observability (projection only, no authority)
+/docs/                 Architecture diagrams and governance specs
 ```
+
+Key specs: `sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md` (constitutional law) ·
+`studio/docs/STUDIO_SPECIFICATION.md` (projection spec) ·
+`sovereign-omega-v2/docs/SKILL_HARNESS_SPECIFICATION.md` (skill harness — Phase 1)
 
 ---
 
@@ -160,6 +165,32 @@ vercel --prod  # from within each product directory after Gate 8
 ```
 
 Gumroad: $19/product, $29 (any 2), $39 (all 3 — Full Creator AI Toolkit).
+
+---
+
+## Root Constitutional Law
+
+```
+AdaptivePower(T) ≤ ReplayVerifiability(T)
+```
+
+No adaptive capability may exceed replay-certifiable reconstructability.
+
+**Authoritative execution core:** `/event-log` · `/replay-engine` · `/dfa-engine` · `/checkpoint-vm`
+
+**Prohibited in all subsystems (T0_ABORT — no exception paths):**
+hidden memory · unrestricted recursion · autonomous mutation authority · unverifiable adaptation
+replay divergence · topology non-determinism · unbounded ecology · privileged orchestration · centralized sovereign intelligence
+
+**Martingale:** `E[S_{n+1}|F_n] = S_n` · suspension if `!is_anchored || !drift_bounded || !entropy_bounded`
+
+**Golden ratio:** `MUTATION_RATE_LIMIT = DEFAULT_QUORUM_THRESHOLD = (√5−1)/2 ≈ 0.6180339887`
+
+**Remaining hard problems (no abstraction supersedes them):**
+1. Cross-platform deterministic replay   4. Verifier scalability
+2. GPU nondeterminism                    5. Floating-point canonicalization
+3. Replay state explosion                6. Incremental proof certification
+                                         7. Distributed topology hash stability
 
 ---
 
