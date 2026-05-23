@@ -1,12 +1,15 @@
 #!/bin/bash
 set -e
-cd packages/shared && npm install && cd ..
-cd platform-picker && npm install && npm run build && cd ..
-cd hook-generator && npm install && npm run build && cd ..
-cd content-calendar && npm install && npm run build && cd ..
-cd hub && npm install && npm run build && cd ..
-mkdir -p dist
-cp -r hub/dist/. dist/
-mkdir -p dist/platform-picker && cp -r platform-picker/dist/. dist/platform-picker/
-mkdir -p dist/hook-generator && cp -r hook-generator/dist/. dist/hook-generator/
-mkdir -p dist/content-calendar && cp -r content-calendar/dist/. dist/content-calendar/
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+(cd "$ROOT/packages/shared"  && npm install)
+(cd "$ROOT/platform-picker"  && npm install && npm run build)
+(cd "$ROOT/hook-generator"   && npm install && npm run build)
+(cd "$ROOT/content-calendar" && npm install && npm run build)
+(cd "$ROOT/hub"              && npm install && npm run build)
+
+mkdir -p "$ROOT/dist"
+cp -r "$ROOT/hub/dist/."              "$ROOT/dist/"
+mkdir -p "$ROOT/dist/platform-picker"  && cp -r "$ROOT/platform-picker/dist/."  "$ROOT/dist/platform-picker/"
+mkdir -p "$ROOT/dist/hook-generator"   && cp -r "$ROOT/hook-generator/dist/."   "$ROOT/dist/hook-generator/"
+mkdir -p "$ROOT/dist/content-calendar" && cp -r "$ROOT/content-calendar/dist/." "$ROOT/dist/content-calendar/"

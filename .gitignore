@@ -49,3 +49,4 @@ content-calendar/dist/
 content-calendar/.env
 hub/dist/
 hub/.env
+dist/
