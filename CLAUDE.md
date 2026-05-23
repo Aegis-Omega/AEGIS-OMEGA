@@ -14,6 +14,7 @@ A T0 violation at any scale propagates upward and invalidates everything above i
 
 ```
 /sovereign-omega-v2/   Governance runtime (Layer A: TypeScript, Layer B: Python)
+/aegis-cl-psi/         CL-Ψ cognitive fabric — 6-phase Rust inference crate for AMD RX 570 (T2, EU AI Act-compliant)
 /cockpit/              AI chat UI with sovereign-omega telemetry integration
 /platform-picker/      Commercial product — platform recommendation ($19)
 /hook-generator/       Commercial product — viral hook generator ($19)

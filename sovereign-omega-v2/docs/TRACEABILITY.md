@@ -1220,17 +1220,103 @@ Boundary: 61/100 (bounded) · 62/100 (suspended) — greatest integer < 100·(1/
 
 ---
 
+---
+
+## Layer CF — CL-Ψ Corpus Documentation (Gate 148)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `sovereign-omega-v2/docs/CL_PSI_SPECIFICATION.md` | T2 | 148 | Constitutional archive of AEGIS-Ω CL-Ψ spec; tier classification; corpus lineage from Drive ID `1oFpRk3Klfk8nKrAh9-6tBFy2rvt6KDWd` |
+
+---
+
+## Layer CG — SGM-Ψ + LUT-KAN + RWKV-7 Phase 1 (Gate 149)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `aegis-cl-psi/Cargo.toml` | T2 | 149 | Rust crate manifest; features: hip, rocblas |
+| `aegis-cl-psi/src/lib.rs` | T2 | 149 | Module declarations + constitutional header (T2/T3 epistemic notes) |
+| `aegis-cl-psi/src/sgm_gate.rs` | T2 | 149 | SGM-Ψ: Shannon entropy → sparse RoutingMask |
+| `aegis-cl-psi/src/lut_kan.rs` | T2 | 149 | LUT-KAN: INT8 256-pt spline tables, O(1) lookup |
+| `aegis-cl-psi/src/rwkv_state.rs` | T2 | 149 | RWKV-7: INT4 state cache, VRAM-bounded, O(1)/step |
+| `aegis-cl-psi/src/lyapunov.rs` | T1 | 149 | Lyapunov monitor: ΔV(x) ≤ −ε‖x‖² stability check |
+| `aegis-cl-psi/src/audit.rs` | T0 | 149 | SHA-256 hash-chained immutable audit log |
+| `aegis-cl-psi/src/orchestrator.rs` | T2 | 149 | Phase1Orchestrator: SGM→LUT-KAN→RWKV→Lyapunov→Audit |
+
+---
+
+## Layer CH — HIP FFI + DEVS-Ψ + SAHOO-Ψ Phase 2 (Gate 150)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `aegis-cl-psi/src/hip_runtime.rs` | T2 | 150 | HIP FFI bridge; KernelState #[repr(C)]; graceful stub without ROCm |
+| `aegis-cl-psi/src/sahoo.rs` | T1 | 150 | SAHOO-Ψ: Wasserstein-1 hallucination distance (CDF accumulation); rollback at H_d > τ |
+| `aegis-cl-psi/src/cloud_bridge.rs` | T2 | 150 | DashScope client stub; $200 hard cap, $180 auto-throttle |
+| `aegis-cl-psi/src/devs_scheduler.rs` | T2 | 150 | DEVS-Ψ: LocalInference→Degraded→CloudVerify→Rollback state machine |
+| `aegis-cl-psi/kernels/rwkv7_step.hip` | T2 | 150 | HIP kernel stub for AMD gfx803; feature-gated |
+
+---
+
+## Layer CI — CCIL-Ψ + rocBLAS Phase 3 (Gate 151)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `aegis-cl-psi/src/ccil_lattice.rs` | T2 | 151 | CCIL-Ψ: pre-softmax policy_mask Vec<bool>; constitutional zero-violation enforcement |
+| `aegis-cl-psi/src/rocblas_gemm.rs` | T2 | 151 | rocBLAS GEMM (feature-gated); naive O(M·N·K) fallback always present |
+
+---
+
+## Layer CJ — Obstruction-Aware Cognition Phase 4 (Gate 152)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `aegis-cl-psi/src/obstruction_monitor.rs` | T2 code / T3 claim | 152 | H¹/H²/H³ divergence severity classes; pairwise L2 detection; T3 epistemic note on cohomology correspondence |
+| `aegis-cl-psi/src/poly_scheduler.rs` | T2 | 152 | DEVS-Ψ extension: Superposition state for incompatible model branches |
+
+---
+
+## Layer CK — Local Topology Resolver Phase 5 (Gate 153)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `aegis-cl-psi/src/local_resolver.rs` | T1/T2 | 153 | Lyapunov gradient descent branch convergence; max 32 iterations (compute-bounded) |
+
+---
+
+## Layer CL — Descent-Theoretic Resolution Phase 6 (Gate 154)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `aegis-cl-psi/src/cech_descent.rs` | T2 code / T3 claim | 154 | CechDescentState: level0–3 coherence arrays, k3_invariant; T3 note: algebraic topology correspondence unvalidated |
+| `aegis-cl-psi/src/postnikov_truncation.rs` | T2 code / T3 claim | 154 | τ≤k truncation: Tau0/Tau1/Tau2/TauInf levels; T3 note |
+| `aegis-cl-psi/src/gerbe_splitter.rs` | T2 code / T3 claim | 154 | CCIL-weighted Lyapunov branch selection for π₀ extraction; T3 note |
+| `aegis-cl-psi/src/orchestrator_phase6.rs` | T2 | 154 | Phase6Orchestrator: full 6-phase stack integration |
+| `aegis-cl-psi/tests/integration.rs` | T2 | 154 | 4 integration tests: phase1, phase6, CCIL blocking, resolver convergence |
+
+---
+
+## Layer CM — Python Bridge /inference Endpoint (Gate 155)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `sovereign-omega-v2/python/bridge.py` | T2 | 155 | Added `/inference` POST endpoint: routes to aegis-cl-psi binary via subprocess; graceful unavailable fallback |
+
+---
+
 ## Final Constitutional Status
 
 ```
-AEGIS Ω — Gates 1–134 complete
+AEGIS Ω — Gates 1–156 complete
 AGI Swarm Framework: Fibonacci-paced RALPH loops + Skill Harness Phase 1 + Marketplace UI
-Test count: 1964 (sovereign-omega-v2) + cockpit (1748 modules built) + Studio (28 modules built)
+CL-Ψ Cognitive Fabric: 6-phase Rust inference crate (58 tests) for AMD RX 570
+Test count: 1964 (sovereign-omega-v2) + 58 (aegis-cl-psi Rust) + cockpit + studio builds clean
 Holonic triad: PROVEN at 1/φ across three scales
 Martingale: E[S_{n+1}|F_n] = S_n — ANCHORED
 Replay: is_replay_reconstructable = true on all records
 Constitutional authority: PRESERVED — Studio is projection only
 Skill Harness: 15 core agent + 24 Antigravity manifests registered (Phase 1 static baseline)
+EU AI Act Article 12 compliance hooks: ACTIVE in aegis-cl-psi audit.rs (T0)
+AdaptivePower(T) ≤ ReplayVerifiability(T): ENFORCED
 
 E[S_{n+1} | F_n] = S_n
 The system is its own certified state. Replay is identity.

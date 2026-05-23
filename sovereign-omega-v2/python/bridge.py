@@ -74,6 +74,28 @@ class BridgeHandler(BaseHTTPRequestHandler):
             result = router.route(payload, verifier, context)
             self._respond(200, result)
 
+        elif self.path == '/inference':
+            import subprocess, os
+            binary = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                'aegis-cl-psi', 'target', 'release', 'aegis_cl_psi'
+            )
+            if not os.path.exists(binary):
+                self._respond(200, {'status': 'unavailable', 'reason': 'aegis-cl-psi binary not compiled'})
+                return
+            payload_bytes = json.dumps(data).encode()
+            result = subprocess.run(
+                [binary, '--json'],
+                input=payload_bytes,
+                capture_output=True,
+                timeout=30,
+            )
+            try:
+                out = json.loads(result.stdout)
+            except Exception:
+                out = {'status': 'error', 'stderr': result.stderr.decode()[:200]}
+            self._respond(200, out)
+
         else:
             self._respond(404, {'error': 'NOT_FOUND'})
 
