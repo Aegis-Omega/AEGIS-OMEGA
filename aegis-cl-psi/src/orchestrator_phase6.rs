@@ -38,6 +38,7 @@ pub struct Phase6Output {
     pub audit_hash: String,
 }
 
+#[allow(dead_code)]
 pub struct Phase6Orchestrator {
     sgm: SGMGate,
     kan: LUTKANRouter,

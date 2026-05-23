@@ -42,6 +42,11 @@ pub mod postnikov_truncation;
 pub mod gerbe_splitter;
 pub mod orchestrator_phase6;
 
+// Phase 7 — production hardening
+pub mod profiler;
+pub mod compliance;
+pub mod orchestrator_phase7;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;

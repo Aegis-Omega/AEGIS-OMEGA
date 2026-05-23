@@ -1295,6 +1295,26 @@ Boundary: 61/100 (bounded) · 62/100 (suspended) — greatest integer < 100·(1/
 
 ---
 
+## Layer CN — CL-Ψ Phase 7: Production Hardening (Gate 160)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `aegis-cl-psi/src/profiler.rs` | T2 | 160 | O(1) atomic VRAM/RAM telemetry; Lyapunov eviction counter; cache hit-rate metric |
+| `aegis-cl-psi/src/compliance.rs` | T0/T2 | 160 | SHA-256 audit chain verification (T0); risk-tier transition logging; EU AI Act oversight hook |
+| `aegis-cl-psi/src/orchestrator_phase7.rs` | T2 | 160 | ProductionOrchestrator: Phase 1–6 + profiling + compliance gating + graceful degradation |
+| `aegis-cl-psi/tests/phase7_load.rs` | T2 | 160 | 14 integration tests: bounds enforcement, eviction stress, audit chain integrity, throughput |
+| `aegis-cl-psi/deploy/Dockerfile` | T2 | 160 | Ubuntu 22.04 container; mounts /var/log/aegis audit volume |
+| `aegis-cl-psi/deploy/audit_schema.json` | T0 | 160 | EU AI Act Article 12 audit log JSON schema |
+| `aegis-cl-psi/.cargo/config.toml` | T2 | 160 | Feature matrix: native CPU; ROCm/HIP linker flags (commented template) |
+
+**Phase 7 compliance invariants:**
+- VRAM ≤ 5,500 MB / RAM ≤ 6,000 MB (conservative for 8GB AMD RX 570 system)
+- SHA-256 chain verified every 100 steps (non-blocking; graceful on file absence)
+- Lyapunov instability → eviction counter incremented + error returned to caller
+- Risk tier transitions (Limited→High→Critical→Degraded) logged with sequence number
+
+---
+
 ## Layer CM — Python Bridge /inference Endpoint (Gate 155)
 
 | Module | Tier | Gate | Role |
@@ -1308,7 +1328,7 @@ Boundary: 61/100 (bounded) · 62/100 (suspended) — greatest integer < 100·(1/
 ```
 AEGIS Ω — Gates 1–156 complete
 AGI Swarm Framework: Fibonacci-paced RALPH loops + Skill Harness Phase 1 + Marketplace UI
-CL-Ψ Cognitive Fabric: 6-phase Rust inference crate (58 tests) for AMD RX 570
+CL-Ψ Cognitive Fabric: 7-phase Rust inference crate (89 tests) for AMD RX 570
 Test count: 1964 (sovereign-omega-v2) + 58 (aegis-cl-psi Rust) + cockpit + studio builds clean
 Holonic triad: PROVEN at 1/φ across three scales
 Martingale: E[S_{n+1}|F_n] = S_n — ANCHORED
