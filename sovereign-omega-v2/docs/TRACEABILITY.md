@@ -1315,6 +1315,45 @@ Boundary: 61/100 (bounded) · 62/100 (suspended) — greatest integer < 100·(1/
 
 ---
 
+## Layer CN — Phase 7 Production Hardening — Rust (Gate 160)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `aegis-cl-psi/src/profiler.rs` | T2 | 160 | Resource profiler: VRAM/RAM bounds (5500/6000 MB), step/cache/eviction counters |
+| `aegis-cl-psi/src/compliance.rs` | T0 | 160 | EU AI Act Article 12 SHA-256 audit chain verifier; RiskTier state machine |
+| `aegis-cl-psi/src/orchestrator_phase7.rs` | T2 | 160 | ProductionOrchestrator: wraps Phase6, compliance manifest export, resource snapshot |
+| `aegis-cl-psi/tests/phase7_load.rs` | T2 | 160 | 14 integration tests: bounds, eviction stress, audit integrity, throughput |
+| `aegis-cl-psi/deploy/Dockerfile` | T2 | 160 | Multi-stage container for AMD RX 570 deployment |
+| `aegis-cl-psi/deploy/audit_schema.json` | T0 | 160 | EU AI Act Article 12 JSON schema for audit log entries |
+
+---
+
+## Layer CO — Skill Harness Phase 3: Inference Engine (Gate 161)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `sovereign-omega-v2/src/skill-harness/inference-engine.ts` | T2 | 161 | Beta posterior (α/β + Laplace prior), Wilson score 90% CI (z=1.645), batch evidence synthesis |
+| `sovereign-omega-v2/test/unit/skill-inference.test.ts` | T2 | 161 | 22 unit tests: schema version, empty batch, Beta posterior, Wilson CI, batch processing, determinism |
+
+---
+
+## Layer CP — Skill Harness Decay Engine (Gate 162)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `sovereign-omega-v2/src/skill-harness/decay.ts` | T2 | 162 | Exponential half-life decay (30-day), 7-day grace period, 0.9 penalty at failure_rate ≥ 0.5, recency decay (14-day half-life) |
+| `sovereign-omega-v2/test/unit/skill-decay.test.ts` | T2 | 162 | 15 unit tests: constants, grace period, beyond-grace decay, failure penalty, determinism, error handling |
+
+---
+
+## Layer CQ — Skill Harness Phase 3+Decay Integration (Gate 163)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `sovereign-omega-v2/test/integration/skill-inference-decay-composition.test.ts` | T2 | 163 | 8 integration tests: inference→decay pipeline, determinism ×3, RalphExecutor loop_hash→evidence_refs binding, confidence bounds [0,1] |
+
+---
+
 ## Layer CM — Python Bridge /inference Endpoint (Gate 155)
 
 | Module | Tier | Gate | Role |
@@ -1326,10 +1365,10 @@ Boundary: 61/100 (bounded) · 62/100 (suspended) — greatest integer < 100·(1/
 ## Final Constitutional Status
 
 ```
-AEGIS Ω — Gates 1–156 complete
-AGI Swarm Framework: Fibonacci-paced RALPH loops + Skill Harness Phase 1 + Marketplace UI
+AEGIS Ω — Gates 1–163 complete
+AGI Swarm Framework: Fibonacci-paced RALPH loops + Skill Harness Phase 1–3 + Marketplace UI
 CL-Ψ Cognitive Fabric: 7-phase Rust inference crate (89 tests) for AMD RX 570
-Test count: 1964 (sovereign-omega-v2) + 58 (aegis-cl-psi Rust) + cockpit + studio builds clean
+Test count: 2089 (sovereign-omega-v2) + 89 (aegis-cl-psi Rust) + cockpit + studio builds clean
 Holonic triad: PROVEN at 1/φ across three scales
 Martingale: E[S_{n+1}|F_n] = S_n — ANCHORED
 Replay: is_replay_reconstructable = true on all records
