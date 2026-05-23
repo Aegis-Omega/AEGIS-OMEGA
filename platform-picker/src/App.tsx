@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Sparkles, TrendingUp, Share2, Check } from 'lucide-react'
+import { Sparkles, TrendingUp, Share2, Check, ShieldCheck } from 'lucide-react'
 import { initAnalytics, trackEvent } from '@shared/lib/analytics'
-import { rankPlatforms, type MatcherInput } from './lib/matcher.js'
+import { rankPlatforms, type MatcherInput, type RankedResult } from './lib/matcher.js'
 import { ResultCard } from './components/ResultCard.js'
 import { RadarChart } from './components/RadarChart.js'
 import { useAsyncForm } from '@shared/hooks/useAsyncForm'
@@ -33,6 +33,22 @@ function buildShareText(results: PlatformRanking[], niche: string): string {
   return lines.join('\n')
 }
 
+function AuditBadge({ result }: { result: RankedResult }) {
+  const short = result.chain_hash.slice(0, 8)
+  return (
+    <div className="flex items-center gap-2 text-xs text-brand-muted border border-brand-border/50 rounded-lg px-3 py-2 bg-brand-surface/50 mt-4">
+      <ShieldCheck size={13} className="text-green-400 shrink-0" />
+      <span>
+        Constitutionally certified · audit #{result.session_calls} ·{' '}
+        <span className="font-mono text-green-400/80">{short}…</span>
+        {result.martingale_anchored && (
+          <span className="ml-1 text-green-400/60">· anchored</span>
+        )}
+      </span>
+    </div>
+  )
+}
+
 export default function App() {
   const [form, setForm] = useState<MatcherInput>(EMPTY)
   const [shared, setShared] = useState(false)
@@ -48,7 +64,7 @@ export default function App() {
   }, [state])
 
   const valid = Object.values(form).every(v => v.trim().length > 0)
-  const results: PlatformRanking[] = result ?? []
+  const rankings: PlatformRanking[] = result?.rankings ?? []
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -59,7 +75,7 @@ export default function App() {
   const reset = () => { setForm(EMPTY); resetAsync(); setShared(false) }
 
   const handleShare = async () => {
-    const text = buildShareText(results, form.niche)
+    const text = buildShareText(rankings, form.niche)
     await navigator.clipboard.writeText(text)
     setShared(true)
     setTimeout(() => setShared(false), 2000)
@@ -111,7 +127,7 @@ export default function App() {
           <LoadingSpinner message="Analysing your profile…" colorClass="text-brand-glow" />
         )}
 
-        {state === 'results' && (
+        {state === 'results' && result && (
           <div>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
@@ -129,11 +145,11 @@ export default function App() {
             </div>
 
             <div className="mb-6">
-              <RadarChart rankings={results} />
+              <RadarChart rankings={rankings} />
             </div>
 
             <div className="space-y-4">
-              {results.map((r, i) => (
+              {rankings.map((r, i) => (
                 <div
                   key={r.platform}
                   className="animate-fade-in"
@@ -144,9 +160,11 @@ export default function App() {
               ))}
             </div>
 
+            <AuditBadge result={result} />
+
             <button
               onClick={reset}
-              className="w-full mt-6 border border-brand-border text-brand-muted hover:border-brand-glow hover:text-brand-glow py-3 rounded-xl text-sm transition-colors"
+              className="w-full mt-4 border border-brand-border text-brand-muted hover:border-brand-glow hover:text-brand-glow py-3 rounded-xl text-sm transition-colors"
             >
               Try another profile
             </button>

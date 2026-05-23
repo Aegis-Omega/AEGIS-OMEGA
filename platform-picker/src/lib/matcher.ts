@@ -1,4 +1,5 @@
-import { callDashScope } from '@shared/lib/dashscope'
+import { callConstitutional } from '@shared/lib/constitutional-ai'
+export type { ConstitutionalResult } from '@shared/lib/constitutional-ai'
 
 const PLATFORMS = ['TikTok', 'YouTube Shorts', 'Instagram Reels', 'Snapchat Spotlight'] as const
 
@@ -40,7 +41,15 @@ export interface MatcherResponse {
   key_insight: string
 }
 
-export async function rankPlatforms(input: MatcherInput): Promise<PlatformRanking[]> {
+export interface RankedResult {
+  rankings: PlatformRanking[]
+  chain_hash: string
+  call_id: string
+  martingale_anchored: boolean
+  session_calls: number
+}
+
+export async function rankPlatforms(input: MatcherInput): Promise<RankedResult> {
   const userMessage = `
 Niche: ${input.niche}
 Content style: ${input.content_style}
@@ -50,13 +59,25 @@ Monetisation goal: ${input.monetisation_goal}
 Current following size: ${input.current_following}
 `.trim()
 
-  const parsed = await callDashScope<unknown>({ systemPrompt: SYSTEM_PROMPT, userMessage })
+  const constitutional = await callConstitutional<unknown>({ systemPrompt: SYSTEM_PROMPT, userMessage })
+  const parsed = constitutional.data
+
+  let rankings: PlatformRanking[]
   if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
     const obj = parsed as Record<string, unknown>
-    if (Array.isArray(obj['rankings'])) return obj['rankings'] as PlatformRanking[]
+    rankings = Array.isArray(obj['rankings']) ? obj['rankings'] as PlatformRanking[] : []
+  } else {
+    const arr: unknown[] = Array.isArray(parsed)
+      ? parsed
+      : ((parsed as Record<string, unknown[]>)[Object.keys(parsed as object)[0]] ?? [])
+    rankings = arr as PlatformRanking[]
   }
-  const arr: unknown[] = Array.isArray(parsed)
-    ? parsed
-    : ((parsed as Record<string, unknown[]>)[Object.keys(parsed as object)[0]] ?? [])
-  return arr as PlatformRanking[]
+
+  return {
+    rankings,
+    chain_hash: constitutional.audit.chain_hash,
+    call_id: constitutional.audit.call_id,
+    martingale_anchored: constitutional.martingale_anchored,
+    session_calls: constitutional.session_calls,
+  }
 }
