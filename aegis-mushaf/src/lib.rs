@@ -18,6 +18,7 @@
 //! - Tajweed DFA transitions are deterministic — no floating-point
 
 pub mod epistemic_firewall;
+pub mod nuqta_canvas;
 pub mod semantic_algebra;
 pub mod tajweed_dfa;
 pub mod tanzil_ledger;
