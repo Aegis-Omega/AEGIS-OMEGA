@@ -1,0 +1,41 @@
+name: Deploy to Vercel Production
+
+on:
+  push:
+    branches:
+      - claude/aegis-setup-FxTSQ
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy and wait
+        run: |
+          DEPLOY=$(curl -s -X POST \
+            "https://api.vercel.com/v13/deployments?teamId=team_R1tLynD1gTpyoY7nKpbtt7pF&forceNew=1" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "name": "myapp",
+              "gitSource": {
+                "type": "github",
+                "repoId": "1095915905",
+                "ref": "claude/aegis-setup-FxTSQ"
+              },
+              "target": "production"
+            }')
+
+          echo "$DEPLOY" | jq '{id: .id, url: .url, state: .readyState}'
+          echo "$DEPLOY" | jq -e '.error == null' || { echo "Deploy trigger failed"; exit 1; }
+
+          ID=$(echo "$DEPLOY" | jq -r '.id')
+
+          for i in $(seq 1 40); do
+            STATE=$(curl -s "https://api.vercel.com/v13/deployments/$ID" \
+              -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" | jq -r '.readyState')
+            echo "[$i] $STATE"
+            if [[ "$STATE" == "READY" ]];    then echo "Production deploy complete"; exit 0; fi
+            if [[ "$STATE" == "ERROR" || "$STATE" == "CANCELED" ]]; then echo "Deploy failed"; exit 1; fi
+            sleep 15
+          done
+          echo "Timed out"; exit 1
