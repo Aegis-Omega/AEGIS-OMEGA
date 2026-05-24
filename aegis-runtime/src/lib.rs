@@ -3,15 +3,18 @@
 //! EPISTEMIC TIER: T2 (engineering hypothesis)
 //! Constitutional root: AdaptivePower(T) ≤ ReplayVerifiability(T)
 //!
-//! # Seven Technical Pillars
+//! # Technical Pillars
 //!
-//! 1. `state_anchor`     — Root cryptographic state anchor (SHA-256 hash-chained ledger)
-//! 2. `domain_firewall`  — Strict domain-isolated memory sandbox (OpaqueSegmentKey)
-//! 3. `affine_canvas`    — Deterministic affine multi-agent coordinate space
-//! 4. `semantic_graph`   — Hierarchical sparse-matrix semantic knowledge graph
-//! 5. `validation_dfa`   — Syntactic validation DFA (compile-time state table)
-//! 6. `gossip_emitter`   — Zero-copy UDP scatter-gather gossip protocol
-//! 7. `hysteresis`       — Non-linear hysteresis peer reputation filter
+//! 1. `genesis_ledger`    — T0 immutable ledger with continuous integrity verification
+//! 2. `domain_boundary`   — Epistemic firewall enforcing D₀ → D₁ unidirectional access
+//! 3. `telemetry_emitter` — Zero-allocation UDP telemetry for swarm observability
+//! 4. `state_anchor`      — Root cryptographic state anchor (SHA-256 hash-chained ledger)
+//! 5. `domain_firewall`   — Strict domain-isolated memory sandbox (OpaqueSegmentKey)
+//! 6. `affine_canvas`     — Deterministic affine multi-agent coordinate space
+//! 7. `semantic_graph`    — Hierarchical sparse-matrix semantic knowledge graph
+//! 8. `validation_dfa`    — Syntactic validation DFA (compile-time state table)
+//! 9. `gossip_emitter`    — Zero-copy UDP scatter-gather gossip protocol
+//! 10. `hysteresis`       — Non-linear hysteresis peer reputation filter
 //!
 //! # Constitutional Invariants
 //! - BTreeMap throughout — no HashMap; deterministic iteration order enforced
@@ -19,6 +22,9 @@
 //! - No wall-clock time in determinism-critical paths — sequence numbers drive cadence
 //! - active_violations == 0 required for T0 pass (mirrors corruption_count)
 
+pub mod domain_boundary;
+pub mod genesis_ledger;
+pub mod telemetry_emitter;
 pub mod affine_canvas;
 pub mod domain_firewall;
 pub mod gossip_emitter;

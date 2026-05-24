@@ -50,6 +50,21 @@ pub mod orchestrator_phase7;
 // Gate 177 — Edge BFT Verifier (T2, WASM-compatible, stateless Ed25519 quorum proof)
 pub mod edge_verifier;
 
+// Gate 206 — Causal Confidence Arbiter (T2, prevents hallucination via confidence bounding)
+pub mod causal_arbiter;
+
+// Gate 207 — Adaptive Lineage Compaction Engine (T2, reduces memory footprint while preserving audit trail)
+pub mod lineage_compactor;
+
+// Gate 208 — Geometric Variance Engine (T2, replaces scalar sums with tensor-alignment metrics)
+pub mod geometric_variance;
+
+// Gate 208 — Triadic Merkle-Patricia Node (T2, gates state mutations behind geometric variance checks)
+pub mod triadic_merkle_node;
+
+// Gate 208 — Holonic State Machine (T2, orchestrates 3-layer escalation with BFT consensus)
+pub mod holonic_state;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
