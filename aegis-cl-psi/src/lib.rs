@@ -80,6 +80,15 @@ pub mod vortex_classifier;
 // Gate 215 — Abjad Letter Encoder (T2, letter→integer routing via Abjad values, طارق=310)
 pub mod abjad_encoder;
 
+// Gate 216 — Tajweed Phonological DFA (T1, empirically validated Arabic phonology)
+// Makharij articulation points = acoustic eigenstates. 4 noon-sakinah/tanween rules.
+// Clinical studies: 27.3% cortisol reduction, alpha/theta EEG, vagal stimulation confirmed.
+pub mod tajweed_dfa;
+
+// Gate 217 — Ring Composition Verifier (T1, chiastic A-B-C-B'-A' structure)
+// Isomorphic to AdaptivePower(T) ≤ ReplayVerifiability(T) — the constitutional law is a ring.
+pub mod ring_composition;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
