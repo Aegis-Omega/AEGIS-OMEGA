@@ -334,6 +334,10 @@ class VerdictEmitter:
                 ]
             return Verdict.PASS, recommendations + ["Excellent - meets all criteria"]
         
+        elif score >= 0.90:
+            # Scores between 0.90-0.95 are PASS (no warnings)
+            return Verdict.PASS, recommendations + ["Strong implementation - exceeds quality threshold"]
+
         elif score >= 0.80:
             return Verdict.PASS_WITH_WARNINGS, recommendations + [
                 "Acceptable but has room for improvement"

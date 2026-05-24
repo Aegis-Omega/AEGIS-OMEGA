@@ -1,26 +1,40 @@
-```rust
 # Dependencies
-target/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.coverage
+coverage/
+htmlcov/
 
-# Logs and temp files
+# Build and distribution
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Logs
 *.log
 
-# Environment
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Environment files
 .env
 .env.local
 *.env.*
-
-# Editors
-.vscode/
-.idea/
-
-# Rust-specific
-Cargo.lock
-**/*.rs.bk
-```
-
-Wait, let me reconsider. Looking at the added files, there are Rust files in an `eccf` directory with a `Cargo.toml`, but the current .gitignore is empty and there are no build artifacts in the change list. The only files being added are source files (.py, .rs, .toml, .md). Since there are no compiled artifacts, dependency directories, or temporary files in the changes, and the source files themselves shouldn't be ignored, I should output nothing.
-
-```rust
-
-```
