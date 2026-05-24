@@ -1458,16 +1458,34 @@ Boundary: 61/100 (bounded) · 62/100 (suspended) — greatest integer < 100·(1/
 
 ---
 
+## Layer CT — Edge BFT Verifier (Gate 177)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `aegis-cl-psi/src/edge_verifier.rs` | T2 | 177 | Stateless Ed25519 BFT quorum verifier. 1/φ integer threshold (618_034/1_000_000). BTreeMap registry for deterministic iteration. WASM-compatible (no disk/sockets). Constitutional translation of Gemini Doc 6+7 T2 core. Rejects: FlatBuffers, 108-node assumption, A-ID Registry, SlidingWindowConsensus. |
+
+---
+
+## Layer CS — Synthesis+HGT+Corpus Composition Proof (Gate 175)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `test/integration/synthesis-hgt-corpus-composition.test.ts` | T2 | 175 | 19-test composition proof: runSynthesisSwarm → SkillCatalog, processRepoFiles → buildHGTRecord, visitSections → processDocument. All three paradigm additions (Gates 172–174) compose correctly. synthesis_hash + hgt_hash + corpus_lineage_hash all deterministic ×3. T4/T5 rejected at ARBITRATION. |
+
+---
+
 ## Final Constitutional Status
 
 ```
-AEGIS Ω — Gates 1–174 complete
+AEGIS Ω — Gates 1–179 complete
 AGI Swarm Framework: Fibonacci-paced RALPH loops + Skill Harness Phase 1–6 + Marketplace UI
-CL-Ψ Cognitive Fabric: 7-phase Rust inference crate (89 tests) for AMD RX 570
+CL-Ψ Cognitive Fabric: 7-phase Rust inference crate + Edge BFT Verifier for AMD RX 570
 BFT Synthesis Swarm: three-agent game-theoretic code generation at 1/φ convergence threshold
 HGT Scanner: cross-repo constitutional skill ingestion from upstream GitHub repos
 Depth-Bounded Corpus Processing: MAX_SECTION_DEPTH=8, no unbounded recursion in RALPH pipeline
-Test count: 2270 (sovereign-omega-v2) + 89 (aegis-cl-psi Rust) + all 7 products build clean
+Composition Proof: synthesis+HGT+corpus interoperate across paradigms (Gate 175)
+Edge Verifier: stateless Ed25519 quorum proof at 1/φ integer threshold (Gate 177, T2)
+Test count: 2289 (sovereign-omega-v2) + 100 (aegis-cl-psi Rust) + all 7 products build clean
 Holonic triad: PROVEN at 1/φ across three scales
 Martingale: E[S_{n+1}|F_n] = S_n — ANCHORED
 Replay: is_replay_reconstructable = true on all records

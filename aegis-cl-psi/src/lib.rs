@@ -47,6 +47,9 @@ pub mod profiler;
 pub mod compliance;
 pub mod orchestrator_phase7;
 
+// Gate 177 — Edge BFT Verifier (T2, WASM-compatible, stateless Ed25519 quorum proof)
+pub mod edge_verifier;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
