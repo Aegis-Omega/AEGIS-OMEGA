@@ -52,5 +52,3 @@ hub/.env
 
 # Rust build artifacts
 crates/*/target/
-aegis-cl-psi/target/
-aegis-runtime/target/
