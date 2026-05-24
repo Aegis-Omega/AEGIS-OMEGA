@@ -1458,6 +1458,14 @@ Boundary: 61/100 (bounded) · 62/100 (suspended) — greatest integer < 100·(1/
 
 ---
 
+## Layer DI — Memory Fabric Holonic Composition (Gate 195)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `test/integration/memory-fabric-composition.test.ts` | T2 | 195 | 11-test holonic composition proof across all four memory-fabric layers. **Scenario 1 — Slab ↔ Multiverse**: `SlabAllocator.totalAllocated` tracks `MultiverseRegistry.universeCount`; releasing sealed-universe chunks after `collapseMultiverse()` leaves exactly 1; slab `chunk_size_bytes` reflects tier. **Scenario 2 — Grace ↔ Multiverse**: `GraceSupervisor` intercepts `ECOLOGY_OVERFLOW` at the 9th fork; pre-fault registry retained at `MAX_UNIVERSES`; `SlabAllocator` count never exceeds `MAX_UNIVERSES` when grace fires; two sequential faults chain correctly in `GraceCertificate`. **Scenario 3 — ForkTree ↔ Collapse**: `tree.sealed_count = record.total_collapsed`; `tree_hash` changes after adding second-epoch fork from canonical; ancestry chain preserved across epoch boundary (canonical → branch-A). **Scenario 4 — Full pipeline**: fork→allocate→evolve→converge→collapse→ForkTree→grace on all four layers simultaneously; `graceEventCount=0` on clean run; `total_allocated=1` after sealing losers; `node_count=3 / collapse_count=1 / sealed_count=total_collapsed`; post-collapse registry has only `canonical`; all four `allocator_hash / tree_hash / grace_chain_hash` are 64-char hex; full pipeline deterministic ×3 (parallel). |
+
+---
+
 ## Layer DH — SlabAllocator: Multi-Tiered Epoch-Based Slab Allocator (Gate 194)
 
 | Module | Tier | Gate | Role |
@@ -1599,7 +1607,7 @@ Boundary: 61/100 (bounded) · 62/100 (suspended) — greatest integer < 100·(1/
 ## Final Constitutional Status
 
 ```
-AEGIS Ω — Gates 1–194 complete
+AEGIS Ω — Gates 1–195 complete
 AGI Swarm Framework: Fibonacci-paced RALPH loops + Skill Harness Phase 1–6 + Marketplace UI
 CL-Ψ Cognitive Fabric: 7-phase Rust inference crate + Edge BFT Verifier for AMD RX 570
 BFT Synthesis Swarm: three-agent game-theoretic code generation at 1/φ convergence threshold
@@ -1621,7 +1629,8 @@ Collapse protocol: fork→evolve→converge→collapse→re-fork lifecycle compl
 ForkTree: DAG of universe genealogy across epoch boundaries; tree_hash commits full causal lineage in one 64-char digest
 GraceSupervisor: self-healing Grace Loop — fault isolation, state reversion, GraceEvent audit chain, GraceCertificate
 SlabAllocator: 4-tier epoch slab allocator; 64-bit bigint bitmaps; decommission at F_6 epochs; MAX_SLABS_PER_TIER=8
-Test count: 2563 (sovereign-omega-v2) + 121 (aegis-cl-psi Rust) + all 7 products build clean
+Memory fabric composition: GraceSupervisor+SlabAllocator+ForkTree+MultiverseRegistry proven consistent in full pipeline
+Test count: 2574 (sovereign-omega-v2) + 121 (aegis-cl-psi Rust) + all 7 products build clean
 Holonic triad: PROVEN at 1/φ across three scales
 Martingale: E[S_{n+1}|F_n] = S_n — ANCHORED
 Replay: is_replay_reconstructable = true on all records
