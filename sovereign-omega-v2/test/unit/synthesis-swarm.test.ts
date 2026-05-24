@@ -142,7 +142,11 @@ describe('SynthesisSwarm — AST convergence analysis', () => {
 
   it('shared_patterns is subset of known bool fields', async () => {
     const record = await runSynthesisSwarm(BASE_REQ, mockAgent())
-    const validFields = new Set(['has_error_handling','has_async','has_type_annotations','uses_immutability','uses_hashing'])
+    const validFields = new Set([
+      'has_error_handling', 'has_async', 'has_type_annotations',
+      'uses_immutability', 'uses_hashing',
+      'has_early_return', 'has_loop', 'has_destructuring',
+    ])
     for (const p of record.convergence.shared_patterns) {
       expect(validFields.has(p)).toBe(true)
     }
@@ -214,5 +218,104 @@ describe('SynthesisSwarm — constitutional invariants', () => {
     expect(record.alpha_proposal.backend).toBe('mock')
     expect(record.beta_adversarial.backend).toBe('mock')
     expect(record.gamma_verdict_raw.backend).toBe('mock')
+  })
+})
+
+describe('SynthesisSwarm — false-deadlock prevention (AST normalizer)', () => {
+  // Guard clause and nested conditional are semantically equivalent.
+  // Both express: "if input is invalid, throw early".
+  // Before the normalizer these differed in function_count, causing false DEADLOCKs.
+  it('guard clause ≡ nested conditional → COMMITTED (not false DEADLOCK)', async () => {
+    const guardClause = `export async function solve(input: readonly string[]): Promise<string> {
+  if (!input.length) throw new Error('empty input')
+  const hash = await hashValue({ input })
+  return hash
+}`
+    const nestedConditional = `export async function solve(input: readonly string[]): Promise<string> {
+  if (input.length > 0) {
+    const hash = await hashValue({ input })
+    return hash
+  } else {
+    throw new Error('empty input')
+  }
+}`
+    const agent = mockAgent({
+      alpha: guardClause,
+      beta: nestedConditional,
+      gamma: '{"verdict":"COMMITTED","violations":[],"rationale":"Both implement identical guard"}',
+    })
+    const record = await runSynthesisSwarm(BASE_REQ, agent)
+    // Both patterns: has_error_handling=true, has_async=true, has_type_annotations=true,
+    // uses_immutability=true, uses_hashing=true, has_early_return=true, has_loop=false
+    // Semantic similarity must be >= 1/φ → COMMITTED, not false DEADLOCK
+    expect(record.verdict).toBe('COMMITTED')
+    expect(record.convergence.converged).toBe(true)
+  })
+
+  it('comment-only difference does not affect fingerprint', async () => {
+    const withComments = `// Solves the hashing task with full type safety
+export async function solve(input: readonly string[]): Promise<string> {
+  // Guard: reject empty input immediately
+  if (!input.length) throw new Error('empty input')
+  const hash = await hashValue({ input }) // deterministic hash
+  return hash
+}`
+    const withoutComments = `export async function solve(input: readonly string[]): Promise<string> {
+  if (!input.length) throw new Error('empty input')
+  const hash = await hashValue({ input })
+  return hash
+}`
+    const agent = mockAgent({
+      alpha: withComments,
+      beta: withoutComments,
+      gamma: '{"verdict":"COMMITTED","violations":[],"rationale":"Identical logic"}',
+    })
+    const record = await runSynthesisSwarm(BASE_REQ, agent)
+    expect(record.verdict).toBe('COMMITTED')
+    expect(record.convergence.structural_similarity).toBeGreaterThanOrEqual(0.9)
+  })
+
+  it('fingerprint includes has_early_return and has_loop fields', async () => {
+    const record = await runSynthesisSwarm(BASE_REQ, mockAgent())
+    expect('has_early_return' in record.convergence.alpha_fingerprint).toBe(true)
+    expect('has_loop' in record.convergence.alpha_fingerprint).toBe(true)
+    expect('has_destructuring' in record.convergence.alpha_fingerprint).toBe(true)
+  })
+
+  it('loop-bearing code detected correctly', async () => {
+    const loopCode = `export async function processAll(items: readonly string[]): Promise<string[]> {
+  const results: string[] = []
+  for (const item of items) {
+    results.push(await hashValue({ item }))
+  }
+  return results
+}`
+    const agent = mockAgent({ alpha: loopCode, beta: loopCode })
+    const record = await runSynthesisSwarm(BASE_REQ, agent)
+    expect(record.convergence.alpha_fingerprint.has_loop).toBe(true)
+    expect(record.convergence.beta_fingerprint.has_loop).toBe(true)
+    expect(record.convergence.structural_similarity).toBeGreaterThanOrEqual(0.9)
+  })
+
+  it('semantic weights: high bool agreement compensates count divergence', async () => {
+    // Alpha: 1 export, Beta: 0 exports — counts differ but semantics agree
+    const alphaCode = `export async function solve(input: readonly string[]): Promise<string> {
+  if (!input.length) throw new Error('empty')
+  return await hashValue({ input })
+}`
+    const betaCode = `async function solve(input: readonly string[]): Promise<string> {
+  if (!input.length) throw new Error('empty')
+  return await hashValue({ input })
+}`
+    const agent = mockAgent({
+      alpha: alphaCode,
+      beta: betaCode,
+      gamma: '{"verdict":"COMMITTED","violations":[],"rationale":"identical semantics"}',
+    })
+    const record = await runSynthesisSwarm(BASE_REQ, agent)
+    // Bool features all agree (8/8), numeric differs on export_count
+    // With 0.75 weight on booleans: similarity = 0.75 + ~0.17 = ~0.92 → COMMITTED
+    expect(record.convergence.converged).toBe(true)
+    expect(record.verdict).toBe('COMMITTED')
   })
 })

@@ -24,6 +24,15 @@
 import { hashValue } from '../core/hashing.js'
 import { deepFreeze } from '../core/immutable.js'
 import type { SHA256Hex, SequenceNumber } from '../core/types.js'
+import {
+  stripComments,
+  hasEarlyReturn,
+  hasLoop,
+  hasDestructuring,
+  semanticFunctionCount,
+  normalizedExportCount,
+  normalizedInterfaceCount,
+} from './ast-normalizer.js'
 
 export const SYNTHESIS_SCHEMA_VERSION = '1.0.0' as const
 
@@ -48,15 +57,22 @@ export interface AgentProposal {
   readonly latency_ms: number
 }
 
-// AST-level structural fingerprint — backend-agnostic pattern extraction
+// AST-level structural fingerprint — normalizer-backed semantic feature extraction.
+// 8 boolean features (semantic intent) + 3 normalized counts (structural shape).
+// Comments stripped before analysis to prevent false regex matches.
 export interface StructuralFingerprint {
-  readonly has_error_handling: boolean
-  readonly has_async: boolean
-  readonly has_type_annotations: boolean
+  // Semantic intent features (weight: 0.75 in convergence formula)
+  readonly has_error_handling: boolean   // try/catch, throw — any error boundary
+  readonly has_async: boolean            // async/await — asynchronous execution
+  readonly has_type_annotations: boolean // TypeScript type constraints
   readonly uses_immutability: boolean    // const, readonly, Object.freeze
   readonly uses_hashing: boolean         // SHA-256, hashValue references
-  readonly export_count: number          // number of exports
-  readonly function_count: number        // function/arrow function definitions
+  readonly has_early_return: boolean     // guard clause or early exit pattern
+  readonly has_loop: boolean             // iterative computation
+  readonly has_destructuring: boolean    // destructuring assignment
+  // Normalized structural counts (weight: 0.25 in convergence formula)
+  readonly export_count: number          // semantic: named exports only
+  readonly function_count: number        // semantic: named function definitions only
   readonly interface_count: number       // interface/type definitions
   readonly fingerprint_hash: SHA256Hex
 }
@@ -88,27 +104,38 @@ export class SynthesisError extends Error {
   override readonly name = 'SynthesisError'
 }
 
-// ── Structural fingerprinting — no AST parser needed ─────────────────────────
+// ── Structural fingerprinting — normalizer-backed semantic analysis ───────────
 
 async function fingerprint(code: string): Promise<StructuralFingerprint> {
-  const has_error_handling   = /try\s*\{|catch\s*\(|\.catch\(|throw\s+new/.test(code)
-  const has_async            = /async\s+function|async\s+\(|await\s+/.test(code)
-  const has_type_annotations = /:\s*(string|number|boolean|void|Promise|readonly|SHA256|Sequence)/.test(code)
-  const uses_immutability    = /\bconst\b|readonly|Object\.freeze|deepFreeze/.test(code)
-  const uses_hashing         = /hashValue|sha256|SHA.256|crypto\.subtle/.test(code)
-  const export_count    = (code.match(/\bexport\b/g) ?? []).length
-  const function_count  = (code.match(/\bfunction\b|=>\s*\{|=>\s*[^{]/g) ?? []).length
-  const interface_count = (code.match(/\binterface\b|\btype\b\s+\w+\s*=/g) ?? []).length
+  // All raw pattern detection runs on comment-stripped code to prevent
+  // false positive matches (e.g. commented-out `throw` triggering has_error_handling).
+  const normalized = stripComments(code)
+
+  const has_error_handling   = /try\s*\{|catch\s*\(|\.catch\s*\(|throw\s+new/.test(normalized)
+  const has_async            = /async\s+function|async\s+\(|await\s+/.test(normalized)
+  const has_type_annotations = /:\s*(string|number|boolean|void|Promise|readonly|SHA256|Sequence)/.test(normalized)
+  const uses_immutability    = /\bconst\b|readonly|Object\.freeze|deepFreeze/.test(normalized)
+  const uses_hashing         = /hashValue|sha256|SHA.256|crypto\.subtle/.test(normalized)
+  // Semantic features — invariant over guard-clause vs nested-conditional form
+  const has_early_return  = hasEarlyReturn(normalized)
+  const has_loop          = hasLoop(normalized)
+  const has_destructuring = hasDestructuring(normalized)
+  // Semantic counts — exclude inline lambdas/callbacks to reduce syntactic noise
+  const export_count    = normalizedExportCount(normalized)
+  const function_count  = semanticFunctionCount(normalized)
+  const interface_count = normalizedInterfaceCount(normalized)
 
   const fingerprint_hash = await hashValue({
     has_error_handling, has_async, has_type_annotations,
     uses_immutability, uses_hashing,
+    has_early_return, has_loop, has_destructuring,
     export_count, function_count, interface_count,
   }) as SHA256Hex
 
   return Object.freeze({
     has_error_handling, has_async, has_type_annotations,
     uses_immutability, uses_hashing,
+    has_early_return, has_loop, has_destructuring,
     export_count, function_count, interface_count,
     fingerprint_hash,
   })
@@ -118,9 +145,12 @@ function analyzeConvergence(
   alpha: StructuralFingerprint,
   beta: StructuralFingerprint,
 ): Omit<ConvergenceAnalysis, 'alpha_fingerprint' | 'beta_fingerprint'> {
+  // 8 semantic boolean fields — capture INTENT, invariant over syntactic form.
+  // Weight 0.75: semantic agreement dominates convergence decision.
   const boolFields = [
     'has_error_handling', 'has_async', 'has_type_annotations',
     'uses_immutability', 'uses_hashing',
+    'has_early_return', 'has_loop', 'has_destructuring',
   ] as const
 
   const shared: string[] = []
@@ -131,14 +161,15 @@ function analyzeConvergence(
     else divergent.push(field)
   }
 
-  // Numeric similarity: normalized distance on count fields
+  // Numeric similarity: normalized distance on semantic count fields.
+  // Weight 0.25: structural shape is secondary to semantic intent.
   const exportSim  = 1 - Math.min(Math.abs(alpha.export_count  - beta.export_count)  / Math.max(alpha.export_count,  beta.export_count,  1), 1)
   const fnSim      = 1 - Math.min(Math.abs(alpha.function_count - beta.function_count) / Math.max(alpha.function_count, beta.function_count, 1), 1)
   const ifaceSim   = 1 - Math.min(Math.abs(alpha.interface_count - beta.interface_count) / Math.max(alpha.interface_count, beta.interface_count, 1), 1)
 
   const structural_similarity = (
-    (shared.length / boolFields.length) * 0.6 +
-    (exportSim + fnSim + ifaceSim) / 3 * 0.4
+    (shared.length / boolFields.length) * 0.75 +
+    (exportSim + fnSim + ifaceSim) / 3 * 0.25
   )
 
   return {
