@@ -1458,6 +1458,15 @@ Boundary: 61/100 (bounded) · 62/100 (suspended) — greatest integer < 100·(1/
 
 ---
 
+## Layer DJ — ZeroCopyChannel: Zero-Copy Inter-Fiber Communication (Gate 196)
+
+| Module | Tier | Gate | Role |
+|--------|------|------|------|
+| `src/memory/zero-copy-channel.ts` | T2 | 196 | `ZeroCopyChannel` — zero-copy inter-fiber message passing via `SlabChunkHandle`. Constitutional translation of the Dual-Viewport Zero-Copy IMC spec. Only `SlabChunkHandle` (slab_id + chunk_index + handle_hash — a few integers + SHA-256) crosses the channel boundary; actual payload bytes never move. Message lifecycle: `send(handle, sequence)` → `receive(message_id)` (marks `is_claimed=true`, payload stays in slab) → `release(message_id)` (removed from pending). Guards: duplicate-handle guard in `send()` (same `handle_hash` in flight throws `ChannelError`); claim-before-release guard in `release()`. `autoRelease(universe_id, sequence)` removes all in-flight messages where `producer_id === universe_id || consumer_id === universe_id` — GraceSupervisor crash hook. `certify(sequence)` produces frozen `ChannelCertificate` with `channel_hash = hashValue(producer_id, consumer_id, sorted message_hashes, total_sent, sequence)`. Internal state: `ReadonlyMap<SHA256Hex, ChannelMessage>` + `#total_sent: number`. `message_id = hashValue({producer_id, consumer_id, handle_hash, sequence})`; `message_hash = hashValue({message_id, handle_hash, sequence})`. Immutable pattern throughout — every operation returns a new `ZeroCopyChannel` instance. Constitutional mapping: `primitive_mapping: HASH` (message_hash chains every payload transfer); `replay_mapping: PROPAGATE` (channel transfers are E5 propagation, no LOCK authority); `topology_mapping: CONSENSUS` (channel connects producer_id ↔ consumer_id, two universes). |
+| `test/unit/zero-copy-channel.test.ts` | T2 | 196 | 30 tests: `CHANNEL_SCHEMA_VERSION=1.0.0`; `ChannelError` is Error subclass; `create()` pendingCount=0 totalSent=0; `getMessages()` empty initially; `send()` frozen message / correct fields / `message_id` 64-char hex / `message_hash` 64-char hex / pendingCount=1 totalSent=1 after send / immutable (original unchanged) / deterministic ×3 / different sequences→different `message_id`s / duplicate handle throws `ChannelError` / zero-copy: `handle_hash + slab_id + chunk_index` preserved; `receive()` marks `is_claimed=true` / pendingCount stays 1 (message pending until release) / unknown `message_id` throws / already-claimed throws; `release()` removes from pending (pendingCount=0) / `totalSent` preserved at 1 / unclaimed throws / unknown throws; full lifecycle (2 sends→2 receives→2 releases, pendingCount=0 totalSent=2); `autoRelease()` removes all messages involving crashed universe / `released_count=0` when no match / idempotent (second call finds nothing); `certify()` frozen `ChannelCertificate` / `channel_hash` 64-char hex / fields reflect channel state / deterministic ×3 / different pending states→different `channel_hash`es. |
+
+---
+
 ## Layer DI — Memory Fabric Holonic Composition (Gate 195)
 
 | Module | Tier | Gate | Role |
@@ -1607,7 +1616,7 @@ Boundary: 61/100 (bounded) · 62/100 (suspended) — greatest integer < 100·(1/
 ## Final Constitutional Status
 
 ```
-AEGIS Ω — Gates 1–195 complete
+AEGIS Ω — Gates 1–196 complete
 AGI Swarm Framework: Fibonacci-paced RALPH loops + Skill Harness Phase 1–6 + Marketplace UI
 CL-Ψ Cognitive Fabric: 7-phase Rust inference crate + Edge BFT Verifier for AMD RX 570
 BFT Synthesis Swarm: three-agent game-theoretic code generation at 1/φ convergence threshold
@@ -1630,7 +1639,8 @@ ForkTree: DAG of universe genealogy across epoch boundaries; tree_hash commits f
 GraceSupervisor: self-healing Grace Loop — fault isolation, state reversion, GraceEvent audit chain, GraceCertificate
 SlabAllocator: 4-tier epoch slab allocator; 64-bit bigint bitmaps; decommission at F_6 epochs; MAX_SLABS_PER_TIER=8
 Memory fabric composition: GraceSupervisor+SlabAllocator+ForkTree+MultiverseRegistry proven consistent in full pipeline
-Test count: 2574 (sovereign-omega-v2) + 121 (aegis-cl-psi Rust) + all 7 products build clean
+ZeroCopyChannel: zero-copy inter-fiber IMC via SlabChunkHandle; send→receive→release lifecycle; autoRelease crash hook; duplicate-handle + claim-before-release guards; channel_hash audit certificate
+Test count: 2604 (sovereign-omega-v2) + 121 (aegis-cl-psi Rust) + all 7 products build clean
 Holonic triad: PROVEN at 1/φ across three scales
 Martingale: E[S_{n+1}|F_n] = S_n — ANCHORED
 Replay: is_replay_reconstructable = true on all records
