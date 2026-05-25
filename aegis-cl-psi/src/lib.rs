@@ -200,6 +200,10 @@ pub mod entropy_forecast;
 // StabilityGrade A/B/C/D/F from global_section_rate + satisfied_rate + score_avg.
 pub mod coherence_stability;
 
+// Gate 245 — Constitutional Momentum Tracker: signed directional trend signal (T2)
+// MomentumDir: Improving/Stable/Declining. momentum_int = score[last] - score[first].
+pub mod momentum_tracker;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
