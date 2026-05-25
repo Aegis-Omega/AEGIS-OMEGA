@@ -32,6 +32,8 @@ pub mod hysteresis;
 pub mod semantic_graph;
 pub mod state_anchor;
 pub mod validation_dfa;
+// Full External and Internal Autonode — T0 verdict gate + all 7 pillars + GossipEmitter beacon
+pub mod autonode;
 
 pub const AEGIS_PROTOCOL_MAGIC: u16 = 0xE0E0;
 pub const MAXIMUM_SWARM_NODES: usize = 1024;

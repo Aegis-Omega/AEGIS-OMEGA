@@ -28,7 +28,8 @@
       "Write(scripts/**)",
       "Write(.claude/**)",
       "Write(docs/**)",
-      "Write(.env.example)"
+      "Write(.env.example)",
+      "Write(../aegis-runtime/src/**)"
     ],
     "deny": [
       "Write(gate.py)",

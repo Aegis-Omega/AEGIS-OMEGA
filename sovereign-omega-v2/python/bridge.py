@@ -456,6 +456,34 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'failsafe_state': vcg['failsafe_state'],
             })
 
+        elif self.path == '/node':
+            # Full autonode self-description — external radiation point.
+            # Returns T0 verdict, constitutional hash, catalog hash, and resonance snapshot.
+            # Constitutional hash is deterministic: SHA-256(seq:epoch:corruption) — no external entropy.
+            import hashlib as _hl
+            vcg = matrix.emit_vcg_telemetry()
+            seq = int(vcg.get('sequence', 0))
+            epoch = int(vcg.get('epoch', 0))
+            corruption = int(vcg.get('corruption_count', 0))
+            drift_risk = round(min(float(vcg.get('drift_index', 0.0)) * 0.1, 0.99), 6)
+            phi_threshold = 0.6180339887498948
+            t0_verdict = (corruption == 0) and (drift_risk < phi_threshold)
+            node_input = f'seq={seq}:epoch={epoch}:corruption={corruption}'.encode()
+            constitutional_hash = _hl.sha256(node_input).hexdigest()
+            self._respond(200, {
+                'node_id': constitutional_hash[:16],
+                't0_verdict': t0_verdict,
+                'constitutional_hash': constitutional_hash,
+                'catalog_hash': 'b93f7af999e72bc71512e4e8fd8402c9',
+                'cognitive_triad': 'ALL 3 PRESENT',
+                'sequence': seq,
+                'epoch': epoch,
+                'corruption_count': corruption,
+                'phi_threshold': phi_threshold,
+                'drift_risk': drift_risk,
+                'is_replay_reconstructable': True,
+            })
+
         elif self.path == '/catalog':
             # Cyclic outward flow — skill catalog radiation point.
             # Serves the constitutional skill catalog: Cognitive Triad genesis seeds.

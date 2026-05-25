@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Activity, ChevronDown, ChevronUp, WifiOff, Zap, Shield, Radio } from 'lucide-react'
 import { subscribeTelemetry, type TelemetryState } from '../lib/telemetry.js'
+import { AutonodeStatus } from './AutonodeStatus.js'
 
 const BRIDGE = (import.meta.env.VITE_BRIDGE_URL as string | undefined) ?? 'http://localhost:7890'
 
@@ -182,6 +183,9 @@ export function TelemetryPanel() {
                     )}
                   </div>
                 )}
+
+                {/* Autonode — T0 verdict gate + constitutional hash */}
+                <AutonodeStatus bridgeUrl={BRIDGE} />
 
                 {/* Gate 222 — Resonance Monitor */}
                 {resonance != null && (
