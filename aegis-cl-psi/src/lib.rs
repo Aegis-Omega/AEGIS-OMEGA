@@ -223,6 +223,11 @@ pub mod health_dashboard;
 // worst_condition(), critical_epoch_count(), thriving_epoch_count(), verify_chain().
 pub mod epoch_health_ledger;
 
+// Gate 250 — Constitutional Alert Engine: AlertSeverity classification + hash-linked AlertLog (T2)
+// None/Info/Warn/Critical/Emergency from OverallCondition × OverallTrend.
+// alert_hash = SHA-256(prev ‖ severity_byte ‖ condition_byte ‖ epoch_be8).
+pub mod alert_engine;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
