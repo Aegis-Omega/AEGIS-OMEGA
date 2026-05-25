@@ -238,6 +238,10 @@ pub mod intervention_recommender;
 // advance_step() recomputes step_hash chain. sequence_hash = SHA-256(all step_hashes ‖ epoch).
 pub mod recovery_sequencer;
 
+// Gate 253 — Constitutional Audit Certifier: AuditCertificate over (VectorHistory, AlertLog, PlanHistory) (T2)
+// chains_valid, peak_condition, peak_severity, certificate_hash = SHA-256(3 terminals ‖ epoch_end).
+pub mod audit_certifier;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
