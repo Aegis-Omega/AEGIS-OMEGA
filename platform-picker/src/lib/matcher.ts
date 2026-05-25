@@ -1,4 +1,5 @@
 import { callConstitutional } from '@shared/lib/constitutional-ai'
+import { generateCallerNonce, mintToken } from '@shared/lib/proof-ledger'
 
 const PLATFORMS = ['TikTok', 'YouTube Shorts', 'Instagram Reels', 'Snapchat Spotlight'] as const
 
@@ -39,7 +40,9 @@ Monetisation goal: ${input.monetisation_goal}
 Current following size: ${input.current_following}
 `.trim()
 
-  const result = await callConstitutional<unknown>({ systemPrompt: SYSTEM_PROMPT, userMessage, product: 'platform-picker' })
+  const caller_nonce = generateCallerNonce()
+  const result = await callConstitutional<unknown>({ systemPrompt: SYSTEM_PROMPT, userMessage })
+  await mintToken(result.audit, 'platform-picker', caller_nonce)
   const parsed = result.data
   const arr: unknown[] = Array.isArray(parsed)
     ? parsed

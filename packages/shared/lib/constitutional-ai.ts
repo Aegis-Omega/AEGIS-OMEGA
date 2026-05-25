@@ -15,16 +15,13 @@
  */
 
 import { routeInference, type BackendType } from './inference-router.js'
-import { mintToken, type ProductId } from './proof-ledger.js'
 
 export type { BackendType }
-export type { ProductId }
 
 export interface DashScopeCallOpts {
   systemPrompt: string
   userMessage: string
   defaultModel?: string
-  product?: ProductId
 }
 
 const SCHEMA_VERSION = '1.0.0' as const
@@ -151,9 +148,6 @@ export async function callConstitutional<T>(
     schema_version: SCHEMA_VERSION,
     is_replay_reconstructable: true as const,
   })
-
-  // Mint cross-product proof token into the shared localStorage ledger
-  if (opts.product) mintToken(audit, opts.product)
 
   return Object.freeze({
     data,
