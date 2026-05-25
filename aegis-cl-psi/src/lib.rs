@@ -124,6 +124,12 @@ pub mod constitutional_chord;
 // find_dissonant() identifies drift nodes; quorum_triadic checks the 1/φ Triadic majority.
 pub mod chord_network;
 
+// Gate 225 — Constitutional Self-Certification — Autopoietic State Closure (T1/T2)
+// The system certifies its own constitutional state: SHA-256(resonance + network + version).
+// CertificationVerdict: Certified / ProvisionallyGranted / Uncertified.
+// Deterministic: same inputs → same self_hash across all platforms. No clock, no RNG.
+pub mod self_certification;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
