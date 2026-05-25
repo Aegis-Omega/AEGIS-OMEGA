@@ -26,8 +26,37 @@ export interface AutonodeDescriptor {
   readonly corruption_count: number
   readonly phi_threshold: number
   readonly drift_risk: number
+  readonly chord_bytes?: readonly number[]
+  readonly chord_hex?: string
   readonly schema_version: typeof AUTONODE_SCHEMA_VERSION
   readonly is_replay_reconstructable: true
+}
+
+export type NetworkVerdict = 'UNIFIED' | 'CLUSTERED' | 'SPLIT'
+
+export interface NetworkPeer {
+  readonly node_id: string
+  readonly chord_bytes: readonly number[]
+  readonly chord_hex: string
+  readonly drift_risk: number
+}
+
+export interface NetworkResonanceReport {
+  readonly verdict: NetworkVerdict
+  readonly peer_count: number
+  readonly below_phi_count: number
+  readonly above_phi_count: number
+  readonly triadic_count: number
+  readonly quorum_triadic: boolean
+  readonly distinct_chord_classes: number
+  readonly all_below_phi: boolean
+  readonly peers: readonly NetworkPeer[]
+  readonly is_replay_reconstructable: true
+}
+
+export class NetworkError extends Error {
+  override readonly name = 'NetworkError' as const
+  constructor(message: string) { super(message) }
 }
 
 export class AutonodeError extends Error {
@@ -89,4 +118,40 @@ export async function fetchAutonodeDescriptor(bridgeUrl: string): Promise<Autono
  */
 export function isConstitutionallySound(d: AutonodeDescriptor): boolean {
   return d.t0_verdict && d.corruption_count === 0 && d.drift_risk < d.phi_threshold
+}
+
+/**
+ * Fetch the live network resonance report from the bridge /network endpoint.
+ * Returns the chord network analysis for all simulated peers.
+ */
+export async function fetchNetworkResonance(bridgeUrl: string): Promise<NetworkResonanceReport> {
+  const url = `${bridgeUrl.replace(/\/$/, '')}/network`
+  let raw: Record<string, unknown>
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(5_000) })
+    if (!res.ok) throw new NetworkError(`/network returned HTTP ${res.status}`)
+    raw = (await res.json()) as Record<string, unknown>
+  } catch (err) {
+    if (err instanceof NetworkError) throw err
+    throw new NetworkError(`/network fetch failed: ${String(err)}`)
+  }
+
+  if (typeof raw['verdict'] !== 'string' ||
+      typeof raw['peer_count'] !== 'number' ||
+      !Array.isArray(raw['peers'])) {
+    throw new NetworkError('malformed /network response')
+  }
+
+  return Object.freeze({
+    verdict:               raw['verdict'] as NetworkVerdict,
+    peer_count:            raw['peer_count'] as number,
+    below_phi_count:       (raw['below_phi_count'] as number) ?? 0,
+    above_phi_count:       (raw['above_phi_count'] as number) ?? 0,
+    triadic_count:         (raw['triadic_count'] as number) ?? 0,
+    quorum_triadic:        (raw['quorum_triadic'] as boolean) ?? false,
+    distinct_chord_classes:(raw['distinct_chord_classes'] as number) ?? 1,
+    all_below_phi:         (raw['all_below_phi'] as boolean) ?? false,
+    peers:                 (raw['peers'] as NetworkPeer[]).map(p => Object.freeze(p)),
+    is_replay_reconstructable: true as const,
+  }) as NetworkResonanceReport
 }

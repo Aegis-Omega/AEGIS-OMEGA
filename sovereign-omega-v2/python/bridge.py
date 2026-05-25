@@ -497,6 +497,62 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'is_replay_reconstructable': True,
             })
 
+        elif self.path == '/network':
+            # Gate 224: Constitutional Chord Network — multi-peer resonance report.
+            # Simulates a 5-node network: current node + 4 synthetic peers derived from
+            # current system health. Returns UNIFIED / CLUSTERED / SPLIT verdict.
+            import hashlib as _hl
+            vcg = matrix.emit_vcg_telemetry()
+            seq = int(vcg.get('sequence', 0))
+            epoch = int(vcg.get('epoch', 0))
+            corruption = int(vcg.get('corruption_count', 0))
+            drift_risk = round(min(float(vcg.get('drift_index', 0.0)) * 0.1, 0.99), 6)
+            phi_threshold = 0.6180339887498948
+
+            def make_chord(node_id, drift, seq_offset):
+                node_input = f'seq={seq + seq_offset}:epoch={epoch}:corruption={corruption}'.encode()
+                c_hash = _hl.sha256(node_input).hexdigest()
+                leading_int = int(c_hash[:16], 16)
+                dr = (leading_int % 9) or 9
+                vortex = 0 if dr in (3, 6, 9) else 1
+                depth = 4 if corruption == 0 and drift < phi_threshold else 2
+                phi_cls = 0 if drift < phi_threshold - 1e-9 else (1 if drift <= phi_threshold + 1e-9 else 2)
+                return {'node_id': node_id, 'chord_bytes': [vortex, dr, depth, phi_cls],
+                        'chord_hex': ''.join(f'{b:02x}' for b in [vortex, dr, depth, phi_cls]),
+                        'drift_risk': round(drift, 6)}
+
+            peers = [
+                make_chord('aegis-primary', drift_risk, 0),
+                make_chord('aegis-replica-a', drift_risk * 1.01, 1),
+                make_chord('aegis-replica-b', drift_risk * 0.99, 2),
+                make_chord('aegis-ci-node', drift_risk * 1.005, 3),
+                make_chord('aegis-wasm-node', drift_risk * 0.995, 4),
+            ]
+            # Network verdict
+            above_phi = sum(1 for p in peers if p['chord_bytes'][3] == 2)
+            below_phi = sum(1 for p in peers if p['chord_bytes'][3] == 0)
+            distinct = len(set((p['chord_bytes'][0], p['chord_bytes'][3]) for p in peers))
+            if above_phi > 0 and below_phi > 0:
+                verdict = 'SPLIT'
+            elif distinct == 1:
+                verdict = 'UNIFIED'
+            else:
+                verdict = 'CLUSTERED'
+            triadic_count = sum(1 for p in peers if p['chord_bytes'][0] == 0)
+            quorum_triadic = triadic_count * 1_000_000 >= len(peers) * 618_034
+            self._respond(200, {
+                'verdict': verdict,
+                'peer_count': len(peers),
+                'below_phi_count': below_phi,
+                'above_phi_count': above_phi,
+                'triadic_count': triadic_count,
+                'quorum_triadic': quorum_triadic,
+                'distinct_chord_classes': distinct,
+                'all_below_phi': above_phi == 0,
+                'peers': peers,
+                'is_replay_reconstructable': True,
+            })
+
         elif self.path == '/catalog':
             # Cyclic outward flow — skill catalog radiation point.
             # Serves the constitutional skill catalog: Cognitive Triad genesis seeds.

@@ -1,9 +1,11 @@
 // Cycles 41–50: Full holonic telemetry dashboard with gate metrics and epoch health.
 // Gate 222: Resonance Monitor — phi_headroom bar + 4-pip depth indicator.
+// Gate 224: Chord Network — UNIFIED/CLUSTERED/SPLIT verdict with peer chord display.
 import { useState, useEffect } from 'react'
 import { Activity, ChevronDown, ChevronUp, WifiOff, Zap, Shield, Radio } from 'lucide-react'
 import { subscribeTelemetry, type TelemetryState } from '../lib/telemetry.js'
 import { AutonodeStatus } from './AutonodeStatus.js'
+import { fetchNetworkResonance, type NetworkResonanceReport, type NetworkVerdict, type NetworkPeer } from '../../../packages/shared/lib/autonode.js'
 
 const BRIDGE = (import.meta.env.VITE_BRIDGE_URL as string | undefined) ?? 'http://localhost:7890'
 
@@ -72,10 +74,34 @@ function MiniBar({ value, max, color }: { value: number; max: number; color: str
   )
 }
 
+function useNetworkResonance(): NetworkResonanceReport | null {
+  const [data, setData] = useState<NetworkResonanceReport | null>(null)
+  useEffect(() => {
+    let active = true
+    const poll = async () => {
+      try {
+        const report = await fetchNetworkResonance(BRIDGE)
+        if (active) setData(report)
+      } catch { /* bridge offline — stay null */ }
+    }
+    void poll()
+    const id = setInterval(() => void poll(), 10_000)
+    return () => { active = false; clearInterval(id) }
+  }, [])
+  return data
+}
+
+const VERDICT_COLOR: Record<NetworkVerdict, string> = {
+  UNIFIED:   '#34D399',
+  CLUSTERED: '#C8A96E',
+  SPLIT:     '#F87171',
+}
+
 export function TelemetryPanel() {
   const [state, setState] = useState<TelemetryState>({ status: 'offline' })
   const [open, setOpen] = useState(true)
   const resonance = useResonance()
+  const network = useNetworkResonance()
 
   useEffect(() => subscribeTelemetry(setState), [])
 
@@ -250,6 +276,51 @@ export function TelemetryPanel() {
                       <span className="font-mono" style={{ color: resonance.vortex_family === 'Triadic' ? '#C8A96E' : '#6B6B7A' }}>
                         {resonance.vortex_family}
                       </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Gate 224 — Chord Network: multi-peer UNIFIED/CLUSTERED/SPLIT */}
+                {network != null && (
+                  <div className="border-t border-aegis-border pt-1 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-aegis-muted font-medium">Network</span>
+                      <span
+                        className="text-xs font-mono px-1 rounded"
+                        style={{
+                          color: VERDICT_COLOR[network.verdict],
+                          background: `${VERDICT_COLOR[network.verdict]}1A`,
+                        }}
+                      >
+                        {network.verdict}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs py-0.5">
+                      <span className="text-aegis-muted">Peers</span>
+                      <span className="font-mono text-aegis-muted">
+                        {network.below_phi_count}✓ {network.above_phi_count > 0 ? `${network.above_phi_count}✗ ` : ''}
+                        {network.triadic_count}△
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs py-0.5">
+                      <span className="text-aegis-muted">Quorum △</span>
+                      <span className="font-mono" style={{ color: network.quorum_triadic ? '#34D399' : '#6B6B7A' }}>
+                        {network.quorum_triadic ? 'YES' : 'NO'} ({network.triadic_count}/{network.peer_count})
+                      </span>
+                    </div>
+                    <div className="flex gap-0.5 pt-0.5">
+                      {network.peers.slice(0, 5).map((p: NetworkPeer) => (
+                        <div
+                          key={p.node_id}
+                          title={`${p.node_id}\nchord: ${p.chord_hex}\ndrift: ${p.drift_risk}`}
+                          className="flex-1 h-1.5 rounded-sm"
+                          style={{
+                            background: p.chord_bytes[3] === 0 ? '#34D399'
+                                      : p.chord_bytes[3] === 1 ? '#C8A96E'
+                                      : '#F87171',
+                          }}
+                        />
+                      ))}
                     </div>
                   </div>
                 )}
