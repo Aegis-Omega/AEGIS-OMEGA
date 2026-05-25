@@ -228,6 +228,11 @@ pub mod epoch_health_ledger;
 // alert_hash = SHA-256(prev ‖ severity_byte ‖ condition_byte ‖ epoch_be8).
 pub mod alert_engine;
 
+// Gate 251 — Intervention Recommender: ranked remediation actions + PlanHistory (T2)
+// InterventionKind: MonitorOnly/TightenThresholds/ForceResilient/QuorumRecovery/PulseReset/PhaseRecovery/EmergencyHalt.
+// plan_hash = SHA-256(prev ‖ severity_byte ‖ top_priority_byte ‖ epoch_be8).
+pub mod intervention_recommender;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
