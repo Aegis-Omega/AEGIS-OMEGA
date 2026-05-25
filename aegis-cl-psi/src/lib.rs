@@ -188,6 +188,14 @@ pub mod constitutional_pulse;
 // ThresholdProfile derived from rolling baseline × 1/φ. Clear/EntropyAlert/CoherenceAlert/BothAlert.
 pub mod adaptive_threshold;
 
+// Gate 242 — Quorum Drift Detector: quorum transition tracking across epochs (T2)
+// QuorumLost/QuorumRestored events. longest_absence tracks worst-case quorum gap.
+pub mod quorum_drift;
+
+// Gate 243 — Entropy Forecast Engine: predicts epochs until entropy exhaustion (T2)
+// DrainRate from observation window. ExhaustionRisk: Immediate/Imminent/Moderate/Low/None.
+pub mod entropy_forecast;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
