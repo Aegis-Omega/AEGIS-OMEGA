@@ -39,7 +39,7 @@ Monetisation goal: ${input.monetisation_goal}
 Current following size: ${input.current_following}
 `.trim()
 
-  const result = await callConstitutional<unknown>({ systemPrompt: SYSTEM_PROMPT, userMessage })
+  const result = await callConstitutional<unknown>({ systemPrompt: SYSTEM_PROMPT, userMessage, product: 'platform-picker' })
   const parsed = result.data
   const arr: unknown[] = Array.isArray(parsed)
     ? parsed

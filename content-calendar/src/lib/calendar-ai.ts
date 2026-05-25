@@ -56,6 +56,7 @@ Content pillar 3: ${input.pillar3}
   const result = await callConstitutional<{ weeks?: WeekPlan[] } | WeekPlan[]>({
     systemPrompt: SYSTEM_PROMPT,
     userMessage,
+    product: 'content-calendar',
   })
   const parsed = result.data
   return Array.isArray(parsed) ? parsed : (parsed.weeks ?? [])

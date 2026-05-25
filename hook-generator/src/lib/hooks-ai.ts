@@ -48,7 +48,7 @@ Topic: ${input.topic}
 Tone: ${input.tone}
 `.trim()
 
-  const result = await callConstitutional<unknown>({ systemPrompt: SYSTEM_PROMPT, userMessage })
+  const result = await callConstitutional<unknown>({ systemPrompt: SYSTEM_PROMPT, userMessage, product: 'hook-generator' })
   const parsed = result.data
   const arr: unknown[] = Array.isArray(parsed)
     ? parsed
