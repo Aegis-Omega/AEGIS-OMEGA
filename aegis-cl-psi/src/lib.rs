@@ -196,6 +196,10 @@ pub mod quorum_drift;
 // DrainRate from observation window. ExhaustionRisk: Immediate/Imminent/Moderate/Low/None.
 pub mod entropy_forecast;
 
+// Gate 244 — Coherence Stability Index: rolling integer stability score 0–100 (T2)
+// StabilityGrade A/B/C/D/F from global_section_rate + satisfied_rate + score_avg.
+pub mod coherence_stability;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
