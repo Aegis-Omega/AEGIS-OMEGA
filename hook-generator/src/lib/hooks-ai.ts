@@ -1,5 +1,5 @@
 import { callConstitutional } from '@shared/lib/constitutional-ai'
-import { generateCallerNonce, mintToken } from '@shared/lib/proof-ledger'
+import { mintToken } from '@shared/lib/proof-ledger'
 
 export type Platform = 'TikTok' | 'YouTube Shorts' | 'Instagram Reels' | 'All platforms'
 export type Tone = 'Entertaining' | 'Educational' | 'Controversial' | 'Inspirational' | 'Relatable'
@@ -49,9 +49,8 @@ Topic: ${input.topic}
 Tone: ${input.tone}
 `.trim()
 
-  const caller_nonce = generateCallerNonce()
   const result = await callConstitutional<unknown>({ systemPrompt: SYSTEM_PROMPT, userMessage })
-  await mintToken(result.audit, 'hook-generator', caller_nonce)
+  await mintToken(result.audit, 'hook-generator')
   const parsed = result.data
   const arr: unknown[] = Array.isArray(parsed)
     ? parsed

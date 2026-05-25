@@ -1,5 +1,5 @@
 import { callConstitutional } from '@shared/lib/constitutional-ai'
-import { generateCallerNonce, mintToken } from '@shared/lib/proof-ledger'
+import { mintToken } from '@shared/lib/proof-ledger'
 
 export interface CalendarInput {
   niche: string
@@ -54,12 +54,11 @@ Content pillar 2: ${input.pillar2}
 Content pillar 3: ${input.pillar3}
 `.trim()
 
-  const caller_nonce = generateCallerNonce()
   const result = await callConstitutional<{ weeks?: WeekPlan[] } | WeekPlan[]>({
     systemPrompt: SYSTEM_PROMPT,
     userMessage,
   })
-  await mintToken(result.audit, 'content-calendar', caller_nonce)
+  await mintToken(result.audit, 'content-calendar')
   const parsed = result.data
   return Array.isArray(parsed) ? parsed : (parsed.weeks ?? [])
 }
