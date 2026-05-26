@@ -722,6 +722,13 @@ pub mod spsf_scheduler;
 // ManagementLog: hash-chained per-tick records. total_compacted_entries(), verify_chain().
 pub mod spsf_manager;
 
+// Gate 332 — Gossip Health Compactor (T2)
+// Applies proof-preserving compaction (Gate 328 pattern) to the GossipHealthMonitor chain
+// (Gate 320). HealthAnchor seals pruned health reports with terminal_hash + peak_class.
+// certificate_hash = SHA-256(epoch‖pruned_be8‖retained_be8‖terminal_hash‖anchor_epoch_be8‖peak_byte).
+// HealthCompactionLog: hash-chained audit trail. total_pruned(), verify_chain().
+pub mod gossip_health_compactor;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
