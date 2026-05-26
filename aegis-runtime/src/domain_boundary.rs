@@ -167,11 +167,12 @@ mod tests {
     use super::*;
 
     fn create_test_core() -> T0Core {
+        // "Section N Content." = 18 bytes each; total = 54
         let text: &'static [u8] = b"Section 1 Content.Section 2 Content.Section 3 Content.";
         let mut offsets = BTreeMap::new();
-        offsets.insert(AxiomKey::new(1, 1), (0, 19));
-        offsets.insert(AxiomKey::new(2, 1), (19, 38));
-        offsets.insert(AxiomKey::new(3, 1), (38, 57));
+        offsets.insert(AxiomKey::new(1, 1), (0, 18));
+        offsets.insert(AxiomKey::new(2, 1), (18, 36));
+        offsets.insert(AxiomKey::new(3, 1), (36, 54));
         T0Core::new(text, offsets)
     }
 

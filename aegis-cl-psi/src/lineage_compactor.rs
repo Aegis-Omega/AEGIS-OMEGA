@@ -2,7 +2,7 @@
 //! Automatically compacts historical state while preserving causal integrity and divergence points.
 //! Reduces memory footprint for long-horizon execution without losing audit trail.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 /// Represents a compaction strategy for lineage states.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,7 +39,7 @@ pub struct LineageCompactor {
     /// Threshold for triggering compaction (number of pending segments).
     compaction_threshold: usize,
     /// Checkpoints that must never be compacted away.
-    immutable_checkpoints: HashMap<u64, String>,
+    immutable_checkpoints: BTreeMap<u64, String>,
 }
 
 impl LineageCompactor {
@@ -49,7 +49,7 @@ impl LineageCompactor {
             compacted_history: Vec::new(),
             strategy,
             compaction_threshold: threshold,
-            immutable_checkpoints: HashMap::new(),
+            immutable_checkpoints: BTreeMap::new(),
         }
     }
 
@@ -99,7 +99,7 @@ impl LineageCompactor {
                     // Non-consecutive, compress current segment first
                     if !current_segment_epochs.is_empty() {
                         let segment = self.compress_segment(&current_segment_epochs)?;
-                        total_bytes_saved += segment.original_size - segment.compressed_size;
+                        total_bytes_saved += segment.original_size.saturating_sub(segment.compressed_size);
                         compressed_segments.push(segment);
                         current_segment_epochs.clear();
                     }
@@ -112,7 +112,7 @@ impl LineageCompactor {
         // Compress remaining segment
         if !current_segment_epochs.is_empty() {
             let segment = self.compress_segment(&current_segment_epochs)?;
-            total_bytes_saved += segment.original_size - segment.compressed_size;
+            total_bytes_saved += segment.original_size.saturating_sub(segment.compressed_size);
             compressed_segments.push(segment);
         }
 
@@ -121,12 +121,13 @@ impl LineageCompactor {
             self.pending_segments.remove(&epoch);
         }
 
-        // Add to compacted history
-        self.compacted_history.extend(compressed_segments);
+        // Add to compacted history (extract CompactedSegment from CompressedSegmentInfo)
+        let segments_created = compressed_segments.len();
+        self.compacted_history.extend(compressed_segments.into_iter().map(|c| c.segment));
 
         Ok(CompactionReport {
             epochs_compacted: epochs_to_compact.len(),
-            segments_created: compressed_segments.len(),
+            segments_created,
             bytes_saved: total_bytes_saved,
         })
     }
@@ -368,7 +369,8 @@ mod tests {
 
     #[test]
     fn test_compaction_report() {
-        let mut compactor = LineageCompactor::new(CompactionStrategy::Conservative, 3);
+        // Conservative only compacts epochs >100 old — use Aggressive for report test
+        let mut compactor = LineageCompactor::new(CompactionStrategy::Aggressive, 3);
         
         for i in 0..5 {
             compactor.add_segment(i, vec![i as u8; 100]);

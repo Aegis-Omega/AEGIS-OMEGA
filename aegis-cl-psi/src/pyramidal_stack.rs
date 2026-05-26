@@ -73,7 +73,7 @@ impl PyramidalStack {
             .ok_or(CapacityExceeded::InvalidLayer(layer))?;
         
         if node_count > capacity {
-            Err(CapacityExceeded {
+            Err(CapacityExceeded::NodeCountExceeded {
                 node_count,
                 capacity,
                 layer,
@@ -134,8 +134,8 @@ mod tests {
     #[test]
     fn test_check_capacity_within_bounds() {
         let stack = PyramidalStack::new(8);
-        assert!(stack.check_capacity(100, 5).is_ok()); // Layer 5 capacity = 55, cumulative = 55
-        assert!(stack.check_capacity(55, 5).is_ok());
+        assert!(stack.check_capacity(100, 8).is_ok()); // Layer 8 cumulative = 204 >= 100
+        assert!(stack.check_capacity(55, 5).is_ok());  // Layer 5 cumulative = 55 >= 55
     }
 
     #[test]

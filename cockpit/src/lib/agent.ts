@@ -84,11 +84,48 @@ export async function* streamDashScope(opts: StreamOptions): AsyncGenerator<stri
   }
 }
 
-export type Provider = 'ollama' | 'dashscope'
+export async function* streamClaude(opts: StreamOptions): AsyncGenerator<string> {
+  // Routes through the AEGIS bridge (/claude/stream) which applies the constitutional
+  // system prompt and keeps the API key server-side. Bridge must be running on port 7890.
+  const bridgeUrl = import.meta.env.VITE_BRIDGE_URL ?? 'http://localhost:7890'
+  const model = import.meta.env.VITE_CLAUDE_MODEL ?? 'claude-sonnet-4-6'
+  const maxTokens = Number(import.meta.env.VITE_CLAUDE_MAX_TOKENS ?? '2048')
+
+  const res = await fetch(`${bridgeUrl}/claude/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messages: opts.messages.filter(m => m.role !== 'system'),
+      model,
+      max_tokens: maxTokens,
+    }),
+    signal: opts.signal,
+  })
+
+  if (!res.ok || !res.body) throw new Error(`Claude bridge ${res.status}: ${await res.text()}`)
+
+  for await (const line of readLines(res.body.getReader(), opts.signal)) {
+    if (!line.startsWith('data: ')) continue
+    const data = line.slice(6).trim()
+    try {
+      const chunk = JSON.parse(data) as { delta?: string; done?: boolean; error?: string }
+      if (chunk.error) throw new Error(`Claude: ${chunk.error}`)
+      if (chunk.delta) yield chunk.delta
+      if (chunk.done) break
+    } catch (e) {
+      if (e instanceof SyntaxError) continue
+      throw e
+    }
+  }
+}
+
+export type Provider = 'ollama' | 'dashscope' | 'claude'
 
 export async function* streamChat(
   opts: StreamOptions & { provider?: Provider },
 ): AsyncGenerator<string> {
-  const provider = opts.provider ?? (import.meta.env.VITE_PROVIDER as Provider | undefined) ?? 'dashscope'
-  yield* provider === 'ollama' ? streamOllama(opts) : streamDashScope(opts)
+  const provider = opts.provider ?? (import.meta.env.VITE_PROVIDER as Provider | undefined) ?? 'claude'
+  if (provider === 'claude') return yield* streamClaude(opts)
+  if (provider === 'ollama') return yield* streamOllama(opts)
+  yield* streamDashScope(opts)
 }

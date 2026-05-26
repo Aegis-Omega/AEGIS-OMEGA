@@ -1,0 +1,27 @@
+# AEGIS-Ω CODEOWNERS
+# Stratum I — Governance Runtime (requires founder review)
+/sovereign-omega-v2/python/gate.py    @tarikskalic33
+/sovereign-omega-v2/python/dna.py     @tarikskalic33
+/sovereign-omega-v2/python/router.py  @tarikskalic33
+/sovereign-omega-v2/src/core/         @tarikskalic33
+/sovereign-omega-v2/src/constitutional/ @tarikskalic33
+/aegis-cl-psi/src/                   @tarikskalic33
+
+# Stratum I — All runtime changes
+/sovereign-omega-v2/                  @tarikskalic33
+/aegis-cl-psi/                       @tarikskalic33
+
+# Stratum II — Interface layer
+/cockpit/                             @tarikskalic33
+/studio/                             @tarikskalic33
+
+# Stratum III — Commercial
+/hub/                                @tarikskalic33
+/platform-picker/                    @tarikskalic33
+/hook-generator/                     @tarikskalic33
+/content-calendar/                   @tarikskalic33
+
+# Cross-cutting
+/packages/                           @tarikskalic33
+/.github/                            @tarikskalic33
+/docs/                               @tarikskalic33

@@ -11,6 +11,11 @@ export default {
           text:    '#ECEAE3',
           muted:   '#6B6B7A',
           accent:  '#60A5FA',
+          phi:     '#C8A96E',
+          t0:      '#34D399',
+          t1:      '#60A5FA',
+          t2:      '#A78BFA',
+          t3:      '#F59E0B',
         },
       },
       fontFamily: {

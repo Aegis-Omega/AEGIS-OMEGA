@@ -1,0 +1,56 @@
+# Stratum I — Governance Runtime
+'stratum-I: governance':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'sovereign-omega-v2/**'
+      - 'aegis-cl-psi/**'
+      - 'crates/**'
+
+'stratum-II: interface':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'cockpit/**'
+      - 'studio/**'
+
+'stratum-III: commercial':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'hub/**'
+      - 'platform-picker/**'
+      - 'hook-generator/**'
+      - 'content-calendar/**'
+
+'cross-cutting: packages':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'packages/**'
+
+'cross-cutting: ci':
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/**'
+
+'rust':
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.rs'
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+
+'typescript':
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.ts'
+      - '**/*.tsx'
+
+'python':
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.py'
+
+'constitutional: frozen-file':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'sovereign-omega-v2/python/gate.py'
+      - 'sovereign-omega-v2/python/dna.py'
+      - 'sovereign-omega-v2/python/router.py'

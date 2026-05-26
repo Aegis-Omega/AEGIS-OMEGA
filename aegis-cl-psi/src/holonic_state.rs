@@ -1,9 +1,9 @@
 //! Gate 208: Holonic State Machine
-//! Orchestrates the 3-layer escalation (Autonomous → Relational → Transcendent).
+//! Orchestrates 3-layer BFT consensus (Autonomous → Relational → Finality).
 //! Implements Byzantine Fault Tolerant consensus with O(log N) verification.
 
 use crate::triadic_merkle_node::{TriadicMerkleNode, TriadicState};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConsensusLayer {
@@ -12,7 +12,7 @@ pub enum ConsensusLayer {
     /// Layer Y: Cluster Gossip & Reconciliation  
     Relational,
     /// Layer Z: Root Finality & Pruning
-    Transcendent,
+    Finality,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,7 +27,7 @@ pub enum GlobalState {
 pub struct HolonicLayer {
     pub name: String,
     pub layer_type: ConsensusLayer,
-    pub nodes: HashMap<String, TriadicMerkleNode>,
+    pub nodes: BTreeMap<String, TriadicMerkleNode>,
     pub active_threshold: f64,
 }
 
@@ -36,7 +36,7 @@ impl HolonicLayer {
         Self {
             name: name.to_string(),
             layer_type,
-            nodes: HashMap::new(),
+            nodes: BTreeMap::new(),
             active_threshold: threshold,
         }
     }
@@ -90,7 +90,7 @@ impl HolonicStateMachine {
         Self {
             l1_autonomous: HolonicLayer::new("Autonomous_UTXO", ConsensusLayer::Autonomous, threshold),
             l2_relational: HolonicLayer::new("Relational_Gossip", ConsensusLayer::Relational, threshold),
-            l3_transcendent: HolonicLayer::new("Transcendent_Finality", ConsensusLayer::Transcendent, threshold),
+            l3_transcendent: HolonicLayer::new("Finality_Root", ConsensusLayer::Finality, threshold),
             current_epoch: 0,
         }
     }
@@ -152,7 +152,7 @@ impl HolonicStateMachine {
     }
 
     fn escalate_to_l3(&mut self, node_id: &str, key: &str, value_hash: &str) -> GlobalState {
-        // L3 Transcendent layer - final authority
+        // L3 Finality layer - final authority
         // In production: topological sort, mainchain extraction, finality certificate
         
         // Add corresponding node to L3 if not exists

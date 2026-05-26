@@ -3,7 +3,7 @@
 //! EPISTEMIC TIER: T2 (engineering hypothesis)
 //! Constitutional root: AdaptivePower(T) ≤ ReplayVerifiability(T)
 //!
-//! # Ten Technical Pillars
+//! # Technical Pillars
 //!
 //! 1. `genesis_ledger`    — T0 immutable ledger with continuous integrity verification
 //! 2. `domain_boundary`   — Epistemic firewall enforcing D₀ → D₁ unidirectional access
@@ -14,9 +14,9 @@
 //! 7. `domain_firewall`   — Strict domain-isolated memory sandbox (OpaqueSegmentKey)
 //! 8. `affine_canvas`     — Deterministic affine multi-agent coordinate space
 //! 9. `semantic_graph`    — Hierarchical sparse-matrix semantic knowledge graph
-//! 10. `validation_dfa`    — Syntactic validation DFA (compile-time state table)
-//! 11. `gossip_emitter`    — Zero-copy UDP scatter-gather gossip protocol
-//! 12. `hysteresis`        — Non-linear hysteresis peer reputation filter
+//! 10. `validation_dfa`   — Syntactic validation DFA (compile-time state table)
+//! 11. `gossip_emitter`   — Zero-copy UDP scatter-gather gossip protocol
+//! 12. `hysteresis`       — Non-linear hysteresis peer reputation filter
 //!
 //! # Constitutional Invariants
 //! - BTreeMap throughout — no HashMap; deterministic iteration order enforced
@@ -36,6 +36,8 @@ pub mod hysteresis;
 pub mod semantic_graph;
 pub mod state_anchor;
 pub mod validation_dfa;
+// Full External and Internal Autonode — T0 verdict gate + all 7 pillars + GossipEmitter beacon
+pub mod autonode;
 
 pub const AEGIS_PROTOCOL_MAGIC: u16 = 0xE0E0;
 pub const MAXIMUM_SWARM_NODES: usize = 1024;

@@ -73,10 +73,60 @@ interface SessionState {
   approved_calls: number  // calls where ccil_valid=true
 }
 
+// localStorage key — persists the chain across page loads, products, browser sessions
+const LEDGER_KEY = 'aegis_constitutional_ledger_v1'
+
+// Genesis anchor: seeded from constitutional constants when ledger is empty
+// φ + CCIL-Ψ + schema version → the same values that govern every invariant
+const GENESIS_ANCHOR =
+  `AEGIS:GENESIS_ANCHOR\x00phi=${MARTINGALE_CEILING}\x00CCIL-PSI:1.0.0\x00schema=${SCHEMA_VERSION}`
+
+interface LedgerSnapshot {
+  chain_hash: string
+  total_calls: number
+  approved_calls: number
+  timestamp_ms: number
+}
+
 const _session: SessionState = {
-  chain_hash: 'genesis_0000000000000000000000000000000000000000000000000000000000000000',
+  chain_hash: '',  // empty until ensureSeeded() runs
   total_calls: 0,
   approved_calls: 0,
+}
+
+let _seeded = false
+
+// Runs once on the first callConstitutional() invocation.
+// Reads the last ledger snapshot from localStorage to continue the audit chain.
+// Empty ledger → seeds from sha256(GENESIS_ANCHOR) using constitutional constants.
+async function ensureSeeded(): Promise<void> {
+  if (_seeded) return
+  _seeded = true
+  try {
+    const raw = localStorage.getItem(LEDGER_KEY)
+    if (raw) {
+      const snap = JSON.parse(raw) as LedgerSnapshot
+      if (snap?.chain_hash) {
+        _session.chain_hash = snap.chain_hash
+        _session.total_calls = snap.total_calls
+        _session.approved_calls = snap.approved_calls
+        return
+      }
+    }
+  } catch { /* localStorage unavailable */ }
+  _session.chain_hash = await sha256hex(GENESIS_ANCHOR)
+}
+
+function persistLedger(): void {
+  try {
+    const snap: LedgerSnapshot = {
+      chain_hash: _session.chain_hash,
+      total_calls: _session.total_calls,
+      approved_calls: _session.approved_calls,
+      timestamp_ms: Date.now(),
+    }
+    localStorage.setItem(LEDGER_KEY, JSON.stringify(snap))
+  } catch { /* localStorage unavailable */ }
 }
 
 async function sha256hex(input: string): Promise<string> {
@@ -99,6 +149,7 @@ function ccilValidate(responseText: string): boolean {
 export async function callConstitutional<T>(
   opts: DashScopeCallOpts,
 ): Promise<ConstitutionalResult<T>> {
+  await ensureSeeded()
   const timestamp_ms = Date.now()
 
   const prompt_hash = await sha256hex(opts.systemPrompt + '\x00' + opts.userMessage)
@@ -128,6 +179,7 @@ export async function callConstitutional<T>(
   _session.total_calls += 1
   if (ccil_valid) _session.approved_calls += 1
   _session.chain_hash = chain_hash
+  persistLedger() // same chain_hash → localStorage → next session picks up here
 
   const adaptive_ratio = _session.total_calls > 0
     ? _session.approved_calls / _session.total_calls
@@ -156,6 +208,15 @@ export async function callConstitutional<T>(
     adaptive_ratio,
     martingale_anchored: adaptive_ratio <= MARTINGALE_CEILING,
   })
+}
+
+/** Clears the persisted ledger — use only in tests or explicit operator reset. */
+export function clearConstitutionalLedger(): void {
+  try { localStorage.removeItem(LEDGER_KEY) } catch { /* unavailable */ }
+  _seeded = false
+  _session.chain_hash = ''
+  _session.total_calls = 0
+  _session.approved_calls = 0
 }
 
 /** Returns the current session audit chain state — for display in governance UI */

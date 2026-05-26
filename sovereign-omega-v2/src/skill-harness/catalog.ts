@@ -10,6 +10,7 @@ import { deepFreeze } from '../core/immutable.js'
 import type { SHA256Hex } from '../core/types.js'
 import { SKILL_HARNESS_SCHEMA_VERSION, SkillCatalogError } from './types.js'
 import type { SkillInput, SkillRecord } from './types.js'
+import { requireResonant } from './resonance.js'
 
 // Builds a frozen SkillRecord with a replay-certifiable skill_hash.
 // Throws SkillCatalogError if confidence/failure_rate outside [0,1] or tier is T3+.
@@ -58,6 +59,13 @@ export class SkillCatalog {
 
   get size(): number {
     return this.#records.length
+  }
+
+  // Admits a skill only if it passes resonance gate (all 3 invariants satisfied).
+  // Throws SkillResonanceError if not resonant; SkillCatalogError if duplicate.
+  registerResonant(record: SkillRecord): { catalog: SkillCatalog; record: SkillRecord } {
+    requireResonant(record)
+    return this.register(record)
   }
 
   // Returns new catalog with record appended. Throws on duplicate skill_id.

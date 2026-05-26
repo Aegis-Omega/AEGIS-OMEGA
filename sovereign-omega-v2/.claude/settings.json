@@ -1,5 +1,5 @@
 {
-  "model": "claude-sonnet-4-20250514",
+  "model": "claude-sonnet-4-6",
   "permissions": {
     "allow": [
       "Bash(npm:*)",
@@ -14,13 +14,22 @@
       "Bash(find:*)",
       "Bash(ls:*)",
       "Bash(cat:*)",
+      "Bash(cargo:*)",
+      "Bash(cargo test*)",
+      "Bash(cargo build*)",
+      "Bash(python3:*)",
+      "Bash(curl:*)",
+      "Bash(grep:*)",
+      "Bash(wc:*)",
+      "Bash(rustc --version)",
       "Read(**)",
       "Write(src/**)",
       "Write(test/**)",
       "Write(scripts/**)",
       "Write(.claude/**)",
       "Write(docs/**)",
-      "Write(.env.example)"
+      "Write(.env.example)",
+      "Write(../aegis-runtime/src/**)"
     ],
     "deny": [
       "Write(gate.py)",
@@ -31,6 +40,27 @@
     ]
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "result=$(cd /home/user/myapp/sovereign-omega-v2 && node scripts/verify-hashes.mjs 2>&1); if echo \"$result\" | grep -q 'VIOLATION\\|Error\\|error'; then echo \"{\\\"systemMessage\\\": \\\"⚠ FROZEN FILE VIOLATION — $result\\\"}\"; else echo \"{\\\"systemMessage\\\": \\\"✓ Constitutional files verified: gate.py · dna.py · router.py — all hashes match.\\\"}\"; fi",
+            "statusMessage": "Verifying constitutional file hashes..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "dirty=$(git -C /home/user/myapp status --porcelain 2>/dev/null | grep -v ' aegis-runtime/target/'); if [ -n \"$dirty\" ]; then count=$(echo \"$dirty\" | wc -l | tr -d ' '); preview=$(echo \"$dirty\" | head -3 | tr '\\n' '|' | sed 's/|$//' | sed 's/|/ · /g'); echo \"{\\\"systemMessage\\\": \\\"There are uncommitted changes in the repository. Please commit and push these changes to the remote branch.\\\"}\"; fi"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Write",

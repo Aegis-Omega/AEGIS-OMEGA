@@ -1,11 +1,170 @@
 import { useEffect, useRef } from 'react'
-import { Cpu } from 'lucide-react'
 import type { ChatMessage } from '../lib/agent.js'
 
 interface MessageListProps {
   messages: ChatMessage[]
   streaming: boolean
   error: string | null
+}
+
+const INVARIANTS = [
+  { eq: 'AdaptivePower(T) ≤ ReplayVerifiability(T)', tier: 'T0', color: '#34D399', desc: 'Root constitutional law — no adaptive action exceeds replay-certifiable bounds' },
+  { eq: 'E[S̅ₜ₊₁|Fₜ] = S̅ₜ', tier: 'T0', color: '#34D399', desc: 'Martingale — governance state is a certified expectation, not a prediction' },
+  { eq: '1/φ ≈ 0.6180339887', tier: 'T0', color: '#34D399', desc: 'BFT quorum · mutation rate ceiling · martingale suspension threshold' },
+  { eq: 'Tajweed DFA', tier: 'T1', color: '#60A5FA', desc: 'Arabic phonological state machine — 1,400 years of empirical validation' },
+  { eq: 'A-B-C-B′-A′ ring', tier: 'T1', color: '#60A5FA', desc: 'Chiastic symmetry isomorphic to constitutional governance at two scales' },
+  { eq: '3-6-9 vortex', tier: 'T2', color: '#A78BFA', desc: 'Digital root triadic attractor — rank span classifier for the DAG lattice' },
+]
+
+const ALLIANCE = [
+  { name: 'Claude', weight: 618, color: '#60A5FA', role: 'Coordinator' },
+  { name: 'GPT-4o', weight: 191, color: '#34D399', role: 'Adversarial audit' },
+  { name: 'Qwen', weight: 191, color: '#A78BFA', role: 'Implementation' },
+]
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-8 px-6 select-none">
+      {/* Wordmark */}
+      <div className="text-center">
+        <div className="flex items-baseline justify-center gap-3 mb-1">
+          <span className="font-mono font-semibold tracking-[0.25em] text-2xl" style={{ color: '#C8A96E' }}>
+            AEGIS-Ω
+          </span>
+          <span
+            className="font-mono text-xs tracking-widest uppercase opacity-40"
+            style={{ color: '#ECEAE3' }}
+          >
+            Constitutional Runtime
+          </span>
+        </div>
+        <p className="text-xs font-mono opacity-30" style={{ color: '#6B6B7A' }}>
+          Hash-certified · Replay-verifiable · Martingale-anchored
+        </p>
+      </div>
+
+      {/* Invariants panel */}
+      <div className="w-full max-w-lg">
+        <div
+          className="rounded-xl overflow-hidden"
+          style={{ border: '1px solid #1E1E22', background: '#141416' }}
+        >
+          <div
+            className="px-4 py-2.5 flex items-center justify-between"
+            style={{ borderBottom: '1px solid #1E1E22', background: '#0C0C0E' }}
+          >
+            <span className="font-mono text-xs tracking-widest uppercase opacity-50" style={{ color: '#6B6B7A' }}>
+              Active invariants
+            </span>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-xs" style={{ color: '#34D399', opacity: 0.7 }}>279 Rust</span>
+              <span className="opacity-20" style={{ color: '#6B6B7A' }}>·</span>
+              <span className="font-mono text-xs" style={{ color: '#60A5FA', opacity: 0.7 }}>2733 TS</span>
+            </div>
+          </div>
+          <div>
+            {INVARIANTS.map((inv, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-3 px-4 py-3 transition-colors cursor-default"
+                style={{
+                  borderBottom: i < INVARIANTS.length - 1 ? '1px solid rgba(30,30,34,0.6)' : 'none',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.02)'
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.background = 'transparent'
+                }}
+              >
+                <span
+                  className="font-mono text-xs shrink-0 mt-0.5 font-medium"
+                  style={{ color: inv.color, opacity: 0.85, minWidth: '2rem' }}
+                >
+                  {inv.tier}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-mono text-xs" style={{ color: '#ECEAE3' }}>{inv.eq}</p>
+                  <p className="text-xs mt-0.5 leading-relaxed" style={{ color: '#6B6B7A', opacity: 0.7 }}>
+                    {inv.desc}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Orchestration alliance */}
+      <div
+        className="w-full max-w-lg rounded-xl px-4 py-3 flex items-center justify-between"
+        style={{ border: '1px solid #1E1E22', background: '#0C0C0E' }}
+      >
+        <div className="flex items-center gap-1 font-mono text-xs" style={{ color: '#6B6B7A' }}>
+          <span className="opacity-50 mr-2">Alliance</span>
+          {ALLIANCE.map((a, i) => (
+            <span key={a.name} className="flex items-center gap-1">
+              {i > 0 && <span className="opacity-20 mx-1">·</span>}
+              <span style={{ color: a.color }}>{a.name}</span>
+              <span className="opacity-40"> {a.weight}</span>
+            </span>
+          ))}
+        </div>
+        <span className="font-mono text-xs" style={{ color: '#C8A96E', opacity: 0.7 }}>
+          ⌊1000/φ⌋ = 618
+        </span>
+      </div>
+
+      <p className="font-mono text-xs opacity-20" style={{ color: '#6B6B7A' }}>
+        Enter to send · Shift+Enter for newline
+      </p>
+    </div>
+  )
+}
+
+function UserBubble({ content }: { content: string }) {
+  return (
+    <div className="flex justify-end">
+      <div
+        className="max-w-[72%] px-4 py-3 rounded-2xl rounded-br-sm text-sm leading-relaxed whitespace-pre-wrap"
+        style={{ background: '#60A5FA', color: '#ffffff' }}
+      >
+        {content}
+      </div>
+    </div>
+  )
+}
+
+function AssistantBubble({ content, isStreaming }: { content: string; isStreaming: boolean }) {
+  return (
+    <div className="flex justify-start">
+      <div className="flex gap-3 max-w-[80%]">
+        {/* Avatar */}
+        <div
+          className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-semibold mt-0.5"
+          style={{ background: '#1E1E22', color: '#C8A96E' }}
+        >
+          Ω
+        </div>
+        <div
+          className="px-4 py-3 rounded-2xl rounded-bl-sm text-sm leading-relaxed whitespace-pre-wrap"
+          style={{
+            background: '#141416',
+            border: '1px solid #1E1E22',
+            color: '#ECEAE3',
+          }}
+        >
+          {content}
+          {isStreaming && (
+            <span
+              className="inline-block w-1.5 h-4 ml-1 rounded-sm align-middle animate-pulse"
+              style={{ background: '#C8A96E' }}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function MessageList({ messages, streaming, error }: MessageListProps) {
@@ -17,34 +176,30 @@ export function MessageList({ messages, streaming, error }: MessageListProps) {
   }, [messages])
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
-      {visible.length === 0 && (
-        <div className="flex flex-col items-center justify-center h-full gap-3 text-aegis-muted">
-          <Cpu size={40} className="text-aegis-border" />
-          <p className="text-sm">Start a conversation</p>
-          <p className="text-xs opacity-50">Shift+Enter for newline · Enter to send</p>
-        </div>
+    <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
+      {visible.length === 0 && <EmptyState />}
+
+      {visible.map((m, i) =>
+        m.role === 'user' ? (
+          <UserBubble key={i} content={m.content} />
+        ) : (
+          <AssistantBubble
+            key={i}
+            content={m.content}
+            isStreaming={streaming && i === visible.length - 1}
+          />
+        )
       )}
 
-      {visible.map((m, i) => (
-        <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-          <div
-            className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-              m.role === 'user'
-                ? 'bg-aegis-accent text-white rounded-br-sm'
-                : 'bg-aegis-surface border border-aegis-border rounded-bl-sm'
-            }`}
-          >
-            {m.content}
-            {streaming && i === visible.length - 1 && m.role === 'assistant' && (
-              <span className="inline-block w-1.5 h-4 ml-0.5 bg-aegis-accent animate-pulse rounded-sm align-middle" />
-            )}
-          </div>
-        </div>
-      ))}
-
       {error && (
-        <div className="text-red-400 text-xs text-center bg-red-400/10 border border-red-400/20 rounded-lg px-4 py-2">
+        <div
+          className="text-center text-xs px-4 py-2.5 rounded-lg mx-auto max-w-sm"
+          style={{
+            color: '#F87171',
+            background: 'rgba(248,113,113,0.08)',
+            border: '1px solid rgba(248,113,113,0.15)',
+          }}
+        >
           {error}
         </div>
       )}

@@ -1,8 +1,8 @@
 //! Gate 208: Triadic Merkle-Patricia Node
-//! Implements the N=3 Ontological Phase Shift for distributed semantic state management.
+//! Implements 3-layer distributed semantic state management with geometric variance gating.
 //! Gates state mutations behind geometric variance checks.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use sha2::{Sha256, Digest};
 use crate::geometric_variance::TensorWeights;
 
@@ -18,7 +18,7 @@ pub enum TriadicState {
 
 pub struct TriadicMerkleNode {
     pub node_id: String,
-    pub children: HashMap<String, String>, // Path -> Child Hash
+    pub children: BTreeMap<String, String>, // Path -> Child Hash
     pub weights: TensorWeights,
     pub auditor_threshold: f64,
 }
@@ -27,7 +27,7 @@ impl TriadicMerkleNode {
     pub fn new(id: &str, size: usize, threshold: f64) -> Self {
         Self {
             node_id: id.to_string(),
-            children: HashMap::new(),
+            children: BTreeMap::new(),
             weights: TensorWeights::new(size, 1.0),
             auditor_threshold: threshold,
         }
@@ -110,8 +110,8 @@ mod tests {
 
     #[test]
     fn test_morphing_state() {
-        let mut node = TriadicMerkleNode::new("root", 2, 0.1);
-        // Moderate misalignment that exceeds threshold but not 2x
+        // variance = 0.5; threshold must satisfy: threshold < 0.5 < 2*threshold → use 0.3
+        let mut node = TriadicMerkleNode::new("root", 2, 0.3);
         node.weights.planner = vec![1.5, 0.5];
         node.weights.generator = vec![0.5, 1.5];
         node.weights.evaluator = vec![1.0, 1.0];

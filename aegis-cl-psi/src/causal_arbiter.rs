@@ -2,7 +2,7 @@
 //! Secular Implementation of Uncertainty Preservation and Horizon Recognition.
 //! Prevents hallucination by mathematically bounding causal confidence and enforcing execution halts.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Represents the verifiable state of a causal node.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -29,7 +29,7 @@ pub struct CausalNode {
 
 /// The Arbiter evaluates the structural integrity of a causal chain.
 pub struct CausalConfidenceArbiter {
-    nodes: HashMap<u64, CausalNode>,
+    nodes: BTreeMap<u64, CausalNode>,
     /// The minimum confidence threshold required to proceed with execution.
     execution_threshold: f64, 
 }
@@ -37,7 +37,7 @@ pub struct CausalConfidenceArbiter {
 impl CausalConfidenceArbiter {
     pub fn new(execution_threshold: f64) -> Self {
         Self {
-            nodes: HashMap::new(),
+            nodes: BTreeMap::new(),
             execution_threshold: execution_threshold.clamp(0.0, 1.0),
         }
     }
@@ -49,14 +49,14 @@ impl CausalConfidenceArbiter {
     /// Evaluates a causal chain. If any dependency is Unverifiable or falls below 
     /// the confidence threshold, the chain is halted to prevent hallucination.
     pub fn evaluate_chain(&self, root_id: u64) -> Result<EpistemicState, EpistemicViolation> {
-        let mut visited = HashMap::new();
+        let mut visited = BTreeMap::new();
         self.traverse(root_id, &mut visited)
     }
 
     fn traverse(
         &self,
         current_id: u64,
-        visited: &mut HashMap<u64, EpistemicState>,
+        visited: &mut BTreeMap<u64, EpistemicState>,
     ) -> Result<EpistemicState, EpistemicViolation> {
         if let Some(&state) = visited.get(&current_id) {
             return Ok(state);

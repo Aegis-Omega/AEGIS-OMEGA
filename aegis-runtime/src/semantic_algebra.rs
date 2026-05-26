@@ -13,12 +13,12 @@ use crate::domain_boundary::AxiomKey;
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MorphOperator {
-    BaseForm    = 0x01,  /// Original root form
-    Intensive   = 0x02,  /// Intensive/causative form
-    Passive     = 0x03,  /// Passive voice derivation
-    Causative   = 0x04,  /// Causative derivation
-    Reflexive   = 0x05,  /// Reflexive derivation
-    Reciprocal  = 0x06,  /// Reciprocal action
+    BaseForm    = 0x01,  // Original root form
+    Intensive   = 0x02,  // Intensive/causative form
+    Passive     = 0x03,  // Passive voice derivation
+    Causative   = 0x04,  // Causative derivation
+    Reflexive   = 0x05,  // Reflexive derivation
+    Reciprocal  = 0x06,  // Reciprocal action
 }
 
 impl MorphOperator {
@@ -275,12 +275,13 @@ impl ArenaBuilder {
 
     /// Connects a parent node to a child node.
     pub fn connect(mut self, parent_idx: u32, child_idx: u32) -> Self {
+        let edge_pos = self.edges.len() as u32;
         self.edges.push(child_idx);
-        
-        // Update parent's edge count
+
         if let Some(parent) = self.nodes.get_mut(parent_idx as usize) {
-            if parent.edge_start as usize == self.edges.len() - 1 {
-                // First edge for this parent
+            if parent.edge_count == 0 {
+                // First edge for this parent — anchor edge_start here
+                parent.edge_start = edge_pos;
                 parent.edge_count = 1;
             } else {
                 parent.edge_count += 1;

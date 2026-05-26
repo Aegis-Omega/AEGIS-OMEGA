@@ -91,28 +91,7 @@ impl TelemetryAtomics {
         self.semantic_traversals.fetch_add(1, Ordering::Relaxed);
     }
 
-    /// Records an acoustic state transition.
-    pub fn record_acoustic(&self, state: crate::acoustic_dfa::AcousticState) {
-        match state {
-            crate::acoustic_dfa::AcousticState::ClearArticulation => {
-                self.acoustic_clear.fetch_add(1, Ordering::Relaxed);
-            }
-            crate::acoustic_dfa::AcousticState::ConcealedResonance => {
-                self.acoustic_concealed.fetch_add(1, Ordering::Relaxed);
-            }
-            crate::acoustic_dfa::AcousticState::MergedAssimilation => {
-                self.acoustic_merged.fetch_add(1, Ordering::Relaxed);
-            }
-            crate::acoustic_dfa::AcousticState::ProlongedEcho => {
-                self.acoustic_prolonged.fetch_add(1, Ordering::Relaxed);
-            }
-            crate::acoustic_dfa::AcousticState::VibratingRelease => {
-                self.acoustic_vibrating.fetch_add(1, Ordering::Relaxed);
-            }
-        }
-    }
-
-    /// Updates the swarm harmony index.
+    /// Updates the consensus score.
     pub fn set_harmony(&self, value: u16) {
         self.swarm_harmony_index.store(value as u64, Ordering::Relaxed);
     }
@@ -126,7 +105,7 @@ impl TelemetryAtomics {
     /// 
     /// Returns a tuple of (t0, sem, clear, concealed, merged, prolonged, vibrating, harmony, tension).
     pub fn snapshot_and_reset(&self) -> (u64, u64, u64, u64, u64, u64, u64, u16, u16) {
-        let t0 = self.t0_integrity_pulse.load(Ordering::Relaxed);
+        let t0 = self.t0_integrity_pulse.swap(0, Ordering::Relaxed);
         let sem = self.semantic_traversals.swap(0, Ordering::Relaxed);
         let clear = self.acoustic_clear.swap(0, Ordering::Relaxed);
         let concealed = self.acoustic_concealed.swap(0, Ordering::Relaxed);
@@ -159,8 +138,10 @@ pub fn spawn_heartbeat_emitter(
     let target = target_collector.to_string();
     let running = Arc::new(std::sync::atomic::AtomicBool::new(true));
     let running_clone = running.clone();
+    let atomics_for_thread = atomics.clone();
 
     thread::spawn(move || {
+        let atomics = atomics_for_thread;
         // Bind to any available port
         let socket = match UdpSocket::bind("0.0.0.0:0") {
             Ok(s) => s,

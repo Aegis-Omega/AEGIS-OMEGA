@@ -117,7 +117,7 @@ impl AcousticAutomaton {
     /// Guttural letters are produced from the throat and cause
     /// preceding nasals to be concealed (ikhfa).
     fn is_guttural_letter(c: char) -> bool {
-        matches!(c, 'ʾ' | 'h' | 'ʿ' | 'ḥ' | 'ʿ' | 'gh' | 'kh' | 'ع' | 'ح' | 'غ' | 'خ' | 'ء' | 'ه')
+        matches!(c, 'ʾ' | 'h' | 'ʿ' | 'ḥ' | 'ع' | 'ح' | 'غ' | 'خ' | 'ء' | 'ه')
     }
 
     /// Checks if a character is a plosive (stop) consonant.
@@ -305,11 +305,10 @@ mod tests {
         
         assert_eq!(result.len(), 3);
         assert_eq!(result[0].0, AcousticState::ClearArticulation);
-        assert_eq!(result[1].0, AcousticState::MergedAssimilation); // 'b' with shadda followed by 'b'... wait, next is 'c'
-        // Actually 'b' != 'c', so not merged. Let me recalculate.
-        // 'a' with next='b', no shadda, no prolongation -> Clear
         // 'b' with next='c', shadda=true, but 'b' != 'c' -> Clear (not merged since chars differ)
-        // 'c' with next=None, no special marks -> Clear (not plosive at end for ASCII)
+        assert_eq!(result[1].0, AcousticState::ClearArticulation);
+        // 'c' with next=None, no special marks -> Clear
+        assert_eq!(result[2].0, AcousticState::ClearArticulation);
     }
 
     #[test]
