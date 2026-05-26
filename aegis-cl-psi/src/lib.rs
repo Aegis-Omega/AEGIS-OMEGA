@@ -986,6 +986,14 @@ pub mod compaction_gossip_recovery_advisor;
 // GossipSlaTrackerLog: compliance_rate() per-mille, streak_compliant(), verify_chain().
 pub mod compaction_gossip_sla_tracker;
 
+// Gate 366 — Compaction Gossip Capacity Planner (T2)
+// Projects epochs-to-delivery-ceiling from total_delivered trend. Mirrors Gate 344.
+// GOSSIP_CAPACITY_WINDOW=4, GOSSIP_DELIVERY_CEILING=1_000_000.
+// Linear extrapolation (integer arithmetic): mean_delta=(last-first)/(window_len-1).
+// projection_hash = SHA-256(prev[32]‖epoch_be8‖current_total_be8‖mean_delta_be8‖window_len_be4‖epochs_to_ceiling_be4‖at_capacity_byte).
+// GossipCapacityPlannerLog: critical_projections() (epochs_to_ceiling≤5), verify_chain().
+pub mod compaction_gossip_capacity_planner;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
