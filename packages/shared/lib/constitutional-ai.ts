@@ -112,7 +112,10 @@ export async function callConstitutional<T>(
 
   const timestamp_ms = Date.now()
   const prompt_hash = await sha256hex(opts.systemPrompt + '\x00' + opts.userMessage)
-  const call_id = await sha256hex(String(timestamp_ms) + '\x00' + prompt_hash)
+  // call_id is content-addressed: prompt + session position — NOT timestamp.
+  // timestamp_ms is stored for observability only and must not enter the hash chain
+  // (doing so would make chain_hash non-deterministic, breaking replay verification).
+  const call_id = await sha256hex(prompt_hash + '\x00' + String(_session.total_calls))
 
   const routed = await routeInference({
     systemPrompt: opts.systemPrompt,
