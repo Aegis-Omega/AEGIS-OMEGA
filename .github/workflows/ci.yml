@@ -19,10 +19,13 @@ jobs:
             aegis-runtime -> target
       - name: aegis-cl-psi tests
         # Default features only — hip/rocblas require ROCm toolkit not available in CI
-        run: cd aegis-cl-psi && cargo test 2>&1 | tee /tmp/rust-results.txt
+        run: |
+          set -eo pipefail
+          cd aegis-cl-psi
+          cargo test 2>&1 | tee /tmp/rust-results.txt
       - name: Verify minimum test count
         run: |
-          PASSED=$(grep -oP '\d+ passed' /tmp/rust-results.txt | grep -oP '\d+' | paste -sd+ | bc)
+          PASSED=$(grep -oP '\d+ passed' /tmp/rust-results.txt | grep -oP '\d+' | awk '{s+=$1} END {print s+0}')
           echo "Rust tests passed: $PASSED"
           test "$PASSED" -ge 1750
       - name: aegis-runtime build
