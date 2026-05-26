@@ -1024,6 +1024,13 @@ pub mod compaction_gossip_dashboard_aggregator;
 // GossipEpochLedger: append(), terminal_hash(), entry_count(), latest(), verify_chain().
 pub mod compaction_gossip_epoch_ledger;
 
+// Gate 371 — Compaction Gossip Audit Seal (T2)
+// Certifies GossipEpochLedger windows into tamper-evident GossipAuditSeal chains.
+// Mirrors Gate 349. seal_hash = SHA-256(prev‖epoch_start_be8‖epoch_end_be8‖epoch_count_be8‖
+// chains_valid_byte‖terminal_hash[32]). GossipAuditSealLog: certify(), certify_ledger(),
+// all_valid(), seal_count(), verify_chain().
+pub mod compaction_gossip_audit_seal;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
