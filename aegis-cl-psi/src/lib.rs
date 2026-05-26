@@ -460,6 +460,12 @@ pub mod session_tracker;
 // BackpressureController: update(queue_depth)→(level, granted); tick_recovery(); peers_under_pressure().
 pub mod backpressure_controller;
 
+// Gate 295 — Gossip Message Deduplicator: epoch-scoped duplicate suppression (T2)
+// DedupDecision: Fresh / Duplicate. Seen-set keyed by (peer_id, message_id) per epoch.
+// Epoch rollover clears seen-set. DedupLog: hash-chained; total_seen(), dup_rate_pct().
+// MessageDeduplicator: observe(), seal_epoch(), dup_rate_current().
+pub mod message_deduplicator;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
