@@ -872,6 +872,13 @@ pub mod compaction_broadcaster;
 // CompactionBroadcastValidator: validate(frame), count_verdict(), verify_chain().
 pub mod compaction_broadcast_validator;
 
+// Gate 352 — Compaction Sync State Machine (T2)
+// Tracks per-peer sync state: Unsynced/Synced/Lagging/Diverged.
+// SyncEntry: peer_id, last_acked_epoch, current_epoch, state, lag.
+// event_hash = SHA-256(prev[32]‖peer_id_be8‖state_byte‖acked_be8‖current_be8).
+// CompactionSyncTracker: update(), get(), synced/lagging/diverged_count(), verify_chain().
+pub mod compaction_sync_state;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
