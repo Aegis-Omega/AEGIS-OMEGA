@@ -1177,6 +1177,13 @@ pub mod gossip_peer_churn;
 // GossipEpochHealthLog: record(), healthy_count(), degraded_count(), critical_count(), verify_chain().
 pub mod gossip_epoch_health;
 
+// Gate 395 — Gossip Pipeline Summary Seal (T2)
+// Per-epoch seal aggregating signals from Gates 390–394 into one hash-chained record.
+// Fields: retransmit_count(u32), mean_ack_latency(u64), delivery_ratio_pct(u32), churn_count(u32), health_verdict.
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖retransmit_be4‖latency_be8‖ratio_be4‖churn_be4‖verdict_byte).
+// GossipPipelineSummaryLog: record(), healthy_epochs(), degraded_epochs(), critical_epochs(), verify_chain().
+pub mod gossip_pipeline_summary;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
