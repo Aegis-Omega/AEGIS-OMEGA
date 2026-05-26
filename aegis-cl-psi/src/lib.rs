@@ -276,6 +276,11 @@ pub mod constitutional_beacon;
 // SyncLog: hash-chained records; lag_count(), max_lag(), synchronized_count().
 pub mod epoch_synchronizer;
 
+// Gate 261 — Consensus Ledger: distributed vote log with quorum certification (T2)
+// VoteEntry + ConsensusRound: BTreeMap<voter_id, vote>; quorum at 1/φ threshold.
+// ConsensusCertificate + ConsensusLedger: hash-chained round certifications.
+pub mod consensus_ledger;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
