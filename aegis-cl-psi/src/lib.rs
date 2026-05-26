@@ -1248,6 +1248,38 @@ pub mod gossip_ttl_tracker;
 //   mean_of_means(), verify_chain().
 pub mod gossip_queue_depth;
 
+// Gate 405 — Gossip Peer Uptime Log (T2)
+// Per-epoch peer uptime: connected_ticks / total_ticks → uptime_pct.
+// low_uptime: uptime_pct < UPTIME_FLOOR (80%).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖connected_ticks_be4‖total_ticks_be4‖uptime_pct_be4‖low_uptime_byte).
+// GossipPeerUptimeLog: record(), total_connected(), total_ticks_all(),
+//   low_uptime_count(), min_uptime_pct(), verify_chain().
+pub mod gossip_peer_uptime;
+
+// Gate 406 — Gossip Message Size Log (T2)
+// Per-epoch message payload size tracking (min/max/mean). mean=(min+max)/2.
+// oversized: max_size >= OVERSIZE_THRESHOLD (65536 bytes).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖min_be4‖max_be4‖mean_be4‖oversized_byte).
+// GossipMessageSizeLog: record(), oversized_count(), max_ever_size(),
+//   mean_of_means(), verify_chain().
+pub mod gossip_message_size;
+
+// Gate 407 — Gossip Peer Timeout Log (T2)
+// Per-epoch peer timeout tracking: timeout_count / active_peers → timeout_rate_pct.
+// high_timeout: timeout_rate_pct >= TIMEOUT_RATE_THRESHOLD (10%).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖timeout_count_be4‖active_peers_be4‖timeout_rate_pct_be4‖high_timeout_byte).
+// GossipPeerTimeoutLog: record(), total_timeouts(), high_timeout_count(),
+//   max_timeout_rate_pct(), verify_chain().
+pub mod gossip_peer_timeout;
+
+// Gate 408 — Gossip Latency Histogram Log (T2)
+// Per-epoch 4-bucket latency histogram: fast(<10ms)/normal(10-99ms)/slow(100-499ms)/stall(≥500ms).
+// stall_pct = stall*100/total; degraded: stall_pct >= STALL_DEGRADED_THRESHOLD (5%).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖fast_be4‖normal_be4‖slow_be4‖stall_be4‖stall_pct_be4‖degraded_byte).
+// GossipLatencyHistogramLog: record(), total_fast(), total_stall(),
+//   degraded_count(), max_stall_pct(), verify_chain().
+pub mod gossip_latency_histogram;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
