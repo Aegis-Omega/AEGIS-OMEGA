@@ -559,6 +559,14 @@ pub mod message_ack_tracker;
 //   close() removes entry, evict_idle(epoch), active_count(), idle_count().
 pub mod peer_connection_pool;
 
+// Gate 310 — Gossip Epoch Watermark: high-water-mark epoch tracking per peer (T2)
+// WatermarkEvent: Advance/Stale. MAX_TRACKED_PEERS=256.
+// WatermarkLog: global hash-chained; advance_count, stale_count, verify_chain.
+// EpochWatermark: update(peer, epoch) → Advance|Stale (monotone, never decreases),
+//   watermark(peer), global_floor() = min across all peers,
+//   peers_at_or_above(epoch) count.
+pub mod epoch_watermark;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
