@@ -708,6 +708,13 @@ pub mod spsf_compactor;
 // VerificationLog: hash-chained audit trail. verify_chain(), verified_count(), failed_count().
 pub mod spsf_verifier;
 
+// Gate 330 — SPSF Compaction Scheduler (T2)
+// Policy layer determining WHEN to compact the SPSF entry log.
+// Entry trigger: total_entries ≥ 1000. Epoch trigger: current - last_compact ≥ 50.
+// recommended_retain = max(MIN_RETAIN=10, total - PRUNE_TARGET=200), clamped to total.
+// SchedulerLog: hash-chained audit trail. triggered_count(), verify_chain().
+pub mod spsf_scheduler;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
