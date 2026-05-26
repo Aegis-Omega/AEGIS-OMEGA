@@ -942,6 +942,14 @@ pub mod compaction_gossip_audit_certifier;
 // GossipTelemetryLog: push(), verify_chain(), frame_count(). Mirrors Gate 337.
 pub mod compaction_gossip_telemetry_encoder;
 
+// Gate 360 — Compaction Gossip Health Aggregator (T2)
+// Combines gossip telemetry (chains_valid, missed rate) with Gate 355 health class into
+// a GossipHealthVector. GossipHealthGrade: Healthy/Nominal/Elevated/Critical.
+// GossipJointCondition: Optimal/Nominal/Degraded/Critical — worst of both axes.
+// vector_hash = SHA-256(prev‖epoch_be8‖grade‖class‖joint‖delivered_be8‖missed_be8‖chains_valid).
+// GossipHealthLog: critical_count(), optimal_count(), joint_condition_count(), verify_chain().
+pub mod compaction_gossip_health_aggregator;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
