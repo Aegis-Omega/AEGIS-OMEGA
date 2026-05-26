@@ -286,6 +286,11 @@ pub mod consensus_ledger;
 // NodeHistory: hash-chained NodeRecords; degraded_count(), recovery_count(), verify_chain().
 pub mod node_state_machine;
 
+// Gate 263 — Fault Detector: mesh-wide fault pattern classifier (T2)
+// FaultClass: None/Isolated/Correlated/Cascading from per-epoch degradation analysis.
+// FaultLog: hash-chained FaultReports; cascading_count(), max_degraded_count().
+pub mod fault_detector;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
