@@ -441,6 +441,12 @@ pub mod epoch_rate_limiter;
 // SelectionLog: hash-chained records; avg_selected_count(), zero_selection_count(), verify_chain().
 pub mod peer_selector;
 
+// Gate 292 — Gossip Epoch Integrator: cross-subsystem epoch close coordination (T2)
+// EpochIntegrationInput: flood/ttl/bandwidth/audit/rate-limiter/decay summaries in one struct.
+// health_score = 100 - penalties (flood_banned:−20, ttl_inflated:−15, !audit:−30, bw_denied>3:−15).
+// IntegrationChain: hash-chained records; healthy_epoch_count(), avg_health_score(), verify_chain().
+pub mod epoch_integrator;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
