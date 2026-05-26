@@ -852,6 +852,12 @@ pub mod compaction_dashboard;
 // CompactionEpochLedger: append(), terminal_hash(), entry_count(), verify_chain().
 pub mod compaction_epoch_ledger;
 
+// Gate 349 — Compaction Audit Seal (T2)
+// Certifies a window of CompactionEpochLedger entries into a tamper-evident CompactionAuditSeal.
+// seal_hash = SHA-256(prev[32]‖epoch_start_be8‖epoch_end_be8‖epoch_count_be8‖chains_valid_byte‖terminal_hash[32]).
+// CompactionAuditSealLog: certify(), certify_ledger(), all_valid(), seal_count(), verify_chain().
+pub mod compaction_audit_seal;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;

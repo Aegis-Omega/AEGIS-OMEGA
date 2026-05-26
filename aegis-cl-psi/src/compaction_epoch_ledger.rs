@@ -79,8 +79,9 @@ impl CompactionEpochLedger {
 
     pub fn entry_count(&self) -> usize { self.entries.len() }
     pub fn is_empty(&self)   -> bool   { self.entries.is_empty() }
-    pub fn entries(&self)    -> &[LedgerEntry] { &self.entries }
-    pub fn latest(&self)     -> Option<&LedgerEntry> { self.entries.last() }
+    pub fn entries(&self)        -> &[LedgerEntry]     { &self.entries }
+    pub fn entries_mut(&mut self) -> &mut [LedgerEntry] { &mut self.entries }
+    pub fn latest(&self)         -> Option<&LedgerEntry> { self.entries.last() }
 
     pub fn terminal_hash(&self) -> [u8; 32] {
         self.entries.last()
