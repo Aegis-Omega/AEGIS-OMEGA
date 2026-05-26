@@ -1052,6 +1052,12 @@ pub mod compaction_gossip_broadcast_validator;
 // GossipSyncTracker: update(), get(), synced/lagging/diverged_count(), verify_chain().
 pub mod compaction_gossip_sync_state_machine;
 
+// Gate 375 — Compaction Gossip Peer Registry (T2)
+// Canonical set of known broadcast peers for the gossip subsystem.
+// Mirrors Gate 353. event_hash = SHA-256(prev[32]‖kind_byte‖peer_id_be8‖epoch_be8‖fingerprint[32]).
+// GossipPeerRegistry: admit(), evict(), contains(), get(), peer_count(), verify_chain().
+pub mod compaction_gossip_peer_registry;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
