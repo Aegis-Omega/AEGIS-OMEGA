@@ -822,6 +822,14 @@ pub mod compaction_sla_tracker;
 // CapacityPlannerLog: critical_projections() (≤5 epochs), verify_chain().
 pub mod compaction_capacity_planner;
 
+// Gate 345 — Compaction Epoch Comparator (T2)
+// Compares consecutive CompactionEpochReports producing signed EpochDeltaRecords.
+// flags_byte: bit0=joint_improved, bit1=joint_worsened, bit2=chains_recovered,
+//             bit3=chains_degraded, bit4=direction_changed.
+// delta_hash = SHA-256(prev[32]‖epoch_be8‖prev_epoch_be8‖flags_byte‖pruned_delta_be8‖momentum_delta_be2).
+// EpochComparatorLog: compare(prev, curr), improvement_count(), degradation_count(), verify_chain().
+pub mod compaction_epoch_comparator;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
