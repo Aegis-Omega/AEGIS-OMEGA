@@ -491,6 +491,13 @@ pub mod link_quality_monitor;
 // MessagePriorityQueue: enqueue(), dequeue(), verify_chain(), stats.
 pub mod message_priority_queue;
 
+// Gate 300 — Gossip Peer Scoring Engine: composite peer quality scoring for selection decisions (T2)
+// Sub-scores: latency_tier→[0..25], reputation_pct→[0..25], delivery_pct→[0..25], uptime→[0..25].
+// composite = sum of four sub-scores, saturating at 100.
+// ScoreLog: hash-chained per peer; avg/min/max/verify_chain.
+// PeerScoringEngine: update_score(), composite_score(), top_peers(n), all_scores().
+pub mod peer_scoring_engine;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
