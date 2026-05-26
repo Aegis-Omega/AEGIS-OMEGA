@@ -649,6 +649,20 @@ pub mod gossip_health_report;
 //             ‖coefficient_bits_be8‖phi_headroom_bits_be8‖sequence_id_be8
 pub mod resonance_anchor;
 
+// Gate 327 — Synthesis Resilience Monitor (T2)
+// Rolling-window (size=8) health tracker for the synthesis arc under network stress.
+// Detects: T0Oscillation (≥3 flips/window), QuorumLoss (≥3 non-quorum/window),
+// EpochGap (missing >2 consecutive epochs). Degraded = 2+ signatures simultaneously.
+// ResilienceRecord: hash-chained per-epoch snapshot. verify_chain(), healthy_count().
+pub mod synthesis_resilience;
+
+// Gate 326 — Peer Frame Validator (T2)
+// Validates received StateFrame (Gate 325) against local constitutional state.
+// Verdicts: Accepted/Degraded/Diverged/Rejected/EpochStale (score 0–4).
+// MAX_EPOCH_LAG=5. Diverged: local quorum=true AND remote T0=false.
+// ValidationRegistry: BTreeMap<peer_id, PeerValidationLog>; quorum_converged() at 1/φ.
+pub mod peer_frame_validator;
+
 // Gate 325 — Constitutional State Broadcaster (T2)
 // Encodes epoch synthesis seal (Gate 324) as a 40-byte network frame for peer broadcast.
 // Frame: epoch(8)‖seal_prefix(8)‖gossip_prefix(8)‖resonance_prefix(8)‖flags(1)‖checksum(7).
