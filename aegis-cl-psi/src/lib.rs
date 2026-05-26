@@ -1083,6 +1083,12 @@ pub mod gossip_fanout_tracker;
 // GossipLatencyLog: record(), max/min/avg_latency(), verify_chain().
 pub mod gossip_latency_tracker;
 
+// Gate 380 — Gossip Epoch Window (T2)
+// Sliding window (size 4) over epoch coverage_pct; classifies as Healthy/Degraded/Critical.
+// entry_hash = SHA-256(prev‖epoch_end_be8‖coverage_pct_be4‖window_avg_pct_be4‖state_byte).
+// GossipEpochWindow: push(), healthy/degraded/critical_count(), verify_chain().
+pub mod gossip_epoch_window;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
