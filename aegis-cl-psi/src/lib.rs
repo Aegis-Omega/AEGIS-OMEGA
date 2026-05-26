@@ -336,6 +336,11 @@ pub mod gossip_scheduler;
 // hops_to_quorum(): min hops for 1/φ quorum. EstimateLog: hash-chained SpreadEstimates.
 pub mod spread_estimator;
 
+// Gate 273 — Fanout Controller: adaptive gossip fanout based on mesh health (T2)
+// FanoutPolicy: Conservative(2)/Standard(3)/Aggressive(5)/Maximum(8) selected from QuorumLevel + health_ratio.
+// FanoutLog: hash-chained FanoutDecisions; average_fanout(), max_fanout(), aggressive_epoch_count().
+pub mod fanout_controller;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
