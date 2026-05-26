@@ -972,6 +972,13 @@ pub mod compaction_gossip_epoch_report;
 // GossipAlertLog: red_count(), amber_count(), green_count(), max_consecutive_declining().
 pub mod compaction_gossip_alert_classifier;
 
+// Gate 364 — Compaction Gossip Recovery Advisor (T2)
+// Produces GossipRecoveryAction from GossipAlertRecord (363) + GossipEpochReport (362).
+// Mirrors Gate 342. Priorities: ChainRepair > DeliveryRecovery (red_pct≥50%) >
+// MomentumStabilize > MonitorOnly. reason_code bit-field tracks concurrent conditions.
+// action_hash = SHA-256(prev[32]‖epoch_be8‖alert_byte‖priority_byte‖reason_code‖rec_byte).
+pub mod compaction_gossip_recovery_advisor;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
