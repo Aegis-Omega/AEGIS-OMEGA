@@ -537,6 +537,14 @@ pub mod topic_subscription;
 // NonceCache: check(peer, epoch, nonce), advance_epoch(), window_size().
 pub mod nonce_cache;
 
+// Gate 307 — Gossip Peer Blocklist: temporary and permanent peer banning (T2)
+// BanReason: ManualBan/ExcessiveMisses/ReplayAttack/RateLimitViolation/PermanentBan.
+// BanAction: Ban/Unban/Expire. DEFAULT_BAN_DURATION_EPOCHS=10, MAX_BLOCKLIST_SIZE=256.
+// BanLog: hash-chained (global); ban_count, unban_count, verify_chain.
+// PeerBlocklist: ban(duration=None→permanent), unban(), is_banned(epoch),
+//   expire_bans(epoch), banned_peers(epoch) sorted, blocklist_size().
+pub mod peer_blocklist;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
