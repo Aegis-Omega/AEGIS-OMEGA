@@ -1002,6 +1002,14 @@ pub mod compaction_gossip_capacity_planner;
 // GossipEpochComparatorLog: improvement_count(), degradation_count(), verify_chain().
 pub mod compaction_gossip_epoch_comparator;
 
+// Gate 368 — Compaction Gossip Trend Analyzer (T2)
+// Rolling 4-entry window over GossipEpochDeltaRecords; classifies trend as Stable/Improving/Degrading/Volatile.
+// Mirrors Gate 346. Improving: ≥3 improvements AND 0 degradations. Degrading: ≥3 degradations AND 0 improvements.
+// Volatile: ≥1 improvement AND ≥1 degradation. trend_hash = SHA-256(prev‖epoch_be8‖trend_byte‖
+// window_size_be2‖improvement_be4‖degradation_be4‖net_delivered_delta_be8).
+// GossipTrendAnalyzerLog: append(delta), improving_trend_count(), degrading_trend_count(), verify_chain().
+pub mod compaction_gossip_trend_analyzer;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
