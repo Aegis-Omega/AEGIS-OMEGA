@@ -1039,6 +1039,13 @@ pub mod compaction_gossip_audit_seal;
 // decode(), frame_count(), verify_chain().
 pub mod compaction_gossip_broadcaster;
 
+// Gate 373 — Compaction Gossip Broadcast Validator (T2)
+// Validates incoming GossipBroadcastFrames: checksum integrity + epoch monotonicity.
+// Mirrors Gate 351. Verdicts: Valid / ChecksumFail / EpochRegressed / ChecksumAndEpoch.
+// record_hash = SHA-256(prev‖frame_epoch_end_be8‖verdict_byte‖frame[32]).
+// GossipBroadcastValidator: validate(), count_verdict(), verify_chain().
+pub mod compaction_gossip_broadcast_validator;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
