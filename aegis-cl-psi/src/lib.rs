@@ -382,6 +382,11 @@ pub mod gossip_epoch_finalizer;
 // consecutive_converged_count(), verify_chain(). Chain via SHA-256(prev‖fields).
 pub mod convergence_certifier;
 
+// Gate 282 — Gossip Topology Prober: active mesh connectivity probing (T2)
+// ProbeResult: Success{rtt_ms}/Timeout/Refused/NoRoute. ProbeLog: hash-chained per (prober,target).
+// ProbeMatrix: BTreeMap<(prober_id,target_id), ProbeLog>; reachable_from(), avg_mesh_rtt().
+pub mod gossip_prober;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
