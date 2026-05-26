@@ -316,6 +316,11 @@ pub mod health_ticker;
 // MeshLedger: hash-chained MeshEntries; entry_count(), terminal_hash(), verify_chain().
 pub mod mesh_ledger;
 
+// Gate 269 — Capability Negotiator: peer capability advertisement + intersection (T2)
+// NegotiationResult: local∩peer bitmask; gossip_ok/consensus_ok/relay_ok/audit_ok flags.
+// NegotiationLog: hash-chained results per (local,peer) pair; capability_stable(), verify_chain().
+pub mod capability_negotiator;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
