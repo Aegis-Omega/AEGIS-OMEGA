@@ -7,7 +7,7 @@ on:
 
 jobs:
   rust-gates:
-    name: Rust Gates (305 tests)
+    name: Rust Gates (1798 tests)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,17 +18,20 @@ jobs:
             aegis-cl-psi -> target
             aegis-runtime -> target
       - name: aegis-cl-psi tests
-        run: cd aegis-cl-psi && cargo test --all-features 2>&1 | tee /tmp/rust-results.txt
+        # Default features only — hip/rocblas require ROCm toolkit not available in CI
+        run: cd aegis-cl-psi && cargo test 2>&1 | tee /tmp/rust-results.txt
       - name: Verify minimum test count
         run: |
           PASSED=$(grep -oP '\d+ passed' /tmp/rust-results.txt | grep -oP '\d+' | paste -sd+ | bc)
           echo "Rust tests passed: $PASSED"
-          test "$PASSED" -ge 279
+          test "$PASSED" -ge 1750
       - name: aegis-runtime build
         run: cd aegis-runtime && cargo build
+      - name: aegis-runtime tests
+        run: cd aegis-runtime && cargo test
 
   ts-gate8:
-    name: TypeScript Gate 8 (2733 tests)
+    name: TypeScript Gate 8 (2790 tests)
     runs-on: ubuntu-latest
     needs: rust-gates
     defaults:
