@@ -331,6 +331,11 @@ pub mod epoch_sealer;
 // next_interval_ms(), total_elapsed_ms(), verify_chain(). Mirrors TypeScript Gate 124.
 pub mod gossip_scheduler;
 
+// Gate 272 — Spread Estimator: gossip message propagation reach estimator (T2)
+// estimate_reach(): geometric series 1+f+f^2+...+f^ttl, saturating integer, capped at total_nodes.
+// hops_to_quorum(): min hops for 1/φ quorum. EstimateLog: hash-chained SpreadEstimates.
+pub mod spread_estimator;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
