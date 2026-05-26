@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 # AEGIS Monorepo — Coordination Document
-## Branch: claude/aegis-setup-Lx7Ji · Gates complete: 367
+## Branch: claude/aegis-setup-Lx7Ji · Gates complete: 379
 ## Operator: Tarik Skalić · Hardware: AMD RX 570, 8 GB RAM
 
 Approach every component as a recursively nested atomic-scale holon governed by
@@ -18,7 +18,7 @@ A T0 violation at any scale propagates upward and invalidates everything above i
 
 ```
 /sovereign-omega-v2/   Governance runtime (Layer A: TypeScript, Layer B: Python)
-/aegis-cl-psi/         CL-Ψ cognitive fabric — 367-gate Rust inference crate (T2, EU AI Act-compliant)
+/aegis-cl-psi/         CL-Ψ cognitive fabric — 379-gate Rust inference crate (T2, EU AI Act-compliant)
 /aegis-runtime/        AEGIS-Ω Seven-Pillar distributed agent swarm runtime (T2)
 /cockpit/              AI chat UI with sovereign-omega telemetry integration
 /platform-picker/      Commercial product — platform recommendation ($19)
@@ -39,7 +39,7 @@ Key specs: `sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md` (constitu
 
 ## Build & Test Commands
 
-### Rust — aegis-cl-psi (2622 tests)
+### Rust — aegis-cl-psi (2781 tests)
 ```bash
 cd aegis-cl-psi
 

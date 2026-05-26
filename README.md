@@ -4,9 +4,9 @@
 
 *Designed and built by Tarik Skalić · AGPL-3.0*
 
-[![Rust](https://img.shields.io/badge/Rust_Tests-2718_(aegis--cl--psi_+_runtime)-brightgreen)](#testing)
+[![Rust](https://img.shields.io/badge/Rust_Tests-2877_(aegis--cl--psi_+_runtime)-brightgreen)](#testing)
 [![TypeScript](https://img.shields.io/badge/TypeScript_Tests-2790-brightgreen)](#testing)
-[![Total](https://img.shields.io/badge/Total_Tests-5508-brightgreen)](#testing)
+[![Total](https://img.shields.io/badge/Total_Tests-5667-brightgreen)](#testing)
 [![Gate 8](https://img.shields.io/badge/Gate_8-passing-brightgreen)](#testing)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-blue)](LICENSE)
 
@@ -21,7 +21,7 @@ AEGIS-Ω was conceived, designed, and executed by a single engineer operating un
 - **Single author, single machine** — AMD RX 570, 8GB RAM. No cloud. No build farm. No team.
 - **113,000+ lines of polyglot code** — TypeScript (governance runtime), Rust (gossip fabric + seven-pillar runtime), Python (analytical bridge) — architected, typed, and maintained by a singular author.
 - **5,508 invariant tests, 0 failures** — every hash chain, every BFT boundary, every determinism proof runs on the same machine that generated them. Test density is approximately one test per 16 lines of production code, approaching DO-178C aerospace coverage standards.
-- **367 gates completed** — each gate required a passing implementation, unit tests, and a full-suite green run before the commit was allowed to land.
+- **379 gates completed** — each gate required a passing implementation, unit tests, and a full-suite green run before the commit was allowed to land.
 - **One law above all others** — `AdaptivePower(T) ≤ ReplayVerifiability(T)` — every module, every layer, every commit answers to it.
 
 The code does not ask to be believed. It can be replayed from genesis and will produce the same cryptographic fingerprint every time.
@@ -119,7 +119,7 @@ This is not metaphor stretched over code. Every row above is a concrete module w
 │  ┌────────────────────────────────▼─────────────────────────────────────┐  │
 │  │  MOLECULAR SCALE — Rust Gossip Layer (aegis-cl-psi)                 │  │
 │  │                                                                      │  │
-│  │  367 gate modules · 45,000+ lines · 2622 tests                      │  │
+│  │  379 gate modules · 45,000+ lines · 2781 tests                      │  │
 │  │                                                                      │  │
 │  │  GOSSIP PROTOCOL (Gates 255–319)                                    │  │
 │  │    Broadcaster · Router · Scheduler · Deduplicator · Fragmenter     │  │
@@ -146,7 +146,7 @@ This is not metaphor stretched over code. Every row above is a concrete module w
 │  │    Partition Detector · Spread Estimator · Fanout Controller       │  │
 │  │    Convergence Certifier · Mesh Supervisor · Epoch Finalizer       │  │
 │  │                                                                      │  │
-│  │  MATHEMATICAL SUBSTRATE (Gates 212–321) · COMPACTION GOSSIP (Gates 322–367)    │  │
+│  │  MATHEMATICAL SUBSTRATE (Gates 212–321) · COMPACTION GOSSIP (Gates 322–379)    │  │
 │  │    Dodecagonal Router · Proportional Metric · Vortex Classifier    │  │
 │  │    Abjad Encoder · Tajweed DFA · Ring Composition Verifier         │  │
 │  │    Lattice DAG · SPSF Persistence · Phi Convergence               │  │
@@ -159,7 +159,7 @@ This is not metaphor stretched over code. Every row above is a concrete module w
 │  │    COMPACTION GOSSIP: Health (322–360) · Momentum (361)           │  │
 │  │    Epoch Report (362) · Alert Classifier (363)                    │  │
 │  │    Recovery Advisor (364) · SLA Tracker (365)                    │  │
-│  │    Capacity Planner (366) · Epoch Comparator (367)               │  │
+│  │    Capacity Planner (366) · Epoch Comparator (367) · Gossip Broadcast Pipeline (368–379)               │  │
 │  └───────────────────────────────┬──────────────────────────────────────┘  │
 │                                   │                                         │
 │  ┌────────────────────────────────▼─────────────────────────────────────┐  │
@@ -256,15 +256,15 @@ All three were proven identical in `test/integration/holonic-triad-proof.test.ts
 ## Testing
 
 ```
-5508 total tests · 0 failures
+5667 total tests · 0 failures
 
   2790  TypeScript  (156 test files across unit / integration / determinism)
-  2622  Rust        aegis-cl-psi  (367 gate modules)
+  2781  Rust        aegis-cl-psi  (379 gate modules)
     96  Rust        aegis-runtime (7-pillar distributed runtime)
 ```
 
 ```bash
-# Rust — gossip layer (2622 tests)
+# Rust — gossip layer (2781 tests)
 cd aegis-cl-psi && cargo test
 
 # Rust — seven-pillar runtime (96 tests)
@@ -302,7 +302,7 @@ Development proceeded in numbered gates. Each gate is a single module or capabil
 Gates are not optional checkpoints — they are the build system. Gate 8 (`npm run test && npm run typecheck && npm run build`) must pass before any commit enters the branch.
 
 Gates in TypeScript: 1–199 (core substrate through sovereign cognition constitution)
-Gates in Rust (aegis-cl-psi): 149–367 (inference fabric through compaction gossip series)
+Gates in Rust (aegis-cl-psi): 149–379 (inference fabric through gossip broadcast pipeline)
 
 ---
 
@@ -407,7 +407,7 @@ Qwen Plus         · weight = 191/1000
 
 | Layer | Language | Source Files | Lines | Tests |
 |-------|----------|-------------|-------|-------|
-| Gossip / math gates | Rust | 184 | 45,000 | 2622 |
+| Gossip / math gates | Rust | 196 | 46,800 | 2781 |
 | Governance runtime | TypeScript | 177 | 20,200 | 2790 |
 | Seven-pillar runtime | Rust | 12 | 2,200 | 96 |
 | Python bridge | Python | 11 | 5,500 | — |
@@ -424,7 +424,7 @@ This system has open problems that are not solved:
 2. **Replay state explosion** — the full event log is not prunable without the `lineage_compactor.rs` mitigation. Long-running nodes need periodic compaction.
 3. **Distributed topology hash stability** — multiple nodes must produce identical canonical JSON for the same logical state. Network partitions are detected and classified (D0–D4) but not automatically resolved.
 4. **Verifier scalability** — `verify_chain()` is O(n). Very long chains need segmented verification.
-5. **No live network** — the gossip layer is fully implemented and tested in isolation. It has never been run against a real peer network. All 367 gate modules pass their tests; none has been stress-tested at production peer count.
+5. **No live network** — the gossip layer is fully implemented and tested in isolation. It has never been run against a real peer network. All 379 gate modules pass their tests; none has been stress-tested at production peer count.
 
 ---
 
@@ -442,7 +442,7 @@ The foundation is built. The organism exists. These are the remaining gaps befor
 ## Repository Structure
 
 ```
-aegis-cl-psi/               Rust · 367 gate modules (gossip + math + compaction gossip) · 2622 tests
+aegis-cl-psi/               Rust · 379 gate modules (gossip + math + compaction gossip) · 2781 tests
 aegis-runtime/              Rust · 7-pillar distributed agent runtime · 96 tests
 sovereign-omega-v2/         TypeScript governance runtime · 2790 tests
   src/core/                 RFC 8785 canonical JSON · SHA-256 · immutability
@@ -497,4 +497,4 @@ Free to use, study, modify, and distribute. Derivative works must release source
 
 *A finite automaton is a machine that remembers its state.*  
 *A hash-chained automaton is a machine that can prove it remembered correctly.*  
-*184 of them, watching each other — that is the organism.*
+*196 of them, watching each other — that is the organism.*
