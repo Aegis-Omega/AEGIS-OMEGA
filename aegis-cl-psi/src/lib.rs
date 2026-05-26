@@ -393,6 +393,12 @@ pub mod gossip_prober;
 // PartitionLog: hash-chained PartitionReports; longest_non_unified_run(), unified_count().
 pub mod partition_detector;
 
+// Gate 284 — Gossip Bandwidth Tracker: per-peer byte budget enforcement (T2)
+// BandwidthDecision: Allow/Throttle/Deny based on bytes_used vs budget_bytes per epoch.
+// PeerBandwidthLog: hash-chained epoch records; utilization_pct, over_budget_epochs().
+// BandwidthRegistry: BTreeMap<peer_id>; request_bytes(), seal_epoch() persists to log.
+pub mod bandwidth_tracker;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
