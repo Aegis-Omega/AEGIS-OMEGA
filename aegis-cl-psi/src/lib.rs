@@ -356,6 +356,11 @@ pub mod dedup_cache;
 // PeerLatencyLog: circular buffer window[8], hash-chained records. LatencyRegistry: BTreeMap<peer_id>.
 pub mod latency_tracker;
 
+// Gate 277 — Gossip Priority Queue: deterministic outbound message scheduling (T2)
+// Score = ttl*urgency*fanout/(elapsed+1). Urgent(≥1000)/High(≥500)/Normal(≥100)/Low.
+// GossipPriorityQueue: BTreeMap<(-score,id),msg>; dequeue_batch(), discard_expired(), peek_top().
+pub mod gossip_priority;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
