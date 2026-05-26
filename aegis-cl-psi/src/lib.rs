@@ -1202,6 +1202,21 @@ pub mod gossip_frame_size_histogram;
 // GossipPeerReputationLog: record(), score_for(), trusted_count(), untrusted_count(), verify_chain().
 pub mod gossip_peer_reputation;
 
+// Gate 399 — Gossip Deduplication Window Log (T2)
+// Per-epoch duplicate-message tracking. dup_ratio_pct = dup_count*100/(seen+dup).
+// high_dup = dup_ratio_pct >= DUP_SATURATION_THRESHOLD (25%).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖seen_count_be4‖dup_count_be4‖dup_ratio_pct_be4‖high_dup_byte).
+// GossipDedupWindowLog: record(), total_seen(), total_dup(), high_dup_count(), max_dup_ratio_pct(), verify_chain().
+pub mod gossip_dedup_window;
+
+// Gate 400 — Gossip Neighbor Score Log (T2)
+// Per-peer composite score from latency(0/50/100) + reliability[0,100] + stability(0 or 100).
+// composite = (latency + reliability + stability) / 3 (integer div).
+// NeighborTier: Elite(>=85), Active(>=50), Weak(<50).
+// entry_hash = SHA-256(prev[32]‖peer_id_be8‖epoch_end_be8‖latency_be4‖reliability_be4‖stability_be4‖composite_be4‖tier_byte).
+// GossipNeighborScoreLog: record(), score_for(), elite_count(), weak_count(), verify_chain().
+pub mod gossip_neighbor_score;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
