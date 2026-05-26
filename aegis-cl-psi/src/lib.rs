@@ -1127,6 +1127,13 @@ pub mod gossip_drop_rate;
 // GossipJitterLog: record(), max_jitter(), avg_jitter(), verify_chain().
 pub mod gossip_jitter;
 
+// Gate 387 — Gossip Reachability Map (T2)
+// Per-peer reachable/unreachable status tracker with BTreeMap for current state.
+// event_hash = SHA-256(prev[32]‖peer_id_be8‖epoch_be8‖reachable_byte).
+// GossipReachabilityLog: mark_reachable(), mark_unreachable(), is_reachable(),
+//   reachable_count(), unreachable_count(), verify_chain().
+pub mod gossip_reachability;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
