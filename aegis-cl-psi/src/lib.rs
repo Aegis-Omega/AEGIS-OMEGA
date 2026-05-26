@@ -753,6 +753,14 @@ pub mod unified_compaction_manager;
 // CompactionSealChain: append(), terminal_hash(), seal_count(), verify_chain().
 pub mod compaction_epoch_seal;
 
+// Gate 336 — Compaction Audit Certifier (T2)
+// Certifies a CompactionSealChain over an epoch window, producing a tamper-evident
+// CompactionAuditCertificate. Analogous to Gate 253 for the compaction subsystem.
+// certificate_hash = SHA-256(epoch_start_be8‖epoch_end_be8‖epoch_count_be8‖chains_valid_byte
+//                             ‖total_pruned_be8‖spsf_be8‖health_be8‖resonance_be8‖terminal_hash[32]).
+// CertifierLog: hash-chained certificates. all_valid(), verify_chain().
+pub mod compaction_audit_certifier;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;

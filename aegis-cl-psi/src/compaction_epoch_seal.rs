@@ -73,6 +73,7 @@ impl CompactionSealChain {
     pub fn seal_count(&self) -> usize { self.seals.len() }
 
     pub fn seals(&self) -> &[CompactionEpochSeal] { &self.seals }
+    pub fn seals_mut(&mut self) -> &mut [CompactionEpochSeal] { &mut self.seals }
 
     pub fn latest(&self) -> Option<&CompactionEpochSeal> { self.seals.last() }
 
