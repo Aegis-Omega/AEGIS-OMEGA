@@ -1121,6 +1121,12 @@ pub mod gossip_frame_rate;
 // GossipDropRateLog: record(), high_drop_count(threshold), average_drop_pct(), verify_chain().
 pub mod gossip_drop_rate;
 
+// Gate 386 — Gossip Jitter Tracker (T2)
+// Epoch-to-epoch delivery jitter: jitter = |frame_count - prev_frame_count|.
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖frame_count_be4‖jitter_be4).
+// GossipJitterLog: record(), max_jitter(), avg_jitter(), verify_chain().
+pub mod gossip_jitter;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
