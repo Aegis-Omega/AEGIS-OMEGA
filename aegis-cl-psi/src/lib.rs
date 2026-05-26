@@ -879,6 +879,13 @@ pub mod compaction_broadcast_validator;
 // CompactionSyncTracker: update(), get(), synced/lagging/diverged_count(), verify_chain().
 pub mod compaction_sync_state;
 
+// Gate 353 — Compaction Peer Registry (T2)
+// Canonical set of known broadcast peers with admit/evict lifecycle.
+// PeerRecord: peer_id, fingerprint[32], admitted_at epoch.
+// event_hash = SHA-256(prev[32]‖kind_byte‖peer_id_be8‖epoch_be8‖fingerprint[32]).
+// CompactionPeerRegistry: admit(), evict(), contains(), get(), verify_chain().
+pub mod compaction_peer_registry;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
