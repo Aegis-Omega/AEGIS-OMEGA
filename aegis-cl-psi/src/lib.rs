@@ -615,6 +615,13 @@ pub mod epoch_rate_ledger;
 // PeerLivenessOracle: assess(), latest_verdict(), dead/suspect/live_peers() sorted, get_log().
 pub mod peer_liveness_oracle;
 
+// Gate 318 — Gossip Message Sequence Tracker: per-peer monotone sequence enforcement (T2)
+// SequenceEvent: InOrder/Gap/Duplicate/Reset. MAX_TRACKED_PEERS=512.
+// Gap: seq > expected (advances). Duplicate: seq < expected (no advance). Reset: seq==0 and expected>0.
+// SequenceLog: per-peer SHA-256 hash-chained; in_order/gap/duplicate counts, verify_chain.
+// MessageSequenceTracker: observe() → SequenceEvent|TooManyPeers, expected_sequence(), gap/dup/reset totals.
+pub mod message_sequence_tracker;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
