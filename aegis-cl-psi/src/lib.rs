@@ -271,6 +271,11 @@ pub mod swarm_topology;
 // BeaconLog: hash-chained records; append validates checksum + monotone epoch.
 pub mod constitutional_beacon;
 
+// Gate 260 — Epoch Synchronizer: cross-peer epoch alignment + lag detection (T2)
+// SyncRecord: local vs max_peer_epoch; alignment = Synchronized/LocalLagging/LocalLeading/NoPeers.
+// SyncLog: hash-chained records; lag_count(), max_lag(), synchronized_count().
+pub mod epoch_synchronizer;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
