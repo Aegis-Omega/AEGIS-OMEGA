@@ -581,6 +581,14 @@ pub mod message_retry_scheduler;
 // PeerCapabilityTracker: update() → Ok(changed?), has_capability(), peers_with_capability() sorted, remove().
 pub mod peer_capability_tracker;
 
+// Gate 313 — Gossip Message Cache: epoch-scoped content-addressed message store (T2)
+// CacheDecision: Inserted/AlreadyPresent/EpochFull. CACHE_WINDOW_EPOCHS=6, MAX_ENTRIES_PER_EPOCH=512.
+// BTreeMap<epoch, BTreeSet<[u8;32]>> sliding window; insert() checks entire window for duplicates.
+// advance_epoch() evicts epochs older than current − CACHE_WINDOW_EPOCHS.
+// CacheLog: global hash-chained; inserted_count, already_present_count, verify_chain.
+// GossipMessageCache: insert(), contains(), advance_epoch(), window_entry_count().
+pub mod gossip_message_cache;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
