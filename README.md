@@ -4,9 +4,9 @@
 
 *Designed and built by Tarik Skalić · AGPL-3.0*
 
-[![Rust](https://img.shields.io/badge/Rust_Tests-1966_(aegis--cl--psi_+_runtime)-brightgreen)](#testing)
+[![Rust](https://img.shields.io/badge/Rust_Tests-2472_(aegis--cl--psi_+_runtime)-brightgreen)](#testing)
 [![TypeScript](https://img.shields.io/badge/TypeScript_Tests-2790-brightgreen)](#testing)
-[![Total](https://img.shields.io/badge/Total_Tests-4756-brightgreen)](#testing)
+[![Total](https://img.shields.io/badge/Total_Tests-5262-brightgreen)](#testing)
 [![Gate 8](https://img.shields.io/badge/Gate_8-passing-brightgreen)](#testing)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-blue)](LICENSE)
 
@@ -252,10 +252,10 @@ All three were proven identical in `test/integration/holonic-triad-proof.test.ts
 ## Testing
 
 ```
-4756 total tests · 0 failures
+5262 total tests · 0 failures
 
   2790  TypeScript  (156 test files across unit / integration / determinism)
-  1911  Rust        aegis-cl-psi  (321 gate modules)
+  2417  Rust        aegis-cl-psi  (321 gate modules)
     55  Rust        aegis-runtime (7-pillar distributed runtime)
 ```
 
@@ -493,4 +493,4 @@ Free to use, study, modify, and distribute. Derivative works must release source
 
 *A finite automaton is a machine that remembers its state.*  
 *A hash-chained automaton is a machine that can prove it remembered correctly.*  
-*138 of them, watching each other — that is the organism.*
+*169 of them, watching each other — that is the organism.*
