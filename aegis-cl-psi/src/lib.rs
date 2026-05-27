@@ -1499,3 +1499,5 @@ pub mod gossip_broadcast_ack_timeout_e3;
 pub mod gossip_broadcast_peer_churn_e3;
 // Gate 475 — Gossip Broadcast Broadcast Drop E3 Monitor (T2)
 pub mod gossip_broadcast_broadcast_drop_e3;
+// Gate 476 — Gossip Broadcast Queue Overflow E3 Monitor (T2)
+pub mod gossip_broadcast_queue_overflow_e3;
