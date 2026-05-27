@@ -9,10 +9,10 @@ function captureEvent(event: string, props?: Record<string, unknown>): void {
 }
 
 const STATS = [
-  { value: '6,271', label: 'invariant tests' },
-  { value: '416',   label: 'gate modules' },
-  { value: '1/φ',   label: 'BFT threshold' },
-  { value: 'T0',    label: 'deterministic proof' },
+  { value: '6,400+', label: 'invariant tests' },
+  { value: '436+',   label: 'gate modules' },
+  { value: '1/φ',    label: 'BFT threshold' },
+  { value: 'T0',     label: 'deterministic proof' },
 ]
 
 const TOOLS = [
@@ -52,7 +52,7 @@ const ENTERPRISE_CAPABILITIES = [
   { icon: Shield,    title: 'Deterministic replay',  desc: 'Every AI decision hash-chained. SHA-256 audit trail from genesis. Replay any past state and get the same cryptographic fingerprint every time.' },
   { icon: GitBranch, title: 'BFT consensus at 1/φ',  desc: 'Byzantine fault-tolerant quorum at the golden ratio threshold. Swarm convergence proofs. No silent failures.' },
   { icon: Lock,      title: 'EU AI Act compliance',  desc: 'Audit hooks, martingale-bounded adaptation, T0-certified epistemic tier tagging. AdaptivePower(T) ≤ ReplayVerifiability(T).' },
-  { icon: RefreshCw, title: '416 gate modules',       desc: 'Gossip layer, peer diversity, epoch convergence, RTT histograms, window fill — all hash-chained and replay-certifiable.' },
+  { icon: RefreshCw, title: '436+ gate modules',      desc: 'Gossip layer, peer diversity, epoch convergence, RTT histograms, window fill — all hash-chained and replay-certifiable.' },
 ]
 
 export default function App() {
@@ -105,7 +105,7 @@ export default function App() {
         <div className="animate-fade-up inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium mb-8"
           style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)', color: '#86EFAC' }}>
           <span className="w-1.5 h-1.5 rounded-full bg-aegis-T0 animate-pulse" />
-          <span style={{ fontFamily: '"JetBrains Mono", monospace' }}>6,271 tests passing · 416 gate modules · deterministic from genesis</span>
+          <span style={{ fontFamily: '"JetBrains Mono", monospace' }}>6,400+ tests passing · 436+ gate modules · deterministic from genesis</span>
         </div>
 
         <h1 className="animate-fade-up delay-100 text-5xl md:text-6xl font-bold text-hub-text tracking-tight mb-6 leading-tight" style={{ letterSpacing: '-0.02em' }}>
@@ -422,7 +422,7 @@ export default function App() {
             style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: '10px', letterSpacing: '0.15em', color: '#34D399' }}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-aegis-T0 animate-pulse" />
-            6,271 tests passing
+            6,400+ tests passing
           </div>
           <h2 className="text-2xl font-bold text-hub-text mb-3">Start building.</h2>
           <p className="text-hub-muted text-sm mb-6">All three tools for $39. One payment. Full source code.</p>
