@@ -1437,3 +1437,5 @@ pub mod gossip_broadcast_sync_lag;
 pub mod gossip_broadcast_nack_rate;
 // Gate 444 — Gossip Broadcast Bandwidth Exceed Monitor (T2)
 pub mod gossip_broadcast_bandwidth_exceed;
+// Gate 445 — Gossip Broadcast Peer Drift Monitor (T2)
+pub mod gossip_broadcast_peer_drift;
