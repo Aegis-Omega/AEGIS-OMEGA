@@ -1557,3 +1557,5 @@ pub mod gossip_broadcast_collision_e4;
 pub mod gossip_broadcast_timeout_e4;
 // Gate 504 — Gossip Broadcast Jitter E4 Monitor (T2)
 pub mod gossip_broadcast_jitter_e4;
+// Gate 505 — Gossip Broadcast Backpressure E4 Monitor (T2)
+pub mod gossip_broadcast_backpressure_e4;
