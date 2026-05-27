@@ -1525,3 +1525,5 @@ pub mod gossip_broadcast_epoch_overlap_e3;
 pub mod gossip_broadcast_peer_isolation_e3;
 // Gate 488 — Gossip Broadcast Ttl Exceeded E3 Monitor (T2)
 pub mod gossip_broadcast_ttl_exceeded_e3;
+// Gate 489 — Gossip Broadcast Flood Rate E3 Monitor (T2)
+pub mod gossip_broadcast_flood_rate_e3;
