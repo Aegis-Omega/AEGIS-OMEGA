@@ -1453,3 +1453,5 @@ pub mod gossip_broadcast_msg_ordering;
 pub mod gossip_broadcast_epoch_overlap;
 // Gate 452 — Gossip Broadcast Peer Isolation Monitor (T2)
 pub mod gossip_broadcast_peer_isolation;
+// Gate 453 — Gossip Broadcast Ttl Exceeded Monitor (T2)
+pub mod gossip_broadcast_ttl_exceeded;
