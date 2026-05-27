@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { PricingTable } from './components/PricingTable.js'
+import { SuccessPage } from './components/SuccessPage.js'
 import { Shield, Zap, GitBranch, Lock, RefreshCw, ChevronRight, Mail } from 'lucide-react'
 
 function captureEvent(event: string, props?: Record<string, unknown>): void {
@@ -56,6 +57,11 @@ const ENTERPRISE_CAPABILITIES = [
 ]
 
 export default function App() {
+  // Route /success to the post-payment page
+  if (window.location.pathname === '/success') {
+    return <SuccessPage />
+  }
+
   const trialStartRef = useRef(Date.now())
 
   useEffect(() => {
@@ -83,13 +89,12 @@ export default function App() {
             </span>
           </div>
           <div className="flex items-center gap-6">
-            <a href="#tools"      className="text-hub-muted text-xs hover:text-hub-text transition-colors hidden sm:block">Tools</a>
-            <a href="#enterprise" className="text-hub-muted text-xs hover:text-hub-text transition-colors hidden sm:block">Enterprise</a>
-            <a href="#pricing"    className="text-hub-muted text-xs hover:text-hub-text transition-colors hidden sm:block">Pricing</a>
+            <a href="/platform.html" className="text-hub-muted text-xs hover:text-hub-text transition-colors hidden sm:block">Platform</a>
+            <a href="#tools"         className="text-hub-muted text-xs hover:text-hub-text transition-colors hidden sm:block">Tools</a>
+            <a href="#enterprise"    className="text-hub-muted text-xs hover:text-hub-text transition-colors hidden sm:block">Enterprise</a>
+            <a href="#pricing"       className="text-hub-muted text-xs hover:text-hub-text transition-colors hidden sm:block">Pricing</a>
             <a
-              href="https://gumroad.com/l/aegis-full-toolkit"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="#pricing"
               onClick={() => handlePurchaseClick('nav', 39)}
               className="text-xs bg-hub-accent text-white px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity font-semibold"
             >
@@ -129,9 +134,7 @@ export default function App() {
 
         <div className="animate-fade-up delay-300 flex flex-col sm:flex-row gap-3 justify-center mb-6">
           <a
-            href="https://gumroad.com/l/aegis-full-toolkit"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="#pricing"
             onClick={() => handlePurchaseClick('hero-full-toolkit', 39)}
             className="inline-flex items-center justify-center gap-2 bg-hub-accent text-white font-semibold px-8 py-3.5 rounded-xl hover:opacity-90 transition-opacity text-sm"
           >
@@ -139,14 +142,14 @@ export default function App() {
             Get creator tools — $39
           </a>
           <a
-            href="#enterprise"
+            href="/platform.html"
             className="inline-flex items-center justify-center gap-2 border border-hub-border text-hub-muted hover:text-hub-text hover:border-hub-accent/40 font-medium px-8 py-3.5 rounded-xl transition-all text-sm"
           >
-            Enterprise runtime
+            See the platform
             <ChevronRight size={14} />
           </a>
         </div>
-        <p className="text-hub-muted text-xs">One-time · Full source code · No subscriptions</p>
+        <p className="text-hub-muted text-xs">One-time · Instant access · No subscriptions</p>
       </div>
 
       {/* Stats bar — JetBrains Mono for all numbers */}
@@ -387,11 +390,11 @@ export default function App() {
             },
             {
               q: 'What do I actually receive when I buy?',
-              a: 'A Gumroad license key + the full source code as a zip. React + TypeScript project you deploy to Vercel. You own it — fork it, modify it, sell tools built on it.',
+              a: 'Instant access to the tool(s) — no keys, no email. Stripe redirects you back here and the tools unlock immediately. You also get the full source code (React + TypeScript) to deploy on your own Vercel.',
             },
             {
-              q: 'How does the license key work?',
-              a: "Enter your Gumroad license key once in the tool. It's validated and stored locally in your browser. No account required. Works offline after first validation.",
+              q: 'How does access work?',
+              a: "After payment, Stripe sends you back to this page. You click each tool link and it opens with instant access — stored in your browser. No account required. To use on another device, return to this page.",
             },
             {
               q: 'Can I use this commercially?',
@@ -427,9 +430,7 @@ export default function App() {
           <h2 className="text-2xl font-bold text-hub-text mb-3">Start building.</h2>
           <p className="text-hub-muted text-sm mb-6">All three tools for $39. One payment. Full source code.</p>
           <a
-            href="https://gumroad.com/l/aegis-full-toolkit"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="#pricing"
             onClick={() => handlePurchaseClick('final-cta', 39)}
             className="inline-flex items-center justify-center gap-2 bg-hub-accent text-white font-semibold px-10 py-4 rounded-xl hover:opacity-90 transition-opacity text-sm"
           >

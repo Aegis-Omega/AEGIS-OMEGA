@@ -1,6 +1,22 @@
-import { ShoppingCart } from 'lucide-react'
+import { Zap } from 'lucide-react'
+
+function captureEvent(event: string, props?: Record<string, unknown>): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ph = (window as any).posthog
+  if (typeof ph?.capture === 'function') ph.capture(event, props)
+}
+
+// Set VITE_STRIPE_LINK_SINGLE / _STARTER / _FULL in Vercel env vars.
+// Each Stripe Payment Link must redirect to:
+//   https://yourdomain.com/success?plan=single (or starter / full)
+const STRIPE_LINKS = {
+  single:  import.meta.env.VITE_STRIPE_LINK_SINGLE  ?? '#pricing',
+  starter: import.meta.env.VITE_STRIPE_LINK_STARTER ?? '#pricing',
+  full:    import.meta.env.VITE_STRIPE_LINK_FULL    ?? '#pricing',
+}
 
 interface Tier {
+  id: 'single' | 'starter' | 'full'
   name: string
   price: number
   originalPrice?: number
@@ -8,24 +24,25 @@ interface Tier {
   items: string[]
   highlight: boolean
   badge?: string
-  gumroadUrl?: string
 }
 
 const TIERS: Tier[] = [
   {
+    id: 'single',
     name: 'Single Tool',
     price: 19,
     desc: 'Pick any one — Platform Picker, Hook Generator, or Content Calendar.',
     items: [
       '1 AI tool of your choice',
       'Unlimited runs (your API key)',
+      'Instant access — no keys, no email',
       'No subscriptions, ever',
       'Full source code',
     ],
     highlight: false,
-    gumroadUrl: 'https://gumroad.com/l/aegis-single',
   },
   {
+    id: 'starter',
     name: 'Starter Pack',
     price: 29,
     originalPrice: 38,
@@ -34,14 +51,15 @@ const TIERS: Tier[] = [
       '2 AI tools of your choice',
       'Save $9 vs buying separate',
       'Unlimited runs (your API key)',
+      'Instant access — no keys, no email',
       'No subscriptions, ever',
       'Full source code',
     ],
     highlight: true,
     badge: 'Most popular',
-    gumroadUrl: 'https://gumroad.com/l/aegis-starter-pack',
   },
   {
+    id: 'full',
     name: 'Full Toolkit',
     price: 39,
     originalPrice: 57,
@@ -50,13 +68,13 @@ const TIERS: Tier[] = [
       'All 3 AI tools',
       'Save $18 vs buying separate',
       'Unlimited runs (your API key)',
+      'Instant access — no keys, no email',
       'No subscriptions, ever',
       'Full source code',
       'Future tool updates included',
     ],
     highlight: false,
     badge: 'Best value',
-    gumroadUrl: 'https://gumroad.com/l/aegis-full-toolkit',
   },
 ]
 
@@ -65,7 +83,7 @@ export function PricingTable() {
     <div className="grid md:grid-cols-3 gap-4">
       {TIERS.map(tier => (
         <div
-          key={tier.name}
+          key={tier.id}
           className={`rounded-2xl p-6 border flex flex-col gap-4 ${
             tier.highlight
               ? 'border-hub-accent/50 bg-hub-accent/5 shadow-lg shadow-hub-accent/10'
@@ -95,21 +113,18 @@ export function PricingTable() {
               </li>
             ))}
           </ul>
-          {tier.gumroadUrl && (
-            <a
-              href={tier.gumroadUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`flex items-center justify-center gap-2 text-sm font-semibold py-3 rounded-xl transition-all ${
-                tier.highlight
-                  ? 'bg-hub-accent text-white hover:opacity-90'
-                  : 'border border-hub-accent/50 text-hub-glow hover:bg-hub-accent/10'
-              }`}
-            >
-              <ShoppingCart size={14} />
-              Get {tier.name}
-            </a>
-          )}
+          <a
+            href={STRIPE_LINKS[tier.id]}
+            onClick={() => captureEvent('checkout_click', { plan: tier.id, price: tier.price })}
+            className={`flex items-center justify-center gap-2 text-sm font-semibold py-3 rounded-xl transition-all ${
+              tier.highlight
+                ? 'bg-hub-accent text-white hover:opacity-90'
+                : 'border border-hub-accent/50 text-hub-glow hover:bg-hub-accent/10'
+            }`}
+          >
+            <Zap size={14} />
+            Get {tier.name} — ${tier.price}
+          </a>
         </div>
       ))}
     </div>
