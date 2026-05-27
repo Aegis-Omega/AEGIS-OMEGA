@@ -25,7 +25,7 @@ const TOOLS = [
     accentColor: '#7C3AED',
     glowColor:   'rgba(124,58,237,0.12)',
     price: 19,
-    gumroadUrl: 'https://gumroad.com/l/aegis-platform-picker',
+    url: 'https://aegis-platform-picker.vercel.app',
   },
   {
     icon: '⚡',
@@ -35,7 +35,7 @@ const TOOLS = [
     accentColor: '#F59E0B',
     glowColor:   'rgba(245,158,11,0.10)',
     price: 19,
-    gumroadUrl: 'https://gumroad.com/l/aegis-hook-generator',
+    url: 'https://aegis-hook-generator.vercel.app',
   },
   {
     icon: '📅',
@@ -45,7 +45,7 @@ const TOOLS = [
     accentColor: '#22C55E',
     glowColor:   'rgba(34,197,94,0.10)',
     price: 19,
-    gumroadUrl: 'https://gumroad.com/l/aegis-content-calendar',
+    url: 'https://aegis-content-calendar.vercel.app',
   },
 ]
 
@@ -224,14 +224,12 @@ export default function App() {
                   ${tool.price}
                 </span>
                 <a
-                  href={tool.gumroadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="#pricing"
                   onClick={() => handlePurchaseClick(tool.name.toLowerCase().replace(/ /g, '-'), tool.price)}
                   className="text-xs font-semibold px-4 py-2 rounded-lg transition-all hover:opacity-90 text-white"
                   style={{ backgroundColor: tool.accentColor }}
                 >
-                  Buy — ${tool.price}
+                  Get access — ${tool.price}
                 </a>
               </div>
             </div>
@@ -350,18 +348,18 @@ export default function App() {
             {[
               {
                 step: '01',
-                title: 'Buy & get your license key',
-                desc: 'Purchase on Gumroad. Receive a license key and the full source code. Enter the key once in the tool to activate.',
+                title: 'Choose your plan',
+                desc: 'One tool for $19, any two for $29, or all three for $39. One-time payment. No subscription, no upsell.',
               },
               {
                 step: '02',
-                title: 'Deploy to Vercel',
-                desc: 'Import the repo, set VITE_DASHSCOPE_API_KEY and your license key, set Root Directory to the tool you bought. 2 minutes.',
+                title: 'Pay with Lemon Squeezy',
+                desc: 'Secure checkout. Works in 130+ countries including Bosnia, Serbia, and every country Stripe blocks. Card, PayPal, and more.',
               },
               {
                 step: '03',
-                title: 'Generate at scale',
-                desc: 'Fill in the form, click Generate, get AI results instantly. Copy, share, download — no login, no limits.',
+                title: 'Instant access — no keys',
+                desc: 'Redirected back here automatically. Click each tool link and it unlocks immediately in your browser. No account, no email, no keys.',
               },
             ].map(item => (
               <div key={item.step} className="bg-hub-bg border border-hub-border rounded-xl p-5">
@@ -390,11 +388,11 @@ export default function App() {
             },
             {
               q: 'What do I actually receive when I buy?',
-              a: 'Instant access to the tool(s) — no keys, no email. Stripe redirects you back here and the tools unlock immediately. You also get the full source code (React + TypeScript) to deploy on your own Vercel.',
+              a: 'Instant access to the tool(s) — no keys, no email, no account. Lemon Squeezy redirects you back here and the tools unlock immediately in your browser.',
             },
             {
               q: 'How does access work?',
-              a: "After payment, Stripe sends you back to this page. You click each tool link and it opens with instant access — stored in your browser. No account required. To use on another device, return to this page.",
+              a: 'After payment, Lemon Squeezy sends you back to this page. Click each tool link and it opens with instant access — stored in your browser. On a new device, return to this page and use the email restore.',
             },
             {
               q: 'Can I use this commercially?',
