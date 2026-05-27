@@ -1565,3 +1565,5 @@ pub mod gossip_broadcast_window_miss_e4;
 pub mod gossip_broadcast_epoch_gap_e4;
 // Gate 508 — Gossip Broadcast Ack Timeout E4 Monitor (T2)
 pub mod gossip_broadcast_ack_timeout_e4;
+// Gate 509 — Gossip Broadcast Peer Churn E4 Monitor (T2)
+pub mod gossip_broadcast_peer_churn_e4;
