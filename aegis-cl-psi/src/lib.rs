@@ -1551,3 +1551,5 @@ pub mod gossip_broadcast_congestion_e4;
 pub mod gossip_broadcast_fanout_e4;
 // Gate 501 — Gossip Broadcast Propagation E4 Monitor (T2)
 pub mod gossip_broadcast_propagation_e4;
+// Gate 502 — Gossip Broadcast Collision E4 Monitor (T2)
+pub mod gossip_broadcast_collision_e4;

@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 # AEGIS Monorepo — Coordination Document
-## Branch: claude/aegis-setup-Lx7Ji · Gates complete: 501
+## Branch: claude/aegis-setup-Lx7Ji · Gates complete: 502
 ## Operator: Tarik Skalić · Hardware: AMD RX 570, 8 GB RAM
 
 Approach every component as a recursively nested atomic-scale holon governed by
@@ -39,7 +39,7 @@ Key specs: `sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md` (constitu
 
 ## Build & Test Commands
 
-### Rust — aegis-cl-psi (4886 tests)
+### Rust — aegis-cl-psi (4905 tests)
 ```bash
 cd aegis-cl-psi
 
@@ -128,7 +128,7 @@ ORGANISM     — Python bridge (bridge.py, port 7890)
                routes between TypeScript governance and hardware inference
 CELLULAR     — TypeScript governance runtime (sovereign-omega-v2/src/)
                hash-chained event ledger, BFT swarm, martingale gating, skill catalog
-MOLECULAR    — Rust gossip + math fabric (aegis-cl-psi/src/, 501 gate modules)
+MOLECULAR    — Rust gossip + math fabric (aegis-cl-psi/src/, 502 gate modules)
                deterministic state-coherence routing, EU AI Act audit chain
 ATOMIC       — Seven-Pillar runtime (aegis-runtime/src/)
                StateAnchor · DomainFirewall · AffineCanvas · SemanticGraph
