@@ -1461,3 +1461,5 @@ pub mod gossip_broadcast_flood_rate;
 pub mod gossip_broadcast_dedup_miss;
 // Gate 456 — Gossip Broadcast Capacity Breach Monitor (T2)
 pub mod gossip_broadcast_capacity_breach;
+// Gate 457 — Gossip Broadcast Peer Timeout Monitor (T2)
+pub mod gossip_broadcast_peer_timeout;
