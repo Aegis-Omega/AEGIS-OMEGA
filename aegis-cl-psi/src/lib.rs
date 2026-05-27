@@ -1505,3 +1505,5 @@ pub mod gossip_broadcast_queue_overflow_e3;
 pub mod gossip_broadcast_sync_lag_e3;
 // Gate 478 — Gossip Broadcast Nack Rate E3 Monitor (T2)
 pub mod gossip_broadcast_nack_rate_e3;
+// Gate 479 — Gossip Broadcast Bandwidth Exceed E3 Monitor (T2)
+pub mod gossip_broadcast_bandwidth_exceed_e3;
