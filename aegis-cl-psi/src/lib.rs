@@ -1421,3 +1421,13 @@ pub mod gossip_broadcast_congestion;
 pub mod gossip_broadcast_propagation;
 // Gate 430 — Gossip Broadcast Collision Monitor (T2)
 pub mod gossip_broadcast_collision;
+// Gate 437 — Gossip Broadcast Epoch Gap Monitor (T2)
+pub mod gossip_broadcast_epoch_gap;
+// Gate 438 — Gossip Broadcast Ack Timeout Monitor (T2)
+pub mod gossip_broadcast_ack_timeout;
+// Gate 439 — Gossip Broadcast Peer Churn Monitor (T2)
+pub mod gossip_broadcast_peer_churn;
+// Gate 440 — Gossip Broadcast Broadcast Drop Monitor (T2)
+pub mod gossip_broadcast_broadcast_drop;
+// Gate 441 — Gossip Broadcast Queue Overflow Monitor (T2)
+pub mod gossip_broadcast_queue_overflow;
