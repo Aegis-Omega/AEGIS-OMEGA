@@ -1545,3 +1545,5 @@ pub mod gossip_broadcast_retry_e4;
 pub mod gossip_broadcast_fragmentation_e4;
 // Gate 498 — Gossip Broadcast Loss E4 Monitor (T2)
 pub mod gossip_broadcast_loss_e4;
+// Gate 499 — Gossip Broadcast Congestion E4 Monitor (T2)
+pub mod gossip_broadcast_congestion_e4;
