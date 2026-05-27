@@ -17,7 +17,7 @@ const PRODUCT_NAMES: Record<string, string> = {
   'content-calendar': 'Content Calendar',
 }
 
-const HUB_URL = (import.meta as any).env?.VITE_HUB_URL ?? 'https://aegis-hub.vercel.app'
+const HUB_URL = (import.meta as any).env?.VITE_HUB_URL ?? 'https://aegisomega.com'
 
 export function AccessGate({ product, accentColor = '#6366F1', buyUrl, children }: AccessGateProps) {
   const [unlocked, setUnlocked] = useState(false)

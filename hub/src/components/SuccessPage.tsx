@@ -3,9 +3,9 @@ import { CheckCircle, ExternalLink, Zap, Mail, Loader2 } from 'lucide-react'
 import { createGrantToken, type Plan } from '../../../packages/shared/lib/access.js'
 
 const TOOL_URLS: Record<string, string> = {
-  'platform-picker':  import.meta.env.VITE_URL_PLATFORM_PICKER  ?? 'https://aegis-platform-picker.vercel.app',
-  'hook-generator':   import.meta.env.VITE_URL_HOOK_GENERATOR   ?? 'https://aegis-hook-generator.vercel.app',
-  'content-calendar': import.meta.env.VITE_URL_CONTENT_CALENDAR ?? 'https://aegis-content-calendar.vercel.app',
+  'platform-picker':  import.meta.env.VITE_URL_PLATFORM_PICKER  ?? 'https://platform.aegisomega.com',
+  'hook-generator':   import.meta.env.VITE_URL_HOOK_GENERATOR   ?? 'https://hooks.aegisomega.com',
+  'content-calendar': import.meta.env.VITE_URL_CONTENT_CALENDAR ?? 'https://calendar.aegisomega.com',
 }
 
 const TOOL_NAMES: Record<string, string> = {
