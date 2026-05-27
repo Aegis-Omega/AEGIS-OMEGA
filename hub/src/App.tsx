@@ -1,6 +1,8 @@
 // ── AEGIS-Ω Hub — marketing landing page ────────────────────────────────────
 // All components inline · vanilla CSS via index.css · no Tailwind classes
 
+import { Analytics } from '@vercel/analytics/react'
+
 // ── AegisMark SVG ──
 function AegisMark({ size = 32, color = 'currentColor' }: { size?: number; color?: string }) {
   return (
@@ -455,6 +457,7 @@ export default function App() {
         </div>
       </footer>
 
+      <Analytics />
     </div>
   )
 }
