@@ -1431,3 +1431,7 @@ pub mod gossip_broadcast_peer_churn;
 pub mod gossip_broadcast_broadcast_drop;
 // Gate 441 — Gossip Broadcast Queue Overflow Monitor (T2)
 pub mod gossip_broadcast_queue_overflow;
+// Gate 442 — Gossip Broadcast Sync Lag Monitor (T2)
+pub mod gossip_broadcast_sync_lag;
+// Gate 443 — Gossip Broadcast Nack Rate Monitor (T2)
+pub mod gossip_broadcast_nack_rate;
