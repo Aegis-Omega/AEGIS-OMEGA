@@ -1537,3 +1537,5 @@ pub mod gossip_broadcast_peer_timeout_e3;
 pub mod gossip_broadcast_batch_e4;
 // Gate 494 — Gossip Broadcast Duplicate E4 Monitor (T2)
 pub mod gossip_broadcast_duplicate_e4;
+// Gate 495 — Gossip Broadcast Peer Latency E4 Monitor (T2)
+pub mod gossip_broadcast_peer_latency_e4;
