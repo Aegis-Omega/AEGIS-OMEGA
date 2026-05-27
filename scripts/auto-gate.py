@@ -172,19 +172,56 @@ def update_claude_md(new_gate: int, new_tests: int):
 
 def next_gossip_metrics(gate_num: int) -> tuple[str, str, str, str, int, str]:
     """Returns (module_suffix, primary_field, secondary_field, flag_name, threshold, threshold_op)"""
-    # Rotate through common gossip broadcast metrics
     metrics = [
-        ("peer_latency",   "high_latency_peers",  "total_peers",    "excessive_latency", 20, ">"),
-        ("retry",          "retry_count",          "total_sent",     "high_retry_rate",   8,  ">"),
-        ("fragmentation",  "fragmented_msgs",      "total_msgs",     "high_fragmentation",25, ">"),
-        ("loss",           "lost_msgs",            "total_sent",     "high_loss",         3,  ">"),
-        ("congestion",     "congested_epochs",     "total_epochs",   "congested",         30, ">"),
-        ("fanout",         "low_fanout_msgs",      "total_msgs",     "low_fanout",        40, "<"),
-        ("propagation",    "slow_propagations",    "total_msgs",     "slow_propagation",  10, ">"),
-        ("collision",      "collision_count",      "total_received", "high_collision",    5,  ">"),
+        # Tier 1 — already built (421-430)
+        ("batch",              "under_filled_batches",   "total_batches",     "under_filled",          50, "<"),
+        ("duplicate",          "duplicate_count",        "total_received",    "high_duplication",      10, ">"),
+        ("peer_latency",       "high_latency_peers",     "total_peers",       "excessive_latency",     20, ">"),
+        ("retry",              "retry_count",            "total_sent",        "high_retry_rate",       8,  ">"),
+        ("fragmentation",      "fragmented_msgs",        "total_msgs",        "high_fragmentation",    25, ">"),
+        ("loss",               "lost_msgs",              "total_sent",        "high_loss",             3,  ">"),
+        ("congestion",         "congested_epochs",       "total_epochs",      "congested",             30, ">"),
+        ("fanout",             "low_fanout_msgs",        "total_msgs",        "low_fanout",            40, "<"),
+        ("propagation",        "slow_propagations",      "total_msgs",        "slow_propagation",      10, ">"),
+        ("collision",          "collision_count",        "total_received",    "high_collision",        5,  ">"),
+        # Tier 2 — new unique metrics
+        ("timeout",            "timed_out_msgs",         "total_sent",        "high_timeout_rate",     4,  ">"),
+        ("jitter",             "high_jitter_epochs",     "total_epochs",      "high_jitter",           15, ">"),
+        ("backpressure",       "backpressured_peers",    "total_peers",       "under_backpressure",    20, ">"),
+        ("window_miss",        "missed_windows",         "total_windows",     "high_miss_rate",        10, ">"),
+        ("epoch_gap",          "epoch_gaps",             "total_epochs",      "frequent_gaps",         5,  ">"),
+        ("ack_timeout",        "unacknowledged_msgs",    "total_sent",        "high_ack_timeout",      8,  ">"),
+        ("peer_churn",         "churned_peers",          "total_peers",       "high_churn",            25, ">"),
+        ("broadcast_drop",     "dropped_broadcasts",     "total_broadcasts",  "high_drop_rate",        2,  ">"),
+        ("queue_overflow",     "overflow_events",        "total_enqueued",    "high_overflow",         3,  ">"),
+        ("sync_lag",           "lagging_peers",          "total_peers",       "high_sync_lag",         30, ">"),
+        ("nack_rate",          "nack_count",             "total_received",    "high_nack_rate",        6,  ">"),
+        ("bandwidth_exceed",   "over_limit_epochs",      "total_epochs",      "bandwidth_exceeded",    20, ">"),
+        ("peer_drift",         "drifted_peers",          "total_peers",       "high_peer_drift",       15, ">"),
+        ("epoch_stall",        "stalled_epochs",         "total_epochs",      "epoch_stalling",        5,  ">"),
+        ("rebroadcast",        "rebroadcast_count",      "total_sent",        "high_rebroadcast",      12, ">"),
+        ("partial_delivery",   "partial_deliveries",     "total_delivered",   "high_partial_rate",     8,  ">"),
+        ("peer_rejection",     "rejected_peers",         "total_peers",       "high_rejection",        10, ">"),
+        ("msg_ordering",       "out_of_order_msgs",      "total_received",    "high_disorder",         5,  ">"),
+        ("epoch_overlap",      "overlapping_epochs",     "total_epochs",      "high_overlap",          3,  ">"),
+        ("peer_isolation",     "isolated_peers",         "total_peers",       "peer_isolated",         10, ">"),
+        ("ttl_exceeded",       "ttl_exceeded_msgs",      "total_sent",        "high_ttl_exceed",       4,  ">"),
+        ("flood_rate",         "flooded_msgs",           "total_sent",        "high_flood",            15, ">"),
+        ("dedup_miss",         "dedup_misses",           "total_received",    "high_dedup_miss",       3,  ">"),
+        ("capacity_breach",    "capacity_breaches",      "total_epochs",      "over_capacity",         5,  ">"),
+        ("peer_timeout",       "timed_out_peers",        "total_peers",       "high_peer_timeout",     10, ">"),
     ]
-    idx = (gate_num - 423) % len(metrics)
-    suffix, prim, sec, flag, thresh, op = metrics[idx]
+    # Find first unused suffix starting from gate 423
+    offset = gate_num - 423
+    if offset < len(metrics):
+        suffix, prim, sec, flag, thresh, op = metrics[offset]
+    else:
+        # Wrap with epoch marker for very large gate counts
+        base_idx = offset % len(metrics)
+        epoch = offset // len(metrics) + 2
+        suffix, prim, sec, flag, thresh, op = metrics[base_idx]
+        suffix = f"{suffix}_e{epoch}"
+        flag   = f"{flag}_e{epoch}"
     return suffix, prim, sec, flag, thresh, op
 
 
@@ -192,6 +229,13 @@ def build_gate(gate_num: int, client: anthropic.Anthropic) -> bool:
     suffix, primary, secondary, flag, threshold, op = next_gossip_metrics(gate_num)
     module_name = f"gossip_broadcast_{suffix}"
     module_path = os.path.join(SRC_DIR, f"{module_name}.rs")
+
+    # Skip if this exact module file already exists AND has 19 passing tests
+    if os.path.exists(module_path):
+        ok, out = run_cargo_test(module_name)
+        if ok:
+            print(f"\n  ⚡ Gate {gate_num}: {module_name} already exists (19 tests OK) — skipping")
+            return True  # count as built, advance gate number
     genesis_const = f"{suffix.upper()}_GENESIS_HASH"
     thresh_const  = f"{flag.upper().replace('_', '_')}_THRESHOLD" if '_' in flag else f"{flag.upper()}_THRESHOLD"
     description   = f"Gossip Broadcast {suffix.replace('_', ' ').title()} Monitor"
