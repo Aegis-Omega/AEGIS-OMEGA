@@ -22,6 +22,11 @@ LIB_RS    = os.path.join(REPO_ROOT, "aegis-cl-psi", "src", "lib.rs")
 SRC_DIR   = os.path.join(REPO_ROOT, "aegis-cl-psi", "src")
 CLAUDE_MD = os.path.join(REPO_ROOT, "CLAUDE.md")
 
+
+class CreditsExhausted(Exception):
+    pass
+
+
 EXAMPLE_MODULE = """//! Gate 422 — Gossip Broadcast Duplicate Detection Monitor (T2)
 //! Tracks duplicate message rate per gossip broadcast epoch.
 //! DUPLICATION_THRESHOLD = 10: dup_rate_pct > 10 → high_duplication
@@ -173,7 +178,6 @@ def update_claude_md(new_gate: int, new_tests: int):
 def next_gossip_metrics(gate_num: int) -> tuple[str, str, str, str, int, str]:
     """Returns (module_suffix, primary_field, secondary_field, flag_name, threshold, threshold_op)"""
     metrics = [
-        # Tier 1 — already built (421-430)
         ("batch",              "under_filled_batches",   "total_batches",     "under_filled",          50, "<"),
         ("duplicate",          "duplicate_count",        "total_received",    "high_duplication",      10, ">"),
         ("peer_latency",       "high_latency_peers",     "total_peers",       "excessive_latency",     20, ">"),
@@ -184,7 +188,6 @@ def next_gossip_metrics(gate_num: int) -> tuple[str, str, str, str, int, str]:
         ("fanout",             "low_fanout_msgs",        "total_msgs",        "low_fanout",            40, "<"),
         ("propagation",        "slow_propagations",      "total_msgs",        "slow_propagation",      10, ">"),
         ("collision",          "collision_count",        "total_received",    "high_collision",        5,  ">"),
-        # Tier 2 — new unique metrics
         ("timeout",            "timed_out_msgs",         "total_sent",        "high_timeout_rate",     4,  ">"),
         ("jitter",             "high_jitter_epochs",     "total_epochs",      "high_jitter",           15, ">"),
         ("backpressure",       "backpressured_peers",    "total_peers",       "under_backpressure",    20, ">"),
@@ -211,12 +214,10 @@ def next_gossip_metrics(gate_num: int) -> tuple[str, str, str, str, int, str]:
         ("capacity_breach",    "capacity_breaches",      "total_epochs",      "over_capacity",         5,  ">"),
         ("peer_timeout",       "timed_out_peers",        "total_peers",       "high_peer_timeout",     10, ">"),
     ]
-    # Find first unused suffix starting from gate 423
     offset = gate_num - 423
     if offset < len(metrics):
         suffix, prim, sec, flag, thresh, op = metrics[offset]
     else:
-        # Wrap with epoch marker for very large gate counts
         base_idx = offset % len(metrics)
         epoch = offset // len(metrics) + 2
         suffix, prim, sec, flag, thresh, op = metrics[base_idx]
@@ -230,14 +231,14 @@ def build_gate(gate_num: int, client: anthropic.Anthropic) -> bool:
     module_name = f"gossip_broadcast_{suffix}"
     module_path = os.path.join(SRC_DIR, f"{module_name}.rs")
 
-    # Skip if this exact module file already exists AND has 19 passing tests
     if os.path.exists(module_path):
         ok, out = run_cargo_test(module_name)
         if ok:
             print(f"\n  ⚡ Gate {gate_num}: {module_name} already exists (19 tests OK) — skipping")
-            return True  # count as built, advance gate number
+            return True
+
     genesis_const = f"{suffix.upper()}_GENESIS_HASH"
-    thresh_const  = f"{flag.upper().replace('_', '_')}_THRESHOLD" if '_' in flag else f"{flag.upper()}_THRESHOLD"
+    thresh_const  = f"{flag.upper()}_THRESHOLD"
     description   = f"Gossip Broadcast {suffix.replace('_', ' ').title()} Monitor"
 
     print(f"\n{'='*60}")
@@ -254,7 +255,7 @@ File: aegis-cl-psi/src/{module_name}.rs
 
 Constants:
   pub const {genesis_const}: [u8; 32] = [0u8; 32];
-  pub const {thresh_const.upper() if hasattr(thresh_const, 'upper') else thresh_const}: u32 = {threshold};
+  pub const {thresh_const}: u32 = {threshold};
 
 Entry struct: Gossip{suffix.title().replace('_', '')}Entry with fields:
   pub epoch_end: u64
@@ -311,51 +312,51 @@ Here is the canonical example to match exactly in style:
 
 Output ONLY the complete Rust file contents. No markdown. No explanation."""
 
-    # Call Claude API with retry on test failure
+    last_code = ""
+    last_error = ""
+
     for attempt in range(1, 4):
         print(f"  Calling Claude claude-sonnet-4-6 (attempt {attempt}/3)...")
 
         messages = [{"role": "user", "content": prompt}]
         if attempt > 1:
-            # Add error context for retry
             messages.append({"role": "assistant", "content": last_code})
             messages.append({"role": "user", "content": f"That produced errors:\n{last_error}\n\nFix and return the complete corrected Rust file."})
 
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
-            system=SYSTEM_PROMPT,
-            messages=messages,
-        )
+        try:
+            response = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=4096,
+                system=SYSTEM_PROMPT,
+                messages=messages,
+            )
+        except anthropic.APIStatusError as e:
+            if e.status_code == 402 or "credit_balance_too_low" in str(e):
+                raise CreditsExhausted(f"API credits exhausted (402): {e}")
+            raise
 
         code = response.content[0].text.strip()
-        # Strip markdown fences if model included them anyway
         code = re.sub(r'^```(?:rust)?\n', '', code)
         code = re.sub(r'\n```$', '', code)
 
-        # Write the file
         with open(module_path, "w") as f:
             f.write(code)
         print(f"  ✓ Written {module_path}")
 
-        # Register in lib.rs so cargo can find it
-        # (check if already registered first)
         with open(LIB_RS) as f:
             lib_content = f.read()
         if f"pub mod {module_name};" not in lib_content:
             with open(LIB_RS, "a") as f:
                 f.write(f"\n// Gate {gate_num} — {description} (T2)\npub mod {module_name};")
 
-        # Test
         passed, output = run_cargo_test(module_name)
         if passed:
             print(f"  ✓ 19/19 tests passed")
             return True
         else:
             last_code = code
-            last_error = output[-2000:]  # last 2000 chars of error
+            last_error = output[-2000:]
             print(f"  ✗ Tests failed (attempt {attempt})")
-            # Remove bad registration if we'll retry
             if attempt < 3:
                 with open(LIB_RS) as f:
                     lib_content = f.read()
@@ -395,7 +396,6 @@ def main():
 
     api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not api_key:
-        # Fall back to settings.local.json
         settings_path = os.path.join(REPO_ROOT, ".claude", "settings.local.json")
         try:
             with open(settings_path) as f:
@@ -416,10 +416,21 @@ def main():
     built = []
     for i in range(args.count):
         gate_num = start_gate + i
-        ok = build_gate(gate_num, client)
+        try:
+            ok = build_gate(gate_num, client)
+        except CreditsExhausted as e:
+            print(f"\n  Credits exhausted — saving progress and exiting cleanly")
+            print(f"  {e}")
+            if built:
+                print(f"  Committing {len(built)} gate(s) built before credits ran out...")
+                commit_and_push(built)
+                print(f"  ✓ Progress saved. Top up credits and re-run to continue from Gate {gate_num}.")
+            else:
+                print(f"  No gates built yet — repo unchanged.")
+            sys.exit(0)
+
         if ok:
             built.append(gate_num)
-            # Update CLAUDE.md after each successful gate
             test_count, _ = run_full_test()
             update_claude_md(gate_num, test_count)
         else:
