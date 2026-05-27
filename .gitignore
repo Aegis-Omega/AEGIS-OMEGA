@@ -45,4 +45,4 @@ __pycache__/
 .tox/
 .coverage
 nosetests.xml
-```
+```.claude/settings.local.json
