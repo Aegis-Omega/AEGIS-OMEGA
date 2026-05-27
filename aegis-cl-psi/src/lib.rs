@@ -1328,6 +1328,22 @@ pub mod gossip_epoch_convergence;
 //   mean_diversity_score(), verify_chain().
 pub mod gossip_peer_diversity;
 
+// Gate 415 — Gossip Broadcast Fanout Log (T2)
+// Per-epoch broadcast fanout: min_fanout, max_fanout, mean_fanout = (min+max)/2.
+// low_fanout: mean_fanout < FANOUT_FLOOR (3).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖min_fanout_be4‖max_fanout_be4‖mean_fanout_be4‖low_byte).
+// GossipBroadcastFanoutLog: record(), low_fanout_count(), max_ever_fanout(),
+//   mean_of_means(), verify_chain().
+pub mod gossip_broadcast_fanout;
+
+// Gate 416 — Gossip Broadcast Retry Log (T2)
+// Per-epoch retry tracking: retry_count, total_sent, retry_rate_pct = (retry*100)/max(sent,1) capped 100.
+// high_retry: retry_rate_pct > RETRY_CEILING (25).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖retry_count_be4‖total_sent_be4‖retry_rate_pct_be4‖high_byte).
+// GossipBroadcastRetryLog: record(), high_retry_count(), total_retries(),
+//   mean_retry_rate_pct(), verify_chain().
+pub mod gossip_broadcast_retry;
+
 pub use sgm_gate::SGMGate;
 pub use lut_kan::LUTKANRouter;
 pub use rwkv_state::RWKVStateCache;
