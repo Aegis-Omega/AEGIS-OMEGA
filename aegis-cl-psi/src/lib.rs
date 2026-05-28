@@ -1790,3 +1790,15 @@ pub mod gossip_broadcast_epoch_skip_e5;
 // entry_hash = SHA-256(prev[32]‖epoch_end_be8‖inverted_be4‖total_be4‖rate_be4‖flag_byte).
 // GossipPriorityInvertE5Log: record(), high_priority_invert_e5_count(), total_inverted_priorities(), mean_invert_rate_pct(), verify_chain().
 pub mod gossip_broadcast_priority_invert_e5;
+// Gate 550 — Gossip Broadcast Storm E5 Monitor (T2)
+// Per-epoch broadcast storm rate: storm_msgs, total_msgs, storm_rate_pct = (storm*100)/max(total,1) capped 100.
+// high_broadcast_storm_e5: storm_rate_pct > HIGH_BROADCAST_STORM_E5_THRESHOLD (17).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖storm_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipBroadcastStormE5Log: record(), high_broadcast_storm_e5_count(), total_storm_msgs(), mean_storm_rate_pct(), verify_chain().
+pub mod gossip_broadcast_broadcast_storm_e5;
+// Gate 551 — Gossip Broadcast Consensus Lag E5 Monitor (T2)
+// Per-epoch consensus lag rate: lagged_consensus, total_consensus, lag_rate_pct = (lagged*100)/max(total,1) capped 100.
+// high_consensus_lag_e5: lag_rate_pct > HIGH_CONSENSUS_LAG_E5_THRESHOLD (12).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖lagged_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipConsensusLagE5Log: record(), high_consensus_lag_e5_count(), total_lagged_consensus(), mean_lag_rate_pct(), verify_chain().
+pub mod gossip_broadcast_consensus_lag_e5;
