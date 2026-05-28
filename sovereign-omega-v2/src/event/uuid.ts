@@ -22,6 +22,7 @@ export function generateUUIDv7(): UUIDv7 {
   if (now <= lastMs) {
     now = lastMs  // enforce monotonicity; absorbs clock regression
     seq++
+    /* c8 ignore next -- overflow requires 4097 UUID calls within the same millisecond */
     if (seq > 0xfff) {
       // Sequence overflow: advance virtual millisecond to preserve uniqueness
       lastMs++

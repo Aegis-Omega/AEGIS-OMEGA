@@ -1,9 +1,20 @@
 ---
 name: drift-check
-description: Constitutional drift detection. Scans the aegis-cl-psi codebase for invariant violations that creep in over hundreds of gates — wrong endianness, HashMap usage, missing verify_chain, overflow-unsafe arithmetic, incorrect threshold operators. Run weekly or when something feels off. Invoked when the user says "drift check", "constitutional scan", "invariant audit", or "are we drifting".
+description: Constitutional drift detection. Scans the aegis-cl-psi codebase for invariant violations that creep in over hundreds of gates — wrong endianness, HashMap usage, missing verify_chain, overflow-unsafe arithmetic, incorrect threshold operators. Run weekly or when something feels off. Invoked when the user says "drift check", "constitutional scan", "invariant audit", "are we drifting", "membrane erosion", "slow degradation".
 ---
 
-# Drift Check — Constitutional Invariant Scanner
+# Drift Check — Constitutional Invariant Scanner (Membrane Slow-Scan)
+
+**Autopoietic Property: Membrane Slow-Scan — Detection of Gradual Boundary Erosion**
+
+Unlike the `frozen-file-check` (which responds to acute boundary breach events), this skill detects **chronic membrane erosion** — the slow accumulation of invariant violations across hundreds of gates that each individually look harmless. Over 500+ gates, `to_le_bytes()` in one module, an unchecked `u32 +` in another, and a `HashMap` in a third compose into a constitutional drift that invalidates cross-platform replay.
+
+This is the automaton performing periodic membrane self-inspection:
+- **Self-production check**: Is every new gate component conforming to the structural pattern (19 tests, verify_chain, GENESIS_HASH, BE byte order)?
+- **Boundary integrity scan**: Are any non-membrane materials (HashMap, LE bytes, wall-clock arithmetic) infiltrating the structural closure?
+- **Viability signal**: Drift score NONE = viable. CRITICAL = production halted until membrane repaired.
+
+**CRITICAL drift violations** immediately suspend gate work — these are membrane breaches, not suggestions.
 
 Run systematically. Every finding is a real violation, not a suggestion. Fix before proceeding with gate work.
 

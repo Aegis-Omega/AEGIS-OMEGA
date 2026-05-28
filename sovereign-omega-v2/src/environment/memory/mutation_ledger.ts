@@ -61,6 +61,7 @@ export class MutationLedger {
     for (let i = 1; i < this._mutations.length; i++) {
       const curr = this._mutations[i]
       const prev = this._mutations[i - 1]
+      /* c8 ignore next -- noUncheckedIndexedAccess requires undefined checks; bounds i < length guarantee non-null */
       if (curr !== undefined && prev !== undefined && curr.sequence <= prev.sequence) {
         return { valid: false, failedAt: i }
       }

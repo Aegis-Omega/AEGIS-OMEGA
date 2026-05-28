@@ -1575,3 +1575,564 @@ pub mod gossip_broadcast_queue_overflow_e4;
 pub mod gossip_broadcast_sync_lag_e4;
 // Gate 513 — Gossip Broadcast Nack Rate E4 Monitor (T2)
 pub mod gossip_broadcast_nack_rate_e4;
+// Gate 514 — Gossip Broadcast Bandwidth Exceed E4 Monitor (T2)
+// Per-epoch bandwidth-exceeded rate: over_limit_epochs, total_epochs, over_limit_rate_pct = (over_limit*100)/max(total,1) capped 100.
+// bandwidth_exceeded_e4: over_limit_rate_pct > BANDWIDTH_EXCEEDED_E4_THRESHOLD (20).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖over_limit_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipBandwidthExceedE4Log: record(), bandwidth_exceeded_e4_count(), total_over_limit_epochs(), mean_rate_pct(), verify_chain().
+pub mod gossip_broadcast_bandwidth_exceed_e4;
+// Gate 515 — Gossip Broadcast Peer Drift E4 Monitor (T2)
+// Per-epoch peer-drift rate: drifted_peers, total_peers, drifted_rate_pct = (drifted*100)/max(total,1) capped 100.
+// high_peer_drift_e4: drifted_rate_pct > HIGH_PEER_DRIFT_E4_THRESHOLD (15).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖drifted_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipPeerDriftE4Log: record(), high_peer_drift_e4_count(), total_drifted_peers(), mean_rate_pct(), verify_chain().
+pub mod gossip_broadcast_peer_drift_e4;
+// Gate 516 — Gossip Broadcast Epoch Stall E4 Monitor (T2)
+// Per-epoch stall rate: stalled_epochs, total_epochs, stalled_rate_pct = (stalled*100)/max(total,1) capped 100.
+// epoch_stalling_e4: stalled_rate_pct > EPOCH_STALLING_E4_THRESHOLD (5).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖stalled_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipEpochStallE4Log: record(), epoch_stalling_e4_count(), total_stalled_epochs(), mean_rate_pct(), verify_chain().
+pub mod gossip_broadcast_epoch_stall_e4;
+// Gate 517 — Gossip Broadcast Rebroadcast E4 Monitor (T2)
+// Per-epoch rebroadcast rate: rebroadcast_count, total_sent, rebroadcast_rate_pct = (rebroadcast*100)/max(total,1) capped 100.
+// high_rebroadcast_e4: rebroadcast_rate_pct > HIGH_REBROADCAST_E4_THRESHOLD (12).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖rebroadcast_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipRebroadcastE4Log: record(), high_rebroadcast_e4_count(), total_rebroadcast_count(), mean_rate_pct(), verify_chain().
+pub mod gossip_broadcast_rebroadcast_e4;
+// Gate 518 — Gossip Broadcast Partial Delivery E4 Monitor (T2)
+// Per-epoch partial delivery rate: partial_deliveries, total_delivered, partial_deliveries_rate_pct = (partial*100)/max(total,1) capped 100.
+// high_partial_rate_e4: partial_deliveries_rate_pct > HIGH_PARTIAL_RATE_E4_THRESHOLD (8).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖partial_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipPartialDeliveryE4Log: record(), high_partial_rate_e4_count(), total_partial_deliveries(), mean_rate_pct(), verify_chain().
+pub mod gossip_broadcast_partial_delivery_e4;
+// Gate 519 — Gossip Broadcast Peer Rejection E4 Monitor (T2)
+// Per-epoch peer rejection rate: rejected_peers, total_peers, rejected_rate_pct = (rejected*100)/max(total,1) capped 100.
+// high_rejection_e4: rejected_rate_pct > HIGH_REJECTION_E4_THRESHOLD (10).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖rejected_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipPeerRejectionE4Log: record(), high_rejection_e4_count(), total_rejected_peers(), mean_rate_pct(), verify_chain().
+pub mod gossip_broadcast_peer_rejection_e4;// Gate 520 — Gossip Broadcast Message Ordering E4 Monitor (T2)
+// Per-epoch out-of-order message rate: disordered_msgs, total_msgs, disorder_rate_pct = (disordered*100)/max(total,1) capped 100.
+// high_disorder_e4: disorder_rate_pct > HIGH_ORDERING_E4_THRESHOLD (7).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖disordered_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipMsgOrderingE4Log: record(), high_disorder_e4_count(), total_disordered_msgs(), mean_disorder_rate_pct(), verify_chain().
+pub mod gossip_broadcast_msg_ordering_e4;
+// Gate 521 — Gossip Broadcast Epoch Overlap E4 Monitor (T2)
+// Per-epoch inter-epoch message overlap: overlapping_msgs, total_msgs, overlap_rate_pct = (overlap*100)/max(total,1) capped 100.
+// high_overlap_e4: overlap_rate_pct > HIGH_OVERLAP_E4_THRESHOLD (15).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖overlapping_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipEpochOverlapE4Log: record(), high_overlap_e4_count(), total_overlapping_msgs(), mean_overlap_rate_pct(), verify_chain().
+pub mod gossip_broadcast_epoch_overlap_e4;
+// Gate 522 — Gossip Broadcast Peer Isolation E4 Monitor (T2)
+// Per-epoch isolated peer rate: isolated_peers, total_peers, isolation_rate_pct = (isolated*100)/max(total,1) capped 100.
+// high_isolation_e4: isolation_rate_pct > HIGH_ISOLATION_E4_THRESHOLD (6).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖isolated_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipPeerIsolationE4Log: record(), high_isolation_e4_count(), total_isolated_peers(), mean_isolation_rate_pct(), verify_chain().
+pub mod gossip_broadcast_peer_isolation_e4;
+// Gate 523 — Gossip Broadcast TTL Exceeded E4 Monitor (T2)
+// Per-epoch TTL-expired message drop rate: ttl_exceeded_msgs, total_msgs, ttl_exceeded_rate_pct = (exceeded*100)/max(total,1) capped 100.
+// high_ttl_exceeded_e4: ttl_exceeded_rate_pct > HIGH_TTL_EXCEEDED_E4_THRESHOLD (9).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖ttl_exceeded_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipTtlExceededE4Log: record(), high_ttl_exceeded_e4_count(), total_ttl_exceeded_msgs(), mean_ttl_exceeded_rate_pct(), verify_chain().
+pub mod gossip_broadcast_ttl_exceeded_e4;
+// Gate 524 — Gossip Broadcast Flood Rate E4 Monitor (T2)
+// Per-epoch flood-rate violations: flooded_msgs, total_msgs, flood_rate_pct = (flooded*100)/max(total,1) capped 100.
+// high_flood_rate_e4: flood_rate_pct > HIGH_FLOOD_RATE_E4_THRESHOLD (20).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖flooded_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipFloodRateE4Log: record(), high_flood_rate_e4_count(), total_flooded_msgs(), mean_flood_rate_pct(), verify_chain().
+pub mod gossip_broadcast_flood_rate_e4;
+// Gate 525 — Gossip Broadcast Dedup Miss E4 Monitor (T2)
+// Per-epoch dedup cache miss rate: dedup_misses, total_lookups, dedup_miss_rate_pct = (misses*100)/max(lookups,1) capped 100.
+// high_dedup_miss_e4: dedup_miss_rate_pct > HIGH_DEDUP_MISS_E4_THRESHOLD (11).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖misses_be4‖lookups_be4‖rate_be4‖flag_byte).
+// GossipDedupMissE4Log: record(), high_dedup_miss_e4_count(), total_dedup_misses(), mean_dedup_miss_rate_pct(), verify_chain().
+pub mod gossip_broadcast_dedup_miss_e4;
+// Gate 526 — Gossip Broadcast Capacity Breach E4 Monitor (T2)
+// Per-epoch capacity breach rate: breached_slots, total_slots, breach_rate_pct = (breached*100)/max(total,1) capped 100.
+// high_capacity_breach_e4: breach_rate_pct > HIGH_CAPACITY_BREACH_E4_THRESHOLD (5).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖breached_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipCapacityBreachE4Log: record(), high_capacity_breach_e4_count(), total_breached_slots(), mean_breach_rate_pct(), verify_chain().
+pub mod gossip_broadcast_capacity_breach_e4;
+// Gate 527 — Gossip Broadcast Peer Timeout E4 Monitor (T2)
+// Per-epoch peer timeout rate: timed_out_peers, total_peers, timeout_rate_pct = (timed_out*100)/max(total,1) capped 100.
+// high_peer_timeout_e4: timeout_rate_pct > HIGH_PEER_TIMEOUT_E4_THRESHOLD (8).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖timed_out_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipPeerTimeoutE4Log: record(), high_peer_timeout_e4_count(), total_timed_out_peers(), mean_timeout_rate_pct(), verify_chain().
+pub mod gossip_broadcast_peer_timeout_e4;
+// Gate 528 — Gossip Broadcast Fanout E5 Monitor (T2)
+// Per-epoch fanout rate: fanout_msgs, total_msgs, fanout_rate_pct = (fanout*100)/max(total,1) capped 100.
+// high_fanout_e5: fanout_rate_pct > HIGH_FANOUT_E5_THRESHOLD (18).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖fanout_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipFanoutE5Log: record(), high_fanout_e5_count(), total_fanout_msgs(), mean_fanout_rate_pct(), verify_chain().
+pub mod gossip_broadcast_fanout_e5;
+// Gate 529 — Gossip Broadcast Latency Spike E5 Monitor (T2)
+// Per-epoch latency spike rate: spiked_msgs, total_msgs, spike_rate_pct = (spiked*100)/max(total,1) capped 100.
+// high_latency_spike_e5: spike_rate_pct > HIGH_LATENCY_SPIKE_E5_THRESHOLD (13).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖spiked_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipLatencySpikeE5Log: record(), high_latency_spike_e5_count(), total_spiked_msgs(), mean_spike_rate_pct(), verify_chain().
+pub mod gossip_broadcast_latency_spike_e5;
+// Gate 530 — Gossip Broadcast Drop Cascade E5 Monitor (T2)
+// Per-epoch cascading drop rate: cascaded_drops, total_msgs, cascade_rate_pct = (drops*100)/max(total,1) capped 100.
+// high_drop_cascade_e5: cascade_rate_pct > HIGH_DROP_CASCADE_E5_THRESHOLD (9).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖drops_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipDropCascadeE5Log: record(), high_drop_cascade_e5_count(), total_cascaded_drops(), mean_cascade_rate_pct(), verify_chain().
+pub mod gossip_broadcast_drop_cascade_e5;
+// Gate 531 — Gossip Broadcast Quorum Miss E5 Monitor (T2)
+// Per-epoch quorum miss rate: quorum_misses, total_epochs, quorum_miss_rate_pct = (misses*100)/max(epochs,1) capped 100.
+// high_quorum_miss_e5: quorum_miss_rate_pct > HIGH_QUORUM_MISS_E5_THRESHOLD (7).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖misses_be4‖epochs_be4‖rate_be4‖flag_byte).
+// GossipQuorumMissE5Log: record(), high_quorum_miss_e5_count(), total_quorum_misses(), mean_quorum_miss_rate_pct(), verify_chain().
+pub mod gossip_broadcast_quorum_miss_e5;
+// Gate 532 — Gossip Broadcast Backpressure E5 Monitor (T2)
+// Per-epoch backpressure event rate: backpressure_events, total_msgs, backpressure_rate_pct = (events*100)/max(total,1) capped 100.
+// high_backpressure_e5: backpressure_rate_pct > HIGH_BACKPRESSURE_E5_THRESHOLD (14).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖events_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipBackpressureE5Log: record(), high_backpressure_e5_count(), total_backpressure_events(), mean_backpressure_rate_pct(), verify_chain().
+pub mod gossip_broadcast_backpressure_e5;
+// Gate 533 — Gossip Broadcast Sync Lag E5 Monitor (T2)
+// Per-epoch sync lag rate: lagged_peers, total_peers, sync_lag_rate_pct = (lagged*100)/max(total,1) capped 100.
+// high_sync_lag_e5: sync_lag_rate_pct > HIGH_SYNC_LAG_E5_THRESHOLD (10).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖lagged_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipSyncLagE5Log: record(), high_sync_lag_e5_count(), total_lagged_peers(), mean_sync_lag_rate_pct(), verify_chain().
+pub mod gossip_broadcast_sync_lag_e5;
+// Gate 534 — Gossip Broadcast Epoch Drift E5 Monitor (T2)
+// Per-epoch drift rate: drifted_epochs, total_epochs, drift_rate_pct = (drifted*100)/max(total,1) capped 100.
+// high_epoch_drift_e5: drift_rate_pct > HIGH_EPOCH_DRIFT_E5_THRESHOLD (8).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖drifted_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipEpochDriftE5Log: record(), high_epoch_drift_e5_count(), total_drifted_epochs(), mean_drift_rate_pct(), verify_chain().
+pub mod gossip_broadcast_epoch_drift_e5;
+// Gate 535 — Gossip Broadcast Partition Detect E5 Monitor (T2)
+// Per-epoch partition detection rate: partitioned_peers, total_peers, partition_rate_pct = (partitioned*100)/max(total,1) capped 100.
+// high_partition_detect_e5: partition_rate_pct > HIGH_PARTITION_DETECT_E5_THRESHOLD (5).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖partitioned_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipPartitionDetectE5Log: record(), high_partition_detect_e5_count(), total_partitioned_peers(), mean_partition_rate_pct(), verify_chain().
+pub mod gossip_broadcast_partition_detect_e5;
+// Gate 536 — Gossip Broadcast Route Flap E5 Monitor (T2)
+// Per-epoch route flap rate: flapped_routes, total_routes, flap_rate_pct = (flapped*100)/max(total,1) capped 100.
+// high_route_flap_e5: flap_rate_pct > HIGH_ROUTE_FLAP_E5_THRESHOLD (12).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖flapped_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipRouteFlapE5Log: record(), high_route_flap_e5_count(), total_flapped_routes(), mean_flap_rate_pct(), verify_chain().
+pub mod gossip_broadcast_route_flap_e5;
+// Gate 537 — Gossip Broadcast Window Exhaust E5 Monitor (T2)
+// Per-epoch window exhaustion rate: exhausted_windows, total_windows, exhaust_rate_pct = (exhausted*100)/max(total,1) capped 100.
+// high_window_exhaust_e5: exhaust_rate_pct > HIGH_WINDOW_EXHAUST_E5_THRESHOLD (16).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖exhausted_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipWindowExhaustE5Log: record(), high_window_exhaust_e5_count(), total_exhausted_windows(), mean_exhaust_rate_pct(), verify_chain().
+pub mod gossip_broadcast_window_exhaust_e5;
+// Gate 538 — Gossip Broadcast Message Loss E5 Monitor (T2)
+// Per-epoch message loss rate: lost_msgs, total_msgs, loss_rate_pct = (lost*100)/max(total,1) capped 100.
+// high_msg_loss_e5: loss_rate_pct > HIGH_MSG_LOSS_E5_THRESHOLD (11).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖lost_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipMsgLossE5Log: record(), high_msg_loss_e5_count(), total_lost_msgs(), mean_loss_rate_pct(), verify_chain().
+pub mod gossip_broadcast_msg_loss_e5;
+// Gate 539 — Gossip Broadcast Peer Churn E5 Monitor (T2)
+// Per-epoch peer churn rate: churned_peers, total_peers, churn_rate_pct = (churned*100)/max(total,1) capped 100.
+// high_peer_churn_e5: churn_rate_pct > HIGH_PEER_CHURN_E5_THRESHOLD (20).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖churned_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipPeerChurnE5Log: record(), high_peer_churn_e5_count(), total_churned_peers(), mean_churn_rate_pct(), verify_chain().
+pub mod gossip_broadcast_peer_churn_e5;
+// Gate 540 — Gossip Broadcast Rebroadcast E5 Monitor (T2)
+// Per-epoch rebroadcast rate: rebroadcast_msgs, total_msgs, rebroadcast_rate_pct = (rebroadcast*100)/max(total,1) capped 100.
+// high_rebroadcast_e5: rebroadcast_rate_pct > HIGH_REBROADCAST_E5_THRESHOLD (25).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖rebroadcast_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipRebroadcastE5Log: record(), high_rebroadcast_e5_count(), total_rebroadcast_msgs(), mean_rebroadcast_rate_pct(), verify_chain().
+pub mod gossip_broadcast_rebroadcast_e5;
+// Gate 541 — Gossip Broadcast Nonce Collision E5 Monitor (T2)
+// Per-epoch nonce collision rate: collided_nonces, total_nonces, collision_rate_pct = (collided*100)/max(total,1) capped 100.
+// high_nonce_collision_e5: collision_rate_pct > HIGH_NONCE_COLLISION_E5_THRESHOLD (3).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖collided_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipNonceCollisionE5Log: record(), high_nonce_collision_e5_count(), total_collided_nonces(), mean_collision_rate_pct(), verify_chain().
+pub mod gossip_broadcast_nonce_collision_e5;
+// Gate 542 — Gossip Broadcast Sequence Gap E5 Monitor (T2)
+// Per-epoch sequence gap rate: gapped_seqs, total_seqs, gap_rate_pct = (gapped*100)/max(total,1) capped 100.
+// high_seq_gap_e5: gap_rate_pct > HIGH_SEQ_GAP_E5_THRESHOLD (8).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖gapped_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipSeqGapE5Log: record(), high_seq_gap_e5_count(), total_gapped_seqs(), mean_gap_rate_pct(), verify_chain().
+pub mod gossip_broadcast_seq_gap_e5;
+// Gate 543 — Gossip Broadcast ACK Delay E5 Monitor (T2)
+// Per-epoch ACK delay rate: delayed_acks, total_acks, delay_rate_pct = (delayed*100)/max(total,1) capped 100.
+// high_ack_delay_e5: delay_rate_pct > HIGH_ACK_DELAY_E5_THRESHOLD (15).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖delayed_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipAckDelayE5Log: record(), high_ack_delay_e5_count(), total_delayed_acks(), mean_delay_rate_pct(), verify_chain().
+pub mod gossip_broadcast_ack_delay_e5;
+// Gate 544 — Gossip Broadcast Header Corrupt E5 Monitor (T2)
+// Per-epoch header corruption rate: corrupted_headers, total_headers, corrupt_rate_pct = (corrupted*100)/max(total,1) capped 100.
+// high_header_corrupt_e5: corrupt_rate_pct > HIGH_HEADER_CORRUPT_E5_THRESHOLD (4).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖corrupted_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipHeaderCorruptE5Log: record(), high_header_corrupt_e5_count(), total_corrupted_headers(), mean_corrupt_rate_pct(), verify_chain().
+pub mod gossip_broadcast_header_corrupt_e5;
+// Gate 545 — Gossip Broadcast Relay Drop E5 Monitor (T2)
+// Per-epoch relay drop rate: dropped_relays, total_relays, drop_rate_pct = (dropped*100)/max(total,1) capped 100.
+// high_relay_drop_e5: drop_rate_pct > HIGH_RELAY_DROP_E5_THRESHOLD (10).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖dropped_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipRelayDropE5Log: record(), high_relay_drop_e5_count(), total_dropped_relays(), mean_drop_rate_pct(), verify_chain().
+pub mod gossip_broadcast_relay_drop_e5;
+// Gate 546 — Gossip Broadcast Topology Stale E5 Monitor (T2)
+// Per-epoch stale topology rate: stale_topology_views, total_topology_views, stale_rate_pct = (stale*100)/max(total,1) capped 100.
+// high_topology_stale_e5: stale_rate_pct > HIGH_TOPOLOGY_STALE_E5_THRESHOLD (14).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖stale_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipTopologyStaleE5Log: record(), high_topology_stale_e5_count(), total_stale_topology_views(), mean_stale_rate_pct(), verify_chain().
+pub mod gossip_broadcast_topology_stale_e5;
+// Gate 547 — Gossip Broadcast Link Fail E5 Monitor (T2)
+// Per-epoch link failure rate: failed_links, total_links, fail_rate_pct = (failed*100)/max(total,1) capped 100.
+// high_link_fail_e5: fail_rate_pct > HIGH_LINK_FAIL_E5_THRESHOLD (7).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖failed_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipLinkFailE5Log: record(), high_link_fail_e5_count(), total_failed_links(), mean_fail_rate_pct(), verify_chain().
+pub mod gossip_broadcast_link_fail_e5;
+// Gate 548 — Gossip Broadcast Epoch Skip E5 Monitor (T2)
+// Per-epoch epoch skip rate: skipped_epochs, total_epochs, skip_rate_pct = (skipped*100)/max(total,1) capped 100.
+// high_epoch_skip_e5: skip_rate_pct > HIGH_EPOCH_SKIP_E5_THRESHOLD (5).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖skipped_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipEpochSkipE5Log: record(), high_epoch_skip_e5_count(), total_skipped_epochs(), mean_skip_rate_pct(), verify_chain().
+pub mod gossip_broadcast_epoch_skip_e5;
+// Gate 549 — Gossip Broadcast Priority Invert E5 Monitor (T2)
+// Per-epoch priority inversion rate: inverted_priorities, total_priority_events, invert_rate_pct = (inverted*100)/max(total,1) capped 100.
+// high_priority_invert_e5: invert_rate_pct > HIGH_PRIORITY_INVERT_E5_THRESHOLD (9).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖inverted_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipPriorityInvertE5Log: record(), high_priority_invert_e5_count(), total_inverted_priorities(), mean_invert_rate_pct(), verify_chain().
+pub mod gossip_broadcast_priority_invert_e5;
+// Gate 550 — Gossip Broadcast Storm E5 Monitor (T2)
+// Per-epoch broadcast storm rate: storm_msgs, total_msgs, storm_rate_pct = (storm*100)/max(total,1) capped 100.
+// high_broadcast_storm_e5: storm_rate_pct > HIGH_BROADCAST_STORM_E5_THRESHOLD (17).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖storm_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipBroadcastStormE5Log: record(), high_broadcast_storm_e5_count(), total_storm_msgs(), mean_storm_rate_pct(), verify_chain().
+pub mod gossip_broadcast_broadcast_storm_e5;
+// Gate 551 — Gossip Broadcast Consensus Lag E5 Monitor (T2)
+// Per-epoch consensus lag rate: lagged_consensus, total_consensus, lag_rate_pct = (lagged*100)/max(total,1) capped 100.
+// high_consensus_lag_e5: lag_rate_pct > HIGH_CONSENSUS_LAG_E5_THRESHOLD (12).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖lagged_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipConsensusLagE5Log: record(), high_consensus_lag_e5_count(), total_lagged_consensus(), mean_lag_rate_pct(), verify_chain().
+pub mod gossip_broadcast_consensus_lag_e5;
+// Gate 552 — Gossip Broadcast Orphan Message E5 Monitor (T2)
+// Per-epoch orphan message rate: orphan_msgs, total_msgs, orphan_rate_pct = (orphan*100)/max(total,1) capped 100.
+// high_orphan_msg_e5: orphan_rate_pct > HIGH_ORPHAN_MSG_E5_THRESHOLD (6).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖orphan_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipOrphanMsgE5Log: record(), high_orphan_msg_e5_count(), total_orphan_msgs(), mean_orphan_rate_pct(), verify_chain().
+pub mod gossip_broadcast_orphan_msg_e5;
+// Gate 553 — Gossip Broadcast Crypto Fail E5 Monitor (T2)
+// Per-epoch cryptographic failure rate: crypto_fails, total_crypto_ops, fail_rate_pct = (fails*100)/max(total,1) capped 100.
+// high_crypto_fail_e5: fail_rate_pct > HIGH_CRYPTO_FAIL_E5_THRESHOLD (2).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖fails_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipCryptoFailE5Log: record(), high_crypto_fail_e5_count(), total_crypto_fails(), mean_fail_rate_pct(), verify_chain().
+pub mod gossip_broadcast_crypto_fail_e5;
+// Gate 554 — Gossip Broadcast Buffer Overflow E5 Monitor (T2)
+// Per-epoch buffer overflow rate: overflow_events, total_buffer_ops, overflow_rate_pct = (overflow*100)/max(total,1) capped 100.
+// high_buffer_overflow_e5: overflow_rate_pct > HIGH_BUFFER_OVERFLOW_E5_THRESHOLD (8).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖overflow_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipBufferOverflowE5Log: record(), high_buffer_overflow_e5_count(), total_overflow_events(), mean_overflow_rate_pct(), verify_chain().
+pub mod gossip_broadcast_buffer_overflow_e5;
+// Gate 555 — Gossip Broadcast Fanout Drop E5 Monitor (T2)
+// Per-epoch fanout drop rate: dropped_fanouts, total_fanouts, drop_rate_pct = (dropped*100)/max(total,1) capped 100.
+// high_fanout_drop_e5: drop_rate_pct > HIGH_FANOUT_DROP_E5_THRESHOLD (13).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖dropped_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipFanoutDropE5Log: record(), high_fanout_drop_e5_count(), total_dropped_fanouts(), mean_drop_rate_pct(), verify_chain().
+pub mod gossip_broadcast_fanout_drop_e5;
+// Gate 556 — Gossip Broadcast TTL Expire E5 Monitor (T2)
+// Per-epoch TTL expiry rate: expired_msgs, total_msgs, expire_rate_pct = (expired*100)/max(total,1) capped 100.
+// high_ttl_expire_e5: expire_rate_pct > HIGH_TTL_EXPIRE_E5_THRESHOLD (19).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖expired_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipTtlExpireE5Log: record(), high_ttl_expire_e5_count(), total_expired_msgs(), mean_expire_rate_pct(), verify_chain().
+pub mod gossip_broadcast_ttl_expire_e5;
+// Gate 557 — Gossip Broadcast Partition Heal E5 Monitor (T2)
+// Per-epoch partition heal rate: healed_partitions, total_partitions, heal_rate_pct = (healed*100)/max(total,1) capped 100.
+// high_partition_heal_e5: heal_rate_pct > HIGH_PARTITION_HEAL_E5_THRESHOLD (22).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖healed_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipPartitionHealE5Log: record(), high_partition_heal_e5_count(), total_healed_partitions(), mean_heal_rate_pct(), verify_chain().
+pub mod gossip_broadcast_partition_heal_e5;
+// Gate 558 — Gossip Broadcast Flood Guard E5 Monitor (T2)
+// Per-epoch flood guard activation rate: guard_activations, total_msgs, guard_rate_pct = (activations*100)/max(total,1) capped 100.
+// high_flood_guard_e5: guard_rate_pct > HIGH_FLOOD_GUARD_E5_THRESHOLD (16).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖activations_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipFloodGuardE5Log: record(), high_flood_guard_e5_count(), total_guard_activations(), mean_guard_rate_pct(), verify_chain().
+pub mod gossip_broadcast_flood_guard_e5;
+// Gate 559 — Gossip Broadcast State Desync E5 Monitor (T2)
+// Per-epoch state desynchronization rate: desynced_peers, total_peers, desync_rate_pct = (desynced*100)/max(total,1) capped 100.
+// high_state_desync_e5: desync_rate_pct > HIGH_STATE_DESYNC_E5_THRESHOLD (11).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖desynced_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipStateDesyncE5Log: record(), high_state_desync_e5_count(), total_desynced_peers(), mean_desync_rate_pct(), verify_chain().
+pub mod gossip_broadcast_state_desync_e5;
+// Gate 560 — Gossip Broadcast Cert Reject E5 Monitor (T2)
+// Per-epoch certificate rejection rate: rejected_certs, total_certs, reject_rate_pct = (rejected*100)/max(total,1) capped 100.
+// high_cert_reject_e5: reject_rate_pct > HIGH_CERT_REJECT_E5_THRESHOLD (4).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖rejected_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipCertRejectE5Log: record(), high_cert_reject_e5_count(), total_rejected_certs(), mean_reject_rate_pct(), verify_chain().
+pub mod gossip_broadcast_cert_reject_e5;
+// Gate 561 — Gossip Broadcast Probe Fail E5 Monitor (T2)
+// Per-epoch probe failure rate: failed_probes, total_probes, fail_rate_pct = (failed*100)/max(total,1) capped 100.
+// high_probe_fail_e5: fail_rate_pct > HIGH_PROBE_FAIL_E5_THRESHOLD (14).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖failed_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipProbeFailE5Log: record(), high_probe_fail_e5_count(), total_failed_probes(), mean_fail_rate_pct(), verify_chain().
+pub mod gossip_broadcast_probe_fail_e5;
+// Gate 562 — Gossip Broadcast Epoch Seal E5 Monitor (T2)
+// Per-epoch epoch seal failure rate: failed_seals, total_seals, seal_fail_rate_pct = (failed*100)/max(total,1) capped 100.
+// high_epoch_seal_e5: seal_fail_rate_pct > HIGH_EPOCH_SEAL_E5_THRESHOLD (18).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖failed_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipEpochSealE5Log: record(), high_epoch_seal_e5_count(), total_failed_seals(), mean_seal_fail_rate_pct(), verify_chain().
+pub mod gossip_broadcast_epoch_seal_e5;
+// Gate 563 — Gossip Broadcast Fanout E6 Monitor (T2)
+// Per-epoch fanout rate: fanout_msgs, total_msgs, fanout_rate_pct = (fanout*100)/max(total,1) capped 100.
+// high_fanout_e6: fanout_rate_pct > HIGH_FANOUT_E6_THRESHOLD (30).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖fanout_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipFanoutE6Log: record(), high_fanout_e6_count(), total_fanout_msgs(), mean_fanout_rate_pct(), verify_chain().
+pub mod gossip_broadcast_fanout_e6;
+// Gate 564 — Gossip Broadcast Latency Spike E6 Monitor (T2)
+// Per-epoch latency spike rate: spike_events, total_msgs, spike_rate_pct = (spikes*100)/max(total,1) capped 100.
+// high_latency_spike_e6: spike_rate_pct > HIGH_LATENCY_SPIKE_E6_THRESHOLD (15).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖spikes_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipLatencySpikeE6Log: record(), high_latency_spike_e6_count(), total_spike_events(), mean_spike_rate_pct(), verify_chain().
+pub mod gossip_broadcast_latency_spike_e6;
+// Gate 565 — Gossip Broadcast Epoch Drift E6 Monitor (T2)
+// Per-epoch epoch drift rate: drifted_peers, total_peers, drift_rate_pct = (drifted*100)/max(total,1) capped 100.
+// high_epoch_drift_e6: drift_rate_pct > HIGH_EPOCH_DRIFT_E6_THRESHOLD (9).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖drifted_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipEpochDriftE6Log: record(), high_epoch_drift_e6_count(), total_drifted_peers(), mean_drift_rate_pct(), verify_chain().
+pub mod gossip_broadcast_epoch_drift_e6;
+// Gate 566 — Gossip Broadcast Quorum Miss E6 Monitor (T2)
+// Per-epoch quorum miss rate: missed_quorums, total_quorums, miss_rate_pct = (missed*100)/max(total,1) capped 100.
+// high_quorum_miss_e6: miss_rate_pct > HIGH_QUORUM_MISS_E6_THRESHOLD (13).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖missed_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipQuorumMissE6Log: record(), high_quorum_miss_e6_count(), total_missed_quorums(), mean_miss_rate_pct(), verify_chain().
+pub mod gossip_broadcast_quorum_miss_e6;
+// Gate 567 — Gossip Broadcast Partition Detect E6 Monitor (T2)
+// Per-epoch partition detection rate: detected_partitions, total_checks, detect_rate_pct = (detected*100)/max(total,1) capped 100.
+// high_partition_detect_e6: detect_rate_pct > HIGH_PARTITION_DETECT_E6_THRESHOLD (7).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖detected_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipPartitionDetectE6Log: record(), high_partition_detect_e6_count(), total_detected_partitions(), mean_detect_rate_pct(), verify_chain().
+pub mod gossip_broadcast_partition_detect_e6;
+// Gate 568 — Gossip Broadcast Sync Lag E6 Monitor (T2)
+// Per-epoch sync lag rate: lagged_syncs, total_syncs, lag_rate_pct = (lagged*100)/max(total,1) capped 100.
+// high_sync_lag_e6: lag_rate_pct > HIGH_SYNC_LAG_E6_THRESHOLD (21).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖lagged_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipSyncLagE6Log: record(), high_sync_lag_e6_count(), total_lagged_syncs(), mean_lag_rate_pct(), verify_chain().
+pub mod gossip_broadcast_sync_lag_e6;
+// Gate 569 — Gossip Broadcast Backpressure E6 Monitor (T2)
+// Per-epoch backpressure rate: backpressure_events, total_msgs, backpressure_rate_pct = (events*100)/max(total,1) capped 100.
+// high_backpressure_e6: backpressure_rate_pct > HIGH_BACKPRESSURE_E6_THRESHOLD (18).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖events_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipBackpressureE6Log: record(), high_backpressure_e6_count(), total_backpressure_events(), mean_backpressure_rate_pct(), verify_chain().
+pub mod gossip_broadcast_backpressure_e6;
+// Gate 570 — Gossip Broadcast Drop Cascade E6 Monitor (T2)
+// Per-epoch cascaded drop rate: cascaded_drops, total_drops, cascade_rate_pct = (cascaded*100)/max(total,1) capped 100.
+// high_drop_cascade_e6: cascade_rate_pct > HIGH_DROP_CASCADE_E6_THRESHOLD (11).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖cascaded_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipDropCascadeE6Log: record(), high_drop_cascade_e6_count(), total_cascaded_drops(), mean_cascade_rate_pct(), verify_chain().
+pub mod gossip_broadcast_drop_cascade_e6;
+// Gate 571 — Gossip Broadcast Route Flap E6 Monitor (T2)
+// Per-epoch route flap rate: flapped_routes, total_routes, flap_rate_pct = (flapped*100)/max(total,1) capped 100.
+// high_route_flap_e6: flap_rate_pct > HIGH_ROUTE_FLAP_E6_THRESHOLD (14).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖flapped_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipRouteFlapE6Log: record(), high_route_flap_e6_count(), total_flapped_routes(), mean_flap_rate_pct(), verify_chain().
+pub mod gossip_broadcast_route_flap_e6;
+// Gate 572 — Gossip Broadcast Window Exhaust E6 Monitor (T2)
+// Per-epoch window exhaustion rate: exhausted_windows, total_windows, exhaust_rate_pct = (exhausted*100)/max(total,1) capped 100.
+// high_window_exhaust_e6: exhaust_rate_pct > HIGH_WINDOW_EXHAUST_E6_THRESHOLD (20).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖exhausted_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipWindowExhaustE6Log: record(), high_window_exhaust_e6_count(), total_exhausted_windows(), mean_exhaust_rate_pct(), verify_chain().
+pub mod gossip_broadcast_window_exhaust_e6;
+// Gate 573 — Gossip Broadcast Msg Loss E6 Monitor (T2)
+// Per-epoch message loss rate: lost_msgs, total_msgs, loss_rate_pct = (lost*100)/max(total,1) capped 100.
+// high_msg_loss_e6: loss_rate_pct > HIGH_MSG_LOSS_E6_THRESHOLD (8).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖lost_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipMsgLossE6Log: record(), high_msg_loss_e6_count(), total_lost_msgs(), mean_loss_rate_pct(), verify_chain().
+pub mod gossip_broadcast_msg_loss_e6;
+// Gate 574 — Gossip Broadcast Peer Churn E6 Monitor (T2)
+// Per-epoch peer churn rate: churned_peers, total_peers, churn_rate_pct = (churned*100)/max(total,1) capped 100.
+// high_peer_churn_e6: churn_rate_pct > HIGH_PEER_CHURN_E6_THRESHOLD (24).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖churned_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipPeerChurnE6Log: record(), high_peer_churn_e6_count(), total_churned_peers(), mean_churn_rate_pct(), verify_chain().
+pub mod gossip_broadcast_peer_churn_e6;
+// Gate 575 — Gossip Broadcast Rebroadcast E6 Monitor (T2)
+// Per-epoch rebroadcast rate: rebroadcast_msgs, total_msgs, rebroadcast_rate_pct = (rebroadcast*100)/max(total,1) capped 100.
+// high_rebroadcast_e6: rebroadcast_rate_pct > HIGH_REBROADCAST_E6_THRESHOLD (28).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖rebroadcast_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipRebroadcastE6Log: record(), high_rebroadcast_e6_count(), total_rebroadcast_msgs(), mean_rebroadcast_rate_pct(), verify_chain().
+pub mod gossip_broadcast_rebroadcast_e6;
+// Gate 576 — Gossip Broadcast Nonce Collision E6 Monitor (T2)
+// Per-epoch nonce collision rate: collided_nonces, total_nonces, collision_rate_pct = (collided*100)/max(total,1) capped 100.
+// high_nonce_collision_e6: collision_rate_pct > HIGH_NONCE_COLLISION_E6_THRESHOLD (5).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖collided_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipNonceCollisionE6Log: record(), high_nonce_collision_e6_count(), total_collided_nonces(), mean_collision_rate_pct(), verify_chain().
+pub mod gossip_broadcast_nonce_collision_e6;
+// Gate 577 — Gossip Broadcast Seq Gap E6 Monitor (T2)
+// Per-epoch sequence gap rate: gapped_seqs, total_seqs, gap_rate_pct = (gapped*100)/max(total,1) capped 100.
+// high_seq_gap_e6: gap_rate_pct > HIGH_SEQ_GAP_E6_THRESHOLD (10).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖gapped_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipSeqGapE6Log: record(), high_seq_gap_e6_count(), total_gapped_seqs(), mean_gap_rate_pct(), verify_chain().
+pub mod gossip_broadcast_seq_gap_e6;
+// Gate 578 — Gossip Broadcast Ack Delay E6 Monitor (T2)
+// Per-epoch acknowledgement delay rate: delayed_acks, total_acks, delay_rate_pct = (delayed*100)/max(total,1) capped 100.
+// high_ack_delay_e6: delay_rate_pct > HIGH_ACK_DELAY_E6_THRESHOLD (17).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖delayed_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipAckDelayE6Log: record(), high_ack_delay_e6_count(), total_delayed_acks(), mean_delay_rate_pct(), verify_chain().
+pub mod gossip_broadcast_ack_delay_e6;
+// Gate 579 — Gossip Broadcast Header Corrupt E6 Monitor (T2)
+// Per-epoch header corruption rate: corrupted_headers, total_headers, corrupt_rate_pct = (corrupted*100)/max(total,1) capped 100.
+// high_header_corrupt_e6: corrupt_rate_pct > HIGH_HEADER_CORRUPT_E6_THRESHOLD (6).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖corrupted_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipHeaderCorruptE6Log: record(), high_header_corrupt_e6_count(), total_corrupted_headers(), mean_corrupt_rate_pct(), verify_chain().
+pub mod gossip_broadcast_header_corrupt_e6;
+// Gate 580 — Gossip Broadcast Relay Drop E6 Monitor (T2)
+// Per-epoch relay drop rate: dropped_relays, total_relays, drop_rate_pct = (dropped*100)/max(total,1) capped 100.
+// high_relay_drop_e6: drop_rate_pct > HIGH_RELAY_DROP_E6_THRESHOLD (12).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖dropped_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipRelayDropE6Log: record(), high_relay_drop_e6_count(), total_dropped_relays(), mean_drop_rate_pct(), verify_chain().
+pub mod gossip_broadcast_relay_drop_e6;
+// Gate 581 — Gossip Broadcast Topology Stale E6 Monitor (T2)
+// Per-epoch topology staleness rate: stale_topology_views, total_topology_views, stale_rate_pct = (stale*100)/max(total,1) capped 100.
+// high_topology_stale_e6: stale_rate_pct > HIGH_TOPOLOGY_STALE_E6_THRESHOLD (16).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖stale_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipTopologyStaleE6Log: record(), high_topology_stale_e6_count(), total_stale_topology_views(), mean_stale_rate_pct(), verify_chain().
+pub mod gossip_broadcast_topology_stale_e6;
+// Gate 582 — Gossip Broadcast Link Fail E6 Monitor (T2)
+// Per-epoch link failure rate: failed_links, total_links, fail_rate_pct = (failed*100)/max(total,1) capped 100.
+// high_link_fail_e6: fail_rate_pct > HIGH_LINK_FAIL_E6_THRESHOLD (9).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖failed_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipLinkFailE6Log: record(), high_link_fail_e6_count(), total_failed_links(), mean_fail_rate_pct(), verify_chain().
+pub mod gossip_broadcast_link_fail_e6;
+// Gate 583 — Gossip Broadcast Cert Expire E6 Monitor (T2)
+// Per-epoch certificate expiry rate: expired_certs, total_certs, expire_rate_pct = (expired*100)/max(total,1) capped 100.
+// high_cert_expire_e6: expire_rate_pct > HIGH_CERT_EXPIRE_E6_THRESHOLD (4).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖expired_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipCertExpireE6Log: record(), high_cert_expire_e6_count(), total_expired_certs(), mean_expire_rate_pct(), verify_chain().
+pub mod gossip_broadcast_cert_expire_e6;
+// Gate 584 — Gossip Broadcast TTL Exhaust E6 Monitor (T2)
+// Per-epoch TTL exhaustion rate: exhausted_ttls, total_msgs, exhaust_rate_pct = (exhausted*100)/max(total,1) capped 100.
+// high_ttl_exhaust_e6: exhaust_rate_pct > HIGH_TTL_EXHAUST_E6_THRESHOLD (19).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖exhausted_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipTtlExhaustE6Log: record(), high_ttl_exhaust_e6_count(), total_exhausted_ttls(), mean_exhaust_rate_pct(), verify_chain().
+pub mod gossip_broadcast_ttl_exhaust_e6;
+// Gate 585 — Gossip Broadcast Flood Burst E6 Monitor (T2)
+// Per-epoch flood burst rate: burst_msgs, total_msgs, burst_rate_pct = (burst*100)/max(total,1) capped 100.
+// high_flood_burst_e6: burst_rate_pct > HIGH_FLOOD_BURST_E6_THRESHOLD (22).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖burst_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipFloodBurstE6Log: record(), high_flood_burst_e6_count(), total_burst_msgs(), mean_burst_rate_pct(), verify_chain().
+pub mod gossip_broadcast_flood_burst_e6;
+// Gate 586 — Gossip Broadcast Echo Detect E6 Monitor (T2)
+// Per-epoch echo detection rate: detected_echoes, total_msgs, echo_rate_pct = (detected*100)/max(total,1) capped 100.
+// high_echo_detect_e6: echo_rate_pct > HIGH_ECHO_DETECT_E6_THRESHOLD (7).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖detected_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipEchoDetectE6Log: record(), high_echo_detect_e6_count(), total_detected_echoes(), mean_echo_rate_pct(), verify_chain().
+pub mod gossip_broadcast_echo_detect_e6;
+// Gate 587 — Gossip Broadcast Loop Detect E6 Monitor (T2)
+// Per-epoch routing loop detection rate: detected_loops, total_msgs, loop_rate_pct = (detected*100)/max(total,1) capped 100.
+// high_loop_detect_e6: loop_rate_pct > HIGH_LOOP_DETECT_E6_THRESHOLD (3).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖detected_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipLoopDetectE6Log: record(), high_loop_detect_e6_count(), total_detected_loops(), mean_loop_rate_pct(), verify_chain().
+pub mod gossip_broadcast_loop_detect_e6;
+// Gate 588 — Gossip Broadcast Malform E6 Monitor (T2)
+// Per-epoch malformed message rate: malformed_msgs, total_msgs, malform_rate_pct = (malformed*100)/max(total,1) capped 100.
+// high_malform_e6: malform_rate_pct > HIGH_MALFORM_E6_THRESHOLD (5).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖malformed_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipMalformE6Log: record(), high_malform_e6_count(), total_malformed_msgs(), mean_malform_rate_pct(), verify_chain().
+pub mod gossip_broadcast_malform_e6;
+// Gate 589 — Gossip Broadcast Replay Detect E6 Monitor (T2)
+// Per-epoch replay detection rate: detected_replays, total_msgs, replay_rate_pct = (detected*100)/max(total,1) capped 100.
+// high_replay_detect_e6: replay_rate_pct > HIGH_REPLAY_DETECT_E6_THRESHOLD (8).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖detected_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipReplayDetectE6Log: record(), high_replay_detect_e6_count(), total_detected_replays(), mean_replay_rate_pct(), verify_chain().
+pub mod gossip_broadcast_replay_detect_e6;
+// Gate 590 — Gossip Broadcast Crc Fail E6 Monitor (T2)
+// Per-epoch CRC failure rate: crc_failed_msgs, total_msgs, crc_fail_rate_pct = (failed*100)/max(total,1) capped 100.
+// high_crc_fail_e6: crc_fail_rate_pct > HIGH_CRC_FAIL_E6_THRESHOLD (6).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖failed_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipCrcFailE6Log: record(), high_crc_fail_e6_count(), total_crc_failed_msgs(), mean_crc_fail_rate_pct(), verify_chain().
+pub mod gossip_broadcast_crc_fail_e6;
+// Gate 591 — Gossip Broadcast Version Mismatch E6 Monitor (T2)
+// Per-epoch version mismatch rate: mismatched_versions, total_msgs, mismatch_rate_pct = (mismatched*100)/max(total,1) capped 100.
+// high_version_mismatch_e6: mismatch_rate_pct > HIGH_VERSION_MISMATCH_E6_THRESHOLD (11).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖mismatched_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipVersionMismatchE6Log: record(), high_version_mismatch_e6_count(), total_mismatched_versions(), mean_mismatch_rate_pct(), verify_chain().
+pub mod gossip_broadcast_version_mismatch_e6;
+// Gate 592 — Gossip Broadcast Buffer Overflow E6 Monitor (T2)
+// Per-epoch buffer overflow rate: overflow_events, total_msgs, overflow_rate_pct = (overflows*100)/max(total,1) capped 100.
+// high_buffer_overflow_e6: overflow_rate_pct > HIGH_BUFFER_OVERFLOW_E6_THRESHOLD (15).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖overflows_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipBufferOverflowE6Log: record(), high_buffer_overflow_e6_count(), total_overflow_events(), mean_overflow_rate_pct(), verify_chain().
+pub mod gossip_broadcast_buffer_overflow_e6;
+// Gate 593 — Gossip Broadcast Auth Fail E6 Monitor (T2)
+// Per-epoch authentication failure rate: auth_failures, total_msgs, auth_fail_rate_pct = (failures*100)/max(total,1) capped 100.
+// high_auth_fail_e6: auth_fail_rate_pct > HIGH_AUTH_FAIL_E6_THRESHOLD (9).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖failures_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipAuthFailE6Log: record(), high_auth_fail_e6_count(), total_auth_failures(), mean_auth_fail_rate_pct(), verify_chain().
+pub mod gossip_broadcast_auth_fail_e6;
+// Gate 594 — Gossip Broadcast Dedup Miss E6 Monitor (T2)
+// Per-epoch deduplication cache miss rate: dedup_misses, total_msgs, dedup_miss_rate_pct = (misses*100)/max(total,1) capped 100.
+// high_dedup_miss_e6: dedup_miss_rate_pct > HIGH_DEDUP_MISS_E6_THRESHOLD (25).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖misses_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipDedupMissE6Log: record(), high_dedup_miss_e6_count(), total_dedup_misses(), mean_dedup_miss_rate_pct(), verify_chain().
+pub mod gossip_broadcast_dedup_miss_e6;
+// Gate 595 — Gossip Broadcast Heartbeat Miss E6 Monitor (T2)
+// Per-epoch heartbeat miss rate: missed_heartbeats, total_heartbeats, heartbeat_miss_rate_pct = (missed*100)/max(total,1) capped 100.
+// high_heartbeat_miss_e6: heartbeat_miss_rate_pct > HIGH_HEARTBEAT_MISS_E6_THRESHOLD (13).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖missed_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipHeartbeatMissE6Log: record(), high_heartbeat_miss_e6_count(), total_missed_heartbeats(), mean_heartbeat_miss_rate_pct(), verify_chain().
+pub mod gossip_broadcast_heartbeat_miss_e6;
+// Gate 596 — Gossip Broadcast Priority Drop E6 Monitor (T2)
+// Per-epoch priority drop rate: priority_drops, total_msgs, priority_drop_rate_pct = (drops*100)/max(total,1) capped 100.
+// high_priority_drop_e6: priority_drop_rate_pct > HIGH_PRIORITY_DROP_E6_THRESHOLD (18).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖drops_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipPriorityDropE6Log: record(), high_priority_drop_e6_count(), total_priority_drops(), mean_priority_drop_rate_pct(), verify_chain().
+pub mod gossip_broadcast_priority_drop_e6;
+// Gate 597 — Gossip Broadcast Epoch Skip E6 Monitor (T2)
+// Per-epoch epoch skip rate: skipped_epochs, total_epochs, epoch_skip_rate_pct = (skipped*100)/max(total,1) capped 100.
+// high_epoch_skip_e6: epoch_skip_rate_pct > HIGH_EPOCH_SKIP_E6_THRESHOLD (7).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖skipped_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipEpochSkipE6Log: record(), high_epoch_skip_e6_count(), total_skipped_epochs(), mean_epoch_skip_rate_pct(), verify_chain().
+pub mod gossip_broadcast_epoch_skip_e6;
+// Gate 598 — Gossip Broadcast Phi Angular Balance E7 Log (T2)
+// Per-epoch angular balance of gossip links: balanced_links, total_links,
+// balance_rate_pct = (balanced_links*100)/max(total_links,1) capped 100.
+// phi_balanced_e7: balance_rate_pct > PHI_ANGULAR_BALANCE_E7_THRESHOLD (61).
+// Threshold 61 ≈ φ×100 (golden ratio × 100) — Penrose/pentagonal equilibrium baseline.
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖balanced_links_be4‖total_links_be4‖balance_rate_pct_be4‖phi_balanced_byte).
+// GossipPhiAngularE7Log: record(), phi_balanced_e7_count(), total_balanced_links(), mean_balance_rate_pct(), verify_chain().
+pub mod gossip_broadcast_phi_angular_e7;
+// Gate 599 — Gossip Broadcast Phi Fibonacci Alignment E7 Log (T2)
+// Per-epoch Fibonacci alignment of active peer count: fibonacci_epochs, total_epochs,
+// fib_align_pct = (fibonacci_epochs*100)/max(total_epochs,1) capped 100.
+// phi_fibonacci_aligned_e7: fib_align_pct > PHI_FIBONACCI_ALIGN_E7_THRESHOLD (55).
+// Threshold 55 = F(10) — target fraction of epochs where peer count ≈ F(n) (φ-spread topology).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖fibonacci_epochs_be4‖total_epochs_be4‖fib_align_pct_be4‖phi_fibonacci_aligned_byte).
+// GossipPhiFibonacciE7Log: record(), phi_fibonacci_aligned_e7_count(), total_fibonacci_epochs(), mean_fib_align_pct(), verify_chain().
+pub mod gossip_broadcast_phi_fibonacci_e7;
+
+// Gate 600 — Gossip Broadcast Phi Convergence E7 Log (T2)
+// Per-epoch convergence toward φ: convergent_epochs, total_epochs,
+// convergence_rate_pct = (convergent_epochs*100)/max(total_epochs,1) capped 100.
+// phi_convergent_e7: convergence_rate_pct > PHI_CONVERGENCE_E7_THRESHOLD (61).
+// Self-referential stability law: system converges constitutionally when ≥φ fraction
+// of epochs achieve φ-alignment. Test structure: 1+6+2+3+6+1=19 (evolved viability ring).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖convergent_epochs_be4‖total_epochs_be4‖convergence_rate_pct_be4‖phi_convergent_byte).
+// GossipPhiConvergenceE7Log: record(), phi_convergent_e7_count(), total_convergent_epochs(), mean_convergence_rate_pct(), verify_chain().
+pub mod gossip_broadcast_phi_convergence_e7;
+
+// Gate 601 — Gossip Broadcast Phi Deviation E7 Log (T2)
+// Per-epoch deviation from φ: drifted_epochs, total_epochs,
+// deviation_rate_pct = (drifted_epochs*100)/max(total_epochs,1) capped 100.
+// phi_drifted_e7: deviation_rate_pct > PHI_DEVIATION_E7_THRESHOLD (38).
+// Threshold 38 ≈ (1-φ)×100 — complement of Gate 600; together they bound the φ-stability envelope.
+// Test structure: 1+6+2+3+6+1=19 (evolved viability ring).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖drifted_epochs_be4‖total_epochs_be4‖deviation_rate_pct_be4‖phi_drifted_byte).
+// GossipPhiDeviationE7Log: record(), phi_drifted_e7_count(), total_drifted_epochs(), mean_deviation_rate_pct(), verify_chain().
+pub mod gossip_broadcast_phi_deviation_e7;
+
+// Gate 602 — Gossip Broadcast Phi Squared E7 Log (T2)
+// Per-epoch φ²=φ+1 self-similarity: squared_aligned_epochs, total_epochs,
+// squared_rate_pct = (squared_aligned_epochs*100)/max(total_epochs,1) capped 100.
+// phi_squared_e7: squared_rate_pct > PHI_SQUARED_E7_THRESHOLD (61).
+// The growth identity — a system satisfying φ²=φ+1 scales non-destructively at every level.
+// Test structure: 1+6+2+3+6+1=19 (evolved viability ring).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖squared_aligned_epochs_be4‖total_epochs_be4‖squared_rate_pct_be4‖phi_squared_byte).
+// GossipPhiSquaredE7Log: record(), phi_squared_e7_count(), total_squared_aligned_epochs(), mean_squared_rate_pct(), verify_chain().
+pub mod gossip_broadcast_phi_squared_e7;
+
+// Gate 603 — Gossip Broadcast Phi Reciprocal E7 Log (T2)
+// Per-epoch 1/φ=φ−1 identity: reciprocal_aligned_epochs, total_epochs,
+// reciprocal_rate_pct = (reciprocal_aligned_epochs*100)/max(total_epochs,1) capped 100.
+// phi_reciprocal_e7: reciprocal_rate_pct > PHI_RECIPROCAL_E7_THRESHOLD (61).
+// The proportion identity — complement of Gate 602. Gates 602+603 certify full φ-self-definition:
+// growth (φ²=φ+1) and proportion (1/φ=φ−1). Both satisfied = constitutionally φ-stable.
+// Test structure: 1+6+2+3+6+1=19 (evolved viability ring).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖reciprocal_aligned_epochs_be4‖total_epochs_be4‖reciprocal_rate_pct_be4‖phi_reciprocal_byte).
+// GossipPhiReciprocalE7Log: record(), phi_reciprocal_e7_count(), total_reciprocal_aligned_epochs(), mean_reciprocal_rate_pct(), verify_chain().
+pub mod gossip_broadcast_phi_reciprocal_e7;
+

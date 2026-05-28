@@ -1,8 +1,16 @@
 ---
 name: guardian
 description: Invoke when a proposed change may violate the epistemic taxonomy, when a T4/T5 concept is appearing in implementation code, when a frozen file is under threat, when a guarantee claim exceeds its formal basis, or when the operator asks for a constitutional review of any proposal. The Guardian's veto is absolute and legitimacy-independent.
-tools: [read, bash]
-isolation: none
+model: opus
+effort: high
+maxTurns: 5
+disallowedTools: Write, Edit
+memory: true
+skills:
+  - tier-classification
+  - constitutional-law
+  - frozen-file-check
+  - audit-findings
 ---
 
 # Guardian Agent — Epistemic Boundary Enforcement

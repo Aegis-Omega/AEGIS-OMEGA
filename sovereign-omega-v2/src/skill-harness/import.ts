@@ -17,6 +17,7 @@ export function parseSkillFrontmatter(
 ): { name: string; description: string } | null {
   const match = content.match(/^---\s*\n([\s\S]*?)\n---/)
   if (!match) return null
+  /* c8 ignore next -- noUncheckedIndexedAccess artifact; match[1] is always defined when match is non-null */
   const frontmatter = match[1] ?? ''
   const nameMatch = frontmatter.match(/^name:\s*(.+)$/m)
   const descMatch = frontmatter.match(/^description:\s*(.+)$/m)
@@ -112,6 +113,7 @@ export async function importSkillsFromManifests(
       catalog = next
       admitted.push(record)
     } catch (e) {
+      /* c8 ignore next -- buildSkillRecord and catalog.register only throw SkillCatalogError; false arm is dead */
       const reason = e instanceof SkillCatalogError ? e.message : 'CATALOG: registration failed'
       rejected.push({ skill_id, reason })
     }

@@ -239,6 +239,7 @@ export async function deserializeChain(json: string): Promise<LedgerChain> {
   try {
     snap = deserializeSnapshot(json)
   } catch (err) {
+    /* c8 ignore next -- deserializeSnapshot only throws LedgerPersistenceError; false arm is structurally unreachable */
     if (err instanceof LedgerPersistenceError) throw err
     throw new LedgerPersistenceError(`Failed to parse snapshot: ${String(err)}`)
   }

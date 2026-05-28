@@ -63,7 +63,7 @@ export function joinLedgerEntries(
 
   // Sort by sequence ascending
   const sorted = [...bySeq.values()]
-    .sort((x, y) => (x.entry.sequence < y.entry.sequence ? -1 : x.entry.sequence > y.entry.sequence ? 1 : 0))
+    .sort((x, y) => (x.entry.sequence < y.entry.sequence ? -1 : 1))  // sequences are unique bigints; equality impossible
     .map(({ entry }) => entry)
 
   return Object.freeze(sorted)

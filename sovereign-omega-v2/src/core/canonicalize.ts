@@ -48,6 +48,7 @@ function serializeValue(value: unknown): string {
     const sortedKeys = Object.keys(obj).sort((a, b) => {
       // Compare by Unicode code point sequence (not locale-sensitive)
       for (let i = 0; i < Math.min(a.length, b.length); i++) {
+        /* c8 ignore next -- noUncheckedIndexedAccess artifact; i < min(a.length, b.length) guarantees valid indices */
         const diff = (a.codePointAt(i) ?? 0) - (b.codePointAt(i) ?? 0)
         if (diff !== 0) return diff
       }
@@ -81,7 +82,9 @@ function serializeString(s: string): string {
   // specific characters as required by JSON.
   let result = '"'
   for (let i = 0; i < s.length; i++) {
+    /* c8 ignore next -- noUncheckedIndexedAccess artifact; i < s.length guarantees valid index */
     const cp = s.codePointAt(i) ?? 0
+    /* c8 ignore next -- same as above */
     const ch = s[i] ?? ''
 
     if (cp === 0x22) { result += '\\"'; continue }
@@ -101,6 +104,7 @@ function serializeString(s: string): string {
     // Non-BMP character (U+10000..U+10FFFF): codePointAt returns full scalar > 0xFFFF.
     // Must emit both UTF-16 code units and skip the low surrogate on next iteration.
     if (cp > 0xFFFF) {
+      /* c8 ignore next -- noUncheckedIndexedAccess artifact; well-formed strings always have a paired low surrogate */
       result += ch + (s[i + 1] ?? '')
       i++ // skip the low surrogate code unit
       continue

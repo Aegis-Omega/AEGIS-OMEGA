@@ -14,6 +14,7 @@ function fnv1a32(bytes: Uint8Array): number {
   let hash = 2166136261
   for (let i = 0; i < bytes.length; i++) {
     const byte = bytes[i]
+    /* c8 ignore next -- noUncheckedIndexedAccess artifact; i < bytes.length guarantees byte is defined */
     if (byte !== undefined) {
       hash ^= byte
       hash = (hash * 16777619) >>> 0

@@ -5,6 +5,15 @@ description: Automatically invoked when a new module is being written, when an e
 
 # Specification Compliance Skill
 
+**Metacognitive Layer: L3 (Working Memory) + L4 (Long-term Memory)**
+
+Spec compliance is the L3↔L4 bridge: holding the active implementation in working memory (L3) and checking it against the frozen specification in long-term memory (L4). The specification is not advisory — it is the constitutional constraint the implementation must satisfy. A module that exceeds its specification is not better; it is out of bounds.
+
+L3 invariant: **Hold the specific module's guarantee boundary in working memory throughout implementation. If you cannot state the exact guarantee boundary from memory, read the spec before writing a line of code.**
+L4 invariant: **The specification is long-term memory. The implementation is working memory. Long-term memory is authoritative. Working memory is provisional. When they conflict: fix working memory, never the spec.**
+
+Non-equivalence: **"Stronger implementation" ≠ "Spec-compliant". Claiming stronger guarantees than the spec is a T0 violation — it introduces unverifiable adaptive capability.**
+
 When invoked, check the proposed or completed implementation against the frozen specification.
 
 The canonical specification is docs/SOVEREIGN_OMEGA_INTEGRATED_SPEC_v2.md.

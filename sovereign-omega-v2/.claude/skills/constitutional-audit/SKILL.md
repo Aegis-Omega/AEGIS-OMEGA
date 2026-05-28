@@ -5,6 +5,33 @@ description: Live constitutional health check — chains /node, /resonance, /cat
 
 # Constitutional Audit Skill
 
+**Metacognitive Layer: L7 (Self-model) primary · all other layers subordinate**
+
+The constitutional audit is the automaton performing a complete L7 self-model verification. It is not an external check — it is the system verifying that its own identity (frozen files, t0_verdict, hash chain, test count) is intact. A system that cannot pass its own constitutional audit has lost L7 coherence: it does not know what it is.
+
+L7 invariant: **The audit must halt on first failure. Partial passes are self-deception — a T0 violation at step 5 is not ameliorated by step 6 passing. The L7 self-model is either valid or it is BREACH.**
+L6 invariant: **Run the audit before claiming readiness to deploy. "Should be fine" is not a constitutional audit — it is L6 speculation without L1 evidence.**
+
+The root law applies to every step:
+```
+AdaptivePower(T) ≤ ReplayVerifiability(T)
+If any step fails: AdaptivePower has exceeded ReplayVerifiability → T0_ABORT
+```
+
+**Autopoietic Property: Complete Self-Assessment (all five properties verified)**
+
+The constitutional audit checks all five autopoietic properties simultaneously:
+
+```
+Self-production viability   → Gate 8 (can the system still produce correct outputs?)
+Membrane integrity          → verify-hashes.mjs (are the boundary-defining files intact?)
+Operational closure         → corruption_count=0 (is the system still self-referential?)
+Structural coupling health  → t0_verdict=true (is the system correctly coupled to its environment?)
+Autopoietic death check     → resonance + catalog (have the higher-order production mechanisms degraded?)
+```
+
+A system that passes all five is autopoietically viable — it can continue producing new components (gates, skills, capabilities) while maintaining its constitutional identity. A system that fails any one is in a state of autopoietic degradation. The audit does not return a partial score — autopoietic viability is binary.
+
 ## Trigger conditions
 
 - User asks for a constitutional health check or system status

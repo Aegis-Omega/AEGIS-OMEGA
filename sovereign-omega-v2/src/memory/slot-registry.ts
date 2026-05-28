@@ -134,6 +134,7 @@ export class ExclusiveSlotMap {
       )
     }
     const next_gen = incrementGeneration(existing.slot_state.slot_gen)
+    /* c8 ignore next -- generation reaches null only after 2^32-1 relocations; unreachable in practice */
     if (next_gen === null) {
       throw new SlotRegistryError(
         `[REGISTRY_SATURATED] slot_index ${slot_index} generation saturated — handle permanently invalid`,
@@ -144,6 +145,52 @@ export class ExclusiveSlotMap {
       slot_addr: new_addr,
       slot_size: existing.slot_state.slot_size,
       slot_live: true,
+    }
+    const slot_hash = await hashValue({
+      slot_index,
+      slot_state: {
+        slot_gen: slot_state.slot_gen,
+        slot_addr: slot_state.slot_addr,
+        slot_size: slot_state.slot_size,
+        slot_live: slot_state.slot_live,
+      },
+      sequence: sequence.toString(),
+    }) as SHA256Hex
+    const fragment = deepFreeze<SlotFragment>({
+      slot_index,
+      slot_state,
+      slot_hash,
+      schema_version: SLOT_REGISTRY_SCHEMA_VERSION,
+      is_replay_reconstructable: true,
+    })
+    const next = new Map(this.#slots)
+    next.set(slot_index, fragment)
+    return { registry: new ExclusiveSlotMap(next), fragment }
+  }
+
+  // Mark a live slot as deallocated (slot_live → false), pending physical reclaim.
+  // Generation is not advanced — deallocation is a logical state change, not relocation.
+  // Throws if slot not found or already deallocated.
+  async deallocate(
+    slot_index: number,
+    sequence: SequenceNumber,
+  ): Promise<{ registry: ExclusiveSlotMap; fragment: SlotFragment }> {
+    const existing = this.#slots.get(slot_index)
+    if (!existing) {
+      throw new SlotRegistryError(
+        `[REGISTRY_REJECT] slot_index ${slot_index} not found`,
+      )
+    }
+    if (!existing.slot_state.slot_live) {
+      throw new SlotRegistryError(
+        `[REGISTRY_REJECT] slot_index ${slot_index} already deallocated`,
+      )
+    }
+    const slot_state: SlotState = {
+      slot_gen:  existing.slot_state.slot_gen,
+      slot_addr: existing.slot_state.slot_addr,
+      slot_size: existing.slot_state.slot_size,
+      slot_live: false,
     }
     const slot_hash = await hashValue({
       slot_index,

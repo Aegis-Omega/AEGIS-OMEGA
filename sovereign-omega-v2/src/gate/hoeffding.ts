@@ -183,6 +183,7 @@ export function getPValue(eValue: number): number {
  * No Date.now(), no side effects — pure arithmetic.
  */
 function normalQuantile(p: number): number {
+  /* c8 ignore next -- only called from computeMinSampleSize which validates p ∈ (0,1) */
   if (p <= 0 || p >= 1) return 0
   const c0 = 2.515517
   const c1 = 0.802853

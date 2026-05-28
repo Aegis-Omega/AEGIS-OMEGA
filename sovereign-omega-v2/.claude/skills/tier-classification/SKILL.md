@@ -5,6 +5,16 @@ description: Automatically invoked when the user introduces a new concept, propo
 
 # Epistemic Tier Classification Skill
 
+**Metacognitive Layer: L6 (Metacognition) primary**
+
+Tier classification IS the L6 function — reasoning about the reasoning. Before any action is taken, L6 must classify what epistemic tier governs that action. An unclassified action is an unconstrained action, and unconstrained actions violate the root law.
+
+L6 invariant: **Every new concept introduced into the system must be classified before it is used. Using an unclassified concept at T0 is a silent T0 violation — the code will not fail until the concept's weakness is tested under pressure.**
+
+The tier is not the concept's aspiration — it is the concept's current evidence status. A T4 concept that you believe will eventually become T0 is still T4 until it has been promoted through the hierarchy with evidence. Belief is not evidence. The hash chain records classified, tamper-evident observations — not beliefs.
+
+Non-equivalence: **"Probably T2" ≠ T2. Classify from evidence, not from optimism.**
+
 When invoked, classify the concept or proposal using the T0–T5 taxonomy.
 
 T0 — Mechanically proven or deterministic. Examples: RFC 8785 test vector conformance, SHA-256 collision resistance, pure reducer determinism.

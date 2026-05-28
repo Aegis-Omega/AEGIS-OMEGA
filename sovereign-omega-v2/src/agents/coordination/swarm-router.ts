@@ -110,7 +110,7 @@ export class ModelRegistry {
     next.set(endpoint.model_id, deepFreeze(endpoint))
     // Rebuild as sorted array to preserve deterministic order
     const sorted = new Map(
-      [...next.entries()].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0),
+      [...next.entries()].sort(([a], [b]) => a < b ? -1 : 1),
     )
     return new ModelRegistry(sorted)
   }

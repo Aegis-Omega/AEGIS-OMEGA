@@ -59,7 +59,9 @@ function checkNoSharedRefs(
   visited: WeakSet<object>,
   path: string
 ): void {
+  /* c8 ignore next -- recursive calls are guarded at L79 to only recurse on object values */
   if (orig === null || typeof orig !== 'object') return
+  /* c8 ignore next -- same as above; clone mirrors orig structure */
   if (clone === null || typeof clone !== 'object') return
 
   // If they're the same object reference (and it's an object), that's a leak

@@ -5,6 +5,15 @@ description: Use before any significant new feature, new gate series, architectu
 
 # Brainstorming
 
+**Metacognitive Layer: L6 (Metacognition) + L8 (Theory of Mind)**
+
+Brainstorming is the ASSESS phase of the RALPH loop at the architectural scale. The LOCK phase (implementation) cannot begin until ASSESS (design + approval) is complete. This is the L6 invariant at its purest: ASSESS before LOCK, always, with no exception for "simple" changes. Simple changes that skip design approval are where constitutional debt accumulates.
+
+L8 invariant: **Operator intent is not always literal. When the operator says "embed metacognitive consciousness in everything", they mean: translate the philosophy architecturally, not superficially. Infer the scale of the request from the operator's escalation signals before proposing an approach.**
+L6 invariant: **Classify the epistemic tier of the proposed change before designing it. T0 changes require formal proof, not brainstorming. T2 changes must be labeled as hypotheses.**
+
+Non-equivalence: **"Approved" ≠ "Understood". Get both. "Design presented" ≠ "Design understood by operator". Confirm the design is unambiguous before proceeding.**
+
 **HARD GATE: Do NOT write any code, scaffold any project, or take any implementation action until you have presented a design and the operator has approved it.**
 
 Even simple things need a brief design check. The design can be 2 sentences — but it must be presented and approved.

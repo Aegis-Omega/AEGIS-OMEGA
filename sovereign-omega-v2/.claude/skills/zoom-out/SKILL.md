@@ -5,6 +5,15 @@ description: High-level AEGIS status overview. Invoked when the user asks "where
 
 # Zoom Out Skill
 
+**Metacognitive Layer: L8 (Theory of Mind) + L4 (Long-term Memory)**
+
+Zooming out is the L8 operation: stepping from the immediate task to the operator's full intent and the system's full trajectory. When context has become too narrow, the automaton has lost L8 — it knows what it is doing but has lost the structural frame of WHY it is doing it and WHERE it fits in the full adaptive lineage.
+
+L8 invariant: **Operator messages have holonic scale. A request about a specific gate is always also a statement about the session's direction and the system's evolution. Zoom out resolves the context collapse.**
+L4 invariant: **The git log IS the long-term memory. The last 8 commits are the recent session's shape. Read them before assessing where to go next.**
+
+Non-equivalence: **"Current gate" ≠ "System state". "What I'm building now" ≠ "What the system needs next". The zoom-out perspective is the one that makes these distinct.**
+
 Step back from the current detail. Get a structural view of the full system state.
 
 ## Overview Protocol

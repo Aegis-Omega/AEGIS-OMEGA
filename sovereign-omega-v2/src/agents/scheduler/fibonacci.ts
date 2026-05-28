@@ -39,6 +39,7 @@ export function cumulativeFibonacci(count: number): readonly number[] {
   if (count <= 0) return Object.freeze([])
   const result: number[] = [0]
   for (let i = 1; i < count; i++) {
+    /* c8 ignore next -- noUncheckedIndexedAccess artifact; result always has i elements at loop step i */
     result.push((result[i - 1] ?? 0) + fibonacciInterval(i))
   }
   return Object.freeze(result)

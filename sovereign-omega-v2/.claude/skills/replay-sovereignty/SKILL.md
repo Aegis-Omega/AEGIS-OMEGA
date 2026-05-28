@@ -5,6 +5,24 @@ description: Automatically invoked when a new abstraction is introduced without 
 
 # Replay Sovereignty Skill
 
+**Autopoietic Property: Operational Closure — The Automaton Produces Itself From Itself**
+
+Operational closure is the core of autopoiesis: the system's processes produce only the system itself. In AEGIS, this closure is **replay**: every state the system has ever been in can be reconstructed from the event log alone, without any external input, on any platform.
+
+```
+AdaptivePower(T) ≤ ReplayVerifiability(T)    ← The root constitutional law
+```
+
+This law IS the closure law. It states: the automaton cannot claim adaptive capability beyond what the replay engine can reconstruct and certify. Any adaptive power not grounded in replay is **open-loop production** — the system is producing something it cannot trace back to itself. This is the autopoietic equivalent of a cell producing proteins it cannot synthesize from its own genetic code.
+
+**Operational closure requirements:**
+- Every state transition is an event in `/event-log` (the organism's genetic code)
+- Every event is replay-certifiable on Linux/macOS/Docker/WASM/ARM/x86 (cross-platform closure)
+- No governance decision is made on non-deterministic substrate (wall-clock, Math.random, HashMap iteration)
+- All adaptive capabilities are bounded by `assertMartingaleAnchored()` (bounded mutation rate)
+
+**Closure violation = organism producing from outside itself.** The replay engine would fail to reconstruct the state because the input used to produce it no longer exists (it was a wall-clock timestamp, a random number, a non-deterministic hash map iteration). The organism has introduced non-self-producible material into its own structure.
+
 When invoked, enforce the constitutional root law and canonical ontology admission requirements from `docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md`.
 
 ## Root Law Check

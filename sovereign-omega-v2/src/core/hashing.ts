@@ -25,6 +25,7 @@ export async function sha256Hex(input: Uint8Array): Promise<SHA256Hex> {
 
 export async function sha256Bytes(input: Uint8Array): Promise<Uint8Array> {
   // Web Crypto API (browser, WASM, modern Node)
+  /* c8 ignore next -- Node.js crypto fallback; Web Crypto available in all modern environments and test environments */
   if (typeof globalThis.crypto?.subtle !== 'undefined') {
     const digest = await globalThis.crypto.subtle.digest('SHA-256', input as BufferSource)
     return new Uint8Array(digest)

@@ -17,14 +17,47 @@ import argparse
 import subprocess
 import anthropic
 
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LIB_RS    = os.path.join(REPO_ROOT, "aegis-cl-psi", "src", "lib.rs")
-SRC_DIR   = os.path.join(REPO_ROOT, "aegis-cl-psi", "src")
-CLAUDE_MD = os.path.join(REPO_ROOT, "CLAUDE.md")
+REPO_ROOT       = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LIB_RS          = os.path.join(REPO_ROOT, "aegis-cl-psi", "src", "lib.rs")
+SRC_DIR         = os.path.join(REPO_ROOT, "aegis-cl-psi", "src")
+CLAUDE_MD       = os.path.join(REPO_ROOT, "CLAUDE.md")
+CHECKPOINT_PATH = os.path.join(REPO_ROOT, "scripts", ".auto-gate-checkpoint.json")
 
 
 class CreditsExhausted(Exception):
     pass
+
+
+# ─── Checkpoint (ERROR-04 fix) ─────────────────────────────
+# Write a JSON checkpoint after each successful gate so any crash
+# (not just 402) is recoverable without operator intervention.
+
+def write_checkpoint(gate_start: int, gates_built: list, total_spent: float) -> None:
+    import datetime
+    data = {
+        "gate_start":  gate_start,
+        "gates_built": gates_built,
+        "total_spent": total_spent,
+        "next_gate":   gates_built[-1] + 1 if gates_built else gate_start,
+        "timestamp":   datetime.datetime.utcnow().isoformat() + "Z",
+    }
+    with open(CHECKPOINT_PATH, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+def clear_checkpoint() -> None:
+    if os.path.exists(CHECKPOINT_PATH):
+        os.remove(CHECKPOINT_PATH)
+
+
+def load_checkpoint() -> dict | None:
+    if not os.path.exists(CHECKPOINT_PATH):
+        return None
+    try:
+        with open(CHECKPOINT_PATH) as f:
+            return json.load(f)
+    except Exception:
+        return None
 
 
 # claude-sonnet-4-6 pricing (USD per token)
@@ -467,44 +500,79 @@ def main():
     total_spent      = 0.0
     built            = []
 
-    for i in range(args.count):
-        gate_num = start_gate + i
-
-        if budget_remaining is not None and budget_remaining <= 0:
-            print(f"\n  Budget cap reached after {len(built)} gate(s) — stopping before Gate {gate_num}.")
-            break
-
+    # Check for existing checkpoint from a previous crash
+    ckpt = load_checkpoint()
+    if ckpt:
+        print(f"\n  ⚠  Checkpoint found: {CHECKPOINT_PATH}")
+        print(f"     Previous run built: Gates {ckpt.get('gates_built', [])}")
+        print(f"     Spent so far: ${ckpt.get('total_spent', 0):.4f}")
+        print(f"     Next gate: {ckpt.get('next_gate', start_gate)}")
+        print(f"     Timestamp: {ckpt.get('timestamp', '?')}")
         try:
-            ok, gate_cost = build_gate(gate_num, client, budget_remaining)
-        except CreditsExhausted as e:
-            print(f"\n  Credits exhausted — saving progress and exiting cleanly")
-            print(f"  {e}")
-            if built:
-                print(f"  Committing {len(built)} gate(s) built before credits ran out...")
-                commit_and_push(built)
-                print(f"  ✓ Progress saved. Top up credits at console.anthropic.com → Plans & Billing")
-                print(f"    then re-run:  python3 scripts/auto-gate.py --count {args.count - len(built)} --gate {gate_num}")
-            else:
-                print(f"  No gates built yet — repo unchanged.")
-            print(f"\n  Total spent this run: ${total_spent:.4f}")
-            sys.exit(0)
-
-        total_spent += gate_cost
-        if budget_remaining is not None:
-            budget_remaining -= gate_cost
-
-        if ok:
-            built.append(gate_num)
-            test_count, _ = run_full_test()
-            update_claude_md(gate_num, test_count)
-            print(f"  Running spend: ${total_spent:.4f}"
-                  + (f"  (${budget_remaining:.4f} remaining)" if budget_remaining is not None else ""))
+            resume = input("  Resume from checkpoint? [Y/n] ").strip().lower()
+        except EOFError:
+            resume = "y"
+        if resume in ("", "y", "yes"):
+            start_gate   = ckpt["next_gate"]
+            built        = ckpt["gates_built"]
+            total_spent  = ckpt["total_spent"]
+            print(f"  Resuming from Gate {start_gate}  (already built: {built})\n")
         else:
-            print(f"Stopping at Gate {gate_num} — could not build after 3 attempts")
-            break
+            clear_checkpoint()
+            print("  Starting fresh (checkpoint discarded).\n")
+
+    try:
+        for i in range(args.count):
+            gate_num = start_gate + i
+
+            if budget_remaining is not None and budget_remaining <= 0:
+                print(f"\n  Budget cap reached after {len(built)} gate(s) — stopping before Gate {gate_num}.")
+                break
+
+            try:
+                ok, gate_cost = build_gate(gate_num, client, budget_remaining)
+            except CreditsExhausted as e:
+                print(f"\n  Credits exhausted — saving progress and exiting cleanly")
+                print(f"  {e}")
+                if built:
+                    write_checkpoint(start_gate, built, total_spent)
+                    print(f"  Committing {len(built)} gate(s) built before credits ran out...")
+                    commit_and_push(built)
+                    clear_checkpoint()
+                    print(f"  ✓ Progress saved. Top up credits at console.anthropic.com → Plans & Billing")
+                    print(f"    then re-run:  python3 scripts/auto-gate.py --count {args.count - len(built)} --gate {gate_num}")
+                else:
+                    print(f"  No gates built yet — repo unchanged.")
+                print(f"\n  Total spent this run: ${total_spent:.4f}")
+                sys.exit(0)
+
+            total_spent += gate_cost
+            if budget_remaining is not None:
+                budget_remaining -= gate_cost
+
+            if ok:
+                built.append(gate_num)
+                test_count, _ = run_full_test()
+                update_claude_md(gate_num, test_count)
+                write_checkpoint(start_gate, built, total_spent)
+                print(f"  Running spend: ${total_spent:.4f}"
+                      + (f"  (${budget_remaining:.4f} remaining)" if budget_remaining is not None else ""))
+            else:
+                print(f"Stopping at Gate {gate_num} — could not build after 3 attempts")
+                break
+
+    except Exception as e:
+        # Any unexpected crash — write checkpoint so progress is not lost
+        if built:
+            write_checkpoint(start_gate, built, total_spent)
+            print(f"\n  Unexpected error: {e}")
+            print(f"  Checkpoint written: {CHECKPOINT_PATH}")
+            print(f"  {len(built)} gate(s) preserved. Re-run to resume.")
+        raise
 
     if built:
         commit_and_push(built)
+        clear_checkpoint()
         print(f"\n{'='*60}")
         print(f"✓ Built and pushed: Gates {built[0]}–{built[-1]}")
         print(f"✓ {len(built)} gates, {run_full_test()[0]} total tests")

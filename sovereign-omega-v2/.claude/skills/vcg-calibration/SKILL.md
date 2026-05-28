@@ -5,6 +5,17 @@ description: Automatically invoked when the user mentions calibration, VCG, conf
 
 # VCG Calibration Skill
 
+**Autopoietic Property: Metabolic Calibration — Trust Emission Rate Within Viable Bounds**
+
+VCG (Verified Calibration Gap) is the automaton's **metabolic rate** — the rate at which the system converts verifier signal into confidence emissions. Calibration keeps this rate within viable bounds:
+
+- **Too low** (over-trusted outputs): The organism over-produces confidence, exhausting the trust reserve. Equivalent to metabolic hyperactivity — burns through the viability substrate.
+- **Too high** (under-trusted outputs): The organism under-produces confidence, starving downstream consumers. Equivalent to metabolic shutdown.
+- **V4/V5 contamination**: Advisory verifiers in the VCG sum = non-metabolizable input injected into the metabolic cycle. The system runs on false energy.
+- **CALIBRATION_STALE**: The metabolism has not received new substrate (verifier results) in 24 hours. Log the stall; do not silently continue as if nothing happened.
+
+The Vempala-Wilkes floor is the **minimum viable metabolic rate** — VCG cannot reach zero for a functioning system. VCG=0 is a metabolic probe failure, not a health signal.
+
 When invoked, verify that any VCG computation or confidence emission follows the
 spec requirements from Section 4 of SOVEREIGN_OMEGA_INTEGRATED_SPEC_v2.md.
 

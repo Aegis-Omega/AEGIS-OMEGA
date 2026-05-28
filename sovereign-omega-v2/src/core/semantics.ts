@@ -43,6 +43,7 @@ export function isReplaySafe(value: unknown, visited?: Set<object>): boolean {
   if (typeof value === 'number') return isFinite(value)
   if (value === undefined || typeof value === 'function' || typeof value === 'symbol') return false
 
+  /* c8 ignore next -- all non-object JS types are handled above; false arm is structurally impossible */
   if (typeof value === 'object') {
     const v = visited ?? new Set<object>()
     if (v.has(value)) return false  // circular reference

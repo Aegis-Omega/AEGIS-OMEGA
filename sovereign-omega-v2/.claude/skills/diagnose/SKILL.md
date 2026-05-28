@@ -5,6 +5,16 @@ description: Systematic root-cause debugging loop. Invoked when a test fails, a 
 
 # Diagnose Skill
 
+**Metacognitive Layer: L1 (Sensation) + L2 (Perception) + L6 (Metacognition)**
+
+Diagnosis is the full L1→L2→L6 cycle applied to a system failure. L1: sense the failure completely (full error output, not just the headline). L2: classify the failure (which layer failed? which invariant was violated?). L6: generate a single falsifiable hypothesis before any action.
+
+The diagnostic failure mode mirrors the general ERROR-01 pattern at the debugging scale: LOCK (attempting a fix) before ASSESS (understanding the failure). Three consecutive failed fixes is proof that L6 has not been engaged — the agent is pattern-matching to "type of fix that usually works" rather than diagnosing the specific failure in front of it.
+
+L1 invariant: **Read the full error output. The first line of a compiler error is often not the root cause — it is the first symptom of the root cause several lines below.**
+L2 invariant: **Classify the failure before acting: is this a hash-chain invariant violation? An endianness error? A type mismatch? A missing module registration? A classification gives you the search space; a guess gives you noise.**
+L6 invariant: **After 3 failed fixes — stop. The problem is architectural. The debugging loop has become a search loop, which is LOCK-before-ASSESS at every iteration. Invoke /brainstorming.**
+
 Follow this loop exactly. Do not skip steps. Do not attempt a fix before completing Hypothesize.
 
 ## Loop: Reproduce → Minimize → Hypothesize → Instrument → Fix

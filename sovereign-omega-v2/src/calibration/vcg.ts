@@ -108,6 +108,7 @@ export class VCGTracker {
       weighted_error: vcg,
       bootstrap_ci_95: ci,
       effective_sample_size: this.effectiveSampleSize(decayedSamples),
+      /* c8 ignore next -- noUncheckedIndexedAccess artifact; window.length >= MIN_GATE_WINDOW when compute() is called */
       decay_factor: this.decayFactor(currentMs - (window[window.length - 1]?.timestamp_ms ?? currentMs)),
       sample_count: window.length,
       epoch_start_ms: this.lastUpdateMs,
@@ -134,6 +135,7 @@ export class VCGTracker {
   }
 
   resetEpoch(_reason: 'drift' | 'manual' | 'low_sample'): void {
+    /* c8 ignore next -- epochId always has format 'epoch-id-N'; .pop() is always defined */
     const epochNum = parseInt(this.epochId.split('-').pop() ?? '0') + 1
     this.epochId = `epoch-${this.streamId}-${epochNum}`
     this.samples.splice(0)
@@ -237,7 +239,9 @@ export class VCGTracker {
     }
 
     bootstrapVCGs.sort((a, b) => a - b)
+    /* c8 ignore next -- noUncheckedIndexedAccess artifact; bootstrapVCGs always has BOOTSTRAP_SAMPLES elements */
     const lo = bootstrapVCGs[Math.floor(BOOTSTRAP_SAMPLES * 0.025)] ?? 0
+    /* c8 ignore next -- same as above */
     const hi = bootstrapVCGs[Math.floor(BOOTSTRAP_SAMPLES * 0.975)] ?? 1
     return Object.freeze([lo, hi] as const)
   }
@@ -273,6 +277,7 @@ export class VCGTracker {
  * Used exclusively by getConfidenceInterval — no Date.now(), no side effects.
  */
 function wilsonZ(p: number): number {
+  /* c8 ignore next -- only called from getConfidenceInterval which validates alpha ∈ (0,1); inputs always in (0,1) */
   if (p <= 0 || p >= 1) return 0
   // Rational approximation constants
   const c0 = 2.515517

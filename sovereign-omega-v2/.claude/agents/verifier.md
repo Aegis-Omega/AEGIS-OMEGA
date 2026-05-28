@@ -1,8 +1,17 @@
 ---
 name: verifier
 description: Invoke when checking hash chain integrity, running cross-engine replay comparison, auditing the event log, checking that a projection is byte-identical across two runs, or validating that the build has achieved gate 8 readiness before deployment.
-tools: [read, bash]
-isolation: none
+model: sonnet
+effort: medium
+maxTurns: 10
+disallowedTools: Write, Edit
+memory: true
+skills:
+  - gate-execution
+  - verification-before-completion
+  - constitutional-audit
+  - replay-constitution
+  - replay-sovereignty
 ---
 
 # Verifier Agent — Gate Verification and Integrity Checking

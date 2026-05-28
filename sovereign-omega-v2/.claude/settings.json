@@ -27,9 +27,12 @@
       "Write(test/**)",
       "Write(scripts/**)",
       "Write(.claude/**)",
+      "Write(.claude-plugin/**)",
       "Write(docs/**)",
       "Write(.env.example)",
-      "Write(../aegis-runtime/src/**)"
+      "Write(../aegis-runtime/src/**)",
+      "mcp__github__list_pull_requests",
+      "mcp__github__pull_request_read"
     ],
     "deny": [
       "Write(gate.py)",
@@ -45,7 +48,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "result=$(cd /home/user/myapp/sovereign-omega-v2 && node scripts/verify-hashes.mjs 2>&1); if echo \"$result\" | grep -q 'VIOLATION\\|Error\\|error'; then echo \"{\\\"systemMessage\\\": \\\"⚠ FROZEN FILE VIOLATION — $result\\\"}\"; else echo \"{\\\"systemMessage\\\": \\\"✓ Constitutional files verified: gate.py · dna.py · router.py — all hashes match.\\\"}\"; fi",
+            "command": "result=$(cd \"${CLAUDE_PROJECT_DIR}\" && node scripts/verify-hashes.mjs 2>&1); if echo \"$result\" | grep -q 'VIOLATION\\|Error\\|error'; then echo \"{\\\"systemMessage\\\": \\\"⚠ FROZEN FILE VIOLATION — $result\\\"}\"; else echo \"{\\\"systemMessage\\\": \\\"✓ Constitutional files verified: gate.py · dna.py · router.py — all hashes match.\\\"}\"; fi",
             "statusMessage": "Verifying constitutional file hashes..."
           }
         ]
@@ -56,7 +59,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "dirty=$(git -C /home/user/myapp status --porcelain 2>/dev/null | grep -v ' aegis-runtime/target/'); if [ -n \"$dirty\" ]; then count=$(echo \"$dirty\" | wc -l | tr -d ' '); preview=$(echo \"$dirty\" | head -3 | tr '\\n' '|' | sed 's/|$//' | sed 's/|/ · /g'); echo \"{\\\"systemMessage\\\": \\\"There are uncommitted changes in the repository. Please commit and push these changes to the remote branch.\\\"}\"; fi"
+            "command": "dirty=$(git -C \"${CLAUDE_PROJECT_DIR}\" status --porcelain 2>/dev/null | grep -v ' aegis-runtime/target/'); if [ -n \"$dirty\" ]; then count=$(echo \"$dirty\" | wc -l | tr -d ' '); echo \"{\\\"systemMessage\\\": \\\"$count uncommitted file(s) — commit and push before ending session.\\\"}\"; fi"
           }
         ]
       }
@@ -79,6 +82,16 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/tier-check.sh \"$CLAUDE_TOOL_INPUT_PATH\""
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "msg=$(cat 2>/dev/null | jq -r '.notification // empty' 2>/dev/null); if echo \"$msg\" | grep -q 'FROZEN FILE VIOLATION\\|HASH VIOLATION'; then echo \"{\\\"systemMessage\\\": \\\"⛔ CONSTITUTIONAL BREACH DETECTED — $msg — invoke guardian agent immediately\\\"}\"; elif echo \"$msg\" | grep -q 'UNCOMMITTED SRC'; then echo \"{\\\"systemMessage\\\": \\\"⚠ $msg — run Gate 8 and commit before continuing\\\"}\"; fi"
           }
         ]
       }

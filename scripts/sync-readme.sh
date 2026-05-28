@@ -45,12 +45,17 @@ sed -i "s/^[0-9]* total tests · 0 failures/${TOTAL} total tests · 0 failures/"
 # Test breakdown line for aegis-cl-psi (indented with 2 spaces)
 sed -i "s/^  [0-9]*  Rust        aegis-cl-psi  /  ${AEGIS_PSI}  Rust        aegis-cl-psi  /" "$README"
 
-# Genesis section: "N,NNN invariant tests" bold count
-sed -i "s/\*\*[0-9,]*\*\* invariant tests/**${TOTAL}** invariant tests/g" "$README"
+# Genesis section: "N,NNN invariant tests, 0 failures" bold phrase
+TOTAL_COMMA=$(printf "%'.0f" "$TOTAL" 2>/dev/null || echo "$TOTAL")
+sed -i "s/\*\*[0-9,]* invariant tests, 0 failures\*\*/**${TOTAL_COMMA} invariant tests, 0 failures**/g" "$README"
+
+# Genesis section: "NNN gates completed" bold phrase — max gate number from lib.rs comments (always current)
+GATE_COUNT=$(grep -oP '(?<=// Gate )[0-9]+' "${README%/*}/aegis-cl-psi/src/lib.rs" 2>/dev/null | sort -n | tail -1 || echo "0")
+sed -i "s/\*\*[0-9,]* gates completed\*\*/**${GATE_COUNT} gates completed**/g" "$README"
 
 # Closing line: "N of them, watching each other"
-GATE_COUNT=$(grep -c '^pub mod ' "${README%/*}/aegis-cl-psi/src/lib.rs" 2>/dev/null || echo "321")
-sed -i "s/\*[0-9]* of them, watching each other/*${GATE_COUNT} of them, watching each other/g" "$README"
+MODULE_COUNT=$(grep -c '^pub mod ' "${README%/*}/aegis-cl-psi/src/lib.rs" 2>/dev/null || echo "0")
+sed -i "s/\*[0-9]* of them, watching each other/*${MODULE_COUNT} of them, watching each other/g" "$README"
 
 printf 'README synced: aegis-cl-psi=%d runtime=%d TS=%d total=%d\n' \
   "$AEGIS_PSI" "$RUNTIME" "$TS" "$TOTAL" >&2

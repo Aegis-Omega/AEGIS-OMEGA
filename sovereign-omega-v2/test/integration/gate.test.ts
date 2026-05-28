@@ -103,4 +103,22 @@ describe('Risk Budget Manager — Integration', () => {
     expect(manager.isSuspended()).toBe(false)
     expect(manager.currentBudget(EPOCH_MS + 3600000)).toBeGreaterThan(0)
   })
+
+  it('rejects with CAPACITY_EXCEEDED when deltaK exceeds k_bound (L59 arm 0)', () => {
+    const manager = new RiskBudgetManager(EPOCH_MS)
+    const samples = Array.from({ length: 50 }, () => 0.8)
+    // k_bound for 'pipeline-main' is 10; deltaK=11 exceeds it → CAPACITY_EXCEEDED
+    const decision = manager.evaluate('proposal-cap', 'pipeline-main', samples, 11, EPOCH_MS)
+    expect(decision.accepted).toBe(false)
+    expect(decision.rejection_reason).toBe('CAPACITY_EXCEEDED')
+  })
+
+  it('suspends after acceptance drains budget below floor (L95 arm 0)', () => {
+    // globalBudget=0.015, maxRounds=1 → deltaAlpha = 0.015 / (1 * harmonicSum(1)) = 0.015
+    // After accepting: remaining = 0.015 - 0.015 = 0 < BUDGET_SUSPEND_FLOOR (0.01)
+    const manager = new RiskBudgetManager(EPOCH_MS, 0.015, 1)
+    const samples = Array.from({ length: 50 }, () => 0.9)
+    manager.evaluate('proposal-drain', 'pipeline-main', samples, 1, EPOCH_MS)
+    expect(manager.isSuspended()).toBe(true)
+  })
 })

@@ -17,6 +17,7 @@ export const SITR_ESCALATION_ORDER: readonly SITRState[] = Object.freeze([
 
 export function stateOrdinal(s: SITRState): number {
   const idx = SITR_ESCALATION_ORDER.indexOf(s)
+  /* c8 ignore next -- TypeScript ensures s is always in SITR_ESCALATION_ORDER; idx === -1 is unreachable */
   return idx === -1 ? 0 : idx
 }
 

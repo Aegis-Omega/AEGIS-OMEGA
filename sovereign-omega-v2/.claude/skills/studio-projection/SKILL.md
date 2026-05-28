@@ -5,6 +5,23 @@ description: Automatically invoked when studio/ code is written or modified, whe
 
 # Studio Projection Skill
 
+**Autopoietic Property: Observer-Without-Production-Authority — The Perceptual Boundary**
+
+In autopoietic systems, the observer and the organism are distinct. The organism produces itself; the observer watches. Studio is the automaton's **perceptual apparatus** — it observes without being part of the production cycle.
+
+This is not a limitation. It is the formal distinction between:
+- **Production** (constitutional authority, mutation rights, replay-certified state): lives in `sovereign-omega-v2/`, owned by the governance runtime
+- **Observation** (projection, visualization, telemetry): lives in `studio/`, possesses zero production authority
+
+```
+StudioState(T) = Projection(ReplayState(T))     ← Studio is a function of the organism's state
+ProjectionLayer ∩ ConstitutionalAuthority = ∅   ← Empty intersection = proper boundary
+```
+
+**If Studio acquires production authority**, the observer-organism boundary collapses. This is the autopoietic equivalent of the immune system attacking the organism's own cellular machinery — the observation apparatus begins modifying what it should only be watching. D4 divergence: T0_ABORT.
+
+**Observation is not passive.** A perfect projection surface that makes the governance topology legible to operators IS a production contribution — it contributes to the field-scale (FIELD) layer of the holonic hierarchy. But that contribution passes through EventEnvelope, not through direct mutation.
+
 When invoked, enforce the projection purity law from `studio/docs/STUDIO_SPECIFICATION.md`.
 
 ## Projection Purity Law

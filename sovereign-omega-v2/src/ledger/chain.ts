@@ -55,6 +55,7 @@ export class LedgerChain {
 
   /** Most recently appended entry, or null if empty. */
   get lastEntry(): Readonly<LedgerEntry> | null {
+    /* c8 ignore next -- noUncheckedIndexedAccess artifact; length > 0 guard ensures element is defined */
     return this._entries.length > 0
       ? (this._entries[this._entries.length - 1] ?? null)
       : null

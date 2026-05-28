@@ -48,6 +48,7 @@ export function deterministicPathId(canonicalPath: string): string {
 export function detectInstallationContext(
   rootContents: readonly string[]
 ): InstallationContext {
+  /* c8 ignore next -- noUncheckedIndexedAccess artifact; path strings always have at least one segment after split('/') */
   const names = rootContents.map(p => canonicalizePath(p).split('/').pop() ?? '')
   if (names.includes('package.json') && names.includes('packages')) return 'monorepo'
   if (names.includes('.github') || names.includes('CI')) return 'ci-environment'

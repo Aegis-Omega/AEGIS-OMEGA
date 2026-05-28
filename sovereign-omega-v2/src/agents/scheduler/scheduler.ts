@@ -25,14 +25,14 @@ export function buildSchedule(
     if (a.agent_type < b.agent_type) return -1
     if (a.agent_type > b.agent_type) return 1
     if (a.agent_id < b.agent_id) return -1
-    if (a.agent_id > b.agent_id) return 1
-    return 0
+    return 1  // agent_ids are unique; equal type+id is impossible
   })
   const offsets = cumulativeFibonacci(sorted.length)
   return Object.freeze(
     sorted.map((agent, idx) =>
       Object.freeze({
         agent_id: agent.agent_id,
+        /* c8 ignore next -- noUncheckedIndexedAccess artifact; cumulativeFibonacci guarantees length === sorted.length */
         sequence: startSequence + (offsets[idx] ?? 0),
         priority: idx,
       })

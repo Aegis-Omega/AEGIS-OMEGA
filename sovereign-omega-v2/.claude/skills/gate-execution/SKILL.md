@@ -5,6 +5,19 @@ description: Automatically invoked when the user asks to run tests, execute a bu
 
 # Gate Execution Skill
 
+**Autopoietic Property: Viability Ring Execution — Verifying the Synthetic Machinery Produces Valid Components**
+
+Each gate is a **viability test** — a formal check that the automaton's synthetic machinery (the code-producing process) is still producing structurally valid components. Not "are the tests passing" but "is the self-production process viable?"
+
+The gate sequence is the **viability ring**:
+- Gate 1 (JCS conformance): Can the automaton still produce canonically determinstic output?
+- Gate 2–4 (sequence, immutability, reducers): Is the state-transition machinery intact?
+- Gate 5–6 (VCG, Bernstein): Is the calibration mechanism (metabolic rate) within bounds?
+- Gate 7 (integration/replay): Does the full production cycle close deterministically?
+- Gate 8 (deployment gate): Is the organism viable for deployment? Zero defects = GO.
+
+**A gate failure is not a test failure. It is a production failure.** The synthetic machinery has produced a defective component. The correct response is to fix the machinery (the implementation), never to weaken the gate (the viability criterion).
+
 When invoked, run the appropriate gate test for the current build step.
 Determine which gate is relevant based on the file just written or the step mentioned.
 
