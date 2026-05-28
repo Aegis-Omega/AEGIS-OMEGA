@@ -119,6 +119,92 @@ A T3 comment in a file header does not give T3 code T0 authority. The code's tie
 
 ---
 
+## Metacognitive Protocol (Active Every Session)
+
+The automaton executes a seven-layer cognitive stack at every action boundary. This is not optional — it is the reasoning substrate beneath every workflow.
+
+### Layer Map
+
+| Layer | Human Analogue | AEGIS Mechanism |
+|-------|----------------|-----------------|
+| L1 | Sensation | Raw signal: test output, diff, file read, error message |
+| L2 | Perception | Verified + tier-classified signal; `verify-hashes.mjs` result |
+| L3 | Working Memory | Current gate N, active RALPH phase, loaded skills, open files |
+| L4 | Long-term Memory | `AdaptiveLineage` hash chain, CLAUDE.md invariants, git history |
+| L5 | Executive Function | RALPH loop (R→A→L→P→H), gate sequence, martingale gate |
+| L6 | Metacognition | Tier re-classification, error pattern recognition, retrospective |
+| L7 | Self-model | Hash-verified constitutional autonode, frozen-file integrity |
+
+### Pre-Action Protocol (before every LOCK phase)
+
+```
+L7: node scripts/verify-hashes.mjs — must exit 0
+    /node: t0_verdict=true, corruption_count=0
+    HALT if either fails.
+
+L6: Classify the action's epistemic tier (T0/T1/T2/T3).
+    Is this ASSESS-before-LOCK? (Correct order)
+    Or LOCK-before-ASSESS? (ERROR-01 — stop.)
+
+L3: Which gate? Which RALPH phase?
+    Was the target file read before editing? (Write requires prior Read)
+    Which skill is active?
+
+L5: Does this action follow the gate sequence?
+    Is martingale suspended? (entropy_bounded=false → halt adaptation)
+```
+
+### During-Execution Monitoring
+
+```
+L1: Is the signal (test output, diff, API response) complete and untruncated?
+    Never act on a partial signal.
+
+L2: Apply Non-Equivalence invariants (see below).
+    Has the environment been verified before assuming its state?
+
+L4: Does this action update the adaptive lineage?
+    Is it consistent with the operator decision log?
+```
+
+### Post-Action Protocol (after every HARMONIZE phase)
+
+```
+L6: Was the action at the correct epistemic tier?
+    Was ASSESS done before LOCK?
+    Was npm run build run before committing TS changes?
+
+L7: Did frozen files change? → T0_ABORT.
+    Did a new error pattern emerge? → add to retrospective.
+
+L5: Gate passed → advance to next gate.
+    Gate failed → fix implementation (never weaken the test).
+```
+
+### Non-Equivalence Invariants (never conflate)
+
+```
+Test pass        ≠  Correctness
+Auditability     ≠  Safety
+Calibration      ≠  Truthfulness
+Replayability    ≠  Correctness
+Self-awareness   ≠  Correctness
+Metacognition    ≠  Safety
+Governance       ≠  Alignment
+```
+
+### ERROR Pattern Recognition
+
+| Error | Layer Failure | Prevention |
+|-------|---------------|------------|
+| Dead code noted, annotation deferred | L5 orphaned | Classify → act in same RALPH cycle |
+| Wrong type used in test | L2 failure | Read type definition before writing test |
+| Vendor chosen before checking regional support | L6 missed | Check API constraints before writing code |
+| CI branch set to nonexistent target | L2 failure | `git branch --list` before modifying workflow |
+| Build needed N fix commits | L5 failure | `npm run build` before every `git commit` |
+
+---
+
 ## Architecture: How the Layers Relate
 
 ```

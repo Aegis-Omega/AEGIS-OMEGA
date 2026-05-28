@@ -44,6 +44,29 @@ Tests: exactly 19 (groups: record fields, threshold, aggregates, hash chain, ver
 
 ## Build Sequence
 
+### Phase 0 — Metacognitive Pre-flight (L7 → L6 → L3 → L5)
+Before any code is written, run this protocol:
+
+```
+L7 SELF-MODEL:
+  cd sovereign-omega-v2 && node scripts/verify-hashes.mjs
+  → must exit 0. If not: HALT, invoke /frozen-file-check.
+
+L6 CLASSIFY:
+  These gates are T2 (engineering hypothesis, deterministic, computable).
+  Confirm: is this ASSESS (Phase 0) before LOCK (Phase B)? YES → proceed.
+  If you are about to write code without completing Phase 0: STOP — ERROR-01.
+
+L3 WORKING MEMORY:
+  Current gate N = ? (from lib.rs or CLAUDE.md)
+  Active series = ? (last pub mod prefix in lib.rs)
+  RALPH phase = ASSESS (about to transition to LOCK)
+
+L5 EXECUTIVE:
+  Gate sequence: write → test 19/19 → register → full suite → ship.
+  No gate may be skipped. Martingale: is entropy_bounded=true? Continue.
+```
+
 ### Phase A — Define the pair
 Before writing any code, declare:
 ```
@@ -60,15 +83,17 @@ GATE <N+2>: gossip_broadcast_<name_b>
   [same structure]
 ```
 
-### Phase B — Write Gate N+1
+### Phase B — Write Gate N+1  _(L1: receive signal fully before acting)_
 1. Write `aegis-cl-psi/src/gossip_broadcast_<name_a>.rs` (full implementation)
 2. `cargo test gossip_broadcast_<name_a> 2>&1 | grep -E "FAILED|test result"`
 3. Assert: 19 passed, 0 failed.
+   — L2 CHECK: test pass ≠ correctness. Verify hash chain test covers tamper case.
 
-### Phase C — Write Gate N+2
+### Phase C — Write Gate N+2  _(same L1/L2 monitoring)_
 1. Write `aegis-cl-psi/src/gossip_broadcast_<name_b>.rs` (full implementation)
 2. `cargo test gossip_broadcast_<name_b> 2>&1 | grep -E "FAILED|test result"`
 3. Assert: 19 passed, 0 failed.
+   — L2 CHECK: verify_chain_tamper tests present, flag uses strict `>` not `>=`.
 
 ### Phase D — Register both in lib.rs
 Append to `aegis-cl-psi/src/lib.rs` before the `pub use` block:
@@ -86,11 +111,23 @@ pub mod gossip_broadcast_<name_a>;
 pub mod gossip_broadcast_<name_b>;
 ```
 
-### Phase E — Full suite verification
+### Phase E — Full suite verification  _(L2 PROPAGATE → L6 post-action review)_
 ```bash
 cd /home/user/myapp/aegis-cl-psi && cargo test 2>&1 | grep "test result" | head -1
 ```
 Assert: 0 failed. Note new total test count.
+
+```
+L6 METACOGNITIVE REVIEW:
+  Was action at T2 tier throughout? (no T4/T5 framing entered src/)
+  Was ASSESS done before LOCK? (Phase 0 completed before Phase B)
+  Any new error pattern? → document it.
+
+L7 SELF-MODEL UPDATE:
+  Frozen files unchanged? (verify-hashes.mjs still exits 0)
+  Gate count increased by 2? (lib.rs has 2 new pub mod entries)
+  CLAUDE.md still accurate? (will update in Phase F)
+```
 
 ### Phase F — Ship
 Invoke `/ship` skill or follow these steps:
@@ -116,6 +153,7 @@ git push -u origin claude/aegis-setup-Lx7Ji
 
 ## Constitutional Checklist (verify before ship)
 
+**Code invariants:**
 - [ ] `to_be_bytes()` — never `to_le_bytes()`
 - [ ] `BTreeMap`/`BTreeSet` only — no `HashMap`
 - [ ] `saturating_add`/`saturating_mul` — no overflow
@@ -126,6 +164,13 @@ git push -u origin claude/aegis-setup-Lx7Ji
 - [ ] Threshold is `>` (not `>=`) for "above threshold" flags, `<` (not `<=`) for "below threshold" flags
 - [ ] `EPISTEMIC TIER: T2` in header comment
 - [ ] NO `--all-features` flag used
+
+**Metacognitive invariants:**
+- [ ] Test pass ≠ correctness — tamper test confirms hash chain actually rejects mutation
+- [ ] Phase 0 (L7/L6/L3/L5) was run before any file was written
+- [ ] No LOCK-before-ASSESS occurred (no file written before Phase 0)
+- [ ] `verify-hashes.mjs` still exits 0 after all changes
+- [ ] No T4/T5 framing introduced in any src/ file (header comments stay T2)
 
 ## Gate Pair Report
 
