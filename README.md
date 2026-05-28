@@ -146,7 +146,7 @@ This is not metaphor stretched over code. Every row above is a concrete module w
 │  │    Partition Detector · Spread Estimator · Fanout Controller       │  │
 │  │    Convergence Certifier · Mesh Supervisor · Epoch Finalizer       │  │
 │  │                                                                      │  │
-│  │  MATHEMATICAL SUBSTRATE (Gates 212–321) · COMPACTION GOSSIP (Gates 322–379)    │  │
+│  │  MATHEMATICAL SUBSTRATE (Gates 212–321) · COMPACTION GOSSIP (322–379) │  │
 │  │    Dodecagonal Router · Proportional Metric · Vortex Classifier    │  │
 │  │    Abjad Encoder · Tajweed DFA · Ring Composition Verifier         │  │
 │  │    Lattice DAG · SPSF Persistence · Phi Convergence               │  │
@@ -155,11 +155,6 @@ This is not metaphor stretched over code. Every row above is a concrete module w
 │  │    Epoch Coherence Chain · Constitutional Autonode                 │  │
 │  │    Swarm Autonode · Constitutional Replay · Entropy Budget         │  │
 │  │    Drift Classifier · Governance Pipeline · Swarm Health           │  │
-│  │    Gossip Health Report (320) · Resonance Anchor (321)             │  │
-│  │    COMPACTION GOSSIP: Health (322–360) · Momentum (361)           │  │
-│  │    Epoch Report (362) · Alert Classifier (363)                    │  │
-│  │    Recovery Advisor (364) · SLA Tracker (365)                    │  │
-│  │    Capacity Planner (366) · Epoch Comparator (367) · Gossip Broadcast Pipeline (368–379)               │  │
 │  └───────────────────────────────┬──────────────────────────────────────┘  │
 │                                   │                                         │
 │  ┌────────────────────────────────▼─────────────────────────────────────┐  │
@@ -407,8 +402,8 @@ Qwen Plus         · weight = 191/1000
 
 | Layer | Language | Source Files | Lines | Tests |
 |-------|----------|-------------|-------|-------|
-| Gossip / math gates | Rust | 223 | 74,295 | 3227 |
-| Governance runtime | TypeScript | 177 | 20,188 | 2790 |
+| Gossip / math gates | Rust | 223 | 74,295 | 3,227 |
+| Governance runtime | TypeScript | 177 | 20,188 | 2,790 |
 | Seven-pillar runtime | Rust | 14 | 2,958 | 96 |
 | Python bridge | Python | 14 | 4,343 | — |
 | Frontend products | TSX/TS | 45 | 4,165 | — |
@@ -442,9 +437,9 @@ The foundation is built. The organism exists. These are the remaining gaps befor
 ## Repository Structure
 
 ```
-aegis-cl-psi/               Rust · 385 gate modules (gossip + math + compaction gossip) · 2881 tests
-aegis-runtime/              Rust · 7-pillar distributed agent runtime · 96 tests
-sovereign-omega-v2/         TypeScript governance runtime · 2790 tests
+aegis-cl-psi/               Rust · 385 gate modules (gossip + math + compaction gossip)
+aegis-runtime/              Rust · 7-pillar distributed agent runtime
+sovereign-omega-v2/         TypeScript governance runtime
   src/core/                 RFC 8785 canonical JSON · SHA-256 · immutability
   src/frame/                DFA · topology · lineage · epoch · divergence
   src/consensus/            BFT swarm · game theory · synthesis swarm
@@ -477,7 +472,7 @@ MARTINGALE BOUNDED:    ACTIVE — E[S_{n+1}|F_n] = S_n · suspension on violatio
 φ-CONVERGENCE:         ACTIVE — 1/φ governs gossip quorum, BFT consensus, entropy limit
 HASH CHAIN INTEGRITY:  ACTIVE — every record in every module is tamper-evident
 TIER DISCIPLINE:       ACTIVE — T0 proven · T1 validated · T2 hypothesis · T3 conjecture
-SELF-MONITORING:       ACTIVE — 319 gossip modules observe and report each other
+SELF-MONITORING:       ACTIVE — gossip modules observe and report each other
 LAW OF SILENCE:        ACTIVE — agents communicate only through mediated EventEnvelope
 CORPUS SOVEREIGNTY:    ACTIVE — knowledge enters only through 5-phase RALPH pipeline
 RESONANCE ANCHOR:      ACTIVE — resonance_coefficient > 5.0 → certified constitutional path
@@ -495,6 +490,6 @@ Free to use, study, modify, and distribute. Derivative works must release source
 
 ---
 
-*A finite automaton is a machine that remembers its state.*  
-*A hash-chained automaton is a machine that can prove it remembered correctly.*  
+*A finite automaton is a machine that remembers its state.*
+*A hash-chained automaton is a machine that can prove it remembered correctly.*
 *249 of them, watching each other — that is the organism.*
