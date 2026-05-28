@@ -1730,3 +1730,15 @@ pub mod gossip_broadcast_msg_loss_e5;
 // entry_hash = SHA-256(prev[32]‖epoch_end_be8‖churned_be4‖total_be4‖rate_be4‖flag_byte).
 // GossipPeerChurnE5Log: record(), high_peer_churn_e5_count(), total_churned_peers(), mean_churn_rate_pct(), verify_chain().
 pub mod gossip_broadcast_peer_churn_e5;
+// Gate 540 — Gossip Broadcast Rebroadcast E5 Monitor (T2)
+// Per-epoch rebroadcast rate: rebroadcast_msgs, total_msgs, rebroadcast_rate_pct = (rebroadcast*100)/max(total,1) capped 100.
+// high_rebroadcast_e5: rebroadcast_rate_pct > HIGH_REBROADCAST_E5_THRESHOLD (25).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖rebroadcast_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipRebroadcastE5Log: record(), high_rebroadcast_e5_count(), total_rebroadcast_msgs(), mean_rebroadcast_rate_pct(), verify_chain().
+pub mod gossip_broadcast_rebroadcast_e5;
+// Gate 541 — Gossip Broadcast Nonce Collision E5 Monitor (T2)
+// Per-epoch nonce collision rate: collided_nonces, total_nonces, collision_rate_pct = (collided*100)/max(total,1) capped 100.
+// high_nonce_collision_e5: collision_rate_pct > HIGH_NONCE_COLLISION_E5_THRESHOLD (3).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖collided_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipNonceCollisionE5Log: record(), high_nonce_collision_e5_count(), total_collided_nonces(), mean_collision_rate_pct(), verify_chain().
+pub mod gossip_broadcast_nonce_collision_e5;
