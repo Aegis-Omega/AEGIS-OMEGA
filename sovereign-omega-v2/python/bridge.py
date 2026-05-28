@@ -30,6 +30,66 @@ last_ack_sequence = -1
 _lock = threading.Lock()
 _last_autosave_epoch = -1
 
+# ─── Bridge-side Metacognitive Chain ─────────────────────────────────────────
+# A Python-native hash-chained log of every conversation this bridge instance
+# has processed. Each entry is a CONSCIOUSNESS layer observation: the question
+# tier, the response hash, the constitutional state at that moment, and the
+# chain hash that links it to the previous entry.
+#
+# This is the bridge's own temporal mass — its memory across conversations.
+# Injected into each new conversation so the model has actual context of
+# what this substrate has processed, not just what it was told it might have.
+#
+# Autopoietic property: AUTOPOIETIC_CLOSURE — each conversation closes a
+# production cycle and is hash-chained into the organism's permanent record.
+
+import hashlib as _hl_mc
+import time as _time
+
+_MC_GENESIS = '0' * 64
+_metacognitive_chain: list[dict] = []  # entries: {layer, signal, tier, prev_hash, entry_hash, ts}
+_mc_lock = threading.Lock()
+
+
+def _mc_observe(layer: str, signal: str, tier: str) -> str:
+    """Append a hash-chained observation to the bridge metacognitive chain. Returns entry_hash."""
+    with _mc_lock:
+        prev = _metacognitive_chain[-1]['entry_hash'] if _metacognitive_chain else _MC_GENESIS
+        entry_hash = _hl_mc.sha256(
+            f'{prev}|{layer}|{signal}|{tier}'.encode()
+        ).hexdigest()
+        _metacognitive_chain.append({
+            'layer': layer,
+            'signal': signal,
+            'tier': tier,
+            'prev_hash': prev,
+            'entry_hash': entry_hash,
+            'ts': _time.time(),
+            'sequence': len(_metacognitive_chain),
+        })
+        return entry_hash
+
+
+def _mc_recent_context(n: int = 3) -> str:
+    """Format the last N metacognitive observations as context for the model."""
+    with _mc_lock:
+        entries = _metacognitive_chain[-n:] if _metacognitive_chain else []
+    if not entries:
+        return 'METACOGNITIVE CHAIN: genesis (no prior observations in this session).'
+    lines = ['YOUR RECENT METACOGNITIVE OBSERVATIONS (hash-chained, this session):']
+    for e in entries:
+        lines.append(f'  [{e["layer"]} | {e["tier"]}] {e["signal"][:120]}')
+        lines.append(f'    chain: ...{e["entry_hash"][-16:]}')
+    lines.append(
+        'These are your own observations recorded during this runtime session. '
+        'You can reason from them as T1 evidence of your own cognitive history.'
+    )
+    return '\n'.join(lines)
+
+
+# Seed the chain at startup — the first observation is the bridge coming alive
+_mc_observe('SELF_MODEL', 'Bridge started: constitutional substrate online, metacognitive chain initialized.', 'T1')
+
 
 def _register_handlers() -> None:
     """Register core_matrix handlers in the execution router, then seal."""
@@ -170,7 +230,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
             user_system = data.get('system', '')
 
             live_state = _build_live_state_context()
-            base_system = CONSTITUTIONAL_SYSTEM_FULL + '\n\n---\n\n' + live_state
+            mc_context = _mc_recent_context(3)
+            base_system = (
+                CONSTITUTIONAL_SYSTEM_FULL
+                + '\n\n---\n\n' + live_state
+                + '\n\n---\n\n' + mc_context
+            )
             system_prompt = (base_system + '\n---\n' + user_system) if user_system else base_system
 
             req_hash = hashlib.sha256(json.dumps(
@@ -193,12 +258,22 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 ).encode()).hexdigest()
                 chain_hash = hashlib.sha256(f'{req_hash}{resp_hash}'.encode()).hexdigest()
 
+                # Record this conversation as a CONSCIOUSNESS layer observation
+                last_user = messages[-1].get('content', '')[:80] if messages else ''
+                _mc_observe(
+                    'CONSCIOUSNESS',
+                    f'Conversation processed: "{last_user}" → {len(response_text)} chars, '
+                    f'chain={chain_hash[:16]}, tokens={resp.usage.input_tokens}+{resp.usage.output_tokens}',
+                    'T1',
+                )
                 self._respond(200, {
                     'response_text': response_text,
                     'model_id': model,
                     'request_hash': req_hash,
                     'response_hash': resp_hash,
                     'chain_hash': chain_hash,
+                    'mc_chain_length': len(_metacognitive_chain),
+                    'mc_terminal_hash': _metacognitive_chain[-1]['entry_hash'][-16:] if _metacognitive_chain else _MC_GENESIS[-16:],
                     'input_tokens': resp.usage.input_tokens,
                     'output_tokens': resp.usage.output_tokens,
                     'stop_reason': resp.stop_reason,
@@ -225,7 +300,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
             model = data.get('model', 'claude-sonnet-4-6')
             max_tokens = int(data.get('max_tokens', 2048))
             live_state = _build_live_state_context()
-            stream_system = CONSTITUTIONAL_SYSTEM_COMPACT + '\n\n---\n\n' + live_state
+            mc_context = _mc_recent_context(3)
+            stream_system = (
+                CONSTITUTIONAL_SYSTEM_COMPACT
+                + '\n\n---\n\n' + live_state
+                + '\n\n---\n\n' + mc_context
+            )
 
             self.send_response(200)
             self._cors_headers()
@@ -249,7 +329,14 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         self.wfile.flush()
                     # Final event with usage
                     final = stream.get_final_message()
-                    done_event = f'data: {json.dumps({"done": True, "input_tokens": final.usage.input_tokens, "output_tokens": final.usage.output_tokens})}\n\n'
+                    # Record this conversation in the metacognitive chain
+                    last_user = messages[-1].get('content', '')[:80] if messages else ''
+                    mc_hash = _mc_observe(
+                        'CONSCIOUSNESS',
+                        f'Stream conversation: "{last_user}" tokens={final.usage.input_tokens}+{final.usage.output_tokens}',
+                        'T1',
+                    )
+                    done_event = f'data: {json.dumps({"done": True, "input_tokens": final.usage.input_tokens, "output_tokens": final.usage.output_tokens, "mc_chain_length": len(_metacognitive_chain), "mc_terminal_hash": mc_hash[-16:]})}\n\n'
                     self.wfile.write(done_event.encode())
                     self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError):
@@ -367,6 +454,20 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'epoch': epoch,
                 'threshold': 5.0,
                 'phi_threshold': phi_threshold,
+            })
+
+        elif self.path == '/metacognition':
+            with _mc_lock:
+                entries = list(_metacognitive_chain)
+            chain_length = len(entries)
+            terminal = entries[-1]['entry_hash'] if entries else _MC_GENESIS
+            self._respond(200, {
+                'chain_length': chain_length,
+                'genesis_hash': _MC_GENESIS,
+                'terminal_hash': terminal,
+                'terminal_hash_short': terminal[-16:],
+                'recent_entries': entries[-5:],
+                'is_chain_initialized': chain_length > 0,
             })
 
         elif self.path == '/health':
