@@ -22,15 +22,14 @@ describe('SeededRNG: determinism (same seed → same sequence)', () => {
     expect(r2).toEqual(r3)
   })
 
-  it('seed 1 and seed 2 each produce deterministic sequences independently', () => {
-    // Test determinism independently rather than cross-seed uniqueness
-    // (32-bit splitmix64 has known collision properties for close seeds)
-    const rng1a = new SeededRNG(1); const seq1a = [rng1a.next(), rng1a.next()]
-    const rng1b = new SeededRNG(1); const seq1b = [rng1b.next(), rng1b.next()]
-    expect(seq1a).toEqual(seq1b)
-    const rng2a = new SeededRNG(0xdeadbeef); const seq2a = [rng2a.next(), rng2a.next()]
-    const rng2b = new SeededRNG(0xdeadbeef); const seq2b = [rng2b.next(), rng2b.next()]
-    expect(seq2a).toEqual(seq2b)
+  it('different seeds produce different sequences', () => {
+    const run = (seed: number) => {
+      const rng = new SeededRNG(seed)
+      return [rng.next(), rng.next(), rng.next()]
+    }
+    expect(run(0)).not.toEqual(run(1))
+    expect(run(42)).not.toEqual(run(99999))
+    expect(run(0xdeadbeef)).not.toEqual(run(0xbeefdead))
   })
 
   it('seed 0 is valid and deterministic', () => {
