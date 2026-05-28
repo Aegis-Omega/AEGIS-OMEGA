@@ -4,9 +4,9 @@
 
 *Designed and built by Tarik Skalić · AGPL-3.0*
 
-[![Rust](https://img.shields.io/badge/Rust_Tests-6920_(aegis--cl--psi_+_runtime)-brightgreen)](#testing)
+[![Rust](https://img.shields.io/badge/Rust_Tests-6958_(aegis--cl--psi_+_runtime)-brightgreen)](#testing)
 [![TypeScript](https://img.shields.io/badge/TypeScript_Tests-2790-brightgreen)](#testing)
-[![Total](https://img.shields.io/badge/Total_Tests-9710-brightgreen)](#testing)
+[![Total](https://img.shields.io/badge/Total_Tests-9748-brightgreen)](#testing)
 [![Gate 8](https://img.shields.io/badge/Gate_8-passing-brightgreen)](#testing)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-blue)](LICENSE)
 
@@ -20,8 +20,8 @@ AEGIS-Ω was conceived, designed, and executed by a single engineer operating un
 
 - **Single author, single machine** — AMD RX 570, 8GB RAM. No cloud. No build farm. No team.
 - **113,000+ lines of polyglot code** — TypeScript (governance runtime), Rust (gossip fabric + seven-pillar runtime), Python (analytical bridge) — architected, typed, and maintained by a singular author.
-- **9710 invariant tests, 0 failures** — every hash chain, every BFT boundary, every determinism proof runs on the same machine that generated them. Test density is approximately one test per 17 lines of production code, approaching DO-178C aerospace coverage standards.
-- **603 gates completed** — each gate required a passing implementation, unit tests, and a full-suite green run before the commit was allowed to land.
+- **9748 invariant tests, 0 failures** — every hash chain, every BFT boundary, every determinism proof runs on the same machine that generated them. Test density is approximately one test per 17 lines of production code, approaching DO-178C aerospace coverage standards.
+- **605 gates completed** — each gate required a passing implementation, unit tests, and a full-suite green run before the commit was allowed to land.
 - **One law above all others** — `AdaptivePower(T) ≤ ReplayVerifiability(T)` — every module, every layer, every commit answers to it.
 
 The code does not ask to be believed. It can be replayed from genesis and will produce the same cryptographic fingerprint every time.
@@ -251,10 +251,10 @@ All three were proven identical in `test/integration/holonic-triad-proof.test.ts
 ## Testing
 
 ```
-9710 total tests · 0 failures
+9748 total tests · 0 failures
 
   2790  TypeScript  (156 test files across unit / integration / determinism)
-  6824  Rust        aegis-cl-psi  (420 gate modules)
+  6862  Rust        aegis-cl-psi  (420 gate modules)
     96  Rust        aegis-runtime (7-pillar distributed runtime)
 ```
 
@@ -492,4 +492,4 @@ Free to use, study, modify, and distribute. Derivative works must release source
 
 *A finite automaton is a machine that remembers its state.*
 *A hash-chained automaton is a machine that can prove it remembered correctly.*
-*412 of them, watching each other — that is the organism.*
+*414 of them, watching each other — that is the organism.*
