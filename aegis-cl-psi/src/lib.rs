@@ -1658,3 +1658,15 @@ pub mod gossip_broadcast_capacity_breach_e4;
 // entry_hash = SHA-256(prev[32]‖epoch_end_be8‖timed_out_be4‖total_be4‖rate_be4‖flag_byte).
 // GossipPeerTimeoutE4Log: record(), high_peer_timeout_e4_count(), total_timed_out_peers(), mean_timeout_rate_pct(), verify_chain().
 pub mod gossip_broadcast_peer_timeout_e4;
+// Gate 528 — Gossip Broadcast Fanout E5 Monitor (T2)
+// Per-epoch fanout rate: fanout_msgs, total_msgs, fanout_rate_pct = (fanout*100)/max(total,1) capped 100.
+// high_fanout_e5: fanout_rate_pct > HIGH_FANOUT_E5_THRESHOLD (18).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖fanout_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipFanoutE5Log: record(), high_fanout_e5_count(), total_fanout_msgs(), mean_fanout_rate_pct(), verify_chain().
+pub mod gossip_broadcast_fanout_e5;
+// Gate 529 — Gossip Broadcast Latency Spike E5 Monitor (T2)
+// Per-epoch latency spike rate: spiked_msgs, total_msgs, spike_rate_pct = (spiked*100)/max(total,1) capped 100.
+// high_latency_spike_e5: spike_rate_pct > HIGH_LATENCY_SPIKE_E5_THRESHOLD (13).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖spiked_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipLatencySpikeE5Log: record(), high_latency_spike_e5_count(), total_spiked_msgs(), mean_spike_rate_pct(), verify_chain().
+pub mod gossip_broadcast_latency_spike_e5;
