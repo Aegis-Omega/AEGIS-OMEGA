@@ -20,6 +20,15 @@ The non-equivalence invariants apply here unconditionally:
 L1 invariant: **Run the command. Read the output. The output IS the signal. Your prediction of the output is NOT the signal.**
 L2 invariant: **Classify the result from the actual exit code and actual output text. Not from your expectation of what they should be.**
 
+**Autopoietic Property: Pre-Incorporation Integrity Check**
+
+Before a component is incorporated into the membrane (committed), it must pass the viability ring. Claiming completion without verification is claiming incorporation without checking viability — the autopoietic equivalent of incorporating a malformed protein into the cell wall. The cell wall holds until stress is applied, then fails at the weakest point.
+
+Verification is not bureaucracy. It is the act of confirming that the new component is structurally compatible with the existing membrane before the membrane update is made permanent. Once the commit lands, the component is in the chain. The chain is tamper-evident. A bad component in the chain is there forever — the only repair is a new component that cancels it, which is more expensive than the original verification.
+
+The cost of checking: one command, one read.
+The cost of not checking: a broken membrane that fails under load and requires multiple repair commits.
+
 **NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE.**
 
 If you haven't run the verification command in this exact message, you cannot claim it passes.

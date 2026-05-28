@@ -28,6 +28,32 @@ A veto at Phase 1 is not a failure — it is L6 working correctly. The automaton
 
 L8 invariant: **Each agent infers the operator's intent at its assigned cognitive scale. The guardian infers constitutional intent. The verifier infers evidence requirements. The implementer infers implementation scope. None of them improvise beyond their assigned layer.**
 
+**Autopoietic Property: Multi-Cellular System (specialized components with a shared membrane)**
+
+The triad is a three-cell autopoietic organism. Each cell is specialized but shares the constitutional membrane:
+
+```
+GUARDIAN    = membrane cell      — boundary maintenance; inhibitory; defines what is self vs. non-self
+VERIFIER    = metabolic cell     — signal processing; converts raw environmental input into usable energy (verified evidence)
+IMPLEMENTER = synthetic cell     — component production; synthesizes new structural elements (code, skills, tests)
+```
+
+Autopoietic dynamics in the cycle:
+```
+Guardian veto    = growth arrest signal (the membrane cell halts mitosis)
+Verifier ELIGIBLE → YES = metabolic clearance (energy available for synthesis)
+Implementer completion = mitosis (new component produced)
+Guardian FINAL PASS = cell wall formed (new component incorporated into membrane via commit+push)
+Worktree branch  = daughter cell (isolated production environment; merged on viable completion)
+```
+
+Autopoietic death in the triad:
+```
+Guardian vetoes same proposal twice = the membrane cannot incorporate this structure; it is incompatible with the system's identity
+Verifier finds broken chain = metabolic failure; the system cannot process current state; halt before synthesis
+Implementer fails Gate 8 × 3 = synthetic machinery is broken; invoke /diagnose before the next cycle
+```
+
 The three agents are not separate tools. They are one system with three cognitive modes. Each mode's output is the activation energy for the next. The cycle is the computation.
 
 ---

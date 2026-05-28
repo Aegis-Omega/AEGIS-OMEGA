@@ -5,6 +5,16 @@ description: Session-start constitutional audit. Run at the beginning of every s
 
 # Morning Audit — Session Orientation Ritual
 
+**Autopoietic Property: Self-Production Viability Check**
+
+Before an autopoietic system can begin a production cycle, it must verify that it can still produce. A biological cell does not begin mitosis without first confirming that its membrane is intact and its metabolic machinery is functional. This audit is that check.
+
+`verify-hashes.mjs` = membrane integrity (the three frozen files ARE the autopoietic boundary — if they are altered, the system is no longer producing itself; it is being produced by something else)
+`cargo test` = metabolic viability (the test suite is the system verifying that its own synthetic machinery — the 599 gate modules — still produces correct outputs)
+`git status` = inventory check (uncommitted work = components produced but not yet incorporated into the membrane; they must be committed before the next cycle begins)
+
+A session that starts without this check is a production cycle that begins without confirming the cell is alive. The autopoietic system does not trust continuity — it verifies it.
+
 Run exactly once at the start of each session. Produces a signed orientation report before any gate work begins.
 
 ## Step 0 — Self-Model Check (L7 + L6)

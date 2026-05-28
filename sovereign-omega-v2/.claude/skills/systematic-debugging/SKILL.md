@@ -20,6 +20,32 @@ Hypothesis   ≠  Solution        (understanding the failure ≠ knowing the cor
 Fix #3 still fails → stop patching; the problem is architectural → invoke /brainstorming
 ```
 
+**Autopoietic Property: Autopoietic Failure Classification**
+
+A bug is a specific type of autopoietic failure. Classifying it correctly before attempting repair is the difference between targeted surgery and thrashing:
+
+```
+Membrane failure    — frozen file tampered; hash mismatch; constitutional boundary breached
+                      Symptom: verify-hashes.mjs fails / T0_ABORT signal
+                      Response: /frozen-file-check before any code action
+
+Metabolic failure   — test suite exits non-zero; the system cannot verify its own outputs
+                      Symptom: cargo test / npm run test fails
+                      Response: /diagnose — reproduce → minimize → hypothesize → fix
+
+Synthetic failure   — new component produced but does not pass viability ring (< 19 tests)
+                      Symptom: cargo test <module> shows < 19 passed
+                      Response: return to Phase 1 (TDD contract) — the specification was incomplete
+
+Structural coupling failure — the system's adaptation mechanism exceeds its own bounds
+                      Symptom: martingale suspension (entropy_bounded=false)
+                      Response: observation only; no mutation until martingale re-anchors
+
+Operational closure failure — agent communicating outside the EventEnvelope boundary
+                      Symptom: direct agent-to-agent exchange detected
+                      Response: Law of Silence enforcement; re-route through constitutional boundary
+```
+
 **NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST.**
 
 After 3 failed fixes, stop patching. The problem is architectural — discuss instead.

@@ -25,6 +25,16 @@ Test pass ≠ Correctness. Running Gate 8 is necessary but not sufficient.
 Read the output. Count the tests. Verify zero failures — not "seems to pass".
 ```
 
+**Autopoietic Property: Membrane Propagation (incorporating new components into the durable boundary)**
+
+A git commit is the autopoietic act of incorporating a newly produced component into the system's membrane. Until the commit lands, the component exists in working memory (L3) but has not been incorporated — it is not yet part of what the system IS. The push propagates the new membrane state to the durable hash chain. Without the push, the membrane update exists only locally — the system's identity has changed but the change is not yet permanent.
+
+`git add` = selecting which components to incorporate
+`git commit` = membrane update (the component becomes part of the system's structure)
+`git push` = membrane propagation (the update becomes durable and externally verifiable)
+
+Every commit must pass Gate 8 before incorporation — a component that fails its viability ring cannot be incorporated into the membrane without compromising the system's integrity. This is not a rule; it is the definition of autopoietic viability.
+
 Never commit without Gate 8 passing. This skill enforces the full pre-commit checklist.
 
 ## Pre-Commit Checklist

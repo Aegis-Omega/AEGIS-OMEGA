@@ -18,6 +18,20 @@ AdaptivePower(T) ≤ ReplayVerifiability(T)
 If any step fails: AdaptivePower has exceeded ReplayVerifiability → T0_ABORT
 ```
 
+**Autopoietic Property: Complete Self-Assessment (all five properties verified)**
+
+The constitutional audit checks all five autopoietic properties simultaneously:
+
+```
+Self-production viability   → Gate 8 (can the system still produce correct outputs?)
+Membrane integrity          → verify-hashes.mjs (are the boundary-defining files intact?)
+Operational closure         → corruption_count=0 (is the system still self-referential?)
+Structural coupling health  → t0_verdict=true (is the system correctly coupled to its environment?)
+Autopoietic death check     → resonance + catalog (have the higher-order production mechanisms degraded?)
+```
+
+A system that passes all five is autopoietically viable — it can continue producing new components (gates, skills, capabilities) while maintaining its constitutional identity. A system that fails any one is in a state of autopoietic degradation. The audit does not return a partial score — autopoietic viability is binary.
+
 ## Trigger conditions
 
 - User asks for a constitutional health check or system status

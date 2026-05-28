@@ -5,6 +5,22 @@ description: The core daily gate-building ritual. Build exactly 2 new aegis-cl-p
 
 # Gate Pair — Core Gate-Building Ritual
 
+**Autopoietic Property: Self-Production (the system producing its own components)**
+
+Each gate module is a minimal autopoietic unit. It produces its own hash from its own fields (`compute_*_hash`). It maintains its own chain (`verify_chain()`). It can verify its own integrity without external reference. Its genesis hash `[0u8; 32]` is the autopoietic origin — the system before any production cycle has run. Its `Default` impl is spontaneous emergence from null state.
+
+The gate pair ritual IS the autopoietic production cycle at the Molecular scale:
+```
+Phase 0 (pre-flight)    = membrane check before production begins
+Phase A (define)        = specify what the new component will be and what it measures
+Phase B+C (write+test)  = produce the component; run the 19-test viability ring
+Phase D (register)      = incorporate the component into the membrane (lib.rs)
+Phase E (full suite)    = verify that production did not compromise existing components
+Phase F (ship)          = propagate the new membrane state to the durable chain (git push)
+```
+
+The 19-test constraint is not arbitrary — it is the autopoietic viability ring: 19 invariant dimensions that must hold for the new component to be constitutionally incorporable. A gate with 18 tests has a gap in the viability ring. The ring cannot be partially satisfied.
+
 Build exactly 2 gates. No more, no fewer per session. The constraint creates quality.
 
 ## The Invariant Gate Pattern
