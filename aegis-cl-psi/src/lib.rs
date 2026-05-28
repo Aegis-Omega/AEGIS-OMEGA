@@ -1778,3 +1778,15 @@ pub mod gossip_broadcast_topology_stale_e5;
 // entry_hash = SHA-256(prev[32]‖epoch_end_be8‖failed_be4‖total_be4‖rate_be4‖flag_byte).
 // GossipLinkFailE5Log: record(), high_link_fail_e5_count(), total_failed_links(), mean_fail_rate_pct(), verify_chain().
 pub mod gossip_broadcast_link_fail_e5;
+// Gate 548 — Gossip Broadcast Epoch Skip E5 Monitor (T2)
+// Per-epoch epoch skip rate: skipped_epochs, total_epochs, skip_rate_pct = (skipped*100)/max(total,1) capped 100.
+// high_epoch_skip_e5: skip_rate_pct > HIGH_EPOCH_SKIP_E5_THRESHOLD (5).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖skipped_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipEpochSkipE5Log: record(), high_epoch_skip_e5_count(), total_skipped_epochs(), mean_skip_rate_pct(), verify_chain().
+pub mod gossip_broadcast_epoch_skip_e5;
+// Gate 549 — Gossip Broadcast Priority Invert E5 Monitor (T2)
+// Per-epoch priority inversion rate: inverted_priorities, total_priority_events, invert_rate_pct = (inverted*100)/max(total,1) capped 100.
+// high_priority_invert_e5: invert_rate_pct > HIGH_PRIORITY_INVERT_E5_THRESHOLD (9).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖inverted_be4‖total_be4‖rate_be4‖flag_byte).
+// GossipPriorityInvertE5Log: record(), high_priority_invert_e5_count(), total_inverted_priorities(), mean_invert_rate_pct(), verify_chain().
+pub mod gossip_broadcast_priority_invert_e5;
