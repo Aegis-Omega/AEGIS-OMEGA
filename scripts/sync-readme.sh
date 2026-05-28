@@ -49,8 +49,8 @@ sed -i "s/^  [0-9]*  Rust        aegis-cl-psi  /  ${AEGIS_PSI}  Rust        aegi
 TOTAL_COMMA=$(printf "%'.0f" "$TOTAL" 2>/dev/null || echo "$TOTAL")
 sed -i "s/\*\*[0-9,]* invariant tests, 0 failures\*\*/**${TOTAL_COMMA} invariant tests, 0 failures**/g" "$README"
 
-# Genesis section: "NNN gates completed" bold phrase — read from CLAUDE.md (authoritative)
-GATE_COUNT=$(grep -oP 'Gates complete: \K[0-9]+' "${README%/*}/CLAUDE.md" 2>/dev/null || echo "0")
+# Genesis section: "NNN gates completed" bold phrase — max gate number from lib.rs comments (always current)
+GATE_COUNT=$(grep -oP '(?<=// Gate )[0-9]+' "${README%/*}/aegis-cl-psi/src/lib.rs" 2>/dev/null | sort -n | tail -1 || echo "0")
 sed -i "s/\*\*[0-9,]* gates completed\*\*/**${GATE_COUNT} gates completed**/g" "$README"
 
 # Closing line: "N of them, watching each other"

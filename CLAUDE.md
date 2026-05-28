@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 # AEGIS Monorepo — Coordination Document
-## Branch: claude/aegis-setup-Lx7Ji · Gates complete: 551
+## Branch: claude/aegis-setup-Lx7Ji · Gates complete: 562
 ## Operator: Tarik Skalić · Hardware: AMD RX 570, 8 GB RAM
 
 Approach every component as a recursively nested atomic-scale holon governed by
@@ -39,7 +39,7 @@ Key specs: `sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md` (constitu
 
 ## Build & Test Commands
 
-### Rust — aegis-cl-psi (5836 tests)
+### Rust — aegis-cl-psi (6045 tests)
 ```bash
 cd aegis-cl-psi
 
