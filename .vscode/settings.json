@@ -3,5 +3,22 @@
   "cline.apiProvider": "openai",
   "cline.openAiBaseUrl": "http://YOUR_ECS_IP:11434/v1",
   "cline.openAiApiKey": "ollama",
-  "cline.openAiModelId": "hermes3:8b"
+  "cline.openAiModelId": "hermes3:8b",
+  "chat.mcp.discovery.enabled": {
+    "claude-desktop": true,
+    "cursor-global": true,
+    "windsurf": true,
+    "cursor-workspace": true
+},
+"tasks.tasks": [
+    {
+        "type": "typescript",
+        "tsconfig": "cockpit/server/tsconfig.json",
+        "problemMatcher": [
+            "$tsc"
+        ],
+        "group": "build",
+        "label": "tsc: build - cockpit/server/tsconfig.json"
+    }
+]
 }

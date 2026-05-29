@@ -2,33 +2,12 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/user/AEGIS--/scripts/sync-readme.sh",
-            "timeout": 30
-          }
-        ]
-      },
-      {
         "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/post-write.sh",
+            "command": "$CLAUDE_PROJECT_DIR\\.claude\\hooks\\post-write.sh",
             "timeout": 120
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh",
-            "timeout": 300
           }
         ]
       }
@@ -51,14 +30,7 @@
       "mcp__github__search_pull_requests",
       "mcp__github__get_file_contents",
       "mcp__github__list_tags",
-      "mcp__github__list_releases",
-      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__list_projects",
-      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__get_project",
-      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__list_deployments",
-      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__get_deployment",
-      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__get_runtime_logs",
-      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__list_teams",
-      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__search_vercel_documentation"
+      "mcp__github__list_releases"
     ]
   }
 }

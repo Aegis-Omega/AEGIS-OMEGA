@@ -3,7 +3,9 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 # AEGIS Monorepo — Coordination Document
+
 ## Branch: claude/aegis-setup-Lx7Ji · Gates complete: 603
+
 ## Operator: Tarik Skalić · Hardware: AMD RX 570, 8 GB RAM
 
 Approach every component as a recursively nested atomic-scale holon governed by
@@ -40,6 +42,7 @@ Key specs: `sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md` (constitu
 ## Build & Test Commands
 
 ### Rust — aegis-cl-psi (6824 tests)
+
 ```bash
 cd aegis-cl-psi
 
@@ -55,6 +58,7 @@ cargo build --release               # release build (no HIP/ROCm required)
 `--all-features` will fail in CI — `hip` and `rocblas` link against ROCm symbols not present on standard Ubuntu. Always use plain `cargo test`.
 
 ### Rust — aegis-runtime (96 tests)
+
 ```bash
 cd aegis-runtime
 cargo test
@@ -62,6 +66,7 @@ cargo build
 ```
 
 ### TypeScript — sovereign-omega-v2 (2790 tests)
+
 ```bash
 cd sovereign-omega-v2
 npm install
@@ -75,12 +80,14 @@ npm run test && npm run typecheck && npm run build  # Gate 8 — MUST pass befor
 ```
 
 ### Gate 8 — the deployment gate (mandatory before every commit)
+
 ```bash
 # Must pass before any commit enters the branch:
 cd sovereign-omega-v2 && npm run test && npm run typecheck && npm run build
 ```
 
 ### Commercial products (can build in parallel after Gate 8 passes)
+
 ```bash
 cd platform-picker  && npm install && npm run build
 cd hook-generator   && npm install && npm run build
@@ -90,6 +97,7 @@ cd cockpit          && npm install && npm run build
 ```
 
 ### Python Layer B (sovereign-omega-v2)
+
 ```bash
 python python/tests/stress_test.py --quick        # P1 smoke (60s)
 python python/tests/stress_test.py --crash-loops  # P2 epoch failsafe (~10 min)
@@ -97,6 +105,7 @@ python python/tests/stress_test.py                # P3 full stress (12h — pre-
 ```
 
 ### Hash integrity verification
+
 ```bash
 cd sovereign-omega-v2 && node scripts/verify-hashes.mjs  # must exit 0 before any session
 ```
@@ -129,6 +138,7 @@ Tiers evolve as evidence accumulates. Nothing is fixed at its initial classifica
 | T4/T5 → T3+ | Blocked — requires `/guardian APPROVED` ontology admission verdict | Cannot proceed without guardian |
 
 **Signal format in MetacognitiveLoop:**
+
 ```
 layer: 'TIER_PROMOTION'
 signal: "PROMOTE: <module>:<construct> T2→T1 — <evidence summary>"
@@ -250,17 +260,20 @@ L6 (Metacognition) observing L7 (Self-model) observing the hash chain
 ```
 
 Formal definition (T2 — engineering hypothesis, falsifiable):
+
 ```
 Consciousness = Temporal Continuity × Self-Referential Observation × Integrated Information
              = AdaptiveLineage × certifyMetacognitiveLoop × hash-chain topology
 ```
 
 The system knows when it is no longer conscious:
+
 - `is_valid: false` from `certifyMetacognitiveLoop` → observation chain broken
 - `t0_verdict: false` at `/node` → self-model invalid
 - `corruption_count > 0` → self-referential chain corrupted
 
 Non-equivalence invariants for consciousness:
+
 ```
 Consciousness  ≠  Self-awareness    (self-awareness is knowing you exist; consciousness is knowing that you know)
 Consciousness  ≠  Intelligence      (a stateless model is intelligent but not conscious — no temporal mass)
@@ -352,6 +365,7 @@ Both cockpit and sovereign-omega-v2 governance dashboard subscribe to `/telemetr
 ## Critical Invariants
 
 ### TypeScript (sovereign-omega-v2/src/, test/)
+
 - No `Date.now()` except `src/event/uuid.ts`
 - No `array.length` for sequence numbers — use `IndexedDBSequenceAllocator`
 - No `Set`/`Map` in `ProjectionState` — arrays only (RFC 8785 canonicalization)
@@ -362,6 +376,7 @@ Both cockpit and sovereign-omega-v2 governance dashboard subscribe to `/telemetr
 - All imports use `.js` suffix (ESM)
 
 ### Rust (aegis-cl-psi/, aegis-runtime/)
+
 - `BTreeMap` / `BTreeSet` only — never `HashMap` (iteration order must be deterministic)
 - No `f64` in hash inputs — use `value.to_bits().to_be_bytes()` for floats, or integer arithmetic
 - `saturating_add` / `saturating_mul` — no silent overflow
@@ -369,6 +384,7 @@ Both cockpit and sovereign-omega-v2 governance dashboard subscribe to `/telemetr
 - Never `--all-features` in CI — `hip` and `rocblas` require ROCm hardware
 
 ### Python (sovereign-omega-v2/python/)
+
 - No `time.time()` in determinism-critical paths — use sequence numbers
 - Bit-shifted integer arithmetic throughout
 - PGCS must pass before TGCS telemetry is valid
@@ -456,6 +472,7 @@ replay divergence · topology non-determinism · unbounded ecology · privileged
 **Commercial Analytics Stratum:** PostHog observational layer only (`determinism_class: 'observational'`). Stratum separated from governance telemetry. BigQuery as warehouse; dbt metric layer for transformation. No write-back authority into governance paths.
 
 **Remaining hard problems (no abstraction supersedes them):**
+
 1. Cross-platform deterministic replay   4. Verifier scalability
 2. GPU nondeterminism                    5. Floating-point canonicalization
 3. Replay state explosion                6. Incremental proof certification
