@@ -34,38 +34,64 @@ export function App() {
   const { snapshot, error } = useTelemetry()
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col">
-      <header className="border-b border-gray-800 px-4 py-3 flex items-center gap-4 flex-shrink-0">
-        <span className="text-sm font-semibold tracking-wide text-white">AEGIS Studio</span>
-        <span className="text-xs text-gray-500">Constitutional Observability — Projection Only</span>
-        {error && (
-          <span className="ml-auto text-xs bg-red-900 text-red-300 px-2 py-0.5 rounded">
-            bridge: {error}
+    <div className="min-h-screen bg-aegis-void text-aegis-text flex flex-col font-sans">
+      <header className="border-b border-aegis-border px-5 py-3 flex items-center gap-4 flex-shrink-0 bg-aegis-deep">
+        <div className="flex items-baseline gap-2.5">
+          <span className="font-mono font-semibold tracking-[0.2em] text-sm text-aegis-phi">
+            AEGIS-Ω
           </span>
-        )}
-        {!error && snapshot && (
-          <span className="ml-auto text-xs bg-green-900 text-green-300 px-2 py-0.5 rounded">
-            live · epoch {snapshot.epoch_sequence}
+          <span className="font-mono text-[10px] tracking-widest uppercase text-aegis-muted opacity-60">
+            Studio
           </span>
-        )}
+        </div>
+        <div className="h-3.5 w-px bg-aegis-border" />
+        <span className="text-[11px] text-aegis-muted">Constitutional Observability · Projection Only</span>
+        <div className="ml-auto flex items-center gap-2">
+          {error ? (
+            <span className="text-[10px] font-mono bg-aegis-T4/10 text-aegis-T4 border border-aegis-T4/20 px-2.5 py-1 rounded-lg">
+              bridge offline
+            </span>
+          ) : snapshot ? (
+            <>
+              <span className="text-[10px] font-mono bg-aegis-T0/10 text-aegis-T0 border border-aegis-T0/20 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-aegis-T0 animate-pulse-slow" />
+                live · epoch {snapshot.epoch_sequence}
+              </span>
+              <span className={`text-[10px] font-mono px-2.5 py-1 rounded-lg border ${
+                snapshot.pgcs_passes
+                  ? 'bg-aegis-T0/10 text-aegis-T0 border-aegis-T0/20'
+                  : 'bg-aegis-T4/10 text-aegis-T4 border-aegis-T4/20'
+              }`}>
+                {snapshot.pgcs_passes ? 'PGCS PASS' : 'PGCS FAIL'}
+              </span>
+            </>
+          ) : (
+            <span className="text-[10px] font-mono text-aegis-disabled px-2.5 py-1">
+              awaiting bridge…
+            </span>
+          )}
+        </div>
       </header>
       <div className="flex flex-1 min-h-0">
-        <nav className="w-36 border-r border-gray-800 flex-shrink-0 py-2">
+        <nav className="w-40 border-r border-aegis-border flex-shrink-0 py-3 bg-aegis-deep flex flex-col gap-0.5 px-2">
           {NAV.map(({ id, label }) => (
             <button
               key={id}
               onClick={() => setActive(id)}
-              className={`w-full text-left px-4 py-2 text-xs transition-colors ${
+              className={`w-full text-left px-3 py-2 text-xs rounded-lg transition-colors font-mono tracking-wide ${
                 active === id
-                  ? 'bg-gray-800 text-white'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-900'
+                  ? 'bg-aegis-surface text-aegis-text border border-aegis-border-medium'
+                  : 'text-aegis-muted hover:text-aegis-text hover:bg-aegis-bg'
               }`}
             >
+              {active === id && (
+                <span className="inline-block w-1 h-1 rounded-full bg-aegis-phi mr-2 mb-0.5" />
+              )}
               {label}
             </button>
           ))}
         </nav>
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto bg-aegis-bg">
           {active === 'replay' && <ReplaySurface snapshot={snapshot} />}
           {active === 'epoch' && <EpochSurface snapshot={snapshot} />}
           {active === 'divergence' && <DivergenceSurface snapshot={snapshot} />}
