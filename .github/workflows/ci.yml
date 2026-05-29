@@ -81,10 +81,18 @@ jobs:
 
       - name: Run gate suite (never --all-features)
         id: run
+        env:
+          CARGO_INCREMENTAL: "0"
+          CARGO_NET_RETRY: "3"
         run: |
           set -eo pipefail
           cd aegis-cl-psi
-          cargo test 2>&1 | tee /tmp/cl-psi.txt
+          echo "Rust: $(rustc --version)  Mem: $(free -m | awk '/^Mem/{print $2}')MB"
+          cargo test --jobs 1 2>&1 | tee /tmp/cl-psi.txt || {
+            echo "=== CARGO TEST FAILED — last 80 lines ===" >&2
+            tail -80 /tmp/cl-psi.txt >&2
+            exit 1
+          }
           PASSED=$(grep -oP '\d+ passed' /tmp/cl-psi.txt \
             | grep -oP '\d+' | awk '{s+=$1} END {print s+0}')
           echo "passed=$PASSED" >> "$GITHUB_OUTPUT"
