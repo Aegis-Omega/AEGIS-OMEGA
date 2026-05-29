@@ -9,5 +9,16 @@
     "cursor-global": true,
     "windsurf": true,
     "cursor-workspace": true
-  }
+},
+"tasks.tasks": [
+    {
+        "type": "typescript",
+        "tsconfig": "cockpit/server/tsconfig.json",
+        "problemMatcher": [
+            "$tsc"
+        ],
+        "group": "build",
+        "label": "tsc: build - cockpit/server/tsconfig.json"
+    }
+]
 }
