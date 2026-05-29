@@ -1,0 +1,11 @@
+Paste the diagnostics report below when creating an issue at https://github.com/wallabyjs/public/issues/new
+------------
+[process error] Error: spawn node ENOENT
+    at Process.ChildProcess._handle.onexit (node:internal/child_process:285:19)
+    at onErrorNT (node:internal/child_process:483:16)
+    at processTicksAndRejections (node:internal/process/task_queues:89:21), nodePath: node
+
+{
+  "editorVersion": "1.122.0",
+  "pluginVersion": "1.0.497"
+}
