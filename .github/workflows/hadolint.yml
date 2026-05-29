@@ -10,10 +10,9 @@ name: Hadolint
 
 on:
   push:
-    branches: [ "claude/test-coverage-analysis-F50Hf" ]
+    branches: [main, 'claude/aegis-setup-Lx7Ji']
   pull_request:
-    # The branches below must be a subset of the branches above
-    branches: [ "claude/test-coverage-analysis-F50Hf" ]
+    branches: [main, 'claude/aegis-setup-Lx7Ji']
   schedule:
     - cron: '24 2 * * 1'
 

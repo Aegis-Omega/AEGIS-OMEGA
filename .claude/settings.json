@@ -1,13 +1,37 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /home/user/AEGIS-- && node sovereign-omega-v2/scripts/verify-hashes.mjs 2>&1 | tail -5",
+            "timeout": 15,
+            "statusMessage": "L7: verifying constitutional membrane..."
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR\\.claude\\hooks\\post-write.sh",
-            "timeout": 120
+            "command": "bash /home/user/AEGIS--/.claude/hooks/post-write.sh",
+            "timeout": 120,
+            "statusMessage": "Viability ring assertion..."
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"PRE-COMPACT: Preserve — current gate, open RALPH phase, active skill, pending commits, bridge t0_verdict, any uncommitted file changes.\"}' ",
+            "timeout": 5
           }
         ]
       }
@@ -30,7 +54,16 @@
       "mcp__github__search_pull_requests",
       "mcp__github__get_file_contents",
       "mcp__github__list_tags",
-      "mcp__github__list_releases"
+      "mcp__github__list_releases",
+      "mcp__github__update_pull_request",
+      "mcp__github__create_pull_request",
+      "mcp__github__push_files",
+      "mcp__github__add_issue_comment",
+      "mcp__95bfae93-a19c-41de-89a1-7f2307236318__workers_list",
+      "mcp__95bfae93-a19c-41de-89a1-7f2307236318__workers_get_worker",
+      "mcp__95bfae93-a19c-41de-89a1-7f2307236318__workers_get_worker_code",
+      "mcp__95bfae93-a19c-41de-89a1-7f2307236318__accounts_list",
+      "mcp__95bfae93-a19c-41de-89a1-7f2307236318__set_active_account"
     ]
   }
 }
