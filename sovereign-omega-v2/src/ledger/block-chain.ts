@@ -21,37 +21,52 @@ export class BlockChainError extends Error {
 
 export class BlockChain {
   private readonly _blocks: readonly CommittedBlock[]
+  /**
+   * Index of the first block in this chain. 0 for full chains; N for
+   * partial chains imported from a StateCapsule (epoch-anchored).
+   */
+  private readonly _offset: number
 
-  private constructor(blocks: readonly CommittedBlock[]) {
+  private constructor(blocks: readonly CommittedBlock[], offset = 0) {
     this._blocks = blocks
+    this._offset = offset
   }
 
-  /** Empty chain — no blocks committed yet. */
+  /** Empty full chain starting at genesis (index 0). */
   static empty(): BlockChain {
-    return new BlockChain(deepFreeze([]))
+    return new BlockChain(deepFreeze([]), 0)
   }
 
   /**
-   * Append a block. Enforces strict index monotonicity (index must equal
-   * length of current chain). Returns a new BlockChain; does not mutate.
-   * Throws BlockChainError on index violation; throws BlockError if block
-   * has no transactions (re-surfaced from the block layer).
+   * Empty partial chain anchored at startIndex. Use this when importing
+   * a StateCapsule that starts mid-sequence (e.g. post-epoch blocks).
+   * append() will accept blocks beginning at startIndex.
+   */
+  static partial(startIndex: number): BlockChain {
+    return new BlockChain(deepFreeze([]), startIndex)
+  }
+
+  /**
+   * Append a block. Enforces strict index monotonicity: block.index must
+   * equal offset + current length. Returns a new BlockChain; does not mutate.
+   * Throws BlockChainError on index violation.
    */
   append(block: CommittedBlock): BlockChain {
-    const expectedIndex = this._blocks.length
+    const expectedIndex = this._offset + this._blocks.length
     if (block.index !== expectedIndex) {
       throw new BlockChainError(
         `Block index ${block.index} does not match expected ${expectedIndex}`,
       )
     }
-    return new BlockChain(deepFreeze([...this._blocks, block]))
+    return new BlockChain(deepFreeze([...this._blocks, block]), this._offset)
   }
 
   /**
-   * Full cryptographic verification of the entire chain.
-   * Re-derives prev_hash, state_root_before/after, and all validator
-   * signatures for every adjacent block pair. Returns false on the first
-   * mismatch found.
+   * Full cryptographic verification of the chain.
+   * For full chains (offset=0), the first block is verified against null
+   * (genesis). For partial chains, the first block is verified against null
+   * — this will fail if the first block is not a genesis block; callers
+   * must use verifyStateCapsule() for partial-chain integrity.
    */
   async verifyAll(): Promise<boolean> {
     for (let i = 0; i < this._blocks.length; i++) {
@@ -74,9 +89,12 @@ export class BlockChain {
       : null
   }
 
-  /** Number of committed blocks. */
+  /** Number of committed blocks in this chain (not counting offset). */
   get length(): number { return this._blocks.length }
 
-  /** Index of the highest committed block, or -1 if empty. */
-  get height(): number { return this._blocks.length - 1 }
+  /** Index of the highest committed block, or offset-1 if empty. */
+  get height(): number { return this._offset + this._blocks.length - 1 }
+
+  /** First block index expected by append() — 0 for full chains. */
+  get offset(): number { return this._offset }
 }
