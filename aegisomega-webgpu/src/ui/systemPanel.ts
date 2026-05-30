@@ -1,4 +1,5 @@
 import type { FrameState } from '../engine/simulation.js'
+import type { FieldValues } from '../engine/fieldSampler.js'
 
 export class SystemPanel {
   private readonly elFrame:  HTMLElement
@@ -23,14 +24,12 @@ export class SystemPanel {
     return el
   }
 
-  update(state: FrameState, scrollFraction: number): void {
+  update(state: FrameState, scrollFraction: number, fields: FieldValues): void {
     this.elFrame.textContent  = String(state.frame)
     this.elDt.textContent     = state.dt.toFixed(4)
-    this.elLambda.textContent = state.lambdaInfluence.toFixed(3)
-    this.elSigma.textContent  = state.sigmaPerturb.toFixed(4)
+    this.elSigma.textContent  = fields.sigma.toFixed(4)
+    this.elRho.textContent    = fields.rho.toFixed(4)
+    this.elLambda.textContent = fields.lambda.toFixed(4)
     this.elScroll.textContent = scrollFraction.toFixed(3)
-    // ρ is derived: gradient magnitude ~ |sigmaPerturb| smoothstepped
-    const rhoEst = Math.min(Math.abs(state.sigmaPerturb) / 0.05, 1.0) * 0.25
-    this.elRho.textContent = rhoEst.toFixed(4)
   }
 }

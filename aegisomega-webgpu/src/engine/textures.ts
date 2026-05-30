@@ -13,6 +13,7 @@ const SIM_FORMAT: GPUTextureFormat = 'rgba32float'
 const SIM_USAGE: GPUTextureUsageFlags =
   GPU_TEXTURE_USAGE.TEXTURE_BINDING |
   GPU_TEXTURE_USAGE.STORAGE_BINDING |
+  GPU_TEXTURE_USAGE.COPY_SRC  |
   GPU_TEXTURE_USAGE.COPY_DST
 
 export interface PingPongField {

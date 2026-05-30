@@ -1,6 +1,7 @@
 import { GPU_TEXTURE_USAGE } from './constants.js'
 import type { DeviceContext } from './device.js'
 import { SIM_WIDTH, SIM_HEIGHT, createPingPongField, seedSigmaTexture, seedLambdaTexture, zeroTexture } from './textures.js'
+import type { PingPongField } from './textures.js'
 import { createComputePipelines, createRenderPipeline } from './pipelines.js'
 import {
   createUniformBuffer,
@@ -17,6 +18,8 @@ import { SigmaPass } from './passes/sigma.js'
 import { RhoPass } from './passes/rho.js'
 import { LambdaPass } from './passes/lambda.js'
 import { RenderPass } from './passes/render.js'
+import { FieldSampler } from './fieldSampler.js'
+import type { FieldValues } from './fieldSampler.js'
 
 export interface SimParams {
   readonly lambdaInfluence: number
@@ -47,6 +50,10 @@ export class SimulationEngine {
   private readonly rhoBGs: readonly [GPUBindGroup, GPUBindGroup]
   private readonly lambdaBGs: readonly [GPUBindGroup, GPUBindGroup]
   private readonly renderBGs: readonly [GPUBindGroup, GPUBindGroup]
+  private readonly sampler: FieldSampler
+  private readonly sigmaField: PingPongField
+  private readonly rhoField:   PingPongField
+  private readonly lambdaField: PingPongField
 
   private parity = 0
   private frame  = 0
@@ -68,20 +75,27 @@ export class SimulationEngine {
     rhoBGs: readonly [GPUBindGroup, GPUBindGroup],
     lambdaBGs: readonly [GPUBindGroup, GPUBindGroup],
     renderBGs: readonly [GPUBindGroup, GPUBindGroup],
+    sigmaField: PingPongField,
+    rhoField:   PingPongField,
+    lambdaField: PingPongField,
   ) {
-    this.device       = ctx.device
+    this.device        = ctx.device
     this.uniformBuffer = uniformBuffer
-    this.registry     = registry
-    this.executor     = executor
-    this.sigmaPass    = sigmaPass
-    this.rhoPass      = rhoPass
-    this.lambdaPass   = lambdaPass
-    this.renderPass   = renderPass
-    this.sigmaBGs     = sigmaBGs
-    this.rhoBGs       = rhoBGs
-    this.lambdaBGs    = lambdaBGs
-    this.renderBGs    = renderBGs
-    this.passOrder    = executor.passNames
+    this.registry      = registry
+    this.executor      = executor
+    this.sigmaPass     = sigmaPass
+    this.rhoPass       = rhoPass
+    this.lambdaPass    = lambdaPass
+    this.renderPass    = renderPass
+    this.sigmaBGs      = sigmaBGs
+    this.rhoBGs        = rhoBGs
+    this.lambdaBGs     = lambdaBGs
+    this.renderBGs     = renderBGs
+    this.passOrder     = executor.passNames
+    this.sigmaField    = sigmaField
+    this.rhoField      = rhoField
+    this.lambdaField   = lambdaField
+    this.sampler       = new FieldSampler(ctx.device)
   }
 
   static async create(ctx: DeviceContext): Promise<SimulationEngine> {
@@ -148,6 +162,7 @@ export class SimulationEngine {
       ctx, uniformBuffer, registry, executor,
       sigmaPass, rhoPass, lambdaPass, renderPass,
       sigmaBGs, rhoBGs, lambdaBGs, renderBGs,
+      sigma, rho, lambda,
     )
   }
 
@@ -179,11 +194,23 @@ export class SimulationEngine {
 
     const encoder = this.device.createCommandEncoder({ label: `frame-${this.frame}` })
     this.executor.execute(encoder, this.registry)
+
+    // Sample center pixel of write-side textures before submitting
+    const doSample = this.sampler.shouldSample(this.frame)
+    if (doSample) {
+      // parity=0 → write side is .b; parity=1 → write side is .a
+      const ws = (f: PingPongField) => this.parity === 0 ? f.b : f.a
+      this.sampler.sample(encoder, ws(this.sigmaField), ws(this.rhoField), ws(this.lambdaField))
+    }
+
     this.device.queue.submit([encoder.finish()])
+    if (doSample) this.sampler.resolveAsync()
 
     this.parity ^= 1
     this.frame++
   }
+
+  getFieldValues(): FieldValues { return this.sampler.getValues() }
 
   getFrameState(): FrameState {
     return Object.freeze({

@@ -73,7 +73,7 @@ export class App {
       const params = this.scroll.getParams()
       this.sim.tick(params)
       const state = this.sim.getFrameState()
-      this.panel.update(state, this.scroll.getScrollFraction())
+      this.panel.update(state, this.scroll.getScrollFraction(), this.sim.getFieldValues())
       this.nav.updateFrame(state.frame)
       this.overlay.update(state)
       this.rafId = requestAnimationFrame(loop)
