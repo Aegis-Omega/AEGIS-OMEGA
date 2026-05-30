@@ -41,6 +41,7 @@ type SurfaceId =
   | 'governance-events'
   | 'self-certification'
   | 'pipeline-drift'
+  | 'platform-intelligence'
 
 const SURFACES: Array<{ id: SurfaceId; label: string; icon: React.ElementType; tier: string }> = [
   { id: 'constitutional-health', label: 'Constitutional Health',  icon: Shield,      tier: 'T0' },
@@ -53,6 +54,7 @@ const SURFACES: Array<{ id: SurfaceId; label: string; icon: React.ElementType; t
   { id: 'governance-events',     label: 'Governance Events',     icon: GitBranch,   tier: 'T2' },
   { id: 'self-certification',    label: 'Self-Certification',    icon: Shield,      tier: 'T1' },
   { id: 'pipeline-drift',        label: 'Pipeline & Drift',      icon: Gauge,       tier: 'T2' },
+  { id: 'platform-intelligence',  label: 'Platform Intelligence', icon: Globe,       tier: 'T1' },
 ]
 
 // ─── Constitutional Ribbon ────────────────────────────────────────────────
@@ -1121,6 +1123,229 @@ function PipelineDriftSurface({
   )
 }
 
+
+// ─── Platform Intelligence Surface ─────────────────────────────────────────
+
+type ReadinessDimension = {
+  label: string
+  score: number
+  tier: keyof Pick<typeof T, 'T0' | 'T1' | 'T2'>
+  signal: string
+  refinement: string
+}
+
+type PremiumRefinement = {
+  layer: string
+  current: string
+  refinement: string
+  impact: string
+  tier: keyof Pick<typeof T, 'T0' | 'T1' | 'T2'>
+}
+
+const PREMIUM_REFINEMENTS: PremiumRefinement[] = [
+  {
+    layer: 'Interface',
+    current: 'Ten governance surfaces expose deterministic health, audit, and drift telemetry.',
+    refinement: 'Add role-scoped executive, operator, auditor, and developer workspaces with saved evidence packs.',
+    impact: 'Turns the dashboard into a board-ready premium command center without adding governance authority.',
+    tier: 'T1',
+  },
+  {
+    layer: 'Control Plane',
+    current: 'Mutation authority is suspended by entropy and drift gates.',
+    refinement: 'Introduce signed approval queues, break-glass runbooks, and policy-as-code diff previews.',
+    impact: 'Makes high-risk AI operations auditable before they mutate live system state.',
+    tier: 'T0',
+  },
+  {
+    layer: 'Data Plane',
+    current: 'Bridge telemetry is polled from deterministic runtime endpoints.',
+    refinement: 'Normalize runtime events into tenant-scoped lineage streams with exportable replay bundles.',
+    impact: 'Enables full-stack customer evidence, forensic replay, and enterprise retention controls.',
+    tier: 'T1',
+  },
+  {
+    layer: 'Agent Plane',
+    current: 'Agent registry shows tier, loop cadence, entropy, and quarantine status.',
+    refinement: 'Attach tool permissions, model lineage, cost envelopes, and skill certifications to every agent.',
+    impact: 'Upgrades agents from demo actors into governable enterprise AI workers.',
+    tier: 'T2',
+  },
+  {
+    layer: 'Reliability',
+    current: 'T0 corruption, φ drift, topology, and network split signals are visible.',
+    refinement: 'Add synthetic probes, SLO burn-rate cards, incident timelines, and deterministic rollback hints.',
+    impact: 'Makes failures operationally actionable instead of merely observable.',
+    tier: 'T1',
+  },
+  {
+    layer: 'Commercial',
+    current: 'The monorepo includes creator tools, cockpit, studio, enterprise, runtime, and governance cores.',
+    refinement: 'Unify onboarding, billing boundaries, usage metering, license state, and tenant provisioning.',
+    impact: 'Completes the path from advanced platform to sellable ultra-premium full-stack product.',
+    tier: 'T2',
+  },
+]
+
+function readinessColor(score: number) {
+  return score >= 90 ? T.T0 : score >= 75 ? T.T1 : score >= 60 ? T.warn : T.error
+}
+
+function buildReadinessDimensions(state: LiveState): ReadinessDimension[] {
+  const { node, network, resonance, coherence, pipeline, drift } = state
+  const t0Score = node == null ? 48 : node.t0_verdict ? 96 : 42
+  const networkScore = network == null ? 52
+    : network.verdict === 'UNIFIED' && network.all_below_phi ? 94
+    : network.verdict === 'CLUSTERED' ? 74 : 46
+  const autonomyScore = pipeline == null ? 58
+    : pipeline.can_adapt && pipeline.is_continuously_coherent ? 91
+    : pipeline.mutation_authority_active ? 72 : 44
+  const driftScore = drift == null ? 60
+    : drift.current_drift_class === 'D0' ? 93
+    : drift.current_drift_class === 'D1' ? 78
+    : drift.current_drift_class === 'D2' ? 55 : 34
+  const coherenceScore = coherence == null ? 56 : Math.round(coherence.coherence_score * 100)
+  const certificationScore = resonance == null ? 54
+    : resonance.is_certified && resonance.resonance_depth === 4 ? 95
+    : resonance.phi_convergent ? 76 : 40
+
+  return [
+    {
+      label: 'Constitutional Core',
+      score: t0Score,
+      tier: 'T0',
+      signal: node == null ? 'Bridge offline; using readiness baseline.' : `epoch ${node.epoch} · seq ${node.sequence}`,
+      refinement: 'Keep core deterministic and add evidence export around every T0 verdict.',
+    },
+    {
+      label: 'Coherence Fabric',
+      score: Math.min(100, Math.round((networkScore + coherenceScore) / 2)),
+      tier: 'T1',
+      signal: network == null ? 'Network report unavailable.' : `${network.verdict} · ${network.peer_count} peers`,
+      refinement: 'Surface global-section obstruction causes directly beside topology events.',
+    },
+    {
+      label: 'Certified Autonomy',
+      score: Math.min(100, Math.round((autonomyScore + certificationScore) / 2)),
+      tier: 'T1',
+      signal: pipeline == null ? 'Pipeline report unavailable.' : pipeline.can_adapt ? 'adaptive authority active' : 'adaptive authority blocked',
+      refinement: 'Pair every autonomy grant with signed operator intent and rollback context.',
+    },
+    {
+      label: 'Drift Immunity',
+      score: driftScore,
+      tier: 'T2',
+      signal: drift == null ? 'Drift history unavailable.' : `${drift.current_drift_class} current · ${drift.worst_drift_class} worst`,
+      refinement: 'Add incident-grade timelines linking drift class, entropy movement, and agent actions.',
+    },
+    {
+      label: 'Enterprise Evidence',
+      score: node?.t0_verdict && resonance?.is_certified ? 88 : 68,
+      tier: 'T1',
+      signal: 'Audit trail, compliance, self-certification, and live telemetry are present.',
+      refinement: 'Bundle audit rows, hashes, topology snapshots, and model/tool lineage into exportable reports.',
+    },
+  ]
+}
+
+function PlatformIntelligenceSurface({ state }: { state: LiveState }) {
+  const dimensions = buildReadinessDimensions(state)
+  const platformScore = Math.round(dimensions.reduce((sum, d) => sum + d.score, 0) / dimensions.length)
+  const scoreColor = readinessColor(platformScore)
+  const certified = state.node?.t0_verdict && state.resonance?.is_certified && state.network?.verdict === 'UNIFIED'
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-start justify-between gap-6">
+        <div>
+          <h2 className="text-lg font-semibold mb-1" style={{ color: T.text }}>Platform Intelligence</h2>
+          <p className="text-sm max-w-3xl" style={{ color: T.muted }}>
+            Atomic full-stack review across interface, control plane, data plane, agents, reliability,
+            and commercialization. This surface translates constitutional telemetry into premium product refinements.
+          </p>
+        </div>
+        <div className="rounded-xl px-5 py-4 text-center min-w-36"
+          style={{ background: `${scoreColor}10`, border: `1px solid ${scoreColor}35` }}>
+          <div className="text-3xl font-mono font-bold" style={{ color: scoreColor }}>{platformScore}</div>
+          <div className="text-2xs font-mono mt-1" style={{ color: T.muted }}>PREMIUM READINESS</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-5 gap-3">
+        {dimensions.map(d => {
+          const color = readinessColor(d.score)
+          return (
+            <div key={d.label} className="rounded-lg p-4"
+              style={{ background: T.surface, border: `1px solid ${T.border}` }}>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium" style={{ color: T.text }}>{d.label}</span>
+                <span className="text-2xs font-mono px-1.5 py-0.5 rounded"
+                  style={{ background: `${T[d.tier]}18`, color: T[d.tier] }}>{d.tier}</span>
+              </div>
+              <div className="flex items-end gap-2 mb-2">
+                <span className="text-2xl font-mono font-semibold" style={{ color }}>{d.score}</span>
+                <span className="text-xs mb-1" style={{ color: T.muted }}>/100</span>
+              </div>
+              <div className="h-1.5 rounded-full mb-3" style={{ background: T.border }}>
+                <div className="h-full rounded-full transition-all" style={{ width: `${d.score}%`, background: color }} />
+              </div>
+              <div className="text-2xs leading-relaxed" style={{ color: T.muted }}>{d.signal}</div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="rounded-xl p-5"
+        style={{ background: certified ? 'rgba(52,211,153,0.06)' : T.card, border: `1px solid ${certified ? 'rgba(52,211,153,0.24)' : T.phiDeep}` }}>
+        <div className="flex items-center gap-3 mb-3">
+          {certified
+            ? <CheckCircle size={18} style={{ color: T.T0 }} />
+            : <AlertTriangle size={18} style={{ color: T.warn }} />}
+          <div className="font-semibold" style={{ color: certified ? T.T0 : T.phi }}>
+            {certified ? 'Ultra-premium posture: certified runtime foundation detected' : 'Ultra-premium posture: runtime proof surface is partially hydrated'}
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-4 text-sm">
+          {[
+            ['North Star', 'Make every AI action replayable, permissioned, priced, and exportable as evidence.'],
+            ['Product Thesis', 'Premium buyers need trust operations: governance UX, deterministic audit, and agent control in one stack.'],
+            ['Atomic Rule', 'Do not add adaptive power unless the same release adds stronger replay verifiability.'],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <div className="text-2xs font-mono mb-1" style={{ color: T.muted }}>{label}</div>
+              <div style={{ color: T.secondary }}>{value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="text-sm font-medium mb-3" style={{ color: T.secondary }}>
+          Atomic Refinement Matrix
+        </div>
+        <div className="space-y-2">
+          {PREMIUM_REFINEMENTS.map(item => (
+            <div key={item.layer} className="rounded-lg p-4 grid grid-cols-[120px_1fr_1fr_1fr_48px] gap-4 items-start"
+              style={{ background: T.surface, border: `1px solid ${T.border}` }}>
+              <div className="font-mono text-sm" style={{ color: T.phi }}>{item.layer}</div>
+              <div className="text-xs leading-relaxed" style={{ color: T.muted }}>{item.current}</div>
+              <div className="text-xs leading-relaxed" style={{ color: T.text }}>{item.refinement}</div>
+              <div className="text-xs leading-relaxed" style={{ color: T.secondary }}>{item.impact}</div>
+              <div className="text-2xs font-mono text-center px-1.5 py-0.5 rounded"
+                style={{ background: `${T[item.tier]}18`, color: T[item.tier] }}>{item.tier}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-lg p-4 font-mono text-xs" style={{ background: T.card, border: `1px solid ${T.border}` }}>
+        <span style={{ color: T.muted }}>Next refinement lock: </span>
+        <span style={{ color: T.phi }}>tenant evidence packs → signed policy approvals → SLO/incident timeline → agent cost and lineage ledger</span>
+      </div>
+    </div>
+  )
+}
+
 function Offline() {
   return (
     <div className="p-6 flex items-center justify-center h-full min-h-64">
@@ -1158,6 +1383,7 @@ export function App() {
       case 'governance-events':     return <GovernanceEventsSurface />
       case 'skill-certification':   return <SkillCertificationSurface />
       case 'pipeline-drift':        return <PipelineDriftSurface pipeline={liveState.pipeline} drift={liveState.drift} />
+      case 'platform-intelligence':  return <PlatformIntelligenceSurface state={liveState} />
     }
   }, [surface, liveState])
 
