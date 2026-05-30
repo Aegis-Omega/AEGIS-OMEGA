@@ -112,7 +112,17 @@
       "mcp__95bfae93-a19c-41de-89a1-7f2307236318__workers_get_worker",
       "mcp__95bfae93-a19c-41de-89a1-7f2307236318__workers_get_worker_code",
       "mcp__95bfae93-a19c-41de-89a1-7f2307236318__accounts_list",
-      "mcp__95bfae93-a19c-41de-89a1-7f2307236318__set_active_account"
+      "mcp__95bfae93-a19c-41de-89a1-7f2307236318__set_active_account",
+      "Bash(curl -sv http://localhost:7890/*)",
+      "mcp__github__list_issues",
+      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__list_deployments",
+      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__list_teams",
+      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__list_projects",
+      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__get_project",
+      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__get_deployment",
+      "mcp__b70a2ae6-2924-4d57-88c4-c831457452a8__search_threads",
+      "mcp__b70a2ae6-2924-4d57-88c4-c831457452a8__get_thread",
+      "mcp__b70a2ae6-2924-4d57-88c4-c831457452a8__list_labels"
     ]
   }
 }
