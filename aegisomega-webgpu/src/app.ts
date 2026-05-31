@@ -109,7 +109,7 @@ export class App {
       const state  = this.sim.getFrameState()
       const fields = this.sim.getFieldValues()
       this.panel.update(state, fraction, fields)
-      this.nav.updateFrame(state.frame)
+      this.nav.updateFrame(state.frame, this.paused)
       this.overlay.update(state, fields)
       // Scroll-driven camera brightness: 1.0 → 1.5 as page scrolls down
       const brightness = 1.0 + fraction * 0.5

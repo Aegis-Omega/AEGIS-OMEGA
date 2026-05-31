@@ -9,17 +9,20 @@ export class Navigation {
     this.subEl = document.querySelector('.nav-sub')
   }
 
-  updateFrame(frame: number): void {
-    const now = performance.now()
-    if (this.lastFpsTime === 0) this.lastFpsTime = now
-    this.frameCount++
-    if (now - this.lastFpsTime >= 1000) {
-      this.fps = Math.round(this.frameCount * 1000 / (now - this.lastFpsTime))
-      this.frameCount  = 0
-      this.lastFpsTime = now
+  updateFrame(frame: number, paused: boolean): void {
+    if (!paused) {
+      const now = performance.now()
+      if (this.lastFpsTime === 0) this.lastFpsTime = now
+      this.frameCount++
+      if (now - this.lastFpsTime >= 1000) {
+        this.fps = Math.round(this.frameCount * 1000 / (now - this.lastFpsTime))
+        this.frameCount  = 0
+        this.lastFpsTime = now
+      }
     }
     if (this.subEl) {
-      this.subEl.textContent = `σ/ρ/λ Field Engine · frame ${frame} · ${this.fps} fps`
+      const status = paused ? '⏸ paused' : `${this.fps} fps`
+      this.subEl.textContent = `σ/ρ/λ Field Engine · frame ${frame} · ${status}`
     }
   }
 }
