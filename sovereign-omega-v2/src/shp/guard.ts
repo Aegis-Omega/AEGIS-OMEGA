@@ -57,6 +57,7 @@ export function checkSHPInvariants(identity: SHPExecutionIdentity): SHPInvariant
     }))
   }
 
+  /* c8 ignore next -- identity.commitHash.length===0 is dead: any truthy string has length>0; empty string is falsy so caught by !identity.commitHash */
   if (!identity.commitHash || identity.commitHash.length === 0) {
     violations.push(deepFreeze({
       rule: 'INV-SHP-08' as const,

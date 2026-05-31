@@ -77,6 +77,7 @@ function extractTopN(items: readonly string[], n: number): [string, string, stri
 function extractBestPositioning(candidates: readonly (readonly [string, number])[]): string {
   if (candidates.length === 0) return 'Positioning analysis pending.'
   const best = [...candidates].sort((a, b) => b[1] - a[1])[0]
+  /* c8 ignore next -- noUncheckedIndexedAccess artifact; candidates.length>0 (guarded line above) guarantees best is defined */
   return best?.[0] ?? 'Positioning analysis pending.'
 }
 

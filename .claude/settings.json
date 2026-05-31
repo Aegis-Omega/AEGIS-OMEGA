@@ -5,9 +5,45 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd /home/user/AEGIS-- && node sovereign-omega-v2/scripts/verify-hashes.mjs 2>&1 | tail -5",
+            "command": "bash /home/user/AEGIS--/.claude/hooks/session-start.sh",
+            "timeout": 180,
+            "statusMessage": "Installing npm dependencies..."
+          },
+          {
+            "type": "command",
+            "command": "cd /home/user/AEGIS--/sovereign-omega-v2 && node scripts/verify-hashes.mjs 2>&1 | tail -5",
             "timeout": 15,
             "statusMessage": "L7: verifying constitutional membrane..."
+          },
+          {
+            "type": "command",
+            "command": "node -e \"const fs=require('fs'); const base='/home/user/AEGIS--/sovereign-omega-v2/.claude/skills'; const read=f=>fs.readFileSync(base+'/'+f+'/SKILL.md','utf8'); const ctx=[read('automaton-workflow'),read('autopoiesis'),read('metacognition')].join('\\n\\n---\\n\\n'); console.log(JSON.stringify({hookSpecificOutput:{hookEventName:'SessionStart',additionalContext:ctx}}))\"",
+            "timeout": 10,
+            "statusMessage": "Loading automaton manifold (autopoiesis + metacognition + workflow)..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/user/AEGIS--/.claude/hooks/pre-commit-gate.sh",
+            "timeout": 120,
+            "statusMessage": "Gate 8 pre-commit check..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"PRE-WRITE L6: ASSESS before LOCK. Read the file first. Classify tier (T0/T1/T2/T3). No T4/T5 in src/. Frozen files: gate.py dna.py router.py — never touch.\"}'",
+            "timeout": 5,
+            "statusMessage": "L6 ASSESS check..."
           }
         ]
       }
@@ -23,6 +59,17 @@
             "statusMessage": "Viability ring assertion..."
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$CLAUDE_TOOL_INPUT\" | python3 -c \"import sys,json,os; inp=os.environ.get('CLAUDE_TOOL_INPUT','{}'); d=json.loads(inp) if inp else {}; cmd=d.get('command',''); pushed='git push' in cmd; print(json.dumps({'systemMessage':'PUSHED — CI running. Watch PR checks.'})) if pushed else None\" 2>/dev/null || true",
+            "timeout": 5,
+            "statusMessage": "Post-push CI reminder..."
+          }
+        ]
       }
     ],
     "PreCompact": [
@@ -30,8 +77,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"systemMessage\": \"PRE-COMPACT: Preserve — current gate, open RALPH phase, active skill, pending commits, bridge t0_verdict, any uncommitted file changes.\"}' ",
+            "command": "echo '{\"systemMessage\": \"PRE-COMPACT: Preserve — current gate, open RALPH phase, active skill, pending commits, bridge t0_verdict, any uncommitted file changes.\"}'",
             "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import subprocess,json; s=subprocess.run(['git','status','--short'],cwd='/home/user/AEGIS--',capture_output=True,text=True).stdout.strip(); b=subprocess.run(['git','branch','--show-current'],cwd='/home/user/AEGIS--',capture_output=True,text=True).stdout.strip(); print(json.dumps({'systemMessage':f'STOP | branch:{b} | uncommitted:{s or chr(10)+\\\" none\\\"} — /evening-seal: Gate8 → commit → push'}))\"",
+            "timeout": 10
           }
         ]
       }
@@ -43,6 +101,40 @@
       "Edit(.claude/hooks/*)",
       "Write(.claude/settings.json)",
       "Edit(.claude/settings.json)",
+      "Bash(cd /home/user/AEGIS--/sovereign-omega-v2 && npm run test*)",
+      "Bash(cd /home/user/AEGIS--/sovereign-omega-v2 && npm run typecheck*)",
+      "Bash(cd /home/user/AEGIS--/sovereign-omega-v2 && npm run build*)",
+      "Bash(cd sovereign-omega-v2 && npm run test*)",
+      "Bash(cd sovereign-omega-v2 && npm run typecheck*)",
+      "Bash(cd sovereign-omega-v2 && npm run build*)",
+      "Bash(npm run test*)",
+      "Bash(npm run typecheck*)",
+      "Bash(npm run build*)",
+      "Bash(cargo test*)",
+      "Bash(cargo build*)",
+      "Bash(cd aegis-cl-psi && cargo*)",
+      "Bash(cd aegis-runtime && cargo*)",
+      "Bash(node scripts/verify-hashes.mjs*)",
+      "Bash(node sovereign-omega-v2/scripts/verify-hashes.mjs*)",
+      "Bash(cd /home/user/AEGIS--/sovereign-omega-v2 && node scripts/verify-hashes.mjs*)",
+      "Bash(curl -s http://localhost:7890/*)",
+      "Bash(curl -sv http://localhost:7890/*)",
+      "Bash(python python/tests/*)",
+      "Bash(python -m pytest*)",
+      "Bash(find /home/user/AEGIS--*)",
+      "Bash(ls /home/user/AEGIS--*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(git merge *)",
+      "Bash(git rebase *)",
+      "Bash(git checkout *)",
+      "Bash(git fetch *)",
+      "Bash(git branch *)",
+      "Bash(bash /home/user/AEGIS--/.claude/hooks/pre-commit-gate.sh*)",
       "mcp__github__pull_request_read",
       "mcp__github__list_pull_requests",
       "mcp__github__list_branches",
@@ -59,11 +151,20 @@
       "mcp__github__create_pull_request",
       "mcp__github__push_files",
       "mcp__github__add_issue_comment",
+      "mcp__github__list_issues",
       "mcp__95bfae93-a19c-41de-89a1-7f2307236318__workers_list",
       "mcp__95bfae93-a19c-41de-89a1-7f2307236318__workers_get_worker",
       "mcp__95bfae93-a19c-41de-89a1-7f2307236318__workers_get_worker_code",
       "mcp__95bfae93-a19c-41de-89a1-7f2307236318__accounts_list",
-      "mcp__95bfae93-a19c-41de-89a1-7f2307236318__set_active_account"
+      "mcp__95bfae93-a19c-41de-89a1-7f2307236318__set_active_account",
+      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__list_deployments",
+      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__list_teams",
+      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__list_projects",
+      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__get_project",
+      "mcp__d9cdfe21-5413-4025-9cf9-6ed482558dd0__get_deployment",
+      "mcp__b70a2ae6-2924-4d57-88c4-c831457452a8__search_threads",
+      "mcp__b70a2ae6-2924-4d57-88c4-c831457452a8__get_thread",
+      "mcp__b70a2ae6-2924-4d57-88c4-c831457452a8__list_labels"
     ]
   }
 }

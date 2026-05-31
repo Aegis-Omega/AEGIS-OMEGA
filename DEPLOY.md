@@ -1,90 +1,121 @@
 # AEGIS Ω — Deployment Guide
 
-**Status:** Products ARE deployed on Vercel at these URLs.
+**Canonical payment provider:** Lemon Squeezy  
 **Branch:** `claude/aegis-setup-Lx7Ji`
 
 ---
 
-## CRITICAL: Disable IP Allowlisting (Products are Live but Blocked)
+## Canonical Production URL Map
 
-All 3 products return 403 `host_not_allowed`. This means IP allowlisting is active.
+| App | Production URL | Vercel fallback (staging only) |
+|-----|---------------|-------------------------------|
+| Hub | https://aegisomega.com | https://aegis-hub.vercel.app |
+| Platform Picker | https://platform.aegisomega.com | https://platform-picker.vercel.app |
+| Hook Generator | https://hooks.aegisomega.com | https://hook-generator.vercel.app |
+| Content Calendar | https://calendar.aegisomega.com | https://content-calendar.vercel.app |
 
-**Fix for each project:**
-1. Go to vercel.com → select the project (platform-picker / hook-generator / content-calendar)
-2. **Settings** → **Security** → **IP Allowlist** → **Remove all IP restrictions** (or disable the feature)
-3. Also check: **Settings** → **Deployment Protection** → set to **Disabled** (for public access)
-4. Redeploy or wait for the change to propagate (~30 seconds)
-
-**Test:** Open `https://platform-picker.vercel.app` in your browser. You should see the app.
+> `.vercel.app` URLs are staging/fallback only. Set Lemon Squeezy redirect URLs and product env vars to the `aegisomega.com` domains above.
 
 ---
 
-## Products — Current Deployment URLs
+## Step 1 — Deploy Product Apps
 
-| Product | URL | Status |
-|---|---|---|
-| Platform Picker | https://platform-picker.vercel.app | 403 (IP blocked) |
-| Hook Generator | https://hook-generator.vercel.app | 403 (IP blocked) |
-| Content Calendar | https://content-calendar.vercel.app | 403 (IP blocked) |
-| Hub | https://myapp.vercel.app or https://aegis-hub.vercel.app | 403 (IP blocked) |
+```bash
+cd platform-picker  && vercel --prod
+cd ../hook-generator  && vercel --prod
+cd ../content-calendar && vercel --prod
+cd ../hub             && vercel --prod
+```
+
+For each project in the Vercel dashboard:
+1. **Settings → Environment Variables** — add variables from the app's `.env.example`
+2. **Settings → Security → IP Allowlist** — remove all restrictions (must be empty for public access)
+3. **Settings → Deployment Protection** — set to **Disabled**
+4. Redeploy after env var changes (Deployments → Redeploy)
 
 ---
 
 ## Step 2 — Set the DashScope API Key
 
-Each product needs `VITE_DASHSCOPE_API_KEY` to make AI calls.
+Each product app needs `VITE_DASHSCOPE_API_KEY` for AI calls.
 
-**For each project in Vercel:**
-1. Settings → Environment Variables
-2. Add: `VITE_DASHSCOPE_API_KEY` = your DashScope sk- key
-3. Add: `VITE_DASHSCOPE_MODEL` = `qwen-plus`
-4. Redeploy (Deployments → Redeploy)
+- **Vercel → project → Settings → Environment Variables**
+- `VITE_DASHSCOPE_API_KEY` = your DashScope `sk-` key
+- `VITE_DASHSCOPE_MODEL` = `qwen-plus`
 
-**Get your DashScope sk- key:** dashscope.aliyun.com → Console → API Keys
-Format: `sk-XXXXXXXXXXXXXXXX` (must start with `sk-`, NOT `LTAI...`)
+**Get your key:** dashscope.aliyun.com → Console → API Keys  
+Format: `sk-XXXXXXXXXXXXXXXX` (must start with `sk-`, not `LTAI...`)
 
 ---
 
-## Step 3 — Set Up Gumroad Products
+## Step 3 — Set Up Lemon Squeezy Products
 
-Create these 4 products on **gumroad.com** with EXACT permalink slugs:
+Create products at **app.lemonsqueezy.com**:
 
-| Product | Permalink | Price |
-|---|---|---|
-| Platform Picker | `aegis-platform-picker` | $19 |
-| Hook Generator | `aegis-hook-generator` | $19 |
-| Content Calendar | `aegis-content-calendar` | $19 |
-| Full Toolkit bundle | `aegis-full-toolkit` | $39 |
+| Product | Price | Success redirect |
+|---------|-------|-----------------|
+| Single tool | $19 | `https://aegisomega.com/success?plan=single` |
+| Starter (any 2) | $29 | `https://aegisomega.com/success?plan=starter` |
+| Full Toolkit (all 3) | $39 | `https://aegisomega.com/success?plan=full` |
 
-The permalink MUST match exactly — the license verification API uses these to validate keys.
-
-**For each Gumroad product:**
-- Product type: Digital product
-- Content: The Vercel deployment URL (so buyers can access the tool)
-- License key: Enable "Generate a unique license key per sale"
+After creating products, copy the **checkout URLs** into the hub's Vercel environment variables:
+- `VITE_LS_LINK_SINGLE`
+- `VITE_LS_LINK_STARTER`
+- `VITE_LS_LINK_FULL`
 
 ---
 
-## Step 4 — Update Hub Links (Optional)
+## Step 4 — Configure Supabase Edge Functions
 
-The hub already links to the Gumroad URLs. Once Gumroad + Vercel are connected, the full flow works:
-1. Buyer clicks "Buy" on hub → goes to Gumroad
-2. Buys for $19 → gets email with license key
-3. Goes to the product Vercel URL → enters license key → unlocked!
+Deploy the purchase webhook and access-restore functions:
 
----
-
-## Redeploy from Latest Branch (if needed)
-
-If you need to push new code to Vercel:
 ```bash
-# On your local machine:
-git pull origin claude/aegis-setup-Lx7Ji
-cd platform-picker && vercel --prod
-cd ../hook-generator && vercel --prod
-cd ../content-calendar && vercel --prod
-cd ../hub && vercel --prod
+cd hub
+supabase functions deploy ls-webhook
+supabase functions deploy restore-access
 ```
+
+Set secrets in the Supabase dashboard (or via CLI):
+```bash
+supabase secrets set LS_WEBHOOK_SECRET=<from Lemon Squeezy dashboard>
+supabase secrets set GRANT_SECRET=aegis-omega-v1
+```
+
+The `ls-webhook` function records purchases. `restore-access` re-issues grant tokens for returning buyers.
+
+---
+
+## Step 5 — Public Access Verification
+
+**Run this before any launch announcement.**
+
+### Vercel settings check (all four projects)
+- Settings → Security → IP Allowlist: **empty**
+- Settings → Deployment Protection: **Disabled**
+
+### HTTP verification
+
+```bash
+curl -o /dev/null -s -w "%{http_code}" https://aegisomega.com          # expect 200
+curl -o /dev/null -s -w "%{http_code}" https://platform.aegisomega.com  # expect 200
+curl -o /dev/null -s -w "%{http_code}" https://hooks.aegisomega.com     # expect 200
+curl -o /dev/null -s -w "%{http_code}" https://calendar.aegisomega.com  # expect 200
+```
+
+| URL | Expected | Failure condition |
+|-----|----------|------------------|
+| aegisomega.com | 200 | 403 / auth wall / Vercel protection screen |
+| platform.aegisomega.com | 200 | 403 / auth wall |
+| hooks.aegisomega.com | 200 | 403 / auth wall |
+| calendar.aegisomega.com | 200 | 403 / auth wall |
+
+### Browser smoke tests
+- **Hub** — page loads, no access block, "Enter the System" CTA visible
+- **Platform Picker** — loads, AI call returns results with valid DashScope key
+- **Hook Generator** — loads, generates hooks
+- **Content Calendar** — loads, generates calendar
+
+> **HALT:** Do not announce launch or share URLs publicly while any app returns `403`, an authentication wall, or any Vercel-owned access block.
 
 ---
 

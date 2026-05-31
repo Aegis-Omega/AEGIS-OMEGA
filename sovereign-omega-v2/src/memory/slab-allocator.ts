@@ -43,6 +43,7 @@ function firstFreeBit(bitmap: bigint): number | null {
   for (let i = 0; i < CHUNKS_PER_SLAB; i++) {
     if ((b & (1n << BigInt(i))) === 0n) return i
   }
+  /* c8 ignore next -- FULL_MASK check above guarantees a free bit exists; loop always returns early */
   return null
 }
 

@@ -63,5 +63,19 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: CORS })
   }
 
+  // Notify owner — fire and forget
+  const notifyUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/notify`
+  const notifySecret = Deno.env.get('NOTIFY_SECRET') ?? ''
+  const planLabel: Record<string, string> = { single: 'Single tool ($19)', starter: 'Starter 2-pack ($29)', full: 'Full bundle ($39)' }
+  fetch(notifyUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-notify-secret': notifySecret },
+    body: JSON.stringify({
+      channel: 'both',
+      subject: `💰 New AEGIS purchase — ${planLabel[plan] ?? plan}`,
+      text: `New purchase on AEGIS Omega!\n\nCustomer: ${email}\nPlan: ${planLabel[plan] ?? plan}\nOrder ID: ${orderId}\n\nhttps://aegisomega.com`,
+    }),
+  }).catch(e => console.error('Notify failed (non-fatal):', e))
+
   return new Response(JSON.stringify({ ok: true }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
 })

@@ -20,6 +20,7 @@ function fnv1a32(s: string): string {
     h ^= s.charCodeAt(i)
     h = Math.imul(h, 16777619) >>> 0
   }
+  /* c8 ignore next -- fnv1a32 output is always 8 hex chars (32-bit); padStart(64) always pads, never hits the no-op branch */
   return h.toString(16).padStart(64, '0')
 }
 

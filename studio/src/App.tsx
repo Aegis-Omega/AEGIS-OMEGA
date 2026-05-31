@@ -11,9 +11,10 @@ import { CapsuleSurface } from './capsule-surface/CapsuleSurface.js'
 import { ObservabilitySurface } from './observability-surface/ObservabilitySurface.js'
 import { GovernanceSurface } from './governance-surface/GovernanceSurface.js'
 import { SwarmSurface } from './swarm-surface/SwarmSurface.js'
+import { HolographicSubstrate } from './holographic-surface/HolographicSubstrate.js'
 
 type Surface = 'replay' | 'epoch' | 'divergence' | 'rollback' | 'lineage' |
-  'topology' | 'ownership' | 'capsule' | 'observability' | 'governance' | 'swarm'
+  'topology' | 'ownership' | 'capsule' | 'observability' | 'governance' | 'swarm' | 'holographic'
 
 const NAV: Array<{ id: Surface; label: string }> = [
   { id: 'replay', label: 'Replay' },
@@ -27,6 +28,7 @@ const NAV: Array<{ id: Surface; label: string }> = [
   { id: 'observability', label: 'Observability' },
   { id: 'governance', label: 'Governance' },
   { id: 'swarm', label: 'Swarm' },
+  { id: 'holographic', label: 'Holographic' },
 ]
 
 export function App() {
@@ -103,6 +105,7 @@ export function App() {
           {active === 'observability' && <ObservabilitySurface snapshot={snapshot} />}
           {active === 'governance' && <GovernanceSurface snapshot={snapshot} />}
           {active === 'swarm' && <SwarmSurface snapshot={snapshot} />}
+          {active === 'holographic' && <HolographicSubstrate />}
         </main>
       </div>
     </div>

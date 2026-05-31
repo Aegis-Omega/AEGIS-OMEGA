@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle, ExternalLink, Zap, Mail, Loader2 } from 'lucide-react'
-import { createGrantToken, type Plan } from '@shared/lib/access.js'
+import { createGrantToken, type Plan } from '../lib/access.js'
 
 const TOOL_URLS: Record<string, string> = {
   'platform-picker':  import.meta.env.VITE_URL_PLATFORM_PICKER  ?? 'https://platform.aegisomega.com',

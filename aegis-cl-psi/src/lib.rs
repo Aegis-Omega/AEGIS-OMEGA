@@ -2136,7 +2136,29 @@ pub mod gossip_broadcast_phi_squared_e7;
 // GossipPhiReciprocalE7Log: record(), phi_reciprocal_e7_count(), total_reciprocal_aligned_epochs(), mean_reciprocal_rate_pct(), verify_chain().
 pub mod gossip_broadcast_phi_reciprocal_e7;
 
-// Gate 604 — Gossip Broadcast Phi Unitary E7 Log (T2)
+// Gate 604 — Gossip Broadcast Phi Stability E8: dual-φ synthesis — epochs satisfying BOTH φ²=φ+1 AND 1/φ=φ−1 (T2)
+// stability_epochs: epochs where both squared_aligned AND reciprocal_aligned hold simultaneously.
+// stability_rate_pct = (stability_epochs*100)/max(total_epochs,1) capped 100.
+// phi_stability_e8: stability_rate_pct > PHI_STABILITY_E8_THRESHOLD (61).
+// When ≥φ of epochs are dual-φ-aligned, the topology has reached the highest constitutional φ-stability.
+// Gates 602+603 certified each direction independently; Gate 604 certifies their simultaneous presence.
+// Test structure: 1+6+2+3+6+1=19 (evolved viability ring).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖stability_epochs_be4‖total_epochs_be4‖stability_rate_pct_be4‖phi_stability_byte).
+// GossipPhiStabilityE8Log: record(), phi_stability_e8_count(), total_stability_epochs(), mean_stability_rate_pct(), verify_chain().
+pub mod gossip_broadcast_phi_stability_e8;
+
+// Gate 605 — Gossip Broadcast Phi Seal E8: terminal capstone of the gossip broadcast φ-series (T2)
+// stable_records: entries in the phi_stability_e8 log where phi_stability_e8=true.
+// seal_rate_pct = (stable_records*100)/max(total_records,1) capped 100.
+// sealed: seal_rate_pct > PHI_SEAL_E8_THRESHOLD (61).
+// When sealed, the gossip topology has demonstrated sustained constitutional φ-stability across its lifetime.
+// Gates 602–605: independent (602,603) → simultaneous (604) → lifetime seal (605). Complete φ-certification chain.
+// Test structure: 1+6+2+3+6+1=19 (evolved viability ring).
+// entry_hash = SHA-256(prev[32]‖epoch_end_be8‖stable_records_be4‖total_records_be4‖seal_rate_pct_be4‖sealed_byte).
+// GossipPhiSealE8Log: record(), sealed_count(), total_stable_records(), mean_seal_rate_pct(), verify_chain().
+pub mod gossip_broadcast_phi_seal_e8;
+
+// Gate 606 — Gossip Broadcast Phi Unitary E7 Log (T2)
 // Per-epoch expansion-contraction balance: balanced_epochs, total_epochs,
 // unitary_rate_pct = (balanced_epochs*100)/max(total_epochs,1) capped 100.
 // phi_unitary_e7: unitary_rate_pct > PHI_UNITARY_E7_THRESHOLD (61).
@@ -2148,7 +2170,7 @@ pub mod gossip_broadcast_phi_reciprocal_e7;
 // GossipPhiUnitaryE7Log: record(), phi_unitary_e7_count(), total_balanced_epochs(), mean_unitary_rate_pct(), verify_chain().
 pub mod gossip_broadcast_phi_unitary_e7;
 
-// Gate 605 — Gossip Broadcast Phi Holographic E7 Log (T2)
+// Gate 607 — Gossip Broadcast Phi Holographic E7 Log (T2)
 // Per-epoch holographic fragment property: coherent_nodes, total_nodes,
 // holographic_rate_pct = (coherent_nodes*100)/max(total_nodes,1) capped 100.
 // phi_holographic_e7: holographic_rate_pct > PHI_HOLOGRAPHIC_E7_THRESHOLD (61).

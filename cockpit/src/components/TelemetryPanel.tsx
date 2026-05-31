@@ -74,6 +74,31 @@ function MiniBar({ value, max, color }: { value: number; max: number; color: str
   )
 }
 
+interface BlockData {
+  block_height: number
+  state_root: string
+  t0_verdict: boolean
+  drift_risk: number
+  is_replay_reconstructable: boolean
+}
+
+function useBlock() {
+  const [data, setData] = useState<BlockData | null>(null)
+  useEffect(() => {
+    let active = true
+    const poll = async () => {
+      try {
+        const res = await fetch(`${BRIDGE}/block`, { signal: AbortSignal.timeout(3000) } as RequestInit)
+        if (res.ok && active) setData((await res.json()) as BlockData)
+      } catch { /* bridge offline */ }
+    }
+    void poll()
+    const id = setInterval(() => { void poll() }, 5000)
+    return () => { active = false; clearInterval(id) }
+  }, [])
+  return data
+}
+
 function useNetworkResonance(): NetworkResonanceReport | null {
   const [data, setData] = useState<NetworkResonanceReport | null>(null)
   useEffect(() => {
@@ -101,6 +126,7 @@ export function TelemetryPanel() {
   const [state, setState] = useState<TelemetryState>({ status: 'offline' })
   const [open, setOpen] = useState(true)
   const resonance = useResonance()
+  const block = useBlock()
   const network = useNetworkResonance()
 
   useEffect(() => subscribeTelemetry(setState), [])
@@ -212,6 +238,27 @@ export function TelemetryPanel() {
 
                 {/* Autonode — T0 verdict gate + constitutional hash */}
                 <AutonodeStatus bridgeUrl={BRIDGE} />
+
+                {/* Block — distributed ledger state root */}
+                {block != null && (
+                  <div className="border-t border-aegis-border pt-1 space-y-0.5">
+                    <div className="text-xs text-aegis-muted font-medium mb-0.5">Block</div>
+                    <Metric label="Height" value={String(block.block_height)} />
+                    <div className="flex items-center justify-between text-xs py-0.5">
+                      <span className="text-aegis-muted">State root</span>
+                      <span className="font-mono text-aegis-muted">…{block.state_root.slice(-8)}</span>
+                    </div>
+                    <Indicator ok={block.t0_verdict} label="T0 verdict" />
+                    <Indicator ok={block.is_replay_reconstructable} label="Replay OK" />
+                    <div className="flex items-center justify-between text-xs py-0.5">
+                      <span className="text-aegis-muted">Drift risk</span>
+                      <div className="flex items-center gap-1.5">
+                        <MiniBar value={block.drift_risk} max={1} color={block.drift_risk < 0.618 ? 'bg-green-400' : 'bg-red-400'} />
+                        <span className="font-mono text-aegis-muted">{block.drift_risk.toFixed(3)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Gate 222 — Resonance Monitor */}
                 {resonance != null && (

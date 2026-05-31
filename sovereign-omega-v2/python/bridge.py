@@ -1011,6 +1011,33 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'is_replay_reconstructable': True,
             })
 
+        elif self.path == '/block':
+            # Gate 236 — Block-level telemetry (T2, distributed ledger precursor).
+            # Synthesizes block_height and state_root from current VCG constitutional state.
+            import hashlib as _hl_blk
+            vcg = matrix.emit_vcg_telemetry()
+            seq = int(vcg.get('sequence', 0))
+            epoch = int(vcg.get('epoch', 0))
+            corruption = int(vcg.get('corruption_count', 0))
+            drift_index = float(vcg.get('drift_index', 0.0))
+            drift_risk = round(min(drift_index * 0.1, 0.99), 6)
+            phi = 0.6180339887498948
+            t0_verdict = (corruption == 0) and (drift_risk < phi)
+            state_root_input = f'block={epoch}:seq={seq}:corruption={corruption}'.encode()
+            state_root = _hl_blk.sha256(state_root_input).hexdigest()
+            self._respond(200, {
+                'block_height': epoch,
+                'sequence': seq,
+                'state_root': state_root,
+                'bft_quorum': phi,
+                'validator_weights': {'coordinator': 618, 'auditor_1': 191, 'auditor_2': 191},
+                't0_verdict': t0_verdict,
+                'corruption_count': corruption,
+                'drift_risk': drift_risk,
+                'is_replay_reconstructable': True,
+                'schema_version': '1.0.0',
+            })
+
         else:
             self._respond(404, {'error': 'NOT_FOUND'})
 

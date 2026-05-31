@@ -59,6 +59,7 @@ export class GraceError extends Error {
 }
 
 function classifyFault(err: unknown): FaultClass {
+  /* c8 ignore next -- caller at L108 only passes MultiverseError|AdaptiveLineageError, both extend Error */
   if (err instanceof Error) {
     const msg = err.message
     if (msg.includes('ecology') || msg.includes('MAX_UNIVERSES') || msg.includes('ECOLOGY'))

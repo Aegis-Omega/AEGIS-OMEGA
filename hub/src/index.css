@@ -45,11 +45,53 @@ body {
   50%       { opacity: 0.6; box-shadow: 0 0 16px rgba(0,255,148,0.9); }
 }
 
-.animate-fade-up   { animation: fade-up 0.5s ease-out both; }
-.animate-breathe   { animation: breathe 5.5s ease-in-out infinite; }
+.animate-fade-up    { animation: fade-up 0.5s ease-out both; }
+.animate-breathe    { animation: breathe 5.5s ease-in-out infinite; }
 .animate-mint-pulse { animation: mintPulse 2.4s ease-in-out infinite; }
 
 .delay-100 { animation-delay: 100ms; }
 .delay-200 { animation-delay: 200ms; }
 .delay-300 { animation-delay: 300ms; }
 .delay-400 { animation-delay: 400ms; }
+
+/* ── Constitutional portal animations ──────────────────────── */
+
+@keyframes orbit-cw {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes orbit-ccw {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+@keyframes arch-pulse {
+  0%,100% { opacity: 0.5; }
+  50%     { opacity: 0.9; }
+}
+@keyframes interior-glow {
+  0%,100% { opacity: 0.3; transform: scaleY(0.95); }
+  50%     { opacity: 0.7; transform: scaleY(1.05); }
+}
+@keyframes gold-flow {
+  0%   { stroke-dashoffset: 2000; opacity: 0.5; }
+  50%  { opacity: 0.9; }
+  100% { stroke-dashoffset: 0;    opacity: 0.5; }
+}
+@keyframes galaxy-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes tendril-drift {
+  0%,100% { opacity: 0.35; transform: scaleX(1)   scaleY(1); }
+  50%     { opacity: 0.70; transform: scaleX(1.08) scaleY(0.94); }
+}
+@keyframes hash-flicker {
+  0%,90%,100% { opacity: 1; }
+  92%         { opacity: 0.4; }
+  96%         { opacity: 0.9; }
+}
+
+.animate-arch-pulse    { animation: arch-pulse    3.8s ease-in-out infinite; }
+.animate-interior-glow { animation: interior-glow 4.2s ease-in-out infinite; }
+.animate-tendril-drift { animation: tendril-drift 6.0s ease-in-out infinite; }
+.animate-hash-flicker  { animation: hash-flicker  4.0s ease-in-out infinite; }

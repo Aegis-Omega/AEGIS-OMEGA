@@ -33,6 +33,7 @@ export class SeededRNG {
 
   /** Return a float in [0, 1). */
   next(): number {
+    /* c8 ignore start -- noUncheckedIndexedAccess artifact; this.s is a [number,number,number,number] tuple, all 4 elements always defined */
     const result = this.rotl(this.s[1]! * 5, 7) * 9
     const t = this.s[1]! << 9
     this.s[2]! ^= this.s[0]!
@@ -41,6 +42,7 @@ export class SeededRNG {
     this.s[0]! ^= this.s[3]!
     this.s[2]! ^= t
     this.s[3] = this.rotl(this.s[3]!, 11)
+    /* c8 ignore stop */
     return ((result >>> 0) / 0x100000000)
   }
 
@@ -50,6 +52,7 @@ export class SeededRNG {
     const pool = Array.from({ length: max }, (_, i) => i)
     for (let i = 0; i < n && pool.length > 0; i++) {
       const j = Math.floor(this.next() * pool.length)
+      /* c8 ignore next -- noUncheckedIndexedAccess artifact; j = Math.floor(next * pool.length) guarantees j < pool.length */
       indices.push(pool[j]!)
       pool.splice(j, 1)
     }

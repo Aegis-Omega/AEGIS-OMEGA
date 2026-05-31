@@ -43,6 +43,7 @@ function findInsertionIndex(entries: readonly QueueEntry[], id: MessageId): numb
   while (lo < hi) {
     const mid = (lo + hi) >>> 1
     const entry = entries[mid]
+    /* c8 ignore next -- noUncheckedIndexedAccess; binary search guarantees mid < entries.length */
     if (entry === undefined) break
     if (compareMessageIds(entry.message_id, id) < 0) {
       lo = mid + 1
@@ -60,6 +61,7 @@ function findById(entries: readonly QueueEntry[], id: MessageId): number {
   while (lo <= hi) {
     const mid = (lo + hi) >>> 1
     const entry = entries[mid]
+    /* c8 ignore next -- noUncheckedIndexedAccess; binary search guarantees mid < entries.length */
     if (entry === undefined) break
     const cmp = compareMessageIds(entry.message_id, id)
     if (cmp === 0) return mid
@@ -207,6 +209,7 @@ function binarySearchString(arr: readonly string[], target: string): number {
   while (lo <= hi) {
     const mid = (lo + hi) >>> 1
     const v = arr[mid]
+    /* c8 ignore next -- noUncheckedIndexedAccess; binary search guarantees mid < arr.length */
     if (v === undefined) break
     if (v === target) return mid
     if (v < target) lo = mid + 1
@@ -221,6 +224,7 @@ function findStringInsertionIndex(arr: readonly string[], target: string): numbe
   while (lo < hi) {
     const mid = (lo + hi) >>> 1
     const v = arr[mid]
+    /* c8 ignore next -- noUncheckedIndexedAccess; binary search guarantees mid < arr.length */
     if (v === undefined) break
     if (v < target) lo = mid + 1
     else hi = mid
