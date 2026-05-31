@@ -12,6 +12,64 @@
 
 ---
 
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Genesis & Constraints](#--genesis--constraints--)
+- [What Was Built](#what-was-built)
+- [The Organism Metaphor](#the-organism-metaphor)
+- [Architecture Overview](#architecture-overview)
+- [How It Maintains Coherence](#how-it-maintains-coherence)
+- [Testing](#testing)
+- [Gate Structure](#gate-structure)
+- [Running the System](#running-the-system)
+- [The Studio](#the-studio--read-only-observability)
+- [The Skill Harness](#the-skill-harness)
+- [Multi-Model Consensus](#multi-model-consensus)
+- [Codebase Scale](#codebase-scale)
+- [Known Limitations](#known-limitations)
+- [What Comes Next](#what-comes-next)
+- [Repository Structure](#repository-structure)
+- [Constitutional Declaration](#constitutional-declaration)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
+## Quick Start
+
+```bash
+# 1. Clone
+git clone https://github.com/Aegis-Omega/AEGIS--.git && cd AEGIS--
+
+# 2. Configure
+cp .env.example .env
+# Edit .env — at minimum set ANTHROPIC_API_KEY
+
+# 3. Run bridge + governance dashboard via Docker
+docker compose up -d
+
+# 4. Verify constitutional invariants hold
+curl http://localhost:7890/node | jq '{t0_verdict, corruption_count}'
+# → {"t0_verdict": true, "corruption_count": 0}
+
+# 5. Open the cockpit
+open http://localhost:5174
+```
+
+**Prerequisites**
+
+| Tool | Version |
+|------|---------|
+| Node | ≥ 20.x |
+| Rust | ≥ 1.75 (stable) |
+| Python | ≥ 3.11 |
+| Docker | ≥ 24.x (optional, for quick start) |
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development workflow and gate discipline.
+
+---
+
 ## ── Genesis & Constraints ──
 
 AEGIS-Ω was conceived, designed, and executed by a single engineer operating under strict resource constraints. While modern distributed systems are built by teams with dedicated infrastructure and cloud compute budgets, this system was built as an exercise in mathematical determinism over raw compute scale.
@@ -436,11 +494,16 @@ The foundation is built. The organism exists. These are the remaining gaps befor
 
 ## Repository Structure
 
+**Runtime core**
+
 ```
-aegis-cl-psi/               Rust · 385 gate modules (gossip + math + compaction gossip)
-aegis-runtime/              Rust · 7-pillar distributed agent runtime
-sovereign-omega-v2/         TypeScript governance runtime
-  src/core/                 RFC 8785 canonical JSON · SHA-256 · immutability
+aegis-cl-psi/               Rust · 385 gate modules · 6862 tests
+                              gossip protocol, mesh health, math substrate, compaction gossip
+aegis-runtime/              Rust · 7-pillar distributed agent runtime · 96 tests
+                              StateAnchor, DomainFirewall, AffineCanvas, SemanticGraph,
+                              ValidationDFA, GossipEmitter, HysteresisFilter
+sovereign-omega-v2/         TypeScript governance runtime + Python bridge · 2790 tests
+  src/core/                 RFC 8785 canonicalization · SHA-256 · deepFreeze
   src/frame/                DFA · topology · lineage · epoch · divergence
   src/consensus/            BFT swarm · game theory · synthesis swarm
   src/constitutional/       Martingale · reduction gate · guardian policy
@@ -449,18 +512,60 @@ sovereign-omega-v2/         TypeScript governance runtime
   src/capsule/              Capability VM · evolution lifecycle
   src/agents/               Fibonacci scheduler · RALPH loops · 15 agent types
   src/corpus-engine/        5-phase RALPH document pipeline
-  src/sitr/                 Situation Awareness runtime
-  src/aoie/                 Adaptive Ontological Inference Engine
-  python/                   HTTP bridge · PGCS · constitutional gate validation
-cockpit/                    AI chat UI (React 18, constitutional telemetry)
-studio/                     10-surface observability dashboard (read-only)
-platform-picker/            Creator tool (Qwen-powered, $19)
-hook-generator/             Creator tool (Qwen-powered, $19)
-content-calendar/           Creator tool (Qwen-powered, $19)
-hub/                        Products landing page
-packages/shared/            Shared TS infrastructure
-docs/                       Architecture specifications and formal declarations
+  python/                   HTTP bridge (port 7890) · PGCS · constitutional gate validation
+crates/                     Shared Rust crates (workspace members)
+packages/shared/            Shared TypeScript types and utilities
 ```
+
+**Front-end surfaces**
+
+```
+cockpit/                    Constitutional AI chat UI (React 18)
+studio/                     10-surface observability dashboard (read-only projection)
+hub/                        Products landing page + live consciousness substrate
+aegisomega-webgpu/          WebGPU σ/ρ/λ field simulation engine (frame graph, WGSL)
+```
+
+**Commercial products** (AGPL-3.0 + see FOUNDERS.md)
+
+```
+platform-picker/            AI platform recommender ($19)
+hook-generator/             Viral hook generator ($19)
+content-calendar/           AI content planner ($19)
+```
+
+**Subsystems and specifications**
+
+```
+alignment/                  Alignment specifications and tests
+eccf/                       ECCF security alignment (Gate 204)
+gcce/                       GCCE architecture (see docs/GCCE_ARCHITECTURE.md)
+harness/                    Skill harness SDK (Gate 202)
+sovereign-mesh/             Mesh-deployment artifacts (Gate 205)
+security/                   Threat models and security advisories
+enterprise/                 Enterprise build artifacts
+core/                       Core Rust modules (overlaps with crates/ — see docs/)
+```
+
+**Documentation and configuration**
+
+```
+docs/                       28+ architecture specs (start with docs/architecture.md)
+scripts/                    Build, release, and dev automation
+supabase/                   Database schema and migrations
+.env.example                Required environment variables (copy to .env to start)
+CLAUDE.md                   Agent operating manual (used when AI assistants work in this repo)
+CONTRIBUTING.md             Gate discipline, determinism rules, workflow
+CONSTITUTIONAL_DECLARATION.md
+SECURITY.md
+FOUNDERS.md                 Commercial terms
+```
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the gate discipline, determinism rules, frozen-file list, and PR workflow.
 
 ---
 
