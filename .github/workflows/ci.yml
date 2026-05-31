@@ -171,7 +171,12 @@ jobs:
     name: ⊛ CEREMONY · BFT Quorum + Martingale Verdict [T1]
     runs-on: ubuntu-latest
     needs: [membrane, cl-psi, runtime, gate8, studio]
-    if: always()
+    # Skip (not fail) when any dependency was cancelled by a rapid-push cancellation.
+    # cancel-in-progress:true cancels mid-flight jobs; the ceremony should be inert
+    # in that case rather than recording a constitutional denial for a non-failure.
+    if: >-
+      always() &&
+      !contains(needs.*.result, 'cancelled')
     steps:
       - name: Assert 1/φ quorum and issue constitutional verdict
         env:

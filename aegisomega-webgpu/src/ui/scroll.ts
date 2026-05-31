@@ -1,16 +1,17 @@
 import type { SimParams } from '../engine/simulation.js'
 
 export class ScrollController {
-  private scrollY = 0
-  private maxScroll = 1
+  private scrollY: number
+  private maxScroll: number
 
   constructor() {
+    // Initialize from current page state — page may already be scrolled on load
+    this.scrollY   = window.scrollY
+    this.maxScroll = Math.max(document.body.scrollHeight - window.innerHeight, 1)
+
     window.addEventListener('scroll', () => {
-      this.scrollY = window.scrollY
-      this.maxScroll = Math.max(
-        document.body.scrollHeight - window.innerHeight,
-        1,
-      )
+      this.scrollY   = window.scrollY
+      this.maxScroll = Math.max(document.body.scrollHeight - window.innerHeight, 1)
     }, { passive: true })
   }
 
