@@ -24,7 +24,7 @@ on:
   push:
     branches: [main, 'claude/*']
   pull_request:
-    branches: [main, 'claude/aegis-setup-Lx7Ji', 'claude/test-coverage-analysis-F50Hf', 'claude/test-coverage-analysis-keTIk']
+    branches: [main, 'claude/*']
   workflow_dispatch:
 
 concurrency:
