@@ -17,7 +17,8 @@ import {
   formatReport,
 } from '../../src/core/invariant-checker.js'
 import type { RuntimeSnapshot, InvariantCheckResult } from '../../src/core/invariant-checker.js'
-import type { RalphCycle } from '../../src/core/types.js'
+import { HolonicScale, RalphPhase } from '../../src/core/types.js'
+import type { RalphCycle, UUIDv7, SequenceNumber } from '../../src/core/types.js'
 
 function goodSnapshot(overrides: Partial<RuntimeSnapshot> = {}): RuntimeSnapshot {
   return {
@@ -47,13 +48,13 @@ describe('checkInvariants — happy path', () => {
     expect(result.checked_at_sequence).toBe(10)
   })
 
-  it('vacuously passes INV-07 when gate_acceptance_rate is undefined', () => {
-    const result = checkInvariants(goodSnapshot({ gate_acceptance_rate: undefined }))
+  it('vacuously passes INV-07 when gate_acceptance_rate is absent', () => {
+    const result = checkInvariants(goodSnapshot())
     expect(result.violations.find(v => v.invariant_id === 'INV-07')).toBeUndefined()
   })
 
-  it('vacuously passes INV-09 when afse_r2 is undefined', () => {
-    const result = checkInvariants(goodSnapshot({ afse_r2: undefined }))
+  it('vacuously passes INV-09 when afse_r2 is absent', () => {
+    const result = checkInvariants(goodSnapshot())
     expect(result.violations.find(v => v.invariant_id === 'INV-09')).toBeUndefined()
   })
 
@@ -62,8 +63,8 @@ describe('checkInvariants — happy path', () => {
     expect(result.violations.find(v => v.invariant_id === 'INV-09')).toBeUndefined()
   })
 
-  it('vacuously passes INV-10 when tgcs_variance is undefined', () => {
-    const result = checkInvariants(goodSnapshot({ tgcs_variance: undefined }))
+  it('vacuously passes INV-10 when tgcs_variance is absent', () => {
+    const result = checkInvariants(goodSnapshot())
     expect(result.violations.find(v => v.invariant_id === 'INV-10')).toBeUndefined()
   })
 })
@@ -181,9 +182,17 @@ describe('hasT0Violation', () => {
 
 describe('isCycleCoherent', () => {
   const passCycle: RalphCycle = {
-    cycle_id: 'c1',
+    cycle_id: 'c1' as unknown as UUIDv7,
+    cycle_number: 1,
+    target_scale: HolonicScale.ATOMIC,
+    phase: RalphPhase.HARMONIZE,
+    findings: [],
+    analysis_notes: [],
+    links_established: [],
+    patches_applied: [],
+    harmonization_result: 'COHERENT',
     gate_result: 'PASS',
-    started_at_sequence: 0n as unknown as import('../../src/core/types.js').SequenceNumber,
+    sequence: 1n as unknown as SequenceNumber,
   }
   const failCycle: RalphCycle = { ...passCycle, gate_result: 'FAIL' }
 

@@ -17,7 +17,7 @@ import {
 import { verifySequences } from '../../src/ledger/verify.js'
 import type { LedgerEntry } from '../../src/ledger/types.js'
 import { GENESIS_HASH } from '../../src/ledger/types.js'
-import type { SHA256Hex, SequenceNumber } from '../../src/core/types.js'
+import type { SequenceNumber } from '../../src/core/types.js'
 import type { CrossOrgTransferRequest } from '../../src/skill-harness/cross-org.js'
 
 // ── CrossOrgError ─────────────────────────────────────────
@@ -61,12 +61,10 @@ describe('crossOrgTransfer', () => {
 function makeLedgerEntry(seq: number): LedgerEntry {
   return Object.freeze({
     sequence: BigInt(seq) as SequenceNumber,
-    entry_hash: `${'a'.repeat(63)}${seq % 10}` as SHA256Hex,
     previous_hash: GENESIS_HASH,
-    data_hash: GENESIS_HASH,
-    timestamp_sequence: seq,
-    schema_version: '1.0.0',
-    is_replay_reconstructable: true as const,
+    frame_hash: GENESIS_HASH,
+    governance_hash: GENESIS_HASH,
+    timestamp_ms: 1_600_000_000_000 + seq,
   })
 }
 

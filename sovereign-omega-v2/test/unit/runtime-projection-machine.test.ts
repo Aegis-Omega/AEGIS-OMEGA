@@ -34,7 +34,7 @@ function makeEvent(seq: number, hash: SHA256Hex): EventEnvelope {
   return Object.freeze({
     event_id: `evt-${seq}` as UUIDv7,
     stream_id: 'stream-01' as UUIDv7,
-    event_type: EventType.SKILL_VALIDATED,
+    event_type: EventType.RESPONSE_GENERATED,
     timestamp_ms: 1_600_000_000_000 + seq,
     sequence: BigInt(seq) as unknown as SequenceNumber,
     producer_id: 'test',

@@ -47,7 +47,7 @@ describe('registerGateMigration', () => {
     expect(() => registerGateMigration({
       from_version: '2.0.0',
       to_version: '3.0.0',
-      migrate: (p) => makePayload(),
+      migrate: (_p) => makePayload(),
     })).not.toThrow()
   })
 })
@@ -81,7 +81,7 @@ describe('sealGateMigrations', () => {
     expect(() => registerGateMigration({
       from_version: '4.0.0',
       to_version: '5.0.0',
-      migrate: (p) => makePayload(),
+      migrate: (_p) => makePayload(),
     })).toThrow('sealed')
   })
 })

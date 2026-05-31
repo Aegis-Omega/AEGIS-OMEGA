@@ -229,7 +229,6 @@ describe('updateDialogueState', () => {
   })
 
   it('decreases grounding_confidence by divergence_score * 0.1', () => {
-    const state = emptyState()
     const constraint: DialogueConstraint = {
       id: 'c2', description: 'use cache', introduced_at_sequence: SEQ(1), is_active: true,
     }

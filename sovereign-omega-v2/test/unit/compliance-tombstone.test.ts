@@ -26,13 +26,15 @@ function makeEnvelope(
 ): EventEnvelope {
   return {
     event_id: `evt-${seq}` as UUIDv7,
+    stream_id: 'stream-01' as UUIDv7,
     event_type: eventType,
     timestamp_ms: timestampMs,
     sequence: seq as unknown as import('../../src/core/types.js').SequenceNumber,
     producer_id: 'test',
+    producer_version: '1.0.0',
+    payload_schema_version: '1.0.0',
     payload: {},
-    schema_id: 'test',
-    schema_version: '1.0.0',
+    prev_hash: H,
     self_hash: H,
     retention_class: RetentionClass.STANDARD,
   }
@@ -152,12 +154,12 @@ describe('projectAuditLog', () => {
   })
 
   it('maps event fields to audit entries correctly', () => {
-    const env = makeEnvelope(EventType.SKILL_VALIDATED, 1_600_000_001_000, 5n)
+    const env = makeEnvelope(EventType.RESPONSE_GENERATED, 1_600_000_001_000, 5n)
     const log = projectAuditLog([env])
     expect(log.total_events).toBe(1)
     expect(log.entries).toHaveLength(1)
     expect(log.entries[0]!.event_id).toBe('evt-5')
-    expect(log.entries[0]!.event_type).toBe(EventType.SKILL_VALIDATED)
+    expect(log.entries[0]!.event_type).toBe(EventType.RESPONSE_GENERATED)
     expect(log.entries[0]!.timestamp_ms).toBe(1_600_000_001_000)
     expect(log.entries[0]!.sequence).toBe('5')
   })
@@ -167,7 +169,7 @@ describe('projectAuditLog', () => {
       makeEnvelope(EventType.GATE_EVALUATED, 1_600_000_000_000, 1n),
       makeEnvelope(EventType.MODIFICATION_ACCEPTED, 1_600_000_001_000, 2n),
       makeEnvelope(EventType.MODIFICATION_REJECTED, 1_600_000_002_000, 3n),
-      makeEnvelope(EventType.SKILL_VALIDATED, 1_600_000_003_000, 4n),
+      makeEnvelope(EventType.RESPONSE_GENERATED, 1_600_000_003_000, 4n),
     ]
     const log = projectAuditLog(evs)
     expect(log.gate_decisions).toBe(3)
@@ -185,9 +187,9 @@ describe('projectAuditLog', () => {
 
   it('earliest_ms and latest_ms are min/max of timestamps', () => {
     const evs = [
-      makeEnvelope(EventType.SKILL_VALIDATED, 1_600_000_003_000, 1n),
-      makeEnvelope(EventType.SKILL_VALIDATED, 1_600_000_001_000, 2n),
-      makeEnvelope(EventType.SKILL_VALIDATED, 1_600_000_002_000, 3n),
+      makeEnvelope(EventType.RESPONSE_GENERATED, 1_600_000_003_000, 1n),
+      makeEnvelope(EventType.RESPONSE_GENERATED, 1_600_000_001_000, 2n),
+      makeEnvelope(EventType.RESPONSE_GENERATED, 1_600_000_002_000, 3n),
     ]
     const log = projectAuditLog(evs)
     expect(log.earliest_ms).toBe(1_600_000_001_000)
@@ -209,7 +211,7 @@ describe('checkRetentionCompliance', () => {
 
   it('non-compliant when total_events > 10 and gate_decisions === 0', () => {
     const evs = Array.from({ length: 11 }, (_, i) =>
-      makeEnvelope(EventType.SKILL_VALIDATED, 1_600_000_000_000 + i, BigInt(i + 1)),
+      makeEnvelope(EventType.RESPONSE_GENERATED, 1_600_000_000_000 + i, BigInt(i + 1)),
     )
     const log = projectAuditLog(evs)
     const result = checkRetentionCompliance(log, 1_600_000_000_100)
@@ -219,7 +221,7 @@ describe('checkRetentionCompliance', () => {
 
   it('compliant when total_events ≤ 10 and gate_decisions === 0', () => {
     const evs = Array.from({ length: 5 }, (_, i) =>
-      makeEnvelope(EventType.SKILL_VALIDATED, 1_600_000_000_000 + i, BigInt(i + 1)),
+      makeEnvelope(EventType.RESPONSE_GENERATED, 1_600_000_000_000 + i, BigInt(i + 1)),
     )
     const log = projectAuditLog(evs)
     const result = checkRetentionCompliance(log, 1_600_000_000_100)
