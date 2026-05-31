@@ -1,15 +1,26 @@
 import { useState, useEffect } from 'react'
-import { Sparkles, TrendingUp, Share2, Check, ShieldCheck } from 'lucide-react'
+import { Sparkles, TrendingUp, Share2, Check, ShieldCheck, History, X } from 'lucide-react'
 import { initAnalytics, trackEvent } from '@shared/lib/analytics'
 import { AccessGate } from '@shared/components/AccessGate'
 import { rankPlatforms, type MatcherInput, type RankedResult } from './lib/matcher.js'
 import { ResultCard } from './components/ResultCard.js'
 import { RadarChart } from './components/RadarChart.js'
 import { useAsyncForm } from '@shared/hooks/useAsyncForm'
+import { useHistory, type HistoryEntry } from '@shared/hooks/useHistory'
 import { ErrorAlert } from '@shared/components/ErrorAlert'
 import { LoadingSpinner } from '@shared/components/LoadingSpinner'
 import { ToolkitFooter } from '@shared/components/ToolkitFooter'
 import type { PlatformRanking } from './lib/matcher.js'
+
+const HISTORY_KEY = 'aegis_platform_history'
+
+function formatRelative(ts: number): string {
+  const diff = Date.now() - ts
+  if (diff < 60_000) return 'just now'
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
+  return `${Math.floor(diff / 86_400_000)}d ago`
+}
 
 const FIELDS: { key: keyof MatcherInput; label: string; placeholder: string }[] = [
   { key: 'niche',             label: 'Your niche',         placeholder: 'e.g. fitness, cooking, comedy, finance…' },
@@ -62,7 +73,16 @@ function AuditBadge({ result }: { result: RankedResult }) {
 export default function App() {
   const [form, setForm] = useState<MatcherInput>(EMPTY)
   const [shared, setShared] = useState(false)
+  const [historyEntry, setHistoryEntry] = useState<HistoryEntry<MatcherInput, RankedResult> | null>(null)
   const { state, result, errorMsg, submit, reset: resetAsync } = useAsyncForm(rankPlatforms)
+  const { entries: history, addEntry } = useHistory<MatcherInput, RankedResult>(
+    HISTORY_KEY, inp => `${inp.niche} · ${inp.content_style}`,
+  )
+
+  const displayState = historyEntry ? 'results' : state
+  const displayResult: RankedResult | null = historyEntry ? historyEntry.result : (result ?? null)
+  const rankings: PlatformRanking[] = displayResult?.rankings ?? []
+  const displayForm = historyEntry ? historyEntry.input : form
 
   useEffect(() => {
     initAnalytics()
@@ -70,22 +90,26 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (state === 'results') trackEvent('result_generated', { product: 'platform-picker' })
+    if (state === 'results' && result) {
+      trackEvent('result_generated', { product: 'platform-picker' })
+      addEntry(form, result)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state])
 
   const valid = Object.values(form).every(v => v.trim().length > 0)
-  const rankings: PlatformRanking[] = result?.rankings ?? []
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!valid) return
+    setHistoryEntry(null)
     await submit(form)
   }
 
-  const reset = () => { setForm(EMPTY); resetAsync(); setShared(false) }
+  const reset = () => { setForm(EMPTY); resetAsync(); setShared(false); setHistoryEntry(null) }
 
   const handleShare = async () => {
-    const text = buildShareText(rankings, form.niche)
+    const text = buildShareText(rankings, displayForm.niche)
     await navigator.clipboard.writeText(text)
     setShared(true)
     setTimeout(() => setShared(false), 2000)
@@ -106,7 +130,7 @@ export default function App() {
           </p>
         </div>
 
-        {(state === 'idle' || state === 'error') && (
+        {(displayState === 'idle' || displayState === 'error') && (
           <form onSubmit={handleSubmit} className="space-y-4">
             {FIELDS.map(f => (
               <div key={f.key}>
@@ -121,7 +145,7 @@ export default function App() {
               </div>
             ))}
 
-            {state === 'error' && <ErrorAlert message={errorMsg} />}
+            {displayState === 'error' && <ErrorAlert message={errorMsg} />}
 
             <button
               type="submit"
@@ -134,16 +158,46 @@ export default function App() {
           </form>
         )}
 
-        {state === 'loading' && (
+        {history.length > 0 && (displayState === 'idle' || displayState === 'error') && (
+          <div className="mt-8">
+            <div className="flex items-center gap-2 mb-3">
+              <History size={13} className="text-brand-muted" />
+              <span className="text-xs font-medium text-brand-muted uppercase tracking-wide">Recent analyses</span>
+            </div>
+            <div className="space-y-2">
+              {history.slice(0, 5).map(entry => (
+                <button
+                  key={entry.id}
+                  onClick={() => { setHistoryEntry(entry); setForm(entry.input) }}
+                  className="w-full text-left flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-brand-border hover:border-brand-glow/40 bg-brand-surface transition-all group"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-brand-text truncate">{entry.label}</p>
+                    <p className="text-xs text-brand-muted">{formatRelative(entry.ts)}</p>
+                  </div>
+                  <span className="text-xs text-brand-muted group-hover:text-brand-glow transition-colors shrink-0">Load →</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {displayState === 'loading' && (
           <LoadingSpinner message="Analysing your profile…" colorClass="text-brand-glow" />
         )}
 
-        {state === 'results' && result && (
+        {displayState === 'results' && displayResult && (
           <div>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <TrendingUp size={18} className="text-brand-glow" />
-                <h2 className="font-semibold text-brand-text">Your platform ranking</h2>
+                <h2 className="font-semibold text-brand-text">Platform ranking · {displayForm.niche}</h2>
+                {historyEntry && (
+                  <span className="flex items-center gap-1 text-xs text-brand-muted border border-brand-border rounded-full px-2 py-0.5">
+                    <History size={10} /> {formatRelative(historyEntry.ts)}
+                    <button onClick={() => setHistoryEntry(null)} className="ml-1 hover:text-brand-glow"><X size={9} /></button>
+                  </span>
+                )}
               </div>
               <button
                 onClick={handleShare}
@@ -171,7 +225,7 @@ export default function App() {
               ))}
             </div>
 
-            <AuditBadge result={result} />
+            <AuditBadge result={displayResult} />
 
             <button
               onClick={reset}

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { CalendarDays, Download } from 'lucide-react'
+import { CalendarDays, Download, History, X } from 'lucide-react'
 import { initAnalytics, trackEvent } from '@shared/lib/analytics'
 import { AccessGate } from '@shared/components/AccessGate'
 import { generateCalendar, calendarToText, type CalendarInput, type WeekPlan } from './lib/calendar-ai.js'
 import { WeekTable } from './components/WeekTable.js'
 import { useAsyncForm } from '@shared/hooks/useAsyncForm'
+import { useHistory, type HistoryEntry } from '@shared/hooks/useHistory'
 import { ErrorAlert } from '@shared/components/ErrorAlert'
 import { LoadingSpinner } from '@shared/components/LoadingSpinner'
 import { ToolkitFooter } from '@shared/components/ToolkitFooter'
@@ -12,6 +13,16 @@ import { ToolkitFooter } from '@shared/components/ToolkitFooter'
 const EMPTY: CalendarInput = {
   niche: '', platforms: '', frequency: '',
   pillar1: '', pillar2: '', pillar3: '',
+}
+
+const HISTORY_KEY = 'aegis_calendar_history'
+
+function formatRelative(ts: number): string {
+  const diff = Date.now() - ts
+  if (diff < 60_000) return 'just now'
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
+  return `${Math.floor(diff / 86_400_000)}d ago`
 }
 
 const FIELDS: { key: keyof CalendarInput; label: string; placeholder: string }[] = [
@@ -38,19 +49,26 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
+function q(s: string) { return `"${s.replace(/"/g, '""')}"` }
+
 function buildCsv(weeks: WeekPlan[]): string {
   const DAY_NAMES = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-  const header = 'Week,Theme,Day,Platform,Pillar,Hook,Format,Notes'
+  const header = 'Week,Theme,Day,Platform,Pillar,Topic,Hook,Format,Difficulty,OptimalTime,CTA,Notes,Hashtags'
   const rows = weeks.flatMap(w =>
     w.posts.map(p => [
       w.week,
-      `"${w.theme}"`,
+      q(w.theme),
       DAY_NAMES[p.day] ?? `Day${p.day}`,
       p.platform ?? '',
       p.content_pillar ?? p.pillar ?? '',
-      `"${p.hook.replace(/"/g, '""')}"`,
+      q(p.topic ?? ''),
+      q(p.hook),
       p.format,
-      `"${(p.notes ?? p.production_note ?? '').replace(/"/g, '""')}"`,
+      p.difficulty ?? '',
+      q(p.optimal_time ?? ''),
+      q(p.cta ?? ''),
+      q(p.notes ?? p.production_note ?? ''),
+      q(p.hashtags?.join(' ') ?? ''),
     ].join(','))
   )
   return [header, ...rows].join('\n')
@@ -58,37 +76,48 @@ function buildCsv(weeks: WeekPlan[]): string {
 
 export default function App() {
   const [form, setForm] = useState<CalendarInput>(EMPTY)
+  const [historyEntry, setHistoryEntry] = useState<HistoryEntry<CalendarInput, WeekPlan[]> | null>(null)
   const { state, result, errorMsg, submit, reset: resetAsync } = useAsyncForm(generateCalendar)
+  const { entries: history, addEntry } = useHistory<CalendarInput, WeekPlan[]>(
+    HISTORY_KEY, inp => `${inp.niche} · ${inp.frequency}`,
+  )
 
+  const displayState = historyEntry ? 'results' : state
+  const weeks: WeekPlan[] = (historyEntry ? historyEntry.result : result) ?? []
+  const displayForm = historyEntry ? historyEntry.input : form
   const valid = Object.values(form).every(v => v.trim().length > 0)
-  const weeks: WeekPlan[] = result ?? []
 
   useEffect(() => {
     initAnalytics()
     trackEvent('trial_started', { product: 'content-calendar' })
   }, [])
   useEffect(() => {
-    if (state === 'results') trackEvent('result_generated', { product: 'content-calendar' })
+    if (state === 'results' && result) {
+      trackEvent('result_generated', { product: 'content-calendar' })
+      addEntry(form, result)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!valid) return
+    setHistoryEntry(null)
     await submit(form)
   }
 
   const handleDownloadTxt = () => {
-    const blob = new Blob([calendarToText(weeks, form)], { type: 'text/plain' })
-    downloadBlob(blob, `content-calendar-${form.niche.replace(/\s+/g, '-').toLowerCase()}.txt`)
+    const blob = new Blob([calendarToText(weeks, displayForm)], { type: 'text/plain' })
+    downloadBlob(blob, `content-calendar-${displayForm.niche.replace(/\s+/g, '-').toLowerCase()}.txt`)
   }
 
   const handleDownloadCsv = () => {
     const blob = new Blob([buildCsv(weeks)], { type: 'text/csv' })
-    downloadBlob(blob, `content-calendar-${form.niche.replace(/\s+/g, '-').toLowerCase()}.csv`)
+    downloadBlob(blob, `content-calendar-${displayForm.niche.replace(/\s+/g, '-').toLowerCase()}.csv`)
   }
 
-  const reset = () => { setForm(EMPTY); resetAsync() }
-  const pillars: [string, string, string] = [form.pillar1, form.pillar2, form.pillar3]
+  const reset = () => { setForm(EMPTY); resetAsync(); setHistoryEntry(null) }
+  const pillars: [string, string, string] = [displayForm.pillar1, displayForm.pillar2, displayForm.pillar3]
 
   return (
     <AccessGate product="content-calendar" accentColor="#16A34A">
@@ -106,7 +135,7 @@ export default function App() {
           </p>
         </div>
 
-        {(state === 'idle' || state === 'error') && (
+        {(displayState === 'idle' || displayState === 'error') && (
           <form onSubmit={handleSubmit} className="space-y-4">
             {FIELDS.map(f => (
               <div key={f.key}>
@@ -121,7 +150,7 @@ export default function App() {
               </div>
             ))}
 
-            {state === 'error' && <ErrorAlert message={errorMsg} />}
+            {displayState === 'error' && <ErrorAlert message={errorMsg} />}
 
             <button
               type="submit"
@@ -134,16 +163,46 @@ export default function App() {
           </form>
         )}
 
-        {state === 'loading' && (
+        {history.length > 0 && (displayState === 'idle' || displayState === 'error') && (
+          <div className="mt-8">
+            <div className="flex items-center gap-2 mb-3">
+              <History size={13} className="text-cal-muted" />
+              <span className="text-xs font-medium text-cal-muted uppercase tracking-wide">Recent calendars</span>
+            </div>
+            <div className="space-y-2">
+              {history.slice(0, 5).map(entry => (
+                <button
+                  key={entry.id}
+                  onClick={() => { setHistoryEntry(entry); setForm(entry.input) }}
+                  className="w-full text-left flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-cal-border hover:border-cal-glow/40 bg-cal-surface transition-all group"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-cal-text truncate">{entry.label}</p>
+                    <p className="text-xs text-cal-muted">{entry.result.length} weeks · {formatRelative(entry.ts)}</p>
+                  </div>
+                  <span className="text-xs text-cal-muted group-hover:text-cal-glow transition-colors shrink-0">Load →</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {displayState === 'loading' && (
           <LoadingSpinner message="Building your content plan…" colorClass="text-cal-glow" />
         )}
 
-        {state === 'results' && (
+        {displayState === 'results' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <CalendarDays size={18} className="text-cal-glow" />
-                <h2 className="font-semibold text-cal-text">4-week plan for {form.niche}</h2>
+                <h2 className="font-semibold text-cal-text">4-week plan for {displayForm.niche}</h2>
+                {historyEntry && (
+                  <span className="flex items-center gap-1 text-xs text-cal-muted border border-cal-border rounded-full px-2 py-0.5">
+                    <History size={10} /> {formatRelative(historyEntry.ts)}
+                    <button onClick={() => setHistoryEntry(null)} className="ml-1 hover:text-cal-glow"><X size={9} /></button>
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button

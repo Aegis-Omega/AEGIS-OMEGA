@@ -5,9 +5,9 @@
 import { PricingTable } from './PricingTable.js'
 
 const TOOLS = [
-  { name: 'Platform Picker',   desc: 'Tell the AI your niche and audience. Get a ranked breakdown of the best platforms with growth strategies tailored to you.', color: '#7C3AED', href: import.meta.env.VITE_URL_PLATFORM_PICKER  ?? '#pricing' },
-  { name: 'Hook Generator',    desc: 'Paste your topic. Get 20 scroll-stopping hooks — curiosity gaps, controversies, numbers, pain points — one-click copy.', color: '#06B6D4', href: import.meta.env.VITE_URL_HOOK_GENERATOR   ?? '#pricing' },
-  { name: 'Content Calendar',  desc: 'Define your pillars and posting frequency. Get a full 30-day calendar with topics, formats, and publish times.', color: '#F59E0B', href: import.meta.env.VITE_URL_CONTENT_CALENDAR ?? '#pricing' },
+  { name: 'Platform Picker',   desc: 'Tell the AI your niche, style, and goals. Get a scored ranking of TikTok, YouTube Shorts, Reels, and Spotlight — with specific strengths, weaknesses, a 3-step action plan, and growth timeline.', color: '#7C3AED', href: import.meta.env.VITE_URL_PLATFORM_PICKER  ?? '#pricing' },
+  { name: 'Hook Generator',    desc: 'Paste your topic. Get 15 scroll-stopping hooks — each scored, typed by psychological trigger, with a "why it works" explanation, first-3-seconds shot direction, and a ready-to-paste caption starter.', color: '#06B6D4', href: import.meta.env.VITE_URL_HOOK_GENERATOR   ?? '#pricing' },
+  { name: 'Content Calendar',  desc: 'Define your pillars and posting frequency. Get a full 4-week calendar with hooks, formats, optimal posting times, difficulty ratings, CTAs, and 7–12 hashtags per post — export to CSV or TXT.', color: '#F59E0B', href: import.meta.env.VITE_URL_CONTENT_CALENDAR ?? '#pricing' },
 ]
 
 export function ToolsPage() {

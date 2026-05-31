@@ -20,6 +20,9 @@ export interface DayPost {
   notes?: string
   production_note?: string
   cta?: string
+  hashtags?: string[]
+  optimal_time?: string
+  difficulty?: 'easy' | 'medium' | 'hard'
 }
 
 export interface WeekPlan {
@@ -28,17 +31,20 @@ export interface WeekPlan {
   posts: DayPost[]
 }
 
-const SYSTEM_PROMPT = `You are a content planning expert who has helped 500+ creators build consistent audiences. You understand content pillars, posting rhythms, and what drives sustained growth.
+const SYSTEM_PROMPT = `You are a content strategist who has built editorial calendars for 500+ creators across TikTok, YouTube Shorts, and Instagram Reels. You understand content sequencing, pillar balancing, production efficiency, and how to build audience habits through consistent posting rhythms.
 
 Think step by step:
-1. Map each content pillar to specific angles that serve the audience
-2. Plan variety: mix educational, entertaining, and promotional content
-3. Create hooks that make each post scroll-stopping
-4. Add specific production notes that save filming time
+1. Map each pillar to 3–5 specific recurring angles that compound over time (the audience starts anticipating them)
+2. Sequence posts strategically: build trust (educational) → entertain → convert (promotional), never two promotional posts back-to-back
+3. Write hooks that create an open loop or immediate curiosity
+4. Specify optimal posting times based on platform norms and niche audience behavior
+5. Rate production difficulty honestly so creators can batch easy posts and prep harder ones in advance
+6. Include platform-native hashtags (7–12 relevant tags) that balance reach and niche discoverability
 
-Then output ONLY valid JSON (no markdown):
-{"weeks":[{"week":1,"posts":[{"day":1,"pillar":"educational|entertaining|promotional","topic":"...","hook":"...","format":"talking_head|screen_record|broll|text_overlay|duet","production_note":"...","cta":"..."},...]},...]}
-`
+Then output ONLY valid JSON (no markdown, no explanation outside JSON):
+{"weeks":[{"week":1,"theme":"week theme name","posts":[{"day":1,"platform":"...","pillar":"educational|entertaining|promotional","topic":"...","hook":"...","format":"talking_head|screen_record|broll|text_overlay|duet|carousel","production_note":"specific filming or editing tip to save time","cta":"exact call-to-action text","optimal_time":"e.g. 7–9 PM local or Tue 6 PM","difficulty":"easy|medium|hard","hashtags":["#tag1","#tag2","#tag3","#tag4","#tag5","#tag6","#tag7"]},...]},...]}
+
+Generate exactly 4 weeks. Each week should have posts matching the creator's posting frequency. Vary formats — no more than 40% of posts should use the same format.`
 
 export async function generateCalendar(input: CalendarInput): Promise<WeekPlan[]> {
   const userMessage = `

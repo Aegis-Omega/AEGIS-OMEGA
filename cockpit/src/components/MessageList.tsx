@@ -1,4 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import { Copy, Check } from 'lucide-react'
 import type { ChatMessage } from '../lib/agent.js'
 
 interface MessageListProps {
@@ -122,9 +124,31 @@ function EmptyState() {
   )
 }
 
+function CopyBtn({ text, light }: { text: string; light?: boolean }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+  return (
+    <button
+      onClick={handleCopy}
+      aria-label="Copy message"
+      className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5"
+      style={{ color: light ? 'rgba(255,255,255,0.6)' : '#6B6B7A' }}
+    >
+      {copied
+        ? <Check size={13} style={{ color: light ? 'rgba(255,255,255,0.9)' : '#34D399' }} />
+        : <Copy size={13} />}
+    </button>
+  )
+}
+
 function UserBubble({ content }: { content: string }) {
   return (
-    <div className="flex justify-end">
+    <div className="flex justify-end items-start gap-2 group">
+      <CopyBtn text={content} light />
       <div
         className="max-w-[72%] px-4 py-3 rounded-2xl rounded-br-sm text-sm leading-relaxed whitespace-pre-wrap"
         style={{ background: '#60A5FA', color: '#ffffff' }}
@@ -135,11 +159,123 @@ function UserBubble({ content }: { content: string }) {
   )
 }
 
+function renderInline(text: string): ReactNode {
+  const tokens = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]*\]\([^)]*\))/g)
+  if (tokens.length === 1) return text
+  return (
+    <>
+      {tokens.map((t, i) => {
+        if (t.startsWith('**') && t.endsWith('**') && t.length > 4)
+          return <strong key={i} style={{ color: '#ECEAE3', fontWeight: 600 }}>{t.slice(2, -2)}</strong>
+        if (t.startsWith('`') && t.endsWith('`') && t.length > 2)
+          return (
+            <code key={i} style={{
+              background: '#1A1A1E', padding: '0.1em 0.4em', borderRadius: '4px',
+              fontFamily: 'monospace', fontSize: '0.85em', color: '#C8A96E',
+              border: '1px solid #2A2A2E',
+            }}>
+              {t.slice(1, -1)}
+            </code>
+          )
+        const m = t.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
+        if (m)
+          return <a key={i} href={m[2]} target="_blank" rel="noopener noreferrer" style={{ color: '#60A5FA', textDecoration: 'underline' }}>{m[1]}</a>
+        return t || null
+      })}
+    </>
+  )
+}
+
+function MarkdownContent({ content }: { content: string }) {
+  const nodes: ReactNode[] = []
+  const lines = content.split('\n')
+  let i = 0
+
+  while (i < lines.length) {
+    const line = lines[i]
+
+    // Fenced code block
+    if (line.startsWith('```')) {
+      const lang = line.slice(3).trim()
+      const codeLines: string[] = []
+      i++
+      while (i < lines.length && !lines[i].startsWith('```')) { codeLines.push(lines[i]); i++ }
+      i++
+      nodes.push(
+        <div key={nodes.length} style={{ margin: '8px 0', borderRadius: '8px', overflow: 'hidden', border: '1px solid #1E1E22' }}>
+          {lang && (
+            <div style={{ background: '#0C0C0E', padding: '5px 14px', borderBottom: '1px solid #1E1E22', fontFamily: 'monospace', fontSize: '11px', color: '#6B6B7A' }}>
+              {lang}
+            </div>
+          )}
+          <pre style={{ background: '#0A0A0C', padding: '12px 14px', overflow: 'auto', margin: 0 }}>
+            <code style={{ fontFamily: '"Fira Code","Cascadia Code","JetBrains Mono",monospace', fontSize: '12px', color: '#ECEAE3', whiteSpace: 'pre' }}>
+              {codeLines.join('\n')}
+            </code>
+          </pre>
+        </div>
+      )
+      continue
+    }
+
+    // Horizontal rule
+    if (/^---+$/.test(line) || /^===+$/.test(line)) {
+      nodes.push(<hr key={nodes.length} style={{ border: 'none', borderTop: '1px solid #1E1E22', margin: '10px 0' }} />)
+      i++; continue
+    }
+
+    // Headers
+    const h3m = line.match(/^### (.+)/); if (h3m) { nodes.push(<h3 key={nodes.length} style={{ color: '#ECEAE3', fontWeight: 600, fontSize: '0.9em', margin: '12px 0 3px' }}>{renderInline(h3m[1])}</h3>); i++; continue }
+    const h2m = line.match(/^## (.+)/);  if (h2m) { nodes.push(<h2 key={nodes.length} style={{ color: '#ECEAE3', fontWeight: 600, fontSize: '1em',   margin: '14px 0 4px' }}>{renderInline(h2m[1])}</h2>); i++; continue }
+    const h1m = line.match(/^# (.+)/);   if (h1m) { nodes.push(<h1 key={nodes.length} style={{ color: '#ECEAE3', fontWeight: 700, fontSize: '1.1em', margin: '14px 0 5px' }}>{renderInline(h1m[1])}</h1>); i++; continue }
+
+    // Bullet list
+    if (/^[-*+] /.test(line)) {
+      const items: ReactNode[] = []
+      while (i < lines.length && /^[-*+] /.test(lines[i])) {
+        items.push(<li key={items.length} style={{ margin: '2px 0' }}>{renderInline(lines[i].replace(/^[-*+] /, ''))}</li>)
+        i++
+      }
+      nodes.push(<ul key={nodes.length} style={{ margin: '6px 0', paddingLeft: '18px', listStyleType: 'disc' }}>{items}</ul>)
+      continue
+    }
+
+    // Numbered list
+    if (/^\d+\. /.test(line)) {
+      const items: ReactNode[] = []
+      while (i < lines.length && /^\d+\. /.test(lines[i])) {
+        items.push(<li key={items.length} style={{ margin: '2px 0' }}>{renderInline(lines[i].replace(/^\d+\. /, ''))}</li>)
+        i++
+      }
+      nodes.push(<ol key={nodes.length} style={{ margin: '6px 0', paddingLeft: '18px' }}>{items}</ol>)
+      continue
+    }
+
+    // Blank line
+    if (line.trim() === '') { i++; continue }
+
+    // Paragraph — collect until next special block
+    const paraLines: string[] = []
+    while (
+      i < lines.length &&
+      lines[i].trim() !== '' &&
+      !lines[i].startsWith('#') &&
+      !lines[i].startsWith('```') &&
+      !/^[-*+] /.test(lines[i]) &&
+      !/^\d+\. /.test(lines[i]) &&
+      !/^---+$/.test(lines[i])
+    ) { paraLines.push(lines[i]); i++ }
+    if (paraLines.length > 0)
+      nodes.push(<p key={nodes.length} style={{ margin: '3px 0 6px', lineHeight: '1.65' }}>{renderInline(paraLines.join(' '))}</p>)
+  }
+
+  return <>{nodes}</>
+}
+
 function AssistantBubble({ content, isStreaming }: { content: string; isStreaming: boolean }) {
   return (
-    <div className="flex justify-start">
+    <div className="flex justify-start group">
       <div className="flex gap-3 max-w-[80%]">
-        {/* Avatar */}
         <div
           className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center font-mono text-xs font-semibold mt-0.5"
           style={{ background: '#1E1E22', color: '#C8A96E' }}
@@ -147,14 +283,15 @@ function AssistantBubble({ content, isStreaming }: { content: string; isStreamin
           Ω
         </div>
         <div
-          className="px-4 py-3 rounded-2xl rounded-bl-sm text-sm leading-relaxed whitespace-pre-wrap"
+          className="px-4 py-3 rounded-2xl rounded-bl-sm text-sm"
           style={{
             background: '#141416',
             border: '1px solid #1E1E22',
             color: '#ECEAE3',
+            lineHeight: '1.65',
           }}
         >
-          {content}
+          <MarkdownContent content={content} />
           {isStreaming && (
             <span
               className="inline-block w-1.5 h-4 ml-1 rounded-sm align-middle animate-pulse"
@@ -163,6 +300,7 @@ function AssistantBubble({ content, isStreaming }: { content: string; isStreamin
           )}
         </div>
       </div>
+      {!isStreaming && <CopyBtn text={content} />}
     </div>
   )
 }

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Zap, Download, Star } from 'lucide-react'
+import { Zap, Download, Star, History, X } from 'lucide-react'
 import { initAnalytics, trackEvent } from '@shared/lib/analytics'
 import { AccessGate } from '@shared/components/AccessGate'
 import { generateHooks, type HookInput, type HookResult, type Platform, type Tone } from './lib/hooks-ai.js'
 import { HookCard } from './components/HookCard.js'
 import { useAsyncForm } from '@shared/hooks/useAsyncForm'
+import { useHistory, type HistoryEntry } from '@shared/hooks/useHistory'
 import { ErrorAlert } from '@shared/components/ErrorAlert'
 import { LoadingSpinner } from '@shared/components/LoadingSpinner'
 import { ToolkitFooter } from '@shared/components/ToolkitFooter'
@@ -14,6 +15,15 @@ const TONES: Tone[] = ['Entertaining', 'Educational', 'Controversial', 'Inspirat
 
 const EMPTY: HookInput = { niche: '', platform: 'TikTok', topic: '', tone: 'Entertaining' }
 const FAV_KEY = 'aegis_hook_favorites'
+const HISTORY_KEY = 'aegis_hooks_history'
+
+function formatRelative(ts: number): string {
+  const diff = Date.now() - ts
+  if (diff < 60_000) return 'just now'
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
+  return `${Math.floor(diff / 86_400_000)}d ago`
+}
 
 function loadFavs(): Set<string> {
   try {
@@ -32,11 +42,17 @@ export default function App() {
   const [form, setForm] = useState<HookInput>(EMPTY)
   const [favs, setFavs] = useState<Set<string>>(loadFavs)
   const [showFavsOnly, setShowFavsOnly] = useState(false)
+  const [historyEntry, setHistoryEntry] = useState<HistoryEntry<HookInput, HookResult[]> | null>(null)
   const { state, result, errorMsg, submit, reset: resetAsync } = useAsyncForm(generateHooks)
+  const { entries: history, addEntry } = useHistory<HookInput, HookResult[]>(
+    HISTORY_KEY, inp => `${inp.platform} · ${inp.topic}`,
+  )
 
   const valid = form.niche.trim().length > 0 && form.topic.trim().length > 0
-  const allResults: HookResult[] = result ?? []
+  const displayState = historyEntry ? 'results' : state
+  const allResults: HookResult[] = (historyEntry ? historyEntry.result : result) ?? []
   const results = showFavsOnly ? allResults.filter(h => favs.has(h.hook)) : allResults
+  const displayForm = historyEntry ? historyEntry.input : form
 
   useEffect(() => { saveFavs(favs) }, [favs])
   useEffect(() => {
@@ -44,17 +60,22 @@ export default function App() {
     trackEvent('trial_started', { product: 'hook-generator' })
   }, [])
   useEffect(() => {
-    if (state === 'results') trackEvent('result_generated', { product: 'hook-generator' })
+    if (state === 'results' && result) {
+      trackEvent('result_generated', { product: 'hook-generator' })
+      addEntry(form, result)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!valid) return
+    setHistoryEntry(null)
     setShowFavsOnly(false)
     await submit(form)
   }
 
-  const reset = () => { setForm(EMPTY); resetAsync(); setShowFavsOnly(false) }
+  const reset = () => { setForm(EMPTY); resetAsync(); setShowFavsOnly(false); setHistoryEntry(null) }
 
   const toggleFav = (hook: string) => {
     setFavs(prev => {
@@ -65,9 +86,13 @@ export default function App() {
   }
 
   const exportAll = () => {
-    const text = allResults
-      .map((h, i) => `${i + 1}. ${h.hook} [${h.type}] ${h.score}/10`)
-      .join('\n')
+    const text = allResults.map((h, i) => {
+      const lines = [`${i + 1}. [${h.type}] ${h.score}/10 — ${h.platform_fit}`]
+      lines.push(`   "${h.hook}"`)
+      if (h.why_it_works ?? h.why) lines.push(`   Why: ${h.why_it_works ?? h.why}`)
+      if (h.caption_starter) lines.push(`   Caption: ${h.caption_starter}`)
+      return lines.join('\n')
+    }).join('\n\n')
     navigator.clipboard.writeText(text)
   }
 
@@ -89,7 +114,7 @@ export default function App() {
           </p>
         </div>
 
-        {(state === 'idle' || state === 'error') && (
+        {(displayState === 'idle' || displayState === 'error') && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -136,7 +161,7 @@ export default function App() {
               />
             </div>
 
-            {state === 'error' && <ErrorAlert message={errorMsg} />}
+            {displayState === 'error' && <ErrorAlert message={errorMsg} />}
 
             <button
               type="submit"
@@ -144,21 +169,51 @@ export default function App() {
               className="w-full bg-hook-accent hover:bg-hook-accent/90 disabled:opacity-40 disabled:cursor-not-allowed text-black font-semibold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm"
             >
               <Zap size={16} />
-              Generate 10 hooks
+              Generate 15 hooks
             </button>
           </form>
         )}
 
-        {state === 'loading' && (
+        {history.length > 0 && (displayState === 'idle' || displayState === 'error') && (
+          <div className="mt-8">
+            <div className="flex items-center gap-2 mb-3">
+              <History size={13} className="text-hook-muted" />
+              <span className="text-xs font-medium text-hook-muted uppercase tracking-wide">Recent generations</span>
+            </div>
+            <div className="space-y-2">
+              {history.slice(0, 5).map(entry => (
+                <button
+                  key={entry.id}
+                  onClick={() => { setHistoryEntry(entry); setForm(entry.input) }}
+                  className="w-full text-left flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-hook-border hover:border-hook-glow/40 bg-hook-surface hover:bg-hook-surface/80 transition-all group"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-hook-text truncate">{entry.label}</p>
+                    <p className="text-xs text-hook-muted">{entry.result.length} hooks · {formatRelative(entry.ts)}</p>
+                  </div>
+                  <span className="text-xs text-hook-muted group-hover:text-hook-glow transition-colors shrink-0">Load →</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {displayState === 'loading' && (
           <LoadingSpinner message="Generating viral hooks…" colorClass="text-hook-glow" />
         )}
 
-        {state === 'results' && (
+        {displayState === 'results' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Zap size={18} className="text-hook-glow" />
-                <h2 className="font-semibold text-hook-text">10 hooks for &ldquo;{form.topic}&rdquo;</h2>
+                <h2 className="font-semibold text-hook-text">{allResults.length} hooks for &ldquo;{displayForm.topic}&rdquo;</h2>
+                {historyEntry && (
+                  <span className="flex items-center gap-1 text-xs text-hook-muted border border-hook-border rounded-full px-2 py-0.5">
+                    <History size={10} /> {formatRelative(historyEntry.ts)}
+                    <button onClick={() => setHistoryEntry(null)} className="ml-1 hover:text-hook-glow"><X size={9} /></button>
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {favCount > 0 && (
@@ -187,7 +242,7 @@ export default function App() {
             </div>
 
             <div className="flex items-center justify-end">
-              <span className="text-hook-muted text-xs">{form.platform} · {form.tone}</span>
+              <span className="text-hook-muted text-xs">{displayForm.platform} · {displayForm.tone}</span>
             </div>
 
             {results.map((h, i) => (

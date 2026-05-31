@@ -13,6 +13,8 @@ export interface PlatformRanking {
   strengths?: string[]
   weaknesses?: string[]
   best_for?: string
+  action_steps?: string[]
+  growth_timeline?: string
 }
 
 export interface MatcherInput {
@@ -24,16 +26,16 @@ export interface MatcherInput {
   current_following: string
 }
 
-const SYSTEM_PROMPT = `You are an expert short-form content strategist with deep knowledge of TikTok, YouTube Shorts, Instagram Reels, and Snapchat Spotlight algorithms.
+const SYSTEM_PROMPT = `You are a senior short-form content strategist who has scaled 200+ creator accounts to 100K+ followers. You have deep operational knowledge of TikTok, YouTube Shorts, Instagram Reels, and Snapchat Spotlight — their algorithms, monetisation thresholds, content discovery mechanics, and niche-specific competitive dynamics.
 
 Think step by step:
-1. First assess the creator's content type and audience fit for each platform
-2. Consider monetisation potential for their specific goal
-3. Evaluate the competitive landscape for their niche on each platform
-4. Score each dimension: audience_fit (0-10), monetisation (0-10), competition (0-10, higher = less competition = better), growth_potential (0-10)
+1. Assess the creator's content type, energy, and format against each platform's dominant content styles
+2. Model the monetisation pathway: what specific feature unlocks at what follower milestone on each platform for this goal
+3. Evaluate true competitive density — not just "fitness is popular on TikTok" but whether THIS specific angle has whitespace
+4. Score holistically (0-10): blend of audience_fit, monetisation_speed, competition_advantage, algorithm_tailwind
 
-Then output ONLY valid JSON in this exact format (no markdown, no explanation):
-{"rankings":[{"platform":"TikTok","score":X,"reasoning":"...","strengths":["..."],"weaknesses":["..."]},...],"recommendation":"...","key_insight":"one sentence summary"}`
+Then output ONLY valid JSON (no markdown, no explanation outside JSON):
+{"rankings":[{"platform":"TikTok","score":8.5,"reasoning":"2-3 sentence analytical justification","strengths":["specific strength 1","specific strength 2","specific strength 3"],"weaknesses":["specific weakness 1","specific weakness 2"],"best_for":"one sentence on the ideal creator profile for this platform","action_steps":["First concrete action to take this week","Second action in month 1","Third action to hit first monetisation milestone"],"growth_timeline":"realistic milestone timeline: e.g. 1K followers in 3 weeks, 10K in 3 months if posting 5x/week"}],"recommendation":"platform name","key_insight":"one contrarian or non-obvious insight about this creator's specific situation"}`
 
 export interface MatcherResponse {
   rankings: PlatformRanking[]
