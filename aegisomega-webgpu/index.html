@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AEGIS-Ω — σ/ρ/λ Field Engine</title>
+    <meta name="description" content="Deterministic GPU frame-graph simulation engine. σ/ρ/λ field dynamics through fully wired WebGPU compute and render pipelines." />
+    <link rel="stylesheet" href="/src/styles/global.css" />
+  </head>
+  <body>
+    <nav id="nav">
+      <span class="nav-title">AEGIS-Ω</span>
+      <span class="nav-sub">σ/ρ/λ Field Engine · WebGPU</span>
+    </nav>
+    <main id="main">
+      <section id="hero">
+        <h1>Deterministic Field Simulation</h1>
+        <p>σ/ρ/λ dynamics executing through a hash-chained frame graph. Scroll to amplify λ memory. Click and drag to inject σ energy. Space to pause · R to reset · D for debug.</p>
+      </section>
+      <section id="canvas-section">
+        <canvas id="gpu-canvas"></canvas>
+        <div id="no-webgpu" hidden>
+          <p>WebGPU is not supported in this browser. Try Chrome 113+ or Edge 113+.</p>
+        </div>
+      </section>
+    </main>
+    <div id="system-panel">
+      <div class="panel-row"><span class="label">σ</span><span id="val-sigma">—</span></div>
+      <div class="panel-row"><span class="label">ρ</span><span id="val-rho">—</span></div>
+      <div class="panel-row"><span class="label">λ</span><span id="val-lambda">—</span></div>
+      <div class="panel-row"><span class="label">frame</span><span id="val-frame">0</span></div>
+      <div class="panel-row"><span class="label">dt</span><span id="val-dt">0.016</span></div>
+      <div class="panel-row"><span class="label">scroll→λ</span><span id="val-scroll">0.50</span></div>
+    </div>
+    <div id="pause-indicator" hidden>⏸ PAUSED</div>
+    <div id="state-overlay" hidden>
+      <div class="overlay-title">Frame Graph State</div>
+      <div id="overlay-content"></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

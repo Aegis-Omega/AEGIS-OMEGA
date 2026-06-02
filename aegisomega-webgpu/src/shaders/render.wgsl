@@ -38,12 +38,8 @@ fn vs_main(@builtin(vertex_index) vi: u32) -> VertexOut {
 @group(0) @binding(2) var lambda_tex: texture_2d<f32>;
 @group(0) @binding(3) var<uniform> u: Uniforms;
 
-// ── Constants ──────────────────────────────────────────────────────────────────
-// Φ² = Φ + 1  ·  Φ - 1 = 1/Φ  ·  M = [[1,1],[1,0]]
 const PHI     : f32 = 1.61803398875;
 const INV_PHI : f32 = 0.61803398875;
-
-// ── Hash / noise ─────────────────────────────────────────────────────────────
 
 fn hash21(p: vec2<f32>) -> f32 {
   let q = fract(p * vec2<f32>(127.1, 311.7));
@@ -65,7 +61,6 @@ fn value_noise(p: vec2<f32>) -> f32 {
   return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 
-// 5-octave domain-warped fBm — unrolled for WGSL compatibility
 fn fbm(p: vec2<f32>) -> f32 {
   var v = 0.0;
   var pp = p;
@@ -77,22 +72,14 @@ fn fbm(p: vec2<f32>) -> f32 {
   return v;
 }
 
-// ── Φ-wave holographic interference ─────────────────────────────────────────────
-// Based on Φ² = Φ + 1 and Φ - 1 = 1/Φ frequency relationships.
-// σ drives resonance amplitude; λ drives phase drift.
-// Returns RGB with each channel carrying a different interference component.
 fn phi_field(st: vec2<f32>, sigma: f32, lambda: f32, time: f32) -> vec3<f32> {
   let resonance = clamp((sigma  + 1.0) * 0.55, 0.0, 1.4);
   let drift     = clamp((lambda + 0.5) * 0.45, 0.0, 1.0);
-  // Primary wave: PHI frequency in x, INV_PHI in y — rotates slowly
   let wave1 = cos(st.x * PHI + st.y * INV_PHI + time * 0.52) * (1.0 + resonance * 0.38);
-  // Secondary wave: counter-rotating — creates moiré fringes with wave1
   let wave2 = sin(st.y * INV_PHI - st.x * PHI + time * 0.41) * (1.0 - drift * 0.28);
-  // Third harmonic: PHI² = PHI + 1 frequency — adds fine structure
   let wave3 = cos(st.x * (PHI + 1.0) - st.y * PHI + time * 0.31) * 0.4;
   let interference = (wave1 + wave2 + wave3 * 0.5) / 2.5;
   let val = abs(interference);
-  // Channel split matches Grok's decomposition — R wave1, G wave2, B combined
   let seq_mod = 1.0 + sin(f32(u.frame) * 0.003) * 0.08;
   return vec3<f32>(
     abs(wave1) * 0.69 * seq_mod,
@@ -100,8 +87,6 @@ fn phi_field(st: vec2<f32>, sigma: f32, lambda: f32, time: f32) -> vec3<f32> {
     val        * 1.42
   );
 }
-
-// ── Stars with diffraction spikes ────────────────────────────────────────────
 
 fn stars(uv: vec2<f32>, density: f32, time: f32) -> vec3<f32> {
   let scale   = 300.0 * density;
@@ -114,7 +99,6 @@ fn stars(uv: vec2<f32>, density: f32, time: f32) -> vec3<f32> {
   let bright  = hash11(h + 13.1);
   let twinkle = 0.55 + 0.45 * sin(time * (2.0 + h * 3.7) + h * 61.3);
   let core    = smoothstep(0.04, 0.0, dist) * step(0.92, bright) * (bright - 0.92) * 14.0 * twinkle;
-  // 4-spike diffraction cross on brightest stars
   let dp      = local - sp;
   let spk_x   = exp(-abs(dp.y) * 90.0) * exp(-abs(dp.x) * 7.0) * max(0.0, 0.48 - abs(dp.x));
   let spk_y   = exp(-abs(dp.x) * 90.0) * exp(-abs(dp.y) * 7.0) * max(0.0, 0.48 - abs(dp.y));
@@ -127,14 +111,11 @@ fn stars(uv: vec2<f32>, density: f32, time: f32) -> vec3<f32> {
   return color * mag;
 }
 
-// ── Portal ───────────────────────────────────────────────────────────────────────────
-
 fn screen_dist(uv: vec2<f32>, center: vec2<f32>, inv_aspect: f32) -> f32 {
   let p = uv - center;
   return length(vec2<f32>(p.x * inv_aspect, p.y));
 }
 
-// Portal: chromatic rings + electricity arcs + Φ-interference interior
 fn portal(uv: vec2<f32>, sigma: f32, lambda: f32, time: f32, inv_aspect: f32) -> vec3<f32> {
   let center = vec2<f32>(0.5, 0.45);
   let ring_r = 0.32 + sigma * 0.04 + sin(time * 0.65) * 0.010;
@@ -143,7 +124,6 @@ fn portal(uv: vec2<f32>, sigma: f32, lambda: f32, time: f32, inv_aspect: f32) ->
   let d      = length(p);
   let angle  = atan2(p.y, p.x);
 
-  // Chromatic aberration: R/G/B at slightly different radii
   let dr = d - ring_r * (1.0 - chroma);
   let dg = d - ring_r;
   let db = d - ring_r * (1.0 + chroma);
@@ -155,7 +135,6 @@ fn portal(uv: vec2<f32>, sigma: f32, lambda: f32, time: f32, inv_aspect: f32) ->
   let outer = exp(-(d - ring_r * 1.30) * (d - ring_r * 1.30) *  35.0) * 0.18;
   let mask  = smoothstep(0.70, 0.0, d);
 
-  // Electricity arcs
   let arc1  = pow(max(0.0, sin(angle * 18.0 + time * 3.1 + hash11(floor(time * 0.5)) * 6.28)), 8.0);
   let arc2  = pow(max(0.0, sin(angle * 23.0 - time * 2.7 + 1.1)), 10.0);
   let arcs  = (arc1 * 0.7 + arc2 * 0.4) * exp(-(d - ring_r) * (d - ring_r) * 700.0) * 2.5;
@@ -164,7 +143,6 @@ fn portal(uv: vec2<f32>, sigma: f32, lambda: f32, time: f32, inv_aspect: f32) ->
   let g_ch = (mg + inner + outer + arcs * 0.9) * mask;
   let b_ch = (mb + inner + outer + arcs * 0.5) * mask;
 
-  // Interior: Φ-interference holographic texture replaces flat teal fill
   let st_portal  = p * (9.5 / ring_r);
   let phi        = phi_field(st_portal, sigma, lambda, time);
   let void_depth = smoothstep(ring_r * 0.52, 0.0, d);
@@ -181,12 +159,10 @@ fn portal(uv: vec2<f32>, sigma: f32, lambda: f32, time: f32, inv_aspect: f32) ->
   );
 }
 
-// Void mask for heat shimmer
 fn void_mask(uv: vec2<f32>, inv_aspect: f32) -> f32 {
   return smoothstep(0.22, 0.0, screen_dist(uv, vec2<f32>(0.5, 0.45), inv_aspect));
 }
 
-// Anamorphic lens flare: horizontal streak + ghost + hexagonal aperture
 fn lens_flare(uv: vec2<f32>, sigma: f32, time: f32, inv_aspect: f32) -> vec3<f32> {
   let center = vec2<f32>(0.5, 0.45);
   let dx     = (uv.x - center.x) * inv_aspect;
@@ -201,7 +177,6 @@ fn lens_flare(uv: vec2<f32>, sigma: f32, time: f32, inv_aspect: f32) -> vec3<f32
   return vec3<f32>(0.50, 0.78, 1.00) * (streak * 0.28 + ghost + hex) * amp;
 }
 
-// God rays: 3 harmonic sets
 fn god_rays(uv: vec2<f32>, sigma: f32, time: f32, inv_aspect: f32) -> f32 {
   let center    = vec2<f32>(0.5, 0.45);
   let p         = vec2<f32>((uv.x - center.x) * inv_aspect, uv.y - center.y);
@@ -215,7 +190,6 @@ fn god_rays(uv: vec2<f32>, sigma: f32, time: f32, inv_aspect: f32) -> f32 {
   return (primary + secondary + tertiary) * falloff * amp * smoothstep(0.04, 0.12, r);
 }
 
-// Domain-warped fBm nebula with Φ-field crystalline substructure
 fn nebula(uv: vec2<f32>, sigma: f32, lambda: f32, time: f32) -> vec3<f32> {
   let lam     = clamp((lambda + 0.5) * 1.2, 0.0, 1.0);
   let breathe = sin(time * 0.28) * 0.5 + 0.5;
@@ -228,7 +202,6 @@ fn nebula(uv: vec2<f32>, sigma: f32, lambda: f32, time: f32) -> vec3<f32> {
   let c2 = fbm(p2 + vec2<f32>(c1 * 0.55, 0.0));
   let c3 = fbm(p3 + vec2<f32>(c2 * 0.30, c1 * 0.20));
 
-  // Φ-field modulates nebula density → crystalline interference substructure
   let st_neb  = uv * 9.5 - 4.75;
   let phi     = phi_field(st_neb, sigma, lambda, time);
   let phi_mod = (phi.r * 0.4 + phi.g * 0.3 + phi.b * 0.3);
@@ -242,7 +215,6 @@ fn nebula(uv: vec2<f32>, sigma: f32, lambda: f32, time: f32) -> vec3<f32> {
   return violet_col * density * 1.3 + wisp_col * wisps * 0.9 + phi_tint;
 }
 
-// Aurora with fBm waviness + vertical ray structure
 fn aurora(uv: vec2<f32>, lambda: f32, time: f32) -> vec3<f32> {
   let lam_c = clamp((lambda + 0.4) * 1.4, 0.0, 1.0);
   let noise1 = value_noise(vec2<f32>(uv.x * 3.1 + time * 0.12, time * 0.07)) * 0.06
@@ -263,7 +235,6 @@ fn aurora(uv: vec2<f32>, lambda: f32, time: f32) -> vec3<f32> {
   return (green + violet + pink) * lam_c;
 }
 
-// Two-armed spiral galaxy with bright core
 fn galaxy(uv: vec2<f32>, lambda: f32, time: f32, inv_aspect: f32) -> f32 {
   let p     = vec2<f32>((uv.x - 0.5) * inv_aspect, uv.y - 0.5);
   let angle = atan2(p.y, p.x);
@@ -274,7 +245,6 @@ fn galaxy(uv: vec2<f32>, lambda: f32, time: f32, inv_aspect: f32) -> f32 {
   return (arm1 * 0.5 + arm2 * 0.5) * exp(-r * 4.5) * 0.55 + core;
 }
 
-// 8-tap bloom
 fn bloom(uv: vec2<f32>, dims: vec2<i32>) -> vec3<f32> {
   let iw = f32(dims.x + 1);
   let ih = f32(dims.y + 1);
@@ -311,7 +281,6 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
   let inv_aspect = 1.0 / max(u.canvas_aspect, 0.1);
   let time       = f32(u.frame) * 0.016;
 
-  // Heat shimmer: distort UV inside portal void before field reads
   let vm      = void_mask(uv, inv_aspect);
   let shimmer = vec2<f32>(
     sin(uv.y * 44.0 + time * 2.4) * 0.0028,
@@ -334,15 +303,10 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
                  + stars(uv * 2.414, 0.35, time * 0.53) * 0.35;
 
   let portal_color = portal(uv, sigma, lambda, time, inv_aspect);
-
   let ray_color = vec3<f32>(0.28, 0.76, 0.98) * god_rays(uv, sigma, time, inv_aspect) * 1.5;
-
   let flare_color = lens_flare(uv, sigma, time, inv_aspect);
-
   let aurora_color = aurora(uv, lambda, time);
-
   let nebula_color = nebula(uv, sigma, lambda, time);
-
   let galaxy_col = vec3<f32>(0.55, 0.78, 1.00) * galaxy(uv, lambda, time, inv_aspect) * 0.80;
 
   let gold_bright = vec3<f32>(1.00, 0.72, 0.08) * pow(rho, 1.4) * 3.2;
@@ -350,9 +314,9 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 
   let iridescent = vec3<f32>(0.30, 0.98, 0.92) * exp(-sigma * sigma * 6.0) * 0.55;
 
-  // Φ-field global holographic shimmer (faint screen-wide overlay)
-  let st_global  = (uv * 2.0 - 1.0) * 9.5;
-  let phi_overlay = phi_field(st_global, sigma, lambda, time) * 0.028;
+  let st_global = (uv * 2.0 - 1.0) * 9.5;
+  let phi_global = phi_field(st_global, sigma, lambda, time);
+  let phi_overlay = phi_global * 0.028;
 
   let bloom_color = bloom(uv, dims) * 0.85;
 
@@ -381,6 +345,6 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
   let mapped   = hdr * (1.0 + lum * 0.18) / (1.0 + hdr);
   let gray      = vec3<f32>(dot(mapped, vec3<f32>(0.333)));
   let saturated = mix(gray, mapped, 1.18);
-  let gamma    = pow(clamp(saturated, vec3<f32>(0.0), vec3<f32>(1.0)), vec3<f32>(1.0 / 2.2));
+  let gamma = pow(clamp(saturated, vec3<f32>(0.0), vec3<f32>(1.0)), vec3<f32>(1.0 / 2.2));
   return vec4<f32>(gamma, 1.0);
 }
