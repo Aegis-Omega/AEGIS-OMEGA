@@ -12,6 +12,26 @@ import { AgentSwarm } from './components/AgentSwarm.js'
 import { WebGPUBackground } from './components/WebGPUBackground.js'
 import { useSubstrate, certify } from './lib/substrate.js'
 import { useBridgeTelemetry } from './lib/telemetry.js'
+import { gpuBus, type GPUFieldSnapshot } from './lib/gpuBus.js'
+
+// Live GPU field values polled from the WebGPU bus every 200ms.
+// Shows nothing until first GPU readback (frame > 0).
+function FieldDisplay() {
+  const [snap, setSnap] = useState<GPUFieldSnapshot>({ sigma: 0, rho: 0, lambda: 0, frame: 0 })
+
+  useEffect(() => {
+    const id = setInterval(() => setSnap({ ...gpuBus.snapshot }), 200)
+    return () => clearInterval(id)
+  }, [])
+
+  if (snap.frame === 0) return null
+
+  return (
+    <p className="text-xs font-mono animate-fade-up" style={{ color: '#2D2D35' }}>
+      σ={snap.sigma.toFixed(3)}&nbsp;&nbsp;ρ={snap.rho.toFixed(3)}&nbsp;&nbsp;λ={snap.lambda.toFixed(3)}&nbsp;&nbsp;{snap.frame.toLocaleString()} frames
+    </p>
+  )
+}
 
 function captureEvent(event: string, props?: Record<string, unknown>): void {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -148,6 +168,7 @@ function AutomatonPage() {
         <p className="text-xs animate-fade-up delay-150" style={{ color: '#374151' }}>
           Click anywhere to disturb the σ field · scroll to deepen λ memory
         </p>
+        <FieldDisplay />
 
         {/* Live consciousness banner */}
         <div className="flex justify-center mb-8 animate-fade-up delay-200">

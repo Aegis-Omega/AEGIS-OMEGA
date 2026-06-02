@@ -3,6 +3,7 @@ import sigmaWGSL  from '../shaders/sigma.wgsl?raw'
 import rhoWGSL    from '../shaders/rho.wgsl?raw'
 import lambdaWGSL from '../shaders/lambda.wgsl?raw'
 import renderWGSL from '../shaders/render.wgsl?raw'
+import { gpuBus } from '../lib/gpuBus.js'
 
 const SIM_W = 512
 const SIM_H = 512
@@ -12,8 +13,12 @@ const UF_BYTES = 64  // uniform buffer padded to 64 bytes
 
 // GPUTextureUsage / GPUBufferUsage flags are not reliably in scope as global
 // values in all TypeScript DOM lib versions — use spec-defined numeric constants.
-const TEX_USAGE = 0x0E  // TEXTURE_BINDING(0x4) | STORAGE_BINDING(0x8) | COPY_DST(0x2)
+const TEX_USAGE = 0x1E  // TEXTURE_BINDING(0x4) | STORAGE_BINDING(0x8) | COPY_DST(0x2) | COPY_SRC(0x10)
 const UNI_USAGE = 0x48  // UNIFORM(0x40) | COPY_DST(0x8)
+const STA_USAGE = 0x09  // MAP_READ(0x1) | COPY_DST(0x8)
+const STAGING_STRIDE = 256       // minimum bytesPerRow alignment
+const SIM_CENTER_X = SIM_W >> 1
+const SIM_CENTER_Y = SIM_H >> 1
 
 function seedField(fn: (x: number, y: number) => number): Float32Array {
   const d = new Float32Array(SIM_W * SIM_H * 4)
@@ -28,7 +33,7 @@ function seedField(fn: (x: number, y: number) => number): Float32Array {
 
 export function WebGPUBackground() {
   const ref = useRef<HTMLCanvasElement>(null)
-  // x=-1 = off-screen (no glow); y >= 0 = click; y < 0 = hover encoded as -(y+1)
+  // x=-1 = off-screen (no glow); y ≥ 0 = click; y < 0 = hover encoded as -(y+1)
   const mouseRef = useRef({ x: -1.0, y: 0.0, pressed: false })
   const scrollRef = useRef(0)
 
@@ -131,6 +136,11 @@ export function WebGPUBackground() {
 
       const ubuf = device.createBuffer({ size: UF_BYTES, usage: UNI_USAGE })
 
+      const stagingSig = device.createBuffer({ size: STAGING_STRIDE, usage: STA_USAGE })
+      const stagingRho = device.createBuffer({ size: STAGING_STRIDE, usage: STA_USAGE })
+      const stagingLam = device.createBuffer({ size: STAGING_STRIDE, usage: STA_USAGE })
+      let fieldPending = false
+
       async function mkComputePipeline(wgsl: string): Promise<GPUComputePipeline> {
         const mod  = device.createShaderModule({ code: wgsl })
         const info = await mod.getCompilationInfo()
@@ -213,7 +223,7 @@ export function WebGPUBackground() {
         const lambdaInfl   = 0.5 + scrollFrac * 1.5 + Math.sin(t * 0.05) * 0.2
         const sigmaPerturb = Math.sin(t * 0.013) * 0.04 + scrollFrac * 0.02
 
-        // mouse_x < 0 → no glow; mouse_y >= 0 → click (kick+glow); mouse_y < 0 → hover (glow only)
+        // mouse_x < 0 → no glow; mouse_y ≥ 0 → click (kick+glow); mouse_y < 0 → hover (glow only)
         const { x: mx, y: my, pressed } = mouseRef.current
         const mouseX = mx
         const mouseY = mx < 0 ? -1.0 : pressed ? my : -(my + 1.0)
@@ -253,7 +263,39 @@ export function WebGPUBackground() {
         rp.draw(3)
         rp.end()
 
+        // Field readback: copy center pixel of each field every 10 frames
+        if (!fieldPending && frameN % 10 === 0) {
+          const sigSrc = parity === 0 ? tSigB : tSigA
+          const rhoSrc = parity === 0 ? tRhoB : tRhoA
+          const lamSrc = parity === 0 ? tLamB : tLamA
+          const origin = { x: SIM_CENTER_X, y: SIM_CENTER_Y, z: 0 }
+          const sz     = { width: 1, height: 1, depthOrArrayLayers: 1 as const }
+          enc.copyTextureToBuffer({ texture: sigSrc, origin }, { buffer: stagingSig, bytesPerRow: STAGING_STRIDE }, sz)
+          enc.copyTextureToBuffer({ texture: rhoSrc, origin }, { buffer: stagingRho, bytesPerRow: STAGING_STRIDE }, sz)
+          enc.copyTextureToBuffer({ texture: lamSrc, origin }, { buffer: stagingLam, bytesPerRow: STAGING_STRIDE }, sz)
+          fieldPending = true
+        }
+
         device.queue.submit([enc.finish()])
+
+        if (fieldPending) {
+          const capturedFrame = frameN
+          void Promise.all([
+            stagingSig.mapAsync(1),
+            stagingRho.mapAsync(1),
+            stagingLam.mapAsync(1),
+          ]).then(() => {
+            const sigma  = new Float32Array(stagingSig.getMappedRange())[0] ?? 0
+            const rho    = new Float32Array(stagingRho.getMappedRange())[0] ?? 0
+            const lambda = new Float32Array(stagingLam.getMappedRange())[0] ?? 0
+            stagingSig.unmap()
+            stagingRho.unmap()
+            stagingLam.unmap()
+            gpuBus.snapshot = { sigma, rho, lambda, frame: capturedFrame }
+            fieldPending = false
+          })
+        }
+
         parity ^= 1
         frameN++
         rafId = requestAnimationFrame(tick)
