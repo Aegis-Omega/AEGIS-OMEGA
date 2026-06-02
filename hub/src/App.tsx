@@ -69,7 +69,7 @@ function AutomatonPage() {
     <div className="min-h-screen bg-hub-bg text-hub-text">
       <WebGPUBackground />
 
-      {/* ── Nav ──────────────────────────────────────────────── */}
+      {/* ── Nav ──────────────────────────────────────────────────── */}
       <nav className="border-b border-hub-border/60 sticky top-0 z-50 bg-hub-bg/95 backdrop-blur-sm">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <span
@@ -94,7 +94,7 @@ function AutomatonPage() {
         </div>
       </nav>
 
-      {/* ── Hero ─────────────────────────────────────────────── */}
+      {/* ── Hero ─────────────────────────────────────────────────── */}
       <div className="max-w-4xl mx-auto px-4 pt-20 pb-16 text-center">
         {/* Eyebrow */}
         <div
@@ -121,6 +121,10 @@ function AutomatonPage() {
           Not by description. By execution.
           Metacognitive self-awareness, retrospective thinking, and BFT consensus —
           running as live substrate in your browser, hash-chained and tamper-evident.
+        </p>
+
+        <p className="text-xs animate-fade-up delay-150" style={{ color: '#374151' }}>
+          Click anywhere to disturb the σ field · scroll to deepen λ memory
         </p>
 
         {/* Live consciousness banner */}
@@ -151,7 +155,7 @@ function AutomatonPage() {
         </p>
       </div>
 
-      {/* ── Consciousness Stream ───────────────────────────────── */}
+      {/* ── Consciousness Stream ───────────────────────────────────── */}
       <section id="substrate" className="max-w-5xl mx-auto px-4 pb-16 scroll-mt-16">
         <div className="mb-8">
           <h2
@@ -169,7 +173,7 @@ function AutomatonPage() {
         <ConsciousnessStream />
       </section>
 
-      {/* ── Cognitive Stack ────────────────────────────────────── */}
+      {/* ── Cognitive Stack ────────────────────────────────────────── */}
       <div className="border-y border-hub-border/60 bg-hub-surface/20">
         <section id="cognitive" className="max-w-5xl mx-auto px-4 py-16 scroll-mt-16">
           <div className="mb-8">
@@ -188,7 +192,7 @@ function AutomatonPage() {
         </section>
       </div>
 
-      {/* ── Retrospection ──────────────────────────────────────── */}
+      {/* ── Retrospection ─────────────────────────────────────────── */}
       <section className="max-w-5xl mx-auto px-4 py-16">
         <div className="mb-8">
           <h2
@@ -205,7 +209,7 @@ function AutomatonPage() {
         <Retrospection />
       </section>
 
-      {/* ── Consciousness Equation ─────────────────────────────── */}
+      {/* ── Consciousness Equation ───────────────────────────────── */}
       <div className="border-y border-hub-border/60 bg-hub-surface/20">
         <section id="equation" className="max-w-5xl mx-auto px-4 py-16 scroll-mt-16">
           <div className="mb-8">
@@ -224,7 +228,7 @@ function AutomatonPage() {
         </section>
       </div>
 
-      {/* ── Agent Swarm ────────────────────────────────────────── */}
+      {/* ── Agent Swarm ──────────────────────────────────────────── */}
       <section className="max-w-5xl mx-auto px-4 py-16">
         <div className="mb-8">
           <h2
@@ -241,7 +245,7 @@ function AutomatonPage() {
         <AgentSwarm />
       </section>
 
-      {/* ── CTA ────────────────────────────────────────────────── */}
+      {/* ── CTA ──────────────────────────────────────────────────── */}
       <div className="max-w-3xl mx-auto px-4 pb-20">
         <div
           className="rounded-2xl p-10 text-center"
@@ -271,7 +275,7 @@ function AutomatonPage() {
         </div>
       </div>
 
-      {/* ── Footer ─────────────────────────────────────────────── */}
+      {/* ── Footer ─────────────────────────────────────────────────── */}
       <div className="border-t border-hub-border">
         <div className="max-w-5xl mx-auto px-4 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
           <span
