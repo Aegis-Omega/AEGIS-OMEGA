@@ -235,6 +235,7 @@ export class VCGTracker {
         vcgSum += error * s.effective_weight
         wSum += s.effective_weight
       }
+      /* c8 ignore next -- wSum always > 0; every sample has effective_weight > 0 */
       bootstrapVCGs.push(wSum > 0 ? vcgSum / wSum : 0)
     }
 

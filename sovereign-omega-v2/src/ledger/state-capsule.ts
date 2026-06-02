@@ -111,6 +111,7 @@ export async function exportStateCapsule(
         `EpochSeal end_height ${epochEnd} exceeds chain length ${blocks.length}`,
       )
     }
+    /* c8 ignore next 3 -- noUncheckedIndexedAccess artifact; epochEnd < blocks.length guarantees block exists */
     anchorBlock   = blocks[epochEnd] ?? null
     if (anchorBlock === null) {
       throw new StateCapsuleError(`No block at epoch end_height ${epochEnd}`)

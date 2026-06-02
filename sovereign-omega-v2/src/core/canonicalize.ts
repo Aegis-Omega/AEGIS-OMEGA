@@ -62,6 +62,7 @@ function serializeValue(value: unknown): string {
 
   if (value === undefined) throw new TypeError('undefined is not JSON-serialisable')
   if (type === 'function') throw new TypeError('function is not JSON-serialisable')
+  /* c8 ignore next -- only symbol values reach this point; false branch structurally impossible */
   if (type === 'symbol') throw new TypeError('symbol is not JSON-serialisable')
 
   /* c8 ignore next -- TypeScript exhausts all reachable types above; no well-typed caller reaches this */
@@ -161,6 +162,7 @@ export function verifyRFC8785Conformance(): { passed: number; failed: Array<{ in
   const failed: Array<{ index: number; expected: string; got: string }> = []
   for (let i = 0; i < RFC8785_TEST_VECTORS.length; i++) {
     const vec = RFC8785_TEST_VECTORS[i]
+    /* c8 ignore next -- noUncheckedIndexedAccess artifact; i < RFC8785_TEST_VECTORS.length guarantees vec is defined */
     if (!vec) continue
     const got = canonicalizeJCSString(vec.input)
     /* c8 ignore next -- RFC8785 test vectors all pass by T0 guarantee; failure path exists for debugging broken implementations */

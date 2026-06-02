@@ -71,6 +71,7 @@ export class BlockChain {
   async verifyAll(): Promise<boolean> {
     for (let i = 0; i < this._blocks.length; i++) {
       const block    = this._blocks[i]!
+      /* c8 ignore next -- noUncheckedIndexedAccess artifact; i > 0 guarantees _blocks[i-1] is defined */
       const prevBlock = i === 0 ? null : (this._blocks[i - 1] ?? null)
       const valid    = await verifyBlock(block, prevBlock)
       if (!valid) return false
