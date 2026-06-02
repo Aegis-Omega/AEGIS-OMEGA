@@ -88,6 +88,16 @@ export function verifyGrantToken(token: string): GrantPayload | null {
   }
 }
 
+const SERVER_TOKEN_KEY = (product: string) => `aegis_srv_${product}`
+
+export function storeServerToken(product: string, token: string): void {
+  localStorage.setItem(SERVER_TOKEN_KEY(product), token)
+}
+
+export function getStoredServerToken(product: string): string | null {
+  return localStorage.getItem(SERVER_TOKEN_KEY(product))
+}
+
 const STORAGE_KEY = (product: string) => `aegis_access_${product}`
 
 export function getStoredAccess(product: string): GrantPayload | null {

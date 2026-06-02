@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle, ExternalLink, Zap, Mail, Loader2 } from 'lucide-react'
-import { createGrantToken, verifyServerToken, storeAccess, type Plan, type GrantPayload } from '../lib/access.js'
+import { verifyServerToken, storeServerToken, type Plan } from '../lib/access.js'
 
 const TOOL_URLS: Record<string, string> = {
   'platform-picker':  import.meta.env.VITE_URL_PLATFORM_PICKER  ?? 'https://platform.aegisomega.com',
@@ -69,20 +69,12 @@ function RestoreForm() {
 
       if (!data.found || !data.aegis_token) { setStatus('notfound'); return }
 
-      // Verify the server-issued ECDSA token before trusting the plan
       const payload = await verifyServerToken(data.aegis_token)
       if (!payload) { setStatus('error'); return }
 
-      // Create a legacy local token (same format AccessGate already understands)
-      const token = createGrantToken(payload.plan as Plan)
-
-      // Pre-store access for each tool so same-domain localStorage checks work too
-      payload.tools.forEach(tool => {
-        storeAccess(tool, { ...payload, sig: 'server' } as GrantPayload)
-      })
-
+      payload.tools.forEach(tool => storeServerToken(tool, data.aegis_token!))
       setRestoredTools(payload.tools)
-      setLocalToken(token)
+      setLocalToken(data.aegis_token!)
       setStatus('found')
     } catch {
       setStatus('error')
@@ -160,9 +152,9 @@ async function fetchTokenForOrder(
       if (!data.aegis_token) return null
       const payload = await verifyServerToken(data.aegis_token)
       if (!payload) return null
-      const plan  = payload.plan as Plan
-      const token = createGrantToken(plan)
-      return { plan, token }
+      const plan = payload.plan as Plan
+      payload.tools.forEach(tool => storeServerToken(tool, data.aegis_token!))
+      return { plan, token: data.aegis_token }
     } catch {
       return null
     }
@@ -179,7 +171,6 @@ export function SuccessPage() {
   useEffect(() => {
     const params  = new URLSearchParams(window.location.search)
     const orderId = params.get('order_id')
-    const legacy  = params.get('plan') as Plan | null
     window.history.replaceState({}, '', window.location.pathname)
 
     if (orderId) {
@@ -189,9 +180,6 @@ export function SuccessPage() {
         else setFailed(true)
         setLoading(false)
       })
-    } else if (legacy && ['single', 'starter', 'full'].includes(legacy)) {
-      setPlan(legacy)
-      setToken(createGrantToken(legacy))
     }
   }, [])
 

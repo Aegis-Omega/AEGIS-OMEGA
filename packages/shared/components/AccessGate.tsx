@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import { Shield, Zap, CheckCircle } from 'lucide-react'
-import { verifyGrantToken, getStoredAccess, storeAccess } from '../lib/access.js'
+import { verifyGrantToken, verifyServerToken, getStoredAccess, storeAccess, storeServerToken, getStoredServerToken } from '../lib/access.js'
 
 interface AccessGateProps {
   product: 'platform-picker' | 'hook-generator' | 'content-calendar'
@@ -27,30 +27,50 @@ export function AccessGate({ product, accentColor = '#6366F1', buyUrl, children 
   useEffect(() => {
     if (DEV_BYPASS) { setUnlocked(true); setChecking(false); return }
 
-    // Check for grant token in URL
-    const params = new URLSearchParams(window.location.search)
-    const token = params.get('aegis_token')
-    if (token) {
-      const payload = verifyGrantToken(token)
-      if (payload && payload.tools.includes(product)) {
-        storeAccess(product, payload)
-        // Clean URL without reloading
-        const url = new URL(window.location.href)
-        url.searchParams.delete('aegis_token')
-        window.history.replaceState({}, '', url.toString())
-        setJustGranted(true)
-        setTimeout(() => { setUnlocked(true); setJustGranted(false) }, 1200)
-        setChecking(false)
-        return
-      }
-    }
+    ;(async () => {
+      const params = new URLSearchParams(window.location.search)
+      const token = params.get('aegis_token')
 
-    // Check localStorage
-    const stored = getStoredAccess(product)
-    if (stored) {
-      setUnlocked(true)
-    }
-    setChecking(false)
+      if (token) {
+        // Try ECDSA-signed server token first (cryptographically secure)
+        const serverPayload = await verifyServerToken(token)
+        if (serverPayload && serverPayload.tools.includes(product)) {
+          storeServerToken(product, token)
+          const url = new URL(window.location.href)
+          url.searchParams.delete('aegis_token')
+          window.history.replaceState({}, '', url.toString())
+          setJustGranted(true)
+          setTimeout(() => { setUnlocked(true); setJustGranted(false) }, 1200)
+          setChecking(false)
+          return
+        }
+        // Fall back to legacy HMAC token (backwards compatibility)
+        const payload = verifyGrantToken(token)
+        if (payload && payload.tools.includes(product)) {
+          storeAccess(product, payload)
+          const url = new URL(window.location.href)
+          url.searchParams.delete('aegis_token')
+          window.history.replaceState({}, '', url.toString())
+          setJustGranted(true)
+          setTimeout(() => { setUnlocked(true); setJustGranted(false) }, 1200)
+          setChecking(false)
+          return
+        }
+      }
+
+      // Check stored ECDSA server token
+      const serverToken = getStoredServerToken(product)
+      if (serverToken) {
+        const serverPayload = await verifyServerToken(serverToken)
+        if (serverPayload) { setUnlocked(true); setChecking(false); return }
+        localStorage.removeItem(`aegis_srv_${product}`)
+      }
+
+      // Check stored legacy token
+      const stored = getStoredAccess(product)
+      if (stored) { setUnlocked(true) }
+      setChecking(false)
+    })()
   }, [product])
 
   if (checking) return null
