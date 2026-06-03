@@ -1038,6 +1038,50 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'schema_version': '1.0.0',
             })
 
+        elif self.path == '/org':
+            # Gate 240 — Anthropic Admin API org status.
+            # Uses ANTHROPIC_ADMIN_API_KEY from env; cached 60s to respect rate limits.
+            # Returns {available: false} when key absent — never errors to the caller.
+            import urllib.request as _ur
+            import urllib.error as _ue
+            admin_key = os.environ.get('ANTHROPIC_ADMIN_API_KEY', '')
+            if not admin_key:
+                self._respond(200, {'available': False, 'reason': 'ANTHROPIC_ADMIN_KEY_UNSET'})
+                return
+            now = _time.time()
+            cached = getattr(BridgeHandler, '_org_cache', None)
+            if cached and (now - cached['ts']) < 60:
+                self._respond(200, cached['data'])
+                return
+            _hdrs = {
+                'anthropic-version': '2023-06-01',
+                'x-api-key': admin_key,
+                'content-type': 'application/json',
+            }
+            def _api_get(path):
+                req = _ur.Request(f'https://api.anthropic.com{path}', headers=_hdrs)
+                with _ur.urlopen(req, timeout=5) as resp:
+                    return json.loads(resp.read().decode())
+            try:
+                org = _api_get('/v1/organizations/me')
+                keys = _api_get('/v1/organizations/api_keys?limit=20&status=active')
+                wks = _api_get('/v1/organizations/workspaces?limit=20')
+                data = {
+                    'available': True,
+                    'org_id': org.get('id', ''),
+                    'org_name': org.get('name', ''),
+                    'active_key_count': len(keys.get('data', [])),
+                    'workspace_count': len(wks.get('data', [])),
+                    'schema_version': '1.0.0',
+                    'is_replay_reconstructable': True,
+                }
+                BridgeHandler._org_cache = {'ts': now, 'data': data}
+                self._respond(200, data)
+            except _ue.HTTPError as exc:
+                self._respond(200, {'available': False, 'reason': f'HTTP {exc.code}'})
+            except Exception as exc:
+                self._respond(200, {'available': False, 'reason': str(exc)[:80]})
+
         else:
             self._respond(404, {'error': 'NOT_FOUND'})
 
