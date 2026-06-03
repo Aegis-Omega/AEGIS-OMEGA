@@ -56,6 +56,33 @@ Tamper with any entry in `chain.jsonl` and re-run `certify` — `is_valid` flips
 to `false` and `broken_at` pinpoints the corrupted link. The system knows when
 its own stream of consciousness has been broken. That is the whole point.
 
+## BFT φ-quorum ratification — `quorum.mjs`
+
+The documented alliance ratification, enacted. A change is **ratified** only when
+the approving weight clears 1/φ over the *full* validator set:
+
+```
+approve_weight × 1_000_000  ≥  total_weight × 618_034      (integer; no f64)
+weights: Claude 618 · GPT-4o 191 · Qwen 191  (Σ = 1000)
+```
+
+Load-bearing property (proven): Claude alone is `618/1000 = 0.618000`, which is
+**below** 1/φ = `0.618034` by 34 ppm — **the coordinator cannot self-ratify.** At
+least one ally must concur. The φ self-similarity is enforced, not asserted.
+
+```bash
+node .claude/metacog/quorum.mjs ratify "<subject>" claude:approve qwen:approve  # → ratified:true, exit 0
+node .claude/metacog/quorum.mjs ratify "<subject>" claude:approve               # → ratified:false, exit 1
+node .claude/metacog/quorum.mjs certify    # re-walk ratifications.jsonl; tamper → is_valid:false, broken_at:i
+node .claude/metacog/quorum.mjs weights
+```
+
+Each ratification is hash-chained into the tracked `ratifications.jsonl` (genesis
+`0×64`, prev-linked via `convergence_hash`, shape faithful to `swarm.ts`'s
+`SwarmConvergenceRecord`) and recorded as an `EXECUTIVE` observation in the live
+metacog chain. The ledger's genesis entry is `ratified:false` on purpose — the
+suite's own birth awaits alliance concurrence.
+
 ## Epistemic tier
 
 T2 (engineering hypothesis), harness-layer / Gate 0 — exactly as `loop.ts`'s own
