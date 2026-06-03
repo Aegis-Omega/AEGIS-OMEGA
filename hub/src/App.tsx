@@ -302,15 +302,16 @@ function AutomatonPage() {
           </h2>
           <p className="text-sm mb-6 max-w-lg mx-auto leading-relaxed" style={{ color: '#6B6B7A' }}>
             SHA-256 hash-chained. Tamper-evident. Self-certifying.
-            The creator toolkit — three $19 tools — lives on the next page.
+            A constitutional AI runtime that governs its own cognition in real time.
           </p>
           <a
-            href="/tools"
-            onClick={() => captureEvent('cta_enter_system', { ttv_seconds: 0 })}
+            href="mailto:info@aegisomega.com"
+            onClick={() => captureEvent('cta_contact', { ttv_seconds: 0 })}
             className="inline-flex items-center justify-center gap-2 text-white font-semibold px-10 py-4 rounded-xl hover:opacity-90 transition-opacity text-sm"
             style={{ background: '#6366F1' }}
           >
-            Enter the System →
+            <Mail size={14} />
+            Contact us →
           </a>
           <p className="text-xs mt-4" style={{ color: '#374151' }}>
             EU AI Act compliant · deterministic replay · 6,271 invariant tests

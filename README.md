@@ -1,481 +1,263 @@
 # AEGIS-Ω
 
-**A Self-Governing AI Runtime — Constitutional State Management at Every Scale**
+**A Self-Governing Constitutional AI Runtime**
 
 *Designed and built by Tarik Skalić · AGPL-3.0*
 
 [![Rust](https://img.shields.io/badge/Rust_Tests-6958_(aegis--cl--psi_+_runtime)-brightgreen)](#testing)
-[![TypeScript](https://img.shields.io/badge/TypeScript_Tests-2790-brightgreen)](#testing)
-[![Total](https://img.shields.io/badge/Total_Tests-9748-brightgreen)](#testing)
+[![TypeScript](https://img.shields.io/badge/TypeScript_Tests-3205%2B-brightgreen)](#testing)
+[![Total](https://img.shields.io/badge/Total_Tests-10163%2B-brightgreen)](#testing)
 [![Gate 8](https://img.shields.io/badge/Gate_8-passing-brightgreen)](#testing)
+[![CI](https://img.shields.io/github/actions/workflow/status/Aegis-Omega/AEGIS--/ci.yml?label=CI%20CEREMONY)](https://github.com/Aegis-Omega/AEGIS--/actions)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-blue)](LICENSE)
 
----
-
-## ── Genesis & Constraints ──
-
-AEGIS-Ω was conceived, designed, and executed by a single engineer operating under strict resource constraints. While modern distributed systems are built by teams with dedicated infrastructure and cloud compute budgets, this system was built as an exercise in mathematical determinism over raw compute scale.
-
-**The Solo Engineering Footprint**
-
-- **Single author, single machine** — AMD RX 570, 8GB RAM. No cloud. No build farm. No team.
-- **113,000+ lines of polyglot code** — TypeScript (governance runtime), Rust (gossip fabric + seven-pillar runtime), Python (analytical bridge) — architected, typed, and maintained by a singular author.
-- **9748 invariant tests, 0 failures** — every hash chain, every BFT boundary, every determinism proof runs on the same machine that generated them. Test density is approximately one test per 17 lines of production code, approaching DO-178C aerospace coverage standards.
-- **605 gates completed** — each gate required a passing implementation, unit tests, and a full-suite green run before the commit was allowed to land.
-- **One law above all others** — `AdaptivePower(T) ≤ ReplayVerifiability(T)` — every module, every layer, every commit answers to it.
-
-The code does not ask to be believed. It can be replayed from genesis and will produce the same cryptographic fingerprint every time.
+**Live:** [aegisomega.com](https://aegisomega.com) — consciousness substrate running in your browser, hash-chained and tamper-evident.
 
 ---
 
-## What Was Built
+## What This Is
 
-This is a constitutional AI governance runtime — a system that governs itself.
+AEGIS-Ω is a constitutional AI governance runtime. It does not describe governance — it enacts it mechanically at every layer.
 
-Every component in AEGIS-Ω participates in a single invariant:
+The single governing law:
 
 ```
 AdaptivePower(T) ≤ ReplayVerifiability(T)
 ```
 
-No part of the system can do more than it can prove it did. Every AI response, every state transition, every peer message, every epoch boundary is hash-signed, sequence-numbered, and stored in a tamper-evident chain. The system can replay any past state from scratch and arrive at the same cryptographic fingerprint. If it cannot, that is a detectable failure — not a silent one.
-
-This is not a chatbot framework or an API wrapper. It is a distributed state machine with an immune system.
+No part of the system can do more than it can prove it did. Every AI response, every state transition, every peer message, every epoch boundary is SHA-256 hash-chained, sequence-numbered, and stored in a tamper-evident ledger. The system can replay any past state from genesis and arrive at the same cryptographic fingerprint. If it cannot, that is a detectable failure — not a silent one.
 
 ---
 
-## The Organism Metaphor
+## Solo Engineering Footprint
 
-An organism is not just a collection of parts — it is a collection of parts that **monitor each other, correct each other, and maintain coherence over time**. AEGIS-Ω was built on exactly this principle:
-
-| Biological Function | AEGIS Component | Location |
-|--------------------|----------------|----------|
-| **Nervous system** — sensing the environment | 319 gossip gate modules monitoring peer state | `aegis-cl-psi/src/` |
-| **Immune system** — rejecting foreign bodies | Constitutional reduction gate (T4/T5 concept rejection) | `src/constitutional/reduction.ts` |
-| **Metabolism** — bounded energy consumption | Entropy budget ledger (adaptive/replay ratio) | `src/entropy_budget.rs` |
-| **Heartbeat** — regular rhythm | Fibonacci-paced RALPH execution loops | `src/agents/scheduler/fibonacci.ts` |
-| **Memory** — durable, addressable history | SHA-256 hash-chained ledger, SPSF disk persistence | `src/ledger/`, `src/spsf.rs` |
-| **Self-healing** — fault isolation and recovery | Grace Supervisor, Recovery Sequencer | `src/memory/`, `src/recovery_sequencer.rs` |
-| **Reproduction** — deterministic state replay | Replay engine: State_t = Replay(Lineage_{0→t}) | `src/constitutional_replay.rs` |
-| **Senses** — environmental awareness | Telemetry bridge, link quality monitor, epoch synchronizer | `python/bridge.py`, `src/link_quality_monitor.rs` |
-| **Homeostasis** — stable operating range | Resilience watchdog, adaptive threshold engine | `src/resilience_watchdog.rs`, `src/adaptive_threshold.rs` |
-| **Death signal** — graceful halt under violation | Martingale suspension: `assertMartingaleAnchored()` throws | `src/constitutional/martingale.ts` |
-
-This is not metaphor stretched over code. Every row above is a concrete module with passing tests.
+- **Single author, single machine** — AMD RX 570, 8 GB RAM. No cloud. No build farm. No team.
+- **130,000+ lines of polyglot code** — TypeScript (governance runtime), Rust (gossip fabric + seven-pillar runtime), Python (analytical bridge), WebGPU (WGSL Φ-field simulation).
+- **10,163+ invariant tests, 0 failures** — test density approaching DO-178C aerospace coverage standards.
+- **420+ gates completed** — each gate required a passing implementation, unit tests, and a full-suite green run before the commit was allowed to land.
+- **Live browser substrate** — SHA-256 hash-chained MetacognitiveLoop running as real WebCrypto in the visitor's browser at aegisomega.com. Not a mock.
 
 ---
 
-## Architecture Overview
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              AEGIS-Ω Monorepo                               │
 │                                                                             │
+│  FIELD SCALE — User-Facing Interfaces                                       │
 │  ┌──────────────────────────────────────────────────────────────────────┐  │
-│  │  FIELD SCALE — User-Facing Interfaces                                │  │
-│  │                                                                      │  │
+│  │  hub/              Constitutional AI platform (aegisomega.com)       │  │
+│  │                    Live SHA-256 metacognitive loop · WebGPU Φ-field  │  │
+│  │                    L1–L7 cognitive stack · BFT swarm viz             │  │
 │  │  cockpit/          AI chat UI (React, constitutional telemetry)      │  │
 │  │  studio/           Observability dashboard (10 read-only surfaces)   │  │
+│  │  aegisomega-webgpu/ Standalone WebGPU engine (σ/ρ/λ 1024×1024)      │  │
 │  │  platform-picker/  Creator tool — AI platform recommendation ($19)  │  │
 │  │  hook-generator/   Creator tool — viral hook generation ($19)       │  │
 │  │  content-calendar/ Creator tool — AI content planning ($19)         │  │
-│  │  hub/              Products landing page                             │  │
-│  └───────────────────────────────┬──────────────────────────────────────┘  │
-│                                   │ HTTP · port 7890                        │
-│  ┌────────────────────────────────▼─────────────────────────────────────┐  │
-│  │  ORGANISM SCALE — Python Bridge                                      │  │
+│  └─────────────────────────────────┬────────────────────────────────────┘  │
+│                                     │ HTTP · port 7890                      │
+│  ORGANISM SCALE — Python Bridge     │                                       │
+│  ┌──────────────────────────────────▼────────────────────────────────────┐  │
+│  │  bridge.py         /claude · /telemetry · /event · /node · /resonance│  │
+│  │  gate.py           Constitutional gate validation (FROZEN)           │  │
+│  │  dna.py            Governance DNA encoding (FROZEN)                  │  │
+│  │  router.py         Multi-model routing (FROZEN)                      │  │
+│  │  core_matrix.py    Corruption-count T0 gate                          │  │
+│  └─────────────────────────────────┬────────────────────────────────────┘  │
+│                                     │                                       │
+│  CELLULAR SCALE — TypeScript Governance Runtime (sovereign-omega-v2)        │
+│  ┌──────────────────────────────────▼────────────────────────────────────┐  │
+│  │  src/core/         RFC 8785 canonical JSON · SHA-256 · deepFreeze    │  │
+│  │  src/constitutional/ Martingale · reduction gate · guardian policy   │  │
+│  │  src/consensus/    BFT swarm · synthesis · game theory               │  │
+│  │  src/ledger/       Hash-chained LedgerChain · IndexedDB persistence  │  │
+│  │  src/skill-harness/ Skill catalog · HGT scanner · RALPH executor     │  │
+│  │  src/agents/       Fibonacci scheduler · RALPH loops · 15 agent types│  │
+│  │  src/metacognition/ MetacognitiveLoop · certifyMetacognitiveLoop()   │  │
+│  │  src/frame/        DFA · topology · lineage · epoch · divergence     │  │
+│  │  src/capsule/      Capability VM · evolution lifecycle               │  │
+│  │  src/corpus-engine/ 5-phase RALPH document pipeline                  │  │
 │  │                                                                      │  │
-│  │  bridge.py         940 lines · /claude · /telemetry · /event        │  │
-│  │  pgcs.py           Probabilistic Governance Coherence Score         │  │
-│  │  gate.py           Constitutional gate validation (FROZEN)          │  │
-│  │  dna.py            Governance DNA encoding (FROZEN)                 │  │
-│  │  router.py         Multi-model routing (FROZEN)                     │  │
-│  │  core_matrix.py    Corruption-count T0 gate                         │  │
-│  │  epoch_failsafe.py Epoch boundary protection                        │  │
-│  └───────────────────────────────┬──────────────────────────────────────┘  │
-│                                   │                                         │
-│  ┌────────────────────────────────▼─────────────────────────────────────┐  │
-│  │  CELLULAR SCALE — TypeScript Governance Runtime (sovereign-omega-v2) │  │
-│  │                                                                      │  │
-│  │  src/core/         RFC 8785 canonicalization · SHA-256 · deepFreeze │  │
-│  │  src/frame/        DFA · topology · lineage · epoch · divergence    │  │
-│  │  src/consensus/    BFT swarm · synthesis swarm · game theory        │  │
-│  │  src/constitutional/ Martingale · reduction gate · guardian policy  │  │
-│  │  src/ledger/       Hash-chained LedgerChain · persistence seam      │  │
-│  │  src/skill-harness/ Skill catalog · HGT scanner · RALPH executor    │  │
-│  │  src/capsule/      Capability VM · evolution lifecycle              │  │
-│  │  src/agents/       Fibonacci scheduler · RALPH loop · 15 agent types│  │
-│  │  src/corpus-engine/ 5-phase RALPH document pipeline                 │  │
-│  │  src/crdt/         G-Set convergence over ledger entries            │  │
-│  │  src/sitr/         Situation Awareness runtime                      │  │
-│  │  src/aoie/         Adaptive Ontological Inference Engine            │  │
-│  │  src/shp/          Sovereign Holonic Protocol execution             │  │
-│  │  src/federation/   Cross-node type seams                            │  │
-│  │  src/simulation/   Branch engine stubs                              │  │
-│  │                                                                      │  │
-│  │  2790 tests · 156 test files · 20,000+ lines                        │  │
-│  └───────────────────────────────┬──────────────────────────────────────┘  │
-│                                   │                                         │
-│  ┌────────────────────────────────▼─────────────────────────────────────┐  │
-│  │  MOLECULAR SCALE — Rust Gossip Layer (aegis-cl-psi)                 │  │
-│  │                                                                      │  │
-│  │  385 gate modules · 45,000+ lines · 2881 tests                      │  │
-│  │                                                                      │  │
-│  │  GOSSIP PROTOCOL (Gates 255–319)                                    │  │
-│  │    Broadcaster · Router · Scheduler · Deduplicator · Fragmenter     │  │
-│  │    Priority Queue · Token Bucket · Rate Limiter · Flood Guard       │  │
-│  │    TTL Enforcer · Bandwidth Tracker · Backpressure Controller       │  │
-│  │    Peer Selector · Session Tracker · ACK Tracker · Connection Pool  │  │
-│  │    Reputation Scorer · Reputation Decay · Nonce Cache              │  │
-│  │    Link Quality Monitor · Epoch Watermark · Retry Scheduler        │  │
-│  │    Capability Tracker · Subscription Filter · Topic Registry       │  │
-│  │    Message Cache · Address Book · Sequence Tracker · Liveness Oracle│  │
-│  │    Epoch Rate Ledger · Snapshot Archive                             │  │
-│  │                                                                      │  │
-│  │  MESH HEALTH (Gates 237–254)                                        │  │
-│  │    Health Aggregator · Dashboard · Alert Engine · Ledger           │  │
-│  │    Resilience Watchdog · Divergence Oracle · Phase Transition       │  │
-│  │    Momentum Tracker · Coherence Stability · Entropy Forecast       │  │
-│  │    Adaptive Threshold · Quorum Drift · Pulse · Telemetry Encoder   │  │
-│  │                                                                      │  │
-│  │  MESH INFRASTRUCTURE (Gates 257–286)                               │  │
-│  │    Peer Manifest · Topology Snapshot · Beacon · Epoch Synchronizer │  │
-│  │    Consensus Ledger · Node State Machine · Fault Detector          │  │
-│  │    Mesh Census · Recovery Planner · Quorum Guard · Health Ticker   │  │
-│  │    Mesh Ledger · Capability Negotiator · Epoch Sealer              │  │
-│  │    Partition Detector · Spread Estimator · Fanout Controller       │  │
-│  │    Convergence Certifier · Mesh Supervisor · Epoch Finalizer       │  │
-│  │                                                                      │  │
-│  │  MATHEMATICAL SUBSTRATE (Gates 212–321) · COMPACTION GOSSIP (322–379) │  │
-│  │    Dodecagonal Router · Proportional Metric · Vortex Classifier    │  │
-│  │    Abjad Encoder · Tajweed DFA · Ring Composition Verifier         │  │
-│  │    Lattice DAG · SPSF Persistence · Phi Convergence               │  │
-│  │    Resonance Monitor · Constitutional Chord + Network              │  │
-│  │    Self-Certification · Lattice Coherence · Coherence Broadcaster  │  │
-│  │    Epoch Coherence Chain · Constitutional Autonode                 │  │
-│  │    Swarm Autonode · Constitutional Replay · Entropy Budget         │  │
-│  │    Drift Classifier · Governance Pipeline · Swarm Health           │  │
-│  └───────────────────────────────┬──────────────────────────────────────┘  │
-│                                   │                                         │
-│  ┌────────────────────────────────▼─────────────────────────────────────┐  │
-│  │  ATOMIC SCALE — Seven-Pillar Runtime (aegis-runtime)                │  │
-│  │                                                                      │  │
-│  │  StateAnchor        SHA-256 hash-chained append-only ledger         │  │
-│  │  DomainFirewall     Domain 0 (immutable) / Domain 1 (mutable)       │  │
-│  │  AffineCanvas       Integer affine transforms (no f64)              │  │
-│  │  SemanticGraph      BTreeMap DAG, depth-bounded BFS, 5 relation types│  │
-│  │  ValidationDFA      6-state byte-stream automaton, 36-entry table   │  │
-│  │  GossipEmitter      64-byte UDP frames, AEGIS_PROTOCOL_MAGIC=0xE0E0│  │
-│  │  HysteresisFilter   Exponential penalty/recovery, quarantine gate   │  │
-│  │                                                                      │  │
-│  │  96 tests · 2200+ lines                                             │  │
-│  └─────────────────────────────────────────────────────────────────────┘  │
+│  │  3205+ tests · 156+ test files                                       │  │
+│  └─────────────────────────────────┬────────────────────────────────────┘  │
+│                                     │                                       │
+│  MOLECULAR SCALE — Rust (aegis-cl-psi)                                      │
+│  ┌──────────────────────────────────▼────────────────────────────────────┐  │
+│  │  385 gate modules · 6862 tests                                        │  │
+│  │  Gossip protocol · Mesh health · Mesh infrastructure                  │  │
+│  │  Mathematical substrate · Compaction pipeline                         │  │
+│  │  ECCF post-quantum encoding · NLA alignment decoder                   │  │
+│  └─────────────────────────────────┬────────────────────────────────────┘  │
+│                                     │                                       │
+│  ATOMIC SCALE — Seven-Pillar Runtime (aegis-runtime)                        │
+│  ┌──────────────────────────────────▼────────────────────────────────────┐  │
+│  │  StateAnchor · DomainFirewall · AffineCanvas · SemanticGraph          │  │
+│  │  ValidationDFA · GossipEmitter · HysteresisFilter                     │  │
+│  │  96 tests                                                             │  │
+│  └────────────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
-
----
-
-## How It Maintains Coherence
-
-### The Hash Chain
-
-Every record in AEGIS-Ω is part of a hash chain. The chain starts at `GENESIS_HASH = [0u8; 32]` and extends one record at a time:
-
-```rust
-// Every Rust module follows this pattern exactly
-record_hash = SHA-256(prev_hash ‖ field_1_bytes ‖ field_2_bytes ‖ ... ‖ field_n_bytes)
-```
-
-```typescript
-// Every TypeScript record follows this pattern exactly
-const record_hash = await hashValue(canonicalizeJCS({
-  field_1, field_2, ..., field_n  // RFC 8785 sorted, no whitespace
-}))
-```
-
-The `verify_chain()` function — present in every module — recomputes every hash from stored field values and confirms the chain is intact. A single bit changed anywhere in a 100-record chain is detected at the record where it occurred.
-
-### Canonical Serialization
-
-Before any object is hashed, it passes through RFC 8785 canonical JSON serialization:
-
-```typescript
-// src/core/canonicalize.ts
-canonicalizeJCS({ b: 2, a: 1 }) === canonicalizeJCS({ a: 1, b: 2 })
-// → {"a":1,"b":2}  (keys sorted, no whitespace, deterministic always)
-```
-
-This means two systems that independently process the same logical state will produce the same SHA-256 hash — regardless of the order in which fields were inserted, and regardless of the language (TypeScript, Rust, Python, WASM all produce identical hashes for the same logical content).
-
-### Determinism Constraints
-
-Every component enforces the same constraints:
-
-| Constraint | Why |
-|-----------|-----|
-| `BTreeMap` / `BTreeSet` only — no `HashMap` | Hash iteration order is undefined in `HashMap`; `BTreeMap` is sorted and deterministic |
-| No `f64` in hash inputs | Floating-point rounding differs between hardware; integer arithmetic is platform-identical |
-| No `Date.now()` outside `uuid.ts` | Wall-clock time is non-deterministic |
-| Strictly monotone sequence numbers | Prevents replay of past events as new ones |
-| `saturating_add` / `saturating_mul` everywhere | No silent integer overflow |
-| `deepFreeze()` immediately after construction | No mutation can corrupt a record after it leaves the constructor |
-
-### Governance Boundaries
-
-The system refuses to do things it cannot prove:
-
-```typescript
-// The martingale gate — runs before any adaptive decision is committed
-const cert = await certifyMartingale(adaptiveLineageEntries)
-assertMartingaleAnchored(cert)  // throws MartingaleViolation if:
-// • hash chain is broken         (is_anchored = false)
-// • adaptive ratio > 1/φ ≈ 0.618 (entropy_bounded = false)
-// • drift is nonzero             (drift_bounded = false)
-```
-
-```rust
-// The entropy budget gate — runs before any adaptive event in Rust
-self.consume_adaptive()?  // returns Err(InsufficientBudget) if
-                          // balance < ADAPTIVE_EVENT_COST
-```
-
-The `1/φ` boundary (`≈ 0.6180`) governs three independent scales:
-- **Molecular**: `DEFAULT_QUORUM_THRESHOLD` in BFT swarm vote tallying
-- **Cellular**: `MUTATION_RATE_LIMIT` in martingale entropy check
-- **Atomic**: `618_034 / 1_000_000` in edge verifier integer quorum (no f64)
-
-All three were proven identical in `test/integration/holonic-triad-proof.test.ts`.
 
 ---
 
 ## Testing
 
 ```
-9748 total tests · 0 failures
+10,163+ total tests · 0 failures
 
-  2790  TypeScript  (156 test files across unit / integration / determinism)
-  6862  Rust        aegis-cl-psi  (420 gate modules)
-    96  Rust        aegis-runtime (7-pillar distributed runtime)
+  3205+  TypeScript  sovereign-omega-v2  (156+ test files)
+  6862   Rust        aegis-cl-psi        (385 gate modules)
+    96   Rust        aegis-runtime       (7-pillar runtime)
 ```
 
 ```bash
-# Rust — gossip layer (2881 tests)
-cd aegis-cl-psi && cargo test
-
-# Rust — seven-pillar runtime (96 tests)
-cd aegis-runtime && cargo test
-
-# TypeScript — governance runtime (2790 tests)
+# TypeScript — Gate 8 (mandatory before every commit)
 cd sovereign-omega-v2
 npm install
 npm run test && npm run typecheck && npm run build
 
+# Rust — gossip layer
+cd aegis-cl-psi && cargo test          # plain — never --all-features (requires ROCm)
+
+# Rust — seven-pillar runtime
+cd aegis-runtime && cargo test
+
 # Python bridge smoke
 cd sovereign-omega-v2 && python python/tests/stress_test.py --quick
-# corruption_count must be 0
+
+# Constitutional membrane
+cd sovereign-omega-v2 && node scripts/verify-hashes.mjs  # must exit 0
 ```
 
-### What Each Category Tests
-
-**Unit tests (73 files)** — every module in isolation: hash correctness, chain integrity, API contracts, error cases, determinism verified 3× with identical inputs.
-
-**Integration tests (74 files)** — cross-module composition: martingale + swarm + attestation composing correctly; BFT under Byzantine faults; divergence cascades; hash chains across 100+ entries; 61/62 boundary verified at every governing surface.
-
-**Determinism tests (9 files)** — cross-runtime equivalence: TypeScript SHA-256 and WASM SHA-256 produce byte-identical output on the same governance objects; RFC 8785 key ordering is stable under Unicode, BigInt boundaries, 100+ key objects.
+**CI:** BFT CEREMONY gate — 6 jobs tallied, quorum threshold 1/φ ≈ 0.618. Fewer than 4/6 passing blocks merge.
 
 ---
 
-## Gate Structure
+## Hash Chain Integrity
 
-Development proceeded in numbered gates. Each gate is a single module or capability, with:
-1. Implementation
-2. Unit tests (typically 10–30)
-3. Full suite run to confirm no regressions
-4. Commit with the test count
-5. Push
+Every record in every module starts from `GENESIS_HASH = [0u8; 32]` and extends:
 
-Gates are not optional checkpoints — they are the build system. Gate 8 (`npm run test && npm run typecheck && npm run build`) must pass before any commit enters the branch.
-
-Gates in TypeScript: 1–199 (core substrate through sovereign cognition constitution)
-Gates in Rust (aegis-cl-psi): 149–379 (inference fabric through gossip broadcast pipeline)
-
----
-
-## Running the System
-
-```bash
-# Start the bridge
-cd sovereign-omega-v2/python && python bridge.py
-# → Listening on port 7890
-
-# Governed Claude call (hash-certified, tier-stamped, replay-verifiable)
-curl -X POST http://localhost:7890/claude \
-  -H 'Content-Type: application/json' \
-  -d '{"messages": [{"role": "user", "content": "Describe the martingale invariant"}]}'
-
-# Response includes:
-# { "content": "...", "request_hash": "...", "response_hash": "...",
-#   "chain_hash": "...", "is_replay_reconstructable": true }
-
-# Live constitutional telemetry
-curl http://localhost:7890/telemetry
-# → { "corruption_count": 0, "epoch": N, "drift_index": 0.0, "sequence": N, ... }
-
-# Open the cockpit
-cd cockpit && npm install && npm run dev
-# → http://localhost:5173 — constitutional AI chat with live telemetry
-
-# Open Studio (observability)
-cd studio && npm install && npm run dev
-# → http://localhost:5174 — 10 read-only constitutional surfaces
+```rust
+record_hash = SHA-256(prev_hash ‖ field_1_bytes ‖ field_2_bytes ‖ ...)
 ```
-
----
-
-## The Studio — Read-Only Observability
-
-`studio/` is a React app with ten constitutional observation surfaces, each pulling from `/telemetry` (read-only, no writes):
-
-| Surface | What It Shows |
-|---------|--------------|
-| **Replay Surface** | Hash-chained governance event graph |
-| **Epoch Surface** | Epoch chain visualization |
-| **Divergence Surface** | D0–D4 drift classification map |
-| **Rollback Surface** | Rollback certification UI |
-| **Lineage Surface** | Lazy-loaded causal lineage |
-| **Topology Surface** | Live mesh topology state |
-| **Ownership Surface** | Capability delegation chains |
-| **Capsule Surface** | Capsule manifests and entropy budgets |
-| **Observability Surface** | Constitutional health metrics |
-| **Governance Surface** | Guardian policy inspection |
-| **Swarm Surface** | Agent swarm with Fibonacci loop status |
-
-Studio has no mutation authority. `ProjectionLayer ∩ ConstitutionalAuthority = ∅`.
-
----
-
-## The Skill Harness
-
-AEGIS-Ω learns. The skill harness (`src/skill-harness/`) tracks what each agent has done, how reliably, and routes future tasks accordingly.
-
-Each skill is a probabilistic competency object:
 
 ```typescript
-interface SkillRecord {
-  skill_id:         string
-  confidence:       number       // 0.0–1.0 — inferred from telemetry, not self-declared
-  validated_runs:   number
-  failure_rate:     number
-  recency_score:    number
-  domain_affinity:  readonly string[]
-  dependencies:     readonly string[]
-  evidence_refs:    readonly string[]  // traceable to audit events
-  epistemic_tier:   'T0' | 'T1' | 'T2'
-  skill_hash:       SHA256Hex    // tamper-evident
-  is_replay_reconstructable: true
-}
+const record_hash = await hashValue(canonicalizeJCS({ field_1, field_2, ... }))
+// RFC 8785: keys lexicographically sorted, no whitespace, NFC-normalized
 ```
 
-Skills evolve through nine event types: `SKILL_VALIDATED`, `SKILL_DEGRADED`, `SKILL_DECAYED`, `SKILL_SPECIALIZED`, `SKILL_REJECTED`, `SKILL_REINFORCED`, `SKILL_TRANSFERRED`, `SKILL_MERGED`, `SKILL_SPLIT`.
-
-The HGT Scanner (`src/skill-harness/hgt/`) performs Horizontal Gene Transfer — it reads SKILL.md files from external GitHub repositories and imports them through the constitutional admission gate.
+`verify_chain()` is present in every Rust module. `certifyMetacognitiveLoop()` re-walks the full observation chain in TypeScript and the browser. Tamper any entry: `is_valid` flips false at the exact tampered record.
 
 ---
 
-## Multi-Model Consensus
+## Determinism Constraints
 
-No single AI model is authoritative. All responses pass through BFT vote tallying:
+| Constraint | Reason |
+|-----------|--------|
+| `BTreeMap`/`BTreeSet` only — no `HashMap` | Deterministic iteration order |
+| No `f64` in hash inputs | IEEE 754 platform variance |
+| No `Date.now()` outside `src/event/uuid.ts` | Wall clock is non-deterministic |
+| `canonicalizeJCS` for all integrity hashing | RFC 8785 cross-platform equivalence |
+| `deepFreeze()` immediately after construction | No post-construction mutation |
+| `saturating_add`/`saturating_mul` throughout | No silent overflow |
+
+---
+
+## φ-Convergence
+
+The golden ratio governs three independent scales:
 
 ```
-Claude Sonnet 4.6 · weight = 618/1000  (= ⌊1000 · (1/φ)⌋)
-GPT-4o            · weight = 191/1000  (= ⌊1000 · (1/φ²)⌋)
-Qwen Plus         · weight = 191/1000
-                             ─────────
-                               1000
+Molecular: DEFAULT_QUORUM_THRESHOLD = (√5−1)/2 ≈ 0.618  (BFT peer vote tallying)
+Cellular:  MUTATION_RATE_LIMIT       = (√5−1)/2          (martingale entropy ceiling)
+Atomic:    edge quorum               = 618_034/1_000_000  (integer arithmetic, no f64)
 ```
 
-`routeSwarmResponses()` applies `tallyVotes()` — the same function used for peer consensus in the gossip layer. Quorum is reached when the dominant response_hash exceeds `1/φ`. If no model achieves quorum, `consensus_response_hash` is null and no response is emitted.
+Proven identical in `test/integration/holonic-triad-proof.test.ts`.
+
+Multi-model vote weights: Claude `618/1000`, GPT-4o `191/1000`, Qwen `191/1000`. No single model is authoritative.
 
 ---
 
-## Codebase Scale
+## Constitutional Files (FROZEN)
 
-| Layer | Language | Source Files | Lines | Tests |
-|-------|----------|-------------|-------|-------|
-| Gossip / math gates | Rust | 223 | 74,295 | 3,227 |
-| Governance runtime | TypeScript | 177 | 20,188 | 2,790 |
-| Seven-pillar runtime | Rust | 14 | 2,958 | 96 |
-| Python bridge | Python | 14 | 4,343 | — |
-| Frontend products | TSX/TS | 45 | 4,165 | — |
-| **Total** | | **473** | **~105,950** | **6113** |
+Three files define the governance boundary. Their SHA-256 hashes are verified at every session start:
 
----
+| File | SHA-256 |
+|------|---------|
+| `sovereign-omega-v2/python/gate.py` | `bbe942b8…` |
+| `sovereign-omega-v2/python/dna.py` | `cd30ddd5…` |
+| `sovereign-omega-v2/python/router.py` | `8c06ed37…` |
 
-## Known Limitations
+```bash
+cd sovereign-omega-v2 && node scripts/verify-hashes.mjs
+```
 
-This system has open problems that are not solved:
-
-1. **GPU nondeterminism** — the Rust inference fabric (`aegis-cl-psi`) targets AMD RX 570 via ROCm HIP. HIP kernel results can differ between hardware revisions. This is gated behind `#[cfg(feature = "hip")]` and is not included in determinism guarantees.
-2. **Replay state explosion** — the full event log is not prunable without the `lineage_compactor.rs` mitigation. Long-running nodes need periodic compaction.
-3. **Distributed topology hash stability** — multiple nodes must produce identical canonical JSON for the same logical state. Network partitions are detected and classified (D0–D4) but not automatically resolved.
-4. **Verifier scalability** — `verify_chain()` is O(n). Very long chains need segmented verification.
-5. **No live network** — the gossip layer is fully implemented and tested in isolation. It has never been run against a real peer network. All 385 gate modules pass their tests; none has been stress-tested at production peer count.
-
----
-
-## What Comes Next
-
-The foundation is built. The organism exists. These are the remaining gaps before it is production-grade:
-
-- **Real peer network** — deploy two or more nodes and let the gossip layer run. The code is ready; the infrastructure is not.
-- **PostgreSQL persistence** — the seam is declared in `src/ledger/persistence.ts`. An SQLite or PostgreSQL adapter needs to be wired.
-- **WASM deployment** — `aegis-cl-psi` is `no_std`-compatible and can compile to WASM. The bridge needs a WASM loader.
-- **EU AI Act Article 12 audit export** — `audit.rs` in aegis-cl-psi captures the events. An export endpoint needs to be added to the bridge.
+Modification requires `/guardian APPROVED` verdict. Unauthorized modification = T0_ABORT.
 
 ---
 
 ## Repository Structure
 
 ```
-aegis-cl-psi/               Rust · 385 gate modules (gossip + math + compaction gossip)
-aegis-runtime/              Rust · 7-pillar distributed agent runtime
-sovereign-omega-v2/         TypeScript governance runtime
-  src/core/                 RFC 8785 canonical JSON · SHA-256 · immutability
-  src/frame/                DFA · topology · lineage · epoch · divergence
-  src/consensus/            BFT swarm · game theory · synthesis swarm
-  src/constitutional/       Martingale · reduction gate · guardian policy
-  src/ledger/               Hash-chained ledger · persistence seam
-  src/skill-harness/        Skill catalog · HGT scanner · RALPH executor
-  src/capsule/              Capability VM · evolution lifecycle
-  src/agents/               Fibonacci scheduler · RALPH loops · 15 agent types
-  src/corpus-engine/        5-phase RALPH document pipeline
-  src/sitr/                 Situation Awareness runtime
-  src/aoie/                 Adaptive Ontological Inference Engine
-  python/                   HTTP bridge · PGCS · constitutional gate validation
-cockpit/                    AI chat UI (React 18, constitutional telemetry)
-studio/                     10-surface observability dashboard (read-only)
-platform-picker/            Creator tool (Qwen-powered, $19)
-hook-generator/             Creator tool (Qwen-powered, $19)
-content-calendar/           Creator tool (Qwen-powered, $19)
-hub/                        Products landing page
-packages/shared/            Shared TS infrastructure
-docs/                       Architecture specifications and formal declarations
+sovereign-omega-v2/     TypeScript governance runtime (3205+ tests)
+  src/                  Core · Frame · Consensus · Constitutional · Ledger
+                        Skill-harness · Metacognition · Agents · Capsule
+  python/               HTTP bridge (port 7890) · PGCS · frozen constitutional files
+  test/                 156+ test files
+aegis-cl-psi/           Rust gossip + math fabric (385 gates, 6862 tests)
+aegis-runtime/          Rust Seven-Pillar distributed agent runtime (96 tests)
+hub/                    aegisomega.com — consciousness substrate + tools
+aegisomega-webgpu/      Standalone WebGPU Φ-field engine (σ/ρ/λ 1024×1024)
+cockpit/                AI chat UI with constitutional telemetry
+studio/                 10-surface read-only observability dashboard
+platform-picker/        Creator AI tool — $19
+hook-generator/         Creator AI tool — $19
+content-calendar/       Creator AI tool — $19
+packages/shared/        Shared TS: inference-router · constitutional-ai · access tokens
+harness/                Phase 1 skill harness SDK — 40 skills, 11 domains
+supabase/functions/     Edge functions: verify-payment · issue-token · ls-webhook
+docs/                   Architecture specs · audit findings · gate documentation
 ```
 
 ---
 
-## Constitutional Declaration
+## Live Demonstration
+
+**aegisomega.com** — The SHA-256 hash-chained MetacognitiveLoop runs in your browser via `crypto.subtle.digest`. No backend required.
+
+- Genesis hash: `'0'.repeat(64)`
+- Each tick appends a new observation: `entry_hash = SHA-256(prev_hash ‖ sequence ‖ canonical(observation))`
+- `certify()` re-walks the full chain — tamper any entry, `is_valid` flips false
+- Seven cognitive layers (SENSATION → SELF_MODEL) cycle with signals from the constitutional vocabulary
+- WebGPU Φ-field background (σ/ρ/λ interference simulation at 60 fps)
+- Bridge overlay available when `VITE_BRIDGE_URL` is set — graceful fallback otherwise
+
+---
+
+## Known Open Problems
+
+1. **GPU nondeterminism** — ROCm HIP kernel results can differ between hardware revisions. Gated behind `#[cfg(feature = "hip")]`, excluded from determinism guarantees.
+2. **Replay state explosion** — full event log is not prunable without `lineage_compactor.rs` mitigation.
+3. **No live peer network** — gossip layer is fully implemented and tested. Has not been run against a real multi-node network.
+4. **Distributed topology hash stability** — partitions detected and classified (D0–D4) but not automatically resolved.
+5. **Verifier scalability** — `verify_chain()` is O(n). Long chains need segmented verification.
+
+---
+
+## Constitutional Status
 
 ```
-REPLAY SOVEREIGNTY:    ACTIVE — replay(genesis, events) → identical hash on any platform
-MARTINGALE BOUNDED:    ACTIVE — E[S_{n+1}|F_n] = S_n · suspension on violation
-φ-CONVERGENCE:         ACTIVE — 1/φ governs gossip quorum, BFT consensus, entropy limit
-HASH CHAIN INTEGRITY:  ACTIVE — every record in every module is tamper-evident
-TIER DISCIPLINE:       ACTIVE — T0 proven · T1 validated · T2 hypothesis · T3 conjecture
-SELF-MONITORING:       ACTIVE — gossip modules observe and report each other
-LAW OF SILENCE:        ACTIVE — agents communicate only through mediated EventEnvelope
-CORPUS SOVEREIGNTY:    ACTIVE — knowledge enters only through 5-phase RALPH pipeline
-RESONANCE ANCHOR:      ACTIVE — resonance_coefficient > 5.0 → certified constitutional path
+REPLAY SOVEREIGNTY    ACTIVE — replay(genesis, events) → identical hash on any platform
+MARTINGALE BOUNDED    ACTIVE — E[S_{n+1}|F_n] = S_n · suspension on violation
+φ-CONVERGENCE         ACTIVE — 1/φ governs gossip quorum, BFT consensus, entropy ceiling
+HASH CHAIN INTEGRITY  ACTIVE — every record in every module is tamper-evident
+TIER DISCIPLINE       ACTIVE — T0 proven · T1 validated · T2 hypothesis · T3 conjecture
+LAW OF SILENCE        ACTIVE — agents communicate only through mediated EventEnvelope
+CORPUS SOVEREIGNTY    ACTIVE — knowledge enters only through 5-phase RALPH pipeline
+MEMBRANE INTEGRITY    ACTIVE — frozen file hashes verified at every session start
 ```
 
 ---
@@ -492,4 +274,3 @@ Free to use, study, modify, and distribute. Derivative works must release source
 
 *A finite automaton is a machine that remembers its state.*
 *A hash-chained automaton is a machine that can prove it remembered correctly.*
-*414 of them, watching each other — that is the organism.*

@@ -246,7 +246,12 @@
       "Bash(grep *)",
       "Bash(wc *)",
       "Bash(head *)",
-      "Bash(bash /home/user/AEGIS--/.claude/hooks/*)"
+      "Bash(bash /home/user/AEGIS--/.claude/hooks/*)",
+      "mcp__github__search_repositories",
+      "Bash(cargo check*)",
+      "Bash(cargo clippy*)",
+      "Bash(python harness/ingest.py*)",
+      "Bash(git remote set-url origin*)"
     ]
   }
 }
