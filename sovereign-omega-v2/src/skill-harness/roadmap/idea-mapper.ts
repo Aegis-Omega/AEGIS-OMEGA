@@ -220,6 +220,7 @@ export async function mapIdeaToRoadmap(
       .filter(m => m.relevance > 0.3 && m.confidence > 0.5)
       .flatMap(m => {
         const skill = catalog.lookup(m.skill_id)
+        /* c8 ignore next -- false branch (!skill) never reached: all matched skills exist in the catalog by construction */
         return skill ? skill.domain_affinity : []
       })
   )

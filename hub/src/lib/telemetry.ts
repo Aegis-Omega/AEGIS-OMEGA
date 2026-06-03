@@ -90,3 +90,26 @@ export async function fetchBridgeSnapshot(): Promise<BridgeSnapshot> {
 }
 
 export const bridgeConfigured = Boolean(BRIDGE_URL)
+
+// React hook — polls fetchBridgeSnapshot() every 5 s when the bridge is configured.
+// Returns { reachable: false } immediately and on every tick when not configured.
+// Safe to call unconditionally — no effect if VITE_BRIDGE_URL is unset.
+import { useEffect, useState } from 'react'
+
+export function useBridgeTelemetry(): BridgeSnapshot {
+  const [snap, setSnap] = useState<BridgeSnapshot>({ reachable: false })
+
+  useEffect(() => {
+    if (!bridgeConfigured) return
+    let cancelled = false
+    async function poll() {
+      const s = await fetchBridgeSnapshot()
+      if (!cancelled) setSnap(s)
+    }
+    void poll()
+    const id = setInterval(() => { void poll() }, 5000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [])
+
+  return snap
+}

@@ -84,6 +84,7 @@ export function analyzeTajweedStream(text: string): {
   ruleCount: Record<TajweedRule, number>
   hasArabic: boolean
 } {
+  /* c8 ignore next -- codePointAt(0) on a spread character is always defined; ?? 0 is a TypeScript guard for the unreachable undefined case */
   const codepoints = [...text].map(c => c.codePointAt(0) ?? 0)
   const classes = codepoints.map(classifyCodepoint)
   const rules: TajweedRule[] = []

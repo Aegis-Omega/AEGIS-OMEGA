@@ -61,6 +61,7 @@ export async function decaySkill(
 ): Promise<DecayResult> {
   const days_inactive = daysBetween(skill.last_validated, current_timestamp_ms)
 
+  /* c8 ignore next 4 -- daysBetween() clamps to 0 for negative diffs; days_inactive always >= 0 */
   if (days_inactive < 0) {
     throw new SkillDecayError(
       `current_timestamp_ms is before last_validated for skill '${skill.skill_id}'`,

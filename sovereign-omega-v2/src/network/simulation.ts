@@ -66,6 +66,7 @@ export function simulate(
       const [nextQueue, result] = queue.enqueue(msg)
       queue = nextQueue
 
+      /* c8 ignore next 3 -- queue only returns DELIVERED or DUPLICATE; DROPPED is structurally unreachable */
       if (result.status === 'DROPPED') {
         dropped.push(msg)
       }
@@ -76,6 +77,7 @@ export function simulate(
         equivocations++
         dropped.push(msg)
       } else {
+        /* c8 ignore next -- queue.enqueue() only throws NetworkError; non-NetworkError path is structurally unreachable */
         throw err
       }
     }

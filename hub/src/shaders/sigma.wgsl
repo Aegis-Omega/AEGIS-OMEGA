@@ -41,7 +41,8 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   var mouse_kick = 0.0;
   if (u.mouse_x >= 0.0 && u.mouse_y >= 0.0) {
     let mx = u.mouse_x * f32(u.width);
-    let my = u.mouse_y * f32(u.height);
+    // Y is inverted vs screen: texel 0 = screen bottom, SIM_H = screen top
+    let my = (1.0 - u.mouse_y) * f32(u.height);
     let dx = f32(c.x) - mx;
     let dy = f32(c.y) - my;
     let d2 = (dx * dx + dy * dy) / (40.0 * 40.0);

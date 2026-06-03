@@ -10,9 +10,9 @@ name: Hadolint
 
 on:
   push:
-    branches: [main, 'claude/aegis-setup-Lx7Ji']
+    branches: [main, 'claude/*']
   pull_request:
-    branches: [main, 'claude/aegis-setup-Lx7Ji']
+    branches: [main, 'claude/*']
   schedule:
     - cron: '24 2 * * 1'
 

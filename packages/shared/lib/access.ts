@@ -21,8 +21,8 @@ export interface ServerGrantPayload {
 // Public keys are safe to embed; replace both if you rotate the key pair.
 const GRANT_PUBLIC_JWK = {
   key_ops: ['verify'], ext: true, kty: 'EC', crv: 'P-256',
-  x: 'DJ76nybgj7ZupVa17biVEgji2M2SbgyAQyqIDl-zNz0',
-  y: 'tZ9Gp96mqUVAlU3xL-YKYh1Es0rYd0joF2t_2Q_BSP8',
+  x: 'gOiQCOQ9uqrWGjLWtHy-Rz7_iy-upssUQIChM-594mU',
+  y: '8xzK_vJumoNMw5ytMaGijU83XbH5Bl81RUrPokuLt-E',
 }
 
 // Verify a server-issued token (ECDSA P-256, format: <payloadB64>.<sigB64>)
@@ -86,16 +86,6 @@ export function verifyGrantToken(token: string): GrantPayload | null {
   } catch {
     return null
   }
-}
-
-const SERVER_TOKEN_KEY = (product: string) => `aegis_srv_${product}`
-
-export function storeServerToken(product: string, token: string): void {
-  localStorage.setItem(SERVER_TOKEN_KEY(product), token)
-}
-
-export function getStoredServerToken(product: string): string | null {
-  return localStorage.getItem(SERVER_TOKEN_KEY(product))
 }
 
 const STORAGE_KEY = (product: string) => `aegis_access_${product}`

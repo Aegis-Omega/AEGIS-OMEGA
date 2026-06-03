@@ -81,6 +81,7 @@ export async function replayRange(
 
   const slice = blocks.slice(fromIndex, toIndex + 1)
   // Provide the real previous block as context when replaying a mid-chain slice
+  /* c8 ignore next -- noUncheckedIndexedAccess artifact; fromIndex > 0 guarantees blocks[fromIndex-1] is defined */
   const prevBlock = fromIndex === 0 ? null : (blocks[fromIndex - 1] ?? null)
   return _replayBlocks(slice, prevBlock)
 }
@@ -96,6 +97,7 @@ async function _replayBlocks(
 
   for (let i = 0; i < blocks.length; i++) {
     const block    = blocks[i]!
+    /* c8 ignore next -- noUncheckedIndexedAccess artifact; i > 0 guarantees blocks[i-1] is defined */
     const prevBlock = i === 0 ? firstPrevBlock : (blocks[i - 1] ?? null)
     const valid    = await verifyBlock(block, prevBlock)
 

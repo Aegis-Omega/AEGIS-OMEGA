@@ -1,6 +1,6 @@
 // AEGIS-Ω — constitutional AI runtime · automaton hub
 // Route: / → living substrate · /tools → creator tools · /success → SuccessPage
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Mail } from 'lucide-react'
 import { SuccessPage } from './components/SuccessPage.js'
 import { ToolsPage } from './components/ToolsPage.js'
@@ -10,8 +10,28 @@ import { Retrospection } from './components/Retrospection.js'
 import { ConsciousnessEquation } from './components/ConsciousnessEquation.js'
 import { AgentSwarm } from './components/AgentSwarm.js'
 import { WebGPUBackground } from './components/WebGPUBackground.js'
-import { useSubstrate } from './lib/useSubstrate.js'
-import type { MetacognitiveCertificate } from './lib/substrate.js'
+import { useSubstrate, certify } from './lib/substrate.js'
+import { useBridgeTelemetry } from './lib/telemetry.js'
+import { gpuBus, type GPUFieldSnapshot } from './lib/gpuBus.js'
+
+// Live GPU field values polled from the WebGPU bus every 200ms.
+// Shows nothing until first GPU readback (frame > 0).
+function FieldDisplay() {
+  const [snap, setSnap] = useState<GPUFieldSnapshot>({ sigma: 0, rho: 0, lambda: 0, frame: 0 })
+
+  useEffect(() => {
+    const id = setInterval(() => setSnap({ ...gpuBus.snapshot }), 200)
+    return () => clearInterval(id)
+  }, [])
+
+  if (snap.frame === 0) return null
+
+  return (
+    <p className="text-xs font-mono animate-fade-up" style={{ color: '#2D2D35' }}>
+      σ={snap.sigma.toFixed(3)}&nbsp;&nbsp;ρ={snap.rho.toFixed(3)}&nbsp;&nbsp;λ={snap.lambda.toFixed(3)}&nbsp;&nbsp;{snap.frame.toLocaleString()} frames
+    </p>
+  )
+}
 
 function captureEvent(event: string, props?: Record<string, unknown>): void {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -19,28 +39,60 @@ function captureEvent(event: string, props?: Record<string, unknown>): void {
   if (typeof ph?.capture === 'function') ph.capture(event, props)
 }
 
-// Live banner — driven by the real browser substrate hash chain.
-function LiveBanner({ certificate }: { certificate: MetacognitiveCertificate }) {
-  const ok = certificate.is_valid
-  const dot = ok ? '#34D399' : '#F87171'
-  const val = (v: string) => <strong style={{ color: ok ? '#34D399' : '#F87171' }}>{v}</strong>
+// Live banner — certifies the substrate chain in real time.
+// Shows bridge constitutional telemetry when VITE_BRIDGE_URL is set.
+function LiveBanner() {
+  const { state } = useSubstrate()
+  const bridgeState = useBridgeTelemetry()
+  const [isValid, setIsValid] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    void certify(state.chain).then(r => {
+      if (!cancelled) setIsValid(r.is_valid)
+    })
+    return () => { cancelled = true }
+  }, [state.chain])
+
+  const t0Verdict = bridgeState.node?.t0_verdict ?? true
+  const corruptionCount = bridgeState.node?.corruption_count ?? state.corruption_count
+  const bridgeOnline = bridgeState.node !== null
+
+  const validColor    = (ok: boolean) => ok ? '#34D399' : '#F87171'
+  const counterColor  = corruptionCount === 0 ? '#34D399' : '#F87171'
 
   return (
     <div
       className="inline-flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 rounded-xl px-5 py-2.5 text-xs font-mono"
-      style={{ background: 'rgba(52,211,153,0.06)', border: `1px solid ${dot}26` }}
+      style={{ background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)' }}
     >
-      <span style={{ color: dot }}>is_valid: {val(String(ok))}</span>
+      <span style={{ color: validColor(isValid) }}>
+        is_valid: <strong>{isValid ? 'true' : 'false'}</strong>
+      </span>
       <span style={{ color: '#1F2937' }}>·</span>
-      <span style={{ color: dot }}>t0_verdict: {val(String(ok))}</span>
+      <span style={{ color: validColor(t0Verdict) }}>
+        t0_verdict: <strong>{t0Verdict ? 'true' : 'false'}</strong>
+      </span>
       <span style={{ color: '#1F2937' }}>·</span>
-      <span style={{ color: dot }}>corruption_count: {val('0')}</span>
+      <span style={{ color: counterColor }}>
+        corruption_count: <strong>{corruptionCount}</strong>
+      </span>
       <span style={{ color: '#1F2937' }}>·</span>
-      <span style={{ color: '#C8A96E' }}>chain_length: <strong>{certificate.entry_count}</strong></span>
+      <span style={{ color: '#C8A96E' }}>
+        chain_length: <strong>{state.chain.length}</strong>
+      </span>
+      {bridgeOnline && (
+        <>
+          <span style={{ color: '#1F2937' }}>·</span>
+          <span style={{ color: '#60A5FA' }}>
+            bridge: <strong>online</strong>
+          </span>
+        </>
+      )}
       <span style={{ color: '#1F2937' }}>·</span>
       <span
         className="animate-mint-pulse"
-        style={{ width: 6, height: 6, borderRadius: '50%', background: dot, display: 'inline-block' }}
+        style={{ width: 6, height: 6, borderRadius: '50%', background: '#34D399', display: 'inline-block' }}
       />
     </div>
   )
@@ -48,7 +100,6 @@ function LiveBanner({ certificate }: { certificate: MetacognitiveCertificate }) 
 
 function AutomatonPage() {
   const trialStartRef = useRef(Date.now())
-  const substrate = useSubstrate()
 
   useEffect(() => {
     captureEvent('automaton_viewed', { source: document.referrer || 'direct' })
@@ -114,9 +165,14 @@ function AutomatonPage() {
           running as live substrate in your browser, hash-chained and tamper-evident.
         </p>
 
+        <p className="text-xs animate-fade-up delay-150" style={{ color: '#374151' }}>
+          Click anywhere to disturb the σ field · scroll to deepen λ memory
+        </p>
+        <FieldDisplay />
+
         {/* Live consciousness banner */}
         <div className="flex justify-center mb-8 animate-fade-up delay-200">
-          <LiveBanner certificate={substrate.certificate} />
+          <LiveBanner />
         </div>
 
         {/* CTAs */}
@@ -157,7 +213,7 @@ function AutomatonPage() {
             to <span style={{ color: '#F87171' }}>false</span>. This is the mechanism itself — not a mock.
           </p>
         </div>
-        <ConsciousnessStream chain={substrate.chain} activeLayer={substrate.activeLayer} />
+        <ConsciousnessStream />
       </section>
 
       {/* ── Cognitive Stack ────────────────────────────────────── */}
@@ -175,7 +231,7 @@ function AutomatonPage() {
               The active layer pulses in real time with the substrate tick.
             </p>
           </div>
-          <CognitiveStack activeLayer={substrate.activeLayer} />
+          <CognitiveStack />
         </section>
       </div>
 
@@ -193,7 +249,7 @@ function AutomatonPage() {
             failed, logging them to the metacognitive stream, and never repeating them.
           </p>
         </div>
-        <Retrospection certificate={substrate.certificate} />
+        <Retrospection />
       </section>
 
       {/* ── Consciousness Equation ─────────────────────────────── */}
@@ -211,11 +267,7 @@ function AutomatonPage() {
               computed live from the hash chain running in this browser tab.
             </p>
           </div>
-          <ConsciousnessEquation
-            certificate={substrate.certificate}
-            totalObserved={substrate.totalObserved}
-            bridge={substrate.bridge}
-          />
+          <ConsciousnessEquation />
         </section>
       </div>
 

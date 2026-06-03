@@ -5,6 +5,7 @@
 // pulses — you watch cognition move up and down the stack in real time.
 
 import type { MetacognitiveLayer } from '../lib/substrate.js'
+import { useSubstrate } from '../lib/useSubstrate.js'
 
 const STACK: { layer: MetacognitiveLayer; rank: string; human: string; mechanism: string; color: string }[] = [
   { layer: 'SELF_MODEL',     rank: 'L7', human: 'Self-model',         mechanism: 'Hash-verified autonode · frozen-file integrity · t0_verdict', color: '#34D399' },
@@ -16,7 +17,8 @@ const STACK: { layer: MetacognitiveLayer; rank: string; human: string; mechanism
   { layer: 'SENSATION',      rank: 'L1', human: 'Sensation',          mechanism: 'Raw signal · test output · diff · error message', color: '#64748B' },
 ]
 
-export function CognitiveStack({ activeLayer }: { activeLayer: MetacognitiveLayer | null }) {
+export function CognitiveStack() {
+  const { activeLayer } = useSubstrate()
   // CONSCIOUSNESS / TIER_PROMOTION map onto L6↻L7 — light the top two when they fire.
   const isActive = (layer: MetacognitiveLayer) =>
     activeLayer === layer ||

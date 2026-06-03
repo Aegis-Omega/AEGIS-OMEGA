@@ -86,6 +86,7 @@ export class VerifierIndependenceMonitor {
 
   getSnapshot(): readonly IndependenceSnapshot[] {
     return [...this.pairs.entries()].map(([key, rec]) => {
+      /* c8 ignore next -- total always > 0 when a record exists in this.pairs; `: 0` arm structurally unreachable */
       const agreement_rate = rec.total > 0 ? rec.agreements / rec.total : 0
       const penalty = rec.total >= MIN_SAMPLES_FOR_PENALTY
         ? fromQ32(computeCorrelationPenalty(toQ32(agreement_rate), BASELINE_INDEPENDENCE))

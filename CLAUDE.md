@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 # AEGIS Monorepo — Coordination Document
-## Branch: claude/aegis-setup-Lx7Ji · Gates complete: 605
+## Active branch: claude/test-coverage-analysis-keTIk
 ## Operator: Tarik Skalić · Hardware: AMD RX 570, 8 GB RAM
 
 Approach every component as a recursively nested atomic-scale holon governed by
@@ -24,9 +24,11 @@ A T0 violation at any scale propagates upward and invalidates everything above i
 /platform-picker/      Commercial product — platform recommendation ($19)
 /hook-generator/       Commercial product — viral hook generator ($19)
 /content-calendar/     Commercial product — content calendar ($19)
-/hub/                  Landing page connecting all 3 products
-/packages/shared/      Shared infrastructure (DashScope, useAsyncForm, components)
+/hub/                  Landing page + consciousness substrate (SHA-256 hash-chained MetacognitiveLoop in browser)
+/aegisomega-webgpu/    Standalone WebGPU frame graph engine (σ/ρ/λ Φ-field simulation, 1024×1024 ping-pong)
+/packages/shared/      Shared infrastructure (DashScope, useAsyncForm, components, inference-router, constitutional-ai)
 /studio/               AEGIS Studio — constitutional observability (projection only, no authority)
+/supabase/functions/   Edge functions: verify-payment, issue-token (server-side), ls-webhook (Lemon Squeezy)
 /scripts/              Automation scripts (sync-readme.sh auto-updates README after cargo test)
 /docs/                 Architecture diagrams and governance specs
 ```
@@ -34,6 +36,10 @@ A T0 violation at any scale propagates upward and invalidates everything above i
 Key specs: `sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md` (constitutional law) ·
 `studio/docs/STUDIO_SPECIFICATION.md` (projection spec) ·
 `sovereign-omega-v2/docs/SKILL_HARNESS_SPECIFICATION.md` (skill harness — Phase 1)
+
+**Skill exocortex:** `sovereign-omega-v2/.claude/skills/` — tamper-evident SKILL.md amendments the automaton inherits across sessions. Key skills: `aegis-architecture`, `agent-constitution`, `agent-mesh` (guardian→verifier→implementer triad), `autopoiesis`, `branch-coverage`, `chronology`, `deploy`, `enterprise`, `metacognition`.
+
+**CI CEREMONY gate:** `.github/workflows/ci.yml` runs a BFT quorum check after all jobs complete — 6 jobs tallied, quorum threshold = 1/φ ≈ 0.618. Fewer than 4/6 passing = CEREMONY fails and the PR is blocked. Fix the underlying job, not the quorum math.
 
 ---
 
@@ -62,7 +68,7 @@ cargo test
 cargo build
 ```
 
-### TypeScript — sovereign-omega-v2 (2790 tests)
+### TypeScript — sovereign-omega-v2 (3205+ tests)
 
 ```bash
 cd sovereign-omega-v2
@@ -86,11 +92,12 @@ cd sovereign-omega-v2 && npm run test && npm run typecheck && npm run build
 ### Commercial products (can build in parallel after Gate 8 passes)
 
 ```bash
-cd platform-picker  && npm install && npm run build
-cd hook-generator   && npm install && npm run build
-cd content-calendar && npm install && npm run build
-cd hub              && npm install && npm run build
-cd cockpit          && npm install && npm run build
+cd platform-picker   && npm install && npm run build
+cd hook-generator    && npm install && npm run build
+cd content-calendar  && npm install && npm run build
+cd hub               && npm install && npm run build
+cd cockpit           && npm install && npm run build
+cd aegisomega-webgpu && npm install && npm run build  # standalone WebGPU engine
 ```
 
 ### Python Layer B (sovereign-omega-v2)
@@ -325,6 +332,16 @@ The TypeScript layer communicates with the Python bridge via HTTP (port 7890). T
 
 Gate modules follow a strict pattern: every public struct has a `verify_chain() → (bool, Option<usize>)` and every record chain starts from `*_GENESIS_HASH = [0u8; 32]`. Hash inputs always use `to_be_bytes()` — never `to_le_bytes()`. `f64` values are hashed as `value.to_bits().to_be_bytes()` (IEEE 754 bit pattern, deterministic across platforms).
 
+### Hub consciousness substrate (hub/src/lib/)
+
+| File | Purpose |
+|------|---------|
+| `hub/src/lib/substrate.ts` | SHA-256 hash-chained MetacognitiveLoop running in the visitor's browser; `certify()` re-walks the chain for tamper detection; exports `useSubstrate()` hook returning `{ state }` |
+| `hub/src/lib/telemetry.ts` | Optional live bridge overlay; polls `/telemetry`, `/node`, `/resonance`, `/block` every 5s when `VITE_BRIDGE_URL` is set; `useBridgeTelemetry()` hook; graceful fallback when unreachable |
+| `hub/src/lib/gpuBus.ts` | Singleton bus: `WebGPUBackground` writes live σ/ρ/λ field snapshots; `FieldDisplay` polls at 200ms |
+
+The hub's L1–L7 cognitive stack (`ConsciousnessStream`, `CognitiveStack`, `Retrospection`, `ConsciousnessEquation`, `AgentSwarm`) are all self-contained — each calls `useSubstrate()` internally; no prop threading.
+
 ---
 
 ## Shared Infrastructure (packages/shared/)
@@ -334,6 +351,9 @@ All 3 commercial products import from `@shared` alias (resolved via vite.config.
 | Module | Purpose |
 |--------|---------|
 | `@shared/lib/dashscope` | Generic DashScope/Qwen API caller — replaces 3× duplicated fetch |
+| `@shared/lib/inference-router` | Multi-backend router: DashScope → Ollama → Claude → CL-Ψ; every call produces `RouterResult` |
+| `@shared/lib/constitutional-ai` | `callConstitutional<T>()` — wraps inference router with SHA-256 audit chain, CCIL-Ψ validation, martingale monitoring, localStorage ledger persistence |
+| `@shared/lib/access` | `createGrantToken` / `verifyGrantToken` / `storeAccess` — P-256 server-issued payment tokens |
 | `@shared/hooks/useAsyncForm` | idle→loading→results→error state machine |
 | `@shared/components/ErrorAlert` | Unified error banner |
 | `@shared/components/LoadingSpinner` | Unified spinner (colorClass prop) |
@@ -410,12 +430,16 @@ Each product has an `.env` (gitignored) and `.env.example` (committed).
 | `VITE_DASHSCOPE_API_KEY` | platform-picker, hook-generator, content-calendar | Qwen API key (buyer supplies) |
 | `VITE_DASHSCOPE_MODEL` | all products | Override model (default: qwen-plus) |
 | `VITE_OLLAMA_BASE_URL` | cockpit | Ollama endpoint (ECS server IP) |
+| `VITE_CLAUDE_API_KEY` | hub, packages/shared | Anthropic API key — activates Claude backend in inference-router |
+| `VITE_CLAUDE_MODEL` | hub, packages/shared | Claude model override (default: claude-sonnet-4-6) |
+| `VITE_BRIDGE_URL` | hub | Public URL for Python bridge overlay (optional — graceful fallback if unset) |
 
 ---
 
 ## Never-Commit Files
 
 ```
+hub/.env
 cockpit/.env
 platform-picker/.env
 hook-generator/.env
@@ -462,6 +486,11 @@ gcloud run deploy <service> --region europe-west3 --image <gcr-image>
 Supabase edge functions issue payment verification tokens server-side.
 Client-side token minting was a critical vulnerability — fixed 2026-05-30.
 Never re-introduce client-side token generation for payment flows.
+
+Edge functions (`supabase/functions/`):
+- `verify-payment` — validates Lemon Squeezy order, returns signed JWT
+- `issue-token` — mints P-256 grant token server-side
+- `ls-webhook` — Lemon Squeezy webhook; upserts to `purchases` table (`ls_product_id` NOT NULL — always include it)
 
 ---
 
