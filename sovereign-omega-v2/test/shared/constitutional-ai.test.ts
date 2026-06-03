@@ -11,11 +11,11 @@ vi.mock('../../../packages/shared/lib/inference-router.js', () => ({
 }))
 
 import { callConstitutional } from '../../../packages/shared/lib/constitutional-ai.js'
-import { routeInference } from '../../../packages/shared/lib/inference-router.js'
+import { routeInference, type BackendType } from '../../../packages/shared/lib/inference-router.js'
 
 const mockRoute = vi.mocked(routeInference)
 
-function makeRouteResponse(content: string, backend = 'dashscope') {
+function makeRouteResponse(content: string, backend: BackendType = 'dashscope') {
   return Promise.resolve({ content, backend, model: 'qwen-plus', latency_ms: 42, fallback_count: 0 })
 }
 

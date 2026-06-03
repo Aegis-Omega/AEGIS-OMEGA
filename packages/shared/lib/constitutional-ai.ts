@@ -159,7 +159,7 @@ export async function callConstitutional<T>(
   const routed = await routeInference({
     systemPrompt: opts.systemPrompt,
     userMessage: opts.userMessage,
-    model: opts.defaultModel,
+    ...(opts.defaultModel !== undefined ? { model: opts.defaultModel } : {}),
   })
 
   // Parse JSON response — same logic as callDashScope
