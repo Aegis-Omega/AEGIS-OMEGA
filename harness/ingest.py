@@ -27,10 +27,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="AEGIS Docs Harness — Phase 1 skill tree ingestion")
     parser.add_argument("repo_root", nargs="?", default=None,
                         help="Repository root (default: auto-detect from this file's location)")
-    parser.add_argument("--write", action="store_true",
-                        help="Write skill_tree.json and .agent/skills.md")
-    parser.add_argument("--json-only", action="store_true",
-                        help="Print JSON to stdout and exit")
+    output_group = parser.add_mutually_exclusive_group()
+    output_group.add_argument("--write", action="store_true",
+                              help="Write skill_tree.json and .agent/skills.md")
+    output_group.add_argument("--json-only", action="store_true",
+                              help="Print JSON to stdout and exit")
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve() if args.repo_root else Path(__file__).parent.parent

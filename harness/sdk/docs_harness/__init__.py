@@ -111,8 +111,9 @@ class DocParser:
     )
 
     def parse(self, path: Path, repo_root: Path) -> DocRecord:
-        text = path.read_text(encoding="utf-8", errors="replace")
-        sha = hashlib.sha256(text.encode()).hexdigest()
+        raw = path.read_bytes()
+        sha = hashlib.sha256(raw).hexdigest()
+        text = raw.decode("utf-8", errors="replace")
         lines = text.splitlines()
 
         headings = [m.group(1).strip() for m in self._HEADING_RE.finditer(text)]
@@ -183,7 +184,7 @@ _SKILL_DEFINITIONS: list[tuple] = [
         ["governance", "typescript", "constitutional"],
         ["epistemic_tier_classification"],
         ["sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md",
-         "sovereign-omega-v2/docs/ONTOLOGY.md" if False else "docs/ONTOLOGY.md"],
+         "docs/ONTOLOGY.md"],
         "admitAbstraction() blocks T4/T5 constructs. Every abstraction must reduce "
         "to six canonical primitives: Event, Transition, Ownership, Entropy, Transport, Verification.",
     ),
@@ -626,8 +627,8 @@ class DocsScanner:
                 continue
             try:
                 records.append(self.parser.parse(md_path, self.repo_root))
-            except Exception:
-                pass
+            except (OSError, UnicodeDecodeError) as exc:
+                print(f"[docs_harness] skipped {md_path}: {exc}", file=__import__("sys").stderr)
         return records
 
 
@@ -655,11 +656,15 @@ def build_skill_tree(repo_root: Path) -> SkillTree:
         (skill_id, label, domain, tier, base_confidence,
          domain_affinity, dependencies, raw_refs, description) = defn
 
-        # Filter evidence_refs to those actually present on disk
+        # Filter evidence_refs to those actually present on disk.
+        # Match by exact rel_path or by suffix (e.g. "CLAUDE.md" matches "some/CLAUDE.md").
+        # Unresolved refs are dropped and logged — not silently substituted.
         evidence_refs = [r for r in raw_refs if r in known_paths or
-                         any(k.endswith(r) or r.endswith(k) for k in known_paths)]
+                         any(k.endswith("/" + r) or k == r for k in known_paths)]
         if not evidence_refs:
-            evidence_refs = raw_refs  # keep spec refs even if files moved
+            import sys as _sys
+            print(f"[docs_harness] warning: no disk match for evidence_refs of '{skill_id}': {raw_refs}", file=_sys.stderr)
+            evidence_refs = []
 
         confidence = TIER_CONFIDENCE.get(tier, base_confidence)
 
