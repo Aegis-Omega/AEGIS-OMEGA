@@ -1,8 +1,8 @@
 # SOVEREIGN AGI OS — SKILLS REGISTRY
 
 **Phase:** 1 (static, human-authored baseline)  
-**Generated:** 2026-05-31T09:25:24.588371+00:00  
-**Docs scanned:** 110  
+**Generated:** 2026-06-03T18:52:38.698467+00:00  
+**Docs scanned:** 144  
 **Skills:** 40
 
 ---
@@ -19,7 +19,7 @@
 - **Domain affinity:** agent, governance
 - **Dependencies:** none
 - **Evidence refs:** .agent/rules.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** ORCHESTRATOR / ARCHITECT / BUILDER / RESEARCHER / QA / DEBUG / REVIEWER / PRE-SHIP roles. Each role has constrained tool access. Builder: no web_search. Researcher: authorized web_search.
 
 ### SKILL: agent_handoff_protocol
@@ -32,7 +32,7 @@
 - **Domain affinity:** agent, governance
 - **Dependencies:** agent_role_governance
 - **Evidence refs:** .agent/rules.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Mandatory format: [FROM]/[TO]/[TYPE: HANDOFF|REQUEST|BLOCKER|UPDATE]/CONTEXT/MESSAGE/EXPECTED RESPONSE.
 
 ### SKILL: cognitive_event_logging
@@ -45,7 +45,7 @@
 - **Domain affinity:** agent, audit
 - **Dependencies:** agent_handoff_protocol
 - **Evidence refs:** .agent/rules.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Log via tools/log-action.js: SKILL_CHECK, PLAN_CREATED, PLAN_MUTATED, CONTEXT_ROT, FATAL_BLOCKER, LANE_VIOLATION, MISSING_CAPABILITY, MISSION_REPORT.
 
 ### SKILL: three_strike_failsafe
@@ -58,7 +58,7 @@
 - **Domain affinity:** agent, constitutional
 - **Dependencies:** agent_role_governance
 - **Evidence refs:** .agent/rules.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** If VERIFY fails 3× on same approach: STOP, output FATAL_BLOCKER, log to log-action.js, do NOT retry same approach.
 
 ## Domain: `commercial_products`
@@ -73,7 +73,7 @@
 - **Domain affinity:** typescript, commercial
 - **Dependencies:** none
 - **Evidence refs:** CLAUDE.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** @shared alias → packages/shared. DashScope caller, useAsyncForm, ErrorAlert, LoadingSpinner, ScoreBar, ToolkitFooter. All 3 products import from here.
 
 ### SKILL: dashscope_qwen_integration
@@ -86,7 +86,7 @@
 - **Domain affinity:** commercial, typescript
 - **Dependencies:** shared_component_library
 - **Evidence refs:** CLAUDE.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** VITE_DASHSCOPE_API_KEY + VITE_DASHSCOPE_MODEL env vars. @shared/lib/dashscope generic caller. Default model: qwen-plus.
 
 ### SKILL: vercel_deployment
@@ -99,7 +99,7 @@
 - **Domain affinity:** deployment, commercial
 - **Dependencies:** gate8_deployment_gate
 - **Evidence refs:** DEPLOY.md, CLAUDE.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** One Vercel project per product (Root Directory set per product). Gate 8 must pass before any deployment. vercel --prod from product directory.
 
 ### SKILL: gumroad_product_pricing
@@ -112,7 +112,7 @@
 - **Domain affinity:** commercial
 - **Dependencies:** vercel_deployment
 - **Evidence refs:** docs/GUMROAD_LISTINGS.md, CLAUDE.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** $19/product, $29 any 2, $39 all 3 (Full Creator AI Toolkit). platform-picker + hook-generator + content-calendar.
 
 ## Domain: `constitutional_governance`
@@ -127,7 +127,7 @@
 - **Domain affinity:** governance, constitutional, replay
 - **Dependencies:** none
 - **Evidence refs:** sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md, CONSTITUTIONAL_DECLARATION.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Enforce Root Constitutional Law: AdaptivePower(T) ≤ ReplayVerifiability(T). Covers constitutional boundary checks, T0_ABORT conditions, and replay sovereignty.
 
 ### SKILL: martingale_gating
@@ -140,7 +140,7 @@
 - **Domain affinity:** governance, martingale, typescript
 - **Dependencies:** constitutional_law_enforcement
 - **Evidence refs:** sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md, sovereign-omega-v2/docs/CONSTITUTIONAL_GOVERNANCE_SURFACE.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** certifyMartingale() + assertMartingaleAnchored() — suspends mutation authority when drift_bounded, is_anchored, or entropy_bounded constraints fail.
 
 ### SKILL: epistemic_tier_classification
@@ -153,7 +153,7 @@
 - **Domain affinity:** governance, audit, constitutional
 - **Dependencies:** none
 - **Evidence refs:** CLAUDE.md, .sovereign_context/SYSTEM_DIRECTIVES.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Tag every module T0-T5. T0=mechanically proven; T4/T5 confined to docs/. A file's tier is determined by mechanism, not framing.
 
 ### SKILL: ontology_admission
@@ -166,7 +166,7 @@
 - **Domain affinity:** governance, typescript, constitutional
 - **Dependencies:** epistemic_tier_classification
 - **Evidence refs:** sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md, docs/ONTOLOGY.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** admitAbstraction() blocks T4/T5 constructs. Every abstraction must reduce to six canonical primitives: Event, Transition, Ownership, Entropy, Transport, Verification.
 
 ## Domain: `cryptographic_infrastructure`
@@ -181,7 +181,7 @@
 - **Domain affinity:** cryptograph, hash, typescript
 - **Dependencies:** none
 - **Evidence refs:** sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md, CLAUDE.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** canonicalizeJCS() in src/core/canonicalize.ts — RFC 8785 → SHA-256. Only permitted hash path. Never JSON.stringify for integrity.
 
 ### SKILL: hash_chain_construction
@@ -194,7 +194,7 @@
 - **Domain affinity:** cryptograph, hash, rust, replay
 - **Dependencies:** jcs_canonicalization
 - **Evidence refs:** sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md, docs/GATE_201_REFACTORING.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Every Rust gate module implements verify_chain() → (bool, Option<usize>). All hash inputs use to_be_bytes(). f64 hashed as value.to_bits().to_be_bytes(). Chain starts from *_GENESIS_HASH = [0u8; 32].
 
 ### SKILL: genesis_seal_verification
@@ -207,7 +207,7 @@
 - **Domain affinity:** cryptograph, constitutional, rust
 - **Dependencies:** hash_chain_construction
 - **Evidence refs:** docs/GATE_201_REFACTORING.md, docs/GATE_202_HARNESS_SDK.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Verify T0 genesis seals in Planner and Evaluator. SHA-256 of empty payload = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.
 
 ## Domain: `gate_progression`
@@ -222,7 +222,7 @@
 - **Domain affinity:** governance, audit
 - **Dependencies:** constitutional_law_enforcement
 - **Evidence refs:** docs/GATE_201_REFACTORING.md, docs/GATE_202_HARNESS_SDK.md, docs/GATE_203_SOVEREIGN_AUTOMATON.md, docs/GATE_204_ECCF_SECURITY_ALIGNMENT.md, docs/GATE_205_MESH_DEPLOYMENT.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Gate 201 (refactoring) → 202 (harness SDK) → 203 (sovereign automaton) → 204 (ECCF security) → 205 (mesh deployment) → 210 (evaluator verdict correction). Each gate: complete → status COMPLETE + epistemic tier declaration.
 
 ### SKILL: sovereign_mesh_deployment
@@ -235,7 +235,7 @@
 - **Domain affinity:** deployment, governance, orchestrat
 - **Dependencies:** vercel_deployment, gate_progression_system
 - **Evidence refs:** docs/GATE_205_MESH_DEPLOYMENT.md, sovereign-omega-v2/docs/SOVEREIGN_OMEGA_INTEGRATED_SPEC_v2.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Fractal Sovereign Mesh: Node α (Architect/Planner), Node β (Artisan/Generator), Node γ (Auditor/Evaluator). Alibaba Cloud FC / ACK targets.
 
 ## Domain: `harness_sdk`
@@ -250,7 +250,7 @@
 - **Domain affinity:** khatt, gcce, harness, orchestrat
 - **Dependencies:** planner_module, generator_module, evaluator_module
 - **Evidence refs:** docs/GATE_202_HARNESS_SDK.md, docs/GCCE_ARCHITECTURE.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** 5-phase loop: Nuqta (inscribe truth) → Alif (hard constraints) → Rasm (continuous flow) → Tashkeel (uncertainty metadata) → Tanasub (fractal scaling).
 
 ### SKILL: planner_module
@@ -263,7 +263,7 @@
 - **Domain affinity:** harness, orchestrat, python
 - **Dependencies:** hash_chain_construction, genesis_seal_verification
 - **Evidence refs:** docs/GATE_202_HARNESS_SDK.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Receives directives, decomposes into CausalChain with Nuqta/Alif constraints. harness/sdk/planner/__init__.py — Node α (Architect) in Fractal Sovereign Mesh.
 
 ### SKILL: generator_module
@@ -276,7 +276,7 @@
 - **Domain affinity:** harness, python
 - **Dependencies:** planner_module
 - **Evidence refs:** docs/GATE_202_HARNESS_SDK.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Executes sprint work maintaining Rasm continuity. harness/sdk/generator/__init__.py — Node β (Artisan) in Fractal Sovereign Mesh.
 
 ### SKILL: evaluator_module
@@ -289,7 +289,7 @@
 - **Domain affinity:** harness, audit, python
 - **Dependencies:** generator_module
 - **Evidence refs:** docs/GATE_202_HARNESS_SDK.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** QA via Playwright, Tashkeel confidence validation, Tanasub fractal scaling check. Verdicts: PASS / PASS_WITH_WARNINGS / FAIL / REJECT_REROLL.
 
 ## Domain: `python_bridge`
@@ -304,7 +304,7 @@
 - **Domain affinity:** python, telemetry, governance
 - **Dependencies:** constitutional_law_enforcement
 - **Evidence refs:** CLAUDE.md, sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** HTTP server on port 7890 exposing /telemetry /event /gate_signal /health /claude /node. No time.time() in determinism-critical paths. PGCS must pass before TGCS is valid.
 
 ### SKILL: frozen_file_protection
@@ -317,7 +317,7 @@
 - **Domain affinity:** constitutional, cryptograph, audit
 - **Dependencies:** genesis_seal_verification
 - **Evidence refs:** CLAUDE.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** gate.py / dna.py / router.py are FROZEN. Verify SHA-256 before every session via node scripts/verify-hashes.mjs. Never modify without /guardian APPROVED verdict.
 
 ### SKILL: telemetry_streaming
@@ -330,7 +330,7 @@
 - **Domain affinity:** telemetry, python, governance
 - **Dependencies:** python_bridge_development
 - **Evidence refs:** CLAUDE.md, docs/TELEMETRY_SPEC.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** 5-second poll from cockpit + sovereign-omega-v2 dashboard to /telemetry. corruption_count must equal 0. bit-shifted integer arithmetic throughout.
 
 ## Domain: `rust_systems`
@@ -345,7 +345,7 @@
 - **Domain affinity:** rust, hash, audit
 - **Dependencies:** hash_chain_construction, deterministic_data_structures
 - **Evidence refs:** CLAUDE.md, sovereign-omega-v2/docs/CL_PSI_SPECIFICATION.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Implement aegis-cl-psi gate modules: public struct with verify_chain(), BTreeMap/BTreeSet only, saturating arithmetic, to_be_bytes() big-endian.
 
 ### SKILL: deterministic_data_structures
@@ -358,7 +358,7 @@
 - **Domain affinity:** rust, replay, constitutional
 - **Dependencies:** none
 - **Evidence refs:** CLAUDE.md, .sovereign_context/SYSTEM_DIRECTIVES.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** BTreeMap / BTreeSet only — never HashMap/HashSet in Rust. Iteration order must be deterministic for cross-platform replay.
 
 ### SKILL: safe_arithmetic
@@ -371,7 +371,7 @@
 - **Domain affinity:** rust, constitutional
 - **Dependencies:** none
 - **Evidence refs:** CLAUDE.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** saturating_add / saturating_mul — no silent overflow. No f64 in consensus/threshold logic — use integer arithmetic.
 
 ### SKILL: cargo_build_and_test
@@ -384,7 +384,7 @@
 - **Domain affinity:** rust, deployment
 - **Dependencies:** rust_gate_module_development
 - **Evidence refs:** CLAUDE.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** cargo test (plain, never --all-features — hip/rocblas require ROCm hardware). cargo build --release for native. 5114 tests in aegis-cl-psi; 96 in aegis-runtime.
 
 ## Domain: `security_audit`
@@ -399,7 +399,7 @@
 - **Domain affinity:** audit, replay, constitutional
 - **Dependencies:** hash_chain_construction
 - **Evidence refs:** docs/AUDIT_FINDINGS.md, docs/TRACEABILITY.md, sovereign-omega-v2/docs/TRACEABILITY.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Immutable audit logs, full evolution traceability, is_replay_reconstructable: true on every record. directive_hash on all outputs.
 
 ### SKILL: eccf_security_alignment
@@ -412,7 +412,7 @@
 - **Domain affinity:** eccf, audit, governance
 - **Dependencies:** constitutional_law_enforcement
 - **Evidence refs:** docs/GATE_204_ECCF_SECURITY_ALIGNMENT.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Gate 204 security model. EU AI Act compliance audit chain. 385-gate Rust inference crate (aegis-cl-psi) tagged T2.
 
 ### SKILL: replay_sovereignty
@@ -425,7 +425,7 @@
 - **Domain affinity:** replay, constitutional, cryptograph
 - **Dependencies:** hash_chain_construction, constitutional_law_enforcement
 - **Evidence refs:** sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** replay(genesis, events) → identical topology hash across Linux/macOS/Docker/WASM/ARM/x86. Replay determinism supersedes runtime convenience, orchestration flexibility, adaptive velocity.
 
 ## Domain: `skill_harness`
@@ -440,7 +440,7 @@
 - **Domain affinity:** skill, harness
 - **Dependencies:** epistemic_tier_classification
 - **Evidence refs:** sovereign-omega-v2/docs/SKILL_HARNESS_SPECIFICATION.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Phase 1: static, human-authored, inspectable skill trees. Each skill is a probabilistic competency object with confidence, validated_runs, failure_rate, recency_score, domain_affinity, dependencies.
 
 ### SKILL: probabilistic_competency_modeling
@@ -453,7 +453,7 @@
 - **Domain affinity:** skill, harness, governance
 - **Dependencies:** skill_tree_construction
 - **Evidence refs:** sovereign-omega-v2/docs/SKILL_HARNESS_SPECIFICATION.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Skills are NOT booleans. Required attributes: skill_id, confidence, validated_runs, failure_rate, recency_score, domain_affinity, dependencies, evidence_refs.
 
 ### SKILL: skill_event_sourcing
@@ -466,7 +466,7 @@
 - **Domain affinity:** skill, harness, replay
 - **Dependencies:** probabilistic_competency_modeling, typescript_event_ledger
 - **Evidence refs:** sovereign-omega-v2/docs/SKILL_HARNESS_SPECIFICATION.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Store evolution history, not snapshots. Events: SKILL_VALIDATED, SKILL_DEGRADED, SKILL_DECAYED, SKILL_SPECIALIZED, SKILL_REJECTED, SKILL_REINFORCED, SKILL_TRANSFERRED, SKILL_MERGED, SKILL_SPLIT.
 
 ### SKILL: orchestration_routing
@@ -479,7 +479,7 @@
 - **Domain affinity:** skill, orchestrat, agent
 - **Dependencies:** probabilistic_competency_modeling, bft_swarm_consensus
 - **Evidence refs:** sovereign-omega-v2/docs/SKILL_HARNESS_SPECIFICATION.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Route tasks to best-qualified agent using: competency confidence, specialization domain, failure history, domain affinity, recency score.
 
 ## Domain: `typescript_governance`
@@ -494,7 +494,7 @@
 - **Domain affinity:** typescript, replay, constitutional
 - **Dependencies:** jcs_canonicalization
 - **Evidence refs:** sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md, CLAUDE.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Append-only canonical event log. No Date.now() except src/event/uuid.ts. No array.length for sequence numbers — use IndexedDBSequenceAllocator. deepFreeze every state object after construction.
 
 ### SKILL: bft_swarm_consensus
@@ -507,7 +507,7 @@
 - **Domain affinity:** consensus, bft, typescript, governance
 - **Dependencies:** typescript_event_ledger, constitutional_law_enforcement
 - **Evidence refs:** sovereign-omega-v2/docs/AGENT_COORDINATION_MODEL.md, CLAUDE.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** tallyVotes() → SwarmConvergenceRecord at 1/φ ≈ 0.618 quorum. Bernstein bounds (not Hoeffding). src/consensus/swarm.ts.
 
 ### SKILL: ralph_loop_execution
@@ -520,7 +520,7 @@
 - **Domain affinity:** agent, typescript, orchestrat
 - **Dependencies:** typescript_event_ledger
 - **Evidence refs:** sovereign-omega-v2/handoff/RALPH_LOOP_OMEGA2_INTEGRATION_AUDIT.md, sovereign-omega-v2/handoff/RALPH_LOOP_OMEGA_EXECUTION_SYNTHESIS.md, CLAUDE.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Fibonacci-paced R→A→L→P→H loops. src/agents/executor/loop.ts. Corpus knowledge enters through 5-phase loop only — no raw narrative propagation.
 
 ### SKILL: adaptive_lineage_tracking
@@ -533,7 +533,7 @@
 - **Domain affinity:** typescript, hash, governance
 - **Dependencies:** hash_chain_construction, typescript_event_ledger
 - **Evidence refs:** CLAUDE.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** Hash-chained capability evolution events. src/frame/adaptive-lineage.ts.
 
 ### SKILL: gate8_deployment_gate
@@ -546,7 +546,7 @@
 - **Domain affinity:** deployment, typescript, governance
 - **Dependencies:** typescript_event_ledger
 - **Evidence refs:** CLAUDE.md
-- **Last validated:** 2026-05-31T09:25:24.588371+00:00
+- **Last validated:** 2026-06-03T18:52:38.698467+00:00
 - **Description:** npm run test && npm run typecheck && npm run build must pass in sovereign-omega-v2 before any commit. Mandatory — no exceptions.
 
 ---

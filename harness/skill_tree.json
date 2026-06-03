@@ -1,9 +1,9 @@
 {
   "version": "1.0.0",
   "phase": 1,
-  "generated_at": "2026-05-31T09:25:24.588371+00:00",
+  "generated_at": "2026-06-03T18:52:38.698467+00:00",
   "genesis_seal": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  "doc_count": 110,
+  "doc_count": 144,
   "skills": [
     {
       "skill_id": "constitutional_law_enforcement",
@@ -24,8 +24,8 @@
         "sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md",
         "CONSTITUTIONAL_DECLARATION.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "Enforce Root Constitutional Law: AdaptivePower(T) ≤ ReplayVerifiability(T). Covers constitutional boundary checks, T0_ABORT conditions, and replay sovereignty."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "Enforce Root Constitutional Law: AdaptivePower(T) \u2264 ReplayVerifiability(T). Covers constitutional boundary checks, T0_ABORT conditions, and replay sovereignty."
     },
     {
       "skill_id": "martingale_gating",
@@ -48,8 +48,8 @@
         "sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md",
         "sovereign-omega-v2/docs/CONSTITUTIONAL_GOVERNANCE_SURFACE.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "certifyMartingale() + assertMartingaleAnchored() — suspends mutation authority when drift_bounded, is_anchored, or entropy_bounded constraints fail."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "certifyMartingale() + assertMartingaleAnchored() \u2014 suspends mutation authority when drift_bounded, is_anchored, or entropy_bounded constraints fail."
     },
     {
       "skill_id": "epistemic_tier_classification",
@@ -70,7 +70,7 @@
         "CLAUDE.md",
         ".sovereign_context/SYSTEM_DIRECTIVES.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "Tag every module T0-T5. T0=mechanically proven; T4/T5 confined to docs/. A file's tier is determined by mechanism, not framing."
     },
     {
@@ -94,7 +94,7 @@
         "sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md",
         "docs/ONTOLOGY.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "admitAbstraction() blocks T4/T5 constructs. Every abstraction must reduce to six canonical primitives: Event, Transition, Ownership, Entropy, Transport, Verification."
     },
     {
@@ -116,8 +116,8 @@
         "sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md",
         "CLAUDE.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "canonicalizeJCS() in src/core/canonicalize.ts — RFC 8785 → SHA-256. Only permitted hash path. Never JSON.stringify for integrity."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "canonicalizeJCS() in src/core/canonicalize.ts \u2014 RFC 8785 \u2192 SHA-256. Only permitted hash path. Never JSON.stringify for integrity."
     },
     {
       "skill_id": "hash_chain_construction",
@@ -141,8 +141,8 @@
         "sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md",
         "docs/GATE_201_REFACTORING.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "Every Rust gate module implements verify_chain() → (bool, Option<usize>). All hash inputs use to_be_bytes(). f64 hashed as value.to_bits().to_be_bytes(). Chain starts from *_GENESIS_HASH = [0u8; 32]."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "Every Rust gate module implements verify_chain() \u2192 (bool, Option<usize>). All hash inputs use to_be_bytes(). f64 hashed as value.to_bits().to_be_bytes(). Chain starts from *_GENESIS_HASH = [0u8; 32]."
     },
     {
       "skill_id": "genesis_seal_verification",
@@ -165,7 +165,7 @@
         "docs/GATE_201_REFACTORING.md",
         "docs/GATE_202_HARNESS_SDK.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "Verify T0 genesis seals in Planner and Evaluator. SHA-256 of empty payload = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855."
     },
     {
@@ -190,7 +190,7 @@
         "CLAUDE.md",
         "sovereign-omega-v2/docs/CL_PSI_SPECIFICATION.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "Implement aegis-cl-psi gate modules: public struct with verify_chain(), BTreeMap/BTreeSet only, saturating arithmetic, to_be_bytes() big-endian."
     },
     {
@@ -212,8 +212,8 @@
         "CLAUDE.md",
         ".sovereign_context/SYSTEM_DIRECTIVES.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "BTreeMap / BTreeSet only — never HashMap/HashSet in Rust. Iteration order must be deterministic for cross-platform replay."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "BTreeMap / BTreeSet only \u2014 never HashMap/HashSet in Rust. Iteration order must be deterministic for cross-platform replay."
     },
     {
       "skill_id": "safe_arithmetic",
@@ -232,8 +232,8 @@
       "evidence_refs": [
         "CLAUDE.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "saturating_add / saturating_mul — no silent overflow. No f64 in consensus/threshold logic — use integer arithmetic."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "saturating_add / saturating_mul \u2014 no silent overflow. No f64 in consensus/threshold logic \u2014 use integer arithmetic."
     },
     {
       "skill_id": "cargo_build_and_test",
@@ -254,8 +254,8 @@
       "evidence_refs": [
         "CLAUDE.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "cargo test (plain, never --all-features — hip/rocblas require ROCm hardware). cargo build --release for native. 5114 tests in aegis-cl-psi; 96 in aegis-runtime."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "cargo test (plain, never --all-features \u2014 hip/rocblas require ROCm hardware). cargo build --release for native. 5114 tests in aegis-cl-psi; 96 in aegis-runtime."
     },
     {
       "skill_id": "typescript_event_ledger",
@@ -278,8 +278,8 @@
         "sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md",
         "CLAUDE.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "Append-only canonical event log. No Date.now() except src/event/uuid.ts. No array.length for sequence numbers — use IndexedDBSequenceAllocator. deepFreeze every state object after construction."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "Append-only canonical event log. No Date.now() except src/event/uuid.ts. No array.length for sequence numbers \u2014 use IndexedDBSequenceAllocator. deepFreeze every state object after construction."
     },
     {
       "skill_id": "bft_swarm_consensus",
@@ -304,8 +304,8 @@
         "sovereign-omega-v2/docs/AGENT_COORDINATION_MODEL.md",
         "CLAUDE.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "tallyVotes() → SwarmConvergenceRecord at 1/φ ≈ 0.618 quorum. Bernstein bounds (not Hoeffding). src/consensus/swarm.ts."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "tallyVotes() \u2192 SwarmConvergenceRecord at 1/\u03c6 \u2248 0.618 quorum. Bernstein bounds (not Hoeffding). src/consensus/swarm.ts."
     },
     {
       "skill_id": "ralph_loop_execution",
@@ -329,8 +329,8 @@
         "sovereign-omega-v2/handoff/RALPH_LOOP_OMEGA_EXECUTION_SYNTHESIS.md",
         "CLAUDE.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "Fibonacci-paced R→A→L→P→H loops. src/agents/executor/loop.ts. Corpus knowledge enters through 5-phase loop only — no raw narrative propagation."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "Fibonacci-paced R\u2192A\u2192L\u2192P\u2192H loops. src/agents/executor/loop.ts. Corpus knowledge enters through 5-phase loop only \u2014 no raw narrative propagation."
     },
     {
       "skill_id": "adaptive_lineage_tracking",
@@ -353,12 +353,12 @@
       "evidence_refs": [
         "CLAUDE.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "Hash-chained capability evolution events. src/frame/adaptive-lineage.ts."
     },
     {
       "skill_id": "gate8_deployment_gate",
-      "label": "Gate 8 — Pre-Commit Deployment Gate",
+      "label": "Gate 8 \u2014 Pre-Commit Deployment Gate",
       "domain": "typescript_governance",
       "tier": "T0",
       "confidence": 0.95,
@@ -376,8 +376,8 @@
       "evidence_refs": [
         "CLAUDE.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "npm run test && npm run typecheck && npm run build must pass in sovereign-omega-v2 before any commit. Mandatory — no exceptions."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "npm run test && npm run typecheck && npm run build must pass in sovereign-omega-v2 before any commit. Mandatory \u2014 no exceptions."
     },
     {
       "skill_id": "python_bridge_development",
@@ -400,7 +400,7 @@
         "CLAUDE.md",
         "sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "HTTP server on port 7890 exposing /telemetry /event /gate_signal /health /claude /node. No time.time() in determinism-critical paths. PGCS must pass before TGCS is valid."
     },
     {
@@ -423,7 +423,7 @@
       "evidence_refs": [
         "CLAUDE.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "gate.py / dna.py / router.py are FROZEN. Verify SHA-256 before every session via node scripts/verify-hashes.mjs. Never modify without /guardian APPROVED verdict."
     },
     {
@@ -447,7 +447,7 @@
         "CLAUDE.md",
         "docs/TELEMETRY_SPEC.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "5-second poll from cockpit + sovereign-omega-v2 dashboard to /telemetry. corruption_count must equal 0. bit-shifted integer arithmetic throughout."
     },
     {
@@ -474,12 +474,12 @@
         "docs/GATE_202_HARNESS_SDK.md",
         "docs/GCCE_ARCHITECTURE.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "5-phase loop: Nuqta (inscribe truth) → Alif (hard constraints) → Rasm (continuous flow) → Tashkeel (uncertainty metadata) → Tanasub (fractal scaling)."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "5-phase loop: Nuqta (inscribe truth) \u2192 Alif (hard constraints) \u2192 Rasm (continuous flow) \u2192 Tashkeel (uncertainty metadata) \u2192 Tanasub (fractal scaling)."
     },
     {
       "skill_id": "planner_module",
-      "label": "Planner Module (Node α)",
+      "label": "Planner Module (Node \u03b1)",
       "domain": "harness_sdk",
       "tier": "T2",
       "confidence": 0.65,
@@ -498,12 +498,12 @@
       "evidence_refs": [
         "docs/GATE_202_HARNESS_SDK.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "Receives directives, decomposes into CausalChain with Nuqta/Alif constraints. harness/sdk/planner/__init__.py — Node α (Architect) in Fractal Sovereign Mesh."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "Receives directives, decomposes into CausalChain with Nuqta/Alif constraints. harness/sdk/planner/__init__.py \u2014 Node \u03b1 (Architect) in Fractal Sovereign Mesh."
     },
     {
       "skill_id": "generator_module",
-      "label": "Generator Module (Node β)",
+      "label": "Generator Module (Node \u03b2)",
       "domain": "harness_sdk",
       "tier": "T2",
       "confidence": 0.65,
@@ -520,12 +520,12 @@
       "evidence_refs": [
         "docs/GATE_202_HARNESS_SDK.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "Executes sprint work maintaining Rasm continuity. harness/sdk/generator/__init__.py — Node β (Artisan) in Fractal Sovereign Mesh."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "Executes sprint work maintaining Rasm continuity. harness/sdk/generator/__init__.py \u2014 Node \u03b2 (Artisan) in Fractal Sovereign Mesh."
     },
     {
       "skill_id": "evaluator_module",
-      "label": "Evaluator Module (Node γ)",
+      "label": "Evaluator Module (Node \u03b3)",
       "domain": "harness_sdk",
       "tier": "T2",
       "confidence": 0.65,
@@ -543,7 +543,7 @@
       "evidence_refs": [
         "docs/GATE_202_HARNESS_SDK.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "QA via Playwright, Tashkeel confidence validation, Tanasub fractal scaling check. Verdicts: PASS / PASS_WITH_WARNINGS / FAIL / REJECT_REROLL."
     },
     {
@@ -565,7 +565,7 @@
       "evidence_refs": [
         "sovereign-omega-v2/docs/SKILL_HARNESS_SPECIFICATION.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "Phase 1: static, human-authored, inspectable skill trees. Each skill is a probabilistic competency object with confidence, validated_runs, failure_rate, recency_score, domain_affinity, dependencies."
     },
     {
@@ -588,7 +588,7 @@
       "evidence_refs": [
         "sovereign-omega-v2/docs/SKILL_HARNESS_SPECIFICATION.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "Skills are NOT booleans. Required attributes: skill_id, confidence, validated_runs, failure_rate, recency_score, domain_affinity, dependencies, evidence_refs."
     },
     {
@@ -612,7 +612,7 @@
       "evidence_refs": [
         "sovereign-omega-v2/docs/SKILL_HARNESS_SPECIFICATION.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "Store evolution history, not snapshots. Events: SKILL_VALIDATED, SKILL_DEGRADED, SKILL_DECAYED, SKILL_SPECIALIZED, SKILL_REJECTED, SKILL_REINFORCED, SKILL_TRANSFERRED, SKILL_MERGED, SKILL_SPLIT."
     },
     {
@@ -636,7 +636,7 @@
       "evidence_refs": [
         "sovereign-omega-v2/docs/SKILL_HARNESS_SPECIFICATION.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "Route tasks to best-qualified agent using: competency confidence, specialization domain, failure history, domain affinity, recency score."
     },
     {
@@ -656,7 +656,7 @@
       "evidence_refs": [
         ".agent/rules.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "ORCHESTRATOR / ARCHITECT / BUILDER / RESEARCHER / QA / DEBUG / REVIEWER / PRE-SHIP roles. Each role has constrained tool access. Builder: no web_search. Researcher: authorized web_search."
     },
     {
@@ -678,7 +678,7 @@
       "evidence_refs": [
         ".agent/rules.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "Mandatory format: [FROM]/[TO]/[TYPE: HANDOFF|REQUEST|BLOCKER|UPDATE]/CONTEXT/MESSAGE/EXPECTED RESPONSE."
     },
     {
@@ -700,7 +700,7 @@
       "evidence_refs": [
         ".agent/rules.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "Log via tools/log-action.js: SKILL_CHECK, PLAN_CREATED, PLAN_MUTATED, CONTEXT_ROT, FATAL_BLOCKER, LANE_VIOLATION, MISSING_CAPABILITY, MISSION_REPORT."
     },
     {
@@ -722,8 +722,8 @@
       "evidence_refs": [
         ".agent/rules.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "If VERIFY fails 3× on same approach: STOP, output FATAL_BLOCKER, log to log-action.js, do NOT retry same approach."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "If VERIFY fails 3\u00d7 on same approach: STOP, output FATAL_BLOCKER, log to log-action.js, do NOT retry same approach."
     },
     {
       "skill_id": "shared_component_library",
@@ -742,8 +742,8 @@
       "evidence_refs": [
         "CLAUDE.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "@shared alias → packages/shared. DashScope caller, useAsyncForm, ErrorAlert, LoadingSpinner, ScoreBar, ToolkitFooter. All 3 products import from here."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "@shared alias \u2192 packages/shared. DashScope caller, useAsyncForm, ErrorAlert, LoadingSpinner, ScoreBar, ToolkitFooter. All 3 products import from here."
     },
     {
       "skill_id": "dashscope_qwen_integration",
@@ -764,7 +764,7 @@
       "evidence_refs": [
         "CLAUDE.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "VITE_DASHSCOPE_API_KEY + VITE_DASHSCOPE_MODEL env vars. @shared/lib/dashscope generic caller. Default model: qwen-plus."
     },
     {
@@ -787,7 +787,7 @@
         "DEPLOY.md",
         "CLAUDE.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "One Vercel project per product (Root Directory set per product). Gate 8 must pass before any deployment. vercel --prod from product directory."
     },
     {
@@ -809,7 +809,7 @@
         "docs/GUMROAD_LISTINGS.md",
         "CLAUDE.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "$19/product, $29 any 2, $39 all 3 (Full Creator AI Toolkit). platform-picker + hook-generator + content-calendar."
     },
     {
@@ -834,7 +834,7 @@
         "docs/TRACEABILITY.md",
         "sovereign-omega-v2/docs/TRACEABILITY.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "Immutable audit logs, full evolution traceability, is_replay_reconstructable: true on every record. directive_hash on all outputs."
     },
     {
@@ -857,7 +857,7 @@
       "evidence_refs": [
         "docs/GATE_204_ECCF_SECURITY_ALIGNMENT.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
       "description": "Gate 204 security model. EU AI Act compliance audit chain. 385-gate Rust inference crate (aegis-cl-psi) tagged T2."
     },
     {
@@ -881,8 +881,8 @@
       "evidence_refs": [
         "sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "replay(genesis, events) → identical topology hash across Linux/macOS/Docker/WASM/ARM/x86. Replay determinism supersedes runtime convenience, orchestration flexibility, adaptive velocity."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "replay(genesis, events) \u2192 identical topology hash across Linux/macOS/Docker/WASM/ARM/x86. Replay determinism supersedes runtime convenience, orchestration flexibility, adaptive velocity."
     },
     {
       "skill_id": "gate_progression_system",
@@ -907,8 +907,8 @@
         "docs/GATE_204_ECCF_SECURITY_ALIGNMENT.md",
         "docs/GATE_205_MESH_DEPLOYMENT.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "Gate 201 (refactoring) → 202 (harness SDK) → 203 (sovereign automaton) → 204 (ECCF security) → 205 (mesh deployment) → 210 (evaluator verdict correction). Each gate: complete → status COMPLETE + epistemic tier declaration."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "Gate 201 (refactoring) \u2192 202 (harness SDK) \u2192 203 (sovereign automaton) \u2192 204 (ECCF security) \u2192 205 (mesh deployment) \u2192 210 (evaluator verdict correction). Each gate: complete \u2192 status COMPLETE + epistemic tier declaration."
     },
     {
       "skill_id": "sovereign_mesh_deployment",
@@ -932,8 +932,8 @@
         "docs/GATE_205_MESH_DEPLOYMENT.md",
         "sovereign-omega-v2/docs/SOVEREIGN_OMEGA_INTEGRATED_SPEC_v2.md"
       ],
-      "last_validated": "2026-05-31T09:25:24.588371+00:00",
-      "description": "Fractal Sovereign Mesh: Node α (Architect/Planner), Node β (Artisan/Generator), Node γ (Auditor/Evaluator). Alibaba Cloud FC / ACK targets."
+      "last_validated": "2026-06-03T18:52:38.698467+00:00",
+      "description": "Fractal Sovereign Mesh: Node \u03b1 (Architect/Planner), Node \u03b2 (Artisan/Generator), Node \u03b3 (Auditor/Evaluator). Alibaba Cloud FC / ACK targets."
     }
   ]
 }
