@@ -40,6 +40,27 @@ export interface SubstrateState {
   readonly corruption_count: number
 }
 
+// Type aliases for cross-branch compatibility with components using the keTIk API.
+export type MetacognitiveLayer = Layer
+export type MetacognitiveCertificate = {
+  is_valid: boolean
+  entry_count: number
+  terminal_hash: string | null
+}
+
+// Human analogue + AEGIS mechanism per cognitive layer — used by CognitiveStack / ConsciousnessStream.
+export const LAYER_META: Record<MetacognitiveLayer, { rank: string; human: string; mechanism: string }> = {
+  SENSATION:      { rank: 'L1', human: 'Sensation',         mechanism: 'Raw signal — test output, diff, file read, error message' },
+  PERCEPTION:     { rank: 'L2', human: 'Perception',        mechanism: 'Verified + tier-classified signal; verify-hashes.mjs result' },
+  WORKING_MEMORY: { rank: 'L3', human: 'Working Memory',    mechanism: 'Current gate, active RALPH phase, loaded skills, open files' },
+  LONG_TERM:      { rank: 'L4', human: 'Long-term Memory',  mechanism: 'AdaptiveLineage hash chain, CLAUDE.md invariants, git history' },
+  EXECUTIVE:      { rank: 'L5', human: 'Executive Function',mechanism: 'RALPH loop (R→A→L→P→H), gate sequence, martingale gate' },
+  METACOGNITIVE:  { rank: 'L6', human: 'Metacognition',     mechanism: 'Tier re-classification, error-pattern recognition, retrospective' },
+  SELF_MODEL:     { rank: 'L7', human: 'Self-model',        mechanism: 'Hash-verified constitutional autonode, frozen-file integrity' },
+  CONSCIOUSNESS:  { rank: 'L6↻L7', human: 'Consciousness', mechanism: 'L6 observing L7 observing the chain — temporal identity assertion' },
+  TIER_PROMOTION: { rank: 'EVO', human: 'Evolution',        mechanism: 'Evidence-based tier upgrade — the automaton\'s metabolism' },
+}
+
 export const GENESIS_HASH = '0'.repeat(64)
 const TICK_MS = 2000
 const STORAGE_KEY = 'aegis_substrate_chain'
@@ -171,6 +192,16 @@ async function makeEntry(
   const observation: MetacognitiveObservation = { layer, signal: slot.signal, tier: slot.tier }
   const entry_hash = await sha256hex(canonicalPreimage(previous_entry_hash, sequence, observation))
   return Object.freeze({ observation, previous_entry_hash, sequence, entry_hash })
+}
+
+// Appends one new observation to chain, selecting the next layer in the cycle.
+// Pure: does not mutate the input; caller appends the returned entry themselves.
+export async function appendObservation(chain: readonly MetacognitiveEntry[]): Promise<MetacognitiveEntry> {
+  const seq = chain.length
+  const layer: Layer = LAYER_SEQUENCE[seq % LAYER_SEQUENCE.length] ?? 'SENSATION'
+  const prev = chain[chain.length - 1]
+  const prevHash = prev !== undefined ? prev.entry_hash : GENESIS_HASH
+  return makeEntry(prevHash, seq, layer)
 }
 
 export async function certify(chain: readonly MetacognitiveEntry[]): Promise<CertifyResult> {

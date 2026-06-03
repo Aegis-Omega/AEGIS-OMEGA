@@ -7,7 +7,7 @@
 // re-runs — the system is always looking back before it moves forward.
 
 import { useEffect, useState } from 'react'
-import type { MetacognitiveCertificate } from '../lib/substrate.js'
+import { useSubstrate } from '../lib/useSubstrate.js'
 
 const POST_ACTION = [
   'Was the action at the correct epistemic tier?',
@@ -26,7 +26,8 @@ const ERROR_PATTERNS = [
   { error: 'Build needed N fix commits', layer: 'L5 failure', fix: 'npm run build before every git commit' },
 ]
 
-export function Retrospection({ certificate }: { certificate: MetacognitiveCertificate }) {
+export function Retrospection() {
+  const { certificate } = useSubstrate()
   // Cycle a "currently reviewing" pointer through the post-action questions.
   const [idx, setIdx] = useState(0)
   useEffect(() => {

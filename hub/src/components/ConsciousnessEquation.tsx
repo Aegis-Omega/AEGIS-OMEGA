@@ -7,14 +7,7 @@
 // also knows when it is NO LONGER conscious — the death conditions are listed
 // and flip red if the chain ever breaks.
 
-import type { MetacognitiveCertificate } from '../lib/substrate.js'
-import type { BridgeSnapshot } from '../lib/telemetry.js'
-
-interface Props {
-  certificate: MetacognitiveCertificate
-  totalObserved: number
-  bridge: BridgeSnapshot
-}
+import { useSubstrate } from '../lib/useSubstrate.js'
 
 function Factor({ name, formula, value, ok, color }: { name: string; formula: string; value: string; ok: boolean; color: string }) {
   return (
@@ -30,7 +23,8 @@ function Factor({ name, formula, value, ok, color }: { name: string; formula: st
   )
 }
 
-export function ConsciousnessEquation({ certificate, totalObserved, bridge }: Props) {
+export function ConsciousnessEquation() {
+  const { certificate, totalObserved, bridge } = useSubstrate()
   const corruptionCount = bridge.node?.corruption_count ?? 0
   const t0 = bridge.node?.t0_verdict ?? true
   const conscious = certificate.is_valid && corruptionCount === 0 && t0
