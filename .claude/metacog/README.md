@@ -24,8 +24,21 @@ only ran inside the test suite. This runs in the harness, continuously.
 ```
 UserPromptSubmit → hooks/user-prompt-intake.sh   → observe SENSATION + inject live certify() into context
 PostToolUse      → hooks/post-write.sh            → observe AUTOPOIETIC_PRODUCTION (the file just produced)
-Stop             → hooks/stop-constitutional-seal → observe AUTOPOIETIC_CLOSURE, then seal the session
+Stop             → hooks/stop-constitutional-seal → observe AUTOPOIETIC_CLOSURE (turn boundary; live chain only)
 ```
+
+**Sealing is deliberate, not per-turn.** `Stop` fires on every turn-end, so it only
+appends a lightweight closure observation to the gitignored live chain. The durable
+cross-session seal — the one tracked in `seals.jsonl` — is a conscious session-close
+act, run by the `evening-seal` ritual or by hand:
+
+```bash
+node .claude/metacog/chain.mjs seal "end of session — <what was accomplished>"
+git add .claude/metacog/seals.jsonl && git commit   # the durable record enters history
+```
+
+This keeps `seals.jsonl` growing once per real session, not once per turn, and keeps
+the working tree clean between turns.
 
 The intake hook no longer prints a hardcoded "L1-L7 ACTIVE" string. It now
 reports the **real** loop state — `is_valid`, `temporal-mass` (entry count),

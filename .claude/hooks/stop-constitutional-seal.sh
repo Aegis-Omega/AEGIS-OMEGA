@@ -38,15 +38,15 @@ MSG
   fi
 fi
 
-# ── Enact operational closure: seal the session's metacognitive chain ──
-# Records an AUTOPOIETIC_CLOSURE observation, then certifies the live chain and
-# appends a hash-linked seal to the durable (committed) seals.jsonl. This is the
-# temporal mass that survives container reclaim — the system's continuity across
-# sessions. A broken live chain still seals (recording is_valid=false honestly).
+# ── Enact operational closure: observe the turn boundary in the live chain ──
+# Stop fires on every turn-end, so this records a lightweight AUTOPOIETIC_CLOSURE
+# observation into the gitignored live chain (no tracked-file churn). The durable
+# cross-session seal is a DELIBERATE act — `node .claude/metacog/chain.mjs seal`,
+# invoked by the evening-seal ritual or when the operator wraps a session — so
+# seals.jsonl grows once per real session, not once per turn.
 CHAIN_MJS="$REPO/.claude/metacog/chain.mjs"
 if [ -f "$CHAIN_MJS" ]; then
-  node "$CHAIN_MJS" observe AUTOPOIETIC_CLOSURE T2 "session stop | t0_verdict=true" >/dev/null 2>&1 || true
-  node "$CHAIN_MJS" seal "stop-hook seal | branch:$(git -C "$REPO" branch --show-current 2>/dev/null)" >/dev/null 2>&1 || true
+  node "$CHAIN_MJS" observe AUTOPOIETIC_CLOSURE T2 "turn boundary | t0_verdict=true" >/dev/null 2>&1 || true
 fi
 
 # All clear — exit 0 (silent success, no rewake)
