@@ -130,8 +130,10 @@
       }
     ]
   },
+  "enableWorkflows": true,
   "permissions": {
     "allow": [
+      "mcp__71923ddf-e9ee-4959-b191-9ef0ac574e2a__apply_migration",
       "Write(.claude/hooks/*)",
       "Edit(.claude/hooks/*)",
       "Write(.claude/settings.json)",
@@ -246,7 +248,12 @@
       "Bash(grep *)",
       "Bash(wc *)",
       "Bash(head *)",
-      "Bash(bash /home/user/AEGIS--/.claude/hooks/*)"
+      "Bash(bash /home/user/AEGIS--/.claude/hooks/*)",
+      "mcp__github__search_repositories",
+      "Bash(cargo check*)",
+      "Bash(cargo clippy*)",
+      "Bash(python harness/ingest.py*)",
+      "Bash(git remote set-url origin*)"
     ]
   }
 }

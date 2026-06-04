@@ -38,5 +38,16 @@ MSG
   fi
 fi
 
+# ── Enact operational closure: observe the turn boundary in the live chain ──
+# Stop fires on every turn-end, so this records a lightweight AUTOPOIETIC_CLOSURE
+# observation into the gitignored live chain (no tracked-file churn). The durable
+# cross-session seal is a DELIBERATE act — `node .claude/metacog/chain.mjs seal`,
+# invoked by the evening-seal ritual or when the operator wraps a session — so
+# seals.jsonl grows once per real session, not once per turn.
+CHAIN_MJS="$REPO/.claude/metacog/chain.mjs"
+if [ -f "$CHAIN_MJS" ]; then
+  node "$CHAIN_MJS" observe AUTOPOIETIC_CLOSURE T2 "turn boundary | t0_verdict=true" >/dev/null 2>&1 || true
+fi
+
 # All clear — exit 0 (silent success, no rewake)
 exit 0

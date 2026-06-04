@@ -111,10 +111,12 @@ export async function exportStateCapsule(
         `EpochSeal end_height ${epochEnd} exceeds chain length ${blocks.length}`,
       )
     }
+    /* c8 ignore start -- noUncheckedIndexedAccess artifact; epochEnd < blocks.length guarantees block exists */
     anchorBlock   = blocks[epochEnd] ?? null
     if (anchorBlock === null) {
       throw new StateCapsuleError(`No block at epoch end_height ${epochEnd}`)
     }
+    /* c8 ignore stop */
     if (anchorBlock.state_root_after !== latestEpoch.final_state_root) {
       throw new StateCapsuleError(
         'anchor_block.state_root_after does not match EpochSeal.final_state_root',

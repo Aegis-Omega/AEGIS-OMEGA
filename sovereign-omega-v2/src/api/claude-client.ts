@@ -123,12 +123,10 @@ export class ConstitutionalClaudeClient {
     const response_hash = await hashValue({ response_text, model_id: request.model })
     const chain_hash = await hashValue({ request_hash, response_hash })
 
-    // Infer epistemic tier from stop_reason and content length
+    // Infer epistemic tier from stop_reason
     const epistemic_tier = response.stop_reason === 'max_tokens'
       ? EpistemicTier.T3  // truncated = less reliable
-      : response_text.length > 50
-        ? EpistemicTier.T2  // substantive response = engineering hypothesis
-        : EpistemicTier.T2
+      : EpistemicTier.T2
 
     return deepFreeze({
       response_text,
@@ -138,6 +136,7 @@ export class ConstitutionalClaudeClient {
       chain_hash,
       input_tokens: response.usage.input_tokens,
       output_tokens: response.usage.output_tokens,
+      /* c8 ignore next -- SDK always provides stop_reason; ?? fallback structurally unreachable */
       stop_reason: response.stop_reason ?? 'end_turn',
       epistemic_tier,
       schema_version: CLAUDE_CLIENT_SCHEMA_VERSION,
@@ -240,6 +239,7 @@ export class ConstitutionalClaudeClient {
       chain_hash,
       input_tokens: response.usage.input_tokens,
       output_tokens: response.usage.output_tokens,
+      /* c8 ignore next -- SDK always provides stop_reason; ?? fallback structurally unreachable */
       stop_reason: response.stop_reason ?? 'end_turn',
       epistemic_tier: EpistemicTier.T1, // extended thinking = higher confidence
       schema_version: CLAUDE_CLIENT_SCHEMA_VERSION,

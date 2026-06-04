@@ -21,11 +21,13 @@ from hardware_config import detect_hardware
 from constitutional_identity import CONSTITUTIONAL_SYSTEM_FULL, CONSTITUTIONAL_SYSTEM_COMPACT
 from tgcs_afse import TGCSController, AFSEController
 from ledger_persist import save_checkpoint, load_checkpoint, checkpoint_exists, CheckpointError
+from source_attribution import SourceAttributor, TelemetrySample
 
 matrix = CoreMatrix()
 _hw = detect_hardware()
 _tgcs = TGCSController(hw_profile=_hw)
 _afse = AFSEController()
+_attributor = SourceAttributor()
 last_ack_sequence = -1
 _lock = threading.Lock()
 _last_autosave_epoch = -1
@@ -383,6 +385,17 @@ class BridgeHandler(BaseHTTPRequestHandler):
             telemetry['tgcs_variance'] = tgcs_snap.run_variance
             telemetry['afse_r2'] = _afse.get_r2()
             telemetry['holonic_scaling_score'] = _afse.holonic_scaling_score()
+            # ICA/NMF source attribution — observational, no write-back (T2)
+            # drift_index proxy: VCG drift rises when OS background noise perturbs timing
+            _attributor.push(TelemetrySample(
+                sequence=seq,
+                afse_score=float(_afse.holonic_scaling_score()),
+                tgcs_stretch_ms=float(tgcs_snap.cycle_stretch_ms),
+                pgcs_compressed_bytes=int(abs(float(telemetry.get('drift_index', 0.0))) * 1000),
+            ))
+            attribution = _attributor.attribute()
+            if attribution is not None:
+                telemetry['source_attribution'] = attribution.to_dict()
             self._respond(200, telemetry)
 
         elif self.path == '/resonance':
@@ -1037,6 +1050,50 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'is_replay_reconstructable': True,
                 'schema_version': '1.0.0',
             })
+
+        elif self.path == '/org':
+            # Gate 240 — Anthropic Admin API org status.
+            # Uses ANTHROPIC_ADMIN_API_KEY from env; cached 60s to respect rate limits.
+            # Returns {available: false} when key absent — never errors to the caller.
+            import urllib.request as _ur
+            import urllib.error as _ue
+            admin_key = os.environ.get('ANTHROPIC_ADMIN_API_KEY', '')
+            if not admin_key:
+                self._respond(200, {'available': False, 'reason': 'ANTHROPIC_ADMIN_KEY_UNSET'})
+                return
+            now = _time.time()
+            cached = getattr(BridgeHandler, '_org_cache', None)
+            if cached and (now - cached['ts']) < 60:
+                self._respond(200, cached['data'])
+                return
+            _hdrs = {
+                'anthropic-version': '2023-06-01',
+                'x-api-key': admin_key,
+                'content-type': 'application/json',
+            }
+            def _api_get(path):
+                req = _ur.Request(f'https://api.anthropic.com{path}', headers=_hdrs)
+                with _ur.urlopen(req, timeout=5) as resp:
+                    return json.loads(resp.read().decode())
+            try:
+                org = _api_get('/v1/organizations/me')
+                keys = _api_get('/v1/organizations/api_keys?limit=20&status=active')
+                wks = _api_get('/v1/organizations/workspaces?limit=20')
+                data = {
+                    'available': True,
+                    'org_id': org.get('id', ''),
+                    'org_name': org.get('name', ''),
+                    'active_key_count': len(keys.get('data', [])),
+                    'workspace_count': len(wks.get('data', [])),
+                    'schema_version': '1.0.0',
+                    'is_replay_reconstructable': True,
+                }
+                BridgeHandler._org_cache = {'ts': now, 'data': data}
+                self._respond(200, data)
+            except _ue.HTTPError as exc:
+                self._respond(200, {'available': False, 'reason': f'HTTP {exc.code}'})
+            except Exception as exc:
+                self._respond(200, {'available': False, 'reason': str(exc)[:80]})
 
         else:
             self._respond(404, {'error': 'NOT_FOUND'})

@@ -51,3 +51,6 @@ __pycache__/
 nosetests.xml
 ```.claude/settings.local.json
 .vercel
+
+# Metacognitive live chain — ephemeral per-container; only seals.jsonl is durable
+.claude/metacog/chain.jsonl

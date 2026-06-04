@@ -26,7 +26,7 @@ Read relevant existing files before proposing anything:
 # For a new gate series:
 tail -30 aegis-cl-psi/src/lib.rs | grep "pub mod"
 # For a new product:
-ls /home/user/myapp/platform-picker/src/
+ls /home/user/AEGIS--/platform-picker/src/
 # For TypeScript changes:
 ls sovereign-omega-v2/src/
 ```

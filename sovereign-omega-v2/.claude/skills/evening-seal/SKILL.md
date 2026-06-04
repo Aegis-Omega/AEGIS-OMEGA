@@ -30,8 +30,8 @@ No session ends with dirty state. This skill enforces constitutional cleanliness
 
 ## Step 1 — Dirty State Check
 ```bash
-git -C /home/user/myapp status --short
-git -C /home/user/myapp stash list
+git -C /home/user/AEGIS-- status --short
+git -C /home/user/AEGIS-- stash list
 ```
 
 For every untracked or modified file:
@@ -44,42 +44,42 @@ Report: `DIRTY FILES: <list> / CLEAN`
 
 ## Step 2 — Test Count Sync
 ```bash
-cd /home/user/myapp/aegis-cl-psi && cargo test 2>&1 | grep "test result" | head -1
+cd /home/user/AEGIS--/aegis-cl-psi && cargo test 2>&1 | grep "test result" | head -1
 ```
 
 Compare the output count against CLAUDE.md:
 ```bash
-grep "tests)" /home/user/myapp/CLAUDE.md
+grep "tests)" /home/user/AEGIS--/CLAUDE.md
 ```
 
 If mismatch: update CLAUDE.md with correct test count and commit.
 
 ## Step 3 — Gate Count Sync
 ```bash
-grep -c "^pub mod" /home/user/myapp/aegis-cl-psi/src/lib.rs
-grep "Gates complete:" /home/user/myapp/CLAUDE.md
+grep -c "^pub mod" /home/user/AEGIS--/aegis-cl-psi/src/lib.rs
+grep "Gates complete:" /home/user/AEGIS--/CLAUDE.md
 ```
 
 If mismatch: update CLAUDE.md gates count and commit.
 
 ## Step 4 — README Sync
 ```bash
-git -C /home/user/myapp diff README.md | head -5
+git -C /home/user/AEGIS-- diff README.md | head -5
 ```
 
 If README.md is modified (auto-updated by sync script): commit it.
 ```bash
 # Fix gate module count in README if needed:
-grep "gate modules" /home/user/myapp/README.md
+grep "gate modules" /home/user/AEGIS--/README.md
 # Update if stale, then:
-git -C /home/user/myapp add README.md
-git -C /home/user/myapp commit -m "Sync README: <N> gate modules, <T> Rust tests, <total> total
+git -C /home/user/AEGIS-- add README.md
+git -C /home/user/AEGIS-- commit -m "Sync README: <N> gate modules, <T> Rust tests, <total> total
 https://claude.ai/code/session_01WvFyntZArqThRgLczRutuM"
 ```
 
 ## Step 5 — Hash Integrity Seal
 ```bash
-cd /home/user/myapp/sovereign-omega-v2 && node scripts/verify-hashes.mjs 2>&1 | tail -3
+cd /home/user/AEGIS--/sovereign-omega-v2 && node scripts/verify-hashes.mjs 2>&1 | tail -3
 ```
 
 Assert: exits 0. Constitutional files unchanged.
@@ -87,15 +87,15 @@ Report: `HASH SEAL: PASS / BROKEN`
 
 ## Step 6 — Push All Commits
 ```bash
-git -C /home/user/myapp push -u origin claude/aegis-setup-Lx7Ji
+git -C /home/user/AEGIS-- push -u origin claude/aegis-setup-Lx7Ji
 ```
 
 Verify: push succeeds. Report the commit hash range pushed.
 
 ## Step 7 — Final Clean Check
 ```bash
-git -C /home/user/myapp status --short
-git -C /home/user/myapp log --oneline -3
+git -C /home/user/AEGIS-- status --short
+git -C /home/user/AEGIS-- log --oneline -3
 ```
 
 Assert: working tree is clean. The last 3 commits represent the session's work.

@@ -28,5 +28,7 @@ install_npm hook-generator
 install_npm content-calendar
 install_npm cockpit
 install_npm studio
+install_npm enterprise
+install_npm aegisomega-webgpu
 
 echo "SessionStart: all deps ready."

@@ -24,7 +24,7 @@ on:
   push:
     branches: [main, 'claude/*']
   pull_request:
-    branches: [main, 'claude/aegis-setup-Lx7Ji', 'claude/test-coverage-analysis-F50Hf', 'claude/test-coverage-analysis-keTIk']
+    branches: [main, 'claude/*']
   workflow_dispatch:
 
 concurrency:
@@ -288,6 +288,24 @@ jobs:
           echo "   AdaptivePower(T) ≤ ReplayVerifiability(T)"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
+
+          # ── Cancellation guard ────────────────────────────────────────────
+          # cancel-in-progress:true means a newer push may have superseded this
+          # run mid-flight.  A cancelled upstream job is not a constitutional
+          # failure — the active run's ceremony is the authoritative verdict.
+          CANCELLED=0
+          for r in "$R_MEMBRANE" "$R_CL_PSI" "$R_RUNTIME" "$R_GATE8" "$R_STUDIO" "$R_TOOLKIT"; do
+            [[ "$r" == "cancelled" ]] && CANCELLED=$((CANCELLED+1))
+          done
+          if [[ "$CANCELLED" -gt 0 ]]; then
+            echo "   ⟳ CEREMONY DEFERRED  ($CANCELLED/6 jobs cancelled)"
+            echo "   This run was superseded by a newer push."
+            echo "   Quorum authority deferred to the active run's ceremony."
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            exit 0
+          fi
+
           echo "   Layer         Job              Result      Tier"
           echo "   ────────────  ───────────────  ──────────  ────"
           printf "   SUBATOMIC     membrane         %-10s  T0\n"  "$R_MEMBRANE"

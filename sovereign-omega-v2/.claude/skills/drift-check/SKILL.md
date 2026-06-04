@@ -22,7 +22,7 @@ Run systematically. Every finding is a real violation, not a suggestion. Fix bef
 All hash inputs MUST use `to_be_bytes()`. Little-endian in any hash input breaks cross-platform replay.
 
 ```bash
-grep -rn "to_le_bytes\|little_endian\|from_le_bytes" /home/user/myapp/aegis-cl-psi/src/ \
+grep -rn "to_le_bytes\|little_endian\|from_le_bytes" /home/user/AEGIS--/aegis-cl-psi/src/ \
   | grep -v "//\|test\|doc"
 ```
 
@@ -33,7 +33,7 @@ If any found: FIX IMMEDIATELY — these break determinism for any peer running t
 `HashMap` has non-deterministic iteration order. Only `BTreeMap`/`BTreeSet` permitted.
 
 ```bash
-grep -rn "HashMap\|use std::collections::Hash\|HashSet" /home/user/myapp/aegis-cl-psi/src/ \
+grep -rn "HashMap\|use std::collections::Hash\|HashSet" /home/user/AEGIS--/aegis-cl-psi/src/ \
   | grep -v "//\|test"
 ```
 
@@ -44,7 +44,7 @@ Every `*Log` struct must have a `verify_chain()` method.
 
 ```bash
 # Find all Log struct definitions
-grep -l "pub struct Gossip.*Log\|pub struct .*Log {" /home/user/myapp/aegis-cl-psi/src/*.rs \
+grep -l "pub struct Gossip.*Log\|pub struct .*Log {" /home/user/AEGIS--/aegis-cl-psi/src/*.rs \
   | xargs -I{} sh -c 'grep -L "verify_chain" "{}" && echo "MISSING: {}"'
 ```
 
@@ -55,7 +55,7 @@ All integer arithmetic must use `saturating_*` or `checked_*`. Bare `+`/`*` on u
 
 ```bash
 # Look for arithmetic that isn't clearly saturating or in a min/max/capped context
-grep -rn "\bu32\b.*+\|\bu64\b.*+" /home/user/myapp/aegis-cl-psi/src/ \
+grep -rn "\bu32\b.*+\|\bu64\b.*+" /home/user/AEGIS--/aegis-cl-psi/src/ \
   | grep -v "saturating\|checked\|min(100\|.min\|test\|//\|use \|impl\|fn \|struct\|pub const"
 ```
 
@@ -65,7 +65,7 @@ Manual review required for any matches. Each must be verified safe (constant bou
 Every `*Log` struct must implement `Default`.
 
 ```bash
-grep -n "^pub struct.*Log" /home/user/myapp/aegis-cl-psi/src/*.rs | \
+grep -n "^pub struct.*Log" /home/user/AEGIS--/aegis-cl-psi/src/*.rs | \
   awk -F: '{print $1}' | sort -u | \
   xargs -I{} sh -c 'grep -L "impl Default" "{}" && echo "MISSING Default: {}"'
 ```
@@ -74,7 +74,7 @@ grep -n "^pub struct.*Log" /home/user/myapp/aegis-cl-psi/src/*.rs | \
 Every gate module must declare its genesis constant as `pub const <MODULE_UPPER>_GENESIS_HASH: [u8; 32] = [0u8; 32];`
 
 ```bash
-grep -rL "GENESIS_HASH" /home/user/myapp/aegis-cl-psi/src/gossip_*.rs \
+grep -rL "GENESIS_HASH" /home/user/AEGIS--/aegis-cl-psi/src/gossip_*.rs \
   | grep -v "test\|broadcaster\b"
 ```
 
@@ -84,8 +84,8 @@ Assert: empty (all gossip modules have GENESIS_HASH).
 The `hip` and `rocblas` features must never be activated in test commands.
 
 ```bash
-grep -rn "all-features\|--features hip\|--features rocblas" /home/user/myapp/.claude/ \
-  /home/user/myapp/CLAUDE.md 2>/dev/null | grep -v "NEVER\|never\|prohibited\|not\|without"
+grep -rn "all-features\|--features hip\|--features rocblas" /home/user/AEGIS--/.claude/ \
+  /home/user/AEGIS--/CLAUDE.md 2>/dev/null | grep -v "NEVER\|never\|prohibited\|not\|without"
 ```
 
 Assert: empty (or only "never use --all-features" warning references).
@@ -96,8 +96,8 @@ Every `.rs` file in `src/` should have a corresponding `pub mod` in `lib.rs`.
 ```bash
 # Files not registered
 comm -23 \
-  <(ls /home/user/myapp/aegis-cl-psi/src/*.rs | xargs -n1 basename | sed 's/\.rs$//' | grep -v "^lib$" | sort) \
-  <(grep "^pub mod" /home/user/myapp/aegis-cl-psi/src/lib.rs | awk '{print $3}' | tr -d ';' | sort)
+  <(ls /home/user/AEGIS--/aegis-cl-psi/src/*.rs | xargs -n1 basename | sed 's/\.rs$//' | grep -v "^lib$" | sort) \
+  <(grep "^pub mod" /home/user/AEGIS--/aegis-cl-psi/src/lib.rs | awk '{print $3}' | tr -d ';' | sort)
 ```
 
 Assert: empty. Any file not in lib.rs is dead code — either delete it or register it.
@@ -106,7 +106,7 @@ Assert: empty. Any file not in lib.rs is dead code — either delete it or regis
 Every new gate file must have `EPISTEMIC TIER: T2` in its header comment.
 
 ```bash
-grep -rL "EPISTEMIC TIER" /home/user/myapp/aegis-cl-psi/src/gossip_*.rs 2>/dev/null
+grep -rL "EPISTEMIC TIER" /home/user/AEGIS--/aegis-cl-psi/src/gossip_*.rs 2>/dev/null
 ```
 
 Assert: empty.
@@ -115,8 +115,8 @@ Assert: empty.
 Confirm the test count in CLAUDE.md is accurate.
 
 ```bash
-cd /home/user/myapp/aegis-cl-psi && cargo test 2>&1 | grep "test result" | head -1
-grep "tests)" /home/user/myapp/CLAUDE.md
+cd /home/user/AEGIS--/aegis-cl-psi && cargo test 2>&1 | grep "test result" | head -1
+grep "tests)" /home/user/AEGIS--/CLAUDE.md
 ```
 
 If mismatch: update CLAUDE.md.

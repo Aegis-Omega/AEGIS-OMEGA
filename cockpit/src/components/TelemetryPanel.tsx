@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { Activity, ChevronDown, ChevronUp, WifiOff, Zap, Shield, Radio } from 'lucide-react'
 import { subscribeTelemetry, type TelemetryState } from '../lib/telemetry.js'
 import { AutonodeStatus } from './AutonodeStatus.js'
+import { OrgPanel } from './OrgPanel.js'
 import { fetchNetworkResonance, type NetworkResonanceReport, type NetworkVerdict, type NetworkPeer } from '../../../packages/shared/lib/autonode.js'
 
 const BRIDGE = (import.meta.env.VITE_BRIDGE_URL as string | undefined) ?? 'http://localhost:7890'
@@ -238,6 +239,9 @@ export function TelemetryPanel() {
 
                 {/* Autonode — T0 verdict gate + constitutional hash */}
                 <AutonodeStatus bridgeUrl={BRIDGE} />
+
+                {/* Org — Anthropic Admin API: org name, key count, workspace count */}
+                <OrgPanel />
 
                 {/* Block — distributed ledger state root */}
                 {block != null && (

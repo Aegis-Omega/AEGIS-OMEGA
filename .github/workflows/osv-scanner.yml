@@ -13,13 +13,13 @@ name: OSV-Scanner
 
 on:
   pull_request:
-    branches: [main, 'claude/aegis-setup-Lx7Ji']
+    branches: [main, 'claude/*']
   merge_group:
-    branches: [main, 'claude/aegis-setup-Lx7Ji']
+    branches: [main, 'claude/*']
   schedule:
     - cron: '15 13 * * 6'
   push:
-    branches: [main, 'claude/aegis-setup-Lx7Ji']
+    branches: [main, 'claude/*']
 
 permissions:
   # Require writing security events to upload SARIF file to security tab

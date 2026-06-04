@@ -112,3 +112,16 @@ export function storeAccess(product: string, payload: GrantPayload): void {
 export function hasAccess(product: string): boolean {
   return getStoredAccess(product) !== null
 }
+
+// Server token storage — raw ECDSA P-256 token string keyed per product.
+// Counterpart to AccessGate's verifyServerToken flow; key matches the
+// localStorage.removeItem(`aegis_srv_${product}`) eviction path on expiry.
+const SERVER_STORAGE_KEY = (product: string) => `aegis_srv_${product}`
+
+export function storeServerToken(product: string, token: string): void {
+  localStorage.setItem(SERVER_STORAGE_KEY(product), token)
+}
+
+export function getStoredServerToken(product: string): string | null {
+  return localStorage.getItem(SERVER_STORAGE_KEY(product))
+}

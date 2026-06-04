@@ -2,6 +2,14 @@
 // Route: / → living substrate · /tools → creator tools · /success → SuccessPage
 import { useEffect, useRef, useState } from 'react'
 import { Mail } from 'lucide-react'
+
+function GithubIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+    </svg>
+  )
+}
 import { SuccessPage } from './components/SuccessPage.js'
 import { ToolsPage } from './components/ToolsPage.js'
 import { ConsciousnessStream } from './components/ConsciousnessStream.js'
@@ -69,27 +77,27 @@ function LiveBanner() {
       <span style={{ color: validColor(isValid) }}>
         is_valid: <strong>{isValid ? 'true' : 'false'}</strong>
       </span>
-      <span style={{ color: '#1F2937' }}>·</span>
+      <span style={{ color: '#4B5563' }}>·</span>
       <span style={{ color: validColor(t0Verdict) }}>
         t0_verdict: <strong>{t0Verdict ? 'true' : 'false'}</strong>
       </span>
-      <span style={{ color: '#1F2937' }}>·</span>
+      <span style={{ color: '#4B5563' }}>·</span>
       <span style={{ color: counterColor }}>
         corruption_count: <strong>{corruptionCount}</strong>
       </span>
-      <span style={{ color: '#1F2937' }}>·</span>
+      <span style={{ color: '#4B5563' }}>·</span>
       <span style={{ color: '#C8A96E' }}>
         chain_length: <strong>{state.chain.length}</strong>
       </span>
       {bridgeOnline && (
         <>
-          <span style={{ color: '#1F2937' }}>·</span>
+          <span style={{ color: '#4B5563' }}>·</span>
           <span style={{ color: '#60A5FA' }}>
             bridge: <strong>online</strong>
           </span>
         </>
       )}
-      <span style={{ color: '#1F2937' }}>·</span>
+      <span style={{ color: '#4B5563' }}>·</span>
       <span
         className="animate-mint-pulse"
         style={{ width: 6, height: 6, borderRadius: '50%', background: '#34D399', display: 'inline-block' }}
@@ -124,6 +132,15 @@ function AutomatonPage() {
             <a href="#substrate"    className="text-hub-muted text-xs hover:text-hub-text transition-colors hidden sm:block">Substrate</a>
             <a href="#cognitive"    className="text-hub-muted text-xs hover:text-hub-text transition-colors hidden sm:block">Cognition</a>
             <a href="#equation"     className="text-hub-muted text-xs hover:text-hub-text transition-colors hidden sm:block">Equation</a>
+            <a
+              href="https://github.com/Aegis-Omega/AEGIS--"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-hub-muted hover:text-hub-text transition-colors hidden sm:flex items-center gap-1"
+              aria-label="GitHub"
+            >
+              <GithubIcon size={14} />
+            </a>
             <a
               href="/tools"
               onClick={() => captureEvent('nav_enter_system', { ttv_seconds: ttv() })}
@@ -165,7 +182,7 @@ function AutomatonPage() {
           running as live substrate in your browser, hash-chained and tamper-evident.
         </p>
 
-        <p className="text-xs animate-fade-up delay-150" style={{ color: '#374151' }}>
+        <p className="text-xs animate-fade-up delay-150" style={{ color: '#6B6B7A' }}>
           Click anywhere to disturb the σ field · scroll to deepen λ memory
         </p>
         <FieldDisplay />
@@ -302,18 +319,19 @@ function AutomatonPage() {
           </h2>
           <p className="text-sm mb-6 max-w-lg mx-auto leading-relaxed" style={{ color: '#6B6B7A' }}>
             SHA-256 hash-chained. Tamper-evident. Self-certifying.
-            The creator toolkit — three $19 tools — lives on the next page.
+            A constitutional AI runtime that governs its own cognition in real time.
           </p>
           <a
-            href="/tools"
-            onClick={() => captureEvent('cta_enter_system', { ttv_seconds: 0 })}
+            href="mailto:info@aegisomega.com"
+            onClick={() => captureEvent('cta_contact', { ttv_seconds: 0 })}
             className="inline-flex items-center justify-center gap-2 text-white font-semibold px-10 py-4 rounded-xl hover:opacity-90 transition-opacity text-sm"
             style={{ background: '#6366F1' }}
           >
-            Enter the System →
+            <Mail size={14} />
+            Contact us →
           </a>
-          <p className="text-xs mt-4" style={{ color: '#374151' }}>
-            EU AI Act compliant · deterministic replay · 6,271 invariant tests
+          <p className="text-xs mt-4" style={{ color: '#6B6B7A' }}>
+            EU AI Act compliant · deterministic replay · 10,067 invariant tests
           </p>
         </div>
       </div>
@@ -331,7 +349,16 @@ function AutomatonPage() {
             <a href="/tools" className="text-hub-muted text-xs hover:text-hub-text transition-colors">Tools</a>
             <a href="#equation" className="text-hub-muted text-xs hover:text-hub-text transition-colors">Equation</a>
             <a
-              href="mailto:tarikskalic33@gmail.com"
+              href="https://github.com/Aegis-Omega/AEGIS--"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-hub-muted text-xs hover:text-hub-text transition-colors"
+            >
+              <GithubIcon size={11} />
+              Source
+            </a>
+            <a
+              href="mailto:info@aegisomega.com"
               className="inline-flex items-center gap-1.5 text-hub-muted text-xs hover:text-hub-text transition-colors"
             >
               <Mail size={11} />

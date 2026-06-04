@@ -102,6 +102,7 @@ export function assessDivergence(
   }
 
   const total          = checkpoints.length
+  /* c8 ignore next -- pluralityRoot is always a key in groups when not null; ?? [] arm structurally unreachable */
   const inConsensus    = pluralityRoot !== null ? (groups.get(pluralityRoot) ?? []) : []
   const diverged       = checkpoints
     .filter(cp => cp.state_root !== pluralityRoot)

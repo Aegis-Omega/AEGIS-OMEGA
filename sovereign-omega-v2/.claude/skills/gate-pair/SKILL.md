@@ -129,7 +129,7 @@ pub mod gossip_broadcast_<name_b>;
 
 ### Phase E — Full suite verification  _(L2 PROPAGATE → L6 post-action review)_
 ```bash
-cd /home/user/myapp/aegis-cl-psi && cargo test 2>&1 | grep "test result" | head -1
+cd /home/user/AEGIS--/aegis-cl-psi && cargo test 2>&1 | grep "test result" | head -1
 ```
 Assert: 0 failed. Note new total test count.
 

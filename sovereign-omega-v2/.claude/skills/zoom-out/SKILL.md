@@ -20,7 +20,7 @@ Step back from the current detail. Get a structural view of the full system stat
 
 ### 1. GATE COUNT & TEST STATUS
 ```bash
-cd /home/user/myapp
+cd /home/user/AEGIS--
 grep "Gates complete:" CLAUDE.md | head -1
 grep "tests)" CLAUDE.md | head -1
 cd aegis-cl-psi && cargo test 2>&1 | grep "test result" | head -1
@@ -37,7 +37,7 @@ Report the gate pairs recently committed. Identify the rhythm of recent gate bui
 
 ### 3. CONSTITUTIONAL HEALTH
 ```bash
-cd /home/user/myapp/sovereign-omega-v2 && node scripts/verify-hashes.mjs 2>&1 | tail -3
+cd /home/user/AEGIS--/sovereign-omega-v2 && node scripts/verify-hashes.mjs 2>&1 | tail -3
 ```
 Report: `HASH INTEGRITY: PASS / FAIL`
 
@@ -49,21 +49,21 @@ git status --short
 ### 4. GATE SERIES PATTERN
 Examine the last 6 module names in lib.rs to identify which series is active:
 ```bash
-tail -30 /home/user/myapp/aegis-cl-psi/src/lib.rs | grep "pub mod"
+tail -30 /home/user/AEGIS--/aegis-cl-psi/src/lib.rs | grep "pub mod"
 ```
 
 Identify: "Currently in the `gossip_broadcast_*` series" or similar.
 
 ### 5. SOVEREIGN-OMEGA STATE
 ```bash
-cd /home/user/myapp/sovereign-omega-v2 && npm run test 2>&1 | grep "test result\|Tests " | tail -3
+cd /home/user/AEGIS--/sovereign-omega-v2 && npm run test 2>&1 | grep "test result\|Tests " | tail -3
 ```
 Report: `TS SUITE: <N> tests · <status>`
 
 ### 6. COMMERCIAL PRODUCTS STATUS
 Check if commercial products build (quick check, don't rebuild):
 ```bash
-ls /home/user/myapp/platform-picker/dist /home/user/myapp/hub/dist /home/user/myapp/hook-generator/dist /home/user/myapp/content-calendar/dist /home/user/myapp/cockpit/dist 2>/dev/null | grep -c "index.html" || echo "0 built"
+ls /home/user/AEGIS--/platform-picker/dist /home/user/AEGIS--/hub/dist /home/user/AEGIS--/hook-generator/dist /home/user/AEGIS--/content-calendar/dist /home/user/AEGIS--/cockpit/dist 2>/dev/null | grep -c "index.html" || echo "0 built"
 ```
 
 ### 7. NEXT GATE IDENTIFICATION

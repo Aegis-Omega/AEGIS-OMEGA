@@ -20,6 +20,15 @@ if [[ "$FILE_PATH" != /* ]]; then
   FILE_PATH="$REPO/$FILE_PATH"
 fi
 
+# ── Enact autopoiesis: record the self-production event in the metacog chain ──
+# Every Write/Edit is a component the system produced of itself; the chain is
+# the membrane inventory. Tier T2 (engineering production); failures are silent.
+CHAIN_MJS="$REPO/.claude/metacog/chain.mjs"
+if [ -f "$CHAIN_MJS" ]; then
+  REL="${FILE_PATH#$REPO/}"
+  node "$CHAIN_MJS" observe AUTOPOIETIC_PRODUCTION T2 "produced: $REL" >/dev/null 2>&1 || true
+fi
+
 # --- Frozen file check (membrane breach detection) ---
 FROZEN_FILES=(
   "$REPO/sovereign-omega-v2/python/gate.py"

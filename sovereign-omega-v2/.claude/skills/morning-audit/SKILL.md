@@ -19,7 +19,7 @@ Run exactly once at the start of each session. Produces a signed orientation rep
 
 ## Step 0 — Self-Model Check (L7 + L6)
 ```bash
-cd /home/user/myapp/sovereign-omega-v2 && node scripts/verify-hashes.mjs 2>&1 | tail -3
+cd /home/user/AEGIS--/sovereign-omega-v2 && node scripts/verify-hashes.mjs 2>&1 | tail -3
 curl -s http://localhost:7890/node 2>/dev/null | jq '{t0: .t0_verdict, corruption: .corruption_count}' 2>/dev/null || echo "bridge offline (ok at session start)"
 ```
 
@@ -34,8 +34,8 @@ If self-model BREACH: HALT — invoke `/frozen-file-check` before any other step
 
 ## Step 1 — Gate Progress & Test Health  _(L2 Perception)_
 ```bash
-grep "Gates complete:\|tests)" /home/user/myapp/CLAUDE.md | head -3
-cd /home/user/myapp/aegis-cl-psi && cargo test 2>&1 | grep "test result" | head -1
+grep "Gates complete:\|tests)" /home/user/AEGIS--/CLAUDE.md | head -3
+cd /home/user/AEGIS--/aegis-cl-psi && cargo test 2>&1 | grep "test result" | head -1
 ```
 
 Report: `GATES: <N> · RUST TESTS: <T> · STATUS: <ok/FAIL>`
@@ -44,7 +44,7 @@ If cargo test fails: HALT — invoke `/diagnose` before proceeding.
 
 ## Step 2 — Active Gate Series  _(L3 Working Memory)_
 ```bash
-tail -25 /home/user/myapp/aegis-cl-psi/src/lib.rs | grep "pub mod"
+tail -25 /home/user/AEGIS--/aegis-cl-psi/src/lib.rs | grep "pub mod"
 ```
 
 Identify the active naming series (e.g., `gossip_broadcast_*`, `compaction_*`, `phi_*`).
@@ -53,19 +53,19 @@ Identify the last gate number from lib.rs or CLAUDE.md.
 
 ## Step 3 — Uncommitted Work  _(L7 Self-model integrity)_
 ```bash
-git -C /home/user/myapp status --short
+git -C /home/user/AEGIS-- status --short
 ```
 
 If any files are unstaged: commit them before proceeding (do NOT carry forward dirty state).
 ```bash
-git -C /home/user/myapp stash list
+git -C /home/user/AEGIS-- stash list
 ```
 
 Report: `WORKING TREE: CLEAN / DIRTY: <files>`
 
 ## Step 4 — Hash Integrity  _(L7 T0_ABORT path — already run in Step 0, confirm once more)_
 ```bash
-cd /home/user/myapp/sovereign-omega-v2 && node scripts/verify-hashes.mjs 2>&1 | tail -3
+cd /home/user/AEGIS--/sovereign-omega-v2 && node scripts/verify-hashes.mjs 2>&1 | tail -3
 ```
 
 If fails: HALT — invoke `/frozen-file-check`.
@@ -73,7 +73,7 @@ Report: `HASH INTEGRITY: PASS / FAIL`
 
 ## Step 5 — Recent Session History  _(L4 Long-term Memory)_
 ```bash
-git -C /home/user/myapp log --oneline -6
+git -C /home/user/AEGIS-- log --oneline -6
 ```
 
 Read the last 6 commits to orient to momentum. Note which gate pair was last completed.

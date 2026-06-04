@@ -20,24 +20,24 @@ Compaction loses session-specific context. This skill encodes the essential orie
 ## Step 1 — Capture Active State
 ```bash
 # Gate position
-grep "Gates complete:" /home/user/myapp/CLAUDE.md | head -1
-cd /home/user/myapp/aegis-cl-psi && cargo test 2>&1 | grep "test result" | head -1
+grep "Gates complete:" /home/user/AEGIS--/CLAUDE.md | head -1
+cd /home/user/AEGIS--/aegis-cl-psi && cargo test 2>&1 | grep "test result" | head -1
 
 # Active series
-tail -15 /home/user/myapp/aegis-cl-psi/src/lib.rs | grep "pub mod"
+tail -15 /home/user/AEGIS--/aegis-cl-psi/src/lib.rs | grep "pub mod"
 
 # Recent commits
-git -C /home/user/myapp log --oneline -5
+git -C /home/user/AEGIS-- log --oneline -5
 
 # Working tree
-git -C /home/user/myapp status --short
+git -C /home/user/AEGIS-- status --short
 ```
 
 ## Step 2 — Seal Before Compaction
 If working tree is dirty: commit everything now. Never compact with uncommitted work.
 
 ```bash
-git -C /home/user/myapp status --short
+git -C /home/user/AEGIS-- status --short
 ```
 
 If any changes exist: invoke `/evening-seal` first.
@@ -105,12 +105,12 @@ ENGINEERING TOOLS:
 
 ## Step 6 — Verify Push Before Compaction
 ```bash
-git -C /home/user/myapp log origin/claude/aegis-setup-Lx7Ji..HEAD --oneline
+git -C /home/user/AEGIS-- log origin/claude/aegis-setup-Lx7Ji..HEAD --oneline
 ```
 
 Assert: empty (all commits pushed). If any local-only commits exist: push now.
 ```bash
-git -C /home/user/myapp push -u origin claude/aegis-setup-Lx7Ji
+git -C /home/user/AEGIS-- push -u origin claude/aegis-setup-Lx7Ji
 ```
 
 ## Compaction Prep Report

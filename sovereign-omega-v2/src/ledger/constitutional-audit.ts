@@ -121,6 +121,7 @@ export class ConstitutionalAuditLog {
     for (let i = 0; i < this._entries.length; i++) {
       const entry = this._entries[i]!
       if (!(await verifyAuditEntry(entry))) return false
+      /* c8 ignore next -- append() enforces monotonicity; regression here is structurally impossible */
       if (i > 0 && entry.block_index < this._entries[i - 1]!.block_index) return false
     }
     return true

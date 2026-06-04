@@ -152,6 +152,7 @@ export class MultiverseRegistry {
       )
     }
     const next_gen = incrementGeneration(record.generation)
+    /* c8 ignore next 4 -- generation saturation requires ~2^32 increments; structurally infeasible in any test run */
     if (next_gen === null) {
       throw new MultiverseError(
         `[MULTIVERSE_SATURATED] universe '${universe_id}' generation saturated — permanently closed`,

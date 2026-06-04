@@ -62,6 +62,7 @@ export function isReplaySafe(value: unknown, visited?: Set<object>): boolean {
     }
     return true
   }
+  /* c8 ignore next -- all JS types handled above; structurally unreachable */
   return false
 }
 

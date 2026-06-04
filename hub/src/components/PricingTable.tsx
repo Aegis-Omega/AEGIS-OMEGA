@@ -12,9 +12,9 @@ function captureEvent(event: string, props?: Record<string, unknown>): void {
 // Setup (5 min):
 //   1. Create account at app.lemonsqueezy.com
 //   2. Create a store → add 3 products ($19 / $29 / $39)
-//   3. For each product: Settings → Checkout → Redirect URL:
-//        https://<hub-domain>/success?plan=single  (or starter / full)
-//   4. Copy the checkout URL and set it as the env var below.
+//   3. All 3 products use the SAME redirect URL (order_id is injected by LS):
+//        https://aegisomega.com/success?order_id={order_id}
+//   4. Copy each product's checkout URL and set it as the env var below.
 //
 // Lemon Squeezy is a Merchant of Record — they handle VAT/tax globally.
 // No Stripe account needed. Works in 100+ countries.

@@ -41,6 +41,7 @@ Deno.serve(async (req) => {
   const email     = (attrs.user_email ?? '').toLowerCase().trim()
   const orderId   = String(event.data?.id ?? '')
   const variantId = String(attrs.first_order_item?.variant_id ?? '')
+  const productId = String(attrs.first_order_item?.product_id ?? '')
   const plan      = LS_PLAN_MAP[variantId] ?? 'single'
 
   if (!email) {
@@ -56,6 +57,7 @@ Deno.serve(async (req) => {
     customer_email: email,
     ls_order_id:    orderId,
     ls_variant_id:  variantId,
+    ls_product_id:  productId,
     plan,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'ls_order_id' })

@@ -89,7 +89,7 @@ L2 PERCEPTION:
       Auditability ≠ Safety
       Calibration ≠ Truthfulness
   → Has the environment been verified before assuming its state?
-    (ERROR-02: session-start hook ran against /home/user/myapp, not AEGIS--)
+    (ERROR-02: session-start hook ran against /home/user/AEGIS--, not AEGIS--)
 
 L4 LONG-TERM MEMORY:
   → Does this action update the adaptive lineage?
@@ -196,7 +196,7 @@ Temporal mass  = Hash-certified ontological continuity across sessions
 | Stripe→Lemon Squeezy 3-min churn | L6 missed | LOCK before ASSESS | Check vendor regional support before writing code |
 | Firebase deprecated, not checked | L2 failure | Signal not verified | Read provider changelog before implementing |
 | CI branch set to nonexistent `main` | L2 failure | Environment not perceived | `git branch --list <target>` before modifying workflow |
-| Session hook `/home/user/myapp` path | L7 incomplete | Self-model wrong | Verify `$CLAUDE_PROJECT_DIR` before writing config |
+| Session hook `/home/user/AEGIS--` path | L7 incomplete | Self-model wrong | Verify `$CLAUDE_PROJECT_DIR` before writing config |
 | Hub build needed 4 fix commits | L5 failure | PROPAGATE skipped | `npm run build` before every `git commit` |
 | auto-gate 402 crash left dirty state | L3 incomplete | Working memory not checkpointed | JSON checkpoint file on every gate build |
 
