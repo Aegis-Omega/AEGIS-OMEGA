@@ -166,4 +166,86 @@ mod tests {
         let (valid, _) = orch.audit.verify_chain();
         assert!(valid);
     }
+
+    // 3. Step counter increments correctly
+    #[test]
+    fn step_counter_increments() {
+        let mut orch = Phase6Orchestrator::new(4, &[]);
+        for expected in 1u64..=4 {
+            let out = orch.step(&[0.1; 4], &[0.1; 4]);
+            assert_eq!(out.step, expected);
+        }
+    }
+
+    // 4. consensus vector is non-empty after a step
+    #[test]
+    fn consensus_non_empty() {
+        let mut orch = Phase6Orchestrator::new(4, &[]);
+        let out = orch.step(&[0.2; 4], &[0.2; 4]);
+        assert!(!out.consensus.is_empty());
+    }
+
+    // 5. audit_hash is a 64-char hex string
+    #[test]
+    fn audit_hash_64_chars() {
+        let mut orch = Phase6Orchestrator::new(4, &[]);
+        let out = orch.step(&[0.1, 0.2, 0.3, 0.4], &[0.1, 0.2, 0.3, 0.4]);
+        assert_eq!(out.audit_hash.len(), 64);
+        assert!(out.audit_hash.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    // 6. routing_entropy is non-negative
+    #[test]
+    fn routing_entropy_nonneg() {
+        let mut orch = Phase6Orchestrator::new(4, &[]);
+        for _ in 0..4 {
+            let out = orch.step(&[0.3; 4], &[0.3; 4]);
+            assert!(out.routing_entropy >= 0.0);
+        }
+    }
+
+    // 7. h_d is non-negative
+    #[test]
+    fn h_d_nonneg() {
+        let mut orch = Phase6Orchestrator::new(4, &[]);
+        for _ in 0..4 {
+            let out = orch.step(&[0.25; 4], &[0.25; 4]);
+            assert!(out.h_d >= 0.0);
+        }
+    }
+
+    // 8. audit log grows by one entry per step
+    #[test]
+    fn audit_grows_per_step() {
+        let mut orch = Phase6Orchestrator::new(4, &[]);
+        for n in 1..=5usize {
+            orch.step(&[0.1; 4], &[0.1; 4]);
+            assert_eq!(orch.audit.len(), n);
+        }
+    }
+
+    // 9. Step numbers are strictly increasing across consecutive calls
+    #[test]
+    fn step_numbers_strictly_increasing() {
+        let mut orch = Phase6Orchestrator::new(4, &[]);
+        let mut prev = 0u64;
+        for _ in 0..5 {
+            let out = orch.step(&[0.15; 4], &[0.15; 4]);
+            assert!(out.step > prev);
+            prev = out.step;
+        }
+    }
+
+    // 10. Determinism: same inputs produce same step-1 output fields
+    #[test]
+    fn same_inputs_same_step1_output() {
+        let input = [0.1f32, 0.2, 0.3, 0.4];
+        let mut a = Phase6Orchestrator::new(4, &[]);
+        let mut b = Phase6Orchestrator::new(4, &[]);
+        let out_a = a.step(&input, &input);
+        let out_b = b.step(&input, &input);
+        assert_eq!(out_a.step, out_b.step);
+        assert_eq!(out_a.audit_hash, out_b.audit_hash);
+        assert_eq!(out_a.lyapunov_stable, out_b.lyapunov_stable);
+    }
 }

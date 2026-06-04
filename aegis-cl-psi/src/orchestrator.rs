@@ -111,4 +111,84 @@ mod tests {
         let (valid, _) = orch.audit.verify_chain();
         assert!(valid);
     }
+
+    // 3. step number in output increments correctly
+    #[test]
+    fn step_count_increments_correctly() {
+        let mut orch = Phase1Orchestrator::new(1.0, 4, 1, 0.01);
+        for expected in 1u64..=5 {
+            let out = orch.step(&[0.1; 4]);
+            assert_eq!(out.step, expected);
+        }
+    }
+
+    // 4. audit log is non-empty after a step
+    #[test]
+    fn audit_non_empty_after_step() {
+        let mut orch = Phase1Orchestrator::new(1.0, 4, 1, 0.01);
+        orch.step(&[0.5; 4]);
+        assert!(!orch.audit.is_empty());
+    }
+
+    // 5. cache_utilization_pct is in [0, 100]
+    #[test]
+    fn cache_utilization_within_bounds() {
+        let mut orch = Phase1Orchestrator::new(1.0, 4, 1, 0.01);
+        for _ in 0..10 {
+            let out = orch.step(&[0.2; 4]);
+            assert!(out.cache_utilization_pct >= 0.0);
+            assert!(out.cache_utilization_pct <= 100.0);
+        }
+    }
+
+    // 6. active_paths never exceeds num_paths
+    #[test]
+    fn active_paths_within_num_paths() {
+        let mut orch = Phase1Orchestrator::new(1.0, 4, 1, 0.01);
+        for _ in 0..5 {
+            let out = orch.step(&[0.3; 4]);
+            assert!(out.active_paths <= 4);
+        }
+    }
+
+    // 7. audit_hash is a 64-character hex string
+    #[test]
+    fn audit_hash_is_64_char_hex() {
+        let mut orch = Phase1Orchestrator::new(1.0, 4, 1, 0.01);
+        let out = orch.step(&[0.1, 0.2, 0.3, 0.4]);
+        assert_eq!(out.audit_hash.len(), 64);
+        assert!(out.audit_hash.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    // 8. rollback_required == !stable invariant
+    #[test]
+    fn rollback_required_matches_not_stable() {
+        let mut orch = Phase1Orchestrator::new(1.0, 4, 1, 0.01);
+        for i in 0..4 {
+            let out = orch.step(&[i as f32; 4]);
+            assert_eq!(out.rollback_required, !out.stable);
+        }
+    }
+
+    // 9. consecutive outputs have strictly increasing step numbers
+    #[test]
+    fn step_numbers_strictly_increasing() {
+        let mut orch = Phase1Orchestrator::new(1.0, 4, 1, 0.01);
+        let mut prev = 0u64;
+        for _ in 0..5 {
+            let out = orch.step(&[0.1; 4]);
+            assert!(out.step > prev);
+            prev = out.step;
+        }
+    }
+
+    // 10. audit entries count matches step count
+    #[test]
+    fn audit_len_matches_step_count() {
+        let mut orch = Phase1Orchestrator::new(1.0, 4, 1, 0.01);
+        for n in 1..=6usize {
+            orch.step(&[0.05; 4]);
+            assert_eq!(orch.audit.len(), n);
+        }
+    }
 }

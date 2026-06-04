@@ -141,4 +141,76 @@ mod tests {
         assert!(result.resolved);
         assert_eq!(result.iterations, 0);
     }
+
+    // 4. Single branch has zero divergence — resolves in one iteration
+    #[test]
+    fn single_branch_zero_divergence() {
+        let resolver = LocalResolver::new(0.5, 0.01, 0.01);
+        let mut branches = vec![vec![1.0f32, 2.0, 3.0]];
+        let result = resolver.resolve(&mut branches);
+        assert!(result.resolved);
+        assert_eq!(result.final_divergence, 0.0);
+    }
+
+    // 5. Consensus of two symmetric branches is their midpoint
+    #[test]
+    fn consensus_is_midpoint_of_two_branches() {
+        let resolver = LocalResolver::new(1.0, 0.001, 0.01); // large step → converges fast
+        let mut branches = vec![vec![0.0f32, 0.0], vec![2.0f32, 2.0]];
+        let result = resolver.resolve(&mut branches);
+        // After convergence the consensus should be near [1, 1]
+        assert!((result.consensus[0] - 1.0).abs() < 0.1);
+        assert!((result.consensus[1] - 1.0).abs() < 0.1);
+    }
+
+    // 6. All-zeros branches produce zero consensus
+    #[test]
+    fn all_zero_branches_produce_zero_consensus() {
+        let resolver = LocalResolver::new(0.5, 0.01, 0.01);
+        let mut branches = vec![vec![0.0f32; 4], vec![0.0f32; 4]];
+        let result = resolver.resolve(&mut branches);
+        assert!(result.resolved);
+        assert!(result.consensus.iter().all(|&v| v == 0.0));
+    }
+
+    // 7. convergence_reason is "threshold_reached" on successful convergence
+    #[test]
+    fn convergence_reason_threshold_reached() {
+        let resolver = LocalResolver::new(0.9, 0.01, 0.01);
+        let mut branches = vec![vec![1.0f32], vec![1.005]];
+        let result = resolver.resolve(&mut branches);
+        assert!(result.resolved);
+        assert_eq!(result.convergence_reason, "threshold_reached");
+    }
+
+    // 8. convergence_reason is "empty_input" for empty branches
+    #[test]
+    fn convergence_reason_empty_input() {
+        let resolver = LocalResolver::new(0.5, 0.01, 0.01);
+        let result = resolver.resolve(&mut vec![]);
+        assert_eq!(result.convergence_reason, "empty_input");
+    }
+
+    // 9. Larger step size converges in fewer iterations than tiny step
+    #[test]
+    fn larger_step_converges_faster() {
+        let resolver_fast = LocalResolver::new(0.8, 0.001, 0.01);
+        let resolver_slow = LocalResolver::new(0.01, 0.001, 0.01);
+        let initial = vec![vec![0.0f32, 0.0], vec![10.0f32, 10.0]];
+        let result_fast = resolver_fast.resolve(&mut initial.clone());
+        let result_slow = resolver_slow.resolve(&mut initial.clone());
+        assert!(result_fast.iterations <= result_slow.iterations);
+    }
+
+    // 10. Max iterations never exceeded (32 is the hard cap)
+    #[test]
+    fn max_iterations_hard_cap() {
+        let resolver = LocalResolver::new(0.001, 0.0, 0.01); // threshold=0 → always resolves
+        // Use divergence_threshold=0 to force early exit and check cap isn't exceeded
+        let resolver2 = LocalResolver::new(0.001, 0.001, 0.01);
+        let mut branches = vec![vec![0.0f32; 4], vec![1000.0f32; 4]]; // very far apart
+        let result = resolver2.resolve(&mut branches);
+        assert!(result.iterations <= MAX_ITERATIONS);
+        let _ = resolver; // suppress unused warning
+    }
 }

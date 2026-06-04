@@ -150,4 +150,66 @@ mod tests {
             _ => panic!("Expected ConfidenceDecay"),
         }
     }
+
+    // 4. Single node with no dependencies passes
+    #[test]
+    fn single_node_no_deps_passes() {
+        let mut arbiter = CausalConfidenceArbiter::new(0.5);
+        arbiter.register_node(CausalNode { id: 42, state: EpistemicState::Verified, confidence: 0.99, dependencies: vec![] });
+        assert_eq!(arbiter.evaluate_chain(42).unwrap(), EpistemicState::Verified);
+    }
+
+    // 5. Missing dependency returns MissingDependency error
+    #[test]
+    fn missing_dependency_returns_error() {
+        let mut arbiter = CausalConfidenceArbiter::new(0.5);
+        arbiter.register_node(CausalNode { id: 1, state: EpistemicState::Verified, confidence: 0.9, dependencies: vec![99] });
+        assert_eq!(arbiter.evaluate_chain(1).unwrap_err(), EpistemicViolation::MissingDependency(99));
+    }
+
+    // 6. Speculative state propagates through the chain
+    #[test]
+    fn speculative_state_propagates() {
+        let mut arbiter = CausalConfidenceArbiter::new(0.0);
+        arbiter.register_node(CausalNode { id: 1, state: EpistemicState::Verified, confidence: 1.0, dependencies: vec![2] });
+        arbiter.register_node(CausalNode { id: 2, state: EpistemicState::Speculative, confidence: 1.0, dependencies: vec![] });
+        assert_eq!(arbiter.evaluate_chain(1).unwrap(), EpistemicState::Speculative);
+    }
+
+    // 7. Zero threshold means any confidence passes
+    #[test]
+    fn threshold_zero_always_passes() {
+        let mut arbiter = CausalConfidenceArbiter::new(0.0);
+        arbiter.register_node(CausalNode { id: 1, state: EpistemicState::Inferred, confidence: 0.0001, dependencies: vec![] });
+        assert!(arbiter.evaluate_chain(1).is_ok());
+    }
+
+    // 8. Deep chain of 5 verified nodes all pass
+    #[test]
+    fn deep_verified_chain_passes() {
+        let mut arbiter = CausalConfidenceArbiter::new(0.5);
+        for i in 1u64..=5 {
+            let deps = if i < 5 { vec![i + 1] } else { vec![] };
+            arbiter.register_node(CausalNode { id: i, state: EpistemicState::Verified, confidence: 0.99, dependencies: deps });
+        }
+        assert_eq!(arbiter.evaluate_chain(1).unwrap(), EpistemicState::Verified);
+    }
+
+    // 9. Confidence exactly at threshold is NOT a decay error (strict <)
+    #[test]
+    fn confidence_at_threshold_passes() {
+        let mut arbiter = CausalConfidenceArbiter::new(0.9);
+        // Single node, confidence == threshold: 0.9 < 0.9 is false → passes
+        arbiter.register_node(CausalNode { id: 1, state: EpistemicState::Verified, confidence: 0.9, dependencies: vec![] });
+        assert!(arbiter.evaluate_chain(1).is_ok());
+    }
+
+    // 10. Inferred state propagates to root
+    #[test]
+    fn inferred_state_propagates() {
+        let mut arbiter = CausalConfidenceArbiter::new(0.0);
+        arbiter.register_node(CausalNode { id: 1, state: EpistemicState::Verified, confidence: 1.0, dependencies: vec![2] });
+        arbiter.register_node(CausalNode { id: 2, state: EpistemicState::Inferred, confidence: 1.0, dependencies: vec![] });
+        assert_eq!(arbiter.evaluate_chain(1).unwrap(), EpistemicState::Inferred);
+    }
 }
