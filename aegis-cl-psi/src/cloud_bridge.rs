@@ -98,13 +98,32 @@ impl CloudBridge {
             },
         }).unwrap_or_default();
 
-        // Stub HTTP call — in production replace with reqwest or ureq
-        let _ = (key, body);
         self.total_cost_usd += COST_PER_CALL_USD;
         self.call_count += 1;
 
-        // Stub response for builds without HTTP runtime
-        Ok(format!("stub_verified:step={}", self.call_count))
+        Self::http_post(key, &body)
+    }
+
+    #[cfg(feature = "cloud")]
+    fn http_post(key: &str, body: &str) -> Result<String, BridgeError> {
+        const URL: &str = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation";
+        let resp = ureq::post(URL)
+            .set("Authorization", &format!("Bearer {}", key))
+            .set("Content-Type", "application/json")
+            .send_string(body)
+            .map_err(|e| BridgeError::RequestFailed(e.to_string()))?;
+        let raw: serde_json::Value = resp.into_json()
+            .map_err(|e| BridgeError::RequestFailed(e.to_string()))?;
+        let text = raw["output"]["text"]
+            .as_str()
+            .unwrap_or("no_text")
+            .to_string();
+        Ok(text)
+    }
+
+    #[cfg(not(feature = "cloud"))]
+    fn http_post(_key: &str, _body: &str) -> Result<String, BridgeError> {
+        Ok("stub_verified".to_string())
     }
 }
 

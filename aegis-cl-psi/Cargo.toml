@@ -14,7 +14,7 @@ license = "AGPL-3.0-or-later"
 default = ["compliance"]
 hip = []             # AMD ROCm HIP kernel integration (requires ROCm toolkit)
 rocblas = []         # rocBLAS GEMM acceleration (requires ROCm toolkit)
-cloud = []           # DashScope cloud bridge (set DASHSCOPE_API_KEY at runtime)
+cloud = ["dep:ureq"]  # DashScope cloud bridge (set DASHSCOPE_API_KEY at runtime)
 compliance = []      # EU AI Act audit chain verification (uses sha2 — already required)
 
 [dependencies]
@@ -24,6 +24,7 @@ sha2 = "0.10"
 byteorder = "1.5"
 tracing = "0.1"
 ed25519-dalek = { version = "2", default-features = false, features = ["alloc"] }
+ureq = { version = "2", optional = true }
 
 [dev-dependencies]
 # No additional dev deps — all test utilities are in-crate

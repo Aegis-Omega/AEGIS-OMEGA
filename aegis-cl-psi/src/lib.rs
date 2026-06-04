@@ -19,6 +19,7 @@ pub mod merkle_cross_shard;
 pub mod mersenne31;
 pub mod matter_hash_loadshed;
 pub mod pbft_shard;
+pub mod papo;
 pub mod lyapunov;
 pub mod audit;
 pub mod orchestrator;
