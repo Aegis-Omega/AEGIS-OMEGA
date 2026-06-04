@@ -44,6 +44,20 @@ export class RalphExecutorError extends Error {
   override readonly name = 'RalphExecutorError'
 }
 
+export class ExecutionBoundaryError extends Error {
+  override readonly name = 'ExecutionBoundaryError'
+}
+
+// k·C_eval ≤ B_max — pre-flight execution budget enforcement (execution-boundary skill, T2)
+export function assertExecutionBoundary(k: number, cEval: number, bMax: number): void {
+  if (k * cEval > bMax) {
+    const kMax = Math.floor(bMax / cEval)
+    throw new ExecutionBoundaryError(
+      `k=${k} × C_eval=${cEval} = ${k * cEval} > B_max=${bMax}; k_max=${kMax}`,
+    )
+  }
+}
+
 export class RalphExecutor {
   readonly #agent_id: string
   readonly #records: readonly RalphLoopRecord[]
