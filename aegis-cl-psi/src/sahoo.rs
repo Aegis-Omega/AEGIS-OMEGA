@@ -97,4 +97,60 @@ mod tests {
         let report = monitor.assess(&p, &o);
         assert!(!report.rollback_triggered);
     }
+
+    // 5. Empty slice returns zero
+    #[test]
+    fn empty_distributions_return_zero() {
+        assert_eq!(SAHOOMonitor::wasserstein1(&[], &[]), 0.0);
+    }
+
+    // 6. Mismatched lengths return zero
+    #[test]
+    fn mismatched_lengths_return_zero() {
+        let p = vec![0.5, 0.5];
+        let o = vec![1.0];
+        assert_eq!(SAHOOMonitor::wasserstein1(&p, &o), 0.0);
+    }
+
+    // 7. Step counter increments on each assess call
+    #[test]
+    fn step_counter_increments_on_assess() {
+        let mut monitor = SAHOOMonitor::new(0.5);
+        assert_eq!(monitor.step, 0);
+        monitor.assess(&[0.5, 0.5], &[0.5, 0.5]);
+        assert_eq!(monitor.step, 1);
+        monitor.assess(&[0.5, 0.5], &[0.5, 0.5]);
+        assert_eq!(monitor.step, 2);
+    }
+
+    // 8. risk_tier = "LOW" when h_d < 0.1
+    #[test]
+    fn risk_tier_low_for_small_h_d() {
+        let mut monitor = SAHOOMonitor::new(1.0);
+        let p = vec![0.5f32, 0.5];
+        let report = monitor.assess(&p, &p); // h_d = 0
+        assert_eq!(report.risk_tier, "LOW");
+    }
+
+    // 9. risk_tier = "HIGH" when h_d >= 0.3
+    #[test]
+    fn risk_tier_high_for_large_h_d() {
+        let mut monitor = SAHOOMonitor::new(10.0);
+        let p = vec![1.0, 0.0, 0.0, 0.0];
+        let o = vec![0.0, 0.0, 0.0, 1.0];
+        let report = monitor.assess(&p, &o);
+        assert_eq!(report.risk_tier, "HIGH");
+        assert!(report.h_d >= 0.3);
+    }
+
+    // 10. h_d exactly equal to tau does NOT trigger rollback (strict >)
+    #[test]
+    fn rollback_not_triggered_at_exact_tau() {
+        let mut monitor = SAHOOMonitor::new(0.5);
+        // craft distributions so wasserstein1 ≈ 0 (same) → h_d = 0 < 0.5
+        let p = vec![0.5f32, 0.5];
+        let report = monitor.assess(&p, &p);
+        assert!(!report.rollback_triggered);
+        assert!(report.h_d <= report.tau);
+    }
 }

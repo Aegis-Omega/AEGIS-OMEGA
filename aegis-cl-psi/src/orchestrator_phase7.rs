@@ -143,4 +143,55 @@ mod tests {
         assert!(json.contains("chain_valid"));
         fs::remove_file(path).ok();
     }
+
+    // 6. resource_snapshot returns positive VRAM and RAM values
+    #[test]
+    fn resource_snapshot_returns_positive_usage() {
+        let orch = ProductionOrchestrator::new(4, &[]);
+        let snap = orch.resource_snapshot();
+        assert!(snap.vram_used_mb > 0.0);
+        assert!(snap.ram_used_mb > 0.0);
+    }
+
+    // 7. with_audit_path sets the audit path
+    #[test]
+    fn with_audit_path_sets_path() {
+        let orch = ProductionOrchestrator::new(4, &[]).with_audit_path("/tmp/custom.jsonl");
+        assert_eq!(orch.audit_path, "/tmp/custom.jsonl");
+    }
+
+    // 8. 10 steps produce step_count = 10
+    #[test]
+    fn multiple_steps_accumulate_correctly() {
+        let mut orch = ProductionOrchestrator::new(4, &[]);
+        for _ in 0..10 {
+            let _ = orch.step(&vec![0.1; 4], &vec![0.1; 4]);
+        }
+        let snap = orch.resource_snapshot();
+        assert_eq!(snap.step_count, 10);
+    }
+
+    // 9. lyapunov_evictions never exceed step_count
+    #[test]
+    fn lyapunov_evictions_within_step_count() {
+        let mut orch = ProductionOrchestrator::new(4, &[]);
+        for i in 0..6 {
+            let v: Vec<f32> = (0..4).map(|j| (i * j) as f32 * 0.5).collect();
+            let _ = orch.step(&v, &vec![0.1; 4]);
+        }
+        let snap = orch.resource_snapshot();
+        assert!(snap.lyapunov_evictions <= snap.step_count);
+    }
+
+    // 10. step returns Ok on repeated stable inputs
+    #[test]
+    fn step_returns_ok_for_stable_input() {
+        let mut orch = ProductionOrchestrator::new(8, &[]);
+        let activations = vec![0.05f32; 8];
+        let observed = vec![0.05f32; 8];
+        for _ in 0..3 {
+            let result = orch.step(&activations, &observed);
+            assert!(result.is_ok());
+        }
+    }
 }

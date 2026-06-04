@@ -150,4 +150,56 @@ mod tests {
         sched.tick(true, false, false, true); // budget_exhausted → Rollback
         assert_eq!(sched.state, DEVSState::Rollback);
     }
+
+    // 6. State transitions are logged in the transitions Vec
+    #[test]
+    fn transitions_logged_on_state_change() {
+        let mut sched = DEVSScheduler::new(3);
+        assert_eq!(sched.transitions.len(), 0);
+        sched.tick(false, false, false, false); // → Degraded
+        assert_eq!(sched.transitions.len(), 1);
+        assert_eq!(sched.transitions[0].from, DEVSState::LocalInference);
+        assert_eq!(sched.transitions[0].to, DEVSState::Degraded);
+    }
+
+    // 7. Stable ticks do not add to transitions
+    #[test]
+    fn no_transition_logged_when_stable() {
+        let mut sched = DEVSScheduler::new(3);
+        sched.tick(true, false, false, false);
+        sched.tick(true, false, false, false);
+        assert_eq!(sched.transitions.len(), 0);
+        assert_eq!(sched.state, DEVSState::LocalInference);
+    }
+
+    // 8. Degraded state recovers to LocalInference when stable
+    #[test]
+    fn degraded_recovers_on_stability() {
+        let mut sched = DEVSScheduler::new(5);
+        sched.tick(false, false, false, false); // → Degraded
+        sched.tick(true, false, false, false);  // stable → LocalInference
+        assert_eq!(sched.state, DEVSState::LocalInference);
+    }
+
+    // 9. h_d_rollback in CloudVerify triggers Rollback
+    #[test]
+    fn h_d_rollback_in_cloud_verify_triggers_rollback() {
+        let mut sched = DEVSScheduler::new(1);
+        sched.tick(false, false, false, false); // → Degraded, streak=1
+        sched.tick(false, false, false, false); // → CloudVerify
+        assert_eq!(sched.state, DEVSState::CloudVerify);
+        sched.tick(false, true, false, false);  // h_d_rollback in CloudVerify → Rollback
+        assert_eq!(sched.state, DEVSState::Rollback);
+    }
+
+    // 10. needs_cloud_verification is true only in CloudVerify state
+    #[test]
+    fn needs_cloud_verification_only_in_cloud_verify() {
+        let mut sched = DEVSScheduler::new(1);
+        assert!(!sched.needs_cloud_verification());
+        sched.tick(false, false, false, false); // → Degraded
+        assert!(!sched.needs_cloud_verification());
+        sched.tick(false, false, false, false); // → CloudVerify
+        assert!(sched.needs_cloud_verification());
+    }
 }
