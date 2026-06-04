@@ -86,4 +86,67 @@ mod tests {
         let report = monitor.assess(&[1.0f32]); // shrinking → ΔV < 0
         assert!(report.stable);
     }
+
+    // 4. lyapunov_value of empty state is zero
+    #[test]
+    fn lyapunov_value_empty_is_zero() {
+        assert_eq!(LyapunovMonitor::lyapunov_value(&[]), 0.0);
+    }
+
+    // 5. lyapunov_value of [2.0] = 2.0 (‖x‖²/2 = 4/2)
+    #[test]
+    fn lyapunov_value_single_element() {
+        assert_eq!(LyapunovMonitor::lyapunov_value(&[2.0f32]), 2.0);
+    }
+
+    // 6. delta_v computed correctly between consecutive states
+    #[test]
+    fn delta_v_computed_correctly() {
+        let mut monitor = LyapunovMonitor::new(0.01);
+        monitor.assess(&[2.0f32]); // V_prev = 2.0
+        let r = monitor.assess(&[1.0f32]); // V_curr = 0.5
+        // delta_v = 0.5 - 2.0 = -1.5
+        assert!((r.delta_v - (-1.5f32)).abs() < 1e-5);
+    }
+
+    // 7. norm_sq = Σ x_i²
+    #[test]
+    fn norm_sq_computed_correctly() {
+        let mut monitor = LyapunovMonitor::new(0.01);
+        let r = monitor.assess(&[3.0f32, 4.0f32]);
+        assert_eq!(r.norm_sq, 25.0); // 9 + 16
+    }
+
+    // 8. step increments on each assess call
+    #[test]
+    fn step_increments_on_assess() {
+        let mut monitor = LyapunovMonitor::new(0.0);
+        assert_eq!(monitor.step, 0);
+        monitor.assess(&[1.0f32]);
+        assert_eq!(monitor.step, 1);
+        monitor.assess(&[0.5f32]);
+        assert_eq!(monitor.step, 2);
+    }
+
+    // 9. rollback_required = !stable always
+    #[test]
+    fn rollback_required_matches_not_stable() {
+        let mut monitor = LyapunovMonitor::new(0.01);
+        monitor.assess(&[1.0f32]);
+        let r = monitor.assess(&[10.0f32]); // growing → unstable
+        assert_eq!(r.rollback_required, !r.stable);
+    }
+
+    // 10. Determinism ×3: same sequence → same report
+    #[test]
+    fn assess_determinism_triple() {
+        fn run() -> (bool, f32) {
+            let mut m = LyapunovMonitor::new(0.01);
+            m.assess(&[1.0f32]);
+            let r = m.assess(&[0.5f32]);
+            (r.stable, r.delta_v)
+        }
+        assert_eq!(run(), run());
+        assert_eq!(run(), run());
+    }
 }
