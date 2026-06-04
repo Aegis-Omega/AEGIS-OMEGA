@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass, field, asdict
@@ -26,6 +27,8 @@ from typing import Optional
 DOCS_VERSION = "1.0.0"
 PHASE = 1
 GENESIS_SEAL = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
+logger = logging.getLogger(__name__)
 
 # Tier weights for initial confidence seeding (T0 = strongest evidence)
 TIER_CONFIDENCE: dict[str, float] = {
@@ -626,8 +629,8 @@ class DocsScanner:
                 continue
             try:
                 records.append(self.parser.parse(md_path, self.repo_root))
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Skipping markdown file due to parse error: %s (%s)", md_path, exc)
         return records
 
 
