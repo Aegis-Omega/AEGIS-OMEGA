@@ -20,7 +20,6 @@
 
 use sha2::{Sha256, Digest};
 use crate::resonance_monitor::ResonanceReport;
-use crate::vortex_classifier::VortexFamily;
 
 // ─── Drift class ──────────────────────────────────────────────────────────
 

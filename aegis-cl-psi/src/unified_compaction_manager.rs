@@ -21,13 +21,11 @@
 //!   spsf_total_pruned() / health_total_pruned() / resonance_total_pruned().
 
 use sha2::{Sha256, Digest};
-use crate::spsf_compactor::{CompactionInput, compact, COMPACTOR_GENESIS_HASH};
-use crate::gossip_health_compactor::{HealthCompactionInput, HealthCompactionResult,
-                                     compact_health, HEALTH_COMPACTOR_GENESIS_HASH};
-use crate::resonance_compactor::{ResonanceCompactionInput, ResonanceCompactionResult,
-                                  compact_resonance, RESONANCE_COMPACTOR_GENESIS_HASH};
+use crate::spsf_compactor::{CompactionInput, compact};
+use crate::gossip_health_compactor::{HealthCompactionInput, compact_health};
+use crate::resonance_compactor::{ResonanceCompactionInput, compact_resonance};
 use crate::resonance_anchor::AnchoredResonanceReport;
-use crate::gossip_health_report::{GossipHealthReport, NetworkHealthClass};
+use crate::gossip_health_report::GossipHealthReport;
 
 pub const UNIFIED_MANAGER_GENESIS_HASH: [u8; 32] = [0u8; 32];
 

@@ -2,7 +2,6 @@
 //! Transforms the 204-node pyramid into a 12-fold symmetric quasicrystalline lattice.
 //! Eliminates tessellation gaps inherent in 8-fold symmetry for infinite scalability.
 
-use crate::pyramidal_stack::PyramidalStack;
 
 /// Represents a sector in the 12-fold resonance mesh.
 #[derive(Debug, Clone)]

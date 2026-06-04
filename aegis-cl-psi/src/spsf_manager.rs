@@ -23,9 +23,9 @@
 
 use sha2::{Sha256, Digest};
 use crate::spsf_compactor::{CompactionAnchor, CompactionInput, CompactionLog,
-                             CompactionResult, COMPACTOR_GENESIS_HASH, compact};
+                             COMPACTOR_GENESIS_HASH, compact};
 use crate::spsf_verifier::{VerificationLog, VerificationVerdict, verify_suffix};
-use crate::spsf_scheduler::{CompactionPlan, SchedulerLog, evaluate};
+use crate::spsf_scheduler::{SchedulerLog, evaluate};
 
 pub const MANAGER_GENESIS_HASH: [u8; 32] = [0u8; 32];
 

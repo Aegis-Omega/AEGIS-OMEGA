@@ -28,7 +28,6 @@
 //!   classifies the current mesh partition state.
 
 use sha2::{Sha256, Digest};
-use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 
 // ─── Partition class ──────────────────────────────────────────────────────────
