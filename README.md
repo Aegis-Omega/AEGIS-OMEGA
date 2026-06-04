@@ -33,7 +33,7 @@ No part of the system can do more than it can prove it did. Every AI response, e
 
 - **Single author, single machine** — AMD RX 570, 8 GB RAM. No cloud. No build farm. No team.
 - **130,000+ lines of polyglot code** — TypeScript (governance runtime), Rust (gossip fabric + seven-pillar runtime), Python (analytical bridge), WebGPU (WGSL Φ-field simulation).
-- **10,163+ invariant tests, 0 failures** — test density approaching DO-178C aerospace coverage standards.
+- **10,973+ invariant tests, 0 failures** — test density approaching DO-178C aerospace coverage standards.
 - **420+ gates completed** — each gate required a passing implementation, unit tests, and a full-suite green run before the commit was allowed to land.
 - **Live browser substrate** — SHA-256 hash-chained MetacognitiveLoop running as real WebCrypto in the visitor's browser at aegisomega.com. Not a mock.
 
