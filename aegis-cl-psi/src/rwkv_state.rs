@@ -4,6 +4,13 @@
 //! INT4/NF4 quantized recurrent state cache.
 //! VRAM-aware eviction: lowest Lyapunov margin evicted first.
 //! HIP FFI boundary prepared for AMD RX 570 acceleration.
+//!
+//! chain_hash: SHA-256(prev_chain_hash || step_count_be8 || packed_slot_byte)
+//! Updated on every store_slot(); replay-reconstructable without wall-clock time.
+
+use sha2::{Sha256, Digest};
+
+pub const RWKV_STATE_GENESIS_HASH: [u8; 32] = [0u8; 32];
 
 pub struct RWKVStateCache {
     pub state_bytes: Vec<u8>,
@@ -11,6 +18,7 @@ pub struct RWKVStateCache {
     pub used_bytes: usize,
     pub lyapunov_margins: Vec<f32>,
     pub step_count: u64,
+    chain_hash: [u8; 32],
 }
 
 impl RWKVStateCache {
@@ -22,8 +30,13 @@ impl RWKVStateCache {
             used_bytes: 0,
             lyapunov_margins: Vec::new(),
             step_count: 0,
+            chain_hash: RWKV_STATE_GENESIS_HASH,
         }
     }
+
+    /// Current chain hash: SHA-256(prev || step_count_be8 || packed_byte), updated each store.
+    /// Replay-reconstructable: deterministic from the exact sequence of packed slots stored.
+    pub fn chain_hash(&self) -> [u8; 32] { self.chain_hash }
 
     /// Pack two f32 values into one INT4 byte (nibble packing).
     #[inline]
@@ -43,14 +56,22 @@ impl RWKVStateCache {
 
     /// Store a packed state slot with its Lyapunov stability margin.
     /// Returns false if over capacity (caller should evict first).
+    /// Advances chain_hash: SHA-256(prev_chain_hash || step_count_be8 || packed).
     pub fn store_slot(&mut self, packed: u8, lyapunov_margin: f32) -> bool {
-        if self.used_bytes + 1 > self.capacity_bytes {
+        if self.used_bytes.saturating_add(1) > self.capacity_bytes {
             return false;
         }
+        self.step_count = self.step_count.saturating_add(1);
+        // Advance hash chain before storing (step_count already incremented)
+        let mut h = Sha256::new();
+        h.update(self.chain_hash);
+        h.update(self.step_count.to_be_bytes());
+        h.update([packed]);
+        self.chain_hash = h.finalize().into();
+
         self.state_bytes.push(packed);
         self.lyapunov_margins.push(lyapunov_margin);
-        self.used_bytes += 1;
-        self.step_count += 1;
+        self.used_bytes = self.used_bytes.saturating_add(1);
         true
     }
 
@@ -103,5 +124,72 @@ mod tests {
         let mut cache = RWKVStateCache::new(0); // 0MB → 0 bytes capacity
         let ok = cache.store_slot(0xFF, 1.0);
         assert!(!ok);
+    }
+
+    // 4. Initial chain_hash equals genesis (all zeros)
+    #[test]
+    fn initial_chain_hash_is_genesis() {
+        let cache = RWKVStateCache::new(1);
+        assert_eq!(cache.chain_hash(), RWKV_STATE_GENESIS_HASH);
+    }
+
+    // 5. chain_hash changes after store_slot
+    #[test]
+    fn chain_hash_advances_after_store() {
+        let mut cache = RWKVStateCache::new(1);
+        let before = cache.chain_hash();
+        cache.store_slot(0xAB, 0.5);
+        assert_ne!(cache.chain_hash(), before);
+    }
+
+    // 6. chain_hash is non-genesis after any store
+    #[test]
+    fn chain_hash_nonzero_after_store() {
+        let mut cache = RWKVStateCache::new(1);
+        cache.store_slot(0x00, 0.0);
+        assert_ne!(cache.chain_hash(), [0u8; 32]);
+    }
+
+    // 7. Determinism ×3: same sequence of stores → same chain_hash
+    #[test]
+    fn chain_hash_determinism_triple() {
+        fn make_hash() -> [u8; 32] {
+            let mut c = RWKVStateCache::new(4);
+            c.store_slot(0x11, 0.5);
+            c.store_slot(0x22, 0.8);
+            c.store_slot(0x33, 0.3);
+            c.chain_hash()
+        }
+        assert_eq!(make_hash(), make_hash());
+        assert_eq!(make_hash(), make_hash());
+    }
+
+    // 8. Different packed bytes → different chain_hash
+    #[test]
+    fn different_packed_bytes_yield_different_hash() {
+        let mut c1 = RWKVStateCache::new(4);
+        let mut c2 = RWKVStateCache::new(4);
+        c1.store_slot(0xAA, 0.5);
+        c2.store_slot(0xBB, 0.5);
+        assert_ne!(c1.chain_hash(), c2.chain_hash());
+    }
+
+    // 9. step_count increments on each successful store
+    #[test]
+    fn step_count_increments_on_store() {
+        let mut cache = RWKVStateCache::new(4);
+        assert_eq!(cache.step_count, 0);
+        cache.store_slot(0x01, 0.5);
+        assert_eq!(cache.step_count, 1);
+        cache.store_slot(0x02, 0.6);
+        assert_eq!(cache.step_count, 2);
+    }
+
+    // 10. step_count does not increment when capacity is exceeded
+    #[test]
+    fn step_count_unchanged_on_capacity_exceeded() {
+        let mut cache = RWKVStateCache::new(0);
+        cache.store_slot(0xFF, 1.0);
+        assert_eq!(cache.step_count, 0);
     }
 }
