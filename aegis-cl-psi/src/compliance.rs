@@ -172,4 +172,62 @@ mod tests {
         assert!(report.terminal_chain_hash.chars().all(|c| c.is_ascii_hexdigit()));
         fs::remove_file(&path).ok();
     }
+
+    // 7. Multiple entries increment audit_entries count correctly
+    #[test]
+    fn multiple_entries_audit_count() {
+        let path = tmp("multicount");
+        let content = vec![
+            r#"{"event":"a"}"#,
+            r#"{"event":"b"}"#,
+            r#"{"event":"c"}"#,
+        ].join("\n");
+        fs::write(&path, content).unwrap();
+        let report = verify_audit_chain(&path).unwrap();
+        assert_eq!(report.audit_entries, 3);
+        fs::remove_file(&path).ok();
+    }
+
+    // 8. No transitions when all entries have the same risk tier
+    #[test]
+    fn no_transitions_for_same_tier() {
+        let path = tmp("notransit");
+        let content = vec![
+            r#"{"risk_tier":"Limited","event":"a"}"#,
+            r#"{"risk_tier":"Limited","event":"b"}"#,
+        ].join("\n");
+        fs::write(&path, content).unwrap();
+        let report = verify_audit_chain(&path).unwrap();
+        assert_eq!(report.risk_transitions.len(), 0);
+        fs::remove_file(&path).ok();
+    }
+
+    // 9. "Degraded" risk tier is parsed and tracked in transitions
+    #[test]
+    fn degraded_tier_parsed_correctly() {
+        let path = tmp("degraded");
+        let content = vec![
+            r#"{"risk_tier":"Limited","event":"a"}"#,
+            r#"{"risk_tier":"Degraded","event":"b"}"#,
+        ].join("\n");
+        fs::write(&path, content).unwrap();
+        let report = verify_audit_chain(&path).unwrap();
+        assert_eq!(report.risk_transitions.len(), 1);
+        assert_eq!(report.risk_transitions[0].2, RiskTier::Degraded);
+        fs::remove_file(&path).ok();
+    }
+
+    // 10. Different file content produces different terminal hashes
+    #[test]
+    fn different_content_different_terminal_hash() {
+        let path_a = tmp("hasha");
+        let path_b = tmp("hashb");
+        fs::write(&path_a, r#"{"event":"alpha"}"#).unwrap();
+        fs::write(&path_b, r#"{"event":"beta"}"#).unwrap();
+        let report_a = verify_audit_chain(&path_a).unwrap();
+        let report_b = verify_audit_chain(&path_b).unwrap();
+        assert_ne!(report_a.terminal_chain_hash, report_b.terminal_chain_hash);
+        fs::remove_file(&path_a).ok();
+        fs::remove_file(&path_b).ok();
+    }
 }

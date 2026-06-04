@@ -134,4 +134,36 @@ mod tests {
         let snap = p.snapshot(0.0, 0.0);
         assert_eq!(snap.cache_hit_rate(), 1.0);
     }
+
+    // 7. VRAM exactly at the limit is within bounds (≤)
+    #[test]
+    fn bounds_pass_exactly_at_vram_limit() {
+        let p = Profiler::new(5500.0, 6000.0);
+        assert!(p.is_within_bounds(5500.0, 4000.0));
+    }
+
+    // 8. snapshot passes through the provided vram/ram values
+    #[test]
+    fn snapshot_vram_ram_passthrough() {
+        let p = Profiler::new(8000.0, 8000.0);
+        let snap = p.snapshot(1234.5, 5678.9);
+        assert!((snap.vram_used_mb - 1234.5).abs() < 0.01);
+        assert!((snap.ram_used_mb - 5678.9).abs() < 0.01);
+    }
+
+    // 9. Fresh profiler has step_count = 0
+    #[test]
+    fn fresh_profiler_step_count_zero() {
+        let p = Profiler::new(100.0, 100.0);
+        let snap = p.snapshot(0.0, 0.0);
+        assert_eq!(snap.step_count, 0);
+    }
+
+    // 10. elapsed_ms is non-negative
+    #[test]
+    fn elapsed_ms_nonneg() {
+        let p = Profiler::new(100.0, 100.0);
+        let snap = p.snapshot(0.0, 0.0);
+        assert!(snap.elapsed_ms >= 0.0);
+    }
 }

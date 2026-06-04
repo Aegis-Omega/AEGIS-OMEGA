@@ -146,13 +146,61 @@ mod tests {
         node.weights.planner = vec![1.0, 0.0];
         node.weights.generator = vec![0.0, 1.0];
         node.weights.evaluator = vec![0.5, 0.5];
-        
+
         // Scalar variance would be 0, but geometric variance catches it
         let geometric_var = node.weights.compute_geometric_variance();
         assert!(geometric_var > 0.1, "Must detect orthogonal misalignment");
-        
+
         // Should trigger Morphing or VetoCollapse depending on threshold
         let state = node.commit_mutation("key1", "hash1");
         assert_ne!(state, TriadicState::Equilibrium, "Should not be equilibrium with orthogonal vectors");
+    }
+
+    // 6. compute_seal changes after a mutation is committed
+    #[test]
+    fn seal_changes_after_mutation() {
+        let mut node = TriadicMerkleNode::new("root", 2, 0.5);
+        let seal_before = node.compute_seal();
+        node.commit_mutation("k", "v");
+        let seal_after = node.compute_seal();
+        assert_ne!(seal_before, seal_after);
+    }
+
+    // 7. Two fresh nodes with same ID have identical seals
+    #[test]
+    fn fresh_nodes_same_id_equal_seal() {
+        let n1 = TriadicMerkleNode::new("node_x", 4, 0.5);
+        let n2 = TriadicMerkleNode::new("node_x", 4, 0.5);
+        assert_eq!(n1.compute_seal(), n2.compute_seal());
+    }
+
+    // 8. branch_count increments with each successful commit
+    #[test]
+    fn branch_count_increments_on_commit() {
+        let mut node = TriadicMerkleNode::new("root", 2, 0.5);
+        assert_eq!(node.branch_count(), 0);
+        node.commit_mutation("a", "hash_a");
+        assert_eq!(node.branch_count(), 1);
+        node.commit_mutation("b", "hash_b");
+        assert_eq!(node.branch_count(), 2);
+    }
+
+    // 9. get_child returns the stored hash after commit
+    #[test]
+    fn get_child_returns_committed_hash() {
+        let mut node = TriadicMerkleNode::new("root", 2, 0.5);
+        node.commit_mutation("mykey", "myvalue_hash");
+        assert_eq!(node.get_child("mykey"), Some(&"myvalue_hash".to_string()));
+        assert!(node.get_child("nonexistent").is_none());
+    }
+
+    // 10. Different node IDs produce different seals (even with same children)
+    #[test]
+    fn different_node_ids_different_seals() {
+        let mut n1 = TriadicMerkleNode::new("alpha", 2, 0.5);
+        let mut n2 = TriadicMerkleNode::new("beta", 2, 0.5);
+        n1.commit_mutation("k", "v");
+        n2.commit_mutation("k", "v");
+        assert_ne!(n1.compute_seal(), n2.compute_seal());
     }
 }

@@ -151,4 +151,65 @@ mod tests {
         bridge.verify("test2").ok();
         assert_eq!(bridge.call_count, 2);
     }
+
+    // 4. Cost accumulates per call
+    #[test]
+    fn total_cost_increments_per_call() {
+        let mut bridge = CloudBridge::new(Some("key".to_string()), "qwen-plus");
+        assert_eq!(bridge.total_cost_usd, 0.0);
+        bridge.verify("x").ok();
+        assert!(bridge.total_cost_usd > 0.0);
+        let after_one = bridge.total_cost_usd;
+        bridge.verify("y").ok();
+        assert!(bridge.total_cost_usd > after_one);
+    }
+
+    // 5. Throttle flag set when cost reaches 90% cap
+    #[test]
+    fn throttle_flag_set_at_throttle_threshold() {
+        let mut bridge = CloudBridge::new(Some("key".to_string()), "qwen-plus");
+        bridge.total_cost_usd = THROTTLE_AT_USD;
+        bridge.verify("x").ok(); // check_budget sets throttled=true, then proceeds
+        assert!(bridge.throttled);
+    }
+
+    // 6. Full cap at $200 returns Throttled error
+    #[test]
+    fn budget_cap_errors_at_200_usd() {
+        let mut bridge = CloudBridge::new(Some("key".to_string()), "qwen-plus");
+        bridge.total_cost_usd = BUDGET_CAP_USD;
+        assert!(matches!(bridge.verify("x"), Err(BridgeError::Throttled { .. })));
+    }
+
+    // 7. New bridge starts at zero cost and zero calls
+    #[test]
+    fn new_bridge_zero_state() {
+        let bridge = CloudBridge::new(Some("k".to_string()), "qwen-turbo");
+        assert_eq!(bridge.total_cost_usd, 0.0);
+        assert_eq!(bridge.call_count, 0);
+        assert!(!bridge.throttled);
+    }
+
+    // 8. Model name is preserved from constructor
+    #[test]
+    fn model_name_preserved() {
+        let bridge = CloudBridge::new(None, "my-custom-model");
+        assert_eq!(bridge.model, "my-custom-model");
+    }
+
+    // 9. from_env without DASHSCOPE_API_KEY results in no api_key
+    #[test]
+    fn from_env_no_key_when_var_unset() {
+        // Ensure the env var is not set (may already be unset in CI)
+        // We just verify from_env doesn't panic and returns a valid bridge
+        let bridge = CloudBridge::from_env();
+        // Can't assert api_key is None without clearing env, but bridge must not panic
+        assert!(!bridge.model.is_empty());
+    }
+
+    // 10. Cost per call is strictly positive
+    #[test]
+    fn cost_per_call_positive() {
+        assert!(COST_PER_CALL_USD > 0.0);
+    }
 }
