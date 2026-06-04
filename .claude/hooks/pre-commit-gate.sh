@@ -48,6 +48,21 @@ if [ -f "$REPLAY" ]; then
   echo "  replay: verified"
 fi
 
+# ── Agent-mesh verdict ledger integrity gate ───────────────────────────────
+# The Guardian→Verifier→Implementer triad records every verdict in a hash-
+# chained ledger. A broken ledger means a verdict was retroactively altered —
+# a constitutional breach. The automaton may not commit with a tampered
+# verdict record.
+MESH="/home/user/AEGIS--/.claude/metacog/agent-mesh.mjs"
+if [ -f "$MESH" ]; then
+  if ! MESH_OUT=$(node "$MESH" gate 2>&1); then
+    echo "BLOCKED: agent-mesh verdict ledger tampered — constitutional breach."
+    echo "$MESH_OUT"
+    exit 2
+  fi
+  echo "  agent-mesh: $MESH_OUT"
+fi
+
 echo "GATE 8 pre-commit: Gate1 → typecheck → build..."
 cd /home/user/AEGIS--/sovereign-omega-v2
 

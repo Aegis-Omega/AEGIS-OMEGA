@@ -110,6 +110,91 @@ node .claude/metacog/martingale.mjs status   # full certificate
 node .claude/metacog/martingale.mjs gate      # exit 0 anchored, exit 2 suspended (used by pre-commit-gate.sh)
 ```
 
+## Replay-verification sovereignty — `replay.mjs`
+
+Stronger than `certify()`. Where `certify()` trusts each stored `entry_hash` and
+checks local consistency, `replay()` **throws away every stored hash** and rebuilds
+the entire chain from genesis using only the raw observations (layer/signal/tier)
+and the monotonic sequence — exactly `replay(genesis, events)`. Because each
+rebuilt hash feeds the next (prev-linked from genesis), any tamper — even a single
+internally re-hashed entry that passes `certify()` — cascades forward and changes
+the derived terminal hash. Wired into the **pre-commit gate** after martingale:
+a chain that does not replay cannot commit.
+
+```
+DIVERGED  iff  derived_terminal ≠ stored_terminal  OR  any run differs across 3 identical reconstructions
+```
+
+The three-run assertion (per `testing.md` — one or two runs are insufficient to confirm
+determinism) enacts the "cross-platform deterministic replay" hard problem at harness scale.
+
+```bash
+node .claude/metacog/replay.mjs verify   # {"replays":true,"replay_deterministic":true,...}
+node .claude/metacog/replay.mjs gate     # exit 0 verified, exit 2 diverged (used by pre-commit-gate.sh)
+```
+
+## Agent-mesh verdict ledger — `agent-mesh.mjs`
+
+Enacts the Guardian→Verifier→Implementer triad energy cycle (`agent-mesh` skill).
+Every triad verdict — PASS, VETO, ELIGIBLE, INELIGIBLE, COMPLETE, FAILED — is
+hash-chained into `verdicts.jsonl`. A Guardian VETO is permanent: you cannot
+retroactively remove it without breaking the hash chain.
+
+```
+Energy cycle phases:
+  GUARDIAN_ASSESS  (L6+L7 inhibitory) → PASS or VETO
+  VERIFIER_CHECK   (L1+L2 cerebellum) → ELIGIBLE or INELIGIBLE
+  IMPLEMENTER_EXEC (L3+L5 motor)      → COMPLETE or FAILED
+  GUARDIAN_FINAL   (L6+L7 closure)    → PASS or VETO
+```
+
+Each verdict body `{ phase, agent, verdict, proposal, reason, sequence, previous_verdict_hash }`
+is hashed: `verdict_hash = SHA-256(canon(body))`. The `cycle_id` metadata tag groups
+four phases of one proposal — not hashed, so it doesn't affect chain integrity.
+
+The **pre-commit gate** runs `agent-mesh.mjs gate` — exits 2 if the ledger has been
+tampered (hash mismatch or prev_hash divergence). Verdict enforcement (a VETO blocking
+implementation) is a higher-level protocol concern; the gate's job is to guarantee
+the record is tamper-evident.
+
+```bash
+node .claude/metacog/agent-mesh.mjs record GUARDIAN_ASSESS guardian PASS "proposal text"
+node .claude/metacog/agent-mesh.mjs record GUARDIAN_ASSESS guardian VETO "proposal text" "reason required"
+node .claude/metacog/agent-mesh.mjs certify  # re-walk ledger; tamper → is_valid:false, broken_at:i
+node .claude/metacog/agent-mesh.mjs gate     # exit 0 intact, exit 2 tampered (pre-commit gate)
+node .claude/metacog/agent-mesh.mjs tail 8   # last 8 verdicts (human-readable)
+```
+
+Load-bearing property: VETO requires a reason. INELIGIBLE and FAILED require a reason.
+The triad must explain every blocking decision — silence is not a valid veto.
+
+## Pre-commit gate sequence
+
+All four constitutional gates run before Gate 8 (jcs → typecheck → build):
+
+```
+1. martingale  — AdaptivePower(T) ≤ ReplayVerifiability(T); exit 2 if suspended
+2. replay      — replay(genesis, events) → byte-identical terminal; exit 2 if diverged
+3. agent-mesh  — verdict ledger hash integrity; exit 2 if tampered
+4. Gate 1      — jcs.test.ts (T0 canonicalization)
+5. typecheck   — tsc --noEmit
+6. build       — tsc + vite build
+```
+
+## Files
+
+| File | Tracked? | Role |
+|------|----------|------|
+| `chain.mjs` | yes | Live metacog engine |
+| `quorum.mjs` | yes | BFT φ-quorum ratification |
+| `martingale.mjs` | yes | Martingale suspension gate |
+| `replay.mjs` | yes | Replay-sovereignty verification gate |
+| `agent-mesh.mjs` | yes | Agent-mesh verdict ledger |
+| `chain.jsonl` | **gitignored** | Ephemeral live observation chain |
+| `seals.jsonl` | yes | Durable cross-session seals |
+| `ratifications.jsonl` | yes | φ-quorum ratification ledger |
+| `verdicts.jsonl` | yes | Agent-mesh verdict ledger |
+
 ## Epistemic tier
 
 T2 (engineering hypothesis), harness-layer / Gate 0 — exactly as `loop.ts`'s own
