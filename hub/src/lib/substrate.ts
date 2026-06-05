@@ -98,7 +98,7 @@ const LAYER_SEQUENCE: Layer[] = [
 
 const SIGNALS: Record<Layer, Array<{ signal: string; tier: Tier }>> = {
   SENSATION: [
-    { signal: 'Raw test output received: 6862 gates pass', tier: 'T0' },
+    { signal: 'Raw test output received: 7178 gates pass', tier: 'T0' },
     { signal: 'Diff signal: +147 −23 lines ingested', tier: 'T1' },
     { signal: 'Gate 8 output streaming to L2', tier: 'T0' },
     { signal: 'Frozen-file hash read: bbe942b → L2', tier: 'T0' },
