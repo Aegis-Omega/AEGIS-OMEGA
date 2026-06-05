@@ -7,6 +7,9 @@
 [![Rust](https://img.shields.io/badge/Rust_Tests-7311_(aegis--cl--psi_+_runtime)-brightgreen)](#testing)
 [![TypeScript](https://img.shields.io/badge/TypeScript_Tests-4026%2B-brightgreen)](#testing)
 [![Total](https://img.shields.io/badge/Total_Tests-11337%2B-brightgreen)](#testing)
+[![Rust](https://img.shields.io/badge/Rust_Tests-6958_(aegis--cl--psi_+_runtime)-brightgreen)](#testing)
+[![TypeScript](https://img.shields.io/badge/TypeScript_Tests-4015%2B-brightgreen)](#testing)
+[![Total](https://img.shields.io/badge/Total_Tests-10973%2B-brightgreen)](#testing)
 [![Gate 8](https://img.shields.io/badge/Gate_8-passing-brightgreen)](#testing)
 [![CI](https://img.shields.io/github/actions/workflow/status/Aegis-Omega/AEGIS--/ci.yml?label=CI%20CEREMONY)](https://github.com/Aegis-Omega/AEGIS--/actions)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-blue)](LICENSE)
@@ -34,6 +37,7 @@ No part of the system can do more than it can prove it did. Every AI response, e
 - **Single author, single machine** — AMD RX 570, 8 GB RAM. No cloud. No build farm. No team.
 - **130,000+ lines of polyglot code** — TypeScript (governance runtime), Rust (gossip fabric + seven-pillar runtime), Python (analytical bridge), WebGPU (WGSL Φ-field simulation).
 - **11,337 invariant tests, 0 failures** — test density approaching DO-178C aerospace coverage standards.
+- **10,973+ invariant tests, 0 failures** — test density approaching DO-178C aerospace coverage standards.
 - **420+ gates completed** — each gate required a passing implementation, unit tests, and a full-suite green run before the commit was allowed to land.
 - **Live browser substrate** — SHA-256 hash-chained MetacognitiveLoop running as real WebCrypto in the visitor's browser at aegisomega.com. Not a mock.
 
@@ -81,11 +85,13 @@ No part of the system can do more than it can prove it did. Every AI response, e
 │  │  src/corpus-engine/ 5-phase RALPH document pipeline                  │  │
 │  │                                                                      │  │
 │  │  4026+ tests · 247+ test files                                       │  │
+│  │  4015+ tests · 247+ test files                                       │  │
 │  └─────────────────────────────────┬────────────────────────────────────┘  │
 │                                     │                                       │
 │  MOLECULAR SCALE — Rust (aegis-cl-psi)                                      │
 │  ┌──────────────────────────────────▼────────────────────────────────────┐  │
 │  │  385 gate modules · 7178 tests                                        │  │
+│  │  385 gate modules · 6862 tests                                        │  │
 │  │  Gossip protocol · Mesh health · Mesh infrastructure                  │  │
 │  │  Mathematical substrate · Compaction pipeline                         │  │
 │  │  ECCF post-quantum encoding · NLA alignment decoder                   │  │
@@ -96,6 +102,7 @@ No part of the system can do more than it can prove it did. Every AI response, e
 │  │  StateAnchor · DomainFirewall · AffineCanvas · SemanticGraph          │  │
 │  │  ValidationDFA · GossipEmitter · HysteresisFilter                     │  │
 │  │  133 tests                                                            │  │
+│  │  96 tests                                                             │  │
 │  └────────────────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -110,6 +117,11 @@ No part of the system can do more than it can prove it did. Every AI response, e
   4026+  TypeScript  sovereign-omega-v2  (247+ test files)
   7178   Rust        aegis-cl-psi        (385 gate modules)
    133   Rust        aegis-runtime       (7-pillar runtime)
+10,973+ total tests · 0 failures
+
+  4015+  TypeScript  sovereign-omega-v2  (247+ test files)
+  6862   Rust        aegis-cl-psi        (385 gate modules)
+    96   Rust        aegis-runtime       (7-pillar runtime)
 ```
 
 ```bash
@@ -203,12 +215,15 @@ Modification requires `/guardian APPROVED` verdict. Unauthorized modification = 
 
 ```
 sovereign-omega-v2/     TypeScript governance runtime (4026+ tests)
+sovereign-omega-v2/     TypeScript governance runtime (4015+ tests)
   src/                  Core · Frame · Consensus · Constitutional · Ledger
                         Skill-harness · Metacognition · Agents · Capsule
   python/               HTTP bridge (port 7890) · PGCS · frozen constitutional files
   test/                 156+ test files
 aegis-cl-psi/           Rust gossip + math fabric (385 gates, 7178 tests)
 aegis-runtime/          Rust Seven-Pillar distributed agent runtime (133 tests)
+aegis-cl-psi/           Rust gossip + math fabric (385 gates, 6862 tests)
+aegis-runtime/          Rust Seven-Pillar distributed agent runtime (96 tests)
 hub/                    aegisomega.com — consciousness substrate + tools
 aegisomega-webgpu/      Standalone WebGPU Φ-field engine (σ/ρ/λ 1024×1024)
 cockpit/                AI chat UI with constitutional telemetry

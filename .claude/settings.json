@@ -262,6 +262,7 @@
       "mcp__34d71637-3038-431f-873f-3f90926d4fd8__copy_file",
       "mcp__34d71637-3038-431f-873f-3f90926d4fd8__create_file",
       "mcp__34d71637-3038-431f-873f-3f90926d4fd8__get_file_permissions"
+      "Bash(git remote set-url origin*)"
     ]
   }
 }

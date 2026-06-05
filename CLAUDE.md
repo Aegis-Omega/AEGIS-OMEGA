@@ -69,6 +69,7 @@ cargo build
 ```
 
 ### TypeScript — sovereign-omega-v2 (4026+ tests)
+### TypeScript — sovereign-omega-v2 (4015+ tests)
 
 ```bash
 cd sovereign-omega-v2

@@ -54,6 +54,8 @@ nosetests.xml
 
 # Claude/Codex local state
 .claude/settings.local.json
+```.claude/settings.local.json
+.vercel
 
 # Metacognitive live chain — ephemeral per-container; only seals.jsonl is durable
 .claude/metacog/chain.jsonl
