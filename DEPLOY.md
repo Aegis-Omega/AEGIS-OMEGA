@@ -18,14 +18,39 @@
 
 ---
 
+
+## Step 0 — Release Preflight
+
+Run the non-interactive deployment readiness check before touching production. It verifies the full-stack app surface, required configuration files, unresolved merge-conflict markers, and optional production secrets.
+
+```bash
+bash scripts/prepare-deployment.sh
+bash scripts/prepare-deployment.sh --build --docker-config
+```
+
+For a launch-blocking check that requires payment and AI-provider secrets to be present in the shell:
+
+```bash
+export DASHSCOPE_KEY=sk-XXXXXXXXXXXXXXXX
+export VITE_LS_LINK_SINGLE=https://...
+export VITE_LS_LINK_STARTER=https://...
+export VITE_LS_LINK_FULL=https://...
+bash scripts/prepare-deployment.sh --require-secrets --build --docker-config
+```
+
+> **HALT:** Do not deploy while the preflight reports unresolved conflict markers, missing app manifests, missing production secrets in `--require-secrets` mode, or failing builds.
+
 ## Step 1 — Deploy Product Apps
 
 ```bash
-cd platform-picker  && vercel --prod
-cd ../hook-generator  && vercel --prod
-cd ../content-calendar && vercel --prod
-cd ../hub             && vercel --prod
+export DASHSCOPE_KEY=sk-XXXXXXXXXXXXXXXX
+export VITE_LS_LINK_SINGLE=https://...
+export VITE_LS_LINK_STARTER=https://...
+export VITE_LS_LINK_FULL=https://...
+bash scripts/deploy-products.sh
 ```
+
+The deployment script builds each commercial product locally, runs the release preflight, deploys to Vercel production, and prints the canonical `aegisomega.com` target for each app.
 
 For each project in the Vercel dashboard:
 1. **Settings → Environment Variables** — add variables from the app's `.env.example`
@@ -54,9 +79,9 @@ Create products at **app.lemonsqueezy.com**:
 
 | Product | Price | Success redirect |
 |---------|-------|-----------------|
-| Single tool | $19 | `https://aegisomega.com/success?plan=single` |
-| Starter (any 2) | $29 | `https://aegisomega.com/success?plan=starter` |
-| Full Toolkit (all 3) | $39 | `https://aegisomega.com/success?plan=full` |
+| Single tool | $19 | `https://aegisomega.com/success?order_id={order_id}` |
+| Starter (any 2) | $29 | `https://aegisomega.com/success?order_id={order_id}` |
+| Full Toolkit (all 3) | $39 | `https://aegisomega.com/success?order_id={order_id}` |
 
 After creating products, copy the **checkout URLs** into the hub's Vercel environment variables:
 - `VITE_LS_LINK_SINGLE`
