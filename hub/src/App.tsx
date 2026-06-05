@@ -211,7 +211,7 @@ function AutomatonPage() {
         </div>
 
         <p className="text-hub-muted/50 text-xs">
-          SHA-256 · certifyMetacognitiveLoop · φ = 0.618… · 6,271 invariant tests
+          SHA-256 · certifyMetacognitiveLoop · φ = 0.618… · 11,337 invariant tests
         </p>
       </div>
 
@@ -331,7 +331,7 @@ function AutomatonPage() {
             Contact us →
           </a>
           <p className="text-xs mt-4" style={{ color: '#6B6B7A' }}>
-            EU AI Act compliant · deterministic replay · 10,067 invariant tests
+            EU AI Act compliant · deterministic replay · 11,337 invariant tests
           </p>
         </div>
       </div>
