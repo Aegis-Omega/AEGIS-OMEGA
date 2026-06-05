@@ -7,6 +7,8 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
 
+echo '{"async": true, "asyncTimeout": 300000}'
+
 REPO="${CLAUDE_PROJECT_DIR:-/home/user/AEGIS--}"
 
 install_npm() {
