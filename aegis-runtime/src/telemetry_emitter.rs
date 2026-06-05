@@ -342,4 +342,47 @@ mod tests {
         assert_eq!(PACKET_HEADER_SIZE, 4);
         assert_eq!(PACKET_PAYLOAD_SIZE, 56);
     }
+
+    // 6. RESONANCE_MAGIC constant is 0xE0E0
+    #[test]
+    fn resonance_magic_is_0xe0e0() {
+        assert_eq!(RESONANCE_MAGIC, 0xE0E0);
+    }
+
+    // 7. with_values initializes harmony and tension correctly
+    #[test]
+    fn with_values_sets_harmony_and_tension() {
+        let atomics = TelemetryAtomics::with_values(75, 25);
+        let (_, _, _, _, _, _, _, harmony, tension) = atomics.snapshot_and_reset();
+        assert_eq!(harmony, 75);
+        assert_eq!(tension, 25);
+    }
+
+    // 8. set_tension updates value reflected in snapshot
+    #[test]
+    fn set_tension_reflects_in_snapshot() {
+        let atomics = TelemetryAtomics::new();
+        atomics.set_tension(42);
+        let (_, _, _, _, _, _, _, _, tension) = atomics.snapshot_and_reset();
+        assert_eq!(tension, 42);
+    }
+
+    // 9. acoustic_clear increments tracked in snapshot and resets
+    #[test]
+    fn acoustic_clear_tracked_and_reset() {
+        use std::sync::atomic::Ordering;
+        let atomics = TelemetryAtomics::new();
+        atomics.acoustic_clear.fetch_add(5, Ordering::Relaxed);
+        let (_, _, clear, _, _, _, _, _, _) = atomics.snapshot_and_reset();
+        assert_eq!(clear, 5);
+        // After reset, next snapshot shows 0
+        let (_, _, clear2, _, _, _, _, _, _) = atomics.snapshot_and_reset();
+        assert_eq!(clear2, 0);
+    }
+
+    // 10. packet constants sum to TOTAL_PACKET_SIZE
+    #[test]
+    fn packet_constants_sum_to_total() {
+        assert_eq!(PACKET_HEADER_SIZE + PACKET_PAYLOAD_SIZE + PACKET_HARMONY_SIZE, TOTAL_PACKET_SIZE);
+    }
 }

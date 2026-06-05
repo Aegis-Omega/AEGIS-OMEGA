@@ -124,4 +124,68 @@ mod tests {
         let ledger = T0Ledger { raw_payload: payload };
         assert_eq!(ledger.read_text(), b"test content");
     }
+
+    // 3. GENESIS_SEAL is exactly 32 bytes
+    #[test]
+    fn genesis_seal_length_is_32() {
+        assert_eq!(GENESIS_SEAL.len(), 32);
+    }
+
+    // 4. Ingesting empty bytes fails (doesn't match GENESIS_SEAL)
+    #[test]
+    fn ingestion_rejects_empty_payload() {
+        let result = IngestionEngine::ingest(b"");
+        assert!(result.is_err());
+    }
+
+    // 5. T0Ledger clone has same payload
+    #[test]
+    fn ledger_clone_has_same_payload() {
+        let payload: &'static [u8] = b"clone test";
+        let original = T0Ledger { raw_payload: payload };
+        let cloned = original.clone();
+        assert_eq!(original.read_text(), cloned.read_text());
+    }
+
+    // 6. Ingestion error message mentions cryptographic verification
+    #[test]
+    fn ingestion_error_message_mentions_cryptographic() {
+        match IngestionEngine::ingest(b"wrong payload") {
+            Err(e) => assert!(e.contains("Cryptographic") || e.contains("verification") || e.contains("corrupted")),
+            Ok(_) => panic!("expected ingestion to fail"),
+        }
+    }
+
+    // 7. IntegrityReaper starts with is_running = true
+    #[test]
+    fn integrity_reaper_starts_running_true() {
+        let ledger = T0Ledger { raw_payload: b"data" };
+        let reaper = IntegrityReaper::new(ledger);
+        assert!(reaper.is_running.load(Ordering::Relaxed));
+    }
+
+    // 8. stop_vigil sets is_running to false
+    #[test]
+    fn integrity_reaper_stop_vigil_clears_running() {
+        let ledger = T0Ledger { raw_payload: b"data" };
+        let reaper = IntegrityReaper::new(ledger);
+        reaper.stop_vigil();
+        assert!(!reaper.is_running.load(Ordering::Relaxed));
+    }
+
+    // 9. read_text is idempotent — calling twice returns the same bytes
+    #[test]
+    fn ledger_read_is_idempotent() {
+        let payload: &'static [u8] = b"idempotent check";
+        let ledger = T0Ledger { raw_payload: payload };
+        assert_eq!(ledger.read_text(), ledger.read_text());
+    }
+
+    // 10. Ingesting different wrong payloads all fail
+    #[test]
+    fn ingestion_rejects_various_wrong_payloads() {
+        for payload in &[b"foo" as &[u8], b"bar", b"\x00\x00\x00"] {
+            assert!(IngestionEngine::ingest(payload).is_err());
+        }
+    }
 }

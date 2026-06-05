@@ -181,4 +181,19 @@ mod tests {
         d.process(&valid_frame());
         assert_eq!(d.bytes_processed(), 5);
     }
+
+    // 9. log entry count matches bytes processed
+    #[test] fn log_length_matches_bytes_processed() {
+        let mut d = ValidationDfa::new();
+        d.process(&valid_frame());
+        assert_eq!(d.log().len(), d.bytes_processed() as usize);
+    }
+
+    // 10. ValidationState Display produces the correct strings
+    #[test] fn state_display_strings() {
+        assert_eq!(format!("{}", ValidationState::Idle),     "Idle");
+        assert_eq!(format!("{}", ValidationState::Accept),   "Accept");
+        assert_eq!(format!("{}", ValidationState::Reject),   "Reject");
+        assert_eq!(format!("{}", ValidationState::Checksum), "Checksum");
+    }
 }

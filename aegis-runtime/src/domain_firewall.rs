@@ -143,4 +143,46 @@ mod tests {
         let first = fw.domain0.keys().next().unwrap();
         assert_eq!(*first, k(1,0));
     }
+
+    // 6. read_domain0 on unregistered key returns NotFound
+    #[test] fn read_domain0_unregistered_returns_not_found() {
+        let fw = DomainFirewall::new();
+        let result = fw.read_domain0(k(9, 9));
+        assert!(matches!(result, Err(FirewallError::NotFound(_))));
+    }
+
+    // 7. domain1_len increments with each write
+    #[test] fn domain1_len_increments() {
+        let mut fw = DomainFirewall::new();
+        assert_eq!(fw.domain1_len(), 0);
+        fw.write_domain1(k(0,1), b"a".to_vec());
+        assert_eq!(fw.domain1_len(), 1);
+        fw.write_domain1(k(0,2), b"b".to_vec());
+        assert_eq!(fw.domain1_len(), 2);
+    }
+
+    // 8. domain0_len increments with each successful register
+    #[test] fn domain0_len_increments() {
+        let mut fw = DomainFirewall::new();
+        assert_eq!(fw.domain0_len(), 0);
+        fw.register(Domain0Record::new(k(0,1), b"x".to_vec())).unwrap();
+        assert_eq!(fw.domain0_len(), 1);
+    }
+
+    // 9. read_domain1 on unregistered key returns None
+    #[test] fn domain1_unregistered_returns_none() {
+        let fw = DomainFirewall::new();
+        assert_eq!(fw.read_domain1(k(99, 99)), None);
+    }
+
+    // 10. register is idempotent (or_insert semantics — second call doesn't overwrite)
+    #[test] fn register_idempotent_for_same_key() {
+        let mut fw = DomainFirewall::new();
+        fw.register(Domain0Record::new(k(0,1), b"first".to_vec())).unwrap();
+        fw.register(Domain0Record::new(k(0,1), b"second".to_vec())).unwrap();
+        // domain0_len stays at 1 (or_insert doesn't replace)
+        assert_eq!(fw.domain0_len(), 1);
+        let rec = fw.read_domain0(k(0,1)).unwrap();
+        assert_eq!(rec.payload, b"first");
+    }
 }

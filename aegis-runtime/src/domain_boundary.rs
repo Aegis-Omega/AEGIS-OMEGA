@@ -233,4 +233,41 @@ mod tests {
         assert_eq!(keys[1], &AxiomKey::new(2, 1));
         assert_eq!(keys[2], &AxiomKey::new(3, 1));
     }
+
+    // 7. corpus_size matches the length of the static payload
+    #[test]
+    fn corpus_size_matches_payload_length() {
+        let core = create_test_core();
+        assert_eq!(core.corpus_size(), b"Section 1 Content.Section 2 Content.Section 3 Content.".len());
+    }
+
+    // 8. all three registered keys resolve successfully
+    #[test]
+    fn all_registered_keys_resolve() {
+        let core = create_test_core();
+        assert!(core.resolve_reference(&AxiomKey::new(1, 1)).is_ok());
+        assert!(core.resolve_reference(&AxiomKey::new(2, 1)).is_ok());
+        assert!(core.resolve_reference(&AxiomKey::new(3, 1)).is_ok());
+    }
+
+    // 9. AxiomKey ordering is (section, node) lexicographic
+    #[test]
+    fn axiom_key_ordering() {
+        assert!(AxiomKey::new(1, 1) < AxiomKey::new(2, 1));
+        assert!(AxiomKey::new(1, 1) < AxiomKey::new(1, 2));
+        assert!(AxiomKey::new(2, 5) > AxiomKey::new(2, 4));
+    }
+
+    // 10. render_to_string on missing key shows error text
+    #[test]
+    fn render_to_string_missing_key_shows_error() {
+        let core = create_test_core();
+        let overlay = SemanticOverlay::new(
+            AxiomKey::new(99, 99),
+            "Author".to_string(),
+            "Comment".to_string(),
+        );
+        let output = SystemComposer::render_to_string(&core, &overlay);
+        assert!(output.contains("halted") || output.contains("FIREWALL") || output.contains("does not exist"));
+    }
 }

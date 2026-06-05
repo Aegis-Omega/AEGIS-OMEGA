@@ -155,4 +155,19 @@ mod tests {
         assert_eq!(e.sent_count(), 0);
     }
     #[test] fn friction_zero_for_t0_pass() { assert_eq!(frame().network_friction, 0); }
+
+    // 9. FRAME_SIZE constant is exactly 64
+    #[test] fn frame_size_constant_is_64() { assert_eq!(FRAME_SIZE, 64); }
+
+    // 10. all payload fields survive a full roundtrip
+    #[test] fn all_fields_survive_roundtrip() {
+        let f = frame();
+        let b = f.to_bytes();
+        let f2 = GossipFrame::from_bytes(&b).unwrap();
+        assert_eq!(f2.root_state_pulses, 1000);
+        assert_eq!(f2.semantic_traversals, 500);
+        assert_eq!(f2.agent_state_alpha, 10);
+        assert_eq!(f2.agent_state_beta, 20);
+        assert_eq!(f2.agent_state_gamma, 30);
+    }
 }

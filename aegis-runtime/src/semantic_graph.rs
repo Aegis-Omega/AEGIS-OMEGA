@@ -187,4 +187,40 @@ mod tests {
         let n = SemanticNode::new(1, "this_label_is_exactly_32_bytes!!", 0);
         assert_eq!(n.label.len(), 32);
     }
+
+    // 7. get_node returns the correct label string
+    #[test] fn get_node_returns_correct_label() {
+        let mut g = SemanticGraph::new();
+        let id = g.add_node("sentinel", 0);
+        let node = g.get_node(id).unwrap();
+        assert_eq!(node.label_str(), "sentinel");
+    }
+
+    // 8. BFS from root always includes the root itself
+    #[test] fn bfs_always_includes_root() {
+        let mut g = SemanticGraph::new();
+        let root = g.add_node("root", 0);
+        let visited = g.traverse_bfs(root, 0);
+        assert!(visited.contains(&root));
+    }
+
+    // 9. two empty graphs have identical fingerprints
+    #[test] fn empty_graph_fingerprint_stable() {
+        let g1 = SemanticGraph::new();
+        let g2 = SemanticGraph::new();
+        assert_eq!(g1.fingerprint(), g2.fingerprint());
+    }
+
+    // 10. multiple edges from the same source are all counted
+    #[test] fn edge_count_multiple_from_same_node() {
+        let mut g = SemanticGraph::new();
+        let a = g.add_node("a", 0);
+        let b = g.add_node("b", 1);
+        let c = g.add_node("c", 1);
+        let d = g.add_node("d", 1);
+        g.add_edge(a, b, RelationType::DependsOn, 100).unwrap();
+        g.add_edge(a, c, RelationType::ComposedOf, 200).unwrap();
+        g.add_edge(a, d, RelationType::GovernedBy, 300).unwrap();
+        assert_eq!(g.edge_count(), 3);
+    }
 }

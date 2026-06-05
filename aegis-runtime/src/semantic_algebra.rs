@@ -398,4 +398,59 @@ mod tests {
 
         assert!(arena.get_node(99).is_none());
     }
+
+    // 6. Reflexive arity is 1, Reciprocal arity is 2
+    #[test]
+    fn morph_operator_reflexive_and_reciprocal_arity() {
+        assert_eq!(MorphOperator::Reflexive.arity(), 1);
+        assert_eq!(MorphOperator::Reciprocal.arity(), 2);
+    }
+
+    // 7. node_count matches the number of nodes added
+    #[test]
+    fn node_count_matches_added() {
+        let arena = ArenaBuilder::new()
+            .add_root([b'A', b'B', b'C'])
+            .add_derived(MorphOperator::Passive)
+            .add_leaf(AxiomKey::new(5, 1))
+            .connect(0, 1)
+            .connect(1, 2)
+            .build();
+        assert_eq!(arena.node_count(), 3);
+    }
+
+    // 8. edge_count matches the number of connect calls
+    #[test]
+    fn edge_count_matches_connects() {
+        let arena = ArenaBuilder::new()
+            .add_root([b'X', b'Y', b'Z'])
+            .add_leaf(AxiomKey::new(6, 1))
+            .add_leaf(AxiomKey::new(6, 2))
+            .connect(0, 1)
+            .connect(0, 2)
+            .build();
+        assert_eq!(arena.edge_count(), 2);
+    }
+
+    // 9. trace_growth on an out-of-bounds root index returns empty
+    #[test]
+    fn trace_growth_invalid_root_returns_empty() {
+        let arena = ArenaBuilder::new()
+            .add_root([b'P', b'Q', b'R'])
+            .build();
+        let leaves = arena.trace_growth(999);
+        assert!(leaves.is_empty());
+    }
+
+    // 10. DerivedWord DataLeaf node type can be constructed and matched
+    #[test]
+    fn data_leaf_node_type_preserved() {
+        let arena = ArenaBuilder::new()
+            .add_root([b'D', b'E', b'F'])
+            .add_leaf(AxiomKey::new(7, 3))
+            .connect(0, 1)
+            .build();
+        let leaf = arena.get_node(1).unwrap();
+        assert!(matches!(leaf.node_type, NodeType::DataLeaf(_)));
+    }
 }

@@ -148,4 +148,40 @@ mod tests {
         let first = a.entries.keys().next().unwrap();
         assert_eq!(*first, k(1,1));
     }
+
+    // 6. GENESIS_HASH is 32 zero bytes
+    #[test] fn genesis_hash_is_32_zeros() {
+        assert_eq!(GENESIS_HASH, [0u8; 32]);
+    }
+
+    // 7. head_hash changes after an append
+    #[test] fn head_hash_changes_after_append() {
+        let mut a = StateAnchor::new();
+        let before = a.head_hash();
+        a.append(k(0,1), b"payload".to_vec()).unwrap();
+        assert_ne!(a.head_hash(), before);
+    }
+
+    // 8. new anchor is_empty and has len 0
+    #[test] fn new_anchor_is_empty() {
+        let a = StateAnchor::new();
+        assert!(a.is_empty());
+        assert_eq!(a.len(), 0);
+    }
+
+    // 9. len increments with each successful append
+    #[test] fn len_increments_with_appends() {
+        let mut a = StateAnchor::new();
+        for i in 0..5u32 {
+            a.append(k(0, i), vec![i as u8]).unwrap();
+            assert_eq!(a.len(), (i + 1) as usize);
+        }
+    }
+
+    // 10. corruption_count is 0 on a freshly constructed anchor
+    #[test] fn corruption_count_zero_initially() {
+        let a = StateAnchor::new();
+        assert_eq!(a.corruption_count(), 0);
+        assert!(a.passes_t0());
+    }
 }

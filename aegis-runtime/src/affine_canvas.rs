@@ -164,4 +164,21 @@ mod tests {
         let composed = i.compose(&i);
         assert_eq!(composed, AffineMatrix::identity());
     }
+
+    // 8. SCALE_FACTOR constant is 1000
+    #[test] fn scale_factor_constant_is_1000() {
+        assert_eq!(SCALE_FACTOR, 1000);
+    }
+
+    // 9. new canvas has zero agents before layout
+    #[test] fn agent_count_zero_before_layout() {
+        let canvas = AffineCanvas::new(AffineMatrix::identity());
+        assert_eq!(canvas.agent_count(), 0);
+    }
+
+    // 10. get_bound returns None for an agent not in the canvas
+    #[test] fn get_bound_none_for_unknown_agent() {
+        let canvas = AffineCanvas::new(AffineMatrix::identity());
+        assert!(canvas.get_bound(999).is_none());
+    }
 }
