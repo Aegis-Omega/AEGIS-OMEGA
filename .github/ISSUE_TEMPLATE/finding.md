@@ -1,7 +1,10 @@
 ---
 name: Audit finding
 about: A holonic audit finding or invariant violation
-labels: audit
+title: ''
+labels: ''
+assignees: ''
+
 ---
 
 ## Finding

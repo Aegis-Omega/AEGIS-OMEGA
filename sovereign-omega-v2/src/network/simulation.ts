@@ -78,6 +78,7 @@ export function simulate(
         equivocations++
         dropped.push(msg)
       } else {
+        /* c8 ignore next -- queue.enqueue() only throws NetworkError; non-NetworkError path is structurally unreachable */
         throw err
       }
     }

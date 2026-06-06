@@ -1,0 +1,44 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - -t
+      - us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:$COMMIT_SHA
+      - -t
+      - us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:latest
+      - vertex/
+    id: build-proxy
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:$COMMIT_SHA
+    waitFor: [build-proxy]
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:latest
+    waitFor: [build-proxy]
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - aegis-constitutional-proxy
+      - --image=us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:$COMMIT_SHA
+      - --region=us-central1
+      - --platform=managed
+      - --set-secrets=ANTHROPIC_API_KEY=anthropic-api-key:latest
+      - --set-env-vars=AEGIS_DEFAULT_MODEL=claude-opus-4-8
+      - --allow-unauthenticated
+      - --port=8080
+    waitFor: [build-proxy]
+
+images:
+  - us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:$COMMIT_SHA
+  - us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

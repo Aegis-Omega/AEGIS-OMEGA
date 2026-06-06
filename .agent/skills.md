@@ -1,8 +1,8 @@
 # SOVEREIGN AGI OS — SKILLS REGISTRY
 
 **Phase:** 1 (static, human-authored baseline)  
-**Generated:** 2026-06-03T18:52:38.698467+00:00  
-**Docs scanned:** 144  
+**Generated:** 2026-05-31T09:25:24.588371+00:00  
+**Docs scanned:** 110  
 **Skills:** 40
 
 ---
@@ -19,7 +19,7 @@
 - **Domain affinity:** agent, governance
 - **Dependencies:** none
 - **Evidence refs:** .agent/rules.md
-- **Last validated:** 2026-06-03T18:52:38.698467+00:00
+- **Last validated:** 2026-05-31T09:25:24.588371+00:00
 - **Description:** ORCHESTRATOR / ARCHITECT / BUILDER / RESEARCHER / QA / DEBUG / REVIEWER / PRE-SHIP roles. Each role has constrained tool access. Builder: no web_search. Researcher: authorized web_search.
 
 ### SKILL: agent_handoff_protocol
@@ -32,7 +32,7 @@
 - **Domain affinity:** agent, governance
 - **Dependencies:** agent_role_governance
 - **Evidence refs:** .agent/rules.md
-- **Last validated:** 2026-06-03T18:52:38.698467+00:00
+- **Last validated:** 2026-05-31T09:25:24.588371+00:00
 - **Description:** Mandatory format: [FROM]/[TO]/[TYPE: HANDOFF|REQUEST|BLOCKER|UPDATE]/CONTEXT/MESSAGE/EXPECTED RESPONSE.
 
 ### SKILL: cognitive_event_logging
@@ -45,7 +45,7 @@
 - **Domain affinity:** agent, audit
 - **Dependencies:** agent_handoff_protocol
 - **Evidence refs:** .agent/rules.md
-- **Last validated:** 2026-06-03T18:52:38.698467+00:00
+- **Last validated:** 2026-05-31T09:25:24.588371+00:00
 - **Description:** Log via tools/log-action.js: SKILL_CHECK, PLAN_CREATED, PLAN_MUTATED, CONTEXT_ROT, FATAL_BLOCKER, LANE_VIOLATION, MISSING_CAPABILITY, MISSION_REPORT.
 
 ### SKILL: three_strike_failsafe
@@ -58,7 +58,7 @@
 - **Domain affinity:** agent, constitutional
 - **Dependencies:** agent_role_governance
 - **Evidence refs:** .agent/rules.md
-- **Last validated:** 2026-06-03T18:52:38.698467+00:00
+- **Last validated:** 2026-05-31T09:25:24.588371+00:00
 - **Description:** If VERIFY fails 3× on same approach: STOP, output FATAL_BLOCKER, log to log-action.js, do NOT retry same approach.
 
 ## Domain: `commercial_products`
@@ -73,7 +73,7 @@
 - **Domain affinity:** typescript, commercial
 - **Dependencies:** none
 - **Evidence refs:** CLAUDE.md
-- **Last validated:** 2026-06-03T18:52:38.698467+00:00
+- **Last validated:** 2026-05-31T09:25:24.588371+00:00
 - **Description:** @shared alias → packages/shared. DashScope caller, useAsyncForm, ErrorAlert, LoadingSpinner, ScoreBar, ToolkitFooter. All 3 products import from here.
 
 ### SKILL: dashscope_qwen_integration
@@ -86,7 +86,7 @@
 - **Domain affinity:** commercial, typescript
 - **Dependencies:** shared_component_library
 - **Evidence refs:** CLAUDE.md
-- **Last validated:** 2026-06-03T18:52:38.698467+00:00
+- **Last validated:** 2026-05-31T09:25:24.588371+00:00
 - **Description:** VITE_DASHSCOPE_API_KEY + VITE_DASHSCOPE_MODEL env vars. @shared/lib/dashscope generic caller. Default model: qwen-plus.
 
 ### SKILL: vercel_deployment
@@ -99,7 +99,7 @@
 - **Domain affinity:** deployment, commercial
 - **Dependencies:** gate8_deployment_gate
 - **Evidence refs:** DEPLOY.md, CLAUDE.md
-- **Last validated:** 2026-06-03T18:52:38.698467+00:00
+- **Last validated:** 2026-05-31T09:25:24.588371+00:00
 - **Description:** One Vercel project per product (Root Directory set per product). Gate 8 must pass before any deployment. vercel --prod from product directory.
 
 ### SKILL: gumroad_product_pricing
@@ -112,7 +112,7 @@
 - **Domain affinity:** commercial
 - **Dependencies:** vercel_deployment
 - **Evidence refs:** docs/GUMROAD_LISTINGS.md, CLAUDE.md
-- **Last validated:** 2026-06-03T18:52:38.698467+00:00
+- **Last validated:** 2026-05-31T09:25:24.588371+00:00
 - **Description:** $19/product, $29 any 2, $39 all 3 (Full Creator AI Toolkit). platform-picker + hook-generator + content-calendar.
 
 ## Domain: `constitutional_governance`
@@ -127,7 +127,7 @@
 - **Domain affinity:** governance, constitutional, replay
 - **Dependencies:** none
 - **Evidence refs:** sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md, CONSTITUTIONAL_DECLARATION.md
-- **Last validated:** 2026-06-03T18:52:38.698467+00:00
+- **Last validated:** 2026-05-31T09:25:24.588371+00:00
 - **Description:** Enforce Root Constitutional Law: AdaptivePower(T) ≤ ReplayVerifiability(T). Covers constitutional boundary checks, T0_ABORT conditions, and replay sovereignty.
 
 ### SKILL: martingale_gating
@@ -140,7 +140,7 @@
 - **Domain affinity:** governance, martingale, typescript
 - **Dependencies:** constitutional_law_enforcement
 - **Evidence refs:** sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md, sovereign-omega-v2/docs/CONSTITUTIONAL_GOVERNANCE_SURFACE.md
-- **Last validated:** 2026-06-03T18:52:38.698467+00:00
+- **Last validated:** 2026-05-31T09:25:24.588371+00:00
 - **Description:** certifyMartingale() + assertMartingaleAnchored() — suspends mutation authority when drift_bounded, is_anchored, or entropy_bounded constraints fail.
 
 ### SKILL: epistemic_tier_classification
@@ -153,7 +153,7 @@
 - **Domain affinity:** governance, audit, constitutional
 - **Dependencies:** none
 - **Evidence refs:** CLAUDE.md, .sovereign_context/SYSTEM_DIRECTIVES.md
-- **Last validated:** 2026-06-03T18:52:38.698467+00:00
+- **Last validated:** 2026-05-31T09:25:24.588371+00:00
 - **Description:** Tag every module T0-T5. T0=mechanically proven; T4/T5 confined to docs/. A file's tier is determined by mechanism, not framing.
 
 ### SKILL: ontology_admission
@@ -166,7 +166,7 @@
 - **Domain affinity:** governance, typescript, constitutional
 - **Dependencies:** epistemic_tier_classification
 - **Evidence refs:** sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md, docs/ONTOLOGY.md
-- **Last validated:** 2026-06-03T18:52:38.698467+00:00
+- **Last validated:** 2026-05-31T09:25:24.588371+00:00
 - **Description:** admitAbstraction() blocks T4/T5 constructs. Every abstraction must reduce to six canonical primitives: Event, Transition, Ownership, Entropy, Transport, Verification.
 
 ## Domain: `cryptographic_infrastructure`
@@ -181,7 +181,7 @@
 - **Domain affinity:** cryptograph, hash, typescript
 - **Dependencies:** none
 - **Evidence refs:** sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md, CLAUDE.md
-- **Last validated:** 2026-06-03T18:52:38.698467+00:00
+- **Last validated:** 2026-05-31T09:25:24.588371+00:00
 - **Description:** canonicalizeJCS() in src/core/canonicalize.ts — RFC 8785 → SHA-256. Only permitted hash path. Never JSON.stringify for integrity.
 
 ### SKILL: hash_chain_construction
@@ -194,7 +194,7 @@
 - **Domain affinity:** cryptograph, hash, rust, replay
 - **Dependencies:** jcs_canonicalization
 - **Evidence refs:** sovereign-omega-v2/docs/SOVEREIGN_RUNTIME_HANDOFF_v1.0.md, docs/GATE_201_REFACTORING.md
-- **Last validated:** 2026-06-03T18:52:38.698467+00:00
+- **Last validated:** 2026-05-31T09:25:24.588371+00:00
 - **Description:** Every Rust gate module implements verify_chain() → (bool, Option<usize>). All hash inputs use to_be_bytes(). f64 hashed as value.to_bits().to_be_bytes(). Chain starts from *_GENESIS_HASH = [0u8; 32].
 
 ### SKILL: genesis_seal_verification
