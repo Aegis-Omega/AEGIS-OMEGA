@@ -1,14 +1,16 @@
 // AEGIS-Ω — hub router
-// /          → HomepageLanding (enterprise B2B)
-// /runtime   → AegisRuntime (live constitutional substrate demo)
+// /          → AegisRuntime (living consciousness automaton)
+// /tools     → ToolsPage ($19 creator tools)
+// /runtime   → AegisRuntime (alias)
 // /success   → SuccessPage
 import { SuccessPage } from './components/SuccessPage.js'
-import { HomepageLanding } from './components/HomepageLanding.js'
 import { AegisRuntime } from './components/AegisRuntime.js'
+import { ToolsPage } from './components/ToolsPage.js'
 
 export default function App() {
   const path = window.location.pathname
-  if (path === '/success') return <SuccessPage />
-  if (path === '/runtime') return <AegisRuntime />
-  return <HomepageLanding />
+  const search = window.location.search
+  if (path === '/success' || search.includes('plan=')) return <SuccessPage />
+  if (path === '/tools') return <ToolsPage />
+  return <AegisRuntime />
 }
