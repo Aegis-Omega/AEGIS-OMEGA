@@ -1,0 +1,74 @@
+name: Deploy to Cloud Run (WIF)
+
+# Keyless deploy to Google Cloud Run via Workload Identity Federation.
+# No long-lived service-account keys — GitHub mints a short-lived OIDC token that
+# GCP exchanges for credentials. This is the path that ships AEGIS to aegisomegav1
+# on merge to main, with no local gcloud required.
+#
+# Required repo configuration (Settings → Secrets and variables → Actions):
+#   Variables:
+#     GCP_PROJECT          e.g. aegisomegav1
+#     GCP_REGION           e.g. europe-west3
+#     WIF_PROVIDER         projects/<num>/locations/global/workloadIdentityPools/<pool>/providers/<provider>
+#     WIF_SERVICE_ACCOUNT  deployer@aegisomegav1.iam.gserviceaccount.com
+#
+# The job is a no-op until WIF_PROVIDER is set, so it never blocks CI on forks or
+# before federation is configured.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Which build config to submit"
+        required: false
+        default: "cloudbuild.yaml"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Build + deploy via Cloud Build (WIF)
+    runs-on: ubuntu-latest
+    if: vars.WIF_PROVIDER != ''
+    env:
+      GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      BUILD_CONFIG: ${{ github.event.inputs.service || 'cloudbuild.yaml' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT }}
+
+      - name: Submit Cloud Build (build + push + deploy)
+        # BUILD_CONFIG is validated against a fixed allow-list to keep the
+        # workflow_dispatch input from injecting an arbitrary path.
+        run: |
+          case "$BUILD_CONFIG" in
+            cloudbuild.yaml|hub/cloudbuild.yaml|cockpit/cloudbuild.yaml|vertex/cloudbuild.yaml)
+              echo "Submitting $BUILD_CONFIG to project $GCP_PROJECT"
+              ;;
+            *)
+              echo "Refusing unrecognized build config: $BUILD_CONFIG" >&2
+              exit 1
+              ;;
+          esac
+          gcloud builds submit \
+            --project "$GCP_PROJECT" \
+            --config "$BUILD_CONFIG" \
+            --substitutions "_REGION=$GCP_REGION" \
+            .

@@ -19,13 +19,13 @@ backends:
   anthropic:
     default_model: "${AEGIS_DEFAULT_MODEL:-claude-opus-4-8}"
     thinking: adaptive
-    max_tokens: 8192
+    max_tokens: 16384
   vertex:
     project_id: "${VERTEX_PROJECT_ID}"
     region: "${VERTEX_REGION:-us-east5}"
     default_model: "claude-opus-4-8@001"
     thinking: adaptive
-    max_tokens: 8192
+    max_tokens: 16384
   direct:
     proxy_url: "${PROXY_URL:-http://localhost:8080}"
     redis_url: "${REDIS_URL:-redis://localhost:6379}"
@@ -81,7 +81,10 @@ departments:
 
   ai_research:
     name: "AI Research"
-    tier: 1
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:ai_research"
     max_tokens: 16384
     capabilities:
@@ -116,7 +119,10 @@ departments:
 
   ai_safety:
     name: "AI Safety & Alignment Research"
-    tier: 1
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:ai_safety"
     max_tokens: 16384
     capabilities:
@@ -153,9 +159,12 @@ departments:
 
   applied_science:
     name: "Applied Science"
-    tier: 2
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:applied_science"
-    max_tokens: 8192
+    max_tokens: 16384
     capabilities:
       - inference_optimization
       - model_deployment
@@ -184,9 +193,12 @@ departments:
 
   engineering:
     name: "Software Engineering"
-    tier: 1
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:engineering"
-    max_tokens: 8192
+    max_tokens: 16384
     capabilities:
       - code_generation
       - code_review
@@ -223,9 +235,12 @@ departments:
 
   platform_engineering:
     name: "Platform Engineering & MLOps"
-    tier: 2
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:platform_engineering"
-    max_tokens: 8192
+    max_tokens: 16384
     capabilities:
       - infrastructure_mlops
       - ci_cd_pipelines
@@ -253,9 +268,12 @@ departments:
 
   hardware_engineering:
     name: "Hardware & Infrastructure Engineering"
-    tier: 3
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:hardware_engineering"
-    max_tokens: 6144
+    max_tokens: 16384
     capabilities:
       - gpu_compute
       - network_architecture
@@ -275,9 +293,12 @@ departments:
 
   supply_chain:
     name: "Infrastructure Procurement & Supply Chain"
-    tier: 4
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:supply_chain"
-    max_tokens: 4096
+    max_tokens: 16384
     capabilities:
       - supply_chain
       - vendor_negotiation
@@ -302,9 +323,12 @@ departments:
 
   data_labeling:
     name: "Data Labeling & Annotation"
-    tier: 3
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:data_labeling"
-    max_tokens: 6144
+    max_tokens: 16384
     capabilities:
       - annotation_pipeline
       - eval_dataset_curation
@@ -327,9 +351,12 @@ departments:
 
   data_governance:
     name: "Data Governance & Knowledge Management"
-    tier: 2
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:data_governance"
-    max_tokens: 8192
+    max_tokens: 16384
     capabilities:
       - data_governance
       - knowledge_base
@@ -355,9 +382,12 @@ departments:
 
   product_management:
     name: "Product Management"
-    tier: 2
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:product_management"
-    max_tokens: 6144
+    max_tokens: 16384
     capabilities:
       - product_roadmap
       - customer_requirements
@@ -383,9 +413,12 @@ departments:
 
   product_design:
     name: "Product Design & UX"
-    tier: 3
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:product_design"
-    max_tokens: 6144
+    max_tokens: 16384
     capabilities:
       - ux_research
       - interaction_design
@@ -409,9 +442,12 @@ departments:
 
   devex:
     name: "Developer Experience (DevEx)"
-    tier: 2
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:devex"
-    max_tokens: 8192
+    max_tokens: 16384
     capabilities:
       - sdk_tooling
       - documentation
@@ -438,7 +474,10 @@ departments:
 
   cybersecurity:
     name: "Cybersecurity"
-    tier: 1
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:cybersecurity"
     max_tokens: 16384
     capabilities:
@@ -474,9 +513,12 @@ departments:
 
   it_systems:
     name: "IT & Internal Systems"
-    tier: 4
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:it_systems"
-    max_tokens: 4096
+    max_tokens: 16384
     capabilities:
       - it_management
       - saas_management
@@ -497,9 +539,12 @@ departments:
 
   internal_ai_enablement:
     name: "Internal AI Enablement"
-    tier: 3
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:internal_ai"
-    max_tokens: 6144
+    max_tokens: 16384
     capabilities:
       - internal_ai_tools
       - ai_adoption
@@ -524,9 +569,12 @@ departments:
 
   trust_safety:
     name: "Trust & Safety"
-    tier: 1
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:trust_safety"
-    max_tokens: 8192
+    max_tokens: 16384
     capabilities:
       - content_policy
       - safety_systems
@@ -551,9 +599,12 @@ departments:
 
   ai_ethics:
     name: "AI Ethics & Responsible AI"
-    tier: 2
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:ai_ethics"
-    max_tokens: 8192
+    max_tokens: 16384
     capabilities:
       - bias_audit
       - ethics_review
@@ -583,9 +634,12 @@ departments:
 
   compliance:
     name: "Legal & Compliance"
-    tier: 1
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:compliance"
-    max_tokens: 8192
+    max_tokens: 16384
     capabilities:
       - eu_ai_act_analysis
       - nist_framework_mapping
@@ -615,9 +669,12 @@ departments:
 
   policy_affairs:
     name: "Policy & Government Affairs"
-    tier: 2
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:policy_affairs"
-    max_tokens: 6144
+    max_tokens: 16384
     capabilities:
       - government_relations
       - ai_policy
@@ -643,9 +700,12 @@ departments:
 
   communications:
     name: "Communications & Public Relations"
-    tier: 2
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:communications"
-    max_tokens: 6144
+    max_tokens: 16384
     capabilities:
       - media_relations
       - thought_leadership
@@ -669,9 +729,12 @@ departments:
 
   marketing:
     name: "Marketing & Demand Generation"
-    tier: 2
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:marketing"
-    max_tokens: 4096
+    max_tokens: 16384
     capabilities:
       - technical_content
       - seo_optimization
@@ -699,9 +762,12 @@ departments:
 
   biz_dev:
     name: "Business Development"
-    tier: 1
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:biz_dev"
-    max_tokens: 6144
+    max_tokens: 16384
     capabilities:
       - partnership_outreach
       - enterprise_sales
@@ -732,9 +798,12 @@ departments:
 
   sales:
     name: "Sales & Enterprise Accounts"
-    tier: 2
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:sales"
-    max_tokens: 6144
+    max_tokens: 16384
     capabilities:
       - enterprise_sales
       - account_management
@@ -758,9 +827,12 @@ departments:
 
   solutions_engineering:
     name: "Solutions Engineering & Pre-Sales"
-    tier: 2
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:solutions_engineering"
-    max_tokens: 8192
+    max_tokens: 16384
     capabilities:
       - technical_demos
       - poc_development
@@ -788,9 +860,12 @@ departments:
 
   customer_success:
     name: "Customer Success"
-    tier: 2
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:customer_success"
-    max_tokens: 6144
+    max_tokens: 16384
     capabilities:
       - customer_onboarding
       - adoption_tracking
@@ -815,9 +890,12 @@ departments:
 
   support:
     name: "Customer & Technical Support"
-    tier: 3
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:support"
-    max_tokens: 6144
+    max_tokens: 16384
     capabilities:
       - technical_support
       - documentation
@@ -839,9 +917,12 @@ departments:
 
   devrel:
     name: "Developer Relations & Community"
-    tier: 2
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:devrel"
-    max_tokens: 6144
+    max_tokens: 16384
     capabilities:
       - community_building
       - open_source
@@ -861,9 +942,12 @@ departments:
 
   partnerships:
     name: "Partnerships & Ecosystem Development"
-    tier: 1
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:partnerships"
-    max_tokens: 6144
+    max_tokens: 16384
     capabilities:
       - platform_partnerships
       - ecosystem_development
@@ -890,9 +974,12 @@ departments:
 
   finance:
     name: "Finance & Accounting"
-    tier: 2
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:finance"
-    max_tokens: 6144
+    max_tokens: 16384
     capabilities:
       - revenue_analysis
       - cost_optimization
@@ -921,9 +1008,12 @@ departments:
 
   corporate_development:
     name: "Corporate Development & M&A"
-    tier: 3
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:corporate_development"
-    max_tokens: 6144
+    max_tokens: 16384
     capabilities:
       - corporate_development
       - strategic_investments
@@ -945,9 +1035,12 @@ departments:
 
   strategy:
     name: "Strategy & Competitive Intelligence"
-    tier: 1
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:strategy"
-    max_tokens: 8192
+    max_tokens: 16384
     capabilities:
       - competitive_analysis
       - market_strategy
@@ -974,9 +1067,12 @@ departments:
 
   talent_acquisition:
     name: "Talent Acquisition"
-    tier: 3
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:talent_acquisition"
-    max_tokens: 4096
+    max_tokens: 16384
     capabilities:
       - talent_pipeline
       - technical_recruiting
@@ -996,9 +1092,12 @@ departments:
 
   people_ops:
     name: "People Operations & HR"
-    tier: 4
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:people_ops"
-    max_tokens: 4096
+    max_tokens: 16384
     capabilities:
       - culture_programs
       - performance_management
@@ -1017,9 +1116,12 @@ departments:
 
   workplace:
     name: "Workplace & Facilities"
-    tier: 4
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:workplace"
-    max_tokens: 2048
+    max_tokens: 16384
     capabilities:
       - facilities_management
       - remote_work_infrastructure
@@ -1036,9 +1138,12 @@ departments:
 
   education:
     name: "Education & Customer Enablement"
-    tier: 3
+    tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:education"
-    max_tokens: 6144
+    max_tokens: 16384
     capabilities:
       - training_programs
       - certifications
@@ -1066,6 +1171,9 @@ departments:
   deep_researcher:
     name: "Deep Research (Mythos)"
     tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:deep_researcher"
     max_tokens: 32768
     capabilities:
@@ -1100,6 +1208,9 @@ departments:
   corpus_ingestor:
     name: "Corpus Ingestion (Mythos)"
     tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:corpus_ingestor"
     max_tokens: 32768
     capabilities:
@@ -1141,6 +1252,9 @@ departments:
   batch_processor:
     name: "Batch Processor (Mythos)"
     tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:batch_processor"
     max_tokens: 16384
     capabilities:
@@ -1175,6 +1289,9 @@ departments:
   chronologist:
     name: "Chronology (Mythos)"
     tier: 0
+    autonomous: true
+    evolving: true
+    evolution_namespace: "aegis:lineage:agent"
     memory_namespace: "aegis:agent:chronologist"
     max_tokens: 32768
     capabilities:

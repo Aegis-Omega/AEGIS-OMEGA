@@ -712,7 +712,33 @@ async def run_agent(task: AgentTask) -> AgentResult:
     for cap in capabilities:
         _skill_router.emit_skill_event(cap, success=succeeded)
 
+    # Evolution: record this run in the hash-chained AdaptiveLineage and, when an
+    # agent's skills cross the promotion threshold, the engine earns it a TIER_PROMOTION.
+    # Guarded — evolution is observational metabolism and must never break a run.
+    if agent_def.get("evolving"):
+        _record_evolution(task.role.value, capabilities, succeeded)
+
     return result
+
+
+def _record_evolution(role: str, capabilities: list[str], succeeded: bool) -> None:
+    """Append a CAPABILITY_EVOLUTION event and run a promotion tick (best-effort)."""
+    try:
+        from agents.evolution import AdaptiveLineage, EvolutionEngine
+
+        lineage = AdaptiveLineage.load()
+        lineage.append(
+            "CAPABILITY_EVOLUTION",
+            skill_id=role,
+            from_tier="T2",
+            to_tier="T2",
+            evidence=f"run {'succeeded' if succeeded else 'degraded'}; caps={','.join(capabilities[:4])}",
+        )
+        lineage.save()
+        # One promotion tick — skills that crossed the evidence threshold get promoted.
+        EvolutionEngine(lineage=lineage).tick(apply_changes=True)
+    except Exception:  # noqa: BLE001 — evolution is non-load-bearing
+        pass
 
 
 # ── Event dispatcher — routes external events to agents ──────────────────────
