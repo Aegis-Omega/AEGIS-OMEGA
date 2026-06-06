@@ -310,6 +310,116 @@ async def audit_entry(seq: int):
     return entry
 
 
+# ── Agent ecosystem endpoints ─────────────────────────────────────────────────
+
+@app.post("/agents/run")
+async def agent_run(request: Request):
+    """Run a single agent task through the coordinator.
+
+    Request:  {"role": "engineering", "task": "...", "cycles": 3}
+    Response: {"task_id": "...", "role": "...", "output": "...", "governance": {...}, ...}
+    """
+    body = await request.json()
+    role = body.get("role", "engineering")
+    task_instruction = body.get("task", "")
+    cycles = int(body.get("cycles", 3))
+
+    if not task_instruction:
+        raise HTTPException(400, "task is required")
+
+    # Inline import to keep coordinator dependencies optional
+    try:
+        import sys, os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+        from agents.coordinator import AgentTask, AgentRole, run_agent
+    except ImportError as exc:
+        raise HTTPException(503, f"Agent coordinator not available: {exc}")
+
+    try:
+        agent_role = AgentRole(role)
+    except ValueError:
+        raise HTTPException(400, f"Unknown role: {role}. Valid: {[r.value for r in AgentRole]}")
+
+    task_obj = AgentTask(
+        task_id=str(uuid.uuid4()),
+        role=agent_role,
+        instruction=task_instruction,
+        max_ralph_cycles=cycles,
+    )
+    result = await run_agent(task_obj)
+    return {
+        "task_id": result.task_id,
+        "role": result.role.value,
+        "output": result.output,
+        "governance": result.governance,
+        "ralph_cycles": result.ralph_cycles,
+        "duration_ms": result.duration_ms,
+        "is_valid": result.is_valid,
+    }
+
+
+@app.post("/agents/dispatch")
+async def agent_dispatch(request: Request):
+    """Dispatch an external event to the appropriate agents.
+
+    Request:  {"event_type": "github_ci_failure", "payload": {...}}
+    Response: {"results": [{...}, ...]}
+    """
+    body = await request.json()
+    event_type = body.get("event_type", "")
+    payload = body.get("payload", {})
+
+    if not event_type:
+        raise HTTPException(400, "event_type is required")
+
+    try:
+        import sys, os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+        from agents.coordinator import dispatch_event
+    except ImportError as exc:
+        raise HTTPException(503, f"Agent coordinator not available: {exc}")
+
+    results = await dispatch_event(event_type, payload)
+    return {
+        "results": [
+            {
+                "task_id": r.task_id,
+                "role": r.role.value,
+                "output": r.output,
+                "governance": r.governance,
+                "ralph_cycles": r.ralph_cycles,
+                "duration_ms": r.duration_ms,
+                "is_valid": r.is_valid,
+            }
+            for r in results
+        ]
+    }
+
+
+@app.get("/agents/roles")
+async def agent_roles():
+    """List available agent roles and event routing."""
+    try:
+        import sys, os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+        from agents.coordinator import EVENT_ROUTING, AgentRole
+        import yaml
+        with open(os.path.join(os.path.dirname(__file__), "..", "agents", "agents.yaml")) as f:
+            defs = yaml.safe_load(f)
+        return {
+            "agents": {
+                name: {"role": ag["role"], "capabilities": ag["capabilities"]}
+                for name, ag in defs["agents"].items()
+            },
+            "event_routing": {
+                evt: [r.value for r in roles]
+                for evt, roles in EVENT_ROUTING.items()
+            },
+        }
+    except ImportError as exc:
+        raise HTTPException(503, f"Agent coordinator not available: {exc}")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))

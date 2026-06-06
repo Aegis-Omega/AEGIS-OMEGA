@@ -7,9 +7,11 @@ RUN pip install --no-cache-dir \
     uvicorn[standard]==0.32.0 \
     anthropic==0.52.0 \
     redis[asyncio]==5.1.0 \
-    httpx==0.27.0
+    httpx==0.27.0 \
+    pyyaml==6.0.2
 
 COPY serve.py .
+COPY ../agents /app/agents
 
 ENV PORT=8080
 EXPOSE 8080

@@ -1,0 +1,85 @@
+name: AEGIS Agent Dispatch
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  pull_request:
+    types: [opened, synchronize, review_requested]
+  issues:
+    types: [opened, labeled]
+  issue_comment:
+    types: [created]
+
+jobs:
+  dispatch:
+    name: Dispatch to AEGIS Agent Ecosystem
+    runs-on: ubuntu-latest
+    # Only run if PROXY_URL is configured (won't block other CI)
+    if: vars.PROXY_URL != ''
+
+    steps:
+      - name: Determine event type and payload
+        id: classify
+        run: |
+          EVENT_TYPE=""
+          PAYLOAD="{}"
+
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            CONCLUSION="${{ github.event.workflow_run.conclusion }}"
+            BRANCH="${{ github.event.workflow_run.head_branch }}"
+            if [ "$CONCLUSION" = "failure" ]; then
+              EVENT_TYPE="github_ci_failure"
+              PAYLOAD=$(jq -n \
+                --arg branch "$BRANCH" \
+                --arg run_id "${{ github.event.workflow_run.id }}" \
+                --arg conclusion "$CONCLUSION" \
+                '{"branch": $branch, "run_id": $run_id, "failures": $conclusion}')
+            elif [ "$CONCLUSION" = "success" ]; then
+              EVENT_TYPE="github_ci_success"
+              PAYLOAD=$(jq -n \
+                --arg branch "$BRANCH" \
+                '{"branch": $branch}')
+            fi
+
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            EVENT_TYPE="github_pr_opened"
+            PAYLOAD=$(jq -n \
+              --arg title "${{ github.event.pull_request.title }}" \
+              --arg number "${{ github.event.number }}" \
+              --arg url "${{ github.event.pull_request.html_url }}" \
+              '{"title": $title, "number": $number, "url": $url}')
+
+          elif [ "${{ github.event_name }}" = "issues" ]; then
+            EVENT_TYPE="github_issue_opened"
+            PAYLOAD=$(jq -n \
+              --arg title "${{ github.event.issue.title }}" \
+              --arg number "${{ github.event.issue.number }}" \
+              --arg body "${{ github.event.issue.body }}" \
+              '{"title": $title, "number": $number, "body": $body}')
+
+          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
+            BODY="${{ github.event.comment.body }}"
+            # Only dispatch if comment mentions @aegis-agent
+            if echo "$BODY" | grep -q "@aegis-agent"; then
+              EVENT_TYPE="github_pr_comment"
+              PAYLOAD=$(jq -n \
+                --arg body "$BODY" \
+                --arg number "${{ github.event.issue.number }}" \
+                '{"body": $body, "number": $number}')
+            fi
+          fi
+
+          echo "event_type=$EVENT_TYPE" >> $GITHUB_OUTPUT
+          echo "payload=$PAYLOAD" >> $GITHUB_OUTPUT
+
+      - name: Dispatch to AEGIS constitutional proxy
+        if: steps.classify.outputs.event_type != ''
+        run: |
+          curl -s -X POST "${{ vars.PROXY_URL }}/agents/dispatch" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg event_type "${{ steps.classify.outputs.event_type }}" \
+              --argjson payload '${{ steps.classify.outputs.payload }}' \
+              '{"event_type": $event_type, "payload": $payload}')" \
+            | jq '.results[] | {role, ralph_cycles, is_valid, output: (.output | .[0:500])}'
