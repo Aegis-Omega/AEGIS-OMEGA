@@ -5,7 +5,9 @@
 import { useEffect, useRef, useState } from 'react'
 
 const SUPABASE_URL     = import.meta.env.VITE_SUPABASE_URL  as string | undefined
-const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID as string | undefined
+// Client ID is public — embedded in the PayPal SDK URL visible to all visitors
+const PAYPAL_CLIENT_ID = (import.meta.env.VITE_PAYPAL_CLIENT_ID as string | undefined)
+  || 'AcVwy62A-8ZX7SebJUthiqWQIxnYQHPIabLMLFeZbZX0nTT1PiNoULhTLVjkpv4yD8Kbx2Eae-6X6eGn'
 const PROVISION_URL    = SUPABASE_URL ? `${SUPABASE_URL}/functions/v1/verify-paypal` : ''
 
 declare global {
