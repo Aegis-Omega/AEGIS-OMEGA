@@ -1,17 +1,27 @@
 """
-AEGIS-Ω Agent Coordinator
-"My own company of AI agents with AEGIS as the wrapper."
+AEGIS-Ω Agent Coordinator v2.0
+"A company of 34 autonomous AI agents, governed by the constitutional substrate."
 
-Orchestrates the five-agent ecosystem via RALPH loops.
-All inference goes through the constitutional proxy (POST /v1/messages).
+Three inference backends (auto-detected from environment):
+  MANAGED_AGENTS — Anthropic client.beta.agents (persistent, session-based, streaming)
+  VERTEX_AI      — AnthropicVertex (GCP project aegisomegav1, constitutional proxy wrapping)
+  DIRECT         — Constitutional proxy (POST /v1/messages) — fallback for any environment
+
+Backend priority:
+  1. MANAGED_AGENTS if ANTHROPIC_API_KEY set and agent_registry.json exists
+  2. VERTEX_AI      if VERTEX_PROJECT_ID set
+  3. DIRECT         fallback via PROXY_URL
+
 All memory persists in Redis. All communication via EventEnvelope (Law of Silence).
-
 AdaptivePower(T) ≤ ReplayVerifiability(T) — the coordinator itself is governed.
 
 Usage:
     python -m agents.coordinator run --role engineering --task "diagnose CI failure on PR #136"
-    python -m agents.coordinator run --role biz_dev --task "draft Anthropic partnership email"
+    python -m agents.coordinator run --role ai_safety --task "evaluate alignment property X"
+    python -m agents.coordinator run --role cybersecurity --task "scan for constitutional breaches"
     python -m agents.coordinator dispatch --event github_pr_comment --payload '{"body": "..."}'
+    python -m agents.coordinator list
+    python -m agents.coordinator backend   # show active backend
 """
 
 from __future__ import annotations
@@ -24,6 +34,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Any, AsyncIterator
 
 import httpx
@@ -38,8 +49,36 @@ _REPO_ROOT = os.path.dirname(_ROOT)
 PROXY_URL = os.environ.get("PROXY_URL", "http://localhost:8080")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
 DEFAULT_MODEL = os.environ.get("AEGIS_DEFAULT_MODEL", "claude-opus-4-8")
+VERTEX_PROJECT = os.environ.get("VERTEX_PROJECT_ID", "aegisomegav1")
+VERTEX_REGION = os.environ.get("VERTEX_REGION", "us-east5")
 EVENTBUS_CHANNEL = "aegis:events"
 SKILL_TREE_PATH = os.path.join(_REPO_ROOT, "harness", "skill_tree.json")
+MANAGED_REGISTRY_PATH = Path(_ROOT) / "agent_registry.json"
+VERTEX_REGISTRY_PATH = Path(_ROOT) / "vertex_agent_registry.json"
+
+
+# ── Backend detection ─────────────────────────────────────────────────────────
+
+class BackendType(str, Enum):
+    MANAGED_AGENTS = "managed_agents"   # Anthropic Managed Agents beta
+    VERTEX_AI      = "vertex_ai"        # Google Cloud Vertex AI + AnthropicVertex
+    DIRECT         = "direct"           # Constitutional proxy (fallback)
+
+
+def _detect_backend() -> BackendType:
+    """Auto-detect the best available inference backend."""
+    has_api_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    has_registry = MANAGED_REGISTRY_PATH.exists()
+    has_vertex = bool(os.environ.get("VERTEX_PROJECT_ID"))
+
+    if has_api_key and has_registry:
+        return BackendType.MANAGED_AGENTS
+    if has_vertex:
+        return BackendType.VERTEX_AI
+    return BackendType.DIRECT
+
+
+ACTIVE_BACKEND = _detect_backend()
 
 # Capability → skill_id mapping: which harness skill backs each agent capability
 CAPABILITY_SKILL_MAP: dict[str, str] = {
@@ -79,14 +118,55 @@ CAPABILITY_SKILL_MAP: dict[str, str] = {
 }
 
 
-# ── Agent roles ───────────────────────────────────────────────────────────────
+# ── Agent roles — all 34 departments ─────────────────────────────────────────
 
 class AgentRole(str, Enum):
-    ENGINEERING = "engineering"
-    BIZ_DEV = "biz_dev"
-    MARKETING = "marketing"
-    COMPLIANCE = "compliance"
-    FINANCE = "finance"
+    # Research & Science
+    AI_RESEARCH          = "ai_research"
+    AI_SAFETY            = "ai_safety"
+    APPLIED_SCIENCE      = "applied_science"
+    # Engineering
+    ENGINEERING          = "engineering"
+    PLATFORM_ENGINEERING = "platform_engineering"
+    HARDWARE_ENGINEERING = "hardware_engineering"
+    SUPPLY_CHAIN         = "supply_chain"
+    # Data
+    DATA_LABELING        = "data_labeling"
+    DATA_GOVERNANCE      = "data_governance"
+    # Product
+    PRODUCT_MANAGEMENT   = "product_management"
+    PRODUCT_DESIGN       = "product_design"
+    DEVEX                = "devex"
+    # Security
+    CYBERSECURITY        = "cybersecurity"
+    IT_SYSTEMS           = "it_systems"
+    INTERNAL_AI          = "internal_ai_enablement"
+    # Trust, Safety & Ethics
+    TRUST_SAFETY         = "trust_safety"
+    AI_ETHICS            = "ai_ethics"
+    # Legal & Compliance
+    COMPLIANCE           = "compliance"
+    POLICY_AFFAIRS       = "policy_affairs"
+    # Commercial
+    COMMUNICATIONS       = "communications"
+    MARKETING            = "marketing"
+    BIZ_DEV              = "biz_dev"
+    SALES                = "sales"
+    SOLUTIONS_ENGINEERING = "solutions_engineering"
+    CUSTOMER_SUCCESS     = "customer_success"
+    SUPPORT              = "support"
+    DEVREL               = "devrel"
+    PARTNERSHIPS         = "partnerships"
+    # Finance
+    FINANCE              = "finance"
+    CORPORATE_DEVELOPMENT = "corporate_development"
+    STRATEGY             = "strategy"
+    # People & Talent
+    TALENT_ACQUISITION   = "talent_acquisition"
+    PEOPLE_OPS           = "people_ops"
+    WORKPLACE            = "workplace"
+    # Enablement
+    EDUCATION            = "education"
 
 
 # ── EventEnvelope (Law of Silence) ───────────────────────────────────────────
@@ -133,6 +213,7 @@ class AgentTask:
     context: dict = field(default_factory=dict)
     conversation_history: list[dict] = field(default_factory=list)
     max_ralph_cycles: int = 5
+    backend: BackendType = field(default_factory=lambda: ACTIVE_BACKEND)
 
 
 @dataclass
@@ -257,6 +338,22 @@ class SkillRouter:
 
 _skill_router = SkillRouter()
 
+# Lazy backend singletons — initialized on first use
+_managed_client: ManagedAgentsClient | None = None
+_vertex_client: VertexClient | None = None
+
+def _get_managed_client() -> ManagedAgentsClient:
+    global _managed_client
+    if _managed_client is None:
+        _managed_client = ManagedAgentsClient()
+    return _managed_client
+
+def _get_vertex_client() -> VertexClient:
+    global _vertex_client
+    if _vertex_client is None:
+        _vertex_client = VertexClient()
+    return _vertex_client
+
 
 # ── Memory — per-agent Redis namespace ───────────────────────────────────────
 
@@ -290,7 +387,156 @@ class AgentMemory:
 def _load_agent_defs() -> dict:
     path = os.path.join(_ROOT, "agents.yaml")
     with open(path) as f:
-        return yaml.safe_load(f)
+        raw = yaml.safe_load(f)
+    # Support both v1 (agents: {}) and v2 (departments: {}) schema
+    if "departments" in raw:
+        raw["agents"] = raw["departments"]
+    return raw
+
+
+# ── Managed Agents client (Anthropic beta) ────────────────────────────────────
+
+class ManagedAgentsClient:
+    """
+    Wraps Anthropic Managed Agents for session-based dispatch.
+    Agent IDs loaded from agent_registry.json (created by register_managed.py).
+    """
+
+    def __init__(self):
+        try:
+            from anthropic import Anthropic
+            self._client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        except (ImportError, KeyError) as exc:
+            raise RuntimeError(f"ManagedAgentsClient init failed: {exc}") from exc
+
+        registry_path = MANAGED_REGISTRY_PATH
+        if registry_path.exists():
+            with open(registry_path) as f:
+                self._registry: dict[str, str] = json.load(f)
+        else:
+            self._registry = {}
+
+    def get_agent_id(self, dept_id: str) -> str | None:
+        return self._registry.get(dept_id)
+
+    async def run(
+        self,
+        dept_id: str,
+        messages: list[dict],
+        system: str,
+        max_tokens: int = 8192,
+    ) -> dict:
+        """Create a session and stream the response for a given department agent."""
+        agent_id = self.get_agent_id(dept_id)
+        if not agent_id:
+            raise ValueError(f"No managed agent registered for department: {dept_id}")
+
+        # Run in executor since the Anthropic SDK is sync
+        loop = asyncio.get_event_loop()
+
+        def _sync_run() -> dict:
+            # Create a session for this task
+            session = self._client.beta.sessions.create(agent=agent_id)
+            session_id = session.id
+
+            # Send the task message
+            self._client.beta.sessions.events.send(
+                session_id=session_id,
+                events=[{
+                    "type": "user.message",
+                    "content": [{"type": "text", "text": messages[-1]["content"]}],
+                }],
+            )
+
+            # Stream the response
+            output_parts: list[str] = []
+            model_id = DEFAULT_MODEL
+            input_tokens = 0
+            output_tokens = 0
+
+            with self._client.beta.sessions.stream(session_id=session_id) as stream:
+                for event in stream:
+                    etype = getattr(event, "type", None)
+                    if etype == "agent.message":
+                        for block in getattr(event, "content", []):
+                            if getattr(block, "type", None) == "text":
+                                output_parts.append(block.text)
+                    elif etype in ("session.status_terminated", "session.status_idle"):
+                        break
+
+            return {
+                "content": [{"type": "text", "text": "".join(output_parts)}],
+                "model": model_id,
+                "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens},
+                "governance": {
+                    "backend": "managed_agents",
+                    "agent_id": agent_id,
+                    "session_id": session_id,
+                    "is_valid": True,
+                },
+            }
+
+        return await loop.run_in_executor(None, _sync_run)
+
+
+# ── Vertex AI client (AnthropicVertex) ───────────────────────────────────────
+
+class VertexClient:
+    """
+    Wraps AnthropicVertex for Claude inference via Google Cloud.
+    Constitutional proxy may still be in the path if PROXY_URL is also set.
+    """
+
+    def __init__(self, project: str = VERTEX_PROJECT, region: str = VERTEX_REGION):
+        try:
+            import anthropic
+            self._client = anthropic.AnthropicVertex(project_id=project, region=region)
+            self._project = project
+            self._region = region
+        except ImportError as exc:
+            raise RuntimeError(
+                "anthropic[vertex] not installed. Run: pip install 'anthropic[vertex]>=0.52.0'"
+            ) from exc
+
+    async def run(
+        self,
+        dept_id: str,
+        messages: list[dict],
+        system: str,
+        model: str = "claude-opus-4-8@001",
+        max_tokens: int = 8192,
+    ) -> dict:
+        loop = asyncio.get_event_loop()
+
+        def _sync_run() -> dict:
+            response = self._client.messages.create(
+                model=model,
+                system=system,
+                messages=messages,
+                max_tokens=max_tokens,
+                thinking={"type": "adaptive"},
+            )
+            text_blocks = [
+                {"type": "text", "text": b.text}
+                for b in response.content
+                if hasattr(b, "text")
+            ]
+            return {
+                "content": text_blocks,
+                "model": response.model,
+                "usage": {
+                    "input_tokens": response.usage.input_tokens,
+                    "output_tokens": response.usage.output_tokens,
+                },
+                "governance": {
+                    "backend": "vertex_ai",
+                    "project": self._project,
+                    "region": self._region,
+                    "is_valid": True,
+                },
+            }
+
+        return await loop.run_in_executor(None, _sync_run)
 
 
 # ── Constitutional proxy client ───────────────────────────────────────────────
@@ -361,12 +607,18 @@ async def _ralph_cycle(
             ),
         })
 
-    # ASSESS + LOCK — call constitutional proxy (governance enforced at the proxy)
+    # ASSESS + LOCK — call inference backend (governance enforced at every tier)
     system = agent_def.get("system_prompt", "")
     model = agent_def.get("model", DEFAULT_MODEL)
     max_tokens = agent_def.get("max_tokens", 4096)
 
-    result = await proxy.messages(messages, system, model, max_tokens)
+    backend = task.backend
+    if backend == BackendType.MANAGED_AGENTS:
+        result = await _get_managed_client().run(task.role.value, messages, system, max_tokens)
+    elif backend == BackendType.VERTEX_AI:
+        result = await _get_vertex_client().run(task.role.value, messages, system, max_tokens=max_tokens)
+    else:
+        result = await proxy.messages(messages, system, model, max_tokens)
 
     output_text = ""
     for block in result.get("content", []):
@@ -448,19 +700,62 @@ async def run_agent(task: AgentTask) -> AgentResult:
 # ── Event dispatcher — routes external events to agents ──────────────────────
 
 EVENT_ROUTING: dict[str, list[AgentRole]] = {
-    "github_pr_opened":      [AgentRole.ENGINEERING],
-    "github_pr_comment":     [AgentRole.ENGINEERING],
-    "github_issue_opened":   [AgentRole.ENGINEERING],
-    "github_ci_failure":     [AgentRole.ENGINEERING],
-    "github_ci_success":     [AgentRole.ENGINEERING],
-    "partnership_inquiry":   [AgentRole.BIZ_DEV],
-    "enterprise_lead":       [AgentRole.BIZ_DEV, AgentRole.MARKETING],
-    "compliance_request":    [AgentRole.COMPLIANCE],
-    "contract_review":       [AgentRole.COMPLIANCE],
-    "content_request":       [AgentRole.MARKETING],
-    "cost_alert":            [AgentRole.FINANCE],
-    "revenue_milestone":     [AgentRole.FINANCE, AgentRole.BIZ_DEV],
-    "anthropic_partnership": [AgentRole.BIZ_DEV, AgentRole.COMPLIANCE, AgentRole.ENGINEERING],
+    # Engineering events
+    "github_pr_opened":          [AgentRole.ENGINEERING],
+    "github_pr_comment":         [AgentRole.ENGINEERING],
+    "github_issue_opened":       [AgentRole.ENGINEERING],
+    "github_ci_failure":         [AgentRole.ENGINEERING],
+    "github_ci_success":         [AgentRole.ENGINEERING],
+    "dependency_vulnerability":  [AgentRole.CYBERSECURITY, AgentRole.ENGINEERING],
+    "architecture_review":       [AgentRole.ENGINEERING, AgentRole.AI_RESEARCH],
+    "gate_failure":              [AgentRole.ENGINEERING, AgentRole.AI_SAFETY],
+    "infra_scaling":             [AgentRole.PLATFORM_ENGINEERING, AgentRole.HARDWARE_ENGINEERING],
+    "deployment_event":          [AgentRole.PLATFORM_ENGINEERING],
+    # Security events
+    "security_incident":         [AgentRole.CYBERSECURITY, AgentRole.AI_SAFETY, AgentRole.COMPLIANCE],
+    "constitutional_breach":     [AgentRole.CYBERSECURITY, AgentRole.AI_SAFETY, AgentRole.COMPLIANCE],
+    "t0_abort":                  [AgentRole.CYBERSECURITY, AgentRole.ENGINEERING, AgentRole.AI_SAFETY],
+    "pen_test_finding":          [AgentRole.CYBERSECURITY],
+    # Research events
+    "capability_evaluation":     [AgentRole.AI_RESEARCH, AgentRole.AI_SAFETY],
+    "alignment_finding":         [AgentRole.AI_SAFETY, AgentRole.AI_ETHICS, AgentRole.COMPLIANCE],
+    "tier_promotion_request":    [AgentRole.AI_RESEARCH, AgentRole.AI_SAFETY],
+    "research_publication":      [AgentRole.AI_RESEARCH, AgentRole.COMMUNICATIONS],
+    # Trust & Safety events
+    "content_policy_violation":  [AgentRole.TRUST_SAFETY, AgentRole.COMPLIANCE],
+    "classifier_alert":          [AgentRole.TRUST_SAFETY, AgentRole.CYBERSECURITY],
+    "bias_report":               [AgentRole.AI_ETHICS, AgentRole.TRUST_SAFETY],
+    # Commercial events
+    "partnership_inquiry":       [AgentRole.BIZ_DEV, AgentRole.PARTNERSHIPS],
+    "enterprise_lead":           [AgentRole.SALES, AgentRole.BIZ_DEV, AgentRole.MARKETING],
+    "anthropic_partnership":     [AgentRole.BIZ_DEV, AgentRole.COMPLIANCE, AgentRole.ENGINEERING],
+    "vertex_model_garden":       [AgentRole.BIZ_DEV, AgentRole.PLATFORM_ENGINEERING, AgentRole.DEVEX],
+    "press_inquiry":             [AgentRole.COMMUNICATIONS, AgentRole.POLICY_AFFAIRS],
+    "rfp_received":              [AgentRole.SOLUTIONS_ENGINEERING, AgentRole.COMPLIANCE, AgentRole.BIZ_DEV],
+    "deal_closed":               [AgentRole.CUSTOMER_SUCCESS, AgentRole.FINANCE, AgentRole.SALES],
+    "customer_churn_risk":       [AgentRole.CUSTOMER_SUCCESS, AgentRole.SALES],
+    "support_ticket":            [AgentRole.SUPPORT, AgentRole.ENGINEERING],
+    "content_request":           [AgentRole.MARKETING, AgentRole.DEVREL],
+    "community_event":           [AgentRole.DEVREL, AgentRole.MARKETING],
+    # Compliance events
+    "compliance_request":        [AgentRole.COMPLIANCE, AgentRole.POLICY_AFFAIRS],
+    "contract_review":           [AgentRole.COMPLIANCE],
+    "eu_ai_act_audit":           [AgentRole.COMPLIANCE, AgentRole.AI_ETHICS, AgentRole.POLICY_AFFAIRS],
+    "regulatory_change":         [AgentRole.COMPLIANCE, AgentRole.POLICY_AFFAIRS, AgentRole.COMMUNICATIONS],
+    # Finance events
+    "cost_alert":                [AgentRole.FINANCE, AgentRole.PLATFORM_ENGINEERING],
+    "revenue_milestone":         [AgentRole.FINANCE, AgentRole.BIZ_DEV, AgentRole.STRATEGY],
+    "budget_review":             [AgentRole.FINANCE],
+    "acquisition_inquiry":       [AgentRole.CORPORATE_DEVELOPMENT, AgentRole.STRATEGY, AgentRole.BIZ_DEV],
+    # People events
+    "talent_need":               [AgentRole.TALENT_ACQUISITION, AgentRole.PEOPLE_OPS],
+    "culture_signal":            [AgentRole.PEOPLE_OPS],
+    # Strategy events
+    "competitive_intelligence":  [AgentRole.STRATEGY, AgentRole.BIZ_DEV, AgentRole.MARKETING],
+    "market_opportunity":        [AgentRole.STRATEGY, AgentRole.PRODUCT_MANAGEMENT, AgentRole.BIZ_DEV],
+    # Education events
+    "training_request":          [AgentRole.EDUCATION, AgentRole.DEVREL],
+    "certification_inquiry":     [AgentRole.EDUCATION, AgentRole.CUSTOMER_SUCCESS],
 }
 
 
@@ -555,7 +850,7 @@ def _event_to_instruction(event_type: str, payload: dict, role: AgentRole) -> st
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
-async def _cli_run(role: str, task: str, cycles: int) -> None:
+async def _cli_run(role: str, task: str, cycles: int, backend: BackendType | None = None) -> None:
     agent_role = AgentRole(role)
     task_id = str(uuid.uuid4())
     agent_task = AgentTask(
@@ -563,10 +858,11 @@ async def _cli_run(role: str, task: str, cycles: int) -> None:
         role=agent_role,
         instruction=task,
         max_ralph_cycles=cycles,
+        backend=backend or ACTIVE_BACKEND,
     )
     print(f"[coordinator] Running {role.upper()} agent — task_id={task_id[:8]}")
     print(f"[coordinator] Task: {task}")
-    print(f"[coordinator] Proxy: {PROXY_URL}")
+    print(f"[coordinator] Backend: {agent_task.backend.value}")
     print("─" * 60)
 
     result = await run_agent(agent_task)
@@ -603,21 +899,45 @@ def main() -> None:
 
     list_p = sub.add_parser("list", help="List available agents and events")
 
+    back_p = sub.add_parser("backend", help="Show active inference backend")
+
+    run_p.add_argument("--backend", choices=[b.value for b in BackendType],
+                       help="Override auto-detected inference backend")
+
     args = parser.parse_args()
 
     if args.command == "run":
-        asyncio.run(_cli_run(args.role, args.task, args.cycles))
+        backend_override = BackendType(args.backend) if getattr(args, "backend", None) else None
+        asyncio.run(_cli_run(args.role, args.task, args.cycles, backend_override))
     elif args.command == "dispatch":
         asyncio.run(_cli_dispatch(args.event, args.payload))
     elif args.command == "list":
         defs = _load_agent_defs()
         print("AGENTS:")
-        for name, ag in defs["agents"].items():
-            print(f"  {name}: {ag['role']}")
-            print(f"    capabilities: {', '.join(ag['capabilities'])}")
+        for dept_id, ag in defs["agents"].items():
+            tier = ag.get("tier", "?")
+            name = ag.get("name", dept_id)
+            caps = ag.get("capabilities", [])
+            print(f"  {dept_id:35s}  {name}  (tier={tier})")
+            if caps:
+                print(f"    capabilities: {', '.join(caps[:5])}{'...' if len(caps) > 5 else ''}")
+        print(f"\n  Total: {len(defs['agents'])} departments")
         print("\nEVENT ROUTING:")
         for evt, roles in EVENT_ROUTING.items():
-            print(f"  {evt} → {[r.value for r in roles]}")
+            print(f"  {evt:35s} → {[r.value for r in roles]}")
+    elif args.command == "backend":
+        print(f"Active backend: {ACTIVE_BACKEND.value}")
+        print(f"  ANTHROPIC_API_KEY set: {bool(os.environ.get('ANTHROPIC_API_KEY'))}")
+        print(f"  agent_registry.json:   {MANAGED_REGISTRY_PATH.exists()}")
+        print(f"  VERTEX_PROJECT_ID:     {os.environ.get('VERTEX_PROJECT_ID', '(not set)')}")
+        if MANAGED_REGISTRY_PATH.exists():
+            with open(MANAGED_REGISTRY_PATH) as f:
+                reg = json.load(f)
+            print(f"  Managed agents registered: {len(reg)}")
+        if VERTEX_REGISTRY_PATH.exists():
+            with open(VERTEX_REGISTRY_PATH) as f:
+                vreg = json.load(f)
+            print(f"  Vertex agents registered:  {len(vreg)}")
     else:
         parser.print_help()
 

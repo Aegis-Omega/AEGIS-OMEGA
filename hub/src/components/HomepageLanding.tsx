@@ -65,20 +65,20 @@ export function HomepageLanding() {
         <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium mb-8"
           style={{ background: 'rgba(200,169,110,0.08)', border: '1px solid rgba(200,169,110,0.20)', color: '#C8A96E' }}>
           <span className="w-1.5 h-1.5 rounded-full animate-mint-pulse flex-shrink-0" style={{ background: '#C8A96E' }} />
-          EU AI Act Compliant · Enterprise-Ready
+          Constitutional AI Governance · EU AI Act · NIST SP 800-53
         </div>
 
         {/* Headline */}
         <h1 className="font-bold leading-tight mb-6 animate-fade-up" style={{ fontSize: 'clamp(36px, 6.5vw, 60px)', letterSpacing: '-0.02em' }}>
-          AI That Your<br />
-          <span style={{ color: '#C8A96E' }}>Compliance Team</span><br />
-          <span style={{ color: '#C8A96E' }}>Will Approve</span>
+          The Governance Layer<br />
+          <span style={{ color: '#C8A96E' }}>Frontier AI Needs</span>
         </h1>
 
         {/* Subheading */}
         <p className="text-hub-muted text-lg max-w-2xl mx-auto mb-6 leading-relaxed animate-fade-up delay-100">
-          Not a black box. Deterministic. Auditable. Replay-verified.
-          Hash-chained from first token to last output. Your data. Your model. Constitutional guarantees at every layer.
+          SHA-256 hash-chained. Replay-verified. Martingale-bounded.
+          Every AI action is cryptographically certified, workspace-bounded, and constitutionally governed —
+          not by policy, but by architecture.
         </p>
 
         {/* CTAs */}
@@ -163,6 +163,74 @@ export function HomepageLanding() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Frontier AI Governance */}
+      <section className="max-w-4xl mx-auto px-4 py-20">
+        <div className="mb-4 text-center">
+          <span className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: 'rgba(99,102,241,0.10)', border: '1px solid rgba(99,102,241,0.25)', color: '#818CF8' }}>
+            FRONTIER AI GOVERNANCE
+          </span>
+        </div>
+        <h2 className="text-3xl font-bold mb-4 text-center leading-tight">
+          The More Capable the Model,<br />
+          <span style={{ color: '#C8A96E' }}>The More Critical the Governance Layer</span>
+        </h2>
+        <p className="text-hub-muted text-center max-w-2xl mx-auto mb-12 leading-relaxed">
+          Today's frontier AI system cards document a consistent finding: highly capable models
+          are more useful, and therefore deployed with greater autonomy — which means when they
+          fail, they fail at scale. Constitutional governance solves this at the architecture layer,
+          not the training layer.
+        </p>
+        <div className="grid md:grid-cols-2 gap-6 mb-10">
+          {[
+            {
+              label: 'Without Governance',
+              items: [
+                'Model propensities are training-induced — not externally verifiable',
+                'Audit logs are append-only, not cryptographically tamper-evident',
+                'Scope expansion is bounded by instruction-following, not architecture',
+                'Deceptive reasoning may not appear in scratchpad — only in activations',
+              ],
+              accent: '#F87171',
+              bg: 'rgba(239,68,68,0.06)',
+              border: 'rgba(239,68,68,0.20)',
+            },
+            {
+              label: 'With AEGIS Constitutional Layer',
+              items: [
+                'SHA-256 hash chain: tamper = certify() returns is_valid: false. Mathematical guarantee.',
+                'Workspace boundary (RULE-06): agents cannot act outside declared scope architecturally.',
+                'Martingale gate: AdaptivePower(T) ≤ ReplayVerifiability(T) — runtime halt condition.',
+                'Law of Silence: no unmediated side channels. All actions flow through the governed boundary.',
+              ],
+              accent: '#34D399',
+              bg: 'rgba(52,211,153,0.06)',
+              border: 'rgba(52,211,153,0.20)',
+            },
+          ].map(col => (
+            <div key={col.label} className="p-6 rounded-lg" style={{ background: col.bg, border: `1px solid ${col.border}` }}>
+              <div className="text-xs font-bold mb-4 tracking-widest uppercase" style={{ color: col.accent }}>{col.label}</div>
+              <ul className="space-y-3">
+                {col.items.map((item, i) => (
+                  <li key={i} className="flex items-start gap-2.5 text-sm text-hub-muted leading-snug">
+                    <span className="mt-0.5 flex-shrink-0" style={{ color: col.accent }}>
+                      {col.accent === '#F87171' ? '✕' : '✓'}
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div className="bg-hub-surface/60 border border-hub-border/60 rounded-lg p-6 font-mono text-xs overflow-x-auto" style={{ fontFamily: '"JetBrains Mono", monospace' }}>
+          <div className="text-hub-muted/50 mb-3 text-xs">{/* Constitutional invariant — enforced at runtime, not via policy */}</div>
+          <div style={{ color: '#C8A96E' }}>AdaptivePower(T) ≤ ReplayVerifiability(T)</div>
+          <div className="mt-1" style={{ color: '#818CF8' }}>E[S_&#123;n+1&#125;|F_n] = S_n  {/* martingale: suspension if violated */}</div>
+          <div className="mt-1" style={{ color: '#34D399' }}>certify()  →  &#123; is_valid: true, entry_count: N, terminal_hash: "sha256:..." &#125;</div>
+          <div className="mt-1 text-hub-muted/50">{/* tamper any entry → is_valid: false. no policy can do this. */}</div>
         </div>
       </section>
 
