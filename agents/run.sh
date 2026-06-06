@@ -266,6 +266,19 @@ case "${1:-help}" in
     $PYTHON -m agents.cognitive_pipeline score --claim "${2:-deterministic SHA-256 hash chain}"
     ;;
 
+  # ── Revenue engine: the money loop (commercial departments collaborate) ────
+  revenue)
+    $PYTHON -m agents.revenue_engine run --objective "${2:-Sell AEGIS constitutional governance to AI labs needing EU AI Act compliance}" "${@:3}"
+    ;;
+
+  revenue-demo)
+    $PYTHON -m agents.revenue_engine demo
+    ;;
+
+  revenue-verify)
+    $PYTHON -m agents.revenue_engine verify
+    ;;
+
   # ── Event dispatcher ─────────────────────────────────────────────────────
   dispatch)
     EVENT="${2:-github_pr_opened}"
