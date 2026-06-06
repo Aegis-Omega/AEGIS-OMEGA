@@ -118,6 +118,82 @@ so prefer Paths 1–2 (keyless / trigger-based) for production.
 
 ---
 
+## Path 4 — Deploy the Agent Platform API as its own Cloud Run service
+
+The platform backend (`vertex/serve.py`) is a **separate service** from the hub.
+It exposes the 39 Mythos agents as a callable plane:
+
+| Endpoint | Auth | Purpose |
+|----------|------|---------|
+| `GET /health` | public | liveness |
+| `GET /metrics` | public | per-instance request/latency/error counters |
+| `GET /platform/catalog` | public | all 39 agents + pricing tiers (discovery) |
+| `POST /platform/collaborate` | **gated** | swarm collaboration (revenue / cognitive) |
+| `POST /agents/run` | **gated** | single governed agent run |
+| `POST /v1/messages` | **gated** | Anthropic-compatible governed gateway |
+| `GET /v1/audit/certify` | public | chain integrity |
+
+**Hardening (already in `serve.py`):** the gated routes require header
+`x-api-key: $PLATFORM_API_KEY` **when** the `platform-api-key` secret is set
+(catalog/health/metrics stay public for discovery). Per-IP rate limiting
+(`RATE_LIMIT_PER_MIN`, default 60), a global JSON error handler, and structured
+JSON access logs (→ Cloud Logging) are on by every request.
+
+### Build context fix (required)
+
+`vertex/cloudbuild.yaml` builds with **repo-root context + `-f vertex/Dockerfile`**
+so the `agents/` package and `harness/skill_tree.json` land in the image. Without
+this the `/platform/*` and `/agents/*` routes return 503. A root `.dockerignore`
+keeps the upload small (excludes `node_modules`, rust `target/`, other frontends).
+
+### One-time secret (so the gate is live)
+
+```bash
+# Create the platform API key secret (clients send it as x-api-key)
+printf '%s' "$(openssl rand -hex 32)" | \
+  gcloud secrets create platform-api-key --data-file=- --project aegisomegav1
+```
+
+### Deploy — option A: dedicated Cloud Build trigger (mirrors the hub trigger)
+
+```bash
+gcloud builds triggers create github \
+  --project aegisomegav1 --region global \
+  --name aegis-platform \
+  --repo-owner Aegis-Omega --repo-name AEGIS-- \
+  --branch-pattern '^claude/test-coverage-analysis-keTIk$' \
+  --build-config vertex/cloudbuild.yaml
+
+# fire it
+gcloud builds triggers run aegis-platform --region global \
+  --branch claude/test-coverage-analysis-keTIk
+```
+
+### Deploy — option B: keyless WIF workflow (already wired)
+
+`.github/workflows/deploy-cloud-run.yml` allow-lists `vertex/cloudbuild.yaml`.
+Once the WIF vars are set (Path 2), trigger it: **Actions → Deploy to Cloud Run
+(WIF) → Run workflow → service = `vertex/cloudbuild.yaml`**.
+
+### Verify (after deploy — service `aegis-platform`, region `us-central1`)
+
+```bash
+URL=$(gcloud run services describe aegis-platform --region us-central1 \
+  --project aegisomegav1 --format='value(status.url)')
+
+curl -s "$URL/health"
+curl -s "$URL/platform/catalog" | jq '{agent_count, mythos_count}'   # → 39 / 39
+curl -s "$URL/metrics" | jq '{requests_total, auth_enabled}'
+
+# First end-to-end platform transaction (the swarm makes a revenue plan):
+curl -s -X POST "$URL/platform/collaborate" \
+  -H "x-api-key: $PLATFORM_API_KEY" -H 'content-type: application/json' \
+  -d '{"mode":"revenue","objective":"Sell constitutional governance to AI labs"}' \
+  | jq '{departments_collaborated, projection: .projection.tier, chain_valid}'
+```
+
+---
+
 ## Why this is constitutionally sound
 
 Paths 1 and 2 keep deploy authority **outside** the agent runtime: the GitHub OIDC

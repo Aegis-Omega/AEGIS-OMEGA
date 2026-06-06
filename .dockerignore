@@ -1,0 +1,40 @@
+# Build context = repo root for the platform image (vertex/Dockerfile).
+# Exclude heavy/irrelevant trees so the Cloud Build upload stays small.
+# KEEP: vertex/serve.py, agents/, harness/ — the platform image needs these.
+
+# Dependency + build artifact trees
+**/node_modules
+**/dist
+**/build
+**/.vite
+**/coverage
+target
+**/target
+**/*.rs.bk
+
+# Rust crates are not part of the Python platform image
+aegis-cl-psi
+aegis-runtime
+aegisomega-webgpu
+
+# Frontends / products not in the platform image
+hub
+cockpit
+studio
+platform-picker
+hook-generator
+content-calendar
+packages
+sovereign-omega-v2/node_modules
+sovereign-omega-v2/dist
+
+# VCS / CI / docs / local
+.git
+.github
+docs
+**/__pycache__
+**/*.pyc
+**/.env
+**/.env.*
+**/.DS_Store
+.vercel

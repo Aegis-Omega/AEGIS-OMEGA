@@ -6,7 +6,11 @@ steps:
       - us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:$COMMIT_SHA
       - -t
       - us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:latest
-      - vertex/
+      # Build context = repo root so the agents package + harness data are in the
+      # image. Without this the /platform/* and /agents/* routes return 503.
+      - -f
+      - vertex/Dockerfile
+      - .
     id: build-proxy
 
   - name: 'gcr.io/cloud-builders/docker'
@@ -26,14 +30,22 @@ steps:
     args:
       - run
       - deploy
-      - aegis-constitutional-proxy
+      - aegis-platform
       - --image=us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:$COMMIT_SHA
       - --region=us-central1
       - --platform=managed
-      - --set-secrets=ANTHROPIC_API_KEY=anthropic-api-key:latest
-      - --set-env-vars=AEGIS_DEFAULT_MODEL=claude-opus-4-8
+      # ANTHROPIC_API_KEY powers live agent runs; PLATFORM_API_KEY gates the
+      # cost-incurring routes (collaborate / agents.run / messages). Create the
+      # platform-api-key secret before first deploy, or the in-app gate stays
+      # open (PLATFORM_API_KEY unset → catalog/health public, no key required).
+      - --set-secrets=ANTHROPIC_API_KEY=anthropic-api-key:latest,PLATFORM_API_KEY=platform-api-key:latest
+      - --set-env-vars=AEGIS_DEFAULT_MODEL=claude-opus-4-8,RATE_LIMIT_PER_MIN=60
       - --allow-unauthenticated
       - --port=8080
+      - --memory=512Mi
+      - --cpu=1
+      - --min-instances=0
+      - --max-instances=10
     waitFor: [build-proxy]
 
 images:

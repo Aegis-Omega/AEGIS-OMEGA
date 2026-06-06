@@ -22,8 +22,10 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sys
 import time
 import uuid
+from collections import defaultdict, deque
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -32,6 +34,13 @@ import redis.asyncio as aioredis
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 import httpx
+
+# Robust import path — works in dev (serve.py in vertex/, agents at ../agents)
+# and in the flattened container (serve.py at /app, agents at /app/agents).
+_SELF_DIR = os.path.dirname(os.path.abspath(__file__))
+for _p in (_SELF_DIR, os.path.join(_SELF_DIR, "..")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -141,10 +150,109 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="AEGIS-Ω Constitutional Governance Proxy",
-    version="1.0.0",
+    title="AEGIS-Ω Agent Platform",
+    version="1.1.0",
     lifespan=lifespan,
 )
+
+
+# ── Production hardening: observability, auth, rate limiting ───────────────────
+# Honors the deploy caveat — public Cloud Run exposure requires auth on the
+# cost-incurring routes, error handling, and observability before going live.
+
+PLATFORM_API_KEY = os.environ.get("PLATFORM_API_KEY", "")  # if set, gates cost routes
+RATE_LIMIT_PER_MIN = int(os.environ.get("RATE_LIMIT_PER_MIN", "60"))
+
+# Routes that spend compute/money — require the API key when one is configured.
+_GATED_PREFIXES = ("/platform/collaborate", "/agents/run", "/agents/dispatch", "/v1/messages", "/predict")
+
+# In-memory metrics (per-process; Cloud Run logs aggregate across instances).
+METRICS: dict[str, Any] = {
+    "requests_total": 0,
+    "errors_total": 0,
+    "by_path": defaultdict(lambda: {"count": 0, "errors": 0, "latency_ms_sum": 0}),
+}
+# Per-client sliding-window request timestamps for rate limiting.
+_RL_WINDOW: dict[str, deque] = defaultdict(deque)
+
+
+def _client_id(request: Request) -> str:
+    return request.headers.get("x-forwarded-for", request.client.host if request.client else "unknown").split(",")[0].strip()
+
+
+def _rate_limited(client: str) -> bool:
+    now = time.time()
+    win = _RL_WINDOW[client]
+    while win and now - win[0] > 60.0:
+        win.popleft()
+    if len(win) >= RATE_LIMIT_PER_MIN:
+        return True
+    win.append(now)
+    return False
+
+
+@app.middleware("http")
+async def observability_and_guard(request: Request, call_next):
+    path = request.url.path
+    client = _client_id(request)
+    t0 = time.time()
+
+    # Rate limit (skip health/metrics so probes never trip it).
+    if path not in ("/health", "/metrics") and _rate_limited(client):
+        METRICS["requests_total"] += 1
+        return JSONResponse(
+            {"error": "rate_limited", "limit_per_min": RATE_LIMIT_PER_MIN}, status_code=429
+        )
+
+    # Auth gate on cost-incurring routes when a key is configured.
+    if PLATFORM_API_KEY and any(path.startswith(p) for p in _GATED_PREFIXES):
+        provided = request.headers.get("x-api-key", "")
+        if provided != PLATFORM_API_KEY:
+            METRICS["requests_total"] += 1
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+    try:
+        response = await call_next(request)
+    except Exception as exc:  # noqa: BLE001 — turn any unhandled error into JSON
+        latency_ms = int((time.time() - t0) * 1000)
+        METRICS["requests_total"] += 1
+        METRICS["errors_total"] += 1
+        m = METRICS["by_path"][path]
+        m["count"] += 1; m["errors"] += 1; m["latency_ms_sum"] += latency_ms
+        print(json.dumps({"level": "error", "path": path, "client": client,
+                          "latency_ms": latency_ms, "error": str(exc)}))
+        return JSONResponse({"error": "internal_error", "detail": str(exc)[:200]}, status_code=500)
+
+    latency_ms = int((time.time() - t0) * 1000)
+    METRICS["requests_total"] += 1
+    m = METRICS["by_path"][path]
+    m["count"] += 1; m["latency_ms_sum"] += latency_ms
+    if response.status_code >= 500:
+        METRICS["errors_total"] += 1; m["errors"] += 1
+    # Structured access log → Cloud Logging picks this up as JSON.
+    print(json.dumps({"level": "info", "path": path, "method": request.method,
+                      "status": response.status_code, "latency_ms": latency_ms, "client": client}))
+    return response
+
+
+@app.get("/metrics")
+async def metrics():
+    """Request/latency/error metrics for this instance (Cloud Run aggregates logs)."""
+    by_path = {
+        p: {
+            "count": v["count"],
+            "errors": v["errors"],
+            "avg_latency_ms": (v["latency_ms_sum"] // v["count"]) if v["count"] else 0,
+        }
+        for p, v in METRICS["by_path"].items()
+    }
+    return {
+        "requests_total": METRICS["requests_total"],
+        "errors_total": METRICS["errors_total"],
+        "rate_limit_per_min": RATE_LIMIT_PER_MIN,
+        "auth_enabled": bool(PLATFORM_API_KEY),
+        "by_path": by_path,
+    }
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
