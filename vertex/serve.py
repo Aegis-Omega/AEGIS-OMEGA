@@ -836,6 +836,78 @@ async def schedule_revenue(request: Request):
 
 # ── Platform status ───────────────────────────────────────────────────────────
 
+@app.get("/platform/analytics")
+async def platform_analytics():
+    """
+    Platform usage analytics — what agents have done, how often, how well.
+    Pulls from the hash-chained audit log and in-memory metrics.
+    Public for discovery; no sensitive data exposed.
+    """
+    # Pull from audit chain for governed events
+    try:
+        chain_entries = await state.full_chain(limit=500)
+    except Exception:
+        chain_entries = []
+
+    # Count by layer / event type
+    layer_counts: dict[str, int] = {}
+    platform_collaborations = 0
+    scheduled_runs = 0
+    webhook_events = 0
+
+    for e in chain_entries:
+        obs = e.get("observation", {})
+        layer = obs.get("layer", "UNKNOWN")
+        layer_counts[layer] = layer_counts.get(layer, 0) + 1
+        if layer == "PLATFORM_COLLABORATION":
+            platform_collaborations += 1
+        elif layer == "SCHEDULED_EXECUTION":
+            scheduled_runs += 1
+        elif layer == "WEBHOOK":
+            webhook_events += 1
+
+    # In-process metrics
+    top_paths = sorted(
+        [(p, v["count"], v.get("errors", 0)) for p, v in METRICS["by_path"].items()],
+        key=lambda x: x[1], reverse=True,
+    )[:10]
+
+    return {
+        "platform": "AEGIS-Ω Agent Platform v1.2.0",
+        "audit_chain": {
+            "total_entries": state._seq,
+            "layer_breakdown": layer_counts,
+            "platform_collaborations": platform_collaborations,
+            "scheduled_runs": scheduled_runs,
+            "webhook_events": webhook_events,
+        },
+        "request_metrics": {
+            "requests_total": METRICS["requests_total"],
+            "errors_total": METRICS["errors_total"],
+            "error_rate": (
+                round(METRICS["errors_total"] / METRICS["requests_total"], 4)
+                if METRICS["requests_total"] else 0.0
+            ),
+            "top_paths": [
+                {"path": p, "count": c, "errors": e} for p, c, e in top_paths
+            ],
+        },
+        "capabilities": {
+            "tool_execution": True,
+            "web_search": True,
+            "url_fetch": True,
+            "github_search": True,
+            "code_execution": True,
+            "persistent_memory": True,
+            "agent_self_learning": True,
+            "streaming_sse": True,
+            "scheduled_execution": True,
+            "parallel_dag_pipeline": True,
+            "collaboration_modes": ["revenue", "cognitive"],
+        },
+    }
+
+
 @app.get("/platform/status")
 async def platform_status():
     """Full platform status: chain health, agent count, rate limits, capabilities."""
@@ -857,10 +929,15 @@ async def platform_status():
             "web_search": True,
             "url_fetch": True,
             "github_search": True,
+            "code_execution": True,
             "persistent_memory": True,
+            "agent_self_learning": True,
             "streaming_sse": True,
             "scheduled_execution": True,
+            "parallel_dag_pipeline": True,
+            "python_sdk": "pip install aegis-omega",
             "collaboration_modes": ["revenue", "cognitive"],
+            "role_specialized_tools": True,
         },
         "pricing_tiers": PLATFORM_TIERS,
         "rate_limit_per_min": RATE_LIMIT_PER_MIN,

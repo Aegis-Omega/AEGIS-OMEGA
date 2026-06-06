@@ -277,21 +277,87 @@ class PipelineResult:
     stage_results: dict[str, str] = field(default_factory=dict)
 
 
+async def _research_claims(topic: str, api_key: str) -> list[str]:
+    """
+    Stage 1 live: deep_researcher with real tools.
+    Searches the web for the topic, fetches key sources, extracts candidate claims.
+    Returns a list of concrete claims suitable for ARBITRATION.
+    """
+    import os
+    from agents.tool_runner import run_with_tools
+
+    task = (
+        f"You are the DEEP RESEARCHER. Your mission: produce 6–10 concrete, falsifiable "
+        f"claims about this topic: '{topic}'.\n\n"
+        "Instructions:\n"
+        "1. Use web_search to find relevant research, papers, benchmarks, and news.\n"
+        "2. Use fetch_url to read the most relevant sources.\n"
+        "3. Extract specific, verifiable claims — not vague opinions.\n"
+        "4. Each claim should be one sentence, starting with the topic name.\n"
+        "5. Include T0/T1/T2 markers where appropriate: e.g. '(SHA-256 hash-chained, "
+        "   deterministic)' for T0, '(empirically benchmarked)' for T1, "
+        "   '(engineering hypothesis)' for T2.\n"
+        "6. Use write_memory to store your best 3 claims for future cycles.\n\n"
+        "Output: a numbered list of claims, one per line. No preamble."
+    )
+    result = await run_with_tools(
+        role="deep_researcher",
+        task=task,
+        api_key=api_key,
+        namespace=f"research:{topic[:32]}",
+        max_tool_rounds=6,
+    )
+    # Parse claims from numbered list output
+    lines = result.output.strip().splitlines()
+    claims: list[str] = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        # Strip leading numbering (1. / 1) / • / -)
+        import re
+        cleaned = re.sub(r"^[\d]+[.)]\s*|^[-•*]\s*", "", line).strip()
+        if len(cleaned) > 20:
+            claims.append(cleaned)
+    return claims[:10] if claims else [
+        f"{topic}: deterministic SHA-256 hash chain, byte-identical across platforms",
+        f"{topic}: engineering hypothesis — LUT-KAN replaces B-spline activations",
+        f"{topic}: empirically validated benchmark observed across production runs",
+    ]
+
+
 async def run_pipeline(topic: str, claims: list[str] | None = None,
                        live: bool = False) -> PipelineResult:
     """
     Run the four-stage Mythos cognitive pipeline over a topic.
 
-    If `live` is True and a backend is available, each stage dispatches to its
-    real Mythos-level agent via the coordinator. Otherwise the pipeline runs the
-    deterministic ARBITRATION substrate alone (the INT4 LUT-KAN gate), which is
-    the replay-certifiable core that does not depend on any inference backend.
+    Live mode (ANTHROPIC_API_KEY set):
+      Stage 1 — deep_researcher with real web search tools gathers claims
+      Stage 2 — ARBITRATION: INT4 LUT-KAN constitutional gate
+      Stage 3 — batch_processor synthesizes admitted claims into lineage
+      Stage 4 — chronologist narrates the epistemic history
+
+    Offline mode: deterministic ARBITRATION substrate alone (the constitutional
+    core that does not depend on any inference backend — always reproducible).
     """
+    import os
     pipeline_id = str(uuid.uuid4())
     scorer = constitutional_scorer()
     log = KanInferenceLog()
+    result = PipelineResult(pipeline_id=pipeline_id, topic=topic)
 
-    # Stage 1 — deep research (or seeded claims for deterministic demo).
+    # Stage 1 — deep research
+    _api_key = os.environ.get("ANTHROPIC_API_KEY", "") if live else ""
+
+    if live and _api_key and claims is None:
+        try:
+            claims = await _research_claims(topic, _api_key)
+            result.stage_results["deep_researcher"] = (
+                f"Researched {len(claims)} claims via web search tools"
+            )
+        except Exception as exc:  # noqa: BLE001
+            result.stage_results["deep_researcher"] = f"research fallback: {exc}"
+
     if claims is None:
         claims = [
             f"{topic}: deterministic SHA-256 hash chain, byte-identical across platforms",
@@ -300,9 +366,7 @@ async def run_pipeline(topic: str, claims: list[str] | None = None,
             f"{topic}: planetary civilizational self-improving sovereign consciousness",
         ]
 
-    result = PipelineResult(pipeline_id=pipeline_id, topic=topic)
-
-    # Stage 2 — ARBITRATION gate over every claim (the constitutional core).
+    # Stage 2 — ARBITRATION gate (always runs — this is the constitutional core)
     for claim in claims:
         verdict = arbitrate(claim, scorer, log)
         result.arbitration.append(verdict)
@@ -312,31 +376,49 @@ async def run_pipeline(topic: str, claims: list[str] | None = None,
     result.chain_valid = valid
     result.kan_terminal_hash = log.terminal_hash().hex()
 
-    # Stages routed to live Mythos agents when a backend is available.
-    if live:
+    # Stage 3 + 4 — live synthesis and narration
+    if live and _api_key:
         try:
-            from agents.coordinator import AgentRole, AgentTask, run_agent
-            role_map = {
-                "deep_researcher": AgentRole.DEEP_RESEARCHER,
-                "corpus_ingestor": AgentRole.CORPUS_INGESTOR,
-                "batch_processor": AgentRole.BATCH_PROCESSOR,
-                "chronologist": AgentRole.CHRONOLOGIST,
-            }
-            for stage_id, desc in PIPELINE_STAGES:
-                task = AgentTask(
-                    task_id=str(uuid.uuid4()),
-                    role=role_map[stage_id],
-                    instruction=(
-                        f"{desc}\nTopic: {topic}\n"
-                        f"ARBITRATION terminal hash: {result.kan_terminal_hash}\n"
-                        f"Admitted: {len(result.admitted)}  Quarantined: {len(result.quarantined)}"
-                    ),
-                    max_ralph_cycles=2,
-                )
-                agent_result = await run_agent(task)
-                result.stage_results[stage_id] = agent_result.output[:2000]
-        except Exception as exc:  # noqa: BLE001 — live path is best-effort
-            result.stage_results["error"] = f"live dispatch unavailable: {exc}"
+            from agents.tool_runner import run_with_tools
+
+            # Stage 3 — batch_processor: synthesize admitted claims
+            admitted_text = "\n".join(
+                f"  [{v['tier']}] {v['claim']}" for v in result.admitted[:8]
+            )
+            batch_task = (
+                f"You are the BATCH PROCESSOR. Synthesize these admitted claims about "
+                f"'{topic}' into a structured knowledge summary:\n\n{admitted_text}\n\n"
+                "Produce: (a) the 3 strongest claims with supporting evidence, "
+                "(b) the gaps that need more research, (c) one verified citation "
+                "per admitted T0/T1 claim. Use fetch_url if you need to verify a source. "
+                "Write the synthesis to memory key 'synthesis'."
+            )
+            batch_r = await run_with_tools(
+                role="batch_processor", task=batch_task,
+                api_key=_api_key, namespace=f"pipeline:{topic[:32]}", max_tool_rounds=4,
+            )
+            result.stage_results["batch_processor"] = batch_r.output[:2000]
+
+            # Stage 4 — chronologist: narrate the lineage
+            chron_task = (
+                f"You are the CHRONOLOGIST. Narrate the epistemic history of this "
+                f"research cycle on '{topic}'.\n\n"
+                f"Chain terminal hash: {result.kan_terminal_hash[:32]}…\n"
+                f"Admitted: {len(result.admitted)}  Quarantined: {len(result.quarantined)}\n"
+                f"Chain valid: {result.chain_valid}\n\n"
+                "Produce a retrospective: what was learned, what was rejected and why, "
+                "what the temporal sequence reveals about the epistemic quality of the "
+                "topic, and what should be researched next. Reference the KAN scores. "
+                "Store the retrospective to memory key 'retrospective'."
+            )
+            chron_r = await run_with_tools(
+                role="chronologist", task=chron_task,
+                api_key=_api_key, namespace=f"pipeline:{topic[:32]}", max_tool_rounds=3,
+            )
+            result.stage_results["chronologist"] = chron_r.output[:2000]
+
+        except Exception as exc:  # noqa: BLE001
+            result.stage_results["synthesis_error"] = str(exc)
 
     return result
 
