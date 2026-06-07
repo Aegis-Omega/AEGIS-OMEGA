@@ -66,24 +66,66 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
+const BASE = 'https://aegis-vertex.aegisomega.com'
+
 function ApiKeyDisplay({ apiKey, tier }: { apiKey: string; tier: Tier }) {
+  const curlExample = `curl -X POST ${BASE}/platform/collaborate \\
+  -H "x-api-key: ${apiKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"objective":"Enter EU market","mode":"gtm","live":false}'`
+
+  const statusExample = `curl ${BASE}/platform/status \\
+  -H "x-api-key: ${apiKey}"`
+
   return (
-    <div className="mt-10 max-w-xl mx-auto p-6 rounded-lg border border-indigo-500/40 bg-indigo-950/30">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-        <span className="text-green-400 text-sm font-mono">KEY PROVISIONED — {TIERS[tier].label} tier</span>
+    <div className="mt-10 max-w-2xl mx-auto space-y-6">
+      {/* Key */}
+      <div className="p-6 rounded-lg border border-indigo-500/40 bg-indigo-950/30">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+          <span className="text-green-400 text-sm font-mono">KEY PROVISIONED — {TIERS[tier].label} tier · {TIERS[tier].runs}</span>
+        </div>
+        <p className="text-gray-400 text-sm mb-3">
+          Store this securely — it will not be shown again. Send it as the{' '}
+          <code className="text-indigo-300 text-xs">x-api-key</code> header on every request.
+        </p>
+        <div className="flex items-center gap-3 bg-gray-900 rounded p-3 border border-gray-700">
+          <code className="text-indigo-300 font-mono text-sm flex-1 break-all">{apiKey}</code>
+          <CopyButton text={apiKey} />
+        </div>
       </div>
-      <p className="text-gray-400 text-sm mb-3">
-        Store this key securely. It will not be shown again.
-        Pass it as the <code className="text-indigo-300 text-xs">x-api-key</code> header on every request.
-      </p>
-      <div className="flex items-center gap-3 bg-gray-900 rounded p-3 border border-gray-700">
-        <code className="text-indigo-300 font-mono text-sm flex-1 break-all">{apiKey}</code>
-        <CopyButton text={apiKey} />
+
+      {/* Quickstart */}
+      <div className="p-6 rounded-lg border border-gray-700 bg-gray-900/50">
+        <div className="text-xs font-bold tracking-widest uppercase text-indigo-400 mb-4">Quickstart — run this now</div>
+
+        <div className="mb-4">
+          <div className="text-gray-500 text-xs mb-2">1. Start a 39-agent collaboration cycle</div>
+          <div className="relative bg-gray-950 rounded p-4 border border-gray-800">
+            <pre className="text-xs text-gray-300 overflow-x-auto font-mono leading-relaxed whitespace-pre-wrap">{curlExample}</pre>
+            <div className="absolute top-2 right-2">
+              <CopyButton text={curlExample} />
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <div className="text-gray-500 text-xs mb-2">2. Check your remaining runs</div>
+          <div className="relative bg-gray-950 rounded p-4 border border-gray-800">
+            <pre className="text-xs text-gray-300 overflow-x-auto font-mono">{statusExample}</pre>
+            <div className="absolute top-2 right-2">
+              <CopyButton text={statusExample} />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 text-gray-600 text-xs">
+          Every response includes <code className="text-gray-500">contract_version</code>,{' '}
+          <code className="text-gray-500">execution_id</code>, and{' '}
+          <code className="text-gray-500">audit_chain_hash</code> — your cryptographic proof of each run.
+          Questions? <a href="mailto:info@aegisomega.com" className="text-gray-400 hover:text-gray-300 underline">info@aegisomega.com</a>
+        </div>
       </div>
-      <p className="text-gray-500 text-xs mt-4">
-        Endpoint: <code className="text-gray-400">https://aegis-vertex.aegisomega.com/platform/collaborate</code>
-      </p>
     </div>
   )
 }
@@ -209,15 +251,13 @@ export function PricingPage() {
   }, [sdkReady])
 
   if (apiKey) return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center px-4 py-16">
-      <a href="/" className="flex items-center gap-2 mb-12 text-gray-400 hover:text-white transition-colors text-sm">
-        ← aegisomega.com
-      </a>
-      <ApiKeyDisplay apiKey={apiKey} tier={tier} />
-      <p className="text-gray-600 text-xs mt-8 text-center max-w-md">
-        Runs are consumed when a collaboration completes successfully.
-        Check <code className="text-gray-500">GET /platform/status</code> to see remaining runs.
-      </p>
+    <div className="min-h-screen bg-gray-950 text-white px-4 py-16">
+      <div className="max-w-2xl mx-auto">
+        <a href="/" className="flex items-center gap-2 mb-12 text-gray-400 hover:text-white transition-colors text-sm">
+          ← aegisomega.com
+        </a>
+        <ApiKeyDisplay apiKey={apiKey} tier={tier} />
+      </div>
     </div>
   )
 

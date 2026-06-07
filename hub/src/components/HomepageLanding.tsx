@@ -44,17 +44,18 @@ export function HomepageLanding() {
           </span>
           <div className="flex items-center gap-8">
             <a href="#industries" className="text-xs text-hub-muted hover:text-hub-text transition-colors hidden sm:block">Industries</a>
-            <a href="/cockpit" className="text-xs text-hub-muted hover:text-hub-text transition-colors hidden sm:block">Cockpit SaaS</a>
-            <a href="https://github.com/Aegis-Omega/AEGIS--" target="_blank" rel="noopener noreferrer" className="text-xs text-hub-muted hover:text-hub-text transition-colors">
+            <a href="#api" className="text-xs text-hub-muted hover:text-hub-text transition-colors hidden sm:block">API</a>
+            <a href="https://github.com/Aegis-Omega/AEGIS--" target="_blank" rel="noopener noreferrer" className="text-xs text-hub-muted hover:text-hub-text transition-colors hidden sm:block">
               Source
             </a>
-            <button
-              onClick={handleDemoClick}
+            <a
+              href="/pricing"
+              onClick={() => captureEvent('nav_pricing_click', { ttv_seconds: ttv() })}
               className="text-xs font-semibold px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity text-white"
               style={{ background: '#6366F1' }}
             >
-              Book Demo
-            </button>
+              Get API Access
+            </a>
           </div>
         </div>
       </nav>
@@ -100,7 +101,7 @@ export function HomepageLanding() {
         </div>
 
         <p className="text-hub-muted/50 text-xs">
-          11,337 tests · 0 failures · SHA-256 hash-chained · AGPL-3.0
+          12,318 tests · 0 failures · SHA-256 hash-chained · AGPL-3.0
         </p>
       </section>
 
@@ -108,7 +109,7 @@ export function HomepageLanding() {
       <section className="bg-hub-surface/30 border-y border-hub-border/60 py-12">
         <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {[
-            { value: '11,337+', label: 'Invariant Tests', sub: 'all passing' },
+            { value: '12,318+', label: 'Invariant Tests', sub: 'all passing' },
             { value: 'SHA-256', label: 'Hash-Chained', sub: 'tamper-evident' },
             { value: 'T0 Proven', label: 'Deterministic', sub: 'replay-verified' },
             { value: 'AGPL-3.0', label: 'Open Source', sub: 'no lock-in' },
@@ -289,19 +290,114 @@ export function HomepageLanding() {
         </div>
       </section>
 
+      {/* Live API section */}
+      <section id="api" className="max-w-4xl mx-auto px-4 py-20">
+        <div className="mb-4 text-center">
+          <span className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.25)', color: '#34D399' }}>
+            LIVE TODAY · aegis-vertex.aegisomega.com
+          </span>
+        </div>
+        <h2 className="text-3xl font-bold mb-4 text-center leading-tight">
+          The Platform API
+        </h2>
+        <p className="text-hub-muted text-center max-w-2xl mx-auto mb-12 leading-relaxed">
+          39 autonomous agents collaborate on any business objective. Every run is hash-chained, auditable, and replay-verifiable. No setup beyond an API key.
+        </p>
+
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
+          {/* Endpoints */}
+          <div className="bg-hub-surface/40 border border-hub-border/60 rounded-lg p-5">
+            <div className="text-xs font-bold tracking-widest uppercase mb-4" style={{ color: '#34D399' }}>Endpoints</div>
+            <div className="space-y-3 font-mono text-xs">
+              {[
+                { method: 'POST', path: '/platform/collaborate', desc: '39-agent collaboration cycle' },
+                { method: 'GET',  path: '/platform/status',      desc: 'Runtime health + chain hash' },
+                { method: 'POST', path: '/platform/executions',  desc: 'Async execution (returns stream URL)' },
+                { method: 'GET',  path: '/platform/executions/live', desc: 'SSE stream — per-agent events' },
+              ].map(ep => (
+                <div key={ep.path} className="flex items-start gap-3">
+                  <span className="px-1.5 py-0.5 rounded text-xs font-bold flex-shrink-0"
+                    style={{ background: ep.method === 'POST' ? 'rgba(99,102,241,0.15)' : 'rgba(52,211,153,0.10)',
+                             color: ep.method === 'POST' ? '#818CF8' : '#34D399' }}>
+                    {ep.method}
+                  </span>
+                  <div>
+                    <div className="text-hub-text">{ep.path}</div>
+                    <div className="text-hub-muted/60 text-xs mt-0.5">{ep.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Example request */}
+          <div className="bg-hub-surface/40 border border-hub-border/60 rounded-lg p-5">
+            <div className="text-xs font-bold tracking-widest uppercase mb-4" style={{ color: '#818CF8' }}>Example Request</div>
+            <pre className="text-xs leading-relaxed overflow-x-auto" style={{ fontFamily: '"JetBrains Mono", monospace', color: '#94A3B8' }}>{`curl -X POST \\
+  https://aegis-vertex.aegisomega.com\\
+  /platform/collaborate \\
+  -H "x-api-key: YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "objective": "Enter EU fintech market",
+    "mode": "gtm",
+    "live": false
+  }'`}</pre>
+          </div>
+        </div>
+
+        {/* Response shape */}
+        <div className="bg-hub-surface/40 border border-hub-border/60 rounded-lg p-5 mb-8">
+          <div className="text-xs font-bold tracking-widest uppercase mb-4" style={{ color: '#C8A96E' }}>Response — PlatformEnvelope&lt;CollaborationResult&gt;</div>
+          <pre className="text-xs leading-relaxed overflow-x-auto" style={{ fontFamily: '"JetBrains Mono", monospace', color: '#94A3B8' }}>{`{
+  "contract_version": "1.0.0",
+  "execution_id": "018f...",        // UUIDv7
+  "timestamp": "2026-06-07T..Z",
+  "is_replay_reconstructable": true,
+  "data": {
+    "departments_collaborated": 39,
+    "artifacts": [{ "role": "Strategy", "output": "..." }, ...],
+    "constitutional_audit": { "verdict": "APPROVED" },
+    "chain_valid": true,
+    "audit_chain_hash": "sha256:..."
+  }
+}`}</pre>
+        </div>
+
+        <div className="text-center">
+          <a
+            href="/pricing"
+            onClick={() => captureEvent('api_section_pricing_click', { ttv_seconds: ttv() })}
+            className="inline-flex items-center gap-2 text-white font-semibold px-8 py-3.5 rounded-xl hover:opacity-90 transition-opacity text-sm"
+            style={{ background: '#6366F1' }}
+          >
+            Get Your API Key →
+          </a>
+          <p className="text-hub-muted/50 text-xs mt-3">Explorer tier is free · 10 runs · no card required</p>
+        </div>
+      </section>
+
       {/* CTA Footer */}
       <section className="max-w-3xl mx-auto px-4 py-20 text-center">
         <h2 className="text-2xl font-bold mb-4">Ready to Deploy Constitutional AI?</h2>
         <p className="text-hub-muted mb-8 max-w-xl mx-auto">
           30-minute technical audit. See deterministic replay in action. No pressure. No sales pitch.
         </p>
-        <button
-          onClick={handleDemoClick}
-          className="px-8 py-3 rounded-lg text-white font-semibold hover:opacity-90 transition-opacity"
-          style={{ background: '#6366F1' }}
-        >
-          Book Demo →
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <button
+            onClick={handleDemoClick}
+            className="px-8 py-3 rounded-lg text-white font-semibold hover:opacity-90 transition-opacity text-sm"
+            style={{ background: '#6366F1' }}
+          >
+            Book Demo →
+          </button>
+          <a
+            href="/pricing"
+            className="px-8 py-3 rounded-lg border border-hub-border text-hub-muted hover:text-hub-text hover:border-hub-border/80 font-medium transition-colors text-sm"
+          >
+            Get API Access →
+          </a>
+        </div>
       </section>
 
       {/* Footer */}
