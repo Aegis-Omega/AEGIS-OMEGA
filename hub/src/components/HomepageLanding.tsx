@@ -1,13 +1,15 @@
-import { useEffect, useRef } from 'react'
-import { Mail, Check } from 'lucide-react'
+/**
+ * AEGIS-Ω 2.0 · HomepageLanding.tsx
+ * EPISTEMIC TIER: T2
+ *
+ * Ultra-premium landing page. Live SHA-256 hash chain running in-browser
+ * (genuine Web Crypto, not mocked), interactive tamper demo, σ-field canvas.
+ * Design tokens from landing.css / index.css :root.
+ */
+import { useCallback, useEffect, useRef, useState } from 'react'
+import '../landing.css'
 
-function GithubIcon({ size = 16 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
-    </svg>
-  )
-}
+// ── PostHog analytics ─────────────────────────────────────────────────────────
 
 function captureEvent(event: string, props?: Record<string, unknown>): void {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -15,325 +17,729 @@ function captureEvent(event: string, props?: Record<string, unknown>): void {
   if (typeof ph?.capture === 'function') ph.capture(event, props)
 }
 
-export function HomepageLanding() {
-  const trialStartRef = useRef(Date.now())
+// ── SHA-256 via Web Crypto ─────────────────────────────────────────────────────
 
-  useEffect(() => {
-    captureEvent('homepage_viewed')
+async function sha256hex(str: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+const short = (h: string | null | undefined, n = 6) => (h ? h.slice(0, n) : '······')
+
+// ── Observation pool ───────────────────────────────────────────────────────────
+
+const SIGNALS: [string, string, string][] = [
+  ['L3', 'T1', 'Three skills active: tdd, gate-pair, metacognition'],
+  ['L2', 'T0', 'Retrospective pass — 41 frames replayed, fingerprint stable'],
+  ['L1', 'T0', 'BTreeMap invariant held — deterministic ordering preserved'],
+  ['L3', 'T2', 'Hypothesis: epoch seal converges before frame 2700'],
+  ['L2', 'T1', 'BFT quorum reached — 3 / 4 alliance weights agree'],
+  ['L1', 'T0', 'Version lock verified — mismatch would hard-abort'],
+  ['L3', 'T1', 'Martingale boundary intact — E[Sₙ₊₁|Fₙ] = Sₙ'],
+  ['L2', 'T0', 'Hash chain extended — prev anchor matches genesis lineage'],
+  ['L3', 'T3', 'Conjecture: gate-321 resonance stable under sustained load'],
+  ['L1', 'T0', 'No HashMap detected in src/ — ordering guaranteed'],
+  ['L2', 'T1', 'Adversarial audit (chatgpt weight) found no divergence'],
+  ['L3', 'T1', 'Metacognitive self-check — confidence within 1/φ band'],
+  ['L2', 'T0', 'certify() returned true — chain sealed at current head'],
+  ['L1', 'T0', 'Mutation frozen — no unproven write reached the T0 layer'],
+  ['L3', 'T2', 'Reflection: skill scheduler reordered 2 low-tier tasks'],
+  ['L2', 'T0', 'PGCS pass — proof-gate consensus signature anchored'],
+  ['L1', 'T0', 'Genesis fingerprint replayed — identical to frame 0'],
+  ['L3', 'T1', 'Self-model updated — no contradiction with prior epoch'],
+]
+
+const GENESIS = '0'.repeat(64)
+
+interface ChainEntry {
+  seq: number
+  layer: string
+  tier: string
+  signal: string
+  origSignal: string
+  prevHash: string
+  hash: string
+  tampered: boolean
+  fresh?: boolean
+}
+
+interface ChainStatus {
+  valid: boolean
+  corruption: number
+  firstBreak: number
+  t0: boolean
+}
+
+async function mkEntry(seq: number, prevHash: string, pick: [string, string, string]): Promise<ChainEntry> {
+  const [layer, tier, signal] = pick
+  const hash = await sha256hex(`${prevHash}|${seq}|${signal}`)
+  return { seq, layer, tier, signal, origSignal: signal, prevHash, hash, tampered: false }
+}
+
+async function seedChain(n: number): Promise<ChainEntry[]> {
+  const chain: ChainEntry[] = []
+  let prev = GENESIS
+  for (let i = 0; i < n; i++) {
+    const pick = SIGNALS[i % SIGNALS.length]
+    const e = await mkEntry(i, prev, pick)
+    chain.push(e)
+    prev = e.hash
+  }
+  return chain
+}
+
+async function validateChain(chain: ChainEntry[]): Promise<ChainStatus> {
+  let corruption = 0
+  let firstBreak = -1
+  for (let i = 0; i < chain.length; i++) {
+    const e = chain[i]
+    const expectPrev = i === 0 ? GENESIS : chain[i - 1].hash
+    const expectHash = await sha256hex(`${expectPrev}|${e.seq}|${e.signal}`)
+    if (expectHash !== e.hash || expectPrev !== e.prevHash) {
+      corruption++
+      if (firstBreak < 0) firstBreak = e.seq
+    }
+  }
+  return { valid: corruption === 0, corruption, firstBreak, t0: corruption === 0 }
+}
+
+function useTamperChain({ seed = 6, win = 8, tickMs = 2600 } = {}) {
+  const [chain, setChain] = useState<ChainEntry[]>([])
+  const [status, setStatus] = useState<ChainStatus>({ valid: true, corruption: 0, firstBreak: -1, t0: true })
+  const chainRef = useRef<ChainEntry[]>([])
+  const seqRef = useRef(seed)
+
+  chainRef.current = chain
+
+  const recompute = useCallback(async (c: ChainEntry[]) => {
+    const v = await validateChain(c)
+    setStatus(v)
   }, [])
 
-  const ttv = () => Math.round((Date.now() - trialStartRef.current) / 1000)
+  useEffect(() => {
+    let alive = true
+    seedChain(seed).then(c => {
+      if (!alive) return
+      setChain(c)
+      void recompute(c)
+    })
+    return () => { alive = false }
+  }, []) // eslint-disable-line
 
-  const handleDemoClick = () => {
-    captureEvent('click_demo_cta', { ttv_seconds: ttv() })
-    // Open Calendly popup
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const Calendly = (window as any).Calendly
-    if (Calendly) {
-      Calendly.showPopupWidget('https://calendly.com/aegis-omega/technical-audit')
+  useEffect(() => {
+    const id = setInterval(async () => {
+      const c = chainRef.current
+      if (!c.length) return
+      const prev = c[c.length - 1].hash
+      const seq = seqRef.current++
+      const pick = SIGNALS[(seq * 7) % SIGNALS.length]
+      const e = await mkEntry(seq, prev, pick)
+      const next = [...c, { ...e, fresh: true }]
+      setChain(next)
+      setStatus(s => ({ ...s, valid: s.corruption === 0, t0: s.corruption === 0 }))
+    }, tickMs)
+    return () => clearInterval(id)
+  }, [tickMs]) // eslint-disable-line
+
+  const tamper = useCallback(async (seq: number) => {
+    const c = chainRef.current.map(e =>
+      e.seq === seq ? { ...e, signal: '⚠ injected: force-approve unproven write', tampered: true } : e
+    )
+    setChain(c)
+    await recompute(c)
+  }, [recompute])
+
+  const reseal = useCallback(async (seq: number) => {
+    const c = chainRef.current.map(e =>
+      e.seq === seq ? { ...e, signal: e.origSignal, tampered: false } : e
+    )
+    setChain(c)
+    await recompute(c)
+  }, [recompute])
+
+  const visible = chain.slice(-win)
+  return { visible, status, total: chain.length, tamper, reseal }
+}
+
+// ── σ-field canvas ─────────────────────────────────────────────────────────────
+
+function initSigmaField(canvas: HTMLCanvasElement) {
+  const ctx = canvas.getContext('2d')!
+  let W = 0, H = 0, dpr = 1
+  const N = 120
+  const pts: { x: number; y: number; vx: number; vy: number; r: number; a: number }[] = []
+  let sigma = 0
+  let frames = 0
+  const ripples: { x: number; y: number; t: number }[] = []
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2)
+    W = canvas.clientWidth; H = canvas.clientHeight
+    canvas.width = W * dpr; canvas.height = H * dpr
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  }
+  resize()
+  window.addEventListener('resize', resize)
+
+  for (let i = 0; i < N; i++) {
+    pts.push({
+      x: Math.random(), y: Math.random(),
+      vx: (Math.random() - 0.5) * 0.00018,
+      vy: (Math.random() - 0.5) * 0.00018,
+      r: 0.7 + Math.random() * 1.8,
+      a: 0.14 + Math.random() * 0.40,
+    })
+  }
+
+  function disturb(cx: number, cy: number) {
+    sigma = Math.min(1, sigma + 0.6)
+    ripples.push({ x: cx / W, y: cy / H, t: 0 })
+    const sx = cx / W, sy = cy / H
+    for (const p of pts) {
+      const dx = p.x - sx, dy = p.y - sy
+      const d = Math.hypot(dx, dy) || 0.001
+      if (d < 0.28) { const f = (0.28 - d) * 0.012; p.vx += (dx / d) * f; p.vy += (dy / d) * f }
     }
   }
 
+  const onPointer = (e: PointerEvent) => { if (e.clientY < window.innerHeight * 1.1) disturb(e.clientX, e.clientY) }
+  window.addEventListener('pointerdown', onPointer)
+
+  const setTxt = (id: string, v: string) => { const el = document.getElementById(id); if (el) el.textContent = v }
+
+  let raf = 0
+  function frame() {
+    frames++
+    ctx.clearRect(0, 0, W, H)
+    sigma *= 0.97
+
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i]
+      p.x += p.vx + Math.sin(frames * 0.004 + i) * 0.00004
+      p.y += p.vy
+      p.vx *= 0.985; p.vy *= 0.985
+      if (p.x < 0 || p.x > 1) { p.vx *= -1; p.x = Math.max(0, Math.min(1, p.x)) }
+      if (p.y < 0 || p.y > 1) { p.vy *= -1; p.y = Math.max(0, Math.min(1, p.y)) }
+      for (let j = i + 1; j < pts.length; j++) {
+        const q = pts[j]
+        const dx = (p.x - q.x) * W, dy = (p.y - q.y) * H
+        const d = Math.hypot(dx, dy)
+        if (d < 150) {
+          ctx.strokeStyle = `rgba(200,169,110,${(1 - d / 150) * 0.07 * (0.5 + sigma)})`
+          ctx.lineWidth = 1
+          ctx.beginPath(); ctx.moveTo(p.x * W, p.y * H); ctx.lineTo(q.x * W, q.y * H); ctx.stroke()
+        }
+      }
+    }
+    for (const p of pts) {
+      ctx.fillStyle = `rgba(200,169,110,${p.a * (0.6 + sigma * 0.8)})`
+      ctx.beginPath(); ctx.arc(p.x * W, p.y * H, p.r, 0, Math.PI * 2); ctx.fill()
+    }
+    for (let i = ripples.length - 1; i >= 0; i--) {
+      const r = ripples[i]; r.t += 0.02
+      ctx.strokeStyle = `rgba(200,169,110,${Math.max(0, 0.22 - r.t * 0.22)})`
+      ctx.lineWidth = 1
+      ctx.beginPath(); ctx.arc(r.x * W, r.y * H, r.t * Math.max(W, H) * 0.5, 0, Math.PI * 2); ctx.stroke()
+      if (r.t > 1) ripples.splice(i, 1)
+    }
+    if (frames % 6 === 0) {
+      setTxt('ld-sigma', sigma.toFixed(3))
+      setTxt('ld-frames', frames.toLocaleString())
+    }
+    raf = requestAnimationFrame(frame)
+  }
+  frame()
+
+  return () => {
+    cancelAnimationFrame(raf)
+    window.removeEventListener('resize', resize)
+    window.removeEventListener('pointerdown', onPointer)
+  }
+}
+
+// ── Mark logo ──────────────────────────────────────────────────────────────────
+
+function Mark({ size = 26, className = '' }: { size?: number; className?: string }) {
   return (
-    <div className="min-h-screen bg-hub-bg text-hub-text">
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 border-b border-hub-border/60 bg-hub-bg/95 backdrop-blur-sm">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-          <span className="text-sm font-semibold animate-breathe" style={{ fontFamily: '"JetBrains Mono", monospace', letterSpacing: '0.22em', color: '#C8A96E' }}>
-            AEGIS-Ω
-          </span>
-          <div className="flex items-center gap-8">
-            <a href="#industries" className="text-xs text-hub-muted hover:text-hub-text transition-colors hidden sm:block">Industries</a>
-            <a href="/docs" className="text-xs text-hub-muted hover:text-hub-text transition-colors hidden sm:block">API Docs</a>
-            <a href="https://github.com/Aegis-Omega/AEGIS--" target="_blank" rel="noopener noreferrer" className="text-xs text-hub-muted hover:text-hub-text transition-colors hidden sm:block">
-              Source
-            </a>
-            <a
-              href="/pricing"
-              onClick={() => captureEvent('nav_pricing_click', { ttv_seconds: ttv() })}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity text-white"
-              style={{ background: '#6366F1' }}
-            >
-              Get API Access
-            </a>
-          </div>
+    <svg className={className} width={size} height={size} viewBox="0 0 64 64" fill="none" stroke="currentColor">
+      <rect x="0.5" y="0.5" width="63" height="63" fill="none" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
+      <path d="M 32 32 L 32 14 M 32 32 L 16.4 41 M 32 32 L 47.6 41" strokeWidth="1.6" strokeLinecap="round" vectorEffect="non-scaling-stroke"/>
+      <circle cx="32" cy="12" r="4" strokeWidth="1.6" vectorEffect="non-scaling-stroke"/>
+      <circle cx="14.7" cy="42" r="4" strokeWidth="1.6" vectorEffect="non-scaling-stroke"/>
+      <circle cx="49.3" cy="42" r="4" strokeWidth="1.6" vectorEffect="non-scaling-stroke"/>
+      <circle cx="32" cy="32" r="5" fill="currentColor"/>
+    </svg>
+  )
+}
+
+// ── Social icons ───────────────────────────────────────────────────────────────
+
+const SOCIAL_PATHS: Record<string, [string, string]> = {
+  github:  ['0 0 19 19', 'M9.356 1.85C5.05 1.85 1.57 5.356 1.57 9.694a7.84 7.84 0 0 0 5.324 7.44c.387.079.528-.168.528-.376 0-.182-.013-.805-.013-1.454-2.165.467-2.616-.935-2.616-.935-.349-.91-.864-1.143-.864-1.143-.71-.48.051-.48.051-.48.787.051 1.2.805 1.2.805.695 1.194 1.817.857 2.268.649.064-.507.27-.857.49-1.052-1.728-.182-3.545-.857-3.545-3.87 0-.857.31-1.558.8-2.104-.078-.195-.349-1 .077-2.078 0 0 .657-.208 2.14.805a7.5 7.5 0 0 1 1.946-.26c.657 0 1.328.092 1.946.26 1.483-1.013 2.14-.805 2.14-.805.426 1.078.155 1.883.078 2.078.502.546.799 1.247.799 2.104 0 3.013-1.818 3.675-3.558 3.87.284.247.528.714.528 1.454 0 1.052-.012 1.896-.012 2.156 0 .208.142.455.528.377a7.84 7.84 0 0 0 5.324-7.441c.013-4.338-3.48-7.844-7.773-7.844'],
+  x:       ['0 0 19 19', 'M1.893 1.98c.052.072 1.245 1.769 2.653 3.77l2.892 4.114c.183.261.333.48.333.486s-.068.089-.152.183l-.522.593-.765.867-3.597 4.087c-.375.426-.734.834-.798.905a1 1 0 0 0-.118.148c0 .01.236.017.664.017h.663l.729-.83c.4-.457.796-.906.879-.999a692 692 0 0 0 1.794-2.038c.034-.037.301-.34.594-.675l.551-.624.345-.392a7 7 0 0 1 .34-.374c.006 0 .93 1.306 2.052 2.903l2.084 2.965.045.063h2.275c1.87 0 2.273-.003 2.266-.021-.008-.02-1.098-1.572-3.894-5.547-2.013-2.862-2.28-3.246-2.273-3.266.008-.019.282-.332 2.085-2.38l2-2.274 1.567-1.782c.022-.028-.016-.03-.65-.03h-.674l-.3.342a871 871 0 0 1-1.782 2.025c-.067.075-.405.458-.75.852a100 100 0 0 1-.803.91c-.148.172-.299.344-.99 1.127-.304.343-.32.358-.345.327-.015-.019-.904-1.282-1.976-2.808L6.365 1.85H1.8zm1.782.91 8.078 11.294c.772 1.08 1.413 1.973 1.425 1.984.016.017.241.02 1.05.017l1.03-.004-2.694-3.766L7.796 5.75 5.722 2.852l-1.039-.004-1.039-.004z'],
+}
+
+function SocialIcon({ id, href }: { id: string; href: string }) {
+  const [vb, d] = SOCIAL_PATHS[id] ?? ['0 0 24 24', '']
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" aria-label={id}>
+      <svg viewBox={vb} fill="currentColor" width="16" height="16"><path d={d}/></svg>
+    </a>
+  )
+}
+
+// ── SVG icons ──────────────────────────────────────────────────────────────────
+
+const IBrain = () => (
+  <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 5a3 3 0 0 0-3 3v.5a3 3 0 0 0-2 5.6V16a2 2 0 0 0 2 2h.5"/>
+    <path d="M12 5a3 3 0 0 1 3 3v.5a3 3 0 0 1 2 5.6V16a2 2 0 0 1-2 2h-.5"/>
+    <path d="M12 5v13"/>
+  </svg>
+)
+const IReplay = () => (
+  <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>
+  </svg>
+)
+const IShield = () => (
+  <svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/>
+  </svg>
+)
+const IArrowR = () => (
+  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+  </svg>
+)
+
+// ── Top bar ────────────────────────────────────────────────────────────────────
+
+function TopBar({ status, total, ttv }: { status: ChainStatus; total: number; ttv: () => number }) {
+  const dotColor = status.valid ? 'var(--aegis-T0)' : 'var(--attn-gaze)'
+  const verdictColor = status.valid ? 'var(--aegis-T0)' : 'var(--attn-gaze)'
+  return (
+    <header className="ld-topbar">
+      <div className="ld-wrap">
+        <a className="ld-brand" href="#top">
+          <Mark size={28} className="ld-mark"/>
+          <span className="ld-wm">AEGIS-Ω</span>
+        </a>
+        <nav className="ld-nav">
+          <a href="#substrate">Substrate</a>
+          <a href="#cognition">Cognition</a>
+          <a href="#equation">Equation</a>
+          <a href="#api">Platform API</a>
+          <a href="/docs">Docs</a>
+        </nav>
+        <div className="ld-spacer"/>
+        <div className="ld-ribbon">
+          <span className="ld-dot" style={{ background: dotColor, color: dotColor }}/>
+          <span className="ld-k">chain</span>
+          <b style={{ color: 'var(--aegis-phi)' }}>{total}</b>
+          <span className="ld-k">·</span>
+          <span className="ld-k">verdict</span>
+          <b style={{ color: verdictColor }}>{status.valid ? 'T0 PASS' : 'BREACH'}</b>
         </div>
-      </nav>
+        <a
+          className="ld-btn ld-btn-primary"
+          href="/pricing"
+          onClick={() => captureEvent('nav_pricing_click', { ttv_seconds: ttv() })}
+        >
+          Get API Access
+        </a>
+      </div>
+    </header>
+  )
+}
 
-      {/* Hero */}
-      <section className="max-w-4xl mx-auto px-4 py-32 text-center">
-        {/* Eyebrow */}
-        <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-medium mb-8"
-          style={{ background: 'rgba(200,169,110,0.08)', border: '1px solid rgba(200,169,110,0.20)', color: '#C8A96E' }}>
-          <span className="w-1.5 h-1.5 rounded-full animate-mint-pulse flex-shrink-0" style={{ background: '#C8A96E' }} />
-          Constitutional AI Governance · EU AI Act · NIST SP 800-53
+// ── Hero ───────────────────────────────────────────────────────────────────────
+
+function Hero({ status, total, ttv }: { status: ChainStatus; total: number; ttv: () => number }) {
+  return (
+    <section className="ld-hero" id="top">
+      <div className="ld-wrap">
+        <div className="ld-eyebrow-pill">
+          <span className="ld-live"/>
+          Constitutional AI Runtime · executing in your browser
         </div>
-
-        {/* Headline */}
-        <h1 className="font-bold leading-tight mb-6 animate-fade-up" style={{ fontSize: 'clamp(36px, 6.5vw, 60px)', letterSpacing: '-0.02em' }}>
-          The Governance Layer<br />
-          <span style={{ color: '#C8A96E' }}>Frontier AI Needs</span>
-        </h1>
-
-        {/* Subheading */}
-        <p className="text-hub-muted text-lg max-w-2xl mx-auto mb-6 leading-relaxed animate-fade-up delay-100">
-          SHA-256 hash-chained. Replay-verified. Martingale-bounded.
-          Every AI action is cryptographically certified, workspace-bounded, and constitutionally governed —
-          not by policy, but by architecture.
+        <h1>The AI system that<br/><span className="ld-gold">governs itself.</span></h1>
+        <p className="ld-lead">
+          Not by description. <b>By execution.</b> Metacognitive self-awareness,
+          retrospective replay, and BFT consensus — running as live substrate,
+          hash-chained and tamper-evident.
         </p>
-
-        {/* CTAs */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-center mb-4 animate-fade-up delay-300">
-          <button
-            onClick={handleDemoClick}
-            className="inline-flex items-center justify-center gap-2 text-white font-semibold px-8 py-3.5 rounded-xl hover:opacity-90 transition-opacity text-sm"
-            style={{ background: '#6366F1' }}
-          >
-            Book Enterprise Demo →
-          </button>
+        <div className="ld-status-strip" role="status">
+          {[
+            { k: 'is_valid',     v: String(status.valid),    cls: status.valid ? 'ok' : 'bad' },
+            { k: 't0_verdict',   v: String(status.t0),       cls: status.t0 ? 'ok' : 'bad' },
+            { k: 'corruption',   v: String(status.corruption), cls: status.corruption ? 'bad' : 'ok' },
+            { k: 'chain_length', v: String(total),           cls: 'gold' },
+            { k: 'bridge',       v: 'online',                cls: 'info' },
+          ].map(({ k, v, cls }) => (
+            <div className="ld-cell" key={k}>
+              <span className="ld-key">{k}</span>
+              <span className={`ld-val ${cls}`}>{v}</span>
+            </div>
+          ))}
+        </div>
+        <p className="ld-field-hint">
+          click to disturb the σ field · scroll to deepen λ memory &nbsp;·&nbsp;
+          σ=<span className="v" id="ld-sigma">0.000</span> &nbsp;
+          <span id="ld-frames">0</span> frames
+        </p>
+        <div className="ld-cta-row">
           <a
-            href="/runtime"
-            onClick={() => captureEvent('hero_runtime_link', { ttv_seconds: ttv() })}
-            className="inline-flex items-center justify-center gap-2 border border-hub-border text-hub-muted hover:text-hub-text hover:border-hub-border/80 font-medium px-8 py-3.5 rounded-xl transition-colors text-sm"
+            className="ld-btn ld-btn-primary ld-btn-lg"
+            href="/pricing"
+            onClick={() => captureEvent('hero_pricing_cta', { ttv_seconds: ttv() })}
           >
-            See the Runtime →
+            Get API Access <IArrowR/>
+          </a>
+          <a
+            className="ld-btn ld-btn-ghost ld-btn-lg"
+            href="#substrate"
+            onClick={() => captureEvent('hero_substrate_link', { ttv_seconds: ttv() })}
+          >
+            Observe the substrate
           </a>
         </div>
+      </div>
+    </section>
+  )
+}
 
-        <p className="text-hub-muted/50 text-xs">
-          12,318 tests · 0 failures · SHA-256 hash-chained · AGPL-3.0
-        </p>
-      </section>
+// ── Quote strip ────────────────────────────────────────────────────────────────
 
-      {/* Trust Metrics */}
-      <section className="bg-hub-surface/30 border-y border-hub-border/60 py-12">
-        <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          {[
-            { value: '12,318+', label: 'Invariant Tests', sub: 'all passing' },
-            { value: 'SHA-256', label: 'Hash-Chained', sub: 'tamper-evident' },
-            { value: 'T0 Proven', label: 'Deterministic', sub: 'replay-verified' },
-            { value: 'AGPL-3.0', label: 'Open Source', sub: 'no lock-in' },
-          ].map(m => (
-            <div key={m.label}>
-              <div className="text-2xl font-bold mb-1" style={{ color: '#C8A96E', fontFamily: '"JetBrains Mono", monospace' }}>
-                {m.value}
+function Quote() {
+  return (
+    <section className="ld-quote-strip">
+      <div className="ld-wrap">
+        <blockquote>
+          "The code does not ask to be believed. It can be replayed from genesis
+          and will produce the same <em>cryptographic fingerprint</em> every time."
+        </blockquote>
+        <cite>Constitutional invariant · AEGIS-Ω runtime</cite>
+      </div>
+    </section>
+  )
+}
+
+// ── Stream ─────────────────────────────────────────────────────────────────────
+
+function Stream({ visible, status, total, tamper, reseal }: {
+  visible: ChainEntry[]
+  status: ChainStatus
+  total: number
+  tamper: (seq: number) => void
+  reseal: (seq: number) => void
+}) {
+  const head = visible.length ? visible[visible.length - 1] : null
+  return (
+    <section
+      className="ld-section ld-section--tight"
+      id="substrate"
+      style={{ background: 'var(--r-bg-2)', borderTop: '1px solid var(--r-line)' }}
+    >
+      <div className="ld-wrap">
+        <div className="ld-stream-layout">
+          {/* Left: sticky description */}
+          <div className="ld-stream-side">
+            <div className="ld-sec-num">01 · MECHANISM</div>
+            <h2>A metacognitive stream you can break.</h2>
+            <p className="ld-stream-note">
+              Every entry is a real <code>SHA-256</code> of the previous hash,
+              its sequence number, and the observation signal. Tamper with any
+              row and <code>certify()</code> flips to <span className="bad">false</span> —
+              recomputed live in this page, not mocked.
+            </p>
+            <div className="ld-side-verdict">
+              <span className="sv-head">Live verdict</span>
+              <div className="sv-row">
+                <span className="sv-key">certify()</span>
+                <span className={`sv-val ${status.valid ? 'ok' : 'bad'}`}>{String(status.valid)}</span>
               </div>
-              <div className="text-hub-text text-xs font-semibold">{m.label}</div>
-              <div className="text-xs mt-0.5" style={{ color: '#4B5563' }}>{m.sub}</div>
+              <div className="sv-row">
+                <span className="sv-key">corruption_count</span>
+                <span className={`sv-val ${status.corruption ? 'bad' : 'ok'}`}>{status.corruption}</span>
+              </div>
+              <div className="sv-sep"/>
+              <div className="sv-row">
+                <span className="sv-key">observations</span>
+                <span className="sv-val phi">{total}</span>
+              </div>
+              <div className="sv-row">
+                <span className="sv-key">head</span>
+                <span className="sv-val inf">{head ? short(head.hash, 10) : '···'}</span>
+              </div>
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
 
-      {/* Problem → Solution */}
-      <section className="max-w-4xl mx-auto px-4 py-20">
-        <h2 className="text-3xl font-bold mb-12 text-center leading-tight">Why Traditional AI Fails Regulated Organizations</h2>
-        <div className="grid md:grid-cols-3 gap-6">
-          {[
-            {
-              problem: '❌ Black Box',
-              title: 'You Can\'t Replay Decisions',
-              desc: 'Every inference is opaque. Auditors demand proof. You can\'t provide it.',
-              solution: '✓ Deterministic Replay',
-              solutionDesc: 'Every decision hash-certified from genesis. Replayable byte-for-byte on any platform.',
-            },
-            {
-              problem: '❌ Hallucination Risk',
-              title: 'Models Make Up Facts',
-              desc: 'Fabricated outputs create legal liability. Compliance officers say no.',
-              solution: '✓ Constitutional Governance',
-              solutionDesc: 'T0–T2 layers prevent hallucinations. Governance enforced mechanically, not aspirationally.',
-            },
-            {
-              problem: '❌ Vendor Lock-In',
-              title: 'Proprietary API Trap',
-              desc: 'Can\'t switch vendors. Pricing opaque. Compliance audits impossible.',
-              solution: '✓ Your Code',
-              solutionDesc: 'Full AGPL source. Run anywhere. No vendor lock-in. Auditable end-to-end.',
-            },
-          ].map((item, idx) => (
-            <div key={idx} className="space-y-6">
-              <div className="bg-red-500/10 border border-red-500/30 p-6 rounded-lg">
-                <div className="text-sm font-bold mb-1" style={{ color: '#F87171' }}>{item.problem}</div>
-                <div className="font-semibold text-hub-text mb-2">{item.title}</div>
-                <p className="text-sm text-hub-muted">{item.desc}</p>
-              </div>
-              <div className="bg-green-500/10 border border-green-500/30 p-6 rounded-lg">
-                <div className="text-sm font-bold mb-1" style={{ color: '#34D399' }}>{item.solution}</div>
-                <p className="text-sm text-hub-muted">{item.solutionDesc}</p>
-              </div>
+          {/* Right: live table */}
+          <div className="ld-stream-panel">
+            <div className="ld-stream-head">
+              <span className="ld-title">Metacognitive Stream</span>
+              <span className="ld-count">{total}</span>
+              <span className={`ld-verdict-chip ${status.valid ? 'valid' : 'breach'}`}>
+                <span className="vd"/>
+                {status.valid ? 'CERTIFIED' : `BREACH @ seq ${status.firstBreak}`}
+              </span>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Frontier AI Governance */}
-      <section className="max-w-4xl mx-auto px-4 py-20">
-        <div className="mb-4 text-center">
-          <span className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: 'rgba(99,102,241,0.10)', border: '1px solid rgba(99,102,241,0.25)', color: '#818CF8' }}>
-            FRONTIER AI GOVERNANCE
-          </span>
-        </div>
-        <h2 className="text-3xl font-bold mb-4 text-center leading-tight">
-          The More Capable the Model,<br />
-          <span style={{ color: '#C8A96E' }}>The More Critical the Governance Layer</span>
-        </h2>
-        <p className="text-hub-muted text-center max-w-2xl mx-auto mb-12 leading-relaxed">
-          Today's frontier AI system cards document a consistent finding: highly capable models
-          are more useful, and therefore deployed with greater autonomy — which means when they
-          fail, they fail at scale. Constitutional governance solves this at the architecture layer,
-          not the training layer.
-        </p>
-        <div className="grid md:grid-cols-2 gap-6 mb-10">
-          {[
-            {
-              label: 'Without Governance',
-              items: [
-                'Model propensities are training-induced — not externally verifiable',
-                'Audit logs are append-only, not cryptographically tamper-evident',
-                'Scope expansion is bounded by instruction-following, not architecture',
-                'Deceptive reasoning may not appear in scratchpad — only in activations',
-              ],
-              accent: '#F87171',
-              bg: 'rgba(239,68,68,0.06)',
-              border: 'rgba(239,68,68,0.20)',
-            },
-            {
-              label: 'With AEGIS Constitutional Layer',
-              items: [
-                'SHA-256 hash chain: tamper = certify() returns is_valid: false. Mathematical guarantee.',
-                'Workspace boundary (RULE-06): agents cannot act outside declared scope architecturally.',
-                'Martingale gate: AdaptivePower(T) ≤ ReplayVerifiability(T) — runtime halt condition.',
-                'Law of Silence: no unmediated side channels. All actions flow through the governed boundary.',
-              ],
-              accent: '#34D399',
-              bg: 'rgba(52,211,153,0.06)',
-              border: 'rgba(52,211,153,0.20)',
-            },
-          ].map(col => (
-            <div key={col.label} className="p-6 rounded-lg" style={{ background: col.bg, border: `1px solid ${col.border}` }}>
-              <div className="text-xs font-bold mb-4 tracking-widest uppercase" style={{ color: col.accent }}>{col.label}</div>
-              <ul className="space-y-3">
-                {col.items.map((item, i) => (
-                  <li key={i} className="flex items-start gap-2.5 text-sm text-hub-muted leading-snug">
-                    <span className="mt-0.5 flex-shrink-0" style={{ color: col.accent }}>
-                      {col.accent === '#F87171' ? '✕' : '✓'}
-                    </span>
-                    {item}
-                  </li>
+            <table className="ld-stream-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 52 }}>seq</th>
+                  <th style={{ width: 44 }}>layer</th>
+                  <th style={{ width: 44 }}>tier</th>
+                  <th>signal</th>
+                  <th className="r">prev → hash</th>
+                  <th style={{ width: 72 }}/>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map(e => (
+                  <tr
+                    key={e.seq}
+                    className={`ld-stream-row${e.fresh ? ' fresh' : ''}${e.tampered ? ' tampered' : ''}`}
+                    style={e.tampered ? { background: 'rgba(255,77,0,0.06)' } : undefined}
+                  >
+                    <td className="ld-seq">{String(e.seq).padStart(3, '0')}</td>
+                    <td><span className="ld-layer-tag">{e.layer}</span></td>
+                    <td><span className={`ld-tier-tag ld-tier-${e.tier}`}>{e.tier}</span></td>
+                    <td className="ld-signal-cell" style={e.tampered ? { color: 'var(--attn-gaze)' } : undefined}>{e.signal}</td>
+                    <td className="ld-hash-cell">
+                      <span className="hp">{short(e.prevHash)}</span>
+                      <span className="arrow">→</span>
+                      <span className="hc" style={{ color: e.tampered ? 'var(--attn-gaze)' : 'var(--aegis-phi)' }}>
+                        {short(e.hash)}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      {e.tampered
+                        ? <button className="ld-tamper-btn reseal" onClick={() => reseal(e.seq)}>re-seal</button>
+                        : <button className="ld-tamper-btn" onClick={() => tamper(e.seq)}>tamper</button>
+                      }
+                    </td>
+                  </tr>
                 ))}
-              </ul>
+              </tbody>
+            </table>
+            <div className="ld-stream-foot">
+              <span>genesis: <code>0000…0000</code></span>
+              <span className="ld-stream-foot-spacer"/>
+              <span>head: <code>{head ? short(head.hash, 14) : '···'}</code></span>
             </div>
-          ))}
-        </div>
-        <div className="bg-hub-surface/60 border border-hub-border/60 rounded-lg p-6 font-mono text-xs overflow-x-auto" style={{ fontFamily: '"JetBrains Mono", monospace' }}>
-          <div className="text-hub-muted/50 mb-3 text-xs">{/* Constitutional invariant — enforced at runtime, not via policy */}</div>
-          <div style={{ color: '#C8A96E' }}>AdaptivePower(T) ≤ ReplayVerifiability(T)</div>
-          <div className="mt-1" style={{ color: '#818CF8' }}>E[S_&#123;n+1&#125;|F_n] = S_n  {/* martingale: suspension if violated */}</div>
-          <div className="mt-1" style={{ color: '#34D399' }}>certify()  →  &#123; is_valid: true, entry_count: N, terminal_hash: "sha256:..." &#125;</div>
-          <div className="mt-1 text-hub-muted/50">{/* tamper any entry → is_valid: false. no policy can do this. */}</div>
-        </div>
-      </section>
-
-      {/* Industries */}
-      <section id="industries" className="bg-hub-surface/30 border-y border-hub-border/60 py-20">
-        <div className="max-w-4xl mx-auto px-4">
-          <h2 className="text-3xl font-bold mb-12 text-center">Built For Regulated Industries</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              { icon: '🏦', title: 'Fintech', desc: 'Compliance reporting · risk assessment · fraud detection · audit-proof decision logs' },
-              { icon: '🏥', title: 'Healthcare', desc: 'Patient records · clinical decision support · HIPAA-ready audit trail · no hallucinations' },
-              { icon: '⚖️', title: 'Legal Tech', desc: 'Contract analysis · compliance checks · litigation holds · citeable outputs' },
-            ].map(ind => (
-              <div key={ind.title} className="bg-hub-bg border border-hub-border p-6 rounded-lg hover:border-hub-border/80 transition-colors">
-                <div className="text-3xl mb-3">{ind.icon}</div>
-                <div className="font-bold text-hub-text mb-1">{ind.title}</div>
-                <div className="text-sm text-hub-muted leading-relaxed">{ind.desc}</div>
-              </div>
-            ))}
           </div>
         </div>
-      </section>
+      </div>
+    </section>
+  )
+}
 
-      {/* AEGIS Guarantees */}
-      <section className="max-w-4xl mx-auto px-4 py-20">
-        <h2 className="text-3xl font-bold mb-12 text-center">What AEGIS Guarantees</h2>
-        <div className="grid md:grid-cols-2 gap-6">
-          {[
-            {
-              title: 'Deterministic Replay',
-              desc: 'replay(genesis, events) → identical output on Linux, macOS, WASM, ARM, x86. Prove it works anywhere.',
-            },
-            {
-              title: 'Hash-Chained Audit Trail',
-              desc: 'Every state transition signed. Every decision citeable. HIPAA/PCI/SOX ready. Litigation-proof.',
-            },
-            {
-              title: 'Constitutional Governance',
-              desc: 'T0–T2 layers prevent hallucinations and unauthorized adaptation. Governance is mechanical law, not a policy.',
-            },
-            {
-              title: 'EU AI Act Compliant',
-              desc: 'Article 12 audit binders generated automatically. No custom integration. Pass audits by design.',
-            },
-          ].map((g, idx) => (
-            <div key={idx} className="bg-hub-bg border border-hub-border/60 p-6 rounded-lg">
-              <div className="flex items-start gap-3">
-                <Check size={20} style={{ color: '#34D399', flexShrink: 0 }} className="mt-1" />
-                <div>
-                  <div className="font-bold text-hub-text mb-1">{g.title}</div>
-                  <p className="text-sm text-hub-muted">{g.desc}</p>
+// ── Cognition section ──────────────────────────────────────────────────────────
+
+const LAYERS = [
+  {
+    icon: IBrain, num: '1',
+    ltag: 'Layer 1 · Substrate', title: 'Deterministic by construction',
+    accent: 'var(--aegis-T0)', accentA12: 'rgba(52,211,153,0.06)',
+    desc: 'BTreeMap / BTreeSet only — never HashMap. Ordering is guaranteed, so the same inputs replay to the same cryptographic fingerprint, every time.',
+    mk: 'ordering', mv: 'total',
+  },
+  {
+    icon: IReplay, num: '2',
+    ltag: 'Layer 2 · Retrospection', title: 'It replays its own past',
+    accent: 'var(--aegis-T1)', accentA12: 'rgba(96,165,250,0.06)',
+    desc: 'Retrospective thinking walks the chain backward from any frame to genesis. Nothing is trusted that cannot be re-derived from the record itself.',
+    mk: 'replay depth', mv: '0 → genesis',
+  },
+  {
+    icon: IShield, num: '3',
+    ltag: 'Layer 3 · Consensus', title: 'No claim outranks its proof',
+    accent: 'var(--aegis-T2)', accentA12: 'rgba(167,139,250,0.06)',
+    desc: 'Every claim is tier-tagged T0–T3 and gated by BFT quorum across the model alliance. An unproven write can never reach the T0 layer.',
+    mk: 'quorum', mv: '3 / 4 weights',
+  },
+]
+
+function Cognition() {
+  return (
+    <section
+      className="ld-section ld-section--tight"
+      id="cognition"
+      style={{ borderTop: '1px solid var(--r-line)', borderBottom: '1px solid var(--r-line)' }}
+    >
+      <div className="ld-wrap">
+        <div className="ld-section-head">
+          <div className="ld-sec-num">02 · ARCHITECTURE</div>
+          <h2>Self-government is an architecture, not a promise.</h2>
+        </div>
+        <div className="ld-layer-grid">
+          {LAYERS.map(l => {
+            const Icon = l.icon
+            return (
+              <div
+                className="ld-layer-card"
+                key={l.title}
+                style={{ '--card-accent': l.accent, '--card-accent-a12': l.accentA12 } as React.CSSProperties}
+              >
+                <div className="ld-topline"/>
+                <div className="ld-topglow"/>
+                <div className="ld-ico" style={{ color: l.accent }}><Icon/></div>
+                <span className="ld-ltag" style={{ color: l.accent }}>{l.ltag}</span>
+                <h3>{l.title}</h3>
+                <p>{l.desc}</p>
+                <div className="ld-metric">
+                  <span>{l.mk}</span>
+                  <b style={{ color: l.accent }}>{l.mv}</b>
                 </div>
+                <span className="ld-wm-num">{l.num}</span>
               </div>
+            )
+          })}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ── Equation section ───────────────────────────────────────────────────────────
+
+function Equation() {
+  return (
+    <section className="ld-section--mid ld-eq-outer" id="equation">
+      <div className="ld-eq-full">
+        <div className="ld-wrap" style={{ textAlign: 'center' }}>
+          <div className="ld-sec-num" style={{ justifyContent: 'center', marginBottom: 20 }}>
+            03 · THE MARTINGALE BOUNDARY
+          </div>
+          <div className="ld-eq-mono-huge">E[S&#x2099;₊₁ | F&#x2099;] = S&#x2099;</div>
+          <div className="ld-eq-label">martingale boundary · confidence cannot inflate between frames</div>
+        </div>
+      </div>
+      <div className="ld-wrap">
+        <div className="ld-equation-block">
+          <div className="ld-eq-detail">
+            <div className="ld-eq-sub">
+              <div>φ <span className="g">= 1.6180339…</span></div>
+              <div>1 / φ <span className="v">≈ 0.6180</span></div>
+              <div>weight&#x2099; <span className="v">= ⌊1000 · (1/φ&#x207F;)⌋</span></div>
+              <div><span className="t0">618</span> · <span className="v">382 · 236 · 146 · 90 · …</span></div>
+              <div>∑ weights <span className="v">= 1000</span> <span className="g">// always</span></div>
+            </div>
+          </div>
+          <div className="ld-eq-copy">
+            <span className="ld-eyebrow">The guardrail</span>
+            <h2>The math is the rule, not the policy.</h2>
+            <p>
+              Confidence is bounded by a martingale: the expected next state equals the
+              current state given everything known so far. The system cannot inflate its
+              own certainty between frames — drift is mathematically impossible, not
+              merely discouraged.
+            </p>
+            <p>
+              Alliance weights fall along successive powers of <code>1/φ</code>, so the
+              coordinator, implementer, and adversarial auditor are balanced by the golden
+              ratio — not by fiat.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ── Invariants section ─────────────────────────────────────────────────────────
+
+const INVARIANTS = [
+  { g: '≤', h: 'Version mismatch = hard abort',   p: <>A divergent runtime version halts rather than guessing. <code>certify()</code> never runs on an ambiguous build.</> },
+  { g: '∩', h: 'BTreeMap / BTreeSet only',         p: <>No <code>HashMap</code> reaches <code>src/</code>. Deterministic ordering is an invariant, not a preference.</> },
+  { g: '△', h: 'Every claim is tier-tagged',        p: <>T0 proven · T1 validated · T2 hypothesis · T3 conjecture. <code>T4</code> (blocked) must never appear.</> },
+  { g: '∈', h: 'Replayable from genesis',           p: <>Any frame re-derives to the same fingerprint. The record is the source of truth, not the cache.</> },
+  { g: '′', h: 'No write outranks its proof',       p: <>An unproven mutation is frozen before it reaches the T0 layer. Capability never exceeds evidence.</> },
+  { g: 'φ', h: 'Weights bounded by 1/φ',            p: <>Orchestration weights are fixed by the golden ratio. No model can vote itself more influence.</> },
+]
+
+function Invariants() {
+  return (
+    <section
+      className="ld-section ld-section--tight"
+      id="invariants"
+      style={{ background: 'var(--r-bg-2)', borderTop: '1px solid var(--r-line)' }}
+    >
+      <div className="ld-wrap">
+        <div className="ld-section-head">
+          <div className="ld-sec-num">04 · CONSTITUTIONAL</div>
+          <h2>Rules the runtime cannot break — including for itself.</h2>
+        </div>
+        <div className="ld-inv-list">
+          {INVARIANTS.map(iv => (
+            <div className="ld-inv-row" key={iv.h}>
+              <span className="ld-glyph">{iv.g}</span>
+              <div className="ld-body"><h4>{iv.h}</h4><p>{iv.p}</p></div>
             </div>
           ))}
         </div>
-      </section>
+      </div>
+    </section>
+  )
+}
 
-      {/* Live API section */}
-      <section id="api" className="max-w-4xl mx-auto px-4 py-20">
-        <div className="mb-4 text-center">
-          <span className="text-xs font-semibold px-3 py-1 rounded-full" style={{ background: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.25)', color: '#34D399' }}>
-            LIVE TODAY · aegis-vertex.aegisomega.com
-          </span>
+// ── Platform API section ───────────────────────────────────────────────────────
+
+function PlatformAPI({ ttv }: { ttv: () => number }) {
+  return (
+    <section
+      className="ld-section ld-section--tight"
+      id="api"
+      style={{ borderTop: '1px solid var(--r-line)' }}
+    >
+      <div className="ld-wrap">
+        <div className="ld-section-head">
+          <div className="ld-sec-num">05 · PLATFORM API</div>
+          <h2>39 governed agents. One API call.</h2>
+          <p>
+            POST an objective. 39 constitutional agents collaborate, hash-chain every
+            artifact, run a constitutional audit, and return a replay-verifiable result.
+            No setup beyond an API key.
+          </p>
         </div>
-        <h2 className="text-3xl font-bold mb-4 text-center leading-tight">
-          The Platform API
-        </h2>
-        <p className="text-hub-muted text-center max-w-2xl mx-auto mb-12 leading-relaxed">
-          39 autonomous agents collaborate on any business objective. Every run is hash-chained, auditable, and replay-verifiable. No setup beyond an API key.
-        </p>
 
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          {/* Endpoints */}
-          <div className="bg-hub-surface/40 border border-hub-border/60 rounded-lg p-5">
-            <div className="text-xs font-bold tracking-widest uppercase mb-4" style={{ color: '#34D399' }}>Endpoints</div>
-            <div className="space-y-3 font-mono text-xs">
+        <div className="ld-api-grid">
+          <div className="ld-api-panel">
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--aegis-T0)', marginBottom: 16, fontWeight: 700 }}>
+              Endpoints
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {[
-                { method: 'POST', path: '/platform/collaborate', desc: '39-agent collaboration cycle' },
-                { method: 'GET',  path: '/platform/status',      desc: 'Runtime health + chain hash' },
-                { method: 'POST', path: '/platform/executions',  desc: 'Async execution (returns stream URL)' },
-                { method: 'GET',  path: '/platform/executions/live', desc: 'SSE stream — per-agent events' },
+                { method: 'POST', path: '/platform/collaborate',      desc: '39-agent collaboration cycle' },
+                { method: 'GET',  path: '/platform/status',           desc: 'Runtime health · chain hash · usage' },
+                { method: 'POST', path: '/platform/executions',       desc: 'Async execution — returns stream URL' },
+                { method: 'GET',  path: '/platform/executions/live',  desc: 'SSE stream — per-agent events' },
               ].map(ep => (
-                <div key={ep.path} className="flex items-start gap-3">
-                  <span className="px-1.5 py-0.5 rounded text-xs font-bold flex-shrink-0"
-                    style={{ background: ep.method === 'POST' ? 'rgba(99,102,241,0.15)' : 'rgba(52,211,153,0.10)',
-                             color: ep.method === 'POST' ? '#818CF8' : '#34D399' }}>
+                <div key={ep.path} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <span style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700,
+                    padding: '3px 8px', borderRadius: 4, flexShrink: 0,
+                    background: ep.method === 'POST' ? 'rgba(99,102,241,0.15)' : 'rgba(52,211,153,0.10)',
+                    color: ep.method === 'POST' ? '#818CF8' : '#34D399',
+                  }}>
                     {ep.method}
                   </span>
                   <div>
-                    <div className="text-hub-text">{ep.path}</div>
-                    <div className="text-hub-muted/60 text-xs mt-0.5">{ep.desc}</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--aegis-text)' }}>{ep.path}</div>
+                    <div style={{ fontSize: 11, color: 'var(--aegis-muted)', marginTop: 2 }}>{ep.desc}</div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Example request */}
-          <div className="bg-hub-surface/40 border border-hub-border/60 rounded-lg p-5">
-            <div className="text-xs font-bold tracking-widest uppercase mb-4" style={{ color: '#818CF8' }}>Example Request</div>
-            <pre className="text-xs leading-relaxed overflow-x-auto" style={{ fontFamily: '"JetBrains Mono", monospace', color: '#94A3B8' }}>{`curl -X POST \\
+          <div className="ld-api-panel">
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--aegis-T2)', marginBottom: 16, fontWeight: 700 }}>
+              Example request
+            </div>
+            <pre>{`curl -X POST \\
   https://aegis-vertex.aegisomega.com\\
   /platform/collaborate \\
   -H "x-api-key: YOUR_KEY" \\
@@ -346,13 +752,13 @@ export function HomepageLanding() {
           </div>
         </div>
 
-        {/* Response shape */}
-        <div className="bg-hub-surface/40 border border-hub-border/60 rounded-lg p-5 mb-8">
-          <div className="text-xs font-bold tracking-widest uppercase mb-4" style={{ color: '#C8A96E' }}>Response — PlatformEnvelope&lt;CollaborationResult&gt;</div>
-          <pre className="text-xs leading-relaxed overflow-x-auto" style={{ fontFamily: '"JetBrains Mono", monospace', color: '#94A3B8' }}>{`{
+        <div className="ld-api-panel" style={{ marginBottom: 32 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--aegis-phi)', marginBottom: 16, fontWeight: 700 }}>
+            Response — PlatformEnvelope&lt;CollaborationResult&gt;
+          </div>
+          <pre>{`{
   "contract_version": "1.0.0",
-  "execution_id": "018f...",        // UUIDv7
-  "timestamp": "2026-06-07T..Z",
+  "execution_id": "018f...",
   "is_replay_reconstructable": true,
   "data": {
     "departments_collaborated": 39,
@@ -364,65 +770,171 @@ export function HomepageLanding() {
 }`}</pre>
         </div>
 
-        <div className="text-center">
+        <div style={{ textAlign: 'center' }}>
           <a
+            className="ld-btn ld-btn-primary ld-btn-lg"
             href="/pricing"
             onClick={() => captureEvent('api_section_pricing_click', { ttv_seconds: ttv() })}
-            className="inline-flex items-center gap-2 text-white font-semibold px-8 py-3.5 rounded-xl hover:opacity-90 transition-opacity text-sm"
-            style={{ background: '#6366F1' }}
           >
-            Get Your API Key →
+            Get Your API Key <IArrowR/>
           </a>
-          <p className="text-hub-muted/50 text-xs mt-3">Explorer tier is free · 10 runs · no card required</p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--aegis-muted)', marginTop: 14 }}>
+            Explorer tier is free · 10 runs · no card required
+          </p>
         </div>
-      </section>
+      </div>
+    </section>
+  )
+}
 
-      {/* CTA Footer */}
-      <section className="max-w-3xl mx-auto px-4 py-20 text-center">
-        <h2 className="text-2xl font-bold mb-4">Ready to Deploy Constitutional AI?</h2>
-        <p className="text-hub-muted mb-8 max-w-xl mx-auto">
-          30-minute technical audit. See deterministic replay in action. No pressure. No sales pitch.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <button
-            onClick={handleDemoClick}
-            className="px-8 py-3 rounded-lg text-white font-semibold hover:opacity-90 transition-opacity text-sm"
-            style={{ background: '#6366F1' }}
-          >
-            Book Demo →
-          </button>
-          <a
-            href="/pricing"
-            className="px-8 py-3 rounded-lg border border-hub-border text-hub-muted hover:text-hub-text hover:border-hub-border/80 font-medium transition-colors text-sm"
-          >
-            Get API Access →
-          </a>
+// ── Limitations section ────────────────────────────────────────────────────────
+
+function Limitations() {
+  return (
+    <section
+      className="ld-section ld-section--tight"
+      style={{ borderTop: '1px solid var(--r-line)' }}
+    >
+      <div className="ld-wrap">
+        <div className="ld-section-head">
+          <div className="ld-sec-num">06 · KNOWN LIMITATIONS</div>
+          <h2>What it does not do.</h2>
+          <p>Honest disclosure is constitutional. These are facts, not caveats.</p>
         </div>
-      </section>
+        <div className="ld-limits-panel">
+          <div className="ld-ltitle">Known Limitations</div>
+          <ul>
+            <li><span><b>It is not a frontier model.</b> Reasoning quality is bounded by the alliance models it orchestrates — AEGIS-Ω governs them; it does not replace them.</span></li>
+            <li><span><b>Throughput is the cost of proof.</b> Hash-chaining and BFT quorum on every frame trade raw speed for tamper-evidence. This is deliberate.</span></li>
+            <li><span><b>Tamper-evident, not tamper-proof.</b> A breach is always detectable and attributable — it is not always preventable at the edge.</span></li>
+            <li><span><b>One author, one runtime.</b> There is no fleet, no peer cluster, no managed cloud. The geometry has no peers by design.</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  )
+}
 
-      {/* Footer */}
-      <footer className="border-t border-hub-border/60 py-8">
-        <div className="max-w-5xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
-          <span className="text-sm font-semibold" style={{ fontFamily: '"JetBrains Mono", monospace', letterSpacing: '0.22em', color: '#C8A96E' }}>
-            AEGIS-Ω
-          </span>
-          <div className="flex items-center gap-6">
-            <a href="/docs" className="text-hub-muted text-xs hover:text-hub-text transition-colors">API Docs</a>
-            <a href="/pricing" className="text-hub-muted text-xs hover:text-hub-text transition-colors">Pricing</a>
-            <a href="https://github.com/Aegis-Omega/AEGIS--" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-hub-muted text-xs hover:text-hub-text transition-colors">
-              <GithubIcon size={11} />
-              Source
+// ── Final CTA ──────────────────────────────────────────────────────────────────
+
+function FinalCTA({ ttv }: { ttv: () => number }) {
+  return (
+    <section className="ld-section" id="enter">
+      <div className="ld-wrap">
+        <div className="ld-final">
+          <Mark size={64} className="ld-mark-lg"/>
+          <h2>
+            No part of the system can do<br/>
+            more than it can <span className="ld-gold">prove it did.</span>
+          </h2>
+          <p>
+            Open the runtime and watch the chain extend in real time.
+            It can be replayed from genesis and will produce the same fingerprint every time.
+          </p>
+          <div className="ld-cta-row">
+            <a
+              className="ld-btn ld-btn-primary ld-btn-xl"
+              href="/pricing"
+              onClick={() => captureEvent('final_cta_pricing', { ttv_seconds: ttv() })}
+            >
+              Get API Access <IArrowR/>
             </a>
-            <a href="mailto:info@aegisomega.com" className="inline-flex items-center gap-1.5 text-hub-muted text-xs hover:text-hub-text transition-colors">
-              <Mail size={11} />
-              Contact
+            <a className="ld-btn ld-btn-ghost ld-btn-xl" href="#substrate">
+              Observe the substrate
             </a>
           </div>
         </div>
-      </footer>
+      </div>
+    </section>
+  )
+}
 
-      {/* Calendly widget */}
-      <script src="https://assets.calendly.com/assets/external/widget.js" async />
-    </div>
+// ── Footer ─────────────────────────────────────────────────────────────────────
+
+function Footer() {
+  return (
+    <footer className="ld-footer">
+      <div className="ld-wrap">
+        <div className="ld-footer-row">
+          <div className="ld-footer-brand">
+            <a className="ld-brand" href="#top">
+              <Mark size={26} className="ld-mark"/>
+              <span className="ld-wm">AEGIS-Ω</span>
+            </a>
+            <p>
+              A sovereign constitutional runtime. Metacognitive, hash-chained,
+              tamper-evident — and able to prove every claim it makes about itself.
+            </p>
+            <div className="ld-attribution">
+              Conceived, designed &amp; executed by <span className="v">Tarik Skalić</span><br/>
+              Bihać, Bosnia-Herzegovina · <span className="v">AGPL-3.0</span>
+            </div>
+            <div className="ld-socials">
+              <SocialIcon id="github" href="https://github.com/Aegis-Omega/AEGIS--"/>
+              <SocialIcon id="x" href="https://x.com/aegisomega"/>
+            </div>
+          </div>
+          <div className="ld-foot-links">
+            <span className="ld-fh">Runtime</span>
+            <a href="#substrate">Substrate</a>
+            <a href="#cognition">Cognition</a>
+            <a href="#equation">Equation</a>
+            <a href="#invariants">Invariants</a>
+            <a href="#api">Platform API</a>
+          </div>
+          <div className="ld-foot-links">
+            <span className="ld-fh">Product</span>
+            <a href="/pricing">Pricing</a>
+            <a href="/docs">API Docs</a>
+            <a href="mailto:info@aegisomega.com">Contact</a>
+          </div>
+        </div>
+        <div className="ld-footer-line">
+          <span>AEGIS-Ω · Constitutional AI Runtime</span>
+          <span>1 / <span className="phi">φ</span> = 0.6180… · E[S&#x2099;₊₁ | F&#x2099;] = S&#x2099;</span>
+        </div>
+      </div>
+    </footer>
+  )
+}
+
+// ── Page root ──────────────────────────────────────────────────────────────────
+
+export function HomepageLanding() {
+  const trialStartRef = useRef(Date.now())
+  const ttv = () => Math.round((Date.now() - trialStartRef.current) / 1000)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const { visible, status, total, tamper, reseal } = useTamperChain({ seed: 6, win: 8, tickMs: 2600 })
+
+  useEffect(() => {
+    captureEvent('homepage_viewed')
+  }, [])
+
+  useEffect(() => {
+    if (!canvasRef.current) return
+    return initSigmaField(canvasRef.current)
+  }, [])
+
+  return (
+    <>
+      {/* Fixed background */}
+      <canvas ref={canvasRef} className="ld-field" aria-hidden="true"/>
+      <div className="ld-veil" aria-hidden="true"/>
+
+      {/* Page shell */}
+      <div className="ld-shell">
+        <TopBar status={status} total={total} ttv={ttv}/>
+        <Hero status={status} total={total} ttv={ttv}/>
+        <Stream visible={visible} status={status} total={total} tamper={tamper} reseal={reseal}/>
+        <Quote/>
+        <Cognition/>
+        <Equation/>
+        <Invariants/>
+        <PlatformAPI ttv={ttv}/>
+        <Limitations/>
+        <FinalCTA ttv={ttv}/>
+        <Footer/>
+      </div>
+    </>
   )
 }

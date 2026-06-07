@@ -1,97 +1,176 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+/* Local fonts — no network dependency at runtime */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Inter-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Inter-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/JetBrainsMono-Bold.woff2') format('woff2');
+}
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
+  /* ── Neutrals ─────────────────────────────────────────────── */
+  --aegis-void:          #0A0A0C;
+  --aegis-deep:          #0C0C0E;
+  --aegis-bg:            #0F0F11;
+  --aegis-surface:       #141416;
+  --aegis-card:          #1A1A1E;
+  --aegis-hover:         #1E1E26;
+  --aegis-active:        #22222C;
+  --aegis-border-subtle: #17171A;
+  --aegis-border:        #1E1E22;
+  --aegis-border-medium: #27272D;
+  --aegis-border-strong: #3F3F46;
+
+  /* ── Text ─────────────────────────────────────────────────── */
+  --aegis-text:      #ECEAE3;
+  --aegis-secondary: #A1A1AA;
+  --aegis-muted:     #6B6B7A;
+  --aegis-disabled:  #3F3F46;
+
+  /* ── Phi gold ─────────────────────────────────────────────── */
   --aegis-phi:      #C8A96E;
   --aegis-phi-glow: #D4AF7A;
+  --aegis-phi-deep: #8B7050;
   --aegis-phi-bg:   #3D3020;
-  --aegis-T0:       #34D399;
-  --aegis-T1:       #60A5FA;
-  --aegis-T2:       #A78BFA;
-  --aegis-muted:    #6B6B7A;
-  --aegis-border:   #1E1E22;
+
+  /* ── Epistemic tiers ──────────────────────────────────────── */
+  --aegis-T0: #34D399;
+  --aegis-T1: #60A5FA;
+  --aegis-T2: #A78BFA;
+  --aegis-T3: #F59E0B;
+  --aegis-T4: #F87171;
+
+  /* ── Semantic state ───────────────────────────────────────── */
+  --aegis-ok:    #34D399;
+  --aegis-warn:  #C8A96E;
+  --aegis-error: #F87171;
+  --aegis-info:  #60A5FA;
+
+  /* ── Attention (use sparingly) ────────────────────────────── */
+  --attn-dopamine:   #FFB800;
+  --attn-gaze:       #FF4D00;
+  --attn-affordance: #00FF94;
+
+  /* ── Alliance weights ─────────────────────────────────────── */
+  --alliance-claude:   #60A5FA;
+  --alliance-qwen:     #A78BFA;
+  --alliance-chatgpt:  #34D399;
+  --alliance-guardian: #C8A96E;
+
+  /* ── Hub surface ──────────────────────────────────────────── */
+  --hub-bg:      #08090C;
+  --hub-surface: #0F1117;
+  --hub-border:  #1A1D27;
+  --hub-text:    #EDEAE3;
+  --hub-muted:   #6B6E80;
+  --hub-accent:  #6366F1;
+  --hub-glow:    #818CF8;
+
+  /* ── Runtime landing (AEGIS 2.0 void) ────────────────────── */
+  --r-bg:        #07070A;
+  --r-bg-2:      #09090C;
+  --r-bg-3:      #0B0B0F;
+  --r-surface:   #0F0F13;
+  --r-surface-2: #131318;
+  --r-line:      #18181E;
+  --r-line-soft: #111116;
+  --r-line-lit:  #22222A;
+  --r-line-gold: rgba(200,169,110,0.10);
+
+  /* ── Fonts ────────────────────────────────────────────────── */
+  --font-sans:    'Inter', 'Geist Sans', system-ui, -apple-system, sans-serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  --font-display: 'Inter', system-ui, sans-serif;
+  --font-numeric: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* ── Glow presets ─────────────────────────────────────────── */
+  --phi-glow-sm: 0 0 20px rgba(200,169,110,0.30);
+  --phi-glow-md: 0 0 40px rgba(200,169,110,0.30), 0 0 80px rgba(200,169,110,0.10);
+  --phi-glow-lg: 0 0 60px rgba(200,169,110,0.40), 0 0 120px rgba(200,169,110,0.15), 0 0 200px rgba(200,169,110,0.05);
+  --shadow-phi:  0 0 12px rgba(200,169,110,0.18);
 }
 
 * { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
 
-body {
+html, body {
   margin: 0;
-  background: #08090C;
-  color: #ECEAE3;
-  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--r-bg);
+  color: var(--aegis-text);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   font-size: 14px;
 }
 
+body { overflow-x: hidden; }
+a { color: inherit; text-decoration: none; }
+::selection { background: rgba(200,169,110,0.22); color: var(--aegis-text); }
+
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #1E1E22; border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: var(--aegis-border); border-radius: 4px; }
 
+/* ── Animations ─────────────────────────────────────────────── */
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes breathe {
   0%, 100% { transform: scale(1);     filter: drop-shadow(0 0 8px rgba(200,169,110,0.25)); }
   50%       { transform: scale(1.04); filter: drop-shadow(0 0 18px rgba(200,169,110,0.55)); }
 }
-
+@keyframes breathe-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
 @keyframes mintPulse {
   0%, 100% { opacity: 1;   box-shadow: 0 0 8px rgba(0,255,148,0.6); }
   50%       { opacity: 0.6; box-shadow: 0 0 16px rgba(0,255,148,0.9); }
 }
+@keyframes orbit-cw  { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes orbit-ccw { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+@keyframes arch-pulse     { 0%,100% { opacity: 0.5; } 50% { opacity: 0.9; } }
+@keyframes interior-glow  { 0%,100% { opacity: 0.3; transform: scaleY(0.95); } 50% { opacity: 0.7; transform: scaleY(1.05); } }
+@keyframes tendril-drift  { 0%,100% { opacity: 0.35; transform: scaleX(1) scaleY(1); } 50% { opacity: 0.70; transform: scaleX(1.08) scaleY(0.94); } }
+@keyframes hash-flicker   { 0%,90%,100% { opacity: 1; } 92% { opacity: 0.4; } 96% { opacity: 0.9; } }
+@keyframes fresh-row      { from { background: rgba(200,169,110,0.06); } to { background: transparent; } }
 
-.animate-fade-up    { animation: fade-up 0.5s ease-out both; }
-.animate-breathe    { animation: breathe 5.5s ease-in-out infinite; }
-.animate-mint-pulse { animation: mintPulse 2.4s ease-in-out infinite; }
+.animate-fade-up       { animation: fade-up 0.5s ease-out both; }
+.animate-breathe       { animation: breathe 5.5s ease-in-out infinite; }
+.animate-breathe-dot   { animation: breathe-dot 2.4s ease-in-out infinite; }
+.animate-mint-pulse    { animation: mintPulse 2.4s ease-in-out infinite; }
+.animate-arch-pulse    { animation: arch-pulse    3.8s ease-in-out infinite; }
+.animate-interior-glow { animation: interior-glow 4.2s ease-in-out infinite; }
+.animate-tendril-drift { animation: tendril-drift 6.0s ease-in-out infinite; }
+.animate-hash-flicker  { animation: hash-flicker  4.0s ease-in-out infinite; }
 
 .delay-100 { animation-delay: 100ms; }
 .delay-200 { animation-delay: 200ms; }
 .delay-300 { animation-delay: 300ms; }
 .delay-400 { animation-delay: 400ms; }
-
-/* ── Constitutional portal animations ──────────────────────── */
-
-@keyframes orbit-cw {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-@keyframes orbit-ccw {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(-360deg); }
-}
-@keyframes arch-pulse {
-  0%,100% { opacity: 0.5; }
-  50%     { opacity: 0.9; }
-}
-@keyframes interior-glow {
-  0%,100% { opacity: 0.3; transform: scaleY(0.95); }
-  50%     { opacity: 0.7; transform: scaleY(1.05); }
-}
-@keyframes gold-flow {
-  0%   { stroke-dashoffset: 2000; opacity: 0.5; }
-  50%  { opacity: 0.9; }
-  100% { stroke-dashoffset: 0;    opacity: 0.5; }
-}
-@keyframes galaxy-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-@keyframes tendril-drift {
-  0%,100% { opacity: 0.35; transform: scaleX(1)   scaleY(1); }
-  50%     { opacity: 0.70; transform: scaleX(1.08) scaleY(0.94); }
-}
-@keyframes hash-flicker {
-  0%,90%,100% { opacity: 1; }
-  92%         { opacity: 0.4; }
-  96%         { opacity: 0.9; }
-}
-
-.animate-arch-pulse    { animation: arch-pulse    3.8s ease-in-out infinite; }
-.animate-interior-glow { animation: interior-glow 4.2s ease-in-out infinite; }
-.animate-tendril-drift { animation: tendril-drift 6.0s ease-in-out infinite; }
-.animate-hash-flicker  { animation: hash-flicker  4.0s ease-in-out infinite; }
