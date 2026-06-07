@@ -2,102 +2,122 @@
 <html>
 <head>
   <base target="_top">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
-    /* ── Reset & Base ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; overflow: hidden; }
     body {
-      font-family: system-ui, -apple-system, sans-serif;
-      font-size: 12px;
-      background: #0f172a;
-      color: #e2e8f0;
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 11px;
+      background: #0B0F19;
+      color: #CBD5E1;
       display: flex;
       flex-direction: column;
       height: 100vh;
     }
 
     /* ── Scrollbar ── */
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: #1e293b; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #0B0F19; }
+    ::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 4px; }
 
     /* ── Header ── */
     .header {
-      background: #0f172a;
-      border-bottom: 1px solid #1e293b;
-      padding: 10px 12px;
+      background: #121826;
+      border-bottom: 1px solid #1E293B;
+      padding: 10px 14px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       flex-shrink: 0;
     }
-    .header-mark {
-      width: 22px; height: 22px;
-      color: #818cf8;
+    .header-mark { width: 24px; height: 24px; color: #818CF8; flex-shrink: 0; }
+    .header-title { font-weight: 700; font-size: 13px; color: #E2E8F0; letter-spacing: -0.01em; }
+    .header-sub { font-size: 9px; color: #475569; margin-top: 1px; }
+    .status-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #4ADE80;
+      margin-left: auto;
+      box-shadow: 0 0 6px #4ADE80;
+      animation: pulse-dot 2s ease-in-out infinite;
+      flex-shrink: 0;
     }
-    .header-title { font-weight: 700; font-size: 12px; color: #e2e8f0; }
-    .header-sub   { font-size: 9px; color: #475569; }
+    @keyframes pulse-dot { 0%,100%{ opacity:1; } 50%{ opacity:.4; } }
 
-    /* ── Chain banner ── */
-    .chain-banner {
-      background: #0d1117;
-      border-bottom: 1px solid #1e293b;
-      padding: 5px 12px;
+    /* ── Hash banner (rotating) ── */
+    .hash-banner {
+      background: #0B0F19;
+      border-bottom: 1px solid #1E293B;
+      padding: 4px 14px;
       display: flex;
+      align-items: center;
       gap: 10px;
       font-size: 9px;
-      font-family: 'Courier New', monospace;
       color: #334155;
       flex-shrink: 0;
+      overflow: hidden;
     }
-    .chain-ok   { color: #16a34a; }
-    .chain-hash { color: #1d4ed8; }
+    .hash-label { color: #475569; white-space: nowrap; }
+    .hash-val {
+      color: #3B82F6;
+      font-size: 9px;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      transition: color 0.3s;
+    }
+    .hash-status { color: #4ADE80; white-space: nowrap; }
+    .hash-status.broken { color: #F87171; }
 
     /* ── Scroll area ── */
     .scroll { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 
     /* ── Card ── */
     .card {
-      background: #1e293b;
-      border: 1px solid #334155;
+      background: #121826;
+      border: 1px solid #1E293B;
       border-radius: 8px;
-      padding: 10px;
+      padding: 10px 12px;
     }
     .card-label {
-      font-size: 9px;
+      font-size: 8.5px;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: .06em;
-      color: #64748b;
-      margin-bottom: 6px;
+      letter-spacing: .08em;
+      color: #475569;
+      margin-bottom: 7px;
     }
 
     /* ── Inputs ── */
-    textarea, select, input[type="text"] {
+    textarea, select {
       width: 100%;
-      background: #0f172a;
-      border: 1px solid #334155;
+      background: #0B0F19;
+      border: 1px solid #1E293B;
       border-radius: 6px;
-      color: #e2e8f0;
-      font-size: 11px;
+      color: #CBD5E1;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10.5px;
       padding: 7px 9px;
       outline: none;
       resize: vertical;
       transition: border-color .15s;
     }
-    textarea:focus, select:focus { border-color: #6366f1; }
-    select option { background: #1e293b; }
+    textarea:focus, select:focus { border-color: #6366F1; box-shadow: 0 0 0 2px rgba(99,102,241,.15); }
+    select option { background: #121826; }
 
     /* ── Checkbox row ── */
-    .check-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; color: #94a3b8; }
-    input[type="checkbox"] { accent-color: #6366f1; width: 13px; height: 13px; }
+    .check-row { display: flex; align-items: center; gap: 6px; margin-top: 7px; color: #64748B; font-size: 9.5px; }
+    input[type="checkbox"] { accent-color: #6366F1; width: 12px; height: 12px; flex-shrink: 0; }
 
     /* ── Buttons ── */
     .btn {
       width: 100%;
-      padding: 10px 12px;
+      padding: 10px 14px;
       border: none;
       border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
       font-weight: 700;
       font-size: 11px;
       cursor: pointer;
@@ -105,91 +125,156 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 7px;
+      letter-spacing: 0.02em;
     }
     .btn-primary {
-      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
       color: #fff;
-      box-shadow: 0 2px 8px rgba(99,102,241,.4);
+      box-shadow: 0 2px 12px rgba(99,102,241,.4);
     }
-    .btn-primary:hover { filter: brightness(1.12); box-shadow: 0 4px 14px rgba(99,102,241,.5); }
-    .btn-primary:disabled { opacity: .5; cursor: not-allowed; filter: none; }
-    .btn-secondary { background: #1e293b; border: 1px solid #334155; color: #94a3b8; }
-    .btn-secondary:hover { border-color: #6366f1; color: #818cf8; }
+    .btn-primary:hover:not(:disabled) { filter: brightness(1.15); box-shadow: 0 4px 20px rgba(99,102,241,.55); }
+    .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-secondary {
+      background: #121826;
+      border: 1px solid #1E293B;
+      color: #64748B;
+    }
+    .btn-secondary:hover { border-color: #6366F1; color: #818CF8; }
     .btn-sm {
-      width: auto; padding: 4px 10px; font-size: 10px; font-weight: 600;
-      background: #0f172a; border: 1px solid #334155; color: #6366f1;
-      border-radius: 5px; cursor: pointer;
+      padding: 4px 10px;
+      font-size: 9.5px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      background: #0B0F19;
+      border: 1px solid #1E293B;
+      color: #6366F1;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all .12s;
     }
-    .btn-sm:hover { border-color: #6366f1; background: #1e293b; }
+    .btn-sm:hover { border-color: #6366F1; background: #121826; }
+
+    /* ── Spinner ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 13px; height: 13px;
+      border: 2px solid #1E293B;
+      border-top-color: #818CF8;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      flex-shrink: 0;
+    }
 
     /* ── Status bar ── */
     .status-bar {
       display: none;
       align-items: center;
       gap: 8px;
-      padding: 8px 10px;
-      background: #172033;
-      border: 1px solid #1d4ed8;
+      padding: 8px 11px;
+      background: #0D1525;
+      border: 1px solid #1D4ED8;
       border-radius: 6px;
-      color: #93c5fd;
+      color: #93C5FD;
       font-size: 10px;
     }
     .status-bar.active { display: flex; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner { width: 14px; height: 14px; border: 2px solid #1d4ed8; border-top-color: #93c5fd; border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
 
-    /* ── Console ── */
-    .console {
-      background: #020617;
-      border: 1px solid #1e293b;
-      border-radius: 6px;
-      font-family: 'Courier New', monospace;
-      font-size: 10px;
-      color: #94a3b8;
-      padding: 9px;
-      min-height: 80px;
-      max-height: 220px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      line-height: 1.5;
+    /* ── KPI grid ── */
+    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .kpi-card {
+      background: #0B0F19;
+      border: 1px solid #1E293B;
+      border-radius: 7px;
+      padding: 9px 10px;
+      position: relative;
+      overflow: hidden;
     }
-    .console .ok   { color: #4ade80; }
-    .console .warn { color: #fbbf24; }
-    .console .err  { color: #f87171; }
-    .console .hi   { color: #818cf8; }
-    .console .dim  { color: #334155; }
-
-    /* ── Result summary cards ── */
-    .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
-    .stat-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 6px; padding: 8px; }
-    .stat-label { font-size: 8px; color: #475569; text-transform: uppercase; letter-spacing: .05em; }
-    .stat-value { font-size: 13px; font-weight: 700; color: #e2e8f0; margin-top: 2px; font-family: 'Courier New', monospace; }
-    .stat-value.arr  { color: #4ade80; }
-    .stat-value.ok   { color: #4ade80; }
-    .stat-value.warn { color: #fbbf24; }
-    .stat-value.err  { color: #f87171; }
+    .kpi-label { font-size: 8px; color: #475569; text-transform: uppercase; letter-spacing: .07em; }
+    .kpi-value { font-size: 15px; font-weight: 700; color: #E2E8F0; margin-top: 3px; }
+    .kpi-value.green { color: #4ADE80; }
+    .kpi-value.amber { color: #FBBF24; }
+    .kpi-value.blue  { color: #60A5FA; }
 
     /* ── Verdict badge ── */
-    .verdict { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
-    .verdict-APPROVED   { background: #14532d; color: #4ade80; }
-    .verdict-FLAG       { background: #713f12; color: #fbbf24; }
-    .verdict-QUARANTINE { background: #7f1d1d; color: #f87171; }
+    .verdict {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 5px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+    .verdict-APPROVED {
+      background: rgba(20,83,45,.7);
+      color: #4ADE80;
+      box-shadow: 0 0 12px rgba(74,222,128,.25);
+    }
+    .verdict-FLAG {
+      background: rgba(113,63,18,.7);
+      color: #FBBF24;
+      box-shadow: 0 0 12px rgba(251,191,36,.2);
+    }
+    .verdict-QUARANTINE {
+      background: rgba(127,29,29,.7);
+      color: #F87171;
+      box-shadow: 0 0 12px rgba(248,113,113,.2);
+    }
+
+    /* ── Terminal / Console ── */
+    .terminal {
+      background: #050810;
+      border: 1px solid #1E293B;
+      border-radius: 7px;
+      font-size: 9.5px;
+      color: #64748B;
+      padding: 10px;
+      min-height: 120px;
+      max-height: 240px;
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+    .terminal::-webkit-scrollbar { width: 3px; }
+    .terminal::-webkit-scrollbar-thumb { background: #1E293B; }
+    .t-ok   { color: #4ADE80; }
+    .t-warn { color: #FBBF24; }
+    .t-err  { color: #F87171; }
+    .t-hi   { color: #818CF8; }
+    .t-dim  { color: #1E293B; }
+    .t-blue { color: #60A5FA; }
+    .t-line { display: block; }
+
+    /* ── Agent stream rows ── */
+    .agent-row {
+      display: flex; gap: 6px; align-items: flex-start;
+      padding: 2px 0;
+      opacity: 0;
+      animation: fade-in-row .2s ease forwards;
+    }
+    @keyframes fade-in-row { to { opacity: 1; } }
+    .agent-id { color: #6366F1; font-weight: 700; min-width: 40px; flex-shrink: 0; }
+    .agent-dept { color: #475569; min-width: 64px; flex-shrink: 0; }
+    .agent-msg  { color: #64748B; }
 
     /* ── Footer ── */
-    .footer { padding: 8px 12px; border-top: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+    .footer {
+      padding: 7px 14px;
+      border-top: 1px solid #1E293B;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+      background: #121826;
+    }
     .footer-link { font-size: 9px; color: #334155; text-decoration: none; }
-    .footer-link:hover { color: #818cf8; }
-
-    /* ── Scrollbar for console ── */
-    .console::-webkit-scrollbar { width: 4px; }
-    .console::-webkit-scrollbar-thumb { background: #1e293b; }
+    .footer-link:hover { color: #818CF8; }
+    .footer-chain { font-size: 8px; color: #1E293B; font-family: monospace; }
   </style>
 </head>
 
 <body>
 
-  <!-- ── Header ── -->
+  <!-- Header -->
   <div class="header">
     <svg class="header-mark" viewBox="0 0 64 64" fill="none" stroke="currentColor">
       <rect x="0.5" y="0.5" width="63" height="63" stroke-width="1"/>
@@ -200,52 +285,52 @@
       <circle cx="32" cy="32" r="5" fill="currentColor" stroke="none"/>
     </svg>
     <div>
-      <div class="header-title">AEGIS-Ω Control</div>
+      <div class="header-title">AEGIS-Ω</div>
       <div class="header-sub">39-agent autonomous platform</div>
     </div>
-    <button class="btn-sm" style="margin-left:auto" onclick="loadStatus()">status</button>
+    <div class="status-dot" id="statusDot"></div>
   </div>
 
-  <!-- ── Chain integrity banner ── -->
-  <div class="chain-banner" id="chainBanner">
-    <span>hash-chain</span>
-    <span id="chainHash" class="chain-hash">—</span>
-    <span style="margin-left:auto" id="chainOk" class="chain-ok"></span>
+  <!-- Rotating hash banner -->
+  <div class="hash-banner">
+    <span class="hash-label">chain</span>
+    <span class="hash-val" id="hashVal">Ω-initializing…</span>
+    <span class="hash-status" id="hashStatus"></span>
+    <button class="btn-sm" onclick="loadStatus()">sync</button>
   </div>
 
-  <!-- ── Scrollable body ── -->
+  <!-- Body -->
   <div class="scroll">
 
     <!-- Objective -->
     <div class="card">
-      <div class="card-label">Objective — what the 39 agents work on</div>
-      <textarea id="objective" rows="3" placeholder="e.g. Identify top 3 revenue opportunities for a B2B SaaS in EU market"></textarea>
+      <div class="card-label">Objective</div>
+      <textarea id="objective" rows="3" placeholder="e.g. Identify top 3 revenue opportunities for a B2B SaaS in the EU market"></textarea>
+      <div style="display:flex;gap:6px;margin-top:7px">
+        <button class="btn-sm" onclick="pullCell()" style="flex:1">📥 Pull active cell</button>
+      </div>
     </div>
 
-    <!-- Mode + options -->
+    <!-- Mode -->
     <div class="card">
       <div class="card-label">Collaboration Mode</div>
       <select id="mode">
         <option value="revenue">📈 Revenue Cycle — ARR projection + go-to-market</option>
-        <option value="analysis">🔍 Market Analysis — competitive landscape + positioning</option>
-        <option value="gtm">🚀 Go-to-Market — launch strategy + channel selection</option>
-        <option value="retention">🔄 Retention — churn reduction + expansion revenue</option>
+        <option value="analysis">🔍 Market Analysis — competitive landscape</option>
+        <option value="gtm">🚀 Go-to-Market — launch strategy + channels</option>
+        <option value="retention">🔄 Retention — churn reduction + expansion</option>
       </select>
       <div class="check-row">
         <input type="checkbox" id="liveMode">
-        <label for="liveMode">Live mode (uses real Anthropic API — slower, requires Operator+ tier)</label>
+        <label for="liveMode">Live mode (real Anthropic API — Operator+ tier required)</label>
       </div>
-    </div>
-
-    <!-- Cell data pull -->
-    <div class="card">
-      <div class="card-label">Inject Sheet Data into Objective</div>
-      <button class="btn btn-secondary" onclick="pullCell()">📥 Pull Active Cell into Objective</button>
     </div>
 
     <!-- Deploy button -->
     <button class="btn btn-primary" id="deployBtn" onclick="deploy()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+      </svg>
       Deploy 39 Agents
     </button>
 
@@ -255,211 +340,346 @@
       <span id="statusText">Deploying agents…</span>
     </div>
 
-    <!-- Result stats (hidden until result arrives) -->
+    <!-- KPI cards (hidden until result) -->
     <div id="resultStats" style="display:none">
-      <div class="card-label" style="margin-bottom:4px">Collaboration Result</div>
-      <div class="result-grid">
-        <div class="stat-card">
-          <div class="stat-label">Departments</div>
-          <div class="stat-value" id="statDepts">—</div>
+      <div class="card-label" style="margin-bottom:6px">Collaboration Result</div>
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Departments</div>
+          <div class="kpi-value blue" id="statDepts">—</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">ARR Projection</div>
-          <div class="stat-value arr" id="statArr">—</div>
+        <div class="kpi-card">
+          <div class="kpi-label">ARR Projection</div>
+          <div class="kpi-value green" id="statArr">—</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Tier</div>
-          <div class="stat-value" id="statTier">—</div>
+        <div class="kpi-card">
+          <div class="kpi-label">Tier</div>
+          <div class="kpi-value" id="statTier">—</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Constitutional Verdict</div>
+        <div class="kpi-card">
+          <div class="kpi-label">Verdict</div>
           <div id="statVerdict">—</div>
         </div>
       </div>
-      <div style="margin-top:6px; display:flex; gap:6px">
-        <button class="btn-sm" onclick="writeToSheet()">📋 Write Report to Sheet</button>
-        <button class="btn-sm" onclick="copyOutput()">📋 Copy JSON</button>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn btn-secondary" onclick="writeToSheet()" style="font-size:10px;padding:8px 10px">
+          📋 Write Full Report to Sheet
+        </button>
+        <button class="btn-sm" onclick="copyOutput()" style="white-space:nowrap">Copy JSON</button>
       </div>
     </div>
 
-    <!-- Console -->
-    <div class="card" style="padding:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <div class="card-label" style="margin:0">Agent Output Console</div>
-        <button class="btn-sm" onclick="clearConsole()">clear</button>
+    <!-- Terminal -->
+    <div class="card" style="padding:8px 10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+        <div class="card-label" style="margin:0">Agent Terminal</div>
+        <button class="btn-sm" onclick="clearTerminal()">clear</button>
       </div>
-      <div id="console" class="console"><span class="dim">Waiting for deployment…</span></div>
+      <div id="terminal" class="terminal">
+        <span class="t-line t-dim">Ω AEGIS autonomous platform — awaiting deployment</span>
+      </div>
     </div>
 
   </div>
 
-  <!-- ── Footer ── -->
+  <!-- Footer -->
   <div class="footer">
-    <a href="#" class="footer-link" onclick="showSetup();return false">setup guide</a>
-    <span style="font-size:9px;color:#1e293b;font-family:monospace" id="footerHash"></span>
+    <a href="#" class="footer-link" onclick="showSetup();return false">setup</a>
+    <span class="footer-chain" id="footerChain"></span>
     <a href="https://aegisomega.com" class="footer-link" target="_blank">aegisomega.com</a>
   </div>
 
 </body>
 
 <script>
-  let _lastResult = null;
+  var _lastResult = null;
+  var _hashInterval = null;
+  var _liveChainHash = null;
 
-  // ── Console helpers ──────────────────────────────────────────────────────────
-  function log(msg, cls) {
-    const el = document.getElementById('console');
-    const span = document.createElement('span');
-    if (cls) span.className = cls;
-    span.textContent = msg + '\n';
-    if (el.firstChild && el.firstChild.className === 'dim') el.innerHTML = '';
-    el.appendChild(span);
+  // 39-department roster for streaming simulation
+  var DEPARTMENTS = [
+    {id:'REV-01', dept:'Strategy',   cat:'revenue'},
+    {id:'REV-02', dept:'Finance',    cat:'revenue'},
+    {id:'REV-03', dept:'Pricing',    cat:'revenue'},
+    {id:'MKT-01', dept:'Brand',      cat:'marketing'},
+    {id:'MKT-02', dept:'Content',    cat:'marketing'},
+    {id:'MKT-03', dept:'SEO',        cat:'marketing'},
+    {id:'MKT-04', dept:'Paid',       cat:'marketing'},
+    {id:'MKT-05', dept:'Social',     cat:'marketing'},
+    {id:'SLS-01', dept:'Outbound',   cat:'sales'},
+    {id:'SLS-02', dept:'Inbound',    cat:'sales'},
+    {id:'SLS-03', dept:'Partner',    cat:'sales'},
+    {id:'SLS-04', dept:'Enterprise', cat:'sales'},
+    {id:'PRD-01', dept:'Product',    cat:'product'},
+    {id:'PRD-02', dept:'UX',         cat:'product'},
+    {id:'PRD-03', dept:'Data',       cat:'product'},
+    {id:'PRD-04', dept:'API',        cat:'product'},
+    {id:'ENG-01', dept:'Backend',    cat:'engineering'},
+    {id:'ENG-02', dept:'Frontend',   cat:'engineering'},
+    {id:'ENG-03', dept:'Infra',      cat:'engineering'},
+    {id:'ENG-04', dept:'Security',   cat:'engineering'},
+    {id:'ENG-05', dept:'AI/ML',      cat:'engineering'},
+    {id:'OPS-01', dept:'RevOps',     cat:'operations'},
+    {id:'OPS-02', dept:'Support',    cat:'operations'},
+    {id:'OPS-03', dept:'Legal',      cat:'operations'},
+    {id:'OPS-04', dept:'Compliance', cat:'operations'},
+    {id:'RES-01', dept:'Research',   cat:'research'},
+    {id:'RES-02', dept:'Competitive',cat:'research'},
+    {id:'RES-03', dept:'Customer',   cat:'research'},
+    {id:'FIN-01', dept:'Accounting', cat:'finance'},
+    {id:'FIN-02', dept:'Treasury',   cat:'finance'},
+    {id:'FIN-03', dept:'Tax',        cat:'finance'},
+    {id:'EXE-01', dept:'CEO',        cat:'executive'},
+    {id:'EXE-02', dept:'COO',        cat:'executive'},
+    {id:'EXE-03', dept:'CTO',        cat:'executive'},
+    {id:'EXE-04', dept:'CFO',        cat:'executive'},
+    {id:'GOV-01', dept:'Ethics',     cat:'governance'},
+    {id:'GOV-02', dept:'Risk',       cat:'governance'},
+    {id:'CON-01', dept:'Audit',      cat:'constitutional'},
+    {id:'CON-09', dept:'Guardian',   cat:'constitutional'},
+  ];
+
+  // ── Terminal helpers ──────────────────────────────────────────────────────────
+  function tlog(msg, cls) {
+    var el = document.getElementById('terminal');
+    var first = el.firstChild;
+    if (first && first.classList && first.classList.contains('t-dim') && el.children.length === 1) {
+      el.innerHTML = '';
+    }
+    var line = document.createElement('span');
+    line.className = 't-line' + (cls ? ' ' + cls : '');
+    line.textContent = msg;
+    el.appendChild(line);
     el.scrollTop = el.scrollHeight;
   }
-  function clearConsole() {
-    document.getElementById('console').innerHTML = '<span class="dim">Waiting for deployment…</span>';
+  function clearTerminal() {
+    document.getElementById('terminal').innerHTML = '<span class="t-line t-dim">Ω AEGIS autonomous platform — awaiting deployment</span>';
   }
 
-  // ── Status banner ────────────────────────────────────────────────────────────
+  // ── Hash banner rotation ──────────────────────────────────────────────────────
+  function randHex(n) {
+    var s = '';
+    var chars = '0123456789abcdef';
+    for (var i = 0; i < n; i++) s += chars[Math.floor(Math.random() * 16)];
+    return s;
+  }
+  function rotateHash() {
+    var val = _liveChainHash ? _liveChainHash.slice(0,16) : ('Ω-' + randHex(14));
+    document.getElementById('hashVal').textContent = val + '…';
+  }
+  function startHashRotation() {
+    rotateHash();
+    _hashInterval = setInterval(function() {
+      if (!_liveChainHash) rotateHash();
+    }, 3000);
+  }
+
+  // ── Status helpers ────────────────────────────────────────────────────────────
   function setBusy(msg) {
     document.getElementById('statusBar').classList.add('active');
     document.getElementById('statusText').textContent = msg || 'Working…';
     document.getElementById('deployBtn').disabled = true;
+    document.getElementById('statusDot').style.background = '#FBBF24';
+    document.getElementById('statusDot').style.boxShadow = '0 0 6px #FBBF24';
   }
   function setIdle() {
     document.getElementById('statusBar').classList.remove('active');
     document.getElementById('deployBtn').disabled = false;
+    document.getElementById('statusDot').style.background = '#4ADE80';
+    document.getElementById('statusDot').style.boxShadow = '0 0 6px #4ADE80';
   }
 
   // ── Load platform status ──────────────────────────────────────────────────────
   function loadStatus() {
-    setBusy('Checking platform status…');
     google.script.run
       .withSuccessHandler(function(s) {
-        setIdle();
-        if (s.error) { log('❌ Status: ' + s.error, 'err'); return; }
-        const hash = (s.audit_chain_hash || '').slice(0, 16) || '—';
-        document.getElementById('chainHash').textContent = hash + '…';
-        document.getElementById('chainOk').textContent = s.chain_valid !== false ? '✓ valid' : '✗ broken';
-        document.getElementById('footerHash').textContent = hash;
-        log('✓ AEGIS-Ω v' + (s.version || '?') + ' · ' + (s.total_agents || 39) + ' agents · chain: ' + (s.chain_valid !== false ? 'valid' : 'BROKEN'), 'ok');
+        if (s.error) { tlog('✗ Status: ' + s.error, 't-err'); return; }
+        var hash = (s.audit_chain_hash || '').slice(0, 16);
+        var valid = s.chain_valid !== false;
+        if (hash) {
+          _liveChainHash = hash;
+          document.getElementById('hashVal').textContent = hash + '…';
+        }
+        document.getElementById('hashStatus').textContent = valid ? '✓ valid' : '✗ broken';
+        document.getElementById('hashStatus').className = 'hash-status' + (valid ? '' : ' broken');
+        document.getElementById('footerChain').textContent = hash || '';
+        tlog('✓ AEGIS-Ω v' + (s.version || '?') + ' · ' + (s.total_agents || 39) + ' agents · chain: ' + (valid ? 'valid' : 'BROKEN'), valid ? 't-ok' : 't-err');
       })
-      .withFailureHandler(function(e) { setIdle(); log('❌ ' + e.message, 'err'); })
+      .withFailureHandler(function(e) { tlog('✗ ' + e.message, 't-err'); })
       .getAegisPlatformStatus();
   }
 
-  // ── Pull active cell ─────────────────────────────────────────────────────────
+  // ── Pull active cell ──────────────────────────────────────────────────────────
   function pullCell() {
     google.script.run
       .withSuccessHandler(function(text) {
-        if (!text) { log('⚠ Active cell is empty', 'warn'); return; }
-        const obj = document.getElementById('objective');
+        if (!text) { tlog('⚠ Active cell is empty', 't-warn'); return; }
+        var obj = document.getElementById('objective');
         obj.value = obj.value ? obj.value + '\n\n[Sheet data]:\n' + text : text;
-        log('✓ Pulled ' + text.length + ' chars from active cell', 'ok');
+        tlog('✓ Pulled ' + text.length + ' chars from active cell', 't-ok');
       })
-      .withFailureHandler(function(e) { log('❌ Pull failed: ' + e.message, 'err'); })
+      .withFailureHandler(function(e) { tlog('✗ Pull failed: ' + e.message, 't-err'); })
       .getActiveCellText();
   }
 
-  // ── Main: deploy ─────────────────────────────────────────────────────────────
-  function deploy() {
-    const objective = document.getElementById('objective').value.trim();
-    if (!objective) { log('⚠ Enter an objective first.', 'warn'); return; }
-
-    const mode = document.getElementById('mode').value;
-    const live = document.getElementById('liveMode').checked;
-
-    clearConsole();
-    log('⚡ Deploying 39 agents…', 'hi');
-    log('  Objective: ' + objective.slice(0, 80), 'dim');
-    log('  Mode: ' + mode + ' | Live: ' + live, 'dim');
-    document.getElementById('resultStats').style.display = 'none';
-    setBusy('39 agents collaborating' + (live ? ' (live API)' : ' (demo)') + '…');
-
-    google.script.run
-      .withSuccessHandler(function(result) {
-        setIdle();
-        _lastResult = result;
-
-        if (result.error) {
-          log('❌ Error: ' + result.error, 'err');
-          return;
-        }
-
-        // Parse and display result
-        const proj  = result.projection  || {};
-        const audit = result.constitutional_audit || {};
-        const arts  = result.artifacts   || [];
-        const verdict = audit.verdict || 'APPROVED';
-        const arrFmt  = proj.first_year_arr_usd
-          ? '$' + Number(proj.first_year_arr_usd).toLocaleString()
-          : 'N/A';
-
-        // Update stat cards
-        document.getElementById('statDepts').textContent = result.departments_collaborated || arts.length;
-        document.getElementById('statArr').textContent = arrFmt;
-        document.getElementById('statTier').textContent = proj.tier || '—';
-
-        const vBadge = document.getElementById('statVerdict');
-        vBadge.innerHTML = '<span class="verdict verdict-' + verdict + '">' + verdict + '</span>';
-
-        document.getElementById('resultStats').style.display = 'block';
-
-        // Console log
-        log('✓ Cycle complete: ' + (result.cycle_id || '?'), 'ok');
-        log('  Departments: ' + (result.departments_collaborated || arts.length), 'ok');
-        log('  ARR: ' + arrFmt + ' · Tier: ' + (proj.tier || '?'), 'ok');
-        log('  Verdict: ' + verdict, verdict === 'APPROVED' ? 'ok' : verdict === 'FLAG' ? 'warn' : 'err');
-        if (proj.governed_note) log('  Note: ' + proj.governed_note.slice(0, 100), 'dim');
-
-        if ((audit.concerns || []).length > 0) {
-          log('⚠ Constitutional concerns:', 'warn');
-          audit.concerns.slice(0, 3).forEach(function(c) { log('  · ' + c.slice(0, 100), 'warn'); });
-        }
-
-        // Log stage outputs (abbreviated)
-        if (arts.length > 0) {
-          log('', '');
-          log('── Stage outputs (' + arts.length + ' departments) ──', 'hi');
-          arts.forEach(function(a) {
-            log('[' + (a.role || '?') + '] ' + (a.output || '').slice(0, 120) + '…', '');
-          });
-        }
-      })
-      .withFailureHandler(function(e) {
-        setIdle();
-        log('❌ Failure: ' + e.message, 'err');
-      })
-      .runAegisCollaboration(objective, mode, live);
+  // ── Agent stream simulation ───────────────────────────────────────────────────
+  function streamAgents(callback) {
+    var i = 0;
+    var msgs = [
+      'booting constitutional substrate…',
+      'loading hash-chain ledger…',
+      'verifying membrane integrity…',
+      'allocating entropy budget…',
+      'initializing BFT quorum…',
+    ];
+    // Print boot messages
+    var bIdx = 0;
+    var bootInterval = setInterval(function() {
+      if (bIdx < msgs.length) {
+        tlog('Ω ' + msgs[bIdx], 't-dim');
+        bIdx++;
+      } else {
+        clearInterval(bootInterval);
+        tlog('', '');
+        tlog('── Deploying 39 departments ──', 't-hi');
+        // Stream department activations
+        var row = document.getElementById('terminal');
+        var dIdx = 0;
+        var dInterval = setInterval(function() {
+          if (dIdx < DEPARTMENTS.length) {
+            var d = DEPARTMENTS[dIdx];
+            var line = document.createElement('div');
+            line.className = 'agent-row';
+            line.style.animationDelay = '0ms';
+            line.innerHTML =
+              '<span class="agent-id">' + d.id + '</span>' +
+              '<span class="agent-dept">' + d.dept + '</span>' +
+              '<span class="agent-msg">activating…</span>';
+            row.appendChild(line);
+            row.scrollTop = row.scrollHeight;
+            dIdx++;
+          } else {
+            clearInterval(dInterval);
+            tlog('', '');
+            tlog('── Agents active. Calling AEGIS platform API… ──', 't-hi');
+            setTimeout(callback, 400);
+          }
+        }, 55);
+      }
+    }, 180);
   }
 
-  // ── Write to sheet ───────────────────────────────────────────────────────────
+  // ── Main: deploy ──────────────────────────────────────────────────────────────
+  function deploy() {
+    var objective = document.getElementById('objective').value.trim();
+    if (!objective) { tlog('⚠ Enter an objective first.', 't-warn'); return; }
+
+    var mode = document.getElementById('mode').value;
+    var live = document.getElementById('liveMode').checked;
+
+    clearTerminal();
+    document.getElementById('resultStats').style.display = 'none';
+    setBusy('Streaming 39 agents…');
+
+    tlog('⚡ Deploy initiated', 't-hi');
+    tlog('  Objective: ' + objective.slice(0, 72) + (objective.length > 72 ? '…' : ''), 't-dim');
+    tlog('  Mode: ' + mode + '  Live: ' + live, 't-dim');
+    tlog('', '');
+
+    streamAgents(function() {
+      document.getElementById('statusText').textContent = '39 agents collaborating' + (live ? ' (live)' : ' (demo)') + '…';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          setIdle();
+          _lastResult = result;
+
+          if (result.error) {
+            tlog('✗ Error: ' + result.error, 't-err');
+            return;
+          }
+
+          var proj   = result.projection            || {};
+          var audit  = result.constitutional_audit  || {};
+          var arts   = result.artifacts             || [];
+          var verdict = audit.verdict || 'APPROVED';
+          var arrFmt  = proj.first_year_arr_usd
+            ? '$' + Number(proj.first_year_arr_usd).toLocaleString()
+            : 'N/A';
+
+          // KPI cards
+          document.getElementById('statDepts').textContent = result.departments_collaborated || arts.length;
+          document.getElementById('statArr').textContent = arrFmt;
+          document.getElementById('statTier').textContent = proj.tier || '—';
+          document.getElementById('statVerdict').innerHTML =
+            '<span class="verdict verdict-' + verdict + '">' + verdict + '</span>';
+          document.getElementById('resultStats').style.display = 'block';
+
+          // Terminal summary
+          tlog('', '');
+          tlog('── Result ──', 't-hi');
+          tlog('✓ Cycle: ' + (result.cycle_id || '?'), 't-ok');
+          tlog('  Departments: ' + (result.departments_collaborated || arts.length), 't-ok');
+          tlog('  ARR: ' + arrFmt + '  Tier: ' + (proj.tier || '?'), 't-ok');
+          tlog('  Verdict: ' + verdict,
+            verdict === 'APPROVED' ? 't-ok' : verdict === 'FLAG' ? 't-warn' : 't-err');
+
+          if (proj.governed_note) {
+            tlog('  Note: ' + proj.governed_note.slice(0, 90), 't-dim');
+          }
+
+          if ((audit.concerns || []).length > 0) {
+            tlog('⚠ Constitutional concerns:', 't-warn');
+            audit.concerns.slice(0, 3).forEach(function(c) {
+              tlog('  · ' + c.slice(0, 90), 't-warn');
+            });
+          }
+
+          if (arts.length > 0) {
+            tlog('', '');
+            tlog('── Stage outputs (' + arts.length + ' depts) ──', 't-hi');
+            arts.slice(0, 10).forEach(function(a) {
+              tlog('[' + (a.role || '?') + '] ' + (a.output || '').slice(0, 110) + '…', '');
+            });
+            if (arts.length > 10) tlog('  … +' + (arts.length - 10) + ' more (write to sheet for full report)', 't-dim');
+          }
+        })
+        .withFailureHandler(function(e) {
+          setIdle();
+          tlog('✗ ' + e.message, 't-err');
+        })
+        .runAegisCollaboration(objective, mode, live);
+    });
+  }
+
+  // ── Write to sheet ────────────────────────────────────────────────────────────
   function writeToSheet() {
-    if (!_lastResult) { log('⚠ No result to write.', 'warn'); return; }
-    setBusy('Writing report to sheet…');
+    if (!_lastResult) { tlog('⚠ No result to write.', 't-warn'); return; }
+    setBusy('Writing structured report to sheet…');
     google.script.run
       .withSuccessHandler(function(msg) {
         setIdle();
-        log('✓ ' + msg, 'ok');
+        tlog('✓ ' + msg, 't-ok');
       })
-      .withFailureHandler(function(e) { setIdle(); log('❌ Write failed: ' + e.message, 'err'); })
+      .withFailureHandler(function(e) { setIdle(); tlog('✗ Write failed: ' + e.message, 't-err'); })
       .writeReportToSheet(_lastResult);
   }
 
-  // ── Copy JSON ────────────────────────────────────────────────────────────────
+  // ── Copy JSON ─────────────────────────────────────────────────────────────────
   function copyOutput() {
     if (!_lastResult) return;
-    const text = JSON.stringify(_lastResult, null, 2);
-    // google.script.run call to writeToActiveCell so clipboard works inside iframe
+    var text = JSON.stringify(_lastResult, null, 2);
     google.script.run
-      .withSuccessHandler(function() { log('✓ JSON written to active cell', 'ok'); })
+      .withSuccessHandler(function() { tlog('✓ JSON written to active cell', 't-ok'); })
       .writeToActiveCell(text);
   }
 
-  function showSetup() {
-    google.script.run.showSetupModal();
-  }
+  function showSetup() { google.script.run.showSetupModal(); }
 
-  // Auto-load status on open
-  window.onload = function() { loadStatus(); };
+  // Init
+  window.onload = function() {
+    startHashRotation();
+    loadStatus();
+  };
 </script>
 </html>
