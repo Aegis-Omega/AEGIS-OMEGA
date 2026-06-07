@@ -1,19 +1,11 @@
-substitutions:
-  _COMMIT_SHA: 'manual'  # overridden automatically when triggered via Cloud Build trigger
-
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - build
       - -t
-      - gcr.io/$PROJECT_ID/aegis-vertex:${_COMMIT_SHA}
-      - -t
       - gcr.io/$PROJECT_ID/aegis-vertex:latest
       # Build context = sovereign-omega-v2/ so python/ and dist/ land in the image
       - sovereign-omega-v2/
-
-  - name: 'gcr.io/cloud-builders/docker'
-    args: [push, gcr.io/$PROJECT_ID/aegis-vertex:${_COMMIT_SHA}]
 
   - name: 'gcr.io/cloud-builders/docker'
     args: [push, gcr.io/$PROJECT_ID/aegis-vertex:latest]
@@ -29,9 +21,6 @@ steps:
       - --platform=managed
       # anthropic-api-key powers live 39-agent swarm (platform_helpers.swarm_collaborate_live)
       # supabase-service-role-key gates /platform/* endpoints via verify_api_key()
-      # Create both secrets before first deploy:
-      #   printf '%s' "$ANTHROPIC_API_KEY" | gcloud secrets create anthropic-api-key --data-file=- --project aegisomegav1
-      #   printf '%s' "$SUPABASE_SERVICE_ROLE_KEY" | gcloud secrets create supabase-service-role-key --data-file=- --project aegisomegav1
       - --set-secrets=ANTHROPIC_API_KEY=anthropic-api-key:latest,SUPABASE_SERVICE_ROLE_KEY=supabase-service-role-key:latest
       - --set-env-vars=SUPABASE_URL=https://rwehltdwpsncnwxzkwik.supabase.co
       - --allow-unauthenticated
@@ -42,7 +31,6 @@ steps:
       - --max-instances=5
 
 images:
-  - gcr.io/$PROJECT_ID/aegis-vertex:${_COMMIT_SHA}
   - gcr.io/$PROJECT_ID/aegis-vertex:latest
 
 options:
