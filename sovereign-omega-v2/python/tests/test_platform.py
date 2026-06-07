@@ -26,6 +26,8 @@ from platform_helpers import (
     platform_ts,
     platform_envelope,
     verify_api_key,
+    query_api_key_info,
+    record_revenue_cycle,
     dept_output,
     make_sse_event,
     validate_collaboration_request,
@@ -266,6 +268,72 @@ def test_validate_collaboration_request():
                   lambda: validate_collaboration_request({'objective': 'x', 'live': False}))
 
 
+def test_query_api_key_info() -> None:
+    print('\n--- query_api_key_info ---')
+
+    # Dev bypass: aegis_* key returns explorer defaults when Supabase absent
+    orig_url = os.environ.pop('SUPABASE_URL', None)
+    orig_key = os.environ.pop('SUPABASE_SERVICE_ROLE_KEY', None)
+    try:
+        info = query_api_key_info('aegis_testkey')
+        test('dev bypass returns dict', isinstance(info, dict))
+        test('dev bypass email', info is not None and info.get('customer_email') == 'dev@local')
+        test('dev bypass tier', info is not None and info.get('tier') == 'explorer')
+        test('dev bypass usage_count', info is not None and info.get('usage_count') == 0)
+        test('dev bypass usage_limit', info is not None and info.get('usage_limit') == 10)
+
+        # Non-aegis_ key returns None in dev mode
+        info2 = query_api_key_info('sk-bad-key')
+        test('non-aegis key returns None in dev mode', info2 is None)
+
+        # Empty key returns None
+        info3 = query_api_key_info('')
+        test('empty key returns None', info3 is None)
+    finally:
+        if orig_url is not None:
+            os.environ['SUPABASE_URL'] = orig_url
+        if orig_key is not None:
+            os.environ['SUPABASE_SERVICE_ROLE_KEY'] = orig_key
+
+
+def test_record_revenue_cycle() -> None:
+    print('\n--- record_revenue_cycle ---')
+
+    # Without Supabase configured, should silently return (no raise)
+    orig_url = os.environ.pop('SUPABASE_URL', None)
+    orig_key = os.environ.pop('SUPABASE_SERVICE_ROLE_KEY', None)
+    try:
+        try:
+            record_revenue_cycle(
+                cycle_id='test-cycle-id',
+                objective='Test the record helper',
+                mode='revenue',
+                arr_usd=2_400_000,
+                verdict='APPROVED',
+            )
+            test('fire-and-forget: no raise without Supabase', True)
+        except Exception as exc:
+            test('fire-and-forget: no raise without Supabase', False, str(exc))
+    finally:
+        if orig_url is not None:
+            os.environ['SUPABASE_URL'] = orig_url
+        if orig_key is not None:
+            os.environ['SUPABASE_SERVICE_ROLE_KEY'] = orig_key
+
+    # With clearly invalid Supabase URL, should still not raise
+    os.environ['SUPABASE_URL'] = 'http://127.0.0.1:19999'  # nothing listening
+    os.environ['SUPABASE_SERVICE_ROLE_KEY'] = 'fake-key'
+    try:
+        try:
+            record_revenue_cycle('id', 'obj', 'gtm', 1_000_000, 'APPROVED')
+            test('fire-and-forget: no raise on network error', True)
+        except Exception as exc:
+            test('fire-and-forget: no raise on network error', False, str(exc))
+    finally:
+        os.environ.pop('SUPABASE_URL', None)
+        os.environ.pop('SUPABASE_SERVICE_ROLE_KEY', None)
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
@@ -275,6 +343,8 @@ if __name__ == '__main__':
     test_platform_ts()
     test_platform_envelope()
     test_verify_api_key()
+    test_query_api_key_info()
+    test_record_revenue_cycle()
     test_dept_output()
     test_make_sse_event()
     test_validate_collaboration_request()

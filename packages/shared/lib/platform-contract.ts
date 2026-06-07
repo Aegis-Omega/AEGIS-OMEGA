@@ -148,6 +148,16 @@ export interface PlatformStatus {
   readonly audit_chain_hash: string
   readonly available: boolean
   readonly reason?: string               // present when available === false
+  readonly usage?: PlatformStatusUsage   // present when x-api-key header is supplied
+}
+
+/** Per-key usage info — returned when x-api-key is provided to GET /platform/status */
+export interface PlatformStatusUsage {
+  readonly customer_email: string
+  readonly tier: 'explorer' | 'operator' | 'sovereign'
+  readonly usage_count: number
+  readonly usage_limit: number
+  readonly remaining_runs: number
 }
 
 // ── Error schema (all endpoints on 4xx/5xx) ──────────────────────────────────

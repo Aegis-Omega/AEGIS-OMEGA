@@ -41,6 +41,8 @@ from platform_helpers import (
     platform_ts as _platform_ts,
     platform_envelope as _platform_envelope,
     verify_api_key as _platform_verify_api_key,
+    query_api_key_info as _platform_query_key_info,
+    record_revenue_cycle as _platform_record_cycle,
     dept_output as _platform_dept_output,
     make_sse_event as _make_sse_event,
     validate_collaboration_request as _validate_collab_req,
@@ -178,6 +180,8 @@ def _platform_run_collaboration(
             f'/platform/collaborate cycle={cycle_id[:8]} mode={mode} depts=39 verdict=APPROVED',
             'T1',
         )
+        # Persist to Supabase revenue_cycles (fire-and-forget)
+        _platform_record_cycle(cycle_id, objective, mode, arr_usd, 'APPROVED')
 
         result = {
             'cycle_id': cycle_id,
@@ -1324,7 +1328,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self._respond(200, {'available': False, 'reason': str(exc)[:80]})
 
         elif self.path == '/platform/status':
-            # GET /platform/status — public health check (no auth required).
+            # GET /platform/status — public health check.
+            # When x-api-key is present, also returns usage info for that customer.
             vcg = matrix.emit_vcg_telemetry()
             corruption = int(vcg.get('corruption_count', 0))
             drift = round(min(float(vcg.get('drift_index', 0.0)) * 0.1, 0.99), 6)
@@ -1333,14 +1338,27 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 terminal = _metacognitive_chain[-1]['entry_hash'] if _metacognitive_chain else _MC_GENESIS
             import uuid as _uuid_st
             eid = str(_uuid_st.uuid4())
-            self._platform_respond(200, _platform_envelope(eid, {
+            status_data: dict = {
                 'version': '1.0.0',
                 'contract_version': _PLATFORM_CONTRACT_VERSION,
                 'total_agents': len(_PLATFORM_DEPARTMENTS),
                 'chain_valid': chain_valid,
                 'audit_chain_hash': terminal,
                 'available': True,
-            }))
+            }
+            api_key = self.headers.get('x-api-key', '')
+            if api_key:
+                info = _platform_query_key_info(api_key)
+                if info:
+                    remaining = max(0, info['usage_limit'] - info['usage_count'])
+                    status_data['usage'] = {
+                        'customer_email': info['customer_email'],
+                        'tier': info['tier'],
+                        'usage_count': info['usage_count'],
+                        'usage_limit': info['usage_limit'],
+                        'remaining_runs': remaining,
+                    }
+            self._platform_respond(200, _platform_envelope(eid, status_data))
 
         elif self.path.startswith('/platform/executions/live'):
             # GET /platform/executions/live?id=<uuid> — SSE stream.

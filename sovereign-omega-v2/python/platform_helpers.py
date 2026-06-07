@@ -189,6 +189,87 @@ def make_sse_event(event_type: str, execution_id: str, payload: dict) -> dict:
     }
 
 
+def query_api_key_info(api_key: str):
+    """
+    Fetch usage record for api_key from api_key_store. Does NOT increment usage_count.
+    Returns dict with customer_email, tier, usage_count, usage_limit, or None on failure.
+    Dev bypass: any aegis_* key returns explorer defaults when SUPABASE_URL is unset.
+    """
+    import hashlib as _hl2
+    import urllib.request as _ur2
+    import urllib.error as _ue2
+
+    if not api_key:
+        return None
+
+    key_hash = _hl2.sha256(api_key.encode()).hexdigest()
+    supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+
+    if not supabase_url or not service_key:
+        if api_key.startswith('aegis_'):
+            return {'customer_email': 'dev@local', 'tier': 'explorer',
+                    'usage_count': 0, 'usage_limit': 10}
+        return None
+
+    auth_headers = {
+        'apikey': service_key,
+        'Authorization': f'Bearer {service_key}',
+        'Content-Type': 'application/json',
+    }
+    rest_url = (
+        f'{supabase_url}/rest/v1/api_key_store'
+        f'?key_hash=eq.{key_hash}&revoked=eq.false'
+        f'&select=customer_email,tier,usage_count,usage_limit'
+    )
+    req = _ur2.Request(rest_url, headers=auth_headers)
+    try:
+        with _ur2.urlopen(req, timeout=5) as resp:
+            rows = json.loads(resp.read().decode())
+    except Exception:
+        return None
+
+    return rows[0] if rows else None
+
+
+def record_revenue_cycle(cycle_id: str, objective: str, mode: str,
+                         arr_usd: int, verdict: str) -> None:
+    """
+    Write a completed collaboration cycle to the Supabase revenue_cycles table.
+    Fire-and-forget — never raises; failure is logged to stderr only.
+    """
+    import urllib.request as _ur3
+    import urllib.error as _ue3
+
+    supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+    if not supabase_url or not service_key:
+        return  # dev mode — no DB write
+
+    payload = json.dumps({
+        'cycle_id': cycle_id,
+        'objective': objective[:255],
+        'mode': mode,
+        'projected_arr_usd': arr_usd,
+        'constitutional_verdict': verdict,
+        'departments_collaborated': 39,
+    }).encode()
+    url = f'{supabase_url}/rest/v1/revenue_cycles'
+    auth_headers = {
+        'apikey': service_key,
+        'Authorization': f'Bearer {service_key}',
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+    }
+    req = _ur3.Request(url, data=payload, headers=auth_headers, method='POST')
+    try:
+        with _ur3.urlopen(req, timeout=5):
+            pass
+    except Exception as _exc:
+        import sys
+        print(f'[bridge] revenue_cycles write failed: {_exc}', file=sys.stderr)
+
+
 def validate_collaboration_request(body: dict) -> tuple:
     """
     Validate a CollaborationRequest body.
