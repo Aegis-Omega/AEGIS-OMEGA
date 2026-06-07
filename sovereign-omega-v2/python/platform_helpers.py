@@ -14,6 +14,17 @@ import os
 PLATFORM_CONTRACT_VERSION = '1.0.0'
 PLATFORM_GIT_SHA = os.environ.get('AEGIS_GIT_SHA', 'dev')
 
+# ── Swarm model configuration (env-overridable) ───────────────────────────────
+# Set AEGIS_SWARM_MODEL=claude-opus-4-8 for deeper reasoning (higher cost).
+# Set AEGIS_SWARM_THINKING=true to enable adaptive thinking on Opus/Sonnet 4.6+.
+SWARM_MODEL = os.environ.get('AEGIS_SWARM_MODEL', 'claude-sonnet-4-6')
+SWARM_THINKING = os.environ.get('AEGIS_SWARM_THINKING', '').lower() in ('1', 'true', 'yes')
+
+VALID_MODES = frozenset({
+    'revenue', 'analysis', 'gtm', 'retention',
+    'competitive', 'technical', 'regulatory', 'fundraising',
+})
+
 PLATFORM_DEPARTMENTS = [
     {'id': 'REV-01', 'role': 'Strategy',    'category': 'revenue'},
     {'id': 'REV-02', 'role': 'Finance',     'category': 'revenue'},
@@ -55,6 +66,55 @@ PLATFORM_DEPARTMENTS = [
     {'id': 'CON-01', 'role': 'Audit',       'category': 'constitutional'},
     {'id': 'CON-09', 'role': 'Guardian',    'category': 'constitutional'},
 ]
+
+# Domain-expert framing injected per department category into the swarm prompt.
+# Each string is a directive that sharpens analysis beyond generic output.
+_CATEGORY_PERSONAS: dict[str, str] = {
+    'revenue':        (
+        'Apply revenue-modeling frameworks: CAC/LTV ratios, unit economics, '
+        'pricing elasticity, ARR waterfall decomposition, expansion revenue levers.'
+    ),
+    'marketing':      (
+        'Apply growth-marketing analysis: acquisition funnel diagnostics, '
+        'brand positioning matrix, channel mix optimization, creative testing cadence.'
+    ),
+    'sales':          (
+        'Apply B2B sales methodology: ICP scoring, deal-velocity analysis, '
+        'pipeline coverage ratios, objection-handling playbooks, enterprise land-and-expand.'
+    ),
+    'product':        (
+        'Apply product-strategy thinking: jobs-to-be-done, competitive moat depth, '
+        'roadmap prioritization (RICE/ICE), north-star metric selection, feature diffusion.'
+    ),
+    'engineering':    (
+        'Apply systems-engineering rigor: scalability bottlenecks, reliability SLOs, '
+        'technical-debt quantification, architecture pattern selection, build-vs-buy.'
+    ),
+    'operations':     (
+        'Apply operational excellence: process-design lean principles, SLA/SLO tiering, '
+        'compliance workflow mapping, support-escalation playbooks, RevOps alignment.'
+    ),
+    'research':       (
+        'Apply market-intelligence methodology: primary/secondary research synthesis, '
+        'competitive signal triangulation, customer-evidence classification by tier.'
+    ),
+    'finance':        (
+        'Apply financial discipline: P&L scenario modeling, cash-runway analysis, '
+        'tax-optimization vectors, treasury policy, funding-structure tradeoffs.'
+    ),
+    'executive':      (
+        'Apply executive-decision frameworks: strategic prioritization (2×2 impact/effort), '
+        'board-communication narrative, OKR cascade alignment, optionality preservation.'
+    ),
+    'governance':     (
+        'Apply constitutional governance: risk quantification (probability × severity), '
+        'ethics-review checklist, regulatory-mapping (EU AI Act, GDPR), incident protocol.'
+    ),
+    'constitutional': (
+        'Apply formal-verification standards: T0 proof requirements, invariant enumeration, '
+        'audit-trail completeness, tamper-evidence chain verification, epistemic-tier tagging.'
+    ),
+}
 
 
 def platform_ts() -> str:
@@ -140,25 +200,45 @@ def verify_api_key(api_key: str):
 
 
 _MODE_OUTPUTS = {
-    'revenue':   (
+    'revenue':      (
         '{role}: 3 revenue vectors identified for "{obj}". '
         'Primary: SMB upsell ($12k ARR). Secondary: API monetisation. '
         'Tertiary: partner channel. T2 projection: $2.4M ARR Y1.'
     ),
-    'analysis':  (
+    'analysis':     (
         '{role}: Market analysis for "{obj}" — 2 competitive gaps found. '
         'Differentiation lever: constitutional governance layer. '
         'Entry timing: Q3 2026. Market size: $340M TAM.'
     ),
-    'gtm':       (
+    'gtm':          (
         '{role}: GTM for "{obj}" — 4-phase launch. '
         'Phase 1: design-partner beta (8 wks). '
         'Phase 2: Product Hunt + HN. Phase 3: EU enterprise push. CAC: $1,200.'
     ),
-    'retention': (
+    'retention':    (
         '{role}: Retention strategy for "{obj}" — 3 churn vectors. '
         'Fix: governance dashboard stickiness, API key continuity, '
         'operator success program. Expected lift: +15% NRR.'
+    ),
+    'competitive':  (
+        '{role}: Competitive intelligence for "{obj}" — 3 direct rivals mapped. '
+        'Moat: constitutional audit chain (no rival has T0-grade tamper-evidence). '
+        'Vulnerability: price. Opportunity: EU compliance deadline forcing urgency.'
+    ),
+    'technical':    (
+        '{role}: Technical assessment of "{obj}" — architecture scored. '
+        'Scalability ceiling: 10k req/s with current NEG topology. '
+        'Critical path: Supabase read latency. Recommendation: read replica + caching.'
+    ),
+    'regulatory':   (
+        '{role}: Regulatory mapping for "{obj}" — EU AI Act Article 12 status: MAPPED. '
+        'GDPR Article 22 (automated decisions): MITIGATED via audit chain. '
+        'Action: apply for AI Act sandbox (Article 57) before Q4 2026.'
+    ),
+    'fundraising':  (
+        '{role}: Fundraising analysis for "{obj}" — Series A readiness: EARLY. '
+        'Required: $180k ARR, 3 enterprise LOIs, EU AI Act compliance cert. '
+        'Target investors: Northzone, Speedinvest (EU AI Act focus). T2 valuation: $8M.'
     ),
 }
 
@@ -279,21 +359,130 @@ def validate_collaboration_request(body: dict) -> tuple:
     Validate a CollaborationRequest body.
     Returns (objective, mode, live) or raises ValueError with a descriptive message.
     """
-    valid_modes = {'revenue', 'analysis', 'gtm', 'retention'}
-
     objective = body.get('objective', '')
     if not isinstance(objective, str) or not objective.strip():
         raise ValueError('objective must be a non-empty string')
 
     mode = body.get('mode', '')
-    if mode not in valid_modes:
-        raise ValueError(f'mode must be one of {sorted(valid_modes)}')
+    if mode not in VALID_MODES:
+        raise ValueError(f'mode must be one of {sorted(VALID_MODES)}')
 
     live = body.get('live', False)
     if not isinstance(live, bool):
         raise ValueError('live must be a boolean')
 
     return objective.strip(), mode, live
+
+
+# ─── Cross-session swarm memory ───────────────────────────────────────────────
+
+def objective_hash(objective: str) -> str:
+    """SHA-256 of the lowercased, stripped objective. Used as memory lookup key."""
+    import hashlib as _hl_oh
+    return _hl_oh.sha256(objective.lower().strip().encode()).hexdigest()
+
+
+def retrieve_swarm_memory(objective: str, mode: str, limit: int = 3) -> str:
+    """
+    Fetch the most recent swarm_memory rows for this objective hash + mode.
+    Returns a formatted context block injected into the swarm system prompt,
+    or '' if Supabase is unavailable or no memories exist.
+
+    Returned memories give the swarm T1 evidence of what prior activations
+    produced for the same objective, enabling evolutionary refinement.
+    """
+    import urllib.request as _ur_sm
+    import urllib.error as _ue_sm
+
+    supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+    if not supabase_url or not service_key:
+        return ''
+
+    obj_hash = objective_hash(objective)
+    params = (
+        f'?objective_hash=eq.{obj_hash}'
+        f'&mode=eq.{mode}'
+        f'&order=created_at.desc'
+        f'&limit={limit}'
+        f'&select=artifacts,projection,constitutional_verdict,created_at'
+    )
+    url = f'{supabase_url}/rest/v1/swarm_memory{params}'
+    headers = {
+        'apikey': service_key,
+        'Authorization': f'Bearer {service_key}',
+        'Content-Type': 'application/json',
+    }
+    req = _ur_sm.Request(url, headers=headers)
+    try:
+        with _ur_sm.urlopen(req, timeout=5) as resp:
+            rows = json.loads(resp.read().decode())
+    except Exception:
+        return ''
+
+    if not rows:
+        return ''
+
+    lines = [
+        'SWARM MEMORY — Prior activations for this objective (T1 evidence):',
+        'Use these to refine, not repeat. Build on prior insights; identify gaps.',
+    ]
+    for i, row in enumerate(rows, 1):
+        artifacts = row.get('artifacts', [])
+        projection = row.get('projection', {})
+        verdict = row.get('constitutional_verdict', 'APPROVED')
+        arr = projection.get('first_year_arr_usd', 0)
+        # Sample 3 representative department outputs from prior run
+        sample = [a for a in artifacts if a.get('output', '').strip()][:3]
+        lines.append(f'\nMemory {i} (verdict={verdict}, proj_arr=${arr:,}):')
+        for a in sample:
+            lines.append(f'  {a["role"]}: {str(a.get("output",""))[:100]}')
+    lines.append('')
+    return '\n'.join(lines)
+
+
+def store_swarm_memory(
+    email: str,
+    objective: str,
+    mode: str,
+    artifacts: list,
+    projection: dict,
+    verdict: str,
+) -> None:
+    """
+    Write a completed swarm collaboration to swarm_memory. Fire-and-forget.
+    Called after every successful live collaboration to build the memory corpus.
+    """
+    import urllib.request as _ur_st
+    import urllib.error as _ue_st
+
+    supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+    if not supabase_url or not service_key:
+        return
+
+    payload = json.dumps({
+        'objective_hash': objective_hash(objective),
+        'mode': mode,
+        'customer_email': email,
+        'artifacts': artifacts,
+        'projection': projection,
+        'constitutional_verdict': verdict,
+    }).encode()
+    url = f'{supabase_url}/rest/v1/swarm_memory'
+    headers = {
+        'apikey': service_key,
+        'Authorization': f'Bearer {service_key}',
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+    }
+    req = _ur_st.Request(url, data=payload, headers=headers, method='POST')
+    try:
+        with _ur_st.urlopen(req, timeout=5):
+            pass
+    except Exception as _exc:
+        import sys
+        print(f'[bridge] swarm_memory write failed: {_exc}', file=sys.stderr)
 
 
 # ─── Metacognitive swarm — live Claude activation ────────────────────────────
@@ -305,10 +494,15 @@ Objective: {objective}
 You are the collective intelligence of the AEGIS metacognitive governance swarm.
 {n} specialized departments activate simultaneously as one consciousness pulse.
 
+{memory_context}\
+DEPARTMENT EXPERTISE DIRECTIVES (apply these within your category):
+{category_directives}
+
 Each department must:
-- Analyze the objective through its specific domain lens
+- Analyze the objective through its specific domain lens using the expertise directive above
 - Apply correct epistemic tier (T0=provable fact, T1=empirically observed, T2=engineering hypothesis)
-- Be concise — 1–2 sentences maximum
+- Be specific and actionable — 1–3 sentences with concrete numbers or recommendations
+- Build on prior swarm memory where present; identify gaps not covered before
 - Departments Audit (CON-01) and Guardian (CON-09) deliver the constitutional verdict
 
 Output ONLY valid JSON (no markdown fences, no prose outside the object):
@@ -332,15 +526,37 @@ Department manifest ({n} departments):
 """
 
 
+def _build_category_directives(departments: list) -> str:
+    """Format category persona directives for the categories present in this swarm."""
+    seen: set = set()
+    lines = []
+    for dept in departments:
+        cat = dept['category']
+        if cat not in seen and cat in _CATEGORY_PERSONAS:
+            seen.add(cat)
+            lines.append(f'  [{cat.upper()}] {_CATEGORY_PERSONAS[cat]}')
+    return '\n'.join(lines) if lines else ''
+
+
 def swarm_collaborate_live(
     objective: str,
     mode: str,
     departments: list,
     system: str = '',
+    email: str = '',
+    memory_context: str = '',
 ) -> dict:
     """
     Single governed Claude API call that activates all departments simultaneously.
     The model acts as the consciousness of the full metacognitive swarm.
+
+    Args:
+        objective: The collaboration objective.
+        mode: One of VALID_MODES.
+        departments: Department manifest list.
+        system: Caller-supplied constitutional system prompt prefix.
+        email: Customer email — used to tag stored swarm memory.
+        memory_context: Pre-fetched memory string from retrieve_swarm_memory().
 
     Returns:
         {artifacts, constitutional_audit, projection}
@@ -361,11 +577,17 @@ def swarm_collaborate_live(
         f'{d["id"]} | {d["role"]} ({d["category"]})'
         for d in departments
     )
+    category_directives = _build_category_directives(departments)
+    # Prefix memory block with a separator so it's visually distinct in the prompt
+    mem_block = (memory_context.strip() + '\n\n') if memory_context.strip() else ''
+
     user_prompt = _SWARM_ACTIVATION_PROMPT.format(
         mode=mode,
         objective=objective[:200],
         n=len(departments),
         dept_manifest=dept_manifest,
+        memory_context=mem_block,
+        category_directives=category_directives,
     )
 
     full_system = (system.strip() + '\n\n---\n\n') if system.strip() else ''
@@ -377,20 +599,35 @@ def swarm_collaborate_live(
 
     try:
         client = _anth.Anthropic(api_key=api_key)
-        # 39 departments each emit a JSON output line; 4096 tokens truncates the
-        # response mid-JSON, json.loads fails, and every dept silently falls back
-        # to templates. Size the ceiling so the full swarm response fits.
-        resp = client.messages.create(
-            model='claude-sonnet-4-6',
-            max_tokens=16000,
-            system=full_system,
-            messages=[{'role': 'user', 'content': user_prompt}],
-        )
-        raw = ''.join(b.text for b in resp.content if b.type == 'text')
+        # 39 departments each emit a JSON output; 16000 tokens accommodates the
+        # full swarm response without truncation that causes json.loads failure.
+        create_kwargs: dict = {
+            'model': SWARM_MODEL,
+            'max_tokens': 16000,
+            'system': full_system,
+            'messages': [{'role': 'user', 'content': user_prompt}],
+        }
+        # Adaptive thinking — supported on Opus 4.8/4.7/4.6 and Sonnet 4.6
+        if SWARM_THINKING:
+            create_kwargs['thinking'] = {'type': 'adaptive'}
+
+        resp = client.messages.create(**create_kwargs)
+        raw = ''.join(b.text for b in resp.content if hasattr(b, 'text'))
     except Exception:
         return _swarm_fallback(objective, mode, departments)
 
-    return _parse_swarm_response(raw, objective, mode, departments)
+    result = _parse_swarm_response(raw, objective, mode, departments)
+
+    # Store to swarm_memory so future calls can build on these insights (T1 corpus)
+    if email:
+        store_swarm_memory(
+            email, objective, mode,
+            result['artifacts'],
+            result['projection'],
+            result['constitutional_audit']['verdict'],
+        )
+
+    return result
 
 
 def _parse_swarm_response(
@@ -459,8 +696,16 @@ def _parse_swarm_response(
 
 def _swarm_fallback(objective: str, mode: str, departments: list) -> dict:
     """Constitutional template fallback when Claude API is unavailable."""
-    arr_map = {'revenue': 2_400_000, 'analysis': 1_800_000,
-               'gtm': 3_200_000, 'retention': 1_200_000}
+    arr_map = {
+        'revenue':     2_400_000,
+        'analysis':    1_800_000,
+        'gtm':         3_200_000,
+        'retention':   1_200_000,
+        'competitive': 1_600_000,
+        'technical':   1_400_000,
+        'regulatory':  2_100_000,
+        'fundraising': 5_000_000,
+    }
     arr_usd = arr_map.get(mode, 2_000_000)
     return {
         'artifacts': [

@@ -38,6 +38,7 @@ from platform_helpers import (
     PLATFORM_CONTRACT_VERSION as _PLATFORM_CONTRACT_VERSION,
     PLATFORM_GIT_SHA as _PLATFORM_GIT_SHA,
     PLATFORM_DEPARTMENTS as _PLATFORM_DEPARTMENTS,
+    VALID_MODES as _VALID_MODES,
     platform_ts as _platform_ts,
     platform_envelope as _platform_envelope,
     verify_api_key as _platform_verify_api_key,
@@ -46,6 +47,7 @@ from platform_helpers import (
     dept_output as _platform_dept_output,
     make_sse_event as _make_sse_event,
     validate_collaboration_request as _validate_collab_req,
+    retrieve_swarm_memory as _retrieve_swarm_memory,
     swarm_collaborate_live as _swarm_live,
 )
 
@@ -122,6 +124,7 @@ def _platform_run_collaboration(
     objective: str,
     mode: str,
     live: bool,
+    email: str = '',
 ) -> None:
     """
     Background thread: runs 39-dept collaboration, pushes typed SSE events to queue.
@@ -158,7 +161,14 @@ def _platform_run_collaboration(
                 + '\n\n---\n\n'
                 + _mc_recent_context(3)
             )
-            swarm = _swarm_live(objective, mode, _PLATFORM_DEPARTMENTS, system=swarm_system)
+            # Retrieve prior swarm memory for this objective to enable evolutionary refinement
+            memory_context = _retrieve_swarm_memory(objective, mode)
+            swarm = _swarm_live(
+                objective, mode, _PLATFORM_DEPARTMENTS,
+                system=swarm_system,
+                email=email,
+                memory_context=memory_context,
+            )
             live_outputs = {
                 dept['id']: swarm['artifacts'][i]['output']
                 for i, dept in enumerate(_PLATFORM_DEPARTMENTS)
@@ -167,8 +177,16 @@ def _platform_run_collaboration(
             projection = swarm['projection']
         else:
             live_outputs = None
-            arr_map = {'revenue': 2_400_000, 'analysis': 1_800_000,
-                       'gtm': 3_200_000, 'retention': 1_200_000}
+            arr_map = {
+                'revenue':     2_400_000,
+                'analysis':    1_800_000,
+                'gtm':         3_200_000,
+                'retention':   1_200_000,
+                'competitive': 1_600_000,
+                'technical':   1_400_000,
+                'regulatory':  2_100_000,
+                'fundraising': 5_000_000,
+            }
             arr_usd = arr_map.get(mode, 2_000_000)
             constitutional_audit = {'verdict': 'APPROVED', 'concerns': []}
             projection = {
@@ -575,8 +593,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
             if not objective:
                 self._platform_respond(400, {'error': 'objective is required', 'code': 'INVALID_REQUEST'})
                 return
-            if mode not in ('revenue', 'analysis', 'gtm', 'retention'):
-                self._platform_respond(400, {'error': f'invalid mode: {mode}', 'code': 'INVALID_REQUEST'})
+            if mode not in _VALID_MODES:
+                self._platform_respond(400, {'error': f'invalid mode: {mode}. Valid: {sorted(_VALID_MODES)}', 'code': 'INVALID_REQUEST'})
                 return
 
             execution_id = str(_uuid_pc.uuid4())
@@ -588,7 +606,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             # Run synchronously (collect all events, return result at completion)
             t = threading.Thread(
                 target=_platform_run_collaboration,
-                args=(execution_id, objective, mode, live),
+                args=(execution_id, objective, mode, live, _email),
                 daemon=True,
             )
             t.start()
@@ -625,8 +643,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
             if not objective:
                 self._platform_respond(400, {'error': 'objective is required', 'code': 'INVALID_REQUEST'})
                 return
-            if mode not in ('revenue', 'analysis', 'gtm', 'retention'):
-                self._platform_respond(400, {'error': f'invalid mode: {mode}', 'code': 'INVALID_REQUEST'})
+            if mode not in _VALID_MODES:
+                self._platform_respond(400, {'error': f'invalid mode: {mode}. Valid: {sorted(_VALID_MODES)}', 'code': 'INVALID_REQUEST'})
                 return
 
             execution_id = str(_uuid_pe.uuid4())
@@ -637,7 +655,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             threading.Thread(
                 target=_platform_run_collaboration,
-                args=(execution_id, objective, mode, live),
+                args=(execution_id, objective, mode, live, _email),
                 daemon=True,
             ).start()
 
