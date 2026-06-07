@@ -492,7 +492,9 @@
   // ── Load platform status ──────────────────────────────────────────────────────
   function loadStatus() {
     google.script.run
-      .withSuccessHandler(function(s) {
+      .withSuccessHandler(function(raw) {
+        // Bridge wraps success in PlatformEnvelope { data: {...} }; errors are bare
+        var s = (raw && raw.data) ? raw.data : raw;
         if (s.error) { tlog('✗ Status: ' + s.error, 't-err'); return; }
         var hash = (s.audit_chain_hash || '').slice(0, 16);
         var valid = s.chain_valid !== false;
@@ -503,7 +505,9 @@
         document.getElementById('hashStatus').textContent = valid ? '✓ valid' : '✗ broken';
         document.getElementById('hashStatus').className = 'hash-status' + (valid ? '' : ' broken');
         document.getElementById('footerChain').textContent = hash || '';
-        tlog('✓ AEGIS-Ω v' + (s.version || '?') + ' · ' + (s.total_agents || 39) + ' agents · chain: ' + (valid ? 'valid' : 'BROKEN'), valid ? 't-ok' : 't-err');
+        var usage = s.usage;
+        var usageStr = usage ? '  · ' + usage.remaining_runs + ' runs left (' + usage.tier + ')' : '';
+        tlog('✓ AEGIS-Ω v' + (s.version || '?') + ' · ' + (s.total_agents || 39) + ' agents · chain: ' + (valid ? 'valid' : 'BROKEN') + usageStr, valid ? 't-ok' : 't-err');
       })
       .withFailureHandler(function(e) { tlog('✗ ' + e.message, 't-err'); })
       .getAegisPlatformStatus();
@@ -590,8 +594,10 @@
       document.getElementById('statusText').textContent = '39 agents collaborating' + (live ? ' (live)' : ' (demo)') + '…';
 
       google.script.run
-        .withSuccessHandler(function(result) {
+        .withSuccessHandler(function(raw) {
           setIdle();
+          // Bridge wraps success in PlatformEnvelope { data: {...} }; errors are bare
+          var result = (raw && raw.data) ? raw.data : raw;
           _lastResult = result;
 
           if (result.error) {

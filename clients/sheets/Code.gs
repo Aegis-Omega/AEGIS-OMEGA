@@ -100,12 +100,16 @@ function getAegisPlatformStatus() {
 }
 
 function checkStatus() {
-  const s = getAegisPlatformStatus();
+  const raw = getAegisPlatformStatus();
+  // Bridge wraps success in PlatformEnvelope { data: {...} }; errors are bare { error: ... }
+  const s = (raw && raw.data) ? raw.data : raw;
+  const usage = (raw && raw.data && raw.data.usage) ? raw.data.usage : null;
   const msg = s.error
     ? '❌ ' + s.error
     : '✅ AEGIS-Ω v' + (s.version || '?') + '\n' +
       'Agents: '    + (s.total_agents || 39) + '\n' +
-      'Chain valid: ' + (s.chain_valid ? 'yes' : 'no');
+      'Chain valid: ' + (s.chain_valid ? 'yes' : 'no') +
+      (usage ? '\n\nYour account:\n  Tier: ' + usage.tier + '\n  Runs used: ' + usage.usage_count + '/' + usage.usage_limit + '\n  Remaining: ' + usage.remaining_runs : '');
   SpreadsheetApp.getUi().alert('Platform Status', msg, SpreadsheetApp.getUi().ButtonSet.OK);
 }
 
@@ -118,6 +122,8 @@ function checkStatus() {
  * @return {string}        Human-readable summary of what was written
  */
 function writeReportToSheet(result) {
+  // Accept both raw result and PlatformEnvelope-wrapped result
+  if (result && result.data) result = result.data;
   if (result.error) return 'Error: ' + result.error;
 
   const sheet    = SpreadsheetApp.getActiveSheet();
