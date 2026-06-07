@@ -202,7 +202,9 @@ def query_api_key_info(api_key: str):
     if not api_key:
         return None
 
-    key_hash = _hl2.sha256(api_key.encode()).hexdigest()
+    hash_salt = os.environ.get('API_KEY_HASH_SALT', 'aegis_api_key_hash_salt_v1').encode()
+    hash_iterations = int(os.environ.get('API_KEY_HASH_ITERATIONS', '210000'))
+    key_hash = _hl2.pbkdf2_hmac('sha256', api_key.encode(), hash_salt, hash_iterations).hex()
     supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
     service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 
