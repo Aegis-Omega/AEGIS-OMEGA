@@ -19,4 +19,3 @@ export default function App() {
   if (path === '/runtime')  return <AegisRuntime />
   return <HomepageLanding />
 }
-
