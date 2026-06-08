@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "aegisomega",
+  "compatibility_date": "2026-06-08",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "aegisomega-webgpu"
+  },
+  "compatibility_flags": [
+    "nodejs_compat"
+  ]
+}
