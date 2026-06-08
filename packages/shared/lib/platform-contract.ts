@@ -86,7 +86,15 @@ export interface CollaborationRequest {
   readonly live: boolean
 }
 
-export type CollaborationMode = 'revenue' | 'analysis' | 'gtm' | 'retention'
+export type CollaborationMode =
+  | 'revenue'
+  | 'analysis'
+  | 'gtm'
+  | 'retention'
+  | 'competitive'
+  | 'technical'
+  | 'regulatory'
+  | 'fundraising'
 
 export interface CollaborationResult {
   readonly cycle_id: string
