@@ -18,7 +18,7 @@ A T0 violation at any scale propagates upward and invalidates everything above i
 
 ```
 /sovereign-omega-v2/   Governance runtime (Layer A: TypeScript, Layer B: Python)
-/aegis-cl-psi/         CL-Ψ cognitive fabric — 385-gate Rust inference crate (T2, EU AI Act-compliant)
+/aegis-cl-psi/         CL-Ψ cognitive fabric — 422-gate Rust inference crate (T2, EU AI Act-compliant)
 /aegis-runtime/        AEGIS-Ω Seven-Pillar distributed agent swarm runtime (T2)
 /cockpit/              AI chat UI with sovereign-omega telemetry integration
 /platform-picker/      Commercial product — platform recommendation ($19)
@@ -69,7 +69,6 @@ cargo build
 ```
 
 ### TypeScript — sovereign-omega-v2 (4026+ tests)
-### TypeScript — sovereign-omega-v2 (4015+ tests)
 
 ```bash
 cd sovereign-omega-v2
@@ -308,7 +307,7 @@ ORGANISM     — Python bridge (bridge.py, port 7890)
                routes between TypeScript governance and hardware inference
 CELLULAR     — TypeScript governance runtime (sovereign-omega-v2/src/)
                hash-chained event ledger, BFT swarm, martingale gating, skill catalog
-MOLECULAR    — Rust gossip + math fabric (aegis-cl-psi/src/, 513 gate modules)
+MOLECULAR    — Rust gossip + math fabric (aegis-cl-psi/src/, 422 gate modules)
                deterministic state-coherence routing, EU AI Act audit chain
 ATOMIC       — Seven-Pillar runtime (aegis-runtime/src/)
                StateAnchor · DomainFirewall · AffineCanvas · SemanticGraph
@@ -374,7 +373,19 @@ All 3 commercial products import from `@shared` alias (resolved via vite.config.
 | `/gate_signal` | POST | Gate pass/fail signals |
 | `/health` | GET | Liveness check |
 | `/claude` | POST | Governed Claude call (hash-certified, tier-stamped) |
+| `/claude/stream` | POST | Governed Claude call — SSE streaming variant |
 | `/node` | GET | Constitutional autonode descriptor (t0_verdict, c_hash) |
+| `/platform/status` | GET | Public health + contract version (no auth) |
+| `/platform/collaborate` | POST | 39-dept swarm execution (API key required) |
+| `/platform/executions` | POST | Async execution initiation → returns stream URL |
+| `/platform/executions/live` | GET | SSE stream of dag_step + agent_event + completion events |
+| `/platform/executions/{id}` | GET | Fetch stored execution result |
+| `/platform/executions/{id}` | DELETE | Remove stored execution |
+
+All `/platform/*` endpoints return `PlatformEnvelope<T>` with `X-Contract-Version: 1.0.0` header.
+API key verification: SHA-256 of key checked against `api_key_store` Supabase table.
+Client factory: `python/anth_client.py` — Vertex AI via ADC (Cloud Run), direct API key (local).
+Prompt caching: system prompts wrapped with `cache_control=ephemeral` (10% token cost on cache hit).
 
 Both cockpit and sovereign-omega-v2 governance dashboard subscribe to `/telemetry` (5s poll).
 
@@ -434,6 +445,14 @@ Each product has an `.env` (gitignored) and `.env.example` (committed).
 | `VITE_CLAUDE_API_KEY` | hub, packages/shared | Anthropic API key — activates Claude backend in inference-router |
 | `VITE_CLAUDE_MODEL` | hub, packages/shared | Claude model override (default: claude-sonnet-4-6) |
 | `VITE_BRIDGE_URL` | hub | Public URL for Python bridge overlay (optional — graceful fallback if unset) |
+| `AEGIS_USE_VERTEX` | python bridge (Cloud Run) | `true`=force Vertex AI, `false`=force direct API, _(unset)_=auto-detect via ADC |
+| `AEGIS_VERTEX_PROJECT` | python bridge (Cloud Run) | GCP project for Vertex AI (default: `aegisomegav1`) |
+| `AEGIS_VERTEX_REGION` | python bridge (Cloud Run) | Vertex AI region (default: `eu` — EU multi-region for data residency) |
+| `ANTHROPIC_API_KEY` | python bridge (local dev) | Direct Anthropic API key — only used when Vertex AI ADC is absent |
+| `AEGIS_SWARM_MODEL` | python bridge | Override swarm model (default: claude-opus-4-8) |
+| `AEGIS_SWARM_THINKING` | python bridge | `true`=enable adaptive thinking on swarm calls (default: true) |
+| `SUPABASE_URL` | python bridge | Supabase project URL (for api_key_store verification + revenue_cycles) |
+| `SUPABASE_SERVICE_ROLE_KEY` | python bridge | Supabase service role key (server-side only — never in frontend) |
 
 ---
 
