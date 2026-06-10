@@ -422,6 +422,11 @@ def evaluate_generation_fitness(
         curr   = a.get('output', '')
         prev   = prev_map.get(role, '')
 
+        # Empty output — department produced nothing; hard-zero both metrics
+        if not curr:
+            scores[role] = {'fitness_score': 0.0, 'viability_score': 0.0}
+            continue
+
         # Length stability
         cl, pl = len(curr), len(prev)
         base   = max(cl, pl, 1)
