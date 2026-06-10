@@ -27,6 +27,8 @@ from platform_helpers import (
     FITNESS_VERSION,
     CONVERGENCE_EPSILON,
     CONVERGENCE_K_GENERATIONS,
+    CONSTITUTIONAL_FACTORS,
+    STAGNATION_THRESHOLD,
     platform_ts,
     platform_envelope,
     verify_api_key,
@@ -37,6 +39,7 @@ from platform_helpers import (
     validate_collaboration_request,
     evaluate_generation_fitness,
     check_fitness_convergence,
+    get_convergence_diagnostics,
     artifact_hash,
 )
 
@@ -398,12 +401,16 @@ def test_evaluate_generation_fitness():
     _chk('empty output fitness == 0.0', scores_empty['Strategy']['fitness_score'] == 0.0,
          f'got {scores_empty["Strategy"].get("fitness_score")}')
 
-    # Return shape — each entry must have exactly fitness_score + viability_score
+    # Return shape — V1.1: fitness_score, viability_score, constitutional_factor, stagnation_flag
     for role, row in scores_within.items():
         _chk(f'{role} has fitness_score key', 'fitness_score' in row)
         _chk(f'{role} has viability_score key', 'viability_score' in row)
+        _chk(f'{role} has constitutional_factor key', 'constitutional_factor' in row)
+        _chk(f'{role} has stagnation_flag key', 'stagnation_flag' in row)
         _chk(f'{role} fitness_score bounds', 0.0 <= row['fitness_score'] <= 1.0)
         _chk(f'{role} viability_score bounds', 0.0 <= row['viability_score'] <= 1.0)
+        _chk(f'{role} constitutional_factor in [0,1]', 0.0 <= row['constitutional_factor'] <= 1.0)
+        _chk(f'{role} stagnation_flag is bool', isinstance(row['stagnation_flag'], bool))
 
     # Determinism: same inputs → same outputs (3 runs)
     arts = [{'role': 'Finance', 'output': 'A' * 1200}]
@@ -520,6 +527,124 @@ def test_evolution_consistency():
     _chk('artifact_hash stable across generation calls', h_gen0 == h_gen1)
 
 
+# ── V1.1: constitutional multiplier ──────────────────────────────────────────
+
+def test_constitutional_fitness_multiplier():
+    print('\nconstitutional fitness multiplier (V1.1):')
+    objective = 'grow enterprise ARR to $10M'
+    arts = [{'role': 'Strategy', 'output': 'S' * 1200}]
+
+    scores_approved = evaluate_generation_fitness([], arts, objective, cycle_verdict='APPROVED')
+    row_a = scores_approved['Strategy']
+    _chk('APPROVED constitutional_factor == 1.00',
+         row_a['constitutional_factor'] == 1.00,
+         f'got {row_a.get("constitutional_factor")}')
+
+    scores_flag = evaluate_generation_fitness([], arts, objective, cycle_verdict='FLAG')
+    row_f = scores_flag['Strategy']
+    _chk('FLAG constitutional_factor == 0.70',
+         row_f['constitutional_factor'] == 0.70,
+         f'got {row_f.get("constitutional_factor")}')
+    _chk('FLAG fitness <= APPROVED fitness',
+         row_f['fitness_score'] <= row_a['fitness_score'],
+         f'FLAG={row_f["fitness_score"]} APPROVED={row_a["fitness_score"]}')
+
+    scores_quar = evaluate_generation_fitness([], arts, objective, cycle_verdict='QUARANTINE')
+    row_q = scores_quar['Strategy']
+    _chk('QUARANTINE constitutional_factor == 0.20',
+         row_q['constitutional_factor'] == 0.20,
+         f'got {row_q.get("constitutional_factor")}')
+    _chk('QUARANTINE fitness <= 0.20', row_q['fitness_score'] <= 0.20,
+         f'got {row_q["fitness_score"]}')
+
+    scores_none = evaluate_generation_fitness([], arts, objective, cycle_verdict=None)
+    row_n = scores_none['Strategy']
+    _chk('None verdict constitutional_factor == 0.85',
+         row_n['constitutional_factor'] == 0.85,
+         f'got {row_n.get("constitutional_factor")}')
+
+    _chk('CONSTITUTIONAL_FACTORS has APPROVED', CONSTITUTIONAL_FACTORS.get('APPROVED') == 1.00)
+    _chk('CONSTITUTIONAL_FACTORS has FLAG', CONSTITUTIONAL_FACTORS.get('FLAG') == 0.70)
+    _chk('CONSTITUTIONAL_FACTORS has QUARANTINE', CONSTITUTIONAL_FACTORS.get('QUARANTINE') == 0.20)
+
+
+# ── V1.1: stagnation flag ─────────────────────────────────────────────────────
+
+def test_stagnation_flag():
+    print('\nstagnation_flag detection (V1.1):')
+    objective = 'test'
+
+    arts_no_prev = [{'role': 'Strategy', 'output': 'implement Redis cache'}]
+    scores_no_prev = evaluate_generation_fitness([], arts_no_prev, objective)
+    _chk('no prev generation → stagnation_flag=False',
+         scores_no_prev['Strategy']['stagnation_flag'] is False)
+
+    same_output = ('implement Redis cache with TTL and eviction policy '
+                   'for distributed session storage at scale')
+    prev_arts = [{'role': 'Strategy', 'output': same_output}]
+    curr_arts = [{'role': 'Strategy', 'output': same_output}]
+    scores_same = evaluate_generation_fitness(prev_arts, curr_arts, objective)
+    _chk('identical prev/curr → stagnation_flag=True',
+         scores_same['Strategy']['stagnation_flag'] is True,
+         f'got {scores_same["Strategy"]["stagnation_flag"]}')
+
+    prev_arts2 = [{'role': 'Strategy', 'output': 'initial strategy for enterprise growth and ARR targets'}]
+    curr_arts2 = [{'role': 'Strategy', 'output': 'pivot to SMB market with product-led growth and viral coefficients'}]
+    scores_diff = evaluate_generation_fitness(prev_arts2, curr_arts2, objective)
+    _chk('sufficiently different prev/curr → stagnation_flag=False',
+         scores_diff['Strategy']['stagnation_flag'] is False,
+         f'got {scores_diff["Strategy"]["stagnation_flag"]}')
+
+    _chk('STAGNATION_THRESHOLD == 0.95', STAGNATION_THRESHOLD == 0.95)
+
+
+# ── V1.1: convergence diagnostics ────────────────────────────────────────────
+
+def test_convergence_diagnostics():
+    print('\nget_convergence_diagnostics():')
+
+    d_empty = get_convergence_diagnostics([])
+    _chk('empty → diagnosis INSUFFICIENT_DATA', d_empty['diagnosis'] == 'INSUFFICIENT_DATA')
+    _chk('empty → converged=False', d_empty['converged'] is False)
+    _chk('empty → mean_fitness=0.0', d_empty['mean_fitness'] == 0.0)
+
+    improving = [{'Strategy': round(i / 10.0, 1)} for i in range(1, 8)]
+    d_imp = get_convergence_diagnostics(improving)
+    _chk('improving → slope > 0', d_imp['slope'] > 0)
+    _chk('improving → diagnosis is IMPROVING', d_imp['diagnosis'] == 'IMPROVING')
+
+    regressing = [{'Strategy': round(1.0 - i / 10.0, 1)} for i in range(1, 8)]
+    d_reg = get_convergence_diagnostics(regressing)
+    _chk('regressing → slope < 0', d_reg['slope'] < 0)
+    _chk('regressing → diagnosis REGRESSING', d_reg['diagnosis'] == 'REGRESSING')
+
+    stagnant_hist = [{'Strategy': 0.40}] * (CONVERGENCE_K_GENERATIONS + 1)
+    d_st = get_convergence_diagnostics(stagnant_hist)
+    _chk('stagnant (0.40) → converged=True', d_st['converged'] is True)
+    _chk('stagnant (0.40) → stagnant=True', d_st['stagnant'] is True)
+    _chk('stagnant → diagnosis STAGNANT', d_st['diagnosis'] == 'STAGNANT')
+
+    converged_hist = [{'Strategy': 0.80}] * (CONVERGENCE_K_GENERATIONS + 1)
+    d_cv = get_convergence_diagnostics(converged_hist)
+    _chk('converged (0.80) → converged=True', d_cv['converged'] is True)
+    _chk('converged (0.80) → stagnant=False', d_cv['stagnant'] is False)
+    _chk('converged → diagnosis CONVERGED', d_cv['diagnosis'] == 'CONVERGED')
+
+    oscillating_hist = [
+        {'Strategy': 0.3 + 0.6 * (i % 2)}
+        for i in range(CONVERGENCE_K_GENERATIONS + 3)
+    ]
+    d_osc = get_convergence_diagnostics(oscillating_hist)
+    _chk('oscillating → oscillating=True', d_osc['oscillating'] is True)
+    _chk('oscillating → diagnosis OSCILLATING', d_osc['diagnosis'] == 'OSCILLATING')
+
+    required_keys = {'converged', 'mean_fitness', 'variance', 'slope',
+                     'stagnant', 'oscillating', 'diagnosis'}
+    _chk('diagnostics has all required keys',
+         required_keys.issubset(d_cv.keys()),
+         f'missing: {required_keys - set(d_cv.keys())}')
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
@@ -539,6 +664,9 @@ if __name__ == '__main__':
     test_check_fitness_convergence()
     test_artifact_hash()
     test_evolution_consistency()
+    test_constitutional_fitness_multiplier()
+    test_stagnation_flag()
+    test_convergence_diagnostics()
     print(f'\n{"=" * 40}')
     print(f'PASS: {PASS}  FAIL: {FAIL}')
     if FAIL > 0:

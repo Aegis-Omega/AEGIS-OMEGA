@@ -393,7 +393,33 @@ VIABILITY_CHAR_BUDGET = 1600
 # Fitness formula version — increment whenever the formula weights change so
 # that cross-version scores can be isolated in the convergence graph.
 # Stored in department_fitness_tracking.fitness_version on every write.
-FITNESS_VERSION = '1.0'
+#
+# V1.0 → V1.1 changes:
+#   - constitutional_factor now multiplies the entire score (was absent)
+#   - objective_coverage weight: 0.25 → 0.30 (quality signal prioritised)
+#   - viability weight: 0.15 → 0.25 (metabolic constraint matters more)
+#   - length_stability weight: 0.35 → 0.20 (most gameable metric, demoted)
+#   - lexical_consistency weight: 0.25 → 0.25 (unchanged)
+#   - stagnation_flag added to return dict (Jaccard > STAGNATION_THRESHOLD)
+FITNESS_VERSION = '1.1'
+
+# Constitutional verdict → fitness multiplier.
+# A QUARANTINE output can score at most 0.20 regardless of textual quality.
+# A FLAG output is penalised to 70% of its raw score.
+# None (no constitutional evaluation) defaults to 0.85 (neutral — not rewarded
+# as fully as APPROVED, but not penalised for missing evaluation).
+CONSTITUTIONAL_FACTORS: dict = {
+    'APPROVED':   1.00,
+    'FLAG':       0.70,
+    'QUARANTINE': 0.20,
+}
+_CONSTITUTIONAL_FACTOR_DEFAULT = 0.85
+
+# Stagnation threshold — if lexical Jaccard similarity between the current and
+# prior generation exceeds this, the department is flagged as stagnant.
+# Example: "Implement Redis cache with Redis cache implementation." scores >0.95
+# Jaccard against "Implement Redis cache." despite being a worse output.
+STAGNATION_THRESHOLD = 0.95
 
 # Convergence invariant: a swarm has converged when the rolling mean absolute
 # fitness delta is below CONVERGENCE_EPSILON for CONVERGENCE_K_GENERATIONS
@@ -428,6 +454,89 @@ def check_fitness_convergence(history: list) -> bool:
     return True
 
 
+def get_convergence_diagnostics(history: list) -> dict:
+    """
+    Return a detailed convergence report for a fitness history.
+
+    history: list of per-generation dicts {dept_role: fitness_score, ...}
+             ordered oldest-first.
+
+    Returns:
+      converged      bool   — True when check_fitness_convergence passes
+      mean_fitness   float  — mean fitness across all roles in the last generation
+      variance       float  — fitness variance across roles in the last generation
+      slope          float  — linear regression slope across the last K+1 generations
+                              (positive = improving, negative = regressing, ~0 = stable)
+      stagnant       bool   — converged but mean_fitness < 0.60 (stable mediocrity)
+      oscillating    bool   — variance in per-gen mean fitness > 3× CONVERGENCE_EPSILON
+      diagnosis      str    — human-readable state label
+    """
+    if not history:
+        return {
+            'converged': False, 'mean_fitness': 0.0, 'variance': 0.0,
+            'slope': 0.0, 'stagnant': False, 'oscillating': False,
+            'diagnosis': 'INSUFFICIENT_DATA',
+        }
+
+    last_gen = history[-1]
+    scores = list(last_gen.values()) if last_gen else []
+    mean_fitness = sum(scores) / len(scores) if scores else 0.0
+    variance = (sum((s - mean_fitness) ** 2 for s in scores) / len(scores)) if len(scores) > 1 else 0.0
+
+    # Per-generation mean scores for slope + oscillation detection
+    gen_means = []
+    for gen in history:
+        vals = list(gen.values())
+        gen_means.append(sum(vals) / len(vals) if vals else 0.0)
+
+    # Linear regression slope across all generations (simple least-squares)
+    n = len(gen_means)
+    if n >= 2:
+        xs = list(range(n))
+        x_mean = (n - 1) / 2.0
+        y_mean = sum(gen_means) / n
+        num = sum((xs[i] - x_mean) * (gen_means[i] - y_mean) for i in range(n))
+        den = sum((xs[i] - x_mean) ** 2 for i in range(n))
+        slope = num / den if den > 0 else 0.0
+    else:
+        slope = 0.0
+
+    # Oscillation: variance of per-generation means in recent window > 3×epsilon
+    window_means = gen_means[-(CONVERGENCE_K_GENERATIONS + 1):]
+    if len(window_means) >= 2:
+        wm = sum(window_means) / len(window_means)
+        wvar = sum((v - wm) ** 2 for v in window_means) / len(window_means)
+        oscillating = wvar > 3 * CONVERGENCE_EPSILON
+    else:
+        oscillating = False
+
+    converged  = check_fitness_convergence(history)
+    stagnant   = converged and mean_fitness < 0.60
+
+    if stagnant:
+        diagnosis = 'STAGNANT'          # stable but mediocre
+    elif oscillating:
+        diagnosis = 'OSCILLATING'       # fitness bouncing — no real convergence
+    elif converged:
+        diagnosis = 'CONVERGED'         # stable and healthy
+    elif slope > CONVERGENCE_EPSILON:
+        diagnosis = 'IMPROVING'         # still climbing
+    elif slope < -CONVERGENCE_EPSILON:
+        diagnosis = 'REGRESSING'        # actively getting worse
+    else:
+        diagnosis = 'STABLE_UNCOMMITTED'  # flat but not yet K-gen confirmed
+
+    return {
+        'converged':    converged,
+        'mean_fitness': round(mean_fitness, 4),
+        'variance':     round(variance, 4),
+        'slope':        round(slope, 6),
+        'stagnant':     stagnant,
+        'oscillating':  oscillating,
+        'diagnosis':    diagnosis,
+    }
+
+
 def artifact_hash(output: str) -> str:
     """SHA-256 of a department output string — used for content-dedup in fitness tracking."""
     import hashlib as _hl_ah
@@ -438,72 +547,93 @@ def evaluate_generation_fitness(
     prev_artifacts: list,
     curr_artifacts: list,
     objective: str,
+    cycle_verdict: str = None,
 ) -> dict:
     """
     Compute per-department fitness scores comparing consecutive swarm generations.
-    Returns {dept_role: {'fitness_score': f, 'viability_score': v}} in [0.0, 1.0].
+    Returns {dept_role: {fitness_score, viability_score, constitutional_factor,
+                         stagnation_flag}} all in [0.0, 1.0] / bool.
 
-    fitness_score = 0.35 × length_stability + 0.25 × objective_coverage
-                  + 0.25 × lexical_consistency + 0.15 × viability_score
-    - length_stability: 1 - normalised absolute length delta between generations
-    - objective_coverage: fraction of objective words present in current output
-    - lexical_consistency: Jaccard similarity of word sets between prev and curr outputs
-    - viability_score: VIABILITY_CHAR_BUDGET / len(output), capped at 1.0 — penalises
-      departments consuming disproportionate context (metabolic constraint)
+    FITNESS_VERSION 1.1 formula:
+      fitness_score = constitutional_factor × (
+          0.30 × objective_coverage     — primary quality signal
+        + 0.25 × lexical_consistency    — cross-generation coherence
+        + 0.25 × viability              — metabolic budget constraint
+        + 0.20 × length_stability       — output size stability (demoted: most gameable)
+      )
+
+    constitutional_factor — CONSTITUTIONAL_FACTORS[cycle_verdict] (see constant).
+      A QUARANTINE output scores at most 0.20 regardless of textual quality.
+      None → 0.85 (neutral; no evaluation present).
+
+    stagnation_flag — True when lexical Jaccard(prev, curr) > STAGNATION_THRESHOLD.
+      Indicates the department is producing near-identical output across generations
+      (gaming the lexical_consistency metric without adding value).
+
+    cycle_verdict: optional 'APPROVED'|'FLAG'|'QUARANTINE' from constitutional audit.
     """
     import re as _re
 
     def _words(text: str) -> set:
         return set(w.lower() for w in _re.findall(r'[a-zA-Z]{3,}', text))
 
+    c_factor = CONSTITUTIONAL_FACTORS.get(cycle_verdict, _CONSTITUTIONAL_FACTOR_DEFAULT)
     obj_words = _words(objective)
-    prev_map = {a['role']: a.get('output', '') for a in prev_artifacts}
+    prev_map  = {a['role']: a.get('output', '') for a in prev_artifacts}
     scores: dict = {}
 
     for a in curr_artifacts:
-        role   = a['role']
-        curr   = a.get('output', '')
-        prev   = prev_map.get(role, '')
+        role = a['role']
+        curr = a.get('output', '')
+        prev = prev_map.get(role, '')
 
-        # Empty output — department produced nothing; hard-zero both metrics
+        # Empty output — department produced nothing; hard-zero all metrics
         if not curr:
-            scores[role] = {'fitness_score': 0.0, 'viability_score': 0.0}
+            scores[role] = {
+                'fitness_score': 0.0, 'viability_score': 0.0,
+                'constitutional_factor': c_factor, 'stagnation_flag': False,
+            }
             continue
 
-        # Length stability
+        # Length stability (0.20 weight — demoted from 0.35 in V1.0)
         cl, pl = len(curr), len(prev)
-        base   = max(cl, pl, 1)
+        base = max(cl, pl, 1)
         length_stability = 1.0 - abs(cl - pl) / base
 
-        # Objective coverage
+        # Objective coverage (0.30 weight — promoted from 0.25 in V1.0)
         if obj_words:
             curr_words = _words(curr)
             objective_coverage = len(obj_words & curr_words) / len(obj_words)
         else:
             objective_coverage = 0.5
 
-        # Lexical consistency across generations
+        # Lexical consistency + stagnation detection (0.25 weight — unchanged)
         if prev:
             prev_words = _words(prev)
             curr_words2 = _words(curr)
             union = prev_words | curr_words2
             lexical_consistency = len(prev_words & curr_words2) / len(union) if union else 0.5
+            stagnation_flag = lexical_consistency > STAGNATION_THRESHOLD
         else:
-            lexical_consistency = 0.5  # no prior generation to compare
+            lexical_consistency = 0.5   # no prior generation to compare
+            stagnation_flag = False
 
-        # Viability — metabolic budget on output size
+        # Viability — metabolic budget (0.25 weight — promoted from 0.15 in V1.0)
         viability = min(1.0, VIABILITY_CHAR_BUDGET / cl) if cl > 0 else 0.0
 
-        score = round(
-            0.35 * length_stability
-            + 0.25 * objective_coverage
+        raw = (
+            0.30 * objective_coverage
             + 0.25 * lexical_consistency
-            + 0.15 * viability,
-            4,
+            + 0.25 * viability
+            + 0.20 * length_stability
         )
+        fitness = round(c_factor * max(0.0, min(1.0, raw)), 4)
+
         scores[role] = {
-            'fitness_score': max(0.0, min(1.0, score)),
-            'viability_score': round(viability, 4),
+            'fitness_score':          fitness,
+            'viability_score':        round(viability, 4),
+            'constitutional_factor':  c_factor,
+            'stagnation_flag':        stagnation_flag,
         }
 
     return scores
@@ -546,6 +676,7 @@ def store_generation_fitness(
             'fitness_score':       score['fitness_score'],
             'viability_score':     score['viability_score'],
             'constitutional_verdict': constitutional_verdict,
+            'constitutional_factor':  score.get('constitutional_factor', _CONSTITUTIONAL_FACTOR_DEFAULT),
             'fitness_version':     FITNESS_VERSION,
             'execution_id':        execution_id,
             'parent_generation':   generation - 1,  # -1 for generation 0 handled by DB default
