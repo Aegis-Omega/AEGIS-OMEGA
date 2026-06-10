@@ -1113,6 +1113,43 @@ def test_retrieve_swarm_memory() -> None:
             os.environ['SUPABASE_SERVICE_ROLE_KEY'] = saved_key
 
 
+def test_constitutional_departments_last() -> None:
+    """
+    Constitutional departments must activate last in the swarm roster.
+
+    Structural invariant: Guardian (CON-09) and Audit (CON-01) must have
+    the highest indices because they render constitutional verdicts after
+    all domain departments have completed. Reordering the roster without
+    this test passing would silently break the verifier-last guarantee.
+    """
+    print('\n--- constitutional departments last in roster ---')
+    ids = [d['id'] for d in PLATFORM_DEPARTMENTS]
+    constitutional = [d for d in PLATFORM_DEPARTMENTS if d['category'] == 'constitutional']
+    non_constitutional = [d for d in PLATFORM_DEPARTMENTS if d['category'] != 'constitutional']
+
+    _chk('at least 2 constitutional departments', len(constitutional) >= 2)
+    if non_constitutional:
+        last_non_con_idx = max(ids.index(d['id']) for d in non_constitutional)
+        first_con_idx    = min(ids.index(d['id']) for d in constitutional)
+        _chk('all constitutional depts follow all domain depts',
+             first_con_idx > last_non_con_idx,
+             f'first_con_idx={first_con_idx} last_non_con_idx={last_non_con_idx}')
+
+    guardian = next((d for d in PLATFORM_DEPARTMENTS if d['role'] == 'Guardian'), None)
+    _chk('Guardian exists', guardian is not None)
+    if guardian:
+        guardian_idx = ids.index(guardian['id'])
+        _chk('Guardian is the last department (index 38)', guardian_idx == 38,
+             f'got index {guardian_idx}')
+
+    audit = next((d for d in PLATFORM_DEPARTMENTS if d['role'] == 'Audit'), None)
+    _chk('Audit exists', audit is not None)
+    if audit:
+        audit_idx = ids.index(audit['id'])
+        _chk('Audit is in the last 2 departments', audit_idx >= 37,
+             f'got index {audit_idx}')
+
+
 def test_python_ts_contract_agreement() -> None:
     """
     Cross-language spec-drift guard: Python PLATFORM_DEPARTMENTS must match
@@ -1195,6 +1232,7 @@ if __name__ == '__main__':
     test_retrieve_prior_artifacts()
     test_retrieve_generation_fitness()
     test_retrieve_swarm_memory()
+    test_constitutional_departments_last()
     test_python_ts_contract_agreement()
     print(f'\n{"=" * 40}')
     print(f'PASS: {PASS}  FAIL: {FAIL}')

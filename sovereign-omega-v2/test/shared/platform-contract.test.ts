@@ -76,4 +76,22 @@ describe('PLATFORM_DEPARTMENTS roster', () => {
       expect(dept.id).toMatch(/^[A-Z]{2,4}-\d{2}$/)
     }
   })
+
+  it('constitutional departments activate last (verifier-last invariant)', () => {
+    const ids = PLATFORM_DEPARTMENTS.map(d => d.id)
+    const constitutional = PLATFORM_DEPARTMENTS.filter(d => d.category === 'constitutional')
+    const nonConstitutional = PLATFORM_DEPARTMENTS.filter(d => d.category !== 'constitutional')
+
+    expect(constitutional.length).toBeGreaterThanOrEqual(2)
+
+    const lastNonConIdx = Math.max(...nonConstitutional.map(d => ids.indexOf(d.id)))
+    const firstConIdx   = Math.min(...constitutional.map(d => ids.indexOf(d.id)))
+    expect(firstConIdx).toBeGreaterThan(lastNonConIdx)
+  })
+
+  it('Guardian is the last department in the roster', () => {
+    const guardian = PLATFORM_DEPARTMENTS.find(d => d.role === 'Guardian')
+    expect(guardian?.id).toBe('CON-09')
+    expect(PLATFORM_DEPARTMENTS.indexOf(guardian!)).toBe(38)
+  })
 })
