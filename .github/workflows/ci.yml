@@ -266,7 +266,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        product: [hub, cockpit, platform-picker, hook-generator, content-calendar]
+        product: [hub, cockpit, platform-picker, hook-generator, content-calendar, tactical]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
