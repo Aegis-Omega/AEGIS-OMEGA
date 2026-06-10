@@ -56,6 +56,8 @@ from platform_helpers import (
     retrieve_prior_artifacts,
     retrieve_generation_fitness,
     retrieve_swarm_memory,
+    validate_tier_capabilities,
+    TIER_LIVE_ALLOWED,
 )
 
 PASS = 0
@@ -972,6 +974,55 @@ def test_coherence_gate() -> None:
     _chk('equals martingale ceiling (φ)', abs(COHERENCE_GATE_THRESHOLD - (5 ** 0.5 - 1) / 2) < 1e-6)
 
 
+def test_validate_tier_capabilities() -> None:
+    """validate_tier_capabilities: least-latitude gate (brief §9)."""
+    print('\n--- validate_tier_capabilities (tier capability gate) ---')
+
+    # explorer tier: live=False always passes
+    try:
+        validate_tier_capabilities('explorer', False)
+        _chk('explorer live=False passes', True)
+    except ValueError:
+        _chk('explorer live=False passes', False)
+
+    # explorer tier: live=True must be rejected
+    caught = False
+    try:
+        validate_tier_capabilities('explorer', True)
+    except ValueError as exc:
+        caught = True
+        _chk('error mentions tier', 'explorer' in str(exc))
+        _chk('error mentions operator/sovereign', 'operator' in str(exc) or 'sovereign' in str(exc))
+    _chk('explorer live=True raises ValueError', caught)
+
+    # operator tier: live=True passes
+    try:
+        validate_tier_capabilities('operator', True)
+        _chk('operator live=True passes', True)
+    except ValueError:
+        _chk('operator live=True passes', False)
+
+    # sovereign tier: live=True passes
+    try:
+        validate_tier_capabilities('sovereign', True)
+        _chk('sovereign live=True passes', True)
+    except ValueError:
+        _chk('sovereign live=True passes', False)
+
+    # all tiers: live=False always passes
+    for tier in ('explorer', 'operator', 'sovereign'):
+        try:
+            validate_tier_capabilities(tier, False)
+            _chk(f'{tier} live=False always passes', True)
+        except ValueError:
+            _chk(f'{tier} live=False always passes', False)
+
+    # TIER_LIVE_ALLOWED must contain operator and sovereign
+    _chk('operator in TIER_LIVE_ALLOWED', 'operator' in TIER_LIVE_ALLOWED)
+    _chk('sovereign in TIER_LIVE_ALLOWED', 'sovereign' in TIER_LIVE_ALLOWED)
+    _chk('explorer not in TIER_LIVE_ALLOWED', 'explorer' not in TIER_LIVE_ALLOWED)
+
+
 def test_retrieve_prior_artifacts() -> None:
     """retrieve_prior_artifacts: returns [] when Supabase absent."""
     print('\n--- retrieve_prior_artifacts (no-Supabase safe return) ---')
@@ -1068,6 +1119,7 @@ if __name__ == '__main__':
     test_sanitize_objective()
     test_coherence_gate()
     test_pipeline_constraint_propagation()
+    test_validate_tier_capabilities()
     test_retrieve_prior_artifacts()
     test_retrieve_generation_fitness()
     test_retrieve_swarm_memory()

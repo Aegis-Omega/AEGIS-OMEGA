@@ -47,6 +47,7 @@ from platform_helpers import (
     dept_output as _platform_dept_output,
     make_sse_event as _make_sse_event,
     validate_collaboration_request as _validate_collab_req,
+    validate_tier_capabilities as _validate_tier_caps,
     retrieve_swarm_memory as _retrieve_swarm_memory,
     swarm_collaborate_live as _swarm_live,
     evaluate_generation_fitness as _eval_fitness,
@@ -588,6 +589,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
                 return
 
+            try:
+                _validate_tier_caps(_tier, live)
+            except ValueError as exc:
+                self._platform_respond(403, {'error': str(exc), 'code': 'INVALID_REQUEST'})
+                return
+
             execution_id = str(_uuid_pc.uuid4())
             q = _queue_mod.Queue()
             with _executions_lock:
@@ -632,6 +639,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 objective, mode, live, generation, memory_context = _validate_collab_req(data)
             except ValueError as exc:
                 self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
+                return
+
+            try:
+                _validate_tier_caps(_tier, live)
+            except ValueError as exc:
+                self._platform_respond(403, {'error': str(exc), 'code': 'INVALID_REQUEST'})
                 return
 
             execution_id = str(_uuid_pe.uuid4())

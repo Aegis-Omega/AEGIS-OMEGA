@@ -25,6 +25,27 @@ VALID_MODES = frozenset({
     'competitive', 'technical', 'regulatory', 'fundraising',
 })
 
+# ── Tier capability gates (brief §9 — least latitude by default) ──────────────
+# explorer: template/demo only (live=False). Real Claude API calls require at
+# least operator tier. This prevents explorer keys from triggering unbounded
+# inference costs while still letting them test the full 39-dept pipeline.
+TIER_LIVE_ALLOWED: frozenset = frozenset({'operator', 'sovereign'})
+
+
+def validate_tier_capabilities(tier: str, live: bool) -> None:
+    """
+    Enforce least-latitude capability gate (brief §9).
+
+    Raises ValueError if the requested capability exceeds the tier's grant.
+    The bridge calls this after verify_api_key() and before executing the swarm.
+    """
+    if live and tier not in TIER_LIVE_ALLOWED:
+        raise ValueError(
+            f'live=True requires operator or sovereign tier (current: {tier!r}). '
+            'Upgrade your API key at aegisomega.com to enable live Claude collaboration.'
+        )
+
+
 # ── Coherence gate (brief §5 — explicit named stop condition) ─────────────────
 # The swarm "collapses" to a user-facing answer only when the constitutional
 # audit returns APPROVED and the fitness score exceeds this threshold.
