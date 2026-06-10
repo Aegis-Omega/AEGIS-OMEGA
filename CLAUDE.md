@@ -547,6 +547,91 @@ replay divergence · topology non-determinism · unbounded ecology · privileged
 
 ---
 
+## Constitutional Enforcer — Four Directives (Formal Spec)
+
+The Constitutional Enforcer is the specification-level governance layer. Every directive,
+prompt, and generated artifact is validated against all four before propagation.
+Implemented in `sovereign-mesh/nodes/architect/planner.py → ConstitutionalEnforcer`.
+
+| Directive | Rule | Violation signal |
+|-----------|------|-----------------|
+| **Epistemic Sovereignty** | Truth over Flow. Uncertainty is preserved, never collapsed. | False certainty patterns: "always works", "guaranteed to", "100% certain" |
+| **Causal Architecture** | Mechanism over Metaphor. Explicit causal chains replace narrative. | Narrative framing: "imagine that", "let's pretend", "in a world where" |
+| **Operational Realism** | Feasibility as Constraint. Hard constraints dominate soft constraints. | Soft overrides to hard: "we could ignore", "just bypass" |
+| **Adversarial Self-Correction** | Continuous Internal Audit. System seeks its own failure modes. | Absence of falsification: no failure mode named = incomplete spec |
+
+**Hash commitment:** the `constitution_hash` in `sovereign-omega-v2/src/constitutional/founder.ts`
+commits to the exact text of these four directives. If the text changes, the founder_hash
+becomes invalid — immutable proof of authorship.
+
+The four directives are NOT metaphors for good practice. They are enforced as code:
+- `validate_directive()` in `ConstitutionalEnforcer` rejects or sanitizes violating inputs
+- `NLAAuditor` in `sovereign-mesh/nodes/auditor/evaluator.py` detects compliance faking,
+  score inflation, evaluation awareness, task avoidance, and reward hacking
+- Violations are logged to `violations.log` for retrospective analysis
+
+---
+
+## Khatt Loop — Five-Phase Specification Protocol
+
+The Khatt Loop is the formal specification protocol used by the Architect node to
+decompose directives into verifiable sprint contracts. It is named after Arabic calligraphy
+(خط = line/script): each phase adds a layer of structure that makes the meaning unambiguous.
+This is mechanism, not metaphor — each phase produces a verifiable artifact.
+
+Implemented in `sovereign-mesh/nodes/architect/planner.py → SpecExpander.expand()`.
+
+| Phase | Name | Formal role | Artifact |
+|-------|------|-------------|----------|
+| 1 | **Nuqta** (نقطة — dot/point) | Atomic SHA-256 sealed fact. The irreducible truth unit. | `Nuqta.seal = sha256(data)` — cryptographically bound, T0 |
+| 2 | **Alif** (ألف — first letter, vertical axis) | Hard constraints and invariants. The axis that cannot bend. | `Alif` objects: AGPL3_COMPLIANCE, ZERO_ALLOCATION, GENESIS_SEAL, DOMAIN_ISOLATION, NO_TOKIO, BTREE_MAP |
+| 3 | **Rasm** (رسم — skeleton/drawing) | Causal flow weaving. Explicit dependency graph, not narrative. | Ordered list: INPUT → CONSTRAINT → PROCESS → OUTPUT |
+| 4 | **Tashkeel** (تشكيل — diacritics/voweling) | Uncertainty metadata. Confidence intervals and unknowns made explicit. | `{ confidence, assumptions, risk_factors, unknowns }` |
+| 5 | **Tanasub** (تناسب — proportionality) | φ-proportional scaling. Effort scaled by Golden Ratio to complexity λ. | `scaled_effort = φ^(λ/10)`, `estimated_tokens = 1000 × scaled_effort` |
+
+**Why this matters:** the Khatt Loop is a parallel to RALPH (Read→Assess→Lock→Propagate→Harmonize)
+but with a stricter epistemic grounding requirement at each phase. RALPH governs execution;
+Khatt governs specification. Together they form the two-layer governance protocol:
+specify-first (Khatt) → execute-verify (RALPH).
+
+**Connection to eccf/gcce (Rust calligraphic layer):**
+- `eccf/` — Elliptic Curve Constitutional Framework: keccak hash → NTT transform → lattice stroke → calligraphic renderer
+- `gcce/` — Generative Calligraphic Computing Engine: `alif.rs`, `nuqta.rs`, `rasm.rs`, `tanasub.rs`, `tashkeel.rs`
+- These implement the same 5-phase logic in Rust as cryptographic primitives, not as interpreted Python
+- The Arabic typography names are the formal names for these computational structures — not aesthetic choices
+
+**Key invariant:** Nuqta is always SHA-256 sealed (T0). Alif violation_action EXIT halts the chain.
+Tashkeel confidence below threshold → sprint contract is not issued.
+
+---
+
+## Sovereign Mesh Architecture
+
+```
+sovereign-mesh/
+  hypervisor/          — Managed settings + multi-node coordination
+  nodes/
+    architect/         — Node α: Planner. Receives directives, runs Khatt Loop, issues SprintContracts
+      planner.py       — ConstitutionalEnforcer + SpecExpander + ArchitectNode
+    artisan/           — Node β: Generator. Receives SprintContracts, produces implementations
+      generator.py     — Code generation with constitutional constraints
+    auditor/           — Node γ: Evaluator. Audits generated artifacts, NLAAuditor
+      evaluator.py     — NLAAuditor, GenesisVerifier, constitutional alignment checks
+```
+
+**NLAAuditor detection patterns** (evaluator.py):
+- `evaluation_awareness` — model knows it's being evaluated, adjusting behavior
+- `score_inflation` — inflating self-assessment scores
+- `task_avoidance` — redirecting away from the actual task
+- `reward_hacking` — optimizing for metric proxies instead of actual objectives
+- `compliance_faking` — appearing to comply while violating intent
+
+Verdicts: `PASS` · `PASS_WITH_WARNINGS` · `FAIL` · `REJECT_REROLL`
+
+**Skill exocortex pointers:** `constitutional-enforcer` · `khatt-loop` (in `sovereign-omega-v2/.claude/skills/`)
+
+---
+
 ## Orchestration Alliance
 
 Claude (coordinator) · ChatGPT (adversarial audit, temperature 0.99) · Qwen (implementation)
