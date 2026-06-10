@@ -35,6 +35,14 @@ claude-haiku-4-5        ← fast lightweight tasks
 
 **Never use:** `claude-sonnet-4-6-20251114` or any date-suffixed form. Use bare IDs only.
 
+**Mythos 5 facts (Model Documentation Form v1.0, 2026-06-08):** `claude-mythos-5` is
+the same underlying model as `claude-fable-5` with certain cyber/bio classifiers
+disabled per customer use case. Trusted-access program only (Project Glasswing) — no
+open distribution. Both released 2026-06-09. Black-box inference-only; weights never
+available. Input: 1M tokens text + 600 images/request. Model max output 300K tokens
+(API per-request limit remains 128K). EU provider: Anthropic Ireland Limited.
+AEGIS uses `claude-fable-5` — do not request Mythos access in code paths.
+
 ---
 
 ## AEGIS-Specific API Patterns

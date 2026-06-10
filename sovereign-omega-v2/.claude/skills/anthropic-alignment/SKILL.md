@@ -13,7 +13,7 @@ description: >
 # AEGIS ↔ Anthropic Enterprise Alignment
 
 **Epistemic Tier: T2** (engineering hypothesis based on published Anthropic documentation)
-**Sources:** Anthropic Enterprise Security Posture (May 15, 2026), HIPAA Type 1 Report (Oct 31, 2025), WCAG ACRs (Web Apr 2026, iOS May 2026), Infrastructure Diagram (Apr 2025)
+**Sources:** Anthropic Enterprise Security Posture (May 15, 2026), HIPAA Type 1 Report (Oct 31, 2025), WCAG ACRs (Web Apr 2026, iOS May 2026), Infrastructure Diagram (Apr 2025), Frontier Compliance Framework (Mar 2026), NIST 800-171r3 Attestation (Coalfire, Jan 2026), Mythos 5/Fable 5 Model Documentation Form (Jun 8, 2026)
 
 ---
 
@@ -162,11 +162,58 @@ The `chain_terminal_hash` links the export snapshot to the bridge's metacognitiv
 
 Priority order (by impact / effort):
 
-1. **`GET /platform/compliance/export`** — done ✓ (commit `601a295d` + this session)
-2. **ISO 42001 alignment document** — write `docs/ISO_42001_ALIGNMENT.md` mapping AEGIS to all 9 ISO 42001 clauses
-3. **SOC 2 Type II pursuit** — requires engaging a third-party auditor (Schellman, Coalfire, etc.); controls are already in place
-4. **HIPAA BAA template** — draft a BAA for AEGIS customers who process ePHI via Claude; mirrors Anthropic's own BAA template
-5. **Anthropic Trust Center listing** — AEGIS should appear as a verified partner/integration in the Anthropic partner ecosystem
+1. **`GET /platform/compliance/export`** — done ✓ (commit `006ea2ec`)
+2. **FCF loss-of-control mitigation brief** — position AEGIS as the deployment-layer answer to the FCF's Sabotage Tier 1 risk class (see section above); this is the sharpest partnership wedge because it addresses a risk Anthropic has formally committed to mitigating under TFAIA + EU AI Act
+3. **ISO 42001 alignment document** — write `docs/ISO_42001_ALIGNMENT.md` mapping AEGIS to all 9 ISO 42001 clauses
+4. **NIST 800-171r3 §3.3 self-assessment** — document AEGIS audit controls against the Audit & Accountability family, citing `/platform/compliance/export` as evidence
+5. **SOC 2 Type II pursuit** — requires engaging a third-party auditor (Schellman, Coalfire — both audit Anthropic); controls are already in place
+6. **HIPAA BAA template** — draft a BAA for AEGIS customers who process ePHI via Claude; mirrors Anthropic's own BAA template
+7. **Anthropic Trust Center listing** — AEGIS should appear as a verified partner/integration in the Anthropic partner ecosystem
+
+---
+
+## Frontier Compliance Framework — The Loss-of-Control Angle
+
+Anthropic's FCF (March 2026) is its compliance framework for California's TFAIA and the EU AI Act (Regulation (EU) 2024/1689). It defines four systemic risk categories: cyber offense, CBRN, harmful manipulation, and **sabotage and loss of control**.
+
+The FCF's Sabotage Tier 1 definition (verbatim):
+
+> "AI systems that write large amounts of critical code and/or are otherwise in a position where they are highly relied on and have extensive access to sensitive assets, as well as moderate capacity for autonomous, goal-directed operation and subterfuge."
+
+**This is the exact risk class AEGIS exists to mitigate.** Every constitutional mechanism maps to an FCF loss-of-control concern:
+
+| FCF Loss-of-Control Concern | AEGIS Mitigation |
+|------------------------------|------------------|
+| "evasion of oversight" | `AdaptivePower(T) ≤ ReplayVerifiability(T)` — adaptation cannot outrun verification |
+| "concealment, strategic deception" | Hash-chained MetacognitiveLoop — tamper-evident self-observation; concealment breaks the chain |
+| "establishing unauthorized deployments" | Law of Silence — agents communicate only through mediated EventEnvelope |
+| "accumulating resources without authorization" | Martingale gate — `E[S_{n+1}|F_n] = S_n`; unbounded accumulation suspends adaptation |
+| "manipulate the evidence used to assess their safety" | `verify-hashes.mjs` + frozen-file SHA-256 — evidence integrity is mechanically checked |
+
+The partnership thesis sharpened: **AEGIS operationalizes the FCF's loss-of-control mitigations for downstream agentic deployments.** Anthropic mitigates at the model layer (classifiers, RSP); AEGIS mitigates at the deployment layer (replay-verifiable agent governance). The FCF's own incident-response section (§2.6) requires tracking Serious AI Incidents under EU AI Act Art. 55(1)(c) — AEGIS's hash-chained audit trail is the downstream evidence substrate for exactly that reporting.
+
+---
+
+## EU AI Act — AEGIS Is Formally a Downstream Provider
+
+The Mythos 5/Fable 5 Model Documentation Form is published under **EU AI Act Art. 53(1)(b), Annex XII** — model documentation *for downstream providers*. AEGIS integrates Claude into its own AI system (the 39-dept swarm) and places it on the market: AEGIS **is** a downstream provider in the regulation's sense.
+
+What this means concretely:
+
+- AEGIS inherits its own EU AI Act obligations (Art. 12 record-keeping in particular) — already architecturally satisfied: the audit chain IS Article 12 logging, and `aegis-cl-psi` is tagged EU AI Act-compliant
+- Anthropic Ireland Limited is the EU model provider; AEGIS (EU-deployed, Vertex `eu` region, Cloud Run `europe-west3`) sits cleanly in the EU compliance chain
+- Key model facts (form v1.0, June 8, 2026): Mythos 5 = Fable 5 with certain cyber/bio classifiers disabled per customer use case, trusted-access program only; both released June 9, 2026; black-box inference-only access; input 1M tokens text + 600 images/request; max output 300K tokens (model capability — API per-request limit remains 128K)
+
+---
+
+## NIST 800-171r3 — The Government Market Gap
+
+Coalfire's attestation (Jan 13, 2026): Anthropic implemented **90 of 98** NIST SP 800-171r3 requirements for Claude + Claude API (CUI protection). The 8 low-severity findings all have remediation plans (account lifecycle, CUI training, security literacy, IR training docs, software program reviews, identifier characteristics).
+
+Relevance for AEGIS:
+- NIST 800-171 is the gateway to US federal/defense contractors handling CUI. Anthropic is positioned there; an AEGIS layered on Claude inherits that posture for the model layer but needs its own 800-171 story for the governance layer
+- AEGIS's deterministic audit controls (03.03.x family) are its strongest 800-171 chapter — hash chains exceed the audit-record integrity requirements
+- Lowest-effort win: document AEGIS against 800-171r3 §3.3 (Audit and Accountability) using the existing `/platform/compliance/export` endpoint as evidence
 
 ---
 
