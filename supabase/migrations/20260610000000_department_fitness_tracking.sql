@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS public.department_fitness_tracking (
   cycle_id               text        NOT NULL,  -- collaboration cycle_id that produced this score
   dept_role              text        NOT NULL,  -- e.g. 'Strategy', 'Guardian'
   fitness_score          numeric(6,4) NOT NULL CHECK (fitness_score BETWEEN 0 AND 1),
-  -- Composite: 0.4×length_stability + 0.3×objective_coverage + 0.3×lexical_consistency
+  -- Composite: 0.35×length_stability + 0.25×objective_coverage + 0.25×lexical_consistency + 0.15×viability
+  viability_score        numeric(6,4) NOT NULL DEFAULT 1.0 CHECK (viability_score BETWEEN 0 AND 1),
+  -- Metabolic constraint: VIABILITY_CHAR_BUDGET / output_length, capped at 1.0
   constitutional_verdict text        NOT NULL CHECK (constitutional_verdict IN ('APPROVED','FLAG','QUARANTINE')),
   created_at             timestamptz NOT NULL DEFAULT now()
 );
@@ -50,6 +52,7 @@ SELECT
   generation,
   dept_role,
   ROUND(AVG(fitness_score)::numeric, 4)    AS avg_fitness,
+  ROUND(AVG(viability_score)::numeric, 4)  AS avg_viability,
   COUNT(*)                                  AS sample_count,
   MAX(created_at)                           AS latest_at
 FROM public.department_fitness_tracking

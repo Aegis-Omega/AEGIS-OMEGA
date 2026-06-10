@@ -385,6 +385,12 @@ def validate_collaboration_request(body: dict) -> tuple:
 
 # ─── Evolutionary generation fitness ─────────────────────────────────────────
 
+# Per-department output character budget — metabolic constraint on context
+# consumption. Departments exceeding the budget see their viability term decay
+# proportionally; staying within budget scores 1.0. ~400 tokens at 4 chars/token.
+VIABILITY_CHAR_BUDGET = 1600
+
+
 def evaluate_generation_fitness(
     prev_artifacts: list,
     curr_artifacts: list,
@@ -392,12 +398,15 @@ def evaluate_generation_fitness(
 ) -> dict:
     """
     Compute per-department fitness scores comparing consecutive swarm generations.
-    Returns {dept_role: fitness_score} where scores are in [0.0, 1.0].
+    Returns {dept_role: {'fitness_score': f, 'viability_score': v}} in [0.0, 1.0].
 
-    Score = 0.4 × length_stability + 0.3 × objective_coverage + 0.3 × lexical_consistency
+    fitness_score = 0.35 × length_stability + 0.25 × objective_coverage
+                  + 0.25 × lexical_consistency + 0.15 × viability_score
     - length_stability: 1 - normalised absolute length delta between generations
     - objective_coverage: fraction of objective words present in current output
     - lexical_consistency: Jaccard similarity of word sets between prev and curr outputs
+    - viability_score: VIABILITY_CHAR_BUDGET / len(output), capped at 1.0 — penalises
+      departments consuming disproportionate context (metabolic constraint)
     """
     import re as _re
 
@@ -434,13 +443,20 @@ def evaluate_generation_fitness(
         else:
             lexical_consistency = 0.5  # no prior generation to compare
 
+        # Viability — metabolic budget on output size
+        viability = min(1.0, VIABILITY_CHAR_BUDGET / cl) if cl > 0 else 0.0
+
         score = round(
-            0.4 * length_stability
-            + 0.3 * objective_coverage
-            + 0.3 * lexical_consistency,
+            0.35 * length_stability
+            + 0.25 * objective_coverage
+            + 0.25 * lexical_consistency
+            + 0.15 * viability,
             4,
         )
-        scores[role] = max(0.0, min(1.0, score))
+        scores[role] = {
+            'fitness_score': max(0.0, min(1.0, score)),
+            'viability_score': round(viability, 4),
+        }
 
     return scores
 
@@ -473,7 +489,8 @@ def store_generation_fitness(
             'generation': generation,
             'cycle_id': cycle_id,
             'dept_role': role,
-            'fitness_score': score,
+            'fitness_score': score['fitness_score'],
+            'viability_score': score['viability_score'],
             'constitutional_verdict': constitutional_verdict,
         }
         for role, score in fitness_scores.items()
