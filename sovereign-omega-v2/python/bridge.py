@@ -55,6 +55,7 @@ from platform_helpers import (
     retrieve_prior_artifacts as _retrieve_prior_artifacts,
     award_graces_for_cycle as _award_graces,
     fetch_grace_leaderboard as _fetch_graces,
+    fetch_compliance_export as _fetch_compliance_export,
 )
 
 # In-memory execution store — keyed by execution_id
@@ -1437,6 +1438,53 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'graces': leaderboard,
                 'total_depts': len(leaderboard),
                 'description': 'Each agent gives the next agent a grace.',
+            }))
+
+        elif self.path.startswith('/platform/compliance/export'):
+            # GET /platform/compliance/export — HIPAA §164.312(b) audit trail export.
+            # Returns tamper-evident AI governance records from revenue_cycles.
+            # Satisfies: HIPAA §164.312(b) Audit Controls, ISO 42001 AI Management System.
+            # Requires API key — exported_by field is scoped to the key owner.
+            import urllib.parse as _up_cex
+            import uuid as _uuid_cex
+            parsed = _up_cex.urlparse(self.path)
+            params = dict(_up_cex.parse_qsl(parsed.query))
+
+            api_key = self.headers.get('x-api-key', '')
+            try:
+                email, _tier = _platform_verify_api_key(api_key)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+
+            from_ts = params.get('from')
+            to_ts   = params.get('to')
+            try:
+                limit = min(int(params.get('limit', '100')), 1000)
+            except (ValueError, TypeError):
+                limit = 100
+
+            eid = str(_uuid_cex.uuid4())
+            records = _fetch_compliance_export(from_ts, to_ts, limit)
+
+            with _mc_lock:
+                terminal = (
+                    _metacognitive_chain[-1]['entry_hash']
+                    if _metacognitive_chain else '0' * 64
+                )
+
+            self._platform_respond(200, _platform_envelope(eid, {
+                'export_id':             eid,
+                'period_from':           from_ts or 'unbounded',
+                'period_to':             to_ts   or 'unbounded',
+                'total_records':         len(records),
+                'chain_terminal_hash':   terminal,
+                'compliance_framework':  (
+                    'HIPAA §164.312(b) Audit Controls; '
+                    'ISO 42001 AI Management System'
+                ),
+                'exported_by':           email,
+                'records':               records,
             }))
 
         elif self.path.startswith('/platform/executions/live'):

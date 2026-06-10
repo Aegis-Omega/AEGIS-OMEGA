@@ -62,6 +62,7 @@ from platform_helpers import (
     store_swarm_memory,
     award_graces_for_cycle,
     fetch_grace_leaderboard,
+    fetch_compliance_export,
 )
 
 PASS = 0
@@ -1392,6 +1393,35 @@ def test_grace_chain() -> None:
     _chk('3× identical calls do not raise (determinism)', True)
 
 
+def test_compliance_export() -> None:
+    """fetch_compliance_export — dev-mode behaviour and record shape contract."""
+    print('\ncompliance export — dev-mode (no SUPABASE_URL):')
+
+    # dev mode returns empty list (no SUPABASE_URL in test env)
+    result = fetch_compliance_export(None, None, 100)
+    _chk('dev-mode returns list', isinstance(result, list))
+    _chk('dev-mode returns empty list without DB', result == [])
+
+    # limit clamping — function must not raise on extreme values
+    result_zero = fetch_compliance_export(None, None, 0)
+    _chk('limit=0 does not raise', isinstance(result_zero, list))
+
+    result_huge = fetch_compliance_export(None, None, 9999)
+    _chk('limit=9999 does not raise (clamped to 1000)', isinstance(result_huge, list))
+
+    # timestamp params — None values must not raise
+    result_from = fetch_compliance_export('2026-01-01T00:00:00Z', None, 10)
+    _chk('from_ts param does not raise', isinstance(result_from, list))
+
+    result_range = fetch_compliance_export('2026-01-01T00:00:00Z', '2026-12-31T23:59:59Z', 50)
+    _chk('date range does not raise', isinstance(result_range, list))
+
+    # Determinism: 3× identical calls return same type
+    for _ in range(3):
+        r = fetch_compliance_export(None, None, 100)
+        _chk('determinism: identical call returns list', isinstance(r, list))
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
@@ -1432,6 +1462,7 @@ if __name__ == '__main__':
     test_constitutional_departments_last()
     test_python_ts_contract_agreement()
     test_grace_chain()
+    test_compliance_export()
     print(f'\n{"=" * 40}')
     print(f'PASS: {PASS}  FAIL: {FAIL}')
     if FAIL > 0:

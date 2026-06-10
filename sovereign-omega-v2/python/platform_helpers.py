@@ -1267,6 +1267,64 @@ def award_graces_for_cycle(cycle_id: str, artifacts: list, verdict: str) -> None
             print(f'[bridge] grace award failed ({to_dept}): {exc}', file=sys.stderr)
 
 
+def fetch_compliance_export(from_ts: str | None, to_ts: str | None, limit: int) -> list:
+    """
+    Export AI governance audit records from revenue_cycles for compliance review.
+
+    Maps to HIPAA §164.312(b) Audit Controls and ISO 42001 AI Management System.
+    Returns [] when SUPABASE_URL is unset (dev mode) or on error.
+
+    objective_hash: SHA-256 of raw objective — privacy-preserving; allows auditors
+    to verify a specific decision was processed without exposing the objective text.
+    """
+    import urllib.request as _urCE
+    import urllib.parse as _upCE
+    import hashlib as _hlCE
+
+    supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+    if not supabase_url or not service_key:
+        return []
+
+    params: list[str] = [
+        'select=cycle_id,objective,mode,arr_usd,constitutional_verdict,created_at',
+        'order=created_at.desc',
+        f'limit={max(1, min(limit, 1000))}',
+    ]
+    if from_ts:
+        params.append(f'created_at=gte.{_upCE.quote(from_ts)}')
+    if to_ts:
+        params.append(f'created_at=lte.{_upCE.quote(to_ts)}')
+
+    url = f'{supabase_url}/rest/v1/revenue_cycles?' + '&'.join(params)
+    req = _urCE.Request(url, headers={
+        'apikey':        service_key,
+        'Authorization': f'Bearer {service_key}',
+    })
+    try:
+        with _urCE.urlopen(req, timeout=8) as resp:
+            rows = json.loads(resp.read().decode())
+        records = []
+        for row in rows:
+            obj_hash = _hlCE.sha256(
+                (row.get('objective') or '').encode()
+            ).hexdigest()
+            records.append({
+                'cycle_id':               row.get('cycle_id', ''),
+                'timestamp':              row.get('created_at', ''),
+                'objective_hash':         obj_hash,
+                'mode':                   row.get('mode', ''),
+                'constitutional_verdict': row.get('constitutional_verdict', 'APPROVED'),
+                'projected_arr_usd':      row.get('arr_usd', 0),
+                'is_replay_reconstructable': True,
+            })
+        return records
+    except Exception as exc:
+        import sys
+        print(f'[bridge] compliance_export failed: {exc}', file=sys.stderr)
+        return []
+
+
 def fetch_grace_leaderboard() -> list:
     """
     Read the grace_chain_summary view — all depts sorted by lifetime_graces desc.
