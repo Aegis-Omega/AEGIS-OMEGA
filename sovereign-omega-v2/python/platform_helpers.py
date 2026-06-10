@@ -390,6 +390,49 @@ def validate_collaboration_request(body: dict) -> tuple:
 # proportionally; staying within budget scores 1.0. ~400 tokens at 4 chars/token.
 VIABILITY_CHAR_BUDGET = 1600
 
+# Fitness formula version — increment whenever the formula weights change so
+# that cross-version scores can be isolated in the convergence graph.
+# Stored in department_fitness_tracking.fitness_version on every write.
+FITNESS_VERSION = '1.0'
+
+# Convergence invariant: a swarm has converged when the rolling mean absolute
+# fitness delta is below CONVERGENCE_EPSILON for CONVERGENCE_K_GENERATIONS
+# consecutive generations. Without this stopping criterion the swarm can run
+# indefinitely, optimising toward a stable mediocrity.
+CONVERGENCE_EPSILON = 0.02       # 2% fitness change threshold
+CONVERGENCE_K_GENERATIONS = 5   # must hold for 5 consecutive gens
+
+
+def check_fitness_convergence(history: list) -> bool:
+    """
+    Return True when the swarm has converged per the constitutional invariant:
+      rolling mean absolute fitness delta < CONVERGENCE_EPSILON
+      for at least CONVERGENCE_K_GENERATIONS consecutive generations.
+
+    history: list of per-generation dicts {dept_role: fitness_score, ...}
+             ordered oldest-first (history[0] = generation 0).
+    Returns False when history has fewer than CONVERGENCE_K_GENERATIONS+1 entries.
+    """
+    if len(history) < CONVERGENCE_K_GENERATIONS + 1:
+        return False
+
+    recent = history[-(CONVERGENCE_K_GENERATIONS + 1):]
+    for i in range(1, len(recent)):
+        prev_gen, curr_gen = recent[i - 1], recent[i]
+        roles = set(prev_gen) & set(curr_gen)
+        if not roles:
+            return False
+        delta = sum(abs(curr_gen[r] - prev_gen[r]) for r in roles) / len(roles)
+        if delta >= CONVERGENCE_EPSILON:
+            return False
+    return True
+
+
+def artifact_hash(output: str) -> str:
+    """SHA-256 of a department output string — used for content-dedup in fitness tracking."""
+    import hashlib as _hl_ah
+    return _hl_ah.sha256(output.encode('utf-8')).hexdigest()
+
 
 def evaluate_generation_fitness(
     prev_artifacts: list,
@@ -473,10 +516,15 @@ def store_generation_fitness(
     cycle_id: str,
     fitness_scores: dict,
     constitutional_verdict: str,
+    execution_id: str = '',
+    artifacts: list = None,
 ) -> None:
     """
     Write per-department fitness scores for one swarm generation to
     department_fitness_tracking. Fire-and-forget — never raises.
+
+    execution_id: bridge execution UUID — enables join to /platform/executions/{id}.
+    artifacts:    list of {role, output} dicts — used to compute per-dept artifact_hash.
     """
     import urllib.request as _ur_gf
     import urllib.error as _ue_gf
@@ -487,16 +535,21 @@ def store_generation_fitness(
         return
 
     obj_hash = objective_hash(objective)
+    art_map = {a['role']: a.get('output', '') for a in (artifacts or [])}
     rows = [
         {
-            'objective_hash': obj_hash,
-            'mode': mode,
-            'generation': generation,
-            'cycle_id': cycle_id,
-            'dept_role': role,
-            'fitness_score': score['fitness_score'],
-            'viability_score': score['viability_score'],
+            'objective_hash':      obj_hash,
+            'mode':                mode,
+            'generation':          generation,
+            'cycle_id':            cycle_id,
+            'dept_role':           role,
+            'fitness_score':       score['fitness_score'],
+            'viability_score':     score['viability_score'],
             'constitutional_verdict': constitutional_verdict,
+            'fitness_version':     FITNESS_VERSION,
+            'execution_id':        execution_id,
+            'parent_generation':   generation - 1,  # -1 for generation 0 handled by DB default
+            'artifact_hash':       artifact_hash(art_map.get(role, '')),
         }
         for role, score in fitness_scores.items()
     ]

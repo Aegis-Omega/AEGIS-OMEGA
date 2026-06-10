@@ -24,6 +24,9 @@ from platform_helpers import (
     PLATFORM_CONTRACT_VERSION,
     PLATFORM_DEPARTMENTS,
     VIABILITY_CHAR_BUDGET,
+    FITNESS_VERSION,
+    CONVERGENCE_EPSILON,
+    CONVERGENCE_K_GENERATIONS,
     platform_ts,
     platform_envelope,
     verify_api_key,
@@ -33,6 +36,8 @@ from platform_helpers import (
     make_sse_event,
     validate_collaboration_request,
     evaluate_generation_fitness,
+    check_fitness_convergence,
+    artifact_hash,
 )
 
 PASS = 0
@@ -409,6 +414,112 @@ def test_evaluate_generation_fitness():
     _chk('deterministic run 2==3', r2 == r3)
 
 
+# ── Fitness version + convergence invariant ───────────────────────────────────
+
+def test_fitness_version():
+    print('\nfitness version + convergence constants:')
+    _chk('FITNESS_VERSION is a non-empty string', isinstance(FITNESS_VERSION, str) and FITNESS_VERSION)
+    parts = FITNESS_VERSION.split('.')
+    _chk('FITNESS_VERSION is semver-shaped', len(parts) >= 1 and parts[0].isdigit())
+    _chk('CONVERGENCE_EPSILON is float in (0,1)', 0.0 < CONVERGENCE_EPSILON < 1.0)
+    _chk('CONVERGENCE_K_GENERATIONS >= 2', CONVERGENCE_K_GENERATIONS >= 2)
+
+
+def test_check_fitness_convergence():
+    print('\ncheck_fitness_convergence():')
+
+    # Fewer than K+1 entries → never converged
+    _chk('empty history → False', check_fitness_convergence([]) is False)
+    _chk('K entries → False (need K+1)', check_fitness_convergence(
+        [{'Strategy': 0.8}] * CONVERGENCE_K_GENERATIONS
+    ) is False)
+
+    # K+1 identical generations → converged (delta == 0 < epsilon)
+    stable = [{'Strategy': 0.8, 'Finance': 0.75}] * (CONVERGENCE_K_GENERATIONS + 1)
+    _chk('K+1 identical generations → True', check_fitness_convergence(stable) is True)
+
+    # Large delta in the last window → not converged
+    unstable = [{'Strategy': float(i) / 10} for i in range(CONVERGENCE_K_GENERATIONS + 1)]
+    _chk('large delta window → False', check_fitness_convergence(unstable) is False)
+
+    # Converged tail after noisy prefix — only last K+1 matter
+    noisy_prefix = [{'Strategy': float(i) / 5} for i in range(10)]
+    stable_tail  = [{'Strategy': 0.9}] * (CONVERGENCE_K_GENERATIONS + 1)
+    mixed = noisy_prefix + stable_tail
+    _chk('stable tail after noise → True', check_fitness_convergence(mixed) is True)
+
+    # Delta exactly at epsilon → NOT converged (strict <)
+    eps = CONVERGENCE_EPSILON
+    at_boundary = [{'Strategy': 0.5}, {'Strategy': 0.5 + eps}] * (CONVERGENCE_K_GENERATIONS + 1)
+    # at_boundary alternates, so at least one delta >= eps
+    _chk('delta at epsilon boundary → False', check_fitness_convergence(at_boundary) is False)
+
+    # No shared roles → False (can't compute delta)
+    disjoint = [{'A': 0.8}] * (CONVERGENCE_K_GENERATIONS + 1)
+    disjoint[-1] = {'B': 0.8}  # last gen has different role
+    _chk('disjoint roles in last gen → False', check_fitness_convergence(disjoint) is False)
+
+
+def test_artifact_hash():
+    print('\nartifact_hash():')
+    h1 = artifact_hash('hello world')
+    h2 = artifact_hash('hello world')
+    h3 = artifact_hash('different')
+    _chk('deterministic: same input → same hash', h1 == h2)
+    _chk('different inputs → different hash', h1 != h3)
+    _chk('returns 64-char hex string (SHA-256)', len(h1) == 64 and all(c in '0123456789abcdef' for c in h1))
+    _chk('empty string → defined hash (not crash)', len(artifact_hash('')) == 64)
+
+
+def test_evolution_consistency():
+    print('\nevolution consistency (bounded variance over 20 runs):')
+
+    objective = 'grow enterprise ARR to $10M'
+    arts = [
+        {'role': 'Strategy',  'output': 'S' * 900},
+        {'role': 'Finance',   'output': 'F' * 1200},
+        {'role': 'Guardian',  'output': 'G' * 400},
+    ]
+
+    # Run evaluate_generation_fitness 20 times — scores must be identical
+    results = [evaluate_generation_fitness([], arts, objective) for _ in range(20)]
+    r0 = results[0]
+    _chk('all 20 runs produce identical output', all(r == r0 for r in results))
+
+    # Variance of fitness_score across 20 runs must be 0.0 (pure determinism)
+    for role in r0:
+        scores = [results[i][role]['fitness_score'] for i in range(20)]
+        variance = sum((s - scores[0]) ** 2 for s in scores) / len(scores)
+        _chk(f'{role}: fitness variance == 0 across 20 runs', variance == 0.0,
+             f'variance={variance}')
+
+    # Fitness scores stay in [0,1] across all roles and runs
+    for role in r0:
+        for run in results:
+            f = run[role]['fitness_score']
+            v = run[role]['viability_score']
+            _chk(f'{role}: fitness in [0,1]', 0.0 <= f <= 1.0, f'got {f}')
+            _chk(f'{role}: viability in [0,1]', 0.0 <= v <= 1.0, f'got {v}')
+
+    # Generation number monotonicity: validate_collaboration_request enforces >= 0
+    # and callers must increment. Verify the validator rejects non-monotonic inputs.
+    expect_raises('generation -1 rejected', ValueError,
+                  lambda: validate_collaboration_request(
+                      {'objective': 'x', 'mode': 'revenue', 'live': False, 'generation': -1}
+                  ))
+    for g in (0, 1, 5, 100):
+        _, _, _, gen_out, _ = validate_collaboration_request(
+            {'objective': 'x', 'mode': 'revenue', 'live': False, 'generation': g}
+        )
+        _chk(f'generation {g} passthrough', gen_out == g)
+
+    # artifact_hash is stable — same output → same hash across generations
+    output_text = 'stable department output across generations'
+    h_gen0 = artifact_hash(output_text)
+    h_gen1 = artifact_hash(output_text)
+    _chk('artifact_hash stable across generation calls', h_gen0 == h_gen1)
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
@@ -424,6 +535,10 @@ if __name__ == '__main__':
     test_make_sse_event()
     test_validate_collaboration_request()
     test_evaluate_generation_fitness()
+    test_fitness_version()
+    test_check_fitness_convergence()
+    test_artifact_hash()
+    test_evolution_consistency()
     print(f'\n{"=" * 40}')
     print(f'PASS: {PASS}  FAIL: {FAIL}')
     if FAIL > 0:
