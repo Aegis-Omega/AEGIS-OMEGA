@@ -82,3 +82,63 @@ describe('PlatformClient envelope validation', () => {
     await expect(client.status()).rejects.toThrow(PlatformApiError)
   })
 })
+
+describe('PlatformClient collaborate/startExecution envelope validation', () => {
+  it('collaborate: valid envelope passes through', async () => {
+    const collab_data = {
+      cycle_id: 'c1', objective: 'grow ARR', mode: 'revenue',
+      departments_collaborated: 39, artifacts: [],
+      projection: {}, constitutional_audit: { verdict: 'APPROVED' },
+      chain_valid: true, audit_chain_hash: '0'.repeat(64), execution_id: 'exec-1',
+    }
+    mockFetch({ ...VALID_ENVELOPE, data: collab_data })
+    const result = await client.collaborate({ objective: 'grow ARR', mode: 'revenue', live: false })
+    expect(result).toEqual(collab_data)
+  })
+
+  it('collaborate: missing envelope field rejects with PlatformApiError', async () => {
+    const { contract_version: _, ...bad } = VALID_ENVELOPE
+    mockFetch(bad)
+    await expect(
+      client.collaborate({ objective: 'grow ARR', mode: 'revenue', live: false })
+    ).rejects.toThrow(PlatformApiError)
+  })
+
+  it('startExecution: valid envelope passes through', async () => {
+    const exec_data = { execution_id: 'exec-2', stream_url: '/platform/executions/live?id=exec-2', status: 'pending' }
+    mockFetch({ ...VALID_ENVELOPE, data: exec_data })
+    const result = await client.startExecution({ objective: 'test', mode: 'analysis', live: false })
+    expect(result).toEqual(exec_data)
+  })
+})
+
+describe('PlatformClient deleteExecution', () => {
+  it('204 response succeeds without throwing', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true, status: 204, json: () => Promise.resolve({}), body: null,
+    }) as unknown as typeof fetch
+    await expect(client.deleteExecution('exec-del-1')).resolves.toBeUndefined()
+  })
+
+  it('401 on DELETE throws with UNAUTHORIZED code', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false, status: 401,
+      json: () => Promise.resolve({ error: 'Invalid or revoked API key', code: 'UNAUTHORIZED' }),
+      body: null,
+    }) as unknown as typeof fetch
+    await expect(client.deleteExecution('exec-del-2')).rejects.toMatchObject({
+      code: 'UNAUTHORIZED', status: 401,
+    })
+  })
+
+  it('500 on DELETE throws with INTERNAL code', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false, status: 500,
+      json: () => Promise.resolve({ error: 'server error', code: 'INTERNAL' }),
+      body: null,
+    }) as unknown as typeof fetch
+    await expect(client.deleteExecution('exec-del-3')).rejects.toMatchObject({
+      code: 'INTERNAL', status: 500,
+    })
+  })
+})
