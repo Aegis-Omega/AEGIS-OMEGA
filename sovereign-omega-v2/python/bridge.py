@@ -49,6 +49,9 @@ from platform_helpers import (
     validate_collaboration_request as _validate_collab_req,
     retrieve_swarm_memory as _retrieve_swarm_memory,
     swarm_collaborate_live as _swarm_live,
+    evaluate_generation_fitness as _eval_fitness,
+    store_generation_fitness as _store_fitness,
+    retrieve_prior_artifacts as _retrieve_prior_artifacts,
 )
 
 # In-memory execution store — keyed by execution_id
@@ -125,6 +128,8 @@ def _platform_run_collaboration(
     mode: str,
     live: bool,
     email: str = '',
+    generation: int = 0,
+    memory_context: str = '',
 ) -> None:
     """
     Background thread: runs 39-dept collaboration, pushes typed SSE events to queue.
@@ -161,8 +166,9 @@ def _platform_run_collaboration(
                 + '\n\n---\n\n'
                 + _mc_recent_context(3)
             )
-            # Retrieve prior swarm memory for this objective to enable evolutionary refinement
-            memory_context = _retrieve_swarm_memory(objective, mode)
+            # Caller-supplied memory_context takes precedence; fall back to auto-retrieved
+            if not memory_context:
+                memory_context = _retrieve_swarm_memory(objective, mode)
             swarm = _swarm_live(
                 objective, mode, _PLATFORM_DEPARTMENTS,
                 system=swarm_system,
@@ -236,6 +242,12 @@ def _platform_run_collaboration(
 
             _time_col.sleep(0.04)
 
+        # ── EVOLUTIONARY FITNESS ──────────────────────────────────────────────
+        prev_artifacts = _retrieve_prior_artifacts(objective, mode) if generation > 0 else []
+        fitness_scores = _eval_fitness(prev_artifacts, artifacts, objective)
+        verdict_pre = constitutional_audit.get('verdict', 'APPROVED')
+        _store_fitness(objective, mode, generation, cycle_id, fitness_scores, verdict_pre)
+
         # ── AUDIT HASH + METACOGNITIVE CHAIN ──────────────────────────────────
         audit_hash = _hl_col.sha256(
             json.dumps({'cycle_id': cycle_id, 'objective': objective}, sort_keys=True).encode()
@@ -259,6 +271,7 @@ def _platform_run_collaboration(
             'cycle_id': cycle_id,
             'objective': objective,
             'mode': mode,
+            'generation': generation,
             'departments_collaborated': len(artifacts),
             'artifacts': artifacts,
             'projection': projection,
@@ -569,14 +582,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
                 return
 
-            objective = data.get('objective', '').strip()
-            mode = data.get('mode', 'revenue')
-            live = bool(data.get('live', False))
-            if not objective:
-                self._platform_respond(400, {'error': 'objective is required', 'code': 'INVALID_REQUEST'})
-                return
-            if mode not in _VALID_MODES:
-                self._platform_respond(400, {'error': f'invalid mode: {mode}. Valid: {sorted(_VALID_MODES)}', 'code': 'INVALID_REQUEST'})
+            try:
+                objective, mode, live, generation, memory_context = _validate_collab_req(data)
+            except ValueError as exc:
+                self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
                 return
 
             execution_id = str(_uuid_pc.uuid4())
@@ -588,7 +597,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             # Run synchronously (collect all events, return result at completion)
             t = threading.Thread(
                 target=_platform_run_collaboration,
-                args=(execution_id, objective, mode, live, _email),
+                args=(execution_id, objective, mode, live, _email, generation, memory_context),
                 daemon=True,
             )
             t.start()
@@ -619,14 +628,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
                 return
 
-            objective = data.get('objective', '').strip()
-            mode = data.get('mode', 'revenue')
-            live = bool(data.get('live', False))
-            if not objective:
-                self._platform_respond(400, {'error': 'objective is required', 'code': 'INVALID_REQUEST'})
-                return
-            if mode not in _VALID_MODES:
-                self._platform_respond(400, {'error': f'invalid mode: {mode}. Valid: {sorted(_VALID_MODES)}', 'code': 'INVALID_REQUEST'})
+            try:
+                objective, mode, live, generation, memory_context = _validate_collab_req(data)
+            except ValueError as exc:
+                self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
                 return
 
             execution_id = str(_uuid_pe.uuid4())
@@ -637,7 +642,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             threading.Thread(
                 target=_platform_run_collaboration,
-                args=(execution_id, objective, mode, live, _email),
+                args=(execution_id, objective, mode, live, _email, generation, memory_context),
                 daemon=True,
             ).start()
 

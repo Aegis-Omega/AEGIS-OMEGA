@@ -357,7 +357,8 @@ def record_revenue_cycle(cycle_id: str, objective: str, mode: str,
 def validate_collaboration_request(body: dict) -> tuple:
     """
     Validate a CollaborationRequest body.
-    Returns (objective, mode, live) or raises ValueError with a descriptive message.
+    Returns (objective, mode, live, generation, memory_context) or raises ValueError.
+    generation defaults to 0 (first run). memory_context overrides auto-retrieved memory.
     """
     objective = body.get('objective', '')
     if not isinstance(objective, str) or not objective.strip():
@@ -371,7 +372,206 @@ def validate_collaboration_request(body: dict) -> tuple:
     if not isinstance(live, bool):
         raise ValueError('live must be a boolean')
 
-    return objective.strip(), mode, live
+    generation = body.get('generation', 0)
+    if not isinstance(generation, int) or generation < 0:
+        raise ValueError('generation must be a non-negative integer')
+
+    memory_context = body.get('memory_context', '')
+    if not isinstance(memory_context, str):
+        raise ValueError('memory_context must be a string')
+
+    return objective.strip(), mode, live, generation, memory_context
+
+
+# ─── Evolutionary generation fitness ─────────────────────────────────────────
+
+def evaluate_generation_fitness(
+    prev_artifacts: list,
+    curr_artifacts: list,
+    objective: str,
+) -> dict:
+    """
+    Compute per-department fitness scores comparing consecutive swarm generations.
+    Returns {dept_role: fitness_score} where scores are in [0.0, 1.0].
+
+    Score = 0.4 × length_stability + 0.3 × objective_coverage + 0.3 × lexical_consistency
+    - length_stability: 1 - normalised absolute length delta between generations
+    - objective_coverage: fraction of objective words present in current output
+    - lexical_consistency: Jaccard similarity of word sets between prev and curr outputs
+    """
+    import re as _re
+
+    def _words(text: str) -> set:
+        return set(w.lower() for w in _re.findall(r'[a-zA-Z]{3,}', text))
+
+    obj_words = _words(objective)
+    prev_map = {a['role']: a.get('output', '') for a in prev_artifacts}
+    scores: dict = {}
+
+    for a in curr_artifacts:
+        role   = a['role']
+        curr   = a.get('output', '')
+        prev   = prev_map.get(role, '')
+
+        # Length stability
+        cl, pl = len(curr), len(prev)
+        base   = max(cl, pl, 1)
+        length_stability = 1.0 - abs(cl - pl) / base
+
+        # Objective coverage
+        if obj_words:
+            curr_words = _words(curr)
+            objective_coverage = len(obj_words & curr_words) / len(obj_words)
+        else:
+            objective_coverage = 0.5
+
+        # Lexical consistency across generations
+        if prev:
+            prev_words = _words(prev)
+            curr_words2 = _words(curr)
+            union = prev_words | curr_words2
+            lexical_consistency = len(prev_words & curr_words2) / len(union) if union else 0.5
+        else:
+            lexical_consistency = 0.5  # no prior generation to compare
+
+        score = round(
+            0.4 * length_stability
+            + 0.3 * objective_coverage
+            + 0.3 * lexical_consistency,
+            4,
+        )
+        scores[role] = max(0.0, min(1.0, score))
+
+    return scores
+
+
+def store_generation_fitness(
+    objective: str,
+    mode: str,
+    generation: int,
+    cycle_id: str,
+    fitness_scores: dict,
+    constitutional_verdict: str,
+) -> None:
+    """
+    Write per-department fitness scores for one swarm generation to
+    department_fitness_tracking. Fire-and-forget — never raises.
+    """
+    import urllib.request as _ur_gf
+    import urllib.error as _ue_gf
+
+    supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+    if not supabase_url or not service_key:
+        return
+
+    obj_hash = objective_hash(objective)
+    rows = [
+        {
+            'objective_hash': obj_hash,
+            'mode': mode,
+            'generation': generation,
+            'cycle_id': cycle_id,
+            'dept_role': role,
+            'fitness_score': score,
+            'constitutional_verdict': constitutional_verdict,
+        }
+        for role, score in fitness_scores.items()
+    ]
+    payload = json.dumps(rows).encode()
+    url = f'{supabase_url}/rest/v1/department_fitness_tracking'
+    headers = {
+        'apikey': service_key,
+        'Authorization': f'Bearer {service_key}',
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+    }
+    req = _ur_gf.Request(url, data=payload, headers=headers, method='POST')
+    try:
+        with _ur_gf.urlopen(req, timeout=5):
+            pass
+    except Exception as _exc:
+        import sys
+        print(f'[bridge] department_fitness_tracking write failed: {_exc}', file=sys.stderr)
+
+
+def retrieve_prior_artifacts(objective: str, mode: str) -> list:
+    """
+    Fetch the artifacts list from the most recent swarm_memory row for this
+    objective+mode. Used as prev_artifacts in evaluate_generation_fitness().
+    Returns [] if Supabase is unavailable or no prior run exists.
+    """
+    import urllib.request as _ur_pa
+
+    supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+    if not supabase_url or not service_key:
+        return []
+
+    obj_hash = objective_hash(objective)
+    params = (
+        f'?objective_hash=eq.{obj_hash}'
+        f'&mode=eq.{mode}'
+        f'&order=created_at.desc'
+        f'&limit=1'
+        f'&select=artifacts'
+    )
+    url = f'{supabase_url}/rest/v1/swarm_memory{params}'
+    headers = {
+        'apikey': service_key,
+        'Authorization': f'Bearer {service_key}',
+        'Content-Type': 'application/json',
+    }
+    req = _ur_pa.Request(url, headers=headers)
+    try:
+        with _ur_pa.urlopen(req, timeout=5) as resp:
+            rows = json.loads(resp.read().decode())
+    except Exception:
+        return []
+
+    if not rows:
+        return []
+    return rows[0].get('artifacts', [])
+
+
+def retrieve_generation_fitness(
+    objective: str,
+    mode: str,
+    generation: int,
+) -> list:
+    """
+    Fetch fitness scores from the previous generation for this objective+mode.
+    Returns list of {dept_role, fitness_score} sorted by score desc,
+    or [] if unavailable.
+    """
+    import urllib.request as _ur_rf
+
+    supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+    if not supabase_url or not service_key or generation < 1:
+        return []
+
+    obj_hash = objective_hash(objective)
+    prev_gen = generation - 1
+    params = (
+        f'?objective_hash=eq.{obj_hash}'
+        f'&mode=eq.{mode}'
+        f'&generation=eq.{prev_gen}'
+        f'&order=fitness_score.desc'
+        f'&select=dept_role,fitness_score'
+    )
+    url = f'{supabase_url}/rest/v1/department_fitness_tracking{params}'
+    headers = {
+        'apikey': service_key,
+        'Authorization': f'Bearer {service_key}',
+        'Content-Type': 'application/json',
+    }
+    req = _ur_rf.Request(url, headers=headers)
+    try:
+        with _ur_rf.urlopen(req, timeout=5) as resp:
+            return json.loads(resp.read().decode())
+    except Exception:
+        return []
 
 
 # ─── Cross-session swarm memory ───────────────────────────────────────────────

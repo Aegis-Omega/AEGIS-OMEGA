@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/components/BridgeStatus.tsx","./src/components/ConsensusReport.tsx","./src/components/ControlPanel.tsx","./src/components/ExecutionTrace.tsx","./src/components/KeyEntry.tsx","./src/components/SwarmGrid.tsx","./src/hooks/useBridgeStatus.ts","./src/hooks/useExecution.ts"],"version":"6.0.3"}
