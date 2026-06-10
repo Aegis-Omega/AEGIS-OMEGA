@@ -254,11 +254,6 @@ def test_validate_collaboration_request():
     _chk('valid: live returned', live is False)
     _chk('valid: generation defaults to 0', gen == 0)
     _chk('valid: memory_context defaults to empty string', mem == '')
-    test('valid: objective returned', obj == 'Test')
-    test('valid: mode returned', mode == 'revenue')
-    test('valid: live returned', live is False)
-    test('valid: generation defaults to 0', gen == 0)
-    test('valid: memory_context defaults to empty string', mem == '')
 
     for m in ('revenue', 'analysis', 'gtm', 'retention'):
         _o, m2, _l, _g, _mc = validate_collaboration_request(
@@ -279,15 +274,6 @@ def test_validate_collaboration_request():
     })
     _chk('generation passthrough', g2 == 3)
     _chk('memory_context passthrough', mc2 == 'prior_ctx')
-    test('objective stripped', o3 == 'hello')
-
-    # generation + memory_context passthrough
-    _o, _m, _l, g2, mc2 = validate_collaboration_request({
-        'objective': 'x', 'mode': 'analysis', 'live': False,
-        'generation': 3, 'memory_context': 'prior_ctx',
-    })
-    test('generation passthrough', g2 == 3)
-    test('memory_context passthrough', mc2 == 'prior_ctx')
 
     # Invalid inputs
     expect_raises('missing objective raises ValueError', ValueError,
@@ -378,7 +364,6 @@ def test_evaluate_generation_fitness():
     print('\nevaluate_generation_fitness() — viability + 4-metric composite:')
 
     _chk('VIABILITY_CHAR_BUDGET is 1600', VIABILITY_CHAR_BUDGET == 1600)
-    test('VIABILITY_CHAR_BUDGET is 1600', VIABILITY_CHAR_BUDGET == 1600)
 
     objective = 'grow enterprise ARR to $10M'
 
@@ -390,17 +375,11 @@ def test_evaluate_generation_fitness():
     _chk('within-budget viability == 1.0', row['viability_score'] == 1.0,
          f'got {row.get("viability_score")}')
     _chk('fitness_score in [0,1]', 0.0 <= row['fitness_score'] <= 1.0)
-    test('within-budget role present', 'Strategy' in scores_within)
-    row = scores_within['Strategy']
-    test('within-budget viability == 1.0', row['viability_score'] == 1.0,
-         f'got {row.get("viability_score")}')
-    test('fitness_score in [0,1]', 0.0 <= row['fitness_score'] <= 1.0)
 
     # Exactly at budget: viability must be 1.0
     at_budget = 'Y' * VIABILITY_CHAR_BUDGET
     scores_at = evaluate_generation_fitness([], [{'role': 'Strategy', 'output': at_budget}], objective)
     _chk('at-budget viability == 1.0', scores_at['Strategy']['viability_score'] == 1.0,
-    test('at-budget viability == 1.0', scores_at['Strategy']['viability_score'] == 1.0,
          f'got {scores_at["Strategy"].get("viability_score")}')
 
     # 2× budget: viability must be 0.5
@@ -408,13 +387,11 @@ def test_evaluate_generation_fitness():
     scores_double = evaluate_generation_fitness([], [{'role': 'Strategy', 'output': double_budget}], objective)
     v = scores_double['Strategy']['viability_score']
     _chk('2x-budget viability == 0.5', abs(v - 0.5) < 0.001, f'got {v}')
-    test('2x-budget viability == 0.5', abs(v - 0.5) < 0.001, f'got {v}')
 
     # Monotonic decay: 3× budget < 2× budget viability
     triple_budget = 'W' * (VIABILITY_CHAR_BUDGET * 3)
     scores_triple = evaluate_generation_fitness([], [{'role': 'Strategy', 'output': triple_budget}], objective)
     _chk('viability is monotonically decreasing with output length',
-    test('viability is monotonically decreasing with output length',
          scores_triple['Strategy']['viability_score'] < scores_double['Strategy']['viability_score'])
 
     # Empty output: viability must be 0.0, fitness must be 0.0
@@ -434,17 +411,6 @@ def test_evaluate_generation_fitness():
         _chk(f'{role} viability_score bounds', 0.0 <= row['viability_score'] <= 1.0)
         _chk(f'{role} constitutional_factor in [0,1]', 0.0 <= row['constitutional_factor'] <= 1.0)
         _chk(f'{role} stagnation_flag is bool', isinstance(row['stagnation_flag'], bool))
-    test('empty output viability == 0.0', scores_empty['Strategy']['viability_score'] == 0.0,
-         f'got {scores_empty["Strategy"].get("viability_score")}')
-    test('empty output fitness == 0.0', scores_empty['Strategy']['fitness_score'] == 0.0,
-         f'got {scores_empty["Strategy"].get("fitness_score")}')
-
-    # Return shape — each entry must have exactly fitness_score + viability_score
-    for role, row in scores_within.items():
-        test(f'{role} has fitness_score key', 'fitness_score' in row)
-        test(f'{role} has viability_score key', 'viability_score' in row)
-        test(f'{role} fitness_score bounds', 0.0 <= row['fitness_score'] <= 1.0)
-        test(f'{role} viability_score bounds', 0.0 <= row['viability_score'] <= 1.0)
 
     # Determinism: same inputs → same outputs (3 runs)
     arts = [{'role': 'Finance', 'output': 'A' * 1200}]
@@ -677,8 +643,6 @@ def test_convergence_diagnostics():
     _chk('diagnostics has all required keys',
          required_keys.issubset(d_cv.keys()),
          f'missing: {required_keys - set(d_cv.keys())}')
-    test('deterministic run 1==2', r1 == r2)
-    test('deterministic run 2==3', r2 == r3)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
