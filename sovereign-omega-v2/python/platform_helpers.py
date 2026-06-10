@@ -119,7 +119,7 @@ _CATEGORY_PERSONAS: dict[str, str] = {
 
 def platform_ts() -> str:
     import datetime as _dt
-    return _dt.datetime.utcnow().isoformat() + 'Z'
+    return _dt.datetime.now(_dt.timezone.utc).isoformat().replace('+00:00', 'Z')
 
 
 def platform_envelope(execution_id: str, data: dict) -> dict:

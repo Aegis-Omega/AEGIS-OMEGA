@@ -20,6 +20,10 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+import importlib
+import json
+
+import platform_helpers as _ph_module
 from platform_helpers import (
     PLATFORM_CONTRACT_VERSION,
     PLATFORM_DEPARTMENTS,
@@ -41,6 +45,10 @@ from platform_helpers import (
     check_fitness_convergence,
     get_convergence_diagnostics,
     artifact_hash,
+    objective_hash,
+    store_generation_fitness,
+    _swarm_fallback,
+    _parse_swarm_response,
 )
 
 PASS = 0
@@ -645,6 +653,130 @@ def test_convergence_diagnostics():
          f'missing: {required_keys - set(d_cv.keys())}')
 
 
+def test_platform_ts_no_deprecation() -> None:
+    """platform_ts() must return an ISO-8601 UTC string ending in 'Z' (not utcnow)."""
+    print('\n--- platform_ts deprecation-free ---')
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter('error', DeprecationWarning)
+        ts = platform_ts()
+    _chk('ends with Z', ts.endswith('Z'))
+    _chk('contains T separator', 'T' in ts)
+
+
+def test_swarm_thinking_parsing() -> None:
+    """SWARM_THINKING constant parsed from AEGIS_SWARM_THINKING env var."""
+    print('\n--- SWARM_THINKING parsing ---')
+    saved = os.environ.pop('AEGIS_SWARM_THINKING', None)
+    try:
+        os.environ.pop('AEGIS_SWARM_THINKING', None)
+        importlib.reload(_ph_module)
+        _chk('unset -> True', _ph_module.SWARM_THINKING is True)
+        for falsy in ('0', 'false', 'no', 'False', 'NO'):
+            os.environ['AEGIS_SWARM_THINKING'] = falsy
+            importlib.reload(_ph_module)
+            _chk(f'{falsy!r} -> False', _ph_module.SWARM_THINKING is False)
+        for truthy in ('1', 'true', 'yes', 'True'):
+            os.environ['AEGIS_SWARM_THINKING'] = truthy
+            importlib.reload(_ph_module)
+            _chk(f'{truthy!r} -> True', _ph_module.SWARM_THINKING is True)
+    finally:
+        if saved is not None:
+            os.environ['AEGIS_SWARM_THINKING'] = saved
+        else:
+            os.environ.pop('AEGIS_SWARM_THINKING', None)
+        importlib.reload(_ph_module)
+
+
+def test_objective_hash() -> None:
+    """objective_hash: case-fold, strip, 64-char hex, deterministic."""
+    print('\n--- objective_hash ---')
+    _chk('case-fold: GROW ARR == grow arr',
+         objective_hash('GROW ARR') == objective_hash('grow arr'))
+    _chk('strip: "  grow arr  " == "grow arr"',
+         objective_hash('  grow arr  ') == objective_hash('grow arr'))
+    _chk('empty string does not raise',
+         isinstance(objective_hash(''), str))
+    h = objective_hash('test objective')
+    _chk('returns 64-char hex string', len(h) == 64 and all(c in '0123456789abcdef' for c in h))
+    _chk('deterministic', objective_hash('hello world') == objective_hash('hello world'))
+
+
+def test_store_generation_fitness() -> None:
+    """store_generation_fitness: fire-and-forget — never raises without Supabase."""
+    print('\n--- store_generation_fitness fire-and-forget ---')
+    saved_url = os.environ.pop('SUPABASE_URL', None)
+    saved_key = os.environ.pop('SUPABASE_SERVICE_ROLE_KEY', None)
+    try:
+        store_generation_fitness(
+            objective='test', mode='revenue', generation=0,
+            cycle_id='c1',
+            fitness_scores={'Strategy': {'fitness_score': 0.8, 'viability_score': 1.0,
+                                         'constitutional_factor': 1.0, 'stagnation_flag': False}},
+            constitutional_verdict='APPROVED',
+        )
+        _chk('no raise without Supabase', True)
+    except Exception as exc:
+        _chk('no raise without Supabase', False, str(exc))
+    finally:
+        if saved_url is not None:
+            os.environ['SUPABASE_URL'] = saved_url
+        if saved_key is not None:
+            os.environ['SUPABASE_SERVICE_ROLE_KEY'] = saved_key
+
+
+def test_swarm_fallback() -> None:
+    """_swarm_fallback returns 39 artifacts, APPROVED verdict, valid projection, deterministic."""
+    print('\n--- _swarm_fallback ---')
+    result = _swarm_fallback('grow ARR', 'revenue', PLATFORM_DEPARTMENTS)
+    _chk('artifacts count == 39', len(result['artifacts']) == 39)
+    _chk('verdict APPROVED', result['constitutional_audit']['verdict'] == 'APPROVED')
+    _chk('arr is int', isinstance(result['projection']['first_year_arr_usd'], int))
+    _chk('tier is T2', result['projection']['tier'] == 'T2')
+    r2 = _swarm_fallback('grow ARR', 'revenue', PLATFORM_DEPARTMENTS)
+    _chk('deterministic', result == r2)
+    # Each mode produces the correct ARR
+    for mode, expected_arr in (('revenue', 2_400_000), ('gtm', 3_200_000), ('retention', 1_200_000)):
+        r = _swarm_fallback('test', mode, PLATFORM_DEPARTMENTS)
+        _chk(f'{mode} arr == {expected_arr}', r['projection']['first_year_arr_usd'] == expected_arr)
+
+
+def test_parse_swarm_response() -> None:
+    """_parse_swarm_response: malformed JSON falls back, missing depts filled from template."""
+    print('\n--- _parse_swarm_response ---')
+    # Malformed JSON -> fallback (39 artifacts)
+    result = _parse_swarm_response('not json', 'grow ARR', 'revenue', PLATFORM_DEPARTMENTS)
+    _chk('malformed -> fallback: 39 artifacts', len(result['artifacts']) == 39)
+    _chk('malformed -> verdict APPROVED', result['constitutional_audit']['verdict'] == 'APPROVED')
+
+    # Valid JSON, no departments -> all 39 filled from template
+    partial = json.dumps({
+        'departments': [],
+        'constitutional_audit': {'verdict': 'APPROVED', 'concerns': []},
+        'projection': {},
+    })
+    result2 = _parse_swarm_response(partial, 'grow ARR', 'revenue', PLATFORM_DEPARTMENTS)
+    _chk('missing depts -> all 39 filled', len(result2['artifacts']) == 39)
+
+    # Valid JSON with FLAG verdict -> preserved
+    flagged = json.dumps({
+        'departments': [],
+        'constitutional_audit': {'verdict': 'FLAG', 'concerns': ['test concern']},
+        'projection': {'first_year_arr_usd': 1000000, 'tier': 'T1'},
+    })
+    result3 = _parse_swarm_response(flagged, 'grow ARR', 'revenue', PLATFORM_DEPARTMENTS)
+    _chk('FLAG verdict preserved', result3['constitutional_audit']['verdict'] == 'FLAG')
+    _chk('concerns list preserved', result3['constitutional_audit']['concerns'] == ['test concern'])
+
+    # Markdown code-fence stripping
+    fenced = '```json\n' + json.dumps({
+        'departments': [], 'constitutional_audit': {'verdict': 'APPROVED', 'concerns': []},
+        'projection': {},
+    }) + '\n```'
+    result4 = _parse_swarm_response(fenced, 'test', 'analysis', PLATFORM_DEPARTMENTS)
+    _chk('markdown fences stripped', len(result4['artifacts']) == 39)
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
@@ -667,6 +799,12 @@ if __name__ == '__main__':
     test_constitutional_fitness_multiplier()
     test_stagnation_flag()
     test_convergence_diagnostics()
+    test_platform_ts_no_deprecation()
+    test_swarm_thinking_parsing()
+    test_objective_hash()
+    test_store_generation_fitness()
+    test_swarm_fallback()
+    test_parse_swarm_response()
     print(f'\n{"=" * 40}')
     print(f'PASS: {PASS}  FAIL: {FAIL}')
     if FAIL > 0:

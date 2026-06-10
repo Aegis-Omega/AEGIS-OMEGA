@@ -84,7 +84,8 @@ export function useExecution(apiKey: string) {
     setStatus('STREAMING')
     addLog('STREAM', `Opening SSE stream → ${streamUrl}`)
 
-    const es = new EventSource(`${BRIDGE}${streamUrl}`)
+    const sseUrl = streamUrl.startsWith('http') ? streamUrl : `${BRIDGE}${streamUrl}`
+    const es = new EventSource(sseUrl)
     sseRef.current = es
 
     es.onmessage = (ev) => {
