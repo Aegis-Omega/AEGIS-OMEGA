@@ -7,7 +7,12 @@
  * consume; §8: schema rejection as a layer of injection/confusion defence).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { PlatformClient, PlatformApiError } from '../../../packages/shared/lib/platform-client.js'
+import {
+  PlatformClient,
+  PlatformApiError,
+  signEventEnvelope,
+  type EventEnvelope,
+} from '../../../packages/shared/lib/platform-client.js'
 
 const VALID_ENVELOPE = {
   contract_version: '1.0.0',
@@ -151,5 +156,70 @@ describe('PlatformClient deleteExecution', () => {
     await expect(client.deleteExecution('exec-del-3')).rejects.toMatchObject({
       code: 'INTERNAL', status: 500,
     })
+  })
+})
+
+
+describe('PlatformClient: System-2 EventEnvelope Verification Tests', () => {
+  const mockSecret = '6180339887a0b3f81e6a9f4c3d2e1b0a7c5d6e3f4a1b9c2d8e7f6a5b4c3d2e1f'
+  const parentHash = '69a8f27b9c4c11e49afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+  const deterministicTimestamp = '2026-06-10T00:00:00Z'
+  let verificationClient: PlatformClient
+
+  beforeEach(() => {
+    verificationClient = new PlatformClient({
+      endpoint: 'http://localhost:5000/platform',
+      apiKey: 'test-api-key-tier-regulatory',
+      secretKey: mockSecret,
+      genesisHash: parentHash,
+      initialSequence: 0,
+    })
+  })
+
+  function validEnvelope(overrides: Partial<EventEnvelope> = {}): EventEnvelope {
+    return {
+      execution_id: '86f725a0-0d22-441d-b52e-c1cfc1157956',
+      parent_hash: parentHash,
+      sequence: 1,
+      timestamp: deterministicTimestamp,
+      payload: { opportunity_id: '0068W000018xxxxQAA', status: 'VERIFIED' },
+      ...overrides,
+    }
+  }
+
+  it('Valid EventEnvelope passes verification seamlessly', () => {
+    const envelope = validEnvelope()
+    const validSignature = signEventEnvelope(envelope, mockSecret)
+    const result = verificationClient.verifyEnvelopeLocally(envelope, validSignature)
+    expect(result.isValid).toBe(true)
+    expect(result.nextChainHash).toMatch(/^[a-f0-9]{64}$/)
+  })
+
+  it('Envelope signature verification fails with mutated payload', () => {
+    const envelope = validEnvelope()
+    const signature = signEventEnvelope(envelope, mockSecret)
+    const mutatedEnvelope = validEnvelope({
+      payload: { opportunity_id: '0068W000018xxxxQAA', status: 'COMPLIANT_BYPASS' },
+    })
+
+    const result = verificationClient.verifyEnvelopeLocally(mutatedEnvelope, signature)
+    expect(result.isValid).toBe(false)
+    expect(result.error).toContain('SIGNATURE_MISMATCH')
+  })
+
+  it('System-2 rejects out-of-sequence sequence identifiers', () => {
+    const envelope = validEnvelope({ sequence: 9999 })
+    const signature = signEventEnvelope(envelope, mockSecret)
+    const result = verificationClient.verifyEnvelopeLocally(envelope, signature)
+    expect(result.isValid).toBe(false)
+    expect(result.error).toContain('SEQUENCE_OUT_OF_BOUNDS')
+  })
+
+  it('System-2 rejects mismatched parent hash before chain advancement', () => {
+    const envelope = validEnvelope({ parent_hash: '0'.repeat(64) })
+    const signature = signEventEnvelope(envelope, mockSecret)
+    const result = verificationClient.verifyEnvelopeLocally(envelope, signature)
+    expect(result.isValid).toBe(false)
+    expect(result.error).toContain('PARENT_HASH_MISMATCH')
   })
 })
