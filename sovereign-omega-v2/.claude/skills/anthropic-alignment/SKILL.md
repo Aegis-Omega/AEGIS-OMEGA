@@ -13,7 +13,9 @@ description: >
 # AEGIS ↔ Anthropic Enterprise Alignment
 
 **Epistemic Tier: T2** (engineering hypothesis based on published Anthropic documentation)
-**Sources:** Anthropic Enterprise Security Posture (May 15, 2026), HIPAA Type 1 Report (Oct 31, 2025), WCAG ACRs (Web Apr 2026, iOS May 2026), Infrastructure Diagram (Apr 2025), Frontier Compliance Framework (Mar 2026), NIST 800-171r3 Attestation (Coalfire, Jan 2026), Mythos 5/Fable 5 Model Documentation Form (Jun 8, 2026), Claude Mythos Preview System Card (Apr 7, 2026)
+**Sources:** Anthropic Enterprise Security Posture (May 15, 2026), HIPAA Type 1 Report (Oct 31, 2025), WCAG ACRs (Web Apr 2026, iOS May 2026), Infrastructure Diagram (Apr 2025), Frontier Compliance Framework (Mar 2026), NIST 800-171r3 Attestation (Coalfire, Jan 2026), Mythos 5/Fable 5 Model Documentation Form (Jun 8, 2026), Claude Mythos Preview System Card (Apr 7, 2026); **full-sweep additions (encoded Jun 12, 2026, verbatim digests in `references/docs-digest.md`):** Data Handling & Key Management / DLP & Content Controls / Identity & Access Controls / Isolation & Connectivity (May 2026 paper series), SOC 2 Type 2 + CSA STAR L2 Report (Schellman, Nov 12, 2025), ISO Statement of Applicability v1.4 (27001+42001), Annual Penetration Testing Reports (Jan 2026), HECVAT 4.04 (Jul 2025), SIG Lite / VSA Core / CAIQ Lite (Mar 2025), Claude Code FISMA Best Practices v1.0 (Jan 2026), HIPAA-Ready Implementation Guide (2026.05.06), AB 2013 Training Data Documentation (Dec 2025), Opus 4.8 Model Documentation Form (May 28, 2026), Cowork 3P Security Overview v2.0 + Desktop Security Architecture v5.0 (Apr 2026, NDA), Office Agents 3P Architecture, Excel/PowerPoint Architecture Overview, Global Vendor Code of Conduct v1.2 (Mar 2025), COIs (Aon + Newfront, Apr 2026), CVE-2026-22561 advisory
+
+**Distribution discipline:** several sources (SOC 2 report, pen-test package, ISO SoA, Cowork docs) are NDA-restricted and watermarked per-recipient. This skill and its references are internal strategy material — never quote those sources in external-facing output, and never make public partnership claims (Vendor Code requires written authorization).
 
 ---
 
@@ -26,6 +28,21 @@ Anthropic explicitly states (Enterprise Security Posture, §3.2):
 **AEGIS is that layer.**
 
 It sits between the enterprise and Claude's API, providing what Anthropic intentionally left to partners: constitutional content governance, tamper-evident audit trails, and replay-certifiable AI decision records.
+
+The dedicated DLP & Content Controls paper (May 8, 2026) makes the middleware position explicit and names the gateway slot AEGIS occupies:
+
+> "Customers place their gateway between calling applications and the Claude API and enforce content policy in that layer." (§3.6)
+
+And it names the output-side gap that AEGIS's constitutional audit verdict (APPROVED/FLAG/QUARANTINE) directly fills:
+
+> "There is no customer-configurable filter today that screens Claude's outbound responses for sensitive data in real time." (§8 FAQ)
+
+Three further whitespace facts from the same paper:
+- **Compliance API does not cover Claude Code or Claude Cowork** ("Not covered yet") and Platform v1 has "no per-message inference logging or Agent SDK sessions" — the content-audit gap for exactly the agentic surfaces AEGIS governs
+- **Cowork inference is MDM-pinnable to "a customer-operated gateway"** — Anthropic's own desktop agent can be routed through an AEGIS-class layer by configuration
+- **Pre-submission validation hooks** ("a callout from Claude to a customer-defined endpoint before inference") are on Anthropic's roadmap — track this: it is both a future AEGIS integration surface and a partial substitute for inline gateways
+
+Full endpoint sets, gateway caveats (SSE unbuffered forwarding, SigV4 preservation, TLS-interception exemptions), and per-product Compliance API dates: see `references/docs-digest.md`.
 
 ---
 
@@ -46,12 +63,14 @@ Anthropic organizes enterprise security into four control families. AEGIS maps t
 
 | Standard | Anthropic | AEGIS (current) | AEGIS (gap) |
 |----------|-----------|-----------------|-------------|
-| SOC 2 Type II | ✓ (held) | ✗ | Pursue Type II attestation (control design + operating effectiveness) |
+| SOC 2 Type II | ✓ (Schellman, Oct 2024–Sep 2025, unqualified; one exception: quarterly access review CC6.2.5; Privacy TSC included; Processing Integrity not in scope) | ✗ | Pursue Type II attestation — also the named table-stakes cert in Anthropic's own Vendor Code |
 | ISO 27001 | ✓ (held) | ✗ | Pursue; AEGIS already implements most technical controls |
 | **ISO 42001** | ✓ (held) | **Architecturally satisfies** | Document formally; AEGIS IS an AI Management System |
 | HIPAA Type 1 | ✓ (held, zero exceptions Oct 2025) | Via Vertex AI (Anthropic handles ePHI layer) | Add `GET /platform/compliance/export` (done ✓); document §164.312(b) alignment |
 | WCAG 2.2 AA | ✓ (Web 89%, iOS 84%) | Not applicable (API-first, no UI) | N/A |
 | CSA STAR Level 2 | ✓ (held) | ✗ | Future; after SOC 2 |
+
+From the vendor questionnaires (VSA Core / CAIQ Lite, March 2025 — full deltas in `references/docs-digest.md`), the SLA baseline an AEGIS contract should match or beat: breach notification **48 hours**; vulnerability remediation **72h critical / 30d high / 90d medium / 180d low**; access logs immutable, retained ≥1 year. Two disclosures customers' vendor reviews will surface: intra-cluster east-west traffic "may not be encrypted" (the single CAIQ "No"), and AUP-violating content "may be used to improve our safety classification mechanisms." AEGIS's gateway can't fix either — the honest positioning is the compensating control: a hash-chained, customer-held record of exactly what was sent. Also notable: model weights are under Two-Party Control internally — Anthropic applies dual-authorization to its own crown jewels, the same control philosophy as AEGIS's guardian-approval gate on frozen files.
 
 **ISO 42001 is the highest-leverage gap to close first.** It is specifically the AI Management System standard. AEGIS's architecture is a direct implementation of it:
 
@@ -114,6 +133,37 @@ AEGIS already deploys to Cloud Run `europe-west3` and uses Vertex AI via ADC (`a
 - **Data residency is EU** (GDPR compliance for European enterprises)
 - **Workload Identity (WIF)** — no long-lived service account keys
 - AEGIS is the enterprise's GCP-native governance layer for Claude
+
+---
+
+## Key Management & CMEK — The Q3 2026 Window
+
+The Data Handling & Key Management paper (May 15, 2026) puts a date on customer-managed encryption keys:
+
+> "Customer-managed encryption keys (CMEK) is targeting availability in or before Q3 2026. Use of this feature will be subject to Anthropic approval."
+
+Mechanism: envelope encryption via the customer's own KMS — AWS KMS, **Google Cloud KMS**, or Azure Key Vault. Rotation happens in the customer's KMS; CMEK covers backups ("revoking the key renders backup copies unreadable") but explicitly NOT the Trust & Safety retention copy, which stays under Anthropic-managed keys for up to 2 years.
+
+**The AEGIS angle — already ahead of the window:** AEGIS runs in the customer's GCP project (Cloud Run `europe-west3`, Vertex AI via ADC). Everything AEGIS persists — `revenue_cycles`, audit chains, execution records — sits inside a trust boundary where the customer already controls the keys, today, without waiting for Anthropic approval. When first-party CMEK lands (~Q3 2026), AEGIS's Google Cloud KMS-native posture composes with it directly. Related dates from the same paper series: US-only data residency targeted **Q2 2026**; role-governed admin permissions targeting **June 2026**; first-party platform offers no customer-set residency today.
+
+One honest limit to state in any customer conversation: the safety-retention carve-out means a customer can never crypto-shred 100% of what Anthropic holds — flagged content is retained up to 2 years under Anthropic keys regardless of CMEK. AEGIS's hash-chained export is the customer's compensating record of exactly what was sent.
+
+---
+
+## What Anthropic Explicitly Does Not Offer (The Whitespace Map)
+
+Stated non-offerings, collected verbatim-sourced from the May 2026 enterprise paper series (citations in `references/docs-digest.md`):
+
+| Stated non-offering | Source | AEGIS relevance |
+|---------------------|--------|-----------------|
+| No native DLP engine, classifier library, or content-policy console | DLP §1 | The core thesis |
+| No real-time output-side sensitive-data filter | DLP §8 FAQ | Constitutional audit verdict on every output |
+| No ABAC, per-conversation ACLs, JIT elevation, or Conditional Access pass-through | Identity §4.3 | AEGIS tier capability gate = per-request policy above role grain |
+| No Compliance API coverage for Claude Code / Cowork; no per-message Platform inference logging (v1) | DLP §4 | AEGIS logs per-decision at the gateway |
+| No per-customer dedicated infrastructure or private interconnect (first-party) | Isolation §1 | Route via Vertex AI inside the customer's GCP project — AEGIS's existing deployment |
+| No customer-initiated restore / point-in-time recovery | Data Handling §9 | Hash-chained export is the durable customer-side record |
+
+This table is the partnership pitch in one screen: every row is something Anthropic's own documentation assigns to the customer's side of the boundary, and every row has a shipped AEGIS mechanism.
 
 ---
 
@@ -201,6 +251,34 @@ The card calls these "rare, highly-capable reckless actions." **Every documented
 
 ---
 
+## How Anthropic Governs Its Own Agents — The Thesis Proven In-House
+
+The Cowork security architecture documents (v5.0 Apr 2026, internal; v2.0 3P overview, NDA-restricted — **internal strategy use only, never quote externally without checking distribution terms**) show that Anthropic does not rely on model alignment for its own agent product. Cowork ships with at least seven model-external enforcement layers: tool-surface restriction (the JS-execution tool deleted outright), syscall-level path canonicalization, a sensitive-path guard that runs *before* allow-rule evaluation ("a standing allow rule cannot bypass it"), a hypervisor-isolated VM with seccomp/privilege-drop, dual egress allowlists enforced at the CSP/browser-engine level ("rejected by the browser engine, not by application logic"), pinned SHA-256 binary integrity with no self-update, and server-side Constitutional Classifiers on output.
+
+Structural convergence with AEGIS (use this table in any partnership narrative):
+
+| Cowork mechanism | AEGIS counterpart |
+|------------------|-------------------|
+| Pinned SHA-256 binary/VM-image digests, no self-update | `verify-hashes.mjs` frozen-file membrane |
+| Sensitive-path guard pre-empting allow rules | Frozen constitutional files — no exception paths |
+| Default-deny egress allowlists, structural enforcement | Law of Silence — mediated EventEnvelope only |
+| Per-session ephemeral Linux user + private namespace | Workspace isolation per agent run |
+| Server-side constitutional classifiers on output | Constitutional audit verdict (APPROVED/FLAG/QUARANTINE) |
+
+**The architected gap is audit/replay.** Cowork's MDM config delegates agent-action logging to the customer's OTLP collector ("Set to your OTLP collector to collect Cowork prompt, tool use, and other event information"); Office Agents 3P designates the customer gateway as where "Customer manages auth, logging, rate limits." No Anthropic document describes a tamper-evident, replayable record of agent actions. That slot — `AdaptivePower(T) ≤ ReplayVerifiability(T)` as an operated service — is precisely what AEGIS occupies, and Cowork's inference endpoint is MDM-pinnable to "a customer-operated gateway" today.
+
+## Partner Prerequisites — Global Vendor Code of Conduct (v1.2, Mar 2025)
+
+Before any formal relationship, AEGIS must satisfy what Anthropic requires of its own vendors/partners:
+
+1. **SOC 2 Type 2** (or equivalent) "performed by an independent third party" and made available to Anthropic — confirms SOC 2 as the top certification priority on the roadmap
+2. Breach notice to **disclosure@anthropic.com** for anything touching Anthropic data
+3. Flow-down: AEGIS's own subcontractors must comply with the Code
+4. **Written authorization required before any public statement about a relationship with Anthropic** or use of name/logo — no "partner of Anthropic" claims, ever, without sign-off
+5. No use of Anthropic confidential information with other LLM providers — relevant to the inference-router: Anthropic-derived material must never leak into DashScope/Ollama/Qwen paths
+
+---
+
 ## Frontier Compliance Framework — The Loss-of-Control Angle
 
 Anthropic's FCF (March 2026) is its compliance framework for California's TFAIA and the EU AI Act (Regulation (EU) 2024/1689). It defines four systemic risk categories: cyber offense, CBRN, harmful manipulation, and **sabotage and loss of control**.
@@ -232,6 +310,23 @@ What this means concretely:
 - AEGIS inherits its own EU AI Act obligations (Art. 12 record-keeping in particular) — already architecturally satisfied: the audit chain IS Article 12 logging, and `aegis-cl-psi` is tagged EU AI Act-compliant
 - Anthropic Ireland Limited is the EU model provider; AEGIS (EU-deployed, Vertex `eu` region, Cloud Run `europe-west3`) sits cleanly in the EU compliance chain
 - Key model facts (form v1.0, June 8, 2026): Mythos 5 = Fable 5 with certain cyber/bio classifiers disabled per customer use case, trusted-access program only; both released June 9, 2026; black-box inference-only access; input 1M tokens text + 600 images/request; max output 300K tokens (model capability — API per-request limit remains 128K)
+- Opus 4.8 form (v1.0, May 28, 2026) corroborates the lineage: 1M-token input / 300K-token output, video as input modality (audio absent), same-day EU market release with the Art. 53 form pre-prepared, distribution including Azure AI Foundry and Slack. Training-data note worth retaining: "The model itself is not directly trained on user data, but ancillary internal-only models such as preference models and classifiers may be."
+
+---
+
+## HECVAT — The Higher-Education Wedge
+
+Anthropic's own HECVAT 4.04 response (July 2025, for "Claude") self-scores **72%**, with the weakest sections being exactly AEGIS's strengths: **AAAI/logging 61%, AI controls 66%, Privacy 54%**. The pattern across the AI section is uniform — control exists nowhere, customer is told to build it:
+
+| HECVAT question (answered "No"/qualified) | AEGIS mechanism |
+|--------------------------------------------|-----------------|
+| AIGN-05 — business rules to keep sensitive data out of the model: "users must implement their own data governance policies before sending data to Claude" | Constitutional content gate before inference |
+| AILM-03 — human intervention for LLM actions: customers build "approval workflows... through their integration architecture" | Guardian-approval gate; martingale suspension on unbounded action |
+| AILM-04/05/07 — no plugin-call limits, no per-action resource limits, taint tracing unanswered | Law of Silence + execution budget ceiling (k·C_eval ≤ B_max) |
+| AIPL-03/04 — AI kill-switch: "Customers are responsible for creating procedures to disable and reenable access" | Mode gate + martingale suspension = operable kill-switch |
+| AAAI-11 — audit logs capped at 180 days regardless of customer settings | Hash-chained export, customer-held, unlimited retention |
+
+A university deploying Claude behind AEGIS can answer Yes-with-mechanism on most of these rows in its own assessment. Two more HECVAT facts to retain: hosting is **US-only** (Iowa/Ohio/N. Virginia — no regional storage option, DCTR-03 No), which makes the AEGIS EU deployment (Vertex `europe-west3`) the answer for European institutions; and DCTR-16 admits cloud-provider KMS "means cloud hosting providers are able to access all data provided by Anthropic's customers" — the same key-custody gap the CMEK section covers. Full row-level digest: `references/docs-digest.md`.
 
 ---
 
@@ -243,6 +338,40 @@ Relevance for AEGIS:
 - NIST 800-171 is the gateway to US federal/defense contractors handling CUI. Anthropic is positioned there; an AEGIS layered on Claude inherits that posture for the model layer but needs its own 800-171 story for the governance layer
 - AEGIS's deterministic audit controls (03.03.x family) are its strongest 800-171 chapter — hash chains exceed the audit-record integrity requirements
 - Lowest-effort win: document AEGIS against 800-171r3 §3.3 (Audit and Accountability) using the existing `/platform/compliance/export` endpoint as evidence
+
+### FISMA / FedRAMP — the rest of the federal picture (Claude Code Public Sector guide, v1.0 Jan 2026)
+
+- **Anthropic claims no FedRAMP authorization of its own.** Federal posture is inherited entirely from AWS GovCloud Bedrock or GCP Vertex AI with Assured Workloads (`us-east5`). Reinforced by HECVAT DATA-04: crypto modules are not FIPS 140-2/3 validated — the cloud route is the FIPS answer too.
+- The guide's shared-responsibility table scopes Anthropic to exactly four things: "Model safety and alignment, Protection against adversarial inputs, Model vulnerability management, Supply chain security for model weights." NIST 800-53 implementation, audit logging, usage governance, "Risk assessment for AI use cases," and incident response are all agency-side, with no tooling offered — only CloudTrail / Cloud Audit Logs + agency SIEM.
+- AEGIS fit is the same shape as the commercial story, federalized: deployed in the agency's own GCP project under Assured Workloads, AEGIS supplies the application-level, hash-chained audit trail (prompts, outputs, tool calls, verdicts) that the guide tells agencies to assemble themselves from infrastructure logs.
+
+---
+
+## HIPAA-Ready — Where the BAA Actually Ends (Implementation Guide, 2026.05.06)
+
+"HIPAA-Ready" is a BAA-eligibility construct, not a certification, and its boundary is the partnership argument in miniature:
+
+- **Zero Data Retention is the load-bearing control** (Claude Code is eligible only with ZDR; 4/1/2026+ BAAs cover the 1P API only with ZDR) — and **the most agentic surfaces are "incompatible with ZDR"** and outside the BAA entirely: Claude Code remote/web/Review/Security/Computer Use, Batch/Files/Code Execution APIs, MCP connectors. The safest mode and the most agentic modes are mutually exclusive. A healthcare enterprise that wants governed agentic Claude needs a layer Anthropic does not sell.
+- Anthropic retains audit/usage logs **up to 1 year**; HIPAA documentation retention is 6 years — the export-and-preserve burden is the customer's. `/platform/compliance/export` + the hash chain is precisely that archive.
+- Customer obligations named in the guide that AEGIS ships as mechanisms: PHI kept out of non-eligible fields (chat/project/workspace names — Anthropic disclaims them), inactivity logoff, failed-login lockout, periodic audit-log review.
+- BAA coverage varies by product surface × ZDR status × BAA signature date (pre-12/2/2025 / post / 4/1/2026+) — a genuinely complicated eligibility matrix that a policy engine can machine-enforce at the gateway. Nobody ships that engine.
+- Honest caveat to carry into any healthcare conversation: the Trust & Safety carve-out means flagged content is reviewable by Anthropic personnel even under a BAA, and Vertex/Bedrock routes are out of the guide's scope (the AEGIS Vertex deployment relies on the separate attestation-grade boundary: "Anthropic is unable to access prompts or responses sent via these services").
+
+One transparency note for the EU/California file: the AB 2013 Training Data Documentation (Dec 2025) concedes training data "may include material covered by third-party intellectual property rights" and "may incidentally include personal information," with user data used for training on an **opt-out** basis — and offers downstream customers no tooling for their own AB 2013 / Art. 53 disclosures on Claude-based fine-tunes. Provenance disclosure is an AEGIS lineage-chain output.
+
+---
+
+## The Attestation Boundary — Where Audited Territory Ends
+
+From the SOC 2 Type 2 + CSA STAR L2 report (Schellman, period Oct 2024–Sep 2025, unqualified opinion, one exception: a quarterly privileged-access review missed for one of two sampled quarters):
+
+1. **Zero-CUEC posture with one loaded carve-out.** Anthropic asserts "complementary user entity controls are not required, or significant" — then lists 8 advisory responsibilities. CUER.8 is the partnership headline: *"User entities are responsible for implementing controls to secure the local environments where Claude Code is executed and to review any generated or modified code prior to deployment."* The only mention of Claude Code in the whole report is to hand its governance to the customer. Agentic-surface governance is formally nobody's attested territory — that unattested gap is AEGIS's layer.
+2. **Attestation-grade Vertex boundary.** "Notably, Anthropic is unable to access prompts or responses sent via these services" now exists inside an independent auditor's report — cite the SOC 2, not just the HIPAA report, for the trust-boundary argument.
+3. **Privacy is processor-scoped.** P1.1/P2.1/P3.2 carved out to the data controller. An enterprise using Claude carries controller obligations no Anthropic attestation covers; AEGIS's audit chain is the controller-side evidence layer.
+4. **ISO SoA v1.4 has zero exclusions** across ISO 27001:2022 + ISO 42001:2023 — and ISO 42001 A.10.2 ("responsibility allocation between the organization, its partners, suppliers, customers and third parties") is the formal hook for an AEGIS partnership story: Anthropic's own AIMS anticipates allocated customer/partner responsibilities.
+5. **Pen testing (Leviathan + Wolfpack, Jan 2026: 9 findings, all Low) covers infra/web/API/clients — no agentic or model-level adversarial stream** in the customer package. Position on the gap, never on vendor-security FUD: their infra posture is demonstrably strong.
+
+Distribution discipline: the SOC 2 report, pen-test package, and ISO SoA are restricted-use/NDA, watermarked per-recipient. Internal strategy use only; never quote them in external-facing material.
 
 ---
 
