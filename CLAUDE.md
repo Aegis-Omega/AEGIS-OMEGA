@@ -71,6 +71,19 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 due to overcomplication, and clarifying questions come before implementation rather than
 after mistakes.
 
+## Operating Loop — use what exists, ship to main
+
+Full loop in **`WORKFLOW.md`** (repo root). The two rules that matter most:
+
+1. **Reach for what exists before building.** Skills (`sovereign-omega-v2/.claude/skills/`),
+   the `aegis` CLI + `aegis-omega` SDK (`packages/aegis-py/`), the Drive/Supabase/GitHub
+   **MCP servers** (the research corpus lives in Drive — use `corpus-ingestion`), prompt
+   caching (already in `python/bridge.py`), and the Rust/Python/TS layers already exist.
+   Use them. State which one you checked before writing anything new.
+2. **Nothing is "done" until it is on `main`, verified.** Every session opens with
+   `scripts/ground-truth.sh` (branch · drift from main · unpushed · membrane · live).
+   Stranded on a feature branch = not done.
+
 ---
 
 # AEGIS Monorepo — Coordination Document

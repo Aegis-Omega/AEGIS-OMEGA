@@ -34,3 +34,7 @@ install_npm enterprise
 install_npm aegisomega-webgpu
 
 echo "SessionStart: all deps ready."
+
+# Ground truth — open every session knowing branch / main-drift / unpushed / membrane / live.
+# Per WORKFLOW.md: no session starts blind; nothing is "done" until it is on main.
+bash "$REPO/scripts/ground-truth.sh" 2>/dev/null || true
