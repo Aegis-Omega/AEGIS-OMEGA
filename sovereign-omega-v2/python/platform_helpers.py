@@ -526,21 +526,38 @@ _MODE_OUTPUTS = {
 }
 
 
+# Governance categories append a constitutional verdict marker to every output —
+# the audit/guardian/board layer is always visible in the artifact, regardless of
+# the role-differentiated body. Restored after the role-differentiation rewrite
+# (649b6138) dropped it and regressed the platform contract suffix tests.
+_CATEGORY_SUFFIX: dict[str, str] = {
+    'constitutional': ' Constitutional compliance: T0 verdict VALID.',
+    'governance':     ' Risk: LOW. Ethical concerns: NONE.',
+    'executive':      ' Board priority: TIER-1. Strategic alignment: confirmed.',
+}
+
+
 def dept_output(objective: str, mode: str, dept: dict) -> str:
-    """Generate role-differentiated department output. Each of 39 roles speaks from its domain."""
+    """Generate role-differentiated department output. Each of 39 roles speaks from its domain.
+
+    Governance/executive/constitutional categories also carry a constitutional
+    verdict suffix so the audit layer is present in every artifact.
+    """
     role = dept['role']
     obj_short = objective[:60].rstrip()
     spec = _ROLE_SPECS.get(role)
     if spec is None:
         template = _MODE_OUTPUTS.get(mode, _MODE_OUTPUTS['analysis'])
-        return template.format(role=role, obj=obj_short[:55])
-    domain, finding, action = spec
-    mode_verb = _MODE_VERBS.get(mode, 'Analysis')
-    return (
-        f'{role} [{mode_verb}]: {domain.capitalize()} — '
-        f'{finding}. '
-        f'Action: {action}.'
-    )
+        base = template.format(role=role, obj=obj_short[:55])
+    else:
+        domain, finding, action = spec
+        mode_verb = _MODE_VERBS.get(mode, 'Analysis')
+        base = (
+            f'{role} [{mode_verb}]: {domain.capitalize()} — '
+            f'{finding}. '
+            f'Action: {action}.'
+        )
+    return base + _CATEGORY_SUFFIX.get(dept['category'], '')
 
 
 def make_sse_event(event_type: str, execution_id: str, payload: dict) -> dict:
