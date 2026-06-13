@@ -58,6 +58,8 @@ from platform_helpers import (
     award_graces_for_cycle as _award_graces,
     fetch_grace_leaderboard as _fetch_graces,
     fetch_compliance_export as _fetch_compliance_export,
+    query_fitness_trend as _platform_query_fitness_trend,
+    query_agent_tools as _platform_query_agent_tools,
 )
 
 # In-memory execution store — keyed by execution_id
@@ -1617,6 +1619,45 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 status_data = {'execution_id': execution_id, 'status': 'complete', 'result': rec['result']}
 
             self._platform_respond(200, _platform_envelope(execution_id, status_data))
+
+        elif self.path == '/platform/calibration':
+            # GET /platform/calibration — HPA axis homeostasis (no auth required).
+            # Port of stress-calibrator.js from Sovereign AGI OS v3.3.0.
+            # Returns current homeostasis zone + HD-equivalent (fitness stdev).
+            import uuid as _uuid_cal
+            eid = str(_uuid_cal.uuid4())
+            trend = _platform_query_fitness_trend()
+            if not trend:
+                cal_data: dict = {
+                    'homeostasis_zone': 'optimal',
+                    'recommendation': 'MAINTAIN',
+                    'fitness_mean': 0.5,
+                    'fitness_variance': 0.0,
+                    'hd_equivalent': 0.0,
+                    'stagnation_rate': 0.0,
+                    'window_size': 0,
+                    'trend': 'stable',
+                    'constitutional_factor_mean': 1.0,
+                }
+            else:
+                cal_data = trend
+            self._platform_respond(200, _platform_envelope(eid, cal_data))
+
+        elif self.path.startswith('/platform/tools'):
+            # GET /platform/tools[?tier=explorer|operator|sovereign]
+            # Agent API contact list — read-only catalog of outbound API profiles.
+            # Never returns key_hash or raw credentials.
+            import uuid as _uuid_tools
+            import urllib.parse as _up_tools
+            eid = str(_uuid_tools.uuid4())
+            parsed = _up_tools.urlparse(self.path)
+            params = dict(_up_tools.parse_qsl(parsed.query))
+            tier_filter = params.get('tier', '')
+            tools = _platform_query_agent_tools(tier_filter)
+            self._platform_respond(200, _platform_envelope(eid, {
+                'tools': tools,
+                'total': len(tools),
+            }))
 
         else:
             self._respond(404, {'error': 'NOT_FOUND'})

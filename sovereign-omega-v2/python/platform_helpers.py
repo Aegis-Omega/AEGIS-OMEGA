@@ -1425,6 +1425,21 @@ def award_graces_for_cycle(cycle_id: str, artifacts: list, verdict: str) -> None
 
     if verdict == 'QUARANTINE':
         return  # no graces for quarantined cycles
+# ─── HPA axis calibration (port of stress-calibrator.js) ─────────────────────
+
+def query_fitness_trend(window: int = 10) -> dict:
+    """
+    Reads recent fitness data from department_fitness_tracking and computes
+    the system's homeostasis state. Mirrors the hormetic curve from the
+    Sovereign AGI OS stress-calibrator.js HPA axis (v3.3.0).
+
+    HD-equivalent = stdev of fitness scores across the window.
+    High spread = unreliable outputs = HD analog of claimed vs actual quality.
+
+    Returns {} when Supabase is unavailable (caller returns degraded status).
+    """
+    import urllib.request as _ur_ft
+    import math as _math_ft
 
     supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
     service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
@@ -1525,6 +1540,100 @@ def fetch_grace_leaderboard() -> list:
     """
     import urllib.request as _urGL
     import urllib.error as _ueGL
+        return {}
+
+    params = (
+        f'?order=created_at.desc'
+        f'&limit={window}'
+        f'&select=fitness_score,constitutional_factor,stagnation_flag,created_at'
+    )
+    url = f'{supabase_url}/rest/v1/department_fitness_tracking{params}'
+    headers = {
+        'apikey': service_key,
+        'Authorization': f'Bearer {service_key}',
+        'Content-Type': 'application/json',
+    }
+    req = _ur_ft.Request(url, headers=headers)
+    try:
+        with _ur_ft.urlopen(req, timeout=5) as resp:
+            rows = json.loads(resp.read().decode())
+    except Exception:
+        return {}
+
+    if not rows:
+        return {}
+
+    scores     = [float(r['fitness_score'])        for r in rows if r.get('fitness_score')        is not None]
+    c_factors  = [float(r['constitutional_factor']) for r in rows if r.get('constitutional_factor') is not None]
+    stag_flags = [bool(r.get('stagnation_flag', False)) for r in rows]
+
+    if not scores:
+        return {}
+
+    n            = len(scores)
+    fitness_mean = sum(scores) / n
+    variance     = sum((s - fitness_mean) ** 2 for s in scores) / n
+    hd_equivalent          = round(_math_ft.sqrt(variance), 4)
+    stagnation_rate        = round(sum(stag_flags) / len(stag_flags), 4)
+    constitutional_factor_mean = round(sum(c_factors) / len(c_factors), 4) if c_factors else 1.0
+
+    # Trend: compare mean of first half (most recent) vs second half.
+    if n >= 4:
+        half        = n // 2
+        recent_mean = sum(scores[:half]) / half
+        older_mean  = sum(scores[half:]) / (n - half)
+        if recent_mean > older_mean + 0.03:
+            trend = 'rising'
+        elif recent_mean < older_mean - 0.03:
+            trend = 'falling'
+        else:
+            trend = 'stable'
+    else:
+        trend = 'stable'
+
+    # Homeostasis zone and constitutional recommendation.
+    if fitness_mean < 0.30:
+        zone = 'slack'
+        recommendation = 'EASE'
+    elif fitness_mean <= 0.70:
+        zone = 'optimal'
+        recommendation = 'MAINTAIN'
+    elif fitness_mean <= 0.90:
+        zone = 'stressed'
+        recommendation = 'TIGHTEN'
+    else:
+        zone = 'critical'
+        recommendation = 'TIGHTEN'
+
+    # Falling trend in stressed zone → ease off rather than tighten further.
+    if zone == 'stressed' and trend == 'falling':
+        recommendation = 'EASE'
+
+    return {
+        'homeostasis_zone':           zone,
+        'recommendation':             recommendation,
+        'fitness_mean':               round(fitness_mean, 4),
+        'fitness_variance':           round(variance, 4),
+        'hd_equivalent':              hd_equivalent,
+        'stagnation_rate':            stagnation_rate,
+        'window_size':                n,
+        'trend':                      trend,
+        'constitutional_factor_mean': constitutional_factor_mean,
+    }
+
+
+# ─── Agent API contact list ───────────────────────────────────────────────────
+
+def query_agent_tools(tier: str = '') -> list:
+    """
+    Returns available agent API profiles from agent_api_profiles table.
+    Read-only projection: never returns key_hash or any raw credential.
+    Agents read this catalog, then invoke tools through the mediated SSE channel.
+
+    Optional tier filter: 'explorer' | 'operator' | 'sovereign'.
+    Returns [] when Supabase is unavailable or table is empty.
+    """
+    import urllib.request as _ur_at
 
     supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
     service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
@@ -1541,3 +1650,28 @@ def fetch_grace_leaderboard() -> list:
             return json.loads(resp.read().decode())
     except Exception:
         return []
+    params = (
+        f'?revoked=eq.false'
+        f'&order=api_name.asc'
+        f'&select=api_name,endpoint_url,capabilities,tier_required'
+    )
+    if tier in ('explorer', 'operator', 'sovereign'):
+        params += f'&tier_required=eq.{tier}'
+    url = f'{supabase_url}/rest/v1/agent_api_profiles{params}'
+    headers = {
+        'apikey': service_key,
+        'Authorization': f'Bearer {service_key}',
+        'Content-Type': 'application/json',
+    }
+    req = _ur_at.Request(url, headers=headers)
+    try:
+        with _ur_at.urlopen(req, timeout=5) as resp:
+            rows = json.loads(resp.read().decode())
+    except Exception:
+        return []
+
+    # Ensure capabilities is always a list (jsonb may be null in older rows).
+    for row in rows:
+        if not isinstance(row.get('capabilities'), list):
+            row['capabilities'] = []
+    return rows
