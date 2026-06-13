@@ -1,0 +1,322 @@
+// AEGIS-Ω Compliance & Governance — /compliance
+// Maps AEGIS technical architecture to EU AI Act obligations (Articles 12, 13, 52)
+// and Anthropic Constitutional AI principles. This is not a marketing page —
+// it is a technical compliance surface for auditors, regulators, and partners.
+import { T, MONO, SANS } from './console/consoleTokens.js'
+import { NousButton, ArrowR, NousPill } from './console/NousUI.js'
+
+function ComplianceNav() {
+  const links: [string, string][] = [['/', 'Home'], ['/platform', 'Platform'], ['/docs', 'Docs'], ['/compliance', 'Compliance'], ['/pricing', 'Pricing']]
+  return (
+    <nav style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
+      background: 'rgba(6,7,12,0.55)', backdropFilter: 'blur(16px) saturate(150%)',
+      borderBottom: `1px solid rgba(255,255,255,0.06)`,
+    }} className="px-7 py-4 flex items-center justify-between">
+      <a href="/" style={{ color: T.text, fontFamily: MONO, letterSpacing: '0.22em', fontSize: 13, fontWeight: 600 }}>
+        NOUS<span style={{ color: T.phi }}> · Ω</span>
+      </a>
+      <div className="hidden md:flex items-center gap-7">
+        {links.map(([href, label]) => (
+          <a key={href} href={href} style={{
+            color: href === '/compliance' ? T.text : T.muted, fontSize: 13,
+            fontWeight: href === '/compliance' ? 600 : 400, textDecoration: 'none',
+          }} className="hover:text-white transition-colors">{label}</a>
+        ))}
+      </div>
+      <NousButton href="/pricing" variant="primary" size="md">Get API Key <ArrowR /></NousButton>
+    </nav>
+  )
+}
+
+interface ArticleRow {
+  article: string
+  obligation: string
+  mechanism: string
+  status: 'compliant' | 'partial' | 'na'
+  detail: string
+}
+
+const EU_AI_ACT_ROWS: ArticleRow[] = [
+  {
+    article: 'Art. 12(1)',
+    obligation: 'Logging capability',
+    mechanism: 'SHA-256 hash-chained MetacognitiveLoop',
+    status: 'compliant',
+    detail: 'Every inference event is hash-chained from a genesis record. The chain is tamper-evident: any post-hoc modification breaks the SHA-256 linkage and is detected by certifyMetacognitiveLoop().',
+  },
+  {
+    article: 'Art. 12(2)',
+    obligation: 'Automatic logging of events throughout lifecycle',
+    mechanism: 'dag_step + agent_event + tool_call SSE events per execution',
+    status: 'compliant',
+    detail: 'All 39 department outputs, tool invocations, and constitutional verdict events are logged per-execution with ISO-8601 timestamps and execution_id linkage. Logs are replay-reconstructable from the audit chain.',
+  },
+  {
+    article: 'Art. 12(3)',
+    obligation: 'Logs retained for appropriate period',
+    mechanism: 'Supabase revenue_cycles table + metacognitive chain persistence',
+    status: 'compliant',
+    detail: 'Execution records are stored in Supabase with timestamptz fields. The hash chain is append-only and immutable. Retention policy configurable per deployment.',
+  },
+  {
+    article: 'Art. 13(1)',
+    obligation: 'Transparency — users informed they interact with AI',
+    mechanism: 'is_replay_reconstructable flag + contract_version in every response',
+    status: 'compliant',
+    detail: 'Every API response envelope includes contract_version, is_replay_reconstructable: true, and constitutional_audit.verdict. No response can be mistaken for human-generated output.',
+  },
+  {
+    article: 'Art. 13(2)',
+    obligation: 'Instructions for use — intended purpose and limitations',
+    mechanism: '/docs reference + PlatformContract schema + epistemic tier labeling',
+    status: 'compliant',
+    detail: 'The platform contract (platform-contract.ts) is versioned and public. Epistemic tiers (T0–T4) label every claim by its certainty class. T2 projections are explicitly labeled as engineering hypotheses.',
+  },
+  {
+    article: 'Art. 13(3)(b)',
+    obligation: 'Human oversight measures',
+    mechanism: 'Constitutional audit: APPROVED / FLAG / QUARANTINE verdict',
+    status: 'compliant',
+    detail: 'The guardian department issues one of three verdicts on every collaboration. FLAG and QUARANTINE responses include a concerns array. No output bypasses the constitutional audit layer.',
+  },
+  {
+    article: 'Art. 14',
+    obligation: 'Human oversight — ability to intervene',
+    mechanism: 'AdaptivePower(T) ≤ ReplayVerifiability(T) root law',
+    status: 'compliant',
+    detail: 'The root constitutional law prevents the swarm from taking any action that cannot be replayed and verified. No autonomous mutation authority. No unbounded recursion. The martingale gate suspends adaptation when entropy exceeds constitutional bounds.',
+  },
+  {
+    article: 'Art. 52(1)',
+    obligation: 'Transparency for certain AI systems — inform users',
+    mechanism: 'NOUS console + live/demo badge + source attribution',
+    status: 'compliant',
+    detail: 'The NOUS console displays a live/demo badge on every response, showing whether the output was generated by live Claude inference or a governed demo mode. Source is never ambiguous.',
+  },
+  {
+    article: 'GDPR Art. 5(1)(e)',
+    obligation: 'Data minimisation and storage limitation',
+    mechanism: 'SHA-256 hash-only key storage — raw keys never persisted',
+    status: 'compliant',
+    detail: 'API keys are stored as SHA-256 hashes only. The raw key is returned once at provisioning and never stored. agent_api_profiles stores key_hash only. RLS restricts all credential data to service_role.',
+  },
+]
+
+const CONSTITUTIONAL_LAWS = [
+  {
+    law: 'AdaptivePower(T) ≤ ReplayVerifiability(T)',
+    tier: 'T0',
+    meaning: 'No adaptive capability may exceed replay-certifiable reconstructability. Every change the system makes to itself must be verifiable from the audit chain.',
+  },
+  {
+    law: 'E[S_{n+1}|F_n] = S_n  (Martingale)',
+    tier: 'T1',
+    meaning: 'The fitness martingale gate suspends all adaptation when entropy is unbounded or drift exceeds threshold. Prevents runaway capability expansion.',
+  },
+  {
+    law: 'Law of Silence',
+    tier: 'T0',
+    meaning: 'Agents communicate exclusively through mediated EventEnvelope. No direct agent-to-agent text exchange. All communication flows through the constitutional boundary.',
+  },
+  {
+    law: 'Corpus Sovereignty',
+    tier: 'T0',
+    meaning: 'All knowledge enters through the 5-phase RALPH loop. Raw narrative never propagates directly into agent cognition. Only replay-certifiable abstractions propagate.',
+  },
+  {
+    law: 'φ = (√5−1)/2 ≈ 0.618 — BFT quorum',
+    tier: 'T0',
+    meaning: 'BFT consensus threshold identical at MOLECULAR, CELLULAR, and ATOMIC layers. The golden ratio governs quorum, mutation rate, and vote weight simultaneously.',
+  },
+]
+
+const TIER_TABLE = [
+  { tier: 'T0', label: 'Mechanically proven', color: T.green,   example: 'RFC 8785 JCS canonicalization, SHA-256 chain, BFT quorum = φ' },
+  { tier: 'T1', label: 'Empirically validated', color: T.indigo, example: 'Fibonacci scheduler, martingale constitutional form' },
+  { tier: 'T2', label: 'Engineering hypothesis', color: T.phi,   example: 'ARR projections, gossip layer performance, BFT under adversarial load' },
+  { tier: 'T3', label: 'Research conjecture',   color: T.amber,  example: 'Phase 6 algebraic topology, long-horizon alignment extrapolations' },
+  { tier: 'T4', label: 'Blocked in src/',        color: T.red,    example: 'Sovereignty claims, consciousness framing — confined to docs/ only' },
+]
+
+function StatusBadge({ status }: { status: ArticleRow['status'] }) {
+  const map = {
+    compliant: { color: T.green, label: 'COMPLIANT' },
+    partial:   { color: T.amber, label: 'PARTIAL' },
+    na:        { color: T.muted, label: 'N/A' },
+  }
+  const m = map[status]
+  return (
+    <span style={{
+      fontSize: 10, fontFamily: MONO, letterSpacing: '0.12em', padding: '3px 8px',
+      borderRadius: 20, color: m.color, background: `${m.color}12`, border: `1px solid ${m.color}35`,
+      flexShrink: 0,
+    }}>{m.label}</span>
+  )
+}
+
+function ArticleCard({ row }: { row: ArticleRow }) {
+  return (
+    <div style={{
+      borderRadius: 12, overflow: 'hidden',
+      background: 'rgba(255,255,255,0.02)', border: `1px solid rgba(255,255,255,0.07)`,
+      marginBottom: 12,
+    }}>
+      <div style={{
+        padding: '14px 20px', borderBottom: `1px solid rgba(255,255,255,0.05)`,
+        display: 'flex', alignItems: 'flex-start', gap: 14, flexWrap: 'wrap',
+      }}>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: T.phi, flexShrink: 0, minWidth: 72 }}>{row.article}</span>
+        <span style={{ fontSize: 13, color: T.text, flex: 1 }}>{row.obligation}</span>
+        <StatusBadge status={row.status} />
+      </div>
+      <div style={{ padding: '14px 20px' }}>
+        <div style={{ fontSize: 11, fontFamily: MONO, color: T.indigo, marginBottom: 8 }}>{row.mechanism}</div>
+        <p style={{ fontSize: 13, color: T.sub, lineHeight: 1.65, margin: 0 }}>{row.detail}</p>
+      </div>
+    </div>
+  )
+}
+
+export function CompliancePage() {
+  return (
+    <div style={{ background: '#06070C', color: T.text, minHeight: '100vh', fontFamily: SANS }}>
+      <ComplianceNav />
+
+      {/* Hero */}
+      <section style={{ maxWidth: 860, margin: '0 auto', padding: 'clamp(110px,16vh,160px) 24px 60px', textAlign: 'center' }}>
+        <NousPill>GOVERNANCE · COMPLIANCE · TRUST</NousPill>
+        <h1 style={{
+          fontSize: 'clamp(34px, 6vw, 64px)', fontWeight: 800, lineHeight: 1.06,
+          letterSpacing: '-0.03em', margin: '24px 0 20px',
+          background: 'linear-gradient(180deg, #FFFFFF 0%, #C9CBD6 55%, #9A8050 130%)',
+          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+        }}>Constitutional AI governance<br />at regulatory grade.</h1>
+        <p style={{ fontSize: 'clamp(15px,2vw,18px)', color: '#CBCDD8', maxWidth: 580, margin: '0 auto 36px', lineHeight: 1.65 }}>
+          AEGIS-Ω implements EU AI Act Articles 12, 13, and 52 compliance through its
+          hash-chained audit architecture, epistemic tier system, and constitutional verdict layer —
+          not through policy documents, but through tamper-evident code.
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12 }}>
+          <NousButton href="/docs" variant="primary" size="lg">API Reference <ArrowR /></NousButton>
+          <NousButton href="/console" variant="ghost" size="lg">Open Console</NousButton>
+        </div>
+      </section>
+
+      <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 24px 80px' }}>
+
+        {/* EU AI Act mapping */}
+        <div style={{ marginBottom: 64 }}>
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ fontSize: 11, fontFamily: MONO, color: T.phi, letterSpacing: '0.2em', marginBottom: 12 }}>EU AI ACT COMPLIANCE MAPPING</div>
+            <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 10 }}>Article-by-article obligations</h2>
+            <p style={{ fontSize: 14, color: T.muted, maxWidth: 620, lineHeight: 1.65 }}>
+              Each obligation is implemented in specific, auditable code — not asserted via policy.
+              Auditors can trace every compliance claim to a function, table, or protocol.
+            </p>
+          </div>
+          {EU_AI_ACT_ROWS.map(row => <ArticleCard key={row.article} row={row} />)}
+        </div>
+
+        {/* Constitutional laws */}
+        <div style={{ marginBottom: 64 }}>
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ fontSize: 11, fontFamily: MONO, color: T.phi, letterSpacing: '0.2em', marginBottom: 12 }}>CONSTITUTIONAL LAWS</div>
+            <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 10 }}>Formal invariants, not guidelines</h2>
+            <p style={{ fontSize: 14, color: T.muted, maxWidth: 620, lineHeight: 1.65 }}>
+              These are runtime-enforced laws, not aspirational principles. Violation causes T0_ABORT —
+              the system halts rather than violating its own constitutional boundary.
+            </p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {CONSTITUTIONAL_LAWS.map(law => (
+              <div key={law.law} style={{
+                padding: '18px 22px', borderRadius: 12,
+                background: 'rgba(255,255,255,0.02)', border: `1px solid rgba(255,255,255,0.07)`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 10, flexWrap: 'wrap' }}>
+                  <code style={{ fontFamily: MONO, fontSize: 13, color: T.green }}>{law.law}</code>
+                  <span style={{
+                    fontSize: 10, fontFamily: MONO, padding: '2px 8px', borderRadius: 20,
+                    color: T.green, background: `${T.green}12`, border: `1px solid ${T.green}30`,
+                  }}>{law.tier}</span>
+                </div>
+                <p style={{ fontSize: 13, color: T.sub, lineHeight: 1.65, margin: 0 }}>{law.meaning}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Epistemic tier system */}
+        <div style={{ marginBottom: 64 }}>
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ fontSize: 11, fontFamily: MONO, color: T.phi, letterSpacing: '0.2em', marginBottom: 12 }}>EPISTEMIC TIER SYSTEM</div>
+            <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 10 }}>Every claim is tier-labeled</h2>
+            <p style={{ fontSize: 14, color: T.muted, maxWidth: 620, lineHeight: 1.65 }}>
+              No output mixes mechanically-proven facts with engineering guesses without labeling
+              the difference. EU AI Act Article 13(2) requires informing users of limitations —
+              the tier system encodes this into every response.
+            </p>
+          </div>
+          <div style={{ borderRadius: 14, overflow: 'hidden', border: `1px solid rgba(255,255,255,0.08)` }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: SANS }}>
+              <thead>
+                <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
+                  {['Tier', 'Label', 'Example claims'].map(h => (
+                    <th key={h} style={{ padding: '12px 18px', textAlign: 'left', fontSize: 11, color: T.muted, fontWeight: 500, borderBottom: `1px solid rgba(255,255,255,0.07)`, fontFamily: MONO, letterSpacing: '0.08em' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {TIER_TABLE.map((row, i) => (
+                  <tr key={row.tier} style={{ background: i % 2 ? 'rgba(255,255,255,0.01)' : 'transparent' }}>
+                    <td style={{ padding: '12px 18px', borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+                      <span style={{ fontFamily: MONO, fontSize: 12, color: row.color, fontWeight: 700 }}>{row.tier}</span>
+                    </td>
+                    <td style={{ padding: '12px 18px', borderBottom: `1px solid rgba(255,255,255,0.04)`, fontSize: 13, color: T.sub }}>{row.label}</td>
+                    <td style={{ padding: '12px 18px', borderBottom: `1px solid rgba(255,255,255,0.04)`, fontSize: 12, color: T.muted, fontFamily: MONO }}>{row.example}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Hash chain audit */}
+        <div style={{ marginBottom: 64, padding: '32px', borderRadius: 16, background: `${T.phi}06`, border: `1px solid ${T.phi}25` }}>
+          <div style={{ fontSize: 11, fontFamily: MONO, color: T.phi, letterSpacing: '0.2em', marginBottom: 16 }}>AUDIT CHAIN</div>
+          <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>Tamper-evident by construction</h2>
+          <p style={{ fontSize: 14, color: T.sub, lineHeight: 1.7, marginBottom: 20 }}>
+            Every execution produces an <code style={{ color: T.indigo, fontFamily: MONO, fontSize: 12 }}>audit_chain_hash</code> —
+            the SHA-256 of the terminal node in the hash-chained event log for that run.
+            This hash is cryptographic proof that the execution happened as recorded.
+            An auditor with the genesis hash and the event log can independently recompute
+            the terminal hash and verify it matches. No central authority required.
+          </p>
+          <div style={{ background: '#06070C', borderRadius: 10, padding: '16px 20px', fontFamily: MONO, fontSize: 12, color: '#94A3B8', lineHeight: 2 }}>
+            <div><span style={{ color: T.phi }}>entry_hash</span> = SHA-256(<span style={{ color: T.indigo }}>prev_hash</span> ‖ <span style={{ color: T.green }}>timestamp</span> ‖ <span style={{ color: T.text }}>tier</span> ‖ <span style={{ color: T.text }}>payload</span>)</div>
+            <div><span style={{ color: T.phi }}>prev_hash[0]</span> = [0u8; 32]  <span style={{ color: T.muted }}>// genesis — anchors the lineage</span></div>
+            <div><span style={{ color: T.green }}>certifyMetacognitiveLoop</span>() → {'{ is_valid: true }'}  <span style={{ color: T.muted }}>// runtime self-verification</span></div>
+          </div>
+        </div>
+
+        {/* Contact */}
+        <div style={{ textAlign: 'center', padding: '32px 0 0' }}>
+          <p style={{ fontSize: 14, color: T.muted, marginBottom: 24 }}>
+            Compliance questions, audit requests, or regulatory engagement:
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <NousButton href="mailto:compliance@aegisomega.com" variant="ghost" size="md">compliance@aegisomega.com</NousButton>
+            <NousButton href="/docs" variant="ghost" size="md">API Documentation <ArrowR /></NousButton>
+          </div>
+        </div>
+      </div>
+
+      <footer style={{ borderTop: `1px solid rgba(255,255,255,0.06)`, padding: '24px', textAlign: 'center' }}>
+        <span style={{ fontSize: 11, color: T.muted, fontFamily: MONO }}>
+          NOUS · AEGIS-Ω · governed by AdaptivePower(T) ≤ ReplayVerifiability(T) · EU AI Act aligned
+        </span>
+      </footer>
+    </div>
+  )
+}
