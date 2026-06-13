@@ -1,43 +1,42 @@
 // AEGIS-Ω Platform Page — /platform
 // Product-reality page: what the swarm does, for whom, and how.
 // Sections: hero · trust · agent catalog · execution trace · use cases · quick start
+// Full NOUS design language: NousButton CTAs, glass surface, phi-gold, indigo.
 import { useEffect, useState } from 'react'
+import { T, MONO } from './console/consoleTokens.js'
+import { NousButton, ArrowR, NousPill } from './console/NousUI.js'
 
-const PHI    = '#C8A96E'
-const INDIGO = '#818CF8'
-const GREEN  = '#34D399'
-const MUTED  = '#6B6B7A'
-const CARD   = '#1A1A1E'
-const BORDER = '#1E1E22'
-const VOID   = '#08090C'
-const BG     = '#0F0F11'
+const PHI    = T.phi
+const INDIGO = T.indigo
+const GREEN  = T.green
+const MUTED  = T.muted
+const CARD   = T.card
+const BORDER = T.border
+const VOID   = T.void
+const BG     = T.bg
 
 // ─── Navigation ────────────────────────────────────────────────────────────
 
 function PlatNav() {
+  const links: [string, string][] = [['/', 'Home'], ['/platform', 'Platform'], ['/console', 'Console'], ['/docs', 'Docs'], ['/pricing', 'Pricing']]
   return (
     <nav style={{
       position: 'sticky', top: 0, zIndex: 50,
-      background: 'rgba(10,10,12,0.92)', backdropFilter: 'blur(12px)',
-      borderBottom: `1px solid ${BORDER}`,
-    }} className="px-6 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-8">
-        <a href="/" style={{ color: PHI, fontFamily: 'var(--font-mono)', letterSpacing: '0.15em', fontSize: 13 }}>
-          AEGIS-Ω
-        </a>
-        <div className="hidden md:flex items-center gap-6">
-          {([['/', 'Home'], ['/platform', 'Platform'], ['/docs', 'API Docs'], ['/pricing', 'Pricing']] as [string, string][]).map(([href, label]) => (
-            <a key={href} href={href} style={{
-              color: href === '/platform' ? '#ECEAE3' : MUTED,
-              fontSize: 13, fontWeight: href === '/platform' ? 600 : 400,
-            }} className="hover:text-white transition-colors">{label}</a>
-          ))}
-        </div>
+      background: 'rgba(6,7,12,0.55)', backdropFilter: 'blur(16px) saturate(150%)',
+      borderBottom: `1px solid rgba(255,255,255,0.06)`,
+    }} className="px-7 py-4 flex items-center justify-between">
+      <a href="/" style={{ color: T.text, fontFamily: MONO, letterSpacing: '0.22em', fontSize: 13, fontWeight: 600 }}>
+        NOUS<span style={{ color: T.phi }}> · Ω</span>
+      </a>
+      <div className="hidden md:flex items-center gap-7">
+        {links.map(([href, label]) => (
+          <a key={href} href={href} style={{
+            color: href === '/platform' ? T.text : T.muted, fontSize: 13,
+            fontWeight: href === '/platform' ? 600 : 400, textDecoration: 'none',
+          }} className="hover:text-white transition-colors">{label}</a>
+        ))}
       </div>
-      <a href="/pricing" style={{
-        background: INDIGO, color: '#fff', fontSize: 12, fontWeight: 600,
-        padding: '6px 14px', borderRadius: 8, textDecoration: 'none',
-      }}>Get API Key →</a>
+      <NousButton href="/pricing" variant="primary" size="md">Get API Key <ArrowR /></NousButton>
     </nav>
   )
 }
@@ -428,15 +427,8 @@ function QuickStart() {
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginTop: 32 }}>
-          <a href="/pricing" style={{
-            background: INDIGO, color: '#fff', fontSize: 14, fontWeight: 600,
-            padding: '12px 28px', borderRadius: 10, textDecoration: 'none',
-          }}>Get API Key →</a>
-          <a href="/docs" style={{
-            background: 'transparent', color: '#ECEAE3', fontSize: 14, fontWeight: 500,
-            padding: '12px 28px', borderRadius: 10, textDecoration: 'none',
-            border: `1px solid ${BORDER}`,
-          }}>Full API Docs</a>
+          <NousButton href="/pricing" variant="primary" size="lg">Get API Key <ArrowR /></NousButton>
+          <NousButton href="/docs" variant="ghost" size="lg">Full API Docs</NousButton>
         </div>
       </div>
     </section>
@@ -452,25 +444,19 @@ export function PlatformPage() {
 
       {/* Hero */}
       <div style={{ maxWidth: 860, margin: '0 auto', padding: 'clamp(48px,8vh,96px) 24px 56px', textAlign: 'center' }}>
-        <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: PHI, letterSpacing: '0.2em', marginBottom: 16 }}>
-          THE PLATFORM
+        <div style={{ marginBottom: 20 }}>
+          <NousPill>THE PLATFORM</NousPill>
         </div>
         <h1 style={{ fontSize: 'clamp(36px, 6vw, 64px)', fontWeight: 800, lineHeight: 1.08, color: '#ECEAE3', marginBottom: 20, letterSpacing: '-0.02em' }}>
           39 autonomous departments.<br />One governed answer.
         </h1>
-        <p style={{ fontSize: 17, color: MUTED, maxWidth: 520, margin: '0 auto 32px', lineHeight: 1.65 }}>
+        <p style={{ fontSize: 17, color: MUTED, maxWidth: 520, margin: '0 auto 36px', lineHeight: 1.65 }}>
           Send any business objective. The AEGIS swarm activates all 39 departments simultaneously,
           synthesizes their analysis, and delivers a constitutionally-audited result in under 10 seconds.
         </p>
         <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12 }}>
-          <a href="/pricing" style={{
-            background: INDIGO, color: '#fff', fontSize: 14, fontWeight: 600,
-            padding: '13px 28px', borderRadius: 10, textDecoration: 'none',
-          }}>Start for Free →</a>
-          <a href="/docs" style={{
-            fontSize: 14, fontWeight: 500, padding: '13px 28px', borderRadius: 10,
-            textDecoration: 'none', border: `1px solid ${BORDER}`, color: '#ECEAE3',
-          }}>API Reference</a>
+          <NousButton href="/pricing" variant="primary" size="lg">Start for Free <ArrowR /></NousButton>
+          <NousButton href="/docs" variant="ghost" size="lg">API Reference</NousButton>
         </div>
       </div>
 
