@@ -56,10 +56,15 @@ export function ConsolePage() {
   return (
     <div style={{ background: '#06070C', color: T.text, minHeight: '100vh', fontFamily: SANS, position: 'relative' }}>
       <CoreCanvas />
-      {/* vignette for depth + legibility */}
+      {/* edge vignette for depth */}
       <div aria-hidden style={{
         position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none',
-        background: 'radial-gradient(circle at 50% 42%, transparent 0%, transparent 38%, rgba(6,7,12,0.55) 72%, rgba(6,7,12,0.92) 100%)',
+        background: 'radial-gradient(circle at 50% 74%, transparent 0%, transparent 30%, rgba(6,7,12,0.5) 66%, rgba(6,7,12,0.9) 100%)',
+      }} />
+      {/* top scrim — guarantees the hero text sits on clean black, never on particles */}
+      <div aria-hidden style={{
+        position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none',
+        background: 'linear-gradient(180deg, rgba(6,7,12,0.94) 0%, rgba(6,7,12,0.78) 26%, rgba(6,7,12,0.30) 46%, transparent 58%)',
       }} />
 
       <div style={{ position: 'relative', zIndex: 10 }}>
@@ -91,7 +96,7 @@ export function ConsolePage() {
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
             filter: 'drop-shadow(0 4px 40px rgba(6,7,12,0.8))',
           }}>NOUS</h1>
-          <p style={{ fontSize: 'clamp(15px, 2.2vw, 20px)', color: T.sub, maxWidth: 560, margin: '22px auto 0', lineHeight: 1.6, fontWeight: 400, textShadow: '0 2px 28px rgba(6,7,12,0.95)' }}>
+          <p style={{ fontSize: 'clamp(15px, 2.2vw, 20px)', color: '#CBCDD8', maxWidth: 560, margin: '22px auto 0', lineHeight: 1.6, fontWeight: 400, textShadow: '0 2px 30px rgba(6,7,12,1)' }}>
             The mind behind the shield. A governed agent swarm that converges
             <span style={{ color: T.text }}> thirty-nine departments</span> into one
             constitutionally-audited answer — and shows you every path it took.
@@ -99,9 +104,9 @@ export function ConsolePage() {
 
           <div style={{
             display: 'flex', alignItems: 'center', marginTop: 44,
-            padding: '16px 8px', borderRadius: 16,
-            background: 'rgba(10,11,16,0.4)', border: `1px solid rgba(255,255,255,0.07)`,
-            backdropFilter: 'blur(12px)', boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+            padding: '18px 10px', borderRadius: 16,
+            background: 'rgba(9,10,15,0.86)', border: `1px solid rgba(255,255,255,0.10)`,
+            backdropFilter: 'blur(16px) saturate(140%)', boxShadow: '0 24px 70px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
           }}>
             <StatChip label="departments" value={String(snap.status.total_agents)} color={T.text} />
             <Divider />

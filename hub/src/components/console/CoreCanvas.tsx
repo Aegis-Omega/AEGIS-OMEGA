@@ -28,7 +28,7 @@ export function CoreCanvas() {
       w = canvas!.clientWidth; h = canvas!.clientHeight
       canvas!.width = Math.floor(w * dpr); canvas!.height = Math.floor(h * dpr)
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0)
-      cx = w / 2; cy = h * 0.60  // rest lower — text breathes in clean space above
+      cx = w / 2; cy = h * 0.74  // sun on the horizon — entire upper half stays clean for text
     }
     resize()
     window.addEventListener('resize', resize)
@@ -70,7 +70,7 @@ export function CoreCanvas() {
 
       // motion-trail fade (deep near-black with a hint of blue)
       ctx!.globalCompositeOperation = 'source-over'
-      ctx!.fillStyle = 'rgba(6, 7, 12, 0.16)'
+      ctx!.fillStyle = 'rgba(6, 7, 12, 0.20)'
       ctx!.fillRect(0, 0, w, h)
 
       ctx!.globalCompositeOperation = 'lighter'
