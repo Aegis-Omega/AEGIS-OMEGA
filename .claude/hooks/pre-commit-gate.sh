@@ -92,5 +92,21 @@ if echo "$BUILD" | grep -qiE "^error[^s]|Build failed"; then
   exit 2
 fi
 echo "  build: OK"
+
+# ── Python platform-contract gate ──────────────────────────────────────────
+# The /platform/* API is the surface external callers (SDK, CLI, Sheets) hit.
+# Its contract suite (test_platform.py, ~64ms) lives outside Gate 8's TS scope,
+# so a regression here once committed silently (649b6138 → 450/3). Block on it:
+# a red platform contract may not enter the branch. Exit 1 from the suite = fail.
+PLAT="python/tests/test_platform.py"
+if [ -f "$PLAT" ]; then
+  if ! PLAT_OUT=$(python python/tests/test_platform.py 2>&1); then
+    echo "BLOCKED: platform contract regression — test_platform.py failed."
+    echo "$PLAT_OUT" | tail -8
+    exit 2
+  fi
+  echo "  platform contract: $(echo "$PLAT_OUT" | grep -oE 'PASS: [0-9]+  FAIL: [0-9]+' | tail -1)"
+fi
+
 echo "Gate 8 passed — commit proceeding."
 exit 0
