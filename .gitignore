@@ -23,6 +23,11 @@ target/
 # Editors
 .vscode/
 .idea/
+.ipynb_checkpoints/
+*.jupyterlab-workspace
+Untitled*
+.DS_Store
+Thumbs.db
 
 # Environment
 .env
@@ -54,7 +59,6 @@ nosetests.xml
 
 # Claude/Codex local state
 .claude/settings.local.json
-```.claude/settings.local.json
 .vercel
 
 # Metacognitive live chain — ephemeral per-container; only seals.jsonl is durable
