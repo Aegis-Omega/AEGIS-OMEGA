@@ -35,7 +35,7 @@ git clone https://github.com/Aegis-Omega/AEGIS-- && \
   bash scripts/proof-demo.sh
 ```
 
-**Verified output (2026-06-13, commit `11e186a5`, branch `claude/test-coverage-analysis-keTIk`):**
+**Verified output (2026-06-13, commit `826596a4`, branch `claude/test-coverage-analysis-keTIk`):**
 
 ```
 === 1. FROZEN FILE MEMBRANE (hash integrity) ===
