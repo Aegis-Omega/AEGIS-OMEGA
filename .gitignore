@@ -1,3 +1,6 @@
+# Operator credential drop zone — never commit
+.operator-secrets
+
 # Compiled and build artifacts
 *.o
 *.obj
