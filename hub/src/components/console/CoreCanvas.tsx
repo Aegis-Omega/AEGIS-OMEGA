@@ -18,7 +18,7 @@ function mix(a: [number, number, number], b: [number, number, number], t: number
   return `${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)}`
 }
 
-export function CoreCanvas() {
+export function CoreCanvas({ contained = false }: { contained?: boolean } = {}) {
   const ref = useRef<HTMLCanvasElement | null>(null)
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export function CoreCanvas() {
       w = canvas!.clientWidth; h = canvas!.clientHeight
       canvas!.width = Math.floor(w * dpr); canvas!.height = Math.floor(h * dpr)
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0)
-      cx = w / 2; cy = h * 0.62; S = Math.min(w, h)
+      cx = w / 2; cy = h * (contained ? 0.84 : 0.62); S = Math.min(w, h)
     }
     resize(); window.addEventListener('resize', resize)
 
@@ -69,9 +69,11 @@ export function CoreCanvas() {
       tilt.x += (tx - tilt.x) * 0.04; tilt.y += (ty - tilt.y) * 0.04
       const ox = cx + tilt.x, oy = cy + tilt.y
 
-      // crisp clear — pristine, minimal smear
+      // crisp clear — pristine, minimal smear. Contained mode clears transparent
+      // so the host page (σ-field, gradients) shows through.
       ctx!.globalCompositeOperation = 'source-over'
-      ctx!.fillStyle = 'rgba(6,7,12,0.34)'; ctx!.fillRect(0, 0, w, h)
+      if (contained) { ctx!.clearRect(0, 0, w, h) }
+      else { ctx!.fillStyle = 'rgba(6,7,12,0.34)'; ctx!.fillRect(0, 0, w, h) }
 
       // ── STRUCTURE: the architecture of the mind ────────────────────────────
       ctx!.save(); ctx!.translate(ox, oy)
@@ -147,8 +149,9 @@ export function CoreCanvas() {
 
   return (
     <canvas ref={ref} aria-hidden="true" style={{
-      position: 'fixed', inset: 0, width: '100%', height: '100%',
-      zIndex: 0, display: 'block', background: '#06070C',
+      position: contained ? 'absolute' : 'fixed', inset: 0, width: '100%', height: '100%',
+      zIndex: 0, display: 'block', background: contained ? 'transparent' : '#06070C',
+      pointerEvents: 'none',
     }} />
   )
 }

@@ -9,6 +9,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import '../landing.css'
 import { SwarmDemoWidget } from './SwarmDemoWidget'
+import { CoreCanvas } from './console/CoreCanvas.js'
+import { NousButton, ArrowR } from './console/NousUI.js'
 
 // ── PostHog analytics ─────────────────────────────────────────────────────────
 
@@ -358,8 +360,9 @@ function TopBar({ status, total, ttv }: { status: ChainStatus; total: number; tt
 
 function Hero({ status, total, ttv }: { status: ChainStatus; total: number; ttv: () => number }) {
   return (
-    <section className="ld-hero" id="top">
-      <div className="ld-wrap">
+    <section className="ld-hero" id="top" style={{ position: 'relative' }}>
+      <CoreCanvas contained />
+      <div className="ld-wrap" style={{ position: 'relative', zIndex: 1 }}>
         <div className="ld-eyebrow-pill">
           <span className="ld-live"/>
           Constitutional AI Runtime · executing in your browser
@@ -390,20 +393,14 @@ function Hero({ status, total, ttv }: { status: ChainStatus; total: number; ttv:
           <span id="ld-frames">0</span> frames
         </p>
         <div className="ld-cta-row">
-          <a
-            className="ld-btn ld-btn-primary ld-btn-lg"
-            href="/pricing"
-            onClick={() => captureEvent('hero_pricing_cta', { ttv_seconds: ttv() })}
-          >
-            Get API Access <IArrowR/>
-          </a>
-          <a
-            className="ld-btn ld-btn-ghost ld-btn-lg"
-            href="#substrate"
-            onClick={() => captureEvent('hero_substrate_link', { ttv_seconds: ttv() })}
-          >
+          <NousButton href="/pricing" variant="primary" size="lg"
+            onClick={() => captureEvent('hero_pricing_cta', { ttv_seconds: ttv() })}>
+            Get API Access <ArrowR/>
+          </NousButton>
+          <NousButton href="#substrate" variant="ghost" size="lg"
+            onClick={() => captureEvent('hero_substrate_link', { ttv_seconds: ttv() })}>
             Observe the substrate
-          </a>
+          </NousButton>
         </div>
       </div>
     </section>
