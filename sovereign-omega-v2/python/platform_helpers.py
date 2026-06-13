@@ -678,6 +678,13 @@ def evaluate_generation_fitness(
       (gaming the lexical_consistency metric without adding value).
 
     cycle_verdict: optional 'APPROVED'|'FLAG'|'QUARANTINE' from constitutional audit.
+
+    Sub-component definitions (FITNESS_VERSION 1.1):
+    - length_stability: 1 - normalised absolute length delta between generations
+    - objective_coverage: fraction of objective words present in current output
+    - lexical_consistency: Jaccard similarity of word sets between prev and curr outputs
+    - viability_score: VIABILITY_CHAR_BUDGET / len(output), capped at 1.0; penalises
+      departments consuming disproportionate context (metabolic constraint)
     """
     import re as _re
 
@@ -714,7 +721,7 @@ def evaluate_generation_fitness(
         else:
             objective_coverage = 0.5
 
-        # Lexical consistency + stagnation detection (0.25 weight — unchanged)
+        # Lexical consistency + stagnation detection (0.25 weight)
         if prev:
             prev_words = _words(prev)
             curr_words2 = _words(curr)
@@ -722,7 +729,7 @@ def evaluate_generation_fitness(
             lexical_consistency = len(prev_words & curr_words2) / len(union) if union else 0.5
             stagnation_flag = lexical_consistency > STAGNATION_THRESHOLD
         else:
-            lexical_consistency = 0.5   # no prior generation to compare
+            lexical_consistency = 0.5
             stagnation_flag = False
 
         # Viability — metabolic budget (0.25 weight — promoted from 0.15 in V1.0)
@@ -775,19 +782,19 @@ def store_generation_fitness(
     art_map = {a['role']: a.get('output', '') for a in (artifacts or [])}
     rows = [
         {
-            'objective_hash':      obj_hash,
-            'mode':                mode,
-            'generation':          generation,
-            'cycle_id':            cycle_id,
-            'dept_role':           role,
-            'fitness_score':       score['fitness_score'],
-            'viability_score':     score['viability_score'],
+            'objective_hash':         obj_hash,
+            'mode':                   mode,
+            'generation':             generation,
+            'cycle_id':               cycle_id,
+            'dept_role':              role,
+            'fitness_score':          score['fitness_score'],
+            'viability_score':        score['viability_score'],
             'constitutional_verdict': constitutional_verdict,
             'constitutional_factor':  score.get('constitutional_factor', _CONSTITUTIONAL_FACTOR_DEFAULT),
-            'fitness_version':     FITNESS_VERSION,
-            'execution_id':        execution_id,
-            'parent_generation':   generation - 1,  # -1 for generation 0 handled by DB default
-            'artifact_hash':       artifact_hash(art_map.get(role, '')),
+            'fitness_version':        FITNESS_VERSION,
+            'execution_id':           execution_id,
+            'parent_generation':      generation - 1,
+            'artifact_hash':          artifact_hash(art_map.get(role, '')),
         }
         for role, score in fitness_scores.items()
     ]
