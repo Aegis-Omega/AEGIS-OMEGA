@@ -19,6 +19,8 @@ const AMOUNT_TO_TIER: Record<number, string> = {
   49900: 'sovereign',  // $499.00
 }
 
+const STRIPE_REPLAY_WINDOW_SECONDS = 300
+
 async function verifyStripeSignature(
   body: string, sig: string, secret: string,
 ): Promise<boolean> {
@@ -30,6 +32,10 @@ async function verifyStripeSignature(
   const ts = parts['t']
   const v1 = parts['v1']
   if (!ts || !v1) return false
+
+  // Reject replayed webhooks outside the 5-minute window
+  const age = Math.floor(Date.now() / 1000) - parseInt(ts, 10)
+  if (isNaN(age) || Math.abs(age) > STRIPE_REPLAY_WINDOW_SECONDS) return false
 
   const key = await crypto.subtle.importKey(
     'raw',
@@ -43,7 +49,7 @@ async function verifyStripeSignature(
 
   if (computed.length !== v1.length) return false
   let diff = 0
-  for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ v1.charCodeAt(i)
+  for (let i = 0; i < computed.length; i++) diff |= computed.charCodeAt(i) ^ v1.toLowerCase().charCodeAt(i)
   return diff === 0
 }
 
@@ -80,12 +86,14 @@ Deno.serve(async (req) => {
   const rawBody = await req.text()
   const sig     = req.headers.get('stripe-signature') ?? ''
 
-  if (STRIPE_WEBHOOK_SECRET) {
-    const valid = await verifyStripeSignature(rawBody, sig, STRIPE_WEBHOOK_SECRET)
-    if (!valid) {
-      console.error('Stripe signature verification failed')
-      return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 400 })
-    }
+  if (!STRIPE_WEBHOOK_SECRET) {
+    console.error('STRIPE_WEBHOOK_SECRET not configured — rejecting all webhook requests')
+    return new Response(JSON.stringify({ error: 'Webhook secret not configured' }), { status: 500 })
+  }
+  const valid = await verifyStripeSignature(rawBody, sig, STRIPE_WEBHOOK_SECRET)
+  if (!valid) {
+    console.error('Stripe signature verification failed')
+    return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 400 })
   }
 
   // deno-lint-ignore no-explicit-any

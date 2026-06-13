@@ -9,8 +9,6 @@
  * The raw envelope is available via the `envelope` field on the result.
  */
 
-import { createHash, createHmac } from 'node:crypto'
-
 import type {
   CollaborationRequest,
   CollaborationResult,
@@ -89,7 +87,12 @@ export class PlatformClient {
     this.initialSequence = apiKeyOrOptions.initialSequence ?? 0
   }
 
-  verifyEnvelopeLocally(envelope: EventEnvelope, signature: string): LocalEnvelopeVerificationResult {
+  async verifyEnvelopeLocally(
+    envelope: EventEnvelope,
+    signature: string,
+    expectedParentHash?: string,
+    expectedSequence?: number,
+  ): Promise<LocalEnvelopeVerificationResult> {
     if (this.secretKey === undefined || this.secretKey.length === 0) {
       return { isValid: false, error: 'SECRET_KEY_MISSING' }
     }
@@ -99,15 +102,20 @@ export class PlatformClient {
       return { isValid: false, error: shapeError }
     }
 
-    if (envelope.parent_hash !== this.genesisHash) {
+    // Caller supplies the expected parent hash and sequence for chain position N.
+    // Falls back to genesisHash / initialSequence+1 for the first envelope only.
+    const parentHash = expectedParentHash ?? this.genesisHash
+    const sequence   = expectedSequence   ?? this.initialSequence + 1
+
+    if (envelope.parent_hash !== parentHash) {
       return { isValid: false, error: 'PARENT_HASH_MISMATCH' }
     }
 
-    if (envelope.sequence !== this.initialSequence + 1) {
+    if (envelope.sequence !== sequence) {
       return { isValid: false, error: 'SEQUENCE_OUT_OF_BOUNDS' }
     }
 
-    const expectedSignature = signEventEnvelope(envelope, this.secretKey)
+    const expectedSignature = await signEventEnvelope(envelope, this.secretKey)
     if (!timingSafeHexEqual(expectedSignature, signature)) {
       return { isValid: false, error: 'SIGNATURE_MISMATCH' }
     }
@@ -116,7 +124,7 @@ export class PlatformClient {
       return { isValid: false, error: 'CONSTITUTIONAL_VIOLATION' }
     }
 
-    return { isValid: true, nextChainHash: calculateEventEnvelopeHash(envelope) }
+    return { isValid: true, nextChainHash: await calculateEventEnvelopeHash(envelope) }
   }
 
   // ── GET /platform/status ──────────────────────────────────────────────────
@@ -281,7 +289,33 @@ export function createPlatformClient(
   return new PlatformClient(apiKey, base)
 }
 
-export function calculateEventEnvelopeHash(envelope: EventEnvelope): string {
+// Web Crypto helpers — work in browsers, Node 18+, Deno, CF Workers
+// Replaces node:crypto which is unavailable in browser runtimes.
+
+async function sha256Hex(data: string): Promise<string> {
+  const buf = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(data))
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+async function hmacSha256Hex(keyBytes: Uint8Array, data: string): Promise<string> {
+  const key = await globalThis.crypto.subtle.importKey(
+    'raw', keyBytes.buffer.slice(keyBytes.byteOffset, keyBytes.byteOffset + keyBytes.byteLength) as ArrayBuffer,
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+  )
+  const sig = await globalThis.crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data))
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+function secretKeyBytes(secretKey: string): Uint8Array {
+  if (/^[a-f0-9]+$/i.test(secretKey) && secretKey.length % 2 === 0) {
+    const bytes = new Uint8Array(secretKey.length / 2)
+    for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(secretKey.slice(i * 2, i * 2 + 2), 16)
+    return bytes
+  }
+  return new TextEncoder().encode(secretKey)
+}
+
+export async function calculateEventEnvelopeHash(envelope: EventEnvelope): Promise<string> {
   const canonicalEnvelope = {
     execution_id: envelope.execution_id,
     parent_hash: envelope.parent_hash,
@@ -289,23 +323,23 @@ export function calculateEventEnvelopeHash(envelope: EventEnvelope): string {
     sequence: envelope.sequence,
     timestamp: envelope.timestamp,
   }
-  return createHash('sha256').update(canonicalizeJson(canonicalEnvelope)).digest('hex')
+  return sha256Hex(canonicalizeJson(canonicalEnvelope))
 }
 
-export function signEventEnvelope(envelope: EventEnvelope, secretKey: string): string {
-  const secret = secretKeyBytes(secretKey)
-  const envelopeHash = calculateEventEnvelopeHash(envelope)
-  return createHmac('sha256', secret).update(envelopeHash).digest('hex')
+export async function signEventEnvelope(envelope: EventEnvelope, secretKey: string): Promise<string> {
+  const envelopeHash = await calculateEventEnvelopeHash(envelope)
+  return hmacSha256Hex(secretKeyBytes(secretKey), envelopeHash)
 }
 
 function validatePlatformEnvelope(json: unknown): string | undefined {
   if (!isPlainRecord(json)) return 'envelope is not an object'
-  const { contract_version, execution_id, timestamp, is_replay_reconstructable } = json as Record<string, unknown>
+  const { contract_version, execution_id, timestamp, is_replay_reconstructable, data } = json as Record<string, unknown>
   if (typeof contract_version !== 'string') return 'missing or non-string contract_version'
   if (contract_version !== '1.0.0') return `contract_version mismatch: ${contract_version}`
   if (typeof execution_id !== 'string' || execution_id.length === 0) return 'missing or empty execution_id'
   if (typeof timestamp !== 'string' || timestamp.length === 0) return 'missing or empty timestamp'
   if (is_replay_reconstructable !== true) return 'is_replay_reconstructable must be exactly true'
+  if (data === undefined) return 'envelope missing data field'
   return undefined
 }
 
@@ -361,20 +395,15 @@ function payloadEntries(payload: Record<string, unknown>): ReadonlyArray<readonl
 }
 
 function timingSafeHexEqual(left: string, right: string): boolean {
-  if (!/^[a-f0-9]+$/i.test(right) || left.length !== right.length) return false
+  const rightLower = right.toLowerCase()
+  if (!/^[a-f0-9]+$/.test(rightLower) || left.length !== rightLower.length) return false
   let diff = 0
   for (let index = 0; index < left.length; index += 1) {
-    diff |= left.charCodeAt(index) ^ right.toLowerCase().charCodeAt(index)
+    diff |= left.charCodeAt(index) ^ rightLower.charCodeAt(index)
   }
   return diff === 0
 }
 
-function secretKeyBytes(secretKey: string): Buffer {
-  if (/^[a-f0-9]+$/i.test(secretKey) && secretKey.length % 2 === 0) {
-    return Buffer.from(secretKey, 'hex')
-  }
-  return Buffer.from(secretKey, 'utf8')
-}
 
 function canonicalizeJson(value: unknown): string {
   if (value === null) return 'null'
@@ -397,9 +426,17 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 
 function quoteJsonString(value: string): string {
   let out = '"'
-  for (let index = 0; index < value.length; index += 1) {
-    const code = value.charCodeAt(index)
-    switch (code) {
+  for (let index = 0; index < value.length; ) {
+    const cp = value.codePointAt(index) ?? 0
+    if (cp > 0xffff) {
+      // Non-BMP character: emit surrogate pair escape sequences
+      const hi = Math.floor((cp - 0x10000) / 0x400) + 0xd800
+      const lo = ((cp - 0x10000) % 0x400) + 0xdc00
+      out += `\\u${hi.toString(16).padStart(4, '0')}\\u${lo.toString(16).padStart(4, '0')}`
+      index += 2
+      continue
+    }
+    switch (cp) {
       case 0x08: out += '\\b'; break
       case 0x09: out += '\\t'; break
       case 0x0a: out += '\\n'; break
@@ -408,12 +445,13 @@ function quoteJsonString(value: string): string {
       case 0x22: out += '\\"'; break
       case 0x5c: out += '\\\\'; break
       default:
-        if (code <= 0x1f) {
-          out += `\\u${code.toString(16).padStart(4, '0')}`
+        if (cp <= 0x1f) {
+          out += `\\u${cp.toString(16).padStart(4, '0')}`
         } else {
           out += value[index]
         }
     }
+    index += 1
   }
   return `${out}"`
 }

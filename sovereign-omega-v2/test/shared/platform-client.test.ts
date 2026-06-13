@@ -187,38 +187,38 @@ describe('PlatformClient: System-2 EventEnvelope Verification Tests', () => {
     }
   }
 
-  it('Valid EventEnvelope passes verification seamlessly', () => {
+  it('Valid EventEnvelope passes verification seamlessly', async () => {
     const envelope = validEnvelope()
-    const validSignature = signEventEnvelope(envelope, mockSecret)
-    const result = verificationClient.verifyEnvelopeLocally(envelope, validSignature)
+    const validSignature = await signEventEnvelope(envelope, mockSecret)
+    const result = await verificationClient.verifyEnvelopeLocally(envelope, validSignature)
     expect(result.isValid).toBe(true)
     expect(result.nextChainHash).toMatch(/^[a-f0-9]{64}$/)
   })
 
-  it('Envelope signature verification fails with mutated payload', () => {
+  it('Envelope signature verification fails with mutated payload', async () => {
     const envelope = validEnvelope()
-    const signature = signEventEnvelope(envelope, mockSecret)
+    const signature = await signEventEnvelope(envelope, mockSecret)
     const mutatedEnvelope = validEnvelope({
       payload: { opportunity_id: '0068W000018xxxxQAA', status: 'COMPLIANT_BYPASS' },
     })
 
-    const result = verificationClient.verifyEnvelopeLocally(mutatedEnvelope, signature)
+    const result = await verificationClient.verifyEnvelopeLocally(mutatedEnvelope, signature)
     expect(result.isValid).toBe(false)
     expect(result.error).toContain('SIGNATURE_MISMATCH')
   })
 
-  it('System-2 rejects out-of-sequence sequence identifiers', () => {
+  it('System-2 rejects out-of-sequence sequence identifiers', async () => {
     const envelope = validEnvelope({ sequence: 9999 })
-    const signature = signEventEnvelope(envelope, mockSecret)
-    const result = verificationClient.verifyEnvelopeLocally(envelope, signature)
+    const signature = await signEventEnvelope(envelope, mockSecret)
+    const result = await verificationClient.verifyEnvelopeLocally(envelope, signature)
     expect(result.isValid).toBe(false)
     expect(result.error).toContain('SEQUENCE_OUT_OF_BOUNDS')
   })
 
-  it('System-2 rejects mismatched parent hash before chain advancement', () => {
+  it('System-2 rejects mismatched parent hash before chain advancement', async () => {
     const envelope = validEnvelope({ parent_hash: '0'.repeat(64) })
-    const signature = signEventEnvelope(envelope, mockSecret)
-    const result = verificationClient.verifyEnvelopeLocally(envelope, signature)
+    const signature = await signEventEnvelope(envelope, mockSecret)
+    const result = await verificationClient.verifyEnvelopeLocally(envelope, signature)
     expect(result.isValid).toBe(false)
     expect(result.error).toContain('PARENT_HASH_MISMATCH')
   })

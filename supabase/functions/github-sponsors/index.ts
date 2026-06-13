@@ -144,12 +144,14 @@ Deno.serve(async (req) => {
   const sig     = req.headers.get('x-hub-signature-256') ?? ''
   const event   = req.headers.get('x-github-event') ?? ''
 
-  if (GITHUB_WEBHOOK_SECRET) {
-    const valid = await verifyGitHubSignature(rawBody, sig, GITHUB_WEBHOOK_SECRET)
-    if (!valid) {
-      console.error('GitHub signature verification failed')
-      return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 400 })
-    }
+  if (!GITHUB_WEBHOOK_SECRET) {
+    console.error('GITHUB_WEBHOOK_SECRET not configured — rejecting all webhook requests')
+    return new Response(JSON.stringify({ error: 'Webhook secret not configured' }), { status: 500 })
+  }
+  const valid = await verifyGitHubSignature(rawBody, sig, GITHUB_WEBHOOK_SECRET)
+  if (!valid) {
+    console.error('GitHub signature verification failed')
+    return new Response(JSON.stringify({ error: 'Invalid signature' }), { status: 400 })
   }
 
   // deno-lint-ignore no-explicit-any
