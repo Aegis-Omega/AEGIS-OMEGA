@@ -21,3 +21,19 @@ CREATE INDEX IF NOT EXISTS agent_api_profiles_profile_idx ON agent_api_profiles 
 CREATE INDEX IF NOT EXISTS agent_api_profiles_owner_idx   ON agent_api_profiles (owner_email);
 CREATE INDEX IF NOT EXISTS agent_api_profiles_revoked_idx ON agent_api_profiles (revoked)
   WHERE revoked = false;
+
+-- Row-level security: service role has full access; no direct client access.
+-- This table holds credential hashes — it must never be client-readable.
+ALTER TABLE public.agent_api_profiles ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE tablename = 'agent_api_profiles' AND policyname = 'service_role_all'
+  ) THEN
+    CREATE POLICY service_role_all ON public.agent_api_profiles
+      USING (auth.role() = 'service_role')
+      WITH CHECK (auth.role() = 'service_role');
+  END IF;
+END $$;
