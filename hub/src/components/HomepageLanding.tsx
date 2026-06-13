@@ -371,11 +371,18 @@ function Hero({ status, total, ttv }: { status: ChainStatus; total: number; ttv:
     <section className="ld-hero" id="top">
       <CoreCanvas contained />
       <div className="ld-wrap ld-hero-inner">
-        <div className="ld-law-label">Constitutional Root Law · AEGIS-Ω</div>
-        <div className="ld-law-eq" aria-label="AdaptivePower of T is less than or equal to ReplayVerifiability of T">
-          AdaptivePower(T) ≤ ReplayVerifiability(T)
+        <div className="ld-law-label">Constitutional AI Runtime · AEGIS-Ω</div>
+        <h1 className="ld-hero-h1">
+          Every AI decision,<br/>
+          <span className="ld-hero-accent">cryptographically provable.</span>
+        </h1>
+        <div className="ld-law-block">
+          <div className="ld-law-caption">The law that enforces this at runtime:</div>
+          <div className="ld-law-eq" aria-label="AdaptivePower of T is less than or equal to ReplayVerifiability of T">
+            AdaptivePower(T) ≤ ReplayVerifiability(T)
+          </div>
+          <p className="ld-law-sub">Not a training objective — a runtime halt condition.</p>
         </div>
-        <p className="ld-law-sub">Not a training objective — a runtime halt condition.</p>
 
         <div className="ld-proof-ledger" role="region" aria-label="Live constitutional proofs">
           <div className="ld-proof-row">
