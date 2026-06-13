@@ -161,7 +161,7 @@ describe('PlatformClient deleteExecution', () => {
 
 
 describe('PlatformClient: System-2 EventEnvelope Verification Tests', () => {
-  const mockSecret = '6180339887a0b3f81e6a9f4c3d2e1b0a7c5d6e3f4a1b9c2d8e7f6a5b4c3d2e1f'
+  const mockSecret = '6180339887a0b3f81e6a9f4c3d2e1b0a7c5d6e3f4a1b9c2d8e7f6a5b4c3d2e1f' // pragma: allowlist secret
   const parentHash = '69a8f27b9c4c11e49afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
   const deterministicTimestamp = '2026-06-10T00:00:00Z'
   let verificationClient: PlatformClient
