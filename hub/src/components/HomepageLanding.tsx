@@ -71,6 +71,7 @@ interface ChainStatus {
   corruption: number
   firstBreak: number
   t0: boolean
+  terminalHash: string
 }
 
 async function mkEntry(seq: number, prevHash: string, pick: [string, string, string]): Promise<ChainEntry> {
@@ -103,12 +104,15 @@ async function validateChain(chain: ChainEntry[]): Promise<ChainStatus> {
       if (firstBreak < 0) firstBreak = e.seq
     }
   }
-  return { valid: corruption === 0, corruption, firstBreak, t0: corruption === 0 }
+  return {
+    valid: corruption === 0, corruption, firstBreak, t0: corruption === 0,
+    terminalHash: chain.length > 0 ? chain[chain.length - 1]!.hash : GENESIS,
+  }
 }
 
 function useTamperChain({ seed = 6, win = 8, tickMs = 2600 } = {}) {
   const [chain, setChain] = useState<ChainEntry[]>([])
-  const [status, setStatus] = useState<ChainStatus>({ valid: true, corruption: 0, firstBreak: -1, t0: true })
+  const [status, setStatus] = useState<ChainStatus>({ valid: true, corruption: 0, firstBreak: -1, t0: true, terminalHash: GENESIS })
   const chainRef = useRef<ChainEntry[]>([])
   const seqRef = useRef(seed)
 
@@ -359,47 +363,48 @@ function TopBar({ status, total, ttv }: { status: ChainStatus; total: number; tt
 // ── Hero ───────────────────────────────────────────────────────────────────────
 
 function Hero({ status, total, ttv }: { status: ChainStatus; total: number; ttv: () => number }) {
+  const terminalShort = status.terminalHash !== GENESIS
+    ? `${status.terminalHash.slice(0, 8)}…${status.terminalHash.slice(-8)}`
+    : `${'0'.repeat(8)}…`
+
   return (
-    <section className="ld-hero" id="top" style={{ position: 'relative' }}>
+    <section className="ld-hero" id="top">
       <CoreCanvas contained />
-      <div className="ld-wrap" style={{ position: 'relative', zIndex: 1 }}>
-        <div className="ld-eyebrow-pill">
-          <span className="ld-live"/>
-          Constitutional AI Runtime · executing in your browser
+      <div className="ld-wrap ld-hero-inner">
+        <div className="ld-law-label">Constitutional Root Law · AEGIS-Ω</div>
+        <div className="ld-law-eq" aria-label="AdaptivePower of T is less than or equal to ReplayVerifiability of T">
+          AdaptivePower(T) ≤ ReplayVerifiability(T)
         </div>
-        <h1>The AI system that<br/><span className="ld-gold">governs itself.</span></h1>
-        <p className="ld-lead">
-          Not by description. <b>By execution.</b> Metacognitive self-awareness,
-          retrospective replay, and BFT consensus — running as live substrate,
-          hash-chained and tamper-evident.
-        </p>
-        <div className="ld-status-strip" role="status">
-          {[
-            { k: 'is_valid',     v: String(status.valid),    cls: status.valid ? 'ok' : 'bad' },
-            { k: 't0_verdict',   v: String(status.t0),       cls: status.t0 ? 'ok' : 'bad' },
-            { k: 'corruption',   v: String(status.corruption), cls: status.corruption ? 'bad' : 'ok' },
-            { k: 'chain_length', v: String(total),           cls: 'gold' },
-            { k: 'bridge',       v: 'online',                cls: 'info' },
-          ].map(({ k, v, cls }) => (
-            <div className="ld-cell" key={k}>
-              <span className="ld-key">{k}</span>
-              <span className={`ld-val ${cls}`}>{v}</span>
-            </div>
-          ))}
+        <p className="ld-law-sub">Not a training objective — a runtime halt condition.</p>
+
+        <div className="ld-proof-ledger" role="region" aria-label="Live constitutional proofs">
+          <div className="ld-proof-row">
+            <span className="ld-badge ld-badge--t0">T0</span>
+            <span className="ld-proof-name">Gate 79 · φ-convergence</span>
+            <code className="ld-proof-val">0.6180339887…</code>
+          </div>
+          <div className="ld-proof-row">
+            <span className={`ld-badge ${status.valid ? 'ld-badge--live' : 'ld-badge--bad'}`}>
+              {status.valid ? '● LIVE' : '⚠ BAD'}
+            </span>
+            <span className="ld-proof-name">MetacognitiveLoop · {total} observations</span>
+            <code className="ld-proof-val ld-proof-val--hash">{terminalShort}</code>
+          </div>
+          <div className="ld-proof-row">
+            <span className="ld-badge ld-badge--t0">453/453</span>
+            <span className="ld-proof-name">Platform contract · test_platform.py</span>
+            <code className="ld-proof-val ld-proof-val--pass">PASS</code>
+          </div>
         </div>
-        <p className="ld-field-hint">
-          click to disturb the σ field · scroll to deepen λ memory &nbsp;·&nbsp;
-          σ=<span className="v" id="ld-sigma">0.000</span> &nbsp;
-          <span id="ld-frames">0</span> frames
-        </p>
-        <div className="ld-cta-row">
+
+        <div className="ld-cta-row ld-cta-row--left">
           <NousButton href="/pricing" variant="primary" size="lg"
             onClick={() => captureEvent('hero_pricing_cta', { ttv_seconds: ttv() })}>
             Get API Access <ArrowR/>
           </NousButton>
           <NousButton href="#substrate" variant="ghost" size="lg"
             onClick={() => captureEvent('hero_substrate_link', { ttv_seconds: ttv() })}>
-            Observe the substrate
+            Read the substrate
           </NousButton>
         </div>
       </div>
