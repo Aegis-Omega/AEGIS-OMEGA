@@ -21,6 +21,12 @@
             "command": "node -e \"const fs=require('fs'); const base='/home/user/AEGIS--/sovereign-omega-v2/.claude/skills'; const read=f=>fs.readFileSync(base+'/'+f+'/SKILL.md','utf8'); const ctx=[read('automaton-workflow'),read('autopoiesis'),read('metacognition')].join('\\n\\n---\\n\\n'); console.log(JSON.stringify({hookSpecificOutput:{hookEventName:'SessionStart',additionalContext:ctx}}))\"",
             "timeout": 10,
             "statusMessage": "Loading automaton manifold (autopoiesis + metacognition + workflow)..."
+          },
+          {
+            "type": "command",
+            "command": "node -e \"const fs=require('fs'),c=require('crypto'); const idx=fs.readFileSync('/home/user/AEGIS--/INDEX.md','utf8'); const hash=c.createHash('sha256').update(idx).digest('hex'); const ssv={execution_phase:'ORCHESTRATE',index_snapshot:hash,active_files:[],forbidden_actions:['modify frozen files','skip INDEX citation','skip SYSTEM STATE VECTOR'],validity:'UNVERIFIED'}; console.log(JSON.stringify({hookSpecificOutput:{hookEventName:'SessionStart',additionalContext:'INDEX.md loaded (sha256:'+hash.slice(0,16)+'...). SYSTEM STATE VECTOR: '+JSON.stringify(ssv)}}))\"",
+            "timeout": 10,
+            "statusMessage": "MYTHOS BOOTSTRAP: loading INDEX + initialising SYSTEM STATE VECTOR..."
           }
         ]
       }

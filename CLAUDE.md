@@ -353,3 +353,17 @@ replay divergence · topology non-determinism · unbounded ecology · centralize
 Claude (coordinator) · ChatGPT (adversarial audit, temperature 0.99) · Qwen (implementation)
 
 Architecture: FROZEN. No T4/T5 construct may ground a T0–T2 claim without evidence review.
+
+---
+
+## MYTHOS BOOTSTRAP (added 2026-06-14)
+
+**INDEX.md** (`/INDEX.md`) is the machine-readable repository authority graph — ground truth for the MYTHOS pipeline. Every BUILDER modification must cite a path from this file. Files not listed require PLANNER-level approval.
+
+**mythos-bootstrap skill** (`sovereign-omega-v2/.claude/skills/mythos-bootstrap/SKILL.md`) defines the 6-stage execution pipeline: ORCHESTRATE → PLAN → VALIDATE → BUILD → REVIEW → FINALIZE, with SYSTEM STATE VECTOR emitted every cycle and RECONCILIATION MODE on failure.
+
+**mythos-pipeline.ts** (`sovereign-omega-v2/scripts/mythos-pipeline.ts`) — Claude API multi-agent service. Each stage is a separate `claude-opus-4-8` call with role-constrained system prompt. Usage: `npx tsx scripts/mythos-pipeline.ts "task description"`. Exit 0 = FINALIZED · Exit 1 = reconciliation exhausted.
+
+**SessionStart hook** initializes SYSTEM STATE VECTOR with live INDEX.md sha256 on every session.
+
+**Cross-project:** MYTHOS BOOTSTRAP bridges AEGIS-Ω and Sovereign AGI OS. `AdaptivePower(T) ≤ ReplayVerifiability(T)` ↔ `HD = |claimed − actual|` — both measure divergence from ground truth. AEGIS does it cryptographically; Sovereign AGI OS biologically.
