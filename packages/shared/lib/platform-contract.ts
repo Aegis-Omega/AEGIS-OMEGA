@@ -192,6 +192,8 @@ export interface ComplianceExport {
   readonly compliance_framework: string    // 'HIPAA §164.312(b) Audit Controls; ISO 42001 AI Management System'
   readonly exported_by: string             // customer email from API key
   readonly records: readonly ComplianceExportRecord[]
+}
+
 // ── GET /platform/calibration — HPA axis / homeostasis ───────────────────────
 // Port of stress-calibrator.js hormetic curve from Sovereign AGI OS v3.3.0.
 // Reads recent fitness trend and returns system homeostasis state.

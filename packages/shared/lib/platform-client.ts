@@ -45,7 +45,7 @@ export interface PlatformClientOptions {
   readonly initialSequence?: number
 }
 
-const DEFAULT_AUTOMATON_GENESIS_HASH = '69a8f27b9c4c11e49afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+const DEFAULT_AUTOMATON_GENESIS_HASH = '69a8f27b9c4c11e49afbf4c8996fb92427ae41e4649b934ca495991b7852b855' // pragma: allowlist secret
 const SHA256_HEX_PATTERN = /^[a-f0-9]{64}$/i
 
 // ── Error class ───────────────────────────────────────────────────────────────
