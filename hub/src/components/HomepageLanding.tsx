@@ -387,19 +387,19 @@ function Hero({ status, total, ttv }: { status: ChainStatus; total: number; ttv:
         <div className="ld-proof-ledger" role="region" aria-label="Live constitutional proofs">
           <div className="ld-proof-row">
             <span className="ld-badge ld-badge--t0">T0</span>
-            <span className="ld-proof-name">Gate 79 · φ-convergence</span>
+            <span className="ld-proof-name">Voting threshold = mutation ceiling = (√5−1)/2</span>
             <code className="ld-proof-val">0.6180339887…</code>
           </div>
           <div className="ld-proof-row">
             <span className={`ld-badge ${status.valid ? 'ld-badge--live' : 'ld-badge--bad'}`}>
               {status.valid ? '● LIVE' : '⚠ BAD'}
             </span>
-            <span className="ld-proof-name">MetacognitiveLoop · {total} observations</span>
+            <span className="ld-proof-name">This page records its own decisions — tamper-evident · {total} entries</span>
             <code className="ld-proof-val ld-proof-val--hash">{terminalShort}</code>
           </div>
           <div className="ld-proof-row">
             <span className="ld-badge ld-badge--t0">453/453</span>
-            <span className="ld-proof-name">Platform contract · test_platform.py</span>
+            <span className="ld-proof-name">API contract tests</span>
             <code className="ld-proof-val ld-proof-val--pass">PASS</code>
           </div>
         </div>
