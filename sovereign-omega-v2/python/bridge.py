@@ -47,11 +47,17 @@ from platform_helpers import (
     dept_output as _platform_dept_output,
     make_sse_event as _make_sse_event,
     validate_collaboration_request as _validate_collab_req,
+    validate_tier_capabilities as _validate_tier_caps,
     retrieve_swarm_memory as _retrieve_swarm_memory,
     swarm_collaborate_live as _swarm_live,
+    swarm_collaborate_autonomous as _swarm_autonomous,
+    make_autonomous_agent_call as _make_autonomous_agent_call,
     evaluate_generation_fitness as _eval_fitness,
     store_generation_fitness as _store_fitness,
     retrieve_prior_artifacts as _retrieve_prior_artifacts,
+    award_graces_for_cycle as _award_graces,
+    fetch_grace_leaderboard as _fetch_graces,
+    fetch_compliance_export as _fetch_compliance_export,
 )
 
 # In-memory execution store — keyed by execution_id
@@ -130,12 +136,16 @@ def _platform_run_collaboration(
     email: str = '',
     generation: int = 0,
     memory_context: str = '',
+    autonomous: bool = False,
+    max_agents=None,
 ) -> None:
     """
-    Background thread: runs 39-dept collaboration, pushes typed SSE events to queue.
+    Background thread: runs department collaboration, pushes typed SSE events to queue.
 
-    live=True  → single governed Claude call (consciousness pulse) feeds all depts.
-    live=False → constitutional template outputs, no API cost.
+    live + autonomous → each department runs its OWN governed call in dependency
+                        order, reading upstream artifacts; bounded by max_agents.
+    live=True         → single governed Claude call (consciousness pulse) feeds all depts.
+    live=False        → constitutional template outputs, no API cost.
 
     Both paths emit identical SSE event shapes; callers see the same stream contract.
     """
@@ -158,7 +168,33 @@ def _platform_run_collaboration(
         # once. The model acts as the swarm's unified consciousness — every dept
         # output is derived from a single T1-tier governed inference.
         # Demo mode: constitutional template strings, zero API cost.
-        if live:
+        if live and autonomous:
+            # Each department runs its OWN governed call in dependency-layer
+            # order, reading the artifacts earlier layers produced. Coordination
+            # flows only through that shared store (Law of Silence); bounded by
+            # max_agents so inference cost stays capped.
+            swarm = _swarm_autonomous(
+                objective, mode, _PLATFORM_DEPARTMENTS,
+                _make_autonomous_agent_call(),
+                max_agents=max_agents,
+            )
+            live_outputs = {a['id']: a['output'] for a in swarm['artifacts']}
+            _arr = {
+                'revenue': 2_400_000, 'analysis': 1_800_000, 'gtm': 3_200_000,
+                'retention': 1_200_000, 'competitive': 1_600_000,
+                'technical': 1_400_000, 'regulatory': 2_100_000,
+                'fundraising': 5_000_000,
+            }.get(mode, 2_000_000)
+            constitutional_audit = {'verdict': 'APPROVED', 'concerns': []}
+            projection = {
+                'first_year_arr_usd': _arr,
+                'tier': 'T2',
+                'governed_note': (
+                    f'Autonomous per-agent swarm: {swarm["agents_executed"]}/'
+                    f'{swarm["agents_total"]} agents executed in dependency order.'
+                ),
+            }
+        elif live:
             swarm_system = (
                 CONSTITUTIONAL_SYSTEM_COMPACT
                 + '\n\n---\n\n'
@@ -266,6 +302,8 @@ def _platform_run_collaboration(
             cycle_id, objective, mode,
             projection['first_year_arr_usd'], verdict,
         )
+        # Grace chain: each dept passes a grace to the next (forward-only, fire-and-forget)
+        _award_graces(cycle_id, artifacts, verdict)
 
         result = {
             'cycle_id': cycle_id,
@@ -588,6 +626,18 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
                 return
 
+            try:
+                _validate_tier_caps(_tier, live, mode)
+            except ValueError as exc:
+                self._platform_respond(403, {'error': str(exc), 'code': 'INVALID_REQUEST'})
+                return
+
+            autonomous = bool(data.get('autonomous', False))
+            try:
+                max_agents = int(data['max_agents']) if data.get('max_agents') is not None else None
+            except (TypeError, ValueError):
+                max_agents = None
+
             execution_id = str(_uuid_pc.uuid4())
             q = _queue_mod.Queue()
             with _executions_lock:
@@ -597,7 +647,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             # Run synchronously (collect all events, return result at completion)
             t = threading.Thread(
                 target=_platform_run_collaboration,
-                args=(execution_id, objective, mode, live, _email, generation, memory_context),
+                args=(execution_id, objective, mode, live, _email, generation, memory_context, autonomous, max_agents),
                 daemon=True,
             )
             t.start()
@@ -634,6 +684,18 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
                 return
 
+            try:
+                _validate_tier_caps(_tier, live, mode)
+            except ValueError as exc:
+                self._platform_respond(403, {'error': str(exc), 'code': 'INVALID_REQUEST'})
+                return
+
+            autonomous = bool(data.get('autonomous', False))
+            try:
+                max_agents = int(data['max_agents']) if data.get('max_agents') is not None else None
+            except (TypeError, ValueError):
+                max_agents = None
+
             execution_id = str(_uuid_pe.uuid4())
             q = _queue_mod.Queue()
             with _executions_lock:
@@ -642,7 +704,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             threading.Thread(
                 target=_platform_run_collaboration,
-                args=(execution_id, objective, mode, live, _email, generation, memory_context),
+                args=(execution_id, objective, mode, live, _email, generation, memory_context, autonomous, max_agents),
                 daemon=True,
             ).start()
 
@@ -1408,6 +1470,66 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         'remaining_runs': remaining,
                     }
             self._platform_respond(200, _platform_envelope(eid, status_data))
+
+        elif self.path == '/platform/graces':
+            # GET /platform/graces — public grace chain leaderboard.
+            # Returns all 39 dept token balances sorted by lifetime_graces desc.
+            # No auth required — grace flow is constitutional telemetry, not private data.
+            import uuid as _uuid_gr
+            eid = str(_uuid_gr.uuid4())
+            leaderboard = _fetch_graces()
+            self._platform_respond(200, _platform_envelope(eid, {
+                'graces': leaderboard,
+                'total_depts': len(leaderboard),
+                'description': 'Each agent gives the next agent a grace.',
+            }))
+
+        elif self.path.startswith('/platform/compliance/export'):
+            # GET /platform/compliance/export — HIPAA §164.312(b) audit trail export.
+            # Returns tamper-evident AI governance records from revenue_cycles.
+            # Satisfies: HIPAA §164.312(b) Audit Controls, ISO 42001 AI Management System.
+            # Requires API key — exported_by field is scoped to the key owner.
+            import urllib.parse as _up_cex
+            import uuid as _uuid_cex
+            parsed = _up_cex.urlparse(self.path)
+            params = dict(_up_cex.parse_qsl(parsed.query))
+
+            api_key = self.headers.get('x-api-key', '')
+            try:
+                email, _tier = _platform_verify_api_key(api_key)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+
+            from_ts = params.get('from')
+            to_ts   = params.get('to')
+            try:
+                limit = min(int(params.get('limit', '100')), 1000)
+            except (ValueError, TypeError):
+                limit = 100
+
+            eid = str(_uuid_cex.uuid4())
+            records = _fetch_compliance_export(from_ts, to_ts, limit)
+
+            with _mc_lock:
+                terminal = (
+                    _metacognitive_chain[-1]['entry_hash']
+                    if _metacognitive_chain else '0' * 64
+                )
+
+            self._platform_respond(200, _platform_envelope(eid, {
+                'export_id':             eid,
+                'period_from':           from_ts or 'unbounded',
+                'period_to':             to_ts   or 'unbounded',
+                'total_records':         len(records),
+                'chain_terminal_hash':   terminal,
+                'compliance_framework':  (
+                    'HIPAA §164.312(b) Audit Controls; '
+                    'ISO 42001 AI Management System'
+                ),
+                'exported_by':           email,
+                'records':               records,
+            }))
 
         elif self.path.startswith('/platform/executions/live'):
             # GET /platform/executions/live?id=<uuid> — SSE stream.

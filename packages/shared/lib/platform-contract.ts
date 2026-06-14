@@ -168,6 +168,32 @@ export interface PlatformStatusUsage {
   readonly remaining_runs: number
 }
 
+// ── GET /platform/compliance/export ──────────────────────────────────────────
+// HIPAA §164.312(b) Audit Controls + ISO 42001 AI Management System export.
+// objective_hash is SHA-256 of the raw objective — privacy-preserving; allows
+// auditors to verify a specific decision was processed without exposing the text.
+
+export interface ComplianceExportRecord {
+  readonly cycle_id: string
+  readonly timestamp: string               // ISO-8601, UTC
+  readonly objective_hash: string          // SHA-256 of objective (privacy-preserving)
+  readonly mode: CollaborationMode
+  readonly constitutional_verdict: ConstitutionalVerdict
+  readonly projected_arr_usd: number
+  readonly is_replay_reconstructable: true
+}
+
+export interface ComplianceExport {
+  readonly export_id: string
+  readonly period_from: string             // ISO-8601 or 'unbounded'
+  readonly period_to: string               // ISO-8601 or 'unbounded'
+  readonly total_records: number
+  readonly chain_terminal_hash: string     // current metacognitive chain terminal hash
+  readonly compliance_framework: string    // 'HIPAA §164.312(b) Audit Controls; ISO 42001 AI Management System'
+  readonly exported_by: string             // customer email from API key
+  readonly records: readonly ComplianceExportRecord[]
+}
+
 // ── Error schema (all endpoints on 4xx/5xx) ──────────────────────────────────
 
 export type PlatformErrorCode =

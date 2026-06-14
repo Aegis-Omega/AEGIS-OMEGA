@@ -1,4 +1,4 @@
-// Local types for the tactical dashboard — aligned with packages/shared/lib/platform-contract.ts
+// Tactical dashboard types — DEPARTMENTS re-exported from canonical shared contract to prevent drift.
 
 export type CollaborationMode =
   | 'revenue' | 'analysis' | 'gtm' | 'retention'
@@ -52,47 +52,9 @@ export interface LogEntry {
   message: string
 }
 
-export const DEPARTMENTS: readonly { id: string; role: string; category: string }[] = [
-  { id: 'REV-01', role: 'Strategy',    category: 'revenue'        },
-  { id: 'REV-02', role: 'Finance',     category: 'revenue'        },
-  { id: 'REV-03', role: 'Pricing',     category: 'revenue'        },
-  { id: 'MKT-01', role: 'Brand',       category: 'marketing'      },
-  { id: 'MKT-02', role: 'Content',     category: 'marketing'      },
-  { id: 'MKT-03', role: 'SEO',         category: 'marketing'      },
-  { id: 'MKT-04', role: 'Paid',        category: 'marketing'      },
-  { id: 'MKT-05', role: 'Social',      category: 'marketing'      },
-  { id: 'SLS-01', role: 'Outbound',    category: 'sales'          },
-  { id: 'SLS-02', role: 'Inbound',     category: 'sales'          },
-  { id: 'SLS-03', role: 'Partner',     category: 'sales'          },
-  { id: 'SLS-04', role: 'Enterprise',  category: 'sales'          },
-  { id: 'PRD-01', role: 'Product',     category: 'product'        },
-  { id: 'PRD-02', role: 'UX',          category: 'product'        },
-  { id: 'PRD-03', role: 'Data',        category: 'product'        },
-  { id: 'PRD-04', role: 'API',         category: 'product'        },
-  { id: 'ENG-01', role: 'Backend',     category: 'engineering'    },
-  { id: 'ENG-02', role: 'Frontend',    category: 'engineering'    },
-  { id: 'ENG-03', role: 'Infra',       category: 'engineering'    },
-  { id: 'ENG-04', role: 'Security',    category: 'engineering'    },
-  { id: 'ENG-05', role: 'AI/ML',       category: 'engineering'    },
-  { id: 'OPS-01', role: 'RevOps',      category: 'operations'     },
-  { id: 'OPS-02', role: 'Support',     category: 'operations'     },
-  { id: 'OPS-03', role: 'Legal',       category: 'operations'     },
-  { id: 'OPS-04', role: 'Compliance',  category: 'operations'     },
-  { id: 'RES-01', role: 'Research',    category: 'research'       },
-  { id: 'RES-02', role: 'Competitive', category: 'research'       },
-  { id: 'RES-03', role: 'Customer',    category: 'research'       },
-  { id: 'FIN-01', role: 'Accounting',  category: 'finance'        },
-  { id: 'FIN-02', role: 'Treasury',    category: 'finance'        },
-  { id: 'FIN-03', role: 'Tax',         category: 'finance'        },
-  { id: 'EXE-01', role: 'CEO',         category: 'executive'      },
-  { id: 'EXE-02', role: 'COO',         category: 'executive'      },
-  { id: 'EXE-03', role: 'CTO',         category: 'executive'      },
-  { id: 'EXE-04', role: 'CFO',         category: 'executive'      },
-  { id: 'GOV-01', role: 'Ethics',      category: 'governance'     },
-  { id: 'GOV-02', role: 'Risk',        category: 'governance'     },
-  { id: 'CON-01', role: 'Audit',       category: 'constitutional' },
-  { id: 'CON-09', role: 'Guardian',    category: 'constitutional' },
-]
+// Single source of truth: tactical re-exports the canonical 39-dept roster.
+// Adding a 40th dept to platform-contract.ts automatically appears here.
+export { PLATFORM_DEPARTMENTS as DEPARTMENTS } from '../../packages/shared/lib/platform-contract.js'
 
 export const CATEGORY_COLOR: Record<string, string> = {
   revenue:        'border-emerald-500 bg-emerald-500/20 text-emerald-400',

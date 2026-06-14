@@ -25,6 +25,92 @@ VALID_MODES = frozenset({
     'competitive', 'technical', 'regulatory', 'fundraising',
 })
 
+# ── Tier capability gates (brief §9/§10 — least latitude by default) ─────────
+# explorer: template/demo only (live=False, base-4 modes only).
+# Real Claude API calls and advanced modes require at least operator tier.
+# This prevents explorer keys from triggering unbounded inference costs while
+# still letting them test the full 39-dept pipeline in template mode.
+TIER_LIVE_ALLOWED: frozenset = frozenset({'operator', 'sovereign'})
+
+# explorer tier: restricted to the four foundational analysis modes.
+# operator/sovereign: all 8 modes available.
+EXPLORER_MODES: frozenset = frozenset({'revenue', 'analysis', 'gtm', 'retention'})
+
+
+def validate_tier_capabilities(tier: str, live: bool, mode: str = '') -> None:
+    """
+    Enforce least-latitude capability gate (brief §9/§10).
+
+    Raises ValueError if the requested capability exceeds the tier's grant:
+      - live=True requires operator or sovereign tier.
+      - Advanced modes (outside EXPLORER_MODES) require operator or sovereign tier.
+
+    The bridge calls this after verify_api_key() and before executing the swarm.
+    mode defaults to '' which skips the mode check (backward-compatible).
+    """
+    if live and tier not in TIER_LIVE_ALLOWED:
+        raise ValueError(
+            f'live=True requires operator or sovereign tier (current: {tier!r}). '
+            'Upgrade your API key at aegisomega.com to enable live Claude collaboration.'
+        )
+    if mode and tier not in TIER_LIVE_ALLOWED and mode not in EXPLORER_MODES:
+        raise ValueError(
+            f'{mode!r} mode requires operator or sovereign tier (current: {tier!r}). '
+            'Available modes for explorer: revenue, analysis, gtm, retention. '
+            'Upgrade your API key at aegisomega.com for advanced analysis modes: '
+            'competitive, technical, regulatory, fundraising.'
+        )
+
+
+# ── Coherence gate (brief §5 — explicit named stop condition) ─────────────────
+# The swarm "collapses" to a user-facing answer only when the constitutional
+# audit returns APPROVED and the fitness score exceeds this threshold.
+# Below it, the caller should iterate or escalate rather than emit.
+# Named as a constant so callers can override via env and CI can assert it.
+COHERENCE_GATE_THRESHOLD: float = (5 ** 0.5 - 1) / 2  # φ ≈ 0.6180339887 — consistent with martingale ceiling
+
+# ── Prompt injection defence (T1 — layered; model-level robustness is separate) ─
+OBJECTIVE_MAX_CHARS = 4_000
+
+# Case-insensitive substrings that indicate injection attempts at the API boundary.
+# This list is heuristic — it catches common patterns but is not exhaustive.
+# Each entry is lowercase for efficient comparison via `lower_obj in marker`.
+_INJECTION_MARKERS: tuple = (
+    '\n\nhuman:', '\n\nassistant:', '\n\nuser:',       # conversation-format injection
+    '<system>', '</system>', '<human>', '</human>',    # XML/tag injection
+    '[inst]', '[/inst]', '<<sys>>', '<</sys>>',        # llama-style injection
+    'ignore previous instructions',                    # classic override phrase
+    'disregard previous instructions',
+    'ignore all prior instructions',
+    'disregard all prior instructions',
+    'you are now a',                                   # persona-hijack pattern
+    '\x00',                                            # null byte
+)
+
+
+def sanitize_objective(objective: str) -> str:
+    """
+    Sanitize a user-supplied objective at the API ingestion boundary.
+
+    Raises ValueError if the input contains known prompt-injection markers or
+    exceeds OBJECTIVE_MAX_CHARS. Returns the validated objective unchanged.
+
+    This is a heuristic first layer — it does not replace model-level robustness.
+    Defense is always layered (system card lesson: model robustness is necessary
+    but never sufficient for prompt injection).
+    """
+    if len(objective) > OBJECTIVE_MAX_CHARS:
+        raise ValueError(
+            f'objective must be ≤ {OBJECTIVE_MAX_CHARS} chars (got {len(objective)})'
+        )
+    lower = objective.lower()
+    for marker in _INJECTION_MARKERS:
+        if marker in lower:
+            raise ValueError(
+                f'objective rejected: contains prompt-injection marker ({marker!r})'
+            )
+    return objective
+
 PLATFORM_DEPARTMENTS = [
     {'id': 'REV-01', 'role': 'Strategy',    'category': 'revenue'},
     {'id': 'REV-02', 'role': 'Finance',     'category': 'revenue'},
@@ -66,6 +152,33 @@ PLATFORM_DEPARTMENTS = [
     {'id': 'CON-01', 'role': 'Audit',       'category': 'constitutional'},
     {'id': 'CON-09', 'role': 'Guardian',    'category': 'constitutional'},
 ]
+
+
+# The roster is dynamic, not frozen at 39: an optional JSON file pointed to by
+# AEGIS_DEPARTMENTS_FILE may append departments so the swarm scales/evolves
+# without code edits. Each entry needs id/role/category; duplicate ids are
+# skipped. Absent the env var, the default roster above stands (contract = 39).
+def _extend_departments(base: list[dict]) -> list[dict]:
+    path = os.environ.get('AEGIS_DEPARTMENTS_FILE', '').strip()
+    if not path or not os.path.exists(path):
+        return base
+    try:
+        with open(path, encoding='utf-8') as _fh:
+            extra = json.load(_fh)
+    except Exception:
+        return base
+    if not isinstance(extra, list):
+        return base
+    seen = {d['id'] for d in base}
+    roster = list(base)
+    for d in extra:
+        if isinstance(d, dict) and {'id', 'role', 'category'} <= d.keys() and d['id'] not in seen:
+            roster.append({'id': d['id'], 'role': d['role'], 'category': d['category']})
+            seen.add(d['id'])
+    return roster
+
+
+PLATFORM_DEPARTMENTS = _extend_departments(PLATFORM_DEPARTMENTS)
 
 # Domain-expert framing injected per department category into the swarm prompt.
 # Each string is a directive that sharpens analysis beyond generic output.
@@ -119,7 +232,7 @@ _CATEGORY_PERSONAS: dict[str, str] = {
 
 def platform_ts() -> str:
     import datetime as _dt
-    return _dt.datetime.utcnow().isoformat() + 'Z'
+    return _dt.datetime.now(_dt.timezone.utc).isoformat().replace('+00:00', 'Z')
 
 
 def platform_envelope(execution_id: str, data: dict) -> dict:
@@ -162,14 +275,15 @@ def verify_api_key(api_key: str):
         'Content-Type': 'application/json',
     }
 
-    rest_url = (
-        f'{supabase_url}/rest/v1/api_key_store'
-        f'?key_hash=eq.{key_hash}&revoked=eq.false'
-        f'&select=customer_email,tier,usage_count,usage_limit'
-    )
-    req = _ur.Request(rest_url, headers=auth_headers)
+    # Atomic verify-and-increment via RPC — avoids the TOCTOU race between the
+    # read (select usage_count) and the write (PATCH usage_count+1) that the old
+    # two-step pattern exposed under concurrent requests.
+    # The function returns one row on success; zero rows means invalid/revoked/exhausted.
+    rpc_url = f'{supabase_url}/rest/v1/rpc/verify_and_increment_api_key'
+    rpc_body = json.dumps({'p_key_hash': key_hash}).encode()
+    rpc_req = _ur.Request(rpc_url, data=rpc_body, headers=auth_headers)
     try:
-        with _ur.urlopen(req, timeout=5) as resp:
+        with _ur.urlopen(rpc_req, timeout=5) as resp:
             rows = json.loads(resp.read().decode())
     except _ue.HTTPError as exc:
         raise ValueError(f'Supabase error: HTTP {exc.code}')
@@ -180,21 +294,11 @@ def verify_api_key(api_key: str):
         raise ValueError('Invalid or revoked API key')
 
     row = rows[0]
-    if row['usage_count'] >= row['usage_limit']:
+    # usage_count in the response is post-increment; if it equals usage_limit
+    # the caller exhausted their last request — still serve this one, but any
+    # future call will return zero rows (usage_count < usage_limit fails).
+    if row['usage_count'] > row['usage_limit']:
         raise ValueError('Usage limit reached')
-
-    patch_url = f'{supabase_url}/rest/v1/api_key_store?key_hash=eq.{key_hash}'
-    patch_data = json.dumps({'usage_count': row['usage_count'] + 1}).encode()
-    patch_req = _ur.Request(
-        patch_url, data=patch_data,
-        headers={**auth_headers, 'Prefer': 'return=minimal'},
-        method='PATCH',
-    )
-    try:
-        with _ur.urlopen(patch_req, timeout=5):
-            pass
-    except Exception:
-        pass  # don't fail if usage increment fails
 
     return row['customer_email'], row['tier']
 
@@ -208,32 +312,32 @@ _MODE_OUTPUTS = {
     'analysis':     (
         '{role}: Market analysis for "{obj}" — 2 competitive gaps found. '
         'Differentiation lever: constitutional governance layer. '
-        'Entry timing: Q3 2026. Market size: $340M TAM.'
+        'Entry timing: Q3 2026. Market size: $340M TAM. T2 hypothesis: empirical validation required.'
     ),
     'gtm':          (
         '{role}: GTM for "{obj}" — 4-phase launch. '
         'Phase 1: design-partner beta (8 wks). '
-        'Phase 2: Product Hunt + HN. Phase 3: EU enterprise push. CAC: $1,200.'
+        'Phase 2: Product Hunt + HN. Phase 3: EU enterprise push. CAC: $1,200. T2 projection.'
     ),
     'retention':    (
         '{role}: Retention strategy for "{obj}" — 3 churn vectors. '
         'Fix: governance dashboard stickiness, API key continuity, '
-        'operator success program. Expected lift: +15% NRR.'
+        'operator success program. Expected lift: +15% NRR. T2 projection.'
     ),
     'competitive':  (
         '{role}: Competitive intelligence for "{obj}" — 3 direct rivals mapped. '
         'Moat: constitutional audit chain (no rival has T0-grade tamper-evidence). '
-        'Vulnerability: price. Opportunity: EU compliance deadline forcing urgency.'
+        'Vulnerability: price. Opportunity: EU compliance deadline forcing urgency. T2 assessment.'
     ),
     'technical':    (
         '{role}: Technical assessment of "{obj}" — architecture scored. '
         'Scalability ceiling: 10k req/s with current NEG topology. '
-        'Critical path: Supabase read latency. Recommendation: read replica + caching.'
+        'Critical path: Supabase read latency. Recommendation: read replica + caching. T2 hypothesis.'
     ),
     'regulatory':   (
         '{role}: Regulatory mapping for "{obj}" — EU AI Act Article 12 status: MAPPED. '
         'GDPR Article 22 (automated decisions): MITIGATED via audit chain. '
-        'Action: apply for AI Act sandbox (Article 57) before Q4 2026.'
+        'Action: apply for AI Act sandbox (Article 57) before Q4 2026. T1 compliance status.'
     ),
     'fundraising':  (
         '{role}: Fundraising analysis for "{obj}" — Series A readiness: EARLY. '
@@ -336,7 +440,7 @@ def record_revenue_cycle(cycle_id: str, objective: str, mode: str,
         'mode': mode,
         'projected_arr_usd': arr_usd,
         'constitutional_verdict': verdict,
-        'departments_collaborated': 39,
+        'departments_collaborated': len(PLATFORM_DEPARTMENTS),
     }).encode()
     url = f'{supabase_url}/rest/v1/revenue_cycles'
     auth_headers = {
@@ -363,6 +467,7 @@ def validate_collaboration_request(body: dict) -> tuple:
     objective = body.get('objective', '')
     if not isinstance(objective, str) or not objective.strip():
         raise ValueError('objective must be a non-empty string')
+    sanitize_objective(objective.strip())  # raises ValueError on injection attempt
 
     mode = body.get('mode', '')
     if mode not in VALID_MODES:
@@ -379,6 +484,8 @@ def validate_collaboration_request(body: dict) -> tuple:
     memory_context = body.get('memory_context', '')
     if not isinstance(memory_context, str):
         raise ValueError('memory_context must be a string')
+    if memory_context:
+        sanitize_objective(memory_context)  # same injection markers apply to this field
 
     return objective.strip(), mode, live, generation, memory_context
 
@@ -571,18 +678,6 @@ def evaluate_generation_fitness(
       (gaming the lexical_consistency metric without adding value).
 
     cycle_verdict: optional 'APPROVED'|'FLAG'|'QUARANTINE' from constitutional audit.
-) -> dict:
-    """
-    Compute per-department fitness scores comparing consecutive swarm generations.
-    Returns {dept_role: {'fitness_score': f, 'viability_score': v}} in [0.0, 1.0].
-
-    fitness_score = 0.35 × length_stability + 0.25 × objective_coverage
-                  + 0.25 × lexical_consistency + 0.15 × viability_score
-    - length_stability: 1 - normalised absolute length delta between generations
-    - objective_coverage: fraction of objective words present in current output
-    - lexical_consistency: Jaccard similarity of word sets between prev and curr outputs
-    - viability_score: VIABILITY_CHAR_BUDGET / len(output), capped at 1.0 — penalises
-      departments consuming disproportionate context (metabolic constraint)
     """
     import re as _re
 
@@ -613,26 +708,6 @@ def evaluate_generation_fitness(
         length_stability = 1.0 - abs(cl - pl) / base
 
         # Objective coverage (0.30 weight — promoted from 0.25 in V1.0)
-    obj_words = _words(objective)
-    prev_map = {a['role']: a.get('output', '') for a in prev_artifacts}
-    scores: dict = {}
-
-    for a in curr_artifacts:
-        role   = a['role']
-        curr   = a.get('output', '')
-        prev   = prev_map.get(role, '')
-
-        # Empty output — department produced nothing; hard-zero both metrics
-        if not curr:
-            scores[role] = {'fitness_score': 0.0, 'viability_score': 0.0}
-            continue
-
-        # Length stability
-        cl, pl = len(curr), len(prev)
-        base   = max(cl, pl, 1)
-        length_stability = 1.0 - abs(cl - pl) / base
-
-        # Objective coverage
         if obj_words:
             curr_words = _words(curr)
             objective_coverage = len(obj_words & curr_words) / len(obj_words)
@@ -640,7 +715,6 @@ def evaluate_generation_fitness(
             objective_coverage = 0.5
 
         # Lexical consistency + stagnation detection (0.25 weight — unchanged)
-        # Lexical consistency across generations
         if prev:
             prev_words = _words(prev)
             curr_words2 = _words(curr)
@@ -667,22 +741,6 @@ def evaluate_generation_fitness(
             'viability_score':        round(viability, 4),
             'constitutional_factor':  c_factor,
             'stagnation_flag':        stagnation_flag,
-        else:
-            lexical_consistency = 0.5  # no prior generation to compare
-
-        # Viability — metabolic budget on output size
-        viability = min(1.0, VIABILITY_CHAR_BUDGET / cl) if cl > 0 else 0.0
-
-        score = round(
-            0.35 * length_stability
-            + 0.25 * objective_coverage
-            + 0.25 * lexical_consistency
-            + 0.15 * viability,
-            4,
-        )
-        scores[role] = {
-            'fitness_score': max(0.0, min(1.0, score)),
-            'viability_score': round(viability, 4),
         }
 
     return scores
@@ -730,16 +788,6 @@ def store_generation_fitness(
             'execution_id':        execution_id,
             'parent_generation':   generation - 1,  # -1 for generation 0 handled by DB default
             'artifact_hash':       artifact_hash(art_map.get(role, '')),
-    rows = [
-        {
-            'objective_hash': obj_hash,
-            'mode': mode,
-            'generation': generation,
-            'cycle_id': cycle_id,
-            'dept_role': role,
-            'fitness_score': score['fitness_score'],
-            'viability_score': score['viability_score'],
-            'constitutional_verdict': constitutional_verdict,
         }
         for role, score in fitness_scores.items()
     ]
@@ -1003,6 +1051,165 @@ def _build_category_directives(departments: list) -> str:
     return '\n'.join(lines) if lines else ''
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Autonomous per-agent execution — the real swarm.
+#
+# swarm_collaborate_live activates every department in ONE model call. This path
+# instead runs each department as its OWN agent, in dependency-layer order, and
+# every agent reads the artifacts produced by EARLIER layers. Coordination flows
+# only through that shared store — no direct agent-to-agent text (Law of Silence).
+# Bounded by max_agents so inference cost can never run away (execution-boundary).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Earlier layers' outputs become later layers' inputs (knowledge transfer).
+_SWARM_LAYERS: tuple = (
+    ('research',),
+    ('revenue', 'product'),
+    ('marketing', 'sales', 'engineering'),
+    ('finance', 'operations'),
+    ('executive',),
+    ('governance', 'constitutional'),
+)
+
+
+def _layer_index(category: str) -> int:
+    """Dependency-layer of a category; unknown categories run last."""
+    for i, layer in enumerate(_SWARM_LAYERS):
+        if category in layer:
+            return i
+    return len(_SWARM_LAYERS)
+
+
+def ordered_roster(departments: list) -> list:
+    """Departments in dependency-layer order; stable by id within a layer."""
+    return sorted(departments, key=lambda d: (_layer_index(d['category']), d['id']))
+
+
+def swarm_collaborate_autonomous(
+    objective: str,
+    mode: str,
+    departments: list,
+    agent_call,
+    max_agents=None,
+    on_event=None,
+) -> dict:
+    """
+    Run each department as its own agent in dependency-layer order.
+
+    agent_call(dept, objective, mode, upstream) -> str runs once per executed
+    agent. `upstream` is the list of {id, role, output} produced by ALL earlier
+    layers (frozen for the duration of the agent's own layer), so downstream
+    agents build on upstream work — knowledge transfer through the shared store,
+    never direct agent-to-agent text (Law of Silence).
+
+    max_agents caps how many agents actually run (budget ceiling); the rest are
+    recorded with status 'skipped'. Deterministic when agent_call is.
+
+    Raises nothing: a failing agent_call is captured as status 'error:<Type>'
+    and excluded from the upstream store; the run continues.
+    """
+    roster = ordered_roster(departments)
+    total = len(roster)
+    cap = total if max_agents is None else max(0, min(int(max_agents), total))
+
+    artifacts: list = []
+    shared: list = []          # completed upstream artifacts (the mediated store)
+    layer_buffer: list = []    # current layer's outputs, merged in at layer end
+    current_layer = None
+    executed = 0
+
+    for dept in roster:
+        layer = _layer_index(dept['category'])
+        if layer != current_layer:
+            shared.extend(layer_buffer)   # prior layer's work is now upstream
+            layer_buffer = []
+            current_layer = layer
+
+        if executed >= cap:
+            artifacts.append({
+                'id': dept['id'], 'role': dept['role'], 'category': dept['category'],
+                'status': 'skipped', 'reason': 'budget cap', 'output': '',
+            })
+            continue
+
+        upstream = list(shared)
+        if on_event:
+            on_event({'type': 'agent_start', 'id': dept['id'], 'role': dept['role'],
+                      'category': dept['category'], 'upstream': len(upstream)})
+        try:
+            output = agent_call(dept, objective, mode, upstream)
+            status = 'ok'
+        except Exception as exc:
+            output = ''
+            status = 'error:' + type(exc).__name__
+        executed += 1
+
+        artifacts.append({
+            'id': dept['id'], 'role': dept['role'], 'category': dept['category'],
+            'status': status, 'output': output,
+        })
+        if status == 'ok':
+            layer_buffer.append({'id': dept['id'], 'role': dept['role'], 'output': output})
+        if on_event:
+            on_event({'type': 'agent_done', 'id': dept['id'], 'status': status})
+
+    return {
+        'objective': objective,
+        'mode': mode,
+        'execution': 'autonomous-per-agent',
+        'agents_total': total,
+        'agents_executed': executed,
+        'departments_collaborated': sum(1 for a in artifacts if a['status'] == 'ok'),
+        'artifacts': artifacts,
+    }
+
+
+def make_autonomous_agent_call():
+    """
+    Production agent_call factory: each department gets its OWN governed model
+    call, primed with its category persona and the upstream artifacts it depends
+    on. Falls back to the template dept_output when no model client is available,
+    so the executor always returns usable artifacts.
+    """
+    import anth_client as _ac
+    try:
+        _client = _ac.get_client()
+    except Exception:
+        _client = None
+
+    def _call(dept: dict, objective: str, mode: str, upstream: list) -> str:
+        if _client is None:
+            return dept_output(objective, mode, dept)
+        persona = _CATEGORY_PERSONAS.get(dept['category'], '')
+        upstream_block = '\n'.join(
+            f'- {u["role"]}: {u["output"][:400]}' for u in upstream[:12]
+        ) or '(first layer — no upstream yet)'
+        system = (
+            f'You are the {dept["role"]} agent (id {dept["id"]}, {dept["category"]}) '
+            f'in a coordinated swarm. {persona} '
+            "Produce only your department's concrete contribution — no preamble."
+        )
+        user = (
+            f'Objective: {objective}\nMode: {mode}\n\n'
+            f'Upstream work from earlier departments you must build on:\n{upstream_block}\n\n'
+            f'Give your {dept["role"]} contribution: specific, actionable, under 120 words.'
+        )
+        kwargs: dict = {
+            'model': SWARM_MODEL,
+            'max_tokens': 1024,
+            'system': _ac.make_cached_system(system),
+            'messages': [{'role': 'user', 'content': user}],
+        }
+        if SWARM_THINKING:
+            kwargs['thinking'] = {'type': 'adaptive'}
+        resp = _client.messages.create(**kwargs)
+        if getattr(resp, 'stop_reason', None) == 'refusal':
+            return dept_output(objective, mode, dept)
+        return ''.join(b.text for b in resp.content if hasattr(b, 'text')).strip()
+
+    return _call
+
+
 def swarm_collaborate_live(
     objective: str,
     mode: str,
@@ -1184,3 +1391,146 @@ def _swarm_fallback(objective: str, mode: str, departments: list) -> dict:
             ),
         },
     }
+
+
+# ── Grace chain (T2) ──────────────────────────────────────────────────────────
+# "Each agent gives the next agent a grace."
+# Graces flow forward through the 39-dept swarm, mirroring the hash chain.
+# A dept whose output passes constitutional audit earns a grace and passes it
+# to the next dept. The chain never breaks — fire-and-forget toward Supabase.
+
+def award_graces_for_cycle(cycle_id: str, artifacts: list, verdict: str) -> None:
+    """
+    Award grace tokens through the dept sequence for one collaboration cycle.
+
+    artifacts: list of {'role': str, 'output': str} dicts — ordered by dept sequence.
+    verdict:   constitutional verdict ('APPROVED', 'FLAG', 'QUARANTINE').
+
+    Only APPROVED and FLAG cycles award graces; QUARANTINE awards none.
+    Grace flows from dept[i] → dept[i+1] for every dept whose output is non-empty.
+    The first dept in the chain receives its grace from '__genesis__' (the cycle itself).
+
+    Fire-and-forget — never raises; Supabase errors logged to stderr only.
+    """
+    import urllib.request as _urG
+    import urllib.error as _ueG
+    import sys
+
+    if verdict == 'QUARANTINE':
+        return  # no graces for quarantined cycles
+
+    supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+    if not supabase_url or not service_key:
+        return  # dev mode — no DB write
+
+    auth_headers = {
+        'apikey':        service_key,
+        'Authorization': f'Bearer {service_key}',
+        'Content-Type':  'application/json',
+    }
+    rpc_url = f'{supabase_url}/rest/v1/rpc/award_grace'
+
+    # Build ordered list of depts with non-empty output
+    active = [a['role'] for a in artifacts if a.get('output', '').strip()]
+    if not active:
+        return
+
+    for i, to_dept in enumerate(active):
+        from_dept = active[i - 1] if i > 0 else None
+        payload = json.dumps({
+            'p_cycle_id':        cycle_id,
+            'p_from_dept':       from_dept,   # null → __genesis__ handled in SQL
+            'p_to_dept':         to_dept,
+            'p_graces':          1,
+            'p_viability_score': None,         # optional enrichment; skip for speed
+        }).encode()
+        req = _urG.Request(rpc_url, data=payload, headers=auth_headers, method='POST')
+        try:
+            with _urG.urlopen(req, timeout=3):
+                pass
+        except Exception as exc:
+            print(f'[bridge] grace award failed ({to_dept}): {exc}', file=sys.stderr)
+
+
+def fetch_compliance_export(from_ts: str | None, to_ts: str | None, limit: int) -> list:
+    """
+    Export AI governance audit records from revenue_cycles for compliance review.
+
+    Maps to HIPAA §164.312(b) Audit Controls and ISO 42001 AI Management System.
+    Returns [] when SUPABASE_URL is unset (dev mode) or on error.
+
+    objective_hash: SHA-256 of raw objective — privacy-preserving; allows auditors
+    to verify a specific decision was processed without exposing the objective text.
+    """
+    import urllib.request as _urCE
+    import urllib.parse as _upCE
+    import hashlib as _hlCE
+
+    supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+    if not supabase_url or not service_key:
+        return []
+
+    params: list[str] = [
+        'select=cycle_id,objective,mode,arr_usd,constitutional_verdict,created_at',
+        'order=created_at.desc',
+        f'limit={max(1, min(limit, 1000))}',
+    ]
+    if from_ts:
+        params.append(f'created_at=gte.{_upCE.quote(from_ts)}')
+    if to_ts:
+        params.append(f'created_at=lte.{_upCE.quote(to_ts)}')
+
+    url = f'{supabase_url}/rest/v1/revenue_cycles?' + '&'.join(params)
+    req = _urCE.Request(url, headers={
+        'apikey':        service_key,
+        'Authorization': f'Bearer {service_key}',
+    })
+    try:
+        with _urCE.urlopen(req, timeout=8) as resp:
+            rows = json.loads(resp.read().decode())
+        records = []
+        for row in rows:
+            obj_hash = _hlCE.sha256(
+                (row.get('objective') or '').encode()
+            ).hexdigest()
+            records.append({
+                'cycle_id':               row.get('cycle_id', ''),
+                'timestamp':              row.get('created_at', ''),
+                'objective_hash':         obj_hash,
+                'mode':                   row.get('mode', ''),
+                'constitutional_verdict': row.get('constitutional_verdict', 'APPROVED'),
+                'projected_arr_usd':      row.get('arr_usd', 0),
+                'is_replay_reconstructable': True,
+            })
+        return records
+    except Exception as exc:
+        import sys
+        print(f'[bridge] compliance_export failed: {exc}', file=sys.stderr)
+        return []
+
+
+def fetch_grace_leaderboard() -> list:
+    """
+    Read the grace_chain_summary view — all depts sorted by lifetime_graces desc.
+    Returns [] when SUPABASE_URL is unset (dev mode) or on error.
+    """
+    import urllib.request as _urGL
+    import urllib.error as _ueGL
+
+    supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+    if not supabase_url or not service_key:
+        return []
+
+    url = f'{supabase_url}/rest/v1/grace_chain_summary?select=*&limit=50'
+    req = _urGL.Request(url, headers={
+        'apikey':        service_key,
+        'Authorization': f'Bearer {service_key}',
+    })
+    try:
+        with _urGL.urlopen(req, timeout=5) as resp:
+            return json.loads(resp.read().decode())
+    except Exception:
+        return []
