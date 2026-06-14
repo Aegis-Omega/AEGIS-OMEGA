@@ -133,6 +133,25 @@ That gap is the whole business and it's smaller than the infra already built.
 
 Everything in steps 1–5 already exists. The work is wiring + one key + telling people — not a rebuild.
 
+### Cloud-session network access (why generation fails in the sandbox)
+
+The tools **render** in a cloud session but won't **generate** unless the environment's
+**Network access** allows the model host. The default level is **Trusted** = package
+registries + GitHub + cloud SDKs only, which blocks `dashscope.aliyuncs.com` (Qwen) — the
+exact `DashScope 501` / `Failed to fetch` seen when driving the tool. The keys are already
+present in the env; only the network is closed.
+
+Fix (one-time, in the dashboard — NOT settable from a repo file or setup script):
+`claude.ai/code → your environment → Network access → Custom (keep defaults) → add hosts`, or set **Full**.
+
+| Add this host | Unblocks |
+|---------------|----------|
+| `dashscope.aliyuncs.com` | the 3 tools generating via Qwen (keys already in env) |
+| `api.anthropic.com` | the tools' Claude backend, if you bake in your own Claude key |
+
+Production (Cloud Run + Vertex) already has open network — that's why `/platform/status`
+returned 200 with 39 agents. Only the sandbox is network-boxed.
+
 ---
 
 ## 9. Traps that have been eating your time
