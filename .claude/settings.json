@@ -18,9 +18,9 @@
           },
           {
             "type": "command",
-            "command": "node -e \"const fs=require('fs'); const base='/home/user/AEGIS--/sovereign-omega-v2/.claude/skills'; const read=f=>fs.readFileSync(base+'/'+f+'/SKILL.md','utf8'); const ctx=[read('automaton-workflow'),read('autopoiesis'),read('metacognition')].join('\\n\\n---\\n\\n'); console.log(JSON.stringify({hookSpecificOutput:{hookEventName:'SessionStart',additionalContext:ctx}}))\"",
+            "command": "node -e \"const fs=require('fs'); const base='/home/user/AEGIS--/sovereign-omega-v2/.claude/skills'; const read=f=>fs.readFileSync(base+'/'+f+'/SKILL.md','utf8'); const ctx=[read('automaton-workflow'),read('autopoiesis'),read('metacognition'),read('auto-agent')].join('\\n\\n---\\n\\n'); console.log(JSON.stringify({hookSpecificOutput:{hookEventName:'SessionStart',additionalContext:ctx}}))\"",
             "timeout": 10,
-            "statusMessage": "Loading automaton manifold (autopoiesis + metacognition + workflow)..."
+            "statusMessage": "Loading automaton manifold (autopoiesis + metacognition + workflow + auto-agent)..."
           },
           {
             "type": "command",
