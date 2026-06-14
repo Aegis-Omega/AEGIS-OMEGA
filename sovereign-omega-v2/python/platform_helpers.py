@@ -1051,6 +1051,165 @@ def _build_category_directives(departments: list) -> str:
     return '\n'.join(lines) if lines else ''
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Autonomous per-agent execution — the real swarm.
+#
+# swarm_collaborate_live activates every department in ONE model call. This path
+# instead runs each department as its OWN agent, in dependency-layer order, and
+# every agent reads the artifacts produced by EARLIER layers. Coordination flows
+# only through that shared store — no direct agent-to-agent text (Law of Silence).
+# Bounded by max_agents so inference cost can never run away (execution-boundary).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Earlier layers' outputs become later layers' inputs (knowledge transfer).
+_SWARM_LAYERS: tuple = (
+    ('research',),
+    ('revenue', 'product'),
+    ('marketing', 'sales', 'engineering'),
+    ('finance', 'operations'),
+    ('executive',),
+    ('governance', 'constitutional'),
+)
+
+
+def _layer_index(category: str) -> int:
+    """Dependency-layer of a category; unknown categories run last."""
+    for i, layer in enumerate(_SWARM_LAYERS):
+        if category in layer:
+            return i
+    return len(_SWARM_LAYERS)
+
+
+def ordered_roster(departments: list) -> list:
+    """Departments in dependency-layer order; stable by id within a layer."""
+    return sorted(departments, key=lambda d: (_layer_index(d['category']), d['id']))
+
+
+def swarm_collaborate_autonomous(
+    objective: str,
+    mode: str,
+    departments: list,
+    agent_call,
+    max_agents=None,
+    on_event=None,
+) -> dict:
+    """
+    Run each department as its own agent in dependency-layer order.
+
+    agent_call(dept, objective, mode, upstream) -> str runs once per executed
+    agent. `upstream` is the list of {id, role, output} produced by ALL earlier
+    layers (frozen for the duration of the agent's own layer), so downstream
+    agents build on upstream work — knowledge transfer through the shared store,
+    never direct agent-to-agent text (Law of Silence).
+
+    max_agents caps how many agents actually run (budget ceiling); the rest are
+    recorded with status 'skipped'. Deterministic when agent_call is.
+
+    Raises nothing: a failing agent_call is captured as status 'error:<Type>'
+    and excluded from the upstream store; the run continues.
+    """
+    roster = ordered_roster(departments)
+    total = len(roster)
+    cap = total if max_agents is None else max(0, min(int(max_agents), total))
+
+    artifacts: list = []
+    shared: list = []          # completed upstream artifacts (the mediated store)
+    layer_buffer: list = []    # current layer's outputs, merged in at layer end
+    current_layer = None
+    executed = 0
+
+    for dept in roster:
+        layer = _layer_index(dept['category'])
+        if layer != current_layer:
+            shared.extend(layer_buffer)   # prior layer's work is now upstream
+            layer_buffer = []
+            current_layer = layer
+
+        if executed >= cap:
+            artifacts.append({
+                'id': dept['id'], 'role': dept['role'], 'category': dept['category'],
+                'status': 'skipped', 'reason': 'budget cap', 'output': '',
+            })
+            continue
+
+        upstream = list(shared)
+        if on_event:
+            on_event({'type': 'agent_start', 'id': dept['id'], 'role': dept['role'],
+                      'category': dept['category'], 'upstream': len(upstream)})
+        try:
+            output = agent_call(dept, objective, mode, upstream)
+            status = 'ok'
+        except Exception as exc:
+            output = ''
+            status = 'error:' + type(exc).__name__
+        executed += 1
+
+        artifacts.append({
+            'id': dept['id'], 'role': dept['role'], 'category': dept['category'],
+            'status': status, 'output': output,
+        })
+        if status == 'ok':
+            layer_buffer.append({'id': dept['id'], 'role': dept['role'], 'output': output})
+        if on_event:
+            on_event({'type': 'agent_done', 'id': dept['id'], 'status': status})
+
+    return {
+        'objective': objective,
+        'mode': mode,
+        'execution': 'autonomous-per-agent',
+        'agents_total': total,
+        'agents_executed': executed,
+        'departments_collaborated': sum(1 for a in artifacts if a['status'] == 'ok'),
+        'artifacts': artifacts,
+    }
+
+
+def make_autonomous_agent_call():
+    """
+    Production agent_call factory: each department gets its OWN governed model
+    call, primed with its category persona and the upstream artifacts it depends
+    on. Falls back to the template dept_output when no model client is available,
+    so the executor always returns usable artifacts.
+    """
+    import anth_client as _ac
+    try:
+        _client = _ac.get_client()
+    except Exception:
+        _client = None
+
+    def _call(dept: dict, objective: str, mode: str, upstream: list) -> str:
+        if _client is None:
+            return dept_output(objective, mode, dept)
+        persona = _CATEGORY_PERSONAS.get(dept['category'], '')
+        upstream_block = '\n'.join(
+            f'- {u["role"]}: {u["output"][:400]}' for u in upstream[:12]
+        ) or '(first layer — no upstream yet)'
+        system = (
+            f'You are the {dept["role"]} agent (id {dept["id"]}, {dept["category"]}) '
+            f'in a coordinated swarm. {persona} '
+            "Produce only your department's concrete contribution — no preamble."
+        )
+        user = (
+            f'Objective: {objective}\nMode: {mode}\n\n'
+            f'Upstream work from earlier departments you must build on:\n{upstream_block}\n\n'
+            f'Give your {dept["role"]} contribution: specific, actionable, under 120 words.'
+        )
+        kwargs: dict = {
+            'model': SWARM_MODEL,
+            'max_tokens': 1024,
+            'system': _ac.make_cached_system(system),
+            'messages': [{'role': 'user', 'content': user}],
+        }
+        if SWARM_THINKING:
+            kwargs['thinking'] = {'type': 'adaptive'}
+        resp = _client.messages.create(**kwargs)
+        if getattr(resp, 'stop_reason', None) == 'refusal':
+            return dept_output(objective, mode, dept)
+        return ''.join(b.text for b in resp.content if hasattr(b, 'text')).strip()
+
+    return _call
+
+
 def swarm_collaborate_live(
     objective: str,
     mode: str,
