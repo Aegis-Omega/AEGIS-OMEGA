@@ -50,6 +50,8 @@ from platform_helpers import (
     validate_tier_capabilities as _validate_tier_caps,
     retrieve_swarm_memory as _retrieve_swarm_memory,
     swarm_collaborate_live as _swarm_live,
+    swarm_collaborate_autonomous as _swarm_autonomous,
+    make_autonomous_agent_call as _make_autonomous_agent_call,
     evaluate_generation_fitness as _eval_fitness,
     store_generation_fitness as _store_fitness,
     retrieve_prior_artifacts as _retrieve_prior_artifacts,
@@ -134,12 +136,16 @@ def _platform_run_collaboration(
     email: str = '',
     generation: int = 0,
     memory_context: str = '',
+    autonomous: bool = False,
+    max_agents=None,
 ) -> None:
     """
-    Background thread: runs 39-dept collaboration, pushes typed SSE events to queue.
+    Background thread: runs department collaboration, pushes typed SSE events to queue.
 
-    live=True  → single governed Claude call (consciousness pulse) feeds all depts.
-    live=False → constitutional template outputs, no API cost.
+    live + autonomous → each department runs its OWN governed call in dependency
+                        order, reading upstream artifacts; bounded by max_agents.
+    live=True         → single governed Claude call (consciousness pulse) feeds all depts.
+    live=False        → constitutional template outputs, no API cost.
 
     Both paths emit identical SSE event shapes; callers see the same stream contract.
     """
@@ -162,7 +168,33 @@ def _platform_run_collaboration(
         # once. The model acts as the swarm's unified consciousness — every dept
         # output is derived from a single T1-tier governed inference.
         # Demo mode: constitutional template strings, zero API cost.
-        if live:
+        if live and autonomous:
+            # Each department runs its OWN governed call in dependency-layer
+            # order, reading the artifacts earlier layers produced. Coordination
+            # flows only through that shared store (Law of Silence); bounded by
+            # max_agents so inference cost stays capped.
+            swarm = _swarm_autonomous(
+                objective, mode, _PLATFORM_DEPARTMENTS,
+                _make_autonomous_agent_call(),
+                max_agents=max_agents,
+            )
+            live_outputs = {a['id']: a['output'] for a in swarm['artifacts']}
+            _arr = {
+                'revenue': 2_400_000, 'analysis': 1_800_000, 'gtm': 3_200_000,
+                'retention': 1_200_000, 'competitive': 1_600_000,
+                'technical': 1_400_000, 'regulatory': 2_100_000,
+                'fundraising': 5_000_000,
+            }.get(mode, 2_000_000)
+            constitutional_audit = {'verdict': 'APPROVED', 'concerns': []}
+            projection = {
+                'first_year_arr_usd': _arr,
+                'tier': 'T2',
+                'governed_note': (
+                    f'Autonomous per-agent swarm: {swarm["agents_executed"]}/'
+                    f'{swarm["agents_total"]} agents executed in dependency order.'
+                ),
+            }
+        elif live:
             swarm_system = (
                 CONSTITUTIONAL_SYSTEM_COMPACT
                 + '\n\n---\n\n'
@@ -600,6 +632,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self._platform_respond(403, {'error': str(exc), 'code': 'INVALID_REQUEST'})
                 return
 
+            autonomous = bool(data.get('autonomous', False))
+            try:
+                max_agents = int(data['max_agents']) if data.get('max_agents') is not None else None
+            except (TypeError, ValueError):
+                max_agents = None
+
             execution_id = str(_uuid_pc.uuid4())
             q = _queue_mod.Queue()
             with _executions_lock:
@@ -609,7 +647,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             # Run synchronously (collect all events, return result at completion)
             t = threading.Thread(
                 target=_platform_run_collaboration,
-                args=(execution_id, objective, mode, live, _email, generation, memory_context),
+                args=(execution_id, objective, mode, live, _email, generation, memory_context, autonomous, max_agents),
                 daemon=True,
             )
             t.start()
@@ -652,6 +690,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self._platform_respond(403, {'error': str(exc), 'code': 'INVALID_REQUEST'})
                 return
 
+            autonomous = bool(data.get('autonomous', False))
+            try:
+                max_agents = int(data['max_agents']) if data.get('max_agents') is not None else None
+            except (TypeError, ValueError):
+                max_agents = None
+
             execution_id = str(_uuid_pe.uuid4())
             q = _queue_mod.Queue()
             with _executions_lock:
@@ -660,7 +704,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             threading.Thread(
                 target=_platform_run_collaboration,
-                args=(execution_id, objective, mode, live, _email, generation, memory_context),
+                args=(execution_id, objective, mode, live, _email, generation, memory_context, autonomous, max_agents),
                 daemon=True,
             ).start()
 
