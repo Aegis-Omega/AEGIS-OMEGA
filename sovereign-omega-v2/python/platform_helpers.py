@@ -153,6 +153,33 @@ PLATFORM_DEPARTMENTS = [
     {'id': 'CON-09', 'role': 'Guardian',    'category': 'constitutional'},
 ]
 
+
+# The roster is dynamic, not frozen at 39: an optional JSON file pointed to by
+# AEGIS_DEPARTMENTS_FILE may append departments so the swarm scales/evolves
+# without code edits. Each entry needs id/role/category; duplicate ids are
+# skipped. Absent the env var, the default roster above stands (contract = 39).
+def _extend_departments(base: list[dict]) -> list[dict]:
+    path = os.environ.get('AEGIS_DEPARTMENTS_FILE', '').strip()
+    if not path or not os.path.exists(path):
+        return base
+    try:
+        with open(path, encoding='utf-8') as _fh:
+            extra = json.load(_fh)
+    except Exception:
+        return base
+    if not isinstance(extra, list):
+        return base
+    seen = {d['id'] for d in base}
+    roster = list(base)
+    for d in extra:
+        if isinstance(d, dict) and {'id', 'role', 'category'} <= d.keys() and d['id'] not in seen:
+            roster.append({'id': d['id'], 'role': d['role'], 'category': d['category']})
+            seen.add(d['id'])
+    return roster
+
+
+PLATFORM_DEPARTMENTS = _extend_departments(PLATFORM_DEPARTMENTS)
+
 # Domain-expert framing injected per department category into the swarm prompt.
 # Each string is a directive that sharpens analysis beyond generic output.
 _CATEGORY_PERSONAS: dict[str, str] = {
@@ -413,7 +440,7 @@ def record_revenue_cycle(cycle_id: str, objective: str, mode: str,
         'mode': mode,
         'projected_arr_usd': arr_usd,
         'constitutional_verdict': verdict,
-        'departments_collaborated': 39,
+        'departments_collaborated': len(PLATFORM_DEPARTMENTS),
     }).encode()
     url = f'{supabase_url}/rest/v1/revenue_cycles'
     auth_headers = {
