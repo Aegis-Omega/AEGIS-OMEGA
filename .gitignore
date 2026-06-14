@@ -64,8 +64,11 @@ nosetests.xml
 .claude/settings.local.json
 .vercel
 
-# Metacognitive live chain — ephemeral per-container; only seals.jsonl is durable
+# Metacognitive live chain — all JSONL files are runtime state, not source
 .claude/metacog/chain.jsonl
+.claude/metacog/verdicts.jsonl
+.claude/metacog/seals.jsonl
+.claude/metacog/ratifications.jsonl
 
 # Content-addressed delta hook runtime state — session-local, not committed
 .claude/session-state.json
