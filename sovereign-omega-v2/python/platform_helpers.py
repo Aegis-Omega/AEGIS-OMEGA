@@ -85,6 +85,7 @@ _INJECTION_MARKERS: tuple = (
     'disregard all prior instructions',
     'you are now a',                                   # persona-hijack pattern
     '\x00',                                            # null byte
+    'system:',                                         # system-prompt injection pattern
 )
 
 
@@ -514,6 +515,17 @@ _MODE_VERBS: dict[str, str] = {
     'fundraising':  'Fundraising assessment',
 }
 
+_MODE_TIERS: dict[str, str] = {
+    'revenue':      'T2',
+    'analysis':     'T2',
+    'gtm':          'T2',
+    'retention':    'T2',
+    'competitive':  'T2',
+    'technical':    'T2',
+    'regulatory':   'T1',  # compliance status is empirically validated
+    'fundraising':  'T2',
+}
+
 _MODE_OUTPUTS = {
     'revenue': '{role}: 3 revenue vectors for "{obj}". Primary: SMB upsell ($12k ARR). Secondary: API monetisation. Tertiary: partner channel. T2 projection: $2.4M ARR Y1.',
     'analysis': '{role}: Market analysis "{obj}" — 2 competitive gaps. Moat: constitutional audit chain. Entry: Q3 2026. TAM: $340M.',
@@ -552,10 +564,11 @@ def dept_output(objective: str, mode: str, dept: dict) -> str:
     else:
         domain, finding, action = spec
         mode_verb = _MODE_VERBS.get(mode, 'Analysis')
+        tier = _MODE_TIERS.get(mode, 'T2')
         base = (
             f'{role} [{mode_verb}]: {domain.capitalize()} — '
             f'{finding}. '
-            f'Action: {action}.'
+            f'Action: {action}. [{tier}]'
         )
     return base + _CATEGORY_SUFFIX.get(dept['category'], '')
 
@@ -1735,8 +1748,37 @@ def fetch_grace_leaderboard() -> list:
     Read the grace_chain_summary view — all depts sorted by lifetime_graces desc.
     Returns [] when SUPABASE_URL is unset (dev mode) or on error.
     """
-    import urllib.request as _urGL
-    import urllib.error as _ueGL
+    import urllib.request as _ur_gl
+    import urllib.error as _ue_gl
+
+    supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+    if not supabase_url or not service_key:
+        return []
+
+    url = f'{supabase_url}/rest/v1/grace_chain_summary?order=lifetime_graces.desc'
+    req = _ur_gl.Request(url, headers={
+        'apikey':        service_key,
+        'Authorization': f'Bearer {service_key}',
+    })
+    try:
+        with _ur_gl.urlopen(req, timeout=5) as resp:
+            return json.loads(resp.read().decode())
+    except Exception:
+        return []
+
+
+def _fetch_dept_fitness_stats(window: int = 50) -> dict:
+    """
+    Internal: read department_fitness_tracking, compute homeostasis zone.
+    Returns {} when Supabase is unset or on error. Not part of the public API.
+    """
+    import urllib.request as _ur_ft
+    import math as _math_ft
+
+    supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+    if not supabase_url or not service_key:
         return {}
 
     params = (
@@ -1745,12 +1787,11 @@ def fetch_grace_leaderboard() -> list:
         f'&select=fitness_score,constitutional_factor,stagnation_flag,created_at'
     )
     url = f'{supabase_url}/rest/v1/department_fitness_tracking{params}'
-    headers = {
-        'apikey': service_key,
+    req = _ur_ft.Request(url, headers={
+        'apikey':        service_key,
         'Authorization': f'Bearer {service_key}',
         'Content-Type': 'application/json',
-    }
-    req = _ur_ft.Request(url, headers=headers)
+    })
     try:
         with _ur_ft.urlopen(req, timeout=5) as resp:
             rows = json.loads(resp.read().decode())
