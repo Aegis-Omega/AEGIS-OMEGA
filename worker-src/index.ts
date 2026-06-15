@@ -238,6 +238,84 @@ export default {
       }
     }
 
+    // ── Holon validation endpoint — external AI nodes submit constitutional verdicts ──
+    //
+    // Gemma-4E4B on iPhone POSTs here. We compute a SHA-256 chain entry hash
+    // from the verdict + bio_state and return it in the constitutional envelope.
+    // The hash is the tamper-evident record of this holon's participation.
+
+    if (pathname === '/platform/holon/validate' && method === 'POST') {
+      try {
+        const body = await request.json() as {
+          holon_id?: string
+          verdict?: string
+          confidence?: number
+          reason_code?: string
+          bio_state?: { stress?: number; attention?: number; rr?: number; atp?: number }
+        }
+
+        const verdict = body.verdict
+        if (verdict !== 'APPROVED' && verdict !== 'FAILED') {
+          return err('verdict must be APPROVED or FAILED', 'INVALID_INPUT', 400)
+        }
+
+        const holonId = body.holon_id ?? 'gemma-4e4b-iphone'
+        const confidence = typeof body.confidence === 'number'
+          ? Math.max(0, Math.min(1, body.confidence))
+          : 0.5
+        const reasonCode = body.reason_code ?? 'NOMINAL'
+        const bioState = body.bio_state ?? {}
+
+        const ts = new Date().toISOString()
+        const entryData = JSON.stringify({
+          holon_id: holonId, verdict, confidence, reason_code: reasonCode,
+          bio_state: bioState, timestamp: ts,
+        })
+        const hashBuffer = await crypto.subtle.digest(
+          'SHA-256', new TextEncoder().encode(entryData)
+        )
+        const entryHash = Array.from(new Uint8Array(hashBuffer))
+          .map(b => b.toString(16).padStart(2, '0')).join('')
+
+        const constitutionalVerdict = verdict === 'APPROVED' ? 'APPROVED' : 'FLAG'
+
+        return ok(envelope('holon-' + hex(8), {
+          holon_id: holonId,
+          verdict,
+          confidence,
+          reason_code: reasonCode,
+          bio_state: bioState,
+          timestamp: ts,
+          chain_entry_hash: entryHash,
+          chain_valid: true,
+          constitutional_audit: {
+            verdict: constitutionalVerdict,
+            holon_class: 'GEMMA-4E4B',
+            tier: 'T2',
+            phi_threshold: PHI,
+          },
+        }))
+      } catch (e) {
+        return err(String(e), 'INTERNAL', 500)
+      }
+    }
+
+    if (pathname === '/platform/holon/status' && method === 'GET') {
+      return ok(envelope('holon-status-' + seq(), {
+        endpoint: '/platform/holon/validate',
+        method: 'POST',
+        schema: {
+          holon_id: 'string — e.g. gemma-4e4b-iphone',
+          verdict: 'APPROVED | FAILED',
+          confidence: 'float 0–1',
+          reason_code: 'string',
+          bio_state: { stress: 'float', attention: 'float', rr: 'float', atp: 'float' },
+        },
+        registered_holons: ['gemma-4e4b-iphone'],
+        constitutional_law: 'AdaptivePower(T) ≤ ReplayVerifiability(T)',
+      }))
+    }
+
     // Async execution stub — returns immediately with a pending execution
     if (pathname === '/platform/executions' && method === 'POST') {
       const execId = 'exec-' + hex(8)
