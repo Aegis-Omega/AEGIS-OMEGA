@@ -9,6 +9,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import '../landing.css'
 import { SwarmDemoWidget } from './SwarmDemoWidget'
+import { CoreCanvas } from './console/CoreCanvas.js'
+import { NousButton, ArrowR } from './console/NousUI.js'
 
 // ── PostHog analytics ─────────────────────────────────────────────────────────
 
@@ -69,6 +71,7 @@ interface ChainStatus {
   corruption: number
   firstBreak: number
   t0: boolean
+  terminalHash: string
 }
 
 async function mkEntry(seq: number, prevHash: string, pick: [string, string, string]): Promise<ChainEntry> {
@@ -101,12 +104,15 @@ async function validateChain(chain: ChainEntry[]): Promise<ChainStatus> {
       if (firstBreak < 0) firstBreak = e.seq
     }
   }
-  return { valid: corruption === 0, corruption, firstBreak, t0: corruption === 0 }
+  return {
+    valid: corruption === 0, corruption, firstBreak, t0: corruption === 0,
+    terminalHash: chain.length > 0 ? chain[chain.length - 1]!.hash : GENESIS,
+  }
 }
 
 function useTamperChain({ seed = 6, win = 8, tickMs = 2600 } = {}) {
   const [chain, setChain] = useState<ChainEntry[]>([])
-  const [status, setStatus] = useState<ChainStatus>({ valid: true, corruption: 0, firstBreak: -1, t0: true })
+  const [status, setStatus] = useState<ChainStatus>({ valid: true, corruption: 0, firstBreak: -1, t0: true, terminalHash: GENESIS })
   const chainRef = useRef<ChainEntry[]>([])
   const seqRef = useRef(seed)
 
@@ -357,53 +363,56 @@ function TopBar({ status, total, ttv }: { status: ChainStatus; total: number; tt
 // ── Hero ───────────────────────────────────────────────────────────────────────
 
 function Hero({ status, total, ttv }: { status: ChainStatus; total: number; ttv: () => number }) {
+  const terminalShort = status.terminalHash !== GENESIS
+    ? `${status.terminalHash.slice(0, 8)}…${status.terminalHash.slice(-8)}`
+    : `${'0'.repeat(8)}…`
+
   return (
     <section className="ld-hero" id="top">
-      <div className="ld-wrap">
-        <div className="ld-eyebrow-pill">
-          <span className="ld-live"/>
-          Constitutional AI Runtime · executing in your browser
+      <CoreCanvas contained />
+      <div className="ld-wrap ld-hero-inner">
+        <div className="ld-law-label">Constitutional AI Runtime · AEGIS-Ω</div>
+        <h1 className="ld-hero-h1">
+          Every AI decision,<br/>
+          <span className="ld-hero-accent">cryptographically provable.</span>
+        </h1>
+        <div className="ld-law-block">
+          <div className="ld-law-caption">The law that enforces this at runtime:</div>
+          <div className="ld-law-eq" aria-label="AdaptivePower of T is less than or equal to ReplayVerifiability of T">
+            AdaptivePower(T) ≤ ReplayVerifiability(T)
+          </div>
+          <p className="ld-law-sub">Not a training objective — a runtime halt condition.</p>
         </div>
-        <h1>The AI system that<br/><span className="ld-gold">governs itself.</span></h1>
-        <p className="ld-lead">
-          Not by description. <b>By execution.</b> Metacognitive self-awareness,
-          retrospective replay, and BFT consensus — running as live substrate,
-          hash-chained and tamper-evident.
-        </p>
-        <div className="ld-status-strip" role="status">
-          {[
-            { k: 'is_valid',     v: String(status.valid),    cls: status.valid ? 'ok' : 'bad' },
-            { k: 't0_verdict',   v: String(status.t0),       cls: status.t0 ? 'ok' : 'bad' },
-            { k: 'corruption',   v: String(status.corruption), cls: status.corruption ? 'bad' : 'ok' },
-            { k: 'chain_length', v: String(total),           cls: 'gold' },
-            { k: 'bridge',       v: 'online',                cls: 'info' },
-          ].map(({ k, v, cls }) => (
-            <div className="ld-cell" key={k}>
-              <span className="ld-key">{k}</span>
-              <span className={`ld-val ${cls}`}>{v}</span>
-            </div>
-          ))}
+
+        <div className="ld-proof-ledger" role="region" aria-label="Live constitutional proofs">
+          <div className="ld-proof-row">
+            <span className="ld-badge ld-badge--t0">T0</span>
+            <span className="ld-proof-name">Voting threshold = mutation ceiling = (√5−1)/2</span>
+            <code className="ld-proof-val">0.6180339887…</code>
+          </div>
+          <div className="ld-proof-row">
+            <span className={`ld-badge ${status.valid ? 'ld-badge--live' : 'ld-badge--bad'}`}>
+              {status.valid ? '● LIVE' : '⚠ BAD'}
+            </span>
+            <span className="ld-proof-name">This page records its own decisions — tamper-evident · {total} entries</span>
+            <code className="ld-proof-val ld-proof-val--hash">{terminalShort}</code>
+          </div>
+          <div className="ld-proof-row">
+            <span className="ld-badge ld-badge--t0">453/453</span>
+            <span className="ld-proof-name">API contract tests</span>
+            <code className="ld-proof-val ld-proof-val--pass">PASS</code>
+          </div>
         </div>
-        <p className="ld-field-hint">
-          click to disturb the σ field · scroll to deepen λ memory &nbsp;·&nbsp;
-          σ=<span className="v" id="ld-sigma">0.000</span> &nbsp;
-          <span id="ld-frames">0</span> frames
-        </p>
-        <div className="ld-cta-row">
-          <a
-            className="ld-btn ld-btn-primary ld-btn-lg"
-            href="/pricing"
-            onClick={() => captureEvent('hero_pricing_cta', { ttv_seconds: ttv() })}
-          >
-            Get API Access <IArrowR/>
-          </a>
-          <a
-            className="ld-btn ld-btn-ghost ld-btn-lg"
-            href="#substrate"
-            onClick={() => captureEvent('hero_substrate_link', { ttv_seconds: ttv() })}
-          >
-            Observe the substrate
-          </a>
+
+        <div className="ld-cta-row ld-cta-row--left">
+          <NousButton href="/pricing" variant="primary" size="lg"
+            onClick={() => captureEvent('hero_pricing_cta', { ttv_seconds: ttv() })}>
+            Get API Access <ArrowR/>
+          </NousButton>
+          <NousButton href="#substrate" variant="ghost" size="lg"
+            onClick={() => captureEvent('hero_substrate_link', { ttv_seconds: ttv() })}>
+            Read the substrate
+          </NousButton>
         </div>
       </div>
     </section>

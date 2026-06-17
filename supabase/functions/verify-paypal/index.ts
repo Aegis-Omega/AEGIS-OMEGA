@@ -10,6 +10,7 @@ import { CORS } from '../_shared/cors.ts'
 const PAYPAL_CLIENT_ID     = Deno.env.get('PAYPAL_CLIENT_ID') ?? ''
 const PAYPAL_CLIENT_SECRET = Deno.env.get('PAYPAL_CLIENT_SECRET') ?? ''
 const PAYPAL_MODE          = Deno.env.get('PAYPAL_MODE') ?? 'sandbox'
+const RESEND_API_KEY       = Deno.env.get('RESEND_API_KEY') ?? ''
 const PAYPAL_BASE          = PAYPAL_MODE === 'live'
   ? 'https://api-m.paypal.com'
   : 'https://api-m.sandbox.paypal.com'
@@ -37,6 +38,24 @@ async function getPayPalToken(): Promise<string> {
 }
 
 interface CaptureResult { status: string; capturedUSD: number }
+
+async function sendApiKey(email: string, tier: string, rawKey: string): Promise<void> {
+  if (!RESEND_API_KEY) return
+  const limits: Record<string, string> = { explorer: '10', operator: '500', sovereign: 'unlimited' }
+  const prices: Record<string, string> = { explorer: 'free', operator: '$49', sovereign: '$499' }
+  const body = {
+    from: 'AEGIS Omega <api@aegisomega.com>',
+    to: [email],
+    subject: `Your AEGIS API key — ${tier} tier`,
+    html: `<div style="font-family:monospace;max-width:600px;margin:0 auto;padding:24px"><h2>Your AEGIS Platform API Key</h2><p>Tier: <strong>${tier}</strong> (${prices[tier] ?? ''})<br>Call limit: <strong>${limits[tier] ?? '?'} requests</strong></p><div style="background:#0f0f0f;color:#00ff88;padding:16px;border-radius:8px;font-size:14px;word-break:break-all">${rawKey}</div><p style="margin-top:16px">Use as HTTP header:<br><code>x-api-key: ${rawKey}</code></p><pre style="background:#1a1a1a;padding:12px;border-radius:6px;font-size:12px">curl -X POST https://aegis-vertex.aegisomega.com/platform/collaborate -H "x-api-key: ${rawKey}" -H "Content-Type: application/json" -d '{"objective":"Analyse our Q2 revenue","mode":"analysis","live":false}'</pre><p style="color:#666;font-size:12px">Docs: <a href="https://aegisomega.com/platform">aegisomega.com/platform</a><br>Support: api@aegisomega.com</p></div>`,
+  }
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) console.error('Resend failed:', await res.text())
+}
 
 async function captureOrder(token: string, orderId: string): Promise<CaptureResult> {
   const resp = await fetch(`${PAYPAL_BASE}/v2/checkout/orders/${orderId}/capture`, {
@@ -148,6 +167,9 @@ Deno.serve(async (req) => {
   }
 
   const rawKey = data as string
+
+  // Email key to customer — fire and forget (graceful if RESEND_API_KEY unset)
+  sendApiKey(emailNorm, tierNorm, rawKey).catch(e => console.error('sendApiKey failed:', e))
 
   // Notify owner — fire and forget
   const notifyUrl    = `${Deno.env.get('SUPABASE_URL')}/functions/v1/notify`

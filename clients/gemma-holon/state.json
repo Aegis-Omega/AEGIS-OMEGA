@@ -1,0 +1,11 @@
+{
+  "holon_id": "gemma-4e4b-iphone",
+  "bio_state": {
+    "stress": 0.4262,
+    "attention": 0.82,
+    "rir": 0.9511,
+    "atp": 2100
+  },
+  "qk_norm": "auto",
+  "_comment": "stress/attention/rir in [0,1]. atp in [0,2500]. Update before each inference call."
+}

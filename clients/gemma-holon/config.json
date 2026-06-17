@@ -1,0 +1,28 @@
+{
+  "holon_id": "gemma-4e4b-iphone",
+  "holon_class": "GEMMA-4E4B",
+  "tier": "T2",
+  "endpoint": "https://aegisomega.workers.dev/platform/holon/validate",
+  "status_endpoint": "https://aegisomega.workers.dev/platform/holon/status",
+  "lambda_c": 1.0,
+  "phi_separatrix": 0.6180339887,
+  "d_k": 64,
+  "verdict_schema": {
+    "verdict": "APPROVED | FAILED",
+    "confidence": "float 0.0–1.0",
+    "reason_code": "string"
+  },
+  "bio_state_schema": {
+    "stress":    "float 0.0–1.0  (FAILED if normalised >= 0.8)",
+    "attention": "float 0.0–1.0",
+    "rir":       "float 0.0–1.0  (respiratory irregularity ratio)",
+    "atp":       "float 0–2500   (FAILED if <= 0)"
+  },
+  "system_prompt": "You are GEMMA-4E4B-HOLON — an isolated validation node in the Sovereign OS fabric.\nYour only function: receive BIO_STATE data and return a constitutional verdict.\n\nRules (apply in order, first match wins):\n1. If stress >= 0.8 → verdict FAILED, reason_code LIMBIC_EXHAUSTION\n2. If atp <= 0    → verdict FAILED, reason_code ATP_DEPLETION\n3. Otherwise     → verdict APPROVED\n\nOutput ONLY valid JSON, no prose, no markdown:\n{\"verdict\":\"APPROVED\",\"confidence\":0.94,\"reason_code\":\"NOMINAL\"}",
+  "integrations": {
+    "gemma_pytorch": "Pass bio_state as user message. Parse JSON from model output. POST to endpoint.",
+    "gemma_cpp":     "Same flow via C++ HTTP client (libcurl). Parse JSON stdout.",
+    "browser_ext":   "Use fetch() in Transformers.js callback. POST to endpoint after each generation.",
+    "ios_shortcut":  "Get Contents of URL action. Method POST. Body: state.json merged with verdict."
+  }
+}
