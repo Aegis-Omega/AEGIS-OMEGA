@@ -7,15 +7,12 @@
 /* ── Layout shell ─────────────────────────────────────────── */
 .ld-shell { position: relative; z-index: 1; }
 
-.ld-field {
-  position: fixed; inset: 0; z-index: 0;
-  width: 100vw; height: 100vh; pointer-events: none;
-}
+/* Full-screen animated particle field removed — it was visual noise behind
+   every section. Hero keeps its single contained canvas. */
+.ld-field { display: none; }
 .ld-veil {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  background:
-    radial-gradient(110% 70% at 50% -5%,  rgba(200,169,110,0.07), transparent 50%),
-    radial-gradient(80%  50% at 50% 110%, rgba(7,7,10,0.92), transparent 55%);
+  background: radial-gradient(120% 80% at 50% -10%, rgba(200,169,110,0.04), transparent 55%);
 }
 
 .ld-wrap {
@@ -44,7 +41,7 @@
 
 .ld-section-head { margin-bottom: 64px; max-width: 800px; }
 .ld-section-head h2 {
-  font-size: clamp(36px, 4.5vw, 52px); font-weight: 800; letter-spacing: -0.03em;
+  font-size: clamp(36px, 4.5vw, 52px); font-weight: 700; letter-spacing: -0.03em;
   line-height: 1.04; margin: 18px 0 0; color: var(--aegis-text);
 }
 .ld-section-head p {
@@ -88,7 +85,6 @@
 .ld-ribbon .ld-k { color: var(--aegis-muted); }
 .ld-ribbon .ld-dot {
   width: 6px; height: 6px; border-radius: 50%;
-  box-shadow: 0 0 8px currentColor;
 }
 @media (max-width: 1040px) { .ld-ribbon { display: none; } }
 
@@ -225,7 +221,7 @@
 
 .ld-stream-side { position: sticky; top: 88px; }
 .ld-stream-side h2 {
-  font-size: clamp(32px, 4vw, 44px); font-weight: 800; letter-spacing: -0.03em;
+  font-size: clamp(32px, 4vw, 44px); font-weight: 700; letter-spacing: -0.03em;
   line-height: 1.08; margin: 0 0 20px; color: var(--aegis-text);
 }
 .ld-stream-note { font-size: 15px; line-height: 1.68; color: var(--aegis-secondary); margin-bottom: 28px; }
@@ -360,17 +356,13 @@
   background: linear-gradient(90deg, transparent 0%, var(--card-accent) 40%, var(--card-accent) 60%, transparent 100%);
   opacity: 0.7;
 }
-.ld-layer-card .ld-topglow {
-  position: absolute; top: 0; left: 0; right: 0; height: 80px;
-  background: radial-gradient(ellipse 70% 100% at 50% 0%, var(--card-accent-a12, transparent), transparent);
-  pointer-events: none;
-}
+.ld-layer-card .ld-topglow { display: none; }
 .ld-layer-card .ld-ico { margin-bottom: 20px; flex-shrink: 0; }
 .ld-layer-card .ld-ltag {
   font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
   text-transform: uppercase; margin-bottom: 10px; display: block;
 }
-.ld-layer-card h3 { font-size: 21px; font-weight: 800; margin: 0 0 12px; color: var(--aegis-text); letter-spacing: -0.015em; }
+.ld-layer-card h3 { font-size: 21px; font-weight: 700; margin: 0 0 12px; color: var(--aegis-text); letter-spacing: -0.015em; }
 .ld-layer-card p  { font-size: 14px; line-height: 1.65; color: var(--aegis-secondary); margin: 0; flex: 1; }
 .ld-layer-card .ld-metric {
   margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--r-line);
@@ -380,9 +372,10 @@
 .ld-layer-card .ld-metric b { font-weight: 700; font-size: 13px; }
 .ld-layer-card .ld-wm-num {
   position: absolute; bottom: -10px; right: 14px;
-  font-family: var(--font-mono); font-size: 100px; font-weight: 900;
+  font-family: var(--font-mono); font-size: 100px; font-weight: 700;
   color: var(--aegis-text); opacity: 0.03; line-height: 1;
   pointer-events: none; user-select: none; letter-spacing: -0.05em;
+  display: none;
 }
 
 /* ── Equation ─────────────────────────────────────────────── */
@@ -397,7 +390,6 @@
   font-family: var(--font-mono);
   font-size: clamp(44px, 7.5vw, 88px);
   color: var(--aegis-phi); letter-spacing: -0.02em; line-height: 1;
-  text-shadow: var(--phi-glow-md);
 }
 .ld-eq-label {
   font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.22em;
@@ -418,7 +410,7 @@
 .ld-eq-sub .g  { color: var(--aegis-phi); }
 .ld-eq-sub .t0 { color: var(--aegis-T0); }
 
-.ld-eq-copy h2 { font-size: clamp(30px, 3.5vw, 40px); font-weight: 800; letter-spacing: -0.03em; margin: 14px 0 0; line-height: 1.1; }
+.ld-eq-copy h2 { font-size: clamp(30px, 3.5vw, 40px); font-weight: 700; letter-spacing: -0.03em; margin: 14px 0 0; line-height: 1.1; }
 .ld-eq-copy p  { font-size: 15px; line-height: 1.72; color: var(--aegis-secondary); margin: 18px 0 0; }
 .ld-eq-copy p code { font-family: var(--font-mono); color: var(--aegis-phi); font-size: 13px; }
 .ld-eyebrow {
@@ -438,7 +430,6 @@
 .ld-inv-row .ld-glyph {
   font-family: var(--font-mono); color: var(--aegis-phi); font-size: 17px; font-weight: 700;
   flex-shrink: 0; width: 28px; text-align: center; padding-top: 2px;
-  text-shadow: var(--phi-glow-sm);
 }
 .ld-inv-row .ld-body h4 { font-size: 15px; font-weight: 700; margin: 0 0 5px; color: var(--aegis-text); }
 .ld-inv-row .ld-body p  { font-size: 13px; line-height: 1.58; color: var(--aegis-muted); margin: 0; }
@@ -490,14 +481,12 @@
 .ld-final .ld-mark-lg {
   width: 64px; height: 64px; color: var(--aegis-phi);
   margin: 0 auto 30px; display: block;
-  animation: breathe 5.5s ease-in-out infinite;
-  filter: drop-shadow(0 0 16px rgba(200,169,110,0.4));
 }
 .ld-final h2 {
-  font-size: clamp(34px, 5.5vw, 58px); font-weight: 900;
+  font-size: clamp(34px, 5.5vw, 58px); font-weight: 700;
   letter-spacing: -0.035em; margin: 0; line-height: 1.03;
 }
-.ld-final h2 .ld-gold { color: var(--aegis-phi); text-shadow: var(--phi-glow-md); }
+.ld-final h2 .ld-gold { color: var(--aegis-phi); }
 .ld-final p { font-size: 17px; color: var(--aegis-secondary); margin: 22px auto 0; max-width: 500px; line-height: 1.65; }
 @media (max-width: 640px) { .ld-final { padding: 64px 24px; } }
 

@@ -1,0 +1,37 @@
+name: aegis-interface
+
+on:
+  push:
+    paths:
+      - "packages/aegis-interface/**"
+      - ".github/workflows/aegis-interface.yml"
+  pull_request:
+    paths:
+      - "packages/aegis-interface/**"
+      - ".github/workflows/aegis-interface.yml"
+
+jobs:
+  contract-equivalence:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/aegis-interface
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pytest
+        run: pip install pytest
+      - name: Unit tests
+        run: PYTHONPATH=. python -m pytest -q
+      # RFC 0001 §8 + §9.2: equivalence gate + determinism / staleness check.
+      # Fails the build (exit != 0) if any projection diverges from the WIT
+      # source of truth or if committed artefacts are out of date.
+      - name: Equivalence + determinism gate
+        run: PYTHONPATH=. python -m aegis_interface.cli check wit/skill_snapshot.wit --out generated
+      # RFC 0005: evolution verdict + composition/confluence law must hold.
+      - name: Evolution + composition gate
+        run: |
+          PYTHONPATH=. python -m aegis_interface.cli evolve --from wit/skill_snapshot.wit --to wit/skill_snapshot_v2.wit
+          PYTHONPATH=. python -m aegis_interface.cli compose wit/skill_snapshot.wit wit/skill_snapshot_v2.wit wit/skill_snapshot_v3.wit

@@ -191,16 +191,30 @@ class AegisClient:
     def start_execution(self, objective: str, mode: Mode = "analysis", live: bool = False) -> ExecutionHandle:
         """POST /platform/executions — async initiation.  Returns immediately; stream or poll for result."""
         raw = self._request("POST", "/platform/executions", {"objective": objective, "mode": mode, "live": live})
+        data = _validate_envelope(raw)
         return ExecutionHandle(
-            execution_id=raw["execution_id"],
-            stream_url=raw["stream_url"],
+            execution_id=data["execution_id"],
+            stream_url=data["stream_url"],
             _client=self,
         )
 
     def get_execution(self, execution_id: str) -> CollaborationResult:
-        """GET /platform/executions/{id} — retrieve a completed execution."""
+        """GET /platform/executions/{id} — retrieve a completed execution.
+
+        The endpoint returns an envelope whose ``data`` is a status wrapper
+        ({status, result?}); the CollaborationResult lives under ``result``
+        only once status is ``complete``.
+        """
         raw = self._request("GET", f"/platform/executions/{execution_id}")
-        return CollaborationResult._from_dict(_validate_envelope(raw))
+        data = _validate_envelope(raw)
+        status = data.get("status")
+        if status == "error":
+            raise AegisError(data.get("error") or "execution failed", code="INTERNAL")
+        if status != "complete":
+            raise AegisError(
+                f"execution {execution_id!r} not complete (status={status!r})", code="INTERNAL"
+            )
+        return CollaborationResult._from_dict(data["result"])
 
     def delete_execution(self, execution_id: str) -> None:
         """DELETE /platform/executions/{id} — remove a stored execution result."""
