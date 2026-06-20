@@ -49,20 +49,19 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
 
 ## 3. Broken — does not compile
 
-- **`eccf/`** — Rust crate, syntax error + unresolved import. Won't build. The only live "ECCF" is a Python comment-marker stub in `sovereign-mesh`, unrelated to this crate.
-- **`gcce/`** — Rust crate, borrow-after-move error. Won't build.
+- ~~`eccf/`, `gcce/`~~ — **removed** (were non-compiling standalone Rust crates, not in any workspace or CI).
 - **`src/hypervisor/*.rs`** — orphan Rust using `crate::hypervisor::…` with **no Cargo.toml anywhere above it**. Cannot compile in place.
 
 ---
 
 ## 4. Dead / duplicate — safe to consider removing
 
-- **`frontend/`** = dead older duplicate of `tactical/` (Google Gemini, `MOCK_WEBHOOK_URL`, setTimeout simulation).
-- **Gumroad path** = dead code: `packages/shared/components/LicenseGate.tsx` + `*/api/verify-license.ts` (all 3 tools) — **imported by nothing**.
-- **Lemon Squeezy subsystem** = dormant: `supabase/functions/{ls-webhook,issue-token,restore-access}` + `scripts/gen-grant-keypair.mjs` — nothing calls them.
+- ~~`frontend/`~~ = **removed** (was a dead duplicate of `tactical/`).
+- ~~Gumroad path~~ = **removed**: `LicenseGate.tsx` + `*/api/verify-license.ts` (imported by nothing).
+- ~~Lemon Squeezy subsystem~~ = **removed** from repo: `ls-webhook`/`issue-token`/`restore-access` + `gen-grant-keypair.mjs`. NOTE: the edge functions may still be **deployed on Supabase** — delete there separately if desired.
 - **`.github/workflows/deploy-cloud-run.yml`** = no-op duplicate of `deploy.yml`; **`agent-dispatch.yml`** = no-op unless a repo var is set.
-- **root `package.json`** named `aegis-tactical-dashboard` with `frontend`/`backend` workspaces = orphaned identity from a different app.
-- **`studio/dist/`** = committed build artifact (shouldn't be tracked).
+- **root `package.json`** named `aegis-tactical-dashboard` — frontend workspace entry removed; now `backend`-only (still an orphaned identity).
+- ~~`studio/dist/`~~ = **untracked** (committed build artifact removed from git).
 - Dormant scripts: `sync-readme.sh` (CLAUDE.md wrongly claims it's a hook), `check-frontend-build.sh`, `wire-custom-domain.sh`, `auto-gate.py`, `resonance_dashboard.js`, `review-copilot-worktree.ps1` (Windows, hardcoded path).
 
 ---

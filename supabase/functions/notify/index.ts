@@ -1,7 +1,7 @@
 // AEGIS-Ω notification hub — email (Resend) + Slack from one endpoint
 // Deploy: supabase functions deploy notify --no-verify-jwt
 // Env vars: RESEND_API_KEY, SLACK_WEBHOOK_URL, NOTIFY_EMAIL (default: info@aegisomega.com)
-// Called internally by ls-webhook, agent, and any other function.
+// Called internally by agent and any other function.
 // Auth: pass internal secret via X-Notify-Secret header (set NOTIFY_SECRET env var)
 import { CORS } from '../_shared/cors.ts'
 

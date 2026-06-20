@@ -58,7 +58,7 @@ New here? Read [`HANDOFF.md`](HANDOFF.md) (current ground truth) and [`REPO_MAP.
 | `clients/gemma-holon/` | Edge holon | Gemma-4E4B on-device constitutional validation node + Ogemma Mythos gates |
 | `hub/` | Web | [aegisomega.com](https://aegisomega.com) — live hash-chained metacognitive loop + WebGPU Φ-field |
 | `platform-picker/` · `hook-generator/` · `content-calendar/` | Products | Commercial creator tools ($19 each) |
-| `supabase/functions/` | Edge functions | `verify-paypal`, `issue-token`, `notify` |
+| `supabase/functions/` | Edge functions | `verify-paypal`, `notify` |
 
 ---
 
