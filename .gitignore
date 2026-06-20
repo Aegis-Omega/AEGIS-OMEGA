@@ -37,6 +37,10 @@ Thumbs.db
 .env.local
 *.env.*
 !*.env.example
+# AEGIS operator profiles / secret-bearing exports — never commit
+*Production Profile*
+*production-profile*
+*.profile.txt
 .vercel/
 
 # Auto-gate crash recovery checkpoint (never commit)

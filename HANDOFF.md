@@ -6,6 +6,44 @@ Where a doc disagrees with the live system, the live system wins.
 
 ---
 
+## LATEST — 2026-06-20 (read this first; older sections below are still mostly true)
+
+**Merged since the 06-14 snapshot:**
+- **PR #160 merged → `main`**: Gemma-4E4B holon + Ogemma Mythos gates (`clients/gemma-holon/`,
+  Worker `/platform/holon/validate`), and `sovereign-omega-v2/scripts/mythos-pipeline.ts` made a
+  proper time-inhomogeneous Markov chain — the reconciliation retry counter now lives in
+  `SystemStateVector.reconciliation_retries` instead of a loop-local var (no hidden memory).
+  Note: that branch had an *unrelated git history*; it was replanted onto main as one clean
+  12-file commit to become mergeable.
+
+**Open: PR #161** (branch `claude/aegis-interface-compilation-rfc-7hfnje`):
+- `packages/aegis-interface/` — RFC 0001 WIT→IR→{Rust,TS,Python} compiler + equivalence gate;
+  RFC 0005 schema-evolution/consensus (`evolution.py`, `consensus.py`, `versioned.py`).
+- `packages/aegis-py/` client/async_client envelope-unwrap fixes; worker `/platform/collaborate`
+  emits `{role,output}`.
+- `hub/src/components/PricingPage.tsx` — PayPal Smart Buttons wired to `verify-paypal`.
+- `hub` landing **de-noised** (removed full-screen particle canvas, on-text glows, watermark
+  numbers; heading weights 800/900→700 because only 400/700 fonts load) + nav brand `NOUS`→`AEGIS-Ω`.
+- `clients/gemma-holon/{huggingface_publish.py,local_model_client.py}`.
+
+**Money path — current concrete blocker:** the PricingPage shows red *"set VITE_PAYPAL_CLIENT_ID"*
+because that env var is **not set in the Vercel `hub` project**. Set it (PayPal **live** Client ID,
+Production scope) → redeploy and the buttons render. Backend `verify-paypal` is live v5; also
+confirm `PAYPAL_CLIENT_ID/SECRET` + `PAYPAL_MODE=live` in Supabase secrets.
+
+**Hard constraints learned this session (stop relearning these):**
+- This cloud sandbox **cannot load `aegisomega.com` or the Vercel previews** (network policy →
+  `ECONNREFUSED`/000). So the site can't be visually QA'd from here — judge CSS on the Vercel
+  **branch preview** or paste a **screenshot** (images *are* readable in-session).
+- **GitGuardian** on the PRs is a persistent **false positive** (φ-digit `mockSecret` test fixture
+  + a public cert-pin fingerprint), not a real leak — triage in the dashboard.
+- The endless Vercel deploy comments are the §5 free-tier rebuild-spam, not failures.
+
+**Open decision (website):** the landing is maximalist/"noisy"; operator wants it calmer. Pending
+pick: targeted de-noise (started) vs full minimal rebuild. Needs a screenshot or a "rebuild" go.
+
+---
+
 ## 0. THE ONE THING THAT MATTERS RIGHT NOW
 
 All the work below is **merged to `main`** (commit `a7cedc6`) and **verified green**. The single

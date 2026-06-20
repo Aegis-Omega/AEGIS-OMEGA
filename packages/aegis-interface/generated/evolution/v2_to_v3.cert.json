@@ -1,0 +1,49 @@
+{
+  "$schema": "https://aegis.dev/schemas/evolution-cert-v5.json",
+  "compatibility": {
+    "backward": false,
+    "forward": true,
+    "recommended_version_bump": "minor",
+    "verdict": "FORWARD_COMPATIBLE"
+  },
+  "compatibility_proof": {
+    "checks": [
+      {
+        "backward": false,
+        "forward": true,
+        "reason": "forward compatible only (new consumers read old data; old consumers cannot read new data)",
+        "vector": "AddCase(Tier.platinum)"
+      }
+    ],
+    "engine": "aegis-structural-v1"
+  },
+  "evolution_vectors": [
+    {
+      "backward": false,
+      "forward": true,
+      "name": "platinum",
+      "op": "AddCase",
+      "path": "Tier"
+    }
+  ],
+  "proof_obligations": {
+    "ConstraintPreserved": {
+      "holds": true,
+      "violated_by": []
+    },
+    "NoFieldLoss": {
+      "holds": true,
+      "violated_by": []
+    },
+    "SerializationInvariant": {
+      "holds": true,
+      "violated_by": []
+    },
+    "TypeSafetyPreserved": {
+      "holds": true,
+      "violated_by": []
+    }
+  },
+  "source_hash": "sha256:b7eb97df1ceebef22f83574274d7f96bd5a8ff3872d4705a8c340c00bb0068ef",
+  "target_hash": "sha256:172abc635ca5fa9410bb7462a6ec6671de7d5bcab63678400cc163628fdc1e2f"
+}

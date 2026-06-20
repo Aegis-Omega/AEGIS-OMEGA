@@ -1,0 +1,20 @@
+// AEGIS contract surface — RFC 0001 §4 example, extended.
+// Canonical source of truth for the SkillSnapshot contract graph.
+
+variant Tier {
+  bronze,
+  silver,
+  gold,
+}
+
+record SkillSnapshot {
+  skill_id: string,
+  tier: Tier,
+  @range(0.0, 1.0)
+  confidence: f64,
+  @range(0.0, 1.0)
+  failure_rate: f64,
+  attempts: u64,
+  tags: list<string>,
+  parent_skill: option<string>,
+}

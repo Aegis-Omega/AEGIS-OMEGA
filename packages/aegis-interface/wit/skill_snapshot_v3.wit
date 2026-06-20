@@ -1,0 +1,24 @@
+// SkillSnapshot v3 — evolution of v2 adding a new `platinum` tier case.
+// Adding an enum case is forward compatible only (new consumers read old data;
+// old consumers may receive the unknown `platinum` case).
+
+variant Tier {
+  bronze,
+  silver,
+  gold,
+  platinum,
+}
+
+record SkillSnapshot {
+  skill_id: string,
+  tier: Tier,
+  @range(0.0, 1.0)
+  confidence: f64,
+  @range(0.0, 1.0)
+  failure_rate: f64,
+  attempts: u64,
+  tags: list<string>,
+  parent_skill: option<string>,
+  @range(0.0, 1.0)
+  reliability_index: option<f64>,
+}
