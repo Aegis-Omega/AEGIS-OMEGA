@@ -5,7 +5,7 @@
 > before a BUILDER stage may touch them.
 
 **Epistemic Tier: T0 (machine-readable authority)**
-**Updated:** 2026-06-14
+**Updated:** 2026-06-19
 
 ---
 
@@ -44,7 +44,7 @@
 | `python/core_matrix.py` | M1/M2/M3 over contiguous byte array, bit-shifted integer arithmetic | T1 |
 | `python/tgcs_afse.py` | TGCS + AFSE controllers — sequence-number regularity, no wall-clock | T1 |
 | `python/gradient_anchor.py` | Drift anchor — zero tolerance raises RuntimeError | T1 |
-| `python/tests/test_platform.py` | Platform contract — 453 tests | T0 |
+| `python/tests/test_platform.py` | Platform contract — 557 tests | T0 |
 
 ---
 
@@ -98,6 +98,16 @@
 |------|---------|
 | `packages/aegis-py/` | `AegisClient` / `AsyncAegisClient` / `aegis` CLI |
 | `packages/shared/` | `@shared/lib/dashscope`, `inference-router`, `constitutional-ai` |
+
+---
+
+## Gemma Holon Client (`clients/gemma-holon/`)
+
+| Path | Purpose |
+|------|---------|
+| `clients/gemma-holon/skills/ogemma-gate.md` | Agent Skills for Google AI Edge Gallery (Gemma-4E4B iOS) |
+| `clients/gemma-holon/skills/ogemma-gate.json` | JSON skill definition for iOS AI Chat |
+| `clients/gemma-holon/state.json` | Biological state: `{ stress, attention, rir, atp }` — holon gate input |
 
 ---
 

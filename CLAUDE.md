@@ -294,6 +294,7 @@ All `/platform/*` responses: `PlatformEnvelope<T>` + `X-Contract-Version: 1.0.0`
 | Variable | Used by | Purpose |
 |----------|---------|---------|
 | `VITE_DASHSCOPE_API_KEY` | platform-picker, hook-generator, content-calendar | Qwen API key |
+| `VITE_DASHSCOPE_MODEL` | `@shared/lib/inference-router` | Qwen model (default: `qwen3.7-plus`; coder tasks: `qwen3-coder-plus`) |
 | `VITE_CLAUDE_API_KEY` | hub, packages/shared | Anthropic API key |
 | `VITE_BRIDGE_URL` | hub | Public bridge URL (optional) |
 | `AEGIS_USE_VERTEX` | python bridge | `true`=Vertex AI, `false`=direct, unset=auto |
@@ -350,7 +351,7 @@ replay divergence · topology non-determinism · unbounded ecology · centralize
 
 ## Orchestration Alliance
 
-Claude (coordinator) · ChatGPT (adversarial audit, temperature 0.99) · Qwen (implementation)
+Claude (coordinator) · ChatGPT (adversarial audit, temperature 0.99) · Qwen3.7-Plus (implementation, `qwen3.7-plus`) · Qwen3-Coder (BUILDER stage, `qwen3-coder-plus`)
 
 Architecture: FROZEN. No T4/T5 construct may ground a T0–T2 claim without evidence review.
 
