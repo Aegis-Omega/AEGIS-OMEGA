@@ -83,3 +83,6 @@ nosetests.xml
 !.dev.vars.example
 !.env.example
 worker-configuration.d.ts
+
+# Sovereign-mesh pipeline run artifacts (architect/artisan/auditor) — regenerated per sprint, not source
+state/
