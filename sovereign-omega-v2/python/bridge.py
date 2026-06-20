@@ -187,13 +187,29 @@ def _platform_run_collaboration(
                 'technical': 1_400_000, 'regulatory': 2_100_000,
                 'fundraising': 5_000_000,
             }.get(mode, 2_000_000)
-            constitutional_audit = {'verdict': 'APPROVED', 'concerns': []}
+            _phi = 0.6180339887
+            _total = swarm['agents_total']
+            _executed = swarm['agents_executed']
+            _completion = _executed / _total if _total > 0 else 0.0
+            _concerns: list[str] = []
+            if _completion < _phi:
+                _concerns.append(
+                    f'Agent completion {_completion:.4f} below φ-threshold {_phi} '
+                    f'({_executed}/{_total} departments)'
+                )
+            _empty = [a['id'] for a in swarm['artifacts'] if not str(a.get('output', '')).strip()]
+            if _empty:
+                _concerns.append(f'Empty output from departments: {", ".join(_empty)}')
+            constitutional_audit = {
+                'verdict': 'REJECTED' if _concerns else 'APPROVED',
+                'concerns': _concerns,
+            }
             projection = {
                 'first_year_arr_usd': _arr,
                 'tier': 'T2',
                 'governed_note': (
-                    f'Autonomous per-agent swarm: {swarm["agents_executed"]}/'
-                    f'{swarm["agents_total"]} agents executed in dependency order.'
+                    f'Autonomous per-agent swarm: {_executed}/'
+                    f'{_total} agents executed in dependency order.'
                 ),
             }
         elif live:

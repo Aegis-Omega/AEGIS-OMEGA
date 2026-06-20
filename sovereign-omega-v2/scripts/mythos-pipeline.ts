@@ -14,9 +14,13 @@ import Anthropic from '@anthropic-ai/sdk'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as crypto from 'crypto'
+import { fileURLToPath } from 'url'
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '../..')
 const INDEX_PATH = path.join(ROOT, 'INDEX.md')
+const STATE_PATH = path.join(ROOT, 'clients/gemma-holon/state.json')
+const HOLON_ENDPOINT = 'https://aegisomega.workers.dev/platform/holon/validate'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -40,7 +44,7 @@ interface PipelineState {
   plannerOutput?: { index_citations: string[]; files_affected: string[]; plan_steps: string[] }
   validatorOutput?: { valid: boolean; fail_reasons: string[] }
   builderOutput?: { changes: Array<{ file: string; change: string }> }
-  reviewerOutput?: { verdict: 'PASS' | 'FAIL'; unmet_steps: string[] }
+  reviewerOutput?: { verdict: 'PASS' | 'FAIL'; cycle_verdict: 'APPROVED' | 'FLAG' | 'QUARANTINE'; score: number; unmet_steps: string[]; flags: string[] }
   finalSnapshot?: SystemStateVector
 }
 
@@ -85,12 +89,22 @@ Output ONLY valid JSON:
 Changes must cover all plan_steps exactly.`,
 
   REVIEW: `You are the REVIEWER stage of the MYTHOS BOOTSTRAP pipeline.
-Check builder output against the approved plan_steps. Pass/fail only. Cannot modify output.
+Check builder output against the approved plan_steps. Cannot modify output.
+
+Constitutional audit scoring:
+- APPROVED (score 1.00): all steps covered, no suspicious patterns, scope clean
+- FLAG (score 0.70): steps covered but suspicious patterns detected (extra unregistered fields, unusual mutations, delta overflow)
+- QUARANTINE (score 0.20): forbidden file mutations, payload injection attempts, or step count mismatch
+
 Output ONLY valid JSON:
 {
   "verdict": "PASS"|"FAIL",
-  "unmet_steps": ["step not covered by builder output"]
-}`,
+  "cycle_verdict": "APPROVED"|"FLAG"|"QUARANTINE",
+  "score": 1.00|0.70|0.20,
+  "unmet_steps": ["step not covered"],
+  "flags": ["suspicious pattern if any"]
+}
+verdict=PASS requires cycle_verdict=APPROVED or FLAG. verdict=FAIL requires cycle_verdict=QUARANTINE.`,
 
   FINALIZE: `You are the FINALIZER stage of the MYTHOS BOOTSTRAP pipeline.
 Confirm the pipeline reached FINALIZE with verdict PASS. Emit the final SYSTEM STATE VECTOR.
@@ -142,6 +156,51 @@ function parseJSON<T>(raw: string, stage: Stage): T {
   }
 }
 
+// ── Holon gate (Gemma-4E4B biological quorum) ─────────────────────────────
+
+interface BioState { stress: number; attention: number; rir: number; atp: number }
+interface HolonVerdict { verdict: 'APPROVED' | 'FAILED'; confidence: number; reason_code: string; chain_entry_hash?: string }
+
+function loadBioState(): BioState {
+  try {
+    const raw = JSON.parse(fs.readFileSync(STATE_PATH, 'utf8')) as { bio_state: BioState }
+    return raw.bio_state
+  } catch {
+    return { stress: 0.4262, attention: 0.82, rir: 0.9511, atp: 2100 }
+  }
+}
+
+function computeGateVerdict(gate: 'POST_VALIDATE' | 'POST_REVIEW', bio: BioState, nSteps: number): HolonVerdict {
+  if (gate === 'POST_VALIDATE') {
+    if (bio.stress >= 0.8) return { verdict: 'FAILED', confidence: 0.99, reason_code: 'OPERATOR_STRESS_TOO_HIGH_FOR_PLAN_APPROVAL' }
+    if (nSteps > 5 && bio.stress > 0.6) return { verdict: 'FAILED', confidence: 0.87, reason_code: 'SCOPE_STRESS_THRESHOLD' }
+    return { verdict: 'APPROVED', confidence: 0.91, reason_code: 'PLAN_SCOPE_ACCEPTABLE' }
+  }
+  if (bio.atp <= 200) return { verdict: 'FAILED', confidence: 0.99, reason_code: 'ATP_INSUFFICIENT_FOR_COMMIT' }
+  if (bio.stress >= 0.7) return { verdict: 'FAILED', confidence: 0.93, reason_code: 'STRESS_TOO_HIGH_FOR_COMMIT' }
+  return { verdict: 'APPROVED', confidence: 0.96, reason_code: 'BIO_COMMIT_READY' }
+}
+
+async function holonGate(gate: 'POST_VALIDATE' | 'POST_REVIEW', bio: BioState, nSteps = 0): Promise<HolonVerdict> {
+  const result = computeGateVerdict(gate, bio, nSteps)
+  const payload = {
+    holon_id: 'gemma-4e4b-iphone',
+    verdict: result.verdict,
+    confidence: result.confidence,
+    reason_code: `${gate}:${result.reason_code}`,
+    bio_state: bio,
+  }
+  try {
+    const res = await fetch(HOLON_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: AbortSignal.timeout(6000) })
+    if (res.ok) {
+      const data = await res.json() as { data?: { chain_entry_hash?: string } }
+      const h = data?.data?.chain_entry_hash
+      if (h) result.chain_entry_hash = h
+    }
+  } catch { /* offline — verdict still valid */ }
+  return result
+}
+
 // ── Stage runners ──────────────────────────────────────────────────────────
 
 async function runOrchestrate(client: Anthropic, state: PipelineState): Promise<PipelineState> {
@@ -185,8 +244,13 @@ async function runReview(client: Anthropic, state: PipelineState): Promise<Pipel
   log('REVIEW', 'checking builder output against plan')
   const userContent = `Plan steps:\n${JSON.stringify(state.plannerOutput!.plan_steps, null, 2)}\n\nBuilder output:\n${JSON.stringify(state.builderOutput, null, 2)}`
   const raw = await callStage(client, 'REVIEW', userContent)
-  const out = parseJSON<{ verdict: 'PASS' | 'FAIL'; unmet_steps: string[] }>(raw, 'REVIEW')
-  log('REVIEW', out.verdict === 'PASS' ? 'PASS' : `FAIL — unmet: ${out.unmet_steps.join(', ')}`)
+  const out = parseJSON<{ verdict: 'PASS' | 'FAIL'; cycle_verdict: 'APPROVED' | 'FLAG' | 'QUARANTINE'; score: number; unmet_steps: string[]; flags: string[] }>(raw, 'REVIEW')
+  const scoreStr = `cycle_verdict=${out.cycle_verdict} score=${out.score}`
+  if (out.verdict === 'PASS') {
+    log('REVIEW', `PASS · ${scoreStr}${out.flags.length ? ` · flags: ${out.flags.join(', ')}` : ''}`)
+  } else {
+    log('REVIEW', `FAIL · ${scoreStr} · unmet: ${out.unmet_steps.join(', ')}`)
+  }
   return { ...state, reviewerOutput: out, ssv: { ...state.ssv, execution_phase: 'FINALIZE' } }
 }
 
@@ -215,6 +279,7 @@ async function runPipeline(task: string): Promise<void> {
   const client = new Anthropic({ apiKey })
   const indexContent = fs.readFileSync(INDEX_PATH, 'utf8')
   const indexSnapshot = computeIndexSnapshot()
+  const bioState = loadBioState()
 
   let state: PipelineState = {
     task,
@@ -250,6 +315,20 @@ async function runPipeline(task: string): Promise<void> {
       continue
     }
 
+    // POST_VALIDATE holon gate
+    const nSteps = state.plannerOutput!.plan_steps.length
+    const pv = await holonGate('POST_VALIDATE', bioState, nSteps)
+    log('VALIDATE', `holon POST_VALIDATE: ${pv.verdict} (${pv.reason_code})${pv.chain_entry_hash ? ` hash=${pv.chain_entry_hash.slice(0, 12)}…` : ''}`)
+    if (pv.verdict === 'FAILED') {
+      retries++
+      if (retries > MAX_RETRIES) {
+        console.error('[MYTHOS] RECONCILIATION exhausted — holon POST_VALIDATE blocked plan.')
+        process.exit(1)
+      }
+      console.log(`[MYTHOS] RECONCILIATION MODE — holon gate blocked (retry ${retries}/${MAX_RETRIES})`)
+      continue
+    }
+
     // BUILD
     state = await runBuild(client, state)
 
@@ -257,6 +336,11 @@ async function runPipeline(task: string): Promise<void> {
     state = await runReview(client, state)
 
     if (state.reviewerOutput!.verdict !== 'PASS') {
+      if (state.reviewerOutput!.cycle_verdict === 'QUARANTINE') {
+        console.error('[MYTHOS] QUARANTINE — constitutional violation detected. Hard fail, no retry.')
+        console.error('[MYTHOS] flags:', state.reviewerOutput!.flags)
+        process.exit(1)
+      }
       retries++
       if (retries > MAX_RETRIES) {
         console.error(`[MYTHOS] RECONCILIATION exhausted after ${MAX_RETRIES} retries. Halt.`)
@@ -267,13 +351,25 @@ async function runPipeline(task: string): Promise<void> {
       continue
     }
 
+    // POST_REVIEW holon gate
+    const pr = await holonGate('POST_REVIEW', bioState)
+    log('REVIEW', `holon POST_REVIEW: ${pr.verdict} (${pr.reason_code})${pr.chain_entry_hash ? ` hash=${pr.chain_entry_hash.slice(0, 12)}…` : ''}`)
+    if (pr.verdict === 'FAILED') {
+      console.error('[MYTHOS] SUSPEND — POST_REVIEW holon gate rejected commit.')
+      console.error(`[MYTHOS] reason: ${pr.reason_code}`)
+      console.error('[MYTHOS] action: update clients/gemma-holon/state.json when bio_state recovers.')
+      process.exit(1)
+    }
+
     break
   }
 
   // FINALIZE
   state = await runFinalize(client, state)
 
-  console.log('\n[MYTHOS] FINALIZED')
+  const cv = state.reviewerOutput!.cycle_verdict
+  const score = state.reviewerOutput!.score
+  console.log(`\n[MYTHOS] FINALIZED · cycle_verdict=${cv} · score=${score}`)
   console.log('[MYTHOS] Final SYSTEM STATE VECTOR:')
   console.log(JSON.stringify(state.finalSnapshot, null, 2))
 }
