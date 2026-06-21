@@ -72,17 +72,35 @@ def is_vertex(client) -> bool:
         return False
 
 
-def make_cached_system(text: str) -> list[dict]:
+def make_cached_system(text: str, dynamic_suffix: str = '', ttl: str = '') -> list[dict]:
     """
-    Wrap a system-prompt string as a cached content block.
+    Wrap a system prompt for prompt caching.
 
-    Pass the return value as the `system=` parameter to client.messages.create().
-    The API caches this block for 5 minutes; cache hits cost 10% of normal
-    input tokens and do not count against the input-token rate-limit bucket.
+    `text` becomes the cached block (cache_control=ephemeral). Put the STABLE,
+    unchanging part here: the cached prefix only hits when its bytes are identical
+    across calls, so anything that varies per request must NOT go in it. Mixing
+    live state into the cached block makes every call a cache miss.
+
+    `dynamic_suffix`, if given, is appended as a SEPARATE, uncached block. Put
+    per-request content (live telemetry, recent context, caller system text) here
+    so it does not bust the cache on the stable prefix.
+
+    `ttl`: '' for the default 5-minute cache, or '1h' for the 1-hour cache.
+
+    NOTE: a block only actually caches if it exceeds the model's minimum cacheable
+    length — 512 tokens for Fable/Mythos, 1024 for Opus 4.8. A prefix shorter than
+    that is sent normally and pays full input price. Confirm with the response's
+    cache_read_input_tokens (should be > 0 on the second identical call).
 
     Compatible with both Anthropic and AnthropicVertex clients.
     """
-    return [{'type': 'text', 'text': text, 'cache_control': {'type': 'ephemeral'}}]
+    cache_control: dict = {'type': 'ephemeral'}
+    if ttl:
+        cache_control['ttl'] = ttl
+    blocks = [{'type': 'text', 'text': text, 'cache_control': cache_control}]
+    if dynamic_suffix:
+        blocks.append({'type': 'text', 'text': dynamic_suffix})
+    return blocks
 
 
 # Convenience: pre-built client for module-level import
