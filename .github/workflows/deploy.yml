@@ -1,8 +1,8 @@
 name: Deploy to Cloud Run
 
 on:
-  push:
-    branches: [main]
+  # Auto-deploy to Cloud Run DISABLED to stop GCP billing. Manual-only; re-enable
+  # by restoring the `push: branches: [main]` trigger.
   workflow_dispatch:
 
 env:
