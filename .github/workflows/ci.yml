@@ -175,6 +175,9 @@ jobs:
       - name: Run /platform/* contract tests
         run: python python/tests/test_platform.py
 
+      - name: Contract equivalence gate — TS contract <-> Python runtime (no silent drift)
+        run: python3 ../scripts/contract_equivalence_check.py
+
       - name: Run hardware_config fixed-point tests
         run: python python/tests/test_hardware_config.py
 
