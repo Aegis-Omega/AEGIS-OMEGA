@@ -1,0 +1,20 @@
+{
+  "name": "@aegis/mcp-server",
+  "version": "0.1.0",
+  "description": "AEGIS constitutional agent swarm — MCP server",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": { "aegis-mcp": "dist/index.js" },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "tsx": "^4.15.0"
+  }
+}

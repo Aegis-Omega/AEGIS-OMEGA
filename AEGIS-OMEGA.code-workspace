@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"chat.mcp.discovery.enabled": {
+			"claude-desktop": true,
+			"cursor-global": true,
+			"windsurf": true,
+			"cursor-workspace": true
+		}
+	}
+}

@@ -30,46 +30,24 @@ _VERTEX_REGION  = os.environ.get('AEGIS_VERTEX_REGION', 'eu')
 _USE_VERTEX_ENV = os.environ.get('AEGIS_USE_VERTEX', '').lower()
 
 
-def _try_vertex():
-    """Return an AnthropicVertex client, or None if ADC credentials are absent.
-
-    Catches BaseException (not just Exception) because google-auth's native
-    extension (pyo3/cffi) can raise pyo3_runtime.PanicException — a
-    BaseException subclass — when compiled libraries are absent.
-    KeyboardInterrupt and SystemExit are re-raised.
-    """
-    try:
-        import google.auth
-        # Raises DefaultCredentialsError if no ADC configured.
-        google.auth.default(scopes=['https://www.googleapis.com/auth/cloud-platform'])
-        from anthropic import AnthropicVertex
-        return AnthropicVertex(project_id=_VERTEX_PROJECT, region=_VERTEX_REGION)
-    except (KeyboardInterrupt, SystemExit):
-        raise
-    except BaseException:
-        return None
-
-
 def get_client():
     """
     Return the best available Anthropic client.
 
     Priority:
       AEGIS_USE_VERTEX=true  → Vertex AI (raises if ADC unavailable)
-      AEGIS_USE_VERTEX=false → Direct API key
-      (default)              → Vertex AI if ADC available, else direct API key
+      (anything else)        → Direct API key (ANTHROPIC_API_KEY)
+
+    Vertex is opt-in ONLY and is never auto-selected. On Cloud Run, Application
+    Default Credentials are always present, and auto-selecting Vertex silently
+    routed paid inference through Vertex AI billed to the GCP card. The default
+    is now the direct API key; set AEGIS_USE_VERTEX=true to deliberately use
+    Vertex.
     """
     if _USE_VERTEX_ENV == 'true':
         from anthropic import AnthropicVertex
         return AnthropicVertex(project_id=_VERTEX_PROJECT, region=_VERTEX_REGION)
 
-    if _USE_VERTEX_ENV == 'false':
-        return _direct_client()
-
-    # Auto-detect: Vertex if ADC available, else direct
-    vertex = _try_vertex()
-    if vertex is not None:
-        return vertex
     return _direct_client()
 
 

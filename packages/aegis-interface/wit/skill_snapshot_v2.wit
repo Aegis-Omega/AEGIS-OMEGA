@@ -1,0 +1,22 @@
+// SkillSnapshot v2 — additive evolution of skill_snapshot.wit.
+// Adds an optional `reliability_index` field (fully compatible: backward + forward).
+
+variant Tier {
+  bronze,
+  silver,
+  gold,
+}
+
+record SkillSnapshot {
+  skill_id: string,
+  tier: Tier,
+  @range(0.0, 1.0)
+  confidence: f64,
+  @range(0.0, 1.0)
+  failure_rate: f64,
+  attempts: u64,
+  tags: list<string>,
+  parent_skill: option<string>,
+  @range(0.0, 1.0)
+  reliability_index: option<f64>,
+}

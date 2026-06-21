@@ -1,0 +1,54 @@
+{
+  "records": {
+    "SkillSnapshot": [
+      {
+        "name": "skill_id",
+        "range": null,
+        "type": "string"
+      },
+      {
+        "name": "tier",
+        "range": null,
+        "type": "Tier"
+      },
+      {
+        "name": "confidence",
+        "range": [
+          0.0,
+          1.0
+        ],
+        "type": "f64"
+      },
+      {
+        "name": "failure_rate",
+        "range": [
+          0.0,
+          1.0
+        ],
+        "type": "f64"
+      },
+      {
+        "name": "attempts",
+        "range": null,
+        "type": "u64"
+      },
+      {
+        "name": "tags",
+        "range": null,
+        "type": "list<string>"
+      },
+      {
+        "name": "parent_skill",
+        "range": null,
+        "type": "option<string>"
+      }
+    ]
+  },
+  "variants": {
+    "Tier": [
+      "bronze",
+      "silver",
+      "gold"
+    ]
+  }
+}

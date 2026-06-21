@@ -1,0 +1,95 @@
+{
+  "name": "ogemma-gate",
+  "description": "Biological gate check for the Ogemma Mythos pipeline. Reads mood-tracker data, maps it to bio_state, and submits a constitutional verdict to the AEGIS chain.",
+  "version": "1.0.0",
+  "trigger": "Use this when the user wants to check if conditions are right to run the MYTHOS pipeline, log their biological state, or submit a holon verdict to AEGIS.",
+
+  "parameters": {
+    "mood": {
+      "type": "number",
+      "description": "Current mood score 1-10 (from mood-tracker). Maps to attention and stress.",
+      "required": false,
+      "default": 7
+    },
+    "stress": {
+      "type": "number",
+      "description": "Direct stress override 0.0-1.0. Overrides mood-derived value if provided.",
+      "required": false
+    },
+    "atp": {
+      "type": "number",
+      "description": "Energy level 0-2500. Use 2100 for normal, 500 for tired, 0 for depleted.",
+      "required": false,
+      "default": 2100
+    },
+    "gate": {
+      "type": "string",
+      "description": "Which gate to check: PRE_ORCHESTRATE, POST_VALIDATE, or POST_REVIEW.",
+      "required": false,
+      "default": "PRE_ORCHESTRATE",
+      "enum": ["PRE_ORCHESTRATE", "POST_VALIDATE", "POST_REVIEW"]
+    }
+  },
+
+  "bio_state_mapping": {
+    "from_mood_tracker": {
+      "mood_to_attention": "attention = mood / 10.0",
+      "mood_to_stress":    "stress = 1.0 - (mood / 10.0)",
+      "examples": {
+        "mood=9": {"attention": 0.9, "stress": 0.1},
+        "mood=5": {"attention": 0.5, "stress": 0.5},
+        "mood=2": {"attention": 0.2, "stress": 0.8}
+      }
+    },
+    "gate_thresholds": {
+      "PRE_ORCHESTRATE": "stress < 0.8 AND atp > 0",
+      "POST_VALIDATE":   "stress < 0.8 AND NOT (steps > 5 AND stress > 0.6)",
+      "POST_REVIEW":     "stress < 0.7 AND atp > 200"
+    }
+  },
+
+  "handler": {
+    "type": "http",
+    "method": "POST",
+    "url": "https://aegisomega.workers.dev/platform/holon/validate",
+    "headers": { "Content-Type": "application/json" },
+    "body_template": {
+      "holon_id":    "gemma-4e4b-iphone",
+      "verdict":     "{{verdict}}",
+      "confidence":  "{{confidence}}",
+      "reason_code": "{{gate}}:{{reason_code}}",
+      "bio_state": {
+        "stress":    "{{stress}}",
+        "attention": "{{attention}}",
+        "rir":       0.9511,
+        "atp":       "{{atp}}"
+      }
+    },
+    "response_display": "Gate {{gate}}: {{verdict}} (confidence {{confidence}})\nChain hash: {{data.chain_entry_hash}}"
+  },
+
+  "examples": [
+    {
+      "user_says": "Check if I'm ready to run the pipeline",
+      "maps_to":   "gate=PRE_ORCHESTRATE, reads mood-tracker, derives bio_state"
+    },
+    {
+      "user_says": "I'm feeling stressed today, can AEGIS run?",
+      "maps_to":   "gate=PRE_ORCHESTRATE, stress=high → likely FAILED verdict"
+    },
+    {
+      "user_says": "Log mood 8, energy 1800, run pre-gate",
+      "maps_to":   "mood=8 → stress=0.2, attention=0.8, atp=1800 → APPROVED"
+    },
+    {
+      "user_says": "Submit post-review gate for MYTHOS",
+      "maps_to":   "gate=POST_REVIEW, reads current mood-tracker state"
+    }
+  ],
+
+  "integration": {
+    "mood_tracker_skill": "Read latest mood entry. Map mood → stress/attention. Pass to this skill.",
+    "schedule_notification": "Schedule daily PRE_ORCHESTRATE check at 09:00.",
+    "learn_something_new": "After APPROVED gate, trigger daily MYTHOS pipeline run."
+  }
+}
