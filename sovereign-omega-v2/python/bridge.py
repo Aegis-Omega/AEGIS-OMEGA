@@ -497,12 +497,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             live_state = _build_live_state_context()
             mc_context = _mc_recent_context(3)
-            base_system = (
-                CONSTITUTIONAL_SYSTEM_FULL
-                + '\n\n---\n\n' + live_state
-                + '\n\n---\n\n' + mc_context
-            )
-            system_prompt = (base_system + '\n---\n' + user_system) if user_system else base_system
+            # Static constitutional identity is the cached prefix; live telemetry,
+            # recent metacognition, and any caller system text vary per request and
+            # go in the uncached suffix so they never bust the cache on the prefix.
+            dynamic_context = live_state + '\n\n---\n\n' + mc_context
+            if user_system:
+                dynamic_context += '\n---\n' + user_system
 
             req_hash = hashlib.sha256(json.dumps(
                 {'messages': messages, 'model': model}, sort_keys=True
@@ -513,7 +513,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 resp = _client.messages.create(
                     model=model,
                     max_tokens=max_tokens,
-                    system=_ac.make_cached_system(system_prompt),
+                    system=_ac.make_cached_system(
+                        CONSTITUTIONAL_SYSTEM_FULL,
+                        dynamic_suffix=dynamic_context,
+                    ),
                     messages=messages,
                 )
                 response_text = ''.join(
@@ -558,11 +561,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
             max_tokens = int(data.get('max_tokens', 2048))
             live_state = _build_live_state_context()
             mc_context = _mc_recent_context(3)
-            stream_system = (
-                CONSTITUTIONAL_SYSTEM_COMPACT
-                + '\n\n---\n\n' + live_state
-                + '\n\n---\n\n' + mc_context
-            )
+            # Cache the stable constitutional prefix; keep per-request state in the
+            # uncached suffix. (COMPACT is short — see make_cached_system's note on
+            # minimum cacheable length; this still avoids a guaranteed cache miss.)
+            stream_dynamic = live_state + '\n\n---\n\n' + mc_context
 
             self.send_response(200)
             self._cors_headers()
@@ -577,7 +579,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 with _client.messages.stream(
                     model=model,
                     max_tokens=max_tokens,
-                    system=_ac.make_cached_system(stream_system),
+                    system=_ac.make_cached_system(
+                        CONSTITUTIONAL_SYSTEM_COMPACT,
+                        dynamic_suffix=stream_dynamic,
+                    ),
                     messages=messages,
                 ) as stream:
                     for text in stream.text_stream:
