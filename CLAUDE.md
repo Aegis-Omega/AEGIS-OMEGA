@@ -71,6 +71,30 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 due to overcomplication, and clarifying questions come before implementation rather than
 after mistakes.
 
+## 5. Debug Against Reality, Not Docs
+
+**Documentation is a hint, not authority. The running system wins.** This repo's docs
+are known to be stale and contradictory — debugging from them wastes hours on code that
+never runs.
+
+Authority order when sources disagree (highest first):
+1. Live system behavior (probe it)
+2. The code paths the runtime/deploy actually use
+3. Passing/failing tests + CI logs
+4. `HANDOFF.md` (current operational state)
+5. `REPO_MAP.md` (what's WIRED vs TESTED-ONLY/DORMANT/BROKEN/DEAD)
+6. `CLAUDE.md` (rules, invariants, commands)
+7. Older docs/specs — historical context only
+
+The loop:
+- Start from the **observed failure** (which command/endpoint/test/page, and *where* —
+  local/CI/staging/prod), never from "the docs say X."
+- Before editing, check `REPO_MAP.md`: is this path WIRED, or dead/tested-only? Don't fix
+  code that never runs.
+- Reproduce → locate the live path → smallest surgical fix → narrowest test → required gate.
+- A stale doc is a **finding, not a fix target**: note it as doc-debt; don't mass-rewrite
+  docs while fixing a bug (rule 3).
+
 ## Operating Loop — use what exists, ship to main
 
 Full loop in **`WORKFLOW.md`** (repo root). The index of what's wired vs dormant vs
