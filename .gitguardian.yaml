@@ -1,0 +1,16 @@
+# GitGuardian / ggshield configuration.
+#
+# Allowlists confirmed FALSE POSITIVES so they stop flagging on every PR (HANDOFF.md
+# names this as recurring noise). The entries below are deterministic TEST FIXTURES in
+# sovereign-omega-v2/test/shared/platform-client.test.ts — a fake HMAC key (the digits
+# of φ + filler hex) and a SHA-256 hash, used to exercise EventEnvelope signing and
+# chain-continuity verification. They are NOT real credentials and grant access to
+# nothing. Scoped to these exact values, not a blanket path ignore, so a genuinely
+# leaked secret in a test file would still be caught.
+version: 2
+secret:
+  ignored-matches:
+    - name: "platform-client.test.ts mockSecret — φ-digit HMAC test fixture, not a credential"
+      match: "6180339887a0b3f81e6a9f4c3d2e1b0a7c5d6e3f4a1b9c2d8e7f6a5b4c3d2e1f"
+    - name: "platform-client.test.ts parentHash — SHA-256 test fixture, not a credential"
+      match: "69a8f27b9c4c11e49afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
