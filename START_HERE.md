@@ -38,22 +38,50 @@ load balancer, reserved IPs, Vertex AI Agent Engine.** Do not re-introduce them.
   Supabase secrets / the Claude environment vars only.
 - Free tiers only. If something wants an always-on paid resource, stop and reconsider.
 
-## Status as of last update
+## Cross-session reality (READ — this is why orientation keeps getting lost)
+
+Sessions run **sequentially over time, NOT concurrently** (operator rarely runs parallel
+sessions and has no agent API). The damage is cumulative: each session has started cold,
+spun up its own branch, done partial/contradictory work, and left debris behind — and the
+next session began from zero and added more. As of 2026-06-23 that's ~8 orphan-ish branches
+(`aegis-interface-compilation-rfc-7hfnje`, `anthropic-compliance-docs-df4ogq`,
+`blissful-rubin`, `slack-session`, `test-coverage-analysis`, `cloudflare/workers-autoconfig`,
+`codex/…`, `docs/formal-specs-from-zip`) and more than one handoff file
+(this one, plus `WHERE_I_AM.md` on the compliance-docs branch).
+
+**THE RULE THAT BREAKS THE LOOP: this file is the single source of truth. FIND IT AND
+UPDATE IT. Never create a new handoff/START/WHERE/STATE file — that is the exact mistake
+that has fragmented the project. Fold `WHERE_I_AM.md` into this and delete it.**
+
+Authority order when things disagree: **live system > code > tests/CI > this file > REPO_MAP > CLAUDE.md > old docs.**
+
+## Live-site truth (corrected 2026-06-23)
+
+- The site **IS live** — there is a real production deployment behind `aegisomega.com`, marked READY.
+- BUT it serves an **old build from before the Pay button**. ~20 newer builds exist only as
+  Vercel **previews — none promoted to production.** So checkout is not on the live site yet.
+- ⚠️ A sandboxed session (proxy-blocked outbound) **cannot verify the domain or pull Vercel
+  logs.** A session with Vercel access must confirm: does `aegisomega.com` resolve, is the
+  Vercel connection healthy, and what's in the runtime logs.
+
+## Status
 
 - ✅ GCP billing bleed **stopped** (project billing unlinked). Refund of ~$945 pending —
   send the courtesy-credit letter (mother's card, charged-for-unused, reported immediately).
-- ✅ Vertex auto-billing default removed; auto-deploy workflows disabled (PRs #161/#164/#165 merged).
+- ✅ Vertex auto-billing default removed; auto-deploy workflows disabled (#161/#164/#165 merged).
 - ✅ Dead code removed (#164). Prompt-caching bug fixed (#165). Broken `AEGIS--` hooks disabled.
+- 🔄 PR **#167** open (other session): contract alignment + CI equivalence gate + GitGuardian + Swift fail-closed verifier.
+- ⬜ **Promote a current build to production in Vercel** so the live site has the Pay button. ← biggest lever
 - ⬜ Set Vercel env: `VITE_DASHSCOPE_API_KEY` (products) + `VITE_PAYPAL_CLIENT_ID` (checkout).
 - ⬜ Verify PayPal → `verify-paypal` → key issuance end to end (one test purchase).
-- ⬜ Point `aegisomega.com` DNS at Vercel.
+- ⬜ Confirm `aegisomega.com` DNS resolves to Vercel.
 - ⬜ Delete the GCP project entirely (recoverable 30 days) so it can never bleed again.
 
 ## Next concrete step
 
-Get the three products live + configured on Vercel (free), able to take a PayPal payment.
-That is "it's going." Everything else (portfolio, partners, funding, the platform showcase)
-builds on having one live, working, earning thing.
+Promote a current, working build to production on Vercel (free) so the live site stops
+serving the pre-Pay-button version and can actually take a PayPal payment. That single act
+is "it's going." Everything else (portfolio, partners, funding) builds on one live, earning thing.
 
 ---
 
