@@ -321,10 +321,10 @@ All `/platform/*` responses: `PlatformEnvelope<T>` + `X-Contract-Version: 1.0.0`
 | `VITE_DASHSCOPE_MODEL` | `@shared/lib/inference-router` | Qwen model (default: `qwen3.7-plus`; coder tasks: `qwen3-coder-plus`) |
 | `VITE_CLAUDE_API_KEY` | hub, packages/shared | Anthropic API key |
 | `VITE_BRIDGE_URL` | hub | Public bridge URL (optional) |
-| `AEGIS_USE_VERTEX` | python bridge | `true`=Vertex AI, `false`=direct, unset=auto |
+| `AEGIS_USE_VERTEX` | python bridge | `true`=Vertex AI (opt-in ONLY); anything else=direct API key. Never auto-selects Vertex (that caused the GCP bill). |
 | `AEGIS_VERTEX_PROJECT` | python bridge | GCP project (default: `aegisomegav1`) |
-| `ANTHROPIC_API_KEY` | python bridge (local) | Direct API key (when ADC absent) |
-| `AEGIS_SWARM_MODEL` | python bridge | Swarm model (default: claude-fable-5) |
+| `ANTHROPIC_API_KEY` | python bridge | Direct API key — the default inference path |
+| `AEGIS_SWARM_MODEL` | python bridge | Swarm model (default: `claude-opus-4-8`) |
 | `SUPABASE_URL` | python bridge | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | python bridge | Service role key (server-side only — never frontend) |
 
