@@ -171,7 +171,7 @@ export function ConsciousnessStream() {
         </div>
       </div>
 
-      {/* ── Tamper demo ────────────────────────────────────────── */}
+      {/* ── Tamper demo ──────────────────────────────────────────── */}
       <div
         className="mt-4 rounded-xl px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-3"
         style={{ background: '#0A0B0F', border: `1px solid ${tamperPhase === 'detected' ? 'rgba(248,113,113,0.30)' : '#1A1D27'}` }}
