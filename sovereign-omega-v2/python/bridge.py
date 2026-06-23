@@ -491,7 +491,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             import anth_client as _ac
 
             messages = data.get('messages', [])
-            model = data.get('model', 'claude-fable-5')
+            model = data.get('model', 'claude-opus-4-8')
             max_tokens = int(data.get('max_tokens', 2048))
             user_system = data.get('system', '')
 
@@ -557,7 +557,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             import anth_client as _ac
 
             messages = data.get('messages', [])
-            model = data.get('model', 'claude-fable-5')
+            model = data.get('model', 'claude-opus-4-8')
             max_tokens = int(data.get('max_tokens', 2048))
             live_state = _build_live_state_context()
             mc_context = _mc_recent_context(3)
