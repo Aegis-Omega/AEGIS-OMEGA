@@ -84,6 +84,13 @@ export interface CollaborationRequest {
   readonly objective: string
   readonly mode: CollaborationMode
   readonly live: boolean
+  // Optional fields the Python runtime (platform_helpers.validate_collaboration_request +
+  // bridge handler) already accepts. Without these in the contract, TS/Sheets clients
+  // cannot express an autonomous run or pass evolutionary/memory context.
+  readonly generation?: number          // evolutionary generation (default 0)
+  readonly memory_context?: string      // overrides auto-retrieved swarm memory
+  readonly autonomous?: boolean         // per-agent execution (each dept its own call); requires live
+  readonly max_agents?: number          // cost ceiling for autonomous mode (# of real model calls)
 }
 
 export type CollaborationMode =
