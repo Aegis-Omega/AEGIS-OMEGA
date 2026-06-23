@@ -295,8 +295,8 @@ async def fetch_url(url: str, max_bytes: int = 16384) -> str:
             resp = await client.get(url, headers=headers)
         raw = resp.text[:max_bytes * 4]  # oversample, then trim after stripping tags
         # Strip HTML
-        text = re.sub(r"<script[^>]*>.*?</script>", " ", raw, flags=re.DOTALL)
-        text = re.sub(r"<style[^>]*>.*?</style>", " ", text, flags=re.DOTALL)
+        text = re.sub(r"<script[^>]*>.*?</script>", " ", raw, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r"<style[^>]*>.*?</style>", " ", text, flags=re.DOTALL | re.IGNORECASE)
         text = re.sub(r"<[^>]+>", " ", text)
         text = re.sub(r"\s+", " ", text).strip()
         return text[:max_bytes]
