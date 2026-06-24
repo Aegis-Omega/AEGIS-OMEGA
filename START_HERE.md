@@ -66,16 +66,31 @@ Authority order when things disagree: **live system > code > tests/CI > this fil
 
 ## Status
 
-- ✅ GCP billing bleed **stopped** (project billing unlinked). Refund of ~$945 pending —
-  send the courtesy-credit letter (mother's card, charged-for-unused, reported immediately).
-- ✅ Vertex auto-billing default removed; auto-deploy workflows disabled (#161/#164/#165 merged).
-- ✅ Dead code removed (#164). Prompt-caching bug fixed (#165). Broken `AEGIS--` hooks disabled.
-- 🔄 PR **#167** open (other session): contract alignment + CI equivalence gate + GitGuardian + Swift fail-closed verifier.
-- ⬜ **Promote a current build to production in Vercel** so the live site has the Pay button. ← biggest lever
-- ⬜ Set Vercel env: `VITE_DASHSCOPE_API_KEY` (products) + `VITE_PAYPAL_CLIENT_ID` (checkout).
-- ⬜ Verify PayPal → `verify-paypal` → key issuance end to end (one test purchase).
-- ⬜ Confirm `aegisomega.com` DNS resolves to Vercel.
-- ⬜ Delete the GCP project entirely (recoverable 30 days) so it can never bleed again.
+_Last refreshed 2026-06-24._
+
+**Done & on `main` (verified):**
+- GCP billing bleed **stopped** (project billing unlinked). Refund of ~$945 pending — send the courtesy-credit letter (mother's card, charged-for-unused, reported immediately).
+- Vertex auto-billing default removed; auto-deploy workflows disabled (#161/#164/#165).
+- Dead code removed (#164). Prompt-caching bug fixed (#165).
+- Broken `AEGIS--` hooks disabled.
+- `START_HERE.md` added to end the cold-start loop (#168).
+- **Fable 5 defaults → `claude-opus-4-8`** in bridge + swarm; stale `CLAUDE.md` corrected (#172). 557/557 platform tests pass.
+- `.vercel` gitignore hygiene salvaged from a stranded branch (#174).
+- Frozen constitutional files (`gate.py`/`dna.py`/`router.py`) verified intact (exact SHA256 match).
+
+**Branch triage (8 stranded branches — `git cherry` checked):**
+- `blissful-rubin`: PayPal work **already on main** (`verify-paypal`); its other commits carry GCP/Vertex deploy code — **do not salvage**.
+- `codex/automaton-2`: `.vercel` gitignore salvaged (#174). The `feat(hub): wire product access tokens into purchase success` commit **conflicts** with current `hub/src/components/PricingPage.tsx` — needs manual reconcile (genuinely useful, money-path).
+- `#170`, `#171`: **closed** — were aimed into a side branch, not main.
+- `#167` (anthropic-compliance, other session): contract alignment + CI gate + Swift verifier — **open, review & merge to main**.
+- `slack-session`, `cloudflare/workers-autoconfig`, `test-coverage-analysis`, `docs/formal-specs`: still to triage.
+
+**Left to do — access-gated (operator only; sandbox can't reach these):**
+- **Promote a current build to production in Vercel** so the live site has the Pay button. ← biggest lever
+- Set Vercel env: `VITE_DASHSCOPE_API_KEY` (products) + `VITE_PAYPAL_CLIENT_ID` (checkout).
+- Verify PayPal → `verify-paypal` → key issuance end to end (one test purchase).
+- Confirm `aegisomega.com` DNS resolves to Vercel.
+- Delete the GCP project entirely (recoverable 30 days) so it can never bleed again.
 
 ## Next concrete step
 
