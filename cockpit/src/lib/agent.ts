@@ -38,7 +38,7 @@ export async function* streamOllama(opts: StreamOptions): AsyncGenerator<string>
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, messages: opts.messages, stream: true }),
-    signal: opts.signal,
+    signal: opts.signal ?? null,
   })
 
   if (!res.ok || !res.body) throw new Error(`Ollama ${res.status}: ${await res.text()}`)
@@ -67,7 +67,7 @@ export async function* streamDashScope(opts: StreamOptions): AsyncGenerator<stri
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({ model, messages: opts.messages, stream: true }),
-    signal: opts.signal,
+    signal: opts.signal ?? null,
   })
 
   if (!res.ok || !res.body) throw new Error(`DashScope ${res.status}: ${await res.text()}`)
@@ -99,7 +99,7 @@ export async function* streamClaude(opts: StreamOptions): AsyncGenerator<string>
       model,
       max_tokens: maxTokens,
     }),
-    signal: opts.signal,
+    signal: opts.signal ?? null,
   })
 
   if (!res.ok || !res.body) throw new Error(`Claude bridge ${res.status}: ${await res.text()}`)

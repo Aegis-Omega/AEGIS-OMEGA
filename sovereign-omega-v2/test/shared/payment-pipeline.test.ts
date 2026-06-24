@@ -6,11 +6,11 @@
  * Edge functions (Deno) are not runnable in vitest — their business logic
  * is ported here as pure functions and tested identically.
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { createGrantToken, verifyGrantToken, getStoredAccess, storeAccess } from '../../../packages/shared/lib/access.js'
-import type { Plan, GrantPayload } from '../../../packages/shared/lib/access.js'
+import type { Plan } from '../../../packages/shared/lib/access.js'
 
-// ─── Plan constants mirroring SuccessPage and ls-webhook ─────────────────────────────────
+// ─── Plan constants mirroring SuccessPage and ls-webhook ──────────────────────
 
 const PLAN_TOOLS: Record<Plan, string[]> = {
   single:  ['platform-picker'],
@@ -26,7 +26,7 @@ const TOOL_URLS: Record<string, string> = {
   'content-calendar': 'https://calendar.aegisomega.com',
 }
 
-// ─── SuccessPage logic (ported from hub/src/components/SuccessPage.tsx) ─────────
+// ─── SuccessPage logic (ported from hub/src/components/SuccessPage.tsx) ───────
 
 function buildToolLinks(plan: Plan, token: string): Record<string, string> {
   const tools = PLAN_TOOLS[plan]
@@ -42,7 +42,7 @@ function parseSuccessPagePlan(search: string): Plan | null {
   return null
 }
 
-// ─── Restore-access business logic (ported from supabase/functions/) ────────────
+// ─── Restore-access business logic (ported from supabase/functions/) ──────────
 
 function pickBestPlan(rows: Array<{ plan: string }>): string {
   return rows.reduce((best, row) => {
@@ -58,7 +58,7 @@ function normaliseEmail(email: string): string {
   return email.toLowerCase().trim()
 }
 
-// ─── Webhook HMAC verification (ported from supabase/functions/ls-webhook/) ───
+// ─── Webhook HMAC verification (ported from supabase/functions/ls-webhook/) ──
 
 async function computeHmacSha256Hex(secret: string, body: string): Promise<string> {
   const key = await crypto.subtle.importKey(
@@ -77,7 +77,7 @@ async function verifyWebhookSignature(secret: string, body: string, sig: string)
   return computed === sig
 }
 
-// ─── LS plan map logic ────────────────────────────────────────────────────────────
+// ─── LS plan map logic ────────────────────────────────────────────────────────
 
 function mapVariantToPlan(variantId: string, planMap: Record<string, string>): string {
   return planMap[variantId] ?? 'single'

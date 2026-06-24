@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { clearConstitutionalLedger, getSessionAuditState } from '../../../packages/shared/lib/constitutional-ai.js'
+import type { BackendType } from '../../../packages/shared/lib/inference-router.js'
 
 // Mock inference-router before importing callConstitutional so the mock is in place.
 vi.mock('../../../packages/shared/lib/inference-router.js', () => ({
@@ -15,7 +16,7 @@ import { routeInference } from '../../../packages/shared/lib/inference-router.js
 
 const mockRoute = vi.mocked(routeInference)
 
-function makeRouteResponse(content: string, backend = 'dashscope') {
+function makeRouteResponse(content: string, backend: BackendType = 'dashscope') {
   return Promise.resolve({ content, backend, model: 'qwen-plus', latency_ms: 42, fallback_count: 0 })
 }
 

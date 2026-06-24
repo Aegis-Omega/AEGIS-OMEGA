@@ -43,10 +43,10 @@ describe('subscribeTelemetry — subscription mechanics', () => {
   })
 
   it('multiple subscribers all receive immediate notification', () => {
-    const counts = [0, 0, 0]
-    const unsub0 = subscribeTelemetry(() => counts[0]++)
-    const unsub1 = subscribeTelemetry(() => counts[1]++)
-    const unsub2 = subscribeTelemetry(() => counts[2]++)
+    const counts: [number, number, number] = [0, 0, 0]
+    const unsub0 = subscribeTelemetry(() => { counts[0]++ })
+    const unsub1 = subscribeTelemetry(() => { counts[1]++ })
+    const unsub2 = subscribeTelemetry(() => { counts[2]++ })
     cleanups.push(unsub0, unsub1, unsub2)
 
     expect(counts).toEqual([1, 1, 1])
