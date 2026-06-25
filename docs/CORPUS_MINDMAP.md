@@ -550,6 +550,30 @@ The following folders are exact copies of canonical files uploaded for multi-mod
 
 ---
 
+## In-Repo Corpus Ingestion — Batch 2026-06-25 (RALPH ARBITRATION)
+
+Source: docs already committed to the repo (not Drive), run through the 5-phase RALPH
+pipeline per the `corpus-ingestion` skill. ARBITRATION results below. Admitted docs are
+candidates for skill extraction — NOT auto-minted; minting is operator-gated to avoid
+skill-file sprawl. Quarantined framing routed to `sovereign-omega-v2/docs/FUTURE_PHASES.md`.
+
+| Doc (local path) | Tier | admitted | Notes |
+|---|---|---|---|
+| `docs/TEMPORAL_SEAM.md` | T2 | true | Seam map: Replay→Temporal, DFA→LangGraph, ledger→PostgreSQL append-only, K8s/EKS, edge WASM. Constraints: replays byte-identical; Redis is observational-only (D0), never authoritative. No T4/T5 framing. |
+| `sovereign-omega-v2/docs/FORMAL_VERIFICATION_WASM.md` | T2 / T3 | true | Coq/Iris WASM compacting-allocator schema (Gate 188). T2 = TS impl (bounded generation, exclusive slot map, atomic relocation); T3 = two `Admitted.` lemmas, explicitly NOT grounding T0/T1; Iris library laws cited as T0. |
+| `sovereign-omega-v2/docs/SHP_EXECUTION_MODEL.md` | T0 | true | R→A→L→P→H single deterministic loop; LOCK = commitment boundary; SITR (pre-commit) ∩ AOIE (post-commit) = ∅. 8 formal invariants, FNV-1a `commitHash`, no `Date.now()`. Gate 14/15. |
+| `docs/PHI_HOLOGRAPHIC_COMPUTE.md` | T2 claim + T3/T4 framing | partial | ADMIT the engineering: branchless WGSL Fibonacci + inline det(Mⁿ)=±1 integrity check; Gates 604/605 at 61%≈φ. QUARANTINE the E₈ / "quantum critical point" / Ising correspondence — T3/T4 framing that must not ground the T2 claim. See FUTURE_PHASES. |
+
+**Skill-extraction candidates (operator-gated):** `temporal-seam`, `formal-verification-wasm`,
+`shp-execution-model`. The φ-holographic doc's admitted T2 core fits the existing WebGPU /
+`int4-lut-kan` skill family rather than a new file.
+
+**Batch 2 (pending — not yet ARBITRATED):** `AOIE_SPEC.md`, `WORKSPACE_MEMORY_MODEL.md`,
+`IDE_RUNTIME_SPEC.md`, `SITR_CONSTITUTION.md`, `HOST_ADAPTATION_SPEC.md`,
+`CAPABILITY_GOVERNANCE.md`, `ONTOLOGY.md`, `MYTHOS_COGNITIVE_SUBSTRATE.md` (likely T5 quarantine).
+
+---
+
 *Lattice crystallized 2026-05-18 · Drive corpus: 222+ entries, 5 pages enumerated*
 *All T4/T5 → T0–T2 grounding violations flagged · Constitutional files F-06 still pending /guardian*
 *Next subagent: begin here, not at CLAUDE.md*
