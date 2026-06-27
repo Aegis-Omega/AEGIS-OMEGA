@@ -12,5 +12,16 @@
   },
   "compatibility_flags": [
     "nodejs_compat"
+  ],
+  // Custom domain: binds the API hostname already referenced throughout the
+  // codebase (verify-paypal key email, PricingPage, DocsPage, platform-client,
+  // the Python SDK) to this live Worker — so minted keys hit the working backend
+  // instead of the old Cloud Run service. On the next Worker deploy Cloudflare
+  // provisions/attaches the cert. PRE-REQ: the existing DNS record for this name
+  // (if it still points at Cloud Run) must be removed first, or Cloudflare will
+  // refuse to bind it — removing it is also what lets the old Cloud Run service
+  // be decommissioned (stops the cost).
+  "routes": [
+    { "pattern": "aegis-vertex.aegisomega.com", "custom_domain": true }
   ]
 }
