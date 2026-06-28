@@ -53,6 +53,20 @@ fabric" (bucket/name/project/generation views) is generic GCP confabulation not 
 and `residual_delta MUST be 0.0` is false (rule is `delta < delta_critical=0.70`). Do not
 ingest those blocks as truth.
 
+**Verified-real subsystems (were dismissed as "fiction" by cross-model handoffs; confirmed in code 2026-06-28):**
+- **INT4 LUT-KAN** — `aegis-cl-psi/src/int4_lut_kan.rs` (Rust gate, SHA-256 chain, `verify_chain`) + Python
+  port in `agents/cognitive_pipeline.py`. Rust↔Python byte-parity *independently reproduced*
+  (`fingerprint_inputs([1,2,3])`=`887d1c02…`, `record_hash`=`218edd96…`); now guarded both sides
+  (`agents/tests/test_lut_kan_parity.py`). This is the one concrete, holding instance of the
+  ThreeWay bisimulation.
+- **Ogemma/Gemma Mythos holon** — real + partly LIVE: `clients/gemma-edge-ios/` (Swift edge client),
+  `clients/gemma-holon/` (ogemma_mythos.py, skills), and the deployed Worker endpoint
+  `/platform/holon/validate` (holon_class GEMMA-4E4B).
+- **φ-holographic** — real code (`aegis-cl-psi/src/gossip_broadcast_phi_holographic_e7.rs` gate +
+  `studio/src/holographic-surface/` WebGPU surface). HONEST TIER: a φ-structured broadcast algorithm +
+  holographic-style visualization — NOT literal optical/photonic hardware. Real implementation,
+  metaphorical name.
+
 **Bridge security (fixed + pushed this session, branch `claude/aegis-interface-compilation-rfc-7hfnje`):**
 `/platform/executions` poll/delete now enforce per-owner scoping; registry bounded
 (`_reap_executions_locked`, cap 1000); producer preserves the `email` tag through completion.
