@@ -264,7 +264,10 @@ async def observability_and_guard(request: Request, call_next):
         m["count"] += 1; m["errors"] += 1; m["latency_ms_sum"] += latency_ms
         print(json.dumps({"level": "error", "path": path, "client": client,
                           "latency_ms": latency_ms, "error": str(exc)}))
-        return JSONResponse({"error": "internal_error", "detail": str(exc)[:200]}, status_code=500)
+        return JSONResponse(
+            {"error": "internal_error", "detail": "An internal error has occurred."},
+            status_code=500,
+        )
 
     latency_ms = int((time.time() - t0) * 1000)
     METRICS["requests_total"] += 1
