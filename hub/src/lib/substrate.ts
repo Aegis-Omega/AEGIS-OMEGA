@@ -34,6 +34,17 @@ export interface CertifyResult {
   readonly terminal_hash: string
 }
 
+// Canonical names used by the extracted hook in lib/useSubstrate.ts.
+// MetacognitiveLayer aliases Layer; MetacognitiveCertificate mirrors
+// CertifyResult but allows a null terminal_hash so the hook can seed an
+// empty chain before the first observation is appended.
+export type MetacognitiveLayer = Layer
+export interface MetacognitiveCertificate {
+  readonly is_valid: boolean
+  readonly entry_count: number
+  readonly terminal_hash: string | null
+}
+
 export interface SubstrateState {
   readonly chain: readonly MetacognitiveEntry[]
   readonly active_layer: Layer
@@ -191,6 +202,20 @@ export async function certify(chain: readonly MetacognitiveEntry[]): Promise<Cer
     prev_hash = entry.entry_hash
   }
   return { is_valid: true, entry_count: chain.length, terminal_hash: prev_hash }
+}
+
+// Build the next hash-linked entry for an existing chain. Pure: takes the
+// current chain, returns one new entry that links to its tail. The caller
+// owns appending. Layer cycles by position so the stack visibly advances;
+// hashing reuses makeEntry, so appended entries always pass certify().
+export async function appendObservation(
+  chain: readonly MetacognitiveEntry[],
+): Promise<MetacognitiveEntry> {
+  const sequence = chain.length
+  const layer: Layer = LAYER_SEQUENCE[sequence % LAYER_SEQUENCE.length] ?? 'SENSATION'
+  const tail = chain[chain.length - 1]
+  const previous_entry_hash = tail !== undefined ? tail.entry_hash : GENESIS_HASH
+  return makeEntry(previous_entry_hash, sequence, layer)
 }
 
 export function useSubstrate() {
