@@ -67,6 +67,24 @@ from platform_helpers import (
 _executions: dict = {}
 _exec_queues: dict = {}           # execution_id → queue.Queue
 _executions_lock = threading.Lock()
+_MAX_EXECUTIONS = 1000            # bound the in-memory execution registry
+
+
+def _reap_executions_locked() -> None:
+    """Evict oldest COMPLETED executions when the registry is at capacity.
+
+    Caller MUST hold _executions_lock. In-flight (not-done) executions are never
+    evicted. Dict insertion order = age, so the first done entries are the oldest.
+    Bounds the registry so it can't grow without limit (no unbounded ecology).
+    """
+    if len(_executions) < _MAX_EXECUTIONS:
+        return
+    for _eid in list(_executions.keys()):
+        if _executions[_eid].get('done'):
+            _executions.pop(_eid, None)
+            _exec_queues.pop(_eid, None)
+            if len(_executions) < _MAX_EXECUTIONS:
+                break
 
 # ─── Bridge-side Metacognitive Chain ─────────────────────────────────────────
 # A Python-native hash-chained log of every conversation this bridge instance
@@ -338,7 +356,11 @@ def _platform_run_collaboration(
         }
 
         with _executions_lock:
-            _executions[execution_id] = {'result': result, 'done': True, 'error': None}
+            # Update in place so the 'email' ownership tag set at init survives —
+            # replacing the dict here would drop it and defeat ownership scoping.
+            rec = _executions.get(execution_id, {})
+            rec.update({'result': result, 'done': True, 'error': None})
+            _executions[execution_id] = rec
 
         _emit({
             'type': 'completion',
@@ -349,7 +371,9 @@ def _platform_run_collaboration(
 
     except Exception as exc:
         with _executions_lock:
-            _executions[execution_id] = {'result': None, 'done': True, 'error': str(exc)}
+            rec = _executions.get(execution_id, {})
+            rec.update({'result': None, 'done': True, 'error': str(exc)})
+            _executions[execution_id] = rec
         _emit({
             'type': 'error',
             'execution_id': execution_id,
@@ -664,7 +688,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
             execution_id = str(_uuid_pc.uuid4())
             q = _queue_mod.Queue()
             with _executions_lock:
-                _executions[execution_id] = {'result': None, 'done': False, 'error': None}
+                _reap_executions_locked()
+                _executions[execution_id] = {'result': None, 'done': False, 'email': _email, 'error': None}
                 _exec_queues[execution_id] = q
 
             # Run synchronously (collect all events, return result at completion)
@@ -722,6 +747,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             execution_id = str(_uuid_pe.uuid4())
             q = _queue_mod.Queue()
             with _executions_lock:
+                _reap_executions_locked()
                 _executions[execution_id] = {'result': None, 'done': False, 'email': _email, 'error': None}
                 _exec_queues[execution_id] = q
 
@@ -1556,6 +1582,11 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
         elif self.path.startswith('/platform/executions/live'):
             # GET /platform/executions/live?id=<uuid> — SSE stream.
+            # AUTH MODEL: the uuid4 execution_id is an unguessable bearer capability
+            # (122-bit, handed only to the authenticated initiator). Browser EventSource
+            # cannot send an x-api-key header, so header-auth would break the documented
+            # stream_url flow; possession of the id IS authorization here. Do NOT add
+            # header-auth without also moving clients off EventSource / to a signed token.
             import urllib.parse as _up_sse
             parsed = _up_sse.urlparse(self.path)
             params = dict(_up_sse.parse_qsl(parsed.query))
@@ -1627,7 +1658,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             with _executions_lock:
                 rec = _executions.get(execution_id)
-            if rec is None:
+            # Ownership scoping: a valid key may only read its own executions.
+            # Return 404 (not 403) on a mismatch so we don't leak that the id exists.
+            if rec is None or (rec.get('email') and rec['email'] != _email):
                 self._platform_respond(404, {'error': 'execution not found', 'code': 'NOT_FOUND',
                                               'execution_id': execution_id})
                 return
@@ -1697,10 +1730,14 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 return
 
             with _executions_lock:
-                rec = _executions.pop(execution_id, None)
-                _exec_queues.pop(execution_id, None)
+                rec = _executions.get(execution_id)
+                # Only the owner may delete; non-owner is indistinguishable from not-found.
+                owned = rec is not None and (not rec.get('email') or rec['email'] == _email)
+                if owned:
+                    _executions.pop(execution_id, None)
+                    _exec_queues.pop(execution_id, None)
 
-            if rec is None:
+            if rec is None or not owned:
                 self._platform_respond(404, {'error': 'execution not found', 'code': 'NOT_FOUND',
                                               'execution_id': execution_id})
             else:

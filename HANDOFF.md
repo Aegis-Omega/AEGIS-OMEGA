@@ -6,6 +6,75 @@ Where a doc disagrees with the live system, the live system wins.
 
 ---
 
+## LATEST — 2026-06-28 (verified against code + Drive this session; READ FIRST)
+
+**Why this section exists:** to stop the operator re-pasting the whole corpus every cold
+session. Everything below was checked against the actual tree or Drive on 2026-06-28 — not
+trusted from a paste. Assumptions are labelled as such.
+
+**The Drive corpus (so you don't ask him to re-upload it).** Owner `tarikskalic33@gmail.com`.
+Key items found via the Drive MCP (`search_files`/`read_file_content`):
+- `AEGIS_KNOWLEDGE_BRIEF.md` — the authoritative design brief (holons, Law of Silence,
+  coherence gating, step-level verification, bounded blast radius; system-card discipline).
+  THIS is the real "what we're working with"; treat it over any cross-model summary.
+- Research-report PDFs: "AEGIS OMEGA v1.0 (Asymmetric Enforcement…)", "Civilizational
+  Evolution Framework", "Constitutional Cognitive OS", "Deployment-Certifiable…",
+  "MASTER SYNTHESIS (PART I OF III)".
+- `Bisimulation/ThreeWay.v` (+ a `Core/JS/WASM/Python/Bridge/Theorems/iris/tlaplus/extraction`
+  proof tree) — the 3-way cross-runtime determinism formalization.
+- `export-Aegis-Omega-*.json` (3.7 MB) = a **GitHub Actions audit log** (CI job events),
+  NOT a billing export. There is no GCP cost bomb in the exports.
+- `Aegis Omega 2.0.zip` + handoff zips = full code snapshots (not yet diffed vs live tree).
+
+**Verified architecture facts (measured, not quoted):** 258,784 LOC. `aegis-cl-psi` Rust =
+**7,198** `#[test]`; `aegis-runtime` = 362; `sovereign-omega-v2/src` = 191 TS/TSX files
+(mostly test-only per REPO_MAP). Full per-gate map = `sovereign-omega-v2/docs/TRACEABILITY.md`
+(110 layers, Gates 1–210). The root `docs/TRACEABILITY.md` is a DIFFERENT doc (module/tier
+register, not a stale stub) — both are real; don't "reconcile" them.
+
+**Formal status (do not overstate):** `ThreeWay.v` is an `Axiom`, not a theorem — it ASSERTS
+cross-runtime byte-equality over an abstract `nat` domain; the file itself says the real proof
+(JSCert+WasmCert+Python semantics) is multi-year pending. Tier T3. Under the *real* encoders it
+is currently FALSE because of the numeric seam below. Things were added after the June-8
+snapshot — treat that .v as a north-star spec, not current truth.
+
+**THE keystone open problem (one bug class, surfaces everywhere):** TS/JS uses **Q32.32**
+fixed-point; Python `core_matrix.py` uses **Q16.16** (verified: `INT_SCALE`/`INT_SHIFT_BITS`,
+`to_fixed`/`from_fixed` in `hardware_config.py`). Until that seam is frozen (shared width +
+truncation + fold order), `encode_PY ≠ encode_JS`, so the bisimulation axiom can't hold and
+cross-runtime replay diverges. Same class also seen as: left-vs-right fold (`Omega.tla`),
+NFC/`ensure_ascii` canonicalization (fixed in `aegis-ccil-verifier`, still latent in bridge
+audit hashes). **Closing the Q32.32↔Q16.16 boundary is the highest-leverage next proof/fix.**
+
+**Cross-model "ground truth" blocks (Gemini/ChatGPT handoffs) are ~half-fabricated** — verified
+2026-06-28: topology + the sqlite *schema* are real; the "deterministic fixture" hashes don't
+exist (the kernel's `memory_store.sqlite` is empty — 0 rows), the GCS analytics "telemetry
+fabric" (bucket/name/project/generation views) is generic GCP confabulation not in the repo,
+and `residual_delta MUST be 0.0` is false (rule is `delta < delta_critical=0.70`). Do not
+ingest those blocks as truth.
+
+**Verified-real subsystems (were dismissed as "fiction" by cross-model handoffs; confirmed in code 2026-06-28):**
+- **INT4 LUT-KAN** — `aegis-cl-psi/src/int4_lut_kan.rs` (Rust gate, SHA-256 chain, `verify_chain`) + Python
+  port in `agents/cognitive_pipeline.py`. Rust↔Python byte-parity *independently reproduced*
+  (`fingerprint_inputs([1,2,3])`=`887d1c02…`, `record_hash`=`218edd96…`); now guarded both sides
+  (`agents/tests/test_lut_kan_parity.py`). This is the one concrete, holding instance of the
+  ThreeWay bisimulation.
+- **Ogemma/Gemma Mythos holon** — real + partly LIVE: `clients/gemma-edge-ios/` (Swift edge client),
+  `clients/gemma-holon/` (ogemma_mythos.py, skills), and the deployed Worker endpoint
+  `/platform/holon/validate` (holon_class GEMMA-4E4B).
+- **φ-holographic** — real code (`aegis-cl-psi/src/gossip_broadcast_phi_holographic_e7.rs` gate +
+  `studio/src/holographic-surface/` WebGPU surface). HONEST TIER: a φ-structured broadcast algorithm +
+  holographic-style visualization — NOT literal optical/photonic hardware. Real implementation,
+  metaphorical name.
+
+**Bridge security (fixed + pushed this session, branch `claude/aegis-interface-compilation-rfc-7hfnje`):**
+`/platform/executions` poll/delete now enforce per-owner scoping; registry bounded
+(`_reap_executions_locked`, cap 1000); producer preserves the `email` tag through completion.
+Commits `f4a779fa`, `386aaf28`. `/platform/executions/live` is intentionally id-as-capability
+(EventSource can't send headers) — documented inline; don't "fix" it into breakage.
+
+---
+
 ## LATEST — 2026-06-20 (read this first; older sections below are still mostly true)
 
 **Merged since the 06-14 snapshot:**

@@ -33,6 +33,7 @@ interface SystemStateVector {
   active_files: string[]
   forbidden_actions: string[]
   validity: Validity
+  reconciliation_retries: number
 }
 
 interface PipelineState {
@@ -126,7 +127,7 @@ function computeIndexSnapshot(): string {
 }
 
 function makeSSV(phase: Stage, snapshot: string, files: string[] = []): SystemStateVector {
-  return { execution_phase: phase, index_snapshot: snapshot, active_files: files, forbidden_actions: [], validity: 'UNVERIFIED' }
+  return { execution_phase: phase, index_snapshot: snapshot, active_files: files, forbidden_actions: [], validity: 'UNVERIFIED', reconciliation_retries: 0 }
 }
 
 function log(stage: Stage, msg: string) {
@@ -259,7 +260,11 @@ async function runFinalize(client: Anthropic, state: PipelineState): Promise<Pip
   const userContent = `Reviewer verdict: ${state.reviewerOutput!.verdict}\nIndex snapshot: ${state.indexSnapshot}\nActive files: ${JSON.stringify(state.plannerOutput!.files_affected)}`
   const raw = await callStage(client, 'FINALIZE', userContent)
   const out = parseJSON<SystemStateVector>(raw, 'FINALIZE')
-  return { ...state, finalSnapshot: out, ssv: out }
+  // Preserve the true reconciliation count in the recorded snapshot — the
+  // model-emitted SSV does not carry it, and dropping it would re-introduce
+  // hidden state.
+  const finalSSV: SystemStateVector = { ...out, reconciliation_retries: state.ssv.reconciliation_retries }
+  return { ...state, finalSnapshot: finalSSV, ssv: finalSSV }
 }
 
 // ── Main pipeline ──────────────────────────────────────────────────────────
@@ -294,10 +299,13 @@ async function runPipeline(task: string): Promise<void> {
   // ORCHESTRATE
   state = await runOrchestrate(client, state)
 
-  let retries = 0
+  // Reconciliation count lives in the SystemStateVector, not a loop-local
+  // variable — the transition out of a failed gate depends on it, so it must
+  // be part of the recorded state for the chain to stay Markov (no hidden
+  // memory). MAX_RETRIES is the fixed kernel parameter, not state.
   const MAX_RETRIES = 2
 
-  while (retries <= MAX_RETRIES) {
+  while (state.ssv.reconciliation_retries <= MAX_RETRIES) {
     // PLAN
     state = await runPlan(client, state)
 
@@ -305,13 +313,13 @@ async function runPipeline(task: string): Promise<void> {
     state = await runValidate(client, state)
 
     if (!state.validatorOutput!.valid) {
-      retries++
-      if (retries > MAX_RETRIES) {
+      state = { ...state, ssv: { ...state.ssv, reconciliation_retries: state.ssv.reconciliation_retries + 1 } }
+      if (state.ssv.reconciliation_retries > MAX_RETRIES) {
         console.error(`[MYTHOS] RECONCILIATION exhausted after ${MAX_RETRIES} retries. Halt.`)
         console.error('[MYTHOS] Last fail reasons:', state.validatorOutput!.fail_reasons)
         process.exit(1)
       }
-      console.log(`[MYTHOS] RECONCILIATION MODE (retry ${retries}/${MAX_RETRIES})`)
+      console.log(`[MYTHOS] RECONCILIATION MODE (retry ${state.ssv.reconciliation_retries}/${MAX_RETRIES})`)
       continue
     }
 
@@ -320,12 +328,12 @@ async function runPipeline(task: string): Promise<void> {
     const pv = await holonGate('POST_VALIDATE', bioState, nSteps)
     log('VALIDATE', `holon POST_VALIDATE: ${pv.verdict} (${pv.reason_code})${pv.chain_entry_hash ? ` hash=${pv.chain_entry_hash.slice(0, 12)}…` : ''}`)
     if (pv.verdict === 'FAILED') {
-      retries++
-      if (retries > MAX_RETRIES) {
+      state = { ...state, ssv: { ...state.ssv, reconciliation_retries: state.ssv.reconciliation_retries + 1 } }
+      if (state.ssv.reconciliation_retries > MAX_RETRIES) {
         console.error('[MYTHOS] RECONCILIATION exhausted — holon POST_VALIDATE blocked plan.')
         process.exit(1)
       }
-      console.log(`[MYTHOS] RECONCILIATION MODE — holon gate blocked (retry ${retries}/${MAX_RETRIES})`)
+      console.log(`[MYTHOS] RECONCILIATION MODE — holon gate blocked (retry ${state.ssv.reconciliation_retries}/${MAX_RETRIES})`)
       continue
     }
 
@@ -341,13 +349,13 @@ async function runPipeline(task: string): Promise<void> {
         console.error('[MYTHOS] flags:', state.reviewerOutput!.flags)
         process.exit(1)
       }
-      retries++
-      if (retries > MAX_RETRIES) {
+      state = { ...state, ssv: { ...state.ssv, reconciliation_retries: state.ssv.reconciliation_retries + 1 } }
+      if (state.ssv.reconciliation_retries > MAX_RETRIES) {
         console.error(`[MYTHOS] RECONCILIATION exhausted after ${MAX_RETRIES} retries. Halt.`)
         console.error('[MYTHOS] Unmet steps:', state.reviewerOutput!.unmet_steps)
         process.exit(1)
       }
-      console.log(`[MYTHOS] RECONCILIATION MODE — review failed (retry ${retries}/${MAX_RETRIES})`)
+      console.log(`[MYTHOS] RECONCILIATION MODE — review failed (retry ${state.ssv.reconciliation_retries}/${MAX_RETRIES})`)
       continue
     }
 
