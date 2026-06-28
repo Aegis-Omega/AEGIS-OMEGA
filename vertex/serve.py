@@ -963,8 +963,8 @@ async def platform_stream(request: Request):
                         namespace=f"revenue:{role}",
                     )
                     output = output[:2000]
-                except Exception as exc:
-                    output = _demo_output(role, objective, prior_output) + f" [fallback: {exc}]"
+                except Exception:
+                    output = _demo_output(role, objective, prior_output) + " [fallback: internal error]"
             else:
                 output = _demo_output(role, objective, prior_output)
 
