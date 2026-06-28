@@ -337,6 +337,7 @@ function TopBar({ status, total, ttv }: { status: ChainStatus; total: number; tt
           <a href="#cognition">Cognition</a>
           <a href="#equation">Equation</a>
           <a href="/platform">Platform</a>
+          <a href="/tools">Tools</a>
           <a href="/docs">Docs</a>
         </nav>
         <div className="ld-spacer"/>
