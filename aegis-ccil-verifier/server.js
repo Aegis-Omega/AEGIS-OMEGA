@@ -7,12 +7,23 @@
 const express = require('express');
 const crypto = require('crypto');
 const path = require('path');
+const rateLimit = require('express-rate-limit');
 const { canonicalize } = require('./canonical');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
+// Rate limit every route. Signature verification does crypto work per request
+// and the fallback route touches the filesystem, so both are DoS surfaces.
+// 120 requests/min/IP is generous for a verifier yet bounds abuse.
+app.use(rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+}));
 
 // Serve static UI assets
 app.use(express.static(path.join(__dirname, 'public')));
