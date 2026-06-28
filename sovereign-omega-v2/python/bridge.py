@@ -356,7 +356,11 @@ def _platform_run_collaboration(
         }
 
         with _executions_lock:
-            _executions[execution_id] = {'result': result, 'done': True, 'error': None}
+            # Update in place so the 'email' ownership tag set at init survives —
+            # replacing the dict here would drop it and defeat ownership scoping.
+            rec = _executions.get(execution_id, {})
+            rec.update({'result': result, 'done': True, 'error': None})
+            _executions[execution_id] = rec
 
         _emit({
             'type': 'completion',
@@ -367,7 +371,9 @@ def _platform_run_collaboration(
 
     except Exception as exc:
         with _executions_lock:
-            _executions[execution_id] = {'result': None, 'done': True, 'error': str(exc)}
+            rec = _executions.get(execution_id, {})
+            rec.update({'result': None, 'done': True, 'error': str(exc)})
+            _executions[execution_id] = rec
         _emit({
             'type': 'error',
             'execution_id': execution_id,
