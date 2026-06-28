@@ -50,7 +50,10 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
 ## 3. Broken — does not compile
 
 - ~~`eccf/`, `gcce/`~~ — **removed** (were non-compiling standalone Rust crates, not in any workspace or CI).
-- **`src/hypervisor/*.rs`** — orphan Rust using `crate::hypervisor::…` with **no Cargo.toml anywhere above it**. Cannot compile in place.
+- **`src/hypervisor/*.rs`** — **NOT dead — do NOT delete.** This is the Gate 206 Constitutional
+  Hypervisor (`GATE 206 COMPLETE` commit). It imports only `std` + its own modules (zero external
+  deps), so it is *unwired*, not broken: it can't compile only because nothing above it provides a
+  `Cargo.toml`/lib root. Fix = add a crate root (`pub mod hypervisor;` + `Cargo.toml`), not removal.
 
 ---
 
@@ -59,7 +62,10 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
 - ~~`frontend/`~~ = **removed** (was a dead duplicate of `tactical/`).
 - ~~Gumroad path~~ = **removed**: `LicenseGate.tsx` + `*/api/verify-license.ts` (imported by nothing).
 - ~~Lemon Squeezy subsystem~~ = **removed** from repo: `ls-webhook`/`issue-token`/`restore-access` + `gen-grant-keypair.mjs`. NOTE: the edge functions may still be **deployed on Supabase** — delete there separately if desired.
-- **`.github/workflows/deploy-cloud-run.yml`** = no-op duplicate of `deploy.yml`; **`agent-dispatch.yml`** = no-op unless a repo var is set.
+- **`.github/workflows/deploy-cloud-run.yml`** — **NOT a no-op duplicate — keep.** It's the WIF keyless
+  Cloud Run deploy, deliberately `workflow_dispatch`-only (auto-deploy disabled *to stop GCP billing* —
+  that safety decision is encoded in its trigger). `agent-dispatch.yml` = no-op unless a repo var is set.
+- ~~`enterprise/dist/`~~ = **removed** (committed build artifact; `.gitignore` already excludes `dist/`).
 - **root `package.json`** named `aegis-tactical-dashboard` — frontend workspace entry removed; now `backend`-only (still an orphaned identity).
 - ~~`studio/dist/`~~ = **untracked** (committed build artifact removed from git).
 - Dormant scripts: `sync-readme.sh` (CLAUDE.md wrongly claims it's a hook), `check-frontend-build.sh`, `wire-custom-domain.sh`, `auto-gate.py`, `resonance_dashboard.js`, `review-copilot-worktree.ps1` (Windows, hardcoded path).
