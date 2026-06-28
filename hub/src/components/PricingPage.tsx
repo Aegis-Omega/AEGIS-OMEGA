@@ -1,8 +1,9 @@
 // AEGIS-Ω Pricing — the revenue gate.
 // Tiers: Explorer (free/10) · Operator ($49/500) · Sovereign ($499/unlimited)
-// Payment: Stripe Checkout for paid tiers; direct provision for Explorer.
+// Payment: PayPal Buttons for paid tiers (captured server-side by verify-paypal);
+// direct provision for Explorer.
 // Full NOUS design language: CoreCanvas hero, NousButton CTAs, glass tier cards.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createGrantToken } from '@shared/lib/access.js'
 import { T, MONO, SANS } from './console/consoleTokens.js'
 import { CoreCanvas } from './console/CoreCanvas.js'
@@ -10,9 +11,9 @@ import { NousButton, ArrowR, NousPill } from './console/NousUI.js'
 
 const SUPABASE_URL          = (import.meta.env.VITE_SUPABASE_URL as string | undefined)
   || 'https://rwehltdwpsncnwxzkwik.supabase.co'
-const STRIPE_OPERATOR_LINK  = (import.meta.env.VITE_STRIPE_OPERATOR_LINK  as string | undefined) ?? ''
-const STRIPE_SOVEREIGN_LINK = (import.meta.env.VITE_STRIPE_SOVEREIGN_LINK as string | undefined) ?? ''
+const PAYPAL_CLIENT_ID      = (import.meta.env.VITE_PAYPAL_CLIENT_ID as string | undefined) ?? ''
 const PROVISION_URL         = `${SUPABASE_URL}/functions/v1/verify-paypal`
+const TIER_PRICE: Record<'operator' | 'sovereign', string> = { operator: '49.00', sovereign: '499.00' }
 const BASE                  = 'https://aegis-vertex.aegisomega.com'
 
 const TOOL_URLS: Record<string, string> = {
@@ -99,7 +100,7 @@ function PricingNav() {
       borderBottom: `1px solid rgba(255,255,255,0.06)`,
     }} className="px-7 py-4 flex items-center justify-between">
       <a href="/" style={{ color: T.text, fontFamily: MONO, letterSpacing: '0.22em', fontSize: 13, fontWeight: 600 }}>
-        NOUS<span style={{ color: T.phi }}> · Ω</span>
+        AEGIS<span style={{ color: T.phi }}>-Ω</span>
       </a>
       <div className="hidden md:flex items-center gap-7">
         {links.map(([href, label]) => (
@@ -308,14 +309,28 @@ function CompareTable() {
 }
 
 export function PricingPage() {
-  const [email,      setEmail]      = useState('')
-  const [tier,       setTier]       = useState<Tier>('operator')
-  const [apiKey,     setApiKey]     = useState<string | null>(null)
-  const [error,      setError]      = useState<string | null>(null)
-  const [loading,    setLoading]    = useState(false)
-  const [stripeSent, setStripeSent] = useState(false)
+  const [email,    setEmail]    = useState('')
+  const [tier,     setTier]     = useState<Tier>('operator')
+  const [apiKey,   setApiKey]   = useState<string | null>(null)
+  const [error,    setError]    = useState<string | null>(null)
+  const [loading,  setLoading]  = useState(false)
+  const [sdkReady, setSdkReady] = useState(false)
+  const ppRef    = useRef<HTMLDivElement | null>(null)
+  const emailRef = useRef(email)
 
   useEffect(() => { setError(null) }, [email, tier])
+  useEffect(() => { emailRef.current = email }, [email])
+
+  // Load the PayPal JS SDK once. PayPal is the payment processor — no Stripe.
+  useEffect(() => {
+    if (!PAYPAL_CLIENT_ID) return
+    if ((window as any).paypal) { setSdkReady(true); return }
+    const s = document.createElement('script')
+    s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(PAYPAL_CLIENT_ID)}&currency=USD&intent=capture`
+    s.onload = () => setSdkReady(true)
+    s.onerror = () => setError('Could not load PayPal. Refresh or contact api@aegisomega.com')
+    document.body.appendChild(s)
+  }, [])
 
   async function provisionExplorer() {
     const em = email.trim()
@@ -335,42 +350,56 @@ export function PricingPage() {
     finally { setLoading(false) }
   }
 
-  function openStripe(t: Tier) {
-    const em = email.trim()
-    if (!em || !em.includes('@')) { setError('Enter a valid email first.'); return }
-    const link = t === 'operator' ? STRIPE_OPERATOR_LINK : STRIPE_SOVEREIGN_LINK
-    if (!link) { setError('Stripe payment link not configured — contact api@aegisomega.com'); return }
-    setError(null)
-    window.open(`${link}?prefilled_email=${encodeURIComponent(em)}`, '_blank', 'noopener,noreferrer')
-    setStripeSent(true)
-  }
-
-  function handleCTA() {
-    if (tier === 'explorer')  return provisionExplorer()
-    if (tier === 'operator')  return openStripe('operator')
-    if (tier === 'sovereign') return openStripe('sovereign')
-  }
+  // Render PayPal Buttons for paid tiers. The order is created client-side at the
+  // tier price; capture + amount-verification + key minting happen server-side in
+  // verify-paypal (so we never capture in the browser).
+  useEffect(() => {
+    if (tier === 'explorer' || !sdkReady || !ppRef.current) return
+    const paypal = (window as any).paypal
+    if (!paypal) return
+    const container = ppRef.current
+    container.innerHTML = ''
+    const buttons = paypal.Buttons({
+      style: { layout: 'vertical', color: 'gold', shape: 'pill', label: 'pay' },
+      onClick: (_d: unknown, actions: any) => {
+        const em = emailRef.current.trim()
+        if (!em || !em.includes('@')) { setError('Enter a valid email first.'); return actions.reject() }
+        return actions.resolve()
+      },
+      createOrder: (_d: unknown, actions: any) => actions.order.create({
+        intent: 'CAPTURE',
+        purchase_units: [{
+          amount: { value: TIER_PRICE[tier as 'operator' | 'sovereign'], currency_code: 'USD' },
+          description: `AEGIS ${tier} tier`,
+        }],
+      }),
+      onApprove: async (data: { orderID: string }) => {
+        setError(null); setLoading(true)
+        try {
+          const resp = await fetch(PROVISION_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: data.orderID, tier, email: emailRef.current.trim() }),
+          })
+          const d = await resp.json() as { api_key?: string; error?: string }
+          if (!resp.ok) throw new Error(d.error ?? `HTTP ${resp.status}`)
+          setApiKey(d.api_key!)
+        } catch (e) { setError(String(e)) }
+        finally { setLoading(false) }
+      },
+      onError: (e: unknown) => setError(`PayPal error: ${String(e)}`),
+    })
+    try {
+      if (buttons.isEligible && !buttons.isEligible()) {
+        setError('PayPal is unavailable in this browser. Contact api@aegisomega.com')
+        return
+      }
+      buttons.render(container).catch(() => {})
+    } catch { /* render race on unmount — ignore */ }
+    return () => { try { buttons.close() } catch { /* noop */ } }
+  }, [tier, sdkReady])
 
   if (apiKey)     return <ApiKeyDisplay apiKey={apiKey} tier={tier} />
-  if (stripeSent) return (
-    <div style={{ minHeight: '100vh', background: '#06070C', color: T.text, fontFamily: SANS, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ textAlign: 'center', maxWidth: 440, padding: '0 24px' }}>
-        <div style={{
-          width: 64, height: 64, borderRadius: '50%', margin: '0 auto 28px',
-          background: `${T.green}15`, border: `2px solid ${T.green}50`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 28, color: T.green,
-        }}>✓</div>
-        <h2 style={{ fontSize: 26, fontWeight: 700, marginBottom: 16 }}>Stripe checkout opened</h2>
-        <p style={{ color: T.sub, fontSize: 15, lineHeight: 1.6, marginBottom: 32 }}>
-          Complete payment in the Stripe tab. Your API key will be emailed to{' '}
-          <strong style={{ color: T.text }}>{email}</strong> within seconds of confirmation.
-        </p>
-        <NousButton onClick={() => setStripeSent(false)} variant="ghost">← Back to pricing</NousButton>
-      </div>
-    </div>
-  )
-
   return (
     <div style={{ background: '#06070C', color: T.text, minHeight: '100vh', fontFamily: SANS }}>
       <PricingNav />
@@ -389,15 +418,23 @@ export function PricingPage() {
         <div style={{ position: 'relative', zIndex: 2 }}>
           <NousPill>API ACCESS</NousPill>
           <h1 style={{
-            fontSize: 'clamp(38px, 7vw, 80px)', fontWeight: 800, lineHeight: 1.0,
-            letterSpacing: '-0.04em', margin: '24px 0 20px',
+            fontSize: 'clamp(40px, 7vw, 84px)', fontWeight: 800, lineHeight: 0.98,
+            letterSpacing: '-0.045em', margin: '24px 0 22px',
             background: 'linear-gradient(180deg, #FFFFFF 0%, #C9CBD6 55%, #9A8050 130%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-          }}>Choose your access</h1>
-          <p style={{ fontSize: 'clamp(15px,2vw,18px)', color: '#CBCDD8', maxWidth: 520, margin: '0 auto', lineHeight: 1.65 }}>
-            39 governed departments. SHA-256 audit chain. Constitutional verdict on every cycle.
-            One flat price — no subscription.
+          }}>Governed AI,<br />one flat price</h1>
+          <p style={{ fontSize: 'clamp(16px,2vw,19px)', color: '#CBCDD8', maxWidth: 540, margin: '0 auto', lineHeight: 1.65 }}>
+            A 39-department constitutional swarm with a SHA-256 audit chain on every call.
+            Pay once with PayPal — no subscription, key delivered instantly.
           </p>
+          <div style={{
+            display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap',
+            marginTop: 24, fontFamily: MONO, fontSize: 12, color: T.muted, letterSpacing: '0.04em',
+          }}>
+            <span>◦ one-time payment</span>
+            <span>◦ no subscription</span>
+            <span>◦ instant API key</span>
+          </div>
         </div>
       </section>
 
@@ -439,19 +476,35 @@ export function PricingPage() {
 
         {/* CTA */}
         <div style={{ maxWidth: 440, margin: '0 auto 16px', textAlign: 'center' }}>
-          <NousButton
-            onClick={handleCTA}
-            variant="primary" size="lg"
-            style={{ width: '100%', justifyContent: 'center', opacity: loading ? 0.6 : 1 }}
-          >
-            {loading ? 'Provisioning…' : tier === 'explorer' ? 'Get Free Explorer Access' : tier === 'operator' ? `Pay $49 · Operator` : `Pay $499 · Sovereign`}
-            {!loading && <ArrowR />}
-          </NousButton>
-          <div style={{ fontSize: 11, color: T.muted, fontFamily: MONO, marginTop: 12 }}>
-            {tier === 'explorer' && 'No card required · key emailed instantly'}
-            {tier === 'operator' && 'Stripe checkout · key emailed on confirmation'}
-            {tier === 'sovereign' && 'Stripe checkout · unlimited runs · priority throughput'}
-          </div>
+          {tier === 'explorer' ? (
+            <>
+              <NousButton
+                onClick={provisionExplorer}
+                variant="primary" size="lg"
+                style={{ width: '100%', justifyContent: 'center', opacity: loading ? 0.6 : 1 }}
+              >
+                {loading ? 'Provisioning…' : 'Get Free Explorer Access'}
+                {!loading && <ArrowR />}
+              </NousButton>
+              <div style={{ fontSize: 11, color: T.muted, fontFamily: MONO, marginTop: 12 }}>
+                No card required · key emailed instantly
+              </div>
+            </>
+          ) : (
+            <>
+              {!PAYPAL_CLIENT_ID && (
+                <div style={{ fontSize: 12, color: T.red, fontFamily: MONO, marginBottom: 10 }}>
+                  PayPal not configured — set VITE_PAYPAL_CLIENT_ID
+                </div>
+              )}
+              <div ref={ppRef} style={{ minHeight: 50 }} />
+              <div style={{ fontSize: 11, color: T.muted, fontFamily: MONO, marginTop: 12 }}>
+                {loading
+                  ? 'Provisioning your key…'
+                  : `Pay with PayPal · $${tier === 'operator' ? '49' : '499'} one-time · key shown instantly`}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Tool access preview for selected tier */}

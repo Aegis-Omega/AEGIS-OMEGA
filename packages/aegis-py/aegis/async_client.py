@@ -78,7 +78,8 @@ class AsyncAegisClient:
 
     async def start_execution(self, objective: str, mode: Mode = "analysis", live: bool = False) -> ExecutionHandle:
         raw = await self._request("POST", "/platform/executions", {"objective": objective, "mode": mode, "live": live})
-        return ExecutionHandle(execution_id=raw["execution_id"], stream_url=raw["stream_url"], _client=None)  # type: ignore[arg-type]
+        data = _validate_envelope(raw)
+        return ExecutionHandle(execution_id=data["execution_id"], stream_url=data["stream_url"], _client=None)  # type: ignore[arg-type]
 
     async def stream_execution(self, execution_id: str) -> AsyncGenerator[dict[str, Any], None]:
         """Async SSE consumer — yields one dict per SSE event until completion or error."""

@@ -125,8 +125,8 @@ Return JSON:
 
   const depts = (parsed['departments'] as Record<string, unknown> | undefined) ?? {}
   const artifacts = Object.entries(depts).map(([dept, output]) => ({
-    department: dept,
-    ...(output as Record<string, unknown>),
+    role: dept,
+    output: typeof output === 'string' ? output : JSON.stringify(output),
   }))
 
   return {

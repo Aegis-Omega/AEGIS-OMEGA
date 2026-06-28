@@ -37,6 +37,10 @@ Thumbs.db
 .env.local
 *.env.*
 !*.env.example
+# AEGIS operator profiles / secret-bearing exports — never commit
+*Production Profile*
+*production-profile*
+*.profile.txt
 .vercel/
 
 # Auto-gate crash recovery checkpoint (never commit)
@@ -79,3 +83,6 @@ nosetests.xml
 !.dev.vars.example
 !.env.example
 worker-configuration.d.ts
+
+# Sovereign-mesh pipeline run artifacts (architect/artisan/auditor) — regenerated per sprint, not source
+state/

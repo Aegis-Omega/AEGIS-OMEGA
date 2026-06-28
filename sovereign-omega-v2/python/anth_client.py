@@ -30,46 +30,24 @@ _VERTEX_REGION  = os.environ.get('AEGIS_VERTEX_REGION', 'eu')
 _USE_VERTEX_ENV = os.environ.get('AEGIS_USE_VERTEX', '').lower()
 
 
-def _try_vertex():
-    """Return an AnthropicVertex client, or None if ADC credentials are absent.
-
-    Catches BaseException (not just Exception) because google-auth's native
-    extension (pyo3/cffi) can raise pyo3_runtime.PanicException — a
-    BaseException subclass — when compiled libraries are absent.
-    KeyboardInterrupt and SystemExit are re-raised.
-    """
-    try:
-        import google.auth
-        # Raises DefaultCredentialsError if no ADC configured.
-        google.auth.default(scopes=['https://www.googleapis.com/auth/cloud-platform'])
-        from anthropic import AnthropicVertex
-        return AnthropicVertex(project_id=_VERTEX_PROJECT, region=_VERTEX_REGION)
-    except (KeyboardInterrupt, SystemExit):
-        raise
-    except BaseException:
-        return None
-
-
 def get_client():
     """
     Return the best available Anthropic client.
 
     Priority:
       AEGIS_USE_VERTEX=true  → Vertex AI (raises if ADC unavailable)
-      AEGIS_USE_VERTEX=false → Direct API key
-      (default)              → Vertex AI if ADC available, else direct API key
+      (anything else)        → Direct API key (ANTHROPIC_API_KEY)
+
+    Vertex is opt-in ONLY and is never auto-selected. On Cloud Run, Application
+    Default Credentials are always present, and auto-selecting Vertex silently
+    routed paid inference through Vertex AI billed to the GCP card. The default
+    is now the direct API key; set AEGIS_USE_VERTEX=true to deliberately use
+    Vertex.
     """
     if _USE_VERTEX_ENV == 'true':
         from anthropic import AnthropicVertex
         return AnthropicVertex(project_id=_VERTEX_PROJECT, region=_VERTEX_REGION)
 
-    if _USE_VERTEX_ENV == 'false':
-        return _direct_client()
-
-    # Auto-detect: Vertex if ADC available, else direct
-    vertex = _try_vertex()
-    if vertex is not None:
-        return vertex
     return _direct_client()
 
 
@@ -94,17 +72,35 @@ def is_vertex(client) -> bool:
         return False
 
 
-def make_cached_system(text: str) -> list[dict]:
+def make_cached_system(text: str, dynamic_suffix: str = '', ttl: str = '') -> list[dict]:
     """
-    Wrap a system-prompt string as a cached content block.
+    Wrap a system prompt for prompt caching.
 
-    Pass the return value as the `system=` parameter to client.messages.create().
-    The API caches this block for 5 minutes; cache hits cost 10% of normal
-    input tokens and do not count against the input-token rate-limit bucket.
+    `text` becomes the cached block (cache_control=ephemeral). Put the STABLE,
+    unchanging part here: the cached prefix only hits when its bytes are identical
+    across calls, so anything that varies per request must NOT go in it. Mixing
+    live state into the cached block makes every call a cache miss.
+
+    `dynamic_suffix`, if given, is appended as a SEPARATE, uncached block. Put
+    per-request content (live telemetry, recent context, caller system text) here
+    so it does not bust the cache on the stable prefix.
+
+    `ttl`: '' for the default 5-minute cache, or '1h' for the 1-hour cache.
+
+    NOTE: a block only actually caches if it exceeds the model's minimum cacheable
+    length — 512 tokens for Fable/Mythos, 1024 for Opus 4.8. A prefix shorter than
+    that is sent normally and pays full input price. Confirm with the response's
+    cache_read_input_tokens (should be > 0 on the second identical call).
 
     Compatible with both Anthropic and AnthropicVertex clients.
     """
-    return [{'type': 'text', 'text': text, 'cache_control': {'type': 'ephemeral'}}]
+    cache_control: dict = {'type': 'ephemeral'}
+    if ttl:
+        cache_control['ttl'] = ttl
+    blocks = [{'type': 'text', 'text': text, 'cache_control': cache_control}]
+    if dynamic_suffix:
+        blocks.append({'type': 'text', 'text': dynamic_suffix})
+    return blocks
 
 
 # Convenience: pre-built client for module-level import
