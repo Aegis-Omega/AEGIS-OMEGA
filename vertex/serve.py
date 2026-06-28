@@ -1219,7 +1219,8 @@ async def github_webhook(request: Request):
         dispatched = len(results)
     except Exception as exc:
         dispatched = 0
-        event_type = f"{event_type}:dispatch_failed:{exc}"
+        print(f"github_webhook dispatch failure for event '{event_type}': {exc}", file=sys.stderr)
+        event_type = f"{event_type}:dispatch_failed"
 
     # Audit in chain
     try:
