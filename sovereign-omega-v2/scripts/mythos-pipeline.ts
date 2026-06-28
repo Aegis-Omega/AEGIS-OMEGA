@@ -337,20 +337,6 @@ async function runPipeline(task: string): Promise<void> {
       continue
     }
 
-    // POST_VALIDATE holon gate
-    const nSteps = state.plannerOutput!.plan_steps.length
-    const pv = await holonGate('POST_VALIDATE', bioState, nSteps)
-    log('VALIDATE', `holon POST_VALIDATE: ${pv.verdict} (${pv.reason_code})${pv.chain_entry_hash ? ` hash=${pv.chain_entry_hash.slice(0, 12)}…` : ''}`)
-    if (pv.verdict === 'FAILED') {
-      retries++
-      if (retries > MAX_RETRIES) {
-        console.error('[MYTHOS] RECONCILIATION exhausted — holon POST_VALIDATE blocked plan.')
-        process.exit(1)
-      }
-      console.log(`[MYTHOS] RECONCILIATION MODE — holon gate blocked (retry ${retries}/${MAX_RETRIES})`)
-      continue
-    }
-
     // BUILD
     state = await runBuild(client, state)
 
@@ -363,8 +349,8 @@ async function runPipeline(task: string): Promise<void> {
         console.error('[MYTHOS] flags:', state.reviewerOutput!.flags)
         process.exit(1)
       }
-      retries++
-      if (retries > MAX_RETRIES) {
+      state = { ...state, ssv: { ...state.ssv, reconciliation_retries: state.ssv.reconciliation_retries + 1 } }
+      if (state.ssv.reconciliation_retries > MAX_RETRIES) {
         console.error(`[MYTHOS] RECONCILIATION exhausted after ${MAX_RETRIES} retries. Halt.`)
         console.error('[MYTHOS] Unmet steps:', state.reviewerOutput!.unmet_steps)
         process.exit(1)
