@@ -56,6 +56,27 @@ This is competency accumulation, NOT cognition emergence.
 
 ---
 
+## φ-Holographic Compute — Physics Correspondence (T3/T4, quarantined 2026-06-25)
+
+Source: `docs/PHI_HOLOGRAPHIC_COMPUTE.md`. The document's **engineering** content is admitted
+at T2 (see `docs/CORPUS_MINDMAP.md` Batch 2026-06-25): the branchless WGSL Fibonacci step with
+an inline det(Mⁿ)=±1 integrity check, self-flagging decohered agents, and Gates 604/605 at the
+61%≈φ coherence threshold. That part is concrete and falsifiable and may be implemented.
+
+**Quarantined framing (must NOT ground the T2 claim):**
+- "connects to observed E₈ physics at T1" — the E₈ symmetry result in 1-D Ising ferromagnets is
+  real condensed-matter physics, but its use here is *analogy*, not an evidence path. It does not
+  empirically validate the AEGIS integrity check.
+- "quantum critical point", "computational analog of the E₈ symmetry lock", holographic
+  bulk/boundary language — T3 conjecture / T4 framing. Decorative, not load-bearing.
+
+**Latent T2 potential (already admitted):** det(Mⁿ)=±1 for M=[[1,1],[1,0]] is simply the
+Fibonacci-matrix determinant identity — true by arithmetic, independent of any physics claim.
+The integrity check stands on that, not on E₈. Promote the engineering on its own merit; leave
+the physics correspondence here as long-horizon framing only.
+
+---
+
 ## Non-Equivalence Reminder
 
 ```
