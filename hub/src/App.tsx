@@ -7,6 +7,7 @@
 // /claim-sponsor  → ClaimSponsorPage (GitHub Sponsors key claim)
 // /runtime        → AegisRuntime (constitutional consciousness showcase)
 // /compliance     → CompliancePage (EU AI Act · GDPR · constitutional law)
+// /tools          → ToolsPage (the three $19 creator tools)
 import { AegisRuntime }      from './components/AegisRuntime.js'
 import { ClaimSponsorPage }  from './components/ClaimSponsorPage.js'
 import { CompliancePage }    from './components/CompliancePage.js'
@@ -15,6 +16,7 @@ import { DocsPage }          from './components/DocsPage.js'
 import { HomepageLanding }   from './components/HomepageLanding.js'
 import { PlatformPage }      from './components/PlatformPage.js'
 import { PricingPage }       from './components/PricingPage.js'
+import { ToolsPage }         from './components/ToolsPage.js'
 
 const path = window.location.pathname
 
@@ -26,5 +28,6 @@ export default function App() {
   if (path === '/platform')       return <PlatformPage />
   if (path === '/console')        return <ConsolePage />
   if (path === '/runtime')        return <AegisRuntime />
+  if (path === '/tools')          return <ToolsPage />
   return <HomepageLanding />
 }
