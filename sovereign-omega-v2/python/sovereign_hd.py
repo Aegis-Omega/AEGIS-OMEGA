@@ -27,7 +27,7 @@ PHI = (5 ** 0.5 - 1) / 2  # ≈ 0.6180339887
 # Setting it lower (e.g. PHI) tightens the gate.
 DEFAULT_LAMBDA_C = 1.0
 
-HOLON_ENDPOINT = 'https://aegisomega.workers.dev/platform/holon/validate'
+HOLON_ENDPOINT = 'https://aegis-vertex.aegisomega.com/platform/holon/validate'
 
 
 class SovereignHD:

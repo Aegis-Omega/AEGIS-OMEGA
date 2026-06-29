@@ -51,7 +51,7 @@
   "handler": {
     "type": "http",
     "method": "POST",
-    "url": "https://aegisomega.workers.dev/platform/holon/validate",
+    "url": "https://aegis-vertex.aegisomega.com/platform/holon/validate",
     "headers": { "Content-Type": "application/json" },
     "body_template": {
       "holon_id":    "gemma-4e4b-iphone",

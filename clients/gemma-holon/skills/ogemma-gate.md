@@ -68,7 +68,7 @@ const payload = {
   }
 };
 
-const response = await fetch("https://aegisomega.workers.dev/platform/holon/validate", {
+const response = await fetch("https://aegis-vertex.aegisomega.com/platform/holon/validate", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(payload)
