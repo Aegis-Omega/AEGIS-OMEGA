@@ -17,6 +17,8 @@ node_modules/
 **/node_modules/
 target/
 **/target/
+# Root hypervisor crate is a library — don't commit its lockfile
+/Cargo.lock
 
 # Logs and temp files
 *.log

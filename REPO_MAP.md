@@ -50,10 +50,12 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
 ## 3. Broken — does not compile
 
 - ~~`eccf/`, `gcce/`~~ — **removed** (were non-compiling standalone Rust crates, not in any workspace or CI).
-- **`src/hypervisor/*.rs`** — **NOT dead — do NOT delete.** This is the Gate 206 Constitutional
-  Hypervisor (`GATE 206 COMPLETE` commit). It imports only `std` + its own modules (zero external
-  deps), so it is *unwired*, not broken: it can't compile only because nothing above it provides a
-  `Cargo.toml`/lib root. Fix = add a crate root (`pub mod hypervisor;` + `Cargo.toml`), not removal.
+- ~~`src/hypervisor/*.rs`~~ — **NOW WIRED.** The Gate 206 Constitutional Hypervisor compiles as the
+  standalone `aegis-hypervisor` crate (root `Cargo.toml` + `src/lib.rs` exposing `pub mod hypervisor;`).
+  `cargo test` → 15 passing. Its one external dep is `serde_json` (used via full-path `serde_json::Value`/
+  `json!`, not a `use` line — which is why an earlier audit miscounted it as zero-dep). Not yet in CI;
+  latent gap: `ConstitutionalHypervisor` constructs a `PolicyEnforcer` field that `validate_operation`
+  never reads (it checks the registry directly).
 
 ---
 

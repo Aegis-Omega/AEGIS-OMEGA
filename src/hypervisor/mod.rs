@@ -214,8 +214,10 @@ mod tests {
         let mut hypervisor = ConstitutionalHypervisor::new();
         hypervisor.initialize_defaults();
 
-        // Test unauthorized tool
+        // Test unauthorized tool. Effort must satisfy the prior gate so the
+        // tool check is actually reached — gates run bypass → effort → tool.
         let mut context = HashMap::new();
+        context.insert("effort".to_string(), serde_json::json!("xhigh"));
         context.insert("tool".to_string(), serde_json::json!("unauthorized_tool"));
 
         let result = hypervisor.validate_operation("test_op", &context);
@@ -223,6 +225,7 @@ mod tests {
 
         // Test authorized tool
         let mut context = HashMap::new();
+        context.insert("effort".to_string(), serde_json::json!("xhigh"));
         context.insert("tool".to_string(), serde_json::json!("bash"));
 
         let result = hypervisor.validate_operation("test_op", &context);
