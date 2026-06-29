@@ -29,6 +29,15 @@ THERMAL_SAMPLE_INTERVAL_S = 0.5                 # polling interval
 # ── Determinism Constraints ─────────────────────────────────────────────────
 # Bit-shifted integer configurations eliminate floating-point non-determinism
 # across CPU and GPU architectures. All probabilistic bounds use these.
+#
+# Scale domains (settled — do not "reconcile" with Q32.32, they are separate):
+#   Q16.16 (this, INT_SCALE=65536) = Python hardware-inference domain. The TS
+#     side uses the SAME scale (src/environment/.../introspection.ts
+#     FIXED_SCALE = 1<<16 = 65536) for its entropy-budget fields, so the two
+#     agree by construction.
+#   Q32.32 (src/core/fixedpoint.ts) = a DIFFERENT domain: JS<->WASM governance
+#     math (Bernstein/VCG). It never crosses into Python — the bridge exchanges
+#     floats, not raw fixed-point — so the two scales never need to match.
 INT_SHIFT_BITS         = 16                     # Q16.16 fixed-point format
 INT_SCALE              = 1 << INT_SHIFT_BITS    # 65536
 INT_MAX                = (1 << 31) - 1          # signed 32-bit max
