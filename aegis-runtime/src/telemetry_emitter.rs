@@ -8,7 +8,7 @@
 //! observability of distributed swarm nodes.
 
 use std::net::UdpSocket;
-use std::sync::atomic::{AtomicU64, AtomicU16, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use std::thread;
