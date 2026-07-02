@@ -59,6 +59,14 @@
 | Model weights pipeline | REAL (weights external) | No weights in-repo (by design); `clients/gemma-holon/huggingface_publish.py` packages/publishes on-device Gemma holon models to HuggingFace |
 | Cross-runtime determinism proof | REAL | Same math verified byte-identical across Rust/TS/Python/Swift (CCIL v5 equivalence gate, INT4 LUT-KAN parity test, Q16.16 shared scale) — the claim competitors can't make |
 
+## 3c. The layer below the languages — and the layer outside the sessions
+
+| Asset | Status | Notes |
+|-------|--------|-------|
+| **AEGIS binary wire protocol** (`0xE0E0`) | REAL | Hand-specified 64-byte MTU-aligned UDP frame (`aegis-runtime/src/gossip_emitter.rs` + `telemetry_emitter.rs`): magic bytes, node id, root-state pulses, semantic traversals, agent states α/β/γ, consensus score, network friction. Corruption-rejection tested; no tokio, raw `std::net::UdpSocket`. Plus `b"ALCE"` compaction headers in CL-Ψ. The swarm speaks its own byte-level protocol |
+| **Out-of-session execution mesh** | LIVE | Built after sessions kept resetting — the system runs without any Claude session open: `supabase/functions/agent` (autonomous Claude agent with DB-query + notify tools), `slack-events` + `notify` (ops loop), Cloudflare Worker `aegisomega.workers.dev` (direct `/platform/collaborate` + holon validate), CEREMONY BFT quorum in GitHub Actions, `.claude/metacog` lifecycle chain (repaired 2026-07-02) |
+| Mobile control rig `clients/gemma-holon/quantum/server.py` | REAL | Phone-driven Flask dashboard made to run in a GitHub Codespace: job queue, simulated holon gate transitions, continuous purity checks, PennyLane 4-qubit device. HONEST TIER: the quantum circuit is a *simulator* (T2/T3), the control rig itself is real |
+
 ## 4. Partner / compliance arsenal
 
 | Asset | Status | Notes |
