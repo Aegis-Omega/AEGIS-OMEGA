@@ -5,7 +5,7 @@
 
 set -uo pipefail
 
-REPO="/home/user/AEGIS--"
+REPO="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 SKILLS="$REPO/sovereign-omega-v2/.claude/skills"
 
 # L7: re-verify constitutional membrane (must exit 0)

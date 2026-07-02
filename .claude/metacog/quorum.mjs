@@ -21,11 +21,12 @@
 // the live metacognitive chain. Dependency-free: node:crypto + node:fs.
 // ============================================================
 import { createHash } from 'node:crypto'
+import { fileURLToPath } from 'node:url'
 import { readFileSync, appendFileSync, existsSync, mkdirSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 
-const REPO   = process.env.CLAUDE_PROJECT_DIR || '/home/user/AEGIS--'
+const REPO   = process.env.CLAUDE_PROJECT_DIR || fileURLToPath(new URL('../..', import.meta.url))
 const DIR    = join(REPO, '.claude/metacog')
 const LEDGER = process.env.AEGIS_QUORUM_LEDGER || join(DIR, 'ratifications.jsonl')
 const CHAIN_MJS = join(DIR, 'chain.mjs')

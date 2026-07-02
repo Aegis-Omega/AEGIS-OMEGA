@@ -5,6 +5,10 @@
 
 set -uo pipefail
 
+# Self-locate the repo: hooks live at $REPO/.claude/hooks/. Never hardcode the
+# container path — a moved/recloned repo silently no-ops every gate below.
+REPO="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+
 INPUT=$(cat)
 CMD=$(echo "$INPUT" | python3 -c "
 import sys, json
@@ -23,7 +27,7 @@ fi
 # Mutation authority is withdrawn if the metacog/ratification chains are tampered
 # (!is_anchored) or adaptation outran 1/φ of self-observation (entropy unbounded).
 # A suspended automaton may not commit — AdaptivePower(T) ≤ ReplayVerifiability(T).
-MART="/home/user/AEGIS--/.claude/metacog/martingale.mjs"
+MART="$REPO/.claude/metacog/martingale.mjs"
 if [ -f "$MART" ]; then
   if ! MART_OUT=$(node "$MART" gate 2>&1); then
     echo "BLOCKED: martingale suspended — mutation authority withdrawn."
@@ -38,7 +42,7 @@ fi
 # REPLAY SOVEREIGNTY: replay(genesis, events) must reproduce the chain's topology
 # hash, byte-identical across runs. A chain that does not replay deterministically
 # may not commit — topology non-determinism is a T0_ABORT condition.
-REPLAY="/home/user/AEGIS--/.claude/metacog/replay.mjs"
+REPLAY="$REPO/.claude/metacog/replay.mjs"
 if [ -f "$REPLAY" ]; then
   if ! REPLAY_OUT=$(node "$REPLAY" gate 2>&1); then
     echo "BLOCKED: replay divergence — the chain does not replay from genesis."
@@ -53,7 +57,7 @@ fi
 # chained ledger. A broken ledger means a verdict was retroactively altered —
 # a constitutional breach. The automaton may not commit with a tampered
 # verdict record.
-MESH="/home/user/AEGIS--/.claude/metacog/agent-mesh.mjs"
+MESH="$REPO/.claude/metacog/agent-mesh.mjs"
 if [ -f "$MESH" ]; then
   if ! MESH_OUT=$(node "$MESH" gate 2>&1); then
     echo "BLOCKED: agent-mesh verdict ledger tampered — constitutional breach."
@@ -64,7 +68,7 @@ if [ -f "$MESH" ]; then
 fi
 
 echo "GATE 8 pre-commit: Gate1 → typecheck → build..."
-cd /home/user/AEGIS--/sovereign-omega-v2
+cd "$REPO/sovereign-omega-v2" || { echo "BLOCKED: $REPO/sovereign-omega-v2 not found — Gate 8 cannot run."; exit 2; }
 
 # Gate 1: T0 canonicalization foundation (fast ~2-5s — must be green always)
 GATE1=$(npm run test -- test/unit/jcs.test.ts 2>&1 | tail -6)

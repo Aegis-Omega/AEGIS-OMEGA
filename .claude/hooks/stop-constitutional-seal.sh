@@ -6,7 +6,7 @@
 
 set -uo pipefail
 
-REPO="/home/user/AEGIS--"
+REPO="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 # L7: frozen-file membrane verify (always — fast)
 HASH_OUT=$(cd "$REPO/sovereign-omega-v2" && node scripts/verify-hashes.mjs 2>&1 | tail -5)

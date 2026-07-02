@@ -7,6 +7,7 @@
 
 import type { RuntimeVersionPin, ProjectionState } from '../core/types.js'
 import { replayProjection } from '../event/replay.js'
+import { canonicalizeJCSString } from '../core/canonicalize.js'
 import type { EventEnvelope } from '../core/types.js'
 
 export interface CompiledProjection {
@@ -53,17 +54,18 @@ function validatePinCompleteness(pin: RuntimeVersionPin): void {
 }
 
 function fingerprintPin(pin: RuntimeVersionPin): string {
-  // Deterministic fingerprint using sorted key serialisation
-  const sorted = Object.fromEntries(
-    Object.entries({
-      schema_version: pin.schema_version,
-      projection_compiler_version: pin.projection_compiler_version,
-      calibration_model_version: pin.calibration_model_version,
-      k_measurement_version: pin.k_measurement_version,
-      verifier_versions: pin.verifier_versions,
-    }).sort(([a], [b]) => a.localeCompare(b))
-  )
-  return JSON.stringify(sorted)
+  // RFC 8785 canonical serialisation — lexicographic key ordering at EVERY
+  // nesting level, including verifier_versions. The prior JSON.stringify only
+  // sorted the five top-level keys, so two otherwise-identical pins whose
+  // verifier_versions were built in different key orders produced different
+  // fingerprints. canonicalizeJCS is the only permitted integrity-hash path.
+  return canonicalizeJCSString({
+    schema_version: pin.schema_version,
+    projection_compiler_version: pin.projection_compiler_version,
+    calibration_model_version: pin.calibration_model_version,
+    k_measurement_version: pin.k_measurement_version,
+    verifier_versions: pin.verifier_versions,
+  })
 }
 
 export class PinValidationError extends Error {

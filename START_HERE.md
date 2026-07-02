@@ -4,7 +4,11 @@
 before anything else. When a doc disagrees with this file or the code, the code wins,
 then this file. Keep it updated at the end of each working session.
 
-_Last updated: 2026-06-23_
+**Companion:** `ASSETS.md` (repo root) — the complete asset inventory with status and
+value class. Read it before concluding anything about what this system does or doesn't
+contain.
+
+_Last updated: 2026-07-02_
 
 ---
 
@@ -55,14 +59,17 @@ that has fragmented the project. Fold `WHERE_I_AM.md` into this and delete it.**
 
 Authority order when things disagree: **live system > code > tests/CI > this file > REPO_MAP > CLAUDE.md > old docs.**
 
-## Live-site truth (corrected 2026-06-23)
+## Live-site truth (corrected 2026-07-02 — verified from a full-network session)
 
-- The site **IS live** — there is a real production deployment behind `aegisomega.com`, marked READY.
-- BUT it serves an **old build from before the Pay button**. ~20 newer builds exist only as
-  Vercel **previews — none promoted to production.** So checkout is not on the live site yet.
-- ⚠️ A sandboxed session (proxy-blocked outbound) **cannot verify the domain or pull Vercel
-  logs.** A session with Vercel access must confirm: does `aegisomega.com` resolve, is the
-  Vercel connection healthy, and what's in the runtime logs.
+- `aegisomega.com` **resolves and serves HTTP 200** (apex, www, platform, hooks). DNS was dead
+  (lame delegation: registrar pointed at stale noor/west Cloudflare NS) — operator switched
+  Squarespace nameservers to olivia/remy 2026-07-02; zone records A/CNAMEs all in place.
+- **Checkout is on the live site.** `VITE_PAYPAL_CLIENT_ID` was set on the Vercel `hub` project
+  (it previously had ZERO env vars — the buy buttons had never rendered in production) and a
+  fresh production build from `main` deployed. Verified: the client ID is baked into the live bundle.
+- Remaining gaps: `calendar.aegisomega.com` 404 / `cockpit.aegisomega.com` no cert — DNS is
+  correct, the domains just aren't attached to their Vercel projects yet.
+- Full-network sessions CAN verify the domain and drive the Vercel API via `VERCEL_TOKEN`.
 
 ## Status
 
@@ -85,18 +92,25 @@ _Last refreshed 2026-06-24._
 - `#167` (anthropic-compliance, other session): contract alignment + CI gate + Swift verifier — **open, review & merge to main**.
 - `slack-session`, `cloudflare/workers-autoconfig`, `test-coverage-analysis`, `docs/formal-specs`: still to triage.
 
-**Left to do — access-gated (operator only; sandbox can't reach these):**
-- **Promote a current build to production in Vercel** so the live site has the Pay button. ← biggest lever
-- Set Vercel env: `VITE_DASHSCOPE_API_KEY` (products) + `VITE_PAYPAL_CLIENT_ID` (checkout).
-- Verify PayPal → `verify-paypal` → key issuance end to end (one test purchase).
-- Confirm `aegisomega.com` DNS resolves to Vercel.
+**Done 2026-07-02 (the month-long blockers, closed in one session):**
+- ✅ `aegisomega.com` DNS fixed (operator: nameservers; session: zone records + www).
+- ✅ `VITE_PAYPAL_CLIENT_ID` set on Vercel `hub` + production build promoted from `main` —
+  checkout renders on the live site for the first time.
+- ✅ Hypervisor enforcement gap fixed (2 constitutional constraints were silently skipped).
+- ✅ `ASSETS.md` created — complete asset inventory so sessions stop starting blind.
+
+**Left to do:**
+- **One real $48 test purchase** end to end (PayPal → `verify-paypal` → API key). ← the proof
+- Set `VITE_DASHSCOPE_API_KEY` on the three product Vercel projects (same API pattern as PayPal fix).
+- Attach `calendar`/`cockpit` domains to their Vercel projects.
 - Delete the GCP project entirely (recoverable 30 days) so it can never bleed again.
+- Push the "zero kernel" (exists only on operator's PC — invisible to all sessions until pushed).
 
 ## Next concrete step
 
-Promote a current, working build to production on Vercel (free) so the live site stops
-serving the pre-Pay-button version and can actually take a PayPal payment. That single act
-is "it's going." Everything else (portfolio, partners, funding) builds on one live, earning thing.
+Make one real $48 purchase on aegisomega.com from a phone. If the API key arrives, the
+business works and everything else (portfolio, partners, funding) builds on one live,
+earning thing. If it fails, pull Supabase `verify-paypal` logs and fix the exact break.
 
 ---
 
