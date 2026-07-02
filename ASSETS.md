@@ -48,6 +48,17 @@
 | Stochastic Logic Engine `clients/gemma-holon/skills/stochastic-engine.md` | REAL | Reverse-engineered anti-attractor system prompt (time-inhomogeneous Markov framing) with measured effect: Gemma-3-1B held ~640 coherent tokens at 51 tok/s vs. repetition-collapse without it |
 | `.claude/metacog/*.mjs` session constitution | LIVE (repaired 2026-07-02) | 797 lines, dependency-free Node: hash chain mirroring `loop.ts`, martingale certifier, replay gate, quorum, agent-mesh ledger — wired into 5 lifecycle hooks. The dev harness is governed by the same law as the product. Had been silently dead since the repo moved (hardcoded `/home/user/AEGIS--` paths) |
 
+## 3b. Agent infrastructure (repeatedly misread as "noise" by past sessions — it is not)
+
+| Asset | Status | Notes |
+|-------|--------|-------|
+| Agent memory fabric | REAL | `sovereign-omega-v2/src/agents/memory/agent-memory.ts`, `src/memory/`, `src/ide/workspace/WorkspaceMemoryGraph.ts`, memory-fabric composition tests, `docs/WORKSPACE_MEMORY_MODEL.md` — plus a live Supabase table (`migrations/20260607300000_swarm_memory.sql`). Agent memory logs are SIGNAL: they are the persistence layer of the swarm |
+| `harness/skill_tree.json` + `harness/` | LIVE | 30KB versioned skill tree (genesis_seal, phase, doc_count); `agents/coordinator.py` reads/writes it; baked into the vertex Cloud Run image |
+| `agents/` department engine | REAL | `cognitive_pipeline.py`, `coordinator.py`, `evolution.py`, `red_team.py`, `revenue_engine.py`, `tool_runner.py`, `register_vertex_adk.py`, `adaptive_lineage.json` — the Python multi-agent org behind the 39-dept swarm |
+| `packages/aegis-py/` SDK + `aegis` CLI | REAL | `AegisClient`/`AsyncAegisClient`; `aegis status` / `aegis collaborate` against `/platform/*` |
+| Model weights pipeline | REAL (weights external) | No weights in-repo (by design); `clients/gemma-holon/huggingface_publish.py` packages/publishes on-device Gemma holon models to HuggingFace |
+| Cross-runtime determinism proof | REAL | Same math verified byte-identical across Rust/TS/Python/Swift (CCIL v5 equivalence gate, INT4 LUT-KAN parity test, Q16.16 shared scale) — the claim competitors can't make |
+
 ## 4. Partner / compliance arsenal
 
 | Asset | Status | Notes |
