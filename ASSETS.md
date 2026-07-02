@@ -86,7 +86,44 @@
 | **"Zero kernel"** | Named by operator 2026-07-02; not found under any matching name in repo or Drive. Push it or provide the path — until then it does not exist for any session |
 | PC repo delta (~352k lines locally vs. remote) | Anything not pushed is invisible to every session. `git push` is the only cure |
 
-## 7. Value conversion map (what turns which asset into what)
+## 7. The deep layer — all 35 subsystems under `sovereign-omega-v2/src/`
+
+Exercised by the 4,000+ test suite (TESTED-ONLY per REPO_MAP §2 unless noted). Descriptions
+from each subsystem's own file headers. **The operator does not need to remember these — this
+table is the memory.**
+
+| Subsystem | Files | What it is |
+|-----------|-------|------------|
+| `skill-harness/` | 17 | SkillCatalog + SHA-256 skill transfer records |
+| `ledger/` | 16 | Blockchain: ordered CommittedBlock sequence |
+| `frame/` | 14 | Adaptive Lineage — hash-chained capability evolution |
+| `constitutional/` | 13 | Martingale certifier, reduction (T4/T5 blocker), law enforcement |
+| `core/` | 12 | RFC 8785 canonicalization, branded types, deepFreeze |
+| `agents/` | 11 | Agent runtime incl. `memory/agent-memory.ts` |
+| `memory/` | 9 | Memory fabric (composition-tested) |
+| `aoie/` | 9 | AOIE Arbitration — policy mutation + assertion classification |
+| `consensus/` | 8 | φ-quorum swarm voting kernel |
+| `sitr/` | 7 | SITR Intervention Log — append-only monotonic record |
+| `event/` | 7 | Event substrate, UUIDv7 (the one Date.now() site) |
+| `environment/` | 6 | Environment Adaptation Layer (entropy budgets, Q16.16) |
+| `gate/` | 5 | Bernstein bounds (never Hoeffding) |
+| `verifier/` | 4 | VCG calibration (V4/V5 excluded) |
+| `shp/` | 4 | SHP Kernel Interface |
+| `pipeline/` | 4 | Decision pipeline + backpressure |
+| `network/` | 4 | Network kernel (injected timestamps) |
+| `ide/` | 4 | AEGIS IDE Runtime — constitutional panel state |
+| `extensions/` | 4 | Extension/Plugin Habitat |
+| `crdt/` | 4 | LedgerEntry G-Set CRDT (federation-ready state merge) |
+| `api/` | 4 | Managed-agent + admin clients |
+| `registry/` | 3 | Holonic-scale entry registry |
+| `corpus-engine/` | 3 | 5-phase RALPH pipeline, fibonacci_depths [1,1,2,3,5] |
+| `capsule/` | 3 | Capability Evolution Protocol |
+| `calibration/` | 3 | Calibration models |
+| `projection/` | 2 | Version-pinned projection compiler (RFC 8785 fingerprint) |
+| `enforcement/` | 2 | Enforcement Engine |
+| `simulation/` `runtime/` `metacognition/` `forensics/` `federation/` `compliance/` `lib/` | 1 ea | Simulation branches · projection machine · MetacognitiveLoop · Forensic Divergence Localisation · Federation seams (CRGM §7) · compliance · telemetry lib |
+
+## 8. Value conversion map (what turns which asset into what)
 
 | Goal | Asset | The one next action |
 |------|-------|---------------------|
