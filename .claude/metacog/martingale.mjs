@@ -25,10 +25,11 @@
 // Dependency-free: node:crypto + node:fs.
 // ============================================================
 import { createHash } from 'node:crypto'
+import { fileURLToPath } from 'node:url'
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
-const REPO   = process.env.CLAUDE_PROJECT_DIR || '/home/user/AEGIS--'
+const REPO   = process.env.CLAUDE_PROJECT_DIR || fileURLToPath(new URL('../..', import.meta.url))
 const DIR    = join(REPO, '.claude/metacog')
 const CHAIN  = process.env.AEGIS_METACOG_CHAIN || join(DIR, 'chain.jsonl')
 const LEDGER = process.env.AEGIS_QUORUM_LEDGER || join(DIR, 'ratifications.jsonl')

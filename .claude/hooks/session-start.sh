@@ -9,7 +9,7 @@ fi
 
 echo '{"async": true, "asyncTimeout": 300000}'
 
-REPO="${CLAUDE_PROJECT_DIR:-/home/user/AEGIS--}"
+REPO="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 install_npm() {
   local dir="$REPO/$1"

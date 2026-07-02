@@ -45,6 +45,8 @@
 | φ-holographic broadcast + WebGPU surface | REAL | `gossip_broadcast_phi_holographic_e7.rs` + `studio/` + `aegisomega-webgpu/` (σ/ρ/λ Φ-field frame graph). Metaphorical name, real code |
 | `clients/` polyglot SDK set | REAL | Python, Go, shell, Google Sheets (`Code.gs` + sidebar), **brainfuck** (yes, a working brainfuck client — API-simplicity flex) |
 | `hub/` in-browser MetacognitiveLoop | LIVE | Hash-chained self-observation running client-side on the landing page |
+| Stochastic Logic Engine `clients/gemma-holon/skills/stochastic-engine.md` | REAL | Reverse-engineered anti-attractor system prompt (time-inhomogeneous Markov framing) with measured effect: Gemma-3-1B held ~640 coherent tokens at 51 tok/s vs. repetition-collapse without it |
+| `.claude/metacog/*.mjs` session constitution | LIVE (repaired 2026-07-02) | 797 lines, dependency-free Node: hash chain mirroring `loop.ts`, martingale certifier, replay gate, quorum, agent-mesh ledger — wired into 5 lifecycle hooks. The dev harness is governed by the same law as the product. Had been silently dead since the repo moved (hardcoded `/home/user/AEGIS--` paths) |
 
 ## 4. Partner / compliance arsenal
 

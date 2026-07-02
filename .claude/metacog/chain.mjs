@@ -20,10 +20,11 @@
 // Dependency-free: node:crypto + node:fs only. No Date.now() in any hash input.
 // ============================================================
 import { createHash } from 'node:crypto'
+import { fileURLToPath } from 'node:url'
 import { readFileSync, appendFileSync, existsSync, mkdirSync, openSync, closeSync, unlinkSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
-const REPO    = process.env.CLAUDE_PROJECT_DIR || '/home/user/AEGIS--'
+const REPO    = process.env.CLAUDE_PROJECT_DIR || fileURLToPath(new URL('../..', import.meta.url))
 const DIR     = join(REPO, '.claude/metacog')
 const CHAIN   = process.env.AEGIS_METACOG_CHAIN || join(DIR, 'chain.jsonl')
 const SEALS   = join(DIR, 'seals.jsonl')

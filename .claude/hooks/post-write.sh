@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-REPO="${CLAUDE_PROJECT_DIR:-/home/user/AEGIS--}"
+REPO="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 # Read the file path from stdin JSON
 FILE_PATH=$(jq -r '.tool_input.file_path // .tool_response.filePath // empty' 2>/dev/null || echo "")
