@@ -131,7 +131,34 @@ table is the memory.**
 | `enforcement/` | 2 | Enforcement Engine |
 | `simulation/` `runtime/` `metacognition/` `forensics/` `federation/` `compliance/` `lib/` | 1 ea | Simulation branches · projection machine · MetacognitiveLoop · Forensic Divergence Localisation · Federation seams (CRGM §7) · compliance · telemetry lib |
 
-## 8. Value conversion map (what turns which asset into what)
+## 8. Full-tree audit 2026-07-02 — every directory opened, verdicts recorded
+
+~1,700 source files walked (all 32 top-level dirs; `target/` = build cache, excluded).
+New findings that no prior session had recorded:
+
+| Finding | Where | Verdict |
+|---------|-------|---------|
+| **The triad exists ×3, cross-language** | `harness/sdk/{planner,generator,evaluator}` (Py) · `sovereign-mesh/nodes/{architect,artisan,auditor}` (Py, 53KB real logic) · `.claude/metacog/agent-mesh.mjs` (Node) | The α/β/γ fractal mesh is implemented three times in two languages — plus hypervisor twins in Rust (`src/hypervisor`) AND Python (`sovereign-mesh/hypervisor`, with `managed_settings.json`) |
+| **`vertex/serve.py` is an Anthropic-compatible gateway** | 45KB: `POST /v1/messages` drop-in + `GET /v1/audit/chain` | A *governed Claude API proxy* — product-shaped: point any Anthropic SDK at it, get constitutional audit chains for free |
+| **`agents/` is a full dual-backend org** | 34 depts registered on BOTH Anthropic Managed Agents (`register_managed.py`) and Vertex ADK (`register_vertex_adk.py`); `revenue_engine.py` (money pipeline), `red_team.py` (self-audit), `tools.py` (real I/O tools), `adaptive_lineage.json` (30 real hash-chained evolution events) | REAL, partially exercised |
+| **Launch materials already exist** | `docs/LAUNCH_KIT.md` (9KB) + `docs/COLD_EMAIL_TEMPLATE.md` (6.5KB) | Written weeks ago, never used — the distribution gap was diagnosed AND provisioned, then forgotten |
+| **4th revenue channel wired** | `supabase/functions/github-sponsors` | GitHub Sponsors webhook + claim handler, live-deployable |
+| Ed25519 signed records, cross-language | `aegis-ccil-verifier/` (Py + Node byte-identical canonicalization; tamper-rejection test; fresh keypair per run — no committed keys) | REAL — guards the exact φ/ć/≤ canonicalization drift that once broke cross-verify |
+| Schema evolution with certificates | `packages/aegis-interface/generated/evolution/v{1→2,2→3}.cert.json` | WIT→{Rust,TS,Py} codegen emits *certified* schema migrations |
+| Swarm fitness database | 13 Supabase migrations: dept fitness v2, `dept_graces` (Grace Chain), atomic key verify RPC, `agent_api_profiles` (no raw keys stored) | The swarm's evolution is DB-persisted, not in-memory |
+| Studio = 7 projection surfaces | `studio/src/{capsule,divergence,epoch,governance,holographic,lineage,…}-surface` | Real observability product surface |
+| `core/` MVCC store | 9 tiny TS files (intent store, conflict resolver, schema registry) | DORMANT toy — candidate to remove or label |
+| `backend/.env.local` | on disk, untracked since f44eccad | Verified: contains only host/port comments, no secrets |
+| Dormant Stripe handler | `supabase/functions/verify-stripe` | Exists in-repo; PayPal-only is the standing operator decision — do not wire |
+
+**The connected dots, one paragraph:** the same constitutional pattern (plan→build→audit triad,
+hash-chained lineage, martingale bound) is independently implemented at every layer — Rust gates,
+Python mesh, Node session hooks, TS runtime, Supabase tables, CI quorum — and the layers verify
+each other across language boundaries (CCIL Ed25519, LUT-KAN parity, 0xE0E0 frames). That is the
+system's genuinely rare property: it is *fractal in implementation*, not just in metaphor. What it
+never had until tonight is a front door: DNS was dead, checkout unconfigured, launch kit unshipped.
+
+## 9. Value conversion map (what turns which asset into what)
 
 | Goal | Asset | The one next action |
 |------|-------|---------------------|
