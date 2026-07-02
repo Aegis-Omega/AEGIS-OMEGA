@@ -184,10 +184,11 @@ pub fn makhraj_of(cp: u32) -> Option<Makhraj> {
         0x0641 => Some(Makhraj::AlShafatayn), // ف (lower lip + upper teeth)
         0x0628 | 0x0645 => Some(Makhraj::AlShafatayn), // ب م (both lips)
 
-        // AlKhaishoom — nasal cavity (ghunnah — not a letter but a phonological property)
-        // Represented by meem and noon when carrying ghunnah (nasalization)
-        // Caller must know context; we map the canonical nasals here
-        0x062C => None, // jim has no standard Makhraj assignment to Khaishoom
+        // AlKhaishoom — nasal cavity (ghunnah) is a contextual phonological
+        // property, not a per-letter articulation point. The canonical nasals
+        // map to their primary Makhraj above (ن → AlLisan, م → AlShafatayn);
+        // ghunnah resonance is applied by the caller when context calls for it,
+        // so no codepoint is assigned AlKhaishoom here.
 
         _ => None,
     }
