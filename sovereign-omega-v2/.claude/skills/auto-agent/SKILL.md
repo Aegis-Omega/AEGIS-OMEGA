@@ -153,12 +153,12 @@ These behaviors fire without prompting:
 
 The AEGIS bridge is accessible at:
 - **Local (dev):** `http://localhost:7890` (Python bridge, starts with `python python/bridge.py`)
-- **Production:** `https://aegisomega.workers.dev` (Cloudflare Worker, always live)
+- **Production:** `https://aegis-vertex.aegisomega.com` (Cloudflare Worker, always live)
 
 The MCP server reads `AEGIS_BRIDGE_URL` env var. For production use:
 ```bash
 # .mcp.json (update AEGIS_BRIDGE_URL):
-"AEGIS_BRIDGE_URL": "https://aegisomega.workers.dev"
+"AEGIS_BRIDGE_URL": "https://aegis-vertex.aegisomega.com"
 ```
 
 The Cloudflare Worker serves all telemetry endpoints + `/platform/collaborate`
@@ -176,7 +176,7 @@ secret: `npx wrangler secret put ANTHROPIC_API_KEY`.
   "last_cycle_id": "<execution_id from swarm>",
   "constitutional_verdict": "APPROVED",
   "audit_chain_hash": "<64-char hex>",
-  "bridge_url": "https://aegisomega.workers.dev",
+  "bridge_url": "https://aegis-vertex.aegisomega.com",
   "validity": "VERIFIED"
 }
 ```

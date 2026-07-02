@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-const baseURL = "https://aegisomega.workers.dev"
+const baseURL = "https://aegis-vertex.aegisomega.com"
 
 type collaborateRequest struct {
 	Objective string `json:"objective"`

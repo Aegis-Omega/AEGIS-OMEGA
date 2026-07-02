@@ -9,7 +9,7 @@
  * SETUP:
  *   Apps Script → Project Settings → Script Properties → Add:
  *     AEGIS_API_KEY  = your key from aegisomega.com/pricing
- *     AEGIS_BASE_URL = https://aegisomega.workers.dev  (default)
+ *     AEGIS_BASE_URL = https://aegis-vertex.aegisomega.com  (default)
  */
 
 // ── Menu ──────────────────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ function _getApiKey() {
 function _getBaseUrl() {
   return (
     PropertiesService.getScriptProperties().getProperty('AEGIS_BASE_URL') ||
-    'https://aegisomega.workers.dev'
+    'https://aegis-vertex.aegisomega.com'
   );
 }
 

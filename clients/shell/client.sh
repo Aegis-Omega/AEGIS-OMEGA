@@ -5,11 +5,11 @@
 #
 # Usage:
 #   ./client.sh "Enter EU fintech market Q4 2026" gtm
-#   AEGIS_BASE_URL=https://aegisomega.workers.dev ./client.sh "objective" revenue
+#   AEGIS_BASE_URL=https://aegis-vertex.aegisomega.com ./client.sh "objective" revenue
 
 set -euo pipefail
 
-BASE="${AEGIS_BASE_URL:-https://aegisomega.workers.dev}"
+BASE="${AEGIS_BASE_URL:-https://aegis-vertex.aegisomega.com}"
 OBJECTIVE="${1:-Identify best revenue opportunity}"
 MODE="${2:-revenue}"
 

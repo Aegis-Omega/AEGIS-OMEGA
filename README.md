@@ -98,6 +98,8 @@ cd aegis-runtime  && cargo test
 cd packages/aegis-interface && python -m pytest
 ```
 
+**Scale:** ~260k lines of source across Rust / TypeScript / Python / WGSL (~352k tracked total), ≈11,900 tests, plus TLA+ and Coq-style formal artifacts. Reproducible metrics: [`docs/PROOF.md`](docs/PROOF.md).
+
 **CI:** the CEREMONY gate is a BFT quorum of 6 jobs at threshold 1/φ ≈ 0.618 — fewer than 4/6 passing blocks merge.
 
 ---

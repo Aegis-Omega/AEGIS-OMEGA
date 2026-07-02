@@ -3,7 +3,7 @@
 
 **System:** Gemma-4E4B on iPhone acts as a biological validation holon inside the MYTHOS 6-stage pipeline.  
 **Constitutional law:** `AdaptivePower(T) ≤ ReplayVerifiability(T)` · φ = 0.6180339887  
-**Repo:** `clients/gemma-holon/` · Endpoint: `https://aegisomega.workers.dev/platform/holon/validate`
+**Repo:** `clients/gemma-holon/` · Endpoint: `https://aegis-vertex.aegisomega.com/platform/holon/validate`
 
 ---
 
@@ -113,7 +113,7 @@ python3 clients/gemma-holon/submit.py '{"stress":0.3}'
 ## Holon POST schema
 
 ```bash
-curl -X POST https://aegisomega.workers.dev/platform/holon/validate \
+curl -X POST https://aegis-vertex.aegisomega.com/platform/holon/validate \
   -H "Content-Type: application/json" \
   -d '{
     "holon_id":   "gemma-4e4b-iphone",
