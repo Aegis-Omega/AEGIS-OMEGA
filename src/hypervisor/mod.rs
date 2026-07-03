@@ -100,7 +100,28 @@ impl ConstitutionalHypervisor {
                 Ok(())
             }
             Err(err) => {
-                self.auditor.log_violation(operation, format!("{:?}", err));
+                // The error variants carry no fields, so reconstruct the
+                // offending values from context here — the audit log must
+                // record WHICH tool/effort was rejected, not just the kind.
+                let details = match &err {
+                    HypervisorError::BypassAttempt => {
+                        "Bypass attempt detected while disableBypassPermissionsMode is active"
+                            .to_string()
+                    }
+                    HypervisorError::InsufficientEffort => format!(
+                        "Insufficient effort: expected 'xhigh', got '{:?}'",
+                        context.get("effort").and_then(|v| v.as_str())
+                    ),
+                    HypervisorError::UnauthorizedTool => format!(
+                        "Tool '{}' not in allowed list",
+                        context
+                            .get("tool")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("<unknown>")
+                    ),
+                    HypervisorError::ConstraintViolation(msg) => msg.clone(),
+                };
+                self.auditor.log_violation(operation, details);
                 Err(err)
             }
         }
@@ -181,6 +202,28 @@ mod tests {
 
         let result = hypervisor.validate_operation("test_op", &context);
         assert_eq!(result, Ok(()));
+    }
+
+    #[test]
+    fn test_audit_log_records_offending_values() {
+        // Review finding (PR #185): centralizing enforcement must not cost
+        // audit detail — the log entry must name the rejected tool.
+        let mut hypervisor = ConstitutionalHypervisor::new();
+        hypervisor.initialize_defaults();
+
+        let mut context = HashMap::new();
+        context.insert("effort".to_string(), serde_json::json!("xhigh"));
+        context.insert("tool".to_string(), serde_json::json!("unauthorized_tool"));
+
+        let _ = hypervisor.validate_operation("test_op", &context);
+        let log = hypervisor.get_audit_log();
+        let last = log.last().expect("violation must be logged");
+        assert_eq!(last.status, AuditStatus::Violation);
+        assert!(
+            last.details.as_deref().unwrap_or("").contains("unauthorized_tool"),
+            "audit details must name the rejected tool, got: {:?}",
+            last.details
+        );
     }
 
     #[test]
