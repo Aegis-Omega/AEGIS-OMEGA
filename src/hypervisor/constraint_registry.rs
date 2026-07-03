@@ -10,6 +10,7 @@ pub struct Constraint {
 }
 
 /// Central registry for all constitutional constraints
+#[derive(Debug, Clone)]
 pub struct ConstraintRegistry {
     constraints: HashMap<String, Constraint>,
 }

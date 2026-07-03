@@ -21,7 +21,7 @@ impl PolicyEnforcer {
     /// Check if an operation violates any policy
     pub fn enforce(
         &self,
-        operation: &str,
+        _operation: &str,
         context: &std::collections::HashMap<String, serde_json::Value>,
     ) -> Result<(), HypervisorError> {
         // Check bypass mode
