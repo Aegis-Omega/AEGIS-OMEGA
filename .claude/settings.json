@@ -1,12 +1,25 @@
 {
   "model": "claude-opus-4-8",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/pre-write-tier.sh\"",
+            "timeout": 10,
+            "statusMessage": "AEGIS: membrane (frozen-file guard)"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\"",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/session-start.sh\"",
             "async": true,
             "timeout": 300,
             "statusMessage": "AEGIS: session-start (deps + orient)"
@@ -19,7 +32,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/user-prompt-intake.sh\"",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/user-prompt-intake.sh\"",
             "timeout": 15,
             "statusMessage": "AEGIS: metacog intake"
           }
@@ -31,7 +44,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/post-compact-reanchor.sh\"",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/post-compact-reanchor.sh\"",
             "timeout": 30,
             "statusMessage": "AEGIS: re-anchor manifold"
           }
@@ -43,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop-constitutional-seal.sh\"",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/stop-constitutional-seal.sh\"",
             "asyncRewake": true,
             "timeout": 60,
             "statusMessage": "AEGIS: constitutional seal"
