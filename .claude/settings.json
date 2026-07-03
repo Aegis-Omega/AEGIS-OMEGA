@@ -1,6 +1,57 @@
 {
   "model": "claude-opus-4-8",
-  "hooks": {},
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\"",
+            "async": true,
+            "timeout": 300,
+            "statusMessage": "AEGIS: session-start (deps + orient)"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/user-prompt-intake.sh\"",
+            "timeout": 15,
+            "statusMessage": "AEGIS: metacog intake"
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/post-compact-reanchor.sh\"",
+            "timeout": 30,
+            "statusMessage": "AEGIS: re-anchor manifold"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop-constitutional-seal.sh\"",
+            "asyncRewake": true,
+            "timeout": 60,
+            "statusMessage": "AEGIS: constitutional seal"
+          }
+        ]
+      }
+    ]
+  },
   "enableWorkflows": true,
   "permissions": {
     "defaultMode": "acceptEdits",
