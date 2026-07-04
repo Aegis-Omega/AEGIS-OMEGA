@@ -63,3 +63,18 @@ jobs:
             exit 1
           fi
           echo "cross-platform replay confirmed on ${{ matrix.os }}"
+
+      - name: Session certificate — whole substrate certifies itself, reproducibly
+        shell: bash
+        run: |
+          cd verifiable
+          OUT=$(python3 certify_all.py --twice)
+          echo "$OUT"
+          EXPECT=9b360cad56518c8a5a8c42ac2c97fe4bb17948bf1778b513f7c7db041ad6d142
+          GOT=$(echo "$OUT" | awk '/session cert/ {print $NF}')
+          echo "os=${{ matrix.os }} arch=$(uname -m) session_cert=$GOT"
+          if [ "$GOT" != "$EXPECT" ]; then
+            echo "SESSION CERTIFICATE DIVERGENCE: expected $EXPECT, got $GOT on ${{ matrix.os }}"
+            exit 1
+          fi
+          echo "session certificate confirmed cross-platform on ${{ matrix.os }}"

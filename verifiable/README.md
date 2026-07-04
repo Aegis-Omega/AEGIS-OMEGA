@@ -39,6 +39,30 @@ un-edited** (no one changed the score or the outcome after the fact). Step [2] s
 forged `DECISION` outcome is caught and localized; step [3] shows the record actually
 depends on the decision, not just its shape.
 
+## The substrate certifies itself
+
+`certify_all.py` runs every proof in this substrate and folds the results into the same
+hash chain, emitting one reproducible **session certificate** — the system eating its own
+dogfood. Each proof contributes an integer exit code plus (for the two pipelines) its
+deterministic terminal hash; there is no wall-clock or RNG, so the certificate is itself
+deterministic.
+
+```
+python3 certify_all.py --twice
+  anchors  genomics=f8cb0093b9b7447c… compliance=c67e7e8efd367644…
+  PASS   genomics.determinism
+  PASS   genomics.governed_interpretation
+  PASS   verifiable.generality
+  PASS   verifiable.cross_runtime
+chain certifies : True
+session cert    : 9b360cad56518c8a5a8c42ac2c97fe4bb17948bf1778b513f7c7db041ad6d142
+reproducible    : True
+```
+
+The CI gate (`.github/workflows/verifiable-proofs.yml`) pins this session certificate and
+asserts it is identical on Ubuntu x86-64 and macOS arm64 — so the whole proof substrate,
+not just one hash, is confirmed cross-platform reproducible on every change.
+
 ## Honest scope
 
 The scorecard is a toy — four features, fixed integer points. The claim is the audit
