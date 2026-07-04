@@ -14,7 +14,8 @@ node rechain.mjs
 
 echo "── 3/3  Rust (independent re-chainer) ───────────────────────"
 if [ ! -x rust_rechain/target/release/rechain ]; then
-  ( cd rust_rechain && cargo build --offline --release >/dev/null 2>&1 )
+  # Prefer the offline cargo cache (local dev); fall back to a networked build (CI).
+  ( cd rust_rechain && (cargo build --offline --release >/dev/null 2>&1 || cargo build --release >/dev/null 2>&1) )
 fi
 rust_rechain/target/release/rechain stages.json
 
