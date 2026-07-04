@@ -1,5 +1,9 @@
 name: Verifiable Proofs
 
+# Least-privilege token: this workflow only reads the repo and runs proofs.
+permissions:
+  contents: read
+
 # Runs the genomics + verifiable-envelope proofs on every relevant change, across
 # two platforms/architectures (ubuntu x86-64, macOS arm64), and asserts the genomics
 # terminal hash is byte-identical to a pinned constant on both. This is the
