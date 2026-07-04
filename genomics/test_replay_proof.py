@@ -3,9 +3,7 @@
 Proof harness for the AEGIS-Ω replay-verifiable genomics pipeline.
 Asserts the three clinically-relevant invariants. Exit 0 = all proven.
 """
-from replay_pipeline import (
-    run_pipeline, SAMPLE_REFERENCE, SAMPLE_READS, canon, sha256_hex,
-)
+from replay_pipeline import run_pipeline, SAMPLE_REFERENCE, SAMPLE_READS
 import copy
 
 
