@@ -34,7 +34,6 @@ Pass a live client (or set AEGIS_LIVE=1 in interpret_demo) to make the real call
 """
 from __future__ import annotations
 
-import hashlib
 import os
 import sys
 
