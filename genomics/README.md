@@ -67,6 +67,56 @@ The determinism discipline is inherited directly from the AEGIS Rust/TS invarian
   buys is that *the same input always yields the same output, and any post-hoc edit is
   provable* — the precondition for auditability, not a substitute for validation.
 
+## Part 2 — the governed, cached, verifiable AI interpretation layer
+
+The deterministic caller above proves the *envelope*. The point of AEGIS is that the
+**AI layer plugs into the same envelope**. `interpret.py` + `interpret_demo.py` compose
+three real runtime layers on top of the called variants:
+
+1. **Governed inference** — the clinical interpretation is produced by a Claude call
+   through the runtime's own client factory (`sovereign-omega-v2/python/anth_client.py`),
+   default model `claude-opus-4-8` (`AEGIS_SWARM_MODEL`).
+2. **Prompt caching** — the stable constitutional/clinical framing is sent as a
+   `cache_control: ephemeral` block via the runtime's exact helper `make_cached_system`.
+   Only the per-patient variant list is uncached.
+3. **Verifiable lineage** — the interpretation is folded into the **same hash chain** as
+   an `INTERPRET` stage whose payload binds the model id, the input-variant fingerprint,
+   and the exact interpretation text.
+
+**Live evidence** (real `claude-opus-4-8` call, two identical-prefix calls in one run):
+
+```
+[A] deterministic terminal hash : f8cb0093b9b7447cc44d7386…  (variants called: 1)
+[C] call 1  cache_creation= 1605  cache_read=    0  in=53 out=499
+    call 2  cache_creation=    0  cache_read= 1605  in=53 out=537
+    prompt cache HIT — stable frame served at 10% cost
+[B] interpretation folded into lineage; chain certifies: True  (model=claude-opus-4-8, live=True)
+[D] edited stored interpretation → certify is_valid=False, broken_at=INTERPRET
+```
+
+Read it directly: the 1605-token constitutional frame is written to cache on call 1 and
+served from cache on call 2 (`cache_read=1605`) at 10% input cost; only the 53-token
+variant suffix pays full price each time. The two calls produce *different* output lengths
+(499 vs 537 tokens) — generation is stochastic, which is the whole reason the chain
+certifies **provenance, not reproducibility**.
+
+Run it:
+
+```bash
+cd genomics
+python3 interpret_demo.py            # offline, deterministic fixture — no credits spent
+AEGIS_LIVE=1 python3 interpret_demo.py   # live governed + cached call (needs ANTHROPIC_API_KEY)
+```
+
+**The non-equivalence this makes concrete (and why it is the thesis):** the `INTERPRET`
+record does *not* claim the model will reproduce this text — LLM output is stochastic.
+What it proves is **integrity and provenance**: *this exact interpretation was produced
+for this exact variant set by this exact model, and nothing was edited afterward* (step
+D: a one-word edit to the stored interpretation flips `certify()` to invalid and localizes
+`broken_at="INTERPRET"`). Determinism lives in the governance envelope, not in the model.
+That is precisely the line between "the AI made it up and we can't tell" and "the AI's
+output is auditable evidence." (`replayability ≠ correctness`; `governance ≠ alignment`.)
+
 ## The general pattern
 
 Nothing here is genomics-specific except the stage functions. The chain accepts any
