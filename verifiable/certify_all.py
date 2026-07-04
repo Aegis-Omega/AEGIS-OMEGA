@@ -27,7 +27,7 @@ GENOMICS = os.path.join(ROOT, "genomics")
 
 sys.path.insert(0, HERE)
 sys.path.insert(0, GENOMICS)
-from chain import LineageChain, canon, sha256_hex  # noqa: E402
+from chain import LineageChain  # noqa: E402
 from replay_pipeline import run_pipeline, SAMPLE_REFERENCE, SAMPLE_READS  # noqa: E402
 from compliance_pipeline import run_decision, SAMPLE_APPLICANT  # noqa: E402
 
