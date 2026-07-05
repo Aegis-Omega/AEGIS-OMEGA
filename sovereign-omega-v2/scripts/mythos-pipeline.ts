@@ -20,7 +20,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '../..')
 const INDEX_PATH = path.join(ROOT, 'INDEX.md')
 const STATE_PATH = path.join(ROOT, 'clients/gemma-holon/state.json')
-const HOLON_ENDPOINT = 'https://aegisomega.workers.dev/platform/holon/validate'
+const HOLON_ENDPOINT = 'https://aegis-vertex.aegisomega.com/platform/holon/validate'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
