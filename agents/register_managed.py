@@ -24,17 +24,22 @@ import yaml
 REGISTRY_PATH = Path(__file__).parent / "agent_registry.json"
 AGENTS_YAML = Path(__file__).parent / "agents.yaml"
 
-# Tool definitions available to all agents
-CONSTITUTIONAL_TOOLS: list[dict] = [
-    {
-        "type": "computer_use_20250124",  # computer use for engineering agents
-        "display_width_px": 1920,
-        "display_height_px": 1080,
-    }
-]
-
-# Lightweight tools for non-engineering agents
+# COST SAFETY: computer_use is NOT a default. It makes an agent run long, multi-step
+# desktop-control loops — the single biggest runaway-cost multiplier, and pointless for
+# the text-coordination departments (marketing, finance, compliance, …). It is now
+# strictly opt-in per department via `enable_computer_use: true` in agents.yaml. A prior
+# config gave it to every tier<=1 agent (all 39 are tier 0), which is how a single swarm
+# dispatch could burn the entire budget.
+COMPUTER_USE_TOOL: dict = {
+    "type": "computer_use_20250124",
+    "display_width_px": 1920,
+    "display_height_px": 1080,
+}
 STANDARD_TOOLS: list[dict] = []
+
+# Hard ceiling on per-agent output tokens at registration time, regardless of what
+# agents.yaml requests (several depts ask for 16k–32k). Bounds worst-case spend per call.
+SAFE_MAX_TOKENS: int = 4096
 
 
 def load_config() -> dict:
@@ -93,13 +98,14 @@ def register_agents(force: bool = False, only: str | None = None) -> None:
 
         name = dept.get("name", dept_id)
         system_prompt = dept.get("system_prompt", "").strip()
-        max_tokens = dept.get("max_tokens", 8192)
+        max_tokens = min(dept.get("max_tokens", 8192), SAFE_MAX_TOKENS)
 
-        # Engineering-tier agents get richer tooling
+        # Tools are opt-in per department. computer_use only when explicitly requested.
         tier = dept.get("tier", 3)
-        tools = CONSTITUTIONAL_TOOLS if tier <= 1 else STANDARD_TOOLS
+        tools = [COMPUTER_USE_TOOL] if dept.get("enable_computer_use") else STANDARD_TOOLS
 
-        print(f"  Creating: {dept_id:30s} (tier={tier}, max_tokens={max_tokens})", end="", flush=True)
+        cu = " +computer_use" if tools else ""
+        print(f"  Creating: {dept_id:30s} (tier={tier}, max_tokens={max_tokens}{cu})", end="", flush=True)
 
         try:
             agent = client.beta.agents.create(
