@@ -1,5 +1,6 @@
 {
   "framework": "vite",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- :/hub :/packages",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",

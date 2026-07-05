@@ -1,1 +1,1 @@
-{"framework":"vite","buildCommand":"npm run build","outputDirectory":"dist","installCommand":"npm install","rewrites":[{"source":"/api/(.*)","destination":"/api/$1"},{"source":"/(.*)","destination":"/index.html"}]}
+{"framework":"vite","ignoreCommand":"git diff --quiet HEAD^ HEAD -- :/hook-generator :/packages","buildCommand":"npm run build","outputDirectory":"dist","installCommand":"npm install","rewrites":[{"source":"/api/(.*)","destination":"/api/$1"},{"source":"/(.*)","destination":"/index.html"}]}
