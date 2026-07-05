@@ -13,10 +13,10 @@ echo "── 2/3  Node.js (independent re-chainer) ─────────�
 node rechain.mjs
 
 echo "── 3/3  Rust (independent re-chainer) ───────────────────────"
-if [ ! -x rust_rechain/target/release/rechain ]; then
-  # Prefer the offline cargo cache (local dev); fall back to a networked build (CI).
-  ( cd rust_rechain && (cargo build --offline --release >/dev/null 2>&1 || cargo build --release >/dev/null 2>&1) )
-fi
+# Always rebuild so the executed binary matches the current source — a stale
+# target/ binary must never be able to report a false MATCH for an integrity check.
+# Prefer the offline cargo cache (local dev); fall back to a networked build (CI).
+( cd rust_rechain && (cargo build --offline --release >/dev/null 2>&1 || cargo build --release >/dev/null 2>&1) )
 rust_rechain/target/release/rechain stages.json
 
 echo "─────────────────────────────────────────────────────────────"

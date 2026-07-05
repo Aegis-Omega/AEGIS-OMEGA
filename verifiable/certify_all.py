@@ -48,8 +48,18 @@ PROOFS = [
 
 
 def run_proof(cwd: str, argv: list) -> int:
-    """Run one proof harness; return its exit code (integer verdict)."""
-    r = subprocess.run(argv, cwd=cwd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    """Run one proof harness; return its exit code (integer verdict).
+
+    The child env is sanitized so the session certificate stays deterministic and
+    self-contained: AEGIS_LIVE is forced off and ANTHROPIC_API_KEY is stripped, so
+    interpret_demo cannot switch to a live (stochastic, network) API call even if
+    the caller had those set. Without this, an ambient AEGIS_LIVE=1 would silently
+    break the reproducibility guarantee this module asserts."""
+    env = os.environ.copy()
+    env["AEGIS_LIVE"] = "0"
+    env.pop("ANTHROPIC_API_KEY", None)
+    r = subprocess.run(argv, cwd=cwd, env=env,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return r.returncode
 
 

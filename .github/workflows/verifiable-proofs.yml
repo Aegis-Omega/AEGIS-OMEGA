@@ -40,6 +40,13 @@ jobs:
         with:
           node-version: '22'
 
+      # Provision Rust explicitly (matches ci.yml convention) rather than relying on
+      # whatever the runner image happens to ship — the cross-runtime step builds a crate.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: verifiable/cross_language/rust_rechain -> target
+
       - name: Genomics deterministic proof (3 invariants)
         run: cd genomics && python3 test_replay_proof.py
 
