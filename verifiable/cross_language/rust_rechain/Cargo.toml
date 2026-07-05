@@ -1,0 +1,15 @@
+[package]
+name = "rechain"
+version = "0.1.0"
+edition = "2021"
+
+# Reuses the exact crates aegis-cl-psi already depends on (sha2 0.10, serde_json 1.0),
+# both present in the offline cargo cache. serde_json default features use BTreeMap for
+# objects, so keys serialize in sorted order — matching Python canon()'s sort_keys=True.
+[dependencies]
+sha2 = "0.10"
+serde_json = "1.0"
+
+[[bin]]
+name = "rechain"
+path = "src/main.rs"
