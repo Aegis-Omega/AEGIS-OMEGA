@@ -1,0 +1,845 @@
+diff --git a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml
+index 400ed210..ff779300 100644
+--- a/.github/workflows/deploy.yml
++++ b/.github/workflows/deploy.yml
+@@ -8,6 +8,7 @@ on:
+ env:
+   PROJECT_ID: aegisomegav1
+   REGION: europe-west3
++  REGISTRY: europe-west3-docker.pkg.dev/aegisomegav1/aegis
+ 
+ jobs:
+   deploy-hub:
+@@ -27,6 +28,7 @@ jobs:
+         run: |
+           gcloud builds submit \
+             --config hub/cloudbuild.yaml \
++            --substitutions=COMMIT_SHA=${{ github.sha }} \
+             --project=$PROJECT_ID .
+ 
+   deploy-platform:
+@@ -46,7 +48,7 @@ jobs:
+         run: |
+           gcloud builds submit \
+             --config platform-picker/cloudbuild.yaml \
+-            --substitutions=_DASHSCOPE_API_KEY=${{ secrets.DASHSCOPE_API_KEY }} \
++            --substitutions=COMMIT_SHA=${{ github.sha }},_DASHSCOPE_API_KEY=${{ secrets.DASHSCOPE_API_KEY }} \
+             --project=$PROJECT_ID .
+ 
+   deploy-hooks:
+@@ -66,7 +68,7 @@ jobs:
+         run: |
+           gcloud builds submit \
+             --config hook-generator/cloudbuild.yaml \
+-            --substitutions=_DASHSCOPE_API_KEY=${{ secrets.DASHSCOPE_API_KEY }} \
++            --substitutions=COMMIT_SHA=${{ github.sha }},_DASHSCOPE_API_KEY=${{ secrets.DASHSCOPE_API_KEY }} \
+             --project=$PROJECT_ID .
+ 
+   deploy-calendar:
+@@ -86,7 +88,7 @@ jobs:
+         run: |
+           gcloud builds submit \
+             --config content-calendar/cloudbuild.yaml \
+-            --substitutions=_DASHSCOPE_API_KEY=${{ secrets.DASHSCOPE_API_KEY }} \
++            --substitutions=COMMIT_SHA=${{ github.sha }},_DASHSCOPE_API_KEY=${{ secrets.DASHSCOPE_API_KEY }} \
+             --project=$PROJECT_ID .
+ 
+   deploy-cockpit:
+@@ -106,4 +108,5 @@ jobs:
+         run: |
+           gcloud builds submit \
+             --config cockpit/cloudbuild.yaml \
++            --substitutions=COMMIT_SHA=${{ github.sha }} \
+             --project=$PROJECT_ID .
+diff --git a/cockpit/cloudbuild.yaml b/cockpit/cloudbuild.yaml
+index ba3ca851..b5d1237f 100644
+--- a/cockpit/cloudbuild.yaml
++++ b/cockpit/cloudbuild.yaml
+@@ -1,19 +1,23 @@
+ steps:
++  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
++    entrypoint: gcloud
++    args: [auth, configure-docker, europe-west3-docker.pkg.dev]
++
+   - name: 'gcr.io/cloud-builders/docker'
+     args:
+       - build
+       - -t
+-      - gcr.io/$PROJECT_ID/aegis-cockpit:$COMMIT_SHA
++      - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-cockpit:$COMMIT_SHA
+       - -t
+-      - gcr.io/$PROJECT_ID/aegis-cockpit:latest
++      - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-cockpit:latest
+       - cockpit/
+     dir: '.'
+ 
+   - name: 'gcr.io/cloud-builders/docker'
+-    args: [push, gcr.io/$PROJECT_ID/aegis-cockpit:$COMMIT_SHA]
++    args: [push, europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-cockpit:$COMMIT_SHA]
+ 
+   - name: 'gcr.io/cloud-builders/docker'
+-    args: [push, gcr.io/$PROJECT_ID/aegis-cockpit:latest]
++    args: [push, europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-cockpit:latest]
+ 
+   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+     entrypoint: gcloud
+@@ -21,7 +25,7 @@ steps:
+       - run
+       - deploy
+       - aegis-cockpit
+-      - --image=gcr.io/$PROJECT_ID/aegis-cockpit:$COMMIT_SHA
++      - --image=europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-cockpit:$COMMIT_SHA
+       - --region=europe-west3
+       - --platform=managed
+       - --allow-unauthenticated
+@@ -33,5 +37,5 @@ steps:
+       - --set-env-vars=GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_REGION=europe-west3,CLAUDE_MODEL=claude-sonnet-4-6,RATE_LIMIT_RPM=20
+ 
+ images:
+-  - gcr.io/$PROJECT_ID/aegis-cockpit:$COMMIT_SHA
+-  - gcr.io/$PROJECT_ID/aegis-cockpit:latest
++  - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-cockpit:$COMMIT_SHA
++  - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-cockpit:latest
+diff --git a/content-calendar/cloudbuild.yaml b/content-calendar/cloudbuild.yaml
+index 7b35ef24..0f248f5d 100644
+--- a/content-calendar/cloudbuild.yaml
++++ b/content-calendar/cloudbuild.yaml
+@@ -1,13 +1,17 @@
+ steps:
++  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
++    entrypoint: gcloud
++    args: [auth, configure-docker, europe-west3-docker.pkg.dev]
++
+   - name: 'gcr.io/cloud-builders/docker'
+     args:
+       - build
+       - -f
+       - content-calendar/Dockerfile
+       - -t
+-      - gcr.io/$PROJECT_ID/aegis-calendar:$COMMIT_SHA
++      - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-calendar:$COMMIT_SHA
+       - -t
+-      - gcr.io/$PROJECT_ID/aegis-calendar:latest
++      - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-calendar:latest
+       - --build-arg
+       - VITE_GRANT_SECRET=aegis-omega-v1
+       - --build-arg
+@@ -17,10 +21,10 @@ steps:
+       - .
+ 
+   - name: 'gcr.io/cloud-builders/docker'
+-    args: [push, gcr.io/$PROJECT_ID/aegis-calendar:$COMMIT_SHA]
++    args: [push, europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-calendar:$COMMIT_SHA]
+ 
+   - name: 'gcr.io/cloud-builders/docker'
+-    args: [push, gcr.io/$PROJECT_ID/aegis-calendar:latest]
++    args: [push, europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-calendar:latest]
+ 
+   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+     entrypoint: gcloud
+@@ -28,7 +32,7 @@ steps:
+       - run
+       - deploy
+       - aegis-calendar
+-      - --image=gcr.io/$PROJECT_ID/aegis-calendar:$COMMIT_SHA
++      - --image=europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-calendar:$COMMIT_SHA
+       - --region=europe-west3
+       - --platform=managed
+       - --allow-unauthenticated
+@@ -39,5 +43,5 @@ steps:
+       - --max-instances=5
+ 
+ images:
+-  - gcr.io/$PROJECT_ID/aegis-calendar:$COMMIT_SHA
+-  - gcr.io/$PROJECT_ID/aegis-calendar:latest
++  - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-calendar:$COMMIT_SHA
++  - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-calendar:latest
+diff --git a/hook-generator/cloudbuild.yaml b/hook-generator/cloudbuild.yaml
+index bf1f8c95..9cf034ac 100644
+--- a/hook-generator/cloudbuild.yaml
++++ b/hook-generator/cloudbuild.yaml
+@@ -1,13 +1,17 @@
+ steps:
++  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
++    entrypoint: gcloud
++    args: [auth, configure-docker, europe-west3-docker.pkg.dev]
++
+   - name: 'gcr.io/cloud-builders/docker'
+     args:
+       - build
+       - -f
+       - hook-generator/Dockerfile
+       - -t
+-      - gcr.io/$PROJECT_ID/aegis-hooks:$COMMIT_SHA
++      - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-hooks:$COMMIT_SHA
+       - -t
+-      - gcr.io/$PROJECT_ID/aegis-hooks:latest
++      - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-hooks:latest
+       - --build-arg
+       - VITE_GRANT_SECRET=aegis-omega-v1
+       - --build-arg
+@@ -17,10 +21,10 @@ steps:
+       - .
+ 
+   - name: 'gcr.io/cloud-builders/docker'
+-    args: [push, gcr.io/$PROJECT_ID/aegis-hooks:$COMMIT_SHA]
++    args: [push, europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-hooks:$COMMIT_SHA]
+ 
+   - name: 'gcr.io/cloud-builders/docker'
+-    args: [push, gcr.io/$PROJECT_ID/aegis-hooks:latest]
++    args: [push, europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-hooks:latest]
+ 
+   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+     entrypoint: gcloud
+@@ -28,7 +32,7 @@ steps:
+       - run
+       - deploy
+       - aegis-hooks
+-      - --image=gcr.io/$PROJECT_ID/aegis-hooks:$COMMIT_SHA
++      - --image=europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-hooks:$COMMIT_SHA
+       - --region=europe-west3
+       - --platform=managed
+       - --allow-unauthenticated
+@@ -39,5 +43,5 @@ steps:
+       - --max-instances=5
+ 
+ images:
+-  - gcr.io/$PROJECT_ID/aegis-hooks:$COMMIT_SHA
+-  - gcr.io/$PROJECT_ID/aegis-hooks:latest
++  - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-hooks:$COMMIT_SHA
++  - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-hooks:latest
+diff --git a/hub/cloudbuild.yaml b/hub/cloudbuild.yaml
+index e0d3c5db..1fe3201f 100644
+--- a/hub/cloudbuild.yaml
++++ b/hub/cloudbuild.yaml
+@@ -1,11 +1,15 @@
+ steps:
++  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
++    entrypoint: gcloud
++    args: [auth, configure-docker, europe-west3-docker.pkg.dev]
++
+   - name: 'gcr.io/cloud-builders/docker'
+     args:
+       - build
+       - -t
+-      - gcr.io/$PROJECT_ID/aegis-hub:$COMMIT_SHA
++      - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-hub:$COMMIT_SHA
+       - -t
+-      - gcr.io/$PROJECT_ID/aegis-hub:latest
++      - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-hub:latest
+       - --build-arg
+       - VITE_GRANT_SECRET=aegis-omega-v1
+       - --build-arg
+@@ -15,10 +19,10 @@ steps:
+       - hub/
+ 
+   - name: 'gcr.io/cloud-builders/docker'
+-    args: [push, gcr.io/$PROJECT_ID/aegis-hub:$COMMIT_SHA]
++    args: [push, europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-hub:$COMMIT_SHA]
+ 
+   - name: 'gcr.io/cloud-builders/docker'
+-    args: [push, gcr.io/$PROJECT_ID/aegis-hub:latest]
++    args: [push, europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-hub:latest]
+ 
+   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+     entrypoint: gcloud
+@@ -26,7 +30,7 @@ steps:
+       - run
+       - deploy
+       - aegis-hub
+-      - --image=gcr.io/$PROJECT_ID/aegis-hub:$COMMIT_SHA
++      - --image=europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-hub:$COMMIT_SHA
+       - --region=europe-west3
+       - --platform=managed
+       - --allow-unauthenticated
+@@ -37,5 +41,5 @@ steps:
+       - --max-instances=5
+ 
+ images:
+-  - gcr.io/$PROJECT_ID/aegis-hub:$COMMIT_SHA
+-  - gcr.io/$PROJECT_ID/aegis-hub:latest
++  - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-hub:$COMMIT_SHA
++  - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-hub:latest
+diff --git a/hub/src/components/SuccessPage.tsx b/hub/src/components/SuccessPage.tsx
+index 14c42e3b..fc522d08 100644
+--- a/hub/src/components/SuccessPage.tsx
++++ b/hub/src/components/SuccessPage.tsx
+@@ -1,6 +1,6 @@
+ import { useEffect, useState } from 'react'
+ import { CheckCircle, ExternalLink, Zap, Mail, Loader2 } from 'lucide-react'
+-import { createGrantToken, type Plan } from '@shared/lib/access.js'
++import { parseGrantToken, storeAccess, type Plan, type GrantPayload } from '@shared/lib/access.js'
+ 
+ const TOOL_URLS: Record<string, string> = {
+   'platform-picker':  import.meta.env.VITE_URL_PLATFORM_PICKER  ?? 'https://platform.aegisomega.com',
+@@ -20,12 +20,6 @@ const TOOL_ACCENTS: Record<string, string> = {
+   'content-calendar': '#22C55E',
+ }
+ 
+-const PLAN_TOOLS: Record<Plan, string[]> = {
+-  single:  ['platform-picker'],
+-  starter: ['platform-picker', 'hook-generator'],
+-  full:    ['platform-picker', 'hook-generator', 'content-calendar'],
+-}
+-
+ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://rwehltdwpsncnwxzkwik.supabase.co'
+ 
+ interface ToolLinkProps { tool: string; token: string }
+@@ -52,22 +46,28 @@ function ToolLink({ tool, token }: ToolLinkProps) {
+ function RestoreForm() {
+   const [email, setEmail] = useState('')
+   const [status, setStatus] = useState<'idle' | 'loading' | 'found' | 'notfound' | 'error'>('idle')
+-  const [restoreUrl, setRestoreUrl] = useState('')
++  const [grantResult, setGrantResult] = useState<{ token: string; payload: GrantPayload } | null>(null)
+ 
+   const handleRestore = async (e: React.FormEvent) => {
+     e.preventDefault()
+     if (!email.includes('@')) return
+     setStatus('loading')
+     try {
+-      const res = await fetch(`${SUPABASE_URL}/functions/v1/restore-access`, {
++      const res = await fetch(`${SUPABASE_URL}/functions/v1/grant-access`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ email: email.trim().toLowerCase() }),
+       })
+-      const data = await res.json() as { found: boolean; restore_url?: string; plan?: string }
+-      if (data.found && data.restore_url) {
+-        setRestoreUrl(data.restore_url)
+-        setStatus('found')
++      const data = await res.json() as { found: boolean; token?: string; plan?: Plan }
++      if (data.found && data.token) {
++        const payload = parseGrantToken(data.token)
++        if (payload) {
++          for (const tool of payload.tools) storeAccess(tool, data.token, payload)
++          setGrantResult({ token: data.token, payload })
++          setStatus('found')
++        } else {
++          setStatus('error')
++        }
+       } else {
+         setStatus('notfound')
+       }
+@@ -76,19 +76,16 @@ function RestoreForm() {
+     }
+   }
+ 
+-  if (status === 'found') {
++  if (status === 'found' && grantResult) {
+     return (
+-      <div className="text-center">
++      <div className="text-center space-y-3">
+         <CheckCircle size={32} className="mx-auto mb-3" style={{ color: '#34D399' }} />
+-        <p className="text-sm font-semibold mb-1" style={{ color: '#EDEAE3' }}>Purchase found</p>
+-        <p className="text-xs mb-4" style={{ color: '#6B6E80' }}>Click below to restore your access.</p>
+-        <a
+-          href={restoreUrl}
+-          className="inline-flex items-center gap-2 text-sm font-semibold py-2.5 px-5 rounded-xl transition-opacity hover:opacity-90"
+-          style={{ background: '#6366F1', color: '#fff' }}
+-        >
+-          <Zap size={13} /> Restore access
+-        </a>
++        <p className="text-sm font-semibold mb-1" style={{ color: '#EDEAE3' }}>Access restored</p>
++        <div className="space-y-2">
++          {grantResult.payload.tools.map(tool => (
++            <ToolLink key={tool} tool={tool} token={grantResult.token} />
++          ))}
++        </div>
+       </div>
+     )
+   }
+@@ -128,20 +125,51 @@ function RestoreForm() {
+ }
+ 
+ export function SuccessPage() {
+-  const [plan, setPlan] = useState<Plan | null>(null)
++  const [status, setStatus] = useState<'loading' | 'success' | 'invalid'>('loading')
+   const [token, setToken] = useState<string | null>(null)
++  const [payload, setPayload] = useState<GrantPayload | null>(null)
+ 
+   useEffect(() => {
+     const params = new URLSearchParams(window.location.search)
+-    const p = params.get('plan') as Plan | null
+-    if (p && ['single', 'starter', 'full'].includes(p)) {
+-      setPlan(p)
+-      setToken(createGrantToken(p))
+-    }
++    const orderId = params.get('order_id')
+     window.history.replaceState({}, '', window.location.pathname)
++
++    if (!orderId) {
++      setStatus('invalid')
++      return
++    }
++
++    fetch(`${SUPABASE_URL}/functions/v1/grant-access`, {
++      method: 'POST',
++      headers: { 'Content-Type': 'application/json' },
++      body: JSON.stringify({ order_id: orderId }),
++    })
++      .then(r => r.json())
++      .then((data: { found: boolean; token?: string; plan?: Plan }) => {
++        if (data.found && data.token) {
++          const p = parseGrantToken(data.token)
++          if (p) {
++            for (const tool of p.tools) storeAccess(tool, data.token, p)
++            setToken(data.token)
++            setPayload(p)
++            setStatus('success')
++            return
++          }
++        }
++        setStatus('invalid')
++      })
++      .catch(() => setStatus('invalid'))
+   }, [])
+ 
+-  if (!plan || !token) {
++  if (status === 'loading') {
++    return (
++      <div className="min-h-screen flex items-center justify-center" style={{ background: '#08090C' }}>
++        <Loader2 size={32} className="animate-spin" style={{ color: '#6366F1' }} />
++      </div>
++    )
++  }
++
++  if (status === 'invalid' || !payload || !token) {
+     return (
+       <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#08090C' }}>
+         <div className="w-full max-w-sm">
+@@ -166,8 +194,6 @@ export function SuccessPage() {
+     )
+   }
+ 
+-  const tools = PLAN_TOOLS[plan]
+-
+   return (
+     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: '#08090C' }}>
+       <div className="w-full max-w-md">
+@@ -180,7 +206,7 @@ export function SuccessPage() {
+         </div>
+ 
+         <div className="space-y-3 mb-8">
+-          {tools.map(tool => (
++          {payload.tools.map(tool => (
+             <ToolLink key={tool} tool={tool} token={token} />
+           ))}
+         </div>
+diff --git a/packages/shared/lib/access.ts b/packages/shared/lib/access.ts
+index 334ce469..3c868a46 100644
+--- a/packages/shared/lib/access.ts
++++ b/packages/shared/lib/access.ts
+@@ -1,4 +1,7 @@
+-const GRANT_SECRET = (import.meta as any).env?.VITE_GRANT_SECRET ?? 'aegis-omega-v1'
++// Grant tokens are issued server-side by the grant-access Supabase edge function.
++// The client stores and reads them but cannot mint or verify them alone.
++// Token format: base64(JSON payload) + '.' + base64(HMAC-SHA256 signature)
++// Verification is done by calling the verify-token edge function.
+ 
+ export type Plan = 'single' | 'starter' | 'full'
+ 
+@@ -7,66 +10,72 @@ export interface GrantPayload {
+   tools: string[]
+   grantedAt: number
+   exp: number
+-  sig: string
+ }
+ 
+-function sign(plan: Plan, grantedAt: number): string {
+-  const str = `${GRANT_SECRET}:${plan}:${grantedAt}`
+-  let h = 0
+-  for (let i = 0; i < str.length; i++) {
+-    h = Math.imul(31, h) + str.charCodeAt(i) | 0
+-  }
+-  return Math.abs(h).toString(36)
+-}
++const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL ?? 'https://rwehltdwpsncnwxzkwik.supabase.co'
++const STORAGE_KEY = (product: string) => `aegis_access_${product}`
+ 
+-const TOOLS: Record<Plan, string[]> = {
+-  single:  ['platform-picker'],
+-  starter: ['platform-picker', 'hook-generator'],
+-  full:    ['platform-picker', 'hook-generator', 'content-calendar'],
++export function parseGrantToken(token: string): GrantPayload | null {
++  try {
++    const [payloadB64] = token.split('.')
++    if (!payloadB64) return null
++    const payload = JSON.parse(atob(payloadB64)) as GrantPayload
++    if (Date.now() > payload.exp) return null
++    return payload
++  } catch {
++    return null
++  }
+ }
+ 
+-export function createGrantToken(plan: Plan): string {
+-  const grantedAt = Date.now()
+-  const payload: GrantPayload = {
+-    plan,
+-    tools: TOOLS[plan],
+-    grantedAt,
+-    exp: grantedAt + 365 * 24 * 60 * 60 * 1000,
+-    sig: sign(plan, grantedAt),
++export async function verifyGrantToken(token: string): Promise<GrantPayload | null> {
++  const parsed = parseGrantToken(token)
++  if (!parsed) return null
++  try {
++    const res = await fetch(`${SUPABASE_URL}/functions/v1/verify-token`, {
++      method: 'POST',
++      headers: { 'Content-Type': 'application/json' },
++      body: JSON.stringify({ token }),
++    })
++    if (!res.ok) return null
++    const data = await res.json() as { valid: boolean; payload?: GrantPayload }
++    return data.valid ? (data.payload ?? parsed) : null
++  } catch {
++    return null
+   }
+-  return btoa(JSON.stringify(payload))
+ }
+ 
+-export function verifyGrantToken(token: string): GrantPayload | null {
++export function getStoredAccess(product: string): GrantPayload | null {
+   try {
+-    const payload = JSON.parse(atob(token)) as GrantPayload
+-    if (Date.now() > payload.exp) return null
+-    if (payload.sig !== sign(payload.plan, payload.grantedAt)) return null
+-    return payload
++    const raw = localStorage.getItem(STORAGE_KEY(product))
++    if (!raw) return null
++    const stored = JSON.parse(raw) as { token: string; payload: GrantPayload }
++    if (Date.now() > stored.payload.exp) {
++      localStorage.removeItem(STORAGE_KEY(product))
++      return null
++    }
++    return stored.payload
+   } catch {
+     return null
+   }
+ }
+ 
+-const STORAGE_KEY = (product: string) => `aegis_access_${product}`
+-
+-export function getStoredAccess(product: string): GrantPayload | null {
++export function getStoredToken(product: string): string | null {
+   try {
+     const raw = localStorage.getItem(STORAGE_KEY(product))
+     if (!raw) return null
+-    const payload = JSON.parse(raw) as GrantPayload
+-    if (Date.now() > payload.exp) {
++    const stored = JSON.parse(raw) as { token: string; payload: GrantPayload }
++    if (Date.now() > stored.payload.exp) {
+       localStorage.removeItem(STORAGE_KEY(product))
+       return null
+     }
+-    return payload
++    return stored.token
+   } catch {
+     return null
+   }
+ }
+ 
+-export function storeAccess(product: string, payload: GrantPayload): void {
+-  localStorage.setItem(STORAGE_KEY(product), JSON.stringify(payload))
++export function storeAccess(product: string, token: string, payload: GrantPayload): void {
++  localStorage.setItem(STORAGE_KEY(product), JSON.stringify({ token, payload }))
+ }
+ 
+ export function hasAccess(product: string): boolean {
+diff --git a/platform-picker/cloudbuild.yaml b/platform-picker/cloudbuild.yaml
+index 39a42543..99ae72da 100644
+--- a/platform-picker/cloudbuild.yaml
++++ b/platform-picker/cloudbuild.yaml
+@@ -1,13 +1,17 @@
+ steps:
++  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
++    entrypoint: gcloud
++    args: [auth, configure-docker, europe-west3-docker.pkg.dev]
++
+   - name: 'gcr.io/cloud-builders/docker'
+     args:
+       - build
+       - -f
+       - platform-picker/Dockerfile
+       - -t
+-      - gcr.io/$PROJECT_ID/aegis-platform:$COMMIT_SHA
++      - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-platform:$COMMIT_SHA
+       - -t
+-      - gcr.io/$PROJECT_ID/aegis-platform:latest
++      - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-platform:latest
+       - --build-arg
+       - VITE_GRANT_SECRET=aegis-omega-v1
+       - --build-arg
+@@ -17,10 +21,10 @@ steps:
+       - .
+ 
+   - name: 'gcr.io/cloud-builders/docker'
+-    args: [push, gcr.io/$PROJECT_ID/aegis-platform:$COMMIT_SHA]
++    args: [push, europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-platform:$COMMIT_SHA]
+ 
+   - name: 'gcr.io/cloud-builders/docker'
+-    args: [push, gcr.io/$PROJECT_ID/aegis-platform:latest]
++    args: [push, europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-platform:latest]
+ 
+   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+     entrypoint: gcloud
+@@ -28,7 +32,7 @@ steps:
+       - run
+       - deploy
+       - aegis-platform
+-      - --image=gcr.io/$PROJECT_ID/aegis-platform:$COMMIT_SHA
++      - --image=europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-platform:$COMMIT_SHA
+       - --region=europe-west3
+       - --platform=managed
+       - --allow-unauthenticated
+@@ -39,5 +43,5 @@ steps:
+       - --max-instances=5
+ 
+ images:
+-  - gcr.io/$PROJECT_ID/aegis-platform:$COMMIT_SHA
+-  - gcr.io/$PROJECT_ID/aegis-platform:latest
++  - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-platform:$COMMIT_SHA
++  - europe-west3-docker.pkg.dev/$PROJECT_ID/aegis/aegis-platform:latest
+diff --git a/supabase/functions/grant-access/index.ts b/supabase/functions/grant-access/index.ts
+new file mode 100644
+index 00000000..8390a8d5
+--- /dev/null
++++ b/supabase/functions/grant-access/index.ts
+@@ -0,0 +1,84 @@
++// Verify a Lemon Squeezy order_id and issue a server-signed HMAC-SHA256 grant token.
++// Also handles email-based restore flow when no order_id is present.
++// Deploy: supabase functions deploy grant-access --no-verify-jwt
++// Env vars: GRANT_SECRET (server-only, never VITE_ prefixed), SUPABASE_SERVICE_ROLE_KEY
++import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
++import { CORS } from '../_shared/cors.ts'
++
++const GRANT_SECRET = Deno.env.get('GRANT_SECRET') ?? ''
++
++async function hmacSign(data: string): Promise<string> {
++  const key = await crypto.subtle.importKey(
++    'raw',
++    new TextEncoder().encode(GRANT_SECRET),
++    { name: 'HMAC', hash: 'SHA-256' },
++    false,
++    ['sign'],
++  )
++  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data))
++  return btoa(String.fromCharCode(...new Uint8Array(sig)))
++}
++
++const TOOLS: Record<string, string[]> = {
++  single:  ['platform-picker'],
++  starter: ['platform-picker', 'hook-generator'],
++  full:    ['platform-picker', 'hook-generator', 'content-calendar'],
++}
++
++const PLAN_RANK: Record<string, number> = { single: 1, starter: 2, full: 3 }
++
++Deno.serve(async (req) => {
++  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
++  if (req.method !== 'POST') {
++    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: CORS })
++  }
++
++  if (!GRANT_SECRET) {
++    return new Response(JSON.stringify({ error: 'Server misconfigured' }), { status: 500, headers: CORS })
++  }
++
++  const supabase = createClient(
++    Deno.env.get('SUPABASE_URL') ?? '',
++    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
++  )
++
++  const body = await req.json() as { order_id?: string; email?: string }
++
++  let plan: string | null = null
++
++  if (body.order_id) {
++    const { data } = await supabase
++      .from('purchases')
++      .select('plan')
++      .eq('order_id', body.order_id)
++      .single()
++    plan = data?.plan ?? null
++  } else if (body.email) {
++    const { data } = await supabase
++      .from('purchases')
++      .select('plan')
++      .eq('email', body.email.toLowerCase().trim())
++    if (data?.length) {
++      plan = data.reduce((best: string, row: { plan: string }) => {
++        return (PLAN_RANK[row.plan] ?? 0) > (PLAN_RANK[best] ?? 0) ? row.plan : best
++      }, 'single')
++    }
++  }
++
++  if (!plan || !TOOLS[plan]) {
++    return new Response(JSON.stringify({ found: false }), {
++      headers: { ...CORS, 'Content-Type': 'application/json' },
++    })
++  }
++
++  const grantedAt = Date.now()
++  const exp = grantedAt + 365 * 24 * 60 * 60 * 1000
++  const payload = { plan, tools: TOOLS[plan], grantedAt, exp }
++  const dataStr = JSON.stringify(payload)
++  const sig = await hmacSign(dataStr)
++  const token = btoa(dataStr) + '.' + sig
++
++  return new Response(JSON.stringify({ found: true, token, plan }), {
++    headers: { ...CORS, 'Content-Type': 'application/json' },
++  })
++})
+diff --git a/supabase/functions/ls-webhook/index.ts b/supabase/functions/ls-webhook/index.ts
+index 2aba3762..d5f669ca 100644
+--- a/supabase/functions/ls-webhook/index.ts
++++ b/supabase/functions/ls-webhook/index.ts
+@@ -51,12 +51,12 @@ Deno.serve(async (req) => {
+   )
+ 
+   const { error } = await supabase.from('purchases').upsert({
+-    customer_email: email,
+-    ls_order_id:    orderId,
+-    ls_variant_id:  variantId,
++    email,
++    order_id:   orderId,
++    variant_id: variantId,
+     plan,
+     updated_at: new Date().toISOString(),
+-  }, { onConflict: 'ls_order_id' })
++  }, { onConflict: 'order_id' })
+ 
+   if (error) {
+     console.error('DB upsert failed:', error)
+diff --git a/supabase/functions/restore-access/index.ts b/supabase/functions/restore-access/index.ts
+index de8b6f38..bd2f5882 100644
+--- a/supabase/functions/restore-access/index.ts
++++ b/supabase/functions/restore-access/index.ts
+@@ -1,11 +1,28 @@
+-// Email → purchase lookup → restore URL pointing to hub/success?plan=X
++// Email → purchase lookup → issue server-signed grant token.
+ // Deploy: supabase functions deploy restore-access --no-verify-jwt
+-// Env vars: HUB_URL (defaults to https://aegisomega.com)
++// Env vars: GRANT_SECRET, SUPABASE_SERVICE_ROLE_KEY
+ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+ import { CORS } from '../_shared/cors.ts'
+ 
+-const HUB_URL   = Deno.env.get('HUB_URL') ?? 'https://aegisomega.com'
++const GRANT_SECRET = Deno.env.get('GRANT_SECRET') ?? ''
+ const PLAN_RANK: Record<string, number> = { single: 1, starter: 2, full: 3 }
++const TOOLS: Record<string, string[]> = {
++  single:  ['platform-picker'],
++  starter: ['platform-picker', 'hook-generator'],
++  full:    ['platform-picker', 'hook-generator', 'content-calendar'],
++}
++
++async function hmacSign(data: string): Promise<string> {
++  const key = await crypto.subtle.importKey(
++    'raw',
++    new TextEncoder().encode(GRANT_SECRET),
++    { name: 'HMAC', hash: 'SHA-256' },
++    false,
++    ['sign'],
++  )
++  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data))
++  return btoa(String.fromCharCode(...new Uint8Array(sig)))
++}
+ 
+ Deno.serve(async (req) => {
+   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
+@@ -26,18 +43,28 @@ Deno.serve(async (req) => {
+   const { data, error } = await supabase
+     .from('purchases')
+     .select('plan')
+-    .eq('customer_email', email.toLowerCase().trim())
++    .eq('email', email.toLowerCase().trim())
+ 
+   if (error || !data?.length) {
+     return new Response(JSON.stringify({ found: false }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
+   }
+ 
+-  const bestPlan = data.reduce((best, row) => {
++  const plan = data.reduce((best: string, row: { plan: string }) => {
+     return (PLAN_RANK[row.plan] ?? 0) > (PLAN_RANK[best] ?? 0) ? row.plan : best
+   }, 'single')
+ 
+-  return new Response(
+-    JSON.stringify({ found: true, restore_url: `${HUB_URL}/success?plan=${bestPlan}`, plan: bestPlan }),
+-    { headers: { ...CORS, 'Content-Type': 'application/json' } },
+-  )
++  if (!GRANT_SECRET || !TOOLS[plan]) {
++    return new Response(JSON.stringify({ error: 'Server misconfigured' }), { status: 500, headers: CORS })
++  }
++
++  const grantedAt = Date.now()
++  const exp = grantedAt + 365 * 24 * 60 * 60 * 1000
++  const payload = { plan, tools: TOOLS[plan], grantedAt, exp }
++  const dataStr = JSON.stringify(payload)
++  const sig = await hmacSign(dataStr)
++  const token = btoa(dataStr) + '.' + sig
++
++  return new Response(JSON.stringify({ found: true, token, plan }), {
++    headers: { ...CORS, 'Content-Type': 'application/json' },
++  })
+ })
+diff --git a/supabase/functions/verify-token/index.ts b/supabase/functions/verify-token/index.ts
+new file mode 100644
+index 00000000..199f7023
+--- /dev/null
++++ b/supabase/functions/verify-token/index.ts
+@@ -0,0 +1,55 @@
++// Verify a server-issued grant token using HMAC-SHA256.
++// Deploy: supabase functions deploy verify-token --no-verify-jwt
++// Env vars: GRANT_SECRET
++import { CORS } from '../_shared/cors.ts'
++
++const GRANT_SECRET = Deno.env.get('GRANT_SECRET') ?? ''
++
++async function hmacVerify(data: string, sigB64: string): Promise<boolean> {
++  if (!GRANT_SECRET) return false
++  const key = await crypto.subtle.importKey(
++    'raw',
++    new TextEncoder().encode(GRANT_SECRET),
++    { name: 'HMAC', hash: 'SHA-256' },
++    false,
++    ['verify'],
++  )
++  const sig = Uint8Array.from(atob(sigB64), c => c.charCodeAt(0))
++  return crypto.subtle.verify('HMAC', key, sig, new TextEncoder().encode(data))
++}
++
++Deno.serve(async (req) => {
++  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
++  if (req.method !== 'POST') {
++    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: CORS })
++  }
++
++  const { token } = await req.json() as { token?: string }
++  if (!token) {
++    return new Response(JSON.stringify({ valid: false }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
++  }
++
++  const dotIdx = token.indexOf('.')
++  if (dotIdx === -1) {
++    return new Response(JSON.stringify({ valid: false }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
++  }
++
++  const payloadB64 = token.slice(0, dotIdx)
++  const sigB64 = token.slice(dotIdx + 1)
++
++  try {
++    const payloadStr = atob(payloadB64)
++    const payload = JSON.parse(payloadStr) as { plan: string; tools: string[]; grantedAt: number; exp: number }
++
++    if (Date.now() > payload.exp) {
++      return new Response(JSON.stringify({ valid: false, reason: 'expired' }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
++    }
++
++    const valid = await hmacVerify(payloadStr, sigB64)
++    return new Response(JSON.stringify({ valid, payload: valid ? payload : undefined }), {
++      headers: { ...CORS, 'Content-Type': 'application/json' },
++    })
++  } catch {
++    return new Response(JSON.stringify({ valid: false }), { headers: { ...CORS, 'Content-Type': 'application/json' } })
++  }
++})
