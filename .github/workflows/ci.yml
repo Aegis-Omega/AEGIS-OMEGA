@@ -277,6 +277,12 @@ jobs:
 
       - name: Build ${{ matrix.product }}
         run: |
+          # Products that import @shared compile packages/shared/*.tsx via tsc
+          # project paths; tsc resolves react/lucide-react from packages/shared's
+          # own node_modules, so install them before building.
+          if [ -f packages/shared/package-lock.json ]; then
+            (cd packages/shared && npm ci)
+          fi
           cd "${{ matrix.product }}"
           npm ci
           npm run build

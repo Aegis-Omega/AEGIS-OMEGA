@@ -34,3 +34,15 @@ install_npm enterprise
 install_npm aegisomega-webgpu
 
 echo "SessionStart: all deps ready."
+
+# Python agent-layer deps (bridge + swarm). Idempotent: skip if already importable.
+if [ -f "$REPO/sovereign-omega-v2/python/requirements.txt" ]; then
+  if ! python -c "import anthropic" >/dev/null 2>&1; then
+    echo "  installing python agent deps..."
+    pip install -q -r "$REPO/sovereign-omega-v2/python/requirements.txt" 2>/dev/null || true
+  fi
+fi
+
+# Ground truth — open every session knowing branch / main-drift / unpushed / membrane / live.
+# Per WORKFLOW.md: no session starts blind; nothing is "done" until it is on main.
+bash "$REPO/scripts/ground-truth.sh" 2>/dev/null || true
