@@ -668,6 +668,24 @@ async def run_agent(task: AgentTask) -> AgentResult:
     defs = _load_agent_defs()
     agent_def = defs["agents"][task.role.value]
 
+    # ── COST KILL-SWITCH (default OFF) ──────────────────────────────────────
+    # A live run makes paid inference calls, and a single dispatch fans out across
+    # roles x RALPH cycles. To make runaway spend impossible by default, the live
+    # path is gated behind AEGIS_SWARM_LIVE=1. Without it, run_agent returns a
+    # dry-run result and makes NO backend / API / Redis call. This is the guard
+    # that would have prevented the swarm from draining the budget.
+    if os.environ.get("AEGIS_SWARM_LIVE") != "1":
+        return AgentResult(
+            task_id=task.task_id,
+            role=task.role,
+            output=("[dry-run] AEGIS_SWARM_LIVE!=1 — no inference call made ($0). "
+                    "Set AEGIS_SWARM_LIVE=1 to enable live agent runs."),
+            governance={"is_valid": True, "dry_run": True},
+            ralph_cycles=0,
+            duration_ms=0,
+            is_valid=True,
+        )
+
     redis_conn = await aioredis.from_url(REDIS_URL, decode_responses=True)
     memory = AgentMemory(redis_conn, agent_def["memory_namespace"])
     proxy = ProxyClient(PROXY_URL)

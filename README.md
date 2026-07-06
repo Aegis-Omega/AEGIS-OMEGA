@@ -24,6 +24,47 @@ AdaptivePower(T) ≤ ReplayVerifiability(T)
 
 ---
 
+## See it prove itself (30 seconds)
+
+Don't take "verifiable" on faith — run it. No build step, no API keys, Python stdlib only:
+
+```bash
+# 1. A genomics variant-caller whose result is a reproducible, tamper-evident hash
+python3 genomics/test_replay_proof.py        # 3 invariants → exit 0
+
+# 2. The SAME governance envelope on a regulated loan-decision audit, plus a
+#    byte-identical cross-check proving it's literally the same primitive
+python3 verifiable/test_generality.py         # exit 0
+
+# 3. The genomics certificate rebuilt from GENESIS in Python, Node.js AND Rust —
+#    three independent RFC 8785 canonicalizers, one identical SHA-256
+bash   verifiable/cross_language/verify.sh    # Python == Node == Rust
+
+# 4. The whole substrate certifies itself in one reproducible session hash
+python3 verifiable/certify_all.py --twice
+```
+
+Every run — every language, every machine — lands on the same fingerprint:
+
+```
+genomics terminal     f8cb0093b9b7447cc44d7386f1305f427dc7eb887a23407f9b67522b8f5db8f1
+session certificate   9b360cad56518c8a5a8c42ac2c97fe4bb17948bf1778b513f7c7db041ad6d142
+```
+
+CI re-proves this on **every push, across Ubuntu (x86-64) and macOS (arm64)** — the
+terminal hash is pinned, so a divergence on any platform fails the build. Flip one base
+in the input and all the hashes move together; edit a stored result after the fact and
+`certify()` names the tampered stage. That is the whole thesis in runnable form:
+**determinism lives in the governance envelope, not the model** — which is exactly what
+turns a stochastic AI output into auditable evidence.
+
+Honest scope: the caller and scorecard are toy (tier **T2**) — the proven claim is the
+*envelope* (reproducibility + tamper-evidence + cross-runtime replay), not domain
+accuracy. Details: [`genomics/README.md`](genomics/README.md) ·
+[`verifiable/README.md`](verifiable/README.md).
+
+---
+
 ## Quickstart
 
 ```bash
@@ -52,6 +93,8 @@ New here? Read [`HANDOFF.md`](HANDOFF.md) (current ground truth) and [`REPO_MAP.
 | `sovereign-omega-v2/` | Governance runtime | TypeScript (canonicalization, martingale, BFT swarm, ledger) + Python bridge (port 7890) |
 | `aegis-cl-psi/` | Math fabric | Rust — 422-gate CL-Ψ inference crate, gossip protocol |
 | `aegis-runtime/` | Atomic runtime | Rust — Seven-Pillar distributed agent runtime |
+| `genomics/` | Domain proof | Replay-verifiable variant caller + a governed, prompt-cached AI interpretation folded into the same hash chain |
+| `verifiable/` | Envelope + proofs | Domain-agnostic RFC 8785→SHA-256 lineage, a second (regulated-decision) domain, cross-language replay (Py/Node/Rust), self-certifying session cert |
 | `packages/aegis-interface/` | Interface compiler | RFC 0001/0005 — deterministic WIT→IR→{Rust, TS, Python} with a cross-language equivalence gate |
 | `packages/aegis-py/` | SDK + CLI | `AegisClient` / `AsyncAegisClient` / `aegis` CLI for the Platform API |
 | `packages/shared/` | Shared infra | Inference router (DashScope→Ollama→Claude→CL-Ψ), constitutional-ai, payment tokens |
