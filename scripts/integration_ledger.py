@@ -43,9 +43,10 @@ def workflow_text() -> str:
     out = []
     for f in os.listdir(d):
         try:
-            out.append(open(os.path.join(d, f), encoding="utf-8", errors="ignore").read())
-        except Exception:
-            pass
+            with open(os.path.join(d, f), encoding="utf-8", errors="ignore") as fh:
+                out.append(fh.read())
+        except OSError as e:  # unreadable workflow file: skip, keep scanning
+            print(f"integration_ledger: skipping {f}: {e}", file=sys.stderr)
     return "\n".join(out)
 
 
@@ -92,36 +93,40 @@ def render_md(rows) -> str:
     from collections import Counter
     c = Counter(s for s, _, _ in rows)
     sha = head_sha()
-    lines = [
-        "# Integration Ledger",
-        "",
+    header = (
         f"**Generated from code at commit `{sha}`** by `scripts/integration_ledger.py`. "
-        "Do not hand-edit — regenerate with `python3 scripts/integration_ledger.py --write`. "
-        "This file is the authority on what is connected; a prose claim of \"done\" that "
-        "this contradicts is wrong.",
-        "",
+        + "Do not hand-edit — regenerate with `python3 scripts/integration_ledger.py --write`. "
+        + "This file is the authority on what is connected; a prose claim of \"done\" that "
+        + "this contradicts is wrong."
+    )
+    counts = (
         f"**{c.get('WIRED',0)} WIRED · {c.get('LINKED',0)} LINKED · "
-        f"{c.get('DORMANT',0)} DORMANT · {c.get('ORPHAN',0)} ORPHAN** "
-        f"across {len(rows)} top-level areas.",
-        "",
+        + f"{c.get('DORMANT',0)} DORMANT · {c.get('ORPHAN',0)} ORPHAN** "
+        + f"across {len(rows)} top-level areas."
+    )
+    lines = [
+        "# Integration Ledger", "", header, "", counts, "",
         "| Status | Area | Evidence |",
         "|--------|------|----------|",
     ]
     for s, d, why in rows:
         lines.append(f"| {s} | `{d}` | {why} |")
+    wired = ("- **WIRED** — a live entrypoint runs it (a CI workflow references it, or it "
+             + "ships as a Vercel app). The only status that means *connected and running*.")
+    linked = ("- **LINKED** — imported by other code (≥3 external files) but not exercised "
+              + "by a live entrypoint of its own.")
+    note = ("> A directory being WIRED does not mean every *file* in it is. New files can "
+            + "dangle inside a wired directory until something calls them — check the module.")
     lines += [
         "",
         "## What the statuses mean",
         "",
-        "- **WIRED** — a live entrypoint runs it (a CI workflow references it, or it ships "
-        "as a Vercel app). The only status that means *connected and running*.",
-        "- **LINKED** — imported by other code (≥3 external files) but not exercised by a "
-        "live entrypoint of its own.",
+        wired,
+        linked,
         "- **DORMANT** — referenced by 1–2 external files. Idle; wire it or archive it.",
         "- **ORPHAN** — nothing outside the directory references it. Sediment.",
         "",
-        "> A directory being WIRED does not mean every *file* in it is. New files can dangle "
-        "inside a wired directory until something calls them — check the specific module.",
+        note,
         "",
     ]
     return "\n".join(lines) + "\n"

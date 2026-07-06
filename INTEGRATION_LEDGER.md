@@ -1,6 +1,6 @@
 # Integration Ledger
 
-**Generated from code at commit `6fd3ce71`** by `scripts/integration_ledger.py`. Do not hand-edit — regenerate with `python3 scripts/integration_ledger.py --write`. This file is the authority on what is connected; a prose claim of "done" that this contradicts is wrong.
+**Generated from code at commit `6646a7ac`** by `scripts/integration_ledger.py`. Do not hand-edit — regenerate with `python3 scripts/integration_ledger.py --write`. This file is the authority on what is connected; a prose claim of "done" that this contradicts is wrong.
 
 **19 WIRED · 8 LINKED · 6 DORMANT · 0 ORPHAN** across 33 top-level areas.
 
@@ -47,5 +47,5 @@
 - **DORMANT** — referenced by 1–2 external files. Idle; wire it or archive it.
 - **ORPHAN** — nothing outside the directory references it. Sediment.
 
-> A directory being WIRED does not mean every *file* in it is. New files can dangle inside a wired directory until something calls them — check the specific module.
+> A directory being WIRED does not mean every *file* in it is. New files can dangle inside a wired directory until something calls them — check the module.
 
