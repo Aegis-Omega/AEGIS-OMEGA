@@ -84,6 +84,13 @@ export interface CollaborationRequest {
   readonly objective: string
   readonly mode: CollaborationMode
   readonly live: boolean
+  // Optional fields the Python runtime (platform_helpers.validate_collaboration_request +
+  // bridge handler) already accepts. Without these in the contract, TS/Sheets clients
+  // cannot express an autonomous run or pass evolutionary/memory context.
+  readonly generation?: number          // evolutionary generation (default 0)
+  readonly memory_context?: string      // overrides auto-retrieved swarm memory
+  readonly autonomous?: boolean         // per-agent execution (each dept its own call); requires live
+  readonly max_agents?: number          // cost ceiling for autonomous mode (# of real model calls)
 }
 
 export type CollaborationMode =
@@ -192,6 +199,49 @@ export interface ComplianceExport {
   readonly compliance_framework: string    // 'HIPAA §164.312(b) Audit Controls; ISO 42001 AI Management System'
   readonly exported_by: string             // customer email from API key
   readonly records: readonly ComplianceExportRecord[]
+}
+
+// ── GET /platform/calibration — HPA axis / homeostasis ───────────────────────
+// Port of stress-calibrator.js hormetic curve from Sovereign AGI OS v3.3.0.
+// Reads recent fitness trend and returns system homeostasis state.
+// HD-equivalent = fitness stdev (spread = unreliability = hallucination delta proxy).
+//
+// Hormetic zones (maps to CURVE constants in stress-calibrator.js):
+//   slack    < 0.30  → EASE      (system underperforming; relax quality bar)
+//   optimal  0.30–0.70 → MAINTAIN (productive zone; hold steady)
+//   stressed 0.70–0.90 → TIGHTEN  (high output; tighten constitutional bar)
+//   critical > 0.90  → TIGHTEN  (stagnation/overfitting likely; intervene)
+
+export type HomeostasisZone = 'slack' | 'optimal' | 'stressed' | 'critical'
+export type CalibrationRecommendation = 'EASE' | 'MAINTAIN' | 'TIGHTEN'
+
+export interface CalibrationStatus {
+  readonly homeostasis_zone: HomeostasisZone
+  readonly recommendation: CalibrationRecommendation
+  readonly fitness_mean: number                // 0–1; mean across window
+  readonly fitness_variance: number            // 0–1; spread
+  readonly hd_equivalent: number               // stdev of fitness — HD proxy
+  readonly stagnation_rate: number             // fraction of runs with stagnation flag
+  readonly window_size: number                 // cycles analyzed (0 = no data yet)
+  readonly trend: 'rising' | 'falling' | 'stable'
+  readonly constitutional_factor_mean: number  // mean c_factor (APPROVED=1.0, FLAG=0.70, QUARANTINE=0.20)
+}
+
+// ── GET /platform/tools — agent API contact list ──────────────────────────────
+// Read-only catalog of outbound API profiles available to the agent harness.
+// Raw credentials (key_hash, raw key) are NEVER returned.
+// Agents read the catalog, then invoke through the mediated SSE channel.
+
+export interface AgentTool {
+  readonly api_name: string
+  readonly endpoint_url: string
+  readonly capabilities: readonly string[]
+  readonly tier_required: 'explorer' | 'operator' | 'sovereign'
+}
+
+export interface PlatformToolsResult {
+  readonly tools: readonly AgentTool[]
+  readonly total: number
 }
 
 // ── Error schema (all endpoints on 4xx/5xx) ──────────────────────────────────

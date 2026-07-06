@@ -10,6 +10,7 @@ pub struct Constraint {
 }
 
 /// Central registry for all constitutional constraints
+#[derive(Debug, Clone)]
 pub struct ConstraintRegistry {
     constraints: HashMap<String, Constraint>,
 }
@@ -146,7 +147,7 @@ mod tests {
     fn test_string_list() {
         let mut registry = ConstraintRegistry::new();
         let tools = vec!["bash".to_string(), "python".to_string()];
-        registry.register_constraint("tools".to_string(), serde_json::json!(tools));
+        registry.register_constraint("tools".to_string(), serde_json::json!(tools), false);
 
         let retrieved = registry.get_string_list("tools");
         assert_eq!(retrieved, Some(vec!["bash".to_string(), "python".to_string()]));

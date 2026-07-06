@@ -20,7 +20,7 @@ from aegis_omega import Platform
 
 p = Platform(
     api_key="sk-your-key-here",
-    base_url="https://api.aegisomega.com",   # Cloud Run deployment URL
+    base_url="https://aegis-vertex.aegisomega.com",   # Cloudflare Worker custom domain
 )
 ```
 
@@ -101,7 +101,7 @@ print(schedule["next_run"])
 
 ```python
 class Platform:
-    def __init__(self, api_key: str, base_url: str = "https://api.aegisomega.com", timeout: float = 120.0) -> None: ...
+    def __init__(self, api_key: str, base_url: str = "https://aegis-vertex.aegisomega.com", timeout: float = 120.0) -> None: ...
 
     def collaborate(self, objective: str, mode: str = "revenue", live: bool = False) -> CollaborateResult: ...
     def stream(self, objective: str, live: bool = False) -> Iterator[StreamEvent]: ...
@@ -160,7 +160,7 @@ Every response from the AEGIS-Ω platform is hash-chained and replay-certifiable
 ## Context manager usage
 
 ```python
-with Platform(api_key="sk-...", base_url="https://api.aegisomega.com") as p:
+with Platform(api_key="sk-...", base_url="https://aegis-vertex.aegisomega.com") as p:
     result = p.collaborate("Build a governed revenue pipeline")
     print(result.chain_valid)
 # HTTP client is automatically closed

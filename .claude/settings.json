@@ -1,26 +1,28 @@
 {
   "model": "claude-opus-4-8",
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/pre-write-tier.sh\"",
+            "timeout": 10,
+            "statusMessage": "AEGIS: membrane (frozen-file guard)"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "bash /home/user/AEGIS--/.claude/hooks/session-start.sh",
-            "timeout": 180,
-            "statusMessage": "Installing npm dependencies..."
-          },
-          {
-            "type": "command",
-            "command": "cd /home/user/AEGIS--/sovereign-omega-v2 && node scripts/verify-hashes.mjs 2>&1 | tail -5",
-            "timeout": 15,
-            "statusMessage": "L7: verifying constitutional membrane..."
-          },
-          {
-            "type": "command",
-            "command": "node -e \"const fs=require('fs'); const base='/home/user/AEGIS--/sovereign-omega-v2/.claude/skills'; const read=f=>fs.readFileSync(base+'/'+f+'/SKILL.md','utf8'); const ctx=[read('automaton-workflow'),read('autopoiesis'),read('metacognition')].join('\\n\\n---\\n\\n'); console.log(JSON.stringify({hookSpecificOutput:{hookEventName:'SessionStart',additionalContext:ctx}}))\"",
-            "timeout": 10,
-            "statusMessage": "Loading automaton manifold (autopoiesis + metacognition + workflow)..."
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/session-start.sh\"",
+            "async": true,
+            "timeout": 300,
+            "statusMessage": "AEGIS: session-start (deps + orient)"
           }
         ]
       }
@@ -30,68 +32,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /home/user/AEGIS--/.claude/hooks/user-prompt-intake.sh",
-            "timeout": 5,
-            "statusMessage": "L1-L7 intake..."
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash /home/user/AEGIS--/.claude/hooks/pre-commit-gate.sh",
-            "timeout": 120,
-            "statusMessage": "Gate 8 pre-commit check..."
-          }
-        ]
-      },
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash /home/user/AEGIS--/.claude/hooks/pre-write-tier.sh",
-            "timeout": 10,
-            "statusMessage": "L6 ASSESS: tier classification..."
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash /home/user/AEGIS--/.claude/hooks/post-write.sh",
-            "timeout": 120,
-            "statusMessage": "Viability ring assertion..."
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 -c \"import sys,json; d=json.load(sys.stdin); cmd=d.get('tool_input',{}).get('command',''); pushed='git push' in cmd; print(json.dumps({'systemMessage':'PUSHED — L7: check CI. Run /evening-seal when done.'})) if pushed else None\" 2>/dev/null || true",
-            "timeout": 5,
-            "statusMessage": "Post-push CI reminder..."
-          }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '{\"systemMessage\": \"PRE-COMPACT: Preserve — current gate, open RALPH phase, active skill, pending commits, bridge t0_verdict, any uncommitted file changes.\"}'",
-            "timeout": 5
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/user-prompt-intake.sh\"",
+            "timeout": 15,
+            "statusMessage": "AEGIS: metacog intake"
           }
         ]
       }
@@ -101,9 +44,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /home/user/AEGIS--/.claude/hooks/post-compact-reanchor.sh",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/post-compact-reanchor.sh\"",
             "timeout": 30,
-            "statusMessage": "PostCompact: re-anchoring L7 + manifold..."
+            "statusMessage": "AEGIS: re-anchor manifold"
           }
         ]
       }
@@ -113,19 +56,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c \"import subprocess,json; s=subprocess.run(['git','status','--short'],cwd='/home/user/AEGIS--',capture_output=True,text=True).stdout.strip(); b=subprocess.run(['git','branch','--show-current'],cwd='/home/user/AEGIS--',capture_output=True,text=True).stdout.strip(); print(json.dumps({'systemMessage':f'STOP | branch:{b} | uncommitted:{s or chr(10)+\\\" none\\\"} — /evening-seal: Gate8 → commit → push'}))\"",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash /home/user/AEGIS--/.claude/hooks/stop-constitutional-seal.sh",
-            "timeout": 120,
-            "statusMessage": "Constitutional seal: L7 + conditional typecheck...",
-            "asyncRewake": true
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/stop-constitutional-seal.sh\"",
+            "timeout": 60,
+            "statusMessage": "AEGIS: constitutional seal"
           }
         ]
       }
@@ -133,15 +66,16 @@
   },
   "enableWorkflows": true,
   "permissions": {
+    "defaultMode": "acceptEdits",
     "allow": [
       "mcp__71923ddf-e9ee-4959-b191-9ef0ac574e2a__apply_migration",
       "Write(.claude/hooks/*)",
       "Edit(.claude/hooks/*)",
       "Write(.claude/settings.json)",
       "Edit(.claude/settings.json)",
-      "Bash(cd /home/user/AEGIS--/sovereign-omega-v2 && npm run test*)",
-      "Bash(cd /home/user/AEGIS--/sovereign-omega-v2 && npm run typecheck*)",
-      "Bash(cd /home/user/AEGIS--/sovereign-omega-v2 && npm run build*)",
+      "Bash(cd /home/user/AEGIS-OMEGA/sovereign-omega-v2 && npm run test*)",
+      "Bash(cd /home/user/AEGIS-OMEGA/sovereign-omega-v2 && npm run typecheck*)",
+      "Bash(cd /home/user/AEGIS-OMEGA/sovereign-omega-v2 && npm run build*)",
       "Bash(cd sovereign-omega-v2 && npm run test*)",
       "Bash(cd sovereign-omega-v2 && npm run typecheck*)",
       "Bash(cd sovereign-omega-v2 && npm run build*)",
@@ -154,13 +88,13 @@
       "Bash(cd aegis-runtime && cargo*)",
       "Bash(node scripts/verify-hashes.mjs*)",
       "Bash(node sovereign-omega-v2/scripts/verify-hashes.mjs*)",
-      "Bash(cd /home/user/AEGIS--/sovereign-omega-v2 && node scripts/verify-hashes.mjs*)",
+      "Bash(cd /home/user/AEGIS-OMEGA/sovereign-omega-v2 && node scripts/verify-hashes.mjs*)",
       "Bash(curl -s http://localhost:7890/*)",
       "Bash(curl -sv http://localhost:7890/*)",
       "Bash(python python/tests/*)",
       "Bash(python -m pytest*)",
-      "Bash(find /home/user/AEGIS--*)",
-      "Bash(ls /home/user/AEGIS--*)",
+      "Bash(find /home/user/AEGIS-OMEGA*)",
+      "Bash(ls /home/user/AEGIS-OMEGA*)",
       "Bash(git status*)",
       "Bash(git diff*)",
       "Bash(git log*)",
@@ -172,7 +106,7 @@
       "Bash(git checkout *)",
       "Bash(git fetch *)",
       "Bash(git branch *)",
-      "Bash(bash /home/user/AEGIS--/.claude/hooks/pre-commit-gate.sh*)",
+      "Bash(bash /home/user/AEGIS-OMEGA/.claude/hooks/pre-commit-gate.sh*)",
       "mcp__github__pull_request_read",
       "mcp__github__list_pull_requests",
       "mcp__github__list_branches",
@@ -235,13 +169,13 @@
       "mcp__71923ddf-e9ee-4959-b191-9ef0ac574e2a__list_edge_functions",
       "mcp__71923ddf-e9ee-4959-b191-9ef0ac574e2a__get_edge_function",
       "mcp__71923ddf-e9ee-4959-b191-9ef0ac574e2a__list_branches",
-      "Bash(cd /home/user/AEGIS--/cockpit*)",
-      "Bash(cd /home/user/AEGIS--/hub*)",
-      "Bash(cd /home/user/AEGIS--/platform-picker*)",
-      "Bash(cd /home/user/AEGIS--/hook-generator*)",
-      "Bash(cd /home/user/AEGIS--/content-calendar*)",
-      "Bash(cd /home/user/AEGIS--/studio*)",
-      "Bash(cd /home/user/AEGIS--/packages*)",
+      "Bash(cd /home/user/AEGIS-OMEGA/cockpit*)",
+      "Bash(cd /home/user/AEGIS-OMEGA/hub*)",
+      "Bash(cd /home/user/AEGIS-OMEGA/platform-picker*)",
+      "Bash(cd /home/user/AEGIS-OMEGA/hook-generator*)",
+      "Bash(cd /home/user/AEGIS-OMEGA/content-calendar*)",
+      "Bash(cd /home/user/AEGIS-OMEGA/studio*)",
+      "Bash(cd /home/user/AEGIS-OMEGA/packages*)",
       "Bash(npm install*)",
       "Bash(npx *)",
       "Bash(python3 *)",
@@ -249,7 +183,7 @@
       "Bash(grep *)",
       "Bash(wc *)",
       "Bash(head *)",
-      "Bash(bash /home/user/AEGIS--/.claude/hooks/*)",
+      "Bash(bash /home/user/AEGIS-OMEGA/.claude/hooks/*)",
       "mcp__github__search_repositories",
       "Bash(cargo check*)",
       "Bash(cargo clippy*)",

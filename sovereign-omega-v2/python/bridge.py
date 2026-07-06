@@ -58,6 +58,8 @@ from platform_helpers import (
     award_graces_for_cycle as _award_graces,
     fetch_grace_leaderboard as _fetch_graces,
     fetch_compliance_export as _fetch_compliance_export,
+    query_fitness_trend as _platform_query_fitness_trend,
+    query_agent_tools as _platform_query_agent_tools,
 )
 
 # In-memory execution store — keyed by execution_id
@@ -65,6 +67,24 @@ from platform_helpers import (
 _executions: dict = {}
 _exec_queues: dict = {}           # execution_id → queue.Queue
 _executions_lock = threading.Lock()
+_MAX_EXECUTIONS = 1000            # bound the in-memory execution registry
+
+
+def _reap_executions_locked() -> None:
+    """Evict oldest COMPLETED executions when the registry is at capacity.
+
+    Caller MUST hold _executions_lock. In-flight (not-done) executions are never
+    evicted. Dict insertion order = age, so the first done entries are the oldest.
+    Bounds the registry so it can't grow without limit (no unbounded ecology).
+    """
+    if len(_executions) < _MAX_EXECUTIONS:
+        return
+    for _eid in list(_executions.keys()):
+        if _executions[_eid].get('done'):
+            _executions.pop(_eid, None)
+            _exec_queues.pop(_eid, None)
+            if len(_executions) < _MAX_EXECUTIONS:
+                break
 
 # ─── Bridge-side Metacognitive Chain ─────────────────────────────────────────
 # A Python-native hash-chained log of every conversation this bridge instance
@@ -185,13 +205,29 @@ def _platform_run_collaboration(
                 'technical': 1_400_000, 'regulatory': 2_100_000,
                 'fundraising': 5_000_000,
             }.get(mode, 2_000_000)
-            constitutional_audit = {'verdict': 'APPROVED', 'concerns': []}
+            _phi = 0.6180339887
+            _total = swarm['agents_total']
+            _executed = swarm['agents_executed']
+            _completion = _executed / _total if _total > 0 else 0.0
+            _concerns: list[str] = []
+            if _completion < _phi:
+                _concerns.append(
+                    f'Agent completion {_completion:.4f} below φ-threshold {_phi} '
+                    f'({_executed}/{_total} departments)'
+                )
+            _empty = [a['id'] for a in swarm['artifacts'] if not str(a.get('output', '')).strip()]
+            if _empty:
+                _concerns.append(f'Empty output from departments: {", ".join(_empty)}')
+            constitutional_audit = {
+                'verdict': 'REJECTED' if _concerns else 'APPROVED',
+                'concerns': _concerns,
+            }
             projection = {
                 'first_year_arr_usd': _arr,
                 'tier': 'T2',
                 'governed_note': (
-                    f'Autonomous per-agent swarm: {swarm["agents_executed"]}/'
-                    f'{swarm["agents_total"]} agents executed in dependency order.'
+                    f'Autonomous per-agent swarm: {_executed}/'
+                    f'{_total} agents executed in dependency order.'
                 ),
             }
         elif live:
@@ -320,7 +356,11 @@ def _platform_run_collaboration(
         }
 
         with _executions_lock:
-            _executions[execution_id] = {'result': result, 'done': True, 'error': None}
+            # Update in place so the 'email' ownership tag set at init survives —
+            # replacing the dict here would drop it and defeat ownership scoping.
+            rec = _executions.get(execution_id, {})
+            rec.update({'result': result, 'done': True, 'error': None})
+            _executions[execution_id] = rec
 
         _emit({
             'type': 'completion',
@@ -331,7 +371,9 @@ def _platform_run_collaboration(
 
     except Exception as exc:
         with _executions_lock:
-            _executions[execution_id] = {'result': None, 'done': True, 'error': str(exc)}
+            rec = _executions.get(execution_id, {})
+            rec.update({'result': None, 'done': True, 'error': str(exc)})
+            _executions[execution_id] = rec
         _emit({
             'type': 'error',
             'execution_id': execution_id,
@@ -473,18 +515,18 @@ class BridgeHandler(BaseHTTPRequestHandler):
             import anth_client as _ac
 
             messages = data.get('messages', [])
-            model = data.get('model', 'claude-fable-5')
+            model = data.get('model', 'claude-opus-4-8')
             max_tokens = int(data.get('max_tokens', 2048))
             user_system = data.get('system', '')
 
             live_state = _build_live_state_context()
             mc_context = _mc_recent_context(3)
-            base_system = (
-                CONSTITUTIONAL_SYSTEM_FULL
-                + '\n\n---\n\n' + live_state
-                + '\n\n---\n\n' + mc_context
-            )
-            system_prompt = (base_system + '\n---\n' + user_system) if user_system else base_system
+            # Static constitutional identity is the cached prefix; live telemetry,
+            # recent metacognition, and any caller system text vary per request and
+            # go in the uncached suffix so they never bust the cache on the prefix.
+            dynamic_context = live_state + '\n\n---\n\n' + mc_context
+            if user_system:
+                dynamic_context += '\n---\n' + user_system
 
             req_hash = hashlib.sha256(json.dumps(
                 {'messages': messages, 'model': model}, sort_keys=True
@@ -495,7 +537,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 resp = _client.messages.create(
                     model=model,
                     max_tokens=max_tokens,
-                    system=_ac.make_cached_system(system_prompt),
+                    system=_ac.make_cached_system(
+                        CONSTITUTIONAL_SYSTEM_FULL,
+                        dynamic_suffix=dynamic_context,
+                    ),
                     messages=messages,
                 )
                 response_text = ''.join(
@@ -536,15 +581,14 @@ class BridgeHandler(BaseHTTPRequestHandler):
             import anth_client as _ac
 
             messages = data.get('messages', [])
-            model = data.get('model', 'claude-fable-5')
+            model = data.get('model', 'claude-opus-4-8')
             max_tokens = int(data.get('max_tokens', 2048))
             live_state = _build_live_state_context()
             mc_context = _mc_recent_context(3)
-            stream_system = (
-                CONSTITUTIONAL_SYSTEM_COMPACT
-                + '\n\n---\n\n' + live_state
-                + '\n\n---\n\n' + mc_context
-            )
+            # Cache the stable constitutional prefix; keep per-request state in the
+            # uncached suffix. (COMPACT is short — see make_cached_system's note on
+            # minimum cacheable length; this still avoids a guaranteed cache miss.)
+            stream_dynamic = live_state + '\n\n---\n\n' + mc_context
 
             self.send_response(200)
             self._cors_headers()
@@ -559,7 +603,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 with _client.messages.stream(
                     model=model,
                     max_tokens=max_tokens,
-                    system=_ac.make_cached_system(stream_system),
+                    system=_ac.make_cached_system(
+                        CONSTITUTIONAL_SYSTEM_COMPACT,
+                        dynamic_suffix=stream_dynamic,
+                    ),
                     messages=messages,
                 ) as stream:
                     for text in stream.text_stream:
@@ -641,7 +688,8 @@ class BridgeHandler(BaseHTTPRequestHandler):
             execution_id = str(_uuid_pc.uuid4())
             q = _queue_mod.Queue()
             with _executions_lock:
-                _executions[execution_id] = {'result': None, 'done': False, 'error': None}
+                _reap_executions_locked()
+                _executions[execution_id] = {'result': None, 'done': False, 'email': _email, 'error': None}
                 _exec_queues[execution_id] = q
 
             # Run synchronously (collect all events, return result at completion)
@@ -699,6 +747,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             execution_id = str(_uuid_pe.uuid4())
             q = _queue_mod.Queue()
             with _executions_lock:
+                _reap_executions_locked()
                 _executions[execution_id] = {'result': None, 'done': False, 'email': _email, 'error': None}
                 _exec_queues[execution_id] = q
 
@@ -1533,6 +1582,11 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
         elif self.path.startswith('/platform/executions/live'):
             # GET /platform/executions/live?id=<uuid> — SSE stream.
+            # AUTH MODEL: the uuid4 execution_id is an unguessable bearer capability
+            # (122-bit, handed only to the authenticated initiator). Browser EventSource
+            # cannot send an x-api-key header, so header-auth would break the documented
+            # stream_url flow; possession of the id IS authorization here. Do NOT add
+            # header-auth without also moving clients off EventSource / to a signed token.
             import urllib.parse as _up_sse
             parsed = _up_sse.urlparse(self.path)
             params = dict(_up_sse.parse_qsl(parsed.query))
@@ -1604,7 +1658,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             with _executions_lock:
                 rec = _executions.get(execution_id)
-            if rec is None:
+            # Ownership scoping: a valid key may only read its own executions.
+            # Return 404 (not 403) on a mismatch so we don't leak that the id exists.
+            if rec is None or (rec.get('email') and rec['email'] != _email):
                 self._platform_respond(404, {'error': 'execution not found', 'code': 'NOT_FOUND',
                                               'execution_id': execution_id})
                 return
@@ -1617,6 +1673,45 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 status_data = {'execution_id': execution_id, 'status': 'complete', 'result': rec['result']}
 
             self._platform_respond(200, _platform_envelope(execution_id, status_data))
+
+        elif self.path == '/platform/calibration':
+            # GET /platform/calibration — HPA axis homeostasis (no auth required).
+            # Port of stress-calibrator.js from Sovereign AGI OS v3.3.0.
+            # Returns current homeostasis zone + HD-equivalent (fitness stdev).
+            import uuid as _uuid_cal
+            eid = str(_uuid_cal.uuid4())
+            trend = _platform_query_fitness_trend()
+            if not trend:
+                cal_data: dict = {
+                    'homeostasis_zone': 'optimal',
+                    'recommendation': 'MAINTAIN',
+                    'fitness_mean': 0.5,
+                    'fitness_variance': 0.0,
+                    'hd_equivalent': 0.0,
+                    'stagnation_rate': 0.0,
+                    'window_size': 0,
+                    'trend': 'stable',
+                    'constitutional_factor_mean': 1.0,
+                }
+            else:
+                cal_data = trend
+            self._platform_respond(200, _platform_envelope(eid, cal_data))
+
+        elif self.path.startswith('/platform/tools'):
+            # GET /platform/tools[?tier=explorer|operator|sovereign]
+            # Agent API contact list — read-only catalog of outbound API profiles.
+            # Never returns key_hash or raw credentials.
+            import uuid as _uuid_tools
+            import urllib.parse as _up_tools
+            eid = str(_uuid_tools.uuid4())
+            parsed = _up_tools.urlparse(self.path)
+            params = dict(_up_tools.parse_qsl(parsed.query))
+            tier_filter = params.get('tier', '')
+            tools = _platform_query_agent_tools(tier_filter)
+            self._platform_respond(200, _platform_envelope(eid, {
+                'tools': tools,
+                'total': len(tools),
+            }))
 
         else:
             self._respond(404, {'error': 'NOT_FOUND'})
@@ -1635,10 +1730,14 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 return
 
             with _executions_lock:
-                rec = _executions.pop(execution_id, None)
-                _exec_queues.pop(execution_id, None)
+                rec = _executions.get(execution_id)
+                # Only the owner may delete; non-owner is indistinguishable from not-found.
+                owned = rec is not None and (not rec.get('email') or rec['email'] == _email)
+                if owned:
+                    _executions.pop(execution_id, None)
+                    _exec_queues.pop(execution_id, None)
 
-            if rec is None:
+            if rec is None or not owned:
                 self._platform_respond(404, {'error': 'execution not found', 'code': 'NOT_FOUND',
                                               'execution_id': execution_id})
             else:

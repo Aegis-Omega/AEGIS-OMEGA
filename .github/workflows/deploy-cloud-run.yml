@@ -16,8 +16,8 @@ name: Deploy to Cloud Run (WIF)
 # before federation is configured.
 
 on:
-  push:
-    branches: [main, 'claude/*']
+  # Auto-deploy to Cloud Run DISABLED to stop GCP billing. Manual-only; re-enable
+  # by restoring the `push: branches: [main]` trigger.
   workflow_dispatch:
     inputs:
       service:

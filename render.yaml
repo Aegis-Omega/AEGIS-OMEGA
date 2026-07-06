@@ -1,0 +1,48 @@
+# Render Blueprint — AEGIS-Ω Python bridge (GCP-free deploy)
+#
+# Moves the platform/swarm host off Google Cloud Run onto Render, with NO GCP
+# dependency: the bridge uses the DIRECT Anthropic API (AEGIS_USE_VERTEX=false +
+# ANTHROPIC_API_KEY) instead of Vertex AI. The frontends (hub + tools) stay on
+# Vercel and payments on Supabase — neither touches Google.
+#
+# Deploy (3 steps, your Render account):
+#   1. render.com → New → Blueprint → connect this GitHub repo (branch: main).
+#   2. Set the 3 secret env vars below (marked sync:false) in the Render dashboard:
+#        ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+#   3. Apply. Render builds sovereign-omega-v2/Dockerfile and gives you a URL like
+#        https://aegis-bridge.onrender.com  — test: <url>/health  and  <url>/platform/status
+#
+# Then (optional) point aegis-vertex.aegisomega.com at the Render URL via Cloudflare DNS.
+#
+# Same Dockerfile deploys on Railway or Fly.io if you prefer — this file is just the
+# turnkey path for Render.
+
+services:
+  - type: web
+    name: aegis-bridge
+    runtime: docker
+    repo: https://github.com/Aegis-Omega/AEGIS-OMEGA
+    branch: main
+    dockerfilePath: ./sovereign-omega-v2/Dockerfile
+    dockerContext: ./sovereign-omega-v2
+    region: frankfurt        # EU — closest to Bosnia / data residency
+    plan: free               # spins down when idle; bump to "starter" ($7/mo) for always-on
+    healthCheckPath: /health
+    autoDeploy: true         # redeploys on push to main
+    envVars:
+      # --- GCP-free model backend: direct Anthropic API, no Vertex ---
+      - key: AEGIS_USE_VERTEX
+        value: "false"
+      - key: ANTHROPIC_API_KEY
+        sync: false          # SECRET — set in Render dashboard
+      # Opus 4.8 is generally available; avoids the Fable 5 entitlement block
+      - key: AEGIS_SWARM_MODEL
+        value: claude-opus-4-8
+      # CoreMatrix isn't needed for the swarm — shrink it so it fits the free 512MB box
+      - key: AEGIS_ARRAY_BYTES
+        value: "4096"
+      # --- Supabase (key store + swarm memory) ---
+      - key: SUPABASE_URL
+        sync: false          # SECRET
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false          # SECRET

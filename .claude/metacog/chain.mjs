@@ -20,10 +20,11 @@
 // Dependency-free: node:crypto + node:fs only. No Date.now() in any hash input.
 // ============================================================
 import { createHash } from 'node:crypto'
-import { readFileSync, appendFileSync, existsSync, mkdirSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { readFileSync, appendFileSync, existsSync, mkdirSync, openSync, closeSync, unlinkSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
-const REPO    = process.env.CLAUDE_PROJECT_DIR || '/home/user/AEGIS--'
+const REPO    = process.env.CLAUDE_PROJECT_DIR || fileURLToPath(new URL('../..', import.meta.url))
 const DIR     = join(REPO, '.claude/metacog')
 const CHAIN   = process.env.AEGIS_METACOG_CHAIN || join(DIR, 'chain.jsonl')
 const SEALS   = join(DIR, 'seals.jsonl')
@@ -57,26 +58,70 @@ function readLines(path) {
 const lastHash = es => (es.length ? es[es.length - 1].entry_hash : GENESIS)
 const lastSeq  = es => (es.length ? es[es.length - 1].sequence : -1)
 
+// Fibonacci sequence used as phi-gate checkpoints — seal fires automatically
+// when the chain crosses one of these to prevent concurrent write races at peaks.
+const FIBONACCI_GATES = new Set([
+  610, 987, 1597, 2584, 4181, 6765, 10946, 17711, 28657,
+])
+
+// ── acquireLock / releaseLock: advisory exclusive write lock ──────────────────
+// Prevents concurrent hook writes from racing at phi-gate boundaries.
+const LOCK = CHAIN + '.lock'
+function acquireLock(retries = 8, delayMs = 5) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const fd = openSync(LOCK, 'wx') // O_EXCL — fails if file exists
+      closeSync(fd)
+      return true
+    } catch { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs * (i + 1)) }
+  }
+  return false // stale lock — proceed anyway rather than deadlock
+}
+function releaseLock() { try { unlinkSync(LOCK) } catch { /* already gone */ } }
+
 // ── observe: append one self-observation to the live chain ──
 function observe(layer, tier, signal) {
   if (!LAYERS.has(layer)) { console.error(`metacog: invalid layer "${layer}"`); process.exit(1) }
   if (!TIERS.has(tier))   { console.error(`metacog: invalid tier "${tier}"`);   process.exit(1) }
-  const es   = readLines(CHAIN)
-  const seq  = lastSeq(es) + 1
-  const prev = lastHash(es)
-  const observation = { layer, signal: String(signal).slice(0, 500), tier }
-  const eh = entryHash(observation, prev, seq)
-  const entry = {
-    observation,
-    previous_entry_hash: prev,
-    sequence: seq,
-    entry_hash: eh,
-    schema_version: SCHEMA,
-    is_replay_reconstructable: true,
+
+  acquireLock()
+  try {
+    const es   = readLines(CHAIN)
+    const seq  = lastSeq(es) + 1
+    const prev = lastHash(es)
+    const observation = { layer, signal: String(signal).slice(0, 500), tier }
+    const eh = entryHash(observation, prev, seq)
+    const entry = {
+      observation,
+      previous_entry_hash: prev,
+      sequence: seq,
+      entry_hash: eh,
+      schema_version: SCHEMA,
+      is_replay_reconstructable: true,
+    }
+    mkdirSync(dirname(CHAIN), { recursive: true })
+    appendFileSync(CHAIN, JSON.stringify(entry) + '\n')
+    process.stdout.write(eh.slice(0, 12))
+
+    // Auto-seal at every Fibonacci gate — phi-governed checkpoint
+    if (FIBONACCI_GATES.has(seq)) {
+      const cert  = certifyChain([...es, entry])
+      const seals = readLines(SEALS)
+      const prev_seal = seals.length ? seals[seals.length - 1].seal_hash : GENESIS
+      const body  = {
+        terminal_hash: cert.terminal_hash,
+        entry_count:   cert.entry_count,
+        is_valid:      cert.is_valid,
+        note:          `phi-gate:${seq}`,
+        previous_seal_hash: prev_seal,
+        seal_sequence: seals.length,
+      }
+      const seal_hash = sha256(canon(body))
+      appendFileSync(SEALS, JSON.stringify({ ...body, seal_hash, schema_version: SCHEMA }) + '\n')
+    }
+  } finally {
+    releaseLock()
   }
-  mkdirSync(dirname(CHAIN), { recursive: true })
-  appendFileSync(CHAIN, JSON.stringify(entry) + '\n')
-  process.stdout.write(eh.slice(0, 12))
 }
 
 // ── certify: re-walk the live chain, detect any tamper ──

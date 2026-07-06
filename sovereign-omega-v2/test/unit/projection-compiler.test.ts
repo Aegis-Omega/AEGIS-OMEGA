@@ -68,6 +68,19 @@ describe('compileProjection — valid pin', () => {
     const fp2 = compileProjection(validPin({ verifier_versions: { 'v1': '2.0.0' } })).version_fingerprint
     expect(fp1).not.toBe(fp2)
   })
+
+  it('version_fingerprint is invariant to verifier_versions key insertion order', () => {
+    // Regression: the fingerprint must depend on verifier_versions content, not
+    // on the order keys were inserted. RFC 8785 canonicalisation orders nested
+    // keys; the earlier top-level-only JSON.stringify sort did not.
+    const fp1 = compileProjection(
+      validPin({ verifier_versions: { alpha: '1.0.0', beta: '2.0.0' } })
+    ).version_fingerprint
+    const fp2 = compileProjection(
+      validPin({ verifier_versions: { beta: '2.0.0', alpha: '1.0.0' } })
+    ).version_fingerprint
+    expect(fp1).toBe(fp2)
+  })
 })
 
 // ── compileProjection — validation failures ───────────────

@@ -31,7 +31,7 @@ async function callDashScopeBackend(req: InferenceRequest): Promise<InferenceRes
   const apiKey = import.meta.env.VITE_DASHSCOPE_API_KEY as string | undefined
   if (!apiKey) throw new Error('VITE_DASHSCOPE_API_KEY not configured')
 
-  const model = req.model ?? (import.meta.env.VITE_DASHSCOPE_MODEL as string | undefined) ?? 'qwen-plus'
+  const model = req.model ?? (import.meta.env.VITE_DASHSCOPE_MODEL as string | undefined) ?? 'qwen3.7-plus'
   // International endpoint first, fallback to China endpoint
   const base = (import.meta.env.VITE_DASHSCOPE_BASE_URL as string | undefined)
     ?? 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'

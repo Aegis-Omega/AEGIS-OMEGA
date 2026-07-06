@@ -4,7 +4,7 @@
 
 set -uo pipefail
 
-REPO="/home/user/AEGIS--"
+REPO="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 BRANCH=$(git -C "$REPO" branch --show-current 2>/dev/null || echo "?")
 SRC_CHANGED=$(git -C "$REPO" diff --name-only 2>/dev/null | grep -cE "\.(ts|rs|py)$" | tr -d ' \n' || true)

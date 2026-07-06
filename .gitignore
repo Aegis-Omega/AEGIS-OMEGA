@@ -1,3 +1,6 @@
+# Operator credential drop zone — never commit
+.operator-secrets
+
 # Compiled and build artifacts
 *.o
 *.obj
@@ -14,6 +17,8 @@ node_modules/
 **/node_modules/
 target/
 **/target/
+# Root hypervisor crate is a library — don't commit its lockfile
+/Cargo.lock
 
 # Logs and temp files
 *.log
@@ -34,6 +39,10 @@ Thumbs.db
 .env.local
 *.env.*
 !*.env.example
+# AEGIS operator profiles / secret-bearing exports — never commit
+*Production Profile*
+*production-profile*
+*.profile.txt
 .vercel/
 
 # Auto-gate crash recovery checkpoint (never commit)
@@ -61,11 +70,21 @@ nosetests.xml
 .claude/settings.local.json
 .vercel
 
-# Metacognitive live chain — ephemeral per-container; only seals.jsonl is durable
+# Metacognitive live chain — all JSONL files are runtime state, not source
 .claude/metacog/chain.jsonl
+.claude/metacog/verdicts.jsonl
+.claude/metacog/seals.jsonl
+.claude/metacog/ratifications.jsonl
+
+# Content-addressed delta hook runtime state — session-local, not committed
+.claude/session-state.json
 
 # wrangler files
 .wrangler
 .dev.vars*
 !.dev.vars.example
 !.env.example
+worker-configuration.d.ts
+
+# Sovereign-mesh pipeline run artifacts (architect/artisan/auditor) — regenerated per sprint, not source
+state/

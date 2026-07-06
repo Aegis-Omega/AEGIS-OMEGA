@@ -17,7 +17,7 @@ version: "2.0.0"
 
 backends:
   anthropic:
-    default_model: "${AEGIS_DEFAULT_MODEL:-claude-opus-4-8}"
+    default_model: claude-opus-4-8
     thinking: adaptive
     max_tokens: 16384
   vertex:

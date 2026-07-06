@@ -5,6 +5,15 @@
 // CPU architectures, and WASM environments.
 // ALL Bernstein, VCG, confidence accumulation, harmonic spending,
 // and decay computations MUST route through Q32.32.
+//
+// Scale-domain boundary (settled — NOT the same scale as Python):
+// Q32.32 here is the JS<->WASM governance-math domain only. The Python
+// hardware-inference layer (python/hardware_config.py) uses Q16.16
+// (INT_SCALE = 1<<16), and so does TS's entropy-budget code
+// (environment/workspace/introspection.ts FIXED_SCALE = 1<<16) — those two
+// share a scale and agree. Q32.32 and Q16.16 never need to match: no raw
+// fixed-point crosses the Python bridge (it exchanges floats). Do not try to
+// "reconcile" the scales — they are deliberately separate determinism domains.
 // ============================================================
 
 export type Q32_32 = bigint

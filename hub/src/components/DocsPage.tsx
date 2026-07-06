@@ -1,6 +1,8 @@
 // AEGIS-Ω Platform API Reference — /docs
-// Single-page API reference. No frameworks, no build step beyond Vite.
+// Single-page API reference. Full NOUS nav + interaction language.
 import { useState } from 'react'
+import { T, MONO } from './console/consoleTokens.js'
+import { NousButton, ArrowR } from './console/NousUI.js'
 
 const BASE = 'https://aegis-vertex.aegisomega.com'
 
@@ -30,8 +32,11 @@ function CodeBlock({ code, lang = 'bash' }: { code: string; lang?: string }) {
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <section id={id} className="mb-16 scroll-mt-20">
-      <h2 className="text-xl font-bold text-white mb-6 pb-3 border-b border-gray-800">{title}</h2>
+    <section id={id} style={{ marginBottom: 64, scrollMarginTop: 80 }}>
+      <h2 style={{
+        fontSize: 20, fontWeight: 700, color: T.text, marginBottom: 24,
+        paddingBottom: 14, borderBottom: `1px solid ${T.border}`,
+      }}>{title}</h2>
       {children}
     </section>
   )
@@ -97,29 +102,49 @@ const NAV_ITEMS = [
 ]
 
 export function DocsPage() {
+  const links: [string, string][] = [['/', 'Home'], ['/platform', 'Platform'], ['/console', 'Console'], ['/docs', 'Docs'], ['/pricing', 'Pricing']]
+
   return (
-    <div className="min-h-screen bg-gray-950 text-white" style={{ fontFamily: 'system-ui, sans-serif' }}>
-      {/* Nav */}
-      <nav className="sticky top-0 z-50 border-b border-gray-800 bg-gray-950/95 backdrop-blur-sm px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <a href="/" className="text-sm font-mono font-semibold" style={{ color: '#C8A96E', letterSpacing: '0.15em' }}>AEGIS-Ω</a>
-          <span className="text-gray-600 text-xs">Platform API Reference</span>
+    <div className="min-h-screen text-white" style={{ background: '#06070C', fontFamily: 'var(--font-sans)' }}>
+      {/* NOUS Nav */}
+      <nav style={{
+        position: 'sticky', top: 0, zIndex: 50,
+        background: 'rgba(6,7,12,0.55)', backdropFilter: 'blur(16px) saturate(150%)',
+        borderBottom: `1px solid rgba(255,255,255,0.06)`,
+      }} className="px-7 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-8">
+          <a href="/" style={{ color: T.text, fontFamily: MONO, letterSpacing: '0.22em', fontSize: 13, fontWeight: 600 }}>
+            NOUS<span style={{ color: T.phi }}> · Ω</span>
+          </a>
+          <div className="hidden md:flex items-center gap-7">
+            {links.map(([href, label]) => (
+              <a key={href} href={href} style={{
+                color: href === '/docs' ? T.text : T.muted, fontSize: 13,
+                fontWeight: href === '/docs' ? 600 : 400, textDecoration: 'none',
+              }} className="hover:text-white transition-colors">{label}</a>
+            ))}
+          </div>
         </div>
-        <a href="/pricing" className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white hover:opacity-90 transition-opacity" style={{ background: '#6366F1' }}>
-          Get API Key →
-        </a>
+        <NousButton href="/pricing" variant="primary" size="md">Get API Key <ArrowR /></NousButton>
       </nav>
 
       <div className="max-w-5xl mx-auto px-6 py-12 flex gap-12">
         {/* Sidebar */}
         <aside className="hidden lg:block w-48 flex-shrink-0">
-          <nav className="sticky top-24 space-y-1">
+          <nav className="sticky top-24 space-y-0.5">
             {NAV_ITEMS.map(item => (
-              <a key={item.id} href={`#${item.id}`}
-                className="block text-sm text-gray-500 hover:text-gray-300 py-1.5 transition-colors">
+              <a key={item.id} href={`#${item.id}`} style={{
+                display: 'block', fontSize: 13, padding: '7px 10px', borderRadius: 7,
+                color: T.muted, textDecoration: 'none', transition: 'color 0.15s, background 0.15s',
+              }} className="hover:!text-white hover:!bg-white/5">
                 {item.label}
               </a>
             ))}
+            <div style={{ marginTop: 24, padding: '0 10px' }}>
+              <NousButton href="/pricing" variant="primary" size="md" style={{ width: '100%', justifyContent: 'center', fontSize: 12 }}>
+                Get key <ArrowR />
+              </NousButton>
+            </div>
           </nav>
         </aside>
 

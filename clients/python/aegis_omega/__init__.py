@@ -8,7 +8,7 @@ Quick start
 -----------
     from aegis_omega import Platform
 
-    p = Platform(api_key="sk-...", base_url="https://api.aegisomega.com")
+    p = Platform(api_key="sk-...", base_url="https://aegis-vertex.aegisomega.com")
 
     result  = p.collaborate("Launch a SaaS product", mode="revenue")
     print(result.projection.first_year_arr_usd)
@@ -110,8 +110,8 @@ class Platform:
     api_key:
         Bearer API key sent in the ``x-api-key`` header.
     base_url:
-        Root URL of the Cloud Run deployment, e.g.
-        ``"https://api.aegisomega.com"`` or ``"http://localhost:8080"``.
+        Root URL of the platform deployment, e.g.
+        ``"https://aegis-vertex.aegisomega.com"`` or ``"http://localhost:8080"``.
     timeout:
         Default request timeout in seconds (default 120).
     """
@@ -119,7 +119,7 @@ class Platform:
     def __init__(
         self,
         api_key: str,
-        base_url: str = "https://api.aegisomega.com",
+        base_url: str = "https://aegis-vertex.aegisomega.com",
         timeout: float = _DEFAULT_TIMEOUT,
     ) -> None:
         if not api_key:

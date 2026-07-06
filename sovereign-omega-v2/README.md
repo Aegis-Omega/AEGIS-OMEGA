@@ -2,7 +2,7 @@
 
 **Dual Infinite Boundary — Constitutional Governance Runtime**
 
-Gates 1–198 complete · 2648 tests · 150 test files · Gate 8 clean
+Gates 1–219 · ~4,088 passing tests · 252 test files · Gate 8 clean  <!-- metrics refreshed 2026-06-28 from CI Gate-8 log + git ls-files; prior headline (198/2648/150) was stale -->
 
 ---
 
