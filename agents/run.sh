@@ -30,7 +30,17 @@ fi
 
 cd "$REPO_ROOT"
 
-export PROXY_URL="${PROXY_URL:-http://localhost:8080}"
+export PROXY_URL="${PROXY_URL:-import os
+import sys
+
+# Forces Python to prioritize your AEGIS working directory for module tracking
+workspace_dir = r"C:\Users\hhk33\Documents\AEGIS--"
+if workspace_dir not in sys.path:
+    sys.path.insert(0, workspace_dir)
+
+# Your original imports follow seamlessly below
+from core_matrix import CoreMatrix
+# ... rest of your code}"
 export REDIS_URL="${REDIS_URL:-redis://localhost:6379}"
 export AEGIS_DEFAULT_MODEL="${AEGIS_DEFAULT_MODEL:-claude-opus-4-8}"
 
