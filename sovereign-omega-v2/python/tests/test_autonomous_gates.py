@@ -118,8 +118,9 @@ chk('threshold constant is phi',
 chk('capped-run concern quotes the constant value',
     any(f'{COHERENCE_GATE_THRESHOLD:.10f}' in c for c in audit_capped['concerns']),
     'gate must reference COHERENCE_GATE_THRESHOLD, not a duplicated literal')
-bridge_src = open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'bridge.py'),
-                  encoding='utf-8').read()
+bridge_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'bridge.py')
+with open(bridge_path, encoding='utf-8') as bridge_file:
+    bridge_src = bridge_file.read()
 chk("bridge no longer hardcodes a φ literal for the gate",
     '_phi = 0.6180339887' not in bridge_src)
 chk("bridge no longer emits out-of-enum 'REJECTED' verdict",
