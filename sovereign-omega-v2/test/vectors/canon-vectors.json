@@ -1,0 +1,116 @@
+{
+  "_comment": "Cross-language canonicalization digest vectors. sha256 = SHA-256 of canonical bytes of input. TS path: canonicalizeJCS + hashValue (src/core). Python path: canonical_envelope.canon. NO raw floats permitted in any vector (ADR 0001) - quantities use scaled integers or decimal strings. All strings are NFC.",
+  "vectors": [
+    {
+      "name": "empty object",
+      "input": {},
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "name": "empty containers nested",
+      "input": {
+        "a": [],
+        "b": {},
+        "c": [
+          [],
+          {}
+        ]
+      },
+      "sha256": "62872cef8308d8aeb4a9c2eaa2d567ba2b9a3b2e982c8d2b9d17c68366b52d00"
+    },
+    {
+      "name": "key ordering flat",
+      "input": {
+        "z": 1,
+        "a": 2,
+        "m": 3
+      },
+      "sha256": "ebba85cfdc0a724b6cc327ecc545faeb38b9fe02eca603b430eb872f5cf75370"
+    },
+    {
+      "name": "key ordering nested + mixed types",
+      "input": {
+        "z": {
+          "c": 3,
+          "b": [
+            2,
+            1,
+            null
+          ]
+        },
+        "a": true,
+        "off": false
+      },
+      "sha256": "cc5740bb71f593646dfde67e137af99556425ee7370c95493dfeafe1a5f750bb"
+    },
+    {
+      "name": "unicode NFC strings",
+      "input": {
+        "operator": "Tarik Skalić",
+        "city": "Bihać",
+        "note": "φ-convergence ≈ 0.618"
+      },
+      "sha256": "eb622bb50cb4872c5b5490ffbda81e1b88c48ffddec151833403ef0b0942eced"
+    },
+    {
+      "name": "non-BMP emoji",
+      "input": {
+        "emoji": "😀🚀",
+        "mixed": "héllo wörld"
+      },
+      "sha256": "8c236ea35f1fdbbfb2331fda985decfb0718f5c2b5e92b774f7992cc8d03b3d2"
+    },
+    {
+      "name": "unicode keys code-point ordering",
+      "input": {
+        "é": 1,
+        "a": 2,
+        "Z": 3,
+        "ß": 4
+      },
+      "sha256": "6a1e4eed80ebf6961d07365286facfa7b2ac73b503ad8bd37108de7f311fa88b"
+    },
+    {
+      "name": "large ints (max safe)",
+      "input": {
+        "n": 9007199254740991,
+        "neg": -9007199254740991,
+        "zero": 0
+      },
+      "sha256": "0e0a1791fb5fefebc3f7a7f0151e0a91d75cf64514bc753614b08f4b47435f57"
+    },
+    {
+      "name": "float-encoded decimal strings",
+      "input": {
+        "confidence_bp": 6180,
+        "phi": "0.6180339887",
+        "latency_us": 42000,
+        "loss": "1e-07"
+      },
+      "sha256": "80053794be2b2791654f53a708c9617cb2d310845755aaa982ae1e1db93b3546"
+    },
+    {
+      "name": "escapes and control chars",
+      "input": {
+        "s": "a\tb\nc\"d\\e",
+        "ctl": "\u0001\u001f",
+        "slash": "a/b"
+      },
+      "sha256": "aec350fe565502a28f1b7c9fe10feb5dff6709355016310baff4af0631aa6f98"
+    },
+    {
+      "name": "envelope-shaped body",
+      "input": {
+        "canon_version": "JCS-1",
+        "seq": 0,
+        "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "request_digest": "abababababababababababababababababababababababababababababababab",
+        "response_digest": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+        "model_id": "test-model",
+        "tier": "T1",
+        "provider": "anthropic"
+      },
+      "sha256": "33ddd96d4d9f4b0373c0687a2bcaf2eaa7d0d6257d7f4f82e43b14fdeb0765fb"
+    }
+  ]
+}

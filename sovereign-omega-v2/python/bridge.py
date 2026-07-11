@@ -22,6 +22,7 @@ from constitutional_identity import CONSTITUTIONAL_SYSTEM_FULL, CONSTITUTIONAL_S
 from tgcs_afse import TGCSController, AFSEController
 from ledger_persist import save_checkpoint, load_checkpoint, checkpoint_exists, CheckpointError
 from source_attribution import SourceAttributor, TelemetrySample
+import canonical_envelope as _canon_env  # Provenance Phase 1 — float-free hash-chained envelope (ADR 0001)
 
 matrix = CoreMatrix()
 _hw = detect_hardware()
@@ -35,6 +36,7 @@ _last_autosave_epoch = -1
 # ─── /platform/* contract constants ──────────────────────────────────────────
 import queue as _queue_mod
 from platform_helpers import (
+    SWARM_MODEL as _SWARM_MODEL,
     PLATFORM_CONTRACT_VERSION as _PLATFORM_CONTRACT_VERSION,
     PLATFORM_GIT_SHA as _PLATFORM_GIT_SHA,
     PLATFORM_DEPARTMENTS as _PLATFORM_DEPARTMENTS,
@@ -354,6 +356,17 @@ def _platform_run_collaboration(
             'audit_chain_hash': audit_hash,
             'execution_id': execution_id,
         }
+        # Provenance Phase 1 — dual-emit: audit_chain_hash above stays
+        # byte-identical; the canonical envelope is additive (ADR 0001).
+        # response_digest covers the pre-envelope result body.
+        result['envelope'] = _canon_env.emit_envelope(
+            request_digest=_canon_env.payload_digest(
+                {'objective': objective, 'mode': mode, 'generation': generation}),
+            response_digest=_canon_env.payload_digest(result),
+            model_id=_SWARM_MODEL if live else 'template',
+            tier='T1' if live else 'T2',
+            provider='anthropic' if live else 'demo',
+        )
 
         with _executions_lock:
             # Update in place so the 'email' ownership tag set at init survives —
@@ -551,6 +564,18 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 ).encode()).hexdigest()
                 chain_hash = hashlib.sha256(f'{req_hash}{resp_hash}'.encode()).hexdigest()
 
+                # Provenance Phase 1 — dual-emit: legacy hashes above stay
+                # byte-identical; the canonical envelope is additive (ADR 0001).
+                envelope = _canon_env.emit_envelope(
+                    request_digest=_canon_env.payload_digest(
+                        {'messages': messages, 'model': model}),
+                    response_digest=_canon_env.payload_digest(
+                        {'response_text': response_text, 'model': model}),
+                    model_id=model,
+                    tier='T1',
+                    provider='anthropic',
+                )
+
                 # Record this conversation as a CONSCIOUSNESS layer observation
                 last_user = messages[-1].get('content', '')[:80] if messages else ''
                 _mc_observe(
@@ -565,6 +590,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     'request_hash': req_hash,
                     'response_hash': resp_hash,
                     'chain_hash': chain_hash,
+                    'envelope': envelope,
                     'mc_chain_length': len(_metacognitive_chain),
                     'mc_terminal_hash': _metacognitive_chain[-1]['entry_hash'][-16:] if _metacognitive_chain else _MC_GENESIS[-16:],
                     'input_tokens': resp.usage.input_tokens,
