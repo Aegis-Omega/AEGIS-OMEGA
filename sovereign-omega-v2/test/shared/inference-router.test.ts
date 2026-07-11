@@ -1,0 +1,58 @@
+/**
+ * Inference router — opt-in OpenAI backend gating
+ * The OpenAI backend is explicitly opt-in via VITE_ENABLE_OPENAI === 'true'.
+ * When the flag is unset the backend must be skipped silently (no request to
+ * the chat edge function). The OpenAI key itself never appears client-side:
+ * the backend only ever calls the Supabase chat function.
+ */
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { routeInference, configuredBackends } from '../../../packages/shared/lib/inference-router.js'
+
+const fetchMock = vi.fn()
+
+beforeEach(() => {
+  fetchMock.mockReset()
+  vi.stubGlobal('fetch', fetchMock)
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
+})
+
+describe('opt-in OpenAI backend gating', () => {
+  it('never calls the chat edge function when VITE_ENABLE_OPENAI is unset', async () => {
+    fetchMock.mockRejectedValue(new Error('network down'))
+
+    await expect(routeInference({ systemPrompt: 'S', userMessage: 'U' }))
+      .rejects.toThrow(/All inference backends failed/)
+
+    const urls = fetchMock.mock.calls.map(c => String(c[0]))
+    expect(urls.some(u => u.includes('/functions/v1/chat'))).toBe(false)
+  })
+
+  it('routes through the chat edge function with provider "openai" when the flag is "true"', async () => {
+    vi.stubEnv('VITE_ENABLE_OPENAI', 'true')
+    fetchMock.mockImplementation((url: unknown) => {
+      if (String(url).includes('/functions/v1/chat')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ reply: '{"ok":true}' }) })
+      }
+      return Promise.reject(new Error('network down'))
+    })
+
+    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U' })
+    expect(r.backend).toBe('openai-compat')
+    expect(r.content).toBe('{"ok":true}')
+
+    const call = fetchMock.mock.calls.find(c => String(c[0]).includes('/functions/v1/chat'))
+    expect(call).toBeDefined()
+    const body = JSON.parse((call![1] as RequestInit).body as string) as { provider: string }
+    expect(body.provider).toBe('openai')
+  })
+
+  it('configuredBackends lists openai-compat only when the flag is exactly "true"', () => {
+    expect(configuredBackends()).not.toContain('openai-compat')
+    vi.stubEnv('VITE_ENABLE_OPENAI', 'true')
+    expect(configuredBackends()).toContain('openai-compat')
+  })
+})
