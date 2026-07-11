@@ -107,10 +107,10 @@
         "request_digest": "abababababababababababababababababababababababababababababababab",
         "response_digest": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
         "model_id": "test-model",
-        "tier": "T1",
+        "epistemic_tier": "T1",
         "provider": "anthropic"
       },
-      "sha256": "33ddd96d4d9f4b0373c0687a2bcaf2eaa7d0d6257d7f4f82e43b14fdeb0765fb"
+      "sha256": "e02bf07ebff67b81475679a0f65db5dda6a49b52d13aa2ed21d264a18bf0f324"
     }
   ]
 }

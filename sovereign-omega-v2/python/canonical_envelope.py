@@ -79,7 +79,11 @@ def payload_digest(payload) -> str:
 class EnvelopeChain:
     """Per-process hash chain of execution envelopes. prev_hash links envelope
     N to envelope N-1; genesis prev_hash = GENESIS (64 zeros). seq is a
-    monotonic per-process counter — never a timestamp."""
+    monotonic per-process counter — never a timestamp.
+
+    Body field `epistemic_tier` is the epistemic T-tier of the call ('T1'/'T2')
+    — deliberately NOT named `tier`, which on the platform surface means the
+    customer plan (explorer/operator/sovereign)."""
 
     def __init__(self):
         self._lock = threading.Lock()
@@ -87,7 +91,7 @@ class EnvelopeChain:
         self._prev_hash = GENESIS
 
     def emit(self, request_digest: str, response_digest: str,
-             model_id: str, tier: str, provider: str) -> dict:
+             model_id: str, epistemic_tier: str, provider: str) -> dict:
         with self._lock:
             body = {
                 'canon_version': CANON_VERSION,
@@ -96,7 +100,7 @@ class EnvelopeChain:
                 'request_digest': request_digest,
                 'response_digest': response_digest,
                 'model_id': model_id,
-                'tier': tier,
+                'epistemic_tier': epistemic_tier,
                 'provider': provider,
             }
             envelope_hash = sha256_hex(canon(body))
@@ -112,6 +116,7 @@ _chain = EnvelopeChain()
 
 
 def emit_envelope(request_digest: str, response_digest: str,
-                  model_id: str, tier: str, provider: str) -> dict:
+                  model_id: str, epistemic_tier: str, provider: str) -> dict:
     """Emit the next envelope on the process-global chain."""
-    return _chain.emit(request_digest, response_digest, model_id, tier, provider)
+    return _chain.emit(request_digest, response_digest, model_id,
+                       epistemic_tier, provider)

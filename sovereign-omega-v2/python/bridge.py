@@ -364,7 +364,7 @@ def _platform_run_collaboration(
                 {'objective': objective, 'mode': mode, 'generation': generation}),
             response_digest=_canon_env.payload_digest(result),
             model_id=_SWARM_MODEL if live else 'template',
-            tier='T1' if live else 'T2',
+            epistemic_tier='T1' if live else 'T2',
             provider='anthropic' if live else 'demo',
         )
 
@@ -572,7 +572,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     response_digest=_canon_env.payload_digest(
                         {'response_text': response_text, 'model': model}),
                     model_id=model,
-                    tier='T1',
+                    epistemic_tier='T1',
                     provider='anthropic',
                 )
 

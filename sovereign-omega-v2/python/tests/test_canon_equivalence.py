@@ -124,7 +124,7 @@ check(e0['signature'] is None, 'signature placeholder is None (Phase 2: KMS Ed25
 
 _body_keys = {
     'canon_version', 'seq', 'prev_hash', 'request_digest', 'response_digest',
-    'model_id', 'tier', 'provider',
+    'model_id', 'epistemic_tier', 'provider',
 }
 check(
     set(e0.keys()) == _body_keys | {'envelope_hash', 'signature'},
