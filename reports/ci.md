@@ -67,11 +67,17 @@ gate8, studio, toolkit — against threshold 1/φ ≈ 0.6180.
 - **frozen-files.yml** ("Constitutional Integrity") — path-triggered only on the three
   frozen files (`gate.py`, `dna.py`, `router.py`); runs `verify-hashes.mjs`. Real and load-bearing.
 - **osv-scanner.yml** — push/PR/weekly cron (`15 13 * * 6`), uses the reusable workflows
-  `google/osv-scanner-action@v2.0.0`. **Finding: the last 30 runs (through 2026-07-11,
-  including the scheduled run on `main`) all ended `startup_failure`** — the reusable
-  workflow fails to start, so OSV scanning is currently providing zero effective coverage.
-  Remediation: re-pin to a current release of osv-scanner-action (or check the org's
-  external reusable-workflow allowlist).
+  from `google/osv-scanner-action`. **Finding (root-caused and fixed 2026-07-12): every
+  run since 2026-05-29 (~656 consecutive, including scheduled runs on `main`) ended
+  `startup_failure`** because the `uses:` refs pointed at tags that do not exist upstream —
+  run #20 (2026-05-29T05:27Z, pinned `@1f12429…` # v1.7.1) still resolved and ran; run #21
+  (05:42Z) onward carried a hallucinated `@v2.3.8` pin, later replaced by `@v2.0.0`
+  (also nonexistent — the action repo's first v2 tag is v2.0.2). Not an org allowlist
+  issue: third-party actions (`dtolnay/*`, `Swatinem/*`, `hadolint/*`,
+  `google-github-actions/*`) and run #20's `google/*` reusable workflow all resolve fine.
+  Fix: re-pinned both refs to the real release `@v2.2.4` and dropped the v1-only
+  `--skip-git` scan-arg (removed in osv-scanner v2). Verify the next scheduled/push run
+  reaches its jobs instead of `startup_failure`.
 - **hadolint.yml** — Dockerfile lint on push/PR/weekly cron, but the job sets
   `continue-on-error: true` (hadolint.yml:26) — advisory only, can never block.
 - **verifiable-proofs.yml** — genomics + verifiable-envelope proofs on ubuntu x86-64 AND
