@@ -75,9 +75,15 @@ gate8, studio, toolkit — against threshold 1/φ ≈ 0.6180.
   (also nonexistent — the action repo's first v2 tag is v2.0.2). Not an org allowlist
   issue: third-party actions (`dtolnay/*`, `Swatinem/*`, `hadolint/*`,
   `google-github-actions/*`) and run #20's `google/*` reusable workflow all resolve fine.
-  Fix: re-pinned both refs to the real release `@v2.2.4` and dropped the v1-only
-  `--skip-git` scan-arg (removed in osv-scanner v2). Verify the next scheduled/push run
-  reaches its jobs instead of `startup_failure`.
+  A re-pin to `@v2.2.4` was tried first and still ended `startup_failure` (runs #678/#679
+  on `e175f39`), so tag names could not be trusted blind. Fix: restored the last
+  live-verified pin — SHA `1f1242919d8a60496dd1874b24b62b2370ed4c78` (# v1.7.1), the exact
+  ref runs #1–#20 executed under — with the matching v1 scan-args (`-r --skip-git ./`) and
+  no job-level permissions overrides (byte-faithful to the proven config). If even the
+  SHA pin startup-fails, the remaining suspect is an org-side Actions policy change
+  (allowlist) around 2026-05-29 — that lives in Settings, not in-tree. Verify the next
+  push/scheduled run reaches its jobs; bump forward only after confirming the target tag
+  exists upstream.
 - **hadolint.yml** — Dockerfile lint on push/PR/weekly cron, but the job sets
   `continue-on-error: true` (hadolint.yml:26) — advisory only, can never block.
 - **verifiable-proofs.yml** — genomics + verifiable-envelope proofs on ubuntu x86-64 AND
