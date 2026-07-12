@@ -1,0 +1,11 @@
+{
+  "_comment": "Recorded Apple OSS versions for .github/workflows/apple-oss-watch.yml. The workflow compares live releases/tags against this file and opens an issue when they differ; it never commits here (no auto-commit loops). A maintainer updates this file to acknowledge a release.",
+  "_init_note": "Initialized 2026-07-12 with null placeholders: api.github.com was unreachable from the audit sandbox (egress proxy returned 403 for non-session repositories), so current versions could not be fetched at generation time. First workflow run will report all four as new — copy its 'current' values into latest_known to baseline.",
+  "generated": "2026-07-12",
+  "repos": {
+    "apple-oss-distributions/distribution-macOS": { "kind": "tag", "latest_known": null },
+    "apple-oss-distributions/xnu": { "kind": "tag", "latest_known": null },
+    "apple/swift": { "kind": "release", "latest_known": null },
+    "apple/swift-syntax": { "kind": "release", "latest_known": null }
+  }
+}
