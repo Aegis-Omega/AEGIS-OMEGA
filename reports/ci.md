@@ -67,23 +67,24 @@ gate8, studio, toolkit — against threshold 1/φ ≈ 0.6180.
 - **frozen-files.yml** ("Constitutional Integrity") — path-triggered only on the three
   frozen files (`gate.py`, `dna.py`, `router.py`); runs `verify-hashes.mjs`. Real and load-bearing.
 - **osv-scanner.yml** — push/PR/weekly cron (`15 13 * * 6`), uses the reusable workflows
-  from `google/osv-scanner-action`. **Finding (root-caused and fixed 2026-07-12): every
-  run since 2026-05-29 (~656 consecutive, including scheduled runs on `main`) ended
-  `startup_failure`** because the `uses:` refs pointed at tags that do not exist upstream —
-  run #20 (2026-05-29T05:27Z, pinned `@1f12429…` # v1.7.1) still resolved and ran; run #21
-  (05:42Z) onward carried a hallucinated `@v2.3.8` pin, later replaced by `@v2.0.0`
-  (also nonexistent — the action repo's first v2 tag is v2.0.2). Not an org allowlist
-  issue: third-party actions (`dtolnay/*`, `Swatinem/*`, `hadolint/*`,
-  `google-github-actions/*`) and run #20's `google/*` reusable workflow all resolve fine.
-  A re-pin to `@v2.2.4` was tried first and still ended `startup_failure` (runs #678/#679
-  on `e175f39`), so tag names could not be trusted blind. Fix: restored the last
-  live-verified pin — SHA `1f1242919d8a60496dd1874b24b62b2370ed4c78` (# v1.7.1), the exact
-  ref runs #1–#20 executed under — with the matching v1 scan-args (`-r --skip-git ./`) and
-  no job-level permissions overrides (byte-faithful to the proven config). If even the
-  SHA pin startup-fails, the remaining suspect is an org-side Actions policy change
-  (allowlist) around 2026-05-29 — that lives in Settings, not in-tree. Verify the next
-  push/scheduled run reaches its jobs; bump forward only after confirming the target tag
-  exists upstream.
+  from `google/osv-scanner-action`. **Finding (root-caused 2026-07-12, partially fixed
+  in-tree): every run since 2026-05-29 (~660 consecutive, including scheduled runs on
+  `main`) ended `startup_failure`** — the workflow graph never resolved, zero jobs, zero
+  OSV coverage. Live bisection of the 676-run history found the exact flip: run #20
+  (2026-05-29T05:27Z, `uses:` pinned to SHA `1f1242919d8a60496dd1874b24b62b2370ed4c78`
+  # v1.7.1) resolved and ran; run #21 (05:42Z) onward carried tag pins (`@v2.3.8`, later
+  `@v2.0.0`). Controlled re-pin experiments on this branch: tags `@v2.2.4` (runs
+  #678/#679) and `@v1.9.2` (runs #682/#683) **also** startup-failed, while restoring the
+  SHA pin resolved and ran (run #680 push: **success**, scanner executed, SARIF uploaded,
+  code scanning active). Conclusion: only that exact SHA resolves — consistent with an
+  org-side Actions allowlist entry pinned to that specific ref (in-job third-party
+  actions like `dtolnay/*`/`Swatinem/*` keep working via their own entries). **In-tree
+  state: SHA pin restored; scheduled/push lane green. Known residual: the PR lane at
+  that SHA is auto-failed by GitHub** because v1.7.1's `osv-scanner-reusable-pr.yml`
+  bundles deprecated `actions/upload-artifact` v3 (hard-deprecated platform-wide) — not
+  a scan finding, not repo config. Remedy (Settings-side, org admin): allow a current
+  `google/osv-scanner-action` ref in the org Actions allowlist, then bump both `uses:`
+  lines to it and drop `--skip-git` from scan-args (removed in osv-scanner v2).
 - **hadolint.yml** — Dockerfile lint on push/PR/weekly cron, but the job sets
   `continue-on-error: true` (hadolint.yml:26) — advisory only, can never block.
 - **verifiable-proofs.yml** — genomics + verifiable-envelope proofs on ubuntu x86-64 AND
