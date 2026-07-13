@@ -4,7 +4,16 @@ const DASHSCOPE_API_KEY = Deno.env.get('DASHSCOPE_API_KEY') ?? ''
 const DASHSCOPE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions'
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY') ?? ''
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
-const OPENAI_MODEL = Deno.env.get('OPENAI_MODEL') ?? 'gpt-5.5-mini'
+// OPENAI_MODEL is REQUIRED for the OpenAI provider — no hardcoded default, since
+// an invalid/guessed model id would be rejected by the paid backend. If unset,
+// the OpenAI branch returns the friendly-unavailable response instead of calling out.
+const OPENAI_MODEL = Deno.env.get('OPENAI_MODEL') ?? ''
+// Server-side provider gates. `provider` arrives in the public request body, so
+// the client-side VITE_ENABLE_* flags cannot actually gate the paid backends.
+// A requested provider is only honored when its server flag is explicitly 'true';
+// otherwise the request falls back to the default (dashscope).
+const CHAT_ENABLE_OPENAI = Deno.env.get('CHAT_ENABLE_OPENAI') === 'true'
+const CHAT_ENABLE_AZURE  = Deno.env.get('CHAT_ENABLE_AZURE') === 'true'
 const AZURE_OPENAI_ENDPOINT = Deno.env.get('AZURE_OPENAI_ENDPOINT') ?? ''
 const AZURE_OPENAI_API_KEY = Deno.env.get('AZURE_OPENAI_API_KEY') ?? ''
 const AZURE_OPENAI_DEPLOYMENT = Deno.env.get('AZURE_OPENAI_DEPLOYMENT') ?? ''
@@ -33,8 +42,27 @@ Deno.serve(async (req) => {
       { role: 'user', content: message },
     ]
 
-    const useOpenAI = provider === 'openai'
-    const useAzure = provider === 'azure'
+    let useOpenAI = provider === 'openai'
+    let useAzure = provider === 'azure'
+
+    // Server-side gate: a client cannot force a paid backend by setting `provider`.
+    // If the provider's server flag is off, fall back to the default (dashscope).
+    if (useOpenAI && !CHAT_ENABLE_OPENAI) {
+      console.error('OpenAI provider requested but CHAT_ENABLE_OPENAI is not "true" — falling back to dashscope')
+      useOpenAI = false
+    }
+    if (useAzure && !CHAT_ENABLE_AZURE) {
+      console.error('Azure provider requested but CHAT_ENABLE_AZURE is not "true" — falling back to dashscope')
+      useAzure = false
+    }
+
+    // OpenAI requires an explicit model — never send a guessed/invalid model id.
+    if (useOpenAI && !OPENAI_MODEL) {
+      console.error('OpenAI error: OPENAI_MODEL must be set (no hardcoded default)')
+      return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
+        status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
 
     if (useAzure && (!AZURE_OPENAI_ENDPOINT || !AZURE_OPENAI_DEPLOYMENT || !AZURE_OPENAI_API_KEY)) {
       console.error('Azure OpenAI error: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_DEPLOYMENT and AZURE_OPENAI_API_KEY must be set')
@@ -83,7 +111,11 @@ Deno.serve(async (req) => {
     const data = await resp.json()
     const reply = data.choices?.[0]?.message?.content ?? "Sorry, I didn't get a response."
 
-    return new Response(JSON.stringify({ reply }), {
+    // Report the model/deployment actually used so callers (inference-router)
+    // record real provenance instead of a client-side guess.
+    const usedModel = useAzure ? AZURE_OPENAI_DEPLOYMENT : useOpenAI ? OPENAI_MODEL : 'qwen-plus'
+
+    return new Response(JSON.stringify({ reply, model: usedModel }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   } catch (e) {

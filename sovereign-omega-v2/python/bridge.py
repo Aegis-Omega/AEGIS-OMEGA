@@ -360,8 +360,15 @@ def _platform_run_collaboration(
         # byte-identical; the canonical envelope is additive (ADR 0001).
         # response_digest covers the pre-envelope result body.
         result['envelope'] = _canon_env.emit_envelope(
-            request_digest=_canon_env.payload_digest(
-                {'objective': objective, 'mode': mode, 'generation': generation}),
+            request_digest=_canon_env.payload_digest({
+                'objective': objective,
+                'mode': mode,
+                'live': live,
+                'generation': generation,
+                'autonomous': autonomous,
+                'max_agents': max_agents,
+                'memory_context': memory_context,
+            }),
             response_digest=_canon_env.payload_digest(result),
             model_id=_SWARM_MODEL if live else 'template',
             epistemic_tier='T1' if live else 'T2',

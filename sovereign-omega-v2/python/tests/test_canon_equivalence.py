@@ -79,6 +79,14 @@ if chain_canon is None:
     fail('verifiable/chain.py importable for parity check')
 else:
     for vec in _VECTORS:
+        if vec.get('nfc_divergent'):
+            # chain.py still applies NFC; ce.canon intentionally does not, so the
+            # two must DIVERGE on decomposed input (that is the point of the vector).
+            check(
+                ce.canon(vec['input']) != chain_canon(vec['input']),
+                f'canon diverges from verifiable/chain.py on NFC-divergent input: {vec["name"]}',
+            )
+            continue
         check(
             ce.canon(vec['input']) == chain_canon(vec['input']),
             f'canon byte parity with verifiable/chain.py: {vec["name"]}',

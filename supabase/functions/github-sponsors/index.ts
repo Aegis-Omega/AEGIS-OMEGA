@@ -28,6 +28,12 @@ function dollarsTotier(monthly: number): string {
   return 'explorer'
 }
 
+// Tier ordering for upgrade detection: explorer < operator < sovereign.
+const TIER_RANK: Record<string, number> = { explorer: 0, operator: 1, sovereign: 2 }
+function tierRank(tier: string): number {
+  return TIER_RANK[tier] ?? -1
+}
+
 async function verifyGitHubSignature(body: string, sig: string, secret: string): Promise<boolean> {
   if (!sig.startsWith('sha256=')) return false
   const expected = sig.slice(7)
@@ -96,7 +102,7 @@ Deno.serve(async (req) => {
     // Check sponsorship exists and is active
     const { data: sponsor, error: lookupErr } = await supabase
       .from('github_sponsors')
-      .select('aegis_tier, active, claimed_email, provisioned')
+      .select('aegis_tier, active, claimed_email, provisioned, issued_tier')
       .eq('github_username', username)
       .single()
 
@@ -112,18 +118,24 @@ Deno.serve(async (req) => {
         { status: 409, headers: CORS },
       )
 
-    // Already provisioned with the same email → never re-mint. The raw key is
-    // never stored (only its hash, via provision_platform_key), so it cannot be
-    // re-sent — point the sponsor at the original delivery email / support.
-    if (sponsor.provisioned && sponsor.claimed_email === email)
-      return new Response(
-        JSON.stringify({
-          already_issued: true,
-          tier: sponsor.aegis_tier,
-          error: `Your API key was already issued and emailed to ${email}. Check that inbox — if the key is lost, contact api@aegisomega.com for a re-issue.`,
-        }),
-        { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } },
-      )
+    // Already provisioned with the same email. If the sponsor's CURRENT tier is
+    // an upgrade over the tier we previously issued, re-provision at the new tier
+    // and re-send the key. Same-or-lower tier → never re-mint (the raw key is
+    // never stored, only its hash via provision_platform_key), so point the
+    // sponsor at the original delivery email / support.
+    if (sponsor.provisioned && sponsor.claimed_email === email) {
+      const issuedTier = (sponsor.issued_tier as string) ?? sponsor.aegis_tier
+      if (tierRank(sponsor.aegis_tier) <= tierRank(issuedTier))
+        return new Response(
+          JSON.stringify({
+            already_issued: true,
+            tier: issuedTier,
+            error: `Your API key was already issued and emailed to ${email}. Check that inbox — if the key is lost, contact api@aegisomega.com for a re-issue.`,
+          }),
+          { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } },
+        )
+      // Upgrade path: fall through to provision at the higher current tier below.
+    }
 
     // Provision key
     const { data: rawKey, error: provErr } = await supabase.rpc('provision_platform_key', {
@@ -135,11 +147,13 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: provErr.message }), { status: 500, headers: CORS })
     }
 
-    // Mark as claimed + provisioned (blocks any future re-mint)
+    // Mark as claimed + provisioned, recording the tier actually issued so a
+    // later tier upgrade can be detected and re-provisioned.
     await supabase.from('github_sponsors').update({
       claimed_email: email,
       claimed_at: new Date().toISOString(),
       provisioned: true,
+      issued_tier: sponsor.aegis_tier,
     }).eq('github_username', username)
 
     sendApiKey(email, sponsor.aegis_tier, rawKey as string, username)

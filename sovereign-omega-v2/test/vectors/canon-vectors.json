@@ -1,5 +1,5 @@
 {
-  "_comment": "Cross-language canonicalization digest vectors. sha256 = SHA-256 of canonical bytes of input. TS path: canonicalizeJCS + hashValue (src/core). Python path: canonical_envelope.canon. NO raw floats permitted in any vector (ADR 0001) - quantities use scaled integers or decimal strings. All strings are NFC.",
+  "_comment": "Cross-language canonicalization digest vectors. sha256 = SHA-256 of canonical bytes of input. TS path: canonicalizeJCS + hashValue (src/core). Python path: canonical_envelope.canon. NO raw floats permitted in any vector (ADR 0001) - quantities use scaled integers or decimal strings. Strings are NFC unless the vector sets nfc_divergent:true, which carries decomposed Unicode to prove neither path applies Unicode normalization (both digest the decomposed bytes identically). nfc_divergent vectors are excluded from the verifiable/chain.py NFC-normalizing parity loop.",
   "vectors": [
     {
       "name": "empty object",
@@ -111,6 +111,14 @@
         "provider": "anthropic"
       },
       "sha256": "e02bf07ebff67b81475679a0f65db5dda6a49b52d13aa2ed21d264a18bf0f324"
+    },
+    {
+      "name": "decomposed unicode (NFC-divergent, no normalization)",
+      "input": {
+        "objective": "café résumé"
+      },
+      "nfc_divergent": true,
+      "sha256": "a2b964dcb6a519031c512c9714172760861f305c9b7050917e4378d8449854fd"
     }
   ]
 }

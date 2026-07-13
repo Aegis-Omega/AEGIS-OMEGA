@@ -168,12 +168,14 @@ async function callOpenAIBackend(req: InferenceRequest): Promise<InferenceRespon
     signal: AbortSignal.timeout(60_000),
   })
   if (!res.ok) throw new Error(`OpenAI proxy ${res.status}: ${await res.text()}`)
-  const data = (await res.json()) as { reply?: string; error?: string }
+  const data = (await res.json()) as { reply?: string; error?: string; model?: string }
   if (data.error || !data.reply) throw new Error(`OpenAI proxy: ${data.error ?? 'empty reply'}`)
   return {
     content: data.reply,
     backend: 'openai-compat',
-    model: req.model ?? 'gpt-5.5-mini',  // server default; actual model is set server-side via OPENAI_MODEL
+    // Prefer the model the edge function actually used (server-side OPENAI_MODEL);
+    // fall back to req.model only if the response omits it.
+    model: data.model ?? req.model ?? 'openai',
     latency_ms: Date.now() - t0,
   }
 }
@@ -205,12 +207,14 @@ async function callAzureBackend(req: InferenceRequest): Promise<InferenceRespons
     signal: AbortSignal.timeout(60_000),
   })
   if (!res.ok) throw new Error(`Azure proxy ${res.status}: ${await res.text()}`)
-  const data = (await res.json()) as { reply?: string; error?: string }
+  const data = (await res.json()) as { reply?: string; error?: string; model?: string }
   if (data.error || !data.reply) throw new Error(`Azure proxy: ${data.error ?? 'empty reply'}`)
   return {
     content: data.reply,
     backend: 'azure-openai',
-    model: req.model ?? 'azure-deployment',  // actual model is the server-side AZURE_OPENAI_DEPLOYMENT
+    // Prefer the deployment the edge function actually used (server-side
+    // AZURE_OPENAI_DEPLOYMENT); fall back to req.model only if the response omits it.
+    model: data.model ?? req.model ?? 'azure-deployment',
     latency_ms: Date.now() - t0,
   }
 }

@@ -6,7 +6,9 @@ Float-free, hash-chained provenance envelope for governed inference calls.
 Design decision record: docs/adr/0001-envelope-float-encoding.md.
 
 canon() is byte-compatible with the TypeScript T0 path
-(src/core/canonicalize.ts → canonicalizeJCS) for float-free NFC input —
+(src/core/canonicalize.ts → canonicalizeJCS) for float-free input —
+the TS path applies no Unicode normalization, so this path must not either,
+or decomposed input would digest differently across languages —
 enforced by the cross-language digest gate:
   test/vectors/canon-vectors.json
   test/unit/canon-equivalence.test.ts
@@ -15,27 +17,29 @@ enforced by the cross-language digest gate:
 No wall-clock timestamps in any hashed body — sequence numbers only
 (repo invariant: no time.time() in determinism-critical paths).
 
-Dependency-free: stdlib only (hashlib, json, threading, unicodedata).
+Dependency-free: stdlib only (hashlib, json, threading).
 """
 from __future__ import annotations
 
 import hashlib
 import json
 import threading
-import unicodedata
 
 CANON_VERSION = 'JCS-1'
 GENESIS = '0' * 64
 
 
 def canon(value) -> bytes:
-    """RFC 8785-style canonical bytes: sorted keys, NFC strings, no whitespace,
-    UTF-8. Rejects float — integers and strings only in hashed state, exactly as
+    """RFC 8785-style canonical bytes: sorted keys, no whitespace, UTF-8.
+    Rejects float — integers and strings only in hashed state, exactly as
     the runtime forbids float in hash inputs (a non-determinism source).
 
-    Source of truth: verifiable/chain.py::canon (repo root). Copied verbatim so
-    the bridge stays stdlib-only with no cross-tree import; byte parity is
-    asserted by python/tests/test_canon_equivalence.py."""
+    No Unicode normalization: the TypeScript T0 path (canonicalizeJCS) does
+    not normalize, so applying NFC here would make decomposed input digest
+    differently across the two languages. Byte parity with the TS path is
+    asserted by python/tests/test_canon_equivalence.py (via the shared
+    test/vectors/canon-vectors.json digests). This intentionally diverges
+    from verifiable/chain.py::canon, which still applies NFC."""
     def check(v):
         if isinstance(v, float):
             raise TypeError("float in hashed state is forbidden (non-deterministic)")
@@ -47,7 +51,6 @@ def canon(value) -> bytes:
                 check(x)
     check(value)
     s = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    s = unicodedata.normalize("NFC", s)
     return s.encode("utf-8")
 
 

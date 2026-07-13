@@ -35,7 +35,8 @@ describe('opt-in OpenAI backend gating', () => {
     vi.stubEnv('VITE_ENABLE_OPENAI', 'true')
     fetchMock.mockImplementation((url: unknown) => {
       if (String(url).includes('/functions/v1/chat')) {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ reply: '{"ok":true}' }) })
+        // Edge function reports the model it actually used (server-side OPENAI_MODEL).
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ reply: '{"ok":true}', model: 'gpt-4o-mini' }) })
       }
       return Promise.reject(new Error('network down'))
     })
@@ -43,6 +44,7 @@ describe('opt-in OpenAI backend gating', () => {
     const r = await routeInference({ systemPrompt: 'S', userMessage: 'U' })
     expect(r.backend).toBe('openai-compat')
     expect(r.content).toBe('{"ok":true}')
+    expect(r.model).toBe('gpt-4o-mini')
 
     const call = fetchMock.mock.calls.find(c => String(c[0]).includes('/functions/v1/chat'))
     expect(call).toBeDefined()
@@ -72,7 +74,8 @@ describe('opt-in Azure OpenAI backend gating', () => {
     vi.stubEnv('VITE_ENABLE_AZURE', 'true')
     fetchMock.mockImplementation((url: unknown) => {
       if (String(url).includes('/functions/v1/chat')) {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ reply: '{"ok":true}' }) })
+        // Edge function reports the deployment it actually used (AZURE_OPENAI_DEPLOYMENT).
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ reply: '{"ok":true}', model: 'aegis-gpt4o' }) })
       }
       return Promise.reject(new Error('network down'))
     })
@@ -80,6 +83,7 @@ describe('opt-in Azure OpenAI backend gating', () => {
     const r = await routeInference({ systemPrompt: 'S', userMessage: 'U' })
     expect(r.backend).toBe('azure-openai')
     expect(r.content).toBe('{"ok":true}')
+    expect(r.model).toBe('aegis-gpt4o')
 
     const call = fetchMock.mock.calls.find(c => String(c[0]).includes('/functions/v1/chat'))
     expect(call).toBeDefined()
