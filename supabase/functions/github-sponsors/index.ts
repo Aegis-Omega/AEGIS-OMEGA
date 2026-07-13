@@ -1,7 +1,8 @@
 // AEGIS-Ω GitHub Sponsors webhook + claim handler
 // Deploy: supabase functions deploy github-sponsors --no-verify-jwt
 //
-// GitHub: Settings → Webhooks → add webhook
+// GitHub: Sponsors dashboard → Webhooks → add webhook
+//   (github.com/sponsors/<account>/dashboard/webhooks — NOT repo Settings → Webhooks)
 //   Payload URL: https://rwehltdwpsncnwxzkwik.supabase.co/functions/v1/github-sponsors
 //   Content-type: application/json
 //   Events: Sponsorships
@@ -95,7 +96,7 @@ Deno.serve(async (req) => {
     // Check sponsorship exists and is active
     const { data: sponsor, error: lookupErr } = await supabase
       .from('github_sponsors')
-      .select('aegis_tier, active, claimed_email')
+      .select('aegis_tier, active, claimed_email, provisioned')
       .eq('github_username', username)
       .single()
 
@@ -111,6 +112,19 @@ Deno.serve(async (req) => {
         { status: 409, headers: CORS },
       )
 
+    // Already provisioned with the same email → never re-mint. The raw key is
+    // never stored (only its hash, via provision_platform_key), so it cannot be
+    // re-sent — point the sponsor at the original delivery email / support.
+    if (sponsor.provisioned && sponsor.claimed_email === email)
+      return new Response(
+        JSON.stringify({
+          already_issued: true,
+          tier: sponsor.aegis_tier,
+          error: `Your API key was already issued and emailed to ${email}. Check that inbox — if the key is lost, contact api@aegisomega.com for a re-issue.`,
+        }),
+        { status: 409, headers: { ...CORS, 'Content-Type': 'application/json' } },
+      )
+
     // Provision key
     const { data: rawKey, error: provErr } = await supabase.rpc('provision_platform_key', {
       p_customer_email: email,
@@ -121,10 +135,11 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: provErr.message }), { status: 500, headers: CORS })
     }
 
-    // Mark as claimed
+    // Mark as claimed + provisioned (blocks any future re-mint)
     await supabase.from('github_sponsors').update({
       claimed_email: email,
       claimed_at: new Date().toISOString(),
+      provisioned: true,
     }).eq('github_username', username)
 
     sendApiKey(email, sponsor.aegis_tier, rawKey as string, username)
@@ -165,6 +180,8 @@ Deno.serve(async (req) => {
   const action   = payload.action as string
   const username = (payload.sponsorship?.sponsor?.login ?? '').toLowerCase()
   const dollars  = payload.sponsorship?.tier?.monthly_price_in_dollars as number ?? 0
+  const oneTime  = payload.sponsorship?.tier?.is_one_time === true
+  const delivery = req.headers.get('x-github-delivery') ?? ''
 
   if (!username) return new Response(JSON.stringify({ error: 'No username' }), { status: 422 })
 
@@ -173,16 +190,31 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
   )
 
+  // Replay dedup — GitHub redeliveries reuse the same x-github-delivery id
+  if (delivery) {
+    const { data: existing } = await supabase
+      .from('github_sponsors')
+      .select('last_delivery_id')
+      .eq('github_username', username)
+      .maybeSingle()
+    if (existing?.last_delivery_id === delivery)
+      return new Response(JSON.stringify({ received: true, duplicate: 'delivery already processed' }), { status: 200 })
+  }
+
   if (action === 'created' || action === 'tier_changed') {
+    // One-time sponsorships get the same dollar floors (≥$49 operator, ≥$499
+    // sovereign) but are flagged is_one_time — revocation policy is operator-side.
     const aegisTier = dollarsTotier(dollars)
     await supabase.from('github_sponsors').upsert({
-      github_username: username,
-      tier_dollars:    dollars,
-      aegis_tier:      aegisTier,
-      active:          true,
-      updated_at:      new Date().toISOString(),
+      github_username:  username,
+      tier_dollars:     dollars,
+      aegis_tier:       aegisTier,
+      active:           true,
+      is_one_time:      oneTime,
+      last_delivery_id: delivery || null,
+      updated_at:       new Date().toISOString(),
     }, { onConflict: 'github_username' })
-    console.log(`Sponsor upserted: @${username} $${dollars}/mo → ${aegisTier}`)
+    console.log(`Sponsor upserted: @${username} $${dollars}${oneTime ? ' one-time' : '/mo'} → ${aegisTier}`)
 
     // Notify owner
     const notifyUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/notify`
@@ -196,8 +228,10 @@ Deno.serve(async (req) => {
       }),
     }).catch(() => {})
   } else if (action === 'cancelled' || action === 'pending_cancellation') {
+    // TODO: cancelled sponsors' provisioned API keys remain valid until key
+    // revocation is implemented (requires api_key_store schema decisions).
     await supabase.from('github_sponsors')
-      .update({ active: false, updated_at: new Date().toISOString() })
+      .update({ active: false, last_delivery_id: delivery || null, updated_at: new Date().toISOString() })
       .eq('github_username', username)
     console.log(`Sponsor deactivated: @${username}`)
   }

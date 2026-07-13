@@ -427,6 +427,9 @@ export function PricingPage() {
             A 39-department constitutional swarm with a SHA-256 audit chain on every call.
             Pay once with PayPal — no subscription, key delivered instantly.
           </p>
+          <p style={{ fontSize: 13, color: T.muted, maxWidth: 540, margin: '14px auto 0', lineHeight: 1.6 }}>
+            GitHub Sponsors also supported — claim your key at <a href="/claim-sponsor" style={{ color: T.indigo }}>/claim-sponsor</a> after sponsoring.
+          </p>
           <div style={{
             display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap',
             marginTop: 24, fontFamily: MONO, fontSize: 12, color: T.muted, letterSpacing: '0.04em',
