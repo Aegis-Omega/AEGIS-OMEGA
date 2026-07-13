@@ -56,3 +56,40 @@ describe('opt-in OpenAI backend gating', () => {
     expect(configuredBackends()).toContain('openai-compat')
   })
 })
+
+describe('opt-in Azure OpenAI backend gating', () => {
+  it('never calls the chat edge function when VITE_ENABLE_AZURE is unset', async () => {
+    fetchMock.mockRejectedValue(new Error('network down'))
+
+    await expect(routeInference({ systemPrompt: 'S', userMessage: 'U' }))
+      .rejects.toThrow(/All inference backends failed/)
+
+    const urls = fetchMock.mock.calls.map(c => String(c[0]))
+    expect(urls.some(u => u.includes('/functions/v1/chat'))).toBe(false)
+  })
+
+  it('routes through the chat edge function with provider "azure" when the flag is "true"', async () => {
+    vi.stubEnv('VITE_ENABLE_AZURE', 'true')
+    fetchMock.mockImplementation((url: unknown) => {
+      if (String(url).includes('/functions/v1/chat')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ reply: '{"ok":true}' }) })
+      }
+      return Promise.reject(new Error('network down'))
+    })
+
+    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U' })
+    expect(r.backend).toBe('azure-openai')
+    expect(r.content).toBe('{"ok":true}')
+
+    const call = fetchMock.mock.calls.find(c => String(c[0]).includes('/functions/v1/chat'))
+    expect(call).toBeDefined()
+    const body = JSON.parse((call![1] as RequestInit).body as string) as { provider: string }
+    expect(body.provider).toBe('azure')
+  })
+
+  it('configuredBackends lists azure-openai only when the flag is exactly "true"', () => {
+    expect(configuredBackends()).not.toContain('azure-openai')
+    vi.stubEnv('VITE_ENABLE_AZURE', 'true')
+    expect(configuredBackends()).toContain('azure-openai')
+  })
+})
