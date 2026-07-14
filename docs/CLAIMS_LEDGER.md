@@ -16,24 +16,34 @@ contract, not to reviewer opinion.
 
 ## Evidence contracts
 
-A claim's **Status** is a contract it must satisfy. Verification is not "someone read it" —
-it is "the artifact exists and matches." A claim is Verified because it **satisfies its
-contract**, not because it was reviewed.
+Each claim carries two orthogonal grades. **Status** is the epistemic *kind* of the claim.
+**Evidence Quality (EQ)** is the *strength* of its supporting evidence. They are independent
+axes: a claim's status says what sort of thing it is; its EQ says how convincingly a reviewer
+can reproduce the backing.
 
-| Status | Required evidence | Fails if… |
-|--------|-------------------|-----------|
-| **Verified** | A direct artifact with an immutable reference: `file:line @commit`, a theorem, or an experiment ID. | The artifact cannot be located, no longer matches the claim, or the reference is ambiguous. |
-| **Derived** | A logical consequence of ≥1 Verified claims, with those dependencies listed by ID. | Any dependency is downgraded, or the inference is not formally justified. |
-| **Proposed** | A design spec or experimental protocol only. | It is presented as completed work or as empirical fact. |
-| **Removed** | Unsupported, contradictory, or obsolete. | It is reintroduced without new evidence. |
+**Status legend:**
 
-**Evidence Quality (EQ)** is graded independently of Status — it rates *how* the evidence
-was established, not *whether* the claim holds:
+| Status | Meaning |
+|--------|---------|
+| **Verified** | Established directly by evidence. |
+| **Derived** | Logical consequence of verified evidence. |
+| **Proposed** | Design or research hypothesis. |
+| **Removed** | Explicitly rejected. |
 
-- **EQ-A** — mechanically verifiable (passing test, cryptographic construction, or formal proof).
-- **EQ-B** — reproducible empirical measurement.
-- **EQ-C** — manual inspection (a human read the artifact and confirmed the logic).
-- **EQ-D** — proposal only; no evidence yet.
+**Evidence Quality legend (strength / reproducibility axis):**
+
+| EQ | Meaning |
+|----|---------|
+| **EQ-A** | Independently reproducible — a reviewer can reproduce the result directly from the cited artifact (a passing test, a cryptographic construction, a formal proof, or a runnable script such as `verify.sh`). |
+| **EQ-B** | Strong but incomplete evidence — the mechanism is confirmable by inspection, but no dedicated mechanical check pins it. |
+| **EQ-C** | Limited supporting evidence — a partial or indirect indication only. |
+| **EQ-D** | Speculative — no evidence yet. |
+
+**Orthogonality rule — EQ never compensates for tier.** A high EQ cannot upgrade a weak
+status. In particular, **`Proposed + EQ-A` and `Proposed + EQ-B` are prohibited**: a Proposed
+claim is EQ-C at best and normally EQ-D, because "reproducible evidence for a hypothesis that
+is not yet built" is a contradiction. Verified claims should reach EQ-A/EQ-B; a Verified claim
+that can only muster EQ-C is a signal it should be re-examined.
 
 **Evidence type tags:** `Code: path:lines @commit` · `Test: path` · `Proof: Appendix/Theorem` ·
 `Experiment: EXP-NNN` · `Dataset: DATA-NNN` · `Spec: SPEC-NNN`.
@@ -54,19 +64,22 @@ manuscripts and ground nothing in this tree.
 
 ## Verified (Tier A)
 
-All rows below were confirmed by reading the cited artifact at commit `db9d8a0`. None required
-downgrading — every candidate held.
+All rows below were confirmed by reading the cited artifact at commit `db9d8a0`; existence in code
+is necessary but not sufficient, so EQ reflects reproducibility strength, not mere presence. No row
+was status-downgraded. Two were re-graded on the EQ axis: CLM-004 and CLM-007 are **EQ-B** (mechanism
+confirmable by inspection, but no dedicated mechanical test pins it — each row names the test that
+would promote it to EQ-A); CLM-006 is **EQ-A** (a runnable `verify.sh` reproduces it).
 
-| Claim ID | Claim | Status | EQ | Dependencies | Evidence |
-|----------|-------|--------|----|--------------|----------|
-| CLM-001 | Deterministic, float-free canonical serialization envelope (`canon`, `payload_digest`, `EnvelopeChain`); Unicode NFC normalization was **removed** so the Python path is byte-identical to the TS T0 path (Codex fix 1). | Verified | A | — | `Code: sovereign-omega-v2/python/canonical_envelope.py:32-79 @db9d8a0` (NFC-removal rationale documented at lines 38-42) · `Test: sovereign-omega-v2/python/tests/test_canon_equivalence.py` |
-| CLM-002 | The TS and Python paths produce **identical digests**; a decomposed-Unicode vector proves neither path normalizes (digest `a2b964dcb6a519031c512c9714172760861f305c9b7050917e4378d8449854fd`). | Verified | A | — | `Test: sovereign-omega-v2/test/vectors/canon-vectors.json:115-122` (vector "decomposed unicode (NFC-divergent…)") · `Test: test/unit/canon-equivalence.test.ts:52` · `Test: python/tests/test_canon_equivalence.py:82-92` |
-| CLM-003 | Hash-chained, tamper-evident envelope: `prev_hash` links envelope N→N-1, `seq` is a monotonic per-process counter (never a timestamp), genesis `prev_hash` = GENESIS (64 zeros). | Verified | A | — | `Code: sovereign-omega-v2/python/canonical_envelope.py:82-115 @db9d8a0` · `Test: python/tests/test_canon_equivalence.py:130-134` (field-set + `canon_version` asserted) |
-| CLM-004 | Dual-emit on the **live path**: legacy hashes stay byte-identical and the canonical envelope is additive; the collaboration `request_digest` covers the full field set (objective, mode, live, generation, autonomous, max_agents, memory_context) (Codex fix 2). | Verified | C | — | `Code: sovereign-omega-v2/python/bridge.py:362-376 @db9d8a0` (`_platform_run_collaboration`) · `Code: sovereign-omega-v2/python/bridge.py:576-600` (governed `/claude` path; legacy `request_hash`/`response_hash`/`chain_hash` preserved at 597-599, `envelope` additive at 600) |
-| CLM-005 | Frozen-file hash integrity gate: three constitutional files are pinned by SHA-256 and the gate exits non-zero on mismatch. Ran it at `db9d8a0` → exit 0. | Verified | A | — | `Code: sovereign-omega-v2/scripts/verify-hashes.mjs:17-19,46 @db9d8a0` · pins match CLAUDE.md "Constitutional Files" table (gate.py/dna.py/router.py) |
-| CLM-006 | Cross-language **independent replay** (executor ≠ verifier): a Python emitter, a Node re-chainer, and a Rust re-chainer independently re-derive the chain. | Verified | C | — | `Code: verifiable/cross_language/verify.sh:10-20 @db9d8a0` (runs `emit_fixture.py` → `rechain.mjs` → `rust_rechain/…/rechain stages.json`); `rechain.mjs` and `rust_rechain/` present |
-| CLM-007 | Server-side provider gate + model provenance in the audit record: a client cannot force a paid backend via the request body, and the model actually used is reported back to callers (Codex fixes 5/7). | Verified | C | — | `Code: supabase/functions/chat/index.ts:11-13,45-59,114-118 @db9d8a0` · `Code: packages/shared/lib/inference-router.ts:176-178,216-217` (prefers server-reported model) |
-| CLM-008 | Determinism test discipline: determinism tests run the subject ≥3 times and assert byte-identical output. | Verified | A | — | `Spec: sovereign-omega-v2/.claude/rules/testing.md` (3-run byte-identical rule) · `Test: test/unit/canon-equivalence.test.ts:61-63` · `Test: python/tests/test_canon_equivalence.py:66-67` |
+| Claim ID | Claim | Status | EQ | Depends on | Evidence | Fails if… |
+|----------|-------|--------|----|------------|----------|-----------|
+| CLM-001 | Deterministic, float-free canonical serialization envelope (`canon`, `payload_digest`, `EnvelopeChain`); Unicode NFC normalization was **removed** so the Python path is byte-identical to the TS T0 path (Codex fix 1). | Verified | A | — | `Code: sovereign-omega-v2/python/canonical_envelope.py:32-79 @db9d8a0` (NFC-removal rationale documented at lines 38-42) · `Test: sovereign-omega-v2/python/tests/test_canon_equivalence.py` | `canon()` reintroduces NFC/`unicodedata`, accepts a raw `float` without raising, or `payload_digest` is non-deterministic across two runs of the same payload. |
+| CLM-002 | The TS and Python paths produce **identical digests**; a decomposed-Unicode vector proves neither path normalizes (digest `a2b964dcb6a519031c512c9714172760861f305c9b7050917e4378d8449854fd`). | Verified | A | — | `Test: sovereign-omega-v2/test/vectors/canon-vectors.json:115-122` (vector "decomposed unicode (NFC-divergent…)") · `Test: test/unit/canon-equivalence.test.ts:52` · `Test: python/tests/test_canon_equivalence.py:82-92` | Equivalent payloads serialized on two supported runtimes (TS `canonicalizeJCS`, Python `canon`) produce different SHA-256 digests for any shared vector, including the decomposed-Unicode one. |
+| CLM-003 | Hash-chained, tamper-evident envelope: `prev_hash` links envelope N→N-1, `seq` is a monotonic per-process counter (never a timestamp), genesis `prev_hash` = GENESIS (64 zeros). | Verified | A | — | `Code: sovereign-omega-v2/python/canonical_envelope.py:82-115 @db9d8a0` · `Test: python/tests/test_canon_equivalence.py:130-134` (field-set + `canon_version` asserted) | Genesis `prev_hash` ≠ 64 zeros, `seq` does not increment by exactly 1 per emit, or altering one envelope's body leaves a later envelope's `prev_hash` unchanged. |
+| CLM-004 | Dual-emit on the **live path**: legacy hashes stay byte-identical and the canonical envelope is additive; the collaboration `request_digest` covers the full field set (objective, mode, live, generation, autonomous, max_agents, memory_context) (Codex fix 2). | Verified | B | — | `Code: sovereign-omega-v2/python/bridge.py:362-376 @db9d8a0` (`_platform_run_collaboration`) · `Code: sovereign-omega-v2/python/bridge.py:576-600` (governed `/claude` path; legacy `request_hash`/`response_hash`/`chain_hash` preserved at 597-599, `envelope` additive at 600) | Adding the envelope changes any pre-existing legacy hash byte, or the collaboration `request_digest` omits any of the seven input fields. **Promote to EQ-A** by adding a bridge test that asserts legacy hashes are byte-identical with/without the envelope and that flipping any one input field changes `request_digest`. |
+| CLM-005 | Frozen-file hash integrity gate: three constitutional files are pinned by SHA-256 and the gate exits non-zero on mismatch. Ran it at `db9d8a0` → exit 0. | Verified | A | — | `Code: sovereign-omega-v2/scripts/verify-hashes.mjs:17-19,46 @db9d8a0` · pins match CLAUDE.md "Constitutional Files" table (gate.py/dna.py/router.py) | Mutating one byte of `gate.py`/`dna.py`/`router.py` does not make `verify-hashes.mjs` exit non-zero, or its pins diverge from the CLAUDE.md "Constitutional Files" table. |
+| CLM-006 | Cross-language **independent replay** (executor ≠ verifier): a Python emitter, a Node re-chainer, and a Rust re-chainer independently re-derive the chain. | Verified | A | — | `Code: verifiable/cross_language/verify.sh:10-20 @db9d8a0` (runs `emit_fixture.py` → `rechain.mjs` → `rust_rechain/…/rechain stages.json`); `rechain.mjs` and `rust_rechain/` present | Running `verifiable/cross_language/verify.sh` yields a non-zero exit, or the Node and Rust re-chainers derive a chain hash differing from the Python emitter's for the shared `stages.json`. |
+| CLM-007 | Server-side provider gate + model provenance in the audit record: a client cannot force a paid backend via the request body, and the model actually used is reported back to callers (Codex fixes 5/7). | Verified | B | — | `Code: supabase/functions/chat/index.ts:11-13,45-59,114-118 @db9d8a0` · `Code: packages/shared/lib/inference-router.ts:176-178,216-217` (prefers server-reported model) | A request with `provider:"openai"` while `CHAT_ENABLE_OPENAI≠"true"` reaches the paid backend instead of falling back to dashscope, or the returned `model` is not the one actually invoked. **Promote to EQ-A** by adding an edge-function test that sends a gated `provider` and asserts fallback + that the reported model matches the backend called. |
+| CLM-008 | Determinism test discipline: determinism tests run the subject ≥3 times and assert byte-identical output. | Verified | A | — | `Spec: sovereign-omega-v2/.claude/rules/testing.md` (3-run byte-identical rule) · `Test: test/unit/canon-equivalence.test.ts:61-63` · `Test: python/tests/test_canon_equivalence.py:66-67` | The determinism tests run the subject fewer than 3 times, or accept a run whose output differs byte-for-byte from the first. |
 
 **Downgraded / not verified:** none — every Verified candidate was located and matched its claim.
 
@@ -76,12 +89,12 @@ downgrading — every candidate held.
 
 Logical consequences of Verified rows. No benchmark numbers.
 
-| Claim ID | Claim | Status | EQ | Dependencies | Evidence |
-|----------|-------|--------|----|--------------|----------|
-| CLM-101 | **Reproducibility** — a governed call's provenance can be regenerated byte-identically by an independent party. | Derived | A | CLM-002, CLM-006, CLM-008 | Follows: identical cross-language digests (CLM-002) under enforced 3-run determinism (CLM-008), independently re-chained (CLM-006). |
-| CLM-102 | **Traceability** — every audited step carries request/response digests and a chain link back to genesis. | Derived | A | CLM-003, CLM-004 | Follows: the hash-chained envelope (CLM-003) is emitted on the live path alongside legacy hashes (CLM-004). |
-| CLM-103 | **Measurement repeatability** — the substrate's own integrity is re-checkable on demand and fails loudly on drift. | Derived | A | CLM-005, CLM-008 | Follows: the frozen-file gate (CLM-005) plus mandated repeat-run determinism (CLM-008). |
-| CLM-104 | **Architecture-independence of the digest** — the digest depends only on canonical bytes, not on language runtime or Unicode form. | Derived | A | CLM-001, CLM-002 | Follows: NFC-free canonicalization (CLM-001) yields identical TS/Python digests including decomposed input (CLM-002). |
+| Claim ID | Claim | Status | EQ | Depends on | Evidence | Fails if… |
+|----------|-------|--------|----|------------|----------|-----------|
+| CLM-101 | **Reproducibility** — a governed call's provenance can be regenerated byte-identically by an independent party. | Derived | A | CLM-002, CLM-006, CLM-008 | Follows: identical cross-language digests (CLM-002) under enforced 3-run determinism (CLM-008), independently re-chained (CLM-006). | Any of CLM-002/006/008 is downgraded, or a second party re-deriving from the same inputs obtains a different chain hash. |
+| CLM-102 | **Traceability** — every audited step carries request/response digests and a chain link back to genesis. | Derived | A | CLM-003, CLM-004 | Follows: the hash-chained envelope (CLM-003) is emitted on the live path alongside legacy hashes (CLM-004). | CLM-003 or CLM-004 is downgraded, or a live-path response is emitted with no `envelope` (no `prev_hash` link to genesis). |
+| CLM-103 | **Measurement repeatability** — the substrate's own integrity is re-checkable on demand and fails loudly on drift. | Derived | A | CLM-005, CLM-008 | Follows: the frozen-file gate (CLM-005) plus mandated repeat-run determinism (CLM-008). | CLM-005 or CLM-008 is downgraded, or an integrity re-check passes despite a mutated frozen file. |
+| CLM-104 | **Architecture-independence of the digest** — the digest depends only on canonical bytes, not on language runtime or Unicode form. | Derived | A | CLM-001, CLM-002 | Follows: NFC-free canonicalization (CLM-001) yields identical TS/Python digests including decomposed input (CLM-002). | CLM-001 or CLM-002 is downgraded, or the same canonical bytes hash differently on a third supported runtime. |
 
 ---
 
@@ -89,15 +102,36 @@ Logical consequences of Verified rows. No benchmark numbers.
 
 Design specs / protocols only. No implementation yet — must not be presented as completed work.
 
-| Claim ID | Claim | Status | EQ | Dependencies | Evidence |
-|----------|-------|--------|----|--------------|----------|
-| CLM-201 | Online prefix auditing (AgentForesight-style) over the live chain. | Proposed | D | — | `Spec: (design only — no implementation in repo)` |
-| CLM-202 | MRM / SABER governance layer. | Proposed | D | — | `Spec: (design only)` |
-| CLM-203 | Phase 2 — KMS Ed25519 signing over `envelope_hash` + client-principal binding. | Proposed | D | CLM-003 | `Code: canonical_envelope.py:114` marks `signature = None  # Phase 2`; not yet implemented. |
-| CLM-204 | Phase 3 — public transparency log of envelope hashes. | Proposed | D | CLM-203 | `Spec: (design only)` |
-| CLM-205 | Phase 4 — offline verifier CLI. | Proposed | D | CLM-006 | `Spec: (design only)` |
-| CLM-206 | ECDist as a graph-distance over provenance + evidence graphs (implementation). | Proposed | D | — | `Spec: (design only — no ECDist code in repo)` |
-| CLM-207 | ECDist satisfies metric axioms (non-negativity, identity, symmetry, triangle inequality). | Proposed | D | CLM-206 | `Proof: (pending — no formal proof in repo yet)` |
+Per the orthogonality rule these are EQ-D (no evidence yet); none may claim EQ-A/EQ-B.
+The full ECDist implementation ladder is broken out separately below.
+
+| Claim ID | Claim | Status | EQ | Depends on | Evidence | Fails if… |
+|----------|-------|--------|----|------------|----------|-----------|
+| CLM-201 | Online prefix auditing (AgentForesight-style) over the live chain. | Proposed | D | — | `Spec: (design only — no implementation in repo)` | Presented as implemented, or cited as an empirical result, before code + a passing test land. |
+| CLM-202 | MRM / SABER governance layer. | Proposed | D | — | `Spec: (design only)` | Presented as implemented before code lands. |
+| CLM-203 | Phase 2 — KMS Ed25519 signing over `envelope_hash` + client-principal binding. | Proposed | D | CLM-003 | `Code: canonical_envelope.py:114` marks `signature = None  # Phase 2`; not yet implemented. | Any envelope emits a non-null `signature` claimed as production-verified before signing is implemented. |
+| CLM-204 | Phase 3 — public transparency log of envelope hashes. | Proposed | D | CLM-203 | `Spec: (design only)` | Presented as operational before a log exists. |
+| CLM-205 | Phase 4 — offline verifier CLI. | Proposed | D | CLM-006 | `Spec: (design only)` | Presented as shipped before a CLI + test exist. |
+
+---
+
+## ECDist implementation status (split ladder)
+
+The draft's single "ECDist stress-test" claim conflated one thing that exists (a digest of a
+structured payload) with three that do not (a graph estimator, its metric-axiom guarantees, and
+production-readiness). Splitting them prevents implementation evidence from laundering theoretical
+claims. Repo grepped at `db9d8a0` for `laplacian|adjacency|spectral|ecdist|graph.?distance|eigen`:
+the only hits are unrelated (omega_dynamics T3 spectral-gap research, `sovereign_hd.py` attention
+spectral radius, `aegis-runtime/src/semantic_graph.rs` adjacency, `dodecagonal_router` adjacency,
+`constitutional_chord` fingerprint). **No ECDist graph-distance / normalized-Laplacian / spectral
+$\hat{HD}$ estimator module exists.**
+
+| Claim ID | Claim | Status | EQ | Depends on | Evidence | Fails if… |
+|----------|-------|--------|----|------------|----------|-----------|
+| CLM-210 | Canonical digest of a structured payload is implemented (the digest-based substrate any ECDist would build on). | Verified | A | CLM-001 | `Code: sovereign-omega-v2/python/canonical_envelope.py:76-79 @db9d8a0` (`payload_digest`) | `payload_digest` cannot digest a nested structured payload deterministically. |
+| CLM-211 | Graph construction / normalized-Laplacian / spectral $\hat{HD}$ estimator is implemented. | Proposed | D | CLM-210 | `Evidence: none found in repo` — grep for `laplacian\|adjacency\|spectral\|ecdist\|graph-distance\|eigen` returns no such module; the envelope is **digest-based, not graph-based**. | Stated as implemented while no graph/Laplacian/spectral-estimator module exists (current state). |
+| CLM-212 | ECDist satisfies metric-space axioms (identity of indiscernibles, symmetry, triangle inequality). | Proposed | D | CLM-211 | `Proof: pending` — these are mathematical properties of the metric, **not** properties the software can demonstrate; no proof in repo. | Asserted as established without a formal proof; note that running any implementation cannot substitute for proving these axioms. |
+| CLM-213 | Spectral estimator suitable for production evaluation. | Proposed | D | CLM-211, CLM-212 | `Spec: (design only)` — contingent on CLM-211 existing and CLM-212 proven, plus empirical validation. | Claimed production-ready before CLM-211 is built, CLM-212 is proven, and a validation experiment exists. |
 
 ---
 
@@ -150,12 +184,7 @@ provenance line (`docs/AUDIT_FINDINGS.md:165-169`, finding H-04). The two HDs ar
 
 ## The ledger as claim-provenance
 
-This ledger applies the manuscript's own thesis to itself. Every assertion above carries its
-**origin** (Claim ID), **dependencies** (dependency IDs), **evidence** (immutable artifact
-reference), **epistemic status** (the contract it satisfies), and a **reproducibility reference**
-(commit `db9d8a0`) — self-similar to how the `ExecutionEnvelope` records `request_digest`,
-`response_digest`, `prev_hash`, and `seq` for every agent step. The manuscript does not merely
-*describe* a metrology of cognitive integrity; by structuring its own claims this way, it
-*embodies* one. A reviewer can falsify any Verified row by dereferencing its `file:line @commit`
-and checking that the artifact still says what the claim says. If it does not, the row fails its
-contract and must be downgraded — the same failure discipline the substrate applies to itself.
+The Claims Ledger applies the same provenance discipline to the manuscript that AEGIS Ω applies
+to autonomous systems. Every scientific assertion is treated as an evidence-bearing artifact with
+explicit provenance, dependency relationships, falsification criteria, and epistemic status.
+Reviewers can audit the paper using the same provenance framework the paper advocates.
