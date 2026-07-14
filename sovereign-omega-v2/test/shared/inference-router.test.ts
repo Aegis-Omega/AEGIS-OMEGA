@@ -57,6 +57,23 @@ describe('opt-in OpenAI backend gating', () => {
     vi.stubEnv('VITE_ENABLE_OPENAI', 'true')
     expect(configuredBackends()).toContain('openai-compat')
   })
+
+  // CLM-007 (provenance half): the router records the model the edge function
+  // reports (data.model), NOT the caller's requested model. The server-side
+  // provider gate itself lives in the Deno chat function (inspection-only here).
+  it('records the server-reported model, not the caller req.model', async () => {
+    vi.stubEnv('VITE_ENABLE_OPENAI', 'true')
+    fetchMock.mockImplementation((url: unknown) => {
+      if (String(url).includes('/functions/v1/chat')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ reply: '{"ok":true}', model: 'server-chosen-model' }) })
+      }
+      return Promise.reject(new Error('network down'))
+    })
+
+    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U', model: 'client-requested-model' })
+    expect(r.model).toBe('server-chosen-model')
+    expect(r.model).not.toBe('client-requested-model')
+  })
 })
 
 describe('opt-in Azure OpenAI backend gating', () => {
@@ -95,5 +112,21 @@ describe('opt-in Azure OpenAI backend gating', () => {
     expect(configuredBackends()).not.toContain('azure-openai')
     vi.stubEnv('VITE_ENABLE_AZURE', 'true')
     expect(configuredBackends()).toContain('azure-openai')
+  })
+
+  // CLM-007 (provenance half): the router records the deployment the edge
+  // function reports (data.model), NOT the caller's requested model.
+  it('records the server-reported deployment, not the caller req.model', async () => {
+    vi.stubEnv('VITE_ENABLE_AZURE', 'true')
+    fetchMock.mockImplementation((url: unknown) => {
+      if (String(url).includes('/functions/v1/chat')) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ reply: '{"ok":true}', model: 'server-deployment' }) })
+      }
+      return Promise.reject(new Error('network down'))
+    })
+
+    const r = await routeInference({ systemPrompt: 'S', userMessage: 'U', model: 'client-requested-model' })
+    expect(r.model).toBe('server-deployment')
+    expect(r.model).not.toBe('client-requested-model')
   })
 })

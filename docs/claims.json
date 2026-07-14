@@ -48,14 +48,15 @@
       "id": "CLM-004",
       "claim": "Dual-emit on the live path: legacy hashes stay byte-identical and the canonical envelope is additive; the collaboration request_digest covers the full field set (objective, mode, live, generation, autonomous, max_agents, memory_context) (Codex fix 2).",
       "tier": "Verified",
-      "eq": "EQ-B",
+      "eq": "EQ-A",
       "dependencies": [],
       "evidence": [
         "Code: sovereign-omega-v2/python/bridge.py:362-376 @db9d8a0",
-        "Code: sovereign-omega-v2/python/bridge.py:576-600"
+        "Code: sovereign-omega-v2/python/bridge.py:576-600",
+        "Test: sovereign-omega-v2/python/tests/test_envelope_request_digest.py"
       ],
-      "fails_if": "Adding the envelope changes any pre-existing legacy hash byte, or the collaboration request_digest omits any of the seven input fields.",
-      "verified_against": "a1c9f8b"
+      "fails_if": "The collaboration request_digest omits any of the seven input fields (source-pinned: the test extracts bridge.py's hashed key set and asserts it equals the 7-field set), or flipping any one execution-affecting field leaves request_digest unchanged. The additive-dual-emit half (adding the envelope changes no pre-existing legacy hash byte) remains confirmable by inspection at bridge.py:576-600.",
+      "verified_against": "1cd93414"
     },
     {
       "id": "CLM-005",
@@ -89,10 +90,11 @@
       "dependencies": [],
       "evidence": [
         "Code: supabase/functions/chat/index.ts:11-13,45-59,114-118 @db9d8a0",
-        "Code: packages/shared/lib/inference-router.ts:176-178,216-217"
+        "Code: packages/shared/lib/inference-router.ts:176-178,216-217",
+        "Test: sovereign-omega-v2/test/shared/inference-router.test.ts"
       ],
-      "fails_if": "A request with provider:\"openai\" while CHAT_ENABLE_OPENAI!=\"true\" reaches the paid backend instead of falling back to dashscope, or the returned model is not the one actually invoked.",
-      "verified_against": "a1c9f8b"
+      "fails_if": "A request with provider:\"openai\" while CHAT_ENABLE_OPENAI!=\"true\" reaches the paid backend instead of falling back to dashscope, or the returned model is not the one actually invoked. Held at EQ-B: the client-side provenance half (the router records the edge function's reported data.model, not the caller's req.model) is now mechanically pinned by inference-router.test.ts, but the server-side provider gate lives in the Deno chat function and cannot be unit-tested without a Deno runtime — it remains inspection-only at chat/index.ts:45-57.",
+      "verified_against": "1cd93414"
     },
     {
       "id": "CLM-008",
