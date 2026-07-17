@@ -13,6 +13,7 @@ import { ClaimSponsorPage }  from './components/ClaimSponsorPage.js'
 import { CompliancePage }    from './components/CompliancePage.js'
 import { ConsolePage }       from './components/console/ConsolePage.js'
 import { DocsPage }          from './components/DocsPage.js'
+import { DashboardPage }     from './components/DashboardPage.js'
 import { HomepageLanding }   from './components/HomepageLanding.js'
 import { PlatformPage }      from './components/PlatformPage.js'
 import { PricingPage }       from './components/PricingPage.js'
@@ -25,6 +26,7 @@ export default function App() {
   if (path === '/claim-sponsor')  return <ClaimSponsorPage />
   if (path === '/compliance')     return <CompliancePage />
   if (path === '/docs')           return <DocsPage />
+  if (path === '/dashboard')      return <DashboardPage />
   if (path === '/platform')       return <PlatformPage />
   if (path === '/console')        return <ConsolePage />
   if (path === '/runtime')        return <AegisRuntime />

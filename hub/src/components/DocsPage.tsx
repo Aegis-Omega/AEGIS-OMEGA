@@ -93,6 +93,7 @@ function Endpoint({
 const NAV_ITEMS = [
   { id: 'overview',      label: 'Overview' },
   { id: 'auth',          label: 'Authentication' },
+  { id: 'product',       label: 'Plans & operations' },
   { id: 'collaborate',   label: 'POST /collaborate' },
   { id: 'status',        label: 'GET /status' },
   { id: 'executions',    label: 'Async executions' },
@@ -197,6 +198,13 @@ export function DocsPage() {
             </p>
           </Section>
 
+          <Section id="product" title="Plans, retention, availability & support">
+            <p className="text-gray-400 leading-relaxed mb-4">Product quotas reset monthly in UTC. Explorer includes 100 requests and 100,000 tokens with 7-day operational retention; Operator includes 10,000 requests and 10,000,000 tokens with 30-day retention; Sovereign includes 100,000 requests and 100,000,000 tokens with 90-day retention. Included spend is $0, $49, and $499 respectively.</p>
+            <p className="text-gray-400 leading-relaxed mb-4">Available models are plan-dependent: <code>aegis-demo</code> on Explorer; Gemini is added on Operator; Claude is added on Sovereign. Provider capacity, regional availability, maintenance, and policy controls can temporarily limit a model.</p>
+            <p className="text-gray-400 leading-relaxed mb-4">The dashboard reports quota, projected period-end use, invoices, API keys, notifications, and upgrade choices. A checkout is pending until a verified billing webhook durably grants its entitlement. Prompt content is excluded from funnel analytics by default.</p>
+            <p className="text-gray-400 leading-relaxed">Public plans receive best-effort support through the project support channel and no uptime SLA. Safety-critical and financial-service use are outside this boundary. Enterprise SLA and escalation commitments require a separately signed agreement.</p>
+          </Section>
+
           <Section id="collaborate" title="POST /platform/collaborate">
             <p className="text-gray-400 mb-2">
               Run a full 39-agent collaboration cycle synchronously. Returns the complete result when all departments have
@@ -223,7 +231,7 @@ export function DocsPage() {
     "mode": "gtm",
     "departments_collaborated": 39,
     "artifacts": [
-      { "role": "Strategy", "output": "GTM for \"Enter EU fintech...\" — 4-phase launch..." },
+      { "role": "Strategy", "output": "GTM for 'Enter EU fintech...' — 4-phase launch..." },
       // ... 38 more department outputs
     ],
     "projection": {
