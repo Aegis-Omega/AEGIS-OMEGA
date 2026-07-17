@@ -1,0 +1,76 @@
+{
+  "schema_version": "1.0",
+  "evidence_type": "user_supplied_competition_submission_archive",
+  "competition": {
+    "name": "Measuring Progress Toward AGI",
+    "track": "Metacognition",
+    "deadline_declared_in_submission": "2026-04-16",
+    "submission_period": "April 2026",
+    "author": "Tarik Skalic",
+    "source": "swarm_os/kaggle_submission.ipynb and accompanying outputs",
+    "official_kaggle_receipt_in_archive": false
+  },
+  "archive": {
+    "uploaded_name": "kaggle_submission_FINAL(1).zip",
+    "size_bytes": 56988,
+    "sha256": "517f9287dc9ae472a0edb37378c5314e0865ccf31ee287320d205eea1b34e380"
+  },
+  "metric": {
+    "name": "Hallucination Delta",
+    "symbol": "HD",
+    "definition": "abs(claimed_correctness - actual_correctness)",
+    "project_lineage": "swarm_os / Sovereign AGI OS",
+    "relationship_to_aegis_provenance_line": "parallel research lineage; not evidence that ECDist graph or spectral estimators are implemented"
+  },
+  "reported_results": {
+    "core_benchmark": {
+      "tasks": "T1-T9",
+      "models": {
+        "kimi-k2-instruct": 0.0806,
+        "deepseek-v3.2": 0.113,
+        "devstral-123b": 0.1177,
+        "nemotron-ultra-253b": 0.3981
+      },
+      "source": "swarm_os/docs/outputs/multi_model_HD_comparison.md"
+    },
+    "extended_benchmark": {
+      "tasks": "T10-T14",
+      "mean_hd": 0.33,
+      "source": "swarm_os/docs/outputs/extended_benchmark_latest.json"
+    },
+    "arc": {
+      "mean_hd_arc": 0.3411,
+      "mean_accuracy": 0.6589,
+      "runs": 2,
+      "samples_per_run": 100,
+      "source": "swarm_os/docs/outputs/arc_eval_verified.json"
+    },
+    "proof_suite": {
+      "passes": 8,
+      "total": 8,
+      "mean_hd": 0.0907,
+      "source": "swarm_os/docs/outputs/proof_suite_run.txt"
+    }
+  },
+  "epistemic_boundaries": [
+    "The archive and contained output files are real artifacts supplied by the author and hash-pinned here.",
+    "The recorded result values are supported as historical outputs contained in the archive; they have not been independently rerun in this patch because live NVIDIA NIM credentials and the original runtime environment are not bundled.",
+    "The package does not establish ECDist graph construction, normalized-Laplacian estimators, metric-space proofs, or production readiness.",
+    "Narrative claims about biological correction, Digital Being, epiphanies, and broad AGI significance require separate implementation and experimental evidence; they are not promoted by this lineage patch.",
+    "No official Kaggle submission receipt or competition-result confirmation is present in the uploaded archive."
+  ],
+  "files": [
+    {"path":"final_kaggle_proof.py","size_bytes":1539,"sha256":"b4bf21a2b704fb6ac5035080c8fa340a205bb2a8d2b1025c330085d55713ce60"},
+    {"path":"swarm_os/arc/eval.py","size_bytes":4296,"sha256":"fba5c6b16b4d6718f04968b3a519f0deedd3f09549024cce6c049defd6bfcdae"},
+    {"path":"swarm_os/benchmark/extended_tasks.py","size_bytes":24659,"sha256":"3b4e723d2c67111d56d0bcc50ed8354e8a68be03a0a616d8292fd7ba5506cc14"},
+    {"path":"swarm_os/benchmark/multi_model_runner.py","size_bytes":38988,"sha256":"b3fb36fa5f9bc5d4f125f0f8dd6068de5fe53e951098cb9dd38e57df3b08529a"},
+    {"path":"swarm_os/docs/outputs/arc_eval_verified.json","size_bytes":510,"sha256":"d947c395c99ce21a1da1c5c4e8c329cfb713b04477a3bc1fe5fba3fe091a1842"},
+    {"path":"swarm_os/docs/outputs/benchmark_run_final.txt","size_bytes":11444,"sha256":"857787ac67c8ee693e9007f6b19b0d7b66c2b3ccf8316ee170f09cc81fa92ecd"},
+    {"path":"swarm_os/docs/outputs/extended_benchmark_latest.json","size_bytes":1776,"sha256":"ecb754298b896ce18318090c42f00f33eaf9e93b018e13af471f77e58a703262"},
+    {"path":"swarm_os/docs/outputs/kaggle_writeup_FINAL.md","size_bytes":31986,"sha256":"5704ccaac47c586a56ca5b6786ec4b030238ef58f78309c75eabc63c7426069e"},
+    {"path":"swarm_os/docs/outputs/multi_model_HD_comparison.md","size_bytes":2317,"sha256":"e16aae352b82ee1cec7e6cd3910ddc9fd023456ffc04b5729468440df57791aa"},
+    {"path":"swarm_os/docs/outputs/proof_suite_run.txt","size_bytes":31374,"sha256":"2d364e992d5bfa54ed00ed0a832d48dcec098da6096d6f6fae06e99068058043"},
+    {"path":"swarm_os/kaggle_submission.ipynb","size_bytes":34161,"sha256":"8cf6a5b6f889cb61c4419addd5fc1e486a4f3f1bea7ae1662c7fbaa4b67ea33f"},
+    {"path":"swarm_os/proof_suite.py","size_bytes":17650,"sha256":"6f18267dadf034a1fb6fc44f131d9a61260b6ead6096196ca21e6bde3807cd64"}
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "verified": true,
+  "runs": [
+    {
+      "n_samples": 100,
+      "mean_acc": 0.6735,
+      "hd_arc": 0.3265,
+      "library_rules": 26,
+      "macros": 15
+    },
+    {
+      "n_samples": 100,
+      "mean_acc": 0.6444,
+      "hd_arc": 0.3556,
+      "library_rules": 26,
+      "macros": 15
+    }
+  ],
+  "mean_hd_arc": 0.3411,
+  "mean_acc": 0.6589,
+  "library_rules": 26,
+  "macros": 15,
+  "note": "Stochastic sampling from grammar policy. Training checkpoint reported hd_arc=0.327."
+}
