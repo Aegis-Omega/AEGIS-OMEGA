@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "evidence_type": "historical_submission_package",
+  "submission": {
+    "title": "Sovereign AGI OS: Measuring Metacognition via Hallucination Delta",
+    "competition_track": "Measuring Progress Toward AGI — Metacognition",
+    "declared_deadline": "2026-04-16"
+  },
+  "files": [
+    {
+      "path": "kaggle_submission_FINAL(1).zip",
+      "bytes": 56988,
+      "sha256": "517f9287dc9ae472a0edb37378c5314e0865ccf31ee287320d205eea1b34e380"
+    }
+  ],
+  "historical_outputs": {
+    "t1_t9_mean_hallucination_delta": {
+      "Kimi": 0.0806,
+      "DeepSeek": 0.113,
+      "Devstral": 0.1177,
+      "Nemotron": 0.3981
+    },
+    "t10_t14_mean_hallucination_delta": 0.33,
+    "arc": {
+      "mean_hallucination_delta": 0.3411,
+      "mean_accuracy": 0.6589
+    },
+    "proof_suite": {
+      "passed": 8,
+      "total": 8,
+      "mean_hallucination_delta": 0.0907
+    }
+  },
+  "epistemic_boundary": {
+    "established": [
+      "The submission package and its historical output artifacts exist."
+    ],
+    "not_established": [
+      "An official Kaggle receipt, acceptance, ranking, winner status, or award.",
+      "The separate ECDist graph/Laplacian estimator.",
+      "A mathematical proof for the ECDist estimator.",
+      "Biological scaling claims.",
+      "Later benchmark tables."
+    ]
+  }
+}
