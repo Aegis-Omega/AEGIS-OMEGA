@@ -41,6 +41,8 @@ import httpx
 import redis.asyncio as aioredis
 import yaml
 
+from agents.managed_agents import MANAGED_AGENT_MAX_TOKENS
+
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -444,7 +446,11 @@ class ManagedAgentsClient:
         system: str,
         max_tokens: int = 8192,
     ) -> dict:
-        """Create a session and stream the response for a given department agent."""
+        """Create a token-capped session and stream the response for a department.
+
+        ``max_tokens`` is retained for callers of the older coordinator interface,
+        but Managed Agents sessions always receive the shared hard limit below.
+        """
         agent_id = self.get_agent_id(dept_id)
         if not agent_id:
             raise ValueError(f"No managed agent registered for department: {dept_id}")
@@ -454,7 +460,10 @@ class ManagedAgentsClient:
 
         def _sync_run() -> dict:
             # Create a session for this task
-            session = self._client.beta.sessions.create(agent=agent_id)
+            session = self._client.beta.sessions.create(
+                agent=agent_id,
+                max_tokens=MANAGED_AGENT_MAX_TOKENS,
+            )
             session_id = session.id
 
             # Send the task message
@@ -632,7 +641,10 @@ async def _ralph_cycle(
 
     backend = task.backend
     if backend == BackendType.MANAGED_AGENTS:
-        result = await _get_managed_client().run(task.role.value, messages, system, max_tokens)
+        # agents.yaml is not an authority for Managed Agents session limits.
+        result = await _get_managed_client().run(
+            task.role.value, messages, system, MANAGED_AGENT_MAX_TOKENS
+        )
     elif backend == BackendType.VERTEX_AI:
         result = await _get_vertex_client().run(task.role.value, messages, system, max_tokens=max_tokens)
     else:
