@@ -36,6 +36,11 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 import httpx
 
+try:
+    from provider_policy import (MODEL_CATALOG, PolicyError, ProviderPolicy, append_metering, catalog_for, estimate_cost)
+except ImportError:  # package import used by tests
+    from vertex.provider_policy import (MODEL_CATALOG, PolicyError, ProviderPolicy, append_metering, catalog_for, estimate_cost)
+
 # Robust import path — works in dev (serve.py in vertex/, agents at ../agents)
 # and in the flattened container (serve.py at /app, agents at /app/agents).
 _SELF_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -52,6 +57,8 @@ DEFAULT_MODEL = os.environ.get("AEGIS_DEFAULT_MODEL", "claude-opus-4-8")
 CHAIN_KEY = "aegis:chain"
 GENESIS_HASH = "0" * 64
 MAX_CHAIN_ENTRIES = 50_000  # Redis list cap
+FOUNDRY_API_KEY_TENANTS = json.loads(os.environ.get("FOUNDRY_API_KEY_TENANTS_JSON", "{}"))
+provider_policy = ProviderPolicy.from_environment()
 
 
 # ── Hash chain (mirrors sovereign-omega-v2/src/metacognition/loop.ts) ─────────
@@ -327,7 +334,7 @@ async def _call_claude(messages: list[dict], model: str, system: str | None, max
     return response.model_dump()
 
 
-async def _governed_inference(messages: list[dict], model: str, system: str | None, max_tokens: int, **kwargs) -> dict:
+async def _governed_inference(messages: list[dict], model: str, system: str | None, max_tokens: int, provider: str = "anthropic", region: str = "global", tenant_id: str | None = None, deployment_alias: str | None = None, **kwargs) -> dict:
     """Run Claude inference wrapped in constitutional governance."""
     request_id = str(uuid.uuid4())
     tier = _classify_tier(messages)
@@ -362,7 +369,14 @@ async def _governed_inference(messages: list[dict], model: str, system: str | No
     latency_ms = int((time.time() - t0) * 1000)
 
     # Post-inference audit entry
-    output_tokens = response.get("usage", {}).get("output_tokens", 0)
+    usage = response.get("usage", {})
+    input_tokens = int(usage.get("input_tokens", 0))
+    output_tokens = int(usage.get("output_tokens", 0))
+    catalog = catalog_for(provider, model)
+    actual_cost = estimate_cost(catalog, input_tokens, output_tokens) if catalog else __import__("decimal").Decimal("0")
+    metering_entry = await append_metering(state.append, provider=provider, model=model, region=region, tenant_id=tenant_id, input_tokens=input_tokens, output_tokens=output_tokens, cost_usd=actual_cost, deployment_alias=deployment_alias)
+    if provider == "foundry" and tenant_id:
+        provider_policy.record_usage(tenant_id, actual_cost)
     post_entry = await state.append(
         observation={
             "layer": "PERCEPTION",
@@ -382,6 +396,11 @@ async def _governed_inference(messages: list[dict], model: str, system: str | No
             "request_id": request_id,
             "pre_entry_hash": pre_entry["entry_hash"],
             "post_entry_hash": post_entry["entry_hash"],
+            "metering_entry_hash": metering_entry["entry_hash"],
+            "provider": provider,
+            "region": region,
+            "deployment_alias": deployment_alias,
+            "actual_cost_usd": str(actual_cost),
             "pre_sequence": pre_entry["sequence"],
             "post_sequence": post_entry["sequence"],
             "chain_length": post_entry["sequence"] + 1,
@@ -416,7 +435,7 @@ async def vertex_predict(request: Request):
         model = inst.get("model", DEFAULT_MODEL)
         system = inst.get("system")
         max_tokens = inst.get("max_tokens", 4096)
-        result = await _governed_inference(messages, model, system, max_tokens)
+        result = await _governed_inference(messages, model, system, max_tokens, provider="vertex", region=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1"))
         predictions.append(result)
 
     return {"predictions": predictions}
@@ -430,13 +449,47 @@ async def anthropic_messages(request: Request):
     Returns the same response schema PLUS a 'governance' envelope.
     """
     body = await request.json()
+    # Foundry accepts only a server-configured deployment alias. Client endpoint,
+    # deployment name, and Azure credentials are rejected rather than forwarded.
+    forbidden = {"foundry_endpoint", "endpoint", "deployment_name", "azure_api_key"}
+    if forbidden & body.keys():
+        raise HTTPException(400, "Foundry endpoint and deployment are server-configured")
     messages = body.get("messages", [])
-    model = body.get("model", DEFAULT_MODEL)
     system = body.get("system")
     max_tokens = body.get("max_tokens", 4096)
-
-    extra = {k: v for k, v in body.items() if k not in ("messages", "model", "system", "max_tokens")}
-
+    provider = body.get("provider", "anthropic")
+    if provider == "foundry":
+        tenant_id = FOUNDRY_API_KEY_TENANTS.get(request.headers.get("x-api-key", ""))
+        alias = body.get("deployment_alias")
+        if not tenant_id or not isinstance(alias, str):
+            raise HTTPException(403, "tenant entitlement and deployment alias required")
+        try:
+            selection = provider_policy.select(tenant_id, alias, sum(len(str(m.get("content", ""))) // 4 + 1 for m in messages), max_tokens, set(body.get("required_capabilities", [])))
+        except PolicyError as exc:
+            raise HTTPException(exc.status_code, exc.code) from exc
+        deployment = selection.deployment
+        # Azure identity and endpoint/deployment secrets stay entirely server-side.
+        from azure.identity.aio import DefaultAzureCredential
+        credential = DefaultAzureCredential()
+        try:
+            token = await credential.get_token("https://cognitiveservices.azure.com/.default")
+            url = f"{deployment.endpoint.rstrip('/')}/openai/deployments/{deployment.deployment_name}/chat/completions?api-version=2024-10-21"
+            async with httpx.AsyncClient(timeout=120) as client:
+                reply = await client.post(url, headers={"Authorization": f"Bearer {token.token}"}, json={"messages": ([{"role": "system", "content": system}] if system else []) + messages, "max_tokens": max_tokens})
+                reply.raise_for_status()
+                foundry = reply.json()
+        finally:
+            await credential.close()
+        result = {"id": foundry.get("id"), "model": selection.catalog.model, "content": [{"type": "text", "text": foundry["choices"][0]["message"]["content"]}], "usage": {"input_tokens": foundry.get("usage", {}).get("prompt_tokens", 0), "output_tokens": foundry.get("usage", {}).get("completion_tokens", 0)}}
+        # Meter actual provider usage, not the preflight estimate.
+        usage = result["usage"]
+        actual = estimate_cost(selection.catalog, usage["input_tokens"], usage["output_tokens"])
+        provider_policy.record_usage(tenant_id, actual)
+        entry = await append_metering(state.append, provider="foundry", model=selection.catalog.model, region=deployment.region, tenant_id=tenant_id, input_tokens=usage["input_tokens"], output_tokens=usage["output_tokens"], cost_usd=actual, deployment_alias=deployment.alias)
+        result["governance"] = {"provider": "foundry", "deployment_alias": deployment.alias, "region": deployment.region, "metering_entry_hash": entry["entry_hash"], "actual_cost_usd": str(actual), "is_valid": (await state.certify())["is_valid"]}
+        return JSONResponse(result)
+    model = body.get("model", DEFAULT_MODEL)
+    extra = {k: v for k, v in body.items() if k not in ("messages", "model", "system", "max_tokens", "provider")}
     result = await _governed_inference(messages, model, system, max_tokens, **extra)
     return JSONResponse(result)
 
