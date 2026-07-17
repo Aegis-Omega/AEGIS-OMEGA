@@ -21,6 +21,8 @@ from pathlib import Path
 
 import yaml
 
+from agents.managed_agents import MANAGED_AGENT_MAX_TOKENS
+
 REGISTRY_PATH = Path(__file__).parent / "agent_registry.json"
 AGENTS_YAML = Path(__file__).parent / "agents.yaml"
 
@@ -36,11 +38,6 @@ COMPUTER_USE_TOOL: dict = {
     "display_height_px": 1080,
 }
 STANDARD_TOOLS: list[dict] = []
-
-# Hard ceiling on per-agent output tokens at registration time, regardless of what
-# agents.yaml requests (several depts ask for 16k–32k). Bounds worst-case spend per call.
-SAFE_MAX_TOKENS: int = 4096
-
 
 def load_config() -> dict:
     with open(AGENTS_YAML) as f:
@@ -98,7 +95,10 @@ def register_agents(force: bool = False, only: str | None = None) -> None:
 
         name = dept.get("name", dept_id)
         system_prompt = dept.get("system_prompt", "").strip()
-        max_tokens = min(dept.get("max_tokens", 8192), SAFE_MAX_TOKENS)
+        # Managed Agents' create API does not accept a runtime token limit. Keep
+        # this value solely as discoverable metadata; session creation enforces
+        # MANAGED_AGENT_MAX_TOKENS in coordinator.ManagedAgentsClient.run().
+        max_tokens = MANAGED_AGENT_MAX_TOKENS
 
         # Tools are opt-in per department. computer_use only when explicitly requested.
         tier = dept.get("tier", 3)
