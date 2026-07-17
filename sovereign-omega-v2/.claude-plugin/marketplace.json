@@ -1,0 +1,7 @@
+{
+  "name": "aegis-local",
+  "owner": { "name": "Tarik Skalić" },
+  "plugins": [
+    { "name": "aegis-sovereign", "source": "./" }
+  ]
+}
