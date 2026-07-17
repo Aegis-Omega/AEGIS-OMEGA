@@ -132,9 +132,30 @@ $\hat{HD}$ estimator module exists.**
 | Claim ID | Claim | Status | EQ | Depends on | Evidence | Fails if… |
 |----------|-------|--------|----|------------|----------|-----------|
 | CLM-210 | Canonical digest of a structured payload is implemented (the digest-based substrate any ECDist would build on). | Verified | A | CLM-001 | `Code: sovereign-omega-v2/python/canonical_envelope.py:76-79 @db9d8a0` (`payload_digest`) | `payload_digest` cannot digest a nested structured payload deterministically. |
-| CLM-211 | Graph construction / normalized-Laplacian / spectral $\hat{HD}$ estimator is implemented. | Proposed | D | CLM-210 | `Evidence: none found in repo` — grep for `laplacian\|adjacency\|spectral\|ecdist\|graph-distance\|eigen` returns no such module; the envelope is **digest-based, not graph-based**. | Stated as implemented while no graph/Laplacian/spectral-estimator module exists (current state). |
-| CLM-212 | ECDist satisfies metric-space axioms (identity of indiscernibles, symmetry, triangle inequality). | Proposed | D | CLM-211 | `Proof: pending` — these are mathematical properties of the metric, **not** properties the software can demonstrate; no proof in repo. | Asserted as established without a formal proof; note that running any implementation cannot substitute for proving these axioms. |
-| CLM-213 | Spectral estimator suitable for production evaluation. | Proposed | D | CLM-211, CLM-212 | `Spec: (design only)` — contingent on CLM-211 existing and CLM-212 proven, plus empirical validation. | Claimed production-ready before CLM-211 is built, CLM-212 is proven, and a validation experiment exists. |
+
+The three former rows for a **graph-construction / normalized-Laplacian / spectral $\hat{HD}$ estimator**
+(CLM-211), its **metric-space axioms** (CLM-212), and its **production-readiness** (CLM-213) have been
+**struck** (see Removed, Tier D). No such module ever existed in the tree, and — decisively — the real
+submitted metacognition metric is not a graph/spectral construct at all: the hash-pinned Kaggle lineage
+(`docs/evidence/kaggle-2026/`) defines **Hallucination Delta** as `HD = |claimed − actual|`. The
+Levenshtein / graph-Laplacian / spectral reformulation was fabricated in later manuscript drafts. The
+real HD is recorded as CLM-220 below.
+
+---
+
+## Hallucination Delta — real Kaggle lineage
+
+The genuine, externally-submitted metacognition metric — separate from the ECDist provenance line
+above. Its definition is `HD = |claimed − actual|` (absolute gap between an agent's claimed correctness
+and its actual correctness), taken directly from the April 2026 Kaggle submission whose archive is
+hash-pinned in `docs/evidence/kaggle-2026/` (manifest.json; zip SHA-256 `517f9287…`). It is an
+author-supplied external artifact under review, **not** repo-reproducible (the live multi-model runs
+require the original runtime and NVIDIA NIM credentials), so it is graded **Proposed / EQ-C**: real
+evidence exists and is byte-pinned, but a reviewer cannot rerun it from this tree alone.
+
+| Claim ID | Claim | Status | EQ | Depends on | Evidence | Fails if… |
+|----------|-------|--------|----|------------|----------|-----------|
+| CLM-220 | Real Kaggle **Hallucination Delta**, `HD = \|claimed − actual\|`: the metacognition-track submission scores calibration as the absolute gap between claimed and actual correctness. Author-supplied external artifact under review; not repo-reproducible. | Proposed | C | — | `Experiment: docs/evidence/kaggle-2026/manifest.json` (Kaggle "Measuring Progress Toward AGI" Metacognition track, 2026-04, HD=\|claimed−actual\|, zip SHA-256 `517f9287…`) | The pinned zip's metric is not `HD=\|claimed−actual\|`, or its recorded model/ARC HD values don't match `manifest.json`. |
 
 ---
 
@@ -144,14 +165,17 @@ Struck as unsupported, fabricated, or contradictory. Do not reintroduce without 
 
 | Claim ID | Struck item | Reason |
 |----------|-------------|--------|
-| CLM-301 | AgentTrace Hit@1 = 94.9% | No dataset, run, or code in repo produces this number. |
-| CLM-302 | Aegis-Bench F1 table | No benchmark harness or results artifact exists. |
+| CLM-211 | Graph-construction / normalized-Laplacian / spectral $\hat{HD}$ estimator | Not the submitted metric; real Kaggle Hallucination Delta is `HD=\|claimed−actual\|` (see `docs/evidence/kaggle-2026/`), Levenshtein/Laplacian reformulation fabricated in later drafts. |
+| CLM-212 | ECDist metric-space axioms (identity/symmetry/triangle inequality) of the spectral estimator | Not the submitted metric; describes the struck CLM-211 spectral estimator and grounds nothing without it (`docs/evidence/kaggle-2026/`); Levenshtein/Laplacian reformulation fabricated in later drafts. |
+| CLM-213 | Spectral estimator suitable for production evaluation | Not the submitted metric; real Kaggle Hallucination Delta is `HD=\|claimed−actual\|` (see `docs/evidence/kaggle-2026/`), Levenshtein/Laplacian reformulation fabricated in later drafts. |
+| CLM-301 | AgentTrace Hit@1 = 94.9% | No dataset, run, or code in repo produces this number; confirmed absent from the real Kaggle submission (`docs/evidence/kaggle-2026/`). |
+| CLM-302 | Aegis-Bench F1 table | No benchmark harness or results artifact exists; confirmed absent from the real Kaggle submission (`docs/evidence/kaggle-2026/`). |
 | CLM-303 | AgentForesight +19.9% improvement | No experiment or baseline in repo. |
 | CLM-304 | 550-scenario dataset | Fabricated; no `DATA-*` artifact. |
 | CLM-305 | ~10k trajectories corpus | Fabricated; not present. |
 | CLM-306 | AFTraj-2K dataset | Fabricated; not present. |
-| CLM-307 | Yatav Inc. corporate study | Unverifiable third-party claim; no source. |
-| CLM-308 | SABER empirical eval across GPT-5 / Claude Opus 4.6 / etc. | Unverifiable; no eval code or logs; models not run. |
+| CLM-307 | Yatav Inc. corporate study | Unverifiable third-party claim; no source; confirmed absent from the real Kaggle submission (`docs/evidence/kaggle-2026/`). |
+| CLM-308 | SABER empirical eval across GPT-5 / Claude Opus 4.6 / etc. | Unverifiable; no eval code or logs; models not run; confirmed absent from the real Kaggle submission (`docs/evidence/kaggle-2026/`). |
 | CLM-309 | IDS / BiLSTM / W-Functional / NASA-telemetry / STM32 identity splice | Not this project; grounds nothing in this tree (see identity resolution). |
 | CLM-310 | Sleep-paralysis "HD" etymology | Non-technical, unsupported narrative origin story. |
 
@@ -160,14 +184,19 @@ Struck as unsupported, fabricated, or contradictory. Do not reintroduce without 
 ## Terminology resolution
 
 - **ERD** — the theoretical phenomenon (Evidence–Reality Divergence): the object of study.
-- **ECDist** — the primary *operational* metric: distance between claimed and evidenced state
-  over provenance + evidence graphs.
-- **HD** — a historical, sequence-based predecessor metric, retained **only** for prior-literature
-  comparison; not the operational metric.
+- **ECDist** — the primary *operational* metric of **this** provenance line: distance between
+  claimed and evidenced state over provenance + evidence graphs.
+- **HD (Hallucination Delta)** — the real, externally-submitted metacognition metric, defined as
+  `HD = |claimed − actual|` (the absolute gap between an agent's claimed correctness and its actual
+  correctness). It belongs to the `swarm_os` / Sovereign AGI OS Kaggle "Measuring Progress Toward
+  AGI" Metacognition-track submission (April 2026), a parallel research lineage **zero-code-coupled**
+  to this provenance line. Its evidence is hash-pinned at `docs/evidence/kaggle-2026/`
+  (manifest.json; zip SHA-256 `517f9287…`) and recorded as CLM-220.
 
-This disambiguates from the repo's separate **"Hallucination Delta" (HD)**, which belongs to the
-`swarm_os` Kaggle metacognition track — a parallel, zero-code-coupled project, not this
-provenance line (`docs/AUDIT_FINDINGS.md:165-169`, finding H-04). The two HDs are unrelated.
+HD is **not** a normalized Levenshtein edit distance and **not** a graph-Laplacian / spectral
+$\hat{HD}$ estimator — those reformulations were fabricated in later manuscript drafts and are struck
+(CLM-211–213). ECDist (this project's provenance metric) and HD (the swarm_os calibration metric)
+remain distinct and must not be conflated (`docs/AUDIT_FINDINGS.md:165-169`, finding H-04).
 
 ---
 

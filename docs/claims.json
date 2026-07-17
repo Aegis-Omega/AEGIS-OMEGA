@@ -212,29 +212,38 @@
     {
       "id": "CLM-211",
       "claim": "Graph construction / normalized-Laplacian / spectral HD-hat estimator is implemented.",
-      "tier": "Proposed",
+      "tier": "Removed",
       "eq": "EQ-D",
-      "dependencies": ["CLM-210"],
-      "evidence": ["Evidence: none found in repo - grep for laplacian|adjacency|spectral|ecdist|graph-distance|eigen returns no such module; the envelope is digest-based, not graph-based."],
-      "fails_if": "Stated as implemented while no graph/Laplacian/spectral-estimator module exists (current state)."
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "Not the submitted metric; real Kaggle Hallucination Delta is HD=|claimed−actual| (see docs/evidence/kaggle-2026/), Levenshtein/Laplacian reformulation fabricated in later drafts."
     },
     {
       "id": "CLM-212",
       "claim": "ECDist satisfies metric-space axioms (identity of indiscernibles, symmetry, triangle inequality).",
-      "tier": "Proposed",
+      "tier": "Removed",
       "eq": "EQ-D",
-      "dependencies": ["CLM-211"],
-      "evidence": ["Proof: pending - mathematical properties of the metric, not properties the software can demonstrate; no proof in repo."],
-      "fails_if": "Asserted as established without a formal proof; running any implementation cannot substitute for proving these axioms."
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "Not the submitted metric; real Kaggle Hallucination Delta is HD=|claimed−actual| (see docs/evidence/kaggle-2026/), Levenshtein/Laplacian reformulation fabricated in later drafts. Metric-space axioms describe the struck spectral estimator and ground nothing without it."
     },
     {
       "id": "CLM-213",
       "claim": "Spectral estimator suitable for production evaluation.",
-      "tier": "Proposed",
+      "tier": "Removed",
       "eq": "EQ-D",
-      "dependencies": ["CLM-211", "CLM-212"],
-      "evidence": ["Spec: (design only - contingent on CLM-211 existing and CLM-212 proven, plus empirical validation)"],
-      "fails_if": "Claimed production-ready before CLM-211 is built, CLM-212 is proven, and a validation experiment exists."
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "Not the submitted metric; real Kaggle Hallucination Delta is HD=|claimed−actual| (see docs/evidence/kaggle-2026/), Levenshtein/Laplacian reformulation fabricated in later drafts."
+    },
+    {
+      "id": "CLM-220",
+      "claim": "Real Kaggle Hallucination Delta (HD = |claimed − actual|): the April 2026 'Measuring Progress Toward AGI' Metacognition-track submission measures metacognitive calibration as the absolute gap between an agent's claimed correctness and its actual correctness. Author-supplied external artifact, under review; not repo-reproducible (requires the original runtime and NVIDIA NIM credentials).",
+      "tier": "Proposed",
+      "eq": "EQ-C",
+      "dependencies": [],
+      "evidence": ["Experiment: docs/evidence/kaggle-2026/manifest.json (Kaggle \"Measuring Progress Toward AGI\" Metacognition track, 2026-04, HD=|claimed−actual|, zip SHA-256 517f9287…)"],
+      "fails_if": "the pinned zip's metric is not HD=|claimed−actual| or its recorded model/ARC HD values don't match manifest.json."
     },
     {
       "id": "CLM-301",
@@ -243,7 +252,7 @@
       "eq": "EQ-D",
       "dependencies": [],
       "evidence": [],
-      "removal_reason": "No dataset, run, or code in repo produces this number."
+      "removal_reason": "No dataset, run, or code in repo produces this number; confirmed absent from the real Kaggle submission (docs/evidence/kaggle-2026/)."
     },
     {
       "id": "CLM-302",
@@ -252,7 +261,7 @@
       "eq": "EQ-D",
       "dependencies": [],
       "evidence": [],
-      "removal_reason": "No benchmark harness or results artifact exists."
+      "removal_reason": "No benchmark harness or results artifact exists; confirmed absent from the real Kaggle submission (docs/evidence/kaggle-2026/)."
     },
     {
       "id": "CLM-303",
@@ -297,7 +306,7 @@
       "eq": "EQ-D",
       "dependencies": [],
       "evidence": [],
-      "removal_reason": "Unverifiable third-party claim; no source."
+      "removal_reason": "Unverifiable third-party claim; no source; confirmed absent from the real Kaggle submission (docs/evidence/kaggle-2026/)."
     },
     {
       "id": "CLM-308",
@@ -306,7 +315,7 @@
       "eq": "EQ-D",
       "dependencies": [],
       "evidence": [],
-      "removal_reason": "Unverifiable; no eval code or logs; models not run."
+      "removal_reason": "Unverifiable; no eval code or logs; models not run; confirmed absent from the real Kaggle submission (docs/evidence/kaggle-2026/)."
     },
     {
       "id": "CLM-309",
