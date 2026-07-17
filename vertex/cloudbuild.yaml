@@ -38,7 +38,7 @@ steps:
       # cost-incurring routes (collaborate / agents.run / messages). Create the
       # platform-api-key secret before first deploy, or the in-app gate stays
       # open (PLATFORM_API_KEY unset → catalog/health public, no key required).
-      - --set-secrets=ANTHROPIC_API_KEY=anthropic-api-key:latest,PLATFORM_API_KEY=platform-api-key:latest
+      - --set-secrets=ANTHROPIC_API_KEY=anthropic-api-key:latest,PLATFORM_API_KEY=platform-api-key:latest,FOUNDRY_DEPLOYMENTS_JSON=foundry-deployments:latest,FOUNDRY_TENANT_POLICIES_JSON=foundry-tenant-policies:latest,FOUNDRY_API_KEY_TENANTS_JSON=foundry-api-key-tenants:latest
       - --set-env-vars=AEGIS_DEFAULT_MODEL=claude-opus-4-8,RATE_LIMIT_PER_MIN=60
       - --allow-unauthenticated
       - --port=8080
