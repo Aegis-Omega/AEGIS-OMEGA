@@ -19,13 +19,35 @@ interface Fetcher {
 
 interface Env {
   ANTHROPIC_API_KEY?: string
+  SUPABASE_URL?: string
+  SUPABASE_SERVICE_ROLE_KEY?: string
   ASSETS: Fetcher
 }
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-API-Key',
+  'Access-Control-Allow-Headers': 'Content-Type, X-API-Key, Idempotency-Key',
+}
+
+async function sha256(value: string): Promise<string> {
+  const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)))
+  return Array.from(bytes).map(x => x.toString(16).padStart(2, '0')).join('')
+}
+
+/** Fail closed before inference: a key must resolve to a live entitlement and
+ * the RPC atomically applies the plan's usage quota. */
+async function authorizeInference(request: Request, env: Env): Promise<boolean> {
+  const key = request.headers.get('x-api-key')
+  if (!key || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return false
+  const response = await fetch(`${env.SUPABASE_URL.replace(/\/$/, '')}/rest/v1/rpc/authorize_api_key_usage`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', apikey: env.SUPABASE_SERVICE_ROLE_KEY, authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` },
+    body: JSON.stringify({ p_key_hash: await sha256(key), p_idempotency_key: request.headers.get('idempotency-key') ?? crypto.randomUUID(), p_quantity: 1 }),
+  })
+  if (!response.ok) return false
+  const rows = await response.json() as unknown[]
+  return rows.length === 1
 }
 
 function ok(data: unknown): Response {
@@ -224,6 +246,9 @@ export default {
     if (pathname === '/platform/collaborate' && method === 'POST') {
       if (!env.ANTHROPIC_API_KEY) {
         return err('ANTHROPIC_API_KEY not configured', 'UNAUTHORIZED', 401)
+      }
+      if (!await authorizeInference(request, env)) {
+        return err('Valid API key with an active entitlement and remaining quota required', 'ENTITLEMENT_REQUIRED', 403)
       }
       try {
         const body = await request.json() as { objective?: string; mode?: string }
