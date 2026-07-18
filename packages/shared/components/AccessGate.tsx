@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import { Shield, Zap, CheckCircle } from 'lucide-react'
-import { verifyGrantToken, verifyServerToken, getStoredAccess, storeAccess, storeServerToken, getStoredServerToken } from '../lib/access.js'
+import { verifyServerToken, storeServerToken, getStoredServerToken } from '../lib/access.js'
 
 interface AccessGateProps {
   product: 'platform-picker' | 'hook-generator' | 'content-calendar'
@@ -32,22 +32,11 @@ export function AccessGate({ product, accentColor = '#6366F1', buyUrl, children 
       const token = params.get('aegis_token')
 
       if (token) {
-        // Try ECDSA-signed server token first (cryptographically secure)
+        // Only ECDSA-signed server-issued tokens are accepted.
+        // (Legacy client-minted HMAC tokens were forgeable and are no longer honored.)
         const serverPayload = await verifyServerToken(token)
         if (serverPayload && serverPayload.tools.includes(product)) {
           storeServerToken(product, token)
-          const url = new URL(window.location.href)
-          url.searchParams.delete('aegis_token')
-          window.history.replaceState({}, '', url.toString())
-          setJustGranted(true)
-          setTimeout(() => { setUnlocked(true); setJustGranted(false) }, 1200)
-          setChecking(false)
-          return
-        }
-        // Fall back to legacy HMAC token (backwards compatibility)
-        const payload = verifyGrantToken(token)
-        if (payload && payload.tools.includes(product)) {
-          storeAccess(product, payload)
           const url = new URL(window.location.href)
           url.searchParams.delete('aegis_token')
           window.history.replaceState({}, '', url.toString())
@@ -66,9 +55,6 @@ export function AccessGate({ product, accentColor = '#6366F1', buyUrl, children 
         localStorage.removeItem(`aegis_srv_${product}`)
       }
 
-      // Check stored legacy token
-      const stored = getStoredAccess(product)
-      if (stored) { setUnlocked(true) }
       setChecking(false)
     })()
   }, [product])

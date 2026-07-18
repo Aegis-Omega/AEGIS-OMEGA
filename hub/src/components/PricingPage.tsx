@@ -4,7 +4,6 @@
 // direct provision for Explorer.
 // Full NOUS design language: CoreCanvas hero, NousButton CTAs, glass tier cards.
 import { useEffect, useRef, useState } from 'react'
-import { createGrantToken } from '@shared/lib/access.js'
 import { T, MONO, SANS } from './console/consoleTokens.js'
 import { CoreCanvas } from './console/CoreCanvas.js'
 import { NousButton, ArrowR, NousPill } from './console/NousUI.js'
@@ -130,9 +129,11 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
+// Post-payment tool listing. Links carry NO access token — tool access is
+// granted only by server-issued P-256 tokens (verify-paypal / _shared/jwt.ts);
+// client-side token minting is prohibited (see CLAUDE.md payment security).
 function ToolAccessSection({ tier }: { tier: Tier }) {
   if (tier === 'explorer') return null
-  const token = createGrantToken('full')
   const tools = ['platform-picker', 'hook-generator', 'content-calendar'] as const
   return (
     <div style={{
@@ -144,7 +145,7 @@ function ToolAccessSection({ tier }: { tier: Tier }) {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {tools.map(tool => {
-          const url  = `${TOOL_URLS[tool]}?aegis_token=${encodeURIComponent(token)}`
+          const url  = TOOL_URLS[tool]
           const meta = TOOL_LABELS[tool]
           return (
             <a key={tool} href={url} target="_blank" rel="noopener noreferrer" style={{
@@ -511,12 +512,6 @@ export function PricingPage() {
           )}
         </div>
 
-        {/* Tool access preview for selected tier */}
-        {tier !== 'explorer' && (
-          <div style={{ maxWidth: 480, margin: '0 auto' }}>
-            <ToolAccessSection tier={tier} />
-          </div>
-        )}
       </div>
 
       {/* Comparison table */}
