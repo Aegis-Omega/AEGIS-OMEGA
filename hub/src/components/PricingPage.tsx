@@ -129,10 +129,11 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-// Post-payment tool listing. Links carry NO access token — tool access is
-// granted only by server-issued P-256 tokens (verify-paypal / _shared/jwt.ts);
+// Post-payment tool listing. When verify-paypal returns a server-issued P-256
+// tool token (_shared/jwt.ts), links carry it as ?aegis_token= — the param
+// AccessGate verifies via verifyServerToken. Without a token, links are plain;
 // client-side token minting is prohibited (see CLAUDE.md payment security).
-function ToolAccessSection({ tier }: { tier: Tier }) {
+function ToolAccessSection({ tier, toolToken }: { tier: Tier; toolToken: string | null }) {
   if (tier === 'explorer') return null
   const tools = ['platform-picker', 'hook-generator', 'content-calendar'] as const
   return (
@@ -145,7 +146,8 @@ function ToolAccessSection({ tier }: { tier: Tier }) {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {tools.map(tool => {
-          const url  = TOOL_URLS[tool]
+          const base = TOOL_URLS[tool]
+          const url  = toolToken ? `${base}?aegis_token=${encodeURIComponent(toolToken)}` : base
           const meta = TOOL_LABELS[tool]
           return (
             <a key={tool} href={url} target="_blank" rel="noopener noreferrer" style={{
@@ -167,7 +169,7 @@ function ToolAccessSection({ tier }: { tier: Tier }) {
   )
 }
 
-function ApiKeyDisplay({ apiKey, tier }: { apiKey: string; tier: Tier }) {
+function ApiKeyDisplay({ apiKey, tier, toolToken }: { apiKey: string; tier: Tier; toolToken: string | null }) {
   const t = TIERS[tier]
   const curlExample = `curl -X POST ${BASE}/platform/collaborate \\\n  -H "x-api-key: ${apiKey}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"objective":"Enter EU market","mode":"gtm","live":false}'`
   return (
@@ -217,7 +219,7 @@ function ApiKeyDisplay({ apiKey, tier }: { apiKey: string; tier: Tier }) {
           </div>
         </div>
 
-        <ToolAccessSection tier={tier} />
+        <ToolAccessSection tier={tier} toolToken={toolToken} />
       </div>
     </div>
   )
@@ -312,7 +314,8 @@ function CompareTable() {
 export function PricingPage() {
   const [email,    setEmail]    = useState('')
   const [tier,     setTier]     = useState<Tier>('operator')
-  const [apiKey,   setApiKey]   = useState<string | null>(null)
+  const [apiKey,    setApiKey]    = useState<string | null>(null)
+  const [toolToken, setToolToken] = useState<string | null>(null)
   const [error,    setError]    = useState<string | null>(null)
   const [loading,  setLoading]  = useState(false)
   const [sdkReady, setSdkReady] = useState(false)
@@ -382,8 +385,9 @@ export function PricingPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ order_id: data.orderID, tier, email: emailRef.current.trim() }),
           })
-          const d = await resp.json() as { api_key?: string; error?: string }
+          const d = await resp.json() as { api_key?: string; tool_token?: string; error?: string }
           if (!resp.ok) throw new Error(d.error ?? `HTTP ${resp.status}`)
+          setToolToken(d.tool_token ?? null)
           setApiKey(d.api_key!)
         } catch (e) { setError(String(e)) }
         finally { setLoading(false) }
@@ -400,7 +404,7 @@ export function PricingPage() {
     return () => { try { buttons.close() } catch { /* noop */ } }
   }, [tier, sdkReady])
 
-  if (apiKey)     return <ApiKeyDisplay apiKey={apiKey} tier={tier} />
+  if (apiKey)     return <ApiKeyDisplay apiKey={apiKey} tier={tier} toolToken={toolToken} />
   return (
     <div style={{ background: '#06070C', color: T.text, minHeight: '100vh', fontFamily: SANS }}>
       <PricingNav />
