@@ -1,7 +1,7 @@
 const TOOLS = [
-  { name: 'Platform Picker', url: 'https://platform-picker.vercel.app' },
-  { name: 'Hook Generator', url: 'https://hook-generator.vercel.app' },
-  { name: 'Content Calendar', url: 'https://content-calendar.vercel.app' },
+  { name: 'Platform Picker', url: 'https://platform.aegisomega.com' },
+  { name: 'Hook Generator', url: 'https://hooks.aegisomega.com' },
+  { name: 'Content Calendar', url: 'https://calendar.aegisomega.com' },
 ]
 
 interface ToolkitFooterProps {

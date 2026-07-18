@@ -51,44 +51,44 @@ const TIERS: Record<Tier, TierDef> = {
   operator: {
     label: 'Operator', price: '$49', priceNote: 'one-time',
     runs: '500 governed runs', accent: T.indigo, pill: 'POPULAR',
-    desc: '500 governed cycles. Build integrations, automate workflows, run serious analysis.',
+    desc: '500 runs, one-time. Each run = a full 39-department report: artifacts + verdict + chain hash.',
     features: [
       '500 governed API calls',
       'Full 39-agent collaboration',
+      'Live Claude inference · all 8 modes',
       'SHA-256 audit chain',
       'Constitutional verdict',
-      'SSE stream: dag_step events',
-      'AI Creator Tools suite',
-      'priority queue access',
+      'SSE live stream',
+      'Platform Picker + Hook Generator + Content Calendar included',
     ],
   },
   sovereign: {
     label: 'Sovereign', price: '$499', priceNote: 'one-time',
     runs: 'Unlimited runs', accent: T.phi, pill: 'BEST VALUE',
-    desc: 'No run cap. No throttling. Constitutional governance on every call, always.',
+    desc: 'No run cap, priority support. The same governed swarm as Operator — without the 500-run ceiling.',
     features: [
       'Unlimited governed API calls',
       'Full 39-agent collaboration',
-      'SHA-256 audit chain + replay',
+      'Live Claude inference · all 8 modes',
+      'SHA-256 audit chain',
       'Constitutional verdict',
-      'SSE stream: all event types',
-      'AI Creator Tools suite',
-      'Priority throughput',
-      'Agent API tool profiles',
-      'Raw artifact access',
+      'SSE live stream',
+      'Platform Picker + Hook Generator + Content Calendar included',
+      'Priority support',
     ],
   },
 }
 
 const FEATURE_ROWS = [
-  ['Governed API calls',     '10',         '500',           '∞'],
-  ['39-dept collaboration',  '✓',          '✓',             '✓'],
-  ['Hash-chained audit',     '✓',          '✓',             '✓'],
-  ['Constitutional verdict', '✓',          '✓',             '✓'],
-  ['SSE live stream',        '—',          'dag_step only', 'all events'],
-  ['AI Creator Tools',       '—',          '✓',             '✓'],
-  ['Priority throughput',    '—',          '—',             '✓'],
-  ['Agent API profiles',     '—',          '—',             '✓'],
+  ['Governed API calls',     '10',      '500', '∞'],
+  ['39-dept collaboration',  '✓',       '✓',   '✓'],
+  ['Live Claude inference',  '—',       '✓',   '✓'],
+  ['Analysis modes',         '4',       '8',   '8'],
+  ['Hash-chained audit',     '✓',       '✓',   '✓'],
+  ['Constitutional verdict', '✓',       '✓',   '✓'],
+  ['SSE live stream',        '—',       '✓',   '✓'],
+  ['AI Creator Tools',       '—',       '✓',   '✓'],
+  ['Priority support',       '—',       '—',   '✓'],
 ]
 
 function PricingNav() {
@@ -422,13 +422,14 @@ export function PricingPage() {
             letterSpacing: '-0.045em', margin: '24px 0 22px',
             background: 'linear-gradient(180deg, #FFFFFF 0%, #C9CBD6 55%, #9A8050 130%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-          }}>Governed AI,<br />one flat price</h1>
+          }}>Under 10¢ per<br />39-agent analysis</h1>
           <p style={{ fontSize: 'clamp(16px,2vw,19px)', color: '#CBCDD8', maxWidth: 540, margin: '0 auto', lineHeight: 1.65 }}>
-            A 39-department constitutional swarm with a SHA-256 audit chain on every call.
-            Pay once with PayPal — no subscription, key delivered instantly.
+            $49 one-time buys 500 full collaboration runs — each returns per-department
+            artifacts, a constitutional audit verdict, and a replayable SHA-256 chain.
+            No subscription.
           </p>
           <p style={{ fontSize: 13, color: T.muted, maxWidth: 540, margin: '14px auto 0', lineHeight: 1.6 }}>
-            GitHub Sponsors also supported — claim your key at <a href="/claim-sponsor" style={{ color: T.indigo }}>/claim-sponsor</a> after sponsoring.
+            Run it free first — the Explorer tier includes 10 full swarm runs, no card.
           </p>
           <div style={{
             display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap',
