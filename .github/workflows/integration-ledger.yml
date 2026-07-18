@@ -17,7 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      LEDGER_DIR: ${{ runner.temp }}/integration-ledger
     steps:
       - name: Checkout candidate commit
         uses: actions/checkout@v4
@@ -40,10 +39,12 @@ jobs:
           export SOURCE_DATE_EPOCH="$(git show -s --format=%ct "$CANDIDATE_SHA")"
           python3 scripts/integration_ledger.py \
             --write \
-            --output-dir "$LEDGER_DIR" \
+            --output-dir "$RUNNER_TEMP/integration-ledger" \
             --expected-sha "$CANDIDATE_SHA"
 
       - name: Verify paired evidence
+        env:
+          LEDGER_DIR: ${{ runner.temp }}/integration-ledger
         run: |
           python3 - <<'PY'
           import json
@@ -66,6 +67,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: integration-ledger-${{ env.CANDIDATE_SHA }}
-          path: ${{ env.LEDGER_DIR }}
+          path: ${{ runner.temp }}/integration-ledger
           if-no-files-found: error
           retention-days: 30
