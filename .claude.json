@@ -1,0 +1,487 @@
+{
+  "schema": {
+    "id": "https://aegisomega.com/schemas/cognitive-state.v1.schema.json",
+    "local_path": "schemas/cognitive-state.v1.schema.json",
+    "version": "1.0.0"
+  },
+  "system_identifier": "AEGIS-OMEGA-LIVING-ANCHOR",
+  "ontology_dimensions": 8,
+  "provenance": {
+    "generator": "scripts/build-cognitive-manifest.py",
+    "repository": "Aegis-Omega/AEGIS-OMEGA",
+    "source_ref": "claude/test-coverage-analysis-keTIk"
+  },
+  "hashing": {
+    "algorithm": "sha256",
+    "canonicalization": "aegis-json-v1",
+    "skill_hash_scope": "raw file bytes",
+    "skills_root_scope": "canonical ordered array of path, sha256, and size_bytes",
+    "state_hash_scope": "canonical manifest with state_hash omitted"
+  },
+  "skills_root_hash": "b80c4ac7d2b420e03d67b4ff367f0b936aac831ee1144b67369aba0dc5216b21",
+  "rotational_axis": {
+    "axis_3": {
+      "focus": "kinetic_entropy",
+      "manifest_hash": "33f6863372ae03aeae5eb2c6e7f97feecb7c767abcb0ab9ccad7c4637b62b81a"
+    },
+    "axis_6": {
+      "focus": "dynamic_mutation",
+      "manifest_hash": "b7cf5a4584dfcba139a9dada644cb4d34e6e60c87e008b97961e9f10e795a34e"
+    },
+    "axis_9": {
+      "focus": "immutable_truth",
+      "manifest_hash": "ea43b971fc91a496d248da7b8c2c01693bf9256578179b896732906cadbc30a9"
+    }
+  },
+  "cognitive_state": {
+    "agents": {
+      "aegis_core": {
+        "identity": "system-2-orchestrator",
+        "pacing": "phi-frequency",
+        "privilege_model": "least-privilege"
+      },
+      "automaton_2": {
+        "identity": "independent-verifier",
+        "phase_shift_degrees": 108,
+        "chain_id": "sha256-observed-ledger",
+        "constitutional_filter": {
+          "mode": "adversarial-verification",
+          "fail_closed": true,
+          "require_parent_state_hash": true,
+          "require_skill_hash_match": true,
+          "max_replay_divergence": 0
+        }
+      }
+    },
+    "tools": {
+      "ingress_gateway": {
+        "declared_endpoint": "/v1/open-hands/ingress",
+        "policy": "least-privilege",
+        "isolation_tier": "sandbox-unprivileged",
+        "validation_protocol": "EventEnvelope"
+      },
+      "egress_stream": {
+        "declared_endpoint": "/v1/open-hands/egress",
+        "format": "cryptographic-event-stream",
+        "filtering": "verified-state-projection"
+      }
+    },
+    "skills": {
+      "count": 62,
+      "root_hash": "b80c4ac7d2b420e03d67b4ff367f0b936aac831ee1144b67369aba0dc5216b21",
+      "entries": [
+        {
+          "name": "run-aegis",
+          "path": ".claude/skills/run-aegis/SKILL.md",
+          "sha256": "86ee2f2f1018b3262f8547f088caa400b35183e376bcceef28767c901f34fae2",
+          "size_bytes": 4970
+        },
+        {
+          "name": "aegis-architecture",
+          "path": "sovereign-omega-v2/.claude/skills/aegis-architecture/SKILL.md",
+          "sha256": "3e53e9cdd8f36b74baf82ab30ae45d7b9f699770105cfcffcea477cdde1bb4be",
+          "size_bytes": 3852
+        },
+        {
+          "name": "agent-constitution",
+          "path": "sovereign-omega-v2/.claude/skills/agent-constitution/SKILL.md",
+          "sha256": "c54c603bda3dbff44500633b02881d3907f87d340d6b3e726871ccb3afc1f21f",
+          "size_bytes": 3321
+        },
+        {
+          "name": "agent-mesh",
+          "path": "sovereign-omega-v2/.claude/skills/agent-mesh/SKILL.md",
+          "sha256": "d527c8335e76f295a887642ee80620a680c8625245f71c395bdd067528997c35",
+          "size_bytes": 9182
+        },
+        {
+          "name": "anthropic-alignment",
+          "path": "sovereign-omega-v2/.claude/skills/anthropic-alignment/SKILL.md",
+          "sha256": "516785369bd8b23ce44a917611e38c1eae4ab92a79b005f5acecd14c6367c25d",
+          "size_bytes": 36893
+        },
+        {
+          "name": "audit-findings",
+          "path": "sovereign-omega-v2/.claude/skills/audit-findings/SKILL.md",
+          "sha256": "9d49ae21a70d2f0837588aa20b0837c0493c4926c7d1b1667e7c81acd9fd3ee1",
+          "size_bytes": 3375
+        },
+        {
+          "name": "auto-agent",
+          "path": "sovereign-omega-v2/.claude/skills/auto-agent/SKILL.md",
+          "sha256": "bd93c2f4fbbd46ab9d69b814ce10a79b5365ad929f20f1529e28486cae0db184",
+          "size_bytes": 7122
+        },
+        {
+          "name": "automaton-workflow",
+          "path": "sovereign-omega-v2/.claude/skills/automaton-workflow/SKILL.md",
+          "sha256": "319cbfe61387780a133f99ec39670cbd91e6335404ce1ac04ec650ac8d322633",
+          "size_bytes": 9989
+        },
+        {
+          "name": "autopoiesis",
+          "path": "sovereign-omega-v2/.claude/skills/autopoiesis/SKILL.md",
+          "sha256": "9b246b58463ad7f690d8fa454091763aae43742ea8aceb95b89dd277c776d9ef",
+          "size_bytes": 11156
+        },
+        {
+          "name": "bls-threshold-aggregation",
+          "path": "sovereign-omega-v2/.claude/skills/bls-threshold-aggregation/SKILL.md",
+          "sha256": "74cb86606ed58ea6b566a8b8dce0d53168d6f1bfb5dd330299b80f2abb91370b",
+          "size_bytes": 3682
+        },
+        {
+          "name": "brainstorming",
+          "path": "sovereign-omega-v2/.claude/skills/brainstorming/SKILL.md",
+          "sha256": "5c94ce3a4bf025dde492e400810b25a1a4e68fb10a96b79b96f225ffd8178291",
+          "size_bytes": 3994
+        },
+        {
+          "name": "branch-coverage",
+          "path": "sovereign-omega-v2/.claude/skills/branch-coverage/SKILL.md",
+          "sha256": "bdafb45a9030c000bcf5678e45e2896918fda57b252b4f185d49d3793e94fd9d",
+          "size_bytes": 7368
+        },
+        {
+          "name": "chronology",
+          "path": "sovereign-omega-v2/.claude/skills/chronology/SKILL.md",
+          "sha256": "b45a32cb8fedc24c5e1406addfa06fbafddf29b5d9e3f92deb8a3f0f54c9f772",
+          "size_bytes": 19004
+        },
+        {
+          "name": "claude-api-ref",
+          "path": "sovereign-omega-v2/.claude/skills/claude-api-ref/SKILL.md",
+          "sha256": "43bc71f7bf79824d39d656fe593dd0bda6ed170f8e15af71c3a4c703304b67c0",
+          "size_bytes": 4655
+        },
+        {
+          "name": "compact",
+          "path": "sovereign-omega-v2/.claude/skills/compact/SKILL.md",
+          "sha256": "2aacf25e5aa57edf0bcfc3ffce8a0dc1f7067a0e14fb9a64879df3e2c5efa63a",
+          "size_bytes": 3018
+        },
+        {
+          "name": "compaction-prep",
+          "path": "sovereign-omega-v2/.claude/skills/compaction-prep/SKILL.md",
+          "sha256": "2153c3541635bd7ced7d75541d9125931580c01290a59f2410738b57cf85e59b",
+          "size_bytes": 5924
+        },
+        {
+          "name": "constitutional-audit",
+          "path": "sovereign-omega-v2/.claude/skills/constitutional-audit/SKILL.md",
+          "sha256": "1ad319ea8ed7a7ca76327b92c933e7e0290cd54552e19ef0e003f61f75f612db",
+          "size_bytes": 4815
+        },
+        {
+          "name": "constitutional-law",
+          "path": "sovereign-omega-v2/.claude/skills/constitutional-law/SKILL.md",
+          "sha256": "05285be2fd17e6175b556371ade83d46b49d633a629e73027fec5b7e2fa85a9e",
+          "size_bytes": 3454
+        },
+        {
+          "name": "core-matrix",
+          "path": "sovereign-omega-v2/.claude/skills/core-matrix/SKILL.md",
+          "sha256": "a660358fa3787b24d7bf32a12e6e562a8be0ca88a9250ce671cfa9739880b5df",
+          "size_bytes": 1662
+        },
+        {
+          "name": "corpus-ingestion",
+          "path": "sovereign-omega-v2/.claude/skills/corpus-ingestion/SKILL.md",
+          "sha256": "cf83ba81553766241b2c2f7b0191269731fbad6670616b37bd2b8f612bbf815e",
+          "size_bytes": 8126
+        },
+        {
+          "name": "deploy",
+          "path": "sovereign-omega-v2/.claude/skills/deploy/SKILL.md",
+          "sha256": "1faba4703f79ec42f40161eb7d31b5c2481e6d261c178216df969e62b600fca0",
+          "size_bytes": 6642
+        },
+        {
+          "name": "diagnose",
+          "path": "sovereign-omega-v2/.claude/skills/diagnose/SKILL.md",
+          "sha256": "78138f791cf04937ba20629098683abf09ae2a4b5bb9924c0d4ee46ecf104190",
+          "size_bytes": 4438
+        },
+        {
+          "name": "dispatching-parallel-agents",
+          "path": "sovereign-omega-v2/.claude/skills/dispatching-parallel-agents/SKILL.md",
+          "sha256": "b21e1dabc5120e00ba15c4ecfe9c6787224a3d1e52c871fb78a93a3e4483128e",
+          "size_bytes": 3381
+        },
+        {
+          "name": "docx",
+          "path": "sovereign-omega-v2/.claude/skills/docx/SKILL.md",
+          "sha256": "84d81987cd9e694ac3345d96d9dd809f574da5b4a813d90b31b4f02476cd04e3",
+          "size_bytes": 6371
+        },
+        {
+          "name": "drift-check",
+          "path": "sovereign-omega-v2/.claude/skills/drift-check/SKILL.md",
+          "sha256": "847daaad14440f4bc03f99306faacdc11fd3021035218d098935f0b8cfff6334",
+          "size_bytes": 6412
+        },
+        {
+          "name": "enterprise",
+          "path": "sovereign-omega-v2/.claude/skills/enterprise/SKILL.md",
+          "sha256": "f3d5a3a23714da1c7eec9a8b508748d7c37ff0d1e89852b422b67226ce26f5ab",
+          "size_bytes": 9808
+        },
+        {
+          "name": "evening-seal",
+          "path": "sovereign-omega-v2/.claude/skills/evening-seal/SKILL.md",
+          "sha256": "d0e918e2374c048bbb10d353035ed10e84bb2b71f4a55e9149f095267c698457",
+          "size_bytes": 5541
+        },
+        {
+          "name": "execution-boundary",
+          "path": "sovereign-omega-v2/.claude/skills/execution-boundary/SKILL.md",
+          "sha256": "c52f40ede81aa701b53317a948d93ffac40cd3f7e031a13e5f94e8d2410b11d9",
+          "size_bytes": 4289
+        },
+        {
+          "name": "frozen-file-check",
+          "path": "sovereign-omega-v2/.claude/skills/frozen-file-check/SKILL.md",
+          "sha256": "90d477dc9bf3c12001e3b2b07a6cf598a6d3d87f9b617b66c19cf860d289f814",
+          "size_bytes": 2139
+        },
+        {
+          "name": "gate-execution",
+          "path": "sovereign-omega-v2/.claude/skills/gate-execution/SKILL.md",
+          "sha256": "d27e07071a88c5b436a082403d933b8381fbceaf7e9f17fadc5af5fd3fb7140f",
+          "size_bytes": 2456
+        },
+        {
+          "name": "gate-pair",
+          "path": "sovereign-omega-v2/.claude/skills/gate-pair/SKILL.md",
+          "sha256": "abf39c139bb5e170d06c44c91256940e340007d3c4608d90d31e25c0d7b9bcc0",
+          "size_bytes": 8347
+        },
+        {
+          "name": "gate-specs",
+          "path": "sovereign-omega-v2/.claude/skills/gate-specs/SKILL.md",
+          "sha256": "c07680d5a6287d68d9d27bf41c728f7c997e706d32feabdc6d1269b3cbc1ada7",
+          "size_bytes": 3522
+        },
+        {
+          "name": "handoff-docs",
+          "path": "sovereign-omega-v2/.claude/skills/handoff-docs/SKILL.md",
+          "sha256": "69fb555a9fa87cd0d922fdef8f34c96c3fdf29922f0e29217addf11a0eff7f24",
+          "size_bytes": 3517
+        },
+        {
+          "name": "ica-nmf-telemetry",
+          "path": "sovereign-omega-v2/.claude/skills/ica-nmf-telemetry/SKILL.md",
+          "sha256": "5d9df7041fe6ec14f30ca234d0d9b2e4dac175b1587fe6cecb10773296643523",
+          "size_bytes": 4236
+        },
+        {
+          "name": "int4-lut-kan",
+          "path": "sovereign-omega-v2/.claude/skills/int4-lut-kan/SKILL.md",
+          "sha256": "8ab8edd2813a73bde3e4f369e83a9b8f1a10ea998df8fa458176f084cda312a9",
+          "size_bytes": 6030
+        },
+        {
+          "name": "mcp-builder",
+          "path": "sovereign-omega-v2/.claude/skills/mcp-builder/SKILL.md",
+          "sha256": "bdaf79715dd2717bcdb7eb2ea84120760952126af2aa5a1513aa809744b2fe5f",
+          "size_bytes": 4318
+        },
+        {
+          "name": "metacognition",
+          "path": "sovereign-omega-v2/.claude/skills/metacognition/SKILL.md",
+          "sha256": "ac20f5477282be5599e1dc29bb1cd5fa4cdac5a8cb4298981ca68d1ecd94400a",
+          "size_bytes": 12397
+        },
+        {
+          "name": "morning-audit",
+          "path": "sovereign-omega-v2/.claude/skills/morning-audit/SKILL.md",
+          "sha256": "e681b35bc0bdb6fd806c581cda589c90055f69f4e420443d6a827c3237903911",
+          "size_bytes": 5608
+        },
+        {
+          "name": "mythos-bootstrap",
+          "path": "sovereign-omega-v2/.claude/skills/mythos-bootstrap/SKILL.md",
+          "sha256": "60d4ce87bdeda14f51003d1b8a6083a6cfe2313ebf4edaa694c7814af1f4214f",
+          "size_bytes": 5473
+        },
+        {
+          "name": "mythos",
+          "path": "sovereign-omega-v2/.claude/skills/mythos/SKILL.md",
+          "sha256": "96cd3e6d207fcc7dba6e529e2e37b76e3d8e2bf1850f1d6f660ba9d0c17e0896",
+          "size_bytes": 8391
+        },
+        {
+          "name": "pdf",
+          "path": "sovereign-omega-v2/.claude/skills/pdf/SKILL.md",
+          "sha256": "a4dcc5c324e366ac457dd19f04300380b77f9e83f1ac2c798b57cb24552bdd95",
+          "size_bytes": 7473
+        },
+        {
+          "name": "plonky3-zk-compression",
+          "path": "sovereign-omega-v2/.claude/skills/plonky3-zk-compression/SKILL.md",
+          "sha256": "9c2b823a66ccdebb33be28e138420f13ee95dedf86a808b61d0c3388c378c6ae",
+          "size_bytes": 3222
+        },
+        {
+          "name": "reload-skills",
+          "path": "sovereign-omega-v2/.claude/skills/reload-skills/SKILL.md",
+          "sha256": "19b7eaeb0b3caecb8bb2ff31757f76ac3bf72160c5586e2eb4c6e434e9305521",
+          "size_bytes": 2357
+        },
+        {
+          "name": "replay-constitution",
+          "path": "sovereign-omega-v2/.claude/skills/replay-constitution/SKILL.md",
+          "sha256": "6f17819efa21e741e7527754db548889d0410e51d06e51ea881cb0b99f82ffca",
+          "size_bytes": 2678
+        },
+        {
+          "name": "replay-sovereignty",
+          "path": "sovereign-omega-v2/.claude/skills/replay-sovereignty/SKILL.md",
+          "sha256": "74a7abf8b746020de7a1effd9a49850b4a38dd9c2645eb17ca94dda0bf36eacb",
+          "size_bytes": 5284
+        },
+        {
+          "name": "run-skill-generator",
+          "path": "sovereign-omega-v2/.claude/skills/run-skill-generator/SKILL.md",
+          "sha256": "1003108a1dca88a7bb09857b962a1b54513eae6b693ea06be1f1de5f3c256f30",
+          "size_bytes": 1817
+        },
+        {
+          "name": "rwkv7-wave-logic",
+          "path": "sovereign-omega-v2/.claude/skills/rwkv7-wave-logic/SKILL.md",
+          "sha256": "a14ac60ebc5d296f9cc1353e85a83b55d80b0243b0bb27090e6a763cd0356515",
+          "size_bytes": 3145
+        },
+        {
+          "name": "security-scan",
+          "path": "sovereign-omega-v2/.claude/skills/security-scan/SKILL.md",
+          "sha256": "9e9575e90af79165f6d7f789d7321194e54a52b8b47e4f6e155ac8fb953a1d4a",
+          "size_bytes": 4231
+        },
+        {
+          "name": "ship",
+          "path": "sovereign-omega-v2/.claude/skills/ship/SKILL.md",
+          "sha256": "1016b781e3a4ae487f4d8163fa12c0eae23763e6a1becf03cc3f3315223598bc",
+          "size_bytes": 4788
+        },
+        {
+          "name": "skill-creator",
+          "path": "sovereign-omega-v2/.claude/skills/skill-creator/SKILL.md",
+          "sha256": "f2cb20c9d02878a817f97642511dd272d153787958e508e1267f325784f6d862",
+          "size_bytes": 3152
+        },
+        {
+          "name": "spec-compliance",
+          "path": "sovereign-omega-v2/.claude/skills/spec-compliance/SKILL.md",
+          "sha256": "2e444b55f1304e40623edc4bed590bfb9271d85b9fd25fd07d38f9c9e32877fa",
+          "size_bytes": 2611
+        },
+        {
+          "name": "stop-slop",
+          "path": "sovereign-omega-v2/.claude/skills/stop-slop/SKILL.md",
+          "sha256": "7adee7d86601e3c1d01a70aeaed0324b635728cadc24c6e48adb4f6cface2074",
+          "size_bytes": 6519
+        },
+        {
+          "name": "studio-projection",
+          "path": "sovereign-omega-v2/.claude/skills/studio-projection/SKILL.md",
+          "sha256": "c25570217eb01ff5bf4be5343f286c71c3b2ce24a1f947afb7825138f457fa83",
+          "size_bytes": 5001
+        },
+        {
+          "name": "studio-spec",
+          "path": "sovereign-omega-v2/.claude/skills/studio-spec/SKILL.md",
+          "sha256": "b54ed50e1bc18339be7dc6a59d6090f551e8112f8137670a6274169f47642dcf",
+          "size_bytes": 2383
+        },
+        {
+          "name": "substrate-ecology",
+          "path": "sovereign-omega-v2/.claude/skills/substrate-ecology/SKILL.md",
+          "sha256": "fe1030ea620648ef6c02b6dd4d1c27e80386e475d62d441b35c1b60c7fb67a8a",
+          "size_bytes": 3240
+        },
+        {
+          "name": "systematic-debugging",
+          "path": "sovereign-omega-v2/.claude/skills/systematic-debugging/SKILL.md",
+          "sha256": "0ddbaff1ff7ebec4d7f6798b05d8b65ffd2759907f17b9de04382da9692ec064",
+          "size_bytes": 5257
+        },
+        {
+          "name": "tdd",
+          "path": "sovereign-omega-v2/.claude/skills/tdd/SKILL.md",
+          "sha256": "ca26f2e1cbb5d1aaae1c9ee6600fab4d94b785caa0494aac03a9f05fdf1ae0da",
+          "size_bytes": 6912
+        },
+        {
+          "name": "telemetry-spec",
+          "path": "sovereign-omega-v2/.claude/skills/telemetry-spec/SKILL.md",
+          "sha256": "4bdd5ca671c5cebc416a71c0be2c059a7926aa8abd601b564c73114af0f7b2bb",
+          "size_bytes": 3069
+        },
+        {
+          "name": "tier-classification",
+          "path": "sovereign-omega-v2/.claude/skills/tier-classification/SKILL.md",
+          "sha256": "6200a10dde9714db5df54673d1a243b82f96bf206c422c4103f1d8fde5e8b566",
+          "size_bytes": 2722
+        },
+        {
+          "name": "vcg-calibration",
+          "path": "sovereign-omega-v2/.claude/skills/vcg-calibration/SKILL.md",
+          "sha256": "76453672b97ce40b7aa74a5b77cc6ae055d1db5d2ac6534b2b9de6093b59d563",
+          "size_bytes": 2864
+        },
+        {
+          "name": "verification-before-completion",
+          "path": "sovereign-omega-v2/.claude/skills/verification-before-completion/SKILL.md",
+          "sha256": "506de9c2b1a5a2fa91e7ae91430c1da786d19f07fd45522d5d0fd9965e906a50",
+          "size_bytes": 4368
+        },
+        {
+          "name": "zoom-out",
+          "path": "sovereign-omega-v2/.claude/skills/zoom-out/SKILL.md",
+          "sha256": "ab9127e73231a68efabca27a16c7f61ee016b8407f16646f8435b05792825bb5",
+          "size_bytes": 3770
+        }
+      ]
+    },
+    "tasks": {
+      "state_stabilization": {
+        "rules": [
+          "verify_all_skill_hashes",
+          "require_parent_state_hash",
+          "rollback_on_any_replay_divergence"
+        ]
+      }
+    },
+    "behavior": {
+      "pacing_ledger": {
+        "step_interval_multiplier": 1.6180339887,
+        "max_queue_depth": 3,
+        "overflow_policy": "reject-and-record"
+      }
+    },
+    "steps": {
+      "sequence": [
+        "ingest_unverified_envelope",
+        "verify_parent_state_hash",
+        "evaluate_against_immutable_truth_9",
+        "execute_independent_automaton_2_verification",
+        "generate_verified_egress_projection",
+        "commit_state_hash"
+      ]
+    },
+    "interactions": {
+      "ingress_rules": {
+        "allow_mutating_queries": false,
+        "allow_direct_commit": false,
+        "required_event_envelope": true,
+        "required_parent_state_hash": true
+      }
+    },
+    "actions": {
+      "on_violation": "reject-record-and-trigger-rollback-consensus",
+      "on_success": "broadcast-verified-event-stream"
+    }
+  },
+  "state_hash": "70a7ff976435cee858639cc43d462531606ed344f2ab360611d0923eefa71edf"
+}
