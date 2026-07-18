@@ -51,7 +51,7 @@ jobs:
       - name: Commit generated anchors to target branch
         shell: bash
         run: |
-          if git diff --quiet -- .claude.json skill-hashes.sha256; then
+          if [[ -z "$(git status --porcelain -- .claude.json skill-hashes.sha256)" ]]; then
             echo "Manifest already current."
             exit 0
           fi
