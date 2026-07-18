@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/cognitive-state.v1.schema.json",
+  "title": "AEGIS Omega Cognitive State Manifest",
+  "description": "Deterministic, content-addressed manifest for the eight-dimensional AEGIS cognitive state.",
+  "type": "object",
+  "required": [
+    "schema",
+    "system_identifier",
+    "ontology_dimensions",
+    "provenance",
+    "hashing",
+    "skills_root_hash",
+    "rotational_axis",
+    "cognitive_state",
+    "state_hash"
+  ],
+  "properties": {
+    "schema": {
+      "type": "object",
+      "required": ["id", "local_path", "version"],
+      "properties": {
+        "id": {"const": "https://aegisomega.com/schemas/cognitive-state.v1.schema.json"},
+        "local_path": {"const": "schemas/cognitive-state.v1.schema.json"},
+        "version": {"const": "1.0.0"}
+      },
+      "additionalProperties": false
+    },
+    "system_identifier": {"const": "AEGIS-OMEGA-LIVING-ANCHOR"},
+    "ontology_dimensions": {"const": 8},
+    "provenance": {
+      "type": "object",
+      "required": ["generator", "repository", "source_ref"],
+      "properties": {
+        "generator": {"const": "scripts/build-cognitive-manifest.py"},
+        "repository": {"const": "Aegis-Omega/AEGIS-OMEGA"},
+        "source_ref": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "hashing": {
+      "type": "object",
+      "required": [
+        "algorithm",
+        "canonicalization",
+        "skill_hash_scope",
+        "skills_root_scope",
+        "state_hash_scope"
+      ],
+      "properties": {
+        "algorithm": {"const": "sha256"},
+        "canonicalization": {"const": "aegis-json-v1"},
+        "skill_hash_scope": {"const": "raw file bytes"},
+        "skills_root_scope": {"type": "string"},
+        "state_hash_scope": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "skills_root_hash": {"$ref": "#/$defs/sha256"},
+    "state_hash": {"$ref": "#/$defs/sha256"},
+    "rotational_axis": {
+      "type": "object",
+      "required": ["axis_3", "axis_6", "axis_9"],
+      "properties": {
+        "axis_3": {"$ref": "#/$defs/axis"},
+        "axis_6": {"$ref": "#/$defs/axis"},
+        "axis_9": {"$ref": "#/$defs/axis"}
+      },
+      "additionalProperties": false
+    },
+    "cognitive_state": {
+      "type": "object",
+      "required": [
+        "agents",
+        "tools",
+        "skills",
+        "tasks",
+        "behavior",
+        "steps",
+        "interactions",
+        "actions"
+      ],
+      "properties": {
+        "agents": {"type": "object"},
+        "tools": {"type": "object"},
+        "skills": {
+          "type": "object",
+          "required": ["count", "root_hash", "entries"],
+          "properties": {
+            "count": {"type": "integer", "minimum": 1},
+            "root_hash": {"$ref": "#/$defs/sha256"},
+            "entries": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/skill"}
+            }
+          },
+          "additionalProperties": false
+        },
+        "tasks": {"type": "object"},
+        "behavior": {"type": "object"},
+        "steps": {"type": "object"},
+        "interactions": {"type": "object"},
+        "actions": {"type": "object"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "axis": {
+      "type": "object",
+      "required": ["focus", "manifest_hash"],
+      "properties": {
+        "focus": {"type": "string", "minLength": 1},
+        "manifest_hash": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "skill": {
+      "type": "object",
+      "required": ["name", "path", "sha256", "size_bytes"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "pattern": "(^|/)SKILL\\.md$"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    }
+  }
+}
