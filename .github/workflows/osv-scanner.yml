@@ -3,11 +3,11 @@
 # separate terms of service, privacy policy, and support
 # documentation.
 
-# A sample workflow which sets up periodic OSV-Scanner scanning for vulnerabilities,
-# in addition to a PR check which fails if new vulnerabilities are introduced.
+# Periodic OSV-Scanner scanning for vulnerabilities, plus a pull-request check
+# that fails when a change introduces new known vulnerabilities.
 #
-# For more examples and options, including how to ignore specific vulnerabilities,
-# see https://google.github.io/osv-scanner/github-action/
+# Upstream configuration reference:
+# https://google.github.io/osv-scanner/github-action/
 
 name: OSV-Scanner
 
@@ -22,27 +22,17 @@ on:
     branches: [main, 'claude/*']
 
 permissions:
-  # Require writing security events to upload SARIF file to security tab
+  # Required by the reusable workflow and SARIF upload path.
+  actions: read
   security-events: write
-  # Read commit contents
   contents: read
 
 jobs:
   scan-scheduled:
     if: ${{ github.event_name == 'push' || github.event_name == 'schedule' }}
-    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.0.0"
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.3.8"
     permissions:
-      security-events: write
-      contents: read
-    with:
-      scan-args: |-
-        -r
-        --skip-git
-        ./
-  scan-pr:
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
-    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.0.0"
-    permissions:
+      actions: read
       security-events: write
       contents: read
     with:
@@ -51,3 +41,15 @@ jobs:
         --skip-git
         ./
 
+  scan-pr:
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.3.8"
+    permissions:
+      actions: read
+      security-events: write
+      contents: read
+    with:
+      scan-args: |-
+        -r
+        --skip-git
+        ./
