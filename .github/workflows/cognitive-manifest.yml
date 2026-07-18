@@ -9,22 +9,32 @@ on:
       - "scripts/build-cognitive-manifest.py"
       - "schemas/cognitive-state.v1.schema.json"
       - ".github/workflows/cognitive-manifest.yml"
+  pull_request:
+    branches:
+      - claude/test-coverage-analysis-keTIk
+    types:
+      - opened
+      - reopened
+      - synchronize
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: cognitive-manifest-${{ github.ref }}
+  group: cognitive-manifest-${{ github.event.pull_request.base.ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-manifest:
     runs-on: ubuntu-latest
+    env:
+      TARGET_REF: ${{ github.event.pull_request.base.ref || github.ref_name }}
     steps:
-      - name: Check out repository
+      - name: Check out target branch
         uses: actions/checkout@v4
         with:
+          ref: ${{ env.TARGET_REF }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -33,12 +43,12 @@ jobs:
           python-version: "3.12"
 
       - name: Generate content-addressed manifest
-        run: python scripts/build-cognitive-manifest.py --ref "${GITHUB_REF_NAME}"
+        run: python scripts/build-cognitive-manifest.py --ref "${TARGET_REF}"
 
       - name: Verify deterministic regeneration
-        run: python scripts/build-cognitive-manifest.py --check --ref "${GITHUB_REF_NAME}"
+        run: python scripts/build-cognitive-manifest.py --check --ref "${TARGET_REF}"
 
-      - name: Commit generated anchors
+      - name: Commit generated anchors to target branch
         shell: bash
         run: |
           if git diff --quiet -- .claude.json skill-hashes.sha256; then
@@ -50,4 +60,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .claude.json skill-hashes.sha256
           git commit -m "chore(manifest): refresh SKILL.md SHA-256 anchors [skip ci]"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git push origin "HEAD:${TARGET_REF}"
