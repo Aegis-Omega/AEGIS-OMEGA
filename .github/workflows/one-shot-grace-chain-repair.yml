@@ -1,0 +1,52 @@
+name: One-shot Grace Chain Repair
+
+on:
+  push:
+    branches: [agent/fix-grace-chain-runtime]
+    paths:
+      - scripts/patch_grace_chain.py
+      - sovereign-omega-v2/python/tests/test_grace_chain_repair.py
+      - .github/workflows/one-shot-grace-chain-repair.yml
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repair branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/fix-grace-chain-runtime
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Apply bounded structural repair
+        run: python3 scripts/patch_grace_chain.py
+
+      - name: Compile repaired module
+        run: python3 -m py_compile sovereign-omega-v2/python/platform_helpers.py
+
+      - name: Run focused regression tests
+        run: python3 sovereign-omega-v2/python/tests/test_grace_chain_repair.py
+
+      - name: Verify clean patch
+        run: git diff --check
+
+      - name: Commit repaired runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm scripts/patch_grace_chain.py
+          rm .github/workflows/one-shot-grace-chain-repair.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix(runtime): restore grace-chain control flow'
+          git push origin HEAD:agent/fix-grace-chain-runtime
