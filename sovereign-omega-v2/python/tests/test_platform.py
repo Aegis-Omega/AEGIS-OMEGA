@@ -63,6 +63,7 @@ from platform_helpers import (
     award_graces_for_cycle,
     fetch_grace_leaderboard,
     fetch_compliance_export,
+    query_fitness_trend,
 )
 
 PASS = 0
@@ -963,6 +964,78 @@ def test_grace_chain():
     _chk('dev mode → is list', isinstance(leaderboard, list))
 
 
+# ── Grace RPC dispatch (mocked Supabase) ──────────────────────────────────────
+
+def test_grace_rpc_dispatch():
+    print('\ngrace RPC dispatch (mocked Supabase):')
+    import urllib.request as _ur
+
+    captured: list = []
+
+    class _FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    def _fake_urlopen(req, timeout=None):
+        captured.append(req)
+        return _FakeResponse()
+
+    saved_env = {k: os.environ.get(k)
+                 for k in ('SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY')}
+    saved_urlopen = _ur.urlopen
+    os.environ['SUPABASE_URL'] = 'https://fake-project.supabase.co'
+    os.environ['SUPABASE_SERVICE_ROLE_KEY'] = 'fake-service-key'
+    _ur.urlopen = _fake_urlopen
+    try:
+        artifacts = [
+            {'role': 'Strategy', 'output': 'positioning analysis'},
+            {'role': 'Finance', 'output': 'unit economics'},
+        ]
+        # APPROVED with non-empty artifacts → award_grace RPC actually attempted
+        try:
+            award_graces_for_cycle('cycle-rpc-1', artifacts, 'APPROVED')
+            ok('APPROVED with artifacts → no exception raised')
+        except Exception as e:
+            fail('APPROVED with artifacts → no exception raised', str(e))
+        _chk('APPROVED → one RPC per active dept', len(captured) == 2,
+             f'expected 2 requests, got {len(captured)}')
+        if captured:
+            _chk('RPC url ends with /rpc/award_grace',
+                 captured[0].full_url.endswith('/rest/v1/rpc/award_grace'),
+                 captured[0].full_url)
+            payload = json.loads(captured[0].data.decode())
+            _chk('payload carries p_cycle_id',
+                 payload.get('p_cycle_id') == 'cycle-rpc-1',
+                 repr(payload))
+        else:
+            fail('RPC url ends with /rpc/award_grace', 'no request captured')
+            fail('payload carries p_cycle_id', 'no request captured')
+
+        # QUARANTINE → no RPC attempted
+        captured.clear()
+        award_graces_for_cycle('cycle-rpc-2', artifacts, 'QUARANTINE')
+        _chk('QUARANTINE → no RPC attempted', len(captured) == 0,
+             f'expected 0 requests, got {len(captured)}')
+
+        # query_fitness_trend with Supabase env configured → no NameError, dict
+        try:
+            trend = query_fitness_trend()
+            _chk('query_fitness_trend with env → returns dict',
+                 isinstance(trend, dict), f'got {type(trend).__name__}')
+        except NameError as e:
+            fail('query_fitness_trend with env → returns dict', f'NameError: {e}')
+    finally:
+        _ur.urlopen = saved_urlopen
+        for k, v in saved_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+
 # ── Compliance export ─────────────────────────────────────────────────────────
 
 def test_compliance_export():
@@ -1013,6 +1086,7 @@ if __name__ == '__main__':
     test_constitutional_departments_last()
     test_python_ts_contract_agreement()
     test_grace_chain()
+    test_grace_rpc_dispatch()
     test_compliance_export()
     print(f'\n{"=" * 40}')
     print(f'PASS: {PASS}  FAIL: {FAIL}')
