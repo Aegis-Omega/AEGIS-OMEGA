@@ -215,6 +215,17 @@
       "fails_if": "Presented as shipped before a CLI + test exist."
     },
     {
+      "id": "CLM-206",
+      "claim": "The 2026-06-10 model-default transition to claude-fable-5 (commit 4747755, PR #148) was initiated or shaped by a claude-fable-5 session that had ingested the Mythos model card stored on Google Drive.",
+      "tier": "Proposed",
+      "eq": "EQ-D",
+      "dependencies": ["CLM-009"],
+      "evidence": [
+        "Spec: (attestation only — no session artifact yet). Required for promotion: recovery of the upstream session transcript (or equivalent logged artifact) binding a claude-fable-5 session to BOTH (a) ingestion of the Mythos model card and (b) authorship/initiation of the 4747755 change or its PR #148 branch. Currently known: all recovered sessions in the June chain logged model claude-sonnet-4-6; the operator attests the causal story; attestation alone cannot promote this claim."
+      ],
+      "fails_if": "Recovered logs establish a different initiator for 4747755/PR #148; or an exhaustive search of the session archives (Drive folder 1PPjNYs06S-wEU-OWQHDdHeFKrOnBpleJ, local .claude project archives) for the 2026-06-01→06-10 window finds no claude-fable-5 session; or the Mythos model card's Drive timestamps postdate 2026-06-10."
+    },
+    {
       "id": "CLM-210",
       "claim": "Canonical digest of a structured payload is implemented (the digest-based substrate any ECDist would build on).",
       "tier": "Verified",
