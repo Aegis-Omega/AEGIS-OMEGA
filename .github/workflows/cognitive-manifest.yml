@@ -1,0 +1,53 @@
+name: Cognitive Manifest
+
+on:
+  push:
+    branches:
+      - claude/test-coverage-analysis-keTIk
+    paths:
+      - "**/SKILL.md"
+      - "scripts/build-cognitive-manifest.py"
+      - "schemas/cognitive-state.v1.schema.json"
+      - ".github/workflows/cognitive-manifest.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cognitive-manifest-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate content-addressed manifest
+        run: python scripts/build-cognitive-manifest.py --ref "${GITHUB_REF_NAME}"
+
+      - name: Verify deterministic regeneration
+        run: python scripts/build-cognitive-manifest.py --check --ref "${GITHUB_REF_NAME}"
+
+      - name: Commit generated anchors
+        shell: bash
+        run: |
+          if git diff --quiet -- .claude.json skill-hashes.sha256; then
+            echo "Manifest already current."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .claude.json skill-hashes.sha256
+          git commit -m "chore(manifest): refresh SKILL.md SHA-256 anchors [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
