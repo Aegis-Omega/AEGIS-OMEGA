@@ -247,7 +247,7 @@ The card calls these "rare, highly-capable reckless actions." **Every documented
 
 **Honest tier discipline (do not inflate):** This is a *positioning hypothesis* (T2), not a demonstrated efficacy claim. AEGIS catching a Mythos-class reckless action is an architectural claim, not a proven result. The same non-equivalences that bind the model bind AEGIS: `test pass ≠ correctness`, `auditability ≠ safety`, `governance ≠ alignment`. A replayable system can replay a catastrophic action flawlessly. What AEGIS provides is **tamper-evident accountability** — the reckless action cannot be hidden — not a guarantee the action never happens. That honesty is itself the pitch: it is exactly the epistemic posture Anthropic's own card models (it reports its failures plainly).
 
-**Model identity confirmed:** The card confirms Mythos Preview is a cyber-defense-only, Project-Glasswing, non-GA release; the production lineage AEGIS uses is `claude-fable-5` (Mythos = Fable with select cyber/bio classifiers disabled). AEGIS must never route through Mythos.
+**Model identity confirmed:** The card confirms Mythos Preview is a cyber-defense-only, Project-Glasswing, non-GA release; the production lineage AEGIS used at the time was `claude-fable-5` (swarm default 2026-06-10→06-23, since replaced by `claude-opus-4-8`; Mythos = Fable with select cyber/bio classifiers disabled). AEGIS must never route through Mythos.
 
 ---
 
