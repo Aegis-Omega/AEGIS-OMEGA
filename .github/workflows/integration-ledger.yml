@@ -1,0 +1,73 @@
+name: Integration Ledger
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    name: Commit-bound evidence
+    runs-on: ubuntu-latest
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout candidate commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run generator regression tests
+        run: python3 scripts/test_integration_ledger.py
+
+      - name: Generate commit-bound Markdown and JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/integration-ledger
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct "$CANDIDATE_SHA")"
+          python3 scripts/integration_ledger.py \
+            --write \
+            --output-dir artifacts/integration-ledger \
+            --expected-sha "$CANDIDATE_SHA"
+
+      - name: Verify paired evidence
+        env:
+          LEDGER_DIR: artifacts/integration-ledger
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['LEDGER_DIR'])
+          data = json.loads((root / 'INTEGRATION_LEDGER.json').read_text(encoding='utf-8'))
+          markdown = (root / 'INTEGRATION_LEDGER.md').read_text(encoding='utf-8')
+          expected = os.environ['CANDIDATE_SHA']
+          assert data['commit_sha'] == expected, (data['commit_sha'], expected)
+          assert data['schema_version'] == '1.0.0'
+          assert data['area_count'] == len(data['areas'])
+          for item in data['areas']:
+              row = f"| {item['status']} | `{item['area']}` | {item['evidence']} |"
+              assert row in markdown, row
+          PY
+
+      - name: Upload integration evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-ledger-${{ env.CANDIDATE_SHA }}
+          path: artifacts/integration-ledger
+          if-no-files-found: error
+          retention-days: 30
