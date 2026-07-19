@@ -1,0 +1,65 @@
+name: One-shot Experiment Admission Bootstrap
+
+on:
+  push:
+    branches: [agent/experiment-admission-v0-1]
+    paths:
+      - scripts/bootstrap_experiment_admission.py
+      - .github/workflows/one-shot-experiment-admission-bootstrap.yml
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout bootstrap branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/experiment-admission-v0-1
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+
+      - name: Materialize bounded admission-gate patch
+        run: python3 scripts/bootstrap_experiment_admission.py
+
+      - name: Install exact dependencies
+        working-directory: sovereign-omega-v2
+        run: npm ci
+
+      - name: Run admission tests
+        working-directory: sovereign-omega-v2
+        run: npx vitest run test/unit/experiment-admission.test.ts
+
+      - name: Typecheck admission contracts
+        working-directory: sovereign-omega-v2
+        run: npm run typecheck
+
+      - name: Verify clean patch
+        run: git diff --check
+
+      - name: Commit permanent gate and remove bootstrap machinery
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm scripts/bootstrap_experiment_admission.py
+          rm .github/workflows/one-shot-experiment-admission-bootstrap.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat(governance): add signed experiment admission gate v0.1'
+          git push origin HEAD:agent/experiment-admission-v0-1
