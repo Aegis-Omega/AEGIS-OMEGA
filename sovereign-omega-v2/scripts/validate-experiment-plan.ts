@@ -15,10 +15,15 @@ import {
   type ExperimentPlanV01,
 } from '../src/sovereignty/experiment-admission.js'
 
-function requiredArgument(name: string): string {
+function argument(name: string): string | null {
   const index = process.argv.indexOf(name)
-  if (index < 0 || !process.argv[index + 1]) throw new Error(`missing required argument ${name}`)
-  return process.argv[index + 1]!
+  return index >= 0 && process.argv[index + 1] ? process.argv[index + 1]! : null
+}
+
+function requiredArgument(name: string): string {
+  const value = argument(name)
+  if (!value) throw new Error(`missing required argument ${name}`)
+  return value
 }
 
 function git(...args: string[]): string {
@@ -120,6 +125,24 @@ async function main(): Promise<void> {
 
 main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error)
+  const outputDir = argument('--output-dir')
+  if (outputDir) {
+    const denialPath = resolve(outputDir, 'DENIAL_RECEIPT.json')
+    mkdirSync(dirname(denialPath), { recursive: true })
+    writeFileSync(denialPath, canonicalizeJCS({
+      schema_version: '0.1.0',
+      receipt_kind: 'AEGIS_EXPERIMENT_ADMISSION_DENIAL_V0_1',
+      outcome: 'DENIED',
+      candidate_sha: argument('--candidate-sha'),
+      parent_sha: argument('--parent-sha'),
+      plan_path: argument('--plan'),
+      repository: argument('--repository'),
+      workflow_ref: process.env.GITHUB_WORKFLOW_REF ?? 'local',
+      workflow_run_id: process.env.GITHUB_RUN_ID ?? 'local',
+      workflow_run_attempt: process.env.GITHUB_RUN_ATTEMPT ?? '1',
+      reason: message,
+    }))
+  }
   console.error(`DENIED: ${message}`)
   process.exitCode = 1
 })
