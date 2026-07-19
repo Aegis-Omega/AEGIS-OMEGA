@@ -6,6 +6,11 @@ on:
     paths:
       - scripts/bootstrap_experiment_admission.py
       - .github/workflows/one-shot-experiment-admission-bootstrap.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/bootstrap_experiment_admission.py
+      - .github/workflows/one-shot-experiment-admission-bootstrap.yml
 
 permissions:
   contents: write
