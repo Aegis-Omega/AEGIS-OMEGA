@@ -46,8 +46,26 @@ jobs:
         run: npx vitest run test/unit/scale-os-control-plane.test.ts
 
       - name: Typecheck repository contracts
+        id: typecheck
+        continue-on-error: true
         working-directory: sovereign-omega-v2
-        run: npm run typecheck
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run typecheck 2>&1 | tee "$RUNNER_TEMP/scale-os-typecheck.log"
+
+      - name: Upload typecheck diagnostics
+        if: steps.typecheck.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: scale-os-typecheck-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/scale-os-typecheck.log
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Fail closed after typecheck diagnostics
+        if: steps.typecheck.outcome == 'failure'
+        run: exit 1
 
       - name: Verify migration and patch hygiene
         shell: bash
