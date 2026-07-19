@@ -2,7 +2,7 @@
   "mcpServers": {
     "aegis": {
       "command": "node",
-      "args": ["/home/user/AEGIS--/sovereign-omega-v2/mcp-server/dist/index.js"],
+      "args": ["/home/user/AEGIS-OMEGA/sovereign-omega-v2/mcp-server/dist/index.js"],
       "env": {
         "AEGIS_BRIDGE_URL": "https://aegis-vertex.aegisomega.com",
         "AEGIS_API_KEY": ""
