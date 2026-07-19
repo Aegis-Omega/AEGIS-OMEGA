@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0.0",
+  "classes": {
+    "D0": {"minimum_validated_runs": 0, "approval": "NONE", "workspace": "READ_ONLY", "replay": false, "rollback": "NONE", "external_idempotency": false},
+    "D1": {"minimum_validated_runs": 3, "approval": "NONE", "workspace": "REPOSITORY", "replay": true, "rollback": "REQUIRED", "external_idempotency": false},
+    "D2": {"minimum_validated_runs": 3, "approval": "EXPLICIT", "workspace": "REPOSITORY", "replay": true, "rollback": "REQUIRED", "external_idempotency": false},
+    "D3": {"minimum_validated_runs": 3, "approval": "EXPLICIT", "workspace": "REPOSITORY", "replay": true, "rollback": "COMPENSATION_OR_IDEMPOTENCY", "external_idempotency": true},
+    "D4": {"minimum_validated_runs": 3, "approval": "EXPLICIT", "workspace": "REPOSITORY", "replay": true, "rollback": "COMPENSATION_OR_IDEMPOTENCY", "external_idempotency": true}
+  }
+}

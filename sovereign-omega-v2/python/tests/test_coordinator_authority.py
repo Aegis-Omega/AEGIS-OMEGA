@@ -12,178 +12,114 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
 from agents import coordinator  # noqa: E402
-from harness.sdk.skill_authority import compute_registry_root  # noqa: E402
 
 
-def skill(
-    skill_id: str,
-    *,
-    runs: int,
-    state: str,
-    confidence: float,
-    failure: float,
-    recency: float,
-    evidence: Any = "evidence.md",
-    prior: float | None = None,
-) -> dict[str, Any]:
-    value: dict[str, Any] = {
-        "skill_id": skill_id,
-        "label": skill_id,
-        "domain": "test",
-        "tier": "T2",
-        "declared_tier": "T2",
-        "observation_state": state,
-        "confidence": confidence,
-        "validated_runs": runs,
-        "failure_rate": failure,
-        "failure_rate_observed": failure if runs else None,
-        "recency_score": recency,
-        "evidence_refs": [evidence],
-        "last_validated": "2026-07-19T00:00:00+00:00" if runs else None,
-    }
-    if prior is not None:
-        value["documentation_prior"] = prior
-    return value
-
-
-def registry(skills: list[dict[str, Any]]) -> dict[str, Any]:
-    tree: dict[str, Any] = {
-        "schema_version": "2.0.0",
-        "version": "2.0.0",
-        "phase": 1,
-        "authority_state": "NON_AUTHORITATIVE_UNTIL_OBSERVED",
-        "source_commit": "a" * 40,
-        "doc_count": 1,
-        "skills": skills,
-    }
-    root = compute_registry_root(tree)
-    tree["registry_root"] = root
-    tree["genesis_seal"] = root
-    return tree
-
-
-def write_registry(tmp_path: Path, tree: dict[str, Any]) -> Path:
+def router(tmp_path: Path, capability_map: dict[str, str] | None = None) -> coordinator.SkillRouter:
     path = tmp_path / "skill_tree.json"
-    path.write_text(json.dumps(tree), encoding="utf-8")
-    return path
-
-
-def router(
-    tmp_path: Path,
-    tree: dict[str, Any],
-    capability_map: dict[str, str],
-) -> coordinator.SkillRouter:
-    (tmp_path / "evidence.md").write_text("# evidence\n", encoding="utf-8")
+    path.write_text(json.dumps({"schema_version": "2.0.0", "skills": []}), encoding="utf-8")
     return coordinator.SkillRouter(
-        skill_tree_path=write_registry(tmp_path, tree),
+        skill_tree_path=path,
         repo_root=tmp_path,
-        capability_map=capability_map,
+        capability_map=capability_map or {},
     )
 
 
-def test_unknown_capability_receives_zero_authority(tmp_path: Path) -> None:
-    instance = router(
-        tmp_path,
-        registry([skill("observed", runs=3, state="OBSERVED", confidence=.8, failure=0, recency=1)]),
-        {"known": "observed"},
-    )
+def denied_decision(code: str, *, root: str = "1" * 64) -> dict[str, Any]:
+    return {
+        "outcome": "DENIED",
+        "authority_score": "0.000000",
+        "denial_codes": [code],
+        "decision_root": root,
+        "receipt_root": "2" * 64,
+    }
+
+
+def admitted_decision(score: str = "0.720000", *, root: str = "3" * 64) -> dict[str, Any]:
+    return {
+        "outcome": "ADMITTED",
+        "authority_score": score,
+        "denial_codes": [],
+        "decision_root": root,
+        "receipt_root": "4" * 64,
+    }
+
+
+def test_missing_execution_identity_fails_closed(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.delenv("AEGIS_EXECUTION_IDENTITY_JSON", raising=False)
+    instance = router(tmp_path, {"known": "observed"})
     decision = instance.capability_decision("unknown")
     assert decision.outcome == "DENIED"
     assert decision.authority_score == 0.0
-    assert "UNMAPPED_CAPABILITY" in decision.reason_codes
+    assert "IDENTITY_UNAVAILABLE" in decision.reason_codes
 
 
-def test_zero_run_never_outranks_observed(tmp_path: Path) -> None:
-    instance = router(
-        tmp_path,
-        registry([
-            skill("declared", runs=0, state="UNOBSERVED", confidence=0, failure=0, recency=0, prior=.99),
-            skill("observed", runs=3, state="OBSERVED", confidence=.8, failure=.1, recency=1),
-        ]),
-        {"declared_cap": "declared", "observed_cap": "observed"},
-    )
-    definitions = {
-        coordinator.AgentRole.ENGINEERING.value: {"capabilities": ["declared_cap"]},
-        coordinator.AgentRole.AI_SAFETY.value: {"capabilities": ["observed_cap"]},
+def test_local_registry_or_documentation_prior_cannot_grant_authority(tmp_path: Path, monkeypatch: Any) -> None:
+    tree = {
+        "schema_version": "2.0.0",
+        "skills": [{
+            "skill_id": "prose",
+            "observation_state": "OBSERVED",
+            "validated_runs": 999,
+            "confidence": 1.0,
+            "recency_score": 1.0,
+            "failure_rate": 0.0,
+            "documentation_prior": 1.0,
+        }],
     }
-    denied = instance.role_routing_receipt(
-        coordinator.AgentRole.ENGINEERING,
-        "perform observed work",
-        definitions,
-    )
-    admitted = instance.role_routing_receipt(
-        coordinator.AgentRole.AI_SAFETY,
-        "perform observed work",
-        definitions,
-    )
-    assert denied.outcome == "DENIED"
-    assert denied.authority_score == 0.0
-    assert admitted.outcome == "ADMITTED"
-    assert admitted.authority_score == pytest.approx(.72)
-
-
-def test_documentation_prior_cannot_grant_authority(tmp_path: Path) -> None:
-    instance = router(
-        tmp_path,
-        registry([skill("prose", runs=0, state="UNOBSERVED", confidence=0, failure=0, recency=0, prior=1)]),
-        {"prose_cap": "prose"},
-    )
+    path = tmp_path / "skill_tree.json"
+    path.write_text(json.dumps(tree), encoding="utf-8")
+    monkeypatch.delenv("AEGIS_EXECUTION_IDENTITY_JSON", raising=False)
+    instance = coordinator.SkillRouter(skill_tree_path=path, repo_root=tmp_path, capability_map={"prose_cap": "prose"})
     decision = instance.capability_decision("prose_cap")
     assert decision.outcome == "DENIED"
     assert decision.authority_score == 0.0
-    assert decision.observation_state == "UNOBSERVED"
+    assert "IDENTITY_UNAVAILABLE" in decision.reason_codes
 
 
-def test_fewer_than_three_runs_remains_denied(tmp_path: Path) -> None:
-    instance = router(
-        tmp_path,
-        registry([skill("partial", runs=2, state="OBSERVED", confidence=1, failure=0, recency=1)]),
-        {"partial_cap": "partial"},
-    )
+def test_central_evaluator_denial_is_propagated_exactly(tmp_path: Path, monkeypatch: Any) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def central(**kwargs: Any) -> dict[str, Any]:
+        calls.append(kwargs)
+        return denied_decision("INSUFFICIENT_VALIDATED_RUNS")
+
+    monkeypatch.setattr(coordinator, "authorize_from_environment", central)
+    instance = router(tmp_path, {"partial_cap": "partial"})
     decision = instance.capability_decision("partial_cap")
+    assert decision.outcome == "DENIED"
     assert decision.authority_score == 0.0
-    assert "INSUFFICIENT_VALIDATED_RUNS" in decision.reason_codes
+    assert decision.reason_codes == ("INSUFFICIENT_VALIDATED_RUNS",)
+    assert calls[0]["action_class"] == "D1"
+    assert calls[0]["authority_domain"] == "agent:dispatch"
+    assert calls[0]["requested_capability"] == "coordinator.dispatch"
+    assert calls[0]["tool"] == "agents.coordinator:dispatch"
 
 
-def test_repository_escape_is_denied(tmp_path: Path) -> None:
-    (tmp_path.parent / "outside.md").write_text("outside\n", encoding="utf-8")
-    tree = registry([
-        skill("escape", runs=3, state="OBSERVED", confidence=1, failure=0, recency=1, evidence="../outside.md")
-    ])
-    instance = coordinator.SkillRouter(
-        skill_tree_path=write_registry(tmp_path, tree),
-        repo_root=tmp_path,
-        capability_map={"escape_cap": "escape"},
-    )
-    decision = instance.capability_decision("escape_cap")
-    assert decision.authority_score == 0.0
-    assert any(code.startswith("EVIDENCE_OUTSIDE_REPOSITORY") for code in decision.reason_codes)
+def test_central_evaluator_admission_is_the_only_score_source(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setattr(coordinator, "authorize_from_environment", lambda **_kwargs: admitted_decision("0.720000"))
+    instance = router(tmp_path, {"observed_cap": "observed"})
+    decision = instance.capability_decision("observed_cap")
+    assert decision.outcome == "ADMITTED"
+    assert decision.authority_score == pytest.approx(0.72)
+    assert decision.observation_state == "CENTRAL_AUTHORITY"
 
 
-def test_malformed_registry_cannot_restore_fallback(tmp_path: Path) -> None:
+def test_malformed_local_registry_cannot_restore_fallback(tmp_path: Path, monkeypatch: Any) -> None:
     path = tmp_path / "skill_tree.json"
     path.write_text("{not-json", encoding="utf-8")
-    instance = coordinator.SkillRouter(
-        skill_tree_path=path,
-        repo_root=tmp_path,
-        capability_map={"known": "observed"},
-    )
+    monkeypatch.setattr(coordinator, "authorize_from_environment", lambda **_kwargs: denied_decision("AUTHORITY_SERVICE_UNAVAILABLE"))
+    instance = coordinator.SkillRouter(skill_tree_path=path, repo_root=tmp_path, capability_map={"known": "observed"})
     first = instance.capability_decision("known")
     second = instance.capability_decision("known")
     assert first.authority_score == 0.0
-    assert "REGISTRY_JSON_MALFORMED" in first.reason_codes
+    assert first.reason_codes == ("AUTHORITY_SERVICE_UNAVAILABLE",)
     assert first.receipt_hash == second.receipt_hash
 
 
-def test_identical_inputs_produce_identical_routing_receipts(tmp_path: Path) -> None:
-    instance = router(
-        tmp_path,
-        registry([skill("declared", runs=0, state="UNOBSERVED", confidence=0, failure=0, recency=0)]),
-        {"declared_cap": "declared"},
-    )
-    definitions = {
-        coordinator.AgentRole.ENGINEERING.value: {"capabilities": ["declared_cap"]},
-    }
+def test_identical_central_inputs_produce_identical_routing_receipts(tmp_path: Path, monkeypatch: Any) -> None:
+    monkeypatch.setattr(coordinator, "authorize_from_environment", lambda **_kwargs: denied_decision("UNMAPPED_CAPABILITY"))
+    instance = router(tmp_path, {"declared_cap": "declared"})
+    definitions = {coordinator.AgentRole.ENGINEERING.value: {"capabilities": ["declared_cap"]}}
     first_cap = instance.capability_decision("declared_cap")
     second_cap = instance.capability_decision("declared_cap")
     first_role = instance.role_routing_receipt(coordinator.AgentRole.ENGINEERING, "same task", definitions)
@@ -193,27 +129,16 @@ def test_identical_inputs_produce_identical_routing_receipts(tmp_path: Path) -> 
 
 
 def test_dispatch_does_not_execute_denied_role(tmp_path: Path, monkeypatch: Any) -> None:
-    instance = router(
-        tmp_path,
-        registry([skill("declared", runs=0, state="UNOBSERVED", confidence=0, failure=0, recency=0)]),
-        {"declared_cap": "declared"},
-    )
+    instance = router(tmp_path, {"declared_cap": "declared"})
+    monkeypatch.setattr(coordinator, "authorize_from_environment", lambda **_kwargs: denied_decision("IDENTITY_UNAVAILABLE"))
     role = coordinator.AgentRole.ENGINEERING
     monkeypatch.setattr(coordinator, "_skill_router", instance)
     monkeypatch.setattr(coordinator._legacy, "_skill_router", instance)
     monkeypatch.setattr(coordinator._legacy, "EVENT_ROUTING", {"test": [role]})
-    monkeypatch.setattr(
-        coordinator._legacy,
-        "_load_agent_defs",
-        lambda: {"agents": {role.value: {"capabilities": ["declared_cap"]}}},
-    )
-    monkeypatch.setattr(
-        coordinator._legacy,
-        "_event_to_instruction",
-        lambda event_type, payload, candidate_role: "same task",
-    )
+    monkeypatch.setattr(coordinator._legacy, "_load_agent_defs", lambda: {"agents": {role.value: {"capabilities": ["declared_cap"]}}})
+    monkeypatch.setattr(coordinator._legacy, "_event_to_instruction", lambda *_args: "same task")
 
-    async def forbidden_run_agent(task: Any) -> Any:
+    async def forbidden_run_agent(_task: Any) -> Any:
         raise AssertionError("denied role must not execute")
 
     monkeypatch.setattr(coordinator._legacy, "run_agent", forbidden_run_agent)
@@ -221,3 +146,28 @@ def test_dispatch_does_not_execute_denied_role(tmp_path: Path, monkeypatch: Any)
     receipts = coordinator.last_dispatch_receipts()
     assert receipts[0]["outcome"] == "DENIED"
     assert receipts[0]["authority_score"] == 0.0
+
+
+def test_dispatch_executes_only_after_central_admission(tmp_path: Path, monkeypatch: Any) -> None:
+    instance = router(tmp_path, {"observed_cap": "observed"})
+    monkeypatch.setattr(coordinator, "authorize_from_environment", lambda **_kwargs: admitted_decision())
+    role = coordinator.AgentRole.ENGINEERING
+    monkeypatch.setattr(coordinator, "_skill_router", instance)
+    monkeypatch.setattr(coordinator._legacy, "_skill_router", instance)
+    monkeypatch.setattr(coordinator._legacy, "EVENT_ROUTING", {"test": [role]})
+    monkeypatch.setattr(coordinator._legacy, "_load_agent_defs", lambda: {"agents": {role.value: {"capabilities": ["observed_cap"]}}})
+    monkeypatch.setattr(coordinator._legacy, "_event_to_instruction", lambda *_args: "same task")
+
+    executed: list[Any] = []
+
+    async def admitted_run_agent(task: Any) -> Any:
+        executed.append(task)
+        return {"status": "executed"}
+
+    monkeypatch.setattr(coordinator._legacy, "run_agent", admitted_run_agent)
+    results = asyncio.run(coordinator.dispatch_event("test", {}))
+    assert results == [{"status": "executed"}]
+    assert len(executed) == 1
+    receipts = coordinator.last_dispatch_receipts()
+    assert receipts[0]["outcome"] == "ADMITTED"
+    assert receipts[0]["authority_score"] == pytest.approx(0.72)
