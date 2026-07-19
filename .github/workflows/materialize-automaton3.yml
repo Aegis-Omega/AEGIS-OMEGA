@@ -1,0 +1,53 @@
+name: Materialize Automaton-3 Changeset
+
+on:
+  push:
+    branches: [feat/automaton-3-sovereign-execution]
+    paths:
+      - '.github/workflows/materialize-automaton3.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    name: materialize / automaton-3
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/automaton-3-sovereign-execution
+          fetch-depth: 0
+
+      - name: Materialize bounded tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          scripts=(.aegis/bootstrap/a3_materialize_*.py)
+          if (( ${#scripts[@]} != 11 )); then
+            echo "Expected exactly 11 materializers, found ${#scripts[@]}" >&2
+            exit 1
+          fi
+          for script in "${scripts[@]}"; do
+            python "$script"
+          done
+          python -m py_compile \
+            harness/sdk/sovereign_execution.py \
+            harness/sdk/authority_client.py \
+            scripts/automaton3-authority.py \
+            scripts/run-automaton3-tests.py \
+            scripts/validate-automaton3.py \
+            sovereign-omega-v2/python/tests/test_automaton3.py \
+            agents/coordinator.py
+          python sovereign-omega-v2/python/tests/test_automaton3.py
+          rm -rf .aegis/bootstrap
+          rm -f .github/workflows/materialize-automaton3.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          git diff --cached --check
+          git commit -m "feat(governance): implement Automaton-3 sovereign execution"
+          git push origin HEAD:feat/automaton-3-sovereign-execution
