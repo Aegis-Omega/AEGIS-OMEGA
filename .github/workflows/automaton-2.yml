@@ -46,13 +46,34 @@ jobs:
             parent="$(git rev-parse "${CANDIDATE_SHA}^")"
           fi
           parent_manifest="$RUNNER_TEMP/PARENT_CLAUDE.json"
+          parent_hash="$(printf '0%.0s' {1..64})"
           if git show "$parent:.claude.json" > "$parent_manifest" 2>/dev/null; then
+            parent_hash="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["state_hash"])' "$parent_manifest")"
             echo "manifest=$parent_manifest" >> "$GITHUB_OUTPUT"
           else
             rm -f "$parent_manifest"
             echo "manifest=" >> "$GITHUB_OUTPUT"
           fi
           echo "sha=$parent" >> "$GITHUB_OUTPUT"
+          echo "state_hash=$parent_hash" >> "$GITHUB_OUTPUT"
+
+      - name: Generate expected cognitive anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_ref="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          python scripts/build-cognitive-manifest.py \
+            --ref "$source_ref" \
+            --parent-state-hash "${{ steps.parent.outputs.state_hash }}" \
+            --output-dir "$RUNNER_TEMP/cognitive-anchors"
+
+      - name: Upload expected anchors
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-cognitive-anchors-${{ env.CANDIDATE_SHA }}
+          path: ${{ runner.temp }}/cognitive-anchors
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Run Automaton-2 negative and determinism tests
         run: python sovereign-omega-v2/python/tests/test_automaton2.py
@@ -67,7 +88,7 @@ jobs:
           if [[ -n "${{ steps.parent.outputs.manifest }}" ]]; then
             parent_args=(--parent-manifest "${{ steps.parent.outputs.manifest }}")
           else
-            parent_args=(--expected-parent-state-hash "$(printf '0%.0s' {1..64})")
+            parent_args=(--expected-parent-state-hash "${{ steps.parent.outputs.state_hash }}")
           fi
           python scripts/validate-automaton2.py \
             --candidate-sha "$CANDIDATE_SHA" \
