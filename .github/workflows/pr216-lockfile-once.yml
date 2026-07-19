@@ -1,0 +1,43 @@
+name: PR 216 One-Time Lockfile Refresh
+
+on:
+  push:
+    branches:
+      - claude/slack-session-yyw7h6
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lockfile:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: claude/slack-session-yyw7h6
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/mcp-server/package-lock.json
+
+      - name: Regenerate package lock only
+        working-directory: sovereign-omega-v2/mcp-server
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Remove workflow and commit lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/pr216-lockfile-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sovereign-omega-v2/mcp-server/package-lock.json
+          git commit -m "chore(mcp): refresh locked Node typings"
+          git push origin HEAD:claude/slack-session-yyw7h6
