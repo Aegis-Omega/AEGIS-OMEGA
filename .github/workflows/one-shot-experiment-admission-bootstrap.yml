@@ -1,11 +1,6 @@
 name: One-shot Experiment Admission Bootstrap
 
 on:
-  push:
-    branches: [agent/experiment-admission-v0-1]
-    paths:
-      - scripts/bootstrap_experiment_admission.py
-      - .github/workflows/one-shot-experiment-admission-bootstrap.yml
   pull_request:
     branches: [main]
     paths:
@@ -57,14 +52,14 @@ jobs:
       - name: Verify clean patch
         run: git diff --check
 
-      - name: Commit permanent gate and remove bootstrap machinery
+      - name: Commit validated non-workflow gate files
         shell: bash
         run: |
           set -euo pipefail
           rm scripts/bootstrap_experiment_admission.py
-          rm .github/workflows/one-shot-experiment-admission-bootstrap.yml
+          rm .github/workflows/experiment-admission.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git commit -m 'feat(governance): add signed experiment admission gate v0.1'
+          git commit -m 'feat(governance): add experiment admission contracts v0.1'
           git push origin HEAD:agent/experiment-admission-v0-1
