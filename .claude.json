@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "agent/queued-control-plane-enforcement-v1",
-    "parent_state_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "source_ref": "claude/slack-session-yyw7h6",
+    "parent_state_hash": "5d30bb897c636af96d6ddb06c47d17f879659eb35edabcf950658a60aa054591",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "5d30bb897c636af96d6ddb06c47d17f879659eb35edabcf950658a60aa054591"
+  "state_hash": "37ec8f38ff2453dcd59c292f3c865a5ddeb893b5dadc52a80a06762d2b6982da"
 }
