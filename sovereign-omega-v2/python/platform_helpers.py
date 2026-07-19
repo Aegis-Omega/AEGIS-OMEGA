@@ -69,6 +69,69 @@ def validate_tier_capabilities(tier: str, live: bool, mode: str = '') -> None:
 # Named as a constant so callers can override via env and CI can assert it.
 COHERENCE_GATE_THRESHOLD: float = (5 ** 0.5 - 1) / 2  # φ ≈ 0.6180339887 — consistent with martingale ceiling
 
+
+def parse_max_agents(value):
+    """
+    Fail-closed parser for the max_agents cost ceiling.
+
+    None means "no explicit cap" (executor caps at roster size). Anything else
+    must be an integer >= 1. Malformed input raises ValueError so the API
+    returns 400 INVALID_REQUEST — it must never silently become an uncapped
+    run, because max_agents is the only bound on billable model calls.
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise ValueError('max_agents must be an integer, not a boolean')
+    if isinstance(value, float) and not value.is_integer():
+        raise ValueError('max_agents must be a whole number')
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f'max_agents must be an integer (got {value!r})')
+    if n < 1:
+        raise ValueError(f'max_agents must be >= 1 (got {n})')
+    return n
+
+
+def autonomous_completion_audit(swarm: dict) -> dict:
+    """
+    Derive a contract-legal constitutional audit from an autonomous swarm run.
+
+    Verdict is always one of ConstitutionalVerdict ('APPROVED'|'FLAG'|'QUARANTINE')
+    so CONSTITUTIONAL_FACTORS applies the intended fitness penalty — an
+    out-of-enum verdict falls through to the 0.85 neutral default, scoring
+    BETTER than QUARANTINE (0.20) despite signalling failure.
+
+    FLAG when: completion ratio below COHERENCE_GATE_THRESHOLD, any agent
+    errored, any agent was budget-skipped, or a completed agent produced empty
+    output. APPROVED only on a clean, complete run.
+    """
+    artifacts = swarm.get('artifacts', [])
+    total = swarm.get('agents_total', len(artifacts))
+    executed = swarm.get('agents_executed', 0)
+    completion = executed / total if total else 0.0
+
+    concerns: list = []
+    if completion < COHERENCE_GATE_THRESHOLD:
+        concerns.append(
+            f'Agent completion {completion:.4f} below coherence gate '
+            f'{COHERENCE_GATE_THRESHOLD:.10f} ({executed}/{total} departments)'
+        )
+    errored = [a['id'] for a in artifacts if str(a.get('status', '')).startswith('error')]
+    skipped = [a['id'] for a in artifacts if a.get('status') == 'skipped']
+    empty   = [a['id'] for a in artifacts
+               if a.get('status') == 'ok' and not str(a.get('output', '')).strip()]
+    if errored:
+        concerns.append(f'Errored departments: {", ".join(errored)}')
+    if skipped:
+        concerns.append(f'Budget-skipped departments: {", ".join(skipped)}')
+    if empty:
+        concerns.append(f'Empty output from completed departments: {", ".join(empty)}')
+
+    return {'verdict': 'FLAG' if concerns else 'APPROVED', 'concerns': concerns}
+
+
 # ── Prompt injection defence (T1 — layered; model-level robustness is separate) ─
 OBJECTIVE_MAX_CHARS = 4_000
 

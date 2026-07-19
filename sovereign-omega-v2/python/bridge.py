@@ -54,6 +54,8 @@ from platform_helpers import (
     swarm_collaborate_live as _swarm_live,
     swarm_collaborate_autonomous as _swarm_autonomous,
     make_autonomous_agent_call as _make_autonomous_agent_call,
+    autonomous_completion_audit as _autonomous_audit,
+    parse_max_agents as _parse_max_agents,
     evaluate_generation_fitness as _eval_fitness,
     store_generation_fitness as _store_fitness,
     retrieve_prior_artifacts as _retrieve_prior_artifacts,
@@ -184,6 +186,7 @@ def _platform_run_collaboration(
 
     try:
         cycle_id = str(_uuid_col.uuid4())
+        collaborated_count = None  # autonomous path sets the honest ok-count
 
         # ── CONSCIOUSNESS PULSE ───────────────────────────────────────────────
         # Live mode: one governed Claude call activates all 39 departments at
@@ -207,29 +210,18 @@ def _platform_run_collaboration(
                 'technical': 1_400_000, 'regulatory': 2_100_000,
                 'fundraising': 5_000_000,
             }.get(mode, 2_000_000)
-            _phi = 0.6180339887
-            _total = swarm['agents_total']
-            _executed = swarm['agents_executed']
-            _completion = _executed / _total if _total > 0 else 0.0
-            _concerns: list[str] = []
-            if _completion < _phi:
-                _concerns.append(
-                    f'Agent completion {_completion:.4f} below φ-threshold {_phi} '
-                    f'({_executed}/{_total} departments)'
-                )
-            _empty = [a['id'] for a in swarm['artifacts'] if not str(a.get('output', '')).strip()]
-            if _empty:
-                _concerns.append(f'Empty output from departments: {", ".join(_empty)}')
-            constitutional_audit = {
-                'verdict': 'REJECTED' if _concerns else 'APPROVED',
-                'concerns': _concerns,
-            }
+            # Contract-legal audit (APPROVED|FLAG) gated on the named
+            # COHERENCE_GATE_THRESHOLD — 'REJECTED' is outside the
+            # ConstitutionalVerdict enum and CONSTITUTIONAL_FACTORS, so it
+            # scored the 0.85 neutral fitness factor instead of a penalty.
+            constitutional_audit = _autonomous_audit(swarm)
+            collaborated_count = swarm['departments_collaborated']
             projection = {
                 'first_year_arr_usd': _arr,
                 'tier': 'T2',
                 'governed_note': (
-                    f'Autonomous per-agent swarm: {_executed}/'
-                    f'{_total} agents executed in dependency order.'
+                    f'Autonomous per-agent swarm: {swarm["agents_executed"]}/'
+                    f'{swarm["agents_total"]} agents executed in dependency order.'
                 ),
             }
         elif live:
@@ -348,7 +340,9 @@ def _platform_run_collaboration(
             'objective': objective,
             'mode': mode,
             'generation': generation,
-            'departments_collaborated': len(artifacts),
+            'departments_collaborated': (
+                collaborated_count if collaborated_count is not None else len(artifacts)
+            ),
             'artifacts': artifacts,
             'projection': projection,
             'constitutional_audit': constitutional_audit,
@@ -714,9 +708,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             autonomous = bool(data.get('autonomous', False))
             try:
-                max_agents = int(data['max_agents']) if data.get('max_agents') is not None else None
-            except (TypeError, ValueError):
-                max_agents = None
+                # Fail-closed: malformed max_agents must never silently become
+                # an uncapped run (it is the only bound on billable calls).
+                max_agents = _parse_max_agents(data.get('max_agents'))
+            except ValueError as exc:
+                self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
+                return
 
             execution_id = str(_uuid_pc.uuid4())
             q = _queue_mod.Queue()
@@ -773,9 +770,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             autonomous = bool(data.get('autonomous', False))
             try:
-                max_agents = int(data['max_agents']) if data.get('max_agents') is not None else None
-            except (TypeError, ValueError):
-                max_agents = None
+                # Fail-closed: malformed max_agents must never silently become
+                # an uncapped run (it is the only bound on billable calls).
+                max_agents = _parse_max_agents(data.get('max_agents'))
+            except ValueError as exc:
+                self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
+                return
 
             execution_id = str(_uuid_pe.uuid4())
             q = _queue_mod.Queue()
