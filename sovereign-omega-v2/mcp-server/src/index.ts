@@ -14,6 +14,9 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
+import { readFileSync, existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const BRIDGE = (process.env['AEGIS_BRIDGE_URL'] ?? 'http://localhost:7890').replace(/\/$/, '')
 const API_KEY = process.env['AEGIS_API_KEY'] ?? ''
@@ -160,6 +163,86 @@ server.tool(
     const result = await bridgePost('/claude', body)
     return text(result)
   },
+)
+
+// ── resources (read-only, fuel-free — NO API key required) ─────────────────────
+//
+// MCP Resources expose AEGIS ground truth to any MCP client with zero fuel.
+// Live resources call the key-free bridge endpoints; authority resources read
+// repo files from disk. Every handler degrades gracefully if the source is
+// unavailable — it returns { unavailable: true, reason } rather than throwing,
+// so a resource read NEVER requires a key and NEVER hard-fails.
+
+/** JSON resource content for a given uri. */
+function jsonResource(uri: URL, value: unknown): { contents: Array<{ uri: string; mimeType: string; text: string }> } {
+  return { contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(value, null, 2) }] }
+}
+
+/** Fetch a key-free bridge endpoint, degrading to an unavailable envelope on failure. */
+async function bridgeResource(uri: URL, path: string): Promise<{ contents: Array<{ uri: string; mimeType: string; text: string }> }> {
+  try {
+    return jsonResource(uri, await bridgeGet(path))
+  } catch (err) {
+    return jsonResource(uri, { unavailable: true, reason: err instanceof Error ? err.message : String(err) })
+  }
+}
+
+/** Repo root — walk up from this module until a dir containing INDEX.md is found. */
+function repoRoot(): string {
+  let dir = dirname(fileURLToPath(import.meta.url)) // …/mcp-server/dist
+  for (let i = 0; i < 8; i++) {
+    if (existsSync(join(dir, 'INDEX.md'))) return dir
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  return process.cwd()
+}
+
+/** Read a repo authority file as a text resource, degrading gracefully. */
+function fileResource(uri: URL, relPath: string): { contents: Array<{ uri: string; mimeType: string; text: string }> } {
+  try {
+    const full = join(repoRoot(), relPath)
+    const md = readFileSync(full, 'utf8')
+    return { contents: [{ uri: uri.href, mimeType: 'text/markdown', text: md }] }
+  } catch (err) {
+    return jsonResource(uri, { unavailable: true, reason: err instanceof Error ? err.message : String(err) })
+  }
+}
+
+server.resource(
+  'aegis-node',
+  'aegis://node',
+  { description: 'Live constitutional node state (bridge GET /node): t0_verdict, corruption_count, constitutional_hash, phi_threshold. Fuel-free.', mimeType: 'application/json' },
+  async (uri) => bridgeResource(uri, '/node'),
+)
+
+server.resource(
+  'aegis-telemetry',
+  'aegis://telemetry',
+  { description: 'Live AEGIS telemetry (bridge GET /telemetry): PGCS/VCG/epoch metrics. Fuel-free.', mimeType: 'application/json' },
+  async (uri) => bridgeResource(uri, '/telemetry'),
+)
+
+server.resource(
+  'aegis-health',
+  'aegis://health',
+  { description: 'AEGIS bridge liveness (bridge GET /health). Fuel-free.', mimeType: 'application/json' },
+  async (uri) => bridgeResource(uri, '/health'),
+)
+
+server.resource(
+  'aegis-authority-index',
+  'aegis://authority/index',
+  { description: 'INDEX.md — the machine-readable repository authority graph. Fuel-free.', mimeType: 'text/markdown' },
+  async (uri) => fileResource(uri, 'INDEX.md'),
+)
+
+server.resource(
+  'aegis-authority-repo-map',
+  'aegis://authority/repo-map',
+  { description: 'REPO_MAP.md — index of what is WIRED vs TESTED-ONLY/DORMANT/BROKEN/DEAD. Fuel-free.', mimeType: 'text/markdown' },
+  async (uri) => fileResource(uri, 'REPO_MAP.md'),
 )
 
 // ── run ───────────────────────────────────────────────────────────────────────
