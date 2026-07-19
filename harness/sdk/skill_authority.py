@@ -141,7 +141,7 @@ def sanitize_legacy_tree(
             skill["documentation_prior"] = prior
             skill["observation_state"] = UNOBSERVED
             skill["confidence"] = 0.0
-            skill["failure_rate"] = 0.0
+            skill["failure_rate"] = 0.0  # compatibility field; not an observed rate
             skill["failure_rate_observed"] = None
             skill["recency_score"] = 0.0
             skill["last_validated"] = None
@@ -158,7 +158,6 @@ def sanitize_legacy_tree(
         "phase": legacy_tree.get("phase", 1),
         "authority_state": "NON_AUTHORITATIVE_UNTIL_OBSERVED",
         "source_commit": source_commit,
-        "source_generated_at": legacy_tree.get("generated_at"),
         "doc_count": legacy_tree.get("doc_count", 0),
         "skills": skills,
     }
@@ -274,7 +273,10 @@ def evaluate_registry(
         "domain": RECEIPT_KIND,
         "receipt": body,
     }))
-    return SkillAuthorityReceipt(**body, receipt_hash=receipt_hash)
+    return SkillAuthorityReceipt(
+        **body,
+        receipt_hash=receipt_hash,
+    )
 
 
 def render_authority_markdown(tree: Mapping[str, Any]) -> str:
