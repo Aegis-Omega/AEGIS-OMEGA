@@ -82,6 +82,8 @@ jobs:
             --expected-sha "$CANDIDATE_SHA"
 
       - name: Validate plan and emit admission receipt
+        id: admission
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -92,7 +94,21 @@ jobs:
             --repository "$GITHUB_REPOSITORY" \
             --output-dir "$RUNNER_TEMP/aegis-admission"
 
+      - name: Upload denial receipt
+        if: steps.admission.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-experiment-denial-${{ env.CANDIDATE_SHA }}
+          path: ${{ runner.temp }}/aegis-admission/DENIAL_RECEIPT.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Fail closed after denial receipt
+        if: steps.admission.outcome == 'failure'
+        run: exit 1
+
       - name: Assemble replay package
+        if: steps.admission.outcome == 'success'
         shell: bash
         run: |
           set -euo pipefail
@@ -111,6 +127,7 @@ jobs:
           )
 
       - name: Upload replay package
+        if: steps.admission.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: aegis-experiment-admission-${{ env.CANDIDATE_SHA }}
@@ -119,6 +136,7 @@ jobs:
           retention-days: 90
 
       - name: Generate OIDC-backed admission attestation
+        if: steps.admission.outcome == 'success'
         uses: actions/attest@v4
         with:
           subject-path: ${{ runner.temp }}/aegis-admission/replay-package/*
