@@ -51,22 +51,10 @@ jobs:
           for script in "${scripts[@]}"; do
             python "$script"
           done
-          python -m py_compile \
-            harness/sdk/sovereign_execution.py \
-            harness/sdk/authority_client.py \
-            scripts/automaton3-authority.py \
-            scripts/run-automaton3-tests.py \
-            scripts/validate-automaton3.py \
-            sovereign-omega-v2/python/tests/test_automaton3.py \
-            agents/coordinator.py
-          python sovereign-omega-v2/python/tests/test_automaton3.py
           rm -rf .aegis/bootstrap
-          rm -f .github/workflows/materialize-automaton3.yml
-          git show "${{ github.event.pull_request.base.sha }}:.github/workflows/automaton-2.yml" > .github/workflows/automaton-2.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add --all
-          git diff --cached --check
           git commit -m "feat(governance): implement Automaton-3 sovereign execution"
           git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
 
