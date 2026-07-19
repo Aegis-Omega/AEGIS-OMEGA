@@ -1,0 +1,124 @@
+name: AEGIS Experiment Admission
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+jobs:
+  experiment-admission:
+    name: aegis / experiment-admission
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Resolve admitted parent and plan
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent="${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}"
+          if [[ -z "$parent" || "$parent" =~ ^0+$ ]]; then
+            parent="$(git rev-parse "${CANDIDATE_SHA}^")"
+          fi
+          mapfile -t plans < <(git diff --name-only "$parent" "$CANDIDATE_SHA" -- '.aegis/experiments/*.json')
+          if [[ "${#plans[@]}" -ne 1 ]]; then
+            printf 'DENIED: exactly one changed experiment plan is required; found %s\n' "${#plans[@]}" >&2
+            exit 1
+          fi
+          echo "parent_sha=$parent" >> "$GITHUB_OUTPUT"
+          echo "plan_path=${plans[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Install exact runtime dependencies
+        working-directory: sovereign-omega-v2
+        run: npm ci
+
+      - name: Run admission negative and determinism tests
+        working-directory: sovereign-omega-v2
+        run: npx vitest run test/unit/experiment-admission.test.ts
+
+      - name: Typecheck admission contracts
+        working-directory: sovereign-omega-v2
+        run: npm run typecheck
+
+      - name: Generate exact-commit integration evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/aegis-admission"
+          mkdir -p "$out"
+          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct "$CANDIDATE_SHA")"
+          python3 scripts/integration_ledger.py \
+            --write \
+            --output-dir "$out" \
+            --expected-sha "$CANDIDATE_SHA"
+
+      - name: Validate plan and emit admission receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./sovereign-omega-v2/node_modules/.bin/tsx sovereign-omega-v2/scripts/validate-experiment-plan.ts \
+            --plan "${{ steps.resolve.outputs.plan_path }}" \
+            --candidate-sha "$CANDIDATE_SHA" \
+            --parent-sha "${{ steps.resolve.outputs.parent_sha }}" \
+            --repository "$GITHUB_REPOSITORY" \
+            --output-dir "$RUNNER_TEMP/aegis-admission"
+
+      - name: Assemble replay package
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/aegis-admission"
+          pkg="$out/replay-package"
+          mkdir -p "$pkg"
+          cp "${{ steps.resolve.outputs.plan_path }}" "$pkg/EXPERIMENT_PLAN.json"
+          cp "$out/ADMISSION_RECEIPT.json" "$pkg/"
+          cp "$out/EVIDENCE_MANIFEST.json" "$pkg/"
+          cp "$out/INTEGRATION_LEDGER.json" "$pkg/"
+          cp "$out/INTEGRATION_LEDGER.md" "$pkg/"
+          (
+            cd "$pkg"
+            sha256sum EXPERIMENT_PLAN.json ADMISSION_RECEIPT.json EVIDENCE_MANIFEST.json \
+              INTEGRATION_LEDGER.json INTEGRATION_LEDGER.md > SHA256SUMS
+          )
+
+      - name: Upload replay package
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-experiment-admission-${{ env.CANDIDATE_SHA }}
+          path: ${{ runner.temp }}/aegis-admission/replay-package
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Generate OIDC-backed admission attestation
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ runner.temp }}/aegis-admission/replay-package/*
