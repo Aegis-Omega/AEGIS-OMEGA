@@ -297,6 +297,20 @@
       "mcp__3891a03a-2178-49dd-9bdb-ef2d95a36122__WolframAlpha",
       "mcp__3891a03a-2178-49dd-9bdb-ef2d95a36122__WolframContext",
       "mcp__3891a03a-2178-49dd-9bdb-ef2d95a36122__WolframLanguageEvaluator"
+    ],
+    "deny": [
+      "Write(.claude/settings.json)",
+      "Edit(.claude/settings.json)",
+      "Write(.claude/settings.local.json)",
+      "Edit(.claude/settings.local.json)",
+      "Write(.claude/hooks/**)",
+      "Edit(.claude/hooks/**)",
+      "Write(sovereign-omega-v2/python/gate.py)",
+      "Edit(sovereign-omega-v2/python/gate.py)",
+      "Write(sovereign-omega-v2/python/dna.py)",
+      "Edit(sovereign-omega-v2/python/dna.py)",
+      "Write(sovereign-omega-v2/python/router.py)",
+      "Edit(sovereign-omega-v2/python/router.py)"
     ]
   }
 }
