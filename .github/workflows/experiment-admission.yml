@@ -69,6 +69,21 @@ jobs:
         working-directory: sovereign-omega-v2
         run: npm run typecheck
 
+      - name: Compile validator from locked TypeScript
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/tsc scripts/validate-experiment-plan.ts \
+            --outDir "$RUNNER_TEMP/aegis-admission-compiled" \
+            --target ES2022 \
+            --module NodeNext \
+            --moduleResolution NodeNext \
+            --lib ES2022,DOM,DOM.Iterable \
+            --strict \
+            --skipLibCheck \
+            --resolveJsonModule
+
       - name: Generate exact-commit integration evidence
         shell: bash
         run: |
@@ -88,7 +103,7 @@ jobs:
           set -uo pipefail
           out="$RUNNER_TEMP/aegis-admission"
           set +e
-          ./sovereign-omega-v2/node_modules/.bin/vite-node sovereign-omega-v2/scripts/validate-experiment-plan.ts \
+          node "$RUNNER_TEMP/aegis-admission-compiled/scripts/validate-experiment-plan.js" \
             --plan "${{ steps.resolve.outputs.plan_path }}" \
             --candidate-sha "$CANDIDATE_SHA" \
             --parent-sha "${{ steps.resolve.outputs.parent_sha }}" \
