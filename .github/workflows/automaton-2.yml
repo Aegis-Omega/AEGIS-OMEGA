@@ -33,49 +33,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Materialize bounded Automaton-3 bootstrap
-        id: materialize
-        continue-on-error: true
-        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          exec > >(tee "$RUNNER_TEMP/automaton3-materialize.log") 2>&1
-          set -x
-          shopt -s nullglob
-          scripts=(.aegis/bootstrap/a3_materialize_*.py)
-          if (( ${#scripts[@]} == 0 )); then
-            echo "No Automaton-3 bootstrap present."
-            exit 0
-          fi
-          if (( ${#scripts[@]} != 11 )); then
-            echo "Expected exactly 11 materializers, found ${#scripts[@]}" >&2
-            exit 1
-          fi
-          for script in "${scripts[@]}"; do
-            python "$script"
-          done
-          rm -f .github/workflows/automaton-3.yml
-          rm -rf .aegis/bootstrap
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add --all
-          git commit -m "feat(governance): implement Automaton-3 sovereign execution"
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
-
-      - name: Upload Automaton-3 materialization diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: automaton3-materialization-${{ env.CANDIDATE_SHA }}
-          path: ${{ runner.temp }}/automaton3-materialize.log
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Enforce materialization result
-        if: ${{ steps.materialize.outcome != 'success' }}
-        run: exit 1
-
       - name: Install exact validator dependency
         run: pip install jsonschema==4.23.0
 
