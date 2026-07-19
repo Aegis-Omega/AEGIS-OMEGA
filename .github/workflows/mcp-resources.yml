@@ -43,4 +43,19 @@ jobs:
 
       - name: Build and exercise key-free resources
         working-directory: sovereign-omega-v2/mcp-server
-        run: npm run test:resources
+        shell: bash
+        run: |
+          set +e
+          npm run test:resources > "$RUNNER_TEMP/mcp-resources.log" 2>&1
+          status=$?
+          cat "$RUNNER_TEMP/mcp-resources.log"
+          exit "$status"
+
+      - name: Upload MCP resource test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-mcp-resources-${{ github.sha }}
+          path: ${{ runner.temp }}/mcp-resources.log
+          if-no-files-found: error
+          retention-days: 30
