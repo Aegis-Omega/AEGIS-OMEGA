@@ -88,7 +88,7 @@ jobs:
           set -uo pipefail
           out="$RUNNER_TEMP/aegis-admission"
           set +e
-          ./sovereign-omega-v2/node_modules/.bin/tsx sovereign-omega-v2/scripts/validate-experiment-plan.ts \
+          ./sovereign-omega-v2/node_modules/.bin/vite-node sovereign-omega-v2/scripts/validate-experiment-plan.ts \
             --plan "${{ steps.resolve.outputs.plan_path }}" \
             --candidate-sha "$CANDIDATE_SHA" \
             --parent-sha "${{ steps.resolve.outputs.parent_sha }}" \
