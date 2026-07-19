@@ -72,6 +72,7 @@ jobs:
         with:
           name: aegis-cognitive-anchors-${{ env.CANDIDATE_SHA }}
           path: ${{ runner.temp }}/cognitive-anchors
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 90
 
