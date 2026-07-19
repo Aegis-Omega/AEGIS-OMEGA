@@ -47,7 +47,7 @@ jobs:
           rm -f "$script"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/claims.json docs/CLAIMS_LEDGER.md .aegis/update_automaton3_claims.py
+          git add --all docs/claims.json docs/CLAIMS_LEDGER.md .aegis
           git diff --cached --check
           git commit -m "docs(claims): bind Automaton-3 execution controls"
           git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
