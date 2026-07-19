@@ -1,0 +1,59 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hub",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "hub", "--", "--port", "5173"],
+      "port": 5173
+    },
+    {
+      "name": "cockpit",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "cockpit", "--", "--port", "5174"],
+      "port": 5174
+    },
+    {
+      "name": "tactical",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "tactical"],
+      "port": 5175
+    },
+    {
+      "name": "studio",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "studio", "--", "--port", "5176"],
+      "port": 5176
+    },
+    {
+      "name": "platform-picker",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "platform-picker", "--", "--port", "5177"],
+      "port": 5177
+    },
+    {
+      "name": "hook-generator",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "hook-generator", "--", "--port", "5178"],
+      "port": 5178
+    },
+    {
+      "name": "content-calendar",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "content-calendar", "--", "--port", "5179"],
+      "port": 5179
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "backend"],
+      "port": 5000
+    },
+    {
+      "name": "bridge",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["sovereign-omega-v2/python/bridge.py"],
+      "port": 7890
+    }
+  ]
+}
