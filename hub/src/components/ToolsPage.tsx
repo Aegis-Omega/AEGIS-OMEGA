@@ -1,7 +1,6 @@
-// Tools page — the three $19 tools isolated on /tools route.
+// Tools page — the three creator tools, included with Operator/Sovereign API access.
 import { useEffect, useRef, useState } from 'react'
 import { Zap, Lock, RefreshCw, Code, Mail, ExternalLink, Shield, ChevronRight } from 'lucide-react'
-import { PricingTable } from './PricingTable.js'
 import { useSubstrate, certify } from '../lib/substrate.js'
 
 function captureEvent(event: string, props?: Record<string, unknown>): void {
@@ -68,7 +67,6 @@ interface Product {
   preview: React.ReactNode
   accent: string
   glow: string
-  price: number
   url: string
 }
 
@@ -167,8 +165,7 @@ const PRODUCTS: Product[] = [
     preview: <ScorePreview lines={PLATFORM_LINES} />,
     accent: '#7C3AED',
     glow:   '#A78BFA',
-    price:  19,
-    url:    'https://aegis-platform-picker.vercel.app',
+    url:    'https://platform.aegisomega.com',
   },
   {
     icon: '⚡',
@@ -184,8 +181,7 @@ const PRODUCTS: Product[] = [
     preview: <ScorePreview lines={HOOK_LINES} />,
     accent: '#D97706',
     glow:   '#FCD34D',
-    price:  19,
-    url:    'https://aegis-hook-generator.vercel.app',
+    url:    'https://hooks.aegisomega.com',
   },
   {
     icon: '📅',
@@ -201,16 +197,15 @@ const PRODUCTS: Product[] = [
     preview: <CalendarPreview accent="#16A34A" />,
     accent: '#16A34A',
     glow:   '#86EFAC',
-    price:  19,
-    url:    'https://aegis-content-calendar.vercel.app',
+    url:    'https://calendar.aegisomega.com',
   },
 ]
 
 const TRUST_METRICS = [
-  { value: '6,271',  label: 'invariant tests',    color: '#34D399', sub: 'all passing' },
+  { value: '453/453', label: 'API contract tests', color: '#34D399', sub: 'all passing' },
   { value: 'SHA-256', label: 'hash-chained',      color: '#60A5FA', sub: 'tamper-evident' },
   { value: '0',      label: 'backend servers',    color: '#A78BFA', sub: 'browser-only' },
-  { value: 'EU AI',  label: 'Act compliant',      color: '#C8A96E', sub: 'certified' },
+  { value: 'AGPL',   label: 'open source',        color: '#C8A96E', sub: 'auditable' },
 ]
 
 const GUARANTEES = [
@@ -243,11 +238,11 @@ const FAQS = [
   },
   {
     q: 'Do I need to know how to code?',
-    a: 'You need to import the repo to Vercel and set one environment variable. Vercel walks you through it — takes about 2 minutes.',
+    a: 'No — the hosted tools run in your browser. If you choose to self-host the AGPL source instead, you import the repo to Vercel and set one environment variable — takes about 2 minutes.',
   },
   {
     q: 'What do I actually receive when I buy?',
-    a: "You receive the full source code as a zip file. It's a React + TypeScript project that you deploy to Vercel. You own the code — modify it however you like.",
+    a: 'All three tools are included with Operator ($49) and Sovereign ($499) API access — pay once on the pricing page and open them from your key page. The source code is AGPL-3.0 on GitHub if you prefer to self-host.',
   },
   {
     q: 'Can I use the output commercially?',
@@ -266,9 +261,9 @@ export function ToolsPage() {
     captureEvent('tools_page_viewed', { source: document.referrer || 'direct' })
   }, [])
 
-  const handlePurchaseClick = (product: string, price: number) => {
+  const handlePurchaseClick = (product: string) => {
     const ttv = Math.round((Date.now() - trialStartRef.current) / 1000)
-    captureEvent('conversion', { product, price, ttv_seconds: ttv })
+    captureEvent('conversion', { product, ttv_seconds: ttv })
   }
 
   return (
@@ -307,7 +302,7 @@ export function ToolsPage() {
           style={{ background: 'rgba(99,102,241,0.10)', border: '1px solid rgba(99,102,241,0.30)', color: '#818CF8' }}
         >
           <Zap size={13} />
-          Creator AI Toolkit — 3 tools, one DashScope key
+          Creator AI Toolkit — included with API access
         </div>
 
         <h1
@@ -333,18 +328,18 @@ export function ToolsPage() {
         </p>
 
         <p className="text-xs font-mono mb-6 animate-fade-up delay-200" style={{ color: '#374151' }}>
-          SHA-256 hash-chained · 6,271 invariant tests · EU AI Act compliant
+          SHA-256 hash-chained · 453/453 API contract tests · AGPL-3.0 open source
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-up delay-300">
           <a
-            href="#pricing"
-            onClick={() => handlePurchaseClick('tools-hero-full', 39)}
+            href="/pricing"
+            onClick={() => handlePurchaseClick('tools-hero-full')}
             className="inline-flex items-center justify-center gap-2 text-white font-semibold px-8 py-3.5 rounded-xl hover:opacity-90 transition-opacity text-sm"
             style={{ background: '#6366F1' }}
           >
             <Zap size={15} />
-            Get all 3 tools — $39
+            Included with Operator ($49) &amp; Sovereign ($499)
           </a>
           <a
             href="#tools"
@@ -353,7 +348,7 @@ export function ToolsPage() {
             See the tools ↓
           </a>
         </div>
-        <p className="text-hub-muted/60 text-xs mt-3">One-time payment · Full source code · No subscriptions</p>
+        <p className="text-hub-muted/60 text-xs mt-3">One-time payment · No subscriptions · Bundled with AEGIS-Ω API access</p>
       </div>
 
       {/* ── Product cards ────────────────────────────────────── */}
@@ -382,12 +377,12 @@ export function ToolsPage() {
                 </div>
                 <div className="text-right">
                   <span
-                    className="inline-block text-sm font-bold px-3 py-1 rounded-full"
+                    className="inline-block text-xs font-bold px-3 py-1 rounded-full"
                     style={{ background: p.glow + '20', color: p.glow }}
                   >
-                    ${p.price}
+                    Included
                   </span>
-                  <div className="text-hub-muted text-xs mt-0.5">one-time</div>
+                  <div className="text-hub-muted text-xs mt-0.5">with API access</div>
                 </div>
               </div>
 
@@ -409,12 +404,12 @@ export function ToolsPage() {
 
               <div className="flex flex-col gap-2">
                 <a
-                  href="#pricing"
-                  onClick={() => handlePurchaseClick(p.name.toLowerCase().replace(/ /g, '-'), p.price)}
+                  href="/pricing"
+                  onClick={() => handlePurchaseClick(p.name.toLowerCase().replace(/ /g, '-'))}
                   className="inline-flex items-center justify-center gap-2 text-white font-semibold py-3 rounded-xl hover:opacity-90 transition-opacity text-sm"
                   style={{ background: p.accent }}
                 >
-                  Buy — ${p.price}
+                  Get API access — from $49
                 </a>
                 <a
                   href={p.url}
@@ -483,9 +478,39 @@ export function ToolsPage() {
       <div id="pricing" className="max-w-3xl mx-auto px-4 py-16 scroll-mt-16">
         <div className="text-center mb-10">
           <h2 className="text-2xl font-bold text-hub-text mb-2" style={{ letterSpacing: '-0.02em' }}>Simple pricing</h2>
-          <p className="text-hub-muted text-sm">Buy once. Own it forever. No subscriptions, no upsells.</p>
+          <p className="text-hub-muted text-sm">
+            All three tools are included with Operator and Sovereign API access. Pay once, no subscriptions.
+          </p>
         </div>
-        <PricingTable />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {[
+            {
+              name: 'Operator', price: 49, accent: '#818CF8',
+              blurb: '500 governed API runs + all three creator tools',
+            },
+            {
+              name: 'Sovereign', price: 499, accent: '#C8A96E',
+              blurb: 'Unlimited governed API runs + all three creator tools',
+            },
+          ].map(t => (
+            <div key={t.name} className="bg-hub-bg border border-hub-border rounded-xl p-6 flex flex-col">
+              <h3 className="text-hub-text font-semibold text-sm mb-1">{t.name}</h3>
+              <p className="text-hub-muted text-xs mb-4">{t.blurb}</p>
+              <div className="mb-5">
+                <span className="text-hub-text font-bold text-3xl">${t.price}</span>
+                <span className="text-hub-muted text-xs ml-1">one-time</span>
+              </div>
+              <a
+                href="/pricing"
+                onClick={() => handlePurchaseClick(`tools-tier-${t.name.toLowerCase()}`)}
+                className="w-full text-center py-2.5 rounded-lg text-sm font-semibold transition-colors mt-auto"
+                style={{ background: t.accent + '20', color: t.accent, border: `1px solid ${t.accent}40` }}
+              >
+                Get {t.name} — ${t.price}
+              </a>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── How it works ─────────────────────────────────────── */}
@@ -496,20 +521,20 @@ export function ToolsPage() {
             {[
               {
                 step: '01',
-                title: 'Choose your plan',
-                desc: 'One tool for $19, any two for $29, all three for $39. One payment. No subscription.',
+                title: 'Choose your tier',
+                desc: 'Operator ($49) or Sovereign ($499) on the pricing page. One payment. No subscription.',
                 icon: <Zap size={14} style={{ color: '#6366F1' }} />,
               },
               {
                 step: '02',
-                title: 'Pay via Lemon Squeezy',
-                desc: 'Works in 130+ countries — including Bosnia, Serbia, and everywhere Stripe blocks. Card, PayPal.',
+                title: 'Pay with PayPal',
+                desc: 'Payment is verified server-side and your API key is provisioned instantly — shown on screen and emailed to you.',
                 icon: <Shield size={14} style={{ color: '#6366F1' }} />,
               },
               {
                 step: '03',
-                title: 'Instant access',
-                desc: 'Redirected back automatically. Click a tool link and it opens. No account, no email, no API key required.',
+                title: 'Open the tools',
+                desc: 'All three creator tools unlock from your key page, alongside the 39-department platform API.',
                 icon: <ChevronRight size={14} style={{ color: '#6366F1' }} />,
               },
             ].map(item => (
@@ -557,20 +582,20 @@ export function ToolsPage() {
             Own your creator infrastructure.
           </h2>
           <p className="text-sm mb-6 max-w-lg mx-auto leading-relaxed" style={{ color: '#6B6B7A' }}>
-            Three AI tools, one payment, full source code. Constitutional AI substrate included —
-            hash-chained, self-certifying, running in your browser.
+            Three AI tools, included with Operator ($49) and Sovereign ($499) API access.
+            Constitutional AI substrate included — hash-chained, self-certifying, running in your browser.
           </p>
           <a
-            href="#pricing"
-            onClick={() => handlePurchaseClick('tools-cta-full', 39)}
+            href="/pricing"
+            onClick={() => handlePurchaseClick('tools-cta-full')}
             className="inline-flex items-center justify-center gap-2 text-white font-semibold px-10 py-4 rounded-xl hover:opacity-90 transition-opacity text-sm"
             style={{ background: '#6366F1' }}
           >
             <Zap size={15} />
-            Get the Full Toolkit — $39
+            Get API access — from $49
           </a>
           <p className="text-xs mt-4" style={{ color: '#374151' }}>
-            SHA-256 hash-chained · 6,271 invariant tests · EU AI Act compliant
+            SHA-256 hash-chained · 453/453 API contract tests · AGPL-3.0 open source
           </p>
         </div>
       </div>
@@ -591,7 +616,7 @@ export function ToolsPage() {
             <a href="/" className="text-hub-muted text-xs hover:text-hub-text transition-colors">← The System</a>
             <a href="#pricing" className="text-hub-muted text-xs hover:text-hub-text transition-colors">Pricing</a>
             <a
-              href="mailto:tarikskalic33@gmail.com"
+              href="mailto:api@aegisomega.com"
               className="inline-flex items-center gap-1.5 text-hub-muted text-xs hover:text-hub-text transition-colors"
             >
               <Mail size={11} />

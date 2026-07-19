@@ -85,6 +85,8 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
 | **Region** | europe-west3 | `vertex/serve.py` header says us-central1 |
 | **Frozen SHAs** | `CLAUDE.md` table | `main.tsx` displays different (stale) abbreviated SHAs |
 
+**2026-07-12:** `CLAUDE.md` was reconciled against code for price ($49/$499 tiers + free Explorer), payment functions (verify-stripe/verify-paypal/github-sponsors/…, ls-webhook note removed), inference-router order (CL-Ψ → OpenAI → Ollama → Claude → DashScope), and deploy reality (Vercel git integration + cloudbuild configs; Cloud Run auto-deploy disabled) — rows above that cite CLAUDE.md predate that fix.
+
 ---
 
 ## 6. Why sessions felt slow (not asked, but real)

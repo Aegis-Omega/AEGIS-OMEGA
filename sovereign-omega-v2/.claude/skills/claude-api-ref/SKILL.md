@@ -20,15 +20,15 @@ description: >
 
 | Use | Model ID | Config |
 |-----|----------|--------|
-| Swarm (bridge.py) | `claude-fable-5` | `AEGIS_SWARM_MODEL` env var |
-| Hub inference-router | `claude-fable-5` | `VITE_CLAUDE_MODEL` env var |
+| Swarm (bridge.py) | `claude-opus-4-8` | `AEGIS_SWARM_MODEL` env var |
+| Hub inference-router | `claude-haiku-4-5-20251001` | `VITE_CLAUDE_MODEL` env var |
 | Thinking | adaptive (always-on for Fable 5) | `AEGIS_SWARM_THINKING=false` to opt out |
 
 **Latest model IDs (do not append date suffixes):**
 
 ```
-claude-fable-5          ← default for AEGIS swarm
-claude-opus-4-8         ← reasoning-heavy tasks
+claude-fable-5          ← former swarm default (2026-06-10→06-23, since replaced)
+claude-opus-4-8         ← default for AEGIS swarm
 claude-sonnet-4-6       ← balanced cost/quality
 claude-haiku-4-5        ← fast lightweight tasks
 ```
@@ -41,7 +41,8 @@ disabled per customer use case. Trusted-access program only (Project Glasswing) 
 open distribution. Both released 2026-06-09. Black-box inference-only; weights never
 available. Input: 1M tokens text + 600 images/request. Model max output 300K tokens
 (API per-request limit remains 128K). EU provider: Anthropic Ireland Limited.
-AEGIS uses `claude-fable-5` — do not request Mythos access in code paths.
+AEGIS used `claude-fable-5` as swarm default 2026-06-10→06-23 (since replaced by
+`claude-opus-4-8`) — do not request Mythos access in code paths.
 
 ---
 
@@ -81,7 +82,7 @@ if response.stop_reason == 'refusal':
 ## Vertex AI Endpoint (Cloud Run production)
 
 ```
-Model: claude-fable-5 via anthropic.claude-fable-5@20260101
+Model: claude-fable-5 via anthropic.claude-fable-5@20260101 (historical — swarm default 2026-06-10→06-23; current default: claude-opus-4-8)
 Region: eu (europe-west1 multi-region, data residency)
 Project: aegisomegav1
 Auth: Workload Identity (ADC) — no long-lived keys

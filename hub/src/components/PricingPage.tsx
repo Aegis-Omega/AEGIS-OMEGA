@@ -4,7 +4,6 @@
 // direct provision for Explorer.
 // Full NOUS design language: CoreCanvas hero, NousButton CTAs, glass tier cards.
 import { useEffect, useRef, useState } from 'react'
-import { createGrantToken } from '@shared/lib/access.js'
 import { T, MONO, SANS } from './console/consoleTokens.js'
 import { CoreCanvas } from './console/CoreCanvas.js'
 import { NousButton, ArrowR, NousPill } from './console/NousUI.js'
@@ -51,44 +50,44 @@ const TIERS: Record<Tier, TierDef> = {
   operator: {
     label: 'Operator', price: '$49', priceNote: 'one-time',
     runs: '500 governed runs', accent: T.indigo, pill: 'POPULAR',
-    desc: '500 governed cycles. Build integrations, automate workflows, run serious analysis.',
+    desc: '500 runs, one-time. Each run = a full 39-department report: artifacts + verdict + chain hash.',
     features: [
       '500 governed API calls',
       'Full 39-agent collaboration',
+      'Live Claude inference · all 8 modes',
       'SHA-256 audit chain',
       'Constitutional verdict',
-      'SSE stream: dag_step events',
-      'AI Creator Tools suite',
-      'priority queue access',
+      'SSE live stream',
+      'Platform Picker + Hook Generator + Content Calendar included',
     ],
   },
   sovereign: {
     label: 'Sovereign', price: '$499', priceNote: 'one-time',
     runs: 'Unlimited runs', accent: T.phi, pill: 'BEST VALUE',
-    desc: 'No run cap. No throttling. Constitutional governance on every call, always.',
+    desc: 'No run cap, priority support. The same governed swarm as Operator — without the 500-run ceiling.',
     features: [
       'Unlimited governed API calls',
       'Full 39-agent collaboration',
-      'SHA-256 audit chain + replay',
+      'Live Claude inference · all 8 modes',
+      'SHA-256 audit chain',
       'Constitutional verdict',
-      'SSE stream: all event types',
-      'AI Creator Tools suite',
-      'Priority throughput',
-      'Agent API tool profiles',
-      'Raw artifact access',
+      'SSE live stream',
+      'Platform Picker + Hook Generator + Content Calendar included',
+      'Priority support',
     ],
   },
 }
 
 const FEATURE_ROWS = [
-  ['Governed API calls',     '10',         '500',           '∞'],
-  ['39-dept collaboration',  '✓',          '✓',             '✓'],
-  ['Hash-chained audit',     '✓',          '✓',             '✓'],
-  ['Constitutional verdict', '✓',          '✓',             '✓'],
-  ['SSE live stream',        '—',          'dag_step only', 'all events'],
-  ['AI Creator Tools',       '—',          '✓',             '✓'],
-  ['Priority throughput',    '—',          '—',             '✓'],
-  ['Agent API profiles',     '—',          '—',             '✓'],
+  ['Governed API calls',     '10',      '500', '∞'],
+  ['39-dept collaboration',  '✓',       '✓',   '✓'],
+  ['Live Claude inference',  '—',       '✓',   '✓'],
+  ['Analysis modes',         '4',       '8',   '8'],
+  ['Hash-chained audit',     '✓',       '✓',   '✓'],
+  ['Constitutional verdict', '✓',       '✓',   '✓'],
+  ['SSE live stream',        '—',       '✓',   '✓'],
+  ['AI Creator Tools',       '—',       '✓',   '✓'],
+  ['Priority support',       '—',       '—',   '✓'],
 ]
 
 function PricingNav() {
@@ -130,9 +129,12 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-function ToolAccessSection({ tier }: { tier: Tier }) {
+// Post-payment tool listing. When verify-paypal returns a server-issued P-256
+// tool token (_shared/jwt.ts), links carry it as ?aegis_token= — the param
+// AccessGate verifies via verifyServerToken. Without a token, links are plain;
+// client-side token minting is prohibited (see CLAUDE.md payment security).
+function ToolAccessSection({ tier, toolToken }: { tier: Tier; toolToken: string | null }) {
   if (tier === 'explorer') return null
-  const token = createGrantToken('full')
   const tools = ['platform-picker', 'hook-generator', 'content-calendar'] as const
   return (
     <div style={{
@@ -144,7 +146,8 @@ function ToolAccessSection({ tier }: { tier: Tier }) {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {tools.map(tool => {
-          const url  = `${TOOL_URLS[tool]}?aegis_token=${encodeURIComponent(token)}`
+          const base = TOOL_URLS[tool]
+          const url  = toolToken ? `${base}?aegis_token=${encodeURIComponent(toolToken)}` : base
           const meta = TOOL_LABELS[tool]
           return (
             <a key={tool} href={url} target="_blank" rel="noopener noreferrer" style={{
@@ -166,7 +169,7 @@ function ToolAccessSection({ tier }: { tier: Tier }) {
   )
 }
 
-function ApiKeyDisplay({ apiKey, tier }: { apiKey: string; tier: Tier }) {
+function ApiKeyDisplay({ apiKey, tier, toolToken }: { apiKey: string; tier: Tier; toolToken: string | null }) {
   const t = TIERS[tier]
   const curlExample = `curl -X POST ${BASE}/platform/collaborate \\\n  -H "x-api-key: ${apiKey}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"objective":"Enter EU market","mode":"gtm","live":false}'`
   return (
@@ -216,7 +219,7 @@ function ApiKeyDisplay({ apiKey, tier }: { apiKey: string; tier: Tier }) {
           </div>
         </div>
 
-        <ToolAccessSection tier={tier} />
+        <ToolAccessSection tier={tier} toolToken={toolToken} />
       </div>
     </div>
   )
@@ -311,7 +314,8 @@ function CompareTable() {
 export function PricingPage() {
   const [email,    setEmail]    = useState('')
   const [tier,     setTier]     = useState<Tier>('operator')
-  const [apiKey,   setApiKey]   = useState<string | null>(null)
+  const [apiKey,    setApiKey]    = useState<string | null>(null)
+  const [toolToken, setToolToken] = useState<string | null>(null)
   const [error,    setError]    = useState<string | null>(null)
   const [loading,  setLoading]  = useState(false)
   const [sdkReady, setSdkReady] = useState(false)
@@ -381,8 +385,9 @@ export function PricingPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ order_id: data.orderID, tier, email: emailRef.current.trim() }),
           })
-          const d = await resp.json() as { api_key?: string; error?: string }
+          const d = await resp.json() as { api_key?: string; tool_token?: string; error?: string }
           if (!resp.ok) throw new Error(d.error ?? `HTTP ${resp.status}`)
+          setToolToken(d.tool_token ?? null)
           setApiKey(d.api_key!)
         } catch (e) { setError(String(e)) }
         finally { setLoading(false) }
@@ -399,7 +404,7 @@ export function PricingPage() {
     return () => { try { buttons.close() } catch { /* noop */ } }
   }, [tier, sdkReady])
 
-  if (apiKey)     return <ApiKeyDisplay apiKey={apiKey} tier={tier} />
+  if (apiKey)     return <ApiKeyDisplay apiKey={apiKey} tier={tier} toolToken={toolToken} />
   return (
     <div style={{ background: '#06070C', color: T.text, minHeight: '100vh', fontFamily: SANS }}>
       <PricingNav />
@@ -422,10 +427,14 @@ export function PricingPage() {
             letterSpacing: '-0.045em', margin: '24px 0 22px',
             background: 'linear-gradient(180deg, #FFFFFF 0%, #C9CBD6 55%, #9A8050 130%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-          }}>Governed AI,<br />one flat price</h1>
+          }}>Under 10¢ per<br />39-agent analysis</h1>
           <p style={{ fontSize: 'clamp(16px,2vw,19px)', color: '#CBCDD8', maxWidth: 540, margin: '0 auto', lineHeight: 1.65 }}>
-            A 39-department constitutional swarm with a SHA-256 audit chain on every call.
-            Pay once with PayPal — no subscription, key delivered instantly.
+            $49 one-time buys 500 full collaboration runs — each returns per-department
+            artifacts, a constitutional audit verdict, and a replayable SHA-256 chain.
+            No subscription.
+          </p>
+          <p style={{ fontSize: 13, color: T.muted, maxWidth: 540, margin: '14px auto 0', lineHeight: 1.6 }}>
+            Run it free first — the Explorer tier includes 10 full swarm runs, no card.
           </p>
           <div style={{
             display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap',
@@ -507,12 +516,6 @@ export function PricingPage() {
           )}
         </div>
 
-        {/* Tool access preview for selected tier */}
-        {tier !== 'explorer' && (
-          <div style={{ maxWidth: 480, margin: '0 auto' }}>
-            <ToolAccessSection tier={tier} />
-          </div>
-        )}
       </div>
 
       {/* Comparison table */}

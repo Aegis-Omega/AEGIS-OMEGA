@@ -49,7 +49,7 @@ function AuditBadge({ result }: { result: RankedResult }) {
   const short = result.chain_hash.slice(0, 8)
   const backendLabel: Record<string, string> = {
     'dashscope': 'Qwen', 'ollama': 'Ollama', 'claude': 'Claude',
-    'cl-psi': 'CL-Ψ', 'openai-compat': 'OpenAI',
+    'cl-psi': 'CL-Ψ', 'openai-compat': 'OpenAI', 'azure-openai': 'Azure OpenAI',
   }
   const label = backendLabel[result.backend ?? ''] ?? result.backend ?? 'AI'
   return (

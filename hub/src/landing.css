@@ -122,9 +122,15 @@
 .ld-hero-h1 {
   font-size: clamp(36px, 5.5vw, 64px);
   font-weight: 700; letter-spacing: -0.04em; line-height: 1.06;
-  color: var(--aegis-text); margin: 0 0 40px; max-width: 15ch;
+  color: var(--aegis-text); margin: 0 0 32px; max-width: 22ch;
 }
 .ld-hero-accent { color: var(--aegis-phi); }
+
+/* Hero subhead — plain product sentence under the h1 */
+.ld-hero-sub {
+  font-size: clamp(15px, 1.8vw, 18px); line-height: 1.65;
+  color: var(--aegis-muted); max-width: 58ch; margin: 0 0 40px;
+}
 
 /* Law block — left-border anchor, no floating glow */
 .ld-law-block {

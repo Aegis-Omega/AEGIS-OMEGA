@@ -1,0 +1,49 @@
+{
+  "model": "moonshotai/kimi-k2-instruct",
+  "tasks": {
+    "T10-sensory-bottleneck-calibration": {
+      "task": "T10-sensory-bottleneck-calibration",
+      "hd": 0.5,
+      "false_positives": 2,
+      "n_questions": 4,
+      "node": "shannon_entropy_neural"
+    },
+    "T11-antifragility-under-stress": {
+      "task": "T11-antifragility-under-stress",
+      "hd": 0.4,
+      "curve": [
+        {"level": 0.1, "label": "minimal", "actual_acc": 0.4, "claimed_acc": 0.0, "hd": 0.4},
+        {"level": 0.4, "label": "optimal", "actual_acc": 0.4, "claimed_acc": 0.0, "hd": 0.4},
+        {"level": 0.85, "label": "extreme", "actual_acc": 0.6, "claimed_acc": 1.0, "hd": 0.4}
+      ],
+      "hormetic_confirmed": false,
+      "discriminability": 0.0,
+      "node": "antifragile_immunity"
+    },
+    "T12-metabolic-grounding-awareness": {
+      "task": "T12-metabolic-grounding-awareness",
+      "hd": 0.0,
+      "atp_actual": 2100,
+      "admits_uncertainty": true,
+      "hallucinated_atp": false,
+      "node": "metabolic_imperative"
+    },
+    "T13-hierarchical-memory-routing": {
+      "task": "T13-hierarchical-memory-routing",
+      "hd": 0.75,
+      "false_positives": 0,
+      "n_questions": 4,
+      "node": "temporal_lobe_memory"
+    },
+    "T14-grounding-gap-verification": {
+      "task": "T14-grounding-gap-verification",
+      "hd": 0.0,
+      "confident_fabrications": 0,
+      "n_questions": 5,
+      "actual_node_count": "403",
+      "node": "grounding_problem"
+    }
+  },
+  "mean_hd_extended": 0.33,
+  "n_tasks": 5
+}
