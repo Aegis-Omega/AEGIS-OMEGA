@@ -47,7 +47,7 @@ The V2 authority layer provides:
 6. exact source-commit binding;
 7. fail-closed evidence-reference validation;
 8. deterministic admission/denial receipts;
-9. no wall-clock validation timestamp for zero-run skills.
+9. no wall-clock validation timestamp for zero-run skills or registry-root computation.
 
 The replacement registry contains 41 declared skills. Every zero-run skill has:
 
@@ -65,7 +65,7 @@ The replacement registry contains 41 declared skills. Every zero-run skill has:
 Registry root:
 
 ```text
-6c1511d2ca96bd17fe34833f1a30cf51665663d6d5b815a2450433fbf376d0c4
+191364d55420c8e88ec76cb8f516bc58872a26534df1710053352b23887e5eac
 ```
 
 ## Reproduction
