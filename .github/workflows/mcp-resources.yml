@@ -1,0 +1,46 @@
+name: AEGIS MCP Resources
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'sovereign-omega-v2/mcp-server/**'
+      - 'INDEX.md'
+      - 'REPO_MAP.md'
+      - '.github/workflows/mcp-resources.yml'
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'sovereign-omega-v2/mcp-server/**'
+      - 'INDEX.md'
+      - 'REPO_MAP.md'
+      - '.github/workflows/mcp-resources.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  mcp-resources:
+    name: aegis / mcp-resources
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/mcp-server/package-lock.json
+
+      - name: Install locked dependencies
+        working-directory: sovereign-omega-v2/mcp-server
+        run: npm ci
+
+      - name: Build and exercise key-free resources
+        working-directory: sovereign-omega-v2/mcp-server
+        run: npm run test:resources
