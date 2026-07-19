@@ -34,10 +34,14 @@ jobs:
           python-version: '3.12'
 
       - name: Materialize Automaton-3 claims ledger
+        id: claims
+        continue-on-error: true
         if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
         shell: bash
         run: |
           set -euo pipefail
+          exec > >(tee "$RUNNER_TEMP/automaton3-claims.log") 2>&1
+          set -x
           script=.aegis/update_automaton3_claims.py
           if [[ ! -f "$script" ]]; then
             echo "No Automaton-3 claims update staged."
@@ -51,6 +55,19 @@ jobs:
           git diff --cached --check
           git commit -m "docs(claims): bind Automaton-3 execution controls"
           git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+
+      - name: Upload claims transform diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: automaton3-claims-${{ env.CANDIDATE_SHA }}
+          path: ${{ runner.temp }}/automaton3-claims.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Enforce claims transform
+        if: ${{ steps.claims.outcome != 'success' }}
+        run: exit 1
 
       - name: Install exact validator dependency
         run: pip install jsonschema==4.23.0
