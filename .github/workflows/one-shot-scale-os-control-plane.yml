@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - scripts/bootstrap_scale_os_control_plane.py
+      - scripts/patch_scale_os_control_plane.py
       - .github/workflows/one-shot-scale-os-control-plane.yml
 
 permissions:
@@ -35,7 +36,9 @@ jobs:
           cache-dependency-path: sovereign-omega-v2/package-lock.json
 
       - name: Materialize signed control-plane patch
-        run: python3 scripts/bootstrap_scale_os_control_plane.py
+        run: |
+          python3 scripts/bootstrap_scale_os_control_plane.py
+          python3 scripts/patch_scale_os_control_plane.py
 
       - name: Install exact dependencies
         working-directory: sovereign-omega-v2
@@ -80,6 +83,7 @@ jobs:
         run: |
           set -euo pipefail
           rm scripts/bootstrap_scale_os_control_plane.py
+          rm scripts/patch_scale_os_control_plane.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
