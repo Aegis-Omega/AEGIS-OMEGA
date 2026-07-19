@@ -4,7 +4,7 @@
     "path": "sovereign-omega-v2/scripts/validate-experiment-plan.ts"
   },
   "admission_workflow": {
-    "blob_id": "18dc3d04a38680ce77ca850cc87a3cb69c4cf91d",
+    "blob_id": "33abdd1d78a930b6442d6d9a7f64f3a3b87735e2",
     "path": ".github/workflows/experiment-admission.yml"
   },
   "budget": {
