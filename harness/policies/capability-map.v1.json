@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "capabilities": {
+    "coordinator.dispatch": {"skill_id": "orchestration_routing", "allowed_action_classes": ["D1"], "allowed_tools": ["agents.coordinator:dispatch"]},
+    "mcp.platform.status": {"skill_id": "python_bridge_development", "allowed_action_classes": ["D0"], "allowed_tools": ["aegis_platform_status"]},
+    "mcp.execution.read": {"skill_id": "orchestration_routing", "allowed_action_classes": ["D0"], "allowed_tools": ["aegis_get_execution"]},
+    "mcp.collaborate": {"skill_id": "orchestration_routing", "allowed_action_classes": ["D2"], "allowed_tools": ["aegis_collaborate"]},
+    "mcp.execution.start": {"skill_id": "orchestration_routing", "allowed_action_classes": ["D2"], "allowed_tools": ["aegis_start_execution"]},
+    "mcp.claude.call": {"skill_id": "python_bridge_development", "allowed_action_classes": ["D3"], "allowed_tools": ["aegis_governed_claude_call"]},
+    "repository.mutate": {"skill_id": "gate8_deployment_gate", "allowed_action_classes": ["D2", "D4"], "allowed_tools": ["git", "github"]},
+    "database.governance.write": {"skill_id": "audit_trail_management", "allowed_action_classes": ["D3", "D4"], "allowed_tools": ["supabase", "postgres"]}
+  }
+}

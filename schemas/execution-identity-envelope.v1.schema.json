@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/execution-identity-envelope.v1.schema.json",
+  "title": "AEGIS ExecutionIdentityEnvelope V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version","repository_identity","repository_root","source_commit","branch_or_ref","project_identity","workspace_root","workspace_binding","parent_state_root","skills_root","registry_root","policy_root","actor_class","actor_identity","model_identity","session_identity","physical_executor","tool_identity","workflow_identity","authority_domain","requested_capability","observed_authority","approval_reference","input_digest","action_digest","expected_pre_state","deterministic_nonce"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "repository_identity": {"type": "string", "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\\.git$"},
+    "repository_root": {"const": "."},
+    "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+    "branch_or_ref": {"$ref": "#/$defs/nonempty"},
+    "project_identity": {"$ref": "#/$defs/nonempty"},
+    "workspace_root": {"const": "."},
+    "workspace_binding": {"$ref": "#/$defs/hash"},
+    "parent_state_root": {"$ref": "#/$defs/hash"},
+    "skills_root": {"$ref": "#/$defs/hash"},
+    "registry_root": {"$ref": "#/$defs/hash"},
+    "policy_root": {"$ref": "#/$defs/hash"},
+    "actor_class": {"$ref": "#/$defs/nonempty"},
+    "actor_identity": {"$ref": "#/$defs/nonempty"},
+    "model_identity": {"$ref": "#/$defs/nonempty"},
+    "session_identity": {"$ref": "#/$defs/nonempty"},
+    "physical_executor": {"$ref": "#/$defs/nonempty"},
+    "tool_identity": {"$ref": "#/$defs/nonempty"},
+    "workflow_identity": {"$ref": "#/$defs/nonempty"},
+    "authority_domain": {"$ref": "#/$defs/nonempty"},
+    "requested_capability": {"$ref": "#/$defs/nonempty"},
+    "observed_authority": {"type": "string", "pattern": "^(0|1)\\.[0-9]{6}$"},
+    "approval_reference": {"$ref": "#/$defs/nonempty"},
+    "input_digest": {"$ref": "#/$defs/hash"},
+    "action_digest": {"$ref": "#/$defs/hash"},
+    "expected_pre_state": {"$ref": "#/$defs/hash"},
+    "deterministic_nonce": {"$ref": "#/$defs/nonempty"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nonempty": {"type": "string", "minLength": 1, "maxLength": 512}
+  }
+}
