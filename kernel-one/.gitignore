@@ -1,0 +1,13 @@
+# Witness/artifact databases — regenerate with `python init_db.py`
+memory_store.sqlite
+memory_store.sqlite-wal
+memory_store.sqlite-shm
+memory_store*.sqlite
+# Local kernel IPC scratch
+kernel_inbox.json
+kernel_outbox.json
+kernel_outbox.tmp
+frontier_request.json
+frontier_response.json
+__pycache__/
+*.pyc

@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/automaton-3-sovereign-execution",
-    "parent_state_hash": "37ec8f38ff2453dcd59c292f3c865a5ddeb893b5dadc52a80a06762d2b6982da",
+    "source_ref": "claude/blissful-rubin-mt9jS",
+    "parent_state_hash": "410bcd49c721e65050382ae759db7af2f41fa9f572e625174252c72a8748ea93",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "410bcd49c721e65050382ae759db7af2f41fa9f572e625174252c72a8748ea93"
+  "state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba"
 }

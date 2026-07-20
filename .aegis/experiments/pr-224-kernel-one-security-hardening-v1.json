@@ -1,0 +1,86 @@
+{
+  "admission_executable": {
+    "blob_id": "b9c998ddc85b9beeefec30121e88e828b15a8405",
+    "path": "sovereign-omega-v2/scripts/validate-experiment-plan.ts"
+  },
+  "admission_workflow": {
+    "blob_id": "01a59d129b0431c9ccb92b1227a0e46992b1562f",
+    "path": ".github/workflows/experiment-admission.yml"
+  },
+  "budget": {
+    "max_cost_microunits": 0,
+    "max_duration_seconds": 3600,
+    "max_mutations": 0
+  },
+  "claims_ledger": {
+    "path": ".aegis/claims-ledger.json",
+    "root": "495a01d7a942d5f90b39f2d2b178b074aee60c5e6460e1622f1917982ac59652"
+  },
+  "constitution": {
+    "blob_id": "d0c210443e03313113e43da46c4d98269494baeb",
+    "path": "CONSTITUTIONAL_DECLARATION.md"
+  },
+  "evidence_tier": "T2",
+  "execution_class": "EXPERIMENT",
+  "expected_outputs": [
+    "ADMISSION_RECEIPT.json",
+    "EVIDENCE_MANIFEST.json",
+    "EXPERIMENT_PLAN.json",
+    "INTEGRATION_LEDGER.json",
+    "INTEGRATION_LEDGER.md",
+    "SHA256SUMS"
+  ],
+  "expected_parent_sha": "ed426124475cc9ee8b4d138b2928ae547352e97b",
+  "expected_parent_state_root": "32e3752034e30dcc2280d5b2028a71f47e2131aecb8ae595aa5f909a95ffa87f",
+  "experiment_id": "pr-224-kernel-one-security-hardening-v1",
+  "integration_ledger_generator": {
+    "blob_id": "28823ae5b630be273b78210f0addf9c0a86aad05",
+    "path": "scripts/integration_ledger.py"
+  },
+  "observability": {
+    "cancellation_mechanism": "github-actions-cancel-run",
+    "durable_execution_required": true,
+    "emergency_stop_reference": "github-actions:cancel-run",
+    "heartbeat_max_seconds": 300,
+    "provider": "github-actions"
+  },
+  "operator_approval": {
+    "approval_record_hash": "c3e64da97038707276d571e69b394ead804a5a55f5b6e8aa61312bf3342e5beb",
+    "authorization_basis": "user-explicit-pr-224-kernel-one-security-correction-and-dual-feature-port",
+    "decided_at": "2026-07-20T10:21:14Z",
+    "operator_actor_id": "tarikskalic",
+    "operator_session_id": "chatgpt-session-2026-07-20-pr-224-security-hardening",
+    "required": true,
+    "signature_mode": "GITHUB_OIDC_ATTESTATION",
+    "state": "APPROVED"
+  },
+  "policy": {
+    "blob_id": "5937cf4d9fc59f224faabfb7865bba7aa5da90dc",
+    "path": "docs/rfcs/0001-operator-sovereign-control-plane.md"
+  },
+  "replay_package": {
+    "include_admission_receipt": true,
+    "include_evidence_manifest": true,
+    "include_integration_ledger": true,
+    "include_plan": true,
+    "required": true
+  },
+  "repository": "Aegis-Omega/AEGIS-OMEGA",
+  "requested_authority_domains": [
+    "github:artifact-metadata-write",
+    "github:attestation-write",
+    "github:oidc-token-mint",
+    "github:workflow-artifact-write"
+  ],
+  "schema_version": "0.1.0",
+  "sovereignty_contracts": {
+    "blob_id": "d53860f1340293cf08955ebb8729a853432551eb",
+    "path": "sovereign-omega-v2/src/sovereignty/contracts.ts"
+  },
+  "termination_conditions": [
+    "budget_exhausted",
+    "observability_expired",
+    "operator_emergency_stop"
+  ],
+  "title": "Admit recovered Kernel One with fail-closed signing identity, integrity utilities, and signed witness envelopes"
+}
