@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/sol-provider-evidence.v1.schema.json",
+  "title": "SOL Provider Evidence Envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "provider",
+    "capability",
+    "observed_at",
+    "request_digest",
+    "response_digest",
+    "status",
+    "evidence_tier",
+    "grants_authority",
+    "external_reference",
+    "model_provenance",
+    "receipt_root",
+    "evidence_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "provider": {
+      "enum": ["dataverse", "figma", "github", "huggingface", "nvidia", "sharepoint", "wolfram"]
+    },
+    "capability": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "observed_at": { "type": "string", "format": "date-time" },
+    "request_digest": { "$ref": "#/$defs/sha256" },
+    "response_digest": { "$ref": "#/$defs/sha256" },
+    "status": { "enum": ["SUCCEEDED", "FAILED", "DENIED"] },
+    "evidence_tier": { "enum": ["T0", "T1", "T2", "T3"] },
+    "grants_authority": { "const": false },
+    "external_reference": { "$ref": "#/$defs/externalReference" },
+    "model_provenance": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/modelProvenance" }
+      ]
+    },
+    "receipt_root": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/sha256" }
+      ]
+    },
+    "evidence_digest": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "externalReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "revision", "etag", "checksum", "endpoint"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "id": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "minLength": 1 },
+        "etag": { "type": ["string", "null"] },
+        "checksum": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/sha256" }
+          ]
+        },
+        "endpoint": { "type": ["string", "null"] }
+      }
+    },
+    "modelProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_id",
+        "revision",
+        "runtime",
+        "hardware_profile",
+        "container_digest",
+        "dataset_revision"
+      ],
+      "properties": {
+        "model_id": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "minLength": 1 },
+        "runtime": { "type": "string", "minLength": 1 },
+        "hardware_profile": { "type": ["string", "null"] },
+        "container_digest": {
+          "type": ["string", "null"],
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "dataset_revision": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

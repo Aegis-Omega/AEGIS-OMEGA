@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/sol/execution-request.v1.schema.json",
+  "title": "SOL Governed Execution Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "actor",
+    "agent",
+    "provider",
+    "capability",
+    "consequence_class",
+    "target",
+    "arguments_digest",
+    "expected_parent_state_root",
+    "lease_generation",
+    "idempotency_key",
+    "requested_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "request_id": { "type": "string", "format": "uuid" },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "type": { "enum": ["operator", "service", "agent"] }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "runtime", "model"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "runtime": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "model": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "prompt_digest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "provider": {
+      "enum": ["github", "sharepoint", "dataverse", "nvidia", "huggingface", "wolfram", "openai", "figma", "cloudflare", "ios", "web", "ogemma"]
+    },
+    "capability": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{2,127}$" },
+    "consequence_class": { "enum": ["D0", "D1", "D2", "D3", "D4"] },
+    "target": { "type": "string", "minLength": 1, "maxLength": 2048 },
+    "arguments_digest": { "$ref": "#/$defs/sha256" },
+    "expected_parent_state_root": { "$ref": "#/$defs/sha256" },
+    "lease_generation": { "type": "integer", "minimum": 0 },
+    "idempotency_key": { "type": "string", "minLength": 8, "maxLength": 256 },
+    "compensation_reference": { "type": "string", "minLength": 1, "maxLength": 2048 },
+    "operator_approval_reference": { "type": "string", "minLength": 1, "maxLength": 2048 },
+    "requested_at": { "type": "string", "format": "date-time" },
+    "metadata": { "type": "object", "additionalProperties": true }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "consequence_class": { "enum": ["D3", "D4"] } } },
+      "then": { "required": ["operator_approval_reference"] }
+    }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0.0",
+  "release_status": "BLOCKED_PENDING_BASE_REVISION",
+  "repository_id": "aegis-omega/ogemma-holon",
+  "repository_type": "model",
+  "private_by_default": true,
+  "artifact_kind": "configuration-holon-no-weights",
+  "holon_id": "gemma-4e4b-iphone",
+  "display_name": "AEGIS-Ω oGemma Holon",
+  "base_model": {
+    "repository_id": "google/gemma-3n-E4B-it",
+    "revision": null,
+    "architecture": "gemma3n",
+    "task": "image-text-to-text",
+    "license": "gemma",
+    "gated": true
+  },
+  "evidence_tier": "T2",
+  "grants_authority": false,
+  "source_root": "clients/gemma-holon",
+  "model_card": "platform/sol/huggingface/MODEL_CARD.md",
+  "artifacts": [
+    "config.json",
+    "state.json",
+    "OGEMMA.md",
+    "ogemma_mythos.py",
+    "submit.py",
+    "mythos-x-gemma.json",
+    "skills/ogemma-gate.json",
+    "skills/ogemma-gate.md",
+    "skills/stochastic-engine.md",
+    "quantum/server.py",
+    "quantum/platform-helpers.py"
+  ],
+  "forbidden_artifact_suffixes": [
+    ".bin",
+    ".ckpt",
+    ".gguf",
+    ".onnx",
+    ".pt",
+    ".pth",
+    ".safetensors"
+  ]
+}
