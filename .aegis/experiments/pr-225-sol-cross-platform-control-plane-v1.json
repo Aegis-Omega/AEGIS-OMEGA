@@ -54,7 +54,7 @@
     "operator_session_id": "chatgpt-session-2026-07-20-sol-control-plane",
     "authorization_basis": "user-explicit-sol-cross-platform-control-plane",
     "decided_at": "2026-07-20T18:20:00Z",
-    "approval_record_hash": "55f67cb45313ddf380aef502b320b493a9ae259a1a0d720aecd020f96a5f04c1",
+    "approval_record_hash": "dbe281ec13d2ac473ed9ecb44677d6d3e4450c1924db1d55f3dee81bf196ab73",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "requested_authority_domains": [
