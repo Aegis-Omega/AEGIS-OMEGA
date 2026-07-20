@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0.0",
+  "authority_root": "automaton-3",
+  "default_policy": "deny",
+  "platforms": [
+    {
+      "id": "openai",
+      "role": "agent_runtime",
+      "canonical_interface": "responses-api-and-agents-sdk",
+      "allowed_capabilities": ["agent.plan", "agent.handoff", "agent.evaluate", "agent.summarize"],
+      "forbidden_capabilities": ["authority.grant", "receipt.forge", "policy.override"],
+      "default_consequence_class": "D0"
+    },
+    {
+      "id": "cloudflare",
+      "role": "edge_and_durable_execution",
+      "canonical_interface": "remote-mcp-workers-durable-objects-workflows",
+      "allowed_capabilities": ["mcp.serve", "workflow.coordinate", "telemetry.emit", "state.read"],
+      "forbidden_capabilities": ["secret.readback", "authority.grant", "policy.override"],
+      "default_consequence_class": "D2"
+    },
+    {
+      "id": "github",
+      "role": "source_policy_and_admission_evidence",
+      "canonical_interface": "pull-request-and-actions",
+      "allowed_capabilities": ["repo.read", "branch.create", "file.propose", "pull-request.create", "status.read"],
+      "forbidden_capabilities": ["main.force-push", "protection.disable", "secret.readback"],
+      "default_consequence_class": "D2"
+    },
+    {
+      "id": "sharepoint",
+      "role": "published_operator_knowledge",
+      "canonical_interface": "microsoft-graph-drive-items",
+      "allowed_capabilities": ["knowledge.search", "knowledge.read", "knowledge.publish-versioned"],
+      "forbidden_capabilities": ["policy.override", "receipt.rewrite"],
+      "default_consequence_class": "D2"
+    },
+    {
+      "id": "dataverse",
+      "role": "governed_business_state_projection",
+      "canonical_interface": "dataverse-web-api",
+      "allowed_capabilities": ["entity.read", "entity.upsert-idempotent", "relationship.read"],
+      "forbidden_capabilities": ["authority.grant", "canonical-ledger-rewrite"],
+      "default_consequence_class": "D2"
+    },
+    {
+      "id": "huggingface",
+      "role": "models_datasets_and_evaluations",
+      "canonical_interface": "hub-and-lighteval",
+      "allowed_capabilities": ["model.read", "dataset.read", "eval.run", "eval.publish", "card.publish"],
+      "forbidden_capabilities": ["unreviewed-weight-publish", "secret.readback", "authority.grant"],
+      "default_consequence_class": "D2"
+    },
+    {
+      "id": "nvidia",
+      "role": "accelerated_inference_and_evaluation",
+      "canonical_interface": "containerized-gpu-worker",
+      "allowed_capabilities": ["inference.run", "benchmark.run", "telemetry.emit"],
+      "forbidden_capabilities": ["authority.grant", "policy.override"],
+      "default_consequence_class": "D3"
+    },
+    {
+      "id": "wolfram",
+      "role": "deterministic_verifier",
+      "canonical_interface": "wolfram-language-or-alpha-api",
+      "allowed_capabilities": ["expression.verify", "units.verify", "invariant.evaluate"],
+      "forbidden_capabilities": ["authority.grant", "indeterminate-as-proof"],
+      "default_consequence_class": "D0"
+    },
+    {
+      "id": "figma",
+      "role": "editable_product_design_source",
+      "canonical_interface": "figma-file-and-design-system",
+      "allowed_capabilities": ["design.read", "prototype.propose", "tokens.export-reviewed"],
+      "forbidden_capabilities": ["authority.grant", "policy.override"],
+      "default_consequence_class": "D1"
+    },
+    {
+      "id": "ogemma",
+      "role": "advisory_biological_holon",
+      "canonical_interface": "verdict-envelope",
+      "allowed_capabilities": ["holon.evaluate", "holon.emit-evidence"],
+      "forbidden_capabilities": ["mutation.execute", "authority.grant", "unknown-gate-approve"],
+      "default_consequence_class": "D0",
+      "evidence_tier": "T2"
+    },
+    {
+      "id": "ios",
+      "role": "operator_client",
+      "canonical_interface": "swiftui-and-app-intents",
+      "allowed_capabilities": ["execution.inspect", "decision.review", "workflow.continue-approved"],
+      "forbidden_capabilities": ["background-d2-mutation", "authority.grant"],
+      "default_consequence_class": "D0"
+    },
+    {
+      "id": "web",
+      "role": "operator_console",
+      "canonical_interface": "react-mcp-widget",
+      "allowed_capabilities": ["execution.inspect", "receipt.verify", "approval.propose"],
+      "forbidden_capabilities": ["authority.grant", "hidden-mutation"],
+      "default_consequence_class": "D0"
+    }
+  ]
+}
