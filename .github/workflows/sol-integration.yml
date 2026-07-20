@@ -1,0 +1,62 @@
+name: SOL Cross-Platform Integration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'platform/sol/**'
+      - '.github/workflows/sol-integration.yml'
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - 'platform/sol/**'
+      - '.github/workflows/sol-integration.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: aegis / sol-contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned schema validator
+        run: python -m pip install jsonschema==4.23.0
+
+      - name: Validate JSON and schemas
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from jsonschema.validators import validator_for
+
+          root = Path('platform/sol')
+          for path in sorted(root.rglob('*.json')):
+              data = json.loads(path.read_text(encoding='utf-8'))
+              if path.name.endswith('.schema.json'):
+                  validator_for(data).check_schema(data)
+              print(f'JSON_OK {path}')
+          PY
+
+      - name: Run fail-closed oGemma adapter tests
+        run: python -m unittest discover -s platform/sol/tests -p 'test_*.py' -v
+
+      - name: Verify no production credentials or mutable state are committed
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -RInE '(hf_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,}|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY)' platform/sol
+          ! find platform/sol -type f \( -name '*.sqlite' -o -name '*.db' -o -name '*.pem' -o -name '.env' \) -print -quit | grep .
