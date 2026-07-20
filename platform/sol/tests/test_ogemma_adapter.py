@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 from hashlib import sha256
+from pathlib import Path
+import sys
 import unittest
 
-from platform.sol.adapters.ogemma import (
+ADAPTER_DIR = Path(__file__).resolve().parents[1] / "adapters"
+sys.path.insert(0, str(ADAPTER_DIR))
+
+from ogemma import (  # noqa: E402
     OgemmaEvidenceError,
     normalize_verdict,
     to_authority_evidence,
