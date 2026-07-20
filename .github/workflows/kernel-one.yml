@@ -1,0 +1,29 @@
+name: Kernel One
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  kernel-one:
+    name: aegis / kernel-one
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install locked test dependency
+        run: python -m pip install "PyYAML==6.0.2"
+      - name: Compile and run Kernel One security gate
+        working-directory: kernel-one
+        run: |
+          python -m py_compile kernel_one.py validator.py init_db.py test_kernel_one.py
+          python test_kernel_one.py
