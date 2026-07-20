@@ -60,3 +60,31 @@ jobs:
           set -euo pipefail
           ! grep -RInE '(hf_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,}|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY)' platform/sol
           ! find platform/sol -type f \( -name '*.sqlite' -o -name '*.db' -o -name '*.pem' -o -name '.env' \) -print -quit | grep .
+
+  edge-mcp:
+    name: aegis / sol-edge-mcp
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: platform/sol/cloudflare/worker
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.11.0'
+
+      - name: Install pinned dependencies without lifecycle scripts
+        run: npm install --ignore-scripts
+
+      - name: Generate Worker bindings and typecheck
+        run: npm run typecheck
+
+      - name: Run fail-closed edge tests
+        run: npm test
+
+      - name: Audit installed dependency graph
+        run: npm audit --audit-level=high
