@@ -1,0 +1,39 @@
+{
+  "event_version": "1.0",
+  "event_id": "sha256:4381609fd9bda47992fb7fe2cabc15be77b9376cc2c1fecdde15464ae8f1e4fb",
+  "event_id_reproduce": "printf 'PILOT_SPEC_DRAFT_RECORDED|MUSTALAH-ANANA-REPLAY-001|<64-zero-parent>|<spec_hash>|<payload_hash>' | sha256sum",
+  "event_type": "PILOT_SPEC_DRAFT_RECORDED",
+  "pilot_id": "MUSTALAH-ANANA-REPLAY-001",
+  "parent_event_id": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "spec_hash": "sha256:0452f3cce56de157d3f640eabe023e82329167a4b4de6acdf3f185a96288f44c",
+  "source_roots": [],
+  "actor": { "id": "operator:tarik-skalic", "role": "CURATOR" },
+  "authority": {
+    "decision": "ALLOW",
+    "policy_id": "AEGIS-EPISTEMIC-PILOT-1",
+    "approval_receipt": null
+  },
+  "payload_hash": "sha256:9ab8e1557523ffe968cd3fec684f3883a2e1ea2ab357425b63437b2e986d7515",
+  "payload_source": "docs/preregistrations/MUSTALAH-ANANA-REPLAY-001.spec.json",
+  "payload_hash_reproduce": "sha256sum docs/preregistrations/MUSTALAH-ANANA-REPLAY-001.spec.json",
+  "payload": {
+    "note": "Architecture (spec §1-§5) FROZEN. Pilot spec (§6-§19) recorded as DRAFT, not FROZEN.",
+    "reason_not_frozen": "Two executable fields remain null: (1) §8 rule text + classical_source + source_locator; (2) §9 file_sha256 / record_count for both critic corpora. Per §18 admission gates and CLAIMS_LEDGER fabrication discipline, these will not be invented.",
+    "blocking_preconditions": [
+      "Supply Yahya ibn Ma'in judgment edition as a file -> hash it (§9)",
+      "Supply Ahmad ibn Hanbal judgment edition as a file -> hash it (§9)",
+      "Quote MUSTALAH-RULE-001 from a declared classical source with volume:page locator (§8)"
+    ],
+    "next_admissible_event": "CORPUS_SNAPSHOT_RECORDED (with real file_sha256) -> then PILOT_SPEC_FROZEN"
+  },
+  "observational_metadata": {
+    "recorded_at": "2026-07-20",
+    "recorded_at_note": "wall-clock is observational only; excluded from the deterministic event_id identity root"
+  },
+  "signature": {
+    "algorithm": null,
+    "key_id": null,
+    "value": null,
+    "note": "unsigned draft — envelope signing is Phase 2 (unimplemented; cf. CLAIMS_LEDGER CLM-203)"
+  }
+}

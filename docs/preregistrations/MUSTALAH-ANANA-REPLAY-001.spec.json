@@ -1,0 +1,95 @@
+{
+  "pilot_id": "MUSTALAH-ANANA-REPLAY-001",
+  "title": "Replayed treatment of a mudallis's an'ana",
+  "mode": "feasibility-first empirical replay",
+  "status": "preregistration-draft",
+  "architecture_state": "frozen",
+  "ledger_grade": { "status": "Proposed", "eq": "EQ-D" },
+  "spec_source": "docs/EPISTEMIC_AUDIT_AMENDMENT.md",
+  "spec_hash": "sha256:0452f3cce56de157d3f640eabe023e82329167a4b4de6acdf3f185a96288f44c",
+  "spec_hash_reproduce": "sha256sum docs/EPISTEMIC_AUDIT_AMENDMENT.md",
+  "primary_critics": ["Yahya ibn Ma'in", "Ahmad ibn Hanbal"],
+  "research_questions": {
+    "RQ1": "inter-critic agreement on co-observed eligible cases",
+    "RQ2": "per-critic conformity of disposition to the preregistered rule",
+    "RQ3": "symmetric valence treatment of favorable vs unfavorable material"
+  },
+  "rule": {
+    "rule_id": "MUSTALAH-RULE-001",
+    "arabic_text": null,
+    "translation": null,
+    "classical_source": null,
+    "source_locator": null,
+    "applicability_conditions": [],
+    "expected_disposition": null,
+    "declared_exceptions": [],
+    "non_applicable_conditions": [],
+    "ambiguity_policy": "EXCLUDE_PRIMARY_INCLUDE_SENSITIVITY",
+    "_pending": "BLOCKING: fields must be quoted from a physically supplied classical edition; fabrication prohibited (see spec_source §8, §18)."
+  },
+  "corpora": [
+    {
+      "corpus_id": "IBN-MAIN-JUDGMENTS",
+      "critic": "Yahya ibn Ma'in",
+      "title": null,
+      "version": null,
+      "publisher_or_editor": null,
+      "retrieval_date": null,
+      "license": null,
+      "source_location": null,
+      "file_sha256": null,
+      "record_count": null,
+      "encoding": null,
+      "normalization_version": null,
+      "included_sections": [],
+      "excluded_sections": [],
+      "known_ocr_defects": [],
+      "known_editorial_interventions": [],
+      "_pending": "BLOCKING: no edition present on disk; file_sha256 and record_count must be computed from the supplied artifact."
+    },
+    {
+      "corpus_id": "IBN-HANBAL-JUDGMENTS",
+      "critic": "Ahmad ibn Hanbal",
+      "title": null,
+      "version": null,
+      "publisher_or_editor": null,
+      "retrieval_date": null,
+      "license": null,
+      "source_location": null,
+      "file_sha256": null,
+      "record_count": null,
+      "encoding": null,
+      "normalization_version": null,
+      "included_sections": [],
+      "excluded_sections": [],
+      "known_ocr_defects": [],
+      "known_editorial_interventions": [],
+      "_pending": "BLOCKING: no edition present on disk; file_sha256 and record_count must be computed from the supplied artifact."
+    }
+  ],
+  "outcome_vocabulary": ["ACCEPT", "REJECT", "CONDITIONAL", "UNRESOLVED", "NO_JUDGMENT"],
+  "sampling_rule": {
+    "min_feasible_N": 30,
+    "census_upper_bound": 100,
+    "deterministic_selection": "rank by SHA256(spec_hash || case_id); take 100 smallest"
+  },
+  "admission_gates": [
+    "spec hash matches frozen preregistration",
+    "corpus hashes match",
+    "entity map hash matches",
+    "sample algorithm reproduces the sample",
+    "analysis code hash matches",
+    "all deviations disclosed",
+    "all exclusions enumerated",
+    "raw counts included",
+    "valence coder agreement reported",
+    "no post-freeze metric substitution"
+  ],
+  "result_receipt_states": ["MEASURED", "INCONCLUSIVE", "FEASIBILITY_FAILURE", "PROTOCOL_VIOLATION", "REJECTED"],
+  "blocking_preconditions": [
+    "rule.arabic_text / classical_source / source_locator (§8) must be quoted from a supplied edition",
+    "corpora[*].file_sha256 / record_count (§9) must be computed from supplied editions of both critics"
+  ],
+  "current_event": "PILOT_SPEC_DRAFT_RECORDED",
+  "freeze_transition": "PILOT_SPEC_DRAFT_RECORDED -> PILOT_SPEC_FROZEN requires operator to supply the two critic editions as files"
+}

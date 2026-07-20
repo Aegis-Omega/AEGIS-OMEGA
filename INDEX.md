@@ -145,6 +145,16 @@
 
 ---
 
+## Epistemic Audit (`docs/`)
+
+| Path | Role | Tier |
+|------|------|------|
+| `docs/EPISTEMIC_AUDIT_AMENDMENT.md` | Epistemic Audit Amendment v1.1 — frozen methodological constitution (§1–5) + MUSTALAH-ANANA-REPLAY-001 pilot preregistration (§6–19) | T2 |
+| `docs/preregistrations/MUSTALAH-ANANA-REPLAY-001.spec.json` | Machine-readable pilot spec; corpus/rule blocks PENDING (null) | T2 |
+| `docs/preregistrations/events/MUSTALAH-ANANA-REPLAY-001.PILOT_SPEC_DRAFT_RECORDED.json` | Recorded ledger event (draft, not frozen); real spec_hash + payload_hash | T2 |
+
+---
+
 ## Sovereign AGI OS (cross-project reference)
 
 | Concept | Description | Relation to AEGIS |
