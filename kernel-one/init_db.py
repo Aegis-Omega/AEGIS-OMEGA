@@ -29,16 +29,40 @@ CREATE TABLE IF NOT EXISTS artifacts (
     tool_calls TEXT,
     FOREIGN KEY(witness_id) REFERENCES witnesses(witness_id)
 );
+
+CREATE TABLE IF NOT EXISTS witness_envelopes (
+    witness_id TEXT PRIMARY KEY,
+    schema_version TEXT NOT NULL,
+    request_id TEXT NOT NULL,
+    artifact_path TEXT NOT NULL,
+    artifact_sha256 TEXT NOT NULL,
+    observed_at INTEGER NOT NULL,
+    sequence INTEGER NOT NULL,
+    parent_receipt_hash TEXT NOT NULL,
+    key_id TEXT NOT NULL,
+    algorithm TEXT NOT NULL CHECK (algorithm = 'hmac-sha256'),
+    canonical_json TEXT NOT NULL,
+    signature TEXT NOT NULL,
+    UNIQUE(key_id, sequence),
+    FOREIGN KEY(witness_id) REFERENCES witnesses(witness_id)
+);
+CREATE INDEX IF NOT EXISTS idx_witness_envelope_request
+    ON witness_envelopes(request_id);
+CREATE INDEX IF NOT EXISTS idx_witness_envelope_parent
+    ON witness_envelopes(parent_receipt_hash);
 """
 
-def initialize_database():
-    conn = sqlite3.connect(DB_PATH)
+
+def initialize_database(db_path: str | Path = DB_PATH):
+    path = Path(db_path)
+    conn = sqlite3.connect(path)
     try:
         conn.executescript(SCHEMA)
         conn.commit()
-        print("[OK] memory_store.sqlite initialized")
+        print(f"[OK] {path} initialized")
     finally:
         conn.close()
+
 
 if __name__ == "__main__":
     initialize_database()
