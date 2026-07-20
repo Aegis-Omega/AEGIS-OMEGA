@@ -1,0 +1,85 @@
+{
+  "schema_version": "0.1.0",
+  "experiment_id": "pr-225-sol-cross-platform-control-plane-v1",
+  "title": "Admit the non-production SOL governed cross-platform control-plane foundation",
+  "repository": "Aegis-Omega/AEGIS-OMEGA",
+  "execution_class": "EXPERIMENT",
+  "evidence_tier": "T1",
+  "expected_parent_sha": "ed426124475cc9ee8b4d138b2928ae547352e97b",
+  "expected_parent_state_root": "410bcd49c721e65050382ae759db7af2f41fa9f572e625174252c72a8748ea93",
+  "constitution": {
+    "path": "CONSTITUTIONAL_DECLARATION.md",
+    "blob_id": "d0c210443e03313113e43da46c4d98269494baeb"
+  },
+  "policy": {
+    "path": "platform/sol/SPEC.md",
+    "blob_id": "621e549e9cfa047f5f0d56b31597b1854bea4bb9"
+  },
+  "sovereignty_contracts": {
+    "path": "sovereign-omega-v2/src/sovereignty/contracts.ts",
+    "blob_id": "d53860f1340293cf08955ebb8729a853432551eb"
+  },
+  "admission_executable": {
+    "path": "sovereign-omega-v2/scripts/validate-experiment-plan.ts",
+    "blob_id": "b9c998ddc85b9beeefec30121e88e828b15a8405"
+  },
+  "admission_workflow": {
+    "path": ".github/workflows/experiment-admission.yml",
+    "blob_id": "01a59d129b0431c9ccb92b1227a0e46992b1562f"
+  },
+  "integration_ledger_generator": {
+    "path": "scripts/integration_ledger.py",
+    "blob_id": "28823ae5b630be273b78210f0addf9c0a86aad05"
+  },
+  "claims_ledger": {
+    "path": ".aegis/claims-ledger.json",
+    "root": "495a01d7a942d5f90b39f2d2b178b074aee60c5e6460e1622f1917982ac59652"
+  },
+  "budget": {
+    "max_cost_microunits": 0,
+    "max_duration_seconds": 3600,
+    "max_mutations": 0
+  },
+  "observability": {
+    "provider": "github-actions",
+    "durable_execution_required": true,
+    "heartbeat_max_seconds": 300,
+    "cancellation_mechanism": "github-actions-cancel-run",
+    "emergency_stop_reference": "github-actions:cancel-run"
+  },
+  "operator_approval": {
+    "required": true,
+    "state": "APPROVED",
+    "operator_actor_id": "tarikskalic",
+    "operator_session_id": "chatgpt-session-2026-07-20-sol-control-plane",
+    "authorization_basis": "user-explicit-sol-cross-platform-control-plane",
+    "decided_at": "2026-07-20T18:20:00Z",
+    "approval_record_hash": "55f67cb45313ddf380aef502b320b493a9ae259a1a0d720aecd020f96a5f04c1",
+    "signature_mode": "GITHUB_OIDC_ATTESTATION"
+  },
+  "requested_authority_domains": [
+    "github:artifact-metadata-write",
+    "github:attestation-write",
+    "github:workflow-artifact-write"
+  ],
+  "termination_conditions": [
+    "budget_exhausted",
+    "observability_expired",
+    "operator_emergency_stop"
+  ],
+  "expected_outputs": [
+    "ADMISSION_RECEIPT.json",
+    "EVIDENCE_MANIFEST.json",
+    "EXPERIMENT_PLAN.json",
+    "INTEGRATION_LEDGER.json",
+    "INTEGRATION_LEDGER.md",
+    "SHA256SUMS"
+  ],
+  "replay_package": {
+    "required": true,
+    "include_plan": true,
+    "include_admission_receipt": true,
+    "include_evidence_manifest": true,
+    "include_integration_ledger": true
+  }
+}
