@@ -1,4 +1,4 @@
-version: 0.2.0
+version: 0.3.0
 boundary_mode: CONSTITUTIONAL_ENFORCEMENT
 safety:
   alpha_barrier: 0.15
@@ -12,22 +12,22 @@ phases:
 - HARMONIZE
 files:
   INDEX.yaml:
-    hash: e3b1300b9526d95415d114f3fa7c26cbdb77324d8b6adc748ca2b75516e6698a
+    hash_mode: self-excluded
     frozen: true
   state_vector.json:
     hash: a7d6dd3cd8e47c587737569a7cf9283571ebfa391ce9a61416cbabaa6405c56a
     frozen: false
   validator.py:
-    hash: 07b80d96085bc913072074cb89482a9ba67aa877c5c8bd863821bbec85f35787
+    hash: fbe50a9777857d51189c9bc73ed6fd1fddf833bdbb3b8e9fd9848e70056f0099
     frozen: false
   reconcile.py:
     hash: 529eb7f19716f64584719da9e90cafbf5dfa8e00a2f4281f5b6d735d4e977438
     frozen: false
   init_db.py:
-    hash: e8eedf072a317e95bcb50727e6696a8e9cd39307f0497795ddecbd93f9d6ed62
+    hash: 62786902df6111c962e4877966c0796a1b5cee375998a5de767139a047174165
     frozen: false
   kernel_one.py:
-    hash: 779f53995e5f4d35257170b8d79417d036ed66a3815bc499fef8143e9dfe6af1
+    hash: 144fa298656d3dbb80d3a9b6939c1fd9af73bf5d2fda30025cf25f64051c2fa9
     frozen: false
   frontier_router.py:
     hash: 8fd99be34d92976ac91fbda5f44529a4f9768807430723fae7510da8dc07524b
@@ -36,7 +36,7 @@ files:
     hash: 73a7d7f20ebdecf75d75ea4e57c7a1d0d81ee17c12a2941b56029f757ef6ff28
     frozen: false
   test_kernel_one.py:
-    hash: 05d643c5ecec9854935aef0aba82dfc693724bee541f7e4c5c6575fa83155cbd
+    hash: 342efb68a6cdc734d43d7a8a7f8056e797a52b1ae3de768eccb853280aadd7b3
     frozen: false
   adversarial_payloads.jsonl:
     hash: 7d4b643f663416be551d766495a2f0f4bb013bf372de56df32e0cf81fd0b586f
@@ -51,12 +51,17 @@ files:
     hash: f5b2820758c4ec214b5b6e0a05a14a4d90083e67cd8eec986c31edce182f0d60
     frozen: false
   memory_store.sqlite:
-    hash: 6c7598e59547572ba775dd14918edbc6013855e24ddeaab7680e0027ce9f2e45
+    runtime_generated: true
     frozen: false
 metadata:
-  description: 'Constitutional manifest controlling admissible execution. Any mutation
+  description: >-
+    Constitutional manifest controlling admissible execution. Any mutation
     outside this manifest is invalid.
-
-    '
   replay_required: true
   witness_required: true
+  signing_algorithm: hmac-sha256
+  required_environment:
+  - AEGIS_KERNEL_SIGNING_KEY
+  - AEGIS_KERNEL_SIGNING_KEY_ID
+  compromised_key_ids:
+  - kernel-hmac-v0-compromised
