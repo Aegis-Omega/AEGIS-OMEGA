@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/automaton-3-sovereign-execution",
-    "parent_state_hash": "37ec8f38ff2453dcd59c292f3c865a5ddeb893b5dadc52a80a06762d2b6982da",
+    "source_ref": "dependabot/npm_and_yarn/npm_and_yarn-a06f58e668",
+    "parent_state_hash": "410bcd49c721e65050382ae759db7af2f41fa9f572e625174252c72a8748ea93",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "410bcd49c721e65050382ae759db7af2f41fa9f572e625174252c72a8748ea93"
+  "state_hash": "b29ae6bc87fe94b53a428ecbef24d411c1667bb104a4026af4f309c9c707ad21"
 }
