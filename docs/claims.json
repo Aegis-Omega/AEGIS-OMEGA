@@ -553,7 +553,7 @@
     {
       "id": "CLM-231",
       "claim": "Two named models differ measurably in capability on the six-task MCB-001 battery.",
-      "tier": "Unresolved",
+      "tier": "Proposed",
       "eq": "EQ-D",
       "dependencies": [],
       "evidence": [
@@ -562,8 +562,7 @@
         "Code: sovereign-omega-v2/scripts/model-capability/tasks.ts",
         "Test: sovereign-omega-v2/test/unit/model-capability-graders.test.ts"
       ],
-      "fails_if": "Any result is cited before a results/ file exists, or after tasks.ts changes without re-running, or the preregistered decision rule in PREREGISTRATION.md section 7 is loosened after seeing scores.",
-      "execution_status": "NEVER RUN — ANTHROPIC_API_KEY unset in the authoring sandbox; harness verified to exit 1 on the missing credential."
+      "fails_if": "Any result is cited before a results/ file exists — the battery has NEVER BEEN RUN (ANTHROPIC_API_KEY unset in the authoring sandbox; harness verified to exit 1 on the missing credential). Also fails if tasks.ts changes without re-running, or if the preregistered decision rule in PREREGISTRATION.md section 7 is loosened after seeing scores."
     },
     {
       "id": "CLM-232",
