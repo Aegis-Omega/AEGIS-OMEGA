@@ -11,13 +11,25 @@
  * obligation was declared, not discharged. Verifying pi_eq / pi_adapt requires
  * a proving system this module does not have and must not pretend to have.
  *
- * DELIBERATE DEVIATION FROM THE SPEC AS WRITTEN. Section 9.2 lists the
- * admission conjunction as V_hash, ValidTuple, ValidProofs, ValidSignature —
- * it omits ValidStrategy, which section 10.3 defines and nothing then consults.
- * That omission is fail-open: a vertex with transform `fork_from_archive` and
- * strategy `reparent_to_active_sibling` satisfies every listed conjunct. This
- * module CONSULTS ValidStrategy. The deviation is intentional and is pinned by
- * a test, so it is reviewable rather than silent.
+ * SPEC AMENDMENTS APPLIED (A1, A2, A3, A6 — reviewer-accepted 2026-07-26):
+ *
+ *   A1  ValidStrategy joins the section 9.2 admission conjunction. The spec as
+ *       first written defined it in 10.3 and consulted it nowhere, which was
+ *       fail-open: transform `fork_from_archive` with strategy
+ *       `reparent_to_active_sibling` satisfied every listed conjunct. This is
+ *       now a normative correction, no longer a deviation.
+ *   A2  `archive_required` removed from the enforcement action domain
+ *       (Option A). There is no synchronous archive-before-admit path, so a
+ *       remediation signal E(N) never returns has no reason to exist.
+ *   A3  Genesis anchor introduced. See GENESIS_ANCHOR below.
+ *   A6  ValidProofs renamed to proofReferencesPresent. It decides whether a
+ *       proof REFERENCE is present and well formed. Verification of pi_eq /
+ *       pi_adapt is an external obligation this module does not discharge:
+ *       ValidProofs = ProofReferencesPresent AND ProofVerificationSucceeds,
+ *       and only the left conjunct is computed here.
+ *
+ * A4 (observable trace equivalence) and A5 (hot-graph vs total memory) are
+ * spec-only corrections; nothing in this module encodes either claim.
  */
 
 export type TransformPass =
@@ -49,6 +61,35 @@ const SHA256_REF = /^sha256:[0-9a-f]{64}$/
 
 export function isSha256Ref(value: string | null): value is string {
   return value !== null && SHA256_REF.test(value)
+}
+
+/**
+ * A3. The genesis anchor `g`, deliberately OUTSIDE H so that no hash can ever
+ * collide with it and no ordinary vertex can claim to be the root. The domain
+ * is H_g = H union {g} for parent and for c0/c1; c2 keeps its own bottom.
+ *
+ * The root of the DAG has no predecessor. Encoding that as a reserved anchor
+ * says so; encoding it as a zero-filled digest would have said the root's
+ * parent is a commit whose content hashes to zero, which is a different and
+ * false claim.
+ */
+export const GENESIS_ANCHOR = 'genesis:root'
+
+export function isGenesisAnchor(value: string | null): boolean {
+  return value === GENESIS_ANCHOR
+}
+
+/** A3. Genesis(v) iff p_v = g and C_v = (g, g, bottom) and the pass is a normal commit. */
+export function isGenesis(v: CommitVertex): boolean {
+  const [c0, c1, c2] = v.causal_tuple
+  return (
+    isGenesisAnchor(v.parent) &&
+    isGenesisAnchor(c0) &&
+    isGenesisAnchor(c1) &&
+    c2 === null &&
+    v.transform === 'normal_commit' &&
+    v.rebase_extension === null
+  )
 }
 
 export interface ProofBundle {
@@ -109,9 +150,13 @@ export function cgcWeight(activeCount: number): number {
   return 1.0
 }
 
-/** Section 10.2. */
+/** Section 10.2, as amended by A3: Genesis OR rebase OR degenerate. */
 export function validTuple(v: CommitVertex): boolean {
+  if (isGenesis(v)) return true
+
   const [c0, c1, c2] = v.causal_tuple
+  // Outside the genesis branch the anchor is not admissible anywhere, so a
+  // non-root vertex cannot borrow the root's exemption.
   if (!isSha256Ref(c0) || !isSha256Ref(c1)) return false
   if (v.parent !== c0) return false
 
@@ -131,8 +176,12 @@ export function validStrategy(v: CommitVertex): boolean {
   return strategy === 'fork_from_archived_parent'
 }
 
-/** Section 10.4. Presence of an obligation, not discharge of it. */
-export function validProofs(v: CommitVertex): boolean {
+/**
+ * Section 10.4 as amended by A6. Decides ProofReferencesPresent only.
+ * ValidProofs = ProofReferencesPresent AND ProofVerificationSucceeds; the right
+ * conjunct is an external obligation and is NOT computed here.
+ */
+export function proofReferencesPresent(v: CommitVertex): boolean {
   if (!isRebase(v.transform)) return true
   const x = v.rebase_extension
   if (!x) return false
@@ -149,7 +198,7 @@ export type AdmissionFailure =
   | 'policy_snapshot_mismatch'
   | 'invalid_tuple'
   | 'invalid_strategy'
-  | 'invalid_proofs'
+  | 'missing_proof_references'
 
 /** Section 9.2. Returns every independent reason, not the first. */
 export function admissionFailures(
@@ -164,7 +213,7 @@ export function admissionFailures(
   if (ledger.active_snapshot_hash !== policySnapshotHash) failures.push('policy_snapshot_mismatch')
   if (!validTuple(v)) failures.push('invalid_tuple')
   if (!validStrategy(v)) failures.push('invalid_strategy')
-  if (!validProofs(v)) failures.push('invalid_proofs')
+  if (!proofReferencesPresent(v)) failures.push('missing_proof_references')
   return failures
 }
 
