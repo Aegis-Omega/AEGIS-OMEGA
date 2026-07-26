@@ -1,6 +1,6 @@
 /**
  * Pins the mechanically decidable fragment of the AEGIS OMEGA formal
- * reconstruction, post-amendment (A1, A2, A3, A6).
+ * reconstruction, post-amendment (A1, A2, A3, A6, A7).
  *
  * Two kinds of test live here. Most pin intended behaviour. A few pin a defect
  * or an unenforced gap on purpose, named so in the test title, so that a reader
@@ -74,6 +74,7 @@ const ledger = (over: Partial<LedgerState> = {}): LedgerState => ({
   breaker_tripped: false,
   active_snapshot_hash: SNAPSHOT,
   known_ids: [],
+  has_genesis: false,
   ...over,
 })
 
@@ -182,13 +183,34 @@ describe('A3 — genesis anchor', () => {
     ).toBe(false)
   })
 
-  it('NOT ENFORCED: nothing bounds a ledger to one genesis vertex', () => {
-    // Found while implementing A3. Admission is per-vertex and section 9.2 has
-    // no assertion over the ledger's existing roots, so a second genesis is
-    // admissible and the DAG becomes a forest. Recorded, not silently fixed —
-    // whether roots must be unique is a spec decision.
+  it('A7: a ledger admits its first root', () => {
+    expect(isAdmissible(genesis(), ledger({ has_genesis: false }), SNAPSHOT)).toBe(true)
+  })
+
+  it('A7: a ledger refuses a second root, so the DAG cannot become a forest', () => {
     const second = genesis({ id: 'v0-bis' })
-    expect(isAdmissible(second, ledger({ known_ids: ['v0'] }), SNAPSHOT)).toBe(true)
+    expect(admissionFailures(second, ledger({ has_genesis: true, known_ids: ['v0'] }), SNAPSHOT)).toEqual([
+      'duplicate_genesis',
+    ])
+  })
+
+  it('A7 binds roots only — an ordinary vertex is unaffected by an existing root', () => {
+    expect(isAdmissible(normalVertex(), ledger({ has_genesis: true }), SNAPSHOT)).toBe(true)
+    expect(isAdmissible(rebaseVertex(), ledger({ has_genesis: true }), SNAPSHOT)).toBe(true)
+  })
+
+  it('A7 is distinct from duplicate_id — a second root with a fresh id still fails', () => {
+    const second = genesis({ id: 'a-brand-new-id' })
+    const failures = admissionFailures(second, ledger({ has_genesis: true, known_ids: ['v0'] }), SNAPSHOT)
+    expect(failures).toContain('duplicate_genesis')
+    expect(failures).not.toContain('duplicate_id')
+  })
+
+  it('STILL NOT ASSERTED: an orphan parent is admissible — uniqueness is not rootedness', () => {
+    // 9.2 never requires p_v to name a vertex the ledger holds, so a vertex
+    // whose parent hash is arbitrary is admitted. A7 does not address this.
+    const orphan = normalVertex({ id: 'orphan', parent: h('f'), causal_tuple: [h('f'), h('f'), null] })
+    expect(isAdmissible(orphan, ledger({ has_genesis: true, known_ids: [] }), SNAPSHOT)).toBe(true)
   })
 })
 

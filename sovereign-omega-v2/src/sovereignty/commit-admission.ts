@@ -22,6 +22,16 @@
  *       (Option A). There is no synchronous archive-before-admit path, so a
  *       remediation signal E(N) never returns has no reason to exist.
  *   A3  Genesis anchor introduced. See GENESIS_ANCHOR below.
+ *   A7  Genesis uniqueness. Section 9.2 gains
+ *         Genesis(v) => NOT EXISTS u in dom(H_ledger) : Genesis(u)
+ *       so a ledger holds at most one root. Without it a second root was
+ *       admissible and the DAG silently became a forest. Section 9.1's state
+ *       vector gains `has_genesis`, since the assertion was unstatable before.
+ *
+ *       STILL NOT ASSERTED, and out of scope here: section 9.2 never requires
+ *       p_v to name a vertex the ledger actually holds, so an orphan whose
+ *       parent hash is arbitrary remains admissible. Rootedness needs that
+ *       assertion too; uniqueness alone does not give it.
  *   A6  ValidProofs renamed to proofReferencesPresent. It decides whether a
  *       proof REFERENCE is present and well formed. Verification of pi_eq /
  *       pi_adapt is an external obligation this module does not discharge:
@@ -124,6 +134,13 @@ export interface LedgerState {
   readonly breaker_tripped: boolean
   readonly active_snapshot_hash: string
   readonly known_ids: readonly string[]
+  /**
+   * A7. Whether this ledger already holds a root. Section 9.1's state vector
+   * had no way to express it, so section 9.2 could not assert over existing
+   * roots even in principle — the uniqueness gap was a missing state field
+   * before it was a missing assertion.
+   */
+  readonly has_genesis: boolean
 }
 
 const REBASE_PASSES: readonly TransformPass[] = ['rebase_to_active_sibling', 'fork_from_archive']
@@ -195,6 +212,7 @@ export type AdmissionFailure =
   | 'breaker_tripped'
   | 'capacity_exhausted'
   | 'duplicate_id'
+  | 'duplicate_genesis'
   | 'policy_snapshot_mismatch'
   | 'invalid_tuple'
   | 'invalid_strategy'
@@ -210,6 +228,8 @@ export function admissionFailures(
   if (ledger.breaker_tripped) failures.push('breaker_tripped')
   if (ledger.active_count + 1 > HOT_GRAPH_CAPACITY) failures.push('capacity_exhausted')
   if (ledger.known_ids.includes(v.id)) failures.push('duplicate_id')
+  // A7. Asserted only for a candidate root: a ledger admits at most one.
+  if (isGenesis(v) && ledger.has_genesis) failures.push('duplicate_genesis')
   if (ledger.active_snapshot_hash !== policySnapshotHash) failures.push('policy_snapshot_mismatch')
   if (!validTuple(v)) failures.push('invalid_tuple')
   if (!validStrategy(v)) failures.push('invalid_strategy')
