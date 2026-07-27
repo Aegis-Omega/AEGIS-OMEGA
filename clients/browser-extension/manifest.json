@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "AEGIS Omega Control",
+  "version": "0.1.1",
+  "description": "Read-only control panel for AEGIS Omega services. No secrets stored.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "AEGIS Omega"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://mcp.aegisomega.com/*",
+    "https://aegis-vertex.aegisomega.com/*"
+  ],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "options_page": "options.html"
+}

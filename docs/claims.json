@@ -266,7 +266,8 @@
         "CLM-009"
       ],
       "evidence": [
-        "Spec: (attestation only — no session artifact yet). Required for promotion: recovery of the upstream session transcript (or equivalent logged artifact) binding a claude-fable-5 session to BOTH (a) ingestion of the Mythos model card and (b) authorship/initiation of the 4747755 change or its PR #148 branch. Currently known: all recovered sessions in the June chain logged model claude-sonnet-4-6; the operator attests the causal story; attestation alone cannot promote this claim."
+        "Spec: (attestation only — no session artifact yet). Required for promotion: recovery of the upstream session transcript (or equivalent logged artifact) binding a claude-fable-5 session to BOTH (a) ingestion of the Mythos model card and (b) authorship/initiation of the 4747755 change or its PR #148 branch. Currently known: all recovered sessions in the June chain logged model claude-sonnet-4-6; the operator attests the causal story; attestation alone cannot promote this claim.",
+        "Counter-evidence (2026-07-22): session export a31da09a-5547-4c6d-83f5-e09c1f8c357d (2026-06-10 18:53-19:16 UTC, PR #150 review task) carries model=claude-sonnet-4-6 on 64/64 assistant turns; its six claude-fable-5 strings are all quoted repo file contents read by the session (CLAUDE.md env table, platform_helpers.py:20), not the session's own model field. The recovered Drive copy of the Mythos/Fable Model Documentation Form is watermarked 'Downloaded at Wed, 10 Jun 2026 14:31:45 GMT' — ~3.4h after commit 4747755 (11:09 GMT). Archive sweep 2026-07-22: four recovered session logs (a31da09a, 496d0968, df148542, 09c1e6ba, spanning 2026-06-10 18:52 to 06-14) were decoded and their model fields tallied — only claude-sonnet-4-6, claude-opus-4-8, and <synthetic> appear; zero claude-fable-5 in any model field. Earliest recovered session activity is 2026-06-10 ~18:23 UTC, ~7h after the fable-flip commit 4747755 (11:09 GMT); no recovered session predates it. Both findings land on the falsification side of this claim's own criteria; claim remains attestation-only, refuted-as-stated pending a primary artifact to the contrary."
       ],
       "fails_if": "Recovered logs establish a different initiator for 4747755/PR #148; or an exhaustive search of the session archives (Drive folder 1PPjNYs06S-wEU-OWQHDdHeFKrOnBpleJ, local .claude project archives) for the 2026-06-01→06-10 window finds no claude-fable-5 session; or the Mythos model card's Drive timestamps postdate 2026-06-10."
     },
@@ -548,6 +549,32 @@
       ],
       "fails_if": "The stable check omits pull_request, merge_group, or main push; artifacts are not candidate-bound; replay checksums are absent; OIDC is not required; or any negative-test bypass is accepted.",
       "verified_against": "f514dcecabeaa7b6d55c308de6349dfcd3f36df6"
+    },
+    {
+      "id": "CLM-231",
+      "claim": "Two named models differ measurably in capability on the six-task MCB-001 battery.",
+      "tier": "Proposed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Protocol: sovereign-omega-v2/scripts/model-capability/PREREGISTRATION.md",
+        "Code: sovereign-omega-v2/scripts/model-capability/run.ts",
+        "Code: sovereign-omega-v2/scripts/model-capability/tasks.ts",
+        "Test: sovereign-omega-v2/test/unit/model-capability-graders.test.ts"
+      ],
+      "fails_if": "Any result is cited before a results/ file exists — the battery has NEVER BEEN RUN (ANTHROPIC_API_KEY unset in the authoring sandbox; harness verified to exit 1 on the missing credential). Also fails if tasks.ts changes without re-running, or if the preregistered decision rule in PREREGISTRATION.md section 7 is loosened after seeing scores."
+    },
+    {
+      "id": "CLM-232",
+      "claim": "A capability difference between two models bears on which model authored a given commit.",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [
+        "CLM-206",
+        "CLM-231"
+      ],
+      "evidence": [],
+      "removal_reason": "Preregistered non-inference (PREREGISTRATION.md section 2). MCB-001 measures task performance and collects no provenance evidence; authorship is settled by session-log model fields, commit metadata and timestamps, which the battery does not touch."
     }
   ]
 }
