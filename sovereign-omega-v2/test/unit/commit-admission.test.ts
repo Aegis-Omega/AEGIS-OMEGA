@@ -1,6 +1,6 @@
 /**
  * Pins the mechanically decidable fragment of the AEGIS OMEGA formal
- * reconstruction, post-amendment (A1, A2, A3, A6, A7).
+ * reconstruction, post-amendment (A1, A2, A3, A6, A7, A8).
  *
  * Two kinds of test live here. Most pin intended behaviour. A few pin a defect
  * or an unenforced gap on purpose, named so in the test title, so that a reader
@@ -75,6 +75,7 @@ const ledger = (over: Partial<LedgerState> = {}): LedgerState => ({
   active_snapshot_hash: SNAPSHOT,
   known_ids: [],
   has_genesis: false,
+  known_vertex_hashes: [PARENT],
   ...over,
 })
 
@@ -206,11 +207,33 @@ describe('A3 — genesis anchor', () => {
     expect(failures).not.toContain('duplicate_id')
   })
 
-  it('STILL NOT ASSERTED: an orphan parent is admissible — uniqueness is not rootedness', () => {
-    // 9.2 never requires p_v to name a vertex the ledger holds, so a vertex
-    // whose parent hash is arbitrary is admitted. A7 does not address this.
-    const orphan = normalVertex({ id: 'orphan', parent: h('f'), causal_tuple: [h('f'), h('f'), null] })
-    expect(isAdmissible(orphan, ledger({ has_genesis: true, known_ids: [] }), SNAPSHOT)).toBe(true)
+})
+
+describe('A8 — parent presence, and the rootedness A7 alone did not give', () => {
+  const orphan = normalVertex({ id: 'orphan', parent: h('f'), causal_tuple: [h('f'), h('f'), null] })
+
+  it('refuses a vertex whose parent the ledger does not hold', () => {
+    expect(admissionFailures(orphan, ledger({ has_genesis: true }), SNAPSHOT)).toEqual(['parent_absent'])
+  })
+
+  it('admits the same vertex once its parent is present', () => {
+    expect(isAdmissible(orphan, ledger({ has_genesis: true, known_vertex_hashes: [h('f')] }), SNAPSHOT)).toBe(true)
+  })
+
+  it('exempts the root, which has no parent to be present', () => {
+    const genesisVertex = normalVertex({
+      id: 'v0',
+      parent: GENESIS_ANCHOR,
+      causal_tuple: [GENESIS_ANCHOR, GENESIS_ANCHOR, null],
+    })
+    expect(isAdmissible(genesisVertex, ledger({ known_vertex_hashes: [] }), SNAPSHOT)).toBe(true)
+  })
+
+  it('checks c0, the operational parent — a rebase names its selected parent', () => {
+    // p_v = c_0 = selected_parent_hash. The original intended parent in c_1 may
+    // legitimately be archived and absent; only the selected one must be held.
+    expect(isAdmissible(rebaseVertex(), ledger({ known_vertex_hashes: [PARENT] }), SNAPSHOT)).toBe(true)
+    expect(isAdmissible(rebaseVertex(), ledger({ known_vertex_hashes: [INTENDED] }), SNAPSHOT)).toBe(false)
   })
 })
 

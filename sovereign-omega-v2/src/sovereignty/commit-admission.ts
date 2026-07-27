@@ -28,10 +28,18 @@
  *       admissible and the DAG silently became a forest. Section 9.1's state
  *       vector gains `has_genesis`, since the assertion was unstatable before.
  *
- *       STILL NOT ASSERTED, and out of scope here: section 9.2 never requires
- *       p_v to name a vertex the ledger actually holds, so an orphan whose
- *       parent hash is arbitrary remains admissible. Rootedness needs that
- *       assertion too; uniqueness alone does not give it.
+ *   A8  Parent presence. Section 9.2 gains
+ *         NOT Genesis(v) => c_0 in {h_u : u in dom(H_ledger)}
+ *       so every non-root names a parent the ledger already holds. A7 alone
+ *       gave uniqueness, not rootedness: one root plus free-floating orphans
+ *       is still not a tree.
+ *
+ *       Together A3, A7 and A8 make an admitted ledger a single rooted DAG.
+ *       Acyclicity follows from admission order rather than from a cycle
+ *       check: a parent must already be present when its child is admitted,
+ *       so the ancestor relation respects a strict admission sequence and no
+ *       vertex can reach itself. That argument is only as strong as vertex
+ *       hashes being distinct, which is collision-resistance (T2), not proof.
  *   A6  ValidProofs renamed to proofReferencesPresent. It decides whether a
  *       proof REFERENCE is present and well formed. Verification of pi_eq /
  *       pi_adapt is an external obligation this module does not discharge:
@@ -141,6 +149,8 @@ export interface LedgerState {
    * before it was a missing assertion.
    */
   readonly has_genesis: boolean
+  /** A8. Semantic hashes of vertices this ledger already holds. */
+  readonly known_vertex_hashes: readonly string[]
 }
 
 const REBASE_PASSES: readonly TransformPass[] = ['rebase_to_active_sibling', 'fork_from_archive']
@@ -213,6 +223,7 @@ export type AdmissionFailure =
   | 'capacity_exhausted'
   | 'duplicate_id'
   | 'duplicate_genesis'
+  | 'parent_absent'
   | 'policy_snapshot_mismatch'
   | 'invalid_tuple'
   | 'invalid_strategy'
@@ -230,6 +241,10 @@ export function admissionFailures(
   if (ledger.known_ids.includes(v.id)) failures.push('duplicate_id')
   // A7. Asserted only for a candidate root: a ledger admits at most one.
   if (isGenesis(v) && ledger.has_genesis) failures.push('duplicate_genesis')
+  // A8. Every non-root names a parent the ledger already holds.
+  if (!isGenesis(v) && !ledger.known_vertex_hashes.includes(v.causal_tuple[0])) {
+    failures.push('parent_absent')
+  }
   if (ledger.active_snapshot_hash !== policySnapshotHash) failures.push('policy_snapshot_mismatch')
   if (!validTuple(v)) failures.push('invalid_tuple')
   if (!validStrategy(v)) failures.push('invalid_strategy')
