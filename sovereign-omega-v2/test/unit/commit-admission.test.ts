@@ -1,6 +1,6 @@
 /**
  * Pins the mechanically decidable fragment of the AEGIS OMEGA formal
- * reconstruction, post-amendment (A1, A2, A3, A6, A7, A8).
+ * reconstruction, post-amendment (A1, A2, A3, A6, A7, A8), plus the V_hash conjunct.
  *
  * Two kinds of test live here. Most pin intended behaviour. A few pin a defect
  * or an unenforced gap on purpose, named so in the test title, so that a reader
@@ -103,8 +103,8 @@ describe('section 7.3 — Root9 step enforcement', () => {
 
   it('agrees with the section 9.2 capacity assertion at the boundary', () => {
     // N+1 <= 1024 admits at N=1023 and refuses at N=1024; E(N) fail-closes at 1024.
-    expect(isAdmissible(normalVertex(), ledger({ active_count: 1023 }), SNAPSHOT)).toBe(true)
-    expect(admissionFailures(normalVertex(), ledger({ active_count: 1024 }), SNAPSHOT)).toContain(
+    expect(isAdmissible(normalVertex(), ledger({ active_count: 1023 }), SNAPSHOT, true)).toBe(true)
+    expect(admissionFailures(normalVertex(), ledger({ active_count: 1024 }), SNAPSHOT, true)).toContain(
       'capacity_exhausted',
     )
     expect(root9Enforce(HOT_GRAPH_CAPACITY)).toBe('fail_closed')
@@ -165,7 +165,7 @@ describe('A3 — genesis anchor', () => {
   it('admits the root vertex that was unrepresentable before the amendment', () => {
     expect(isGenesis(genesis())).toBe(true)
     expect(validTuple(genesis())).toBe(true)
-    expect(isAdmissible(genesis(), ledger({ active_count: 0 }), SNAPSHOT)).toBe(true)
+    expect(isAdmissible(genesis(), ledger({ active_count: 0 }), SNAPSHOT, true)).toBe(true)
   })
 
   it('does not let a non-root vertex borrow the root exemption', () => {
@@ -185,24 +185,24 @@ describe('A3 — genesis anchor', () => {
   })
 
   it('A7: a ledger admits its first root', () => {
-    expect(isAdmissible(genesis(), ledger({ has_genesis: false }), SNAPSHOT)).toBe(true)
+    expect(isAdmissible(genesis(), ledger({ has_genesis: false }), SNAPSHOT, true)).toBe(true)
   })
 
   it('A7: a ledger refuses a second root, so the DAG cannot become a forest', () => {
     const second = genesis({ id: 'v0-bis' })
-    expect(admissionFailures(second, ledger({ has_genesis: true, known_ids: ['v0'] }), SNAPSHOT)).toEqual([
+    expect(admissionFailures(second, ledger({ has_genesis: true, known_ids: ['v0'] }), SNAPSHOT, true)).toEqual([
       'duplicate_genesis',
     ])
   })
 
   it('A7 binds roots only — an ordinary vertex is unaffected by an existing root', () => {
-    expect(isAdmissible(normalVertex(), ledger({ has_genesis: true }), SNAPSHOT)).toBe(true)
-    expect(isAdmissible(rebaseVertex(), ledger({ has_genesis: true }), SNAPSHOT)).toBe(true)
+    expect(isAdmissible(normalVertex(), ledger({ has_genesis: true }), SNAPSHOT, true)).toBe(true)
+    expect(isAdmissible(rebaseVertex(), ledger({ has_genesis: true }), SNAPSHOT, true)).toBe(true)
   })
 
   it('A7 is distinct from duplicate_id — a second root with a fresh id still fails', () => {
     const second = genesis({ id: 'a-brand-new-id' })
-    const failures = admissionFailures(second, ledger({ has_genesis: true, known_ids: ['v0'] }), SNAPSHOT)
+    const failures = admissionFailures(second, ledger({ has_genesis: true, known_ids: ['v0'] }), SNAPSHOT, true)
     expect(failures).toContain('duplicate_genesis')
     expect(failures).not.toContain('duplicate_id')
   })
@@ -213,11 +213,11 @@ describe('A8 — parent presence, and the rootedness A7 alone did not give', () 
   const orphan = normalVertex({ id: 'orphan', parent: h('f'), causal_tuple: [h('f'), h('f'), null] })
 
   it('refuses a vertex whose parent the ledger does not hold', () => {
-    expect(admissionFailures(orphan, ledger({ has_genesis: true }), SNAPSHOT)).toEqual(['parent_absent'])
+    expect(admissionFailures(orphan, ledger({ has_genesis: true }), SNAPSHOT, true)).toEqual(['parent_absent'])
   })
 
   it('admits the same vertex once its parent is present', () => {
-    expect(isAdmissible(orphan, ledger({ has_genesis: true, known_vertex_hashes: [h('f')] }), SNAPSHOT)).toBe(true)
+    expect(isAdmissible(orphan, ledger({ has_genesis: true, known_vertex_hashes: [h('f')] }), SNAPSHOT, true)).toBe(true)
   })
 
   it('exempts the root, which has no parent to be present', () => {
@@ -226,14 +226,14 @@ describe('A8 — parent presence, and the rootedness A7 alone did not give', () 
       parent: GENESIS_ANCHOR,
       causal_tuple: [GENESIS_ANCHOR, GENESIS_ANCHOR, null],
     })
-    expect(isAdmissible(genesisVertex, ledger({ known_vertex_hashes: [] }), SNAPSHOT)).toBe(true)
+    expect(isAdmissible(genesisVertex, ledger({ known_vertex_hashes: [] }), SNAPSHOT, true)).toBe(true)
   })
 
   it('checks c0, the operational parent — a rebase names its selected parent', () => {
     // p_v = c_0 = selected_parent_hash. The original intended parent in c_1 may
     // legitimately be archived and absent; only the selected one must be held.
-    expect(isAdmissible(rebaseVertex(), ledger({ known_vertex_hashes: [PARENT] }), SNAPSHOT)).toBe(true)
-    expect(isAdmissible(rebaseVertex(), ledger({ known_vertex_hashes: [INTENDED] }), SNAPSHOT)).toBe(false)
+    expect(isAdmissible(rebaseVertex(), ledger({ known_vertex_hashes: [PARENT] }), SNAPSHOT, true)).toBe(true)
+    expect(isAdmissible(rebaseVertex(), ledger({ known_vertex_hashes: [INTENDED] }), SNAPSHOT, true)).toBe(false)
   })
 })
 
@@ -255,7 +255,7 @@ describe('section 10.3 / A1 — strategy alignment, and the fail-open it closes'
     // ...and the predicate the spec defines but never consults:
     expect(validStrategy(mismatched)).toBe(false)
     // Amendment A1 makes consulting it normative, so the vertex is refused.
-    expect(admissionFailures(mismatched, ledger(), SNAPSHOT)).toEqual(['invalid_strategy'])
+    expect(admissionFailures(mismatched, ledger(), SNAPSHOT, true)).toEqual(['invalid_strategy'])
   })
 })
 
@@ -290,8 +290,8 @@ describe('section 10.4 / A6 — proof reference presence', () => {
 
 describe('section 9.2 — admission', () => {
   it('admits a vertex satisfying every assertion', () => {
-    expect(isAdmissible(normalVertex(), ledger(), SNAPSHOT)).toBe(true)
-    expect(isAdmissible(rebaseVertex(), ledger(), SNAPSHOT)).toBe(true)
+    expect(isAdmissible(normalVertex(), ledger(), SNAPSHOT, true)).toBe(true)
+    expect(isAdmissible(rebaseVertex(), ledger(), SNAPSHOT, true)).toBe(true)
   })
 
   it('reports every independent failure rather than the first', () => {
@@ -299,6 +299,7 @@ describe('section 9.2 — admission', () => {
       rebaseVertex({ causal_tuple: [PARENT, h('9'), DECISION] }),
       ledger({ breaker_tripped: true, active_count: HOT_GRAPH_CAPACITY, known_ids: ['v1'] }),
       h('0'),
+      true,
     )
     expect(failures).toEqual([
       'breaker_tripped',
@@ -309,13 +310,23 @@ describe('section 9.2 — admission', () => {
     ])
   })
 
+  it('fails closed when the semantic hash does not verify', () => {
+    // V_hash(v) = 0. Section 9.2 lists this conjunct; the module originally
+    // did not compute it, so a vertex whose content did not match its own
+    // claimed hash was admitted.
+    expect(admissionFailures(normalVertex(), ledger(), SNAPSHOT, false)).toEqual([
+      'semantic_hash_mismatch',
+    ])
+    expect(isAdmissible(normalVertex(), ledger(), SNAPSHOT, false)).toBe(false)
+  })
+
   it('fails closed on a stale policy snapshot', () => {
-    expect(admissionFailures(normalVertex(), ledger(), h('9'))).toEqual(['policy_snapshot_mismatch'])
+    expect(admissionFailures(normalVertex(), ledger(), h('9'), true)).toEqual(['policy_snapshot_mismatch'])
   })
 
   it('is deterministic across repeated evaluation', () => {
     const v = rebaseVertex()
-    const runs = [0, 1, 2].map(() => JSON.stringify(admissionFailures(v, ledger(), SNAPSHOT)))
+    const runs = [0, 1, 2].map(() => JSON.stringify(admissionFailures(v, ledger(), SNAPSHOT, true)))
     expect(new Set(runs).size).toBe(1)
   })
 })

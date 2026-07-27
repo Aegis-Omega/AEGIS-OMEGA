@@ -225,15 +225,23 @@ export type AdmissionFailure =
   | 'duplicate_genesis'
   | 'parent_absent'
   | 'policy_snapshot_mismatch'
+  | 'semantic_hash_mismatch'
   | 'invalid_tuple'
   | 'invalid_strategy'
   | 'missing_proof_references'
 
 /** Section 9.2. Returns every independent reason, not the first. */
+/**
+ * Section 9.2. `hashVerified` is V_hash(v), computed by `verifySemanticHash` in
+ * `semantic-hash.ts` — async, so it cannot be inlined into a pure synchronous
+ * decision. It is a REQUIRED parameter with no default: a default of `true`
+ * would be fail-open, which is the defect class this module exists to catch.
+ */
 export function admissionFailures(
   v: CommitVertex,
   ledger: LedgerState,
   policySnapshotHash: string,
+  hashVerified: boolean,
 ): readonly AdmissionFailure[] {
   const failures: AdmissionFailure[] = []
   if (ledger.breaker_tripped) failures.push('breaker_tripped')
@@ -246,12 +254,18 @@ export function admissionFailures(
     failures.push('parent_absent')
   }
   if (ledger.active_snapshot_hash !== policySnapshotHash) failures.push('policy_snapshot_mismatch')
+  if (!hashVerified) failures.push('semantic_hash_mismatch')
   if (!validTuple(v)) failures.push('invalid_tuple')
   if (!validStrategy(v)) failures.push('invalid_strategy')
   if (!proofReferencesPresent(v)) failures.push('missing_proof_references')
   return failures
 }
 
-export function isAdmissible(v: CommitVertex, ledger: LedgerState, policySnapshotHash: string): boolean {
-  return admissionFailures(v, ledger, policySnapshotHash).length === 0
+export function isAdmissible(
+  v: CommitVertex,
+  ledger: LedgerState,
+  policySnapshotHash: string,
+  hashVerified: boolean,
+): boolean {
+  return admissionFailures(v, ledger, policySnapshotHash, hashVerified).length === 0
 }
