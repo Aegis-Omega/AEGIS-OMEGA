@@ -45,15 +45,14 @@
     "provider": "github-actions"
   },
   "operator_approval": {
-    "approval_record_hash": "0000000000000000000000000000000000000000000000000000000000000000",
-    "authorization_basis": "PENDING-OPERATOR-DECISION: adoption of Epistemic Audit Amendment v1.1 + MUSTALAH-ANANA-REPLAY-001 preregistration draft (docs-only). The operator has not yet approved admission; this plan fails closed by design until the operator records an explicit approval.",
-    "decided_at": "PENDING",
-    "operator_actor_id": "tarikskalic",
-    "operator_session_id": "PENDING",
     "required": true,
+    "state": "APPROVED",
+    "operator_actor_id": "tarikskalic",
+    "operator_session_id": "claude-session-2026-07-27-pr-229-admission",
+    "authorization_basis": "operator-explicit-instruction-approve-the-experiment-plan; docs-only adoption of Epistemic Audit Amendment v1.1 and the MUSTALAH-ANANA-REPLAY-001 preregistration draft, whose operator-required fields remain null so PILOT_SPEC_FROZEN cannot be emitted",
+    "decided_at": "2026-07-27T12:27:38Z",
     "signature_mode": "GITHUB_OIDC_ATTESTATION",
-    "state": "PENDING",
-    "_comment": "state=PENDING is intentionally invalid under AEGIS_EXPERIMENT_ADMISSION schema 0.1.0 (validator requires state=APPROVED). CI will emit a structured DENIAL_RECEIPT citing 'operator approval must be explicitly APPROVED' instead of the bare 'found 0' shell denial. Only the operator may flip this block to APPROVED; the approval_record_hash must then be recomputed as sha256(JCS({domain:'AEGIS_OPERATOR_APPROVAL_V0_1',approval:payload}))."
+    "approval_record_hash": "9e4dd6dbcc19ecde36256f85349f7b8d5892a38eb6d06830405055817703165d"
   },
   "policy": {
     "blob_id": "5937cf4d9fc59f224faabfb7865bba7aa5da90dc",
