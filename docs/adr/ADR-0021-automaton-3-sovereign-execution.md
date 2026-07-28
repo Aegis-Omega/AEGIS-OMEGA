@@ -29,7 +29,9 @@ WriterLease + provider execution + postcondition verification
 
 ## Determinism boundary
 
-Deterministic roots contain no wall-clock timestamp, random ordering, host-specific absolute path, mutable deployment label, or unredacted secret. Operational time and resolved paths are attached as observational metadata and are not hashed into identity, policy, lease, event, or mutation roots.
+Identity, policy, workspace, and canonical-state roots contain no ambient wall-clock read, random ordering, host-specific absolute path, mutable deployment label, or unredacted secret. Resolved paths remain observational metadata.
+
+Cross-runtime authoritative receipts are the deliberate exception for time binding. Their `timestamp_ms` and `expires_at_ms` fields are canonical unsigned decimal strings supplied by the caller's trusted event or clock context. Receipt code may compare those explicit values with a separately supplied `observed_at_ms` and bounded `maximum_clock_skew_ms`; it may not call `Date.now()`, `time.time()`, or infer time from a model response. A receipt is therefore byte-identical for identical explicit inputs while still proving lease lifetime and key-validity decisions. ADR-0022 defines this boundary.
 
 ## Workspace root convention
 
@@ -57,8 +59,16 @@ Post-execution learning is a separate, advisory boundary in `sovereign-omega-v2/
 
 The assessment remains non-authoritative: it cannot preserve or revert state, execute a mutation, grant authority, or update competence. Any recommendation still requires its declared next gate.
 
-## Current provenance limit
+## Cross-runtime authoritative receipt boundary
 
-The independent verifier certificate signs the complete evidence bundle, including the terminal receipt roots. The current TypeScript adapter does not resolve the underlying Python lease and mutation receipts or verify native signatures on those raw terminal records; those records do not yet carry such signatures. Therefore the persisted artifact is verifier-attested T2 evidence, not a claim that every terminal receipt was independently reconstructed from a durable cross-runtime source.
+The original Python `LeaseReceipt` and `MutationReceipt` records are deterministic local records, but their roots depend on in-process issuance state rather than an independently resolvable native signature. They remain legacy T2-only evidence. Embedding their hashes in a signed outcome-evidence certificate does not promote them, and they must never satisfy authoritative receipt provenance after restart.
 
-No cockpit, game, or MCP status resource is exposed from this slice. A read-back failure can leave an add-only orphan artifact, but the caller receives no advanced loop. Projection should be added only after a confined cross-runtime artifact transport or witness chain makes the underlying terminal provenance independently resolvable.
+ADR-0022 introduces `cross-runtime-receipt-envelope.v1.schema.json` and `receipt-trust-registry.v1.schema.json`. A conforming implementation signs lease and mutation lifecycle receipts, stores them by content-derived `receipt_id`, resolves their operator-pinned trust registry, verifies their parent chain and state bindings, and reads the exact bytes back before returning an authoritative receipt result. Only receipts that pass that complete boundary may supply the terminal receipt roots used by outcome evidence. Missing, unsigned, stale, expired, replayed, partially persisted, or unverifiable records remain non-promotable.
+
+This change does not alter the metacognitive authority boundary. Receipt verification can authenticate what happened; it cannot decide that an adaptation is safe, execute or revert a mutation, grant authority, or update competence. The outcome comparator remains advisory and still requires its declared next gate.
+
+The phrase "T2 to T3 provenance boundary" in ADR-0022 names a provenance-assurance milestone. It does not promote an artifact into the repository's epistemic `T3` category, which means research conjecture.
+
+## Projection prohibition
+
+No cockpit, game, or MCP status resource may claim authoritative provenance until the cross-runtime schemas, implementations, persistence and restart behavior, Python-to-TypeScript and TypeScript-to-Python vectors, adversarial tests, and complete existing suite have passed together. A read-back failure may leave an add-only orphan receipt or evidence artifact, but it must not advance canonical state, return an advanced metacognitive loop, or produce an authoritative projection.

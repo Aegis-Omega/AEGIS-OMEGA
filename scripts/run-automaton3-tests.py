@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TEST_FILES = (
     ROOT / "sovereign-omega-v2/python/tests/test_automaton3.py",
     ROOT / "sovereign-omega-v2/python/tests/test_operator_visibility.py",
+    ROOT / "sovereign-omega-v2/python/tests/test_authoritative_receipts.py",
 )
 
 ASSERTION_TESTS = {
@@ -27,6 +28,9 @@ ASSERTION_TESTS = {
         "test_13_replayed_fencing_token",
         "test_29_receipt_chain_break",
         "test_authority_admission_is_not_terminal_success",
+        "test_08_stale_state_fence_and_lease_link_are_signed_denials_with_no_change",
+        "test_24_every_receipt_kind_survives_persisted_restart_readback",
+        "test_26_backdated_timestamp_cannot_revive_expired_lease",
     },
     "external_side_effect_absence": {
         "test_01_unknown_coordinator_capability",
@@ -37,6 +41,15 @@ ASSERTION_TESTS = {
         "test_operator_visibility_cannot_be_suppressed",
         "test_authorization_mutation_and_cancellation_are_chained",
         "test_broken_operator_chain_is_denied",
+    },
+    "cross_runtime_provenance": {
+        "test_04_python_golden_vector_matches_schemas_and_derivations",
+        "test_23_python_independently_verifies_and_replays_typescript_golden_vector",
+    },
+    "restart_readback": {
+        "test_14_readback_failure_rolls_back_without_orphan_promotion",
+        "test_24_every_receipt_kind_survives_persisted_restart_readback",
+        "test_27_registry_readback_failure_rolls_back_without_partial_persistence",
     },
 }
 
@@ -62,7 +75,7 @@ def main() -> int:
 
     raw_log = "".join(outputs)
     observed_test_count = sum(int(value) for value in re.findall(r"Ran ([0-9]+) tests?", raw_log))
-    expected_test_count = 54
+    expected_test_count = 81
     if observed_test_count != expected_test_count:
         return_code = return_code or 1
     log = raw_log.replace(str(ROOT), "<REPO>")
@@ -96,6 +109,8 @@ def main() -> int:
         "state_preservation_asserted": assertion_sets["state_preservation"]["satisfied"],
         "external_side_effect_absence_asserted": assertion_sets["external_side_effect_absence"]["satisfied"],
         "operator_visibility_asserted": assertion_sets["operator_visibility"]["satisfied"],
+        "cross_runtime_provenance_asserted": assertion_sets["cross_runtime_provenance"]["satisfied"],
+        "restart_readback_asserted": assertion_sets["restart_readback"]["satisfied"],
         "assertion_sets": assertion_sets,
         "passed_test_ids": passed_test_ids,
         "return_code": return_code,
