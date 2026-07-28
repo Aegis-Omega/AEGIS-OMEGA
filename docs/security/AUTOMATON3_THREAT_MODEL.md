@@ -22,6 +22,8 @@ The operator, requesting actor, configured model, reviewing model, physical exec
 | Raw peer instructions becoming authority | typed EventEnvelope, bounded text, payload digest, policy and receipt references | envelope rejected |
 | Unicode/control-character bypass | NFC equality and Unicode control-category rejection in authority fields | identity/event denial |
 | Broken evidence or receipt chain | repository containment, file existence, parent digest, monotone sequence | exact denial code |
+| Authorization reported as completed execution | distinct authority and terminal receipt types; explicit terminal outcome and authority/lease/durable root binding | no terminal success receipt |
+| Forged or truncated authority subprocess output | zero exit status, exact runtime schema, cross-binding, and independently recomputed decision/receipt roots | local MCP denial before provider access |
 | Authority service outage | no local fallback | `AUTHORITY_SERVICE_UNAVAILABLE` |
 | Operator notification suppression | notifications and receipts are outside peer-message restrictions | constitutional violation |
 

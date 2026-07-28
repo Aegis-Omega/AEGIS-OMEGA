@@ -17,17 +17,23 @@ KEY_FILES = (
     "harness/sdk/sovereign_execution.py",
     "harness/sdk/authority_client.py",
     "harness/sdk/operator_visibility.py",
+    "harness/requirements-automaton3.txt",
     "harness/policies/consequence-policy.v1.json",
     "harness/policies/capability-map.v1.json",
     "scripts/automaton3-authority.py",
     "scripts/run-automaton3-tests.py",
     "scripts/validate-automaton3.py",
     "agents/coordinator.py",
+    "sovereign-omega-v2/mcp-server/package.json",
+    "sovereign-omega-v2/mcp-server/src/authority-response.ts",
     "sovereign-omega-v2/mcp-server/src/index.ts",
+    "sovereign-omega-v2/mcp-server/test/authority-response.mjs",
     "sovereign-omega-v2/mcp-server/test/automaton3-authority.mjs",
     "sovereign-omega-v2/python/tests/test_automaton3.py",
+    "sovereign-omega-v2/python/tests/test_coordinator_authority.py",
     "sovereign-omega-v2/python/tests/test_operator_visibility.py",
     "schemas/execution-identity-envelope.v1.schema.json",
+    "schemas/authority-decision-receipt.v1.schema.json",
     "schemas/mutation-receipt.v1.schema.json",
     "schemas/event-envelope.v1.schema.json",
     "schemas/writer-lease.v1.schema.json",
@@ -124,8 +130,10 @@ def evaluate(
             violations.append("authority bypass detected")
         if summary.get("adaptive_attempts") != [1, 10, 100]:
             violations.append("adaptive attempt matrix incomplete")
-        if summary.get("expected_test_count") != 41:
+        if summary.get("expected_test_count") != 54:
             violations.append("Automaton-3 test count incomplete")
+        if summary.get("observed_test_count") != summary.get("expected_test_count"):
+            violations.append("Automaton-3 observed test count mismatch")
         if summary.get("operator_visibility_asserted") is not True:
             violations.append("operator visibility invariant not asserted")
         if summary.get("state_preservation_asserted") is not True:

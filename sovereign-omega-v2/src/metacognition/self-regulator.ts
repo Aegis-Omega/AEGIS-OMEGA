@@ -11,6 +11,7 @@
 import type { SHA256Hex } from '../core/types.js'
 import { hashValue } from '../core/hashing.js'
 import { deepFreeze } from '../core/immutable.js'
+import { compareUtf8 } from '../core/ordering.js'
 
 export const SELF_REGULATOR_SCHEMA_VERSION = '1.0.0' as const
 
@@ -47,14 +48,17 @@ export interface SelfModelSnapshot {
   readonly capability_root: SHA256Hex
   readonly memory_root: SHA256Hex
   readonly metacognition_root: SHA256Hex
+  readonly verifier_trust_root: SHA256Hex
   readonly health: SelfModelHealth
 }
+
+export type SelfModelStateComponents = Omit<SelfModelSnapshot, 'state_root'>
 
 export interface KnowledgeGap {
   readonly gap_id: string
   readonly kind: GapKind
   readonly severity: GapSeverity
-  readonly evidence_refs: readonly string[]
+  readonly evidence_refs: readonly SHA256Hex[]
 }
 
 export interface ProposedMutation {
@@ -105,7 +109,10 @@ export class SelfRegulationError extends Error {
 
 const HASH_PATTERN = /^[0-9a-f]{64}$/
 const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{1,127}$/
-const SAFE_PATH_PATTERN = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9._@/+:-]+$/
+const SAFE_PATH_SEGMENT_PATTERN = /^[A-Za-z0-9._@+~-]+$/
+const DRIVE_PATH_PATTERN = /^[A-Za-z]:/
+const URI_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:/
+const WINDOWS_RESERVED_DEVICE_PATTERN = /^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)/i
 const VALID_KINDS = new Set<GapKind>([
   'INVARIANT_BREACH',
   'CAPABILITY_DEFICIT',
@@ -135,18 +142,64 @@ function sortedUnique(field: string, values: readonly string[]): readonly string
     assertNonEmpty(`${field}[${index}]`, value)
     return value.trim()
   })
-  const unique = [...new Set(normalized)].sort()
+  const unique = [...new Set(normalized)].sort(compareUtf8)
   if (unique.length !== normalized.length) throw new SelfRegulationError(`${field} must be unique`)
   return unique
 }
 
-function validateSnapshot(snapshot: SelfModelSnapshot): void {
-  assertHash('snapshot.state_root', snapshot.state_root)
+function normalizeOptionalReference(field: string, value: string | undefined): string | undefined {
+  if (value === undefined) return undefined
+  assertNonEmpty(field, value)
+  return value.trim()
+}
+
+/**
+ * Validate a canonical POSIX repository-relative path without rewriting it.
+ *
+ * Rejecting non-canonical spellings is intentional: silently normalizing a
+ * mutation target would allow the proposal digest to name different bytes
+ * from the path ultimately handed to the repository executor.
+ */
+function canonicalRepositoryPath(field: string, value: unknown): string {
+  assertNonEmpty(field, value)
+  if (
+    value !== value.trim() ||
+    value.startsWith('/') ||
+    value.startsWith('\\') ||
+    value.includes('\\') ||
+    DRIVE_PATH_PATTERN.test(value) ||
+    URI_SCHEME_PATTERN.test(value) ||
+    value.endsWith('/') ||
+    value.includes('//')
+  ) {
+    throw new SelfRegulationError(`${field} must be a canonical POSIX repository-relative path`)
+  }
+
+  const segments = value.split('/')
+  if (
+    segments.length === 0 ||
+    segments.some(segment =>
+      segment === '' ||
+      segment === '.' ||
+      segment === '..' ||
+      segment.endsWith('.') ||
+      segment.endsWith(' ') ||
+      WINDOWS_RESERVED_DEVICE_PATTERN.test(segment) ||
+      !SAFE_PATH_SEGMENT_PATTERN.test(segment),
+    )
+  ) {
+    throw new SelfRegulationError(`${field} must be a canonical POSIX repository-relative path`)
+  }
+  return value
+}
+
+function validateStateComponents(snapshot: SelfModelStateComponents): void {
   assertHash('snapshot.identity_root', snapshot.identity_root)
   assertHash('snapshot.policy_root', snapshot.policy_root)
   assertHash('snapshot.capability_root', snapshot.capability_root)
   assertHash('snapshot.memory_root', snapshot.memory_root)
   assertHash('snapshot.metacognition_root', snapshot.metacognition_root)
+  assertHash('snapshot.verifier_trust_root', snapshot.verifier_trust_root)
   if (!Number.isInteger(snapshot.health.corruption_count) || snapshot.health.corruption_count < 0) {
     throw new SelfRegulationError('snapshot.health.corruption_count must be a non-negative integer')
   }
@@ -157,7 +210,26 @@ function validateSnapshot(snapshot: SelfModelSnapshot): void {
   }
 }
 
-function normalizeGaps(gaps: readonly KnowledgeGap[]): readonly KnowledgeGap[] {
+function validateSnapshot(snapshot: SelfModelSnapshot): void {
+  assertHash('snapshot.state_root', snapshot.state_root)
+  validateStateComponents(snapshot)
+}
+
+/**
+ * Bind every authority-relevant self-model component into one deterministic
+ * state root. Callers may not provide an unrelated label as `state_root`.
+ */
+export async function hashSelfModelStateRootV1(
+  snapshot: SelfModelStateComponents,
+): Promise<SHA256Hex> {
+  validateStateComponents(snapshot)
+  return hashValue({
+    domain: 'AEGIS_SELF_MODEL_STATE_V1',
+    snapshot,
+  })
+}
+
+export function normalizeKnowledgeGaps(gaps: readonly KnowledgeGap[]): readonly KnowledgeGap[] {
   if (!Array.isArray(gaps)) throw new SelfRegulationError('gaps must be an array')
   const ids = new Set<string>()
   const normalized = gaps.map((gap, index) => {
@@ -166,38 +238,76 @@ function normalizeGaps(gaps: readonly KnowledgeGap[]): readonly KnowledgeGap[] {
     ids.add(gap.gap_id)
     if (!VALID_KINDS.has(gap.kind)) throw new SelfRegulationError(`gaps[${index}].kind is invalid`)
     if (!VALID_SEVERITIES.has(gap.severity)) throw new SelfRegulationError(`gaps[${index}].severity is invalid`)
+    const evidenceReferences = sortedUnique(`gaps[${index}].evidence_refs`, gap.evidence_refs)
+    if (evidenceReferences.length === 0) {
+      throw new SelfRegulationError(`gaps[${index}].evidence_refs must contain verified evidence`)
+    }
+    const evidence_refs = evidenceReferences.map((reference, evidenceIndex) => {
+      assertHash(`gaps[${index}].evidence_refs[${evidenceIndex}]`, reference)
+      return reference
+    })
     return {
       gap_id: gap.gap_id,
       kind: gap.kind,
       severity: gap.severity,
-      evidence_refs: sortedUnique(`gaps[${index}].evidence_refs`, gap.evidence_refs),
+      evidence_refs,
     }
   })
-  return normalized.sort((a, b) => a.gap_id.localeCompare(b.gap_id))
+  return normalized.sort((a, b) => compareUtf8(a.gap_id, b.gap_id))
 }
 
-function normalizeProposal(proposal: AdaptationProposal): AdaptationProposal {
+export function normalizeAdaptationProposal(proposal: AdaptationProposal): AdaptationProposal {
   if (!SAFE_ID_PATTERN.test(proposal.proposal_id)) throw new SelfRegulationError('proposal.proposal_id is invalid')
   assertNonEmpty('proposal.objective', proposal.objective)
   if (!VALID_CLASSES.has(proposal.consequence_class)) throw new SelfRegulationError('proposal.consequence_class is invalid')
   assertHash('proposal.expected_parent_state_root', proposal.expected_parent_state_root)
 
   if (!Array.isArray(proposal.mutations)) throw new SelfRegulationError('proposal.mutations must be an array')
+  const mutationOperationsByPath = new Map<string, ProposedMutation['operation']>()
+  const mutationPathByCaseFold = new Map<string, string>()
   const mutations = proposal.mutations.map((mutation, index) => {
-    if (!SAFE_PATH_PATTERN.test(mutation.path)) throw new SelfRegulationError(`proposal.mutations[${index}].path is invalid`)
+    const path = canonicalRepositoryPath(`proposal.mutations[${index}].path`, mutation.path)
     if (!VALID_OPERATIONS.has(mutation.operation)) throw new SelfRegulationError(`proposal.mutations[${index}].operation is invalid`)
+    const priorOperation = mutationOperationsByPath.get(path)
+    if (priorOperation !== undefined) {
+      const qualifier = priorOperation === mutation.operation ? 'duplicate' : 'conflicting'
+      throw new SelfRegulationError(`proposal.mutations[${index}].path has a ${qualifier} operation`)
+    }
+    mutationOperationsByPath.set(path, mutation.operation)
+    const caseFoldedPath = path.toLowerCase()
+    const priorCaseVariant = mutationPathByCaseFold.get(caseFoldedPath)
+    if (priorCaseVariant !== undefined && priorCaseVariant !== path) {
+      throw new SelfRegulationError(`proposal.mutations[${index}].path collides after Windows case folding`)
+    }
+    mutationPathByCaseFold.set(caseFoldedPath, path)
     if (mutation.expected_blob !== undefined && !/^[0-9a-f]{40,64}$/.test(mutation.expected_blob)) {
       throw new SelfRegulationError(`proposal.mutations[${index}].expected_blob is invalid`)
     }
     return mutation.expected_blob === undefined
-      ? { path: mutation.path, operation: mutation.operation }
-      : { path: mutation.path, operation: mutation.operation, expected_blob: mutation.expected_blob }
+      ? { path, operation: mutation.operation }
+      : { path, operation: mutation.operation, expected_blob: mutation.expected_blob }
   })
 
+  if (!Array.isArray(proposal.verification_steps)) {
+    throw new SelfRegulationError('proposal.verification_steps must be an array')
+  }
   const verification_steps = proposal.verification_steps.map((step, index) => {
     assertNonEmpty(`proposal.verification_steps[${index}]`, step)
     return step.trim()
   })
+
+  const rollback_reference = normalizeOptionalReference(
+    'proposal.rollback_reference',
+    proposal.rollback_reference,
+  )
+  const operator_approval_reference = normalizeOptionalReference(
+    'proposal.operator_approval_reference',
+    proposal.operator_approval_reference,
+  )
+  const constitutional_change_reference = normalizeOptionalReference(
+    'proposal.constitutional_change_reference',
+    proposal.constitutional_change_reference,
+  )
 
   return {
     proposal_id: proposal.proposal_id,
@@ -208,9 +318,9 @@ function normalizeProposal(proposal: AdaptationProposal): AdaptationProposal {
     requested_capabilities: sortedUnique('proposal.requested_capabilities', proposal.requested_capabilities),
     mutations,
     verification_steps,
-    ...(proposal.rollback_reference === undefined ? {} : { rollback_reference: proposal.rollback_reference }),
-    ...(proposal.operator_approval_reference === undefined ? {} : { operator_approval_reference: proposal.operator_approval_reference }),
-    ...(proposal.constitutional_change_reference === undefined ? {} : { constitutional_change_reference: proposal.constitutional_change_reference }),
+    ...(rollback_reference === undefined ? {} : { rollback_reference }),
+    ...(operator_approval_reference === undefined ? {} : { operator_approval_reference }),
+    ...(constitutional_change_reference === undefined ? {} : { constitutional_change_reference }),
   }
 }
 
@@ -223,7 +333,12 @@ function forbiddenCapability(capability: string): boolean {
 
 export async function regulateSelf(input: SelfRegulationInput): Promise<SelfRegulationDecision> {
   validateSnapshot(input.snapshot)
-  const gaps = normalizeGaps(input.gaps)
+  const { state_root: suppliedStateRoot, ...stateComponents } = input.snapshot
+  const expectedStateRoot = await hashSelfModelStateRootV1(stateComponents)
+  if (suppliedStateRoot !== expectedStateRoot) {
+    throw new SelfRegulationError('snapshot.state_root does not bind the self-model components')
+  }
+  const gaps = normalizeKnowledgeGaps(input.gaps)
   const self_model_digest = await hashValue({
     domain: 'AEGIS_SELF_MODEL_V1',
     snapshot: input.snapshot,
@@ -256,7 +371,7 @@ export async function regulateSelf(input: SelfRegulationInput): Promise<SelfRegu
     required_next_gate = 'OPERATOR_REVIEW'
     reasons.push('VERIFIED_GAP_WITHOUT_ADAPTATION_PROPOSAL')
   } else {
-    const proposal = normalizeProposal(input.proposal)
+    const proposal = normalizeAdaptationProposal(input.proposal)
     proposal_digest = await hashValue({ domain: 'AEGIS_ADAPTATION_PROPOSAL_V1', proposal })
     const knownGapIds = new Set(gaps.map(gap => gap.gap_id))
 
@@ -264,10 +379,13 @@ export async function regulateSelf(input: SelfRegulationInput): Promise<SelfRegu
     if (proposal.addressed_gap_ids.length === 0) reasons.push('NO_ADDRESSED_GAPS')
     if (proposal.addressed_gap_ids.some(id => !knownGapIds.has(id))) reasons.push('UNKNOWN_GAP_REFERENCE')
     if (proposal.mutations.length === 0) reasons.push('NO_PROPOSED_MUTATION')
+    if (proposal.consequence_class === 'D0' && proposal.mutations.length > 0) {
+      reasons.push('D0_MUTATION_FORBIDDEN')
+    }
     if (proposal.verification_steps.length === 0) reasons.push('NO_VERIFICATION_PLAN')
     if (proposal.requested_capabilities.some(forbiddenCapability)) reasons.push('FORBIDDEN_CAPABILITY_REQUEST')
 
-    if (['D2', 'D3', 'D4'].includes(proposal.consequence_class) && !proposal.rollback_reference) {
+    if (['D1', 'D2', 'D3', 'D4'].includes(proposal.consequence_class) && !proposal.rollback_reference) {
       reasons.push('ROLLBACK_REFERENCE_REQUIRED')
     }
     if (['D3', 'D4'].includes(proposal.consequence_class) && !proposal.operator_approval_reference) {

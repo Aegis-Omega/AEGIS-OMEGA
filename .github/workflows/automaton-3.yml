@@ -49,8 +49,8 @@ jobs:
           cache: npm
           cache-dependency-path: sovereign-omega-v2/mcp-server/package-lock.json
 
-      - name: Install exact schema validator
-        run: pip install jsonschema==4.23.0
+      - name: Install exact schema and signature validators
+        run: pip install --requirement harness/requirements-automaton3.txt
 
       - name: Validate JSON schemas
         shell: bash

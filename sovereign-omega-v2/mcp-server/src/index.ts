@@ -12,6 +12,13 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import {
+  AuthorityResponseError,
+  buildAuthorityResponseBindings,
+  parseAuthorityProcessResult,
+  type ActionClass,
+  type VerifiedAuthorityDecision,
+} from './authority-response.js'
 
 const BRIDGE = (process.env['AEGIS_BRIDGE_URL'] ?? 'http://localhost:7890').replace(/\/$/, '')
 const API_KEY = process.env['AEGIS_API_KEY'] ?? ''
@@ -23,17 +30,6 @@ async function bridgeGet(path: string, apiKey = false): Promise<unknown> {
   if (apiKey && API_KEY) headers['X-API-Key'] = API_KEY
   const res = await fetch(`${BRIDGE}${path}`, { headers })
   if (!res.ok) throw new Error(`Bridge ${path} → HTTP ${res.status}`)
-  return res.json()
-}
-
-async function bridgePost(path: string, body: unknown, apiKey = false): Promise<unknown> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (apiKey && API_KEY) headers['X-API-Key'] = API_KEY
-  const res = await fetch(`${BRIDGE}${path}`, { method: 'POST', headers, body: JSON.stringify(body) })
-  if (!res.ok) {
-    const err = await res.text().catch(() => `HTTP ${res.status}`)
-    throw new Error(`Bridge ${path} → ${err}`)
-  }
   return res.json()
 }
 
@@ -52,44 +48,85 @@ function repoRoot(): string {
   return process.cwd()
 }
 
-type AuthorityDecision = {
-  outcome: 'ADMITTED' | 'DENIED'
-  denial_codes?: string[]
-  mutation_receipt_root?: string
-  policy_decision?: { decision_root?: string }
-  [key: string]: unknown
-}
+type DeniedAuthorityDecision = { outcome: 'DENIED'; denial_codes: string[] }
+type AuthorityDecision = VerifiedAuthorityDecision | DeniedAuthorityDecision
 
 function localDenial(code: string): AuthorityDecision {
   return { outcome: 'DENIED', denial_codes: [code] }
 }
 
 function authorizeAction(input: {
-  actionClass: 'D0' | 'D1' | 'D2' | 'D3' | 'D4'
+  actionClass: ActionClass
   authorityDomain: string
   requestedCapability: string
   tool: string
   target: string
   action: Record<string, unknown>
+  rollbackReference?: string
   idempotencyKey?: string
   compensationReference?: string
 }): AuthorityDecision {
   const identityRaw = process.env['AEGIS_EXECUTION_IDENTITY_JSON']
   if (!identityRaw) return localDenial('IDENTITY_UNAVAILABLE')
   let identity: unknown
-  let workspace: unknown = {}
+  let workspace: unknown
   let approval: unknown
+  let trustedAuthorityKeys: Record<string, string>
   try {
     identity = JSON.parse(identityRaw)
-    workspace = JSON.parse(process.env['AEGIS_WORKSPACE_OBSERVATION_JSON'] ?? '{}')
+    const workspaceRaw = process.env['AEGIS_WORKSPACE_OBSERVATION_JSON']
+    if (!workspaceRaw) return localDenial('WORKSPACE_OBSERVATION_UNAVAILABLE')
+    workspace = JSON.parse(workspaceRaw)
+    if (typeof workspace !== 'object' || workspace === null || Array.isArray(workspace)) {
+      return localDenial('WORKSPACE_OBSERVATION_MALFORMED')
+    }
     const approvalRaw = process.env['AEGIS_APPROVAL_GRANT_JSON']
     approval = approvalRaw ? JSON.parse(approvalRaw) : undefined
+    const authorityKeysRaw = process.env['AEGIS_AUTHORITY_VERIFY_KEYS_JSON']
+    if (!authorityKeysRaw) return localDenial('AUTHORITY_VERIFY_KEYS_UNAVAILABLE')
+    const parsedAuthorityKeys: unknown = JSON.parse(authorityKeysRaw)
+    if (typeof parsedAuthorityKeys !== 'object' || parsedAuthorityKeys === null || Array.isArray(parsedAuthorityKeys)
+        || Object.values(parsedAuthorityKeys).some((value) => typeof value !== 'string')) {
+      return localDenial('AUTHORITY_VERIFY_KEYS_MALFORMED')
+    }
+    trustedAuthorityKeys = parsedAuthorityKeys as Record<string, string>
   } catch {
     return localDenial('AUTHORITY_ENVIRONMENT_MALFORMED')
   }
+  const root = repoRoot()
+  const sourceState = spawnSync('git', ['-C', root, 'rev-parse', 'HEAD'], {
+    encoding: 'utf8', timeout: 5_000, maxBuffer: 65_536,
+  })
+  const remoteState = spawnSync('git', ['-C', root, 'config', '--get', 'remote.origin.url'], {
+    encoding: 'utf8', timeout: 5_000, maxBuffer: 65_536,
+  })
+  if (sourceState.status !== 0 || sourceState.signal || sourceState.error) return localDenial('SOURCE_COMMIT_UNAVAILABLE')
+  if (remoteState.status !== 0 || remoteState.signal || remoteState.error) return localDenial('REMOTE_ORIGIN_UNAVAILABLE')
+  const workspaceRecord = workspace as Record<string, unknown>
+  if (workspaceRecord['remote_origin'] !== remoteState.stdout.trim()) return localDenial('WORKSPACE_REMOTE_CLAIM_MISMATCH')
+  const boundWorkspace = { ...workspaceRecord, remote_origin: remoteState.stdout.trim() } as {
+    actual_cwd: string; remote_origin: string; mutation_target: string; path_views?: Record<string, string>
+  }
+  let bindings
+  try {
+    bindings = buildAuthorityResponseBindings(
+      identity,
+      input,
+      boundWorkspace,
+      root,
+      trustedAuthorityKeys,
+    )
+  } catch (error) {
+    return localDenial(error instanceof AuthorityResponseError ? error.code : 'EXECUTION_IDENTITY_MALFORMED')
+  }
+  if (sourceState.stdout.trim() !== bindings.expectedSourceCommit) return localDenial('SOURCE_COMMIT_MISMATCH')
+  const leaseGenerationRaw = process.env['AEGIS_LEASE_GENERATION'] ?? '0'
+  if (!/^(?:0|[1-9][0-9]*)$/.test(leaseGenerationRaw)) return localDenial('LEASE_GENERATION_MALFORMED')
+  const leaseGeneration = Number(leaseGenerationRaw)
+  if (!Number.isSafeInteger(leaseGeneration)) return localDenial('LEASE_GENERATION_MALFORMED')
   const payload = {
     identity,
-    workspace,
+    workspace: boundWorkspace,
     approval,
     action: input.action,
     request: {
@@ -98,27 +135,47 @@ function authorizeAction(input: {
       requested_capability: input.requestedCapability,
       tool: input.tool,
       target: input.target,
-      current_generation: Number(process.env['AEGIS_LEASE_GENERATION'] ?? '0'),
+      workspace_mode: input.actionClass === 'D0' ? 'READ_ONLY' : 'REPOSITORY',
+      current_generation: leaseGeneration,
+      rollback_reference: input.rollbackReference ?? 'NONE',
       idempotency_key: input.idempotencyKey ?? 'NONE',
       compensation_reference: input.compensationReference ?? 'NONE',
     },
   }
   const python = process.env['AEGIS_PYTHON'] ?? 'python3'
-  const script = join(repoRoot(), 'scripts', 'automaton3-authority.py')
+  const script = join(root, 'scripts', 'automaton3-authority.py')
   const result = spawnSync(python, [script, 'evaluate'], {
-    cwd: repoRoot(), input: JSON.stringify(payload), encoding: 'utf8',
+    cwd: root, input: JSON.stringify(payload), encoding: 'utf8',
     env: process.env, timeout: 15_000, maxBuffer: 1_048_576,
   })
-  if (!result.stdout) return localDenial('AUTHORITY_SERVICE_UNAVAILABLE')
   try {
-    return JSON.parse(result.stdout) as AuthorityDecision
-  } catch {
-    return localDenial('AUTHORITY_RESPONSE_MALFORMED')
+    return parseAuthorityProcessResult({
+      status: result.status,
+      signal: result.signal,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      error: result.error,
+    }, bindings)
+  } catch (error) {
+    return localDenial(error instanceof AuthorityResponseError ? error.code : 'AUTHORITY_RESPONSE_MALFORMED')
   }
 }
 
-function denied(decision: AuthorityDecision): { content: Array<{ type: 'text'; text: string }> } | null {
-  return decision.outcome === 'ADMITTED' ? null : text({ authority: decision, external_effect: 'NOT_EXECUTED' })
+function isDenied(decision: AuthorityDecision): decision is DeniedAuthorityDecision {
+  return decision.outcome === 'DENIED'
+}
+
+function denialResponse(decision: DeniedAuthorityDecision): { content: Array<{ type: 'text'; text: string }> } {
+  return text({ authority: decision, external_effect: 'NOT_EXECUTED' })
+}
+
+function terminalAdapterUnavailable(authority: VerifiedAuthorityDecision) {
+  return text({
+    authority,
+    outcome: 'DENIED',
+    denial_codes: ['TERMINAL_EXECUTION_ADAPTER_UNAVAILABLE'],
+    external_effect: 'NOT_EXECUTED',
+  })
 }
 
 server.tool('aegis_health', 'Check AEGIS constitutional health: t0_verdict, corruption_count, hash chain status.', {}, async () => {
@@ -131,37 +188,37 @@ server.tool('aegis_telemetry', 'Get live AEGIS telemetry: PGCS passes, epoch cou
 
 server.tool('aegis_platform_status', 'Get AEGIS platform status through a D0 authority decision.', {}, async () => {
   const authority = authorizeAction({ actionClass: 'D0', authorityDomain: 'mcp:read', requestedCapability: 'mcp.platform.status', tool: 'aegis_platform_status', target: '/platform/status', action: { operation: 'read', endpoint: '/platform/status' } })
-  const denial = denied(authority); if (denial) return denial
+  if (isDenied(authority)) return denialResponse(authority)
   return text({ authority, result: await bridgeGet('/platform/status', true) })
 })
 
 server.tool(
   'aegis_collaborate',
   'Run the governed swarm. Requires API key, execution identity, observed capability, workspace binding, and D2 approval.',
-  { objective: z.string().min(10), mode: z.enum(['revenue', 'gtm', 'analysis', 'risk', 'compliance']).default('analysis') },
-  async ({ objective, mode }) => {
+  { objective: z.string().min(10), mode: z.enum(['revenue', 'gtm', 'analysis', 'risk', 'compliance']).default('analysis'), rollback_reference: z.string().min(1) },
+  async ({ objective, mode, rollback_reference }) => {
     if (!API_KEY) return text({ error: 'AEGIS_API_KEY not set', external_effect: 'NOT_EXECUTED' })
-    const authority = authorizeAction({ actionClass: 'D2', authorityDomain: 'agent:shared-state', requestedCapability: 'mcp.collaborate', tool: 'aegis_collaborate', target: '/platform/collaborate', action: { operation: 'collaborate', objective, mode, live: false } })
-    const denial = denied(authority); if (denial) return denial
-    return text({ authority, result: await bridgePost('/platform/collaborate', { objective, mode, live: false }, true) })
+    const authority = authorizeAction({ actionClass: 'D2', authorityDomain: 'agent:shared-state', requestedCapability: 'mcp.collaborate', tool: 'aegis_collaborate', target: '/platform/collaborate', action: { operation: 'collaborate', objective, mode, live: false }, rollbackReference: rollback_reference })
+    if (isDenied(authority)) return denialResponse(authority)
+    return terminalAdapterUnavailable(authority)
   },
 )
 
 server.tool(
   'aegis_start_execution',
   'Start a durable governed execution. Requires API key, identity, workspace binding, capability evidence, and D2 approval.',
-  { objective: z.string().min(10), mode: z.enum(['revenue', 'gtm', 'analysis', 'risk', 'compliance']).default('analysis') },
-  async ({ objective, mode }) => {
+  { objective: z.string().min(10), mode: z.enum(['revenue', 'gtm', 'analysis', 'risk', 'compliance']).default('analysis'), rollback_reference: z.string().min(1) },
+  async ({ objective, mode, rollback_reference }) => {
     if (!API_KEY) return text({ error: 'AEGIS_API_KEY not set', external_effect: 'NOT_EXECUTED' })
-    const authority = authorizeAction({ actionClass: 'D2', authorityDomain: 'workflow:durable', requestedCapability: 'mcp.execution.start', tool: 'aegis_start_execution', target: '/platform/executions', action: { operation: 'start-execution', objective, mode, live: false } })
-    const denial = denied(authority); if (denial) return denial
-    return text({ authority, result: await bridgePost('/platform/executions', { objective, mode, live: false }, true) })
+    const authority = authorizeAction({ actionClass: 'D2', authorityDomain: 'workflow:durable', requestedCapability: 'mcp.execution.start', tool: 'aegis_start_execution', target: '/platform/executions', action: { operation: 'start-execution', objective, mode, live: false }, rollbackReference: rollback_reference })
+    if (isDenied(authority)) return denialResponse(authority)
+    return terminalAdapterUnavailable(authority)
   },
 )
 
 server.tool('aegis_get_execution', 'Read a durable execution through a D0 authority decision.', { execution_id: z.string() }, async ({ execution_id }) => {
   const authority = authorizeAction({ actionClass: 'D0', authorityDomain: 'workflow:read', requestedCapability: 'mcp.execution.read', tool: 'aegis_get_execution', target: `/platform/executions/${execution_id}`, action: { operation: 'read-execution', execution_id } })
-  const denial = denied(authority); if (denial) return denial
+  if (isDenied(authority)) return denialResponse(authority)
   return text({ authority, result: await bridgeGet(`/platform/executions/${execution_id}`, true) })
 })
 
@@ -171,9 +228,9 @@ server.tool(
   { prompt: z.string().min(1), system: z.string().optional(), idempotency_key: z.string().min(1).optional(), compensation_reference: z.string().min(1).optional() },
   async ({ prompt, system, idempotency_key, compensation_reference }) => {
     const body: Record<string, unknown> = { prompt }; if (system) body['system'] = system
-    const authority = authorizeAction({ actionClass: 'D3', authorityDomain: 'external:model-call', requestedCapability: 'mcp.claude.call', tool: 'aegis_governed_claude_call', target: '/claude', action: { operation: 'governed-model-call', prompt_digest: createHash('sha256').update(prompt, 'utf8').digest('hex'), has_system: Boolean(system) }, idempotencyKey: idempotency_key, compensationReference: compensation_reference })
-    const denial = denied(authority); if (denial) return denial
-    return text({ authority, result: await bridgePost('/claude', body) })
+    const authority = authorizeAction({ actionClass: 'D3', authorityDomain: 'external:model-call', requestedCapability: 'mcp.claude.call', tool: 'aegis_governed_claude_call', target: '/claude', action: { operation: 'governed-model-call', prompt_digest: createHash('sha256').update(prompt, 'utf8').digest('hex'), system_digest: system === undefined ? '0'.repeat(64) : createHash('sha256').update(system, 'utf8').digest('hex'), provider_payload_digest: createHash('sha256').update(JSON.stringify(body), 'utf8').digest('hex'), has_system: system !== undefined }, idempotencyKey: idempotency_key, compensationReference: compensation_reference })
+    if (isDenied(authority)) return denialResponse(authority)
+    return terminalAdapterUnavailable(authority)
   },
 )
 

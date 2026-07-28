@@ -30,7 +30,7 @@ def denied_decision(code: str, *, root: str = "1" * 64) -> dict[str, Any]:
         "authority_score": "0.000000",
         "denial_codes": [code],
         "decision_root": root,
-        "receipt_root": "2" * 64,
+        "authority_receipt_root": "2" * 64,
     }
 
 
@@ -40,7 +40,7 @@ def admitted_decision(score: str = "0.720000", *, root: str = "3" * 64) -> dict[
         "authority_score": score,
         "denial_codes": [],
         "decision_root": root,
-        "receipt_root": "4" * 64,
+        "authority_receipt_root": "4" * 64,
     }
 
 
@@ -171,3 +171,30 @@ def test_dispatch_executes_only_after_central_admission(tmp_path: Path, monkeypa
     receipts = coordinator.last_dispatch_receipts()
     assert receipts[0]["outcome"] == "ADMITTED"
     assert receipts[0]["authority_score"] == pytest.approx(0.72)
+
+
+def test_legacy_self_report_cannot_mutate_competence_registry(tmp_path: Path) -> None:
+    path = tmp_path / "skill_tree.json"
+    original = {
+        "schema_version": "2.0.0",
+        "registry_root": "1" * 64,
+        "skills": [{
+            "skill_id": "observed",
+            "observation_state": "OBSERVED",
+            "validated_runs": 3,
+            "confidence": 0.5,
+        }],
+    }
+    path.write_text(json.dumps(original, sort_keys=True), encoding="utf-8")
+    instance = coordinator.SkillRouter(
+        skill_tree_path=path,
+        repo_root=tmp_path,
+        capability_map={"observed_cap": "observed"},
+    )
+    before = path.read_bytes()
+
+    instance.emit_skill_event("observed_cap", success=True)
+
+    assert path.read_bytes() == before
+    assert instance._last_untrusted_observation == ("observed_cap", True)
+    assert instance._last_mutation_error == "CERTIFIED_OUTCOME_REQUIRED"

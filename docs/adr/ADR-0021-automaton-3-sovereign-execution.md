@@ -11,9 +11,21 @@ The control plane separates five concerns:
 
 1. `ExecutionIdentityEnvelope` binds the request to canonical repository identity, source commit, logical repository root, actor, physical executor, workflow, capability, policy, registry, and action digests.
 2. `WorkspaceBinding` binds the canonical remote, logical root, project identity, source commit, and operator authorization. Absolute paths remain observational metadata.
-3. `AuthorityEvaluator` applies the D0–D4 consequence policy and evidence-bound capability registry. Unknown, unobserved, under-validated, unavailable, or unmapped capabilities receive zero operational authority.
+3. `AuthorityEvaluator` applies the D0–D4 consequence policy and evidence-bound capability registry. Unknown, unobserved, under-validated, unavailable, or unmapped capabilities receive zero operational authority. Its terminal artifact is an `AuthorityDecisionReceipt`; `ADMITTED` means execution may be attempted, never that execution succeeded.
 4. `WriterLeaseManager` provides one active writer per authority domain, monotone generations, fencing tokens, expected-parent checks, and replay rejection.
-5. `DurableExecutionRegistry`, `EventEnvelope`, and `ReceiptChain` preserve operator visibility, mediated communication, idempotency, cancellation, and deterministic mutation or denial evidence.
+5. `DurableExecutionRegistry`, `EventEnvelope`, and `ReceiptChain` preserve operator visibility, mediated communication, idempotency, cancellation, and deterministic mutation or denial evidence. A `MutationReceipt` may be created only after an admitted decision, admitted writer lease, durable execution registration, actual executor result, and explicit terminal outcome. It binds the authority, lease, and durable-execution roots.
+
+The receipt lifecycle is deliberately split:
+
+```text
+PolicyDecision + AuthorityDecisionReceipt
+  -> authorization only
+
+WriterLease + provider execution + postcondition verification
+  -> terminal MutationReceipt
+```
+
+`ADMITTED` is not mapped to `SUCCEEDED`. A transport adapter that receives an incomplete, malformed, non-zero-exit, or root-inconsistent authority response must deny locally before contacting the provider.
 
 ## Determinism boundary
 
@@ -26,7 +38,7 @@ The deterministic `repository_root` and `workspace_root` are the logical root `.
 ## Integration
 
 - `agents/coordinator.py` grants dispatch authority only through `authorize_from_environment`.
-- MCP consequential tools invoke `scripts/automaton3-authority.py`; an unavailable evaluator or identity denies before bridge access.
+- MCP consequential tools invoke `scripts/automaton3-authority.py`; an unavailable evaluator or identity denies before bridge access. The MCP boundary independently validates subprocess success, exact response shape, source commit, identity, workspace, policy, registry, action, decision, and authority-receipt roots.
 - CI invokes the same core module for policy, workspace, lease, durable execution, event, and receipt tests.
 - D0 read-only MCP resources remain key-free and cannot mutate state.
 
