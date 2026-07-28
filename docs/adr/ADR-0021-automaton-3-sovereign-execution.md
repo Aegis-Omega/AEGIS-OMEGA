@@ -45,3 +45,20 @@ The deterministic `repository_root` and `workspace_root` are the logical root `.
 ## External-runtime boundary
 
 This PR implements a deterministic local reference model and interfaces for durable execution. It does not claim that Temporal, LangGraph, Kubernetes, or any cloud worker runtime is deployed.
+
+## Authenticated outcome-evidence boundary
+
+Post-execution learning is a separate, advisory boundary in `sovereign-omega-v2/src/metacognition/`:
+
+1. `outcome-comparator.ts` re-derives an assessment from baseline, authority, terminal, post-state, and verification evidence. It distinguishes cryptographic certificate authentication from transition admissibility: authenticated evidence of a denied, failed, or unsafe outcome remains recordable as negative evidence.
+2. `outcome-evidence-replay.ts` snapshots the untrusted evidence as closed I-JSON, takes the governed policy root, operator public key, and sequence from a separate host context, rejects stale loop or trust bindings before persistence, authenticates the signed verifier policy and evidence certificate, and re-evaluates inside the append boundary.
+3. `outcome-evidence-artifact-store.ts` uses an add-only, content-addressed IndexedDB store. It rejects non-I-JSON aliases, re-verifies the embedded signed trust policy, normalizes the evidence input, re-derives the assessment, recomputes the artifact root, and reads the exact artifact back before the replay adapter returns a new immutable metacognitive loop.
+4. The complete signed verifier trust policy is part of the artifact. After close and reopen, a caller with the out-of-band operator key and governed policy root can reauthenticate and deterministically replay the artifact. A policy's equality with the baseline is a binding check, not proof of temporal freshness or revocation status.
+
+The assessment remains non-authoritative: it cannot preserve or revert state, execute a mutation, grant authority, or update competence. Any recommendation still requires its declared next gate.
+
+## Current provenance limit
+
+The independent verifier certificate signs the complete evidence bundle, including the terminal receipt roots. The current TypeScript adapter does not resolve the underlying Python lease and mutation receipts or verify native signatures on those raw terminal records; those records do not yet carry such signatures. Therefore the persisted artifact is verifier-attested T2 evidence, not a claim that every terminal receipt was independently reconstructed from a durable cross-runtime source.
+
+No cockpit, game, or MCP status resource is exposed from this slice. A read-back failure can leave an add-only orphan artifact, but the caller receives no advanced loop. Projection should be added only after a confined cross-runtime artifact transport or witness chain makes the underlying terminal provenance independently resolvable.

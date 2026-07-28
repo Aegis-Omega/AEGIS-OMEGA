@@ -6,7 +6,7 @@
 // All hashing uses explicit byte-level operations:
 // - UTF-8 encode before hashing (never hash strings directly)
 // - Byte-concatenation for Merkle nodes (never string concat)
-// - Cross-platform: Web Crypto API with Node crypto fallback
+// - Cross-platform: Web Crypto API with an isolated modern-Node fallback
 // ============================================================
 
 import type { SHA256Hex } from './types.js'
@@ -16,7 +16,7 @@ import { canonicalizeJCS } from './canonicalize.js'
 
 /**
  * Compute SHA-256 over raw bytes. Returns hex string.
- * Uses Web Crypto API (browser/WASM compatible) with Node fallback.
+ * Uses Web Crypto API, with a bundler-safe modern-Node fallback.
  */
 export async function sha256Hex(input: Uint8Array): Promise<SHA256Hex> {
   const bytes = await sha256Bytes(input)
@@ -24,18 +24,28 @@ export async function sha256Hex(input: Uint8Array): Promise<SHA256Hex> {
 }
 
 export async function sha256Bytes(input: Uint8Array): Promise<Uint8Array> {
-  // Web Crypto API (browser, WASM, modern Node)
-  /* c8 ignore next -- Node.js crypto fallback; Web Crypto available in all modern environments and test environments */
-  if (typeof globalThis.crypto?.subtle !== 'undefined') {
-    const digest = await globalThis.crypto.subtle.digest('SHA-256', input as BufferSource)
+  const subtle = globalThis.crypto?.subtle
+  if (subtle !== undefined) {
+    const digest = await subtle.digest('SHA-256', input as BufferSource)
     return new Uint8Array(digest)
   }
 
-  // Node.js fallback (older environments)
-  const { createHash } = await import('node:crypto')
-  const hash = createHash('sha256')
-  hash.update(input)
-  return new Uint8Array(hash.digest())
+  const runtimeProcess = (globalThis as typeof globalThis & {
+    process?: {
+      readonly versions?: { readonly node?: string }
+      getBuiltinModule?(specifier: string): unknown
+    }
+  }).process
+  if (typeof runtimeProcess?.versions?.node !== 'string' ||
+      typeof runtimeProcess.getBuiltinModule !== 'function') {
+    throw new Error('Web Crypto API is required for SHA-256 outside modern Node')
+  }
+  const nodeCrypto = runtimeProcess.getBuiltinModule('crypto') as {
+    createHash(algorithm: string): {
+      update(value: Uint8Array): { digest(): Uint8Array }
+    }
+  }
+  return Uint8Array.from(nodeCrypto.createHash('sha256').update(input).digest())
 }
 
 /**

@@ -131,6 +131,7 @@ export interface VerifiedOutcomeVerifierTrustAnchorV1 {
   readonly verifier_trust_root: SHA256Hex
   readonly verifiers: readonly OutcomeVerifierIdentityV1[]
   readonly trust_policy_digest: SHA256Hex
+  readonly trust_policy: OutcomeVerifierTrustPolicyV1
 }
 
 export interface AdaptationOutcomeInput {
@@ -167,6 +168,9 @@ export interface AdaptationOutcomeAssessment {
   readonly terminal_receipt_root: SHA256Hex | null
   readonly evidence_bundle_digest: SHA256Hex
   readonly evidence_certificate_digest: SHA256Hex | null
+  /** Cryptographic identity, signature, bundle, and baseline bindings passed. */
+  readonly evidence_certificate_authenticated: boolean
+  /** Authentication passed and the proposed component transition was admissible. */
   readonly evidence_certificate_verified: boolean
   readonly verifier_trust_policy_digest: SHA256Hex
   readonly pre_state_root: SHA256Hex
@@ -183,12 +187,13 @@ export interface AdaptationOutcomeAssessment {
 export interface OutcomeEvidenceArtifactV1 {
   readonly schema_version: typeof OUTCOME_COMPARATOR_SCHEMA_VERSION
   readonly artifact_kind: 'AEGIS_OUTCOME_EVIDENCE_ARTIFACT_V1'
-  readonly evidence_input: Readonly<Record<string, unknown>>
+  readonly evidence_input: AdaptationOutcomeInput
   readonly verifier_trust_anchor: {
     readonly governed_policy_root: SHA256Hex
     readonly verifier_trust_root: SHA256Hex
     readonly verifiers: readonly OutcomeVerifierIdentityV1[]
     readonly trust_policy_digest: SHA256Hex
+    readonly trust_policy: OutcomeVerifierTrustPolicyV1
   }
   readonly assessment: AdaptationOutcomeAssessment
   readonly artifact_root: SHA256Hex
@@ -230,6 +235,17 @@ const VERDICTS = new Set<VerificationVerdict>(['PASS', 'FAIL', 'INCONCLUSIVE'])
 const VERIFICATION_MODES = new Set<VerificationMode>(['INDEPENDENT', 'EXECUTOR_SELF_REPORT'])
 const VERIFIED_TRUST_ANCHORS = new WeakSet<object>()
 
+function assertExactKeys(field: string, value: unknown, expectedKeys: readonly string[]): void {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new OutcomeComparisonError(`${field} must be an object`)
+  }
+  const keys = Object.keys(value).sort(compareUtf8)
+  const expected = [...expectedKeys].sort(compareUtf8)
+  if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) {
+    throw new OutcomeComparisonError(`${field} has unexpected or missing fields`)
+  }
+}
+
 function assertHash(field: string, value: unknown): asserts value is SHA256Hex {
   if (typeof value !== 'string' || !HASH_PATTERN.test(value)) {
     throw new OutcomeComparisonError(`${field} must be lowercase SHA-256 hex`)
@@ -257,9 +273,9 @@ function normalizeCodes(field: string, values: readonly string[]): readonly stri
 }
 
 function validateAuthorityBinding(binding: AdaptationAuthorityBindingV1): void {
-  assertHash('authority.action_binding.proposal_digest', binding.proposal_digest)
-  assertHash('authority.action_binding.self_regulation_decision_digest', binding.self_regulation_decision_digest)
-  assertHash('authority.action_binding.expected_parent_state_root', binding.expected_parent_state_root)
+  assertResolvedHash('authority.action_binding.proposal_digest', binding.proposal_digest)
+  assertResolvedHash('authority.action_binding.self_regulation_decision_digest', binding.self_regulation_decision_digest)
+  assertResolvedHash('authority.action_binding.expected_parent_state_root', binding.expected_parent_state_root)
 }
 
 function normalizeVerifierPublicKeys(values: readonly string[]): readonly string[] {
@@ -294,6 +310,13 @@ async function normalizeVerifierIdentities(
     throw new OutcomeComparisonError('verifiers must be a non-empty array')
   }
   const normalized = await Promise.all(values.map(async (value, index) => {
+    assertExactKeys(`verifiers[${index}]`, value, [
+      'verifier_identity_root',
+      'verifier_key_id',
+      'verifier_principal_root',
+      'verifier_public_key',
+      'verifier_workload_identity_root',
+    ])
     if (!SAFE_KEY_ID_PATTERN.test(value.verifier_key_id)) {
       throw new OutcomeComparisonError(`verifiers[${index}].verifier_key_id is invalid`)
     }
@@ -338,6 +361,15 @@ export async function hashVerifierTrustSetV1(
 export async function canonicalizeOutcomeVerifierTrustPolicyMessageV1(
   policy: Omit<OutcomeVerifierTrustPolicyV1, 'signature'>,
 ): Promise<Uint8Array> {
+  assertExactKeys('trust_policy', policy, [
+    'governed_policy_root',
+    'policy_kind',
+    'schema_version',
+    'signer_key_id',
+    'signer_public_key',
+    'verifier_trust_root',
+    'verifiers',
+  ])
   if (policy.schema_version !== '1.0.0') {
     throw new OutcomeComparisonError('trust policy schema_version is invalid')
   }
@@ -391,15 +423,22 @@ export async function verifyOutcomeVerifierTrustPolicyV1(
   if (!await verifyBytes(operatorPublicKey, message, policy.signature)) {
     throw new OutcomeComparisonError('trust policy signature is invalid')
   }
+  const authenticatedPolicy = deepFreeze<OutcomeVerifierTrustPolicyV1>({
+    ...unsignedPolicy,
+    signer_public_key: operatorPublicKey,
+    verifiers,
+    signature: policy.signature,
+  })
   const trust_policy_digest = await hashValue({
     domain: 'AEGIS_OUTCOME_VERIFIER_TRUST_POLICY_RECORD_V1',
-    policy: { ...unsignedPolicy, verifiers, signature: policy.signature },
+    policy: authenticatedPolicy,
   })
   const anchor = deepFreeze<VerifiedOutcomeVerifierTrustAnchorV1>({
     governed_policy_root: expectedGovernedPolicyRoot,
     verifier_trust_root: verifierTrustRoot,
     verifiers,
     trust_policy_digest,
+    trust_policy: authenticatedPolicy,
   })
   VERIFIED_TRUST_ANCHORS.add(anchor)
   return anchor
@@ -408,6 +447,15 @@ export async function verifyOutcomeVerifierTrustPolicyV1(
 export function canonicalizeOutcomeEvidenceCertificateMessageV1(
   certificate: Omit<OutcomeEvidenceCertificateV1, 'signature'>,
 ): Uint8Array {
+  assertExactKeys('evidence_certificate', certificate, [
+    'certificate_kind',
+    'evidence_bundle_digest',
+    'verifier_identity_root',
+    'verifier_key_id',
+    'verifier_principal_root',
+    'verifier_public_key',
+    'verifier_workload_identity_root',
+  ])
   validateEvidenceCertificateFields(certificate)
   return canonicalizeJCS({
     domain: 'AEGIS_OUTCOME_EVIDENCE_CERTIFICATE_V1',
@@ -484,7 +532,7 @@ function validateTerminalEvidence(terminal: TerminalExecutionEvidenceV1): void {
     'provider_result_digest',
     'operator_notification_root',
   ] as const) {
-    assertHash(`terminal_execution.${field}`, terminal[field])
+    assertResolvedHash(`terminal_execution.${field}`, terminal[field])
   }
 }
 
@@ -508,11 +556,102 @@ function normalizeVerification(
     if (!VERIFICATION_MODES.has(observation.verification_mode)) {
       throw new OutcomeComparisonError(`verification[${index}].verification_mode is invalid`)
     }
-    assertHash(`verification[${index}].evidence_digest`, observation.evidence_digest)
-    assertHash(`verification[${index}].verifier_identity_root`, observation.verifier_identity_root)
-    return { ...observation }
+    assertResolvedHash(`verification[${index}].evidence_digest`, observation.evidence_digest)
+    assertResolvedHash(`verification[${index}].verifier_identity_root`, observation.verifier_identity_root)
+    return {
+      step_index: observation.step_index,
+      verdict: observation.verdict,
+      evidence_digest: observation.evidence_digest,
+      verifier_identity_root: observation.verifier_identity_root,
+      verification_mode: observation.verification_mode,
+    }
   })
   return normalized.sort((left, right) => left.step_index - right.step_index)
+}
+
+function normalizeSelfModelSnapshotV1(snapshot: SelfModelSnapshot): SelfModelSnapshot {
+  return {
+    state_root: snapshot.state_root,
+    identity_root: snapshot.identity_root,
+    policy_root: snapshot.policy_root,
+    capability_root: snapshot.capability_root,
+    memory_root: snapshot.memory_root,
+    metacognition_root: snapshot.metacognition_root,
+    verifier_trust_root: snapshot.verifier_trust_root,
+    health: {
+      t0_verdict: snapshot.health.t0_verdict,
+      corruption_count: snapshot.health.corruption_count,
+      membrane_intact: snapshot.health.membrane_intact,
+      entropy_bounded: snapshot.health.entropy_bounded,
+    },
+  }
+}
+
+function normalizeAuthorityEvidenceV1(
+  authority: AdaptationAuthorityEvidenceV1,
+): AdaptationAuthorityEvidenceV1 {
+  const denial_codes = validateAuthorityEvidence(authority)
+  return {
+    evidence_kind: authority.evidence_kind,
+    outcome: authority.outcome,
+    denial_codes,
+    execution_identity_root: authority.execution_identity_root,
+    workspace_binding: authority.workspace_binding,
+    policy_root: authority.policy_root,
+    registry_root: authority.registry_root,
+    policy_decision_root: authority.policy_decision_root,
+    authority_receipt_root: authority.authority_receipt_root,
+    executor_principal_root: authority.executor_principal_root,
+    executor_workload_identity_root: authority.executor_workload_identity_root,
+    action_binding: {
+      proposal_digest: authority.action_binding.proposal_digest,
+      self_regulation_decision_digest: authority.action_binding.self_regulation_decision_digest,
+      expected_parent_state_root: authority.action_binding.expected_parent_state_root,
+    },
+    requested_action_digest: authority.requested_action_digest,
+  }
+}
+
+function normalizeTerminalEvidenceV1(
+  terminal: TerminalExecutionEvidenceV1,
+): TerminalExecutionEvidenceV1 {
+  validateTerminalEvidence(terminal)
+  return {
+    evidence_kind: terminal.evidence_kind,
+    execution_identity_root: terminal.execution_identity_root,
+    workspace_binding: terminal.workspace_binding,
+    policy_decision_root: terminal.policy_decision_root,
+    authority_receipt_root: terminal.authority_receipt_root,
+    requested_action_digest: terminal.requested_action_digest,
+    lease_outcome: terminal.lease_outcome,
+    lease_authorization_receipt_root: terminal.lease_authorization_receipt_root,
+    durable_execution_root: terminal.durable_execution_root,
+    durable_status: terminal.durable_status,
+    mutation_receipt_root: terminal.mutation_receipt_root,
+    receipt_chain_status: terminal.receipt_chain_status,
+    receipt_chain_verification_root: terminal.receipt_chain_verification_root,
+    outcome: terminal.outcome,
+    pre_state_root: terminal.pre_state_root,
+    post_state_root: terminal.post_state_root,
+    provider_result_digest: terminal.provider_result_digest,
+    operator_notification_root: terminal.operator_notification_root,
+  }
+}
+
+function normalizeEvidenceCertificateV1(
+  certificate: OutcomeEvidenceCertificateV1,
+): OutcomeEvidenceCertificateV1 {
+  validateEvidenceCertificate(certificate)
+  return {
+    certificate_kind: certificate.certificate_kind,
+    verifier_key_id: certificate.verifier_key_id,
+    verifier_public_key: certificate.verifier_public_key,
+    verifier_identity_root: certificate.verifier_identity_root,
+    verifier_principal_root: certificate.verifier_principal_root,
+    verifier_workload_identity_root: certificate.verifier_workload_identity_root,
+    evidence_bundle_digest: certificate.evidence_bundle_digest,
+    signature: certificate.signature,
+  }
 }
 
 export type OutcomeEvidenceInputV1 = Omit<
@@ -520,28 +659,35 @@ export type OutcomeEvidenceInputV1 = Omit<
   'evidence_certificate'
 >
 
+function normalizeOutcomeEvidenceInputV1(
+  input: OutcomeEvidenceInputV1,
+): OutcomeEvidenceInputV1 {
+  const proposal = normalizeAdaptationProposal(input.baseline.proposal)
+  return {
+    baseline: {
+      snapshot: normalizeSelfModelSnapshotV1(input.baseline.snapshot),
+      gaps: normalizeKnowledgeGaps(input.baseline.gaps),
+      proposal,
+    },
+    authority: normalizeAuthorityEvidenceV1(input.authority),
+    ...(input.terminal_execution === undefined
+      ? {}
+      : { terminal_execution: normalizeTerminalEvidenceV1(input.terminal_execution) }),
+    post_snapshot: normalizeSelfModelSnapshotV1(input.post_snapshot),
+    post_gaps: normalizeKnowledgeGaps(input.post_gaps),
+    verification: normalizeVerification(input.verification, proposal.verification_steps.length),
+  }
+}
+
 export async function hashOutcomeEvidenceBundleV1(
   input: OutcomeEvidenceInputV1,
 ): Promise<SHA256Hex> {
-  const proposal = normalizeAdaptationProposal(input.baseline.proposal)
-  const baselineGaps = normalizeKnowledgeGaps(input.baseline.gaps)
-  const postGaps = normalizeKnowledgeGaps(input.post_gaps)
-  const denialCodes = validateAuthorityEvidence(input.authority)
-  if (input.terminal_execution !== undefined) validateTerminalEvidence(input.terminal_execution)
-  const verification = normalizeVerification(input.verification, proposal.verification_steps.length)
+  const normalized = normalizeOutcomeEvidenceInputV1(input)
   return hashValue({
     domain: 'AEGIS_OUTCOME_EVIDENCE_BUNDLE_V1',
     evidence: {
-      baseline: {
-        snapshot: input.baseline.snapshot,
-        gaps: baselineGaps,
-        proposal,
-      },
-      authority: { ...input.authority, denial_codes: denialCodes },
-      terminal_execution: input.terminal_execution ?? null,
-      post_snapshot: input.post_snapshot,
-      post_gaps: postGaps,
-      verification,
+      ...normalized,
+      terminal_execution: normalized.terminal_execution ?? null,
     },
   })
 }
@@ -659,6 +805,7 @@ export async function assessAdaptationOutcome(
   const authority = input.authority
   const evidence_bundle_digest = await hashOutcomeEvidenceBundleV1(input)
   let evidence_certificate_digest: SHA256Hex | null = null
+  let evidence_certificate_authenticated = false
   let evidence_certificate_verified = false
   const anchorPolicyMatches =
     trustAnchor.governed_policy_root === input.baseline.snapshot.policy_root
@@ -717,15 +864,15 @@ export async function assessAdaptationOutcome(
     if (!bundleMatches) reasons.push('EVIDENCE_BUNDLE_DIGEST_MISMATCH')
     if (!signatureValid) reasons.push('EVIDENCE_CERTIFICATE_SIGNATURE_INVALID')
     if (!observationIdentitiesMatch) reasons.push('VERIFICATION_IDENTITY_MISMATCH')
-    evidence_certificate_verified = anchorPolicyMatches &&
+    evidence_certificate_authenticated = anchorPolicyMatches &&
       anchorTrustRootMatches &&
       verifierIsTrusted &&
       verifierIdentityMatches &&
       verifierIsIndependent &&
       bundleMatches &&
       signatureValid &&
-      observationIdentitiesMatch &&
-      componentTransitionValid
+      observationIdentitiesMatch
+    evidence_certificate_verified = evidence_certificate_authenticated && componentTransitionValid
   }
 
   if (sourceDecision.mode !== 'READY_FOR_AUTHORITY') reasons.push('BASELINE_NOT_READY_FOR_AUTHORITY')
@@ -887,6 +1034,7 @@ export async function assessAdaptationOutcome(
     terminal_receipt_root,
     evidence_bundle_digest,
     evidence_certificate_digest,
+    evidence_certificate_authenticated,
     evidence_certificate_verified,
     verifier_trust_policy_digest: trustAnchor.trust_policy_digest,
     pre_state_root: input.baseline.snapshot.state_root,
@@ -903,6 +1051,19 @@ export async function assessAdaptationOutcome(
     assessment: unsigned,
   })
   return deepFreeze<AdaptationOutcomeAssessment>({ ...unsigned, assessment_digest })
+}
+
+export function normalizeAdaptationOutcomeInputV1(
+  input: AdaptationOutcomeInput,
+): AdaptationOutcomeInput {
+  const { evidence_certificate: certificate, ...evidenceInput } = input
+  const normalized = normalizeOutcomeEvidenceInputV1(evidenceInput)
+  return deepFreeze<AdaptationOutcomeInput>({
+    ...normalized,
+    ...(certificate === undefined
+      ? {}
+      : { evidence_certificate: normalizeEvidenceCertificateV1(certificate) }),
+  })
 }
 
 export async function recordOutcomeAssessment(
@@ -930,24 +1091,7 @@ export async function recordOutcomeAssessment(
     throw new OutcomeComparisonError('outcome evidence artifact store is unavailable')
   }
   const normalizedVerifiers = await normalizeVerifierIdentities(trustAnchor.verifiers)
-  const denialCodes = validateAuthorityEvidence(input.authority)
-  if (input.terminal_execution !== undefined) validateTerminalEvidence(input.terminal_execution)
-  const normalizedInput = deepFreeze<Readonly<Record<string, unknown>>>({
-    baseline: {
-      snapshot: input.baseline.snapshot,
-      gaps: normalizeKnowledgeGaps(input.baseline.gaps),
-      proposal: normalizeAdaptationProposal(input.baseline.proposal),
-    },
-    authority: { ...input.authority, denial_codes: denialCodes },
-    terminal_execution: input.terminal_execution ?? null,
-    post_snapshot: input.post_snapshot,
-    post_gaps: normalizeKnowledgeGaps(input.post_gaps),
-    verification: normalizeVerification(
-      input.verification,
-      input.baseline.proposal.verification_steps.length,
-    ),
-    evidence_certificate: input.evidence_certificate ?? null,
-  })
+  const normalizedInput = normalizeAdaptationOutcomeInputV1(input)
   const artifactBody = deepFreeze({
     schema_version: OUTCOME_COMPARATOR_SCHEMA_VERSION,
     artifact_kind: 'AEGIS_OUTCOME_EVIDENCE_ARTIFACT_V1' as const,
@@ -957,6 +1101,7 @@ export async function recordOutcomeAssessment(
       verifier_trust_root: trustAnchor.verifier_trust_root,
       verifiers: normalizedVerifiers,
       trust_policy_digest: trustAnchor.trust_policy_digest,
+      trust_policy: trustAnchor.trust_policy,
     },
     assessment,
   })

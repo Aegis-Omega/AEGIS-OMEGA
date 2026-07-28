@@ -301,6 +301,21 @@ describe('regulateSelf', () => {
     })).rejects.toThrow(SelfRegulationError)
   })
 
+  it('does not treat an unresolved evidence placeholder as verified', async () => {
+    await expect(regulateSelf({
+      snapshot: await snapshot(),
+      gaps: [{ ...GAP, evidence_refs: [H('0')] }],
+    })).rejects.toThrow('gaps[0].evidence_refs[0] must resolve to a non-zero root')
+  })
+
+  it('rejects unresolved authority-relevant self-model components', async () => {
+    const model = await snapshot()
+    await expect(regulateSelf({
+      snapshot: { ...model, capability_root: H('0') },
+      gaps: [GAP],
+    })).rejects.toThrow('snapshot.capability_root must resolve to a non-zero root')
+  })
+
   it('routes a bounded, replayable proposal to Automaton-3', async () => {
     const model = await snapshot()
     const decision = await regulateSelf({

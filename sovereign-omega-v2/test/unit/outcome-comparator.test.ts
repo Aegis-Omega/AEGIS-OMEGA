@@ -292,6 +292,8 @@ describe('assessAdaptationOutcome', () => {
     expect(assessment.grants_authority).toBe(false)
     expect(assessment.executes_mutation).toBe(false)
     expect(assessment.updates_competence).toBe(false)
+    expect(assessment.evidence_certificate_authenticated).toBe(true)
+    expect(assessment.evidence_certificate_verified).toBe(true)
     expect(assessment.verifier_trust_policy_digest).toBe(trust.anchor.trust_policy_digest)
   })
 
@@ -496,6 +498,8 @@ describe('assessAdaptationOutcome', () => {
     }, trust)
     const assessment = await assessAdaptationOutcome(changed, trust.anchor)
     expect(assessment.state_disposition).toBe('REVERT')
+    expect(assessment.evidence_certificate_authenticated).toBe(true)
+    expect(assessment.evidence_certificate_verified).toBe(false)
     expect(assessment.reason_codes).toContain('POLICY_TRANSITION_REQUIRES_D4')
   })
 
@@ -552,6 +556,38 @@ describe('assessAdaptationOutcome', () => {
     const assessment = await assessAdaptationOutcome(broken, trust.anchor)
     expect(assessment.state_disposition).toBe('REVERT')
     expect(assessment.reason_codes).toContain('TERMINAL_POLICY_DECISION_MISMATCH')
+  })
+
+  it('rejects unresolved terminal evidence roots even when the bundle is signed', async () => {
+    const { input, trust } = await fixture()
+    const unresolved = {
+      ...input,
+      terminal_execution: {
+        ...input.terminal_execution!,
+        lease_authorization_receipt_root: H('0'),
+        durable_execution_root: H('0'),
+        mutation_receipt_root: H('0'),
+        receipt_chain_verification_root: H('0'),
+        provider_result_digest: H('0'),
+        operator_notification_root: H('0'),
+      },
+    }
+
+    await expect(assessAdaptationOutcome(unresolved, trust.anchor)).rejects.toThrow(
+      'terminal_execution.lease_authorization_receipt_root must resolve to a non-zero',
+    )
+  })
+
+  it('rejects unresolved verification evidence even when PASS is signed', async () => {
+    const { input, trust } = await fixture()
+    const unresolved = {
+      ...input,
+      verification: [{ ...input.verification[0]!, evidence_digest: H('0') }],
+    }
+
+    await expect(assessAdaptationOutcome(unresolved, trust.anchor)).rejects.toThrow(
+      'verification[0].evidence_digest must resolve to a non-zero',
+    )
   })
 
   it('rejects duplicate and out-of-range verification step indices', async () => {

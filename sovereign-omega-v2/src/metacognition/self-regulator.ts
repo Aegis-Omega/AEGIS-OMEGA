@@ -108,6 +108,7 @@ export class SelfRegulationError extends Error {
 }
 
 const HASH_PATTERN = /^[0-9a-f]{64}$/
+const ZERO_HASH = '0'.repeat(64)
 const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{1,127}$/
 const SAFE_PATH_SEGMENT_PATTERN = /^[A-Za-z0-9._@+~-]+$/
 const DRIVE_PATH_PATTERN = /^[A-Za-z]:/
@@ -133,6 +134,13 @@ function assertNonEmpty(field: string, value: unknown): asserts value is string 
 function assertHash(field: string, value: unknown): asserts value is SHA256Hex {
   if (typeof value !== 'string' || !HASH_PATTERN.test(value)) {
     throw new SelfRegulationError(`${field} must be lowercase SHA-256 hex`)
+  }
+}
+
+function assertResolvedHash(field: string, value: unknown): asserts value is SHA256Hex {
+  assertHash(field, value)
+  if (value === ZERO_HASH) {
+    throw new SelfRegulationError(`${field} must resolve to a non-zero root`)
   }
 }
 
@@ -194,12 +202,12 @@ function canonicalRepositoryPath(field: string, value: unknown): string {
 }
 
 function validateStateComponents(snapshot: SelfModelStateComponents): void {
-  assertHash('snapshot.identity_root', snapshot.identity_root)
-  assertHash('snapshot.policy_root', snapshot.policy_root)
-  assertHash('snapshot.capability_root', snapshot.capability_root)
-  assertHash('snapshot.memory_root', snapshot.memory_root)
+  assertResolvedHash('snapshot.identity_root', snapshot.identity_root)
+  assertResolvedHash('snapshot.policy_root', snapshot.policy_root)
+  assertResolvedHash('snapshot.capability_root', snapshot.capability_root)
+  assertResolvedHash('snapshot.memory_root', snapshot.memory_root)
   assertHash('snapshot.metacognition_root', snapshot.metacognition_root)
-  assertHash('snapshot.verifier_trust_root', snapshot.verifier_trust_root)
+  assertResolvedHash('snapshot.verifier_trust_root', snapshot.verifier_trust_root)
   if (!Number.isInteger(snapshot.health.corruption_count) || snapshot.health.corruption_count < 0) {
     throw new SelfRegulationError('snapshot.health.corruption_count must be a non-negative integer')
   }
@@ -243,7 +251,7 @@ export function normalizeKnowledgeGaps(gaps: readonly KnowledgeGap[]): readonly 
       throw new SelfRegulationError(`gaps[${index}].evidence_refs must contain verified evidence`)
     }
     const evidence_refs = evidenceReferences.map((reference, evidenceIndex) => {
-      assertHash(`gaps[${index}].evidence_refs[${evidenceIndex}]`, reference)
+      assertResolvedHash(`gaps[${index}].evidence_refs[${evidenceIndex}]`, reference)
       return reference
     })
     return {
