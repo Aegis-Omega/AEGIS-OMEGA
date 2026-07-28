@@ -298,6 +298,12 @@ No cockpit, MCP, game, or other product projection may label receipt provenance 
 
 Until that admission condition is recorded, the schemas and implementation are proposed infrastructure, not an authoritative cockpit or MCP claim.
 
+ADR-0023 defines a receipt-derived Holonñgram visual-feedback compiler. Its
+frames remain explicitly `DERIVED_NON_AUTHORITATIVE`, and the initial Studio
+surface deliberately displays unresolved/demo values rather than consuming the
+compiler output. This preserves the prohibition above: a visual compiler is not
+itself cockpit, MCP, or game projection admission.
+
 ## Consequences and remaining integration blockers
 
 This design removes private process memory and chat history from receipt verification, makes signer rotation explicit, and turns receipt identity into a stable cross-runtime content address. It also requires durable receipt and registry transport, trusted caller time, operator key provisioning, atomic chain-head coordination, and complete lifecycle evidence.

@@ -1,0 +1,758 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis.local/schemas/holonngram-visual-feedback.v1.schema.json",
+  "title": "AEGIS Holonngram Visual Feedback Frame V1",
+  "description": "A deterministic, receipt-derived, non-authoritative visual projection. This artifact never grants authority, executes mutations, promotes evidence, claims authoritative provenance, or authorizes route changes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "compiler_version",
+    "topology_id",
+    "epistemic_status",
+    "source",
+    "formula_trace",
+    "state_comparison",
+    "feedback",
+    "visual",
+    "safety",
+    "frame_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "artifact_kind": { "const": "AEGIS_HOLONNGRAM_VISUAL_FEEDBACK_V1" },
+    "compiler_version": { "const": "holonngram-compiler-v1" },
+    "topology_id": { "const": "HOLONNGRAM_19_V1" },
+    "epistemic_status": { "const": "DERIVED_NON_AUTHORITATIVE" },
+    "source": { "$ref": "#/$defs/source" },
+    "formula_trace": { "$ref": "#/$defs/formulaTrace" },
+    "state_comparison": { "$ref": "#/$defs/stateComparison" },
+    "feedback": { "$ref": "#/$defs/feedback" },
+    "visual": { "$ref": "#/$defs/visual" },
+    "safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "grants_authority",
+        "executes_mutation",
+        "promotes_evidence",
+        "claims_authoritative_provenance",
+        "route_adjustment_authorized"
+      ],
+      "properties": {
+        "grants_authority": { "const": false },
+        "executes_mutation": { "const": false },
+        "promotes_evidence": { "const": false },
+        "claims_authoritative_provenance": { "const": false },
+        "route_adjustment_authorized": { "const": false }
+      }
+    },
+    "frame_digest": { "$ref": "#/$defs/nonZeroHash" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "formula_trace": {
+            "properties": {
+              "measurement_status": { "const": "NOT_COMPUTED" }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "feedback": {
+            "properties": {
+              "resonance": {
+                "properties": {
+                  "measurement_status": { "const": "NOT_COMPUTED" }
+                }
+              },
+              "value": {
+                "properties": {
+                  "measurement_status": { "const": "NOT_COMPUTED" }
+                }
+              }
+            }
+          },
+          "visual": {
+            "properties": {
+              "edge_updates": { "maxItems": 0 }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "feedback": {
+            "properties": {
+              "resonance": {
+                "properties": {
+                  "measurement_status": {
+                    "const": "CALLER_SUPPLIED_UNVERIFIED"
+                  }
+                }
+              },
+              "value": {
+                "properties": {
+                  "measurement_status": {
+                    "const": "CALLER_SUPPLIED_UNVERIFIED"
+                  }
+                }
+              }
+            }
+          },
+          "visual": {
+            "properties": {
+              "edge_updates": {
+                "items": {
+                  "properties": {
+                    "measurement_status": {
+                      "const": "CALLER_SUPPLIED_UNVERIFIED"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nonZeroHash": {
+      "type": "string",
+      "pattern": "^(?!0{64}$)[0-9a-f]{64}$"
+    },
+    "safeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"
+    },
+    "decimal": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,19})$"
+    },
+    "positiveDecimal": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,19}$"
+    },
+    "ppm": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]{0,5}|1000000)$"
+    },
+    "signedPpm": {
+      "type": "string",
+      "pattern": "^-?(0|[1-9][0-9]{0,5}|1000000)$",
+      "not": { "const": "-0" }
+    },
+    "receiptKind": {
+      "enum": [
+        "LEASE_ISSUED",
+        "LEASE_ISSUANCE_DENIED",
+        "LEASE_RENEWED",
+        "LEASE_RENEWAL_DENIED",
+        "LEASE_EXPIRED",
+        "LEASE_REVOKED",
+        "MUTATION_ADMITTED",
+        "MUTATION_DENIED",
+        "MUTATION_COMPLETED",
+        "MUTATION_CANCELLED",
+        "MUTATION_FAILED"
+      ]
+    },
+    "receiptOutcome": {
+      "enum": [
+        "ADMITTED",
+        "DENIED",
+        "COMPLETED",
+        "CANCELLED",
+        "FAILED",
+        "EXPIRED",
+        "REVOKED"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provenance_status",
+        "decision_digest",
+        "terminal_receipt_id",
+        "terminal_receipt_kind",
+        "terminal_outcome",
+        "chain_digest",
+        "receipt_count",
+        "registry_roots",
+        "actor_identity_root",
+        "session_identity_root",
+        "workspace_identity_root",
+        "holon_identity_root",
+        "authority_domain",
+        "authority_level",
+        "authority_receipt_hash",
+        "lease_id",
+        "lease_generation",
+        "fencing_token",
+        "lease_authorization_receipt_hash",
+        "parent_receipt_hash",
+        "observed_state_root",
+        "expected_state_root",
+        "action_digest",
+        "before_state_root",
+        "after_state_root",
+        "result_digest",
+        "terminal_timestamp_ms",
+        "terminal_nonce",
+        "denial_codes",
+        "verifier_identity_root",
+        "observed_at_ms",
+        "max_clock_skew_ms"
+      ],
+      "properties": {
+        "provenance_status": {
+          "const": "AUTHORITATIVE_RECEIPT_PROVENANCE_VERIFIED"
+        },
+        "decision_digest": { "$ref": "#/$defs/nonZeroHash" },
+        "terminal_receipt_id": { "$ref": "#/$defs/nonZeroHash" },
+        "terminal_receipt_kind": { "$ref": "#/$defs/receiptKind" },
+        "terminal_outcome": { "$ref": "#/$defs/receiptOutcome" },
+        "chain_digest": { "$ref": "#/$defs/nonZeroHash" },
+        "receipt_count": { "$ref": "#/$defs/positiveDecimal" },
+        "registry_roots": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonZeroHash" }
+        },
+        "actor_identity_root": { "$ref": "#/$defs/nonZeroHash" },
+        "session_identity_root": { "$ref": "#/$defs/nonZeroHash" },
+        "workspace_identity_root": { "$ref": "#/$defs/nonZeroHash" },
+        "holon_identity_root": { "$ref": "#/$defs/nonZeroHash" },
+        "authority_domain": { "$ref": "#/$defs/safeId" },
+        "authority_level": { "enum": ["D0", "D1", "D2", "D3", "D4"] },
+        "authority_receipt_hash": { "$ref": "#/$defs/hash" },
+        "lease_id": { "$ref": "#/$defs/nonZeroHash" },
+        "lease_generation": { "$ref": "#/$defs/decimal" },
+        "fencing_token": { "$ref": "#/$defs/hash" },
+        "lease_authorization_receipt_hash": { "$ref": "#/$defs/hash" },
+        "parent_receipt_hash": { "$ref": "#/$defs/hash" },
+        "observed_state_root": { "$ref": "#/$defs/nonZeroHash" },
+        "expected_state_root": { "$ref": "#/$defs/nonZeroHash" },
+        "action_digest": { "$ref": "#/$defs/nonZeroHash" },
+        "before_state_root": { "$ref": "#/$defs/nonZeroHash" },
+        "after_state_root": { "$ref": "#/$defs/nonZeroHash" },
+        "result_digest": { "$ref": "#/$defs/nonZeroHash" },
+        "terminal_timestamp_ms": { "$ref": "#/$defs/decimal" },
+        "terminal_nonce": { "$ref": "#/$defs/safeId" },
+        "denial_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/safeId" }
+        },
+        "verifier_identity_root": { "$ref": "#/$defs/nonZeroHash" },
+        "observed_at_ms": { "$ref": "#/$defs/decimal" },
+        "max_clock_skew_ms": { "$ref": "#/$defs/decimal" }
+      }
+    },
+    "formulaTrace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "formula_id",
+        "formula_version",
+        "formula_definition_digest",
+        "transition_id",
+        "trace_id",
+        "input_digest",
+        "output_digest",
+        "execution_status",
+        "measurement_status"
+      ],
+      "properties": {
+        "formula_id": { "$ref": "#/$defs/safeId" },
+        "formula_version": { "$ref": "#/$defs/safeId" },
+        "formula_definition_digest": { "$ref": "#/$defs/nonZeroHash" },
+        "transition_id": { "$ref": "#/$defs/safeId" },
+        "trace_id": { "$ref": "#/$defs/nonZeroHash" },
+        "input_digest": { "$ref": "#/$defs/nonZeroHash" },
+        "output_digest": { "$ref": "#/$defs/nonZeroHash" },
+        "execution_status": {
+          "enum": ["NOT_EXECUTED", "UNVERIFIED_CALLER_INPUT"]
+        },
+        "measurement_status": {
+          "enum": ["NOT_COMPUTED", "CALLER_SUPPLIED_UNVERIFIED"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "measurement_status": { "const": "NOT_COMPUTED" }
+            }
+          },
+          "then": {
+            "properties": {
+              "execution_status": { "const": "NOT_EXECUTED" }
+            }
+          },
+          "else": {
+            "properties": {
+              "execution_status": { "const": "UNVERIFIED_CALLER_INPUT" }
+            }
+          }
+        }
+      ]
+    },
+    "stateComparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observed_state_root",
+        "expected_state_root",
+        "before_state_root",
+        "after_state_root",
+        "field_diff_status",
+        "delta_type"
+      ],
+      "properties": {
+        "observed_state_root": { "$ref": "#/$defs/nonZeroHash" },
+        "expected_state_root": { "$ref": "#/$defs/nonZeroHash" },
+        "before_state_root": { "$ref": "#/$defs/nonZeroHash" },
+        "after_state_root": { "$ref": "#/$defs/nonZeroHash" },
+        "field_diff_status": { "const": "ROOTS_ONLY" },
+        "delta_type": {
+          "enum": [
+            "MATCH",
+            "STATE_CHANGED",
+            "STALE_EXPECTATION",
+            "DENIED",
+            "CANCELLED",
+            "FAILED",
+            "EXPIRED",
+            "REVOKED"
+          ]
+        }
+      }
+    },
+    "measuredResonance": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["measurement_status", "ppm"],
+          "properties": {
+            "measurement_status": { "const": "NOT_COMPUTED" },
+            "ppm": { "type": "null" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["measurement_status", "ppm"],
+          "properties": {
+            "measurement_status": { "const": "CALLER_SUPPLIED_UNVERIFIED" },
+            "ppm": { "$ref": "#/$defs/ppm" }
+          }
+        }
+      ]
+    },
+    "measuredValue": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["measurement_status", "delta_ppm"],
+          "properties": {
+            "measurement_status": { "const": "NOT_COMPUTED" },
+            "delta_ppm": { "type": "null" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["measurement_status", "delta_ppm"],
+          "properties": {
+            "measurement_status": { "const": "CALLER_SUPPLIED_UNVERIFIED" },
+            "delta_ppm": { "$ref": "#/$defs/signedPpm" }
+          }
+        }
+      ]
+    },
+    "feedback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signal",
+        "severity",
+        "boundary",
+        "rationale_codes",
+        "resonance",
+        "value"
+      ],
+      "properties": {
+        "signal": {
+          "enum": [
+            "REINFORCE",
+            "NEEDS_REVIEW",
+            "REQUEST_GRANT",
+            "REPAIR_SCHEMA",
+            "ROLLBACK",
+            "FAIL_CLOSED"
+          ]
+        },
+        "severity": {
+          "enum": ["INFO", "REVIEW", "WARNING", "CRITICAL", "FATAL"]
+        },
+        "boundary": {
+          "enum": [
+            "NONE",
+            "AUTHORITY",
+            "LEASE",
+            "FENCING",
+            "STATE",
+            "SCHEMA",
+            "TRUST",
+            "REPLAY",
+            "CANCELLATION",
+            "EXECUTION"
+          ]
+        },
+        "rationale_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/safeId" }
+        },
+        "resonance": { "$ref": "#/$defs/measuredResonance" },
+        "value": { "$ref": "#/$defs/measuredValue" }
+      }
+    },
+    "nodeState": {
+      "enum": [
+        "IDLE",
+        "ACTIVE",
+        "VERIFIED",
+        "DENIED",
+        "EXPIRED",
+        "REVOKED",
+        "CANCELLED",
+        "FAILED",
+        "CHANGED",
+        "UNCHANGED"
+      ]
+    },
+    "nodeBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id", "ring", "role", "state", "source_refs"],
+      "properties": {
+        "node_id": { "type": "string" },
+        "ring": { "enum": ["CENTER", "INNER", "OUTER"] },
+        "role": { "type": "string" },
+        "state": { "$ref": "#/$defs/nodeState" },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/nonZeroHash" }
+        }
+      }
+    },
+    "edgeUpdate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from_node",
+        "to_node",
+        "edge_kind",
+        "measurement_status",
+        "trust_delta_ppm",
+        "risk_delta_ppm",
+        "schema_delta_ppm",
+        "authority_delta_ppm",
+        "basis_codes"
+      ],
+      "properties": {
+        "from_node": {
+          "enum": [
+            "C0", "I1", "I2", "I3", "I4", "I5", "I6",
+            "O1", "O2", "O3", "O4", "O5", "O6",
+            "O7", "O8", "O9", "O10", "O11", "O12"
+          ]
+        },
+        "to_node": {
+          "enum": [
+            "C0", "I1", "I2", "I3", "I4", "I5", "I6",
+            "O1", "O2", "O3", "O4", "O5", "O6",
+            "O7", "O8", "O9", "O10", "O11", "O12"
+          ]
+        },
+        "edge_kind": {
+          "enum": [
+            "FLOW",
+            "AUTHORITY",
+            "TRUST",
+            "STATE",
+            "PROVENANCE",
+            "FEEDBACK"
+          ]
+        },
+        "measurement_status": {
+          "enum": ["NOT_COMPUTED", "CALLER_SUPPLIED_UNVERIFIED"]
+        },
+        "trust_delta_ppm": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/signedPpm" }]
+        },
+        "risk_delta_ppm": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/signedPpm" }]
+        },
+        "schema_delta_ppm": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/signedPpm" }]
+        },
+        "authority_delta_ppm": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/signedPpm" }]
+        },
+        "basis_codes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/safeId" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "measurement_status": { "const": "NOT_COMPUTED" }
+            }
+          },
+          "then": {
+            "properties": {
+              "trust_delta_ppm": { "type": "null" },
+              "risk_delta_ppm": { "type": "null" },
+              "schema_delta_ppm": { "type": "null" },
+              "authority_delta_ppm": { "type": "null" },
+              "basis_codes": { "maxItems": 0 }
+            }
+          },
+          "else": {
+            "properties": {
+              "trust_delta_ppm": { "$ref": "#/$defs/signedPpm" },
+              "risk_delta_ppm": { "$ref": "#/$defs/signedPpm" },
+              "schema_delta_ppm": { "$ref": "#/$defs/signedPpm" },
+              "authority_delta_ppm": { "$ref": "#/$defs/signedPpm" }
+            }
+          }
+        }
+      ]
+    },
+    "visual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nodes",
+        "edge_updates",
+        "event",
+        "receipt_timeline",
+        "next_route"
+      ],
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "minItems": 19,
+          "maxItems": 19,
+          "prefixItems": [
+            { "$ref": "#/$defs/nodeC0" },
+            { "$ref": "#/$defs/nodeI1" },
+            { "$ref": "#/$defs/nodeI2" },
+            { "$ref": "#/$defs/nodeI3" },
+            { "$ref": "#/$defs/nodeI4" },
+            { "$ref": "#/$defs/nodeI5" },
+            { "$ref": "#/$defs/nodeI6" },
+            { "$ref": "#/$defs/nodeO1" },
+            { "$ref": "#/$defs/nodeO2" },
+            { "$ref": "#/$defs/nodeO3" },
+            { "$ref": "#/$defs/nodeO4" },
+            { "$ref": "#/$defs/nodeO5" },
+            { "$ref": "#/$defs/nodeO6" },
+            { "$ref": "#/$defs/nodeO7" },
+            { "$ref": "#/$defs/nodeO8" },
+            { "$ref": "#/$defs/nodeO9" },
+            { "$ref": "#/$defs/nodeO10" },
+            { "$ref": "#/$defs/nodeO11" },
+            { "$ref": "#/$defs/nodeO12" }
+          ],
+          "items": false
+        },
+        "edge_updates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/edgeUpdate" }
+        },
+        "event": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "transition_id",
+            "terminal_receipt_id",
+            "terminal_receipt_kind",
+            "terminal_outcome",
+            "severity",
+            "signal"
+          ],
+          "properties": {
+            "transition_id": { "$ref": "#/$defs/safeId" },
+            "terminal_receipt_id": { "$ref": "#/$defs/nonZeroHash" },
+            "terminal_receipt_kind": { "$ref": "#/$defs/receiptKind" },
+            "terminal_outcome": { "$ref": "#/$defs/receiptOutcome" },
+            "severity": {
+              "enum": ["INFO", "REVIEW", "WARNING", "CRITICAL", "FATAL"]
+            },
+            "signal": {
+              "enum": [
+                "REINFORCE",
+                "NEEDS_REVIEW",
+                "REQUEST_GRANT",
+                "REPAIR_SCHEMA",
+                "ROLLBACK",
+                "FAIL_CLOSED"
+              ]
+            }
+          }
+        },
+        "receipt_timeline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "terminal_receipt_id",
+            "chain_digest",
+            "receipt_count"
+          ],
+          "properties": {
+            "terminal_receipt_id": { "$ref": "#/$defs/nonZeroHash" },
+            "chain_digest": { "$ref": "#/$defs/nonZeroHash" },
+            "receipt_count": { "$ref": "#/$defs/positiveDecimal" }
+          }
+        },
+        "next_route": { "$ref": "#/$defs/safeId" }
+      }
+    },
+    "nodeC0": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "C0" }, "ring": { "const": "CENTER" }, "role": { "const": "CURRENT_ENVELOPE" } } }
+      ]
+    },
+    "nodeI1": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "I1" }, "ring": { "const": "INNER" }, "role": { "const": "INTERPRETER" } } }
+      ]
+    },
+    "nodeI2": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "I2" }, "ring": { "const": "INNER" }, "role": { "const": "ASSESSOR" } } }
+      ]
+    },
+    "nodeI3": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "I3" }, "ring": { "const": "INNER" }, "role": { "const": "LEASE_GUARD" } } }
+      ]
+    },
+    "nodeI4": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "I4" }, "ring": { "const": "INNER" }, "role": { "const": "EXECUTOR" } } }
+      ]
+    },
+    "nodeI5": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "I5" }, "ring": { "const": "INNER" }, "role": { "const": "VERIFIER" } } }
+      ]
+    },
+    "nodeI6": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "I6" }, "ring": { "const": "INNER" }, "role": { "const": "COMMITTER" } } }
+      ]
+    },
+    "nodeO1": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "O1" }, "ring": { "const": "OUTER" }, "role": { "const": "ACTOR_WITNESS" } } }
+      ]
+    },
+    "nodeO2": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "O2" }, "ring": { "const": "OUTER" }, "role": { "const": "SESSION_WITNESS" } } }
+      ]
+    },
+    "nodeO3": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "O3" }, "ring": { "const": "OUTER" }, "role": { "const": "WORKSPACE_WITNESS" } } }
+      ]
+    },
+    "nodeO4": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "O4" }, "ring": { "const": "OUTER" }, "role": { "const": "HOLON_WITNESS" } } }
+      ]
+    },
+    "nodeO5": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "O5" }, "ring": { "const": "OUTER" }, "role": { "const": "AUTHORITY_WITNESS" } } }
+      ]
+    },
+    "nodeO6": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "O6" }, "ring": { "const": "OUTER" }, "role": { "const": "LEASE_WITNESS" } } }
+      ]
+    },
+    "nodeO7": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "O7" }, "ring": { "const": "OUTER" }, "role": { "const": "FENCE_WITNESS" } } }
+      ]
+    },
+    "nodeO8": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "O8" }, "ring": { "const": "OUTER" }, "role": { "const": "EXPECTED_STATE_WITNESS" } } }
+      ]
+    },
+    "nodeO9": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "O9" }, "ring": { "const": "OUTER" }, "role": { "const": "OBSERVED_STATE_WITNESS" } } }
+      ]
+    },
+    "nodeO10": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "O10" }, "ring": { "const": "OUTER" }, "role": { "const": "ACTION_WITNESS" } } }
+      ]
+    },
+    "nodeO11": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "O11" }, "ring": { "const": "OUTER" }, "role": { "const": "RESULT_WITNESS" } } }
+      ]
+    },
+    "nodeO12": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        { "properties": { "node_id": { "const": "O12" }, "ring": { "const": "OUTER" }, "role": { "const": "TRUST_CHAIN_WITNESS" } } }
+      ]
+    }
+  }
+}
