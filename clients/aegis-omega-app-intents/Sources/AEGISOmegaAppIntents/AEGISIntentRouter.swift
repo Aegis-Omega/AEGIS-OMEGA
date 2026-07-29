@@ -17,7 +17,9 @@ public final class AEGISIntentRouter {
 
     public static let shared = AEGISIntentRouter()
 
-    public var pendingHandoff: Handoff?
+    /// Read-only to callers: mutation must go through `accept(_:)` / `clear(_:)` so the
+    /// id-matching guard in `clear(_:)` cannot be bypassed by an external write.
+    public private(set) var pendingHandoff: Handoff?
 
     private init() {}
 
