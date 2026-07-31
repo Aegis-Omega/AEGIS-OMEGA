@@ -56,6 +56,7 @@ jobs:
           (
             cd sovereign-omega-v2/mcp-server
             npm install --save-exact --package-lock-only @modelcontextprotocol/sdk@1.30.0
+            npm audit fix --package-lock-only
             npm ci
             npm run test:resources
             npm run test:automaton3
