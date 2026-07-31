@@ -1,17 +1,20 @@
 #!/usr/bin/env node
 // ============================================================
 // SOVEREIGN OMEGA — Frozen File Hash Verification
-// Run before any session that touches constitutional files.
+// CWD-independent: resolves constitutional files relative to this script.
 //
 // Exit codes:
 //   0 — all files present and hash-correct
-//   1 — at least one file present but hash WRONG (constitutional violation)
-//   2 — at least one file absent (not yet authored; /guardian decision pending)
-//       A missing constitutional file is NOT the same as a passing check.
+//   1 — at least one file present but hash WRONG
+//   2 — at least one required file absent
 // ============================================================
 
-import { createHash } from 'crypto'
-import { readFileSync, existsSync } from 'fs'
+import { createHash } from 'node:crypto'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const RUNTIME_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 const FROZEN_FILES = {
   'python/gate.py':   'bbe942b819594fd522b421bb9d3aa084735a873d526f35a1e782f31346f3d0fc',
@@ -22,37 +25,38 @@ const FROZEN_FILES = {
 let hashFailed = false
 let filesMissing = false
 
-for (const [file, expectedHash] of Object.entries(FROZEN_FILES)) {
-  if (!existsSync(file)) {
-    console.warn(`  WARN: ${file} — file not present; constitutional check INCOMPLETE`)
+for (const [relativePath, expectedHash] of Object.entries(FROZEN_FILES)) {
+  const absolutePath = resolve(RUNTIME_ROOT, relativePath)
+
+  if (!existsSync(absolutePath)) {
+    console.error(`  MISSING: ${relativePath}`)
     filesMissing = true
     continue
   }
-  const content = readFileSync(file)
-  const actualHash = createHash('sha256').update(content).digest('hex')
+
+  const actualHash = createHash('sha256')
+    .update(readFileSync(absolutePath))
+    .digest('hex')
+
   if (actualHash === expectedHash) {
-    console.log(`  OK:   ${file}`)
+    console.log(`  OK:      ${relativePath}`)
   } else {
-    console.error(`  FAIL: ${file}`)
-    console.error(`        Expected: ${expectedHash}`)
-    console.error(`        Got:      ${actualHash}`)
+    console.error(`  FAIL:    ${relativePath}`)
+    console.error(`           Expected: ${expectedHash}`)
+    console.error(`           Got:      ${actualHash}`)
     hashFailed = true
   }
 }
 
 if (hashFailed) {
-  console.error('\n[FROZEN FILE VIOLATION] One or more constitutional files have been modified.')
-  console.error('Requires /guardian APPROVED verdict before proceeding.')
+  console.error('\n[FROZEN FILE VIOLATION] Constitutional bytes differ from the approved hashes.')
+  console.error('A new hash may be admitted only through an explicit, evidence-bound constitutional change.')
   process.exit(1)
 }
 
 if (filesMissing) {
-  console.warn('\n[CONSTITUTIONAL FILES ABSENT] gate.py / dna.py / router.py do not exist.')
-  console.warn('Integrity check is INCOMPLETE — not a pass.')
-  console.warn('Operator must decide: migrate from sovereign-omega/ or author new implementations.')
-  console.warn('Creation requires /guardian APPROVED verdict.')
+  console.error('\n[CONSTITUTIONAL FILES MISSING] Integrity verification is incomplete and fails closed.')
   process.exit(2)
 }
 
-console.log('\nAll frozen files present and hash-verified.')
-
+console.log(`\nAll frozen files present and hash-verified under ${RUNTIME_ROOT}.`)
