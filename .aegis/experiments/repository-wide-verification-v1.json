@@ -1,7 +1,7 @@
 {
   "admission_executable": {"blob_id":"b9c998ddc85b9beeefec30121e88e828b15a8405","path":"sovereign-omega-v2/scripts/validate-experiment-plan.ts"},
   "admission_workflow": {"blob_id":"01a59d129b0431c9ccb92b1227a0e46992b1562f","path":".github/workflows/experiment-admission.yml"},
-  "budget": {"max_cost_microunits":0,"max_duration_seconds":21600,"max_mutations":4},
+  "budget": {"max_cost_microunits":0,"max_duration_seconds":21600,"max_mutations":32},
   "claims_ledger": {"path":".aegis/claims-ledger.json","root":"495a01d7a942d5f90b39f2d2b178b074aee60c5e6460e1622f1917982ac59652"},
   "constitution": {"blob_id":"d0c210443e03313113e43da46c4d98269494baeb","path":"CONSTITUTIONAL_DECLARATION.md"},
   "evidence_tier":"T1",
@@ -12,7 +12,7 @@
   "experiment_id":"repository-wide-verification-v1",
   "integration_ledger_generator": {"blob_id":"28823ae5b630be273b78210f0addf9c0a86aad05","path":"scripts/integration_ledger.py"},
   "observability": {"cancellation_mechanism":"github-actions-cancel-run","durable_execution_required":true,"emergency_stop_reference":"github-actions:cancel-run","heartbeat_max_seconds":3600,"provider":"github-actions"},
-  "operator_approval": {"approval_record_hash":"713d0afecf5f4b5f4eae3356a84cfaf324eaddf7eb1eccdc757217cbccf635a5","authorization_basis":"user-explicit-pa-de-kreni-repository-wide-verification-and-source-integration","decided_at":"2026-07-31T03:40:00Z","operator_actor_id":"tarikskalic","operator_session_id":"chatgpt-session-2026-07-31-repository-wide-verification","required":true,"signature_mode":"GITHUB_OIDC_ATTESTATION","state":"APPROVED"},
+  "operator_approval": {"approval_record_hash":"c2b4b1c91af43ed8ef2599f55733010711305d6a1d10d351d068ca7b35cd303d","authorization_basis":"user-explicit-pa-de-popravi-mi-sve-repository-wide-remediation-without-merge","decided_at":"2026-07-31T17:25:00Z","operator_actor_id":"tarikskalic","operator_session_id":"chatgpt-session-2026-07-31-repository-wide-remediation","required":true,"signature_mode":"GITHUB_OIDC_ATTESTATION","state":"APPROVED"},
   "policy": {"blob_id":"5937cf4d9fc59f224faabfb7865bba7aa5da90dc","path":"docs/rfcs/0001-operator-sovereign-control-plane.md"},
   "replay_package": {"include_admission_receipt":true,"include_evidence_manifest":true,"include_integration_ledger":true,"include_plan":true,"required":true},
   "repository":"Aegis-Omega/AEGIS-OMEGA",
@@ -20,5 +20,5 @@
   "schema_version":"0.1.0",
   "sovereignty_contracts": {"blob_id":"d53860f1340293cf08955ebb8729a853432551eb","path":"sovereign-omega-v2/src/sovereignty/contracts.ts"},
   "termination_conditions":["budget_exhausted","observability_expired","operator_emergency_stop"],
-  "title":"Execute and reconcile repository-wide test, build, proof, contract, and bounded dependency-repair evidence"
+  "title":"Execute, reconcile, and remediate repository-wide test, lint, constitutional-integrity, dependency, and security-policy evidence"
 }
