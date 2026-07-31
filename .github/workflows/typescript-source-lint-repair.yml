@@ -1,0 +1,270 @@
+name: AEGIS Bounded TypeScript Source Repair
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/typescript-source-lint-repair.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: typescript-source-lint-repair-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    name: Repair eleven reproducible TypeScript lint errors
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      HEAD_BRANCH: ${{ github.head_ref }}
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact writable PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_BRANCH }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Assert exact branch identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Apply exact bounded source repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              target = Path(path)
+              text = target.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly one match, found {count}')
+              target.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          replace_once(
+              'sovereign-omega-v2/src/api/claude-client.ts',
+              "            input_tokens: (event as any).usage?.input_tokens ?? 0,",
+              "            input_tokens:\n              'input_tokens' in event.usage && typeof event.usage.input_tokens === 'number'\n                ? event.usage.input_tokens\n                : 0,",
+          )
+
+          managed = Path('sovereign-omega-v2/src/api/managed-agent-client.ts')
+          text = managed.read_text(encoding='utf-8')
+          marker = "export interface ManagedAgentClientConfig {\n  readonly apiKey?: string\n  readonly agentId?: string  // pre-existing agent to reuse\n}\n"
+          types = """export interface ManagedAgentClientConfig {
+            readonly apiKey?: string
+            readonly agentId?: string  // pre-existing agent to reuse
+          }
+
+          interface ManagedAgentWireRecord {
+            readonly id: string
+          }
+
+          interface ManagedSessionWireRecord {
+            readonly id: string
+            readonly agent_id?: string
+            readonly status?: AgentSession['status']
+            readonly created_at?: string
+          }
+
+          interface ManagedSessionWireEvent {
+            readonly type?: SessionEvent['type']
+            readonly content?: unknown
+          }
+
+          type ManagedSessionWireStream = AsyncIterable<ManagedSessionWireEvent>
+
+          interface ManagedAnthropicExtension {
+            readonly beta: {
+              readonly agents: {
+                create(input: unknown): Promise<ManagedAgentWireRecord>
+              }
+              readonly sessions: {
+                create(input: unknown): Promise<ManagedSessionWireRecord>
+                stream(sessionId: string): ManagedSessionWireStream | null | Promise<ManagedSessionWireStream | null>
+                createEvent(sessionId: string, event: unknown): Promise<unknown>
+                retrieve(sessionId: string): Promise<ManagedSessionWireRecord>
+              }
+            }
+          }
+          """
+          import textwrap
+          types = textwrap.dedent(types)
+          if text.count(marker) != 1:
+              raise SystemExit('managed-agent-client.ts: config marker mismatch')
+          text = text.replace(marker, types, 1)
+          text = text.replace('(this._client as any).beta?.agents?.create', 'this.managedClient().beta.agents.create')
+          text = text.replace('(this._client as any).beta?.sessions?.create', 'this.managedClient().beta.sessions.create')
+          text = text.replace('(this._client as any).beta?.sessions?.stream', 'this.managedClient().beta.sessions.stream')
+          text = text.replace('(this._client as any).beta?.sessions?.createEvent', 'this.managedClient().beta.sessions.createEvent')
+          text = text.replace('(this._client as any).beta?.sessions?.retrieve', 'this.managedClient().beta.sessions.retrieve')
+          if ' as any)' in text or 'as any).' in text:
+              raise SystemExit('managed-agent-client.ts: an any cast remains')
+          constructor_end = """    this._agentId = config.agentId ?? null
+            }
+          """
+          helper = """    this._agentId = config.agentId ?? null
+            }
+
+            private managedClient(): ManagedAnthropicExtension {
+              return this._client as unknown as ManagedAnthropicExtension
+            }
+          """
+          constructor_end = textwrap.dedent(constructor_end)
+          helper = textwrap.dedent(helper)
+          if text.count(constructor_end) != 1:
+              raise SystemExit('managed-agent-client.ts: constructor marker mismatch')
+          text = text.replace(constructor_end, helper, 1)
+          old_throw = """      throw new Error(
+                  `[MANAGED_AGENT] Failed to create agent: ${String(err)}. ` +
+                  `Ensure your API key has Managed Agents access.`
+                )
+          """
+          new_throw = """      throw new Error(
+                  `[MANAGED_AGENT] Failed to create agent: ${String(err)}. ` +
+                  `Ensure your API key has Managed Agents access.`,
+                  { cause: err },
+                )
+          """
+          old_throw = textwrap.dedent(old_throw)
+          new_throw = textwrap.dedent(new_throw)
+          if text.count(old_throw) != 1:
+              raise SystemExit('managed-agent-client.ts: error marker mismatch')
+          text = text.replace(old_throw, new_throw, 1)
+          managed.write_text(text, encoding='utf-8')
+
+          replace_once(
+              'sovereign-omega-v2/src/core/ralph-loop.ts',
+              """    const loop = this
+              const builder: RalphCycleBuilder = {
+                addFinding(f) { findings.push(f); return builder },
+                addAnalysisNote(n) { analysisNotes.push(n); return builder },
+                addLink(d) { links.push(d); return builder },
+                addPatch(p) { patches.push(p); return builder },
+                harmonize(gateResult) {
+                  const cycle = deepFreeze<RalphCycle>({
+                    cycle_id: cycleId as UUIDv7,
+                    cycle_number: loop._cycleNumber,
+                    target_scale: loop.targetScale,
+                    phase: RalphPhase.HARMONIZE,
+                    findings: findings.map(f => f.description),
+                    analysis_notes: analysisNotes,
+                    links_established: links,
+                    patches_applied: patches.map(p => `[${p.type}] ${p.file}: ${p.description}`),
+                    harmonization_result: gateResult === 'PASS' ? 'COHERENT' : 'INCOHERENT',
+                    gate_result: gateResult,
+                    sequence,
+                  })
+                  loop.cycles.push(cycle)
+                  return cycle
+                },
+              }
+          """,
+              """    const cycleNumber = this._cycleNumber
+              const targetScale = this.targetScale
+              const builder: RalphCycleBuilder = {
+                addFinding(f) { findings.push(f); return builder },
+                addAnalysisNote(n) { analysisNotes.push(n); return builder },
+                addLink(d) { links.push(d); return builder },
+                addPatch(p) { patches.push(p); return builder },
+                harmonize: (gateResult) => {
+                  const cycle = deepFreeze<RalphCycle>({
+                    cycle_id: cycleId as UUIDv7,
+                    cycle_number: cycleNumber,
+                    target_scale: targetScale,
+                    phase: RalphPhase.HARMONIZE,
+                    findings: findings.map(f => f.description),
+                    analysis_notes: analysisNotes,
+                    links_established: links,
+                    patches_applied: patches.map(p => `[${p.type}] ${p.file}: ${p.description}`),
+                    harmonization_result: gateResult === 'PASS' ? 'COHERENT' : 'INCOHERENT',
+                    gate_result: gateResult,
+                    sequence,
+                  })
+                  this.cycles.push(cycle)
+                  return cycle
+                },
+              }
+          """,
+          )
+
+          replace_once(
+              'sovereign-omega-v2/src/scale-os/control-plane.ts',
+              "const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:@/+\\-]{1,255}$/",
+              "const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:@/+-]{1,255}$/",
+          )
+
+          replace_once(
+              'sovereign-omega-v2/src/skill-harness/scanner/codebase-scanner.ts',
+              """      let content = ''
+                    try {
+                      const raw = fs.readFileSync(absPath, 'utf-8')
+                      content = raw.length > 32_000 ? raw.slice(0, 32_000) : raw
+                    } catch { continue }
+              """,
+              """      let content: string
+                    try {
+                      const raw = fs.readFileSync(absPath, 'utf-8')
+                      content = raw.length > 32_000 ? raw.slice(0, 32_000) : raw
+                    } catch { continue }
+              """,
+          )
+          PY
+
+      - name: Verify complete TypeScript surface
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run lint
+          npm run typecheck
+          npm run test -- --reporter=dot
+          npm run build
+
+      - name: Enforce exact five-file mutation set
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only | sort)
+          printf '%s\n' "${changed[@]}"
+          expected=(
+            'sovereign-omega-v2/src/api/claude-client.ts'
+            'sovereign-omega-v2/src/api/managed-agent-client.ts'
+            'sovereign-omega-v2/src/core/ralph-loop.ts'
+            'sovereign-omega-v2/src/scale-os/control-plane.ts'
+            'sovereign-omega-v2/src/skill-harness/scanner/codebase-scanner.ts'
+          )
+          test "${#changed[@]}" -eq 5
+          for i in "${!expected[@]}"; do
+            test "${changed[$i]}" = "${expected[$i]}"
+          done
+
+      - name: Commit verified source repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'aegis-verification[bot]'
+          git config user.email 'aegis-verification[bot]@users.noreply.github.com'
+          git add \
+            sovereign-omega-v2/src/api/claude-client.ts \
+            sovereign-omega-v2/src/api/managed-agent-client.ts \
+            sovereign-omega-v2/src/core/ralph-loop.ts \
+            sovereign-omega-v2/src/scale-os/control-plane.ts \
+            sovereign-omega-v2/src/skill-harness/scanner/codebase-scanner.ts
+          git commit -m 'fix(lint): repair typed API and deterministic source boundaries'
+          git push origin "HEAD:${HEAD_BRANCH}"
