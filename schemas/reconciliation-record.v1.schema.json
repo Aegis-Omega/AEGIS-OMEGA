@@ -1,0 +1,270 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/reconciliation-record.v1.schema.json",
+  "title": "AEGIS Reconciliation Record V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_id",
+    "inspected_state",
+    "artifact",
+    "observed_behavior",
+    "organism_status",
+    "authority_chain",
+    "truth_dimensions",
+    "semantic_ancestry",
+    "temporal_voice",
+    "evidence",
+    "conflicts",
+    "supersession",
+    "current_authority",
+    "recommended_dispositions",
+    "required_tests",
+    "unresolved_questions",
+    "receipt"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "record_id": {
+      "type": "string",
+      "pattern": "^recon-[a-z0-9][a-z0-9._-]+-v[0-9]+$"
+    },
+    "inspected_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "ref", "commit_sha", "observed_at"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "ref": { "type": "string", "minLength": 1 },
+        "commit_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "deployment_id": { "type": ["string", "null"] },
+        "observed_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "kind", "content_digest"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "kind": {
+          "enum": ["code", "test", "doc", "config", "receipt", "issue", "asset", "workflow", "schema", "deployment"]
+        },
+        "content_digest": {
+          "type": ["string", "null"],
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "language": { "type": ["string", "null"] }
+      }
+    },
+    "observed_behavior": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "organism_status": {
+      "enum": ["WIRED", "TESTED_ONLY", "DORMANT", "BROKEN", "DEAD_DUP"]
+    },
+    "authority_chain": {
+      "type": "array",
+      "items": {
+        "enum": ["live", "code", "test_ci", "start_here", "repo_map", "old_doc", "operator_attestation", "external_archive"]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "truth_dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution", "verification", "mythic_provenance"],
+      "properties": {
+        "execution": { "$ref": "#/$defs/truthAssessment" },
+        "verification": { "$ref": "#/$defs/truthAssessment" },
+        "mythic_provenance": { "$ref": "#/$defs/truthAssessment" }
+      }
+    },
+    "semantic_ancestry": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["class", "basis", "confidence", "status"],
+        "properties": {
+          "class": {
+            "enum": [
+              "MYTHOS_DESCENDANT",
+              "FABLE5_RESET_DESCENDANT",
+              "ROOT_MAP_DESCENDANT",
+              "INDEPENDENT_INTERVENTION",
+              "RESET_REGRESSION",
+              "UNKNOWN"
+            ]
+          },
+          "basis": { "type": "string", "minLength": 1 },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "status": {
+            "enum": ["verified", "operator_attested", "inferred", "unresolved", "refuted"]
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "temporal_voice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["created_for", "claims_at_creation", "known_context", "preservation_reason"],
+      "properties": {
+        "created_for": { "type": "string", "minLength": 1 },
+        "claims_at_creation": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "known_context": { "type": "string", "minLength": 1 },
+        "preservation_reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidenceReference" }
+    },
+    "unique_failure_knowledge": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["with", "dimension", "description", "status"],
+        "properties": {
+          "with": { "type": "string", "minLength": 1 },
+          "dimension": {
+            "enum": ["execution", "verification", "claim", "representation", "authority", "ancestry", "deployment"]
+          },
+          "description": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["open", "resolved", "superseded", "not_applicable"] }
+        }
+      }
+    },
+    "supersession": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["types", "superseded_by"],
+      "properties": {
+        "types": {
+          "type": "array",
+          "items": {
+            "enum": ["NONE", "SUPERSEDE_EXECUTION", "SUPERSEDE_CLAIM", "SUPERSEDE_REPRESENTATION", "SUPERSEDE_AUTHORITY"]
+          },
+          "uniqueItems": true
+        },
+        "superseded_by": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
+    "current_authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution", "claim", "representation", "mutation"],
+      "properties": {
+        "execution": { "$ref": "#/$defs/authorityState" },
+        "claim": { "$ref": "#/$defs/authorityState" },
+        "representation": { "$ref": "#/$defs/authorityState" },
+        "mutation": { "$ref": "#/$defs/authorityState" }
+      }
+    },
+    "recommended_dispositions": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "KEEP_AUTHORITATIVE",
+          "KEEP_PROVENANCE",
+          "KEEP_FAILURE_EVIDENCE",
+          "SUPERSEDE_EXECUTION",
+          "SUPERSEDE_CLAIM",
+          "SUPERSEDE_REPRESENTATION",
+          "SUPERSEDE_AUTHORITY",
+          "DELETE_BYTE_DUPLICATE_ONLY",
+          "QUARANTINE_BROKEN"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "required_tests": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "unresolved_questions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "receipt_id", "record_digest"],
+      "properties": {
+        "status": { "enum": ["not_issued", "draft", "verified", "rejected"] },
+        "receipt_id": { "type": ["string", "null"] },
+        "record_digest": {
+          "type": ["string", "null"],
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "truthAssessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "summary", "evidence_refs"],
+      "properties": {
+        "status": { "enum": ["verified", "partially_verified", "unverified", "refuted", "unknown", "not_applicable"] },
+        "summary": { "type": "string", "minLength": 1 },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
+    "evidenceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source_type", "locator", "supports"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "source_type": {
+          "enum": ["live_probe", "code", "test", "ci", "commit", "pr", "doc", "operator_attestation", "external_archive", "receipt", "deployment"]
+        },
+        "locator": { "type": "string", "minLength": 1 },
+        "supports": { "type": "string", "minLength": 1 },
+        "digest": {
+          "type": ["string", "null"],
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        }
+      }
+    },
+    "authorityState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "scope", "basis"],
+      "properties": {
+        "status": { "enum": ["authoritative", "bounded", "advisory", "historical", "prohibited", "unknown"] },
+        "scope": { "type": "string", "minLength": 1 },
+        "basis": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
