@@ -1,0 +1,229 @@
+name: AEGIS Bounded TypeScript Source Repair
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/typescript-source-lint-repair.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: typescript-source-lint-repair-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    name: Repair eleven reproducible TypeScript lint errors
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      HEAD_BRANCH: ${{ github.head_ref }}
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact writable PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_BRANCH }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Assert exact branch identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Apply exact bounded source repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          def replace_exact(path: str, old: str, new: str, expected: int = 1) -> None:
+              target = Path(path)
+              text = target.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(f'{path}: expected {expected} matches, found {count}: {old!r}')
+              target.write_text(text.replace(old, new), encoding='utf-8')
+
+          replace_exact(
+              'sovereign-omega-v2/src/api/claude-client.ts',
+              '            input_tokens: (event as any).usage?.input_tokens ?? 0,',
+              """            input_tokens:
+                'input_tokens' in event.usage && typeof event.usage.input_tokens === 'number'
+                  ? event.usage.input_tokens
+                  : 0,""",
+          )
+
+          managed_path = Path('sovereign-omega-v2/src/api/managed-agent-client.ts')
+          managed = managed_path.read_text(encoding='utf-8')
+
+          config_marker = """export interface ManagedAgentClientConfig {
+            readonly apiKey?: string
+            readonly agentId?: string  // pre-existing agent to reuse
+          }
+          """
+          config_marker = textwrap.dedent(config_marker)
+          wire_types = """export interface ManagedAgentClientConfig {
+            readonly apiKey?: string
+            readonly agentId?: string  // pre-existing agent to reuse
+          }
+
+          interface ManagedAgentWireRecord {
+            readonly id: string
+          }
+
+          interface ManagedSessionWireRecord {
+            readonly id: string
+            readonly agent_id?: string
+            readonly status?: AgentSession['status']
+            readonly created_at?: string
+          }
+
+          interface ManagedSessionWireEvent {
+            readonly type?: SessionEvent['type']
+            readonly content?: unknown
+          }
+
+          type ManagedSessionWireStream = AsyncIterable<ManagedSessionWireEvent>
+
+          interface ManagedAnthropicExtension {
+            readonly beta: {
+              readonly agents: {
+                create(input: unknown): Promise<ManagedAgentWireRecord>
+              }
+              readonly sessions: {
+                create(input: unknown): Promise<ManagedSessionWireRecord>
+                stream(sessionId: string): ManagedSessionWireStream | null | Promise<ManagedSessionWireStream | null>
+                createEvent(sessionId: string, event: unknown): Promise<unknown>
+                retrieve(sessionId: string): Promise<ManagedSessionWireRecord>
+              }
+            }
+          }
+          """
+          wire_types = textwrap.dedent(wire_types)
+          if managed.count(config_marker) != 1:
+              raise SystemExit('managed-agent-client.ts: config marker mismatch')
+          managed = managed.replace(config_marker, wire_types, 1)
+
+          replacements = {
+              '(this._client as any).beta?.agents?.create': 'this.managedClient().beta.agents.create',
+              '(this._client as any).beta?.sessions?.create': 'this.managedClient().beta.sessions.create',
+              '(this._client as any).beta?.sessions?.stream': 'this.managedClient().beta.sessions.stream',
+              '(this._client as any).beta?.sessions?.createEvent': 'this.managedClient().beta.sessions.createEvent',
+              '(this._client as any).beta?.sessions?.retrieve': 'this.managedClient().beta.sessions.retrieve',
+          }
+          replaced_casts = 0
+          for old, new in replacements.items():
+              count = managed.count(old)
+              replaced_casts += count
+              managed = managed.replace(old, new)
+          if replaced_casts != 6 or 'as any' in managed:
+              raise SystemExit(f'managed-agent-client.ts: expected 6 any-cast replacements, got {replaced_casts}')
+
+          method_marker = '\n  /** Create or retrieve the AEGIS constitutional agent. Returns agent_id. */'
+          helper = """
+            private managedClient(): ManagedAnthropicExtension {
+              return this._client as unknown as ManagedAnthropicExtension
+            }
+
+            /** Create or retrieve the AEGIS constitutional agent. Returns agent_id. */"""
+          helper = '\n' + textwrap.dedent(helper).lstrip('\n')
+          if managed.count(method_marker) != 1:
+              raise SystemExit('managed-agent-client.ts: method marker mismatch')
+          managed = managed.replace(method_marker, helper, 1)
+
+          cause_old = """        `Ensure your API key has Managed Agents access.`
+              )"""
+          cause_new = """        `Ensure your API key has Managed Agents access.`,
+                { cause: err },
+              )"""
+          cause_old = textwrap.dedent(cause_old)
+          cause_new = textwrap.dedent(cause_new)
+          if managed.count(cause_old) != 1:
+              raise SystemExit('managed-agent-client.ts: cause marker mismatch')
+          managed = managed.replace(cause_old, cause_new, 1)
+          managed_path.write_text(managed, encoding='utf-8')
+
+          ralph_path = Path('sovereign-omega-v2/src/core/ralph-loop.ts')
+          ralph = ralph_path.read_text(encoding='utf-8')
+          ralph_changes = [
+              ('    const loop = this\n', '    const cycleNumber = this._cycleNumber\n    const targetScale = this.targetScale\n'),
+              ('      harmonize(gateResult) {', '      harmonize: (gateResult) => {'),
+              ('          cycle_number: loop._cycleNumber,', '          cycle_number: cycleNumber,'),
+              ('          target_scale: loop.targetScale,', '          target_scale: targetScale,'),
+              ('        loop.cycles.push(cycle)', '        this.cycles.push(cycle)'),
+          ]
+          for old, new in ralph_changes:
+              if ralph.count(old) != 1:
+                  raise SystemExit(f'ralph-loop.ts marker mismatch: {old!r}')
+              ralph = ralph.replace(old, new, 1)
+          ralph_path.write_text(ralph, encoding='utf-8')
+
+          replace_exact(
+              'sovereign-omega-v2/src/scale-os/control-plane.ts',
+              'const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:@/+\\-]{1,255}$/',
+              'const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:@/+-]{1,255}$/',
+          )
+
+          replace_exact(
+              'sovereign-omega-v2/src/skill-harness/scanner/codebase-scanner.ts',
+              "      let content = ''",
+              '      let content: string',
+          )
+          PY
+
+      - name: Verify complete TypeScript surface
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run lint
+          npm run typecheck
+          npm run test -- --reporter=dot
+          npm run build
+
+      - name: Enforce exact five-file mutation set
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only | sort)
+          printf '%s\n' "${changed[@]}"
+          expected=(
+            'sovereign-omega-v2/src/api/claude-client.ts'
+            'sovereign-omega-v2/src/api/managed-agent-client.ts'
+            'sovereign-omega-v2/src/core/ralph-loop.ts'
+            'sovereign-omega-v2/src/scale-os/control-plane.ts'
+            'sovereign-omega-v2/src/skill-harness/scanner/codebase-scanner.ts'
+          )
+          test "${#changed[@]}" -eq 5
+          for i in "${!expected[@]}"; do
+            test "${changed[$i]}" = "${expected[$i]}"
+          done
+
+      - name: Commit verified source repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'aegis-verification[bot]'
+          git config user.email 'aegis-verification[bot]@users.noreply.github.com'
+          git add \
+            sovereign-omega-v2/src/api/claude-client.ts \
+            sovereign-omega-v2/src/api/managed-agent-client.ts \
+            sovereign-omega-v2/src/core/ralph-loop.ts \
+            sovereign-omega-v2/src/scale-os/control-plane.ts \
+            sovereign-omega-v2/src/skill-harness/scanner/codebase-scanner.ts
+          git commit -m 'fix(lint): repair typed API and deterministic source boundaries'
+          git push origin "HEAD:${HEAD_BRANCH}"
