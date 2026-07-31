@@ -1,0 +1,80 @@
+name: AEGIS Bounded ESLint Toolchain Repair
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/eslint-toolchain-repair.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: eslint-toolchain-repair-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    name: Patch sovereign lint toolchain lock
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      HEAD_BRANCH: ${{ github.head_ref }}
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact writable PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_BRANCH }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Assert exact branch identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Generate locked ESLint 10 toolchain
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --save-dev --save-exact \
+            @eslint/js@10.0.1 \
+            eslint@10.3.0 \
+            globals@17.6.0 \
+            typescript-eslint@8.59.2
+          npm ci
+          npm run typecheck
+
+      - name: Enforce two-file mutation boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only | sort)
+          printf '%s\n' "${changed[@]}"
+          expected=(
+            'sovereign-omega-v2/package-lock.json'
+            'sovereign-omega-v2/package.json'
+          )
+          test "${#changed[@]}" -eq 2
+          for i in "${!expected[@]}"; do
+            test "${changed[$i]}" = "${expected[$i]}"
+          done
+
+      - name: Commit toolchain repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'aegis-verification[bot]'
+          git config user.email 'aegis-verification[bot]@users.noreply.github.com'
+          git add sovereign-omega-v2/package.json sovereign-omega-v2/package-lock.json
+          git commit -m 'chore(lint): lock ESLint 10 TypeScript toolchain'
+          git push origin "HEAD:${HEAD_BRANCH}"
