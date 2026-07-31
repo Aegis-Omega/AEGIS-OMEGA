@@ -1,0 +1,176 @@
+{
+  "schema_version": "1.0.0",
+  "observed_at": "2026-07-31T19:37:00Z",
+  "authority_boundary": {
+    "registry_grants_runtime_authority": false,
+    "connection_implies_operational_readiness": false,
+    "content_discovery_implies_content_verification": false
+  },
+  "adapters": [
+    {
+      "adapter_id": "github-aegis-omega",
+      "adapter_kind": "CONNECTOR",
+      "provider": "GitHub",
+      "version": "connector-observed-2026-07-31",
+      "evidence_state": "CONTENT_READ",
+      "source_locator": "github:Aegis-Omega/AEGIS-OMEGA",
+      "content_digest": null,
+      "capabilities": [
+        {
+          "capability_id": "repository.read",
+          "description": "Read repository files, commits, pull requests, reviews, Actions evidence, and metadata.",
+          "maximum_authority": "OBSERVE",
+          "reversible": true,
+          "requires_operator_approval": false,
+          "requires_independent_verification": false
+        },
+        {
+          "capability_id": "repository.propose",
+          "description": "Create branches, draft pull requests, issues, and evidence-bound proposals.",
+          "maximum_authority": "PROPOSE",
+          "reversible": true,
+          "requires_operator_approval": false,
+          "requires_independent_verification": false
+        },
+        {
+          "capability_id": "repository.consequential-write",
+          "description": "Merge, close, rewrite canonical state, or alter protected repository authority.",
+          "maximum_authority": "EXECUTE_CONSEQUENTIAL",
+          "reversible": false,
+          "requires_operator_approval": true,
+          "requires_independent_verification": true
+        }
+      ]
+    },
+    {
+      "adapter_id": "supabase-aegis-omega",
+      "adapter_kind": "RUNTIME",
+      "provider": "Supabase",
+      "version": "project-rwehltdwpsncnwxzkwik",
+      "evidence_state": "WIRED",
+      "source_locator": "supabase:rwehltdwpsncnwxzkwik",
+      "content_digest": null,
+      "capabilities": [
+        {
+          "capability_id": "database.observe",
+          "description": "Inspect projects, tables, migrations, edge functions, and advisors.",
+          "maximum_authority": "OBSERVE",
+          "reversible": true,
+          "requires_operator_approval": false,
+          "requires_independent_verification": false
+        },
+        {
+          "capability_id": "database.migrate",
+          "description": "Apply schema, policy, function, or data mutations.",
+          "maximum_authority": "EXECUTE_CONSEQUENTIAL",
+          "reversible": false,
+          "requires_operator_approval": true,
+          "requires_independent_verification": true
+        }
+      ]
+    },
+    {
+      "adapter_id": "google-drive-corpus",
+      "adapter_kind": "CONNECTOR",
+      "provider": "Google Drive",
+      "version": "connector-observed-2026-07-31",
+      "evidence_state": "DISCOVERED",
+      "source_locator": "gdrive:AEGIS-corpus",
+      "content_digest": null,
+      "capabilities": [
+        {
+          "capability_id": "corpus.discover",
+          "description": "Discover AEGIS, Sovereign, Holon, and Mythos artifacts and metadata.",
+          "maximum_authority": "OBSERVE",
+          "reversible": true,
+          "requires_operator_approval": false,
+          "requires_independent_verification": false
+        }
+      ]
+    },
+    {
+      "adapter_id": "slack-aegis",
+      "adapter_kind": "CONNECTOR",
+      "provider": "Slack",
+      "version": "connector-observed-2026-07-31",
+      "evidence_state": "DISCOVERED",
+      "source_locator": "slack:AEGIS-references",
+      "content_digest": null,
+      "capabilities": [
+        {
+          "capability_id": "communications.observe",
+          "description": "Read relevant execution handoffs, discussions, and attached artifacts.",
+          "maximum_authority": "OBSERVE",
+          "reversible": true,
+          "requires_operator_approval": false,
+          "requires_independent_verification": false
+        }
+      ]
+    },
+    {
+      "adapter_id": "gmail-aegis",
+      "adapter_kind": "CONNECTOR",
+      "provider": "Gmail",
+      "version": "connector-observed-2026-07-31",
+      "evidence_state": "DISCOVERED",
+      "source_locator": "gmail:AEGIS-references",
+      "content_digest": null,
+      "capabilities": [
+        {
+          "capability_id": "mail.observe",
+          "description": "Read account, vendor, billing, security, and attached AEGIS evidence.",
+          "maximum_authority": "OBSERVE",
+          "reversible": true,
+          "requires_operator_approval": false,
+          "requires_independent_verification": false
+        }
+      ]
+    },
+    {
+      "adapter_id": "dropbox-corpus",
+      "adapter_kind": "CONNECTOR",
+      "provider": "Dropbox",
+      "version": "connector-observed-2026-07-31",
+      "evidence_state": "UNKNOWN",
+      "source_locator": "dropbox:connected-empty-result",
+      "content_digest": null,
+      "capabilities": [
+        {
+          "capability_id": "corpus.discover",
+          "description": "Discover AEGIS artifacts when present.",
+          "maximum_authority": "OBSERVE",
+          "reversible": true,
+          "requires_operator_approval": false,
+          "requires_independent_verification": false
+        }
+      ]
+    },
+    {
+      "adapter_id": "vercel-team",
+      "adapter_kind": "RUNTIME",
+      "provider": "Vercel",
+      "version": "team_Wcrhz7p8ypBvEa6eAEVslBSV",
+      "evidence_state": "DISCOVERED",
+      "source_locator": "vercel:team_Wcrhz7p8ypBvEa6eAEVslBSV",
+      "content_digest": null,
+      "capabilities": [
+        {
+          "capability_id": "deployment.observe",
+          "description": "Inspect project and deployment evidence when projects are visible.",
+          "maximum_authority": "OBSERVE",
+          "reversible": true,
+          "requires_operator_approval": false,
+          "requires_independent_verification": false
+        },
+        {
+          "capability_id": "deployment.execute",
+          "description": "Create or promote a deployment.",
+          "maximum_authority": "EXECUTE_CONSEQUENTIAL",
+          "reversible": false,
+          "requires_operator_approval": true,
+          "requires_independent_verification": true
+        }
+      ]
+    }
+  ]
+}
