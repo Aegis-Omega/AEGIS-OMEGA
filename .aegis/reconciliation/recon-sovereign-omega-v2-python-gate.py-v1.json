@@ -1,0 +1,210 @@
+{
+  "schema_version": "1.0.0",
+  "record_id": "recon-sovereign-omega-v2-python-gate.py-v1",
+  "inspected_state": {
+    "repository": "Aegis-Omega/AEGIS-OMEGA",
+    "ref": "main",
+    "commit_sha": "f04dc41e1edf06d92956df6a8991bc3b459e43a0",
+    "deployment_id": null,
+    "observed_at": "2026-07-31T03:06:00Z"
+  },
+  "artifact": {
+    "path": "sovereign-omega-v2/python/gate.py",
+    "kind": "code",
+    "content_digest": null,
+    "language": "python"
+  },
+  "observed_behavior": [
+    "The Python bridge imports the global gate and records GateSignal values received through /gate_signal.",
+    "The bridge separately forwards the accepted boolean to CoreMatrix.receive_gate_signal and returns an ACK.",
+    "Repository search at the inspected state found is_approved consumers in gate.py and constitutional tests, but did not demonstrate a production mutation path that consumes the verdict.",
+    "The gate maintains an in-memory rolling window, per-proposal verdict projection, monotone sequence guard, seal state, and telemetry projection.",
+    "No live deployment probe or durable-state inspection has yet been bound to this record."
+  ],
+  "organism_status": "WIRED",
+  "authority_chain": [
+    "code",
+    "test_ci",
+    "start_here",
+    "repo_map",
+    "old_doc",
+    "operator_attestation"
+  ],
+  "truth_dimensions": {
+    "execution": {
+      "status": "partially_verified",
+      "summary": "Repository code demonstrates bridge import and signal recording, but live deployment reachability and mutation enforcement have not been proven.",
+      "evidence_refs": ["E1", "E2"]
+    },
+    "verification": {
+      "status": "partially_verified",
+      "summary": "Constitutional tests verify the local gate lifecycle and rolling-window semantics; they do not prove that a production mutation is blocked or admitted by gate.is_approved.",
+      "evidence_refs": ["E3"]
+    },
+    "mythic_provenance": {
+      "status": "partially_verified",
+      "summary": "The creation commit and audit record describe gate.py as a frozen mutation-authority bridge mirroring the TypeScript statistical gate. The later Fable-5 epistemic reset is operator-attested as descending from the Full Mythos system card and governs how this earlier artifact must now be interpreted.",
+      "evidence_refs": ["E4", "E5", "E6", "E7"]
+    }
+  },
+  "semantic_ancestry": [
+    {
+      "class": "INDEPENDENT_INTERVENTION",
+      "basis": "gate.py was introduced as part of the 2026-05-18 constitutional-file and bridge-integration intervention.",
+      "confidence": 0.99,
+      "status": "verified",
+      "evidence_refs": ["E4", "E5"]
+    },
+    {
+      "class": "FABLE5_RESET_DESCENDANT",
+      "basis": "The artifact predates the Fable-5 repository-map reset; it is therefore governed by that later reading discipline but is not its temporal descendant.",
+      "confidence": 0.95,
+      "status": "refuted",
+      "evidence_refs": ["E4", "E6", "E7"]
+    },
+    {
+      "class": "MYTHOS_DESCENDANT",
+      "basis": "No source-bound transcript or commit evidence currently connects gate.py creation itself to the Full Mythos system card.",
+      "confidence": 0.5,
+      "status": "unresolved",
+      "evidence_refs": ["E7"]
+    }
+  ],
+  "temporal_voice": {
+    "created_for": "Create the previously missing frozen Layer-B constitutional gate, receive TypeScript gate signals through the Python bridge, and expose gate telemetry.",
+    "claims_at_creation": [
+      "mutation authority",
+      "mirrors the TypeScript Bernstein gate",
+      "monotone sequence enforcement",
+      "sealed shutdown behavior"
+    ],
+    "known_context": "The artifact was created during the F-06 constitutional-file repair before the later Fable-5 epistemic repository reset and before the current Automaton-3, Kernel One, and repository-level schema surfaces.",
+    "preservation_reason": "It is a direct witness to the original Layer-A to Layer-B governance integration attempt and preserves both design intent and possible integration failure knowledge."
+  },
+  "evidence": [
+    {
+      "id": "E1",
+      "source_type": "code",
+      "locator": "sovereign-omega-v2/python/bridge.py@f04dc41e1edf06d92956df6a8991bc3b459e43a0",
+      "supports": "Bridge imports gate, records /gate_signal input, forwards the accepted boolean to CoreMatrix, and acknowledges the sequence.",
+      "digest": null
+    },
+    {
+      "id": "E2",
+      "source_type": "code",
+      "locator": "sovereign-omega-v2/python/gate.py@f04dc41e1edf06d92956df6a8991bc3b459e43a0",
+      "supports": "Current gate implementation and its own claims, state, verdict, sequence, seal, and telemetry behavior.",
+      "digest": null
+    },
+    {
+      "id": "E3",
+      "source_type": "test",
+      "locator": "sovereign-omega-v2/python/tests/test_constitutional.py@f04dc41e1edf06d92956df6a8991bc3b459e43a0",
+      "supports": "Local gate lifecycle, rolling-window, duplicate/out-of-order, seal, and telemetry behavior.",
+      "digest": null
+    },
+    {
+      "id": "E4",
+      "source_type": "commit",
+      "locator": "315fb2c4bee24f7c126088a3917373e9b8c4800e",
+      "supports": "Creation intent, frozen constitutional status, and bridge integration of gate.py.",
+      "digest": null
+    },
+    {
+      "id": "E5",
+      "source_type": "doc",
+      "locator": "docs/AUDIT_FINDINGS.md#F-06",
+      "supports": "Historical repair claim and classification of gate.py as mutation authority mirroring the TypeScript gate.",
+      "digest": null
+    },
+    {
+      "id": "E6",
+      "source_type": "doc",
+      "locator": "REPO_MAP.md and START_HERE.md",
+      "supports": "Root epistemic authority order and the requirement that code/runtime status precede stale documentation claims.",
+      "digest": null
+    },
+    {
+      "id": "E7",
+      "source_type": "operator_attestation",
+      "locator": "operator-attestation:2026-07-31:fable5-full-mythos-repository-map-reset",
+      "supports": "The Fable-5 repository-map move followed ingestion of the Full Mythos model system card and should function as an epistemological filter.",
+      "digest": null
+    }
+  ],
+  "unique_failure_knowledge": [
+    "A file can be wired into telemetry while its advertised mutation-authority role remains unproven by the production call graph.",
+    "Comments, frozen status, and local tests can collectively overstate operational authority when no consequential consumer is demonstrated.",
+    "Cross-language statistical layers may preserve signals while changing their semantics through additional aggregation."
+  ],
+  "conflicts": [
+    {
+      "with": "gate.py module header, creation commit, and F-06 audit language",
+      "dimension": "authority",
+      "description": "Historical sources call gate.py mutation authority, while the inspected repository path has not yet demonstrated a consequential production consumer of gate.is_approved.",
+      "status": "open"
+    },
+    {
+      "with": "sovereign-omega-v2/src/gate/hoeffding.ts",
+      "dimension": "representation",
+      "description": "The TypeScript layer computes a bounded-delta confidence sequence and accepted signal; the Python gate then aggregates accepted booleans through a rolling rate. Equivalence, intended composition, and proposal scoping remain unresolved.",
+      "status": "open"
+    },
+    {
+      "with": "START_HERE.md and REPO_MAP.md authority order",
+      "dimension": "claim",
+      "description": "Any direct interpretation of the module as live mutation authority without repository and runtime mapping violates the later epistemic reset.",
+      "status": "open"
+    }
+  ],
+  "supersession": {
+    "types": ["NONE"],
+    "superseded_by": []
+  },
+  "current_authority": {
+    "execution": {
+      "status": "bounded",
+      "scope": "Repository-wired in-memory gate-signal aggregation and telemetry within the Python bridge path.",
+      "basis": "Bridge imports and invokes record_signal; live deployment has not yet been probed for this record."
+    },
+    "claim": {
+      "status": "advisory",
+      "scope": "Historical mutation-authority and TypeScript-mirroring claims.",
+      "basis": "Claims are preserved as temporal voice but are not fully supported by the currently demonstrated call graph."
+    },
+    "representation": {
+      "status": "authoritative",
+      "scope": "The Python file is authoritative for its own implementation at the inspected commit.",
+      "basis": "Exact repository code at the inspected state."
+    },
+    "mutation": {
+      "status": "unknown",
+      "scope": "Authority to admit or deny consequential runtime mutations.",
+      "basis": "No end-to-end mutation consumer, atomic enforcement boundary, or live receipt has yet been demonstrated."
+    }
+  },
+  "recommended_dispositions": [
+    "KEEP_PROVENANCE",
+    "KEEP_FAILURE_EVIDENCE"
+  ],
+  "required_tests": [
+    "Construct an exact bridge-to-router-to-CoreMatrix call graph and identify every consumer of gate verdicts.",
+    "Add or locate an end-to-end test proving whether a rejected gate proposal prevents a consequential mutation.",
+    "Bind the test to the actual deployment entry point rather than only direct MutationGate unit calls.",
+    "Compare TypeScript confidence-sequence state, proposal identity, and Python rolling-window state under deterministic shared vectors.",
+    "Verify frozen-file hashes at the inspected head and identify the guardian-controlled mutation procedure.",
+    "Probe the deployed bridge version and bind its artifact digest or deployment identifier."
+  ],
+  "unresolved_questions": [
+    "Was gate.py intended as a telemetry mirror, a secondary statistical aggregator, or the final mutation admission authority?",
+    "Where, if anywhere, is gate.is_approved consumed outside tests at the current head or in deployed artifacts?",
+    "Are Python gate signals proposal-scoped by design, or is the global rolling window intentional system-level evidence?",
+    "Did later Automaton-3 or Kernel One authority surfaces supersede gate.py authority, and in which dimension?",
+    "Which exact Fable-5 and Full Mythos transcript artifacts establish semantic ancestry for the repository reset?"
+  ],
+  "receipt": {
+    "status": "draft",
+    "receipt_id": null,
+    "record_digest": null
+  }
+}
