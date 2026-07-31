@@ -1,0 +1,460 @@
+name: AEGIS Repository-Wide Verification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/repository-verification.yml'
+      - 'scripts/repository_verification.py'
+      - 'verification/**'
+      - '.aegis/experiments/repository-wide-verification-v1.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-verification-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  census:
+    name: Definition census
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile collector
+        run: python -m py_compile scripts/repository_verification.py
+      - name: Count tracked definitions without claiming execution
+        run: |
+          mkdir -p verification-out
+          python scripts/repository_verification.py census \
+            --output verification-out/definition-census.json \
+            --exclusion 'sovereign-omega-v2/python/tests/test_ledger_persist.py=requires approximately 4 GB and real CoreMatrix allocation; explicitly excluded by current CI contract'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verification-census
+          path: verification-out/definition-census.json
+          if-no-files-found: error
+
+  rust:
+    name: Rust · ${{ matrix.suite_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite_id: rust-cl-psi
+            working_directory: aegis-cl-psi
+            command: cargo test --jobs 1 -- --test-threads 1
+            classification: WIRED
+          - suite_id: rust-aegis-runtime
+            working_directory: aegis-runtime
+            command: cargo test
+            classification: WIRED
+          - suite_id: rust-hypervisor
+            working_directory: .
+            command: cargo test
+            classification: TESTED_ONLY
+          - suite_id: rust-constitutional-substrate
+            working_directory: crates/constitutional-substrate
+            command: cargo test
+            classification: TESTED_ONLY
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ matrix.working_directory }} -> target
+      - name: Execute suite
+        id: execute
+        shell: bash
+        run: |
+          set +e
+          mkdir -p verification-out
+          (cd '${{ matrix.working_directory }}' && ${{ matrix.command }}) 2>&1 | tee verification-out/${{ matrix.suite_id }}.log
+          status=${PIPESTATUS[0]}
+          set -e
+          python scripts/repository_verification.py record \
+            --suite-id '${{ matrix.suite_id }}' \
+            --suite-command '${{ matrix.command }}' \
+            --parser cargo \
+            --classification '${{ matrix.classification }}' \
+            --log verification-out/${{ matrix.suite_id }}.log \
+            --exit-code "$status" \
+            --output verification-out/${{ matrix.suite_id }}.json
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-${{ matrix.suite_id }}
+          path: |
+            verification-out/${{ matrix.suite_id }}.json
+            verification-out/${{ matrix.suite_id }}.log
+          if-no-files-found: error
+      - name: Preserve suite failure
+        if: ${{ steps.execute.outputs.status != '0' }}
+        run: exit 1
+
+  typescript-runtime:
+    name: TypeScript · sovereign runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: cd sovereign-omega-v2 && npm ci
+      - name: Execute Vitest, typecheck and production build
+        id: execute
+        shell: bash
+        run: |
+          set +e
+          mkdir -p verification-out
+          (
+            cd sovereign-omega-v2
+            npm run test -- --reporter=verbose && npm run typecheck && npm run build
+          ) 2>&1 | tee verification-out/typescript-sovereign-runtime.log
+          status=${PIPESTATUS[0]}
+          set -e
+          python scripts/repository_verification.py record \
+            --suite-id typescript-sovereign-runtime \
+            --suite-command 'npm run test -- --reporter=verbose && npm run typecheck && npm run build' \
+            --parser vitest \
+            --classification TESTED_ONLY_MIXED_WITH_WIRED_SHELL \
+            --log verification-out/typescript-sovereign-runtime.log \
+            --exit-code "$status" \
+            --output verification-out/typescript-sovereign-runtime.json
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-typescript-sovereign-runtime
+          path: verification-out/typescript-sovereign-runtime.*
+          if-no-files-found: error
+      - if: ${{ steps.execute.outputs.status != '0' }}
+        run: exit 1
+
+  python-bridge:
+    name: Python · complete safe bridge discovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest flask flask-cors psutil numpy scikit-learn
+      - name: Execute every discovered bridge test except recorded hardware exclusion
+        id: execute
+        shell: bash
+        run: |
+          set +e
+          mkdir -p verification-out
+          (
+            cd sovereign-omega-v2
+            python -m pytest -q python/tests --ignore=python/tests/test_ledger_persist.py
+          ) 2>&1 | tee verification-out/python-bridge.log
+          status=${PIPESTATUS[0]}
+          set -e
+          python scripts/repository_verification.py record \
+            --suite-id python-bridge \
+            --suite-command 'python -m pytest -q python/tests --ignore=python/tests/test_ledger_persist.py' \
+            --parser pytest \
+            --classification WIRED_AND_TESTED_ONLY \
+            --log verification-out/python-bridge.log \
+            --exit-code "$status" \
+            --output verification-out/python-bridge.json
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-python-bridge
+          path: verification-out/python-bridge.*
+          if-no-files-found: error
+      - if: ${{ steps.execute.outputs.status != '0' }}
+        run: exit 1
+
+  interface:
+    name: Python · interface compiler
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest
+      - name: Execute tests and equivalence gates
+        id: execute
+        shell: bash
+        run: |
+          set +e
+          mkdir -p verification-out
+          (
+            cd packages/aegis-interface
+            PYTHONPATH=. python -m pytest -q && \
+            PYTHONPATH=. python -m aegis_interface.cli check wit/skill_snapshot.wit --out generated && \
+            PYTHONPATH=. python -m aegis_interface.cli evolve --from wit/skill_snapshot.wit --to wit/skill_snapshot_v2.wit && \
+            PYTHONPATH=. python -m aegis_interface.cli compose wit/skill_snapshot.wit wit/skill_snapshot_v2.wit wit/skill_snapshot_v3.wit
+          ) 2>&1 | tee verification-out/python-aegis-interface.log
+          status=${PIPESTATUS[0]}
+          set -e
+          python scripts/repository_verification.py record \
+            --suite-id python-aegis-interface \
+            --suite-command 'pytest plus interface check/evolve/compose' \
+            --parser pytest \
+            --classification WIRED \
+            --log verification-out/python-aegis-interface.log \
+            --exit-code "$status" \
+            --output verification-out/python-aegis-interface.json
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-python-aegis-interface
+          path: verification-out/python-aegis-interface.*
+          if-no-files-found: error
+      - if: ${{ steps.execute.outputs.status != '0' }}
+        run: exit 1
+
+  kernel-one:
+    name: Python · Kernel One
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'PyYAML==6.0.2'
+      - name: Execute security gate
+        id: execute
+        shell: bash
+        run: |
+          set +e
+          mkdir -p verification-out
+          (
+            cd kernel-one
+            python -m py_compile kernel_one.py validator.py init_db.py test_kernel_one.py && python test_kernel_one.py
+          ) 2>&1 | tee verification-out/python-kernel-one.log
+          status=${PIPESTATUS[0]}
+          set -e
+          python scripts/repository_verification.py record \
+            --suite-id python-kernel-one \
+            --suite-command 'py_compile and python test_kernel_one.py' \
+            --parser unittest \
+            --classification WIRED_LOCAL_REFERENCE \
+            --log verification-out/python-kernel-one.log \
+            --exit-code "$status" \
+            --output verification-out/python-kernel-one.json
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-python-kernel-one
+          path: verification-out/python-kernel-one.*
+          if-no-files-found: error
+      - if: ${{ steps.execute.outputs.status != '0' }}
+        run: exit 1
+
+  mcp-server:
+    name: TypeScript · MCP server contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/mcp-server/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: cd sovereign-omega-v2/mcp-server && npm ci
+      - name: Execute resource and authority contracts
+        id: execute
+        shell: bash
+        run: |
+          set +e
+          mkdir -p verification-out
+          (
+            cd sovereign-omega-v2/mcp-server
+            npm run test:resources && npm run test:automaton3
+          ) 2>&1 | tee verification-out/typescript-mcp-server.log
+          status=${PIPESTATUS[0]}
+          set -e
+          python scripts/repository_verification.py record \
+            --suite-id typescript-mcp-server \
+            --suite-command 'npm run test:resources && npm run test:automaton3' \
+            --parser none \
+            --classification WIRED \
+            --log verification-out/typescript-mcp-server.log \
+            --exit-code "$status" \
+            --output verification-out/typescript-mcp-server.json
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-typescript-mcp-server
+          path: verification-out/typescript-mcp-server.*
+          if-no-files-found: error
+      - if: ${{ steps.execute.outputs.status != '0' }}
+        run: exit 1
+
+  proofs:
+    name: Cross-runtime deterministic proofs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Execute proof chain
+        id: execute
+        shell: bash
+        run: |
+          set +e
+          mkdir -p verification-out
+          (
+            cd genomics && python3 test_replay_proof.py && python3 interpret_demo.py
+            cd ../verifiable && python3 test_generality.py
+            cd .. && bash verifiable/cross_language/verify.sh
+            cd verifiable && python3 certify_all.py --twice
+          ) 2>&1 | tee verification-out/cross-runtime-proofs.log
+          status=${PIPESTATUS[0]}
+          set -e
+          python scripts/repository_verification.py record \
+            --suite-id cross-runtime-proofs \
+            --suite-command 'genomics replay plus generality plus Python/Node/Rust replay plus session certificate' \
+            --parser none \
+            --classification WIRED_PROOF \
+            --log verification-out/cross-runtime-proofs.log \
+            --exit-code "$status" \
+            --output verification-out/cross-runtime-proofs.json
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-cross-runtime-proofs
+          path: verification-out/cross-runtime-proofs.*
+          if-no-files-found: error
+      - if: ${{ steps.execute.outputs.status != '0' }}
+        run: exit 1
+
+  studio:
+    name: Studio · production build boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: studio/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build current remote Studio contract
+        id: execute
+        shell: bash
+        run: |
+          set +e
+          mkdir -p verification-out
+          (cd studio && npm ci && npm run build) 2>&1 | tee verification-out/studio-build.log
+          status=${PIPESTATUS[0]}
+          set -e
+          python scripts/repository_verification.py record \
+            --suite-id studio-build \
+            --suite-command 'npm ci && npm run build' \
+            --parser none \
+            --classification WIRED_BUILD_NO_REMOTE_TEST_SCRIPT \
+            --log verification-out/studio-build.log \
+            --exit-code "$status" \
+            --output verification-out/studio-build.json
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-studio-build
+          path: verification-out/studio-build.*
+          if-no-files-found: error
+      - if: ${{ steps.execute.outputs.status != '0' }}
+        run: exit 1
+
+  aggregate:
+    name: Repository verification receipt
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [census, rust, typescript-runtime, python-bridge, interface, kernel-one, mcp-server, proofs, studio]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: verification-*
+          path: verification-input
+          merge-multiple: true
+      - name: Aggregate exact execution evidence
+        id: aggregate
+        shell: bash
+        run: |
+          set +e
+          mkdir -p verification-final
+          python scripts/repository_verification.py aggregate \
+            --input-dir verification-input \
+            --required-suite cross-runtime-proofs \
+            --required-suite python-aegis-interface \
+            --required-suite python-bridge \
+            --required-suite python-kernel-one \
+            --required-suite rust-aegis-runtime \
+            --required-suite rust-cl-psi \
+            --required-suite rust-constitutional-substrate \
+            --required-suite rust-hypervisor \
+            --required-suite studio-build \
+            --required-suite typescript-mcp-server \
+            --required-suite typescript-sovereign-runtime \
+            --json-output verification-final/REPOSITORY_VERIFICATION_RECEIPT.json \
+            --markdown-output verification-final/REPOSITORY_VERIFICATION_RECEIPT.md
+          status=$?
+          set -e
+          cat verification-final/REPOSITORY_VERIFICATION_RECEIPT.md >> "$GITHUB_STEP_SUMMARY"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aegis-repository-verification-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            verification-final/*
+            verification-input/*.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Fail closed on incomplete repository evidence
+        if: ${{ steps.aggregate.outputs.status != '0' }}
+        run: exit 1
