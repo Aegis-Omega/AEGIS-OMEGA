@@ -1,0 +1,80 @@
+name: AEGIS Bounded TypeScript Source Repair
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/typescript-source-lint-repair.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    name: Repair eleven reproducible TypeScript lint errors
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      HEAD_BRANCH: ${{ github.head_ref }}
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.HEAD_BRANCH }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Assert exact writable branch
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --short)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Apply deterministic bounded patch
+        run: python3 scripts/apply_typescript_lint_repairs.py
+
+      - name: Verify complete TypeScript surface
+        working-directory: sovereign-omega-v2
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run lint
+          npm run typecheck
+          npm run test -- --reporter=dot
+          npm run build
+
+      - name: Enforce exact five-file mutation set
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git diff --name-only | sort)
+          expected=(
+            'sovereign-omega-v2/src/api/claude-client.ts'
+            'sovereign-omega-v2/src/api/managed-agent-client.ts'
+            'sovereign-omega-v2/src/core/ralph-loop.ts'
+            'sovereign-omega-v2/src/scale-os/control-plane.ts'
+            'sovereign-omega-v2/src/skill-harness/scanner/codebase-scanner.ts'
+          )
+          printf '%s\n' "${changed[@]}"
+          test "${#changed[@]}" -eq 5
+          for i in "${!expected[@]}"; do
+            test "${changed[$i]}" = "${expected[$i]}"
+          done
+
+      - name: Commit verified repairs
+        run: |
+          set -euo pipefail
+          git config user.name 'aegis-verification[bot]'
+          git config user.email 'aegis-verification[bot]@users.noreply.github.com'
+          git add \
+            sovereign-omega-v2/src/api/claude-client.ts \
+            sovereign-omega-v2/src/api/managed-agent-client.ts \
+            sovereign-omega-v2/src/core/ralph-loop.ts \
+            sovereign-omega-v2/src/scale-os/control-plane.ts \
+            sovereign-omega-v2/src/skill-harness/scanner/codebase-scanner.ts
+          git commit -m 'fix(lint): repair typed API and deterministic source boundaries'
+          git push origin "HEAD:${HEAD_BRANCH}"
