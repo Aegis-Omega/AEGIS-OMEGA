@@ -116,6 +116,15 @@ jobs:
           run_suite typescript-sovereign-runtime vitest TESTED_ONLY_MIXED_WITH_WIRED_SHELL \
             'cd sovereign-omega-v2 && npm ci && npm run test -- --reporter=verbose && npm run typecheck && npm run build'
 
+          run_suite typescript-sovereign-lint none WIRED_QUALITY_GATE \
+            'cd sovereign-omega-v2 && npm ci && npm run lint'
+
+          run_suite constitutional-frozen-hashes none WIRED_CONSTITUTIONAL_INTEGRITY \
+            'node sovereign-omega-v2/scripts/verify-hashes.mjs && (cd sovereign-omega-v2 && node scripts/verify-hashes.mjs)'
+
+          run_suite repository-security-policy none WIRED_POLICY \
+            "grep -F '## Repository-Wide Security Invariants' SECURITY.md && grep -F 'deny-by-default' SECURITY.md && grep -F 'These requirements apply to every executable surface' SECURITY.md && grep -F 'A passing test suite proves only the named commands' SECURITY.md"
+
           run_suite python-bridge pytest WIRED_AND_TESTED_ONLY \
             'cd sovereign-omega-v2 && python -m pytest -q python/tests --ignore=python/tests/test_ledger_persist.py'
 
@@ -137,16 +146,19 @@ jobs:
           set +e
           python scripts/repository_verification.py aggregate \
             --input-dir verification-out \
+            --required-suite constitutional-frozen-hashes \
             --required-suite cross-runtime-proofs \
             --required-suite python-aegis-interface \
             --required-suite python-bridge \
             --required-suite python-kernel-one \
+            --required-suite repository-security-policy \
             --required-suite rust-aegis-runtime \
             --required-suite rust-cl-psi \
             --required-suite rust-constitutional-substrate \
             --required-suite rust-hypervisor \
             --required-suite studio-build \
             --required-suite typescript-mcp-server \
+            --required-suite typescript-sovereign-lint \
             --required-suite typescript-sovereign-runtime \
             --json-output verification-final/REPOSITORY_VERIFICATION_RECEIPT.json \
             --markdown-output verification-final/REPOSITORY_VERIFICATION_RECEIPT.md
