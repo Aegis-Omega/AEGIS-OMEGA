@@ -12,7 +12,7 @@
   "experiment_id":"repository-wide-verification-v1",
   "integration_ledger_generator": {"blob_id":"28823ae5b630be273b78210f0addf9c0a86aad05","path":"scripts/integration_ledger.py"},
   "observability": {"cancellation_mechanism":"github-actions-cancel-run","durable_execution_required":true,"emergency_stop_reference":"github-actions:cancel-run","heartbeat_max_seconds":3600,"provider":"github-actions"},
-  "operator_approval": {"approval_record_hash":"c2b4b1c91af43ed8ef2599f55733010711305d6a1d10d351d068ca7b35cd303d","authorization_basis":"user-explicit-pa-de-popravi-mi-sve-repository-wide-remediation-without-merge","decided_at":"2026-07-31T17:25:00Z","operator_actor_id":"tarikskalic","operator_session_id":"chatgpt-session-2026-07-31-repository-wide-remediation","required":true,"signature_mode":"GITHUB_OIDC_ATTESTATION","state":"APPROVED"},
+  "operator_approval": {"approval_record_hash":"139577599338a7d056e2b78d41759a0182a1497157cbe93123b839d44fba8c71","authorization_basis":"user-explicit-pa-de-popravi-mi-sve-repository-wide-remediation-without-merge","decided_at":"2026-07-31T17:25:00Z","operator_actor_id":"tarikskalic","operator_session_id":"chatgpt-session-2026-07-31-repository-wide-remediation","required":true,"signature_mode":"GITHUB_OIDC_ATTESTATION","state":"APPROVED"},
   "policy": {"blob_id":"5937cf4d9fc59f224faabfb7865bba7aa5da90dc","path":"docs/rfcs/0001-operator-sovereign-control-plane.md"},
   "replay_package": {"include_admission_receipt":true,"include_evidence_manifest":true,"include_integration_ledger":true,"include_plan":true,"required":true},
   "repository":"Aegis-Omega/AEGIS-OMEGA",
