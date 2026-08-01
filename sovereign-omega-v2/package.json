@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage --no-file-parallelism",
     "test:determinism": "node --experimental-vm-modules scripts/verify-canonicalization.ts",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "typecheck": "tsc --noEmit",
