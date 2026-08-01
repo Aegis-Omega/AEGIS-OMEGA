@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/sol-cross-platform-control-plane",
-    "parent_state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba",
+    "source_ref": "claude/blissful-rubin-mt9jS",
+    "parent_state_hash": "410bcd49c721e65050382ae759db7af2f41fa9f572e625174252c72a8748ea93",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "1726a5ac63348cbb6e5175588cd98de01ecaa2867556aa8f5086bb77cc6675fe"
+  "state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba"
 }
