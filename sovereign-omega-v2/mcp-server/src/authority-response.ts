@@ -249,7 +249,7 @@ function expectedWorkspaceEvidence(
     declared_project: projectIdentity,
     actual_cwd: actualCwd,
     resolved_repository_root: resolvedRoot,
-    remote_origin: workspace.remote_origin,
+    remote_origin: remote,
     mutation_target: mutationTarget,
     path_views: workspace.path_views ?? {},
   }
