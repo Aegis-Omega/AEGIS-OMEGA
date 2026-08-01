@@ -4,13 +4,16 @@ on:
   push:
     branches:
       - verify/openai-ten-proofs-2026-08-01
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: verify-openai-ten-proofs-2026-08-01
+  group: verify-openai-ten-proofs-2026-08-01-${{ github.event_name }}
   cancel-in-progress: false
 
 jobs:
