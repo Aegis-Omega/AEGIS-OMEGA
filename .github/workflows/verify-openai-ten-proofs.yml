@@ -54,20 +54,54 @@ jobs:
           lint: false
           use-mathlib-cache: true
 
-      - name: Audit placeholder proof tokens
+      - name: Audit placeholder tokens in authoritative Lean sources
+        id: placeholder-audit
         shell: bash
         run: |
           set -euo pipefail
           cd ten-proofs
-          if grep -RInE --include='*.lean' '(^|[^[:alnum:]_])(sorry|admit)([^[:alnum:]_]|$)' . | tee ../placeholder-audit.txt; then
-            echo 'Forbidden placeholder proof token detected.' >&2
+
+          # The authoritative corpus is the repository's top-level Lean source set.
+          # ComparatorChallenges intentionally contains incomplete challenge material,
+          # while .lake contains third-party dependencies; neither is an authority
+          # source for this exact-commit certificate.
+          mapfile -d '' files < <(
+            find . -maxdepth 1 -type f -name '*.lean' -print0 | sort -z
+          )
+
+          if (( ${#files[@]} == 0 )); then
+            echo 'No authoritative Lean source files found.' >&2
             exit 1
-          else
-            echo 'No sorry/admit tokens detected in Lean source.' | tee ../placeholder-audit.txt
+          fi
+
+          : > ../placeholder-audit.txt
+          grep -HnE '(^|[^[:alnum:]_])(sorry|admit)([^[:alnum:]_]|$)' \
+            "${files[@]}" | tee ../placeholder-audit.txt || true
+
+          sorry_count="$(
+            (grep -Eho '(^|[^[:alnum:]_])sorry([^[:alnum:]_]|$)' "${files[@]}" || true) \
+              | wc -l | tr -d ' '
+          )"
+          admit_count="$(
+            (grep -Eho '(^|[^[:alnum:]_])admit([^[:alnum:]_]|$)' "${files[@]}" || true) \
+              | wc -l | tr -d ' '
+          )"
+
+          {
+            echo 'scope=top-level-authoritative-lean-sources'
+            echo "source_file_count=${#files[@]}"
+            echo "sorry_count=${sorry_count}"
+            echo "admit_count=${admit_count}"
+          } | tee -a "$GITHUB_OUTPUT" ../placeholder-audit-summary.txt
+
+          if (( sorry_count != 0 || admit_count != 0 )); then
+            echo 'Forbidden placeholder proof token detected in authoritative sources.' >&2
+            exit 1
           fi
 
       - name: Independent Lean environment replay and nanoda check
         id: independent-check
+        if: ${{ always() && steps.lean-build.outcome == 'success' }}
         uses: leanprover/lean-action@v1
         with:
           lake-package-directory: ten-proofs
@@ -85,13 +119,25 @@ jobs:
         if: always()
         shell: bash
         env:
-          BUILD_STATUS: ${{ steps.lean-build.outputs.build-status }}
+          BUILD_OUTCOME: ${{ steps.lean-build.outcome }}
+          AUDIT_OUTCOME: ${{ steps.placeholder-audit.outcome }}
+          AUDIT_SCOPE: ${{ steps.placeholder-audit.outputs.scope }}
+          SOURCE_FILE_COUNT: ${{ steps.placeholder-audit.outputs.source_file_count }}
+          SORRY_COUNT: ${{ steps.placeholder-audit.outputs.sorry_count }}
+          ADMIT_COUNT: ${{ steps.placeholder-audit.outputs.admit_count }}
+          INDEPENDENT_OUTCOME: ${{ steps.independent-check.outcome }}
         run: |
           {
             echo 'verification_class=EXACT_COMMIT_LEAN_KERNEL_AND_INDEPENDENT_CHECK'
             echo 'source_repository=openai/ten-proofs'
             echo 'source_commit=c510a55434c0935cde446e5a372699a4671438f6'
-            echo "lean_build_status=${BUILD_STATUS:-UNKNOWN}"
+            echo "lean_build_outcome=${BUILD_OUTCOME:-UNKNOWN}"
+            echo "placeholder_audit_outcome=${AUDIT_OUTCOME:-UNKNOWN}"
+            echo "placeholder_audit_scope=${AUDIT_SCOPE:-UNKNOWN}"
+            echo "authoritative_source_file_count=${SOURCE_FILE_COUNT:-UNKNOWN}"
+            echo "sorry_count=${SORRY_COUNT:-UNKNOWN}"
+            echo "admit_count=${ADMIT_COUNT:-UNKNOWN}"
+            echo "independent_checker_outcome=${INDEPENDENT_OUTCOME:-UNKNOWN}"
             echo "workflow_run_id=${GITHUB_RUN_ID}"
             echo "workflow_run_attempt=${GITHUB_RUN_ATTEMPT}"
             echo "runner_os=${RUNNER_OS}"
@@ -108,6 +154,24 @@ jobs:
             source-identity.txt
             source-sha256.txt
             placeholder-audit.txt
+            placeholder-audit-summary.txt
             verification-receipt.txt
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Enforce verification conjunction
+        if: always()
+        shell: bash
+        env:
+          BUILD_OUTCOME: ${{ steps.lean-build.outcome }}
+          AUDIT_OUTCOME: ${{ steps.placeholder-audit.outcome }}
+          SORRY_COUNT: ${{ steps.placeholder-audit.outputs.sorry_count }}
+          ADMIT_COUNT: ${{ steps.placeholder-audit.outputs.admit_count }}
+          INDEPENDENT_OUTCOME: ${{ steps.independent-check.outcome }}
+        run: |
+          set -euo pipefail
+          test "${BUILD_OUTCOME}" = 'success'
+          test "${AUDIT_OUTCOME}" = 'success'
+          test "${SORRY_COUNT}" = '0'
+          test "${ADMIT_COUNT}" = '0'
+          test "${INDEPENDENT_OUTCOME}" = 'success'
