@@ -1,0 +1,66 @@
+name: SOL Edge Lockfile Refresh
+
+on:
+  push:
+    branches:
+      - feat/sol-cross-platform-control-plane
+    paths:
+      - 'platform/sol/cloudflare/worker/package.json'
+      - '.github/workflows/sol-lockfile-refresh.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sol-edge-lockfile-refresh
+  cancel-in-progress: false
+
+jobs:
+  regenerate-verify-and-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: platform/sol/cloudflare/worker
+    steps:
+      - name: Checkout canonical work branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/sol-cross-platform-control-plane
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.11.0'
+
+      - name: Regenerate exact lockfile
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Verify clean install
+        run: npm ci --ignore-scripts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Audit high-severity dependency graph
+        run: npm audit --audit-level=high
+
+      - name: Commit verified lockfile and remove one-shot workflow
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'aegis-ci'
+          git config user.email 'aegis-ci@users.noreply.github.com'
+          rm .github/workflows/sol-lockfile-refresh.yml
+          git add platform/sol/cloudflare/worker/package-lock.json .github/workflows/sol-lockfile-refresh.yml
+          if git diff --cached --quiet; then
+            echo 'No lockfile change produced.'
+            exit 1
+          fi
+          git commit -m 'build(edge): commit verified dependency lockfile'
+          git push origin HEAD:feat/sol-cross-platform-control-plane
