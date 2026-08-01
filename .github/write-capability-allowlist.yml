@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0.0",
+  "policy": {
+    "default": "DENY_UNDECLARED_WRITE_CAPABILITY",
+    "branch_write_requires": [
+      "AEGIS_WRITER_LEASE",
+      "AEGIS_FENCING_TOKEN",
+      "AEGIS_WRITE_RECEIPT"
+    ]
+  },
+  "workflows": {
+    ".github/workflows/automaton-2.yml": {
+      "allowed_permissions": ["contents", "id-token"],
+      "may_git_push": true,
+      "authority_domain": "governance:anchor-promotion",
+      "lease_fencing_required": true
+    },
+    ".github/workflows/cognitive-manifest-refresh.yml": {
+      "allowed_permissions": ["contents"],
+      "may_git_push": true,
+      "authority_domain": "governance:cognitive-manifest",
+      "lease_fencing_required": true
+    },
+    ".github/workflows/automaton-3.yml": {
+      "allowed_permissions": ["id-token"],
+      "may_git_push": false,
+      "authority_domain": "authority:automaton-3",
+      "lease_fencing_required": false
+    },
+    ".github/workflows/experiment-admission.yml": {
+      "allowed_permissions": ["id-token"],
+      "may_git_push": false,
+      "authority_domain": "governance:experiment-admission",
+      "lease_fencing_required": false
+    },
+    ".github/workflows/deploy-cloud-run.yml": {
+      "allowed_permissions": ["id-token"],
+      "may_git_push": false,
+      "authority_domain": "deployment:gcp-cloud-run",
+      "lease_fencing_required": false
+    },
+    ".github/workflows/jekyll-gh-pages.yml": {
+      "allowed_permissions": ["id-token"],
+      "may_git_push": false,
+      "authority_domain": "deployment:github-pages",
+      "lease_fencing_required": false
+    }
+  }
+}
