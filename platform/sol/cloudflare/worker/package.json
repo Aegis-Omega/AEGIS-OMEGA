@@ -22,6 +22,9 @@
   "devDependencies": {
     "typescript": "5.9.3",
     "vitest": "3.2.7",
-    "wrangler": "4.112.0"
+    "wrangler": "4.114.0"
+  },
+  "overrides": {
+    "@hono/node-server": "2.0.12"
   }
 }
