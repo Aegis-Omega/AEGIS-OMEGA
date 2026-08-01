@@ -7,6 +7,14 @@ on:
     paths:
       - 'platform/sol/cloudflare/worker/package.json'
       - '.github/workflows/sol-lockfile-refresh.yml'
+  pull_request:
+    branches:
+      - main
+    types:
+      - reopened
+    paths:
+      - 'platform/sol/cloudflare/worker/package.json'
+      - '.github/workflows/sol-lockfile-refresh.yml'
 
 permissions:
   contents: write
@@ -17,6 +25,7 @@ concurrency:
 
 jobs:
   regenerate-verify-and-commit:
+    if: github.event_name == 'push' || github.event.pull_request.head.ref == 'feat/sol-cross-platform-control-plane'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
