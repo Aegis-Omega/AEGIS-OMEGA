@@ -3,31 +3,29 @@
 // EPISTEMIC TIER: T0 deterministic primitive; conformance is test-gated
 // GATE 1: byte-identical output across Node/Browser/WASM
 // ============================================================
-// Implementation of RFC 8785 (JSON Canonicalization Scheme).
-// This is the ONLY permitted serialisation method for hashing.
-// Never use JSON.stringify for integrity-critical operations.
+// This is the only permitted serialization method for integrity hashing.
+// Callers must project application values into ordinary JSON data first.
 // ============================================================
 
-/**
- * Canonicalise a JSON value to its RFC 8785 byte representation.
- *
- * The boundary is intentionally fail-closed: callers must first project
- * application values such as bigint, Date, Map, undefined, accessors, sparse
- * arrays, and custom class instances into ordinary JSON data.
- */
+const ESCAPE_PREFIX = String.fromCharCode(0x5c)
+const ESCAPED_QUOTE = ESCAPE_PREFIX + '"'
+const ESCAPED_BACKSLASH = ESCAPE_PREFIX + ESCAPE_PREFIX
+const ESCAPED_BACKSPACE = ESCAPE_PREFIX + 'b'
+const ESCAPED_TAB = ESCAPE_PREFIX + 't'
+const ESCAPED_NEWLINE = ESCAPE_PREFIX + 'n'
+const ESCAPED_FORM_FEED = ESCAPE_PREFIX + 'f'
+const ESCAPED_CARRIAGE_RETURN = ESCAPE_PREFIX + 'r'
+const ESCAPED_UNICODE_PREFIX = ESCAPE_PREFIX + 'u'
+
+/** Canonicalise an ordinary JSON value to RFC 8785 UTF-8 bytes. */
 export function canonicalizeJCS(value: unknown): Uint8Array {
-  const str = serializeValue(value, new WeakSet<object>())
-  return new TextEncoder().encode(str)
+  return new TextEncoder().encode(serializeValue(value, new WeakSet<object>()))
 }
 
-/**
- * Canonicalise to string (for debugging and testing against test vectors).
- */
+/** Canonicalise to a string for tests and diagnostics. */
 export function canonicalizeJCSString(value: unknown): string {
   return serializeValue(value, new WeakSet<object>())
 }
-
-// ─── Internal Serialisation ────────────────────────────────
 
 function serializeValue(value: unknown, stack: WeakSet<object>): string {
   if (value === null) return 'null'
@@ -40,7 +38,9 @@ function serializeValue(value: unknown, stack: WeakSet<object>): string {
   if (type === 'string') return serializeString(value as string)
 
   if (type === 'bigint') {
-    throw new TypeError('BigInt is not a JSON value; encode it explicitly as a decimal string before JCS canonicalization')
+    throw new TypeError(
+      'BigInt is not a JSON value; encode it explicitly as a decimal string before JCS canonicalization',
+    )
   }
   if (value === undefined) throw new TypeError('undefined is not a JSON value')
   if (type === 'function') throw new TypeError('function is not a JSON value')
@@ -49,28 +49,31 @@ function serializeValue(value: unknown, stack: WeakSet<object>): string {
   if (Array.isArray(value)) return serializeArray(value, stack)
   if (type === 'object') return serializeObject(value as object, stack)
 
-  /* c8 ignore next -- TypeScript exhausts all reachable JavaScript value types above */
+  /* c8 ignore next -- all JavaScript value categories are exhausted above */
   throw new TypeError(`Unserializable type: ${type}`)
 }
 
 function serializeArray(value: unknown[], stack: WeakSet<object>): string {
   return withCycleGuard(value, stack, () => {
-    if (Object.getOwnPropertySymbols(value).length > 0) {
+    if (Object.getOwnPropertySymbols(value).length !== 0) {
       throw new TypeError('Symbol-keyed array properties are not JSON values')
     }
 
-    const ownNames = Object.getOwnPropertyNames(value)
-    for (const name of ownNames) {
+    for (const name of Object.getOwnPropertyNames(value)) {
       if (name === 'length') continue
       if (!isCanonicalArrayIndex(name, value.length)) {
-        throw new TypeError(`Non-index array property is not permitted at the JCS boundary: ${name}`)
+        throw new TypeError(
+          `Non-index array property is not permitted at the JCS boundary: ${name}`,
+        )
       }
     }
 
     const items: string[] = []
     for (let index = 0; index < value.length; index++) {
       if (!Object.prototype.hasOwnProperty.call(value, index)) {
-        throw new TypeError(`Sparse arrays are not permitted at the JCS boundary: missing index ${index}`)
+        throw new TypeError(
+          `Sparse arrays are not permitted at the JCS boundary: missing index ${index}`,
+        )
       }
 
       const descriptor = Object.getOwnPropertyDescriptor(value, String(index))
@@ -92,7 +95,7 @@ function serializeObject(value: object, stack: WeakSet<object>): string {
       throw new TypeError('Only plain JSON objects are permitted at the JCS boundary')
     }
 
-    if (Object.getOwnPropertySymbols(value).length > 0) {
+    if (Object.getOwnPropertySymbols(value).length !== 0) {
       throw new TypeError('Symbol-keyed object properties are not JSON values')
     }
 
@@ -102,31 +105,41 @@ function serializeObject(value: object, stack: WeakSet<object>): string {
     for (const key of keys) {
       const descriptor = descriptors[key]
       if (!descriptor || !descriptor.enumerable) {
-        throw new TypeError(`Non-enumerable object property is not permitted at the JCS boundary: ${key}`)
+        throw new TypeError(
+          `Non-enumerable object property is not permitted at the JCS boundary: ${key}`,
+        )
       }
       if (!('value' in descriptor)) {
-        throw new TypeError(`Accessor object property is not permitted at the JCS boundary: ${key}`)
+        throw new TypeError(
+          `Accessor object property is not permitted at the JCS boundary: ${key}`,
+        )
       }
     }
 
     keys.sort(compareUtf16CodeUnits)
 
-    const pairs = keys.map(key => {
-      const descriptor = descriptors[key]
-      /* c8 ignore next -- descriptor existence was established above */
-      if (!descriptor || !('value' in descriptor)) throw new TypeError(`Invalid object property descriptor: ${key}`)
-      return serializeString(key) + ':' + serializeValue(descriptor.value, stack)
-    })
-
-    return '{' + pairs.join(',') + '}'
+    return (
+      '{' +
+      keys
+        .map((key) => {
+          const descriptor = descriptors[key]
+          /* c8 ignore next -- descriptor validity was established above */
+          if (!descriptor || !('value' in descriptor)) {
+            throw new TypeError(`Invalid object property descriptor: ${key}`)
+          }
+          return serializeString(key) + ':' + serializeValue(descriptor.value, stack)
+        })
+        .join(',') +
+      '}'
+    )
   })
 }
 
-function withCycleGuard<T>(value: object, stack: WeakSet<object>, fn: () => T): T {
+function withCycleGuard<T>(value: object, stack: WeakSet<object>, operation: () => T): T {
   if (stack.has(value)) throw new TypeError('Cyclic values are not JSON values')
   stack.add(value)
   try {
-    return fn()
+    return operation()
   } finally {
     stack.delete(value)
   }
@@ -135,10 +148,15 @@ function withCycleGuard<T>(value: object, stack: WeakSet<object>, fn: () => T): 
 function isCanonicalArrayIndex(name: string, length: number): boolean {
   if (!/^(0|[1-9][0-9]*)$/.test(name)) return false
   const index = Number(name)
-  return Number.isSafeInteger(index) && index >= 0 && index < length && String(index) === name
+  return (
+    Number.isSafeInteger(index) &&
+    index >= 0 &&
+    index < length &&
+    String(index) === name
+  )
 }
 
-/** RFC 8785 sorts raw property names lexicographically by unsigned UTF-16 code units. */
+/** RFC 8785 sorts raw property names by unsigned UTF-16 code units. */
 function compareUtf16CodeUnits(left: string, right: string): number {
   const commonLength = Math.min(left.length, right.length)
   for (let index = 0; index < commonLength; index++) {
@@ -148,49 +166,66 @@ function compareUtf16CodeUnits(left: string, right: string): number {
   return left.length - right.length
 }
 
-function serializeNumber(n: number): string {
-  if (!Number.isFinite(n)) throw new RangeError('Infinity and NaN are not RFC 8785 compliant')
-
-  // RFC 8785 uses ECMAScript Number serialization, producing the shortest
-  // decimal representation that round-trips to the same IEEE-754 value.
-  if (Object.is(n, -0)) return '0'
-  return String(n)
+function serializeNumber(value: number): string {
+  if (!Number.isFinite(value)) {
+    throw new RangeError('Infinity and NaN are not RFC 8785 compliant')
+  }
+  if (Object.is(value, -0)) return '0'
+  return String(value)
 }
 
-function serializeString(s: string): string {
-  assertWellFormedUnicode(s)
+function serializeString(value: string): string {
+  assertWellFormedUnicode(value)
 
   let result = '"'
-  for (let i = 0; i < s.length; i++) {
-    /* c8 ignore next -- i < s.length guarantees a code unit */
-    const cp = s.codePointAt(i) ?? 0
-    /* c8 ignore next -- i < s.length guarantees a code unit */
-    const ch = s[i] ?? ''
+  for (let index = 0; index < value.length; index++) {
+    const codePoint = value.codePointAt(index)
+    /* c8 ignore next -- index is in range */
+    if (codePoint === undefined) throw new TypeError('Invalid Unicode code point')
 
-    if (cp === 0x22) { result += '\"'; continue }
-    if (cp === 0x5c) { result += '\\'; continue }
-    if (cp === 0x08) { result += '\b'; continue }
-    if (cp === 0x09) { result += '\t'; continue }
-    if (cp === 0x0a) { result += '\n'; continue }
-    if (cp === 0x0c) { result += '\f'; continue }
-    if (cp === 0x0d) { result += '\r'; continue }
-
-    if (cp < 0x20) {
-      result += '\u' + cp.toString(16).padStart(4, '0')
+    if (codePoint === 0x22) {
+      result += ESCAPED_QUOTE
+      continue
+    }
+    if (codePoint === 0x5c) {
+      result += ESCAPED_BACKSLASH
+      continue
+    }
+    if (codePoint === 0x08) {
+      result += ESCAPED_BACKSPACE
+      continue
+    }
+    if (codePoint === 0x09) {
+      result += ESCAPED_TAB
+      continue
+    }
+    if (codePoint === 0x0a) {
+      result += ESCAPED_NEWLINE
+      continue
+    }
+    if (codePoint === 0x0c) {
+      result += ESCAPED_FORM_FEED
+      continue
+    }
+    if (codePoint === 0x0d) {
+      result += ESCAPED_CARRIAGE_RETURN
+      continue
+    }
+    if (codePoint < 0x20) {
+      result += ESCAPED_UNICODE_PREFIX + codePoint.toString(16).padStart(4, '0')
       continue
     }
 
-    if (cp > 0xffff) {
-      /* c8 ignore next -- assertWellFormedUnicode established a paired low surrogate */
-      result += ch + (s[i + 1] ?? '')
-      i++
+    if (codePoint > 0xffff) {
+      result += value.slice(index, index + 2)
+      index++
       continue
     }
 
-    result += ch
+    result += value[index]
   }
-  result += '"'
-  return result
+
+  return result + '"'
 }
 
 /** RFC 8785 requires invalid Unicode data, including lone surrogates, to fail. */
@@ -216,8 +251,6 @@ function assertWellFormedUnicode(value: string): void {
   }
 }
 
-// ─── Test Vector Validation ────────────────────────────────
-
 /** RFC 8785 Appendix B and Section 3.2.3 conformance vectors. */
 export const RFC8785_TEST_VECTORS: Array<{ input: unknown; expected: string }> = [
   { input: null, expected: 'null' },
@@ -241,7 +274,7 @@ export const RFC8785_TEST_VECTORS: Array<{ input: unknown; expected: string }> =
   { input: { z: 1, a: 2, m: 3 }, expected: '{"a":2,"m":3,"z":1}' },
   {
     input: { payload: { b: 2, a: 1 }, type: 'test' },
-    expected: '{"payload":{"a":1,"b":2},"type":"test"}'
+    expected: '{"payload":{"a":1,"b":2},"type":"test"}',
   },
   {
     input: {
@@ -253,21 +286,26 @@ export const RFC8785_TEST_VECTORS: Array<{ input: unknown; expected: string }> =
       '\u0080': 'Control',
       '\u00f6': 'Latin Small Letter O With Diaeresis',
     },
-    expected: '{"\\r":"Carriage Return","1":"One","":"Control","ö":"Latin Small Letter O With Diaeresis","€":"Euro Sign","😀":"Emoji: Grinning Face","דּ":"Hebrew Letter Dalet With Dagesh"}'
+    expected:
+      '{"\\r":"Carriage Return","1":"One","":"Control","ö":"Latin Small Letter O With Diaeresis","€":"Euro Sign","😀":"Emoji: Grinning Face","דּ":"Hebrew Letter Dalet With Dagesh"}',
   },
 ]
 
-export function verifyRFC8785Conformance(): { passed: number; failed: Array<{ index: number; expected: string; got: string }> } {
+export function verifyRFC8785Conformance(): {
+  passed: number
+  failed: Array<{ index: number; expected: string; got: string }>
+} {
   const failed: Array<{ index: number; expected: string; got: string }> = []
-  for (let i = 0; i < RFC8785_TEST_VECTORS.length; i++) {
-    const vec = RFC8785_TEST_VECTORS[i]
-    /* c8 ignore next -- i < RFC8785_TEST_VECTORS.length guarantees vec is defined */
-    if (!vec) continue
-    const got = canonicalizeJCSString(vec.input)
-    /* c8 ignore next -- failure path exists to expose a broken implementation */
-    if (got !== vec.expected) {
-      failed.push({ index: i, expected: vec.expected, got })
+
+  for (let index = 0; index < RFC8785_TEST_VECTORS.length; index++) {
+    const vector = RFC8785_TEST_VECTORS[index]
+    /* c8 ignore next -- index is bounded by the array length */
+    if (!vector) continue
+    const got = canonicalizeJCSString(vector.input)
+    if (got !== vector.expected) {
+      failed.push({ index, expected: vector.expected, got })
     }
   }
+
   return { passed: RFC8785_TEST_VECTORS.length - failed.length, failed }
 }
