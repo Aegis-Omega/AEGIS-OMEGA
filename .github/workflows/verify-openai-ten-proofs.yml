@@ -1,0 +1,110 @@
+name: Verify OpenAI Ten Proofs
+
+on:
+  push:
+    branches:
+      - verify/openai-ten-proofs-2026-08-01
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-openai-ten-proofs-2026-08-01
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Lean build and independent kernel checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout exact OpenAI certificate commit
+        uses: actions/checkout@v4
+        with:
+          repository: openai/ten-proofs
+          ref: c510a55434c0935cde446e5a372699a4671438f6
+          path: ten-proofs
+          fetch-depth: 1
+
+      - name: Bind source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd ten-proofs
+          actual="$(git rev-parse HEAD)"
+          expected="c510a55434c0935cde446e5a372699a4671438f6"
+          test "$actual" = "$expected"
+          printf 'repository=openai/ten-proofs\ncommit=%s\n' "$actual" | tee ../source-identity.txt
+          sha256sum *.lean lean-toolchain lakefile.toml lake-manifest.json formalization.yaml | tee ../source-sha256.txt
+
+      - name: Build all certificates with Lean kernel
+        id: lean-build
+        uses: leanprover/lean-action@v1
+        with:
+          lake-package-directory: ten-proofs
+          auto-config: false
+          build: true
+          build-args: All
+          test: false
+          lint: false
+          use-mathlib-cache: true
+
+      - name: Audit placeholder proof tokens
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd ten-proofs
+          if grep -RInE --include='*.lean' '(^|[^[:alnum:]_])(sorry|admit)([^[:alnum:]_]|$)' . | tee ../placeholder-audit.txt; then
+            echo 'Forbidden placeholder proof token detected.' >&2
+            exit 1
+          else
+            echo 'No sorry/admit tokens detected in Lean source.' | tee ../placeholder-audit.txt
+          fi
+
+      - name: Independent Lean environment replay and nanoda check
+        id: independent-check
+        uses: leanprover/lean-action@v1
+        with:
+          lake-package-directory: ten-proofs
+          auto-config: false
+          build: false
+          test: false
+          lint: false
+          use-github-cache: true
+          use-mathlib-cache: true
+          leanchecker: true
+          nanoda: true
+          nanoda-allow-sorry: false
+
+      - name: Write verification receipt
+        if: always()
+        shell: bash
+        env:
+          BUILD_STATUS: ${{ steps.lean-build.outputs.build-status }}
+        run: |
+          {
+            echo 'verification_class=EXACT_COMMIT_LEAN_KERNEL_AND_INDEPENDENT_CHECK'
+            echo 'source_repository=openai/ten-proofs'
+            echo 'source_commit=c510a55434c0935cde446e5a372699a4671438f6'
+            echo "lean_build_status=${BUILD_STATUS:-UNKNOWN}"
+            echo "workflow_run_id=${GITHUB_RUN_ID}"
+            echo "workflow_run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runner_arch=${RUNNER_ARCH}"
+            echo "verification_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } | tee verification-receipt.txt
+
+      - name: Upload verification receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openai-ten-proofs-verification-receipt
+          path: |
+            source-identity.txt
+            source-sha256.txt
+            placeholder-audit.txt
+            verification-receipt.txt
+          if-no-files-found: warn
+          retention-days: 30
