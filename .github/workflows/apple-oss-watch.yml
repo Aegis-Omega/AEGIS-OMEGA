@@ -2,15 +2,14 @@
 #
 # Daily check of upstream Apple open-source releases/tags against the recorded
 # state in reports/apple-oss-state.json. When something new is published, it
-# opens an issue listing current vs recorded versions.
+# opens or refreshes one persistent issue instead of creating a dated issue on
+# every scheduled run.
 #
 # Deliberately does NOT commit updated state from CI (no bot-commit loops):
 # a maintainer acknowledges a release by editing reports/apple-oss-state.json.
-# Until the state file is updated, the check re-reports on its next run (the
-# issue title carries the date, so at most one issue per day).
 #
 # Each upstream check tolerates failure (missing release, API hiccup) — a repo
-# that can't be queried is skipped, never fails the job.
+# that cannot be queried is skipped and never fails the job.
 
 name: Apple OSS Watch
 
@@ -31,7 +30,7 @@ jobs:
 
       - name: Compare upstream versions against recorded state
         id: check
-        continue-on-error: true   # a watch failure must never look like a CI failure
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           STATE: reports/apple-oss-state.json
@@ -72,16 +71,27 @@ jobs:
 
           {
             echo ""
-            echo "To acknowledge, update \`latest_known\` in \`$STATE\` (this workflow never commits)."
+            echo "To acknowledge, update \`latest_known\` in \`$STATE\`. This workflow keeps one persistent open issue until the recorded state is updated."
           } >> "$BODY"
           echo "changed=$CHANGED" >> "$GITHUB_OUTPUT"
 
-      - name: Open issue listing new releases
+      - name: Open or refresh the persistent release issue
         if: steps.check.outputs.changed == '1'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue create \
-            --title "Apple OSS releases: $(date -u +%F)" \
-            --body-file /tmp/apple-oss-body.md
+          set -euo pipefail
+          TITLE="Apple OSS releases: unacknowledged changes"
+          EXISTING=$(gh issue list \
+            --state open \
+            --limit 100 \
+            --json number,title \
+            --jq '.[] | select(.title == "Apple OSS releases: unacknowledged changes") | .number' \
+            | head -n 1)
+
+          if [ -n "$EXISTING" ]; then
+            gh issue edit "$EXISTING" --body-file /tmp/apple-oss-body.md
+          else
+            gh issue create --title "$TITLE" --body-file /tmp/apple-oss-body.md
+          fi
