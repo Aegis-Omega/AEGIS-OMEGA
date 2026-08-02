@@ -8,6 +8,15 @@
   "$defs": {
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "gitObject": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+    "blobBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "blob_id"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "blob_id": { "$ref": "#/$defs/gitObject" }
+      }
+    },
     "verification": {
       "type": "object",
       "additionalProperties": false,
@@ -38,7 +47,10 @@
           "type": "object",
           "additionalProperties": false,
           "required": ["path", "root"],
-          "properties": { "path": { "type": "string", "minLength": 1 }, "root": { "$ref": "#/$defs/sha256" } }
+          "properties": {
+            "path": { "type": "string", "minLength": 1 },
+            "root": { "$ref": "#/$defs/sha256" }
+          }
         },
         "admission_workflow": { "$ref": "#/$defs/blobBinding" },
         "admission_executable": { "$ref": "#/$defs/blobBinding" }
@@ -191,28 +203,6 @@
         "computed_by": { "type": "string", "minLength": 1 },
         "execution_reference": { "type": ["string", "null"] },
         "rule": { "const": "APPROVE iff every mandatory verification is PASS, every source_entailment status is PASS, replay is PASS and unexpired, ledger synchronization is PASS, attestation hash and signature exist, and an external anchor is PRESENT" }
-      }
-    }
-  },
-  "$defs": {
-    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-    "gitObject": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
-    "blobBinding": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["path", "blob_id"],
-      "properties": { "path": { "type": "string", "minLength": 1 }, "blob_id": { "$ref": "#/$defs/gitObject" } }
-    },
-    "verification": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["mandatory", "status", "command_or_verifier", "execution_reference", "artifact_digest"],
-      "properties": {
-        "mandatory": { "const": true },
-        "status": { "enum": ["PASS", "FAIL", "NOT_RUN", "SKIPPED", "UNRESOLVED"] },
-        "command_or_verifier": { "type": "string", "minLength": 1 },
-        "execution_reference": { "type": ["string", "null"] },
-        "artifact_digest": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] }
       }
     }
   },
