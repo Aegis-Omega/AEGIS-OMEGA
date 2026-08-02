@@ -1,12 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import type { SHA256Hex } from '../../src/core/types.js'
 import {
+  AUTHORITY_CARD_PREIMAGE_RULE,
   computeAuthorityCardCanonicalHash,
   validateAuthorityStateCardV2,
   type AuthorityStateCardV2,
 } from '../../src/sovereignty/authority-state-card.js'
 
 const hash = (digit: string): SHA256Hex => digit.repeat(64) as SHA256Hex
+const checks = [
+  'schema_validation',
+  'subject_binding',
+  'source_entailment',
+  'canonicalization',
+  'exact_head_tests',
+  'ledger_synchronization',
+  'independent_replay',
+] as const
 
 function baseCard(): AuthorityStateCardV2 {
   return {
@@ -33,15 +43,7 @@ function baseCard(): AuthorityStateCardV2 {
       },
     },
     verification_matrix: Object.fromEntries(
-      [
-        'schema_validation',
-        'subject_binding',
-        'source_entailment',
-        'canonicalization',
-        'exact_head_tests',
-        'ledger_synchronization',
-        'independent_replay',
-      ].map((id) => [
+      checks.map((id) => [
         id,
         {
           mandatory: true as const,
@@ -52,15 +54,13 @@ function baseCard(): AuthorityStateCardV2 {
         },
       ]),
     ),
-    source_entailment: [
-      {
-        claim_id: 'implementation_present',
-        source_locator: 'src/file.ts',
-        source_digest: hash('b'),
-        verifier: 'source-entails-v1:run:1',
-        status: 'PASS',
-      },
-    ],
+    source_entailment: [{
+      claim_id: 'implementation_present',
+      source_locator: 'src/file.ts',
+      source_digest: hash('b'),
+      verifier: 'source-entails-v1:run:1',
+      status: 'PASS',
+    }],
     replay_verifiability: {
       status: 'PASS',
       verified_at: '2026-08-02T09:00:00.000Z',
@@ -84,8 +84,7 @@ function baseCard(): AuthorityStateCardV2 {
     },
     attestation: {
       canonicalization: 'RFC8785_JCS',
-      preimage_rule:
-        'canonicalize the complete card after replacing /attestation/canonical_hash and /attestation/signature with null',
+      preimage_rule: AUTHORITY_CARD_PREIMAGE_RULE,
       canonical_hash: null,
       signer: 'github-oidc:key-1',
       signature: 'signed-attestation',
@@ -126,12 +125,7 @@ describe('authority state card v2', () => {
         { ...entry, status: 'NOT_RUN' as const, execution_reference: null, artifact_digest: null },
       ]),
     )
-
-    const result = await validateAuthorityStateCardV2(
-      { ...card, verification_matrix },
-      '2026-08-02T10:00:00.000Z',
-    )
-
+    const result = await validateAuthorityStateCardV2({ ...card, verification_matrix }, '2026-08-02T10:00:00.000Z')
     expect(result.valid).toBe(false)
     expect(result.decision).toBe('DENY')
     expect(result.failures).toContain('MANDATORY_CHECK_NOT_RUN:exact_head_tests')
@@ -140,35 +134,32 @@ describe('authority state card v2', () => {
 
   it('rejects a declared claim when it is load-bearing', async () => {
     const card = await completeCard()
-    const result = await validateAuthorityStateCardV2(
-      {
-        ...card,
-        claims: {
-          implementation_present: {
-            ...card.claims['implementation_present']!,
-            origin_class: 'DECLARED',
-          },
+    const result = await validateAuthorityStateCardV2({
+      ...card,
+      claims: {
+        implementation_present: {
+          ...card.claims['implementation_present']!,
+          origin_class: 'DECLARED',
         },
       },
-      '2026-08-02T10:00:00.000Z',
-    )
-
-    expect(result.valid).toBe(false)
+    }, '2026-08-02T10:00:00.000Z')
     expect(result.failures).toContain('BLOCKING_CLAIM_DECLARED:implementation_present')
   })
 
   it('rejects replay after its custody-bound validity window', async () => {
-    const card = await completeCard()
-    const result = await validateAuthorityStateCardV2(card, '2026-08-02T12:00:00.001Z')
-
-    expect(result.valid).toBe(false)
+    const result = await validateAuthorityStateCardV2(await completeCard(), '2026-08-02T12:00:00.001Z')
     expect(result.failures).toContain('REPLAY_EXPIRED')
   })
 
-  it('accepts APPROVE only when all blocking gates and anchors pass', async () => {
+  it('hashes the card without recursive attestation or anchor fields', async () => {
     const card = await completeCard()
-    const result = await validateAuthorityStateCardV2(card, '2026-08-02T10:00:00.000Z')
+    const secondHash = await computeAuthorityCardCanonicalHash(card)
+    expect(secondHash).toBe(card.attestation.canonical_hash)
+    expect(card.external_anchor.anchored_hash).toBe(secondHash)
+  })
 
+  it('accepts APPROVE only when every blocking gate and anchor passes', async () => {
+    const result = await validateAuthorityStateCardV2(await completeCard(), '2026-08-02T10:00:00.000Z')
     expect(result.valid).toBe(true)
     expect(result.decision).toBe('APPROVE')
     expect(result.failures).toEqual([])
