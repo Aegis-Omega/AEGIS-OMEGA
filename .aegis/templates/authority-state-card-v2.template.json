@@ -1,0 +1,156 @@
+{
+  "schema_version": "2.0.0",
+  "subject_binding": {
+    "repository": "Aegis-Omega/AEGIS-OMEGA",
+    "candidate_commit": "0000000000000000000000000000000000000000",
+    "candidate_tree": "0000000000000000000000000000000000000000",
+    "expected_parent_sha": "0000000000000000000000000000000000000000",
+    "expected_parent_state_root": "0000000000000000000000000000000000000000000000000000000000000000",
+    "policy": {
+      "path": "REPLACE_WITH_POLICY_PATH",
+      "blob_id": "0000000000000000000000000000000000000000"
+    },
+    "claims_ledger": {
+      "path": "REPLACE_WITH_CLAIMS_LEDGER_PATH",
+      "root": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "admission_workflow": {
+      "path": "REPLACE_WITH_ADMISSION_WORKFLOW_PATH",
+      "blob_id": "0000000000000000000000000000000000000000"
+    },
+    "admission_executable": {
+      "path": "REPLACE_WITH_ADMISSION_EXECUTABLE_PATH",
+      "blob_id": "0000000000000000000000000000000000000000"
+    }
+  },
+  "authority_state": {
+    "current": "OBSERVE",
+    "must_not": [
+      "MUTATE_REPOSITORY",
+      "DEPLOY",
+      "GRANT_AUTHORITY",
+      "APPROVE"
+    ]
+  },
+  "claims": {
+    "template_is_not_evidence": {
+      "value": true,
+      "origin_class": "DECLARED",
+      "source": {
+        "kind": "template-sentinel",
+        "locator": "REPLACE_ALL_SENTINELS_BEFORE_USE",
+        "digest_or_id": null
+      },
+      "verifier": {
+        "identity": null,
+        "execution_reference": null,
+        "result": "NOT_RUN"
+      },
+      "blocking": false
+    }
+  },
+  "verification_matrix": {
+    "schema_validation": {
+      "mandatory": true,
+      "status": "NOT_RUN",
+      "command_or_verifier": "authority-card-schema-validator-v2",
+      "execution_reference": null,
+      "artifact_digest": null
+    },
+    "subject_binding": {
+      "mandatory": true,
+      "status": "NOT_RUN",
+      "command_or_verifier": "git-object-and-parent-binding-verifier-v1",
+      "execution_reference": null,
+      "artifact_digest": null
+    },
+    "source_entailment": {
+      "mandatory": true,
+      "status": "NOT_RUN",
+      "command_or_verifier": "source-entails-verifier-v1",
+      "execution_reference": null,
+      "artifact_digest": null
+    },
+    "canonicalization": {
+      "mandatory": true,
+      "status": "NOT_RUN",
+      "command_or_verifier": "rfc8785-canonicalization-verifier-v1",
+      "execution_reference": null,
+      "artifact_digest": null
+    },
+    "exact_head_tests": {
+      "mandatory": true,
+      "status": "NOT_RUN",
+      "command_or_verifier": "exact-head-test-corpus",
+      "execution_reference": null,
+      "artifact_digest": null
+    },
+    "ledger_synchronization": {
+      "mandatory": true,
+      "status": "NOT_RUN",
+      "command_or_verifier": "independent-ledger-root-comparator-v1",
+      "execution_reference": null,
+      "artifact_digest": null
+    },
+    "independent_replay": {
+      "mandatory": true,
+      "status": "NOT_RUN",
+      "command_or_verifier": "independent-replay-verifier-v1",
+      "execution_reference": null,
+      "artifact_digest": null
+    }
+  },
+  "source_entailment": [
+    {
+      "claim_id": "REPLACE_WITH_CLAIM_ID",
+      "source_locator": "REPLACE_WITH_SOURCE_LOCATOR",
+      "source_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "verifier": "NOT_ASSIGNED",
+      "status": "NOT_RUN"
+    }
+  ],
+  "replay_verifiability": {
+    "status": "NOT_RUN",
+    "verified_at": null,
+    "valid_until": null,
+    "custody_manifest": {
+      "path": null,
+      "digest": null,
+      "custodian": null,
+      "availability_status": "NOT_CHECKED"
+    },
+    "replay_package_digest": null
+  },
+  "audit_ledger": {
+    "root": "0000000000000000000000000000000000000000000000000000000000000000",
+    "synchronization": {
+      "status": "NOT_RUN",
+      "verifier": null,
+      "execution_reference": null,
+      "compared_roots": [
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "0000000000000000000000000000000000000000000000000000000000000000"
+      ]
+    }
+  },
+  "attestation": {
+    "canonicalization": "RFC8785_JCS",
+    "preimage_rule": "canonicalize the complete card after replacing /attestation/canonical_hash and /attestation/signature with null",
+    "canonical_hash": null,
+    "signer": null,
+    "signature": null
+  },
+  "external_anchor": {
+    "status": "NOT_CHECKED",
+    "provider": null,
+    "locator": null,
+    "anchored_hash": null,
+    "anchored_at": null
+  },
+  "deployment_decision": {
+    "value": "DENY",
+    "computed_by": "authority-card-validator-v2",
+    "execution_reference": null,
+    "rule": "APPROVE iff every mandatory verification is PASS, every source_entailment status is PASS, replay is PASS and unexpired, ledger synchronization is PASS, attestation hash and signature exist, and an external anchor is PRESENT"
+  }
+}
