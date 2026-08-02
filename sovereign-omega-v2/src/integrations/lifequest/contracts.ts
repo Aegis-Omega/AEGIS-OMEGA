@@ -146,6 +146,8 @@ export function assertLifeQuestEventV1(value: unknown): asserts value is LifeQue
     throw new TypeError('LifeQuest event must be an object')
   }
 
+  assertStrictJSON(value, 'event', new WeakSet<object>())
+
   const event = value as Record<string, unknown>
   assertExactKeys(event, EVENT_KEYS, 'LifeQuest event')
 
@@ -172,8 +174,6 @@ export function assertLifeQuestEventV1(value: unknown): asserts value is LifeQue
   if (!event.payload || typeof event.payload !== 'object' || Array.isArray(event.payload)) {
     throw new TypeError('payload must be a JSON object')
   }
-
-  assertStrictJSON(event.payload, 'payload', new WeakSet<object>())
 }
 
 export function assertLifeQuestTransitionAllowed(
