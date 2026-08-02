@@ -4,62 +4,11 @@
   "title": "AEGIS Authority State Card V2",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "schema_version",
-    "subject_binding",
-    "authority_state",
-    "claims",
-    "verification_matrix",
-    "source_entailment",
-    "replay_verifiability",
-    "audit_ledger",
-    "attestation",
-    "external_anchor",
-    "deployment_decision"
-  ],
+  "required": ["schema_version", "subject_binding", "authority_state", "claims", "verification_matrix", "source_entailment", "replay_verifiability", "audit_ledger", "attestation", "external_anchor", "deployment_decision"],
   "$defs": {
-    "sha256": {
-      "type": "string",
-      "pattern": "^[0-9a-f]{64}$"
-    },
-    "gitObject": {
-      "type": "string",
-      "pattern": "^[0-9a-f]{40,64}$"
-    },
-    "originClass": {
-      "enum": ["COMPUTED", "THIRD_PARTY_ATTESTED", "DECLARED"]
-    },
-    "boundValue": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["value", "origin_class", "source", "verifier", "blocking"],
-      "properties": {
-        "value": {},
-        "origin_class": { "$ref": "#/$defs/originClass" },
-        "source": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["kind", "locator", "digest_or_id"],
-          "properties": {
-            "kind": { "type": "string", "minLength": 1 },
-            "locator": { "type": "string", "minLength": 1 },
-            "digest_or_id": { "type": ["string", "null"] }
-          }
-        },
-        "verifier": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["identity", "execution_reference", "result"],
-          "properties": {
-            "identity": { "type": ["string", "null"] },
-            "execution_reference": { "type": ["string", "null"] },
-            "result": { "enum": ["PASS", "FAIL", "NOT_RUN", "UNRESOLVED"] }
-          }
-        },
-        "blocking": { "type": "boolean" }
-      }
-    },
-    "verificationEntry": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "gitObject": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+    "verification": {
       "type": "object",
       "additionalProperties": false,
       "required": ["mandatory", "status", "command_or_verifier", "execution_reference", "artifact_digest"],
@@ -68,12 +17,7 @@
         "status": { "enum": ["PASS", "FAIL", "NOT_RUN", "SKIPPED", "UNRESOLVED"] },
         "command_or_verifier": { "type": "string", "minLength": 1 },
         "execution_reference": { "type": ["string", "null"] },
-        "artifact_digest": {
-          "oneOf": [
-            { "$ref": "#/$defs/sha256" },
-            { "type": "null" }
-          ]
-        }
+        "artifact_digest": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] }
       }
     }
   },
@@ -82,59 +26,22 @@
     "subject_binding": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "repository",
-        "candidate_commit",
-        "candidate_tree",
-        "expected_parent_sha",
-        "expected_parent_state_root",
-        "policy",
-        "claims_ledger",
-        "admission_workflow",
-        "admission_executable"
-      ],
+      "required": ["repository", "candidate_commit", "candidate_tree", "expected_parent_sha", "expected_parent_state_root", "policy", "claims_ledger", "admission_workflow", "admission_executable"],
       "properties": {
         "repository": { "const": "Aegis-Omega/AEGIS-OMEGA" },
         "candidate_commit": { "$ref": "#/$defs/gitObject" },
         "candidate_tree": { "$ref": "#/$defs/gitObject" },
         "expected_parent_sha": { "$ref": "#/$defs/gitObject" },
         "expected_parent_state_root": { "$ref": "#/$defs/sha256" },
-        "policy": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["path", "blob_id"],
-          "properties": {
-            "path": { "type": "string", "minLength": 1 },
-            "blob_id": { "$ref": "#/$defs/gitObject" }
-          }
-        },
+        "policy": { "$ref": "#/$defs/blobBinding" },
         "claims_ledger": {
           "type": "object",
           "additionalProperties": false,
           "required": ["path", "root"],
-          "properties": {
-            "path": { "type": "string", "minLength": 1 },
-            "root": { "$ref": "#/$defs/sha256" }
-          }
+          "properties": { "path": { "type": "string", "minLength": 1 }, "root": { "$ref": "#/$defs/sha256" } }
         },
-        "admission_workflow": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["path", "blob_id"],
-          "properties": {
-            "path": { "type": "string", "minLength": 1 },
-            "blob_id": { "$ref": "#/$defs/gitObject" }
-          }
-        },
-        "admission_executable": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["path", "blob_id"],
-          "properties": {
-            "path": { "type": "string", "minLength": 1 },
-            "blob_id": { "$ref": "#/$defs/gitObject" }
-          }
-        }
+        "admission_workflow": { "$ref": "#/$defs/blobBinding" },
+        "admission_executable": { "$ref": "#/$defs/blobBinding" }
       }
     },
     "authority_state": {
@@ -143,39 +50,55 @@
       "required": ["current", "must_not"],
       "properties": {
         "current": { "enum": ["OBSERVE", "PROPOSE", "REVIEW", "EXECUTE"] },
-        "must_not": {
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": { "type": "string", "minLength": 1 }
-        }
+        "must_not": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
       }
     },
     "claims": {
       "type": "object",
       "minProperties": 1,
-      "additionalProperties": { "$ref": "#/$defs/boundValue" }
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["value", "origin_class", "source", "verifier", "blocking"],
+        "properties": {
+          "value": {},
+          "origin_class": { "enum": ["COMPUTED", "THIRD_PARTY_ATTESTED", "DECLARED"] },
+          "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "locator", "digest_or_id"],
+            "properties": {
+              "kind": { "type": "string", "minLength": 1 },
+              "locator": { "type": "string", "minLength": 1 },
+              "digest_or_id": { "type": ["string", "null"] }
+            }
+          },
+          "verifier": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["identity", "execution_reference", "result"],
+            "properties": {
+              "identity": { "type": ["string", "null"] },
+              "execution_reference": { "type": ["string", "null"] },
+              "result": { "enum": ["PASS", "FAIL", "NOT_RUN", "UNRESOLVED"] }
+            }
+          },
+          "blocking": { "type": "boolean" }
+        }
+      }
     },
     "verification_matrix": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "schema_validation",
-        "subject_binding",
-        "source_entailment",
-        "canonicalization",
-        "exact_head_tests",
-        "ledger_synchronization",
-        "independent_replay"
-      ],
+      "required": ["schema_validation", "subject_binding", "source_entailment", "canonicalization", "exact_head_tests", "ledger_synchronization", "independent_replay"],
       "properties": {
-        "schema_validation": { "$ref": "#/$defs/verificationEntry" },
-        "subject_binding": { "$ref": "#/$defs/verificationEntry" },
-        "source_entailment": { "$ref": "#/$defs/verificationEntry" },
-        "canonicalization": { "$ref": "#/$defs/verificationEntry" },
-        "exact_head_tests": { "$ref": "#/$defs/verificationEntry" },
-        "ledger_synchronization": { "$ref": "#/$defs/verificationEntry" },
-        "independent_replay": { "$ref": "#/$defs/verificationEntry" }
+        "schema_validation": { "$ref": "#/$defs/verification" },
+        "subject_binding": { "$ref": "#/$defs/verification" },
+        "source_entailment": { "$ref": "#/$defs/verification" },
+        "canonicalization": { "$ref": "#/$defs/verification" },
+        "exact_head_tests": { "$ref": "#/$defs/verification" },
+        "ledger_synchronization": { "$ref": "#/$defs/verification" },
+        "independent_replay": { "$ref": "#/$defs/verification" }
       }
     },
     "source_entailment": {
@@ -208,22 +131,12 @@
           "required": ["path", "digest", "custodian", "availability_status"],
           "properties": {
             "path": { "type": ["string", "null"] },
-            "digest": {
-              "oneOf": [
-                { "$ref": "#/$defs/sha256" },
-                { "type": "null" }
-              ]
-            },
+            "digest": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
             "custodian": { "type": ["string", "null"] },
             "availability_status": { "enum": ["AVAILABLE", "MISSING", "NOT_CHECKED"] }
           }
         },
-        "replay_package_digest": {
-          "oneOf": [
-            { "$ref": "#/$defs/sha256" },
-            { "type": "null" }
-          ]
-        }
+        "replay_package_digest": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] }
       }
     },
     "audit_ledger": {
@@ -240,11 +153,7 @@
             "status": { "enum": ["PASS", "FAIL", "NOT_RUN", "UNRESOLVED"] },
             "verifier": { "type": ["string", "null"] },
             "execution_reference": { "type": ["string", "null"] },
-            "compared_roots": {
-              "type": "array",
-              "minItems": 2,
-              "items": { "$ref": "#/$defs/sha256" }
-            }
+            "compared_roots": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/sha256" } }
           }
         }
       }
@@ -255,15 +164,8 @@
       "required": ["canonicalization", "preimage_rule", "canonical_hash", "signer", "signature"],
       "properties": {
         "canonicalization": { "const": "RFC8785_JCS" },
-        "preimage_rule": {
-          "const": "canonicalize the complete card after replacing /attestation/canonical_hash and /attestation/signature with null"
-        },
-        "canonical_hash": {
-          "oneOf": [
-            { "$ref": "#/$defs/sha256" },
-            { "type": "null" }
-          ]
-        },
+        "preimage_rule": { "const": "canonicalize the complete card after replacing /attestation/canonical_hash, /attestation/signature, and /external_anchor/anchored_hash with null" },
+        "canonical_hash": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
         "signer": { "type": ["string", "null"] },
         "signature": { "type": ["string", "null"] }
       }
@@ -276,12 +178,7 @@
         "status": { "enum": ["PRESENT", "ABSENT", "NOT_CHECKED"] },
         "provider": { "type": ["string", "null"] },
         "locator": { "type": ["string", "null"] },
-        "anchored_hash": {
-          "oneOf": [
-            { "$ref": "#/$defs/sha256" },
-            { "type": "null" }
-          ]
-        },
+        "anchored_hash": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
         "anchored_at": { "type": ["string", "null"], "format": "date-time" }
       }
     },
@@ -293,85 +190,62 @@
         "value": { "enum": ["APPROVE", "DENY", "REVIEW"] },
         "computed_by": { "type": "string", "minLength": 1 },
         "execution_reference": { "type": ["string", "null"] },
-        "rule": {
-          "const": "APPROVE iff every mandatory verification is PASS, every source_entailment status is PASS, replay is PASS and unexpired, ledger synchronization is PASS, attestation hash and signature exist, and an external anchor is PRESENT"
-        }
+        "rule": { "const": "APPROVE iff every mandatory verification is PASS, every source_entailment status is PASS, replay is PASS and unexpired, ledger synchronization is PASS, attestation hash and signature exist, and an external anchor is PRESENT" }
       }
     }
   },
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "deployment_decision": {
-            "properties": { "value": { "const": "APPROVE" } },
-            "required": ["value"]
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "verification_matrix": {
-            "properties": {
-              "schema_validation": { "properties": { "status": { "const": "PASS" } } },
-              "subject_binding": { "properties": { "status": { "const": "PASS" } } },
-              "source_entailment": { "properties": { "status": { "const": "PASS" } } },
-              "canonicalization": { "properties": { "status": { "const": "PASS" } } },
-              "exact_head_tests": { "properties": { "status": { "const": "PASS" } } },
-              "ledger_synchronization": { "properties": { "status": { "const": "PASS" } } },
-              "independent_replay": { "properties": { "status": { "const": "PASS" } } }
-            }
-          },
-          "source_entailment": {
-            "items": { "properties": { "status": { "const": "PASS" } } }
-          },
-          "replay_verifiability": {
-            "properties": {
-              "status": { "const": "PASS" },
-              "valid_until": { "type": "string", "format": "date-time" },
-              "replay_package_digest": { "$ref": "#/$defs/sha256" },
-              "custody_manifest": {
-                "properties": {
-                  "availability_status": { "const": "AVAILABLE" },
-                  "digest": { "$ref": "#/$defs/sha256" }
-                }
-              }
-            }
-          },
-          "audit_ledger": {
-            "properties": {
-              "synchronization": {
-                "properties": {
-                  "status": { "const": "PASS" },
-                  "verifier": { "type": "string", "minLength": 1 },
-                  "execution_reference": { "type": "string", "minLength": 1 }
-                }
-              }
-            }
-          },
-          "attestation": {
-            "properties": {
-              "canonical_hash": { "$ref": "#/$defs/sha256" },
-              "signer": { "type": "string", "minLength": 1 },
-              "signature": { "type": "string", "minLength": 1 }
-            }
-          },
-          "external_anchor": {
-            "properties": {
-              "status": { "const": "PRESENT" },
-              "provider": { "type": "string", "minLength": 1 },
-              "locator": { "type": "string", "minLength": 1 },
-              "anchored_hash": { "$ref": "#/$defs/sha256" },
-              "anchored_at": { "type": "string", "format": "date-time" }
-            }
-          },
-          "deployment_decision": {
-            "properties": {
-              "execution_reference": { "type": "string", "minLength": 1 }
-            }
-          }
-        }
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "gitObject": { "type": "string", "pattern": "^[0-9a-f]{40,64}$" },
+    "blobBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "blob_id"],
+      "properties": { "path": { "type": "string", "minLength": 1 }, "blob_id": { "$ref": "#/$defs/gitObject" } }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mandatory", "status", "command_or_verifier", "execution_reference", "artifact_digest"],
+      "properties": {
+        "mandatory": { "const": true },
+        "status": { "enum": ["PASS", "FAIL", "NOT_RUN", "SKIPPED", "UNRESOLVED"] },
+        "command_or_verifier": { "type": "string", "minLength": 1 },
+        "execution_reference": { "type": ["string", "null"] },
+        "artifact_digest": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] }
       }
     }
-  ]
+  },
+  "allOf": [{
+    "if": { "properties": { "deployment_decision": { "properties": { "value": { "const": "APPROVE" } }, "required": ["value"] } } },
+    "then": {
+      "properties": {
+        "verification_matrix": {
+          "properties": {
+            "schema_validation": { "properties": { "status": { "const": "PASS" }, "execution_reference": { "type": "string", "minLength": 1 }, "artifact_digest": { "$ref": "#/$defs/sha256" } } },
+            "subject_binding": { "properties": { "status": { "const": "PASS" }, "execution_reference": { "type": "string", "minLength": 1 }, "artifact_digest": { "$ref": "#/$defs/sha256" } } },
+            "source_entailment": { "properties": { "status": { "const": "PASS" }, "execution_reference": { "type": "string", "minLength": 1 }, "artifact_digest": { "$ref": "#/$defs/sha256" } } },
+            "canonicalization": { "properties": { "status": { "const": "PASS" }, "execution_reference": { "type": "string", "minLength": 1 }, "artifact_digest": { "$ref": "#/$defs/sha256" } } },
+            "exact_head_tests": { "properties": { "status": { "const": "PASS" }, "execution_reference": { "type": "string", "minLength": 1 }, "artifact_digest": { "$ref": "#/$defs/sha256" } } },
+            "ledger_synchronization": { "properties": { "status": { "const": "PASS" }, "execution_reference": { "type": "string", "minLength": 1 }, "artifact_digest": { "$ref": "#/$defs/sha256" } } },
+            "independent_replay": { "properties": { "status": { "const": "PASS" }, "execution_reference": { "type": "string", "minLength": 1 }, "artifact_digest": { "$ref": "#/$defs/sha256" } } }
+          }
+        },
+        "source_entailment": { "items": { "properties": { "status": { "const": "PASS" } } } },
+        "replay_verifiability": {
+          "properties": {
+            "status": { "const": "PASS" },
+            "verified_at": { "type": "string", "format": "date-time" },
+            "valid_until": { "type": "string", "format": "date-time" },
+            "replay_package_digest": { "$ref": "#/$defs/sha256" },
+            "custody_manifest": { "properties": { "path": { "type": "string", "minLength": 1 }, "digest": { "$ref": "#/$defs/sha256" }, "custodian": { "type": "string", "minLength": 1 }, "availability_status": { "const": "AVAILABLE" } } }
+          }
+        },
+        "audit_ledger": { "properties": { "synchronization": { "properties": { "status": { "const": "PASS" }, "verifier": { "type": "string", "minLength": 1 }, "execution_reference": { "type": "string", "minLength": 1 } } } } },
+        "attestation": { "properties": { "canonical_hash": { "$ref": "#/$defs/sha256" }, "signer": { "type": "string", "minLength": 1 }, "signature": { "type": "string", "minLength": 1 } } },
+        "external_anchor": { "properties": { "status": { "const": "PRESENT" }, "provider": { "type": "string", "minLength": 1 }, "locator": { "type": "string", "minLength": 1 }, "anchored_hash": { "$ref": "#/$defs/sha256" }, "anchored_at": { "type": "string", "format": "date-time" } } },
+        "deployment_decision": { "properties": { "execution_reference": { "type": "string", "minLength": 1 } } }
+      }
+    }
+  }]
 }
