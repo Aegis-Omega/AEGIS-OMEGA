@@ -72,6 +72,9 @@ class GovernedProviderRouter:
         self._transports = by_provider
         self._idempotent: dict[tuple[str, str], ProviderEvidence] = {}
 
+    def registered_providers(self) -> tuple[str, ...]:
+        return tuple(sorted(self._transports))
+
     def invoke(self, invocation: ProviderInvocation) -> ProviderEvidence:
         self._validate(invocation)
         key = (invocation.provider, invocation.idempotency_key)
