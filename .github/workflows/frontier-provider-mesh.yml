@@ -77,7 +77,7 @@ jobs:
 
       - name: Verify TypeScript frontier runtime behavior
         working-directory: sovereign-omega-v2
-        run: npm run test -- test/unit/frontier-inference-gateway.test.ts
+        run: npm run test -- test/unit/frontier-inference-gateway.test.ts test/unit/frontier-provider-transports.test.ts test/unit/frontier-stream-lease.test.ts
 
       - name: Typecheck Sovereign Runtime frontier integration
         working-directory: sovereign-omega-v2
@@ -86,7 +86,7 @@ jobs:
       - name: Reject obvious committed credential material in frontier slice
         shell: bash
         run: |
-          if grep -RInE --exclude='*.md' --exclude='*.yml' '(sk-[A-Za-z0-9_-]{16,}|Bearer[[:space:]]+[A-Za-z0-9._-]{16,}|api[_-]?key[[:space:]]*=[[:space:]]*["'"'][^"'"']{12,})' platform/sol/frontier agents/cognitive_pipeline_auditbound.py sovereign-omega-v2/src/api/frontier-inference-gateway.ts; then
+          if grep -RInE --exclude='*.md' --exclude='*.yml' '(sk-[A-Za-z0-9_-]{16,}|Bearer[[:space:]]+[A-Za-z0-9._-]{16,}|api[_-]?key[[:space:]]*=[[:space:]]*["'"'][^"'"']{12,})' platform/sol/frontier agents/cognitive_pipeline_auditbound.py sovereign-omega-v2/src/api/frontier-*.ts; then
             echo 'credential-like material detected in frontier slice' >&2
             exit 1
           fi
