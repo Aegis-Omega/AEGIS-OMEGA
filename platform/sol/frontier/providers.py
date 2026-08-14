@@ -27,6 +27,7 @@ def _provider(
     interoperability: tuple[str, ...],
     streaming_modes: tuple[str, ...],
     capabilities: tuple[str, ...] = ("inference.run", "model.read"),
+    default_consequence_class: str = "D3",
 ) -> ProviderDescriptor:
     return ProviderDescriptor(
         id=id,
@@ -36,6 +37,7 @@ def _provider(
         auth_reference_schemes=("secret://", "env://", "vault://", "keyref://", "oidc://", "identity://"),
         streaming_modes=streaming_modes,
         capabilities=capabilities,
+        default_consequence_class=default_consequence_class,
     )
 
 
@@ -131,6 +133,7 @@ FRONTIER_PROVIDERS: tuple[ProviderDescriptor, ...] = (
         ("openai-compatible",),
         ("sse",),
         ("inference.run", "model.read", "dataset.read", "eval.run"),
+        default_consequence_class="D2",
     ),
 )
 
