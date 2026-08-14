@@ -38,6 +38,16 @@ class FrontierContractTests(unittest.TestCase):
         self.assertEqual(registry["authority_root"], "automaton-3")
         self.assertEqual(registry["default_policy"], "deny")
 
+    def test_frontier_provider_default_consequence_matches_platform_registry(self):
+        registry = self.load("platform-registry.v1.json")
+        by_id = {entry["id"]: entry for entry in registry["platforms"]}
+        for provider in FRONTIER_PROVIDERS:
+            self.assertEqual(
+                by_id[provider.id]["default_consequence_class"],
+                provider.default_consequence_class,
+                provider.id,
+            )
+
     def test_execution_result_cannot_claim_provider_authority(self):
         schema = self.load("execution-result.v1.schema.json")
         self.assertEqual(schema["properties"]["grants_authority"], {"const": False})
