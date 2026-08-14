@@ -58,6 +58,7 @@ jobs:
           python -m json.tool platform/sol/contracts/execution-result.v1.schema.json >/dev/null
           python -m json.tool platform/sol/contracts/proof-carrying-work-order.v1.schema.json >/dev/null
           python -m json.tool platform/sol/contracts/sse-stream-lease.v1.schema.json >/dev/null
+          python -m json.tool platform/sol/contracts/frontier-connections.v1.schema.json >/dev/null
 
       - name: Reject obvious committed credential material in frontier slice
         shell: bash
