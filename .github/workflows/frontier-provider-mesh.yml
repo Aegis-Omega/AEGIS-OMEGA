@@ -77,7 +77,7 @@ jobs:
 
       - name: Verify TypeScript frontier runtime behavior
         working-directory: sovereign-omega-v2
-        run: npm run test -- test/unit/frontier-inference-gateway.test.ts test/unit/frontier-provider-transports.test.ts test/unit/frontier-stream-lease.test.ts test/unit/frontier-automaton3-verifier.test.ts
+        run: npm run test -- test/unit/frontier-inference-gateway.test.ts test/unit/frontier-provider-transports.test.ts test/unit/frontier-stream-lease.test.ts test/unit/frontier-automaton3-verifier.test.ts test/unit/frontier-runtime.test.ts
 
       - name: Typecheck Sovereign Runtime frontier integration
         working-directory: sovereign-omega-v2
