@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from hashlib import sha256
 from pathlib import Path
 import sys
 import unittest
@@ -14,6 +13,7 @@ from work_order import ProofCarryingWorkOrder, WorkOrderError, verify_work_order
 
 HEX0 = "0" * 64
 HEX1 = "1" * 64
+TARGET = "model://openai/configured-deployment"
 
 
 def order(**overrides):
@@ -22,6 +22,7 @@ def order(**overrides):
         request_id="req-00000001",
         provider="openai",
         capability="inference.run",
+        target=TARGET,
         consequence_class="D3",
         arguments_digest=HEX0,
         expected_parent_state_root=HEX1,
@@ -63,7 +64,12 @@ class WorkOrderTests(unittest.TestCase):
     def test_provider_binding_mismatch_is_rejected(self):
         verified = verify_work_order(order())
         with self.assertRaises(WorkOrderError):
-            verified.assert_matches(provider="anthropic", capability="inference.run", request_id="req-00000001")
+            verified.assert_matches(provider="anthropic", capability="inference.run", target=TARGET, request_id="req-00000001")
+
+    def test_target_binding_mismatch_is_rejected(self):
+        verified = verify_work_order(order())
+        with self.assertRaises(WorkOrderError):
+            verified.assert_matches(provider="openai", capability="inference.run", target="model://openai/other", request_id="req-00000001")
 
 
 class StreamLeaseTests(unittest.TestCase):
