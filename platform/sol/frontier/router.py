@@ -63,6 +63,20 @@ class ProviderTransport(Protocol):
         ...
 
 
+RequestFingerprint = tuple[
+    str,
+    str,
+    str,
+    str,
+    str,
+    str,
+    int,
+    int,
+    int,
+    str | None,
+]
+
+
 class GovernedProviderRouter:
     def __init__(self, transports: list[ProviderTransport] | tuple[ProviderTransport, ...]):
         by_provider: dict[str, ProviderTransport] = {}
@@ -71,17 +85,24 @@ class GovernedProviderRouter:
                 raise RouterError(f"duplicate transport for provider {transport.provider}")
             by_provider[transport.provider] = transport
         self._transports = by_provider
-        self._idempotent: dict[tuple[str, str], ProviderEvidence] = {}
+        self._idempotent: dict[
+            tuple[str, str],
+            tuple[RequestFingerprint, ProviderEvidence],
+        ] = {}
 
     def registered_providers(self) -> tuple[str, ...]:
         return tuple(sorted(self._transports))
 
     def invoke(self, invocation: ProviderInvocation) -> ProviderEvidence:
-        self._validate(invocation)
+        work_order_digest = self._validate(invocation)
+        fingerprint = self._fingerprint(invocation, work_order_digest)
         key = (invocation.provider, invocation.idempotency_key)
         existing = self._idempotent.get(key)
         if existing is not None:
-            return existing
+            existing_fingerprint, existing_evidence = existing
+            if existing_fingerprint != fingerprint:
+                raise RouterError("idempotency key is already bound to a different provider request")
+            return existing_evidence
 
         transport = self._transports.get(invocation.provider)
         if transport is None or transport.provider != invocation.provider:
@@ -108,10 +129,10 @@ class GovernedProviderRouter:
             external_reference=evidence.external_reference,
             grants_authority=False,
         )
-        self._idempotent[key] = normalized
+        self._idempotent[key] = (fingerprint, normalized)
         return normalized
 
-    def _validate(self, invocation: ProviderInvocation) -> None:
+    def _validate(self, invocation: ProviderInvocation) -> str | None:
         try:
             descriptor = get_provider(invocation.provider)
         except ProviderRegistryError as exc:
@@ -140,6 +161,7 @@ class GovernedProviderRouter:
         if needs_work_order and invocation.work_order is None:
             raise RouterError("cost-incurring or D2+ work requires a proof-carrying work order")
 
+        work_order_digest: str | None = None
         if invocation.work_order is not None:
             try:
                 verified = verify_work_order(invocation.work_order)
@@ -159,3 +181,21 @@ class GovernedProviderRouter:
                 raise RouterError(str(exc)) from exc
             if verified.order.consequence_class != invocation.consequence_class:
                 raise RouterError("work order consequence class does not match invocation")
+            work_order_digest = verified.digest
+
+        return work_order_digest
+
+    @staticmethod
+    def _fingerprint(invocation: ProviderInvocation, work_order_digest: str | None) -> RequestFingerprint:
+        return (
+            invocation.request_id,
+            invocation.capability,
+            invocation.target,
+            invocation.consequence_class,
+            invocation.arguments_digest,
+            invocation.expected_parent_state_root,
+            invocation.max_cost_microusd,
+            invocation.max_input_tokens,
+            invocation.max_output_tokens,
+            work_order_digest,
+        )
