@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/sol/proof-carrying-work-order.v1.schema.json",
+  "title": "AEGIS Proof-Carrying Work Order",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "work_order_id",
+    "request_id",
+    "provider",
+    "capability",
+    "consequence_class",
+    "arguments_digest",
+    "expected_parent_state_root",
+    "idempotency_key",
+    "max_cost_microusd",
+    "max_input_tokens",
+    "max_output_tokens",
+    "evidence_references",
+    "secret_references",
+    "issued_sequence"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "work_order_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "request_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "provider": { "$ref": "#/$defs/provider" },
+    "capability": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{2,127}$" },
+    "consequence_class": { "enum": ["D0", "D1", "D2", "D3", "D4"] },
+    "arguments_digest": { "$ref": "#/$defs/sha256" },
+    "expected_parent_state_root": { "$ref": "#/$defs/sha256" },
+    "idempotency_key": { "type": "string", "minLength": 8, "maxLength": 256 },
+    "max_cost_microusd": { "type": "integer", "minimum": 0 },
+    "max_input_tokens": { "type": "integer", "minimum": 0 },
+    "max_output_tokens": { "type": "integer", "minimum": 0 },
+    "evidence_references": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 2048 },
+      "uniqueItems": true
+    },
+    "operator_approval_reference": { "type": "string", "minLength": 1, "maxLength": 2048 },
+    "secret_references": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(secret|env|vault|keyref|oidc|identity)://[^\\s]+$"
+      },
+      "uniqueItems": true
+    },
+    "issued_sequence": { "type": "integer", "minimum": 0 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "consequence_class": { "enum": ["D2", "D3", "D4"] } }, "required": ["consequence_class"] },
+      "then": { "properties": { "evidence_references": { "minItems": 1 } } }
+    },
+    {
+      "if": { "properties": { "consequence_class": { "enum": ["D3", "D4"] } }, "required": ["consequence_class"] },
+      "then": { "required": ["operator_approval_reference"] }
+    },
+    {
+      "if": { "properties": { "consequence_class": { "const": "D4" } }, "required": ["consequence_class"] },
+      "then": false
+    }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "provider": {
+      "enum": [
+        "github", "sharepoint", "dataverse", "nvidia", "huggingface", "wolfram", "openai", "figma", "cloudflare", "ios", "web", "ogemma",
+        "anthropic", "google-vertex", "microsoft-foundry", "aws-bedrock", "vercel-ai-gateway", "xai", "mistral", "deepseek", "qwen-dashscope", "nvidia-nim"
+      ]
+    }
+  }
+}
