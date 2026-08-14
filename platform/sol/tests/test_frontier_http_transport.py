@@ -51,6 +51,7 @@ def invocation(provider="openai"):
         request_id="req-1",
         provider=provider,
         capability="inference.run",
+        target=f"model://{provider}/frontier-test-model",
         consequence_class="D0",
         arguments_digest=canonical_payload_digest(payload),
         expected_parent_state_root=HEX1,
