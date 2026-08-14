@@ -11,20 +11,25 @@
     "status",
     "output_digest",
     "observed_at",
-    "receipt_root"
+    "receipt_root",
+    "grants_authority"
   ],
   "properties": {
     "schema_version": { "const": "1.0.0" },
     "request_id": { "type": "string", "format": "uuid" },
-    "provider": {
-      "enum": ["github", "sharepoint", "dataverse", "nvidia", "huggingface", "wolfram", "openai", "figma", "cloudflare", "ios", "web", "ogemma"]
-    },
+    "provider": { "$ref": "#/$defs/provider" },
     "provider_operation_id": { "type": "string", "minLength": 1, "maxLength": 512 },
     "status": { "enum": ["COMMITTED", "DENIED", "FAILED", "INDETERMINATE", "COMPENSATED"] },
     "output_digest": { "$ref": "#/$defs/sha256" },
     "external_state_reference": { "type": "string", "minLength": 1, "maxLength": 2048 },
     "observed_at": { "type": "string", "format": "date-time" },
     "receipt_root": { "$ref": "#/$defs/sha256" },
+    "work_order_digest": { "$ref": "#/$defs/sha256" },
+    "input_tokens": { "type": "integer", "minimum": 0 },
+    "output_tokens": { "type": "integer", "minimum": 0 },
+    "cost_microusd": { "type": "integer", "minimum": 0 },
+    "grants_authority": { "const": false },
+    "stream_final_sequence": { "type": "integer", "minimum": -1 },
     "error": {
       "type": "object",
       "additionalProperties": false,
@@ -39,11 +44,17 @@
   },
   "allOf": [
     {
-      "if": { "properties": { "status": { "enum": ["FAILED", "INDETERMINATE"] } } },
+      "if": { "properties": { "status": { "enum": ["FAILED", "INDETERMINATE"] } }, "required": ["status"] },
       "then": { "required": ["error"] }
     }
   ],
   "$defs": {
-    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "provider": {
+      "enum": [
+        "github", "sharepoint", "dataverse", "nvidia", "huggingface", "wolfram", "openai", "figma", "cloudflare", "ios", "web", "ogemma",
+        "anthropic", "google-vertex", "microsoft-foundry", "aws-bedrock", "vercel-ai-gateway", "xai", "mistral", "deepseek", "qwen-dashscope", "nvidia-nim"
+      ]
+    }
   }
 }
