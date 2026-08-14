@@ -106,7 +106,7 @@ _AUTH_REFERENCE_PREFIXES = (
     "oauth://",
 )
 _PROTOCOL_PROVIDERS = {
-    "openai-responses": {"openai"},
+    "openai-responses": {"openai", "vercel-ai-gateway", "xai", "nvidia-nim"},
     "anthropic-messages": {"anthropic"},
     "openai-compatible-chat": {
         "vercel-ai-gateway",
@@ -222,7 +222,7 @@ class ProviderHTTPTransport:
         if protocol == "openai-responses":
             url = base + "/v1/responses" if not base.endswith("/v1") else base + "/responses"
             if material.kind != "bearer":
-                raise TransportError("OpenAI Responses requires bearer credential material")
+                raise TransportError("Responses-compatible transport requires bearer credential material")
             headers["authorization"] = f"Bearer {material.value}"
         elif protocol == "anthropic-messages":
             url = base + "/v1/messages" if not base.endswith("/v1") else base + "/messages"
