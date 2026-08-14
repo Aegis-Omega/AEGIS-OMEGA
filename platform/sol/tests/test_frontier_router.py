@@ -15,6 +15,7 @@ from work_order import ProofCarryingWorkOrder  # noqa: E402
 HEX0 = "0" * 64
 HEX1 = "1" * 64
 HEX2 = "2" * 64
+TARGET = "model://openai/configured-deployment"
 
 
 class FakeTransport:
@@ -44,6 +45,7 @@ def valid_order(**overrides):
         request_id="req-1",
         provider="openai",
         capability="inference.run",
+        target=TARGET,
         consequence_class="D3",
         arguments_digest=HEX0,
         expected_parent_state_root=HEX1,
@@ -65,6 +67,7 @@ def invocation(**overrides):
         request_id="req-1",
         provider="openai",
         capability="inference.run",
+        target=TARGET,
         consequence_class="D3",
         arguments_digest=HEX0,
         expected_parent_state_root=HEX1,
@@ -166,6 +169,10 @@ class RouterTests(unittest.TestCase):
     def test_work_order_must_bind_full_budget_and_parent_envelope(self):
         with self.assertRaises(RouterError):
             self.router.invoke(invocation(work_order=valid_order(expected_parent_state_root=HEX2)))
+
+    def test_work_order_must_bind_target_deployment(self):
+        with self.assertRaises(RouterError):
+            self.router.invoke(invocation(target="model://openai/other"))
 
     def test_valid_d3_work_order_allows_transport_but_evidence_never_grants_authority(self):
         result = self.router.invoke(invocation())
