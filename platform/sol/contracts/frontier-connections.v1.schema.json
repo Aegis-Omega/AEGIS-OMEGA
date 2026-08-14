@@ -40,7 +40,7 @@
           "if": { "properties": { "protocol": { "const": "openai-responses" } }, "required": ["protocol"] },
           "then": {
             "properties": {
-              "provider": { "const": "openai" },
+              "provider": { "enum": ["openai", "vercel-ai-gateway", "xai", "nvidia-nim"] },
               "endpoint": { "pattern": "^https://" }
             }
           }
