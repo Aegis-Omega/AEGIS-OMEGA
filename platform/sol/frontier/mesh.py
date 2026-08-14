@@ -25,6 +25,30 @@ _HTTP_PROTOCOLS = {"openai-responses", "anthropic-messages", "openai-compatible-
 _MANAGED_PROTOCOL = "managed-sdk"
 
 
+def connection_specs_from_manifest(manifest: object) -> tuple[FrontierConnectionSpec, ...]:
+    if not isinstance(manifest, dict) or manifest.get("schema_version") != "1.0.0":
+        raise FrontierMeshError("unsupported frontier connection manifest schema")
+    raw_connections = manifest.get("connections")
+    if not isinstance(raw_connections, list):
+        raise FrontierMeshError("frontier connection manifest requires a connections array")
+    specs: list[FrontierConnectionSpec] = []
+    for index, raw in enumerate(raw_connections):
+        if not isinstance(raw, dict):
+            raise FrontierMeshError(f"connection[{index}] must be an object")
+        keys = {"provider", "protocol", "endpoint", "auth_reference"}
+        if set(raw) != keys:
+            raise FrontierMeshError(f"connection[{index}] has invalid fields")
+        if not all(isinstance(raw[key], str) and raw[key] for key in keys):
+            raise FrontierMeshError(f"connection[{index}] fields must be non-empty strings")
+        specs.append(FrontierConnectionSpec(
+            provider=raw["provider"],
+            protocol=raw["protocol"],
+            endpoint=raw["endpoint"],
+            auth_reference=raw["auth_reference"],
+        ))
+    return tuple(specs)
+
+
 def build_frontier_router(
     *,
     connections: tuple[FrontierConnectionSpec, ...] | list[FrontierConnectionSpec],
