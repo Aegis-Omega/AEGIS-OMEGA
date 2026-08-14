@@ -24,6 +24,7 @@ export interface ProofCarryingWorkOrder {
   readonly requestId: string
   readonly provider: FrontierInferenceProvider
   readonly capability: 'inference.run'
+  readonly target: string
   readonly consequenceClass: ConsequenceClass
   readonly argumentsDigest: string
   readonly expectedParentStateRoot: string
@@ -41,10 +42,6 @@ export interface VerifiedWorkOrder {
   readonly digest: string
 }
 
-/**
- * The runtime never self-attests a proof-carrying work order. A verifier bound to
- * Automaton-3 / receipt evidence must be injected by the server-side composition.
- */
 export interface WorkOrderVerifier {
   verify(workOrder: ProofCarryingWorkOrder): Promise<VerifiedWorkOrder>
 }
@@ -312,6 +309,7 @@ export class FrontierInferenceGateway {
       !workOrder.workOrderId ||
       !workOrder.requestId ||
       workOrder.capability !== 'inference.run' ||
+      !workOrder.target ||
       workOrder.idempotencyKey.length < 8 ||
       !SHA256_HEX.test(workOrder.argumentsDigest) ||
       !SHA256_HEX.test(workOrder.expectedParentStateRoot) ||
@@ -352,6 +350,7 @@ export class FrontierInferenceGateway {
       order.provider !== request.provider ||
       order.requestId !== request.requestId ||
       order.capability !== 'inference.run' ||
+      order.target !== request.deployment ||
       order.consequenceClass !== request.consequenceClass ||
       order.argumentsDigest !== request.payloadDigest ||
       order.expectedParentStateRoot !== request.expectedParentStateRoot ||
@@ -454,7 +453,7 @@ export class FrontierInferenceGateway {
     status: FrontierRequestStatus,
     workOrderDigest: string,
   ): Promise<void> {
-    await this.meter.record({
+    const base = {
       tenantId: request.tenantId,
       provider: request.provider,
       deployment: deployment.name,
@@ -466,10 +465,12 @@ export class FrontierInferenceGateway {
       correlationId: request.correlationId,
       requestId: request.requestId,
       workOrderDigest,
-      providerOperationId: result?.providerOperationId,
-      responseDigest: result?.responseDigest,
-      grantsAuthority: false,
-    })
+      grantsAuthority: false as const,
+    }
+    const usage: FrontierUsageRecord = result === undefined
+      ? base
+      : { ...base, providerOperationId: result.providerOperationId, responseDigest: result.responseDigest }
+    await this.meter.record(usage)
   }
 
   private cost(deployment: FrontierDeployment, input: number, output: number): number {
