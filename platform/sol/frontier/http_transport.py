@@ -3,8 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 import json
+import socket
 from typing import Mapping, Protocol, runtime_checkable
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 from providers import ProviderRegistryError, get_provider
 from router import ProviderEvidence, ProviderInvocation
@@ -57,6 +60,42 @@ class HTTPExecutor(Protocol):
         ...
 
 
+class UrllibHTTPExecutor:
+    """Minimal stdlib HTTPS executor for admitted server-side provider calls."""
+
+    def __init__(self, timeout_seconds: float = 60.0, max_response_bytes: int = 16 * 1024 * 1024):
+        if timeout_seconds <= 0 or max_response_bytes <= 0:
+            raise TransportError("HTTP executor limits must be positive")
+        self._timeout_seconds = timeout_seconds
+        self._max_response_bytes = max_response_bytes
+
+    def send(self, request: HTTPRequest) -> HTTPResponse:
+        req = Request(
+            request.url,
+            data=request.body,
+            headers=dict(request.headers),
+            method=request.method,
+        )
+        try:
+            with urlopen(req, timeout=self._timeout_seconds) as response:  # noqa: S310 - URL is prevalidated HTTPS
+                body = response.read(self._max_response_bytes + 1)
+                if len(body) > self._max_response_bytes:
+                    raise TransportError("provider response exceeded configured byte ceiling")
+                headers = {key.lower(): value for key, value in response.headers.items()}
+                return HTTPResponse(status=int(response.status), headers=headers, body=body)
+        except HTTPError as exc:
+            body = exc.read(self._max_response_bytes + 1)
+            if len(body) > self._max_response_bytes:
+                body = body[: self._max_response_bytes]
+            return HTTPResponse(
+                status=int(exc.code),
+                headers={key.lower(): value for key, value in exc.headers.items()},
+                body=body,
+            )
+        except (URLError, TimeoutError, socket.timeout, OSError) as exc:
+            raise TransportError("provider network request failed") from exc
+
+
 _AUTH_REFERENCE_PREFIXES = (
     "secret://",
     "env://",
@@ -66,10 +105,18 @@ _AUTH_REFERENCE_PREFIXES = (
     "identity://",
     "oauth://",
 )
-_SUPPORTED_PROTOCOLS = {
-    "openai-responses",
-    "anthropic-messages",
-    "openai-compatible-chat",
+_PROTOCOL_PROVIDERS = {
+    "openai-responses": {"openai"},
+    "anthropic-messages": {"anthropic"},
+    "openai-compatible-chat": {
+        "vercel-ai-gateway",
+        "xai",
+        "mistral",
+        "deepseek",
+        "qwen-dashscope",
+        "nvidia-nim",
+        "huggingface",
+    },
 }
 
 
@@ -133,11 +180,14 @@ class ProviderHTTPTransport:
             get_provider(connection.provider)
         except ProviderRegistryError as exc:
             raise TransportError(str(exc)) from exc
-        if connection.protocol not in _SUPPORTED_PROTOCOLS:
+        allowed_providers = _PROTOCOL_PROVIDERS.get(connection.protocol)
+        if allowed_providers is None:
             raise TransportError("unsupported frontier HTTP protocol")
+        if connection.provider not in allowed_providers:
+            raise TransportError("provider is not compatible with configured HTTP protocol")
         parsed = urlparse(connection.base_url)
-        if parsed.scheme != "https" or not parsed.netloc:
-            raise TransportError("provider base_url must be absolute HTTPS")
+        if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
+            raise TransportError("provider base_url must be absolute HTTPS without embedded credentials")
         if not connection.auth_reference.startswith(_AUTH_REFERENCE_PREFIXES):
             raise TransportError("provider auth must be an opaque reference")
         return connection
