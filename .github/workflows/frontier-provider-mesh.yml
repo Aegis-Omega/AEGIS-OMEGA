@@ -8,6 +8,8 @@ on:
       - 'agents/cognitive_pipeline_auditbound.py'
       - 'agents/tests/test_cognitive_evidence_binding.py'
       - 'platform/sol/**'
+      - 'sovereign-omega-v2/src/api/frontier-*.ts'
+      - 'sovereign-omega-v2/test/unit/frontier-*.test.ts'
       - '.github/workflows/frontier-provider-mesh.yml'
   pull_request:
     branches:
@@ -16,6 +18,8 @@ on:
       - 'agents/cognitive_pipeline_auditbound.py'
       - 'agents/tests/test_cognitive_evidence_binding.py'
       - 'platform/sol/**'
+      - 'sovereign-omega-v2/src/api/frontier-*.ts'
+      - 'sovereign-omega-v2/test/unit/frontier-*.test.ts'
       - '.github/workflows/frontier-provider-mesh.yml'
 
 permissions:
@@ -24,7 +28,7 @@ permissions:
 jobs:
   frontier-contract:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout exact candidate
         uses: actions/checkout@v4
@@ -60,10 +64,29 @@ jobs:
           python -m json.tool platform/sol/contracts/sse-stream-lease.v1.schema.json >/dev/null
           python -m json.tool platform/sol/contracts/frontier-connections.v1.schema.json >/dev/null
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+
+      - name: Install Sovereign Runtime dependencies
+        working-directory: sovereign-omega-v2
+        run: npm ci
+
+      - name: Verify TypeScript frontier runtime behavior
+        working-directory: sovereign-omega-v2
+        run: npm run test -- test/unit/frontier-inference-gateway.test.ts
+
+      - name: Typecheck Sovereign Runtime frontier integration
+        working-directory: sovereign-omega-v2
+        run: npm run typecheck
+
       - name: Reject obvious committed credential material in frontier slice
         shell: bash
         run: |
-          if grep -RInE --exclude='*.md' --exclude='*.yml' '(sk-[A-Za-z0-9_-]{16,}|Bearer[[:space:]]+[A-Za-z0-9._-]{16,}|api[_-]?key[[:space:]]*=[[:space:]]*["'"'][^"'"']{12,})' platform/sol/frontier agents/cognitive_pipeline_auditbound.py; then
+          if grep -RInE --exclude='*.md' --exclude='*.yml' '(sk-[A-Za-z0-9_-]{16,}|Bearer[[:space:]]+[A-Za-z0-9._-]{16,}|api[_-]?key[[:space:]]*=[[:space:]]*["'"'][^"'"']{12,})' platform/sol/frontier agents/cognitive_pipeline_auditbound.py sovereign-omega-v2/src/api/frontier-inference-gateway.ts; then
             echo 'credential-like material detected in frontier slice' >&2
             exit 1
           fi
