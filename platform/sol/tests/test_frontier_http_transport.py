@@ -15,9 +15,8 @@ from http_transport import (  # noqa: E402
     ProviderHTTPTransport,
     TransportError,
 )
-from router import ProviderInvocation  # noqa: E402
+from router import ProviderInvocation, canonical_payload_digest  # noqa: E402
 
-HEX0 = "0" * 64
 HEX1 = "1" * 64
 
 
@@ -47,18 +46,20 @@ class FakeExecutor:
 
 
 def invocation(provider="openai"):
+    payload = {"model": "frontier-test-model", "input": "hello"}
     return ProviderInvocation(
         request_id="req-1",
         provider=provider,
         capability="inference.run",
         consequence_class="D0",
-        arguments_digest=HEX0,
+        arguments_digest=canonical_payload_digest(payload),
         expected_parent_state_root=HEX1,
         idempotency_key="idem-0001",
         max_cost_microusd=0,
         max_input_tokens=100,
         max_output_tokens=100,
         work_order=None,
+        payload=payload,
     )
 
 
