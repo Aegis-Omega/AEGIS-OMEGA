@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
+import json
 import re
 from typing import Protocol
 
@@ -13,6 +15,14 @@ class RouterError(ValueError):
 
 
 _SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
+
+
+def canonical_payload_digest(payload: object) -> str:
+    try:
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise RouterError("provider payload is not canonical-JSON serializable") from exc
+    return sha256(encoded).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -28,6 +38,7 @@ class ProviderInvocation:
     max_input_tokens: int
     max_output_tokens: int
     work_order: ProofCarryingWorkOrder | None = None
+    payload: object | None = None
 
 
 @dataclass(frozen=True)
@@ -112,6 +123,8 @@ class GovernedProviderRouter:
             raise RouterError("arguments_digest must be SHA-256")
         if _SHA256_RE.fullmatch(invocation.expected_parent_state_root) is None:
             raise RouterError("expected_parent_state_root must be SHA-256")
+        if invocation.payload is not None and canonical_payload_digest(invocation.payload) != invocation.arguments_digest:
+            raise RouterError("provider payload does not match admitted arguments_digest")
         if len(invocation.idempotency_key) < 8:
             raise RouterError("idempotency_key is too short")
         if invocation.max_cost_microusd < 0 or invocation.max_input_tokens < 0 or invocation.max_output_tokens < 0:
