@@ -186,6 +186,16 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(self.transport.calls, 1)
 
+    def test_idempotency_key_reuse_for_different_request_is_rejected(self):
+        self.router.invoke(invocation())
+        conflicting = invocation(
+            request_id="req-2",
+            work_order=valid_order(request_id="req-2"),
+        )
+        with self.assertRaises(RouterError):
+            self.router.invoke(conflicting)
+        self.assertEqual(self.transport.calls, 1)
+
     def test_transport_provider_must_match_registration(self):
         class WrongTransport(FakeTransport):
             provider = "anthropic"
