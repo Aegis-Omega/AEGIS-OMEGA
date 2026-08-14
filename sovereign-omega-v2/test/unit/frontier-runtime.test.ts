@@ -55,7 +55,9 @@ const authorizer: FrontierAuthorizer = {
     maxConcurrent: 4,
   }),
 }
-const workOrderVerifier: WorkOrderVerifier = { verify: async () => ({ valid: true, digest: 'a'.repeat(64) }) }
+const workOrderVerifier: WorkOrderVerifier = {
+  verify: async () => ({ valid: true, digest: 'a'.repeat(64), authorityReceiptRoot: 'b'.repeat(64) }),
+}
 const streamLeaseVerifier: StreamLeaseVerifier = { verify: async () => true }
 const credentialHeaders: FrontierCredentialHeaderResolver = { resolve: async () => ({ authorization: 'Bearer runtime-only' }) }
 const fetcher: FrontierFetch = vi.fn()
