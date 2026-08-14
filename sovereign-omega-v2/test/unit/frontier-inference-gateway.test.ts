@@ -62,6 +62,7 @@ const workOrder = (
   maxOutputTokens: 500,
   evidenceReferences: ['receipt://admission/1'],
   operatorApprovalReference: 'approval://operator/1',
+  secretReferences: [`secret://${provider}/aegisomega`],
   issuedSequence: 1,
   ...overrides,
 })
@@ -114,7 +115,7 @@ const transport = (
 ): FrontierInferenceTransport => ({ provider, invoke })
 
 const workOrderVerifier: WorkOrderVerifier = {
-  verify: vi.fn(async () => ({ valid: true, digest: hex('3') })),
+  verify: vi.fn(async () => ({ valid: true, digest: hex('3'), authorityReceiptRoot: hex('4') })),
 }
 
 const streamVerifier: StreamLeaseVerifier = {
@@ -137,12 +138,22 @@ describe('FrontierInferenceGateway proof-carrying contract', () => {
       deployment: `${provider}-prod`,
       status: 'succeeded',
       workOrderDigest: hex('3'),
+      authorityReceiptRoot: hex('4'),
     })
   })
 
   it('denies execution when the proof-carrying work order cannot be verified', async () => {
     const mocked = transport('openai')
     const verifier: WorkOrderVerifier = { verify: async () => ({ valid: false, digest: hex('3') }) }
+    const gateway = new FrontierInferenceGateway(deployments, [mocked], authorizer, new InMemoryFrontierUsageMeter(), verifier, streamVerifier)
+
+    await expect(gateway.infer(request('openai'))).rejects.toMatchObject({ code: 'WORK_ORDER_INVALID' })
+    expect(mocked.invoke).not.toHaveBeenCalled()
+  })
+
+  it('denies a nominally valid work order when the authority receipt root is missing', async () => {
+    const mocked = transport('openai')
+    const verifier: WorkOrderVerifier = { verify: async () => ({ valid: true, digest: hex('3') }) }
     const gateway = new FrontierInferenceGateway(deployments, [mocked], authorizer, new InMemoryFrontierUsageMeter(), verifier, streamVerifier)
 
     await expect(gateway.infer(request('openai'))).rejects.toMatchObject({ code: 'WORK_ORDER_INVALID' })
@@ -172,6 +183,16 @@ describe('FrontierInferenceGateway proof-carrying contract', () => {
 
     await expect(gateway.infer(request('openai', {
       workOrder: workOrder('openai', { operatorApprovalReference: undefined }),
+    }))).rejects.toMatchObject({ code: 'WORK_ORDER_INVALID' })
+    expect(mocked.invoke).not.toHaveBeenCalled()
+  })
+
+  it('rejects inline credential material in the proof-carrying work order', async () => {
+    const mocked = transport('openai')
+    const gateway = new FrontierInferenceGateway(deployments, [mocked], authorizer, new InMemoryFrontierUsageMeter(), workOrderVerifier, streamVerifier)
+
+    await expect(gateway.infer(request('openai', {
+      workOrder: workOrder('openai', { secretReferences: ['sk-inline-forbidden'] }),
     }))).rejects.toMatchObject({ code: 'WORK_ORDER_INVALID' })
     expect(mocked.invoke).not.toHaveBeenCalled()
   })
@@ -255,5 +276,6 @@ describe('FrontierInferenceGateway proof-carrying contract', () => {
 
     await expect(gateway.infer(request('openai'))).rejects.toMatchObject({ code: 'LIMIT_EXCEEDED' })
     expect(meter.records.at(-1)?.status).toBe('rejected')
+    expect(meter.records.at(-1)?.authorityReceiptRoot).toBe(hex('4'))
   })
 })
