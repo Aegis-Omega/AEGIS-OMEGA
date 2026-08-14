@@ -3,6 +3,7 @@ import {
   type FrontierAuthorizer,
   type FrontierDeployment,
   type FrontierInferenceProvider,
+  type FrontierInferenceTransport,
   type FrontierMeter,
   type StreamLeaseVerifier,
   type WorkOrderVerifier,
@@ -70,7 +71,7 @@ export function buildFrontierRuntime(
   dependencies: FrontierRuntimeDependencies,
 ): FrontierRuntime {
   const seen = new Set<FrontierInferenceProvider>()
-  const transports = []
+  const transports: FrontierInferenceTransport[] = []
 
   for (const connection of config.connections) {
     if (seen.has(connection.provider)) {
