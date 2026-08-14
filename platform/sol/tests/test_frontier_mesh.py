@@ -9,7 +9,12 @@ sys.path.insert(0, str(FRONTIER_DIR))
 
 from http_transport import CredentialMaterial, HTTPResponse  # noqa: E402
 from managed_transport import ManagedProviderResult  # noqa: E402
-from mesh import FrontierConnectionSpec, FrontierMeshError, build_frontier_router  # noqa: E402
+from mesh import (  # noqa: E402
+    FrontierConnectionSpec,
+    FrontierMeshError,
+    build_frontier_router,
+    connection_specs_from_manifest,
+)
 
 
 class FakeCredentials:
@@ -37,6 +42,29 @@ class FakeManaged:
 
 
 class FrontierMeshTests(unittest.TestCase):
+    def test_manifest_parser_produces_typed_connection_specs(self):
+        specs = connection_specs_from_manifest({
+            "schema_version": "1.0.0",
+            "connections": [
+                {
+                    "provider": "openai",
+                    "protocol": "openai-responses",
+                    "endpoint": "https://api.openai.com",
+                    "auth_reference": "secret://openai/aegisomega",
+                }
+            ],
+        })
+        self.assertEqual(specs, (FrontierConnectionSpec(
+            provider="openai",
+            protocol="openai-responses",
+            endpoint="https://api.openai.com",
+            auth_reference="secret://openai/aegisomega",
+        ),))
+
+    def test_manifest_parser_rejects_unknown_schema_version(self):
+        with self.assertRaises(FrontierMeshError):
+            connection_specs_from_manifest({"schema_version": "2.0.0", "connections": []})
+
     def test_builds_http_and_managed_transports_into_one_router(self):
         router = build_frontier_router(
             connections=(
