@@ -52,6 +52,7 @@ const workOrder = (
   requestId: `request-${provider}`,
   provider,
   capability: 'inference.run',
+  target: `${provider}-prod`,
   consequenceClass: 'D3',
   argumentsDigest: payloadDigest,
   expectedParentStateRoot: hex('1'),
@@ -151,6 +152,7 @@ describe('FrontierInferenceGateway proof-carrying contract', () => {
   it.each([
     ['provider', { workOrder: workOrder('anthropic') }],
     ['request', { workOrder: workOrder('openai', { requestId: 'wrong' }) }],
+    ['target', { workOrder: workOrder('openai', { target: 'openai-other' }) }],
     ['arguments', { workOrder: workOrder('openai', { argumentsDigest: hex('9') }) }],
     ['parent', { workOrder: workOrder('openai', { expectedParentStateRoot: hex('9') }) }],
     ['idempotency', { workOrder: workOrder('openai', { idempotencyKey: 'wrong-idempotency' }) }],
