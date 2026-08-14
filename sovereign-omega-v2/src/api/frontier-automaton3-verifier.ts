@@ -49,7 +49,7 @@ export class Automaton3WorkOrderVerifier implements WorkOrderVerifier {
       return { valid: false, digest }
     }
     this.authorityRoots.set(workOrder.workOrderId, root)
-    return { valid: true, digest }
+    return { valid: true, digest, authorityReceiptRoot: root }
   }
 
   authorityReceiptRoot(workOrderId: string): string | undefined {
@@ -202,7 +202,6 @@ export async function frontierWorkOrderDigest(workOrder: ProofCarryingWorkOrder)
 }
 
 function workOrderPayload(workOrder: ProofCarryingWorkOrder): Record<string, unknown> {
-  const secretReferences = readOptionalSecretReferences(workOrder)
   return {
     schema_version: workOrder.schemaVersion,
     work_order_id: workOrder.workOrderId,
@@ -219,14 +218,9 @@ function workOrderPayload(workOrder: ProofCarryingWorkOrder): Record<string, unk
     max_output_tokens: workOrder.maxOutputTokens,
     evidence_references: [...workOrder.evidenceReferences],
     operator_approval_reference: workOrder.operatorApprovalReference ?? null,
-    secret_references: secretReferences,
+    secret_references: workOrder.secretReferences === undefined ? [] : [...workOrder.secretReferences],
     issued_sequence: workOrder.issuedSequence,
   }
-}
-
-function readOptionalSecretReferences(workOrder: ProofCarryingWorkOrder): readonly string[] {
-  const candidate = workOrder as ProofCarryingWorkOrder & { readonly secretReferences?: readonly string[] }
-  return candidate.secretReferences === undefined ? [] : [...candidate.secretReferences]
 }
 
 function sortRecursively(value: unknown): unknown {
