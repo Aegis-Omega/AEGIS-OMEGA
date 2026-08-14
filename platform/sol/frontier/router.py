@@ -30,6 +30,7 @@ class ProviderInvocation:
     request_id: str
     provider: str
     capability: str
+    target: str
     consequence_class: str
     arguments_digest: str
     expected_parent_state_root: str
@@ -118,6 +119,8 @@ class GovernedProviderRouter:
 
         if invocation.capability not in descriptor.capabilities:
             raise RouterError("provider capability is not declared")
+        if not invocation.target:
+            raise RouterError("provider target is required")
         if invocation.consequence_class not in {"D0", "D1", "D2", "D3", "D4"}:
             raise RouterError("unknown consequence class")
         if invocation.consequence_class == "D4":
@@ -143,6 +146,7 @@ class GovernedProviderRouter:
                 verified.assert_matches(
                     provider=invocation.provider,
                     capability=invocation.capability,
+                    target=invocation.target,
                     request_id=invocation.request_id,
                     arguments_digest=invocation.arguments_digest,
                     expected_parent_state_root=invocation.expected_parent_state_root,
