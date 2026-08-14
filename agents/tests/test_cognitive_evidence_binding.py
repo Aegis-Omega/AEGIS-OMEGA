@@ -3,13 +3,8 @@ from __future__ import annotations
 import asyncio
 import unittest
 
-from agents.cognitive_pipeline import (
-    EvidenceBinding,
-    KanInferenceLog,
-    arbitrate,
-    constitutional_scorer,
-    run_pipeline,
-)
+from agents.cognitive_pipeline import KanInferenceLog, constitutional_scorer
+from agents.cognitive_pipeline_auditbound import EvidenceBinding, arbitrate, run_pipeline
 
 
 DIGEST = "a" * 64
