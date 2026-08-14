@@ -34,12 +34,14 @@ export interface ProofCarryingWorkOrder {
   readonly maxOutputTokens: number
   readonly evidenceReferences: readonly string[]
   readonly operatorApprovalReference?: string | undefined
+  readonly secretReferences?: readonly string[] | undefined
   readonly issuedSequence: number
 }
 
 export interface VerifiedWorkOrder {
   readonly valid: boolean
   readonly digest: string
+  readonly authorityReceiptRoot?: string | undefined
 }
 
 export interface WorkOrderVerifier {
@@ -125,6 +127,7 @@ export interface FrontierUsageRecord {
   readonly correlationId: string
   readonly requestId: string
   readonly workOrderDigest: string
+  readonly authorityReceiptRoot: string
   readonly providerOperationId?: string | undefined
   readonly responseDigest?: string | undefined
   readonly grantsAuthority: false
@@ -178,10 +181,12 @@ interface IdempotentExecution {
 
 interface ValidatedRequest {
   readonly workOrderDigest: string
+  readonly authorityReceiptRoot: string
   readonly fingerprint: string
 }
 
 const SHA256_HEX = /^[a-f0-9]{64}$/
+const OPAQUE_SECRET_REFERENCE = /^(secret|env|vault|keyref|oidc|identity):\/\/\S+$/
 
 /**
  * Binds the exact JSON payload bytes used by this runtime. This is deliberately
@@ -226,7 +231,7 @@ export class FrontierInferenceGateway {
       return existing.promise as Promise<FrontierProviderResult<T>>
     }
 
-    const execution = this.admitAndInvoke(request, validated.workOrderDigest)
+    const execution = this.admitAndInvoke(request, validated.workOrderDigest, validated.authorityReceiptRoot)
     this.idempotent.set(cacheKey, { fingerprint: validated.fingerprint, promise: execution })
     try {
       return await execution as FrontierProviderResult<T>
@@ -299,8 +304,13 @@ export class FrontierInferenceGateway {
       request.expectedParentStateRoot,
       request.workOrder.workOrderId,
       verified.digest,
+      verified.authorityReceiptRoot,
     ].join('|')
-    return { workOrderDigest: verified.digest, fingerprint }
+    return {
+      workOrderDigest: verified.digest,
+      authorityReceiptRoot: verified.authorityReceiptRoot!,
+      fingerprint,
+    }
   }
 
   private validateWorkOrderStructure(workOrder: ProofCarryingWorkOrder): void {
@@ -329,6 +339,14 @@ export class FrontierInferenceGateway {
     if (workOrder.consequenceClass === 'D3' && !workOrder.operatorApprovalReference) {
       throw new FrontierGatewayError('WORK_ORDER_INVALID', 'D3 work order requires explicit operator approval')
     }
+    if (workOrder.secretReferences !== undefined) {
+      if (new Set(workOrder.secretReferences).size !== workOrder.secretReferences.length) {
+        throw new FrontierGatewayError('WORK_ORDER_INVALID', 'secret references must be unique')
+      }
+      if (workOrder.secretReferences.some(reference => !OPAQUE_SECRET_REFERENCE.test(reference))) {
+        throw new FrontierGatewayError('WORK_ORDER_INVALID', 'work order may contain only opaque secret references')
+      }
+    }
   }
 
   private async verifyWorkOrder(workOrder: ProofCarryingWorkOrder): Promise<VerifiedWorkOrder> {
@@ -338,8 +356,13 @@ export class FrontierInferenceGateway {
     } catch {
       throw new FrontierGatewayError('WORK_ORDER_INVALID', 'proof-carrying work order verifier is unavailable')
     }
-    if (!verified.valid || !SHA256_HEX.test(verified.digest)) {
-      throw new FrontierGatewayError('WORK_ORDER_INVALID', 'proof-carrying work order verification failed')
+    if (
+      !verified.valid ||
+      !SHA256_HEX.test(verified.digest) ||
+      typeof verified.authorityReceiptRoot !== 'string' ||
+      !SHA256_HEX.test(verified.authorityReceiptRoot)
+    ) {
+      throw new FrontierGatewayError('WORK_ORDER_INVALID', 'proof-carrying work order verification failed or lacks an authority receipt root')
     }
     return verified
   }
@@ -364,7 +387,11 @@ export class FrontierInferenceGateway {
     }
   }
 
-  private async admitAndInvoke(request: FrontierInferenceRequest, workOrderDigest: string): Promise<FrontierProviderResult> {
+  private async admitAndInvoke(
+    request: FrontierInferenceRequest,
+    workOrderDigest: string,
+    authorityReceiptRoot: string,
+  ): Promise<FrontierProviderResult> {
     let entitlement: FrontierEntitlement
     let deployment: FrontierDeployment
     try {
@@ -406,12 +433,12 @@ export class FrontierInferenceGateway {
       if (cost > request.budgetMicroUsd || cost > request.workOrder.maxCostMicroUsd) {
         throw new FrontierGatewayError('LIMIT_EXCEEDED', 'provider cost exceeded the admitted budget')
       }
-      await this.record(request, deployment, result, cost, 'succeeded', workOrderDigest)
+      await this.record(request, deployment, result, cost, 'succeeded', workOrderDigest, authorityReceiptRoot)
       return { ...result, grantsAuthority: false }
     } catch (error) {
       const status: FrontierRequestStatus = error instanceof FrontierGatewayError && error.code === 'LIMIT_EXCEEDED' ? 'rejected' : 'failed'
       try {
-        await this.record(request, deployment, undefined, 0, status, workOrderDigest)
+        await this.record(request, deployment, undefined, 0, status, workOrderDigest, authorityReceiptRoot)
       } catch {
         throw new FrontierGatewayError('ADMISSION_UNAVAILABLE', 'usage persistence is unavailable; request denied')
       }
@@ -452,6 +479,7 @@ export class FrontierInferenceGateway {
     costEstimateMicroUsd: number,
     status: FrontierRequestStatus,
     workOrderDigest: string,
+    authorityReceiptRoot: string,
   ): Promise<void> {
     const base = {
       tenantId: request.tenantId,
@@ -465,6 +493,7 @@ export class FrontierInferenceGateway {
       correlationId: request.correlationId,
       requestId: request.requestId,
       workOrderDigest,
+      authorityReceiptRoot,
       grantsAuthority: false as const,
     }
     const usage: FrontierUsageRecord = result === undefined
