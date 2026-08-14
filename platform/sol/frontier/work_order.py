@@ -7,7 +7,7 @@ import re
 from typing import Iterable
 
 _SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
-_SECRET_REF_PREFIXES = ("secret://", "env://", "vault://", "keyref://")
+_SECRET_REF_PREFIXES = ("secret://", "env://", "vault://", "keyref://", "oidc://", "identity://")
 _ALLOWED_CONSEQUENCE_CLASSES = {"D0", "D1", "D2", "D3", "D4"}
 
 
@@ -35,6 +35,7 @@ class ProofCarryingWorkOrder:
     request_id: str
     provider: str
     capability: str
+    target: str
     consequence_class: str
     arguments_digest: str
     expected_parent_state_root: str
@@ -59,6 +60,7 @@ class VerifiedWorkOrder:
         *,
         provider: str,
         capability: str,
+        target: str,
         request_id: str,
         arguments_digest: str | None = None,
         expected_parent_state_root: str | None = None,
@@ -71,6 +73,8 @@ class VerifiedWorkOrder:
             raise WorkOrderError("work order provider does not match invocation")
         if self.order.capability != capability:
             raise WorkOrderError("work order capability does not match invocation")
+        if self.order.target != target:
+            raise WorkOrderError("work order target does not match invocation")
         if self.order.request_id != request_id:
             raise WorkOrderError("work order request_id does not match invocation")
         if arguments_digest is not None and self.order.arguments_digest != arguments_digest:
@@ -99,7 +103,7 @@ def _validate_references(values: Iterable[str], name: str) -> tuple[str, ...]:
 def verify_work_order(order: ProofCarryingWorkOrder) -> VerifiedWorkOrder:
     if order.schema_version != "1.0.0":
         raise WorkOrderError("unsupported work order schema_version")
-    for name in ("work_order_id", "request_id", "provider", "capability"):
+    for name in ("work_order_id", "request_id", "provider", "capability", "target"):
         _require_text(getattr(order, name), name)
     _require_text(order.idempotency_key, "idempotency_key", minimum=8)
     _require_sha256(order.arguments_digest, "arguments_digest")
@@ -137,6 +141,7 @@ def verify_work_order(order: ProofCarryingWorkOrder) -> VerifiedWorkOrder:
         "request_id": order.request_id,
         "provider": order.provider,
         "capability": order.capability,
+        "target": order.target,
         "consequence_class": order.consequence_class,
         "arguments_digest": order.arguments_digest,
         "expected_parent_state_root": order.expected_parent_state_root,
