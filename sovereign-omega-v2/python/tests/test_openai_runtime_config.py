@@ -67,3 +67,8 @@ def test_sensitive_tracing_defaults_false_and_bounds_are_applied():
     assert cfg.max_turns == 12
     assert cfg.max_tool_concurrency == 2
     assert cfg.model == "gpt-5.6-sol"
+
+
+def test_api_key_is_redacted_from_config_repr():
+    cfg = OpenAIRuntimeConfig.from_env(_base_env())
+    assert "test-key-not-real" not in repr(cfg)
