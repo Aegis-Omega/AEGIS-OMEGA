@@ -4,8 +4,8 @@
 Fail closed on stale PR bases, unattributed provider mutations, and destructive
 repository changes without path-level reconciliation and operator authority.
 
-This gate is intentionally provider-neutral: it constrains Claude, Codex,
-Gemini, humans, bots, and future agents identically at the repository boundary.
+Provider-neutral by design: Claude, Codex, Gemini, humans, bots, and future
+agents cross the same repository boundary.
 """
 from __future__ import annotations
 
@@ -84,7 +84,6 @@ def main() -> int:
 
     policy = load_json(POLICY_PATH, 'POLICY_MISSING')
 
-    # Exact-head admission: a PR must contain the exact current base commit.
     merge_base = run('git', 'merge-base', base, head)
     if merge_base != base:
         die(
@@ -109,24 +108,26 @@ def main() -> int:
     changes = parse_name_status(base, head)
     changed_paths = [c['path'] for c in changes]
     deleted_paths = [c['path'] for c in changes if c['status'] == 'D']
-    deleted_paths += [c['old_path'] for c in changes if c['status'] == 'R']
+    renamed_sources = [c['old_path'] for c in changes if c['status'] == 'R']
+    destructive_paths = deleted_paths + renamed_sources
 
     critical_prefixes = tuple(policy.get('critical_prefixes', []))
     critical_files = set(policy.get('critical_files', []))
     critical_paths = sorted({
-        p for p in changed_paths
+        p for p in changed_paths + renamed_sources
         if p in critical_files or p.startswith(critical_prefixes)
     })
 
     high_risk = (
         len(changed_paths) >= int(policy['high_risk_thresholds']['changed_paths'])
         or len(deleted_paths) >= int(policy['high_risk_thresholds']['deleted_paths'])
+        or bool(renamed_sources)
         or bool(critical_paths)
     )
 
-    if deleted_paths:
+    if destructive_paths:
         if receipt.get('destructive_intent') is not True:
-            die('DESTRUCTIVE_INTENT_UNDECLARED', f'deletions/renames detected: {deleted_paths}')
+            die('DESTRUCTIVE_INTENT_UNDECLARED', f'deletions/renames detected: {destructive_paths}')
         approval = str(receipt.get('operator_approval_id', '')).strip()
         if not approval:
             die('OPERATOR_APPROVAL_REQUIRED', 'destructive change requires operator_approval_id')
@@ -135,12 +136,24 @@ def main() -> int:
         if not isinstance(dispositions, dict):
             die('RECONCILIATION_INVALID', 'path_dispositions must be an object')
         allowed = set(policy.get('allowed_dispositions', []))
-        missing_paths = [p for p in deleted_paths if p not in dispositions]
-        invalid = {p: dispositions.get(p) for p in deleted_paths if dispositions.get(p) not in allowed}
+        missing_paths = [p for p in destructive_paths if p not in dispositions]
+        invalid = {p: dispositions.get(p) for p in destructive_paths if dispositions.get(p) not in allowed}
         if missing_paths:
-            die('DELETION_PATH_UNRECONCILED', f'missing dispositions for: {missing_paths}')
+            die('DESTRUCTIVE_PATH_UNRECONCILED', f'missing dispositions for: {missing_paths}')
         if invalid:
-            die('DELETION_DISPOSITION_INVALID', f'invalid dispositions: {invalid}')
+            die('DESTRUCTIVE_DISPOSITION_INVALID', f'invalid dispositions: {invalid}')
+
+        physical_delete_allowed = set(policy.get('physical_delete_permitted_dispositions', []))
+        bad_deletes = {
+            p: dispositions.get(p)
+            for p in deleted_paths
+            if dispositions.get(p) not in physical_delete_allowed
+        }
+        if bad_deletes:
+            die(
+                'PHYSICAL_DELETE_NOT_AUTHORIZED',
+                f'physical deletion requires one of {sorted(physical_delete_allowed)}; got {bad_deletes}',
+            )
 
     if high_risk and provider.lower() not in {'human', 'operator'}:
         reviewer = str(receipt.get('reviewer_provider', '')).strip()
@@ -164,7 +177,8 @@ def main() -> int:
         'model': model,
         'session_id': session_id,
         'changed_path_count': len(changed_paths),
-        'deleted_or_renamed_source_count': len(deleted_paths),
+        'deleted_path_count': len(deleted_paths),
+        'renamed_source_count': len(renamed_sources),
         'critical_path_count': len(critical_paths),
         'critical_paths': critical_paths,
         'high_risk': high_risk,
