@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "receipt_id": "pr-265-openai-gpt56sol-20260815",
+  "provider": "openai",
+  "model": "GPT-5.6 Sol",
+  "session_id": "NOT_EXPOSED_BY_CHATGPT_PRODUCT",
+  "session_id_status": "NOT_EXPOSED_BY_PROVIDER",
+  "base_sha": "0bdffe75b56e5cd27c0632e1ba166620da327494",
+  "declared_scope": [
+    ".aegis/provider-containment-policy.v1.json",
+    ".aegis/provider-receipts/",
+    ".aegis/reconciliation/provider-containment.example.json",
+    ".github/workflows/provider-containment-gate.yml",
+    "scripts/provider_containment_gate.py"
+  ],
+  "destructive_intent": false,
+  "operator_approval_id": "",
+  "reviewer_provider": "",
+  "review_receipt_hash": "",
+  "review_status": "PENDING_INDEPENDENT_PROVIDER_REVIEW"
+}
