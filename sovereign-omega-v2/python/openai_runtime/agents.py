@@ -80,6 +80,7 @@ def build_omega_manager(
     model: str,
     specialists: SpecialistSet,
     allowed_capabilities: set[str] | frozenset[str] | None = None,
+    mcp_servers: list[Any] | tuple[Any, ...] | None = None,
 ):
     Agent = _agent_class()
 
@@ -123,4 +124,10 @@ def build_omega_manager(
         ),
         output_type=OmegaManagerOutput,
         tools=tools,
+        mcp_servers=list(mcp_servers or []),
+        mcp_config={
+            "convert_schemas_to_strict": True,
+            "failure_error_function": None,
+            "include_server_in_tool_names": True,
+        },
     )

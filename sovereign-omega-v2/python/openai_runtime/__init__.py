@@ -4,6 +4,8 @@ from .config import OpenAIRuntimeConfig, RuntimeConfigError
 from .types import (
     ActionClass,
     AuthorityDecision,
+    ChainLayer,
+    ChainStageReceipt,
     OmegaManagerOutput,
     OmegaRunContext,
     OmegaRunRequest,
@@ -16,6 +18,8 @@ from .types import (
 __all__ = [
     "ActionClass",
     "AuthorityDecision",
+    "ChainLayer",
+    "ChainStageReceipt",
     "OmegaManagerOutput",
     "OmegaRunContext",
     "OmegaRunRequest",

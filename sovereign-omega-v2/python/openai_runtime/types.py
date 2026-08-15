@@ -24,6 +24,11 @@ class RuntimeErrorCode(str, Enum):
     SDK_UNAVAILABLE = "SDK_UNAVAILABLE"
     SDK_ERROR = "SDK_ERROR"
     INVALID_FINAL_OUTPUT = "INVALID_FINAL_OUTPUT"
+    TRACE_MISSING = "TRACE_MISSING"
+    EVAL_ADMISSION_FAILED = "EVAL_ADMISSION_FAILED"
+    CONNECTOR_NOT_REGISTERED = "CONNECTOR_NOT_REGISTERED"
+    CONNECTOR_TOOL_NOT_REGISTERED = "CONNECTOR_TOOL_NOT_REGISTERED"
+    CONNECTOR_TOOL_NOT_ALLOWED = "CONNECTOR_TOOL_NOT_ALLOWED"
 
 
 class ActionClass(str, Enum):
@@ -34,6 +39,47 @@ class ActionClass(str, Enum):
     D4 = "D4"
 
 
+class ChainLayer(str, Enum):
+    INTENT = "L0_INTENT"
+    AUTHORITY = "L1_AUTHORITY"
+    MODEL_RUNTIME = "L2_MODEL_RUNTIME"
+    AGENT_ORCHESTRATION = "L3_AGENT_ORCHESTRATION"
+    CONNECTORS = "L4_CONNECTORS"
+    EVIDENCE = "L5_EVIDENCE"
+    EVAL_ADMISSION = "L6_EVAL_ADMISSION"
+    MEMORY_PROMOTION = "L7_MEMORY_PROMOTION"
+
+
+class ChainStageReceipt(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    layer: ChainLayer
+    admitted: bool
+    input_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    output_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    obstruction_code: str | None = None
+    evidence_digests: list[str] = Field(default_factory=list)
+    digest_profile: str = "AEGIS_PYTHON_SORTED_JSON_V1"
+
+    @field_validator("evidence_digests")
+    @classmethod
+    def _chain_evidence_hashes(cls, value: list[str]) -> list[str]:
+        for digest in value:
+            if len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest):
+                raise ValueError("chain evidence digests must be lowercase SHA-256 hex")
+        return value
+
+    @model_validator(mode="after")
+    def _stage_contract(self) -> "ChainStageReceipt":
+        if self.admitted:
+            if self.output_digest is None or self.obstruction_code is not None:
+                raise ValueError("admitted chain stage requires output digest and no obstruction")
+        else:
+            if self.output_digest is not None or not (self.obstruction_code or "").strip():
+                raise ValueError("denied chain stage requires obstruction and no output digest")
+        return self
+
+
 class RunStatus(str, Enum):
     SUCCEEDED = "SUCCEEDED"
     DENIED = "DENIED"
@@ -42,7 +88,6 @@ class RunStatus(str, Enum):
 
 class SpecialistOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
     summary: str = Field(min_length=1)
     evidence: list[str] = Field(default_factory=list)
     uncertainties: list[str] = Field(default_factory=list)
@@ -51,7 +96,6 @@ class SpecialistOutput(BaseModel):
 
 class OmegaManagerOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
     synthesis: str = Field(min_length=1)
     evidence: list[str] = Field(default_factory=list)
     unresolved: list[str] = Field(default_factory=list)
@@ -60,7 +104,6 @@ class OmegaManagerOutput(BaseModel):
 
 class OmegaRunRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
     input: str = Field(min_length=1)
     allowed_capabilities: list[str] = Field(default_factory=list)
     allowed_tools: list[str] = Field(default_factory=list)
@@ -94,7 +137,6 @@ class OmegaRunRequest(BaseModel):
 
 class OmegaRunContext(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
     execution_id: str = Field(min_length=1)
     caller_email: str = Field(min_length=1)
     caller_tier: str = Field(min_length=1)
@@ -104,7 +146,6 @@ class OmegaRunContext(BaseModel):
 
 class AuthorityDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
     admitted: bool
     code: RuntimeErrorCode | None = None
     reason: str = ""
@@ -120,7 +161,6 @@ class AuthorityDecision(BaseModel):
 
 class ToolEvidence(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
     tool: str = Field(min_length=1)
     success: bool
     result_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
@@ -141,7 +181,6 @@ class ToolEvidence(BaseModel):
 
 class ToolCallRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
     tool: str
     status: str
     evidence_digests: list[str] = Field(default_factory=list)
@@ -149,7 +188,6 @@ class ToolCallRecord(BaseModel):
 
 class OmegaRunResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
     execution_id: str = Field(min_length=1)
     status: RunStatus
     model: str = Field(min_length=1)
@@ -162,6 +200,8 @@ class OmegaRunResult(BaseModel):
     denial_code: str | None = None
     error_code: RuntimeErrorCode | None = None
     usage: dict[str, int] | None = None
+    chain: list[ChainStageReceipt] = Field(default_factory=list)
+    chain_root_digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     is_replay_reconstructable: bool = True
 
     @model_validator(mode="after")
