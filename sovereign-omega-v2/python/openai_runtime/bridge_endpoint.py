@@ -49,6 +49,12 @@ def handle_omega_run(
     except ValueError:
         return 401, _error(RuntimeErrorCode.UNAUTHORIZED)
 
+    # The legacy platform dev bypass returns this sentinel identity when Supabase
+    # auth is unavailable. Never allow that fallback identity to reach paid OpenAI
+    # execution, even if the runtime itself is explicitly enabled.
+    if caller_email == "dev@local":
+        return 401, _error(RuntimeErrorCode.UNAUTHORIZED)
+
     try:
         request = OmegaRunRequest.model_validate(data)
     except (ValidationError, TypeError, ValueError):
