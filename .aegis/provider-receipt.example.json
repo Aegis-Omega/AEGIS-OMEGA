@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "provider": "openai|anthropic|google|nvidia|human|other",
+  "model": "exact-model-id",
+  "session_id": "provider-session-or-run-id",
+  "base_sha": "0000000000000000000000000000000000000000",
+  "declared_scope": [
+    "exact/path/or/subsystem"
+  ],
+  "destructive_intent": false,
+  "operator_approval_id": "",
+  "reviewer_provider": "",
+  "review_receipt_hash": ""
+}
