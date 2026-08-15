@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Mapping
 
 from .types import RuntimeErrorCode
@@ -25,7 +25,7 @@ def _positive_int(env: Mapping[str, str], name: str, default: int) -> int:
 
 @dataclass(frozen=True, slots=True)
 class OpenAIRuntimeConfig:
-    api_key: str
+    api_key: str = field(repr=False)
     model: str
     max_turns: int = 12
     max_tool_concurrency: int = 2
