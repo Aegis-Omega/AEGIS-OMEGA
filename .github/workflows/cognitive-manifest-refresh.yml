@@ -1,11 +1,8 @@
 name: Cognitive Manifest Refresh
 
-# GitHub Actions is currently unable to start hosted-runner jobs for this
-# repository because the account is billing-locked. Keep this workflow
-# available for explicit/manual execution without generating a failed run on
-# every branch push. Restore the push trigger only after the account lock is
-# cleared and an exact-head manual run succeeds.
 on:
+  push:
+    branches-ignore: [main]
   workflow_dispatch:
 
 permissions:
