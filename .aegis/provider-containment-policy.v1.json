@@ -1,11 +1,12 @@
 {
-  "schema_version": "1.0.1",
+  "schema_version": "1.1.0",
   "policy_id": "AEGIS_PROVIDER_CONTAINMENT_V1",
   "mode": "FAIL_CLOSED",
   "purpose": "Prevent stale-base, provider-attribution loss, and unreviewed destructive repository mutations from entering the canonical admission path.",
   "invariants": {
     "exact_base_required": true,
     "provider_receipt_required": true,
+    "provider_receipts_append_only": true,
     "topology_observation_required": true,
     "destructive_changes_require_operator_approval": true,
     "destructive_changes_require_reconciliation": true,
@@ -13,13 +14,15 @@
     "absence_claim_from_single_ref_forbidden": true,
     "preserve_disposition_cannot_authorize_physical_delete": true
   },
-  "receipt_path": ".aegis/provider-receipt.json",
+  "receipt_directory": ".aegis/provider-receipts",
   "reconciliation_path": ".aegis/reconciliation/provider-containment.json",
   "required_receipt_fields": [
     "schema_version",
+    "receipt_id",
     "provider",
     "model",
     "session_id",
+    "session_id_status",
     "base_sha",
     "declared_scope",
     "destructive_intent"
@@ -72,6 +75,7 @@
     "DELETE_WITHOUT_PATH_LEVEL_DISPOSITION",
     "PRESERVE_DISPOSITION_USED_TO_AUTHORIZE_DELETE",
     "AI_PROVIDER_SELF_REVIEW_FOR_HIGH_RISK_CHANGE",
-    "UNATTRIBUTED_PROVIDER_MUTATION"
+    "UNATTRIBUTED_PROVIDER_MUTATION",
+    "MUTABLE_SINGLETON_PROVIDER_RECEIPT"
   ]
 }
