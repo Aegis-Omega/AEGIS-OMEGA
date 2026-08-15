@@ -1,0 +1,49 @@
+name: Provider Containment Gate
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  provider-containment:
+    name: provider-containment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head with history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch exact base and head objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}"
+
+      - name: Run fail-closed provider containment gate
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/provider_containment_gate.py
+
+      - name: Emit containment evidence
+        if: always()
+        shell: bash
+        run: |
+          if test -f provider-containment-evidence.json; then
+            cat provider-containment-evidence.json
+          fi
+
+      - name: Upload containment evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-containment-evidence
+          path: provider-containment-evidence.json
+          if-no-files-found: ignore
