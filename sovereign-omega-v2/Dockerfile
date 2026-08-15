@@ -29,4 +29,4 @@ ENV SOVEREIGN_BRIDGE_PORT=8080
 ENV AEGIS_CHECKPOINT_PATH=/app/data/aegis_checkpoint.json
 
 WORKDIR /app/python
-CMD ["python", "bridge.py"]
+CMD ["python", "omega_bridge.py"]
