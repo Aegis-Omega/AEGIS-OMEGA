@@ -4,8 +4,8 @@
 Fail closed on stale PR bases, unattributed provider mutations, and destructive
 repository changes without path-level reconciliation and operator authority.
 
-Provider-neutral by design: Claude, Codex, Gemini, humans, bots, and future
-agents cross the same repository boundary.
+Provider-neutral by design: Claude, Codex, Gemini, NVIDIA, humans, bots, and
+future agents cross the same repository boundary.
 """
 from __future__ import annotations
 
@@ -17,7 +17,6 @@ import sys
 from pathlib import Path
 
 POLICY_PATH = Path('.aegis/provider-containment-policy.v1.json')
-RECEIPT_PATH = Path('.aegis/provider-receipt.json')
 RECONCILIATION_PATH = Path('.aegis/reconciliation/provider-containment.json')
 EVIDENCE_PATH = Path('provider-containment-evidence.json')
 
@@ -76,6 +75,30 @@ def parse_name_status(base: str, head: str) -> list[dict]:
     return changes
 
 
+def discover_receipt(policy: dict, changes: list[dict]) -> tuple[Path, dict]:
+    receipt_dir = policy.get('receipt_directory', '.aegis/provider-receipts').rstrip('/') + '/'
+    touched = [
+        c for c in changes
+        if c.get('path', '').startswith(receipt_dir) and c.get('path', '').endswith('.json')
+    ]
+    modified_existing = [c['path'] for c in touched if c['status'] != 'A']
+    if modified_existing:
+        die(
+            'PROVIDER_RECEIPT_NOT_APPEND_ONLY',
+            f'existing provider receipts may not be modified/renamed/deleted: {modified_existing}',
+        )
+    added = [c['path'] for c in touched if c['status'] == 'A']
+    if len(added) != 1:
+        die('PROVIDER_RECEIPT_CARDINALITY', f'exactly one new provider receipt is required; found {added}')
+    path = Path(added[0])
+    receipt = load_json(path, 'PROVIDER_RECEIPT_MISSING')
+    return path, receipt
+
+
+def validate_hex64(value: str) -> bool:
+    return len(value) == 64 and all(ch in '0123456789abcdefABCDEF' for ch in value)
+
+
 def main() -> int:
     base = os.environ.get('BASE_SHA', '').strip()
     head = os.environ.get('HEAD_SHA', '').strip() or run('git', 'rev-parse', 'HEAD')
@@ -92,20 +115,23 @@ def main() -> int:
             {'base_sha': base, 'head_sha': head, 'merge_base': merge_base},
         )
 
-    receipt = load_json(RECEIPT_PATH, 'PROVIDER_RECEIPT_MISSING')
+    changes = parse_name_status(base, head)
+    receipt_path, receipt = discover_receipt(policy, changes)
     missing = [k for k in policy['required_receipt_fields'] if k not in receipt]
     if missing:
         die('PROVIDER_RECEIPT_INCOMPLETE', f'missing receipt fields: {missing}')
     if receipt.get('base_sha') != base:
         die('RECEIPT_BASE_MISMATCH', f"receipt base_sha={receipt.get('base_sha')} required={base}")
+    if str(receipt.get('receipt_id', '')).strip() != receipt_path.stem:
+        die('RECEIPT_ID_PATH_MISMATCH', f"receipt_id must equal filename stem: {receipt_path.stem}")
 
     provider = str(receipt.get('provider', '')).strip()
     model = str(receipt.get('model', '')).strip()
     session_id = str(receipt.get('session_id', '')).strip()
-    if not provider or not model or not session_id:
-        die('PROVIDER_ATTRIBUTION_EMPTY', 'provider, model, and session_id must be non-empty')
+    session_id_status = str(receipt.get('session_id_status', '')).strip()
+    if not provider or not model or not session_id or not session_id_status:
+        die('PROVIDER_ATTRIBUTION_EMPTY', 'provider, model, session_id, and session_id_status must be non-empty')
 
-    changes = parse_name_status(base, head)
     changed_paths = [c['path'] for c in changes]
     deleted_paths = [c['path'] for c in changes if c['status'] == 'D']
     renamed_sources = [c['old_path'] for c in changes if c['status'] == 'R']
@@ -132,6 +158,8 @@ def main() -> int:
         if not approval:
             die('OPERATOR_APPROVAL_REQUIRED', 'destructive change requires operator_approval_id')
         reconciliation = load_json(RECONCILIATION_PATH, 'DESTRUCTIVE_RECONCILIATION_MISSING')
+        if str(reconciliation.get('operator_approval_id', '')).strip() != approval:
+            die('RECONCILIATION_APPROVAL_MISMATCH', 'reconciliation operator_approval_id must equal provider receipt')
         dispositions = reconciliation.get('path_dispositions')
         if not isinstance(dispositions, dict):
             die('RECONCILIATION_INVALID', 'path_dispositions must be an object')
@@ -160,12 +188,13 @@ def main() -> int:
         review_hash = str(receipt.get('review_receipt_hash', '')).strip()
         if not reviewer or reviewer.lower() == provider.lower():
             die('INDEPENDENT_PROVIDER_REVIEW_REQUIRED', f'provider={provider!r}, reviewer={reviewer!r}')
-        if len(review_hash) != 64 or any(ch not in '0123456789abcdefABCDEF' for ch in review_hash):
+        if not validate_hex64(review_hash):
             die('REVIEW_RECEIPT_HASH_INVALID', 'review_receipt_hash must be 64 hexadecimal characters')
 
     branch_count, topology_digest = topology_observation()
     diff_raw = run('git', 'diff', '--name-status', '--find-renames', f'{base}...{head}')
     diff_digest = hashlib.sha256((diff_raw + '\n').encode('utf-8')).hexdigest()
+    receipt_digest = hashlib.sha256(receipt_path.read_bytes()).hexdigest()
 
     evidence = {
         'status': 'ADMISSIBLE_FOR_FURTHER_REVIEW',
@@ -173,9 +202,12 @@ def main() -> int:
         'base_sha': base,
         'head_sha': head,
         'merge_base': merge_base,
+        'provider_receipt_path': str(receipt_path),
+        'provider_receipt_sha256': receipt_digest,
         'provider': provider,
         'model': model,
         'session_id': session_id,
+        'session_id_status': session_id_status,
         'changed_path_count': len(changed_paths),
         'deleted_path_count': len(deleted_paths),
         'renamed_source_count': len(renamed_sources),
