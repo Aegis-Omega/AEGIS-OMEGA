@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0.0",
+  "policy_id": "AEGIS_PROVIDER_CONTAINMENT_V1",
+  "mode": "FAIL_CLOSED",
+  "purpose": "Prevent stale-base, provider-attribution loss, and unreviewed destructive repository mutations from entering the canonical admission path.",
+  "invariants": {
+    "exact_base_required": true,
+    "provider_receipt_required": true,
+    "topology_observation_required": true,
+    "destructive_changes_require_operator_approval": true,
+    "destructive_changes_require_reconciliation": true,
+    "high_risk_ai_changes_require_independent_provider_review": true,
+    "absence_claim_from_single_ref_forbidden": true
+  },
+  "receipt_path": ".aegis/provider-receipt.json",
+  "reconciliation_path": ".aegis/reconciliation/provider-containment.json",
+  "required_receipt_fields": [
+    "schema_version",
+    "provider",
+    "model",
+    "session_id",
+    "base_sha",
+    "declared_scope",
+    "destructive_intent"
+  ],
+  "high_risk_thresholds": {
+    "changed_paths": 50,
+    "deleted_paths": 1
+  },
+  "critical_prefixes": [
+    ".aegis/",
+    ".agent/",
+    ".claude/",
+    ".github/workflows/",
+    "docs/audits/",
+    "docs/rfcs/",
+    "eccf/",
+    "frontend/",
+    "gcce/",
+    "kernel-one/",
+    "schemas/",
+    "sovereign-omega-v2/",
+    "state/",
+    "supabase/functions/",
+    "tools/swarm/"
+  ],
+  "critical_files": [
+    "START_HERE.md",
+    "REPO_MAP.md",
+    "CLAUDE.md",
+    "HANDOFF.md",
+    "INDEX.md"
+  ],
+  "allowed_dispositions": [
+    "KEEP_AUTHORITATIVE",
+    "KEEP_PROVENANCE",
+    "KEEP_FAILURE_EVIDENCE",
+    "SUPERSEDE_EXECUTION",
+    "SUPERSEDE_CLAIM",
+    "SUPERSEDE_REPRESENTATION",
+    "SUPERSEDE_AUTHORITY",
+    "DELETE_BYTE_DUPLICATE_ONLY",
+    "QUARANTINE_BROKEN"
+  ],
+  "forbidden_shortcuts": [
+    "NOT_FOUND_ON_MAIN_IMPLIES_ABSENT",
+    "STALE_BRANCH_REWRITE_WITHOUT_REBASE",
+    "DELETE_WITHOUT_PATH_LEVEL_DISPOSITION",
+    "AI_PROVIDER_SELF_REVIEW_FOR_HIGH_RISK_CHANGE",
+    "UNATTRIBUTED_PROVIDER_MUTATION"
+  ]
+}
