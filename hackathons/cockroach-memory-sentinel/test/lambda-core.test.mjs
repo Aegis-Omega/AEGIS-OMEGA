@@ -41,3 +41,20 @@ test('valid request runs agent against injected store and returns structured out
   assert.equal(received.prompt, 'check agent-7');
   assert.deepEqual(JSON.parse(response.body), { output: 'DENY: stale state' });
 });
+
+test('configured demo token blocks unauthenticated model/database spend', async () => {
+  let allocations = 0;
+  const handler = createLambdaHandler({
+    demoToken: 'secret-demo-token',
+    createStore: async () => { allocations++; return {}; },
+    runAgent: async () => { allocations++; return { finalOutput: 'x' }; },
+  });
+  const response = await handler({
+    rawPath: '/',
+    requestContext: { http: { method: 'POST' } },
+    headers: {},
+    body: JSON.stringify({ prompt: 'check' }),
+  });
+  assert.equal(response.statusCode, 401);
+  assert.equal(allocations, 0);
+});
