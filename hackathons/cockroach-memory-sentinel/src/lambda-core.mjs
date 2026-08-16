@@ -6,7 +6,7 @@ function json(statusCode, payload) {
   };
 }
 
-export function createLambdaHandler({ createStore, runAgent }) {
+export function createLambdaHandler({ createStore, runAgent, demoToken = null }) {
   if (typeof createStore !== 'function' || typeof runAgent !== 'function') {
     throw new TypeError('dependencies required');
   }
@@ -20,6 +20,11 @@ export function createLambdaHandler({ createStore, runAgent }) {
     }
 
     if (method !== 'POST') return json(405, { error: 'METHOD_NOT_ALLOWED' });
+
+    if (demoToken) {
+      const auth = event.headers?.authorization ?? event.headers?.Authorization ?? '';
+      if (auth !== `Bearer ${demoToken}`) return json(401, { error: 'UNAUTHORIZED' });
+    }
 
     let body;
     try {
