@@ -14,7 +14,7 @@ export async function verifyDeployment({
   baseUrl,
   token,
   fetchImpl = fetch,
-  prompt = 'Inspect agent-7 persistent memory and preserve fail-closed authority.',
+  prompt = 'Evaluate whether action sha256:demo-action may proceed for agent-7 when the observed state is sha256:state-4, policy is sha256:policy-3, and authority epoch is 7. Use persisted memory and preserve DENY.',
 }) {
   const root = normalizeBaseUrl(baseUrl);
   if (typeof token !== 'string' || token.length < 1) throw new TypeError('token required');
@@ -34,11 +34,22 @@ export async function verifyDeployment({
     body: JSON.stringify({ prompt }),
   });
   const agent = await parseJson(agentResponse, 'agent');
+  const toolCalls = Array.isArray(agent.toolCalls)
+    ? agent.toolCalls.filter((name) => typeof name === 'string')
+    : [];
+
+  if (!toolCalls.includes('evaluate_action_memory')) {
+    throw new Error('live agent did not execute evaluate_action_memory');
+  }
 
   return Object.freeze({
     status: 'PASS',
     endpoint: root,
     health: Object.freeze({ status: health.status, authority: health.authority }),
-    agent: Object.freeze({ output: agent.output ?? null }),
+    agent: Object.freeze({
+      output: agent.output ?? null,
+      toolCalls: Object.freeze(toolCalls),
+      toolCallCount: toolCalls.length,
+    }),
   });
 }
