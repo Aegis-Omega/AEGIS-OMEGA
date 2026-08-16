@@ -73,7 +73,7 @@ Input must bind at minimum:
 - operator approval reference when required;
 - evidence references;
 - idempotency key;
-- freshness / expiry information.
+- deterministic freshness boundary (for example authority generation / lease sequence), with wall-clock metadata optional but non-authoritative.
 
 Output state is exactly one of:
 
@@ -90,7 +90,7 @@ The response contains:
 - admitted capability/tool closure;
 - exact parent-state/topology binding;
 - consequence class;
-- expiry / freshness boundary;
+- deterministic freshness boundary;
 - no provider-generated authority field.
 
 `REVIEW_REQUIRED` is not executable authority.
@@ -156,9 +156,11 @@ The following invalidate execution authority:
 - changed identity;
 - changed action/capability;
 - changed payload digest;
-- expired decision;
+- exceeded deterministic validity generation/sequence;
 - revoked/advanced lease or generation;
 - changed budget/quota state where the budget gate requires fresh observation.
+
+Wall-clock timestamps may be recorded for audit display, but v1 authority determinism must not depend on nondeterministic clock reads. If a wall-clock expiry policy is later admitted, the evaluated clock observation must itself be explicit input to the decision digest.
 
 ## 5. Decision artifact
 
@@ -167,7 +169,7 @@ Introduce one canonical product-level decision artifact, logically named `Author
 Minimum fields:
 
 - `schema_version`;
-- `decision_id`;
+- `decision_id` derived deterministically from the canonical decision payload or `decision_digest`;
 - `outcome`;
 - `decision_digest`;
 - `authority_receipt_root` when admitted;
@@ -185,9 +187,11 @@ Minimum fields:
 - `quota_observation_digest` or explicit bounded equivalent;
 - `operator_approval_reference` when applicable;
 - `evidence_references`;
-- `issued_at` or monotone issuance reference;
-- `expires_at` or deterministic freshness boundary;
+- `issued_sequence` or equivalent monotone authority-generation reference;
+- `valid_until_sequence` or equivalent deterministic freshness boundary;
 - `reason_codes`.
+
+Optional audit-only wall-clock fields must not enter the v1 `decision_digest` unless the clock observation is itself explicit admitted input.
 
 The digest is computed over the canonical decision payload excluding any self-referential digest field.
 
@@ -195,7 +199,7 @@ A decision is an authority witness, not proof that the downstream provider resul
 
 ## 6. Effect receipt model
 
-Every successful or attempted externally visible effect produces an `EffectReceiptV1`.
+Every provider/tool invocation attempt that passes the authority boundary produces an `EffectReceiptV1`, whether the invocation succeeds or fails. Requests denied before provider/tool invocation are represented by the authority decision/denial artifact and do not masquerade as external-effect receipts.
 
 Minimum fields:
 
@@ -213,7 +217,7 @@ Minimum fields:
 - `pre_state_digest`;
 - `post_state_digest` or explicit `POST_STATE_UNAVAILABLE` status;
 - `result_digest`;
-- `status` (`SUCCEEDED`, `DENIED`, `FAILED`, `COMPENSATED` where supported);
+- `status` (`SUCCEEDED`, `FAILED`, `COMPENSATED` where supported);
 - `cost_observed` / token usage when applicable;
 - `parent_receipt_digest`;
 - `receipt_digest`.
@@ -236,7 +240,7 @@ A provider/model response remains evidence only. Receipt creation does not upgra
 10. Only then is the admitted provider/tool transport invoked.
 11. Result is checked for receipt-bindable metadata and authority escalation attempts.
 12. Post-state/result evidence is collected.
-13. `EffectReceiptV1` is emitted and chained.
+13. `EffectReceiptV1` is emitted and chained for every invocation attempt that crossed step 10.
 
 ## 8. API semantics and error handling
 
@@ -333,12 +337,13 @@ The implementation is not admissible until tests establish at least the followin
 12. D4 is denied.
 13. Provider/model output cannot set or increase AEGIS authority.
 14. Effect execution without a valid admitted decision never calls the provider/tool.
-15. Expired or mismatched decision never calls the provider/tool.
+15. Expired/stale or mismatched decision never calls the provider/tool.
 16. Idempotency-key reuse with a different fingerprint is rejected.
 17. Effect receipt binds decision, work order, identity, action, resource, pre-state, post-state and result.
 18. Parent-receipt substitution or chain break is detected.
 19. Python/TypeScript digest fixtures match for the shared canonical artifacts used in this slice.
 20. Existing #264 frontier-provider tests remain non-regressed.
+21. Changing only audit-display wall-clock metadata does not change the v1 authority decision digest.
 
 ## 13. Admission boundary
 
