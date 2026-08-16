@@ -39,6 +39,10 @@ export function createLambdaHandler({ createStore, runAgent, demoToken = null })
 
     const store = await createStore();
     const result = await runAgent({ prompt: body.prompt, store });
-    return json(200, { output: result.finalOutput ?? null });
+    return json(200, {
+      output: result.finalOutput ?? null,
+      toolCalls: Array.isArray(result.toolCalls) ? result.toolCalls : [],
+      toolCallCount: Number.isSafeInteger(result.toolCallCount) ? result.toolCallCount : 0,
+    });
   };
 }
