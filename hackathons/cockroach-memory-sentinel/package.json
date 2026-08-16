@@ -9,5 +9,11 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "@openai/agents": "0.16.0",
+    "openai": "^7.2.0",
+    "pg": "^8.22.0",
+    "zod": "^4.4.3"
   }
 }
