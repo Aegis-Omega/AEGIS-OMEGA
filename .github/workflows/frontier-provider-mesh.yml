@@ -9,7 +9,9 @@ on:
       - 'agents/tests/test_cognitive_evidence_binding.py'
       - 'platform/sol/**'
       - 'sovereign-omega-v2/src/api/frontier-*.ts'
+      - 'sovereign-omega-v2/src/sensorium/**'
       - 'sovereign-omega-v2/test/unit/frontier-*.test.ts'
+      - 'sovereign-omega-v2/test/unit/sensorium-*.test.ts'
       - '.github/workflows/frontier-provider-mesh.yml'
   pull_request:
     branches:
@@ -19,7 +21,9 @@ on:
       - 'agents/tests/test_cognitive_evidence_binding.py'
       - 'platform/sol/**'
       - 'sovereign-omega-v2/src/api/frontier-*.ts'
+      - 'sovereign-omega-v2/src/sensorium/**'
       - 'sovereign-omega-v2/test/unit/frontier-*.test.ts'
+      - 'sovereign-omega-v2/test/unit/sensorium-*.test.ts'
       - '.github/workflows/frontier-provider-mesh.yml'
 
 permissions:
@@ -79,9 +83,9 @@ jobs:
         working-directory: sovereign-omega-v2
         run: npm ci
 
-      - name: Verify TypeScript frontier runtime behavior
+      - name: Verify TypeScript frontier + Sensorium runtime behavior
         working-directory: sovereign-omega-v2
-        run: npm run test -- test/unit/frontier-inference-gateway.test.ts test/unit/frontier-provider-transports.test.ts test/unit/frontier-stream-lease.test.ts test/unit/frontier-automaton3-verifier.test.ts test/unit/frontier-runtime.test.ts
+        run: npm run test -- test/unit/frontier-inference-gateway.test.ts test/unit/frontier-provider-transports.test.ts test/unit/frontier-stream-lease.test.ts test/unit/frontier-automaton3-verifier.test.ts test/unit/frontier-runtime.test.ts test/unit/sensorium-observation.test.ts test/unit/sensorium-vcm-bridge.test.ts test/unit/sensorium-degradation.test.ts
 
       - name: Typecheck Sovereign Runtime frontier integration
         working-directory: sovereign-omega-v2
@@ -90,7 +94,7 @@ jobs:
       - name: Reject obvious committed credential material in frontier slice
         shell: bash
         run: |
-          if grep -RInE --exclude='*.md' --exclude='*.yml' '(sk-[A-Za-z0-9_-]{16,}|Bearer[[:space:]]+[A-Za-z0-9._-]{16,}|api[_-]?key[[:space:]]*=[[:space:]]*["'"'][^"'"']{12,})' platform/sol/frontier agents/cognitive_pipeline_auditbound.py sovereign-omega-v2/src/api/frontier-*.ts; then
-            echo 'credential-like material detected in frontier slice' >&2
+          if grep -RInE --exclude='*.md' --exclude='*.yml' '(sk-[A-Za-z0-9_-]{16,}|Bearer[[:space:]]+[A-Za-z0-9._-]{16,}|api[_-]?key[[:space:]]*=[[:space:]]*["'"'][^"'"']{12,})' platform/sol/frontier agents/cognitive_pipeline_auditbound.py sovereign-omega-v2/src/api/frontier-*.ts sovereign-omega-v2/src/sensorium; then
+            echo 'credential-like material detected in frontier/Sensorium slice' >&2
             exit 1
           fi
