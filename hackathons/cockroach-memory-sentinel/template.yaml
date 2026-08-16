@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AEGIS Memory Sentinel - bounded OpenAI agent with CockroachDB persistent memory
+
+Parameters:
+  CockroachUrl:
+    Type: String
+    NoEcho: true
+    Description: CockroachDB connection string; never committed to source.
+  OpenAIApiKey:
+    Type: String
+    NoEcho: true
+    Description: OpenAI API key used only by the bounded agent runtime.
+  DemoToken:
+    Type: String
+    NoEcho: true
+    MinLength: 20
+    Description: Bearer token required before POST requests allocate DB/model resources.
+  OpenAIModel:
+    Type: String
+    Default: gpt-5.6-luna
+
+Resources:
+  MemorySentinelFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: AEGIS Memory Sentinel governed agentic-memory demo
+      CodeUri: .
+      Handler: src/lambda.handler
+      Runtime: nodejs24.x
+      Architectures:
+        - arm64
+      MemorySize: 512
+      Timeout: 30
+      ReservedConcurrentExecutions: 2
+      Environment:
+        Variables:
+          COCKROACH_URL: !Ref CockroachUrl
+          OPENAI_API_KEY: !Ref OpenAIApiKey
+          DEMO_TOKEN: !Ref DemoToken
+          OPENAI_MODEL: !Ref OpenAIModel
+          OPENAI_EMBEDDING_MODEL: text-embedding-3-small
+      FunctionUrlConfig:
+        AuthType: NONE
+        InvokeMode: BUFFERED
+        Cors:
+          AllowOrigins:
+            - '*'
+          AllowMethods:
+            - GET
+            - POST
+          AllowHeaders:
+            - authorization
+            - content-type
+
+Outputs:
+  MemorySentinelUrl:
+    Description: Public function URL. POST requests still require the application-level Bearer demo token.
+    Value: !GetAtt MemorySentinelFunctionUrl.FunctionUrl
