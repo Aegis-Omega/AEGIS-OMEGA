@@ -20,6 +20,22 @@ describe('RFC 8785 Conformance — Gate 1', () => {
     expect(canonicalizeJCSString({ b: { z: 1, a: 2 }, a: 1 })).toBe('{"a":1,"b":{"a":2,"z":1}}')
   })
 
+  it('sorts property names by unsigned UTF-16 code units', () => {
+    const input = {
+      '\u20ac': 'Euro Sign',
+      '\r': 'Carriage Return',
+      '\ufb33': 'Hebrew Letter Dalet With Dagesh',
+      '1': 'One',
+      '😀': 'Emoji: Grinning Face',
+      '\u0080': 'Control',
+      '\u00f6': 'Latin Small Letter O With Diaeresis',
+    }
+
+    expect(canonicalizeJCSString(input)).toBe(
+      '{"\\r":"Carriage Return","1":"One","":"Control","ö":"Latin Small Letter O With Diaeresis","€":"Euro Sign","😀":"Emoji: Grinning Face","דּ":"Hebrew Letter Dalet With Dagesh"}'
+    )
+  })
+
   it('handles -0 as 0', () => {
     expect(canonicalizeJCSString(-0)).toBe('0')
   })
@@ -66,16 +82,62 @@ describe('RFC 8785 Conformance — Gate 1', () => {
     expect(run2).toBe(run3)
   })
 
-  it('throws on undefined values', () => {
-    expect(() => canonicalizeJCSString(undefined)).toThrow()
+  it('throws on undefined values, including nested object properties', () => {
+    expect(() => canonicalizeJCSString(undefined)).toThrow(TypeError)
+    expect(() => canonicalizeJCSString({ permitted: true, hidden: undefined })).toThrow(TypeError)
+  })
+
+  it('throws on BigInt rather than silently changing its type', () => {
+    expect(() => canonicalizeJCSString(1n)).toThrow(TypeError)
+    expect(() => canonicalizeJCSString({ sequence: 1n })).toThrow(TypeError)
   })
 
   it('throws on Infinity', () => {
-    expect(() => canonicalizeJCSString(Infinity)).toThrow()
+    expect(() => canonicalizeJCSString(Infinity)).toThrow(RangeError)
   })
 
   it('throws on NaN', () => {
-    expect(() => canonicalizeJCSString(NaN)).toThrow()
+    expect(() => canonicalizeJCSString(NaN)).toThrow(RangeError)
+  })
+
+  it('throws on lone surrogate code units in values and property names', () => {
+    expect(() => canonicalizeJCSString('\ud800')).toThrow(TypeError)
+    expect(() => canonicalizeJCSString('\udc00')).toThrow(TypeError)
+    expect(() => canonicalizeJCSString({ ['\ud800']: 'invalid-key' })).toThrow(TypeError)
+  })
+
+  it('throws on sparse arrays and non-index array properties', () => {
+    const sparse = new Array(2)
+    sparse[0] = 'present'
+    expect(() => canonicalizeJCSString(sparse)).toThrow(TypeError)
+
+    const extended = [1, 2] as number[] & { extra?: number }
+    extended.extra = 3
+    expect(() => canonicalizeJCSString(extended)).toThrow(TypeError)
+  })
+
+  it('throws on custom objects and accessors without invoking a getter', () => {
+    expect(() => canonicalizeJCSString(new Date(0))).toThrow(TypeError)
+    expect(() => canonicalizeJCSString(new Map([['a', 1]]))).toThrow(TypeError)
+
+    let invoked = false
+    const withAccessor = {}
+    Object.defineProperty(withAccessor, 'secret', {
+      enumerable: true,
+      get() {
+        invoked = true
+        return 'must-not-run'
+      },
+    })
+
+    expect(() => canonicalizeJCSString(withAccessor)).toThrow(TypeError)
+    expect(invoked).toBe(false)
+  })
+
+  it('throws on cycles', () => {
+    const cyclic: Record<string, unknown> = {}
+    cyclic.self = cyclic
+    expect(() => canonicalizeJCSString(cyclic)).toThrow(TypeError)
   })
 
   it('handles all RFC 8785 test vectors individually', () => {
