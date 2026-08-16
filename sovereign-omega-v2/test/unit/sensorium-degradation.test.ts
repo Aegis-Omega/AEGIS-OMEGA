@@ -51,6 +51,12 @@ describe('Sensorium contractive degradation', () => {
     expect(applyConsequenceCap('D2', unchanged)).toBe('D2')
   })
 
+  it('fails closed on inconsistent recommendation/cap pairs', () => {
+    expect(() => applyConsequenceCap('D3', { recommendation: 'UNCHANGED', maxConsequenceClass: 'D0' })).toThrow()
+    expect(() => applyConsequenceCap('D3', { recommendation: 'DEGRADED', maxConsequenceClass: null })).toThrow()
+    expect(() => applyConsequenceCap('D3', { recommendation: 'SUSPENDED', maxConsequenceClass: 'D1' })).toThrow()
+  })
+
   it('applies observation quality thresholds', async () => {
     expect(await recommendation({ observationQualityBps: 8000 })).toBe('UNCHANGED')
     expect(await recommendation({ observationQualityBps: 7999 })).toBe('DEGRADED')
