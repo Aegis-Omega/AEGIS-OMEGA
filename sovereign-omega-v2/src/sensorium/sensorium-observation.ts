@@ -1,4 +1,5 @@
 import { sha256Hex } from '../core/hashing.js'
+import { capacityPressureBps, nextLogisticLoad, nextRetentionBps } from './vcm-bridge.js'
 
 export type SensoriumSourceKind = 'runtime' | 'telemetry' | 'operator' | 'replay'
 export type SensoriumModelStatus = 'MODEL_DEFINED'
@@ -38,6 +39,9 @@ export interface SensoriumObservationPayloadV1 {
   readonly decayBps: number
   readonly reinforcementBps: number
   readonly observationQualityBps: number
+  readonly predictedNextLoad: bigint
+  readonly capacityPressureBps: number
+  readonly predictedNextRetentionBps: number
   readonly evidenceReferences: readonly string[]
   readonly modelStatus: SensoriumModelStatus
   readonly empiricalStatus: SensoriumEmpiricalStatus
@@ -108,6 +112,9 @@ export function encodeSensoriumObservationPayload(payload: SensoriumObservationP
     frame('decayBps', payload.decayBps),
     frame('reinforcementBps', payload.reinforcementBps),
     frame('observationQualityBps', payload.observationQualityBps),
+    frame('predictedNextLoad', payload.predictedNextLoad),
+    frame('capacityPressureBps', payload.capacityPressureBps),
+    frame('predictedNextRetentionBps', payload.predictedNextRetentionBps),
     frame('modelStatus', payload.modelStatus),
     frame('empiricalStatus', payload.empiricalStatus),
     frame('evidenceReferenceCount', evidence.length),
@@ -162,6 +169,9 @@ export async function createSensoriumObservation(input: SensoriumObservationInpu
     decayBps: input.decayBps,
     reinforcementBps: input.reinforcementBps,
     observationQualityBps: input.observationQualityBps,
+    predictedNextLoad: nextLogisticLoad(input.activeLoad, input.carryingCapacity, input.growthRateBps),
+    capacityPressureBps: capacityPressureBps(input.activeLoad, input.carryingCapacity),
+    predictedNextRetentionBps: nextRetentionBps(input.retentionBps, input.decayBps, input.reinforcementBps),
     evidenceReferences,
     modelStatus: 'MODEL_DEFINED',
     empiricalStatus: 'NOT_ESTABLISHED',
