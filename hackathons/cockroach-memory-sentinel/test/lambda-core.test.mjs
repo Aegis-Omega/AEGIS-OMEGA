@@ -24,12 +24,19 @@ test('missing prompt fails before model/database execution', async () => {
   assert.equal(allocations, 0);
 });
 
-test('valid request runs agent against injected store and returns structured output', async () => {
+test('valid request returns secret-safe agent tool evidence', async () => {
   const store = { id: 'cockroach' };
   let received;
   const handler = createLambdaHandler({
     createStore: async () => store,
-    runAgent: async (args) => { received = args; return { finalOutput: 'DENY: stale state' }; },
+    runAgent: async (args) => {
+      received = args;
+      return {
+        finalOutput: 'DENY: stale state',
+        toolCalls: ['observe_collective_state', 'evaluate_action_memory'],
+        toolCallCount: 2,
+      };
+    },
   });
   const response = await handler({
     rawPath: '/',
@@ -39,7 +46,11 @@ test('valid request runs agent against injected store and returns structured out
   assert.equal(response.statusCode, 200);
   assert.equal(received.store, store);
   assert.equal(received.prompt, 'check agent-7');
-  assert.deepEqual(JSON.parse(response.body), { output: 'DENY: stale state' });
+  assert.deepEqual(JSON.parse(response.body), {
+    output: 'DENY: stale state',
+    toolCalls: ['observe_collective_state', 'evaluate_action_memory'],
+    toolCallCount: 2,
+  });
 });
 
 test('configured demo token blocks unauthenticated model/database spend', async () => {
