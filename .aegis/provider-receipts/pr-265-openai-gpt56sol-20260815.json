@@ -5,7 +5,7 @@
   "model": "GPT-5.6 Sol",
   "session_id": "NOT_EXPOSED_BY_CHATGPT_PRODUCT",
   "session_id_status": "NOT_EXPOSED_BY_PROVIDER",
-  "base_sha": "0bdffe75b56e5cd27c0632e1ba166620da327494",
+  "base_sha": "001fcb3aa92efd18a226ac5eb5b5bd6ccd0d512a",
   "declared_scope": [
     ".aegis/provider-containment-policy.v1.json",
     ".aegis/provider-receipts/",
