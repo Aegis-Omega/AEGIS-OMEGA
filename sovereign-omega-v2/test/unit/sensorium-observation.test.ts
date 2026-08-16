@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createSensoriumObservation, SensoriumObservationError } from '../../src/sensorium/sensorium-observation.js'
+import { createSensoriumObservation, encodeSensoriumObservationPayload, SensoriumObservationError } from '../../src/sensorium/sensorium-observation.js'
 
 const baseInput = {
   sourceKind: 'runtime' as const,
@@ -26,7 +26,15 @@ describe('SensoriumObservationV1', () => {
     expect(first.observationDigest).toBe(second.observationDigest)
     expect(first.observationId).toBe(first.observationDigest)
     expect(first.authorityEffect).toBe('OBSERVATION_ONLY')
+    expect(first.observationTier).toBe('T2')
+    expect(first.authorityWeight).toBe(0)
+    expect(first.mayGroundStateTransition).toBe(false)
     expect('grantsAuthority' in first).toBe(false)
+
+    const encoded = new TextDecoder().decode(encodeSensoriumObservationPayload(first))
+    expect(encoded).toContain('observationTier')
+    expect(encoded).toContain('authorityWeight')
+    expect(encoded).toContain('mayGroundStateTransition')
   })
 
   it('changes digest when an authority-relevant binding changes', async () => {

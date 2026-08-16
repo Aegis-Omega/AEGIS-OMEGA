@@ -26,6 +26,9 @@ export interface SensoriumObservationInputV1 {
 export interface SensoriumObservationPayloadV1 {
   readonly schemaVersion: '1.0.0'
   readonly authorityEffect: 'OBSERVATION_ONLY'
+  readonly observationTier: 'T2'
+  readonly authorityWeight: 0
+  readonly mayGroundStateTransition: false
   readonly sourceKind: SensoriumSourceKind
   readonly sourceIdentityDigest: string
   readonly subjectResourceDigest: string
@@ -99,6 +102,9 @@ export function encodeSensoriumObservationPayload(payload: SensoriumObservationP
   const parts = [
     frame('schemaVersion', payload.schemaVersion),
     frame('authorityEffect', payload.authorityEffect),
+    frame('observationTier', payload.observationTier),
+    frame('authorityWeight', payload.authorityWeight),
+    frame('mayGroundStateTransition', payload.mayGroundStateTransition ? 1 : 0),
     frame('sourceKind', payload.sourceKind),
     frame('sourceIdentityDigest', payload.sourceIdentityDigest),
     frame('subjectResourceDigest', payload.subjectResourceDigest),
@@ -156,6 +162,9 @@ export async function createSensoriumObservation(input: SensoriumObservationInpu
   const payload: SensoriumObservationPayloadV1 = Object.freeze({
     schemaVersion: '1.0.0',
     authorityEffect: 'OBSERVATION_ONLY',
+    observationTier: 'T2',
+    authorityWeight: 0,
+    mayGroundStateTransition: false,
     sourceKind: input.sourceKind,
     sourceIdentityDigest: input.sourceIdentityDigest,
     subjectResourceDigest: input.subjectResourceDigest,
