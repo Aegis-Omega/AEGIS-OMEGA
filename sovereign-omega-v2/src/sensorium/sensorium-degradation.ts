@@ -96,7 +96,15 @@ export function recommendSensoriumDegradation(observation: SensoriumObservationV
 
 export function applyConsequenceCap(admittedClass: ConsequenceClass, degradation: ConsequenceCap): ConsequenceClass {
   const admittedRank = consequenceRank(admittedClass)
-  if (degradation.recommendation === 'UNCHANGED' || degradation.maxConsequenceClass === null) return admittedClass
-  const capRank = consequenceRank(degradation.maxConsequenceClass)
+  const expectedCap: ConsequenceClass | null = degradation.recommendation === 'UNCHANGED'
+    ? null
+    : degradation.recommendation === 'DEGRADED'
+      ? 'D1'
+      : 'D0'
+  if (degradation.maxConsequenceClass !== expectedCap) {
+    throw new Error('sensorium degradation recommendation/cap mismatch')
+  }
+  if (expectedCap === null) return admittedClass
+  const capRank = consequenceRank(expectedCap)
   return CONSEQUENCE_ORDER[Math.min(admittedRank, capRank)]!
 }
