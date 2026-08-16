@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "demo": "node src/demo.mjs",
-    "verify:cockroach": "node scripts/verify-cockroach-runtime.mjs"
+    "verify:cockroach": "node scripts/verify-cockroach-runtime.mjs",
+    "verify:aws": "node scripts/verify-aws-runtime.mjs"
   },
   "engines": {
     "node": ">=24"
