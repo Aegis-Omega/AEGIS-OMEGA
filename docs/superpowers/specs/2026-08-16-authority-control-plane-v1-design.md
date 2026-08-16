@@ -2,6 +2,7 @@
 
 Date: 2026-08-16
 Target branch: `feat/frontier-provider-mesh-v1` (PR #264)
+Design baseline before this spec: `81a39789bd337b3002c193f71ad577b42a3a384d`
 Status: DESIGN APPROVED FOR SPECIFICATION; IMPLEMENTATION NOT YET CLAIMED
 
 ## 1. Objective
