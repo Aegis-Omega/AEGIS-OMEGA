@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { createAgentTools } from './agent-tools.mjs';
 import { MEMORY_SENTINEL_INSTRUCTIONS } from './agent-contract.mjs';
+import { summarizeRunEvidence } from './run-evidence.mjs';
 
 const DEFAULT_AGENT_MODEL = 'gpt-5.6-luna';
 const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
@@ -67,5 +68,6 @@ export function createMemorySentinelAgent({ store, openai = new OpenAI() }) {
 export async function runMemorySentinel({ prompt, store, openai }) {
   if (typeof prompt !== 'string' || prompt.trim().length === 0) throw new TypeError('prompt required');
   const agent = createMemorySentinelAgent({ store, openai });
-  return run(agent, prompt);
+  const result = await run(agent, prompt);
+  return summarizeRunEvidence(result);
 }
