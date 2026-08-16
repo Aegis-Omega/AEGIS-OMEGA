@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "demo": "node src/demo.mjs"
+    "demo": "node src/demo.mjs",
+    "verify:cockroach": "node scripts/verify-cockroach-runtime.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "dependencies": {
     "@openai/agents": "0.16.0",
