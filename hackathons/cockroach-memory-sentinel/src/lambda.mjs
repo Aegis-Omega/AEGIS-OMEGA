@@ -12,4 +12,5 @@ async function getStore() {
 export const handler = createLambdaHandler({
   createStore: getStore,
   runAgent: runMemorySentinel,
+  demoToken: process.env.DEMO_TOKEN ?? null,
 });
