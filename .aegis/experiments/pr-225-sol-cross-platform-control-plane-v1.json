@@ -5,8 +5,8 @@
   "repository": "Aegis-Omega/AEGIS-OMEGA",
   "execution_class": "EXPERIMENT",
   "evidence_tier": "T1",
-  "expected_parent_sha": "ed426124475cc9ee8b4d138b2928ae547352e97b",
-  "expected_parent_state_root": "d7b8078980dbeb2b71f9df3d499e61199157ccd4f43f0dadd40bf215b8eda931",
+  "expected_parent_sha": "001fcb3aa92efd18a226ac5eb5b5bd6ccd0d512a",
+  "expected_parent_state_root": "98a96e746e60d80d075d67cbd7759cac8c9a4c954319386eb17bc245fe9f3a1b",
   "constitution": {
     "path": "CONSTITUTIONAL_DECLARATION.md",
     "blob_id": "d0c210443e03313113e43da46c4d98269494baeb"
