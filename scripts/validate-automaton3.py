@@ -55,7 +55,7 @@ REQUIRED_REPOSITORY_CONTROLS = (
     "scripts/integration_ledger.py",
 )
 
-EXPECTED_TEST_COUNT = 57
+EXPECTED_TEST_COUNT = 58
 
 
 def canonical_bytes(value: Any) -> bytes:
