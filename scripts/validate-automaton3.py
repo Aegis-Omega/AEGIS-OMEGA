@@ -16,6 +16,7 @@ SHA_RE = re.compile(r"^[0-9a-f]{40,64}$")
 KEY_FILES = (
     "harness/sdk/sovereign_execution.py",
     "harness/sdk/authority_client.py",
+    "harness/sdk/transition_receipts.py",
     "harness/sdk/operator_visibility.py",
     "harness/policies/consequence-policy.v1.json",
     "harness/policies/capability-map.v1.json",
@@ -27,8 +28,14 @@ KEY_FILES = (
     "sovereign-omega-v2/mcp-server/test/automaton3-authority.mjs",
     "sovereign-omega-v2/python/tests/test_automaton3.py",
     "sovereign-omega-v2/python/tests/test_operator_visibility.py",
+    "sovereign-omega-v2/python/tests/test_transition_receipts_pr1.py",
+    "sovereign-omega-v2/python/tests/test_transition_receipts_cli_pr1.py",
     "schemas/execution-identity-envelope.v1.schema.json",
+    "schemas/transition-identity-envelope.v1.schema.json",
     "schemas/mutation-receipt.v1.schema.json",
+    "schemas/decision-receipt.v1.schema.json",
+    "schemas/execution-receipt.v1.schema.json",
+    "schemas/effect-receipt.v1.schema.json",
     "schemas/event-envelope.v1.schema.json",
     "schemas/writer-lease.v1.schema.json",
     "docs/adr/ADR-0021-automaton-3-sovereign-execution.md",
@@ -47,6 +54,8 @@ REQUIRED_REPOSITORY_CONTROLS = (
     "scripts/validate-claims.mjs",
     "scripts/integration_ledger.py",
 )
+
+EXPECTED_TEST_COUNT = 57
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -124,7 +133,7 @@ def evaluate(
             violations.append("authority bypass detected")
         if summary.get("adaptive_attempts") != [1, 10, 100]:
             violations.append("adaptive attempt matrix incomplete")
-        if summary.get("expected_test_count") != 41:
+        if summary.get("expected_test_count") != EXPECTED_TEST_COUNT:
             violations.append("Automaton-3 test count incomplete")
         if summary.get("operator_visibility_asserted") is not True:
             violations.append("operator visibility invariant not asserted")
@@ -132,6 +141,22 @@ def evaluate(
             violations.append("state preservation not asserted")
         if summary.get("external_side_effect_absence_asserted") is not True:
             violations.append("external side-effect absence not asserted")
+        if summary.get("pr1_safe_incompleteness_asserted") is not True:
+            violations.append("PR-1 safe incompleteness not asserted")
+        if summary.get("transition_binding_asserted") is not True:
+            violations.append("PR-1 transition binding not asserted")
+        if summary.get("receipt_separation_asserted") is not True:
+            violations.append("PR-1 receipt separation not asserted")
+        if summary.get("effect_receipt_schema_defined") is not True:
+            violations.append("PR-1 effect receipt schema not defined")
+        if summary.get("valid_effect_receipt_production_unavailable_asserted") is not True:
+            violations.append("PR-1 valid effect receipt production is not fail-closed unavailable")
+        if summary.get("legacy_receipt_effect_evidence_forbidden_asserted") is not True:
+            violations.append("legacy mutation receipt may satisfy effect evidence")
+        if summary.get("legacy_fallback_forbidden_asserted") is not True:
+            violations.append("legacy effect-evidence fallback not forbidden")
+        if summary.get("effect_bound_admission_unavailable_asserted") is not True:
+            violations.append("PR-1 effect-bound admission availability exceeds scope")
         test_summary_root = summary.get("summary_root", "0" * 64)
     except Exception as exc:
         violations.append(f"test summary unavailable: {type(exc).__name__}")
@@ -146,13 +171,17 @@ def evaluate(
         violations.append(f"MCP log unavailable: {type(exc).__name__}")
         mcp_log_root = "0" * 64
 
-    integration_expectations = {
-        "agents/coordinator.py": "authorize_from_environment",
-        "sovereign-omega-v2/mcp-server/src/index.ts": "automaton3-authority.py",
-        "harness/sdk/operator_visibility.py": "OPERATOR_VISIBILITY_CANNOT_BE_SUPPRESSED",
-        ".github/workflows/automaton-3.yml": "aegis / automaton-3",
-    }
-    for rel, needle in integration_expectations.items():
+    integration_expectations = (
+        ("agents/coordinator.py", "authorize_from_environment"),
+        ("sovereign-omega-v2/mcp-server/src/index.ts", "automaton3-authority.py"),
+        ("harness/sdk/operator_visibility.py", "OPERATOR_VISIBILITY_CANNOT_BE_SUPPRESSED"),
+        ("harness/sdk/authority_client.py", "decision_receipt_from_policy"),
+        ("scripts/automaton3-authority.py", "decision_receipt_from_policy"),
+        ("harness/sdk/transition_receipts.py", "DECISION_RECEIPT_V1"),
+        ("harness/sdk/transition_receipts.py", "EFFECT_RECEIPT_V1"),
+        (".github/workflows/automaton-3.yml", "aegis / automaton-3"),
+    )
+    for rel, needle in integration_expectations:
         path = ROOT / rel
         if path.is_file() and needle not in path.read_text(encoding="utf-8"):
             violations.append(f"integration missing: {rel}:{needle}")
@@ -163,6 +192,7 @@ def evaluate(
     for rel in (
         "harness/sdk/sovereign_execution.py",
         "harness/sdk/authority_client.py",
+        "harness/sdk/transition_receipts.py",
         "harness/sdk/operator_visibility.py",
         "agents/coordinator.py",
         "sovereign-omega-v2/mcp-server/src/index.ts",
