@@ -16,7 +16,7 @@ TEST_FILES = (
     ROOT / "sovereign-omega-v2/python/tests/test_transition_receipts_pr1.py",
     ROOT / "sovereign-omega-v2/python/tests/test_transition_receipts_cli_pr1.py",
 )
-EXPECTED_TEST_COUNT = 57
+EXPECTED_TEST_COUNT = 58
 
 
 def main() -> int:
