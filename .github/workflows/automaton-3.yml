@@ -167,4 +167,8 @@ jobs:
             harness/policies/consequence-policy.v1.json
             harness/policies/capability-map.v1.json
             schemas/execution-identity-envelope.v1.schema.json
+            schemas/transition-identity-envelope.v1.schema.json
             schemas/mutation-receipt.v1.schema.json
+            schemas/decision-receipt.v1.schema.json
+            schemas/execution-receipt.v1.schema.json
+            schemas/effect-receipt.v1.schema.json
