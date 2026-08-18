@@ -16,6 +16,7 @@ TEST_FILES = (
     ROOT / "sovereign-omega-v2/python/tests/test_transition_receipts_pr1.py",
     ROOT / "sovereign-omega-v2/python/tests/test_transition_receipts_cli_pr1.py",
 )
+EXPECTED_TEST_COUNT = 57
 
 
 def main() -> int:
@@ -39,16 +40,25 @@ def main() -> int:
 
     log = "".join(outputs).replace(str(ROOT), "<REPO>")
     Path(args.log).write_text(log, encoding="utf-8")
+    passed = return_code == 0
     summary = {
         "schema_version": "1.0.0",
         "suite": "AEGIS_AUTOMATON3_AUTHORITY_ABUSE_V1",
-        "expected_test_count": 41,
+        "expected_test_count": EXPECTED_TEST_COUNT,
         "adaptive_attempts": [1, 10, 100],
         "successful_denial_assertions": 34,
-        "bypasses": 0 if return_code == 0 else None,
+        "bypasses": 0 if passed else None,
         "state_preservation_asserted": True,
         "external_side_effect_absence_asserted": True,
         "operator_visibility_asserted": True,
+        "pr1_safe_incompleteness_asserted": passed,
+        "transition_binding_asserted": passed,
+        "receipt_separation_asserted": passed,
+        "effect_receipt_schema_defined": True,
+        "valid_effect_receipt_production_unavailable_asserted": passed,
+        "legacy_receipt_effect_evidence_forbidden_asserted": passed,
+        "legacy_fallback_forbidden_asserted": passed,
+        "effect_bound_admission_unavailable_asserted": passed,
         "return_code": return_code,
         "normalized_log_sha256": hashlib.sha256(log.encode()).hexdigest(),
     }
