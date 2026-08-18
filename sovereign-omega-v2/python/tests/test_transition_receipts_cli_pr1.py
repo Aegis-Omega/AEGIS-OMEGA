@@ -87,19 +87,29 @@ class TransitionReceiptCliPR1Tests(TestCase):
                 "requested_capability": "mcp.platform.status",
                 "tool": "aegis_platform_status",
                 "target": "platform",
-                "pre_state_digest": ZERO_HASH,
+                "pre_state_digest": "6" * 64,
                 "post_state_digest": "5" * 64,
             },
             "action": action,
         }
         result = cli.evaluate(payload)
+        second_payload = {
+            **payload,
+            "request": {**payload["request"], "pre_state_digest": "7" * 64},
+        }
+        second = cli.evaluate(second_payload)
+
         self.assertEqual(result["outcome"], "ADMITTED")
         self.assertEqual(result["decision_receipt"]["receipt_kind"], "DECISION_RECEIPT_V1")
         self.assertEqual(result["decision_receipt"]["decision_outcome"], "PERMIT")
         self.assertEqual(result["transition_id"], result["decision_receipt"]["transition_id"])
         self.assertEqual(result["legacy_receipt_semantics"], "DECISION_DERIVED_NOT_EFFECT_PROOF")
+        self.assertEqual(result["mutation_receipt"]["pre_state_digest"], "6" * 64)
+        self.assertEqual(second["mutation_receipt"]["pre_state_digest"], "7" * 64)
+        self.assertEqual(result["transition_id"], second["transition_id"])
         self.assertEqual(result["mutation_receipt"]["post_state_digest"], "5" * 64)
         self.assertNotIn("effect_receipt", result)
+        self.assertNotIn("effect_receipt", second)
 
 
 if __name__ == "__main__":
