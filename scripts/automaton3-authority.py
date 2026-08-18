@@ -25,6 +25,12 @@ from harness.sdk.sovereign_execution import (  # noqa: E402
     make_mutation_receipt,
     verify_workspace,
 )
+from harness.sdk.transition_receipts import (  # noqa: E402
+    build_transition_identity,
+    decision_receipt_from_policy,
+)
+
+LEGACY_RECEIPT_SEMANTICS = "DECISION_DERIVED_NOT_EFFECT_PROOF"
 
 
 def deny(code: str, detail: str = "") -> dict:
@@ -98,14 +104,31 @@ def evaluate(payload: dict) -> dict:
         )
         approval = ApprovalGrant(**payload["approval"]) if payload.get("approval") else None
         decision = AuthorityEvaluator(policy=policy, registry=registry, repository_root=ROOT).evaluate(request, approval=approval)
+        pre_state_digest = request_payload.get("pre_state_digest", ZERO_HASH)
+        transition = build_transition_identity(
+            source_commit=identity.source_commit,
+            pre_state_commitment=pre_state_digest,
+            identity_root=identity_root,
+            approval=approval,
+            requested_capability=request.requested_capability,
+            registry_root=registry_root,
+            action_digest=action_digest,
+            deterministic_nonce=identity.deterministic_nonce,
+            fence_token=request_payload.get("fencing_token"),
+        )
+        decision_receipt = decision_receipt_from_policy(transition=transition, decision=decision)
+
+        # Compatibility-only legacy V1 artifact. Caller-supplied post_state_digest is
+        # preserved for format compatibility, but this artifact is explicitly not
+        # execution evidence, effect evidence, or authoritative admission evidence.
         receipt = make_mutation_receipt(
             identity_root=identity_root,
             workspace_binding=identity.workspace_binding,
             decision=decision,
-            pre_state_digest=request_payload.get("pre_state_digest", ZERO_HASH),
+            pre_state_digest=pre_state_digest,
             action_digest=action_digest,
             result={"authority_outcome": decision.outcome},
-            post_state_digest=request_payload.get("post_state_digest", request_payload.get("pre_state_digest", ZERO_HASH)),
+            post_state_digest=request_payload.get("post_state_digest", pre_state_digest),
             parent_receipt=request_payload.get("parent_receipt", ZERO_HASH),
             sequence=int(request_payload.get("sequence", 0)),
         )
@@ -116,8 +139,12 @@ def evaluate(payload: dict) -> dict:
             "workspace_binding": identity.workspace_binding,
             "workspace_decision_root": workspace.decision_root,
             "policy_decision": decision_dict(decision),
+            "transition_id": transition.root,
+            "decision_receipt": asdict(decision_receipt),
+            "decision_receipt_root": decision_receipt.root,
             "mutation_receipt": asdict(receipt),
             "mutation_receipt_root": receipt.root,
+            "legacy_receipt_semantics": LEGACY_RECEIPT_SEMANTICS,
             "observation": asdict(workspace.observation),
         }
     except Exception as exc:
