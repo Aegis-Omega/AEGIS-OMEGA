@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import json
 import sys
 from dataclasses import replace
 from pathlib import Path
 from unittest import TestCase, main
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
@@ -16,11 +18,15 @@ from harness.sdk.sovereign_execution import (  # noqa: E402
     D2,
     SCHEMA_VERSION,
     ZERO_HASH,
+    ExecutionIdentityEnvelope,
     MutationReceipt,
+    canonical_hash,
+    compute_workspace_binding,
 )
 
 HASHES = [f"{index:064x}" for index in range(1, 20)]
 COMMIT = "a" * 40
+REMOTE = "https://github.com/Aegis-Omega/AEGIS-OMEGA.git"
 
 
 class TransitionReceiptPR1Tests(TestCase):
@@ -179,6 +185,67 @@ class TransitionReceiptPR1Tests(TestCase):
         first = self.legacy_receipt()
         second = self.legacy_receipt()
         self.assertEqual(first.root, second.root)
+
+    def test_authority_client_emits_decision_receipt_but_no_effect_receipt(self):
+        from harness.sdk.authority_client import authorize_from_environment
+
+        action = {"operation": "status"}
+        approval_reference = "approval-none"
+        binding = compute_workspace_binding(
+            repository_remote=REMOTE,
+            repository_root=".",
+            project_identity="AEGIS-OMEGA",
+            source_commit=COMMIT,
+            operator_authorization=approval_reference,
+        )
+        identity = ExecutionIdentityEnvelope(
+            schema_version=SCHEMA_VERSION,
+            repository_identity=REMOTE,
+            repository_root=".",
+            source_commit=COMMIT,
+            branch_or_ref="refs/heads/pr1-test",
+            project_identity="AEGIS-OMEGA",
+            workspace_root=".",
+            workspace_binding=binding,
+            parent_state_root=ZERO_HASH,
+            skills_root=HASHES[1],
+            registry_root=HASHES[2],
+            policy_root=HASHES[3],
+            actor_class="operator-agent",
+            actor_identity="agent-1",
+            model_identity="model-1",
+            session_identity="session-1",
+            physical_executor="test-runner-1",
+            tool_identity="aegis_platform_status",
+            workflow_identity="pr1-test",
+            authority_domain="mcp:status",
+            requested_capability="mcp.platform.status",
+            observed_authority="0.000000",
+            approval_reference=approval_reference,
+            input_digest=canonical_hash("AEGIS_PR1_TEST_INPUT_V1", {}),
+            action_digest=canonical_hash("AEGIS_REQUESTED_ACTION_V1", action),
+            expected_pre_state=ZERO_HASH,
+            deterministic_nonce="nonce-client-1",
+        )
+        with patch.dict(
+            "os.environ",
+            {"AEGIS_EXECUTION_IDENTITY_JSON": json.dumps(identity.__dict__, sort_keys=True)},
+            clear=False,
+        ):
+            result = authorize_from_environment(
+                action_class="D0",
+                authority_domain="mcp:status",
+                requested_capability="mcp.platform.status",
+                tool="aegis_platform_status",
+                target="platform",
+                action=action,
+            )
+        self.assertEqual(result["outcome"], "ADMITTED")
+        self.assertEqual(result["decision_receipt"]["receipt_kind"], "DECISION_RECEIPT_V1")
+        self.assertEqual(result["decision_receipt"]["decision_outcome"], "PERMIT")
+        self.assertEqual(result["transition_id"], result["decision_receipt"]["transition_id"])
+        self.assertEqual(result["legacy_receipt_semantics"], "DECISION_DERIVED_NOT_EFFECT_PROOF")
+        self.assertNotIn("effect_receipt", result)
 
 
 if __name__ == "__main__":
