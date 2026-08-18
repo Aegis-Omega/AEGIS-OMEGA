@@ -134,7 +134,13 @@ def evaluate(
         if summary.get("adaptive_attempts") != [1, 10, 100]:
             violations.append("adaptive attempt matrix incomplete")
         if summary.get("expected_test_count") != EXPECTED_TEST_COUNT:
-            violations.append("Automaton-3 test count incomplete")
+            violations.append("Automaton-3 expected test count mismatch")
+        if summary.get("actual_test_count") != EXPECTED_TEST_COUNT:
+            violations.append("Automaton-3 actual test count incomplete")
+        if summary.get("test_count_complete") is not True:
+            violations.append("Automaton-3 per-file test count unavailable")
+        if summary.get("test_count_matches_expected") is not True:
+            violations.append("Automaton-3 actual test count mismatch")
         if summary.get("operator_visibility_asserted") is not True:
             violations.append("operator visibility invariant not asserted")
         if summary.get("state_preservation_asserted") is not True:
