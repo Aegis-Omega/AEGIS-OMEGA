@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TEST_FILES = (
     ROOT / "sovereign-omega-v2/python/tests/test_automaton3.py",
     ROOT / "sovereign-omega-v2/python/tests/test_operator_visibility.py",
+    ROOT / "sovereign-omega-v2/python/tests/test_transition_receipts_pr1.py",
 )
 
 
