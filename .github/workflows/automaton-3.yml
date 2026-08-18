@@ -72,6 +72,17 @@ jobs:
             --output "$RUNNER_TEMP/AUTOMATON3_TEST_SUMMARY.json" \
             --log "$RUNNER_TEMP/AUTOMATON3_TEST.log"
 
+      - name: Preserve Automaton-3 Python test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-automaton-3-test-diagnostics-${{ env.CANDIDATE_SHA }}
+          path: |
+            ${{ runner.temp }}/AUTOMATON3_TEST_SUMMARY.json
+            ${{ runner.temp }}/AUTOMATON3_TEST.log
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Build and test MCP fail-closed integration
         working-directory: sovereign-omega-v2/mcp-server
         shell: bash
