@@ -164,6 +164,8 @@ class TransitionReceiptPR1Tests(TestCase):
                 adapter_identity="generic-caller",
                 adapter_version="1",
             )
+        with self.assertRaises(api.TransitionReceiptError):
+            api.EffectReceipt().validate()
 
     def test_missing_effect_receipt_has_no_legacy_fallback(self):
         api = self.api()
@@ -180,6 +182,24 @@ class TransitionReceiptPR1Tests(TestCase):
                 decision_outcome=api.PERMIT,
                 policy_decision_root=HASHES[8],
             )
+
+    def test_serialized_receipt_kinds_and_hash_domains_are_distinct(self):
+        api = self.api()
+        schema_expectations = {
+            "decision-receipt.v1.schema.json": api.DECISION_RECEIPT_KIND,
+            "execution-receipt.v1.schema.json": api.EXECUTION_RECEIPT_KIND,
+            "effect-receipt.v1.schema.json": api.EFFECT_RECEIPT_KIND,
+        }
+        for filename, expected_kind in schema_expectations.items():
+            schema = json.loads((REPO_ROOT / "schemas" / filename).read_text(encoding="utf-8"))
+            self.assertEqual(schema["properties"]["receipt_kind"]["const"], expected_kind)
+        payload = {"semantic_payload": "identical"}
+        roots = {
+            canonical_hash("AEGIS_DECISION_RECEIPT_V1", payload),
+            canonical_hash("AEGIS_EXECUTION_RECEIPT_V1", payload),
+            canonical_hash("AEGIS_EFFECT_RECEIPT_V1", payload),
+        }
+        self.assertEqual(len(roots), 3)
 
     def test_legacy_mutation_receipt_remains_reproducible(self):
         first = self.legacy_receipt()
