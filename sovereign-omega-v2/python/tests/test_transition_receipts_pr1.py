@@ -227,10 +227,19 @@ class TransitionReceiptPR1Tests(TestCase):
             expected_pre_state=ZERO_HASH,
             deterministic_nonce="nonce-client-1",
         )
+        workspace_observation = {
+            "actual_cwd": str(REPO_ROOT),
+            "remote_origin": REMOTE,
+            "mutation_target": str(REPO_ROOT),
+            "path_views": {},
+        }
         with patch.dict(
             "os.environ",
-            {"AEGIS_EXECUTION_IDENTITY_JSON": json.dumps(identity.__dict__, sort_keys=True)},
-            clear=False,
+            {
+                "AEGIS_EXECUTION_IDENTITY_JSON": json.dumps(identity.__dict__, sort_keys=True),
+                "AEGIS_WORKSPACE_OBSERVATION_JSON": json.dumps(workspace_observation, sort_keys=True),
+            },
+            clear=True,
         ):
             result = authorize_from_environment(
                 action_class="D0",
