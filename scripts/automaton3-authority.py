@@ -104,10 +104,10 @@ def evaluate(payload: dict) -> dict:
         )
         approval = ApprovalGrant(**payload["approval"]) if payload.get("approval") else None
         decision = AuthorityEvaluator(policy=policy, registry=registry, repository_root=ROOT).evaluate(request, approval=approval)
-        pre_state_digest = request_payload.get("pre_state_digest", ZERO_HASH)
+        legacy_pre_state_digest = request_payload.get("pre_state_digest", ZERO_HASH)
         transition = build_transition_identity(
             source_commit=identity.source_commit,
-            pre_state_commitment=pre_state_digest,
+            pre_state_commitment=identity.expected_pre_state,
             identity_root=identity_root,
             approval=approval,
             requested_capability=request.requested_capability,
@@ -118,17 +118,17 @@ def evaluate(payload: dict) -> dict:
         )
         decision_receipt = decision_receipt_from_policy(transition=transition, decision=decision)
 
-        # Compatibility-only legacy V1 artifact. Caller-supplied post_state_digest is
-        # preserved for format compatibility, but this artifact is explicitly not
-        # execution evidence, effect evidence, or authoritative admission evidence.
+        # Compatibility-only legacy V1 artifact. Caller-supplied pre/post digests are
+        # preserved for format compatibility, but neither participates as authoritative
+        # effect evidence. The new TransitionID binds identity.expected_pre_state.
         receipt = make_mutation_receipt(
             identity_root=identity_root,
             workspace_binding=identity.workspace_binding,
             decision=decision,
-            pre_state_digest=pre_state_digest,
+            pre_state_digest=legacy_pre_state_digest,
             action_digest=action_digest,
             result={"authority_outcome": decision.outcome},
-            post_state_digest=request_payload.get("post_state_digest", pre_state_digest),
+            post_state_digest=request_payload.get("post_state_digest", legacy_pre_state_digest),
             parent_receipt=request_payload.get("parent_receipt", ZERO_HASH),
             sequence=int(request_payload.get("sequence", 0)),
         )
