@@ -64,7 +64,7 @@ function repoRoot(): string {
 type DeniedAuthorityDecision = { outcome: 'DENIED'; denial_codes: string[] }
 type AuthorityDecision = VerifiedAuthorityDecision | DeniedAuthorityDecision
 
-function localDenial(code: string): AuthorityDecision {
+function localDenial(code: string): DeniedAuthorityDecision {
   return { outcome: 'DENIED', denial_codes: [code] }
 }
 
