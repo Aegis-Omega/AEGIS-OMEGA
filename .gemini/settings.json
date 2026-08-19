@@ -1,12 +1,16 @@
 {
+  "mcp": {
+    "allowed": ["aegis"]
+  },
   "mcpServers": {
     "aegis": {
       "command": "node",
       "args": [
         "scripts/aegis-provider-mcp.mjs",
-        "anthropic",
-        "@AEGIS_CLAUDE_MODEL"
-      ]
+        "google",
+        "@AEGIS_GEMINI_MODEL"
+      ],
+      "cwd": "."
     }
   }
 }
