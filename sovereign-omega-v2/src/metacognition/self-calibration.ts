@@ -99,6 +99,12 @@ function assertBasisPoints(value: number): void {
   }
 }
 
+function assertObservedSuccess(value: unknown): asserts value is boolean {
+  if (typeof value !== 'boolean') {
+    throw new SelfCalibrationError('observed_success must be boolean')
+  }
+}
+
 function assertSha256Hex(field: string, value: string): void {
   if (typeof value !== 'string' || !SHA256_PATTERN.test(value)) {
     throw new SelfCalibrationError(`${field} must be lowercase SHA-256 hex`)
@@ -157,6 +163,7 @@ export function createSelfOutcomeObservation(
   assertSha256Hex('prediction_hash', input.prediction_hash)
   assertSha256Hex('action_digest', input.action_digest)
   assertSha256Hex('observation_evidence_digest', input.observation_evidence_digest)
+  assertObservedSuccess(input.observed_success)
 
   if (input.observation_evidence_digest === input.prediction_hash) {
     throw new SelfCalibrationError(
@@ -204,6 +211,7 @@ function assertObservationSemantics(observation: SelfOutcomeObservationV1): void
     'observation.observation_evidence_digest',
     observation.observation_evidence_digest,
   )
+  assertObservedSuccess(observation.observed_success)
   if (
     observation.receipt_kind !== 'SELF_OUTCOME_OBSERVATION_V1' ||
     observation.schema_version !== SELF_CALIBRATION_SCHEMA_VERSION ||
@@ -269,6 +277,7 @@ async function assertCalibrationIntegrity(
   )
   assertSha256Hex('calibration.calibration_hash', calibration.calibration_hash)
   assertBasisPoints(calibration.predicted_success_bps)
+  assertObservedSuccess(calibration.observed_success)
   if (
     calibration.receipt_kind !== 'SELF_CALIBRATION_RECORD_V1' ||
     calibration.schema_version !== SELF_CALIBRATION_SCHEMA_VERSION ||
