@@ -45,8 +45,26 @@ jobs:
         run: |
           set -euo pipefail
           printf '%s  %s\n' \
-            'c5e491750ad59610d428a6f9537bb0f6395892c45a3e6ec2ad0c460494177c45' \
+            '45c302e763e58c398d9b2a893cd62bdb2e585c8214d87b286f8e83d1b7d30e3e' \
             'formal/assumption-baseline-v1.json' | sha256sum -c -
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          baseline = json.loads(
+              Path('formal/assumption-baseline-v1.json').read_text(encoding='utf-8')
+          )
+          assert baseline['baseline_kind'] == 'COQ_ASSUMPTION_BASELINE_V1'
+          assert baseline['baseline_source_commit'] == '203c11cdb36f82e3d4f4d22993a118b4b870e691'
+          assert baseline['baseline_source_receipt_sha256'] == 'ac8535bb9d618456589fa57de9332c8f8472ea9d7bc553174d105834b9ffccd6'
+          assert baseline['baseline_source_workflow_run_id'] == 32308477587
+          assert baseline['baseline_source_artifact_digest'] == 'sha256:73f1f63b8f1756b083f35973041d35e3f44b544209971ae9ab9aa4d0d7aeabed'
+          assert baseline['correspondence'] == 'NOT_ESTABLISHED'
+          lineage = baseline['lineage']
+          assert lineage['lineage_kind'] == 'ROOT_BASELINE'
+          assert lineage['parent_baseline_sha256'] is None
+          assert isinstance(lineage['reason'], str) and lineage['reason'].strip()
+          PY
 
       - name: Prepare writable Coq evidence workspace
         shell: bash
@@ -175,7 +193,7 @@ jobs:
               'Core/LatticeConvergence.v',
               'Core/LockIrreversibility.v',
           }
-          EXPECTED_BASELINE_SHA256 = 'c5e491750ad59610d428a6f9537bb0f6395892c45a3e6ec2ad0c460494177c45'
+          EXPECTED_BASELINE_SHA256 = '45c302e763e58c398d9b2a893cd62bdb2e585c8214d87b286f8e83d1b7d30e3e'
 
           path = Path('coq-attestation/coq-formal-attestation-receipt.json')
           receipt = json.loads(path.read_text(encoding='utf-8'))
