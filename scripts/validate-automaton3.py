@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Validate an exact Automaton-3 candidate and emit deterministic evidence."""
+"""Validate an exact Automaton-3 candidate and emit deterministic evidence.
+
+The emitted admission receipt is scoped to repository-candidate validation. It is
+not an AdmissionRecord for an external effect-bound state transition.
+"""
 from __future__ import annotations
 
 import argparse
@@ -176,6 +180,8 @@ def evaluate(
         for key in PR2_REQUIRED_ASSERTIONS:
             if summary.get(key) is not True:
                 violations.append(f"PR-2 assertion missing or false: {key}")
+        if summary.get("valid_effect_receipt_production_unavailable_asserted") is True:
+            violations.append("stale PR-1 all-effect-production-unavailable assertion survived PR-2")
         test_summary_root = summary.get("summary_root", "0" * 64)
     except Exception as exc:
         violations.append(f"test summary unavailable: {type(exc).__name__}")
@@ -240,6 +246,11 @@ def evaluate(
         "policy_root": policy_root,
         "test_summary_root": test_summary_root,
         "mcp_log_root": mcp_log_root,
+        "admission_scope": "REPOSITORY_CANDIDATE_VALIDATION_ONLY",
+        "effect_observation_scope": "REFERENCE_ADAPTER_BOUND_ONLY",
+        "complete_verification": "NOT_IMPLEMENTED",
+        "atomic_admission": "NOT_IMPLEMENTED",
+        "effect_bound_admission": "UNAVAILABLE",
         "files": files,
     }
     candidate_manifest["candidate_manifest_root"] = sha256(canonical_bytes(candidate_manifest))
@@ -248,12 +259,16 @@ def evaluate(
     body = {
         "schema_version": "1.0.0",
         "receipt_kind": "AEGIS_AUTOMATON3_ADMISSION_RECEIPT_V1",
+        "admission_scope": "REPOSITORY_CANDIDATE_ADMISSION_NOT_EFFECT_BOUND_STATE_ADMISSION",
         "candidate_sha": candidate_sha,
         "expected_parent_sha": expected_parent_sha,
         "candidate_manifest_root": candidate_manifest["candidate_manifest_root"],
         "policy_root": policy_root,
         "test_summary_root": test_summary_root,
         "mcp_log_root": mcp_log_root,
+        "complete_verification": "NOT_IMPLEMENTED",
+        "atomic_admission": "NOT_IMPLEMENTED",
+        "effect_bound_admission": "UNAVAILABLE",
         "signature_mode": (
             "GITHUB_OIDC_ATTESTATION"
             if require_oidc
