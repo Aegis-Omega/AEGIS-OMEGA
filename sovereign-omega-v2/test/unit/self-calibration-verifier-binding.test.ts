@@ -6,6 +6,7 @@ import type { VerifierOutput } from '../../src/verifier/types.js'
 import {
   SelfCalibrationError,
   SelfCalibrationLedgerV2,
+  calibrationV2ToMetacognitiveObservation,
   certifySelfCalibrationLedgerV2,
   createSelfCalibrationV2,
   createSelfOutcomeObservationFromVerifier,
@@ -159,6 +160,29 @@ describe('verifier-bound self-calibration V2', () => {
 
     await expect(
       SelfCalibrationLedgerV2.empty().append(forged, SEQ1),
+    ).rejects.toThrow(SelfCalibrationError)
+  })
+
+  it('bridges a valid V2 calibration into a T2 SELF_MODEL observation', async () => {
+    const calibration = await makeV2Calibration()
+    const observation = await calibrationV2ToMetacognitiveObservation(calibration)
+
+    expect(observation.layer).toBe('SELF_MODEL')
+    expect(observation.tier).toBe('T2')
+    expect(observation.signal).toContain(calibration.calibration_hash)
+    expect(observation.signal).toContain(calibration.verifier_id)
+    expect(observation.signal).toContain(calibration.verifier_claim_id)
+  })
+
+  it('rejects a forged V2 calibration before it can enter SELF_MODEL observation', async () => {
+    const calibration = await makeV2Calibration()
+    const forged = await rehashV2Calibration(calibration, {
+      observed_success: false,
+      absolute_error_bps: 7500,
+    })
+
+    await expect(
+      calibrationV2ToMetacognitiveObservation(forged),
     ).rejects.toThrow(SelfCalibrationError)
   })
 })
