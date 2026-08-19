@@ -10,7 +10,7 @@
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "test:resources": "npm run build && node test/resources.mjs",
-    "test:automaton3": "npm run build && node test/authority-response.mjs && node test/automaton3-authority.mjs"
+    "test:automaton3": "npm run build && node test/authority-response.mjs && node test/authority-transition-receipt.mjs && node test/automaton3-authority.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1"
