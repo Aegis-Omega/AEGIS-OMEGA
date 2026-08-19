@@ -1,10 +1,9 @@
 """Durable, fail-closed organizational work loop for AEGIS Ω.
 
-Turns the existing governed coordinator into a persistent company loop. It does
-not grant new authority. D1/D2 work may enter the existing Automaton-3-gated
-dispatcher; D3 waits for explicit operator approval; D4 is denied. Provider
-contributions are content-addressed, recorded as non-authoritative evidence, and
-cannot promote a work order by themselves. State uses an append-only hash chain.
+Provider contributions are content-addressed NON_AUTHORITATIVE_EVIDENCE. A D1
+contribution can be prepared against an exact journal/order pre-state and the
+write rejects if that pre-state changes before application. This gives the MCP
+a concrete rollback/pre-state reference instead of a decorative policy string.
 """
 from __future__ import annotations
 
@@ -77,6 +76,10 @@ Dispatcher = Callable[[str, dict[str, Any]], Awaitable[Iterable[Any]]]
 
 def _canonical(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
+def _domain_hash(domain: str, value: Any) -> str:
+    return hashlib.sha256(_canonical({"domain": domain, "value": value})).hexdigest()
 
 
 def _hash_event(prev: str, seq: int, event_type: str, body: dict[str, Any]) -> str:
@@ -182,6 +185,10 @@ class OrganismStore:
         event_hash = _hash_event(prev, seq, event_type, body)
         journal.append({"seq": seq, "event_type": event_type, "body": body, "prev_hash": prev, "event_hash": event_hash})
 
+    def state_root(self) -> str:
+        journal = self._state["journal"]
+        return journal[-1]["event_hash"] if journal else GENESIS
+
     def save_order(self, order: WorkOrder, event_type: str, *, event_body: dict[str, Any] | None = None) -> None:
         self._state["orders"][order.work_id] = order.to_dict()
         self._append(event_type, event_body if event_body is not None else order.to_dict())
@@ -243,7 +250,21 @@ class OrganizationOrganism:
         self.store.save_order(order, "WORK_SUBMITTED")
         return order
 
-    def record_contribution(self, work_id: str, *, provider: str, model: str, artifact_digest: str, source_ref: str) -> str:
+    def prepare_contribution(self, work_id: str) -> dict[str, str]:
+        order = self.get(work_id)
+        order_digest = _domain_hash("AEGIS_ORGANISM_ORDER_PRESTATE_V1", order.to_dict())
+        state_root = self.store.state_root()
+        rollback_reference = f"organism:{work_id}:order:{order_digest}:state:{state_root}"
+        return {"work_id": work_id, "order_digest": order_digest, "state_root": state_root, "rollback_reference": rollback_reference}
+
+    def _verify_contribution_prestate(self, work_id: str, rollback_reference: str | None) -> dict[str, str]:
+        prepared = self.prepare_contribution(work_id)
+        if rollback_reference is not None and rollback_reference != prepared["rollback_reference"]:
+            raise ValueError("CONTRIBUTION_PRESTATE_STALE")
+        return prepared
+
+    def record_contribution(self, work_id: str, *, provider: str, model: str, artifact_digest: str, source_ref: str, rollback_reference: str | None = None) -> str:
+        prepared = self._verify_contribution_prestate(work_id, rollback_reference)
         order = self.get(work_id)
         for value, code in ((provider, "PROVIDER_ID_INVALID"), (model, "MODEL_ID_INVALID"), (source_ref, "SOURCE_REF_INVALID")):
             if not _IDENTITY_RE.fullmatch(value):
@@ -266,15 +287,22 @@ class OrganizationOrganism:
                 "source_ref": source_ref,
                 "contribution_ref": contribution_ref,
                 "authority": "NON_AUTHORITATIVE_EVIDENCE",
+                "pre_state_root": prepared["state_root"],
+                "pre_order_digest": prepared["order_digest"],
+                "rollback_reference": prepared["rollback_reference"],
                 "status_after": order.status.value,
             },
         )
         return contribution_ref
 
-    def contribute_text(self, work_id: str, *, provider: str, model: str, text: str, source_ref: str, media_type: str = "text/markdown") -> dict[str, Any]:
+    def contribute_text(self, work_id: str, *, provider: str, model: str, text: str, source_ref: str, media_type: str = "text/markdown", rollback_reference: str | None = None) -> dict[str, Any]:
+        prepared = self._verify_contribution_prestate(work_id, rollback_reference)
         artifact = self.contribution_store.put_text(text, media_type=media_type)
-        ref = self.record_contribution(work_id, provider=provider, model=model, artifact_digest=artifact["sha256"], source_ref=source_ref)
-        return {"contribution_ref": ref, "artifact": artifact, "authority": "NON_AUTHORITATIVE_EVIDENCE", "work": self.get(work_id).to_dict()}
+        ref = self.record_contribution(
+            work_id, provider=provider, model=model, artifact_digest=artifact["sha256"], source_ref=source_ref,
+            rollback_reference=prepared["rollback_reference"],
+        )
+        return {"contribution_ref": ref, "artifact": artifact, "rollback_reference": prepared["rollback_reference"], "authority": "NON_AUTHORITATIVE_EVIDENCE", "work": self.get(work_id).to_dict()}
 
     def operator_inbox(self) -> list[WorkOrder]:
         return [w for w in self.orders() if w.status == WorkStatus.WAITING_OPERATOR]
@@ -355,6 +383,7 @@ def default_store_path() -> Path:
 
 def main() -> None:
     import argparse
+    import sys
     parser = argparse.ArgumentParser(description="AEGIS Ω durable organization organism")
     sub = parser.add_subparsers(dest="command", required=True)
     p_submit = sub.add_parser("submit")
@@ -364,6 +393,8 @@ def main() -> None:
     p_submit.add_argument("--consequence", default="D1")
     p_next = sub.add_parser("next")
     p_next.add_argument("--limit", type=int, default=10)
+    p_prepare = sub.add_parser("prepare-contribution")
+    p_prepare.add_argument("--id", required=True)
     sub.add_parser("tick")
     p_run = sub.add_parser("run")
     p_run.add_argument("--max-ticks", type=int, default=100)
@@ -377,6 +408,7 @@ def main() -> None:
     p_contrib.add_argument("--model", required=True)
     p_contrib.add_argument("--artifact-digest", required=True)
     p_contrib.add_argument("--source-ref", required=True)
+    p_contrib.add_argument("--rollback-reference")
     sub.add_parser("contribute-json")
     sub.add_parser("status")
     args = parser.parse_args()
@@ -386,6 +418,8 @@ def main() -> None:
         print(json.dumps(org.submit(args.id, args.event, json.loads(args.payload), consequence_class=args.consequence).to_dict(), sort_keys=True))
     elif args.command == "next":
         print(json.dumps([w.to_dict() for w in org.next_work(limit=args.limit)], sort_keys=True))
+    elif args.command == "prepare-contribution":
+        print(json.dumps(org.prepare_contribution(args.id), sort_keys=True))
     elif args.command == "tick":
         result = asyncio.run(org.tick())
         print(json.dumps(result.to_dict() if result else {"status": "IDLE"}, sort_keys=True))
@@ -396,17 +430,21 @@ def main() -> None:
     elif args.command == "approve":
         print(json.dumps({"approved": org.approve(args.id, approval_ref=args.approval_ref)}, sort_keys=True))
     elif args.command == "contribute":
-        ref = org.record_contribution(args.id, provider=args.provider, model=args.model, artifact_digest=args.artifact_digest, source_ref=args.source_ref)
+        ref = org.record_contribution(
+            args.id, provider=args.provider, model=args.model, artifact_digest=args.artifact_digest,
+            source_ref=args.source_ref, rollback_reference=args.rollback_reference,
+        )
         print(json.dumps({"contribution_ref": ref, "authority": "NON_AUTHORITATIVE_EVIDENCE", "work": org.get(args.id).to_dict()}, sort_keys=True))
     elif args.command == "contribute-json":
-        body = json.loads(__import__("sys").stdin.read())
+        body = json.loads(sys.stdin.read())
         result = org.contribute_text(
             body["work_id"], provider=body["provider"], model=body["model"], text=body["text"],
             source_ref=body["source_ref"], media_type=body.get("media_type", "text/markdown"),
+            rollback_reference=body.get("rollback_reference"),
         )
         print(json.dumps(result, sort_keys=True))
     elif args.command == "status":
-        print(json.dumps({"orders": [w.to_dict() for w in org.orders()], "journal_length": len(org.store.journal())}, sort_keys=True))
+        print(json.dumps({"orders": [w.to_dict() for w in org.orders()], "journal_length": len(org.store.journal()), "state_root": org.store.state_root()}, sort_keys=True))
 
 
 if __name__ == "__main__":
