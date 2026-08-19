@@ -1,0 +1,8 @@
+[mcp_servers.aegis]
+command = "node"
+args = ["scripts/aegis-provider-mcp.mjs", "openai", "@AEGIS_CODEX_MODEL"]
+required = true
+default_tools_approval_mode = "prompt"
+enabled_tools = ["aegis_organism_status", "aegis_next_work", "aegis_contribute", "aegis_contribute_text"]
+startup_timeout_sec = 20
+tool_timeout_sec = 60

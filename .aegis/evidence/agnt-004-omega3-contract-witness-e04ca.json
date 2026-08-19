@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0.0",
+  "witness_id": "agnt-004-omega3-contract-e04ca-20260816",
+  "repository": "Aegis-Omega/AEGIS-OMEGA",
+  "source_parent_sha": "e04ca331e7174e770c6470ea8d5e5d7c2352ca26",
+  "scope": "AGNT_004_OMEGA_3_EXPLICIT_PERCEPTION_AUTHORITY_BOUNDARY",
+  "pre_patch_source_blob": "78fd2690bdceffe76007d099e45964d47dbfd557",
+  "post_patch_source_blob": "774dc8ddbc3e437c36e012d597eab3f71f6cf738",
+  "pre_patch_test_blob": "0350dd3cec3a09355c55db27710848058b0aa949",
+  "post_patch_test_blob": "2d01b159714d62bba10e49f55cadeabc909b9544",
+  "tdd_red": {
+    "observed": true,
+    "failure": "undefined !== 'T2'",
+    "meaning": "existing Sensorium observation did not explicitly carry observationTier"
+  },
+  "tdd_green": {
+    "tests": 2,
+    "pass": 2,
+    "fail": 0,
+    "typecheck": "PASS_WITH_LOCAL_SHA256_RUNTIME_SEAM"
+  },
+  "established": [
+    "SENSORIUM_AUTHORITY_EFFECT_OBSERVATION_ONLY",
+    "SENSORIUM_OBSERVATION_TIER_T2_EXPLICIT",
+    "SENSORIUM_AUTHORITY_WEIGHT_ZERO_EXPLICIT",
+    "SENSORIUM_MAY_GROUND_STATE_TRANSITION_FALSE_EXPLICIT",
+    "OMEGA3_METADATA_INCLUDED_IN_OBSERVATION_DIGEST_ENCODING_FOR_TESTED_CASES"
+  ],
+  "not_established": [
+    "REPO_NATIVE_VITEST_PASS",
+    "EXACT_HEAD_GITHUB_ACTIONS_PASS",
+    "FULL_AUTHORITY_INTEGRATION_PASS",
+    "EMPIRICAL_VALIDATION",
+    "PRODUCTION_ADMISSION"
+  ],
+  "sha256": {
+    "post_patch_source": "981657471660113d86796ceeaa682ada86bb07d3c5e5d41db615ad1e3ce9f746",
+    "post_patch_test": "902071565e4aab1877ad45bd32cff379aec9ed940e36c190b0bc0af31d1a060f",
+    "local_green_tap": "2b3810a2b317b398e7e8feb26e05917ec6b42e11f671602030a1c0aaa31ade67"
+  }
+}

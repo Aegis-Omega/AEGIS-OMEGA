@@ -1,0 +1,50 @@
+{
+  "epistemic_boundary": {
+    "exact_head_ci_pass": "NOT_ESTABLISHED",
+    "local_component_witness": "ESTABLISHED",
+    "production_admission": "NOT_ESTABLISHED",
+    "repository_binding": "PENDING_REF_UPDATE"
+  },
+  "files": {
+    "plan.md": {
+      "bytes": 928,
+      "sha256": "56b4bebdd1975ba916c9b4c40e4aa9892cada738a648da47ab35e74d2c212db0"
+    },
+    "spec.md": {
+      "bytes": 2282,
+      "sha256": "b1d46ab5aeccc0bcdac28b098ebc098f3ca3ee32cd11606f14a9ca81896b444b"
+    },
+    "src/core/constitutional_invariants.mjs": {
+      "bytes": 5561,
+      "sha256": "8faf710cef43f9cd5883f1efa967dc916b6093ce8d33b33e26b42723c4f24bc8"
+    },
+    "state.md": {
+      "bytes": 586,
+      "sha256": "3efd6f3cce396429c51d5b84e89092c847466ea186802dc0ab4900f20cc700b0"
+    },
+    "tests/unit/constitutional_invariants.test.mjs": {
+      "bytes": 7492,
+      "sha256": "1d81ec92fbe418e72bc450670f68b1179fda3f7cec23236241dafd9583525530"
+    }
+  },
+  "runtime": {
+    "node": "v22.16.0",
+    "platform": "Linux-6.18.35-x86_64-with-glibc2.41"
+  },
+  "schema_version": "1.0.0",
+  "scope": "OMEGA_1_OMEGA_2_OMEGA_3_CONSTITUTIONAL_FALSIFICATION",
+  "source_parent_sha": "550c025fc937349df7b4b0ff9d042e1224f07557",
+  "tdd_green": {
+    "command": "node --test tests/unit/constitutional_invariants.test.mjs",
+    "fail": 0,
+    "pass": 35,
+    "skipped": 0,
+    "tests": 35
+  },
+  "tdd_red": {
+    "failure": "ERR_MODULE_NOT_FOUND",
+    "observed": true,
+    "reason": "implementation absent before production code"
+  },
+  "witness_id": "constitutional-bundle-v1-local-20260816"
+}

@@ -1,0 +1,15 @@
+{
+  "artifact_digest": "sha256:fda93ed45c55dbc0e5ea9f17348351cce89ce84c6204f5c0c405963887f6894b",
+  "artifact_id": 9355907780,
+  "authority_scope": "NARROW_CAPABILITY_ONLY",
+  "broader_orchestration_promotion": "NONE",
+  "candidate_parent_sha": "4c1f75e7d2790d851fe995684e61dbb48003ef2e",
+  "generated_skill_tree_sha256": "0a4d65e6586ae56def0ad3293f33aaaf58cddb2f32441650a4af10473eff60b5",
+  "observation_state": "OBSERVED",
+  "registry_receipt_hash": "6246ff9a3f1e643528ffec89f7d7c6f76175aefa5c25df26595030cc8fab3809",
+  "registry_root": "131850fa716afe0092a77d8e2774d9e71fa80de6f7518280fd125d1d6e908eb4",
+  "run_id": 32227143524,
+  "runner_repository": "tarikskalic33/info",
+  "skill_id": "organism_provider_contribution",
+  "validated_runs": 3
+}

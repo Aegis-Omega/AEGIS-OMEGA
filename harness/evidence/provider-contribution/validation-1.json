@@ -1,0 +1,21 @@
+{
+  "artifact_digest": "sha256:bad07409bd5ef543d810ef9bde9bc00ab3d83e0c17a3db08c0ab29f6922ec43a",
+  "artifact_id": 9355742421,
+  "authority_claim": "NONE",
+  "candidate_sha": "cc9671326bee5c347cdc3070b75a3c0fe647541d",
+  "capability": "mcp.organism.contribute",
+  "content_addressed_contribution": "PASS",
+  "job_id": 95987518511,
+  "mcp_build": "PASS",
+  "prestate_fence": "PASS",
+  "python_contracts": {
+    "failed": 0,
+    "passed": 33
+  },
+  "record_sha256": "21a04c3e605f60d48a6b9ee077a6b64133325217e1b5191f3a9d0c43d992978c",
+  "run_attempt": "1",
+  "run_id": "32226633916",
+  "runner_repository": "tarikskalic33/info",
+  "validation_index": 1,
+  "validation_kind": "AEGIS_CAPABILITY_VALIDATION_V1"
+}

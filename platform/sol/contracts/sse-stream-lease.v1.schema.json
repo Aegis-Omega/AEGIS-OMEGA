@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/sol/sse-stream-lease.v1.schema.json",
+  "title": "AEGIS Fenced SSE Stream Lease",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "execution_id",
+    "owner_identity",
+    "generation",
+    "fencing_token",
+    "last_sequence"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "execution_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "owner_identity": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "generation": { "type": "integer", "minimum": 0 },
+    "fencing_token": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "last_sequence": { "type": "integer", "minimum": -1 }
+  }
+}

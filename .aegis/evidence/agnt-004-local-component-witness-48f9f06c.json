@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0.0",
+  "witness_id": "agnt-004-local-component-witness-48f9f06c",
+  "repository": "Aegis-Omega/AEGIS-OMEGA",
+  "component": "AGNT-004 Sovereign Sensorium & VCM Bridge",
+  "tested_source_head_sha": "48f9f06c3440af1c49af8670c222c65535559944",
+  "base_sha": "cd920379df1a23a61b969f0e52549c04bc3a91bb",
+  "source_blob_bindings": {
+    "sovereign-omega-v2/src/sensorium/sensorium-observation.ts": "78fd2690bdceffe76007d099e45964d47dbfd557",
+    "sovereign-omega-v2/src/sensorium/vcm-bridge.ts": "22e9ec862fe5c9c7b4cad84d2ff4f2d9e88a3425",
+    "sovereign-omega-v2/src/sensorium/sensorium-degradation.ts": "523ceeff04de29e5ff642c4282eee8c1168072d2"
+  },
+  "execution_environment": {
+    "node": "v22.16.0",
+    "typescript": "5.8.3",
+    "runner": "local-container",
+    "network_checkout": "UNAVAILABLE_DNS",
+    "test_harness": "node:test component harness",
+    "dependency_note": "The three AGNT-004 production source files were byte-bound to GitHub via matching Git blob SHA. The local harness used the current sha256Hex runtime semantics required by sensorium-observation, but this witness is not represented as a full repository checkout or repo-native Vitest execution."
+  },
+  "tdd": {
+    "observation_red": "ERR_MODULE_NOT_FOUND before sensorium-observation implementation",
+    "vcm_red": "ERR_MODULE_NOT_FOUND before vcm-bridge implementation",
+    "degradation_red": "ERR_MODULE_NOT_FOUND before sensorium-degradation implementation",
+    "fail_closed_refinement_red": "malformed recommendation/cap pair failed to throw before repair",
+    "final_component_tests": 17,
+    "final_component_failures": 0,
+    "final_component_status": "PASS",
+    "final_log_sha256": "d4246cae4a8aa22e2bcf5a31395d351be97e33e9af2efdde3a523fde31e7708c",
+    "final_log_bytes": 3027
+  },
+  "established": [
+    "AGNT_004_SOURCE_BYTES_BOUND_TO_TESTED_SOURCE_HEAD",
+    "OBSERVATION_DIGEST_DETERMINISM_FOR_TESTED_CASES",
+    "AUDIT_WALL_CLOCK_EXCLUDED_FROM_OBSERVATION_DIGEST_FOR_TESTED_CASES",
+    "VCM_INTEGER_RECURRENCES_BOUNDED_FOR_TESTED_CASES",
+    "SENSORIUM_DEGRADATION_NON_AMPLIFICATION_FOR_TESTED_CASES",
+    "SENSORIUM_DEGRADATION_IDEMPOTENCE_FOR_TESTED_CASES",
+    "MALFORMED_RECOMMENDATION_CAP_PAIR_FAILS_CLOSED_FOR_TESTED_CASES"
+  ],
+  "not_established": [
+    "FULL_REPOSITORY_LOCAL_TEST_PASS",
+    "REPO_NATIVE_VITEST_PASS",
+    "EXACT_HEAD_GITHUB_ACTIONS_PASS",
+    "AUTHORITY_INTEGRATION_PASS",
+    "EMPIRICAL_VALIDATION_OF_VCM_OR_RETENTION_MODEL",
+    "PRODUCTION_ADMISSION"
+  ],
+  "github_exact_head_observation": {
+    "workflow": "Frontier Provider Mesh",
+    "workflow_run_id": 31930005682,
+    "job_id": 95123267296,
+    "job_head_sha": "48f9f06c3440af1c49af8670c222c65535559944",
+    "runner_id": 0,
+    "steps": 0,
+    "status": "PRE_RUN_INFRA_BLOCKED",
+    "annotation": "The job was not started because your account is locked due to a billing issue."
+  },
+  "witness_scope_rule": "This witness certifies only the recorded tested_source_head_sha and bound source blobs. A later branch head is not automatically certified."
+}

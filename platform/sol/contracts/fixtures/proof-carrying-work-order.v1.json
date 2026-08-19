@@ -1,0 +1,27 @@
+{
+  "work_order": {
+    "schema_version": "1.0.0",
+    "work_order_id": "wo-frontier-parity-1",
+    "request_id": "req-frontier-parity-1",
+    "provider": "openai",
+    "capability": "inference.run",
+    "target": "openai-prod",
+    "consequence_class": "D3",
+    "arguments_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+    "expected_parent_state_root": "2222222222222222222222222222222222222222222222222222222222222222",
+    "idempotency_key": "idem-frontier-parity-1",
+    "max_cost_microusd": 500000,
+    "max_input_tokens": 1000,
+    "max_output_tokens": 500,
+    "evidence_references": [
+      "receipt://admission/1",
+      "receipt://evidence/2"
+    ],
+    "operator_approval_reference": "approval://operator/1",
+    "secret_references": [
+      "secret://openai/aegisomega"
+    ],
+    "issued_sequence": 9
+  },
+  "expected_digest": "6ef2db7e9c6bf58ad961cb48859e85af8e9859debaf0fcaf22bf7bea9442bd02"
+}
