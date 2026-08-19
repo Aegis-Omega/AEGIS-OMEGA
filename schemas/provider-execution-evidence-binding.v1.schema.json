@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/provider-execution-evidence-binding.v1.schema.json",
+  "title": "AEGIS Provider Execution Evidence Binding V1",
+  "$comment": "Evidence binding only. This artifact does not grant authority, prove external effect, satisfy EffectReceipt, or imply CompleteVerification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "binding_kind",
+    "provider",
+    "request_id",
+    "provider_operation_id",
+    "response_digest",
+    "work_order_digest",
+    "authority_receipt_root",
+    "transition_id",
+    "execution_instance_id",
+    "expected_parent_state_root",
+    "grants_authority"
+  ],
+  "properties": {
+    "binding_kind": {"const": "PROVIDER_EXECUTION_EVIDENCE_BINDING_V1"},
+    "provider": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+    "request_id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+    "provider_operation_id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+    "response_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "work_order_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "authority_receipt_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "transition_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "execution_instance_id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+    "expected_parent_state_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "grants_authority": {"const": false}
+  }
+}
