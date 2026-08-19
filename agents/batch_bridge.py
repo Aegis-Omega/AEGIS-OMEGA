@@ -25,6 +25,7 @@ Live (guarded):          AEGIS_BATCH_LIVE=1 AEGIS_BATCH_MAX_USD=0.50 python3 -m 
 from __future__ import annotations
 
 import json
+import math
 import os
 import pathlib
 from dataclasses import dataclass, field
@@ -32,7 +33,28 @@ from dataclasses import dataclass, field
 # ── Config (env, explicit) ──────────────────────────────────────────────────
 MODEL = os.environ.get("AEGIS_SWARM_MODEL", "claude-opus-4-8")
 MAX_TOKENS = int(os.environ.get("AEGIS_BATCH_MAX_TOKENS", "2048"))
-MAX_USD = float(os.environ.get("AEGIS_BATCH_MAX_USD", "1.00"))
+
+
+def _validate_cap(value: object, *, name: str = "cap") -> float:
+    """Return a finite, strictly positive USD cap or raise a config error."""
+    try:
+        cap = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"Invalid {name}: must be a finite, strictly positive USD value; "
+            f"got {value!r}."
+        ) from None
+
+    if not math.isfinite(cap) or cap <= 0:
+        raise ValueError(
+            f"Invalid {name}: must be a finite, strictly positive USD value; "
+            f"got {value!r}."
+        )
+    return cap
+
+
+MAX_USD = _validate_cap(os.environ.get("AEGIS_BATCH_MAX_USD", "1.00"),
+                        name="AEGIS_BATCH_MAX_USD")
 LIVE = os.environ.get("AEGIS_BATCH_LIVE") == "1"
 STORE_DIR = pathlib.Path(os.environ.get(
     "AEGIS_BATCH_STORE", str(pathlib.Path(__file__).parent / ".batch_state")))
@@ -93,6 +115,7 @@ def estimate(tasks: list[AgentTask], model: str) -> float:
 
 
 def plan(tasks: list[AgentTask], model: str = MODEL, cap: float = MAX_USD) -> BatchPlan:
+    cap = _validate_cap(cap)
     est = estimate(tasks, model)
     requests = [{
         "custom_id": t.custom_id,
@@ -112,6 +135,7 @@ def submit(tasks: list[AgentTask], *, live: bool = LIVE, cap: float = MAX_USD,
     """Plan the batch, enforce the cap, and only submit when explicitly live and
     under cap. Returns a record persisted to the store for session synchronization.
     NEVER spends money in dry-run or when over cap."""
+    cap = _validate_cap(cap)
     store = store or FileStore(STORE_DIR)
     p = plan(tasks, cap=cap)
     record = {"model": p.model, "n_requests": p.n, "est_usd": p.est_usd,
