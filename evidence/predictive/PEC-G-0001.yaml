@@ -1,0 +1,104 @@
+id: PEC-G-0001
+class: PREDICTIVE_EVIDENCE_CERTIFICATE
+schema_version: "1.0"
+
+generator:
+  id: G
+  status_at_seal: ADMISSIBLE_FALSIFIABLE_CANDIDATE
+  projection:
+    id: rho_formal_verification
+    description: >-
+      Structure-preserving replay of the same formal proof corpus across an
+      exact source binding, pinned toolchain, Lean kernel build, environment
+      replay, and an independent Nanoda checker.
+
+target:
+  repository: Aegis-Omega/AEGIS-OMEGA
+  pull_request: 254
+  workflow: Verify OpenAI Ten Proofs
+  workflow_run_id: 30703012816
+  upstream_repository: openai/ten-proofs
+  upstream_commit: c510a55434c0935cde446e5a372699a4671438f6
+  lean_toolchain: leanprover/lean4:v4.32.0
+
+seal:
+  timestamp: "2026-08-01T16:51:07+02:00"
+  timezone: Europe/Sarajevo
+  measurement_state_at_seal:
+    job: IN_PROGRESS
+    completed_observations:
+      - checkout_exact_commit: SUCCESS
+      - bind_source_identity: SUCCESS
+    excluded_from_prediction_as_already_observed:
+      - checkout_exact_commit
+      - bind_source_identity
+    unobserved_targets:
+      - lake_build_all_final_conclusion
+      - placeholder_audit_result
+      - lean_environment_replay_result
+      - nanoda_independent_check_result
+      - final_workflow_conclusion
+      - verification_receipt
+
+prediction:
+  lake_build_all_final_conclusion: SUCCESS
+  placeholder_audit:
+    conclusion: SUCCESS
+    expected_sorry_count: 0
+    expected_admit_count: 0
+  lean_environment_replay: SUCCESS
+  nanoda_independent_check: SUCCESS
+  final_workflow_conclusion: SUCCESS
+  resulting_realization_state: VERIFIED
+
+formal_statement: >-
+  For the exact upstream commit and pinned Lean toolchain declared above,
+  every verification stage that remained unobserved at seal time will
+  complete successfully, and the run will issue a receipt supporting
+  realization.state = VERIFIED for this exact environment and scope.
+
+null_model:
+  id: H0
+  statement: >-
+    Exact source and toolchain binding are insufficient for verifier
+    convergence; at least one remaining mandatory stage fails, is cancelled,
+    times out, detects a placeholder, or rejects the formal environment.
+
+controls:
+  exact_commit_binding: REQUIRED
+  toolchain_pin: REQUIRED
+  source_hash_manifest: REQUIRED
+  placeholder_scan: REQUIRED
+  lean_kernel_build: REQUIRED
+  independent_environment_replay: REQUIRED
+  nanoda_allow_sorry: false
+
+success_criterion:
+  conjunction:
+    - lake_build_all_final_conclusion == SUCCESS
+    - expected_sorry_count == 0
+    - expected_admit_count == 0
+    - lean_environment_replay == SUCCESS
+    - nanoda_independent_check == SUCCESS
+    - final_workflow_conclusion == SUCCESS
+    - verification_receipt exists
+  status_if_satisfied: VERIFIED
+  status_if_any_mandatory_clause_fails: CONTRADICTED
+
+scope_constraints:
+  universal_claim: PROHIBITED
+  applies_only_to:
+    - declared upstream commit
+    - declared workflow run
+    - declared toolchain and runner environment
+  does_not_establish:
+    - universal correctness of all mathematical prose
+    - equivalence of informal papers and every Lean theorem statement
+    - correctness under other commits, toolchains, or environments
+    - empirical closure of the universal common generator G
+
+post_measurement_rule:
+  manual_reinterpretation_of_prediction: PROHIBITED
+  success_threshold_change: PROHIBITED
+  result_recording: APPEND_ONLY
+  contradictory_result_must_be_recorded: REQUIRED
