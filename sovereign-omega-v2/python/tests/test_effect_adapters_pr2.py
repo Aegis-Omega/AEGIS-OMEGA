@@ -41,7 +41,7 @@ from harness.sdk.effect_adapters import (  # noqa: E402
     is_adapter_bound_effect_evidence,
 )
 
-HASHES = [f"{index:064x}" for index in range(1, 40)]
+HASHES = [f"{index:064x}" for index in range(1, 48)]
 COMMIT = "a" * 40
 
 
@@ -86,12 +86,16 @@ class EffectAdapterPR2Tests(TestCase):
             result_digest=HASHES[9],
         )
 
-    def legacy_receipt(self) -> MutationReceipt:
+    def terminal_receipt(self) -> MutationReceipt:
+        """Strong post-#264 terminal/provenance receipt; never effect evidence."""
         return MutationReceipt(
             receipt_version=SCHEMA_VERSION,
             execution_identity_root=HASHES[1],
             workspace_binding=HASHES[2],
             policy_decision_root=HASHES[8],
+            authority_receipt_root=HASHES[20],
+            lease_authorization_receipt_root=HASHES[21],
+            durable_execution_root=HASHES[22],
             authority_score="1.000000",
             authority_domain="repo",
             action_class="D2",
@@ -121,8 +125,8 @@ class EffectAdapterPR2Tests(TestCase):
         transition = self.transition(pre_state_commitment=HASHES[15])
         self.assertFalse(accept_effect_evidence(self.decision(transition)))
 
-    def test_legacy_succeeded_receipt_still_not_effect_evidence(self):
-        receipt = self.legacy_receipt()
+    def test_terminal_succeeded_receipt_still_not_effect_evidence(self):
+        receipt = self.terminal_receipt()
         self.assertEqual(receipt.outcome, "SUCCEEDED")
         self.assertFalse(accept_effect_evidence(receipt))
 
@@ -279,10 +283,10 @@ class EffectAdapterPR2Tests(TestCase):
             self.assertFalse(hasattr(witness, "admitted"))
             self.assertFalse(hasattr(witness, "receipt_kind"))
 
-    def test_missing_effect_receipt_still_has_no_legacy_fallback(self):
+    def test_missing_effect_receipt_still_has_no_terminal_fallback(self):
         transition = self.transition(pre_state_commitment=HASHES[15])
         self.assertFalse(accept_effect_evidence(None))
-        self.assertFalse(accept_effect_evidence(self.legacy_receipt()))
+        self.assertFalse(accept_effect_evidence(self.terminal_receipt()))
         self.assertFalse(accept_effect_evidence(self.decision(transition)))
         self.assertFalse(accept_effect_evidence(self.execution(transition, outcome=EXECUTION_FAILED)))
 
