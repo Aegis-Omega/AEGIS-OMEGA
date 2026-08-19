@@ -76,6 +76,7 @@ PR3_VERIFIER_POLICY = {
     "causal_claim_admission": "NOT_IMPLEMENTED",
     "complete_verification": "UNAVAILABLE",
     "atomic_admission": "UNAVAILABLE",
+    "effect_bound_admission": "UNAVAILABLE",
 }
 
 PR1_ADMISSION_POLICY = {
