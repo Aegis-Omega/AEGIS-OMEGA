@@ -115,6 +115,29 @@ class ProviderContributionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "CONTRIBUTION_EMPTY"):
             org.contribute_text("w1", provider="openai", model="gpt-5.6-sol", text="", source_ref="mcp:openai")
 
+    def test_prepare_contribution_binds_order_and_journal_prestate(self):
+        org = self.make_org()
+        org.submit("w1", "research_request", {}, consequence_class="D1")
+        prepared = org.prepare_contribution("w1")
+        self.assertEqual(len(prepared["order_digest"]), 64)
+        self.assertEqual(len(prepared["state_root"]), 64)
+        self.assertIn(prepared["order_digest"], prepared["rollback_reference"])
+        self.assertIn(prepared["state_root"], prepared["rollback_reference"])
+
+    def test_stale_prestate_rejects_contribution(self):
+        org = self.make_org()
+        org.submit("w1", "research_request", {}, consequence_class="D1")
+        prepared = org.prepare_contribution("w1")
+        org.record_contribution(
+            "w1", provider="gemini", model="gemini-3", artifact_digest=hashlib.sha256(b"first").hexdigest(),
+            source_ref="mcp:gemini", rollback_reference=prepared["rollback_reference"],
+        )
+        with self.assertRaisesRegex(ValueError, "CONTRIBUTION_PRESTATE_STALE"):
+            org.record_contribution(
+                "w1", provider="openai", model="gpt-5.6-sol", artifact_digest=hashlib.sha256(b"second").hexdigest(),
+                source_ref="mcp:openai", rollback_reference=prepared["rollback_reference"],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
