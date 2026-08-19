@@ -246,16 +246,21 @@ class EffectAdapterPR2Tests(TestCase):
 
     def test_real_effect_produces_distinct_observed_post_state(self):
         with tempfile.TemporaryDirectory() as tmp:
-            target, transition, adapter, handle, execution = self.prepared(Path(tmp))
-            target.write_text("changed", encoding="utf-8")
-            witness, _ = adapter.observe_effect(
+            target, transition, adapter, handle, _ = self.prepared(Path(tmp))
+            # Executor status is not effect truth. Even a FAILED execution may have
+            # produced a partial external effect that the independent observer must see.
+            execution = self.execution(transition, outcome=EXECUTION_FAILED)
+            target.write_text("changed-after-failed-execution", encoding="utf-8")
+            witness, receipt = adapter.observe_effect(
                 transition=transition, handle=handle, execution_receipt=execution
             )
+            self.assertEqual(execution.outcome, EXECUTION_FAILED)
             self.assertTrue(witness.effect_changed)
             self.assertNotEqual(
                 witness.observed_pre_state_commitment,
                 witness.observed_post_state_commitment,
             )
+            self.assertEqual(receipt.execution_instance_id, execution.execution_instance_id)
 
     def test_effect_receipt_is_adapter_bound(self):
         with tempfile.TemporaryDirectory() as tmp:
