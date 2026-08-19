@@ -119,4 +119,27 @@ describe('self-calibration V2 -> existing VCG adapter', () => {
     expect(status).toBe('EXCLUDED')
     expect(tracker.compute(TS).sample_count).toBe(0)
   })
+
+  it('rejects invalid event-substrate timestamps before mutating the tracker', async () => {
+    const verifierId = 'self-cal-vcg-timestamp-v1'
+    registerVerifier(verifierId, CalibrationDomain.GROUND_TRUTH)
+    const calibration = await makeCalibration(verifierId)
+    const invalidTimestamps = [
+      -1,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      1.5,
+      Number.MAX_SAFE_INTEGER + 1,
+    ]
+
+    for (const timestamp of invalidTimestamps) {
+      const tracker = new VCGTracker(`self-calibration-v2-invalid-time-${String(timestamp)}`)
+
+      await expect(
+        admitSelfCalibrationV2ToVCG(tracker, calibration, timestamp),
+      ).rejects.toThrow(SelfCalibrationVCGAdmissionError)
+
+      expect(tracker.compute(TS).sample_count).toBe(0)
+    }
+  })
 })
