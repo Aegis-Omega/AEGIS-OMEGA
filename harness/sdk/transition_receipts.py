@@ -1,10 +1,8 @@
-"""PR-1 transition identity and epistemically separated receipt types.
+"""Transition identity and epistemically separated receipt types.
 
-EPISTEMIC STATUS: SAFE_INCOMPLETENESS_PR1
-
-This module deliberately does not implement effect observation, complete transition
-verification, or authoritative admission. EffectReceipt is type/schema-defined but
-has no public constructor or generic producer in PR-1.
+PR-1 establishes receipt separation and safe incompleteness. PR-2 adds only a
+module-private adapter-bound EffectReceipt issuance path. Complete transition
+verification and authoritative admission remain unavailable.
 """
 from __future__ import annotations
 
@@ -54,7 +52,7 @@ PR1_ADMISSION_POLICY = {
 
 
 class TransitionReceiptError(ValueError):
-    """Raised when a PR-1 transition or receipt violates its nominal contract."""
+    """Raised when a transition or receipt violates its nominal contract."""
 
 
 def _require_hash(name: str, value: str) -> None:
@@ -74,7 +72,7 @@ def _require_id(name: str, value: str) -> None:
 
 @dataclass(frozen=True)
 class TransitionIdentity:
-    """Canonical PR-1 transition binding whose root is the TransitionID τ."""
+    """Canonical transition binding whose root is the TransitionID tau."""
 
     schema_version: str
     source_commit: str
@@ -163,7 +161,7 @@ class ExecutionReceipt:
 
 @dataclass(frozen=True, init=False)
 class EffectReceipt:
-    """PR-1 target type only. No valid public producer exists in this PR."""
+    """Effect evidence target type; direct public construction remains forbidden."""
 
     receipt_kind: str
     transition_id: str
@@ -196,6 +194,41 @@ class EffectReceipt:
         return canonical_hash("AEGIS_EFFECT_RECEIPT_V1", asdict(self))
 
 
+# PR-2 canonical adapter issuance capability. This is deliberately private and is
+# not an authorization primitive; it prevents a generic public constructor from
+# becoming the canonical EffectReceipt path. Python module privacy is not a crypto
+# boundary, so downstream verification must still validate witness provenance.
+_EFFECT_RECEIPT_PRODUCER_CAPABILITY = object()
+
+
+def _issue_adapter_bound_effect_receipt(*, witness: Any, producer_capability: object) -> EffectReceipt:
+    if producer_capability is not _EFFECT_RECEIPT_PRODUCER_CAPABILITY:
+        raise TransitionReceiptError("EFFECT_RECEIPT_PRODUCER_UNAUTHORIZED")
+
+    receipt = object.__new__(EffectReceipt)
+    values = {
+        "receipt_kind": EFFECT_RECEIPT_KIND,
+        "transition_id": witness.transition_id,
+        "execution_instance_id": witness.execution_instance_id,
+        "effect_witness_digest": witness.root,
+        "pre_state_commitment": witness.observed_pre_state_commitment,
+        "post_state_commitment": witness.observed_post_state_commitment,
+        "observation_provenance": canonical_hash(
+            "AEGIS_EFFECT_OBSERVATION_BUNDLE_V1",
+            {
+                "pre": witness.pre_observation_provenance,
+                "post": witness.post_observation_provenance,
+            },
+        ),
+        "adapter_identity": witness.adapter_identity,
+        "adapter_version": witness.adapter_version,
+    }
+    for name, value in values.items():
+        object.__setattr__(receipt, name, value)
+    receipt.validate()
+    return receipt
+
+
 def decision_satisfies_authority(outcome: str) -> bool:
     """Only PERMIT carries decision authority; DENY and DEFER do not."""
 
@@ -217,7 +250,7 @@ def decision_route(outcome: str) -> str:
 
 
 def verify_transition_binding(transition: TransitionIdentity, *receipts: Any) -> bool:
-    """V_binding(PR-1): every receipt must carry the exact recomputed τ."""
+    """V_binding: every receipt must carry the exact recomputed tau."""
 
     try:
         expected = transition.root
@@ -236,11 +269,11 @@ def verify_transition_binding(transition: TransitionIdentity, *receipts: Any) ->
 
 
 def accept_effect_evidence(_artifact: Any) -> bool:
-    """PR-1 intentionally has no acceptable EffectReceipt producer.
+    """Complete V_effect acceptance remains unavailable in PR-2.
 
-    This function is deliberately false for every artifact, including legacy
-    MutationReceiptV1, DecisionReceipt, ExecutionReceipt, None, and any object
-    manufactured outside a future EffectAdapter boundary.
+    Adapter-bound EffectReceipt production is now possible, but this function is
+    deliberately false for every artifact because PR-2 does not implement the
+    complete verifier or authoritative admission path.
     """
 
     return False
