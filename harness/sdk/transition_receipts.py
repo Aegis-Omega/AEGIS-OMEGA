@@ -1,9 +1,9 @@
 """Transition identity and epistemically separated receipt types.
 
-PR-1 establishes receipt separation and safe incompleteness. PR-2 adds only
-independent, adapter-bound EffectEvidence production. VerifyEffect,
-EffectReceipt production, complete transition verification, and authoritative
-admission remain unavailable until later stacked slices.
+PR-1 establishes receipt separation. PR-2 adds independent EffectEvidence.
+PR-3 activates a version-bound VerifyEffect policy and allows EffectReceipt only
+through the separate verifier gate. CompleteVerification and authoritative
+admission remain unavailable.
 """
 from __future__ import annotations
 
@@ -43,9 +43,6 @@ PR1_VERIFIER_POLICY = {
     "effect_receipt_production": "UNAVAILABLE",
 }
 
-# PR-2 advances only the observation/evidence layer. The nominal EffectReceipt
-# type remains schema-defined but there is deliberately no valid producer until
-# a later slice implements VerifyEffect and gates issuance on verification.
 PR2_VERIFIER_POLICY = {
     "policy_id": "AEGIS_PR2_VERIFIER_POLICY_V2",
     "safe_incompleteness": True,
@@ -58,6 +55,28 @@ PR2_VERIFIER_POLICY = {
     "effect_receipt_production": "UNAVAILABLE",
     "complete_verification": "UNAVAILABLE",
     "atomic_admission": "UNAVAILABLE",
+}
+
+PR3_VERIFIER_POLICY = {
+    "policy_id": "AEGIS_PR3_VERIFIER_POLICY_V1",
+    "safe_incompleteness": True,
+    "obligation_set_status": "EFFECT_ONLY_VERSION_BOUND",
+    "effect_observation_scope": "REFERENCE_ADAPTER_BOUND_ONLY",
+    "effect_evidence_production": "ADAPTER_BOUND_ONLY",
+    "verify_effect": "REQUIRED",
+    "effect_receipt_production": "VERIFIER_GATED_ONLY",
+    "effect_obligations": [
+        "V_effect_evidence",
+        "V_transition_binding",
+        "V_execution_binding",
+        "V_prestate_binding",
+        "V_adapter_binding",
+        "V_verifier_policy_binding",
+    ],
+    "causal_claim_admission": "NOT_IMPLEMENTED",
+    "complete_verification": "UNAVAILABLE",
+    "atomic_admission": "UNAVAILABLE",
+    "effect_bound_admission": "UNAVAILABLE",
 }
 
 PR1_ADMISSION_POLICY = {
@@ -179,12 +198,14 @@ class ExecutionReceipt:
 
 @dataclass(frozen=True, init=False)
 class EffectReceipt:
-    """Schema-defined post-VerifyEffect receipt type; no valid producer exists in PR-2."""
+    """Nominal receipt issued only after VerifyEffect=TRUE under the bound policy."""
 
     receipt_kind: str
     transition_id: str
     execution_instance_id: str
     effect_witness_digest: str
+    effect_verification_root: str
+    verifier_policy_commitment: str
     pre_state_commitment: str
     post_state_commitment: str
     observation_provenance: str
@@ -197,6 +218,8 @@ class EffectReceipt:
         for name in (
             "transition_id",
             "effect_witness_digest",
+            "effect_verification_root",
+            "verifier_policy_commitment",
             "pre_state_commitment",
             "post_state_commitment",
             "observation_provenance",
@@ -250,7 +273,7 @@ def verify_transition_binding(transition: TransitionIdentity, *receipts: Any) ->
 
 
 def accept_effect_evidence(_artifact: Any) -> bool:
-    """VerifyEffect/V_effect acceptance remains unavailable in PR-2."""
+    """CompleteVerification admission remains unavailable in PR-3."""
     return False
 
 
@@ -288,13 +311,16 @@ def fence_commitment(fence_token: str | None) -> str:
 
 
 def pr1_verifier_policy_commitment() -> str:
-    """Historical PR-1 verifier-policy commitment for audit/reproduction only."""
     return canonical_hash("AEGIS_VERIFIER_POLICY_COMMITMENT_V1", PR1_VERIFIER_POLICY)
 
 
-def verifier_policy_commitment() -> str:
-    """Active PR-2 observation-only verifier-policy commitment."""
+def pr2_verifier_policy_commitment() -> str:
     return canonical_hash("AEGIS_VERIFIER_POLICY_COMMITMENT_V1", PR2_VERIFIER_POLICY)
+
+
+def verifier_policy_commitment() -> str:
+    """Active PR-3 VerifyEffect policy commitment."""
+    return canonical_hash("AEGIS_VERIFIER_POLICY_COMMITMENT_V1", PR3_VERIFIER_POLICY)
 
 
 def admission_policy_commitment() -> str:
