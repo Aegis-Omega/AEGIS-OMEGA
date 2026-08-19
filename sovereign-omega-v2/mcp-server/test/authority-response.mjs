@@ -165,6 +165,13 @@ function fixture() {
     Buffer.from(pythonCanonicalJson({ domain: 'AEGIS_AUTHORITY_DECISION_RECEIPT_V1', value: signingBody }), 'utf8'),
     authorityPrivateKey,
   ).toString('hex')
+  const transition_id = H('d')
+  const decision_receipt = {
+    receipt_kind: 'DECISION_RECEIPT_V1',
+    transition_id,
+    decision_outcome: 'PERMIT',
+    policy_decision_root: policy_decision.decision_root,
+  }
   return {
     schema_version: '1.0.0',
     outcome: 'ADMITTED',
@@ -174,6 +181,9 @@ function fixture() {
     policy_decision,
     authority_receipt,
     authority_receipt_root: canonicalHash('AEGIS_AUTHORITY_DECISION_RECEIPT_V1', authority_receipt),
+    transition_id,
+    decision_receipt,
+    decision_receipt_root: canonicalHash('AEGIS_DECISION_RECEIPT_V1', decision_receipt),
     observation: bindings.expectedWorkspaceObservation,
   }
 }
@@ -189,7 +199,10 @@ function code(expected) {
 const valid = fixture()
 assert.equal(valid.policy_decision.decision_root, '9d7ee0746dd1e741a35ae037e8909d92ba4871a4c858d0f8f1164ce429d7e85d')
 assert.match(valid.authority_receipt_root, /^[0-9a-f]{64}$/)
-assert.equal(validateAuthorityResponse(valid, bindings).authority_receipt_root, valid.authority_receipt_root)
+const verifiedValid = validateAuthorityResponse(valid, bindings)
+assert.equal(verifiedValid.authority_receipt_root, valid.authority_receipt_root)
+assert.equal(verifiedValid.transition_id, valid.transition_id)
+assert.equal(verifiedValid.decision_receipt_root, valid.decision_receipt_root)
 assert.equal(
   parseAuthorityProcessResult({ status: 0, signal: null, stdout: JSON.stringify(valid) }, bindings).outcome,
   'ADMITTED',
@@ -373,6 +386,10 @@ const runtimeResult = spawnSync(python, [join(repoRoot, 'scripts', 'automaton3-a
   },
 })
 assert.equal(runtimeResult.status, 0, runtimeResult.stderr || runtimeResult.stdout)
-assert.equal(parseAuthorityProcessResult(runtimeResult, runtimeBindings).outcome, 'ADMITTED')
+const verifiedRuntime = parseAuthorityProcessResult(runtimeResult, runtimeBindings)
+assert.equal(verifiedRuntime.outcome, 'ADMITTED')
+assert.equal(verifiedRuntime.decision_receipt.receipt_kind, 'DECISION_RECEIPT_V1')
+assert.equal(verifiedRuntime.decision_receipt.transition_id, verifiedRuntime.transition_id)
+assert.equal(verifiedRuntime.decision_receipt.policy_decision_root, verifiedRuntime.policy_decision.decision_root)
 
-console.log('AUTHORITY_RESPONSE_PASS strict status, schema, binding, receipt roots, and Python producer parity')
+console.log('AUTHORITY_RESPONSE_PASS strict status, schema, binding, signed authority receipt, transition DecisionReceipt, and Python producer parity')
