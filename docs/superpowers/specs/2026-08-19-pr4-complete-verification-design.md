@@ -11,7 +11,7 @@
 
 ## Goal
 
-Implement a fail-closed `CompleteVerification` gate that consumes already-separated transition artifacts and returns a nominal, hash-bound verification result only when all required decision, binding, execution, and effect obligations are satisfied for the exact same transition.
+Implement a fail-closed `CompleteVerification` gate that consumes already-separated transition artifacts and returns a nominal, hash-bound verification result only when all required decision, binding, execution, effect, and effect-verification obligations are satisfied for the exact same transition.
 
 PR-4 must close the current verification chain without collapsing epistemic classes:
 
@@ -28,6 +28,8 @@ WorldObservation
 
 DecisionReceipt
 + ExecutionReceipt
++ EffectEvidence
++ EffectVerificationResult
 + EffectReceipt
 + exact TransitionIdentity
     -> CompleteVerification
@@ -72,7 +74,7 @@ The parent PR #272 already establishes:
   - `V_adapter_binding`
   - `V_verifier_policy_binding`.
 
-PR-4 must reuse those artifacts; it must not create a second effect-verification path.
+PR-4 must reuse those artifacts and the existing `EffectVerifier`; it must not create a second effect-verification path.
 
 ## CompleteVerification Semantics
 
@@ -106,10 +108,14 @@ The result is a verifier artifact, not an authority receipt and not an admission
 TransitionIdentity
 DecisionReceipt
 ExecutionReceipt
+EffectWitness              # EffectEvidence
+EffectVerificationResult
 EffectReceipt
 ```
 
-No legacy `MutationReceipt`, model output, provider output, caller-supplied post-state digest, or raw authorization artifact may substitute for any member of this bundle.
+No legacy `MutationReceipt`, model output, provider output, caller-supplied post-state digest, raw authorization artifact, or execution-status assertion may substitute for any member of this bundle.
+
+The additional EffectWitness + EffectVerificationResult inputs are required so PR-4 can recompute the parent PR-3 `VerifyEffect` result and prove that `EffectReceipt.effect_verification_root` is bound to the exact evidence actually supplied to CompleteVerification. Merely checking that the receipt contains a 64-hex verification root is insufficient.
 
 ### Required obligations
 
@@ -122,6 +128,8 @@ V_decision_authority
 V_decision_binding
 V_execution_receipt
 V_execution_binding
+V_effect_evidence
+V_effect_verification
 V_effect_receipt
 V_effect_binding
 V_effect_verification_binding
@@ -150,7 +158,7 @@ DEFER -> CompleteVerification != TRUE
 
 ### Transition binding
 
-All three receipts must bind the exact recomputed `TransitionIdentity.root`.
+All three receipts and EffectWitness must bind the exact recomputed `TransitionIdentity.root`.
 
 Any cross-transition splice must fail:
 
@@ -158,6 +166,8 @@ Any cross-transition splice must fail:
 tau_decision != tau_execution
 or
 tau_execution != tau_effect
+or
+tau_witness != tau_effect
 or
 any tau != TransitionIdentity.root
     => CompleteVerification != TRUE
@@ -175,41 +185,58 @@ ExecutionReceipt(outcome=FAILED)    -/-> no-effect
 ExecutionReceipt(outcome=CANCELLED) -/-> no-effect
 ```
 
-The effect path remains independent.
+The effect path remains independent. A failed or cancelled execution may still have a separately observed and verified external effect.
 
 ### Effect semantics
 
-PR-4 accepts only a nominal `EffectReceipt` issued under the PR-3 verifier-gated path.
+PR-4 accepts only adapter-bound EffectEvidence plus a nominal `EffectReceipt` issued under the PR-3 verifier-gated path.
 
-The complete verifier must establish at minimum:
+The complete verifier must:
 
-- `EffectReceipt.transition_id == TransitionIdentity.root`;
-- `EffectReceipt.execution_instance_id == ExecutionReceipt.execution_instance_id`;
-- `EffectReceipt.pre_state_commitment == TransitionIdentity.pre_state_commitment`;
-- `EffectReceipt.verifier_policy_commitment == active verifier policy commitment`;
-- the effect-verification root is a valid bound value and is not caller-substituted.
+1. validate the EffectWitness and EffectVerificationResult nominal contracts;
+2. call the existing `EffectVerifier.verify_effect(...)` over the exact `TransitionIdentity`, `ExecutionReceipt`, and EffectWitness;
+3. require the recomputed verification status to equal `TRUE`;
+4. require `recomputed_verification.root == supplied_effect_verification.root`;
+5. require `EffectReceipt.effect_verification_root == supplied_effect_verification.root`;
+6. require `EffectReceipt.effect_witness_digest == EffectWitness.root`;
+7. require `EffectReceipt.transition_id == TransitionIdentity.root`;
+8. require `EffectReceipt.execution_instance_id == ExecutionReceipt.execution_instance_id`;
+9. require `EffectReceipt.pre_state_commitment == TransitionIdentity.pre_state_commitment`;
+10. require `EffectReceipt.verifier_policy_commitment == active PR-3 verifier policy commitment`.
 
-PR-4 does not re-observe the world and does not create another EffectReceipt producer.
+PR-4 does not independently re-observe the world and does not create another EffectReceipt producer. It reuses PR-3 verification deterministically to validate the supplied verification lineage.
 
 ## Policy Versioning
 
-Introduce a PR-4 verifier policy with a distinct policy id, for example:
+Introduce a PR-4 complete-verifier policy with a distinct policy id:
 
 ```text
 AEGIS_PR4_COMPLETE_VERIFIER_POLICY_V1
 ```
 
-The policy commitment must be cryptographically bound using the existing verifier-policy commitment mechanism or an explicitly separated CompleteVerification policy commitment helper if required to avoid mutating PR-3 semantics.
+and a separate commitment helper/domain so the existing PR-3 verifier-policy commitment remains unchanged.
 
-The design preference is to preserve parent receipts and avoid retroactively invalidating PR-3 fixtures. Therefore PR-4 SHOULD add a separate complete-verifier policy commitment rather than silently changing the commitment used by PR-3 `TransitionIdentity` construction.
-
-PR-4 admission policy remains non-authoritative:
+The complete-verifier policy should bind at minimum:
 
 ```text
-complete_verification = REQUIRED_FOR_FUTURE_EFFECT_BOUND_ADMISSION
+safe_incompleteness = true
+required_inputs = [
+  TransitionIdentity,
+  DecisionReceipt,
+  ExecutionReceipt,
+  EffectWitness,
+  EffectVerificationResult,
+  EffectReceipt
+]
+effect_verification_recompute = REQUIRED
+causal_claim_admission = NOT_IMPLEMENTED
 atomic_admission = UNAVAILABLE
 effect_bound_admission = UNAVAILABLE
 ```
+
+The existing `TransitionIdentity.verifier_policy_commitment` continues to bind PR-3 effect-verifier policy. PR-4 MUST NOT silently replace it, because doing so would retroactively invalidate the exact parent transition fixtures.
+
+The existing `TransitionIdentity.admission_policy_commitment` must still equal the recomputed active admission-policy commitment. PR-4 does not upgrade that policy into effect-bound admission authority.
 
 ## Result Fields
 
@@ -221,6 +248,8 @@ status
 transition_id
 decision_receipt_root
 execution_receipt_root
+effect_witness_digest
+effect_verification_root
 effect_receipt_root
 complete_verifier_policy_commitment
 obligations
@@ -248,7 +277,9 @@ COMPLETE_VERIFICATION_MISSING_ARTIFACT
 COMPLETE_VERIFICATION_DECISION_NOT_PERMIT
 COMPLETE_VERIFICATION_TRANSITION_MISMATCH
 COMPLETE_VERIFICATION_EXECUTION_MISMATCH
-COMPLETE_VERIFICATION_EFFECT_MISMATCH
+COMPLETE_VERIFICATION_EFFECT_EVIDENCE_MISMATCH
+COMPLETE_VERIFICATION_EFFECT_VERIFICATION_MISMATCH
+COMPLETE_VERIFICATION_EFFECT_RECEIPT_MISMATCH
 COMPLETE_VERIFICATION_POLICY_MISMATCH
 COMPLETE_VERIFICATION_CONTRADICTED
 COMPLETE_VERIFICATION_UNRESOLVABLE
@@ -270,6 +301,8 @@ class CompleteVerifier:
         transition: TransitionIdentity,
         decision_receipt: DecisionReceipt | None,
         execution_receipt: ExecutionReceipt | None,
+        effect_witness: EffectWitness | None,
+        effect_verification: EffectVerificationResult | None,
         effect_receipt: EffectReceipt | None,
     ) -> CompleteVerificationResult:
         ...
@@ -284,23 +317,29 @@ PR-4 must have explicit tests for:
 1. valid exact-transition bundle -> `TRUE`;
 2. missing DecisionReceipt -> `MISSING`;
 3. missing ExecutionReceipt -> `MISSING`;
-4. missing EffectReceipt -> `MISSING`;
-5. `DENY` -> not TRUE;
-6. `DEFER` -> not TRUE;
-7. decision receipt from another transition -> reject;
-8. execution receipt from another transition -> reject;
-9. effect receipt from another transition -> reject;
-10. execution instance mismatch -> reject;
-11. verifier-policy commitment mismatch -> reject;
-12. admission-policy commitment mismatch -> reject;
-13. malformed nominal discriminator -> reject;
-14. legacy MutationReceipt substitution -> reject by type/interface;
-15. raw EffectEvidence substitution for EffectReceipt -> reject by type/interface;
-16. authorization-derived artifact substitution for effect -> reject;
-17. `ExecutionReceipt.outcome=SUCCEEDED` with missing EffectReceipt -> not TRUE;
-18. effect receipt whose root is valid but whose transition binding is wrong -> reject;
-19. deterministic root reproducibility for identical complete-verification results;
-20. hash-domain separation from Decision/Execution/Effect receipts.
+4. missing EffectWitness -> `MISSING`;
+5. missing EffectVerificationResult -> `MISSING`;
+6. missing EffectReceipt -> `MISSING`;
+7. `DENY` -> not TRUE;
+8. `DEFER` -> not TRUE;
+9. decision receipt from another transition -> reject;
+10. execution receipt from another transition -> reject;
+11. EffectWitness from another transition -> reject;
+12. EffectReceipt from another transition -> reject;
+13. execution instance mismatch -> reject;
+14. supplied EffectVerificationResult whose root differs from recomputation -> reject;
+15. EffectReceipt whose `effect_verification_root` differs from verified result -> reject;
+16. EffectReceipt whose `effect_witness_digest` differs from supplied EffectWitness -> reject;
+17. verifier-policy commitment mismatch -> reject;
+18. admission-policy commitment mismatch -> reject;
+19. malformed nominal discriminator -> reject;
+20. legacy MutationReceipt substitution -> reject by type/interface;
+21. raw EffectEvidence substitution for EffectReceipt -> reject by type/interface;
+22. authorization-derived artifact substitution for effect -> reject;
+23. `ExecutionReceipt.outcome=SUCCEEDED` with missing effect lineage -> not TRUE;
+24. failed/cancelled execution with a valid independently observed effect is evaluated from evidence rather than execution status;
+25. deterministic root reproducibility for identical complete-verification results;
+26. hash-domain separation from Decision/Execution/Effect receipts.
 
 ## Compatibility Boundary
 
@@ -320,7 +359,7 @@ Preferred implementation surface:
 
 ```text
 harness/sdk/complete_verifier.py              # new CompleteVerification gate
-harness/sdk/transition_receipts.py             # PR-4 policy + result-compatible helpers only
+harness/sdk/transition_receipts.py             # PR-4 complete policy commitment helper only
 schemas/complete-verification-result.v1.schema.json
 sovereign-omega-v2/python/tests/test_complete_verifier_pr4.py
 ```
@@ -374,9 +413,16 @@ iff
   and DecisionReceipt.transition_id = tau
   and ExecutionReceipt is nominally valid
   and ExecutionReceipt.transition_id = tau
+  and EffectWitness is nominally valid and adapter-bound
+  and EffectWitness.transition_id = tau
+  and EffectVerificationResult is nominally valid
+  and EffectVerifier.verify_effect(exact bundle).status = TRUE
+  and EffectVerifier.verify_effect(exact bundle).root = EffectVerificationResult.root
   and EffectReceipt is nominally valid
   and EffectReceipt.transition_id = tau
   and EffectReceipt.execution_instance_id = ExecutionReceipt.execution_instance_id
+  and EffectReceipt.effect_witness_digest = EffectWitness.root
+  and EffectReceipt.effect_verification_root = EffectVerificationResult.root
   and all version-bound CompleteVerification obligations = TRUE.
 ```
 
