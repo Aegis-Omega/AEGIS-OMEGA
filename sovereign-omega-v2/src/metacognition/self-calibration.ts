@@ -9,6 +9,7 @@
 import type { SHA256Hex, SequenceNumber } from '../core/types.js'
 import { hashValue } from '../core/hashing.js'
 import { deepFreeze } from '../core/immutable.js'
+import type { MetacognitiveObservation } from './loop.js'
 
 export const SELF_CALIBRATION_SCHEMA_VERSION = '1.0.0' as const
 export const SELF_CALIBRATION_GENESIS_HASH = '0'.repeat(64) as SHA256Hex
@@ -378,5 +379,16 @@ export async function certifySelfCalibrationLedger(
     authority: 'NONE',
     acceptable_for_effect_truth: false,
     is_replay_reconstructable: true,
+  })
+}
+
+export function calibrationToMetacognitiveObservation(
+  calibration: SelfCalibrationRecordV1,
+): MetacognitiveObservation {
+  const observed = calibration.observed_success ? 'success' : 'failure'
+  return deepFreeze<MetacognitiveObservation>({
+    layer: 'SELF_MODEL',
+    tier: 'T2',
+    signal: `self-calibration ${calibration.calibration_hash} action=${calibration.action_digest.slice(0, 8)} predicted=${calibration.predicted_success_bps}bps observed=${observed} error=${calibration.absolute_error_bps}bps`,
   })
 }
