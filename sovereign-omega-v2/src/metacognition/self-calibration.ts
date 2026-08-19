@@ -9,9 +9,11 @@
 import type { SHA256Hex, SequenceNumber } from '../core/types.js'
 import { hashValue } from '../core/hashing.js'
 import { deepFreeze } from '../core/immutable.js'
+import type { VerifierOutput } from '../verifier/types.js'
 import type { MetacognitiveObservation } from './loop.js'
 
 export const SELF_CALIBRATION_SCHEMA_VERSION = '1.0.0' as const
+export const SELF_CALIBRATION_SCHEMA_VERSION_V2 = '2.0.0' as const
 export const SELF_CALIBRATION_GENESIS_HASH = '0'.repeat(64) as SHA256Hex
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/
@@ -54,6 +56,55 @@ export interface SelfCalibrationRecordV1 {
   readonly schema_version: typeof SELF_CALIBRATION_SCHEMA_VERSION
   readonly prediction_hash: SHA256Hex
   readonly action_digest: SHA256Hex
+  readonly observation_evidence_digest: SHA256Hex
+  readonly predicted_success_bps: number
+  readonly observed_success: boolean
+  readonly absolute_error_bps: number
+  readonly calibration_hash: SHA256Hex
+  readonly authority: 'NONE'
+  readonly acceptable_for_effect_truth: false
+}
+
+// V2 adds an explicit verifier-claim commitment. The verifier artifact hash
+// is recomputed from the exact projection used by executeVerifiers(), so the
+// observed boolean cannot be paired with an unrelated or altered verdict.
+export interface SelfPredictionInputV2 extends SelfPredictionInput {
+  readonly verifier_claim_id: string
+}
+
+export interface SelfPredictionRecordV2 {
+  readonly receipt_kind: 'SELF_PREDICTION_RECORD_V2'
+  readonly schema_version: typeof SELF_CALIBRATION_SCHEMA_VERSION_V2
+  readonly action_digest: SHA256Hex
+  readonly verifier_claim_id: string
+  readonly predicted_success_bps: number
+  readonly prediction_hash: SHA256Hex
+  readonly authority: 'NONE'
+  readonly acceptable_for_effect_truth: false
+}
+
+export interface SelfOutcomeObservationV2 {
+  readonly receipt_kind: 'SELF_OUTCOME_OBSERVATION_V2'
+  readonly schema_version: typeof SELF_CALIBRATION_SCHEMA_VERSION_V2
+  readonly prediction_hash: SHA256Hex
+  readonly action_digest: SHA256Hex
+  readonly verifier_claim_id: string
+  readonly verifier_id: string
+  readonly verifier_raw_confidence: number | null
+  readonly observation_evidence_digest: SHA256Hex
+  readonly observed_success: boolean
+  readonly authority: 'NONE'
+  readonly acceptable_for_effect_truth: false
+}
+
+export interface SelfCalibrationRecordV2 {
+  readonly receipt_kind: 'SELF_CALIBRATION_RECORD_V2'
+  readonly schema_version: typeof SELF_CALIBRATION_SCHEMA_VERSION_V2
+  readonly prediction_hash: SHA256Hex
+  readonly action_digest: SHA256Hex
+  readonly verifier_claim_id: string
+  readonly verifier_id: string
+  readonly verifier_raw_confidence: number | null
   readonly observation_evidence_digest: SHA256Hex
   readonly predicted_success_bps: number
   readonly observed_success: boolean
@@ -111,6 +162,19 @@ function assertSha256Hex(field: string, value: string): void {
   }
 }
 
+function assertNonEmptyString(field: string, value: unknown): asserts value is string {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new SelfCalibrationError(`${field} must be a non-empty string`)
+  }
+}
+
+function assertVerifierRawConfidence(value: unknown): asserts value is number | null {
+  if (value === null) return
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) {
+    throw new SelfCalibrationError('verifier raw_confidence must be null or finite in [0,1]')
+  }
+}
+
 function assertNonNegativeSequence(sequence: SequenceNumber): void {
   if (sequence < 0n) {
     throw new SelfCalibrationError(`calibration sequence must be >= 0, got ${sequence}`)
@@ -125,6 +189,27 @@ function predictionBody(input: SelfPredictionInput) {
     predicted_success_bps: input.predicted_success_bps,
     authority: 'NONE' as const,
     acceptable_for_effect_truth: false as const,
+  }
+}
+
+function predictionBodyV2(input: SelfPredictionInputV2) {
+  return {
+    receipt_kind: 'SELF_PREDICTION_RECORD_V2' as const,
+    schema_version: SELF_CALIBRATION_SCHEMA_VERSION_V2,
+    action_digest: input.action_digest,
+    verifier_claim_id: input.verifier_claim_id,
+    predicted_success_bps: input.predicted_success_bps,
+    authority: 'NONE' as const,
+    acceptable_for_effect_truth: false as const,
+  }
+}
+
+function verifierArtifactBody(output: Pick<VerifierOutput, 'verifier_id' | 'claim_id' | 'passed' | 'raw_confidence'>) {
+  return {
+    verifier_id: output.verifier_id,
+    claim_id: output.claim_id,
+    passed: output.passed,
+    raw_confidence: output.raw_confidence,
   }
 }
 
@@ -143,6 +228,24 @@ function calibrationBody(calibration: Omit<SelfCalibrationRecordV1, 'calibration
   }
 }
 
+function calibrationBodyV2(calibration: Omit<SelfCalibrationRecordV2, 'calibration_hash'>) {
+  return {
+    receipt_kind: calibration.receipt_kind,
+    schema_version: calibration.schema_version,
+    prediction_hash: calibration.prediction_hash,
+    action_digest: calibration.action_digest,
+    verifier_claim_id: calibration.verifier_claim_id,
+    verifier_id: calibration.verifier_id,
+    verifier_raw_confidence: calibration.verifier_raw_confidence,
+    observation_evidence_digest: calibration.observation_evidence_digest,
+    predicted_success_bps: calibration.predicted_success_bps,
+    observed_success: calibration.observed_success,
+    absolute_error_bps: calibration.absolute_error_bps,
+    authority: calibration.authority,
+    acceptable_for_effect_truth: calibration.acceptable_for_effect_truth,
+  }
+}
+
 export async function createSelfPrediction(
   input: SelfPredictionInput,
 ): Promise<SelfPredictionRecordV1> {
@@ -152,6 +255,21 @@ export async function createSelfPrediction(
   const prediction_hash = await hashValue(body)
 
   return deepFreeze<SelfPredictionRecordV1>({
+    ...body,
+    prediction_hash,
+  })
+}
+
+export async function createSelfPredictionV2(
+  input: SelfPredictionInputV2,
+): Promise<SelfPredictionRecordV2> {
+  assertSha256Hex('action_digest', input.action_digest)
+  assertNonEmptyString('verifier_claim_id', input.verifier_claim_id)
+  assertBasisPoints(input.predicted_success_bps)
+  const body = predictionBodyV2(input)
+  const prediction_hash = await hashValue(body)
+
+  return deepFreeze<SelfPredictionRecordV2>({
     ...body,
     prediction_hash,
   })
@@ -204,6 +322,28 @@ async function assertPredictionIntegrity(
   }
 }
 
+async function assertPredictionIntegrityV2(
+  prediction: SelfPredictionRecordV2,
+): Promise<void> {
+  assertSha256Hex('prediction.action_digest', prediction.action_digest)
+  assertSha256Hex('prediction.prediction_hash', prediction.prediction_hash)
+  assertNonEmptyString('prediction.verifier_claim_id', prediction.verifier_claim_id)
+  assertBasisPoints(prediction.predicted_success_bps)
+  if (
+    prediction.receipt_kind !== 'SELF_PREDICTION_RECORD_V2' ||
+    prediction.schema_version !== SELF_CALIBRATION_SCHEMA_VERSION_V2 ||
+    prediction.authority !== 'NONE' ||
+    prediction.acceptable_for_effect_truth !== false
+  ) {
+    throw new SelfCalibrationError('V2 prediction record semantics are invalid')
+  }
+
+  const expected = await hashValue(predictionBodyV2(prediction))
+  if (expected !== prediction.prediction_hash) {
+    throw new SelfCalibrationError('V2 prediction body does not match prediction_hash')
+  }
+}
+
 function assertObservationSemantics(observation: SelfOutcomeObservationV1): void {
   assertSha256Hex('observation.prediction_hash', observation.prediction_hash)
   assertSha256Hex('observation.action_digest', observation.action_digest)
@@ -225,6 +365,83 @@ function assertObservationSemantics(observation: SelfOutcomeObservationV1): void
       'prediction_hash cannot serve as its own observation evidence',
     )
   }
+}
+
+async function assertObservationSemanticsV2(
+  observation: SelfOutcomeObservationV2,
+): Promise<void> {
+  assertSha256Hex('observation.prediction_hash', observation.prediction_hash)
+  assertSha256Hex('observation.action_digest', observation.action_digest)
+  assertSha256Hex(
+    'observation.observation_evidence_digest',
+    observation.observation_evidence_digest,
+  )
+  assertNonEmptyString('observation.verifier_claim_id', observation.verifier_claim_id)
+  assertNonEmptyString('observation.verifier_id', observation.verifier_id)
+  assertVerifierRawConfidence(observation.verifier_raw_confidence)
+  assertObservedSuccess(observation.observed_success)
+  if (
+    observation.receipt_kind !== 'SELF_OUTCOME_OBSERVATION_V2' ||
+    observation.schema_version !== SELF_CALIBRATION_SCHEMA_VERSION_V2 ||
+    observation.authority !== 'NONE' ||
+    observation.acceptable_for_effect_truth !== false
+  ) {
+    throw new SelfCalibrationError('V2 outcome observation semantics are invalid')
+  }
+  if (observation.observation_evidence_digest === observation.prediction_hash) {
+    throw new SelfCalibrationError(
+      'prediction_hash cannot serve as its own observation evidence',
+    )
+  }
+
+  const expectedArtifactHash = await hashValue({
+    verifier_id: observation.verifier_id,
+    claim_id: observation.verifier_claim_id,
+    passed: observation.observed_success,
+    raw_confidence: observation.verifier_raw_confidence,
+  })
+  if (expectedArtifactHash !== observation.observation_evidence_digest) {
+    throw new SelfCalibrationError(
+      'V2 observation verdict does not match verifier artifact hash',
+    )
+  }
+}
+
+export async function createSelfOutcomeObservationFromVerifier(
+  prediction: SelfPredictionRecordV2,
+  output: VerifierOutput,
+): Promise<SelfOutcomeObservationV2> {
+  await assertPredictionIntegrityV2(prediction)
+  assertNonEmptyString('verifier.verifier_id', output.verifier_id)
+  assertNonEmptyString('verifier.claim_id', output.claim_id)
+  assertObservedSuccess(output.passed)
+  assertVerifierRawConfidence(output.raw_confidence)
+  assertSha256Hex('verifier.artifact_hash', output.artifact_hash)
+
+  if (output.claim_id !== prediction.verifier_claim_id) {
+    throw new SelfCalibrationError(
+      'verifier claim_id does not match prediction verifier_claim_id',
+    )
+  }
+
+  const expectedArtifactHash = await hashValue(verifierArtifactBody(output))
+  if (expectedArtifactHash !== output.artifact_hash) {
+    throw new SelfCalibrationError('verifier artifact_hash does not match verifier verdict')
+  }
+
+  return deepFreeze<SelfOutcomeObservationV2>({
+    receipt_kind: 'SELF_OUTCOME_OBSERVATION_V2',
+    schema_version: SELF_CALIBRATION_SCHEMA_VERSION_V2,
+    prediction_hash: prediction.prediction_hash,
+    action_digest: prediction.action_digest,
+    verifier_claim_id: output.claim_id,
+    verifier_id: output.verifier_id,
+    verifier_raw_confidence: output.raw_confidence,
+    observation_evidence_digest: output.artifact_hash,
+    observed_success: output.passed,
+    authority: 'NONE',
+    acceptable_for_effect_truth: false,
+  })
 }
 
 export async function createSelfCalibration(
@@ -261,6 +478,50 @@ export async function createSelfCalibration(
   const calibration_hash = await hashValue(body)
 
   return deepFreeze<SelfCalibrationRecordV1>({
+    ...body,
+    calibration_hash,
+  })
+}
+
+export async function createSelfCalibrationV2(
+  prediction: SelfPredictionRecordV2,
+  observation: SelfOutcomeObservationV2,
+): Promise<SelfCalibrationRecordV2> {
+  await assertPredictionIntegrityV2(prediction)
+  await assertObservationSemanticsV2(observation)
+
+  if (observation.prediction_hash !== prediction.prediction_hash) {
+    throw new SelfCalibrationError('V2 observation prediction_hash does not match prediction')
+  }
+  if (observation.action_digest !== prediction.action_digest) {
+    throw new SelfCalibrationError('V2 observation action_digest does not match prediction')
+  }
+  if (observation.verifier_claim_id !== prediction.verifier_claim_id) {
+    throw new SelfCalibrationError('V2 observation verifier_claim_id does not match prediction')
+  }
+
+  const observed_target_bps = observation.observed_success ? 10_000 : 0
+  const absolute_error_bps = Math.abs(
+    prediction.predicted_success_bps - observed_target_bps,
+  )
+  const body = {
+    receipt_kind: 'SELF_CALIBRATION_RECORD_V2' as const,
+    schema_version: SELF_CALIBRATION_SCHEMA_VERSION_V2,
+    prediction_hash: prediction.prediction_hash,
+    action_digest: prediction.action_digest,
+    verifier_claim_id: prediction.verifier_claim_id,
+    verifier_id: observation.verifier_id,
+    verifier_raw_confidence: observation.verifier_raw_confidence,
+    observation_evidence_digest: observation.observation_evidence_digest,
+    predicted_success_bps: prediction.predicted_success_bps,
+    observed_success: observation.observed_success,
+    absolute_error_bps,
+    authority: 'NONE' as const,
+    acceptable_for_effect_truth: false as const,
+  }
+  const calibration_hash = await hashValue(body)
+
+  return deepFreeze<SelfCalibrationRecordV2>({
     ...body,
     calibration_hash,
   })
