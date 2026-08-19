@@ -1,10 +1,9 @@
-"""PR-1 transition identity and epistemically separated receipt types.
+"""Transition identity and epistemically separated receipt types.
 
-EPISTEMIC STATUS: SAFE_INCOMPLETENESS_PR1
-
-This module deliberately does not implement effect observation, complete transition
-verification, or authoritative admission. EffectReceipt is type/schema-defined but
-has no public constructor or generic producer in PR-1.
+PR-1 establishes receipt separation and safe incompleteness. PR-2 adds only
+independent, adapter-bound EffectEvidence production. VerifyEffect,
+EffectReceipt production, complete transition verification, and authoritative
+admission remain unavailable until later stacked slices.
 """
 from __future__ import annotations
 
@@ -44,6 +43,23 @@ PR1_VERIFIER_POLICY = {
     "effect_receipt_production": "UNAVAILABLE",
 }
 
+# PR-2 advances only the observation/evidence layer. The nominal EffectReceipt
+# type remains schema-defined but there is deliberately no valid producer until
+# a later slice implements VerifyEffect and gates issuance on verification.
+PR2_VERIFIER_POLICY = {
+    "policy_id": "AEGIS_PR2_VERIFIER_POLICY_V2",
+    "safe_incompleteness": True,
+    "obligation_set_status": "PARTIAL_PRE_REGISTRY",
+    "required_semantics": ["V_decision", "V_binding", "V_effect"],
+    "effect_evidence_required": True,
+    "effect_evidence_production": "ADAPTER_BOUND_ONLY",
+    "effect_observation_scope": "REFERENCE_ADAPTER_BOUND_ONLY",
+    "verify_effect": "NOT_IMPLEMENTED",
+    "effect_receipt_production": "UNAVAILABLE",
+    "complete_verification": "UNAVAILABLE",
+    "atomic_admission": "UNAVAILABLE",
+}
+
 PR1_ADMISSION_POLICY = {
     "policy_id": "AEGIS_PR1_ADMISSION_POLICY_V1",
     "safe_incompleteness": True,
@@ -54,7 +70,7 @@ PR1_ADMISSION_POLICY = {
 
 
 class TransitionReceiptError(ValueError):
-    """Raised when a PR-1 transition or receipt violates its nominal contract."""
+    """Raised when a transition or receipt violates its nominal contract."""
 
 
 def _require_hash(name: str, value: str) -> None:
@@ -74,7 +90,7 @@ def _require_id(name: str, value: str) -> None:
 
 @dataclass(frozen=True)
 class TransitionIdentity:
-    """Canonical PR-1 transition binding whose root is the TransitionID τ."""
+    """Canonical transition binding whose root is the TransitionID tau."""
 
     schema_version: str
     source_commit: str
@@ -163,7 +179,7 @@ class ExecutionReceipt:
 
 @dataclass(frozen=True, init=False)
 class EffectReceipt:
-    """PR-1 target type only. No valid public producer exists in this PR."""
+    """Schema-defined post-VerifyEffect receipt type; no valid producer exists in PR-2."""
 
     receipt_kind: str
     transition_id: str
@@ -198,7 +214,6 @@ class EffectReceipt:
 
 def decision_satisfies_authority(outcome: str) -> bool:
     """Only PERMIT carries decision authority; DENY and DEFER do not."""
-
     return outcome == PERMIT
 
 
@@ -217,8 +232,7 @@ def decision_route(outcome: str) -> str:
 
 
 def verify_transition_binding(transition: TransitionIdentity, *receipts: Any) -> bool:
-    """V_binding(PR-1): every receipt must carry the exact recomputed τ."""
-
+    """V_binding: every receipt must carry the exact recomputed tau."""
     try:
         expected = transition.root
         if not receipts:
@@ -236,13 +250,7 @@ def verify_transition_binding(transition: TransitionIdentity, *receipts: Any) ->
 
 
 def accept_effect_evidence(_artifact: Any) -> bool:
-    """PR-1 intentionally has no acceptable EffectReceipt producer.
-
-    This function is deliberately false for every artifact, including legacy
-    MutationReceiptV1, DecisionReceipt, ExecutionReceipt, None, and any object
-    manufactured outside a future EffectAdapter boundary.
-    """
-
+    """VerifyEffect/V_effect acceptance remains unavailable in PR-2."""
     return False
 
 
@@ -279,8 +287,14 @@ def fence_commitment(fence_token: str | None) -> str:
     )
 
 
-def verifier_policy_commitment() -> str:
+def pr1_verifier_policy_commitment() -> str:
+    """Historical PR-1 verifier-policy commitment for audit/reproduction only."""
     return canonical_hash("AEGIS_VERIFIER_POLICY_COMMITMENT_V1", PR1_VERIFIER_POLICY)
+
+
+def verifier_policy_commitment() -> str:
+    """Active PR-2 observation-only verifier-policy commitment."""
+    return canonical_hash("AEGIS_VERIFIER_POLICY_COMMITMENT_V1", PR2_VERIFIER_POLICY)
 
 
 def admission_policy_commitment() -> str:
