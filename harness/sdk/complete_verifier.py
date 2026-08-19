@@ -321,11 +321,22 @@ class CompleteVerifier:
             obligations["V_effect_receipt"] = FALSE
 
         try:
+            expected_observation_provenance = canonical_hash(
+                "AEGIS_EFFECT_OBSERVATION_BUNDLE_V1",
+                {
+                    "pre": effect_witness.pre_observation_provenance,
+                    "post": effect_witness.post_observation_provenance,
+                },
+            )
             effect_binding = (
                 effect_receipt.transition_id == transition_id
                 and effect_receipt.execution_instance_id == execution_receipt.execution_instance_id
                 and effect_receipt.effect_witness_digest == effect_witness.root
                 and effect_receipt.pre_state_commitment == transition.pre_state_commitment
+                and effect_receipt.post_state_commitment == effect_witness.observed_post_state_commitment
+                and effect_receipt.observation_provenance == expected_observation_provenance
+                and effect_receipt.adapter_identity == effect_witness.adapter_identity
+                and effect_receipt.adapter_version == effect_witness.adapter_version
             )
             obligations["V_effect_binding"] = TRUE if effect_binding else FALSE
         except Exception:
