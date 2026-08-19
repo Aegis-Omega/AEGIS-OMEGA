@@ -164,6 +164,11 @@ jobs:
           import json
           from pathlib import Path
 
+          REQUIRE_AXIOM_FREE = {
+              'Core/LatticeConvergence.v',
+              'Core/LockIrreversibility.v',
+          }
+
           path = Path('coq-attestation/coq-formal-attestation-receipt.json')
           receipt = json.loads(path.read_text(encoding='utf-8'))
           summary = receipt['summary']
@@ -176,6 +181,24 @@ jobs:
           assert summary['admitted_sources'] == 0, summary
           assert summary['unrecognized_assumption_outputs'] == 0, summary
           assert len(receipt['receipt_sha256']) == 64
+
+          files_by_path = {entry['path']: entry for entry in receipt['files']}
+          assert REQUIRE_AXIOM_FREE <= files_by_path.keys(), files_by_path.keys()
+
+          for required_path in sorted(REQUIRE_AXIOM_FREE):
+              entry = files_by_path[required_path]
+              assert entry['compile_status'] == 'COMPILED', entry
+              assert entry['attestation'] == 'AXIOM_FREE', entry
+              assert entry['theorem_count'] > 0, entry
+              assert entry['admitted_count'] == 0, entry
+              assert entry['axiom_statement_count'] == 0, entry
+              assert entry['parameter_statement_count'] == 0, entry
+              assert all(
+                  theorem['parse_status'] == 'CLOSED'
+                  and theorem['closed_under_global_context']
+                  and not theorem['assumption_lines']
+                  for theorem in entry['theorems']
+              ), entry
 
           for entry in receipt['files']:
               if entry['axiom_statement_count'] or entry['parameter_statement_count']:
