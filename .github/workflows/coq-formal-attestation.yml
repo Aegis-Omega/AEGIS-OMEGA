@@ -101,11 +101,14 @@ jobs:
                 while IFS= read -r theorem; do
                   [ -n "$theorem" ] || continue
                   assumption_log="$ASSUMPTIONS/${safe}__${theorem}.txt"
+                  query="$ASSUMPTIONS/${safe}__${theorem}.v"
+                  printf 'Set Coqtop Exit On Error.\nRequire Import %s.\nPrint Assumptions %s.\n' \
+                    "$module" "$theorem" > "$query"
                   (
                     cd "$FORMAL/$dir" || exit 1
-                    printf 'Require Import %s.\nPrint Assumptions %s.\n' "$module" "$theorem" \
-                      | coqtop -quiet -batch
+                    coqtop -quiet -batch -l "$query"
                   ) >"$assumption_log" 2>&1 || true
+                  rm -f "$query"
                 done <<EOF
             $(theorem_names "$source")
             EOF
