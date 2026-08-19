@@ -1,0 +1,170 @@
+name: Coq Formal Attestation
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/**/*.v'
+      - 'sovereign-omega-v2/src/math-verification/**'
+      - 'sovereign-omega-v2/python/coq_attestation.py'
+      - 'sovereign-omega-v2/python/tests/test_coq_attestation.py'
+      - '.github/workflows/coq-formal-attestation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coq-formal-attestation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  attest:
+    name: coqc + Print Assumptions receipt
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+
+      - name: Unit-test attestation generator
+        working-directory: sovereign-omega-v2
+        env:
+          PYTHONPATH: python
+        run: python3 -m unittest python.tests.test_coq_attestation -v
+
+      - name: Compile Coq sources and capture theorem assumptions
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -u
+            ROOT="$PWD/sovereign-omega-v2"
+            FORMAL="$ROOT/formal/theories"
+            OUT="$ROOT/coq-attestation"
+            ASSUMPTIONS="$OUT/assumptions"
+            LOGS="$OUT/compile-logs"
+            STATUS="$OUT/compile-status.json"
+            mkdir -p "$ASSUMPTIONS" "$LOGS"
+
+            coqc --version | tee "$OUT/coq-version.txt"
+            printf '{\n' > "$STATUS"
+            first=1
+
+            record_status() {
+              rel="$1"
+              status="$2"
+              log="$3"
+              digest="$(sha256sum "$log" | awk '{print $1}')"
+              if [ "$first" -eq 0 ]; then printf ',\n' >> "$STATUS"; fi
+              first=0
+              printf '  "%s":{"status":"%s","log_sha256":"%s"}' \
+                "$rel" "$status" "$digest" >> "$STATUS"
+            }
+
+            theorem_names() {
+              grep -E '^[[:space:]]*(Theorem|Lemma|Corollary|Proposition|Fact|Remark)[[:space:]]+[A-Za-z_][A-Za-z0-9_'"'"']*' "$1" \
+                | sed -E 's/^[[:space:]]*(Theorem|Lemma|Corollary|Proposition|Fact|Remark)[[:space:]]+([A-Za-z_][A-Za-z0-9_'"'"']*).*/\2/' \
+                || true
+            }
+
+            compile_one() {
+              rel="$1"
+              dir="$(dirname "$rel")"
+              file="$(basename "$rel")"
+              module="${file%.v}"
+              source="$FORMAL/$rel"
+              safe="$(printf '%s' "$rel" | sed 's#/#__#g; s#\.v$##')"
+              log="$LOGS/${safe}.log"
+
+              if (cd "$FORMAL/$dir" && coqc "$file") >"$log" 2>&1; then
+                record_status "$rel" 'COMPILED' "$log"
+                while IFS= read -r theorem; do
+                  [ -n "$theorem" ] || continue
+                  assumption_log="$ASSUMPTIONS/${safe}__${theorem}.txt"
+                  (
+                    cd "$FORMAL/$dir" || exit 1
+                    printf 'Require Import %s.\nPrint Assumptions %s.\n' "$module" "$theorem" \
+                      | coqtop -quiet -batch
+                  ) >"$assumption_log" 2>&1 || true
+                done <<EOF
+            $(theorem_names "$source")
+            EOF
+              else
+                record_status "$rel" 'COMPILE_FAILED' "$log"
+              fi
+            }
+
+            # Explicit dependency order for the current repo-native formal substrate.
+            compile_one 'Core/Event.v'
+            compile_one 'Core/Hash.v'
+            compile_one 'Core/Reducer.v'
+            compile_one 'Core/LatticeConvergence.v'
+            compile_one 'Core/LockIrreversibility.v'
+            compile_one 'Bisimulation/ThreeWay.v'
+
+            printf '\n}\n' >> "$STATUS"
+            cat "$STATUS"
+
+      - name: Generate content-addressed Coq attestation receipt
+        if: always()
+        working-directory: sovereign-omega-v2
+        env:
+          PYTHONPATH: python
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f coq-attestation/compile-status.json
+          test -f coq-attestation/coq-version.txt
+          COQ_VERSION="$(grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' coq-attestation/coq-version.txt | head -n1)"
+          test -n "$COQ_VERSION"
+          python3 python/coq_attestation.py \
+            --formal-root formal/theories \
+            --compile-status coq-attestation/compile-status.json \
+            --assumptions-root coq-attestation/assumptions \
+            --source-commit "$GITHUB_SHA" \
+            --coq-version "$COQ_VERSION" \
+            --out coq-attestation/coq-formal-attestation-receipt.json
+          cat coq-attestation/coq-formal-attestation-receipt.json
+
+      - name: Upload Coq attestation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coq-formal-attestation-${{ github.sha }}
+          path: sovereign-omega-v2/coq-attestation/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce executable formal attestation boundary
+        if: always()
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('coq-attestation/coq-formal-attestation-receipt.json')
+          receipt = json.loads(path.read_text(encoding='utf-8'))
+          summary = receipt['summary']
+
+          assert receipt['receipt_kind'] == 'COQ_FORMAL_ATTESTATION_RECEIPT_V1'
+          assert receipt['authority'] == 'FORMAL_MATH_EVIDENCE_ONLY'
+          assert receipt['lean_runtime_status'] == 'NOT_PRESENT_IN_REPO'
+          assert summary['file_count'] == 6
+          assert summary['compile_failures'] == 0, summary
+          assert summary['admitted_sources'] == 0, summary
+          assert summary['unrecognized_assumption_outputs'] == 0, summary
+          assert len(receipt['receipt_sha256']) == 64
+
+          # Axiom/Parameter-bearing files are allowed only as explicitly classified
+          # evidence. They never count as AXIOM_FREE and do not fail the entire build.
+          for entry in receipt['files']:
+              if entry['axiom_statement_count'] or entry['parameter_statement_count']:
+                  assert entry['attestation'] == 'ASSUMPTION_BEARING', entry
+          PY
