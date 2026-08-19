@@ -6,6 +6,7 @@ on:
       - 'sovereign-omega-v2/src/metacognition/self-calibration.ts'
       - 'sovereign-omega-v2/test/unit/self-calibration.test.ts'
       - 'sovereign-omega-v2/test/unit/self-calibration-adversarial.test.ts'
+      - 'sovereign-omega-v2/test/unit/self-calibration-verifier-binding.test.ts'
       - 'sovereign-omega-v2/src/metacognition/loop.ts'
       - 'sovereign-omega-v2/test/unit/metacognition-loop.test.ts'
       - '.github/workflows/self-calibration-contract.yml'
@@ -47,7 +48,7 @@ jobs:
         run: npm ci
 
       - name: Focused self-calibration + replay tests
-        run: npm run test -- test/unit/self-calibration.test.ts test/unit/self-calibration-adversarial.test.ts test/unit/metacognition-loop.test.ts
+        run: npm run test -- test/unit/self-calibration.test.ts test/unit/self-calibration-adversarial.test.ts test/unit/self-calibration-verifier-binding.test.ts test/unit/metacognition-loop.test.ts
 
       - name: Typecheck
         run: npm run typecheck
