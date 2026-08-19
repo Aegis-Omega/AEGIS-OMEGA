@@ -1,7 +1,7 @@
 use aegis_cl_psi::abjad_capability_bridge::{
     bridge_observation, AbjadCapabilityEncodingV1, CalligraphicObservationV1,
 };
-use serde_json::Value;
+use serde_json::{json, Value};
 
 const INPUT_SCHEMA: &str = include_str!("../../schemas/calligraphic-observation.v1.schema.json");
 const OUTPUT_SCHEMA: &str = include_str!("../../schemas/abjad-capability-encoding.v1.schema.json");
@@ -50,6 +50,33 @@ fn output_schema_has_no_authority_or_receipt_surface() {
     ] {
         assert!(!text.contains(forbidden), "forbidden schema vocabulary: {forbidden}");
     }
+}
+
+#[test]
+fn typed_input_rejects_top_level_authority_injection() {
+    let fixture: Value = serde_json::from_str(FIXTURE).unwrap();
+    let mut injected = fixture["tariq"]["observation"].clone();
+    injected["authority"] = json!("PERMIT");
+    assert!(serde_json::from_value::<CalligraphicObservationV1>(injected).is_err());
+}
+
+#[test]
+fn typed_input_rejects_grapheme_abjad_value_injection() {
+    let fixture: Value = serde_json::from_str(FIXTURE).unwrap();
+    let mut injected = fixture["tariq"]["observation"].clone();
+    injected["reading_candidates"][0]["graphemes"][0]["abjad_value"] = json!(999);
+    assert!(serde_json::from_value::<CalligraphicObservationV1>(injected).is_err());
+}
+
+#[test]
+fn typed_output_rejects_authority_injection() {
+    let fixture: Value = serde_json::from_str(FIXTURE).unwrap();
+    let tariq: CalligraphicObservationV1 =
+        serde_json::from_value(fixture["tariq"]["observation"].clone()).unwrap();
+    let output = bridge_observation(&tariq).unwrap();
+    let mut injected = serde_json::to_value(output).unwrap();
+    injected["authority"] = json!("PERMIT");
+    assert!(serde_json::from_value::<AbjadCapabilityEncodingV1>(injected).is_err());
 }
 
 #[test]
