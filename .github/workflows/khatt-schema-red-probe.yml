@@ -1,23 +1,54 @@
-name: Khatt Schema RED Probe
+name: Khatt Schema Contract Probe
 
 on:
   pull_request:
     branches: [main]
     paths:
+      - 'schemas/calligraphic-observation.v1.schema.json'
+      - 'schemas/abjad-capability-encoding.v1.schema.json'
+      - 'test-vectors/calligraphic-language/arabic-v1.json'
+      - 'aegis-cl-psi/tests/abjad_schema_contract.rs'
       - '.github/workflows/khatt-schema-red-probe.yml'
 
 permissions:
   contents: read
 
 jobs:
-  schema-red:
+  schema-contract:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+
       - uses: dtolnay/rust-toolchain@stable
-      - name: Run schema contract only
+
+      - name: Validate JSON syntax and Draft 2020-12 schemas
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m json.tool schemas/calligraphic-observation.v1.schema.json >/dev/null
+          python -m json.tool schemas/abjad-capability-encoding.v1.schema.json >/dev/null
+          python -m json.tool test-vectors/calligraphic-language/arabic-v1.json >/dev/null
+          python -m pip install --disable-pip-version-check jsonschema==4.23.0
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+
+          input_schema = json.loads(Path('schemas/calligraphic-observation.v1.schema.json').read_text(encoding='utf-8'))
+          output_schema = json.loads(Path('schemas/abjad-capability-encoding.v1.schema.json').read_text(encoding='utf-8'))
+          fixture = json.loads(Path('test-vectors/calligraphic-language/arabic-v1.json').read_text(encoding='utf-8'))
+
+          Draft202012Validator.check_schema(input_schema)
+          Draft202012Validator.check_schema(output_schema)
+          validator = Draft202012Validator(input_schema)
+          validator.validate(fixture['tariq']['observation'])
+          validator.validate(fixture['ambiguity']['observation'])
+          print('KHATT_SCHEMA_JSON=PASSED')
+          PY
+
+      - name: Run Rust schema and vector contract
         working-directory: aegis-cl-psi
         run: cargo test --locked --test abjad_schema_contract -- --test-threads 1
