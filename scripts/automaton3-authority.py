@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -17,20 +18,21 @@ from harness.sdk.sovereign_execution import (  # noqa: E402
     AuthorityEvaluator,
     AuthorityRequest,
     ExecutionIdentityEnvelope,
-    ZERO_HASH,
     canonical_hash,
+    canonical_remote,
     decision_dict,
-    load_capability_registry,
-    load_policy,
-    make_mutation_receipt,
+    git_head,
+    git_remote,
+    load_capability_registry_from_commit,
+    load_policy_from_commit,
+    make_authority_decision_receipt,
+    verify_live_authority_roots,
     verify_workspace,
 )
 from harness.sdk.transition_receipts import (  # noqa: E402
     build_transition_identity,
     decision_receipt_from_policy,
 )
-
-LEGACY_RECEIPT_SEMANTICS = "DECISION_DERIVED_NOT_EFFECT_PROOF"
 
 
 def deny(code: str, detail: str = "") -> dict:
@@ -48,11 +50,18 @@ def evaluate(payload: dict) -> dict:
 
     workspace_payload = payload.get("workspace", {})
     try:
+        live_head = git_head(ROOT)
+        live_remote = git_remote(ROOT)
+        if live_head != identity.source_commit:
+            return deny("SOURCE_COMMIT_MISMATCH")
+        claimed_remote = workspace_payload.get("remote_origin")
+        if claimed_remote is not None and canonical_remote(claimed_remote) != live_remote:
+            return deny("WORKSPACE_REMOTE_CLAIM_MISMATCH")
         workspace = verify_workspace(
             declared_root=ROOT,
             cwd=workspace_payload.get("actual_cwd", ROOT),
             expected_remote=identity.repository_identity,
-            actual_remote=workspace_payload.get("remote_origin", identity.repository_identity),
+            actual_remote=live_remote,
             project_identity=identity.project_identity,
             source_commit=identity.source_commit,
             operator_authorization=identity.approval_reference,
@@ -71,14 +80,28 @@ def evaluate(payload: dict) -> dict:
         }
 
     try:
-        policy, policy_root = load_policy(ROOT / "harness" / "policies" / "consequence-policy.v1.json")
-        registry, registry_root = load_capability_registry(
+        policy, policy_root = load_policy_from_commit(
             repository_root=ROOT,
-            skill_tree_path=ROOT / "harness" / "skill_tree.json",
-            capability_map_path=ROOT / "harness" / "policies" / "capability-map.v1.json",
+            source_commit=identity.source_commit,
+            policy_path="harness/policies/consequence-policy.v1.json",
+        )
+        registry, skills_root, registry_root = load_capability_registry_from_commit(
+            repository_root=ROOT,
+            source_commit=identity.source_commit,
+            skill_tree_path="harness/skill_tree.json",
+            capability_map_path="harness/policies/capability-map.v1.json",
         )
     except Exception as exc:
         return deny("AUTHORITY_SERVICE_UNAVAILABLE", str(exc))
+    try:
+        verify_live_authority_roots(
+            identity,
+            skills_root=skills_root,
+            registry_root=registry_root,
+            policy_root=policy_root,
+        )
+    except Exception as exc:
+        return deny(str(exc), "commit-bound authority roots do not match execution identity")
 
     request_payload = payload.get("request", {})
     action = payload.get("action", {})
@@ -86,6 +109,11 @@ def evaluate(payload: dict) -> dict:
     if identity.action_digest != action_digest:
         return deny("ACTION_DIGEST_MISMATCH")
     try:
+        trusted_operator_keys = json.loads(os.environ.get("AEGIS_TRUSTED_OPERATOR_KEYS_JSON", "{}"))
+        if not isinstance(trusted_operator_keys, dict) or any(not isinstance(key, str) or not isinstance(value, str) for key, value in trusted_operator_keys.items()):
+            raise ValueError("trusted operator key map")
+        authority_issuer_key_id = os.environ["AEGIS_AUTHORITY_ISSUER_KEY_ID"]
+        authority_signing_key = os.environ["AEGIS_AUTHORITY_SIGNING_KEY_HEX"]
         request = AuthorityRequest(
             action_class=request_payload["action_class"],
             authority_domain=request_payload["authority_domain"],
@@ -97,14 +125,26 @@ def evaluate(payload: dict) -> dict:
             source_commit=identity.source_commit,
             registry_root=registry_root,
             policy_root=policy_root,
+            action_digest=action_digest,
+            expected_pre_state=identity.expected_pre_state,
+            workspace_mode=request_payload["workspace_mode"],
             current_generation=int(request_payload.get("current_generation", 0)),
             approval_reference=identity.approval_reference,
+            rollback_reference=request_payload.get("rollback_reference", "NONE"),
             idempotency_key=request_payload.get("idempotency_key", "NONE"),
             compensation_reference=request_payload.get("compensation_reference", "NONE"),
         )
         approval = ApprovalGrant(**payload["approval"]) if payload.get("approval") else None
-        decision = AuthorityEvaluator(policy=policy, registry=registry, repository_root=ROOT).evaluate(request, approval=approval)
-        legacy_pre_state_digest = request_payload.get("pre_state_digest", ZERO_HASH)
+        evaluator = AuthorityEvaluator(policy=policy, registry=registry, repository_root=ROOT, trusted_operator_keys=trusted_operator_keys)
+        decision = evaluator.evaluate(request, approval=approval)
+        authority_receipt = make_authority_decision_receipt(
+            identity=identity,
+            request=request,
+            decision=decision,
+            evaluator=evaluator,
+            issuer_key_id=authority_issuer_key_id,
+            issuer_private_key_hex=authority_signing_key,
+        )
         transition = build_transition_identity(
             source_commit=identity.source_commit,
             pre_state_commitment=identity.expected_pre_state,
@@ -117,21 +157,6 @@ def evaluate(payload: dict) -> dict:
             fence_token=request_payload.get("fencing_token"),
         )
         decision_receipt = decision_receipt_from_policy(transition=transition, decision=decision)
-
-        # Compatibility-only legacy V1 artifact. Caller-supplied pre/post digests are
-        # preserved for format compatibility, but neither participates as authoritative
-        # effect evidence. The new TransitionID binds identity.expected_pre_state.
-        receipt = make_mutation_receipt(
-            identity_root=identity_root,
-            workspace_binding=identity.workspace_binding,
-            decision=decision,
-            pre_state_digest=legacy_pre_state_digest,
-            action_digest=action_digest,
-            result={"authority_outcome": decision.outcome},
-            post_state_digest=request_payload.get("post_state_digest", legacy_pre_state_digest),
-            parent_receipt=request_payload.get("parent_receipt", ZERO_HASH),
-            sequence=int(request_payload.get("sequence", 0)),
-        )
         return {
             "schema_version": "1.0.0",
             "outcome": decision.outcome,
@@ -139,12 +164,11 @@ def evaluate(payload: dict) -> dict:
             "workspace_binding": identity.workspace_binding,
             "workspace_decision_root": workspace.decision_root,
             "policy_decision": decision_dict(decision),
+            "authority_receipt": asdict(authority_receipt),
+            "authority_receipt_root": authority_receipt.root,
             "transition_id": transition.root,
             "decision_receipt": asdict(decision_receipt),
             "decision_receipt_root": decision_receipt.root,
-            "mutation_receipt": asdict(receipt),
-            "mutation_receipt_root": receipt.root,
-            "legacy_receipt_semantics": LEGACY_RECEIPT_SEMANTICS,
             "observation": asdict(workspace.observation),
         }
     except Exception as exc:

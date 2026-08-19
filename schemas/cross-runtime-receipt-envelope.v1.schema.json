@@ -1,0 +1,285 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis.local/schemas/cross-runtime-receipt-envelope.v1.schema.json",
+  "title": "AEGIS Cross-Runtime Authoritative Receipt Envelope V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_kind",
+    "receipt_body",
+    "proof",
+    "receipt_id"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "receipt_kind": {
+      "enum": [
+        "LEASE_ISSUED",
+        "LEASE_ISSUANCE_DENIED",
+        "LEASE_RENEWED",
+        "LEASE_RENEWAL_DENIED",
+        "LEASE_EXPIRED",
+        "LEASE_REVOKED",
+        "MUTATION_ADMITTED",
+        "MUTATION_DENIED",
+        "MUTATION_COMPLETED",
+        "MUTATION_CANCELLED",
+        "MUTATION_FAILED"
+      ]
+    },
+    "receipt_body": { "$ref": "#/$defs/receiptBody" },
+    "proof": { "$ref": "#/$defs/receiptProof" },
+    "receipt_id": { "$ref": "#/$defs/hash" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "receipt_kind": { "const": "LEASE_ISSUED" } } },
+      "then": { "properties": { "receipt_body": { "properties": { "outcome": { "const": "ADMITTED" } } } } }
+    },
+    {
+      "if": { "properties": { "receipt_kind": { "const": "LEASE_ISSUANCE_DENIED" } } },
+      "then": { "properties": { "receipt_body": { "properties": { "outcome": { "const": "DENIED" } } } } }
+    },
+    {
+      "if": { "properties": { "receipt_kind": { "const": "LEASE_RENEWED" } } },
+      "then": { "properties": { "receipt_body": { "properties": { "outcome": { "const": "ADMITTED" } } } } }
+    },
+    {
+      "if": { "properties": { "receipt_kind": { "const": "LEASE_RENEWAL_DENIED" } } },
+      "then": { "properties": { "receipt_body": { "properties": { "outcome": { "const": "DENIED" } } } } }
+    },
+    {
+      "if": { "properties": { "receipt_kind": { "const": "LEASE_EXPIRED" } } },
+      "then": { "properties": { "receipt_body": { "properties": { "outcome": { "const": "EXPIRED" } } } } }
+    },
+    {
+      "if": { "properties": { "receipt_kind": { "const": "LEASE_REVOKED" } } },
+      "then": { "properties": { "receipt_body": { "properties": { "outcome": { "const": "REVOKED" } } } } }
+    },
+    {
+      "if": { "properties": { "receipt_kind": { "const": "MUTATION_ADMITTED" } } },
+      "then": { "properties": { "receipt_body": { "properties": { "outcome": { "const": "ADMITTED" } } } } }
+    },
+    {
+      "if": { "properties": { "receipt_kind": { "const": "MUTATION_DENIED" } } },
+      "then": { "properties": { "receipt_body": { "properties": { "outcome": { "const": "DENIED" } } } } }
+    },
+    {
+      "if": { "properties": { "receipt_kind": { "const": "MUTATION_COMPLETED" } } },
+      "then": { "properties": { "receipt_body": { "properties": { "outcome": { "const": "COMPLETED" } } } } }
+    },
+    {
+      "if": { "properties": { "receipt_kind": { "const": "MUTATION_CANCELLED" } } },
+      "then": { "properties": { "receipt_body": { "properties": { "outcome": { "const": "CANCELLED" } } } } }
+    },
+    {
+      "if": { "properties": { "receipt_kind": { "const": "MUTATION_FAILED" } } },
+      "then": { "properties": { "receipt_body": { "properties": { "outcome": { "const": "FAILED" } } } } }
+    },
+    {
+      "if": {
+        "properties": {
+          "receipt_kind": {
+            "enum": [
+              "LEASE_ISSUANCE_DENIED",
+              "LEASE_RENEWAL_DENIED",
+              "LEASE_EXPIRED",
+              "LEASE_REVOKED",
+              "MUTATION_DENIED",
+              "MUTATION_CANCELLED",
+              "MUTATION_FAILED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "receipt_body": { "properties": { "denial_codes": { "minItems": 1 } } }
+        }
+      },
+      "else": {
+        "properties": {
+          "receipt_body": { "properties": { "denial_codes": { "maxItems": 0 } } }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "receipt_kind": { "const": "LEASE_ISSUANCE_DENIED" }
+        }
+      },
+      "then": {
+        "properties": {
+          "receipt_body": {
+            "properties": {
+              "fencing_token": {
+                "const": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "receipt_body": {
+            "properties": {
+              "fencing_token": { "$ref": "#/$defs/nonZeroHash" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "receipt_kind": {
+            "enum": [
+              "LEASE_ISSUED",
+              "LEASE_ISSUANCE_DENIED",
+              "LEASE_RENEWED",
+              "LEASE_RENEWAL_DENIED",
+              "LEASE_EXPIRED",
+              "LEASE_REVOKED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "receipt_body": {
+            "properties": {
+              "authority_receipt_hash": {
+                "const": "0000000000000000000000000000000000000000000000000000000000000000"
+              },
+              "lease_authorization_receipt_hash": {
+                "const": "0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "receipt_body": {
+            "properties": {
+              "authority_receipt_hash": { "$ref": "#/$defs/nonZeroHash" },
+              "lease_authorization_receipt_hash": { "$ref": "#/$defs/nonZeroHash" }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nonZeroHash": {
+      "allOf": [
+        { "$ref": "#/$defs/hash" },
+        { "not": { "const": "0000000000000000000000000000000000000000000000000000000000000000" } }
+      ]
+    },
+    "decimal": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "maxLength": 20
+    },
+    "safeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"
+    },
+    "receiptBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt_sequence",
+        "actor_identity_root",
+        "session_identity_root",
+        "workspace_identity_root",
+        "holon_identity_root",
+        "authority_domain",
+        "authority_level",
+        "authority_receipt_hash",
+        "lease_id",
+        "lease_generation",
+        "fencing_token",
+        "lease_authorization_receipt_hash",
+        "parent_receipt_hash",
+        "observed_state_root",
+        "expected_state_root",
+        "action_digest",
+        "before_state_root",
+        "after_state_root",
+        "result_digest",
+        "timestamp_ms",
+        "expires_at_ms",
+        "nonce",
+        "outcome",
+        "denial_codes"
+      ],
+      "properties": {
+        "receipt_sequence": { "$ref": "#/$defs/decimal" },
+        "actor_identity_root": { "$ref": "#/$defs/nonZeroHash" },
+        "session_identity_root": { "$ref": "#/$defs/nonZeroHash" },
+        "workspace_identity_root": { "$ref": "#/$defs/nonZeroHash" },
+        "holon_identity_root": { "$ref": "#/$defs/nonZeroHash" },
+        "authority_domain": { "$ref": "#/$defs/safeId" },
+        "authority_level": { "enum": ["D0", "D1", "D2", "D3", "D4"] },
+        "authority_receipt_hash": { "$ref": "#/$defs/hash" },
+        "lease_id": { "$ref": "#/$defs/nonZeroHash" },
+        "lease_generation": { "$ref": "#/$defs/decimal" },
+        "fencing_token": { "$ref": "#/$defs/hash" },
+        "lease_authorization_receipt_hash": { "$ref": "#/$defs/hash" },
+        "parent_receipt_hash": { "$ref": "#/$defs/hash" },
+        "observed_state_root": { "$ref": "#/$defs/nonZeroHash" },
+        "expected_state_root": { "$ref": "#/$defs/nonZeroHash" },
+        "action_digest": { "$ref": "#/$defs/nonZeroHash" },
+        "before_state_root": { "$ref": "#/$defs/nonZeroHash" },
+        "after_state_root": { "$ref": "#/$defs/nonZeroHash" },
+        "result_digest": { "$ref": "#/$defs/nonZeroHash" },
+        "timestamp_ms": { "$ref": "#/$defs/decimal" },
+        "expires_at_ms": { "$ref": "#/$defs/decimal" },
+        "nonce": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
+        },
+        "outcome": {
+          "enum": ["ADMITTED", "DENIED", "COMPLETED", "CANCELLED", "FAILED", "EXPIRED", "REVOKED"]
+        },
+        "denial_codes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/safeId" },
+          "uniqueItems": true,
+          "maxItems": 32
+        }
+      }
+    },
+    "receiptProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "signer_key_id",
+        "verifier_identity_root",
+        "trust_registry_version",
+        "trust_registry_root",
+        "signature"
+      ],
+      "properties": {
+        "algorithm": { "const": "Ed25519" },
+        "signer_key_id": { "$ref": "#/$defs/safeId" },
+        "verifier_identity_root": { "$ref": "#/$defs/nonZeroHash" },
+        "trust_registry_version": { "$ref": "#/$defs/decimal" },
+        "trust_registry_root": { "$ref": "#/$defs/nonZeroHash" },
+        "signature": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{128}$"
+        }
+      }
+    }
+  }
+}

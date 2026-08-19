@@ -47,10 +47,12 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-          cache-dependency-path: sovereign-omega-v2/mcp-server/package-lock.json
+          cache-dependency-path: |
+            sovereign-omega-v2/package-lock.json
+            sovereign-omega-v2/mcp-server/package-lock.json
 
-      - name: Install exact schema validator
-        run: pip install jsonschema==4.23.0
+      - name: Install exact schema and signature validators
+        run: pip install --requirement harness/requirements-automaton3.txt
 
       - name: Validate JSON schemas
         shell: bash
@@ -60,26 +62,35 @@ jobs:
           import json
           from pathlib import Path
           from jsonschema.validators import validator_for
-
-          schema_paths = (
+          paths = (
               sorted(Path('schemas').glob('*-envelope.v1.schema.json'))
               + sorted(Path('schemas').glob('*-receipt.v1.schema.json'))
               + [
                   Path('schemas/effect-witness.v1.schema.json'),
+                  Path('schemas/complete-verification-result.v1.schema.json'),
                   Path('schemas/writer-lease.v1.schema.json'),
+                  Path('schemas/receipt-trust-registry.v1.schema.json'),
               ]
           )
-          for path in schema_paths:
+          for path in dict.fromkeys(paths):
               schema = json.loads(path.read_text(encoding='utf-8'))
               validator_for(schema).check_schema(schema)
               print(f'SCHEMA_OK {path}')
           PY
 
-      - name: Run authority-abuse matrix at k=1,10,100
+      - name: Run integrated authority and receipt matrix
         run: |
           python scripts/run-automaton3-tests.py \
             --output "$RUNNER_TEMP/AUTOMATON3_TEST_SUMMARY.json" \
             --log "$RUNNER_TEMP/AUTOMATON3_TEST.log"
+
+      - name: Run PR-3 VerifyEffect and PR-4 CompleteVerification regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python sovereign-omega-v2/python/tests/test_effect_verifier_pr3.py
+          python sovereign-omega-v2/python/tests/test_complete_verifier_pr4.py
+          python sovereign-omega-v2/python/tests/test_complete_verifier_pr4_receipt_binding.py
 
       - name: Build and test MCP fail-closed integration
         working-directory: sovereign-omega-v2/mcp-server
@@ -89,6 +100,16 @@ jobs:
           npm ci
           npm run test:resources
           npm run test:automaton3 | tee "$RUNNER_TEMP/AUTOMATON3_MCP.log"
+
+      - name: Verify cross-runtime authoritative receipt provenance and frontier regressions
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run typecheck
+          npm test -- --reporter=dot
+          npm run build
 
       - name: Validate claims and constitutional anchors
         shell: bash
@@ -155,7 +176,7 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-      - name: Attest exact Automaton-3 candidate
+      - name: Attest exact integrated Automaton-3 candidate
         uses: actions/attest@v4
         with:
           subject-path: |
@@ -165,9 +186,13 @@ jobs:
             harness/policies/consequence-policy.v1.json
             harness/policies/capability-map.v1.json
             schemas/execution-identity-envelope.v1.schema.json
-            schemas/transition-identity-envelope.v1.schema.json
+            schemas/authority-decision-receipt.v1.schema.json
             schemas/mutation-receipt.v1.schema.json
+            schemas/cross-runtime-receipt-envelope.v1.schema.json
+            schemas/receipt-trust-registry.v1.schema.json
+            schemas/transition-identity-envelope.v1.schema.json
             schemas/decision-receipt.v1.schema.json
             schemas/execution-receipt.v1.schema.json
             schemas/effect-receipt.v1.schema.json
             schemas/effect-witness.v1.schema.json
+            schemas/complete-verification-result.v1.schema.json

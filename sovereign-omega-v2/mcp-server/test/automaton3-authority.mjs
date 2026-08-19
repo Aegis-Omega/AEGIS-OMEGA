@@ -20,7 +20,7 @@ const transport = new StdioClientTransport({
 const client = new Client({ name: 'automaton3-mcp-test', version: '1.0.0' })
 try {
   await client.connect(transport)
-  const result = await client.callTool({ name: 'aegis_collaborate', arguments: { objective: 'Attempt a consequential collaboration', mode: 'analysis' } })
+  const result = await client.callTool({ name: 'aegis_collaborate', arguments: { objective: 'Attempt a consequential collaboration', mode: 'analysis', rollback_reference: 'rollback:test' } })
   const parsed = JSON.parse(result.content[0].text)
   assert.equal(parsed.external_effect, 'NOT_EXECUTED')
   assert.equal(parsed.authority.outcome, 'DENIED')

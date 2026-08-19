@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis.local/schemas/receipt-trust-registry.v1.schema.json",
+  "title": "AEGIS Receipt Trust Registry V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "registry_body", "proof", "registry_root"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "registry_body": { "$ref": "#/$defs/registryBody" },
+    "proof": { "$ref": "#/$defs/registryProof" },
+    "registry_root": { "$ref": "#/$defs/nonZeroHash" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "nonZeroHash": {
+      "allOf": [
+        { "$ref": "#/$defs/hash" },
+        { "not": { "const": "0000000000000000000000000000000000000000000000000000000000000000" } }
+      ]
+    },
+    "decimal": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$",
+      "maxLength": 20
+    },
+    "safeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"
+    },
+    "receiptKind": {
+      "enum": [
+        "LEASE_ISSUED",
+        "LEASE_ISSUANCE_DENIED",
+        "LEASE_RENEWED",
+        "LEASE_RENEWAL_DENIED",
+        "LEASE_EXPIRED",
+        "LEASE_REVOKED",
+        "MUTATION_ADMITTED",
+        "MUTATION_DENIED",
+        "MUTATION_COMPLETED",
+        "MUTATION_CANCELLED",
+        "MUTATION_FAILED"
+      ]
+    },
+    "registryBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registry_version",
+        "previous_registry_root",
+        "issued_at_ms",
+        "valid_from_ms",
+        "expires_at_ms",
+        "operator_key_id",
+        "keys"
+      ],
+      "properties": {
+        "registry_version": { "$ref": "#/$defs/decimal" },
+        "previous_registry_root": { "$ref": "#/$defs/hash" },
+        "issued_at_ms": { "$ref": "#/$defs/decimal" },
+        "valid_from_ms": { "$ref": "#/$defs/decimal" },
+        "expires_at_ms": { "$ref": "#/$defs/decimal" },
+        "operator_key_id": { "$ref": "#/$defs/safeId" },
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "items": { "$ref": "#/$defs/keyEntry" }
+        }
+      }
+    },
+    "keyEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key_id",
+        "public_key",
+        "verifier_identity_root",
+        "valid_from_ms",
+        "expires_at_ms",
+        "status",
+        "authority_domains",
+        "receipt_kinds"
+      ],
+      "properties": {
+        "key_id": { "$ref": "#/$defs/safeId" },
+        "public_key": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "verifier_identity_root": { "$ref": "#/$defs/nonZeroHash" },
+        "valid_from_ms": { "$ref": "#/$defs/decimal" },
+        "expires_at_ms": { "$ref": "#/$defs/decimal" },
+        "status": { "enum": ["ACTIVE", "REVOKED"] },
+        "authority_domains": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/safeId" }
+        },
+        "receipt_kinds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/receiptKind" }
+        }
+      }
+    },
+    "registryProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "signature"],
+      "properties": {
+        "algorithm": { "const": "Ed25519" },
+        "signature": { "type": "string", "pattern": "^[0-9a-f]{128}$" }
+      }
+    }
+  }
+}

@@ -6,23 +6,16 @@
 // FIPS 186-5, ZIP215). Replaces Gate 19 FNV-1a stub.
 //
 // Key properties:
-//   - Async: no WebCrypto dependency (uses noble's built-in sha512)
+//   - Async: uses the browser/modern-Node Web Crypto SHA-512 path
 //   - Deterministic: same (privateKey, message) → same signature
 //   - Zero network I/O
 //   - generateKeypair(seed) → deterministic from 32-byte seed
 // ============================================================
 
 import * as ed from '@noble/ed25519'
-import { createHash } from 'node:crypto'
 import { uint8ArrayToHex, hexToUint8Array } from '../core/hashing.js'
 import type { SHA256Hex } from '../core/types.js'
 import type { ValidatorPublicKey, ValidatorSignature, ValidatorKeyPair } from './types.js'
-
-// Wire Node.js sha512 into @noble/ed25519 v3 (required outside browser).
-// The type cast is necessary because Node's Buffer.digest() is typed as
-// Uint8Array<ArrayBufferLike> while noble expects Uint8Array<ArrayBuffer>.
-;(ed.hashes as Record<string, unknown>)['sha512'] = (msg: Uint8Array): Uint8Array =>
-  Uint8Array.from(createHash('sha512').update(msg).digest())
 
 // ─── Key generation ────────────────────────────────────────
 
@@ -36,7 +29,7 @@ export async function generateKeypair(seed: Uint8Array): Promise<ValidatorKeyPai
     throw new Error(`Seed must be at least 32 bytes, got ${seed.length}`)
   }
   const privateKey = seed.slice(0, 32)
-  const publicKeyBytes = await ed.getPublicKey(privateKey)
+  const publicKeyBytes = await ed.getPublicKeyAsync(privateKey)
   return {
     privateKey,
     publicKey: uint8ArrayToHex(publicKeyBytes) as ValidatorPublicKey,
@@ -46,7 +39,7 @@ export async function generateKeypair(seed: Uint8Array): Promise<ValidatorKeyPai
 // ─── Generic signing / verification ───────────────────────
 
 export async function signBytes(privateKey: Uint8Array, message: Uint8Array): Promise<string> {
-  const signature = await ed.sign(message, privateKey)
+  const signature = await ed.signAsync(message, privateKey)
   return uint8ArrayToHex(signature)
 }
 
@@ -56,7 +49,7 @@ export async function verifyBytes(
   signatureHex: string,
 ): Promise<boolean> {
   try {
-    return await ed.verify(
+    return await ed.verifyAsync(
       hexToUint8Array(signatureHex),
       message,
       hexToUint8Array(publicKeyHex),

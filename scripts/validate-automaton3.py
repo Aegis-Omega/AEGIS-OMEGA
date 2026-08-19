@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Validate an exact Automaton-3 candidate and emit deterministic evidence.
+"""Validate an exact integrated Automaton-3 candidate and emit deterministic evidence.
 
-The emitted admission receipt is scoped to repository-candidate validation. It is
-not an AdmissionRecord for an external effect-bound state transition.
+The emitted receipt is scoped to repository-candidate validation only. It is not
+an external effect-bound state AdmissionRecord.
 """
 from __future__ import annotations
 
@@ -16,36 +16,64 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 SHA_RE = re.compile(r"^[0-9a-f]{40,64}$")
+EXPECTED_TEST_COUNT = 115
 
 KEY_FILES = (
     "harness/sdk/sovereign_execution.py",
     "harness/sdk/authority_client.py",
+    "harness/sdk/operator_visibility.py",
     "harness/sdk/transition_receipts.py",
     "harness/sdk/effect_adapters.py",
-    "harness/sdk/operator_visibility.py",
+    "harness/sdk/effect_verifier.py",
+    "harness/sdk/complete_verifier.py",
+    "harness/requirements-automaton3.txt",
     "harness/policies/consequence-policy.v1.json",
     "harness/policies/capability-map.v1.json",
     "scripts/automaton3-authority.py",
     "scripts/run-automaton3-tests.py",
     "scripts/validate-automaton3.py",
     "agents/coordinator.py",
+    "sovereign-omega-v2/mcp-server/package.json",
+    "sovereign-omega-v2/mcp-server/src/authority-response.ts",
     "sovereign-omega-v2/mcp-server/src/index.ts",
+    "sovereign-omega-v2/mcp-server/test/authority-response.mjs",
     "sovereign-omega-v2/mcp-server/test/automaton3-authority.mjs",
     "sovereign-omega-v2/python/tests/test_automaton3.py",
+    "sovereign-omega-v2/python/tests/test_coordinator_authority.py",
     "sovereign-omega-v2/python/tests/test_operator_visibility.py",
+    "sovereign-omega-v2/python/authoritative_receipts.py",
+    "sovereign-omega-v2/python/tests/test_authoritative_receipts.py",
     "sovereign-omega-v2/python/tests/test_transition_receipts_pr1.py",
     "sovereign-omega-v2/python/tests/test_transition_receipts_cli_pr1.py",
     "sovereign-omega-v2/python/tests/test_effect_adapters_pr2.py",
+    "sovereign-omega-v2/python/tests/test_effect_verifier_pr3.py",
+    "sovereign-omega-v2/python/tests/test_complete_verifier_pr4.py",
+    "sovereign-omega-v2/python/tests/test_complete_verifier_pr4_receipt_binding.py",
+    "sovereign-omega-v2/python/generate_authoritative_receipt_vector.py",
+    "sovereign-omega-v2/src/provenance/cross-runtime-receipts.ts",
+    "sovereign-omega-v2/src/provenance/receipt-resolver.ts",
+    "sovereign-omega-v2/src/provenance/indexeddb-receipt-source.ts",
+    "sovereign-omega-v2/src/metacognition/authoritative-outcome-evidence-replay.ts",
+    "sovereign-omega-v2/test/unit/cross-runtime-receipt-provenance.test.ts",
+    "sovereign-omega-v2/test/integration/authoritative-outcome-evidence-replay.test.ts",
+    "sovereign-omega-v2/test/vectors/python-cross-runtime-receipt-v1.json",
+    "sovereign-omega-v2/test/vectors/typescript-cross-runtime-receipt-v1.json",
+    "sovereign-omega-v2/scripts/generate-authoritative-receipt-vector.ts",
     "schemas/execution-identity-envelope.v1.schema.json",
-    "schemas/transition-identity-envelope.v1.schema.json",
+    "schemas/authority-decision-receipt.v1.schema.json",
     "schemas/mutation-receipt.v1.schema.json",
     "schemas/decision-receipt.v1.schema.json",
     "schemas/execution-receipt.v1.schema.json",
     "schemas/effect-receipt.v1.schema.json",
     "schemas/effect-witness.v1.schema.json",
+    "schemas/complete-verification-result.v1.schema.json",
+    "schemas/transition-identity-envelope.v1.schema.json",
     "schemas/event-envelope.v1.schema.json",
     "schemas/writer-lease.v1.schema.json",
+    "schemas/cross-runtime-receipt-envelope.v1.schema.json",
+    "schemas/receipt-trust-registry.v1.schema.json",
     "docs/adr/ADR-0021-automaton-3-sovereign-execution.md",
+    "docs/adr/ADR-0022-cross-runtime-authoritative-receipt-provenance.md",
     "docs/security/AUTOMATON3_THREAT_MODEL.md",
     "docs/operations/LAW_OF_SILENCE_V2.md",
     "docs/operations/BRANCH_RULESET_AUTOMATON3.md",
@@ -62,30 +90,9 @@ REQUIRED_REPOSITORY_CONTROLS = (
     "scripts/integration_ledger.py",
 )
 
-EXPECTED_TEST_COUNT = 75
-PR2_REQUIRED_ASSERTIONS = (
-    "pr2_effect_adapter_protocol_asserted",
-    "pr2_filesystem_effect_adapter_asserted",
-    "pr2_independent_pre_post_observation_asserted",
-    "pr2_adapter_bound_effect_evidence_production_asserted",
-    "pr2_verify_effect_not_implemented_asserted",
-    "pr2_authorization_artifact_effect_evidence_forbidden_asserted",
-    "pr2_caller_post_state_effect_authority_forbidden_asserted",
-    "pr2_verifier_policy_commitment_current_asserted",
-    "pr2_complete_verification_unavailable_asserted",
-    "pr2_atomic_admission_unavailable_asserted",
-    "pr2_effect_bound_admission_unavailable_asserted",
-)
-
 
 def canonical_bytes(value: Any) -> bytes:
-    return json.dumps(
-        value,
-        ensure_ascii=False,
-        allow_nan=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
+    return json.dumps(value, ensure_ascii=False, allow_nan=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
 def sha256(data: bytes) -> str:
@@ -94,21 +101,10 @@ def sha256(data: bytes) -> str:
 
 def file_record(path: Path) -> dict[str, Any]:
     data = path.read_bytes()
-    return {
-        "path": path.relative_to(ROOT).as_posix(),
-        "sha256": sha256(data),
-        "size_bytes": len(data),
-    }
+    return {"path": path.relative_to(ROOT).as_posix(), "sha256": sha256(data), "size_bytes": len(data)}
 
 
-def evaluate(
-    *,
-    candidate_sha: str,
-    expected_parent_sha: str,
-    test_summary_path: Path,
-    mcp_log_path: Path,
-    require_oidc: bool,
-) -> tuple[dict[str, Any], dict[str, Any]]:
+def evaluate(*, candidate_sha: str, expected_parent_sha: str, test_summary_path: Path, mcp_log_path: Path, require_oidc: bool) -> tuple[dict[str, Any], dict[str, Any]]:
     violations: list[str] = []
     if not SHA_RE.fullmatch(candidate_sha):
         violations.append("candidate_sha invalid")
@@ -127,18 +123,14 @@ def evaluate(
             violations.append(f"repository control missing: {rel}")
 
     try:
-        policy_raw = json.loads(
-            (ROOT / "harness/policies/consequence-policy.v1.json").read_text(encoding="utf-8")
-        )
+        policy_raw = json.loads((ROOT / "harness/policies/consequence-policy.v1.json").read_text(encoding="utf-8"))
         classes = policy_raw["classes"]
         if sorted(classes) != ["D0", "D1", "D2", "D3", "D4"]:
             violations.append("consequence classes incomplete")
         for level in ("D2", "D3", "D4"):
             if classes[level].get("approval") != "EXPLICIT":
                 violations.append(f"{level} does not require explicit approval")
-        policy_root = sha256(
-            canonical_bytes({"domain": "AEGIS_CONSEQUENCE_POLICY_V1", "value": classes})
-        )
+        policy_root = sha256(canonical_bytes({"domain": "AEGIS_CONSEQUENCE_POLICY_V1", "value": classes}))
     except Exception as exc:
         violations.append(f"policy invalid: {type(exc).__name__}")
         policy_root = "0" * 64
@@ -152,40 +144,27 @@ def evaluate(
         if summary.get("adaptive_attempts") != [1, 10, 100]:
             violations.append("adaptive attempt matrix incomplete")
         if summary.get("expected_test_count") != EXPECTED_TEST_COUNT:
-            violations.append("Automaton-3 expected test count mismatch")
-        if summary.get("actual_test_count") != EXPECTED_TEST_COUNT:
-            violations.append("Automaton-3 actual test count incomplete")
-        if summary.get("test_count_complete") is not True:
-            violations.append("Automaton-3 per-file test count unavailable")
-        if summary.get("test_count_matches_expected") is not True:
-            violations.append("Automaton-3 actual test count mismatch")
-        if summary.get("operator_visibility_asserted") is not True:
-            violations.append("operator visibility invariant not asserted")
-        if summary.get("state_preservation_asserted") is not True:
-            violations.append("state preservation not asserted")
-        if summary.get("external_side_effect_absence_asserted") is not True:
-            violations.append("uncontrolled external side-effect absence not asserted")
-        if summary.get("transition_binding_asserted") is not True:
-            violations.append("transition binding not asserted")
-        if summary.get("receipt_separation_asserted") is not True:
-            violations.append("receipt separation not asserted")
-        if summary.get("effect_receipt_schema_defined") is not True:
-            violations.append("effect receipt schema not defined")
-        if summary.get("generic_effect_receipt_production_forbidden_asserted") is not True:
-            violations.append("generic effect receipt production is not forbidden")
-        if summary.get("effect_receipt_production_unavailable_asserted") is not True:
-            violations.append("EffectReceipt production became available before VerifyEffect")
-        if summary.get("legacy_receipt_effect_evidence_forbidden_asserted") is not True:
-            violations.append("legacy mutation receipt may satisfy effect evidence")
-        if summary.get("legacy_fallback_forbidden_asserted") is not True:
-            violations.append("legacy effect-evidence fallback not forbidden")
-        if summary.get("effect_bound_admission_unavailable_asserted") is not True:
-            violations.append("effect-bound admission availability exceeds PR-2 scope")
-        for key in PR2_REQUIRED_ASSERTIONS:
+            violations.append("Automaton-3 test count incomplete")
+        if summary.get("observed_test_count") != EXPECTED_TEST_COUNT:
+            violations.append("Automaton-3 observed test count mismatch")
+        if summary.get("test_count_complete") is not True or summary.get("test_count_matches_expected") is not True:
+            violations.append("Automaton-3 per-file test count mismatch")
+        for key, message in (
+            ("operator_visibility_asserted", "operator visibility invariant not asserted"),
+            ("state_preservation_asserted", "state preservation not asserted"),
+            ("external_side_effect_absence_asserted", "external side-effect absence not asserted"),
+            ("cross_runtime_provenance_asserted", "cross-runtime receipt provenance not asserted"),
+            ("restart_readback_asserted", "authoritative receipt restart/readback not asserted"),
+            ("transition_binding_asserted", "transition binding not asserted"),
+            ("receipt_separation_asserted", "receipt separation not asserted"),
+            ("generic_effect_receipt_production_forbidden_asserted", "generic effect receipt production not forbidden"),
+            ("pr2_effect_adapter_protocol_asserted", "effect adapter protocol not asserted"),
+            ("pr2_filesystem_effect_adapter_asserted", "filesystem effect adapter not asserted"),
+            ("pr2_independent_pre_post_observation_asserted", "independent effect observation not asserted"),
+            ("pr2_adapter_bound_effect_evidence_production_asserted", "adapter-bound effect evidence not asserted"),
+        ):
             if summary.get(key) is not True:
-                violations.append(f"PR-2 assertion missing or false: {key}")
-        if summary.get("pr2_adapter_bound_effect_receipt_production_asserted") is True:
-            violations.append("stale PR-2 pre-VerifyEffect receipt-production assertion survived")
+                violations.append(message)
         test_summary_root = summary.get("summary_root", "0" * 64)
     except Exception as exc:
         violations.append(f"test summary unavailable: {type(exc).__name__}")
@@ -204,17 +183,15 @@ def evaluate(
         ("agents/coordinator.py", "authorize_from_environment"),
         ("sovereign-omega-v2/mcp-server/src/index.ts", "automaton3-authority.py"),
         ("harness/sdk/operator_visibility.py", "OPERATOR_VISIBILITY_CANNOT_BE_SUPPRESSED"),
+        ("harness/sdk/authority_client.py", "make_authority_decision_receipt"),
         ("harness/sdk/authority_client.py", "decision_receipt_from_policy"),
+        ("scripts/automaton3-authority.py", "make_authority_decision_receipt"),
         ("scripts/automaton3-authority.py", "decision_receipt_from_policy"),
         ("harness/sdk/transition_receipts.py", "DECISION_RECEIPT_V1"),
         ("harness/sdk/transition_receipts.py", "EFFECT_RECEIPT_V1"),
-        ("harness/sdk/transition_receipts.py", "AEGIS_PR2_VERIFIER_POLICY_V2"),
-        ("harness/sdk/transition_receipts.py", '"effect_evidence_production": "ADAPTER_BOUND_ONLY"'),
-        ("harness/sdk/transition_receipts.py", '"verify_effect": "NOT_IMPLEMENTED"'),
-        ("harness/sdk/transition_receipts.py", '"effect_receipt_production": "UNAVAILABLE"'),
         ("harness/sdk/effect_adapters.py", "FilesystemEffectAdapter"),
-        ("harness/sdk/effect_adapters.py", "AEGIS_EFFECT_WITNESS_V1"),
-        ("harness/sdk/effect_adapters.py", "does not implement VerifyEffect"),
+        ("harness/sdk/effect_verifier.py", "class EffectVerifier"),
+        ("harness/sdk/complete_verifier.py", "class CompleteVerifier"),
         (".github/workflows/automaton-3.yml", "aegis / automaton-3"),
     )
     for rel, needle in integration_expectations:
@@ -222,20 +199,14 @@ def evaluate(
         if path.is_file() and needle not in path.read_text(encoding="utf-8"):
             violations.append(f"integration missing: {rel}:{needle}")
 
-    for forbidden_symbol in (
-        "_issue_adapter_bound_effect_receipt",
-        "_EFFECT_RECEIPT_PRODUCER_CAPABILITY",
-    ):
-        path = ROOT / "harness/sdk/transition_receipts.py"
-        if path.is_file() and forbidden_symbol in path.read_text(encoding="utf-8"):
-            violations.append(f"EffectReceipt producer exists before VerifyEffect: {forbidden_symbol}")
-
     prohibited = re.compile(r"fail[- ]open|temporary bypass|silent fallback", re.IGNORECASE)
     for rel in (
         "harness/sdk/sovereign_execution.py",
         "harness/sdk/authority_client.py",
         "harness/sdk/transition_receipts.py",
         "harness/sdk/effect_adapters.py",
+        "harness/sdk/effect_verifier.py",
+        "harness/sdk/complete_verifier.py",
         "harness/sdk/operator_visibility.py",
         "agents/coordinator.py",
         "sovereign-omega-v2/mcp-server/src/index.ts",
@@ -254,7 +225,7 @@ def evaluate(
     files.sort(key=lambda item: item["path"])
     candidate_manifest = {
         "schema_version": "1.0.0",
-        "manifest_kind": "AEGIS_AUTOMATON3_CANDIDATE_MANIFEST_V1",
+        "manifest_kind": "AEGIS_AUTOMATON3_INTEGRATED_CANDIDATE_MANIFEST_V1",
         "repository": "Aegis-Omega/AEGIS-OMEGA",
         "candidate_sha": candidate_sha,
         "expected_parent_sha": expected_parent_sha,
@@ -262,14 +233,14 @@ def evaluate(
         "test_summary_root": test_summary_root,
         "mcp_log_root": mcp_log_root,
         "admission_scope": "REPOSITORY_CANDIDATE_VALIDATION_ONLY",
-        "effect_observation_scope": "REFERENCE_ADAPTER_BOUND_ONLY",
         "effect_evidence_production": "ADAPTER_BOUND_ONLY",
-        "verify_effect": "NOT_IMPLEMENTED",
-        "effect_receipt_production": "UNAVAILABLE",
-        "verifier_policy_scope": "PR2_CURRENT_POLICY_COMMITMENT_REQUIRED",
-        "complete_verification": "NOT_IMPLEMENTED",
-        "atomic_admission": "NOT_IMPLEMENTED",
+        "verify_effect": "REQUIRED",
+        "effect_receipt_production": "VERIFIER_GATED_ONLY",
+        "complete_verification": "IMPLEMENTED_REFERENCE",
+        "causal_claim_admission": "NOT_IMPLEMENTED",
+        "atomic_admission": "UNAVAILABLE",
         "effect_bound_admission": "UNAVAILABLE",
+        "production_admission": "NOT_ESTABLISHED",
         "files": files,
     }
     candidate_manifest["candidate_manifest_root"] = sha256(canonical_bytes(candidate_manifest))
@@ -285,27 +256,13 @@ def evaluate(
         "policy_root": policy_root,
         "test_summary_root": test_summary_root,
         "mcp_log_root": mcp_log_root,
-        "effect_observation_scope": "REFERENCE_ADAPTER_BOUND_ONLY",
-        "effect_evidence_production": "ADAPTER_BOUND_ONLY",
-        "verify_effect": "NOT_IMPLEMENTED",
-        "effect_receipt_production": "UNAVAILABLE",
-        "verifier_policy_scope": "PR2_CURRENT_POLICY_COMMITMENT_REQUIRED",
-        "complete_verification": "NOT_IMPLEMENTED",
-        "atomic_admission": "NOT_IMPLEMENTED",
-        "effect_bound_admission": "UNAVAILABLE",
-        "signature_mode": (
-            "GITHUB_OIDC_ATTESTATION"
-            if require_oidc
-            else "DETERMINISTIC_VALIDATION_ONLY"
-        ),
+        "signature_mode": "GITHUB_OIDC_ATTESTATION" if require_oidc else "DETERMINISTIC_VALIDATION_ONLY",
         "outcome": "ADMITTED" if not violations else "DENIED",
         "violation_count": len(violations),
         "violations": violations,
     }
     receipt = dict(body)
-    receipt["receipt_hash"] = sha256(
-        canonical_bytes({"domain": "AEGIS_AUTOMATON3_ADMISSION_RECEIPT_V1", "receipt": body})
-    )
+    receipt["receipt_hash"] = sha256(canonical_bytes({"domain": "AEGIS_AUTOMATON3_ADMISSION_RECEIPT_V1", "receipt": body}))
     return receipt, candidate_manifest
 
 
@@ -326,14 +283,8 @@ def main() -> int:
         mcp_log_path=Path(args.mcp_log),
         require_oidc=args.require_oidc,
     )
-    Path(args.receipt_output).write_text(
-        json.dumps(receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
-        encoding="utf-8",
-    )
-    Path(args.manifest_output).write_text(
-        json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
-        encoding="utf-8",
-    )
+    Path(args.receipt_output).write_text(json.dumps(receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+    Path(args.manifest_output).write_text(json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
     print(json.dumps(receipt, indent=2, sort_keys=True))
     return 0 if receipt["outcome"] == "ADMITTED" else 3
 

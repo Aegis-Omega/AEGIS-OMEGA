@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/sol/frontier-connections.v1.schema.json",
+  "title": "AEGIS Frontier Provider Connections",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "connections"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "connections": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/connection" },
+      "minItems": 1,
+      "maxItems": 32
+    }
+  },
+  "$defs": {
+    "connection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "protocol", "endpoint", "auth_reference"],
+      "properties": {
+        "provider": {
+          "enum": [
+            "openai", "anthropic", "google-vertex", "microsoft-foundry", "aws-bedrock", "vercel-ai-gateway",
+            "xai", "mistral", "deepseek", "qwen-dashscope", "nvidia-nim", "huggingface"
+          ]
+        },
+        "protocol": {
+          "enum": ["openai-responses", "anthropic-messages", "openai-compatible-chat", "managed-sdk"]
+        },
+        "endpoint": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "auth_reference": {
+          "type": "string",
+          "pattern": "^(secret|env|vault|keyref|oidc|identity|oauth)://[^\\s]+$"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "protocol": { "const": "openai-responses" } }, "required": ["protocol"] },
+          "then": {
+            "properties": {
+              "provider": { "enum": ["openai", "vercel-ai-gateway", "xai", "nvidia-nim"] },
+              "endpoint": { "pattern": "^https://" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "protocol": { "const": "anthropic-messages" } }, "required": ["protocol"] },
+          "then": {
+            "properties": {
+              "provider": { "const": "anthropic" },
+              "endpoint": { "pattern": "^https://" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "protocol": { "const": "openai-compatible-chat" } }, "required": ["protocol"] },
+          "then": {
+            "properties": {
+              "provider": { "enum": ["vercel-ai-gateway", "xai", "mistral", "deepseek", "qwen-dashscope", "nvidia-nim", "huggingface"] },
+              "endpoint": { "pattern": "^https://" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "protocol": { "const": "managed-sdk" } }, "required": ["protocol"] },
+          "then": {
+            "properties": {
+              "provider": { "enum": ["google-vertex", "microsoft-foundry", "aws-bedrock"] },
+              "endpoint": { "pattern": "^managed://" },
+              "auth_reference": { "pattern": "^(identity|oidc|vault|keyref)://[^\\s]+$" }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
