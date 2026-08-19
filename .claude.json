@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/sol-cross-platform-control-plane",
+    "source_ref": "pr5a-exact-lineage-integration",
     "parent_state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "1726a5ac63348cbb6e5175588cd98de01ecaa2867556aa8f5086bb77cc6675fe"
+  "state_hash": "caed752088fc4451c86510aee8fb04ae6ed92059fa5cea2746dac3baa888a0a6"
 }
