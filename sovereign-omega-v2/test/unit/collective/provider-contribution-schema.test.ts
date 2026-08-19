@@ -100,11 +100,17 @@ describe('UCI-3 provider contribution schemas', () => {
     }
   });
 
-  test('store schema closes artifact and record maps against untyped arbitrary values', () => {
+  test('store schema closes digest-keyed artifact and record maps', () => {
     const schema = loadSchema('provider-contribution-store-v1.schema.json');
-    expect(schema.properties.artifacts.type).toBe('object');
-    expect(schema.properties.records.type).toBe('object');
-    expect(schema.properties.artifacts.additionalProperties.$ref).toContain('provider-contribution-artifact-v1.schema.json');
-    expect(schema.properties.records.additionalProperties.$ref).toContain('provider-contribution-record-v1.schema.json');
+    const artifacts = schema.properties.artifacts;
+    const records = schema.properties.records;
+    expect(artifacts.type).toBe('object');
+    expect(records.type).toBe('object');
+    expect(artifacts.additionalProperties).toBe(false);
+    expect(records.additionalProperties).toBe(false);
+    expect(artifacts.patternProperties['^[0-9a-f]{64}$'].$ref)
+      .toContain('provider-contribution-artifact-v1.schema.json');
+    expect(records.patternProperties['^[0-9a-f]{64}$'].$ref)
+      .toContain('provider-contribution-record-v1.schema.json');
   });
 });
