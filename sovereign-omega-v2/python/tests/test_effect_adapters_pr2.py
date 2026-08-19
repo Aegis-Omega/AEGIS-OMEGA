@@ -20,11 +20,16 @@ from harness.sdk.transition_receipts import (  # noqa: E402
     EXECUTION_RECEIPT_KIND,
     EXECUTION_SUCCEEDED,
     PERMIT,
+    PR1_VERIFIER_POLICY,
+    PR2_VERIFIER_POLICY,
     DecisionReceipt,
     EffectReceipt,
     ExecutionReceipt,
     TransitionIdentity,
     accept_effect_evidence,
+    build_transition_identity,
+    pr1_verifier_policy_commitment,
+    verifier_policy_commitment,
 )
 from harness.sdk.effect_adapters import (  # noqa: E402
     EFFECT_WITNESS_KIND,
@@ -273,6 +278,29 @@ class EffectAdapterPR2Tests(TestCase):
             self.assertEqual(receipt.adapter_identity, adapter.identity)
             self.assertEqual(receipt.adapter_version, adapter.version)
             self.assertEqual(receipt.effect_witness_digest, witness.root)
+
+            # PR-2 must not keep binding new transitions to the stale PR-1 policy
+            # that said all valid EffectReceipt production was unavailable.
+            self.assertEqual(PR1_VERIFIER_POLICY["effect_receipt_production"], "UNAVAILABLE")
+            self.assertEqual(PR2_VERIFIER_POLICY["effect_receipt_production"], "ADAPTER_BOUND_ONLY")
+            self.assertEqual(PR2_VERIFIER_POLICY["effect_observation_scope"], "REFERENCE_ADAPTER_BOUND_ONLY")
+            self.assertEqual(PR2_VERIFIER_POLICY["complete_verification"], "UNAVAILABLE")
+            self.assertEqual(PR2_VERIFIER_POLICY["atomic_admission"], "UNAVAILABLE")
+            self.assertNotEqual(verifier_policy_commitment(), pr1_verifier_policy_commitment())
+
+            built = build_transition_identity(
+                source_commit=COMMIT,
+                pre_state_commitment=HASHES[0],
+                identity_root=HASHES[1],
+                approval=None,
+                requested_capability="filesystem.write",
+                registry_root=HASHES[2],
+                action_digest=HASHES[4],
+                deterministic_nonce="nonce-pr2-policy-bound",
+                fence_token="fence-pr2-1",
+            )
+            self.assertEqual(built.verifier_policy_commitment, verifier_policy_commitment())
+            self.assertNotEqual(built.verifier_policy_commitment, pr1_verifier_policy_commitment())
 
     def test_effect_receipt_exists_does_not_imply_verified(self):
         with tempfile.TemporaryDirectory() as tmp:
