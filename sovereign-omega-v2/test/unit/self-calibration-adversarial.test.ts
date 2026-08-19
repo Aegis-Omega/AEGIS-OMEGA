@@ -2,19 +2,27 @@ import { describe, expect, it } from 'vitest'
 import { hashValue } from '../../src/core/hashing.js'
 import type { SHA256Hex, SequenceNumber } from '../../src/core/types.js'
 import {
+  SELF_CALIBRATION_GENESIS_HASH,
   SelfCalibrationError,
   SelfCalibrationLedger,
   calibrationToMetacognitiveObservation,
+  certifySelfCalibrationLedger,
   createSelfCalibration,
   createSelfOutcomeObservation,
   createSelfPrediction,
 } from '../../src/metacognition/self-calibration.js'
-import type { SelfCalibrationRecordV1 } from '../../src/metacognition/self-calibration.js'
+import type {
+  SelfCalibrationLedgerEntry,
+  SelfCalibrationRecordV1,
+} from '../../src/metacognition/self-calibration.js'
 
 const ACTION = '1'.repeat(64) as SHA256Hex
 const EVIDENCE = '2'.repeat(64) as SHA256Hex
 const FORGED = 'f'.repeat(64) as SHA256Hex
+const MALFORMED = 'not-a-sha256' as SHA256Hex
+const UPPERCASE = 'A'.repeat(64) as SHA256Hex
 const SEQ1 = 1n as SequenceNumber
+const NEGATIVE_SEQ = -1n as SequenceNumber
 
 async function makeCalibration(): Promise<SelfCalibrationRecordV1> {
   const prediction = await createSelfPrediction({
@@ -78,5 +86,65 @@ describe('self-calibration adversarial integrity', () => {
     await expect(
       calibrationToMetacognitiveObservation(forged),
     ).rejects.toThrow(SelfCalibrationError)
+  })
+
+  it('rejects malformed or non-lowercase SHA-256 digests at public construction boundaries', async () => {
+    await expect(
+      createSelfPrediction({
+        action_digest: MALFORMED,
+        predicted_success_bps: 7500,
+      }),
+    ).rejects.toThrow(SelfCalibrationError)
+
+    const prediction = await createSelfPrediction({
+      action_digest: ACTION,
+      predicted_success_bps: 7500,
+    })
+
+    expect(() =>
+      createSelfOutcomeObservation({
+        prediction_hash: prediction.prediction_hash,
+        action_digest: ACTION,
+        observation_evidence_digest: UPPERCASE,
+        observed_success: true,
+      }),
+    ).toThrow(SelfCalibrationError)
+
+    expect(() =>
+      createSelfOutcomeObservation({
+        prediction_hash: MALFORMED,
+        action_digest: ACTION,
+        observation_evidence_digest: EVIDENCE,
+        observed_success: true,
+      }),
+    ).toThrow(SelfCalibrationError)
+  })
+
+  it('rejects a negative genesis sequence on append', async () => {
+    const calibration = await makeCalibration()
+
+    await expect(
+      SelfCalibrationLedger.empty().append(calibration, NEGATIVE_SEQ),
+    ).rejects.toThrow(SelfCalibrationError)
+  })
+
+  it('rejects a cryptographically self-consistent replay whose first sequence is negative', async () => {
+    const calibration = await makeCalibration()
+    const entry_hash = await hashValue({
+      calibration,
+      previous_entry_hash: SELF_CALIBRATION_GENESIS_HASH,
+      sequence: NEGATIVE_SEQ.toString(),
+    })
+    const forgedEntry: SelfCalibrationLedgerEntry = {
+      calibration,
+      previous_entry_hash: SELF_CALIBRATION_GENESIS_HASH,
+      sequence: NEGATIVE_SEQ,
+      entry_hash,
+      schema_version: '1.0.0',
+      is_replay_reconstructable: true,
+    }
+
+    const certificate = await certifySelfCalibrationLedger([forgedEntry])
+    expect(certificate.is_valid).toBe(false)
   })
 })
