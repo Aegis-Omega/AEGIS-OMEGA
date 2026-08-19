@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PR-2 falsification suite: independent effect observation remains below verification."""
+"""PR-2 falsification suite: independent effect observation remains below VerifyEffect."""
 from __future__ import annotations
 
 import inspect
@@ -13,6 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
 from harness.sdk.sovereign_execution import MutationReceipt, SCHEMA_VERSION, ZERO_HASH  # noqa: E402
+import harness.sdk.transition_receipts as transition_receipts  # noqa: E402
 from harness.sdk.transition_receipts import (  # noqa: E402
     DECISION_RECEIPT_KIND,
     EFFECT_RECEIPT_KIND,
@@ -34,6 +35,7 @@ from harness.sdk.transition_receipts import (  # noqa: E402
 from harness.sdk.effect_adapters import (  # noqa: E402
     EFFECT_WITNESS_KIND,
     EffectAdapterError,
+    EffectWitness,
     FilesystemEffectAdapter,
     filesystem_state_commitment,
     is_adapter_bound_effect_evidence,
@@ -150,9 +152,7 @@ class EffectAdapterPR2Tests(TestCase):
             target.write_text("actual", encoding="utf-8")
             transition = self.transition(pre_state_commitment=HASHES[20])
             with self.assertRaisesRegex(EffectAdapterError, "EFFECT_PRE_STATE_COMMITMENT_MISMATCH"):
-                FilesystemEffectAdapter(allowed_root=root).prepare_observation(
-                    transition=transition, target=target
-                )
+                FilesystemEffectAdapter(allowed_root=root).prepare_observation(transition=transition, target=target)
 
     def test_prepare_observation_rejects_target_escape(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as other:
@@ -161,9 +161,7 @@ class EffectAdapterPR2Tests(TestCase):
             outside.write_text("x", encoding="utf-8")
             transition = self.transition(pre_state_commitment=HASHES[20])
             with self.assertRaisesRegex(EffectAdapterError, "EFFECT_TARGET_OUTSIDE_ALLOWED_ROOT"):
-                FilesystemEffectAdapter(allowed_root=root).prepare_observation(
-                    transition=transition, target=outside
-                )
+                FilesystemEffectAdapter(allowed_root=root).prepare_observation(transition=transition, target=outside)
 
     def test_prepare_observation_rejects_symlink_escape(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as other:
@@ -177,9 +175,7 @@ class EffectAdapterPR2Tests(TestCase):
                 self.skipTest("symlink creation unavailable")
             transition = self.transition(pre_state_commitment=HASHES[20])
             with self.assertRaisesRegex(EffectAdapterError, "EFFECT_TARGET_OUTSIDE_ALLOWED_ROOT"):
-                FilesystemEffectAdapter(allowed_root=root).prepare_observation(
-                    transition=transition, target=link
-                )
+                FilesystemEffectAdapter(allowed_root=root).prepare_observation(transition=transition, target=link)
 
     def test_effect_observation_binds_transition_id(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -194,11 +190,8 @@ class EffectAdapterPR2Tests(TestCase):
             target, transition, adapter, handle, _ = self.prepared(Path(tmp))
             target.write_text("after", encoding="utf-8")
             execution = self.execution(transition, execution_instance_id="exec-pr2-bound")
-            witness, receipt = adapter.observe_effect(
-                transition=transition, handle=handle, execution_receipt=execution
-            )
+            witness = adapter.observe_effect(transition=transition, handle=handle, execution_receipt=execution)
             self.assertEqual(witness.execution_instance_id, "exec-pr2-bound")
-            self.assertEqual(receipt.execution_instance_id, "exec-pr2-bound")
 
     def test_cross_transition_execution_receipt_splicing_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -207,11 +200,7 @@ class EffectAdapterPR2Tests(TestCase):
             other = replace(transition, deterministic_nonce="nonce-pr2-splice")
             wrong_execution = self.execution(other)
             with self.assertRaisesRegex(EffectAdapterError, "EFFECT_EXECUTION_TRANSITION_MISMATCH"):
-                adapter.observe_effect(
-                    transition=transition,
-                    handle=handle,
-                    execution_receipt=wrong_execution,
-                )
+                adapter.observe_effect(transition=transition, handle=handle, execution_receipt=wrong_execution)
 
     def test_cross_target_observation_splicing_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -222,11 +211,7 @@ class EffectAdapterPR2Tests(TestCase):
             forged = replace(handle, target_identity="other.txt")
             target.write_text("after", encoding="utf-8")
             with self.assertRaisesRegex(EffectAdapterError, "EFFECT_OBSERVATION_HANDLE_MISMATCH"):
-                adapter.observe_effect(
-                    transition=transition,
-                    handle=forged,
-                    execution_receipt=execution,
-                )
+                adapter.observe_effect(transition=transition, handle=forged, execution_receipt=execution)
 
     def test_post_state_is_derived_from_fresh_filesystem_read(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -234,60 +219,43 @@ class EffectAdapterPR2Tests(TestCase):
             target, transition, adapter, handle, execution = self.prepared(root)
             target.write_bytes(b"world-after")
             expected = filesystem_state_commitment(allowed_root=root, target=target)
-            witness, receipt = adapter.observe_effect(
-                transition=transition, handle=handle, execution_receipt=execution
-            )
+            witness = adapter.observe_effect(transition=transition, handle=handle, execution_receipt=execution)
             self.assertEqual(witness.observed_post_state_commitment, expected)
-            self.assertEqual(receipt.post_state_commitment, expected)
 
     def test_no_effect_produces_evidence_with_effect_changed_false(self):
         with tempfile.TemporaryDirectory() as tmp:
             _, transition, adapter, handle, execution = self.prepared(Path(tmp))
-            witness, receipt = adapter.observe_effect(
-                transition=transition, handle=handle, execution_receipt=execution
-            )
+            witness = adapter.observe_effect(transition=transition, handle=handle, execution_receipt=execution)
             self.assertFalse(witness.effect_changed)
-            self.assertTrue(is_adapter_bound_effect_evidence(witness=witness, receipt=receipt))
+            self.assertTrue(is_adapter_bound_effect_evidence(witness=witness))
+            self.assertFalse(accept_effect_evidence(witness))
 
     def test_real_effect_produces_distinct_observed_post_state(self):
         with tempfile.TemporaryDirectory() as tmp:
             target, transition, adapter, handle, _ = self.prepared(Path(tmp))
-            # Executor status is not effect truth. Even a FAILED execution may have
-            # produced a partial external effect that the independent observer must see.
             execution = self.execution(transition, outcome=EXECUTION_FAILED)
             target.write_text("changed-after-failed-execution", encoding="utf-8")
-            witness, receipt = adapter.observe_effect(
-                transition=transition, handle=handle, execution_receipt=execution
-            )
+            witness = adapter.observe_effect(transition=transition, handle=handle, execution_receipt=execution)
             self.assertEqual(execution.outcome, EXECUTION_FAILED)
             self.assertTrue(witness.effect_changed)
-            self.assertNotEqual(
-                witness.observed_pre_state_commitment,
-                witness.observed_post_state_commitment,
-            )
-            self.assertEqual(receipt.execution_instance_id, execution.execution_instance_id)
+            self.assertNotEqual(witness.observed_pre_state_commitment, witness.observed_post_state_commitment)
+            self.assertEqual(witness.execution_instance_id, execution.execution_instance_id)
 
-    def test_effect_receipt_is_adapter_bound(self):
+    def test_observation_does_not_produce_effect_receipt_and_policy_is_current(self):
         with tempfile.TemporaryDirectory() as tmp:
             _, transition, adapter, handle, execution = self.prepared(Path(tmp))
-            witness, receipt = adapter.observe_effect(
-                transition=transition, handle=handle, execution_receipt=execution
-            )
-            self.assertEqual(witness.witness_kind, EFFECT_WITNESS_KIND)
-            self.assertEqual(receipt.receipt_kind, EFFECT_RECEIPT_KIND)
-            self.assertEqual(receipt.adapter_identity, adapter.identity)
-            self.assertEqual(receipt.adapter_version, adapter.version)
-            self.assertEqual(receipt.effect_witness_digest, witness.root)
-
-            # PR-2 must not keep binding new transitions to the stale PR-1 policy
-            # that said all valid EffectReceipt production was unavailable.
+            witness = adapter.observe_effect(transition=transition, handle=handle, execution_receipt=execution)
+            self.assertIsInstance(witness, EffectWitness)
+            self.assertFalse(isinstance(witness, tuple))
+            self.assertFalse(hasattr(transition_receipts, "_issue_adapter_bound_effect_receipt"))
+            self.assertFalse(hasattr(transition_receipts, "_EFFECT_RECEIPT_PRODUCER_CAPABILITY"))
             self.assertEqual(PR1_VERIFIER_POLICY["effect_receipt_production"], "UNAVAILABLE")
-            self.assertEqual(PR2_VERIFIER_POLICY["effect_receipt_production"], "ADAPTER_BOUND_ONLY")
-            self.assertEqual(PR2_VERIFIER_POLICY["effect_observation_scope"], "REFERENCE_ADAPTER_BOUND_ONLY")
+            self.assertEqual(PR2_VERIFIER_POLICY["effect_evidence_production"], "ADAPTER_BOUND_ONLY")
+            self.assertEqual(PR2_VERIFIER_POLICY["verify_effect"], "NOT_IMPLEMENTED")
+            self.assertEqual(PR2_VERIFIER_POLICY["effect_receipt_production"], "UNAVAILABLE")
             self.assertEqual(PR2_VERIFIER_POLICY["complete_verification"], "UNAVAILABLE")
             self.assertEqual(PR2_VERIFIER_POLICY["atomic_admission"], "UNAVAILABLE")
             self.assertNotEqual(verifier_policy_commitment(), pr1_verifier_policy_commitment())
-
             built = build_transition_identity(
                 source_commit=COMMIT,
                 pre_state_commitment=HASHES[0],
@@ -300,18 +268,16 @@ class EffectAdapterPR2Tests(TestCase):
                 fence_token="fence-pr2-1",
             )
             self.assertEqual(built.verifier_policy_commitment, verifier_policy_commitment())
-            self.assertNotEqual(built.verifier_policy_commitment, pr1_verifier_policy_commitment())
 
-    def test_effect_receipt_exists_does_not_imply_verified(self):
+    def test_effect_witness_exists_does_not_imply_verified_or_receipt(self):
         with tempfile.TemporaryDirectory() as tmp:
             _, transition, adapter, handle, execution = self.prepared(Path(tmp))
-            witness, receipt = adapter.observe_effect(
-                transition=transition, handle=handle, execution_receipt=execution
-            )
-            self.assertTrue(is_adapter_bound_effect_evidence(witness=witness, receipt=receipt))
-            self.assertFalse(accept_effect_evidence(receipt))
-            self.assertFalse(hasattr(receipt, "verified"))
-            self.assertFalse(hasattr(receipt, "admitted"))
+            witness = adapter.observe_effect(transition=transition, handle=handle, execution_receipt=execution)
+            self.assertTrue(is_adapter_bound_effect_evidence(witness=witness))
+            self.assertFalse(accept_effect_evidence(witness))
+            self.assertFalse(hasattr(witness, "verified"))
+            self.assertFalse(hasattr(witness, "admitted"))
+            self.assertFalse(hasattr(witness, "receipt_kind"))
 
     def test_missing_effect_receipt_still_has_no_legacy_fallback(self):
         transition = self.transition(pre_state_commitment=HASHES[15])
