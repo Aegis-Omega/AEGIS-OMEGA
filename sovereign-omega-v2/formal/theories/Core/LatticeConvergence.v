@@ -18,6 +18,7 @@
 Require Import Coq.Arith.Arith.
 Require Import Coq.Arith.Compare_dec.
 Require Import Coq.Lists.List.
+Require Import Lia.
 
 (* ─── SITRState ──────────────────────────────────────────────── *)
 
