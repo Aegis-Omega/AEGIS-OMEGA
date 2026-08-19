@@ -1,0 +1,248 @@
+{
+  "schema_version": "1.0.0",
+  "corpus_kind": "UCI2_PROVIDER_CLAIM_STATE_VECTORS_V1",
+  "valid_states": [
+    {
+      "id": "empty-store-v1",
+      "state": {
+        "schema_version": "1.0.0",
+        "store_kind": "UCI_PROVIDER_CLAIM_STORE_V1",
+        "generations": {},
+        "claims": {}
+      }
+    },
+    {
+      "id": "active-generation-one-v1",
+      "state": {
+        "schema_version": "1.0.0",
+        "store_kind": "UCI_PROVIDER_CLAIM_STORE_V1",
+        "generations": {
+          "node-001": 1
+        },
+        "claims": {
+          "node-001": {
+            "schema_version": "1.0.0",
+            "claim_kind": "DURABLE_PROVIDER_CLAIM_LEASE_V1",
+            "graph_id": "graph-001",
+            "work_node_id": "node-001",
+            "owner_identity": "provider:openai:session:s1",
+            "generation": 1,
+            "fencing_token": "51e4efb8c1b649b1999abbe2866fef29ddd4ec9969c035c7d6072cd2cc26c607",
+            "issued_ms": 1000,
+            "expires_ms": 11000,
+            "intent_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "policy_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "authority_epoch": 7,
+            "target_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pre_state_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "authority": "SCHEDULING_LEASE_ONLY"
+          }
+        }
+      }
+    }
+  ],
+  "invalid_states": [
+    {
+      "id": "wrong-store-kind",
+      "expected_error": "PROVIDER_CLAIM_STORE_KIND_MISMATCH",
+      "state": {
+        "schema_version": "1.0.0",
+        "store_kind": "WRONG",
+        "generations": {},
+        "claims": {}
+      }
+    },
+    {
+      "id": "unknown-top-level-field",
+      "expected_error": "PROVIDER_CLAIM_STORE_UNKNOWN_FIELD",
+      "state": {
+        "schema_version": "1.0.0",
+        "store_kind": "UCI_PROVIDER_CLAIM_STORE_V1",
+        "generations": {},
+        "claims": {},
+        "authority": "PERMIT"
+      }
+    },
+    {
+      "id": "generation-history-regression",
+      "expected_error": "PROVIDER_CLAIM_STORE_GENERATION_REGRESSION",
+      "state": {
+        "schema_version": "1.0.0",
+        "store_kind": "UCI_PROVIDER_CLAIM_STORE_V1",
+        "generations": {
+          "node-001": 0
+        },
+        "claims": {
+          "node-001": {
+            "schema_version": "1.0.0",
+            "claim_kind": "DURABLE_PROVIDER_CLAIM_LEASE_V1",
+            "graph_id": "graph-001",
+            "work_node_id": "node-001",
+            "owner_identity": "provider:openai:session:s1",
+            "generation": 1,
+            "fencing_token": "51e4efb8c1b649b1999abbe2866fef29ddd4ec9969c035c7d6072cd2cc26c607",
+            "issued_ms": 1000,
+            "expires_ms": 11000,
+            "intent_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "policy_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "authority_epoch": 7,
+            "target_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pre_state_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "authority": "SCHEDULING_LEASE_ONLY"
+          }
+        }
+      }
+    },
+    {
+      "id": "tampered-fence",
+      "expected_error": "PROVIDER_CLAIM_STORE_FENCE_TAMPERED",
+      "state": {
+        "schema_version": "1.0.0",
+        "store_kind": "UCI_PROVIDER_CLAIM_STORE_V1",
+        "generations": {
+          "node-001": 1
+        },
+        "claims": {
+          "node-001": {
+            "schema_version": "1.0.0",
+            "claim_kind": "DURABLE_PROVIDER_CLAIM_LEASE_V1",
+            "graph_id": "graph-001",
+            "work_node_id": "node-001",
+            "owner_identity": "provider:openai:session:s1",
+            "generation": 1,
+            "fencing_token": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "issued_ms": 1000,
+            "expires_ms": 11000,
+            "intent_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "policy_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "authority_epoch": 7,
+            "target_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pre_state_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "authority": "SCHEDULING_LEASE_ONLY"
+          }
+        }
+      }
+    },
+    {
+      "id": "lease-unknown-execute-field",
+      "expected_error": "PROVIDER_CLAIM_STORE_INVALID_LEASE_FIELDS",
+      "state": {
+        "schema_version": "1.0.0",
+        "store_kind": "UCI_PROVIDER_CLAIM_STORE_V1",
+        "generations": {
+          "node-001": 1
+        },
+        "claims": {
+          "node-001": {
+            "schema_version": "1.0.0",
+            "claim_kind": "DURABLE_PROVIDER_CLAIM_LEASE_V1",
+            "graph_id": "graph-001",
+            "work_node_id": "node-001",
+            "owner_identity": "provider:openai:session:s1",
+            "generation": 1,
+            "fencing_token": "51e4efb8c1b649b1999abbe2866fef29ddd4ec9969c035c7d6072cd2cc26c607",
+            "issued_ms": 1000,
+            "expires_ms": 11000,
+            "intent_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "policy_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "authority_epoch": 7,
+            "target_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pre_state_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "authority": "SCHEDULING_LEASE_ONLY",
+            "execute": true
+          }
+        }
+      }
+    },
+    {
+      "id": "wrong-authority-marker",
+      "expected_error": "PROVIDER_CLAIM_STORE_INVALID_AUTHORITY_MARKER",
+      "state": {
+        "schema_version": "1.0.0",
+        "store_kind": "UCI_PROVIDER_CLAIM_STORE_V1",
+        "generations": {
+          "node-001": 1
+        },
+        "claims": {
+          "node-001": {
+            "schema_version": "1.0.0",
+            "claim_kind": "DURABLE_PROVIDER_CLAIM_LEASE_V1",
+            "graph_id": "graph-001",
+            "work_node_id": "node-001",
+            "owner_identity": "provider:openai:session:s1",
+            "generation": 1,
+            "fencing_token": "51e4efb8c1b649b1999abbe2866fef29ddd4ec9969c035c7d6072cd2cc26c607",
+            "issued_ms": 1000,
+            "expires_ms": 11000,
+            "intent_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "policy_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "authority_epoch": 7,
+            "target_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pre_state_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "authority": "PERMIT"
+          }
+        }
+      }
+    },
+    {
+      "id": "malformed-policy-commitment",
+      "expected_error": "PROVIDER_CLAIM_STORE_INVALID_BINDING",
+      "state": {
+        "schema_version": "1.0.0",
+        "store_kind": "UCI_PROVIDER_CLAIM_STORE_V1",
+        "generations": {
+          "node-001": 1
+        },
+        "claims": {
+          "node-001": {
+            "schema_version": "1.0.0",
+            "claim_kind": "DURABLE_PROVIDER_CLAIM_LEASE_V1",
+            "graph_id": "graph-001",
+            "work_node_id": "node-001",
+            "owner_identity": "provider:openai:session:s1",
+            "generation": 1,
+            "fencing_token": "51e4efb8c1b649b1999abbe2866fef29ddd4ec9969c035c7d6072cd2cc26c607",
+            "issued_ms": 1000,
+            "expires_ms": 11000,
+            "intent_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "policy_commitment": "abc",
+            "authority_epoch": 7,
+            "target_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pre_state_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "authority": "SCHEDULING_LEASE_ONLY"
+          }
+        }
+      }
+    },
+    {
+      "id": "invalid-owner-identity",
+      "expected_error": "PROVIDER_CLAIM_STORE_INVALID_OWNER",
+      "state": {
+        "schema_version": "1.0.0",
+        "store_kind": "UCI_PROVIDER_CLAIM_STORE_V1",
+        "generations": {
+          "node-001": 1
+        },
+        "claims": {
+          "node-001": {
+            "schema_version": "1.0.0",
+            "claim_kind": "DURABLE_PROVIDER_CLAIM_LEASE_V1",
+            "graph_id": "graph-001",
+            "work_node_id": "node-001",
+            "owner_identity": "provider openai",
+            "generation": 1,
+            "fencing_token": "51e4efb8c1b649b1999abbe2866fef29ddd4ec9969c035c7d6072cd2cc26c607",
+            "issued_ms": 1000,
+            "expires_ms": 11000,
+            "intent_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "policy_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "authority_epoch": 7,
+            "target_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pre_state_commitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "authority": "SCHEDULING_LEASE_ONLY"
+          }
+        }
+      }
+    }
+  ]
+}
