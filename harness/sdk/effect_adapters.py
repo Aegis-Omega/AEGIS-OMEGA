@@ -2,9 +2,10 @@
 
 EPISTEMIC STATUS: REFERENCE_EFFECT_OBSERVATION_ONLY
 
-This module can produce adapter-bound effect evidence candidates from independent
-pre/post observations. It does not implement VerifyTransition, V_effect acceptance,
-atomic admission, or EffectBoundAdmission.
+This module can produce adapter-bound EffectEvidence candidates (`EffectWitness`)
+from independent pre/post observations. It deliberately does not implement
+VerifyEffect, EffectReceipt production, VerifyTransition, atomic admission, or
+EffectBoundAdmission.
 """
 from __future__ import annotations
 
@@ -16,13 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from harness.sdk.sovereign_execution import ZERO_HASH, canonical_hash
-from harness.sdk.transition_receipts import (
-    EffectReceipt,
-    ExecutionReceipt,
-    TransitionIdentity,
-    _EFFECT_RECEIPT_PRODUCER_CAPABILITY,
-    _issue_adapter_bound_effect_receipt,
-)
+from harness.sdk.transition_receipts import ExecutionReceipt, TransitionIdentity
 
 EFFECT_WITNESS_KIND = "EFFECT_WITNESS_V1"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -66,6 +61,8 @@ class EffectObservationHandle:
 
 @dataclass(frozen=True)
 class EffectWitness:
+    """EffectEvidence candidate produced by an independent observation path."""
+
     witness_kind: str
     transition_id: str
     execution_instance_id: str
@@ -117,7 +114,7 @@ class FilesystemStateObservation:
 
 
 class FilesystemEffectAdapter:
-    """Reference adapter deriving evidence from fresh filesystem observations."""
+    """Reference adapter deriving EffectEvidence from fresh filesystem observations."""
 
     identity = "aegis.filesystem-effect-adapter"
     version = "1.0.0"
@@ -134,7 +131,6 @@ class FilesystemEffectAdapter:
 
     def _observe_state(self, target: Path) -> FilesystemStateObservation:
         resolved_target, target_identity = self._resolve_target(target)
-
         if not resolved_target.exists():
             return FilesystemStateObservation(
                 target_identity=target_identity,
@@ -147,7 +143,6 @@ class FilesystemEffectAdapter:
             )
         if not resolved_target.is_file():
             raise EffectAdapterError("EFFECT_TARGET_NOT_REGULAR_FILE")
-
         try:
             with resolved_target.open("rb") as stream:
                 content = stream.read()
@@ -164,7 +159,6 @@ class FilesystemEffectAdapter:
             )
         except (IsADirectoryError, PermissionError) as exc:
             raise EffectAdapterError("EFFECT_TARGET_NOT_REGULAR_FILE") from exc
-
         return FilesystemStateObservation(
             target_identity=target_identity,
             exists=True,
@@ -187,13 +181,7 @@ class FilesystemEffectAdapter:
             },
         )
 
-    def _observation_id(
-        self,
-        *,
-        transition_id: str,
-        target_identity: str,
-        pre_state_commitment: str,
-    ) -> str:
+    def _observation_id(self, *, transition_id: str, target_identity: str, pre_state_commitment: str) -> str:
         return canonical_hash(
             "AEGIS_EFFECT_OBSERVATION_HANDLE_V1",
             {
@@ -233,18 +221,12 @@ class FilesystemEffectAdapter:
             value["execution_instance_id"] = execution_instance_id
         return canonical_hash("AEGIS_EFFECT_OBSERVATION_PROVENANCE_V1", value)
 
-    def prepare_observation(
-        self,
-        *,
-        transition: TransitionIdentity,
-        target: Path,
-    ) -> EffectObservationHandle:
+    def prepare_observation(self, *, transition: TransitionIdentity, target: Path) -> EffectObservationHandle:
         transition_id = transition.root
         observation = self._observe_state(Path(target))
         pre_commitment = self._state_commitment(observation)
         if pre_commitment != transition.pre_state_commitment:
             raise EffectAdapterError("EFFECT_PRE_STATE_COMMITMENT_MISMATCH")
-
         observation_id = self._observation_id(
             transition_id=transition_id,
             target_identity=observation.target_identity,
@@ -275,11 +257,10 @@ class FilesystemEffectAdapter:
         transition: TransitionIdentity,
         handle: EffectObservationHandle,
         execution_receipt: ExecutionReceipt,
-    ) -> tuple[EffectWitness, EffectReceipt]:
+    ) -> EffectWitness:
         transition_id = transition.root
         handle.validate()
         execution_receipt.validate()
-
         if handle.transition_id != transition_id:
             raise EffectAdapterError("EFFECT_TRANSITION_BINDING_MISMATCH")
         if execution_receipt.transition_id != transition_id:
@@ -288,7 +269,6 @@ class FilesystemEffectAdapter:
             raise EffectAdapterError("EFFECT_ADAPTER_BINDING_MISMATCH")
         if handle.observed_pre_state_commitment != transition.pre_state_commitment:
             raise EffectAdapterError("EFFECT_PRE_STATE_COMMITMENT_MISMATCH")
-
         expected_observation_id = self._observation_id(
             transition_id=transition_id,
             target_identity=handle.target_identity,
@@ -296,12 +276,10 @@ class FilesystemEffectAdapter:
         )
         if handle.observation_id != expected_observation_id:
             raise EffectAdapterError("EFFECT_OBSERVATION_HANDLE_MISMATCH")
-
         post_target = self.allowed_root / handle.target_identity
         observation = self._observe_state(post_target)
         if observation.target_identity != handle.target_identity:
             raise EffectAdapterError("EFFECT_OBSERVATION_HANDLE_MISMATCH")
-
         post_commitment = self._state_commitment(observation)
         post_provenance = self._observation_provenance(
             transition_id=transition_id,
@@ -325,47 +303,22 @@ class FilesystemEffectAdapter:
             adapter_version=self.version,
         )
         witness.validate()
-        receipt = _issue_adapter_bound_effect_receipt(
-            witness=witness,
-            producer_capability=_EFFECT_RECEIPT_PRODUCER_CAPABILITY,
-        )
-        return witness, receipt
+        return witness
 
 
 def filesystem_state_commitment(*, allowed_root: Path, target: Path) -> str:
-    """Fresh state commitment for a filesystem target under an explicit root."""
-
     adapter = FilesystemEffectAdapter(allowed_root=allowed_root)
     return adapter._state_commitment(adapter._observe_state(Path(target)))
 
 
-def is_adapter_bound_effect_evidence(*, witness: EffectWitness, receipt: EffectReceipt) -> bool:
-    """Adapter-bound evidence candidate only; does not establish VerifyTransition or admission."""
-
+def is_adapter_bound_effect_evidence(*, witness: EffectWitness) -> bool:
+    """Structural EffectEvidence candidate check only; not VerifyEffect."""
     try:
         witness.validate()
-        receipt.validate()
-        if receipt.transition_id != witness.transition_id:
-            return False
-        if receipt.execution_instance_id != witness.execution_instance_id:
-            return False
-        if receipt.effect_witness_digest != witness.root:
-            return False
-        if receipt.pre_state_commitment != witness.observed_pre_state_commitment:
-            return False
-        if receipt.post_state_commitment != witness.observed_post_state_commitment:
-            return False
-        if receipt.adapter_identity != witness.adapter_identity:
-            return False
-        if receipt.adapter_version != witness.adapter_version:
-            return False
-        expected_observation_bundle = canonical_hash(
-            "AEGIS_EFFECT_OBSERVATION_BUNDLE_V1",
-            {
-                "pre": witness.pre_observation_provenance,
-                "post": witness.post_observation_provenance,
-            },
+        return (
+            witness.witness_kind == EFFECT_WITNESS_KIND
+            and witness.adapter_identity == FilesystemEffectAdapter.identity
+            and witness.adapter_version == FilesystemEffectAdapter.version
         )
-        return receipt.observation_provenance == expected_observation_bundle
     except (EffectAdapterError, ValueError, TypeError, AttributeError):
         return False
