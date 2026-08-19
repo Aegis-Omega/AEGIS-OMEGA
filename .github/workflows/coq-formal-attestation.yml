@@ -17,6 +17,9 @@ concurrency:
   group: coq-formal-attestation-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
 jobs:
   attest:
     name: coqc + Print Assumptions receipt
@@ -27,13 +30,27 @@ jobs:
       - name: Checkout exact candidate
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ env.SOURCE_SHA }}
           fetch-depth: 1
+
+      - name: Bind exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
 
       - name: Unit-test attestation generator
         working-directory: sovereign-omega-v2
         env:
           PYTHONPATH: python
         run: python3 -m unittest python.tests.test_coq_attestation -v
+
+      - name: Prepare writable Coq evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/coq-attestation/{assumptions,compile-logs}
+          chmod -R a+rwX sovereign-omega-v2/formal sovereign-omega-v2/coq-attestation
 
       - name: Compile Coq sources and capture theorem assumptions
         uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
@@ -48,7 +65,6 @@ jobs:
             ASSUMPTIONS="$OUT/assumptions"
             LOGS="$OUT/compile-logs"
             STATUS="$OUT/compile-status.json"
-            mkdir -p "$ASSUMPTIONS" "$LOGS"
 
             coqc --version | tee "$OUT/coq-version.txt"
             printf '{\n' > "$STATUS"
@@ -98,7 +114,6 @@ jobs:
               fi
             }
 
-            # Explicit dependency order for the current repo-native formal substrate.
             compile_one 'Core/Event.v'
             compile_one 'Core/Hash.v'
             compile_one 'Core/Reducer.v'
@@ -125,7 +140,7 @@ jobs:
             --formal-root formal/theories \
             --compile-status coq-attestation/compile-status.json \
             --assumptions-root coq-attestation/assumptions \
-            --source-commit "$GITHUB_SHA" \
+            --source-commit "$SOURCE_SHA" \
             --coq-version "$COQ_VERSION" \
             --out coq-attestation/coq-formal-attestation-receipt.json
           cat coq-attestation/coq-formal-attestation-receipt.json
@@ -134,7 +149,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coq-formal-attestation-${{ github.sha }}
+          name: coq-formal-attestation-${{ env.SOURCE_SHA }}
           path: sovereign-omega-v2/coq-attestation/
           if-no-files-found: error
           retention-days: 30
@@ -162,8 +177,6 @@ jobs:
           assert summary['unrecognized_assumption_outputs'] == 0, summary
           assert len(receipt['receipt_sha256']) == 64
 
-          # Axiom/Parameter-bearing files are allowed only as explicitly classified
-          # evidence. They never count as AXIOM_FREE and do not fail the entire build.
           for entry in receipt['files']:
               if entry['axiom_statement_count'] or entry['parameter_statement_count']:
                   assert entry['attestation'] == 'ASSUMPTION_BEARING', entry
