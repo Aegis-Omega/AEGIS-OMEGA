@@ -67,7 +67,8 @@ PR2_REQUIRED_ASSERTIONS = (
     "pr2_effect_adapter_protocol_asserted",
     "pr2_filesystem_effect_adapter_asserted",
     "pr2_independent_pre_post_observation_asserted",
-    "pr2_adapter_bound_effect_receipt_production_asserted",
+    "pr2_adapter_bound_effect_evidence_production_asserted",
+    "pr2_verify_effect_not_implemented_asserted",
     "pr2_authorization_artifact_effect_evidence_forbidden_asserted",
     "pr2_caller_post_state_effect_authority_forbidden_asserted",
     "pr2_verifier_policy_commitment_current_asserted",
@@ -172,6 +173,8 @@ def evaluate(
             violations.append("effect receipt schema not defined")
         if summary.get("generic_effect_receipt_production_forbidden_asserted") is not True:
             violations.append("generic effect receipt production is not forbidden")
+        if summary.get("effect_receipt_production_unavailable_asserted") is not True:
+            violations.append("EffectReceipt production became available before VerifyEffect")
         if summary.get("legacy_receipt_effect_evidence_forbidden_asserted") is not True:
             violations.append("legacy mutation receipt may satisfy effect evidence")
         if summary.get("legacy_fallback_forbidden_asserted") is not True:
@@ -181,8 +184,8 @@ def evaluate(
         for key in PR2_REQUIRED_ASSERTIONS:
             if summary.get(key) is not True:
                 violations.append(f"PR-2 assertion missing or false: {key}")
-        if summary.get("valid_effect_receipt_production_unavailable_asserted") is True:
-            violations.append("stale PR-1 all-effect-production-unavailable assertion survived PR-2")
+        if summary.get("pr2_adapter_bound_effect_receipt_production_asserted") is True:
+            violations.append("stale PR-2 pre-VerifyEffect receipt-production assertion survived")
         test_summary_root = summary.get("summary_root", "0" * 64)
     except Exception as exc:
         violations.append(f"test summary unavailable: {type(exc).__name__}")
@@ -205,18 +208,27 @@ def evaluate(
         ("scripts/automaton3-authority.py", "decision_receipt_from_policy"),
         ("harness/sdk/transition_receipts.py", "DECISION_RECEIPT_V1"),
         ("harness/sdk/transition_receipts.py", "EFFECT_RECEIPT_V1"),
-        ("harness/sdk/transition_receipts.py", "AEGIS_PR2_VERIFIER_POLICY_V1"),
-        ("harness/sdk/transition_receipts.py", "ADAPTER_BOUND_ONLY"),
-        ("harness/sdk/transition_receipts.py", "_issue_adapter_bound_effect_receipt"),
+        ("harness/sdk/transition_receipts.py", "AEGIS_PR2_VERIFIER_POLICY_V2"),
+        ("harness/sdk/transition_receipts.py", '"effect_evidence_production": "ADAPTER_BOUND_ONLY"'),
+        ("harness/sdk/transition_receipts.py", '"verify_effect": "NOT_IMPLEMENTED"'),
+        ("harness/sdk/transition_receipts.py", '"effect_receipt_production": "UNAVAILABLE"'),
         ("harness/sdk/effect_adapters.py", "FilesystemEffectAdapter"),
         ("harness/sdk/effect_adapters.py", "AEGIS_EFFECT_WITNESS_V1"),
-        ("harness/sdk/effect_adapters.py", "does not establish VerifyTransition or admission"),
+        ("harness/sdk/effect_adapters.py", "does not implement VerifyEffect"),
         (".github/workflows/automaton-3.yml", "aegis / automaton-3"),
     )
     for rel, needle in integration_expectations:
         path = ROOT / rel
         if path.is_file() and needle not in path.read_text(encoding="utf-8"):
             violations.append(f"integration missing: {rel}:{needle}")
+
+    for forbidden_symbol in (
+        "_issue_adapter_bound_effect_receipt",
+        "_EFFECT_RECEIPT_PRODUCER_CAPABILITY",
+    ):
+        path = ROOT / "harness/sdk/transition_receipts.py"
+        if path.is_file() and forbidden_symbol in path.read_text(encoding="utf-8"):
+            violations.append(f"EffectReceipt producer exists before VerifyEffect: {forbidden_symbol}")
 
     prohibited = re.compile(r"fail[- ]open|temporary bypass|silent fallback", re.IGNORECASE)
     for rel in (
@@ -251,6 +263,9 @@ def evaluate(
         "mcp_log_root": mcp_log_root,
         "admission_scope": "REPOSITORY_CANDIDATE_VALIDATION_ONLY",
         "effect_observation_scope": "REFERENCE_ADAPTER_BOUND_ONLY",
+        "effect_evidence_production": "ADAPTER_BOUND_ONLY",
+        "verify_effect": "NOT_IMPLEMENTED",
+        "effect_receipt_production": "UNAVAILABLE",
         "verifier_policy_scope": "PR2_CURRENT_POLICY_COMMITMENT_REQUIRED",
         "complete_verification": "NOT_IMPLEMENTED",
         "atomic_admission": "NOT_IMPLEMENTED",
@@ -270,6 +285,10 @@ def evaluate(
         "policy_root": policy_root,
         "test_summary_root": test_summary_root,
         "mcp_log_root": mcp_log_root,
+        "effect_observation_scope": "REFERENCE_ADAPTER_BOUND_ONLY",
+        "effect_evidence_production": "ADAPTER_BOUND_ONLY",
+        "verify_effect": "NOT_IMPLEMENTED",
+        "effect_receipt_production": "UNAVAILABLE",
         "verifier_policy_scope": "PR2_CURRENT_POLICY_COMMITMENT_REQUIRED",
         "complete_verification": "NOT_IMPLEMENTED",
         "atomic_admission": "NOT_IMPLEMENTED",
