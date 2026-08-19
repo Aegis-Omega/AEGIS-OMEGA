@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   CAPABILITY_STATUSES,
   CONSEQUENCE_CLASSES,
+  type CapabilityRefV1,
   type CollectiveWorkGraphV1,
   type CollectiveWorkNodeV1,
   type IntentEnvelopeV1,
@@ -15,7 +16,7 @@ import {
 const H = 'a'.repeat(64);
 const B = 'b'.repeat(64);
 
-const intentFixture = {
+const intentFixture: IntentEnvelopeV1 = {
   schema_version: '1.0.0',
   intent_kind: 'INTENT_ENVELOPE_V1',
   intent_id: 'intent-001',
@@ -31,9 +32,9 @@ const intentFixture = {
   max_duration_seconds: 60,
   consequence_ceiling: 'D1',
   deterministic_nonce: 'nonce-001',
-} satisfies IntentEnvelopeV1;
+};
 
-const nodeFixture = {
+const nodeFixture: CollectiveWorkNodeV1 = {
   schema_version: '1.0.0',
   work_node_kind: 'COLLECTIVE_WORK_NODE_V1',
   work_node_id: 'node-001',
@@ -59,9 +60,9 @@ const nodeFixture = {
   target_commitment: H,
   pre_state_commitment: H,
   nonce: 'node-nonce-001',
-} satisfies CollectiveWorkNodeV1;
+};
 
-const graphFixture = {
+const graphFixture: CollectiveWorkGraphV1 = {
   schema_version: '1.0.0',
   graph_kind: 'COLLECTIVE_WORK_GRAPH_V1',
   graph_id: 'graph-001',
@@ -70,9 +71,11 @@ const graphFixture = {
   policy_commitment: H,
   authority_epoch: 7,
   graph_nonce: 'graph-nonce-001',
-} satisfies CollectiveWorkGraphV1;
+};
 
 const clone = <T>(value: T): T => structuredClone(value);
+const firstNode = (graph: CollectiveWorkGraphV1): CollectiveWorkNodeV1 => graph.nodes[0]!;
+const firstCapability = (node: CollectiveWorkNodeV1): CapabilityRefV1 => node.required_capabilities[0]!;
 
 const expectInvalid = (value: unknown, prefix: string) => {
   const result = validateCollectiveWorkGraph(value);
@@ -114,8 +117,8 @@ describe('UCI-1 collective work contracts', () => {
 
   test('rejects unknown nested capability fields', () => {
     const graph = clone(graphFixture) as unknown as Record<string, unknown>;
-    const node = (graph.nodes as Array<Record<string, unknown>>)[0];
-    const capability = (node.required_capabilities as Array<Record<string, unknown>>)[0];
+    const node = (graph.nodes as Array<Record<string, unknown>>)[0]!;
+    const capability = (node.required_capabilities as Array<Record<string, unknown>>)[0]!;
     capability.authority = 'PERMIT';
     expectInvalid(graph, 'UNKNOWN_FIELD:graph.nodes[0].required_capabilities[0].authority');
   });
@@ -126,9 +129,10 @@ describe('UCI-1 collective work contracts', () => {
 
   test('rejects empty provider tool and capability identifiers', () => {
     const graph = clone(graphFixture);
-    graph.nodes[0].allowed_providers = [''];
-    graph.nodes[0].allowed_tools = [''];
-    graph.nodes[0].required_capabilities[0].capability_id = '';
+    const node = firstNode(graph);
+    node.allowed_providers = [''];
+    node.allowed_tools = [''];
+    firstCapability(node).capability_id = '';
     const result = validateCollectiveWorkGraph(graph);
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -146,19 +150,19 @@ describe('UCI-1 collective work contracts', () => {
 
   test('rejects missing dependencies', () => {
     const graph = clone(graphFixture);
-    graph.nodes[0].dependency_ids = ['missing-node'];
+    firstNode(graph).dependency_ids = ['missing-node'];
     expectInvalid(graph, 'MISSING_DEPENDENCY:node-001->missing-node');
   });
 
   test('rejects self-dependency', () => {
     const graph = clone(graphFixture);
-    graph.nodes[0].dependency_ids = ['node-001'];
+    firstNode(graph).dependency_ids = ['node-001'];
     expectInvalid(graph, 'SELF_DEPENDENCY:node-001');
   });
 
   test('rejects graph cycles', () => {
     const graph = clone(graphFixture);
-    graph.nodes[0].dependency_ids = ['node-002'];
+    firstNode(graph).dependency_ids = ['node-002'];
     graph.nodes.push({
       ...clone(nodeFixture),
       work_node_id: 'node-002',
@@ -170,42 +174,44 @@ describe('UCI-1 collective work contracts', () => {
 
   test('rejects node intent digest mismatch', () => {
     const graph = clone(graphFixture);
-    graph.nodes[0].intent_digest = B;
+    firstNode(graph).intent_digest = B;
     expectInvalid(graph, 'INTENT_BINDING_MISMATCH:node-001');
   });
 
   test('rejects node policy commitment mismatch', () => {
     const graph = clone(graphFixture);
-    graph.nodes[0].policy_commitment = B;
+    firstNode(graph).policy_commitment = B;
     expectInvalid(graph, 'POLICY_BINDING_MISMATCH:node-001');
   });
 
   test('rejects node authority epoch mismatch', () => {
     const graph = clone(graphFixture);
-    graph.nodes[0].authority_epoch = 8;
+    firstNode(graph).authority_epoch = 8;
     expectInvalid(graph, 'AUTHORITY_EPOCH_MISMATCH:node-001');
   });
 
   test('accepts D3 and D4 only as declarations with no authority fields', () => {
-    for (const consequence_class of ['D3', 'D4'] as const) {
+    for (const consequenceClass of ['D3', 'D4'] as const) {
       const graph = clone(graphFixture);
-      graph.nodes[0].consequence_class = consequence_class;
+      firstNode(graph).consequence_class = consequenceClass;
       const result = validateCollectiveWorkGraph(graph);
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect('authority' in result.value.nodes[0]).toBe(false);
-        expect('authorized' in result.value.nodes[0]).toBe(false);
-        expect('execute' in result.value.nodes[0]).toBe(false);
+        const node = result.value.nodes[0]!;
+        expect('authority' in node).toBe(false);
+        expect('authorized' in node).toBe(false);
+        expect('execute' in node).toBe(false);
       }
     }
   });
 
   test('rejects negative and non-integer numeric bounds', () => {
     const graph = clone(graphFixture);
+    const node = firstNode(graph);
     graph.authority_epoch = 1.5;
-    graph.nodes[0].max_cost_microunits = -1;
-    graph.nodes[0].max_tokens = 1.5;
-    graph.nodes[0].max_duration_seconds = -2;
+    node.max_cost_microunits = -1;
+    node.max_tokens = 1.5;
+    node.max_duration_seconds = -2;
     const result = validateCollectiveWorkGraph(graph);
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -218,9 +224,10 @@ describe('UCI-1 collective work contracts', () => {
 
   test('rejects duplicate provider tool and capability entries', () => {
     const graph = clone(graphFixture);
-    graph.nodes[0].allowed_providers = ['openai', 'openai'];
-    graph.nodes[0].allowed_tools = ['repo.read', 'repo.read'];
-    graph.nodes[0].required_capabilities.push(clone(graph.nodes[0].required_capabilities[0]));
+    const node = firstNode(graph);
+    node.allowed_providers = ['openai', 'openai'];
+    node.allowed_tools = ['repo.read', 'repo.read'];
+    node.required_capabilities.push(clone(firstCapability(node)));
     const result = validateCollectiveWorkGraph(graph);
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -236,8 +243,8 @@ describe('UCI-1 collective work contracts', () => {
       work_node_id: 'node-002',
       nonce: 'node-nonce-002',
     };
-    const forward = { ...clone(graphFixture), nodes: [clone(nodeFixture), node2] };
-    const reverse = { ...clone(graphFixture), nodes: [node2, clone(nodeFixture)] };
+    const forward: CollectiveWorkGraphV1 = { ...clone(graphFixture), nodes: [clone(nodeFixture), node2] };
+    const reverse: CollectiveWorkGraphV1 = { ...clone(graphFixture), nodes: [node2, clone(nodeFixture)] };
     expect(validateCollectiveWorkGraph(forward).ok).toBe(true);
     expect(validateCollectiveWorkGraph(reverse).ok).toBe(true);
   });
