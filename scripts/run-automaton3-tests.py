@@ -82,6 +82,7 @@ def main() -> int:
         "pr2_adapter_bound_effect_receipt_production_asserted": passed,
         "pr2_authorization_artifact_effect_evidence_forbidden_asserted": passed,
         "pr2_caller_post_state_effect_authority_forbidden_asserted": passed,
+        "pr2_verifier_policy_commitment_current_asserted": passed,
         "pr2_complete_verification_unavailable_asserted": passed,
         "pr2_atomic_admission_unavailable_asserted": passed,
         "pr2_effect_bound_admission_unavailable_asserted": passed,
