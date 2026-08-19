@@ -11,6 +11,7 @@ export type ProviderContributionInput = {
   model: string
   artifactDigest: string
   sourceRef: string
+  rollbackReference?: string
 }
 
 export type ProviderTextContributionInput = {
@@ -20,6 +21,14 @@ export type ProviderTextContributionInput = {
   text: string
   sourceRef: string
   mediaType?: 'text/plain' | 'text/markdown' | 'application/json'
+  rollbackReference?: string
+}
+
+export type PreparedContribution = {
+  work_id: string
+  order_digest: string
+  state_root: string
+  rollback_reference: string
 }
 
 export class OrganismClientError extends Error {
@@ -66,12 +75,28 @@ function assertContributionBoundary(record: Record<string, unknown>, digest?: st
   }
 }
 
+export function prepareProviderContribution(root: string, workId: string): PreparedContribution {
+  boundedIdentity(workId, 'WORK_ID_INVALID')
+  const record = parseObject(runPython(root, ['-m', 'agents.organism', 'prepare-contribution', '--id', workId]))
+  const orderDigest = record['order_digest']
+  const stateRoot = record['state_root']
+  const rollbackReference = record['rollback_reference']
+  if (record['work_id'] !== workId || typeof orderDigest !== 'string' || !SHA256_RE.test(orderDigest)
+      || typeof stateRoot !== 'string' || !SHA256_RE.test(stateRoot)
+      || typeof rollbackReference !== 'string' || !rollbackReference.includes(orderDigest) || !rollbackReference.includes(stateRoot)) {
+    throw new OrganismClientError('ORGANISM_PREPARE_BINDING_MALFORMED')
+  }
+  return { work_id: workId, order_digest: orderDigest, state_root: stateRoot, rollback_reference: rollbackReference }
+}
+
 export function recordProviderContribution(root: string, input: ProviderContributionInput): Record<string, unknown> {
   boundedIdentity(input.workId, 'WORK_ID_INVALID')
   boundedIdentity(input.provider, 'PROVIDER_ID_INVALID')
   boundedIdentity(input.model, 'MODEL_ID_INVALID')
   boundedIdentity(input.sourceRef, 'SOURCE_REF_INVALID')
   if (!SHA256_RE.test(input.artifactDigest)) throw new OrganismClientError('ARTIFACT_DIGEST_INVALID')
+  const prepared = input.rollbackReference === undefined ? prepareProviderContribution(root, input.workId) : undefined
+  const rollbackReference = input.rollbackReference ?? prepared!.rollback_reference
 
   const raw = runPython(root, [
     '-m', 'agents.organism', 'contribute',
@@ -80,6 +105,7 @@ export function recordProviderContribution(root: string, input: ProviderContribu
     '--model', input.model,
     '--artifact-digest', input.artifactDigest,
     '--source-ref', input.sourceRef,
+    '--rollback-reference', rollbackReference,
   ])
   const record = parseObject(raw)
   assertContributionBoundary(record, input.artifactDigest)
@@ -96,6 +122,8 @@ export function recordProviderTextContribution(root: string, input: ProviderText
   const bytes = Buffer.byteLength(input.text, 'utf8')
   if (bytes < 1) throw new OrganismClientError('CONTRIBUTION_EMPTY')
   if (bytes > MAX_TEXT_BYTES) throw new OrganismClientError('CONTRIBUTION_TOO_LARGE')
+  const prepared = input.rollbackReference === undefined ? prepareProviderContribution(root, input.workId) : undefined
+  const rollbackReference = input.rollbackReference ?? prepared!.rollback_reference
 
   const raw = runPython(root, ['-m', 'agents.organism', 'contribute-json'], JSON.stringify({
     work_id: input.workId,
@@ -104,6 +132,7 @@ export function recordProviderTextContribution(root: string, input: ProviderText
     text: input.text,
     source_ref: input.sourceRef,
     media_type: mediaType,
+    rollback_reference: rollbackReference,
   }))
   const record = parseObject(raw)
   const artifact = record['artifact']
@@ -113,6 +142,9 @@ export function recordProviderTextContribution(root: string, input: ProviderText
   const digest = (artifact as Record<string, unknown>)['sha256']
   if (typeof digest !== 'string' || !SHA256_RE.test(digest)) {
     throw new OrganismClientError('ORGANISM_ARTIFACT_DIGEST_MALFORMED')
+  }
+  if (record['rollback_reference'] !== rollbackReference) {
+    throw new OrganismClientError('ORGANISM_ROLLBACK_BINDING_MISMATCH')
   }
   assertContributionBoundary(record, digest)
   return record
