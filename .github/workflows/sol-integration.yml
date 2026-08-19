@@ -88,3 +88,14 @@ jobs:
 
       - name: Audit installed dependency graph
         run: npm audit --audit-level=high
+
+      - name: Upload resolved lockfile for reconciliation
+        uses: actions/upload-artifact@v4
+        with:
+          name: sol-edge-resolved-lock-${{ github.event.pull_request.head.sha || github.sha }}
+          path: platform/sol/cloudflare/worker/package-lock.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Require resolved lockfile to be committed
+        run: git diff --exit-code -- package-lock.json
