@@ -19,12 +19,24 @@ import {
   type ActionClass,
   type VerifiedAuthorityDecision,
 } from './authority-response.js'
-import { OrganismClientError, readOrganismStatus, recordProviderContribution } from './organism-client.js'
+import {
+  OrganismClientError,
+  prepareProviderContribution,
+  readNextWork,
+  readOrganismStatus,
+  recordProviderContribution,
+  recordProviderTextContribution,
+} from './organism-client.js'
+import {
+  ProviderSessionError,
+  bootstrapProviderAction,
+  providerSessionConfigured,
+} from './provider-session-client.js'
 
 const BRIDGE = (process.env['AEGIS_BRIDGE_URL'] ?? 'http://localhost:7890').replace(/\/$/, '')
 const API_KEY = process.env['AEGIS_API_KEY'] ?? ''
 
-const server = new McpServer({ name: 'aegis-constitutional-swarm', version: '0.3.0' })
+const server = new McpServer({ name: 'aegis-constitutional-swarm', version: '0.4.0' })
 
 async function bridgeGet(path: string, apiKey = false): Promise<unknown> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -63,21 +75,40 @@ function authorizeAction(input: {
   tool: string
   target: string
   action: Record<string, unknown>
+  mutationTarget?: string
   rollbackReference?: string
   idempotencyKey?: string
   compensationReference?: string
 }): AuthorityDecision {
+  const root = repoRoot()
   const identityRaw = process.env['AEGIS_EXECUTION_IDENTITY_JSON']
-  if (!identityRaw) return localDenial('IDENTITY_UNAVAILABLE')
   let identity: unknown
   let workspace: unknown
   let approval: unknown
   let trustedAuthorityKeys: Record<string, string>
+  let bootstrappedProviderSession = false
   try {
-    identity = JSON.parse(identityRaw)
-    const workspaceRaw = process.env['AEGIS_WORKSPACE_OBSERVATION_JSON']
-    if (!workspaceRaw) return localDenial('WORKSPACE_OBSERVATION_UNAVAILABLE')
-    workspace = JSON.parse(workspaceRaw)
+    if (identityRaw) {
+      identity = JSON.parse(identityRaw)
+      const workspaceRaw = process.env['AEGIS_WORKSPACE_OBSERVATION_JSON']
+      if (!workspaceRaw) return localDenial('WORKSPACE_OBSERVATION_UNAVAILABLE')
+      workspace = JSON.parse(workspaceRaw)
+    } else if (providerSessionConfigured()) {
+      const bootstrap = bootstrapProviderAction(root, {
+        actionClass: input.actionClass,
+        authorityDomain: input.authorityDomain,
+        requestedCapability: input.requestedCapability,
+        tool: input.tool,
+        target: input.target,
+        action: input.action,
+        mutationTarget: input.mutationTarget ?? '.',
+      })
+      identity = bootstrap.identity
+      workspace = bootstrap.workspace
+      bootstrappedProviderSession = true
+    } else {
+      return localDenial('IDENTITY_UNAVAILABLE')
+    }
     if (typeof workspace !== 'object' || workspace === null || Array.isArray(workspace)) {
       return localDenial('WORKSPACE_OBSERVATION_MALFORMED')
     }
@@ -91,10 +122,10 @@ function authorizeAction(input: {
       return localDenial('AUTHORITY_VERIFY_KEYS_MALFORMED')
     }
     trustedAuthorityKeys = parsedAuthorityKeys as Record<string, string>
-  } catch {
+  } catch (error) {
+    if (error instanceof ProviderSessionError) return localDenial(error.code)
     return localDenial('AUTHORITY_ENVIRONMENT_MALFORMED')
   }
-  const root = repoRoot()
   const sourceState = spawnSync('git', ['-C', root, 'rev-parse', 'HEAD'], {
     encoding: 'utf8', timeout: 5_000, maxBuffer: 65_536,
   })
@@ -104,8 +135,9 @@ function authorizeAction(input: {
   if (sourceState.status !== 0 || sourceState.signal || sourceState.error) return localDenial('SOURCE_COMMIT_UNAVAILABLE')
   if (remoteState.status !== 0 || remoteState.signal || remoteState.error) return localDenial('REMOTE_ORIGIN_UNAVAILABLE')
   const workspaceRecord = workspace as Record<string, unknown>
-  if (workspaceRecord['remote_origin'] !== remoteState.stdout.trim()) return localDenial('WORKSPACE_REMOTE_CLAIM_MISMATCH')
-  const boundWorkspace = { ...workspaceRecord, remote_origin: remoteState.stdout.trim() } as {
+  const actualRemote = remoteState.stdout.trim()
+  if (!bootstrappedProviderSession && workspaceRecord['remote_origin'] !== actualRemote) return localDenial('WORKSPACE_REMOTE_CLAIM_MISMATCH')
+  const boundWorkspace = { ...workspaceRecord, remote_origin: actualRemote } as {
     actual_cwd: string; remote_origin: string; mutation_target: string; path_views?: Record<string, string>
   }
   let bindings
@@ -162,6 +194,13 @@ function terminalAdapterUnavailable(authority: VerifiedAuthorityDecision) {
   return text({ authority, outcome: 'DENIED', denial_codes: ['TERMINAL_EXECUTION_ADAPTER_UNAVAILABLE'], external_effect: 'NOT_EXECUTED' })
 }
 
+function configuredProviderIdentity(): { provider: string; model: string; session: string } | null {
+  const provider = process.env['AEGIS_PROVIDER_ID']
+  const model = process.env['AEGIS_MODEL_ID']
+  const session = process.env['AEGIS_PROVIDER_SESSION_ID']
+  return provider && model && session ? { provider, model, session } : null
+}
+
 server.tool('aegis_health', 'Check AEGIS constitutional health: t0_verdict, corruption_count, hash chain status.', {}, async () => {
   const [health, node] = await Promise.all([bridgeGet('/health'), bridgeGet('/node')])
   const ok = (node as Record<string, unknown>)['t0_verdict'] === true && (node as Record<string, unknown>)['corruption_count'] === 0
@@ -183,6 +222,13 @@ server.tool('aegis_organism_status', 'Read the durable AEGIS organization work l
   catch (error) { return text({ authority, outcome: 'ERROR', code: error instanceof OrganismClientError ? error.code : 'ORGANISM_STATUS_ERROR' }) }
 })
 
+server.tool('aegis_next_work', 'Return queued AEGIS work available to this provider session. This is read-only and grants no claim, lease, or authority.', { limit: z.number().int().min(1).max(100).default(10) }, async ({ limit }) => {
+  const authority = authorizeAction({ actionClass: 'D0', authorityDomain: 'organism:read', requestedCapability: 'mcp.organism.next', tool: 'aegis_next_work', target: '.aegis/runtime/organism.json', action: { operation: 'read-next-work', limit } })
+  if (isDenied(authority)) return denialResponse(authority)
+  try { return text({ authority, work: readNextWork(repoRoot(), limit), lease: 'NONE', claim: 'NONE' }) }
+  catch (error) { return text({ authority, outcome: 'ERROR', code: error instanceof OrganismClientError ? error.code : 'ORGANISM_NEXT_WORK_ERROR' }) }
+})
+
 server.tool(
   'aegis_contribute',
   'Attach a provider/model artifact digest to an existing AEGIS work order. This records NON_AUTHORITATIVE_EVIDENCE only and cannot approve, verify, or admit the work.',
@@ -194,13 +240,62 @@ server.tool(
     source_ref: z.string().regex(/^[A-Za-z0-9._:/@+\-]{1,128}$/),
   },
   async ({ work_id, provider, model, artifact_digest, source_ref }) => {
+    const configured = configuredProviderIdentity()
+    if (configured && (configured.provider !== provider || configured.model !== model)) return denialResponse(localDenial('PROVIDER_IDENTITY_MISMATCH'))
+    const root = repoRoot()
+    let prepared
+    try { prepared = prepareProviderContribution(root, work_id) }
+    catch (error) { return text({ outcome: 'ERROR', code: error instanceof OrganismClientError ? error.code : 'ORGANISM_PREPARE_ERROR', admission_effect: 'NONE' }) }
+    const action = {
+      operation: 'record-provider-contribution', work_id, provider, model, artifact_digest, source_ref,
+      pre_state_root: prepared.state_root, pre_order_digest: prepared.order_digest, rollback_reference: prepared.rollback_reference,
+    }
     const authority = authorizeAction({
-      actionClass: 'D1', authorityDomain: 'organism:contribution', requestedCapability: 'mcp.organism.contribute', tool: 'aegis_contribute', target: '.aegis/runtime/organism.json',
-      action: { operation: 'record-provider-contribution', work_id, provider, model, artifact_digest, source_ref },
+      actionClass: 'D1', authorityDomain: 'organism:contribution', requestedCapability: 'mcp.organism.contribute', tool: 'aegis_contribute', target: '.aegis/runtime/organism.json', mutationTarget: '.aegis/runtime',
+      action, rollbackReference: prepared.rollback_reference,
     })
     if (isDenied(authority)) return denialResponse(authority)
     try {
-      const contribution = recordProviderContribution(repoRoot(), { workId: work_id, provider, model, artifactDigest: artifact_digest, sourceRef: source_ref })
+      const contribution = recordProviderContribution(root, { workId: work_id, provider, model, artifactDigest: artifact_digest, sourceRef: source_ref, rollbackReference: prepared.rollback_reference })
+      return text({ authority, contribution, epistemic_status: 'NON_AUTHORITATIVE_EVIDENCE', admission_effect: 'NONE' })
+    } catch (error) {
+      return text({ authority, outcome: 'ERROR', code: error instanceof OrganismClientError ? error.code : 'ORGANISM_CONTRIBUTION_ERROR', admission_effect: 'NONE' })
+    }
+  },
+)
+
+server.tool(
+  'aegis_contribute_text',
+  'Persist this provider session output as a content-addressed AEGIS artifact and attach it to an existing work order as NON_AUTHORITATIVE_EVIDENCE.',
+  {
+    work_id: z.string().regex(/^[A-Za-z0-9._:/@+\-]{1,128}$/),
+    text: z.string().min(1).max(262144),
+    media_type: z.enum(['text/plain', 'text/markdown', 'application/json']).default('text/markdown'),
+  },
+  async ({ work_id, text: contributionText, media_type }) => {
+    const configured = configuredProviderIdentity()
+    if (!configured) return denialResponse(localDenial('PROVIDER_SESSION_IDENTITY_REQUIRED'))
+    const root = repoRoot()
+    let prepared
+    try { prepared = prepareProviderContribution(root, work_id) }
+    catch (error) { return text({ outcome: 'ERROR', code: error instanceof OrganismClientError ? error.code : 'ORGANISM_PREPARE_ERROR', admission_effect: 'NONE' }) }
+    const textDigest = createHash('sha256').update(contributionText, 'utf8').digest('hex')
+    const sourceRef = `mcp:${configured.provider}`
+    const action = {
+      operation: 'record-provider-text-contribution', work_id, provider: configured.provider, model: configured.model,
+      text_digest: textDigest, byte_length: Buffer.byteLength(contributionText, 'utf8'), media_type, source_ref: sourceRef,
+      pre_state_root: prepared.state_root, pre_order_digest: prepared.order_digest, rollback_reference: prepared.rollback_reference,
+    }
+    const authority = authorizeAction({
+      actionClass: 'D1', authorityDomain: 'organism:contribution', requestedCapability: 'mcp.organism.contribute', tool: 'aegis_contribute_text', target: '.aegis/runtime/organism.json', mutationTarget: '.aegis/runtime',
+      action, rollbackReference: prepared.rollback_reference,
+    })
+    if (isDenied(authority)) return denialResponse(authority)
+    try {
+      const contribution = recordProviderTextContribution(root, {
+        workId: work_id, provider: configured.provider, model: configured.model, text: contributionText,
+        sourceRef, mediaType: media_type, rollbackReference: prepared.rollback_reference,
+      })
       return text({ authority, contribution, epistemic_status: 'NON_AUTHORITATIVE_EVIDENCE', admission_effect: 'NONE' })
     } catch (error) {
       return text({ authority, outcome: 'ERROR', code: error instanceof OrganismClientError ? error.code : 'ORGANISM_CONTRIBUTION_ERROR', admission_effect: 'NONE' })
