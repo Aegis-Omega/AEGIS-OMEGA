@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.dev/schemas/proofline-benchmark-manifest-v1.schema.json",
+  "title": "AEGIS Cross-Provider Proofline BenchmarkManifest V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["manifest_kind", "benchmark_id", "benchmark_version", "task_pack_digest", "hidden_seed_commitment", "scorer_policy_commitment", "verifier_policy_commitment", "resource_envelope"],
+  "properties": {
+    "manifest_kind": {"const": "AEGIS_PROOFLINE_BENCHMARK_MANIFEST_V1"},
+    "benchmark_id": {"type": "string", "minLength": 1},
+    "benchmark_version": {"type": "string", "minLength": 1},
+    "task_pack_digest": {"$ref": "#/$defs/sha256"},
+    "hidden_seed_commitment": {"$ref": "#/$defs/sha256"},
+    "scorer_policy_commitment": {"$ref": "#/$defs/sha256"},
+    "verifier_policy_commitment": {"$ref": "#/$defs/sha256"},
+    "resource_envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_tokens", "max_cost_microunits", "max_wall_ms", "max_delegation_depth"],
+      "properties": {
+        "max_tokens": {"type": "integer", "minimum": 1},
+        "max_cost_microunits": {"type": "integer", "minimum": 0},
+        "max_wall_ms": {"type": "integer", "minimum": 1},
+        "max_delegation_depth": {"type": "integer", "minimum": 0}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
