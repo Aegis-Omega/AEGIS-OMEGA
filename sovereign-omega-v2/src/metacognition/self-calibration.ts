@@ -400,9 +400,10 @@ export async function certifySelfCalibrationLedger(
   })
 }
 
-export function calibrationToMetacognitiveObservation(
+export async function calibrationToMetacognitiveObservation(
   calibration: SelfCalibrationRecordV1,
-): MetacognitiveObservation {
+): Promise<MetacognitiveObservation> {
+  await assertCalibrationIntegrity(calibration)
   const observed = calibration.observed_success ? 'success' : 'failure'
   return deepFreeze<MetacognitiveObservation>({
     layer: 'SELF_MODEL',
