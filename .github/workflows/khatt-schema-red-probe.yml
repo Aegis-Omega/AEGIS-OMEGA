@@ -1,0 +1,23 @@
+name: Khatt Schema RED Probe
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/khatt-schema-red-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  schema-red:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run schema contract only
+        working-directory: aegis-cl-psi
+        run: cargo test --locked --test abjad_schema_contract -- --test-threads 1
