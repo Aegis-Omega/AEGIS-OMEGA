@@ -257,7 +257,7 @@ describe('self-calibration ledger', () => {
 describe('self-calibration metacognitive bridge', () => {
   it('emits exactly SELF_MODEL/T2 evidence and replays in the existing metacognitive loop', async () => {
     const calibration = await makeCalibration(H1, H2, 7500, true)
-    const observation = calibrationToMetacognitiveObservation(calibration)
+    const observation = await calibrationToMetacognitiveObservation(calibration)
 
     expect(observation.layer).toBe('SELF_MODEL')
     expect(observation.tier).toBe('T2')
