@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/authority-decision-receipt.v1.schema.json",
+  "title": "AEGIS AuthorityDecisionReceipt V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_version",
+    "issuer_key_id",
+    "execution_identity_root",
+    "source_commit",
+    "workspace_binding",
+    "expected_pre_state",
+    "skills_root",
+    "policy_decision_root",
+    "policy_root",
+    "registry_root",
+    "approval_grant_root",
+    "authority_score",
+    "authority_domain",
+    "action_class",
+    "requested_capability",
+    "tool",
+    "target",
+    "requested_action_digest",
+    "outcome",
+    "denial_codes",
+    "signature"
+  ],
+  "properties": {
+    "receipt_version": {"const": "1.0.0"},
+    "issuer_key_id": {"type": "string", "minLength": 1},
+    "execution_identity_root": {"$ref": "#/$defs/hash"},
+    "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+    "workspace_binding": {"$ref": "#/$defs/hash"},
+    "expected_pre_state": {"$ref": "#/$defs/hash"},
+    "skills_root": {"$ref": "#/$defs/hash"},
+    "policy_decision_root": {"$ref": "#/$defs/hash"},
+    "policy_root": {"$ref": "#/$defs/hash"},
+    "registry_root": {"$ref": "#/$defs/hash"},
+    "approval_grant_root": {"$ref": "#/$defs/hash"},
+    "authority_score": {"type": "string", "pattern": "^(?:0\\.[0-9]{6}|1\\.000000)$"},
+    "authority_domain": {"type": "string", "minLength": 1},
+    "action_class": {"enum": ["D0", "D1", "D2", "D3", "D4"]},
+    "requested_capability": {"type": "string", "minLength": 1},
+    "tool": {"type": "string", "minLength": 1},
+    "target": {"$ref": "#/$defs/hash"},
+    "requested_action_digest": {"$ref": "#/$defs/hash"},
+    "outcome": {"enum": ["ADMITTED", "DENIED"]},
+    "signature": {"type": "string", "pattern": "^[0-9a-f]{128}$"},
+    "denial_codes": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

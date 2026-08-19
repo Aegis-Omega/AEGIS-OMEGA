@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/sol/execution-result.v1.schema.json",
+  "title": "SOL Governed Execution Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "provider",
+    "status",
+    "output_digest",
+    "observed_at",
+    "receipt_root"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "request_id": { "type": "string", "format": "uuid" },
+    "provider": {
+      "enum": ["github", "sharepoint", "dataverse", "nvidia", "huggingface", "wolfram", "openai", "figma", "cloudflare", "ios", "web", "ogemma"]
+    },
+    "provider_operation_id": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "status": { "enum": ["COMMITTED", "DENIED", "FAILED", "INDETERMINATE", "COMPENSATED"] },
+    "output_digest": { "$ref": "#/$defs/sha256" },
+    "external_state_reference": { "type": "string", "minLength": 1, "maxLength": 2048 },
+    "observed_at": { "type": "string", "format": "date-time" },
+    "receipt_root": { "$ref": "#/$defs/sha256" },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "retryable"],
+      "properties": {
+        "class": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "message_digest": { "$ref": "#/$defs/sha256" },
+        "retryable": { "type": "boolean" }
+      }
+    },
+    "metadata": { "type": "object", "additionalProperties": true }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "enum": ["FAILED", "INDETERMINATE"] } } },
+      "then": { "required": ["error"] }
+    }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

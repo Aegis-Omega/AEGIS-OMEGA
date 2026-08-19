@@ -17,21 +17,42 @@ KEY_FILES = (
     "harness/sdk/sovereign_execution.py",
     "harness/sdk/authority_client.py",
     "harness/sdk/operator_visibility.py",
+    "harness/requirements-automaton3.txt",
     "harness/policies/consequence-policy.v1.json",
     "harness/policies/capability-map.v1.json",
     "scripts/automaton3-authority.py",
     "scripts/run-automaton3-tests.py",
     "scripts/validate-automaton3.py",
     "agents/coordinator.py",
+    "sovereign-omega-v2/mcp-server/package.json",
+    "sovereign-omega-v2/mcp-server/src/authority-response.ts",
     "sovereign-omega-v2/mcp-server/src/index.ts",
+    "sovereign-omega-v2/mcp-server/test/authority-response.mjs",
     "sovereign-omega-v2/mcp-server/test/automaton3-authority.mjs",
     "sovereign-omega-v2/python/tests/test_automaton3.py",
+    "sovereign-omega-v2/python/tests/test_coordinator_authority.py",
     "sovereign-omega-v2/python/tests/test_operator_visibility.py",
+    "sovereign-omega-v2/python/authoritative_receipts.py",
+    "sovereign-omega-v2/python/tests/test_authoritative_receipts.py",
+    "sovereign-omega-v2/python/generate_authoritative_receipt_vector.py",
+    "sovereign-omega-v2/src/provenance/cross-runtime-receipts.ts",
+    "sovereign-omega-v2/src/provenance/receipt-resolver.ts",
+    "sovereign-omega-v2/src/provenance/indexeddb-receipt-source.ts",
+    "sovereign-omega-v2/src/metacognition/authoritative-outcome-evidence-replay.ts",
+    "sovereign-omega-v2/test/unit/cross-runtime-receipt-provenance.test.ts",
+    "sovereign-omega-v2/test/integration/authoritative-outcome-evidence-replay.test.ts",
+    "sovereign-omega-v2/test/vectors/python-cross-runtime-receipt-v1.json",
+    "sovereign-omega-v2/test/vectors/typescript-cross-runtime-receipt-v1.json",
+    "sovereign-omega-v2/scripts/generate-authoritative-receipt-vector.ts",
     "schemas/execution-identity-envelope.v1.schema.json",
+    "schemas/authority-decision-receipt.v1.schema.json",
     "schemas/mutation-receipt.v1.schema.json",
     "schemas/event-envelope.v1.schema.json",
     "schemas/writer-lease.v1.schema.json",
+    "schemas/cross-runtime-receipt-envelope.v1.schema.json",
+    "schemas/receipt-trust-registry.v1.schema.json",
     "docs/adr/ADR-0021-automaton-3-sovereign-execution.md",
+    "docs/adr/ADR-0022-cross-runtime-authoritative-receipt-provenance.md",
     "docs/security/AUTOMATON3_THREAT_MODEL.md",
     "docs/operations/LAW_OF_SILENCE_V2.md",
     "docs/operations/BRANCH_RULESET_AUTOMATON3.md",
@@ -124,14 +145,20 @@ def evaluate(
             violations.append("authority bypass detected")
         if summary.get("adaptive_attempts") != [1, 10, 100]:
             violations.append("adaptive attempt matrix incomplete")
-        if summary.get("expected_test_count") != 41:
+        if summary.get("expected_test_count") != 81:
             violations.append("Automaton-3 test count incomplete")
+        if summary.get("observed_test_count") != summary.get("expected_test_count"):
+            violations.append("Automaton-3 observed test count mismatch")
         if summary.get("operator_visibility_asserted") is not True:
             violations.append("operator visibility invariant not asserted")
         if summary.get("state_preservation_asserted") is not True:
             violations.append("state preservation not asserted")
         if summary.get("external_side_effect_absence_asserted") is not True:
             violations.append("external side-effect absence not asserted")
+        if summary.get("cross_runtime_provenance_asserted") is not True:
+            violations.append("cross-runtime receipt provenance not asserted")
+        if summary.get("restart_readback_asserted") is not True:
+            violations.append("authoritative receipt restart/readback not asserted")
         test_summary_root = summary.get("summary_root", "0" * 64)
     except Exception as exc:
         violations.append(f"test summary unavailable: {type(exc).__name__}")

@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "aegis-sol-edge-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-20",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "AEGIS_DEPLOYMENT_ENV": "staging",
+    "AEGIS_MAX_BODY_BYTES": "1048576"
+  },
+  "services": [
+    {
+      "binding": "AEGIS_CORE",
+      "service": "aegis-core-staging"
+    }
+  ]
+}

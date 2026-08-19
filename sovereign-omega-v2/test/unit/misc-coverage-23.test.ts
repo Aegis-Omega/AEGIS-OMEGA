@@ -92,8 +92,8 @@ describe('buildSnapshot — with non-empty bindings (covers b => b.binding_id)',
 // In normal environments, crypto.subtle is available, so the Web Crypto path
 // is always taken and the Node.js fallback (lines 35-38) is never reached.
 //
-// Stubbing globalThis.crypto to undefined makes the condition false,
-// causing execution to fall through to `await import('node:crypto')`.
+// Stubbing globalThis.crypto to undefined exercises the isolated
+// process.getBuiltinModule fallback without creating a browser import edge.
 
 import { sha256Bytes, sha256Hex } from '../../src/core/hashing.js'
 

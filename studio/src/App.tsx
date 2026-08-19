@@ -12,11 +12,14 @@ import { ObservabilitySurface } from './observability-surface/ObservabilitySurfa
 import { GovernanceSurface } from './governance-surface/GovernanceSurface.js'
 import { SwarmSurface } from './swarm-surface/SwarmSurface.js'
 import { HolographicSubstrate } from './holographic-surface/HolographicSubstrate.js'
+import { HolonogramSurface } from './holonogram-surface/HolonogramSurface.js'
 
 type Surface = 'replay' | 'epoch' | 'divergence' | 'rollback' | 'lineage' |
-  'topology' | 'ownership' | 'capsule' | 'observability' | 'governance' | 'swarm' | 'holographic'
+  'topology' | 'ownership' | 'capsule' | 'observability' | 'governance' | 'swarm' |
+  'holographic' | 'holonogram'
 
 const NAV: Array<{ id: Surface; label: string }> = [
+  { id: 'holonogram', label: 'Holonñgram' },
   { id: 'replay', label: 'Replay' },
   { id: 'epoch', label: 'Epoch' },
   { id: 'divergence', label: 'Divergence' },
@@ -32,7 +35,7 @@ const NAV: Array<{ id: Surface; label: string }> = [
 ]
 
 export function App() {
-  const [active, setActive] = useState<Surface>('replay')
+  const [active, setActive] = useState<Surface>('holonogram')
   const { snapshot, error } = useTelemetry()
 
   return (
@@ -49,27 +52,27 @@ export function App() {
         <div className="h-3.5 w-px bg-aegis-border" />
         <span className="text-[11px] text-aegis-muted">Constitutional Observability · Projection Only</span>
         <div className="ml-auto flex items-center gap-2">
-          {error ? (
-            <span className="text-[10px] font-mono bg-aegis-T4/10 text-aegis-T4 border border-aegis-T4/20 px-2.5 py-1 rounded-lg">
-              bridge offline
-            </span>
-          ) : snapshot ? (
+          {snapshot ? (
             <>
-              <span className="text-[10px] font-mono bg-aegis-T0/10 text-aegis-T0 border border-aegis-T0/20 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-aegis-T0 animate-pulse-slow" />
-                live · epoch {snapshot.epoch_sequence}
+              <span className="text-[10px] font-mono bg-aegis-T3/10 text-aegis-T3 border border-aegis-T3/20 px-2.5 py-1 rounded-lg flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-aegis-T3 animate-pulse-slow" />
+                unverified input · epoch {snapshot.epoch_sequence}
               </span>
               <span className={`text-[10px] font-mono px-2.5 py-1 rounded-lg border ${
                 snapshot.pgcs_passes
-                  ? 'bg-aegis-T0/10 text-aegis-T0 border-aegis-T0/20'
+                  ? 'bg-aegis-T1/10 text-aegis-T1 border-aegis-T1/20'
                   : 'bg-aegis-T4/10 text-aegis-T4 border-aegis-T4/20'
               }`}>
-                {snapshot.pgcs_passes ? 'PGCS PASS' : 'PGCS FAIL'}
+                reported PGCS {snapshot.pgcs_passes ? 'pass' : 'fail'}
               </span>
             </>
+          ) : error ? (
+            <span className="text-[10px] font-mono bg-aegis-T3/10 text-aegis-T3 border border-aegis-T3/20 px-2.5 py-1 rounded-lg">
+              demo · bridge offline
+            </span>
           ) : (
             <span className="text-[10px] font-mono text-aegis-disabled px-2.5 py-1">
-              awaiting bridge…
+              awaiting unverified input…
             </span>
           )}
         </div>
@@ -94,6 +97,7 @@ export function App() {
           ))}
         </nav>
         <main className="flex-1 overflow-auto bg-aegis-bg">
+          {active === 'holonogram' && <HolonogramSurface snapshot={snapshot} />}
           {active === 'replay' && <ReplaySurface snapshot={snapshot} />}
           {active === 'epoch' && <EpochSurface snapshot={snapshot} />}
           {active === 'divergence' && <DivergenceSurface snapshot={snapshot} />}
