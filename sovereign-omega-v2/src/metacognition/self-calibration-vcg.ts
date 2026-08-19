@@ -26,10 +26,19 @@ export class SelfCalibrationVCGAdmissionError extends Error {
   }
 }
 
+function assertEventTimestamp(timestamp_ms: number): void {
+  if (!Number.isSafeInteger(timestamp_ms) || timestamp_ms < 0) {
+    throw new SelfCalibrationVCGAdmissionError(
+      `timestamp_ms must be a non-negative safe integer from the event substrate, got ${timestamp_ms}`,
+    )
+  }
+}
+
 /**
  * Admit a validated V2 self-calibration sample into the existing VCG tracker.
  *
  * Fail-closed boundaries:
+ * - timestamp_ms must be an explicit non-negative safe integer from the event substrate;
  * - the V2 calibration must pass its cryptographic/replay integrity checks;
  * - verifier_id must resolve in the canonical verifier registry;
  * - calibration weight comes from the registry definition, never from the
@@ -44,6 +53,8 @@ export async function admitSelfCalibrationV2ToVCG(
   calibration: SelfCalibrationRecordV2,
   timestamp_ms: number,
 ): Promise<SelfCalibrationVCGAdmissionStatus> {
+  assertEventTimestamp(timestamp_ms)
+
   // Reuse the already-tested V2 integrity boundary rather than duplicating
   // prediction/verifier/calibration hash projections in this adapter.
   await calibrationV2ToMetacognitiveObservation(calibration)
