@@ -1,0 +1,26 @@
+{
+  "admitted_sources": {},
+  "baseline_kind": "COQ_ASSUMPTION_BASELINE_V1",
+  "baseline_source_commit": "203c11cdb36f82e3d4f4d22993a118b4b870e691",
+  "correspondence": "NOT_ESTABLISHED",
+  "declared_assumptions": {
+    "Bisimulation/ThreeWay.v": [
+      "cross_runtime_bisimulation",
+      "encode_JS",
+      "encode_PY",
+      "encode_WASM",
+      "step_JS",
+      "step_PY",
+      "step_WASM"
+    ],
+    "Core/Hash.v": [
+      "sha256"
+    ]
+  },
+  "scope": "sovereign-omega-v2/formal/theories",
+  "theorem_assumptions": {
+    "Core/Reducer.v::step_deterministic": [
+      "Hash.sha256"
+    ]
+  }
+}
