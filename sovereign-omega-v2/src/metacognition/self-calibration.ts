@@ -14,6 +14,8 @@ import type { MetacognitiveObservation } from './loop.js'
 export const SELF_CALIBRATION_SCHEMA_VERSION = '1.0.0' as const
 export const SELF_CALIBRATION_GENESIS_HASH = '0'.repeat(64) as SHA256Hex
 
+const SHA256_PATTERN = /^[0-9a-f]{64}$/
+
 export interface SelfPredictionInput {
   readonly action_digest: SHA256Hex
   readonly predicted_success_bps: number
@@ -97,6 +99,18 @@ function assertBasisPoints(value: number): void {
   }
 }
 
+function assertSha256Hex(field: string, value: string): void {
+  if (typeof value !== 'string' || !SHA256_PATTERN.test(value)) {
+    throw new SelfCalibrationError(`${field} must be lowercase SHA-256 hex`)
+  }
+}
+
+function assertNonNegativeSequence(sequence: SequenceNumber): void {
+  if (sequence < 0n) {
+    throw new SelfCalibrationError(`calibration sequence must be >= 0, got ${sequence}`)
+  }
+}
+
 function predictionBody(input: SelfPredictionInput) {
   return {
     receipt_kind: 'SELF_PREDICTION_RECORD_V1' as const,
@@ -126,6 +140,7 @@ function calibrationBody(calibration: Omit<SelfCalibrationRecordV1, 'calibration
 export async function createSelfPrediction(
   input: SelfPredictionInput,
 ): Promise<SelfPredictionRecordV1> {
+  assertSha256Hex('action_digest', input.action_digest)
   assertBasisPoints(input.predicted_success_bps)
   const body = predictionBody(input)
   const prediction_hash = await hashValue(body)
@@ -139,6 +154,10 @@ export async function createSelfPrediction(
 export function createSelfOutcomeObservation(
   input: SelfOutcomeObservationInput,
 ): SelfOutcomeObservationV1 {
+  assertSha256Hex('prediction_hash', input.prediction_hash)
+  assertSha256Hex('action_digest', input.action_digest)
+  assertSha256Hex('observation_evidence_digest', input.observation_evidence_digest)
+
   if (input.observation_evidence_digest === input.prediction_hash) {
     throw new SelfCalibrationError(
       'prediction_hash cannot serve as its own observation evidence',
@@ -160,6 +179,8 @@ export function createSelfOutcomeObservation(
 async function assertPredictionIntegrity(
   prediction: SelfPredictionRecordV1,
 ): Promise<void> {
+  assertSha256Hex('prediction.action_digest', prediction.action_digest)
+  assertSha256Hex('prediction.prediction_hash', prediction.prediction_hash)
   assertBasisPoints(prediction.predicted_success_bps)
   if (
     prediction.receipt_kind !== 'SELF_PREDICTION_RECORD_V1' ||
@@ -177,6 +198,12 @@ async function assertPredictionIntegrity(
 }
 
 function assertObservationSemantics(observation: SelfOutcomeObservationV1): void {
+  assertSha256Hex('observation.prediction_hash', observation.prediction_hash)
+  assertSha256Hex('observation.action_digest', observation.action_digest)
+  assertSha256Hex(
+    'observation.observation_evidence_digest',
+    observation.observation_evidence_digest,
+  )
   if (
     observation.receipt_kind !== 'SELF_OUTCOME_OBSERVATION_V1' ||
     observation.schema_version !== SELF_CALIBRATION_SCHEMA_VERSION ||
@@ -234,6 +261,13 @@ export async function createSelfCalibration(
 async function assertCalibrationIntegrity(
   calibration: SelfCalibrationRecordV1,
 ): Promise<void> {
+  assertSha256Hex('calibration.prediction_hash', calibration.prediction_hash)
+  assertSha256Hex('calibration.action_digest', calibration.action_digest)
+  assertSha256Hex(
+    'calibration.observation_evidence_digest',
+    calibration.observation_evidence_digest,
+  )
+  assertSha256Hex('calibration.calibration_hash', calibration.calibration_hash)
   assertBasisPoints(calibration.predicted_success_bps)
   if (
     calibration.receipt_kind !== 'SELF_CALIBRATION_RECORD_V1' ||
@@ -313,6 +347,7 @@ export class SelfCalibrationLedger {
     calibration: SelfCalibrationRecordV1,
     sequence: SequenceNumber,
   ): Promise<{ ledger: SelfCalibrationLedger; entry: SelfCalibrationLedgerEntry }> {
+    assertNonNegativeSequence(sequence)
     if (this._lastSequence !== null && sequence <= this._lastSequence) {
       throw new SelfCalibrationError(
         `non-monotonic calibration sequence: ${sequence} <= ${this._lastSequence}`,
@@ -352,6 +387,17 @@ export async function certifySelfCalibrationLedger(
       ? SELF_CALIBRATION_GENESIS_HASH
       : entries[index - 1]!.entry_hash
 
+    if (entry.sequence < 0n) {
+      is_valid = false
+      break
+    }
+    if (
+      !SHA256_PATTERN.test(entry.previous_entry_hash) ||
+      !SHA256_PATTERN.test(entry.entry_hash)
+    ) {
+      is_valid = false
+      break
+    }
     if (entry.previous_entry_hash !== expected_previous) {
       is_valid = false
       break
