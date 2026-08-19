@@ -90,6 +90,10 @@ pub mod vortex_classifier;
 // Gate 215 — Abjad Letter Encoder (T2, letter→integer routing via Abjad values, طارق=310)
 pub mod abjad_encoder;
 
+// Khatt–Abjad v0.1 — untrusted calligraphic evidence → deterministic Gate 215 bridge (T2)
+pub mod arabic_abjad;
+pub mod abjad_capability_bridge;
+
 // Gate 216 — Tajweed Phonological DFA (T1, empirically validated Arabic phonology)
 // Makharij articulation points = acoustic eigenstates. 4 noon-sakinah/tanween rules.
 // Clinical studies: 27.3% cortisol reduction, alpha/theta EEG, vagal stimulation confirmed.

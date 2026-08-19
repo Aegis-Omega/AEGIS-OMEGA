@@ -1,0 +1,95 @@
+{
+  "fixture_kind": "KHATT_ABJAD_LANGUAGE_VECTOR_V1",
+  "tariq": {
+    "observation": {
+      "record_kind": "CALLIGRAPHIC_OBSERVATION_V1",
+      "schema_version": "1.0.0",
+      "source_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_modality": "MANUAL_ANNOTATION",
+      "script_family": "ARABIC_SCRIPT",
+      "reading_direction": "RTL",
+      "abjad_system": "MASHRIQI_V1",
+      "reading_candidates": [
+        {
+          "candidate_id": "tariq",
+          "confidence_bps": 10000,
+          "graphemes": [
+            {
+              "surface_form": "ط",
+              "abjad_letter": "ط",
+              "dot_count": 0,
+              "dot_evidence": "OBSERVED",
+              "diacritics": []
+            },
+            {
+              "surface_form": "ا",
+              "abjad_letter": "ا",
+              "dot_count": 0,
+              "dot_evidence": "OBSERVED",
+              "diacritics": []
+            },
+            {
+              "surface_form": "ر",
+              "abjad_letter": "ر",
+              "dot_count": 0,
+              "dot_evidence": "OBSERVED",
+              "diacritics": []
+            },
+            {
+              "surface_form": "ق",
+              "abjad_letter": "ق",
+              "dot_count": 2,
+              "dot_evidence": "OBSERVED",
+              "diacritics": []
+            }
+          ]
+        }
+      ]
+    },
+    "expected": {
+      "derived_abjad_values": [9, 1, 200, 100],
+      "abjad_sum": 310,
+      "abjad_product": 180000,
+      "name_node": 10
+    }
+  },
+  "ambiguity": {
+    "observation": {
+      "record_kind": "CALLIGRAPHIC_OBSERVATION_V1",
+      "schema_version": "1.0.0",
+      "source_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "source_modality": "IMAGE",
+      "script_family": "ARABIC_SCRIPT",
+      "reading_direction": "RTL",
+      "abjad_system": "MASHRIQI_V1",
+      "reading_candidates": [
+        {
+          "candidate_id": "first",
+          "confidence_bps": 3000,
+          "graphemes": [
+            {
+              "surface_form": "س",
+              "abjad_letter": "س",
+              "dot_count": 0,
+              "dot_evidence": "NOT_VISIBLE",
+              "diacritics": []
+            }
+          ]
+        },
+        {
+          "candidate_id": "second",
+          "confidence_bps": 9000,
+          "graphemes": [
+            {
+              "surface_form": "ص",
+              "abjad_letter": "ص",
+              "dot_count": 0,
+              "dot_evidence": "OBSERVED",
+              "diacritics": []
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
