@@ -40,6 +40,7 @@ pub enum DotEvidence {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct GraphemeObservation {
     pub surface_form: String,
     pub abjad_letter: ArabicAbjadLetter,
@@ -53,6 +54,7 @@ pub struct GraphemeObservation {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ReadingCandidate {
     pub candidate_id: String,
     pub confidence_bps: u16,
@@ -60,6 +62,7 @@ pub struct ReadingCandidate {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CalligraphicObservationV1 {
     pub record_kind: String,
     pub schema_version: String,
@@ -88,6 +91,7 @@ impl From<VortexFamily> for VortexFamilyLabel {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EncodedLetterRecord {
     pub abjad_value: u64,
     pub digital_root: u8,
@@ -99,6 +103,7 @@ pub struct EncodedLetterRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CandidateEncodingV1 {
     pub candidate_id: String,
     pub confidence_bps: u16,
@@ -117,6 +122,7 @@ pub struct CandidateEncodingV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct AbjadCapabilityEncodingV1 {
     pub record_kind: String,
     pub schema_version: String,
