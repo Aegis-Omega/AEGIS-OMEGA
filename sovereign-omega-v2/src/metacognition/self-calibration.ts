@@ -15,6 +15,8 @@ import type { MetacognitiveObservation } from './loop.js'
 export const SELF_CALIBRATION_SCHEMA_VERSION = '1.0.0' as const
 export const SELF_CALIBRATION_SCHEMA_VERSION_V2 = '2.0.0' as const
 export const SELF_CALIBRATION_GENESIS_HASH = '0'.repeat(64) as SHA256Hex
+export const SELF_CALIBRATION_GENESIS_HASH_V2 =
+  '32ff3a029fe4c21596bbf6889250145028b66056cb23603b70bd58008538bbd9' as SHA256Hex
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/
 
@@ -123,6 +125,16 @@ export interface SelfCalibrationLedgerEntry {
   readonly is_replay_reconstructable: true
 }
 
+export interface SelfCalibrationLedgerEntryV2 {
+  readonly receipt_kind: 'SELF_CALIBRATION_LEDGER_ENTRY_V2'
+  readonly calibration: SelfCalibrationRecordV2
+  readonly previous_entry_hash: SHA256Hex
+  readonly sequence: SequenceNumber
+  readonly entry_hash: SHA256Hex
+  readonly schema_version: typeof SELF_CALIBRATION_SCHEMA_VERSION_V2
+  readonly is_replay_reconstructable: true
+}
+
 export interface SelfCalibrationLedgerCertificate {
   readonly is_valid: boolean
   readonly entry_count: number
@@ -131,6 +143,12 @@ export interface SelfCalibrationLedgerCertificate {
   readonly authority: 'NONE'
   readonly acceptable_for_effect_truth: false
   readonly is_replay_reconstructable: true
+}
+
+export interface SelfCalibrationLedgerCertificateV2
+  extends SelfCalibrationLedgerCertificate {
+  readonly receipt_kind: 'SELF_CALIBRATION_LEDGER_CERTIFICATE_V2'
+  readonly schema_version: typeof SELF_CALIBRATION_SCHEMA_VERSION_V2
 }
 
 export class SelfCalibrationError extends Error {
@@ -579,12 +597,96 @@ async function assertCalibrationIntegrity(
   }
 }
 
+async function assertCalibrationIntegrityV2(
+  calibration: SelfCalibrationRecordV2,
+): Promise<void> {
+  assertSha256Hex('V2 calibration.prediction_hash', calibration.prediction_hash)
+  assertSha256Hex('V2 calibration.action_digest', calibration.action_digest)
+  assertSha256Hex(
+    'V2 calibration.observation_evidence_digest',
+    calibration.observation_evidence_digest,
+  )
+  assertSha256Hex('V2 calibration.calibration_hash', calibration.calibration_hash)
+  assertNonEmptyString('V2 calibration.verifier_claim_id', calibration.verifier_claim_id)
+  assertNonEmptyString('V2 calibration.verifier_id', calibration.verifier_id)
+  assertVerifierRawConfidence(calibration.verifier_raw_confidence)
+  assertBasisPoints(calibration.predicted_success_bps)
+  assertObservedSuccess(calibration.observed_success)
+
+  if (
+    calibration.receipt_kind !== 'SELF_CALIBRATION_RECORD_V2' ||
+    calibration.schema_version !== SELF_CALIBRATION_SCHEMA_VERSION_V2 ||
+    calibration.authority !== 'NONE' ||
+    calibration.acceptable_for_effect_truth !== false
+  ) {
+    throw new SelfCalibrationError('V2 calibration record semantics are invalid')
+  }
+  if (calibration.observation_evidence_digest === calibration.prediction_hash) {
+    throw new SelfCalibrationError(
+      'V2 prediction_hash cannot serve as its own observation evidence',
+    )
+  }
+
+  const expectedPredictionHash = await hashValue(
+    predictionBodyV2({
+      action_digest: calibration.action_digest,
+      verifier_claim_id: calibration.verifier_claim_id,
+      predicted_success_bps: calibration.predicted_success_bps,
+    }),
+  )
+  if (expectedPredictionHash !== calibration.prediction_hash) {
+    throw new SelfCalibrationError(
+      'V2 calibration prediction_hash does not match its prediction body',
+    )
+  }
+
+  const expectedArtifactHash = await hashValue({
+    verifier_id: calibration.verifier_id,
+    claim_id: calibration.verifier_claim_id,
+    passed: calibration.observed_success,
+    raw_confidence: calibration.verifier_raw_confidence,
+  })
+  if (expectedArtifactHash !== calibration.observation_evidence_digest) {
+    throw new SelfCalibrationError(
+      'V2 calibration outcome contradicts verifier artifact',
+    )
+  }
+
+  const expectedError = Math.abs(
+    calibration.predicted_success_bps - (calibration.observed_success ? 10_000 : 0),
+  )
+  if (calibration.absolute_error_bps !== expectedError) {
+    throw new SelfCalibrationError(
+      'V2 calibration error does not match bound prediction/outcome',
+    )
+  }
+
+  const expectedHash = await hashValue(calibrationBodyV2(calibration))
+  if (expectedHash !== calibration.calibration_hash) {
+    throw new SelfCalibrationError('V2 calibration body does not match calibration_hash')
+  }
+}
+
 function ledgerEntryBody(
   calibration: SelfCalibrationRecordV1,
   previous_entry_hash: SHA256Hex,
   sequence: SequenceNumber,
 ) {
   return {
+    calibration,
+    previous_entry_hash,
+    sequence: sequence.toString(),
+  }
+}
+
+function ledgerEntryBodyV2(
+  calibration: SelfCalibrationRecordV2,
+  previous_entry_hash: SHA256Hex,
+  sequence: SequenceNumber,
+) {
+  return {
+    receipt_kind: 'SELF_CALIBRATION_LEDGER_ENTRY_V2' as const,
+    schema_version: SELF_CALIBRATION_SCHEMA_VERSION_V2,
     calibration,
     previous_entry_hash,
     sequence: sequence.toString(),
@@ -639,6 +741,62 @@ export class SelfCalibrationLedger {
     })
 
     const ledger = new SelfCalibrationLedger(
+      Object.freeze([...this._entries, entry]),
+      sequence,
+    )
+    return { ledger, entry }
+  }
+}
+
+export class SelfCalibrationLedgerV2 {
+  private constructor(
+    private readonly _entries: readonly SelfCalibrationLedgerEntryV2[],
+    private readonly _lastSequence: SequenceNumber | null,
+  ) {}
+
+  static empty(): SelfCalibrationLedgerV2 {
+    return new SelfCalibrationLedgerV2([], null)
+  }
+
+  get length(): number { return this._entries.length }
+
+  get lastSequence(): SequenceNumber | null { return this._lastSequence }
+
+  get lastHash(): SHA256Hex {
+    return this._entries.length === 0
+      ? SELF_CALIBRATION_GENESIS_HASH_V2
+      : this._entries[this._entries.length - 1]!.entry_hash
+  }
+
+  getAll(): readonly SelfCalibrationLedgerEntryV2[] { return this._entries }
+
+  async append(
+    calibration: SelfCalibrationRecordV2,
+    sequence: SequenceNumber,
+  ): Promise<{ ledger: SelfCalibrationLedgerV2; entry: SelfCalibrationLedgerEntryV2 }> {
+    assertNonNegativeSequence(sequence)
+    if (this._lastSequence !== null && sequence <= this._lastSequence) {
+      throw new SelfCalibrationError(
+        `non-monotonic V2 calibration sequence: ${sequence} <= ${this._lastSequence}`,
+      )
+    }
+
+    await assertCalibrationIntegrityV2(calibration)
+    const previous_entry_hash = this.lastHash
+    const entry_hash = await hashValue(
+      ledgerEntryBodyV2(calibration, previous_entry_hash, sequence),
+    )
+    const entry = deepFreeze<SelfCalibrationLedgerEntryV2>({
+      receipt_kind: 'SELF_CALIBRATION_LEDGER_ENTRY_V2',
+      calibration,
+      previous_entry_hash,
+      sequence,
+      entry_hash,
+      schema_version: SELF_CALIBRATION_SCHEMA_VERSION_V2,
+      is_replay_reconstructable: true,
+    })
+
+    const ledger = new SelfCalibrationLedgerV2(
       Object.freeze([...this._entries, entry]),
       sequence,
     )
@@ -706,6 +864,83 @@ export async function certifySelfCalibrationLedger(
   const certificate_hash = await hashValue(entries.map(entry => entry.entry_hash))
 
   return deepFreeze<SelfCalibrationLedgerCertificate>({
+    is_valid,
+    entry_count: entries.length,
+    terminal_hash,
+    certificate_hash,
+    authority: 'NONE',
+    acceptable_for_effect_truth: false,
+    is_replay_reconstructable: true,
+  })
+}
+
+export async function certifySelfCalibrationLedgerV2(
+  entries: readonly SelfCalibrationLedgerEntryV2[],
+): Promise<SelfCalibrationLedgerCertificateV2> {
+  let is_valid = true
+
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index]!
+    const expectedPrevious = index === 0
+      ? SELF_CALIBRATION_GENESIS_HASH_V2
+      : entries[index - 1]!.entry_hash
+
+    if (entry.sequence < 0n) {
+      is_valid = false
+      break
+    }
+    if (
+      !SHA256_PATTERN.test(entry.previous_entry_hash) ||
+      !SHA256_PATTERN.test(entry.entry_hash)
+    ) {
+      is_valid = false
+      break
+    }
+    if (entry.previous_entry_hash !== expectedPrevious) {
+      is_valid = false
+      break
+    }
+    if (index > 0 && entry.sequence <= entries[index - 1]!.sequence) {
+      is_valid = false
+      break
+    }
+    if (
+      entry.receipt_kind !== 'SELF_CALIBRATION_LEDGER_ENTRY_V2' ||
+      entry.schema_version !== SELF_CALIBRATION_SCHEMA_VERSION_V2 ||
+      entry.is_replay_reconstructable !== true
+    ) {
+      is_valid = false
+      break
+    }
+
+    try {
+      await assertCalibrationIntegrityV2(entry.calibration)
+    } catch {
+      is_valid = false
+      break
+    }
+
+    const expectedHash = await hashValue(
+      ledgerEntryBodyV2(entry.calibration, entry.previous_entry_hash, entry.sequence),
+    )
+    if (expectedHash !== entry.entry_hash) {
+      is_valid = false
+      break
+    }
+  }
+
+  const terminal_hash = entries.length === 0
+    ? null
+    : entries[entries.length - 1]!.entry_hash
+  const certificate_hash = await hashValue({
+    receipt_kind: 'SELF_CALIBRATION_LEDGER_CERTIFICATE_V2',
+    schema_version: SELF_CALIBRATION_SCHEMA_VERSION_V2,
+    entry_hashes: entries.map(entry => entry.entry_hash),
+  })
+
+  return deepFreeze<SelfCalibrationLedgerCertificateV2>({
+    receipt_kind: 'SELF_CALIBRATION_LEDGER_CERTIFICATE_V2',
+    schema_version: SELF_CALIBRATION_SCHEMA_VERSION_V2,
     is_valid,
     entry_count: entries.length,
     terminal_hash,
