@@ -39,6 +39,15 @@ jobs:
           PYTHONPATH: python
         run: python3 -m unittest python.tests.test_coq_attestation -v
 
+      - name: Verify frozen assumption baseline
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s  %s\n' \
+            'c5e491750ad59610d428a6f9537bb0f6395892c45a3e6ec2ad0c460494177c45' \
+            'formal/assumption-baseline-v1.json' | sha256sum -c -
+
       - name: Prepare writable Coq evidence workspace
         shell: bash
         run: |
@@ -139,6 +148,7 @@ jobs:
             --assumptions-root coq-attestation/assumptions \
             --source-commit "$SOURCE_SHA" \
             --coq-version "$COQ_VERSION" \
+            --baseline formal/assumption-baseline-v1.json \
             --out coq-attestation/coq-formal-attestation-receipt.json
           cat coq-attestation/coq-formal-attestation-receipt.json
 
@@ -165,19 +175,32 @@ jobs:
               'Core/LatticeConvergence.v',
               'Core/LockIrreversibility.v',
           }
+          EXPECTED_BASELINE_SHA256 = 'c5e491750ad59610d428a6f9537bb0f6395892c45a3e6ec2ad0c460494177c45'
 
           path = Path('coq-attestation/coq-formal-attestation-receipt.json')
           receipt = json.loads(path.read_text(encoding='utf-8'))
           summary = receipt['summary']
+          baseline = receipt['baseline_diff']
 
+          assert receipt['schema_version'] == '1.1.0'
           assert receipt['receipt_kind'] == 'COQ_FORMAL_ATTESTATION_RECEIPT_V1'
           assert receipt['authority'] == 'FORMAL_MATH_EVIDENCE_ONLY'
+          assert receipt['correspondence'] == 'NOT_ESTABLISHED'
           assert receipt['lean_runtime_status'] == 'NOT_PRESENT_IN_REPO'
           assert summary['file_count'] == 6
           assert summary['compile_failures'] == 0, summary
           assert summary['admitted_sources'] == 0, summary
           assert summary['unrecognized_assumption_outputs'] == 0, summary
+          assert summary['source_axiom_symbols'] == 1, summary
+          assert summary['source_parameter_symbols'] == 7, summary
+          assert summary['assumption_bearing_theorems'] == 1, summary
           assert len(receipt['receipt_sha256']) == 64
+
+          assert baseline['baseline_kind'] == 'COQ_ASSUMPTION_BASELINE_V1'
+          assert baseline['baseline_source_commit'] == '203c11cdb36f82e3d4f4d22993a118b4b870e691'
+          assert baseline['baseline_sha256'] == EXPECTED_BASELINE_SHA256
+          assert baseline['regression'] is False, baseline
+          assert baseline['regression_count'] == 0, baseline
 
           files_by_path = {entry['path']: entry for entry in receipt['files']}
           assert REQUIRE_AXIOM_FREE <= files_by_path.keys(), files_by_path.keys()
@@ -186,18 +209,36 @@ jobs:
               entry = files_by_path[required_path]
               assert entry['compile_status'] == 'COMPILED', entry
               assert entry['attestation'] == 'AXIOM_FREE', entry
+              assert entry['declaration_status'] == 'NO_DECLARED_ASSUMPTIONS', entry
               assert entry['theorem_count'] > 0, entry
               assert entry['admitted_count'] == 0, entry
-              assert entry['axiom_statement_count'] == 0, entry
-              assert entry['parameter_statement_count'] == 0, entry
+              assert entry['axiom_symbol_count'] == 0, entry
+              assert entry['parameter_symbol_count'] == 0, entry
               assert all(
                   theorem['parse_status'] == 'CLOSED'
                   and theorem['closed_under_global_context']
                   and not theorem['assumption_lines']
+                  and not theorem['assumption_symbols']
                   for theorem in entry['theorems']
               ), entry
 
-          for entry in receipt['files']:
-              if entry['axiom_statement_count'] or entry['parameter_statement_count']:
-                  assert entry['attestation'] == 'ASSUMPTION_BEARING', entry
+          threeway = files_by_path['Bisimulation/ThreeWay.v']
+          assert threeway['attestation'] == 'COMPILED_NO_THEOREMS', threeway
+          assert threeway['declaration_status'] == 'DECLARES_ASSUMPTIONS', threeway
+          assert threeway['parameter_statement_count'] == 2, threeway
+          assert threeway['parameter_symbol_count'] == 6, threeway
+          assert threeway['axiom_symbol_count'] == 1, threeway
+
+          hash_file = files_by_path['Core/Hash.v']
+          assert hash_file['attestation'] == 'COMPILED_NO_THEOREMS', hash_file
+          assert hash_file['declaration_status'] == 'DECLARES_ASSUMPTIONS', hash_file
+          assert hash_file['parameter_symbol_count'] == 1, hash_file
+
+          reducer = files_by_path['Core/Reducer.v']
+          assert reducer['attestation'] == 'ASSUMPTION_BEARING', reducer
+          reducer_theorem = next(
+              theorem for theorem in reducer['theorems']
+              if theorem['theorem'] == 'step_deterministic'
+          )
+          assert reducer_theorem['assumption_symbols'] == ['Hash.sha256'], reducer_theorem
           PY
