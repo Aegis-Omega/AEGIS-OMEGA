@@ -2,12 +2,6 @@ name: Coq Formal Attestation
 
 on:
   pull_request:
-    paths:
-      - 'sovereign-omega-v2/formal/**/*.v'
-      - 'sovereign-omega-v2/src/math-verification/**'
-      - 'sovereign-omega-v2/python/coq_attestation.py'
-      - 'sovereign-omega-v2/python/tests/test_coq_attestation.py'
-      - '.github/workflows/coq-formal-attestation.yml'
   workflow_dispatch:
 
 permissions:
@@ -15,7 +9,7 @@ permissions:
 
 concurrency:
   group: coq-formal-attestation-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
