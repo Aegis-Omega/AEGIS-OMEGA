@@ -12,6 +12,7 @@ import {
 } from '../../src/metacognition/self-calibration.js'
 import {
   SelfCalibrationVCGAdmissionError,
+  admitSelfCalibrationV2ToVCGWithReceipt,
   applySelfCalibrationVCGAdmissionReceipt,
   createSelfCalibrationVCGAdmissionReceipt,
 } from '../../src/metacognition/self-calibration-vcg.js'
@@ -140,5 +141,27 @@ describe('self-calibration VCG admission receipt replay', () => {
     ).rejects.toThrow(SelfCalibrationVCGAdmissionError)
 
     expect(tracker.compute(TS).sample_count).toBe(0)
+  })
+
+  it('live admission returns the exact receipt used to mutate VCG', async () => {
+    const verifierId = 'self-cal-vcg-live-receipt-v1'
+    registerVerifier(verifierId, CalibrationDomain.GROUND_TRUTH, 'registry-1.0.0')
+    const calibration = await makeCalibration(verifierId)
+    const tracker = new VCGTracker('self-calibration-live-receipt')
+
+    const result = await admitSelfCalibrationV2ToVCGWithReceipt(
+      tracker,
+      calibration,
+      TS,
+    )
+    const metric = tracker.compute(TS)
+
+    expect(result.status).toBe('ADMITTED')
+    expect(result.receipt.status).toBe('ADMITTED')
+    expect(result.receipt.calibration_hash).toBe(calibration.calibration_hash)
+    expect(result.receipt.verifier_snapshot.verifier_id).toBe(verifierId)
+    expect(result.receipt.receipt_hash).toMatch(/^[0-9a-f]{64}$/)
+    expect(metric.sample_count).toBe(1)
+    expect(metric.weighted_error).toBeCloseTo(0.25, 12)
   })
 })
