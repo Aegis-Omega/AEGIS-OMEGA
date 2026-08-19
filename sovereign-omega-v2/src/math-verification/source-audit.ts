@@ -79,6 +79,7 @@ export function auditFormalSource(kind: FormalSourceKindV1, source: string): For
 
   if (kind === 'COQ') {
     if (/\bAxiom\b/.test(stripped)) forbidden.push('Axiom');
+    if (/\bParameters?\b/.test(stripped)) forbidden.push('Parameter');
     if (/\bAdmitted\b/.test(stripped)) forbidden.push('Admitted');
     if (/\badmit\b/.test(stripped)) forbidden.push('admit');
   } else if (kind === 'LEAN') {
