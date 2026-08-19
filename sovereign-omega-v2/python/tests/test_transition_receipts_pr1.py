@@ -22,11 +22,14 @@ from harness.sdk.sovereign_execution import (  # noqa: E402
     MutationReceipt,
     canonical_hash,
     compute_workspace_binding,
+    git_head,
+    git_remote,
+    load_capability_registry_from_commit,
+    load_policy_from_commit,
 )
 
-HASHES = [f"{index:064x}" for index in range(1, 20)]
-COMMIT = "a" * 40
-REMOTE = "https://github.com/Aegis-Omega/AEGIS-OMEGA.git"
+HASHES = [f"{index:064x}" for index in range(1, 32)]
+SIGNER_PRIVATE = "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60"
 
 
 class TransitionReceiptPR1Tests(TestCase):
@@ -39,7 +42,7 @@ class TransitionReceiptPR1Tests(TestCase):
         api = self.api()
         values = dict(
             schema_version="1.0.0",
-            source_commit=COMMIT,
+            source_commit="a" * 40,
             pre_state_commitment=HASHES[0],
             identity_root=HASHES[1],
             delegation_commitment=HASHES[2],
@@ -74,12 +77,16 @@ class TransitionReceiptPR1Tests(TestCase):
             result_digest=HASHES[9],
         )
 
-    def legacy_receipt(self):
+    def terminal_receipt(self):
+        """Real post-#264 terminal/provenance receipt; still never effect evidence."""
         return MutationReceipt(
             receipt_version=SCHEMA_VERSION,
             execution_identity_root=HASHES[1],
             workspace_binding=HASHES[2],
             policy_decision_root=HASHES[8],
+            authority_receipt_root=HASHES[15],
+            lease_authorization_receipt_root=HASHES[16],
+            durable_execution_root=HASHES[17],
             authority_score="1.000000",
             authority_domain="github:contents",
             action_class=D2,
@@ -95,9 +102,9 @@ class TransitionReceiptPR1Tests(TestCase):
             denial_code="NONE",
         )
 
-    def test_legacy_succeeded_receipt_is_not_effect_evidence(self):
+    def test_terminal_succeeded_receipt_is_not_effect_evidence(self):
         api = self.api()
-        self.assertFalse(api.accept_effect_evidence(self.legacy_receipt()))
+        self.assertFalse(api.accept_effect_evidence(self.terminal_receipt()))
 
     def test_decision_permit_does_not_imply_execution_success(self):
         api = self.api()
@@ -157,20 +164,20 @@ class TransitionReceiptPR1Tests(TestCase):
                 receipt_kind=api.EFFECT_RECEIPT_KIND,
                 transition_id=self.transition().root,
                 execution_instance_id="exec-1",
-                effect_witness_digest=HASHES[15],
+                effect_witness_digest=HASHES[18],
                 pre_state_commitment=HASHES[0],
-                post_state_commitment=HASHES[16],
-                observation_provenance=HASHES[17],
+                post_state_commitment=HASHES[19],
+                observation_provenance=HASHES[20],
                 adapter_identity="generic-caller",
                 adapter_version="1",
             )
         with self.assertRaises(api.TransitionReceiptError):
             api.EffectReceipt().validate()
 
-    def test_missing_effect_receipt_has_no_legacy_fallback(self):
+    def test_missing_effect_receipt_has_no_terminal_fallback(self):
         api = self.api()
         self.assertFalse(api.accept_effect_evidence(None))
-        self.assertFalse(api.accept_effect_evidence(self.legacy_receipt()))
+        self.assertFalse(api.accept_effect_evidence(self.terminal_receipt()))
 
     def test_receipt_kind_is_nominal_and_const_bound(self):
         api = self.api()
@@ -201,55 +208,68 @@ class TransitionReceiptPR1Tests(TestCase):
         }
         self.assertEqual(len(roots), 3)
 
-    def test_legacy_mutation_receipt_remains_reproducible(self):
-        first = self.legacy_receipt()
-        second = self.legacy_receipt()
+    def test_terminal_mutation_receipt_remains_reproducible(self):
+        first = self.terminal_receipt()
+        second = self.terminal_receipt()
         self.assertEqual(first.root, second.root)
 
-    def test_authority_client_emits_decision_receipt_but_no_effect_receipt(self):
+    def test_authority_client_emits_signed_authority_and_separate_decision_receipt_but_no_effect_receipt(self):
         from harness.sdk.authority_client import authorize_from_environment
 
         action = {"operation": "status"}
+        source_commit = git_head(REPO_ROOT)
+        remote = git_remote(REPO_ROOT)
+        _, policy_root = load_policy_from_commit(
+            repository_root=REPO_ROOT,
+            source_commit=source_commit,
+            policy_path="harness/policies/consequence-policy.v1.json",
+        )
+        _, skills_root, registry_root = load_capability_registry_from_commit(
+            repository_root=REPO_ROOT,
+            source_commit=source_commit,
+            skill_tree_path="harness/skill_tree.json",
+            capability_map_path="harness/policies/capability-map.v1.json",
+        )
         approval_reference = "approval-none"
         binding = compute_workspace_binding(
-            repository_remote=REMOTE,
+            repository_remote=remote,
             repository_root=".",
             project_identity="AEGIS-OMEGA",
-            source_commit=COMMIT,
+            source_commit=source_commit,
             operator_authorization=approval_reference,
         )
         identity = ExecutionIdentityEnvelope(
             schema_version=SCHEMA_VERSION,
-            repository_identity=REMOTE,
+            repository_identity=remote,
             repository_root=".",
-            source_commit=COMMIT,
-            branch_or_ref="refs/heads/pr1-test",
+            source_commit=source_commit,
+            branch_or_ref="refs/heads/pr5a-test",
             project_identity="AEGIS-OMEGA",
             workspace_root=".",
             workspace_binding=binding,
             parent_state_root=ZERO_HASH,
-            skills_root=HASHES[1],
-            registry_root=HASHES[2],
-            policy_root=HASHES[3],
+            skills_root=skills_root,
+            registry_root=registry_root,
+            policy_root=policy_root,
             actor_class="operator-agent",
             actor_identity="agent-1",
             model_identity="model-1",
             session_identity="session-1",
             physical_executor="test-runner-1",
             tool_identity="aegis_platform_status",
-            workflow_identity="pr1-test",
+            workflow_identity="pr5a-test",
             authority_domain="mcp:status",
             requested_capability="mcp.platform.status",
             observed_authority="0.000000",
             approval_reference=approval_reference,
-            input_digest=canonical_hash("AEGIS_PR1_TEST_INPUT_V1", {}),
+            input_digest=canonical_hash("AEGIS_PR5A_TEST_INPUT_V1", {}),
             action_digest=canonical_hash("AEGIS_REQUESTED_ACTION_V1", action),
             expected_pre_state=ZERO_HASH,
-            deterministic_nonce="nonce-client-1",
+            deterministic_nonce="nonce-client-pr5a",
         )
         workspace_observation = {
             "actual_cwd": str(REPO_ROOT),
-            "remote_origin": REMOTE,
+            "remote_origin": remote,
             "mutation_target": str(REPO_ROOT),
             "path_views": {},
         }
@@ -258,6 +278,9 @@ class TransitionReceiptPR1Tests(TestCase):
             {
                 "AEGIS_EXECUTION_IDENTITY_JSON": json.dumps(identity.__dict__, sort_keys=True),
                 "AEGIS_WORKSPACE_OBSERVATION_JSON": json.dumps(workspace_observation, sort_keys=True),
+                "AEGIS_TRUSTED_OPERATOR_KEYS_JSON": "{}",
+                "AEGIS_AUTHORITY_ISSUER_KEY_ID": "pr5a-test-authority",
+                "AEGIS_AUTHORITY_SIGNING_KEY_HEX": SIGNER_PRIVATE,
             },
             clear=True,
         ):
@@ -270,10 +293,11 @@ class TransitionReceiptPR1Tests(TestCase):
                 action=action,
             )
         self.assertEqual(result["outcome"], "ADMITTED")
+        self.assertRegex(result["authority_receipt_root"], r"^[0-9a-f]{64}$")
         self.assertEqual(result["decision_receipt"]["receipt_kind"], "DECISION_RECEIPT_V1")
         self.assertEqual(result["decision_receipt"]["decision_outcome"], "PERMIT")
         self.assertEqual(result["transition_id"], result["decision_receipt"]["transition_id"])
-        self.assertEqual(result["legacy_receipt_semantics"], "DECISION_DERIVED_NOT_EFFECT_PROOF")
+        self.assertNotIn("mutation_receipt", result)
         self.assertNotIn("effect_receipt", result)
 
 
