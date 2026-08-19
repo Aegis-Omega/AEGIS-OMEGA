@@ -1,0 +1,78 @@
+name: Khatt Crate Export Reconcile
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/khatt-lib-export-reconcile.yml'
+
+# Creates only an unattached Git commit proposal. It never updates a ref.
+permissions:
+  contents: write
+
+jobs:
+  construct-export-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 1
+
+      - name: Construct unattached crate-export commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import base64, json, os, subprocess, urllib.request
+          from pathlib import Path
+
+          repo = os.environ['REPOSITORY']
+          token = os.environ['GH_TOKEN']
+          candidate = os.environ['CANDIDATE_SHA']
+          actual = subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip()
+          if actual != candidate:
+              raise SystemExit(f'STALE_HEAD: expected={candidate} actual={actual}')
+
+          path = Path('aegis-cl-psi/src/lib.rs')
+          text = path.read_text(encoding='utf-8')
+          needle = '// Gate 215 — Abjad Letter Encoder (T2, letter→integer routing via Abjad values, طارق=310)\npub mod abjad_encoder;\n'
+          addition = needle + '\n// Khatt–Abjad v0.1 — untrusted calligraphic evidence → deterministic Gate 215 bridge (T2)\npub mod arabic_abjad;\npub mod abjad_capability_bridge;\n'
+          if 'pub mod abjad_capability_bridge;' in text or 'pub mod arabic_abjad;' in text:
+              raise SystemExit('EXPORT_ALREADY_PRESENT')
+          if text.count(needle) != 1:
+              raise SystemExit('GATE_215_EXPORT_ANCHOR_NOT_UNIQUE')
+          updated = text.replace(needle, addition, 1).encode('utf-8')
+          base_tree = subprocess.check_output(['git','rev-parse','HEAD^{tree}'], text=True).strip()
+
+          api = f'https://api.github.com/repos/{repo}/git'
+          headers = {'Authorization': f'Bearer {token}', 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28', 'Content-Type':'application/json'}
+          def post(endpoint, payload):
+              req = urllib.request.Request(f'{api}/{endpoint}', data=json.dumps(payload,separators=(',',':')).encode(), headers=headers, method='POST')
+              with urllib.request.urlopen(req) as response:
+                  return json.load(response)
+
+          blob = post('blobs', {'content': base64.b64encode(updated).decode(), 'encoding':'base64'})
+          tree = post('trees', {'base_tree': base_tree, 'tree': [
+              {'path':'aegis-cl-psi/src/lib.rs','mode':'100644','type':'blob','sha':blob['sha']},
+              {'path':'.github/workflows/khatt-lib-export-reconcile.yml','mode':'100644','type':'blob','sha':None},
+          ]})
+          commit = post('commits', {'message':'feat(language): export Khatt-Abjad bridge from CL-Ψ','tree':tree['sha'],'parents':[candidate]})
+          proposal = {'record_kind':'KHATT_CRATE_EXPORT_PROPOSAL_V1','parent_sha':candidate,'proposed_commit_sha':commit['sha'],'tree_sha':tree['sha'],'lib_blob_sha':blob['sha'],'ref_updated':False}
+          Path('khatt-export-proposal.json').write_text(json.dumps(proposal, indent=2, sort_keys=True)+'\n', encoding='utf-8')
+          print(json.dumps(proposal, sort_keys=True))
+          PY
+
+      - name: Upload proposal
+        uses: actions/upload-artifact@v4
+        with:
+          name: khatt-export-reconciliation-${{ env.CANDIDATE_SHA }}
+          path: khatt-export-proposal.json
+          if-no-files-found: error
+          retention-days: 7
