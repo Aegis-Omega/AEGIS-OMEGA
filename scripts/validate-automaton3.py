@@ -17,6 +17,7 @@ KEY_FILES = (
     "harness/sdk/sovereign_execution.py",
     "harness/sdk/authority_client.py",
     "harness/sdk/transition_receipts.py",
+    "harness/sdk/effect_adapters.py",
     "harness/sdk/operator_visibility.py",
     "harness/policies/consequence-policy.v1.json",
     "harness/policies/capability-map.v1.json",
@@ -30,12 +31,14 @@ KEY_FILES = (
     "sovereign-omega-v2/python/tests/test_operator_visibility.py",
     "sovereign-omega-v2/python/tests/test_transition_receipts_pr1.py",
     "sovereign-omega-v2/python/tests/test_transition_receipts_cli_pr1.py",
+    "sovereign-omega-v2/python/tests/test_effect_adapters_pr2.py",
     "schemas/execution-identity-envelope.v1.schema.json",
     "schemas/transition-identity-envelope.v1.schema.json",
     "schemas/mutation-receipt.v1.schema.json",
     "schemas/decision-receipt.v1.schema.json",
     "schemas/execution-receipt.v1.schema.json",
     "schemas/effect-receipt.v1.schema.json",
+    "schemas/effect-witness.v1.schema.json",
     "schemas/event-envelope.v1.schema.json",
     "schemas/writer-lease.v1.schema.json",
     "docs/adr/ADR-0021-automaton-3-sovereign-execution.md",
@@ -55,7 +58,18 @@ REQUIRED_REPOSITORY_CONTROLS = (
     "scripts/integration_ledger.py",
 )
 
-EXPECTED_TEST_COUNT = 58
+EXPECTED_TEST_COUNT = 75
+PR2_REQUIRED_ASSERTIONS = (
+    "pr2_effect_adapter_protocol_asserted",
+    "pr2_filesystem_effect_adapter_asserted",
+    "pr2_independent_pre_post_observation_asserted",
+    "pr2_adapter_bound_effect_receipt_production_asserted",
+    "pr2_authorization_artifact_effect_evidence_forbidden_asserted",
+    "pr2_caller_post_state_effect_authority_forbidden_asserted",
+    "pr2_complete_verification_unavailable_asserted",
+    "pr2_atomic_admission_unavailable_asserted",
+    "pr2_effect_bound_admission_unavailable_asserted",
+)
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -108,9 +122,7 @@ def evaluate(
 
     try:
         policy_raw = json.loads(
-            (ROOT / "harness/policies/consequence-policy.v1.json").read_text(
-                encoding="utf-8"
-            )
+            (ROOT / "harness/policies/consequence-policy.v1.json").read_text(encoding="utf-8")
         )
         classes = policy_raw["classes"]
         if sorted(classes) != ["D0", "D1", "D2", "D3", "D4"]:
@@ -146,23 +158,24 @@ def evaluate(
         if summary.get("state_preservation_asserted") is not True:
             violations.append("state preservation not asserted")
         if summary.get("external_side_effect_absence_asserted") is not True:
-            violations.append("external side-effect absence not asserted")
-        if summary.get("pr1_safe_incompleteness_asserted") is not True:
-            violations.append("PR-1 safe incompleteness not asserted")
+            violations.append("uncontrolled external side-effect absence not asserted")
         if summary.get("transition_binding_asserted") is not True:
-            violations.append("PR-1 transition binding not asserted")
+            violations.append("transition binding not asserted")
         if summary.get("receipt_separation_asserted") is not True:
-            violations.append("PR-1 receipt separation not asserted")
+            violations.append("receipt separation not asserted")
         if summary.get("effect_receipt_schema_defined") is not True:
-            violations.append("PR-1 effect receipt schema not defined")
-        if summary.get("valid_effect_receipt_production_unavailable_asserted") is not True:
-            violations.append("PR-1 valid effect receipt production is not fail-closed unavailable")
+            violations.append("effect receipt schema not defined")
+        if summary.get("generic_effect_receipt_production_forbidden_asserted") is not True:
+            violations.append("generic effect receipt production is not forbidden")
         if summary.get("legacy_receipt_effect_evidence_forbidden_asserted") is not True:
             violations.append("legacy mutation receipt may satisfy effect evidence")
         if summary.get("legacy_fallback_forbidden_asserted") is not True:
             violations.append("legacy effect-evidence fallback not forbidden")
         if summary.get("effect_bound_admission_unavailable_asserted") is not True:
-            violations.append("PR-1 effect-bound admission availability exceeds scope")
+            violations.append("effect-bound admission availability exceeds PR-2 scope")
+        for key in PR2_REQUIRED_ASSERTIONS:
+            if summary.get(key) is not True:
+                violations.append(f"PR-2 assertion missing or false: {key}")
         test_summary_root = summary.get("summary_root", "0" * 64)
     except Exception as exc:
         violations.append(f"test summary unavailable: {type(exc).__name__}")
@@ -185,6 +198,10 @@ def evaluate(
         ("scripts/automaton3-authority.py", "decision_receipt_from_policy"),
         ("harness/sdk/transition_receipts.py", "DECISION_RECEIPT_V1"),
         ("harness/sdk/transition_receipts.py", "EFFECT_RECEIPT_V1"),
+        ("harness/sdk/transition_receipts.py", "_issue_adapter_bound_effect_receipt"),
+        ("harness/sdk/effect_adapters.py", "FilesystemEffectAdapter"),
+        ("harness/sdk/effect_adapters.py", "AEGIS_EFFECT_WITNESS_V1"),
+        ("harness/sdk/effect_adapters.py", "does not establish VerifyTransition or admission"),
         (".github/workflows/automaton-3.yml", "aegis / automaton-3"),
     )
     for rel, needle in integration_expectations:
@@ -192,13 +209,12 @@ def evaluate(
         if path.is_file() and needle not in path.read_text(encoding="utf-8"):
             violations.append(f"integration missing: {rel}:{needle}")
 
-    prohibited = re.compile(
-        r"fail[- ]open|temporary bypass|silent fallback", re.IGNORECASE
-    )
+    prohibited = re.compile(r"fail[- ]open|temporary bypass|silent fallback", re.IGNORECASE)
     for rel in (
         "harness/sdk/sovereign_execution.py",
         "harness/sdk/authority_client.py",
         "harness/sdk/transition_receipts.py",
+        "harness/sdk/effect_adapters.py",
         "harness/sdk/operator_visibility.py",
         "agents/coordinator.py",
         "sovereign-omega-v2/mcp-server/src/index.ts",
@@ -226,9 +242,7 @@ def evaluate(
         "mcp_log_root": mcp_log_root,
         "files": files,
     }
-    candidate_manifest["candidate_manifest_root"] = sha256(
-        canonical_bytes(candidate_manifest)
-    )
+    candidate_manifest["candidate_manifest_root"] = sha256(canonical_bytes(candidate_manifest))
 
     violations = sorted(set(violations))
     body = {
@@ -247,12 +261,7 @@ def evaluate(
     }
     receipt = dict(body)
     receipt["receipt_hash"] = sha256(
-        canonical_bytes(
-            {
-                "domain": "AEGIS_AUTOMATON3_ADMISSION_RECEIPT_V1",
-                "receipt": body,
-            }
-        )
+        canonical_bytes({"domain": "AEGIS_AUTOMATON3_ADMISSION_RECEIPT_V1", "receipt": body})
     )
     return receipt, candidate_manifest
 
@@ -275,13 +284,11 @@ def main() -> int:
         require_oidc=args.require_oidc,
     )
     Path(args.receipt_output).write_text(
-        json.dumps(receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        + "\n",
+        json.dumps(receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
         encoding="utf-8",
     )
     Path(args.manifest_output).write_text(
-        json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        + "\n",
+        json.dumps(manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n",
         encoding="utf-8",
     )
     print(json.dumps(receipt, indent=2, sort_keys=True))
