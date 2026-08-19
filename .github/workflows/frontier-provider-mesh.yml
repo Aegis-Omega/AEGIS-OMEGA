@@ -61,7 +61,7 @@ jobs:
         run: python -m unittest discover -s platform/sol/tests -p 'test_frontier_*.py' -v
 
       - name: Preserve INT4 LUT-KAN replay parity
-        run: python agents/tests/test_lut_kan_parity.py
+        run: PYTHONPATH=. python agents/tests/test_lut_kan_parity.py
 
       - name: Parse canonical JSON contracts
         run: |
