@@ -3,8 +3,8 @@
 Turns the existing governed coordinator into a persistent company loop. It does
 not grant new authority. D1/D2 work may enter the existing Automaton-3-gated
 dispatcher; D3 waits for explicit operator approval; D4 is denied. Provider
-contributions are recorded as non-authoritative evidence and cannot promote a
-work order by themselves. State is persisted with a hash-chained journal.
+contributions are content-addressed, recorded as non-authoritative evidence, and
+cannot promote a work order by themselves. State uses an append-only hash chain.
 """
 from __future__ import annotations
 
@@ -23,8 +23,11 @@ from typing import Any, Awaitable, Callable, Iterable
 GENESIS = "0" * 64
 STORE_VERSION = "AEGIS_ORGANISM_STORE_V1"
 JOURNAL_DOMAIN = "AEGIS_ORGANISM_JOURNAL_V1"
+CONTRIBUTION_SCHEMA = "AEGIS_PROVIDER_CONTRIBUTION_ARTIFACT_V1"
+MAX_TEXT_CONTRIBUTION_BYTES = 262_144
 _IDENTITY_RE = re.compile(r"^[A-Za-z0-9._:/@+\-]{1,128}$")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_ALLOWED_TEXT_MEDIA = frozenset({"text/plain", "text/markdown", "application/json"})
 
 
 class WorkStatus(str, Enum):
@@ -90,6 +93,63 @@ def _hash_event(prev: str, seq: int, event_type: str, body: dict[str, Any]) -> s
     return h.hexdigest()
 
 
+def _atomic_write(path: Path, data: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+
+class ContributionArtifactStore:
+    """Content-addressed text evidence. Artifact existence never grants authority."""
+
+    def __init__(self, root: str | Path):
+        self.root = Path(root)
+
+    def put_text(self, text: str, *, media_type: str = "text/markdown") -> dict[str, Any]:
+        if media_type not in _ALLOWED_TEXT_MEDIA:
+            raise ValueError("CONTRIBUTION_MEDIA_TYPE_INVALID")
+        raw = text.encode("utf-8")
+        if not raw:
+            raise ValueError("CONTRIBUTION_EMPTY")
+        if len(raw) > MAX_TEXT_CONTRIBUTION_BYTES:
+            raise ValueError("CONTRIBUTION_TOO_LARGE")
+        digest = hashlib.sha256(raw).hexdigest()
+        path = self.root / digest[:2] / f"{digest}.json"
+        record = {
+            "schema_version": CONTRIBUTION_SCHEMA,
+            "sha256": digest,
+            "media_type": media_type,
+            "byte_length": len(raw),
+            "content": text,
+            "authority": "NON_AUTHORITATIVE_EVIDENCE",
+        }
+        rendered = json.dumps(record, sort_keys=True, indent=2, ensure_ascii=False)
+        if path.exists():
+            existing = json.loads(path.read_text(encoding="utf-8"))
+            if existing != record:
+                raise ValueError("CONTRIBUTION_CONTENT_ADDRESS_COLLISION")
+        else:
+            _atomic_write(path, rendered)
+        return {**record, "artifact_path": str(path)}
+
+    def get(self, digest: str) -> dict[str, Any]:
+        if not _SHA256_RE.fullmatch(digest):
+            raise ValueError("ARTIFACT_DIGEST_INVALID")
+        path = self.root / digest[:2] / f"{digest}.json"
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if record.get("sha256") != digest or hashlib.sha256(str(record.get("content", "")).encode("utf-8")).hexdigest() != digest:
+            raise ValueError("CONTRIBUTION_ARTIFACT_TAMPER_DETECTED")
+        return record
+
+
 class OrganismStore:
     def __init__(self, path: str | Path):
         self.path = Path(path)
@@ -113,18 +173,7 @@ class OrganismStore:
             prev = expected
 
     def _persist(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        data = json.dumps(self._state, sort_keys=True, indent=2, ensure_ascii=False)
-        fd, tmp = tempfile.mkstemp(prefix=self.path.name + ".", suffix=".tmp", dir=str(self.path.parent))
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(data)
-                f.flush()
-                os.fsync(f.fileno())
-            os.replace(tmp, self.path)
-        finally:
-            if os.path.exists(tmp):
-                os.unlink(tmp)
+        _atomic_write(self.path, json.dumps(self._state, sort_keys=True, indent=2, ensure_ascii=False))
 
     def _append(self, event_type: str, body: dict[str, Any]) -> None:
         journal = self._state["journal"]
@@ -150,9 +199,10 @@ class OrganismStore:
 
 
 class OrganizationOrganism:
-    def __init__(self, store: OrganismStore, dispatcher: Dispatcher | None = None):
+    def __init__(self, store: OrganismStore, dispatcher: Dispatcher | None = None, contribution_store: ContributionArtifactStore | None = None):
         self.store = store
         self.dispatcher = dispatcher or self._default_dispatcher
+        self.contribution_store = contribution_store or ContributionArtifactStore(store.path.parent / "contributions")
 
     @staticmethod
     async def _default_dispatcher(event_type: str, payload: dict[str, Any]):
@@ -167,6 +217,11 @@ class OrganizationOrganism:
         if order is None:
             raise KeyError(work_id)
         return order
+
+    def next_work(self, *, limit: int = 10) -> list[WorkOrder]:
+        if limit < 1 or limit > 100:
+            raise ValueError("NEXT_WORK_LIMIT_INVALID")
+        return [w for w in self.orders() if w.status == WorkStatus.QUEUED][:limit]
 
     def submit(self, work_id: str, event_type: str, payload: dict[str, Any], *, consequence_class: str, max_attempts: int = 3) -> WorkOrder:
         existing = self.store.get(work_id)
@@ -216,6 +271,11 @@ class OrganizationOrganism:
         )
         return contribution_ref
 
+    def contribute_text(self, work_id: str, *, provider: str, model: str, text: str, source_ref: str, media_type: str = "text/markdown") -> dict[str, Any]:
+        artifact = self.contribution_store.put_text(text, media_type=media_type)
+        ref = self.record_contribution(work_id, provider=provider, model=model, artifact_digest=artifact["sha256"], source_ref=source_ref)
+        return {"contribution_ref": ref, "artifact": artifact, "authority": "NON_AUTHORITATIVE_EVIDENCE", "work": self.get(work_id).to_dict()}
+
     def operator_inbox(self) -> list[WorkOrder]:
         return [w for w in self.orders() if w.status == WorkStatus.WAITING_OPERATOR]
 
@@ -232,10 +292,8 @@ class OrganizationOrganism:
         return True
 
     def _next_queued(self) -> WorkOrder | None:
-        for order in self.orders():
-            if order.status == WorkStatus.QUEUED:
-                return order
-        return None
+        items = self.next_work(limit=1)
+        return items[0] if items else None
 
     async def tick(self) -> WorkOrder | None:
         order = self._next_queued()
@@ -304,6 +362,8 @@ def main() -> None:
     p_submit.add_argument("--event", required=True)
     p_submit.add_argument("--payload", default="{}")
     p_submit.add_argument("--consequence", default="D1")
+    p_next = sub.add_parser("next")
+    p_next.add_argument("--limit", type=int, default=10)
     sub.add_parser("tick")
     p_run = sub.add_parser("run")
     p_run.add_argument("--max-ticks", type=int, default=100)
@@ -317,12 +377,15 @@ def main() -> None:
     p_contrib.add_argument("--model", required=True)
     p_contrib.add_argument("--artifact-digest", required=True)
     p_contrib.add_argument("--source-ref", required=True)
+    sub.add_parser("contribute-json")
     sub.add_parser("status")
     args = parser.parse_args()
 
     org = OrganizationOrganism(OrganismStore(default_store_path()))
     if args.command == "submit":
         print(json.dumps(org.submit(args.id, args.event, json.loads(args.payload), consequence_class=args.consequence).to_dict(), sort_keys=True))
+    elif args.command == "next":
+        print(json.dumps([w.to_dict() for w in org.next_work(limit=args.limit)], sort_keys=True))
     elif args.command == "tick":
         result = asyncio.run(org.tick())
         print(json.dumps(result.to_dict() if result else {"status": "IDLE"}, sort_keys=True))
@@ -335,6 +398,13 @@ def main() -> None:
     elif args.command == "contribute":
         ref = org.record_contribution(args.id, provider=args.provider, model=args.model, artifact_digest=args.artifact_digest, source_ref=args.source_ref)
         print(json.dumps({"contribution_ref": ref, "authority": "NON_AUTHORITATIVE_EVIDENCE", "work": org.get(args.id).to_dict()}, sort_keys=True))
+    elif args.command == "contribute-json":
+        body = json.loads(__import__("sys").stdin.read())
+        result = org.contribute_text(
+            body["work_id"], provider=body["provider"], model=body["model"], text=body["text"],
+            source_ref=body["source_ref"], media_type=body.get("media_type", "text/markdown"),
+        )
+        print(json.dumps(result, sort_keys=True))
     elif args.command == "status":
         print(json.dumps({"orders": [w.to_dict() for w in org.orders()], "journal_length": len(org.store.journal())}, sort_keys=True))
 
