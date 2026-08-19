@@ -10,16 +10,10 @@
   },
   "workflows": {
     ".github/workflows/automaton-2.yml": {
-      "allowed_permissions": ["contents", "id-token"],
-      "may_git_push": true,
-      "authority_domain": "governance:anchor-promotion",
-      "lease_fencing_required": true
-    },
-    ".github/workflows/cognitive-manifest-refresh.yml": {
-      "allowed_permissions": ["contents"],
-      "may_git_push": true,
-      "authority_domain": "governance:cognitive-manifest",
-      "lease_fencing_required": true
+      "allowed_permissions": ["id-token"],
+      "may_git_push": false,
+      "authority_domain": "governance:anchor-verification",
+      "lease_fencing_required": false
     },
     ".github/workflows/automaton-3.yml": {
       "allowed_permissions": ["id-token"],
@@ -34,6 +28,12 @@
       "lease_fencing_required": false
     },
     ".github/workflows/deploy-cloud-run.yml": {
+      "allowed_permissions": ["id-token"],
+      "may_git_push": false,
+      "authority_domain": "deployment:gcp-cloud-run",
+      "lease_fencing_required": false
+    },
+    ".github/workflows/deploy.yml": {
       "allowed_permissions": ["id-token"],
       "may_git_push": false,
       "authority_domain": "deployment:gcp-cloud-run",
