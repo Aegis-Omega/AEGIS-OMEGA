@@ -37,7 +37,7 @@ jobs:
         working-directory: sovereign-omega-v2
         env:
           PYTHONPATH: python
-        run: python3 -m unittest python.tests.test_coq_attestation -v
+        run: python3 -m unittest python.tests.test_coq_attestation python.tests.test_coq_attestation_regressions -v
 
       - name: Verify frozen assumption baseline
         working-directory: sovereign-omega-v2
