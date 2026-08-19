@@ -4,6 +4,7 @@ import type { SHA256Hex, SequenceNumber } from '../../src/core/types.js'
 import {
   SelfCalibrationError,
   SelfCalibrationLedger,
+  calibrationToMetacognitiveObservation,
   createSelfCalibration,
   createSelfOutcomeObservation,
   createSelfPrediction,
@@ -67,6 +68,15 @@ describe('self-calibration adversarial integrity', () => {
 
     await expect(
       SelfCalibrationLedger.empty().append(forged, SEQ1),
+    ).rejects.toThrow(SelfCalibrationError)
+  })
+
+  it('rejects forged calibration before it can enter SELF_MODEL observation', async () => {
+    const valid = await makeCalibration()
+    const forged = await rehashCalibration(valid, { prediction_hash: FORGED })
+
+    await expect(
+      calibrationToMetacognitiveObservation(forged),
     ).rejects.toThrow(SelfCalibrationError)
   })
 })
