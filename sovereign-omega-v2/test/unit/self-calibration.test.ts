@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { SHA256Hex, SequenceNumber } from '../../src/core/types.js'
 import {
+  MetacognitiveLoop,
+  certifyMetacognitiveLoop,
+} from '../../src/metacognition/loop.js'
+import {
   SELF_CALIBRATION_GENESIS_HASH,
   SelfCalibrationError,
   SelfCalibrationLedger,
+  calibrationToMetacognitiveObservation,
   certifySelfCalibrationLedger,
   createSelfCalibration,
   createSelfOutcomeObservation,
@@ -245,5 +250,24 @@ describe('self-calibration ledger', () => {
       e2!,
     ]
     expect((await certifySelfCalibrationLedger(badHash)).is_valid).toBe(false)
+  })
+})
+
+
+describe('self-calibration metacognitive bridge', () => {
+  it('emits exactly SELF_MODEL/T2 evidence and replays in the existing metacognitive loop', async () => {
+    const calibration = await makeCalibration(H1, H2, 7500, true)
+    const observation = calibrationToMetacognitiveObservation(calibration)
+
+    expect(observation.layer).toBe('SELF_MODEL')
+    expect(observation.tier).toBe('T2')
+    expect(observation.signal).toContain(calibration.calibration_hash)
+    expect(Object.keys(observation).sort()).toEqual(['layer', 'signal', 'tier'])
+
+    const { loop } = await MetacognitiveLoop.empty().observe(observation, SEQ(1))
+    const certificate = await certifyMetacognitiveLoop(loop.getAll())
+
+    expect(certificate.is_valid).toBe(true)
+    expect(certificate.entry_count).toBe(1)
   })
 })
