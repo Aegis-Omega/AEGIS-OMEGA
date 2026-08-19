@@ -128,16 +128,25 @@ describe('formal source audit over existing AEGIS proof substrate', () => {
     }
   });
 
-  test('current ThreeWay Coq bisimulation scaffold is not strict-proof eligible because it contains an Axiom', () => {
+  test('current ThreeWay Coq bisimulation scaffold is not strict-proof eligible because it contains an Axiom and Parameters', () => {
     const source = readFileSync(path.join(root, 'Bisimulation/ThreeWay.v'), 'utf8');
     const audit = auditFormalSource('COQ', source);
     expect(audit.strict_eligible).toBe(false);
     expect(audit.forbidden_tokens).toContain('Axiom');
+    expect(audit.forbidden_tokens).toContain('Parameter');
   });
 
-  test('Coq Admitted/admit and Lean sorry/admit are rejected while ordinary theorem text is accepted', () => {
+  test('current Hash Coq source is assumption-bearing because sha256 is a Parameter', () => {
+    const source = readFileSync(path.join(root, 'Core/Hash.v'), 'utf8');
+    const audit = auditFormalSource('COQ', source);
+    expect(audit.strict_eligible).toBe(false);
+    expect(audit.forbidden_tokens).toEqual(['Parameter']);
+  });
+
+  test('Coq Axiom/Parameter/Admitted/admit and Lean sorry/admit are rejected while ordinary theorem text is accepted', () => {
     expect(auditFormalSource('COQ', 'Theorem t : True. Proof. exact I. Qed.').strict_eligible).toBe(true);
     expect(auditFormalSource('COQ', 'Axiom x : False.').strict_eligible).toBe(false);
+    expect(auditFormalSource('COQ', 'Parameter x : nat.').strict_eligible).toBe(false);
     expect(auditFormalSource('COQ', 'Theorem t : True. Admitted.').strict_eligible).toBe(false);
     expect(auditFormalSource('COQ', 'Theorem t : True. admit.').strict_eligible).toBe(false);
     expect(auditFormalSource('LEAN', 'theorem t : True := by trivial').strict_eligible).toBe(true);
