@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.dev/schemas/collective/durable-provider-claim-lease-v1.schema.json",
+  "title": "DurableProviderClaimLeaseV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "claim_kind",
+    "graph_id",
+    "work_node_id",
+    "owner_identity",
+    "generation",
+    "fencing_token",
+    "issued_ms",
+    "expires_ms",
+    "intent_digest",
+    "policy_commitment",
+    "authority_epoch",
+    "target_commitment",
+    "pre_state_commitment",
+    "authority"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "claim_kind": {
+      "const": "DURABLE_PROVIDER_CLAIM_LEASE_V1"
+    },
+    "graph_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "work_node_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "owner_identity": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:/@+\\-]{1,128}$"
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "fencing_token": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "issued_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "expires_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "intent_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "policy_commitment": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "authority_epoch": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "target_commitment": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "pre_state_commitment": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "authority": {
+      "const": "SCHEDULING_LEASE_ONLY"
+    }
+  }
+}
