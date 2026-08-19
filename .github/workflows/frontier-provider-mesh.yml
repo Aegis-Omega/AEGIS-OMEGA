@@ -61,7 +61,7 @@ jobs:
         run: python -m unittest discover -s platform/sol/tests -p 'test_frontier_*.py' -v
 
       - name: Preserve INT4 LUT-KAN replay parity
-        run: python -m unittest agents.tests.test_lut_kan_parity -v
+        run: python agents/tests/test_lut_kan_parity.py
 
       - name: Parse canonical JSON contracts
         run: |
@@ -94,7 +94,41 @@ jobs:
       - name: Reject obvious committed credential material in frontier slice
         shell: bash
         run: |
-          if grep -RInE --exclude='*.md' --exclude='*.yml' '(sk-[A-Za-z0-9_-]{16,}|Bearer[[:space:]]+[A-Za-z0-9._-]{16,}|api[_-]?key[[:space:]]*=[[:space:]]*["'"'][^"'"']{12,})' platform/sol/frontier agents/cognitive_pipeline_auditbound.py sovereign-omega-v2/src/api/frontier-*.ts sovereign-omega-v2/src/sensorium; then
-            echo 'credential-like material detected in frontier/Sensorium slice' >&2
-            exit 1
-          fi
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          roots = [
+              Path('platform/sol/frontier'),
+              Path('sovereign-omega-v2/src/sensorium'),
+          ]
+          files = [
+              Path('agents/cognitive_pipeline_auditbound.py'),
+              *sorted(Path('sovereign-omega-v2/src/api').glob('frontier-*.ts')),
+          ]
+          for root in roots:
+              files.extend(
+                  path for path in sorted(root.rglob('*'))
+                  if path.is_file() and path.suffix not in {'.md', '.yml', '.yaml'}
+              )
+
+          patterns = (
+              re.compile(r'sk-[A-Za-z0-9_-]{16,}'),
+              re.compile(r'Bearer\s+[A-Za-z0-9._-]{16,}'),
+              re.compile(r'''api[_-]?key\s*=\s*["'][^"']{12,}''', re.IGNORECASE),
+          )
+          matches = []
+          for path in sorted(set(files)):
+              if not path.is_file() or path.suffix in {'.md', '.yml', '.yaml'}:
+                  continue
+              text = path.read_text(encoding='utf-8', errors='replace')
+              if any(pattern.search(text) for pattern in patterns):
+                  matches.append(path.as_posix())
+
+          if matches:
+              for match in matches:
+                  print(f'credential-like material detected: {match}', file=sys.stderr)
+              raise SystemExit(1)
+          print('CREDENTIAL_SCAN=PASS')
+          PY
