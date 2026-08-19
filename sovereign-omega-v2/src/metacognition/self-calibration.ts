@@ -519,7 +519,7 @@ export async function createSelfCalibrationV2(
     authority: 'NONE' as const,
     acceptable_for_effect_truth: false as const,
   }
-  const calibration_hash = await hashValue(body)
+  const calibration_hash = await hashValue(calibrationBodyV2(body))
 
   return deepFreeze<SelfCalibrationRecordV2>({
     ...body,
