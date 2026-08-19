@@ -19,11 +19,12 @@ import {
   type ActionClass,
   type VerifiedAuthorityDecision,
 } from './authority-response.js'
+import { OrganismClientError, readOrganismStatus, recordProviderContribution } from './organism-client.js'
 
 const BRIDGE = (process.env['AEGIS_BRIDGE_URL'] ?? 'http://localhost:7890').replace(/\/$/, '')
 const API_KEY = process.env['AEGIS_API_KEY'] ?? ''
 
-const server = new McpServer({ name: 'aegis-constitutional-swarm', version: '0.2.0' })
+const server = new McpServer({ name: 'aegis-constitutional-swarm', version: '0.3.0' })
 
 async function bridgeGet(path: string, apiKey = false): Promise<unknown> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -109,13 +110,7 @@ function authorizeAction(input: {
   }
   let bindings
   try {
-    bindings = buildAuthorityResponseBindings(
-      identity,
-      input,
-      boundWorkspace,
-      root,
-      trustedAuthorityKeys,
-    )
+    bindings = buildAuthorityResponseBindings(identity, input, boundWorkspace, root, trustedAuthorityKeys)
   } catch (error) {
     return localDenial(error instanceof AuthorityResponseError ? error.code : 'EXECUTION_IDENTITY_MALFORMED')
   }
@@ -149,13 +144,7 @@ function authorizeAction(input: {
     env: process.env, timeout: 15_000, maxBuffer: 1_048_576,
   })
   try {
-    return parseAuthorityProcessResult({
-      status: result.status,
-      signal: result.signal,
-      stdout: result.stdout,
-      stderr: result.stderr,
-      error: result.error,
-    }, bindings)
+    return parseAuthorityProcessResult({ status: result.status, signal: result.signal, stdout: result.stdout, stderr: result.stderr, error: result.error }, bindings)
   } catch (error) {
     return localDenial(error instanceof AuthorityResponseError ? error.code : 'AUTHORITY_RESPONSE_MALFORMED')
   }
@@ -170,12 +159,7 @@ function denialResponse(decision: DeniedAuthorityDecision): { content: Array<{ t
 }
 
 function terminalAdapterUnavailable(authority: VerifiedAuthorityDecision) {
-  return text({
-    authority,
-    outcome: 'DENIED',
-    denial_codes: ['TERMINAL_EXECUTION_ADAPTER_UNAVAILABLE'],
-    external_effect: 'NOT_EXECUTED',
-  })
+  return text({ authority, outcome: 'DENIED', denial_codes: ['TERMINAL_EXECUTION_ADAPTER_UNAVAILABLE'], external_effect: 'NOT_EXECUTED' })
 }
 
 server.tool('aegis_health', 'Check AEGIS constitutional health: t0_verdict, corruption_count, hash chain status.', {}, async () => {
@@ -191,6 +175,38 @@ server.tool('aegis_platform_status', 'Get AEGIS platform status through a D0 aut
   if (isDenied(authority)) return denialResponse(authority)
   return text({ authority, result: await bridgeGet('/platform/status', true) })
 })
+
+server.tool('aegis_organism_status', 'Read the durable AEGIS organization work ledger. Read-only; provider outputs remain non-authoritative.', {}, async () => {
+  const authority = authorizeAction({ actionClass: 'D0', authorityDomain: 'organism:read', requestedCapability: 'mcp.organism.status', tool: 'aegis_organism_status', target: '.aegis/runtime/organism.json', action: { operation: 'read-organism-status' } })
+  if (isDenied(authority)) return denialResponse(authority)
+  try { return text({ authority, organism: readOrganismStatus(repoRoot()) }) }
+  catch (error) { return text({ authority, outcome: 'ERROR', code: error instanceof OrganismClientError ? error.code : 'ORGANISM_STATUS_ERROR' }) }
+})
+
+server.tool(
+  'aegis_contribute',
+  'Attach a provider/model artifact digest to an existing AEGIS work order. This records NON_AUTHORITATIVE_EVIDENCE only and cannot approve, verify, or admit the work.',
+  {
+    work_id: z.string().regex(/^[A-Za-z0-9._:/@+\-]{1,128}$/),
+    provider: z.string().regex(/^[A-Za-z0-9._:/@+\-]{1,128}$/),
+    model: z.string().regex(/^[A-Za-z0-9._:/@+\-]{1,128}$/),
+    artifact_digest: z.string().regex(/^[0-9a-f]{64}$/),
+    source_ref: z.string().regex(/^[A-Za-z0-9._:/@+\-]{1,128}$/),
+  },
+  async ({ work_id, provider, model, artifact_digest, source_ref }) => {
+    const authority = authorizeAction({
+      actionClass: 'D1', authorityDomain: 'organism:contribution', requestedCapability: 'mcp.organism.contribute', tool: 'aegis_contribute', target: '.aegis/runtime/organism.json',
+      action: { operation: 'record-provider-contribution', work_id, provider, model, artifact_digest, source_ref },
+    })
+    if (isDenied(authority)) return denialResponse(authority)
+    try {
+      const contribution = recordProviderContribution(repoRoot(), { workId: work_id, provider, model, artifactDigest: artifact_digest, sourceRef: source_ref })
+      return text({ authority, contribution, epistemic_status: 'NON_AUTHORITATIVE_EVIDENCE', admission_effect: 'NONE' })
+    } catch (error) {
+      return text({ authority, outcome: 'ERROR', code: error instanceof OrganismClientError ? error.code : 'ORGANISM_CONTRIBUTION_ERROR', admission_effect: 'NONE' })
+    }
+  },
+)
 
 server.tool(
   'aegis_collaborate',
