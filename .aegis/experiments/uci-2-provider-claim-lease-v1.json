@@ -32,7 +32,7 @@
   ],
   "expected_parent_sha": "32b7eb6a37fb69d19dd80189390b6641c5004ef1",
   "expected_parent_state_root": "0866104def4d29183f8f44e240a4644ece96ff07b4b4dd538fa270652c16e70a",
-  "experiment_id": "uci-1-collective-work-contract-v1",
+  "experiment_id": "uci-2-provider-claim-lease-v1",
   "integration_ledger_generator": {
     "blob_id": "28823ae5b630be273b78210f0addf9c0a86aad05",
     "path": "scripts/integration_ledger.py"
@@ -45,9 +45,9 @@
     "provider": "github-actions"
   },
   "operator_approval": {
-    "approval_record_hash": "1c5912702b014f76499b58b1640d034dd3f0e87fd20b0a750622243d51a7ae1c",
-    "authorization_basis": "user-explicit-go-universal-collective-intelligence-kernel-v1-and-uci1-implementation",
-    "decided_at": "2026-08-19T18:56:00Z",
+    "approval_record_hash": "c2f0a7a67c92e835ad21d8c83db5996f8a9515d6e69b859b471f8abdd14f4e14",
+    "authorization_basis": "user-explicit-go-uci-kernel-and-continue-repository-wide-repair",
+    "decided_at": "2026-08-19T20:07:55Z",
     "operator_actor_id": "tarikskalic33",
     "operator_session_id": "chatgpt-session-2026-08-19-uci-kernel",
     "required": true,
@@ -82,5 +82,5 @@
     "observability_expired",
     "operator_emergency_stop"
   ],
-  "title": "Admit UCI-1 collective work contracts as a T2 contract and validation experiment"
+  "title": "Admit UCI-2 durable provider claim lease as a T2 scheduling/fencing reference experiment"
 }
