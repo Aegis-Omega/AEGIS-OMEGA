@@ -1,8 +1,9 @@
 """Transition identity and epistemically separated receipt types.
 
-PR-1 establishes receipt separation and safe incompleteness. PR-2 adds only a
-module-private adapter-bound EffectReceipt issuance path. Complete transition
-verification and authoritative admission remain unavailable.
+PR-1 establishes receipt separation and safe incompleteness. PR-2 adds only
+independent, adapter-bound EffectEvidence production. VerifyEffect,
+EffectReceipt production, complete transition verification, and authoritative
+admission remain unavailable until later stacked slices.
 """
 from __future__ import annotations
 
@@ -34,8 +35,6 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 GIT_RE = re.compile(r"^[0-9a-f]{40,64}$")
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9._:/@+#=-]+$")
 
-# Historical PR-1 policy remains explicit so its semantics can be reproduced on the
-# frozen PR-1 head. PR-2 must not keep binding new transitions to this stale value.
 PR1_VERIFIER_POLICY = {
     "policy_id": "AEGIS_PR1_VERIFIER_POLICY_V1",
     "safe_incompleteness": True,
@@ -44,18 +43,19 @@ PR1_VERIFIER_POLICY = {
     "effect_receipt_production": "UNAVAILABLE",
 }
 
-# Active PR-2 verifier-policy commitment. This is still intentionally incomplete:
-# PR-3 will introduce the explicit full obligation registry. PR-2 only records that
-# independent adapter-bound effect evidence can now be produced while complete
-# verification and admission remain unavailable.
+# PR-2 advances only the observation/evidence layer. The nominal EffectReceipt
+# type remains schema-defined but there is deliberately no valid producer until
+# a later slice implements VerifyEffect and gates issuance on verification.
 PR2_VERIFIER_POLICY = {
-    "policy_id": "AEGIS_PR2_VERIFIER_POLICY_V1",
+    "policy_id": "AEGIS_PR2_VERIFIER_POLICY_V2",
     "safe_incompleteness": True,
     "obligation_set_status": "PARTIAL_PRE_REGISTRY",
     "required_semantics": ["V_decision", "V_binding", "V_effect"],
     "effect_evidence_required": True,
-    "effect_receipt_production": "ADAPTER_BOUND_ONLY",
+    "effect_evidence_production": "ADAPTER_BOUND_ONLY",
     "effect_observation_scope": "REFERENCE_ADAPTER_BOUND_ONLY",
+    "verify_effect": "NOT_IMPLEMENTED",
+    "effect_receipt_production": "UNAVAILABLE",
     "complete_verification": "UNAVAILABLE",
     "atomic_admission": "UNAVAILABLE",
 }
@@ -179,7 +179,7 @@ class ExecutionReceipt:
 
 @dataclass(frozen=True, init=False)
 class EffectReceipt:
-    """Effect evidence target type; direct public construction remains forbidden."""
+    """Schema-defined post-VerifyEffect receipt type; no valid producer exists in PR-2."""
 
     receipt_kind: str
     transition_id: str
@@ -212,44 +212,8 @@ class EffectReceipt:
         return canonical_hash("AEGIS_EFFECT_RECEIPT_V1", asdict(self))
 
 
-# PR-2 canonical adapter issuance capability. This is deliberately private and is
-# not an authorization primitive; it prevents a generic public constructor from
-# becoming the canonical EffectReceipt path. Python module privacy is not a crypto
-# boundary, so downstream verification must still validate witness provenance.
-_EFFECT_RECEIPT_PRODUCER_CAPABILITY = object()
-
-
-def _issue_adapter_bound_effect_receipt(*, witness: Any, producer_capability: object) -> EffectReceipt:
-    if producer_capability is not _EFFECT_RECEIPT_PRODUCER_CAPABILITY:
-        raise TransitionReceiptError("EFFECT_RECEIPT_PRODUCER_UNAUTHORIZED")
-
-    receipt = object.__new__(EffectReceipt)
-    values = {
-        "receipt_kind": EFFECT_RECEIPT_KIND,
-        "transition_id": witness.transition_id,
-        "execution_instance_id": witness.execution_instance_id,
-        "effect_witness_digest": witness.root,
-        "pre_state_commitment": witness.observed_pre_state_commitment,
-        "post_state_commitment": witness.observed_post_state_commitment,
-        "observation_provenance": canonical_hash(
-            "AEGIS_EFFECT_OBSERVATION_BUNDLE_V1",
-            {
-                "pre": witness.pre_observation_provenance,
-                "post": witness.post_observation_provenance,
-            },
-        ),
-        "adapter_identity": witness.adapter_identity,
-        "adapter_version": witness.adapter_version,
-    }
-    for name, value in values.items():
-        object.__setattr__(receipt, name, value)
-    receipt.validate()
-    return receipt
-
-
 def decision_satisfies_authority(outcome: str) -> bool:
     """Only PERMIT carries decision authority; DENY and DEFER do not."""
-
     return outcome == PERMIT
 
 
@@ -269,7 +233,6 @@ def decision_route(outcome: str) -> str:
 
 def verify_transition_binding(transition: TransitionIdentity, *receipts: Any) -> bool:
     """V_binding: every receipt must carry the exact recomputed tau."""
-
     try:
         expected = transition.root
         if not receipts:
@@ -287,13 +250,7 @@ def verify_transition_binding(transition: TransitionIdentity, *receipts: Any) ->
 
 
 def accept_effect_evidence(_artifact: Any) -> bool:
-    """Complete V_effect acceptance remains unavailable in PR-2.
-
-    Adapter-bound EffectReceipt production is now possible, but this function is
-    deliberately false for every artifact because PR-2 does not implement the
-    complete verifier or authoritative admission path.
-    """
-
+    """VerifyEffect/V_effect acceptance remains unavailable in PR-2."""
     return False
 
 
@@ -332,13 +289,11 @@ def fence_commitment(fence_token: str | None) -> str:
 
 def pr1_verifier_policy_commitment() -> str:
     """Historical PR-1 verifier-policy commitment for audit/reproduction only."""
-
     return canonical_hash("AEGIS_VERIFIER_POLICY_COMMITMENT_V1", PR1_VERIFIER_POLICY)
 
 
 def verifier_policy_commitment() -> str:
-    """Active PR-2 verifier-policy commitment bound into new TransitionIDs."""
-
+    """Active PR-2 observation-only verifier-policy commitment."""
     return canonical_hash("AEGIS_VERIFIER_POLICY_COMMITMENT_V1", PR2_VERIFIER_POLICY)
 
 
