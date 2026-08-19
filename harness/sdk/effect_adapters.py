@@ -20,6 +20,7 @@ from harness.sdk.sovereign_execution import ZERO_HASH, canonical_hash
 from harness.sdk.transition_receipts import ExecutionReceipt, TransitionIdentity
 
 EFFECT_WITNESS_KIND = "EFFECT_WITNESS_V1"
+VERIFY_EFFECT_STATUS = "does not implement VerifyEffect"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
