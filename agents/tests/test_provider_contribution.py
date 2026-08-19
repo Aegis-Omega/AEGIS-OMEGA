@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
-from agents.organism import OrganismStore, OrganizationOrganism, WorkStatus
+from agents.organism import MAX_TEXT_CONTRIBUTION_BYTES, OrganismStore, OrganizationOrganism, WorkStatus
 
 
 class ProviderContributionTests(unittest.TestCase):
@@ -61,6 +62,58 @@ class ProviderContributionTests(unittest.TestCase):
         self.assertEqual(len(contribution), 1)
         self.assertEqual(contribution[0]["body"]["authority"], "NON_AUTHORITATIVE_EVIDENCE")
         self.assertEqual(org.get("w1").status, WorkStatus.QUEUED)
+
+    def test_text_contribution_is_content_addressed_and_persisted(self):
+        org = self.make_org()
+        org.submit("w1", "research_request", {}, consequence_class="D1")
+        result = org.contribute_text("w1", provider="openai", model="gpt-5.6-sol", text="# useful work\nproof body", source_ref="mcp:openai")
+        digest = hashlib.sha256(b"# useful work\nproof body").hexdigest()
+        self.assertEqual(result["artifact"]["sha256"], digest)
+        self.assertEqual(result["artifact"]["authority"], "NON_AUTHORITATIVE_EVIDENCE")
+        artifact_path = Path(result["artifact"]["artifact_path"])
+        self.assertTrue(artifact_path.is_file())
+        stored = json.loads(artifact_path.read_text())
+        self.assertEqual(stored["content"], "# useful work\nproof body")
+        self.assertEqual(org.get("w1").status, WorkStatus.QUEUED)
+
+    def test_text_contribution_is_idempotent(self):
+        org = self.make_org()
+        org.submit("w1", "research_request", {}, consequence_class="D1")
+        first = org.contribute_text("w1", provider="gemini", model="gemini-3", text="same", source_ref="mcp:gemini")
+        second = org.contribute_text("w1", provider="gemini", model="gemini-3", text="same", source_ref="mcp:gemini")
+        self.assertEqual(first["contribution_ref"], second["contribution_ref"])
+        self.assertEqual(org.get("w1").contribution_refs, (first["contribution_ref"],))
+
+    def test_text_contribution_size_is_bounded(self):
+        org = self.make_org()
+        org.submit("w1", "research_request", {}, consequence_class="D1")
+        with self.assertRaisesRegex(ValueError, "CONTRIBUTION_TOO_LARGE"):
+            org.contribute_text("w1", provider="claude", model="opus", text="x" * (MAX_TEXT_CONTRIBUTION_BYTES + 1), source_ref="mcp:claude")
+
+    def test_artifact_tamper_is_detected(self):
+        org = self.make_org()
+        org.submit("w1", "research_request", {}, consequence_class="D1")
+        result = org.contribute_text("w1", provider="local", model="llama", text="original", source_ref="mcp:local")
+        path = Path(result["artifact"]["artifact_path"])
+        record = json.loads(path.read_text())
+        record["content"] = "tampered"
+        path.write_text(json.dumps(record))
+        with self.assertRaisesRegex(ValueError, "CONTRIBUTION_ARTIFACT_TAMPER_DETECTED"):
+            org.contribution_store.get(result["artifact"]["sha256"])
+
+    def test_next_work_exposes_only_queued_non_operator_items(self):
+        org = self.make_org()
+        org.submit("q1", "research_request", {"topic": "a"}, consequence_class="D1")
+        org.submit("q2", "code_request", {"topic": "b"}, consequence_class="D2")
+        org.submit("wait", "deployment_event", {}, consequence_class="D3")
+        org.submit("deny", "forbidden", {}, consequence_class="D4")
+        self.assertEqual([w.work_id for w in org.next_work()], ["q1", "q2"])
+
+    def test_empty_text_contribution_is_rejected(self):
+        org = self.make_org()
+        org.submit("w1", "research_request", {}, consequence_class="D1")
+        with self.assertRaisesRegex(ValueError, "CONTRIBUTION_EMPTY"):
+            org.contribute_text("w1", provider="openai", model="gpt-5.6-sol", text="", source_ref="mcp:openai")
 
 
 if __name__ == "__main__":
