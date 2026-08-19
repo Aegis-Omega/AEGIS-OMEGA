@@ -57,6 +57,13 @@ Reuse PR #264 as-is for provider registry, proof-carrying work orders, governed 
 
 `ProviderEvidence.grants_authority` must remain false and any provider attempt to grant authority must fail closed.
 
+PR #264 contains two relevant provider surfaces with different evidence strength:
+
+- the Python `GovernedProviderRouter` returns `ProviderEvidence`, which binds provider/request/operation/response information but does **not** carry an Automaton-3 `authority_receipt_root`;
+- the TypeScript `FrontierInferenceGateway` verifies a `ProofCarryingWorkOrder` through `Automaton3WorkOrderVerifier` and records `workOrderDigest` plus `authorityReceiptRoot` in `FrontierUsageRecord`.
+
+PR-5A MUST NOT fabricate or infer an authority receipt root for the Python provider path. The normative producer for the cross-lineage integration artifact is therefore the TypeScript frontier gateway path whose authority root is already established by the existing Automaton-3 verifier. The Python provider router remains an inherited regression surface only unless it is later upgraded by a separately admitted contract.
+
 ### Verification side
 
 Reuse PR #273 as-is for:
@@ -75,9 +82,9 @@ The exact PR-3 `EffectVerifier.verify_effect(...)` path remains the only effect-
 
 ### Integration bridge
 
-Introduce the smallest possible integration contract proving that provider execution evidence can be referenced by an AEGIS transition bundle without converting the provider result into authority or effect truth.
+Introduce the smallest possible cross-language integration contract proving that a governed provider execution record can be referenced by an AEGIS transition bundle without converting the provider result into authority or effect truth.
 
-Preferred nominal artifact:
+Nominal artifact:
 
 ```text
 ProviderExecutionEvidenceBindingV1
@@ -89,7 +96,7 @@ with mandatory discriminator:
 binding_kind = PROVIDER_EXECUTION_EVIDENCE_BINDING_V1
 ```
 
-and a dedicated hash domain:
+and dedicated hash domain:
 
 ```text
 AEGIS_PROVIDER_EXECUTION_EVIDENCE_BINDING_V1
@@ -110,14 +117,20 @@ expected_parent_state_root
 grants_authority = false
 ```
 
+The normative producer MUST consume the exact admitted TypeScript frontier request/result/usage context and MUST reject missing or malformed `work_order_digest` or `authority_receipt_root` rather than substituting values from another runtime.
+
+The Python side may deserialize and verify the serialized artifact for binding/reference purposes, but it MUST NOT reinterpret the artifact as a DecisionReceipt, EffectWitness, EffectReceipt, or authority grant.
+
 This artifact proves only that a provider execution observation is bound to a specific governed request/execution context. It does not prove world effect, causal correctness, task success, or authorization by itself.
 
 ## Data Flow
 
 ```text
 ProofCarryingWorkOrder
-    -> GovernedProviderRouter / FrontierInferenceGateway
-    -> ProviderEvidence
+    -> Automaton3WorkOrderVerifier
+    -> FrontierInferenceGateway
+    -> FrontierProviderResult
+    -> FrontierUsageRecord
     -> ProviderExecutionEvidenceBindingV1
 
 ProviderExecutionEvidenceBindingV1
@@ -130,6 +143,8 @@ DecisionReceipt
 + EffectReceipt
     -> CompleteVerificationResult
 ```
+
+The lightweight Python `GovernedProviderRouter -> ProviderEvidence` path remains valid provider evidence but is not promoted into the authority-root-bound PR-5A artifact.
 
 Hard non-implications:
 
@@ -158,6 +173,7 @@ The candidate must fail closed if any of these differ:
 It must reject:
 
 - provider evidence with `grants_authority=true`;
+- missing authority receipt root on the normative producer path;
 - cross-transition splicing;
 - cross-request splicing;
 - cross-execution splicing;
@@ -171,11 +187,15 @@ It must reject:
 Preferred PR-5A changes are limited to:
 
 ```text
-harness/sdk/provider_execution_binding.py
+sovereign-omega-v2/src/api/frontier-provider-evidence-binding.ts
+sovereign-omega-v2/test/unit/frontier-provider-evidence-binding.test.ts
 schemas/provider-execution-evidence-binding.v1.schema.json
+harness/sdk/provider_execution_binding.py
 sovereign-omega-v2/python/tests/test_provider_execution_binding_pr5a.py
 integration/witness or test-only adapters needed to exercise both lineages
 ```
+
+The TypeScript module is the normative producer because it has access to the already-verified `authorityReceiptRoot`. The Python module is a strict serialized-artifact validator/binder for the PR #273 lineage; it is not a second authority verifier.
 
 Parent PR #264 and PR #273 production semantics should remain unchanged unless a regression proves an unavoidable compatibility fix is required. Any such fix must be narrowly scoped and separately called out.
 
@@ -183,26 +203,29 @@ Parent PR #264 and PR #273 production semantics should remain unchanged unless a
 
 PR-5A must start RED and cover at minimum:
 
-1. valid exact provider/execution/transition binding -> TRUE;
-2. provider `grants_authority=true` -> reject;
-3. provider mismatch -> reject;
-4. request-id mismatch -> reject;
-5. provider-operation-id mismatch -> reject;
-6. response-digest mismatch -> reject;
-7. work-order-digest mismatch -> reject;
-8. authority-receipt-root mismatch -> reject;
-9. transition mismatch -> reject;
-10. execution-instance mismatch -> reject;
-11. parent-state mismatch -> reject;
-12. malformed digest -> reject;
-13. raw ProviderEvidence cannot substitute for EffectWitness;
-14. provider binding cannot substitute for EffectReceipt;
-15. CompleteVerification parent suite remains GREEN;
-16. PR #264 provider/frontier/constitutional suites remain GREEN;
-17. inherited Automaton-3 suite remains GREEN;
-18. MCP fail-closed integration remains GREEN;
-19. frozen hashes remain valid;
-20. no credentials/secrets are introduced.
+1. valid exact TypeScript gateway/execution/transition binding -> TRUE/valid artifact;
+2. provider `grantsAuthority=true` -> reject;
+3. missing authority receipt root -> reject;
+4. provider mismatch -> reject;
+5. request-id mismatch -> reject;
+6. provider-operation-id mismatch -> reject;
+7. response-digest mismatch -> reject;
+8. work-order-digest mismatch -> reject;
+9. authority-receipt-root mismatch -> reject;
+10. transition mismatch -> reject;
+11. execution-instance mismatch -> reject;
+12. parent-state mismatch -> reject;
+13. malformed digest -> reject;
+14. Python `ProviderEvidence` without authority root cannot be promoted into PR-5A binding;
+15. raw ProviderEvidence cannot substitute for EffectWitness;
+16. provider binding cannot substitute for EffectReceipt;
+17. serialized TypeScript binding validates identically on Python side;
+18. CompleteVerification parent suite remains GREEN;
+19. PR #264 provider/frontier/constitutional suites remain GREEN;
+20. inherited Automaton-3 suite remains GREEN;
+21. MCP fail-closed integration remains GREEN;
+22. frozen hashes remain valid;
+23. no credentials/secrets are introduced.
 
 ## Exact-Head Witness
 
@@ -213,7 +236,9 @@ BOTH_PARENT_ANCESTORS = ESTABLISHED
 PR264_FRONTIER_REGRESSION = PASS
 PR264_CONSTITUTIONAL_REGRESSION = PASS
 PR273_COMPLETE_VERIFICATION_REGRESSION = PASS
-PR5A_PROVIDER_EXECUTION_BINDING_FALSIFIERS = PASS
+PR5A_TS_PROVIDER_BINDING_FALSIFIERS = PASS
+PR5A_CROSS_LANGUAGE_BINDING_PARITY = PASS
+PR5A_PYTHON_NON_PROMOTION_FALSIFIER = PASS
 INHERITED_AUTOMATON3_REGRESSION = PASS
 MCP_FAIL_CLOSED_INTEGRATION = PASS
 FROZEN_HASHES = PASS
@@ -246,7 +271,9 @@ Formally:
 IntegratedCandidate(c)
 => ancestor(c, PR264@31aec51c...)
    and ancestor(c, PR273@6407db1b...)
-   and ProviderEvidence.grants_authority = false
+   and ProviderExecutionEvidenceBindingV1 is produced only from the authority-root-bound frontier gateway path
+   and ProviderExecutionEvidenceBindingV1.grants_authority = false
+   and Python ProviderEvidence without authority_receipt_root cannot be promoted
    and provider binding cannot satisfy effect obligations
    and all required regressions = PASS
 ```
