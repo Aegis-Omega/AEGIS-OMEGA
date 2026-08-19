@@ -27,6 +27,13 @@ export type AuthorityDecisionReceipt = {
   signature: string
 }
 
+export type DecisionReceipt = {
+  receipt_kind: 'DECISION_RECEIPT_V1'
+  transition_id: string
+  decision_outcome: 'PERMIT' | 'DENY' | 'DEFER'
+  policy_decision_root: string
+}
+
 export type VerifiedAuthorityDecision = {
   schema_version: '1.0.0'
   outcome: 'ADMITTED'
@@ -36,6 +43,9 @@ export type VerifiedAuthorityDecision = {
   policy_decision: Record<string, unknown> & { decision_root: string }
   authority_receipt: AuthorityDecisionReceipt
   authority_receipt_root: string
+  transition_id: string
+  decision_receipt: DecisionReceipt
+  decision_receipt_root: string
   observation: Record<string, unknown>
 }
 
@@ -92,6 +102,7 @@ const GIT_RE = /^[0-9a-f]{40,64}$/
 const SCORE_RE = /^(?:0\.[0-9]{6}|1\.000000)$/
 const SAFE_ID_RE = /^[A-Za-z0-9._:/@+#=-]+$/
 const ACTION_CLASSES = new Set<ActionClass>(['D0', 'D1', 'D2', 'D3', 'D4'])
+const DECISION_OUTCOMES = new Set(['PERMIT', 'DENY', 'DEFER'])
 
 const IDENTITY_KEYS = [
   'schema_version', 'repository_identity', 'repository_root', 'source_commit',
@@ -117,10 +128,15 @@ const RECEIPT_KEYS = [
   'requested_action_digest', 'outcome', 'denial_codes', 'signature',
 ] as const
 
+const DECISION_RECEIPT_KEYS = [
+  'receipt_kind', 'transition_id', 'decision_outcome', 'policy_decision_root',
+] as const
+
 const RESPONSE_KEYS = [
   'schema_version', 'outcome', 'execution_identity_root', 'workspace_binding',
   'workspace_decision_root', 'policy_decision', 'authority_receipt',
-  'authority_receipt_root', 'observation',
+  'authority_receipt_root', 'transition_id', 'decision_receipt',
+  'decision_receipt_root', 'observation',
 ] as const
 
 const OBSERVATION_KEYS = [
@@ -466,6 +482,30 @@ function validateAuthorityReceipt(
   return receipt as AuthorityDecisionReceipt
 }
 
+function validateDecisionReceipt(
+  value: unknown,
+  transitionId: unknown,
+  receiptRoot: unknown,
+  policyDecisionRoot: string,
+): DecisionReceipt {
+  const receipt = record(value, 'AUTHORITY_DECISION_RECEIPT_MALFORMED')
+  exactKeys(receipt, DECISION_RECEIPT_KEYS, 'AUTHORITY_DECISION_RECEIPT_SCHEMA_DRIFT')
+  equal(receipt['receipt_kind'], 'DECISION_RECEIPT_V1', 'AUTHORITY_DECISION_RECEIPT_KIND_MISMATCH')
+  const transition = requiredHash(receipt, 'transition_id', 'AUTHORITY_DECISION_RECEIPT_TRANSITION_INVALID')
+  const responseTransition = requiredString({ transition_id: transitionId }, 'transition_id', 'AUTHORITY_TRANSITION_ID_INVALID')
+  if (!HASH_RE.test(responseTransition)) fail('AUTHORITY_TRANSITION_ID_INVALID')
+  equal(responseTransition, transition, 'AUTHORITY_TRANSITION_RECEIPT_TRANSITION_MISMATCH')
+  const decisionOutcome = requiredString(receipt, 'decision_outcome', 'AUTHORITY_DECISION_RECEIPT_OUTCOME_INVALID')
+  if (!DECISION_OUTCOMES.has(decisionOutcome)) fail('AUTHORITY_DECISION_RECEIPT_OUTCOME_INVALID')
+  equal(decisionOutcome, 'PERMIT', 'AUTHORITY_DECISION_RECEIPT_NOT_PERMIT')
+  const boundPolicyRoot = requiredHash(receipt, 'policy_decision_root', 'AUTHORITY_DECISION_RECEIPT_POLICY_INVALID')
+  equal(boundPolicyRoot, policyDecisionRoot, 'AUTHORITY_DECISION_RECEIPT_POLICY_MISMATCH')
+  const root = requiredString({ root: receiptRoot }, 'root', 'AUTHORITY_DECISION_RECEIPT_ROOT_INVALID')
+  if (!HASH_RE.test(root)) fail('AUTHORITY_DECISION_RECEIPT_ROOT_INVALID')
+  equal(root, canonicalHash('AEGIS_DECISION_RECEIPT_V1', receipt), 'AUTHORITY_DECISION_RECEIPT_ROOT_MISMATCH')
+  return receipt as DecisionReceipt
+}
+
 function validateObservation(value: unknown): Record<string, unknown> {
   const observation = record(value, 'AUTHORITY_OBSERVATION_MALFORMED')
   exactKeys(observation, OBSERVATION_KEYS, 'AUTHORITY_OBSERVATION_SCHEMA_DRIFT')
@@ -491,6 +531,12 @@ export function validateAuthorityResponse(value: unknown, expected: AuthorityRes
   )
   const decision = validatePolicyDecision(response['policy_decision'], expected)
   const receipt = validateAuthorityReceipt(response['authority_receipt'], response['authority_receipt_root'], decision, expected)
+  const decisionReceipt = validateDecisionReceipt(
+    response['decision_receipt'],
+    response['transition_id'],
+    response['decision_receipt_root'],
+    decision.decision_root,
+  )
   const observation = validateObservation(response['observation'])
   equal(observation['declared_project'], expected.expectedProjectIdentity, 'AUTHORITY_OBSERVATION_PROJECT_MISMATCH')
   equal(canonicalGitHubRemote(observation['remote_origin'] as string), expected.expectedRepositoryIdentity, 'AUTHORITY_OBSERVATION_REMOTE_MISMATCH')
@@ -509,6 +555,9 @@ export function validateAuthorityResponse(value: unknown, expected: AuthorityRes
     policy_decision: decision,
     authority_receipt: receipt,
     authority_receipt_root: response['authority_receipt_root'] as string,
+    transition_id: response['transition_id'] as string,
+    decision_receipt: decisionReceipt,
+    decision_receipt_root: response['decision_receipt_root'] as string,
     observation,
   }
 }
