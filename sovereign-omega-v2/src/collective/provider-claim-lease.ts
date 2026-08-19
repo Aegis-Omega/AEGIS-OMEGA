@@ -295,6 +295,22 @@ export class FileProviderClaimLeaseStoreV1 {
     }
   }
 
+  private currentLease(input: CurrentLeaseInputV1): DurableProviderClaimLeaseV1 {
+    const { graph, node } = graphAndNode(input.graph, input.work_node_id);
+    validateNow(input.now_ms);
+    if (!positiveInteger(input.generation)) fail('PROVIDER_CLAIM_GENERATION_INVALID');
+    if (!validHash(input.fencing_token)) fail('PROVIDER_CLAIM_FENCE_INVALID');
+    const state = this.load();
+    const current = state.claims[input.work_node_id];
+    if (!current) fail('PROVIDER_CLAIM_MISSING');
+    if (!active(current, input.now_ms)) fail('PROVIDER_CLAIM_EXPIRED');
+    if (current.owner_identity !== input.owner_identity) fail('PROVIDER_CLAIM_OWNER_MISMATCH');
+    if (current.generation !== input.generation) fail('PROVIDER_CLAIM_GENERATION_MISMATCH');
+    if (current.fencing_token !== input.fencing_token) fail('PROVIDER_CLAIM_FENCE_MISMATCH');
+    assertLeaseBinding(current, graph, node);
+    return current;
+  }
+
   prepareClaim(graph: CollectiveWorkGraphV1, workNodeId: string): PreparedProviderClaimV1 {
     graphAndNode(graph, workNodeId);
     const state = this.load();
@@ -353,19 +369,14 @@ export class FileProviderClaimLeaseStoreV1 {
   }
 
   assertCurrentLease(input: CurrentLeaseInputV1): DurableProviderClaimLeaseV1 {
-    const { graph, node } = graphAndNode(input.graph, input.work_node_id);
-    validateNow(input.now_ms);
-    if (!positiveInteger(input.generation)) fail('PROVIDER_CLAIM_GENERATION_INVALID');
-    if (!validHash(input.fencing_token)) fail('PROVIDER_CLAIM_FENCE_INVALID');
-    const state = this.load();
-    const current = state.claims[input.work_node_id];
-    if (!current) fail('PROVIDER_CLAIM_MISSING');
-    if (!active(current, input.now_ms)) fail('PROVIDER_CLAIM_EXPIRED');
-    if (current.owner_identity !== input.owner_identity) fail('PROVIDER_CLAIM_OWNER_MISMATCH');
-    if (current.generation !== input.generation) fail('PROVIDER_CLAIM_GENERATION_MISMATCH');
-    if (current.fencing_token !== input.fencing_token) fail('PROVIDER_CLAIM_FENCE_MISMATCH');
-    assertLeaseBinding(current, graph, node);
-    return current;
+    return this.currentLease(input);
+  }
+
+  withCurrentLease<T>(
+    input: CurrentLeaseInputV1,
+    operation: (lease: DurableProviderClaimLeaseV1) => T,
+  ): T {
+    return this.exclusive(() => operation(this.currentLease(input)));
   }
 
   releaseClaim(input: CurrentLeaseInputV1): true {
