@@ -120,6 +120,31 @@ describe('self-calibration adversarial integrity', () => {
     ).toThrow(SelfCalibrationError)
   })
 
+  it('rejects non-boolean observed outcomes at construction and replay boundaries', async () => {
+    const prediction = await createSelfPrediction({
+      action_digest: ACTION,
+      predicted_success_bps: 7500,
+    })
+
+    expect(() =>
+      createSelfOutcomeObservation({
+        prediction_hash: prediction.prediction_hash,
+        action_digest: ACTION,
+        observation_evidence_digest: EVIDENCE,
+        observed_success: 'false' as unknown as boolean,
+      }),
+    ).toThrow(SelfCalibrationError)
+
+    const valid = await makeCalibration()
+    const forged = await rehashCalibration(valid, {
+      observed_success: 'true' as unknown as boolean,
+    })
+
+    await expect(
+      SelfCalibrationLedger.empty().append(forged, SEQ1),
+    ).rejects.toThrow(SelfCalibrationError)
+  })
+
   it('rejects a negative genesis sequence on append', async () => {
     const calibration = await makeCalibration()
 
