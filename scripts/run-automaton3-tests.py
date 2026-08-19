@@ -16,8 +16,9 @@ TEST_FILES = (
     ROOT / "sovereign-omega-v2/python/tests/test_operator_visibility.py",
     ROOT / "sovereign-omega-v2/python/tests/test_transition_receipts_pr1.py",
     ROOT / "sovereign-omega-v2/python/tests/test_transition_receipts_cli_pr1.py",
+    ROOT / "sovereign-omega-v2/python/tests/test_effect_adapters_pr2.py",
 )
-EXPECTED_TEST_COUNT = 58
+EXPECTED_TEST_COUNT = 75
 TEST_COUNT_RE = re.compile(r"\bRan\s+(\d+)\s+tests?\b")
 
 
@@ -69,13 +70,21 @@ def main() -> int:
         "state_preservation_asserted": True,
         "external_side_effect_absence_asserted": True,
         "operator_visibility_asserted": True,
-        "pr1_safe_incompleteness_asserted": passed,
         "transition_binding_asserted": passed,
         "receipt_separation_asserted": passed,
         "effect_receipt_schema_defined": True,
-        "valid_effect_receipt_production_unavailable_asserted": passed,
+        "generic_effect_receipt_production_forbidden_asserted": passed,
         "legacy_receipt_effect_evidence_forbidden_asserted": passed,
         "legacy_fallback_forbidden_asserted": passed,
+        "pr2_effect_adapter_protocol_asserted": passed,
+        "pr2_filesystem_effect_adapter_asserted": passed,
+        "pr2_independent_pre_post_observation_asserted": passed,
+        "pr2_adapter_bound_effect_receipt_production_asserted": passed,
+        "pr2_authorization_artifact_effect_evidence_forbidden_asserted": passed,
+        "pr2_caller_post_state_effect_authority_forbidden_asserted": passed,
+        "pr2_complete_verification_unavailable_asserted": passed,
+        "pr2_atomic_admission_unavailable_asserted": passed,
+        "pr2_effect_bound_admission_unavailable_asserted": passed,
         "effect_bound_admission_unavailable_asserted": passed,
         "return_code": return_code,
         "normalized_log_sha256": hashlib.sha256(log.encode()).hexdigest(),
