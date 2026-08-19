@@ -277,7 +277,7 @@ describe('UCI-3 provider contribution evidence store', () => {
 
   test('exact graph target/prestate changes cannot reuse the contribution lease binding', () => {
     const { leaseStore, contributionStore, g, lease } = setup();
-    const changed = graph(node({ target_commitment: B }));
+    const changed = { ...g, nodes: [node({ target_commitment: B })] };
     expect(() => contributionStore.recordTextContribution({
       graph: changed,
       work_node_id: 'node-001',
