@@ -1,0 +1,35 @@
+name: Khatt Cargo Lock Reconcile
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aegis-cl-psi/Cargo.toml'
+      - 'aegis-cl-psi/Cargo.lock'
+      - '.github/workflows/khatt-lock-reconcile.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  generate-lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Generate exact Cargo lockfile
+        working-directory: aegis-cl-psi
+        run: cargo generate-lockfile
+
+      - name: Upload resolved lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: khatt-cargo-lock-${{ github.sha }}
+          path: aegis-cl-psi/Cargo.lock
+          if-no-files-found: error
+          retention-days: 7
