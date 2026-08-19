@@ -244,6 +244,24 @@ async function assertCalibrationIntegrity(
     throw new SelfCalibrationError('calibration record semantics are invalid')
   }
 
+  if (calibration.observation_evidence_digest === calibration.prediction_hash) {
+    throw new SelfCalibrationError(
+      'prediction_hash cannot serve as its own observation evidence',
+    )
+  }
+
+  const expected_prediction_hash = await hashValue(
+    predictionBody({
+      action_digest: calibration.action_digest,
+      predicted_success_bps: calibration.predicted_success_bps,
+    }),
+  )
+  if (expected_prediction_hash !== calibration.prediction_hash) {
+    throw new SelfCalibrationError(
+      'calibration prediction_hash does not match its prediction body',
+    )
+  }
+
   const expected_error = Math.abs(
     calibration.predicted_success_bps - (calibration.observed_success ? 10_000 : 0),
   )
