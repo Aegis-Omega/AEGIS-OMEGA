@@ -254,7 +254,11 @@ def evaluate(
         "policy_root": policy_root,
         "test_summary_root": test_summary_root,
         "mcp_log_root": mcp_log_root,
-        "signature_mode": "GITHUB_OIDC_ATTESTATION",
+        "signature_mode": (
+            "GITHUB_OIDC_ATTESTATION"
+            if require_oidc
+            else "DETERMINISTIC_VALIDATION_ONLY"
+        ),
         "outcome": "ADMITTED" if not violations else "DENIED",
         "violation_count": len(violations),
         "violations": violations,
