@@ -1,10 +1,10 @@
 """Durable, fail-closed organizational work loop for AEGIS Ω.
 
-This module is intentionally small: it turns the existing governed coordinator
-into a persistent company loop. It does not grant new authority. D1/D2 work may
-enter the existing Automaton-3-gated dispatcher; D3 waits for explicit operator
-approval; D4 is denied. State is persisted with a hash-chained journal so a
-restart cannot silently forget or rewrite prior work.
+Turns the existing governed coordinator into a persistent company loop. It does
+not grant new authority. D1/D2 work may enter the existing Automaton-3-gated
+dispatcher; D3 waits for explicit operator approval; D4 is denied. Provider
+contributions are recorded as non-authoritative evidence and cannot promote a
+work order by themselves. State is persisted with a hash-chained journal.
 """
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import tempfile
 import time
 from dataclasses import asdict, dataclass
@@ -19,10 +20,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Iterable
 
-
 GENESIS = "0" * 64
 STORE_VERSION = "AEGIS_ORGANISM_STORE_V1"
 JOURNAL_DOMAIN = "AEGIS_ORGANISM_JOURNAL_V1"
+_IDENTITY_RE = re.compile(r"^[A-Za-z0-9._:/@+\-]{1,128}$")
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 class WorkStatus(str, Enum):
@@ -131,10 +133,9 @@ class OrganismStore:
         event_hash = _hash_event(prev, seq, event_type, body)
         journal.append({"seq": seq, "event_type": event_type, "body": body, "prev_hash": prev, "event_hash": event_hash})
 
-    def save_order(self, order: WorkOrder, event_type: str) -> None:
-        body = order.to_dict()
-        self._state["orders"][order.work_id] = body
-        self._append(event_type, body)
+    def save_order(self, order: WorkOrder, event_type: str, *, event_body: dict[str, Any] | None = None) -> None:
+        self._state["orders"][order.work_id] = order.to_dict()
+        self._append(event_type, event_body if event_body is not None else order.to_dict())
         self._persist()
 
     def get(self, work_id: str) -> WorkOrder | None:
@@ -167,15 +168,7 @@ class OrganizationOrganism:
             raise KeyError(work_id)
         return order
 
-    def submit(
-        self,
-        work_id: str,
-        event_type: str,
-        payload: dict[str, Any],
-        *,
-        consequence_class: str,
-        max_attempts: int = 3,
-    ) -> WorkOrder:
+    def submit(self, work_id: str, event_type: str, payload: dict[str, Any], *, consequence_class: str, max_attempts: int = 3) -> WorkOrder:
         existing = self.store.get(work_id)
         if existing is not None:
             return existing
@@ -194,6 +187,34 @@ class OrganizationOrganism:
         order = WorkOrder(work_id, event_type, dict(payload), cc, status, max_attempts=max_attempts, created_ms=now, updated_ms=now)
         self.store.save_order(order, "WORK_SUBMITTED")
         return order
+
+    def record_contribution(self, work_id: str, *, provider: str, model: str, artifact_digest: str, source_ref: str) -> str:
+        order = self.get(work_id)
+        for value, code in ((provider, "PROVIDER_ID_INVALID"), (model, "MODEL_ID_INVALID"), (source_ref, "SOURCE_REF_INVALID")):
+            if not _IDENTITY_RE.fullmatch(value):
+                raise ValueError(code)
+        if not _SHA256_RE.fullmatch(artifact_digest):
+            raise ValueError("ARTIFACT_DIGEST_INVALID")
+        contribution_ref = f"provider:{provider}:model:{model}:sha256:{artifact_digest}:source:{source_ref}"
+        if contribution_ref in order.contribution_refs:
+            return contribution_ref
+        order.contribution_refs = (*order.contribution_refs, contribution_ref)
+        order.updated_ms = int(time.time() * 1000)
+        self.store.save_order(
+            order,
+            "PROVIDER_CONTRIBUTION_RECORDED",
+            event_body={
+                "work_id": work_id,
+                "provider": provider,
+                "model": model,
+                "artifact_digest": artifact_digest,
+                "source_ref": source_ref,
+                "contribution_ref": contribution_ref,
+                "authority": "NON_AUTHORITATIVE_EVIDENCE",
+                "status_after": order.status.value,
+            },
+        )
+        return contribution_ref
 
     def operator_inbox(self) -> list[WorkOrder]:
         return [w for w in self.orders() if w.status == WorkStatus.WAITING_OPERATOR]
@@ -242,16 +263,16 @@ class OrganizationOrganism:
                 order.last_error = "NO_ADMITTED_DISPATCH_RESULT"
             elif all(bool(getattr(r, "is_valid", False)) for r in results):
                 order.status = WorkStatus.EXECUTED
-                refs: list[str] = []
+                refs: list[str] = list(order.contribution_refs)
                 for r in results:
                     role = getattr(getattr(r, "role", None), "value", str(getattr(r, "role", "unknown")))
                     refs.append(f"agent:{role}:task:{getattr(r, 'task_id', order.work_id)}")
-                order.contribution_refs = tuple(refs)
+                order.contribution_refs = tuple(dict.fromkeys(refs))
                 order.last_error = None
             else:
                 order.status = WorkStatus.FAILED
                 order.last_error = "INVALID_AGENT_RESULT"
-        except Exception as exc:  # fail closed; bounded retry below
+        except Exception as exc:
             order.last_error = f"DISPATCH_ERROR:{type(exc).__name__}:{exc}"
             order.status = WorkStatus.QUEUED if order.attempts < order.max_attempts else WorkStatus.FAILED
 
@@ -283,13 +304,19 @@ def main() -> None:
     p_submit.add_argument("--event", required=True)
     p_submit.add_argument("--payload", default="{}")
     p_submit.add_argument("--consequence", default="D1")
-    p_tick = sub.add_parser("tick")
+    sub.add_parser("tick")
     p_run = sub.add_parser("run")
     p_run.add_argument("--max-ticks", type=int, default=100)
-    p_inbox = sub.add_parser("inbox")
+    sub.add_parser("inbox")
     p_approve = sub.add_parser("approve")
     p_approve.add_argument("--id", required=True)
     p_approve.add_argument("--approval-ref", required=True)
+    p_contrib = sub.add_parser("contribute")
+    p_contrib.add_argument("--id", required=True)
+    p_contrib.add_argument("--provider", required=True)
+    p_contrib.add_argument("--model", required=True)
+    p_contrib.add_argument("--artifact-digest", required=True)
+    p_contrib.add_argument("--source-ref", required=True)
     sub.add_parser("status")
     args = parser.parse_args()
 
@@ -305,6 +332,9 @@ def main() -> None:
         print(json.dumps([w.to_dict() for w in org.operator_inbox()], sort_keys=True))
     elif args.command == "approve":
         print(json.dumps({"approved": org.approve(args.id, approval_ref=args.approval_ref)}, sort_keys=True))
+    elif args.command == "contribute":
+        ref = org.record_contribution(args.id, provider=args.provider, model=args.model, artifact_digest=args.artifact_digest, source_ref=args.source_ref)
+        print(json.dumps({"contribution_ref": ref, "authority": "NON_AUTHORITATIVE_EVIDENCE", "work": org.get(args.id).to_dict()}, sort_keys=True))
     elif args.command == "status":
         print(json.dumps({"orders": [w.to_dict() for w in org.orders()], "journal_length": len(org.store.journal())}, sort_keys=True))
 
