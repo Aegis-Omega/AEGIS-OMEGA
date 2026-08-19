@@ -8,16 +8,27 @@ on:
       - 'aegis-cl-psi/Cargo.lock'
       - '.github/workflows/khatt-lock-reconcile.yml'
 
+# This one-shot workflow may create unattached Git objects only. It MUST NOT update
+# refs, push branches, merge, deploy, or create any external effect beyond those
+# proposal objects. The operator-controlled connector performs the ref update after
+# verifying the proposed commit and exact parent.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  generate-lock:
+  construct-lock-commit:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
     steps:
       - name: Checkout exact candidate
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 1
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -26,10 +37,97 @@ jobs:
         working-directory: aegis-cl-psi
         run: cargo generate-lockfile
 
-      - name: Upload resolved lockfile
+      - name: Construct unattached reconciliation commit
+        id: construct
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import base64
+          import hashlib
+          import json
+          import os
+          import subprocess
+          import urllib.request
+          from pathlib import Path
+
+          repo = os.environ['REPOSITORY']
+          token = os.environ['GH_TOKEN']
+          candidate = os.environ['CANDIDATE_SHA']
+          actual = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          if actual != candidate:
+              raise SystemExit(f'STALE_HEAD: expected={candidate} actual={actual}')
+
+          lock_path = Path('aegis-cl-psi/Cargo.lock')
+          lock_bytes = lock_path.read_bytes()
+          lock_sha256 = hashlib.sha256(lock_bytes).hexdigest()
+          base_tree = subprocess.check_output(['git', 'rev-parse', 'HEAD^{tree}'], text=True).strip()
+
+          api = f'https://api.github.com/repos/{repo}/git'
+          headers = {
+              'Authorization': f'Bearer {token}',
+              'Accept': 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+              'Content-Type': 'application/json',
+          }
+
+          def post(path, payload):
+              request = urllib.request.Request(
+                  f'{api}/{path}',
+                  data=json.dumps(payload, separators=(',', ':')).encode(),
+                  headers=headers,
+                  method='POST',
+              )
+              with urllib.request.urlopen(request) as response:
+                  return json.load(response)
+
+          blob = post('blobs', {
+              'content': base64.b64encode(lock_bytes).decode(),
+              'encoding': 'base64',
+          })
+          tree = post('trees', {
+              'base_tree': base_tree,
+              'tree': [
+                  {
+                      'path': 'aegis-cl-psi/Cargo.lock',
+                      'mode': '100644',
+                      'type': 'blob',
+                      'sha': blob['sha'],
+                  },
+                  {
+                      'path': '.github/workflows/khatt-lock-reconcile.yml',
+                      'mode': '100644',
+                      'type': 'blob',
+                      'sha': None,
+                  },
+              ],
+          })
+          commit = post('commits', {
+              'message': 'build(language): freeze exact Khatt Cargo lock',
+              'tree': tree['sha'],
+              'parents': [candidate],
+          })
+
+          proposal = {
+              'record_kind': 'KHATT_LOCK_RECONCILIATION_PROPOSAL_V1',
+              'parent_sha': candidate,
+              'proposed_commit_sha': commit['sha'],
+              'tree_sha': tree['sha'],
+              'cargo_lock_blob_sha': blob['sha'],
+              'cargo_lock_sha256': lock_sha256,
+              'ref_updated': False,
+          }
+          Path('khatt-lock-proposal.json').write_text(
+              json.dumps(proposal, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          print(json.dumps(proposal, sort_keys=True))
+          PY
+
+      - name: Upload reconciliation proposal
         uses: actions/upload-artifact@v4
         with:
-          name: khatt-cargo-lock-${{ github.sha }}
-          path: aegis-cl-psi/Cargo.lock
+          name: khatt-lock-reconciliation-${{ env.CANDIDATE_SHA }}
+          path: khatt-lock-proposal.json
           if-no-files-found: error
           retention-days: 7
