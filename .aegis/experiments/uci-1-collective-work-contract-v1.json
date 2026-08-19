@@ -45,7 +45,7 @@
     "provider": "github-actions"
   },
   "operator_approval": {
-    "approval_record_hash": "7e491e5f4a04eb00798c6280ab55284b56fadef86c3ea77c7d04290a8bba2170",
+    "approval_record_hash": "1c5912702b014f76499b58b1640d034dd3f0e87fd20b0a750622243d51a7ae1c",
     "authorization_basis": "user-explicit-go-universal-collective-intelligence-kernel-v1-and-uci1-implementation",
     "decided_at": "2026-08-19T18:56:00Z",
     "operator_actor_id": "tarikskalic33",
