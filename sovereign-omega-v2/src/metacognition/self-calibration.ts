@@ -962,3 +962,15 @@ export async function calibrationToMetacognitiveObservation(
     signal: `self-calibration ${calibration.calibration_hash} action=${calibration.action_digest.slice(0, 8)} predicted=${calibration.predicted_success_bps}bps observed=${observed} error=${calibration.absolute_error_bps}bps`,
   })
 }
+
+export async function calibrationV2ToMetacognitiveObservation(
+  calibration: SelfCalibrationRecordV2,
+): Promise<MetacognitiveObservation> {
+  await assertCalibrationIntegrityV2(calibration)
+  const observed = calibration.observed_success ? 'success' : 'failure'
+  return deepFreeze<MetacognitiveObservation>({
+    layer: 'SELF_MODEL',
+    tier: 'T2',
+    signal: `self-calibration-v2 ${calibration.calibration_hash} action=${calibration.action_digest.slice(0, 8)} verifier=${calibration.verifier_id} claim=${calibration.verifier_claim_id} predicted=${calibration.predicted_success_bps}bps observed=${observed} error=${calibration.absolute_error_bps}bps`,
+  })
+}
