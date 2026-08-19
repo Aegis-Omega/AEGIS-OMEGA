@@ -34,12 +34,30 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 GIT_RE = re.compile(r"^[0-9a-f]{40,64}$")
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9._:/@+#=-]+$")
 
+# Historical PR-1 policy remains explicit so its semantics can be reproduced on the
+# frozen PR-1 head. PR-2 must not keep binding new transitions to this stale value.
 PR1_VERIFIER_POLICY = {
     "policy_id": "AEGIS_PR1_VERIFIER_POLICY_V1",
     "safe_incompleteness": True,
     "required_semantics": ["V_decision", "V_binding", "V_effect"],
     "effect_evidence_required": True,
     "effect_receipt_production": "UNAVAILABLE",
+}
+
+# Active PR-2 verifier-policy commitment. This is still intentionally incomplete:
+# PR-3 will introduce the explicit full obligation registry. PR-2 only records that
+# independent adapter-bound effect evidence can now be produced while complete
+# verification and admission remain unavailable.
+PR2_VERIFIER_POLICY = {
+    "policy_id": "AEGIS_PR2_VERIFIER_POLICY_V1",
+    "safe_incompleteness": True,
+    "obligation_set_status": "PARTIAL_PRE_REGISTRY",
+    "required_semantics": ["V_decision", "V_binding", "V_effect"],
+    "effect_evidence_required": True,
+    "effect_receipt_production": "ADAPTER_BOUND_ONLY",
+    "effect_observation_scope": "REFERENCE_ADAPTER_BOUND_ONLY",
+    "complete_verification": "UNAVAILABLE",
+    "atomic_admission": "UNAVAILABLE",
 }
 
 PR1_ADMISSION_POLICY = {
@@ -312,8 +330,16 @@ def fence_commitment(fence_token: str | None) -> str:
     )
 
 
-def verifier_policy_commitment() -> str:
+def pr1_verifier_policy_commitment() -> str:
+    """Historical PR-1 verifier-policy commitment for audit/reproduction only."""
+
     return canonical_hash("AEGIS_VERIFIER_POLICY_COMMITMENT_V1", PR1_VERIFIER_POLICY)
+
+
+def verifier_policy_commitment() -> str:
+    """Active PR-2 verifier-policy commitment bound into new TransitionIDs."""
+
+    return canonical_hash("AEGIS_VERIFIER_POLICY_COMMITMENT_V1", PR2_VERIFIER_POLICY)
 
 
 def admission_policy_commitment() -> str:
