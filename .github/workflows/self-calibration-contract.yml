@@ -1,0 +1,51 @@
+name: Self Calibration Contract
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/src/metacognition/self-calibration.ts'
+      - 'sovereign-omega-v2/test/unit/self-calibration.test.ts'
+      - 'sovereign-omega-v2/src/metacognition/loop.ts'
+      - '.github/workflows/self-calibration-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: self-calibration-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: self-model prediction/calibration contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: sovereign-omega-v2
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Focused self-calibration tests
+        run: npm run test -- test/unit/self-calibration.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
