@@ -32,7 +32,7 @@
   ],
   "expected_parent_sha": "32b7eb6a37fb69d19dd80189390b6641c5004ef1",
   "expected_parent_state_root": "0866104def4d29183f8f44e240a4644ece96ff07b4b4dd538fa270652c16e70a",
-  "experiment_id": "uci-2-provider-claim-lease-v1",
+  "experiment_id": "reflexive-self-model-v1",
   "integration_ledger_generator": {
     "blob_id": "28823ae5b630be273b78210f0addf9c0a86aad05",
     "path": "scripts/integration_ledger.py"
@@ -82,5 +82,5 @@
     "observability_expired",
     "operator_emergency_stop"
   ],
-  "title": "Admit UCI-2 durable provider claim lease as a T2 scheduling/fencing reference experiment"
+  "title": "Admit REFLEXIVE_SELF_MODEL_V1 as a T2 evidence-bound self-observation and calibration reference experiment"
 }
