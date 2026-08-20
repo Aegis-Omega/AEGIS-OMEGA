@@ -210,6 +210,12 @@ class BenchmarkTrackSpecV1:
             raise EvaluationCampaignError("TASK_MANIFEST_COMMITMENT_MISMATCH")
         if not isinstance(self.repetition_count, int) or isinstance(self.repetition_count, bool) or self.repetition_count < 1:
             raise EvaluationCampaignError("REPETITION_COUNT_INVALID")
+        expected_trials = set(range(self.repetition_count))
+        trials_by_task: dict[str, set[int]] = {}
+        for unit in self.task_trial_units:
+            trials_by_task.setdefault(unit.task_spec_root, set()).add(unit.trial_index)
+        if any(trial_indices != expected_trials for trial_indices in trials_by_task.values()):
+            raise EvaluationCampaignError("REPETITION_MANIFEST_MISMATCH")
         if self.split_privacy is SplitPrivacy.PUBLIC_DEV and self.contamination_class is ContaminationClass.HELD_OUT:
             raise EvaluationCampaignError("PUBLIC_SPLIT_CANNOT_BE_HELD_OUT")
 
