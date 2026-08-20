@@ -13,7 +13,7 @@ from harness.sdk.agi_evidence import (
 )
 
 
-def test_publicly_constructed_checker_results_cannot_reach_threshold_met() -> None:
+def _fabricated_suite_and_results(*, runtime_commitment: str) -> tuple[EvaluationSuiteV1, tuple[CapabilityTrialResultV1, ...]]:
     axes = tuple(EvidenceAxis)
     tasks = tuple(
         CapabilityTaskSpecV1(
@@ -36,7 +36,6 @@ def test_publicly_constructed_checker_results_cannot_reach_threshold_met() -> No
         strongest_constituent_baseline_commitment="a" * 64,
         evaluated_system_commitment="b" * 64,
     )
-
     fabricated = tuple(
         CapabilityTrialResultV1(
             task_spec_root=task.root,
@@ -47,13 +46,23 @@ def test_publicly_constructed_checker_results_cannot_reach_threshold_met() -> No
             output_digest="c" * 64,
             checker_commitment=task.checker_commitment,
             budget_commitment=task.budget_commitment,
-            provider_runtime_commitment=suite.evaluated_system_commitment,
+            provider_runtime_commitment=runtime_commitment,
             execution_receipt_root="e" * 64,
             effect_receipt_root="f" * 64,
             admission_record_root="1" * 64,
         )
         for task in suite.tasks
     )
+    return suite, fabricated
 
+
+def test_publicly_constructed_checker_results_cannot_reach_threshold_met() -> None:
+    suite, fabricated = _fabricated_suite_and_results(runtime_commitment="b" * 64)
     with pytest.raises(EvidenceProtocolError, match="TRIAL_RESULT_NOT_CHECKER_ISSUED"):
+        AGIEvidenceEvaluator().evaluate(suite, fabricated)
+
+
+def test_result_runtime_must_match_preregistered_evaluated_system() -> None:
+    suite, fabricated = _fabricated_suite_and_results(runtime_commitment="9" * 64)
+    with pytest.raises(EvidenceProtocolError, match="EVALUATED_SYSTEM_COMMITMENT_MISMATCH"):
         AGIEvidenceEvaluator().evaluate(suite, fabricated)
