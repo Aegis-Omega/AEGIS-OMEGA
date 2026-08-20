@@ -13,7 +13,7 @@ jobs:
   uci8-red:
     name: uci8 / evaluation-campaign-red
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       EXPECTED_PARENT_SHA: 1aa405975e2b3f3c1b1c0022a6b75e0b21d395ec
@@ -137,6 +137,12 @@ jobs:
           set -euo pipefail
           python -m pytest sovereign-omega-v2/python/tests/test_uci8_pair_verification_schemas.py -q | tee "$RUNNER_TEMP/uci8-pair-verification-schema.log"
 
+      - name: Validate UCI-8 CI contract guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest sovereign-omega-v2/python/tests/test_uci8_ci_contract.py -q | tee "$RUNNER_TEMP/uci8-ci-contract.log"
+
       - name: Write RED witness
         if: always()
         shell: bash
@@ -150,6 +156,8 @@ jobs:
             echo "public_benchmark_campaign=NOT_RUN"
             echo "agi_claim=NOT_ESTABLISHED"
             echo "statistical_mode=PAIRED_DESCRIPTIVE_V1"
+            echo "preregistration_temporal_attestation=NOT_ESTABLISHED"
+            echo "public_key_signature=NOT_ESTABLISHED"
           } > "$RUNNER_TEMP/uci8-red-witness.txt"
           for path in "$RUNNER_TEMP"/uci8-*.log; do
             if [[ -f "$path" ]]; then cat "$path" >> "$RUNNER_TEMP/uci8-red-witness.txt"; fi
