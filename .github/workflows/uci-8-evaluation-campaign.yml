@@ -1,0 +1,80 @@
+name: UCI-8 Evaluation Campaign
+
+on:
+  pull_request:
+    branches:
+      - feat/uci-7-agi-evidence-protocol-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  uci8-red:
+    name: uci8 / evaluation-campaign-red
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      EXPECTED_PARENT_SHA: 1aa405975e2b3f3c1b1c0022a6b75e0b21d395ec
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact stacked lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$CANDIDATE_SHA"
+          test "$(git merge-base "$EXPECTED_PARENT_SHA" HEAD)" = "$EXPECTED_PARENT_SHA"
+          if [[ -n "$PR_BASE_SHA" ]]; then
+            test "$PR_BASE_SHA" = "$EXPECTED_PARENT_SHA"
+          fi
+          echo "UCI8_CANDIDATE_SHA=$actual"
+          echo "UCI8_EXPECTED_PARENT_SHA=$EXPECTED_PARENT_SHA"
+          echo "UCI8_EXACT_LINEAGE=PASS"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact test runtime
+        run: python -m pip install pytest==8.3.5
+
+      - name: Run preregistered UCI-8 behavioral falsifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest sovereign-omega-v2/python/tests/test_uci8_evaluation_campaign.py -q | tee "$RUNNER_TEMP/uci8-red.log"
+
+      - name: Write RED witness
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "schema_version=AEGIS_UCI8_RED_WITNESS_V1"
+            echo "candidate_sha=$(git rev-parse HEAD)"
+            echo "expected_parent_sha=$EXPECTED_PARENT_SHA"
+            echo "authority=EVIDENCE_ONLY"
+            echo "public_benchmark_campaign=NOT_RUN"
+            echo "agi_claim=NOT_ESTABLISHED"
+            if [[ -f "$RUNNER_TEMP/uci8-red.log" ]]; then
+              cat "$RUNNER_TEMP/uci8-red.log"
+            fi
+          } > "$RUNNER_TEMP/uci8-red-witness.txt"
+
+      - name: Upload RED witness
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uci8-red-witness-${{ env.CANDIDATE_SHA }}
+          path: |
+            ${{ runner.temp }}/uci8-red-witness.txt
+            ${{ runner.temp }}/uci8-red.log
+          if-no-files-found: warn
