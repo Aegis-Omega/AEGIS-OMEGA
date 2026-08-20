@@ -47,10 +47,10 @@ jobs:
         run: npm ci
 
       - name: Focused reflexive tests — pass 1
-        run: npx vitest run test/unit/reflexive-self-model/*.test.ts
+        run: npx vitest run test/unit/reflexive-self-model/*.test.ts test/vectors/reflexive-self-model-vectors.test.ts
 
       - name: Focused reflexive tests — pass 2
-        run: npx vitest run test/unit/reflexive-self-model/*.test.ts
+        run: npx vitest run test/unit/reflexive-self-model/*.test.ts test/vectors/reflexive-self-model-vectors.test.ts
 
       - name: Typecheck
         run: npm run typecheck
