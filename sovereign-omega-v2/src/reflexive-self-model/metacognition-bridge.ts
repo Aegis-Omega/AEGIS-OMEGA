@@ -149,6 +149,9 @@ export async function appendReflexiveCycleToMetacognition(
   receipt: ReflexiveCycleReceiptV1,
   startingSequence: SequenceNumber,
 ): Promise<ReflexiveMetacognitionBridgeResultV1> {
+  if ((startingSequence as bigint) < 0n) {
+    fail('startingSequence must be non-negative')
+  }
   assertReceiptShape(receipt)
   await assertCycleDigest(receipt)
 
@@ -157,10 +160,10 @@ export async function appendReflexiveCycleToMetacognition(
   const entries: MetacognitiveEntry[] = []
 
   for (const observation of projections(receipt)) {
-    sequence += 1n
     const advanced = await current.observe(observation, sequence as SequenceNumber)
     current = advanced.loop
     entries.push(advanced.entry)
+    sequence += 1n
   }
 
   return Object.freeze({
