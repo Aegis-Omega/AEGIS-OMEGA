@@ -84,6 +84,24 @@ describe('REFLEXIVE_SELF_MODEL_V1 closed contracts', () => {
     expect(validateSelfModelSnapshotV1(validSnapshot()).snapshot_id).toBe('snap-1')
   })
 
+  it('accepts repo-native Git object ids without weakening content-digest validation', () => {
+    const gitSha1 = 'c'.repeat(40)
+    expect(
+      validateSelfModelSnapshotV1({ ...validSnapshot(), source_commit_sha: gitSha1 })
+        .source_commit_sha,
+    ).toBe(gitSha1)
+
+    expect(() =>
+      validateSelfModelSnapshotV1({ ...validSnapshot(), source_commit_sha: 'c'.repeat(39) }),
+    ).toThrow(/source_commit_sha|git/i)
+    expect(() =>
+      validateSelfModelSnapshotV1({ ...validSnapshot(), source_commit_sha: 'g'.repeat(40) }),
+    ).toThrow(/source_commit_sha|git/i)
+    expect(() =>
+      validateSelfModelSnapshotV1({ ...validSnapshot(), policy_digest: 'd'.repeat(40) }),
+    ).toThrow(/policy_digest|sha/i)
+  })
+
   it('rejects unknown fields on the self-model snapshot', () => {
     expect(() => validateSelfModelSnapshotV1({ ...validSnapshot(), execute: true })).toThrow(/execute|unknown/i)
   })
