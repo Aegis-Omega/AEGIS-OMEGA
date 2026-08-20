@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/reflexive-self-model/self-prediction-v1.schema.json",
+  "title": "SelfPredictionV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_kind",
+    "schema_version",
+    "prediction_id",
+    "cycle_id",
+    "self_model_snapshot_digest",
+    "target_kind",
+    "target_id",
+    "policy_digest",
+    "epoch_id",
+    "prestate_root",
+    "clauses",
+    "sealed_at",
+    "prediction_digest",
+    "authority"
+  ],
+  "properties": {
+    "record_kind": { "const": "SELF_PREDICTION_V1" },
+    "schema_version": { "const": "1.0.0" },
+    "prediction_id": { "type": "string", "minLength": 1 },
+    "cycle_id": { "type": "string", "minLength": 1 },
+    "self_model_snapshot_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "target_kind": { "enum": ["TRANSITION", "WORK_NODE"] },
+    "target_id": { "type": "string", "minLength": 1 },
+    "policy_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "epoch_id": { "type": "string", "minLength": 1 },
+    "prestate_root": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "clauses": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["clause_id", "kind", "expected", "weight_bps", "confidence_bps"],
+            "properties": {
+              "clause_id": { "type": "string", "minLength": 1 },
+              "kind": { "const": "BOOLEAN" },
+              "expected": { "type": "boolean" },
+              "weight_bps": { "type": "integer", "minimum": 1, "maximum": 10000 },
+              "confidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000 }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["clause_id", "kind", "expected", "weight_bps", "confidence_bps"],
+            "properties": {
+              "clause_id": { "type": "string", "minLength": 1 },
+              "kind": { "const": "EXACT_STRING" },
+              "expected": { "type": "string", "minLength": 1 },
+              "weight_bps": { "type": "integer", "minimum": 1, "maximum": 10000 },
+              "confidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000 }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["clause_id", "kind", "expected", "weight_bps", "confidence_bps"],
+            "properties": {
+              "clause_id": { "type": "string", "minLength": 1 },
+              "kind": { "const": "SHA256_DIGEST" },
+              "expected": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "weight_bps": { "type": "integer", "minimum": 1, "maximum": 10000 },
+              "confidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000 }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["clause_id", "kind", "min", "max", "weight_bps", "confidence_bps"],
+            "properties": {
+              "clause_id": { "type": "string", "minLength": 1 },
+              "kind": { "const": "INTEGER_RANGE" },
+              "min": { "type": "integer" },
+              "max": { "type": "integer" },
+              "weight_bps": { "type": "integer", "minimum": 1, "maximum": 10000 },
+              "confidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000 }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["clause_id", "kind", "min_bps", "max_bps", "weight_bps", "confidence_bps"],
+            "properties": {
+              "clause_id": { "type": "string", "minLength": 1 },
+              "kind": { "const": "BPS_INTERVAL" },
+              "min_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+              "max_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+              "weight_bps": { "type": "integer", "minimum": 1, "maximum": 10000 },
+              "confidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000 }
+            }
+          }
+        ]
+      }
+    },
+    "sealed_at": { "type": "integer", "minimum": 0 },
+    "prediction_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "authority": { "const": "PREDICTION_EVIDENCE_ONLY" }
+  }
+}
