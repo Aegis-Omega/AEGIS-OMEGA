@@ -87,6 +87,24 @@ jobs:
           set -euo pipefail
           python -m pytest sovereign-omega-v2/python/tests/test_uci8_portable_attestation_schemas.py -q | tee "$RUNNER_TEMP/uci8-portable-schema.log"
 
+      - name: Validate baseline selection integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest sovereign-omega-v2/python/tests/test_uci8_baseline_selection_integrity.py -q | tee "$RUNNER_TEMP/uci8-baseline-selection.log"
+
+      - name: Validate published metric comparability
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest sovereign-omega-v2/python/tests/test_uci8_published_comparability.py -q | tee "$RUNNER_TEMP/uci8-published-comparability.log"
+
+      - name: Validate descriptive measurement resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest sovereign-omega-v2/python/tests/test_uci8_measurement_resolution.py -q | tee "$RUNNER_TEMP/uci8-measurement-resolution.log"
+
       - name: Write RED witness
         if: always()
         shell: bash
@@ -106,7 +124,10 @@ jobs:
             "$RUNNER_TEMP/uci8-repetition.log" \
             "$RUNNER_TEMP/uci8-checker-provenance.log" \
             "$RUNNER_TEMP/uci8-portable-checker.log" \
-            "$RUNNER_TEMP/uci8-portable-schema.log"; do
+            "$RUNNER_TEMP/uci8-portable-schema.log" \
+            "$RUNNER_TEMP/uci8-baseline-selection.log" \
+            "$RUNNER_TEMP/uci8-published-comparability.log" \
+            "$RUNNER_TEMP/uci8-measurement-resolution.log"; do
             if [[ -f "$path" ]]; then cat "$path" >> "$RUNNER_TEMP/uci8-red-witness.txt"; fi
           done
 
@@ -123,4 +144,7 @@ jobs:
             ${{ runner.temp }}/uci8-checker-provenance.log
             ${{ runner.temp }}/uci8-portable-checker.log
             ${{ runner.temp }}/uci8-portable-schema.log
+            ${{ runner.temp }}/uci8-baseline-selection.log
+            ${{ runner.temp }}/uci8-published-comparability.log
+            ${{ runner.temp }}/uci8-measurement-resolution.log
           if-no-files-found: warn
