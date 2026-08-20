@@ -30,8 +30,32 @@
     "baseline_runtime_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "budget_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "scorer_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "checker_run_id": {"type": ["string", "null"]},
+    "checker_run_id": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._:/@+#=-]+$"
+    },
     "system_checker_attestation_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "baseline_checker_attestation_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"checker_run_id": {"type": "null"}},
+        "required": ["checker_run_id"]
+      },
+      "then": {
+        "properties": {
+          "system_checker_attestation_root": {"const": "0000000000000000000000000000000000000000000000000000000000000000"},
+          "baseline_checker_attestation_root": {"const": "0000000000000000000000000000000000000000000000000000000000000000"}
+        }
+      },
+      "else": {
+        "properties": {
+          "system_checker_attestation_root": {"not": {"const": "0000000000000000000000000000000000000000000000000000000000000000"}},
+          "baseline_checker_attestation_root": {"not": {"const": "0000000000000000000000000000000000000000000000000000000000000000"}}
+        }
+      }
+    }
+  ]
 }
