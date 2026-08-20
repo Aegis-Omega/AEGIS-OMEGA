@@ -136,6 +136,8 @@ jobs:
         run: |
           set -euo pipefail
           python -m pytest sovereign-omega-v2/python/tests/test_uci7_checker_provenance.py -q | tee "$RUNNER_TEMP/uci7-checker-provenance.log"
+          grep -Eq '2 passed' "$RUNNER_TEMP/uci7-checker-provenance.log"
+          echo "UCI7_CHECKER_PROVENANCE_GUARDS_2=PASS"
 
       - name: Write exact-head witness
         if: always()
@@ -160,7 +162,10 @@ jobs:
             echo "inherited_uci5_ci_guards=3_REQUIRED_AND_TESTED"
             echo "uci7_local_protocol_cardinality=13_REQUIRED_AND_TESTED"
             echo "uci7_ci_guards=4_REQUIRED_AND_TESTED"
-            echo "checker_result_provenance=REQUIRED"
+            echo "checker_result_provenance=PROCESS_LOCAL_ISSUANCE_REQUIRED_AND_TESTED"
+            echo "evaluated_system_runtime_binding=REQUIRED_AND_TESTED"
+            echo "checker_code_cryptographic_attestation=NOT_ESTABLISHED"
+            echo "cross_process_trial_result_attestation=NOT_ESTABLISHED"
           } > "$RUNNER_TEMP/uci7-witness.txt"
           for path in \
             "$RUNNER_TEMP/uci7-inherited-pytest.log" \
