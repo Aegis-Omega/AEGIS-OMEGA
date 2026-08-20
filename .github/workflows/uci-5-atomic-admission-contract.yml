@@ -14,7 +14,8 @@ jobs:
     timeout-minutes: 20
     env:
       CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      EXPECTED_PARENT_SHA: ${{ github.event.pull_request.base.sha || '' }}
+      EXPECTED_PARENT_SHA: 9702004a6230d6a84cc322edb48b55c14e90fe15
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
     steps:
       - name: Checkout exact candidate
         uses: actions/checkout@v4
@@ -28,11 +29,13 @@ jobs:
           set -euo pipefail
           actual="$(git rev-parse HEAD)"
           test "$actual" = "$CANDIDATE_SHA"
-          echo "UCI5_CANDIDATE_SHA=$actual"
-          if [[ -n "$EXPECTED_PARENT_SHA" ]]; then
-            test "$(git merge-base "$EXPECTED_PARENT_SHA" HEAD)" = "$EXPECTED_PARENT_SHA"
-            echo "UCI5_EXPECTED_PARENT_SHA=$EXPECTED_PARENT_SHA"
+          test "$(git merge-base "$EXPECTED_PARENT_SHA" HEAD)" = "$EXPECTED_PARENT_SHA"
+          if [[ -n "$PR_BASE_SHA" ]]; then
+            test "$PR_BASE_SHA" = "$EXPECTED_PARENT_SHA"
           fi
+          echo "UCI5_CANDIDATE_SHA=$actual"
+          echo "UCI5_EXPECTED_PARENT_SHA=$EXPECTED_PARENT_SHA"
+          echo "UCI5_EXACT_LINEAGE=PASS"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -64,6 +67,7 @@ jobs:
               schema = json.loads(path.read_text(encoding='utf-8'))
               validator_for(schema).check_schema(schema)
               print(f'UCI5_SCHEMA_OK {path}')
+          print(f'UCI5_SCHEMA_COUNT={len(paths)}')
 
           admission = json.loads(Path('schemas/admission-record.v1.schema.json').read_text())
           validator = validator_for(admission)(admission)
@@ -104,6 +108,16 @@ jobs:
             sovereign-omega-v2/python/tests/test_uci4_effect_chain_integration.py \
             sovereign-omega-v2/python/tests/test_uci5_atomic_admission.py \
             -q | tee "$RUNNER_TEMP/uci5-pytest.log"
+          grep -Eq '99 passed' "$RUNNER_TEMP/uci5-pytest.log"
+          echo "UCI5_FULL_PROOFLINE_99=PASS"
+
+      - name: Validate UCI-5 CI contract guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest sovereign-omega-v2/python/tests/test_uci5_ci_contract.py -q | tee "$RUNNER_TEMP/uci5-ci-contract.log"
+          grep -Eq '2 passed' "$RUNNER_TEMP/uci5-ci-contract.log"
+          echo "UCI5_CI_CONTRACT_GUARDS_2=PASS"
 
       - name: Write exact-head witness
         if: always()
@@ -118,6 +132,8 @@ jobs:
             echo "reference_store=LOCAL_SQLITE_ONLY"
             echo "caller_supplied_next_state=FORBIDDEN"
             echo "complete_verification_recompute=REQUIRED"
+            echo "frozen_parent_binding=REQUIRED_AND_TESTED"
+            echo "proofline_cardinality=99_REQUIRED_AND_TESTED"
             echo "current_authority_epoch_checked=AT_ADMISSION_TIME_ONLY"
             echo "transition_historical_authority_epoch_binding=NOT_ESTABLISHED"
             echo "distributed_linearizability=NOT_ESTABLISHED"
@@ -125,6 +141,9 @@ jobs:
           } > "$RUNNER_TEMP/uci5-witness.txt"
           if [[ -f "$RUNNER_TEMP/uci5-pytest.log" ]]; then
             cat "$RUNNER_TEMP/uci5-pytest.log" >> "$RUNNER_TEMP/uci5-witness.txt"
+          fi
+          if [[ -f "$RUNNER_TEMP/uci5-ci-contract.log" ]]; then
+            cat "$RUNNER_TEMP/uci5-ci-contract.log" >> "$RUNNER_TEMP/uci5-witness.txt"
           fi
 
       - name: Upload UCI-5 witness
@@ -135,4 +154,5 @@ jobs:
           path: |
             ${{ runner.temp }}/uci5-witness.txt
             ${{ runner.temp }}/uci5-pytest.log
+            ${{ runner.temp }}/uci5-ci-contract.log
           if-no-files-found: error
