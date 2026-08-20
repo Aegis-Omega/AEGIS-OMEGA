@@ -22,7 +22,9 @@
     "repetition_count",
     "statistical_mode",
     "published_comparability",
-    "published_methodology_commitment"
+    "published_methodology_commitment",
+    "measurement_resolution_bps",
+    "measurement_resolution_basis_commitment"
   ],
   "properties": {
     "track_kind": {"const": "BENCHMARK_TRACK_SPEC_V1"},
@@ -59,8 +61,70 @@
     "published_comparability": {
       "enum": ["NOT_COMPARABLE_TO_PUBLISHED", "PUBLISHED_METHODOLOGY_MATCHED"]
     },
-    "published_methodology_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    "published_methodology_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "measurement_resolution_bps": {"type": ["integer", "null"], "minimum": 1, "maximum": 10000},
+    "measurement_resolution_basis_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "published_comparability": {"const": "PUBLISHED_METHODOLOGY_MATCHED"}
+        },
+        "required": ["published_comparability"]
+      },
+      "then": {
+        "properties": {
+          "published_methodology_commitment": {
+            "not": {"const": "0000000000000000000000000000000000000000000000000000000000000000"}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "measurement_resolution_bps": {"type": "integer"}
+        },
+        "required": ["measurement_resolution_bps"]
+      },
+      "then": {
+        "properties": {
+          "measurement_resolution_basis_commitment": {
+            "not": {"const": "0000000000000000000000000000000000000000000000000000000000000000"}
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "measurement_resolution_bps": {"type": "null"}
+        },
+        "required": ["measurement_resolution_bps"]
+      },
+      "then": {
+        "properties": {
+          "measurement_resolution_basis_commitment": {
+            "const": "0000000000000000000000000000000000000000000000000000000000000000"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "metric_kind": {"const": "HUMAN_EQUIVALENT_TASK_HORIZON"}
+        },
+        "required": ["metric_kind"]
+      },
+      "then": {
+        "properties": {
+          "measurement_resolution_bps": {"type": "null"}
+        }
+      }
+    }
+  ],
   "$defs": {
     "taskTrialUnit": {
       "type": "object",
