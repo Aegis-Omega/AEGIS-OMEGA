@@ -75,6 +75,12 @@ class PublishedComparability(str, Enum):
     PUBLISHED_METHODOLOGY_MATCHED = "PUBLISHED_METHODOLOGY_MATCHED"
 
 
+class DeltaResolutionStatus(str, Enum):
+    NOT_ESTABLISHED = "NOT_ESTABLISHED"
+    BELOW_MEASUREMENT_RESOLUTION = "BELOW_MEASUREMENT_RESOLUTION"
+    AT_OR_ABOVE_MEASUREMENT_RESOLUTION = "AT_OR_ABOVE_MEASUREMENT_RESOLUTION"
+
+
 class CampaignEvidenceStatus(str, Enum):
     NOT_EVALUATED = "NOT_EVALUATED"
     DEVELOPMENT_EVIDENCE_ONLY = "DEVELOPMENT_EVIDENCE_ONLY"
@@ -145,8 +151,10 @@ class BenchmarkTrackSpecV1:
     contamination_class: ContaminationClass
     repetition_count: int
     statistical_mode: StatisticalMode
-    published_comparability: PublishedComparability
-    published_methodology_commitment: str
+    published_comparability: PublishedComparability = PublishedComparability.NOT_COMPARABLE_TO_PUBLISHED
+    published_methodology_commitment: str = ZERO_HASH
+    measurement_resolution_bps: int | None = None
+    measurement_resolution_basis_commitment: str = ZERO_HASH
     track_kind: str = BENCHMARK_TRACK_KIND
 
     @classmethod
@@ -169,6 +177,8 @@ class BenchmarkTrackSpecV1:
         statistical_mode: StatisticalMode,
         published_comparability: PublishedComparability = PublishedComparability.NOT_COMPARABLE_TO_PUBLISHED,
         published_methodology_commitment: str = ZERO_HASH,
+        measurement_resolution_bps: int | None = None,
+        measurement_resolution_basis_commitment: str = ZERO_HASH,
     ) -> "BenchmarkTrackSpecV1":
         units = tuple(task_trial_units)
         manifest_commitment = canonical_hash(
@@ -193,6 +203,8 @@ class BenchmarkTrackSpecV1:
             statistical_mode=statistical_mode,
             published_comparability=published_comparability,
             published_methodology_commitment=published_methodology_commitment,
+            measurement_resolution_bps=measurement_resolution_bps,
+            measurement_resolution_basis_commitment=measurement_resolution_basis_commitment,
         )
         track.validate()
         return track
@@ -215,6 +227,7 @@ class BenchmarkTrackSpecV1:
             raise EvaluationCampaignError("STATISTICAL_MODE_NOT_ADMITTED_V1")
         if not isinstance(self.published_comparability, PublishedComparability):
             raise EvaluationCampaignError("PUBLISHED_COMPARABILITY_INVALID")
+
         for name in (
             "benchmark_source_commitment",
             "task_manifest_commitment",
@@ -222,11 +235,35 @@ class BenchmarkTrackSpecV1:
             "budget_commitment",
             "human_reference_commitment",
             "published_methodology_commitment",
+            "measurement_resolution_basis_commitment",
         ):
             _require_hash(name, getattr(self, name))
+
         if self.published_comparability is PublishedComparability.PUBLISHED_METHODOLOGY_MATCHED:
             if self.published_methodology_commitment == ZERO_HASH:
                 raise EvaluationCampaignError("PUBLISHED_METHODOLOGY_COMMITMENT_REQUIRED")
+
+        if self.measurement_resolution_bps is None:
+            if self.measurement_resolution_basis_commitment != ZERO_HASH:
+                raise EvaluationCampaignError("MEASUREMENT_RESOLUTION_VALUE_REQUIRED")
+        else:
+            if (
+                not isinstance(self.measurement_resolution_bps, int)
+                or isinstance(self.measurement_resolution_bps, bool)
+                or self.measurement_resolution_bps < 1
+                or self.measurement_resolution_bps > 10_000
+            ):
+                raise EvaluationCampaignError("MEASUREMENT_RESOLUTION_BPS_INVALID")
+            if self.measurement_resolution_basis_commitment == ZERO_HASH:
+                raise EvaluationCampaignError("MEASUREMENT_RESOLUTION_BASIS_REQUIRED")
+            if self.metric_kind is MetricKind.HUMAN_EQUIVALENT_TASK_HORIZON:
+                raise EvaluationCampaignError("BPS_RESOLUTION_NOT_APPLICABLE_TO_HORIZON_METRIC")
+            if self.metric_kind not in (
+                MetricKind.EXACT_MATCH_ACCURACY,
+                MetricKind.TOOL_ASSISTED_QA_ACCURACY,
+            ):
+                raise EvaluationCampaignError("BPS_RESOLUTION_NOT_APPLICABLE_TO_METRIC")
+
         if not self.task_trial_units:
             raise EvaluationCampaignError("TASK_TRIAL_MANIFEST_EMPTY")
         unit_roots = [unit.root for unit in self.task_trial_units]
@@ -265,6 +302,16 @@ class BenchmarkTrackSpecV1:
             if self.human_reference_commitment == ZERO_HASH:
                 raise EvaluationCampaignError("METR_HUMAN_REFERENCE_REQUIRED")
 
+    def classify_delta_resolution(self, delta_bps: int) -> DeltaResolutionStatus:
+        self.validate()
+        if not isinstance(delta_bps, int) or isinstance(delta_bps, bool):
+            raise EvaluationCampaignError("DELTA_BPS_INVALID")
+        if self.measurement_resolution_bps is None:
+            return DeltaResolutionStatus.NOT_ESTABLISHED
+        if abs(delta_bps) < self.measurement_resolution_bps:
+            return DeltaResolutionStatus.BELOW_MEASUREMENT_RESOLUTION
+        return DeltaResolutionStatus.AT_OR_ABOVE_MEASUREMENT_RESOLUTION
+
     def to_dict(self) -> dict[str, object]:
         return {
             "track_kind": self.track_kind,
@@ -285,6 +332,8 @@ class BenchmarkTrackSpecV1:
             "statistical_mode": self.statistical_mode.value,
             "published_comparability": self.published_comparability.value,
             "published_methodology_commitment": self.published_methodology_commitment,
+            "measurement_resolution_bps": self.measurement_resolution_bps,
+            "measurement_resolution_basis_commitment": self.measurement_resolution_basis_commitment,
         }
 
     @property
@@ -700,11 +749,12 @@ class CampaignEvidenceBundleV1:
             for unit in track.task_trial_units
         }
         actual_slots: list[tuple[str, str]] = []
+        campaign_track_roots = {track.root for track in campaign.tracks}
         for pair in pair_tuple:
             pair.validate()
             if pair.campaign_root != campaign.root:
                 raise EvaluationCampaignError("PAIR_CAMPAIGN_ROOT_MISMATCH")
-            if pair.track_root not in {track.root for track in campaign.tracks}:
+            if pair.track_root not in campaign_track_roots:
                 raise EvaluationCampaignError("PAIR_TRACK_NOT_IN_CAMPAIGN")
             actual_slots.append((pair.track_root, pair.task_trial_unit_root))
         if len(pair_tuple) != len(expected_slots) or set(actual_slots) != expected_slots:
