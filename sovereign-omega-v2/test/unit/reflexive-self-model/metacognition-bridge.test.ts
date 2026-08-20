@@ -68,6 +68,34 @@ describe('REFLEXIVE_SELF_MODEL_V1 metacognition bridge', () => {
     expect(result.loop.length).toBe(4)
   })
 
+  it('uses the supplied starting sequence for the first bridge entry', async () => {
+    const receipt = await cycleReceipt()
+    const result = await appendReflexiveCycleToMetacognition(
+      MetacognitiveLoop.empty(),
+      receipt,
+      SEQ(60),
+    )
+
+    expect(result.entries.map(entry => entry.sequence)).toEqual([
+      SEQ(60),
+      SEQ(61),
+      SEQ(62),
+      SEQ(63),
+    ])
+  })
+
+  it('rejects a negative starting sequence before mutating the loop', async () => {
+    const receipt = await cycleReceipt()
+
+    await expect(
+      appendReflexiveCycleToMetacognition(
+        MetacognitiveLoop.empty(),
+        receipt,
+        SEQ(-1),
+      ),
+    ).rejects.toThrow(ReflexiveMetacognitionBridgeError)
+  })
+
   it('adds a separate METACOGNITIVE contradiction observation when contradiction is preserved', async () => {
     const receipt = await cycleReceipt('CONTRADICTION_DETECTED', false)
     const result = await appendReflexiveCycleToMetacognition(
