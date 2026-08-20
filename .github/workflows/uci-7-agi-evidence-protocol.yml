@@ -56,6 +56,12 @@ jobs:
             sovereign-omega-v2/python/tests/test_uci7_agi_evidence_schemas.py \
             -q | tee "$RUNNER_TEMP/uci7-pytest.log"
 
+      - name: Validate UCI-7 CI contract guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest sovereign-omega-v2/python/tests/test_uci7_ci_contract.py -q | tee "$RUNNER_TEMP/uci7-ci-contract.log"
+
       - name: Write exact-head witness
         if: always()
         shell: bash
@@ -77,6 +83,9 @@ jobs:
           if [[ -f "$RUNNER_TEMP/uci7-pytest.log" ]]; then
             cat "$RUNNER_TEMP/uci7-pytest.log" >> "$RUNNER_TEMP/uci7-witness.txt"
           fi
+          if [[ -f "$RUNNER_TEMP/uci7-ci-contract.log" ]]; then
+            cat "$RUNNER_TEMP/uci7-ci-contract.log" >> "$RUNNER_TEMP/uci7-witness.txt"
+          fi
 
       - name: Upload UCI-7 witness
         if: always()
@@ -86,4 +95,5 @@ jobs:
           path: |
             ${{ runner.temp }}/uci7-witness.txt
             ${{ runner.temp }}/uci7-pytest.log
+            ${{ runner.temp }}/uci7-ci-contract.log
           if-no-files-found: warn
