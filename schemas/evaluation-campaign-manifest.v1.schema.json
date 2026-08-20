@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/evaluation-campaign-manifest.v1.schema.json",
+  "title": "EvaluationCampaignManifestV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "campaign_kind",
+    "campaign_id",
+    "uci7_suite_root",
+    "evaluated_system_commitment",
+    "strongest_constituent_baseline_commitment",
+    "tracks",
+    "campaign_policy_commitment"
+  ],
+  "properties": {
+    "campaign_kind": {"const": "EVALUATION_CAMPAIGN_MANIFEST_V1"},
+    "campaign_id": {"type": "string", "minLength": 1},
+    "uci7_suite_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "evaluated_system_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "strongest_constituent_baseline_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "tracks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "benchmark-track-spec.v1.schema.json"}
+    },
+    "campaign_policy_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
