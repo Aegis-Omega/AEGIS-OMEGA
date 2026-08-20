@@ -20,7 +20,9 @@
     "human_reference_commitment",
     "contamination_class",
     "repetition_count",
-    "statistical_mode"
+    "statistical_mode",
+    "published_comparability",
+    "published_methodology_commitment"
   ],
   "properties": {
     "track_kind": {"const": "BENCHMARK_TRACK_SPEC_V1"},
@@ -53,7 +55,11 @@
     "human_reference_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "contamination_class": {"enum": ["HELD_OUT", "PUBLIC", "SUSPECTED", "EXPOSED"]},
     "repetition_count": {"type": "integer", "minimum": 1},
-    "statistical_mode": {"const": "PAIRED_DESCRIPTIVE_V1"}
+    "statistical_mode": {"const": "PAIRED_DESCRIPTIVE_V1"},
+    "published_comparability": {
+      "enum": ["NOT_COMPARABLE_TO_PUBLISHED", "PUBLISHED_METHODOLOGY_MATCHED"]
+    },
+    "published_methodology_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
   },
   "$defs": {
     "taskTrialUnit": {
