@@ -213,6 +213,7 @@ export class ReflexiveContractError extends Error {
 }
 
 const HASH_RE = /^[0-9a-f]{64}$/
+const GIT_OID_RE = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/
 const PREDICTION_KIND_SET = new Set<string>(PREDICTION_CLAUSE_KINDS)
 const SOURCE_MODALITY_SET = new Set<string>(OBSERVATION_SOURCE_MODALITIES)
 const UPDATE_ACTION_SET = new Set<string>(SELF_MODEL_UPDATE_ACTIONS)
@@ -279,6 +280,12 @@ function assertNonEmptyString(value: unknown, path: string): asserts value is st
 function assertHash(value: unknown, path: string): asserts value is string {
   if (typeof value !== 'string' || !HASH_RE.test(value)) {
     fail(`${path} must be lowercase sha256 hex`)
+  }
+}
+
+function assertGitObjectId(value: unknown, path: string): asserts value is string {
+  if (typeof value !== 'string' || !GIT_OID_RE.test(value)) {
+    fail(`${path} must be a lowercase 40- or 64-hex Git object id`)
   }
 }
 
@@ -352,7 +359,7 @@ export function validateSelfModelSnapshotV1(value: unknown): SelfModelSnapshotV1
   assertConst(record.schema_version, REFLEXIVE_SELF_MODEL_SCHEMA_VERSION, 'snapshot.schema_version')
   assertNonEmptyString(record.snapshot_id, 'snapshot.snapshot_id')
   assertSafeNonNegativeInteger(record.created_at, 'snapshot.created_at')
-  assertHash(record.source_commit_sha, 'snapshot.source_commit_sha')
+  assertGitObjectId(record.source_commit_sha, 'snapshot.source_commit_sha')
   assertHash(record.policy_digest, 'snapshot.policy_digest')
   assertNonEmptyString(record.epoch_id, 'snapshot.epoch_id')
   assertHash(record.state_root, 'snapshot.state_root')
