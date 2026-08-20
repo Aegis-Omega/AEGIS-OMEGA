@@ -33,6 +33,7 @@ TASK_TRIAL_UNIT_KIND = "CAMPAIGN_TASK_TRIAL_UNIT_V1"
 BENCHMARK_TRACK_KIND = "BENCHMARK_TRACK_SPEC_V1"
 CAMPAIGN_MANIFEST_KIND = "EVALUATION_CAMPAIGN_MANIFEST_V1"
 CHECKER_RESULT_ATTESTATION_KIND = "CHECKER_RESULT_ATTESTATION_V1"
+PAIR_VERIFICATION_ATTESTATION_KIND = "PAIR_VERIFICATION_ATTESTATION_V1"
 PAIRED_TRIAL_KIND = "PAIRED_BENCHMARK_TRIAL_V1"
 CAMPAIGN_EVIDENCE_BUNDLE_KIND = "CAMPAIGN_EVIDENCE_BUNDLE_V1"
 
@@ -491,8 +492,59 @@ class CheckerResultAttestationV1:
         return canonical_hash("AEGIS_UCI8_CHECKER_RESULT_ATTESTATION_V1", self.to_dict())
 
 
+@dataclass(frozen=True)
+class PairVerificationAttestationV1:
+    run_id: str
+    pair_root: str
+    campaign_root: str
+    track_root: str
+    task_trial_unit_root: str
+    system_checker_attestation_root: str
+    baseline_checker_attestation_root: str
+    key_id: str
+    mac_hex: str
+    attestation_kind: str = PAIR_VERIFICATION_ATTESTATION_KIND
+
+    def validate(self) -> None:
+        if self.attestation_kind != PAIR_VERIFICATION_ATTESTATION_KIND:
+            raise EvaluationCampaignError("PAIR_VERIFICATION_ATTESTATION_KIND_MISMATCH")
+        _require_id("run_id", self.run_id)
+        _require_id("key_id", self.key_id)
+        for name in (
+            "pair_root",
+            "campaign_root",
+            "track_root",
+            "task_trial_unit_root",
+            "system_checker_attestation_root",
+            "baseline_checker_attestation_root",
+            "mac_hex",
+        ):
+            _require_nonzero_hash(name, getattr(self, name))
+
+    def unsigned_payload(self) -> dict[str, object]:
+        return {
+            "attestation_kind": self.attestation_kind,
+            "run_id": self.run_id,
+            "pair_root": self.pair_root,
+            "campaign_root": self.campaign_root,
+            "track_root": self.track_root,
+            "task_trial_unit_root": self.task_trial_unit_root,
+            "system_checker_attestation_root": self.system_checker_attestation_root,
+            "baseline_checker_attestation_root": self.baseline_checker_attestation_root,
+            "key_id": self.key_id,
+        }
+
+    def to_dict(self) -> dict[str, object]:
+        return {**self.unsigned_payload(), "mac_hex": self.mac_hex}
+
+    @property
+    def root(self) -> str:
+        self.validate()
+        return canonical_hash("AEGIS_UCI8_PAIR_VERIFICATION_ATTESTATION_V1", self.to_dict())
+
+
 class PortableCheckerHMACV1:
-    """Portable symmetric checker-result attestation for replay boundaries.
+    """Portable symmetric checker and pair attestations for replay boundaries.
 
     This is HMAC authentication, not a publicly verifiable digital signature.
     Holders of the same secret can both issue and verify attestations.
@@ -507,11 +559,11 @@ class PortableCheckerHMACV1:
 
     def _mac_for_payload(self, payload: dict[str, object]) -> str:
         digest = canonical_hash("AEGIS_UCI8_CHECKER_RESULT_ATTESTATION_PAYLOAD_V1", payload)
-        return hmac.new(
-            self._secret_key,
-            bytes.fromhex(digest),
-            hashlib.sha256,
-        ).hexdigest()
+        return hmac.new(self._secret_key, bytes.fromhex(digest), hashlib.sha256).hexdigest()
+
+    def _pair_mac_for_payload(self, payload: dict[str, object]) -> str:
+        digest = canonical_hash("AEGIS_UCI8_PAIR_VERIFICATION_ATTESTATION_PAYLOAD_V1", payload)
+        return hmac.new(self._secret_key, bytes.fromhex(digest), hashlib.sha256).hexdigest()
 
     def issue(self, *, run_id: str, result: CapabilityTrialResultV1) -> CheckerResultAttestationV1:
         _require_id("run_id", run_id)
@@ -565,6 +617,89 @@ class PortableCheckerHMACV1:
         if not hmac.compare_digest(expected_mac, attestation.mac_hex):
             raise EvaluationCampaignError("ATTESTATION_MAC_INVALID")
 
+    def issue_pair_verification(
+        self,
+        *,
+        run_id: str,
+        pair: PairedBenchmarkTrialV1,
+        system_result: CapabilityTrialResultV1,
+        baseline_result: CapabilityTrialResultV1,
+        system_attestation: CheckerResultAttestationV1,
+        baseline_attestation: CheckerResultAttestationV1,
+    ) -> PairVerificationAttestationV1:
+        _require_id("run_id", run_id)
+        pair.validate()
+        if not _is_paired_trial_issued(pair):
+            raise EvaluationCampaignError("PAIR_VERIFICATION_ISSUER_REQUIRES_ISSUED_PAIR")
+        self.verify(expected_run_id=run_id, result=system_result, attestation=system_attestation)
+        self.verify(expected_run_id=run_id, result=baseline_result, attestation=baseline_attestation)
+        if pair.checker_run_id != run_id:
+            raise EvaluationCampaignError("PAIR_VERIFICATION_RUN_ID_MISMATCH")
+        if pair.system_result_root != system_result.root:
+            raise EvaluationCampaignError("PAIR_VERIFICATION_SYSTEM_RESULT_ROOT_MISMATCH")
+        if pair.baseline_result_root != baseline_result.root:
+            raise EvaluationCampaignError("PAIR_VERIFICATION_BASELINE_RESULT_ROOT_MISMATCH")
+        if pair.system_checker_attestation_root != system_attestation.root:
+            raise EvaluationCampaignError("PAIR_VERIFICATION_SYSTEM_ATTESTATION_ROOT_MISMATCH")
+        if pair.baseline_checker_attestation_root != baseline_attestation.root:
+            raise EvaluationCampaignError("PAIR_VERIFICATION_BASELINE_ATTESTATION_ROOT_MISMATCH")
+        if pair.system_runtime_commitment != system_result.provider_runtime_commitment:
+            raise EvaluationCampaignError("PAIR_VERIFICATION_SYSTEM_RUNTIME_MISMATCH")
+        if pair.baseline_runtime_commitment != baseline_result.provider_runtime_commitment:
+            raise EvaluationCampaignError("PAIR_VERIFICATION_BASELINE_RUNTIME_MISMATCH")
+        unsigned = {
+            "attestation_kind": PAIR_VERIFICATION_ATTESTATION_KIND,
+            "run_id": run_id,
+            "pair_root": pair.root,
+            "campaign_root": pair.campaign_root,
+            "track_root": pair.track_root,
+            "task_trial_unit_root": pair.task_trial_unit_root,
+            "system_checker_attestation_root": pair.system_checker_attestation_root,
+            "baseline_checker_attestation_root": pair.baseline_checker_attestation_root,
+            "key_id": self._key_id,
+        }
+        receipt = PairVerificationAttestationV1(
+            run_id=run_id,
+            pair_root=pair.root,
+            campaign_root=pair.campaign_root,
+            track_root=pair.track_root,
+            task_trial_unit_root=pair.task_trial_unit_root,
+            system_checker_attestation_root=pair.system_checker_attestation_root,
+            baseline_checker_attestation_root=pair.baseline_checker_attestation_root,
+            key_id=self._key_id,
+            mac_hex=self._pair_mac_for_payload(unsigned),
+        )
+        receipt.validate()
+        return receipt
+
+    def verify_pair_verification(
+        self,
+        *,
+        pair: PairedBenchmarkTrialV1,
+        attestation: PairVerificationAttestationV1,
+    ) -> None:
+        pair.validate()
+        attestation.validate()
+        if attestation.pair_root != pair.root:
+            raise EvaluationCampaignError("PAIR_VERIFICATION_PAIR_ROOT_MISMATCH")
+        if attestation.run_id != pair.checker_run_id:
+            raise EvaluationCampaignError("PAIR_VERIFICATION_RUN_ID_MISMATCH")
+        if attestation.campaign_root != pair.campaign_root:
+            raise EvaluationCampaignError("PAIR_VERIFICATION_CAMPAIGN_ROOT_MISMATCH")
+        if attestation.track_root != pair.track_root:
+            raise EvaluationCampaignError("PAIR_VERIFICATION_TRACK_ROOT_MISMATCH")
+        if attestation.task_trial_unit_root != pair.task_trial_unit_root:
+            raise EvaluationCampaignError("PAIR_VERIFICATION_TASK_TRIAL_UNIT_ROOT_MISMATCH")
+        if attestation.system_checker_attestation_root != pair.system_checker_attestation_root:
+            raise EvaluationCampaignError("PAIR_VERIFICATION_SYSTEM_ATTESTATION_ROOT_MISMATCH")
+        if attestation.baseline_checker_attestation_root != pair.baseline_checker_attestation_root:
+            raise EvaluationCampaignError("PAIR_VERIFICATION_BASELINE_ATTESTATION_ROOT_MISMATCH")
+        if attestation.key_id != self._key_id:
+            raise EvaluationCampaignError("PAIR_VERIFICATION_KEY_ID_MISMATCH")
+        expected_mac = self._pair_mac_for_payload(attestation.unsigned_payload())
+        if not hmac.compare_digest(expected_mac, attestation.mac_hex):
+            raise EvaluationCampaignError("PAIR_VERIFICATION_MAC_INVALID")
+
 
 @dataclass(frozen=True)
 class PairedBenchmarkTrialV1:
@@ -604,10 +739,7 @@ class PairedBenchmarkTrialV1:
 
         if system_result.task_spec_root != baseline_result.task_spec_root or system_result.trial_index != baseline_result.trial_index:
             raise EvaluationCampaignError("PAIRED_TASK_TRIAL_MISMATCH")
-        unit = CampaignTaskTrialUnitV1(
-            task_spec_root=system_result.task_spec_root,
-            trial_index=system_result.trial_index,
-        )
+        unit = CampaignTaskTrialUnitV1(task_spec_root=system_result.task_spec_root, trial_index=system_result.trial_index)
         if unit.root not in {candidate.root for candidate in track.task_trial_units}:
             raise EvaluationCampaignError("TASK_TRIAL_UNIT_NOT_IN_TRACK")
         if system_result.provider_runtime_commitment != campaign.evaluated_system_commitment:
@@ -633,16 +765,8 @@ class PairedBenchmarkTrialV1:
             assert system_attestation is not None
             assert baseline_attestation is not None
             assert attestation_verifier is not None
-            attestation_verifier.verify(
-                expected_run_id=expected_run_id,
-                result=system_result,
-                attestation=system_attestation,
-            )
-            attestation_verifier.verify(
-                expected_run_id=expected_run_id,
-                result=baseline_result,
-                attestation=baseline_attestation,
-            )
+            attestation_verifier.verify(expected_run_id=expected_run_id, result=system_result, attestation=system_attestation)
+            attestation_verifier.verify(expected_run_id=expected_run_id, result=baseline_result, attestation=baseline_attestation)
             checker_run_id = expected_run_id
             system_attestation_root = system_attestation.root
             baseline_attestation_root = baseline_attestation.root
@@ -670,15 +794,8 @@ class PairedBenchmarkTrialV1:
         if self.pair_kind != PAIRED_TRIAL_KIND:
             raise EvaluationCampaignError("PAIRED_TRIAL_KIND_MISMATCH")
         for name in (
-            "campaign_root",
-            "track_root",
-            "task_trial_unit_root",
-            "system_result_root",
-            "baseline_result_root",
-            "system_runtime_commitment",
-            "baseline_runtime_commitment",
-            "budget_commitment",
-            "scorer_commitment",
+            "campaign_root", "track_root", "task_trial_unit_root", "system_result_root", "baseline_result_root",
+            "system_runtime_commitment", "baseline_runtime_commitment", "budget_commitment", "scorer_commitment",
         ):
             _require_hash(name, getattr(self, name))
         if self.checker_run_id is None:
@@ -744,6 +861,7 @@ def _is_paired_trial_issued(pair: PairedBenchmarkTrialV1) -> bool:
 class CampaignEvidenceBundleV1:
     campaign_root: str
     paired_trial_roots: tuple[str, ...]
+    pair_verification_roots: tuple[str, ...]
     benchmark_adapter_executable_commitment: str
     runner_environment_commitment: str
     execution_receipt_bundle_commitment: str
@@ -759,9 +877,22 @@ class CampaignEvidenceBundleV1:
         benchmark_adapter_executable_commitment: str,
         runner_environment_commitment: str,
         execution_receipt_bundle_commitment: str,
+        pair_verifications: Iterable[PairVerificationAttestationV1] = (),
+        pair_verification_verifier: PortableCheckerHMACV1 | None = None,
     ) -> "CampaignEvidenceBundleV1":
         campaign.validate()
         pair_tuple = tuple(pairs)
+        verification_tuple = tuple(pair_verifications)
+        portable_requested = bool(verification_tuple) or pair_verification_verifier is not None
+        if portable_requested:
+            if pair_verification_verifier is None or len(verification_tuple) != len(pair_tuple):
+                raise EvaluationCampaignError("PAIR_VERIFICATION_ARGUMENTS_INCOMPLETE")
+            by_pair_root = {verification.pair_root: verification for verification in verification_tuple}
+            if len(by_pair_root) != len(verification_tuple):
+                raise EvaluationCampaignError("DUPLICATE_PAIR_VERIFICATION")
+        else:
+            by_pair_root = {}
+
         for name, value in (
             ("benchmark_adapter_executable_commitment", benchmark_adapter_executable_commitment),
             ("runner_environment_commitment", runner_environment_commitment),
@@ -769,20 +900,24 @@ class CampaignEvidenceBundleV1:
         ):
             _require_nonzero_hash(name, value)
 
-        expected_slots = {
-            (track.root, unit.root)
-            for track in campaign.tracks
-            for unit in track.task_trial_units
-        }
+        expected_slots = {(track.root, unit.root) for track in campaign.tracks for unit in track.task_trial_units}
         actual_slots: list[tuple[str, str]] = []
         campaign_track_roots = {track.root for track in campaign.tracks}
+        ordered_verification_roots: list[str] = []
         for pair in pair_tuple:
             pair.validate()
             if pair.campaign_root != campaign.root:
                 raise EvaluationCampaignError("PAIR_CAMPAIGN_ROOT_MISMATCH")
             if pair.track_root not in campaign_track_roots:
                 raise EvaluationCampaignError("PAIR_TRACK_NOT_IN_CAMPAIGN")
-            if not _is_paired_trial_issued(pair):
+            if portable_requested:
+                verification = by_pair_root.get(pair.root)
+                if verification is None:
+                    raise EvaluationCampaignError("PAIR_VERIFICATION_REQUIRED")
+                assert pair_verification_verifier is not None
+                pair_verification_verifier.verify_pair_verification(pair=pair, attestation=verification)
+                ordered_verification_roots.append(verification.root)
+            elif not _is_paired_trial_issued(pair):
                 raise EvaluationCampaignError("PAIR_REPLAY_VERIFICATION_REQUIRED")
             actual_slots.append((pair.track_root, pair.task_trial_unit_root))
         if len(pair_tuple) != len(expected_slots) or set(actual_slots) != expected_slots:
@@ -796,12 +931,15 @@ class CampaignEvidenceBundleV1:
             status = CampaignEvidenceStatus.INVALIDATED_CONTAMINATION
         elif public_dev or ContaminationClass.PUBLIC in contaminations:
             status = CampaignEvidenceStatus.DEVELOPMENT_EVIDENCE_ONLY
+        elif portable_requested:
+            status = CampaignEvidenceStatus.COLLECTIVE_CONTRIBUTION_EVALUABLE
         else:
             status = CampaignEvidenceStatus.HELD_OUT_EVIDENCE_COMPLETE
 
         bundle = cls(
             campaign_root=campaign.root,
             paired_trial_roots=tuple(pair.root for pair in pair_tuple),
+            pair_verification_roots=tuple(ordered_verification_roots),
             benchmark_adapter_executable_commitment=benchmark_adapter_executable_commitment,
             runner_environment_commitment=runner_environment_commitment,
             execution_receipt_bundle_commitment=execution_receipt_bundle_commitment,
@@ -820,6 +958,13 @@ class CampaignEvidenceBundleV1:
             _require_hash("paired_trial_root", root)
         if len(self.paired_trial_roots) != len(set(self.paired_trial_roots)):
             raise EvaluationCampaignError("DUPLICATE_PAIRED_TRIAL_ROOT")
+        for root in self.pair_verification_roots:
+            _require_nonzero_hash("pair_verification_root", root)
+        if len(self.pair_verification_roots) != len(set(self.pair_verification_roots)):
+            raise EvaluationCampaignError("DUPLICATE_PAIR_VERIFICATION_ROOT")
+        if self.evidence_status is CampaignEvidenceStatus.COLLECTIVE_CONTRIBUTION_EVALUABLE:
+            if len(self.pair_verification_roots) != len(self.paired_trial_roots):
+                raise EvaluationCampaignError("COLLECTIVE_EVIDENCE_REQUIRES_PAIR_VERIFICATIONS")
         for name in (
             "benchmark_adapter_executable_commitment",
             "runner_environment_commitment",
@@ -834,6 +979,7 @@ class CampaignEvidenceBundleV1:
             "bundle_kind": self.bundle_kind,
             "campaign_root": self.campaign_root,
             "paired_trial_roots": list(self.paired_trial_roots),
+            "pair_verification_roots": list(self.pair_verification_roots),
             "benchmark_adapter_executable_commitment": self.benchmark_adapter_executable_commitment,
             "runner_environment_commitment": self.runner_environment_commitment,
             "execution_receipt_bundle_commitment": self.execution_receipt_bundle_commitment,
