@@ -322,6 +322,49 @@ class AtomicAdmissionV1Tests(TestCase):
         self.assert_denied("DUPLICATE_TRANSITION_ADMISSION", lambda: self.admit(store, bundle))
         self.assertEqual(store.record_count(), 1)
 
+    def test_reopen_after_state_advance_accepts_same_persisted_controls(self):
+        bundle = self.bundle()
+        self.addCleanup(bundle[0].cleanup)
+        db_name = "reopen.sqlite3"
+        first = self.store(bundle, db_name=db_name)
+        self.admit(first, bundle)
+        reopened = self.store(bundle, db_name=db_name)
+        self.assertEqual(reopened.read_state().sequence, 1)
+        self.assertEqual(reopened.record_count(), 1)
+
+    def test_reopen_rejects_conflicting_persisted_policy(self):
+        bundle = self.bundle()
+        self.addCleanup(bundle[0].cleanup)
+        db_name = "reopen-policy.sqlite3"
+        first = self.store(bundle, db_name=db_name)
+        self.admit(first, bundle)
+        self.assert_denied(
+            "ADMISSION_STORE_CONTROL_PLANE_CONFLICT",
+            lambda: self.store(bundle, db_name=db_name, policy=HASHES[37]),
+        )
+
+    def test_reopen_rejects_conflicting_persisted_authority_epoch(self):
+        bundle = self.bundle()
+        self.addCleanup(bundle[0].cleanup)
+        db_name = "reopen-epoch.sqlite3"
+        first = self.store(bundle, db_name=db_name)
+        self.admit(first, bundle)
+        self.assert_denied(
+            "ADMISSION_STORE_CONTROL_PLANE_CONFLICT",
+            lambda: self.store(bundle, db_name=db_name, epoch=AUTHORITY_EPOCH + 1),
+        )
+
+    def test_reopen_rejects_conflicting_persisted_fence(self):
+        bundle = self.bundle()
+        self.addCleanup(bundle[0].cleanup)
+        db_name = "reopen-fence.sqlite3"
+        first = self.store(bundle, db_name=db_name)
+        self.admit(first, bundle)
+        self.assert_denied(
+            "ADMISSION_STORE_CONTROL_PLANE_CONFLICT",
+            lambda: self.store(bundle, db_name=db_name, fence=HASHES[38]),
+        )
+
     def test_fault_after_record_insert_rolls_back_both_writes(self):
         bundle = self.bundle()
         self.addCleanup(bundle[0].cleanup)
