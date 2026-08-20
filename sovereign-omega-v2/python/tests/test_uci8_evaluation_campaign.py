@@ -62,8 +62,8 @@ def _track(
         split_privacy=privacy,
         metric_kind=metric,
         task_trial_units=(_unit(task),),
-        scorer_commitment="2" * 64,
-        budget_commitment="3" * 64,
+        scorer_commitment=task.checker_commitment,
+        budget_commitment=task.budget_commitment,
         human_reference_commitment=human_reference,
         contamination_class=contamination,
         repetition_count=1,
@@ -196,30 +196,31 @@ def test_pair_rejects_runtime_budget_and_scorer_rebinding() -> None:
     task = _task()
     track = _track(task)
     campaign = _campaign(track)
+    system_result = _result(task, runtime=campaign.evaluated_system_commitment)
+    baseline_result = _result(task, runtime=campaign.strongest_constituent_baseline_commitment)
+
     with pytest.raises(EvaluationCampaignError, match="SYSTEM_RUNTIME_COMMITMENT_MISMATCH"):
         PairedBenchmarkTrialV1.create(
             campaign=campaign,
             track=track,
-            system_result=_result(task, runtime="9" * 64),
-            baseline_result=_result(task, runtime=campaign.strongest_constituent_baseline_commitment),
+            system_result=replace(system_result, provider_runtime_commitment="9" * 64),
+            baseline_result=baseline_result,
         )
 
-    bad_budget = replace(track, budget_commitment="8" * 64)
     with pytest.raises(EvaluationCampaignError, match="BUDGET_COMMITMENT_MISMATCH"):
         PairedBenchmarkTrialV1.create(
             campaign=campaign,
-            track=bad_budget,
-            system_result=_result(task, runtime=campaign.evaluated_system_commitment),
-            baseline_result=_result(task, runtime=campaign.strongest_constituent_baseline_commitment),
+            track=track,
+            system_result=replace(system_result, budget_commitment="8" * 64),
+            baseline_result=baseline_result,
         )
 
-    bad_scorer = replace(track, scorer_commitment="9" * 64)
-    with pytest.raises(EvaluationCampaignError, match="TRACK_NOT_IN_CAMPAIGN"):
+    with pytest.raises(EvaluationCampaignError, match="SCORER_COMMITMENT_MISMATCH"):
         PairedBenchmarkTrialV1.create(
             campaign=campaign,
-            track=bad_scorer,
-            system_result=_result(task, runtime=campaign.evaluated_system_commitment),
-            baseline_result=_result(task, runtime=campaign.strongest_constituent_baseline_commitment),
+            track=track,
+            system_result=replace(system_result, checker_commitment="9" * 64),
+            baseline_result=baseline_result,
         )
 
 
