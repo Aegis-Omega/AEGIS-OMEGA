@@ -291,6 +291,42 @@ class LocalSqliteAtomicAdmissionStoreV1:
         finally:
             connection.close()
 
+    def read_admission_record(self, transition_id: str) -> AdmissionRecordV1 | None:
+        """Read one persisted admission record and re-verify its row/payload binding.
+
+        This is a local-reference provenance lookup for downstream UCI layers.
+        It detects inconsistent row/payload rewriting but is not an authenticated
+        database-tamper proof: an actor able to rewrite the whole SQLite database
+        consistently remains outside the established threat boundary.
+        """
+        _require_hash("transition_id", transition_id)
+        connection = self._connect()
+        try:
+            row = connection.execute(
+                """
+                SELECT transition_id, admission_root, payload_json
+                FROM admission_records
+                WHERE transition_id = ?
+                """,
+                (transition_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            try:
+                payload = json.loads(str(row["payload_json"]))
+                if not isinstance(payload, dict):
+                    raise TypeError("payload must be object")
+                record = AdmissionRecordV1(**payload)
+            except (TypeError, ValueError, AtomicAdmissionError, json.JSONDecodeError) as exc:
+                raise AtomicAdmissionError("ADMISSION_RECORD_PERSISTED_PAYLOAD_INVALID") from exc
+            if record.transition_id != transition_id:
+                raise AtomicAdmissionError("ADMISSION_RECORD_PERSISTED_TRANSITION_MISMATCH")
+            if record.root != str(row["admission_root"]):
+                raise AtomicAdmissionError("ADMISSION_RECORD_PERSISTED_ROOT_MISMATCH")
+            return record
+        finally:
+            connection.close()
+
     @staticmethod
     def _require_exact_types(
         *,
