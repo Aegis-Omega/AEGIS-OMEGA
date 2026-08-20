@@ -44,6 +44,11 @@ export interface SelfCalibrationVCGAdmissionReceiptV1 {
   readonly acceptable_for_effect_truth: false
 }
 
+export interface SelfCalibrationVCGLiveAdmissionResultV1 {
+  readonly status: SelfCalibrationVCGAdmissionStatus
+  readonly receipt: SelfCalibrationVCGAdmissionReceiptV1
+}
+
 export class SelfCalibrationVCGAdmissionError extends Error {
   override readonly name = 'SelfCalibrationVCGAdmissionError'
 
@@ -171,7 +176,8 @@ export async function createSelfCalibrationVCGAdmissionReceipt(
 
 /**
  * Replay aggregate calibration from the registry snapshot captured in the
- * admission receipt. The live registry is intentionally not consulted here.
+ * admission receipt. The live registry verifier map is intentionally not
+ * consulted here.
  */
 export async function applySelfCalibrationVCGAdmissionReceipt(
   tracker: VCGTracker,
@@ -246,64 +252,39 @@ export async function applySelfCalibrationVCGAdmissionReceipt(
 }
 
 /**
- * Admit a validated V2 self-calibration sample into the existing VCG tracker.
- *
- * Fail-closed boundaries:
- * - timestamp_ms must be an explicit non-negative safe integer from the event substrate;
- * - the V2 calibration must pass its cryptographic/replay integrity checks;
- * - verifier_id must resolve in the canonical verifier registry;
- * - calibration weight comes from the registry definition, never from the
- *   historical VerifierOutput metadata used to construct the V2 artifact;
- * - advisory-excluded verifiers remain excluded from aggregate calibration.
- *
- * The claimed confidence is the system's own pre-action prediction, not the
- * verifier's raw confidence about its verdict.
+ * Canonical live admission path. The exact receipt used to mutate VCG is
+ * returned to the caller so it can be persisted and replayed later.
+ */
+export async function admitSelfCalibrationV2ToVCGWithReceipt(
+  tracker: VCGTracker,
+  calibration: SelfCalibrationRecordV2,
+  timestamp_ms: number,
+): Promise<SelfCalibrationVCGLiveAdmissionResultV1> {
+  const receipt = await createSelfCalibrationVCGAdmissionReceipt(
+    calibration,
+    timestamp_ms,
+  )
+  const status = await applySelfCalibrationVCGAdmissionReceipt(
+    tracker,
+    calibration,
+    receipt,
+  )
+  return Object.freeze({ status, receipt })
+}
+
+/**
+ * Backward-compatible status-only wrapper around the canonical receipt path.
+ * No VCG sample can enter through this API without a receipt first existing.
  */
 export async function admitSelfCalibrationV2ToVCG(
   tracker: VCGTracker,
   calibration: SelfCalibrationRecordV2,
   timestamp_ms: number,
 ): Promise<SelfCalibrationVCGAdmissionStatus> {
-  assertEventTimestamp(timestamp_ms)
-
-  // Reuse the already-tested V2 integrity boundary rather than duplicating
-  // prediction/verifier/calibration hash projections in this adapter.
-  await calibrationV2ToMetacognitiveObservation(calibration)
-
-  const registered = verifierRegistry.get(calibration.verifier_id)
-  if (!registered) {
-    throw new SelfCalibrationVCGAdmissionError(
-      `unregistered verifier cannot enter VCG: ${calibration.verifier_id}`,
-    )
-  }
-
-  const trust_class = registered.definition.trust_class
-  if (verifierRegistry.getCalibrationWeight(trust_class) === 0) {
-    return 'EXCLUDED'
-  }
-
-  const verifier_snapshot = Object.freeze<SelfCalibrationVCGVerifierSnapshotV1>({
-    verifier_id: registered.definition.verifier_id,
-    verifier_class: registered.definition.verifier_class,
-    trust_class,
-    version: registered.definition.version,
-    max_latency_ms: registered.definition.max_latency_ms,
-    is_deterministic: registered.definition.is_deterministic,
-    definition_digest: await hashValue(verifierSnapshotBody({
-      verifier_id: registered.definition.verifier_id,
-      verifier_class: registered.definition.verifier_class,
-      trust_class,
-      version: registered.definition.version,
-      max_latency_ms: registered.definition.max_latency_ms,
-      is_deterministic: registered.definition.is_deterministic,
-    })),
-  })
-
-  tracker.addResult(
-    projectedVerifierOutput(calibration, verifier_snapshot),
-    calibration.predicted_success_bps / 10_000,
+  const result = await admitSelfCalibrationV2ToVCGWithReceipt(
+    tracker,
+    calibration,
     timestamp_ms,
   )
-
-  return 'ADMITTED'
+  return result.status
 }
