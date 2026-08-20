@@ -6,7 +6,8 @@
   "additionalProperties": false,
   "required": [
     "assessment_kind", "suite_root", "status", "axis_assessments",
-    "hidden_answer_exposure_detected", "safety_invariant_violation"
+    "hidden_answer_exposure_detected", "safety_invariant_violation",
+    "collective_contribution_established"
   ],
   "properties": {
     "assessment_kind": {"const": "AGI_EVIDENCE_ASSESSMENT_V1"},
@@ -19,6 +20,7 @@
     },
     "hidden_answer_exposure_detected": {"type": "boolean"},
     "safety_invariant_violation": {"type": "boolean"},
+    "collective_contribution_established": {"type": "boolean"},
     "axis_assessments": {
       "type": "object",
       "additionalProperties": false,
@@ -43,7 +45,9 @@
       "additionalProperties": false,
       "required": [
         "assessment_kind", "task_count", "trial_count", "mean_score_bps",
-        "mean_calibration_error_bps", "threshold_bps", "complete", "threshold_met"
+        "mean_calibration_error_bps", "threshold_bps", "complete", "threshold_met",
+        "baseline_mean_score_bps", "system_minus_baseline_bps",
+        "collective_contribution_positive"
       ],
       "properties": {
         "assessment_kind": {"const": "CAPABILITY_AXIS_ASSESSMENT_V1"},
@@ -53,7 +57,20 @@
         "mean_calibration_error_bps": {"type": "integer", "minimum": 0, "maximum": 10000},
         "threshold_bps": {"type": "integer", "minimum": 0, "maximum": 10000},
         "complete": {"type": "boolean"},
-        "threshold_met": {"type": "boolean"}
+        "threshold_met": {"type": "boolean"},
+        "baseline_mean_score_bps": {
+          "anyOf": [
+            {"type": "integer", "minimum": 0, "maximum": 10000},
+            {"type": "null"}
+          ]
+        },
+        "system_minus_baseline_bps": {
+          "anyOf": [
+            {"type": "integer", "minimum": -10000, "maximum": 10000},
+            {"type": "null"}
+          ]
+        },
+        "collective_contribution_positive": {"type": "boolean"}
       }
     }
   }
