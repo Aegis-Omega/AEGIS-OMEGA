@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 20
     env:
       CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      EXPECTED_PARENT_SHA: c1a562013d521959d92cbd7f84f615f2d120e663
+      EXPECTED_PARENT_SHA: be07805af9887ff15272167740b07cf958c3137e
       PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
     steps:
       - name: Checkout exact candidate
@@ -95,8 +95,8 @@ jobs:
             sovereign-omega-v2/python/tests/test_uci6_memory_schemas.py \
             sovereign-omega-v2/python/tests/test_uci6_internal_base_guard.py \
             -q | tee "$RUNNER_TEMP/uci6-pytest.log"
-          grep -Eq '125 passed' "$RUNNER_TEMP/uci6-pytest.log"
-          echo "UCI6_FULL_PROOFLINE_125=PASS"
+          grep -Eq '131 passed' "$RUNNER_TEMP/uci6-pytest.log"
+          echo "UCI6_FULL_PROOFLINE_131=PASS"
 
       - name: Validate inherited UCI-5 CI contract guards
         shell: bash
@@ -122,7 +122,10 @@ jobs:
             echo "memory_prestate_binding=REQUIRED"
             echo "persisted_uci5_admission_lookup=REQUIRED"
             echo "internal_prestate_less_base_direct_use=FORBIDDEN_AND_TESTED"
+            echo "inherited_uci4_hardened_effect_boundary=REQUIRED_AND_TESTED"
             echo "inherited_uci5_ci_contract_guards=REQUIRED_AND_TESTED"
+            echo "proofline_cardinality=131_REQUIRED_AND_TESTED"
+            echo "cross_process_effect_witness_attestation=NOT_ESTABLISHED"
             echo "cross_database_atomicity=NOT_ESTABLISHED"
             echo "authenticated_database_tamper_resistance=NOT_ESTABLISHED"
             echo "distributed_linearizability=NOT_ESTABLISHED"
