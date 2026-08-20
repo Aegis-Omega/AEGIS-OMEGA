@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/memory-control-record.v1.schema.json",
+  "title": "AEGIS MemoryControlRecord V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_kind",
+    "control_request_root",
+    "operation",
+    "target_memory_root",
+    "replacement_memory_root",
+    "source_transition_id",
+    "source_admission_root",
+    "memory_policy_commitment",
+    "sequence",
+    "prior_memory_event_root"
+  ],
+  "properties": {
+    "record_kind": {"const": "MEMORY_CONTROL_RECORD_V1"},
+    "control_request_root": {"$ref": "#/$defs/hash"},
+    "operation": {"enum": ["REVOKE", "SUPERSEDE"]},
+    "target_memory_root": {"$ref": "#/$defs/hash"},
+    "replacement_memory_root": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/hash"}
+      ]
+    },
+    "source_transition_id": {"$ref": "#/$defs/hash"},
+    "source_admission_root": {"$ref": "#/$defs/hash"},
+    "memory_policy_commitment": {"$ref": "#/$defs/hash"},
+    "sequence": {"type": "integer", "minimum": 2},
+    "prior_memory_event_root": {"$ref": "#/$defs/hash"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"operation": {"const": "REVOKE"}}, "required": ["operation"]},
+      "then": {"properties": {"replacement_memory_root": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"operation": {"const": "SUPERSEDE"}}, "required": ["operation"]},
+      "then": {"properties": {"replacement_memory_root": {"$ref": "#/$defs/hash"}}}
+    },
+    {
+      "properties": {
+        "prior_memory_event_root": {"not": {"const": "0000000000000000000000000000000000000000000000000000000000000000"}}
+      }
+    }
+  ],
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
