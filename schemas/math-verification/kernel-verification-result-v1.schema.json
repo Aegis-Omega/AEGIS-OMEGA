@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega/schemas/math-verification/kernel-verification-result-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version","result_kind","kernel_family","kernel_version","formalization_sha256","formalization_binding_digest","claim_digest","assumptions_digest","attempt_kind","process_status","proof_artifact_sha256","counterexample_artifact_sha256","stdout_sha256","stderr_sha256","started_at_ms","finished_at_ms","authority"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "result_kind": {"const": "KERNEL_VERIFICATION_RESULT_V1"},
+    "kernel_family": {"enum": ["COQ","LEAN"]},
+    "kernel_version": {"type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[A-Za-z0-9._+\\-]+$"},
+    "formalization_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "formalization_binding_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "claim_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "assumptions_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "attempt_kind": {"enum": ["PROVE","DISPROVE_NEGATION","DISPROVE_COUNTEREXAMPLE"]},
+    "process_status": {"enum": ["VERIFIED","REJECTED","TIMEOUT","ERROR"]},
+    "proof_artifact_sha256": {"anyOf": [{"type":"null"},{"type":"string","pattern":"^[0-9a-f]{64}$"}]},
+    "counterexample_artifact_sha256": {"anyOf": [{"type":"null"},{"type":"string","pattern":"^[0-9a-f]{64}$"}]},
+    "stdout_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "stderr_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "started_at_ms": {"type": "integer", "minimum": 0},
+    "finished_at_ms": {"type": "integer", "minimum": 0},
+    "authority": {"const": "KERNEL_RESULT_ONLY"}
+  }
+}
