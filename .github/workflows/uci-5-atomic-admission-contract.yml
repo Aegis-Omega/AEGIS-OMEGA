@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 20
     env:
       CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      EXPECTED_PARENT_SHA: 9702004a6230d6a84cc322edb48b55c14e90fe15
+      EXPECTED_PARENT_SHA: bda5c5369b15ec91f2651ddbf6d219f6b7a1d0f6
       PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
     steps:
       - name: Checkout exact candidate
@@ -110,8 +110,8 @@ jobs:
             sovereign-omega-v2/python/tests/test_uci4_effect_chain_integration.py \
             sovereign-omega-v2/python/tests/test_uci5_atomic_admission.py \
             -q | tee "$RUNNER_TEMP/uci5-pytest.log"
-          grep -Eq '99 passed' "$RUNNER_TEMP/uci5-pytest.log"
-          echo "UCI5_FULL_PROOFLINE_99=PASS"
+          grep -Eq '105 passed' "$RUNNER_TEMP/uci5-pytest.log"
+          echo "UCI5_FULL_PROOFLINE_105=PASS"
 
       - name: Validate UCI-5 CI contract guards
         shell: bash
@@ -135,8 +135,9 @@ jobs:
             echo "caller_supplied_next_state=FORBIDDEN"
             echo "complete_verification_recompute=REQUIRED"
             echo "frozen_parent_binding=REQUIRED_AND_TESTED"
-            echo "proofline_cardinality=99_REQUIRED_AND_TESTED"
+            echo "proofline_cardinality=105_REQUIRED_AND_TESTED"
             echo "pull_request_trigger_scope=FROZEN_PARENT_BRANCH_ONLY"
+            echo "inherited_uci4_hardened_effect_boundary=REQUIRED_AND_TESTED"
             echo "current_authority_epoch_checked=AT_ADMISSION_TIME_ONLY"
             echo "transition_historical_authority_epoch_binding=NOT_ESTABLISHED"
             echo "distributed_linearizability=NOT_ESTABLISHED"
