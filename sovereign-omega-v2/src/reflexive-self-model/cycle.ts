@@ -287,7 +287,7 @@ export async function closeReflexiveCycle(
     status = 'TAMPER_DETECTED'
   } else if (!hasExactBinding(snapshot, prediction, observation)) {
     status = 'UNSCORABLE_STALE_BINDING'
-  } else if (prediction.sealed_at >= input.execution_reference.execution_started_at) {
+  } else if (prediction.sealed_at > input.execution_reference.execution_started_at) {
     status = 'UNSCORABLE_POSTDICTION'
   } else if (!hasVerifiedOutcomeEvidence(observation)) {
     status = 'UNSCORABLE_UNVERIFIED_OUTCOME'
