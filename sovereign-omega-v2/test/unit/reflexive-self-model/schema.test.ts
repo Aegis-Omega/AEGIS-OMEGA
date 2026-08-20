@@ -52,7 +52,7 @@ describe('REFLEXIVE_SELF_MODEL_V1 schemas', () => {
       'BOOLEAN', 'EXACT_STRING', 'SHA256_DIGEST', 'INTEGER_RANGE', 'BPS_INTERVAL',
     ]))
     for (const entry of clauses.oneOf) {
-      expect(entry.properties.weight_bps.minimum).toBe(1)
+      expect(entry.properties.weight_bps.minimum).toBe(0)
       expect(entry.properties.weight_bps.maximum).toBe(10000)
       expect(entry.properties.confidence_bps.minimum).toBe(0)
       expect(entry.properties.confidence_bps.maximum).toBe(10000)
