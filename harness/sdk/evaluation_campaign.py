@@ -15,7 +15,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Iterable
 
-from harness.sdk.agi_evidence import CapabilityTrialResultV1, ContaminationClass
+from harness.sdk.agi_evidence import (
+    CapabilityTrialResultV1,
+    ContaminationClass,
+    _is_checker_issued_result,
+)
 from harness.sdk.sovereign_execution import ZERO_HASH, canonical_hash
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -380,6 +384,8 @@ class PairedBenchmarkTrialV1:
             raise EvaluationCampaignError("BASELINE_RESULT_REQUIRED")
         system_result.validate()
         baseline_result.validate()
+        if not _is_checker_issued_result(system_result) or not _is_checker_issued_result(baseline_result):
+            raise EvaluationCampaignError("CHECKER_ISSUANCE_OR_PORTABLE_ATTESTATION_REQUIRED")
 
         if system_result.task_spec_root != baseline_result.task_spec_root or system_result.trial_index != baseline_result.trial_index:
             raise EvaluationCampaignError("PAIRED_TASK_TRIAL_MISMATCH")
