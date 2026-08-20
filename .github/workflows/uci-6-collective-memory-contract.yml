@@ -93,9 +93,10 @@ jobs:
             sovereign-omega-v2/python/tests/test_uci6_collective_memory.py \
             sovereign-omega-v2/python/tests/test_uci6_memory_prestate.py \
             sovereign-omega-v2/python/tests/test_uci6_memory_schemas.py \
+            sovereign-omega-v2/python/tests/test_uci6_internal_base_guard.py \
             -q | tee "$RUNNER_TEMP/uci6-pytest.log"
-          grep -Eq '123 passed' "$RUNNER_TEMP/uci6-pytest.log"
-          echo "UCI6_FULL_PROOFLINE_123=PASS"
+          grep -Eq '125 passed' "$RUNNER_TEMP/uci6-pytest.log"
+          echo "UCI6_FULL_PROOFLINE_125=PASS"
 
       - name: Write exact-head witness
         if: always()
@@ -112,6 +113,7 @@ jobs:
             echo "canonical_truth_claim=FORBIDDEN"
             echo "memory_prestate_binding=REQUIRED"
             echo "persisted_uci5_admission_lookup=REQUIRED"
+            echo "internal_prestate_less_base_direct_use=FORBIDDEN_AND_TESTED"
             echo "cross_database_atomicity=NOT_ESTABLISHED"
             echo "authenticated_database_tamper_resistance=NOT_ESTABLISHED"
             echo "distributed_linearizability=NOT_ESTABLISHED"
