@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/paired-benchmark-trial.v1.schema.json",
+  "title": "PairedBenchmarkTrialV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pair_kind",
+    "campaign_root",
+    "track_root",
+    "task_trial_unit_root",
+    "system_result_root",
+    "baseline_result_root",
+    "system_runtime_commitment",
+    "baseline_runtime_commitment",
+    "budget_commitment",
+    "scorer_commitment"
+  ],
+  "properties": {
+    "pair_kind": {"const": "PAIRED_BENCHMARK_TRIAL_V1"},
+    "campaign_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "track_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "task_trial_unit_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "system_result_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "baseline_result_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "system_runtime_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "baseline_runtime_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "budget_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "scorer_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
