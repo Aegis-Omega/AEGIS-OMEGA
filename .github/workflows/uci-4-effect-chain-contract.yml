@@ -2,6 +2,8 @@ name: UCI-4 Effect Chain Contract
 
 on:
   pull_request:
+    branches:
+      - feat/uci-1-collective-work-contract-v1
   workflow_dispatch:
 
 permissions:
@@ -14,7 +16,8 @@ jobs:
     timeout-minutes: 15
     env:
       CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      EXPECTED_PARENT_SHA: ${{ github.event.pull_request.base.sha || '' }}
+      EXPECTED_PARENT_SHA: ebec2f9c8fa00f54605d859df61512108ff3b71d
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
     steps:
       - name: Checkout exact candidate
         uses: actions/checkout@v4
@@ -28,11 +31,13 @@ jobs:
           set -euo pipefail
           actual="$(git rev-parse HEAD)"
           test "$actual" = "$CANDIDATE_SHA"
-          echo "CANDIDATE_SHA=$actual"
-          if [[ -n "$EXPECTED_PARENT_SHA" ]]; then
-            test "$(git merge-base "$EXPECTED_PARENT_SHA" HEAD)" = "$EXPECTED_PARENT_SHA"
-            echo "EXPECTED_PARENT_SHA=$EXPECTED_PARENT_SHA"
+          test "$(git merge-base "$EXPECTED_PARENT_SHA" HEAD)" = "$EXPECTED_PARENT_SHA"
+          if [[ -n "$PR_BASE_SHA" ]]; then
+            test "$PR_BASE_SHA" = "$EXPECTED_PARENT_SHA"
           fi
+          echo "CANDIDATE_SHA=$actual"
+          echo "EXPECTED_PARENT_SHA=$EXPECTED_PARENT_SHA"
+          echo "UCI4_EXACT_LINEAGE=PASS"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -63,6 +68,7 @@ jobs:
               schema = json.loads(path.read_text(encoding='utf-8'))
               validator_for(schema).check_schema(schema)
               print(f'UCI4_SCHEMA_OK {path}')
+          print(f'UCI4_SCHEMA_COUNT={len(paths)}')
           PY
 
       - name: Run frozen proofline plus UCI integration falsifiers
@@ -78,6 +84,8 @@ jobs:
             sovereign-omega-v2/python/tests/test_complete_verifier_pr4_receipt_binding.py \
             sovereign-omega-v2/python/tests/test_uci4_effect_chain_integration.py \
             -q | tee "$RUNNER_TEMP/uci4-pytest.log"
+          grep -Eq '85 passed' "$RUNNER_TEMP/uci4-pytest.log"
+          echo "UCI4_FULL_PROOFLINE_85=PASS"
 
       - name: Write exact-head witness summary
         if: always()
@@ -89,6 +97,14 @@ jobs:
             echo "candidate_sha=$(git rev-parse HEAD)"
             echo "expected_parent_sha=$EXPECTED_PARENT_SHA"
             echo "authority=EVIDENCE_ONLY"
+            echo "frozen_parent_binding=REQUIRED_AND_TESTED"
+            echo "proofline_cardinality=85_REQUIRED_AND_TESTED"
+            echo "pull_request_trigger_scope=FROZEN_PARENT_BRANCH_ONLY"
+            echo "effect_witness_issuance=PROCESS_LOCAL_ADAPTER_ISSUED_ONLY"
+            echo "filesystem_descriptor_relative_open=REQUIRED_AND_TESTED_REFERENCE"
+            echo "filesystem_observation_size_bound=REQUIRED_AND_TESTED"
+            echo "cross_process_effect_witness_attestation=NOT_ESTABLISHED"
+            echo "concurrent_file_mutation_snapshot_proof=NOT_ESTABLISHED"
             echo "atomic_admission=NOT_IMPLEMENTED"
             echo "effect_bound_admission=UNAVAILABLE"
             echo "production_admission=NOT_ESTABLISHED"
