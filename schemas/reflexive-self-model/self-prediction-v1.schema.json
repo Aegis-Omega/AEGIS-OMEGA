@@ -44,7 +44,7 @@
               "clause_id": { "type": "string", "minLength": 1 },
               "kind": { "const": "BOOLEAN" },
               "expected": { "type": "boolean" },
-              "weight_bps": { "type": "integer", "minimum": 1, "maximum": 10000 },
+              "weight_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
               "confidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000 }
             }
           },
@@ -56,7 +56,7 @@
               "clause_id": { "type": "string", "minLength": 1 },
               "kind": { "const": "EXACT_STRING" },
               "expected": { "type": "string", "minLength": 1 },
-              "weight_bps": { "type": "integer", "minimum": 1, "maximum": 10000 },
+              "weight_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
               "confidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000 }
             }
           },
@@ -68,7 +68,7 @@
               "clause_id": { "type": "string", "minLength": 1 },
               "kind": { "const": "SHA256_DIGEST" },
               "expected": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-              "weight_bps": { "type": "integer", "minimum": 1, "maximum": 10000 },
+              "weight_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
               "confidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000 }
             }
           },
@@ -81,7 +81,7 @@
               "kind": { "const": "INTEGER_RANGE" },
               "min": { "type": "integer" },
               "max": { "type": "integer" },
-              "weight_bps": { "type": "integer", "minimum": 1, "maximum": 10000 },
+              "weight_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
               "confidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000 }
             }
           },
@@ -94,7 +94,7 @@
               "kind": { "const": "BPS_INTERVAL" },
               "min_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
               "max_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
-              "weight_bps": { "type": "integer", "minimum": 1, "maximum": 10000 },
+              "weight_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
               "confidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000 }
             }
           }
