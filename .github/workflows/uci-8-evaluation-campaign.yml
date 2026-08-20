@@ -60,6 +60,14 @@ jobs:
         run: |
           set -euo pipefail
           python -m pytest sovereign-omega-v2/python/tests/test_uci8_evaluation_campaign_schemas.py -q | tee "$RUNNER_TEMP/uci8-schema.log"
+          grep -Eq '2 passed' "$RUNNER_TEMP/uci8-schema.log"
+          echo "UCI8_SCHEMA_2=PASS"
+
+      - name: Validate repetition manifest integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest sovereign-omega-v2/python/tests/test_uci8_repetition_manifest.py -q | tee "$RUNNER_TEMP/uci8-repetition.log"
 
       - name: Write RED witness
         if: always()
@@ -72,8 +80,12 @@ jobs:
             echo "authority=EVIDENCE_ONLY"
             echo "public_benchmark_campaign=NOT_RUN"
             echo "agi_claim=NOT_ESTABLISHED"
+            echo "statistical_mode=PAIRED_DESCRIPTIVE_V1"
           } > "$RUNNER_TEMP/uci8-red-witness.txt"
-          for path in "$RUNNER_TEMP/uci8-behavior.log" "$RUNNER_TEMP/uci8-schema.log"; do
+          for path in \
+            "$RUNNER_TEMP/uci8-behavior.log" \
+            "$RUNNER_TEMP/uci8-schema.log" \
+            "$RUNNER_TEMP/uci8-repetition.log"; do
             if [[ -f "$path" ]]; then cat "$path" >> "$RUNNER_TEMP/uci8-red-witness.txt"; fi
           done
 
@@ -86,4 +98,5 @@ jobs:
             ${{ runner.temp }}/uci8-red-witness.txt
             ${{ runner.temp }}/uci8-behavior.log
             ${{ runner.temp }}/uci8-schema.log
+            ${{ runner.temp }}/uci8-repetition.log
           if-no-files-found: warn
