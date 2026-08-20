@@ -1,0 +1,138 @@
+name: UCI-5 Atomic Admission Contract
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  uci5-atomic-admission:
+    name: uci5 / atomic-admission
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      EXPECTED_PARENT_SHA: ${{ github.event.pull_request.base.sha || '' }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact stacked lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$CANDIDATE_SHA"
+          echo "UCI5_CANDIDATE_SHA=$actual"
+          if [[ -n "$EXPECTED_PARENT_SHA" ]]; then
+            test "$(git merge-base "$EXPECTED_PARENT_SHA" HEAD)" = "$EXPECTED_PARENT_SHA"
+            echo "UCI5_EXPECTED_PARENT_SHA=$EXPECTED_PARENT_SHA"
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact test runtime
+        run: python -m pip install pytest==8.3.5 jsonschema==4.23.0
+
+      - name: Validate UCI-4 and UCI-5 schemas
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from jsonschema.validators import validator_for
+
+          paths = [
+              Path('schemas/transition-identity-envelope.v1.schema.json'),
+              Path('schemas/decision-receipt.v1.schema.json'),
+              Path('schemas/execution-receipt.v1.schema.json'),
+              Path('schemas/effect-receipt.v1.schema.json'),
+              Path('schemas/effect-witness.v1.schema.json'),
+              Path('schemas/complete-verification-result.v1.schema.json'),
+              Path('schemas/admission-record.v1.schema.json'),
+          ]
+          for path in paths:
+              schema = json.loads(path.read_text(encoding='utf-8'))
+              validator_for(schema).check_schema(schema)
+              print(f'UCI5_SCHEMA_OK {path}')
+
+          admission = json.loads(Path('schemas/admission-record.v1.schema.json').read_text())
+          validator = validator_for(admission)(admission)
+          valid = {
+              'record_kind': 'ADMISSION_RECORD_V1',
+              'transition_id': '1' * 64,
+              'complete_verification_root': '2' * 64,
+              'source_admission_policy_commitment': '3' * 64,
+              'admission_policy_commitment': '4' * 64,
+              'prior_state_commitment': '5' * 64,
+              'next_state_commitment': '6' * 64,
+              'authority_epoch': 1,
+              'fence_commitment': '7' * 64,
+              'sequence': 1,
+              'prior_admission_root': '0' * 64,
+          }
+          validator.validate(valid)
+          injected = dict(valid, authority='FORGED')
+          if not list(validator.iter_errors(injected)):
+              raise SystemExit('ADMISSION_SCHEMA_UNKNOWN_FIELD_FAIL_OPEN')
+          wrong_kind = dict(valid, record_kind='DECISION_RECEIPT_V1')
+          if not list(validator.iter_errors(wrong_kind)):
+              raise SystemExit('ADMISSION_SCHEMA_KIND_FAIL_OPEN')
+          print('UCI5_ADMISSION_SCHEMA_NEGATIVE_VECTORS=PASS')
+          PY
+
+      - name: Run UCI-5 plus inherited UCI-4 falsifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest \
+            sovereign-omega-v2/python/tests/test_transition_receipts_pr1.py \
+            sovereign-omega-v2/python/tests/test_transition_receipts_cli_pr1.py \
+            sovereign-omega-v2/python/tests/test_effect_adapters_pr2.py \
+            sovereign-omega-v2/python/tests/test_effect_verifier_pr3.py \
+            sovereign-omega-v2/python/tests/test_complete_verifier_pr4.py \
+            sovereign-omega-v2/python/tests/test_complete_verifier_pr4_receipt_binding.py \
+            sovereign-omega-v2/python/tests/test_uci4_effect_chain_integration.py \
+            sovereign-omega-v2/python/tests/test_uci5_atomic_admission.py \
+            -q | tee "$RUNNER_TEMP/uci5-pytest.log"
+
+      - name: Write exact-head witness
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "schema_version=AEGIS_UCI5_CI_WITNESS_V1"
+            echo "candidate_sha=$(git rev-parse HEAD)"
+            echo "expected_parent_sha=$EXPECTED_PARENT_SHA"
+            echo "authority=EVIDENCE_ONLY"
+            echo "reference_store=LOCAL_SQLITE_ONLY"
+            echo "caller_supplied_next_state=FORBIDDEN"
+            echo "complete_verification_recompute=REQUIRED"
+            echo "current_authority_epoch_checked=AT_ADMISSION_TIME_ONLY"
+            echo "transition_historical_authority_epoch_binding=NOT_ESTABLISHED"
+            echo "distributed_linearizability=NOT_ESTABLISHED"
+            echo "production_admission=NOT_ESTABLISHED"
+          } > "$RUNNER_TEMP/uci5-witness.txt"
+          if [[ -f "$RUNNER_TEMP/uci5-pytest.log" ]]; then
+            cat "$RUNNER_TEMP/uci5-pytest.log" >> "$RUNNER_TEMP/uci5-witness.txt"
+          fi
+
+      - name: Upload UCI-5 witness
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uci5-atomic-admission-witness-${{ env.CANDIDATE_SHA }}
+          path: |
+            ${{ runner.temp }}/uci5-witness.txt
+            ${{ runner.temp }}/uci5-pytest.log
+          if-no-files-found: error
