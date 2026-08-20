@@ -10,6 +10,7 @@
     "uci7_suite_root",
     "evaluated_system_commitment",
     "strongest_constituent_baseline_commitment",
+    "baseline_selection_mode",
     "tracks",
     "campaign_policy_commitment"
   ],
@@ -19,6 +20,7 @@
     "uci7_suite_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "evaluated_system_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "strongest_constituent_baseline_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "baseline_selection_mode": {"const": "FIXED_A_PRIORI_CAMPAIGN"},
     "tracks": {
       "type": "array",
       "minItems": 1,
