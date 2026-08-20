@@ -1,0 +1,44 @@
+name: UCI-4 Effect Chain Contract
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  uci4-effect-chain:
+    name: uci4 / effect-chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      EXPECTED_PARENT_SHA: ${{ github.event.pull_request.base.sha || '' }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+
+      - name: Record exact lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)"
+          if [[ -n "$EXPECTED_PARENT_SHA" ]]; then
+            test "$(git merge-base "$EXPECTED_PARENT_SHA" HEAD)" = "$EXPECTED_PARENT_SHA"
+            echo "EXPECTED_PARENT_SHA=$EXPECTED_PARENT_SHA"
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install test runtime
+        run: python -m pip install pytest==8.3.5
+
+      - name: Run preregistered UCI-4 boundary
+        run: python -m pytest sovereign-omega-v2/python/tests/test_uci4_effect_chain_integration.py -q
