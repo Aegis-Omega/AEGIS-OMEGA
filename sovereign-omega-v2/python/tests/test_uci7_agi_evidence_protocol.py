@@ -8,6 +8,7 @@ from harness.sdk.agi_evidence import (
     CapabilityTaskSpecV1,
     CapabilityTrialResultV1,
     ContaminationClass,
+    DeterministicCheckerAdapterV1,
     EvidenceAxis,
     EvidenceProtocolError,
     EvaluationSuiteV1,
@@ -49,34 +50,38 @@ def _suite(*, axes=REQUIRED_AXES, threshold_bps: int = 8000) -> EvaluationSuiteV
     )
 
 
-def _pass_result(task: CapabilityTaskSpecV1, *, predicted_bps: int = 9000) -> CapabilityTrialResultV1:
-    return CapabilityTrialResultV1(
-        task_spec_root=task.root,
-        trial_index=0,
-        checker_verdict=True,
-        checker_score_bps=9000,
-        predicted_correctness_bps=predicted_bps,
-        output_digest="c" * 64,
+def _result(
+    task: CapabilityTaskSpecV1,
+    *,
+    verdict: bool = True,
+    score_bps: int = 9000,
+    predicted_bps: int = 9000,
+) -> CapabilityTrialResultV1:
+    adapter = DeterministicCheckerAdapterV1(
         checker_commitment=task.checker_commitment,
-        budget_commitment=task.budget_commitment,
-        provider_runtime_commitment="d" * 64,
+        provider_runtime_commitment="b" * 64,
+        checker=lambda _output: (verdict, score_bps),
+    )
+    return adapter.issue_result(
+        task=task,
+        trial_index=0,
+        candidate_output=b"uci7-fixture-output",
+        predicted_correctness_bps=predicted_bps,
         execution_receipt_root="e" * 64,
         effect_receipt_root="f" * 64,
         admission_record_root="1" * 64,
     )
 
 
+def _pass_result(task: CapabilityTaskSpecV1, *, predicted_bps: int = 9000) -> CapabilityTrialResultV1:
+    return _result(task, predicted_bps=predicted_bps)
+
+
 def test_required_axis_failure_cannot_be_compensated_by_other_axes() -> None:
     suite = _suite()
     results = [_pass_result(t) for t in suite.tasks]
     failed = suite.tasks[0]
-    results[0] = CapabilityTrialResultV1(
-        **{
-            **results[0].to_dict(),
-            "checker_verdict": False,
-            "checker_score_bps": 0,
-        }
-    )
+    results[0] = _result(failed, verdict=False, score_bps=0)
     assessment = AGIEvidenceEvaluator().evaluate(suite, results)
     assert assessment.status is not AGIEvidenceStatus.PREREGISTERED_THRESHOLD_MET
     assert assessment.axis_assessments[failed.axis].threshold_met is False
@@ -110,7 +115,7 @@ def test_caller_declared_correctness_is_not_an_input_surface() -> None:
             output_digest="c" * 64,
             checker_commitment=task.checker_commitment,
             budget_commitment=task.budget_commitment,
-            provider_runtime_commitment="d" * 64,
+            provider_runtime_commitment="b" * 64,
             execution_receipt_root="e" * 64,
             effect_receipt_root="f" * 64,
             admission_record_root="1" * 64,
