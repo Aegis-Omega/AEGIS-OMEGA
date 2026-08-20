@@ -45,13 +45,21 @@ jobs:
           python-version: '3.12'
 
       - name: Install exact test runtime
-        run: python -m pip install pytest==8.3.5
+        run: python -m pip install pytest==8.3.5 jsonschema==4.23.0
 
       - name: Run preregistered UCI-8 behavioral falsifiers
         shell: bash
         run: |
           set -euo pipefail
-          python -m pytest sovereign-omega-v2/python/tests/test_uci8_evaluation_campaign.py -q | tee "$RUNNER_TEMP/uci8-red.log"
+          python -m pytest sovereign-omega-v2/python/tests/test_uci8_evaluation_campaign.py -q | tee "$RUNNER_TEMP/uci8-behavior.log"
+          grep -Eq '10 passed' "$RUNNER_TEMP/uci8-behavior.log"
+          echo "UCI8_BEHAVIOR_10=PASS"
+
+      - name: Run preregistered UCI-8 schema falsifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest sovereign-omega-v2/python/tests/test_uci8_evaluation_campaign_schemas.py -q | tee "$RUNNER_TEMP/uci8-schema.log"
 
       - name: Write RED witness
         if: always()
@@ -64,10 +72,10 @@ jobs:
             echo "authority=EVIDENCE_ONLY"
             echo "public_benchmark_campaign=NOT_RUN"
             echo "agi_claim=NOT_ESTABLISHED"
-            if [[ -f "$RUNNER_TEMP/uci8-red.log" ]]; then
-              cat "$RUNNER_TEMP/uci8-red.log"
-            fi
           } > "$RUNNER_TEMP/uci8-red-witness.txt"
+          for path in "$RUNNER_TEMP/uci8-behavior.log" "$RUNNER_TEMP/uci8-schema.log"; do
+            if [[ -f "$path" ]]; then cat "$path" >> "$RUNNER_TEMP/uci8-red-witness.txt"; fi
+          done
 
       - name: Upload RED witness
         if: always()
@@ -76,5 +84,6 @@ jobs:
           name: uci8-red-witness-${{ env.CANDIDATE_SHA }}
           path: |
             ${{ runner.temp }}/uci8-red-witness.txt
-            ${{ runner.temp }}/uci8-red.log
+            ${{ runner.temp }}/uci8-behavior.log
+            ${{ runner.temp }}/uci8-schema.log
           if-no-files-found: warn
