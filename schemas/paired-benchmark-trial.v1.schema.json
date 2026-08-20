@@ -14,7 +14,10 @@
     "system_runtime_commitment",
     "baseline_runtime_commitment",
     "budget_commitment",
-    "scorer_commitment"
+    "scorer_commitment",
+    "checker_run_id",
+    "system_checker_attestation_root",
+    "baseline_checker_attestation_root"
   ],
   "properties": {
     "pair_kind": {"const": "PAIRED_BENCHMARK_TRIAL_V1"},
@@ -26,6 +29,9 @@
     "system_runtime_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "baseline_runtime_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "budget_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "scorer_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    "scorer_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "checker_run_id": {"type": ["string", "null"]},
+    "system_checker_attestation_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "baseline_checker_attestation_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
   }
 }
