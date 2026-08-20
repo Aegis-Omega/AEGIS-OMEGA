@@ -160,18 +160,36 @@ RESULT = 26/26 PASS
 
 This closes the accidental parallel mutation API. It is not represented as a Python sandbox against arbitrary malicious same-process code, monkeypatching, or module/class spoofing; that stronger adversary is outside the established reference boundary.
 
-## Repo-native gate
+## Final repo-native exact-head witness
 
-A dedicated `UCI-6 Collective Memory Contract` workflow is added downstream of UCI-5. Its final intended exact-head scope is:
+The dedicated `UCI-6 Collective Memory Contract` gate ran on the final documented candidate:
 
 ```text
-12 schemas
-99 inherited UCI-4/UCI-5 falsifiers
-26 UCI-6 behavioral/prestate/schema/internal-base-guard falsifiers
-TOTAL = 125
+CANDIDATE = cfda4275389493b30f54e18b31567b9c05931bca
+EXPECTED_PARENT = c47e99b8139a280c39ceacc46db738b2617866d5
+RUN_ID = 32373679686
+JOB_ID = 96439848249
+EXACT_LINEAGE = PASS
+SCHEMAS = 12/12 PASS
+INHERITED_UCI4_UCI5_TESTS = 99
+UCI6_TESTS = 26
+TOTAL = 125/125 PASS
+FAILURES = 0
+ARTIFACT_ID = 9408127778
+ARTIFACT_ZIP_SHA256 = 8f5c5d3f9454040dc103dcf68a647b3aaebe141d7c89f53d03ab848290723d51
 ```
 
-Final exact-head repo-native execution evidence must be taken from the actual documented PR head after this ledger commit. Earlier successful runs are not promoted across SHA changes.
+On that same exact candidate SHA, the following inherited gates were observed completed successfully:
+
+```text
+UCI-6 Collective Memory Contract = SUCCESS
+UCI-5 Atomic Admission Contract = SUCCESS
+UCI-4 Effect Chain Contract = SUCCESS
+Kernel One = SUCCESS
+AEGIS Coordinator Authority = SUCCESS
+Coq Formal Attestation = SUCCESS
+AEGIS Agent Dispatch = SKIPPED / NOT EVIDENCE OF PASS OR FAILURE
+```
 
 ## Explicit security and epistemic boundaries
 
