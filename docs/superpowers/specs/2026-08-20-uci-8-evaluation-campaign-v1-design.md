@@ -41,6 +41,16 @@ At every stage:
 
 ## Contract types
 
+### `CampaignTaskTrialUnitV1`
+
+A closed preregistered unit containing:
+
+- `task_spec_root`
+- `trial_index`
+- `unit_kind = CAMPAIGN_TASK_TRIAL_UNIT_V1`
+
+Its domain-separated root is the canonical task/trial slot identity. The ordered unit list is what makes individual anti-splicing membership mechanically checkable; a summary hash alone is not sufficient.
+
 ### `BenchmarkTrackSpecV1`
 
 Required fields:
@@ -52,7 +62,8 @@ Required fields:
 - `split_id`
 - `split_privacy`: `PUBLIC_DEV`, `SEMI_PRIVATE`, `PRIVATE`, `GATED_PRIVATE`
 - `metric_kind`: `EXACT_MATCH_ACCURACY`, `TOOL_ASSISTED_QA_ACCURACY`, `HUMAN_EQUIVALENT_TASK_HORIZON`, `OTHER_DETERMINISTIC`
-- `task_manifest_commitment`
+- ordered, non-empty, duplicate-free `task_trial_units[]`
+- derived `task_manifest_commitment`
 - `scorer_commitment`
 - `budget_commitment`
 - `human_reference_commitment`
@@ -60,7 +71,7 @@ Required fields:
 - `repetition_count >= 1`
 - `statistical_mode = PAIRED_DESCRIPTIVE_V1`
 
-The root must change if any of these fields change.
+The task manifest commitment is derived from the ordered unit roots. The track root must change if any preregistered field or task/trial slot changes.
 
 ### `EvaluationCampaignManifestV1`
 
@@ -82,8 +93,7 @@ Binds one preregistered unit of comparison:
 
 - campaign root
 - track root
-- task commitment
-- trial index
+- task/trial unit root
 - system `CapabilityTrialResultV1` root
 - baseline `CapabilityTrialResultV1` root
 - system runtime commitment
@@ -91,7 +101,7 @@ Binds one preregistered unit of comparison:
 - budget commitment
 - scorer commitment
 
-System and baseline must refer to the same task/trial unit and the exact preregistered budget/scorer policy.
+Creation must recompute the task/trial unit from both UCI-7 result objects, require equality, and require membership in the exact track manifest. System and baseline must therefore refer to the same preregistered task/trial unit and the exact preregistered budget/scorer policy.
 
 ### `CampaignEvidenceBundleV1`
 
@@ -114,25 +124,26 @@ The bundle is not an `AdmissionRecord`, not an `EffectReceipt`, and not authorit
 2. `SUSPECTED` or `EXPOSED` contamination blocks `HELD_OUT_EVIDENCE_COMPLETE`.
 3. Missing baseline evidence blocks `COLLECTIVE_CONTRIBUTION_EVALUABLE`.
 4. System and baseline result cardinality must equal the preregistered task/trial cardinality.
-5. Runtime identity mismatch fails closed.
-6. Scorer commitment mismatch fails closed.
-7. Budget commitment mismatch fails closed.
-8. `statistical_mode` is fixed to `PAIRED_DESCRIPTIVE_V1`; inferential labels such as `SIGNIFICANT_IMPROVEMENT` are invalid in v1.
-9. A benchmark family cannot silently redefine its metric semantics after preregistration.
-10. `AGI_PROVEN` is not a valid campaign status.
+5. Every pair must bind the same task/trial unit on system and baseline sides and that unit must belong to the exact track manifest.
+6. Runtime identity mismatch fails closed.
+7. Scorer commitment mismatch fails closed.
+8. Budget commitment mismatch fails closed.
+9. `statistical_mode` is fixed to `PAIRED_DESCRIPTIVE_V1`; inferential labels such as `SIGNIFICANT_IMPROVEMENT` are invalid in v1.
+10. A benchmark family cannot silently redefine its metric semantics after preregistration.
+11. `AGI_PROVEN` is not a valid campaign status.
 
 ## Benchmark-specific minimum semantics
 
 ### ARC-AGI-2
 
 - metric kind must be `EXACT_MATCH_ACCURACY`;
-- efficiency/budget commitment is mandatory;
+- efficiency/budget commitment is mandatory and nonzero;
 - private/semi-private evidence may be held-out; public development data is not held-out evidence.
 
 ### GAIA
 
 - metric kind must be `TOOL_ASSISTED_QA_ACCURACY`;
-- scorer commitment must bind private/gated answer handling;
+- scorer commitment must be nonzero and bind answer handling;
 - gated/private answer material must not be copied into public evidence artifacts.
 
 ### METR-style time horizon
