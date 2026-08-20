@@ -144,6 +144,8 @@ jobs:
         run: |
           set -euo pipefail
           python -m pytest sovereign-omega-v2/python/tests/test_uci7_baseline_attribution.py -q | tee "$RUNNER_TEMP/uci7-baseline-attribution.log"
+          grep -Eq '5 passed' "$RUNNER_TEMP/uci7-baseline-attribution.log"
+          echo "UCI7_BASELINE_ATTRIBUTION_GUARDS_5=PASS"
 
       - name: Write exact-head witness
         if: always()
@@ -170,7 +172,8 @@ jobs:
             echo "uci7_ci_guards=4_REQUIRED_AND_TESTED"
             echo "checker_result_provenance=PROCESS_LOCAL_ISSUANCE_REQUIRED_AND_TESTED"
             echo "evaluated_system_runtime_binding=REQUIRED_AND_TESTED"
-            echo "collective_baseline_attribution=REQUIRED"
+            echo "collective_baseline_attribution=5_REQUIRED_AND_TESTED"
+            echo "baseline_delta_semantics=PAIRED_DESCRIPTIVE_NOT_SIGNIFICANCE"
             echo "checker_code_cryptographic_attestation=NOT_ESTABLISHED"
             echo "cross_process_trial_result_attestation=NOT_ESTABLISHED"
           } > "$RUNNER_TEMP/uci7-witness.txt"
