@@ -267,7 +267,7 @@ def test_public_or_contaminated_tracks_cannot_be_promoted_to_held_out_evidence()
     assert suspect_bundle.evidence_status is CampaignEvidenceStatus.INVALIDATED_CONTAMINATION
 
 
-def test_clean_held_out_complete_pairing_is_only_collective_contribution_evaluable() -> None:
+def test_clean_held_out_process_local_pairing_is_not_portable_collective_evidence() -> None:
     task = _task()
     track = _track(task)
     campaign = _campaign(track)
@@ -278,5 +278,5 @@ def test_clean_held_out_complete_pairing_is_only_collective_contribution_evaluab
         runner_environment_commitment="6" * 64,
         execution_receipt_bundle_commitment="7" * 64,
     )
-    assert bundle.evidence_status is CampaignEvidenceStatus.COLLECTIVE_CONTRIBUTION_EVALUABLE
+    assert bundle.evidence_status is CampaignEvidenceStatus.HELD_OUT_EVIDENCE_COMPLETE
     assert "AGI_PROVEN" not in {status.value for status in CampaignEvidenceStatus}
