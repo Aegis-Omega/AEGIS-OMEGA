@@ -70,6 +70,11 @@ class BaselineSelectionMode(str, Enum):
     SAME_COMPARISON_DATA_PER_TASK = "SAME_COMPARISON_DATA_PER_TASK"
 
 
+class PublishedComparability(str, Enum):
+    NOT_COMPARABLE_TO_PUBLISHED = "NOT_COMPARABLE_TO_PUBLISHED"
+    PUBLISHED_METHODOLOGY_MATCHED = "PUBLISHED_METHODOLOGY_MATCHED"
+
+
 class CampaignEvidenceStatus(str, Enum):
     NOT_EVALUATED = "NOT_EVALUATED"
     DEVELOPMENT_EVIDENCE_ONLY = "DEVELOPMENT_EVIDENCE_ONLY"
@@ -140,6 +145,8 @@ class BenchmarkTrackSpecV1:
     contamination_class: ContaminationClass
     repetition_count: int
     statistical_mode: StatisticalMode
+    published_comparability: PublishedComparability
+    published_methodology_commitment: str
     track_kind: str = BENCHMARK_TRACK_KIND
 
     @classmethod
@@ -160,6 +167,8 @@ class BenchmarkTrackSpecV1:
         contamination_class: ContaminationClass,
         repetition_count: int,
         statistical_mode: StatisticalMode,
+        published_comparability: PublishedComparability = PublishedComparability.NOT_COMPARABLE_TO_PUBLISHED,
+        published_methodology_commitment: str = ZERO_HASH,
     ) -> "BenchmarkTrackSpecV1":
         units = tuple(task_trial_units)
         manifest_commitment = canonical_hash(
@@ -182,6 +191,8 @@ class BenchmarkTrackSpecV1:
             contamination_class=contamination_class,
             repetition_count=repetition_count,
             statistical_mode=statistical_mode,
+            published_comparability=published_comparability,
+            published_methodology_commitment=published_methodology_commitment,
         )
         track.validate()
         return track
@@ -202,14 +213,20 @@ class BenchmarkTrackSpecV1:
             raise EvaluationCampaignError("CONTAMINATION_CLASS_INVALID")
         if self.statistical_mode is not StatisticalMode.PAIRED_DESCRIPTIVE_V1:
             raise EvaluationCampaignError("STATISTICAL_MODE_NOT_ADMITTED_V1")
+        if not isinstance(self.published_comparability, PublishedComparability):
+            raise EvaluationCampaignError("PUBLISHED_COMPARABILITY_INVALID")
         for name in (
             "benchmark_source_commitment",
             "task_manifest_commitment",
             "scorer_commitment",
             "budget_commitment",
             "human_reference_commitment",
+            "published_methodology_commitment",
         ):
             _require_hash(name, getattr(self, name))
+        if self.published_comparability is PublishedComparability.PUBLISHED_METHODOLOGY_MATCHED:
+            if self.published_methodology_commitment == ZERO_HASH:
+                raise EvaluationCampaignError("PUBLISHED_METHODOLOGY_COMMITMENT_REQUIRED")
         if not self.task_trial_units:
             raise EvaluationCampaignError("TASK_TRIAL_MANIFEST_EMPTY")
         unit_roots = [unit.root for unit in self.task_trial_units]
@@ -266,6 +283,8 @@ class BenchmarkTrackSpecV1:
             "contamination_class": self.contamination_class.value,
             "repetition_count": self.repetition_count,
             "statistical_mode": self.statistical_mode.value,
+            "published_comparability": self.published_comparability.value,
+            "published_methodology_commitment": self.published_methodology_commitment,
         }
 
     @property
