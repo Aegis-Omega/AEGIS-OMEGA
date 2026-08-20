@@ -10,6 +10,8 @@ version's admitted claim surface.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -28,6 +30,7 @@ SAFE_ID_RE = re.compile(r"^[A-Za-z0-9._:/@+#=-]+$")
 TASK_TRIAL_UNIT_KIND = "CAMPAIGN_TASK_TRIAL_UNIT_V1"
 BENCHMARK_TRACK_KIND = "BENCHMARK_TRACK_SPEC_V1"
 CAMPAIGN_MANIFEST_KIND = "EVALUATION_CAMPAIGN_MANIFEST_V1"
+CHECKER_RESULT_ATTESTATION_KIND = "CHECKER_RESULT_ATTESTATION_V1"
 PAIRED_TRIAL_KIND = "PAIRED_BENCHMARK_TRIAL_V1"
 CAMPAIGN_EVIDENCE_BUNDLE_KIND = "CAMPAIGN_EVIDENCE_BUNDLE_V1"
 
@@ -357,6 +360,123 @@ class EvaluationCampaignManifestV1:
 
 
 @dataclass(frozen=True)
+class CheckerResultAttestationV1:
+    run_id: str
+    task_spec_root: str
+    trial_index: int
+    result_root: str
+    checker_commitment: str
+    key_id: str
+    mac_hex: str
+    attestation_kind: str = CHECKER_RESULT_ATTESTATION_KIND
+
+    def validate(self) -> None:
+        if self.attestation_kind != CHECKER_RESULT_ATTESTATION_KIND:
+            raise EvaluationCampaignError("CHECKER_ATTESTATION_KIND_MISMATCH")
+        _require_id("run_id", self.run_id)
+        _require_id("key_id", self.key_id)
+        for name in ("task_spec_root", "result_root", "checker_commitment"):
+            _require_hash(name, getattr(self, name))
+        if not isinstance(self.trial_index, int) or isinstance(self.trial_index, bool) or self.trial_index < 0:
+            raise EvaluationCampaignError("ATTESTATION_TRIAL_INDEX_INVALID")
+        _require_hash("mac_hex", self.mac_hex)
+
+    def unsigned_payload(self) -> dict[str, object]:
+        return {
+            "attestation_kind": self.attestation_kind,
+            "run_id": self.run_id,
+            "task_spec_root": self.task_spec_root,
+            "trial_index": self.trial_index,
+            "result_root": self.result_root,
+            "checker_commitment": self.checker_commitment,
+            "key_id": self.key_id,
+        }
+
+    def to_dict(self) -> dict[str, object]:
+        return {**self.unsigned_payload(), "mac_hex": self.mac_hex}
+
+    @property
+    def root(self) -> str:
+        self.validate()
+        return canonical_hash("AEGIS_UCI8_CHECKER_RESULT_ATTESTATION_V1", self.to_dict())
+
+
+class PortableCheckerHMACV1:
+    """Portable symmetric checker-result attestation for replay boundaries.
+
+    This is HMAC authentication, not a publicly verifiable digital signature.
+    Holders of the same secret can both issue and verify attestations.
+    """
+
+    def __init__(self, *, key_id: str, secret_key: bytes) -> None:
+        _require_id("key_id", key_id)
+        if not isinstance(secret_key, bytes) or len(secret_key) < 32:
+            raise EvaluationCampaignError("HMAC_SECRET_KEY_TOO_SHORT")
+        self._key_id = key_id
+        self._secret_key = secret_key
+
+    def _mac_for_payload(self, payload: dict[str, object]) -> str:
+        digest = canonical_hash("AEGIS_UCI8_CHECKER_RESULT_ATTESTATION_PAYLOAD_V1", payload)
+        return hmac.new(
+            self._secret_key,
+            bytes.fromhex(digest),
+            hashlib.sha256,
+        ).hexdigest()
+
+    def issue(self, *, run_id: str, result: CapabilityTrialResultV1) -> CheckerResultAttestationV1:
+        _require_id("run_id", run_id)
+        result.validate()
+        if not _is_checker_issued_result(result):
+            raise EvaluationCampaignError("ATTESTATION_ISSUER_REQUIRES_CHECKER_ISSUED_RESULT")
+        unsigned = {
+            "attestation_kind": CHECKER_RESULT_ATTESTATION_KIND,
+            "run_id": run_id,
+            "task_spec_root": result.task_spec_root,
+            "trial_index": result.trial_index,
+            "result_root": result.root,
+            "checker_commitment": result.checker_commitment,
+            "key_id": self._key_id,
+        }
+        attestation = CheckerResultAttestationV1(
+            run_id=run_id,
+            task_spec_root=result.task_spec_root,
+            trial_index=result.trial_index,
+            result_root=result.root,
+            checker_commitment=result.checker_commitment,
+            key_id=self._key_id,
+            mac_hex=self._mac_for_payload(unsigned),
+        )
+        attestation.validate()
+        return attestation
+
+    def verify(
+        self,
+        *,
+        expected_run_id: str,
+        result: CapabilityTrialResultV1,
+        attestation: CheckerResultAttestationV1,
+    ) -> None:
+        _require_id("expected_run_id", expected_run_id)
+        result.validate()
+        attestation.validate()
+        if attestation.run_id != expected_run_id:
+            raise EvaluationCampaignError("ATTESTATION_RUN_ID_MISMATCH")
+        if attestation.task_spec_root != result.task_spec_root:
+            raise EvaluationCampaignError("ATTESTATION_TASK_SPEC_ROOT_MISMATCH")
+        if attestation.trial_index != result.trial_index:
+            raise EvaluationCampaignError("ATTESTATION_TRIAL_INDEX_MISMATCH")
+        if attestation.checker_commitment != result.checker_commitment:
+            raise EvaluationCampaignError("ATTESTATION_CHECKER_COMMITMENT_MISMATCH")
+        if attestation.result_root != result.root:
+            raise EvaluationCampaignError("ATTESTATION_RESULT_ROOT_MISMATCH")
+        if attestation.key_id != self._key_id:
+            raise EvaluationCampaignError("ATTESTATION_KEY_ID_MISMATCH")
+        expected_mac = self._mac_for_payload(attestation.unsigned_payload())
+        if not hmac.compare_digest(expected_mac, attestation.mac_hex):
+            raise EvaluationCampaignError("ATTESTATION_MAC_INVALID")
+
+
+@dataclass(frozen=True)
 class PairedBenchmarkTrialV1:
     campaign_root: str
     track_root: str
@@ -367,6 +487,9 @@ class PairedBenchmarkTrialV1:
     baseline_runtime_commitment: str
     budget_commitment: str
     scorer_commitment: str
+    checker_run_id: str | None = None
+    system_checker_attestation_root: str = ZERO_HASH
+    baseline_checker_attestation_root: str = ZERO_HASH
     pair_kind: str = PAIRED_TRIAL_KIND
 
     @classmethod
@@ -377,6 +500,10 @@ class PairedBenchmarkTrialV1:
         track: BenchmarkTrackSpecV1,
         system_result: CapabilityTrialResultV1,
         baseline_result: CapabilityTrialResultV1 | None,
+        expected_run_id: str | None = None,
+        system_attestation: CheckerResultAttestationV1 | None = None,
+        baseline_attestation: CheckerResultAttestationV1 | None = None,
+        attestation_verifier: PortableCheckerHMACV1 | None = None,
     ) -> "PairedBenchmarkTrialV1":
         campaign.validate()
         track.validate()
@@ -403,7 +530,33 @@ class PairedBenchmarkTrialV1:
             raise EvaluationCampaignError("SCORER_COMMITMENT_MISMATCH")
         if track.root not in {candidate.root for candidate in campaign.tracks}:
             raise EvaluationCampaignError("TRACK_NOT_IN_CAMPAIGN")
-        if not _is_checker_issued_result(system_result) or not _is_checker_issued_result(baseline_result):
+
+        portable_args = (expected_run_id, system_attestation, baseline_attestation, attestation_verifier)
+        portable_requested = any(value is not None for value in portable_args)
+        checker_run_id: str | None = None
+        system_attestation_root = ZERO_HASH
+        baseline_attestation_root = ZERO_HASH
+        if portable_requested:
+            if any(value is None for value in portable_args):
+                raise EvaluationCampaignError("PORTABLE_ATTESTATION_ARGUMENTS_INCOMPLETE")
+            assert expected_run_id is not None
+            assert system_attestation is not None
+            assert baseline_attestation is not None
+            assert attestation_verifier is not None
+            attestation_verifier.verify(
+                expected_run_id=expected_run_id,
+                result=system_result,
+                attestation=system_attestation,
+            )
+            attestation_verifier.verify(
+                expected_run_id=expected_run_id,
+                result=baseline_result,
+                attestation=baseline_attestation,
+            )
+            checker_run_id = expected_run_id
+            system_attestation_root = system_attestation.root
+            baseline_attestation_root = baseline_attestation.root
+        elif not _is_checker_issued_result(system_result) or not _is_checker_issued_result(baseline_result):
             raise EvaluationCampaignError("CHECKER_ISSUANCE_OR_PORTABLE_ATTESTATION_REQUIRED")
 
         pair = cls(
@@ -416,6 +569,9 @@ class PairedBenchmarkTrialV1:
             baseline_runtime_commitment=baseline_result.provider_runtime_commitment,
             budget_commitment=track.budget_commitment,
             scorer_commitment=track.scorer_commitment,
+            checker_run_id=checker_run_id,
+            system_checker_attestation_root=system_attestation_root,
+            baseline_checker_attestation_root=baseline_attestation_root,
         )
         pair.validate()
         return pair
@@ -435,6 +591,17 @@ class PairedBenchmarkTrialV1:
             "scorer_commitment",
         ):
             _require_hash(name, getattr(self, name))
+        if self.checker_run_id is None:
+            if self.system_checker_attestation_root != ZERO_HASH or self.baseline_checker_attestation_root != ZERO_HASH:
+                raise EvaluationCampaignError("ATTESTATION_ROOT_WITHOUT_RUN_ID")
+        else:
+            _require_id("checker_run_id", self.checker_run_id)
+            _require_nonzero_hash("system_checker_attestation_root", self.system_checker_attestation_root)
+            _require_nonzero_hash("baseline_checker_attestation_root", self.baseline_checker_attestation_root)
+
+    @property
+    def portable_checker_attested(self) -> bool:
+        return self.checker_run_id is not None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -448,6 +615,9 @@ class PairedBenchmarkTrialV1:
             "baseline_runtime_commitment": self.baseline_runtime_commitment,
             "budget_commitment": self.budget_commitment,
             "scorer_commitment": self.scorer_commitment,
+            "checker_run_id": self.checker_run_id,
+            "system_checker_attestation_root": self.system_checker_attestation_root,
+            "baseline_checker_attestation_root": self.baseline_checker_attestation_root,
         }
 
     @property
