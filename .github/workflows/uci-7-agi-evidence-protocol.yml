@@ -139,6 +139,12 @@ jobs:
           grep -Eq '2 passed' "$RUNNER_TEMP/uci7-checker-provenance.log"
           echo "UCI7_CHECKER_PROVENANCE_GUARDS_2=PASS"
 
+      - name: Validate constituent baseline attribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest sovereign-omega-v2/python/tests/test_uci7_baseline_attribution.py -q | tee "$RUNNER_TEMP/uci7-baseline-attribution.log"
+
       - name: Write exact-head witness
         if: always()
         shell: bash
@@ -164,6 +170,7 @@ jobs:
             echo "uci7_ci_guards=4_REQUIRED_AND_TESTED"
             echo "checker_result_provenance=PROCESS_LOCAL_ISSUANCE_REQUIRED_AND_TESTED"
             echo "evaluated_system_runtime_binding=REQUIRED_AND_TESTED"
+            echo "collective_baseline_attribution=REQUIRED"
             echo "checker_code_cryptographic_attestation=NOT_ESTABLISHED"
             echo "cross_process_trial_result_attestation=NOT_ESTABLISHED"
           } > "$RUNNER_TEMP/uci7-witness.txt"
@@ -172,7 +179,8 @@ jobs:
             "$RUNNER_TEMP/uci7-inherited-uci5-ci.log" \
             "$RUNNER_TEMP/uci7-pytest.log" \
             "$RUNNER_TEMP/uci7-ci-contract.log" \
-            "$RUNNER_TEMP/uci7-checker-provenance.log"; do
+            "$RUNNER_TEMP/uci7-checker-provenance.log" \
+            "$RUNNER_TEMP/uci7-baseline-attribution.log"; do
             if [[ -f "$path" ]]; then
               cat "$path" >> "$RUNNER_TEMP/uci7-witness.txt"
             fi
@@ -190,4 +198,5 @@ jobs:
             ${{ runner.temp }}/uci7-pytest.log
             ${{ runner.temp }}/uci7-ci-contract.log
             ${{ runner.temp }}/uci7-checker-provenance.log
+            ${{ runner.temp }}/uci7-baseline-attribution.log
           if-no-files-found: error
