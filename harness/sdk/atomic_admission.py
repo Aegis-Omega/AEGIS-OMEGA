@@ -244,14 +244,12 @@ class LocalSqliteAtomicAdmissionStoreV1:
             else:
                 existing = self._state_from_row(row)
                 if (
-                    existing.sequence == 0
-                    and (
-                        existing.state_commitment != initial_state_commitment
-                        or existing.admission_policy_commitment != admission_policy_commitment
-                        or existing.authority_epoch != authority_epoch
-                        or existing.fence_commitment != fence_commitment
-                    )
+                    existing.admission_policy_commitment != admission_policy_commitment
+                    or existing.authority_epoch != authority_epoch
+                    or existing.fence_commitment != fence_commitment
                 ):
+                    raise AtomicAdmissionError("ADMISSION_STORE_CONTROL_PLANE_CONFLICT")
+                if existing.sequence == 0 and existing.state_commitment != initial_state_commitment:
                     raise AtomicAdmissionError("ADMISSION_STORE_INITIALIZATION_CONFLICT")
             connection.commit()
         except Exception:
