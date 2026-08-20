@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/benchmark-track-spec.v1.schema.json",
+  "title": "BenchmarkTrackSpecV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "track_kind",
+    "track_id",
+    "benchmark_family",
+    "benchmark_version",
+    "benchmark_source_commitment",
+    "split_id",
+    "split_privacy",
+    "metric_kind",
+    "task_trial_units",
+    "task_manifest_commitment",
+    "scorer_commitment",
+    "budget_commitment",
+    "human_reference_commitment",
+    "contamination_class",
+    "repetition_count",
+    "statistical_mode"
+  ],
+  "properties": {
+    "track_kind": {"const": "BENCHMARK_TRACK_SPEC_V1"},
+    "track_id": {"type": "string", "minLength": 1},
+    "benchmark_family": {
+      "enum": ["ARC_AGI_2", "GAIA", "METR_TIME_HORIZON", "OTHER_PREREGISTERED"]
+    },
+    "benchmark_version": {"type": "string", "minLength": 1},
+    "benchmark_source_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "split_id": {"type": "string", "minLength": 1},
+    "split_privacy": {
+      "enum": ["PUBLIC_DEV", "SEMI_PRIVATE", "PRIVATE", "GATED_PRIVATE"]
+    },
+    "metric_kind": {
+      "enum": [
+        "EXACT_MATCH_ACCURACY",
+        "TOOL_ASSISTED_QA_ACCURACY",
+        "HUMAN_EQUIVALENT_TASK_HORIZON",
+        "OTHER_DETERMINISTIC"
+      ]
+    },
+    "task_trial_units": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/taskTrialUnit"}
+    },
+    "task_manifest_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "scorer_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "budget_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "human_reference_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "contamination_class": {"enum": ["HELD_OUT", "PUBLIC", "SUSPECTED", "EXPOSED"]},
+    "repetition_count": {"type": "integer", "minimum": 1},
+    "statistical_mode": {"const": "PAIRED_DESCRIPTIVE_V1"}
+  },
+  "$defs": {
+    "taskTrialUnit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_kind", "task_spec_root", "trial_index"],
+      "properties": {
+        "unit_kind": {"const": "CAMPAIGN_TASK_TRIAL_UNIT_V1"},
+        "task_spec_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "trial_index": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}
