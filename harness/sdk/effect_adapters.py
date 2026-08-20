@@ -9,9 +9,13 @@ EffectBoundAdmission.
 """
 from __future__ import annotations
 
+import errno
 import hashlib
 import os
 import re
+import stat as stat_module
+import threading
+import weakref
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -22,6 +26,8 @@ from harness.sdk.transition_receipts import ExecutionReceipt, TransitionIdentity
 EFFECT_WITNESS_KIND = "EFFECT_WITNESS_V1"
 VERIFY_EFFECT_STATUS = "does not implement VerifyEffect"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+DEFAULT_MAX_OBSERVATION_BYTES = 16 * 1024 * 1024
+OBSERVATION_READ_CHUNK_BYTES = 64 * 1024
 
 
 class EffectAdapterError(ValueError):
@@ -103,6 +109,24 @@ class EffectWitness:
         return canonical_hash("AEGIS_EFFECT_WITNESS_V1", asdict(self))
 
 
+_ISSUED_EFFECT_WITNESSES: weakref.WeakValueDictionary[str, EffectWitness] = weakref.WeakValueDictionary()
+_ISSUED_EFFECT_WITNESSES_LOCK = threading.RLock()
+
+
+def _register_issued_effect_witness(witness: EffectWitness) -> None:
+    """Record one adapter-produced witness object for this process-local reference."""
+    root = witness.root
+    with _ISSUED_EFFECT_WITNESSES_LOCK:
+        _ISSUED_EFFECT_WITNESSES[root] = witness
+
+
+def _is_process_local_issued_effect_witness(witness: EffectWitness) -> bool:
+    """Nominal local-reference provenance check; not cryptographic attestation."""
+    root = witness.root
+    with _ISSUED_EFFECT_WITNESSES_LOCK:
+        return _ISSUED_EFFECT_WITNESSES.get(root) is witness
+
+
 @dataclass(frozen=True)
 class FilesystemStateObservation:
     target_identity: str
@@ -122,53 +146,147 @@ class FilesystemEffectAdapter:
 
     def __init__(self, *, allowed_root: Path):
         self.allowed_root = Path(allowed_root).resolve(strict=False)
+        self.max_observation_bytes = DEFAULT_MAX_OBSERVATION_BYTES
 
     def _resolve_target(self, target: Path) -> tuple[Path, str]:
-        root = self.allowed_root.resolve(strict=False)
-        resolved_target = Path(target).resolve(strict=False)
-        if resolved_target != root and root not in resolved_target.parents:
-            raise EffectAdapterError("EFFECT_TARGET_OUTSIDE_ALLOWED_ROOT")
-        return resolved_target, resolved_target.relative_to(root).as_posix()
-
-    def _observe_state(self, target: Path) -> FilesystemStateObservation:
-        resolved_target, target_identity = self._resolve_target(target)
-        if not resolved_target.exists():
-            return FilesystemStateObservation(
-                target_identity=target_identity,
-                exists=False,
-                content_sha256=ZERO_HASH,
-                size_bytes=0,
-                device=0,
-                inode=0,
-                mtime_ns=0,
-            )
-        if not resolved_target.is_file():
-            raise EffectAdapterError("EFFECT_TARGET_NOT_REGULAR_FILE")
+        """Lexically bind a target beneath allowed_root without following target symlinks."""
+        root = Path(os.path.abspath(os.fspath(self.allowed_root)))
+        candidate = Path(os.path.abspath(os.fspath(Path(target))))
         try:
-            with resolved_target.open("rb") as stream:
-                content = stream.read()
-                stat = os.fstat(stream.fileno())
-        except FileNotFoundError:
-            return FilesystemStateObservation(
-                target_identity=target_identity,
-                exists=False,
-                content_sha256=ZERO_HASH,
-                size_bytes=0,
-                device=0,
-                inode=0,
-                mtime_ns=0,
-            )
-        except (IsADirectoryError, PermissionError) as exc:
-            raise EffectAdapterError("EFFECT_TARGET_NOT_REGULAR_FILE") from exc
+            common = Path(os.path.commonpath((os.fspath(root), os.fspath(candidate))))
+        except ValueError as exc:
+            raise EffectAdapterError("EFFECT_TARGET_OUTSIDE_ALLOWED_ROOT") from exc
+        if common != root:
+            raise EffectAdapterError("EFFECT_TARGET_OUTSIDE_ALLOWED_ROOT")
+        target_identity = os.path.relpath(os.fspath(candidate), os.fspath(root))
+        if target_identity in ("", "."):
+            raise EffectAdapterError("EFFECT_TARGET_NOT_REGULAR_FILE")
+        parts = Path(target_identity).parts
+        if not parts or any(part in ("", ".", "..") for part in parts):
+            raise EffectAdapterError("EFFECT_TARGET_OUTSIDE_ALLOWED_ROOT")
+        return candidate, Path(target_identity).as_posix()
+
+    @staticmethod
+    def _missing_observation(*, target_identity: str) -> FilesystemStateObservation:
         return FilesystemStateObservation(
             target_identity=target_identity,
-            exists=True,
-            content_sha256=hashlib.sha256(content).hexdigest(),
-            size_bytes=len(content),
-            device=int(stat.st_dev),
-            inode=int(stat.st_ino),
-            mtime_ns=int(stat.st_mtime_ns),
+            exists=False,
+            content_sha256=ZERO_HASH,
+            size_bytes=0,
+            device=0,
+            inode=0,
+            mtime_ns=0,
         )
+
+    def _open_beneath_allowed_root(self, *, target_identity: str) -> int:
+        """Open a regular-file candidate descriptor-relative with symlink following disabled."""
+        required = ("O_DIRECTORY", "O_NOFOLLOW")
+        if os.name != "posix" or any(not hasattr(os, name) for name in required):
+            raise EffectAdapterError("EFFECT_RACE_RESISTANT_OPEN_UNAVAILABLE")
+
+        root_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        file_flags = os.O_RDONLY | os.O_NOFOLLOW
+        directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+
+        parts = Path(target_identity).parts
+        if not parts or any(part in ("", ".", "..") for part in parts):
+            raise EffectAdapterError("EFFECT_TARGET_OUTSIDE_ALLOWED_ROOT")
+
+        try:
+            root_fd = os.open(os.fspath(self.allowed_root), root_flags)
+        except (FileNotFoundError, NotADirectoryError, PermissionError, OSError) as exc:
+            raise EffectAdapterError("EFFECT_ALLOWED_ROOT_UNAVAILABLE") from exc
+
+        opened_dirs: list[int] = []
+        dir_fd = root_fd
+        try:
+            for part in parts[:-1]:
+                try:
+                    next_fd = os.open(part, directory_flags, dir_fd=dir_fd)
+                except FileNotFoundError:
+                    raise
+                except OSError as exc:
+                    if exc.errno in (errno.ELOOP, errno.ENOTDIR):
+                        raise EffectAdapterError("EFFECT_TARGET_OUTSIDE_ALLOWED_ROOT") from exc
+                    if exc.errno in (errno.EACCES, errno.EPERM):
+                        raise EffectAdapterError("EFFECT_TARGET_NOT_REGULAR_FILE") from exc
+                    raise
+                opened_dirs.append(next_fd)
+                dir_fd = next_fd
+
+            try:
+                return os.open(parts[-1], file_flags, dir_fd=dir_fd)
+            except FileNotFoundError:
+                raise
+            except OSError as exc:
+                if exc.errno == errno.ELOOP:
+                    raise EffectAdapterError("EFFECT_TARGET_OUTSIDE_ALLOWED_ROOT") from exc
+                if exc.errno in (errno.EISDIR, errno.ENOTDIR, errno.EACCES, errno.EPERM):
+                    raise EffectAdapterError("EFFECT_TARGET_NOT_REGULAR_FILE") from exc
+                raise
+        finally:
+            for opened_fd in reversed(opened_dirs):
+                os.close(opened_fd)
+            os.close(root_fd)
+
+    def _observe_state(self, target: Path) -> FilesystemStateObservation:
+        _, target_identity = self._resolve_target(target)
+        limit = getattr(self, "max_observation_bytes", DEFAULT_MAX_OBSERVATION_BYTES)
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit < 0:
+            raise EffectAdapterError("EFFECT_OBSERVATION_SIZE_BOUND_INVALID")
+
+        try:
+            fd = self._open_beneath_allowed_root(target_identity=target_identity)
+        except FileNotFoundError:
+            return self._missing_observation(target_identity=target_identity)
+
+        try:
+            stat_before = os.fstat(fd)
+            if not stat_module.S_ISREG(stat_before.st_mode):
+                raise EffectAdapterError("EFFECT_TARGET_NOT_REGULAR_FILE")
+            if int(stat_before.st_size) > limit:
+                raise EffectAdapterError("EFFECT_TARGET_TOO_LARGE")
+
+            digest = hashlib.sha256()
+            total = 0
+            while True:
+                remaining_probe = limit - total + 1
+                read_size = min(OBSERVATION_READ_CHUNK_BYTES, max(1, remaining_probe))
+                chunk = os.read(fd, read_size)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > limit:
+                    raise EffectAdapterError("EFFECT_TARGET_TOO_LARGE")
+                digest.update(chunk)
+
+            stat_after = os.fstat(fd)
+            stable_fields_before = (
+                int(stat_before.st_dev),
+                int(stat_before.st_ino),
+                int(stat_before.st_size),
+                int(stat_before.st_mtime_ns),
+            )
+            stable_fields_after = (
+                int(stat_after.st_dev),
+                int(stat_after.st_ino),
+                int(stat_after.st_size),
+                int(stat_after.st_mtime_ns),
+            )
+            if stable_fields_before != stable_fields_after or int(stat_after.st_size) != total:
+                raise EffectAdapterError("EFFECT_TARGET_CHANGED_DURING_OBSERVATION")
+
+            return FilesystemStateObservation(
+                target_identity=target_identity,
+                exists=True,
+                content_sha256=digest.hexdigest(),
+                size_bytes=total,
+                device=int(stat_after.st_dev),
+                inode=int(stat_after.st_ino),
+                mtime_ns=int(stat_after.st_mtime_ns),
+            )
+        finally:
+            os.close(fd)
 
     @staticmethod
     def _state_commitment(observation: FilesystemStateObservation) -> str:
@@ -304,6 +422,7 @@ class FilesystemEffectAdapter:
             adapter_version=self.version,
         )
         witness.validate()
+        _register_issued_effect_witness(witness)
         return witness
 
 
@@ -313,13 +432,14 @@ def filesystem_state_commitment(*, allowed_root: Path, target: Path) -> str:
 
 
 def is_adapter_bound_effect_evidence(*, witness: EffectWitness) -> bool:
-    """Structural EffectEvidence candidate check only; not VerifyEffect."""
+    """Process-local adapter-issued EffectEvidence check; not cryptographic attestation."""
     try:
         witness.validate()
         return (
             witness.witness_kind == EFFECT_WITNESS_KIND
             and witness.adapter_identity == FilesystemEffectAdapter.identity
             and witness.adapter_version == FilesystemEffectAdapter.version
+            and _is_process_local_issued_effect_witness(witness)
         )
     except (EffectAdapterError, ValueError, TypeError, AttributeError):
         return False

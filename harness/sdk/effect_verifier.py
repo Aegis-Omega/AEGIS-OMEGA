@@ -194,9 +194,12 @@ class EffectVerifier:
         adapter_key = (witness.adapter_identity, witness.adapter_version)
         adapter_supported = adapter_key in self.supported_adapters
         obligations["V_adapter_binding"] = TRUE if adapter_supported else UNKNOWN
-        obligations["V_effect_evidence"] = (
-            TRUE if adapter_supported and is_adapter_bound_effect_evidence(witness=witness) else UNKNOWN
-        )
+        if adapter_supported:
+            obligations["V_effect_evidence"] = (
+                TRUE if is_adapter_bound_effect_evidence(witness=witness) else FALSE
+            )
+        else:
+            obligations["V_effect_evidence"] = UNKNOWN
 
         if any(obligations[name] == FALSE for name in OBLIGATION_ORDER):
             return self._result(
