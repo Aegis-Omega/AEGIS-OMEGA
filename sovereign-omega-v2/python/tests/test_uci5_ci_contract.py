@@ -5,6 +5,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW = REPO_ROOT / ".github/workflows/uci-5-atomic-admission-contract.yml"
 FROZEN_PARENT = "9702004a6230d6a84cc322edb48b55c14e90fe15"
+FROZEN_PARENT_BRANCH = "feat/uci-4-effect-chain-integration-v1"
 
 
 def _workflow_text() -> str:
@@ -22,3 +23,8 @@ def test_uci5_ci_locks_expected_proofline_cardinality() -> None:
     text = _workflow_text()
     assert "grep -Eq '99 passed'" in text
     assert 'echo "UCI5_FULL_PROOFLINE_99=PASS"' in text
+
+
+def test_uci5_ci_runs_only_for_its_frozen_parent_pr() -> None:
+    text = _workflow_text()
+    assert "pull_request:\n    branches:\n      - " + FROZEN_PARENT_BRANCH in text
