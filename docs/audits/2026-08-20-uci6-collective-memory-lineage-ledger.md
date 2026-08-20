@@ -160,12 +160,11 @@ RESULT = 26/26 PASS
 
 This closes the accidental parallel mutation API. It is not represented as a Python sandbox against arbitrary malicious same-process code, monkeypatching, or module/class spoofing; that stronger adversary is outside the established reference boundary.
 
-## Final repo-native exact-head witness
+## Verified predecessor checkpoint
 
-The dedicated `UCI-6 Collective Memory Contract` gate ran on the final documented candidate:
+Before this ledger was amended, the dedicated `UCI-6 Collective Memory Contract` gate ran successfully on predecessor candidate `cfda4275389493b30f54e18b31567b9c05931bca`:
 
 ```text
-CANDIDATE = cfda4275389493b30f54e18b31567b9c05931bca
 EXPECTED_PARENT = c47e99b8139a280c39ceacc46db738b2617866d5
 RUN_ID = 32373679686
 JOB_ID = 96439848249
@@ -179,16 +178,17 @@ ARTIFACT_ID = 9408127778
 ARTIFACT_ZIP_SHA256 = 8f5c5d3f9454040dc103dcf68a647b3aaebe141d7c89f53d03ab848290723d51
 ```
 
-On that same exact candidate SHA, the following inherited gates were observed completed successfully:
+On that predecessor SHA, UCI-6, UCI-5, UCI-4, Kernel One, AEGIS Coordinator Authority and Coq Formal Attestation all completed successfully; AEGIS Agent Dispatch was skipped and is not treated as pass/failure evidence.
+
+Because editing this ledger changes Git state, **this predecessor witness is not promoted onto the later ledger commit SHA**. The final PR-head exact-SHA execution witness must be recorded in PR metadata or external evidence after the last Git commit, so documenting it does not mutate the tree again.
+
+## Final repo-native gate scope
 
 ```text
-UCI-6 Collective Memory Contract = SUCCESS
-UCI-5 Atomic Admission Contract = SUCCESS
-UCI-4 Effect Chain Contract = SUCCESS
-Kernel One = SUCCESS
-AEGIS Coordinator Authority = SUCCESS
-Coq Formal Attestation = SUCCESS
-AEGIS Agent Dispatch = SKIPPED / NOT EVIDENCE OF PASS OR FAILURE
+12 schemas
+99 inherited UCI-4/UCI-5 falsifiers
+26 UCI-6 behavioral/prestate/schema/internal-base-guard falsifiers
+TOTAL = 125
 ```
 
 ## Explicit security and epistemic boundaries
