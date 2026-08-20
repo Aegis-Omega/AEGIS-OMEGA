@@ -2,48 +2,37 @@
 
 > **Execution mode:** test-first, exact-head, fail-closed. UCI-4 remains immutable input lineage; UCI-5 is a stacked successor.
 
-**Goal:** add a local transactional reference admission boundary that atomically commits the verified post-state and its generated `AdmissionRecordV1`, or commits neither, while checking current state, admission policy, authority epoch, and fence at the same transaction boundary.
+**Goal:** add a local transactional reference admission boundary that atomically commits the verified post-state and its generated `AdmissionRecordV1`, or commits neither, while checking current state, current admission policy, authority epoch, and fence at the same transaction boundary.
 
 **Exact parent:** `#276@9702004a6230d6a84cc322edb48b55c14e90fe15`
 
-**Architecture:** reuse the frozen UCI-4 decision/execution/effect/CompleteVerification chain. Do not trust a caller-supplied `CompleteVerificationResult` by shape alone: UCI-5 receives the full nominal bundle, recomputes CompleteVerification under the UCI-5 admission-policy commitment, then compares the recomputed root with the supplied result before opening the state mutation path. The next canonical state is derived from the verified `EffectReceipt.post_state_commitment`; it is never caller-supplied. A SQLite standard-library reference store uses one `BEGIN IMMEDIATE` transaction to validate the current control-plane snapshot, insert the generated admission record, and update canonical state. On any exception, rollback leaves both unchanged.
+## Architecture
 
-**Important epistemic boundary:** current `authority_epoch` is an admission-time eligibility condition. The frozen UCI-4 `TransitionIdentity` does not contain an authority-epoch field. UCI-5 therefore establishes `CURRENT_EPOCH_CHECKED_AT_ADMISSION`, not `TRANSITION_HISTORICALLY_BOUND_TO_AUTHORITY_EPOCH`. That stronger work-node-to-transition binding remains a later integration obligation.
+UCI-5 consumes the frozen UCI-4 decision/execution/effect/`CompleteVerificationResultV1` proofline without changing its bytes or verifier semantics.
 
-**Non-claims:** no Postgres/Cockroach transaction proof, no distributed consensus, no distributed linearizability, no production admission, no automatic external mutation, no provider/model authority.
+A design review after the RED witness surfaced an important version boundary: UCI-4 CompleteVerification intentionally requires the legacy `PR1_ADMISSION_POLICY` commitment whose implementation-state declaration says admission was unavailable. UCI-5 MUST NOT silently rewrite that historical commitment or retrofit PR-4 to a different admission policy.
 
----
-
-## Task 1 — RED: admission module absent
-
-**Create:** `sovereign-omega-v2/python/tests/test_uci5_atomic_admission.py`
-
-Preregister a test importing:
-
-```python
-from harness.sdk.atomic_admission import (
-    ADMISSION_RECORD_KIND,
-    LocalSqliteAtomicAdmissionStoreV1,
-    uci5_admission_policy_commitment,
-)
-```
-
-The first exact-head witness must fail specifically because `harness.sdk.atomic_admission` does not exist.
-
-## Task 2 — admission policy version + CompleteVerifier compatibility
-
-**Modify:** `harness/sdk/complete_verifier.py`
-
-Add an optional `expected_admission_policy_commitment` constructor argument. Default behavior MUST remain byte-semantically compatible with PR-4: if omitted, it resolves to existing `transition_receipts.admission_policy_commitment()`.
-
-`V_admission_policy_binding` compares the transition against the configured expected commitment.
-
-**Create in new module:** `UCI5_ADMISSION_POLICY_V1`, with explicit fields:
+Therefore UCI-5 introduces a **fresh downstream admission-policy version**:
 
 ```text
+UCI-4 transition + CompleteVerification
+  = verified source artifact under historical safe-incompleteness policy
+
+UCI-5 admission policy
+  = current eligibility policy that explicitly names which verified
+    source-policy/profile it accepts and whether local atomic admission is allowed
+```
+
+This is a policy-version bridge, not retroactive mutation of UCI-4 authority.
+
+`UCI5_ADMISSION_POLICY_V1` MUST explicitly bind:
+
+```text
+accepted_complete_verification_result_kind = COMPLETE_VERIFICATION_RESULT_V1
+accepted_source_admission_policy_commitment = legacy PR1 admission-policy root
 atomic_admission = LOCAL_SQLITE_REFERENCE_ONLY
 effect_bound_admission = REFERENCE_ONLY
-complete_verification = REQUIRED
+complete_verification_recompute = REQUIRED
 current_state_match = REQUIRED
 current_policy_match = REQUIRED
 current_authority_epoch_match = REQUIRED
@@ -52,43 +41,79 @@ distributed_linearizability = NOT_ESTABLISHED
 production_admission = NOT_ESTABLISHED
 ```
 
-Do not overwrite or reinterpret `PR1_ADMISSION_POLICY` on UCI-4.
+The store does not trust a caller-supplied CompleteVerification object by shape. It receives the full nominal UCI-4 bundle, recomputes the unchanged `CompleteVerifier()` result, compares roots, then applies the fresh UCI-5 eligibility policy.
 
-## Task 3 — nominal `AdmissionRecordV1`
+The next canonical state is derived only from the verified `EffectReceipt.post_state_commitment`; no caller-provided next-state parameter exists.
 
-**Create:** `harness/sdk/atomic_admission.py`
-**Create:** `schemas/admission-record.v1.schema.json`
+A SQLite standard-library reference store uses one `BEGIN IMMEDIATE` transaction to validate the current control-plane snapshot, insert the generated admission record, and update canonical state. Any exception rolls the transaction back.
 
-`AdmissionRecordV1` fields:
+## Epistemic boundaries
+
+- `authority_epoch` is checked as a **current admission-time eligibility condition**. Frozen UCI-4 `TransitionIdentity` has no authority-epoch field, so UCI-5 does not claim historical transition-to-epoch binding.
+- UCI-5 current admission policy is a new downstream policy; it is not the same field as the UCI-4 transition's historical admission-policy commitment.
+- The transition fence *is* already bound in `TransitionIdentity`; UCI-5 requires it to equal the current store fence.
+- No Postgres/Cockroach equivalence, distributed consensus, distributed linearizability, production admission, automatic world mutation, or provider/model authority is claimed.
+
+---
+
+## Task 1 — RED
+
+`sovereign-omega-v2/python/tests/test_uci5_atomic_admission.py` was preregistered before production code.
+
+Exact RED candidate:
+
+```text
+d508861f74728b775f737b3fcfb6670d659434c4
+```
+
+Independent witness must show exact parent `9702004a...` and fail specifically on missing `harness.sdk.atomic_admission`.
+
+## Task 2 — nominal policy and AdmissionRecord
+
+Create `harness/sdk/atomic_admission.py` and `schemas/admission-record.v1.schema.json`.
+
+`AdmissionRecordV1`:
 
 ```text
 record_kind = ADMISSION_RECORD_V1
 transition_id
 complete_verification_root
+source_admission_policy_commitment
+admission_policy_commitment
 prior_state_commitment
 next_state_commitment
-admission_policy_commitment
 authority_epoch
 fence_commitment
 sequence
 prior_admission_root
 ```
 
-The record root uses a dedicated `AEGIS_ADMISSION_RECORD_V1` hash domain.
+Dedicated hash domain: `AEGIS_ADMISSION_RECORD_V1`.
 
-The store, never the caller, creates the record after every obligation has passed.
+The record is generated by the store only after verification + current eligibility succeed.
 
-## Task 4 — local SQLite atomic store
+## Task 3 — local SQLite atomic store
 
-`LocalSqliteAtomicAdmissionStoreV1` owns two tables:
+`LocalSqliteAtomicAdmissionStoreV1` owns:
 
 ```text
-admission_state(singleton=1, state_commitment, admission_policy_commitment,
-                authority_epoch, fence_commitment, sequence, last_admission_root)
-admission_records(sequence PK, transition_id UNIQUE, admission_root UNIQUE, payload_json)
-```
+admission_state(
+  singleton=1,
+  state_commitment,
+  admission_policy_commitment,
+  authority_epoch,
+  fence_commitment,
+  sequence,
+  last_admission_root
+)
 
-Initialization creates exactly one control-plane state row.
+admission_records(
+  sequence PRIMARY KEY,
+  transition_id UNIQUE,
+  admission_root UNIQUE,
+  payload_json
+)
+```
 
 `compare_and_admit(...)` receives the exact UCI-4 bundle plus:
 
@@ -99,83 +124,82 @@ expected_authority_epoch
 expected_fence_commitment
 ```
 
-It MUST:
+Required order:
 
-1. require exact nominal input types;
-2. recompute `CompleteVerifier(expected_admission_policy_commitment=...)` over the full bundle;
-3. require recomputed status `TRUE` and every obligation `TRUE`;
-4. require supplied CompleteVerification root == recomputed root;
-5. require EffectReceipt root == recomputed CompleteVerification `effect_receipt_root`;
-6. derive `next_state_commitment = effect_receipt.post_state_commitment`;
-7. `BEGIN IMMEDIATE`;
-8. read the current singleton state inside the transaction;
-9. compare current state, policy, authority epoch, and fence with the expected values;
-10. also require transition pre-state, transition admission-policy commitment, and transition fence commitment to match the same current snapshot;
-11. reject duplicate transition replay;
-12. generate `AdmissionRecordV1` with the next sequence and prior admission root;
-13. insert the record and update canonical state in the same transaction;
-14. COMMIT;
-15. on any error, ROLLBACK and leave state + records unchanged.
+1. exact nominal type checks;
+2. require the transition's historical admission-policy commitment to equal the source-policy commitment explicitly accepted by UCI5 policy;
+3. recompute the unchanged `CompleteVerifier()` over the full UCI-4 bundle;
+4. require recomputed status `TRUE` and all obligations `TRUE`;
+5. require supplied CompleteVerification root == recomputed root;
+6. require EffectReceipt root == recomputed CompleteVerification effect-receipt root;
+7. derive next state from `EffectReceipt.post_state_commitment`;
+8. `BEGIN IMMEDIATE`;
+9. check duplicate transition first;
+10. read current singleton state inside the transaction;
+11. require current state/policy/authority epoch/fence == expected values;
+12. require expected current policy == active `UCI5_ADMISSION_POLICY_V1` commitment;
+13. require transition pre-state == current state;
+14. require transition fence commitment == current fence;
+15. generate next-sequence `AdmissionRecordV1`;
+16. insert record;
+17. update canonical state with a compare predicate over the same current values;
+18. COMMIT;
+19. any failure -> ROLLBACK, leaving neither partial record nor partial state.
 
-No caller-provided next-state field exists.
+## Task 4 — adversarial/fault tests
 
-## Task 5 — adversarial/fault tests
+Required:
 
-Required tests:
+- exact valid UCI-4 bundle + current UCI-5 eligibility -> one record and state advance together;
+- no caller-supplied next state;
+- non-TRUE CompleteVerification -> reject/no mutation;
+- forged TRUE/result-root mutation -> recompute mismatch;
+- stale current state -> reject;
+- stale UCI-5 current policy -> reject;
+- stale authority epoch -> reject;
+- stale fence -> reject;
+- transition pre-state != current state -> reject;
+- transition fence != current fence -> reject;
+- unsupported source transition-admission-policy commitment -> reject;
+- effect-receipt splice -> reject;
+- duplicate transition replay -> reject;
+- injected failure after record insert but before state update -> full transaction rollback;
+- two independent store handles racing from same expected state -> exactly one successful admission;
+- schema rejects unknown fields / wrong record kind.
 
-- exact successful bundle -> one record + state advances together;
-- CompleteVerification FALSE/UNKNOWN/MISSING/ERROR -> no mutation;
-- syntactically forged TRUE result whose root differs from recomputation -> reject;
-- stale current state -> reject/no mutation;
-- stale admission policy -> reject/no mutation;
-- stale authority epoch -> reject/no mutation;
-- stale fence -> reject/no mutation;
-- transition pre-state mismatch -> reject/no mutation;
-- transition admission-policy mismatch -> reject/no mutation;
-- transition fence mismatch -> reject/no mutation;
-- EffectReceipt / CompleteVerification root splicing -> reject;
-- duplicate transition replay -> reject/no second record;
-- injected fault after record insert but before state update -> transaction rollback leaves zero partial commit;
-- two store handles racing from the same expected state -> exactly one admission succeeds;
-- serialized schema rejects unknown fields and wrong `record_kind`.
+## Task 5 — exact-head CI gate
 
-## Task 6 — exact-head CI gate
+Create `.github/workflows/uci-5-atomic-admission-contract.yml`:
 
-**Create:** `.github/workflows/uci-5-atomic-admission-contract.yml`
+- exact candidate checkout + exact stacked-parent check;
+- pinned pytest/jsonschema;
+- UCI-5 tests;
+- full UCI-4 79-test regression set;
+- seven-schema validation (six inherited + AdmissionRecord);
+- evidence-only witness artifact with explicit non-claims.
 
-The gate must:
+## Task 6 — audit ledger
 
-- checkout exact PR head;
-- validate exact stacked parent ancestry;
-- install pinned pytest/jsonschema only;
-- run UCI-5 tests plus the full UCI-4 79-test regression set;
-- validate `admission-record.v1.schema.json` and inherited six UCI-4 schemas;
-- emit an evidence-only witness summary with explicit non-claims.
-
-## Task 7 — audit ledger and stacked PR
-
-**Create:** `docs/audits/2026-08-20-uci5-atomic-admission-lineage-ledger.md`
-
-Record RED candidate, GREEN candidates, exact runner IDs/artifact digests, and current ledger. Open a DRAFT PR stacked on `feat/uci-4-effect-chain-integration-v1`.
+Create `docs/audits/2026-08-20-uci5-atomic-admission-lineage-ledger.md` recording RED/GREEN exact SHA/run/artifact evidence and the policy-version boundary.
 
 ## Acceptance ledger
 
-Only after exact-head GREEN:
+Only after final exact-head GREEN:
 
 ```text
 UCI5_LOCAL_SQLITE_ATOMIC_ADMISSION = IMPLEMENTED_AND_EXACT_HEAD_TESTED_REFERENCE
 STATE_AND_ADMISSION_RECORD_SINGLE_TRANSACTION = ESTABLISHED_FOR_REFERENCE_STORE
-CURRENT_STATE_CHECK = ESTABLISHED
-CURRENT_POLICY_CHECK = ESTABLISHED
-CURRENT_AUTHORITY_EPOCH_CHECK = ESTABLISHED_AT_ADMISSION_TIME
-CURRENT_FENCE_CHECK = ESTABLISHED
+UCI4_COMPLETE_VERIFICATION_RECOMPUTE = REQUIRED
+UCI5_CURRENT_STATE_CHECK = ESTABLISHED
+UCI5_CURRENT_POLICY_CHECK = ESTABLISHED
+UCI5_CURRENT_AUTHORITY_EPOCH_CHECK = ESTABLISHED_AT_ADMISSION_TIME
+UCI5_CURRENT_FENCE_CHECK = ESTABLISHED
 CALLER_SUPPLIED_NEXT_STATE = FORBIDDEN
-COMPLETE_VERIFICATION_RECOMPUTE = REQUIRED
 DUPLICATE_TRANSITION_ADMISSION = FORBIDDEN
 TRANSACTION_ROLLBACK_ON_INJECTED_FAULT = ESTABLISHED
+UCI4_POLICY_BYTES_MUTATED_BY_UCI5 = FALSE
 
 TRANSITION_HISTORICALLY_BOUND_TO_AUTHORITY_EPOCH = NOT_ESTABLISHED
-MULTI_PROCESS_LINEARIZABILITY = LIMITED_TO_SQLITE_LOCAL_DATABASE_SEMANTICS
 DISTRIBUTED_LINEARIZABILITY = NOT_ESTABLISHED
 PRODUCTION_ADMISSION = NOT_ESTABLISHED
 ```
