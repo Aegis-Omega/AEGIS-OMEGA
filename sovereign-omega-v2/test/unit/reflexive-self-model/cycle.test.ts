@@ -137,6 +137,17 @@ describe('REFLEXIVE_SELF_MODEL_V1 cycle closure', () => {
     expect(a).toEqual(b)
   })
 
+  it('allows a prediction sealed exactly when governed execution starts', async () => {
+    const input = await validCycle()
+    input.prediction = await rehashPrediction(input.prediction, { sealed_at: 15 })
+    input.observation = await observation(input.prediction)
+
+    const receipt = await closeReflexiveCycle(input)
+
+    expect(receipt.cycle_status).toBe('CYCLE_CLOSED')
+    expect(receipt.scorable).toBe(true)
+  })
+
   it('returns UNSCORABLE_POSTDICTION when a validly rehashed prediction was sealed after execution started', async () => {
     const input = await validCycle()
     input.prediction = await rehashPrediction(input.prediction, { sealed_at: 16 })
