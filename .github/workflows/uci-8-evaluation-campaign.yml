@@ -32,9 +32,7 @@ jobs:
           actual="$(git rev-parse HEAD)"
           test "$actual" = "$CANDIDATE_SHA"
           test "$(git merge-base "$EXPECTED_PARENT_SHA" HEAD)" = "$EXPECTED_PARENT_SHA"
-          if [[ -n "$PR_BASE_SHA" ]]; then
-            test "$PR_BASE_SHA" = "$EXPECTED_PARENT_SHA"
-          fi
+          if [[ -n "$PR_BASE_SHA" ]]; then test "$PR_BASE_SHA" = "$EXPECTED_PARENT_SHA"; fi
           echo "UCI8_CANDIDATE_SHA=$actual"
           echo "UCI8_EXPECTED_PARENT_SHA=$EXPECTED_PARENT_SHA"
           echo "UCI8_EXACT_LINEAGE=PASS"
@@ -53,7 +51,6 @@ jobs:
           set -euo pipefail
           python -m pytest sovereign-omega-v2/python/tests/test_uci8_evaluation_campaign.py -q | tee "$RUNNER_TEMP/uci8-behavior.log"
           grep -Eq '10 passed' "$RUNNER_TEMP/uci8-behavior.log"
-          echo "UCI8_BEHAVIOR_10=PASS"
 
       - name: Run preregistered UCI-8 schema falsifiers
         shell: bash
@@ -61,77 +58,39 @@ jobs:
           set -euo pipefail
           python -m pytest sovereign-omega-v2/python/tests/test_uci8_evaluation_campaign_schemas.py -q | tee "$RUNNER_TEMP/uci8-schema.log"
           grep -Eq '2 passed' "$RUNNER_TEMP/uci8-schema.log"
-          echo "UCI8_SCHEMA_2=PASS"
 
       - name: Validate repetition manifest integrity
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pytest sovereign-omega-v2/python/tests/test_uci8_repetition_manifest.py -q | tee "$RUNNER_TEMP/uci8-repetition.log"
-
+        run: python -m pytest sovereign-omega-v2/python/tests/test_uci8_repetition_manifest.py -q | tee "$RUNNER_TEMP/uci8-repetition.log"
       - name: Validate checker issuance provenance
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pytest sovereign-omega-v2/python/tests/test_uci8_checker_provenance.py -q | tee "$RUNNER_TEMP/uci8-checker-provenance.log"
-
+        run: python -m pytest sovereign-omega-v2/python/tests/test_uci8_checker_provenance.py -q | tee "$RUNNER_TEMP/uci8-checker-provenance.log"
       - name: Validate portable checker HMAC replay
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pytest sovereign-omega-v2/python/tests/test_uci8_portable_checker_attestation.py -q | tee "$RUNNER_TEMP/uci8-portable-checker.log"
-
+        run: python -m pytest sovereign-omega-v2/python/tests/test_uci8_portable_checker_attestation.py -q | tee "$RUNNER_TEMP/uci8-portable-checker.log"
       - name: Validate portable checker serialization boundary
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pytest sovereign-omega-v2/python/tests/test_uci8_portable_attestation_schemas.py -q | tee "$RUNNER_TEMP/uci8-portable-schema.log"
-
+        run: python -m pytest sovereign-omega-v2/python/tests/test_uci8_portable_attestation_schemas.py -q | tee "$RUNNER_TEMP/uci8-portable-schema.log"
       - name: Validate baseline selection integrity
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pytest sovereign-omega-v2/python/tests/test_uci8_baseline_selection_integrity.py -q | tee "$RUNNER_TEMP/uci8-baseline-selection.log"
-
+        run: python -m pytest sovereign-omega-v2/python/tests/test_uci8_baseline_selection_integrity.py -q | tee "$RUNNER_TEMP/uci8-baseline-selection.log"
       - name: Validate published metric comparability
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pytest sovereign-omega-v2/python/tests/test_uci8_published_comparability.py -q | tee "$RUNNER_TEMP/uci8-published-comparability.log"
+        run: python -m pytest sovereign-omega-v2/python/tests/test_uci8_published_comparability.py -q | tee "$RUNNER_TEMP/uci8-published-comparability.log"
 
       - name: Validate descriptive measurement resolution
         continue-on-error: true
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pytest sovereign-omega-v2/python/tests/test_uci8_measurement_resolution.py -q | tee "$RUNNER_TEMP/uci8-measurement-resolution.log"
-
+        run: python -m pytest sovereign-omega-v2/python/tests/test_uci8_measurement_resolution.py -q | tee "$RUNNER_TEMP/uci8-measurement-resolution.log"
       - name: Validate measurement resolution serialization
         continue-on-error: true
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pytest sovereign-omega-v2/python/tests/test_uci8_measurement_resolution_schema.py -q | tee "$RUNNER_TEMP/uci8-measurement-resolution-schema.log"
-
+        run: python -m pytest sovereign-omega-v2/python/tests/test_uci8_measurement_resolution_schema.py -q | tee "$RUNNER_TEMP/uci8-measurement-resolution-schema.log"
       - name: Enforce measurement resolution gates
         shell: bash
         run: |
           set -euo pipefail
           grep -Eq '4 passed' "$RUNNER_TEMP/uci8-measurement-resolution.log"
           grep -Eq '1 passed' "$RUNNER_TEMP/uci8-measurement-resolution-schema.log"
-          echo "UCI8_MEASUREMENT_RESOLUTION_5=PASS"
 
       - name: Validate bundle replay promotion boundary
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pytest sovereign-omega-v2/python/tests/test_uci8_bundle_replay_promotion.py -q | tee "$RUNNER_TEMP/uci8-bundle-replay.log"
-
+        run: python -m pytest sovereign-omega-v2/python/tests/test_uci8_bundle_replay_promotion.py -q | tee "$RUNNER_TEMP/uci8-bundle-replay.log"
       - name: Validate portable pair verification
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pytest sovereign-omega-v2/python/tests/test_uci8_portable_pair_verification.py -q | tee "$RUNNER_TEMP/uci8-portable-pair.log"
+        run: python -m pytest sovereign-omega-v2/python/tests/test_uci8_portable_pair_verification.py -q | tee "$RUNNER_TEMP/uci8-portable-pair.log"
+      - name: Validate pair verification serialization boundary
+        run: python -m pytest sovereign-omega-v2/python/tests/test_uci8_pair_verification_schemas.py -q | tee "$RUNNER_TEMP/uci8-pair-verification-schema.log"
 
       - name: Write RED witness
         if: always()
@@ -146,19 +105,7 @@ jobs:
             echo "agi_claim=NOT_ESTABLISHED"
             echo "statistical_mode=PAIRED_DESCRIPTIVE_V1"
           } > "$RUNNER_TEMP/uci8-red-witness.txt"
-          for path in \
-            "$RUNNER_TEMP/uci8-behavior.log" \
-            "$RUNNER_TEMP/uci8-schema.log" \
-            "$RUNNER_TEMP/uci8-repetition.log" \
-            "$RUNNER_TEMP/uci8-checker-provenance.log" \
-            "$RUNNER_TEMP/uci8-portable-checker.log" \
-            "$RUNNER_TEMP/uci8-portable-schema.log" \
-            "$RUNNER_TEMP/uci8-baseline-selection.log" \
-            "$RUNNER_TEMP/uci8-published-comparability.log" \
-            "$RUNNER_TEMP/uci8-measurement-resolution.log" \
-            "$RUNNER_TEMP/uci8-measurement-resolution-schema.log" \
-            "$RUNNER_TEMP/uci8-bundle-replay.log" \
-            "$RUNNER_TEMP/uci8-portable-pair.log"; do
+          for path in "$RUNNER_TEMP"/uci8-*.log; do
             if [[ -f "$path" ]]; then cat "$path" >> "$RUNNER_TEMP/uci8-red-witness.txt"; fi
           done
 
@@ -169,16 +116,5 @@ jobs:
           name: uci8-red-witness-${{ env.CANDIDATE_SHA }}
           path: |
             ${{ runner.temp }}/uci8-red-witness.txt
-            ${{ runner.temp }}/uci8-behavior.log
-            ${{ runner.temp }}/uci8-schema.log
-            ${{ runner.temp }}/uci8-repetition.log
-            ${{ runner.temp }}/uci8-checker-provenance.log
-            ${{ runner.temp }}/uci8-portable-checker.log
-            ${{ runner.temp }}/uci8-portable-schema.log
-            ${{ runner.temp }}/uci8-baseline-selection.log
-            ${{ runner.temp }}/uci8-published-comparability.log
-            ${{ runner.temp }}/uci8-measurement-resolution.log
-            ${{ runner.temp }}/uci8-measurement-resolution-schema.log
-            ${{ runner.temp }}/uci8-bundle-replay.log
-            ${{ runner.temp }}/uci8-portable-pair.log
+            ${{ runner.temp }}/uci8-*.log
           if-no-files-found: warn
