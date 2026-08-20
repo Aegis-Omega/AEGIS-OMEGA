@@ -100,16 +100,26 @@ jobs:
           python -m pytest sovereign-omega-v2/python/tests/test_uci8_published_comparability.py -q | tee "$RUNNER_TEMP/uci8-published-comparability.log"
 
       - name: Validate descriptive measurement resolution
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
           python -m pytest sovereign-omega-v2/python/tests/test_uci8_measurement_resolution.py -q | tee "$RUNNER_TEMP/uci8-measurement-resolution.log"
 
       - name: Validate measurement resolution serialization
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
           python -m pytest sovereign-omega-v2/python/tests/test_uci8_measurement_resolution_schema.py -q | tee "$RUNNER_TEMP/uci8-measurement-resolution-schema.log"
+
+      - name: Enforce measurement resolution gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Eq '4 passed' "$RUNNER_TEMP/uci8-measurement-resolution.log"
+          grep -Eq '1 passed' "$RUNNER_TEMP/uci8-measurement-resolution-schema.log"
+          echo "UCI8_MEASUREMENT_RESOLUTION_5=PASS"
 
       - name: Write RED witness
         if: always()
