@@ -105,6 +105,12 @@ jobs:
           set -euo pipefail
           python -m pytest sovereign-omega-v2/python/tests/test_uci8_measurement_resolution.py -q | tee "$RUNNER_TEMP/uci8-measurement-resolution.log"
 
+      - name: Validate measurement resolution serialization
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest sovereign-omega-v2/python/tests/test_uci8_measurement_resolution_schema.py -q | tee "$RUNNER_TEMP/uci8-measurement-resolution-schema.log"
+
       - name: Write RED witness
         if: always()
         shell: bash
@@ -127,7 +133,8 @@ jobs:
             "$RUNNER_TEMP/uci8-portable-schema.log" \
             "$RUNNER_TEMP/uci8-baseline-selection.log" \
             "$RUNNER_TEMP/uci8-published-comparability.log" \
-            "$RUNNER_TEMP/uci8-measurement-resolution.log"; do
+            "$RUNNER_TEMP/uci8-measurement-resolution.log" \
+            "$RUNNER_TEMP/uci8-measurement-resolution-schema.log"; do
             if [[ -f "$path" ]]; then cat "$path" >> "$RUNNER_TEMP/uci8-red-witness.txt"; fi
           done
 
@@ -147,4 +154,5 @@ jobs:
             ${{ runner.temp }}/uci8-baseline-selection.log
             ${{ runner.temp }}/uci8-published-comparability.log
             ${{ runner.temp }}/uci8-measurement-resolution.log
+            ${{ runner.temp }}/uci8-measurement-resolution-schema.log
           if-no-files-found: warn
