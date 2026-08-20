@@ -60,6 +60,15 @@ async function prediction(
   return { ...body, prediction_digest: await hashValue(body) }
 }
 
+async function rehashPrediction(
+  pred: SelfPredictionV1,
+  changes: Partial<Omit<SelfPredictionV1, 'prediction_digest'>>,
+): Promise<SelfPredictionV1> {
+  const { prediction_digest: _oldDigest, ...body } = pred
+  const next = { ...body, ...changes }
+  return { ...next, prediction_digest: await hashValue(next) }
+}
+
 async function observation(
   pred: SelfPredictionV1,
   value = true,
@@ -85,6 +94,15 @@ async function observation(
     authority: 'OBSERVATION_EVIDENCE_ONLY' as const,
   }
   return { ...body, observation_digest: await hashValue(body) }
+}
+
+async function rehashObservation(
+  obs: SelfObservationV1,
+  changes: Partial<Omit<SelfObservationV1, 'observation_digest'>>,
+): Promise<SelfObservationV1> {
+  const { observation_digest: _oldDigest, ...body } = obs
+  const next = { ...body, ...changes }
+  return { ...next, observation_digest: await hashValue(next) }
 }
 
 async function validCycle() {
@@ -119,18 +137,19 @@ describe('REFLEXIVE_SELF_MODEL_V1 cycle closure', () => {
     expect(a).toEqual(b)
   })
 
-  it('returns UNSCORABLE_POSTDICTION when prediction was sealed after execution started', async () => {
+  it('returns UNSCORABLE_POSTDICTION when a validly rehashed prediction was sealed after execution started', async () => {
     const input = await validCycle()
-    input.prediction = { ...input.prediction, sealed_at: 16 }
+    input.prediction = await rehashPrediction(input.prediction, { sealed_at: 16 })
+    input.observation = await observation(input.prediction)
     const receipt = await closeReflexiveCycle(input)
 
     expect(receipt.cycle_status).toBe('UNSCORABLE_POSTDICTION')
     expect(receipt.scorable).toBe(false)
   })
 
-  it('returns UNSCORABLE_STALE_BINDING for a cross-cycle observation', async () => {
+  it('returns UNSCORABLE_STALE_BINDING for a cryptographically self-consistent cross-cycle observation', async () => {
     const input = await validCycle()
-    input.observation = { ...input.observation, cycle_id: 'other-cycle' }
+    input.observation = await rehashObservation(input.observation, { cycle_id: 'other-cycle' })
     const receipt = await closeReflexiveCycle(input)
 
     expect(receipt.cycle_status).toBe('UNSCORABLE_STALE_BINDING')
@@ -146,7 +165,7 @@ describe('REFLEXIVE_SELF_MODEL_V1 cycle closure', () => {
     expect(receipt.scorable).toBe(false)
   })
 
-  it('returns TAMPER_DETECTED when a content-addressed observation body is edited', async () => {
+  it('returns TAMPER_DETECTED when a content-addressed observation body is edited without rehashing', async () => {
     const input = await validCycle()
     input.observation = {
       ...input.observation,
