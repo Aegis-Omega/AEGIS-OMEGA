@@ -1,0 +1,59 @@
+name: Reflexive Self Model Contract
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/src/reflexive-self-model/**'
+      - 'sovereign-omega-v2/test/unit/reflexive-self-model/**'
+      - 'sovereign-omega-v2/test/vectors/reflexive-self-model-vectors.test.ts'
+      - 'schemas/reflexive-self-model/**'
+      - 'test-vectors/reflexive-self-model/**'
+      - '.github/workflows/reflexive-self-model-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reflexive-self-model-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: reflexive self-model exact-head contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: sovereign-omega-v2
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Focused reflexive tests — pass 1
+        run: npx vitest run test/unit/reflexive-self-model/contracts.test.ts test/unit/reflexive-self-model/evaluate.test.ts
+
+      - name: Focused reflexive tests — pass 2
+        run: npx vitest run test/unit/reflexive-self-model/contracts.test.ts test/unit/reflexive-self-model/evaluate.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
