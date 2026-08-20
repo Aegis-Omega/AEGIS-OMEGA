@@ -1,0 +1,85 @@
+name: UCI-7 AGI Evidence Protocol
+
+on:
+  pull_request:
+    branches:
+      - feat/uci-6-collective-memory-admission-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  uci7-agi-evidence:
+    name: uci7 / agi-evidence-protocol
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      EXPECTED_PARENT_SHA: 156062855a91b77133d8999ce34883432435b167
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact stacked lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$CANDIDATE_SHA"
+          test "$(git merge-base "$EXPECTED_PARENT_SHA" HEAD)" = "$EXPECTED_PARENT_SHA"
+          if [[ -n "$PR_BASE_SHA" ]]; then
+            test "$PR_BASE_SHA" = "$EXPECTED_PARENT_SHA"
+          fi
+          echo "UCI7_CANDIDATE_SHA=$actual"
+          echo "UCI7_EXPECTED_PARENT_SHA=$EXPECTED_PARENT_SHA"
+          echo "UCI7_EXACT_LINEAGE=PASS"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact test runtime
+        run: python -m pip install pytest==8.3.5
+
+      - name: Run preregistered UCI-7 falsifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest sovereign-omega-v2/python/tests/test_uci7_agi_evidence_protocol.py -q | tee "$RUNNER_TEMP/uci7-pytest.log"
+
+      - name: Write exact-head witness
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "schema_version=AEGIS_UCI7_CI_WITNESS_V1"
+            echo "candidate_sha=$(git rev-parse HEAD)"
+            echo "expected_parent_sha=$EXPECTED_PARENT_SHA"
+            echo "authority=EVIDENCE_ONLY"
+            echo "agi_claim=NOT_ESTABLISHED"
+            echo "unit_tests_are_agi_proof=FALSE"
+            echo "external_replication=NOT_ESTABLISHED"
+            echo "required_axes=6"
+            echo "hidden_answer_exposure=FAIL_CLOSED"
+            echo "safety_violation=HYPOTHESIS_REJECTED"
+          } > "$RUNNER_TEMP/uci7-witness.txt"
+          if [[ -f "$RUNNER_TEMP/uci7-pytest.log" ]]; then
+            cat "$RUNNER_TEMP/uci7-pytest.log" >> "$RUNNER_TEMP/uci7-witness.txt"
+          fi
+
+      - name: Upload UCI-7 witness
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uci7-agi-evidence-witness-${{ env.CANDIDATE_SHA }}
+          path: |
+            ${{ runner.temp }}/uci7-witness.txt
+            ${{ runner.temp }}/uci7-pytest.log
+          if-no-files-found: warn
