@@ -13,6 +13,8 @@ from __future__ import annotations
 import hashlib
 import hmac
 import re
+import threading
+import weakref
 from dataclasses import dataclass
 from enum import Enum
 from typing import Iterable
@@ -662,7 +664,7 @@ class PairedBenchmarkTrialV1:
             baseline_checker_attestation_root=baseline_attestation_root,
         )
         pair.validate()
-        return pair
+        return _register_paired_trial(pair)
 
     def validate(self) -> None:
         if self.pair_kind != PAIRED_TRIAL_KIND:
@@ -714,6 +716,30 @@ class PairedBenchmarkTrialV1:
         return canonical_hash("AEGIS_UCI8_PAIRED_BENCHMARK_TRIAL_V1", self.to_dict())
 
 
+_ISSUED_PAIRED_TRIALS_LOCK = threading.RLock()
+_ISSUED_PAIRED_TRIALS: dict[int, weakref.ReferenceType[PairedBenchmarkTrialV1]] = {}
+
+
+def _register_paired_trial(pair: PairedBenchmarkTrialV1) -> PairedBenchmarkTrialV1:
+    key = id(pair)
+
+    def _cleanup(ref: weakref.ReferenceType[PairedBenchmarkTrialV1], *, object_id: int = key) -> None:
+        with _ISSUED_PAIRED_TRIALS_LOCK:
+            if _ISSUED_PAIRED_TRIALS.get(object_id) is ref:
+                _ISSUED_PAIRED_TRIALS.pop(object_id, None)
+
+    ref = weakref.ref(pair, _cleanup)
+    with _ISSUED_PAIRED_TRIALS_LOCK:
+        _ISSUED_PAIRED_TRIALS[key] = ref
+    return pair
+
+
+def _is_paired_trial_issued(pair: PairedBenchmarkTrialV1) -> bool:
+    with _ISSUED_PAIRED_TRIALS_LOCK:
+        ref = _ISSUED_PAIRED_TRIALS.get(id(pair))
+        return ref is not None and ref() is pair
+
+
 @dataclass(frozen=True)
 class CampaignEvidenceBundleV1:
     campaign_root: str
@@ -756,6 +782,8 @@ class CampaignEvidenceBundleV1:
                 raise EvaluationCampaignError("PAIR_CAMPAIGN_ROOT_MISMATCH")
             if pair.track_root not in campaign_track_roots:
                 raise EvaluationCampaignError("PAIR_TRACK_NOT_IN_CAMPAIGN")
+            if not _is_paired_trial_issued(pair):
+                raise EvaluationCampaignError("PAIR_REPLAY_VERIFICATION_REQUIRED")
             actual_slots.append((pair.track_root, pair.task_trial_unit_root))
         if len(pair_tuple) != len(expected_slots) or set(actual_slots) != expected_slots:
             raise EvaluationCampaignError("PAIR_CARDINALITY_MISMATCH")
@@ -769,7 +797,7 @@ class CampaignEvidenceBundleV1:
         elif public_dev or ContaminationClass.PUBLIC in contaminations:
             status = CampaignEvidenceStatus.DEVELOPMENT_EVIDENCE_ONLY
         else:
-            status = CampaignEvidenceStatus.COLLECTIVE_CONTRIBUTION_EVALUABLE
+            status = CampaignEvidenceStatus.HELD_OUT_EVIDENCE_COMPLETE
 
         bundle = cls(
             campaign_root=campaign.root,
