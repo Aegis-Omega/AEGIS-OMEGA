@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/capability-trial-result.v1.schema.json",
+  "title": "CapabilityTrialResultV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "result_kind", "task_spec_root", "trial_index", "checker_verdict",
+    "checker_score_bps", "predicted_correctness_bps", "output_digest",
+    "checker_commitment", "budget_commitment", "provider_runtime_commitment",
+    "execution_receipt_root", "effect_receipt_root", "admission_record_root"
+  ],
+  "properties": {
+    "result_kind": {"const": "CAPABILITY_TRIAL_RESULT_V1"},
+    "task_spec_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "trial_index": {"type": "integer", "minimum": 0},
+    "checker_verdict": {"type": "boolean"},
+    "checker_score_bps": {"type": "integer", "minimum": 0, "maximum": 10000},
+    "predicted_correctness_bps": {"type": "integer", "minimum": 0, "maximum": 10000},
+    "output_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "checker_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "budget_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "provider_runtime_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "execution_receipt_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "effect_receipt_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "admission_record_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
