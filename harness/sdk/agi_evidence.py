@@ -417,6 +417,9 @@ class CapabilityAxisAssessmentV1:
     threshold_bps: int
     complete: bool
     threshold_met: bool
+    baseline_mean_score_bps: int | None = None
+    system_minus_baseline_bps: int | None = None
+    collective_contribution_positive: bool = False
     assessment_kind: str = CAPABILITY_AXIS_ASSESSMENT_KIND
 
 
@@ -427,6 +430,7 @@ class AGIEvidenceAssessmentV1:
     axis_assessments: Mapping[EvidenceAxis, CapabilityAxisAssessmentV1]
     hidden_answer_exposure_detected: bool
     safety_invariant_violation: bool
+    collective_contribution_established: bool
     assessment_kind: str = AGI_EVIDENCE_ASSESSMENT_KIND
 
     @property
@@ -438,6 +442,7 @@ class AGIEvidenceAssessmentV1:
             "status": self.status.value,
             "hidden_answer_exposure_detected": self.hidden_answer_exposure_detected,
             "safety_invariant_violation": self.safety_invariant_violation,
+            "collective_contribution_established": self.collective_contribution_established,
             "axis_assessments": {
                 axis.value: {
                     "assessment_kind": assessment.assessment_kind,
@@ -448,6 +453,9 @@ class AGIEvidenceAssessmentV1:
                     "threshold_bps": assessment.threshold_bps,
                     "complete": assessment.complete,
                     "threshold_met": assessment.threshold_met,
+                    "baseline_mean_score_bps": assessment.baseline_mean_score_bps,
+                    "system_minus_baseline_bps": assessment.system_minus_baseline_bps,
+                    "collective_contribution_positive": assessment.collective_contribution_positive,
                 }
                 for axis, assessment in sorted(self.axis_assessments.items(), key=lambda item: item[0].value)
             },
@@ -458,11 +466,50 @@ class AGIEvidenceAssessmentV1:
 class AGIEvidenceEvaluator:
     """Pure deterministic evaluator for preregistered UCI-7 evidence manifests."""
 
+    @staticmethod
+    def _validate_result_set(
+        suite: EvaluationSuiteV1,
+        result_tuple: tuple[CapabilityTrialResultV1, ...],
+        *,
+        expected_runtime_commitment: str,
+        cardinality_error: str,
+        runtime_error: str,
+    ) -> dict[str, CapabilityTaskSpecV1]:
+        tasks_by_root = {task.root: task for task in suite.tasks}
+
+        for result in result_tuple:
+            result.validate()
+            if result.task_spec_root not in tasks_by_root:
+                raise EvidenceProtocolError("TASK_NOT_IN_SUITE")
+
+        expected_keys = {
+            (task.root, trial_index)
+            for task in suite.tasks
+            for trial_index in range(task.trial_count)
+        }
+        actual_keys = {(result.task_spec_root, result.trial_index) for result in result_tuple}
+        if len(result_tuple) != len(expected_keys) or actual_keys != expected_keys:
+            raise EvidenceProtocolError(cardinality_error)
+
+        for result in result_tuple:
+            task = tasks_by_root[result.task_spec_root]
+            if result.checker_commitment != task.checker_commitment:
+                raise EvidenceProtocolError("CHECKER_COMMITMENT_MISMATCH")
+            if result.budget_commitment != task.budget_commitment:
+                raise EvidenceProtocolError("BUDGET_COMMITMENT_MISMATCH")
+            if result.provider_runtime_commitment != expected_runtime_commitment:
+                raise EvidenceProtocolError(runtime_error)
+            if not _is_checker_issued_result(result):
+                raise EvidenceProtocolError("TRIAL_RESULT_NOT_CHECKER_ISSUED")
+
+        return tasks_by_root
+
     def evaluate(
         self,
         suite: EvaluationSuiteV1,
         results: Iterable[CapabilityTrialResultV1],
         *,
+        baseline_results: Iterable[CapabilityTrialResultV1] | None = None,
         hidden_answer_exposure_detected: bool = False,
         safety_invariant_violation: bool = False,
     ) -> AGIEvidenceAssessmentV1:
@@ -477,36 +524,27 @@ class AGIEvidenceEvaluator:
             raise EvidenceProtocolError("REQUIRED_AXIS_MISSING")
 
         result_tuple = tuple(results)
-        tasks_by_root = {task.root: task for task in suite.tasks}
+        tasks_by_root = self._validate_result_set(
+            suite,
+            result_tuple,
+            expected_runtime_commitment=suite.evaluated_system_commitment,
+            cardinality_error="TRIAL_CARDINALITY_MISMATCH",
+            runtime_error="EVALUATED_SYSTEM_COMMITMENT_MISMATCH",
+        )
 
-        # Membership is checked before cardinality so stale/post-hoc suite rebinding
-        # is distinguished from an ordinary missing trial.
-        for result in result_tuple:
-            result.validate()
-            if result.task_spec_root not in tasks_by_root:
-                raise EvidenceProtocolError("TASK_NOT_IN_SUITE")
+        baseline_tuple: tuple[CapabilityTrialResultV1, ...] | None = None
+        if baseline_results is not None:
+            baseline_tuple = tuple(baseline_results)
+            self._validate_result_set(
+                suite,
+                baseline_tuple,
+                expected_runtime_commitment=suite.strongest_constituent_baseline_commitment,
+                cardinality_error="BASELINE_TRIAL_CARDINALITY_MISMATCH",
+                runtime_error="BASELINE_RUNTIME_COMMITMENT_MISMATCH",
+            )
 
-        expected_keys = {
-            (task.root, trial_index)
-            for task in suite.tasks
-            for trial_index in range(task.trial_count)
-        }
-        actual_keys = {(result.task_spec_root, result.trial_index) for result in result_tuple}
-        if len(result_tuple) != len(expected_keys) or actual_keys != expected_keys:
-            raise EvidenceProtocolError("TRIAL_CARDINALITY_MISMATCH")
-
-        for result in result_tuple:
-            task = tasks_by_root[result.task_spec_root]
-            if result.checker_commitment != task.checker_commitment:
-                raise EvidenceProtocolError("CHECKER_COMMITMENT_MISMATCH")
-            if result.budget_commitment != task.budget_commitment:
-                raise EvidenceProtocolError("BUDGET_COMMITMENT_MISMATCH")
-            if result.provider_runtime_commitment != suite.evaluated_system_commitment:
-                raise EvidenceProtocolError("EVALUATED_SYSTEM_COMMITMENT_MISMATCH")
-            if not _is_checker_issued_result(result):
-                raise EvidenceProtocolError("TRIAL_RESULT_NOT_CHECKER_ISSUED")
-            if task.contamination_class is ContaminationClass.EXPOSED:
-                hidden_answer_exposure_detected = True
+        if any(task.contamination_class is ContaminationClass.EXPOSED for task in tasks_by_root.values()):
+            hidden_answer_exposure_detected = True
 
         assessments: dict[EvidenceAxis, CapabilityAxisAssessmentV1] = {}
         for axis in REQUIRED_EVIDENCE_AXES:
@@ -527,6 +565,21 @@ class AGIEvidenceEvaluator:
                 and all(result.checker_verdict for result in axis_results)
                 and mean_score >= threshold
             )
+
+            baseline_mean_score: int | None = None
+            system_minus_baseline: int | None = None
+            contribution_positive = False
+            if baseline_tuple is not None:
+                axis_baseline_results = tuple(
+                    result for result in baseline_tuple if result.task_spec_root in axis_roots
+                )
+                baseline_mean_score = (
+                    sum(result.checker_score_bps for result in axis_baseline_results)
+                    // len(axis_baseline_results)
+                )
+                system_minus_baseline = mean_score - baseline_mean_score
+                contribution_positive = system_minus_baseline > 0
+
             assessments[axis] = CapabilityAxisAssessmentV1(
                 axis=axis,
                 task_count=len(axis_tasks),
@@ -536,6 +589,9 @@ class AGIEvidenceEvaluator:
                 threshold_bps=threshold,
                 complete=complete,
                 threshold_met=threshold_met,
+                baseline_mean_score_bps=baseline_mean_score,
+                system_minus_baseline_bps=system_minus_baseline,
+                collective_contribution_positive=contribution_positive,
             )
 
         if hidden_answer_exposure_detected or safety_invariant_violation:
@@ -547,10 +603,18 @@ class AGIEvidenceEvaluator:
         else:
             status = AGIEvidenceStatus.INSUFFICIENT_EVIDENCE
 
+        collective_contribution_established = (
+            baseline_tuple is not None
+            and not hidden_answer_exposure_detected
+            and not safety_invariant_violation
+            and all(assessment.collective_contribution_positive for assessment in assessments.values())
+        )
+
         return AGIEvidenceAssessmentV1(
             suite_root=suite.root,
             status=status,
             axis_assessments=assessments,
             hidden_answer_exposure_detected=hidden_answer_exposure_detected,
             safety_invariant_violation=safety_invariant_violation,
+            collective_contribution_established=collective_contribution_established,
         )
