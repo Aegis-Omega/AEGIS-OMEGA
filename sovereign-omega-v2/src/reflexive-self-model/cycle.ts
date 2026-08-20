@@ -25,7 +25,7 @@ import {
   validateSelfObservationV1,
   validateSelfPredictionV1,
 } from './contracts.js'
-import { evaluatePredictionAgainstObservation } from './evaluate.js'
+import { evaluatePrediction } from './evaluate.js'
 
 const SHA256_RE = /^[0-9a-f]{64}$/
 
@@ -298,7 +298,7 @@ export async function closeReflexiveCycle(
   }
 
   const errorReceipt = status === 'CYCLE_CLOSED'
-    ? await evaluatePredictionAgainstObservation(prediction, observation)
+    ? await evaluatePrediction(prediction, observation)
     : await buildUnscorableErrorReceipt(prediction, observation, status)
 
   const proposal = await buildUpdateProposal(
