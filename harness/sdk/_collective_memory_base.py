@@ -299,6 +299,12 @@ class LocalSqliteCollectiveMemoryStoreV1:
         memory_policy_commitment: str,
         fault_injector: Callable[[str], None] | None = None,
     ) -> None:
+        cls = type(self)
+        if not (
+            cls.__module__ == "harness.sdk.collective_memory"
+            and cls.__name__ == "LocalSqliteCollectiveMemoryStoreV1"
+        ):
+            raise CollectiveMemoryError("MEMORY_INTERNAL_BASE_DIRECT_USE_FORBIDDEN")
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         _require_hash("memory_policy_commitment", memory_policy_commitment)
