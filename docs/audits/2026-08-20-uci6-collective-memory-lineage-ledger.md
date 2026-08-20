@@ -22,6 +22,7 @@ canonical memory authority -> EVIDENCE_ONLY / weight 0
 revocation/supersession -> append-only admitted control event
 memory request -> binds expected memory sequence + prior event root
 memory mutation -> rechecks that pre-state inside BEGIN IMMEDIATE
+prestate-less internal base direct construction -> FORBIDDEN_AND_TESTED
 self-promotion -> FORBIDDEN
 canonical truth claim -> FORBIDDEN
 ```
@@ -127,15 +128,47 @@ RESULT = 24/24 PASS
 
 The two schema tests validate Draft 2020-12 syntax, valid nominal instances, unknown-field rejection, wrong-discriminator rejection, and REVOKE/SUPERSEDE replacement shape.
 
+### RED 4 — importable prestate-less internal mutation path
+
+Security diff review found that `harness.sdk._collective_memory_base.LocalSqliteCollectiveMemoryStoreV1` remained directly constructible. The leading underscore was not a fail-closed boundary; ordinary callers could therefore instantiate the older prestate-less store and bypass the public UCI-6 memory-prestate contract.
+
+A regression was committed before the patch:
+
+```text
+TEST_ONLY_CANDIDATE = 46c474309254fc6909071ea4d8e79a0bbce48d47
+WITNESS_RUN = 32373063733
+WITNESS_JOB = 96437875969
+EXACT_LINEAGE = PASS
+PRIOR_UCI6_BASELINE = 24/24 PASS
+INTERNAL_BASE_GUARD = 1 FAIL / 1 PASS
+INTENDED_FAILURE = DID NOT RAISE CollectiveMemoryError
+```
+
+This was treated as a real security blocker and no earlier head was promoted.
+
+### GREEN 4 — internal weaker store direct-use guard
+
+The internal implementation store now permits construction only through the exact public subclass `harness.sdk.collective_memory.LocalSqliteCollectiveMemoryStoreV1`; ordinary direct or alternate construction fails with `MEMORY_INTERNAL_BASE_DIRECT_USE_FORBIDDEN`.
+
+```text
+CANDIDATE = 8a2d2d6859619e5dd69b2c12bb6627c0cfc7760c
+WITNESS_RUN = 32373519415
+WITNESS_JOB = 96439327563
+EXACT_LINEAGE = PASS
+RESULT = 26/26 PASS
+```
+
+This closes the accidental parallel mutation API. It is not represented as a Python sandbox against arbitrary malicious same-process code, monkeypatching, or module/class spoofing; that stronger adversary is outside the established reference boundary.
+
 ## Repo-native gate
 
-A dedicated `UCI-6 Collective Memory Contract` workflow is added downstream of UCI-5. Its intended exact-head scope is:
+A dedicated `UCI-6 Collective Memory Contract` workflow is added downstream of UCI-5. Its final intended exact-head scope is:
 
 ```text
 12 schemas
 99 inherited UCI-4/UCI-5 falsifiers
-24 UCI-6 behavioral/prestate/schema falsifiers
-TOTAL = 123
+26 UCI-6 behavioral/prestate/schema/internal-base-guard falsifiers
+TOTAL = 125
 ```
 
 Final exact-head repo-native execution evidence must be taken from the actual documented PR head after this ledger commit. Earlier successful runs are not promoted across SHA changes.
@@ -149,9 +182,11 @@ QUARANTINE_SELF_PROMOTION = FORBIDDEN
 DIRECT_CANONICAL_INSERT_SURFACE = FORBIDDEN_AND_TESTED
 PERSISTED_UCI5_ADMISSION_LOOKUP = REQUIRED_AND_TESTED
 MEMORY_PRESTATE_BINDING = REQUIRED_AND_TESTED
+INTERNAL_PRESTATE_LESS_BASE_DIRECT_USE = FORBIDDEN_AND_TESTED
 APPEND_ONLY_REVOKE_SUPERSEDE = IMPLEMENTED_AND_TESTED_REFERENCE
 LOCAL_SQLITE_REFERENCE = IMPLEMENTED
 
+PYTHON_MALICIOUS_IN_PROCESS_SANDBOX = NOT_ESTABLISHED
 CROSS_DATABASE_ATOMICITY_BETWEEN_UCI5_AND_UCI6 = NOT_ESTABLISHED
 SQLITE_AUTHENTICATED_TAMPER_RESISTANCE = NOT_ESTABLISHED
 SIGNED_MEMORY_PERSISTENCE = NOT_IMPLEMENTED
