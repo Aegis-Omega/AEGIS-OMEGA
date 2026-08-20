@@ -206,11 +206,9 @@ class LocalSqliteCollectiveMemoryStoreV1(_base.LocalSqliteCollectiveMemoryStoreV
             current = self._state_from_row(state_row)
             if current.memory_policy_commitment != request.memory_policy_commitment:
                 raise CollectiveMemoryError("CURRENT_MEMORY_POLICY_MISMATCH")
-            self._require_current_memory_prestate(
-                current,
-                sequence=request.expected_memory_sequence,
-                event_root=request.expected_memory_event_root,
-            )
+            # Replay classification has precedence over stale-prestate reporting.
+            # This preserves a stable machine code for an exact duplicate and for
+            # the losing contender after BEGIN IMMEDIATE serializes a race.
             duplicate = connection.execute(
                 "SELECT 1 FROM canonical_records WHERE projection_request_root = ?",
                 (request.root,),
@@ -219,6 +217,11 @@ class LocalSqliteCollectiveMemoryStoreV1(_base.LocalSqliteCollectiveMemoryStoreV
                 raise CollectiveMemoryError("MEMORY_PROJECTION_REPLAY")
             if self._admitted_binding_replayed(connection, transition.root, admission_record.root):
                 raise CollectiveMemoryError("MEMORY_ADMITTED_ACTION_REPLAY")
+            self._require_current_memory_prestate(
+                current,
+                sequence=request.expected_memory_sequence,
+                event_root=request.expected_memory_event_root,
+            )
 
             sequence = current.sequence + 1
             record = CanonicalMemoryRecordV1(
@@ -297,11 +300,6 @@ class LocalSqliteCollectiveMemoryStoreV1(_base.LocalSqliteCollectiveMemoryStoreV
             current = self._state_from_row(state_row)
             if current.memory_policy_commitment != request.memory_policy_commitment:
                 raise CollectiveMemoryError("CURRENT_MEMORY_POLICY_MISMATCH")
-            self._require_current_memory_prestate(
-                current,
-                sequence=request.expected_memory_sequence,
-                event_root=request.expected_memory_event_root,
-            )
             duplicate = connection.execute(
                 "SELECT 1 FROM memory_control_records WHERE request_root = ?",
                 (request.root,),
@@ -310,6 +308,11 @@ class LocalSqliteCollectiveMemoryStoreV1(_base.LocalSqliteCollectiveMemoryStoreV
                 raise CollectiveMemoryError("MEMORY_CONTROL_REPLAY")
             if self._admitted_binding_replayed(connection, transition.root, admission_record.root):
                 raise CollectiveMemoryError("MEMORY_ADMITTED_ACTION_REPLAY")
+            self._require_current_memory_prestate(
+                current,
+                sequence=request.expected_memory_sequence,
+                event_root=request.expected_memory_event_root,
+            )
 
             target = self._effective_view_conn(connection, request.target_memory_root)
             if target.status != ACTIVE:
