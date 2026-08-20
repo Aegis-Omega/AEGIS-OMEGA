@@ -8,6 +8,7 @@
     "bundle_kind",
     "campaign_root",
     "paired_trial_roots",
+    "pair_verification_roots",
     "benchmark_adapter_executable_commitment",
     "runner_environment_commitment",
     "execution_receipt_bundle_commitment",
@@ -22,6 +23,11 @@
       "uniqueItems": true,
       "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
     },
+    "pair_verification_roots": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"}
+    },
     "benchmark_adapter_executable_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "runner_environment_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "execution_receipt_bundle_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
@@ -34,5 +40,18 @@
         "INVALIDATED_CONTAMINATION"
       ]
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"evidence_status": {"const": "COLLECTIVE_CONTRIBUTION_EVALUABLE"}},
+        "required": ["evidence_status"]
+      },
+      "then": {
+        "properties": {
+          "pair_verification_roots": {"minItems": 1}
+        }
+      }
+    }
+  ]
 }
