@@ -1,0 +1,132 @@
+name: UCI-6 Collective Memory Contract
+
+on:
+  pull_request:
+    branches:
+      - feat/uci-5-atomic-admission-reference-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  uci6-collective-memory:
+    name: uci6 / collective-memory
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      EXPECTED_PARENT_SHA: c47e99b8139a280c39ceacc46db738b2617866d5
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+
+      - name: Verify exact stacked lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$CANDIDATE_SHA"
+          test "$(git merge-base "$EXPECTED_PARENT_SHA" HEAD)" = "$EXPECTED_PARENT_SHA"
+          if [[ -n "$PR_BASE_SHA" ]]; then
+            test "$PR_BASE_SHA" = "$EXPECTED_PARENT_SHA"
+          fi
+          echo "UCI6_CANDIDATE_SHA=$actual"
+          echo "UCI6_EXPECTED_PARENT_SHA=$EXPECTED_PARENT_SHA"
+          echo "UCI6_EXACT_LINEAGE=PASS"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact test runtime
+        run: python -m pip install pytest==8.3.5 jsonschema==4.23.0
+
+      - name: Validate inherited and UCI-6 schemas
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from jsonschema.validators import validator_for
+
+          paths = [
+              Path('schemas/transition-identity-envelope.v1.schema.json'),
+              Path('schemas/decision-receipt.v1.schema.json'),
+              Path('schemas/execution-receipt.v1.schema.json'),
+              Path('schemas/effect-receipt.v1.schema.json'),
+              Path('schemas/effect-witness.v1.schema.json'),
+              Path('schemas/complete-verification-result.v1.schema.json'),
+              Path('schemas/admission-record.v1.schema.json'),
+              Path('schemas/quarantined-evidence-memory-record.v1.schema.json'),
+              Path('schemas/memory-projection-request.v1.schema.json'),
+              Path('schemas/canonical-memory-record.v1.schema.json'),
+              Path('schemas/memory-control-request.v1.schema.json'),
+              Path('schemas/memory-control-record.v1.schema.json'),
+          ]
+          for path in paths:
+              schema = json.loads(path.read_text(encoding='utf-8'))
+              validator_for(schema).check_schema(schema)
+              print(f'UCI6_SCHEMA_OK {path}')
+          print(f'UCI6_SCHEMA_COUNT={len(paths)}')
+          PY
+
+      - name: Run UCI-4 plus UCI-5 plus UCI-6 falsifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest \
+            sovereign-omega-v2/python/tests/test_transition_receipts_pr1.py \
+            sovereign-omega-v2/python/tests/test_transition_receipts_cli_pr1.py \
+            sovereign-omega-v2/python/tests/test_effect_adapters_pr2.py \
+            sovereign-omega-v2/python/tests/test_effect_verifier_pr3.py \
+            sovereign-omega-v2/python/tests/test_complete_verifier_pr4.py \
+            sovereign-omega-v2/python/tests/test_complete_verifier_pr4_receipt_binding.py \
+            sovereign-omega-v2/python/tests/test_uci4_effect_chain_integration.py \
+            sovereign-omega-v2/python/tests/test_uci5_atomic_admission.py \
+            sovereign-omega-v2/python/tests/test_uci6_collective_memory.py \
+            sovereign-omega-v2/python/tests/test_uci6_memory_prestate.py \
+            sovereign-omega-v2/python/tests/test_uci6_memory_schemas.py \
+            -q | tee "$RUNNER_TEMP/uci6-pytest.log"
+          grep -Eq '123 passed' "$RUNNER_TEMP/uci6-pytest.log"
+          echo "UCI6_FULL_PROOFLINE_123=PASS"
+
+      - name: Write exact-head witness
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "schema_version=AEGIS_UCI6_CI_WITNESS_V1"
+            echo "candidate_sha=$(git rev-parse HEAD)"
+            echo "expected_parent_sha=$EXPECTED_PARENT_SHA"
+            echo "authority=EVIDENCE_ONLY"
+            echo "reference_store=LOCAL_SQLITE_ONLY"
+            echo "quarantine_self_promotion=FORBIDDEN"
+            echo "canonical_truth_claim=FORBIDDEN"
+            echo "memory_prestate_binding=REQUIRED"
+            echo "persisted_uci5_admission_lookup=REQUIRED"
+            echo "cross_database_atomicity=NOT_ESTABLISHED"
+            echo "authenticated_database_tamper_resistance=NOT_ESTABLISHED"
+            echo "distributed_linearizability=NOT_ESTABLISHED"
+            echo "production_memory_admission=NOT_ESTABLISHED"
+          } > "$RUNNER_TEMP/uci6-witness.txt"
+          if [[ -f "$RUNNER_TEMP/uci6-pytest.log" ]]; then
+            cat "$RUNNER_TEMP/uci6-pytest.log" >> "$RUNNER_TEMP/uci6-witness.txt"
+          fi
+
+      - name: Upload UCI-6 witness
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uci6-collective-memory-witness-${{ env.CANDIDATE_SHA }}
+          path: |
+            ${{ runner.temp }}/uci6-witness.txt
+            ${{ runner.temp }}/uci6-pytest.log
+          if-no-files-found: error
