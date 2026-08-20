@@ -4,15 +4,22 @@ This module evaluates evidence *about* general capability. It does not create an
 AGI authority state and intentionally contains no ``AGI_PROVEN`` status.
 
 The evaluator is standard-library only and deterministic at every hashed
-boundary. Model/provider outputs are inputs to deterministic checkers elsewhere;
-caller-declared correctness is not an accepted field here.
+boundary. Model/provider outputs are inputs to deterministic checkers;
+caller-declared correctness is not an accepted authority field here.
+
+The checker-result issuance registry is deliberately a process-local reference
+provenance boundary. It is not cryptographic cross-process attestation and it is
+not a sandbox against malicious same-process Python code.
 """
 from __future__ import annotations
 
+import hashlib
 import re
+import threading
+import weakref
 from dataclasses import dataclass, replace
 from enum import Enum
-from typing import Iterable, Mapping
+from typing import Callable, Iterable, Mapping
 
 from harness.sdk.sovereign_execution import ZERO_HASH, canonical_hash
 
@@ -200,6 +207,105 @@ class CapabilityTrialResultV1:
         return canonical_hash("AEGIS_UCI7_CAPABILITY_TRIAL_RESULT_V1", self.to_dict())
 
 
+_ISSUED_TRIAL_RESULTS_LOCK = threading.RLock()
+_ISSUED_TRIAL_RESULTS: dict[int, weakref.ReferenceType[CapabilityTrialResultV1]] = {}
+
+
+def _register_checker_issued_result(result: CapabilityTrialResultV1) -> CapabilityTrialResultV1:
+    key = id(result)
+
+    def _cleanup(ref: weakref.ReferenceType[CapabilityTrialResultV1], *, object_id: int = key) -> None:
+        with _ISSUED_TRIAL_RESULTS_LOCK:
+            if _ISSUED_TRIAL_RESULTS.get(object_id) is ref:
+                _ISSUED_TRIAL_RESULTS.pop(object_id, None)
+
+    ref = weakref.ref(result, _cleanup)
+    with _ISSUED_TRIAL_RESULTS_LOCK:
+        _ISSUED_TRIAL_RESULTS[key] = ref
+    return result
+
+
+def _is_checker_issued_result(result: CapabilityTrialResultV1) -> bool:
+    with _ISSUED_TRIAL_RESULTS_LOCK:
+        ref = _ISSUED_TRIAL_RESULTS.get(id(result))
+        return ref is not None and ref() is result
+
+
+class DeterministicCheckerAdapterV1:
+    """Process-local reference producer for deterministic checker results.
+
+    ``checker_commitment`` binds the preregistered checker identity supplied by
+    the suite. This reference adapter does not prove that the Python callable's
+    bytecode cryptographically corresponds to that commitment; production/public
+    benchmark adapters need a stronger executable/receipt binding.
+    """
+
+    def __init__(
+        self,
+        *,
+        checker_commitment: str,
+        provider_runtime_commitment: str,
+        checker: Callable[[bytes], tuple[bool, int]],
+    ) -> None:
+        _require_hash("checker_commitment", checker_commitment)
+        _require_hash("provider_runtime_commitment", provider_runtime_commitment)
+        if not callable(checker):
+            raise EvidenceProtocolError("CHECKER_NOT_CALLABLE")
+        self._checker_commitment = checker_commitment
+        self._provider_runtime_commitment = provider_runtime_commitment
+        self._checker = checker
+
+    def issue_result(
+        self,
+        *,
+        task: CapabilityTaskSpecV1,
+        trial_index: int,
+        candidate_output: bytes,
+        predicted_correctness_bps: int,
+        execution_receipt_root: str,
+        effect_receipt_root: str,
+        admission_record_root: str,
+    ) -> CapabilityTrialResultV1:
+        task.validate()
+        if task.checker_commitment != self._checker_commitment:
+            raise EvidenceProtocolError("CHECKER_COMMITMENT_MISMATCH")
+        if not isinstance(candidate_output, bytes):
+            raise EvidenceProtocolError("CANDIDATE_OUTPUT_MUST_BE_BYTES")
+        if not isinstance(trial_index, int) or isinstance(trial_index, bool) or not (0 <= trial_index < task.trial_count):
+            raise EvidenceProtocolError("TRIAL_INDEX_OUT_OF_RANGE")
+        _require_bps("predicted_correctness_bps", predicted_correctness_bps)
+        for name, value in (
+            ("execution_receipt_root", execution_receipt_root),
+            ("effect_receipt_root", effect_receipt_root),
+            ("admission_record_root", admission_record_root),
+        ):
+            _require_hash(name, value)
+
+        checker_output = self._checker(candidate_output)
+        if not isinstance(checker_output, tuple) or len(checker_output) != 2:
+            raise EvidenceProtocolError("CHECKER_OUTPUT_INVALID")
+        checker_verdict, checker_score_bps = checker_output
+        if not isinstance(checker_verdict, bool):
+            raise EvidenceProtocolError("CHECKER_VERDICT_INVALID")
+        _require_bps("checker_score_bps", checker_score_bps)
+
+        result = CapabilityTrialResultV1(
+            task_spec_root=task.root,
+            trial_index=trial_index,
+            checker_verdict=checker_verdict,
+            checker_score_bps=checker_score_bps,
+            predicted_correctness_bps=predicted_correctness_bps,
+            output_digest=hashlib.sha256(candidate_output).hexdigest(),
+            checker_commitment=self._checker_commitment,
+            budget_commitment=task.budget_commitment,
+            provider_runtime_commitment=self._provider_runtime_commitment,
+            execution_receipt_root=execution_receipt_root,
+            effect_receipt_root=effect_receipt_root,
+            admission_record_root=admission_record_root,
+        )
+        return _register_checker_issued_result(result)
+
+
 @dataclass(frozen=True)
 class EvaluationSuiteV1:
     suite_id: str
@@ -234,7 +340,10 @@ class EvaluationSuiteV1:
             normalized_thresholds[axis] = threshold
         policy_payload = {
             "suite_id": suite_id,
-            "axis_threshold_bps": {axis.value: normalized_thresholds[axis] for axis in sorted(normalized_thresholds, key=lambda a: a.value)},
+            "axis_threshold_bps": {
+                axis.value: normalized_thresholds[axis]
+                for axis in sorted(normalized_thresholds, key=lambda a: a.value)
+            },
             "strongest_constituent_baseline_commitment": strongest_constituent_baseline_commitment,
             "evaluated_system_commitment": evaluated_system_commitment,
         }
@@ -284,7 +393,10 @@ class EvaluationSuiteV1:
             "suite_id": self.suite_id,
             "suite_policy_commitment": self.suite_policy_commitment,
             "tasks": [task.to_dict() for task in self.tasks],
-            "axis_threshold_bps": {axis.value: self.axis_threshold_bps[axis] for axis in sorted(self.axis_threshold_bps, key=lambda a: a.value)},
+            "axis_threshold_bps": {
+                axis.value: self.axis_threshold_bps[axis]
+                for axis in sorted(self.axis_threshold_bps, key=lambda a: a.value)
+            },
             "strongest_constituent_baseline_commitment": self.strongest_constituent_baseline_commitment,
             "evaluated_system_commitment": self.evaluated_system_commitment,
         }
@@ -356,7 +468,11 @@ class AGIEvidenceEvaluator:
     ) -> AGIEvidenceAssessmentV1:
         suite.validate()
         task_axes = {task.axis for task in suite.tasks}
-        missing_axes = [axis for axis in REQUIRED_EVIDENCE_AXES if axis not in task_axes or axis not in suite.axis_threshold_bps]
+        missing_axes = [
+            axis
+            for axis in REQUIRED_EVIDENCE_AXES
+            if axis not in task_axes or axis not in suite.axis_threshold_bps
+        ]
         if missing_axes:
             raise EvidenceProtocolError("REQUIRED_AXIS_MISSING")
 
@@ -385,6 +501,10 @@ class AGIEvidenceEvaluator:
                 raise EvidenceProtocolError("CHECKER_COMMITMENT_MISMATCH")
             if result.budget_commitment != task.budget_commitment:
                 raise EvidenceProtocolError("BUDGET_COMMITMENT_MISMATCH")
+            if result.provider_runtime_commitment != suite.evaluated_system_commitment:
+                raise EvidenceProtocolError("EVALUATED_SYSTEM_COMMITMENT_MISMATCH")
+            if not _is_checker_issued_result(result):
+                raise EvidenceProtocolError("TRIAL_RESULT_NOT_CHECKER_ISSUED")
             if task.contamination_class is ContaminationClass.EXPOSED:
                 hidden_answer_exposure_detected = True
 
@@ -402,7 +522,11 @@ class AGIEvidenceEvaluator:
                 ) // len(axis_results)
             threshold = suite.axis_threshold_bps[axis]
             complete = len(axis_results) == sum(task.trial_count for task in axis_tasks)
-            threshold_met = complete and all(result.checker_verdict for result in axis_results) and mean_score >= threshold
+            threshold_met = (
+                complete
+                and all(result.checker_verdict for result in axis_results)
+                and mean_score >= threshold
+            )
             assessments[axis] = CapabilityAxisAssessmentV1(
                 axis=axis,
                 task_count=len(axis_tasks),
