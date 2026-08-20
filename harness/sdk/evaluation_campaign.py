@@ -64,6 +64,12 @@ class StatisticalMode(str, Enum):
     PAIRED_DESCRIPTIVE_V1 = "PAIRED_DESCRIPTIVE_V1"
 
 
+class BaselineSelectionMode(str, Enum):
+    FIXED_A_PRIORI_CAMPAIGN = "FIXED_A_PRIORI_CAMPAIGN"
+    SEPARATE_SELECTION_SPLIT_PER_TASK = "SEPARATE_SELECTION_SPLIT_PER_TASK"
+    SAME_COMPARISON_DATA_PER_TASK = "SAME_COMPARISON_DATA_PER_TASK"
+
+
 class CampaignEvidenceStatus(str, Enum):
     NOT_EVALUATED = "NOT_EVALUATED"
     DEVELOPMENT_EVIDENCE_ONLY = "DEVELOPMENT_EVIDENCE_ONLY"
@@ -275,6 +281,7 @@ class EvaluationCampaignManifestV1:
     evaluated_system_commitment: str
     strongest_constituent_baseline_commitment: str
     tracks: tuple[BenchmarkTrackSpecV1, ...]
+    baseline_selection_mode: BaselineSelectionMode
     campaign_policy_commitment: str
     campaign_kind: str = CAMPAIGN_MANIFEST_KIND
 
@@ -287,6 +294,7 @@ class EvaluationCampaignManifestV1:
         evaluated_system_commitment: str,
         strongest_constituent_baseline_commitment: str,
         tracks: Iterable[BenchmarkTrackSpecV1],
+        baseline_selection_mode: BaselineSelectionMode = BaselineSelectionMode.FIXED_A_PRIORI_CAMPAIGN,
     ) -> "EvaluationCampaignManifestV1":
         track_tuple = tuple(tracks)
         policy = canonical_hash(
@@ -296,6 +304,7 @@ class EvaluationCampaignManifestV1:
                 "uci7_suite_root": uci7_suite_root,
                 "evaluated_system_commitment": evaluated_system_commitment,
                 "strongest_constituent_baseline_commitment": strongest_constituent_baseline_commitment,
+                "baseline_selection_mode": baseline_selection_mode.value if isinstance(baseline_selection_mode, BaselineSelectionMode) else baseline_selection_mode,
                 "track_roots": [track.root for track in track_tuple],
             },
         )
@@ -305,6 +314,7 @@ class EvaluationCampaignManifestV1:
             evaluated_system_commitment=evaluated_system_commitment,
             strongest_constituent_baseline_commitment=strongest_constituent_baseline_commitment,
             tracks=track_tuple,
+            baseline_selection_mode=baseline_selection_mode,
             campaign_policy_commitment=policy,
         )
         campaign.validate()
@@ -321,6 +331,14 @@ class EvaluationCampaignManifestV1:
             "campaign_policy_commitment",
         ):
             _require_hash(name, getattr(self, name))
+        if not isinstance(self.baseline_selection_mode, BaselineSelectionMode):
+            raise EvaluationCampaignError("BASELINE_SELECTION_MODE_INVALID")
+        if self.baseline_selection_mode is BaselineSelectionMode.SAME_COMPARISON_DATA_PER_TASK:
+            raise EvaluationCampaignError("BASELINE_SELECTION_USES_COMPARISON_DATA")
+        if self.baseline_selection_mode is BaselineSelectionMode.SEPARATE_SELECTION_SPLIT_PER_TASK:
+            raise EvaluationCampaignError("PER_TASK_BASELINE_SELECTION_NOT_IMPLEMENTED_V1")
+        if self.baseline_selection_mode is not BaselineSelectionMode.FIXED_A_PRIORI_CAMPAIGN:
+            raise EvaluationCampaignError("BASELINE_SELECTION_MODE_NOT_ADMITTED_V1")
         if self.evaluated_system_commitment == self.strongest_constituent_baseline_commitment:
             raise EvaluationCampaignError("SYSTEM_BASELINE_IDENTITY_COLLISION")
         if not self.tracks:
@@ -336,6 +354,7 @@ class EvaluationCampaignManifestV1:
                 "uci7_suite_root": self.uci7_suite_root,
                 "evaluated_system_commitment": self.evaluated_system_commitment,
                 "strongest_constituent_baseline_commitment": self.strongest_constituent_baseline_commitment,
+                "baseline_selection_mode": self.baseline_selection_mode.value,
                 "track_roots": roots,
             },
         )
@@ -349,6 +368,7 @@ class EvaluationCampaignManifestV1:
             "uci7_suite_root": self.uci7_suite_root,
             "evaluated_system_commitment": self.evaluated_system_commitment,
             "strongest_constituent_baseline_commitment": self.strongest_constituent_baseline_commitment,
+            "baseline_selection_mode": self.baseline_selection_mode.value,
             "tracks": [track.to_dict() for track in self.tracks],
             "campaign_policy_commitment": self.campaign_policy_commitment,
         }
