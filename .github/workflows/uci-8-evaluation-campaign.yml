@@ -121,6 +121,12 @@ jobs:
           grep -Eq '1 passed' "$RUNNER_TEMP/uci8-measurement-resolution-schema.log"
           echo "UCI8_MEASUREMENT_RESOLUTION_5=PASS"
 
+      - name: Validate bundle replay promotion boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest sovereign-omega-v2/python/tests/test_uci8_bundle_replay_promotion.py -q | tee "$RUNNER_TEMP/uci8-bundle-replay.log"
+
       - name: Write RED witness
         if: always()
         shell: bash
@@ -144,7 +150,8 @@ jobs:
             "$RUNNER_TEMP/uci8-baseline-selection.log" \
             "$RUNNER_TEMP/uci8-published-comparability.log" \
             "$RUNNER_TEMP/uci8-measurement-resolution.log" \
-            "$RUNNER_TEMP/uci8-measurement-resolution-schema.log"; do
+            "$RUNNER_TEMP/uci8-measurement-resolution-schema.log" \
+            "$RUNNER_TEMP/uci8-bundle-replay.log"; do
             if [[ -f "$path" ]]; then cat "$path" >> "$RUNNER_TEMP/uci8-red-witness.txt"; fi
           done
 
@@ -165,4 +172,5 @@ jobs:
             ${{ runner.temp }}/uci8-published-comparability.log
             ${{ runner.temp }}/uci8-measurement-resolution.log
             ${{ runner.temp }}/uci8-measurement-resolution-schema.log
+            ${{ runner.temp }}/uci8-bundle-replay.log
           if-no-files-found: warn
