@@ -75,6 +75,12 @@ jobs:
           set -euo pipefail
           python -m pytest sovereign-omega-v2/python/tests/test_uci8_checker_provenance.py -q | tee "$RUNNER_TEMP/uci8-checker-provenance.log"
 
+      - name: Validate portable checker HMAC replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest sovereign-omega-v2/python/tests/test_uci8_portable_checker_attestation.py -q | tee "$RUNNER_TEMP/uci8-portable-checker.log"
+
       - name: Write RED witness
         if: always()
         shell: bash
@@ -92,7 +98,8 @@ jobs:
             "$RUNNER_TEMP/uci8-behavior.log" \
             "$RUNNER_TEMP/uci8-schema.log" \
             "$RUNNER_TEMP/uci8-repetition.log" \
-            "$RUNNER_TEMP/uci8-checker-provenance.log"; do
+            "$RUNNER_TEMP/uci8-checker-provenance.log" \
+            "$RUNNER_TEMP/uci8-portable-checker.log"; do
             if [[ -f "$path" ]]; then cat "$path" >> "$RUNNER_TEMP/uci8-red-witness.txt"; fi
           done
 
@@ -107,4 +114,5 @@ jobs:
             ${{ runner.temp }}/uci8-schema.log
             ${{ runner.temp }}/uci8-repetition.log
             ${{ runner.temp }}/uci8-checker-provenance.log
+            ${{ runner.temp }}/uci8-portable-checker.log
           if-no-files-found: warn
