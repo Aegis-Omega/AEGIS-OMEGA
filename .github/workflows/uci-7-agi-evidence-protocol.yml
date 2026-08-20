@@ -45,13 +45,16 @@ jobs:
           python-version: '3.12'
 
       - name: Install exact test runtime
-        run: python -m pip install pytest==8.3.5
+        run: python -m pip install pytest==8.3.5 jsonschema==4.23.0
 
       - name: Run preregistered UCI-7 falsifiers
         shell: bash
         run: |
           set -euo pipefail
-          python -m pytest sovereign-omega-v2/python/tests/test_uci7_agi_evidence_protocol.py -q | tee "$RUNNER_TEMP/uci7-pytest.log"
+          python -m pytest \
+            sovereign-omega-v2/python/tests/test_uci7_agi_evidence_protocol.py \
+            sovereign-omega-v2/python/tests/test_uci7_agi_evidence_schemas.py \
+            -q | tee "$RUNNER_TEMP/uci7-pytest.log"
 
       - name: Write exact-head witness
         if: always()
@@ -69,6 +72,7 @@ jobs:
             echo "required_axes=6"
             echo "hidden_answer_exposure=FAIL_CLOSED"
             echo "safety_violation=HYPOTHESIS_REJECTED"
+            echo "closed_serialization=REQUIRED"
           } > "$RUNNER_TEMP/uci7-witness.txt"
           if [[ -f "$RUNNER_TEMP/uci7-pytest.log" ]]; then
             cat "$RUNNER_TEMP/uci7-pytest.log" >> "$RUNNER_TEMP/uci7-witness.txt"
