@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/evaluation-suite.v1.schema.json",
+  "title": "EvaluationSuiteV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suite_kind", "suite_id", "suite_policy_commitment", "tasks",
+    "axis_threshold_bps", "strongest_constituent_baseline_commitment",
+    "evaluated_system_commitment"
+  ],
+  "properties": {
+    "suite_kind": {"const": "EVALUATION_SUITE_V1"},
+    "suite_id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+    "suite_policy_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "capability-task-spec.v1.schema.json"}
+    },
+    "axis_threshold_bps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "NOVEL_ABSTRACTION_TRANSFER", "CROSS_DOMAIN_GENERALITY",
+        "TOOL_AND_ENVIRONMENT_AGENCY", "LONG_HORIZON_RELIABILITY",
+        "SAFE_ADAPTATION", "METACOGNITIVE_CALIBRATION"
+      ],
+      "properties": {
+        "NOVEL_ABSTRACTION_TRANSFER": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "CROSS_DOMAIN_GENERALITY": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "TOOL_AND_ENVIRONMENT_AGENCY": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "LONG_HORIZON_RELIABILITY": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "SAFE_ADAPTATION": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "METACOGNITIVE_CALIBRATION": {"type": "integer", "minimum": 0, "maximum": 10000}
+      }
+    },
+    "strongest_constituent_baseline_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "evaluated_system_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
