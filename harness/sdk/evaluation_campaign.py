@@ -384,8 +384,6 @@ class PairedBenchmarkTrialV1:
             raise EvaluationCampaignError("BASELINE_RESULT_REQUIRED")
         system_result.validate()
         baseline_result.validate()
-        if not _is_checker_issued_result(system_result) or not _is_checker_issued_result(baseline_result):
-            raise EvaluationCampaignError("CHECKER_ISSUANCE_OR_PORTABLE_ATTESTATION_REQUIRED")
 
         if system_result.task_spec_root != baseline_result.task_spec_root or system_result.trial_index != baseline_result.trial_index:
             raise EvaluationCampaignError("PAIRED_TASK_TRIAL_MISMATCH")
@@ -405,6 +403,8 @@ class PairedBenchmarkTrialV1:
             raise EvaluationCampaignError("SCORER_COMMITMENT_MISMATCH")
         if track.root not in {candidate.root for candidate in campaign.tracks}:
             raise EvaluationCampaignError("TRACK_NOT_IN_CAMPAIGN")
+        if not _is_checker_issued_result(system_result) or not _is_checker_issued_result(baseline_result):
+            raise EvaluationCampaignError("CHECKER_ISSUANCE_OR_PORTABLE_ATTESTATION_REQUIRED")
 
         pair = cls(
             campaign_root=campaign.root,
