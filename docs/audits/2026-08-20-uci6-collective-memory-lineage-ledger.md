@@ -1,0 +1,171 @@
+# UCI-6 Collective Memory Admission — Lineage Ledger
+
+Date context: 2026-08-20
+
+## Frozen stacked parent
+
+```text
+UCI5_PARENT = c47e99b8139a280c39ceacc46db738b2617866d5
+PR = #278
+BRANCH = feat/uci-6-collective-memory-admission-v1
+```
+
+UCI-6 is downstream of the UCI-5 local atomic-admission reference. It does not alter the UCI-4 effect-verification semantics and does not convert memory, retrieval, provider output, or observation into authority.
+
+## Contract
+
+```text
+arbitrary evidence -> QUARANTINED_EVIDENCE_MEMORY_RECORD_V1
+quarantine authority -> EVIDENCE_ONLY / weight 0
+canonical projection -> requires persisted UCI-5 admission + exact action-root binding
+canonical memory authority -> EVIDENCE_ONLY / weight 0
+revocation/supersession -> append-only admitted control event
+memory request -> binds expected memory sequence + prior event root
+memory mutation -> rechecks that pre-state inside BEGIN IMMEDIATE
+self-promotion -> FORBIDDEN
+canonical truth claim -> FORBIDDEN
+```
+
+The persisted UCI-5 admission record is re-read from the trusted reference admission store. A caller-constructed `AdmissionRecordV1` object is not sufficient evidence that the transition was admitted.
+
+## TDD lineage
+
+### RED 1 — missing module
+
+```text
+CANDIDATE = 78fd533f9613ba24a34c48cf5ea0af24a87a2119
+WITNESS_REPO = tarikskalic33/info
+RUN_ID = 32350977651
+RESULT = intended ModuleNotFoundError for harness.sdk.collective_memory
+EXACT_LINEAGE = PASS
+```
+
+No production collective-memory module existed at this candidate.
+
+### GREEN 1 — first admitted-memory implementation
+
+```text
+CANDIDATE = 5457427e9439d7b4c188009bdbb67f7cab2dadd9
+RUN_ID = 32351627421
+RESULT = 20/20 PASS
+EXACT_LINEAGE = PASS
+```
+
+This established the first focused local reference behavior only.
+
+### RED 2 — memory pre-state binding gap
+
+Adversarial review found that an admitted memory action did not commit the memory event sequence/root that existed before admission. Two regression tests were added before the patch.
+
+```text
+TEST_ONLY_CANDIDATE = 9007edc0be602ec6f6021a8f94d32091b5fb5f23
+RUN_ID = 32351827802
+RESULT = 20 PASS / 2 FAIL
+EXACT_LINEAGE = PASS
+```
+
+Both failures were the intended missing `expected_memory_sequence` / `expected_memory_event_root` request fields.
+
+### Intermediate candidate — correct invariant, wrong replay precedence
+
+```text
+CANDIDATE = 70343f4c19c9473ba5be86065c53b9ef8ba561d2
+RESULT = 20/22 PASS
+```
+
+The new pre-state check worked, but exact replay and the losing concurrent contender were classified as `MEMORY_PRESTATE_MISMATCH` instead of their stable replay class. This candidate was not promoted to GREEN.
+
+### GREEN 2 — pre-state + replay precedence
+
+```text
+CANDIDATE = f2821a7e31ffd9e16422a2b4766e5152de148264
+WITNESS_RUN = 32372114665
+WITNESS_JOB = 96434852515
+EXACT_LINEAGE = PASS
+RESULT = 22/22 PASS
+```
+
+Inside the memory transaction, exact duplicate/admitted-binding replay classification now precedes the stale pre-state check. New unseen actions still fail closed on a stale `{sequence,last_event_root}` pair.
+
+### RED 3 — closed serialization surface missing
+
+Five nominal serialized memory types were preregistered before their JSON Schemas existed.
+
+```text
+TEST_ONLY_CANDIDATE = 1514efc37652139b8baf1207ec4bd0c0c49b7dea
+WITNESS_RUN = 32372433188
+WITNESS_JOB = 96435856984
+EXACT_LINEAGE = PASS
+BEHAVIORAL_BASELINE = 22/22 PASS
+SCHEMA_TEST = 2 FAIL
+INTENDED_FAILURE = FileNotFoundError for preregistered UCI-6 schema paths
+```
+
+The RED therefore did not hide a behavioral regression.
+
+### GREEN 3 — closed serialization surface
+
+Five Draft 2020-12 schemas were added with closed objects and mandatory `const` discriminators:
+
+```text
+QUARANTINED_EVIDENCE_MEMORY_RECORD_V1
+MEMORY_PROJECTION_REQUEST_V1
+CANONICAL_MEMORY_RECORD_V1
+MEMORY_CONTROL_REQUEST_V1
+MEMORY_CONTROL_RECORD_V1
+```
+
+Focused exact-head witness:
+
+```text
+CANDIDATE = afd64628cb32720f0661216d079c28d293a41b35
+WITNESS_RUN = 32372675351
+WITNESS_JOB = 96436633376
+EXACT_LINEAGE = PASS
+RESULT = 24/24 PASS
+```
+
+The two schema tests validate Draft 2020-12 syntax, valid nominal instances, unknown-field rejection, wrong-discriminator rejection, and REVOKE/SUPERSEDE replacement shape.
+
+## Repo-native gate
+
+A dedicated `UCI-6 Collective Memory Contract` workflow is added downstream of UCI-5. Its intended exact-head scope is:
+
+```text
+12 schemas
+99 inherited UCI-4/UCI-5 falsifiers
+24 UCI-6 behavioral/prestate/schema falsifiers
+TOTAL = 123
+```
+
+Final exact-head repo-native execution evidence must be taken from the actual documented PR head after this ledger commit. Earlier successful runs are not promoted across SHA changes.
+
+## Explicit security and epistemic boundaries
+
+```text
+MEMORY_IS_AUTHORITY = FALSE
+MEMORY_IS_PROPOSITION_TRUTH = FALSE
+QUARANTINE_SELF_PROMOTION = FORBIDDEN
+DIRECT_CANONICAL_INSERT_SURFACE = FORBIDDEN_AND_TESTED
+PERSISTED_UCI5_ADMISSION_LOOKUP = REQUIRED_AND_TESTED
+MEMORY_PRESTATE_BINDING = REQUIRED_AND_TESTED
+APPEND_ONLY_REVOKE_SUPERSEDE = IMPLEMENTED_AND_TESTED_REFERENCE
+LOCAL_SQLITE_REFERENCE = IMPLEMENTED
+
+CROSS_DATABASE_ATOMICITY_BETWEEN_UCI5_AND_UCI6 = NOT_ESTABLISHED
+SQLITE_AUTHENTICATED_TAMPER_RESISTANCE = NOT_ESTABLISHED
+SIGNED_MEMORY_PERSISTENCE = NOT_IMPLEMENTED
+MULTI_PROCESS_LINEARIZABILITY = NOT_ESTABLISHED
+DISTRIBUTED_LINEARIZABILITY = NOT_ESTABLISHED
+PRODUCTION_MEMORY_BACKEND = NOT_ESTABLISHED
+PRODUCTION_MEMORY_ADMISSION = NOT_ESTABLISHED
+SEMANTIC_TRUTH_OF_STORED_CONTENT = NOT_ESTABLISHED
+MEMORY_CONFIDENTIALITY_OR_ENCRYPTION = NOT_ESTABLISHED
+QUARANTINE_QUOTA_RETENTION_POLICY = NOT_IMPLEMENTED
+VECTOR_RETRIEVAL_IN_THIS_UCI6_PYTHON_REFERENCE = NOT_IMPLEMENTED
+AGI = NOT_ESTABLISHED
+```
+
+The UCI-5 admission transaction and UCI-6 memory transaction are separate SQLite database transactions. UCI-6 proves that a memory mutation consumes a persisted admitted action; it does **not** claim one cross-database atomic commit spanning admission and memory.
+
+The inherited UCI-4 filesystem-observation hardening debt also remains: resolve/open TOCTOU resistance and bounded/streaming hashing are not established by UCI-6.
