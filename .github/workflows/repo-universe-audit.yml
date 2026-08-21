@@ -4,7 +4,9 @@ on:
   pull_request:
     paths:
       - "scripts/repo-universe.sh"
+      - "scripts/reconcile-repository-universe.py"
       - "scripts/tests/test-repo-universe.sh"
+      - "scripts/tests/test-reconcile-repository-universe.py"
       - ".claude/hooks/artifact-locator.sh"
       - ".claude/hooks/session-start.sh"
       - ".github/workflows/repo-universe-audit.yml"
@@ -12,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 env:
   PYTHONUNBUFFERED: "1"
@@ -30,8 +33,11 @@ jobs:
       - name: Fetch every remote branch and tag
         run: git fetch --all --prune --tags --force
 
-      - name: Run deterministic fixture
+      - name: Run deterministic Git fixture
         run: bash scripts/tests/test-repo-universe.sh
+
+      - name: Run reconciliation census falsifiers
+        run: python -m pytest -q scripts/tests/test-reconcile-repository-universe.py
 
       - name: Census real repository universe
         run: |
@@ -39,11 +45,59 @@ jobs:
             --repo . \
             --main origin/main \
             --json "$RUNNER_TEMP/repo-universe.json"
-          cat "$RUNNER_TEMP/repo-universe.json"
+
+      - name: Export complete pull request census
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, os, subprocess
+          repo = os.environ["GITHUB_REPOSITORY"]
+          raw = subprocess.run(
+              ["gh", "pr", "list", "--repo", repo, "--state", "all", "--limit", "1000",
+               "--json", "number,state,isDraft,title,baseRefName,baseRefOid,headRefName,headRefOid,mergeable,url"],
+              check=True, capture_output=True, text=True,
+          ).stdout
+          prs = json.loads(raw)
+          out = {
+              "schema_version": "AEGIS_GITHUB_PR_CENSUS_V1",
+              "repository": repo,
+              "complete": len(prs) < 1000,
+              "pull_requests": prs,
+          }
+          with open(os.path.join(os.environ["RUNNER_TEMP"], "prs.json"), "w", encoding="utf-8") as f:
+              json.dump(out, f, sort_keys=True, indent=2)
+              f.write("\n")
+          if len(prs) >= 1000:
+              raise SystemExit("PR census hit hard limit; completeness cannot be established")
+          PY
+
+      - name: Build reconciliation universe
+        run: |
+          python scripts/reconcile-repository-universe.py \
+            --repo-universe "$RUNNER_TEMP/repo-universe.json" \
+            --prs "$RUNNER_TEMP/prs.json" \
+            --out "$RUNNER_TEMP/repository-universe.v1.json"
+          python - <<'PY'
+          import json, os
+          p = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "repository-universe.v1.json"), encoding="utf-8"))
+          print(json.dumps({
+              "schema_version": p["schema_version"],
+              "discovery_complete": p["discovery_complete"],
+              "main_sha": p["canonical_main"]["sha"],
+              "branch_count": len(p["branches"]),
+              "pr_count": len(p["pull_requests"]),
+              "off_main_commits": p["knowledge_universe"]["commits_not_reachable_from_main"],
+              "manifest_sha256": p["manifest_sha256"],
+          }, sort_keys=True))
+          PY
 
       - name: Upload universe evidence
         uses: actions/upload-artifact@v4
         with:
           name: aegis-repo-universe-${{ github.sha }}
-          path: ${{ runner.temp }}/repo-universe.json
+          path: |
+            ${{ runner.temp }}/repo-universe.json
+            ${{ runner.temp }}/prs.json
+            ${{ runner.temp }}/repository-universe.v1.json
           retention-days: 90
