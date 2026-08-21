@@ -4,6 +4,7 @@ import asyncio
 import importlib.util
 import json
 import os
+import sys
 import uuid
 from pathlib import Path
 
@@ -16,6 +17,7 @@ def _load_module():
     spec = importlib.util.spec_from_file_location("aegis_audit_chain_v2", MODULE_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
