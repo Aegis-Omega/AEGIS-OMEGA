@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "fix/claude-artifact-discovery-v1",
+    "source_ref": "feat/company-brain-v1",
     "parent_state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -494,5 +494,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "37a6aed7eb08ac8fd74f4363ca362f969e67734f20d11bab7dede0622b0fe270"
+  "state_hash": "a68c249b1c9fb9cc83ae65ba5cd9afe2b09d688df5a169e60fb2162a100946da"
 }
