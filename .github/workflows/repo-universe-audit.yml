@@ -6,12 +6,15 @@ on:
       - "scripts/repo-universe.sh"
       - "scripts/reconcile-repository-universe.py"
       - "scripts/build-work-lineage.py"
+      - "scripts/resolve-work-lineage.py"
       - "scripts/tests/test-repo-universe.sh"
       - "scripts/tests/test-reconcile-repository-universe.py"
       - "scripts/tests/test-build-work-lineage.py"
+      - "scripts/tests/test-resolve-work-lineage.py"
       - ".aegis/reconciliation/spines.v1.json"
       - ".claude/hooks/artifact-locator.sh"
       - ".claude/hooks/session-start.sh"
+      - ".claude/hooks/user-prompt-intake.sh"
       - ".github/workflows/repo-universe-audit.yml"
   workflow_dispatch:
 
@@ -44,6 +47,9 @@ jobs:
 
       - name: Run stable WorkID lineage falsifiers
         run: python scripts/tests/test-build-work-lineage.py
+
+      - name: Run lineage resolver falsifiers
+        run: python scripts/tests/test-resolve-work-lineage.py
 
       - name: Census real repository universe
         run: |
@@ -114,6 +120,11 @@ jobs:
               "manifest_sha256": p["manifest_sha256"],
           }, sort_keys=True))
           PY
+
+      - name: Verify hook syntax
+        run: |
+          bash -n .claude/hooks/session-start.sh
+          bash -n .claude/hooks/user-prompt-intake.sh
 
       - name: Upload universe evidence
         uses: actions/upload-artifact@v4
