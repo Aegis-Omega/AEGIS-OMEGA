@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/compute-budget.v1.schema.json",
+  "title": "ComputeBudgetV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["budget_kind", "max_input_tokens", "max_output_tokens", "max_model_calls", "max_tool_calls"],
+  "properties": {
+    "budget_kind": {"const": "COMPUTE_BUDGET_V1"},
+    "max_input_tokens": {"type": "integer", "minimum": 0},
+    "max_output_tokens": {"type": "integer", "minimum": 0},
+    "max_model_calls": {"type": "integer", "minimum": 1},
+    "max_tool_calls": {"type": "integer", "minimum": 0}
+  },
+  "anyOf": [
+    {"properties": {"max_input_tokens": {"minimum": 1}}},
+    {"properties": {"max_output_tokens": {"minimum": 1}}}
+  ]
+}

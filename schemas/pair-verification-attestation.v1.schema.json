@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/pair-verification-attestation.v1.schema.json",
+  "title": "PairVerificationAttestationV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "attestation_kind",
+    "run_id",
+    "pair_root",
+    "campaign_root",
+    "track_root",
+    "task_trial_unit_root",
+    "system_checker_attestation_root",
+    "baseline_checker_attestation_root",
+    "key_id",
+    "mac_hex"
+  ],
+  "properties": {
+    "attestation_kind": {"const": "PAIR_VERIFICATION_ATTESTATION_V1"},
+    "run_id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+    "pair_root": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "campaign_root": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "track_root": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "task_trial_unit_root": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "system_checker_attestation_root": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "baseline_checker_attestation_root": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "key_id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+    "mac_hex": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"}
+  }
+}

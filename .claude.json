@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/uci-7-agi-evidence-protocol-v1",
+    "source_ref": "feat/uci-8-evaluation-campaign-v1",
     "parent_state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "f935e25dffad6b9cb2f89cb8eac843a65aef9536bc6a65cd0183b7d360759655"
+  "state_hash": "838db910da76cb1bc326ecb54d5b2b4cf18c8bdba7260a6f7c72f5ea8a1d4980"
 }

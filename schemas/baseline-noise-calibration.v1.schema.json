@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/baseline-noise-calibration.v1.schema.json",
+  "title": "BaselineNoiseCalibrationV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "calibration_kind",
+    "metric_id",
+    "unit_id",
+    "calibration_run_ids",
+    "baseline_values",
+    "calibration_split_commitment",
+    "calibration_evidence_commitment",
+    "delta_floor",
+    "floor_rule"
+  ],
+  "properties": {
+    "calibration_kind": {"const": "BASELINE_NOISE_CALIBRATION_V1"},
+    "metric_id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+    "unit_id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+    "calibration_run_ids": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"}
+    },
+    "baseline_values": {
+      "type": "array",
+      "minItems": 3,
+      "items": {"type": "integer"}
+    },
+    "calibration_split_commitment": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "calibration_evidence_commitment": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "delta_floor": {"type": "integer", "minimum": 0},
+    "floor_rule": {"const": "MAX_OBSERVED_RANGE_V1"}
+  }
+}
