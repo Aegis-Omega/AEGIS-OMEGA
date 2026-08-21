@@ -79,17 +79,27 @@ def _comparisons():
     )
 
 
-def _attestations(*, baseline_input=90_000, baseline_output=18_000, baseline_model_calls=8, baseline_tool_calls=12):
+def _attestations(
+    *,
+    system_input=90_000,
+    system_output=18_000,
+    system_model_calls=8,
+    system_tool_calls=12,
+    baseline_input=90_000,
+    baseline_output=18_000,
+    baseline_model_calls=8,
+    baseline_tool_calls=12,
+):
     meter = LocalComputeUsageMeterV1(meter_source_commitment=METER)
     system_obs = meter.observe(
         run_id=RUN_ID,
         campaign_root=H("1"),
         role=ComputeUsageRole.SYSTEM,
         runtime_commitment=H("b"),
-        input_tokens=90_000,
-        output_tokens=18_000,
-        model_calls=8,
-        tool_calls=12,
+        input_tokens=system_input,
+        output_tokens=system_output,
+        model_calls=system_model_calls,
+        tool_calls=system_tool_calls,
         execution_receipt_bundle_commitment=EXECUTION_BUNDLE,
     )
     baseline_obs = meter.observe(
@@ -171,11 +181,14 @@ def test_baseline_actual_tool_calls_must_cover_system_tool_calls() -> None:
 
 
 def test_usage_must_stay_within_preregistered_caps_and_meter_source() -> None:
-    portable, system_att, baseline_att = _attestations()
+    portable, system_att, baseline_att = _attestations(
+        system_input=100_001,
+        baseline_input=100_001,
+    )
     with pytest.raises(EvaluationCampaignError, match="ACTUAL_COMPUTE_USAGE_EXCEEDS_PREREGISTERED_CAP"):
         _claim().evaluate(
             _comparisons(),
-            system_usage=replace(system_att, input_tokens=100_001, mac_hex=system_att.mac_hex),
+            system_usage=system_att,
             baseline_usage=baseline_att,
             usage_verifier=portable,
         )
