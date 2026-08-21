@@ -15,10 +15,12 @@ RUN pip install --no-cache-dir \
     pyyaml==6.0.2 \
     anyio==4.6.2
 
-# serve.py at /app, agents package at /app/agents, harness data at /app/harness.
-# startup_guard.py fails closed before importing the application if the
-# cost-incurring platform would otherwise start without authentication.
+# serve.py keeps the route/API compatibility surface. secure_serve.py overlays
+# unconditional auth for sensitive routes and swaps in the concurrent audit
+# chain. startup_guard.py refuses unauthenticated production startup.
 COPY vertex/serve.py /app/serve.py
+COPY vertex/secure_serve.py /app/secure_serve.py
+COPY vertex/audit_chain_v2.py /app/audit_chain_v2.py
 COPY vertex/startup_guard.py /app/startup_guard.py
 COPY agents /app/agents
 COPY harness /app/harness
