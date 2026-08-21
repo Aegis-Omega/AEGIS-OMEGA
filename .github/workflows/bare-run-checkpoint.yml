@@ -1,0 +1,20 @@
+name: Bare Run Checkpoint
+
+on:
+  push:
+    branches:
+      - diagnostic/bare-run-checkpoint-20260802
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bare-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute bare shell step
+        run: echo ok
