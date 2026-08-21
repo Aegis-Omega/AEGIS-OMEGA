@@ -36,6 +36,13 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
 
+      - name: Prepare writable Coq evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p kg-003-coq-evidence/assumptions
+          chmod -R a+rwX kg-003-coq-evidence sovereign-omega-v2/formal/theories/Core
+
       - name: Kernel-check KG-003 theorem and independence witnesses
         uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
         with:
