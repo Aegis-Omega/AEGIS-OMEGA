@@ -12,7 +12,7 @@ import sys
 import tempfile
 import unittest
 from dataclasses import replace
-from hashlib import sha1
+from hashlib import sha1, sha256
 import json
 from pathlib import Path
 
@@ -222,6 +222,31 @@ class CrossPlaneTransferV1Tests(unittest.TestCase):
         ).hexdigest()
 
         self.assertEqual(plan["policy"]["blob_id"], git_blob)
+
+    def test_experiment_parent_state_root_covers_the_current_policy_binding(self) -> None:
+        repository_root = Path(__file__).resolve().parents[3]
+        plan = json.loads(
+            (repository_root / ".aegis/experiments/cross-plane-transfer-v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        payload = {
+            "claims_ledger_root": plan["claims_ledger"]["root"],
+            "constitution_blob_id": plan["constitution"]["blob_id"],
+            "domain": "AEGIS_EXPERIMENT_PARENT_STATE_V0_1",
+            "expected_parent_sha": plan["expected_parent_sha"],
+            "policy_blob_id": plan["policy"]["blob_id"],
+            "repository": plan["repository"],
+            "sovereignty_contracts_blob_id": plan["sovereignty_contracts"]["blob_id"],
+        }
+        canonical = json.dumps(
+            payload,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+
+        self.assertEqual(plan["expected_parent_state_root"], sha256(canonical).hexdigest())
 
 
 if __name__ == "__main__":

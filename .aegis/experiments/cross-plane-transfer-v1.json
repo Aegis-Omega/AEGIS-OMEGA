@@ -31,7 +31,7 @@
     "SHA256SUMS"
   ],
   "expected_parent_sha": "32b7eb6a37fb69d19dd80189390b6641c5004ef1",
-  "expected_parent_state_root": "2dec469880529cdcd0f6b7b98507cc5675ec047686ce242a98c4e4a5ce58fcbc",
+  "expected_parent_state_root": "429331bd955fc63a864c32893a1669920f1a37ee70f6de1f5f2a693d590f4975",
   "experiment_id": "cross-plane-transfer-v1",
   "integration_ledger_generator": {
     "blob_id": "28823ae5b630be273b78210f0addf9c0a86aad05",
