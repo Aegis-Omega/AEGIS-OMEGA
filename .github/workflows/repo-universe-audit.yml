@@ -128,7 +128,38 @@ jobs:
               "schema_version": p["schema_version"],
               "work_item_count": len(p["work_items"]),
               "active_spine_count": len(p["active_spine"]),
+              "missing_declared_work_ids": len(p["missing_declared_work_ids"]),
               "manifest_sha256": p["manifest_sha256"],
+          }, sort_keys=True))
+          PY
+
+      - name: Collect conservative real reconciliation evidence
+        run: |
+          python scripts/collect-reconciliation-evidence.py \
+            --lineage "$RUNNER_TEMP/work-lineage.v1.json" \
+            --prs "$RUNNER_TEMP/prs.json" \
+            --out "$RUNNER_TEMP/reconciliation-evidence.v1.json"
+
+      - name: Classify real repository fail closed
+        run: |
+          python scripts/classify-reconciliation.py \
+            --lineage "$RUNNER_TEMP/work-lineage.v1.json" \
+            --evidence "$RUNNER_TEMP/reconciliation-evidence.v1.json" \
+            --out "$RUNNER_TEMP/reconciliation-classification.v1.json" \
+            --decisions "$RUNNER_TEMP/reconciliation-decisions.v1.jsonl"
+          python scripts/classify-reconciliation.py \
+            --verify-decisions "$RUNNER_TEMP/reconciliation-decisions.v1.jsonl"
+          python - <<'PY'
+          import json, os
+          root = os.environ["RUNNER_TEMP"]
+          c = json.load(open(os.path.join(root, "reconciliation-classification.v1.json"), encoding="utf-8"))
+          e = json.load(open(os.path.join(root, "reconciliation-evidence.v1.json"), encoding="utf-8"))
+          print(json.dumps({
+              "classification_counts": c["counts"],
+              "classification_manifest_sha256": c["manifest_sha256"],
+              "evidence_complete": e["complete"],
+              "evidence_coverage": e["coverage"],
+              "matched_pr_work_count": e["matched_pr_work_count"],
           }, sort_keys=True))
           PY
 
@@ -137,7 +168,7 @@ jobs:
           bash -n .claude/hooks/session-start.sh
           bash -n .claude/hooks/user-prompt-intake.sh
 
-      - name: Upload universe evidence
+      - name: Upload universe and reconciliation evidence
         uses: actions/upload-artifact@v4
         with:
           name: aegis-repo-universe-${{ github.sha }}
@@ -146,4 +177,7 @@ jobs:
             ${{ runner.temp }}/prs.json
             ${{ runner.temp }}/repository-universe.v1.json
             ${{ runner.temp }}/work-lineage.v1.json
+            ${{ runner.temp }}/reconciliation-evidence.v1.json
+            ${{ runner.temp }}/reconciliation-classification.v1.json
+            ${{ runner.temp }}/reconciliation-decisions.v1.jsonl
           retention-days: 90
