@@ -188,13 +188,13 @@ Definition authority_amplified_edge : ConcreteEdge :=
      edge_child_authority := [h1; h3] |}.
 
 Example valid_edge_accepts : edge_okb valid_edge = true.
-Proof. vm_compute. Qed.
+Proof. vm_compute; reflexivity. Qed.
 
 Example provenance_laundering_rejected : edge_okb provenance_laundered_edge = false.
-Proof. vm_compute. Qed.
+Proof. vm_compute; reflexivity. Qed.
 
 Example authority_amplification_rejected : edge_okb authority_amplified_edge = false.
-Proof. vm_compute. Qed.
+Proof. vm_compute; reflexivity. Qed.
 
 Print Assumptions edge_okb_refines_cct.
 Print Assumptions all_edges_refine_cct.
