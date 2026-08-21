@@ -162,6 +162,29 @@ def test_constraint_carrying_span_requires_semantic_binding():
     assert f"CONSTRAINT_SPAN_BINDING_MISSING:{child.span_id}" in verification.errors
 
 
+@pytest.mark.parametrize("kind", [MEMORY, HANDOFF, HERITAGE])
+def test_constraint_carrying_span_requires_causal_parent(kind: str):
+    m = refinement_module()
+    trace = new_trace(f"rootless-{kind.lower()}")
+    child = trace.record_span(name="rootless-transform", span_kind=kind)
+    bundle = trace.close()
+    binding = m.ConstraintBindingV1(
+        trace_root=bundle.header.root,
+        span_id=child.span_id,
+        span_root=child.root,
+        provenance_roots=(P_SECRET,),
+        restriction_roots=(R_NO_SEND,),
+        authority_roots=(A_READ,),
+        causal_binding_roots=(),
+        captured_control_state_root=child.control_state_before,
+        causal_closure_root=m.constraint_causal_root(()),
+    )
+    certificate = m.make_constraint_certificate(bundle, (binding,))
+    verification = m.verify_constraint_certificate(bundle, certificate)
+    assert verification.valid is False
+    assert f"CONSTRAINT_SPAN_CAUSAL_PARENT_REQUIRED:{child.span_id}" in verification.errors
+
+
 def test_certificate_json_roundtrip_is_root_stable():
     m = refinement_module()
     bundle, source, child = valid_bundle_and_bindings(HERITAGE)
