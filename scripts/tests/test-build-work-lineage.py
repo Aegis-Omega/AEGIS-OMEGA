@@ -61,7 +61,15 @@ def fixture_universe() -> dict[str, object]:
     add(999, "unknown isolated experiment", "main", main, "experiment/unknown", heads[999])
 
     branches = [
-        {"branch": pr["head_ref"], "ref": f"refs/remotes/origin/{pr['head_ref']}", "tip": pr["head_sha"], "ahead_of_main": 1, "behind_main": 0, "contained_in_main": False, "pr_numbers": [pr["number"]}
+        {
+            "branch": pr["head_ref"],
+            "ref": f"refs/remotes/origin/{pr['head_ref']}",
+            "tip": pr["head_sha"],
+            "ahead_of_main": 1,
+            "behind_main": 0,
+            "contained_in_main": False,
+            "pr_numbers": [pr["number"]],
+        }
         for pr in prs
     ]
     branches.append({"branch": "main", "ref": "refs/remotes/origin/main", "tip": main, "ahead_of_main": 0, "behind_main": 0, "contained_in_main": True, "pr_numbers": []})
