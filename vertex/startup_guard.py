@@ -59,13 +59,11 @@ def main() -> None:
         "uvicorn",
         [
             "uvicorn",
-            "serve:app",
+            "secure_serve:app",
             "--host",
             "0.0.0.0",
             "--port",
             port,
-            "--proxy-headers",
-            "--forwarded-allow-ips=*",
         ],
     )
 
