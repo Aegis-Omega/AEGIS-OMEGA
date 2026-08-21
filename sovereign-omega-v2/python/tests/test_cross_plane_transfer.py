@@ -12,6 +12,8 @@ import sys
 import tempfile
 import unittest
 from dataclasses import replace
+from hashlib import sha1
+import json
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -204,6 +206,22 @@ class CrossPlaneTransferV1Tests(unittest.TestCase):
         command = "python python/tests/test_cross_plane_transfer.py"
 
         self.assertEqual(workflow.count(command), 1)
+
+    def test_experiment_plan_is_bound_to_the_current_policy_blob(self) -> None:
+        repository_root = Path(__file__).resolve().parents[3]
+        policy_path = repository_root / "docs/experiments/cross-plane-transfer-v1.md"
+        plan = json.loads(
+            (repository_root / ".aegis/experiments/cross-plane-transfer-v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        policy_bytes = policy_path.read_bytes()
+        git_blob = sha1(
+            f"blob {len(policy_bytes)}\0".encode("ascii") + policy_bytes,
+            usedforsecurity=False,
+        ).hexdigest()
+
+        self.assertEqual(plan["policy"]["blob_id"], git_blob)
 
 
 if __name__ == "__main__":
