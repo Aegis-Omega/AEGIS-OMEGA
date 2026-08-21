@@ -112,7 +112,7 @@ def _bundle(campaign, mac, pair, receipt):
     )
 
 
-def test_pair_verification_receipt_survives_process_reconstruction_and_enables_collective_evaluation() -> None:
+def test_pair_verification_receipt_survives_process_reconstruction_without_self_promotion() -> None:
     campaign, mac, pair, system, baseline, system_att, baseline_att = _fixture()
     receipt = mac.issue_pair_verification(
         run_id=RUN_ID,
@@ -126,7 +126,7 @@ def test_pair_verification_receipt_survives_process_reconstruction_and_enables_c
     replayed_pair = replace(pair)
     replayed_receipt = replace(receipt)
     bundle = _bundle(campaign, mac, replayed_pair, replayed_receipt)
-    assert bundle.evidence_status is CampaignEvidenceStatus.COLLECTIVE_CONTRIBUTION_EVALUABLE
+    assert bundle.evidence_status is CampaignEvidenceStatus.HELD_OUT_EVIDENCE_COMPLETE
     assert bundle.pair_verification_roots == (receipt.root,)
 
 
