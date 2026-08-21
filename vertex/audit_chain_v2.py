@@ -18,7 +18,7 @@ import redis.asyncio as aioredis
 
 GENESIS_HASH = "0" * 64
 CHAIN_VERSION = "AEGIS_AUDIT_CHAIN_V2"
-MAX_APPEND_RETRIES = 16
+MAX_APPEND_RETRIES = 128
 
 _APPEND_CAS_LUA = r"""
 local list_key = KEYS[1]
@@ -67,6 +67,27 @@ if len > max_entries then
 end
 
 return 1
+"""
+
+_SNAPSHOT_LUA = r"""
+local anchor = redis.call('GET', KEYS[1])
+local seq = redis.call('GET', KEYS[2])
+local tail = redis.call('GET', KEYS[3])
+local entries = redis.call('LRANGE', KEYS[4], 0, -1)
+return {anchor, seq, tail, entries}
+"""
+
+_GET_ENTRY_LUA = r"""
+local anchor_raw = redis.call('GET', KEYS[1])
+if not anchor_raw then
+  return nil
+end
+local anchor = cjson.decode(anchor_raw)
+local index = tonumber(ARGV[1]) - tonumber(anchor['next_sequence'])
+if index < 0 then
+  return nil
+end
+return redis.call('LINDEX', KEYS[2], index)
 """
 
 
@@ -177,6 +198,9 @@ class ChainStateV2:
         self.anchor_key = f"{chain_key}:anchor:v2"
         self.max_entries = max_entries
         self.redis: aioredis.Redis | None = None
+        # Serialize callers inside one process to avoid a local thundering herd.
+        # Cross-process authority still lives exclusively in Redis CAS.
+        self._append_lock = asyncio.Lock()
         # Compatibility field expected by serve.py. It is observational only;
         # Redis metadata remains the authority.
         self.anthropic = None
@@ -253,56 +277,65 @@ class ChainStateV2:
 
     async def append(self, observation: dict[str, Any], tier: str = "T1") -> dict[str, Any]:
         assert self.redis is not None
-        for _ in range(MAX_APPEND_RETRIES):
-            seq_raw, prev_hash = await asyncio.gather(
-                self.redis.get(self.seq_key),
-                self.redis.get(self.tail_key),
-            )
-            if seq_raw is None or prev_hash is None:
-                raise RuntimeError("AUDIT_CHAIN_METADATA_MISSING")
-            seq = int(seq_raw)
-            entry_hash = compute_entry_hash(prev_hash, seq, observation)
-            entry = {
-                "sequence": seq,
-                "previous_entry_hash": prev_hash,
-                "entry_hash": entry_hash,
-                "observation": observation,
-                "tier": tier,
-                "timestamp_ms": int(time.time() * 1000),
-                "chain_version": CHAIN_VERSION,
-            }
-            raw = json.dumps(entry, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
-            result = await self.redis.eval(
-                _APPEND_CAS_LUA,
-                4,
-                self.chain_key,
-                self.seq_key,
-                self.tail_key,
-                self.anchor_key,
-                str(seq),
-                prev_hash,
-                raw,
-                entry_hash,
-                str(self.max_entries),
-            )
-            if result == 1:
-                return entry
-            if result == -2:
-                raise RuntimeError("AUDIT_CHAIN_METADATA_MISSING")
-            if result == -3:
-                raise RuntimeError("AUDIT_CHAIN_TRIM_INVARIANT_FAILED")
-            await asyncio.sleep(0)
+        async with self._append_lock:
+            for attempt in range(MAX_APPEND_RETRIES):
+                seq_raw, prev_hash = await asyncio.gather(
+                    self.redis.get(self.seq_key),
+                    self.redis.get(self.tail_key),
+                )
+                if seq_raw is None or prev_hash is None:
+                    raise RuntimeError("AUDIT_CHAIN_METADATA_MISSING")
+                seq = int(seq_raw)
+                entry_hash = compute_entry_hash(prev_hash, seq, observation)
+                entry = {
+                    "sequence": seq,
+                    "previous_entry_hash": prev_hash,
+                    "entry_hash": entry_hash,
+                    "observation": observation,
+                    "tier": tier,
+                    "timestamp_ms": int(time.time() * 1000),
+                    "chain_version": CHAIN_VERSION,
+                }
+                raw = json.dumps(entry, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+                result = await self.redis.eval(
+                    _APPEND_CAS_LUA,
+                    4,
+                    self.chain_key,
+                    self.seq_key,
+                    self.tail_key,
+                    self.anchor_key,
+                    str(seq),
+                    prev_hash,
+                    raw,
+                    entry_hash,
+                    str(self.max_entries),
+                )
+                if result == 1:
+                    return entry
+                if result == -2:
+                    raise RuntimeError("AUDIT_CHAIN_METADATA_MISSING")
+                if result == -3:
+                    raise RuntimeError("AUDIT_CHAIN_TRIM_INVARIANT_FAILED")
+                # Bounded backoff prevents two busy instances from repeatedly
+                # colliding on the same observed tail while retaining fail-closed
+                # exhaustion semantics.
+                await asyncio.sleep(min(0.0005 * (attempt + 1), 0.01))
         raise RuntimeError("AUDIT_CHAIN_CONTENTION_RETRY_EXHAUSTED")
 
     async def certify(self) -> dict[str, Any]:
         assert self.redis is not None
-        anchor_raw, seq_raw, tail_raw, raw_entries = await asyncio.gather(
-            self.redis.get(self.anchor_key),
-            self.redis.get(self.seq_key),
-            self.redis.get(self.tail_key),
-            self.redis.lrange(self.chain_key, 0, -1),
+        snapshot = await self.redis.eval(
+            _SNAPSHOT_LUA,
+            4,
+            self.anchor_key,
+            self.seq_key,
+            self.tail_key,
+            self.chain_key,
         )
-        if anchor_raw is None or seq_raw is None or tail_raw is None:
+        if not isinstance(snapshot, list) or len(snapshot) != 4:
+            return {"is_valid": False, "reason": "AUDIT_CHAIN_SNAPSHOT_INVALID"}
+        anchor_raw, seq_raw, tail_raw, raw_entries = snapshot
+        if anchor_raw is None or seq_raw is None or tail_raw is None or not isinstance(raw_entries, list):
             return {"is_valid": False, "reason": "AUDIT_CHAIN_METADATA_MISSING"}
         try:
             anchor = ChainAnchor.from_json(anchor_raw)
@@ -321,11 +354,13 @@ class ChainStateV2:
         assert self.redis is not None
         if seq < 0:
             return None
-        anchor = ChainAnchor.from_json(await self.redis.get(self.anchor_key))
-        index = seq - anchor.next_sequence
-        if index < 0:
-            return None
-        raw = await self.redis.lindex(self.chain_key, index)
+        raw = await self.redis.eval(
+            _GET_ENTRY_LUA,
+            2,
+            self.anchor_key,
+            self.chain_key,
+            str(seq),
+        )
         if raw is None:
             return None
         entry = json.loads(raw)
