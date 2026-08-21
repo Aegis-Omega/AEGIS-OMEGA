@@ -7,11 +7,14 @@ on:
       - "scripts/reconcile-repository-universe.py"
       - "scripts/build-work-lineage.py"
       - "scripts/resolve-work-lineage.py"
+      - "scripts/classify-reconciliation.py"
       - "scripts/tests/test-repo-universe.sh"
       - "scripts/tests/test-reconcile-repository-universe.py"
       - "scripts/tests/test-build-work-lineage.py"
       - "scripts/tests/test-resolve-work-lineage.py"
+      - "scripts/tests/test-classify-reconciliation.py"
       - ".aegis/reconciliation/spines.v1.json"
+      - ".aegis/reconciliation/reconciliation-decisions.v1.jsonl"
       - ".claude/hooks/artifact-locator.sh"
       - ".claude/hooks/session-start.sh"
       - ".claude/hooks/user-prompt-intake.sh"
@@ -50,6 +53,9 @@ jobs:
 
       - name: Run lineage resolver falsifiers
         run: python scripts/tests/test-resolve-work-lineage.py
+
+      - name: Run classification and decision-chain falsifiers
+        run: python scripts/tests/test-classify-reconciliation.py
 
       - name: Census real repository universe
         run: |
