@@ -62,6 +62,9 @@ jobs:
       - name: Run conservative evidence collector falsifiers
         run: python scripts/tests/test-collect-reconciliation-evidence.py
 
+      - name: Verify persistent reconciliation ledger genesis
+        run: python scripts/classify-reconciliation.py --verify-decisions .aegis/reconciliation/reconciliation-decisions.v1.jsonl
+
       - name: Census real repository universe
         run: |
           bash scripts/repo-universe.sh \
