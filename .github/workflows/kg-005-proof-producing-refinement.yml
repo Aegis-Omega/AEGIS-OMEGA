@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "harness/sdk/trace_refinement_witness.py"
+      - "scripts/kg005_emit_witness_fixture.py"
       - "sovereign-omega-v2/python/tests/test_trace_refinement_witness.py"
       - "sovereign-omega-v2/formal/theories/Core/TraceRefinementWitness.v"
       - ".github/workflows/kg-005-proof-producing-refinement.yml"
@@ -56,6 +57,56 @@ jobs:
       - name: Bind exact candidate
         shell: bash
         run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
-      - name: Require checker source
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Emit exact witness facts from production producer
         shell: bash
-        run: test -f sovereign-omega-v2/formal/theories/Core/TraceRefinementWitness.v
+        run: |
+          ROOT="$PWD/sovereign-omega-v2/formal/theories/Core"
+          mkdir -p kg-005-coq-evidence
+          python scripts/kg005_emit_witness_fixture.py \
+            --output "$ROOT/KG005WitnessFacts.v" \
+            | tee kg-005-coq-evidence/witness-root.txt
+          sha256sum "$ROOT/KG005WitnessFacts.v" \
+            > kg-005-coq-evidence/witness-facts.sha256
+      - name: Kernel-check fixed checker and emitted witness
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2/formal/theories/Core"
+            OUT="$PWD/kg-005-coq-evidence"
+            SRC="$ROOT/TraceRefinementWitness.v"
+            FACTS="$ROOT/KG005WitnessFacts.v"
+            test -f "$SRC"
+            test -f "$FACTS"
+            if grep -En '^[[:space:]]*(Axiom|Parameter|Admitted)([[:space:]]|\.)|^[[:space:]]*admit([[:space:]]|\.)' "$SRC" "$FACTS"; then
+              echo 'FORBIDDEN_PROOF_ESCAPE_HATCH'
+              exit 1
+            fi
+            coqc --version | tee "$OUT/coq-version.txt"
+            (cd "$ROOT" && \
+              coqc ConstraintCarryingTransformation.v && \
+              coqc TraceRefinementWitness.v && \
+              coqc KG005WitnessFacts.v) 2>&1 | tee "$OUT/compile.log"
+            for theorem in edge_okb_refines_cct all_edges_refine_cct; do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.txt"
+              printf 'Set Coqtop Exit On Error.\nRequire Import TraceRefinementWitness.\nPrint Assumptions %s.\n' "$theorem" > "$query"
+              (cd "$ROOT" && coqtop -quiet -batch -l "$query") > "$log" 2>&1
+              grep -Fq 'Closed under the global context' "$log"
+              rm -f "$query"
+            done
+            sha256sum "$SRC" > "$OUT/checker-source.sha256"
+      - name: Upload KG-005 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kg-005-proof-producing-refinement-${{ env.SOURCE_SHA }}
+          path: kg-005-coq-evidence/
+          if-no-files-found: error
+          retention-days: 30
