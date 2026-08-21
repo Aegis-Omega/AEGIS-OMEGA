@@ -7,6 +7,7 @@ on:
       - "harness/**"
       - "vertex/Dockerfile"
       - "vertex/startup_guard.py"
+      - "scripts/auto-gate.py"
       - "scripts/validate-daybreak-blue-boundary.py"
       - ".github/workflows/agent-dispatch.yml"
       - "sovereign-omega-v2/python/tests/test_coordinator_authority.py"
@@ -36,7 +37,10 @@ jobs:
           cache: pip
 
       - name: Install exact test dependencies
-        run: python -m pip install --disable-pip-version-check pytest==8.4.1 httpx==0.28.1 redis==6.2.0 PyYAML==6.0.2
+        run: python -m pip install --disable-pip-version-check pytest==8.4.1 httpx==0.28.1 redis==6.2.0 PyYAML==6.0.2 anthropic==0.52.0
+
+      - name: Compile security-bound Python entrypoints
+        run: python -m py_compile scripts/auto-gate.py scripts/validate-daybreak-blue-boundary.py vertex/startup_guard.py
 
       - name: Run V2 registry authority tests
         run: pytest -q sovereign-omega-v2/python/tests/test_skill_authority.py
