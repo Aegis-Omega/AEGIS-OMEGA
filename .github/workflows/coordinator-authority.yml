@@ -5,6 +5,10 @@ on:
     paths:
       - "agents/**"
       - "harness/**"
+      - "vertex/Dockerfile"
+      - "vertex/startup_guard.py"
+      - "scripts/validate-daybreak-blue-boundary.py"
+      - ".github/workflows/agent-dispatch.yml"
       - "sovereign-omega-v2/python/tests/test_coordinator_authority.py"
       - ".github/workflows/coordinator-authority.yml"
   workflow_dispatch:
@@ -39,3 +43,6 @@ jobs:
 
       - name: Run coordinator fail-closed tests
         run: pytest -q sovereign-omega-v2/python/tests/test_coordinator_authority.py
+
+      - name: Validate Daybreak Blue external boundary
+        run: python scripts/validate-daybreak-blue-boundary.py
