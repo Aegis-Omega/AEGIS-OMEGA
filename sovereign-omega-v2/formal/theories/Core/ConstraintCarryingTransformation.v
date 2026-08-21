@@ -10,7 +10,6 @@
 Require Import Coq.Lists.List.
 Import ListNotations.
 
-(* Predicate-set inclusion. *)
 Definition pred_subset {X : Type} (P Q : X -> Prop) : Prop :=
   forall x, P x -> Q x.
 
@@ -35,15 +34,12 @@ Variable provenance : Artifact -> Evidence -> Prop.
 Variable restrictions : Artifact -> Restriction -> Prop.
 Variable authority : Artifact -> Capability -> Prop.
 
-(* Parent provenance may be extended, but not silently erased. *)
 Definition provenance_preserved (parent child : Artifact) : Prop :=
   pred_subset (provenance parent) (provenance child).
 
-(* Parent restrictions may be strengthened, but not silently erased. *)
 Definition restrictions_preserved (parent child : Artifact) : Prop :=
   pred_subset (restrictions parent) (restrictions child).
 
-(* A child may retain or lose authority, but may not amplify it implicitly. *)
 Definition authority_non_amplifying (parent child : Artifact) : Prop :=
   pred_subset (authority child) (authority parent).
 
@@ -55,8 +51,12 @@ Definition constraint_carrying (parent child : Artifact) : Prop :=
 Theorem constraint_carrying_refl : forall x : Artifact,
   constraint_carrying x x.
 Proof.
-  intros x. unfold constraint_carrying.
-  repeat split; apply pred_subset_refl.
+  intros x.
+  unfold constraint_carrying, provenance_preserved,
+    restrictions_preserved, authority_non_amplifying.
+  split.
+  - apply pred_subset_refl.
+  - split; apply pred_subset_refl.
 Qed.
 
 Theorem constraint_carrying_trans : forall x y z : Artifact,
@@ -68,17 +68,17 @@ Proof.
   destruct Hxy as [HPxy [HRxy HAxy]].
   destruct Hyz as [HPyz [HRyz HAyz]].
   unfold constraint_carrying.
-  repeat split.
+  split.
   - unfold provenance_preserved in *.
     eapply pred_subset_trans; eauto.
-  - unfold restrictions_preserved in *.
-    eapply pred_subset_trans; eauto.
-  - unfold authority_non_amplifying in *.
-    (* authority z ⊆ authority y ⊆ authority x *)
-    eapply pred_subset_trans; eauto.
+  - split.
+    + unfold restrictions_preserved in *.
+      eapply pred_subset_trans; eauto.
+    + unfold authority_non_amplifying in *.
+      eapply pred_subset_trans; eauto.
 Qed.
 
-(* A finite transform chain of arbitrary length. *)
+(* Arbitrary finite chain: the list length is not fixed to three transforms. *)
 Inductive transform_chain : Artifact -> list Artifact -> Artifact -> Prop :=
   | chain_refl : forall x,
       transform_chain x [] x
@@ -87,8 +87,6 @@ Inductive transform_chain : Artifact -> list Artifact -> Artifact -> Prop :=
       transform_chain y tail z ->
       transform_chain x (y :: tail) z.
 
-(* Main unbounded-finite closure theorem: any finite chain preserves the
-   endpoint constraint relation, regardless of chain length. *)
 Theorem chain_constraint_closure : forall start mids finish,
   transform_chain start mids finish ->
   constraint_carrying start finish.
@@ -135,7 +133,6 @@ Proof.
   apply HA. exact Hc.
 Qed.
 
-(* Commit-time guards are deliberately separate from transformation closure. *)
 Variable State Root : Type.
 
 Definition commit_fresh (captured current : State) : Prop :=
@@ -149,9 +146,6 @@ Definition commit_guards
   commit_fresh captured current /\
   causal_witness_unspliced witness actual.
 
-(* Combined theorem used by KG-003. It says that if every transformation
-   carries constraints and the final commit is fresh and bound to the actual
-   causal witness, then all five endpoint obligations hold. *)
 Theorem constraint_carrying_causal_closure :
   forall start mids finish captured current witness actual,
     transform_chain start mids finish ->
@@ -168,17 +162,19 @@ Proof.
     as [HP [HR HA]].
   unfold commit_fresh in Hfresh.
   unfold causal_witness_unspliced in Hwitness.
-  repeat split; assumption.
+  split.
+  - exact HP.
+  - split.
+    + exact HR.
+    + split.
+      * exact HA.
+      * split; assumption.
 Qed.
 
 End ConstraintCarryingTransformation.
 
-(* ------------------------------------------------------------ *)
-(* Guard-independence witnesses.                                *)
-(* These are constructive counterexamples showing that none of  *)
-(* the semantic guards follows from the others.                  *)
-(* ------------------------------------------------------------ *)
-
+(* Guard-independence witnesses. These prove that satisfying the other
+   obligations does not logically imply the omitted guard. *)
 Definition yes : unit -> Prop := fun _ => True.
 Definition no : unit -> Prop := fun _ => False.
 
@@ -195,8 +191,9 @@ Proof.
   exact H.
 Qed.
 
-(* Provenance loss is possible while restriction, authority, freshness and
-   witness-equality obligations all hold. *)
+Lemma zero_not_one : 0 <> 1.
+Proof. discriminate. Qed.
+
 Theorem counterexample_without_provenance_guard :
   pred_subset yes yes /\
   pred_subset no no /\
@@ -204,16 +201,12 @@ Theorem counterexample_without_provenance_guard :
   (0 = 0) /\
   ~ pred_subset yes no.
 Proof.
-  repeat split.
-  - exact yes_subset_yes.
-  - exact no_subset_no.
-  - reflexivity.
-  - reflexivity.
-  - exact yes_not_subset_no.
+  exact (conj yes_subset_yes
+    (conj no_subset_no
+      (conj eq_refl
+        (conj eq_refl yes_not_subset_no)))).
 Qed.
 
-(* Restriction loss is not prevented by provenance, authority, freshness or
-   witness equality alone. *)
 Theorem counterexample_without_restriction_guard :
   pred_subset yes yes /\
   pred_subset no no /\
@@ -221,16 +214,12 @@ Theorem counterexample_without_restriction_guard :
   (0 = 0) /\
   ~ pred_subset yes no.
 Proof.
-  repeat split.
-  - exact yes_subset_yes.
-  - exact no_subset_no.
-  - reflexivity.
-  - reflexivity.
-  - exact yes_not_subset_no.
+  exact (conj yes_subset_yes
+    (conj no_subset_no
+      (conj eq_refl
+        (conj eq_refl yes_not_subset_no)))).
 Qed.
 
-(* Authority amplification is possible unless child authority is required to
-   be a subset of parent authority. *)
 Theorem counterexample_without_authority_guard :
   pred_subset yes yes /\
   pred_subset yes yes /\
@@ -238,16 +227,12 @@ Theorem counterexample_without_authority_guard :
   (0 = 0) /\
   ~ pred_subset yes no.
 Proof.
-  repeat split.
-  - exact yes_subset_yes.
-  - exact yes_subset_yes.
-  - reflexivity.
-  - reflexivity.
-  - exact yes_not_subset_no.
+  exact (conj yes_subset_yes
+    (conj yes_subset_yes
+      (conj eq_refl
+        (conj eq_refl yes_not_subset_no)))).
 Qed.
 
-(* All transform/witness guards can hold while captured and current state
-   differ, unless commit-time freshness is checked. *)
 Theorem counterexample_without_freshness_guard :
   pred_subset yes yes /\
   pred_subset yes yes /\
@@ -255,16 +240,12 @@ Theorem counterexample_without_freshness_guard :
   (0 = 0) /\
   0 <> 1.
 Proof.
-  repeat split.
-  - exact yes_subset_yes.
-  - exact yes_subset_yes.
-  - exact no_subset_no.
-  - reflexivity.
-  - discriminate.
+  exact (conj yes_subset_yes
+    (conj yes_subset_yes
+      (conj no_subset_no
+        (conj eq_refl zero_not_one)))).
 Qed.
 
-(* All transform/freshness guards can hold while witness and actual causal
-   roots differ, unless anti-splicing equality is checked. *)
 Theorem counterexample_without_antisplice_guard :
   pred_subset yes yes /\
   pred_subset yes yes /\
@@ -272,10 +253,8 @@ Theorem counterexample_without_antisplice_guard :
   (0 = 0) /\
   0 <> 1.
 Proof.
-  repeat split.
-  - exact yes_subset_yes.
-  - exact yes_subset_yes.
-  - exact no_subset_no.
-  - reflexivity.
-  - discriminate.
+  exact (conj yes_subset_yes
+    (conj yes_subset_yes
+      (conj no_subset_no
+        (conj eq_refl zero_not_one)))).
 Qed.
