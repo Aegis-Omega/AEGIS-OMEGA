@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "claude/blissful-rubin-mt9jS",
-    "parent_state_hash": "410bcd49c721e65050382ae759db7af2f41fa9f572e625174252c72a8748ea93",
+    "source_ref": "feat/cross-plane-transfer-v1",
+    "parent_state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba"
+  "state_hash": "512331ee0d5a5ae4a576daed24b6b05e58d331419de190bbde23627bdd13783e"
 }
