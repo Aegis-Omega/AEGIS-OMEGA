@@ -29,6 +29,16 @@ jobs:
     name: aegis / coordinator-authority
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - name: Checkout candidate
         uses: actions/checkout@v4
@@ -52,6 +62,8 @@ jobs:
         run: pytest -q sovereign-omega-v2/python/tests/test_coordinator_authority.py
 
       - name: Run Daybreak audit-chain tests
+        env:
+          AEGIS_TEST_REDIS_URL: redis://127.0.0.1:6379/15
         run: pytest -q sovereign-omega-v2/python/tests/test_daybreak_blue_audit_chain.py
 
       - name: Validate Daybreak Blue external boundary
