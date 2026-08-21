@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "research/boundary-falsifiers-v1",
+    "source_ref": "trace/proof-trace-sdk-v1",
     "parent_state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "20a409743ffcf13d26792a5415908ee7810081d7b21e1bf789c9485f2ef1ba66"
+  "state_hash": "dff83259082f30c55dd492730e5fae7310e710731d05c192e782599341d8fe26"
 }
