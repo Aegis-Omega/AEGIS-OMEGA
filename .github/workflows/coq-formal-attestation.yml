@@ -138,6 +138,7 @@ jobs:
               fi
             }
 
+            compile_one 'Core/ConstraintCarryingTransformation.v'
             compile_one 'Core/Event.v'
             compile_one 'Core/Hash.v'
             compile_one 'Core/Reducer.v'
@@ -193,6 +194,19 @@ jobs:
               'Core/LatticeConvergence.v',
               'Core/LockIrreversibility.v',
           }
+          # Every .v under formal/theories must appear here and must be compiled
+          # by the step above. Keep the two in step: a source added to the tree
+          # without being declared here fails this gate loudly, rather than
+          # being silently skipped and reported as MISSING.
+          ATTESTED_SOURCES = {
+              'Bisimulation/ThreeWay.v',
+              'Core/ConstraintCarryingTransformation.v',
+              'Core/Event.v',
+              'Core/Hash.v',
+              'Core/LatticeConvergence.v',
+              'Core/LockIrreversibility.v',
+              'Core/Reducer.v',
+          }
           EXPECTED_BASELINE_SHA256 = '45c302e763e58c398d9b2a893cd62bdb2e585c8214d87b286f8e83d1b7d30e3e'
 
           path = Path('coq-attestation/coq-formal-attestation-receipt.json')
@@ -205,7 +219,13 @@ jobs:
           assert receipt['authority'] == 'FORMAL_MATH_EVIDENCE_ONLY'
           assert receipt['correspondence'] == 'NOT_ESTABLISHED'
           assert receipt['lean_runtime_status'] == 'NOT_PRESENT_IN_REPO'
-          assert summary['file_count'] == 6
+          theories = Path('formal/theories')
+          on_disk = {p.relative_to(theories).as_posix() for p in theories.rglob('*.v')}
+          assert on_disk == ATTESTED_SOURCES, {
+              'present_but_unattested': sorted(on_disk - ATTESTED_SOURCES),
+              'attested_but_absent': sorted(ATTESTED_SOURCES - on_disk),
+          }
+          assert summary['file_count'] == len(ATTESTED_SOURCES), summary
           assert summary['compile_failures'] == 0, summary
           assert summary['admitted_sources'] == 0, summary
           assert summary['unrecognized_assumption_outputs'] == 0, summary
