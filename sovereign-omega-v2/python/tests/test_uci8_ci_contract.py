@@ -65,7 +65,8 @@ def test_uci8_local_full_proofline_is_cardinality_locked() -> None:
         "test_uci8_pair_verification_schemas.py",
         "test_uci8_campaign_verification_receipt.py",
         "test_uci8_structural_value_claim.py",
+        "test_uci8_structural_value_schemas.py",
     )
     for needle in local_tests:
         assert needle in text, needle
-    assert "59 passed" in text
+    assert "66 passed" in text
