@@ -41,6 +41,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p kg-003-coq-evidence/assumptions
+          printf '%s\n' "$SOURCE_SHA" > kg-003-coq-evidence/source-commit.txt
           chmod -R a+rwX kg-003-coq-evidence sovereign-omega-v2/formal/theories/Core
 
       - name: Kernel-check KG-003 theorem and independence witnesses
@@ -53,6 +54,7 @@ jobs:
             ROOT="$PWD/sovereign-omega-v2/formal/theories/Core"
             SRC="$ROOT/ConstraintCarryingTransformation.v"
             OUT="$PWD/kg-003-coq-evidence"
+            SOURCE_SHA="$(cat "$OUT/source-commit.txt")"
             mkdir -p "$OUT/assumptions"
 
             # Reject proof escape hatches before compilation.
