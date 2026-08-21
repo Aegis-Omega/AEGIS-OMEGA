@@ -37,7 +37,7 @@ jobs:
         run: bash scripts/tests/test-repo-universe.sh
 
       - name: Run reconciliation census falsifiers
-        run: python -m pytest -q scripts/tests/test-reconcile-repository-universe.py
+        run: python scripts/tests/test-reconcile-repository-universe.py
 
       - name: Census real repository universe
         run: |
