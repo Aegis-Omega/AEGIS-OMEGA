@@ -16,13 +16,14 @@ RUN pip install --no-cache-dir \
     anyio==4.6.2
 
 # serve.py at /app, agents package at /app/agents, harness data at /app/harness.
-# evolution.py computes _REPO_ROOT = dirname(agents) = /app, so it finds
-# /app/harness/skill_tree.json. serve.py's path setup adds /app to sys.path.
+# startup_guard.py fails closed before importing the application if the
+# cost-incurring platform would otherwise start without authentication.
 COPY vertex/serve.py /app/serve.py
+COPY vertex/startup_guard.py /app/startup_guard.py
 COPY agents /app/agents
 COPY harness /app/harness
 
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["python", "serve.py"]
+CMD ["python", "startup_guard.py"]
