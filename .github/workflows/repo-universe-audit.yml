@@ -5,8 +5,11 @@ on:
     paths:
       - "scripts/repo-universe.sh"
       - "scripts/reconcile-repository-universe.py"
+      - "scripts/build-work-lineage.py"
       - "scripts/tests/test-repo-universe.sh"
       - "scripts/tests/test-reconcile-repository-universe.py"
+      - "scripts/tests/test-build-work-lineage.py"
+      - ".aegis/reconciliation/spines.v1.json"
       - ".claude/hooks/artifact-locator.sh"
       - ".claude/hooks/session-start.sh"
       - ".github/workflows/repo-universe-audit.yml"
@@ -38,6 +41,9 @@ jobs:
 
       - name: Run reconciliation census falsifiers
         run: python scripts/tests/test-reconcile-repository-universe.py
+
+      - name: Run stable WorkID lineage falsifiers
+        run: python scripts/tests/test-build-work-lineage.py
 
       - name: Census real repository universe
         run: |
@@ -92,6 +98,23 @@ jobs:
           }, sort_keys=True))
           PY
 
+      - name: Build real WorkID lineage graph
+        run: |
+          python scripts/build-work-lineage.py \
+            --universe "$RUNNER_TEMP/repository-universe.v1.json" \
+            --spines .aegis/reconciliation/spines.v1.json \
+            --out "$RUNNER_TEMP/work-lineage.v1.json"
+          python - <<'PY'
+          import json, os
+          p = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "work-lineage.v1.json"), encoding="utf-8"))
+          print(json.dumps({
+              "schema_version": p["schema_version"],
+              "work_item_count": len(p["work_items"]),
+              "active_spine_count": len(p["active_spine"]),
+              "manifest_sha256": p["manifest_sha256"],
+          }, sort_keys=True))
+          PY
+
       - name: Upload universe evidence
         uses: actions/upload-artifact@v4
         with:
@@ -100,4 +123,5 @@ jobs:
             ${{ runner.temp }}/repo-universe.json
             ${{ runner.temp }}/prs.json
             ${{ runner.temp }}/repository-universe.v1.json
+            ${{ runner.temp }}/work-lineage.v1.json
           retention-days: 90
