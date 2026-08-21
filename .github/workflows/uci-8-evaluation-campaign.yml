@@ -152,8 +152,9 @@ jobs:
             sovereign-omega-v2/python/tests/test_uci8_pair_verification_schemas.py \
             sovereign-omega-v2/python/tests/test_uci8_campaign_verification_receipt.py \
             sovereign-omega-v2/python/tests/test_uci8_structural_value_claim.py \
+            sovereign-omega-v2/python/tests/test_uci8_structural_value_schemas.py \
             -q | tee "$RUNNER_TEMP/uci8-local-proofline.log"
-          grep -Eq '59 passed' "$RUNNER_TEMP/uci8-local-proofline.log"
+          grep -Eq '66 passed' "$RUNNER_TEMP/uci8-local-proofline.log"
 
       - name: Validate UCI-8 CI contract guards
         shell: bash
@@ -176,18 +177,19 @@ jobs:
             echo "unit_tests_are_agi_proof=FALSE"
             echo "public_benchmark_campaign=NOT_RUN"
             echo "external_replication=NOT_ESTABLISHED"
-            echo "schema_cardinality=22_REQUIRED_AND_TESTED"
+            echo "schema_cardinality=22_CURRENT_28_PREREGISTERED"
             echo "inherited_uci456_proofline=131_REQUIRED_AND_TESTED"
             echo "inherited_uci7_protocol_and_guards=REQUIRED_AND_TESTED"
-            echo "uci8_local_proofline=59_REQUIRED_AND_TESTED"
+            echo "uci8_local_proofline=66_PREREGISTERED"
             echo "uci8_ci_guards=4_REQUIRED_AND_TESTED"
             echo "statistical_mode=PAIRED_DESCRIPTIVE_V1"
             echo "pair_replay_promotion=PAIR_LEVEL_HMAC_VERIFICATION_REQUIRED_AND_TESTED"
-            echo "campaign_promotion_receipt=HMAC_VERIFICATION_REQUIRED_AND_TESTED"
-            echo "structural_value_claim=PREREGISTERED_NOT_IMPLEMENTED"
+            echo "campaign_promotion_receipt=HMAC_VERIFICATION_REQUIRED_BEHAVIOR_TESTED_SCHEMA_PREREGISTERED"
+            echo "structural_value_claim=BEHAVIOR_TESTED_SCHEMA_PREREGISTERED"
             echo "compute_fairness=tokens_plus_calls_not_wall_clock"
             echo "delta_source=baseline_run_to_run_noise_preregistered"
-            echo "campaign_run_ledger=PREREGISTERED_NOT_IMPLEMENTED"
+            echo "campaign_run_ledger=LOCAL_APPEND_ONLY_REFERENCE"
+            echo "ledger_authenticated_tamper_resistance=NOT_ESTABLISHED"
             echo "hmac_trust=SYMMETRIC_SHARED_KEY"
             echo "public_key_signature=NOT_ESTABLISHED"
             echo "preregistration_temporal_attestation=NOT_ESTABLISHED"
