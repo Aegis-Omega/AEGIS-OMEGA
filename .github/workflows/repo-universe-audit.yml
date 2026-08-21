@@ -1,0 +1,49 @@
+name: Repository Universe Audit
+
+on:
+  pull_request:
+    paths:
+      - "scripts/repo-universe.sh"
+      - "scripts/tests/test-repo-universe.sh"
+      - ".claude/hooks/artifact-locator.sh"
+      - ".claude/hooks/session-start.sh"
+      - ".github/workflows/repo-universe-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  universe:
+    name: aegis / repo-universe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact candidate with complete history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Fetch every remote branch and tag
+        run: git fetch --all --prune --tags --force
+
+      - name: Run deterministic fixture
+        run: bash scripts/tests/test-repo-universe.sh
+
+      - name: Census real repository universe
+        run: |
+          bash scripts/repo-universe.sh \
+            --repo . \
+            --main origin/main \
+            --json "$RUNNER_TEMP/repo-universe.json"
+          cat "$RUNNER_TEMP/repo-universe.json"
+
+      - name: Upload universe evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-repo-universe-${{ github.sha }}
+          path: ${{ runner.temp }}/repo-universe.json
+          retention-days: 90
