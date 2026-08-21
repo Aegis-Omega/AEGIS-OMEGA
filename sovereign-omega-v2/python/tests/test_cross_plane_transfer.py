@@ -11,6 +11,7 @@ import os
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -29,9 +30,10 @@ from cross_plane_transfer import (  # noqa: E402
 HEAD = "a" * 40
 DATASET = "b" * 64
 POLICY = "c" * 64
+MATCHED_TRIALS = 100
 
 
-def context() -> ExperimentContext:
+def context(*, minimum_effect_ppm: int = 200_000) -> ExperimentContext:
     return ExperimentContext(
         experiment_id="cross-plane-transfer-v1",
         exact_head=HEAD,
@@ -40,16 +42,16 @@ def context() -> ExperimentContext:
         model_id="gpt-daybreak-blue-latest",
         provider="openai",
         provider_attestation="ABSENT",
-        minimum_effect_ppm=200_000,
+        minimum_effect_ppm=minimum_effect_ppm,
     )
 
 
 def outcomes(
     *,
-    b_only_correct: int = 10,
-    raw_correct: int = 12,
-    shuffled_correct: int = 10,
-    shared_correct: int = 18,
+    b_only_correct: int = 50,
+    raw_correct: int = 60,
+    shuffled_correct: int = 50,
+    shared_correct: int = 90,
     alias_shared_to_raw: bool = False,
 ) -> tuple[TrialOutcome, ...]:
     rows: list[TrialOutcome] = []
@@ -60,7 +62,7 @@ def outcomes(
         Arm.SHARED_Z: shared_correct,
     }
     for arm, correct_count in correct_by_arm.items():
-        for index in range(20):
+        for index in range(MATCHED_TRIALS):
             source_digest = f"{index + 1:064x}"
             mediator_digest = f"{index + 101:064x}"
             if arm is Arm.RAW_SHARED_DATA:
@@ -68,7 +70,7 @@ def outcomes(
             elif arm is Arm.SHARED_Z:
                 mediator_digest = source_digest if alias_shared_to_raw else f"{index + 201:064x}"
             elif arm is Arm.SHUFFLED_Z:
-                mediator_digest = f"{((index + 1) % 20) + 201:064x}"
+                mediator_digest = f"{((index + 1) % MATCHED_TRIALS) + 201:064x}"
             rows.append(
                 TrialOutcome(
                     trial_id=f"trial-{index:02d}",
@@ -119,8 +121,9 @@ class CrossPlaneTransferV1Tests(unittest.TestCase):
         self.assertEqual(receipt.accuracy_ppm(Arm.SHARED_Z), 900_000)
         self.assertEqual(receipt.effect_over_raw_ppm, 300_000)
         self.assertEqual(receipt.effect_over_shuffled_ppm, 400_000)
-        self.assertEqual(receipt.p_over_raw_ppm, 15_625)
-        self.assertEqual(receipt.p_over_shuffled_ppm, 3_907)
+        self.assertEqual(receipt.p_over_raw_ppm, 1)
+        self.assertEqual(receipt.p_over_shuffled_ppm, 1)
+        self.assertEqual(receipt.as_dict()["minimum_matched_trials"], 100)
         self.assertEqual(receipt.provider_attestation, "ABSENT")
         self.assertEqual(receipt.claim_scope, "CLASSICAL_CAUSAL_REPRESENTATION_TRANSFER")
 
@@ -129,25 +132,28 @@ class CrossPlaneTransferV1Tests(unittest.TestCase):
             evaluate_transfer(context(), outcomes(alias_shared_to_raw=True))
 
     def test_rejects_when_shared_z_does_not_beat_the_raw_baseline(self) -> None:
-        receipt = evaluate_transfer(context(), outcomes(raw_correct=16, shared_correct=16))
+        receipt = evaluate_transfer(context(), outcomes(raw_correct=80, shared_correct=80))
 
         self.assertFalse(receipt.admitted)
         self.assertIn("SHARED_Z_NOT_ABOVE_RAW_BY_SESOI", receipt.failures)
 
     def test_rejects_when_shuffling_the_mediator_preserves_the_effect(self) -> None:
-        receipt = evaluate_transfer(context(), outcomes(shuffled_correct=18, shared_correct=18))
+        receipt = evaluate_transfer(context(), outcomes(shuffled_correct=90, shared_correct=90))
 
         self.assertFalse(receipt.admitted)
         self.assertIn("SHARED_Z_NOT_ABOVE_SHUFFLED_BY_SESOI", receipt.failures)
 
     def test_rejects_effect_size_that_does_not_pass_the_paired_exact_test(self) -> None:
-        receipt = evaluate_transfer(
-            context(),
-            outcomes(b_only_correct=10, raw_correct=10, shuffled_correct=10, shared_correct=14),
+        rows = outcomes(b_only_correct=45, raw_correct=45, shuffled_correct=45, shared_correct=55)
+        rows = tuple(
+            replace(row, correct=int(row.trial_id.split("-")[1]) >= 45)
+            if row.arm is Arm.SHARED_Z else row
+            for row in rows
         )
+        receipt = evaluate_transfer(context(minimum_effect_ppm=100_000), rows)
 
-        self.assertEqual(receipt.effect_over_raw_ppm, 200_000)
-        self.assertEqual(receipt.p_over_raw_ppm, 62_500)
+        self.assertEqual(receipt.effect_over_raw_ppm, 100_000)
+        self.assertGreater(receipt.p_over_raw_ppm, 50_000)
         self.assertFalse(receipt.admitted)
         self.assertIn("RAW_PAIRED_TEST_ABOVE_ALPHA", receipt.failures)
 

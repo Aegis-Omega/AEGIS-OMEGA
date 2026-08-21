@@ -43,8 +43,8 @@ The null is retained unless both primary contrasts satisfy all gates below.
 
 ## Primary gates
 
-- At least 100 matched tasks per arm in the public protocol. The evaluator itself
-  refuses fewer than 20, so pilot runs cannot silently use a one-shot result.
+- At least 100 matched tasks per arm. The evaluator and hashed receipt enforce the
+  same public floor, so a pilot run cannot be mislabeled as protocol-complete.
 - Smallest effect size of interest: `100000 ppm` (10 percentage points) for the
   public canonical run.
 - One-sided paired exact sign test: `p <= 50000 ppm` (0.05) against both
