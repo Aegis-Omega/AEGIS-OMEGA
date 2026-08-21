@@ -1,0 +1,97 @@
+name: KG-003 Constraint-Carrying Closure
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/formal/theories/Core/ConstraintCarryingTransformation.v"
+      - ".github/workflows/kg-003-cct-formal-proof.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kg-003-cct-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  prove:
+    name: coqc + closed-assumptions + countermodels
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Prepare writable Coq evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p kg-003-coq-evidence/assumptions
+          printf '%s\n' "$SOURCE_SHA" > kg-003-coq-evidence/source-commit.txt
+          chmod -R a+rwX kg-003-coq-evidence sovereign-omega-v2/formal/theories/Core
+
+      - name: Kernel-check KG-003 theorem and independence witnesses
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2/formal/theories/Core"
+            SRC="$ROOT/ConstraintCarryingTransformation.v"
+            OUT="$PWD/kg-003-coq-evidence"
+            SOURCE_SHA="$(cat "$OUT/source-commit.txt")"
+            mkdir -p "$OUT/assumptions"
+
+            # Reject proof escape hatches before compilation.
+            if grep -En '^[[:space:]]*(Axiom|Parameter|Admitted)([[:space:]]|\.)|^[[:space:]]*admit([[:space:]]|\.)' "$SRC"; then
+              echo 'FORBIDDEN_PROOF_ESCAPE_HATCH'
+              exit 1
+            fi
+
+            coqc --version | tee "$OUT/coq-version.txt"
+            (cd "$ROOT" && coqc ConstraintCarryingTransformation.v) \
+              2>&1 | tee "$OUT/compile.log"
+
+            THEOREMS='constraint_carrying_refl constraint_carrying_trans chain_constraint_closure provenance_lineage_closure restriction_lineage_closure authority_cannot_amplify_across_chain constraint_carrying_causal_closure counterexample_without_provenance_guard counterexample_without_restriction_guard counterexample_without_authority_guard counterexample_without_freshness_guard counterexample_without_antisplice_guard'
+
+            for theorem in $THEOREMS; do
+              query="$OUT/assumptions/${theorem}.v"
+              log="$OUT/assumptions/${theorem}.txt"
+              printf 'Set Coqtop Exit On Error.\nRequire Import ConstraintCarryingTransformation.\nPrint Assumptions %s.\n' "$theorem" > "$query"
+              (cd "$ROOT" && coqtop -quiet -batch -l "$query") > "$log" 2>&1
+              cat "$log"
+              grep -Fq 'Closed under the global context' "$log"
+              rm -f "$query"
+            done
+
+            SOURCE_SHA256="$(sha256sum "$SRC" | awk '{print $1}')"
+            printf '{\n  "receipt_kind": "KG003_COQ_FORMAL_RECEIPT_V1",\n  "source_commit": "%s",\n  "source_sha256": "%s",\n  "coq_version": "%s",\n  "theorem_count": 12,\n  "compile_status": "COMPILED",\n  "assumption_status": "ALL_12_CLOSED_UNDER_GLOBAL_CONTEXT",\n  "claim_scope": "FORMAL_MODEL_ONLY"\n}\n' \
+              "$SOURCE_SHA" \
+              "$SOURCE_SHA256" \
+              "$(grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' "$OUT/coq-version.txt" | head -n1)" \
+              > "$OUT/kg-003-coq-formal-receipt.json"
+            cat "$OUT/kg-003-coq-formal-receipt.json"
+
+      - name: Upload KG-003 Coq evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kg-003-coq-evidence-${{ env.SOURCE_SHA }}
+          path: kg-003-coq-evidence/
+          if-no-files-found: error
+          retention-days: 30
