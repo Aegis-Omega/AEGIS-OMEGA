@@ -1,0 +1,86 @@
+name: AEGIS Production Dependency Audit
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  audit:
+    name: Production audit · ${{ matrix.surface }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - surface: sovereign-runtime
+            directory: sovereign-omega-v2
+            lockfile: sovereign-omega-v2/package-lock.json
+          - surface: studio
+            directory: studio
+            lockfile: studio/package-lock.json
+          - surface: mcp-server
+            directory: sovereign-omega-v2/mcp-server
+            lockfile: sovereign-omega-v2/mcp-server/package-lock.json
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+
+      - name: Assert exact checkout identity
+        run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ${{ matrix.lockfile }}
+
+      - name: Install locked graph
+        working-directory: ${{ matrix.directory }}
+        run: npm ci
+
+      - name: Audit production dependencies
+        id: audit
+        working-directory: ${{ matrix.directory }}
+        shell: bash
+        run: |
+          set +e
+          npm audit --omit=dev --audit-level=high --json > production-audit.json
+          status=$?
+          set -e
+          node - <<'NODE'
+          const fs = require('node:fs')
+          const report = JSON.parse(fs.readFileSync('production-audit.json', 'utf8'))
+          const vulnerabilities = report.metadata?.vulnerabilities ?? {}
+          console.log(JSON.stringify({
+            dependencies: report.metadata?.dependencies ?? null,
+            vulnerabilities,
+          }, null, 2))
+          NODE
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Upload exact audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-audit-${{ matrix.surface }}-${{ env.CANDIDATE_SHA }}
+          path: ${{ matrix.directory }}/production-audit.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Fail on high or critical production vulnerability
+        if: ${{ steps.audit.outputs.status != '0' }}
+        run: exit 1

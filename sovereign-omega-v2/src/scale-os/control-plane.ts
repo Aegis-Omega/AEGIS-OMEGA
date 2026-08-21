@@ -97,7 +97,7 @@ const SHA256_PATTERN = /^[0-9a-f]{64}$/
 const PUBLIC_KEY_PATTERN = /^[0-9a-f]{64}$/
 const SIGNATURE_PATTERN = /^[0-9a-f]{128}$/
 const DECIMAL_PATTERN = /^(0|[1-9][0-9]*)$/
-const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:@/+\-]{1,255}$/
+const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:@/+-]{1,255}$/
 const ISO8601_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/
 
 const EVENT_TYPES = new Set<ScaleOSEventTypeV1>([

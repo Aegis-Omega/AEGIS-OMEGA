@@ -98,7 +98,7 @@ function walkDir(root: string, rel = ''): FileStat[] {
       const ext = path.extname(entry.name).toLowerCase()
       if (!EXT_DOMAINS[ext]) continue
       const absPath = path.join(absDir, entry.name)
-      let content = ''
+      let content: string
       try {
         const raw = fs.readFileSync(absPath, 'utf-8')
         content = raw.length > 32_000 ? raw.slice(0, 32_000) : raw

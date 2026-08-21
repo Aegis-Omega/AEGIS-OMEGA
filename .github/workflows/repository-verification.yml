@@ -1,0 +1,189 @@
+name: AEGIS Repository-Wide Verification
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-verification-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  verify:
+    name: Repository verification receipt
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+
+      - name: Assert exact checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$CANDIDATE_SHA"
+          echo "candidate=$actual tree=$(git rev-parse 'HEAD^{tree}')"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install shared Python verification dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest flask flask-cors psutil numpy scikit-learn 'PyYAML==6.0.2'
+          python -m pip install -r sovereign-omega-v2/python/requirements.txt
+
+      - name: Execute complete named verification corpus
+        id: corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification-out verification-final
+          python -m py_compile scripts/repository_verification.py
+
+          python scripts/repository_verification.py census \
+            --output verification-out/definition-census.json \
+            --exclusion 'sovereign-omega-v2/python/tests/test_ledger_persist.py=requires approximately 4 GB and real CoreMatrix allocation; explicitly excluded by the current CI contract' \
+            --exclusion 'sovereign-omega-v2/python/tests/stress_test.py=performance stress program is not part of the deterministic unit and contract corpus'
+
+          failures=0
+
+          run_suite() {
+            suite_id="$1"
+            parser="$2"
+            classification="$3"
+            command="$4"
+            log="verification-out/${suite_id}.log"
+            result="verification-out/${suite_id}.json"
+
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "SUITE $suite_id"
+            echo "COMMAND $command"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+            set +e
+            bash -lc "$command" >"$log" 2>&1
+            status=$?
+            set -e
+            cat "$log"
+
+            python scripts/repository_verification.py record \
+              --suite-id "$suite_id" \
+              --suite-command "$command" \
+              --parser "$parser" \
+              --classification "$classification" \
+              --log "$log" \
+              --exit-code "$status" \
+              --output "$result"
+
+            if [[ "$status" -ne 0 ]]; then
+              failures=$((failures + 1))
+            fi
+          }
+
+          run_suite rust-cl-psi cargo WIRED \
+            'cd aegis-cl-psi && cargo test --jobs 1 -- --test-threads 1'
+
+          run_suite rust-aegis-runtime cargo WIRED \
+            'cd aegis-runtime && cargo test'
+
+          run_suite rust-hypervisor cargo TESTED_ONLY \
+            'cargo test'
+
+          run_suite rust-constitutional-substrate cargo TESTED_ONLY \
+            'cd crates/constitutional-substrate && cargo test'
+
+          run_suite typescript-sovereign-runtime vitest TESTED_ONLY_MIXED_WITH_WIRED_SHELL \
+            'cd sovereign-omega-v2 && npm ci && npm run test -- --reporter=verbose && npm run typecheck && npm run build'
+
+          run_suite typescript-sovereign-lint none WIRED_QUALITY_GATE \
+            'cd sovereign-omega-v2 && npm ci && npm run lint'
+
+          run_suite constitutional-frozen-hashes none WIRED_CONSTITUTIONAL_INTEGRITY \
+            'node sovereign-omega-v2/scripts/verify-hashes.mjs && (cd sovereign-omega-v2 && node scripts/verify-hashes.mjs)'
+
+          run_suite repository-security-policy none WIRED_POLICY \
+            "grep -F '## Repository-Wide Security Invariants' SECURITY.md && grep -F 'deny-by-default' SECURITY.md && grep -F 'These requirements apply to every executable surface' SECURITY.md && grep -F 'A passing test suite proves only the named commands' SECURITY.md"
+
+          run_suite python-bridge pytest WIRED_AND_TESTED_ONLY \
+            'cd sovereign-omega-v2 && python -m pytest -q python/tests --ignore=python/tests/test_ledger_persist.py'
+
+          run_suite python-aegis-interface pytest WIRED \
+            'cd packages/aegis-interface && PYTHONPATH=. python -m pytest -q && PYTHONPATH=. python -m aegis_interface.cli check wit/skill_snapshot.wit --out generated && PYTHONPATH=. python -m aegis_interface.cli evolve --from wit/skill_snapshot.wit --to wit/skill_snapshot_v2.wit && PYTHONPATH=. python -m aegis_interface.cli compose wit/skill_snapshot.wit wit/skill_snapshot_v2.wit wit/skill_snapshot_v3.wit'
+
+          run_suite python-kernel-one unittest WIRED_LOCAL_REFERENCE \
+            'cd kernel-one && python -m py_compile kernel_one.py validator.py init_db.py test_kernel_one.py && python test_kernel_one.py'
+
+          run_suite typescript-mcp-server none WIRED \
+            'cd sovereign-omega-v2/mcp-server && npm ci && npm run test:resources && npm run test:automaton3'
+
+          run_suite cross-runtime-proofs none WIRED_PROOF \
+            'cd genomics && python3 test_replay_proof.py && python3 interpret_demo.py && cd ../verifiable && python3 test_generality.py && cd .. && bash verifiable/cross_language/verify.sh && cd verifiable && python3 certify_all.py --twice'
+
+          run_suite studio-build none WIRED_BUILD_NO_REMOTE_TEST_SCRIPT \
+            'cd studio && npm ci && npm run build'
+
+          set +e
+          python scripts/repository_verification.py aggregate \
+            --input-dir verification-out \
+            --required-suite constitutional-frozen-hashes \
+            --required-suite cross-runtime-proofs \
+            --required-suite python-aegis-interface \
+            --required-suite python-bridge \
+            --required-suite python-kernel-one \
+            --required-suite repository-security-policy \
+            --required-suite rust-aegis-runtime \
+            --required-suite rust-cl-psi \
+            --required-suite rust-constitutional-substrate \
+            --required-suite rust-hypervisor \
+            --required-suite studio-build \
+            --required-suite typescript-mcp-server \
+            --required-suite typescript-sovereign-lint \
+            --required-suite typescript-sovereign-runtime \
+            --json-output verification-final/REPOSITORY_VERIFICATION_RECEIPT.json \
+            --markdown-output verification-final/REPOSITORY_VERIFICATION_RECEIPT.md
+          aggregate_status=$?
+          set -e
+
+          cat verification-final/REPOSITORY_VERIFICATION_RECEIPT.md >> "$GITHUB_STEP_SUMMARY"
+
+          final_status=0
+          if [[ "$failures" -ne 0 || "$aggregate_status" -ne 0 ]]; then
+            final_status=1
+          fi
+          echo "status=$final_status" >> "$GITHUB_OUTPUT"
+
+      - name: Upload receipt, suite records and complete logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-repository-verification-${{ env.CANDIDATE_SHA }}
+          path: |
+            verification-final/*
+            verification-out/*
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Fail closed on incomplete repository evidence
+        if: ${{ steps.corpus.outputs.status != '0' }}
+        run: exit 1
