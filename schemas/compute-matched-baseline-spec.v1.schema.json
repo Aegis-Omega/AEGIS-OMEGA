@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/compute-matched-baseline-spec.v1.schema.json",
+  "title": "ComputeMatchedBaselineSpecV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "spec_kind",
+    "campaign_root",
+    "strongest_constituent_runtime_commitment",
+    "baseline_runtime_commitment",
+    "system_total_budget",
+    "baseline_total_budget",
+    "strategy",
+    "strategy_commitment"
+  ],
+  "properties": {
+    "spec_kind": {"const": "COMPUTE_MATCHED_BASELINE_SPEC_V1"},
+    "campaign_root": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "strongest_constituent_runtime_commitment": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "baseline_runtime_commitment": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "system_total_budget": {"$ref": "compute-budget.v1.schema.json"},
+    "baseline_total_budget": {"$ref": "compute-budget.v1.schema.json"},
+    "strategy": {
+      "enum": ["BEST_OF_N_DETERMINISTIC_CHECKER", "SELF_CONSISTENCY_DETERMINISTIC_AGGREGATOR"]
+    },
+    "strategy_commitment": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"}
+  }
+}
