@@ -4,6 +4,24 @@
   "title": "ComputeMatchedBaselineSpecV1",
   "type": "object",
   "additionalProperties": false,
+  "$defs": {
+    "computeBudget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["budget_kind", "max_input_tokens", "max_output_tokens", "max_model_calls", "max_tool_calls"],
+      "properties": {
+        "budget_kind": {"const": "COMPUTE_BUDGET_V1"},
+        "max_input_tokens": {"type": "integer", "minimum": 0},
+        "max_output_tokens": {"type": "integer", "minimum": 0},
+        "max_model_calls": {"type": "integer", "minimum": 1},
+        "max_tool_calls": {"type": "integer", "minimum": 0}
+      },
+      "anyOf": [
+        {"properties": {"max_input_tokens": {"minimum": 1}}},
+        {"properties": {"max_output_tokens": {"minimum": 1}}}
+      ]
+    }
+  },
   "required": [
     "spec_kind",
     "campaign_root",
@@ -19,8 +37,8 @@
     "campaign_root": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
     "strongest_constituent_runtime_commitment": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
     "baseline_runtime_commitment": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
-    "system_total_budget": {"$ref": "compute-budget.v1.schema.json"},
-    "baseline_total_budget": {"$ref": "compute-budget.v1.schema.json"},
+    "system_total_budget": {"$ref": "#/$defs/computeBudget"},
+    "baseline_total_budget": {"$ref": "#/$defs/computeBudget"},
     "strategy": {
       "enum": ["BEST_OF_N_DETERMINISTIC_CHECKER", "SELF_CONSISTENCY_DETERMINISTIC_AGGREGATOR"]
     },
