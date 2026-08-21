@@ -71,6 +71,9 @@ jobs:
             | tee kg-005-coq-evidence/witness-root.txt
           sha256sum "$ROOT/KG005WitnessFacts.v" \
             > kg-005-coq-evidence/witness-facts.sha256
+      - name: Prepare writable Coq workspace
+        shell: bash
+        run: chmod -R a+rwX kg-005-coq-evidence sovereign-omega-v2/formal/theories/Core
       - name: Kernel-check fixed checker and emitted witness
         uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
         with:
