@@ -89,15 +89,15 @@ def test_pair_schema_enforces_all_or_none_portable_result_attestation_fields() -
         validator.validate(_pair(run_id="run-1", system_att=H1, baseline_att=ZERO))
 
 
-def test_bundle_schema_requires_pair_verification_roots_for_collective_status() -> None:
+def test_bundle_schema_keeps_pair_verification_roots_but_never_self_promotes() -> None:
     schema = _load("campaign-evidence-bundle.v1.schema.json")
     validator = jsonschema.Draft202012Validator(schema)
     validator.validate(_bundle(status="HELD_OUT_EVIDENCE_COMPLETE", verification_roots=[]))
-    validator.validate(_bundle(status="COLLECTIVE_CONTRIBUTION_EVALUABLE", verification_roots=[H6]))
+    validator.validate(_bundle(status="HELD_OUT_EVIDENCE_COMPLETE", verification_roots=[H6]))
 
     with pytest.raises(jsonschema.ValidationError):
-        validator.validate(_bundle(status="COLLECTIVE_CONTRIBUTION_EVALUABLE", verification_roots=[]))
+        validator.validate(_bundle(status="COLLECTIVE_CONTRIBUTION_EVALUABLE", verification_roots=[H6]))
 
-    duplicate = _bundle(status="COLLECTIVE_CONTRIBUTION_EVALUABLE", verification_roots=[H6, H6])
+    duplicate = _bundle(status="HELD_OUT_EVIDENCE_COMPLETE", verification_roots=[H6, H6])
     with pytest.raises(jsonschema.ValidationError):
         validator.validate(duplicate)
