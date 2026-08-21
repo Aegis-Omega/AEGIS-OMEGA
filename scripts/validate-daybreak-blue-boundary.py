@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Validate the fail-closed external-dispatch and platform-startup boundary.
+"""Validate the fail-closed Daybreak Blue security boundary.
 
-This is a static/runtime contract check, not a penetration test. It verifies that
-untrusted public GitHub activity cannot directly authorize model-spend dispatch
-and that the Cloud Run image cannot start cost-incurring routes without an
-explicit authentication secret.
+This is a local contract verifier, not an authority producer. It checks the
+public-event dispatch boundary, authenticated production startup, hardened
+service overlay, and the presence of the concurrent/trim-aware audit-chain v2.
 """
 from __future__ import annotations
 
@@ -20,6 +19,9 @@ ROOT = Path(__file__).resolve().parent.parent
 WORKFLOW = ROOT / ".github" / "workflows" / "agent-dispatch.yml"
 DOCKERFILE = ROOT / "vertex" / "Dockerfile"
 STARTUP_GUARD = ROOT / "vertex" / "startup_guard.py"
+SECURE_SERVE = ROOT / "vertex" / "secure_serve.py"
+AUDIT_CHAIN = ROOT / "vertex" / "audit_chain_v2.py"
+AUTO_GATE = ROOT / "scripts" / "auto-gate.py"
 
 
 def _sha256(path: Path) -> str:
@@ -47,6 +49,9 @@ def validate() -> dict[str, object]:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     dockerfile = DOCKERFILE.read_text(encoding="utf-8")
     guard_text = STARTUP_GUARD.read_text(encoding="utf-8")
+    secure_text = SECURE_SERVE.read_text(encoding="utf-8")
+    audit_text = AUDIT_CHAIN.read_text(encoding="utf-8")
+    auto_gate_text = AUTO_GATE.read_text(encoding="utf-8")
     guard = _load_guard()
 
     checks: dict[str, bool] = {
@@ -70,6 +75,9 @@ def validate() -> dict[str, object]:
         and "--max-time 30" in workflow,
         "docker_executes_startup_guard": "COPY vertex/startup_guard.py /app/startup_guard.py" in dockerfile
         and 'CMD ["python", "startup_guard.py"]' in dockerfile,
+        "docker_packages_security_overlay": "COPY vertex/secure_serve.py /app/secure_serve.py" in dockerfile
+        and "COPY vertex/audit_chain_v2.py /app/audit_chain_v2.py" in dockerfile,
+        "startup_guard_starts_security_overlay": '"secure_serve:app"' in guard_text,
         "startup_guard_has_no_network_dependency": "import requests" not in guard_text
         and "import httpx" not in guard_text,
         "missing_platform_key_fails_closed": _raises_system_exit(
@@ -86,22 +94,44 @@ def validate() -> dict[str, object]:
             lambda: guard.validated_port({"PORT": "70000"})
         ),
         "valid_port_is_accepted": guard.validated_port({"PORT": "8080"}) == "8080",
+        "sensitive_operational_routes_are_protected": '"/metrics"' in secure_text
+        and '"/v1/audit"' in secure_text
+        and '"/agents/roles"' in secure_text
+        and "hmac.compare_digest" in secure_text,
+        "audit_chain_uses_redis_cas": "_APPEND_CAS_LUA" in audit_text
+        and "expected_seq" in audit_text
+        and "expected_tail" in audit_text
+        and "AUDIT_CHAIN_CONTENTION_RETRY_EXHAUSTED" in audit_text,
+        "audit_chain_has_trim_anchor": "anchor_key" in audit_text
+        and "previous_entry_hash" in audit_text
+        and "next_sequence" in audit_text
+        and "LTRIM" in audit_text,
+        "audit_chain_rejects_unprovable_legacy_trim": "AUDIT_CHAIN_LEGACY_TRIMMED_WITHOUT_ANCHOR" in audit_text,
+        "auto_gate_has_no_shell_execution": "shell=True" not in auto_gate_text,
+        "auto_gate_requires_explicit_budget": 'parser.add_argument("--budget", type=float, required=True' in auto_gate_text,
+        "auto_gate_does_not_stage_repository_wide": '"add", "-A"' not in auto_gate_text
+        and '"git", "add", "--", *exact_paths' in auto_gate_text,
+        "auto_gate_blocks_canonical_push": 'branch in {"main", "master"}' in auto_gate_text,
     }
 
     violations = sorted(name for name, passed in checks.items() if not passed)
+    artifacts = {
+        ".github/workflows/agent-dispatch.yml": _sha256(WORKFLOW),
+        "scripts/auto-gate.py": _sha256(AUTO_GATE),
+        "vertex/Dockerfile": _sha256(DOCKERFILE),
+        "vertex/startup_guard.py": _sha256(STARTUP_GUARD),
+        "vertex/secure_serve.py": _sha256(SECURE_SERVE),
+        "vertex/audit_chain_v2.py": _sha256(AUDIT_CHAIN),
+    }
     body: dict[str, object] = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "receipt_kind": RECEIPT_KIND,
         "outcome": "ADMITTED" if not violations else "DENIED",
         "authority": "EVIDENCE_ONLY",
         "checks": checks,
         "violation_count": len(violations),
         "violations": violations,
-        "artifacts": {
-            ".github/workflows/agent-dispatch.yml": _sha256(WORKFLOW),
-            "vertex/Dockerfile": _sha256(DOCKERFILE),
-            "vertex/startup_guard.py": _sha256(STARTUP_GUARD),
-        },
+        "artifacts": artifacts,
     }
     canonical = json.dumps(body, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
     body["receipt_hash"] = hashlib.sha256(
