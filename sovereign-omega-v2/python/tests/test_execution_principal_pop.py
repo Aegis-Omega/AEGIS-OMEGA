@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import sys
-from dataclasses import replace
 from pathlib import Path
 from unittest import TestCase, main
 
@@ -35,7 +34,6 @@ from harness.sdk.principal_binding import (  # noqa: E402
     evaluate_execution_principal,
 )
 
-HASH = "1" * 64
 ACTION_DIGEST = canonical_hash("AEGIS_REQUESTED_ACTION_V1", {"operation": "send", "target": "calendar:event"})
 TARGET_DIGEST = canonical_hash("AEGIS_AUTHORITY_TARGET_V1", "calendar:event")
 SESSION = "session-1"
@@ -185,7 +183,7 @@ class ExecutionPrincipalPoPTests(TestCase):
 
     def test_20_obo_requires_downstream_audience_and_scope(self):
         self.assertDenied(evaluate(binding(delegation=delegation(downstream_audience="NONE"))), "DELEGATION_AUDIENCE_MISSING")
-        self.assertDenied(evaluate(binding(delegation=delegation(requested_scopes=())), "DELEGATION_SCOPE_MISSING")
+        self.assertDenied(evaluate(binding(delegation=delegation(requested_scopes=()))), "DELEGATION_SCOPE_MISSING")
 
     def test_21_rfc8693_and_rfc7523_are_distinct_accepted_profiles(self):
         self.assertEqual(evaluate(binding(delegation=delegation(exchange_profile=RFC8693_TOKEN_EXCHANGE))).outcome, "VALIDATED_BINDING_EVIDENCE")
