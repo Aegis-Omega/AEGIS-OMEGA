@@ -18,6 +18,8 @@ from harness.sdk.runtime_pop_crypto import (  # noqa: E402
     CRYPTO_VERIFIER_IDENTITY,
     CryptoVerificationError,
     RuntimePoPCryptoReceipt,
+)
+from harness.sdk.runtime_pop_authority import (  # noqa: E402
     SQLiteReplayStore,
     bind_execution_principal_from_crypto,
 )
@@ -72,7 +74,7 @@ def crypto_receipt(*, runtime: str = RUNTIME, mode: str = MTLS_CERT_BOUND, root:
 
 class RuntimePoPAuthorityBindingTests(TestCase):
     def test_01_caller_asserted_verified_pop_is_replaced_by_crypto_receipt(self):
-        with patch("harness.sdk.runtime_pop_crypto.verify_runtime_pop_evidence", return_value=crypto_receipt()):
+        with patch("harness.sdk.runtime_pop_authority.verify_runtime_pop_evidence", return_value=crypto_receipt()):
             binding, receipt = bind_execution_principal_from_crypto(
                 raw_principal(),
                 {"opaque": "crypto-evidence"},
@@ -87,7 +89,7 @@ class RuntimePoPAuthorityBindingTests(TestCase):
 
     def test_02_crypto_runtime_subject_must_match_execution_principal(self):
         with patch(
-            "harness.sdk.runtime_pop_crypto.verify_runtime_pop_evidence",
+            "harness.sdk.runtime_pop_authority.verify_runtime_pop_evidence",
             return_value=crypto_receipt(runtime="spiffe://aegis.example/runtime/other"),
         ):
             with self.assertRaisesRegex(CryptoVerificationError, "CRYPTO_RUNTIME_PRINCIPAL_MISMATCH"):
@@ -95,7 +97,7 @@ class RuntimePoPAuthorityBindingTests(TestCase):
 
     def test_03_crypto_mode_must_match_requested_structural_mode(self):
         with patch(
-            "harness.sdk.runtime_pop_crypto.verify_runtime_pop_evidence",
+            "harness.sdk.runtime_pop_authority.verify_runtime_pop_evidence",
             return_value=crypto_receipt(mode="DPOP_CERT_BOUND"),
         ):
             with self.assertRaisesRegex(CryptoVerificationError, "CRYPTO_BINDING_MODE_MISMATCH"):
