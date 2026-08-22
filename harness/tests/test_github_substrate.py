@@ -47,6 +47,24 @@ class GitHubSubstrateTests(unittest.TestCase):
         self.assertIn('RETIRED_GITHUB_MODELS_SURFACE', surface.findings)
         self.assertIn('github-models-retired', surface.provider_model_surfaces)
 
+    def test_provider_runtime_detection_requires_strong_signal(self):
+        text = '''name: Branch labels only\non:\n  pull_request:\n    branches: [main, 'claude/*']\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps:\n      - run: test -f .claude/settings.json\n'''
+        surface = scan_workflow_text('.github/workflows/no-provider.yml', text)
+        self.assertNotIn('anthropic', surface.provider_model_surfaces)
+        self.assertEqual(surface.provider_model_surfaces, [])
+
+    def test_provider_runtime_detection_accepts_explicit_api_or_secret_signal(self):
+        anthropic = scan_workflow_text(
+            '.github/workflows/anthropic.yml',
+            '''name: Anthropic\njobs:\n  x:\n    runs-on: ubuntu-latest\n    env:\n      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}\n    steps:\n      - run: curl https://api.anthropic.com/v1/messages\n''',
+        )
+        openai = scan_workflow_text(
+            '.github/workflows/openai.yml',
+            '''name: OpenAI\njobs:\n  x:\n    runs-on: ubuntu-latest\n    env:\n      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}\n    steps:\n      - run: curl https://api.openai.com/v1/responses\n''',
+        )
+        self.assertIn('anthropic', anthropic.provider_model_surfaces)
+        self.assertIn('openai', openai.provider_model_surfaces)
+
     def test_workflow_surface_extracts_triggers_permissions_and_execution_features(self):
         surface = scan_workflow_text('.github/workflows/example.yml', WORKFLOW)
         self.assertEqual(surface.name, 'Example Agent Runtime')
