@@ -1,0 +1,46 @@
+{
+  "manifest_kind": "AEGIS_HOLON_INFERENCE_INGEST_V1",
+  "epistemic_status": "EVIDENCE_ONLY_NOT_AUTHORITY",
+  "stack_parent": {
+    "pr": 290,
+    "exact_head_sha": "052135fe79b58cb49ec026865dc8d8997a343799",
+    "admission_status": "NOT_ESTABLISHED_CODEQL_UNRESOLVED"
+  },
+  "source_artifacts": [
+    {
+      "name": "holon_llm_inference.py",
+      "library_file_id": "file_000000001e008243ac15b0e640a5914e",
+      "ingested_sha256_after_hardening": "10de9e2150c32dd159d5f213813d1a8e7d5d7faf4b3bb7ec58621f2c02da42a7"
+    },
+    {
+      "name": "requirements_holon.txt",
+      "library_file_id": "file_00000000490481f4823b8b044be99ad7",
+      "sha256": "cb76c07768761e43e96e51bb01da1d872645e50adcd447dc43173a6b500c445b"
+    }
+  ],
+  "local_validation": {
+    "py_compile": "PASS",
+    "unit_tests": {
+      "status": "PASS",
+      "count": 3,
+      "tests": [
+        "model hash binds tensor shape",
+        "checkpoint load is weights_only",
+        "receipt declares evidence-only boundary"
+      ]
+    },
+    "smoke_inference": {
+      "status": "PASS",
+      "prompt": "Objasni geometriju inteligencije",
+      "max_new_tokens": 8,
+      "semantic_capability": "NOT_ESTABLISHED_RANDOM_WEIGHTS"
+    }
+  },
+  "non_claims": [
+    "No claim of useful pretrained language competence",
+    "No claim of Llama/Qwen/Gemma checkpoint compatibility",
+    "No claim that inference receipt proves proposition truth",
+    "No claim that this lineage repairs or bypasses PR #290 CodeQL",
+    "No authority to promote PR #291"
+  ]
+}
