@@ -15,10 +15,18 @@ Model Assignment: Qwen2.5-Coder / Claude Sonnet 4.6
 import json
 import hashlib
 import subprocess
+import sys
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from pathlib import Path
+
+# Allow this legacy node to run both as a module from repo root and directly.
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from security.glasswing_scanner import GlasswingScanner
 
 
 @dataclass
@@ -31,6 +39,7 @@ class GeneratedArtifact:
     complexity_score: float
     eccf_lattice_applied: bool
     glasswing_scan_passed: bool
+    glasswing_disposition: str = "UNSCANNED"
 
 
 @dataclass
@@ -43,14 +52,15 @@ class SprintResult:
     glasswing_findings: List[Dict]
     execution_time_ms: int
     success: bool
+    glasswing_evidence: List[Dict] = field(default_factory=list)
 
 
 class ECCFIntegration:
     """Apply Ever-Evolving Crystalline Calligraphy Font to generated code"""
-    
+
     def __init__(self):
         self.phi = 1.618033988749895  # Golden Ratio
-    
+
     def apply_lattice_structure(self, code: str, complexity_lambda: int) -> str:
         """
         Apply ECCF lattice structure to code:
@@ -62,39 +72,39 @@ class ECCFIntegration:
         """
         lines = code.split('\n')
         enhanced_lines = []
-        
+
         # Add Nuqta markers for atomic units
         for i, line in enumerate(lines):
             if self._is_atomic_unit(line):
                 nuqta_seal = hashlib.sha256(line.encode()).hexdigest()[:8]
                 enhanced_lines.append(f"// [Nuqta: {nuqta_seal}]")
-            
+
             # Add Alif constraints
             if self._is_constraint_point(line):
-                enhanced_lines.append(f"// [Alif: Hard Constraint]")
-            
+                enhanced_lines.append("// [Alif: Hard Constraint]")
+
             enhanced_lines.append(line)
-            
+
             # Add Rasm flow markers at function boundaries
             if line.strip().startswith('}') and i > 0:
-                enhanced_lines.append(f"// [Rasm: Flow continues →]")
-        
+                enhanced_lines.append("// [Rasm: Flow continues →]")
+
         return '\n'.join(enhanced_lines)
-    
+
     def _is_atomic_unit(self, line: str) -> bool:
         """Detect atomic code units (function definitions, etc.)"""
         indicators = ['fn ', 'def ', 'function ', 'const ', 'let ']
         return any(ind in line for ind in indicators)
-    
+
     def _is_constraint_point(self, line: str) -> bool:
         """Detect constraint enforcement points"""
         indicators = ['assert', 'expect', 'require', 'if !', 'panic', 'throw']
         return any(ind in line for ind in indicators)
-    
+
     def calculate_proportional_metrics(self, base_size: int, lambda_level: int) -> Dict:
         """Calculate proportional metrics using Golden Ratio"""
         scaled_size = int(base_size * (self.phi ** (lambda_level / 10)))
-        
+
         return {
             "base_size": base_size,
             "scaled_size": scaled_size,
@@ -105,144 +115,122 @@ class ECCFIntegration:
 
 
 class GlasswingHook:
-    """Pre-submission security scanner integration"""
-    
-    VULNERABILITY_TYPES = [
-        "BUFFER_OVERFLOW",
-        "CRYPTOGRAPHIC_WEAKNESS",
-        "MEMORY_SAFETY",
-        "HARDCODED_SECRET",
-        "EPISTEMIC_FIREWALL_BREACH",
-        "GENESIS_SEAL_COMPROMISE"
-    ]
-    
-    def scan_artifact(self, artifact: GeneratedArtifact) -> List[Dict]:
-        """Run Glasswing security scan on artifact"""
-        findings = []
-        
-        # Check for hardcoded secrets
-        secret_patterns = [
-            'password = "', 'api_key = "', 'secret = "',
-            'token = "', 'credential = "'
+    """Gate-205 adapter to the single canonical Glasswing evidence contract."""
+
+    def __init__(self):
+        self.scanner = GlasswingScanner()
+
+    def scan_artifact_evidence(self, artifact: GeneratedArtifact):
+        """Return canonical EVIDENCE_ONLY security evidence for one artifact."""
+        return self.scanner.scan_evidence(artifact.content, artifact.file_path)
+
+    @staticmethod
+    def findings_from_evidence(report) -> List[Dict]:
+        """Project canonical findings into the legacy Gate-205 dict shape."""
+        return [
+            {
+                "type": finding.vulnerability_type.upper(),
+                "severity": finding.severity.upper(),
+                "file": finding.location.rsplit(":", 1)[0],
+                "description": finding.description,
+                "recommendation": finding.suggested_fix,
+                "rule_id": finding.rule_id,
+                "finding_id": finding.finding_id,
+            }
+            for finding in report.findings
         ]
-        for pattern in secret_patterns:
-            if pattern in artifact.content:
-                findings.append({
-                    "type": "HARDCODED_SECRET",
-                    "severity": "CRITICAL",
-                    "file": artifact.file_path,
-                    "description": f"Potential hardcoded secret detected: {pattern}",
-                    "recommendation": "Use environment variables or secure vault"
-                })
-        
-        # Check for unsafe memory operations (Rust-specific)
-        if artifact.language == "rust":
-            unsafe_indicators = ['unsafe {', 'as_mut_ptr()', 'from_raw_parts']
-            for indicator in unsafe_indicators:
-                if indicator in artifact.content:
-                    findings.append({
-                        "type": "MEMORY_SAFETY",
-                        "severity": "HIGH",
-                        "file": artifact.file_path,
-                        "description": f"Unsafe operation detected: {indicator}",
-                        "recommendation": "Ensure proper safety invariants are maintained"
-                    })
-        
-        # Check for cryptographic weaknesses
-        weak_crypto = ['md5', 'sha1(', 'rand()', 'random()']
-        for crypto in weak_crypto:
-            if crypto.lower() in artifact.content.lower():
-                findings.append({
-                    "type": "CRYPTOGRAPHIC_WEAKNESS",
-                    "severity": "HIGH",
-                    "file": artifact.file_path,
-                    "description": f"Weak cryptographic primitive: {crypto}",
-                    "recommendation": "Use SHA-256 or stronger, use cryptographically secure RNG"
-                })
-        
-        return findings
-    
+
+    def scan_artifact(self, artifact: GeneratedArtifact) -> List[Dict]:
+        """Backward-compatible legacy finding list derived from canonical evidence."""
+        return self.findings_from_evidence(self.scan_artifact_evidence(artifact))
+
     def generate_security_report(self, findings: List[Dict]) -> str:
         """Generate human-readable security report"""
         if not findings:
             return "✓ No security vulnerabilities detected"
-        
+
         report = ["Security Scan Results:", "=" * 40]
-        
+
         critical = [f for f in findings if f.get("severity") == "CRITICAL"]
         high = [f for f in findings if f.get("severity") == "HIGH"]
         medium = [f for f in findings if f.get("severity") == "MEDIUM"]
-        
+
         if critical:
             report.append(f"\nCRITICAL ({len(critical)}):")
             for f in critical:
                 report.append(f"  - {f['type']}: {f['description']}")
-        
+
         if high:
             report.append(f"\nHIGH ({len(high)}):")
             for f in high:
                 report.append(f"  - {f['type']}: {f['description']}")
-        
+
         if medium:
             report.append(f"\nMEDIUM ({len(medium)}):")
             for f in medium:
                 report.append(f"  - {f['type']}: {f['description']}")
-        
+
         return '\n'.join(report)
 
 
 class SprintExecutor:
     """Execute sprint contracts and generate deliverables"""
-    
+
     def __init__(self, contract: Dict[str, Any]):
         self.contract = contract
         self.eccf = ECCFIntegration()
         self.glasswing = GlasswingHook()
         self.artifacts: List[GeneratedArtifact] = []
-    
+
     def execute(self) -> SprintResult:
         """Execute sprint and return results"""
         start_time = datetime.now(timezone.utc)
-        
+
         # Parse contract
         sprint_id = self.contract["sprint_id"]
         directive = self.contract["directive"]
         specifications = self.contract["specifications"]
         constraints = self.contract["constraints"]
         complexity_lambda = self.contract["complexity_lambda"]
-        
+        del constraints
+
         # Generate code artifacts based on specifications
         artifacts = self._generate_artifacts(specifications, complexity_lambda)
-        
+
         # Apply ECCF lattice structure
         for artifact in artifacts:
             if artifact.language in ["rust", "python", "typescript"]:
                 artifact.content = self.eccf.apply_lattice_structure(
-                    artifact.content, 
+                    artifact.content,
                     complexity_lambda
                 )
                 artifact.eccf_lattice_applied = True
-        
-        # Run Glasswing security scan
+
+        # Run one canonical Glasswing evidence path. Artisan does not reinterpret severity.
         all_findings = []
+        evidence_reports = []
         for artifact in artifacts:
-            findings = self.glasswing.scan_artifact(artifact)
+            evidence = self.glasswing.scan_artifact_evidence(artifact)
+            evidence_reports.append(evidence)
+            findings = self.glasswing.findings_from_evidence(evidence)
             all_findings.extend(findings)
-            artifact.glasswing_scan_passed = len(findings) == 0
-        
+            artifact.glasswing_scan_passed = evidence.allows_progress
+            artifact.glasswing_disposition = evidence.disposition.value
+
         # Generate test suite
         test_suite = self._generate_test_suite(artifacts, specifications)
-        
+
         # Generate documentation
         documentation = self._generate_documentation(artifacts, directive)
-        
+
         end_time = datetime.now(timezone.utc)
         execution_time_ms = int((end_time - start_time).total_seconds() * 1000)
-        
-        # Determine success
-        critical_findings = [f for f in all_findings if f.get("severity") == "CRITICAL"]
-        success = len(critical_findings) == 0 and len(artifacts) > 0
-        
+
+        # Success consumes the canonical disposition; no local severity policy remains here.
+        success = len(artifacts) > 0 and all(
+            evidence.allows_progress for evidence in evidence_reports
+        )
+
         return SprintResult(
             sprint_id=sprint_id,
             artifacts=artifacts,
@@ -250,67 +238,63 @@ class SprintExecutor:
             documentation=documentation,
             glasswing_findings=all_findings,
             execution_time_ms=execution_time_ms,
-            success=success
+            success=success,
+            glasswing_evidence=[evidence.to_dict() for evidence in evidence_reports],
         )
-    
+
     def _generate_artifacts(self, specifications: List[str], lambda_level: int) -> List[GeneratedArtifact]:
         """Generate code artifacts from specifications"""
         artifacts = []
-        
+
         # For each specification, generate corresponding code
-        for i, spec in enumerate(specifications):
+        for spec in specifications:
             if spec.startswith("INPUT:"):
                 continue  # Skip input specification
-            
+
             if spec.startswith("CONSTRAINT:"):
                 continue  # Skip constraint specifications
-            
+
             if spec.startswith("PROCESS:") or spec.startswith("OUTPUT:"):
-                # Generate implementation file
                 artifact = self._generate_implementation(spec, lambda_level)
                 artifacts.append(artifact)
-        
+
         return artifacts
-    
+
     def _generate_implementation(self, spec: str, lambda_level: int) -> GeneratedArtifact:
         """Generate implementation code for a specification"""
-        # Extract action from specification
         parts = spec.split(": ", 1)
         action = parts[1] if len(parts) > 1 else spec
-        
-        # Generate placeholder implementation
-        language = "rust"  # Default to Rust for AEGIS
+
+        language = "rust"
         file_ext = "rs"
-        
+
         if "test" in action.lower():
             language = "rust"
             file_ext = "rs"
         elif "python" in action.lower():
             language = "python"
             file_ext = "py"
-        
-        # Generate code template
+
         code = self._generate_code_template(action, language, lambda_level)
-        
+
         return GeneratedArtifact(
             file_path=f"src/{action.replace(' ', '_').lower()}.{file_ext}",
             content=code,
             language=language,
             lines_of_code=len(code.split('\n')),
             complexity_score=lambda_level / 10.0,
-            eccf_lattice_applied=False,  # Will be set by caller
-            glasswing_scan_passed=False  # Will be set by caller
+            eccf_lattice_applied=False,
+            glasswing_scan_passed=False,
         )
-    
+
     def _generate_code_template(self, action: str, language: str, lambda_level: int) -> str:
         """Generate code template based on action and language"""
         if language == "rust":
             return self._rust_template(action, lambda_level)
-        elif language == "python":
+        if language == "python":
             return self._python_template(action, lambda_level)
-        else:
-            return f"// Implementation for: {action}\n// TODO: Implement according to specification"
-    
+        return f"// Implementation for: {action}\n// TODO: Implement according to specification"
+
     def _rust_template(self, action: str, lambda_level: int) -> str:
         """Generate Rust code template"""
         return f'''//! Module: {action}
@@ -323,13 +307,13 @@ use std::collections::BTreeMap;
 pub fn execute_{action.replace(" ", "_").lower()}() -> Result<(), &'static str> {{
     // TODO: Implement according to sprint contract
     // Constraints: AGPL3_COMPLIANCE, GENESIS_SEAL
-    
+
     // Zero-allocation pattern where possible
     let mut state = BTreeMap::new();
-    
+
     // Apply constitutional enforcer
     enforce_constitution()?;
-    
+
     Ok(())
 }}
 
@@ -352,12 +336,12 @@ mod tests {{
     }}
 }}
 '''
-    
+
     def _python_template(self, action: str, lambda_level: int) -> str:
         """Generate Python code template"""
         safe_name = action.replace(" ", "").title()
         func_name = action.replace(" ", "_").lower()
-        
+
         return f'''"""
 Module: {action}
 Generated by AEGIS Artisan Node β
@@ -373,7 +357,7 @@ class {safe_name}State:
     """State container for {action}"""
     initialized: bool = False
     data: Dict[str, Any] = None
-    
+
     def __post_init__(self):
         if self.data is None:
             self.data = dict()
@@ -382,19 +366,19 @@ class {safe_name}State:
 def execute_{func_name}() -> bool:
     """
     Execute {action} according to sprint contract.
-    
+
     Returns:
         bool: True if successful, False otherwise
     """
     # TODO: Implement according to sprint contract
     # Constraints: AGPL3_COMPLIANCE, GENESIS_SEAL
-    
+
     state = {safe_name}State(initialized=True)
-    
+
     # Apply constitutional enforcer
     if not enforce_constitution():
         return False
-    
+
     return True
 
 
@@ -411,49 +395,50 @@ if __name__ == "__main__":
     result_str = "successful" if success else "failed"
     print(f"Execution {{result_str}}")
 '''
-    
+
     def _generate_test_suite(self, artifacts: List[GeneratedArtifact], specifications: List[str]) -> str:
         """Generate test suite for artifacts"""
         tests = ["# Test Suite", "# Generated by AEGIS Artisan Node β", ""]
-        
+
         for artifact in artifacts:
             tests.append(f"# Tests for {artifact.file_path}")
             tests.append(f"# Lines of code: {artifact.lines_of_code}")
             tests.append(f"# Complexity: {artifact.complexity_score}")
             tests.append("")
-        
+
         return '\n'.join(tests)
-    
+
     def _generate_documentation(self, artifacts: List[GeneratedArtifact], directive: str) -> str:
         """Generate documentation for sprint deliverable"""
         doc = [
-            f"# Sprint Documentation",
-            f"",
+            "# Sprint Documentation",
+            "",
             f"**Directive:** {directive}",
-            f"",
-            f"## Generated Artifacts",
-            f""
+            "",
+            "## Generated Artifacts",
+            "",
         ]
-        
+
         for artifact in artifacts:
             doc.append(f"### {artifact.file_path}")
             doc.append(f"- Language: {artifact.language}")
             doc.append(f"- Lines: {artifact.lines_of_code}")
             doc.append(f"- ECCF Applied: {artifact.eccf_lattice_applied}")
             doc.append(f"- Security Scan: {'PASSED' if artifact.glasswing_scan_passed else 'FAILED'}")
+            doc.append(f"- Security Disposition: {artifact.glasswing_disposition}")
             doc.append("")
-        
+
         return '\n'.join(doc)
 
 
 class ArtisanNode:
     """Node β: The Artisan - Generator Agent"""
-    
+
     def __init__(self, config_path: Optional[str] = None):
         self.config = self._load_config(config_path)
         self.state_dir = Path(self.config.get("state_dir", "./state/artisan"))
         self.state_dir.mkdir(parents=True, exist_ok=True)
-    
+
     def _load_config(self, config_path: Optional[str]) -> Dict:
         """Load node configuration"""
         default_config = {
@@ -462,90 +447,80 @@ class ArtisanNode:
             "state_dir": "./state/artisan",
             "max_artifacts_per_sprint": 10,
             "eccf_enabled": True,
-            "glasswing_enabled": True
+            "glasswing_enabled": True,
         }
-        
+
         if config_path and Path(config_path).exists():
             with open(config_path, 'r') as f:
                 loaded = json.load(f)
                 default_config.update(loaded)
-        
+
         return default_config
-    
+
     def process_contract(self, contract_path: str) -> SprintResult:
         """Process sprint contract and generate deliverables"""
-        # Load contract
         with open(contract_path, 'r') as f:
             contract = json.load(f)
-        
-        # Extract contract data
+
         contract_data = contract.get("contract", contract)
-        
-        # Execute sprint
         executor = SprintExecutor(contract_data)
         result = executor.execute()
-        
-        # Persist results
         self._persist_result(result, contract_data)
-        
         return result
-    
+
     def _persist_result(self, result: SprintResult, contract: Dict) -> None:
         """Persist sprint result to state directory"""
+        del contract
         result_file = self.state_dir / f"{result.sprint_id}_result.json"
-        
+
         data = {
             "result": {
                 "sprint_id": result.sprint_id,
                 "success": result.success,
                 "execution_time_ms": result.execution_time_ms,
                 "artifact_count": len(result.artifacts),
-                "findings_count": len(result.glasswing_findings)
+                "findings_count": len(result.glasswing_findings),
             },
             "artifacts": [asdict(a) for a in result.artifacts],
             "test_suite": result.test_suite,
             "documentation": result.documentation,
             "findings": result.glasswing_findings,
+            "security_evidence": result.glasswing_evidence,
             "metadata": {
                 "node_id": self.config["node_id"],
                 "eccf_enabled": self.config["eccf_enabled"],
-                "glasswing_enabled": self.config["glasswing_enabled"]
-            }
+                "glasswing_enabled": self.config["glasswing_enabled"],
+            },
         }
-        
+
         with open(result_file, 'w') as f:
             json.dump(data, f, indent=2)
 
 
 def main():
     """Main entry point for Artisan Node"""
-    import sys
-    
-    # Initialize node
     config_path = sys.argv[1] if len(sys.argv) > 1 else None
     artisan = ArtisanNode(config_path)
-    
-    # Find latest contract from Architect
+
     architect_state = Path("./state/architect")
     contracts = list(architect_state.glob("*.json"))
-    
+
     if not contracts:
         print("No sprint contracts found. Run Architect node first.")
         return None
-    
-    # Process most recent contract
+
     latest_contract = sorted(contracts)[-1]
     print(f"Processing contract: {latest_contract.name}")
-    
+
     result = artisan.process_contract(str(latest_contract))
-    
-    print(f"\nSprint Result:")
+
+    print("\nSprint Result:")
     print(f"  ID: {result.sprint_id}")
     print(f"  Success: {result.success}")
     print(f"  Artifacts: {len(result.artifacts)}")
     print(f"  Execution Time: {result.execution_time_ms}ms")
     print(f"  Security Findings: {len(result.glasswing_findings)}")
-    
+
     return result
 
 

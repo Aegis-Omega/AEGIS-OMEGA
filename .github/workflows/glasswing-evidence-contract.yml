@@ -1,0 +1,33 @@
+name: Glasswing Evidence Contract
+
+on:
+  push:
+    branches:
+      - security/glasswing-evidence-contract-v1
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'security/**'
+      - 'sovereign-mesh/nodes/artisan/**'
+      - 'research/falsifiers/glasswing_evidence_contract_v1.md'
+      - '.github/workflows/glasswing-evidence-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  glasswing-evidence-contract:
+    name: Glasswing evidence falsifiers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run GLASSWING_SECURITY_EVIDENCE_V1 falsifiers
+        run: >-
+          python -m unittest -v
+          security/test_glasswing_evidence_contract.py
+          security/test_glasswing_artisan_adapter.py
