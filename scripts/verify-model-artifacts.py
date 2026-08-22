@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 """Validate AEGIS model artifact provenance and optional local weight bytes.
 
-This validator intentionally separates four claims:
+The validator separates artifact existence from artifact publicity. A private
+operator checkpoint is a first-class artifact when its bytes are digest-bound;
+it does not need a public URL or public redistribution license.
 
-1. UPSTREAM_KNOWN      — an upstream artifact/source is identified.
-2. SOURCE_PINNED       — an open-weight artifact is bound to an immutable source revision.
-3. MIRRORED_VERIFIED  — the repo-owned mirror has complete digest closure.
-4. LOCAL_VERIFIED     — this checkout contains bytes matching the admitted mirror.
-
-None grants execution, admission, effect, or state-transition authority. Model
-artifacts remain evidence/capability inputs only.
+Artifact evidence never grants execution, admission, effect, or state-transition
+authority.
 """
 from __future__ import annotations
 
@@ -29,6 +26,11 @@ SCHEMA_PATH = ROOT / "schemas" / "model-artifacts.v1.schema.json"
 MODEL_REGISTRY_PATH = ROOT / "config" / "model-capability-registry.v1.json"
 FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SHORT_SHA_RE = re.compile(r"^[0-9a-f]{7,39}$")
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+PUBLIC_READY = "MIRRORED_VERIFIED"
+PRIVATE_READY = "PRIVATE_MIRRORED_VERIFIED"
+LOCAL_WEIGHT_KINDS = {"PUBLIC_OPEN_WEIGHTS", "PRIVATE_OPERATOR_WEIGHTS"}
 
 
 class ArtifactVerificationError(RuntimeError):
@@ -55,10 +57,7 @@ def load_json(path: Path) -> dict[str, Any]:
 def sha256_file(path: Path, block_size: int = 8 * 1024 * 1024) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
-        while True:
-            block = handle.read(block_size)
-            if not block:
-                break
+        while block := handle.read(block_size):
             digest.update(block)
     return digest.hexdigest()
 
@@ -74,15 +73,43 @@ def validate_schema(index: dict[str, Any], schema: dict[str, Any]) -> None:
         fail(f"schema violation at {location}: {error.message}")
 
 
+def require_checkout(package_id: str, checkout_path: object) -> None:
+    if not isinstance(checkout_path, str) or not checkout_path.startswith("models/weights/"):
+        fail(f"weight package {package_id!r} requires a models/weights checkout path")
+
+
+def validate_checkpoint_closure(package_id: str, package: dict[str, Any]) -> None:
+    checkpoint = package.get("checkpoint")
+    if checkpoint is None:
+        return
+    declared = checkpoint["declared_shard_count"]
+    complete = checkpoint["complete_shard_digest_set"]
+    files = package["files"]
+    mirror_state = package["mirror"]["state"]
+    if complete and len(files) < declared:
+        fail(
+            f"package {package_id!r} claims complete shard closure but has "
+            f"{len(files)} file records for {declared} declared shards"
+        )
+    if mirror_state in {PUBLIC_READY, PRIVATE_READY} and not complete:
+        fail(f"package {package_id!r} cannot be ready without complete shard digest closure")
+
+
 def validate_semantics(index: dict[str, Any]) -> None:
     if index.get("authority_rule") != "WEIGHTS_AND_MODEL_OUTPUTS_ARE_EVIDENCE_NOT_AUTHORITY":
         fail("artifact authority boundary changed")
 
     storage = index["storage_policy"]
-    if storage["ordinary_git_weight_storage_forbidden"] is not True:
-        fail("raw model weights must not enter ordinary Git history")
-    if storage["local_execution_requires_verified_hydration"] is not True:
-        fail("local model execution must require verified hydration")
+    for required_true in (
+        "ordinary_git_weight_storage_forbidden",
+        "require_sha256_for_every_mirrored_asset",
+        "require_exact_source_revision_before_mirroring",
+        "require_license_before_public_mirroring",
+        "public_repository_plaintext_private_weights_forbidden",
+        "local_execution_requires_verified_hydration",
+    ):
+        if storage.get(required_true) is not True:
+            fail(f"storage invariant {required_true!r} must remain true")
 
     registry = load_json(MODEL_REGISTRY_PATH)
     providers = registry.get("providers", {})
@@ -104,84 +131,94 @@ def validate_semantics(index: dict[str, Any]) -> None:
         checkout_path = package["checkout_path"]
 
         seen_paths: set[str] = set()
-        for file_record in files:
-            file_path = file_record["path"]
-            if file_path in seen_paths:
-                fail(f"package {package_id!r} repeats file {file_path!r}")
-            seen_paths.add(file_path)
+        for record in files:
+            path = record["path"]
+            if path in seen_paths:
+                fail(f"package {package_id!r} repeats file {path!r}")
+            seen_paths.add(path)
 
-        if availability == "REMOTE_ONLY_NO_PUBLIC_WEIGHTS":
-            if files:
-                fail(f"remote-only package {package_id!r} must declare zero weight files")
-            if checkout_path is not None:
-                fail(f"remote-only package {package_id!r} must not declare a checkout path")
+        if availability == "VENDOR_REMOTE_ONLY":
+            if files or checkout_path is not None:
+                fail(f"vendor-remote package {package_id!r} must not claim repo-local weight bytes")
             if source.get("kind") != "provider_api" or not source.get("model_id"):
-                fail(f"remote-only package {package_id!r} requires provider_api model_id")
-            if mirror["state"] != "NOT_APPLICABLE_REMOTE_ONLY":
-                fail(f"remote-only package {package_id!r} has invalid mirror state")
+                fail(f"vendor-remote package {package_id!r} requires provider_api model_id")
+            if license_record.get("redistribution_status") != "NOT_APPLICABLE_VENDOR_REMOTE":
+                fail(f"vendor-remote package {package_id!r} has invalid rights classification")
+            if mirror["state"] != "NOT_APPLICABLE_VENDOR_REMOTE":
+                fail(f"vendor-remote package {package_id!r} has invalid mirror state")
             if any(mirror[field] is not None for field in ("backend", "release_tag", "manifest_path")):
-                fail(f"remote-only package {package_id!r} must not fabricate mirror coordinates")
+                fail(f"vendor-remote package {package_id!r} must not fabricate mirror coordinates")
             continue
 
-        if availability not in {"OPEN_WEIGHTS", "MANIFEST_ONLY_PENDING_PIN"}:
-            fail(f"package {package_id!r} has unsupported weight availability")
-        if source.get("kind") != "huggingface" or not source.get("repo_id"):
-            fail(f"open-weight package {package_id!r} requires a Hugging Face source")
-        if not license_record.get("spdx"):
-            fail(f"open-weight package {package_id!r} requires a declared SPDX license")
-        if license_record.get("redistribution_status") != "PERMITTED_BY_DECLARED_LICENSE":
-            fail(f"open-weight package {package_id!r} is not declared redistributable")
-        if not checkout_path or not str(checkout_path).startswith("models/weights/"):
-            fail(f"open-weight package {package_id!r} requires a repository checkout path")
-        if not files:
-            fail(f"open-weight package {package_id!r} requires at least one digest-bound file")
+        if availability == "PUBLIC_OPEN_WEIGHTS":
+            if source.get("kind") != "huggingface" or not source.get("repo_id"):
+                fail(f"public open-weight package {package_id!r} requires a Hugging Face source")
+            if not license_record.get("spdx"):
+                fail(f"public open-weight package {package_id!r} requires a declared SPDX license")
+            if license_record.get("redistribution_status") != "PERMITTED_BY_DECLARED_LICENSE":
+                fail(f"public open-weight package {package_id!r} is not declared redistributable")
+            require_checkout(package_id, checkout_path)
+            if not files:
+                fail(f"public open-weight package {package_id!r} requires digest-bound files")
+            revision = str(source.get("revision", ""))
+            if source.get("revision_kind") != "FULL_COMMIT_SHA" or not FULL_SHA_RE.fullmatch(revision):
+                fail(f"public open-weight package {package_id!r} requires an exact 40-char source commit")
+            if mirror["state"] == PUBLIC_READY:
+                if mirror["backend"] != "repository_release_assets":
+                    fail(f"public mirrored package {package_id!r} must use repository release assets")
+                if not mirror["release_tag"] or not mirror["manifest_path"]:
+                    fail(f"public mirrored package {package_id!r} lacks release coordinates")
+                if not (ROOT / mirror["manifest_path"]).is_file():
+                    fail(f"public mirrored package {package_id!r} lacks committed release manifest")
+            validate_checkpoint_closure(package_id, package)
+            continue
 
-        revision = str(source.get("revision", ""))
-        revision_kind = source.get("revision_kind")
-        if revision_kind == "FULL_COMMIT_SHA":
-            if not FULL_SHA_RE.fullmatch(revision):
-                fail(f"package {package_id!r} claims FULL_COMMIT_SHA but revision is not 40 hex chars")
-        elif revision_kind == "VERIFIED_SHORT_COMMIT_PREFIX":
-            if not SHORT_SHA_RE.fullmatch(revision):
-                fail(f"package {package_id!r} has invalid short commit prefix")
-            if availability == "OPEN_WEIGHTS":
-                fail(f"OPEN_WEIGHTS package {package_id!r} requires an exact full source SHA")
-        else:
-            fail(f"package {package_id!r} has unsupported revision kind {revision_kind!r}")
+        if availability == "PRIVATE_OPERATOR_WEIGHTS":
+            if source.get("kind") != "operator_private":
+                fail(f"private package {package_id!r} requires operator_private source kind")
+            opaque_ref = source.get("opaque_ref")
+            content_root = source.get("content_root_sha256")
+            if not isinstance(opaque_ref, str) or not opaque_ref.strip():
+                fail(f"private package {package_id!r} requires a non-public opaque source reference")
+            if source.get("revision_kind") != "PRIVATE_CONTENT_ROOT" or not isinstance(content_root, str) or not SHA256_RE.fullmatch(content_root):
+                fail(f"private package {package_id!r} requires a SHA-256 private content root")
+            if license_record.get("redistribution_status") != "PRIVATE_OPERATOR_ONLY":
+                fail(f"private package {package_id!r} must remain operator-private")
+            require_checkout(package_id, checkout_path)
+            if not files:
+                fail(f"private package {package_id!r} requires digest-bound files")
+            if mirror["state"] not in {"PRIVATE_SOURCE_REGISTERED_NOT_YET_MIRRORED", PRIVATE_READY}:
+                fail(f"private package {package_id!r} has invalid private mirror state")
+            if mirror["state"] == PRIVATE_READY:
+                if mirror["backend"] not in {"operator_private_store", "encrypted_repository_release_assets"}:
+                    fail(f"private package {package_id!r} uses an unsafe mirror backend")
+                if not mirror["manifest_path"] or not (ROOT / mirror["manifest_path"]).is_file():
+                    fail(f"private mirrored package {package_id!r} lacks committed non-secret manifest")
+                if mirror["backend"] == "encrypted_repository_release_assets" and not mirror["release_tag"]:
+                    fail(f"encrypted repo mirror {package_id!r} requires a release tag")
+            validate_checkpoint_closure(package_id, package)
+            continue
 
-        checkpoint = package.get("checkpoint")
-        if checkpoint is not None:
-            declared = checkpoint["declared_shard_count"]
-            complete = checkpoint["complete_shard_digest_set"]
-            if complete and len(files) < declared:
-                fail(
-                    f"package {package_id!r} claims complete shard closure but has "
-                    f"{len(files)} file records for {declared} declared shards"
-                )
-            if not complete and mirror["state"] not in {
-                "BLOCKED_PENDING_COMPLETE_SHARD_DIGESTS",
-                "BLOCKED_PENDING_FULL_SOURCE_SHA_AND_COMPLETE_SHARD_DIGESTS",
-            }:
-                fail(
-                    f"package {package_id!r} lacks complete shard digest closure but mirror "
-                    f"state is {mirror['state']!r}"
-                )
-            if mirror["state"] == "MIRRORED_VERIFIED" and not complete:
-                fail(f"package {package_id!r} cannot be mirrored without complete shard digest closure")
+        if availability == "MANIFEST_ONLY_PENDING_PIN":
+            if source.get("kind") != "huggingface" or not source.get("repo_id"):
+                fail(f"pending public package {package_id!r} requires upstream repository identity")
+            revision = str(source.get("revision", ""))
+            kind = source.get("revision_kind")
+            if kind not in {"FULL_COMMIT_SHA", "VERIFIED_SHORT_COMMIT_PREFIX"}:
+                fail(f"pending package {package_id!r} has invalid revision kind")
+            if kind == "FULL_COMMIT_SHA" and not FULL_SHA_RE.fullmatch(revision):
+                fail(f"pending package {package_id!r} has invalid full commit")
+            if kind == "VERIFIED_SHORT_COMMIT_PREFIX" and not SHORT_SHA_RE.fullmatch(revision):
+                fail(f"pending package {package_id!r} has invalid short commit prefix")
+            continue
 
-        if mirror["state"] == "MIRRORED_VERIFIED":
-            if revision_kind != "FULL_COMMIT_SHA":
-                fail(f"mirrored package {package_id!r} requires exact source commit")
-            if mirror["backend"] != "repository_release_assets":
-                fail(f"mirrored package {package_id!r} must use repo-owned release assets")
-            if not mirror["release_tag"] or not mirror["manifest_path"]:
-                fail(f"mirrored package {package_id!r} is missing release coordinates")
-            release_manifest_path = ROOT / mirror["manifest_path"]
-            if not release_manifest_path.is_file():
-                fail(f"mirrored package {package_id!r} lacks committed release manifest")
+        if availability == "UNVERIFIED_UNKNOWN":
+            if mirror["state"] in {PUBLIC_READY, PRIVATE_READY}:
+                fail(f"unverified package {package_id!r} cannot claim verified mirror readiness")
+            continue
 
-    # If the capability registry binds a model to an artifact package, the link
-    # must resolve and provider identity must agree on both sides.
+        fail(f"package {package_id!r} has unsupported weight availability {availability!r}")
+
     for model_id, model in sorted(models.items()):
         if not isinstance(model, dict):
             fail(f"model {model_id!r} is malformed")
@@ -199,8 +236,12 @@ def validate_semantics(index: dict[str, Any]) -> None:
         "unknown_package_denied",
         "open_weight_package_requires_exact_source_revision",
         "open_weight_package_requires_license",
+        "private_weight_package_requires_digest_binding",
+        "private_weight_package_may_use_opaque_source",
+        "private_weight_plaintext_publication_forbidden",
+        "vendor_remote_does_not_imply_weights_do_not_exist",
         "mirrored_package_requires_complete_file_digest_set",
-        "remote_only_package_must_have_zero_weight_files",
+        "vendor_remote_package_must_have_zero_repo_weight_files",
         "artifact_presence_does_not_grant_execution_authority",
         "model_output_never_grants_admission_or_effect_authority",
     ):
@@ -209,15 +250,18 @@ def validate_semantics(index: dict[str, Any]) -> None:
 
 
 def verify_local_package(index: dict[str, Any], package_id: str) -> dict[str, Any]:
-    packages = index["packages"]
-    package = packages.get(package_id)
+    package = index["packages"].get(package_id)
     if not isinstance(package, dict):
         raise ArtifactVerificationError(f"unknown package: {package_id}")
-    if package["weight_availability"] == "REMOTE_ONLY_NO_PUBLIC_WEIGHTS":
-        raise ArtifactVerificationError(f"package {package_id} has no public/local weights")
-    if package["mirror"]["state"] != "MIRRORED_VERIFIED":
+
+    availability = package["weight_availability"]
+    if availability not in LOCAL_WEIGHT_KINDS:
+        raise ArtifactVerificationError(f"package {package_id} has no admitted local weight artifact")
+
+    expected_ready_state = PRIVATE_READY if availability == "PRIVATE_OPERATOR_WEIGHTS" else PUBLIC_READY
+    if package["mirror"]["state"] != expected_ready_state:
         raise ArtifactVerificationError(
-            f"package {package_id} has not passed repo-mirror admission; local execution denied"
+            f"package {package_id} has not passed its mirror admission; local execution denied"
         )
 
     checkout = ROOT / package["checkout_path"]
@@ -248,6 +292,7 @@ def verify_local_package(index: dict[str, Any], package_id: str) -> dict[str, An
     return {
         "receipt_kind": "MODEL_HYDRATION_VERIFICATION_V1",
         "package_id": package_id,
+        "weight_availability": availability,
         "outcome": "LOCAL_VERIFIED",
         "authority": "EVIDENCE_ONLY",
         "verified_files": verified,
@@ -256,16 +301,8 @@ def verify_local_package(index: dict[str, Any], package_id: str) -> dict[str, An
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--verify-local",
-        metavar="PACKAGE_ID",
-        help="also hash-verify required local bytes for one admitted mirror package",
-    )
-    parser.add_argument(
-        "--receipt",
-        type=Path,
-        help="write local verification receipt to this path",
-    )
+    parser.add_argument("--verify-local", metavar="PACKAGE_ID")
+    parser.add_argument("--receipt", type=Path)
     args = parser.parse_args()
 
     index = load_json(INDEX_PATH)
@@ -275,8 +312,8 @@ def main() -> int:
 
     print(
         "MODEL_ARTIFACT_INDEX_OK "
-        f"packages={len(index['packages'])} "
-        "authority=EVIDENCE_ONLY"
+        f"packages={len(index['packages'])} authority=EVIDENCE_ONLY "
+        "private_weights_supported=true"
     )
 
     if args.verify_local:
