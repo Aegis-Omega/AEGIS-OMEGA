@@ -5,6 +5,7 @@ on:
     paths:
       - "harness/inference/holon/perspective.py"
       - "harness/inference/holon/test_perspective.py"
+      - "harness/inference/holon/requirements_holon.txt"
       - ".github/workflows/holon-perspective-v1.yml"
   workflow_dispatch:
 
@@ -29,8 +30,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install CPU PyTorch
-        run: python -m pip install --disable-pip-version-check --index-url https://download.pytorch.org/whl/cpu "torch>=2.3"
+      - name: Install numeric dependencies
+        run: |
+          python -m pip install --disable-pip-version-check "numpy>=2.0,<3"
+          python -m pip install --disable-pip-version-check --index-url https://download.pytorch.org/whl/cpu "torch>=2.3"
 
       - name: Compile Perspective contract
         working-directory: harness/inference/holon
