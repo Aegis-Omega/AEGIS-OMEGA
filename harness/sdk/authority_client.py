@@ -8,9 +8,14 @@ from pathlib import Path
 from typing import Any
 
 from harness.sdk.principal_binding import (
+    DPOP_CERT_BOUND,
+    MTLS_DPOP_CERT_BOUND,
     VALIDATED_BINDING_EVIDENCE,
-    ExecutionPrincipalBinding,
     evaluate_execution_principal,
+)
+from harness.sdk.runtime_pop_authority import (
+    SQLiteReplayStore,
+    bind_execution_principal_from_crypto,
 )
 from harness.sdk.sovereign_execution import (
     ADMITTED, ApprovalGrant, AuthorityEvaluator, AuthorityRequest,
@@ -21,6 +26,7 @@ from harness.sdk.sovereign_execution import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 EXECUTION_PRINCIPAL_CLASSES = frozenset(("D3", "D4"))
+DPOP_MODES = frozenset((DPOP_CERT_BOUND, MTLS_DPOP_CERT_BOUND))
 
 
 def _denial(code: str, detail: str = "") -> dict[str, Any]:
@@ -40,6 +46,16 @@ def _principal_denial(principal_decision) -> dict[str, Any]:
     }
     body["decision_root"] = canonical_hash("AEGIS_AUTHORITY_CLIENT_PRINCIPAL_DENIAL_V1", body)
     return body
+
+
+def _load_crypto_evidence(path_value: str) -> dict[str, Any]:
+    path = Path(path_value)
+    if not path.is_absolute():
+        raise ValueError("RUNTIME_POP_CRYPTO_EVIDENCE_PATH_NOT_ABSOLUTE")
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError("RUNTIME_POP_CRYPTO_EVIDENCE_NOT_OBJECT")
+    return value
 
 
 def authorize_from_environment(*, action_class: str, authority_domain: str, requested_capability: str, tool: str, target: str, action: dict[str, Any], current_generation: int = 0, idempotency_key: str = "NONE", compensation_reference: str = "NONE") -> dict[str, Any]:
@@ -62,12 +78,31 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         return _denial("IDENTITY_TOOL_MISMATCH")
 
     principal_decision = None
+    crypto_receipt = None
     if action_class in EXECUTION_PRINCIPAL_CLASSES:
         raw_principal = os.environ.get("AEGIS_EXECUTION_PRINCIPAL_JSON")
         if not raw_principal:
             return _denial("EXECUTION_PRINCIPAL_UNAVAILABLE")
+        evidence_path = os.environ.get("AEGIS_RUNTIME_POP_CRYPTO_EVIDENCE_PATH")
+        if not evidence_path:
+            return _denial("RUNTIME_POP_CRYPTO_EVIDENCE_UNAVAILABLE")
         try:
-            principal = ExecutionPrincipalBinding.from_mapping(json.loads(raw_principal))
+            principal_payload = json.loads(raw_principal)
+            if not isinstance(principal_payload, dict):
+                raise ValueError("EXECUTION_PRINCIPAL_NOT_OBJECT")
+            crypto_evidence = _load_crypto_evidence(evidence_path)
+            replay_store = None
+            if crypto_evidence.get("binding_mode") in DPOP_MODES:
+                replay_db = os.environ.get("AEGIS_DPOP_REPLAY_DB")
+                if not replay_db:
+                    return _denial("DPOP_REPLAY_STORE_UNAVAILABLE")
+                replay_store = SQLiteReplayStore(replay_db)
+            principal, crypto_receipt = bind_execution_principal_from_crypto(
+                principal_payload,
+                crypto_evidence,
+                generation=current_generation,
+                replay_store=replay_store,
+            )
             principal_decision = evaluate_execution_principal(
                 principal,
                 action_class=action_class,
@@ -79,7 +114,7 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
                 expected_target_digest=canonical_hash("AEGIS_AUTHORITY_TARGET_V1", target),
             )
         except Exception as exc:
-            return _denial("EXECUTION_PRINCIPAL_INVALID", str(exc))
+            return _denial("RUNTIME_POP_CRYPTO_INVALID", str(exc))
         if principal_decision.outcome != VALIDATED_BINDING_EVIDENCE:
             return _principal_denial(principal_decision)
 
@@ -149,4 +184,7 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         result["execution_principal_binding_root"] = principal_decision.binding_root
         result["execution_principal_decision_root"] = principal_decision.decision_root
         result["execution_principal_authority_granted"] = False
+    if crypto_receipt is not None:
+        result["runtime_pop_crypto_receipt_root"] = crypto_receipt.proof_root
+        result["runtime_pop_crypto_verifier_identity"] = crypto_receipt.verifier_identity
     return result
