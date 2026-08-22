@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/model-artifacts.v1.schema.json",
+  "title": "AEGIS Model Artifacts V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "epistemic_status",
+    "authority_rule",
+    "storage_policy",
+    "packages",
+    "future_package_rule"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "epistemic_status": { "const": "T2_ENGINEERING_CONFIGURATION" },
+    "authority_rule": { "const": "WEIGHTS_AND_MODEL_OUTPUTS_ARE_EVIDENCE_NOT_AUTHORITY" },
+    "storage_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkout_root",
+        "ordinary_git_weight_storage_forbidden",
+        "canonical_large_artifact_store",
+        "release_asset_chunk_max_bytes",
+        "require_sha256_for_every_mirrored_asset",
+        "require_exact_source_revision_before_mirroring",
+        "require_license_before_mirroring",
+        "local_execution_requires_verified_hydration"
+      ],
+      "properties": {
+        "checkout_root": { "const": "models/weights" },
+        "ordinary_git_weight_storage_forbidden": { "const": true },
+        "canonical_large_artifact_store": { "const": "repository_release_assets" },
+        "release_asset_chunk_max_bytes": { "type": "integer", "minimum": 1, "maximum": 2000000000 },
+        "require_sha256_for_every_mirrored_asset": { "const": true },
+        "require_exact_source_revision_before_mirroring": { "const": true },
+        "require_license_before_mirroring": { "const": true },
+        "local_execution_requires_verified_hydration": { "const": true }
+      }
+    },
+    "packages": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/package" }
+    },
+    "future_package_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unknown_package_denied",
+        "open_weight_package_requires_exact_source_revision",
+        "open_weight_package_requires_license",
+        "mirrored_package_requires_complete_file_digest_set",
+        "remote_only_package_must_have_zero_weight_files",
+        "artifact_presence_does_not_grant_execution_authority",
+        "model_output_never_grants_admission_or_effect_authority"
+      ],
+      "properties": {
+        "unknown_package_denied": { "const": true },
+        "open_weight_package_requires_exact_source_revision": { "const": true },
+        "open_weight_package_requires_license": { "const": true },
+        "mirrored_package_requires_complete_file_digest_set": { "const": true },
+        "remote_only_package_must_have_zero_weight_files": { "const": true },
+        "artifact_presence_does_not_grant_execution_authority": { "const": true },
+        "model_output_never_grants_admission_or_effect_authority": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "required_for_local_execution"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "required_for_local_execution": { "type": "boolean" },
+        "evidence_scope": { "type": "string", "minLength": 1 }
+      }
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["spdx", "redistribution_status"],
+      "properties": {
+        "spdx": { "type": ["string", "null"] },
+        "redistribution_status": {
+          "enum": [
+            "PERMITTED_BY_DECLARED_LICENSE",
+            "NOT_APPLICABLE_NO_PUBLIC_WEIGHTS"
+          ]
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "minProperties": 2,
+      "additionalProperties": true,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "enum": ["huggingface", "provider_api"] },
+        "repo_id": { "type": "string", "minLength": 1 },
+        "revision": { "type": "string", "minLength": 1 },
+        "revision_kind": { "enum": ["FULL_COMMIT_SHA", "VERIFIED_SHORT_COMMIT_PREFIX"] },
+        "model_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "mirror": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "backend", "release_tag", "manifest_path"],
+      "properties": {
+        "state": {
+          "enum": [
+            "UPSTREAM_PINNED_NOT_YET_MIRRORED",
+            "BLOCKED_PENDING_FULL_SOURCE_SHA_AND_COMPLETE_SHARD_DIGESTS",
+            "MIRRORED_VERIFIED",
+            "NOT_APPLICABLE_REMOTE_ONLY"
+          ]
+        },
+        "backend": { "type": ["string", "null"] },
+        "release_tag": { "type": ["string", "null"] },
+        "manifest_path": { "type": ["string", "null"] }
+      }
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "family",
+        "provider",
+        "weight_availability",
+        "license",
+        "source",
+        "files",
+        "checkout_path",
+        "mirror"
+      ],
+      "properties": {
+        "family": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "weight_availability": {
+          "enum": [
+            "OPEN_WEIGHTS",
+            "REMOTE_ONLY_NO_PUBLIC_WEIGHTS",
+            "MANIFEST_ONLY_PENDING_PIN"
+          ]
+        },
+        "license": { "$ref": "#/$defs/license" },
+        "source": { "$ref": "#/$defs/source" },
+        "checkpoint": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["declared_shard_count", "complete_shard_digest_set"],
+          "properties": {
+            "declared_shard_count": { "type": "integer", "minimum": 1 },
+            "complete_shard_digest_set": { "type": "boolean" }
+          }
+        },
+        "files": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/file" }
+        },
+        "checkout_path": { "type": ["string", "null"] },
+        "mirror": { "$ref": "#/$defs/mirror" }
+      }
+    }
+  }
+}
