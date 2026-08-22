@@ -2,9 +2,9 @@
 """Fail-closed semantic validator for AEGIS model-capability-registry.v1.
 
 Schema validity is necessary but not sufficient. This validator enforces
-cross-reference, role/capability, provider, execution-surface, and model-artifact
-invariants. Model configuration is T2 evidence/configuration only and can never
-become authority by being present in the registry.
+cross-reference, role/capability, provider, execution-surface, model-artifact,
+and primary-source evidence invariants. Configuration and source records are
+T2 evidence only; neither can become authority by being present in the repo.
 """
 from __future__ import annotations
 
@@ -18,6 +18,20 @@ ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / "config" / "model-capability-registry.v1.json"
 SCHEMA_PATH = ROOT / "schemas" / "model-capability-registry.v1.schema.json"
 ARTIFACT_INDEX_PATH = ROOT / "models" / "model-artifacts.v1.json"
+SOURCE_EVIDENCE_PATH = ROOT / "models" / "evidence" / "model-source-evidence.v1.json"
+
+# `structured_output` is an AEGIS/provider-transport contract rather than a pure
+# intrinsic model property, so it is validated structurally but not required to
+# appear in a model capability evidence claim. Other model-level capabilities
+# must have primary-source support through one of the aliases below.
+CAPABILITY_EVIDENCE_ALIASES: dict[str, frozenset[str]] = {
+    "reasoning": frozenset({"reasoning"}),
+    "long_context": frozenset({"long_context"}),
+    "tool_use": frozenset({"tool_use", "function_calling"}),
+    "code": frozenset({"code", "coding"}),
+    "multimodal": frozenset({"multimodal"}),
+    "local_execution": frozenset({"open_weights", "public_weights", "edge_deployment"}),
+}
 
 
 def fail(message: str) -> None:
@@ -37,10 +51,62 @@ def load_json(path: Path) -> dict:
     return value
 
 
+def build_source_claim_index(evidence: dict, known_models: set[str]) -> dict[str, set[str]]:
+    if evidence.get("authority_rule") != "SOURCE_EVIDENCE_DOES_NOT_GRANT_MODEL_AUTHORITY":
+        fail("model source evidence authority boundary changed")
+    rules = evidence.get("future_source_rule")
+    if not isinstance(rules, dict):
+        fail("model source evidence future_source_rule is malformed")
+    for key in (
+        "every_registered_model_requires_primary_source",
+        "source_record_is_evidence_only",
+        "capability_claims_require_source_support",
+        "related_open_checkpoint_must_not_be_equated_with_managed_api_model",
+        "license_review_required_before_weight_mirroring",
+    ):
+        if rules.get(key) is not True:
+            fail(f"model source invariant {key!r} must remain true")
+
+    sources = evidence.get("sources")
+    if not isinstance(sources, dict) or not sources:
+        fail("model source evidence must contain source records")
+
+    claims_by_model: dict[str, set[str]] = {model_id: set() for model_id in known_models}
+    primary_coverage: dict[str, int] = {model_id: 0 for model_id in known_models}
+    for source_id, source in sorted(sources.items()):
+        if not isinstance(source, dict):
+            fail(f"source record {source_id!r} is malformed")
+        source_type = source.get("source_type")
+        url = source.get("url")
+        model_ids = source.get("model_ids")
+        claims = source.get("supports_claims")
+        if not isinstance(source_type, str) or not source_type:
+            fail(f"source record {source_id!r} lacks source_type")
+        if not isinstance(url, str) or not url.startswith("https://"):
+            fail(f"source record {source_id!r} lacks an HTTPS URL")
+        if not isinstance(model_ids, list) or not model_ids or not all(isinstance(x, str) for x in model_ids):
+            fail(f"source record {source_id!r} has invalid model_ids")
+        if not isinstance(claims, list) or not all(isinstance(x, str) for x in claims):
+            fail(f"source record {source_id!r} has invalid supports_claims")
+        is_primary = source_type.startswith("PRIMARY_")
+        for model_id in model_ids:
+            if model_id not in known_models:
+                fail(f"source record {source_id!r} references unknown model {model_id!r}")
+            claims_by_model[model_id].update(claims)
+            if is_primary:
+                primary_coverage[model_id] += 1
+
+    missing_primary = sorted(model_id for model_id, count in primary_coverage.items() if count == 0)
+    if missing_primary:
+        fail(f"registered models without primary source coverage: {missing_primary}")
+    return claims_by_model
+
+
 def main() -> int:
     registry = load_json(REGISTRY_PATH)
     schema = load_json(SCHEMA_PATH)
     artifact_index = load_json(ARTIFACT_INDEX_PATH)
+    source_evidence = load_json(SOURCE_EVIDENCE_PATH)
 
     errors = sorted(
         Draft202012Validator(schema).iter_errors(registry),
@@ -64,6 +130,8 @@ def main() -> int:
     artifact_packages = artifact_index.get("packages")
     if not isinstance(artifact_packages, dict):
         fail("model artifact index packages field is malformed")
+
+    claims_by_model = build_source_claim_index(source_evidence, set(models))
 
     for role_name, role in sorted(roles.items()):
         for dependency in role.get("require_provider_diversity_from", []):
@@ -106,6 +174,17 @@ def main() -> int:
             )
 
         capabilities = set(model["capabilities"])
+        source_claims = claims_by_model[model_id]
+        for capability in sorted(capabilities):
+            aliases = CAPABILITY_EVIDENCE_ALIASES.get(capability)
+            if aliases is None:
+                continue
+            if source_claims.isdisjoint(aliases):
+                fail(
+                    f"model {model_id!r} declares capability {capability!r} without "
+                    f"primary-source support; accepted evidence aliases={sorted(aliases)}"
+                )
+
         for role_name in model["recommended_roles"]:
             role = roles.get(role_name)
             if role is None:
@@ -147,7 +226,7 @@ def main() -> int:
     print(
         "MODEL_REGISTRY_OK "
         f"providers={len(providers)} models={len(models)} roles={len(roles)} "
-        f"artifact_packages={len(artifact_packages)} "
+        f"artifact_packages={len(artifact_packages)} primary_source_coverage=complete "
         "authority=EVIDENCE_ONLY fail_closed=true"
     )
     return 0
