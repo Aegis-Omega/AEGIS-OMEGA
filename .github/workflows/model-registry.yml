@@ -1,0 +1,51 @@
+name: AEGIS Model Registry
+
+on:
+  pull_request:
+    paths:
+      - 'config/model-capability-registry.v1.json'
+      - 'schemas/model-capability-registry.v1.schema.json'
+      - 'scripts/validate-model-capability-registry.py'
+      - '.github/workflows/model-registry.yml'
+  merge_group:
+  push:
+    branches: [main]
+    paths:
+      - 'config/model-capability-registry.v1.json'
+      - 'schemas/model-capability-registry.v1.schema.json'
+      - 'scripts/validate-model-capability-registry.py'
+      - '.github/workflows/model-registry.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-model-registry:
+    name: aegis / model-registry
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact validator dependency
+        run: pip install jsonschema==4.23.0
+
+      - name: Validate model registry
+        run: python scripts/validate-model-capability-registry.py
+
+      - name: Assert model outputs remain non-authoritative
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F '"authority_rule": "MODEL_OUTPUT_IS_EVIDENCE_NOT_AUTHORITY"' config/model-capability-registry.v1.json
+          grep -F '"allow_unknown_models": false' config/model-capability-registry.v1.json
+          grep -F '"must_not_become_authority_by_configuration": true' config/model-capability-registry.v1.json
