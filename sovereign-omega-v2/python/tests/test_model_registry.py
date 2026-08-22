@@ -27,16 +27,31 @@ def test_unknown_model_fails_closed() -> None:
 
 
 def test_candidate_models_are_not_executable_by_default() -> None:
-    assert registry().resolve("planner") == ()
-    with pytest.raises(ModelRegistryError):
-        registry().require_one("planner")
+    candidates = registry().resolve("planner")
+    assert candidates
+    assert all(candidate.status in {"active", "active_legacy"} for candidate in candidates)
+    ids = {candidate.model_id for candidate in candidates}
+    assert "gpt-5.6-sol" not in ids
+    assert "claude-fable-5" not in ids
+    assert "claude-opus-5" not in ids
+    assert "claude-sonnet-5" not in ids
+    assert "deepseek-v4-pro" not in ids
+    assert "qwen3.8-max" not in ids
 
 
-def test_legacy_active_qwen_remains_remote_executor_only() -> None:
+def test_legacy_inventory_remains_remote_and_evidence_only() -> None:
     candidates = registry().resolve("coder", execution_surface=REMOTE_SURFACE)
-    assert [c.model_id for c in candidates] == ["qwen-plus"]
-    assert candidates[0].execution_surfaces == (REMOTE_SURFACE,)
-    assert candidates[0].authority == MODEL_OUTPUT_AUTHORITY == "EVIDENCE_ONLY"
+    by_id = {candidate.model_id: candidate for candidate in candidates}
+    for model_id in (
+        "claude-haiku-4-5-20251001",
+        "claude-sonnet-4-6",
+        "gpt-4o",
+        "qwen-plus",
+        "qwen3.7-plus",
+    ):
+        assert model_id in by_id
+        assert by_id[model_id].execution_surfaces == (REMOTE_SURFACE,)
+        assert by_id[model_id].authority == MODEL_OUTPUT_AUTHORITY == "EVIDENCE_ONLY"
 
 
 def test_candidate_planners_can_be_inspected_without_activation() -> None:
@@ -47,9 +62,11 @@ def test_candidate_planners_can_be_inspected_without_activation() -> None:
     )
     ids = {candidate.model_id for candidate in candidates}
     assert "gpt-5.6-sol" in ids
+    assert "claude-fable-5" in ids
     assert "claude-opus-5" in ids
     assert "claude-sonnet-5" in ids
     assert "deepseek-v4-pro" in ids
+    assert "qwen3.8-max" in ids
 
 
 def test_local_gemma_is_not_routable_until_repo_mirror_is_verified() -> None:
