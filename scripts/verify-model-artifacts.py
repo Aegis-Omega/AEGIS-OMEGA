@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Validate AEGIS model artifact provenance and optional local weight bytes.
 
-This validator intentionally separates three claims:
+This validator intentionally separates four claims:
 
-1. UPSTREAM_KNOWN      — an upstream open-weight artifact is identified.
-2. MIRRORED_VERIFIED  — every required repo-owned mirror asset is digest-bound.
-3. LOCAL_VERIFIED     — the current checkout contains bytes matching the manifest.
+1. UPSTREAM_KNOWN      — an upstream artifact/source is identified.
+2. SOURCE_PINNED       — an open-weight artifact is bound to an immutable source revision.
+3. MIRRORED_VERIFIED  — the repo-owned mirror has complete digest closure.
+4. LOCAL_VERIFIED     — this checkout contains bytes matching the admitted mirror.
 
-None of those claims grants execution, admission, effect, or state-transition
-authority. Model artifacts remain evidence/capability inputs only.
+None grants execution, admission, effect, or state-transition authority. Model
+artifacts remain evidence/capability inputs only.
 """
 from __future__ import annotations
 
@@ -85,8 +86,9 @@ def validate_semantics(index: dict[str, Any]) -> None:
 
     registry = load_json(MODEL_REGISTRY_PATH)
     providers = registry.get("providers", {})
-    if not isinstance(providers, dict):
-        fail("model capability registry providers field is malformed")
+    models = registry.get("models", {})
+    if not isinstance(providers, dict) or not isinstance(models, dict):
+        fail("model capability registry is malformed")
 
     packages = index["packages"]
     for package_id, package in sorted(packages.items()):
@@ -134,16 +136,16 @@ def validate_semantics(index: dict[str, Any]) -> None:
         if not files:
             fail(f"open-weight package {package_id!r} requires at least one digest-bound file")
 
-        revision = source.get("revision", "")
+        revision = str(source.get("revision", ""))
         revision_kind = source.get("revision_kind")
         if revision_kind == "FULL_COMMIT_SHA":
-            if not FULL_SHA_RE.fullmatch(str(revision)):
+            if not FULL_SHA_RE.fullmatch(revision):
                 fail(f"package {package_id!r} claims FULL_COMMIT_SHA but revision is not 40 hex chars")
         elif revision_kind == "VERIFIED_SHORT_COMMIT_PREFIX":
-            if not SHORT_SHA_RE.fullmatch(str(revision)):
+            if not SHORT_SHA_RE.fullmatch(revision):
                 fail(f"package {package_id!r} has invalid short commit prefix")
-            if mirror["state"] == "MIRRORED_VERIFIED":
-                fail(f"package {package_id!r} cannot be mirrored from a short commit prefix")
+            if availability == "OPEN_WEIGHTS":
+                fail(f"OPEN_WEIGHTS package {package_id!r} requires an exact full source SHA")
         else:
             fail(f"package {package_id!r} has unsupported revision kind {revision_kind!r}")
 
@@ -156,6 +158,14 @@ def validate_semantics(index: dict[str, Any]) -> None:
                     f"package {package_id!r} claims complete shard closure but has "
                     f"{len(files)} file records for {declared} declared shards"
                 )
+            if not complete and mirror["state"] not in {
+                "BLOCKED_PENDING_COMPLETE_SHARD_DIGESTS",
+                "BLOCKED_PENDING_FULL_SOURCE_SHA_AND_COMPLETE_SHARD_DIGESTS",
+            }:
+                fail(
+                    f"package {package_id!r} lacks complete shard digest closure but mirror "
+                    f"state is {mirror['state']!r}"
+                )
             if mirror["state"] == "MIRRORED_VERIFIED" and not complete:
                 fail(f"package {package_id!r} cannot be mirrored without complete shard digest closure")
 
@@ -166,6 +176,23 @@ def validate_semantics(index: dict[str, Any]) -> None:
                 fail(f"mirrored package {package_id!r} must use repo-owned release assets")
             if not mirror["release_tag"] or not mirror["manifest_path"]:
                 fail(f"mirrored package {package_id!r} is missing release coordinates")
+            release_manifest_path = ROOT / mirror["manifest_path"]
+            if not release_manifest_path.is_file():
+                fail(f"mirrored package {package_id!r} lacks committed release manifest")
+
+    # If the capability registry binds a model to an artifact package, the link
+    # must resolve and provider identity must agree on both sides.
+    for model_id, model in sorted(models.items()):
+        if not isinstance(model, dict):
+            fail(f"model {model_id!r} is malformed")
+        artifact_package = model.get("artifact_package")
+        if artifact_package is None:
+            continue
+        package = packages.get(artifact_package)
+        if not isinstance(package, dict):
+            fail(f"model {model_id!r} references unknown artifact package {artifact_package!r}")
+        if package["provider"] != model.get("provider"):
+            fail(f"model {model_id!r} provider disagrees with artifact package {artifact_package!r}")
 
     rules = index["future_package_rule"]
     for key in (
@@ -188,6 +215,10 @@ def verify_local_package(index: dict[str, Any], package_id: str) -> dict[str, An
         raise ArtifactVerificationError(f"unknown package: {package_id}")
     if package["weight_availability"] == "REMOTE_ONLY_NO_PUBLIC_WEIGHTS":
         raise ArtifactVerificationError(f"package {package_id} has no public/local weights")
+    if package["mirror"]["state"] != "MIRRORED_VERIFIED":
+        raise ArtifactVerificationError(
+            f"package {package_id} has not passed repo-mirror admission; local execution denied"
+        )
 
     checkout = ROOT / package["checkout_path"]
     if not checkout.is_dir():
@@ -228,7 +259,7 @@ def main() -> int:
     parser.add_argument(
         "--verify-local",
         metavar="PACKAGE_ID",
-        help="also hash-verify required local bytes for one package",
+        help="also hash-verify required local bytes for one admitted mirror package",
     )
     parser.add_argument(
         "--receipt",
