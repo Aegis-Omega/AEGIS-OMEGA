@@ -31,6 +31,7 @@ jobs:
           set -euo pipefail
           python3 -m unittest harness.tests.test_github_substrate -v
           python3 -m unittest harness.tests.test_github_substrate_workflow -v
+          python3 -m unittest harness.tests.test_github_summary_workflow -v
 
       - name: Generate exact-head substrate manifest
         run: |
