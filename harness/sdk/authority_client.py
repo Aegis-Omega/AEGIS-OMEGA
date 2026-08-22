@@ -13,10 +13,6 @@ from harness.sdk.principal_binding import (
     VALIDATED_BINDING_EVIDENCE,
     evaluate_execution_principal,
 )
-from harness.sdk.runtime_pop_authority import (
-    SQLiteReplayStore,
-    bind_execution_principal_from_crypto,
-)
 from harness.sdk.sovereign_execution import (
     ADMITTED, ApprovalGrant, AuthorityEvaluator, AuthorityRequest,
     ExecutionIdentityEnvelope, ZERO_HASH, canonical_hash,
@@ -87,6 +83,13 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         if not evidence_path:
             return _denial("RUNTIME_POP_CRYPTO_EVIDENCE_UNAVAILABLE")
         try:
+            # Crypto is an optional process dependency for D0-D2 but mandatory
+            # and fail-closed once consequential D3/D4 evaluation is requested.
+            from harness.sdk.runtime_pop_authority import (
+                SQLiteReplayStore,
+                bind_execution_principal_from_crypto,
+            )
+
             principal_payload = json.loads(raw_principal)
             if not isinstance(principal_payload, dict):
                 raise ValueError("EXECUTION_PRINCIPAL_NOT_OBJECT")
