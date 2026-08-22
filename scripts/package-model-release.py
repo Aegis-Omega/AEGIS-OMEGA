@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Package verified open-model bytes into repo-owned release assets.
+"""Package verified PUBLIC open-model bytes into repo-owned release assets.
+
+Private operator weights are deliberately rejected here. They use a separate
+private/encrypted packaging path so a public-repository release command can
+never publish plaintext private checkpoints by accident.
 
 The default mode is local-only and side-effect free outside the staging directory.
 `--upload` is deliberately guarded by `--operator-approved-upload`; publishing a
@@ -28,20 +32,13 @@ def sha256_file(path: Path, block_size: int = 8 * 1024 * 1024) -> str:
 
 
 def asset_prefix(relative_path: str) -> str:
-    """Return a stable collision-resistant release-asset prefix."""
     normalized = relative_path.replace("\\", "/")
     readable = normalized.replace("/", "__")
     path_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:12]
     return f"{path_hash}__{readable}"
 
 
-def copy_chunked(
-    source: Path,
-    destination: Path,
-    chunk_max: int,
-    *,
-    relative_path: str,
-) -> list[dict[str, Any]]:
+def copy_chunked(source: Path, destination: Path, chunk_max: int, *, relative_path: str) -> list[dict[str, Any]]:
     destination.mkdir(parents=True, exist_ok=True)
     parts: list[dict[str, Any]] = []
     prefix = asset_prefix(relative_path)
@@ -56,13 +53,7 @@ def copy_chunked(
             if part_path.exists():
                 raise SystemExit(f"release asset collision: {name}")
             part_path.write_bytes(chunk)
-            parts.append(
-                {
-                    "asset": name,
-                    "size_bytes": len(chunk),
-                    "sha256": hashlib.sha256(chunk).hexdigest(),
-                }
-            )
+            parts.append({"asset": name, "size_bytes": len(chunk), "sha256": hashlib.sha256(chunk).hexdigest()})
             index += 1
     return parts
 
@@ -85,8 +76,8 @@ def main() -> int:
     package = index["packages"].get(args.package_id)
     if not isinstance(package, dict):
         raise SystemExit(f"unknown package: {args.package_id}")
-    if package["weight_availability"] != "OPEN_WEIGHTS":
-        raise SystemExit("only OPEN_WEIGHTS packages may be mirrored")
+    if package["weight_availability"] != "PUBLIC_OPEN_WEIGHTS":
+        raise SystemExit("only PUBLIC_OPEN_WEIGHTS packages may use the public release packager")
     source = package["source"]
     if source.get("revision_kind") != "FULL_COMMIT_SHA" or len(source.get("revision", "")) != 40:
         raise SystemExit("refusing mirror: exact 40-char upstream source revision is required")
@@ -108,26 +99,15 @@ def main() -> int:
     for path in sorted(p for p in source_dir.rglob("*") if p.is_file()):
         relative = path.relative_to(source_dir).as_posix()
         original_sha = sha256_file(path)
-        parts = copy_chunked(
-            path,
-            asset_dir,
-            chunk_max,
-            relative_path=relative,
-        )
-        files.append(
-            {
-                "path": relative,
-                "size_bytes": path.stat().st_size,
-                "sha256": original_sha,
-                "parts": parts,
-            }
-        )
+        parts = copy_chunked(path, asset_dir, chunk_max, relative_path=relative)
+        files.append({"path": relative, "size_bytes": path.stat().st_size, "sha256": original_sha, "parts": parts})
 
     release_manifest = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "receipt_kind": "MODEL_RELEASE_MANIFEST_V1",
         "package_id": args.package_id,
         "authority": "EVIDENCE_ONLY",
+        "confidentiality": "PUBLIC",
         "source": source,
         "license": package["license"],
         "release_tag": package["mirror"]["release_tag"],
@@ -137,9 +117,7 @@ def main() -> int:
     manifest_path = staging / "MODEL_RELEASE_MANIFEST.json"
     manifest_path.write_text(json.dumps(release_manifest, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     manifest_sha = sha256_file(manifest_path)
-    (staging / "MODEL_RELEASE_MANIFEST.sha256").write_text(
-        f"{manifest_sha}  MODEL_RELEASE_MANIFEST.json\n", encoding="utf-8"
-    )
+    (staging / "MODEL_RELEASE_MANIFEST.sha256").write_text(f"{manifest_sha}  MODEL_RELEASE_MANIFEST.json\n", encoding="utf-8")
 
     print(f"MODEL_RELEASE_STAGED package={args.package_id} files={len(files)} manifest_sha256={manifest_sha}")
 
@@ -151,20 +129,11 @@ def main() -> int:
         tag = package["mirror"]["release_tag"]
         if not tag:
             raise SystemExit("package has no release tag")
-        run_checked(
-            [
-                "gh",
-                "release",
-                "create",
-                tag,
-                "--repo",
-                args.repo,
-                "--title",
-                f"AEGIS model artifact: {args.package_id}",
-                "--notes",
-                "Proof-bound model artifact mirror. Model bytes are capability/evidence only, never authority.",
-            ]
-        )
+        run_checked([
+            "gh", "release", "create", tag, "--repo", args.repo,
+            "--title", f"AEGIS model artifact: {args.package_id}",
+            "--notes", "Proof-bound public model artifact mirror. Model bytes are capability/evidence only, never authority.",
+        ])
         upload_paths = [str(p) for p in sorted(asset_dir.iterdir())]
         upload_paths.extend([str(manifest_path), str(staging / "MODEL_RELEASE_MANIFEST.sha256")])
         run_checked(["gh", "release", "upload", tag, "--repo", args.repo, *upload_paths])
