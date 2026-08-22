@@ -17,17 +17,14 @@ EVIDENCE_PATHS = (
     ROOT / "models/evidence/model-source-evidence.supplement.v1.json",
 )
 
-# These are intrinsic model capabilities that must be supported by at least one
-# repo-bound primary source. `structured_output` and `code` remain validated by
-# role/transport contracts but are not required here because provider docs do
-# not consistently expose them as model-card fields.
 CAPABILITY_EVIDENCE_ALIASES: dict[str, frozenset[str]] = {
     "reasoning": frozenset({"reasoning"}),
     "long_context": frozenset({"long_context"}),
     "tool_use": frozenset({"tool_use", "function_calling"}),
     "multimodal": frozenset({"multimodal"}),
-    "local_execution": frozenset({"open_weights", "public_weights", "edge_deployment"}),
+    "local_execution": frozenset({"open_weights", "public_weights", "edge_deployment", "private_weights"}),
 }
+LOCAL_WEIGHT_KINDS = {"PUBLIC_OPEN_WEIGHTS", "PRIVATE_OPERATOR_WEIGHTS"}
 
 
 def fail(message: str) -> None:
@@ -47,9 +44,11 @@ def load_json(path: Path) -> dict:
     return value
 
 
-def build_source_claim_index(evidence_docs: list[dict], known_models: set[str]) -> dict[str, set[str]]:
+def build_source_claim_index(
+    evidence_docs: list[dict], known_models: set[str]
+) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
     claims_by_model: dict[str, set[str]] = {model_id: set() for model_id in known_models}
-    primary_coverage: dict[str, int] = {model_id: 0 for model_id in known_models}
+    source_types_by_model: dict[str, set[str]] = {model_id: set() for model_id in known_models}
     saw_future_rules = False
 
     for evidence in evidence_docs:
@@ -61,11 +60,14 @@ def build_source_claim_index(evidence_docs: list[dict], known_models: set[str]) 
                 fail("model source evidence future_source_rule is malformed")
             saw_future_rules = True
             for key in (
-                "every_registered_model_requires_primary_source",
+                "every_registered_model_requires_bound_source_evidence",
+                "public_or_vendor_model_requires_primary_source",
+                "private_model_may_use_operator_private_source",
+                "private_source_must_not_require_public_url",
                 "source_record_is_evidence_only",
-                "capability_claims_require_source_support",
+                "capability_claims_require_source_or_evaluation_support",
                 "related_open_checkpoint_must_not_be_equated_with_managed_api_model",
-                "license_review_required_before_weight_mirroring",
+                "license_or_rights_review_required_before_weight_mirroring",
             ):
                 if rules.get(key) is not True:
                     fail(f"model source invariant {key!r} must remain true")
@@ -77,31 +79,37 @@ def build_source_claim_index(evidence_docs: list[dict], known_models: set[str]) 
             if not isinstance(source, dict):
                 fail(f"source record {source_id!r} is malformed")
             source_type = source.get("source_type")
-            url = source.get("url")
             model_ids = source.get("model_ids")
             claims = source.get("supports_claims")
             if not isinstance(source_type, str) or not source_type:
                 fail(f"source record {source_id!r} lacks source_type")
-            if not isinstance(url, str) or not url.startswith("https://"):
-                fail(f"source record {source_id!r} lacks an HTTPS URL")
             if not isinstance(model_ids, list) or not model_ids or not all(isinstance(x, str) for x in model_ids):
                 fail(f"source record {source_id!r} has invalid model_ids")
             if not isinstance(claims, list) or not all(isinstance(x, str) for x in claims):
                 fail(f"source record {source_id!r} has invalid supports_claims")
-            is_primary = source_type.startswith("PRIMARY_")
+
+            if source_type.startswith("PRIMARY_"):
+                url = source.get("url")
+                if not isinstance(url, str) or not url.startswith("https://"):
+                    fail(f"primary source record {source_id!r} lacks an HTTPS URL")
+            elif source_type.startswith("OPERATOR_PRIVATE_"):
+                opaque_ref = source.get("opaque_ref")
+                if not isinstance(opaque_ref, str) or not opaque_ref:
+                    fail(f"private source record {source_id!r} lacks opaque_ref")
+                if source.get("url") is not None:
+                    fail(f"private source record {source_id!r} must not disclose a URL")
+            else:
+                fail(f"source record {source_id!r} has unsupported source_type {source_type!r}")
+
             for model_id in model_ids:
                 if model_id not in known_models:
                     fail(f"source record {source_id!r} references unknown model {model_id!r}")
                 claims_by_model[model_id].update(claims)
-                if is_primary:
-                    primary_coverage[model_id] += 1
+                source_types_by_model[model_id].add(source_type)
 
     if not saw_future_rules:
         fail("no model source evidence document carries future-source invariants")
-    missing_primary = sorted(model_id for model_id, count in primary_coverage.items() if count == 0)
-    if missing_primary:
-        fail(f"registered models without primary source coverage: {missing_primary}")
-    return claims_by_model
+    return claims_by_model, source_types_by_model
 
 
 def main() -> int:
@@ -131,7 +139,7 @@ def main() -> int:
     artifact_packages = artifact_index.get("packages")
     if not isinstance(artifact_packages, dict):
         fail("model artifact index packages field is malformed")
-    claims_by_model = build_source_claim_index(evidence_docs, set(models))
+    claims_by_model, source_types_by_model = build_source_claim_index(evidence_docs, set(models))
 
     for role_name, role in sorted(roles.items()):
         for dependency in role.get("require_provider_diversity_from", []):
@@ -158,15 +166,25 @@ def main() -> int:
 
         surfaces = set(model["execution_surfaces"])
         availability = package["weight_availability"]
-        if "local_checkpoint" in surfaces and availability != "OPEN_WEIGHTS":
-            fail(f"model {model_id!r} claims local_checkpoint without OPEN_WEIGHTS artifact package")
-        if availability == "REMOTE_ONLY_NO_PUBLIC_WEIGHTS" and surfaces != {"remote_api"}:
-            fail(f"remote-only model {model_id!r} must expose exactly remote_api")
-        if "remote_api" in surfaces and provider_id == "google-local":
+        if "local_checkpoint" in surfaces and availability not in LOCAL_WEIGHT_KINDS:
+            fail(f"model {model_id!r} claims local_checkpoint without an admitted local-weight artifact kind")
+        if availability == "VENDOR_REMOTE_ONLY" and surfaces != {"remote_api"}:
+            fail(f"vendor-remote model {model_id!r} must expose exactly remote_api")
+        if "remote_api" in surfaces and provider_id in {"google-local", "operator-local"}:
             fail(f"local provider model {model_id!r} cannot claim remote_api")
         source = package.get("source", {})
-        if availability == "REMOTE_ONLY_NO_PUBLIC_WEIGHTS" and source.get("model_id") != model_id:
-            fail(f"remote-only model {model_id!r} is not identity-bound to its artifact source")
+        if availability == "VENDOR_REMOTE_ONLY" and source.get("model_id") != model_id:
+            fail(f"vendor-remote model {model_id!r} is not identity-bound to its provider source")
+
+        source_types = source_types_by_model[model_id]
+        if not source_types:
+            fail(f"registered model {model_id!r} has no bound source evidence")
+        if availability == "PRIVATE_OPERATOR_WEIGHTS":
+            if not any(source_type.startswith("OPERATOR_PRIVATE_") for source_type in source_types):
+                fail(f"private model {model_id!r} lacks operator-private source evidence")
+        else:
+            if not any(source_type.startswith("PRIMARY_") for source_type in source_types):
+                fail(f"public/vendor model {model_id!r} lacks primary source evidence")
 
         capabilities = set(model["capabilities"])
         source_claims = claims_by_model[model_id]
@@ -175,7 +193,7 @@ def main() -> int:
             if aliases is not None and source_claims.isdisjoint(aliases):
                 fail(
                     f"model {model_id!r} declares capability {capability!r} without "
-                    f"primary-source support; aliases={sorted(aliases)}"
+                    f"bound source/evaluation support; aliases={sorted(aliases)}"
                 )
 
         for role_name in model["recommended_roles"]:
@@ -204,8 +222,8 @@ def main() -> int:
     print(
         "MODEL_REGISTRY_OK "
         f"providers={len(providers)} models={len(models)} roles={len(roles)} "
-        f"artifact_packages={len(artifact_packages)} primary_source_coverage=complete "
-        "authority=EVIDENCE_ONLY fail_closed=true"
+        f"artifact_packages={len(artifact_packages)} source_evidence_coverage=complete "
+        "private_weights_supported=true authority=EVIDENCE_ONLY fail_closed=true"
     )
     return 0
 
