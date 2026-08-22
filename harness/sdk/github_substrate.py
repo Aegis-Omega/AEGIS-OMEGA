@@ -196,13 +196,7 @@ def _provider_surfaces(
     permissions: dict[str, str],
     dependencies: Iterable[ActionDependencyV1],
 ) -> tuple[list[str], list[str]]:
-    """Return only strong runtime integration signals.
-
-    Provider/model names in branch filters, comments, paths, workflow names, or
-    prose are deliberately insufficient. This field is intended to answer
-    "this workflow can call/use this provider surface", not "this file mentions
-    this provider".
-    """
+    """Return only strong runtime integration signals."""
     lowered = text.lower()
     dep_refs = "\n".join(dep.reference.lower() for dep in dependencies)
     surfaces: set[str] = set()
@@ -213,81 +207,19 @@ def _provider_surfaces(
         findings.add("RETIRED_GITHUB_MODELS_SURFACE")
 
     strong_signals: dict[str, tuple[str, ...]] = {
-        "github-copilot": (
-            "github/copilot",
-            "copilot_api_key",
-            "copilot_token",
-        ),
-        "openai": (
-            "api.openai.com",
-            "openai_api_key",
-            "openai_base_url",
-            "openai_model",
-        ),
-        "anthropic": (
-            "api.anthropic.com",
-            "anthropic_api_key",
-            "anthropic_base_url",
-            "anthropic_model",
-            "anthropics/",
-        ),
-        "deepseek": (
-            "api.deepseek.com",
-            "deepseek_api_key",
-            "deepseek_base_url",
-            "deepseek_model",
-        ),
-        "gemma": (
-            "gemma_model",
-            "gemma_model_path",
-            "google/gemma",
-        ),
-        "ollama": (
-            "ollama_host",
-            "localhost:11434",
-            "127.0.0.1:11434",
-            "ollama serve",
-        ),
-        "dashscope-qwen": (
-            "dashscope_api_key",
-            "dashscope.aliyuncs.com",
-            "dashscope_base_url",
-            "qwen_model",
-        ),
-        "azure-foundry": (
-            "azure_openai_api_key",
-            "azure_openai_endpoint",
-            "openai.azure.com",
-            "azure_ai_foundry",
-            "azure_foundry",
-        ),
-        "google-vertex-gemini": (
-            "gemini_api_key",
-            "vertex_ai",
-            "vertexai",
-            "aiplatform.googleapis.com",
-            "generativelanguage.googleapis.com",
-        ),
-        "aws-bedrock": (
-            "bedrock-runtime",
-            "aws_bedrock",
-            "bedrock_model_id",
-        ),
-        "mistral": (
-            "api.mistral.ai",
-            "mistral_api_key",
-            "mistral_model",
-        ),
-        "xai-grok": (
-            "api.x.ai",
-            "xai_api_key",
-            "xai_model",
-        ),
-        "hugging-face": (
-            "api-inference.huggingface.co",
-            "huggingface_hub_token",
-            "hf_token",
-        ),
+        "github-copilot": ("github/copilot", "copilot_api_key", "copilot_token"),
+        "openai": ("api.openai.com", "openai_api_key", "openai_base_url", "openai_model"),
+        "anthropic": ("api.anthropic.com", "anthropic_api_key", "anthropic_base_url", "anthropic_model", "anthropics/"),
+        "deepseek": ("api.deepseek.com", "deepseek_api_key", "deepseek_base_url", "deepseek_model"),
+        "gemma": ("gemma_model", "gemma_model_path", "google/gemma"),
+        "ollama": ("ollama_host", "localhost:11434", "127.0.0.1:11434", "ollama serve"),
+        "dashscope-qwen": ("dashscope_api_key", "dashscope.aliyuncs.com", "dashscope_base_url", "qwen_model"),
+        "azure-foundry": ("azure_openai_api_key", "azure_openai_endpoint", "openai.azure.com", "azure_ai_foundry", "azure_foundry"),
+        "google-vertex-gemini": ("gemini_api_key", "vertex_ai", "vertexai", "aiplatform.googleapis.com", "generativelanguage.googleapis.com"),
+        "aws-bedrock": ("bedrock-runtime", "aws_bedrock", "bedrock_model_id"),
+        "mistral": ("api.mistral.ai", "mistral_api_key", "mistral_model"),
+        "xai-grok": ("api.x.ai", "xai_api_key", "xai_model"),
+        "hugging-face": ("api-inference.huggingface.co", "huggingface_hub_token", "hf_token"),
     }
     combined_runtime_text = lowered + "\n" + dep_refs
     for surface, signals in strong_signals.items():
@@ -343,13 +275,56 @@ def _canonical_observations(items: list[dict[str, Any]] | None) -> list[dict[str
     return sorted(copies, key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":")))
 
 
+def build_runner_observation(
+    *,
+    candidate_sha: str,
+    run_id: str,
+    run_attempt: str,
+    job: str,
+    runner_name: str,
+    runner_os: str,
+    runner_arch: str,
+    runner_environment: str,
+) -> dict[str, str]:
+    values = {
+        "candidate_sha": candidate_sha,
+        "workflow_run_id": run_id,
+        "workflow_run_attempt": run_attempt,
+        "job": job,
+        "runner_name": runner_name,
+        "runner_os": runner_os,
+        "runner_arch": runner_arch,
+        "runner_environment": runner_environment,
+    }
+    for field, value in values.items():
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{field} is required")
+    return {
+        "observation_kind": "EXECUTED_RUNNER_OBSERVATION_V1",
+        "authority": "EXECUTED_RUN_EVIDENCE_NOT_RUNNER_REGISTRATION_AUTHORITY",
+        **{field: value.strip() for field, value in values.items()},
+    }
+
+
 def build_manifest(
     repo_root: Path,
     candidate_sha: str,
     historical_observations: list[dict[str, Any]] | None = None,
+    executed_runner_observations: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     if not candidate_sha or not candidate_sha.strip():
         raise ValueError("candidate_sha is required")
+    candidate_sha = candidate_sha.strip()
+
+    executed = _canonical_observations(executed_runner_observations)
+    for observation in executed:
+        if observation.get("observation_kind") != "EXECUTED_RUNNER_OBSERVATION_V1":
+            raise ValueError("executed runner observation kind is invalid")
+        if observation.get("authority") != "EXECUTED_RUN_EVIDENCE_NOT_RUNNER_REGISTRATION_AUTHORITY":
+            raise ValueError("executed runner observation authority is invalid")
+        if observation.get("candidate_sha") != candidate_sha:
+            raise ValueError("executed runner observation subject mismatch")
+
     root = Path(repo_root)
     workflow_dir = root / ".github" / "workflows"
     paths: list[Path] = []
@@ -374,13 +349,13 @@ def build_manifest(
     return {
         "schema_version": "1.0.0",
         "manifest_kind": "GITHUB_SUBSTRATE_MANIFEST_V1",
-        "candidate_sha": candidate_sha.strip(),
+        "candidate_sha": candidate_sha,
         "authority": "EVIDENCE_ONLY_NOT_RUNNER_REGISTRATION_AUTHORITY",
         "current_tree_workflow_count": len(current),
         "current_tree_workflows": current,
         "declared_runner_requirements": runners,
         "registered_runner_inventory_status": "NOT_CHECKED",
-        "executed_runner_observations": [],
+        "executed_runner_observations": executed,
         "action_dependencies": dependencies,
         "provider_model_surfaces": providers,
         "historical_workflow_observations": _canonical_observations(historical_observations),
@@ -432,6 +407,20 @@ def validate_manifest(manifest: dict[str, Any]) -> dict[str, list[str]]:
         path = observation.get("workflow_path")
         if observation.get("observed_as") == "HISTORICAL_ONLY_BUT_CURRENT" and path in current_paths:
             violations.add(f"HISTORICAL_CURRENT_UNIVERSE_CONFLICT:{path}")
+
+    candidate_sha = manifest.get("candidate_sha")
+    executed = manifest.get("executed_runner_observations") or []
+    if not isinstance(executed, list):
+        violations.add("EXECUTED_RUNNER_OBSERVATIONS_NOT_LIST")
+        executed = []
+    for observation in executed:
+        if not isinstance(observation, dict):
+            violations.add("MALFORMED_EXECUTED_RUNNER_OBSERVATION")
+            continue
+        if observation.get("candidate_sha") != candidate_sha:
+            violations.add("EXECUTED_RUNNER_OBSERVATION_SUBJECT_MISMATCH")
+        if observation.get("authority") != "EXECUTED_RUN_EVIDENCE_NOT_RUNNER_REGISTRATION_AUTHORITY":
+            violations.add("INVALID_EXECUTED_RUNNER_OBSERVATION_AUTHORITY")
 
     if manifest.get("registered_runner_inventory_status") != "NOT_CHECKED":
         warnings.add("REGISTERED_RUNNER_INVENTORY_REQUIRES_EXTERNAL_BINDING")
