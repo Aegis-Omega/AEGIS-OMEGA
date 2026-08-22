@@ -4,7 +4,9 @@ on:
   pull_request:
     paths:
       - "harness/inference/holon/perspective.py"
+      - "harness/inference/holon/holon_llm_inference.py"
       - "harness/inference/holon/test_perspective.py"
+      - "harness/inference/holon/test_perspective_runtime.py"
       - "harness/inference/holon/requirements_holon.txt"
       - ".github/workflows/holon-perspective-v1.yml"
   workflow_dispatch:
@@ -35,10 +37,14 @@ jobs:
           python -m pip install --disable-pip-version-check "numpy>=2.0,<3"
           python -m pip install --disable-pip-version-check --index-url https://download.pytorch.org/whl/cpu "torch>=2.3"
 
-      - name: Compile Perspective contract
+      - name: Compile Perspective contracts
         working-directory: harness/inference/holon
-        run: python -m py_compile perspective.py test_perspective.py
+        run: python -m py_compile perspective.py holon_llm_inference.py test_perspective.py test_perspective_runtime.py
 
-      - name: Run Perspective falsifiers
+      - name: Run Perspective core falsifiers
         working-directory: harness/inference/holon
         run: python -m unittest -v test_perspective.py
+
+      - name: Run Perspective runtime falsifiers
+        working-directory: harness/inference/holon
+        run: python -m unittest -v test_perspective_runtime.py
