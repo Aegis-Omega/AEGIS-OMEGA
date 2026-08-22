@@ -8,6 +8,7 @@ on:
       - "harness/inference/holon/test_perspective.py"
       - "harness/inference/holon/test_perspective_runtime.py"
       - "harness/inference/holon/requirements_holon.txt"
+      - "harness/inference/holon/INGEST_MANIFEST.json"
       - ".github/workflows/holon-perspective-v1.yml"
   workflow_dispatch:
 
@@ -40,6 +41,10 @@ jobs:
       - name: Compile Perspective contracts
         working-directory: harness/inference/holon
         run: python -m py_compile perspective.py holon_llm_inference.py test_perspective.py test_perspective_runtime.py
+
+      - name: Validate Perspective ingest manifest
+        working-directory: harness/inference/holon
+        run: python -m json.tool INGEST_MANIFEST.json >/dev/null
 
       - name: Run Perspective core falsifiers
         working-directory: harness/inference/holon
