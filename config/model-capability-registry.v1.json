@@ -84,55 +84,73 @@
       "provider": "openai",
       "status": "candidate",
       "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output", "multimodal"],
-      "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor", "multimodal_executor"]
+      "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor", "multimodal_executor"],
+      "artifact_package": "gpt-5.6-sol-remote",
+      "execution_surfaces": ["remote_api"]
     },
     "gpt-5.6-terra": {
       "provider": "openai",
       "status": "candidate",
       "capabilities": ["reasoning", "tool_use", "code", "structured_output", "multimodal"],
-      "recommended_roles": ["coder", "cheap_executor", "multimodal_executor"]
+      "recommended_roles": ["coder", "cheap_executor", "multimodal_executor"],
+      "artifact_package": "gpt-5.6-terra-remote",
+      "execution_surfaces": ["remote_api"]
     },
     "gpt-5.6-luna": {
       "provider": "openai",
       "status": "candidate",
       "capabilities": ["tool_use", "structured_output"],
-      "recommended_roles": ["cheap_executor"]
+      "recommended_roles": ["cheap_executor"],
+      "artifact_package": "gpt-5.6-luna-remote",
+      "execution_surfaces": ["remote_api"]
     },
     "claude-opus-5": {
       "provider": "anthropic",
       "status": "candidate",
       "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output", "multimodal"],
-      "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor"]
+      "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor"],
+      "artifact_package": "claude-opus-5-remote",
+      "execution_surfaces": ["remote_api"]
     },
     "claude-sonnet-5": {
       "provider": "anthropic",
       "status": "candidate",
       "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output", "multimodal"],
-      "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor"]
+      "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor"],
+      "artifact_package": "claude-sonnet-5-remote",
+      "execution_surfaces": ["remote_api"]
     },
     "deepseek-v4-pro": {
       "provider": "deepseek",
       "status": "candidate",
       "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output"],
-      "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor"]
+      "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor"],
+      "artifact_package": "deepseek-v4-pro",
+      "execution_surfaces": ["remote_api", "local_checkpoint"]
     },
     "deepseek-v4-flash": {
       "provider": "deepseek",
       "status": "candidate",
       "capabilities": ["reasoning", "tool_use", "code", "structured_output"],
-      "recommended_roles": ["coder", "cheap_executor"]
+      "recommended_roles": ["coder", "cheap_executor"],
+      "artifact_package": "deepseek-v4-flash",
+      "execution_surfaces": ["remote_api", "local_checkpoint"]
     },
     "gemma-4-local": {
       "provider": "google-local",
       "status": "candidate",
       "capabilities": ["local_execution", "tool_use", "structured_output", "code", "multimodal"],
-      "recommended_roles": ["local_private_executor", "coder", "multimodal_executor"]
+      "recommended_roles": ["local_private_executor", "coder", "multimodal_executor"],
+      "artifact_package": "gemma-4-e2b-it-bf16",
+      "execution_surfaces": ["local_checkpoint"]
     },
     "qwen-plus": {
       "provider": "dashscope",
       "status": "active_legacy",
       "capabilities": ["reasoning", "tool_use", "code", "structured_output"],
-      "recommended_roles": ["coder", "cheap_executor"]
+      "recommended_roles": ["coder", "cheap_executor"],
+      "artifact_package": "qwen-plus-remote",
+      "execution_surfaces": ["remote_api"]
     }
   },
   "future_model_rule": {
@@ -141,7 +159,9 @@
       "provider",
       "status",
       "capabilities",
-      "recommended_roles"
+      "recommended_roles",
+      "artifact_package",
+      "execution_surfaces"
     ],
     "must_not_change_authority_semantics": true,
     "must_not_become_authority_by_configuration": true,
