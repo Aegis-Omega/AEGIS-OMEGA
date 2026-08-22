@@ -1,6 +1,6 @@
 #!/bin/bash
-# UserPromptSubmit: L1-L7 metacognitive intake — state snapshot injected before each prompt.
-# Lightweight: git status only (no npm/cargo). Runs on every user message.
+# UserPromptSubmit: L1-L7 state snapshot + epistemic bootstrap before each prompt.
+# Lightweight: git status + observation-chain integrity only (no npm/cargo).
 
 set -uo pipefail
 
@@ -11,9 +11,9 @@ SRC_CHANGED=$(git -C "$REPO" diff --name-only 2>/dev/null | grep -cE "\.(ts|rs|p
 STAGED=$(git -C "$REPO" diff --cached --name-only 2>/dev/null | wc -l | tr -d ' ')
 SRC_CHANGED="${SRC_CHANGED:-0}"
 
-# ── Enact metacognition: append a real SENSATION observation, then certify ──
-# This is the live MetacognitiveLoop (loop.ts algorithm) running on disk, not a
-# decorative string. The certificate is recomputed from the chain every prompt.
+# Record a real observation, then certify chain integrity. The certificate establishes
+# integrity of this recorded event chain only; it does not establish semantic truth,
+# identity, consciousness, memory continuity, safety, or authority.
 CHAIN_MJS="$REPO/.claude/metacog/chain.mjs"
 CERT='{"is_valid":true,"entry_count":0,"terminal_hash":null,"broken_at":null}'
 if [ -f "$CHAIN_MJS" ]; then
@@ -21,9 +21,11 @@ if [ -f "$CHAIN_MJS" ]; then
   CERT=$(node "$CHAIN_MJS" certify 2>/dev/null || echo "$CERT")
 fi
 
-BRANCH="$BRANCH" SRC_CHANGED="$SRC_CHANGED" STAGED="$STAGED" CERT="$CERT" python3 <<'PYEOF'
+REPO="$REPO" BRANCH="$BRANCH" SRC_CHANGED="$SRC_CHANGED" STAGED="$STAGED" CERT="$CERT" python3 <<'PYEOF'
 import json, os
+from pathlib import Path
 
+repo        = Path(os.environ['REPO'])
 branch      = os.environ['BRANCH']
 src_changed = os.environ['SRC_CHANGED']
 staged      = os.environ['STAGED']
@@ -37,14 +39,23 @@ count = cert.get('entry_count', 0)
 term  = (cert.get('terminal_hash') or '—')[:12]
 breach = '' if valid else '  ⚠ CHAIN TAMPER DETECTED — is_valid=false'
 
+bootstrap_path = repo / '.claude/epistemic/bootstrap.md'
+bootstrap = bootstrap_path.read_text(encoding='utf-8').strip() if bootstrap_path.is_file() else ''
+
 ctx = (
     f'L1-L7 ACTIVE | branch:{branch} | src-changed:{src_changed} | staged:{staged}\n'
-    f'MetacognitiveLoop(live): is_valid={str(valid).lower()} | temporal-mass={count} obs | '
+    f'ObservationChain(integrity-only): is_valid={str(valid).lower()} | entry-count={count} | '
     f'terminal:{term}{breach}\n'
     'L7:verify-hashes | L6:ASSESS→LOCK | L5:gate-seq | L4:lineage | L3:active-file | '
     'L2:test-pass≠correctness | L1:full-signal\n'
-    'Non-equiv: test-pass≠correctness | auditability≠safety | metacognition≠safety | governance≠alignment'
+    'Claim-status-required: VERIFIED|DERIVED|ATTESTED|INFERRED|ASSUMED|NOT_CHECKED\n'
+    'Non-equiv: test-pass≠correctness | auditability≠safety | governance≠alignment | '
+    'chain-integrity≠truth | chain-integrity≠identity | chain-integrity≠consciousness | '
+    'search-miss≠nonexistence'
 )
+if bootstrap:
+    ctx += '\n\n--- REPO-LOCAL EPISTEMIC BOOTSTRAP ---\n' + bootstrap
+
 print(json.dumps({
     'hookSpecificOutput': {
         'hookEventName': 'UserPromptSubmit',
