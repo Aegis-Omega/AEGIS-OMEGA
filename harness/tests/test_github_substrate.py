@@ -6,6 +6,7 @@ from harness.sdk.github_substrate import (
     build_manifest,
     classify_action_ref,
     scan_workflow_text,
+    validate_manifest,
 )
 
 
@@ -119,6 +120,33 @@ class GitHubSubstrateTests(unittest.TestCase):
         self.assertEqual(
             [item['path'] for item in one['current_tree_workflows']],
             ['.github/workflows/a.yaml', '.github/workflows/z.yml'],
+        )
+
+    def test_validator_blocks_current_retired_github_models_surface(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workflows = root / '.github' / 'workflows'
+            workflows.mkdir(parents=True)
+            (workflows / 'summary.yml').write_text(WORKFLOW, encoding='utf-8')
+            manifest = build_manifest(root, candidate_sha='subject')
+        result = validate_manifest(manifest)
+        self.assertIn(
+            'RETIRED_GITHUB_MODELS_SURFACE:.github/workflows/summary.yml',
+            result['violations'],
+        )
+
+    def test_validator_reports_inherited_mutable_authority_actions_as_debt(self):
+        text = '''name: Deploy\npermissions:\n  contents: write\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n'''
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workflows = root / '.github' / 'workflows'
+            workflows.mkdir(parents=True)
+            (workflows / 'deploy.yml').write_text(text, encoding='utf-8')
+            manifest = build_manifest(root, candidate_sha='subject')
+        result = validate_manifest(manifest)
+        self.assertIn(
+            'MUTABLE_ACTION_REF_AUTHORITY_SENSITIVE:.github/workflows/deploy.yml',
+            result['warnings'],
         )
 
 
