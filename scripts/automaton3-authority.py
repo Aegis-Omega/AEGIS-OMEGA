@@ -12,8 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from harness.sdk.principal_binding import (  # noqa: E402
+    DPOP_CERT_BOUND,
+    MTLS_DPOP_CERT_BOUND,
     VALIDATED_BINDING_EVIDENCE,
-    ExecutionPrincipalBinding,
     evaluate_execution_principal,
 )
 from harness.sdk.sovereign_execution import (  # noqa: E402
@@ -32,6 +33,7 @@ from harness.sdk.sovereign_execution import (  # noqa: E402
 )
 
 EXECUTION_PRINCIPAL_CLASSES = frozenset(("D3", "D4"))
+DPOP_MODES = frozenset((DPOP_CERT_BOUND, MTLS_DPOP_CERT_BOUND))
 
 
 def deny(code: str, detail: str = "") -> dict:
@@ -72,7 +74,10 @@ def evaluate(payload: dict) -> dict:
         requested_capability = request_payload["requested_capability"]
         tool = request_payload["tool"]
         target = request_payload["target"]
-    except KeyError as exc:
+        current_generation = int(request_payload.get("current_generation", 0))
+        if current_generation < 0:
+            raise ValueError("current_generation must be nonnegative")
+    except (KeyError, TypeError, ValueError) as exc:
         return deny("AUTHORITY_REQUEST_MALFORMED", str(exc))
     if identity.requested_capability != requested_capability:
         return deny("IDENTITY_CAPABILITY_MISMATCH")
@@ -82,12 +87,37 @@ def evaluate(payload: dict) -> dict:
         return deny("IDENTITY_TOOL_MISMATCH")
 
     principal_decision = None
+    crypto_receipt = None
     if action_class in EXECUTION_PRINCIPAL_CLASSES:
         raw_principal = payload.get("execution_principal")
         if raw_principal is None:
             return deny("EXECUTION_PRINCIPAL_UNAVAILABLE")
+        crypto_evidence = payload.get("runtime_pop_crypto_evidence")
+        if crypto_evidence is None:
+            return deny("RUNTIME_POP_CRYPTO_EVIDENCE_UNAVAILABLE")
+        if not isinstance(crypto_evidence, dict):
+            return deny("RUNTIME_POP_CRYPTO_EVIDENCE_INVALID")
         try:
-            principal = ExecutionPrincipalBinding.from_mapping(raw_principal)
+            # Keep D0-D2 independent of the optional crypto package. D3/D4
+            # imports it inside the consequential boundary and fails closed if
+            # the runtime dependency is absent.
+            from harness.sdk.runtime_pop_authority import (
+                SQLiteReplayStore,
+                bind_execution_principal_from_crypto,
+            )
+
+            replay_store = None
+            if crypto_evidence.get("binding_mode") in DPOP_MODES:
+                replay_db = request_payload.get("dpop_replay_db")
+                if not replay_db:
+                    return deny("DPOP_REPLAY_STORE_UNAVAILABLE")
+                replay_store = SQLiteReplayStore(replay_db)
+            principal, crypto_receipt = bind_execution_principal_from_crypto(
+                raw_principal,
+                crypto_evidence,
+                generation=current_generation,
+                replay_store=replay_store,
+            )
             principal_decision = evaluate_execution_principal(
                 principal,
                 action_class=action_class,
@@ -99,7 +129,7 @@ def evaluate(payload: dict) -> dict:
                 expected_target_digest=canonical_hash("AEGIS_AUTHORITY_TARGET_V1", target),
             )
         except Exception as exc:
-            return deny("EXECUTION_PRINCIPAL_INVALID", str(exc))
+            return deny("RUNTIME_POP_CRYPTO_INVALID", str(exc))
         if principal_decision.outcome != VALIDATED_BINDING_EVIDENCE:
             return deny_principal(principal_decision)
 
@@ -149,7 +179,7 @@ def evaluate(payload: dict) -> dict:
             source_commit=identity.source_commit,
             registry_root=registry_root,
             policy_root=policy_root,
-            current_generation=int(request_payload.get("current_generation", 0)),
+            current_generation=current_generation,
             approval_reference=identity.approval_reference,
             idempotency_key=request_payload.get("idempotency_key", "NONE"),
             compensation_reference=request_payload.get("compensation_reference", "NONE"),
@@ -182,6 +212,9 @@ def evaluate(payload: dict) -> dict:
             result["execution_principal_binding_root"] = principal_decision.binding_root
             result["execution_principal_decision_root"] = principal_decision.decision_root
             result["execution_principal_authority_granted"] = False
+        if crypto_receipt is not None:
+            result["runtime_pop_crypto_receipt_root"] = crypto_receipt.proof_root
+            result["runtime_pop_crypto_verifier_identity"] = crypto_receipt.verifier_identity
         return result
     except Exception as exc:
         return deny("AUTHORITY_EVALUATION_ERROR", str(exc))
