@@ -8,7 +8,7 @@ four measurable views over a neural trajectory:
 3. forensic/auditability hash chaining,
 4. information-theoretic projection-energy entropy.
 
-This module never mutates model state and never grants authority.  It proves only
+This module never mutates model state and never grants authority. It proves only
 properties of the measured projection/trajectory, not semantic truth or reasoning
 correctness.
 """
@@ -52,7 +52,6 @@ def _domain_hash(domain: str, *parts: bytes) -> str:
 
 
 def _quantize(value: float) -> float:
-    # Keep receipts stable across harmless floating rendering differences.
     return round(float(value), 12)
 
 
@@ -159,7 +158,7 @@ class PerspectiveProbeV1:
 
         P(h_after - h_before) == P(h_after) - P(h_before)
 
-    within ``tolerance``.  Because P is fixed and linear, a violation indicates a
+    within ``tolerance``. Because P is fixed and linear, a violation indicates a
     measurement/runtime defect, not model semantic failure.
     """
 
@@ -198,8 +197,6 @@ class PerspectiveProbeV1:
         if not bool(torch.isfinite(tensor).all().item()):
             raise ValueError("NON_FINITE_HIDDEN_STATE")
 
-        # Perspective v1 observes the active/last token vector.  Full state bytes
-        # are still bound by state_digest for forensic provenance.
         selected = tensor.detach().reshape(-1, self.d_model)[-1]
         return selected.to(device="cpu", dtype=torch.float64).clone()
 
@@ -299,7 +296,7 @@ class PerspectiveProbeV1:
                 )
             )
 
-        trace_body = {
+        trace_payload = {
             "trace_kind": "PERSPECTIVE_TRACE_V1",
             "perspective_id": self.perspective_id,
             "epistemic_status": "EVIDENCE_ONLY_NOT_AUTHORITY",
@@ -313,12 +310,19 @@ class PerspectiveProbeV1:
         }
         trace_digest = _domain_hash(
             "AEGIS_PERSPECTIVE_TRACE_V1",
-            _canonical_bytes(trace_body),
+            _canonical_bytes(trace_payload),
         )
 
         return PerspectiveTraceV1(
-            trace_digest=trace_digest,
+            trace_kind="PERSPECTIVE_TRACE_V1",
+            perspective_id=self.perspective_id,
+            epistemic_status="EVIDENCE_ONLY_NOT_AUTHORITY",
+            mode="OBSERVATION_ONLY",
+            readings=READINGS,
+            d_model=self.d_model,
+            projection_dim=self.projection_dim,
+            tolerance=self.tolerance,
             frames=tuple(frames),
             transitions=tuple(transitions),
-            **trace_body,
+            trace_digest=trace_digest,
         )
