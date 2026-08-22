@@ -1,0 +1,186 @@
+name: Repository Universe Audit
+
+on:
+  pull_request:
+    paths:
+      - "scripts/repo-universe.sh"
+      - "scripts/reconcile-repository-universe.py"
+      - "scripts/build-work-lineage.py"
+      - "scripts/resolve-work-lineage.py"
+      - "scripts/classify-reconciliation.py"
+      - "scripts/collect-reconciliation-evidence.py"
+      - "scripts/tests/test-repo-universe.sh"
+      - "scripts/tests/test-reconcile-repository-universe.py"
+      - "scripts/tests/test-build-work-lineage.py"
+      - "scripts/tests/test-resolve-work-lineage.py"
+      - "scripts/tests/test-classify-reconciliation.py"
+      - "scripts/tests/test-collect-reconciliation-evidence.py"
+      - ".aegis/reconciliation/spines.v1.json"
+      - ".aegis/reconciliation/reconciliation-decisions.v1.jsonl"
+      - ".claude/hooks/artifact-locator.sh"
+      - ".claude/hooks/session-start.sh"
+      - ".claude/hooks/user-prompt-intake.sh"
+      - ".github/workflows/repo-universe-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  universe:
+    name: aegis / repo-universe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact candidate with complete history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Fetch every remote branch and tag
+        run: git fetch --all --prune --tags --force
+
+      - name: Run deterministic Git fixture
+        run: bash scripts/tests/test-repo-universe.sh
+
+      - name: Run reconciliation census falsifiers
+        run: python scripts/tests/test-reconcile-repository-universe.py
+
+      - name: Run stable WorkID lineage falsifiers
+        run: python scripts/tests/test-build-work-lineage.py
+
+      - name: Run lineage resolver falsifiers
+        run: python scripts/tests/test-resolve-work-lineage.py
+
+      - name: Run classification and decision-chain falsifiers
+        run: python scripts/tests/test-classify-reconciliation.py
+
+      - name: Run conservative evidence collector falsifiers
+        run: python scripts/tests/test-collect-reconciliation-evidence.py
+
+      - name: Verify persistent reconciliation ledger genesis
+        run: python scripts/classify-reconciliation.py --verify-decisions .aegis/reconciliation/reconciliation-decisions.v1.jsonl
+
+      - name: Census real repository universe
+        run: |
+          bash scripts/repo-universe.sh \
+            --repo . \
+            --main origin/main \
+            --json "$RUNNER_TEMP/repo-universe.json"
+
+      - name: Export complete pull request census
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, os, subprocess
+          repo = os.environ["GITHUB_REPOSITORY"]
+          raw = subprocess.run(
+              ["gh", "pr", "list", "--repo", repo, "--state", "all", "--limit", "1000",
+               "--json", "number,state,isDraft,title,baseRefName,baseRefOid,headRefName,headRefOid,mergeable,url"],
+              check=True, capture_output=True, text=True,
+          ).stdout
+          prs = json.loads(raw)
+          out = {
+              "schema_version": "AEGIS_GITHUB_PR_CENSUS_V1",
+              "repository": repo,
+              "complete": len(prs) < 1000,
+              "pull_requests": prs,
+          }
+          with open(os.path.join(os.environ["RUNNER_TEMP"], "prs.json"), "w", encoding="utf-8") as f:
+              json.dump(out, f, sort_keys=True, indent=2)
+              f.write("\n")
+          if len(prs) >= 1000:
+              raise SystemExit("PR census hit hard limit; completeness cannot be established")
+          PY
+
+      - name: Build reconciliation universe
+        run: |
+          python scripts/reconcile-repository-universe.py \
+            --repo-universe "$RUNNER_TEMP/repo-universe.json" \
+            --prs "$RUNNER_TEMP/prs.json" \
+            --out "$RUNNER_TEMP/repository-universe.v1.json"
+          python - <<'PY'
+          import json, os
+          p = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "repository-universe.v1.json"), encoding="utf-8"))
+          print(json.dumps({
+              "schema_version": p["schema_version"],
+              "discovery_complete": p["discovery_complete"],
+              "main_sha": p["canonical_main"]["sha"],
+              "branch_count": len(p["branches"]),
+              "pr_count": len(p["pull_requests"]),
+              "off_main_commits": p["knowledge_universe"]["commits_not_reachable_from_main"],
+              "manifest_sha256": p["manifest_sha256"],
+          }, sort_keys=True))
+          PY
+
+      - name: Build real WorkID lineage graph
+        run: |
+          python scripts/build-work-lineage.py \
+            --universe "$RUNNER_TEMP/repository-universe.v1.json" \
+            --spines .aegis/reconciliation/spines.v1.json \
+            --out "$RUNNER_TEMP/work-lineage.v1.json"
+          python - <<'PY'
+          import json, os
+          p = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "work-lineage.v1.json"), encoding="utf-8"))
+          print(json.dumps({
+              "schema_version": p["schema_version"],
+              "work_item_count": len(p["work_items"]),
+              "active_spine_count": len(p["active_spine"]),
+              "missing_declared_work_ids": len(p["missing_declared_work_ids"]),
+              "manifest_sha256": p["manifest_sha256"],
+          }, sort_keys=True))
+          PY
+
+      - name: Collect conservative real reconciliation evidence
+        run: |
+          python scripts/collect-reconciliation-evidence.py \
+            --lineage "$RUNNER_TEMP/work-lineage.v1.json" \
+            --prs "$RUNNER_TEMP/prs.json" \
+            --out "$RUNNER_TEMP/reconciliation-evidence.v1.json"
+
+      - name: Classify real repository fail closed
+        run: |
+          python scripts/classify-reconciliation.py \
+            --lineage "$RUNNER_TEMP/work-lineage.v1.json" \
+            --evidence "$RUNNER_TEMP/reconciliation-evidence.v1.json" \
+            --out "$RUNNER_TEMP/reconciliation-classification.v1.json" \
+            --decisions "$RUNNER_TEMP/reconciliation-decisions.v1.jsonl"
+          python scripts/classify-reconciliation.py \
+            --verify-decisions "$RUNNER_TEMP/reconciliation-decisions.v1.jsonl"
+          python - <<'PY'
+          import json, os
+          root = os.environ["RUNNER_TEMP"]
+          c = json.load(open(os.path.join(root, "reconciliation-classification.v1.json"), encoding="utf-8"))
+          e = json.load(open(os.path.join(root, "reconciliation-evidence.v1.json"), encoding="utf-8"))
+          print(json.dumps({
+              "classification_counts": c["counts"],
+              "classification_manifest_sha256": c["manifest_sha256"],
+              "evidence_complete": e["complete"],
+              "evidence_coverage": e["coverage"],
+              "matched_pr_work_count": e["matched_pr_work_count"],
+          }, sort_keys=True))
+          PY
+
+      - name: Verify hook syntax
+        run: |
+          bash -n .claude/hooks/session-start.sh
+          bash -n .claude/hooks/user-prompt-intake.sh
+
+      - name: Upload universe and reconciliation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-repo-universe-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/repo-universe.json
+            ${{ runner.temp }}/prs.json
+            ${{ runner.temp }}/repository-universe.v1.json
+            ${{ runner.temp }}/work-lineage.v1.json
+            ${{ runner.temp }}/reconciliation-evidence.v1.json
+            ${{ runner.temp }}/reconciliation-classification.v1.json
+            ${{ runner.temp }}/reconciliation-decisions.v1.jsonl
+          retention-days: 90

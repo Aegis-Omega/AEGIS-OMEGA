@@ -43,6 +43,8 @@ ctx = (
     f'terminal:{term}{breach}\n'
     'L7:verify-hashes | L6:ASSESS→LOCK | L5:gate-seq | L4:lineage | L3:active-file | '
     'L2:test-pass≠correctness | L1:full-signal\n'
+    'ABSENCE-CLAIM GATE: a miss in the current worktree is never global absence. Before saying any named AEGIS artifact/component/proof "does not exist", run .claude/hooks/artifact-locator.sh with the exact term, inspect any matching ref/PR, and search the relevant connected Drive/corpus source when applicable. Distinguish NAMED_REFERENCE from IMPLEMENTATION_EVIDENCE and report searched scope.\n'
+    'BRANCH-CREATION GATE: creating a new branch is forbidden unless scripts/resolve-work-lineage.py has produced resolution=CREATE_NEW with discovery_complete=true and branch_creation_allowed=true for the current scheduler-bound WorkRequest. CONTINUE_EXISTING, STACK_ON_EXISTING, and RESUME_ABANDONED must reuse the returned WorkID/continuation lineage; AMBIGUOUS_HALT must halt. A branch-name match or model suggestion is never work-identity evidence.\n'
     'Non-equiv: test-pass≠correctness | auditability≠safety | metacognition≠safety | governance≠alignment'
 )
 print(json.dumps({

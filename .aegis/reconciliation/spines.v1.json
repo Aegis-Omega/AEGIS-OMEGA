@@ -1,0 +1,35 @@
+{
+  "schema_version": "AEGIS_RECONCILIATION_SPINES_V1",
+  "authority": "OPERATOR_APPROVED_RECONCILIATION_DIRECTION",
+  "active_spine": [
+    "pr:275",
+    "pr:276",
+    "pr:277",
+    "pr:278",
+    "pr:279",
+    "pr:280",
+    "pr:282",
+    "pr:283",
+    "pr:284",
+    "pr:285",
+    "pr:290",
+    "pr:291"
+  ],
+  "historical_reconciled": {
+    "pr:268": "pr:276",
+    "pr:270": "pr:276",
+    "pr:272": "pr:276",
+    "pr:273": "pr:276"
+  },
+  "side_lineages": [
+    ["pr:286", "pr:289", "pr:292"],
+    ["pr:281"],
+    ["pr:274"],
+    ["pr:267"]
+  ],
+  "rules": [
+    "SPINE_DECLARATION_IS_RECONCILIATION_DIRECTION_NOT_MERGE_AUTHORITY",
+    "HISTORICAL_RECONCILED_WORK_REMAINS_SEARCHABLE_EVIDENCE",
+    "SIDE_LINEAGE_IS_NOT_DISCARD_AUTHORITY"
+  ]
+}
