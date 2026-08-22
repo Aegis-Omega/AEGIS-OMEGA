@@ -12,9 +12,8 @@ import hashlib
 import json
 import shutil
 import subprocess
-import sys
 from pathlib import Path
-from typing import Any, BinaryIO
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_PATH = ROOT / "models" / "model-artifacts.v1.json"
@@ -28,17 +27,34 @@ def sha256_file(path: Path, block_size: int = 8 * 1024 * 1024) -> str:
     return digest.hexdigest()
 
 
-def copy_chunked(source: Path, destination: Path, chunk_max: int) -> list[dict[str, Any]]:
+def asset_prefix(relative_path: str) -> str:
+    """Return a stable collision-resistant release-asset prefix."""
+    normalized = relative_path.replace("\\", "/")
+    readable = normalized.replace("/", "__")
+    path_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:12]
+    return f"{path_hash}__{readable}"
+
+
+def copy_chunked(
+    source: Path,
+    destination: Path,
+    chunk_max: int,
+    *,
+    relative_path: str,
+) -> list[dict[str, Any]]:
     destination.mkdir(parents=True, exist_ok=True)
     parts: list[dict[str, Any]] = []
+    prefix = asset_prefix(relative_path)
     with source.open("rb") as src:
         index = 0
         while True:
             chunk = src.read(chunk_max)
             if not chunk:
                 break
-            name = f"{source.name}.part-{index:05d}"
+            name = f"{prefix}.part-{index:05d}"
             part_path = destination / name
+            if part_path.exists():
+                raise SystemExit(f"release asset collision: {name}")
             part_path.write_bytes(chunk)
             parts.append(
                 {
@@ -92,7 +108,12 @@ def main() -> int:
     for path in sorted(p for p in source_dir.rglob("*") if p.is_file()):
         relative = path.relative_to(source_dir).as_posix()
         original_sha = sha256_file(path)
-        parts = copy_chunked(path, asset_dir, chunk_max)
+        parts = copy_chunked(
+            path,
+            asset_dir,
+            chunk_max,
+            relative_path=relative,
+        )
         files.append(
             {
                 "path": relative,
