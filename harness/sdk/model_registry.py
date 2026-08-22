@@ -11,7 +11,9 @@ DEFAULT_EXECUTABLE_STATUSES = frozenset({"active", "active_legacy"})
 CANDIDATE_STATUS = "candidate"
 REMOTE_SURFACE = "remote_api"
 LOCAL_SURFACE = "local_checkpoint"
-MIRRORED_VERIFIED = "MIRRORED_VERIFIED"
+PUBLIC_MIRRORED_VERIFIED = "MIRRORED_VERIFIED"
+PRIVATE_MIRRORED_VERIFIED = "PRIVATE_MIRRORED_VERIFIED"
+LOCAL_WEIGHT_KINDS = frozenset({"PUBLIC_OPEN_WEIGHTS", "PRIVATE_OPERATOR_WEIGHTS"})
 
 
 class ModelRegistryError(RuntimeError):
@@ -33,21 +35,15 @@ class ModelCandidate:
 class ModelCapabilityRegistry:
     """Deterministic, fail-closed model/provider/artifact resolver.
 
-    The resolver selects *eligible inference candidates*. It never grants
-    authorization, admission, effect, or state-transition authority.
+    Artifact existence and artifact publicity are deliberately separate. Public
+    open weights and operator-private weights can both satisfy a local execution
+    surface once their respective mirror state and local bytes are verified.
 
-    A model being present in configuration is insufficient for execution:
-    - candidate status is excluded by default;
-    - local checkpoint routing additionally requires an admitted, verified
-      repo-owned artifact mirror;
-    - unknown model/provider/artifact references fail closed.
+    Nothing selected here gains authorization, admission, effect, or state
+    transition authority.
     """
 
-    def __init__(
-        self,
-        payload: Mapping[str, object],
-        artifact_payload: Mapping[str, object],
-    ) -> None:
+    def __init__(self, payload: Mapping[str, object], artifact_payload: Mapping[str, object]) -> None:
         self._payload = payload
         self._artifact_payload = artifact_payload
         self._assert_constitutional_invariants()
@@ -60,11 +56,7 @@ class ModelCapabilityRegistry:
     ) -> "ModelCapabilityRegistry":
         repo_root = Path(__file__).resolve().parents[2]
         registry_path = Path(path) if path is not None else repo_root / "config" / "model-capability-registry.v1.json"
-        model_artifact_path = (
-            Path(artifact_path)
-            if artifact_path is not None
-            else repo_root / "models" / "model-artifacts.v1.json"
-        )
+        model_artifact_path = Path(artifact_path) if artifact_path is not None else repo_root / "models" / "model-artifacts.v1.json"
         try:
             payload = json.loads(registry_path.read_text(encoding="utf-8"))
             artifact_payload = json.loads(model_artifact_path.read_text(encoding="utf-8"))
@@ -86,9 +78,11 @@ class ModelCapabilityRegistry:
             raise ModelRegistryError("explicit model registration is required")
         if policy.get("allow_unknown_models") is not False:
             raise ModelRegistryError("unknown models must remain denied")
-        artifact_storage = self._artifact_mapping("storage_policy")
-        if artifact_storage.get("local_execution_requires_verified_hydration") is not True:
+        storage = self._artifact_mapping("storage_policy")
+        if storage.get("local_execution_requires_verified_hydration") is not True:
             raise ModelRegistryError("local execution must require verified model hydration")
+        if storage.get("public_repository_plaintext_private_weights_forbidden") is not True:
+            raise ModelRegistryError("private plaintext weights must remain excluded from the public repository")
 
     def _mapping(self, key: str) -> Mapping[str, object]:
         value = self._payload.get(key)
@@ -138,9 +132,7 @@ class ModelCapabilityRegistry:
             raise ModelRegistryError(f"model {model_id} has invalid recommended_roles")
         if not isinstance(artifact_package, str) or artifact_package not in self.artifact_packages:
             raise ModelRegistryError(f"model {model_id} has unknown artifact package")
-        if not isinstance(execution_surfaces, list) or not execution_surfaces or not all(
-            isinstance(x, str) for x in execution_surfaces
-        ):
+        if not isinstance(execution_surfaces, list) or not execution_surfaces or not all(isinstance(x, str) for x in execution_surfaces):
             raise ModelRegistryError(f"model {model_id} has invalid execution surfaces")
 
         package = self.artifact_packages[artifact_package]
@@ -164,13 +156,18 @@ class ModelCapabilityRegistry:
             return True
         if surface != LOCAL_SURFACE:
             return False
+
         package = self.artifact_packages.get(candidate.artifact_package)
         if not isinstance(package, dict):
             return False
-        if package.get("weight_availability") != "OPEN_WEIGHTS":
+        availability = package.get("weight_availability")
+        if availability not in LOCAL_WEIGHT_KINDS:
             return False
         mirror = package.get("mirror")
-        return isinstance(mirror, dict) and mirror.get("state") == MIRRORED_VERIFIED
+        if not isinstance(mirror, dict):
+            return False
+        expected = PRIVATE_MIRRORED_VERIFIED if availability == "PRIVATE_OPERATOR_WEIGHTS" else PUBLIC_MIRRORED_VERIFIED
+        return mirror.get("state") == expected
 
     def resolve(
         self,
@@ -223,10 +220,10 @@ class ModelCapabilityRegistry:
                     continue
                 if require_artifact_ready and not self._surface_is_ready(candidate, forced_surface):
                     continue
-            elif require_artifact_ready:
-                # A candidate is routable when at least one declared execution surface is ready.
-                if not any(self._surface_is_ready(candidate, surface) for surface in candidate.execution_surfaces):
-                    continue
+            elif require_artifact_ready and not any(
+                self._surface_is_ready(candidate, surface) for surface in candidate.execution_surfaces
+            ):
+                continue
 
             candidates.append(candidate)
 
