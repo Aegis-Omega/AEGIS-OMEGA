@@ -280,7 +280,7 @@ def emit_coq_witness_facts(
             f"Definition witness_root : string := {_coq_string(witness.root)}.",
             f"Definition edges : list ConcreteEdge := {edges}.",
             "Example checker_accepts : all_edges_okb edges = true.",
-            "Proof. vm_compute. Qed.",
+            "Proof. vm_compute; reflexivity. Qed.",
             "Example checker_sound : Forall edge_refines_cct edges.",
             "Proof. apply all_edges_refine_cct. exact checker_accepts. Qed.",
             f"End {module_name}.",
