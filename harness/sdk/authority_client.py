@@ -7,6 +7,11 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from harness.sdk.principal_binding import (
+    VALIDATED_BINDING_EVIDENCE,
+    ExecutionPrincipalBinding,
+    evaluate_execution_principal,
+)
 from harness.sdk.sovereign_execution import (
     ADMITTED, ApprovalGrant, AuthorityEvaluator, AuthorityRequest,
     ExecutionIdentityEnvelope, ZERO_HASH, canonical_hash,
@@ -15,11 +20,25 @@ from harness.sdk.sovereign_execution import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+EXECUTION_PRINCIPAL_CLASSES = frozenset(("D3", "D4"))
 
 
 def _denial(code: str, detail: str = "") -> dict[str, Any]:
     body = {"outcome": "DENIED", "authority_score": "0.000000", "denial_codes": [code], "detail_digest": canonical_hash("AEGIS_AUTHORITY_CLIENT_DETAIL_V1", detail)}
     body["decision_root"] = canonical_hash("AEGIS_AUTHORITY_CLIENT_DENIAL_V1", body)
+    return body
+
+
+def _principal_denial(principal_decision) -> dict[str, Any]:
+    codes = ["EXECUTION_PRINCIPAL_DENIED", *principal_decision.denial_codes]
+    body = {
+        "outcome": "DENIED",
+        "authority_score": "0.000000",
+        "denial_codes": codes,
+        "execution_principal_binding_root": principal_decision.binding_root,
+        "execution_principal_decision_root": principal_decision.decision_root,
+    }
+    body["decision_root"] = canonical_hash("AEGIS_AUTHORITY_CLIENT_PRINCIPAL_DENIAL_V1", body)
     return body
 
 
@@ -35,6 +54,34 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
     action_digest = canonical_hash("AEGIS_REQUESTED_ACTION_V1", action)
     if action_digest != identity.action_digest:
         return _denial("ACTION_DIGEST_MISMATCH")
+    if identity.requested_capability != requested_capability:
+        return _denial("IDENTITY_CAPABILITY_MISMATCH")
+    if identity.authority_domain != authority_domain:
+        return _denial("IDENTITY_AUTHORITY_DOMAIN_MISMATCH")
+    if identity.tool_identity != tool:
+        return _denial("IDENTITY_TOOL_MISMATCH")
+
+    principal_decision = None
+    if action_class in EXECUTION_PRINCIPAL_CLASSES:
+        raw_principal = os.environ.get("AEGIS_EXECUTION_PRINCIPAL_JSON")
+        if not raw_principal:
+            return _denial("EXECUTION_PRINCIPAL_UNAVAILABLE")
+        try:
+            principal = ExecutionPrincipalBinding.from_mapping(json.loads(raw_principal))
+            principal_decision = evaluate_execution_principal(
+                principal,
+                action_class=action_class,
+                expected_agent_principal=identity.actor_identity,
+                expected_runtime_principal=identity.physical_executor,
+                expected_session_identity=identity.session_identity,
+                expected_action_digest=action_digest,
+                expected_capability=requested_capability,
+                expected_target_digest=canonical_hash("AEGIS_AUTHORITY_TARGET_V1", target),
+            )
+        except Exception as exc:
+            return _denial("EXECUTION_PRINCIPAL_INVALID", str(exc))
+        if principal_decision.outcome != VALIDATED_BINDING_EVIDENCE:
+            return _principal_denial(principal_decision)
 
     try:
         observation = json.loads(os.environ.get("AEGIS_WORKSPACE_OBSERVATION_JSON", "{}"))
@@ -88,7 +135,7 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         action_digest=action_digest, result={"authority_outcome": decision.outcome},
         post_state_digest=identity.expected_pre_state, parent_receipt=ZERO_HASH, sequence=0,
     )
-    return {
+    result = {
         "outcome": decision.outcome,
         "authority_score": decision.authority_score,
         "denial_codes": list(decision.denial_codes),
@@ -98,3 +145,8 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         "workspace_binding": identity.workspace_binding,
         "observation": asdict(workspace.observation),
     }
+    if principal_decision is not None:
+        result["execution_principal_binding_root"] = principal_decision.binding_root
+        result["execution_principal_decision_root"] = principal_decision.decision_root
+        result["execution_principal_authority_granted"] = False
+    return result
