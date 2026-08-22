@@ -27,4 +27,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Run GLASSWING_SECURITY_EVIDENCE_V1 falsifiers
-        run: python -m unittest -v security/test_glasswing_evidence_contract.py
+        run: >-
+          python -m unittest -v
+          security/test_glasswing_evidence_contract.py
+          security/test_glasswing_artisan_adapter.py
