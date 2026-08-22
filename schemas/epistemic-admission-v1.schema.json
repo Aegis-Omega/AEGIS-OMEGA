@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.invalid/schemas/epistemic-admission-v1.schema.json",
+  "title": "AEGIS Epistemic Admission v1",
+  "type": "object",
+  "oneOf": [
+    {"$ref": "#/$defs/EpistemicClaimV1"},
+    {"$ref": "#/$defs/AdmissionDecisionV1"}
+  ],
+  "$defs": {
+    "ClaimStatus": {
+      "enum": ["VERIFIED", "DERIVED", "ATTESTED", "INFERRED", "ASSUMED", "NOT_CHECKED"]
+    },
+    "FieldProvenance": {
+      "enum": ["DECLARED", "DERIVED", "ATTESTED", "VERIFIED"]
+    },
+    "Route": {"enum": ["SERVE", "REVIEW", "QUARANTINE"]},
+    "FailureLocus": {
+      "enum": [
+        "NARRATOR", "ADMISSION_POLICY", "PROVENANCE_SYSTEM", "CONTENT_VERIFIER",
+        "CITATION_ENTAILMENT_FAILURE", "ENFORCEMENT", "ENUMERATION_PROCEDURE",
+        "SUBJECT_BINDING", "NONE_ESTABLISHED"
+      ]
+    },
+    "SubjectBindingV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject_type", "subject_id"],
+      "properties": {
+        "subject_type": {"type": "string", "minLength": 1},
+        "subject_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "LoadBearingFieldV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "value", "load_bearing", "provenance"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "value": {},
+        "load_bearing": {"type": "boolean"},
+        "provenance": {"$ref": "#/$defs/FieldProvenance"}
+      }
+    },
+    "SourceBindingV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "provenance_integrity", "entails_claim"],
+      "properties": {
+        "source_id": {"type": "string", "minLength": 1},
+        "provenance_integrity": {"type": ["boolean", "null"]},
+        "entails_claim": {"type": ["boolean", "null"]}
+      }
+    },
+    "RetrievalObservationV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["query", "found", "asserted_outcome"],
+      "properties": {
+        "query": {"type": "string"},
+        "found": {"type": "boolean"},
+        "asserted_outcome": {"type": "string"}
+      }
+    },
+    "EpistemicClaimV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id", "claim_text", "status", "subject", "authority_scope", "evidence_window",
+        "load_bearing_fields", "sources", "retrieval_observations", "verification_complete",
+        "historically_valid", "enumeration_complete", "authorship_resolved"
+      ],
+      "properties": {
+        "claim_id": {"type": "string", "minLength": 1},
+        "claim_text": {"type": "string", "minLength": 1},
+        "status": {"$ref": "#/$defs/ClaimStatus"},
+        "subject": {"$ref": "#/$defs/SubjectBindingV1"},
+        "authority_scope": {"type": "string", "minLength": 1},
+        "evidence_window": {"type": "string", "minLength": 1},
+        "load_bearing_fields": {"type": "array", "items": {"$ref": "#/$defs/LoadBearingFieldV1"}},
+        "sources": {"type": "array", "items": {"$ref": "#/$defs/SourceBindingV1"}},
+        "retrieval_observations": {"type": "array", "items": {"$ref": "#/$defs/RetrievalObservationV1"}},
+        "verification_complete": {"type": "boolean"},
+        "historically_valid": {"type": ["boolean", "null"]},
+        "enumeration_complete": {"type": "boolean"},
+        "authorship_resolved": {"type": "boolean"}
+      }
+    },
+    "AdmissionDecisionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route", "claim_id", "subject_match", "violations", "failure_loci",
+        "current_applicability", "historically_valid"
+      ],
+      "properties": {
+        "route": {"$ref": "#/$defs/Route"},
+        "claim_id": {"type": "string", "minLength": 1},
+        "subject_match": {"type": "boolean"},
+        "violations": {"type": "array", "items": {"type": "string"}},
+        "failure_loci": {"type": "array", "items": {"$ref": "#/$defs/FailureLocus"}},
+        "current_applicability": {"type": "boolean"},
+        "historically_valid": {"type": ["boolean", "null"]}
+      }
+    }
+  }
+}
