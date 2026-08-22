@@ -22,6 +22,7 @@
     "anthropic": {"transport": "messages_api", "server_side_credentials_only": true, "model_family": "claude", "supports_anthropic_compatible_transport": true},
     "deepseek": {"transport": "openai_compatible", "server_side_credentials_only": true, "model_family": "deepseek", "supports_openai_compatible_transport": true, "supports_anthropic_compatible_transport": true},
     "google-local": {"transport": "openai_compatible_local", "server_side_credentials_only": false, "model_family": "gemma", "supports_openai_compatible_transport": true},
+    "operator-local": {"transport": "openai_compatible_local", "server_side_credentials_only": false, "model_family": "operator-private", "supports_openai_compatible_transport": true},
     "dashscope": {"transport": "openai_compatible", "server_side_credentials_only": true, "model_family": "qwen", "supports_openai_compatible_transport": true},
     "azure-openai": {"transport": "azure_openai", "server_side_credentials_only": true, "model_family": "gpt", "supports_openai_compatible_transport": true}
   },
