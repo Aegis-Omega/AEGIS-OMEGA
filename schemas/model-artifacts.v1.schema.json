@@ -13,7 +13,7 @@
     "future_package_rule"
   ],
   "properties": {
-    "schema_version": { "const": "1.0.0" },
+    "schema_version": { "const": "1.1.0" },
     "epistemic_status": { "const": "T2_ENGINEERING_CONFIGURATION" },
     "authority_rule": { "const": "WEIGHTS_AND_MODEL_OUTPUTS_ARE_EVIDENCE_NOT_AUTHORITY" },
     "storage_policy": {
@@ -23,20 +23,24 @@
         "checkout_root",
         "ordinary_git_weight_storage_forbidden",
         "canonical_large_artifact_store",
+        "private_artifact_store",
         "release_asset_chunk_max_bytes",
         "require_sha256_for_every_mirrored_asset",
         "require_exact_source_revision_before_mirroring",
-        "require_license_before_mirroring",
+        "require_license_before_public_mirroring",
+        "public_repository_plaintext_private_weights_forbidden",
         "local_execution_requires_verified_hydration"
       ],
       "properties": {
         "checkout_root": { "const": "models/weights" },
         "ordinary_git_weight_storage_forbidden": { "const": true },
         "canonical_large_artifact_store": { "const": "repository_release_assets" },
+        "private_artifact_store": { "const": "operator_private_store_or_encrypted_repository_assets" },
         "release_asset_chunk_max_bytes": { "type": "integer", "minimum": 1, "maximum": 2000000000 },
         "require_sha256_for_every_mirrored_asset": { "const": true },
         "require_exact_source_revision_before_mirroring": { "const": true },
-        "require_license_before_mirroring": { "const": true },
+        "require_license_before_public_mirroring": { "const": true },
+        "public_repository_plaintext_private_weights_forbidden": { "const": true },
         "local_execution_requires_verified_hydration": { "const": true }
       }
     },
@@ -52,8 +56,12 @@
         "unknown_package_denied",
         "open_weight_package_requires_exact_source_revision",
         "open_weight_package_requires_license",
+        "private_weight_package_requires_digest_binding",
+        "private_weight_package_may_use_opaque_source",
+        "private_weight_plaintext_publication_forbidden",
+        "vendor_remote_does_not_imply_weights_do_not_exist",
         "mirrored_package_requires_complete_file_digest_set",
-        "remote_only_package_must_have_zero_weight_files",
+        "vendor_remote_package_must_have_zero_repo_weight_files",
         "artifact_presence_does_not_grant_execution_authority",
         "model_output_never_grants_admission_or_effect_authority"
       ],
@@ -61,8 +69,12 @@
         "unknown_package_denied": { "const": true },
         "open_weight_package_requires_exact_source_revision": { "const": true },
         "open_weight_package_requires_license": { "const": true },
+        "private_weight_package_requires_digest_binding": { "const": true },
+        "private_weight_package_may_use_opaque_source": { "const": true },
+        "private_weight_plaintext_publication_forbidden": { "const": true },
+        "vendor_remote_does_not_imply_weights_do_not_exist": { "const": true },
         "mirrored_package_requires_complete_file_digest_set": { "const": true },
-        "remote_only_package_must_have_zero_weight_files": { "const": true },
+        "vendor_remote_package_must_have_zero_repo_weight_files": { "const": true },
         "artifact_presence_does_not_grant_execution_authority": { "const": true },
         "model_output_never_grants_admission_or_effect_authority": { "const": true }
       }
@@ -93,7 +105,8 @@
         "redistribution_status": {
           "enum": [
             "PERMITTED_BY_DECLARED_LICENSE",
-            "NOT_APPLICABLE_NO_PUBLIC_WEIGHTS"
+            "NOT_APPLICABLE_VENDOR_REMOTE",
+            "PRIVATE_OPERATOR_ONLY"
           ]
         }
       }
@@ -104,11 +117,13 @@
       "additionalProperties": true,
       "required": ["kind"],
       "properties": {
-        "kind": { "enum": ["huggingface", "provider_api"] },
+        "kind": { "enum": ["huggingface", "provider_api", "operator_private"] },
         "repo_id": { "type": "string", "minLength": 1 },
         "revision": { "type": "string", "minLength": 1 },
-        "revision_kind": { "enum": ["FULL_COMMIT_SHA", "VERIFIED_SHORT_COMMIT_PREFIX"] },
-        "model_id": { "type": "string", "minLength": 1 }
+        "revision_kind": { "enum": ["FULL_COMMIT_SHA", "VERIFIED_SHORT_COMMIT_PREFIX", "PRIVATE_CONTENT_ROOT"] },
+        "model_id": { "type": "string", "minLength": 1 },
+        "opaque_ref": { "type": "string", "minLength": 1 },
+        "content_root_sha256": { "$ref": "#/$defs/sha256" }
       }
     },
     "mirror": {
@@ -122,7 +137,9 @@
             "BLOCKED_PENDING_FULL_SOURCE_SHA_AND_COMPLETE_SHARD_DIGESTS",
             "BLOCKED_PENDING_COMPLETE_SHARD_DIGESTS",
             "MIRRORED_VERIFIED",
-            "NOT_APPLICABLE_REMOTE_ONLY"
+            "PRIVATE_SOURCE_REGISTERED_NOT_YET_MIRRORED",
+            "PRIVATE_MIRRORED_VERIFIED",
+            "NOT_APPLICABLE_VENDOR_REMOTE"
           ]
         },
         "backend": { "type": ["string", "null"] },
@@ -148,9 +165,11 @@
         "provider": { "type": "string", "minLength": 1 },
         "weight_availability": {
           "enum": [
-            "OPEN_WEIGHTS",
-            "REMOTE_ONLY_NO_PUBLIC_WEIGHTS",
-            "MANIFEST_ONLY_PENDING_PIN"
+            "PUBLIC_OPEN_WEIGHTS",
+            "PRIVATE_OPERATOR_WEIGHTS",
+            "VENDOR_REMOTE_ONLY",
+            "MANIFEST_ONLY_PENDING_PIN",
+            "UNVERIFIED_UNKNOWN"
           ]
         },
         "license": { "$ref": "#/$defs/license" },
