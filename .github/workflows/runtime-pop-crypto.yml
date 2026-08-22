@@ -40,4 +40,7 @@ jobs:
         run: python -m pip install --disable-pip-version-check cryptography==50.0.0
 
       - name: Run cryptographic RuntimePoP falsifiers
-        run: python sovereign-omega-v2/python/tests/test_runtime_pop_crypto.py
+        run: |
+          set -euo pipefail
+          python sovereign-omega-v2/python/tests/test_runtime_pop_crypto.py
+          python sovereign-omega-v2/python/tests/test_runtime_pop_authority_binding.py
