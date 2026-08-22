@@ -9,6 +9,7 @@ Control Plane     -> inference policy / bounds
 Knowledge Plane   -> KV cache
 Execution Plane   -> transformer forward pass
 Space Intelligence-> per-step trajectory / entropy / layer-state trace
+Perspective       -> observation-only hidden-state geometric trace
 Receipt Plane     -> hashes + reproducible inference receipt
 
 This is a compact reference runtime, not a pretrained frontier model.
@@ -28,6 +29,11 @@ from typing import Dict, List, Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+try:
+    from .perspective import PerspectiveProbeV1, PerspectiveTraceV1
+except ImportError:
+    from perspective import PerspectiveProbeV1, PerspectiveTraceV1
 
 
 # ---------------------------------------------------------------------
@@ -166,7 +172,7 @@ class CausalSelfAttention(nn.Module):
         qkv = self.qkv(x)
         q, k, v = qkv.chunk(3, dim=-1)
 
-        q = q.view(B, T, H, D).transpose(1, 2)  # B,H,T,D
+        q = q.view(B, T, H, D).transpose(1, 2)
         k = k.view(B, T, H, D).transpose(1, 2)
         v = v.view(B, T, H, D).transpose(1, 2)
 
@@ -181,10 +187,8 @@ class CausalSelfAttention(nn.Module):
 
         new_kv = (k, v) if use_cache else None
 
-        # causal attention
         q_len = q.size(2)
         k_len = k.size(2)
-
         scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(D)
 
         q_positions = torch.arange(
@@ -204,7 +208,6 @@ class CausalSelfAttention(nn.Module):
 class FeedForward(nn.Module):
     def __init__(self, cfg: ModelConfig):
         super().__init__()
-        # SwiGLU
         self.w1 = nn.Linear(cfg.d_model, cfg.d_ff, bias=False)
         self.w2 = nn.Linear(cfg.d_ff, cfg.d_model, bias=False)
         self.w3 = nn.Linear(cfg.d_model, cfg.d_ff, bias=False)
@@ -245,18 +248,20 @@ class HolonLLM(nn.Module):
         self.layers = nn.ModuleList([TransformerBlock(cfg) for _ in range(cfg.n_layers)])
         self.norm = nn.RMSNorm(cfg.d_model)
         self.lm_head = nn.Linear(cfg.d_model, cfg.vocab_size, bias=False)
-
-        # Weight tying.
         self.lm_head.weight = self.tok_emb.weight
 
-    def forward(
+    def _forward_internal(
         self,
         input_ids: torch.Tensor,
         past_kv: Optional[List[KV]] = None,
         use_cache: bool = True,
         return_trace: bool = False,
+        perspective_probe: Optional[PerspectiveProbeV1] = None,
     ):
         x = self.tok_emb(input_ids)
+        perspective_states = []
+        if perspective_probe is not None:
+            perspective_states.append(("embedding", x))
 
         if past_kv is None:
             past_kv = [None] * len(self.layers)
@@ -277,11 +282,51 @@ class HolonLLM(nn.Module):
                         "l2": float(x.norm().detach().cpu()),
                     }
                 )
+            if perspective_probe is not None:
+                perspective_states.append((f"layer:{i}", x))
+
+        perspective_trace = None
+        if perspective_probe is not None:
+            perspective_trace = perspective_probe.observe(perspective_states)
 
         x = self.norm(x)
         logits = self.lm_head(x)
+        return logits, new_cache if use_cache else None, layer_trace, perspective_trace
 
-        return logits, new_cache if use_cache else None, layer_trace
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        past_kv: Optional[List[KV]] = None,
+        use_cache: bool = True,
+        return_trace: bool = False,
+    ):
+        logits, cache, layer_trace, _ = self._forward_internal(
+            input_ids,
+            past_kv=past_kv,
+            use_cache=use_cache,
+            return_trace=return_trace,
+            perspective_probe=None,
+        )
+        return logits, cache, layer_trace
+
+    def forward_with_perspective(
+        self,
+        input_ids: torch.Tensor,
+        *,
+        perspective_probe: PerspectiveProbeV1,
+        past_kv: Optional[List[KV]] = None,
+        use_cache: bool = True,
+        return_trace: bool = False,
+    ):
+        if perspective_probe.d_model != self.cfg.d_model:
+            raise ValueError("PERSPECTIVE_D_MODEL_MISMATCH")
+        return self._forward_internal(
+            input_ids,
+            past_kv=past_kv,
+            use_cache=use_cache,
+            return_trace=return_trace,
+            perspective_probe=perspective_probe,
+        )
 
 
 # ---------------------------------------------------------------------
@@ -296,6 +341,7 @@ class TrajectoryStep:
     entropy_bits: float
     max_probability: float
     layer_state: List[Dict[str, float]]
+    perspective_trace: Optional[PerspectiveTraceV1] = None
 
 
 def entropy_bits(probs: torch.Tensor) -> float:
@@ -344,6 +390,7 @@ class InferenceReceipt:
     latency_ms: float
     seed: int
     trajectory: List[TrajectoryStep]
+    perspective_enabled: bool = False
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), indent=2, ensure_ascii=False)
@@ -359,6 +406,7 @@ class HolonInferenceRuntime:
         model: HolonLLM,
         tokenizer: ByteTokenizer,
         device: Optional[str] = None,
+        perspective_probe: Optional[PerspectiveProbeV1] = None,
     ):
         self.device = device or (
             "cuda"
@@ -369,6 +417,31 @@ class HolonInferenceRuntime:
         )
         self.model = model.to(self.device).eval()
         self.tokenizer = tokenizer
+        if perspective_probe is not None and perspective_probe.d_model != model.cfg.d_model:
+            raise ValueError("PERSPECTIVE_D_MODEL_MISMATCH")
+        self.perspective_probe = perspective_probe
+
+    def _forward(
+        self,
+        input_ids: torch.Tensor,
+        *,
+        past_kv: Optional[List[KV]],
+    ):
+        if self.perspective_probe is None:
+            logits, cache, layer_trace = self.model(
+                input_ids,
+                past_kv=past_kv,
+                use_cache=True,
+                return_trace=True,
+            )
+            return logits, cache, layer_trace, None
+        return self.model.forward_with_perspective(
+            input_ids,
+            perspective_probe=self.perspective_probe,
+            past_kv=past_kv,
+            use_cache=True,
+            return_trace=True,
+        )
 
     @torch.inference_mode()
     def generate(
@@ -383,10 +456,20 @@ class HolonInferenceRuntime:
         ids = ids[-min(policy.max_context, self.model.cfg.max_seq_len):]
 
         input_sha = sha256_bytes(prompt.encode("utf-8"))
+        perspective_config = None
+        if self.perspective_probe is not None:
+            perspective_config = {
+                "perspective_id": self.perspective_probe.perspective_id,
+                "d_model": self.perspective_probe.d_model,
+                "projection_dim": self.perspective_probe.projection_dim,
+                "tolerance": self.perspective_probe.tolerance,
+                "mode": "OBSERVATION_ONLY",
+            }
         cfg_json = json.dumps(
             {
                 "model": asdict(self.model.cfg),
                 "policy": asdict(policy),
+                "perspective": perspective_config,
             },
             sort_keys=True,
         ).encode("utf-8")
@@ -396,11 +479,9 @@ class HolonInferenceRuntime:
         input_ids = torch.tensor([ids], dtype=torch.long, device=self.device)
 
         start = time.perf_counter()
-        logits, cache, layer_trace = self.model(
+        logits, cache, layer_trace, perspective_trace = self._forward(
             input_ids,
             past_kv=None,
-            use_cache=True,
-            return_trace=True,
         )
 
         generated: List[int] = []
@@ -429,7 +510,6 @@ class HolonInferenceRuntime:
             probs = F.softmax(next_logits, dim=-1)
             token = torch.multinomial(probs, num_samples=1)
             token_id = int(token.item())
-
             generated.append(token_id)
 
             trajectory.append(
@@ -440,18 +520,16 @@ class HolonInferenceRuntime:
                     entropy_bits=entropy_bits(probs[0]),
                     max_probability=float(probs.max().detach().cpu()),
                     layer_state=layer_trace,
+                    perspective_trace=perspective_trace,
                 )
             )
 
             if token_id == self.tokenizer.EOS:
                 break
 
-            # Incremental decode: only one new token, with prior KV cache.
-            logits, cache, layer_trace = self.model(
+            logits, cache, layer_trace, perspective_trace = self._forward(
                 token,
                 past_kv=cache,
-                use_cache=True,
-                return_trace=True,
             )
 
             cache_len = cache[0][0].size(2)
@@ -476,6 +554,7 @@ class HolonInferenceRuntime:
             latency_ms=latency_ms,
             seed=policy.seed,
             trajectory=trajectory,
+            perspective_enabled=self.perspective_probe is not None,
         )
         return output, receipt
 
@@ -504,7 +583,6 @@ def main() -> None:
     args = p.parse_args()
 
     tokenizer = ByteTokenizer()
-
     cfg = ModelConfig(
         vocab_size=tokenizer.vocab_size,
         d_model=256,
