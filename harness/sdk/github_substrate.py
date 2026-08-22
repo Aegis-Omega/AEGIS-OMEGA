@@ -51,8 +51,6 @@ def _clean_scalar(value: str) -> str:
 
 
 def _strip_comment(line: str) -> str:
-    # Workflow syntax in this repository uses ordinary unquoted comments. Keep
-    # expressions/URLs intact and only strip a # that is preceded by whitespace.
     match = re.search(r"\s+#", line)
     return line[: match.start()].rstrip() if match else line.rstrip()
 
@@ -61,9 +59,7 @@ def _inline_list(value: str) -> list[str]:
     value = value.strip()
     if value.startswith("[") and value.endswith("]"):
         body = value[1:-1]
-        return sorted(
-            {_clean_scalar(item.strip()) for item in body.split(",") if item.strip()}
-        )
+        return sorted({_clean_scalar(item.strip()) for item in body.split(",") if item.strip()})
     if not value:
         return []
     return [_clean_scalar(value)]
@@ -104,7 +100,6 @@ def _top_level_triggers(lines: list[str]) -> list[str]:
         inline = _inline_list(match.group(2))
         if inline:
             return sorted(set(inline))
-
         child_lines: list[tuple[int, str]] = []
         for following in lines[index + 1 :]:
             cleaned = _strip_comment(following)
@@ -168,10 +163,9 @@ def _runner_requirements(lines: list[str]) -> list[str]:
         cleaned = _strip_comment(raw)
         if "runs-on:" not in cleaned:
             continue
-        before, after = cleaned.split("runs-on:", 1)
+        _, after = cleaned.split("runs-on:", 1)
         base_indent = _indent(cleaned)
-        inline = _inline_list(after)
-        values.update(item for item in inline if item)
+        values.update(item for item in _inline_list(after) if item)
         if after.strip():
             continue
         for following in lines[index + 1 :]:
@@ -202,7 +196,6 @@ def _provider_surfaces(text: str, permissions: dict[str, str], dependencies: Ite
     dep_refs = "\n".join(dep.reference.lower() for dep in dependencies)
     surfaces: set[str] = set()
     findings: set[str] = set()
-
     if permissions.get("models") == "read" or "actions/ai-inference@" in dep_refs:
         surfaces.add("github-models-retired")
         findings.add("RETIRED_GITHUB_MODELS_SURFACE")
@@ -235,14 +228,12 @@ def scan_workflow_text(path: str, text: str) -> WorkflowSurfaceV1:
     runners = _runner_requirements(lines)
     dependencies = _action_dependencies(lines)
     provider_surfaces, findings = _provider_surfaces(text, permissions, dependencies)
-
     mutable = [dep for dep in dependencies if dep.pin_class in {"MUTABLE_REF", "UNPINNED"}]
     if mutable:
         findings.append("MUTABLE_ACTION_REF")
     authority_sensitive = any(value == "write" for value in permissions.values())
     if mutable and authority_sensitive:
         findings.append("MUTABLE_ACTION_REF_AUTHORITY_SENSITIVE")
-
     lower_refs = "\n".join(dep.reference.lower() for dep in dependencies)
     uses_oidc = permissions.get("id-token") == "write"
     uses_attestations = "actions/attest@" in lower_refs or permissions.get("attestations") == "write"
@@ -251,7 +242,6 @@ def scan_workflow_text(path: str, text: str) -> WorkflowSurfaceV1:
         or "actions/download-artifact@" in lower_refs
         or permissions.get("artifact-metadata") == "write"
     )
-
     return WorkflowSurfaceV1(
         path=path,
         source_sha256=sha256(text.encode("utf-8")).hexdigest(),
@@ -283,7 +273,6 @@ def build_manifest(
 ) -> dict[str, Any]:
     if not candidate_sha or not candidate_sha.strip():
         raise ValueError("candidate_sha is required")
-
     root = Path(repo_root)
     workflow_dir = root / ".github" / "workflows"
     paths: list[Path] = []
@@ -291,27 +280,20 @@ def build_manifest(
         paths.extend(workflow_dir.glob("*.yml"))
         paths.extend(workflow_dir.glob("*.yaml"))
     paths = sorted(set(paths), key=lambda path: path.as_posix())
-
     surfaces: list[WorkflowSurfaceV1] = []
     for path in paths:
         relative = ".github/workflows/" + path.name
         surfaces.append(scan_workflow_text(relative, path.read_text(encoding="utf-8")))
-
     current = [surface.to_dict() for surface in surfaces]
     runners = sorted({item for surface in surfaces for item in surface.declared_runner_requirements})
     providers = sorted({item for surface in surfaces for item in surface.provider_model_surfaces})
     findings = sorted({item for surface in surfaces for item in surface.findings})
     dependencies = [
-        {
-            "workflow_path": surface.path,
-            "reference": dep.reference,
-            "pin_class": dep.pin_class,
-        }
+        {"workflow_path": surface.path, "reference": dep.reference, "pin_class": dep.pin_class}
         for surface in surfaces
         for dep in surface.action_dependencies
     ]
     dependencies.sort(key=lambda item: (item["workflow_path"], item["reference"]))
-
     return {
         "schema_version": "1.0.0",
         "manifest_kind": "GITHUB_SUBSTRATE_MANIFEST_V1",
@@ -327,3 +309,54 @@ def build_manifest(
         "historical_workflow_observations": _canonical_observations(historical_observations),
         "findings": findings,
     }
+
+
+def validate_manifest(manifest: dict[str, Any]) -> dict[str, list[str]]:
+    violations: set[str] = set()
+    warnings: set[str] = set()
+    if manifest.get("manifest_kind") != "GITHUB_SUBSTRATE_MANIFEST_V1":
+        violations.add("INVALID_MANIFEST_KIND")
+    if not str(manifest.get("candidate_sha", "")).strip():
+        violations.add("MISSING_CANDIDATE_SHA")
+    if manifest.get("authority") != "EVIDENCE_ONLY_NOT_RUNNER_REGISTRATION_AUTHORITY":
+        violations.add("INVALID_AUTHORITY_BOUNDARY")
+
+    current = manifest.get("current_tree_workflows")
+    if not isinstance(current, list):
+        violations.add("CURRENT_TREE_WORKFLOWS_NOT_LIST")
+        current = []
+    paths = [item.get("path") for item in current if isinstance(item, dict)]
+    if len(paths) != len(set(paths)) or paths != sorted(paths):
+        violations.add("CURRENT_TREE_WORKFLOWS_NOT_UNIQUE_SORTED")
+    if manifest.get("current_tree_workflow_count") != len(current):
+        violations.add("CURRENT_TREE_WORKFLOW_COUNT_MISMATCH")
+
+    current_paths = {path for path in paths if isinstance(path, str)}
+    for item in current:
+        if not isinstance(item, dict):
+            violations.add("MALFORMED_CURRENT_TREE_WORKFLOW")
+            continue
+        path = str(item.get("path", "UNKNOWN"))
+        findings = set(item.get("findings") or [])
+        if "RETIRED_GITHUB_MODELS_SURFACE" in findings:
+            violations.add(f"RETIRED_GITHUB_MODELS_SURFACE:{path}")
+        if "MUTABLE_ACTION_REF_AUTHORITY_SENSITIVE" in findings:
+            warnings.add(f"MUTABLE_ACTION_REF_AUTHORITY_SENSITIVE:{path}")
+        if path == ".github/workflows/github-substrate-census.yml":
+            for dep in item.get("action_dependencies") or []:
+                if dep.get("pin_class") not in {"IMMUTABLE_COMMIT", "LOCAL_PATH"}:
+                    violations.add(f"CENSUS_WORKFLOW_MUTABLE_DEPENDENCY:{dep.get('reference', 'UNKNOWN')}")
+
+    historical = manifest.get("historical_workflow_observations") or []
+    for observation in historical:
+        if not isinstance(observation, dict):
+            violations.add("MALFORMED_HISTORICAL_WORKFLOW_OBSERVATION")
+            continue
+        path = observation.get("workflow_path")
+        if observation.get("observed_as") == "HISTORICAL_ONLY_BUT_CURRENT" and path in current_paths:
+            violations.add(f"HISTORICAL_CURRENT_UNIVERSE_CONFLICT:{path}")
+
+    if manifest.get("registered_runner_inventory_status") != "NOT_CHECKED":
+        warnings.add("REGISTERED_RUNNER_INVENTORY_REQUIRES_EXTERNAL_BINDING")
+
+    return {"violations": sorted(violations), "warnings": sorted(warnings)}
