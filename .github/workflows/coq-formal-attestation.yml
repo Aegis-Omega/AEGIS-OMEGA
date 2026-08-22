@@ -145,6 +145,7 @@ jobs:
             compile_one 'Core/LockIrreversibility.v'
             compile_one 'Core/ConstraintCarryingTransformation.v'
             compile_one 'Core/TraceConstraintRefinement.v'
+            compile_one 'Core/TraceRefinementWitness.v'
             compile_one 'Bisimulation/ThreeWay.v'
 
             printf '\n}\n' >> "$STATUS"
@@ -196,6 +197,7 @@ jobs:
               'Core/LatticeConvergence.v',
               'Core/LockIrreversibility.v',
               'Core/TraceConstraintRefinement.v',
+              'Core/TraceRefinementWitness.v',
           }
           EXPECTED_BASELINE_SHA256 = '45c302e763e58c398d9b2a893cd62bdb2e585c8214d87b286f8e83d1b7d30e3e'
 
