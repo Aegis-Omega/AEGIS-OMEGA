@@ -1,0 +1,58 @@
+{
+  "schema": "aegis.lineage-manifest.v1",
+  "entries": [
+    {
+      "concept_id": "calibration.hallucination-gap",
+      "generations": [
+        {"label": "Hallucination Delta", "semantic_role": "claimed-vs-observed correctness gap", "status": "HISTORICAL"},
+        {"label": "Verifiable-Domain Calibration Gap (VCG)", "semantic_role": "verifier-grounded weighted absolute confidence/outcome gap", "path": "sovereign-omega-v2/src/calibration/vcg.ts", "status": "LIVE", "epistemic_tier": "T1"},
+        {"label": "metacognitive calibration", "semantic_role": "self-prediction compared with verified outcome to monotonically contract autonomy", "pr": 285, "exact_head": "955338f6cf2590c1c38b79ab57a9d09692fd560e", "status": "ACTIVE_PR_LINEAGE"}
+      ]
+    },
+    {
+      "concept_id": "verification.papo",
+      "generations": [
+        {"label": "PAPO", "semantic_role": "parallel stochastic trajectory generator", "status": "HISTORICAL"},
+        {"label": "PAPO-Ψ", "semantic_role": "predict/critique/verdict verifier with tamper-evident record chain", "path": "aegis-cl-psi/src/papo.rs", "status": "LIVE", "epistemic_tier": "T2"}
+      ]
+    },
+    {
+      "concept_id": "gating.sgm",
+      "generations": [
+        {"label": "SGM", "semantic_role": "trajectory safety accept/reject filter", "status": "HISTORICAL"},
+        {"label": "SGM-Ψ", "semantic_role": "sparse activation routing plus Hoeffding acceptance-rate estimation", "path": "aegis-cl-psi/src/sgm_gate.rs", "status": "LIVE", "epistemic_tier": "T2"}
+      ]
+    },
+    {
+      "concept_id": "drift.sahoo",
+      "generations": [
+        {"label": "SAHOO", "semantic_role": "GDI/execution-manifold drift rollback monitor", "status": "HISTORICAL"},
+        {"label": "SAHOO-Ψ", "semantic_role": "Wasserstein-1 predicted/observed drift monitor", "path": "aegis-cl-psi/src/sahoo.rs", "status": "LIVE", "epistemic_tier": "T2"}
+      ]
+    },
+    {
+      "concept_id": "persistence.proof-lineage",
+      "generations": [
+        {"label": "E3 append-only event substrate", "semantic_role": "replay/audit source of state transition history", "status": "LIVE"},
+        {"label": "SPSF", "semantic_role": "sequence-monotone deterministic persistence with genesis-root verification", "path": "aegis-cl-psi/src/spsf.rs", "status": "LIVE", "epistemic_tier": "T2"},
+        {"label": "Proof Trace SDK", "semantic_role": "proof-carrying execution/evidence graph; trace never authority", "pr": 284, "exact_head": "6f23e0af73b6f3ce016846e3e9674b6eb4d6810f", "status": "ACTIVE_PR_LINEAGE"}
+      ]
+    },
+    {
+      "concept_id": "artifact.discovery",
+      "generations": [
+        {"label": "Integration Ledger", "semantic_role": "exact-commit top-level WIRED/LINKED/DORMANT/ORPHAN classification", "path": "scripts/integration_ledger.py", "status": "LIVE"},
+        {"label": "Artifact Locator / Absence-Claim Gate", "semantic_role": "fail closed on incomplete existence searches across refs/PRs/worktrees", "pr": 290, "exact_head": "54a74bd1c97c5743aa210900cb9f3d7e3c0b285c", "status": "ACTIVE_PR_LINEAGE"},
+        {"label": "Epistemic Lineage Preflight", "semantic_role": "semantic/evidence lineage reconciliation before new primitive creation", "pr": 295, "status": "ACTIVE_PR_LINEAGE"}
+      ]
+    },
+    {
+      "concept_id": "traceability.assets",
+      "note": "Same filename denotes two distinct assets.",
+      "assets": [
+        {"concept_id": "traceability.build_matrix", "drive_id": "1zaa1Kx389S7829jPfiZr86EkX5A1W04n", "raw_sha256": "b2180bee23d40e46c4ebdb5abbbabd9ad2eacc2a16cc0318ff28575668f0e830", "status": "HISTORICAL"},
+        {"concept_id": "traceability.implementation_provenance", "drive_id": "1oN1SoV8-blE80nWpskYM3MmtoLPbDyys", "raw_sha256": "4781a45accd346690756430e62a2a02c0a10c92a6b4da9c4881806c6658ceeaf", "path": "docs/TRACEABILITY.md", "status": "LIVE"}
+      ]
+    }
+  ]
+}

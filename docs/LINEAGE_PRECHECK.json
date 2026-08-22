@@ -1,0 +1,56 @@
+{
+  "schema": "aegis.epistemic-lineage-precheck.v1",
+  "status": "DRAFT",
+  "purpose": "Require repository and corpus lineage reconstruction before an AEGIS primitive is declared missing or newly implemented.",
+  "stack_parent": {
+    "pr": 290,
+    "branch": "fix/claude-artifact-discovery-v1",
+    "exact_head": "54a74bd1c97c5743aa210900cb9f3d7e3c0b285c",
+    "relationship": "EXTENDS_NOT_REPLACES",
+    "note": "PR #290 owns fail-closed artifact existence discovery. This guard adds semantic/evidence lineage and Drive triage."
+  },
+  "required_repository_context": [
+    "sovereign-omega-v2/ARTIFACT_REGISTRY.md",
+    "docs/TRACEABILITY.md",
+    "docs/CORPUS_MINDMAP.md",
+    "docs/ONTOLOGY.md",
+    "scripts/integration_ledger.py",
+    "INTEGRATION_LEDGER.md",
+    "docs/LINEAGE_MANIFEST.v1.json",
+    "docs/LINEAGE_TIMELINE_PHASE1.v1.json",
+    "docs/DRIVE_TRIAGE.v1.json"
+  ],
+  "rules": [
+    "Artifact identity is not filename, gate number, branch name, or epistemic label alone.",
+    "Run PR #290 artifact discovery before any global existence or absence claim.",
+    "Resolve semantic role, generation, evidence tier, exact ref, and predecessor/successor relation before creating a new primitive.",
+    "A code-search hit proves presence only; it does not prove semantic continuity.",
+    "A current-tree miss does not prove absence when active PRs, historical refs, or corpus snapshots are unresolved.",
+    "Historical stronger rhetoric never overrides a later narrower implementation/evidence boundary.",
+    "Unknown lineage stays UNKNOWN; do not infer edges from lexical similarity.",
+    "Do not use a stale integration-ledger snapshot; use the exact-candidate workflow artifact."
+  ],
+  "identity_fields": [
+    "concept_id",
+    "semantic_role",
+    "implementation_path",
+    "exact_ref",
+    "epistemic_tier",
+    "evidence_refs",
+    "predecessors",
+    "successors",
+    "status"
+  ],
+  "statuses": [
+    "LIVE",
+    "LIVE_UNREACHED",
+    "ACTIVE_PR_LINEAGE",
+    "HISTORICAL",
+    "SUPERSEDED",
+    "FORKED",
+    "ORPHANED",
+    "RESEARCH_ONLY",
+    "DEAD_CONFIRMED",
+    "UNKNOWN"
+  ]
+}

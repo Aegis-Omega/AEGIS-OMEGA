@@ -1,0 +1,44 @@
+{
+  "schema": "aegis.canonical-timeline.phase1.v1",
+  "source_drive_id": "1N-nTFig5fMpomDObMo5BNFVGcwipvOf-X3-sVCbBCPE",
+  "coverage": "2026-04-01/2026-07-18",
+  "evidence_classes": {"E0": "verified execution evidence", "E1": "source snapshot", "E2": "architecture/provenance declaration", "E3": "research derivative", "E4": "replica or derivative copy", "U": "unresolved linkage"},
+  "phase0_metadata_anchors": [
+    {"date": "2026-01-20", "title": "LifeQuest Holy Book / Quest Generator Machine", "status": "METADATA_ONLY_PENDING_CONTENT_BINDING"},
+    {"date": "2026-02", "title": "Sovereign/NEXUS/agent-guide cluster", "status": "METADATA_ONLY_PENDING_CONTENT_BINDING"},
+    {"date": "2026-03-25/26", "title": "Kaggle writeup + Sovereign handoffs + S.W.A.R.M. v1.0", "status": "METADATA_CONFIRMED_CLAIM_BINDING_PENDING"}
+  ],
+  "anchors": [
+    {"date": "2026-04-01", "phase": "SWARM precursor execution", "evidence_class": "E0", "drive_id": "19u5T1FGE-snff4vSoCuha--BnYrMVk0i"},
+    {"date": "2026-04-23", "phase": "Sovereign Core / Earth-OS synthesis", "evidence_class": "E3"},
+    {"date": "2026-04-25/2026-05-04", "phase": "physical grounding / zero-hallucination / metacognition research", "evidence_class": "E3"},
+    {"date": "2026-05-06/12", "phase": "AEGIS / autopoietic-engine naming consolidation", "evidence_class": "E3/E4"},
+    {"date": "2026-05-15/21", "phase": "adversarial governance / HD / holonic agents / arbitration", "evidence_class": "E3"},
+    {"date": "2026-05-18", "phase": "corpus enumeration and cognitive-substrate map", "evidence_class": "E2", "drive_id": "1PdmRTqAxd61sXoqcITPKu1AqBjDkwWSu"},
+    {"date": "2026-05-26/27", "phase": "Sovereign-Omega traceability and formal runtime structure", "evidence_class": "E2"},
+    {"date": "2026-05-31", "phase": "preserved source snapshots", "evidence_class": "E1"},
+    {"date": "2026-06-04/10", "phase": "runtime packaging and replication", "evidence_class": "E1/E2/E4"},
+    {"date": "2026-06-14", "phase": "Claude control bundle and metacognitive harness", "evidence_class": "E0/E1", "boundary": "partial enforcement; absent required live-chain state was not fully fail-closed"},
+    {"date": "2026-06-16/19", "phase": "report consolidation and duplicate expansion", "evidence_class": "E3/E4"},
+    {"date": "2026-06-28", "phase": "AEGIS Omega 2.0 interface/presentation bundle", "evidence_class": "E2"},
+    {"date": "2026-07-02", "phase": "Claude project/session archive mirror", "evidence_class": "E1/E4", "boundary": "sensitive telemetry; privacy screening required"},
+    {"date": "2026-07-10", "phase": "continued operational logging", "evidence_class": "U", "drive_id": "1sBGORhMAmLTcma4ROZgwdTG4hC-UQ_uP"},
+    {"date": "2026-07-17/18", "phase": "Scale OS control plane and synthesis", "evidence_class": "E0"}
+  ],
+  "source_snapshots": [
+    {"label": "Archive A", "sha256": "3d0e5e33545c38cadd294c1ca55a40542a91c5b6c9195f23ff920c1f7c5c73c4", "size_bytes": 245999159, "entries": 35002, "branch": "claude/aegis-setup-Lx7Ji", "head": "ad7f2090a1ca54494d7509021117264b0bb1bc04"},
+    {"label": "Archive B", "sha256": "305c9d270922659479f4f3f889c278729d93ec82f14a3ee4977e6ac667914778", "size_bytes": 91384608, "entries": 24549, "substantive_files": 1411, "substantive_absent_from_A": 250, "exact_commit": "UNKNOWN"}
+  ],
+  "github_reconciliation": [
+    {"as_of": "2026-07-18", "main": "31bcb7ef93d27d3c101694347f3638796162be21", "status": "HISTORICAL_CURRENT_AT_TIME"},
+    {"as_of": "2026-08-22", "main": "32b7eb6a37fb69d19dd80189390b6641c5004ef1", "status": "CURRENT_CANONICAL_VERIFIED"}
+  ],
+  "unresolved": [
+    "Exact commit binding for May-31 test-coverage archive.",
+    "Exact test/CI receipts behind historical traceability test counts.",
+    "Claim-level bindings for HD/ERD, biological corrections, ARC runs, and proof-suite outputs.",
+    "Whether each UI/runtime metric was live-backed or presentation/static.",
+    "Privacy/secret screening for session archives.",
+    "Canonical distinction among Hallucination Delta, Hallucination Distance, VCG/calibration residuals, gate outcomes, and abstention semantics."
+  ]
+}
