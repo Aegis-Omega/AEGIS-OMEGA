@@ -1,0 +1,45 @@
+name: AEGIS Execution Principal PoP Contract
+
+on:
+  pull_request:
+    paths:
+      - 'harness/sdk/principal_binding.py'
+      - 'harness/policies/principal-binding-policy.v1.json'
+      - 'harness/sdk/authority_client.py'
+      - 'scripts/automaton3-authority.py'
+      - 'sovereign-omega-v2/python/tests/test_execution_principal_pop.py'
+      - '.github/workflows/execution-principal-pop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  execution-principal-pop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact candidate SHA
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SHA"
+          printf 'EXACT_HEAD=%s\n' "$actual"
+
+      - name: RuntimePoP and tri-principal falsifiers
+        run: |
+          set -euo pipefail
+          python3 sovereign-omega-v2/python/tests/test_execution_principal_pop.py
+
+      - name: Principal binding policy JSON
+        run: |
+          set -euo pipefail
+          python3 -m json.tool harness/policies/principal-binding-policy.v1.json >/dev/null
