@@ -1,19 +1,31 @@
-name: AEGIS Model Registry
+name: AEGIS Model Fabric
 
 on:
   pull_request:
     paths:
       - 'config/model-capability-registry.v1.json'
+      - 'models/**'
       - 'schemas/model-capability-registry.v1.schema.json'
+      - 'schemas/model-artifacts.v1.schema.json'
       - 'scripts/validate-model-capability-registry.py'
+      - 'scripts/verify-model-artifacts.py'
+      - 'scripts/package-model-release.py'
+      - 'scripts/hydrate-model-release.py'
+      - 'harness/sdk/model_registry.py'
+      - 'sovereign-omega-v2/python/tests/test_model_registry.py'
       - '.github/workflows/model-registry.yml'
   merge_group:
   push:
     branches: [main]
     paths:
       - 'config/model-capability-registry.v1.json'
+      - 'models/**'
       - 'schemas/model-capability-registry.v1.schema.json'
+      - 'schemas/model-artifacts.v1.schema.json'
       - 'scripts/validate-model-capability-registry.py'
+      - 'scripts/verify-model-artifacts.py'
+      - 'harness/sdk/model_registry.py'
+      - 'sovereign-omega-v2/python/tests/test_model_registry.py'
       - '.github/workflows/model-registry.yml'
   workflow_dispatch:
 
@@ -21,31 +33,52 @@ permissions:
   contents: read
 
 jobs:
-  validate-model-registry:
-    name: aegis / model-registry
+  validate-model-fabric:
+    name: aegis / model-fabric
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
     steps:
       - name: Checkout exact candidate
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Install exact validator dependency
-        run: pip install jsonschema==4.23.0
+      - name: Install exact validation dependencies
+        run: pip install jsonschema==4.23.0 pytest==8.3.5
 
-      - name: Validate model registry
+      - name: Compile model fabric Python
+        run: |
+          python -m py_compile \
+            harness/sdk/model_registry.py \
+            scripts/validate-model-capability-registry.py \
+            scripts/verify-model-artifacts.py \
+            scripts/package-model-release.py \
+            scripts/hydrate-model-release.py
+
+      - name: Validate capability registry
         run: python scripts/validate-model-capability-registry.py
 
-      - name: Assert model outputs remain non-authoritative
+      - name: Validate artifact index
+        run: python scripts/verify-model-artifacts.py
+
+      - name: Run model registry fail-closed tests
+        run: pytest -q sovereign-omega-v2/python/tests/test_model_registry.py
+
+      - name: Assert authority and future-model invariants
         shell: bash
         run: |
           set -euo pipefail
           grep -F '"authority_rule": "MODEL_OUTPUT_IS_EVIDENCE_NOT_AUTHORITY"' config/model-capability-registry.v1.json
           grep -F '"allow_unknown_models": false' config/model-capability-registry.v1.json
           grep -F '"must_not_become_authority_by_configuration": true' config/model-capability-registry.v1.json
+          grep -F '"authority_rule": "WEIGHTS_AND_MODEL_OUTPUTS_ARE_EVIDENCE_NOT_AUTHORITY"' models/model-artifacts.v1.json
+          grep -F '"artifact_presence_does_not_grant_execution_authority": true' models/model-artifacts.v1.json
+          grep -F '"model_output_never_grants_admission_or_effect_authority": true' models/model-artifacts.v1.json
