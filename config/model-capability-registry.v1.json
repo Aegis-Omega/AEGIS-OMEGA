@@ -3,166 +3,48 @@
   "epistemic_status": "T2_ENGINEERING_CONFIGURATION",
   "authority_rule": "MODEL_OUTPUT_IS_EVIDENCE_NOT_AUTHORITY",
   "selection_policy": {
-    "resolution_order": [
-      "consequence_class",
-      "required_capabilities",
-      "privacy_requirement",
-      "provider_diversity_requirement",
-      "cost_ceiling",
-      "latency_preference"
-    ],
+    "resolution_order": ["consequence_class", "required_capabilities", "privacy_requirement", "provider_diversity_requirement", "cost_ceiling", "latency_preference"],
     "fail_closed": true,
     "require_explicit_model_registration": true,
     "allow_unknown_models": false
   },
   "roles": {
-    "planner": {
-      "required_capabilities": ["reasoning", "long_context", "tool_use"]
-    },
-    "adversarial_auditor": {
-      "required_capabilities": ["reasoning", "structured_output"],
-      "require_provider_diversity_from": ["planner"]
-    },
-    "coder": {
-      "required_capabilities": ["code", "tool_use", "structured_output"]
-    },
-    "cheap_executor": {
-      "required_capabilities": ["structured_output"]
-    },
-    "long_context_executor": {
-      "required_capabilities": ["long_context", "structured_output"]
-    },
-    "local_private_executor": {
-      "required_capabilities": ["local_execution", "structured_output"],
-      "privacy_requirement": "local_only"
-    },
-    "multimodal_executor": {
-      "required_capabilities": ["multimodal", "structured_output"]
-    }
+    "planner": {"required_capabilities": ["reasoning", "long_context", "tool_use"]},
+    "adversarial_auditor": {"required_capabilities": ["reasoning", "structured_output"], "require_provider_diversity_from": ["planner"]},
+    "coder": {"required_capabilities": ["code", "tool_use", "structured_output"]},
+    "cheap_executor": {"required_capabilities": ["structured_output"]},
+    "long_context_executor": {"required_capabilities": ["long_context", "structured_output"]},
+    "local_private_executor": {"required_capabilities": ["local_execution", "structured_output"], "privacy_requirement": "local_only"},
+    "multimodal_executor": {"required_capabilities": ["multimodal", "structured_output"]}
   },
   "providers": {
-    "openai": {
-      "transport": "responses_api",
-      "server_side_credentials_only": true,
-      "model_family": "gpt",
-      "supports_openai_compatible_transport": true
-    },
-    "anthropic": {
-      "transport": "messages_api",
-      "server_side_credentials_only": true,
-      "model_family": "claude",
-      "supports_anthropic_compatible_transport": true
-    },
-    "deepseek": {
-      "transport": "openai_compatible",
-      "server_side_credentials_only": true,
-      "model_family": "deepseek",
-      "supports_openai_compatible_transport": true,
-      "supports_anthropic_compatible_transport": true
-    },
-    "google-local": {
-      "transport": "openai_compatible_local",
-      "server_side_credentials_only": false,
-      "model_family": "gemma",
-      "supports_openai_compatible_transport": true
-    },
-    "dashscope": {
-      "transport": "openai_compatible",
-      "server_side_credentials_only": true,
-      "model_family": "qwen",
-      "supports_openai_compatible_transport": true
-    },
-    "azure-openai": {
-      "transport": "azure_openai",
-      "server_side_credentials_only": true,
-      "model_family": "gpt",
-      "supports_openai_compatible_transport": true
-    }
+    "openai": {"transport": "responses_api", "server_side_credentials_only": true, "model_family": "gpt", "supports_openai_compatible_transport": true},
+    "anthropic": {"transport": "messages_api", "server_side_credentials_only": true, "model_family": "claude", "supports_anthropic_compatible_transport": true},
+    "deepseek": {"transport": "openai_compatible", "server_side_credentials_only": true, "model_family": "deepseek", "supports_openai_compatible_transport": true, "supports_anthropic_compatible_transport": true},
+    "google-local": {"transport": "openai_compatible_local", "server_side_credentials_only": false, "model_family": "gemma", "supports_openai_compatible_transport": true},
+    "dashscope": {"transport": "openai_compatible", "server_side_credentials_only": true, "model_family": "qwen", "supports_openai_compatible_transport": true},
+    "azure-openai": {"transport": "azure_openai", "server_side_credentials_only": true, "model_family": "gpt", "supports_openai_compatible_transport": true}
   },
   "models": {
-    "gpt-5.6-sol": {
-      "provider": "openai",
-      "status": "candidate",
-      "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output", "multimodal"],
-      "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor", "multimodal_executor"],
-      "artifact_package": "gpt-5.6-sol-remote",
-      "execution_surfaces": ["remote_api"]
-    },
-    "gpt-5.6-terra": {
-      "provider": "openai",
-      "status": "candidate",
-      "capabilities": ["reasoning", "tool_use", "code", "structured_output", "multimodal"],
-      "recommended_roles": ["coder", "cheap_executor", "multimodal_executor"],
-      "artifact_package": "gpt-5.6-terra-remote",
-      "execution_surfaces": ["remote_api"]
-    },
-    "gpt-5.6-luna": {
-      "provider": "openai",
-      "status": "candidate",
-      "capabilities": ["tool_use", "structured_output"],
-      "recommended_roles": ["cheap_executor"],
-      "artifact_package": "gpt-5.6-luna-remote",
-      "execution_surfaces": ["remote_api"]
-    },
-    "claude-opus-5": {
-      "provider": "anthropic",
-      "status": "candidate",
-      "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output", "multimodal"],
-      "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor"],
-      "artifact_package": "claude-opus-5-remote",
-      "execution_surfaces": ["remote_api"]
-    },
-    "claude-sonnet-5": {
-      "provider": "anthropic",
-      "status": "candidate",
-      "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output", "multimodal"],
-      "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor"],
-      "artifact_package": "claude-sonnet-5-remote",
-      "execution_surfaces": ["remote_api"]
-    },
-    "deepseek-v4-pro": {
-      "provider": "deepseek",
-      "status": "candidate",
-      "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output"],
-      "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor"],
-      "artifact_package": "deepseek-v4-pro",
-      "execution_surfaces": ["remote_api", "local_checkpoint"]
-    },
-    "deepseek-v4-flash": {
-      "provider": "deepseek",
-      "status": "candidate",
-      "capabilities": ["reasoning", "tool_use", "code", "structured_output"],
-      "recommended_roles": ["coder", "cheap_executor"],
-      "artifact_package": "deepseek-v4-flash",
-      "execution_surfaces": ["remote_api", "local_checkpoint"]
-    },
-    "gemma-4-local": {
-      "provider": "google-local",
-      "status": "candidate",
-      "capabilities": ["local_execution", "tool_use", "structured_output", "code", "multimodal"],
-      "recommended_roles": ["local_private_executor", "coder", "multimodal_executor"],
-      "artifact_package": "gemma-4-e2b-it-bf16",
-      "execution_surfaces": ["local_checkpoint"]
-    },
-    "qwen-plus": {
-      "provider": "dashscope",
-      "status": "active_legacy",
-      "capabilities": ["reasoning", "tool_use", "code", "structured_output"],
-      "recommended_roles": ["coder", "cheap_executor"],
-      "artifact_package": "qwen-plus-remote",
-      "execution_surfaces": ["remote_api"]
-    }
+    "gpt-5.6-sol": {"provider": "openai", "status": "candidate", "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output", "multimodal"], "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor", "multimodal_executor"], "artifact_package": "gpt-5.6-sol-remote", "execution_surfaces": ["remote_api"]},
+    "gpt-5.6-terra": {"provider": "openai", "status": "candidate", "capabilities": ["reasoning", "tool_use", "code", "structured_output", "multimodal"], "recommended_roles": ["coder", "cheap_executor", "multimodal_executor"], "artifact_package": "gpt-5.6-terra-remote", "execution_surfaces": ["remote_api"]},
+    "gpt-5.6-luna": {"provider": "openai", "status": "candidate", "capabilities": ["tool_use", "structured_output"], "recommended_roles": ["cheap_executor"], "artifact_package": "gpt-5.6-luna-remote", "execution_surfaces": ["remote_api"]},
+    "gpt-4o": {"provider": "openai", "status": "active_legacy", "capabilities": ["tool_use", "code", "structured_output", "multimodal"], "recommended_roles": ["coder", "cheap_executor", "multimodal_executor"], "artifact_package": "gpt-4o-remote", "execution_surfaces": ["remote_api"]},
+    "claude-fable-5": {"provider": "anthropic", "status": "candidate", "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output", "multimodal"], "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor", "multimodal_executor"], "artifact_package": "claude-fable-5-remote", "execution_surfaces": ["remote_api"]},
+    "claude-opus-5": {"provider": "anthropic", "status": "candidate", "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output", "multimodal"], "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor"], "artifact_package": "claude-opus-5-remote", "execution_surfaces": ["remote_api"]},
+    "claude-sonnet-5": {"provider": "anthropic", "status": "candidate", "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output", "multimodal"], "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor"], "artifact_package": "claude-sonnet-5-remote", "execution_surfaces": ["remote_api"]},
+    "claude-sonnet-4-6": {"provider": "anthropic", "status": "active_legacy", "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output", "multimodal"], "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor"], "artifact_package": "claude-sonnet-4-6-remote", "execution_surfaces": ["remote_api"]},
+    "claude-haiku-4-5-20251001": {"provider": "anthropic", "status": "active_legacy", "capabilities": ["tool_use", "code", "structured_output", "multimodal"], "recommended_roles": ["coder", "cheap_executor", "multimodal_executor"], "artifact_package": "claude-haiku-4-5-20251001-remote", "execution_surfaces": ["remote_api"]},
+    "deepseek-v4-pro": {"provider": "deepseek", "status": "candidate", "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output"], "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor"], "artifact_package": "deepseek-v4-pro", "execution_surfaces": ["remote_api", "local_checkpoint"]},
+    "deepseek-v4-flash": {"provider": "deepseek", "status": "candidate", "capabilities": ["reasoning", "tool_use", "code", "structured_output"], "recommended_roles": ["coder", "cheap_executor"], "artifact_package": "deepseek-v4-flash", "execution_surfaces": ["remote_api", "local_checkpoint"]},
+    "gemma-4-local": {"provider": "google-local", "status": "candidate", "capabilities": ["local_execution", "tool_use", "structured_output", "code", "multimodal"], "recommended_roles": ["local_private_executor", "coder", "multimodal_executor"], "artifact_package": "gemma-4-e2b-it-bf16", "execution_surfaces": ["local_checkpoint"]},
+    "qwen3.8-max": {"provider": "dashscope", "status": "candidate", "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output", "multimodal"], "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor", "multimodal_executor"], "artifact_package": "qwen3.8-max-remote", "execution_surfaces": ["remote_api"]},
+    "qwen3.7-plus": {"provider": "dashscope", "status": "active_legacy", "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output", "multimodal"], "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor", "multimodal_executor"], "artifact_package": "qwen3.7-plus-remote", "execution_surfaces": ["remote_api"]},
+    "qwen-plus": {"provider": "dashscope", "status": "active_legacy", "capabilities": ["reasoning", "tool_use", "code", "structured_output"], "recommended_roles": ["coder", "cheap_executor"], "artifact_package": "qwen-plus-remote", "execution_surfaces": ["remote_api"]}
   },
   "future_model_rule": {
     "registration_required_before_use": true,
-    "minimum_fields": [
-      "provider",
-      "status",
-      "capabilities",
-      "recommended_roles",
-      "artifact_package",
-      "execution_surfaces"
-    ],
+    "minimum_fields": ["provider", "status", "capabilities", "recommended_roles", "artifact_package", "execution_surfaces"],
     "must_not_change_authority_semantics": true,
     "must_not_become_authority_by_configuration": true,
     "must_preserve_receipt_and_replay_requirements": true
