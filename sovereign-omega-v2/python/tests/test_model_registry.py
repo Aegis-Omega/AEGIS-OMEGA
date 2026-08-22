@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+import json
 import sys
 from pathlib import Path
 
@@ -19,6 +21,45 @@ from harness.sdk.model_registry import (  # noqa: E402
 
 def registry() -> ModelCapabilityRegistry:
     return ModelCapabilityRegistry.load()
+
+
+def private_registry(*, mirror_state: str) -> ModelCapabilityRegistry:
+    registry_payload = json.loads((REPO_ROOT / "config" / "model-capability-registry.v1.json").read_text(encoding="utf-8"))
+    artifact_payload = json.loads((REPO_ROOT / "models" / "model-artifacts.v1.json").read_text(encoding="utf-8"))
+    registry_payload = copy.deepcopy(registry_payload)
+    artifact_payload = copy.deepcopy(artifact_payload)
+
+    artifact_payload["packages"]["operator-private-test"] = {
+        "family": "operator-private",
+        "provider": "operator-local",
+        "weight_availability": "PRIVATE_OPERATOR_WEIGHTS",
+        "license": {"spdx": None, "redistribution_status": "PRIVATE_OPERATOR_ONLY"},
+        "source": {
+            "kind": "operator_private",
+            "opaque_ref": "operator-vault:test",
+            "revision": "a" * 64,
+            "revision_kind": "PRIVATE_CONTENT_ROOT",
+            "content_root_sha256": "a" * 64,
+        },
+        "checkpoint": {"declared_shard_count": 1, "complete_shard_digest_set": True},
+        "files": [{"path": "weights.bin", "sha256": "b" * 64, "required_for_local_execution": True}],
+        "checkout_path": "models/weights/operator-private-test",
+        "mirror": {
+            "state": mirror_state,
+            "backend": "operator_private_store",
+            "release_tag": None,
+            "manifest_path": "models/releases/operator-private-test.release.json",
+        },
+    }
+    registry_payload["models"]["operator-private-test"] = {
+        "provider": "operator-local",
+        "status": "active",
+        "capabilities": ["local_execution", "structured_output"],
+        "recommended_roles": ["local_private_executor"],
+        "artifact_package": "operator-private-test",
+        "execution_surfaces": ["local_checkpoint"],
+    }
+    return ModelCapabilityRegistry(registry_payload, artifact_payload)
 
 
 def test_unknown_model_fails_closed() -> None:
@@ -84,6 +125,24 @@ def test_local_gemma_is_not_routable_until_repo_mirror_is_verified() -> None:
     )
     assert [candidate.model_id for candidate in inspectable] == ["gemma-4-local"]
     assert inspectable[0].artifact_package == "gemma-4-e2b-it-bf16"
+
+
+def test_verified_private_weights_can_satisfy_local_surface_without_publicity() -> None:
+    candidates = private_registry(mirror_state="PRIVATE_MIRRORED_VERIFIED").resolve(
+        "local_private_executor",
+        execution_surface=LOCAL_SURFACE,
+    )
+    assert [candidate.model_id for candidate in candidates] == ["operator-private-test"]
+    assert candidates[0].provider == "operator-local"
+    assert candidates[0].authority == "EVIDENCE_ONLY"
+
+
+def test_private_weights_fail_closed_before_private_mirror_verification() -> None:
+    candidates = private_registry(mirror_state="PRIVATE_SOURCE_REGISTERED_NOT_YET_MIRRORED").resolve(
+        "local_private_executor",
+        execution_surface=LOCAL_SURFACE,
+    )
+    assert candidates == ()
 
 
 def test_incomplete_deepseek_checkpoint_cannot_route_locally() -> None:
