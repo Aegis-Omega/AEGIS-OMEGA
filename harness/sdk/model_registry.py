@@ -9,6 +9,9 @@ from typing import Iterable, Mapping, Sequence
 MODEL_OUTPUT_AUTHORITY = "EVIDENCE_ONLY"
 DEFAULT_EXECUTABLE_STATUSES = frozenset({"active", "active_legacy"})
 CANDIDATE_STATUS = "candidate"
+REMOTE_SURFACE = "remote_api"
+LOCAL_SURFACE = "local_checkpoint"
+MIRRORED_VERIFIED = "MIRRORED_VERIFIED"
 
 
 class ModelRegistryError(RuntimeError):
@@ -22,38 +25,60 @@ class ModelCandidate:
     status: str
     capabilities: tuple[str, ...]
     recommended_roles: tuple[str, ...]
+    artifact_package: str
+    execution_surfaces: tuple[str, ...]
     authority: str = MODEL_OUTPUT_AUTHORITY
 
 
 class ModelCapabilityRegistry:
-    """Deterministic, fail-closed view of model/provider configuration.
+    """Deterministic, fail-closed model/provider/artifact resolver.
 
-    The registry selects *eligible inference candidates*. It never grants
-    execution, admission, effect, or state-transition authority. Candidate
-    models are excluded from normal routing until explicitly promoted to an
-    executable status by a separately governed configuration change.
+    The resolver selects *eligible inference candidates*. It never grants
+    authorization, admission, effect, or state-transition authority.
+
+    A model being present in configuration is insufficient for execution:
+    - candidate status is excluded by default;
+    - local checkpoint routing additionally requires an admitted, verified
+      repo-owned artifact mirror;
+    - unknown model/provider/artifact references fail closed.
     """
 
-    def __init__(self, payload: Mapping[str, object]) -> None:
+    def __init__(
+        self,
+        payload: Mapping[str, object],
+        artifact_payload: Mapping[str, object],
+    ) -> None:
         self._payload = payload
+        self._artifact_payload = artifact_payload
         self._assert_constitutional_invariants()
 
     @classmethod
-    def load(cls, path: Path | str | None = None) -> "ModelCapabilityRegistry":
-        if path is None:
-            path = Path(__file__).resolve().parents[2] / "config" / "model-capability-registry.v1.json"
-        registry_path = Path(path)
+    def load(
+        cls,
+        path: Path | str | None = None,
+        artifact_path: Path | str | None = None,
+    ) -> "ModelCapabilityRegistry":
+        repo_root = Path(__file__).resolve().parents[2]
+        registry_path = Path(path) if path is not None else repo_root / "config" / "model-capability-registry.v1.json"
+        model_artifact_path = (
+            Path(artifact_path)
+            if artifact_path is not None
+            else repo_root / "models" / "model-artifacts.v1.json"
+        )
         try:
             payload = json.loads(registry_path.read_text(encoding="utf-8"))
+            artifact_payload = json.loads(model_artifact_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            raise ModelRegistryError(f"cannot load model registry: {exc}") from exc
-        if not isinstance(payload, dict):
-            raise ModelRegistryError("model registry root must be an object")
-        return cls(payload)
+            raise ModelRegistryError(f"cannot load model registry/artifacts: {exc}") from exc
+        if not isinstance(payload, dict) or not isinstance(artifact_payload, dict):
+            raise ModelRegistryError("model registry and artifact index roots must be objects")
+        return cls(payload, artifact_payload)
 
     def _assert_constitutional_invariants(self) -> None:
         if self._payload.get("authority_rule") != "MODEL_OUTPUT_IS_EVIDENCE_NOT_AUTHORITY":
             raise ModelRegistryError("registry authority rule is missing or changed")
+        if self._artifact_payload.get("authority_rule") != "WEIGHTS_AND_MODEL_OUTPUTS_ARE_EVIDENCE_NOT_AUTHORITY":
+            raise ModelRegistryError("model artifact authority rule is missing or changed")
         policy = self._mapping("selection_policy")
         if policy.get("fail_closed") is not True:
             raise ModelRegistryError("registry must fail closed")
@@ -61,11 +86,20 @@ class ModelCapabilityRegistry:
             raise ModelRegistryError("explicit model registration is required")
         if policy.get("allow_unknown_models") is not False:
             raise ModelRegistryError("unknown models must remain denied")
+        artifact_storage = self._artifact_mapping("storage_policy")
+        if artifact_storage.get("local_execution_requires_verified_hydration") is not True:
+            raise ModelRegistryError("local execution must require verified model hydration")
 
     def _mapping(self, key: str) -> Mapping[str, object]:
         value = self._payload.get(key)
         if not isinstance(value, dict):
             raise ModelRegistryError(f"registry field {key!r} must be an object")
+        return value
+
+    def _artifact_mapping(self, key: str) -> Mapping[str, object]:
+        value = self._artifact_payload.get(key)
+        if not isinstance(value, dict):
+            raise ModelRegistryError(f"artifact index field {key!r} must be an object")
         return value
 
     @property
@@ -80,6 +114,10 @@ class ModelCapabilityRegistry:
     def models(self) -> Mapping[str, object]:
         return self._mapping("models")
 
+    @property
+    def artifact_packages(self) -> Mapping[str, object]:
+        return self._artifact_mapping("packages")
+
     def get_model(self, model_id: str) -> ModelCandidate:
         raw = self.models.get(model_id)
         if not isinstance(raw, dict):
@@ -88,6 +126,8 @@ class ModelCapabilityRegistry:
         status = raw.get("status")
         capabilities = raw.get("capabilities")
         recommended_roles = raw.get("recommended_roles")
+        artifact_package = raw.get("artifact_package")
+        execution_surfaces = raw.get("execution_surfaces")
         if not isinstance(provider, str) or provider not in self.providers:
             raise ModelRegistryError(f"model {model_id} has unknown provider")
         if not isinstance(status, str):
@@ -96,13 +136,41 @@ class ModelCapabilityRegistry:
             raise ModelRegistryError(f"model {model_id} has invalid capabilities")
         if not isinstance(recommended_roles, list) or not all(isinstance(x, str) for x in recommended_roles):
             raise ModelRegistryError(f"model {model_id} has invalid recommended_roles")
+        if not isinstance(artifact_package, str) or artifact_package not in self.artifact_packages:
+            raise ModelRegistryError(f"model {model_id} has unknown artifact package")
+        if not isinstance(execution_surfaces, list) or not execution_surfaces or not all(
+            isinstance(x, str) for x in execution_surfaces
+        ):
+            raise ModelRegistryError(f"model {model_id} has invalid execution surfaces")
+
+        package = self.artifact_packages[artifact_package]
+        if not isinstance(package, dict) or package.get("provider") != provider:
+            raise ModelRegistryError(f"model {model_id} artifact/provider binding is inconsistent")
+
         return ModelCandidate(
             model_id=model_id,
             provider=provider,
             status=status,
             capabilities=tuple(sorted(capabilities)),
             recommended_roles=tuple(sorted(recommended_roles)),
+            artifact_package=artifact_package,
+            execution_surfaces=tuple(sorted(execution_surfaces)),
         )
+
+    def _surface_is_ready(self, candidate: ModelCandidate, surface: str) -> bool:
+        if surface not in candidate.execution_surfaces:
+            return False
+        if surface == REMOTE_SURFACE:
+            return True
+        if surface != LOCAL_SURFACE:
+            return False
+        package = self.artifact_packages.get(candidate.artifact_package)
+        if not isinstance(package, dict):
+            return False
+        if package.get("weight_availability") != "OPEN_WEIGHTS":
+            return False
+        mirror = package.get("mirror")
+        return isinstance(mirror, dict) and mirror.get("state") == MIRRORED_VERIFIED
 
     def resolve(
         self,
@@ -112,10 +180,14 @@ class ModelCapabilityRegistry:
         exclude_providers: Iterable[str] = (),
         executable_statuses: Iterable[str] = DEFAULT_EXECUTABLE_STATUSES,
         include_candidates: bool = False,
+        execution_surface: str | None = None,
+        require_artifact_ready: bool = True,
     ) -> tuple[ModelCandidate, ...]:
         raw_role = self.roles.get(role)
         if not isinstance(raw_role, dict):
             raise ModelRegistryError(f"unknown role: {role}")
+        if execution_surface is not None and execution_surface not in {REMOTE_SURFACE, LOCAL_SURFACE}:
+            raise ModelRegistryError(f"unknown execution surface: {execution_surface}")
 
         required = raw_role.get("required_capabilities")
         if not isinstance(required, list) or not all(isinstance(x, str) for x in required):
@@ -128,6 +200,7 @@ class ModelCapabilityRegistry:
             allowed_statuses.add(CANDIDATE_STATUS)
 
         privacy_requirement = raw_role.get("privacy_requirement")
+        forced_surface = LOCAL_SURFACE if privacy_requirement == "local_only" else execution_surface
         candidates: list[ModelCandidate] = []
         for model_id in sorted(self.models):
             candidate = self.get_model(model_id)
@@ -139,19 +212,27 @@ class ModelCapabilityRegistry:
                 continue
             if not required_set.issubset(set(candidate.capabilities)):
                 continue
+
             if privacy_requirement == "local_only":
                 provider = self.providers.get(candidate.provider)
                 if not isinstance(provider, dict) or provider.get("transport") != "openai_compatible_local":
                     continue
+
+            if forced_surface is not None:
+                if forced_surface not in candidate.execution_surfaces:
+                    continue
+                if require_artifact_ready and not self._surface_is_ready(candidate, forced_surface):
+                    continue
+            elif require_artifact_ready:
+                # A candidate is routable when at least one declared execution surface is ready.
+                if not any(self._surface_is_ready(candidate, surface) for surface in candidate.execution_surfaces):
+                    continue
+
             candidates.append(candidate)
 
         return tuple(candidates)
 
-    def require_one(
-        self,
-        role: str,
-        **kwargs: object,
-    ) -> ModelCandidate:
+    def require_one(self, role: str, **kwargs: object) -> ModelCandidate:
         candidates = self.resolve(role, **kwargs)
         if not candidates:
             raise ModelRegistryError(f"no admitted model satisfies role {role!r}")
@@ -163,6 +244,8 @@ class ModelCapabilityRegistry:
         *,
         compared_provider: str,
         include_candidates: bool = False,
+        execution_surface: str | None = None,
+        require_artifact_ready: bool = True,
     ) -> tuple[ModelCandidate, ...]:
         if compared_provider not in self.providers:
             raise ModelRegistryError(f"unknown compared provider: {compared_provider}")
@@ -170,4 +253,6 @@ class ModelCapabilityRegistry:
             role,
             exclude_providers=(compared_provider,),
             include_candidates=include_candidates,
+            execution_surface=execution_surface,
+            require_artifact_ready=require_artifact_ready,
         )
