@@ -1,0 +1,52 @@
+name: AEGIS Epistemic Admission
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  epistemic-admission:
+    name: aegis / epistemic-admission
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify Python runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import sys
+          if sys.version_info < (3, 11):
+              raise SystemExit(f"Python >=3.11 required, got {sys.version}")
+          print(sys.version)
+          PY
+
+      - name: Run epistemic falsifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest harness.tests.test_epistemic_admission -v
+          python3 -m unittest harness.tests.test_epistemic_bootstrap -v
+          python3 -m unittest harness.tests.test_epistemic_workflow_contract -v
+
+      - name: Validate epistemic admission contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/validate-epistemic-admission.py --candidate-sha "$CANDIDATE_SHA"
