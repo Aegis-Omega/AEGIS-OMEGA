@@ -191,32 +191,109 @@ def _action_dependencies(lines: list[str]) -> list[ActionDependencyV1]:
     return [ActionDependencyV1(reference=ref, pin_class=classify_action_ref(ref)) for ref in sorted(refs)]
 
 
-def _provider_surfaces(text: str, permissions: dict[str, str], dependencies: Iterable[ActionDependencyV1]) -> tuple[list[str], list[str]]:
+def _provider_surfaces(
+    text: str,
+    permissions: dict[str, str],
+    dependencies: Iterable[ActionDependencyV1],
+) -> tuple[list[str], list[str]]:
+    """Return only strong runtime integration signals.
+
+    Provider/model names in branch filters, comments, paths, workflow names, or
+    prose are deliberately insufficient. This field is intended to answer
+    "this workflow can call/use this provider surface", not "this file mentions
+    this provider".
+    """
     lowered = text.lower()
     dep_refs = "\n".join(dep.reference.lower() for dep in dependencies)
     surfaces: set[str] = set()
     findings: set[str] = set()
+
     if permissions.get("models") == "read" or "actions/ai-inference@" in dep_refs:
         surfaces.add("github-models-retired")
         findings.add("RETIRED_GITHUB_MODELS_SURFACE")
-    patterns = {
-        "github-copilot": ("copilot",),
-        "openai": ("openai", "gpt-"),
-        "anthropic": ("anthropic", "claude"),
-        "deepseek": ("deepseek",),
-        "gemma": ("gemma",),
-        "ollama": ("ollama",),
-        "dashscope-qwen": ("dashscope", "qwen"),
-        "azure-foundry": ("azure-openai", "azure openai", "foundry"),
-        "google-vertex-gemini": ("vertex", "gemini"),
-        "aws-bedrock": ("bedrock",),
-        "mistral": ("mistral",),
-        "xai-grok": ("xai", "grok"),
-        "hugging-face": ("huggingface", "hugging_face", "hugging face"),
+
+    strong_signals: dict[str, tuple[str, ...]] = {
+        "github-copilot": (
+            "github/copilot",
+            "copilot_api_key",
+            "copilot_token",
+        ),
+        "openai": (
+            "api.openai.com",
+            "openai_api_key",
+            "openai_base_url",
+            "openai_model",
+        ),
+        "anthropic": (
+            "api.anthropic.com",
+            "anthropic_api_key",
+            "anthropic_base_url",
+            "anthropic_model",
+            "anthropics/",
+        ),
+        "deepseek": (
+            "api.deepseek.com",
+            "deepseek_api_key",
+            "deepseek_base_url",
+            "deepseek_model",
+        ),
+        "gemma": (
+            "gemma_model",
+            "gemma_model_path",
+            "google/gemma",
+        ),
+        "ollama": (
+            "ollama_host",
+            "localhost:11434",
+            "127.0.0.1:11434",
+            "ollama serve",
+        ),
+        "dashscope-qwen": (
+            "dashscope_api_key",
+            "dashscope.aliyuncs.com",
+            "dashscope_base_url",
+            "qwen_model",
+        ),
+        "azure-foundry": (
+            "azure_openai_api_key",
+            "azure_openai_endpoint",
+            "openai.azure.com",
+            "azure_ai_foundry",
+            "azure_foundry",
+        ),
+        "google-vertex-gemini": (
+            "gemini_api_key",
+            "vertex_ai",
+            "vertexai",
+            "aiplatform.googleapis.com",
+            "generativelanguage.googleapis.com",
+        ),
+        "aws-bedrock": (
+            "bedrock-runtime",
+            "aws_bedrock",
+            "bedrock_model_id",
+        ),
+        "mistral": (
+            "api.mistral.ai",
+            "mistral_api_key",
+            "mistral_model",
+        ),
+        "xai-grok": (
+            "api.x.ai",
+            "xai_api_key",
+            "xai_model",
+        ),
+        "hugging-face": (
+            "api-inference.huggingface.co",
+            "huggingface_hub_token",
+            "hf_token",
+        ),
     }
-    for surface, needles in patterns.items():
-        if any(needle in lowered for needle in needles):
+    combined_runtime_text = lowered + "\n" + dep_refs
+    for surface, signals in strong_signals.items():
+        if any(signal in combined_runtime_text for signal in signals):
             surfaces.add(surface)
+
     return sorted(surfaces), sorted(findings)
 
 
