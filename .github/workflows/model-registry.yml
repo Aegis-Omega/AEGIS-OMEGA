@@ -10,6 +10,7 @@ on:
       - 'scripts/validate-model-capability-registry.py'
       - 'scripts/verify-model-artifacts.py'
       - 'scripts/package-model-release.py'
+      - 'scripts/register-private-model-artifact.py'
       - 'scripts/hydrate-model-release.py'
       - 'harness/sdk/model_registry.py'
       - 'sovereign-omega-v2/python/tests/test_model_registry.py'
@@ -24,6 +25,9 @@ on:
       - 'schemas/model-artifacts.v1.schema.json'
       - 'scripts/validate-model-capability-registry.py'
       - 'scripts/verify-model-artifacts.py'
+      - 'scripts/package-model-release.py'
+      - 'scripts/register-private-model-artifact.py'
+      - 'scripts/hydrate-model-release.py'
       - 'harness/sdk/model_registry.py'
       - 'sovereign-omega-v2/python/tests/test_model_registry.py'
       - '.github/workflows/model-registry.yml'
@@ -61,6 +65,7 @@ jobs:
             scripts/validate-model-capability-registry.py \
             scripts/verify-model-artifacts.py \
             scripts/package-model-release.py \
+            scripts/register-private-model-artifact.py \
             scripts/hydrate-model-release.py
 
       - name: Validate capability registry
@@ -72,7 +77,7 @@ jobs:
       - name: Run model registry fail-closed tests
         run: pytest -q sovereign-omega-v2/python/tests/test_model_registry.py
 
-      - name: Assert authority and future-model invariants
+      - name: Assert authority and private-weight invariants
         shell: bash
         run: |
           set -euo pipefail
@@ -80,5 +85,7 @@ jobs:
           grep -F '"allow_unknown_models": false' config/model-capability-registry.v1.json
           grep -F '"must_not_become_authority_by_configuration": true' config/model-capability-registry.v1.json
           grep -F '"authority_rule": "WEIGHTS_AND_MODEL_OUTPUTS_ARE_EVIDENCE_NOT_AUTHORITY"' models/model-artifacts.v1.json
+          grep -F '"private_weight_plaintext_publication_forbidden": true' models/model-artifacts.v1.json
+          grep -F '"vendor_remote_does_not_imply_weights_do_not_exist": true' models/model-artifacts.v1.json
           grep -F '"artifact_presence_does_not_grant_execution_authority": true' models/model-artifacts.v1.json
           grep -F '"model_output_never_grants_admission_or_effect_authority": true' models/model-artifacts.v1.json
