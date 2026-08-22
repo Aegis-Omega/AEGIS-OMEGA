@@ -11,6 +11,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from harness.sdk.principal_binding import (  # noqa: E402
+    VALIDATED_BINDING_EVIDENCE,
+    ExecutionPrincipalBinding,
+    evaluate_execution_principal,
+)
 from harness.sdk.sovereign_execution import (  # noqa: E402
     ADMITTED,
     ApprovalGrant,
@@ -26,10 +31,25 @@ from harness.sdk.sovereign_execution import (  # noqa: E402
     verify_workspace,
 )
 
+EXECUTION_PRINCIPAL_CLASSES = frozenset(("D3", "D4"))
+
 
 def deny(code: str, detail: str = "") -> dict:
     body = {"schema_version": "1.0.0", "outcome": "DENIED", "denial_codes": [code], "detail_digest": canonical_hash("AEGIS_DENIAL_DETAIL_V1", detail)}
     body["denial_receipt_root"] = canonical_hash("AEGIS_AUTOMATON3_DENIAL_V1", body)
+    return body
+
+
+def deny_principal(principal_decision) -> dict:
+    body = {
+        "schema_version": "1.0.0",
+        "outcome": "DENIED",
+        "denial_codes": ["EXECUTION_PRINCIPAL_DENIED", *principal_decision.denial_codes],
+        "execution_principal_binding_root": principal_decision.binding_root,
+        "execution_principal_decision_root": principal_decision.decision_root,
+        "execution_principal_authority_granted": False,
+    }
+    body["denial_receipt_root"] = canonical_hash("AEGIS_AUTOMATON3_PRINCIPAL_DENIAL_V1", body)
     return body
 
 
@@ -39,6 +59,49 @@ def evaluate(payload: dict) -> dict:
         identity_root = identity.root
     except Exception as exc:
         return deny("IDENTITY_INVALID", str(exc))
+
+    request_payload = payload.get("request", {})
+    action = payload.get("action", {})
+    action_digest = canonical_hash("AEGIS_REQUESTED_ACTION_V1", action)
+    if identity.action_digest != action_digest:
+        return deny("ACTION_DIGEST_MISMATCH")
+
+    try:
+        action_class = request_payload["action_class"]
+        authority_domain = request_payload["authority_domain"]
+        requested_capability = request_payload["requested_capability"]
+        tool = request_payload["tool"]
+        target = request_payload["target"]
+    except KeyError as exc:
+        return deny("AUTHORITY_REQUEST_MALFORMED", str(exc))
+    if identity.requested_capability != requested_capability:
+        return deny("IDENTITY_CAPABILITY_MISMATCH")
+    if identity.authority_domain != authority_domain:
+        return deny("IDENTITY_AUTHORITY_DOMAIN_MISMATCH")
+    if identity.tool_identity != tool:
+        return deny("IDENTITY_TOOL_MISMATCH")
+
+    principal_decision = None
+    if action_class in EXECUTION_PRINCIPAL_CLASSES:
+        raw_principal = payload.get("execution_principal")
+        if raw_principal is None:
+            return deny("EXECUTION_PRINCIPAL_UNAVAILABLE")
+        try:
+            principal = ExecutionPrincipalBinding.from_mapping(raw_principal)
+            principal_decision = evaluate_execution_principal(
+                principal,
+                action_class=action_class,
+                expected_agent_principal=identity.actor_identity,
+                expected_runtime_principal=identity.physical_executor,
+                expected_session_identity=identity.session_identity,
+                expected_action_digest=action_digest,
+                expected_capability=requested_capability,
+                expected_target_digest=canonical_hash("AEGIS_AUTHORITY_TARGET_V1", target),
+            )
+        except Exception as exc:
+            return deny("EXECUTION_PRINCIPAL_INVALID", str(exc))
+        if principal_decision.outcome != VALIDATED_BINDING_EVIDENCE:
+            return deny_principal(principal_decision)
 
     workspace_payload = payload.get("workspace", {})
     try:
@@ -74,18 +137,13 @@ def evaluate(payload: dict) -> dict:
     except Exception as exc:
         return deny("AUTHORITY_SERVICE_UNAVAILABLE", str(exc))
 
-    request_payload = payload.get("request", {})
-    action = payload.get("action", {})
-    action_digest = canonical_hash("AEGIS_REQUESTED_ACTION_V1", action)
-    if identity.action_digest != action_digest:
-        return deny("ACTION_DIGEST_MISMATCH")
     try:
         request = AuthorityRequest(
-            action_class=request_payload["action_class"],
-            authority_domain=request_payload["authority_domain"],
-            requested_capability=request_payload["requested_capability"],
-            tool=request_payload["tool"],
-            target=request_payload["target"],
+            action_class=action_class,
+            authority_domain=authority_domain,
+            requested_capability=requested_capability,
+            tool=tool,
+            target=target,
             identity_root=identity_root,
             workspace_binding=identity.workspace_binding,
             source_commit=identity.source_commit,
@@ -109,7 +167,7 @@ def evaluate(payload: dict) -> dict:
             parent_receipt=request_payload.get("parent_receipt", ZERO_HASH),
             sequence=int(request_payload.get("sequence", 0)),
         )
-        return {
+        result = {
             "schema_version": "1.0.0",
             "outcome": decision.outcome,
             "execution_identity_root": identity_root,
@@ -120,6 +178,11 @@ def evaluate(payload: dict) -> dict:
             "mutation_receipt_root": receipt.root,
             "observation": asdict(workspace.observation),
         }
+        if principal_decision is not None:
+            result["execution_principal_binding_root"] = principal_decision.binding_root
+            result["execution_principal_decision_root"] = principal_decision.decision_root
+            result["execution_principal_authority_granted"] = False
+        return result
     except Exception as exc:
         return deny("AUTHORITY_EVALUATION_ERROR", str(exc))
 
