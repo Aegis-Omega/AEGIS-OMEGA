@@ -17,10 +17,6 @@ from harness.sdk.principal_binding import (  # noqa: E402
     VALIDATED_BINDING_EVIDENCE,
     evaluate_execution_principal,
 )
-from harness.sdk.runtime_pop_authority import (  # noqa: E402
-    SQLiteReplayStore,
-    bind_execution_principal_from_crypto,
-)
 from harness.sdk.sovereign_execution import (  # noqa: E402
     ADMITTED,
     ApprovalGrant,
@@ -102,6 +98,14 @@ def evaluate(payload: dict) -> dict:
         if not isinstance(crypto_evidence, dict):
             return deny("RUNTIME_POP_CRYPTO_EVIDENCE_INVALID")
         try:
+            # Keep D0-D2 independent of the optional crypto package. D3/D4
+            # imports it inside the consequential boundary and fails closed if
+            # the runtime dependency is absent.
+            from harness.sdk.runtime_pop_authority import (
+                SQLiteReplayStore,
+                bind_execution_principal_from_crypto,
+            )
+
             replay_store = None
             if crypto_evidence.get("binding_mode") in DPOP_MODES:
                 replay_db = request_payload.get("dpop_replay_db")
