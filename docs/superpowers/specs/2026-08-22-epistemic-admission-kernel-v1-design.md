@@ -21,7 +21,7 @@ This v1 slice intentionally does four things only:
 1. defines machine-readable claim, source-binding, applicability, retrieval, and failure-locus contracts;
 2. implements a deterministic fail-closed verifier for those contracts;
 3. adds falsifier tests for the historical failure classes that motivated the design;
-4. injects a compact epistemic bootstrap into Claude session/prompt hooks so model-side fluency cannot silently stand in for status.
+4. injects a compact epistemic bootstrap through the existing synchronous Claude prompt-intake hook so model-side fluency cannot silently stand in for status.
 
 It does **not** grant external-effect authority, replace CEL v1.1, alter frozen constitutional semantics, infer consciousness/identity, or promote model output into authority.
 
@@ -121,8 +121,8 @@ claim_id: str
 claim_text: str
 status: ClaimStatus
 subject: SubjectBindingV1
-authority_scope: AuthorityScopeV1
-evidence_window: EvidenceWindowV1
+authority_scope: str
+evidence_window: str
 load_bearing_fields: list[LoadBearingFieldV1]
 sources: list[SourceBindingV1]
 ```
@@ -145,7 +145,7 @@ The decision is evidence about admission policy execution. It is not Effect/Admi
 
 The verifier MUST be pure over its supplied input.
 
-1. missing or unknown claim status -> `REVIEW`;
+1. missing or unknown claim status -> schema rejection / `REVIEW` at an upstream parser boundary;
 2. any load-bearing field with provenance `DECLARED` -> `QUARANTINE`;
 3. historical receipt SHA mismatch against current head -> `QUARANTINE`, while `historically_valid` remains unchanged;
 4. source with `provenance_integrity=true` and `entails_claim=false` -> `QUARANTINE` with `CITATION_ENTAILMENT_FAILURE`;
@@ -164,7 +164,7 @@ Non-equiv: chain-integrity≠truth | chain-integrity≠identity | chain-integrit
 Claim-status-required: VERIFIED|DERIVED|ATTESTED|INFERRED|ASSUMED|NOT_CHECKED
 ```
 
-A new repo-local bootstrap file is loaded on session start. It contains the compact operational rules A–S and the F-01–F-18 failure labels, but does not claim fresh repository state.
+A new repo-local `.claude/epistemic/bootstrap.md` is read and injected by `user-prompt-intake.sh` on every user prompt through the already configured synchronous `UserPromptSubmit` hook. This avoids modifying `.claude/settings.json`, keeps the existing hook topology intact, and re-establishes the epistemic boundary after every prompt. The bootstrap contains compact operational rules A–S and F-01–F-18 labels, but does not claim fresh repository state.
 
 ## Test obligations
 
@@ -172,9 +172,8 @@ The first implementation must include falsifiers for at least these historical c
 
 - F-02/F-04: exact-head mismatch preserves historical validity but quarantines current admission;
 - F-03: aggregation without completeness proof cannot be served;
-- F-07: cross-session reconstruction claim without mechanism separation cannot be verified;
+- F-07/F-14/F-17: incomplete verification/support cannot be served as verified; status remains explicit in the contract;
 - F-12/F-13: search miss cannot become nonexistence;
-- F-14/F-17: consequential claim without explicit status/external verifier is not served as verified;
 - F-18: provenance PASS + entailment FAIL remains citation-binding failure;
 - declared load-bearing field cannot carry authority.
 
@@ -186,7 +185,8 @@ Add a dedicated `AEGIS Epistemic Admission` workflow. It must:
 - checkout the exact candidate SHA;
 - run the falsifier suite;
 - validate the machine-readable schema/contracts;
-- use immutable action SHAs if trusted pinned SHAs are already present in repository history; otherwise avoid introducing a new mutable supply-chain dependency in this PR.
+- use immutable action SHAs; the initial checkout pin is `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683` (v4.2.2 commit);
+- request only `contents: read` because the v1 gate observes and blocks but does not mutate or mint attestations.
 
 ## Non-equivalences
 
