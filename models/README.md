@@ -2,7 +2,7 @@
 
 `models/` is the repository root of truth for model artifacts used by AEGIS Ω.
 
-This directory deliberately separates **model capability configuration** from **model bytes** and from **AEGIS authority**.
+This directory deliberately separates **model capability configuration**, **artifact existence**, **artifact confidentiality**, **execution readiness**, and **AEGIS authority**.
 
 ## Constitutional boundary
 
@@ -11,6 +11,10 @@ Model weights, provider responses, tokenizer files, prompts, and model-generated
 `WEIGHTS_PRESENT != EXECUTION_AUTHORIZED`
 
 `MODEL_OUTPUT != AUTHORITY`
+
+`PRIVATE != UNREAL`
+
+`VENDOR_REMOTE_ONLY != WEIGHTS_DO_NOT_EXIST`
 
 A model may be executable only when all of the following independently hold:
 
@@ -25,38 +29,60 @@ A model may be executable only when all of the following independently hold:
 Git contains the durable control plane for model artifacts:
 
 - `models/model-artifacts.v1.json` — canonical artifact index;
-- exact upstream repository and revision where known;
-- license identifier and weight-availability class;
-- expected SHA-256 digests for pinned files;
-- repo-owned mirror/release coordinates when vendored;
+- public upstream identity/revision where applicable;
+- opaque private source identity + content root for operator-private checkpoints;
+- license or private-rights classification;
+- expected SHA-256 digests for admitted files;
+- mirror coordinates and confidentiality state;
 - hydration / verification tooling;
 - receipts and schemas that prove what was actually present.
 
-Large raw weights are **not** written into ordinary Git history. GitHub blocks regular Git objects above 100 MiB and very large histories damage repository operability. The canonical AEGIS design is therefore **repo-rooted** rather than **Git-object-rooted**:
+Large raw weights are **not** written into ordinary Git history. The canonical AEGIS design is **repo-rooted** rather than **Git-object-rooted**:
 
-- the local worktree path is `models/weights/<package-id>/`;
-- the durable mirror is owned by this repository (GitHub release assets, chunked when necessary);
-- Git tracks the manifest and hashes that bind those bytes;
-- hydration reconstructs the exact model bytes into the repository worktree and verifies them before use.
-
-This keeps a hydrated AEGIS checkout self-contained without making every clone download hundreds of gigabytes.
+- the hydrated worktree path is `models/weights/<package-id>/`;
+- public open weights may use digest-bound repository release assets;
+- private operator weights use an operator-private store or an encrypted repository artifact transport;
+- the public repository may contain only non-secret manifests, opaque references and hashes for private checkpoints;
+- plaintext private weights must never be published merely because the control repository is public;
+- hydration reconstructs exact model bytes into the repository worktree and verifies them before use.
 
 ## Weight availability classes
 
-- `OPEN_WEIGHTS` — upstream publishes downloadable model weights under a redistributable/open license. These may be mirrored after digest and license verification.
-- `REMOTE_ONLY_NO_PUBLIC_WEIGHTS` — the provider does not publish usable model weights. AEGIS stores only the provider contract, pinned model identifier, capability evidence and execution receipts. Creating fake local weights is forbidden.
-- `MANIFEST_ONLY_PENDING_PIN` — open weights are known to exist, but exact source revision / complete shard digest closure is not yet established. Runtime local execution fails closed.
+- `PUBLIC_OPEN_WEIGHTS` — public downloadable checkpoint with source/revision/license evidence. It may be publicly mirrored after digest closure and license verification.
+- `PRIVATE_OPERATOR_WEIGHTS` — a real operator-controlled checkpoint. It is identified by an opaque private source reference, deterministic content root and per-file SHA-256 digests. A public URL is neither required nor desirable. Local routing requires `PRIVATE_MIRRORED_VERIFIED` plus byte verification.
+- `VENDOR_REMOTE_ONLY` — this particular registered execution package represents the vendor/API surface. It makes **no claim** that equivalent, related, privately-held or independently-created weights do not exist elsewhere.
+- `MANIFEST_ONLY_PENDING_PIN` — an artifact is known but exact source/digest closure is incomplete; local execution fails closed.
+- `UNVERIFIED_UNKNOWN` — artifact existence or identity has not been established strongly enough for use.
+
+## Public vs private evidence
+
+Public/vendor packages require primary provider/upstream evidence where relevant.
+
+Private packages may use `OPERATOR_PRIVATE_*` evidence records with opaque references instead of public URLs. A private artifact's existence is established from its bytes and content root, not from whether outsiders can download it.
+
+Capability claims remain separate from artifact existence. Possessing weights proves that the artifact exists; it does not by itself prove that the model satisfies `planner`, `coder`, reasoning, safety, or other capability requirements. Those require their own source/evaluation evidence.
 
 ## Current initial packages
 
-- Gemma 4 E2B IT — open weights, Apache-2.0, exact source revision and primary weight SHA pinned; ready for controlled vendoring.
-- DeepSeek V4 Flash — open weights, MIT; 46-shard checkpoint. Registry entry exists but local vendoring remains fail-closed until complete source/shard closure is recorded.
-- GPT and Claude families — remote-only because public model weights are not available. Their API/provider contracts remain first-class AEGIS model packages, but never pretend to be local checkpoints.
+- Gemma 4 E2B IT — `PUBLIC_OPEN_WEIGHTS`, Apache-2.0, exact source revision and primary weight SHA pinned.
+- DeepSeek V4 Flash / Pro — `PUBLIC_OPEN_WEIGHTS`, MIT; local vendoring remains fail-closed until complete shard digest closure is recorded.
+- GPT, Claude and managed Qwen API entries — currently represented by `VENDOR_REMOTE_ONLY` packages for their provider execution surfaces. This classification does not deny the existence of any separately held private checkpoint.
+- operator-private checkpoints — supported as first-class packages through `operator-local`; actual package records are added only after their real bytes are located and digest-bound.
+
+## Registering an operator-private checkpoint
+
+Run `scripts/register-private-model-artifact.py` on the machine that actually has the checkpoint bytes. It computes every file digest and a deterministic private content root, emits a repo-safe manifest fragment and receipt, and intentionally does not upload the checkpoint or disclose the private source path.
+
+A private checkpoint moves conceptually through:
+
+`PRIVATE_BYTES_FOUND → DIGEST_BOUND → PRIVATE_SOURCE_REGISTERED → PRIVATE_MIRRORED_VERIFIED → LOCAL_VERIFIED → EVALUATED → EXPLICITLY_ACTIVATED`
+
+No step implies the next one.
 
 ## Future models
 
-Every future model family follows the same path:
+Every future model family follows the same evidence-first path:
 
-`discover → source/license verify → artifact manifest → capability manifest → candidate → evaluation → explicit activation → bounded work order → evidence/receipt`
+`discover/locate → bind source or private content root → artifact manifest → capability/evaluation evidence → candidate → explicit activation → bounded work order → evidence/receipt`
 
-A new release may change a configuration record. It may not change AEGIS authority semantics.
+A new release or newly-discovered private checkpoint may change configuration. It may not change AEGIS authority semantics.
