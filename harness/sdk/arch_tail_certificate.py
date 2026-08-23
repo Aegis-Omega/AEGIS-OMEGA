@@ -57,6 +57,9 @@ FORMAL_THEOREMS = (
     "bounded_positive_tail_certifies_negative",
     "gray_zone_can_change_sign",
 )
+CLOSED_ASSUMPTION_LOG_SHA256 = hashlib.sha256(
+    b"Closed under the global context\n"
+).hexdigest()
 FORMAL_RECEIPT_REQUIRED_FIELDS = frozenset(
     {
         "receipt_kind",
@@ -450,6 +453,11 @@ def verify_weil_formal_bridge_receipt(payload: object) -> WeilFormalBridgeVerifi
         raise FormalBridgeError("FORMAL_THEOREM_SET_MISMATCH")
     if any(not _is_hex(value, 64) for value in theorem_logs.values()):
         raise FormalBridgeError("FORMAL_THEOREM_LOG_HASH_INVALID")
+    if any(
+        not hmac.compare_digest(value, CLOSED_ASSUMPTION_LOG_SHA256)
+        for value in theorem_logs.values()
+    ):
+        raise FormalBridgeError("FORMAL_THEOREM_NOT_CLOSED")
     if isinstance(payload["theorem_count"], bool) or payload["theorem_count"] != len(FORMAL_THEOREMS):
         raise FormalBridgeError("FORMAL_THEOREM_COUNT_MISMATCH")
     if isinstance(payload["declared_assumptions"], bool) or payload["declared_assumptions"] != 0:
