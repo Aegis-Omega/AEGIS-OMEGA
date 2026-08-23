@@ -12,6 +12,7 @@ from security.security_evidence_set import (
     build_security_evidence_set,
     glasswing_reference,
     verify_security_evidence_set,
+    verify_security_evidence_verification_receipt,
 )
 
 
@@ -164,6 +165,50 @@ class SecurityEvidenceSetTests(unittest.TestCase):
 
         self.assertFalse(receipt.integrity_valid)
         self.assertIn("NON_EVIDENCE_AUTHORITY", receipt.reasons)
+
+    def test_verification_receipt_has_deterministic_self_checking_root(self):
+        evidence_set = build_security_evidence_set(
+            subject_root="c" * 64,
+            members=[
+                self._reference(
+                    evidence_kind="GLASSWING",
+                    evidence_digest="1" * 64,
+                )
+            ],
+            required_kinds=["GLASSWING"],
+        )
+
+        first = verify_security_evidence_set(evidence_set.to_dict())
+        second = verify_security_evidence_set(evidence_set.to_dict())
+
+        self.assertEqual(first.verification_root, second.verification_root)
+        self.assertRegex(first.verification_root, r"^[0-9a-f]{64}$")
+        self.assertTrue(verify_security_evidence_verification_receipt(first.to_dict()))
+
+        tampered = first.to_dict()
+        tampered["complete"] = False
+        self.assertFalse(verify_security_evidence_verification_receipt(tampered))
+
+    def test_verification_root_binds_verifier_result_not_only_set_digest(self):
+        evidence_set = build_security_evidence_set(
+            subject_root="c" * 64,
+            members=[
+                self._reference(
+                    evidence_kind="GLASSWING",
+                    evidence_digest="1" * 64,
+                )
+            ],
+            required_kinds=["GLASSWING"],
+        )
+        valid = verify_security_evidence_set(evidence_set.to_dict())
+
+        tampered_set = evidence_set.to_dict()
+        tampered_set["members"][0]["evidence_digest"] = "9" * 64
+        invalid = verify_security_evidence_set(tampered_set)
+
+        self.assertEqual(valid.verified_set_digest, invalid.verified_set_digest)
+        self.assertNotEqual(valid.integrity_valid, invalid.integrity_valid)
+        self.assertNotEqual(valid.verification_root, invalid.verification_root)
 
 
 if __name__ == "__main__":
