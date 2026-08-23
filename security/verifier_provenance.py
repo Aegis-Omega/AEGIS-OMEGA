@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
 """Content-bound provenance receipt for independently verified security evidence.
 
-This module does not verify signatures, OIDC tokens, certificates, or GitHub
-artifact attestations. The cryptographic verification step is performed by
-``gh attestation verify`` in CI. This receipt records only a deterministic,
-digest-only summary of that already-executed verification and therefore remains
-EVIDENCE_ONLY. It is never an admission, execution, or effect authority.
+The executable path in this module invokes ``gh attestation verify`` with a
+locked repository, signer workflow, source commit/ref, GitHub Actions OIDC
+issuer, SLSA provenance predicate, and hosted-runner requirement. The resulting
+receipt stores only public identifiers and digests; raw tokens, certificates,
+signatures, bundles, and verifier output are intentionally omitted.
+
+A valid receipt is still EVIDENCE_ONLY. It is never admission, execution, or
+effect authority, and receipt integrity alone is not a substitute for re-running
+the external cryptographic verifier.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
+from pathlib import Path
 from typing import Any, Mapping
 import json
 import re
+import subprocess
 
 from security.glasswing_evidence import EVIDENCE_AUTHORITY
 
@@ -33,6 +39,9 @@ WORKFLOW_RE = re.compile(
 SOURCE_REF_RE = re.compile(r"^refs/(heads|tags)/[A-Za-z0-9._/+-]+$")
 VERIFIER_ID_RE = re.compile(r"^[A-Za-z0-9._:+/-]+$")
 GH_VERSION_RE = re.compile(r"^[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:[-+][A-Za-z0-9._-]+)?$")
+GH_VERSION_OUTPUT_RE = re.compile(
+    r"\bgh version ([0-9]+\.[0-9]+(?:\.[0-9]+)?(?:[-+][A-Za-z0-9._-]+)?)\b"
+)
 
 
 def _canonical_json(value: Any) -> str:
@@ -141,12 +150,12 @@ def build_verifier_provenance_receipt(
     oidc_issuer: str,
     predicate_type: str,
 ) -> VerifierProvenanceReceiptV1:
-    """Record an already-successful ``gh attestation verify`` result.
+    """Build a deterministic record from already-verified public inputs.
 
-    The caller must supply only digests and public provenance identifiers; raw
-    tokens, certificates, signatures, bundles, and verifier output are omitted.
-    This function validates GitHub/SLSA policy constants and creates a content
-    commitment. It intentionally does not claim to perform signature checking.
+    This lower-level constructor performs structural and policy validation only.
+    Production callers that need signer authenticity should use
+    :func:`verify_attested_artifact_with_gh`, which executes the external
+    cryptographic verifier before calling this constructor.
     """
 
     verifier = _require_match("verifier_id", verifier_id, VERIFIER_ID_RE)
@@ -182,6 +191,133 @@ def build_verifier_provenance_receipt(
     return VerifierProvenanceReceiptV1(
         **body,
         receipt_digest=_digest("AEGIS_VERIFIER_PROVENANCE_RECEIPT_V1", body),
+    )
+
+
+def _read_gh_version(gh_bin: str) -> str:
+    try:
+        completed = subprocess.run(
+            [gh_bin, "--version"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        raise RuntimeError("GH_ATTESTATION_VERIFIER_UNAVAILABLE") from exc
+    if completed.returncode != 0:
+        raise RuntimeError("GH_ATTESTATION_VERIFIER_UNAVAILABLE")
+    match = GH_VERSION_OUTPUT_RE.search(completed.stdout)
+    if match is None:
+        raise RuntimeError("GH_ATTESTATION_VERIFIER_VERSION_INVALID")
+    return match.group(1)
+
+
+def _validate_gh_json_output(raw_output: str) -> None:
+    try:
+        parsed = json.loads(raw_output)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("GH_ATTESTATION_VERIFY_OUTPUT_INVALID") from exc
+    if not isinstance(parsed, list) or not parsed:
+        raise RuntimeError("GH_ATTESTATION_VERIFY_OUTPUT_INVALID")
+    for item in parsed:
+        if not isinstance(item, Mapping):
+            raise RuntimeError("GH_ATTESTATION_VERIFY_OUTPUT_INVALID")
+        verification = item.get("verificationResult")
+        if not isinstance(verification, Mapping):
+            raise RuntimeError("GH_ATTESTATION_VERIFY_OUTPUT_INVALID")
+        statement = verification.get("statement")
+        signature = verification.get("signature")
+        timestamps = verification.get("verifiedTimestamps")
+        if not isinstance(statement, Mapping) or not isinstance(signature, Mapping):
+            raise RuntimeError("GH_ATTESTATION_VERIFY_OUTPUT_INVALID")
+        if statement.get("predicateType") != SLSA_PROVENANCE_V1:
+            raise RuntimeError("GH_ATTESTATION_VERIFY_OUTPUT_INVALID")
+        if not isinstance(signature.get("certificate"), Mapping):
+            raise RuntimeError("GH_ATTESTATION_VERIFY_OUTPUT_INVALID")
+        if not isinstance(timestamps, list) or not timestamps:
+            raise RuntimeError("GH_ATTESTATION_VERIFY_OUTPUT_INVALID")
+
+
+def verify_attested_artifact_with_gh(
+    *,
+    artifact_path: str | Path,
+    evidence_digest: str,
+    repository: str,
+    signer_workflow: str,
+    source_commit: str,
+    source_ref: str,
+    gh_bin: str = "gh",
+) -> VerifierProvenanceReceiptV1:
+    """Cryptographically verify one artifact via GitHub CLI, then emit a receipt.
+
+    ``gh attestation verify`` is invoked without a shell and with all identity
+    and provenance boundaries explicitly constrained. Any unavailable verifier,
+    non-zero verification result, malformed JSON result, or policy mismatch
+    fails closed before a receipt is returned.
+    """
+
+    path = Path(artifact_path)
+    if not path.is_file():
+        raise ValueError("ATTESTED_ARTIFACT_NOT_FILE")
+
+    repo = _require_match("repository", repository, REPOSITORY_RE)
+    workflow = _require_match("signer_workflow", signer_workflow, WORKFLOW_RE)
+    commit = _require_match("source_commit", source_commit, COMMIT_RE)
+    ref = _require_match("source_ref", source_ref, SOURCE_REF_RE)
+    evidence = _require_sha256("evidence_digest", evidence_digest)
+    subject_digest = sha256(path.read_bytes()).hexdigest()
+    gh_cli_version = _read_gh_version(gh_bin)
+
+    command = [
+        gh_bin,
+        "attestation",
+        "verify",
+        str(path),
+        "--repo",
+        repo,
+        "--signer-workflow",
+        workflow,
+        "--source-digest",
+        commit,
+        "--source-ref",
+        ref,
+        "--cert-oidc-issuer",
+        GITHUB_ACTIONS_OIDC_ISSUER,
+        "--predicate-type",
+        SLSA_PROVENANCE_V1,
+        "--deny-self-hosted-runners",
+        "--format",
+        "json",
+    ]
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        raise RuntimeError("GH_ATTESTATION_VERIFIER_UNAVAILABLE") from exc
+
+    if completed.returncode != 0:
+        raise RuntimeError("GH_ATTESTATION_VERIFY_FAILED")
+
+    raw_output = completed.stdout
+    _validate_gh_json_output(raw_output)
+    verification_output_digest = sha256(raw_output.encode("utf-8")).hexdigest()
+
+    return build_verifier_provenance_receipt(
+        verifier_id="github-gh-attestation-verify",
+        repository=repo,
+        signer_workflow=workflow,
+        source_commit=commit,
+        source_ref=ref,
+        subject_digest=subject_digest,
+        evidence_digest=evidence,
+        verification_output_digest=verification_output_digest,
+        gh_cli_version=gh_cli_version,
+        oidc_issuer=GITHUB_ACTIONS_OIDC_ISSUER,
+        predicate_type=SLSA_PROVENANCE_V1,
     )
 
 
