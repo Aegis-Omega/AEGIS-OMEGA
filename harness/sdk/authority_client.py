@@ -44,13 +44,13 @@ def _principal_denial(principal_decision) -> dict[str, Any]:
     return body
 
 
-def _load_crypto_evidence(path_value: str) -> dict[str, Any]:
+def _load_absolute_json_object(path_value: str, *, path_code: str, object_code: str) -> dict[str, Any]:
     path = Path(path_value)
     if not path.is_absolute():
-        raise ValueError("RUNTIME_POP_CRYPTO_EVIDENCE_PATH_NOT_ABSOLUTE")
+        raise ValueError(path_code)
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
-        raise ValueError("RUNTIME_POP_CRYPTO_EVIDENCE_NOT_OBJECT")
+        raise ValueError(object_code)
     return value
 
 
@@ -75,6 +75,7 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
 
     principal_decision = None
     crypto_receipt = None
+    trust_policy_root = None
     if action_class in EXECUTION_PRINCIPAL_CLASSES:
         raw_principal = os.environ.get("AEGIS_EXECUTION_PRINCIPAL_JSON")
         if not raw_principal:
@@ -82,10 +83,15 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         evidence_path = os.environ.get("AEGIS_RUNTIME_POP_CRYPTO_EVIDENCE_PATH")
         if not evidence_path:
             return _denial("RUNTIME_POP_CRYPTO_EVIDENCE_UNAVAILABLE")
+        trust_policy_path = os.environ.get("AEGIS_RUNTIME_POP_TRUST_POLICY_PATH")
+        if not trust_policy_path:
+            return _denial("RUNTIME_POP_TRUST_POLICY_UNAVAILABLE")
         try:
-            # Crypto is an optional process dependency for D0-D2 but mandatory
-            # and fail-closed once consequential D3/D4 evaluation is requested.
+            # Crypto is optional for D0-D2 but mandatory/fail-closed for D3/D4.
+            # Trust anchors are selected from deployment configuration, never
+            # from the presented credential/evidence object.
             from harness.sdk.runtime_pop_authority import (
+                RuntimePoPTrustPolicy,
                 SQLiteReplayStore,
                 bind_execution_principal_from_crypto,
             )
@@ -93,16 +99,34 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
             principal_payload = json.loads(raw_principal)
             if not isinstance(principal_payload, dict):
                 raise ValueError("EXECUTION_PRINCIPAL_NOT_OBJECT")
-            crypto_evidence = _load_crypto_evidence(evidence_path)
+            raw_pop = principal_payload.get("runtime_pop")
+            if not isinstance(raw_pop, dict):
+                raise ValueError("EXECUTION_RUNTIME_POP_MISSING")
+            declared_mode = raw_pop.get("binding_mode")
+
+            crypto_evidence = _load_absolute_json_object(
+                evidence_path,
+                path_code="RUNTIME_POP_CRYPTO_EVIDENCE_PATH_NOT_ABSOLUTE",
+                object_code="RUNTIME_POP_CRYPTO_EVIDENCE_NOT_OBJECT",
+            )
+            trust_policy_mapping = _load_absolute_json_object(
+                trust_policy_path,
+                path_code="RUNTIME_POP_TRUST_POLICY_PATH_NOT_ABSOLUTE",
+                object_code="RUNTIME_POP_TRUST_POLICY_NOT_OBJECT",
+            )
+            trust_policy = RuntimePoPTrustPolicy.from_mapping(trust_policy_mapping)
+
             replay_store = None
-            if crypto_evidence.get("binding_mode") in DPOP_MODES:
+            if declared_mode in DPOP_MODES:
                 replay_db = os.environ.get("AEGIS_DPOP_REPLAY_DB")
                 if not replay_db:
                     return _denial("DPOP_REPLAY_STORE_UNAVAILABLE")
                 replay_store = SQLiteReplayStore(replay_db)
-            principal, crypto_receipt = bind_execution_principal_from_crypto(
+
+            principal, crypto_receipt, trust_policy_root = bind_execution_principal_from_crypto(
                 principal_payload,
                 crypto_evidence,
+                trust_policy=trust_policy,
                 generation=current_generation,
                 replay_store=replay_store,
             )
@@ -190,4 +214,6 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
     if crypto_receipt is not None:
         result["runtime_pop_crypto_receipt_root"] = crypto_receipt.proof_root
         result["runtime_pop_crypto_verifier_identity"] = crypto_receipt.verifier_identity
+    if trust_policy_root is not None:
+        result["runtime_pop_trust_policy_root"] = trust_policy_root
     return result
