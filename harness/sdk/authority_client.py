@@ -65,6 +65,7 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
     except Exception as exc:
         return _denial("IDENTITY_INVALID", str(exc))
     action_digest = canonical_hash("AEGIS_REQUESTED_ACTION_V1", action)
+    target_digest = canonical_hash("AEGIS_AUTHORITY_TARGET_V1", target)
     if action_digest != identity.action_digest:
         return _denial("ACTION_DIGEST_MISMATCH")
     if identity.requested_capability != requested_capability:
@@ -77,6 +78,7 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
     principal_decision = None
     crypto_receipt = None
     trust_policy_root = None
+    attestation_receipt = None
     if action_class in EXECUTION_PRINCIPAL_CLASSES:
         raw_principal = os.environ.get("AEGIS_EXECUTION_PRINCIPAL_JSON")
         if not raw_principal:
@@ -88,9 +90,8 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         if not trust_policy_path:
             return _denial("RUNTIME_POP_TRUST_POLICY_UNAVAILABLE")
         try:
-            # Crypto is optional for D0-D2 but mandatory/fail-closed for D3/D4.
-            # Trust anchors and verification time come from this process
-            # boundary, never from the presented credential/evidence object.
+            # Consequential execution uses one verifier-owned time for the KeyPoP
+            # check and any optional runtime/software attestation check.
             from harness.sdk.runtime_pop_authority import (
                 RuntimePoPTrustPolicy,
                 SQLiteReplayStore,
@@ -124,11 +125,12 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
                     return _denial("DPOP_REPLAY_STORE_UNAVAILABLE")
                 replay_store = SQLiteReplayStore(replay_db)
 
+            verification_time_epoch = int(time.time())
             principal, crypto_receipt, trust_policy_root = bind_execution_principal_from_crypto(
                 principal_payload,
                 crypto_evidence,
                 trust_policy=trust_policy,
-                verification_time_epoch=int(time.time()),
+                verification_time_epoch=verification_time_epoch,
                 generation=current_generation,
                 replay_store=replay_store,
             )
@@ -140,12 +142,47 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
                 expected_session_identity=identity.session_identity,
                 expected_action_digest=action_digest,
                 expected_capability=requested_capability,
-                expected_target_digest=canonical_hash("AEGIS_AUTHORITY_TARGET_V1", target),
+                expected_target_digest=target_digest,
             )
+            if principal_decision.outcome != VALIDATED_BINDING_EVIDENCE:
+                return _principal_denial(principal_decision)
+
+            attestation_policy_path = os.environ.get("AEGIS_RUNTIME_ATTESTATION_TRUST_POLICY_PATH")
+            attestation_evidence_path = os.environ.get("AEGIS_RUNTIME_ATTESTATION_EVIDENCE_PATH")
+            if attestation_evidence_path and not attestation_policy_path:
+                return _denial("RUNTIME_ATTESTATION_TRUST_POLICY_UNAVAILABLE")
+            if attestation_policy_path:
+                from harness.sdk.attested_runtime import (
+                    AttestedRuntimeTrustPolicy,
+                    verify_attested_runtime_for_execution,
+                )
+
+                attestation_policy_mapping = _load_absolute_json_object(
+                    attestation_policy_path,
+                    path_code="RUNTIME_ATTESTATION_TRUST_POLICY_PATH_NOT_ABSOLUTE",
+                    object_code="RUNTIME_ATTESTATION_TRUST_POLICY_NOT_OBJECT",
+                )
+                attestation_policy = AttestedRuntimeTrustPolicy.from_mapping(attestation_policy_mapping)
+                attestation_evidence = {}
+                if attestation_evidence_path:
+                    attestation_evidence = _load_absolute_json_object(
+                        attestation_evidence_path,
+                        path_code="RUNTIME_ATTESTATION_EVIDENCE_PATH_NOT_ABSOLUTE",
+                        object_code="RUNTIME_ATTESTATION_EVIDENCE_NOT_OBJECT",
+                    )
+                attestation_receipt = verify_attested_runtime_for_execution(
+                    action_class=action_class,
+                    runtime_principal=principal.runtime_principal,
+                    key_pop_proof_root=principal.runtime_pop.proof_root,
+                    attestation_evidence=attestation_evidence,
+                    trust_policy=attestation_policy,
+                    session_identity=principal.session_identity,
+                    action_digest=action_digest,
+                    target_digest=target_digest,
+                    now_epoch=verification_time_epoch,
+                )
         except Exception as exc:
-            return _denial("RUNTIME_POP_CRYPTO_INVALID", str(exc))
-        if principal_decision.outcome != VALIDATED_BINDING_EVIDENCE:
-            return _principal_denial(principal_decision)
+            return _denial("RUNTIME_POP_CRYPTO_OR_ATTESTATION_INVALID", str(exc))
 
     try:
         observation = json.loads(os.environ.get("AEGIS_WORKSPACE_OBSERVATION_JSON", "{}"))
@@ -218,4 +255,8 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         result["runtime_pop_crypto_verifier_identity"] = crypto_receipt.verifier_identity
     if trust_policy_root is not None:
         result["runtime_pop_trust_policy_root"] = trust_policy_root
+    if attestation_receipt is not None:
+        result["runtime_attestation_execution_receipt_root"] = attestation_receipt.receipt_root
+        result["runtime_attestation_trust_policy_root"] = attestation_receipt.trust_policy_root
+        result["runtime_attestation_authority_granted"] = False
     return result
