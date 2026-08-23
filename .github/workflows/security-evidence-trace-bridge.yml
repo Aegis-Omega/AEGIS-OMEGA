@@ -24,6 +24,7 @@ permissions:
 
 env:
   PYTHONPATH: ${{ github.workspace }}
+  CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
   security-evidence-trace-bridge:
@@ -33,6 +34,15 @@ jobs:
     steps:
       - name: Checkout exact candidate
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
@@ -48,6 +58,7 @@ jobs:
           harness/sdk/security_evidence_trace.py
           harness/sdk/proof_trace.py
           security/security_evidence_set.py
+          security/verifier_provenance.py
           security/test_verifier_provenance.py
           sovereign-omega-v2/python/tests/test_security_evidence_trace_bridge.py
 
