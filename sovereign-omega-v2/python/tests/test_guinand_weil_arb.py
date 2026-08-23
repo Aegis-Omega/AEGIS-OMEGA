@@ -8,9 +8,27 @@ import pytest
 from harness.sdk.guinand_weil_arb import (
     ArbGalerkinError,
     ArbGalerkinSpecV1,
+    bind_cutoff_free_galerkin_verification,
     prime_powers_up_to,
     verify_cutoff_free_galerkin,
 )
+from harness.sdk.proof_trace import NO_AUTHORITY, T2, VERIFIER, TraceSDK
+
+
+COMMIT = "a" * 40
+POLICY = "b" * 64
+STATE0 = "c" * 64
+
+
+def new_trace():
+    return TraceSDK.start_trace(
+        workflow_name="weil-galerkin-proofline",
+        source_commit=COMMIT,
+        policy_commitment=POLICY,
+        genesis_control_state_root=STATE0,
+        deterministic_nonce="arb-galerkin-test",
+        metadata={"suite": "guinand-weil-arb", "authority": False},
+    )
 
 
 def test_prime_power_enumeration_is_exact_and_complete_for_small_cutoff():
@@ -76,3 +94,28 @@ def test_cli_verify_galerkin_emits_fail_closed_packet(tmp_path: Path):
     assert packet["verification"]["galerkin_semantics_verified"] is False
     assert packet["verification"]["global_weil_positivity_proven"] is False
     assert packet["verification"]["rh_proven"] is False
+
+
+def test_prooftrace_binding_is_evidence_only_and_cannot_mutate_control_state():
+    trace = new_trace()
+    before = trace.current_control_state_root
+    binding = bind_cutoff_free_galerkin_verification(
+        trace,
+        ArbGalerkinSpecV1(c=5, N=1, prec_bits=192),
+    )
+
+    assert binding.verification.valid is True
+    assert binding.span.span_kind == VERIFIER
+    assert binding.span.authority_class == NO_AUTHORITY
+    assert binding.span.epistemic_tier == T2
+    assert binding.span.control_state_before == before
+    assert binding.span.control_state_after == before
+    assert trace.current_control_state_root == before
+    assert set(binding.span.evidence_roots) == {
+        binding.verification.receipt_root,
+        binding.verification.matrix_root,
+        binding.verification.pivot_root,
+    }
+    assert binding.verification.galerkin_semantics_verified is False
+    assert binding.verification.global_weil_positivity_proven is False
+    assert binding.verification.rh_proven is False
