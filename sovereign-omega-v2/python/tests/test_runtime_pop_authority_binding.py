@@ -27,6 +27,7 @@ from harness.sdk.runtime_pop_authority import (  # noqa: E402
 
 RUNTIME = "spiffe://aegis.example/runtime/gateway-7"
 AGENT = "spiffe://aegis.example/agent/scheduler-1"
+NOW = 1_787_500_000
 
 
 def raw_principal() -> dict:
@@ -75,7 +76,7 @@ def crypto_receipt(*, runtime: str = RUNTIME, mode: str = MTLS_CERT_BOUND, root:
         verifier_identity=CRYPTO_VERIFIER_IDENTITY,
         runtime_principal=runtime,
         binding_mode=mode,
-        verification_time_epoch=1_787_500_000,
+        verification_time_epoch=NOW,
         certificate_thumbprint_s256="thumbprint",
         dpop_jkt="NONE",
         access_token_sha256="b" * 64,
@@ -93,6 +94,7 @@ class RuntimePoPAuthorityBindingTests(TestCase):
                 raw_principal(),
                 {"runtime_principal": RUNTIME, "binding_mode": MTLS_CERT_BOUND},
                 trust_policy=trust_policy(),
+                verification_time_epoch=NOW,
                 generation=12,
             )
         self.assertEqual(receipt.proof_root, "a" * 64)
@@ -104,7 +106,7 @@ class RuntimePoPAuthorityBindingTests(TestCase):
         self.assertEqual(binding.runtime_pop.generation, 12)
         self.assertNotEqual(binding.runtime_pop.verifier_identity, "attacker:self-asserted")
 
-    def test_02_presented_evidence_cannot_choose_its_own_issuer_jwks_audience_or_roots(self):
+    def test_02_presented_evidence_cannot_choose_verifier_trust_or_time(self):
         captured = {}
 
         def verifier(evidence, *, replay_store=None):
@@ -114,6 +116,7 @@ class RuntimePoPAuthorityBindingTests(TestCase):
         attacker_evidence = {
             "runtime_principal": RUNTIME,
             "binding_mode": MTLS_CERT_BOUND,
+            "now_epoch": 1,
             "expected_issuer": "https://attacker.invalid",
             "expected_audience": "https://attacker.invalid/resource",
             "issuer_jwks": {"keys": [{"kid": "attacker"}]},
@@ -122,8 +125,14 @@ class RuntimePoPAuthorityBindingTests(TestCase):
         policy = trust_policy()
         with patch("harness.sdk.runtime_pop_authority.verify_runtime_pop_evidence", side_effect=verifier):
             bind_execution_principal_from_crypto(
-                raw_principal(), attacker_evidence, trust_policy=policy, generation=1
+                raw_principal(),
+                attacker_evidence,
+                trust_policy=policy,
+                verification_time_epoch=NOW,
+                generation=1,
             )
+        self.assertEqual(captured["now_epoch"], NOW)
+        self.assertNotEqual(captured["now_epoch"], 1)
         self.assertEqual(captured["expected_issuer"], policy.expected_issuer)
         self.assertEqual(captured["expected_audience"], policy.expected_audience)
         self.assertEqual(captured["issuer_jwks"], policy.issuer_jwks)
@@ -139,7 +148,7 @@ class RuntimePoPAuthorityBindingTests(TestCase):
             with self.assertRaisesRegex(CryptoVerificationError, "CRYPTO_RUNTIME_PRINCIPAL_MISMATCH"):
                 bind_execution_principal_from_crypto(
                     raw_principal(), {"runtime_principal": RUNTIME, "binding_mode": MTLS_CERT_BOUND},
-                    trust_policy=trust_policy(), generation=1
+                    trust_policy=trust_policy(), verification_time_epoch=NOW, generation=1
                 )
 
     def test_04_unapproved_spiffe_trust_domain_is_rejected_before_crypto_verification(self):
@@ -151,6 +160,7 @@ class RuntimePoPAuthorityBindingTests(TestCase):
                 raw,
                 {"runtime_principal": raw["runtime_principal"], "binding_mode": MTLS_CERT_BOUND},
                 trust_policy=trust_policy(),
+                verification_time_epoch=NOW,
                 generation=1,
             )
 
@@ -162,7 +172,7 @@ class RuntimePoPAuthorityBindingTests(TestCase):
             with self.assertRaisesRegex(CryptoVerificationError, "CRYPTO_BINDING_MODE_MISMATCH"):
                 bind_execution_principal_from_crypto(
                     raw_principal(), {"runtime_principal": RUNTIME, "binding_mode": MTLS_CERT_BOUND},
-                    trust_policy=trust_policy(), generation=1
+                    trust_policy=trust_policy(), verification_time_epoch=NOW, generation=1
                 )
 
     def test_06_sqlite_replay_store_rejects_duplicate_across_instances(self):
@@ -182,13 +192,15 @@ class RuntimePoPAuthorityBindingTests(TestCase):
         self.assertIn("AEGIS_DPOP_REPLAY_DB", source)
         self.assertNotIn("principal = ExecutionPrincipalBinding.from_mapping(json.loads(raw_principal))", source)
 
-    def test_08_cli_authority_keeps_trust_policy_and_replay_store_outside_request_payload(self):
+    def test_08_cli_authority_keeps_trust_policy_replay_and_time_outside_request_payload(self):
         source = (REPO_ROOT / "scripts/automaton3-authority.py").read_text(encoding="utf-8")
         self.assertIn("bind_execution_principal_from_crypto", source)
         self.assertIn('payload.get("runtime_pop_crypto_evidence")', source)
         self.assertIn('parser.add_argument("--runtime-pop-trust-policy"', source)
         self.assertIn('parser.add_argument("--dpop-replay-db"', source)
+        self.assertIn('parser.add_argument("--verification-time-epoch"', source)
         self.assertNotIn('request_payload.get("dpop_replay_db")', source)
+        self.assertNotIn('request_payload.get("verification_time_epoch")', source)
         self.assertNotIn("principal = ExecutionPrincipalBinding.from_mapping(raw_principal)", source)
 
 
