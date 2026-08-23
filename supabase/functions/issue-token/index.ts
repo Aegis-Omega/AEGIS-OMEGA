@@ -40,16 +40,26 @@ Deno.serve(async (req) => {
     )
   }
 
+  // An order id alone is a bearer secret that was never treated as one: it is
+  // printed on receipts, sits in the redirect URL, and is short enough to walk.
+  // Knowing it is not evidence of owning the order, so the caller must also
+  // present the address Lemon Squeezy billed. Both are matched against the same
+  // row below; neither is sufficient on its own.
   let order_id: string | undefined
+  let email: string | undefined
   try {
-    const body = await req.json() as { order_id?: string }
+    const body = await req.json() as { order_id?: string; email?: string }
     order_id = String(body.order_id ?? '').trim()
+    email    = String(body.email ?? '').trim().toLowerCase()
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid request body' }), { status: 400, headers: CORS })
   }
 
-  if (!order_id) {
-    return new Response(JSON.stringify({ error: 'order_id required' }), { status: 400, headers: CORS })
+  if (!order_id || !email || !email.includes('@')) {
+    return new Response(
+      JSON.stringify({ error: 'order_id and email required' }),
+      { status: 400, headers: { ...CORS, 'Content-Type': 'application/json' } },
+    )
   }
 
   const supabase = createClient(
@@ -61,6 +71,7 @@ Deno.serve(async (req) => {
     .from('purchases')
     .select('plan')
     .eq('ls_order_id', order_id)
+    .eq('customer_email', email)
     .maybeSingle()
 
   if (error) {
@@ -69,9 +80,11 @@ Deno.serve(async (req) => {
   }
 
   if (!data) {
-    // 404 means the ls-webhook hasn't delivered yet — client should retry with backoff
+    // One reply for "no such order", "wrong email" and "webhook still in
+    // transit". Distinguishing them would confirm which order ids exist.
+    // A client that just completed checkout retries with backoff.
     return new Response(
-      JSON.stringify({ error: 'Order not found — webhook may still be in transit' }),
+      JSON.stringify({ error: 'No matching order yet — retry shortly' }),
       { status: 404, headers: { ...CORS, 'Content-Type': 'application/json' } },
     )
   }
