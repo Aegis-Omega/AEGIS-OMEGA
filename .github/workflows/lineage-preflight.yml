@@ -4,10 +4,13 @@ on:
   pull_request:
     paths:
       - 'docs/LINEAGE_*'
+      - 'docs/ONTOLOGY.md'
       - 'docs/DRIVE_TRIAGE.v1.json'
       - 'docs/DRIVE_TRIAGE_CONTINUATION_*.json'
       - 'scripts/lineage_preflight.py'
       - 'tests/test_lineage_preflight.py'
+      - 'sovereign-omega-v2/.claude/skills/autopoiesis/SKILL.md'
+      - '.claude/metacog/README.md'
   workflow_dispatch:
 
 permissions:
@@ -42,9 +45,8 @@ jobs:
           PY
       - name: Run lineage preflight regression tests
         run: python -m pytest -q tests/test_lineage_preflight.py
-      - name: Exercise P0 VCG semantic collision
+      - name: Exercise resolved VCG semantic lineage
         run: |
-          if python scripts/lineage_preflight.py --proposed-name VCG --semantic-role 'new metric'; then
-            echo 'Expected VCG semantic collision to fail closed' >&2
-            exit 1
-          fi
+          python scripts/lineage_preflight.py \
+            --proposed-name VCG \
+            --semantic-role 'verifiable-domain calibration'
