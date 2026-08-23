@@ -181,9 +181,33 @@ class SecurityEvidenceSetV1:
         }
 
 
+def _verification_body(
+    *,
+    schema_version: str,
+    authority: str,
+    integrity_valid: bool,
+    complete: bool,
+    aggregate_disposition: SecurityDisposition | str,
+    verified_set_digest: str | None,
+    reasons: Sequence[str],
+    member_count: int,
+) -> dict[str, Any]:
+    disposition = _normalize_disposition(aggregate_disposition)
+    return {
+        "schema_version": schema_version,
+        "authority": authority,
+        "integrity_valid": integrity_valid,
+        "complete": complete,
+        "aggregate_disposition": disposition.value,
+        "verified_set_digest": verified_set_digest,
+        "reasons": list(reasons),
+        "member_count": member_count,
+    }
+
+
 @dataclass(frozen=True)
 class SecurityEvidenceSetVerificationV1:
-    """Offline verification receipt.  It is evidence-only, never authority."""
+    """Offline verification receipt. It is evidence-only, never authority."""
 
     schema_version: str
     authority: str
@@ -193,18 +217,108 @@ class SecurityEvidenceSetVerificationV1:
     verified_set_digest: str | None
     reasons: tuple[str, ...]
     member_count: int
+    verification_root: str
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "schema_version": self.schema_version,
-            "authority": self.authority,
-            "integrity_valid": self.integrity_valid,
-            "complete": self.complete,
-            "aggregate_disposition": self.aggregate_disposition.value,
-            "verified_set_digest": self.verified_set_digest,
-            "reasons": list(self.reasons),
-            "member_count": self.member_count,
+            **_verification_body(
+                schema_version=self.schema_version,
+                authority=self.authority,
+                integrity_valid=self.integrity_valid,
+                complete=self.complete,
+                aggregate_disposition=self.aggregate_disposition,
+                verified_set_digest=self.verified_set_digest,
+                reasons=self.reasons,
+                member_count=self.member_count,
+            ),
+            "verification_root": self.verification_root,
         }
+
+
+def _build_verification_receipt(
+    *,
+    integrity_valid: bool,
+    complete: bool,
+    aggregate_disposition: SecurityDisposition,
+    verified_set_digest: str | None,
+    reasons: Sequence[str],
+    member_count: int,
+) -> SecurityEvidenceSetVerificationV1:
+    normalized_reasons = tuple(reasons)
+    body = _verification_body(
+        schema_version=VERIFICATION_SCHEMA_VERSION,
+        authority=EVIDENCE_AUTHORITY,
+        integrity_valid=integrity_valid,
+        complete=complete,
+        aggregate_disposition=aggregate_disposition,
+        verified_set_digest=verified_set_digest,
+        reasons=normalized_reasons,
+        member_count=member_count,
+    )
+    return SecurityEvidenceSetVerificationV1(
+        schema_version=VERIFICATION_SCHEMA_VERSION,
+        authority=EVIDENCE_AUTHORITY,
+        integrity_valid=integrity_valid,
+        complete=complete,
+        aggregate_disposition=aggregate_disposition,
+        verified_set_digest=verified_set_digest,
+        reasons=normalized_reasons,
+        member_count=member_count,
+        verification_root=_digest("AEGIS_SECURITY_EVIDENCE_SET_VERIFICATION_V1", body),
+    )
+
+
+def verify_security_evidence_verification_receipt(payload: Mapping[str, Any]) -> bool:
+    """Check the deterministic root of a serialized verifier receipt.
+
+    This proves content integrity only. It is not a signature, provenance proof,
+    admission receipt, or substitute for re-running ``verify_security_evidence_set``.
+    """
+
+    if not isinstance(payload, Mapping):
+        return False
+    try:
+        schema_version = payload["schema_version"]
+        authority = payload["authority"]
+        integrity_valid = payload["integrity_valid"]
+        complete = payload["complete"]
+        disposition = _normalize_disposition(payload["aggregate_disposition"])
+        verified_set_digest = payload["verified_set_digest"]
+        reasons = payload["reasons"]
+        member_count = payload["member_count"]
+        verification_root = payload["verification_root"]
+    except (KeyError, TypeError, ValueError):
+        return False
+
+    if schema_version != VERIFICATION_SCHEMA_VERSION or authority != EVIDENCE_AUTHORITY:
+        return False
+    if not isinstance(integrity_valid, bool) or not isinstance(complete, bool):
+        return False
+    if verified_set_digest is not None and (
+        not isinstance(verified_set_digest, str)
+        or not SHA256_RE.fullmatch(verified_set_digest)
+    ):
+        return False
+    if not isinstance(reasons, list) or not all(isinstance(reason, str) for reason in reasons):
+        return False
+    if isinstance(member_count, bool) or not isinstance(member_count, int) or member_count < 0:
+        return False
+    if not isinstance(verification_root, str) or not SHA256_RE.fullmatch(verification_root):
+        return False
+
+    body = _verification_body(
+        schema_version=schema_version,
+        authority=authority,
+        integrity_valid=integrity_valid,
+        complete=complete,
+        aggregate_disposition=disposition,
+        verified_set_digest=verified_set_digest,
+        reasons=reasons,
+        member_count=member_count,
+    )
+    return verification_root == _digest(
+        "AEGIS_SECURITY_EVIDENCE_SET_VERIFICATION_V1", body
+    )
 
 
 def _aggregate_disposition(
@@ -307,9 +421,7 @@ def verify_security_evidence_set(
     observations: list[str] = []
 
     if not isinstance(payload, Mapping):
-        return SecurityEvidenceSetVerificationV1(
-            schema_version=VERIFICATION_SCHEMA_VERSION,
-            authority=EVIDENCE_AUTHORITY,
+        return _build_verification_receipt(
             integrity_valid=False,
             complete=False,
             aggregate_disposition=SecurityDisposition.ERROR,
@@ -440,9 +552,7 @@ def verify_security_evidence_set(
         integrity_errors.append("SET_DIGEST_MISMATCH")
 
     reasons = tuple(dict.fromkeys([*integrity_errors, *observations]))
-    return SecurityEvidenceSetVerificationV1(
-        schema_version=VERIFICATION_SCHEMA_VERSION,
-        authority=EVIDENCE_AUTHORITY,
+    return _build_verification_receipt(
         integrity_valid=not integrity_errors,
         complete=complete,
         aggregate_disposition=aggregate,
