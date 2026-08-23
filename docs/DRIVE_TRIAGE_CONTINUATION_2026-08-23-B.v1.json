@@ -1,0 +1,64 @@
+{
+  "schema": "aegis.drive-triage-continuation.v1",
+  "as_of": "2026-08-23",
+  "batch": "B",
+  "parent_pr": 295,
+  "parent_head_sha": "2fd25c18b5d12944836bbce2ba2b164fff51dd37",
+  "branch": "audit/epistemic-lineage-v1",
+  "authority_boundary": "Operator-authorized Drive deletions only. This receipt records observed actions and hash equivalence; it does not establish scientific truth, runtime correctness, or implementation status.",
+  "reconciliation": {
+    "status": "PARTIAL_FAIL_CLOSED",
+    "observed_physical_delete_count": 122,
+    "checked_in_primary_receipt_count": 43,
+    "continuation_a_receipt_count": 14,
+    "continuation_b_receipt_count": 3,
+    "id_reconciled_total": 60,
+    "unreconciled_prior_delete_count": 62,
+    "rule": "Do not invent or backfill missing Drive IDs. Unreconciled prior deletions remain unresolved until independently reconstructed from receipts or source logs."
+  },
+  "verification_policy": {
+    "stored_binary": "raw SHA-256 equality plus no repository binding for deleted Drive ID or content hash",
+    "delete_rule": "Delete only verified redundant replicas after selecting a surviving canonical Drive object. REVISION and UNKNOWN are not deletable by this rule."
+  },
+  "continuation_receipts": [
+    {
+      "physical_delete_ordinal": 120,
+      "concept_id": "research.l34_resonance_chamber",
+      "title": "Engineering the L34 Resonance Chamber: A Blueprint for Empirically Validating the L₉ Floor and 1.5° Tension.pdf",
+      "canonical_drive_id": "1Pb7unophxZd0WyeRGgGQRi0toS4heRn2",
+      "deleted_drive_id": "1hhwSKsbRjkdF7MHFzk4Qugm1lcLCDIdV",
+      "sha256": "bcf41864895424581c7a7b86adb5ebe7d73cc15c61e812d62204d72bbc32ccc6",
+      "size": 560740,
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true,
+      "canonical_created_at": "2026-05-16T06:52:01.380Z",
+      "deleted_created_at": "2026-06-19T21:55:11.618Z"
+    },
+    {
+      "physical_delete_ordinal": 121,
+      "concept_id": "research.hallucination_distance_operational_calibration",
+      "title": "Hallucination Distance (HD) as an Operational Calibration Metric for LLMs: A Deep Analytical Synthesis.pdf",
+      "canonical_drive_id": "1JTr3llfxS81SQty4VefC3ol6TtsKvw2Y",
+      "deleted_drive_id": "17kYep1v_w51hlkOmlUwrM8L7fGz_4nPU",
+      "sha256": "325048cd72ed2d6f929b8cea42b2ec021e13caf5e26cfb39d1a5c64f517158ae",
+      "size": 543035,
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true,
+      "canonical_created_at": "2026-05-16T06:50:36.214Z",
+      "deleted_created_at": "2026-05-16T06:51:06.294Z"
+    },
+    {
+      "physical_delete_ordinal": 122,
+      "concept_id": "research.hallucination_distance_operational_calibration",
+      "title": "Hallucination Distance (HD) as an Operational Calibration Metric for LLMs: A Deep Analytical Synthesis.pdf",
+      "canonical_drive_id": "1JTr3llfxS81SQty4VefC3ol6TtsKvw2Y",
+      "deleted_drive_id": "1g9hYMzY9WPGuRkluO2Xq7hqsO8_b0JMf",
+      "sha256": "325048cd72ed2d6f929b8cea42b2ec021e13caf5e26cfb39d1a5c64f517158ae",
+      "size": 543035,
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true,
+      "canonical_created_at": "2026-05-16T06:50:36.214Z",
+      "deleted_created_at": "2026-06-19T21:48:28.562Z"
+    }
+  ]
+}
