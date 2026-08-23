@@ -77,6 +77,8 @@ def evaluate(
     runtime_pop_trust_policy_path: str | None = None,
     dpop_replay_db: str | None = None,
     verification_time_epoch: int | None = None,
+    runtime_attestation_evidence_path: str | None = None,
+    runtime_attestation_trust_policy_path: str | None = None,
 ) -> dict:
     try:
         identity = ExecutionIdentityEnvelope(**payload["identity"])
@@ -87,9 +89,6 @@ def evaluate(
     request_payload = payload.get("request", {})
     action = payload.get("action", {})
     action_digest = canonical_hash("AEGIS_REQUESTED_ACTION_V1", action)
-    if identity.action_digest != action_digest:
-        return deny("ACTION_DIGEST_MISMATCH")
-
     try:
         action_class = request_payload["action_class"]
         authority_domain = request_payload["authority_domain"]
@@ -101,6 +100,10 @@ def evaluate(
             raise ValueError("current_generation must be nonnegative")
     except (KeyError, TypeError, ValueError) as exc:
         return deny("AUTHORITY_REQUEST_MALFORMED", str(exc))
+    target_digest = canonical_hash("AEGIS_AUTHORITY_TARGET_V1", target)
+
+    if identity.action_digest != action_digest:
+        return deny("ACTION_DIGEST_MISMATCH")
     if identity.requested_capability != requested_capability:
         return deny("IDENTITY_CAPABILITY_MISMATCH")
     if identity.authority_domain != authority_domain:
@@ -111,6 +114,7 @@ def evaluate(
     principal_decision = None
     crypto_receipt = None
     trust_policy_root = None
+    attestation_receipt = None
     if action_class in EXECUTION_PRINCIPAL_CLASSES:
         raw_principal = payload.get("execution_principal")
         if raw_principal is None:
@@ -125,10 +129,6 @@ def evaluate(
         if not runtime_pop_trust_policy_path:
             return deny("RUNTIME_POP_TRUST_POLICY_UNAVAILABLE")
         try:
-            # D0-D2 stay independent of the optional crypto package. D3/D4
-            # imports it only at the consequential boundary. Trust-policy,
-            # replay-state and verification time are process configuration,
-            # never fields chosen by the caller request payload.
             from harness.sdk.runtime_pop_authority import (
                 RuntimePoPTrustPolicy,
                 SQLiteReplayStore,
@@ -169,12 +169,45 @@ def evaluate(
                 expected_session_identity=identity.session_identity,
                 expected_action_digest=action_digest,
                 expected_capability=requested_capability,
-                expected_target_digest=canonical_hash("AEGIS_AUTHORITY_TARGET_V1", target),
+                expected_target_digest=target_digest,
             )
+            if principal_decision.outcome != VALIDATED_BINDING_EVIDENCE:
+                return deny_principal(principal_decision)
+
+            if runtime_attestation_evidence_path and not runtime_attestation_trust_policy_path:
+                return deny("RUNTIME_ATTESTATION_TRUST_POLICY_UNAVAILABLE")
+            if runtime_attestation_trust_policy_path:
+                from harness.sdk.attested_runtime import (
+                    AttestedRuntimeTrustPolicy,
+                    verify_attested_runtime_for_execution,
+                )
+
+                attestation_policy_mapping = _load_absolute_json_object(
+                    runtime_attestation_trust_policy_path,
+                    path_code="RUNTIME_ATTESTATION_TRUST_POLICY_PATH_NOT_ABSOLUTE",
+                    object_code="RUNTIME_ATTESTATION_TRUST_POLICY_NOT_OBJECT",
+                )
+                attestation_policy = AttestedRuntimeTrustPolicy.from_mapping(attestation_policy_mapping)
+                attestation_evidence = {}
+                if runtime_attestation_evidence_path:
+                    attestation_evidence = _load_absolute_json_object(
+                        runtime_attestation_evidence_path,
+                        path_code="RUNTIME_ATTESTATION_EVIDENCE_PATH_NOT_ABSOLUTE",
+                        object_code="RUNTIME_ATTESTATION_EVIDENCE_NOT_OBJECT",
+                    )
+                attestation_receipt = verify_attested_runtime_for_execution(
+                    action_class=action_class,
+                    runtime_principal=principal.runtime_principal,
+                    key_pop_proof_root=principal.runtime_pop.proof_root,
+                    attestation_evidence=attestation_evidence,
+                    trust_policy=attestation_policy,
+                    session_identity=principal.session_identity,
+                    action_digest=action_digest,
+                    target_digest=target_digest,
+                    now_epoch=verified_at,
+                )
         except Exception as exc:
-            return deny("RUNTIME_POP_CRYPTO_INVALID", str(exc))
-        if principal_decision.outcome != VALIDATED_BINDING_EVIDENCE:
-            return deny_principal(principal_decision)
+            return deny("RUNTIME_POP_CRYPTO_OR_ATTESTATION_INVALID", str(exc))
 
     workspace_payload = payload.get("workspace", {})
     try:
@@ -260,6 +293,10 @@ def evaluate(
             result["runtime_pop_crypto_verifier_identity"] = crypto_receipt.verifier_identity
         if trust_policy_root is not None:
             result["runtime_pop_trust_policy_root"] = trust_policy_root
+        if attestation_receipt is not None:
+            result["runtime_attestation_execution_receipt_root"] = attestation_receipt.receipt_root
+            result["runtime_attestation_trust_policy_root"] = attestation_receipt.trust_policy_root
+            result["runtime_attestation_authority_granted"] = False
         return result
     except Exception as exc:
         return deny("AUTHORITY_EVALUATION_ERROR", str(exc))
@@ -273,6 +310,8 @@ def main() -> int:
     parser.add_argument("--runtime-pop-trust-policy", default=None)
     parser.add_argument("--dpop-replay-db", default=None)
     parser.add_argument("--verification-time-epoch", type=int, default=None)
+    parser.add_argument("--runtime-attestation-evidence", default=None)
+    parser.add_argument("--runtime-attestation-trust-policy", default=None)
     args = parser.parse_args()
     raw = sys.stdin.read() if args.input == "-" else Path(args.input).read_text(encoding="utf-8")
     try:
@@ -285,6 +324,8 @@ def main() -> int:
             runtime_pop_trust_policy_path=args.runtime_pop_trust_policy,
             dpop_replay_db=args.dpop_replay_db,
             verification_time_epoch=args.verification_time_epoch,
+            runtime_attestation_evidence_path=args.runtime_attestation_evidence,
+            runtime_attestation_trust_policy_path=args.runtime_attestation_trust_policy,
         )
     rendered = json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
     if args.output == "-":
