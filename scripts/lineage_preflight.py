@@ -4,7 +4,7 @@
 PR #290 owns repository-wide artifact existence discovery. This script is the
 next gate: after existence discovery, it blocks implementation when a proposed
 name collides with known semantic/epistemic lineages or required context is
-missing.
+missing. Resolved historical conflicts remain reportable but non-blocking.
 """
 from __future__ import annotations
 import argparse, json, sys
@@ -24,6 +24,8 @@ REQUIRED = (
     ROOT / "docs" / "LINEAGE_TIMELINE_PHASE1.v1.json",
     ROOT / "docs" / "DRIVE_TRIAGE.v1.json",
 )
+
+RESOLVED_STATUSES = {"RESOLVED", "SUPERSEDED"}
 
 def load(path: Path) -> dict:
     if not path.is_file():
@@ -54,11 +56,20 @@ def main() -> int:
         return 4
 
     proposed = norm(args.proposed_name)
-    collisions = []
+    matched = []
     for item in conflict_doc.get("conflicts", []):
         symbol = norm(str(item.get("symbol","")))
         if symbol and (symbol in proposed or proposed in symbol):
-            collisions.append(item)
+            matched.append(item)
+
+    resolved = [
+        item for item in matched
+        if str(item.get("status", "ACTIVE")).upper() in RESOLVED_STATUSES
+    ]
+    collisions = [
+        item for item in matched
+        if str(item.get("status", "ACTIVE")).upper() not in RESOLVED_STATUSES
+    ]
 
     p0_collisions = [
         item for item in collisions
@@ -82,6 +93,7 @@ def main() -> int:
         "semantic_role":args.semantic_role,
         "artifact_scan_verdict":args.artifact_scan_verdict or "NOT_SUPPLIED",
         "known_conflicts":len(collisions),
+        "resolved_conflicts":len(resolved),
         "p0_conflicts":0,
         "conflicts_acknowledged":bool(args.acknowledge_conflict),
         "next_required_evidence":[
