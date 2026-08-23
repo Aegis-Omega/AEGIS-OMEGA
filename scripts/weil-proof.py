@@ -15,6 +15,12 @@ import sys
 import tempfile
 from typing import Any
 
+from harness.sdk.exact_ldlt import (
+    ExactLDLTCertificateV1,
+    ExactSymmetricMatrixV1,
+    LDLTError,
+    verify_exact_ldlt,
+)
 from harness.sdk.sovereign_execution import canonical_hash
 from harness.sdk.weil_convergence_bridge import (
     ExactIntervalV1,
@@ -29,6 +35,7 @@ from harness.sdk.weil_convergence_bridge import (
 
 PACKET_KIND = "AEGIS_WEIL_PROOF_PACKET_V1"
 FINITE_CERT_PACKET_KIND = "AEGIS_WEIL_FINITE_CERTIFICATE_PACKET_V1"
+LDLT_PACKET_KIND = "AEGIS_EXACT_LDLT_PACKET_V1"
 PACKET_SEMANTICS = "EVIDENCE_ONLY_NOT_RH_PROOF"
 
 _REQUIRED_INSTANCE_KEYS = {
@@ -59,6 +66,7 @@ _REQUIRED_CONTRIBUTION_KEYS = {
     "value_interval",
     "source_root",
 }
+_REQUIRED_LDLT_KEYS = {"matrix", "lower", "diagonal", "matrix_semantics_root"}
 
 
 def _require_object(name: str, value: Any) -> dict[str, Any]:
@@ -153,6 +161,32 @@ def certificate_from_dict(payload: Any) -> WeilFiniteCertificateV1:
     )
 
 
+def _rational_rows(name: str, value: Any) -> tuple[tuple[ExactRationalV1, ...], ...]:
+    if not isinstance(value, list) or not value:
+        raise WeilBridgeError(f"{name}:NONEMPTY_ARRAY_REQUIRED")
+    rows: list[tuple[ExactRationalV1, ...]] = []
+    for i, raw_row in enumerate(value):
+        if not isinstance(raw_row, list):
+            raise WeilBridgeError(f"{name}:ROW_ARRAY_REQUIRED")
+        rows.append(tuple(_rational(f"{name}[{i}][{j}]", item) for j, item in enumerate(raw_row)))
+    return tuple(rows)
+
+
+def ldlt_from_dict(payload: Any) -> ExactLDLTCertificateV1:
+    obj = _require_object("ldlt", payload)
+    if set(obj) != _REQUIRED_LDLT_KEYS:
+        raise WeilBridgeError("LDLT_FIELDS_INVALID")
+    raw_diagonal = obj["diagonal"]
+    if not isinstance(raw_diagonal, list):
+        raise WeilBridgeError("LDLT_DIAGONAL_ARRAY_REQUIRED")
+    return ExactLDLTCertificateV1(
+        matrix=ExactSymmetricMatrixV1(rows=_rational_rows("matrix", obj["matrix"])),
+        lower=_rational_rows("lower", obj["lower"]),
+        diagonal=tuple(_rational(f"diagonal[{i}]", item) for i, item in enumerate(raw_diagonal)),
+        matrix_semantics_root=obj["matrix_semantics_root"],
+    )
+
+
 def build_packet(evidence: WeilInstanceEvidenceV1) -> dict[str, Any]:
     verification = verify_weil_instance(evidence)
     payload: dict[str, Any] = {
@@ -180,6 +214,21 @@ def build_certificate_packet(certificate: WeilFiniteCertificateV1) -> dict[str, 
         "rh_proven": False,
     }
     payload["packet_root"] = canonical_hash("AEGIS_WEIL_FINITE_CERTIFICATE_PACKET_ROOT_V1", payload)
+    return payload
+
+
+def build_ldlt_packet(certificate: ExactLDLTCertificateV1) -> dict[str, Any]:
+    verification = verify_exact_ldlt(certificate)
+    payload: dict[str, Any] = {
+        "packet_kind": LDLT_PACKET_KIND,
+        "proof_semantics": PACKET_SEMANTICS,
+        "certificate": asdict(certificate),
+        "certificate_root": certificate.root,
+        "verification": verification.to_dict(),
+        "global_weil_positivity_proven": False,
+        "rh_proven": False,
+    }
+    payload["packet_root"] = canonical_hash("AEGIS_EXACT_LDLT_PACKET_ROOT_V1", payload)
     return payload
 
 
@@ -226,6 +275,13 @@ def verify_certificate_command(args: argparse.Namespace) -> int:
     return 0 if packet["verification"]["valid"] else 2
 
 
+def verify_ldlt_command(args: argparse.Namespace) -> int:
+    certificate = ldlt_from_dict(_load_json(Path(args.input)))
+    packet = build_ldlt_packet(certificate)
+    _emit_packet(args.output, packet)
+    return 0 if packet["verification"]["valid"] else 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="weil-proof", description="AEGIS Weil convergence proof verifier")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -242,6 +298,14 @@ def build_parser() -> argparse.ArgumentParser:
     verify_certificate.add_argument("--input", required=True, help="certificate JSON path")
     verify_certificate.add_argument("--output", required=True, help="output proof packet path, or '-' for stdout")
     verify_certificate.set_defaults(func=verify_certificate_command)
+
+    verify_ldlt = subparsers.add_parser(
+        "verify-ldlt",
+        help="replay an exact rational LDLT certificate for finite-matrix PSD",
+    )
+    verify_ldlt.add_argument("--input", required=True, help="LDLT certificate JSON path")
+    verify_ldlt.add_argument("--output", required=True, help="output proof packet path, or '-' for stdout")
+    verify_ldlt.set_defaults(func=verify_ldlt_command)
     return parser
 
 
@@ -250,7 +314,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return int(args.func(args))
-    except WeilBridgeError as exc:
+    except (WeilBridgeError, LDLTError) as exc:
         sys.stderr.write(f"WEIL_PROOF_INPUT_REJECTED:{exc.code}\n")
         return 3
 
