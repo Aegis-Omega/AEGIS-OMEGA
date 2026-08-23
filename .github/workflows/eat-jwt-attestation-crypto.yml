@@ -4,8 +4,12 @@ on:
   pull_request:
     paths:
       - "harness/sdk/eat_attestation_crypto.py"
+      - "harness/sdk/eat_attestation_authority.py"
       - "harness/sdk/attested_runtime.py"
+      - "harness/sdk/authority_client.py"
+      - "scripts/automaton3-authority.py"
       - "sovereign-omega-v2/python/tests/test_eat_jwt_attestation_crypto.py"
+      - "sovereign-omega-v2/python/tests/test_eat_attestation_composition.py"
       - "sovereign-omega-v2/python/tests/test_attested_runtime_binding.py"
       - ".github/workflows/eat-jwt-attestation-crypto.yml"
   workflow_dispatch:
@@ -47,3 +51,6 @@ jobs:
 
       - name: Run EAT-JWT cryptographic falsifiers
         run: python sovereign-omega-v2/python/tests/test_eat_jwt_attestation_crypto.py
+
+      - name: Run EAT-to-runtime composition falsifiers
+        run: python sovereign-omega-v2/python/tests/test_eat_attestation_composition.py
