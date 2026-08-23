@@ -11,6 +11,7 @@ on:
       - 'security/**'
       - 'sovereign-mesh/nodes/artisan/**'
       - 'research/falsifiers/glasswing_evidence_contract_v1.md'
+      - 'research/falsifiers/security_evidence_set_v1.md'
       - '.github/workflows/glasswing-evidence-contract.yml'
   workflow_dispatch:
 
@@ -26,8 +27,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Run GLASSWING_SECURITY_EVIDENCE_V1 falsifiers
+      - name: Run security evidence falsifiers
         run: >-
           python -m unittest -v
           security/test_glasswing_evidence_contract.py
           security/test_glasswing_artisan_adapter.py
+          security/test_security_evidence_set.py
