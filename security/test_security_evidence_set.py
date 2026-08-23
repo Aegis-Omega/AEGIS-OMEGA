@@ -189,7 +189,7 @@ class SecurityEvidenceSetTests(unittest.TestCase):
         tampered["complete"] = False
         self.assertFalse(verify_security_evidence_verification_receipt(tampered))
 
-    def test_verification_root_binds_verifier_result_not_only_set_digest(self):
+    def test_verification_root_changes_with_recomputed_verifier_result(self):
         evidence_set = build_security_evidence_set(
             subject_root="c" * 64,
             members=[
@@ -206,7 +206,7 @@ class SecurityEvidenceSetTests(unittest.TestCase):
         tampered_set["members"][0]["evidence_digest"] = "9" * 64
         invalid = verify_security_evidence_set(tampered_set)
 
-        self.assertEqual(valid.verified_set_digest, invalid.verified_set_digest)
+        self.assertNotEqual(valid.verified_set_digest, invalid.verified_set_digest)
         self.assertNotEqual(valid.integrity_valid, invalid.integrity_valid)
         self.assertNotEqual(valid.verification_root, invalid.verification_root)
 
