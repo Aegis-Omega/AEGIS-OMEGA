@@ -1,21 +1,17 @@
 """Cryptographic SCITT authorization-registration verifier for AEGIS.
 
-This module implements a deliberately narrow high-assurance profile:
+Narrow high-assurance profile:
+- RFC 9943 authorization Signed Statement and Receipt are tagged COSE_Sign1;
+- the authorization issuer signature is locally re-verified;
+- authorization payload is deterministic CBOR and binds scope/holder/measurement;
+- Receipt uses RFC 9942 RFC9162_SHA256 inclusion proof;
+- the exact Signed Statement bytes are the VDS entry;
+- reconstructed Merkle root is the detached Receipt signature payload;
+- issuer and Transparency Service trust are external deployment policy.
 
-* RFC 9943 Signed Statement and Receipt envelopes are COSE_Sign1;
-* the authorization Signed Statement is locally re-verified against an
-  externally configured authorization-issuer trust key;
-* its payload is deterministic CBOR and binds the expected scope, holder key,
-  endorsed measurement, authorization-time evidence reference and expiry;
-* the SCITT Receipt uses the RFC9162_SHA256 VDS inclusion-proof profile from
-  RFC 9942;
-* the exact Signed Statement bytes are used as the VDS entry;
-* the reconstructed Merkle root becomes the detached COSE_Sign1 payload and
-  the Transparency Service signature is verified against external trust.
-
-The resulting receipt is evidence of authorization registration only. It does
-not grant AEGIS authority, prove transaction-time verification, prove an effect,
-or establish global non-equivocation/supersession status.
+The returned object is registration evidence only. It grants no AEGIS authority,
+does not prove transaction-time verification or an effect, and does not prove
+non-equivocation, non-supersession, or witness consensus.
 """
 from __future__ import annotations
 
@@ -40,7 +36,7 @@ TRUST_POLICY_KIND = "AEGIS_SCITT_AUTHORIZATION_TRUST_POLICY_V1"
 RECEIPT_DOMAIN = "AEGIS_SCITT_AUTHORIZATION_REGISTRATION_RECEIPT_V1"
 RFC9162_SHA256_VDS = 1
 COSE_ALG_ES256 = -7
-COSE_TAG_SIGN1 = 18
+COSE_SIGN1_CANONICAL_TAG = b"\xd2"  # CBOR major type 6, tag 18
 COSE_HDR_ALG = 1
 COSE_HDR_CONTENT_TYPE = 3
 COSE_HDR_KID = 4
@@ -91,7 +87,7 @@ def _b64u_decode(value: str, code: str) -> bytes:
 def _validated_jwks(value: Any) -> Mapping[str, Any]:
     if not isinstance(value, Mapping) or not isinstance(value.get("keys"), list) or not value["keys"]:
         raise SCITTAuthorizationError("SCITT_TRUST_JWKS_INVALID")
-    keys: list[dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     seen: set[str] = set()
     for item in value["keys"]:
         if not isinstance(item, Mapping) or PRIVATE_JWK_MEMBERS.intersection(item.keys()):
@@ -102,16 +98,14 @@ def _validated_jwks(value: Any) -> Mapping[str, Any]:
         if kid in seen:
             raise SCITTAuthorizationError("SCITT_TRUST_JWKS_INVALID")
         seen.add(kid)
-        if item.get("alg") not in (None, "ES256"):
-            raise SCITTAuthorizationError("SCITT_TRUST_JWKS_INVALID")
-        if item.get("use") not in (None, "sig"):
+        if item.get("alg") not in (None, "ES256") or item.get("use") not in (None, "sig"):
             raise SCITTAuthorizationError("SCITT_TRUST_JWKS_INVALID")
         x = _b64u_decode(_string(item.get("x"), "SCITT_TRUST_JWKS_INVALID"), "SCITT_TRUST_JWKS_INVALID")
         y = _b64u_decode(_string(item.get("y"), "SCITT_TRUST_JWKS_INVALID"), "SCITT_TRUST_JWKS_INVALID")
         if len(x) != 32 or len(y) != 32:
             raise SCITTAuthorizationError("SCITT_TRUST_JWKS_INVALID")
-        keys.append(dict(item))
-    return {"keys": keys}
+        out.append(dict(item))
+    return {"keys": out}
 
 
 def _public_key_from_jwk(jwk: Mapping[str, Any]):
@@ -130,10 +124,9 @@ def _public_key_from_jwk(jwk: Mapping[str, Any]):
 def _kid_text(value: Any, code: str) -> str:
     if isinstance(value, bytes):
         try:
-            decoded = value.decode("utf-8")
+            value = value.decode("utf-8")
         except UnicodeDecodeError as exc:
             raise SCITTAuthorizationError(code) from exc
-        return _string(decoded, code)
     return _string(value, code)
 
 
@@ -145,7 +138,7 @@ def _select_jwk(jwks: Mapping[str, Any], kid: str, code: str) -> Mapping[str, An
 
 
 def _verify_es256(*, jwk: Mapping[str, Any], signing_input: bytes, signature: bytes, code: str) -> None:
-    if len(signature) != 64:
+    if not isinstance(signature, bytes) or len(signature) != 64:
         raise SCITTAuthorizationError(code)
     r = int.from_bytes(signature[:32], "big")
     s = int.from_bytes(signature[32:], "big")
@@ -161,15 +154,24 @@ def _verify_es256(*, jwk: Mapping[str, Any], signing_input: bytes, signature: by
         raise SCITTAuthorizationError(code) from exc
 
 
-def _decode_sign1(raw: bytes, code: str) -> tuple[bytes, dict[Any, Any], bytes | None, bytes]:
-    _bytes(raw, code)
+def _decode_cbor(raw: bytes, code: str):
     try:
-        value = cbor2.loads(raw)
+        return cbor2.loads(raw, allow_duplicate_keys=False, allow_indefinite=False)
     except Exception as exc:
         raise SCITTAuthorizationError(code) from exc
-    if not isinstance(value, cbor2.CBORTag) or value.tag != COSE_TAG_SIGN1:
+
+
+def _decode_sign1(raw: bytes, code: str) -> tuple[bytes, dict[Any, Any], bytes | None, bytes]:
+    """Decode the narrow profile from wire bytes, not cbor2 semantic-tag type.
+
+    cbor2 6.x changed its decoder implementation substantially. The protocol
+    boundary is the wire format: canonical CBOR tag 18 is exactly 0xd2. After
+    enforcing that byte, decode the tagged COSE_Sign1 array itself.
+    """
+    raw = _bytes(raw, code)
+    if not raw.startswith(COSE_SIGN1_CANONICAL_TAG):
         raise SCITTAuthorizationError(code)
-    parts = value.value
+    parts = _decode_cbor(raw[1:], code)
     if not isinstance(parts, list) or len(parts) != 4:
         raise SCITTAuthorizationError(code)
     protected_bstr, unprotected, payload, signature = parts
@@ -183,13 +185,8 @@ def _decode_sign1(raw: bytes, code: str) -> tuple[bytes, dict[Any, Any], bytes |
 
 
 def _decode_protected(raw: bytes, code: str) -> dict[Any, Any]:
-    try:
-        value = cbor2.loads(raw)
-    except Exception as exc:
-        raise SCITTAuthorizationError(code) from exc
-    if not isinstance(value, dict):
-        raise SCITTAuthorizationError(code)
-    if cbor2.dumps(value, canonical=True) != raw:
+    value = _decode_cbor(raw, code)
+    if not isinstance(value, dict) or cbor2.dumps(value, canonical=True) != raw:
         raise SCITTAuthorizationError(code)
     return value
 
@@ -305,14 +302,15 @@ def _scope_from_statement(
     expected_measurement_digest: str,
     verification_time_epoch: int,
 ) -> tuple[dict[str, Any], bytes]:
-    protected_bstr, unprotected, payload, signature = _decode_sign1(raw_statement, "SCITT_AUTHORIZATION_STATEMENT_INVALID")
+    protected_bstr, unprotected, payload, signature = _decode_sign1(
+        raw_statement, "SCITT_AUTHORIZATION_STATEMENT_INVALID"
+    )
     if unprotected != {}:
         raise SCITTAuthorizationError("SCITT_STATEMENT_UNPROTECTED_NOT_EMPTY")
     if payload is None:
         raise SCITTAuthorizationError("SCITT_AUTHORIZATION_PAYLOAD_MISSING")
     protected = _decode_protected(protected_bstr, "SCITT_AUTHORIZATION_PROTECTED_INVALID")
-    alg = protected.get(COSE_HDR_ALG)
-    if alg not in policy.allowed_cose_algs:
+    if protected.get(COSE_HDR_ALG) not in policy.allowed_cose_algs:
         raise SCITTAuthorizationError("SCITT_AUTHORIZATION_ALG_NOT_ALLOWED")
     if protected.get(COSE_HDR_CONTENT_TYPE) != policy.expected_content_type:
         raise SCITTAuthorizationError("SCITT_AUTHORIZATION_CONTENT_TYPE_MISMATCH")
@@ -323,7 +321,9 @@ def _scope_from_statement(
         prefix="SCITT_AUTHORIZATION",
     )
     kid = _kid_text(protected.get(COSE_HDR_KID), "SCITT_AUTHORIZATION_KID_MISSING")
-    issuer_jwk = _select_jwk(policy.authorization_issuer_jwks, kid, "SCITT_AUTHORIZATION_KID_UNTRUSTED")
+    issuer_jwk = _select_jwk(
+        policy.authorization_issuer_jwks, kid, "SCITT_AUTHORIZATION_KID_UNTRUSTED"
+    )
     sig_structure = cbor2.dumps(["Signature1", protected_bstr, b"", payload], canonical=True)
     _verify_es256(
         jwk=issuer_jwk,
@@ -331,10 +331,8 @@ def _scope_from_statement(
         signature=signature,
         code="SCITT_AUTHORIZATION_SIGNATURE_INVALID",
     )
-    try:
-        scope = cbor2.loads(payload)
-    except Exception as exc:
-        raise SCITTAuthorizationError("SCITT_AUTHORIZATION_PAYLOAD_INVALID") from exc
+
+    scope = _decode_cbor(payload, "SCITT_AUTHORIZATION_PAYLOAD_INVALID")
     if not isinstance(scope, dict):
         raise SCITTAuthorizationError("SCITT_AUTHORIZATION_PAYLOAD_INVALID")
     if cbor2.dumps(scope, canonical=True) != payload:
@@ -370,7 +368,9 @@ def _node_hash(left: bytes, right: bytes) -> bytes:
     return hashlib.sha256(b"\x01" + left + right).digest()
 
 
-def _rfc9162_inclusion_root(entry: bytes, *, tree_size: int, leaf_index: int, path: list[bytes]) -> bytes:
+def _rfc9162_inclusion_root(
+    entry: bytes, *, tree_size: int, leaf_index: int, path: list[bytes]
+) -> bytes:
     if tree_size <= 0 or leaf_index < 0 or leaf_index >= tree_size:
         raise SCITTAuthorizationError("SCITT_INCLUSION_PROOF_INVALID")
     if any(not isinstance(item, bytes) or len(item) != 32 for item in path):
@@ -402,12 +402,13 @@ def _verify_receipt(
     signed_statement: bytes,
     policy: SCITTAuthorizationTrustPolicy,
 ) -> tuple[int, int, bytes]:
-    protected_bstr, unprotected, payload, signature = _decode_sign1(raw_receipt, "SCITT_RECEIPT_INVALID")
+    protected_bstr, unprotected, payload, signature = _decode_sign1(
+        raw_receipt, "SCITT_RECEIPT_INVALID"
+    )
     if payload is not None:
         raise SCITTAuthorizationError("SCITT_RECEIPT_PAYLOAD_MUST_BE_DETACHED")
     protected = _decode_protected(protected_bstr, "SCITT_RECEIPT_PROTECTED_INVALID")
-    alg = protected.get(COSE_HDR_ALG)
-    if alg not in policy.allowed_cose_algs:
+    if protected.get(COSE_HDR_ALG) not in policy.allowed_cose_algs:
         raise SCITTAuthorizationError("SCITT_RECEIPT_ALG_NOT_ALLOWED")
     if protected.get(COSE_HDR_VDS) != policy.required_vds:
         raise SCITTAuthorizationError("SCITT_VDS_UNSUPPORTED")
@@ -426,10 +427,7 @@ def _verify_receipt(
     proofs = vdp.get(COSE_VDP_INCLUSION)
     if not isinstance(proofs, list) or len(proofs) != 1 or not isinstance(proofs[0], bytes):
         raise SCITTAuthorizationError("SCITT_INCLUSION_PROOF_INVALID")
-    try:
-        proof = cbor2.loads(proofs[0])
-    except Exception as exc:
-        raise SCITTAuthorizationError("SCITT_INCLUSION_PROOF_INVALID") from exc
+    proof = _decode_cbor(proofs[0], "SCITT_INCLUSION_PROOF_INVALID")
     if not isinstance(proof, list) or len(proof) != 3:
         raise SCITTAuthorizationError("SCITT_INCLUSION_PROOF_INVALID")
     tree_size = _integer(proof[0], "SCITT_INCLUSION_PROOF_INVALID")
@@ -468,7 +466,6 @@ def verify_scitt_authorization_registration(
     expected_measurement_digest: str,
     verification_time_epoch: int,
 ) -> SCITTAuthorizationRegistrationReceipt:
-    """Verify one authorization Signed Statement and its SCITT inclusion Receipt."""
     if not isinstance(trust_policy, SCITTAuthorizationTrustPolicy):
         raise SCITTAuthorizationError("SCITT_TRUST_POLICY_INVALID")
     now = _integer(verification_time_epoch, "SCITT_VERIFICATION_TIME_INVALID")
@@ -476,7 +473,9 @@ def verify_scitt_authorization_registration(
         raise SCITTAuthorizationError("SCITT_VERIFICATION_TIME_INVALID")
     expected_scope = _hex64(expected_scope_root, "SCITT_EXPECTED_SCOPE_ROOT_INVALID")
     expected_holder = _string(expected_holder_jkt, "SCITT_EXPECTED_HOLDER_JKT_INVALID")
-    expected_measurement = _hex64(expected_measurement_digest, "SCITT_EXPECTED_MEASUREMENT_INVALID")
+    expected_measurement = _hex64(
+        expected_measurement_digest, "SCITT_EXPECTED_MEASUREMENT_INVALID"
+    )
     raw_statement = _bytes(signed_statement, "SCITT_AUTHORIZATION_STATEMENT_INVALID")
     raw_receipt = _bytes(receipt, "SCITT_RECEIPT_INVALID")
 
