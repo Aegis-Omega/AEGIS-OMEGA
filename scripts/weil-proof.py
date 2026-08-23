@@ -53,6 +53,9 @@ ARB_GALERKIN_PACKET_KIND = "AEGIS_ARB_GALERKIN_PACKET_V1"
 ARCH_TAIL_PACKET_KIND = "AEGIS_ARCH_TAIL_BUDGET_PACKET_V1"
 FORMAL_TAIL_BINDING_PACKET_KIND = "AEGIS_ARCH_TAIL_FORMAL_BINDING_PACKET_V1"
 PACKET_SEMANTICS = "EVIDENCE_ONLY_NOT_RH_PROOF"
+FIXED_FORMAL_RECEIPT_PATH = Path(
+    "sovereign-omega-v2/weil-formal-attestation/weil-formal-bridge-receipt.json"
+)
 
 _REQUIRED_INSTANCE_KEYS = {
     "test_function_digest",
@@ -370,7 +373,7 @@ def verify_formal_tail_binding_command(args: argparse.Namespace) -> int:
             prec_bits=args.prec,
             dyadic_count=args.dyadic_count,
         ),
-        _load_json(Path(args.formal_receipt)),
+        _load_json(FIXED_FORMAL_RECEIPT_PATH),
     )
     _emit_packet(args.output, packet)
     return 0 if packet["binding"]["valid"] else 2
@@ -425,9 +428,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     verify_formal_tail = subparsers.add_parser(
         "verify-formal-tail-binding",
-        help="bind one closed Coq finite-algebra receipt to a recomputed scalar tail budget without asserting operator order",
+        help="bind the canonical closed Coq finite-algebra receipt to a recomputed scalar tail budget without asserting operator order",
     )
-    verify_formal_tail.add_argument("--formal-receipt", required=True, dest="formal_receipt", help="formal bridge receipt JSON path")
     verify_formal_tail.add_argument("--c", required=True, type=int, help="prime cutoff c >= 2")
     verify_formal_tail.add_argument("--N", required=True, type=int, dest="N", help="finite frequency band N >= 0")
     verify_formal_tail.add_argument("--T", required=True, type=int, dest="T", help="Archimedean cutoff T")
