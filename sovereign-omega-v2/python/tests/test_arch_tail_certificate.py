@@ -27,6 +27,9 @@ _FORMAL_THEOREMS = (
 _CLOSED_ASSUMPTION_LOG_SHA256 = hashlib.sha256(
     b"Closed under the global context\n"
 ).hexdigest()
+_FIXED_FORMAL_RECEIPT = Path(
+    "sovereign-omega-v2/weil-formal-attestation/weil-formal-bridge-receipt.json"
+)
 
 
 def _resign(payload: dict[str, object]) -> None:
@@ -189,19 +192,50 @@ def test_formal_bridge_binding_rejects_invalid_budget_subject():
     assert binding.tail_order_theorem_verified is False
 
 
-def test_cli_verify_formal_tail_binding_emits_bounded_packet(tmp_path: Path):
-    receipt = tmp_path / "formal-receipt.json"
-    receipt.write_text(
+def test_cli_verify_formal_tail_binding_uses_fixed_attested_receipt(tmp_path: Path):
+    _FIXED_FORMAL_RECEIPT.parent.mkdir(parents=True, exist_ok=True)
+    _FIXED_FORMAL_RECEIPT.write_text(
         json.dumps(_formal_bridge_payload(), sort_keys=True) + "\n",
         encoding="utf-8",
     )
     output = tmp_path / "formal-tail-binding.json"
+    try:
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "scripts/weil-proof.py",
+                "verify-formal-tail-binding",
+                "--c", "5",
+                "--N", "1",
+                "--T", "32",
+                "--prec", "192",
+                "--dyadic-count", "8",
+                "--output", str(output),
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+    finally:
+        _FIXED_FORMAL_RECEIPT.unlink(missing_ok=True)
+    assert proc.returncode == 0, proc.stderr
+    packet = json.loads(output.read_text(encoding="utf-8"))
+    assert packet["packet_kind"] == "AEGIS_ARCH_TAIL_FORMAL_BINDING_PACKET_V1"
+    assert packet["binding"]["valid"] is True
+    assert packet["binding"]["finite_tail_decision_algebra_formally_verified"] is True
+    assert packet["binding"]["tail_order_theorem_verified"] is False
+    assert packet["binding"]["global_weil_positivity_proven"] is False
+    assert packet["binding"]["rh_proven"] is False
+
+
+def test_cli_formal_tail_binding_rejects_user_selected_receipt_path(tmp_path: Path):
+    output = tmp_path / "must-not-exist.json"
     proc = subprocess.run(
         [
             sys.executable,
             "scripts/weil-proof.py",
             "verify-formal-tail-binding",
-            "--formal-receipt", str(receipt),
+            "--formal-receipt", "/etc/passwd",
             "--c", "5",
             "--N", "1",
             "--T", "32",
@@ -213,11 +247,5 @@ def test_cli_verify_formal_tail_binding_emits_bounded_packet(tmp_path: Path):
         capture_output=True,
         check=False,
     )
-    assert proc.returncode == 0, proc.stderr
-    packet = json.loads(output.read_text(encoding="utf-8"))
-    assert packet["packet_kind"] == "AEGIS_ARCH_TAIL_FORMAL_BINDING_PACKET_V1"
-    assert packet["binding"]["valid"] is True
-    assert packet["binding"]["finite_tail_decision_algebra_formally_verified"] is True
-    assert packet["binding"]["tail_order_theorem_verified"] is False
-    assert packet["binding"]["global_weil_positivity_proven"] is False
-    assert packet["binding"]["rh_proven"] is False
+    assert proc.returncode != 0
+    assert output.exists() is False
