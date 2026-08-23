@@ -40,11 +40,34 @@ jobs:
       - name: Install exact test dependency
         run: python -m pip install --disable-pip-version-check pytest==8.4.1
 
+      - name: Compile bridge contracts
+        run: >-
+          python -m py_compile
+          harness/sdk/security_evidence_trace.py
+          harness/sdk/proof_trace.py
+          security/security_evidence_set.py
+          sovereign-omega-v2/python/tests/test_security_evidence_trace_bridge.py
+
       - name: Run bridge falsifiers
         run: pytest -q sovereign-omega-v2/python/tests/test_security_evidence_trace_bridge.py
 
       - name: Re-run ProofTrace falsifiers
         run: pytest -q sovereign-omega-v2/python/tests/test_proof_trace_sdk.py
+
+      - name: Re-run weekly research boundary falsifiers
+        run: pytest -q sovereign-omega-v2/python/tests/test_weekly_research_falsifiers.py
+
+      - name: Re-run receipt separation falsifiers
+        run: pytest -q sovereign-omega-v2/python/tests/test_transition_receipts_pr1.py
+
+      - name: Re-run effect verifier falsifiers
+        run: pytest -q sovereign-omega-v2/python/tests/test_effect_verifier_pr3.py
+
+      - name: Re-run atomic admission falsifiers
+        run: pytest -q sovereign-omega-v2/python/tests/test_uci5_atomic_admission.py
+
+      - name: Re-run collective memory falsifiers
+        run: pytest -q sovereign-omega-v2/python/tests/test_uci6_collective_memory.py
 
       - name: Re-run security evidence falsifiers
         run: >-
