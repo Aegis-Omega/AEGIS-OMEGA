@@ -38,6 +38,9 @@ from harness.sdk.sovereign_execution import canonical_hash
 
 WEIL_INSTANCE_KIND = "AEGIS_WEIL_INSTANCE_EVIDENCE_V1"
 WEIL_INSTANCE_RECEIPT_KIND = "AEGIS_WEIL_INSTANCE_PROOF_RECEIPT_V1"
+WEIL_FINITE_CERTIFICATE_KIND = "AEGIS_WEIL_FINITE_CERTIFICATE_V1"
+WEIL_FINITE_CERTIFICATE_RECEIPT_KIND = "AEGIS_WEIL_FINITE_CERTIFICATE_RECEIPT_V1"
+WEIL_CONTRIBUTION_KIND = "AEGIS_WEIL_CONTRIBUTION_V1"
 WEIL_FAMILY_KIND = "AEGIS_WEIL_FAMILY_EVIDENCE_V1"
 WEIL_FAMILY_RECEIPT_KIND = "AEGIS_WEIL_FAMILY_PROOF_RECEIPT_V1"
 GLOBAL_GATE_KIND = "AEGIS_GLOBAL_WEIL_CLAIM_GATE_V1"
@@ -53,6 +56,16 @@ FORBIDDEN_CIRCULAR_ASSUMPTIONS = frozenset(
         ASSUME_GLOBAL_WEIL_POSITIVITY,
         ASSUME_ALL_ZETA_ZEROS_ON_CRITICAL_LINE,
         ASSUME_TARGET_CLAIM,
+    }
+)
+
+CONTRIBUTION_KINDS = frozenset(
+    {
+        "PRIME_TERM",
+        "ARCHIMEDEAN_TERM",
+        "BOUNDARY_TERM",
+        "CORRECTION_TERM",
+        "OTHER_CERTIFIED_TERM",
     }
 )
 
@@ -109,6 +122,197 @@ class ExactRationalV1:
     @classmethod
     def from_fraction(cls, value: Fraction) -> "ExactRationalV1":
         return cls(value.numerator, value.denominator)
+
+
+@dataclass(frozen=True)
+class ExactIntervalV1:
+    """Closed rational interval used by the fixed arithmetic certificate kernel."""
+
+    lower: ExactRationalV1
+    upper: ExactRationalV1
+
+    def __post_init__(self) -> None:
+        if self.lower.fraction > self.upper.fraction:
+            raise WeilBridgeError("INTERVAL_BOUNDS_REVERSED")
+
+    @classmethod
+    def from_fractions(cls, lower: Fraction, upper: Fraction) -> "ExactIntervalV1":
+        return cls(ExactRationalV1.from_fraction(lower), ExactRationalV1.from_fraction(upper))
+
+
+@dataclass(frozen=True)
+class WeilContributionV1:
+    """One interval-bounded contribution to a finite/truncated Weil value.
+
+    v1 verifies interval arithmetic and source commitments. It does not yet
+    derive the interval itself from prime/Archimedean semantics; that remains
+    an explicit open obligation rather than being inferred from the hash.
+    """
+
+    contribution_id: str
+    contribution_kind: str
+    value_interval: ExactIntervalV1
+    source_root: str
+    evidence_kind: str = WEIL_CONTRIBUTION_KIND
+
+    def __post_init__(self) -> None:
+        if self.evidence_kind != WEIL_CONTRIBUTION_KIND:
+            raise WeilBridgeError("WEIL_CONTRIBUTION_KIND_MISMATCH")
+        _require_id("contribution_id", self.contribution_id)
+        if self.contribution_kind not in CONTRIBUTION_KINDS:
+            raise WeilBridgeError("CONTRIBUTION_KIND_UNSUPPORTED")
+        _require_hash("source_root", self.source_root)
+
+    @property
+    def root(self) -> str:
+        return canonical_hash("AEGIS_WEIL_CONTRIBUTION_ROOT_V1", asdict(self))
+
+
+@dataclass(frozen=True)
+class WeilFiniteCertificateV1:
+    """Decomposed finite certificate whose aggregate value is kernel-recomputed."""
+
+    test_function_digest: str
+    cutoff: int
+    contributions: tuple[WeilContributionV1, ...]
+    norm_sq: ExactRationalV1
+    epsilon_r: ExactRationalV1
+    approximation_delta: ExactRationalV1
+    approximation_bound_root: str
+    assumption_tags: tuple[str, ...] = ()
+    certificate_kind: str = WEIL_FINITE_CERTIFICATE_KIND
+    proof_semantics: str = PROOF_SEMANTICS
+
+    def __post_init__(self) -> None:
+        if self.certificate_kind != WEIL_FINITE_CERTIFICATE_KIND:
+            raise WeilBridgeError("WEIL_FINITE_CERTIFICATE_KIND_MISMATCH")
+        if self.proof_semantics != PROOF_SEMANTICS:
+            raise WeilBridgeError("WEIL_PROOF_SEMANTICS_MISMATCH")
+        _require_hash("test_function_digest", self.test_function_digest)
+        _require_hash("approximation_bound_root", self.approximation_bound_root)
+        if isinstance(self.cutoff, bool) or not isinstance(self.cutoff, int) or self.cutoff < 2:
+            raise WeilBridgeError("CUTOFF_INVALID")
+        if not self.contributions:
+            raise WeilBridgeError("CONTRIBUTIONS_EMPTY")
+        roots = [item.root for item in self.contributions]
+        if len(set(roots)) != len(roots):
+            raise WeilBridgeError("CONTRIBUTION_DUPLICATE")
+        ids = [item.contribution_id for item in self.contributions]
+        if len(set(ids)) != len(ids):
+            raise WeilBridgeError("CONTRIBUTION_ID_DUPLICATE")
+        if self.norm_sq.fraction < 0:
+            raise WeilBridgeError("NORM_SQ_NEGATIVE")
+        if self.epsilon_r.fraction < 0:
+            raise WeilBridgeError("EPSILON_NEGATIVE")
+        if self.approximation_delta.fraction < 0:
+            raise WeilBridgeError("APPROXIMATION_DELTA_NEGATIVE")
+        if len(set(self.assumption_tags)) != len(self.assumption_tags):
+            raise WeilBridgeError("ASSUMPTION_TAG_DUPLICATE")
+        for tag in self.assumption_tags:
+            _require_id("assumption_tag", tag)
+
+    @property
+    def root(self) -> str:
+        return canonical_hash(
+            "AEGIS_WEIL_FINITE_CERTIFICATE_ROOT_V1",
+            {
+                "certificate_kind": self.certificate_kind,
+                "proof_semantics": self.proof_semantics,
+                "test_function_digest": self.test_function_digest,
+                "cutoff": self.cutoff,
+                "contribution_roots": sorted(item.root for item in self.contributions),
+                "norm_sq": asdict(self.norm_sq),
+                "epsilon_r": asdict(self.epsilon_r),
+                "approximation_delta": asdict(self.approximation_delta),
+                "approximation_bound_root": self.approximation_bound_root,
+                "assumption_tags": sorted(self.assumption_tags),
+            },
+        )
+
+
+@dataclass(frozen=True)
+class WeilFiniteCertificateVerificationV1:
+    receipt_kind: str
+    proof_semantics: str
+    subject_root: str
+    valid: bool
+    status: str
+    circular: bool
+    arithmetic_certificate_verified: bool
+    contribution_semantics_verified: bool
+    aggregate_interval: ExactIntervalV1
+    finite_lower_bound_verified: bool
+    conditional_target_nonnegative: bool
+    rh_proven: bool
+    errors: tuple[str, ...]
+    open_obligations: tuple[str, ...]
+
+    @property
+    def receipt_root(self) -> str:
+        return canonical_hash("AEGIS_WEIL_FINITE_CERTIFICATE_RECEIPT_ROOT_V1", asdict(self))
+
+    def to_dict(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["receipt_root"] = self.receipt_root
+        return payload
+
+
+def verify_weil_finite_certificate(
+    certificate: WeilFiniteCertificateV1,
+) -> WeilFiniteCertificateVerificationV1:
+    """Recompute the aggregate interval and verify local lower-bound algebra.
+
+    This removes caller control over a single asserted ``Q_R`` value. The
+    fixed kernel sums every contribution interval exactly. The source-root
+    semantics of each interval are intentionally still open in v1.
+    """
+
+    lower = sum((item.value_interval.lower.fraction for item in certificate.contributions), Fraction(0, 1))
+    upper = sum((item.value_interval.upper.fraction for item in certificate.contributions), Fraction(0, 1))
+    aggregate = ExactIntervalV1.from_fractions(lower, upper)
+
+    circular = any(tag in FORBIDDEN_CIRCULAR_ASSUMPTIONS for tag in certificate.assumption_tags)
+    errors: list[str] = []
+    if circular:
+        errors.append("CIRCULAR_ASSUMPTION_FORBIDDEN")
+
+    finite_lower_bound_verified = (
+        aggregate.lower.fraction + certificate.epsilon_r.fraction * certificate.norm_sq.fraction >= 0
+    )
+    if not finite_lower_bound_verified:
+        errors.append("FINITE_CERTIFICATE_LOWER_BOUND_VIOLATED")
+
+    conditional_target_nonnegative = (
+        not circular
+        and finite_lower_bound_verified
+        and aggregate.lower.fraction - certificate.approximation_delta.fraction >= 0
+    )
+
+    valid = not errors
+    obligations = {
+        "CONTRIBUTION_INTERVAL_SEMANTICS_REQUIRE_INDEPENDENT_VERIFIER",
+        "APPROXIMATION_PREMISE_REQUIRES_INDEPENDENT_VERIFIER",
+        "FINITE_CERTIFICATE_DOES_NOT_ESTABLISH_GLOBAL_POSITIVITY",
+    }
+    if valid and not conditional_target_nonnegative:
+        obligations.add("CURRENT_CERTIFICATE_DOES_NOT_CERTIFY_CONDITIONAL_NONNEGATIVITY")
+
+    return WeilFiniteCertificateVerificationV1(
+        receipt_kind=WEIL_FINITE_CERTIFICATE_RECEIPT_KIND,
+        proof_semantics=PROOF_SEMANTICS,
+        subject_root=certificate.root,
+        valid=valid,
+        status="FINITE_ARITHMETIC_CERTIFICATE_VERIFIED" if valid else "REJECTED",
+        circular=circular,
+        arithmetic_certificate_verified=True,
+        contribution_semantics_verified=False,
+        aggregate_interval=aggregate,
+        finite_lower_bound_verified=finite_lower_bound_verified,
+        conditional_target_nonnegative=conditional_target_nonnegative,
+        rh_proven=False,
+        errors=tuple(sorted(set(errors))),
+        open_obligations=tuple(sorted(obligations)),
+    )
 
 
 @dataclass(frozen=True)
