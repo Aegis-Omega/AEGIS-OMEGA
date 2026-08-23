@@ -1,0 +1,35 @@
+# Claims Ledger enforcement — manuscript-governance gate.
+# Orthogonal to the constitutional CEREMONY quorum in ci.yml: this workflow governs the
+# evidence discipline of the manuscript claims ledger only, and is NOT part of the BFT
+# quorum. It does not gate CEREMONY and CEREMONY does not gate it.
+name: claims-ledger
+
+on:
+  pull_request:
+    paths:
+      - docs/claims.json
+      - docs/CLAIMS_LEDGER.md
+      - docs/claims.schema.json
+      - scripts/validate-claims.mjs
+  push:
+    paths:
+      - docs/claims.json
+      - docs/CLAIMS_LEDGER.md
+      - docs/claims.schema.json
+      - scripts/validate-claims.mjs
+
+permissions:
+  contents: read
+
+jobs:
+  validate-claims:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate claims ledger
+        run: node scripts/validate-claims.mjs

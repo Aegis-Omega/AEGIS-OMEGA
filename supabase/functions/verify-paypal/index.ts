@@ -6,6 +6,7 @@
 //   NOTIFY_SECRET (optional, for owner alerts)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
+import { issueGrantToken } from '../_shared/jwt.ts'
 
 const PAYPAL_CLIENT_ID     = Deno.env.get('PAYPAL_CLIENT_ID') ?? ''
 const PAYPAL_CLIENT_SECRET = Deno.env.get('PAYPAL_CLIENT_SECRET') ?? ''
@@ -185,8 +186,18 @@ Deno.serve(async (req) => {
     }),
   }).catch(e => console.error('Notify failed (non-fatal):', e))
 
+  // Paid tiers include all three creator tools: mint a server-signed P-256
+  // tool token (verified client-side by verifyServerToken in AccessGate).
+  // Fail-open: payment capture + key delivery must NEVER fail because token
+  // minting failed (e.g. GRANT_PRIVATE_KEY_JWK unset) — log and omit tool_token.
+  let toolToken: string | null = null
+  if (tierNorm !== 'explorer') {
+    try { toolToken = await issueGrantToken('full') }
+    catch (e) { console.error('Tool token minting failed (non-fatal):', e) }
+  }
+
   return new Response(
-    JSON.stringify({ api_key: rawKey, tier: tierNorm }),
+    JSON.stringify({ api_key: rawKey, tier: tierNorm, ...(toolToken ? { tool_token: toolToken } : {}) }),
     { headers: { ...CORS, 'Content-Type': 'application/json' } },
   )
 })

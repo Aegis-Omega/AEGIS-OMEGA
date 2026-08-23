@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/writer-lease.v1.schema.json",
+  "title": "AEGIS WriterLease V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version","authority_domain","holder_identity_root","source_commit","lease_generation","fencing_token","expected_parent_state"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "authority_domain": {"type": "string", "minLength": 1},
+    "holder_identity_root": {"$ref": "#/$defs/hash"},
+    "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+    "lease_generation": {"type": "integer", "minimum": 1},
+    "fencing_token": {"$ref": "#/$defs/hash"},
+    "expected_parent_state": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

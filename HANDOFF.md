@@ -1,8 +1,144 @@
-# AEGIS-Ω — Handoff (ground truth as of 2026-06-14, 10:46 UTC)
+# AEGIS-Ω — Handoff (ground truth as of 2026-07-19)
 
 A no-spin snapshot. Hand it to any engineer or AI and they're productive in 30 minutes.
 Everything here was verified by probing live systems and running the tests, not read from docs.
 Where a doc disagrees with the live system, the live system wins.
+
+---
+
+## LATEST — 2026-07-19 (authoritative session handoff; READ FIRST)
+
+Written so ANY next session (Claude or ChatGPT, with or without the transcript) can continue
+without re-asking the operator for anything below. Facts verified against git + the GitHub API
+on 2026-07-19, not trusted from memory.
+
+### 1. Branch / PR state
+
+- Branch **`claude/slack-session-yyw7h6`** was **rebased onto `main` @ `5770c1a`**
+  (post-rebase head **`06a022f`**, pushed; local == origin verified). 25 commits on top of main.
+- **PR #192** — OPEN, **not draft** (verified via API), base `main` @ `5770c1a`, head `06a022f`,
+  `mergeable_state: unstable` (solely the experiment-admission check, see §3 below). Carries:
+  - **Provenance envelope Phase 1**: ADR 0001, `sovereign-omega-v2/python/canonical_envelope.py`
+    (`canon()` byte-parity with `verifiable/chain.py`), dual-emit in `bridge.py` (legacy hashes
+    byte-identical), 11-vector TS↔Python digest-equivalence CI gate. Envelope `signature` field
+    is a Phase 2 placeholder (Cloud KMS Ed25519).
+  - **Opt-in inference backends**: governed OpenAI (`9cf88fd`) + Azure OpenAI/Foundry (`56255f5`) —
+    both server-side-key-only via `supabase/functions/chat`, enabled only by explicit flag; chain
+    stays CL-Ψ → OpenAI (opt-in) → Ollama → Claude → DashScope.
+  - **Claims ledger**: `docs/claims.json` (**34 claims**, evidence-contract schema, per-claim
+    `fails_if` predicates), `scripts/validate-claims.mjs` DAG validator, `claims-ledger.yml` CI
+    (green on head).
+  - **osv-scanner archaeology** (`4d90615`/`d035713`/`bd6aa4e`), **Kaggle Hallucination-Delta
+    evidence lineage** (`6ccb889`/`2ecaeeb`, HD=|claimed−actual|, hash-pinned), sponsors claim
+    hardening + FUNDING.yml (`37e775b`), plugin `marketplace.json` (`fe066d2`).
+  - **2026-07-18/19 additions**:
+    - Funnel fixes (`b691436`): discovery meta, pricing clarity, product linking (audit-driven).
+    - **Paywall hole closed** (`245caa8`): no pre-payment client-side grant-token minting;
+      `AccessGate` accepts **only P-256 server tokens** (`verifyServerToken`). The legacy
+      `createGrantToken`/`verifyGrantToken` still exist in `packages/shared/lib/access.ts` but
+      are referenced only by the lib + its tests — a cleanup commit is a follow-up, not a hole.
+    - **verify-paypal mints `tool_token`** (`b8b4a0c`): P-256 server token for paid tiers,
+      **fail-open** — if `GRANT_PRIVATE_KEY_JWK` is unset it logs and omits `tool_token`, still
+      issuing the API key.
+    - **Fable-era transition record** (`c145474`): `docs/transitions/2026-06-model-default.md` —
+      swarm default was `claude-fable-5` 2026-06-10 (`4747755`, PR #148) → 2026-06-23 (`8305ec6`,
+      PR #172); never the frontend default. Ledger **CLM-009 Verified/EQ-A**.
+    - **CLM-206 Proposed/EQ-D** (`06a022f`): origin claim that the 4747755 transition was shaped
+      by an upstream session that had ingested the Mythos model card. Promotion contract: requires
+      recovery of that session transcript binding BOTH the ingestion and the authorship; operator
+      attestation alone cannot promote. All recovered June sessions logged a different model.
+- **Grace-fix resolution during rebase**: our original `6f0e60d` was superseded by main's **#211**
+  (`935dc7a`). The rebase kept our commit as `bfdc7fa` carrying **only the 74-line regression
+  tests** (`test_grace_rpc_dispatch` in `python/tests/test_platform.py`); the
+  `platform_helpers.py` hunk dropped as already applied. Verified: the award loop lives in
+  `award_graces_for_cycle` (`platform_helpers.py:1619`), RPC `…/rest/v1/rpc/award_grace`.
+
+### 2. Main movement 2026-07-18/19 (merged by the ChatGPT agent)
+
+- **#208** fix(ci): restore OSV scanner execution (osv v2.3.8)
+- **#209** docs: operator-sovereign control plane (RFC 0001)
+- **#210** feat(governance): Integration Ledger made commit-bound
+- **#211** fix(runtime): grace-chain control flow restored
+- **#212** feat(governance): operator-sovereignty contracts v1 (six records)
+- **#213** feat(governance): experiment admission gate v0.1
+- **#214** feat(scale-os): signed control-plane events v1 (five files; **Supabase migration NOT
+  applied to the live project**)
+
+### 3. OPEN COORDINATION POINT — experiment-admission gate vs PR #192 (do NOT resolve unilaterally)
+
+`#213`'s `.github/workflows/experiment-admission.yml` runs `aegis / experiment-admission` on
+**every** PR to main and DENIES unless the PR diff changes **exactly one**
+`.aegis/experiments/*.json` plan. PR #192 changes zero → the check **fails on head `06a022f`**
+(verified). Operator must pick one:
+(a) confirm the check is not branch-protection-required and merge past the red X,
+(b) path-filter the gate so docs/feature PRs without experiments are exempt, or
+(c) give #192 a pinned experiment plan.
+This is an operator/coordination decision — no session should resolve it unilaterally.
+
+### 4. Key/token locations (operator-attested — STOP RE-ASKING)
+
+The operator states **API keys and tokens are stored on their Google Drive**. A session with the
+Drive MCP connected should retrieve needed credentials from Drive directly — and **NEVER commit
+them**. Known needed (names only, no values):
+- `GRANT_PRIVATE_KEY_JWK` — P-256 private JWK matching (or replacing — then update the embedded
+  public key too) the public JWK in `packages/shared/lib/access.ts:22-26`. Set as a Supabase
+  function secret, then redeploy `verify-paypal` (§6).
+- PayPal **live** credentials (`PAYPAL_CLIENT_ID`/`PAYPAL_CLIENT_SECRET`) + confirm
+  `PAYPAL_MODE=live` (function defaults to `sandbox`).
+- `RESEND_API_KEY`.
+- Supabase project: `rwehltdwpsncnwxzkwik`.
+
+NDA Drive folder `1KUrECDCNH3oOxdwKsfxIybOEbhGLD12-`: may be referenced by ID only —
+**never republish its content to the public repo**.
+
+### 5. MCP / session-surface state
+
+- This remote session ended with **only the GitHub MCP** connected (Supabase, Google Drive, and
+  Cloudflare-adjacent servers disconnected mid-session).
+- The operator's **mobile** connectors show Supabase (all tools "Always" — recommend flipping
+  write tools to "Ask") and Google Drive (all "Always"). That is a **different surface**, not
+  this environment.
+- To make a coding session capable: **reconnect Drive + Supabase MCP in the session environment**.
+
+### 6. Deployed-state gaps (revenue-critical — from the funnel audit + live probes)
+
+- `aegis-vertex.aegisomega.com` = **NXDOMAIN**. Needs Cloudflare DNS record + Cloud Run domain
+  mapping + a manual `workflow_dispatch` deploy (auto-deploy stays disabled for billing safety).
+- The three tool subdomains (`platform.` / `hooks.` / `calendar.`) are **stale or deleted on
+  Vercel** — attach them to the correct projects per `DEPLOY.md` (repo root).
+- Deployed `verify-paypal` **predates** the `tool_token` commit (`b8b4a0c`) — redeploy after
+  `GRANT_PRIVATE_KEY_JWK` is set.
+- `PAYPAL_MODE` defaults to `sandbox` — verify `live` in Supabase secrets.
+- **First-dollar gate**: one live **$49 self-purchase end-to-end**. Then: a real Explorer
+  transcript as social proof → Stripe rail (payment links + webhook secret + env-gated button)
+  → GitHub Sponsors enrollment last.
+
+### 7. Governance / audit alignment
+
+- The operator's **Scale OS control plane + Canonical Timeline + Request-to-Delivery Audit** docs
+  (on Drive) do **NOT yet register PR #192 or the P0 paywall fix** — registration pending from a
+  Drive-capable surface.
+- Audit standard adopted: **"green previews are not production receipts."**
+- **CP-001 finding**: persistence verified; **fail-open gates + broad connector authority** is
+  the incident mechanism; fail-closed enforcement ("Automaton 2") is still **unbuilt**.
+
+### 8. Next actions
+
+**Operator-only:**
+- Cloudflare DNS + Cloud Run mapping for `aegis-vertex` (§6) and Vercel project attachment for
+  the three tool subdomains.
+- Set Supabase secrets from Drive (§4), redeploy `verify-paypal`, confirm `PAYPAL_MODE=live`.
+- Reconnect Drive + Supabase MCP for the next coding session (§5).
+- Decide the experiment-admission handling for #192 (§3) and review/merge #192.
+
+**Next-session (any capable agent):**
+- Sweep the **June 1–10 session archives** for the fable-5 transcript to **promote or refute
+  CLM-206** (promotion contract in `docs/claims.json`).
+- Rank-6 demo / live-quickstart work.
+- Stripe + Sponsors `tool_token` follow-ups (mirror the verify-paypal minting).
+- Legacy grant-token cleanup commit (`createGrantToken`/`verifyGrantToken` + `GRANT_SECRET` in
+  `packages/shared/lib/access.ts`, now unused by products).
+- Register PR #192 + the P0 fix in the Scale OS docs once on a Drive-capable surface.
 
 ---
 
@@ -162,7 +298,7 @@ executor tests **18/18**, frozen-file membrane intact, PayPal kept (no Stripe).
 |--------|--------|
 | Store `https://aegisomega.com` (hub, Vercel) | LIVE (200) |
 | Payment fn `verify-paypal` (Supabase, project `rwehltdwpsncnwxzkwik`) | DEPLOYED v5, minted a real key in one call |
-| Platform `aegis-vertex.aegisomega.com/platform/status` (Cloud Run) | LIVE, 39 agents, chain valid — **but running the OLD build** (new build can't deploy until §4) |
+| Platform `aegis-vertex.aegisomega.com/platform/status` (Cloud Run) | ~~LIVE~~ **STALE — as of 2026-07-19 this hostname is NXDOMAIN** (see LATEST §6) |
 
 ---
 
@@ -238,4 +374,4 @@ of 50 people in one niche. The infra all exists; the work is wiring + telling pe
 - Swarm: `sovereign-omega-v2/python/{platform_helpers.py,bridge.py}` · tests in `python/tests/`
 - Money: `hub/src/components/PricingPage.tsx`, `supabase/functions/verify-paypal/index.ts`
 - Session sense-organ: `bash scripts/ground-truth.sh`
-- Active branch: `claude/anthropic-compliance-docs-df4ogq` (merged to main via #156)
+- Active branch: `claude/slack-session-yyw7h6` (PR #192, rebased onto main `5770c1a`, head `06a022f`)

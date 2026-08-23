@@ -3,11 +3,11 @@
 // /platform       → PlatformPage (agent catalog · execution trace · use cases)
 // /console         → ConsolePage (live operator console — vortex · homeostasis · stream)
 // /docs           → DocsPage (API reference)
-// /pricing        → PricingPage (API key purchase via Stripe)
+// /pricing        → PricingPage (API key purchase via PayPal)
 // /claim-sponsor  → ClaimSponsorPage (GitHub Sponsors key claim)
 // /runtime        → AegisRuntime (constitutional consciousness showcase)
 // /compliance     → CompliancePage (EU AI Act · GDPR · constitutional law)
-// /tools          → ToolsPage (the three $19 creator tools)
+// /tools          → ToolsPage (creator tools, included with Operator/Sovereign)
 import { AegisRuntime }      from './components/AegisRuntime.js'
 import { ClaimSponsorPage }  from './components/ClaimSponsorPage.js'
 import { CompliancePage }    from './components/CompliancePage.js'

@@ -1,0 +1,86 @@
+{
+  "admission_executable": {
+    "blob_id": "b9c998ddc85b9beeefec30121e88e828b15a8405",
+    "path": "sovereign-omega-v2/scripts/validate-experiment-plan.ts"
+  },
+  "admission_workflow": {
+    "blob_id": "01a59d129b0431c9ccb92b1227a0e46992b1562f",
+    "path": ".github/workflows/experiment-admission.yml"
+  },
+  "budget": {
+    "max_cost_microunits": 0,
+    "max_duration_seconds": 3600,
+    "max_mutations": 0
+  },
+  "claims_ledger": {
+    "path": ".aegis/claims-ledger.json",
+    "root": "495a01d7a942d5f90b39f2d2b178b074aee60c5e6460e1622f1917982ac59652"
+  },
+  "constitution": {
+    "blob_id": "d0c210443e03313113e43da46c4d98269494baeb",
+    "path": "CONSTITUTIONAL_DECLARATION.md"
+  },
+  "evidence_tier": "T1",
+  "execution_class": "EXPERIMENT",
+  "expected_outputs": [
+    "ADMISSION_RECEIPT.json",
+    "EVIDENCE_MANIFEST.json",
+    "EXPERIMENT_PLAN.json",
+    "INTEGRATION_LEDGER.json",
+    "INTEGRATION_LEDGER.md",
+    "SHA256SUMS"
+  ],
+  "expected_parent_sha": "5770c1a97780f4f5914cc92f9bfa2753f9e435f1",
+  "expected_parent_state_root": "0fe139920006befead833e3a4d2438f4cf53102c26a22b78f11ee04947073c53",
+  "experiment_id": "pr-192-integrated-governance-runtime-and-revenue-fixes-v1",
+  "integration_ledger_generator": {
+    "blob_id": "28823ae5b630be273b78210f0addf9c0a86aad05",
+    "path": "scripts/integration_ledger.py"
+  },
+  "observability": {
+    "cancellation_mechanism": "github-actions-cancel-run",
+    "durable_execution_required": true,
+    "emergency_stop_reference": "github-actions:cancel-run",
+    "heartbeat_max_seconds": 300,
+    "provider": "github-actions"
+  },
+  "operator_approval": {
+    "required": true,
+    "state": "APPROVED",
+    "operator_actor_id": "tarikskalic",
+    "operator_session_id": "chatgpt-session-2026-07-19-pr-192-admission",
+    "authorization_basis": "existing-broad-deployment-authorization-and-user-provided-pr-192-handoff",
+    "decided_at": "2026-07-19T02:04:00Z",
+    "signature_mode": "GITHUB_OIDC_ATTESTATION",
+    "approval_record_hash": "ac9a8e1dd8b140e3a8b283e75717b2fb7e1e62c986c7fa470738a940937acdcf"
+  },
+  "policy": {
+    "blob_id": "5937cf4d9fc59f224faabfb7865bba7aa5da90dc",
+    "path": "docs/rfcs/0001-operator-sovereign-control-plane.md"
+  },
+  "replay_package": {
+    "include_admission_receipt": true,
+    "include_evidence_manifest": true,
+    "include_integration_ledger": true,
+    "include_plan": true,
+    "required": true
+  },
+  "repository": "Aegis-Omega/AEGIS-OMEGA",
+  "requested_authority_domains": [
+    "github:artifact-metadata-write",
+    "github:attestation-write",
+    "github:oidc-token-mint",
+    "github:workflow-artifact-write"
+  ],
+  "schema_version": "0.1.0",
+  "sovereignty_contracts": {
+    "blob_id": "d53860f1340293cf08955ebb8729a853432551eb",
+    "path": "sovereign-omega-v2/src/sovereignty/contracts.ts"
+  },
+  "termination_conditions": [
+    "budget_exhausted",
+    "observability_expired",
+    "operator_emergency_stop"
+  ],
+  "title": "Admit PR 192 provenance, governed inference, claims, evidence, revenue-integrity, and handoff bundle"
+}
