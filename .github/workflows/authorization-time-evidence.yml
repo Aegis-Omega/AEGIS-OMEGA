@@ -6,12 +6,14 @@ on:
       - "harness/sdk/transition_receipts.py"
       - "harness/sdk/authorization_time_evidence.py"
       - "harness/sdk/authorization_transition_bridge.py"
+      - "harness/sdk/authorization_scitt_bridge.py"
       - "harness/sdk/scitt_authorization.py"
       - "harness/sdk/scitt_authorization_authority.py"
       - "harness/sdk/authority_client.py"
       - "scripts/automaton3-authority.py"
       - "sovereign-omega-v2/python/tests/test_authorization_time_evidence.py"
       - "sovereign-omega-v2/python/tests/test_authorization_transition_bridge.py"
+      - "sovereign-omega-v2/python/tests/test_authorization_scitt_bridge.py"
       - "sovereign-omega-v2/python/tests/test_scitt_authorization_receipt.py"
       - "sovereign-omega-v2/python/tests/test_scitt_authorization_composition.py"
       - "sovereign-omega-v2/python/tests/test_eat_attestation_composition.py"
@@ -66,3 +68,6 @@ jobs:
 
       - name: Run current-transition authorization bridge falsifiers
         run: python sovereign-omega-v2/python/tests/test_authorization_transition_bridge.py
+
+      - name: Run authorization-to-SCITT bridge falsifiers
+        run: python sovereign-omega-v2/python/tests/test_authorization_scitt_bridge.py
