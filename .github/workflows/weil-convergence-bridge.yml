@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "harness/sdk/weil_convergence_bridge.py"
+      - "scripts/weil-proof.py"
       - "sovereign-omega-v2/python/tests/test_weil_convergence_bridge.py"
       - "research/falsifiers/weil_convergence_bridge_v1.md"
       - ".github/workflows/weil-convergence-bridge.yml"
@@ -45,8 +46,8 @@ jobs:
       - name: Install exact test dependency
         run: python -m pip install --disable-pip-version-check pytest==8.4.1
 
-      - name: Compile proof kernel
-        run: python -m py_compile harness/sdk/weil_convergence_bridge.py sovereign-omega-v2/python/tests/test_weil_convergence_bridge.py
+      - name: Compile proof tool
+        run: python -m py_compile harness/sdk/weil_convergence_bridge.py scripts/weil-proof.py sovereign-omega-v2/python/tests/test_weil_convergence_bridge.py
 
       - name: Run Weil bridge falsifiers
         run: pytest -q sovereign-omega-v2/python/tests/test_weil_convergence_bridge.py
