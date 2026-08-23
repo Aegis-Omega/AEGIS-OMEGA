@@ -114,10 +114,22 @@ def scitt_policy():
     })
 
 
+def verified_registration_fixture(*, authority=False):
+    return SimpleNamespace(
+        receipt_root="a" * 64,
+        authority_granted=authority,
+        registration_verified=True,
+        holder_jkt=HOLDER_JKT,
+        measurement_digest=MEASUREMENT,
+        scope_root=SCOPE_ROOT,
+        verification_time_epoch=NOW,
+    )
+
+
 class SCITTAuthorizationCompositionTests(TestCase):
     def test_01_current_holder_measurement_scope_and_time_are_derived_not_caller_selected(self):
         captured = {}
-        sentinel = SimpleNamespace(receipt_root="a" * 64, authority_granted=False)
+        sentinel = verified_registration_fixture()
 
         def verifier(**kwargs):
             captured.update(kwargs)
@@ -170,7 +182,7 @@ class SCITTAuthorizationCompositionTests(TestCase):
             )
 
     def test_04_scitt_registration_receipt_never_becomes_authority(self):
-        sentinel = SimpleNamespace(receipt_root="a" * 64, authority_granted=True)
+        sentinel = verified_registration_fixture(authority=True)
         with patch(
             "harness.sdk.scitt_authorization_authority.verify_scitt_authorization_registration",
             return_value=sentinel,
