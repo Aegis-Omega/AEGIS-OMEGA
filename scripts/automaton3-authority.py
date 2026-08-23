@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from dataclasses import asdict
 from pathlib import Path
 
@@ -75,6 +76,7 @@ def evaluate(
     *,
     runtime_pop_trust_policy_path: str | None = None,
     dpop_replay_db: str | None = None,
+    verification_time_epoch: int | None = None,
 ) -> dict:
     try:
         identity = ExecutionIdentityEnvelope(**payload["identity"])
@@ -124,9 +126,9 @@ def evaluate(
             return deny("RUNTIME_POP_TRUST_POLICY_UNAVAILABLE")
         try:
             # D0-D2 stay independent of the optional crypto package. D3/D4
-            # imports it only at the consequential boundary. Trust-policy and
-            # replay-store selection are process configuration, never request
-            # fields chosen by the caller.
+            # imports it only at the consequential boundary. Trust-policy,
+            # replay-state and verification time are process configuration,
+            # never fields chosen by the caller request payload.
             from harness.sdk.runtime_pop_authority import (
                 RuntimePoPTrustPolicy,
                 SQLiteReplayStore,
@@ -150,10 +152,12 @@ def evaluate(
                     return deny("DPOP_REPLAY_STORE_UNAVAILABLE")
                 replay_store = SQLiteReplayStore(dpop_replay_db)
 
+            verified_at = int(time.time()) if verification_time_epoch is None else verification_time_epoch
             principal, crypto_receipt, trust_policy_root = bind_execution_principal_from_crypto(
                 raw_principal,
                 crypto_evidence,
                 trust_policy=trust_policy,
+                verification_time_epoch=verified_at,
                 generation=current_generation,
                 replay_store=replay_store,
             )
@@ -268,6 +272,7 @@ def main() -> int:
     parser.add_argument("--output", default="-")
     parser.add_argument("--runtime-pop-trust-policy", default=None)
     parser.add_argument("--dpop-replay-db", default=None)
+    parser.add_argument("--verification-time-epoch", type=int, default=None)
     args = parser.parse_args()
     raw = sys.stdin.read() if args.input == "-" else Path(args.input).read_text(encoding="utf-8")
     try:
@@ -279,6 +284,7 @@ def main() -> int:
             payload,
             runtime_pop_trust_policy_path=args.runtime_pop_trust_policy,
             dpop_replay_db=args.dpop_replay_db,
+            verification_time_epoch=args.verification_time_epoch,
         )
     rendered = json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
     if args.output == "-":
