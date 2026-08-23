@@ -26,7 +26,7 @@ jobs:
   o0:
     name: coqc / Weil O0 globalization
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Checkout exact candidate
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -49,7 +49,8 @@ jobs:
             sovereign-omega-v2/formal/theories/Weil/WeilCriterion.v \
             sovereign-omega-v2/formal/theories/Weil/O0.v
           do
-            if [ -f "$src" ] && grep -En '^[[:space:]]*(Axiom|Axioms|Parameter|Parameters|Admitted)[[:space:].]' "$src"; then
+            test -f "$src"
+            if grep -En '^[[:space:]]*(Axiom|Axioms|Parameter|Parameters|Admitted)[[:space:].]' "$src"; then
               echo "Declared assumption/admission forbidden: $src" >&2
               exit 1
             fi
@@ -62,7 +63,7 @@ jobs:
           mkdir -p sovereign-omega-v2/weil-o0-attestation
           chmod -R a+rwX sovereign-omega-v2/formal/theories/Weil sovereign-omega-v2/weil-o0-attestation
 
-      - name: Probe current analytic dependency stack and closure boundary
+      - name: Compile analytic vocabulary and expected-open closure
         uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
         with:
           coq_version: '8.20'
@@ -72,7 +73,33 @@ jobs:
             ROOT="$PWD/sovereign-omega-v2"
             DIR="$ROOT/formal/theories/Weil"
             OUT="$ROOT/weil-o0-attestation"
+
+            opam install -y coq-coquelicot.3.4.2
+
             cd "$DIR"
             coqc --version | tee "$OUT/coq-version.txt"
-            coqc O0DependencyProbe.v 2>&1 | tee "$OUT/dependency-probe.log"
+            opam list --installed coq-coquelicot --short | tee "$OUT/dependency-probe.log"
+            coqc O0DependencyProbe.v
+            coqc AnalyticDefinitions.v 2>&1 | tee "$OUT/analytic-definitions.log"
+            coqc Globalization.v 2>&1 | tee "$OUT/globalization.log"
+            coqc WeilCriterion.v 2>&1 | tee "$OUT/weil-criterion.log"
+            coqc O0.v 2>&1 | tee "$OUT/o0.log"
+
+            for theorem in \
+              global_weil_positivity_v1_pointwise \
+              finite_lower_bound_v1_specialize
+            do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.assumptions.txt"
+              printf 'Set Coqtop Exit On Error.\nRequire Import AnalyticDefinitions Globalization.\nPrint Assumptions %s.\n' "$theorem" > "$query"
+              coqtop -quiet -batch -l "$query" > "$log" 2>&1
+              rm -f "$query"
+              cat "$log"
+              grep -q 'Closed under the global context' "$log"
+              if grep -q '^Axioms:' "$log"; then
+                echo "Unexpected assumptions for $theorem" >&2
+                exit 1
+              fi
+            done
+
             coqc O0ClosureProbe.v 2>&1 | tee "$OUT/closure-probe.log"
