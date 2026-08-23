@@ -5,6 +5,7 @@
   global positivity theorem is assumed here.
 *)
 
+From Coq Require Import Reals.
 Require Import AnalyticDefinitions.
 
 Open Scope R_scope.
