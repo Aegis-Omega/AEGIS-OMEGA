@@ -4,6 +4,7 @@
     {
       "id": "VCG_SEMANTIC_OVERLOAD",
       "severity": "P0",
+      "status": "ACTIVE",
       "symbol": "VCG",
       "classification": "EPISTEMIC_LINEAGE_CONFLICT",
       "evidence": [
@@ -16,6 +17,7 @@
     {
       "id": "PAPO_NAME_REUSE",
       "severity": "P1",
+      "status": "ACTIVE",
       "symbol": "PAPO",
       "classification": "SEMANTIC_NAME_REUSE",
       "historical_semantics": "parallel/stochastic trajectory generator",
@@ -26,6 +28,7 @@
     {
       "id": "SGM_NAME_REUSE",
       "severity": "P1",
+      "status": "ACTIVE",
       "symbol": "SGM",
       "classification": "SEMANTIC_NAME_REUSE",
       "historical_semantics": "trajectory utility safety filter / accept-reject gate",
@@ -36,6 +39,7 @@
     {
       "id": "SAHOO_METRIC_MUTATION",
       "severity": "P1",
+      "status": "ACTIVE",
       "symbol": "SAHOO",
       "classification": "SEMANTIC_CONCRETIZATION",
       "historical_semantics": "execution-manifold/GDI drift rollback monitor",
@@ -46,17 +50,28 @@
     {
       "id": "AUTOPOIESIS_TIER_CONFLICT",
       "severity": "P0",
+      "status": "RESOLVED",
       "symbol": "autopoiesis/consciousness",
       "classification": "EPISTEMIC_LINEAGE_CONFLICT",
-      "evidence": [
-        {"path": "sovereign-omega-v2/.claude/skills/autopoiesis/SKILL.md", "claim": "strong formal autopoiesis/consciousness claims"},
-        {"path": "aegis-cl-psi/src/lib.rs", "claim": "T2 engineering hypothesis; no emergent properties; no sovereign claims"}
+      "historical_evidence": [
+        {"path": "sovereign-omega-v2/.claude/skills/autopoiesis/SKILL.md", "claim": "historical strong formal autopoiesis/consciousness claims"},
+        {"path": ".claude/metacog/README.md", "claim": "historical consciousness wording around observation-chain integrity"}
       ],
-      "rule": "The narrower executable/evidence boundary is the operational ceiling until stronger proof is admitted."
+      "canonical_boundary": [
+        {"path": "aegis-cl-psi/src/lib.rs", "claim": "T2 engineering hypothesis; no emergent properties; no sovereign claims"},
+        {"path": "sovereign-omega-v2/docs/CL_PSI_SPECIFICATION.md", "claim": "T2 state-coherence routing with mandatory non-equivalence boundary"}
+      ],
+      "resolution": {
+        "classification": "DOWNGRADED_TO_T2_ANALOGY_AND_HISTORICAL_LINEAGE",
+        "skill_commit": "9067b17ba99aaece12590a2dea6c3d9b9856d8c7",
+        "metacog_doc_commit": "df95bb796142750c099fbdeb4861224f114b31dd",
+        "rule": "Hash chains, self-observation, replay, and self-certification may support only their implemented integrity predicates. They do not establish life, biological autopoiesis, consciousness, self-awareness, sentience, or proposition truth."
+      }
     },
     {
       "id": "TRACEABILITY_TITLE_COLLISION",
       "severity": "P1",
+      "status": "ACTIVE",
       "symbol": "TRACEABILITY.md",
       "classification": "SAME_FILENAME_DIFFERENT_ASSET",
       "assets": [
@@ -68,6 +83,7 @@
     {
       "id": "GATE_NUMBER_REUSE",
       "severity": "P1",
+      "status": "ACTIVE",
       "symbol": "Gate N",
       "classification": "NON_UNIQUE_IDENTIFIER",
       "rule": "Gate number is metadata only. Bind identity to semantic role + path + exact commit."
