@@ -13,6 +13,14 @@ Before implementing a new AEGIS primitive:
 
 Filename equality, gate-number equality, and lexical similarity are never sufficient lineage evidence.
 
+Run:
+
 `python scripts/lineage_preflight.py --proposed-name NAME --semantic-role ROLE [--acknowledge-conflict]`
+
+Conflict handling is fail-closed:
+
+- `P0` conflicts are **non-bypassable**. `--acknowledge-conflict` does not permit them. The conflict must first be resolved in repository-bound lineage evidence and the conflict registry updated accordingly.
+- `P1` semantic reuse/collision may proceed only after explicit review via `--acknowledge-conflict`; acknowledgement is not proof of semantic equivalence.
+- incomplete artifact discovery remains blocking regardless of conflict acknowledgement.
 
 The preflight does not establish scientific truth or admission. It blocks context-free implementation.
