@@ -45,6 +45,13 @@ jobs:
             exit 1
           fi
 
+      - name: Prepare writable Weil Coq evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/weil-formal-attestation
+          chmod -R a+rwX sovereign-omega-v2/formal/theories/Weil sovereign-omega-v2/weil-formal-attestation
+
       - name: Compile and print theorem assumptions
         uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
         with:
@@ -55,7 +62,6 @@ jobs:
             ROOT="$PWD/sovereign-omega-v2"
             DIR="$ROOT/formal/theories/Weil"
             OUT="$ROOT/weil-formal-attestation"
-            mkdir -p "$OUT"
             cd "$DIR"
             coqc --version | tee "$OUT/coq-version.txt"
             coqc FiniteBridge.v 2>&1 | tee "$OUT/compile.log"
@@ -80,7 +86,7 @@ jobs:
                 exit 1
               fi
             done
-            chmod -R a+rX "$OUT"
+            chmod -R a+rwX "$OUT"
 
       - name: Emit content-addressed formal receipt
         working-directory: sovereign-omega-v2
