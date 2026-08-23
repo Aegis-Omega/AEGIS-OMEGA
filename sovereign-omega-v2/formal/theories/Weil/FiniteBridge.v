@@ -54,7 +54,7 @@ Qed.
 Theorem offdiag_entry_symmetric :
   forall (psi c s : Q -> Q) (m n : Q),
     ~ m == n ->
-    offdiag_entry psi c s m n == offdiag_entry psi c s n m.
+    offdiag_entry psi c s m n == offdiag_entry psi n m.
 Proof.
   intros psi c s m n Hmn.
   unfold offdiag_entry.
@@ -99,6 +99,6 @@ Theorem gray_zone_can_change_sign :
       0 < qT + delta_positive.
 Proof.
   intros B HB.
-  exists (- B / 2), 0, B.
+  exists (-(1#2) * B), 0, B.
   repeat split; lra.
 Qed.
