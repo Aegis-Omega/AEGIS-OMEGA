@@ -86,7 +86,6 @@ jobs:
                 exit 1
               fi
             done
-            chmod -R a+rwX "$OUT"
 
       - name: Emit content-addressed formal receipt
         working-directory: sovereign-omega-v2
