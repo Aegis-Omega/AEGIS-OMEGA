@@ -24,6 +24,18 @@ _FORMAL_THEOREMS = (
     "bounded_positive_tail_certifies_negative",
     "gray_zone_can_change_sign",
 )
+_CLOSED_ASSUMPTION_LOG_SHA256 = hashlib.sha256(
+    b"Closed under the global context\n"
+).hexdigest()
+
+
+def _resign(payload: dict[str, object]) -> None:
+    canonical = json.dumps(
+        {key: value for key, value in payload.items() if key != "receipt_sha256"},
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    payload["receipt_sha256"] = hashlib.sha256(canonical).hexdigest()
 
 
 def _formal_bridge_payload() -> dict[str, object]:
@@ -35,7 +47,9 @@ def _formal_bridge_payload() -> dict[str, object]:
         "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
         "coq_version_sha256": "1" * 64,
         "compile_log_sha256": "2" * 64,
-        "theorem_assumption_log_sha256": {name: "3" * 64 for name in _FORMAL_THEOREMS},
+        "theorem_assumption_log_sha256": {
+            name: _CLOSED_ASSUMPTION_LOG_SHA256 for name in _FORMAL_THEOREMS
+        },
         "theorem_count": len(_FORMAL_THEOREMS),
         "declared_assumptions": 0,
         "global_weil_positivity_proven": False,
@@ -43,8 +57,7 @@ def _formal_bridge_payload() -> dict[str, object]:
         "analytic_tail_order_theorem_proven": False,
         "formula_to_weil_operator_identity_proven": False,
     }
-    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-    payload["receipt_sha256"] = hashlib.sha256(canonical).hexdigest()
+    _resign(payload)
     return payload
 
 
@@ -135,15 +148,18 @@ def test_formal_bridge_receipt_rejects_digest_tampering():
         verify_weil_formal_bridge_receipt(payload)
 
 
+def test_formal_bridge_receipt_rejects_nonclosed_assumption_log_even_when_resigned():
+    payload = _formal_bridge_payload()
+    payload["theorem_assumption_log_sha256"][_FORMAL_THEOREMS[0]] = "3" * 64
+    _resign(payload)
+    with pytest.raises(FormalBridgeError, match="FORMAL_THEOREM_NOT_CLOSED"):
+        verify_weil_formal_bridge_receipt(payload)
+
+
 def test_formal_bridge_receipt_rejects_claim_smuggling():
     payload = _formal_bridge_payload()
     payload["analytic_tail_order_theorem_proven"] = True
-    canonical = json.dumps(
-        {key: value for key, value in payload.items() if key != "receipt_sha256"},
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode()
-    payload["receipt_sha256"] = hashlib.sha256(canonical).hexdigest()
+    _resign(payload)
     with pytest.raises(FormalBridgeError, match="FORMAL_RECEIPT_OVERCLAIM_REJECTED"):
         verify_weil_formal_bridge_receipt(payload)
 
