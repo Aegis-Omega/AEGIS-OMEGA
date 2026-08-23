@@ -97,11 +97,17 @@ recorded in CLAUDE.md and verified by `node scripts/verify-hashes.mjs`. Modifica
 requires a /guardian APPROVED verdict. They are the mutation authority, type genome,
 and execution router respectively — the three pillars of Layer B constitutional semantics.
 
-### VCG (Vickrey–Clarke–Groves) Calibration
-The calibration layer that measures whether claimed confidence matches empirical outcomes.
-VCG error = |claimed_confidence - actual_outcome|. The long-run mean VCG error must
-converge toward 0 (perfect calibration). V4/V5 verifiers are excluded from VCG
-computation — only V1/V2/V3 results have ground-truth grounding.
+### VCG (Verifiable-Domain Calibration Gap)
+The verifier-grounded calibration layer that measures whether claimed confidence matches
+externally checkable outcomes within a declared verification domain. The live tracker in
+`sovereign-omega-v2/src/calibration/vcg.ts` computes a weighted mean of
+`|claimed_confidence - actual_correct|` over admitted verifier results, with deterministic
+replay inputs and a bounded rolling window. Lower is better; zero is perfect agreement on
+the observed verified sample.
+
+This expansion supersedes the stale historical label “Vickrey–Clarke–Groves Calibration.”
+AEGIS VCG is **not** the Vickrey–Clarke–Groves mechanism from auction/mechanism-design
+theory. Shared initials do not establish semantic lineage.
 
 ### Bernstein Bound
 The anytime-valid confidence sequence used in the E4 gate, implementing the estimator
