@@ -12,6 +12,8 @@ on:
       - 'harness/sdk/proof_trace.py'
       - 'security/security_evidence_set.py'
       - 'security/glasswing_evidence.py'
+      - 'security/verifier_provenance.py'
+      - 'security/test_verifier_provenance.py'
       - 'sovereign-omega-v2/python/tests/test_security_evidence_trace_bridge.py'
       - 'sovereign-omega-v2/python/tests/test_proof_trace_sdk.py'
       - '.github/workflows/security-evidence-trace-bridge.yml'
@@ -46,10 +48,14 @@ jobs:
           harness/sdk/security_evidence_trace.py
           harness/sdk/proof_trace.py
           security/security_evidence_set.py
+          security/test_verifier_provenance.py
           sovereign-omega-v2/python/tests/test_security_evidence_trace_bridge.py
 
       - name: Run bridge falsifiers
         run: pytest -q sovereign-omega-v2/python/tests/test_security_evidence_trace_bridge.py
+
+      - name: Run verifier provenance falsifiers
+        run: python -m unittest -v security/test_verifier_provenance.py
 
       - name: Re-run ProofTrace falsifiers
         run: pytest -q sovereign-omega-v2/python/tests/test_proof_trace_sdk.py
