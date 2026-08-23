@@ -1,0 +1,78 @@
+name: Weil O0 Globalization
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/formal/theories/Weil/AnalyticDefinitions.v"
+      - "sovereign-omega-v2/formal/theories/Weil/Globalization.v"
+      - "sovereign-omega-v2/formal/theories/Weil/WeilCriterion.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0DependencyProbe.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0ClosureProbe.v"
+      - ".github/workflows/weil-o0-globalization.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-o0-globalization-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  o0:
+    name: coqc / Weil O0 globalization
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Reject declared assumptions in O0 sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          for src in \
+            sovereign-omega-v2/formal/theories/Weil/AnalyticDefinitions.v \
+            sovereign-omega-v2/formal/theories/Weil/Globalization.v \
+            sovereign-omega-v2/formal/theories/Weil/WeilCriterion.v \
+            sovereign-omega-v2/formal/theories/Weil/O0.v
+          do
+            if [ -f "$src" ] && grep -En '^[[:space:]]*(Axiom|Axioms|Parameter|Parameters|Admitted)[[:space:].]' "$src"; then
+              echo "Declared assumption/admission forbidden: $src" >&2
+              exit 1
+            fi
+          done
+
+      - name: Prepare writable O0 evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/weil-o0-attestation
+          chmod -R a+rwX sovereign-omega-v2/formal/theories/Weil sovereign-omega-v2/weil-o0-attestation
+
+      - name: Probe current analytic dependency stack and closure boundary
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            DIR="$ROOT/formal/theories/Weil"
+            OUT="$ROOT/weil-o0-attestation"
+            cd "$DIR"
+            coqc --version | tee "$OUT/coq-version.txt"
+            coqc O0DependencyProbe.v 2>&1 | tee "$OUT/dependency-probe.log"
+            coqc O0ClosureProbe.v 2>&1 | tee "$OUT/closure-probe.log"
