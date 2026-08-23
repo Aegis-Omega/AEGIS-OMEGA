@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "fix/remove-conflicting-codeql-workflow",
+    "source_ref": "security/daybreak-blue-hardening-v1",
     "parent_state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "2d8f32842a5e31eb72319fc1fed4eae487f6a143e30317e5e4a628099ff3781c"
+  "state_hash": "ef2e30ab8a9b7780c66b9a4d1a28dd5887ad223fa85e9e4d13580d498a4ab0cb"
 }
