@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/eat-jwt-attestation-crypto-v1",
+    "source_ref": "feat/attested-runtime-binding-v1",
     "parent_state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "6aa2c7ac1d258655ac4e2555fdc910c0c4b2fdf7f4677567bcc64216cf0a9b02"
+  "state_hash": "c2cc248852a44a9e4c30c92f6297f34cfa7728cb417689dee06d3cad22eae577"
 }
