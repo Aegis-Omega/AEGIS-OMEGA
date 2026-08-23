@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -88,8 +89,8 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
             return _denial("RUNTIME_POP_TRUST_POLICY_UNAVAILABLE")
         try:
             # Crypto is optional for D0-D2 but mandatory/fail-closed for D3/D4.
-            # Trust anchors are selected from deployment configuration, never
-            # from the presented credential/evidence object.
+            # Trust anchors and verification time come from this process
+            # boundary, never from the presented credential/evidence object.
             from harness.sdk.runtime_pop_authority import (
                 RuntimePoPTrustPolicy,
                 SQLiteReplayStore,
@@ -127,6 +128,7 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
                 principal_payload,
                 crypto_evidence,
                 trust_policy=trust_policy,
+                verification_time_epoch=int(time.time()),
                 generation=current_generation,
                 replay_store=replay_store,
             )
