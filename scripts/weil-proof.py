@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""AEGIS Ω production CLI for the Weil convergence bridge v1.
+"""AEGIS Ω production CLI for the Weil convergence proof tooling.
 
-The command emits deterministic proof packets for exact-rational local proof
-obligations. It does not claim the Riemann Hypothesis is proved.
+Every command emits deterministic proof packets for a bounded verifier.  No
+command promotes finite evidence, a source hash, or a successful CI run into a
+Riemann-Hypothesis claim.
 """
 from __future__ import annotations
 
@@ -21,6 +22,11 @@ from harness.sdk.exact_ldlt import (
     LDLTError,
     verify_exact_ldlt,
 )
+from harness.sdk.guinand_weil_arb import (
+    ArbGalerkinError,
+    ArbGalerkinSpecV1,
+    verify_cutoff_free_galerkin,
+)
 from harness.sdk.sovereign_execution import canonical_hash
 from harness.sdk.weil_convergence_bridge import (
     ExactIntervalV1,
@@ -36,6 +42,7 @@ from harness.sdk.weil_convergence_bridge import (
 PACKET_KIND = "AEGIS_WEIL_PROOF_PACKET_V1"
 FINITE_CERT_PACKET_KIND = "AEGIS_WEIL_FINITE_CERTIFICATE_PACKET_V1"
 LDLT_PACKET_KIND = "AEGIS_EXACT_LDLT_PACKET_V1"
+ARB_GALERKIN_PACKET_KIND = "AEGIS_ARB_GALERKIN_PACKET_V1"
 PACKET_SEMANTICS = "EVIDENCE_ONLY_NOT_RH_PROOF"
 
 _REQUIRED_INSTANCE_KEYS = {
@@ -232,6 +239,21 @@ def build_ldlt_packet(certificate: ExactLDLTCertificateV1) -> dict[str, Any]:
     return payload
 
 
+def build_galerkin_packet(spec: ArbGalerkinSpecV1) -> dict[str, Any]:
+    verification = verify_cutoff_free_galerkin(spec)
+    payload: dict[str, Any] = {
+        "packet_kind": ARB_GALERKIN_PACKET_KIND,
+        "proof_semantics": verification.proof_semantics,
+        "spec": asdict(spec),
+        "spec_root": spec.root,
+        "verification": verification.to_dict(),
+        "global_weil_positivity_proven": False,
+        "rh_proven": False,
+    }
+    payload["packet_root"] = canonical_hash("AEGIS_ARB_GALERKIN_PACKET_ROOT_V1", payload)
+    return payload
+
+
 def _load_json(path: Path) -> Any:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -282,6 +304,13 @@ def verify_ldlt_command(args: argparse.Namespace) -> int:
     return 0 if packet["verification"]["valid"] else 2
 
 
+def verify_galerkin_command(args: argparse.Namespace) -> int:
+    spec = ArbGalerkinSpecV1(c=args.c, N=args.N, prec_bits=args.prec)
+    packet = build_galerkin_packet(spec)
+    _emit_packet(args.output, packet)
+    return 0 if packet["verification"]["valid"] else 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="weil-proof", description="AEGIS Weil convergence proof verifier")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -306,6 +335,16 @@ def build_parser() -> argparse.ArgumentParser:
     verify_ldlt.add_argument("--input", required=True, help="LDLT certificate JSON path")
     verify_ldlt.add_argument("--output", required=True, help="output proof packet path, or '-' for stdout")
     verify_ldlt.set_defaults(func=verify_ldlt_command)
+
+    verify_galerkin = subparsers.add_parser(
+        "verify-galerkin",
+        help="rigorously evaluate the bounded cutoff-free Galerkin formula with Arb interval LDLT",
+    )
+    verify_galerkin.add_argument("--c", required=True, type=int, help="prime cutoff c >= 2")
+    verify_galerkin.add_argument("--N", required=True, type=int, dest="N", help="finite frequency band N >= 0")
+    verify_galerkin.add_argument("--prec", required=True, type=int, help="Arb precision in bits")
+    verify_galerkin.add_argument("--output", required=True, help="output proof packet path, or '-' for stdout")
+    verify_galerkin.set_defaults(func=verify_galerkin_command)
     return parser
 
 
@@ -314,7 +353,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return int(args.func(args))
-    except (WeilBridgeError, LDLTError) as exc:
+    except (WeilBridgeError, LDLTError, ArbGalerkinError) as exc:
         sys.stderr.write(f"WEIL_PROOF_INPUT_REJECTED:{exc.code}\n")
         return 3
 
