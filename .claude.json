@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "fix/claude-artifact-discovery-v1",
+    "source_ref": "audit/epistemic-lineage-v1",
     "parent_state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -20,19 +20,19 @@
     "skills_root_scope": "canonical ordered array of path, sha256, and size_bytes",
     "state_hash_scope": "canonical manifest with state_hash omitted"
   },
-  "skills_root_hash": "a2c0ec4af21e0b8414a6634c289578cc421830b229aadab77d6513141201f110",
+  "skills_root_hash": "8e1d79492cb35cd4d529f2d8c92df007a8e1ba1c8856cf6eeeea4869f16ee636",
   "rotational_axis": {
     "axis_3": {
       "focus": "kinetic_entropy",
-      "manifest_hash": "65fdb24c506b592e56dce8192fc03c7f9fb2aedde5faee6416d75e2a15e18c95"
+      "manifest_hash": "b28768ced89b4b9abbc334f2c78cc5882debd1d728cd2e310eab926be8394a6d"
     },
     "axis_6": {
       "focus": "dynamic_mutation",
-      "manifest_hash": "c518b766c347f3e362a4492005a96cf2b60f211d2dee6de83d72269cbeff109a"
+      "manifest_hash": "e84449c1edfc616e9c8e8e0bc0d5cfe83cc3d6429405252fa641a5c5a7f0aa76"
     },
     "axis_9": {
       "focus": "immutable_truth",
-      "manifest_hash": "a5367d7a1c09c57d8f3d12eec868bf42e19385091a93e74b46197b4103475a59"
+      "manifest_hash": "4d587139d8c7eafe599935b5d48731978e7f542e04712bd3deb3890a1bf493e1"
     }
   },
   "cognitive_state": {
@@ -71,7 +71,7 @@
     },
     "skills": {
       "count": 63,
-      "root_hash": "a2c0ec4af21e0b8414a6634c289578cc421830b229aadab77d6513141201f110",
+      "root_hash": "8e1d79492cb35cd4d529f2d8c92df007a8e1ba1c8856cf6eeeea4869f16ee636",
       "entries": [
         {
           "name": "locate-artifact",
@@ -130,8 +130,8 @@
         {
           "name": "autopoiesis",
           "path": "sovereign-omega-v2/.claude/skills/autopoiesis/SKILL.md",
-          "sha256": "9b246b58463ad7f690d8fa454091763aae43742ea8aceb95b89dd277c776d9ef",
-          "size_bytes": 11156
+          "sha256": "edcd5561520193ff316ce3e6eae0452dd2f6e0a95dee9bc2dc552088c271f25d",
+          "size_bytes": 5227
         },
         {
           "name": "bls-threshold-aggregation",
@@ -494,5 +494,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "37a6aed7eb08ac8fd74f4363ca362f969e67734f20d11bab7dede0622b0fe270"
+  "state_hash": "a0a93219c2797606ba4bd0952d8cf52ce16f4d570dee2924e8adc686cf3f783c"
 }

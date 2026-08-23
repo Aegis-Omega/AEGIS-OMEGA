@@ -1,0 +1,98 @@
+{
+  "schema": "aegis.lineage-conflicts.v1",
+  "conflicts": [
+    {
+      "id": "VCG_SEMANTIC_OVERLOAD",
+      "severity": "P0",
+      "status": "RESOLVED",
+      "symbol": "VCG",
+      "classification": "EPISTEMIC_LINEAGE_CONFLICT",
+      "historical_evidence": [
+        {"path": "docs/ONTOLOGY.md", "claim": "historical stale expansion VCG = Vickrey–Clarke–Groves Calibration"}
+      ],
+      "canonical_boundary": [
+        {"path": "sovereign-omega-v2/docs/SOVEREIGN_OMEGA_INTEGRATED_SPEC_v2.md", "claim": "VCG = Verifiable-Domain Calibration Gap"},
+        {"path": "sovereign-omega-v2/src/calibration/vcg.ts", "claim": "weighted mean |claimed_confidence - actual_correct| over admitted verifier results"}
+      ],
+      "resolution": {
+        "classification": "ONTOLOGY_EXPANSION_CORRECTED_TO_EXECUTABLE_LINEAGE",
+        "ontology_commit": "910719e05e6eb300fd3f457e7f4197f848cc6ca7",
+        "rule": "AEGIS VCG means Verifiable-Domain Calibration Gap. It is not the Vickrey–Clarke–Groves mechanism from auction/mechanism-design theory."
+      }
+    },
+    {
+      "id": "PAPO_NAME_REUSE",
+      "severity": "P1",
+      "status": "ACTIVE",
+      "symbol": "PAPO",
+      "classification": "SEMANTIC_NAME_REUSE",
+      "historical_semantics": "parallel/stochastic trajectory generator",
+      "current_semantics": "PAPO-Ψ three-step PREDICT→CRITIQUE→VERDICT verifier with hash-chained records",
+      "current_path": "aegis-cl-psi/src/papo.rs",
+      "rule": "Do not treat PAPO generations as implementation-equivalent without an explicit migration edge."
+    },
+    {
+      "id": "SGM_NAME_REUSE",
+      "severity": "P1",
+      "status": "ACTIVE",
+      "symbol": "SGM",
+      "classification": "SEMANTIC_NAME_REUSE",
+      "historical_semantics": "trajectory utility safety filter / accept-reject gate",
+      "current_semantics": "SGM-Ψ sparse activation router plus Hoeffding acceptance-rate estimator",
+      "current_path": "aegis-cl-psi/src/sgm_gate.rs",
+      "rule": "Do not infer safety-gate continuity from the SGM label alone."
+    },
+    {
+      "id": "SAHOO_METRIC_MUTATION",
+      "severity": "P1",
+      "status": "ACTIVE",
+      "symbol": "SAHOO",
+      "classification": "SEMANTIC_CONCRETIZATION",
+      "historical_semantics": "execution-manifold/GDI drift rollback monitor",
+      "current_semantics": "SAHOO-Ψ Wasserstein-1 predicted-vs-observed distance monitor",
+      "current_path": "aegis-cl-psi/src/sahoo.rs",
+      "rule": "Metric change must be explicit in lineage."
+    },
+    {
+      "id": "AUTOPOIESIS_TIER_CONFLICT",
+      "severity": "P0",
+      "status": "RESOLVED",
+      "symbol": "autopoiesis/consciousness",
+      "classification": "EPISTEMIC_LINEAGE_CONFLICT",
+      "historical_evidence": [
+        {"path": "sovereign-omega-v2/.claude/skills/autopoiesis/SKILL.md", "claim": "historical strong formal autopoiesis/consciousness claims"},
+        {"path": ".claude/metacog/README.md", "claim": "historical consciousness wording around observation-chain integrity"}
+      ],
+      "canonical_boundary": [
+        {"path": "aegis-cl-psi/src/lib.rs", "claim": "T2 engineering hypothesis; no emergent properties; no sovereign claims"},
+        {"path": "sovereign-omega-v2/docs/CL_PSI_SPECIFICATION.md", "claim": "T2 state-coherence routing with mandatory non-equivalence boundary"}
+      ],
+      "resolution": {
+        "classification": "DOWNGRADED_TO_T2_ANALOGY_AND_HISTORICAL_LINEAGE",
+        "skill_commit": "9067b17ba99aaece12590a2dea6c3d9b9856d8c7",
+        "metacog_doc_commit": "df95bb796142750c099fbdeb4861224f114b31dd",
+        "rule": "Hash chains, self-observation, replay, and self-certification may support only their implemented integrity predicates. They do not establish life, biological autopoiesis, consciousness, self-awareness, sentience, or proposition truth."
+      }
+    },
+    {
+      "id": "TRACEABILITY_TITLE_COLLISION",
+      "severity": "P1",
+      "status": "ACTIVE",
+      "symbol": "TRACEABILITY.md",
+      "classification": "SAME_FILENAME_DIFFERENT_ASSET",
+      "assets": [
+        {"concept_id": "traceability.build_matrix", "raw_sha256": "b2180bee23d40e46c4ebdb5abbbabd9ad2eacc2a16cc0318ff28575668f0e830", "size": 135766},
+        {"concept_id": "traceability.implementation_provenance", "raw_sha256": "4781a45accd346690756430e62a2a02c0a10c92a6b4da9c4881806c6658ceeaf", "size": 24981}
+      ],
+      "rule": "Filename equality must never collapse these assets."
+    },
+    {
+      "id": "GATE_NUMBER_REUSE",
+      "severity": "P1",
+      "status": "ACTIVE",
+      "symbol": "Gate N",
+      "classification": "NON_UNIQUE_IDENTIFIER",
+      "rule": "Gate number is metadata only. Bind identity to semantic role + path + exact commit."
+    }
+  ]
+}

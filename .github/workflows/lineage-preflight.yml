@@ -1,0 +1,52 @@
+name: Epistemic Lineage Preflight
+
+on:
+  pull_request:
+    paths:
+      - 'docs/LINEAGE_*'
+      - 'docs/ONTOLOGY.md'
+      - 'docs/DRIVE_TRIAGE.v1.json'
+      - 'docs/DRIVE_TRIAGE_CONTINUATION_*.json'
+      - 'scripts/lineage_preflight.py'
+      - 'tests/test_lineage_preflight.py'
+      - 'sovereign-omega-v2/.claude/skills/autopoiesis/SKILL.md'
+      - '.claude/metacog/README.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lineage-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test dependency
+        run: python -m pip install 'pytest>=8,<9'
+      - name: Parse machine-readable lineage documents
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          fixed = [
+            Path('docs/LINEAGE_PRECHECK.json'),
+            Path('docs/LINEAGE_CONFLICTS.json'),
+            Path('docs/LINEAGE_MANIFEST.v1.json'),
+            Path('docs/LINEAGE_TIMELINE_PHASE1.v1.json'),
+            Path('docs/DRIVE_TRIAGE.v1.json'),
+          ]
+          continuations = sorted(Path('docs').glob('DRIVE_TRIAGE_CONTINUATION_*.json'))
+          for p in [*fixed, *continuations]:
+            json.loads(p.read_text(encoding='utf-8'))
+          PY
+      - name: Run lineage preflight regression tests
+        run: python -m pytest -q tests/test_lineage_preflight.py
+      - name: Exercise resolved VCG semantic lineage
+        run: |
+          python scripts/lineage_preflight.py \
+            --proposed-name VCG \
+            --semantic-role 'verifiable-domain calibration'

@@ -1,0 +1,16 @@
+name: AEGIS CodeQL
+
+# Keep security coverage on repository source while excluding generated/vendor trees.
+# These paths are non-source artifacts already classified as such by .gitignore or
+# by the failing JS/TS extraction evidence. Do not use this file to suppress findings.
+paths-ignore:
+  - '**/node_modules/**'
+  - '**/.next/**'
+  - '**/dist/**'
+  - '**/build/**'
+  - '**/coverage/**'
+  - '**/.vercel/**'
+  - '**/.wrangler/**'
+  - '**/target/**'
+  - '**/__pycache__/**'
+  - '**/.pytest_cache/**'

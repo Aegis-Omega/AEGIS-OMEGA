@@ -1,0 +1,51 @@
+{
+  "schema": "aegis.drive-triage-continuation.v1",
+  "as_of": "2026-08-23",
+  "batch": "E",
+  "parent_pr": 295,
+  "parent_head_sha": "315a2ea8b1192ad3fd225df7c043705cbdfa647a",
+  "branch": "audit/epistemic-lineage-v1",
+  "authority_boundary": "Operator-authorized Drive deletions only. This receipt records observed actions and hash equivalence; it does not establish scientific truth, runtime correctness, or implementation status.",
+  "reconciliation": {
+    "status": "PARTIAL_FAIL_CLOSED",
+    "observed_physical_delete_count": 125,
+    "checked_in_primary_receipt_count": 43,
+    "continuation_a_receipt_count": 14,
+    "continuation_b_receipt_count": 3,
+    "continuation_c_receipt_count": 1,
+    "continuation_d_receipt_count": 1,
+    "continuation_e_receipt_count": 1,
+    "id_reconciled_total": 63,
+    "unreconciled_prior_delete_count": 62,
+    "rule": "Do not invent or backfill missing Drive IDs. Unreconciled prior deletions remain unresolved until independently reconstructed from receipts or source logs."
+  },
+  "verification_policy": {
+    "stored_binary": "raw SHA-256 equality plus same-parent/redundancy context and no repository binding for deleted Drive ID or content hash",
+    "cross_surface_exception": "Byte-identical files under semantically distinct install surfaces such as .gemini/skills and .agents/skills are not redundant replicas solely by hash equality.",
+    "delete_rule": "Delete only verified redundant replicas after selecting a surviving canonical Drive object. REVISION, UNKNOWN, execution-distinct SESSION_TELEMETRY, and cross-surface mirrors are not deletable by this rule."
+  },
+  "continuation_receipts": [
+    {
+      "physical_delete_ordinal": 125,
+      "concept_id": "artifact.qr_89387052605195653702",
+      "title": "QR_89387052605195653702.pdf",
+      "canonical_drive_id": "1lAvxBpugBRv-gx54rV8jcH0z4vM7Oxrb",
+      "deleted_drive_id": "1qRkNNhAosM2pGpqIRGCKwmAmoRW4pxyF",
+      "sha256": "ad3c1bcb15547f0933b7f61439ef08aec1f3f79a7d56427243d112ffa0df043f",
+      "size": 557378,
+      "parent_drive_id": "0AN5KMOWX21HUUk9PVA",
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true,
+      "canonical_created_at": "2026-07-25T03:13:05.000Z",
+      "deleted_created_at": "2026-07-25T03:13:05.000Z"
+    }
+  ],
+  "cross_surface_guard_evidence": {
+    "status": "RETENTION_RULE_CONFIRMED",
+    "gemini_skills_drive_id": "1m-KScbvrhvCejUx7S4fmreZ-4HdvGM2x",
+    "gemini_parent_surface": ".gemini",
+    "agents_skills_drive_id": "1IzUQs78EoHj6CDJRNoQ1pGv1qYkeY0ax",
+    "agents_parent_surface": ".agents",
+    "finding": "Large Jul-23/Aug-5 skill trees contain byte/metadata mirrors across distinct install surfaces; retain both because path/authority context is part of artifact identity."
+  }
+}

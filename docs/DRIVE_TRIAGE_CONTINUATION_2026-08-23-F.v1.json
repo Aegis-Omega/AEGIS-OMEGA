@@ -1,0 +1,79 @@
+{
+  "schema": "aegis.drive-triage-continuation.v1",
+  "as_of": "2026-08-23",
+  "batch": "F",
+  "purpose": "RECONCILIATION_CLOSURE_NO_DELETE",
+  "parent_pr": 295,
+  "parent_head_sha": "91150c612185fa82fe1026618c649a454d56908a",
+  "branch": "audit/epistemic-lineage-v1",
+  "authority_boundary": "This artifact records bounded recovery work and unresolved historical evidence debt. It authorizes no Drive deletion, does not invent missing Drive IDs, and does not establish scientific truth or runtime correctness.",
+  "reconciliation": {
+    "status": "RECOVERY_EXHAUSTED_FAIL_CLOSED",
+    "observed_physical_delete_count": 125,
+    "checked_in_primary_receipt_count": 43,
+    "continuation_a_receipt_count": 14,
+    "continuation_b_receipt_count": 3,
+    "continuation_c_receipt_count": 1,
+    "continuation_d_receipt_count": 1,
+    "continuation_e_receipt_count": 1,
+    "continuation_f_delete_receipt_count": 0,
+    "id_reconciled_total": 63,
+    "unreconciled_prior_delete_count": 62,
+    "historical_gap_status": "HISTORICAL_DELETE_ID_UNKNOWN",
+    "rule": "Do not infer action evidence from candidate membership. Missing deleted Drive IDs remain UNKNOWN unless independently reconstructed from an authoritative receipt or source log."
+  },
+  "recovery_sources_checked": [
+    {
+      "source": "current Google Drive accessible-document metadata",
+      "result": "No deleted-object history capable of reconstructing permanently deleted IDs; chronological duplicate-candidate sweep continued through 2026-08-23."
+    },
+    {
+      "source": "PR #295 first-parent commit chain",
+      "range": "54a74bd1c97c5743aa210900cb9f3d7e3c0b285c..91150c612185fa82fe1026618c649a454d56908a",
+      "result": "Initial triage and subsequent checked-in receipts recover only already-counted IDs: initial triage, 27-delete receipt, 33-delete extension, 35-delete extension, 43-delete merged primary receipt, then continuations A-E to 63 ID-reconciled deletions. No additional authoritative list for the remaining 62 was found."
+    },
+    {
+      "source": "PR #295 discussion/comments",
+      "result": "No historical Drive deletion-ID list found. Discussion contains deployment status and an external GitGuardian alert, not missing delete receipts."
+    },
+    {
+      "source": "available prior contextual recovery",
+      "result": "No independent source log containing the 62 missing deleted Drive IDs was recovered."
+    }
+  ],
+  "relevant_history": [
+    {"sha": "340782fb1ec8ce3b568023676c73b504bbc22d51", "role": "initial lineage and Drive triage commit"},
+    {"sha": "785677329f4e8e82f3af68e0be9c69c18bae866e", "role": "permanent replica cleanup receipt at 27 deletions"},
+    {"sha": "8dbc78d0b9d906689d922b5ea3727017c5ff4ced", "role": "replica cleanup receipt extended to 33 deletions"},
+    {"sha": "1592e9a937c45d28f57130845833d5b1c1ca8b8b", "role": "cleanup receipt extended to 35 deletions"},
+    {"sha": "6561cca3165837a393be6e7105394fbe9034ce04", "role": "verified replica deletions merged into primary receipt, now 43 IDs"},
+    {"sha": "0a49d220189ca3ab4afab6c8b4a95df7df63fdd7", "role": "continuation A; explicit PARTIAL_FAIL_CLOSED with 62 unresolved"},
+    {"sha": "91150c612185fa82fe1026618c649a454d56908a", "role": "continuation E; 125 physical / 63 reconciled / 62 unresolved"}
+  ],
+  "chronological_sweep": {
+    "accessible_document_window": "2026-06-19/2026-08-23",
+    "status": "CLOSED_BOUNDED_NO_OPEN_DELETE_CANDIDATE",
+    "physical_delete_count_at_close": 125,
+    "caveats": [
+      "High-volume provider windows may be result-capped.",
+      "Jul-02 was telemetry-heavy and treated as bounded retention rather than exhaustively empty.",
+      "Cross-surface byte mirrors such as .gemini/skills and .agents/skills are retained because path/authority context is part of artifact identity."
+    ]
+  },
+  "external_security_alert": {
+    "provider": "GitGuardian",
+    "incident_id": 36481628,
+    "detector": "Generic Password",
+    "reported_commit": "785677329f4e8e82f3af68e0be9c69c18bae866e",
+    "reported_path": "docs/DRIVE_TRIAGE.v1.json",
+    "status": "UNRESOLVED_EXTERNAL_ALERT",
+    "finding": "The alert is real as an external scanner event, but this audit has not established whether the occurrence is a credential or a false positive on high-entropy provenance data. No secret value is reproduced here.",
+    "required_next_evidence": "Validate the exact GitGuardian occurrence in an authorized secret-management/security surface before classifying, revoking, rotating, or rewriting history."
+  },
+  "continuation_receipts": [],
+  "closure": {
+    "drive_cleanup_status": "CHRONOLOGICAL_SWEEP_COMPLETE_WITH_BOUNDED_CAVEATS",
+    "historical_reconciliation_status": "62_IDS_REMAIN_UNKNOWN_BY_DESIGN",
+    "next_step": "Do not spend further implementation authority on speculative recovery. Preserve the gap as explicit verification debt unless new source evidence appears."
+  }
+}
