@@ -1,3 +1,8 @@
+import json
+from pathlib import Path
+import subprocess
+import sys
+
 import pytest
 
 from harness.sdk.exact_ldlt import (
@@ -103,3 +108,33 @@ def test_receipt_root_changes_when_matrix_semantics_commitment_changes():
     )
     second = verify_exact_ldlt(changed)
     assert first.receipt_root != second.receipt_root
+
+
+def _rat(value: ExactRationalV1) -> dict[str, int]:
+    return {"numerator": value.numerator, "denominator": value.denominator}
+
+
+def test_cli_verify_ldlt_emits_finite_psd_packet(tmp_path: Path):
+    cert = certificate()
+    payload = {
+        "matrix": [[_rat(value) for value in row] for row in cert.matrix.rows],
+        "lower": [[_rat(value) for value in row] for row in cert.lower],
+        "diagonal": [_rat(value) for value in cert.diagonal],
+        "matrix_semantics_root": cert.matrix_semantics_root,
+    }
+    input_path = tmp_path / "ldlt.json"
+    output_path = tmp_path / "ldlt-receipt.json"
+    input_path.write_text(json.dumps(payload), encoding="utf-8")
+    proc = subprocess.run(
+        [sys.executable, "scripts/weil-proof.py", "verify-ldlt", "--input", str(input_path), "--output", str(output_path)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    packet = json.loads(output_path.read_text(encoding="utf-8"))
+    assert packet["packet_kind"] == "AEGIS_EXACT_LDLT_PACKET_V1"
+    assert packet["verification"]["finite_matrix_psd_verified"] is True
+    assert packet["verification"]["galerkin_semantics_verified"] is False
+    assert packet["verification"]["global_weil_positivity_proven"] is False
+    assert packet["verification"]["rh_proven"] is False
