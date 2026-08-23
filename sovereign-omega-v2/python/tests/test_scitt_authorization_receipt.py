@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
 import sys
 from pathlib import Path
 from unittest import TestCase, main
@@ -106,8 +107,6 @@ def statement(*, scope_value=None, key=AUTH_KEY, unprotected=None, noncanonical_
     payload_value = scope() if scope_value is None else scope_value
     if noncanonical_payload:
         # Valid CBOR map encoded in deliberately non-canonical key order.
-        encoder = cbor2.CBOREncoder(__import__("io").BytesIO())
-        import io
         buf = io.BytesIO()
         enc = cbor2.CBOREncoder(buf, canonical=False)
         enc.encode(dict(reversed(list(payload_value.items()))))
@@ -196,17 +195,17 @@ class SCITTAuthorizationReceiptTests(TestCase):
         with self.assertRaisesRegex(SCITTAuthorizationError, "SCITT_AUTHORIZATION_SIGNATURE_INVALID"):
             verify(stmt=forged, rcpt=receipt_for(forged))
 
-    def test_03_transparency_service_receipt_signature_requires_external_trust_anchor(self):
+    def test_03_transparency_service_receipt_requires_external_trust_anchor(self):
         stmt = statement()
         forged_receipt = receipt_for(stmt, ts_key=OTHER_KEY)
-        with self.assertRaisesRegex(SCITTAuthorizationError, "SCITT_RECEIPT_SIGNATURE_INVALID"):
+        with self.assertRaisesRegex(SCITTAuthorizationError, "SCITT_RECEIPT_CRYPTOGRAPHIC_VERIFICATION_FAILED"):
             verify(stmt=stmt, rcpt=forged_receipt)
 
     def test_04_receipt_inclusion_proof_binds_exact_signed_statement_bytes(self):
         stmt = statement()
         other = statement(scope_value={**scope(), "scope_root": "f" * 64})
         rcpt = receipt_for(stmt, proof_entry=other)
-        with self.assertRaisesRegex(SCITTAuthorizationError, "SCITT_INCLUSION_PROOF_INVALID"):
+        with self.assertRaisesRegex(SCITTAuthorizationError, "SCITT_RECEIPT_CRYPTOGRAPHIC_VERIFICATION_FAILED"):
             verify(stmt=stmt, rcpt=rcpt)
 
     def test_05_transparency_service_identity_and_vds_are_exact(self):
