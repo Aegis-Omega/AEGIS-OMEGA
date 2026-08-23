@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """AEGIS Ω production CLI for the Weil convergence proof tooling.
 
-Every command emits deterministic proof packets for a bounded verifier.  No
+Every command emits deterministic proof packets for a bounded verifier. No
 command promotes finite evidence, a source hash, or a successful CI run into a
 Riemann-Hypothesis claim.
 """
@@ -16,6 +16,11 @@ import sys
 import tempfile
 from typing import Any
 
+from harness.sdk.arch_tail_certificate import (
+    ArchTailError,
+    ArchTailSpecV1,
+    verify_arch_tail_budget,
+)
 from harness.sdk.exact_ldlt import (
     ExactLDLTCertificateV1,
     ExactSymmetricMatrixV1,
@@ -43,6 +48,7 @@ PACKET_KIND = "AEGIS_WEIL_PROOF_PACKET_V1"
 FINITE_CERT_PACKET_KIND = "AEGIS_WEIL_FINITE_CERTIFICATE_PACKET_V1"
 LDLT_PACKET_KIND = "AEGIS_EXACT_LDLT_PACKET_V1"
 ARB_GALERKIN_PACKET_KIND = "AEGIS_ARB_GALERKIN_PACKET_V1"
+ARCH_TAIL_PACKET_KIND = "AEGIS_ARCH_TAIL_BUDGET_PACKET_V1"
 PACKET_SEMANTICS = "EVIDENCE_ONLY_NOT_RH_PROOF"
 
 _REQUIRED_INSTANCE_KEYS = {
@@ -56,7 +62,6 @@ _REQUIRED_INSTANCE_KEYS = {
     "approximation_bound_root",
 }
 _OPTIONAL_INSTANCE_KEYS = {"assumption_tags"}
-
 _REQUIRED_CERTIFICATE_KEYS = {
     "test_function_digest",
     "cutoff",
@@ -115,7 +120,6 @@ def instance_from_dict(payload: Any) -> WeilInstanceEvidenceV1:
         raise WeilBridgeError("INSTANCE_REQUIRED_FIELD_MISSING")
     if unknown:
         raise WeilBridgeError("INSTANCE_UNKNOWN_FIELD")
-
     return WeilInstanceEvidenceV1(
         test_function_digest=obj["test_function_digest"],
         cutoff=obj["cutoff"],
@@ -156,10 +160,7 @@ def certificate_from_dict(payload: Any) -> WeilFiniteCertificateV1:
     return WeilFiniteCertificateV1(
         test_function_digest=obj["test_function_digest"],
         cutoff=obj["cutoff"],
-        contributions=tuple(
-            _contribution_from_dict(index, item)
-            for index, item in enumerate(raw_contributions)
-        ),
+        contributions=tuple(_contribution_from_dict(i, item) for i, item in enumerate(raw_contributions)),
         norm_sq=_rational("norm_sq", obj["norm_sq"]),
         epsilon_r=_rational("epsilon_r", obj["epsilon_r"]),
         approximation_delta=_rational("approximation_delta", obj["approximation_delta"]),
@@ -254,6 +255,21 @@ def build_galerkin_packet(spec: ArbGalerkinSpecV1) -> dict[str, Any]:
     return payload
 
 
+def build_arch_tail_packet(spec: ArchTailSpecV1) -> dict[str, Any]:
+    verification = verify_arch_tail_budget(spec)
+    payload: dict[str, Any] = {
+        "packet_kind": ARCH_TAIL_PACKET_KIND,
+        "proof_semantics": verification.proof_semantics,
+        "spec": asdict(spec),
+        "spec_root": spec.root,
+        "verification": verification.to_dict(),
+        "global_weil_positivity_proven": False,
+        "rh_proven": False,
+    }
+    payload["packet_root"] = canonical_hash("AEGIS_ARCH_TAIL_BUDGET_PACKET_ROOT_V1", payload)
+    return payload
+
+
 def _load_json(path: Path) -> Any:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -284,29 +300,39 @@ def _emit_packet(output: str, packet: dict[str, Any]) -> None:
 
 
 def verify_instance_command(args: argparse.Namespace) -> int:
-    evidence = instance_from_dict(_load_json(Path(args.input)))
-    packet = build_packet(evidence)
+    packet = build_packet(instance_from_dict(_load_json(Path(args.input))))
     _emit_packet(args.output, packet)
     return 0 if packet["verification"]["valid"] else 2
 
 
 def verify_certificate_command(args: argparse.Namespace) -> int:
-    certificate = certificate_from_dict(_load_json(Path(args.input)))
-    packet = build_certificate_packet(certificate)
+    packet = build_certificate_packet(certificate_from_dict(_load_json(Path(args.input))))
     _emit_packet(args.output, packet)
     return 0 if packet["verification"]["valid"] else 2
 
 
 def verify_ldlt_command(args: argparse.Namespace) -> int:
-    certificate = ldlt_from_dict(_load_json(Path(args.input)))
-    packet = build_ldlt_packet(certificate)
+    packet = build_ldlt_packet(ldlt_from_dict(_load_json(Path(args.input))))
     _emit_packet(args.output, packet)
     return 0 if packet["verification"]["valid"] else 2
 
 
 def verify_galerkin_command(args: argparse.Namespace) -> int:
-    spec = ArbGalerkinSpecV1(c=args.c, N=args.N, prec_bits=args.prec)
-    packet = build_galerkin_packet(spec)
+    packet = build_galerkin_packet(ArbGalerkinSpecV1(c=args.c, N=args.N, prec_bits=args.prec))
+    _emit_packet(args.output, packet)
+    return 0 if packet["verification"]["valid"] else 2
+
+
+def verify_tail_budget_command(args: argparse.Namespace) -> int:
+    packet = build_arch_tail_packet(
+        ArchTailSpecV1(
+            c=args.c,
+            N=args.N,
+            T=args.T,
+            prec_bits=args.prec,
+            dyadic_count=args.dyadic_count,
+        )
+    )
     _emit_packet(args.output, packet)
     return 0 if packet["verification"]["valid"] else 2
 
@@ -345,6 +371,18 @@ def build_parser() -> argparse.ArgumentParser:
     verify_galerkin.add_argument("--prec", required=True, type=int, help="Arb precision in bits")
     verify_galerkin.add_argument("--output", required=True, help="output proof packet path, or '-' for stdout")
     verify_galerkin.set_defaults(func=verify_galerkin_command)
+
+    verify_tail = subparsers.add_parser(
+        "verify-tail-budget",
+        help="recompute a rigorous scalar Archimedean-tail budget without asserting the operator-order theorem",
+    )
+    verify_tail.add_argument("--c", required=True, type=int, help="prime cutoff c >= 2")
+    verify_tail.add_argument("--N", required=True, type=int, dest="N", help="finite frequency band N >= 0")
+    verify_tail.add_argument("--T", required=True, type=int, dest="T", help="Archimedean cutoff T")
+    verify_tail.add_argument("--prec", required=True, type=int, help="Arb precision in bits")
+    verify_tail.add_argument("--dyadic-count", required=True, type=int, dest="dyadic_count", help="bounded number of dyadic intervals")
+    verify_tail.add_argument("--output", required=True, help="output proof packet path, or '-' for stdout")
+    verify_tail.set_defaults(func=verify_tail_budget_command)
     return parser
 
 
@@ -353,7 +391,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return int(args.func(args))
-    except (WeilBridgeError, LDLTError, ArbGalerkinError) as exc:
+    except (WeilBridgeError, LDLTError, ArbGalerkinError, ArchTailError) as exc:
         sys.stderr.write(f"WEIL_PROOF_INPUT_REJECTED:{exc.code}\n")
         return 3
 
