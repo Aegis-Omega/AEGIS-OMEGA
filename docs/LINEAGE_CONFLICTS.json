@@ -4,15 +4,21 @@
     {
       "id": "VCG_SEMANTIC_OVERLOAD",
       "severity": "P0",
-      "status": "ACTIVE",
+      "status": "RESOLVED",
       "symbol": "VCG",
       "classification": "EPISTEMIC_LINEAGE_CONFLICT",
-      "evidence": [
-        {"path": "docs/ONTOLOGY.md", "claim": "VCG = Vickrey–Clarke–Groves Calibration"},
-        {"drive_id": "1cfFY59zAczNPCL7mvr_TxFo1yR7xfDNh", "claim": "VCG = Verifiable-Domain Calibration Gap"},
-        {"path": "sovereign-omega-v2/src/calibration/vcg.ts", "claim": "weighted mean |claimed_confidence - actual_correct|"}
+      "historical_evidence": [
+        {"path": "docs/ONTOLOGY.md", "claim": "historical stale expansion VCG = Vickrey–Clarke–Groves Calibration"}
       ],
-      "rule": "Canonical semantic meaning must be reconciled before VCG is used in new code or agent instructions."
+      "canonical_boundary": [
+        {"path": "sovereign-omega-v2/docs/SOVEREIGN_OMEGA_INTEGRATED_SPEC_v2.md", "claim": "VCG = Verifiable-Domain Calibration Gap"},
+        {"path": "sovereign-omega-v2/src/calibration/vcg.ts", "claim": "weighted mean |claimed_confidence - actual_correct| over admitted verifier results"}
+      ],
+      "resolution": {
+        "classification": "ONTOLOGY_EXPANSION_CORRECTED_TO_EXECUTABLE_LINEAGE",
+        "ontology_commit": "910719e05e6eb300fd3f457e7f4197f848cc6ca7",
+        "rule": "AEGIS VCG means Verifiable-Domain Calibration Gap. It is not the Vickrey–Clarke–Groves mechanism from auction/mechanism-design theory."
+      }
     },
     {
       "id": "PAPO_NAME_REUSE",
