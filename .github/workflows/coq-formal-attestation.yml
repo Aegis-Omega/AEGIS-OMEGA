@@ -144,6 +144,7 @@ jobs:
             compile_one 'Core/LatticeConvergence.v'
             compile_one 'Core/LockIrreversibility.v'
             compile_one 'Bisimulation/ThreeWay.v'
+            compile_one 'Weil/FiniteBridge.v'
 
             printf '\n}\n' >> "$STATUS"
             cat "$STATUS"
@@ -192,6 +193,7 @@ jobs:
           REQUIRE_AXIOM_FREE = {
               'Core/LatticeConvergence.v',
               'Core/LockIrreversibility.v',
+              'Weil/FiniteBridge.v',
           }
           EXPECTED_BASELINE_SHA256 = '45c302e763e58c398d9b2a893cd62bdb2e585c8214d87b286f8e83d1b7d30e3e'
 
@@ -199,13 +201,23 @@ jobs:
           receipt = json.loads(path.read_text(encoding='utf-8'))
           summary = receipt['summary']
           baseline = receipt['baseline_diff']
+          formal_root = Path('formal/theories')
+          formal_paths = {
+              source.relative_to(formal_root).as_posix()
+              for source in formal_root.rglob('*.v')
+          }
+          files_by_path = {entry['path']: entry for entry in receipt['files']}
 
           assert receipt['schema_version'] == '1.1.0'
           assert receipt['receipt_kind'] == 'COQ_FORMAL_ATTESTATION_RECEIPT_V1'
           assert receipt['authority'] == 'FORMAL_MATH_EVIDENCE_ONLY'
           assert receipt['correspondence'] == 'NOT_ESTABLISHED'
           assert receipt['lean_runtime_status'] == 'NOT_PRESENT_IN_REPO'
-          assert summary['file_count'] == 6
+          assert set(files_by_path) == formal_paths, {
+              'receipt_paths': sorted(files_by_path),
+              'formal_paths': sorted(formal_paths),
+          }
+          assert summary['file_count'] == len(formal_paths), summary
           assert summary['compile_failures'] == 0, summary
           assert summary['admitted_sources'] == 0, summary
           assert summary['unrecognized_assumption_outputs'] == 0, summary
@@ -220,7 +232,6 @@ jobs:
           assert baseline['regression'] is False, baseline
           assert baseline['regression_count'] == 0, baseline
 
-          files_by_path = {entry['path']: entry for entry in receipt['files']}
           assert REQUIRE_AXIOM_FREE <= files_by_path.keys(), files_by_path.keys()
 
           for required_path in sorted(REQUIRE_AXIOM_FREE):
