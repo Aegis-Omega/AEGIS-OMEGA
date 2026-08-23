@@ -1,4 +1,8 @@
 from dataclasses import replace
+import json
+from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 
@@ -38,6 +42,20 @@ def evidence(*, test_id: str = "f-1", q=(3, 2), norm=(2, 1), eps=(1, 4), delta=(
         approximation_bound_root=h(f"approx:{test_id}"),
         assumption_tags=tuple(assumptions),
     )
+
+
+def cli_payload(*, assumptions=()):
+    return {
+        "test_function_digest": h("cli-f"),
+        "cutoff": 13,
+        "q_r": {"numerator": 3, "denominator": 2},
+        "norm_sq": {"numerator": 2, "denominator": 1},
+        "epsilon_r": {"numerator": 1, "denominator": 4},
+        "approximation_delta": {"numerator": 1, "denominator": 2},
+        "finite_evaluator_root": h("cli-finite"),
+        "approximation_bound_root": h("cli-approx"),
+        "assumption_tags": list(assumptions),
+    }
 
 
 def test_exact_rational_normalizes_sign_and_reduces():
@@ -130,3 +148,37 @@ def test_invalid_hash_and_nonpositive_denominator_fail_closed_at_construction():
         ExactRationalV1(1, 0)
     with pytest.raises(WeilBridgeError, match="INVALID_SHA256"):
         replace(evidence(), test_function_digest="not-a-hash")
+
+
+def test_cli_emits_deterministic_proof_packet_and_never_claims_rh(tmp_path: Path):
+    input_path = tmp_path / "instance.json"
+    output_path = tmp_path / "receipt.json"
+    input_path.write_text(json.dumps(cli_payload()), encoding="utf-8")
+    proc = subprocess.run(
+        [sys.executable, "scripts/weil-proof.py", "verify-instance", "--input", str(input_path), "--output", str(output_path)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    packet = json.loads(output_path.read_text(encoding="utf-8"))
+    assert packet["packet_kind"] == "AEGIS_WEIL_PROOF_PACKET_V1"
+    assert packet["verification"]["status"] == "LOCAL_ALGEBRAIC_INFERENCE_VERIFIED"
+    assert packet["verification"]["rh_proven"] is False
+    assert len(packet["packet_root"]) == 64
+
+
+def test_cli_rejects_circular_target_assumption_with_nonzero_exit(tmp_path: Path):
+    input_path = tmp_path / "instance.json"
+    output_path = tmp_path / "receipt.json"
+    input_path.write_text(json.dumps(cli_payload(assumptions=(ASSUME_RH,))), encoding="utf-8")
+    proc = subprocess.run(
+        [sys.executable, "scripts/weil-proof.py", "verify-instance", "--input", str(input_path), "--output", str(output_path)],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert proc.returncode == 2
+    packet = json.loads(output_path.read_text(encoding="utf-8"))
+    assert packet["verification"]["circular"] is True
+    assert packet["verification"]["rh_proven"] is False
