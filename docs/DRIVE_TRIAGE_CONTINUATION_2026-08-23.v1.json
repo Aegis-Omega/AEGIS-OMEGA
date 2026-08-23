@@ -1,0 +1,165 @@
+{
+  "schema": "aegis.drive-triage-continuation.v1",
+  "as_of": "2026-08-23",
+  "parent_pr": 295,
+  "parent_head_sha": "828d6f428397221c49c0ecbb7fc5939762b782c0",
+  "branch": "audit/epistemic-lineage-v1",
+  "authority_boundary": "Operator-authorized Drive deletions only. This receipt records observed actions and hash equivalence; it does not establish scientific truth, runtime correctness, or implementation status.",
+  "reconciliation": {
+    "status": "PARTIAL_FAIL_CLOSED",
+    "observed_physical_delete_count": 119,
+    "checked_in_primary_receipt_count": 43,
+    "continuation_receipt_count": 14,
+    "id_reconciled_total": 57,
+    "unreconciled_prior_delete_count": 62,
+    "rule": "Do not invent or backfill missing Drive IDs. Unreconciled prior deletions remain unresolved until independently reconstructed from receipts or source logs.",
+    "jun_16_2026_accessible_document_window_after_cleanup": "EMPTY_VERIFIED_BY_METADATA_QUERY"
+  },
+  "verification_policy": {
+    "stored_binary": "raw SHA-256 equality plus no repository binding for deleted Drive ID or content hash",
+    "native_google_doc": "same-format text/plain export byte equality plus no repository binding for deleted Drive ID or export hash",
+    "delete_rule": "Delete only verified redundant replicas after selecting a surviving canonical Drive object. REVISION and UNKNOWN are not deletable by this rule."
+  },
+  "continuation_receipts": [
+    {
+      "concept_id": "research.sacred_geometry_quantum_gravity",
+      "title": "From Sacred Geometry to Quantum Gravity: Validating the L34 Model’s Harmonic Residues as Physical Limits in a Recursive Manifold.pdf",
+      "canonical_drive_id": "19BzuoS6pjSqzRNZyPwWatcA6PaxHX4Nb",
+      "deleted_drive_id": "1mS2h7XxKuWxzdJZQImQF-0LWsOtyLx3m",
+      "sha256": "233cee8ce3c83a5799f31d594b9c48ce0d1e1dfae228a17aa5570a05e3863a50",
+      "size": 515243,
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true
+    },
+    {
+      "concept_id": "research.cosmic_geometry_nine_fold_lattice",
+      "title": "Cosmic Geometry: Unifying Norse, Mayan, and Dantean Cosmologies Through the Lens of the Nine-Fold Lattice.pdf",
+      "canonical_drive_id": "1xBrcNVUGQ1caE7SogkRsYlp4VOtxOEVv",
+      "deleted_drive_id": "1TYh3Sd9CnL5KIExrms66PAHdDGzXbZhN",
+      "sha256": "5e8dadfd15eb1824b98e3c4376f197f942ba461063c401b2a47b2cf0172f1226",
+      "size": 524917,
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true
+    },
+    {
+      "concept_id": "research.temporal_rotation_photonic_resonance",
+      "title": "From Temporal Rotation to Photonic Resonance: A Geometric Derivation of Light and Consciousness from the L34 Manifold.pdf",
+      "canonical_drive_id": "1AH4460z6ZCUa3MVEVM03ckt3qwqNNRmT",
+      "deleted_drive_id": "1mr_gFXCQzFGa8IaTsQx4TbE5vqYFYbfc",
+      "sha256": "5e2cfdab92274a50ed0464355098db895fc7979407ef914d73f0172fe3c12506",
+      "size": 534600,
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true
+    },
+    {
+      "concept_id": "research.lyapunov_style_stability",
+      "title": "Lyapunov-Style Stability Guarantees in Constitutional AI Systems: A Rigorous Analysis of SGM-Like Gating Mechanisms.pdf",
+      "canonical_drive_id": "125Wy5G7nik4iYmYsf0SKKxaRMRemJBg_",
+      "deleted_drive_id": "14ELRp6rjEsOFrKyaq_eYaPXTNUq6YBdx",
+      "sha256": "81973a6f839ffc267af92978cd21984e10880bccbeb29006199031bc1fb478df",
+      "size": 582290,
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true
+    },
+    {
+      "concept_id": "research.lyapunov_style_stability",
+      "title": "Lyapunov-Style Stability Guarantees in Constitutional AI Systems: A Rigorous Analysis of SGM-Like Gating Mechanisms.pdf",
+      "canonical_drive_id": "125Wy5G7nik4iYmYsf0SKKxaRMRemJBg_",
+      "deleted_drive_id": "1IxepZ5fIWrj3QvjiTYTpPh2q0RdjtTvg",
+      "sha256": "81973a6f839ffc267af92978cd21984e10880bccbeb29006199031bc1fb478df",
+      "size": 582290,
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true
+    },
+    {
+      "concept_id": "research.mapping_l34_manifold",
+      "title": "Mapping the L₃₄ Manifold: A Rigorous Framework for Validating the Gravitational Jump and Invariant Information Transfer.pdf",
+      "canonical_drive_id": "17UNkDiR9aPcfI94f6n3kOn_lKeDxKWSr",
+      "deleted_drive_id": "1dC5R24UFQei-Tm3uMGKh9KjiKUy73q7u",
+      "sha256": "0b5001dae63c75fb38a5c441d1d6a8938d7fe2ca15359bcce5e96da9d614e462",
+      "size": 526256,
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true
+    },
+    {
+      "concept_id": "research.planetary_key_l34",
+      "title": "Resolving Singularities with the Planetary Key: A Rigorous Framework for the 1.38% Gravitational Jump at the L₃₄ Scale.pdf",
+      "canonical_drive_id": "18f4PlvinKSG_biVZDlxZnNoIyvYvLeDb",
+      "deleted_drive_id": "1xYPUem5J-qqRXbAY74tSo6PFBiwYNG7c",
+      "sha256": "76e359c356fb525dc33bc46f478abd3d47ba6b6996e9e6edf7ebc815760c23f3",
+      "size": 509592,
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true
+    },
+    {
+      "concept_id": "research.specification_drift_decay",
+      "title": "Measuring the Decay of Intent: A Multi-Domain Taxonomy of Specification Drift in Iterative LLM Pipelines.pdf",
+      "canonical_drive_id": "16-l6WdMmuIa8yBgfl56qQA4Q62lJasZs",
+      "deleted_drive_id": "1FQ3MSUJid1v3sUAKTZ0vZICS4M9dODi-",
+      "sha256": "b1a24b515b53a840e7623a078bbf04df003ccb1cca9d9735c6b64768cf18f9f6",
+      "size": 529758,
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true
+    },
+    {
+      "concept_id": "research.holonic_criticality_information_theory",
+      "title": "Preserving Criticality in Holonic AI: An Information-Theoretic Framework Guided by Mutual Information and Structural Entropy.pdf",
+      "canonical_drive_id": "1LJ1KoT195nJDBLGyR9VRzrnVWlFCxgO8",
+      "deleted_drive_id": "1UimvAQj0UaHlKzd35kHtMTlZHbg2mCXO",
+      "sha256": "227338c06eb9c820c9469dc643d5773b517d88d6c1ed16d5331e1ddce2b88cff",
+      "size": 513969,
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true
+    },
+    {
+      "concept_id": "research.quantum_inspired_holonic_architecture",
+      "title": "Quantum-Inspired Architecture: A Subatomic Holonic Framework for Resolving Attention Degradation in Multi-Agent AI.pdf",
+      "canonical_drive_id": "10gBmzNovsKMWkqf2AiXJrAn0Mt197o9P",
+      "deleted_drive_id": "14pJQNNVkNf29d6D9q28hFImFWkcBLEIu",
+      "sha256": "99db8b966acd2622986dc1683ffd27eee5b3142c8ff94c6f26fe2764f1e9e9a8",
+      "size": 510838,
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true
+    },
+    {
+      "concept_id": "research.verifying_agentic_reasoning",
+      "title": "Verifying Agentic Reasoning: A Holonic Consensus Architecture with Token-Level Drift Detection and Fault Containment.pdf",
+      "canonical_drive_id": "1Kntuo_DbjzcJa8-BqPM90q-V5CKLFOah",
+      "deleted_drive_id": "1a3R5JXUJRckyU2-BJL_UaVyRXxJAMLR_",
+      "sha256": "3d947f659962277c32fc38d16b14a5efd35e79534c473fd9c2ec5eb51d72958d",
+      "size": 508493,
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true
+    },
+    {
+      "concept_id": "research.data_oracles_spatial_truth",
+      "title": "From Data Oracles to Spatial Truth: A Production-Grade Blueprint for Rasterization-Aware Geometric Consensus in Sovereign Mesh v2.0.pdf",
+      "canonical_drive_id": "1ZV5OKsxXjpXqpsVuhaPzthDmuqSwK0w0",
+      "deleted_drive_id": "1zduUAPgZnRoqRk3lowNf2OVrgFxr7INT",
+      "sha256": "bc303a6df97fdc544a5c06e3468ec4d03ab99e773d9bdd3d7ff6522334d228a3",
+      "size": 506958,
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true
+    },
+    {
+      "concept_id": "research.holon_architected_compiler",
+      "title": "A Holon-Architected Compiler for AI Agents: State Machines, KV Cache Synchronization, and Adversarial Verification.pdf",
+      "canonical_drive_id": "1lu31YCW-TW2SVr3IyGeQZBTB1YXbnCG5",
+      "deleted_drive_id": "1pC2iBA9wq6nP9rbidKAlBUNm3-H4xTU2",
+      "sha256": "173e69a16fbe640f7ef7a61dbc4069a24992c33ef74af28192b68df3e9f30103",
+      "size": 505768,
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true
+    },
+    {
+      "concept_id": "knowledge.aegis_knowledge_brief",
+      "title": "AEGIS_KNOWLEDGE_BRIEF.md",
+      "canonical_drive_id": "1dAzM_BdGCeCkQPQsRa2gDH9KQt-h9LyOjwAMGOWMVnQ",
+      "deleted_drive_id": "1zRWnJBnN3UXjaa-3tRKWgPpTXw0E3997fnkPpzHdrLY",
+      "sha256": "b35fe08b75024d9af5017bb19ec2923db0abc886293faa178f36956a873eca9a",
+      "size": 14205,
+      "verification_mode": "text_plain_export_sha256_and_cmp_equal",
+      "no_repo_binding": true
+    }
+  ]
+}
