@@ -17,7 +17,12 @@ recomputed rigorously by the fixed kernel.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import hashlib
+import hmac
+import json
 import math
+from pathlib import Path
+from typing import Any
 
 from flint import acb, arb, ctx
 
@@ -39,8 +44,46 @@ MAX_BAND = 10000
 MAX_T = 10**12
 MAX_DYADIC_COUNT = 256
 
+FORMAL_BRIDGE_RECEIPT_KIND = "AEGIS_WEIL_FORMAL_BRIDGE_RECEIPT_V1"
+FORMAL_BRIDGE_VERIFICATION_KIND = "AEGIS_WEIL_FORMAL_BRIDGE_VERIFICATION_V1"
+FORMAL_TAIL_BINDING_RECEIPT_KIND = "AEGIS_ARCH_TAIL_FORMAL_BINDING_RECEIPT_V1"
+FORMAL_BRIDGE_AUTHORITY = "FORMAL_MATH_EVIDENCE_ONLY"
+FORMAL_SOURCE_RELATIVE_PATH = "sovereign-omega-v2/formal/theories/Weil/FiniteBridge.v"
+FORMAL_THEOREMS = (
+    "divided_difference_offdiag_symmetric",
+    "pole_kernel_symmetric",
+    "offdiag_entry_symmetric",
+    "bounded_positive_tail_preserves_nonnegative",
+    "bounded_positive_tail_certifies_negative",
+    "gray_zone_can_change_sign",
+)
+FORMAL_RECEIPT_REQUIRED_FIELDS = frozenset(
+    {
+        "receipt_kind",
+        "authority",
+        "source_commit",
+        "source_sha256",
+        "coq_version_sha256",
+        "compile_log_sha256",
+        "theorem_assumption_log_sha256",
+        "theorem_count",
+        "declared_assumptions",
+        "global_weil_positivity_proven",
+        "rh_proven",
+        "analytic_tail_order_theorem_proven",
+        "formula_to_weil_operator_identity_proven",
+        "receipt_sha256",
+    }
+)
+
 
 class ArchTailError(ValueError):
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
+
+
+class FormalBridgeError(ValueError):
     def __init__(self, code: str):
         super().__init__(code)
         self.code = code
@@ -124,6 +167,47 @@ class ArchTailBudgetVerificationV1:
         payload = asdict(self)
         payload["receipt_root"] = self.receipt_root
         return payload
+
+
+@dataclass(frozen=True)
+class WeilFormalBridgeVerificationV1:
+    receipt_kind: str
+    subject_receipt_sha256: str
+    source_sha256: str
+    source_digest_verified: bool
+    theorem_set_verified: bool
+    declared_assumptions_verified_zero: bool
+    finite_tail_decision_algebra_formally_verified: bool
+    valid: bool
+    tail_order_theorem_verified: bool
+    formula_to_weil_operator_identity_proven: bool
+    global_weil_positivity_proven: bool
+    rh_proven: bool
+    open_obligations: tuple[str, ...]
+
+    @property
+    def receipt_root(self) -> str:
+        return canonical_hash("AEGIS_WEIL_FORMAL_BRIDGE_VERIFICATION_ROOT_V1", asdict(self))
+
+
+@dataclass(frozen=True)
+class ArchTailFormalBindingVerificationV1:
+    receipt_kind: str
+    budget_receipt_root: str
+    formal_verification_root: str
+    valid: bool
+    scalar_budget_arithmetic_verified: bool
+    finite_tail_decision_algebra_formally_verified: bool
+    tail_order_theorem_verified: bool
+    formula_to_weil_operator_identity_proven: bool
+    global_weil_positivity_proven: bool
+    rh_proven: bool
+    errors: tuple[str, ...]
+    open_obligations: tuple[str, ...]
+
+    @property
+    def receipt_root(self) -> str:
+        return canonical_hash("AEGIS_ARCH_TAIL_FORMAL_BINDING_ROOT_V1", asdict(self))
 
 
 def _ball_repr(value: arb, prec_bits: int) -> dict[str, str]:
@@ -311,6 +395,128 @@ def verify_arch_tail_budget(spec: ArchTailSpecV1) -> ArchTailBudgetVerificationV
         errors=tuple(sorted(set(errors))),
         open_obligations=(
             "H_PLUS_LOG_ENVELOPE_THEOREM_NOT_MACHINE_FORMALIZED",
+            "ARCHIMEDEAN_TAIL_OPERATOR_ORDER_THEOREM_NOT_MACHINE_FORMALIZED",
+            "FORMULA_TO_WEIL_OPERATOR_IDENTITY_NOT_MACHINE_FORMALIZED",
+            "FINITE_BAND_DOES_NOT_ESTABLISH_GLOBAL_WEIL_POSITIVITY",
+        ),
+    )
+
+
+def _is_hex(value: object, length: int) -> bool:
+    if not isinstance(value, str) or len(value) != length:
+        return False
+    try:
+        int(value, 16)
+    except ValueError:
+        return False
+    return value == value.lower()
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _formal_receipt_digest(payload: dict[str, Any]) -> str:
+    unsigned = {key: value for key, value in payload.items() if key != "receipt_sha256"}
+    canonical = json.dumps(unsigned, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def verify_weil_formal_bridge_receipt(payload: object) -> WeilFormalBridgeVerificationV1:
+    if not isinstance(payload, dict):
+        raise FormalBridgeError("FORMAL_RECEIPT_OBJECT_REQUIRED")
+    if set(payload) != FORMAL_RECEIPT_REQUIRED_FIELDS:
+        raise FormalBridgeError("FORMAL_RECEIPT_FIELDS_INVALID")
+
+    supplied_digest = payload["receipt_sha256"]
+    if not _is_hex(supplied_digest, 64):
+        raise FormalBridgeError("FORMAL_RECEIPT_DIGEST_INVALID")
+    expected_digest = _formal_receipt_digest(payload)
+    if not hmac.compare_digest(supplied_digest, expected_digest):
+        raise FormalBridgeError("FORMAL_RECEIPT_DIGEST_MISMATCH")
+
+    if payload["receipt_kind"] != FORMAL_BRIDGE_RECEIPT_KIND:
+        raise FormalBridgeError("FORMAL_RECEIPT_KIND_MISMATCH")
+    if payload["authority"] != FORMAL_BRIDGE_AUTHORITY:
+        raise FormalBridgeError("FORMAL_RECEIPT_AUTHORITY_INVALID")
+    if not _is_hex(payload["source_commit"], 40):
+        raise FormalBridgeError("FORMAL_SOURCE_COMMIT_INVALID")
+    for field in ("source_sha256", "coq_version_sha256", "compile_log_sha256"):
+        if not _is_hex(payload[field], 64):
+            raise FormalBridgeError("FORMAL_RECEIPT_HASH_INVALID")
+
+    theorem_logs = payload["theorem_assumption_log_sha256"]
+    if not isinstance(theorem_logs, dict) or set(theorem_logs) != set(FORMAL_THEOREMS):
+        raise FormalBridgeError("FORMAL_THEOREM_SET_MISMATCH")
+    if any(not _is_hex(value, 64) for value in theorem_logs.values()):
+        raise FormalBridgeError("FORMAL_THEOREM_LOG_HASH_INVALID")
+    if isinstance(payload["theorem_count"], bool) or payload["theorem_count"] != len(FORMAL_THEOREMS):
+        raise FormalBridgeError("FORMAL_THEOREM_COUNT_MISMATCH")
+    if isinstance(payload["declared_assumptions"], bool) or payload["declared_assumptions"] != 0:
+        raise FormalBridgeError("FORMAL_DECLARED_ASSUMPTIONS_PRESENT")
+
+    overclaim_fields = (
+        "global_weil_positivity_proven",
+        "rh_proven",
+        "analytic_tail_order_theorem_proven",
+        "formula_to_weil_operator_identity_proven",
+    )
+    if any(payload[field] is not False for field in overclaim_fields):
+        raise FormalBridgeError("FORMAL_RECEIPT_OVERCLAIM_REJECTED")
+
+    source_path = _repo_root() / FORMAL_SOURCE_RELATIVE_PATH
+    if not source_path.is_file():
+        raise FormalBridgeError("FORMAL_SOURCE_NOT_FOUND")
+    local_source_sha256 = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    if not hmac.compare_digest(payload["source_sha256"], local_source_sha256):
+        raise FormalBridgeError("FORMAL_SOURCE_DIGEST_MISMATCH")
+
+    return WeilFormalBridgeVerificationV1(
+        receipt_kind=FORMAL_BRIDGE_VERIFICATION_KIND,
+        subject_receipt_sha256=supplied_digest,
+        source_sha256=local_source_sha256,
+        source_digest_verified=True,
+        theorem_set_verified=True,
+        declared_assumptions_verified_zero=True,
+        finite_tail_decision_algebra_formally_verified=True,
+        valid=True,
+        tail_order_theorem_verified=False,
+        formula_to_weil_operator_identity_proven=False,
+        global_weil_positivity_proven=False,
+        rh_proven=False,
+        open_obligations=(
+            "ARCHIMEDEAN_TAIL_OPERATOR_ORDER_THEOREM_NOT_MACHINE_FORMALIZED",
+            "FORMULA_TO_WEIL_OPERATOR_IDENTITY_NOT_MACHINE_FORMALIZED",
+            "FINITE_BAND_DOES_NOT_ESTABLISH_GLOBAL_WEIL_POSITIVITY",
+        ),
+    )
+
+
+def bind_formal_bridge_to_tail_budget(
+    budget: ArchTailBudgetVerificationV1,
+    formal_receipt: object,
+) -> ArchTailFormalBindingVerificationV1:
+    if not isinstance(budget, ArchTailBudgetVerificationV1):
+        raise FormalBridgeError("TAIL_BUDGET_RECEIPT_TYPE_INVALID")
+    formal = verify_weil_formal_bridge_receipt(formal_receipt)
+    errors: list[str] = []
+    if not budget.valid or not budget.scalar_budget_arithmetic_verified:
+        errors.append("SCALAR_TAIL_BUDGET_NOT_VERIFIED")
+
+    valid = not errors and formal.valid
+    return ArchTailFormalBindingVerificationV1(
+        receipt_kind=FORMAL_TAIL_BINDING_RECEIPT_KIND,
+        budget_receipt_root=budget.receipt_root,
+        formal_verification_root=formal.receipt_root,
+        valid=valid,
+        scalar_budget_arithmetic_verified=budget.scalar_budget_arithmetic_verified and budget.valid,
+        finite_tail_decision_algebra_formally_verified=formal.finite_tail_decision_algebra_formally_verified,
+        tail_order_theorem_verified=False,
+        formula_to_weil_operator_identity_proven=False,
+        global_weil_positivity_proven=False,
+        rh_proven=False,
+        errors=tuple(errors),
+        open_obligations=(
             "ARCHIMEDEAN_TAIL_OPERATOR_ORDER_THEOREM_NOT_MACHINE_FORMALIZED",
             "FORMULA_TO_WEIL_OPERATOR_IDENTITY_NOT_MACHINE_FORMALIZED",
             "FINITE_BAND_DOES_NOT_ESTABLISH_GLOBAL_WEIL_POSITIVITY",
