@@ -9,8 +9,8 @@ Security boundary:
 * caller-supplied ``verification_state=VERIFIED`` / ``proof_root`` values are
   discarded;
 * issuer, audience, issuer verification keys, X.509 roots, allowed PoP modes,
-  and allowed SPIFFE trust domains come from a separate deployment/operator
-  trust policy;
+  allowed SPIFFE trust domains, and verification time come from the verifier /
+  deployment boundary rather than the presented credential;
 * the structural RuntimePoP proof root binds both the cryptographic receipt and
   the exact trust-policy root;
 * this module still grants no AEGIS authority. It only produces evidence that
@@ -67,13 +67,7 @@ def _string_tuple(value: Any, *, code: str, nonempty: bool = True) -> tuple[str,
 
 @dataclass(frozen=True)
 class RuntimePoPTrustPolicy:
-    """Deployment/operator-selected trust anchors for RuntimePoP verification.
-
-    This object is deliberately separate from presented RuntimePoP evidence.
-    A request may present credentials and proofs, but it may not select the
-    issuer keys, certificate roots, accepted binding modes, or SPIFFE trust
-    domains against which those credentials are judged.
-    """
+    """Deployment/operator-selected trust anchors for RuntimePoP verification."""
 
     schema_version: str
     policy_id: str
@@ -234,16 +228,19 @@ def bind_execution_principal_from_crypto(
     crypto_evidence: Mapping[str, Any],
     *,
     trust_policy: RuntimePoPTrustPolicy,
+    verification_time_epoch: int,
     generation: int,
     replay_store: ReplayStore | None = None,
 ) -> tuple[ExecutionPrincipalBinding, RuntimePoPCryptoReceipt, str]:
-    """Replace self-asserted RuntimePoP state with trust-bound crypto evidence."""
+    """Replace self-asserted RuntimePoP state with trust/time-bound crypto evidence."""
     if not isinstance(raw_principal, Mapping):
         raise CryptoVerificationError("EXECUTION_PRINCIPAL_NOT_OBJECT")
     if not isinstance(crypto_evidence, Mapping):
         raise CryptoVerificationError("RUNTIME_POP_CRYPTO_EVIDENCE_NOT_OBJECT")
     if not isinstance(trust_policy, RuntimePoPTrustPolicy):
         raise CryptoVerificationError("RUNTIME_POP_TRUST_POLICY_INVALID")
+    if isinstance(verification_time_epoch, bool) or not isinstance(verification_time_epoch, int) or verification_time_epoch < 0:
+        raise CryptoVerificationError("RUNTIME_POP_VERIFICATION_TIME_INVALID")
     if isinstance(generation, bool) or not isinstance(generation, int) or generation < 0:
         raise CryptoVerificationError("RUNTIME_POP_GENERATION_INVALID")
 
@@ -270,13 +267,14 @@ def bind_execution_principal_from_crypto(
     if presented_mode is not None and presented_mode != declared_mode:
         raise CryptoVerificationError("CRYPTO_EVIDENCE_BINDING_MODE_MISMATCH")
 
-    # Copy presented evidence, then overwrite every trust-anchor field from the
-    # separately selected policy. The credential cannot choose the verifier's
-    # issuer keys, audience, or certificate roots.
+    # Copy presented evidence, then overwrite every verifier-controlled field.
+    # The credential cannot choose issuer keys, audience, certificate roots, or
+    # the clock against which token/proof freshness is evaluated.
     trusted_evidence = dict(crypto_evidence)
     trusted_evidence["schema_version"] = CRYPTO_SCHEMA_VERSION
     trusted_evidence["runtime_principal"] = raw_runtime
     trusted_evidence["binding_mode"] = declared_mode
+    trusted_evidence["now_epoch"] = verification_time_epoch
     trusted_evidence["expected_issuer"] = trust_policy.expected_issuer
     trusted_evidence["expected_audience"] = trust_policy.expected_audience
     trusted_evidence["issuer_jwks"] = {"keys": [dict(item) for item in trust_policy.issuer_jwks["keys"]]}
@@ -289,6 +287,8 @@ def bind_execution_principal_from_crypto(
         raise CryptoVerificationError("CRYPTO_BINDING_MODE_MISMATCH")
     if receipt.verifier_identity != CRYPTO_VERIFIER_IDENTITY:
         raise CryptoVerificationError("CRYPTO_VERIFIER_IDENTITY_MISMATCH")
+    if receipt.verification_time_epoch != verification_time_epoch:
+        raise CryptoVerificationError("CRYPTO_VERIFICATION_TIME_MISMATCH")
 
     policy_root = trust_policy.root
     trust_bound_root = canonical_hash(
