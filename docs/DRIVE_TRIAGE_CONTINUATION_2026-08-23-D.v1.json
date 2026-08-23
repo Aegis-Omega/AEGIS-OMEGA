@@ -1,0 +1,49 @@
+{
+  "schema": "aegis.drive-triage-continuation.v1",
+  "as_of": "2026-08-23",
+  "batch": "D",
+  "parent_pr": 295,
+  "parent_head_sha": "4c701f0c56657e48c7b8e795e155f195aa34a8bd",
+  "branch": "audit/epistemic-lineage-v1",
+  "authority_boundary": "Operator-authorized Drive deletions only. This receipt records observed actions and hash equivalence; it does not establish scientific truth, runtime correctness, or implementation status.",
+  "reconciliation": {
+    "status": "PARTIAL_FAIL_CLOSED",
+    "observed_physical_delete_count": 124,
+    "checked_in_primary_receipt_count": 43,
+    "continuation_a_receipt_count": 14,
+    "continuation_b_receipt_count": 3,
+    "continuation_c_receipt_count": 1,
+    "continuation_d_receipt_count": 1,
+    "id_reconciled_total": 62,
+    "unreconciled_prior_delete_count": 62,
+    "rule": "Do not invent or backfill missing Drive IDs. Unreconciled prior deletions remain unresolved until independently reconstructed from receipts or source logs."
+  },
+  "verification_policy": {
+    "stored_binary": "raw SHA-256 equality plus no repository binding for deleted Drive ID or content hash",
+    "telemetry_exception": "Execution-distinct telemetry is not E4-deduplicated merely because payload bytes match; execution/session identity must be preserved unless a separate provenance-preserving retention policy authorizes compaction.",
+    "delete_rule": "Delete only verified redundant replicas after selecting a surviving canonical Drive object. REVISION, UNKNOWN, and execution-distinct SESSION_TELEMETRY are not deletable by this rule."
+  },
+  "continuation_receipts": [
+    {
+      "physical_delete_ordinal": 124,
+      "concept_id": "runtime.aegis_omega_html",
+      "title": "AEGIS-Ω Runtime.html",
+      "canonical_drive_id": "1X243aualEu1Z0QgQU_ISU15_GGGBB1Hw",
+      "deleted_drive_id": "1PN3gY8-JLtZZRdYXBMmUKI7lBU_YQZvY",
+      "deleted_title": "AEGIS-Ω Runtime v1.html",
+      "sha256": "dc9230e1043da0925c9b4691a21bd1f302f0e39c21c936c41bff96d25f5ba7be",
+      "size": 1233,
+      "parent_drive_id": "1q2TeM-1aYbXf0jk_BhqSQXXbfv2jxm6F",
+      "verification_mode": "raw_sha256",
+      "no_repo_binding": true,
+      "canonical_created_at": "2026-06-28T11:51:15.967Z",
+      "deleted_created_at": "2026-06-28T11:51:23.752Z"
+    }
+  ],
+  "jul_02_telemetry_boundary": {
+    "classification": "SESSION_TELEMETRY",
+    "pattern": "hook-<UUID>-stdout.txt",
+    "rule": "Distinct hook UUIDs represent distinct execution identities. Equal size or equal payload bytes do not by themselves establish redundant-replica identity.",
+    "action": "RETAIN"
+  }
+}
