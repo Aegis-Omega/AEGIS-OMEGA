@@ -71,6 +71,26 @@ def _load_absolute_json_object(path_value: str, *, path_code: str, object_code: 
     return value
 
 
+def _load_absolute_text(path_value: str, *, path_code: str, empty_code: str) -> str:
+    path = Path(path_value)
+    if not path.is_absolute():
+        raise ValueError(path_code)
+    value = path.read_text(encoding="utf-8").strip()
+    if not value:
+        raise ValueError(empty_code)
+    return value
+
+
+def _load_absolute_bytes(path_value: str, *, path_code: str, empty_code: str) -> bytes:
+    path = Path(path_value)
+    if not path.is_absolute():
+        raise ValueError(path_code)
+    value = path.read_bytes()
+    if not value:
+        raise ValueError(empty_code)
+    return value
+
+
 def evaluate(
     payload: dict,
     *,
@@ -79,6 +99,13 @@ def evaluate(
     verification_time_epoch: int | None = None,
     runtime_attestation_evidence_path: str | None = None,
     runtime_attestation_trust_policy_path: str | None = None,
+    eat_jwt_token_path: str | None = None,
+    eat_jwt_trust_policy_path: str | None = None,
+    eat_expected_nonce: str | None = None,
+    authorization_receipt_root: str | None = None,
+    scitt_authorization_statement_path: str | None = None,
+    scitt_authorization_receipt_path: str | None = None,
+    scitt_trust_policy_path: str | None = None,
 ) -> dict:
     try:
         identity = ExecutionIdentityEnvelope(**payload["identity"])
@@ -115,6 +142,8 @@ def evaluate(
     crypto_receipt = None
     trust_policy_root = None
     attestation_receipt = None
+    eat_crypto_receipt = None
+    scitt_registration_receipt = None
     if action_class in EXECUTION_PRINCIPAL_CLASSES:
         raw_principal = payload.get("execution_principal")
         if raw_principal is None:
@@ -174,13 +203,36 @@ def evaluate(
             if principal_decision.outcome != VALIDATED_BINDING_EVIDENCE:
                 return deny_principal(principal_decision)
 
-            if runtime_attestation_evidence_path and not runtime_attestation_trust_policy_path:
+            scitt_mode = any((
+                scitt_authorization_statement_path,
+                scitt_authorization_receipt_path,
+                scitt_trust_policy_path,
+            ))
+            eat_mode = any((
+                eat_jwt_token_path,
+                eat_jwt_trust_policy_path,
+                eat_expected_nonce,
+                authorization_receipt_root,
+                scitt_mode,
+            ))
+
+            if scitt_mode and authorization_receipt_root:
+                return deny("RAW_AUTHORIZATION_RECEIPT_ROOT_FORBIDDEN_WITH_SCITT")
+            if scitt_mode:
+                if not scitt_authorization_statement_path:
+                    return deny("SCITT_AUTHORIZATION_STATEMENT_UNAVAILABLE")
+                if not scitt_authorization_receipt_path:
+                    return deny("SCITT_AUTHORIZATION_RECEIPT_UNAVAILABLE")
+                if not scitt_trust_policy_path:
+                    return deny("SCITT_TRUST_POLICY_UNAVAILABLE")
+
+            if eat_mode and runtime_attestation_evidence_path:
+                return deny("RUNTIME_ATTESTATION_STRUCTURAL_EVIDENCE_FORBIDDEN_WITH_EAT")
+            if (runtime_attestation_evidence_path or eat_mode) and not runtime_attestation_trust_policy_path:
                 return deny("RUNTIME_ATTESTATION_TRUST_POLICY_UNAVAILABLE")
+
             if runtime_attestation_trust_policy_path:
-                from harness.sdk.attested_runtime import (
-                    AttestedRuntimeTrustPolicy,
-                    verify_attested_runtime_for_execution,
-                )
+                from harness.sdk.attested_runtime import AttestedRuntimeTrustPolicy
 
                 attestation_policy_mapping = _load_absolute_json_object(
                     runtime_attestation_trust_policy_path,
@@ -188,24 +240,99 @@ def evaluate(
                     object_code="RUNTIME_ATTESTATION_TRUST_POLICY_NOT_OBJECT",
                 )
                 attestation_policy = AttestedRuntimeTrustPolicy.from_mapping(attestation_policy_mapping)
-                attestation_evidence = {}
-                if runtime_attestation_evidence_path:
-                    attestation_evidence = _load_absolute_json_object(
-                        runtime_attestation_evidence_path,
-                        path_code="RUNTIME_ATTESTATION_EVIDENCE_PATH_NOT_ABSOLUTE",
-                        object_code="RUNTIME_ATTESTATION_EVIDENCE_NOT_OBJECT",
+
+                if eat_mode:
+                    if not eat_jwt_token_path:
+                        return deny("EAT_JWT_TOKEN_UNAVAILABLE")
+                    if not eat_jwt_trust_policy_path:
+                        return deny("EAT_JWT_TRUST_POLICY_UNAVAILABLE")
+                    if not eat_expected_nonce:
+                        return deny("EAT_EXPECTED_NONCE_UNAVAILABLE")
+
+                    from harness.sdk.eat_attestation_authority import verify_eat_bound_attested_runtime_for_execution
+                    from harness.sdk.eat_attestation_crypto import EATJWTTrustPolicy
+
+                    raw_eat_token = _load_absolute_text(
+                        eat_jwt_token_path,
+                        path_code="EAT_JWT_TOKEN_PATH_NOT_ABSOLUTE",
+                        empty_code="EAT_JWT_TOKEN_EMPTY",
                     )
-                attestation_receipt = verify_attested_runtime_for_execution(
-                    action_class=action_class,
-                    runtime_principal=principal.runtime_principal,
-                    key_pop_proof_root=principal.runtime_pop.proof_root,
-                    attestation_evidence=attestation_evidence,
-                    trust_policy=attestation_policy,
-                    session_identity=principal.session_identity,
-                    action_digest=action_digest,
-                    target_digest=target_digest,
-                    now_epoch=verified_at,
-                )
+                    eat_policy_mapping = _load_absolute_json_object(
+                        eat_jwt_trust_policy_path,
+                        path_code="EAT_JWT_TRUST_POLICY_PATH_NOT_ABSOLUTE",
+                        object_code="EAT_JWT_TRUST_POLICY_NOT_OBJECT",
+                    )
+                    eat_policy = EATJWTTrustPolicy.from_mapping(eat_policy_mapping)
+
+                    if scitt_mode:
+                        from harness.sdk.scitt_authorization import SCITTAuthorizationTrustPolicy
+                        from harness.sdk.scitt_authorization_authority import verify_scitt_authorization_for_current_runtime
+
+                        signed_statement = _load_absolute_bytes(
+                            scitt_authorization_statement_path,
+                            path_code="SCITT_AUTHORIZATION_STATEMENT_PATH_NOT_ABSOLUTE",
+                            empty_code="SCITT_AUTHORIZATION_STATEMENT_EMPTY",
+                        )
+                        scitt_receipt = _load_absolute_bytes(
+                            scitt_authorization_receipt_path,
+                            path_code="SCITT_AUTHORIZATION_RECEIPT_PATH_NOT_ABSOLUTE",
+                            empty_code="SCITT_AUTHORIZATION_RECEIPT_EMPTY",
+                        )
+                        scitt_policy_mapping = _load_absolute_json_object(
+                            scitt_trust_policy_path,
+                            path_code="SCITT_TRUST_POLICY_PATH_NOT_ABSOLUTE",
+                            object_code="SCITT_TRUST_POLICY_NOT_OBJECT",
+                        )
+                        scitt_policy = SCITTAuthorizationTrustPolicy.from_mapping(scitt_policy_mapping)
+                        scitt_registration_receipt = verify_scitt_authorization_for_current_runtime(
+                            signed_statement=signed_statement,
+                            receipt=scitt_receipt,
+                            scitt_trust_policy=scitt_policy,
+                            runtime_pop_crypto_receipt=crypto_receipt,
+                            eat_trust_policy=eat_policy,
+                            attested_runtime_trust_policy=attestation_policy,
+                            verification_time_epoch=verified_at,
+                        )
+                        authorization_receipt_root = scitt_registration_receipt.receipt_root
+                    elif not authorization_receipt_root:
+                        return deny("AUTHORIZATION_RECEIPT_ROOT_UNAVAILABLE")
+
+                    eat_crypto_receipt, attestation_receipt = verify_eat_bound_attested_runtime_for_execution(
+                        action_class=action_class,
+                        runtime_principal=principal.runtime_principal,
+                        runtime_pop_crypto_receipt=crypto_receipt,
+                        trust_bound_key_pop_root=principal.runtime_pop.proof_root,
+                        raw_eat_token=raw_eat_token,
+                        eat_trust_policy=eat_policy,
+                        attested_runtime_trust_policy=attestation_policy,
+                        expected_nonce=eat_expected_nonce,
+                        authorization_receipt_root=authorization_receipt_root,
+                        session_identity=principal.session_identity,
+                        action_digest=action_digest,
+                        target_digest=target_digest,
+                        verification_time_epoch=verified_at,
+                    )
+                else:
+                    from harness.sdk.attested_runtime import verify_attested_runtime_for_execution
+
+                    attestation_evidence = {}
+                    if runtime_attestation_evidence_path:
+                        attestation_evidence = _load_absolute_json_object(
+                            runtime_attestation_evidence_path,
+                            path_code="RUNTIME_ATTESTATION_EVIDENCE_PATH_NOT_ABSOLUTE",
+                            object_code="RUNTIME_ATTESTATION_EVIDENCE_NOT_OBJECT",
+                        )
+                    attestation_receipt = verify_attested_runtime_for_execution(
+                        action_class=action_class,
+                        runtime_principal=principal.runtime_principal,
+                        key_pop_proof_root=principal.runtime_pop.proof_root,
+                        attestation_evidence=attestation_evidence,
+                        trust_policy=attestation_policy,
+                        session_identity=principal.session_identity,
+                        action_digest=action_digest,
+                        target_digest=target_digest,
+                        now_epoch=verified_at,
+                    )
         except Exception as exc:
             return deny("RUNTIME_POP_CRYPTO_OR_ATTESTATION_INVALID", str(exc))
 
@@ -293,6 +420,15 @@ def evaluate(
             result["runtime_pop_crypto_verifier_identity"] = crypto_receipt.verifier_identity
         if trust_policy_root is not None:
             result["runtime_pop_trust_policy_root"] = trust_policy_root
+        if scitt_registration_receipt is not None:
+            result["runtime_scitt_authorization_receipt_root"] = scitt_registration_receipt.receipt_root
+            result["runtime_scitt_authorization_trust_policy_root"] = scitt_registration_receipt.trust_policy_root
+            result["runtime_scitt_authorization_authority_granted"] = False
+        if eat_crypto_receipt is not None:
+            result["runtime_eat_crypto_receipt_root"] = eat_crypto_receipt.receipt_root
+            result["runtime_eat_trust_policy_root"] = eat_crypto_receipt.trust_policy_root
+            result["runtime_eat_subject_jkt"] = eat_crypto_receipt.subject_jkt
+            result["runtime_eat_authority_granted"] = False
         if attestation_receipt is not None:
             result["runtime_attestation_execution_receipt_root"] = attestation_receipt.receipt_root
             result["runtime_attestation_trust_policy_root"] = attestation_receipt.trust_policy_root
@@ -312,6 +448,13 @@ def main() -> int:
     parser.add_argument("--verification-time-epoch", type=int, default=None)
     parser.add_argument("--runtime-attestation-evidence", default=None)
     parser.add_argument("--runtime-attestation-trust-policy", default=None)
+    parser.add_argument("--eat-jwt-token", default=None)
+    parser.add_argument("--eat-jwt-trust-policy", default=None)
+    parser.add_argument("--eat-expected-nonce", default=None)
+    parser.add_argument("--authorization-receipt-root", default=None)
+    parser.add_argument("--scitt-authorization-statement", default=None)
+    parser.add_argument("--scitt-authorization-receipt", default=None)
+    parser.add_argument("--scitt-trust-policy", default=None)
     args = parser.parse_args()
     raw = sys.stdin.read() if args.input == "-" else Path(args.input).read_text(encoding="utf-8")
     try:
@@ -326,6 +469,13 @@ def main() -> int:
             verification_time_epoch=args.verification_time_epoch,
             runtime_attestation_evidence_path=args.runtime_attestation_evidence,
             runtime_attestation_trust_policy_path=args.runtime_attestation_trust_policy,
+            eat_jwt_token_path=args.eat_jwt_token,
+            eat_jwt_trust_policy_path=args.eat_jwt_trust_policy,
+            eat_expected_nonce=args.eat_expected_nonce,
+            authorization_receipt_root=args.authorization_receipt_root,
+            scitt_authorization_statement_path=args.scitt_authorization_statement,
+            scitt_authorization_receipt_path=args.scitt_authorization_receipt,
+            scitt_trust_policy_path=args.scitt_trust_policy,
         )
     rendered = json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
     if args.output == "-":
