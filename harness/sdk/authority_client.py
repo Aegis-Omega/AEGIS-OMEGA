@@ -55,6 +55,16 @@ def _load_absolute_json_object(path_value: str, *, path_code: str, object_code: 
     return value
 
 
+def _load_absolute_text(path_value: str, *, path_code: str, empty_code: str) -> str:
+    path = Path(path_value)
+    if not path.is_absolute():
+        raise ValueError(path_code)
+    value = path.read_text(encoding="utf-8").strip()
+    if not value:
+        raise ValueError(empty_code)
+    return value
+
+
 def authorize_from_environment(*, action_class: str, authority_domain: str, requested_capability: str, tool: str, target: str, action: dict[str, Any], current_generation: int = 0, idempotency_key: str = "NONE", compensation_reference: str = "NONE") -> dict[str, Any]:
     raw_identity = os.environ.get("AEGIS_EXECUTION_IDENTITY_JSON")
     if not raw_identity:
@@ -79,6 +89,7 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
     crypto_receipt = None
     trust_policy_root = None
     attestation_receipt = None
+    eat_crypto_receipt = None
     if action_class in EXECUTION_PRINCIPAL_CLASSES:
         raw_principal = os.environ.get("AEGIS_EXECUTION_PRINCIPAL_JSON")
         if not raw_principal:
@@ -90,8 +101,8 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         if not trust_policy_path:
             return _denial("RUNTIME_POP_TRUST_POLICY_UNAVAILABLE")
         try:
-            # Consequential execution uses one verifier-owned time for the KeyPoP
-            # check and any optional runtime/software attestation check.
+            # Consequential execution uses one verifier-owned time for KeyPoP,
+            # EAT verification and execution-specific attestation verification.
             from harness.sdk.runtime_pop_authority import (
                 RuntimePoPTrustPolicy,
                 SQLiteReplayStore,
@@ -149,13 +160,19 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
 
             attestation_policy_path = os.environ.get("AEGIS_RUNTIME_ATTESTATION_TRUST_POLICY_PATH")
             attestation_evidence_path = os.environ.get("AEGIS_RUNTIME_ATTESTATION_EVIDENCE_PATH")
-            if attestation_evidence_path and not attestation_policy_path:
+            eat_token_path = os.environ.get("AEGIS_EAT_JWT_TOKEN_PATH")
+            eat_trust_policy_path = os.environ.get("AEGIS_EAT_JWT_TRUST_POLICY_PATH")
+            eat_expected_nonce = os.environ.get("AEGIS_EAT_EXPECTED_NONCE")
+            authorization_receipt_root = os.environ.get("AEGIS_AUTHORIZATION_RECEIPT_ROOT")
+            eat_mode = any((eat_token_path, eat_trust_policy_path, eat_expected_nonce, authorization_receipt_root))
+
+            if eat_mode and attestation_evidence_path:
+                return _denial("RUNTIME_ATTESTATION_STRUCTURAL_EVIDENCE_FORBIDDEN_WITH_EAT")
+            if (attestation_evidence_path or eat_mode) and not attestation_policy_path:
                 return _denial("RUNTIME_ATTESTATION_TRUST_POLICY_UNAVAILABLE")
+
             if attestation_policy_path:
-                from harness.sdk.attested_runtime import (
-                    AttestedRuntimeTrustPolicy,
-                    verify_attested_runtime_for_execution,
-                )
+                from harness.sdk.attested_runtime import AttestedRuntimeTrustPolicy
 
                 attestation_policy_mapping = _load_absolute_json_object(
                     attestation_policy_path,
@@ -163,24 +180,67 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
                     object_code="RUNTIME_ATTESTATION_TRUST_POLICY_NOT_OBJECT",
                 )
                 attestation_policy = AttestedRuntimeTrustPolicy.from_mapping(attestation_policy_mapping)
-                attestation_evidence = {}
-                if attestation_evidence_path:
-                    attestation_evidence = _load_absolute_json_object(
-                        attestation_evidence_path,
-                        path_code="RUNTIME_ATTESTATION_EVIDENCE_PATH_NOT_ABSOLUTE",
-                        object_code="RUNTIME_ATTESTATION_EVIDENCE_NOT_OBJECT",
+
+                if eat_mode:
+                    if not eat_token_path:
+                        return _denial("EAT_JWT_TOKEN_UNAVAILABLE")
+                    if not eat_trust_policy_path:
+                        return _denial("EAT_JWT_TRUST_POLICY_UNAVAILABLE")
+                    if not eat_expected_nonce:
+                        return _denial("EAT_EXPECTED_NONCE_UNAVAILABLE")
+                    if not authorization_receipt_root:
+                        return _denial("AUTHORIZATION_RECEIPT_ROOT_UNAVAILABLE")
+
+                    from harness.sdk.eat_attestation_authority import verify_eat_bound_attested_runtime_for_execution
+                    from harness.sdk.eat_attestation_crypto import EATJWTTrustPolicy
+
+                    raw_eat_token = _load_absolute_text(
+                        eat_token_path,
+                        path_code="EAT_JWT_TOKEN_PATH_NOT_ABSOLUTE",
+                        empty_code="EAT_JWT_TOKEN_EMPTY",
                     )
-                attestation_receipt = verify_attested_runtime_for_execution(
-                    action_class=action_class,
-                    runtime_principal=principal.runtime_principal,
-                    key_pop_proof_root=principal.runtime_pop.proof_root,
-                    attestation_evidence=attestation_evidence,
-                    trust_policy=attestation_policy,
-                    session_identity=principal.session_identity,
-                    action_digest=action_digest,
-                    target_digest=target_digest,
-                    now_epoch=verification_time_epoch,
-                )
+                    eat_policy_mapping = _load_absolute_json_object(
+                        eat_trust_policy_path,
+                        path_code="EAT_JWT_TRUST_POLICY_PATH_NOT_ABSOLUTE",
+                        object_code="EAT_JWT_TRUST_POLICY_NOT_OBJECT",
+                    )
+                    eat_policy = EATJWTTrustPolicy.from_mapping(eat_policy_mapping)
+                    eat_crypto_receipt, attestation_receipt = verify_eat_bound_attested_runtime_for_execution(
+                        action_class=action_class,
+                        runtime_principal=principal.runtime_principal,
+                        runtime_pop_crypto_receipt=crypto_receipt,
+                        trust_bound_key_pop_root=principal.runtime_pop.proof_root,
+                        raw_eat_token=raw_eat_token,
+                        eat_trust_policy=eat_policy,
+                        attested_runtime_trust_policy=attestation_policy,
+                        expected_nonce=eat_expected_nonce,
+                        authorization_receipt_root=authorization_receipt_root,
+                        session_identity=principal.session_identity,
+                        action_digest=action_digest,
+                        target_digest=target_digest,
+                        verification_time_epoch=verification_time_epoch,
+                    )
+                else:
+                    from harness.sdk.attested_runtime import verify_attested_runtime_for_execution
+
+                    attestation_evidence = {}
+                    if attestation_evidence_path:
+                        attestation_evidence = _load_absolute_json_object(
+                            attestation_evidence_path,
+                            path_code="RUNTIME_ATTESTATION_EVIDENCE_PATH_NOT_ABSOLUTE",
+                            object_code="RUNTIME_ATTESTATION_EVIDENCE_NOT_OBJECT",
+                        )
+                    attestation_receipt = verify_attested_runtime_for_execution(
+                        action_class=action_class,
+                        runtime_principal=principal.runtime_principal,
+                        key_pop_proof_root=principal.runtime_pop.proof_root,
+                        attestation_evidence=attestation_evidence,
+                        trust_policy=attestation_policy,
+                        session_identity=principal.session_identity,
+                        action_digest=action_digest,
+                        target_digest=target_digest,
+                        now_epoch=verification_time_epoch,
+                    )
         except Exception as exc:
             return _denial("RUNTIME_POP_CRYPTO_OR_ATTESTATION_INVALID", str(exc))
 
@@ -255,6 +315,11 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         result["runtime_pop_crypto_verifier_identity"] = crypto_receipt.verifier_identity
     if trust_policy_root is not None:
         result["runtime_pop_trust_policy_root"] = trust_policy_root
+    if eat_crypto_receipt is not None:
+        result["runtime_eat_crypto_receipt_root"] = eat_crypto_receipt.receipt_root
+        result["runtime_eat_trust_policy_root"] = eat_crypto_receipt.trust_policy_root
+        result["runtime_eat_subject_jkt"] = eat_crypto_receipt.subject_jkt
+        result["runtime_eat_authority_granted"] = False
     if attestation_receipt is not None:
         result["runtime_attestation_execution_receipt_root"] = attestation_receipt.receipt_root
         result["runtime_attestation_trust_policy_root"] = attestation_receipt.trust_policy_root
