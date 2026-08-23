@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/runtime-pop-crypto-verifier-v1",
+    "source_ref": "feat/runtime-pop-execution-principal-v1",
     "parent_state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "603ee42a8e9d38fa94d1ab09c114046acd6be95f72ee3662c7052678120aca61"
+  "state_hash": "f860da08f8bf2f7fad00416b231292f4723d291c42c98d188936769fb171af69"
 }
