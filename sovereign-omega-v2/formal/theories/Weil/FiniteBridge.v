@@ -32,20 +32,19 @@ Definition offdiag_entry
 
 Theorem divided_difference_offdiag_symmetric :
   forall (psi : Q -> Q) (m n : Q),
-    m <> n ->
-    divided_difference psi m n = divided_difference psi n m.
+    ~ m == n ->
+    divided_difference psi m n == divided_difference psi n m.
 Proof.
   intros psi m n Hmn.
   unfold divided_difference.
-  assert (Hmn0 : m - n <> 0) by (intro H; apply Hmn; lra).
-  assert (Hnm0 : n - m <> 0) by (intro H; apply Hmn; lra).
-  field_simplify [Hmn0, Hnm0].
-  ring.
+  assert (Hmn0 : ~ (m - n == 0)) by (intro H; apply Hmn; lra).
+  assert (Hnm0 : ~ (n - m == 0)) by (intro H; apply Hmn; lra).
+  field; assumption.
 Qed.
 
 Theorem pole_kernel_symmetric :
   forall (c s : Q -> Q) (m n : Q),
-    pole_kernel c s m n = pole_kernel c s n m.
+    pole_kernel c s m n == pole_kernel c s n m.
 Proof.
   intros c s m n.
   unfold pole_kernel.
@@ -54,14 +53,14 @@ Qed.
 
 Theorem offdiag_entry_symmetric :
   forall (psi c s : Q -> Q) (m n : Q),
-    m <> n ->
-    offdiag_entry psi c s m n = offdiag_entry psi c s n m.
+    ~ m == n ->
+    offdiag_entry psi c s m n == offdiag_entry psi c s n m.
 Proof.
   intros psi c s m n Hmn.
   unfold offdiag_entry.
-  rewrite (divided_difference_offdiag_symmetric psi m n Hmn).
-  rewrite (pole_kernel_symmetric c s m n).
-  reflexivity.
+  setoid_rewrite (divided_difference_offdiag_symmetric psi m n Hmn).
+  setoid_rewrite (pole_kernel_symmetric c s m n).
+  apply Qeq_refl.
 Qed.
 
 Theorem bounded_positive_tail_preserves_nonnegative :
