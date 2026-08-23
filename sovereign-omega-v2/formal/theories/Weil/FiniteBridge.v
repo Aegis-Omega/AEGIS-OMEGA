@@ -39,7 +39,7 @@ Proof.
   unfold divided_difference.
   assert (Hmn0 : ~ (m - n == 0)) by (intro H; apply Hmn; lra).
   assert (Hnm0 : ~ (n - m == 0)) by (intro H; apply Hmn; lra).
-  field; assumption.
+  field.
 Qed.
 
 Theorem pole_kernel_symmetric :
