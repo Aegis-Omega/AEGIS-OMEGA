@@ -2,6 +2,7 @@ import json, subprocess, sys
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "lineage_preflight.py"
+CONFLICTS = ROOT / "docs" / "LINEAGE_CONFLICTS.json"
 
 def run(*args):
     return subprocess.run([sys.executable, str(SCRIPT), *args], cwd=ROOT, text=True, capture_output=True, check=False)
@@ -17,11 +18,31 @@ def test_known_collision_requires_ack():
     p = json.loads(r.stdout)
     assert p["known_conflicts"] >= 1 and p["conflicts_acknowledged"] is True
 
-def test_p0_vcg_cannot_be_acknowledged_away():
-    r = run("--proposed-name","VCG","--semantic-role","new metric","--acknowledge-conflict")
-    assert r.returncode == 5
-    assert "P0_LINEAGE_CONFLICT_UNRESOLVED" in r.stderr
-    assert "VCG_SEMANTIC_OVERLOAD" in r.stderr
+def test_active_p0_cannot_be_acknowledged_away():
+    original = CONFLICTS.read_text(encoding="utf-8")
+    doc = json.loads(original)
+    doc["conflicts"].append({
+        "id": "TEST_ACTIVE_P0",
+        "severity": "P0",
+        "status": "ACTIVE",
+        "symbol": "LINEAGE_TEST_P0",
+        "classification": "TEST_ONLY_P0_CONFLICT",
+    })
+    try:
+        CONFLICTS.write_text(json.dumps(doc), encoding="utf-8")
+        r = run("--proposed-name","LINEAGE_TEST_P0","--semantic-role","test fixture","--acknowledge-conflict")
+        assert r.returncode == 5
+        assert "P0_LINEAGE_CONFLICT_UNRESOLVED" in r.stderr
+        assert "TEST_ACTIVE_P0" in r.stderr
+    finally:
+        CONFLICTS.write_text(original, encoding="utf-8")
+
+def test_resolved_vcg_conflict_is_preserved_but_nonblocking():
+    r = run("--proposed-name","VCG","--semantic-role","verifiable-domain calibration")
+    assert r.returncode == 0
+    p = json.loads(r.stdout)
+    assert p["known_conflicts"] == 0
+    assert p["resolved_conflicts"] >= 1
 
 def test_resolved_autopoiesis_conflict_is_preserved_but_nonblocking():
     r = run("--proposed-name","autopoiesis","--semantic-role","historical analogy")
