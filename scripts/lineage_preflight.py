@@ -60,6 +60,16 @@ def main() -> int:
         if symbol and (symbol in proposed or proposed in symbol):
             collisions.append(item)
 
+    p0_collisions = [
+        item for item in collisions
+        if str(item.get("severity", "")).upper() == "P0"
+    ]
+    if p0_collisions:
+        print("P0_LINEAGE_CONFLICT_UNRESOLVED", file=sys.stderr)
+        for item in p0_collisions:
+            print(f"- {item.get('id')}: {item.get('classification')}", file=sys.stderr)
+        return 5
+
     if collisions and not args.acknowledge_conflict:
         print("LINEAGE_CONFLICT_REVIEW_REQUIRED", file=sys.stderr)
         for item in collisions:
@@ -72,6 +82,7 @@ def main() -> int:
         "semantic_role":args.semantic_role,
         "artifact_scan_verdict":args.artifact_scan_verdict or "NOT_SUPPLIED",
         "known_conflicts":len(collisions),
+        "p0_conflicts":0,
         "conflicts_acknowledged":bool(args.acknowledge_conflict),
         "next_required_evidence":[
             "exact current implementation/ref",
