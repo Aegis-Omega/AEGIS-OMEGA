@@ -28,14 +28,16 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          for p in (
+
+          fixed = [
             Path('docs/LINEAGE_PRECHECK.json'),
             Path('docs/LINEAGE_CONFLICTS.json'),
             Path('docs/LINEAGE_MANIFEST.v1.json'),
             Path('docs/LINEAGE_TIMELINE_PHASE1.v1.json'),
             Path('docs/DRIVE_TRIAGE.v1.json'),
-            Path('docs/DRIVE_TRIAGE_CONTINUATION_2026-08-23.v1.json'),
-          ):
+          ]
+          continuations = sorted(Path('docs').glob('DRIVE_TRIAGE_CONTINUATION_*.json'))
+          for p in [*fixed, *continuations]:
             json.loads(p.read_text(encoding='utf-8'))
           PY
       - name: Run lineage preflight regression tests
