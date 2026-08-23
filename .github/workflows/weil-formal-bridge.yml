@@ -1,0 +1,132 @@
+name: Weil Formal Bridge
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/formal/theories/Weil/FiniteBridge.v"
+      - ".github/workflows/weil-formal-bridge.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-formal-bridge-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  attest:
+    name: coqc / Weil finite bridge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Reject declared assumptions in Weil bridge source
+        shell: bash
+        run: |
+          set -euo pipefail
+          src='sovereign-omega-v2/formal/theories/Weil/FiniteBridge.v'
+          test -f "$src"
+          if grep -En '^[[:space:]]*(Axiom|Axioms|Parameter|Parameters|Admitted)[[:space:].]' "$src"; then
+            echo 'Declared assumption/admission forbidden in Weil finite bridge' >&2
+            exit 1
+          fi
+
+      - name: Compile and print theorem assumptions
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            DIR="$ROOT/formal/theories/Weil"
+            OUT="$ROOT/weil-formal-attestation"
+            mkdir -p "$OUT"
+            cd "$DIR"
+            coqc --version | tee "$OUT/coq-version.txt"
+            coqc FiniteBridge.v 2>&1 | tee "$OUT/compile.log"
+
+            for theorem in \
+              divided_difference_offdiag_symmetric \
+              pole_kernel_symmetric \
+              offdiag_entry_symmetric \
+              bounded_positive_tail_preserves_nonnegative \
+              bounded_positive_tail_certifies_negative \
+              gray_zone_can_change_sign
+            do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.assumptions.txt"
+              printf 'Set Coqtop Exit On Error.\nRequire Import FiniteBridge.\nPrint Assumptions %s.\n' "$theorem" > "$query"
+              coqtop -quiet -batch -l "$query" > "$log" 2>&1
+              rm -f "$query"
+              cat "$log"
+              grep -q 'Closed under the global context' "$log"
+              if grep -q '^Axioms:' "$log"; then
+                echo "Unexpected assumptions for $theorem" >&2
+                exit 1
+              fi
+            done
+            chmod -R a+rX "$OUT"
+
+      - name: Emit content-addressed formal receipt
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          source = Path('formal/theories/Weil/FiniteBridge.v')
+          out = Path('weil-formal-attestation')
+          names = [
+              'divided_difference_offdiag_symmetric',
+              'pole_kernel_symmetric',
+              'offdiag_entry_symmetric',
+              'bounded_positive_tail_preserves_nonnegative',
+              'bounded_positive_tail_certifies_negative',
+              'gray_zone_can_change_sign',
+          ]
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+          theorem_logs = {name: sha(out / f'{name}.assumptions.txt') for name in names}
+          payload = {
+              'receipt_kind': 'AEGIS_WEIL_FORMAL_BRIDGE_RECEIPT_V1',
+              'authority': 'FORMAL_MATH_EVIDENCE_ONLY',
+              'source_commit': '${{ env.SOURCE_SHA }}',
+              'source_sha256': sha(source),
+              'coq_version_sha256': sha(out / 'coq-version.txt'),
+              'compile_log_sha256': sha(out / 'compile.log'),
+              'theorem_assumption_log_sha256': theorem_logs,
+              'theorem_count': len(names),
+              'declared_assumptions': 0,
+              'global_weil_positivity_proven': False,
+              'rh_proven': False,
+              'analytic_tail_order_theorem_proven': False,
+              'formula_to_weil_operator_identity_proven': False,
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          target = out / 'weil-formal-bridge-receipt.json'
+          target.write_text(json.dumps(payload, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+          assert len(payload['receipt_sha256']) == 64
+          assert payload['theorem_count'] == 6
+          assert payload['declared_assumptions'] == 0
+          assert payload['global_weil_positivity_proven'] is False
+          assert payload['rh_proven'] is False
+          PY
