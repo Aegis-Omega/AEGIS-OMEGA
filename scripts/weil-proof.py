@@ -17,13 +17,18 @@ from typing import Any
 
 from harness.sdk.sovereign_execution import canonical_hash
 from harness.sdk.weil_convergence_bridge import (
+    ExactIntervalV1,
     ExactRationalV1,
     WeilBridgeError,
+    WeilContributionV1,
+    WeilFiniteCertificateV1,
     WeilInstanceEvidenceV1,
+    verify_weil_finite_certificate,
     verify_weil_instance,
 )
 
 PACKET_KIND = "AEGIS_WEIL_PROOF_PACKET_V1"
+FINITE_CERT_PACKET_KIND = "AEGIS_WEIL_FINITE_CERTIFICATE_PACKET_V1"
 PACKET_SEMANTICS = "EVIDENCE_ONLY_NOT_RH_PROOF"
 
 _REQUIRED_INSTANCE_KEYS = {
@@ -37,6 +42,23 @@ _REQUIRED_INSTANCE_KEYS = {
     "approximation_bound_root",
 }
 _OPTIONAL_INSTANCE_KEYS = {"assumption_tags"}
+
+_REQUIRED_CERTIFICATE_KEYS = {
+    "test_function_digest",
+    "cutoff",
+    "contributions",
+    "norm_sq",
+    "epsilon_r",
+    "approximation_delta",
+    "approximation_bound_root",
+}
+_OPTIONAL_CERTIFICATE_KEYS = {"assumption_tags"}
+_REQUIRED_CONTRIBUTION_KEYS = {
+    "contribution_id",
+    "contribution_kind",
+    "value_interval",
+    "source_root",
+}
 
 
 def _require_object(name: str, value: Any) -> dict[str, Any]:
@@ -52,6 +74,23 @@ def _rational(name: str, value: Any) -> ExactRationalV1:
     return ExactRationalV1(obj["numerator"], obj["denominator"])
 
 
+def _interval(name: str, value: Any) -> ExactIntervalV1:
+    obj = _require_object(name, value)
+    if set(obj) != {"lower", "upper"}:
+        raise WeilBridgeError(f"{name}:EXACT_INTERVAL_FIELDS_INVALID")
+    return ExactIntervalV1(
+        lower=_rational(f"{name}.lower", obj["lower"]),
+        upper=_rational(f"{name}.upper", obj["upper"]),
+    )
+
+
+def _assumptions(obj: dict[str, Any]) -> tuple[str, ...]:
+    assumptions = obj.get("assumption_tags", [])
+    if not isinstance(assumptions, list) or not all(isinstance(item, str) for item in assumptions):
+        raise WeilBridgeError("ASSUMPTION_TAGS_INVALID")
+    return tuple(assumptions)
+
+
 def instance_from_dict(payload: Any) -> WeilInstanceEvidenceV1:
     obj = _require_object("instance", payload)
     keys = set(obj)
@@ -62,10 +101,6 @@ def instance_from_dict(payload: Any) -> WeilInstanceEvidenceV1:
     if unknown:
         raise WeilBridgeError("INSTANCE_UNKNOWN_FIELD")
 
-    assumptions = obj.get("assumption_tags", [])
-    if not isinstance(assumptions, list) or not all(isinstance(item, str) for item in assumptions):
-        raise WeilBridgeError("ASSUMPTION_TAGS_INVALID")
-
     return WeilInstanceEvidenceV1(
         test_function_digest=obj["test_function_digest"],
         cutoff=obj["cutoff"],
@@ -75,7 +110,46 @@ def instance_from_dict(payload: Any) -> WeilInstanceEvidenceV1:
         approximation_delta=_rational("approximation_delta", obj["approximation_delta"]),
         finite_evaluator_root=obj["finite_evaluator_root"],
         approximation_bound_root=obj["approximation_bound_root"],
-        assumption_tags=tuple(assumptions),
+        assumption_tags=_assumptions(obj),
+    )
+
+
+def _contribution_from_dict(index: int, payload: Any) -> WeilContributionV1:
+    obj = _require_object(f"contribution[{index}]", payload)
+    if set(obj) != _REQUIRED_CONTRIBUTION_KEYS:
+        raise WeilBridgeError("CONTRIBUTION_FIELDS_INVALID")
+    return WeilContributionV1(
+        contribution_id=obj["contribution_id"],
+        contribution_kind=obj["contribution_kind"],
+        value_interval=_interval(f"contribution[{index}].value_interval", obj["value_interval"]),
+        source_root=obj["source_root"],
+    )
+
+
+def certificate_from_dict(payload: Any) -> WeilFiniteCertificateV1:
+    obj = _require_object("certificate", payload)
+    keys = set(obj)
+    missing = _REQUIRED_CERTIFICATE_KEYS - keys
+    unknown = keys - (_REQUIRED_CERTIFICATE_KEYS | _OPTIONAL_CERTIFICATE_KEYS)
+    if missing:
+        raise WeilBridgeError("CERTIFICATE_REQUIRED_FIELD_MISSING")
+    if unknown:
+        raise WeilBridgeError("CERTIFICATE_UNKNOWN_FIELD")
+    raw_contributions = obj["contributions"]
+    if not isinstance(raw_contributions, list):
+        raise WeilBridgeError("CONTRIBUTIONS_ARRAY_REQUIRED")
+    return WeilFiniteCertificateV1(
+        test_function_digest=obj["test_function_digest"],
+        cutoff=obj["cutoff"],
+        contributions=tuple(
+            _contribution_from_dict(index, item)
+            for index, item in enumerate(raw_contributions)
+        ),
+        norm_sq=_rational("norm_sq", obj["norm_sq"]),
+        epsilon_r=_rational("epsilon_r", obj["epsilon_r"]),
+        approximation_delta=_rational("approximation_delta", obj["approximation_delta"]),
+        approximation_bound_root=obj["approximation_bound_root"],
+        assumption_tags=_assumptions(obj),
     )
 
 
@@ -91,6 +165,21 @@ def build_packet(evidence: WeilInstanceEvidenceV1) -> dict[str, Any]:
         "rh_proven": False,
     }
     payload["packet_root"] = canonical_hash("AEGIS_WEIL_PROOF_PACKET_ROOT_V1", payload)
+    return payload
+
+
+def build_certificate_packet(certificate: WeilFiniteCertificateV1) -> dict[str, Any]:
+    verification = verify_weil_finite_certificate(certificate)
+    payload: dict[str, Any] = {
+        "packet_kind": FINITE_CERT_PACKET_KIND,
+        "proof_semantics": PACKET_SEMANTICS,
+        "certificate": asdict(certificate),
+        "certificate_root": certificate.root,
+        "verification": verification.to_dict(),
+        "global_weil_positivity_proven": False,
+        "rh_proven": False,
+    }
+    payload["packet_root"] = canonical_hash("AEGIS_WEIL_FINITE_CERTIFICATE_PACKET_ROOT_V1", payload)
     return payload
 
 
@@ -116,23 +205,43 @@ def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
             os.unlink(tmp_name)
 
 
+def _emit_packet(output: str, packet: dict[str, Any]) -> None:
+    if output == "-":
+        sys.stdout.write(json.dumps(packet, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n")
+    else:
+        _write_json_atomic(Path(output), packet)
+
+
 def verify_instance_command(args: argparse.Namespace) -> int:
     evidence = instance_from_dict(_load_json(Path(args.input)))
     packet = build_packet(evidence)
-    if args.output == "-":
-        sys.stdout.write(json.dumps(packet, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n")
-    else:
-        _write_json_atomic(Path(args.output), packet)
+    _emit_packet(args.output, packet)
+    return 0 if packet["verification"]["valid"] else 2
+
+
+def verify_certificate_command(args: argparse.Namespace) -> int:
+    certificate = certificate_from_dict(_load_json(Path(args.input)))
+    packet = build_certificate_packet(certificate)
+    _emit_packet(args.output, packet)
     return 0 if packet["verification"]["valid"] else 2
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="weil-proof", description="AEGIS Weil convergence proof verifier")
     subparsers = parser.add_subparsers(dest="command", required=True)
+
     verify = subparsers.add_parser("verify-instance", help="verify one exact-rational Weil proof obligation")
     verify.add_argument("--input", required=True, help="input JSON path")
     verify.add_argument("--output", required=True, help="output proof packet path, or '-' for stdout")
     verify.set_defaults(func=verify_instance_command)
+
+    verify_certificate = subparsers.add_parser(
+        "verify-certificate",
+        help="recompute and verify one decomposed finite Weil interval certificate",
+    )
+    verify_certificate.add_argument("--input", required=True, help="certificate JSON path")
+    verify_certificate.add_argument("--output", required=True, help="output proof packet path, or '-' for stdout")
+    verify_certificate.set_defaults(func=verify_certificate_command)
     return parser
 
 
