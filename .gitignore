@@ -88,3 +88,6 @@ worker-configuration.d.ts
 
 # Sovereign-mesh pipeline run artifacts (architect/artisan/auditor) — regenerated per sprint, not source
 state/
+
+# Google Drive sync temp files (113MB of junk; broke a prior push)
+.tmp.driveupload/
