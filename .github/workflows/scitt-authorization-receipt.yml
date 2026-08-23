@@ -4,10 +4,12 @@ on:
   pull_request:
     paths:
       - "harness/sdk/scitt_authorization.py"
+      - "harness/sdk/scitt_authorization_authority.py"
       - "harness/sdk/eat_attestation_authority.py"
       - "harness/sdk/authority_client.py"
       - "scripts/automaton3-authority.py"
       - "sovereign-omega-v2/python/tests/test_scitt_authorization_receipt.py"
+      - "sovereign-omega-v2/python/tests/test_scitt_authorization_composition.py"
       - "sovereign-omega-v2/python/tests/test_eat_attestation_composition.py"
       - "sovereign-omega-v2/python/tests/test_eat_jwt_attestation_crypto.py"
       - "sovereign-omega-v2/python/tests/test_attested_runtime_binding.py"
@@ -55,3 +57,6 @@ jobs:
 
       - name: Run SCITT authorization receipt falsifiers
         run: python sovereign-omega-v2/python/tests/test_scitt_authorization_receipt.py
+
+      - name: Run SCITT-to-EAT composition falsifiers
+        run: python sovereign-omega-v2/python/tests/test_scitt_authorization_composition.py
