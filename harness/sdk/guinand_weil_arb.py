@@ -379,3 +379,76 @@ def verify_cutoff_free_galerkin(spec: ArbGalerkinSpecV1) -> ArbGalerkinVerificat
         errors=tuple(sorted(set(errors))),
         open_obligations=tuple(sorted(set(obligations))),
     )
+
+
+@dataclass(frozen=True)
+class ArbGalerkinTraceBindingV1:
+    """A ProofTrace binding for one freshly replayed finite Galerkin verifier."""
+
+    verification: ArbGalerkinVerificationV1
+    span: "TraceSpanV1"
+
+    @property
+    def binding_root(self) -> str:
+        return canonical_hash(
+            "AEGIS_ARB_GALERKIN_TRACE_BINDING_ROOT_V1",
+            {
+                "verification_root": self.verification.receipt_root,
+                "span_root": self.span.root,
+            },
+        )
+
+
+def bind_cutoff_free_galerkin_verification(
+    trace: "ProofTrace",
+    spec: ArbGalerkinSpecV1,
+    *,
+    causal_parent_ids: tuple[str, ...] = (),
+) -> ArbGalerkinTraceBindingV1:
+    """Replay the verifier and bind it into ProofTrace as T2 evidence only.
+
+    The binding never accepts a caller-supplied receipt and never changes the
+    trace control-state root.  Matrix, pivot transcript, and verifier receipt
+    are bound separately so later replay can detect semantic or arithmetic
+    tampering without confusing integrity with theorem authority.
+    """
+    from harness.sdk.proof_trace import (
+        DENIED,
+        NO_AUTHORITY,
+        OK,
+        T2,
+        VERIFIER,
+        ProofTrace,
+        TraceSpanV1,
+        digest_payload,
+    )
+
+    if not isinstance(trace, ProofTrace):
+        raise ArbGalerkinError("TRACE_TYPE_INVALID")
+
+    verification = verify_cutoff_free_galerkin(spec)
+    handle = trace.start_span(
+        name="guinand-weil-arb-galerkin",
+        span_kind=VERIFIER,
+        causal_parent_ids=causal_parent_ids,
+        start_context={
+            "proof_semantics": PROOF_SEMANTICS,
+            "formula_id": FORMULA_ID,
+            "spec_root": spec.root,
+        },
+    )
+    span: TraceSpanV1 = trace.finish_span(
+        handle,
+        status=OK if verification.valid else DENIED,
+        authority_class=NO_AUTHORITY,
+        epistemic_tier=T2,
+        input_digest=digest_payload(asdict(spec)),
+        output_digest=digest_payload(verification.to_dict()),
+        evidence_roots=(
+            verification.receipt_root,
+            verification.matrix_root,
+            verification.pivot_root,
+        ),
+        error_code=None if verification.valid else "GALERKIN_INTERVAL_UNDETERMINED",
+    )
+    return ArbGalerkinTraceBindingV1(verification=verification, span=span)
