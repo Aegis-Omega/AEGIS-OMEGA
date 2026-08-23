@@ -54,7 +54,7 @@ Qed.
 Theorem offdiag_entry_symmetric :
   forall (psi c s : Q -> Q) (m n : Q),
     ~ m == n ->
-    offdiag_entry psi c s m n == offdiag_entry psi n m.
+    offdiag_entry psi c s m n == offdiag_entry psi c s n m.
 Proof.
   intros psi c s m n Hmn.
   unfold offdiag_entry.
