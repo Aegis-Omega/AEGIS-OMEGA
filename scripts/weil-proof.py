@@ -19,6 +19,8 @@ from typing import Any
 from harness.sdk.arch_tail_certificate import (
     ArchTailError,
     ArchTailSpecV1,
+    FormalBridgeError,
+    bind_formal_bridge_to_tail_budget,
     verify_arch_tail_budget,
 )
 from harness.sdk.exact_ldlt import (
@@ -49,6 +51,7 @@ FINITE_CERT_PACKET_KIND = "AEGIS_WEIL_FINITE_CERTIFICATE_PACKET_V1"
 LDLT_PACKET_KIND = "AEGIS_EXACT_LDLT_PACKET_V1"
 ARB_GALERKIN_PACKET_KIND = "AEGIS_ARB_GALERKIN_PACKET_V1"
 ARCH_TAIL_PACKET_KIND = "AEGIS_ARCH_TAIL_BUDGET_PACKET_V1"
+FORMAL_TAIL_BINDING_PACKET_KIND = "AEGIS_ARCH_TAIL_FORMAL_BINDING_PACKET_V1"
 PACKET_SEMANTICS = "EVIDENCE_ONLY_NOT_RH_PROOF"
 
 _REQUIRED_INSTANCE_KEYS = {
@@ -270,6 +273,27 @@ def build_arch_tail_packet(spec: ArchTailSpecV1) -> dict[str, Any]:
     return payload
 
 
+def build_formal_tail_binding_packet(spec: ArchTailSpecV1, formal_receipt: Any) -> dict[str, Any]:
+    budget = verify_arch_tail_budget(spec)
+    binding = bind_formal_bridge_to_tail_budget(budget, formal_receipt)
+    binding_payload = asdict(binding)
+    binding_payload["receipt_root"] = binding.receipt_root
+    payload: dict[str, Any] = {
+        "packet_kind": FORMAL_TAIL_BINDING_PACKET_KIND,
+        "proof_semantics": "FINITE_FORMAL_ALGEBRA_PLUS_SCALAR_TAIL_BUDGET_NOT_OPERATOR_ORDER_PROOF",
+        "spec": asdict(spec),
+        "spec_root": spec.root,
+        "budget": budget.to_dict(),
+        "binding": binding_payload,
+        "tail_order_theorem_verified": False,
+        "formula_to_weil_operator_identity_proven": False,
+        "global_weil_positivity_proven": False,
+        "rh_proven": False,
+    }
+    payload["packet_root"] = canonical_hash("AEGIS_ARCH_TAIL_FORMAL_BINDING_PACKET_ROOT_V1", payload)
+    return payload
+
+
 def _load_json(path: Path) -> Any:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -337,6 +361,21 @@ def verify_tail_budget_command(args: argparse.Namespace) -> int:
     return 0 if packet["verification"]["valid"] else 2
 
 
+def verify_formal_tail_binding_command(args: argparse.Namespace) -> int:
+    packet = build_formal_tail_binding_packet(
+        ArchTailSpecV1(
+            c=args.c,
+            N=args.N,
+            T=args.T,
+            prec_bits=args.prec,
+            dyadic_count=args.dyadic_count,
+        ),
+        _load_json(Path(args.formal_receipt)),
+    )
+    _emit_packet(args.output, packet)
+    return 0 if packet["binding"]["valid"] else 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="weil-proof", description="AEGIS Weil convergence proof verifier")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -383,6 +422,19 @@ def build_parser() -> argparse.ArgumentParser:
     verify_tail.add_argument("--dyadic-count", required=True, type=int, dest="dyadic_count", help="bounded number of dyadic intervals")
     verify_tail.add_argument("--output", required=True, help="output proof packet path, or '-' for stdout")
     verify_tail.set_defaults(func=verify_tail_budget_command)
+
+    verify_formal_tail = subparsers.add_parser(
+        "verify-formal-tail-binding",
+        help="bind one closed Coq finite-algebra receipt to a recomputed scalar tail budget without asserting operator order",
+    )
+    verify_formal_tail.add_argument("--formal-receipt", required=True, dest="formal_receipt", help="formal bridge receipt JSON path")
+    verify_formal_tail.add_argument("--c", required=True, type=int, help="prime cutoff c >= 2")
+    verify_formal_tail.add_argument("--N", required=True, type=int, dest="N", help="finite frequency band N >= 0")
+    verify_formal_tail.add_argument("--T", required=True, type=int, dest="T", help="Archimedean cutoff T")
+    verify_formal_tail.add_argument("--prec", required=True, type=int, help="Arb precision in bits")
+    verify_formal_tail.add_argument("--dyadic-count", required=True, type=int, dest="dyadic_count", help="bounded number of dyadic intervals")
+    verify_formal_tail.add_argument("--output", required=True, help="output proof packet path, or '-' for stdout")
+    verify_formal_tail.set_defaults(func=verify_formal_tail_binding_command)
     return parser
 
 
@@ -391,7 +443,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return int(args.func(args))
-    except (WeilBridgeError, LDLTError, ArbGalerkinError, ArchTailError) as exc:
+    except (WeilBridgeError, LDLTError, ArbGalerkinError, ArchTailError, FormalBridgeError) as exc:
         sys.stderr.write(f"WEIL_PROOF_INPUT_REJECTED:{exc.code}\n")
         return 3
 
