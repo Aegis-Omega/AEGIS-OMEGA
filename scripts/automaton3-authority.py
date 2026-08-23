@@ -37,7 +37,12 @@ DPOP_MODES = frozenset((DPOP_CERT_BOUND, MTLS_DPOP_CERT_BOUND))
 
 
 def deny(code: str, detail: str = "") -> dict:
-    body = {"schema_version": "1.0.0", "outcome": "DENIED", "denial_codes": [code], "detail_digest": canonical_hash("AEGIS_DENIAL_DETAIL_V1", detail)}
+    body = {
+        "schema_version": "1.0.0",
+        "outcome": "DENIED",
+        "denial_codes": [code],
+        "detail_digest": canonical_hash("AEGIS_DENIAL_DETAIL_V1", detail),
+    }
     body["denial_receipt_root"] = canonical_hash("AEGIS_AUTOMATON3_DENIAL_V1", body)
     return body
 
@@ -55,7 +60,22 @@ def deny_principal(principal_decision) -> dict:
     return body
 
 
-def evaluate(payload: dict) -> dict:
+def _load_absolute_json_object(path_value: str, *, path_code: str, object_code: str) -> dict:
+    path = Path(path_value)
+    if not path.is_absolute():
+        raise ValueError(path_code)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(object_code)
+    return value
+
+
+def evaluate(
+    payload: dict,
+    *,
+    runtime_pop_trust_policy_path: str | None = None,
+    dpop_replay_db: str | None = None,
+) -> dict:
     try:
         identity = ExecutionIdentityEnvelope(**payload["identity"])
         identity_root = identity.root
@@ -88,33 +108,52 @@ def evaluate(payload: dict) -> dict:
 
     principal_decision = None
     crypto_receipt = None
+    trust_policy_root = None
     if action_class in EXECUTION_PRINCIPAL_CLASSES:
         raw_principal = payload.get("execution_principal")
         if raw_principal is None:
             return deny("EXECUTION_PRINCIPAL_UNAVAILABLE")
+        if not isinstance(raw_principal, dict):
+            return deny("EXECUTION_PRINCIPAL_INVALID")
         crypto_evidence = payload.get("runtime_pop_crypto_evidence")
         if crypto_evidence is None:
             return deny("RUNTIME_POP_CRYPTO_EVIDENCE_UNAVAILABLE")
         if not isinstance(crypto_evidence, dict):
             return deny("RUNTIME_POP_CRYPTO_EVIDENCE_INVALID")
+        if not runtime_pop_trust_policy_path:
+            return deny("RUNTIME_POP_TRUST_POLICY_UNAVAILABLE")
         try:
-            # Keep D0-D2 independent of the optional crypto package. D3/D4
-            # imports it inside the consequential boundary and fails closed if
-            # the runtime dependency is absent.
+            # D0-D2 stay independent of the optional crypto package. D3/D4
+            # imports it only at the consequential boundary. Trust-policy and
+            # replay-store selection are process configuration, never request
+            # fields chosen by the caller.
             from harness.sdk.runtime_pop_authority import (
+                RuntimePoPTrustPolicy,
                 SQLiteReplayStore,
                 bind_execution_principal_from_crypto,
             )
 
+            trust_policy_mapping = _load_absolute_json_object(
+                runtime_pop_trust_policy_path,
+                path_code="RUNTIME_POP_TRUST_POLICY_PATH_NOT_ABSOLUTE",
+                object_code="RUNTIME_POP_TRUST_POLICY_NOT_OBJECT",
+            )
+            trust_policy = RuntimePoPTrustPolicy.from_mapping(trust_policy_mapping)
+
+            raw_pop = raw_principal.get("runtime_pop")
+            if not isinstance(raw_pop, dict):
+                raise ValueError("EXECUTION_RUNTIME_POP_MISSING")
+            declared_mode = raw_pop.get("binding_mode")
             replay_store = None
-            if crypto_evidence.get("binding_mode") in DPOP_MODES:
-                replay_db = request_payload.get("dpop_replay_db")
-                if not replay_db:
+            if declared_mode in DPOP_MODES:
+                if not dpop_replay_db:
                     return deny("DPOP_REPLAY_STORE_UNAVAILABLE")
-                replay_store = SQLiteReplayStore(replay_db)
-            principal, crypto_receipt = bind_execution_principal_from_crypto(
+                replay_store = SQLiteReplayStore(dpop_replay_db)
+
+            principal, crypto_receipt, trust_policy_root = bind_execution_principal_from_crypto(
                 raw_principal,
                 crypto_evidence,
+                trust_policy=trust_policy,
                 generation=current_generation,
                 replay_store=replay_store,
             )
@@ -215,6 +254,8 @@ def evaluate(payload: dict) -> dict:
         if crypto_receipt is not None:
             result["runtime_pop_crypto_receipt_root"] = crypto_receipt.proof_root
             result["runtime_pop_crypto_verifier_identity"] = crypto_receipt.verifier_identity
+        if trust_policy_root is not None:
+            result["runtime_pop_trust_policy_root"] = trust_policy_root
         return result
     except Exception as exc:
         return deny("AUTHORITY_EVALUATION_ERROR", str(exc))
@@ -225,6 +266,8 @@ def main() -> int:
     parser.add_argument("command", choices=["evaluate"])
     parser.add_argument("--input", default="-")
     parser.add_argument("--output", default="-")
+    parser.add_argument("--runtime-pop-trust-policy", default=None)
+    parser.add_argument("--dpop-replay-db", default=None)
     args = parser.parse_args()
     raw = sys.stdin.read() if args.input == "-" else Path(args.input).read_text(encoding="utf-8")
     try:
@@ -232,7 +275,11 @@ def main() -> int:
     except json.JSONDecodeError as exc:
         result = deny("INPUT_JSON_MALFORMED", str(exc))
     else:
-        result = evaluate(payload)
+        result = evaluate(
+            payload,
+            runtime_pop_trust_policy_path=args.runtime_pop_trust_policy,
+            dpop_replay_db=args.dpop_replay_db,
+        )
     rendered = json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
     if args.output == "-":
         sys.stdout.write(rendered)
