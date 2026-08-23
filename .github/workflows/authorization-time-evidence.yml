@@ -1,0 +1,62 @@
+name: AEGIS Authorization-Time Evidence
+
+on:
+  pull_request:
+    paths:
+      - "harness/sdk/authorization_time_evidence.py"
+      - "harness/sdk/scitt_authorization.py"
+      - "harness/sdk/scitt_authorization_authority.py"
+      - "harness/sdk/authority_client.py"
+      - "scripts/automaton3-authority.py"
+      - "sovereign-omega-v2/python/tests/test_authorization_time_evidence.py"
+      - "sovereign-omega-v2/python/tests/test_scitt_authorization_receipt.py"
+      - "sovereign-omega-v2/python/tests/test_scitt_authorization_composition.py"
+      - "sovereign-omega-v2/python/tests/test_eat_attestation_composition.py"
+      - "sovereign-omega-v2/python/tests/test_eat_jwt_attestation_crypto.py"
+      - "sovereign-omega-v2/python/tests/test_attested_runtime_binding.py"
+      - ".github/workflows/authorization-time-evidence.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  authorization-time-evidence:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact candidate SHA
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$CANDIDATE_SHA"
+          printf 'EXACT_HEAD=%s\n' "$actual"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+
+      - name: Install exact verifier dependencies
+        run: python -m pip install --disable-pip-version-check cryptography==50.0.0 cbor2==6.1.4 rfc8785==0.1.4
+
+      - name: Run inherited SCITT and attestation proofline
+        run: |
+          set -euo pipefail
+          python sovereign-omega-v2/python/tests/test_attested_runtime_binding.py
+          python sovereign-omega-v2/python/tests/test_eat_jwt_attestation_crypto.py
+          python sovereign-omega-v2/python/tests/test_eat_attestation_composition.py
+          python sovereign-omega-v2/python/tests/test_scitt_authorization_receipt.py
+          python sovereign-omega-v2/python/tests/test_scitt_authorization_composition.py
+
+      - name: Run authorization-time evidence falsifiers
+        run: python sovereign-omega-v2/python/tests/test_authorization_time_evidence.py
