@@ -5,6 +5,7 @@ on:
     paths:
       - 'docs/LINEAGE_*'
       - 'docs/DRIVE_TRIAGE.v1.json'
+      - 'docs/DRIVE_TRIAGE_CONTINUATION_*.json'
       - 'scripts/lineage_preflight.py'
       - 'tests/test_lineage_preflight.py'
   workflow_dispatch:
@@ -33,6 +34,7 @@ jobs:
             Path('docs/LINEAGE_MANIFEST.v1.json'),
             Path('docs/LINEAGE_TIMELINE_PHASE1.v1.json'),
             Path('docs/DRIVE_TRIAGE.v1.json'),
+            Path('docs/DRIVE_TRIAGE_CONTINUATION_2026-08-23.v1.json'),
           ):
             json.loads(p.read_text(encoding='utf-8'))
           PY
