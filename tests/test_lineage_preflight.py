@@ -23,11 +23,12 @@ def test_p0_vcg_cannot_be_acknowledged_away():
     assert "P0_LINEAGE_CONFLICT_UNRESOLVED" in r.stderr
     assert "VCG_SEMANTIC_OVERLOAD" in r.stderr
 
-def test_p0_autopoiesis_cannot_be_acknowledged_away():
-    r = run("--proposed-name","autopoiesis","--semantic-role","agent instruction","--acknowledge-conflict")
-    assert r.returncode == 5
-    assert "P0_LINEAGE_CONFLICT_UNRESOLVED" in r.stderr
-    assert "AUTOPOIESIS_TIER_CONFLICT" in r.stderr
+def test_resolved_autopoiesis_conflict_is_preserved_but_nonblocking():
+    r = run("--proposed-name","autopoiesis","--semantic-role","historical analogy")
+    assert r.returncode == 0
+    p = json.loads(r.stdout)
+    assert p["known_conflicts"] == 0
+    assert p["resolved_conflicts"] >= 1
 
 def test_incomplete_artifact_discovery_blocks():
     r = run("--proposed-name","fresh-component","--semantic-role","new role","--artifact-scan-verdict","INCOMPLETE")
@@ -39,4 +40,5 @@ def test_fresh_name_passes_collision_gate_only():
     assert r.returncode == 0
     p = json.loads(r.stdout)
     assert p["known_conflicts"] == 0
+    assert p["resolved_conflicts"] == 0
     assert "active PR lineage" in p["next_required_evidence"]
