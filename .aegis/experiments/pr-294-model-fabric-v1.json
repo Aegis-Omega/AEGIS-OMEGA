@@ -4,7 +4,7 @@
     "path": "sovereign-omega-v2/scripts/validate-experiment-plan.ts"
   },
   "admission_workflow": {
-    "blob_id": "01a59d129b0431c9ccb92b1227a0e46992b1562f",
+    "blob_id": "536d34732b9eefc153eb6bb24a8ce1977a6b043a",
     "path": ".github/workflows/experiment-admission.yml"
   },
   "budget": {
@@ -30,8 +30,8 @@
     "INTEGRATION_LEDGER.md",
     "SHA256SUMS"
   ],
-  "expected_parent_sha": "32b7eb6a37fb69d19dd80189390b6641c5004ef1",
-  "expected_parent_state_root": "0866104def4d29183f8f44e240a4644ece96ff07b4b4dd538fa270652c16e70a",
+  "expected_parent_sha": "a34d664d66ae9f7c2e729cd4ccb07b74130c660f",
+  "expected_parent_state_root": "fcb6fffc1dfd93a27f5ea2b60fcf265241838807c74696c70514b129f0a4cdf4",
   "experiment_id": "pr-294-model-fabric-v1",
   "integration_ledger_generator": {
     "blob_id": "28823ae5b630be273b78210f0addf9c0a86aad05",
