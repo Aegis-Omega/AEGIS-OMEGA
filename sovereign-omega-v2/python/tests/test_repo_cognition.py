@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""RED-first contract for repository cognition.
+"""RED-first contract for repository cognition and Claude lifecycle wiring.
 
-The production implementation lives at scripts/repo_cognition.py. These tests
-intentionally specify behavior before that implementation exists.
+The production implementation lives at scripts/repo_cognition.py. Repository
+cognition is only useful if every agent lifecycle boundary consumes it without
+silently upgrading unavailable/stale state into verified repository knowledge.
 """
 from __future__ import annotations
 
@@ -15,6 +16,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MODULE_PATH = REPO_ROOT / "scripts" / "repo_cognition.py"
+SETTINGS_PATH = REPO_ROOT / ".claude" / "settings.json"
+SESSION_START_PATH = REPO_ROOT / ".claude" / "hooks" / "session-start.sh"
+POST_COMPACT_PATH = REPO_ROOT / ".claude" / "hooks" / "post-compact-reanchor.sh"
+USER_PROMPT_PATH = REPO_ROOT / ".claude" / "hooks" / "user-prompt-intake.sh"
 
 spec = importlib.util.spec_from_file_location("repo_cognition", MODULE_PATH)
 if spec is None or spec.loader is None:
@@ -147,6 +152,60 @@ class RepoCognitionContractTests(unittest.TestCase):
         self.assertEqual(one, two)
         parsed = json.loads(one)
         self.assertRegex(parsed["corpus_root"], r"^[0-9a-f]{64}$")
+
+
+class ClaudeLifecycleCognitionTests(unittest.TestCase):
+    """Agent context lifecycle must not launder missing state into authority."""
+
+    def test_user_prompt_is_the_blocking_repository_admission_boundary(self) -> None:
+        settings = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+        prompt_hook = settings["hooks"]["UserPromptSubmit"][0]["hooks"][0]
+        self.assertNotEqual(prompt_hook.get("async"), True)
+
+        script = USER_PROMPT_PATH.read_text(encoding="utf-8")
+        self.assertIn("scripts/repo_cognition.py", script)
+        self.assertIn("--check --receipt", script)
+        self.assertIn("'decision': 'block'", script)
+        self.assertIn("REPOSITORY_KNOWLEDGE_INCOMPLETE", script)
+        self.assertIn(
+            "CERT='{\"is_valid\":false",
+            script,
+            "metacognitive-unavailable must default invalid, never verified",
+        )
+
+    def test_session_start_orientation_is_not_backgrounded(self) -> None:
+        settings = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+        session_hook = settings["hooks"]["SessionStart"][0]["hooks"][0]
+        self.assertNotEqual(
+            session_hook.get("async"),
+            True,
+            "repository orientation must complete before the session proceeds",
+        )
+
+        script = SESSION_START_PATH.read_text(encoding="utf-8")
+        self.assertNotIn(
+            "{\"async\": true",
+            script,
+            "the hook must not self-background repository ground truth",
+        )
+        self.assertIn("scripts/ground-truth.sh", script)
+
+    def test_post_compact_reanchors_repository_cognition_without_false_restoration(self) -> None:
+        script = POST_COMPACT_PATH.read_text(encoding="utf-8")
+        self.assertIn("scripts/repo_cognition.py", script)
+        self.assertIn("--check --receipt", script)
+        self.assertIn("REPOSITORY_KNOWLEDGE_INCOMPLETE", script)
+        self.assertIn("COGNITION_STATUS", script)
+        self.assertNotIn(
+            "constitutional law restored",
+            script.lower(),
+            "PostCompact cannot claim restored authority when a verifier failed",
+        )
+        self.assertNotIn(
+            "Seven cognitive layers are now re-active",
+            script,
+            "context availability must be reported conditionally, not asserted",
+        )
 
 
 if __name__ == "__main__":
