@@ -1,0 +1,137 @@
+name: AEGIS Autonomous Agent Evidence Repair Migration
+
+on:
+  push:
+    branches: ['fix/autonomous-agent-evidence-boundary-v1']
+    paths:
+      - '.github/workflows/autonomous-agent-evidence-repair-migration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    name: Asserted source migration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: fix/autonomous-agent-evidence-boundary-v1
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Apply exact asserted replacements
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('sovereign-omega-v2/python/platform_helpers.py')
+          text = path.read_text(encoding='utf-8')
+
+          def replace_once(old: str, new: str, label: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'ASSERTED_REPLACEMENT_FAILED {label}: expected 1 occurrence, found {count}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+          '''def swarm_collaborate_autonomous(
+              objective: str,''',
+          '''class AutonomousAgentExecutionError(RuntimeError):
+              """Typed non-success state from the governed autonomous model boundary."""
+
+              def __init__(self, status: str):
+                  super().__init__(status)
+                  self.status = status
+
+
+          def swarm_collaborate_autonomous(
+              objective: str,''',
+          'typed-autonomous-error')
+
+          replace_once(
+          '''        try:
+                      output = agent_call(dept, objective, mode, upstream)
+                      status = 'ok'
+                  except Exception as exc:
+                      output = ''
+                      status = 'error:' + type(exc).__name__''',
+          '''        try:
+                      output = agent_call(dept, objective, mode, upstream)
+                      if not isinstance(output, str) or not output.strip():
+                          raise AutonomousAgentExecutionError('malformed_model_output')
+                      status = 'ok'
+                  except AutonomousAgentExecutionError as exc:
+                      output = ''
+                      status = exc.status
+                  except Exception as exc:
+                      output = ''
+                      status = 'error:' + type(exc).__name__''',
+          'executor-status')
+
+          replace_once(
+          '''    Production agent_call factory: each department gets its OWN governed model
+              call, primed with its category persona and the upstream artifacts it depends
+              on. Falls back to the template dept_output when no model client is available,
+              so the executor always returns usable artifacts.''',
+          '''    Production agent_call factory: each department gets its OWN governed model
+              call, primed with its category persona and the upstream artifacts it depends
+              on. Provider absence/refusal is a typed non-success state; deterministic
+              templates belong to demo/candidate paths and never impersonate model execution.''',
+          'factory-doc')
+
+          replace_once(
+          '''        if _client is None:
+                      return dept_output(objective, mode, dept)''',
+          '''        if _client is None:
+                      raise AutonomousAgentExecutionError('provider_unavailable')''',
+          'provider-unavailable')
+
+          replace_once(
+          '''        if getattr(resp, 'stop_reason', None) == 'refusal':
+                      return dept_output(objective, mode, dept)
+                  return ''.join(b.text for b in resp.content if hasattr(b, 'text')).strip()''',
+          '''        if getattr(resp, 'stop_reason', None) == 'refusal':
+                      raise AutonomousAgentExecutionError('provider_refusal')
+                  output = ''.join(b.text for b in resp.content if hasattr(b, 'text')).strip()
+                  if not output:
+                      raise AutonomousAgentExecutionError('malformed_model_output')
+                  return output''',
+          'provider-refusal')
+
+          replace_once(
+          "                'constitutional_verdict': row.get('constitutional_verdict', 'APPROVED'),",
+          "                'constitutional_verdict': row.get('constitutional_verdict') or 'UNKNOWN',",
+          'compliance-missing-verdict')
+
+          path.write_text(text, encoding='utf-8')
+          print('ASSERTED_AUTONOMOUS_EVIDENCE_REPAIR_APPLIED')
+          PY
+
+      - name: Verify focused and inherited Python contracts before commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python sovereign-omega-v2/python/tests/test_autonomous_agent_evidence_boundary.py
+          python sovereign-omega-v2/python/tests/test_platform.py
+
+      - name: Commit verified repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sovereign-omega-v2/python/platform_helpers.py
+          git diff --cached --check
+          git commit -m 'fix(autonomous): keep provider failures out of successful agent evidence'
+          git push origin HEAD:fix/autonomous-agent-evidence-boundary-v1
