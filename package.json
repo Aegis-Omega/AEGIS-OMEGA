@@ -3,7 +3,10 @@
   "workspaces": ["backend"],
   "scripts": {
     "dev-backend": "npm run dev --prefix backend",
-    "dev": "npm run dev-backend"
+    "dev": "npm run dev-backend",
+    "dev:batchbook": "npm run dev --prefix production-cookbook",
+    "build:batchbook": "npm run build --prefix production-cookbook",
+    "preview:batchbook": "npm run preview --prefix production-cookbook"
   },
   "devDependencies": {
     "concurrently": "latest"
