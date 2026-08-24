@@ -88,3 +88,11 @@ worker-configuration.d.ts
 
 # Sovereign-mesh pipeline run artifacts (architect/artisan/auditor) — regenerated per sprint, not source
 state/
+
+# Hydrated model weights live inside the working repository tree, but their
+# canonical durable copy is a digest-bound AEGIS repository release mirror.
+# Never put multi-GB model bytes into ordinary Git history.
+/models/weights/*
+!/models/weights/.gitkeep
+/models/staging/
+/models/receipts/

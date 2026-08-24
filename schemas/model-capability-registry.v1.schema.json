@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/model-capability-registry.v1.schema.json",
+  "title": "AEGIS Model Capability Registry V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "epistemic_status",
+    "authority_rule",
+    "selection_policy",
+    "roles",
+    "providers",
+    "models",
+    "future_model_rule"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "epistemic_status": { "const": "T2_ENGINEERING_CONFIGURATION" },
+    "authority_rule": { "const": "MODEL_OUTPUT_IS_EVIDENCE_NOT_AUTHORITY" },
+    "selection_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resolution_order", "fail_closed", "require_explicit_model_registration", "allow_unknown_models"],
+      "properties": {
+        "resolution_order": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "fail_closed": { "const": true },
+        "require_explicit_model_registration": { "const": true },
+        "allow_unknown_models": { "const": false }
+      }
+    },
+    "roles": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["required_capabilities"],
+        "properties": {
+          "required_capabilities": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "require_provider_diversity_from": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "privacy_requirement": { "enum": ["local_only", "server_side_only"] }
+        }
+      }
+    },
+    "providers": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["transport", "server_side_credentials_only", "model_family"],
+        "properties": {
+          "transport": {
+            "enum": ["responses_api", "messages_api", "openai_compatible", "openai_compatible_local", "azure_openai"]
+          },
+          "server_side_credentials_only": { "type": "boolean" },
+          "model_family": { "type": "string", "minLength": 1 },
+          "supports_openai_compatible_transport": { "type": "boolean" },
+          "supports_anthropic_compatible_transport": { "type": "boolean" }
+        }
+      }
+    },
+    "models": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider",
+          "status",
+          "capabilities",
+          "recommended_roles",
+          "artifact_package",
+          "execution_surfaces"
+        ],
+        "properties": {
+          "provider": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["candidate", "active", "active_legacy", "deprecated", "disabled"] },
+          "capabilities": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "recommended_roles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "artifact_package": { "type": "string", "minLength": 1 },
+          "execution_surfaces": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "enum": ["remote_api", "local_checkpoint"] }
+          }
+        }
+      }
+    },
+    "future_model_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "registration_required_before_use",
+        "minimum_fields",
+        "must_not_change_authority_semantics",
+        "must_not_become_authority_by_configuration",
+        "must_preserve_receipt_and_replay_requirements"
+      ],
+      "properties": {
+        "registration_required_before_use": { "const": true },
+        "minimum_fields": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "must_not_change_authority_semantics": { "const": true },
+        "must_not_become_authority_by_configuration": { "const": true },
+        "must_preserve_receipt_and_replay_requirements": { "const": true }
+      }
+    }
+  }
+}

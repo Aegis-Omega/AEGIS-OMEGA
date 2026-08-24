@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.1.0",
+  "epistemic_status": "T2_EXTERNAL_SOURCE_BINDING",
+  "authority_rule": "SOURCE_EVIDENCE_DOES_NOT_GRANT_MODEL_AUTHORITY",
+  "observed_at": "2026-08-22",
+  "sources": {
+    "openai-gpt-5-6-sol": {"model_ids": ["gpt-5.6-sol"], "source_type": "PRIMARY_PROVIDER_DOCUMENTATION", "url": "https://developers.openai.com/api/docs/models/gpt-5.6-sol", "supports_claims": ["model_identity", "reasoning", "long_context", "tool_use", "structured_output", "multimodal"]},
+    "openai-gpt-5-6-terra": {"model_ids": ["gpt-5.6-terra"], "source_type": "PRIMARY_PROVIDER_DOCUMENTATION", "url": "https://developers.openai.com/api/docs/models/gpt-5.6-terra", "supports_claims": ["model_identity", "reasoning", "tool_use", "structured_output", "multimodal"]},
+    "openai-gpt-5-6-luna": {"model_ids": ["gpt-5.6-luna"], "source_type": "PRIMARY_PROVIDER_DOCUMENTATION", "url": "https://developers.openai.com/api/docs/models/gpt-5.6-luna", "supports_claims": ["model_identity", "tool_use", "structured_output"]},
+    "openai-gpt-4o": {"model_ids": ["gpt-4o"], "source_type": "PRIMARY_PROVIDER_DOCUMENTATION", "url": "https://developers.openai.com/api/docs/models/gpt-4o", "supports_claims": ["model_identity", "tool_use", "structured_output", "multimodal"]},
+    "anthropic-fable-5": {"model_ids": ["claude-fable-5"], "source_type": "PRIMARY_PROVIDER_ANNOUNCEMENT", "url": "https://www.anthropic.com/claude/fable", "supports_claims": ["model_identity", "reasoning", "long_horizon_agents", "tool_use", "code", "multimodal"]},
+    "anthropic-opus-5": {"model_ids": ["claude-opus-5"], "source_type": "PRIMARY_PROVIDER_DOCUMENTATION", "url": "https://www.anthropic.com/claude/opus", "supports_claims": ["model_identity", "reasoning", "long_context", "tool_use", "code"]},
+    "anthropic-sonnet-5": {"model_ids": ["claude-sonnet-5"], "source_type": "PRIMARY_PROVIDER_ANNOUNCEMENT", "url": "https://www.anthropic.com/research/claude-sonnet-5", "supports_claims": ["model_identity", "reasoning", "agentic_planning", "tool_use", "code"]},
+    "anthropic-sonnet-4-6": {"model_ids": ["claude-sonnet-4-6"], "source_type": "PRIMARY_PROVIDER_ANNOUNCEMENT", "url": "https://www.anthropic.com/news/claude-sonnet-4-6", "supports_claims": ["model_identity", "reasoning", "long_context", "tool_use", "code"]},
+    "anthropic-haiku-4-5": {"model_ids": ["claude-haiku-4-5-20251001"], "source_type": "PRIMARY_PROVIDER_DOCUMENTATION", "url": "https://www.anthropic.com/claude/haiku", "supports_claims": ["model_family_identity", "tool_use", "code", "agent_tasks"]},
+    "deepseek-v4": {"model_ids": ["deepseek-v4-pro", "deepseek-v4-flash"], "source_type": "PRIMARY_PROVIDER_API_DOCUMENTATION", "url": "https://api-docs.deepseek.com/quick_start/pricing/", "supports_claims": ["model_identity", "reasoning", "long_context", "tool_use", "structured_output", "openai_compatible", "anthropic_compatible"]},
+    "deepseek-v4-change-log": {"model_ids": ["deepseek-v4-pro", "deepseek-v4-flash"], "source_type": "PRIMARY_PROVIDER_CHANGELOG", "url": "https://api-docs.deepseek.com/updates/", "supports_claims": ["launch_date", "legacy_model_retirement", "openai_compatible", "anthropic_compatible"]},
+    "deepseek-v4-flash-weights": {"model_ids": ["deepseek-v4-flash"], "source_type": "PRIMARY_OPEN_WEIGHT_REPOSITORY", "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash", "supports_claims": ["public_weights", "mit_license", "artifact_source"]},
+    "deepseek-v4-pro-weights": {"model_ids": ["deepseek-v4-pro"], "source_type": "PRIMARY_OPEN_WEIGHT_REPOSITORY", "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro", "supports_claims": ["public_weights", "mit_license", "artifact_source"]},
+    "google-gemma-4": {"model_ids": ["gemma-4-local"], "source_type": "PRIMARY_MODEL_CARD", "url": "https://ai.google.dev/gemma/docs/core/model_card_4", "supports_claims": ["open_weights", "apache_2_0", "reasoning", "coding", "multimodal", "function_calling", "edge_deployment"]},
+    "google-gemma-4-e2b-weights": {"model_ids": ["gemma-4-local"], "source_type": "PRIMARY_OPEN_WEIGHT_REPOSITORY", "url": "https://huggingface.co/google/gemma-4-E2B-it", "supports_claims": ["public_weights", "apache_2_0", "artifact_source"]},
+    "alibaba-qwen-3-8-max": {"model_ids": ["qwen3.8-max"], "source_type": "PRIMARY_PROVIDER_DOCUMENTATION", "url": "https://www.alibabacloud.com/help/en/model-studio/qwen3-8-max", "supports_claims": ["model_identity", "reasoning", "long_context", "tool_use", "structured_output", "multimodal", "long_horizon_agents"]},
+    "alibaba-qwen-3-7-plus": {"model_ids": ["qwen3.7-plus", "qwen-plus"], "source_type": "PRIMARY_PROVIDER_DOCUMENTATION", "url": "https://www.alibabacloud.com/help/en/model-studio/qwen3-7-plus", "supports_claims": ["model_identity", "reasoning", "long_context", "tool_use", "structured_output", "multimodal"]},
+    "qwen-3-8-open-release": {"model_ids": ["qwen3.8-max"], "source_type": "PRIMARY_OPEN_WEIGHT_REPOSITORY_RELATED_MODEL", "url": "https://huggingface.co/Qwen/Qwen3.8-2.4T-A95B", "supports_claims": ["related_public_weights"], "limitations": ["OPEN_CHECKPOINT_IS_NOT_IDENTICAL_TO_MANAGED_QWEN3.8_MAX_API", "CUSTOM_LICENSE_REQUIRES_SEPARATE_REVIEW_BEFORE_AEGIS_MIRRORING"]}
+  },
+  "future_source_rule": {
+    "every_registered_model_requires_bound_source_evidence": true,
+    "public_or_vendor_model_requires_primary_source": true,
+    "private_model_may_use_operator_private_source": true,
+    "private_source_must_not_require_public_url": true,
+    "source_record_is_evidence_only": true,
+    "capability_claims_require_source_or_evaluation_support": true,
+    "related_open_checkpoint_must_not_be_equated_with_managed_api_model": true,
+    "license_or_rights_review_required_before_weight_mirroring": true
+  }
+}
