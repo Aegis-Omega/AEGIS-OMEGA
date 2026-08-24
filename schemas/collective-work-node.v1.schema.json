@@ -19,6 +19,8 @@
     "intent_digest": {"$ref": "#/$defs/hash"},
     "required_capabilities": {
       "type": "array",
+      "uniqueItems": true,
+      "$comment": "Draft 2020-12 uniqueItems compares whole instance objects. Runtime additionally enforces uniqueness by capability_id; that property-level rule is not expressible here without an extension.",
       "items": {"$ref": "#/$defs/capability"}
     },
     "allowed_providers": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/nonempty"}},

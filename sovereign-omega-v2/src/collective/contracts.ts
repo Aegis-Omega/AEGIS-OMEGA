@@ -1,3 +1,10 @@
+// ============================================================
+// AEGIS UCI-1 — Collective Work Declaration Contracts
+// EPISTEMIC TIER: T2
+// Bounded declarations only; no authority, execution, effect, receipt,
+// admission, or production-capability semantics.
+// ============================================================
+
 export const CONSEQUENCE_CLASSES = ['D0', 'D1', 'D2', 'D3', 'D4'] as const;
 export type ConsequenceClass = (typeof CONSEQUENCE_CLASSES)[number];
 

@@ -134,4 +134,19 @@ describe('UCI-1 JSON Schema contracts', () => {
       expect(schema.$defs.nonnegativeInteger.$comment).toContain('negative zero');
     }
   });
+
+  test('declares capability uniqueness and documents the stronger runtime id rule', () => {
+    const node = load('collective-work-node.v1.schema.json');
+    const graph = load('collective-work-graph.v1.schema.json');
+    const capabilityArrays = [
+      node.properties.required_capabilities,
+      graph.$defs.node.properties.required_capabilities,
+    ];
+
+    for (const capabilityArray of capabilityArrays) {
+      expect(capabilityArray.uniqueItems).toBe(true);
+      expect(capabilityArray.$comment).toContain('capability_id');
+      expect(capabilityArray.$comment).toContain('whole instance objects');
+    }
+  });
 });

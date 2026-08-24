@@ -7,11 +7,11 @@ import {
   type CollectiveWorkGraphV1,
   type CollectiveWorkNodeV1,
   type IntentEnvelopeV1,
-} from '../../../src/collective/contracts';
+} from '../../../src/collective/contracts.js';
 import {
   validateCollectiveWorkGraph,
   validateIntentEnvelope,
-} from '../../../src/collective/validate';
+} from '../../../src/collective/validate.js';
 
 const H = 'a'.repeat(64);
 const B = 'b'.repeat(64);

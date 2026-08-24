@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, test } from 'vitest';
 
-import { validateCollectiveWorkGraph } from '../../src/collective/validate';
+import { validateCollectiveWorkGraph } from '../../src/collective/validate.js';
 
 type VectorCase = {
   id: string;

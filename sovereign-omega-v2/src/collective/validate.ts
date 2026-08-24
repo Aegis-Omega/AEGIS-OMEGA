@@ -1,3 +1,10 @@
+// ============================================================
+// AEGIS UCI-1 — Collective Work Declaration Validator
+// EPISTEMIC TIER: T2
+// Node.js governance-ingest validation only. Acceptance grants no authority,
+// execution, effect, receipt, admission, or production capability.
+// ============================================================
+
 import { isProxy } from 'node:util/types';
 
 import {
