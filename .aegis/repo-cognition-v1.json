@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "328c922558061fa362002baeb26427cf88f8b3728c24cfaca8ab0060c9fcc3be",
+  "corpus_root": "88dfe6f487ca1bf2cdbd5c395ee6fbb46af0bbb9a46645730827073dc5c0c84c",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1871,
@@ -233,17 +233,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "fee9774d9cbe758170d46f60dbda93f5a3c9b89741e323334c13bfd668101800",
+      "content_sha256": "0b3646dd60e0ee2c59ccd8cfaa740868b761de204591a305ba3e4c875db9576d",
       "dependency_hints": [],
-      "git_blob_sha": "982d6fafd19031e168b73c8ba55060ba4a352d0f",
+      "git_blob_sha": "f7e51071004fd08fab3ace80cedd69389559745c",
       "heading_hint": null,
       "kind": "source",
       "language": "shell",
-      "line_count": 84,
+      "line_count": 117,
       "mode": "100755",
       "object_type": "blob",
       "path": ".claude/hooks/post-compact-reanchor.sh",
-      "size_bytes": 2904,
+      "size_bytes": 4367,
       "symbol_hints": []
     },
     {
@@ -289,17 +289,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "1c092c1ccc013d8c4a679958390897a0c04b29e3a95bc7e4fed8c3c8b0e5356f",
+      "content_sha256": "8abd8331f2d835bb117dd716be81df0bc0b91b740ef9f0222ff4baff66bdc18e",
       "dependency_hints": [],
-      "git_blob_sha": "aee49f45d298512a1b255404bdaa8adad979af7a",
+      "git_blob_sha": "397a67c8e4c81a8d8e3973284f9cb219a7bb36a2",
       "heading_hint": null,
       "kind": "source",
       "language": "shell",
-      "line_count": 55,
+      "line_count": 53,
       "mode": "100755",
       "object_type": "blob",
       "path": ".claude/hooks/session-start.sh",
-      "size_bytes": 1892,
+      "size_bytes": 1859,
       "symbol_hints": []
     },
     {
@@ -477,17 +477,17 @@
       ]
     },
     {
-      "content_sha256": "92e709d067df0594dbd2d26cc5d102d092ab5f93850aefe79215e641c3634e91",
+      "content_sha256": "de5ddeff8dda61b745cbfcf22e938ddae3f1f400fa01a1413b43d8cf540975ef",
       "dependency_hints": [],
-      "git_blob_sha": "faf78723a994999ced67e0f6fe1abd697f7f067c",
+      "git_blob_sha": "8f9729126fefb8e998e71d49f8c16a9c5624646e",
       "heading_hint": null,
       "kind": "config-or-data",
       "language": "json",
-      "line_count": 316,
+      "line_count": 315,
       "mode": "100644",
       "object_type": "blob",
       "path": ".claude/settings.json",
-      "size_bytes": 14548,
+      "size_bytes": 14521,
       "symbol_hints": []
     },
     {
