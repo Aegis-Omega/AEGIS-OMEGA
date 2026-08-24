@@ -13,6 +13,7 @@ on:
       - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeFunction.v"
       - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeCompact.v"
       - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeContinuity.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeConstructive.v"
       - ".github/workflows/weil-o0-globalization.yml"
   workflow_dispatch:
 
@@ -80,7 +81,9 @@ jobs:
             cd "$DIR"
             coqc --version | tee "$OUT/coq-version.txt"
 
-            # Phase 1: isolate the bare Coq.Reals trust surface BEFORE Coquelicot exists.
+            # Phase 1: isolate the classical Coq.Reals trust surface before
+            # Coquelicot exists. These probes are diagnostic and intentionally
+            # do not gate on Closed; run #14 established where the axioms enter.
             for spec in \
               'O0TrustProbeReals:o0_trust_probe_reals_reflexive' \
               'O0TrustProbeFunction:o0_trust_probe_function_reflexive' \
@@ -99,7 +102,25 @@ jobs:
               cat "$log"
             done
 
-            # Dependency probe is evidence-only; it is deliberately installed after the trust probes.
+            # RED/GREEN decision for the prospective stronger trust carrier.
+            # This is a test only: production AnalyticDefinitions.v is still
+            # classical R until a Closed constructive probe is observed.
+            coqc O0TrustProbeConstructive.v
+            query="$OUT/o0_trust_probe_constructive_order_refl.v"
+            log="$OUT/o0_trust_probe_constructive_order_refl.assumptions.txt"
+            printf 'Set Coqtop Exit On Error.\nRequire Import O0TrustProbeConstructive.\nPrint Assumptions o0_trust_probe_constructive_order_refl.\n' > "$query"
+            coqtop -quiet -batch -l "$query" > "$log" 2>&1
+            rm -f "$query"
+            echo '===== CONSTRUCTIVE-CARRIER o0_trust_probe_constructive_order_refl ====='
+            cat "$log"
+            grep -q 'Closed under the global context' "$log"
+            if grep -q '^Axioms:' "$log"; then
+              echo 'Constructive real order probe is not closed' >&2
+              exit 1
+            fi
+
+            # Dependency probe is evidence-only; install it only after the
+            # constructive trust test so it cannot affect that result.
             opam install -y coq-coquelicot.3.4.2
             opam list --installed coq-coquelicot --short | tee "$OUT/dependency-probe.log"
             coqc O0DependencyProbe.v
@@ -118,7 +139,8 @@ jobs:
             coqc WeilCriterion.v 2>&1 | tee "$OUT/weil-criterion.log"
             coqc O0.v 2>&1 | tee "$OUT/o0.log"
 
-            # The load-bearing theorem surface is still fail-closed.
+            # Current production O0 carrier is still classical R. Keep this
+            # gate fail-closed until a RED-first migration replaces it.
             for theorem in \
               global_weil_positivity_v1_pointwise \
               finite_lower_bound_v1_specialize
