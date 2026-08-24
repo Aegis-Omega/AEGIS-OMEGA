@@ -199,6 +199,12 @@ jobs:
       - name: Run ledger persistence tests (mock CoreMatrix)
         run: python python/tests/test_ledger_persist_v2.py
 
+      # numpy comes from the source-attribution install above. No pytest: this
+      # job discovers nothing and runs named scripts, so the suite is written
+      # to run under plain python as well.
+      - name: Run zero-discretion type gates (structural invariants)
+        run: python ../harness/gates/test_gates.py
+
       # test_ledger_persist.py (v1) allocates 4 GB (real CoreMatrix bytearray) —
       # requires AMD RX 570 hardware-spec RAM; run locally only, not in CI.
 
