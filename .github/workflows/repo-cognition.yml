@@ -3,17 +3,6 @@ name: AEGIS Repository Cognition
 on:
   push:
     branches: [main, 'claude/*']
-    paths:
-      - 'scripts/repo_cognition.py'
-      - 'sovereign-omega-v2/python/tests/test_repo_cognition.py'
-      - '.aegis/repo-cognition-v1.json'
-      - 'INDEX.md'
-      - 'reports/inventory.json'
-      - '.claude/hooks/session-start.sh'
-      - 'scripts/ground-truth.sh'
-      - 'sovereign-omega-v2/scripts/mythos-pipeline.ts'
-      - 'sovereign-omega-v2/.claude/skills/mythos-bootstrap/SKILL.md'
-      - '.github/workflows/repo-cognition.yml'
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -53,4 +42,31 @@ jobs:
         run: python sovereign-omega-v2/python/tests/test_repo_cognition.py
 
       - name: Verify committed corpus is complete and current
+        id: corpus_check
+        continue-on-error: true
         run: python scripts/repo_cognition.py --check
+
+      - name: Generate candidate corpus when committed corpus is stale
+        if: steps.corpus_check.outcome != 'success'
+        run: |
+          rm -f .aegis/repo-cognition-v1.json
+          python scripts/repo_cognition.py --write
+          python scripts/repo_cognition.py --check
+          python scripts/repo_cognition.py --check --receipt > repo-cognition-receipt.txt
+
+      - name: Upload candidate corpus evidence
+        if: steps.corpus_check.outcome != 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo-cognition-candidate-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            .aegis/repo-cognition-v1.json
+            repo-cognition-receipt.txt
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail closed if committed corpus was stale
+        if: steps.corpus_check.outcome != 'success'
+        run: |
+          echo 'REPOSITORY_KNOWLEDGE_INCOMPLETE: candidate artifact generated; committed corpus must be updated.' >&2
+          exit 1
