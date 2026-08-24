@@ -1,0 +1,58 @@
+name: AEGIS GitHub Substrate Census
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  github-substrate-census:
+    name: aegis / github-substrate-census
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run substrate falsifiers
+        run: |
+          set -euo pipefail
+          python3 -m unittest harness.tests.test_github_substrate -v
+          python3 -m unittest harness.tests.test_github_substrate_workflow -v
+          python3 -m unittest harness.tests.test_github_summary_workflow -v
+          python3 -m unittest harness.tests.test_github_runner_observation -v
+
+      - name: Generate exact-head substrate manifest
+        run: |
+          set -euo pipefail
+          python3 scripts/inventory-github-substrate.py \
+            --repo-root . \
+            --candidate-sha "$CANDIDATE_SHA" \
+            --output "$RUNNER_TEMP/GITHUB_SUBSTRATE_MANIFEST.json"
+
+      - name: Validate substrate manifest
+        run: |
+          set -euo pipefail
+          python3 scripts/validate-github-substrate.py \
+            --manifest "$RUNNER_TEMP/GITHUB_SUBSTRATE_MANIFEST.json"
+
+      - name: Preserve census evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 resolved commit
+        with:
+          name: github-substrate-${{ env.CANDIDATE_SHA }}
+          path: ${{ runner.temp }}/GITHUB_SUBSTRATE_MANIFEST.json
+          if-no-files-found: warn
+          retention-days: 90
