@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 """AEGIS repository cognition: complete, deterministic, fail-closed source census.
 
-This module deliberately separates two concepts that were previously conflated:
+Repository cognition and repository authority are different evidence domains:
 
-* repository cognition: what files/content exist in the exact Git source corpus;
-* repository authority: which files/policies may authorize a mutation.
+* cognition establishes what Git-tracked content exists at the exact source tree;
+* authority establishes what may authorize or constrain a mutation.
 
-`INDEX.md` remains an authority/policy surface. It is not a complete file census.
+`INDEX.md` is therefore an authority/policy subset, not a complete file census.
 The generated manifest covers every Git-tracked HEAD entry except the manifest
 itself, which is excluded to avoid a cryptographic self-reference cycle.
 
-The aggregate `corpus_root` is content-addressed and stable across commits that
-only refresh the generated manifest. A runtime receipt may bind that root to the
-current HEAD without putting the volatile commit SHA inside the committed
-manifest.
+`corpus_root` is content-addressed and stable across commits that only refresh
+the generated manifest. A runtime receipt binds that source root to exact HEAD.
 """
 from __future__ import annotations
 
@@ -27,7 +25,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 SCHEMA = "AEGIS_REPO_COGNITION_V1"
-GENERATOR_VERSION = "1.0.0"
+GENERATOR_VERSION = "1.0.1"
 DEFAULT_MANIFEST_PATH = ".aegis/repo-cognition-v1.json"
 GENERATED_PATHS = frozenset({DEFAULT_MANIFEST_PATH})
 
@@ -180,6 +178,14 @@ def _head_entries(root: Path) -> list[dict[str, str]]:
 
 
 def _read_objects(root: Path, shas: Iterable[str]) -> dict[str, bytes]:
+    """Read Git objects through one bounded request→response batch process.
+
+    Do not enqueue every SHA before reading stdout. On a repository with enough
+    objects, git can block writing object bytes to its stdout pipe while Python
+    is simultaneously blocked filling git's stdin pipe. Issuing one request,
+    flushing, and consuming its complete response before the next request makes
+    memory bounded by the largest single object and removes that pipe deadlock.
+    """
     ordered = list(dict.fromkeys(shas))
     if not ordered:
         return {}
@@ -195,11 +201,12 @@ def _read_objects(root: Path, shas: Iterable[str]) -> dict[str, bytes]:
     assert proc.stdout is not None
     assert proc.stderr is not None
 
+    result: dict[str, bytes] = {}
     try:
-        proc.stdin.write("".join(f"{sha}\n" for sha in ordered).encode("ascii"))
-        proc.stdin.close()
-        result: dict[str, bytes] = {}
         for expected_sha in ordered:
+            proc.stdin.write(f"{expected_sha}\n".encode("ascii"))
+            proc.stdin.flush()
+
             header = proc.stdout.readline()
             if not header:
                 error = proc.stderr.read().decode("utf-8", errors="replace")
@@ -209,22 +216,36 @@ def _read_objects(root: Path, shas: Iterable[str]) -> dict[str, bytes]:
                 raise RuntimeError(f"git object missing: {expected_sha}")
             if len(parts) != 3:
                 raise RuntimeError(f"unexpected git cat-file header: {header!r}")
+
             actual_sha = parts[0].decode("ascii")
             size = int(parts[2])
             if actual_sha != expected_sha:
                 raise RuntimeError(
                     f"git cat-file order mismatch: expected {expected_sha}, got {actual_sha}"
                 )
+
             data = proc.stdout.read(size)
             trailer = proc.stdout.read(1)
             if len(data) != size or trailer != b"\n":
                 raise RuntimeError(f"truncated git object: {expected_sha}")
             result[expected_sha] = data
+
+        proc.stdin.close()
+        return_code = proc.wait(timeout=30)
+        if return_code != 0:
+            error = proc.stderr.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"git cat-file failed ({return_code}): {error}")
         return result
     finally:
+        for stream in (proc.stdin, proc.stdout, proc.stderr):
+            try:
+                if not stream.closed:
+                    stream.close()
+            except OSError:
+                pass
         if proc.poll() is None:
             proc.kill()
-        proc.wait()
+            proc.wait()
 
 
 def _language(path: str) -> str:
@@ -239,26 +260,60 @@ def _language(path: str) -> str:
 def _kind(path: str, language: str) -> str:
     lower = path.lower()
     name = Path(path).name.lower()
-    if "/test/" in f"/{lower}" or "/tests/" in f"/{lower}" or name.startswith("test_") or ".test." in name or ".spec." in name:
+    if (
+        "/test/" in f"/{lower}"
+        or "/tests/" in f"/{lower}"
+        or name.startswith("test_")
+        or ".test." in name
+        or ".spec." in name
+    ):
         return "test"
     if lower.startswith(".github/workflows/"):
         return "workflow"
     if language in {
-        "python", "typescript", "typescript-react", "javascript", "javascript-react",
-        "rust", "go", "java", "kotlin", "c", "c-header", "cpp", "cpp-header",
-        "csharp", "swift", "shell", "powershell", "coq",
+        "python",
+        "typescript",
+        "typescript-react",
+        "javascript",
+        "javascript-react",
+        "rust",
+        "go",
+        "java",
+        "kotlin",
+        "c",
+        "c-header",
+        "cpp",
+        "cpp-header",
+        "csharp",
+        "swift",
+        "shell",
+        "powershell",
+        "coq",
     }:
         return "source"
     if language in {"markdown", "latex"}:
         return "documentation"
     if language in {"json", "jsonl", "yaml", "toml", "sql", "graphql", "protobuf"}:
         return "config-or-data"
-    if Path(path).suffix.lower() in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico", ".pdf", ".zip", ".wasm"}:
+    if Path(path).suffix.lower() in {
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+        ".svg",
+        ".ico",
+        ".pdf",
+        ".zip",
+        ".wasm",
+    }:
         return "asset"
     return "other"
 
 
-def _text_metadata(data: bytes, language: str) -> tuple[int | None, list[str], list[str], str | None]:
+def _text_metadata(
+    data: bytes, language: str
+) -> tuple[int | None, list[str], list[str], str | None]:
     if b"\0" in data:
         return None, [], [], None
     try:
@@ -354,9 +409,17 @@ def build_repository_corpus(root: Path) -> dict[str, Any]:
         "schema": SCHEMA,
         "generator": "scripts/repo_cognition.py",
         "generator_version": GENERATOR_VERSION,
-        "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
-        "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
-        "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
+        "root_scope": (
+            "canonical ordered array of path, mode, object_type, git_blob_sha, "
+            "content_sha256, size_bytes"
+        ),
+        "coverage_scope": (
+            "all git-tracked HEAD entries except explicit generated self-reference paths"
+        ),
+        "authority_boundary": (
+            "repository cognition proves content identity/existence only; "
+            "INDEX.md and admitted policies govern mutation authority"
+        ),
         "tracked_file_count": len(tracked),
         "eligible_file_count": eligible_count,
         "indexed_file_count": indexed,
@@ -429,11 +492,27 @@ def _default_root() -> Path:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     action = parser.add_mutually_exclusive_group()
-    action.add_argument("--check", action="store_true", help="fail if committed manifest is stale/incomplete")
-    action.add_argument("--write", action="store_true", help="write the deterministic manifest (default)")
+    action.add_argument(
+        "--check",
+        action="store_true",
+        help="fail if committed manifest is stale/incomplete",
+    )
+    action.add_argument(
+        "--write",
+        action="store_true",
+        help="write the deterministic manifest (default)",
+    )
     parser.add_argument("--root", default=None, help="repository root")
-    parser.add_argument("--manifest", default=DEFAULT_MANIFEST_PATH, help="manifest path relative to repository root")
-    parser.add_argument("--receipt", action="store_true", help="emit an exact-HEAD runtime receipt")
+    parser.add_argument(
+        "--manifest",
+        default=DEFAULT_MANIFEST_PATH,
+        help="manifest path relative to repository root",
+    )
+    parser.add_argument(
+        "--receipt",
+        action="store_true",
+        help="emit an exact-HEAD runtime receipt",
+    )
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
 
@@ -459,7 +538,9 @@ def main() -> int:
     else:
         manifest = build_repository_corpus(root)
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
-        manifest_path.write_text(render_manifest(manifest), encoding="utf-8", newline="\n")
+        manifest_path.write_text(
+            render_manifest(manifest), encoding="utf-8", newline="\n"
+        )
         if not args.quiet:
             print(
                 "Repository cognition WRITTEN: "
