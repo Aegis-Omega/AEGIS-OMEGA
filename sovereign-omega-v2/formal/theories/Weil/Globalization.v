@@ -102,11 +102,12 @@ Proof.
   {
     unfold eta, O0ZeroV1.
     apply CR_of_Q_lt.
-    apply Qlt_shift_div_l.
-    - vm_compute.
-    - change (0 < - q)%Q.
-      apply Qopp_lt_compat.
-      exact Hq0_Q.
+    unfold Qdiv.
+    apply Qmult_lt_0_compat.
+    - change ((- 0)%Q < (- q)%Q).
+      exact (Qopp_lt_compat q 0 Hq0_Q).
+    - apply Qinv_lt_0_compat.
+      vm_compute.
   }
   assert (HetaProp : O0LtPropV1 O0ZeroV1 eta).
   {
