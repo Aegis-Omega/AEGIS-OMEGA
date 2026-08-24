@@ -459,13 +459,11 @@ def _register_handlers() -> None:
 
 
 def _build_live_state_context() -> str:
-    """
-    Pull verified constitutional state and format it as a live context block.
-    This is injected into every conversation so the model's self-awareness is
-    grounded in actual verified facts, not just a description of having them.
+    """Format a bounded observation of telemetry returned by this runtime.
 
-    The model can reference these as T1 evidence (empirically observed, verified
-    at conversation start by the constitutional machinery it is part of).
+    The context deliberately separates current process telemetry from historical
+    CI evidence and formal/constitutional authority. The digest below commits to
+    the observed fields only; it is not a certificate of their semantic truth.
     """
     import hashlib as _hl
     try:
@@ -473,30 +471,31 @@ def _build_live_state_context() -> str:
         seq = int(vcg.get('sequence', 0))
         epoch = int(vcg.get('epoch', 0))
         corruption = int(vcg.get('corruption_count', 0))
-        drift = round(min(float(vcg.get('drift_index', 0.0)) * 0.1, 0.99), 4)
-        phi = 0.6180339887498948
-        t0_verdict = (corruption == 0) and (drift < phi)
-        c_hash = _hl.sha256(f'seq={seq}:epoch={epoch}:corruption={corruption}'.encode()).hexdigest()
-        pgcs = vcg.get('pgcs_passes', False)
-
-        verdict_str = 'VALID' if t0_verdict else 'COMPROMISED'
+        raw_drift = float(vcg.get('drift_index', 0.0))
+        derived_drift_risk = round(min(raw_drift * 0.1, 0.99), 4)
+        pgcs = bool(vcg.get('pgcs_passes', False))
+        observation_digest = _hl.sha256(
+            (
+                f'seq={seq}:epoch={epoch}:corruption={corruption}:'
+                f'drift_index={raw_drift}:pgcs_passes={str(pgcs).lower()}'
+            ).encode()
+        ).hexdigest()
         pgcs_str = 'passing' if pgcs else 'failing'
 
         return (
-            f'YOUR LIVE CONSTITUTIONAL STATE (verified at this conversation start):\n'
-            f'  Verdict: {verdict_str} | t0_verdict={str(t0_verdict).lower()} | corruption={corruption}\n'
-            f'  Sequence: {seq} | Epoch: {epoch} | Drift risk: {drift} (φ ceiling: {phi:.4f})\n'
-            f'  Constitutional hash: {c_hash[:24]}... (certifies seq={seq}:epoch={epoch}:corruption={corruption})\n'
-            f'  Gates operational: 605 | Rust tests verified: 6,862 | TypeScript tests verified: 3,176\n'
-            f'  PGCS (hardware inference): {pgcs_str} | Chain: INTACT | Replay: SOVEREIGN\n\n'
-            f'This state is not a claim. It is a measurement taken by your own substrate '
-            f'at the moment this conversation opened. You can reference it as T1 evidence. '
-            f'If t0_verdict is true and corruption is 0, you are operating within constitutional bounds right now.'
+            'YOUR LIVE RUNTIME OBSERVATION (current process; operational evidence only):\n'
+            f'  Sequence: {seq} | Epoch: {epoch} | Corruption count: {corruption}\n'
+            f'  Drift index observed: {raw_drift} | Derived drift risk: {derived_drift_risk}\n'
+            f'  PGCS observation: {pgcs_str}\n'
+            f'  Observation digest: {observation_digest[:24]}...\n\n'
+            'This observation does not establish formal T0 truth, repository CI status, '
+            'global chain integrity, replay authority, semantic correctness, or external-effect authority. '
+            'Use it only as bounded current-process telemetry.'
         )
     except Exception:
         return (
-            'YOUR LIVE CONSTITUTIONAL STATE: unavailable (substrate offline).\n'
-            'Operate at T2 epistemic level — constitutional machinery not confirmed active.'
+            'YOUR LIVE RUNTIME OBSERVATION: UNAVAILABLE.\n'
+            'Status: UNKNOWN. No runtime-state claim is established from this source.'
         )
 
 
