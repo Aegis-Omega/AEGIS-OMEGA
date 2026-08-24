@@ -13,12 +13,14 @@ RUN pip install --no-cache-dir \
     redis[asyncio]==5.1.0 \
     httpx==0.27.0 \
     pyyaml==6.0.2 \
-    anyio==4.6.2
+    anyio==4.6.2 \
+    azure-identity==1.19.0
 
 # serve.py at /app, agents package at /app/agents, harness data at /app/harness.
 # evolution.py computes _REPO_ROOT = dirname(agents) = /app, so it finds
 # /app/harness/skill_tree.json. serve.py's path setup adds /app to sys.path.
 COPY vertex/serve.py /app/serve.py
+COPY vertex/provider_policy.py /app/provider_policy.py
 COPY agents /app/agents
 COPY harness /app/harness
 

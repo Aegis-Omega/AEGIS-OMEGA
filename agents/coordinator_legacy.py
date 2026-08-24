@@ -5,12 +5,14 @@ AEGIS-Ω Agent Coordinator v2.0
 Three inference backends (auto-detected from environment):
   MANAGED_AGENTS — Anthropic client.beta.agents (persistent, session-based, streaming)
   VERTEX_AI      — AnthropicVertex (GCP project aegisomegav1, constitutional proxy wrapping)
+  FOUNDRY        — Azure AI Foundry (deployment aliases + managed identity only)
   DIRECT         — Constitutional proxy (POST /v1/messages) — fallback for any environment
 
 Backend priority:
   1. MANAGED_AGENTS if ANTHROPIC_API_KEY set and agent_registry.json exists
   2. VERTEX_AI      if VERTEX_PROJECT_ID set
-  3. DIRECT         fallback via PROXY_URL
+  3. FOUNDRY        if FOUNDRY_DEPLOYMENTS_JSON and Azure identity are configured
+  4. DIRECT         fallback via PROXY_URL
 
 All memory persists in Redis. All communication via EventEnvelope (Law of Silence).
 AdaptivePower(T) ≤ ReplayVerifiability(T) — the coordinator itself is governed.
@@ -62,6 +64,7 @@ VERTEX_REGISTRY_PATH = Path(_ROOT) / "vertex_agent_registry.json"
 class BackendType(str, Enum):
     MANAGED_AGENTS = "managed_agents"   # Anthropic Managed Agents beta
     VERTEX_AI      = "vertex_ai"        # Google Cloud Vertex AI + AnthropicVertex
+    FOUNDRY        = "foundry"          # Azure AI Foundry; aliases and identity only
     DIRECT         = "direct"           # Constitutional proxy (fallback)
 
 
@@ -70,11 +73,14 @@ def _detect_backend() -> BackendType:
     has_api_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
     has_registry = MANAGED_REGISTRY_PATH.exists()
     has_vertex = bool(os.environ.get("VERTEX_PROJECT_ID"))
+    has_foundry = bool(os.environ.get("FOUNDRY_DEPLOYMENTS_JSON"))
 
     if has_api_key and has_registry:
         return BackendType.MANAGED_AGENTS
     if has_vertex:
         return BackendType.VERTEX_AI
+    if has_foundry:
+        return BackendType.FOUNDRY
     return BackendType.DIRECT
 
 
@@ -359,12 +365,19 @@ _skill_router = SkillRouter()
 # Lazy backend singletons — initialized on first use
 _managed_client: ManagedAgentsClient | None = None
 _vertex_client: VertexClient | None = None
+_foundry_client: FoundryClient | None = None
 
 def _get_managed_client() -> ManagedAgentsClient:
     global _managed_client
     if _managed_client is None:
         _managed_client = ManagedAgentsClient()
     return _managed_client
+
+def _get_foundry_client() -> "FoundryClient":
+    global _foundry_client
+    if _foundry_client is None:
+        _foundry_client = FoundryClient()
+    return _foundry_client
 
 def _get_vertex_client() -> VertexClient:
     global _vertex_client
@@ -495,6 +508,36 @@ class ManagedAgentsClient:
             }
 
         return await loop.run_in_executor(None, _sync_run)
+
+
+class FoundryClient:
+    """Azure AI Foundry client. Endpoint/deployment come only from server secrets."""
+    def __init__(self):
+        raw = os.environ.get("FOUNDRY_DEPLOYMENTS_JSON")
+        if not raw:
+            raise RuntimeError("FOUNDRY_DEPLOYMENTS_JSON must be configured server-side")
+        self._deployments = json.loads(raw)
+        self._alias = os.environ.get("FOUNDRY_DEFAULT_DEPLOYMENT_ALIAS", "")
+        if self._alias not in self._deployments:
+            raise RuntimeError("FOUNDRY_DEFAULT_DEPLOYMENT_ALIAS is not an approved deployment alias")
+
+    async def run(self, dept_id: str, messages: list[dict], system: str, max_tokens: int = 8192) -> dict:
+        # DefaultAzureCredential prevents API keys and client supplied URLs.
+        from azure.identity.aio import DefaultAzureCredential
+        deployment = self._deployments[self._alias]
+        endpoint = deployment["endpoint"].rstrip("/")
+        url = f"{endpoint}/openai/deployments/{deployment['deployment_name']}/chat/completions?api-version=2024-10-21"
+        credential = DefaultAzureCredential()
+        try:
+            token = await credential.get_token("https://cognitiveservices.azure.com/.default")
+            async with httpx.AsyncClient(timeout=120) as client:
+                response = await client.post(url, headers={"Authorization": f"Bearer {token.token}"}, json={"messages": ([{"role": "system", "content": system}] if system else []) + messages, "max_tokens": max_tokens})
+                response.raise_for_status()
+                body = response.json()
+        finally:
+            await credential.close()
+        usage = body.get("usage", {})
+        return {"content": [{"type": "text", "text": body["choices"][0]["message"]["content"]}], "model": deployment["catalog_key"], "usage": {"input_tokens": usage.get("prompt_tokens", 0), "output_tokens": usage.get("completion_tokens", 0)}, "governance": {"backend": "foundry", "deployment_alias": self._alias, "region": deployment["region"], "is_valid": True}}
 
 
 # ── Vertex AI client (AnthropicVertex) ───────────────────────────────────────
@@ -635,6 +678,8 @@ async def _ralph_cycle(
         result = await _get_managed_client().run(task.role.value, messages, system, max_tokens)
     elif backend == BackendType.VERTEX_AI:
         result = await _get_vertex_client().run(task.role.value, messages, system, max_tokens=max_tokens)
+    elif backend == BackendType.FOUNDRY:
+        result = await _get_foundry_client().run(task.role.value, messages, system, max_tokens=max_tokens)
     else:
         result = await proxy.messages(messages, system, model, max_tokens)
 
