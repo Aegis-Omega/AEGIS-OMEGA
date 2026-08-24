@@ -1,0 +1,65 @@
+name: Weil Convergence Bridge
+
+on:
+  pull_request:
+    paths:
+      - "harness/sdk/weil_convergence_bridge.py"
+      - "harness/sdk/exact_ldlt.py"
+      - "harness/sdk/guinand_weil_arb.py"
+      - "harness/sdk/guinand_weil_crosscheck.py"
+      - "harness/sdk/arch_tail_certificate.py"
+      - "scripts/weil-proof.py"
+      - "sovereign-omega-v2/python/tests/test_weil_convergence_bridge.py"
+      - "sovereign-omega-v2/python/tests/test_weil_finite_certificate.py"
+      - "sovereign-omega-v2/python/tests/test_exact_ldlt_certificate.py"
+      - "sovereign-omega-v2/python/tests/test_guinand_weil_arb.py"
+      - "sovereign-omega-v2/python/tests/test_guinand_weil_crosscheck.py"
+      - "sovereign-omega-v2/python/tests/test_arch_tail_certificate.py"
+      - "research/falsifiers/weil_convergence_bridge_v1.md"
+      - ".github/workflows/weil-convergence-bridge.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-convergence-bridge-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONPATH: ${{ github.workspace }}
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  verify:
+    name: aegis / weil-convergence-bridge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact candidate head
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${EXPECTED_SHA}"
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+
+      - name: Install exact test dependencies
+        run: python -m pip install --disable-pip-version-check pytest==8.4.1 python-flint==0.8.0 mpmath==1.3.0
+
+      - name: Compile proof tool
+        run: python -m py_compile harness/sdk/weil_convergence_bridge.py harness/sdk/exact_ldlt.py harness/sdk/guinand_weil_arb.py harness/sdk/guinand_weil_crosscheck.py harness/sdk/arch_tail_certificate.py scripts/weil-proof.py sovereign-omega-v2/python/tests/test_weil_convergence_bridge.py sovereign-omega-v2/python/tests/test_weil_finite_certificate.py sovereign-omega-v2/python/tests/test_exact_ldlt_certificate.py sovereign-omega-v2/python/tests/test_guinand_weil_arb.py sovereign-omega-v2/python/tests/test_guinand_weil_crosscheck.py sovereign-omega-v2/python/tests/test_arch_tail_certificate.py
+
+      - name: Run Weil bridge falsifiers
+        run: pytest -q sovereign-omega-v2/python/tests/test_weil_convergence_bridge.py sovereign-omega-v2/python/tests/test_weil_finite_certificate.py sovereign-omega-v2/python/tests/test_exact_ldlt_certificate.py sovereign-omega-v2/python/tests/test_guinand_weil_arb.py sovereign-omega-v2/python/tests/test_guinand_weil_crosscheck.py sovereign-omega-v2/python/tests/test_arch_tail_certificate.py
+
+      - name: Re-run ProofTrace falsifiers
+        run: pytest -q sovereign-omega-v2/python/tests/test_proof_trace_sdk.py
