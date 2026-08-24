@@ -47,9 +47,9 @@ Lemma o0_plus_minus_cancel_v1 :
 Proof.
   intros x y.
   unfold O0EqV1, O0MinusV1.
-  rewrite <- CRplus_assoc.
+  rewrite <- (CRplus_assoc y x (CRopp O0RealsV1 y)).
   rewrite (CRplus_comm y x).
-  rewrite CRplus_assoc.
+  rewrite (CRplus_assoc x y (CRopp O0RealsV1 y)).
   rewrite CRplus_opp_r.
   rewrite CRplus_0_r.
   reflexivity.
