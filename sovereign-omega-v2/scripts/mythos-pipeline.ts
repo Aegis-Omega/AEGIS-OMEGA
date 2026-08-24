@@ -5,20 +5,23 @@
  * Usage: npx tsx scripts/mythos-pipeline.ts "task description"
  * Exit 0 = FINALIZED · Exit 1 = reconciliation exhausted
  *
- * Each stage is a separate Claude API call bounded to its role.
- * State flows forward as PipelineState. RECONCILIATION restarts
- * from PLAN on VALIDATOR or REVIEWER failure (max 2 retries).
+ * Each model stage is a separate Claude API call bounded to its role. File
+ * existence and repository coverage are deterministic boundaries and are never
+ * delegated to the model.
  */
 
 import Anthropic from '@anthropic-ai/sdk'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as crypto from 'crypto'
+import { execFileSync } from 'child_process'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '../..')
 const INDEX_PATH = path.join(ROOT, 'INDEX.md')
+const REPO_COGNITION_PATH = path.join(ROOT, '.aegis/repo-cognition-v1.json')
+const REPO_COGNITION_EXECUTABLE = path.join(ROOT, 'scripts/repo_cognition.py')
 const STATE_PATH = path.join(ROOT, 'clients/gemma-holon/state.json')
 const HOLON_ENDPOINT = 'https://aegis-vertex.aegisomega.com/platform/holon/validate'
 
@@ -27,9 +30,32 @@ const HOLON_ENDPOINT = 'https://aegis-vertex.aegisomega.com/platform/holon/valid
 type Stage = 'ORCHESTRATE' | 'PLAN' | 'VALIDATE' | 'BUILD' | 'REVIEW' | 'FINALIZE'
 type Validity = 'UNVERIFIED' | 'VERIFIED' | 'REJECTED'
 
+interface RepoCognitionFile {
+  path: string
+  kind: string
+  language: string
+  git_blob_sha: string
+  content_sha256: string
+  size_bytes: number
+  symbol_hints?: string[]
+  heading_hint?: string | null
+}
+
+interface RepoCognitionManifest {
+  schema: string
+  corpus_root: string
+  coverage: number
+  tracked_file_count: number
+  eligible_file_count: number
+  indexed_file_count: number
+  files: RepoCognitionFile[]
+}
+
 interface SystemStateVector {
   execution_phase: Stage
   index_snapshot: string
+  repository_corpus_root: string
+  repository_coverage: number
   active_files: string[]
   forbidden_actions: string[]
   validity: Validity
@@ -40,6 +66,7 @@ interface PipelineState {
   task: string
   indexContent: string
   indexSnapshot: string
+  repoCognition: RepoCognitionManifest
   ssv: SystemStateVector
   orchestratorOutput?: { routed_to: Stage; task_summary: string }
   plannerOutput?: { index_citations: string[]; files_affected: string[]; plan_steps: string[] }
@@ -59,25 +86,21 @@ The next stage is always PLAN. Do not suggest alternatives.`,
 
   PLAN: `You are the PLANNER stage of the MYTHOS BOOTSTRAP pipeline.
 Rules:
-- You MUST cite ≥1 path from the INDEX.md content provided
-- You MUST list only files that appear in the INDEX graph
-- No code generation — plan steps only
-- If a required file is not in INDEX, state: "REQUIRES_INDEX_EXPANSION: <path>"
+- INDEX.md is an authority/policy subset, NOT the repository file census.
+- You MUST cite ≥1 relevant path from INDEX.md for authority/policy context.
+- files_affected MUST come from the complete Repository Cognition path catalog provided.
+- A file being absent from INDEX.md does NOT mean it is absent from the repository.
+- No code generation — plan steps only.
 Output ONLY valid JSON:
 {
-  "index_citations": ["path from INDEX"],
+  "index_citations": ["relevant authority/policy path from INDEX"],
   "files_affected": ["path/relative/to/repo"],
   "plan_steps": ["step 1", "step 2", ...]
 }`,
 
-  VALIDATE: `You are the VALIDATOR stage of the MYTHOS BOOTSTRAP pipeline.
-Check ALL of the following. Output ONLY valid JSON:
-{
-  "valid": true|false,
-  "fail_reasons": ["reason if any"]
-}
-Fail if: index_citations is empty, files_affected contains paths not in INDEX, or
-plan_steps is empty. Pass if all checks clear.`,
+  VALIDATE: `Repository scope validation is deterministic and is not delegated to you.
+If invoked unexpectedly, output ONLY valid JSON:
+{ "valid": false, "fail_reasons": ["DETERMINISTIC_VALIDATOR_REQUIRED"] }`,
 
   BUILD: `You are the BUILDER stage of the MYTHOS BOOTSTRAP pipeline.
 Apply ONLY the approved plan. No scope expansion. No new abstractions.
@@ -109,13 +132,17 @@ verdict=PASS requires cycle_verdict=APPROVED or FLAG. verdict=FAIL requires cycl
 
   FINALIZE: `You are the FINALIZER stage of the MYTHOS BOOTSTRAP pipeline.
 Confirm the pipeline reached FINALIZE with verdict PASS. Emit the final SYSTEM STATE VECTOR.
+Repository identity fields are supplied by the deterministic runtime and will override model output.
 Output ONLY valid JSON:
 {
   "execution_phase": "FINALIZE",
   "index_snapshot": "<sha256>",
+  "repository_corpus_root": "<sha256>",
+  "repository_coverage": 1.0,
   "active_files": ["files actually changed"],
   "forbidden_actions": [],
-  "validity": "VERIFIED"
+  "validity": "VERIFIED",
+  "reconciliation_retries": 0
 }`,
 }
 
@@ -126,8 +153,64 @@ function computeIndexSnapshot(): string {
   return crypto.createHash('sha256').update(content).digest('hex')
 }
 
-function makeSSV(phase: Stage, snapshot: string, files: string[] = []): SystemStateVector {
-  return { execution_phase: phase, index_snapshot: snapshot, active_files: files, forbidden_actions: [], validity: 'UNVERIFIED', reconciliation_retries: 0 }
+function verifyRepositoryCognition(): RepoCognitionManifest {
+  if (!fs.existsSync(REPO_COGNITION_EXECUTABLE)) {
+    throw new Error(`REPOSITORY_KNOWLEDGE_INCOMPLETE: missing ${REPO_COGNITION_EXECUTABLE}`)
+  }
+  if (!fs.existsSync(REPO_COGNITION_PATH)) {
+    throw new Error(`REPOSITORY_KNOWLEDGE_INCOMPLETE: missing ${REPO_COGNITION_PATH}`)
+  }
+
+  const python = process.env['PYTHON'] || 'python3'
+  try {
+    execFileSync(python, [REPO_COGNITION_EXECUTABLE, '--check', '--quiet'], {
+      cwd: ROOT,
+      stdio: 'pipe',
+    })
+  } catch (error) {
+    const stderr = error instanceof Error ? error.message : String(error)
+    throw new Error(`REPOSITORY_KNOWLEDGE_INCOMPLETE: corpus verification failed: ${stderr}`)
+  }
+
+  const manifest = JSON.parse(fs.readFileSync(REPO_COGNITION_PATH, 'utf8')) as RepoCognitionManifest
+  if (manifest.schema !== 'AEGIS_REPO_COGNITION_V1') {
+    throw new Error(`REPOSITORY_KNOWLEDGE_INCOMPLETE: unexpected schema ${manifest.schema}`)
+  }
+  if (manifest.coverage !== 1 || manifest.indexed_file_count !== manifest.eligible_file_count) {
+    throw new Error(
+      `REPOSITORY_KNOWLEDGE_INCOMPLETE: coverage=${manifest.coverage} ` +
+      `indexed=${manifest.indexed_file_count}/${manifest.eligible_file_count}`,
+    )
+  }
+  if (!/^[0-9a-f]{64}$/.test(manifest.corpus_root)) {
+    throw new Error('REPOSITORY_KNOWLEDGE_INCOMPLETE: invalid corpus_root')
+  }
+  if (!Array.isArray(manifest.files) || manifest.files.length !== manifest.indexed_file_count) {
+    throw new Error('REPOSITORY_KNOWLEDGE_INCOMPLETE: manifest file cardinality mismatch')
+  }
+  const paths = manifest.files.map(file => file.path)
+  if (new Set(paths).size !== paths.length) {
+    throw new Error('REPOSITORY_KNOWLEDGE_INCOMPLETE: duplicate repository paths')
+  }
+  return manifest
+}
+
+function makeSSV(
+  phase: Stage,
+  snapshot: string,
+  repoCognition: RepoCognitionManifest,
+  files: string[] = [],
+): SystemStateVector {
+  return {
+    execution_phase: phase,
+    index_snapshot: snapshot,
+    repository_corpus_root: repoCognition.corpus_root,
+    repository_coverage: repoCognition.coverage,
+    active_files: files,
+    forbidden_actions: [],
+    validity: 'UNVERIFIED',
+    reconciliation_retries: 0,
+  }
 }
 
 function log(stage: Stage, msg: string) {
@@ -198,7 +281,7 @@ async function holonGate(gate: 'POST_VALIDATE' | 'POST_REVIEW', bio: BioState, n
       const h = data?.data?.chain_entry_hash
       if (h) result.chain_entry_hash = h
     }
-  } catch { /* offline — verdict still valid */ }
+  } catch { /* offline — local verdict remains a local deterministic gate result */ }
   return result
 }
 
@@ -213,22 +296,59 @@ async function runOrchestrate(client: Anthropic, state: PipelineState): Promise<
 }
 
 async function runPlan(client: Anthropic, state: PipelineState): Promise<PipelineState> {
-  log('PLAN', 'reading INDEX, defining scope')
-  const userContent = `Task: ${state.task}\n\nINDEX.md content:\n${state.indexContent}`
+  log('PLAN', 'reading complete repository corpus + INDEX authority subset')
+  const catalog = state.repoCognition.files.map(file => {
+    const symbols = (file.symbol_hints || []).slice(0, 8).join(',')
+    const heading = file.heading_hint ? ` heading=${file.heading_hint}` : ''
+    return `${file.path}\t${file.kind}\t${file.language}${symbols ? `\t${symbols}` : ''}${heading}`
+  }).join('\n')
+  const userContent = `Task: ${state.task}\n\nRepository Cognition (complete existence/content-identity catalog)\ncorpus_root=${state.repoCognition.corpus_root}\ncoverage=${state.repoCognition.coverage}\nfiles=${state.repoCognition.indexed_file_count}\n\n${catalog}\n\nINDEX.md (authority/policy subset, not file census):\n${state.indexContent}`
   const raw = await callStage(client, 'PLAN', userContent)
   const out = parseJSON<{ index_citations: string[]; files_affected: string[]; plan_steps: string[] }>(raw, 'PLAN')
   log('PLAN', `${out.plan_steps.length} steps · ${out.files_affected.length} files · ${out.index_citations.length} INDEX citations`)
   return { ...state, plannerOutput: out, ssv: { ...state.ssv, execution_phase: 'VALIDATE', active_files: out.files_affected } }
 }
 
-async function runValidate(client: Anthropic, state: PipelineState): Promise<PipelineState> {
-  log('VALIDATE', 'CI gate check')
+async function runValidate(_client: Anthropic, state: PipelineState): Promise<PipelineState> {
+  log('VALIDATE', 'deterministic repository scope + authority-context gate')
   const plan = state.plannerOutput!
-  const userContent = `Plan to validate:\n${JSON.stringify(plan, null, 2)}\n\nINDEX paths available:\n${state.indexContent.split('\n').filter(l => l.includes('`')).join('\n')}`
-  const raw = await callStage(client, 'VALIDATE', userContent)
-  const out = parseJSON<{ valid: boolean; fail_reasons: string[] }>(raw, 'VALIDATE')
+  const failReasons: string[] = []
+  const knownPaths = new Set(state.repoCognition.files.map(file => file.path))
+
+  if (!Array.isArray(plan.index_citations) || plan.index_citations.length === 0) {
+    failReasons.push('INDEX_CITATION_REQUIRED')
+  } else {
+    const invalidCitations = plan.index_citations.filter(citation => !state.indexContent.includes(citation))
+    if (invalidCitations.length > 0) {
+      failReasons.push(`UNKNOWN_INDEX_CITATION:${invalidCitations.join(',')}`)
+    }
+  }
+  if (!Array.isArray(plan.plan_steps) || plan.plan_steps.length === 0) {
+    failReasons.push('PLAN_STEPS_REQUIRED')
+  }
+  if (!Array.isArray(plan.files_affected) || plan.files_affected.length === 0) {
+    failReasons.push('FILES_AFFECTED_REQUIRED')
+  } else {
+    const unknownFiles = plan.files_affected.filter(file => !knownPaths.has(file))
+    if (unknownFiles.length > 0) {
+      failReasons.push(`REPOSITORY_PATH_NOT_IN_VERIFIED_CORPUS:${unknownFiles.join(',')}`)
+    }
+    if (new Set(plan.files_affected).size !== plan.files_affected.length) {
+      failReasons.push('DUPLICATE_FILES_AFFECTED')
+    }
+  }
+
+  const out = { valid: failReasons.length === 0, fail_reasons: failReasons }
   log('VALIDATE', out.valid ? 'PASS' : `FAIL: ${out.fail_reasons.join(', ')}`)
-  return { ...state, validatorOutput: out, ssv: { ...state.ssv, execution_phase: 'BUILD', validity: out.valid ? 'VERIFIED' : 'REJECTED' } }
+  return {
+    ...state,
+    validatorOutput: out,
+    ssv: {
+      ...state.ssv,
+      execution_phase: out.valid ? 'BUILD' : 'PLAN',
+      validity: out.valid ? 'VERIFIED' : 'REJECTED',
+    },
+  }
 }
 
 async function runBuild(client: Anthropic, state: PipelineState): Promise<PipelineState> {
@@ -257,13 +377,21 @@ async function runReview(client: Anthropic, state: PipelineState): Promise<Pipel
 
 async function runFinalize(client: Anthropic, state: PipelineState): Promise<PipelineState> {
   log('FINALIZE', 'emitting final SYSTEM STATE VECTOR')
-  const userContent = `Reviewer verdict: ${state.reviewerOutput!.verdict}\nIndex snapshot: ${state.indexSnapshot}\nActive files: ${JSON.stringify(state.plannerOutput!.files_affected)}`
+  const userContent = `Reviewer verdict: ${state.reviewerOutput!.verdict}\nIndex snapshot: ${state.indexSnapshot}\nRepository corpus root: ${state.repoCognition.corpus_root}\nRepository coverage: ${state.repoCognition.coverage}\nActive files: ${JSON.stringify(state.plannerOutput!.files_affected)}`
   const raw = await callStage(client, 'FINALIZE', userContent)
   const out = parseJSON<SystemStateVector>(raw, 'FINALIZE')
-  // Preserve the true reconciliation count in the recorded snapshot — the
-  // model-emitted SSV does not carry it, and dropping it would re-introduce
-  // hidden state.
-  const finalSSV: SystemStateVector = { ...out, reconciliation_retries: state.ssv.reconciliation_retries }
+  // Model output cannot rewrite repository identity, verified scope, or the true
+  // reconciliation count. Those fields are deterministic runtime state.
+  const finalSSV: SystemStateVector = {
+    ...out,
+    execution_phase: 'FINALIZE',
+    index_snapshot: state.indexSnapshot,
+    repository_corpus_root: state.repoCognition.corpus_root,
+    repository_coverage: state.repoCognition.coverage,
+    active_files: [...state.plannerOutput!.files_affected],
+    validity: 'VERIFIED',
+    reconciliation_retries: state.ssv.reconciliation_retries,
+  }
   return { ...state, finalSnapshot: finalSSV, ssv: finalSSV }
 }
 
@@ -271,7 +399,15 @@ async function runFinalize(client: Anthropic, state: PipelineState): Promise<Pip
 
 async function runPipeline(task: string): Promise<void> {
   if (!fs.existsSync(INDEX_PATH)) {
-    console.error('[MYTHOS] ABORT: INDEX.md not found at', INDEX_PATH)
+    console.error('[MYTHOS] ABORT: INDEX.md authority subset not found at', INDEX_PATH)
+    process.exit(1)
+  }
+
+  let repoCognition: RepoCognitionManifest
+  try {
+    repoCognition = verifyRepositoryCognition()
+  } catch (error) {
+    console.error('[MYTHOS] ABORT:', error instanceof Error ? error.message : String(error))
     process.exit(1)
   }
 
@@ -290,10 +426,12 @@ async function runPipeline(task: string): Promise<void> {
     task,
     indexContent,
     indexSnapshot,
-    ssv: makeSSV('ORCHESTRATE', indexSnapshot),
+    repoCognition,
+    ssv: makeSSV('ORCHESTRATE', indexSnapshot, repoCognition),
   }
 
-  console.log(`\n[MYTHOS] INDEX.md snapshot: ${indexSnapshot.slice(0, 16)}…`)
+  console.log(`\n[MYTHOS] repository corpus: ${repoCognition.corpus_root.slice(0, 16)}… coverage=${repoCognition.coverage} files=${repoCognition.indexed_file_count}`)
+  console.log(`[MYTHOS] INDEX.md authority snapshot: ${indexSnapshot.slice(0, 16)}…`)
   console.log(`[MYTHOS] Task: "${task}"\n`)
 
   // ORCHESTRATE
@@ -309,7 +447,7 @@ async function runPipeline(task: string): Promise<void> {
     // PLAN
     state = await runPlan(client, state)
 
-    // VALIDATE
+    // VALIDATE — deterministic; no provider call can decide file existence.
     state = await runValidate(client, state)
 
     if (!state.validatorOutput!.valid) {

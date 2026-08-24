@@ -20,7 +20,6 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PROJECT_DIR:-$PWD}/.claude/hooks/session-start.sh\"",
-            "async": true,
             "timeout": 300,
             "statusMessage": "AEGIS: session-start (deps + orient)"
           }
