@@ -37,7 +37,7 @@ Definition O0EqV1 (x y : O0RealV1) : Prop :=
   CReq O0RealsV1 x y.
 
 Definition O0ZeroV1 : O0RealV1 :=
-  CR_of_Q O0RealsV1 0.
+  CR_of_Q O0RealsV1 (0%Q).
 
 Definition O0OppV1 (x : O0RealV1) : O0RealV1 :=
   CRopp O0RealsV1 x.
