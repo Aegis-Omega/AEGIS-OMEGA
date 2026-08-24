@@ -14,6 +14,7 @@ on:
       - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeCompact.v"
       - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeContinuity.v"
       - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeConstructive.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0ProductionConstructiveProbe.v"
       - ".github/workflows/weil-o0-globalization.yml"
   workflow_dispatch:
 
@@ -102,9 +103,8 @@ jobs:
               cat "$log"
             done
 
-            # RED/GREEN decision for the prospective stronger trust carrier.
-            # This is a test only: production AnalyticDefinitions.v is still
-            # classical R until a Closed constructive probe is observed.
+            # GREEN prerequisite: the candidate constructive Cauchy-real order
+            # itself must be Closed before it can replace the classical carrier.
             coqc O0TrustProbeConstructive.v
             query="$OUT/o0_trust_probe_constructive_order_refl.v"
             log="$OUT/o0_trust_probe_constructive_order_refl.assumptions.txt"
@@ -119,13 +119,15 @@ jobs:
               exit 1
             fi
 
-            # Dependency probe is evidence-only; install it only after the
-            # constructive trust test so it cannot affect that result.
+            # TDD RED: this production-surface probe intentionally names the
+            # constructive O0 API before AnalyticDefinitions.v implements it.
+            coqc O0ProductionConstructiveProbe.v
+
+            # Dependency probe is evidence-only and downstream of the carrier test.
             opam install -y coq-coquelicot.3.4.2
             opam list --installed coq-coquelicot --short | tee "$OUT/dependency-probe.log"
             coqc O0DependencyProbe.v
 
-            # Re-run bare Reals after installation to detect environment contamination.
             query="$OUT/post-o0_trust_probe_reals_reflexive.v"
             log="$OUT/post-o0_trust_probe_reals_reflexive.assumptions.txt"
             printf 'Set Coqtop Exit On Error.\nRequire Import O0TrustProbeReals.\nPrint Assumptions o0_trust_probe_reals_reflexive.\n' > "$query"
@@ -139,8 +141,6 @@ jobs:
             coqc WeilCriterion.v 2>&1 | tee "$OUT/weil-criterion.log"
             coqc O0.v 2>&1 | tee "$OUT/o0.log"
 
-            # Current production O0 carrier is still classical R. Keep this
-            # gate fail-closed until a RED-first migration replaces it.
             for theorem in \
               global_weil_positivity_v1_pointwise \
               finite_lower_bound_v1_specialize
