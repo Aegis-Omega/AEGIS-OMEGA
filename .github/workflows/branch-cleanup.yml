@@ -1,0 +1,124 @@
+name: Branch Cleanup
+
+# Keyless: runs on the automatic GITHUB_TOKEN, no PAT or stored secret.
+# Deletes only branches this job re-proves are redundant at run time — the
+# list below is an intent, never an authorization. A branch is deleted only if
+# its tip is an ancestor of `main`, or an ancestor of the ref named as its
+# container (the head branch of the open PR that already carries it).
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Delete for real. Leave false to only report what would be deleted.'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    name: aegis / branch-cleanup
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Re-prove redundancy and delete
+        shell: bash
+        env:
+          APPLY: ${{ inputs.apply }}
+        run: |
+          set -euo pipefail
+
+          # checkout only guarantees the checked-out ref; every container and
+          # candidate below is read as origin/<name>, so fetch them all.
+          git fetch --prune origin '+refs/heads/*:refs/remotes/origin/*'
+
+          # "<branch>|<container ref>" — container is the ref that must already
+          # contain the branch tip. `main` for merged branches; a PR head for
+          # branches whose commits live on an open PR.
+          candidates=(
+            'agent/coordinator-fail-closed-authority-v1|main'
+            'agent/evidence-bound-skill-authority-v2|main'
+            'agent/queued-control-plane-enforcement-v1|main'
+            'claude/blissful-rubin-mt9jS|main'
+            'claude/slack-session-yyw7h6|main'
+            'feat/automaton-3-sovereign-execution|main'
+            'feat/cockroach-memory-sentinel-v1-current|main'
+            'feat/cockroach-memory-sentinel-v1-final2|main'
+            'tmp/memory-sentinel-reconcile|main'
+            'spec/universal-collective-intelligence-kernel-v1|feat/uci-8-evaluation-campaign-v1'
+            'noop|feat/uci-8-evaluation-campaign-v1'
+            'feat/uci-4-effect-chain-integration-v1-red-anchor|feat/uci-8-evaluation-campaign-v1'
+            'fix/pr264-verification-surface|feat/frontier-provider-mesh-v1'
+            'pr3-pre-admission-verifier-closure|pr4-complete-verification'
+          )
+
+          # Commits allowed to differ from the container without blocking a
+          # delete: the generated cognitive manifest and nothing else.
+          generated_only() {
+            local branch="$1" container="$2" subject
+            while read -r subject; do
+              [[ -z "$subject" ]] && continue
+              [[ "$subject" == chore\(manifest\)* ]] || return 1
+            done < <(git log --format=%s "origin/${container}..origin/${branch}")
+            local files
+            files="$(git diff --name-only "origin/${container}...origin/${branch}")"
+            [[ "$files" == ".claude.json" || -z "$files" ]]
+          }
+
+          to_delete=()
+          for entry in "${candidates[@]}"; do
+            branch="${entry%%|*}"
+            container="${entry##*|}"
+
+            if ! git rev-parse --verify --quiet "refs/remotes/origin/${branch}" >/dev/null; then
+              printf 'SKIP    %-52s already gone\n' "$branch"
+              continue
+            fi
+            if ! git rev-parse --verify --quiet "refs/remotes/origin/${container}" >/dev/null; then
+              printf 'REFUSE  %-52s container %s missing\n' "$branch" "$container"
+              continue
+            fi
+
+            if git merge-base --is-ancestor "origin/${branch}" "origin/${container}"; then
+              printf 'DELETE  %-52s contained in %s\n' "$branch" "$container"
+              to_delete+=("$branch")
+            elif generated_only "$branch" "$container"; then
+              printf 'DELETE  %-52s contained in %s (+ generated manifest only)\n' "$branch" "$container"
+              to_delete+=("$branch")
+            else
+              printf 'REFUSE  %-52s carries commits absent from %s\n' "$branch" "$container"
+            fi
+          done
+
+          echo
+          echo "proven redundant: ${#to_delete[@]} of ${#candidates[@]}"
+
+          if [[ "${#to_delete[@]}" -eq 0 ]]; then
+            echo 'nothing to do'
+            exit 0
+          fi
+
+          echo
+          echo 'recoverable tips (push back with: git push origin <sha>:refs/heads/<name>)'
+          for branch in "${to_delete[@]}"; do
+            printf '  %s  %s\n' "$(git rev-parse "origin/${branch}")" "$branch"
+          done
+
+          if [[ "$APPLY" != 'true' ]]; then
+            echo
+            echo 'dry run — re-dispatch with apply=true to delete'
+            exit 0
+          fi
+
+          echo
+          for branch in "${to_delete[@]}"; do
+            git push origin --delete "$branch"
+          done
+          echo "deleted ${#to_delete[@]} branches"
