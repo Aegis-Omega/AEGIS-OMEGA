@@ -43,6 +43,13 @@ if [ -f "$REPO/sovereign-omega-v2/python/requirements.txt" ]; then
   fi
 fi
 
-# Ground truth — open every session knowing branch / main-drift / unpushed / membrane / live.
+# Ground truth is a hard session admission boundary. A session that cannot prove
+# complete content-addressed repository coverage is not allowed to begin as if
+# it knows the repository. Live endpoint failures remain diagnostic; membrane
+# or repository-cognition failures make ground-truth exit non-zero.
 # Per WORKFLOW.md: no session starts blind; nothing is "done" until it is on main.
-bash "$REPO/scripts/ground-truth.sh" 2>/dev/null || true
+if ! bash "$REPO/scripts/ground-truth.sh"; then
+  echo "SessionStart: REPOSITORY KNOWLEDGE / CONSTITUTIONAL GROUND TRUTH FAILED" >&2
+  echo "SessionStart: refusing blind agent execution." >&2
+  exit 1
+fi
