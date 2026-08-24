@@ -1,0 +1,113 @@
+name: AEGIS Template Epistemic Repair Migration
+
+on:
+  push:
+    branches: ['fix/template-epistemic-boundary-v1']
+    paths:
+      - '.github/workflows/template-epistemic-repair-migration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    name: Asserted template migration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: fix/template-epistemic-boundary-v1
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Apply exact asserted replacements
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          helper = Path('sovereign-omega-v2/python/platform_helpers.py')
+          tests = Path('sovereign-omega-v2/python/tests/test_platform.py')
+          text = helper.read_text(encoding='utf-8')
+          test_text = tests.read_text(encoding='utf-8')
+
+          def replace_once(value: str, old: str, new: str, label: str) -> str:
+              count = value.count(old)
+              if count != 1:
+                  raise SystemExit(f'ASSERTED_REPLACEMENT_FAILED {label}: expected 1 occurrence, found {count}')
+              return value.replace(old, new, 1)
+
+          text = replace_once(
+              text,
+              "    'regulatory':   'T1',  # compliance status is empirically validated",
+              "    'regulatory':   'T2',  # deterministic template is candidate context, not live compliance evidence",
+              'regulatory-tier',
+          )
+          text = replace_once(
+              text,
+              "    'constitutional': ' Constitutional compliance: T0 verdict VALID.',\n    'governance':     ' Risk: LOW. Ethical concerns: NONE.',\n    'executive':      ' Board priority: TIER-1. Strategic alignment: confirmed.',",
+              "    'constitutional': ' Constitutional status: NOT_EVALUATED.',\n    'governance':     ' Risk/ethics status: NOT_EVALUATED.',\n    'executive':      ' Board/alignment status: NOT_EVALUATED.',",
+              'category-suffixes',
+          )
+          text = replace_once(
+              text,
+              "    return base + _CATEGORY_SUFFIX.get(dept['category'], '')",
+              "    return '[SYNTHETIC TEMPLATE | T2 | NOT VERIFIED] ' + base + _CATEGORY_SUFFIX.get(dept['category'], '')",
+              'template-wrapper',
+          )
+
+          test_text = replace_once(
+              test_text,
+              "    _chk('constitutional dept suffix present', 'T0 verdict VALID' in out_con)",
+              "    _chk('constitutional dept is explicitly not evaluated', 'Constitutional status: NOT_EVALUATED' in out_con)",
+              'legacy-constitutional',
+          )
+          test_text = replace_once(
+              test_text,
+              "    _chk('governance dept suffix present', 'Risk: LOW' in out_gov)",
+              "    _chk('governance dept is explicitly not evaluated', 'Risk/ethics status: NOT_EVALUATED' in out_gov)",
+              'legacy-governance',
+          )
+          test_text = replace_once(
+              test_text,
+              "    _chk('executive dept suffix present', 'Board priority' in out_exe)",
+              "    _chk('executive dept is explicitly not evaluated', 'Board/alignment status: NOT_EVALUATED' in out_exe)",
+              'legacy-executive',
+          )
+          test_text = replace_once(
+              test_text,
+              "        'regulatory':  'T1',  # regulatory is T1 (compliance status, empirically validated)",
+              "        'regulatory':  'T2',  # deterministic regulatory template is not live compliance evidence",
+              'legacy-regulatory-tier',
+          )
+
+          helper.write_text(text, encoding='utf-8')
+          tests.write_text(test_text, encoding='utf-8')
+          print('ASSERTED_TEMPLATE_EPISTEMIC_REPAIR_APPLIED')
+          PY
+
+      - name: Verify focused and inherited contracts before commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python sovereign-omega-v2/python/tests/test_template_epistemic_boundary.py
+          python sovereign-omega-v2/python/tests/test_platform.py
+
+      - name: Commit verified repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add sovereign-omega-v2/python/platform_helpers.py sovereign-omega-v2/python/tests/test_platform.py
+          git diff --cached --check
+          git commit -m 'fix(template): bound deterministic department output to T2 candidate state'
+          git push origin HEAD:fix/template-epistemic-boundary-v1
