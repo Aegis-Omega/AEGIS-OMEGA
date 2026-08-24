@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "b328c9c5dab835548e0ca392b94d587680556e387b9c89ac7f6de28e7e21cf09",
+  "corpus_root": "328c922558061fa362002baeb26427cf88f8b3728c24cfaca8ab0060c9fcc3be",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1871,
@@ -37975,7 +37975,7 @@
       ]
     },
     {
-      "content_sha256": "7ae55c576af22a3597cd7055e89e002f80631befd9795420941f4ae4631608b8",
+      "content_sha256": "e7fc13ba6c5b03c67284be2c0b93050b67ae0d12ba8828dddaa71e249fc64e16",
       "dependency_hints": [
         "__future__",
         "pathlib",
@@ -37985,15 +37985,15 @@
         "tempfile",
         "unittest"
       ],
-      "git_blob_sha": "6f38c556cb14c6272a3e62ac932728ab31cf2499",
+      "git_blob_sha": "1242c43be18f1362f2e0373c8d9af66c629148fe",
       "heading_hint": null,
       "kind": "test",
       "language": "python",
-      "line_count": 153,
+      "line_count": 212,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/tests/test_repo_cognition.py",
-      "size_bytes": 5970,
+      "size_bytes": 8722,
       "symbol_hints": [
         "git",
         "init_repo",
@@ -38004,7 +38004,11 @@
         "test_symbol_hints_make_content_addressable_without_claiming_semantics",
         "test_corpus_root_changes_when_source_content_changes",
         "test_verify_fails_closed_on_stale_manifest",
-        "test_manifest_is_deterministic_for_same_source_tree"
+        "test_manifest_is_deterministic_for_same_source_tree",
+        "ClaudeLifecycleCognitionTests",
+        "test_user_prompt_is_the_blocking_repository_admission_boundary",
+        "test_session_start_orientation_is_not_backgrounded",
+        "test_post_compact_reanchors_repository_cognition_without_false_restoration"
       ]
     },
     {
