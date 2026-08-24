@@ -118,4 +118,20 @@ describe('UCI-1 JSON Schema contracts', () => {
       expect(names.filter((key) => forbiddenWritable.has(key))).toEqual([]);
     }
   });
+
+  test('matches the runtime safe-integer ceiling and documents negative zero', () => {
+    for (const name of [
+      'intent-envelope.v1.schema.json',
+      'collective-work-node.v1.schema.json',
+      'collective-work-graph.v1.schema.json',
+    ]) {
+      const schema = load(name);
+      expect(schema.$defs.nonnegativeInteger).toMatchObject({
+        type: 'integer',
+        minimum: 0,
+        maximum: 9007199254740991,
+      });
+      expect(schema.$defs.nonnegativeInteger.$comment).toContain('negative zero');
+    }
+  });
 });
