@@ -1,0 +1,48 @@
+name: AEGIS Zero-Discretion Type Gates
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/python/research_invariants.py"
+      - "sovereign-omega-v2/python/research_preflight.py"
+      - "sovereign-omega-v2/python/tests/test_research_invariants.py"
+      - "docs/research/zero-discretion-type-gates-v1.md"
+      - ".github/workflows/zero-discretion-type-gates.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zero-discretion-type-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile
+        run: |
+          python -m py_compile \
+            sovereign-omega-v2/python/research_invariants.py \
+            sovereign-omega-v2/python/research_preflight.py
+      - name: Run zero-discretion regressions
+        run: |
+          python sovereign-omega-v2/python/tests/test_research_invariants.py
+      - name: Canonical under-resolution must fail closed
+        run: |
+          set +e
+          python sovereign-omega-v2/python/research_preflight.py \
+            --n-f 12 \
+            --h 3.5 \
+            --target-gamma-max 14.13
+          rc=$?
+          set -e
+          test "$rc" -eq 2
+      - name: Covered spectral domain must admit
+        run: |
+          python sovereign-omega-v2/python/research_preflight.py \
+            --n-f 16 \
+            --h 3.5 \
+            --target-gamma-max 14.13
