@@ -522,7 +522,7 @@ _MODE_TIERS: dict[str, str] = {
     'retention':    'T2',
     'competitive':  'T2',
     'technical':    'T2',
-    'regulatory':   'T1',  # compliance status is empirically validated
+    'regulatory':   'T2',  # deterministic template is candidate context, not live compliance evidence
     'fundraising':  'T2',
 }
 
@@ -543,9 +543,9 @@ _MODE_OUTPUTS = {
 # the role-differentiated body. Restored after the role-differentiation rewrite
 # (649b6138) dropped it and regressed the platform contract suffix tests.
 _CATEGORY_SUFFIX: dict[str, str] = {
-    'constitutional': ' Constitutional compliance: T0 verdict VALID.',
-    'governance':     ' Risk: LOW. Ethical concerns: NONE.',
-    'executive':      ' Board priority: TIER-1. Strategic alignment: confirmed.',
+    'constitutional': ' Constitutional status: NOT_EVALUATED.',
+    'governance':     ' Risk/ethics status: NOT_EVALUATED.',
+    'executive':      ' Board/alignment status: NOT_EVALUATED.',
 }
 
 
@@ -570,7 +570,7 @@ def dept_output(objective: str, mode: str, dept: dict) -> str:
             f'{finding}. '
             f'Action: {action}. [{tier}]'
         )
-    return base + _CATEGORY_SUFFIX.get(dept['category'], '')
+    return '[SYNTHETIC TEMPLATE | T2 | NOT VERIFIED] ' + base + _CATEGORY_SUFFIX.get(dept['category'], '')
 
 
 def make_sse_event(event_type: str, execution_id: str, payload: dict) -> dict:

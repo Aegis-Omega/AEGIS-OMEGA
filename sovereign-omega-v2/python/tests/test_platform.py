@@ -225,17 +225,17 @@ def test_dept_output():
     # Constitutional dept gets suffix
     con_dept = next(d for d in PLATFORM_DEPARTMENTS if d['category'] == 'constitutional')
     out_con = dept_output(objective, 'revenue', con_dept)
-    _chk('constitutional dept suffix present', 'T0 verdict VALID' in out_con)
+    _chk('constitutional dept is explicitly not evaluated', 'Constitutional status: NOT_EVALUATED' in out_con)
 
     # Governance dept gets suffix
     gov_dept = next(d for d in PLATFORM_DEPARTMENTS if d['category'] == 'governance')
     out_gov = dept_output(objective, 'revenue', gov_dept)
-    _chk('governance dept suffix present', 'Risk: LOW' in out_gov)
+    _chk('governance dept is explicitly not evaluated', 'Risk/ethics status: NOT_EVALUATED' in out_gov)
 
     # Executive dept gets suffix
     exe_dept = next(d for d in PLATFORM_DEPARTMENTS if d['category'] == 'executive')
     out_exe = dept_output(objective, 'revenue', exe_dept)
-    _chk('executive dept suffix present', 'Board priority' in out_exe)
+    _chk('executive dept is explicitly not evaluated', 'Board/alignment status: NOT_EVALUATED' in out_exe)
 
     # Unknown mode falls back to revenue template
     out_fallback = dept_output(objective, 'unknown_mode', PLATFORM_DEPARTMENTS[0])
@@ -255,7 +255,7 @@ def test_dept_output():
         'retention':   'T2',
         'competitive': 'T2',
         'technical':   'T2',
-        'regulatory':  'T1',  # regulatory is T1 (compliance status, empirically validated)
+        'regulatory':  'T2',  # deterministic regulatory template is not live compliance evidence
         'fundraising': 'T2',
     }
     for mode, expected_tier in _tier_labels.items():
