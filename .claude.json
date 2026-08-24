@@ -10,7 +10,7 @@
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
     "source_ref": "feat/production-cookbook-dashboard",
-    "parent_state_hash": "410bcd49c721e65050382ae759db7af2f41fa9f572e625174252c72a8748ea93",
+    "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "abf4dea0875a2d6e1dd9865288b21ba6ece57ed7d05ed9ffc797e9b57ad6148f"
+  "state_hash": "71fcae01c47d2277190d280a3f0a1e4a7e39a65f28e83f689511413a41a9f56a"
 }
