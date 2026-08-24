@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "603ec32904a8985a257023e8c9ec6ff7c688dff01e0bb5a31d26c94a6efd3e3a",
+  "corpus_root": "1294429744d48b42930ddf28767d0218a1c59406903b473a706b3774545b46e6",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1931,
@@ -233,9 +233,9 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "61c445ad2c58fe6009d83eeb16d5b7c28093ca50c01b8edca493ec847a5f2fee",
+      "content_sha256": "54c104cfd5e9b3eff10f37a4c10ca27c3c65ac4aa4c0646bbc0899a6163c0428",
       "dependency_hints": [],
-      "git_blob_sha": "7f4dc2b047d2efcf98e3a27e3b5175e19c1226f4",
+      "git_blob_sha": "f2469e904ac5fc52acf0e586839e36a3f6bf5164",
       "heading_hint": null,
       "kind": "config-or-data",
       "language": "json",
@@ -243,7 +243,7 @@
       "mode": "100644",
       "object_type": "blob",
       "path": ".claude.json",
-      "size_bytes": 19532,
+      "size_bytes": 19545,
       "symbol_hints": []
     },
     {
