@@ -1,0 +1,42 @@
+name: AEGIS Template Epistemic Boundary
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/python/platform_helpers.py'
+      - 'sovereign-omega-v2/python/tests/test_template_epistemic_boundary.py'
+      - '.github/workflows/template-epistemic-boundary.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  template-epistemic-boundary:
+    name: Template Epistemic Boundary [T1]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact candidate SHA
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$CANDIDATE_SHA"
+          printf 'EXACT_HEAD=%s\n' "$actual"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Run deterministic-template epistemic boundary contract
+        run: python sovereign-omega-v2/python/tests/test_template_epistemic_boundary.py
