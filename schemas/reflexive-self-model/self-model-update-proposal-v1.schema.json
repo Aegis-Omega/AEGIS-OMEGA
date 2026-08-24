@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/reflexive-self-model/self-model-update-proposal-v1.schema.json",
+  "title": "SelfModelUpdateProposalV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_kind",
+    "schema_version",
+    "proposal_id",
+    "cycle_id",
+    "action",
+    "supporting_receipt_digests",
+    "created_at",
+    "proposal_digest",
+    "authority"
+  ],
+  "properties": {
+    "record_kind": { "const": "SELF_MODEL_UPDATE_PROPOSAL_V1" },
+    "schema_version": { "const": "1.0.0" },
+    "proposal_id": { "type": "string", "minLength": 1 },
+    "cycle_id": { "type": "string", "minLength": 1 },
+    "action": {
+      "enum": [
+        "HOLD",
+        "DEMOTE_CONFIDENCE",
+        "RAISE_UNCERTAINTY",
+        "MARK_CONTRADICTION",
+        "REQUEST_REVIEW"
+      ]
+    },
+    "supporting_receipt_digests": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+    },
+    "created_at": { "type": "integer", "minimum": 0 },
+    "proposal_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "authority": { "const": "UPDATE_PROPOSAL_ONLY" }
+  }
+}

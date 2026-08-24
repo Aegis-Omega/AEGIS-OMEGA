@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/reflexive-self-model/self-observation-v1.schema.json",
+  "title": "SelfObservationV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_kind",
+    "schema_version",
+    "observation_id",
+    "cycle_id",
+    "target_kind",
+    "target_id",
+    "policy_digest",
+    "epoch_id",
+    "prestate_root",
+    "prediction_digest",
+    "source_modality",
+    "clauses",
+    "evidence_artifact_digests",
+    "verifier_receipt_digests",
+    "observed_at",
+    "observation_digest",
+    "epistemic_status",
+    "authority"
+  ],
+  "properties": {
+    "record_kind": { "const": "SELF_OBSERVATION_V1" },
+    "schema_version": { "const": "1.0.0" },
+    "observation_id": { "type": "string", "minLength": 1 },
+    "cycle_id": { "type": "string", "minLength": 1 },
+    "target_kind": { "enum": ["TRANSITION", "WORK_NODE"] },
+    "target_id": { "type": "string", "minLength": 1 },
+    "policy_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "epoch_id": { "type": "string", "minLength": 1 },
+    "prestate_root": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "prediction_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "source_modality": {
+      "enum": [
+        "RUNTIME_TELEMETRY",
+        "LEDGER_STATE",
+        "TEST_RESULT",
+        "FORMAL_VERIFIER_RECEIPT",
+        "WORLD_OBSERVATION_RECEIPT",
+        "PROVIDER_REPORT"
+      ]
+    },
+    "clauses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["clause_id", "value"],
+        "properties": {
+          "clause_id": { "type": "string", "minLength": 1 },
+          "value": {}
+        }
+      }
+    },
+    "evidence_artifact_digests": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+    },
+    "verifier_receipt_digests": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+    },
+    "observed_at": { "type": "integer", "minimum": 0 },
+    "observation_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "epistemic_status": { "enum": ["CANDIDATE", "VERIFIED"] },
+    "authority": { "const": "OBSERVATION_EVIDENCE_ONLY" }
+  }
+}

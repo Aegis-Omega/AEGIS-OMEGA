@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega/schemas/math-verification/formalization-binding-v1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version","binding_kind","claim_id","claim_digest","assumptions_digest","formalization_binding_digest","lean_source_sha256","coq_source_sha256","lean_toolchain_commitment","coq_toolchain_commitment","policy_commitment","authority_epoch","authority"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "binding_kind": {"const": "FORMALIZATION_BINDING_V1"},
+    "claim_id": {"type": "string", "minLength": 1, "maxLength": 160, "pattern": "^[A-Za-z0-9._:/@+\\-]+$"},
+    "claim_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "assumptions_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "formalization_binding_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "lean_source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "coq_source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "lean_toolchain_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "coq_toolchain_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "policy_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "authority_epoch": {"type": "integer", "minimum": 0},
+    "authority": {"const": "FORMALIZATION_BINDING_ONLY"}
+  }
+}

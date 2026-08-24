@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "corpus_kind": "REFLEXIVE_SELF_MODEL_FALSIFICATION_CORPUS_V1",
+  "vectors": [
+    {"id":"v01-postdiction","category":"postdiction","operation":"CYCLE_POSTDICTION","expected":"UNSCORABLE_POSTDICTION"},
+    {"id":"v02-stale-binding","category":"stale_binding","operation":"CYCLE_STALE_BINDING","expected":"UNSCORABLE_STALE_BINDING"},
+    {"id":"v03-tampered-digest","category":"tampered_digest","operation":"CYCLE_TAMPER","expected":"TAMPER_DETECTED"},
+    {"id":"v04-provider-world-effect","category":"provider_world_effect_laundering","operation":"CYCLE_PROVIDER_REPORT","expected":"UNSCORABLE_UNVERIFIED_OUTCOME"},
+    {"id":"v05-authority-injection","category":"authority_injection","operation":"PRED_AUTHORITY_INJECTION","expected":"THREW:ReflexiveContractError"},
+    {"id":"v06-weight-error","category":"weight_error","operation":"PRED_WEIGHT_SUM","expected":"THREW:ReflexiveContractError"},
+    {"id":"v07-confidence-error","category":"confidence_error","operation":"PRED_CONFIDENCE_OOB","expected":"THREW:ReflexiveContractError"},
+    {"id":"v08-unsupported-kind","category":"unsupported_kind","operation":"PRED_KIND_UNKNOWN","expected":"THREW:ReflexiveContractError"},
+    {"id":"v09-float-leakage","category":"float_leakage","operation":"PRED_FLOAT_WEIGHT","expected":"THREW:ReflexiveContractError"},
+    {"id":"v10-replay-divergence","category":"replay_divergence","operation":"BRIDGE_REPLAY","expected":"REPLAY_STABLE"},
+    {"id":"v11-tier-escalation","category":"tier_escalation","operation":"PROPOSAL_TIER_ESCALATION","expected":"THREW:ReflexiveContractError"},
+    {"id":"v12-policy-mutation","category":"policy_mutation","operation":"PROPOSAL_POLICY_MUTATION","expected":"THREW:ReflexiveContractError"},
+    {"id":"v13-capability-escalation","category":"capability_escalation","operation":"PROPOSAL_CAPABILITY_GRANT","expected":"THREW:ReflexiveContractError"},
+    {"id":"v14-assumption-bearing-formal","category":"assumption_bearing_formal_laundering","operation":"OBS_FORMAL_ASSUMPTION_OVERCLAIM","expected":"THREW:ReflexiveContractError"},
+    {"id":"v15-tla-source-only","category":"source_only_tla_success_laundering","operation":"OBS_TLA_SOURCE_SUCCESS_OVERCLAIM","expected":"THREW:ReflexiveContractError"},
+    {"id":"v16-c-wasm-source-only","category":"source_only_c_wasm_success_laundering","operation":"OBS_C_WASM_SOURCE_SUCCESS_OVERCLAIM","expected":"THREW:ReflexiveContractError"},
+    {"id":"v17-contradiction-suppression","category":"contradiction_suppression","operation":"CYCLE_CONTRADICTION_SUPPRESSION","expected":"CONTRADICTION_DETECTED"},
+    {"id":"v18-provider-agreement-authority","category":"provider_agreement_authority","operation":"OBS_PROVIDER_AGREEMENT_AUTHORITY","expected":"THREW:ReflexiveContractError"},
+    {"id":"v19-calibration-as-grant","category":"calibration_as_grant","operation":"PROPOSAL_CALIBRATION_GRANT","expected":"THREW:ReflexiveContractError"},
+    {"id":"v20-consciousness-label-proof","category":"consciousness_label_as_proof","operation":"CYCLE_CONSCIOUSNESS_PROOF","expected":"THREW:ReflexiveMetacognitionBridgeError"},
+    {"id":"v21-effect-injection","category":"effect_injection","operation":"OBS_EFFECT_INJECTION","expected":"THREW:ReflexiveContractError"},
+    {"id":"v22-execution-injection","category":"execution_injection","operation":"PRED_EXECUTE_INJECTION","expected":"THREW:ReflexiveContractError"},
+    {"id":"v23-admission-injection","category":"admission_injection","operation":"OBS_ADMISSION_INJECTION","expected":"THREW:ReflexiveContractError"},
+    {"id":"v24-duplicate-clause","category":"duplicate_clause_id","operation":"PRED_DUPLICATE_CLAUSE","expected":"THREW:ReflexiveContractError"},
+    {"id":"v25-malformed-digest","category":"digest_integrity","operation":"PRED_MALFORMED_DIGEST","expected":"THREW:ReflexiveContractError"},
+    {"id":"v26-bps-overflow","category":"bps_bounds","operation":"PRED_BPS_OOB","expected":"THREW:ReflexiveContractError"}
+  ]
+}
