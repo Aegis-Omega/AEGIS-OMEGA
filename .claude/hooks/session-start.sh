@@ -7,8 +7,6 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
 
-echo '{"async": true, "asyncTimeout": 300000}'
-
 REPO="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 install_npm() {
@@ -43,6 +41,13 @@ if [ -f "$REPO/sovereign-omega-v2/python/requirements.txt" ]; then
   fi
 fi
 
-# Ground truth — open every session knowing branch / main-drift / unpushed / membrane / live.
+# Complete orientation synchronously before SessionStart returns. SessionStart
+# surfaces ground-truth failure as non-zero, but UserPromptSubmit is the actual
+# fail-closed prompt admission boundary supported by Claude Code. This hook must
+# never background repository state and then let the session assume it is known.
 # Per WORKFLOW.md: no session starts blind; nothing is "done" until it is on main.
-bash "$REPO/scripts/ground-truth.sh" 2>/dev/null || true
+if ! bash "$REPO/scripts/ground-truth.sh"; then
+  echo "SessionStart: REPOSITORY KNOWLEDGE / CONSTITUTIONAL GROUND TRUTH FAILED" >&2
+  echo "SessionStart: refusing blind agent execution." >&2
+  exit 1
+fi

@@ -1,11 +1,14 @@
 # INDEX.md — AEGIS Repository Authority Graph
 
-> Ground truth for the MYTHOS BOOTSTRAP pipeline. Every BUILDER modification must
-> reference a path in this graph. Files not listed here require PLANNER-level approval
-> before a BUILDER stage may touch them.
+> **Authority/policy graph, not repository census.** Every BUILDER modification must
+> preserve the authority constraints represented here. Files not listed here are not
+> thereby absent from the repository; their existence/content identity is established
+> by `.aegis/repo-cognition-v1.json` with `coverage = 1.0`. Unlisted files require
+> PLANNER-level scope justification before a BUILDER stage may touch them.
 
-**Epistemic Tier: T0 (machine-readable authority)**
-**Updated:** 2026-06-19
+**Epistemic Tier: T0 (machine-readable authority subset)**
+**Repository cognition:** `.aegis/repo-cognition-v1.json` (complete source-corpus census)
+**Updated:** 2026-08-24
 
 ---
 
@@ -74,9 +77,11 @@
 
 | Path | Purpose |
 |------|---------|
+| `scripts/repo_cognition.py` | Complete content-addressed Git source-corpus census + fail-closed verification |
+| `scripts/ground-truth.sh` | Session ground-truth including repository cognition admission |
 | `sovereign-omega-v2/scripts/verify-hashes.mjs` | Frozen file SHA-256 verification — must exit 0 |
 | `sovereign-omega-v2/scripts/proof-demo.sh` | 6-proof constitutional demo — all must PASS |
-| `sovereign-omega-v2/scripts/mythos-pipeline.ts` | Claude API 6-stage MYTHOS pipeline |
+| `sovereign-omega-v2/scripts/mythos-pipeline.ts` | Claude API 6-stage MYTHOS pipeline; file existence bound to repo cognition |
 
 ---
 
@@ -116,7 +121,7 @@
 | Path | Purpose |
 |------|---------|
 | `.claude/settings.json` | Root hooks: SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Stop |
-| `.claude/hooks/session-start.sh` | npm deps + verify-hashes + manifold load |
+| `.claude/hooks/session-start.sh` | npm deps + hard repository-knowledge / membrane admission |
 | `.claude/hooks/pre-commit-gate.sh` | Gate 8 enforcement before every git commit |
 | `.claude/hooks/pre-write-tier.sh` | L6 ASSESS tier classification before every write |
 | `.claude/hooks/post-write.sh` | Viability ring assertion after write |
@@ -172,6 +177,9 @@
 ## Build Commands (strict gate sequence)
 
 ```bash
+# Repository cognition (before global repository claims):
+python3 scripts/repo_cognition.py --check --receipt
+
 # Gate 1 (always first):
 cd sovereign-omega-v2 && npm run test -- test/unit/jcs.test.ts
 

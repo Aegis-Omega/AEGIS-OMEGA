@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "claude/proof-prism-v1-ltti67",
-    "parent_state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba",
+    "source_ref": "claude/repo-cognition-v1",
+    "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -20,19 +20,19 @@
     "skills_root_scope": "canonical ordered array of path, sha256, and size_bytes",
     "state_hash_scope": "canonical manifest with state_hash omitted"
   },
-  "skills_root_hash": "7ea79f4d61c44c9f916121f33f00b329c8cd750d73914b39c9c7fee347c2531b",
+  "skills_root_hash": "a5081c2e7286558fb74fc9be68ecb9354e2c69c296f0ec4cb381130f8f96619b",
   "rotational_axis": {
     "axis_3": {
       "focus": "kinetic_entropy",
-      "manifest_hash": "eb364c1cdcbb56cf884b3d6b86872f9c2493b18a19bce52c5739550cb13426bc"
+      "manifest_hash": "d05fbd780cbb30839fad7f697fdfcff0f94e11b94310a68c018f07bc4ddd5747"
     },
     "axis_6": {
       "focus": "dynamic_mutation",
-      "manifest_hash": "67d00baf99122748a462cb1282a018d659fd6ec6fa6d44a20dde29eaf437279b"
+      "manifest_hash": "c7553f844588d8b7d22485d125da0a4e0ed82d3620a0a936e5b1d94dace27fef"
     },
     "axis_9": {
       "focus": "immutable_truth",
-      "manifest_hash": "b5d1b45f50444d7234a93c9f3e5360f182f1b4df8c4461e29bbe12af80b11862"
+      "manifest_hash": "4c89ea3f17aff343c6dcd4cc29eb965a6374620453b793062aab1ea2a6800675"
     }
   },
   "cognitive_state": {
@@ -71,7 +71,7 @@
     },
     "skills": {
       "count": 62,
-      "root_hash": "7ea79f4d61c44c9f916121f33f00b329c8cd750d73914b39c9c7fee347c2531b",
+      "root_hash": "a5081c2e7286558fb74fc9be68ecb9354e2c69c296f0ec4cb381130f8f96619b",
       "entries": [
         {
           "name": "run-aegis",
@@ -304,8 +304,8 @@
         {
           "name": "mythos-bootstrap",
           "path": "sovereign-omega-v2/.claude/skills/mythos-bootstrap/SKILL.md",
-          "sha256": "60d4ce87bdeda14f51003d1b8a6083a6cfe2313ebf4edaa694c7814af1f4214f",
-          "size_bytes": 5473
+          "sha256": "b6a5e06d7029589659cd1d46503d152fa7d17d821c4ecaa779ce15b06f2c4568",
+          "size_bytes": 6973
         },
         {
           "name": "mythos",
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6"
+  "state_hash": "ee4f314cc6bfca1962aa893ae4ee2b8cf1d828365684086c08cc6d17c34de6fd"
 }
