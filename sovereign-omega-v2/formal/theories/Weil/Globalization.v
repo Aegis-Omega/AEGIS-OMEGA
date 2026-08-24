@@ -6,7 +6,7 @@
   does not prove the Weil criterion or RH.
 *)
 
-From Coq Require Import QArith Lra.
+From Coq Require Import QArith Lra Field.
 From Coq Require Import Reals.Abstract.ConstructiveReals.
 Require Import AnalyticDefinitions.
 
@@ -69,7 +69,7 @@ Proof.
     apply CR_of_Q_plus.
   - transitivity (CR_of_Q O0RealsV1 ((- (- q / 2))%Q)).
     + apply CR_of_Q_morph.
-      lra.
+      field.
     + apply CR_of_Q_opp.
 Qed.
 
