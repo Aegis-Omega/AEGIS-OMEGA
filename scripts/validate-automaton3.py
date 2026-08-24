@@ -58,6 +58,7 @@ KEY_FILES = (
     "docs/operations/LAW_OF_SILENCE_V2.md",
     "docs/operations/BRANCH_RULESET_AUTOMATON3.md",
     "docs/claims.json",
+    "docs/CLAIMS_LEDGER.md",
     ".github/workflows/automaton-3.yml",
 )
 
