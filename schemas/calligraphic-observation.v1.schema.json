@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/calligraphic-observation.v1.schema.json",
+  "title": "CalligraphicObservationV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_kind",
+    "schema_version",
+    "source_digest",
+    "source_modality",
+    "script_family",
+    "reading_direction",
+    "abjad_system",
+    "reading_candidates"
+  ],
+  "properties": {
+    "record_kind": { "const": "CALLIGRAPHIC_OBSERVATION_V1" },
+    "schema_version": { "const": "1.0.0" },
+    "source_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_modality": {
+      "enum": ["IMAGE", "PEN_TRAJECTORY", "UNICODE_TEXT", "MANUAL_ANNOTATION"]
+    },
+    "script_family": { "const": "ARABIC_SCRIPT" },
+    "reading_direction": { "const": "RTL" },
+    "abjad_system": {
+      "enum": ["MASHRIQI_V1", "MAGHRIBI_V1"]
+    },
+    "reading_candidates": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/reading_candidate" }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source_modality": {
+            "enum": ["IMAGE", "UNICODE_TEXT", "MANUAL_ANNOTATION"]
+          }
+        },
+        "required": ["source_modality"]
+      },
+      "then": {
+        "properties": {
+          "reading_candidates": {
+            "items": {
+              "properties": {
+                "graphemes": {
+                  "items": {
+                    "not": { "required": ["trajectory_segment"] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "reading_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_id", "confidence_bps", "graphemes"],
+      "properties": {
+        "candidate_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence_bps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "graphemes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/grapheme" }
+        }
+      }
+    },
+    "grapheme": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface_form",
+        "abjad_letter",
+        "dot_count",
+        "dot_evidence",
+        "diacritics"
+      ],
+      "properties": {
+        "surface_form": {
+          "type": "string",
+          "minLength": 1
+        },
+        "abjad_letter": {
+          "enum": [
+            "ا", "ب", "ج", "د", "ه", "و", "ز", "ح", "ط", "ي",
+            "ك", "ل", "م", "ن", "س", "ع", "ف", "ص", "ق", "ر",
+            "ش", "ت", "ث", "خ", "ذ", "ض", "ظ", "غ"
+          ]
+        },
+        "dot_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "dot_evidence": {
+          "enum": ["OBSERVED", "INFERRED", "NOT_VISIBLE"]
+        },
+        "diacritics": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "source_region": {
+          "type": "string"
+        },
+        "trajectory_segment": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
