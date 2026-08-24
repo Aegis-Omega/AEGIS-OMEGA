@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -187,6 +188,161 @@ def _assumption_snapshot(files: list[dict[str, Any]]) -> dict[str, Any]:
         "declared_assumptions": declared,
         "theorem_assumptions": theorem_assumptions,
         "admitted_sources": admitted,
+    }
+
+
+# --- Per-theorem axiom policy -------------------------------------------------
+#
+# compare_assumption_baseline() is a ratchet: it reports what changed. It cannot
+# tell a legitimate crossing into R from an axiom introduced to skip a hard
+# lemma -- both read as regression: true. The only way past the former is to
+# bump the baseline, which silently accepts any of the latter that landed in the
+# same commit.
+#
+# This is the policy layer. Permitted symbols are declared here with a reason;
+# everything else is a violation regardless of what the baseline already knows.
+#
+# Why these two are permitted: Coq's standard Reals axiomatises R rather than
+# constructing it, so stating any order predicate on R (0 <= radius), any
+# continuity condition, or any compact-support carrier draws in exactly this
+# pair. Q_scope theorems draw in neither, which is why the finite bridge reports
+# "Closed under the global context" and an analytic theorem never can. That
+# boundary is not a defect and must not read as one.
+#
+# Admitting a symbol here is a foundational decision. It is deliberately not
+# configurable at the call site.
+
+CLASSICAL_REAL_FOUNDATION = "CLASSICAL_REAL_ANALYSIS_FOUNDATION"
+
+# A Parameter that abstracts over an implementation asserts nothing. Theorems
+# proved against it hold for every instantiation, so it adds no trust surface.
+# An Axiom that states a proposition does the opposite. Coq treats the two
+# keywords identically, so the distinction is recorded here by symbol, not
+# inferred -- which is the point: admitting one is a decision someone made and
+# signed for, not a parser's guess.
+ABSTRACTION_PARAMETER = "ABSTRACTION_OVER_IMPLEMENTATION"
+
+AXIOM_POLICY: dict[str, dict[str, str]] = {
+    "ClassicalDedekindReals.sig_forall_dec": {
+        "category": CLASSICAL_REAL_FOUNDATION,
+        "reason": (
+            "Coq.Reals axiomatises R as classical Dedekind reals; any decidable "
+            "order predicate on R draws this in. Standard foundation, used by "
+            "mathcomp-analysis and the Coq stdlib."
+        ),
+    },
+    "ClassicalDedekindReals.sig_not_dec": {
+        "category": CLASSICAL_REAL_FOUNDATION,
+        "reason": "Companion of sig_forall_dec from the same Coq.Reals construction.",
+    },
+    "FunctionalExtensionality.functional_extensionality_dep": {
+        "category": CLASSICAL_REAL_FOUNDATION,
+        "reason": (
+            "Required to reason about R-valued functions extensionally, which "
+            "every continuity or carrier statement needs."
+        ),
+    },
+    "FunctionalExtensionality.functional_extensionality": {
+        "category": CLASSICAL_REAL_FOUNDATION,
+        "reason": "Non-dependent form of the same principle.",
+    },
+    "sha256": {
+        "category": ABSTRACTION_PARAMETER,
+        "reason": (
+            "Core/Hash.v abstracts over the hash function rather than asserting "
+            "anything about it. Every theorem there holds for any instantiation, "
+            "so no property of SHA-256 is assumed."
+        ),
+    },
+    "encode_JS": {
+        "category": ABSTRACTION_PARAMETER,
+        "reason": "Bisimulation/ThreeWay.v abstracts over the JS encoder; no property asserted.",
+    },
+    "encode_WASM": {
+        "category": ABSTRACTION_PARAMETER,
+        "reason": "Bisimulation/ThreeWay.v abstracts over the WASM encoder; no property asserted.",
+    },
+    "encode_PY": {
+        "category": ABSTRACTION_PARAMETER,
+        "reason": "Bisimulation/ThreeWay.v abstracts over the Python encoder; no property asserted.",
+    },
+    "step_JS": {
+        "category": ABSTRACTION_PARAMETER,
+        "reason": "Bisimulation/ThreeWay.v abstracts over the JS step relation; no property asserted.",
+    },
+    "step_WASM": {
+        "category": ABSTRACTION_PARAMETER,
+        "reason": "Bisimulation/ThreeWay.v abstracts over the WASM step relation; no property asserted.",
+    },
+    "step_PY": {
+        "category": ABSTRACTION_PARAMETER,
+        "reason": "Bisimulation/ThreeWay.v abstracts over the Python step relation; no property asserted.",
+    },
+}
+
+# Deliberately NOT in AXIOM_POLICY, and named here so its absence is a decision
+# on the record rather than an oversight:
+#
+#   Bisimulation/ThreeWay.v:5  Axiom cross_runtime_bisimulation
+#
+# It asserts that the three encoders agree on every state and event -- which is
+# the three-way bisimulation claim itself, not a premise of it. That is the same
+# shape the Python kernel already refuses under ASSUME_TARGET_CLAIM and
+# ASSUME_GLOBAL_WEIL_POSITIVITY. The baseline ratchet never flagged it because it
+# has been present since the baseline was taken; only a policy independent of the
+# baseline can see it.
+TARGET_CLAIM_AXIOM_NOTE = "Bisimulation/ThreeWay.v::cross_runtime_bisimulation"
+
+
+def _policy_entry(symbol: str) -> dict[str, str] | None:
+    return AXIOM_POLICY.get(symbol)
+
+
+def evaluate_axiom_policy(files: list[dict[str, Any]]) -> dict[str, Any]:
+    """Classify every assumption reaching every theorem against AXIOM_POLICY.
+
+    Fails closed on anything unlisted, on any Axiom/Parameter declared in a
+    source file, and on any Admitted proof -- none of which the baseline ratchet
+    rejects once it has seen them.
+    """
+    permitted: list[dict[str, str]] = []
+    unpermitted: list[dict[str, str]] = []
+    admitted_sources: list[str] = []
+
+    for entry in sorted(files, key=lambda item: item["path"]):
+        path = entry["path"]
+
+        if int(entry.get("admitted_count", 0)):
+            admitted_sources.append(path)
+
+        # An Axiom in the source is not laundered by never being reached.
+        for symbol in sorted(
+            set(entry.get("axiom_symbols", [])) | set(entry.get("parameter_symbols", []))
+        ):
+            record = {"location": path, "symbol": symbol}
+            policy = _policy_entry(symbol)
+            if policy is None:
+                unpermitted.append(record)
+            else:
+                permitted.append({**record, **policy})
+
+        for theorem in entry.get("theorems", []):
+            location = f"{path}::{theorem['theorem']}"
+            for symbol in sorted(set(theorem.get("assumption_symbols", []))):
+                record = {"location": location, "symbol": symbol}
+                policy = _policy_entry(symbol)
+                if policy is None:
+                    unpermitted.append(record)
+                else:
+                    permitted.append({**record, **policy})
+
+    return {
+        "policy_kind": "COQ_AXIOM_POLICY_V1",
+        "permitted_symbols": sorted(AXIOM_POLICY),
+        "policy_violation": bool(unpermitted) or bool(admitted_sources),
+        "unpermitted_assumptions": unpermitted,
+        "permitted_assumptions": permitted,
+        "admitted_sources": admitted_sources,
     }
 
 
@@ -368,6 +524,13 @@ def build_receipt(
         "unrecognized_assumption_outputs": unrecognized_assumption_outputs,
     }
 
+    axiom_policy = evaluate_axiom_policy(files)
+    summary["axiom_policy_violation"] = axiom_policy["policy_violation"]
+    summary["unpermitted_assumption_count"] = len(
+        axiom_policy["unpermitted_assumptions"]
+    )
+    summary["permitted_assumption_count"] = len(axiom_policy["permitted_assumptions"])
+
     baseline_diff = None
     if baseline_path is not None:
         baseline, baseline_sha256 = _load_baseline(baseline_path)
@@ -383,6 +546,7 @@ def build_receipt(
         "authority": AUTHORITY,
         "correspondence": "NOT_ESTABLISHED",
         "files": files,
+        "axiom_policy": axiom_policy,
         "summary": summary,
     }
     if baseline_diff is not None:
@@ -403,6 +567,17 @@ def main() -> int:
     parser.add_argument("--coq-version", required=True)
     parser.add_argument("--baseline", type=Path)
     parser.add_argument("--out", required=True, type=Path)
+    parser.add_argument(
+        "--enforce-axiom-policy",
+        action="store_true",
+        help=(
+            "Exit non-zero when the receipt records an axiom policy violation. "
+            "Off by default so the violation is visible before it is blocking: "
+            "Bisimulation/ThreeWay.v currently carries a target-claim axiom that "
+            "predates this check, and turning the gate on is a decision about "
+            "that file, not about this script."
+        ),
+    )
     args = parser.parse_args()
 
     receipt = build_receipt(
@@ -418,6 +593,18 @@ def main() -> int:
         json.dumps(receipt, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+
+    policy = receipt["axiom_policy"]
+    if policy["policy_violation"]:
+        for item in policy["unpermitted_assumptions"]:
+            print(
+                f"AXIOM POLICY: unpermitted {item['symbol']} at {item['location']}",
+                file=sys.stderr,
+            )
+        for path in policy["admitted_sources"]:
+            print(f"AXIOM POLICY: Admitted proof in {path}", file=sys.stderr)
+        if args.enforce_axiom_policy:
+            return 1
     return 0
 
 
