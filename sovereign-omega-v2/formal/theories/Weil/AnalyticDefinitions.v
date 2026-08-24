@@ -5,11 +5,15 @@
   finite-to-limit obligations. It does NOT identify this v1 carrier with every
   classical formulation of Weil's admissible test-function class, and it does
   NOT define the Riemann zeta function or RH.
+
+  Trust-boundary note:
+  - the load-bearing vocabulary uses only Coq's Reals interface here;
+  - Coquelicot is probed separately and is not imported into this core module,
+    because the first dependency probe exposed additional global assumptions.
 *)
 
 From Coq Require Import Reals.
 From Coq Require Import Lra.
-From Coquelicot Require Import Coquelicot.
 
 Open Scope R_scope.
 
