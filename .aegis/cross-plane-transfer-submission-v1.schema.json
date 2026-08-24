@@ -1,0 +1,104 @@
+{
+  "$id": "https://aegisomega.com/schemas/cross-plane-transfer-submission-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "consent": {
+      "const": true
+    },
+    "context": {
+      "additionalProperties": false,
+      "properties": {
+        "dataset_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "exact_head": {
+          "pattern": "^[0-9a-f]{40,64}$",
+          "type": "string"
+        },
+        "experiment_id": {
+          "const": "cross-plane-transfer-v1"
+        },
+        "minimum_effect_ppm": {
+          "const": 100000
+        },
+        "model_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "policy_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "provider": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "provider_attestation": {
+          "enum": [
+            "ABSENT",
+            "PROVIDER_SIGNED"
+          ]
+        }
+      },
+      "required": [
+        "experiment_id",
+        "exact_head",
+        "dataset_digest",
+        "policy_digest",
+        "model_id",
+        "provider",
+        "provider_attestation",
+        "minimum_effect_ppm"
+      ],
+      "type": "object"
+    },
+    "outcomes": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "arm": {
+            "enum": [
+              "B_ONLY",
+              "RAW_SHARED_DATA",
+              "SHUFFLED_Z",
+              "SHARED_Z"
+            ]
+          },
+          "correct": {
+            "type": "boolean"
+          },
+          "mediator_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "source_digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "trial_id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "trial_id",
+          "arm",
+          "correct",
+          "source_digest",
+          "mediator_digest"
+        ],
+        "type": "object"
+      },
+      "minItems": 400,
+      "type": "array"
+    }
+  },
+  "required": [
+    "consent",
+    "context",
+    "outcomes"
+  ],
+  "type": "object"
+}

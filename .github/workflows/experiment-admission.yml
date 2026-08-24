@@ -40,6 +40,10 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Run CrossPlaneTransferV1 falsification tests
+        working-directory: sovereign-omega-v2
+        run: python python/tests/test_cross_plane_transfer.py
+
       - name: Resolve admitted parent and plan
         id: resolve
         shell: bash
