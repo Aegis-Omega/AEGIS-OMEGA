@@ -1,6 +1,8 @@
 (* Diagnostic only: isolate compact-support predicates without continuity. *)
 From Coq Require Import Reals.
 
+Open Scope R_scope.
+
 Record O0CompactCarrierV1 := {
   o0_compact_function :> R -> R;
   o0_compact_radius : R;
