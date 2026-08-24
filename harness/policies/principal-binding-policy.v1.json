@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0.0",
+  "authority_semantics": "BINDING_EVIDENCE_ONLY_NOT_AUTHORITY",
+  "external_effect": {
+    "classes": ["D3", "D4"],
+    "require_agent_principal": true,
+    "require_runtime_principal": true,
+    "require_verified_runtime_pop": true,
+    "require_exact_task_action_binding": true,
+    "bearer_mode": "DENY",
+    "accepted_pop_modes": [
+      "MTLS_CERT_BOUND",
+      "DPOP_CERT_BOUND",
+      "MTLS_DPOP_CERT_BOUND"
+    ],
+    "pop_to_bearer_transition": "REQUIRES_NEW_ADMISSION"
+  },
+  "on_behalf_of_user": {
+    "require_user_principal": true,
+    "require_verified_delegation": true,
+    "require_downstream_audience": true,
+    "require_nonempty_scope": true,
+    "accepted_exchange_profiles": [
+      "RFC8693_TOKEN_EXCHANGE",
+      "RFC7523_JWT_GRANT"
+    ]
+  },
+  "cryptographic_boundary": {
+    "structural_binding_validation_is_runtime_pop_cryptographic_verification": false,
+    "upstream_verifier_evidence_required": true,
+    "provider_output_may_grant_authority": false
+  }
+}
