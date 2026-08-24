@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "claude/proof-prism-v1-ltti67",
-    "parent_state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba",
+    "source_ref": "infra/zero-discretion-gates",
+    "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6"
+  "state_hash": "de96197e9d5c6c6ac32bff9aa77be6e29cb74cc6a9774bb04ee6abbb56d6a177"
 }
