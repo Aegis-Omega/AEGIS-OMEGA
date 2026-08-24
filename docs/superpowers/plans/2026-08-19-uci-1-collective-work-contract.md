@@ -10,9 +10,21 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-19-universal-collective-intelligence-kernel-v1-design.md`
 
+**Restack note (2026-08-24):** The original plan was authored against
+`main@32b7eb6a37fb69d19dd80189390b6641c5004ef1`. Its bounded UCI-1 implementation is
+restacked for verification on
+`integration/effect-chain-main-a34d@1406aacca95fef02a942621a7060e0b6b14a5809`.
+PR #309 is open and not admitted; if admitted, it supersedes only the older
+PR #268 -> #270 -> #272 -> #273 effect-chain integration route. This restack contains
+UCI-1 only. No UCI-2/UCI-3 or later UCI lane, math/RH, formal-attestation,
+metacognition, reflexive-self-model, or experiment-admission-plan artifact is included.
+It establishes no AGI, RH, production-readiness, production-deployment, or repository
+admission claim.
+
 ## Global Constraints
 
-- Exact canonical base remains `main@32b7eb6a37fb69d19dd80189390b6641c5004ef1`.
+- Preserve `main@32b7eb6a37fb69d19dd80189390b6641c5004ef1` as the historical
+  authoring base; bind current verification to the restack base stated above.
 - Provider/model output is evidence only and never authority.
 - UCI-1 does not execute providers, tools, external mutations, receipts, effects, or admission.
 - Consequence classes are exactly `D0 | D1 | D2 | D3 | D4`; D3 remains operator-approval-bound and D4 remains denied absent later separately admitted policy.
@@ -258,7 +270,13 @@ git add test-vectors/collective-intelligence/uci-1-v1.json sovereign-omega-v2/te
 git commit -m "test(uci): add collective work falsification vectors"
 ```
 
-### Task 5: Exact-head repository and independent witness verification
+### Task 5: Historical exact-head repository and independent witness verification
+
+> **Historical/non-executable for the 2026-08-24 restack:** This task records the
+> original workflow against the historical authoring parent. Do not create the
+> experiment-admission plan or use its `expected_parent_sha` as a current instruction.
+> The experiment plan is excluded from this UCI-1-only restack, whose verification base
+> is `integration/effect-chain-main-a34d@1406aacca95fef02a942621a7060e0b6b14a5809`.
 
 **Files:**
 - Create: `.aegis/experiments/uci-1-collective-work-contract-v1.json`
@@ -268,6 +286,8 @@ git commit -m "test(uci): add collective work falsification vectors"
 - Produces exact-head CI evidence; no production deploy or provider call.
 
 - [ ] **Step 1: Add an experiment-admission plan bound to canonical parent**
+
+Historical instruction only; not executable for the current restack:
 
 Use:
 

@@ -1,8 +1,18 @@
 # AEGIS Ω Universal Collective Intelligence Kernel v1 — Design
 
 Date: 2026-08-19
-Status: DESIGN / PRE-IMPLEMENTATION
-Exact design parent: `main@32b7eb6a37fb69d19dd80189390b6641c5004ef1`
+Status: HISTORICAL DESIGN SOURCE / UCI-1 CORE RESTACKED FOR VERIFICATION
+Original design parent: `main@32b7eb6a37fb69d19dd80189390b6641c5004ef1`
+Current restack base: `integration/effect-chain-main-a34d@1406aacca95fef02a942621a7060e0b6b14a5809`
+
+The original design parent is retained as provenance, not presented as current repository
+state. The current restack imports only the bounded UCI-1 collective-work contracts,
+schemas, validators, and falsification vectors; it excludes the experiment plan and all
+later UCI/other semantic lanes. PR #309 is open and not admitted. If admitted, it
+supersedes only the older PR #268 -> #270 -> #272 -> #273 effect-chain integration
+route; UCI-1 does not duplicate or modify that effect implementation. This document
+remains an architectural hypothesis outside production authority and establishes no
+AGI, RH, production-readiness, production-deployment, or repository-admission claim.
 
 ## 1. Purpose
 
@@ -16,7 +26,9 @@ Target architectural claim after implementation:
 
 ## 2. Current repository ground truth motivating this design
 
-Canonical main remains `32b7eb6a37fb69d19dd80189390b6641c5004ef1`.
+At the original design revision, canonical main was
+`32b7eb6a37fb69d19dd80189390b6641c5004ef1`. Current implementation evidence is bound
+separately to the restack base recorded above.
 
 Relevant existing surfaces already exist but are fragmented:
 
@@ -464,9 +476,15 @@ Integrate provider session identity + content-addressed contribution contract. P
 
 ### UCI-4 — Receipt / Effect Chain Integration
 
-Stack on UCI-3.
+Historical roadmap ordering: stack on UCI-3.
 
-Reconcile the semantics from #268 -> #273 into the UCI spine: TransitionIdentity, DecisionReceipt, ExecutionReceipt, independent EffectEvidence, VerifyEffect, EffectReceipt, CompleteVerification.
+The original future-lane proposal was to reconcile the semantics from #268 -> #273 into
+the UCI spine: TransitionIdentity, DecisionReceipt, ExecutionReceipt, independent
+EffectEvidence, VerifyEffect, EffectReceipt, CompleteVerification. That proposal is not
+an executable instruction for the current UCI-1-only restack and does not establish an
+admitted effect path. PR #309 is open and not admitted; if it is admitted, a future
+UCI-4 must build on that admitted effect implementation and must not replay the older
+#268 -> #270 -> #272 -> #273 integration route.
 
 Preserve nominal serialization and domain separation.
 
@@ -505,7 +523,10 @@ Add exact-head required checks/branch-protection policy and reconcile stale CI c
 Existing large/stacked PRs are evidence and source material, not automatically merge targets.
 
 - #264: mine narrow provider/session/organism/lease/contribution primitives; do not merge its 85-file/100+ commit history wholesale into the UCI spine.
-- #268/#270/#272/#273: preserve semantics and tested falsifiers, but reconcile onto the new spine through UCI-4 rather than conflating stacked experimental lineage with canonical admission.
+- #268/#270/#272/#273: historically, preserve semantics and tested falsifiers for a
+  future UCI-4 rather than conflate stacked experimental lineage with canonical
+  admission. For the current restack, PR #309 is open and not admitted; if admitted, it
+  supersedes only this older integration route, and UCI-4 must not duplicate it.
 - #267: mine memory authority-gate patterns for UCI-6; do not import hackathon/cloud code unless required by the kernel.
 - #274: remains a domain capability module and may later declare tested Arabic/calligraphic capability evidence through the capability graph.
 
