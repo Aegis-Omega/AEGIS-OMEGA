@@ -9,6 +9,10 @@ on:
       - "sovereign-omega-v2/formal/theories/Weil/O0.v"
       - "sovereign-omega-v2/formal/theories/Weil/O0DependencyProbe.v"
       - "sovereign-omega-v2/formal/theories/Weil/O0ClosureProbe.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeReals.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeFunction.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeCompact.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeContinuity.v"
       - ".github/workflows/weil-o0-globalization.yml"
   workflow_dispatch:
 
@@ -63,7 +67,7 @@ jobs:
           mkdir -p sovereign-omega-v2/weil-o0-attestation
           chmod -R a+rwX sovereign-omega-v2/formal/theories/Weil sovereign-omega-v2/weil-o0-attestation
 
-      - name: Compile analytic vocabulary and expected-open closure
+      - name: Diagnose trust surface, compile vocabulary, and enforce open closure
         uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
         with:
           coq_version: '8.20'
@@ -73,18 +77,48 @@ jobs:
             ROOT="$PWD/sovereign-omega-v2"
             DIR="$ROOT/formal/theories/Weil"
             OUT="$ROOT/weil-o0-attestation"
-
-            opam install -y coq-coquelicot.3.4.2
-
             cd "$DIR"
             coqc --version | tee "$OUT/coq-version.txt"
+
+            # Phase 1: isolate the bare Coq.Reals trust surface BEFORE Coquelicot exists.
+            for spec in \
+              'O0TrustProbeReals:o0_trust_probe_reals_reflexive' \
+              'O0TrustProbeFunction:o0_trust_probe_function_reflexive' \
+              'O0TrustProbeCompact:o0_trust_probe_compact_reflexive' \
+              'O0TrustProbeContinuity:o0_trust_probe_continuity_reflexive'
+            do
+              module="${spec%%:*}"
+              theorem="${spec##*:}"
+              coqc "$module.v"
+              query="$OUT/pre-${theorem}.v"
+              log="$OUT/pre-${theorem}.assumptions.txt"
+              printf 'Set Coqtop Exit On Error.\nRequire Import %s.\nPrint Assumptions %s.\n' "$module" "$theorem" > "$query"
+              coqtop -quiet -batch -l "$query" > "$log" 2>&1
+              rm -f "$query"
+              echo "===== PRE-COQUELICOT $theorem ====="
+              cat "$log"
+            done
+
+            # Dependency probe is evidence-only; it is deliberately installed after the trust probes.
+            opam install -y coq-coquelicot.3.4.2
             opam list --installed coq-coquelicot --short | tee "$OUT/dependency-probe.log"
             coqc O0DependencyProbe.v
+
+            # Re-run bare Reals after installation to detect environment contamination.
+            query="$OUT/post-o0_trust_probe_reals_reflexive.v"
+            log="$OUT/post-o0_trust_probe_reals_reflexive.assumptions.txt"
+            printf 'Set Coqtop Exit On Error.\nRequire Import O0TrustProbeReals.\nPrint Assumptions o0_trust_probe_reals_reflexive.\n' > "$query"
+            coqtop -quiet -batch -l "$query" > "$log" 2>&1
+            rm -f "$query"
+            echo '===== POST-COQUELICOT o0_trust_probe_reals_reflexive ====='
+            cat "$log"
+
             coqc AnalyticDefinitions.v 2>&1 | tee "$OUT/analytic-definitions.log"
             coqc Globalization.v 2>&1 | tee "$OUT/globalization.log"
             coqc WeilCriterion.v 2>&1 | tee "$OUT/weil-criterion.log"
             coqc O0.v 2>&1 | tee "$OUT/o0.log"
 
+            # The load-bearing theorem surface is still fail-closed.
             for theorem in \
               global_weil_positivity_v1_pointwise \
               finite_lower_bound_v1_specialize
@@ -94,6 +128,7 @@ jobs:
               printf 'Set Coqtop Exit On Error.\nRequire Import AnalyticDefinitions Globalization.\nPrint Assumptions %s.\n' "$theorem" > "$query"
               coqtop -quiet -batch -l "$query" > "$log" 2>&1
               rm -f "$query"
+              echo "===== CORE $theorem ====="
               cat "$log"
               grep -q 'Closed under the global context' "$log"
               if grep -q '^Axioms:' "$log"; then
