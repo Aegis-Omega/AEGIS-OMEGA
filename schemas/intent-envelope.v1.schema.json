@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/intent-envelope.v1.schema.json",
+  "title": "AEGIS IntentEnvelope V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "intent_kind", "intent_id", "intent_digest", "actor_identity",
+    "session_identity", "policy_commitment", "authority_epoch", "input_artifact_digests",
+    "requested_capability_ids", "max_cost_microunits", "max_tokens", "max_duration_seconds",
+    "consequence_ceiling", "deterministic_nonce"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "intent_kind": {"const": "INTENT_ENVELOPE_V1"},
+    "intent_id": {"$ref": "#/$defs/nonempty"},
+    "intent_digest": {"$ref": "#/$defs/hash"},
+    "actor_identity": {"$ref": "#/$defs/nonempty"},
+    "session_identity": {"$ref": "#/$defs/nonempty"},
+    "policy_commitment": {"$ref": "#/$defs/hash"},
+    "authority_epoch": {"$ref": "#/$defs/nonnegativeInteger"},
+    "input_artifact_digests": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/hash"}
+    },
+    "requested_capability_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/nonempty"}
+    },
+    "max_cost_microunits": {"$ref": "#/$defs/nonnegativeInteger"},
+    "max_tokens": {"$ref": "#/$defs/nonnegativeInteger"},
+    "max_duration_seconds": {"$ref": "#/$defs/nonnegativeInteger"},
+    "consequence_ceiling": {"enum": ["D0", "D1", "D2", "D3", "D4"]},
+    "deterministic_nonce": {"$ref": "#/$defs/nonempty"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nonempty": {"type": "string", "minLength": 1, "maxLength": 512},
+    "nonnegativeInteger": {"type": "integer", "minimum": 0}
+  }
+}
