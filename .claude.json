@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "integration/effect-chain-main-a34d",
+    "source_ref": "integration/uci1-core-on-309",
     "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "c0a82a0e95b83b3ec94486c8e1dda6ff4b372f34d557358f4c1539110975c11f"
+  "state_hash": "7a5031ef883792dcec1f25031ee9a215576fb858c59a95544f5999b52c7eab28"
 }

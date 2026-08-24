@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/collective-work-graph.v1.schema.json",
+  "title": "AEGIS CollectiveWorkGraph V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "graph_kind", "graph_id", "intent_digest", "nodes", "policy_commitment", "authority_epoch", "graph_nonce"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "graph_kind": {"const": "COLLECTIVE_WORK_GRAPH_V1"},
+    "graph_id": {"$ref": "#/$defs/nonempty"},
+    "intent_digest": {"$ref": "#/$defs/hash"},
+    "nodes": {"type": "array", "items": {"$ref": "#/$defs/node"}},
+    "policy_commitment": {"$ref": "#/$defs/hash"},
+    "authority_epoch": {"$ref": "#/$defs/nonnegativeInteger"},
+    "graph_nonce": {"$ref": "#/$defs/nonempty"}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nonempty": {"type": "string", "minLength": 1, "maxLength": 512},
+    "nonnegativeInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "$comment": "Runtime also rejects negative zero, an in-memory-only distinction JSON Schema cannot represent."
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capability_kind", "capability_id", "status"],
+      "properties": {
+        "capability_kind": {"const": "CAPABILITY_REF_V1"},
+        "capability_id": {"$ref": "#/$defs/nonempty"},
+        "status": {"enum": ["NOT_TESTED", "PARTIAL", "TESTED_REFERENCE", "VERIFIED_FOR_PROFILE", "REVOKED"]},
+        "profile": {"$ref": "#/$defs/nonempty"}
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "work_node_kind", "work_node_id", "objective_digest", "intent_digest",
+        "required_capabilities", "allowed_providers", "allowed_tools", "dependency_ids",
+        "input_artifact_digests", "max_cost_microunits", "max_tokens", "max_duration_seconds",
+        "consequence_class", "authority_epoch", "policy_commitment", "target_commitment",
+        "pre_state_commitment", "nonce"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "work_node_kind": {"const": "COLLECTIVE_WORK_NODE_V1"},
+        "work_node_id": {"$ref": "#/$defs/nonempty"},
+        "objective_digest": {"$ref": "#/$defs/hash"},
+        "intent_digest": {"$ref": "#/$defs/hash"},
+        "required_capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "$comment": "Draft 2020-12 uniqueItems compares whole instance objects. Runtime additionally enforces uniqueness by capability_id; that property-level rule is not expressible here without an extension.",
+          "items": {"$ref": "#/$defs/capability"}
+        },
+        "allowed_providers": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/nonempty"}},
+        "allowed_tools": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/nonempty"}},
+        "dependency_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/nonempty"}},
+        "input_artifact_digests": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/hash"}},
+        "max_cost_microunits": {"$ref": "#/$defs/nonnegativeInteger"},
+        "max_tokens": {"$ref": "#/$defs/nonnegativeInteger"},
+        "max_duration_seconds": {"$ref": "#/$defs/nonnegativeInteger"},
+        "consequence_class": {"enum": ["D0", "D1", "D2", "D3", "D4"]},
+        "authority_epoch": {"$ref": "#/$defs/nonnegativeInteger"},
+        "policy_commitment": {"$ref": "#/$defs/hash"},
+        "target_commitment": {"$ref": "#/$defs/hash"},
+        "pre_state_commitment": {"$ref": "#/$defs/hash"},
+        "nonce": {"$ref": "#/$defs/nonempty"}
+      }
+    }
+  }
+}

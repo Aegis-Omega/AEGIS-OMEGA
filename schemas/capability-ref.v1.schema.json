@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/capability-ref.v1.schema.json",
+  "title": "AEGIS CapabilityRef V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["capability_kind", "capability_id", "status"],
+  "properties": {
+    "capability_kind": {"const": "CAPABILITY_REF_V1"},
+    "capability_id": {"type": "string", "minLength": 1, "maxLength": 512},
+    "status": {
+      "enum": ["NOT_TESTED", "PARTIAL", "TESTED_REFERENCE", "VERIFIED_FOR_PROFILE", "REVOKED"]
+    },
+    "profile": {"type": "string", "minLength": 1, "maxLength": 512}
+  }
+}
