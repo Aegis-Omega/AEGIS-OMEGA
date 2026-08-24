@@ -97,7 +97,7 @@ Proof.
     exact (lt_CR_of_Q O0RealsV1 q 0 Hq0).
   }
 
-  set (eta : O0RealV1 := CR_of_Q O0RealsV1 ((- q / 2)%Q)).
+  set (eta := CR_of_Q O0RealsV1 ((- q / 2)%Q)).
   assert (Heta : CRlt O0RealsV1 O0ZeroV1 eta).
   {
     unfold eta, O0ZeroV1.
