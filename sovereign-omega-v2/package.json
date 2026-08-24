@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:authority-card": "vitest run test/unit/authority-state-card.test.ts",
     "test:determinism": "node --experimental-vm-modules scripts/verify-canonicalization.ts",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "typecheck": "tsc --noEmit",
