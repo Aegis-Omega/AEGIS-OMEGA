@@ -20,10 +20,15 @@ from harness.sdk.sovereign_execution import (
     load_capability_registry, load_policy, make_mutation_receipt,
     verify_workspace,
 )
+from harness.sdk.transition_receipts import (
+    build_transition_identity,
+    decision_receipt_from_policy,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 EXECUTION_PRINCIPAL_CLASSES = frozenset(("D3", "D4"))
 DPOP_MODES = frozenset((DPOP_CERT_BOUND, MTLS_DPOP_CERT_BOUND))
+LEGACY_RECEIPT_SEMANTICS = "DECISION_DERIVED_NOT_EFFECT_PROOF"
 
 
 def _denial(code: str, detail: str = "") -> dict[str, Any]:
@@ -347,6 +352,21 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         idempotency_key=idempotency_key, compensation_reference=compensation_reference,
     )
     decision = AuthorityEvaluator(policy=policy, registry=registry, repository_root=REPO_ROOT).evaluate(request, approval=approval)
+    transition = build_transition_identity(
+        source_commit=identity.source_commit,
+        pre_state_commitment=identity.expected_pre_state,
+        identity_root=identity_root,
+        approval=approval,
+        requested_capability=requested_capability,
+        registry_root=registry_root,
+        action_digest=action_digest,
+        deterministic_nonce=identity.deterministic_nonce,
+        fence_token=os.environ.get("AEGIS_FENCING_TOKEN"),
+    )
+    decision_receipt = decision_receipt_from_policy(transition=transition, decision=decision)
+
+    # Compatibility-only V1 artifact. Its SUCCEEDED value is decision-derived and
+    # must never be interpreted as execution success, effect success, or admission.
     receipt = make_mutation_receipt(
         identity_root=identity_root, workspace_binding=identity.workspace_binding,
         decision=decision, pre_state_digest=identity.expected_pre_state,
@@ -358,7 +378,11 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         "authority_score": decision.authority_score,
         "denial_codes": list(decision.denial_codes),
         "decision_root": decision.decision_root,
+        "transition_id": transition.root,
+        "decision_receipt": asdict(decision_receipt),
+        "decision_receipt_root": decision_receipt.root,
         "receipt_root": receipt.root,
+        "legacy_receipt_semantics": LEGACY_RECEIPT_SEMANTICS,
         "execution_identity_root": identity_root,
         "workspace_binding": identity.workspace_binding,
         "observation": asdict(workspace.observation),
