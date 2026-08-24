@@ -103,11 +103,22 @@ Proof.
     unfold eta, O0ZeroV1.
     apply CR_of_Q_lt.
     unfold Qdiv.
-    apply Qmult_lt_0_compat.
-    - change ((- 0)%Q < (- q)%Q).
+    assert (Hnegq : (0 < - q)%Q).
+    {
+      change ((- 0)%Q < (- q)%Q).
       exact (Qopp_lt_compat q 0 Hq0_Q).
-    - apply Qinv_lt_0_compat.
-      vm_compute.
+    }
+    assert (Htwo : (0 < 2)%Q).
+    {
+      unfold Qlt.
+      cbn.
+      reflexivity.
+    }
+    assert (Hinv2 : (0 < / 2)%Q).
+    {
+      exact (Qinv_lt_0_compat 2 Htwo).
+    }
+    exact (Qmult_lt_0_compat (- q) (/ 2) Hnegq Hinv2).
   }
   assert (HetaProp : O0LtPropV1 O0ZeroV1 eta).
   {
