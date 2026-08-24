@@ -28,6 +28,11 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Configure bot identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       - name: Resolve current main parent state
         id: parent
         shell: bash
@@ -40,8 +45,10 @@ jobs:
           fi
           echo "state_hash=$parent_hash" >> "$GITHUB_OUTPUT"
 
-      - name: Generate deterministic cognitive anchors
+      - name: Converge cognitive anchors locally
+        shell: bash
         run: |
+          set -euo pipefail
           python scripts/build-cognitive-manifest.py \
             --ref "$GITHUB_REF_NAME" \
             --parent-state-hash "${{ steps.parent.outputs.state_hash }}"
@@ -50,47 +57,57 @@ jobs:
             --ref "$GITHUB_REF_NAME" \
             --parent-state-hash "${{ steps.parent.outputs.state_hash }}"
 
-      # The repository corpus hashes committed HEAD content. If .claude.json or
-      # skill-hashes.sha256 changed in this run, committing them and the corpus
-      # together would make the corpus stale immediately. Commit/push cognitive
-      # anchors first; the next idempotent run sees a stable HEAD and can bind
-      # the full source corpus without self-invalidating.
-      - name: Commit cognitive anchors first when stale
-        id: anchors
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git diff --quiet -- .claude.json skill-hashes.sha256; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
+          if ! git diff --quiet -- .claude.json skill-hashes.sha256; then
+            git add .claude.json skill-hashes.sha256
+            git commit -m "chore(manifest): refresh cognitive-state anchors"
+          else
             echo "Cognitive anchors already current."
-            exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .claude.json skill-hashes.sha256
-          git commit -m "chore(manifest): refresh cognitive-state anchors"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
-          echo "changed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Generate complete repository cognition corpus
-        if: steps.anchors.outputs.changed == 'false'
+      - name: Converge complete repository cognition corpus locally
         shell: bash
         run: |
           set -euo pipefail
-          python scripts/repo_cognition.py --write
-          python scripts/repo_cognition.py --check
 
-      - name: Commit repository cognition corpus
-        if: steps.anchors.outputs.changed == 'false'
+          # The manifest excludes itself from the source corpus. On the first
+          # ever run it is not tracked yet, so one seed commit changes only the
+          # tracked-file accounting. Regenerate from that new local HEAD and
+          # require a fixed point before anything is pushed.
+          for pass in 1 2 3; do
+            echo "repository-cognition convergence pass $pass"
+            python scripts/repo_cognition.py --write
+
+            if git diff --quiet -- .aegis/repo-cognition-v1.json; then
+              echo "Repository cognition fixed point reached."
+              break
+            fi
+
+            git add .aegis/repo-cognition-v1.json
+            git commit -m "chore(cognition): refresh repository corpus"
+
+            if [ "$pass" -eq 3 ]; then
+              echo "REPOSITORY_KNOWLEDGE_INCOMPLETE: corpus did not converge in 3 passes" >&2
+              exit 1
+            fi
+          done
+
+          python scripts/repo_cognition.py --check --receipt
+          test -z "$(git status --porcelain -- .aegis/repo-cognition-v1.json .claude.json skill-hashes.sha256)"
+
+      - name: Push converged generated state once
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet -- .aegis/repo-cognition-v1.json; then
-            echo "Repository cognition corpus already current."
+          remote_sha="$(git rev-parse "origin/$GITHUB_REF_NAME")"
+          local_sha="$(git rev-parse HEAD)"
+          if [ "$remote_sha" = "$local_sha" ]; then
+            echo "Generated state already current; no push required."
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .aegis/repo-cognition-v1.json
-          git commit -m "chore(cognition): refresh repository corpus"
           git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Emit exact generated-state receipt
+        run: |
+          echo "HEAD=$(git rev-parse HEAD)"
+          echo "TREE=$(git rev-parse 'HEAD^{tree}')"
+          python scripts/repo_cognition.py --check --receipt
