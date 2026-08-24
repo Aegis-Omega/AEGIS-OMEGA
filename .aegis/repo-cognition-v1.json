@@ -4,7 +4,9 @@
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1931,
-  "excluded_generated_paths": [],
+  "excluded_generated_paths": [
+    ".aegis/repo-cognition-v1.json"
+  ],
   "files": [
     {
       "content_sha256": "c09e05033567389a7f68c0364247d512ec0fa126a481f0ee3d0f6fd1e5b8ef1b",
@@ -53565,5 +53567,5 @@
   "indexed_file_count": 1931,
   "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
   "schema": "AEGIS_REPO_COGNITION_V1",
-  "tracked_file_count": 1931
+  "tracked_file_count": 1932
 }
