@@ -69,7 +69,7 @@ Proof.
     apply CR_of_Q_plus.
   - transitivity (CR_of_Q O0RealsV1 ((- (- q / 2))%Q)).
     + apply CR_of_Q_morph.
-      ring.
+      lra.
     + apply CR_of_Q_opp.
 Qed.
 
