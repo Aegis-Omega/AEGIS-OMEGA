@@ -1302,6 +1302,14 @@ def ordered_roster(departments: list) -> list:
     return sorted(departments, key=lambda d: (_layer_index(d['category']), d['id']))
 
 
+class AutonomousAgentExecutionError(RuntimeError):
+    """Typed non-success state from the governed autonomous model boundary."""
+
+    def __init__(self, status: str):
+        super().__init__(status)
+        self.status = status
+
+
 def swarm_collaborate_autonomous(
     objective: str,
     mode: str,
@@ -1355,7 +1363,12 @@ def swarm_collaborate_autonomous(
                       'category': dept['category'], 'upstream': len(upstream)})
         try:
             output = agent_call(dept, objective, mode, upstream)
+            if not isinstance(output, str) or not output.strip():
+                raise AutonomousAgentExecutionError('malformed_model_output')
             status = 'ok'
+        except AutonomousAgentExecutionError as exc:
+            output = ''
+            status = exc.status
         except Exception as exc:
             output = ''
             status = 'error:' + type(exc).__name__
@@ -1385,8 +1398,8 @@ def make_autonomous_agent_call():
     """
     Production agent_call factory: each department gets its OWN governed model
     call, primed with its category persona and the upstream artifacts it depends
-    on. Falls back to the template dept_output when no model client is available,
-    so the executor always returns usable artifacts.
+    on. Provider absence/refusal is a typed non-success state; deterministic
+    templates belong to demo/candidate paths and never impersonate model execution.
     """
     import anth_client as _ac
     try:
@@ -1396,7 +1409,7 @@ def make_autonomous_agent_call():
 
     def _call(dept: dict, objective: str, mode: str, upstream: list) -> str:
         if _client is None:
-            return dept_output(objective, mode, dept)
+            raise AutonomousAgentExecutionError('provider_unavailable')
         persona = _CATEGORY_PERSONAS.get(dept['category'], '')
         upstream_block = '\n'.join(
             f'- {u["role"]}: {u["output"][:400]}' for u in upstream[:12]
@@ -1421,8 +1434,11 @@ def make_autonomous_agent_call():
             kwargs['thinking'] = {'type': 'adaptive'}
         resp = _client.messages.create(**kwargs)
         if getattr(resp, 'stop_reason', None) == 'refusal':
-            return dept_output(objective, mode, dept)
-        return ''.join(b.text for b in resp.content if hasattr(b, 'text')).strip()
+            raise AutonomousAgentExecutionError('provider_refusal')
+        output = ''.join(b.text for b in resp.content if hasattr(b, 'text')).strip()
+        if not output:
+            raise AutonomousAgentExecutionError('malformed_model_output')
+        return output
 
     return _call
 
@@ -1752,7 +1768,7 @@ def fetch_compliance_export(from_ts: str | None, to_ts: str | None, limit: int) 
                 'timestamp':              row.get('created_at', ''),
                 'objective_hash':         obj_hash,
                 'mode':                   row.get('mode', ''),
-                'constitutional_verdict': row.get('constitutional_verdict', 'APPROVED'),
+                'constitutional_verdict': row.get('constitutional_verdict') or 'UNKNOWN',
                 'projected_arr_usd':      row.get('arr_usd', 0),
                 'is_replay_reconstructable': True,
             })
