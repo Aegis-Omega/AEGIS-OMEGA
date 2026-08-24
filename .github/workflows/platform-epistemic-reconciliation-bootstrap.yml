@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   reconcile:
-    name: Exact-source reconciliation
+    name: Exact semantic-delta reconciliation
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -30,38 +30,105 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Assert pristine reconciliation parent
+      - name: Assert bounded pre-composition branch state
         shell: bash
         run: |
           set -euo pipefail
-          parent="$(git rev-parse HEAD^)"
-          test "$parent" = "$BASE_SHA"
-          printf 'RECONCILIATION_PARENT=%s\n' "$parent"
+          git merge-base --is-ancestor "$BASE_SHA" HEAD
+
+          actual="$(git diff --name-only "$BASE_SHA..HEAD" | LC_ALL=C sort)"
+          expected="$(printf '%s\n' \
+            '.claude.json' \
+            '.github/workflows/platform-epistemic-reconciliation-bootstrap.yml' \
+            | LC_ALL=C sort)"
+          test "$actual" = "$expected"
+
+          git show "$BASE_SHA:.claude.json" > /tmp/base-claude.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          base = json.loads(Path('/tmp/base-claude.json').read_text())
+          current = json.loads(Path('.claude.json').read_text())
+
+          allowed = (
+              ('provenance', 'source_ref'),
+              ('provenance', 'parent_state_hash'),
+              ('state_hash',),
+          )
+          for path in allowed:
+              b = base
+              c = current
+              for key in path[:-1]:
+                  b = b[key]
+                  c = c[key]
+              b.pop(path[-1], None)
+              c.pop(path[-1], None)
+
+          if base != current:
+              raise SystemExit('UNBOUNDED_COGNITIVE_MANIFEST_CHANGE')
+          PY
+
+          printf 'PRECOMPOSITION_STATE=BOUNDED\n'
 
       - name: Set up Python 3.12
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.12'
 
-      - name: Reconcile frozen exact source histories
+      - name: Replay frozen semantic deltas
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 
-          for sha in "$SWARM_SHA" "$AUTONOMOUS_SHA" "$BRIDGE_SHA" "$LIVE_STATE_SHA" "$TEMPLATE_SHA"; do
+          replay_delta() {
+            label="$1"
+            sha="$2"
+            shift 2
+
             git fetch --no-tags origin "$sha"
             git merge-base --is-ancestor "$BASE_SHA" "$sha"
             merge_count="$(git rev-list --count --merges "$BASE_SHA..$sha")"
             test "$merge_count" = "0"
-            printf 'SOURCE_HEAD=%s\n' "$sha"
-            while read -r commit; do
-              test -n "$commit" || continue
-              printf 'CHERRY_PICK=%s %s\n' "$commit" "$(git log -1 --format=%s "$commit")"
-              git cherry-pick "$commit"
-            done < <(git rev-list --reverse --topo-order "$BASE_SHA..$sha")
-          done
+
+            patch="/tmp/${label}.patch"
+            git diff --binary "$BASE_SHA" "$sha" -- "$@" > "$patch"
+            test -s "$patch"
+
+            printf 'REPLAY=%s SOURCE=%s\n' "$label" "$sha"
+            git apply --3way --index "$patch"
+            git diff --cached --check
+            git commit -m "reconcile(${label}): replay frozen verified semantic delta"
+          }
+
+          replay_delta swarm "$SWARM_SHA" \
+            .github/workflows/swarm-epistemic-boundary.yml \
+            sovereign-omega-v2/python/platform_helpers.py \
+            sovereign-omega-v2/python/tests/test_platform.py \
+            sovereign-omega-v2/python/tests/test_swarm_epistemic_boundary.py
+
+          replay_delta autonomous "$AUTONOMOUS_SHA" \
+            .github/workflows/autonomous-agent-evidence-boundary.yml \
+            sovereign-omega-v2/python/platform_helpers.py \
+            sovereign-omega-v2/python/tests/test_autonomous_agent_evidence_boundary.py
+
+          replay_delta bridge "$BRIDGE_SHA" \
+            .github/workflows/bridge-evidence-composition.yml \
+            sovereign-omega-v2/python/bridge.py \
+            sovereign-omega-v2/python/tests/test_bridge_evidence_composition.py
+
+          replay_delta live-state "$LIVE_STATE_SHA" \
+            .github/workflows/live-state-truthfulness.yml \
+            sovereign-omega-v2/python/bridge.py \
+            sovereign-omega-v2/python/tests/test_live_state_truthfulness.py
+
+          replay_delta template "$TEMPLATE_SHA" \
+            .github/workflows/template-epistemic-boundary.yml \
+            sovereign-omega-v2/python/platform_helpers.py \
+            sovereign-omega-v2/python/tests/test_platform.py \
+            sovereign-omega-v2/python/tests/test_template_epistemic_boundary.py
 
           git diff --check "$BASE_SHA..HEAD"
 
