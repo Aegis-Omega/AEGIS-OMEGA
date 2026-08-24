@@ -82,6 +82,9 @@ jobs:
             cd "$DIR"
             coqc --version | tee "$OUT/coq-version.txt"
 
+            # Historical diagnostics: isolate exactly where the classical R
+            # surface introduces global assumptions. These probes are evidence
+            # only and are not the production O0 carrier.
             for spec in \
               'O0TrustProbeReals:o0_trust_probe_reals_reflexive' \
               'O0TrustProbeFunction:o0_trust_probe_function_reflexive' \
@@ -96,10 +99,12 @@ jobs:
               printf 'Set Coqtop Exit On Error.\nRequire Import %s.\nPrint Assumptions %s.\n' "$module" "$theorem" > "$query"
               coqtop -quiet -batch -l "$query" > "$log" 2>&1
               rm -f "$query"
-              echo "===== PRE-COQUELICOT $theorem ====="
+              echo "===== CLASSICAL-DIAGNOSTIC $theorem ====="
               cat "$log"
             done
 
+            # Candidate carrier prerequisite: constructive Cauchy-real order
+            # must itself be closed before production code may depend on it.
             coqc O0TrustProbeConstructive.v
             query="$OUT/o0_trust_probe_constructive_order_refl.v"
             log="$OUT/o0_trust_probe_constructive_order_refl.assumptions.txt"
@@ -114,17 +119,29 @@ jobs:
               exit 1
             fi
 
-            # Compile the current production vocabulary so the RED below tests
-            # the intended missing API rather than a missing .vo artifact.
+            # Production carrier and its explicit assumption gate.
             coqc AnalyticDefinitions.v 2>&1 | tee "$OUT/analytic-definitions.log"
-
-            # TDD RED: O0RealV1/O0LeV1/o0_real_order_refl_v1 do not yet exist.
             coqc O0ProductionConstructiveProbe.v
+            query="$OUT/o0_production_real_order_reflexive.v"
+            log="$OUT/o0_production_real_order_reflexive.assumptions.txt"
+            printf 'Set Coqtop Exit On Error.\nRequire Import O0ProductionConstructiveProbe.\nPrint Assumptions o0_production_real_order_reflexive.\n' > "$query"
+            coqtop -quiet -batch -l "$query" > "$log" 2>&1
+            rm -f "$query"
+            echo '===== PRODUCTION-CARRIER o0_production_real_order_reflexive ====='
+            cat "$log"
+            grep -q 'Closed under the global context' "$log"
+            if grep -q '^Axioms:' "$log"; then
+              echo 'Production O0 real carrier is not closed' >&2
+              exit 1
+            fi
 
+            # Coquelicot remains an evidence-only dependency probe. It is not
+            # imported by the load-bearing O0 core.
             opam install -y coq-coquelicot.3.4.2
             opam list --installed coq-coquelicot --short | tee "$OUT/dependency-probe.log"
             coqc O0DependencyProbe.v
 
+            # Verify dependency installation does not mutate the bare-R result.
             query="$OUT/post-o0_trust_probe_reals_reflexive.v"
             log="$OUT/post-o0_trust_probe_reals_reflexive.assumptions.txt"
             printf 'Set Coqtop Exit On Error.\nRequire Import O0TrustProbeReals.\nPrint Assumptions o0_trust_probe_reals_reflexive.\n' > "$query"
@@ -155,4 +172,5 @@ jobs:
               fi
             done
 
+            # Expected-open proof state: O0_closure must still be absent.
             coqc O0ClosureProbe.v 2>&1 | tee "$OUT/closure-probe.log"
