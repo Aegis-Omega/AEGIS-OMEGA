@@ -18,6 +18,7 @@
   API-stability caveat, not a mathematical authority claim.
 *)
 
+From Coq Require Import QArith.
 From Coq Require Import Reals.Abstract.ConstructiveReals.
 From Coq Require Import Reals.Cauchy.ConstructiveRcomplete.
 
