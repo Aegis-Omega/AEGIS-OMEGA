@@ -536,39 +536,18 @@
     },
     {
       "id": "CLM-230",
-      "claim": "The aegis / automaton-3 workflow validates the exact repository candidate, runs the 129-test PR-1-through-PR-4 authority/effect proofline plus MCP and evidence-meta guards, emits a deterministic candidate manifest and repository-scoped validation receipt, builds a checksummed replay package, and requests GitHub OIDC attestation.",
+      "claim": "The aegis / automaton-3 workflow validates the exact candidate, runs the adaptive authority-abuse and operator-visibility suites, emits a deterministic candidate manifest and receipt, builds a checksummed replay package, and requests GitHub OIDC attestation.",
       "tier": "Verified",
       "eq": "EQ-A",
       "dependencies": [],
       "evidence": [
         "Code: .github/workflows/automaton-3.yml",
-        "Code: scripts/run-automaton3-tests.py",
         "Code: scripts/validate-automaton3.py",
         "Test: sovereign-omega-v2/python/tests/test_automaton3.py",
-        "Test: sovereign-omega-v2/python/tests/test_operator_visibility.py",
-        "Test: sovereign-omega-v2/python/tests/test_effect_chain_main_integration.py",
-        "Test: sovereign-omega-v2/python/tests/test_effect_chain_evidence_integration.py"
+        "Test: sovereign-omega-v2/python/tests/test_operator_visibility.py"
       ],
-      "fails_if": "The stable check omits pull_request, merge_group, or main push; the exact 129-test surface is incomplete; artifacts are not candidate-bound; the receipt implies external effect admission; replay checksums are absent; OIDC is not required; or any negative-test bypass is accepted.",
-      "verified_against": "dac498fa35f9edf75176fca9b9425aa052b7df1b"
-    },
-    {
-      "id": "CLM-231",
-      "claim": "For the exercised POSIX filesystem reference fixtures, Automaton-3 rejects forged or unissued observation handles, cross-adapter/root splicing, allowed-root retargeting or replacement, equal-root witness registry collisions, FIFO blocking, oversized reads, redirected opens, and ctime-detected concurrent rewrites; VerifyEffect-gated EffectReceipt and exact-bundle evidence-only CompleteVerification are implemented. Cross-process witness attestation, atomic filesystem snapshot proof, EffectBoundAdmission, and production admission are not established.",
-      "tier": "Verified",
-      "eq": "EQ-A",
-      "dependencies": [],
-      "evidence": [
-        "Code: harness/sdk/effect_adapters.py",
-        "Code: harness/sdk/effect_verifier.py",
-        "Code: harness/sdk/complete_verifier.py",
-        "Test: sovereign-omega-v2/python/tests/test_effect_adapters_pr2.py",
-        "Test: sovereign-omega-v2/python/tests/test_effect_verifier_pr3.py",
-        "Test: sovereign-omega-v2/python/tests/test_complete_verifier_pr4.py",
-        "Test: sovereign-omega-v2/python/tests/test_effect_chain_main_integration.py"
-      ],
-      "fails_if": "Any listed falsifier produces adapter-bound EffectEvidence or a TRUE verifier result, a non-TRUE VerifyEffect result can issue an EffectReceipt, an inexact decision/execution/effect bundle produces TRUE CompleteVerification, or any reference artifact is promoted to cross-process attestation, atomic snapshot proof, EffectBoundAdmission, or production admission.",
-      "verified_against": "7430312b76a4ba75e67ef961450d6a9fce3b2747"
+      "fails_if": "The stable check omits pull_request, merge_group, or main push; artifacts are not candidate-bound; replay checksums are absent; OIDC is not required; or any negative-test bypass is accepted.",
+      "verified_against": "f514dcecabeaa7b6d55c308de6349dfcd3f36df6"
     }
   ]
 }
