@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
-from .gates import GateVerdict, SCHEMA_VERSION, digest
+from .gates import SCHEMA_VERSION, digest
 
 
 class ResearchStatus(str, Enum):
