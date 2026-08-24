@@ -77,7 +77,10 @@ jobs:
             echo "repository-cognition convergence pass $pass"
             python scripts/repo_cognition.py --write
 
-            if git diff --quiet -- .aegis/repo-cognition-v1.json; then
+            # git diff ignores untracked files. Use status so the first-ever
+            # untracked cognition manifest is treated as dirty and committed
+            # before the second pass checks the post-seed fixed point.
+            if [ -z "$(git status --porcelain -- .aegis/repo-cognition-v1.json)" ]; then
               echo "Repository cognition fixed point reached."
               break
             fi
