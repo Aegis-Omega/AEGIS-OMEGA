@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import get_type_hints
 from unittest import TestCase, main
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -26,7 +27,7 @@ from harness.sdk.transition_receipts import (  # noqa: E402
 
 class AuthorizationEffectChainCompositionBoundaryTests(TestCase):
     def test_current_authorization_uses_the_same_nominal_decision_receipt_type(self) -> None:
-        annotations = CurrentTransitionAuthorization.__annotations__
+        annotations = get_type_hints(CurrentTransitionAuthorization)
         self.assertIs(annotations["decision_receipt"], DecisionReceipt)
         self.assertNotIn("replacement_decision_receipt", annotations)
 
