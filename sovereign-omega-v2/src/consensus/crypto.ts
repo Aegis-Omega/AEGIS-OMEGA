@@ -2,7 +2,7 @@
 // SOVEREIGN OMEGA — Consensus Cryptography (Ed25519)
 // EPISTEMIC TIER: T2 · Gate 22
 //
-// Production Ed25519 vote signing via @noble/ed25519 (RFC 8032,
+// Production Ed25519 signing via @noble/ed25519 (RFC 8032,
 // FIPS 186-5, ZIP215). Replaces Gate 19 FNV-1a stub.
 //
 // Key properties:
@@ -43,7 +43,30 @@ export async function generateKeypair(seed: Uint8Array): Promise<ValidatorKeyPai
   }
 }
 
-// ─── Signing / Verification ────────────────────────────────
+// ─── Generic signing / verification ───────────────────────
+
+export async function signBytes(privateKey: Uint8Array, message: Uint8Array): Promise<string> {
+  const signature = await ed.sign(message, privateKey)
+  return uint8ArrayToHex(signature)
+}
+
+export async function verifyBytes(
+  publicKeyHex: string,
+  message: Uint8Array,
+  signatureHex: string,
+): Promise<boolean> {
+  try {
+    return await ed.verify(
+      hexToUint8Array(signatureHex),
+      message,
+      hexToUint8Array(publicKeyHex),
+    )
+  } catch {
+    return false
+  }
+}
+
+// ─── Vote signing / verification ──────────────────────────
 
 /**
  * Sign a block_hash with the given Ed25519 private key.
@@ -54,9 +77,7 @@ export async function signVote(
   privateKey: Uint8Array,
   blockHash: SHA256Hex,
 ): Promise<ValidatorSignature> {
-  const msg = new TextEncoder().encode(blockHash)
-  const sigBytes = await ed.sign(msg, privateKey)
-  return uint8ArrayToHex(sigBytes) as ValidatorSignature
+  return await signBytes(privateKey, new TextEncoder().encode(blockHash)) as ValidatorSignature
 }
 
 /**
@@ -69,12 +90,5 @@ export async function verifyVote(
   blockHash: SHA256Hex,
   signature: ValidatorSignature,
 ): Promise<boolean> {
-  try {
-    const msg = new TextEncoder().encode(blockHash)
-    const sigBytes = hexToUint8Array(signature)
-    const pubBytes = hexToUint8Array(publicKey)
-    return await ed.verify(sigBytes, msg, pubBytes)
-  } catch {
-    return false
-  }
+  return verifyBytes(publicKey, new TextEncoder().encode(blockHash), signature)
 }

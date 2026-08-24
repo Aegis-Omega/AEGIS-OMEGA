@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/claims.schema.json",
+  "title": "AEGIS Claims Ledger",
+  "description": "Machine-readable twin of docs/CLAIMS_LEDGER.md. Structural shape only; cross-field anti-laundering, DAG, evidence-resolution and freshness rules are enforced by scripts/validate-claims.mjs.",
+  "type": "object",
+  "required": ["claims"],
+  "additionalProperties": true,
+  "properties": {
+    "generated_from": { "type": "string" },
+    "anchor_commit": { "type": "string" },
+    "claims": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/claim" }
+    }
+  },
+  "$defs": {
+    "clmId": {
+      "type": "string",
+      "pattern": "^CLM-\\d{3}$"
+    },
+    "claim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "claim", "tier", "eq"],
+      "properties": {
+        "id": { "$ref": "#/$defs/clmId" },
+        "claim": { "type": "string", "minLength": 1 },
+        "tier": {
+          "type": "string",
+          "enum": ["Verified", "Derived", "Proposed", "Removed"]
+        },
+        "eq": {
+          "type": "string",
+          "enum": ["EQ-A", "EQ-B", "EQ-C", "EQ-D"]
+        },
+        "dependencies": {
+          "type": "array",
+          "default": [],
+          "items": { "$ref": "#/$defs/clmId" }
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "fails_if": { "type": "string" },
+        "verified_against": { "type": "string" },
+        "removal_reason": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "comment": "Verified claims must pin the commit they were verified against.",
+          "if": { "properties": { "tier": { "const": "Verified" } } },
+          "then": { "required": ["verified_against"] }
+        },
+        {
+          "comment": "Removed claims must record why they were struck.",
+          "if": { "properties": { "tier": { "const": "Removed" } } },
+          "then": { "required": ["removal_reason"] }
+        }
+      ]
+    }
+  }
+}

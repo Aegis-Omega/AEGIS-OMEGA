@@ -374,16 +374,14 @@ function Hero({ status, total, ttv }: { status: ChainStatus; total: number; ttv:
       <div className="ld-wrap ld-hero-inner">
         <div className="ld-law-label">Constitutional AI Runtime · AEGIS-Ω</div>
         <h1 className="ld-hero-h1">
-          Every AI decision,<br/>
-          <span className="ld-hero-accent">cryptographically provable.</span>
+          One API call.<br/>
+          <span className="ld-hero-accent">39 AI departments analyze your business decision.</span>
         </h1>
-        <div className="ld-law-block">
-          <div className="ld-law-caption">The law that enforces this at runtime:</div>
-          <div className="ld-law-eq" aria-label="AdaptivePower of T is less than or equal to ReplayVerifiability of T">
-            AdaptivePower(T) ≤ ReplayVerifiability(T)
-          </div>
-          <p className="ld-law-sub">Not a training objective — a runtime halt condition.</p>
-        </div>
+        <p className="ld-hero-sub">
+          POST an objective — Strategy, Pricing, Legal, Security and 35 other governed
+          agents return a cross-checked plan, with a SHA-256 audit chain on every
+          artifact. Free tier: 10 runs, no card.
+        </p>
 
         <div className="ld-proof-ledger" role="region" aria-label="Live constitutional proofs">
           <div className="ld-proof-row">
@@ -584,6 +582,13 @@ function Cognition() {
         <div className="ld-section-head">
           <div className="ld-sec-num">02 · ARCHITECTURE</div>
           <h2>Self-government is an architecture, not a promise.</h2>
+        </div>
+        <div className="ld-law-block">
+          <div className="ld-law-caption">The law that enforces this at runtime:</div>
+          <div className="ld-law-eq" aria-label="AdaptivePower of T is less than or equal to ReplayVerifiability of T">
+            AdaptivePower(T) ≤ ReplayVerifiability(T)
+          </div>
+          <p className="ld-law-sub">Not a training objective — a runtime halt condition.</p>
         </div>
         <div className="ld-layer-grid">
           {LAYERS.map(l => {
@@ -881,7 +886,7 @@ function Footer() {
               Bihać, Bosnia-Herzegovina · <span className="v">AGPL-3.0</span>
             </div>
             <div className="ld-socials">
-              <SocialIcon id="github" href="https://github.com/Aegis-Omega/AEGIS--"/>
+              <SocialIcon id="github" href="https://github.com/Aegis-Omega/AEGIS-OMEGA"/>
               <SocialIcon id="x" href="https://x.com/aegisomega"/>
             </div>
           </div>

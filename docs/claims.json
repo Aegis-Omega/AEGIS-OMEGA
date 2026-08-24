@@ -1,0 +1,553 @@
+{
+  "$schema": "./claims.schema.json",
+  "generated_from": "docs/CLAIMS_LEDGER.md",
+  "anchor_commit": "db9d8a0",
+  "note": "Canonical machine-readable twin of the Claims Ledger. Verified rows carry verified_against='a1c9f8b' (the commit the enforcement layer landed on). Removed rows carry eq='EQ-D' (no evidence) since the markdown does not grade struck rows on the EQ axis. Evidence Code:/Test: paths are normalized to repo-root-relative form so they resolve at HEAD; the ledger abbreviates some of them.",
+  "claims": [
+    {
+      "id": "CLM-001",
+      "claim": "Deterministic, float-free canonical serialization envelope (canon, payload_digest, EnvelopeChain); Unicode NFC normalization was removed so the Python path is byte-identical to the TS T0 path (Codex fix 1).",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Code: sovereign-omega-v2/python/canonical_envelope.py:32-79 @db9d8a0",
+        "Test: sovereign-omega-v2/python/tests/test_canon_equivalence.py"
+      ],
+      "fails_if": "canon() reintroduces NFC/unicodedata, accepts a raw float without raising, or payload_digest is non-deterministic across two runs of the same payload.",
+      "verified_against": "a1c9f8b"
+    },
+    {
+      "id": "CLM-002",
+      "claim": "The TS and Python paths produce identical digests; a decomposed-Unicode vector proves neither path normalizes (digest a2b964dcb6a519031c512c9714172760861f305c9b7050917e4378d8449854fd).",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Test: sovereign-omega-v2/test/vectors/canon-vectors.json:115-122",
+        "Test: sovereign-omega-v2/test/unit/canon-equivalence.test.ts:52",
+        "Test: sovereign-omega-v2/python/tests/test_canon_equivalence.py:82-92"
+      ],
+      "fails_if": "Equivalent payloads serialized on two supported runtimes (TS canonicalizeJCS, Python canon) produce different SHA-256 digests for any shared vector, including the decomposed-Unicode one.",
+      "verified_against": "a1c9f8b"
+    },
+    {
+      "id": "CLM-003",
+      "claim": "Hash-chained, tamper-evident envelope: prev_hash links envelope N->N-1, seq is a monotonic per-process counter (never a timestamp), genesis prev_hash = GENESIS (64 zeros).",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Code: sovereign-omega-v2/python/canonical_envelope.py:82-115 @db9d8a0",
+        "Test: sovereign-omega-v2/python/tests/test_canon_equivalence.py:130-134"
+      ],
+      "fails_if": "Genesis prev_hash != 64 zeros, seq does not increment by exactly 1 per emit, or altering one envelope's body leaves a later envelope's prev_hash unchanged.",
+      "verified_against": "a1c9f8b"
+    },
+    {
+      "id": "CLM-004",
+      "claim": "Dual-emit on the live path: legacy hashes stay byte-identical and the canonical envelope is additive; the collaboration request_digest covers the full field set (objective, mode, live, generation, autonomous, max_agents, memory_context) (Codex fix 2).",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Code: sovereign-omega-v2/python/bridge.py:362-376 @db9d8a0",
+        "Code: sovereign-omega-v2/python/bridge.py:576-600",
+        "Test: sovereign-omega-v2/python/tests/test_envelope_request_digest.py"
+      ],
+      "fails_if": "The collaboration request_digest omits any of the seven input fields (source-pinned: the test extracts bridge.py's hashed key set and asserts it equals the 7-field set), or flipping any one execution-affecting field leaves request_digest unchanged. The additive-dual-emit half (adding the envelope changes no pre-existing legacy hash byte) remains confirmable by inspection at bridge.py:576-600.",
+      "verified_against": "1cd93414"
+    },
+    {
+      "id": "CLM-005",
+      "claim": "Frozen-file hash integrity gate: three constitutional files are pinned by SHA-256 and the gate exits non-zero on mismatch. Ran it at db9d8a0 -> exit 0.",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Code: sovereign-omega-v2/scripts/verify-hashes.mjs:17-19,46 @db9d8a0"
+      ],
+      "fails_if": "Mutating one byte of gate.py/dna.py/router.py does not make verify-hashes.mjs exit non-zero, or its pins diverge from the CLAUDE.md Constitutional Files table.",
+      "verified_against": "a1c9f8b"
+    },
+    {
+      "id": "CLM-006",
+      "claim": "Cross-language independent replay (executor != verifier): a Python emitter, a Node re-chainer, and a Rust re-chainer independently re-derive the chain.",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Code: verifiable/cross_language/verify.sh:10-20 @db9d8a0"
+      ],
+      "fails_if": "Running verifiable/cross_language/verify.sh yields a non-zero exit, or the Node and Rust re-chainers derive a chain hash differing from the Python emitter's for the shared stages.json.",
+      "verified_against": "a1c9f8b"
+    },
+    {
+      "id": "CLM-007",
+      "claim": "Server-side provider gate + model provenance in the audit record: a client cannot force a paid backend via the request body, and the model actually used is reported back to callers (Codex fixes 5/7).",
+      "tier": "Verified",
+      "eq": "EQ-B",
+      "dependencies": [],
+      "evidence": [
+        "Code: supabase/functions/chat/index.ts:11-13,45-59,114-118 @db9d8a0",
+        "Code: packages/shared/lib/inference-router.ts:176-178,216-217",
+        "Test: sovereign-omega-v2/test/shared/inference-router.test.ts"
+      ],
+      "fails_if": "A request with provider:\"openai\" while CHAT_ENABLE_OPENAI!=\"true\" reaches the paid backend instead of falling back to dashscope, or the returned model is not the one actually invoked. Held at EQ-B: the client-side provenance half (the router records the edge function's reported data.model, not the caller's req.model) is now mechanically pinned by inference-router.test.ts, but the server-side provider gate lives in the Deno chat function and cannot be unit-tested without a Deno runtime — it remains inspection-only at chat/index.ts:45-57.",
+      "verified_against": "1cd93414"
+    },
+    {
+      "id": "CLM-008",
+      "claim": "Determinism test discipline: determinism tests run the subject >=3 times and assert byte-identical output.",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Spec: sovereign-omega-v2/.claude/rules/testing.md",
+        "Test: sovereign-omega-v2/test/unit/canon-equivalence.test.ts:61-63",
+        "Test: sovereign-omega-v2/python/tests/test_canon_equivalence.py:66-67"
+      ],
+      "fails_if": "The determinism tests run the subject fewer than 3 times, or accept a run whose output differs byte-for-byte from the first.",
+      "verified_against": "a1c9f8b"
+    },
+    {
+      "id": "CLM-009",
+      "claim": "The AEGIS swarm runtime default model was claude-fable-5 from 2026-06-10 (commit 4747755, PR #148) to 2026-06-23 (commit 8305ec6, PR #172); it was never the frontend code default.",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Spec: docs/transitions/2026-06-model-default.md (full transition record)",
+        "Code: sovereign-omega-v2/python/platform_helpers.py:20 @aae8f5c (current canonical claude-opus-4-8)",
+        "Code: packages/shared/lib/inference-router.ts:96 (frontend default was and is claude-haiku-4-5-20251001)",
+        "Repro: git log --all -S\"claude-fable-5\" --oneline; git show 4747755; git show 8305ec6"
+      ],
+      "fails_if": "Pickaxe over reachable history (git log --all -S\"claude-fable-5\") stops listing 4747755/8305ec6, or those commits' diffs stop containing the quoted default flips (claude-sonnet-4-6 -> claude-fable-5 at 4747755; claude-fable-5 -> claude-opus-4-8 at 8305ec6).",
+      "verified_against": "aae8f5c"
+    },
+    {
+      "id": "CLM-010",
+      "claim": "Cross-language primitive hashing parity: the φ constant's IEEE-754 f64 big-endian bytes followed by SHA-256 produce byte-identical digests in Node, Python, and Rust (the Rust leg reproduced with the same sha2 0.10 crate the aegis-cl-psi gate modules use). Computed form (√5−1)/2 → BE 3fe3c6ef372fe950, SHA-256 b04b39a97f3554cde014326fd4c4864cc28b56bc66e17ff76e268ceac0e5ee18; literal form 0.6180339887498948 → BE 3fe3c6ef372fe94f, SHA-256 82298488842f4c6b76306bdadc4f28219d56248da4a44c299e550a4c2a858bf5. This is primitive-level (f64 BE + SHA-256) parity, NOT full tri-language envelope/structure replay (see CLM-207). The same instrumented proof surfaces a determinism-hygiene finding: the computed and literal φ representations differ by exactly one ULP (…e950 vs …e94f).",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Proof: docs/proofs/cross-platform-determinism.md (PROOF 1 / Verdict rows 1a,1b,3 — captured BE bytes + SHA-256 across Node/Python/Rust, with runnable reproduce commands)",
+        "Code: sovereign-omega-v2/src/consensus/swarm.ts:20 (TS computed φ (Math.sqrt(5)-1)/2)",
+        "Code: sovereign-omega-v2/python/sovereign_hd.py:23 (Python computed φ (5**0.5-1)/2)"
+      ],
+      "fails_if": "The IEEE-754 f64 big-endian bytes of (√5−1)/2 or of 0.6180339887498948 differ across Node, Python, or Rust, or their SHA-256 digests differ from b04b39a97f3554cde014326fd4c4864cc28b56bc66e17ff76e268ceac0e5ee18 / 82298488842f4c6b76306bdadc4f28219d56248da4a44c299e550a4c2a858bf5 respectively.",
+      "verified_against": "172caef"
+    },
+    {
+      "id": "CLM-101",
+      "claim": "Reproducibility - a governed call's provenance can be regenerated byte-identically by an independent party.",
+      "tier": "Derived",
+      "eq": "EQ-A",
+      "dependencies": [
+        "CLM-002",
+        "CLM-006",
+        "CLM-008"
+      ],
+      "evidence": [
+        "Follows: identical cross-language digests (CLM-002) under enforced 3-run determinism (CLM-008), independently re-chained (CLM-006)."
+      ],
+      "fails_if": "Any of CLM-002/006/008 is downgraded, or a second party re-deriving from the same inputs obtains a different chain hash."
+    },
+    {
+      "id": "CLM-102",
+      "claim": "Traceability - every audited step carries request/response digests and a chain link back to genesis.",
+      "tier": "Derived",
+      "eq": "EQ-A",
+      "dependencies": [
+        "CLM-003",
+        "CLM-004"
+      ],
+      "evidence": [
+        "Follows: the hash-chained envelope (CLM-003) is emitted on the live path alongside legacy hashes (CLM-004)."
+      ],
+      "fails_if": "CLM-003 or CLM-004 is downgraded, or a live-path response is emitted with no envelope (no prev_hash link to genesis)."
+    },
+    {
+      "id": "CLM-103",
+      "claim": "Measurement repeatability - the substrate's own integrity is re-checkable on demand and fails loudly on drift.",
+      "tier": "Derived",
+      "eq": "EQ-A",
+      "dependencies": [
+        "CLM-005",
+        "CLM-008"
+      ],
+      "evidence": [
+        "Follows: the frozen-file gate (CLM-005) plus mandated repeat-run determinism (CLM-008)."
+      ],
+      "fails_if": "CLM-005 or CLM-008 is downgraded, or an integrity re-check passes despite a mutated frozen file."
+    },
+    {
+      "id": "CLM-104",
+      "claim": "Architecture-independence of the digest - the digest depends only on canonical bytes, not on language runtime or Unicode form.",
+      "tier": "Derived",
+      "eq": "EQ-A",
+      "dependencies": [
+        "CLM-001",
+        "CLM-002"
+      ],
+      "evidence": [
+        "Follows: NFC-free canonicalization (CLM-001) yields identical TS/Python digests including decomposed input (CLM-002)."
+      ],
+      "fails_if": "CLM-001 or CLM-002 is downgraded, or the same canonical bytes hash differently on a third supported runtime."
+    },
+    {
+      "id": "CLM-201",
+      "claim": "Online prefix auditing (AgentForesight-style) over the live chain.",
+      "tier": "Proposed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Spec: (design only - no implementation in repo)"
+      ],
+      "fails_if": "Presented as implemented, or cited as an empirical result, before code + a passing test land."
+    },
+    {
+      "id": "CLM-202",
+      "claim": "MRM / SABER governance layer.",
+      "tier": "Proposed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Spec: (design only)"
+      ],
+      "fails_if": "Presented as implemented before code lands."
+    },
+    {
+      "id": "CLM-203",
+      "claim": "Phase 2 - KMS Ed25519 signing over envelope_hash + client-principal binding.",
+      "tier": "Proposed",
+      "eq": "EQ-D",
+      "dependencies": [
+        "CLM-003"
+      ],
+      "evidence": [
+        "Code: sovereign-omega-v2/python/canonical_envelope.py:114 (signature = None marked Phase 2; not yet implemented)"
+      ],
+      "fails_if": "Any envelope emits a non-null signature claimed as production-verified before signing is implemented."
+    },
+    {
+      "id": "CLM-204",
+      "claim": "Phase 3 - public transparency log of envelope hashes.",
+      "tier": "Proposed",
+      "eq": "EQ-D",
+      "dependencies": [
+        "CLM-203"
+      ],
+      "evidence": [
+        "Spec: (design only)"
+      ],
+      "fails_if": "Presented as operational before a log exists."
+    },
+    {
+      "id": "CLM-205",
+      "claim": "Phase 4 - offline verifier CLI.",
+      "tier": "Proposed",
+      "eq": "EQ-D",
+      "dependencies": [
+        "CLM-006"
+      ],
+      "evidence": [
+        "Spec: (design only)"
+      ],
+      "fails_if": "Presented as shipped before a CLI + test exist."
+    },
+    {
+      "id": "CLM-206",
+      "claim": "The 2026-06-10 model-default transition to claude-fable-5 (commit 4747755, PR #148) was initiated or shaped by a claude-fable-5 session that had ingested the Mythos model card stored on Google Drive.",
+      "tier": "Proposed",
+      "eq": "EQ-D",
+      "dependencies": [
+        "CLM-009"
+      ],
+      "evidence": [
+        "Spec: (attestation only — no session artifact yet). Required for promotion: recovery of the upstream session transcript (or equivalent logged artifact) binding a claude-fable-5 session to BOTH (a) ingestion of the Mythos model card and (b) authorship/initiation of the 4747755 change or its PR #148 branch. Currently known: all recovered sessions in the June chain logged model claude-sonnet-4-6; the operator attests the causal story; attestation alone cannot promote this claim."
+      ],
+      "fails_if": "Recovered logs establish a different initiator for 4747755/PR #148; or an exhaustive search of the session archives (Drive folder 1PPjNYs06S-wEU-OWQHDdHeFKrOnBpleJ, local .claude project archives) for the 2026-06-01→06-10 window finds no claude-fable-5 session; or the Mythos model card's Drive timestamps postdate 2026-06-10."
+    },
+    {
+      "id": "CLM-207",
+      "claim": "Full tri-language STRUCTURE-level canonicalization parity — Node, Python, AND Rust all hashing the same shared full-structure JSON canon vectors byte-identically — is NOT YET established. Rust hashes gate/telemetry structs (BTreeMap, f64::to_bits().to_be_bytes()), not the JSON canon vectors, so no shared full-structure vector spans all three languages. Established today: TS↔Python full-structure parity (CLM-002) and TS/Python/Rust primitive parity (CLM-010).",
+      "tier": "Proposed",
+      "eq": "EQ-D",
+      "dependencies": [
+        "CLM-002",
+        "CLM-010"
+      ],
+      "evidence": [
+        "Proof: docs/proofs/cross-platform-determinism.md (Verdict row 3b 'NOT YET'; PROOF 3 — Rust hashes different structures, no shared full-structure vector)"
+      ],
+      "fails_if": "Presented as achieved before a shared full-structure canon vector is hashed byte-identically by all three of TS canonicalizeJCS, Python canon, and an in-repo Rust canonicalizer."
+    },
+    {
+      "id": "CLM-210",
+      "claim": "Canonical digest of a structured payload is implemented (the digest-based substrate any ECDist would build on).",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [
+        "CLM-001"
+      ],
+      "evidence": [
+        "Code: sovereign-omega-v2/python/canonical_envelope.py:76-79 @db9d8a0"
+      ],
+      "fails_if": "payload_digest cannot digest a nested structured payload deterministically.",
+      "verified_against": "a1c9f8b"
+    },
+    {
+      "id": "CLM-211",
+      "claim": "Graph construction / normalized-Laplacian / spectral HD-hat estimator is implemented.",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "Not the submitted metric; real Kaggle Hallucination Delta is HD=|claimed−actual| (see docs/evidence/kaggle-2026/), Levenshtein/Laplacian reformulation fabricated in later drafts."
+    },
+    {
+      "id": "CLM-212",
+      "claim": "ECDist satisfies metric-space axioms (identity of indiscernibles, symmetry, triangle inequality).",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "Not the submitted metric; real Kaggle Hallucination Delta is HD=|claimed−actual| (see docs/evidence/kaggle-2026/), Levenshtein/Laplacian reformulation fabricated in later drafts. Metric-space axioms describe the struck spectral estimator and ground nothing without it."
+    },
+    {
+      "id": "CLM-213",
+      "claim": "Spectral estimator suitable for production evaluation.",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "Not the submitted metric; real Kaggle Hallucination Delta is HD=|claimed−actual| (see docs/evidence/kaggle-2026/), Levenshtein/Laplacian reformulation fabricated in later drafts."
+    },
+    {
+      "id": "CLM-220",
+      "claim": "Real Kaggle Hallucination Delta (HD = |claimed − actual|): the April 2026 'Measuring Progress Toward AGI' Metacognition-track submission measures metacognitive calibration as the absolute gap between an agent's claimed correctness and its actual correctness. Author-supplied external artifact, under review; not repo-reproducible (requires the original runtime and NVIDIA NIM credentials).",
+      "tier": "Proposed",
+      "eq": "EQ-C",
+      "dependencies": [],
+      "evidence": [
+        "Experiment: docs/evidence/kaggle-2026/manifest.json (Kaggle \"Measuring Progress Toward AGI\" Metacognition track, 2026-04, HD=|claimed−actual|, zip SHA-256 517f9287…)"
+      ],
+      "fails_if": "the pinned zip's metric is not HD=|claimed−actual| or its recorded model/ARC HD values don't match manifest.json."
+    },
+    {
+      "id": "CLM-301",
+      "claim": "AgentTrace Hit@1 = 94.9%",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "No dataset, run, or code in repo produces this number; confirmed absent from the real Kaggle submission (docs/evidence/kaggle-2026/)."
+    },
+    {
+      "id": "CLM-302",
+      "claim": "Aegis-Bench F1 table",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "No benchmark harness or results artifact exists; confirmed absent from the real Kaggle submission (docs/evidence/kaggle-2026/)."
+    },
+    {
+      "id": "CLM-303",
+      "claim": "AgentForesight +19.9% improvement",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "No experiment or baseline in repo."
+    },
+    {
+      "id": "CLM-304",
+      "claim": "550-scenario dataset",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "Fabricated; no DATA-* artifact."
+    },
+    {
+      "id": "CLM-305",
+      "claim": "~10k trajectories corpus",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "Fabricated; not present."
+    },
+    {
+      "id": "CLM-306",
+      "claim": "AFTraj-2K dataset",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "Fabricated; not present."
+    },
+    {
+      "id": "CLM-307",
+      "claim": "Yatav Inc. corporate study",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "Unverifiable third-party claim; no source; confirmed absent from the real Kaggle submission (docs/evidence/kaggle-2026/)."
+    },
+    {
+      "id": "CLM-308",
+      "claim": "SABER empirical eval across GPT-5 / Claude Opus 4.6 / etc.",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "Unverifiable; no eval code or logs; models not run; confirmed absent from the real Kaggle submission (docs/evidence/kaggle-2026/)."
+    },
+    {
+      "id": "CLM-309",
+      "claim": "IDS / BiLSTM / W-Functional / NASA-telemetry / STM32 identity splice",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "Not this project; grounds nothing in this tree (see identity resolution)."
+    },
+    {
+      "id": "CLM-310",
+      "claim": "Sleep-paralysis \"HD\" etymology",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "Non-technical, unsupported narrative origin story."
+    },
+    {
+      "id": "CLM-221",
+      "claim": "Automaton-3 binds consequential execution to a deterministic workspace root derived from the canonical GitHub remote, logical repository root, project identity, exact source commit, and operator authorization; real paths remain operator-visible metadata and repository escapes fail closed.",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Code: harness/sdk/sovereign_execution.py",
+        "Test: sovereign-omega-v2/python/tests/test_automaton3.py"
+      ],
+      "fails_if": "A changed remote, missing root, symlink escape, nested unselected repository, path-view disagreement, missing constitutional file, or empty workspace can receive consequential authority, or host-specific absolute paths alter the deterministic workspace binding.",
+      "verified_against": "f514dcecabeaa7b6d55c308de6349dfcd3f36df6"
+    },
+    {
+      "id": "CLM-222",
+      "claim": "The central Automaton-3 authority evaluator assigns zero operational authority to unknown, unmapped, unobserved, under-three-run, malformed-evidence, unavailable-registry, or unavailable-authority-service requests; documentation priors do not grant runtime authority.",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Code: harness/sdk/sovereign_execution.py",
+        "Test: sovereign-omega-v2/python/tests/test_automaton3.py",
+        "Test: sovereign-omega-v2/python/tests/test_coordinator_authority.py"
+      ],
+      "fails_if": "Any listed unknown or unavailable state produces a nonzero authority score, a coordinator executes from a local documentation prior, or a consequential entry point proceeds when the central evaluator cannot be reached.",
+      "verified_against": "f514dcecabeaa7b6d55c308de6349dfcd3f36df6"
+    },
+    {
+      "id": "CLM-223",
+      "claim": "Automaton-3 implements a deterministic local single-writer reference model with monotone lease generations, fencing tokens, expected-parent validation, active-writer exclusion, and replay rejection.",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Code: harness/sdk/sovereign_execution.py",
+        "Test: sovereign-omega-v2/python/tests/test_automaton3.py"
+      ],
+      "fails_if": "Two concurrent writers acquire the same authority domain, or a stale generation, stale token, wrong parent state, duplicate authoritative action, or revoked lease authorizes a write.",
+      "verified_against": "f514dcecabeaa7b6d55c308de6349dfcd3f36df6"
+    },
+    {
+      "id": "CLM-224",
+      "claim": "Automaton-3 implements a deterministic local durable-execution registry exposing workflow owner, source commit, workspace binding, phase, authority, transition sequence, pending external action, retry state, cancellation, lease holder, parent state, receipt root, failure state, and operator-visible lifecycle status.",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Code: harness/sdk/sovereign_execution.py",
+        "Test: sovereign-omega-v2/python/tests/test_automaton3.py"
+      ],
+      "fails_if": "An unregistered, orphaned, completed, or cancelled workflow retains authority; heartbeat or transition sequence regresses; or a retried external action can reuse an idempotency key.",
+      "verified_against": "f514dcecabeaa7b6d55c308de6349dfcd3f36df6"
+    },
+    {
+      "id": "CLM-225",
+      "claim": "The Law of Silence is separated from operator visibility by an independent deterministic operator-notification ledger for authorization requests, mutation notices, security alerts, failures, cancellations, and receipts; peer-message restrictions cannot suppress this channel.",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Code: harness/sdk/operator_visibility.py",
+        "Test: sovereign-omega-v2/python/tests/test_operator_visibility.py"
+      ],
+      "fails_if": "A notification can be marked peer-only, a broken parent or sequence is accepted, required notice kinds are unavailable, or sensitive payload redaction destroys deterministic structural verification.",
+      "verified_against": "f514dcecabeaa7b6d55c308de6349dfcd3f36df6"
+    },
+    {
+      "id": "CLM-226",
+      "claim": "Automaton-3 emits deterministic mutation and denial receipts bound to execution identity, workspace, policy decision, authority score, action class, tool, target, pre-state, requested action, result, post-state, parent receipt, sequence, outcome, and denial code.",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Code: harness/sdk/sovereign_execution.py",
+        "Test: sovereign-omega-v2/python/tests/test_automaton3.py"
+      ],
+      "fails_if": "A receipt root depends on wall-clock time, host path, random ordering, or secret plaintext; a denial lacks a code; or a broken parent or sequence verifies.",
+      "verified_against": "f514dcecabeaa7b6d55c308de6349dfcd3f36df6"
+    },
+    {
+      "id": "CLM-227",
+      "claim": "The canonical main-branch ruleset requires both aegis / automaton-2 and aegis / automaton-3 with strict up-to-date and merge-queue-compatible evaluation.",
+      "tier": "Proposed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Spec: docs/operations/BRANCH_RULESET_AUTOMATON3.md"
+      ],
+      "fails_if": "Presented as configured before repository-administration evidence proves both exact contexts are required on main and merge_group."
+    },
+    {
+      "id": "CLM-228",
+      "claim": "Automaton-3 is deployed on Temporal, LangGraph, Kubernetes, or another external durable runtime.",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "No repository or infrastructure evidence proves an external durable runtime deployment; this changeset provides interfaces and a deterministic local reference model only."
+    },
+    {
+      "id": "CLM-229",
+      "claim": "Automaton-3 guarantees distributed exact-once external side effects.",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [],
+      "removal_reason": "The implementation enforces local idempotency-key reuse rejection and compensation requirements, but no distributed transaction or provider-level exact-once proof exists."
+    },
+    {
+      "id": "CLM-230",
+      "claim": "The aegis / automaton-3 workflow validates the exact candidate, runs the adaptive authority-abuse and operator-visibility suites, emits a deterministic candidate manifest and receipt, builds a checksummed replay package, and requests GitHub OIDC attestation.",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Code: .github/workflows/automaton-3.yml",
+        "Code: scripts/validate-automaton3.py",
+        "Test: sovereign-omega-v2/python/tests/test_automaton3.py",
+        "Test: sovereign-omega-v2/python/tests/test_operator_visibility.py"
+      ],
+      "fails_if": "The stable check omits pull_request, merge_group, or main push; artifacts are not candidate-bound; replay checksums are absent; OIDC is not required; or any negative-test bypass is accepted.",
+      "verified_against": "f514dcecabeaa7b6d55c308de6349dfcd3f36df6"
+    }
+  ]
+}
