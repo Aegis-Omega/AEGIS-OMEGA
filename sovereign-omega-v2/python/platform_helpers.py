@@ -1118,8 +1118,8 @@ def retrieve_swarm_memory(objective: str, mode: str, limit: int = 3) -> str:
     Returns a formatted context block injected into the swarm system prompt,
     or '' if Supabase is unavailable or no memories exist.
 
-    Returned memories give the swarm T1 evidence of what prior activations
-    produced for the same objective, enabling evolutionary refinement.
+    Returned memories are persisted model outputs only. Persistence preserves
+    provenance/context; it does not verify propositions or promote epistemic tier.
     """
     import urllib.request as _ur_sm
     import urllib.error as _ue_sm
@@ -1154,13 +1154,13 @@ def retrieve_swarm_memory(objective: str, mode: str, limit: int = 3) -> str:
         return ''
 
     lines = [
-        'SWARM MEMORY — Prior activations for this objective (T1 evidence):',
-        'Use these to refine, not repeat. Build on prior insights; identify gaps.',
+        'MODEL MEMORY — Prior activations for this objective (NON-AUTHORITATIVE):',
+        'Persisted model outputs are T2 candidate context, not verified evidence. Refine, falsify, or reject them; never promote by repetition.',
     ]
     for i, row in enumerate(rows, 1):
         artifacts = row.get('artifacts', [])
         projection = row.get('projection', {})
-        verdict = row.get('constitutional_verdict', 'APPROVED')
+        verdict = row.get('constitutional_verdict', 'UNKNOWN')
         arr = projection.get('first_year_arr_usd', 0)
         # Sample 3 representative department outputs from prior run
         sample = [a for a in artifacts if a.get('output', '').strip()][:3]
@@ -1494,16 +1494,17 @@ def swarm_collaborate_live(
             create_kwargs['thinking'] = {'type': 'adaptive'}
 
         resp = _client.messages.create(**create_kwargs)
-        # Fable 5 refusals surface as stop_reason='refusal' (HTTP 200) — fall back
+        # A provider refusal/unavailability is evidence that the live inference
+        # transition did not complete. Template continuity must never become approval.
         if getattr(resp, 'stop_reason', None) == 'refusal':
-            return _swarm_fallback(objective, mode, departments)
+            return _swarm_fallback(objective, mode, departments, 'MODEL_PROVIDER_REFUSAL')
         raw = ''.join(b.text for b in resp.content if hasattr(b, 'text'))
     except Exception:
-        return _swarm_fallback(objective, mode, departments)
+        return _swarm_fallback(objective, mode, departments, 'MODEL_PROVIDER_UNAVAILABLE')
 
     result = _parse_swarm_response(raw, objective, mode, departments)
 
-    # Store to swarm_memory so future calls can build on these insights (T1 corpus)
+    # Persist model output for future comparison; storage is provenance, not evidence promotion.
     if email:
         store_swarm_memory(
             email, objective, mode,
@@ -1535,7 +1536,9 @@ def _parse_swarm_response(
     try:
         data = json.loads(text)
     except Exception:
-        return _swarm_fallback(objective, mode, departments)
+        return _swarm_fallback(objective, mode, departments, 'MALFORMED_SWARM_RESPONSE')
+    if not isinstance(data, dict):
+        return _swarm_fallback(objective, mode, departments, 'MALFORMED_SWARM_RESPONSE')
 
     # Build dept_id → output map from the response
     dept_map: dict = {}
@@ -1550,23 +1553,40 @@ def _parse_swarm_response(
         output = live_out if live_out else dept_output(objective, mode, dept)
         artifacts.append({'role': dept['role'], 'output': output})
 
-    # Constitutional audit
-    raw_audit = data.get('constitutional_audit', {})
-    verdict = raw_audit.get('verdict', 'APPROVED')
-    if verdict not in ('APPROVED', 'FLAG', 'QUARANTINE'):
-        verdict = 'APPROVED'
-    concerns = [str(c) for c in raw_audit.get('concerns', []) if c]
+    # Constitutional audit. Missing or unknown model-reported state is not
+    # permission: fail closed and preserve the reason in-band.
+    raw_audit = data.get('constitutional_audit')
+    if not isinstance(raw_audit, dict):
+        verdict = 'QUARANTINE'
+        concerns = ['MISSING_CONSTITUTIONAL_AUDIT']
+    else:
+        concerns = [str(c) for c in raw_audit.get('concerns', []) if c]
+        raw_verdict = raw_audit.get('verdict')
+        if raw_verdict in ('APPROVED', 'FLAG', 'QUARANTINE'):
+            verdict = raw_verdict
+        elif raw_verdict is None:
+            verdict = 'QUARANTINE'
+            concerns.append('MISSING_CONSTITUTIONAL_VERDICT')
+        else:
+            verdict = 'QUARANTINE'
+            concerns.append(f'UNKNOWN_CONSTITUTIONAL_VERDICT:{raw_verdict}')
 
-    # Projection — clamp ARR to sane range
+    # Projection — provider output is always non-authoritative T2 candidate
+    # context until an independent verifier establishes a stronger tier.
     raw_proj = data.get('projection', {})
+    if not isinstance(raw_proj, dict):
+        raw_proj = {}
     try:
         arr_usd = max(0, int(raw_proj.get('first_year_arr_usd', 2_000_000)))
     except (TypeError, ValueError):
         arr_usd = 2_000_000
-    proj_tier = raw_proj.get('tier', 'T2')
-    if proj_tier not in ('T0', 'T1', 'T2', 'T3'):
-        proj_tier = 'T2'
-    governed_note = str(raw_proj.get('governed_note', f'T2 hypothesis: {mode} mode analysis.'))
+    requested_tier = str(raw_proj.get('tier', 'T2'))
+    proj_tier = 'T2'
+    raw_note = str(raw_proj.get('governed_note', f'{mode} mode analysis.'))
+    governed_note = (
+        f'MODEL-REPORTED T2 CANDIDATE — non-authoritative; requested_tier={requested_tier}. '
+        f'{raw_note}'
+    )
 
     return {
         'artifacts': artifacts,
@@ -1579,8 +1599,17 @@ def _parse_swarm_response(
     }
 
 
-def _swarm_fallback(objective: str, mode: str, departments: list) -> dict:
-    """Constitutional template fallback when Claude API is unavailable."""
+def _swarm_fallback(
+    objective: str,
+    mode: str,
+    departments: list,
+    reason: str = 'UNVERIFIED_TEMPLATE_FALLBACK',
+) -> dict:
+    """Return deterministic continuity output without fabricating approval.
+
+    Template artifacts remain useful T2 hypotheses, but the failed/missing live
+    inference transition is represented as QUARANTINE with an explicit reason.
+    """
     arr_map = {
         'revenue':     2_400_000,
         'analysis':    1_800_000,
@@ -1597,14 +1626,14 @@ def _swarm_fallback(objective: str, mode: str, departments: list) -> dict:
             {'role': d['role'], 'output': dept_output(objective, mode, d)}
             for d in departments
         ],
-        'constitutional_audit': {'verdict': 'APPROVED', 'concerns': []},
+        'constitutional_audit': {'verdict': 'QUARANTINE', 'concerns': [reason]},
         'projection': {
             'first_year_arr_usd': arr_usd,
             'tier': 'T2',
             'governed_note': (
-                f'T2 engineering hypothesis: ARR={arr_usd:,} based on '
-                f'{mode} mode template analysis. '
-                'Empirical validation required for tier promotion.'
+                f'UNVERIFIED TEMPLATE T2 CANDIDATE — {reason}. ARR={arr_usd:,} based on '
+                f'{mode} mode deterministic template analysis. '
+                'No authority or evidence-tier promotion is implied.'
             ),
         },
     }
@@ -1869,16 +1898,6 @@ def query_agent_tools(tier: str = '') -> list:
     if not supabase_url or not service_key:
         return []
 
-    url = f'{supabase_url}/rest/v1/grace_chain_summary?select=*&limit=50'
-    req = _urGL.Request(url, headers={
-        'apikey':        service_key,
-        'Authorization': f'Bearer {service_key}',
-    })
-    try:
-        with _urGL.urlopen(req, timeout=5) as resp:
-            return json.loads(resp.read().decode())
-    except Exception:
-        return []
     params = (
         f'?revoked=eq.false'
         f'&order=api_name.asc'
