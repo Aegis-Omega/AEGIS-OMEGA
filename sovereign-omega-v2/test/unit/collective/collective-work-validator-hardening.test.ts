@@ -174,6 +174,32 @@ describe('UCI-1 validator structural hardening', () => {
     expect(validateCollectiveWorkGraph(proxied).ok).toBe(false);
   });
 
+  test('rejects a nested proxy without invoking an accessor it installs', () => {
+    let reads = 0;
+    let traps = 0;
+    const graph = graphFixture();
+    const node = graph.nodes[0]!;
+    node.allowed_tools = new Proxy(node.allowed_tools, {
+      getPrototypeOf: (target) => {
+        traps += 1;
+        Object.defineProperty(graph, 'graph_id', {
+          configurable: true,
+          enumerable: true,
+          get: () => {
+            reads += 1;
+            return 'graph-001';
+          },
+        });
+        return Reflect.getPrototypeOf(target);
+      },
+    });
+
+    const validation = validateCollectiveWorkGraph(graph);
+    expect(validation.ok).toBe(false);
+    expect(traps).toBe(0);
+    expect(reads).toBe(0);
+  });
+
   test('rejects a present-but-undefined optional capability profile', () => {
     const graph = graphFixture() as unknown as Record<string, unknown>;
     const node = (graph.nodes as Array<Record<string, unknown>>)[0]!;

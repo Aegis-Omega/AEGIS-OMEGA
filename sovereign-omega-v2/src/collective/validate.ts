@@ -1,3 +1,5 @@
+import { isProxy } from 'node:util/types';
+
 import {
   CAPABILITY_STATUSES,
   CONSEQUENCE_CLASSES,
@@ -41,6 +43,12 @@ function cloneJsonLike(
   errors: string[],
 ): unknown {
   if (value === null || typeof value !== 'object') return value;
+  // The governance validator is a Node ingest boundary. Node's native predicate
+  // detects proxies without invoking their traps; browsers expose no equivalent.
+  if (isProxy(value)) {
+    errors.push(`INVALID_OBJECT:${path}`);
+    return undefined;
+  }
   if (active.has(value)) {
     errors.push(`NON_JSON_CYCLE:${path}`);
     return undefined;
@@ -129,7 +137,6 @@ function snapshotJsonLike(value: unknown, path: string): SnapshotResult {
   try {
     const snapshot = cloneJsonLike(value, path, new WeakSet<object>(), errors);
     if (errors.length > 0) return { ok: false, errors: sortedErrors(errors) };
-    structuredClone(value);
     return { ok: true, value: snapshot };
   } catch {
     return { ok: false, errors: [`INVALID_STRUCTURE:${path}`] };
@@ -222,12 +229,21 @@ function requireNonempty(value: unknown, path: string, errors: string[]): value 
   if (
     typeof value !== 'string'
     || value.length === 0
-    || Array.from(value).length > MAX_STRING_LENGTH
+    || exceedsMaxCodePoints(value)
   ) {
     errors.push(`INVALID_NONEMPTY:${path}`);
     return false;
   }
   return true;
+}
+
+function exceedsMaxCodePoints(value: string): boolean {
+  let count = 0;
+  for (const _codePoint of value) {
+    count += 1;
+    if (count > MAX_STRING_LENGTH) return true;
+  }
+  return false;
 }
 
 function requireHash(value: unknown, path: string, errors: string[]): value is string {
