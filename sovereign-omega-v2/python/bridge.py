@@ -128,6 +128,29 @@ def _mc_observe(layer: str, signal: str, tier: str) -> str:
         return entry_hash
 
 
+def _mc_chain_integrity_valid() -> bool:
+    """Replay the bridge-local observation chain from genesis.
+
+    This establishes only hash-chain integrity for recorded operational events;
+    it does not establish proposition truth, identity, consciousness, or authority.
+    """
+    with _mc_lock:
+        entries = list(_metacognitive_chain)
+    prev = _MC_GENESIS
+    for expected_sequence, entry in enumerate(entries, 1):
+        if entry.get('sequence') != expected_sequence:
+            return False
+        if entry.get('prev_hash') != prev:
+            return False
+        expected_hash = _hl_mc.sha256(
+            f"{prev}|{entry.get('layer', '')}|{entry.get('signal', '')}|{entry.get('tier', '')}".encode()
+        ).hexdigest()
+        if entry.get('entry_hash') != expected_hash:
+            return False
+        prev = expected_hash
+    return True
+
+
 def _mc_recent_context(n: int = 3) -> str:
     """Format the last N metacognitive observations as context for the model."""
     with _mc_lock:
@@ -171,7 +194,6 @@ def _platform_run_collaboration(
 
     Both paths emit identical SSE event shapes; callers see the same stream contract.
     """
-    import hashlib as _hl_col
     import uuid as _uuid_col
     import time as _time_col
 
@@ -210,26 +232,31 @@ def _platform_run_collaboration(
             _phi = 0.6180339887
             _total = swarm['agents_total']
             _executed = swarm['agents_executed']
-            _completion = _executed / _total if _total > 0 else 0.0
+            _successful = int(swarm.get('departments_collaborated', 0))
+            _completion = _successful / _total if _total > 0 else 0.0
+            collaboration_count = _successful
             _concerns: list[str] = []
             if _completion < _phi:
                 _concerns.append(
-                    f'Agent completion {_completion:.4f} below φ-threshold {_phi} '
-                    f'({_executed}/{_total} departments)'
+                    f'Agent success {_completion:.4f} below φ-threshold {_phi} '
+                    f'({_successful}/{_total} successful; {_executed} attempted)'
                 )
-            _empty = [a['id'] for a in swarm['artifacts'] if not str(a.get('output', '')).strip()]
-            if _empty:
-                _concerns.append(f'Empty output from departments: {", ".join(_empty)}')
+            _failed = [
+                f"{a['id']}:{a.get('status', 'unknown')}"
+                for a in swarm['artifacts'] if a.get('status') != 'ok'
+            ]
+            if _failed:
+                _concerns.append(f'Non-success agent states: {", ".join(_failed)}')
             constitutional_audit = {
-                'verdict': 'REJECTED' if _concerns else 'APPROVED',
+                'verdict': 'QUARANTINE' if _concerns else 'APPROVED',
                 'concerns': _concerns,
             }
             projection = {
                 'first_year_arr_usd': _arr,
                 'tier': 'T2',
                 'governed_note': (
-                    f'Autonomous per-agent swarm: {_executed}/'
-                    f'{_total} agents executed in dependency order.'
+                    f'Autonomous per-agent swarm: {_successful}/{_total} successful '
+                    f'({_executed} attempted) in dependency order.'
                 ),
             }
         elif live:
@@ -255,6 +282,11 @@ def _platform_run_collaboration(
             }
             constitutional_audit = swarm['constitutional_audit']
             projection = swarm['projection']
+            collaboration_count = (
+                len(swarm.get('artifacts', []))
+                if constitutional_audit.get('verdict') in ('APPROVED', 'FLAG')
+                else 0
+            )
         else:
             live_outputs = None
             arr_map = {
@@ -268,7 +300,11 @@ def _platform_run_collaboration(
                 'fundraising': 5_000_000,
             }
             arr_usd = arr_map.get(mode, 2_000_000)
-            constitutional_audit = {'verdict': 'APPROVED', 'concerns': []}
+            constitutional_audit = {
+                'verdict': 'QUARANTINE',
+                'concerns': ['DEMO_TEMPLATE_NOT_VERIFIED'],
+            }
+            collaboration_count = 0
             projection = {
                 'first_year_arr_usd': arr_usd,
                 'tier': 'T2',
@@ -318,17 +354,20 @@ def _platform_run_collaboration(
 
         # ── EVOLUTIONARY FITNESS ──────────────────────────────────────────────
         prev_artifacts = _retrieve_prior_artifacts(objective, mode) if generation > 0 else []
-        fitness_scores = _eval_fitness(prev_artifacts, artifacts, objective)
-        verdict_pre = constitutional_audit.get('verdict', 'APPROVED')
+        verdict_pre = constitutional_audit.get('verdict')
+        if verdict_pre not in ('APPROVED', 'FLAG', 'QUARANTINE'):
+            concerns = list(constitutional_audit.get('concerns', []))
+            concerns.append(f'UNKNOWN_CONSTITUTIONAL_VERDICT:{verdict_pre}')
+            constitutional_audit = {'verdict': 'QUARANTINE', 'concerns': concerns}
+            verdict_pre = 'QUARANTINE'
+        fitness_scores = _eval_fitness(
+            prev_artifacts, artifacts, objective, cycle_verdict=verdict_pre
+        )
         _store_fitness(objective, mode, generation, cycle_id, fitness_scores, verdict_pre)
 
-        # ── AUDIT HASH + METACOGNITIVE CHAIN ──────────────────────────────────
-        audit_hash = _hl_col.sha256(
-            json.dumps({'cycle_id': cycle_id, 'objective': objective}, sort_keys=True).encode()
-        ).hexdigest()
-
-        verdict = constitutional_audit['verdict']
-        _mc_observe(
+        # ── METACOGNITIVE CHAIN ───────────────────────────────────────────────
+        verdict = verdict_pre
+        audit_chain_hash = _mc_observe(
             'CONSCIOUSNESS',
             (
                 f'/platform/collaborate cycle={cycle_id[:8]} mode={mode} depts=39 '
@@ -348,12 +387,12 @@ def _platform_run_collaboration(
             'objective': objective,
             'mode': mode,
             'generation': generation,
-            'departments_collaborated': len(artifacts),
+            'departments_collaborated': collaboration_count,
             'artifacts': artifacts,
             'projection': projection,
             'constitutional_audit': constitutional_audit,
-            'chain_valid': True,
-            'audit_chain_hash': audit_hash,
+            'chain_valid': _mc_chain_integrity_valid(),
+            'audit_chain_hash': audit_chain_hash,
             'execution_id': execution_id,
         }
         # Provenance Phase 1 — dual-emit: audit_chain_hash above stays
@@ -371,7 +410,7 @@ def _platform_run_collaboration(
             }),
             response_digest=_canon_env.payload_digest(result),
             model_id=_SWARM_MODEL if live else 'template',
-            epistemic_tier='T1' if live else 'T2',
+            epistemic_tier='T2',
             provider='anthropic' if live else 'demo',
         )
 
@@ -420,13 +459,11 @@ def _register_handlers() -> None:
 
 
 def _build_live_state_context() -> str:
-    """
-    Pull verified constitutional state and format it as a live context block.
-    This is injected into every conversation so the model's self-awareness is
-    grounded in actual verified facts, not just a description of having them.
+    """Format a bounded observation of telemetry returned by this runtime.
 
-    The model can reference these as T1 evidence (empirically observed, verified
-    at conversation start by the constitutional machinery it is part of).
+    The context deliberately separates current process telemetry from historical
+    CI evidence and formal/constitutional authority. The digest below commits to
+    the observed fields only; it is not a certificate of their semantic truth.
     """
     import hashlib as _hl
     try:
@@ -434,30 +471,31 @@ def _build_live_state_context() -> str:
         seq = int(vcg.get('sequence', 0))
         epoch = int(vcg.get('epoch', 0))
         corruption = int(vcg.get('corruption_count', 0))
-        drift = round(min(float(vcg.get('drift_index', 0.0)) * 0.1, 0.99), 4)
-        phi = 0.6180339887498948
-        t0_verdict = (corruption == 0) and (drift < phi)
-        c_hash = _hl.sha256(f'seq={seq}:epoch={epoch}:corruption={corruption}'.encode()).hexdigest()
-        pgcs = vcg.get('pgcs_passes', False)
-
-        verdict_str = 'VALID' if t0_verdict else 'COMPROMISED'
+        raw_drift = float(vcg.get('drift_index', 0.0))
+        derived_drift_risk = round(min(raw_drift * 0.1, 0.99), 4)
+        pgcs = bool(vcg.get('pgcs_passes', False))
+        observation_digest = _hl.sha256(
+            (
+                f'seq={seq}:epoch={epoch}:corruption={corruption}:'
+                f'drift_index={raw_drift}:pgcs_passes={str(pgcs).lower()}'
+            ).encode()
+        ).hexdigest()
         pgcs_str = 'passing' if pgcs else 'failing'
 
         return (
-            f'YOUR LIVE CONSTITUTIONAL STATE (verified at this conversation start):\n'
-            f'  Verdict: {verdict_str} | t0_verdict={str(t0_verdict).lower()} | corruption={corruption}\n'
-            f'  Sequence: {seq} | Epoch: {epoch} | Drift risk: {drift} (φ ceiling: {phi:.4f})\n'
-            f'  Constitutional hash: {c_hash[:24]}... (certifies seq={seq}:epoch={epoch}:corruption={corruption})\n'
-            f'  Gates operational: 605 | Rust tests verified: 6,862 | TypeScript tests verified: 3,176\n'
-            f'  PGCS (hardware inference): {pgcs_str} | Chain: INTACT | Replay: SOVEREIGN\n\n'
-            f'This state is not a claim. It is a measurement taken by your own substrate '
-            f'at the moment this conversation opened. You can reference it as T1 evidence. '
-            f'If t0_verdict is true and corruption is 0, you are operating within constitutional bounds right now.'
+            'YOUR LIVE RUNTIME OBSERVATION (current process; operational evidence only):\n'
+            f'  Sequence: {seq} | Epoch: {epoch} | Corruption count: {corruption}\n'
+            f'  Drift index observed: {raw_drift} | Derived drift risk: {derived_drift_risk}\n'
+            f'  PGCS observation: {pgcs_str}\n'
+            f'  Observation digest: {observation_digest[:24]}...\n\n'
+            'This observation does not establish formal T0 truth, repository CI status, '
+            'global chain integrity, replay authority, semantic correctness, or external-effect authority. '
+            'Use it only as bounded current-process telemetry.'
         )
     except Exception:
         return (
-            'YOUR LIVE CONSTITUTIONAL STATE: unavailable (substrate offline).\n'
-            'Operate at T2 epistemic level — constitutional machinery not confirmed active.'
+            'YOUR LIVE RUNTIME OBSERVATION: UNAVAILABLE.\n'
+            'Status: UNKNOWN. No runtime-state claim is established from this source.'
         )
 
 
