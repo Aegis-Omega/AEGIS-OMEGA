@@ -1,9 +1,9 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "1294429744d48b42930ddf28767d0218a1c59406903b473a706b3774545b46e6",
+  "corpus_root": "9ef2e16c206c5331be79345ba5599ed5c131a12ceef4e4eb6419b6b560cc0764",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
-  "eligible_file_count": 1931,
+  "eligible_file_count": 1936,
   "excluded_generated_paths": [
     ".aegis/repo-cognition-v1.json"
   ],
@@ -1227,6 +1227,20 @@
       "object_type": "blob",
       "path": ".github/workflows/verifiable-proofs.yml",
       "size_bytes": 3304,
+      "symbol_hints": []
+    },
+    {
+      "content_sha256": "27d9d3e39f2e63acd7ad57e14259d4ac00947ec70462c41cad648b51fd9762a8",
+      "dependency_hints": [],
+      "git_blob_sha": "7358f082b68f776275e8c20c27e56fb363db82d9",
+      "heading_hint": null,
+      "kind": "workflow",
+      "language": "yaml",
+      "line_count": 48,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": ".github/workflows/zero-discretion-type-gates.yml",
+      "size_bytes": 1486,
       "symbol_hints": []
     },
     {
@@ -28639,6 +28653,20 @@
       "symbol_hints": []
     },
     {
+      "content_sha256": "da2b967488bb6badb2fda3043a54c0e74edda27e3c5adf40134c84bee5f37e70",
+      "dependency_hints": [],
+      "git_blob_sha": "8d77eb4ab1e8cfc66addd5478e3ad5ed0b7a7ae3",
+      "heading_hint": "Zero-Discretion Type Gates v1",
+      "kind": "documentation",
+      "language": "markdown",
+      "line_count": 186,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "docs/research/zero-discretion-type-gates-v1.md",
+      "size_bytes": 6393,
+      "symbol_hints": []
+    },
+    {
       "content_sha256": "18b40ea6cc5f5dc2f7d87011186365b3667fc63fbf31eac7965fca7bf81c5844",
       "dependency_hints": [],
       "git_blob_sha": "5937cf4d9fc59f224faabfb7865bba7aa5da90dc",
@@ -38215,6 +38243,96 @@
       "symbol_hints": []
     },
     {
+      "content_sha256": "e94174bcd9a3c3498acfcb5c7e1358e1b44346fe71739a81c554e382bc3e4606",
+      "dependency_hints": [
+        "__future__",
+        "dataclasses",
+        "enum",
+        "typing",
+        "hashlib",
+        "json",
+        "math",
+        "time"
+      ],
+      "git_blob_sha": "7b66177bef98f97a18d87743e2ee3506aeeb0b99",
+      "heading_hint": null,
+      "kind": "source",
+      "language": "python",
+      "line_count": 762,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "sovereign-omega-v2/python/research_invariants.py",
+      "size_bytes": 25396,
+      "symbol_hints": [
+        "required_gates_for_type",
+        "GateVerdict",
+        "ResearchStatus",
+        "_canonical",
+        "canonical_bytes",
+        "sha256_hex",
+        "literal_sha256",
+        "_check_digest",
+        "_shape",
+        "_fro_norm",
+        "_sub_matrix",
+        "_add_matrix",
+        "_transpose",
+        "_matvec",
+        "_dot",
+        "GateReceipt",
+        "__post_init__",
+        "deterministic_material",
+        "to_dict",
+        "InvariantViolationError",
+        "__init__",
+        "_receipt",
+        "_raise_unless_pass",
+        "spectral_coverage_gate",
+        "operator_decomposition_gate",
+        "skew_quadratic_gate",
+        "laplacian_kernel_gate",
+        "dual_certificate_gate",
+        "exponential_asymptotic_gate",
+        "SpectralBasis",
+        "nyquist_cutoff",
+        "object_digest",
+        "OperatorDecomposition",
+        "CriterionEpoch",
+        "same_epoch_as",
+        "AdmissionTicket",
+        "AdmissionController",
+        "admit",
+        "StatusRecord",
+        "conjectured",
+        "type_checked",
+        "computed",
+        "theorem"
+      ]
+    },
+    {
+      "content_sha256": "c4b1bda2e5992f63398d237a7e0d71550074d3dc0825d787b9ede1f6ca4e1356",
+      "dependency_hints": [
+        "__future__",
+        "dataclasses",
+        "research_invariants",
+        "argparse",
+        "json",
+        "sys"
+      ],
+      "git_blob_sha": "5113570cedde45bafc7f1874a8a8448383d45a99",
+      "heading_hint": null,
+      "kind": "source",
+      "language": "python",
+      "line_count": 54,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "sovereign-omega-v2/python/research_preflight.py",
+      "size_bytes": 1497,
+      "symbol_hints": [
+        "main"
+      ]
+    },
+    {
       "content_sha256": "8c06ed37a7d95d9de9129c32a426fe5c2b0cd960c2cf5c84c71726b72e6cf941",
       "dependency_hints": [
         "typing",
@@ -39625,6 +39743,44 @@
         "test_user_prompt_is_the_blocking_repository_admission_boundary",
         "test_session_start_orientation_is_not_backgrounded",
         "test_post_compact_reanchors_repository_cognition_without_false_restoration"
+      ]
+    },
+    {
+      "content_sha256": "c2ca1817ef452101b12e396338b6c738120a11b2218bc1f2f893d423666e2d3c",
+      "dependency_hints": [
+        "hashlib",
+        "pathlib",
+        "sys",
+        "unittest",
+        "research_invariants"
+      ],
+      "git_blob_sha": "8553ac7b5c3ba2c111b326b92f1e4b93cfe695ea",
+      "heading_hint": null,
+      "kind": "test",
+      "language": "python",
+      "line_count": 169,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "sovereign-omega-v2/python/tests/test_research_invariants.py",
+      "size_bytes": 7090,
+      "symbol_hints": [
+        "ZeroDiscretionTypeGateTests",
+        "test_type_registry_is_zero_discretion_and_fail_closed",
+        "test_spectral_basis_blocks_underresolved_domain",
+        "test_spectral_basis_passes_when_cutoff_covers_target",
+        "test_operator_decomposition_conservation",
+        "test_operator_decomposition_detects_missing_term",
+        "test_skew_symmetric_quadratic_identity",
+        "test_laplacian_kernel_one",
+        "test_dual_certificate",
+        "test_exponential_decay_rejects_positive_uniform_lower_bound",
+        "test_criterion_hash_is_literal_and_any_edit_opens_new_epoch",
+        "test_admission_is_fail_closed_on_missing_receipt",
+        "test_admission_rejects_spliced_receipt",
+        "test_admission_ticket_is_deterministic_except_timing",
+        "test_status_type_checked_requires_pass_receipt",
+        "test_status_computed_requires_reproducible_output_hash",
+        "test_theorem_requires_proof_and_checker_receipts"
       ]
     },
     {
@@ -53564,8 +53720,8 @@
   ],
   "generator": "scripts/repo_cognition.py",
   "generator_version": "1.0.1",
-  "indexed_file_count": 1931,
+  "indexed_file_count": 1936,
   "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
   "schema": "AEGIS_REPO_COGNITION_V1",
-  "tracked_file_count": 1932
+  "tracked_file_count": 1937
 }
