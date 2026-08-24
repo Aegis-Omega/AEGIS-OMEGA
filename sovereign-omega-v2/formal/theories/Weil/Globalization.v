@@ -6,7 +6,7 @@
   does not prove the Weil criterion or RH.
 *)
 
-From Coq Require Import Lra.
+From Coq Require Import QArith Lra.
 From Coq Require Import Reals.Abstract.ConstructiveReals.
 Require Import AnalyticDefinitions.
 
@@ -38,7 +38,6 @@ Proof.
   exact (H n f).
 Qed.
 
-(* y + (x-y) == x, expressed in the constructive-real setoid. *)
 Lemma o0_plus_minus_cancel_v1 :
   forall x y : O0RealV1,
     O0EqV1
@@ -55,8 +54,6 @@ Proof.
   reflexivity.
 Qed.
 
-(* For eta=-q/2, q+eta == -eta.  This is the exact midpoint identity used
-   below to make the upper and lower asymptotic bounds collide. *)
 Lemma o0_rational_half_balance_v1 :
   forall q : Q,
     O0EqV1
@@ -76,18 +73,6 @@ Proof.
     + apply CR_of_Q_opp.
 Qed.
 
-(*
-  Constructive finite -> limit positivity.
-
-  Assume, for contradiction, QW(f)<0.  Density of Q in the constructive reals
-  gives q with QW(f)<q<0.  Put eta=-q/2>0.  For one sufficiently large n:
-
-      |QR_n(f)-QW(f)| < eta      -> QR_n(f) < QW(f)+eta < q+eta = -eta
-      eps_n < eta, -eps_n<=QR_n -> -eta < -eps_n <= QR_n(f)
-
-  Hence -eta < QR_n(f) < -eta, contradiction.  No excluded middle or
-  classical-real axiom is introduced by this argument.
-*)
 Theorem globalization_ready_implies_global_weil_positivity_v1 :
   forall
     (QR : FiniteQuadraticFamilyV1)
@@ -104,7 +89,6 @@ Proof.
   unfold O0LeV1.
   intro Hnegative.
 
-  (* Rational separator q with QW(f) < q < 0. *)
   destruct (CR_Q_dense O0RealsV1 (QW f) O0ZeroV1 Hnegative)
     as [q [Hfq Hq0]].
   assert (Hq0_Q : (q < 0)%Q).
@@ -142,7 +126,6 @@ Proof.
     (CRltEpsilon O0RealsV1 (eps n) eta HepsN)
     as Heps_lt.
 
-  (* A <= |A|, hence QR_n(f)-QW(f) < eta. *)
   assert (Hdiff_abs :
     O0LeV1
       (O0MinusV1 (QR n f) (QW f))
@@ -166,7 +149,6 @@ Proof.
       eta Hdiff_abs Hclose)
     as Hdiff_lt.
 
-  (* Upper side: QR_n(f) < QW(f)+eta < q+eta == -eta. *)
   pose proof
     (CRplus_lt_compat_l
       (R:=O0RealsV1)
@@ -190,7 +172,6 @@ Proof.
   unfold eta in Hupper1.
   rewrite (o0_rational_half_balance_v1 q) in Hupper1.
 
-  (* Lower side: -eta < -eps_n <= QR_n(f). *)
   pose proof
     (CRopp_gt_lt_contravar
       (R:=O0RealsV1) eta (eps n) Heps_lt)
