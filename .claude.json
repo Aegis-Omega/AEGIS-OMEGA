@@ -10,7 +10,7 @@
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
     "source_ref": "feat/epistemic-admission-kernel-v1",
-    "parent_state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba",
+    "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "a9f6e4b71f29bee5d2b0684d6ab5cceb7cdf14d6a47735844bee4cb67208c87c"
+  "state_hash": "b5c30cd426fe42e74f8a5fd2205a9a274cd7398ff0e613fdcd6e2b768936d7f6"
 }
