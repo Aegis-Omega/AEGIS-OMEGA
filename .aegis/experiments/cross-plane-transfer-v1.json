@@ -4,7 +4,7 @@
     "path": "sovereign-omega-v2/scripts/validate-experiment-plan.ts"
   },
   "admission_workflow": {
-    "blob_id": "9c85596d413ad4356932e4515db4980f6ef97bc8",
+    "blob_id": "fb1ea8b9038186401726beb4009071528d539186",
     "path": ".github/workflows/experiment-admission.yml"
   },
   "budget": {
@@ -30,8 +30,8 @@
     "INTEGRATION_LEDGER.md",
     "SHA256SUMS"
   ],
-  "expected_parent_sha": "32b7eb6a37fb69d19dd80189390b6641c5004ef1",
-  "expected_parent_state_root": "429331bd955fc63a864c32893a1669920f1a37ee70f6de1f5f2a693d590f4975",
+  "expected_parent_sha": "a34d664d66ae9f7c2e729cd4ccb07b74130c660f",
+  "expected_parent_state_root": "59f375fc09122b0ffabce00e6a65229ef8ca78154bf8438fb31be416b364e006",
   "experiment_id": "cross-plane-transfer-v1",
   "integration_ledger_generator": {
     "blob_id": "28823ae5b630be273b78210f0addf9c0a86aad05",
