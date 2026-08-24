@@ -1,0 +1,38 @@
+{
+  "receipt_version": "1.6.1",
+  "repository": "Aegis-Omega/AEGIS-OMEGA",
+  "branch": "agent/p3-reproducible-build-binding-v1",
+  "base_commit_sha": "0bdffe75b56e5cd27c0632e1ba166620da327494",
+  "source_commit": {
+    "commit_sha": "b47dae266a0e3cec8a95c90939aff1510c87bbe0",
+    "tree_sha": "65458dec7143251c5bee76eab1fd1a2c2ff36d35",
+    "committed_at": "2026-08-05T04:38:23Z",
+    "signature_status": "UNSIGNED"
+  },
+  "sha256sums": {
+    "path": ".aegis/evidence/p3-reproducible-build-v1/SHA256SUMS",
+    "git_blob_sha": "4fd5f188cfc743635fb58f7ee66385696e49c26d",
+    "content_sha256": "30e049f7e14de732a2180cc931700a003f6fb6d79ecc540f341954a897670634"
+  },
+  "authoritative_bundle": {
+    "filename": "target_reproducible_bundle.tar.gz",
+    "sha256": "d73509bf215ff14bf91cc0232fe69a1b80cbf9a68edd305aa0a0c09ea59c3a5d",
+    "repository_storage_policy": "RELEASE_OR_CI_ARTIFACT_NOT_COMMITTED"
+  },
+  "bundler_provenance": {
+    "filename": "package_deterministic_bundle.py",
+    "version": "1.0.0",
+    "sha256": "ba303acbd8e944126ed0bbeaee5c49016736285e8e41eb46a39721c9e168754e",
+    "git_blob_binding": "PENDING_SOURCE_BYTES"
+  },
+  "deployment_manifest": {
+    "filename": "target_deployment.json",
+    "sha256": "f26ec6829ea0683dcfea6ff22ec7ac2320be14b8e80f06708713761f7e2b12e6",
+    "git_blob_binding": "PENDING_SOURCE_BYTES"
+  },
+  "working_tree_dirty_state": "NOT_ATTESTED_BY_REMOTE_GIT_API",
+  "binding_state": "HASH_MANIFEST_COMMIT_BOUND",
+  "full_reproducible_build_binding": "PENDING_BUNDLER_AND_MANIFEST_SOURCE_BYTES",
+  "distributed_target_admission": "NOT_ESTABLISHED",
+  "verdict": "PARTIAL_COMMIT_BINDING_ESTABLISHED"
+}
