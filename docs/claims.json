@@ -550,7 +550,7 @@
         "Test: sovereign-omega-v2/python/tests/test_effect_chain_evidence_integration.py"
       ],
       "fails_if": "The stable check omits pull_request, merge_group, or main push; the exact 129-test surface is incomplete; artifacts are not candidate-bound; the receipt implies external effect admission; replay checksums are absent; OIDC is not required; or any negative-test bypass is accepted.",
-      "verified_against": "7430312b76a4ba75e67ef961450d6a9fce3b2747"
+      "verified_against": "dac498fa35f9edf75176fca9b9425aa052b7df1b"
     },
     {
       "id": "CLM-231",
