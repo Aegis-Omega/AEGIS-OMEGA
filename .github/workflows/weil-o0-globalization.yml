@@ -82,9 +82,6 @@ jobs:
             cd "$DIR"
             coqc --version | tee "$OUT/coq-version.txt"
 
-            # Phase 1: isolate the classical Coq.Reals trust surface before
-            # Coquelicot exists. These probes are diagnostic and intentionally
-            # do not gate on Closed; run #14 established where the axioms enter.
             for spec in \
               'O0TrustProbeReals:o0_trust_probe_reals_reflexive' \
               'O0TrustProbeFunction:o0_trust_probe_function_reflexive' \
@@ -103,8 +100,6 @@ jobs:
               cat "$log"
             done
 
-            # GREEN prerequisite: the candidate constructive Cauchy-real order
-            # itself must be Closed before it can replace the classical carrier.
             coqc O0TrustProbeConstructive.v
             query="$OUT/o0_trust_probe_constructive_order_refl.v"
             log="$OUT/o0_trust_probe_constructive_order_refl.assumptions.txt"
@@ -119,11 +114,13 @@ jobs:
               exit 1
             fi
 
-            # TDD RED: this production-surface probe intentionally names the
-            # constructive O0 API before AnalyticDefinitions.v implements it.
+            # Compile the current production vocabulary so the RED below tests
+            # the intended missing API rather than a missing .vo artifact.
+            coqc AnalyticDefinitions.v 2>&1 | tee "$OUT/analytic-definitions.log"
+
+            # TDD RED: O0RealV1/O0LeV1/o0_real_order_refl_v1 do not yet exist.
             coqc O0ProductionConstructiveProbe.v
 
-            # Dependency probe is evidence-only and downstream of the carrier test.
             opam install -y coq-coquelicot.3.4.2
             opam list --installed coq-coquelicot --short | tee "$OUT/dependency-probe.log"
             coqc O0DependencyProbe.v
@@ -136,7 +133,6 @@ jobs:
             echo '===== POST-COQUELICOT o0_trust_probe_reals_reflexive ====='
             cat "$log"
 
-            coqc AnalyticDefinitions.v 2>&1 | tee "$OUT/analytic-definitions.log"
             coqc Globalization.v 2>&1 | tee "$OUT/globalization.log"
             coqc WeilCriterion.v 2>&1 | tee "$OUT/weil-criterion.log"
             coqc O0.v 2>&1 | tee "$OUT/o0.log"
