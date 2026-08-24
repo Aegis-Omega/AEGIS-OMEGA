@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/mutation-receipt.v1.schema.json",
+  "title": "AEGIS MutationReceipt V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["receipt_version","execution_identity_root","workspace_binding","policy_decision_root","authority_score","authority_domain","action_class","tool","target","pre_state_digest","requested_action_digest","result_digest","post_state_digest","parent_receipt","sequence","outcome","denial_code"],
+  "properties": {
+    "receipt_version": {"const": "1.0.0"},
+    "execution_identity_root": {"$ref": "#/$defs/hash"},
+    "workspace_binding": {"$ref": "#/$defs/hash"},
+    "policy_decision_root": {"$ref": "#/$defs/hash"},
+    "authority_score": {"type": "string", "pattern": "^(0|1)\\.[0-9]{6}$"},
+    "authority_domain": {"type": "string", "minLength": 1},
+    "action_class": {"enum": ["D0","D1","D2","D3","D4"]},
+    "tool": {"type": "string", "minLength": 1},
+    "target": {"$ref": "#/$defs/hash"},
+    "pre_state_digest": {"$ref": "#/$defs/hash"},
+    "requested_action_digest": {"$ref": "#/$defs/hash"},
+    "result_digest": {"$ref": "#/$defs/hash"},
+    "post_state_digest": {"$ref": "#/$defs/hash"},
+    "parent_receipt": {"$ref": "#/$defs/hash"},
+    "sequence": {"type": "integer", "minimum": 0},
+    "outcome": {"enum": ["SUCCEEDED","DENIED","FAILED","ROLLED_BACK"]},
+    "denial_code": {"type": "string", "minLength": 1}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

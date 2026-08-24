@@ -1,0 +1,132 @@
+name: AEGIS Automaton-2
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+jobs:
+  automaton-2:
+    name: aegis / automaton-2
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact validator dependency
+        run: pip install jsonschema==4.23.0
+
+      - name: Resolve parent cognitive state
+        id: parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent="${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}"
+          if [[ -z "$parent" || "$parent" =~ ^0+$ ]]; then
+            parent="$(git rev-parse "${CANDIDATE_SHA}^")"
+          fi
+          parent_manifest="$RUNNER_TEMP/PARENT_CLAUDE.json"
+          parent_hash="$(printf '0%.0s' {1..64})"
+          if git show "$parent:.claude.json" > "$parent_manifest" 2>/dev/null; then
+            parent_hash="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["state_hash"])' "$parent_manifest")"
+            echo "manifest=$parent_manifest" >> "$GITHUB_OUTPUT"
+          else
+            rm -f "$parent_manifest"
+            echo "manifest=" >> "$GITHUB_OUTPUT"
+          fi
+          echo "sha=$parent" >> "$GITHUB_OUTPUT"
+          echo "state_hash=$parent_hash" >> "$GITHUB_OUTPUT"
+
+      - name: Generate expected cognitive anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_ref="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          python scripts/build-cognitive-manifest.py \
+            --ref "$source_ref" \
+            --parent-state-hash "${{ steps.parent.outputs.state_hash }}" \
+            --output-dir "$RUNNER_TEMP/cognitive-anchors"
+
+      - name: Upload expected anchors
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-cognitive-anchors-${{ env.CANDIDATE_SHA }}
+          path: ${{ runner.temp }}/cognitive-anchors
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Promote anchors on same-repository PR
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if cmp -s "$RUNNER_TEMP/cognitive-anchors/.claude.json" .claude.json 2>/dev/null && \
+             cmp -s "$RUNNER_TEMP/cognitive-anchors/skill-hashes.sha256" skill-hashes.sha256 2>/dev/null; then
+            echo "Committed anchors already current."
+            exit 0
+          fi
+          cp "$RUNNER_TEMP/cognitive-anchors/.claude.json" .claude.json
+          cp "$RUNNER_TEMP/cognitive-anchors/skill-hashes.sha256" skill-hashes.sha256
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .claude.json skill-hashes.sha256
+          git commit -m "chore(manifest): promote governed cognitive anchors"
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+
+      - name: Run Automaton-2 negative and determinism tests
+        run: python sovereign-omega-v2/python/tests/test_automaton2.py
+
+      - name: Validate candidate and emit receipt
+        id: validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/AUTOMATON2_RECEIPT.json"
+          parent_args=()
+          if [[ -n "${{ steps.parent.outputs.manifest }}" ]]; then
+            parent_args=(--parent-manifest "${{ steps.parent.outputs.manifest }}")
+          else
+            parent_args=(--expected-parent-state-hash "${{ steps.parent.outputs.state_hash }}")
+          fi
+          python scripts/validate-automaton2.py \
+            --candidate-sha "$CANDIDATE_SHA" \
+            --require-oidc \
+            --output "$out" \
+            "${parent_args[@]}"
+
+      - name: Upload Automaton-2 receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-automaton-2-${{ env.CANDIDATE_SHA }}
+          path: ${{ runner.temp }}/AUTOMATON2_RECEIPT.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Attest governed cognitive transition
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            .claude.json
+            skill-hashes.sha256
+            ${{ runner.temp }}/AUTOMATON2_RECEIPT.json

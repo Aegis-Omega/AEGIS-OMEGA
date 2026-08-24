@@ -346,7 +346,7 @@ export function PlatformPage() {
             info@aegisomega.com
           </a>
           {' · '}
-          <a href="https://github.com/Aegis-Omega/AEGIS--" style={{ color: MUTED, textDecoration: 'none' }}>
+          <a href="https://github.com/Aegis-Omega/AEGIS-OMEGA" style={{ color: MUTED, textDecoration: 'none' }}>
             GitHub
           </a>
         </div>

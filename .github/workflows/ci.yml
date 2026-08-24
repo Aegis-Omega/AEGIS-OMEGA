@@ -178,6 +178,9 @@ jobs:
       - name: Contract equivalence gate — TS contract <-> Python runtime (no silent drift)
         run: python3 ../scripts/contract_equivalence_check.py
 
+      - name: Run canonical envelope + cross-language digest tests
+        run: python python/tests/test_canon_equivalence.py
+
       - name: Run hardware_config fixed-point tests
         run: python python/tests/test_hardware_config.py
 
