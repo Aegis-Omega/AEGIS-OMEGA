@@ -1,9 +1,9 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "bf4ffc1ba20d9a51e2f2005d0ab2d31f18f2f644ab9d03352ea836a1bb05e930",
+  "corpus_root": "2fc0e4f441aeed2ea3389b480afe4ed58a4d2a3012c2551d5433bc17988e9acb",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
-  "eligible_file_count": 1955,
+  "eligible_file_count": 1956,
   "excluded_generated_paths": [
     ".aegis/repo-cognition-v1.json"
   ],
@@ -38163,6 +38163,40 @@
       ]
     },
     {
+      "content_sha256": "2d5a506d1c3f4bf3a9a67ca587a8525cb3dc2df09b30e1d54916d7624ae08ad7",
+      "dependency_hints": [
+        "__future__",
+        "dataclasses",
+        "typing",
+        "cross_domain_collision",
+        "cross_domain_coverage",
+        "research_invariants"
+      ],
+      "git_blob_sha": "5da194187acb5dae8dd847079058940f5c1de0d5",
+      "heading_hint": null,
+      "kind": "source",
+      "language": "python",
+      "line_count": 298,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "sovereign-omega-v2/python/cross_domain_epoch.py",
+      "size_bytes": 13041,
+      "symbol_hints": [
+        "_adapter_digest",
+        "ProspectiveEpochV1",
+        "__post_init__",
+        "_epoch_material",
+        "make_epoch_v1",
+        "verify_epoch",
+        "epoch_collision_criterion",
+        "SubjectGenerationReceiptV1",
+        "_generation_material",
+        "_generated_values",
+        "generate_subject_receipts",
+        "verify_subject_generation_receipt"
+      ]
+    },
+    {
       "content_sha256": "fe582e24dd43ea0a4dc9808f1f7dfc6eb53a6769833df5d30f9745cc843ae9af",
       "dependency_hints": [
         "__future__",
@@ -54229,8 +54263,8 @@
   ],
   "generator": "scripts/repo_cognition.py",
   "generator_version": "1.0.1",
-  "indexed_file_count": 1955,
+  "indexed_file_count": 1956,
   "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
   "schema": "AEGIS_REPO_COGNITION_V1",
-  "tracked_file_count": 1956
+  "tracked_file_count": 1957
 }
