@@ -185,21 +185,19 @@ class CrossDomainCollisionTests(unittest.TestCase):
         )
         self.assertFalse(receipt.promotion_eligible)
         self.assertIsNone(receipt.null_survived)
+        self.assertEqual(receipt.control_coverage_receipt_sha256s, ())
 
-    def test_prospective_null_survival_uses_finite_sample_correction(self):
+    def test_prospective_null_cannot_use_uncovered_synthetic_controls(self):
         criterion = fixture_criterion(control_count=100, promotion_threshold=0.05)
         collision = two_domain_collision(cdc.SelectionProvenance.PROSPECTIVE, criterion)
-        receipt = cdc.evaluate_null_model(collision, criterion, zero_control_receipts(criterion))
-        self.assertAlmostEqual(receipt.p_emp, 1 / 101)
-        self.assertTrue(receipt.promotion_eligible)
-        self.assertTrue(receipt.null_survived)
+        with self.assertRaises(PermissionError):
+            cdc.evaluate_null_model(collision, criterion, zero_control_receipts(criterion))
 
-    def test_null_model_without_threshold_mints_no_survival_verdict(self):
+    def test_threshold_free_prospective_null_still_requires_coverage(self):
         criterion = fixture_criterion(control_count=10, promotion_threshold=None)
         collision = two_domain_collision(cdc.SelectionProvenance.PROSPECTIVE, criterion)
-        receipt = cdc.evaluate_null_model(collision, criterion, zero_control_receipts(criterion))
-        self.assertTrue(receipt.promotion_eligible)
-        self.assertIsNone(receipt.null_survived)
+        with self.assertRaises(PermissionError):
+            cdc.evaluate_null_model(collision, criterion, zero_control_receipts(criterion))
 
 
 if __name__ == "__main__":
