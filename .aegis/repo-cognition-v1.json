@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "7873963ace05795be9f9e50e750be68e4a2cfdea6890539df095b554809d3945",
+  "corpus_root": "9914e143270513b50cf9a04b8fa810f04afc13c99e1ed8b2075b1434be560619",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1942,
@@ -39175,25 +39175,26 @@
       ]
     },
     {
-      "content_sha256": "243a8bebe0f3333a40acaec8a17f610263cd82a494cc9f92cb4f7fea34e536b6",
+      "content_sha256": "4e3b1f878fbb842ebc676857b190bcf78f25f4f38c2f3ab70a5ba9f0be9aa30d",
       "dependency_hints": [
         "pathlib",
         "sys",
         "unittest",
         "cross_domain_collision"
       ],
-      "git_blob_sha": "28b5303ad3fa5987757441ba1045247346993afd",
+      "git_blob_sha": "05e7793d841e1a202c087cb938dd0bfec39957d9",
       "heading_hint": null,
       "kind": "test",
       "language": "python",
-      "line_count": 150,
+      "line_count": 194,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/tests/test_cross_domain_collision.py",
-      "size_bytes": 6783,
+      "size_bytes": 9058,
       "symbol_hints": [
         "fixture_criterion",
         "fixture_observation",
+        "two_domain_collision",
         "CrossDomainCollisionTests",
         "test_integer_subject_is_representation_independent",
         "test_unicode_label_rejects_out_of_range_integer",
@@ -39204,7 +39205,13 @@
         "test_local_derived_property_does_not_satisfy_external_threshold",
         "test_two_unique_external_domains_form_collision",
         "test_subject_splicing_fails_closed",
-        "test_unknown_transform_fails_closed"
+        "test_unknown_transform_fails_closed",
+        "test_control_generation_is_exactly_replayable",
+        "test_different_seed_changes_control_sequence",
+        "test_retrospective_fixture_cannot_be_promoted_by_null_model",
+        "test_retrospective_descriptive_null_receipt_is_not_promotion_eligible",
+        "test_prospective_null_survival_uses_finite_sample_correction",
+        "test_null_model_without_threshold_mints_no_survival_verdict"
       ]
     },
     {
