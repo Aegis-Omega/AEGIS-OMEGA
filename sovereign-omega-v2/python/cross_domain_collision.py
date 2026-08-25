@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Mapping, Sequence
@@ -289,5 +290,84 @@ def evaluate_collision(
         independent_external_domain_count=count,
         score=score,
         cross_registry_collision=collision,
+        receipt_sha256=ri.sha256_hex(material),
+    )
+
+
+def generate_controls(criterion: CollisionCriterionV1) -> tuple[int, ...]:
+    if criterion.control_generator_id != "PY_RANDOM_UNIFORM_INT_V1":
+        raise ValueError("unsupported control generator")
+    rng = random.Random(criterion.control_seed)
+    return tuple(
+        rng.randint(criterion.universe_min, criterion.universe_max)
+        for _ in range(criterion.control_count)
+    )
+
+
+@dataclass(frozen=True)
+class NullModelReceiptV1:
+    subject_sha256: str
+    collision_receipt_sha256: str
+    criterion_sha256: str
+    observed_score: int
+    control_scores_sha256: str
+    control_count: int
+    extreme_count: int
+    p_emp: float
+    promotion_eligible: bool
+    null_survived: bool | None
+    receipt_sha256: str
+
+
+def evaluate_null_model(
+    observed: CollisionReceiptV1,
+    criterion: CollisionCriterionV1,
+    control_scores: Sequence[int],
+    *,
+    allow_retrospective_descriptive: bool = False,
+) -> NullModelReceiptV1:
+    if observed.criterion_sha256 != criterion.criterion_sha256:
+        raise ValueError("collision receipt criterion mismatch")
+    if len(control_scores) != criterion.control_count:
+        raise ValueError("control score count differs from frozen criterion")
+    scores = tuple(control_scores)
+    if any(isinstance(score, bool) or not isinstance(score, int) or score < 0 for score in scores):
+        raise ValueError("control scores must be non-negative integers")
+    if observed.provenance is SelectionProvenance.RETROSPECTIVE and not allow_retrospective_descriptive:
+        raise PermissionError("retrospective observations are not promotion-eligible")
+
+    extreme = sum(1 for score in scores if score >= observed.score)
+    p_emp = (1 + extreme) / (1 + len(scores))
+    promotion_eligible = observed.provenance is SelectionProvenance.PROSPECTIVE
+    if not promotion_eligible or criterion.promotion_threshold is None:
+        null_survived: bool | None = None
+    else:
+        null_survived = p_emp <= criterion.promotion_threshold
+
+    scores_sha256 = ri.sha256_hex(scores)
+    material = {
+        "schema": "AEGIS_NULL_MODEL_RECEIPT_V1",
+        "subject_sha256": observed.subject_sha256,
+        "collision_receipt_sha256": observed.receipt_sha256,
+        "criterion_sha256": criterion.criterion_sha256,
+        "observed_score": observed.score,
+        "control_scores_sha256": scores_sha256,
+        "control_count": len(scores),
+        "extreme_count": extreme,
+        "p_emp": p_emp,
+        "promotion_eligible": promotion_eligible,
+        "null_survived": null_survived,
+    }
+    return NullModelReceiptV1(
+        subject_sha256=observed.subject_sha256,
+        collision_receipt_sha256=observed.receipt_sha256,
+        criterion_sha256=criterion.criterion_sha256,
+        observed_score=observed.score,
+        control_scores_sha256=scores_sha256,
+        control_count=len(scores),
+        extreme_count=extreme,
+        p_emp=p_emp,
+        promotion_eligible=promotion_eligible,
+        null_survived=null_survived,
         receipt_sha256=ri.sha256_hex(material),
     )
