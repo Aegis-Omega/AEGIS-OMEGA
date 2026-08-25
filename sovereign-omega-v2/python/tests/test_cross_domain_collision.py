@@ -56,6 +56,18 @@ def two_domain_collision(provenance, criterion):
     return cdc.evaluate_collision(subject, provenance, [unicode_obs, ncbi_obs], criterion)
 
 
+def zero_control_receipts(criterion):
+    return tuple(
+        cdc.evaluate_collision(
+            cdc.IntegerSubjectV1(value),
+            cdc.SelectionProvenance.PROSPECTIVE,
+            [],
+            criterion,
+        )
+        for value in cdc.generate_controls(criterion)
+    )
+
+
 class CrossDomainCollisionTests(unittest.TestCase):
     def test_integer_subject_is_representation_independent(self):
         a = cdc.IntegerSubjectV1(65010)
@@ -160,7 +172,7 @@ class CrossDomainCollisionTests(unittest.TestCase):
         criterion = fixture_criterion(control_count=100)
         collision = two_domain_collision(cdc.SelectionProvenance.RETROSPECTIVE, criterion)
         with self.assertRaises(PermissionError):
-            cdc.evaluate_null_model(collision, criterion, [0] * 100)
+            cdc.evaluate_null_model(collision, criterion, zero_control_receipts(criterion))
 
     def test_retrospective_descriptive_null_receipt_is_not_promotion_eligible(self):
         criterion = fixture_criterion(control_count=100)
@@ -168,7 +180,7 @@ class CrossDomainCollisionTests(unittest.TestCase):
         receipt = cdc.evaluate_null_model(
             collision,
             criterion,
-            [0] * 100,
+            zero_control_receipts(criterion),
             allow_retrospective_descriptive=True,
         )
         self.assertFalse(receipt.promotion_eligible)
@@ -177,7 +189,7 @@ class CrossDomainCollisionTests(unittest.TestCase):
     def test_prospective_null_survival_uses_finite_sample_correction(self):
         criterion = fixture_criterion(control_count=100, promotion_threshold=0.05)
         collision = two_domain_collision(cdc.SelectionProvenance.PROSPECTIVE, criterion)
-        receipt = cdc.evaluate_null_model(collision, criterion, [0] * 100)
+        receipt = cdc.evaluate_null_model(collision, criterion, zero_control_receipts(criterion))
         self.assertAlmostEqual(receipt.p_emp, 1 / 101)
         self.assertTrue(receipt.promotion_eligible)
         self.assertTrue(receipt.null_survived)
@@ -185,7 +197,7 @@ class CrossDomainCollisionTests(unittest.TestCase):
     def test_null_model_without_threshold_mints_no_survival_verdict(self):
         criterion = fixture_criterion(control_count=10, promotion_threshold=None)
         collision = two_domain_collision(cdc.SelectionProvenance.PROSPECTIVE, criterion)
-        receipt = cdc.evaluate_null_model(collision, criterion, [0] * 10)
+        receipt = cdc.evaluate_null_model(collision, criterion, zero_control_receipts(criterion))
         self.assertTrue(receipt.promotion_eligible)
         self.assertIsNone(receipt.null_survived)
 
