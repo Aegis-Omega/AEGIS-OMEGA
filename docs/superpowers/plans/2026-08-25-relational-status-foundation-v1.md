@@ -4,9 +4,9 @@
 
 **Goal:** Extend the existing zero-discretion research gate layer with deterministic late-bound relation binding and append-only claim-status history without introducing collision-specific semantics.
 
-**Architecture:** Reuse `GateReceipt`, canonical hashing, and `AdmissionController` from #320. A relation is a role-bound set of already-hashed participants whose own deterministic digest becomes the `object_digest` for ordinary gate/admission receipts. Status history is a hash-chained immutable journal whose transitions bind previous/next status, evidence digests, criterion epoch, reason, and previous transition digest.
+**Architecture:** Reuse `GateReceipt`, canonical hashing, and `AdmissionController` from #320. A relation is a role-bound set of already-hashed participants whose deterministic digest becomes the `object_digest` for ordinary gate/admission receipts. Status history is a hash-chained immutable journal whose transitions bind previous/next status, evidence digests, criterion epoch, reason, and previous transition digest.
 
-**Tech Stack:** Python 3.11 standard library, `dataclasses`, `enum`, `hashlib`, `unittest`, existing AEGIS canonical JSON/hash helpers.
+**Tech Stack:** Python 3.11 standard library, `dataclasses`, `hashlib`, `unittest`, existing AEGIS canonical JSON/hash helpers.
 
 **Spec:** `docs/superpowers/specs/2026-08-25-cross-domain-collision-v1-design.md`
 
@@ -33,7 +33,7 @@
 
 - [ ] **Step 1: Write failing relation identity tests**
 
-Append tests equivalent to:
+Append:
 
 ```python
 def test_relation_binding_is_order_stable_but_role_sensitive(self):
@@ -46,7 +46,7 @@ def test_relation_binding_is_order_stable_but_role_sensitive(self):
     self.assertNotEqual(first.relation_digest, swapped_roles.relation_digest)
 
 
-def test_relation_binding_rejects_duplicate_or_invalid_roles(self):
+def test_relation_binding_rejects_invalid_material(self):
     digest = "a" * 64
     with self.assertRaises(ValueError):
         ri.bind_relation("", {"left": digest})
@@ -54,11 +54,11 @@ def test_relation_binding_rejects_duplicate_or_invalid_roles(self):
         ri.bind_relation("x", {})
     with self.assertRaises(ValueError):
         ri.bind_relation("x", {"": digest})
+    with self.assertRaises(ValueError):
+        ri.bind_relation("x", {"left": "not-a-digest"})
 ```
 
-- [ ] **Step 2: Run the targeted tests and verify RED**
-
-Run:
+- [ ] **Step 2: Run and verify RED**
 
 ```bash
 python sovereign-omega-v2/python/tests/test_research_invariants.py
@@ -66,7 +66,7 @@ python sovereign-omega-v2/python/tests/test_research_invariants.py
 
 Expected: FAIL because `bind_relation`/`RelationBindingV1` do not exist.
 
-- [ ] **Step 3: Implement minimal deterministic relation binding**
+- [ ] **Step 3: Implement deterministic relation binding**
 
 Add:
 
@@ -78,41 +78,40 @@ class RelationBindingV1:
     relation_digest: str
 
 
-def bind_relation(relation_id: str, participants: Mapping[str, str]) -> RelationBindingV1:
+def bind_relation(
+    relation_id: str,
+    participants: Mapping[str, str],
+) -> RelationBindingV1:
     if not relation_id:
         raise ValueError("relation_id must be non-empty")
     if not participants:
         raise ValueError("relation requires at least one participant")
     normalized: dict[str, str] = {}
     for role, digest in participants.items():
+        role = str(role)
         if not role:
             raise ValueError("relation participant role must be non-empty")
-        if role in normalized:
-            raise ValueError(f"duplicate relation role: {role}")
         _check_digest(digest, f"participant[{role}]")
-        normalized[str(role)] = digest
+        normalized[role] = digest
+    ordered = dict(sorted(normalized.items()))
     material = {
         "schema": "AEGIS_RELATION_BINDING_V1",
         "relation_id": relation_id,
-        "participants": normalized,
+        "participants": ordered,
     }
     return RelationBindingV1(
         relation_id=relation_id,
-        participants=dict(sorted(normalized.items())),
+        participants=ordered,
         relation_digest=sha256_hex(material),
     )
 ```
 
-Do not add timestamps or mutable metadata.
-
-- [ ] **Step 4: Run the entire inherited gate regression suite**
+- [ ] **Step 4: Verify GREEN**
 
 ```bash
 python -m py_compile sovereign-omega-v2/python/research_invariants.py
 python sovereign-omega-v2/python/tests/test_research_invariants.py
 ```
-
-Expected: all prior tests plus relation tests PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -123,68 +122,50 @@ git commit -m "feat(research): add deterministic relation binding"
 
 ---
 
-### Task 2: Admit late-bound relational gate receipts without a second receipt system
+### Task 2: Bind late relational checks to ordinary GateReceipts
 
 **Files:**
 - Modify: `sovereign-omega-v2/python/research_invariants.py`
 - Test: `sovereign-omega-v2/python/tests/test_research_invariants.py`
 
 **Interfaces:**
-- Consumes: `RelationBindingV1.relation_digest`, existing `GateReceipt`, existing `AdmissionController.admit`.
-- Produces: convention that relational gates bind `GateReceipt.object_digest == relation.relation_digest`; no new authority receipt class.
+- Consumes: `RelationBindingV1.relation_digest`, existing `GateReceipt`, `_receipt`, `AdmissionController.admit`.
+- Produces: `relation_gate_receipt(...) -> GateReceipt`.
 
-- [ ] **Step 1: Add RED tests for relation anti-splicing**
+- [ ] **Step 1: Write RED test for the public helper and anti-splicing**
 
 ```python
-def test_admission_accepts_receipt_bound_to_exact_relation(self):
-    a = "a" * 64
-    b = "b" * 64
-    relation = ri.bind_relation("x-against-y-v1", {"x": a, "y": b})
-    receipt = ri._receipt(
+def test_relation_gate_receipt_admits_only_exact_relation(self):
+    a, b, c = "a" * 64, "b" * 64, "c" * 64
+    exact = ri.bind_relation("x-against-y-v1", {"x": a, "y": b})
+    changed = ri.bind_relation("x-against-y-v1", {"x": a, "y": c})
+    receipt = ri.relation_gate_receipt(
         gate_id="relation-check",
-        type_signature="RelationBindingV1",
-        object_digest=relation.relation_digest,
+        relation=exact,
         verdict=ri.GateVerdict.PASS,
         observation={"matched": True},
-        started_ns=0,
     )
     ticket = ri.AdmissionController.admit(
         stage_id="relational-stage",
-        subject_digest=relation.relation_digest,
+        subject_digest=exact.relation_digest,
         required_gate_ids=["relation-check"],
         receipts=[receipt],
     )
-    self.assertEqual(ticket.subject_digest, relation.relation_digest)
-
-
-def test_admission_rejects_receipt_from_different_counterpart(self):
-    a, b, c = "a" * 64, "b" * 64, "c" * 64
-    old = ri.bind_relation("x-against-y-v1", {"x": a, "y": b})
-    new = ri.bind_relation("x-against-y-v1", {"x": a, "y": c})
-    receipt = ri._receipt(
-        gate_id="relation-check",
-        type_signature="RelationBindingV1",
-        object_digest=old.relation_digest,
-        verdict=ri.GateVerdict.PASS,
-        observation={"matched": True},
-        started_ns=0,
-    )
+    self.assertEqual(ticket.subject_digest, exact.relation_digest)
     with self.assertRaises(PermissionError):
         ri.AdmissionController.admit(
             stage_id="relational-stage",
-            subject_digest=new.relation_digest,
+            subject_digest=changed.relation_digest,
             required_gate_ids=["relation-check"],
             receipts=[receipt],
         )
 ```
 
-- [ ] **Step 2: Run tests and verify the intended behavior**
+- [ ] **Step 2: Run and verify RED**
 
-Run the suite. If the first test already passes because generic admission is sufficient, keep that as evidence that no implementation change is needed. The second MUST fail closed. Do not add redundant production abstractions merely to make a diff.
+Expected: FAIL because `relation_gate_receipt` does not exist.
 
-- [ ] **Step 3: Add only the minimal public helper needed by downstream code**
-
-If direct use of private `_receipt` is the only gap, expose:
+- [ ] **Step 3: Implement public relational receipt helper**
 
 ```python
 def relation_gate_receipt(
@@ -193,9 +174,9 @@ def relation_gate_receipt(
     relation: RelationBindingV1,
     verdict: GateVerdict,
     observation: Mapping[str, Any],
-    started_ns: int,
     gate_version: str = "1",
 ) -> GateReceipt:
+    started_ns = time.perf_counter_ns()
     return _receipt(
         gate_id=gate_id,
         type_signature="RelationBindingV1",
@@ -207,16 +188,14 @@ def relation_gate_receipt(
     )
 ```
 
-Do not modify `AdmissionController` unless a failing test proves it is necessary.
+Do not modify `AdmissionController`; its existing exact-subject anti-splicing rule is the authority boundary.
 
-- [ ] **Step 4: Verify full gate suite**
+- [ ] **Step 4: Run inherited tests**
 
 ```bash
 python -m py_compile sovereign-omega-v2/python/research_invariants.py
 python sovereign-omega-v2/python/tests/test_research_invariants.py
 ```
-
-Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -235,49 +214,48 @@ git commit -m "feat(research): bind late relational gate receipts"
 
 **Interfaces:**
 - Consumes: `sha256_hex`, `_check_digest`.
-- Produces: `StatusTransitionV1`, `StatusJournalV1.append(...)`, `StatusJournalV1.current_status`, immutable `history` tuple.
+- Produces: `StatusTransitionV1`, `StatusJournalV1.append(...)`, `StatusJournalV1.verify(...)`, `StatusJournalV1.current_status`, immutable `history` tuple.
 
-- [ ] **Step 1: Write RED tests for promotion, demotion, and history integrity**
+- [ ] **Step 1: Write RED promotion/demotion tests**
 
 ```python
 def test_status_journal_preserves_promotion_and_demotion_history(self):
-    evidence_a = "a" * 64
-    evidence_b = "b" * 64
-    epoch = "c" * 64
     journal = ri.StatusJournalV1("claim-1")
     first = journal.append(
         next_status="CROSS_REGISTRY_COLLISION",
-        evidence_receipt_digests=[evidence_a],
-        criterion_sha256=epoch,
+        evidence_receipt_digests=["a" * 64],
+        criterion_sha256="c" * 64,
         reason="exact external mappings",
     )
     second = journal.append(
         next_status="OBSERVED",
-        evidence_receipt_digests=[evidence_b],
-        criterion_sha256=epoch,
+        evidence_receipt_digests=["b" * 64],
+        criterion_sha256="c" * 64,
         reason="corrected criterion demotion",
     )
     self.assertEqual(journal.current_status, "OBSERVED")
     self.assertEqual(len(journal.history), 2)
     self.assertEqual(second.previous_transition_sha256, first.transition_sha256)
-
-
-def test_status_transition_hash_changes_if_reason_or_evidence_changes(self):
-    epoch = "c" * 64
-    a = ri.StatusJournalV1("claim-1")
-    b = ri.StatusJournalV1("claim-1")
-    ta = a.append("OBSERVED", ["a" * 64], epoch, "reason-a")
-    tb = b.append("OBSERVED", ["a" * 64], epoch, "reason-b")
-    self.assertNotEqual(ta.transition_sha256, tb.transition_sha256)
+    self.assertTrue(ri.StatusJournalV1.verify(journal.history))
 ```
 
-- [ ] **Step 2: Run suite and verify RED**
+- [ ] **Step 2: Write RED tamper test**
 
-Expected: FAIL because journal classes do not exist.
+```python
+def test_status_journal_replay_detects_tampering(self):
+    from dataclasses import replace
+    journal = ri.StatusJournalV1("claim-1")
+    transition = journal.append(
+        next_status="OBSERVED",
+        evidence_receipt_digests=["a" * 64],
+        criterion_sha256="c" * 64,
+        reason="initial observation",
+    )
+    tampered = replace(transition, reason="rewritten history")
+    self.assertFalse(ri.StatusJournalV1.verify([tampered]))
+```
 
-- [ ] **Step 3: Implement transition and journal**
-
-Use exact semantics:
+- [ ] **Step 3: Implement exact transition object and journal**
 
 ```python
 @dataclass(frozen=True)
@@ -314,46 +292,81 @@ class StatusJournalV1:
         criterion_sha256: str | None,
         reason: str,
     ) -> StatusTransitionV1:
-        if not next_status or not reason:
-            raise ValueError("next_status and reason must be non-empty")
+        if not next_status:
+            raise ValueError("next_status must be non-empty")
+        if not reason:
+            raise ValueError("reason must be non-empty")
         evidence = tuple(evidence_receipt_digests)
         for digest in evidence:
             _check_digest(digest, "evidence_receipt_digest")
         if criterion_sha256 is not None:
             _check_digest(criterion_sha256, "criterion_sha256")
         previous = self._history[-1] if self._history else None
+        previous_status = previous.next_status if previous else None
+        previous_sha = previous.transition_sha256 if previous else None
         material = {
             "schema": "AEGIS_STATUS_TRANSITION_V1",
             "claim_id": self._claim_id,
-            "previous_status": previous.next_status if previous else None,
+            "previous_status": previous_status,
             "next_status": next_status,
             "evidence_receipt_digests": evidence,
             "criterion_sha256": criterion_sha256,
             "reason": reason,
-            "previous_transition_sha256": previous.transition_sha256 if previous else None,
+            "previous_transition_sha256": previous_sha,
         }
         transition = StatusTransitionV1(
-            **material_without_schema,
+            claim_id=self._claim_id,
+            previous_status=previous_status,
+            next_status=next_status,
+            evidence_receipt_digests=evidence,
+            criterion_sha256=criterion_sha256,
+            reason=reason,
+            previous_transition_sha256=previous_sha,
             transition_sha256=sha256_hex(material),
         )
         self._history.append(transition)
         return transition
+
+    @staticmethod
+    def verify(history: Sequence[StatusTransitionV1]) -> bool:
+        previous: StatusTransitionV1 | None = None
+        for transition in history:
+            if previous is None:
+                if transition.previous_status is not None or transition.previous_transition_sha256 is not None:
+                    return False
+            else:
+                if transition.claim_id != previous.claim_id:
+                    return False
+                if transition.previous_status != previous.next_status:
+                    return False
+                if transition.previous_transition_sha256 != previous.transition_sha256:
+                    return False
+            material = {
+                "schema": "AEGIS_STATUS_TRANSITION_V1",
+                "claim_id": transition.claim_id,
+                "previous_status": transition.previous_status,
+                "next_status": transition.next_status,
+                "evidence_receipt_digests": transition.evidence_receipt_digests,
+                "criterion_sha256": transition.criterion_sha256,
+                "reason": transition.reason,
+                "previous_transition_sha256": transition.previous_transition_sha256,
+            }
+            if sha256_hex(material) != transition.transition_sha256:
+                return False
+            previous = transition
+        return True
 ```
 
-Implement explicitly rather than literally using undefined `material_without_schema`; construct the dataclass fields from `material`.
+- [ ] **Step 4: Add validation tests**
 
-- [ ] **Step 4: Add replay verification**
+Assert empty `claim_id`, empty `next_status`, empty `reason`, malformed evidence digest, and malformed criterion digest all raise `ValueError`.
 
-Add `StatusJournalV1.verify(history: Sequence[StatusTransitionV1]) -> bool` or equivalent classmethod that recomputes every hash and previous-link. Add tests that mutating any copied transition field causes verification to return `False` or raise `ValueError`.
-
-- [ ] **Step 5: Run compile + entire inherited test suite**
+- [ ] **Step 5: Run compile + inherited suite**
 
 ```bash
 python -m py_compile sovereign-omega-v2/python/research_invariants.py
 python sovereign-omega-v2/python/tests/test_research_invariants.py
 ```
-
-Expected: PASS.
 
 - [ ] **Step 6: Commit**
 
@@ -364,30 +377,25 @@ git commit -m "feat(research): add append-only status journal"
 
 ---
 
-### Task 4: Wire foundational semantics into CI and document the authority boundary
+### Task 4: Wire foundation into CI/docs and exact-head verification
 
 **Files:**
 - Modify: `.github/workflows/zero-discretion-type-gates.yml`
 - Modify: `docs/research/zero-discretion-type-gates-v1.md`
-- Test: `sovereign-omega-v2/python/tests/test_research_invariants.py`
 
 **Interfaces:**
-- Consumes: completed Task 1-3 APIs.
-- Produces: exact-head CI coverage and documented relation/journal semantics.
+- Consumes: Tasks 1-3.
+- Produces: offline CI coverage and documented authority boundary.
 
-- [ ] **Step 1: Extend the research-gate documentation**
+- [ ] **Step 1: Extend the research-gate document**
 
-Document these exact points: relation digests are role-bound; relational receipts reuse `GateReceipt`; admission remains generic; status transitions are append-only and may demote; transition history is evidence, not proof of the underlying claim; no wall-clock field is authority-bearing.
+Add these exact semantics: relation digests are role-bound; relational receipts reuse `GateReceipt`; `AdmissionController` remains the anti-splicing authority; status history is append-only and can contain demotions; a transition receipt proves only that a transition was recorded under the bound evidence, not the underlying scientific claim; execution timing is non-authoritative.
 
-- [ ] **Step 2: Keep CI offline and deterministic**
+- [ ] **Step 2: Keep CI deterministic**
 
-Retain Python 3.11. Ensure workflow path filters include the modified test/module/docs. Add no external network calls. The existing regression command remains:
+No network calls. Preserve Python 3.11 and the existing commands. The workflow path filter already covers `research_invariants.py`, its tests, the research doc, and itself; change it only if inspection proves a required path is absent.
 
-```bash
-python sovereign-omega-v2/python/tests/test_research_invariants.py
-```
-
-- [ ] **Step 3: Run local equivalent of workflow**
+- [ ] **Step 3: Run the local workflow equivalent**
 
 ```bash
 python -m py_compile \
@@ -395,12 +403,11 @@ python -m py_compile \
   sovereign-omega-v2/python/research_preflight.py
 python sovereign-omega-v2/python/tests/test_research_invariants.py
 python sovereign-omega-v2/python/research_preflight.py --n-f 16 --h 3.5 --target-gamma-max 14.13
-```
-
-For the under-resolved case, verify exit code 2:
-
-```bash
-python sovereign-omega-v2/python/research_preflight.py --n-f 12 --h 3.5 --target-gamma-max 14.13; test $? -eq 2
+set +e
+python sovereign-omega-v2/python/research_preflight.py --n-f 12 --h 3.5 --target-gamma-max 14.13
+rc=$?
+set -e
+test "$rc" -eq 2
 ```
 
 - [ ] **Step 4: Commit**
@@ -410,6 +417,6 @@ git add .github/workflows/zero-discretion-type-gates.yml docs/research/zero-disc
 git commit -m "docs(ci): attest relational research semantics"
 ```
 
-- [ ] **Step 5: Exact-head verification before calling the foundation complete**
+- [ ] **Step 5: Exact-head verification**
 
-After push, resolve the new head SHA and inspect the workflow run bound to that exact SHA. Ancestor GREEN does not count. If hosted CI fails, classify code/test failure separately from infrastructure failure.
+Resolve the final SHA after all commits. Inspect the hosted workflow bound to that exact SHA. Ancestor GREEN does not count. Classify hosted failures as code/test versus infrastructure before any completion claim.
