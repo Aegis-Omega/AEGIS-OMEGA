@@ -217,6 +217,29 @@ class CoverageProbeTests(unittest.TestCase):
                 control_coverages=tuple(reversed(coverages)),
             )
 
+    def test_prospective_null_model_rejects_collision_coverage_splicing(self):
+        c = make_criterion(control_count=4)
+        collisions, coverages = generated_complete_controls(c)
+        subject = coverages[0].subject
+        spliced_collision, spliced_coverage = cov.evaluate_control_from_probes(
+            subject,
+            c,
+            [
+                cov.probe_registry_snapshot(subject, c, make_adapter("fixture-a"), make_snapshot(subject, "fixture-a", True)),
+                cov.probe_registry_snapshot(subject, c, make_adapter("fixture-b"), make_snapshot(subject, "fixture-b", False)),
+            ],
+        )
+        self.assertTrue(spliced_coverage.coverage_complete)
+        self.assertEqual(spliced_collision.score, 1)
+        self.assertEqual(collisions[0].score, 0)
+        with self.assertRaises(ValueError):
+            cdc.evaluate_null_model(
+                observed_collision(c),
+                c,
+                (spliced_collision,) + collisions[1:],
+                control_coverages=coverages,
+            )
+
     def test_complete_coverage_is_bound_into_null_receipt(self):
         c = make_criterion(control_count=100)
         collisions, coverages = generated_complete_controls(c)
