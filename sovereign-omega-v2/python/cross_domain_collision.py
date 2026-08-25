@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import research_invariants as ri
 
@@ -135,3 +135,159 @@ class DerivationReceiptV1:
             "evidence_class": self.evidence_class.value,
         }
         object.__setattr__(self, "receipt_sha256", ri.sha256_hex(material))
+
+
+@dataclass(frozen=True)
+class DomainObservationV1:
+    subject_sha256: str
+    domain_id: str
+    evidence_class: EvidenceClass
+    transform_id: str
+    transform_criterion_sha256: str
+    evidence_artifact_sha256: str
+    normalized_claim: str
+    observation_sha256: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        ri._check_digest(self.subject_sha256, "subject_sha256")
+        ri._check_digest(self.transform_criterion_sha256, "transform_criterion_sha256")
+        ri._check_digest(self.evidence_artifact_sha256, "evidence_artifact_sha256")
+        if not self.domain_id or not self.transform_id or not self.normalized_claim:
+            raise ValueError("domain_id, transform_id, and normalized_claim must be non-empty")
+        material = {
+            "schema": "AEGIS_DOMAIN_OBSERVATION_V1",
+            "subject_sha256": self.subject_sha256,
+            "domain_id": self.domain_id,
+            "evidence_class": self.evidence_class.value,
+            "transform_id": self.transform_id,
+            "transform_criterion_sha256": self.transform_criterion_sha256,
+            "evidence_artifact_sha256": self.evidence_artifact_sha256,
+            "normalized_claim": self.normalized_claim,
+        }
+        object.__setattr__(self, "observation_sha256", ri.sha256_hex(material))
+
+
+@dataclass(frozen=True)
+class CollisionCriterionV1:
+    universe_min: int
+    universe_max: int
+    registry_set: tuple[str, ...]
+    transform_set: tuple[str, ...]
+    independence_rule_id: str
+    score_function_id: str
+    control_generator_id: str
+    control_seed: int
+    control_count: int
+    promotion_threshold: float | None
+    criterion_text: str
+    criterion_sha256: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        if self.universe_min > self.universe_max:
+            raise ValueError("universe_min must not exceed universe_max")
+        if self.control_count <= 0:
+            raise ValueError("control_count must be positive")
+        if len(set(self.registry_set)) != len(self.registry_set):
+            raise ValueError("registry_set must contain unique ids")
+        if len(set(self.transform_set)) != len(self.transform_set):
+            raise ValueError("transform_set must contain unique ids")
+        if any(not value for value in self.registry_set + self.transform_set):
+            raise ValueError("registry and transform ids must be non-empty")
+        for name, value in (
+            ("independence_rule_id", self.independence_rule_id),
+            ("score_function_id", self.score_function_id),
+            ("control_generator_id", self.control_generator_id),
+            ("criterion_text", self.criterion_text),
+        ):
+            if not value:
+                raise ValueError(f"{name} must be non-empty")
+        if self.promotion_threshold is not None and not 0.0 <= self.promotion_threshold <= 1.0:
+            raise ValueError("promotion_threshold must lie in [0, 1]")
+        material = {
+            "schema": "AEGIS_COLLISION_CRITERION_V1",
+            "universe_min": self.universe_min,
+            "universe_max": self.universe_max,
+            "registry_set": self.registry_set,
+            "transform_set": self.transform_set,
+            "independence_rule_id": self.independence_rule_id,
+            "score_function_id": self.score_function_id,
+            "control_generator_id": self.control_generator_id,
+            "control_seed": self.control_seed,
+            "control_count": self.control_count,
+            "promotion_threshold": self.promotion_threshold,
+            "criterion_text": self.criterion_text,
+        }
+        object.__setattr__(self, "criterion_sha256", ri.sha256_hex(material))
+
+
+@dataclass(frozen=True)
+class CollisionReceiptV1:
+    subject_sha256: str
+    provenance: SelectionProvenance
+    observation_sha256s: tuple[str, ...]
+    criterion_sha256: str
+    independent_external_domains: tuple[str, ...]
+    independent_external_domain_count: int
+    score: int
+    cross_registry_collision: bool
+    receipt_sha256: str
+
+
+def evaluate_collision(
+    subject: IntegerSubjectV1,
+    provenance: SelectionProvenance,
+    observations: Sequence[DomainObservationV1],
+    criterion: CollisionCriterionV1,
+) -> CollisionReceiptV1:
+    """Evaluate only the frozen V1 domain-independence/score contract."""
+    if not criterion.universe_min <= subject.value <= criterion.universe_max:
+        raise ValueError("subject is outside the frozen criterion universe")
+    if criterion.independence_rule_id != "UNIQUE_DOMAIN_ID_V1":
+        raise ValueError("unsupported independence rule")
+    if criterion.score_function_id != "UNIQUE_EXTERNAL_DOMAINS_V1":
+        raise ValueError("unsupported score function")
+
+    external_classes = {
+        EvidenceClass.EXTERNAL_IDENTIFIER_MATCH,
+        EvidenceClass.STANDARD_CODEPOINT_MAPPING,
+    }
+    external_domains: set[str] = set()
+    observation_digests: list[str] = []
+    for observation in observations:
+        if observation.subject_sha256 != subject.subject_sha256:
+            raise ValueError("observation subject digest mismatch")
+        if observation.transform_id not in criterion.transform_set:
+            raise ValueError(f"transform not frozen in criterion: {observation.transform_id}")
+        if observation.evidence_class in external_classes:
+            if observation.domain_id not in criterion.registry_set:
+                raise ValueError(f"external domain not frozen in criterion: {observation.domain_id}")
+            external_domains.add(observation.domain_id)
+        observation_digests.append(observation.observation_sha256)
+
+    domains = tuple(sorted(external_domains))
+    digests = tuple(sorted(observation_digests))
+    count = len(domains)
+    score = count
+    collision = count >= 2
+    material = {
+        "schema": "AEGIS_COLLISION_RECEIPT_V1",
+        "subject_sha256": subject.subject_sha256,
+        "provenance": provenance.value,
+        "observation_sha256s": digests,
+        "criterion_sha256": criterion.criterion_sha256,
+        "independent_external_domains": domains,
+        "independent_external_domain_count": count,
+        "score": score,
+        "cross_registry_collision": collision,
+    }
+    return CollisionReceiptV1(
+        subject_sha256=subject.subject_sha256,
+        provenance=provenance,
+        observation_sha256s=digests,
+        criterion_sha256=criterion.criterion_sha256,
+        independent_external_domains=domains,
+        independent_external_domain_count=count,
+        score=score,
+        cross_registry_collision=collision,
+        receipt_sha256=ri.sha256_hex(material),
+    )
