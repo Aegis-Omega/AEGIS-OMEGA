@@ -1,0 +1,193 @@
+name: Weil CoRN Trig Viability
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/formal/tests/Weil/CoRNTrigViability.v"
+      - ".github/workflows/weil-corn-trig-viability.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-corn-trig-viability-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  probe:
+    name: CoRN trig trust + O0 carrier interoperability probe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Prepare writable diagnostic workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/weil-corn-trig-viability
+          chmod -R a+rwX \
+            sovereign-omega-v2/formal/theories/Weil \
+            sovereign-omega-v2/formal/tests/Weil \
+            sovereign-omega-v2/weil-corn-trig-viability
+
+      - name: Install pinned CoRN and measure trust surface
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            THEORY="$ROOT/formal/theories/Weil"
+            TEST="$ROOT/formal/tests/Weil/CoRNTrigViability.v"
+            OUT="$ROOT/weil-corn-trig-viability"
+
+            coqc --version | tee "$OUT/coq-version.txt"
+            opam install -y coq-corn.9.0.0
+            opam var coq-corn:version | tee "$OUT/corn-version.txt"
+            test "$(tr -d '[:space:]' < "$OUT/corn-version.txt")" = "9.0.0"
+            opam show coq-corn.9.0.0 --field=version,license,depends \
+              | tee "$OUT/corn-package-metadata.txt"
+
+            coqc -Q "$THEORY" "" "$THEORY/AnalyticDefinitions.v"
+            coqc -Q "$THEORY" "" "$TEST" 2>&1 \
+              | tee "$OUT/corn-surface-probe.log"
+
+            for theorem in sin_correct cos_correct Derivative_Sin Derivative_Cos Sin_plus Cos_plus
+            do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.assumptions.txt"
+              cat > "$query" <<EOF
+            Set Coqtop Exit On Error.
+            Require Import CoRN.reals.fast.CRsin.
+            Require Import CoRN.reals.fast.CRcos.
+            Require Import CoRN.reals.fast.CRpi.
+            Require Import CoRN.transc.SinCos.
+            Print Assumptions ${theorem}.
+            EOF
+              coqtop -quiet -batch -l "$query" > "$log" 2>&1
+              rm -f "$query"
+              cat "$log"
+              if grep -q 'Closed under the global context' "$log"; then
+                printf '%s\tCLOSED\n' "$theorem" | tee -a "$OUT/corn-trust-summary.tsv"
+              elif grep -q '^Axioms:' "$log"; then
+                printf '%s\tASSUMPTION_BEARING\n' "$theorem" | tee -a "$OUT/corn-trust-summary.tsv"
+              else
+                printf '%s\tUNRECOGNIZED\n' "$theorem" | tee -a "$OUT/corn-trust-summary.tsv"
+                exit 1
+              fi
+            done
+
+            bridge="$OUT/bridge-search.v"
+            cat > "$bridge" <<'EOF'
+            Set Coqtop Exit On Error.
+            Require Import AnalyticDefinitions.
+            Require Import CoRN.reals.fast.CRsin.
+            Require Import CoRN.reals.fast.CRcos.
+            Require Import CoRN.reals.stdlib.ConstructiveCauchyIntegral.
+            Search (CR -> O0RealV1).
+            Search (O0RealV1 -> CR).
+            EOF
+            coqtop -quiet -batch -Q "$THEORY" "" -l "$bridge" \
+              > "$OUT/corn-o0-bridge-search.txt" 2>&1
+            rm -f "$bridge"
+            cat "$OUT/corn-o0-bridge-search.txt"
+
+      - name: Emit fail-closed CoRN viability receipt
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          out = Path('weil-corn-trig-viability')
+
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          statuses = {}
+          for line in (out / 'corn-trust-summary.tsv').read_text().splitlines():
+              theorem, status = line.split('\t', 1)
+              statuses[theorem] = status
+
+          bridge_lines = [
+              line.strip() for line in
+              (out / 'corn-o0-bridge-search.txt').read_text().splitlines()
+              if line.strip()
+          ]
+          version = (out / 'corn-version.txt').read_text().strip()
+
+          payload = {
+              'receipt_kind': 'AEGIS_WEIL_CORN_TRIG_VIABILITY_V1',
+              'authority': 'DIAGNOSTIC_ONLY',
+              'source_commit': '${{ env.SOURCE_SHA }}',
+              'coq_version': (out / 'coq-version.txt').read_text().splitlines()[0].strip(),
+              'corn_requested_version': '9.0.0',
+              'corn_installed_version': version,
+              'corn_package_metadata_sha256': sha(out / 'corn-package-metadata.txt'),
+              'corn_surface_probe_sha256': sha(out / 'corn-surface-probe.log'),
+              'corn_theorem_statuses': statuses,
+              'corn_assumption_log_sha256': {
+                  name: sha(out / f'{name}.assumptions.txt') for name in statuses
+              },
+              'o0_carrier': 'CRcarrier CRealConstructive',
+              'corn_fast_carrier': 'CoRN.reals.fast.CR',
+              'direct_corn_fast_cr_to_o0_definitional_reuse': False,
+              'shared_constructive_reals_interface_module_loaded': True,
+              'corn_o0_bridge_established': False,
+              'corn_o0_bridge_search_sha256': sha(out / 'corn-o0-bridge-search.txt'),
+              'corn_o0_bridge_search_nonempty_line_count': len(bridge_lines),
+              'corn_o0_bridge_search_semantics': 'ENVIRONMENT_SEARCH_HEURISTIC_NOT_INTEROPERABILITY_PROOF',
+              'production_authority_granted': False,
+              'prime_diagonal_trig_periodicity_machine_bound': False,
+              'prime_source_sine_derivative_machine_bound': False,
+              'prime_diagonal_dictionary_formalized': False,
+              'global_weil_positivity_proven': False,
+              'rh_proven': False,
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          target = out / 'weil-corn-trig-viability-receipt.json'
+          target.write_text(json.dumps(payload, sort_keys=True, indent=2) + '\n')
+          print(target.read_text())
+
+          assert payload['authority'] == 'DIAGNOSTIC_ONLY'
+          assert version == '9.0.0'
+          assert set(statuses) == {
+              'sin_correct', 'cos_correct', 'Derivative_Sin',
+              'Derivative_Cos', 'Sin_plus', 'Cos_plus'
+          }
+          assert all(status != 'UNRECOGNIZED' for status in statuses.values())
+          assert payload['direct_corn_fast_cr_to_o0_definitional_reuse'] is False
+          assert payload['corn_o0_bridge_established'] is False
+          assert payload['production_authority_granted'] is False
+          assert payload['prime_diagonal_dictionary_formalized'] is False
+          assert payload['global_weil_positivity_proven'] is False
+          assert payload['rh_proven'] is False
+          assert len(payload['receipt_sha256']) == 64
+          PY
+
+      - name: Upload CoRN viability evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: weil-corn-trig-viability-${{ env.SOURCE_SHA }}
+          path: sovereign-omega-v2/weil-corn-trig-viability/
+          if-no-files-found: error
+          retention-days: 30
