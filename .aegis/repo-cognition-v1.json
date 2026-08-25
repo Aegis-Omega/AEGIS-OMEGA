@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "7d9ab92b84af99a2188fa1c87fa9a9a9010088fa08b77273672379387ad49cb7",
+  "corpus_root": "25a1dd2c70662cec5a7abfb1981bc1e82d634249698de9fa25262553e4db0a2e",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1949,
@@ -28779,17 +28779,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "3fa14707655de34d172a6b05193039a93aceabf1d0e639befb1ba187d518d0fc",
+      "content_sha256": "f16be5bec27e604eaa23bd1d6f18f0b77a15153a2def96c3a8c76ea7eb5a35d8",
       "dependency_hints": [],
-      "git_blob_sha": "a5a49a27a6622187309e98f6045e71446e713a8d",
+      "git_blob_sha": "2ef619430062071f8d26f350211daf59f463e92d",
       "heading_hint": "Cross-Domain Control Coverage V1 — Design",
       "kind": "documentation",
       "language": "markdown",
-      "line_count": 255,
+      "line_count": 283,
       "mode": "100644",
       "object_type": "blob",
       "path": "docs/superpowers/specs/2026-08-25-cross-domain-control-coverage-v1-design.md",
-      "size_bytes": 10407,
+      "size_bytes": 12513,
       "symbol_hints": []
     },
     {
