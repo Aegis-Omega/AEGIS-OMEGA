@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "ee7420d13d1d1661c56221dc6221481a0eca4e22fc3380951b874fc62543c66b",
+  "corpus_root": "f0beaca19dba93510928337e4f331ad2fef3ff4c456df38012abf29d49d3bef7",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1952,
@@ -39375,7 +39375,7 @@
       ]
     },
     {
-      "content_sha256": "ef40c9992c552d05cfda4e102e199fb35551ad5bf7b64ea3e2647d7ddf0c378a",
+      "content_sha256": "c63d670cde47ce73a28df73070a11d2a67d93362d3719f8741fd5a76d2d49dbc",
       "dependency_hints": [
         "dataclasses",
         "pathlib",
@@ -39385,21 +39385,23 @@
         "cross_domain_coverage",
         "research_invariants"
       ],
-      "git_blob_sha": "38aad4398a2bea4d1cb03693157f42ead2a22e02",
+      "git_blob_sha": "ba88139d27bbe82c53efd3288448e3d65e422823",
       "heading_hint": null,
       "kind": "test",
       "language": "python",
-      "line_count": 171,
+      "line_count": 236,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/tests/test_cross_domain_coverage.py",
-      "size_bytes": 8096,
+      "size_bytes": 10517,
       "symbol_hints": [
         "make_criterion",
         "make_adapter",
         "make_snapshot",
         "rehash_receipt",
         "complete_negative_probes",
+        "observed_collision",
+        "generated_complete_controls",
         "CoverageProbeTests",
         "test_match_and_no_match_are_source_replayable_and_distinct",
         "test_unsupported_adapter_rule_fails_closed",
@@ -39411,7 +39413,10 @@
         "test_not_established_registry_blocks_complete_coverage",
         "test_duplicate_registry_probe_fails_closed",
         "test_complete_negative_coverage_mints_zero_score_control",
-        "test_caller_probe_order_does_not_change_coverage_digest"
+        "test_caller_probe_order_does_not_change_coverage_digest",
+        "test_prospective_null_model_rejects_missing_coverage",
+        "test_prospective_null_model_rejects_reordered_coverage",
+        "test_complete_coverage_is_bound_into_null_receipt"
       ]
     },
     {
