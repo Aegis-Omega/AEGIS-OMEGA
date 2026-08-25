@@ -1,9 +1,9 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "338bd9273da6b05212bd7511d657ebd66d07a04d1780bd0590d2ee75ef31dd0e",
+  "corpus_root": "f6fd8938a4ca7d16bd76d370afdca3f7fe040e9a9d8caffc063fc79a811b487b",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
-  "eligible_file_count": 1937,
+  "eligible_file_count": 1938,
   "excluded_generated_paths": [
     ".aegis/repo-cognition-v1.json"
   ],
@@ -28695,6 +28695,20 @@
       "symbol_hints": []
     },
     {
+      "content_sha256": "1c518491b0bdddc6630a7ab9e9973b6bb60aeaacd5602f33295dee3b06f79467",
+      "dependency_hints": [],
+      "git_blob_sha": "b2489eeb80abcb50e659df878b6f147eed94c6f2",
+      "heading_hint": "Relational Gate + Status Journal Foundation V1 Implementation Plan",
+      "kind": "documentation",
+      "language": "markdown",
+      "line_count": 415,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "docs/superpowers/plans/2026-08-25-relational-status-foundation-v1.md",
+      "size_bytes": 15293,
+      "symbol_hints": []
+    },
+    {
       "content_sha256": "99665bdfb03f4f60b5044d20a130220315429b876ece0e0688b608a35129c099",
       "dependency_hints": [],
       "git_blob_sha": "60494b43ab46faa6bab0a063aa44cbfc98501321",
@@ -53734,8 +53748,8 @@
   ],
   "generator": "scripts/repo_cognition.py",
   "generator_version": "1.0.1",
-  "indexed_file_count": 1937,
+  "indexed_file_count": 1938,
   "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
   "schema": "AEGIS_REPO_COGNITION_V1",
-  "tracked_file_count": 1938
+  "tracked_file_count": 1939
 }
