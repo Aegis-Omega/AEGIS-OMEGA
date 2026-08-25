@@ -29,11 +29,13 @@ Check cos_correct.
 Check Derivative_Sin.
 Check Derivative_Cos.
 
-(* AEGIS production carrier remains the stdlib constructive Cauchy real. *)
+(* AEGIS production carrier remains the stdlib constructive Cauchy real.
+   [AnalyticDefinitions] already binds [O0RealsV1 := CRealConstructive]; the
+   probe deliberately uses that public nominal binding rather than depending
+   on the upstream constructor name being re-exported into this namespace. *)
 Check O0RealsV1.
 Check O0RealV1.
 Check O0ZeroV1.
-Check CRealConstructive.
 
 (* CoRN's fast CR is a separate concrete carrier. Silent definitional reuse on
    O0RealV1 must fail. *)
@@ -45,7 +47,7 @@ Check FastRealsConstructive.
 Check IntervalPartition.
 
 (* The stdlib morphism layer constructs a canonical proof-oriented map between
-   arbitrary ConstructiveReals structures.  Bind both directions explicitly. *)
+   arbitrary ConstructiveReals structures. Bind both directions explicitly. *)
 Definition corn_fast_to_o0_morphism_v1
   : @ConstructiveRealsMorphism FastRealsConstructive O0RealsV1 :=
   @SlowConstructiveRealsMorphism FastRealsConstructive O0RealsV1.
@@ -82,6 +84,6 @@ Proof.
                      corn_fast_to_o0_morphism_v1) x).
 Qed.
 
-(* This bridge is only carrier/order/ring interoperability.  Nothing here says
+(* This bridge is only carrier/order/ring interoperability. Nothing here says
    that CoRN's concrete [sin]/[cos] commute with the bridge; that is a separate
    theorem obligation and remains unbound. *)
