@@ -72,8 +72,9 @@ jobs:
                 -printf '%f\n' | sort >> "$OUT/constructive-module-inventory.txt"
               if find "$dir" -maxdepth 1 -type f -name '*.v' -print -quit | grep -q .; then
                 # Match trig-like declaration identifiers, not arbitrary
-                # substrings such as "increasing" or "single_dist".
-                grep -RniE \
+                # substrings such as "increasing" or "single_dist". Keep this
+                # case-sensitive so the explicit CamelCase branch is meaningful.
+                grep -RnE \
                   '^[[:space:]]*(Definition|Lemma|Theorem|Corollary|Proposition|Fixpoint|CoFixpoint)[[:space:]]+((sin|cos|pi)[A-Za-z0-9_]*|[A-Za-z0-9_]+_(sin|cos|pi)(_[A-Za-z0-9_]*)?|[A-Za-z0-9_]*(Sin|Cos|Pi)[A-Za-z0-9_]*)' \
                   "$dir" >> "$OUT/constructive-trig-declaration-matches.txt" || true
               fi
