@@ -4,37 +4,37 @@
 
 **Goal:** Build an integer-first, offline-replayable cross-domain collision engine with immutable live-source snapshots, anti-double-counting rules, deterministic null-model evaluation, and append-only epistemic status transitions.
 
-**Architecture:** External sources are ingestion-only evidence producers. They emit hash-bound `RegistrySnapshotV1` artifacts; the authoritative verifier consumes only immutable snapshots and deterministic local derivation receipts. Collision scoring is criterion-epoch-bound, and the `65010` fixture is explicitly retrospective, so it can establish exact mappings/collision semantics but cannot become prospective statistical evidence.
+**Architecture:** External sources are ingestion-only evidence producers. They emit hash-bound `RegistrySnapshotV1` artifacts; the authoritative verifier consumes only immutable snapshots and deterministic local derivation receipts. Collision scoring is criterion-epoch-bound. The `65010` fixture is permanently retrospective, so it can establish exact mapping/collision semantics but cannot become prospective statistical evidence.
 
-**Tech Stack:** Python 3.11 standard library, `dataclasses`, `enum`, `hashlib`, `json`, `random.Random`, `urllib.request` only in the non-authoritative ingestion module, `unittest`, GitHub Actions.
+**Tech Stack:** Python 3.11 standard library, `dataclasses`, `enum`, `json`, `random.Random`, `urllib.request` only in the non-authoritative ingestion module, `unittest`, GitHub Actions.
 
 **Spec:** `docs/superpowers/specs/2026-08-25-cross-domain-collision-v1-design.md`
 
 ## Global Constraints
 
 - Execute after `docs/superpowers/plans/2026-08-25-relational-status-foundation-v1.md` is complete and green.
-- The authoritative CI path is fully offline and MUST NOT depend on mutable Unicode/NCBI network state.
+- Authoritative CI is fully offline; mutable Unicode/NCBI network state never gates admission.
 - Live lookup produces snapshots only; it has no admission authority.
-- `65010` is permanently `RETROSPECTIVE` in the V1 fixture.
-- `CROSS_REGISTRY_COLLISION` requires at least two unique admissible external/standard domains; local arithmetic derivations never satisfy that threshold by themselves.
-- Same-domain observations cannot be counted twice through alternate formatting/transforms.
-- Unknown transforms, stale snapshot bindings, retrospective/prospective provenance splicing, and non-replayable null criteria fail closed.
+- `65010` is permanently `RETROSPECTIVE` in V1.
+- `CROSS_REGISTRY_COLLISION` requires at least two unique admissible external/standard domains. Local arithmetic derivations cannot satisfy that threshold.
+- Same-domain observations cannot be double-counted through formatting or alternate transforms.
+- Unknown transforms, stale evidence bindings, provenance splicing, and non-replayable null criteria fail closed.
 - `STRUCTURAL_RELATION` cannot be minted from collision significance or a p-value.
 - No merge, deployment, runtime mutation authority, RH claim, biological mechanism claim, or metaphysical claim is added.
 
 ---
 
-### Task 1: Create canonical integer, transform, snapshot, and derivation types
+### Task 1: Canonical integer, transform, snapshot, and derivation types
 
 **Files:**
 - Create: `sovereign-omega-v2/python/cross_domain_collision.py`
 - Create: `sovereign-omega-v2/python/tests/test_cross_domain_collision.py`
 
 **Interfaces:**
-- Consumes: `research_invariants.sha256_hex`, `research_invariants.literal_sha256`, `_check_digest`, `StatusJournalV1`.
+- Consumes: `research_invariants.sha256_hex`, `research_invariants.literal_sha256`, `research_invariants._check_digest`.
 - Produces: `IntegerSubjectV1`, `TransformSpecV1`, `RegistrySnapshotV1`, `DerivationReceiptV1`, `EvidenceClass`, `SelectionProvenance`.
 
-- [ ] **Step 1: Write RED tests for subject and transform determinism**
+- [ ] **Step 1: Write RED subject/transform tests**
 
 ```python
 import pathlib
@@ -50,27 +50,21 @@ class CrossDomainCollisionTests(unittest.TestCase):
     def test_integer_subject_is_representation_independent(self):
         a = cdc.IntegerSubjectV1(65010)
         b = cdc.IntegerSubjectV1(int("FDF2", 16))
-        self.assertEqual(a.value, b.value)
         self.assertEqual(a.subject_sha256, b.subject_sha256)
         self.assertEqual(a.hex_upper, "FDF2")
         self.assertEqual(a.unicode_codepoint_label, "U+FDF2")
 
     def test_unicode_label_rejects_out_of_range_integer(self):
-        subject = cdc.IntegerSubjectV1(0x110000)
         with self.assertRaises(ValueError):
-            _ = subject.unicode_codepoint_label
+            _ = cdc.IntegerSubjectV1(0x110000).unicode_codepoint_label
 
     def test_transform_epoch_changes_on_literal_edit(self):
-        a = cdc.TransformSpecV1(
-            "INTEGER_TO_HEX_V1", "1", "IntegerSubjectV1", "HexString", "uppercase hexadecimal"
-        )
-        b = cdc.TransformSpecV1(
-            "INTEGER_TO_HEX_V1", "1", "IntegerSubjectV1", "HexString", "uppercase  hexadecimal"
-        )
+        a = cdc.TransformSpecV1("INTEGER_TO_HEX_V1", "1", "IntegerSubjectV1", "HexString", "uppercase hexadecimal")
+        b = cdc.TransformSpecV1("INTEGER_TO_HEX_V1", "1", "IntegerSubjectV1", "HexString", "uppercase  hexadecimal")
         self.assertNotEqual(a.criterion_sha256, b.criterion_sha256)
 ```
 
-- [ ] **Step 2: Run test and verify RED**
+- [ ] **Step 2: Run and verify RED**
 
 ```bash
 python sovereign-omega-v2/python/tests/test_cross_domain_collision.py
@@ -78,11 +72,18 @@ python sovereign-omega-v2/python/tests/test_cross_domain_collision.py
 
 Expected: import failure because `cross_domain_collision.py` does not exist.
 
-- [ ] **Step 3: Implement subject, transforms, enums, and canonical snapshot types**
-
-Implement these exact public shapes:
+- [ ] **Step 3: Implement enums, subject, and transform types**
 
 ```python
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Mapping
+
+import research_invariants as ri
+
+
 class EvidenceClass(str, Enum):
     EXTERNAL_IDENTIFIER_MATCH = "EXTERNAL_IDENTIFIER_MATCH"
     STANDARD_CODEPOINT_MAPPING = "STANDARD_CODEPOINT_MAPPING"
@@ -100,6 +101,8 @@ class IntegerSubjectV1:
     subject_sha256: str = field(init=False)
 
     def __post_init__(self) -> None:
+        if isinstance(self.value, bool) or not isinstance(self.value, int):
+            raise TypeError("IntegerSubjectV1 requires a Python int")
         object.__setattr__(self, "subject_sha256", ri.sha256_hex({
             "schema": "AEGIS_INTEGER_SUBJECT_V1",
             "value": self.value,
@@ -107,9 +110,7 @@ class IntegerSubjectV1:
 
     @property
     def hex_upper(self) -> str:
-        if self.value < 0:
-            return "-" + format(-self.value, "X")
-        return format(self.value, "X")
+        return ("-" + format(-self.value, "X")) if self.value < 0 else format(self.value, "X")
 
     @property
     def unicode_codepoint_label(self) -> str:
@@ -129,92 +130,187 @@ class TransformSpecV1:
     criterion_sha256: str = field(init=False)
 
     def __post_init__(self) -> None:
-        for value in (self.transform_id, self.transform_version, self.input_type, self.output_type):
-            if not value:
-                raise ValueError("transform fields must be non-empty")
+        if not all((self.transform_id, self.transform_version, self.input_type, self.output_type, self.criterion_text)):
+            raise ValueError("transform fields must be non-empty")
         object.__setattr__(self, "criterion_sha256", ri.literal_sha256(self.criterion_text))
 ```
 
-Add frozen `RegistrySnapshotV1` and `DerivationReceiptV1` whose `content_sha256` / `receipt_sha256` are recomputed from every canonical semantic field. Reject an explicitly supplied digest that does not match recomputation.
+- [ ] **Step 4: Implement exact snapshot and derivation contracts**
 
-- [ ] **Step 4: Add snapshot/derivation tamper tests**
+Add:
 
-Test that changing one canonical result byte produces a different digest, that an invalid 64-hex digest is rejected, and that local derivation receipts are tagged `DERIVED_PROPERTY` rather than an external registry class.
+```python
+@dataclass(frozen=True)
+class RegistrySnapshotV1:
+    registry_id: str
+    registry_version_or_release: str
+    query_key: str
+    query_key_type: str
+    result_kind: str
+    canonical_result: Any
+    source_locator: str
+    source_observed_at: str
+    ingestion_producer_id: str
+    content_sha256: str = field(init=False)
 
-- [ ] **Step 5: Run compile + tests**
+    def __post_init__(self) -> None:
+        if not all((self.registry_id, self.registry_version_or_release, self.query_key,
+                    self.query_key_type, self.result_kind, self.source_locator,
+                    self.source_observed_at, self.ingestion_producer_id)):
+            raise ValueError("snapshot metadata fields must be non-empty")
+        material = {
+            "schema": "AEGIS_REGISTRY_SNAPSHOT_V1",
+            "registry_id": self.registry_id,
+            "registry_version_or_release": self.registry_version_or_release,
+            "query_key": self.query_key,
+            "query_key_type": self.query_key_type,
+            "result_kind": self.result_kind,
+            "canonical_result": self.canonical_result,
+            "source_locator": self.source_locator,
+            "source_observed_at": self.source_observed_at,
+            "ingestion_producer_id": self.ingestion_producer_id,
+        }
+        object.__setattr__(self, "content_sha256", ri.sha256_hex(material))
+
+
+@dataclass(frozen=True)
+class DerivationReceiptV1:
+    subject_sha256: str
+    derivation_id: str
+    derivation_version: str
+    criterion_sha256: str
+    canonical_result: Any
+    receipt_sha256: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        ri._check_digest(self.subject_sha256, "subject_sha256")
+        ri._check_digest(self.criterion_sha256, "criterion_sha256")
+        if not self.derivation_id or not self.derivation_version:
+            raise ValueError("derivation id/version must be non-empty")
+        material = {
+            "schema": "AEGIS_DERIVATION_RECEIPT_V1",
+            "subject_sha256": self.subject_sha256,
+            "derivation_id": self.derivation_id,
+            "derivation_version": self.derivation_version,
+            "criterion_sha256": self.criterion_sha256,
+            "canonical_result": self.canonical_result,
+        }
+        object.__setattr__(self, "receipt_sha256", ri.sha256_hex(material))
+```
+
+- [ ] **Step 5: Add tamper/digest tests**
+
+Construct two snapshots differing only in `canonical_result`; assert different `content_sha256`. Construct two derivation receipts differing only in a factorization value; assert different `receipt_sha256`.
+
+- [ ] **Step 6: Verify GREEN and commit**
 
 ```bash
 python -m py_compile sovereign-omega-v2/python/cross_domain_collision.py
 python sovereign-omega-v2/python/tests/test_cross_domain_collision.py
-```
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
 git add sovereign-omega-v2/python/cross_domain_collision.py sovereign-omega-v2/python/tests/test_cross_domain_collision.py
 git commit -m "feat(research): add canonical collision evidence types"
 ```
 
 ---
 
-### Task 2: Add domain observations and anti-double-counting collision receipts
+### Task 2: Domain observations and anti-double-counting collision receipts
 
 **Files:**
 - Modify: `sovereign-omega-v2/python/cross_domain_collision.py`
 - Modify: `sovereign-omega-v2/python/tests/test_cross_domain_collision.py`
 
 **Interfaces:**
-- Consumes: Task 1 evidence artifacts and the foundational relation/status APIs.
+- Consumes: Task 1 types.
 - Produces: `DomainObservationV1`, `CollisionCriterionV1`, `CollisionReceiptV1`, `evaluate_collision(...)`.
 
-- [ ] **Step 1: Write RED tests for external-domain independence**
+- [ ] **Step 1: Implement reusable test helpers before RED tests**
+
+In the test module add:
+
+```python
+def make_transform(transform_id: str = "INTEGER_IDENTITY_EXTERNAL_LOOKUP_KEY_V1"):
+    return cdc.TransformSpecV1(transform_id, "1", "IntegerSubjectV1", "RegistryKey", transform_id)
+
+
+def make_criterion(**overrides):
+    values = dict(
+        universe_min=0,
+        universe_max=100000,
+        registry_set=("unicode", "ncbi-gene"),
+        transform_set=("INTEGER_TO_UNICODE_CODEPOINT_V1", "INTEGER_IDENTITY_EXTERNAL_LOOKUP_KEY_V1", "INTEGER_TO_NUMBER_THEORY_PROPERTIES_V1"),
+        independence_rule_id="UNIQUE_EXTERNAL_DOMAIN_ID_V1",
+        score_function_id="UNIQUE_EXTERNAL_DOMAINS_V1",
+        control_generator_id="PY_RANDOM_UNIFORM_INT_V1",
+        control_seed=1234,
+        control_count=16,
+        promotion_threshold=None,
+        criterion_text="cdc-v1-test-criterion",
+    )
+    values.update(overrides)
+    return cdc.CollisionCriterionV1(**values)
+
+
+def make_observation(subject, domain_id, evidence_class, claim_suffix):
+    transform_id = (
+        "INTEGER_TO_NUMBER_THEORY_PROPERTIES_V1"
+        if evidence_class is cdc.EvidenceClass.DERIVED_PROPERTY
+        else "INTEGER_TO_UNICODE_CODEPOINT_V1" if domain_id == "unicode"
+        else "INTEGER_IDENTITY_EXTERNAL_LOOKUP_KEY_V1"
+    )
+    transform = make_transform(transform_id)
+    artifact_sha = ri.sha256_hex({"fixture": claim_suffix})
+    return cdc.DomainObservationV1.create(
+        subject_sha256=subject.subject_sha256,
+        domain_id=domain_id,
+        evidence_class=evidence_class,
+        transform_id=transform.transform_id,
+        transform_criterion_sha256=transform.criterion_sha256,
+        evidence_artifact_sha256=artifact_sha,
+        normalized_claim=claim_suffix,
+    )
+```
+
+Import `research_invariants as ri` in the test module.
+
+- [ ] **Step 2: Write RED independence tests**
 
 ```python
 def test_same_domain_cannot_inflate_independent_domain_count(self):
     subject = cdc.IntegerSubjectV1(65010)
-    unicode_a = fixture_observation(subject, "unicode", cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING, "unicode-a")
-    unicode_b = fixture_observation(subject, "unicode", cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING, "unicode-b")
-    receipt = cdc.evaluate_collision(
-        subject=subject,
-        provenance=cdc.SelectionProvenance.RETROSPECTIVE,
-        observations=[unicode_a, unicode_b],
-        criterion=fixture_criterion(),
-    )
+    a = make_observation(subject, "unicode", cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING, "unicode-a")
+    b = make_observation(subject, "unicode", cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING, "unicode-b")
+    receipt = cdc.evaluate_collision(subject, cdc.SelectionProvenance.RETROSPECTIVE, [a, b], make_criterion())
     self.assertEqual(receipt.independent_external_domain_count, 1)
     self.assertFalse(receipt.cross_registry_collision)
 
 
-def test_local_derived_property_does_not_satisfy_external_collision_threshold(self):
+def test_local_derivation_does_not_satisfy_external_collision_threshold(self):
     subject = cdc.IntegerSubjectV1(65010)
-    unicode_obs = fixture_observation(subject, "unicode", cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING, "unicode")
-    arithmetic_obs = fixture_observation(subject, "number-theory", cdc.EvidenceClass.DERIVED_PROPERTY, "factorization")
-    receipt = cdc.evaluate_collision(subject, cdc.SelectionProvenance.RETROSPECTIVE, [unicode_obs, arithmetic_obs], fixture_criterion())
+    unicode_obs = make_observation(subject, "unicode", cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING, "unicode")
+    arithmetic = make_observation(subject, "number-theory", cdc.EvidenceClass.DERIVED_PROPERTY, "factorization")
+    receipt = cdc.evaluate_collision(subject, cdc.SelectionProvenance.RETROSPECTIVE, [unicode_obs, arithmetic], make_criterion())
     self.assertEqual(receipt.independent_external_domain_count, 1)
     self.assertFalse(receipt.cross_registry_collision)
 ```
 
-- [ ] **Step 2: Write RED anti-splicing tests**
+- [ ] **Step 3: Implement observation/criterion types**
 
-Create subject A and subject B. Attempt to evaluate B using an observation whose `subject_sha256` belongs to A. Expected: `ValueError`/`PermissionError`; never a FAIL-as-data collision receipt.
-
-- [ ] **Step 3: Implement observation and criterion contracts**
-
-`DomainObservationV1` fields:
+`DomainObservationV1.create(...)` validates every digest and hashes:
 
 ```python
-subject_sha256: str
-domain_id: str
-evidence_class: EvidenceClass
-transform_id: str
-transform_criterion_sha256: str
-evidence_artifact_sha256: str
-normalized_claim: str
-observation_sha256: str
+{
+  "schema": "AEGIS_DOMAIN_OBSERVATION_V1",
+  "subject_sha256": subject_sha256,
+  "domain_id": domain_id,
+  "evidence_class": evidence_class.value,
+  "transform_id": transform_id,
+  "transform_criterion_sha256": transform_criterion_sha256,
+  "evidence_artifact_sha256": evidence_artifact_sha256,
+  "normalized_claim": normalized_claim
+}
 ```
 
-`CollisionCriterionV1` fields:
+`CollisionCriterionV1` fields are exactly:
 
 ```python
 universe_min: int
@@ -228,44 +324,52 @@ control_seed: int
 control_count: int
 promotion_threshold: float | None
 criterion_text: str
-criterion_sha256: str
+criterion_sha256: str = field(init=False)
 ```
 
-Require `universe_min <= universe_max`, `control_count > 0`, unique registry/transform IDs, and literal criterion hashing.
+Reject invalid bounds, non-positive control count, duplicate registry/transform IDs, unknown empty rule IDs, and thresholds outside `[0,1]`. Hash `criterion_text` literally.
 
-- [ ] **Step 4: Implement collision evaluation**
+- [ ] **Step 4: Implement `CollisionReceiptV1` and evaluator**
 
-`evaluate_collision` MUST:
+Evaluator rules:
 
-1. verify all observation subject digests equal the subject digest;
-2. reject observation transform IDs absent from the frozen criterion;
-3. classify unique external domains from `EXTERNAL_IDENTIFIER_MATCH` + `STANDARD_CODEPOINT_MAPPING` only;
-4. exclude `DERIVED_PROPERTY` from the external count;
-5. compute a deterministic score using V1 `score_function_id == "UNIQUE_EXTERNAL_DOMAINS_V1"`, where `score = independent_external_domain_count`;
-6. set `cross_registry_collision = independent_external_domain_count >= 2`;
-7. bind subject, provenance, ordered observation digests, criterion digest, score, external-domain count, and verdict into `receipt_sha256`.
+```python
+external_classes = {
+    EvidenceClass.EXTERNAL_IDENTIFIER_MATCH,
+    EvidenceClass.STANDARD_CODEPOINT_MAPPING,
+}
+```
 
-Unknown score-function IDs fail closed.
+Verify every observation subject digest matches the subject, every transform appears in `criterion.transform_set`, and every external observation domain appears in `criterion.registry_set`. For `score_function_id != "UNIQUE_EXTERNAL_DOMAINS_V1"`, raise `ValueError`.
 
-- [ ] **Step 5: Run test suite**
+Compute:
+
+```python
+external_domains = tuple(sorted({
+    obs.domain_id for obs in observations if obs.evidence_class in external_classes
+}))
+score = len(external_domains)
+cross_registry_collision = score >= 2
+```
+
+Sort observation digests before hashing the receipt so input list order does not alter semantics.
+
+- [ ] **Step 5: Add anti-splicing/order tests**
+
+Create subject A and B, then pass an A observation into B evaluation and assert `ValueError`. Evaluate the same observations in reverse order and assert identical `receipt_sha256`.
+
+- [ ] **Step 6: Verify and commit**
 
 ```bash
 python sovereign-omega-v2/python/tests/test_cross_domain_collision.py
 python sovereign-omega-v2/python/tests/test_research_invariants.py
-```
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
 git add sovereign-omega-v2/python/cross_domain_collision.py sovereign-omega-v2/python/tests/test_cross_domain_collision.py
 git commit -m "feat(research): add collision independence verifier"
 ```
 
 ---
 
-### Task 3: Add deterministic null-model replay and provenance gate
+### Task 3: Deterministic null-model replay and provenance gate
 
 **Files:**
 - Modify: `sovereign-omega-v2/python/cross_domain_collision.py`
@@ -279,71 +383,74 @@ git commit -m "feat(research): add collision independence verifier"
 
 ```python
 def test_control_generation_is_exactly_replayable(self):
-    criterion = fixture_criterion(control_seed=1234, control_count=16)
+    criterion = make_criterion(control_seed=1234, control_count=16)
     self.assertEqual(cdc.generate_controls(criterion), cdc.generate_controls(criterion))
 
 
 def test_different_seed_changes_control_sequence(self):
-    a = fixture_criterion(control_seed=1234, control_count=16)
-    b = fixture_criterion(control_seed=1235, control_count=16)
-    self.assertNotEqual(cdc.generate_controls(a), cdc.generate_controls(b))
+    self.assertNotEqual(
+        cdc.generate_controls(make_criterion(control_seed=1234)),
+        cdc.generate_controls(make_criterion(control_seed=1235)),
+    )
 ```
 
-- [ ] **Step 2: Implement control generator**
+- [ ] **Step 2: Implement control generation**
 
-For V1, accept only `control_generator_id == "PY_RANDOM_UNIFORM_INT_V1"` and use a local `random.Random(control_seed)` instance. Generate exactly `control_count` integers with inclusive bounds:
+Accept only `control_generator_id == "PY_RANDOM_UNIFORM_INT_V1"`. Use local state only:
 
 ```python
 rng = random.Random(criterion.control_seed)
 return tuple(rng.randint(criterion.universe_min, criterion.universe_max) for _ in range(criterion.control_count))
 ```
 
-The global PRNG state MUST NOT be used.
-
-- [ ] **Step 3: Write RED retrospective/prospective test**
+- [ ] **Step 3: Add a concrete prospective/retrospective collision helper in tests**
 
 ```python
-def test_retrospective_fixture_cannot_be_promoted_by_null_model(self):
-    collision = retrospective_65010_collision_receipt()
+def make_two_domain_collision(provenance):
+    subject = cdc.IntegerSubjectV1(42)
+    a = make_observation(subject, "unicode", cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING, "u")
+    b = make_observation(subject, "ncbi-gene", cdc.EvidenceClass.EXTERNAL_IDENTIFIER_MATCH, "n")
+    return cdc.evaluate_collision(subject, provenance, [a, b], make_criterion())
+```
+
+- [ ] **Step 4: Write RED provenance test**
+
+```python
+def test_retrospective_collision_is_not_promotion_eligible(self):
     with self.assertRaises(PermissionError):
         cdc.evaluate_null_model(
-            observed=collision,
-            criterion=fixture_criterion(promotion_threshold=0.05),
-            control_scores=[0] * 100,
+            observed=make_two_domain_collision(cdc.SelectionProvenance.RETROSPECTIVE),
+            criterion=make_criterion(control_count=4, promotion_threshold=0.05),
+            control_scores=[0, 0, 1, 1],
         )
 ```
 
-- [ ] **Step 4: Implement empirical p-value exactly**
+- [ ] **Step 5: Implement empirical p-value receipt**
 
-`evaluate_null_model` takes a collision receipt plus control scores generated/evaluated under the same criterion and computes:
+For `len(control_scores) != criterion.control_count` or criterion digest mismatch, raise `ValueError`. Compute:
 
 ```python
 extreme = sum(1 for score in control_scores if score >= observed.score)
 p_emp = (1 + extreme) / (1 + len(control_scores))
 ```
 
-It MUST verify `len(control_scores) == criterion.control_count`, bind every control score or their deterministic sequence digest, and reject criterion-digest mismatch. If `observed.provenance is RETROSPECTIVE`, it may produce a descriptive null receipt only when explicitly called with `allow_retrospective_descriptive=True`; such a receipt MUST contain `promotion_eligible=False`. Default behavior is fail closed.
+`NullModelReceiptV1` binds observed collision digest, criterion digest, control-score sequence digest, `p_emp`, `promotion_eligible`, and `null_survived`.
 
-- [ ] **Step 5: Add promotion semantics test**
+Default retrospective behavior raises `PermissionError`. With `allow_retrospective_descriptive=True`, emit a receipt with `promotion_eligible=False` and `null_survived=False` regardless of descriptive `p_emp`.
 
-For a prospective synthetic observation with `promotion_threshold=0.05`, assert `null_survived` equals `p_emp <= 0.05`; for `promotion_threshold=None`, assert no promotion verdict is minted.
+For prospective evidence, `promotion_eligible=True`; if `promotion_threshold is None`, set `null_survived=False` and record `threshold_applied=None`. Otherwise `null_survived = p_emp <= promotion_threshold`.
 
-- [ ] **Step 6: Run suite + commit**
+- [ ] **Step 6: Verify and commit**
 
 ```bash
 python sovereign-omega-v2/python/tests/test_cross_domain_collision.py
-```
-
-Then:
-
-```bash
 git add sovereign-omega-v2/python/cross_domain_collision.py sovereign-omega-v2/python/tests/test_cross_domain_collision.py
 git commit -m "feat(research): add deterministic collision null model"
 ```
 
 ---
 
-### Task 4: Add live-ingestion boundary with zero admission authority
+### Task 4: Live-ingestion boundary with zero admission authority
 
 **Files:**
 - Create: `sovereign-omega-v2/python/cross_domain_ingest.py`
@@ -351,9 +458,9 @@ git commit -m "feat(research): add deterministic collision null model"
 
 **Interfaces:**
 - Consumes: `RegistrySnapshotV1`.
-- Produces: `canonicalize_external_result(...)`, `fetch_json_snapshot(...)`.
+- Produces: `IngestionOutcomeV1`, `fetch_json_snapshot(...)`.
 
-- [ ] **Step 1: Write RED test proving connector failure is not a negative result**
+- [ ] **Step 1: Write RED failure test**
 
 ```python
 class FailingTransport:
@@ -366,8 +473,10 @@ def test_live_failure_yields_not_established_and_no_snapshot(self):
         registry_id="ncbi-gene",
         registry_version_or_release="observed-live",
         query_key="65010",
-        query_key_type="integer-id",
-        url="https://example.invalid/65010",
+        query_key_type="gene-id",
+        result_kind="gene-record",
+        source_locator="https://example.invalid/65010",
+        source_observed_at="2026-08-25T00:00:00Z",
         producer_id="test",
         transport=FailingTransport(),
     )
@@ -375,9 +484,7 @@ def test_live_failure_yields_not_established_and_no_snapshot(self):
     self.assertIsNone(outcome.snapshot)
 ```
 
-- [ ] **Step 2: Implement dependency-injected transport**
-
-Define:
+- [ ] **Step 2: Implement injected transport and outcome**
 
 ```python
 @dataclass(frozen=True)
@@ -388,33 +495,32 @@ class IngestionOutcomeV1:
     error_message: str | None
 ```
 
-`fetch_json_snapshot` accepts a `transport(url, timeout) -> bytes` callback. The default transport may wrap `urllib.request.urlopen`, but tests use injected transports. Parse JSON with `json.loads`, pass the parsed canonical result into `RegistrySnapshotV1`, and return `ESTABLISHED` only when a snapshot is actually constructed.
+`fetch_json_snapshot` accepts all fields shown in the test plus `timeout: float = 10.0`. The default transport is:
 
-On timeout, HTTP error, malformed JSON, or validation failure return `NOT_ESTABLISHED` and no snapshot. Do not fabricate an empty/negative registry result.
+```python
+def _default_transport(url: str, timeout: float) -> bytes:
+    with urllib.request.urlopen(url, timeout=timeout) as response:
+        return response.read()
+```
 
-- [ ] **Step 3: Prove live response mutation changes snapshot digest**
+Parse UTF-8 JSON. On success, pass the parsed object as `canonical_result` into `RegistrySnapshotV1` and return `IngestionOutcomeV1("ESTABLISHED", snapshot, None, None)`. Catch network/HTTP/Unicode/JSON/validation exceptions and return `NOT_ESTABLISHED` with no snapshot.
 
-Two injected transports returning JSON payloads that differ by one semantic value MUST produce different snapshot digests.
+- [ ] **Step 3: Add deterministic success test**
 
-- [ ] **Step 4: Keep live tests network-free**
+Injected transport A returns `b'{"gene_id":65010,"symbol":"SLC26A6"}'`; transport B returns `b'{"gene_id":65010,"symbol":"DIFFERENT"}'`. Assert both are `ESTABLISHED` and snapshot digests differ.
+
+- [ ] **Step 4: Verify and commit**
 
 ```bash
 python -m py_compile sovereign-omega-v2/python/cross_domain_ingest.py
 python sovereign-omega-v2/python/tests/test_cross_domain_ingest.py
-```
-
-Expected: PASS without internet.
-
-- [ ] **Step 5: Commit**
-
-```bash
 git add sovereign-omega-v2/python/cross_domain_ingest.py sovereign-omega-v2/python/tests/test_cross_domain_ingest.py
 git commit -m "feat(research): add non-authoritative live snapshot ingestion"
 ```
 
 ---
 
-### Task 5: Add the frozen 65010 retrospective fixture and offline replay
+### Task 5: Frozen 65010 retrospective fixture, replay, and status ceiling
 
 **Files:**
 - Create: `.aegis/cross-domain/fixtures/65010-v1.json`
@@ -422,100 +528,110 @@ git commit -m "feat(research): add non-authoritative live snapshot ingestion"
 - Modify: `sovereign-omega-v2/python/tests/test_cross_domain_collision.py`
 
 **Interfaces:**
-- Consumes: Tasks 1-4 models.
-- Produces: `load_fixture_bundle(path)`, exact `65010` replay receipt and status history.
+- Consumes: Tasks 1-4 and `research_invariants.StatusJournalV1`.
+- Produces: `load_fixture_bundle(path)`, `replay_fixture_bundle(path)`, `advance_collision_status(...)`.
 
-- [ ] **Step 1: Create frozen fixture content**
+- [ ] **Step 1: Capture authoritative Unicode and NCBI source records**
 
-The JSON bundle MUST include:
+Use authoritative sources only. Record the exact source locator, observation time, and release/version if the source exposes one. The semantic payload frozen into the fixture must establish at minimum:
 
 ```json
-{
-  "schema": "AEGIS_CROSS_DOMAIN_FIXTURE_V1",
-  "subject": {"value": 65010, "provenance": "RETROSPECTIVE"},
-  "expected_representations": {"hex_upper": "FDF2", "unicode_codepoint_label": "U+FDF2"},
-  "external_snapshots": [
-    {
-      "registry_id": "unicode",
-      "query_key": "U+FDF2",
-      "query_key_type": "unicode-codepoint",
-      "result_kind": "assigned-codepoint-record",
-      "canonical_result": {
-        "codepoint": "U+FDF2",
-        "name": "ARABIC LIGATURE ALLAH ISOLATED FORM"
-      }
-    },
-    {
-      "registry_id": "ncbi-gene",
-      "query_key": "65010",
-      "query_key_type": "gene-id",
-      "result_kind": "gene-record",
-      "canonical_result": {
-        "gene_id": 65010,
-        "symbol": "SLC26A6"
-      }
-    }
-  ],
-  "local_derivations": [
-    {
-      "derivation_id": "INTEGER_FACTORISATION_V1",
-      "canonical_result": {"prime_factors": [2, 3, 5, 11, 197], "square_free": true}
-    }
-  ]
-}
+{"codepoint":"U+FDF2","name":"ARABIC LIGATURE ALLAH ISOLATED FORM"}
 ```
 
-Before committing, populate the snapshot metadata fields required by `RegistrySnapshotV1` (`registry_version_or_release`, `source_locator`, `source_observed_at`, `ingestion_producer_id`) from the authoritative capture actually used. Do not invent a release version; if the source only exposes observation time, use an explicit value such as `observed-2026-08-25` and retain the source locator.
+and:
 
-- [ ] **Step 2: Add fixture replay test**
+```json
+{"gene_id":65010,"symbol":"SLC26A6"}
+```
 
-The test MUST load the committed fixture without network access, reconstruct the subject/snapshots/observations, and assert:
+If either authoritative capture cannot be established, stop fixture promotion at `NOT_ESTABLISHED`; do not substitute an aggregator.
+
+- [ ] **Step 2: Write the fixture bundle**
+
+Use schema `AEGIS_CROSS_DOMAIN_FIXTURE_V1` with subject `65010`, provenance `RETROSPECTIVE`, expected representations `FDF2`/`U+FDF2`, both complete external snapshot objects, and a local derivation object whose exact factorization is `[2,3,5,11,197]` with `square_free=true`.
+
+- [ ] **Step 3: Implement fixture loader/replay**
+
+`load_fixture_bundle(path)` uses `json.load`, rejects any schema other than `AEGIS_CROSS_DOMAIN_FIXTURE_V1`, and returns the parsed mapping.
+
+`replay_fixture_bundle(path)` must:
+
+1. construct `IntegerSubjectV1` from fixture subject;
+2. assert computed `hex_upper`/`unicode_codepoint_label` equal fixture expected representations;
+3. reconstruct each `RegistrySnapshotV1` and local `DerivationReceiptV1` from frozen fields;
+4. create one Unicode and one NCBI `DomainObservationV1` plus the local arithmetic observation;
+5. evaluate under a frozen `CollisionCriterionV1` that includes exactly `unicode` and `ncbi-gene` as external registries;
+6. return a frozen replay result containing subject, evidence artifacts, observations, criterion, and collision receipt.
+
+- [ ] **Step 4: Implement collision status policy helper**
+
+Define collision states as strings/constants:
 
 ```python
-self.assertEqual(subject.hex_upper, "FDF2")
-self.assertEqual(subject.unicode_codepoint_label, "U+FDF2")
-self.assertTrue(collision.cross_registry_collision)
-self.assertEqual(collision.independent_external_domain_count, 2)
-self.assertEqual(collision.provenance, cdc.SelectionProvenance.RETROSPECTIVE)
+OBSERVED = "OBSERVED"
+EXACT_MAPPING = "EXACT_MAPPING"
+CROSS_REGISTRY_COLLISION = "CROSS_REGISTRY_COLLISION"
+NULL_SURVIVED = "NULL_SURVIVED"
+REPLICATED = "REPLICATED"
+STRUCTURAL_RELATION = "STRUCTURAL_RELATION"
 ```
 
-- [ ] **Step 3: Prove status ceiling**
+`advance_collision_status(journal, next_status, evidence_receipt_digests, criterion_sha256, reason, null_receipt=None)` applies these rules before calling `journal.append`:
 
-Create a collision-specific `StatusJournalV1` sequence:
+- `NULL_SURVIVED` requires a non-null `NullModelReceiptV1` with `promotion_eligible=True` and `null_survived=True`.
+- `STRUCTURAL_RELATION` always raises `PermissionError` in V1 because no structural-proof authority exists in this subsystem.
+- Other states may be appended when caller supplies bound evidence digests; demotions remain allowed.
 
-`OBSERVED -> EXACT_MAPPING -> CROSS_REGISTRY_COLLISION`
+- [ ] **Step 5: Add exact 65010 replay tests**
 
-Use the collision/evidence receipt hashes. Attempting `NULL_SURVIVED` without a promotion-eligible prospective `NullModelReceiptV1` MUST raise `PermissionError` in the collision status transition helper.
+```python
+def test_65010_fixture_replays_to_retrospective_collision(self):
+    replay = cdc.replay_fixture_bundle(FIXTURE_PATH)
+    self.assertEqual(replay.subject.hex_upper, "FDF2")
+    self.assertEqual(replay.subject.unicode_codepoint_label, "U+FDF2")
+    self.assertEqual(replay.collision.independent_external_domain_count, 2)
+    self.assertTrue(replay.collision.cross_registry_collision)
+    self.assertEqual(replay.collision.provenance, cdc.SelectionProvenance.RETROSPECTIVE)
 
-- [ ] **Step 4: Add offline determinism test**
 
-Replay the fixture twice in separate object constructions and assert equality of subject digest, snapshot digests, observation digests, collision receipt digest, and status-transition digests.
+def test_65010_fixture_cannot_reach_null_survived_without_prospective_receipt(self):
+    replay = cdc.replay_fixture_bundle(FIXTURE_PATH)
+    journal = ri.StatusJournalV1("cdc-65010-v1")
+    cdc.advance_collision_status(journal, cdc.OBSERVED, [replay.collision.receipt_sha256], replay.criterion.criterion_sha256, "observed")
+    cdc.advance_collision_status(journal, cdc.EXACT_MAPPING, [replay.collision.receipt_sha256], replay.criterion.criterion_sha256, "exact mappings")
+    cdc.advance_collision_status(journal, cdc.CROSS_REGISTRY_COLLISION, [replay.collision.receipt_sha256], replay.criterion.criterion_sha256, "two external domains")
+    with self.assertRaises(PermissionError):
+        cdc.advance_collision_status(journal, cdc.NULL_SURVIVED, [replay.collision.receipt_sha256], replay.criterion.criterion_sha256, "not allowed")
+```
 
-- [ ] **Step 5: Run tests + commit**
+- [ ] **Step 6: Add exact replay determinism test**
+
+Replay twice and assert equality of subject digest, each external snapshot digest, each observation digest, collision receipt digest, and the transition digests produced by identical status sequences.
+
+- [ ] **Step 7: Verify and commit**
 
 ```bash
 python sovereign-omega-v2/python/tests/test_cross_domain_collision.py
 python sovereign-omega-v2/python/tests/test_cross_domain_ingest.py
+git add .aegis/cross-domain/fixtures/65010-v1.json sovereign-omega-v2/python/cross_domain_collision.py sovereign-omega-v2/python/tests/test_cross_domain_collision.py
+git commit -m "test(research): freeze 65010 collision replay fixture"
 ```
-
-Then commit fixture and code.
 
 ---
 
-### Task 6: Add offline CI and explicit evidence boundary documentation
+### Task 6: Offline CI, research boundary document, cognition refresh, exact-head evidence
 
 **Files:**
 - Create: `.github/workflows/cross-domain-collision.yml`
 - Create: `docs/research/cross-domain-collision-v1.md`
-- Modify: `.aegis/repo-cognition-v1.json` only through the repository's canonical cognition refresh path, never by hand.
+- Modify generated cognition files only through the repository's canonical refresh path.
 
 **Interfaces:**
-- Consumes: all completed V1 modules/tests/fixture.
+- Consumes: all completed V1 code/tests/fixture.
 - Produces: exact-head hosted verification with no live-source dependency.
 
 - [ ] **Step 1: Create deterministic workflow**
-
-Use:
 
 ```yaml
 name: AEGIS Cross-Domain Collision V1
@@ -523,8 +639,10 @@ name: AEGIS Cross-Domain Collision V1
 on:
   pull_request:
     paths:
+      - "sovereign-omega-v2/python/research_invariants.py"
       - "sovereign-omega-v2/python/cross_domain_collision.py"
       - "sovereign-omega-v2/python/cross_domain_ingest.py"
+      - "sovereign-omega-v2/python/tests/test_research_invariants.py"
       - "sovereign-omega-v2/python/tests/test_cross_domain_collision.py"
       - "sovereign-omega-v2/python/tests/test_cross_domain_ingest.py"
       - ".aegis/cross-domain/fixtures/**"
@@ -550,28 +668,28 @@ jobs:
             sovereign-omega-v2/python/research_invariants.py \
             sovereign-omega-v2/python/cross_domain_collision.py \
             sovereign-omega-v2/python/cross_domain_ingest.py
-      - name: Run collision regressions
-        run: python sovereign-omega-v2/python/tests/test_cross_domain_collision.py
-      - name: Run ingestion boundary regressions
-        run: python sovereign-omega-v2/python/tests/test_cross_domain_ingest.py
       - name: Run inherited research-gate regressions
         run: python sovereign-omega-v2/python/tests/test_research_invariants.py
+      - name: Run collision regressions
+        run: python sovereign-omega-v2/python/tests/test_cross_domain_collision.py
+      - name: Run ingestion-boundary regressions
+        run: python sovereign-omega-v2/python/tests/test_cross_domain_ingest.py
 ```
 
-No `curl`, `wget`, registry API, or live lookup step is allowed in this admission workflow.
+No `curl`, `wget`, registry API, or live lookup is allowed in the admission workflow.
 
-- [ ] **Step 2: Document exact epistemic statuses**
+- [ ] **Step 2: Write the research boundary document**
 
-The research doc MUST state:
+State exactly:
 
-- `65010` exact hexadecimal/code-point-label transform: deterministic fact;
-- Unicode/NCBI records: frozen external snapshot evidence;
-- collision: observed cross-registry collision under V1 criterion;
-- significance for the known seed: not prospectively established;
-- structural/causal relation: `NOT_ESTABLISHED`;
-- live connectors: evidence producers only.
+- `65010 -> FDF2 -> U+FDF2` representation/code-point-label transform = deterministic fact;
+- Unicode and NCBI claims = frozen external snapshot evidence;
+- V1 collision = exact observed cross-registry collision under the frozen criterion;
+- prospective statistical significance for the known seed = `NOT_ESTABLISHED`;
+- cross-domain structural/causal mechanism = `NOT_ESTABLISHED`;
+- live connectors = evidence producers only.
 
-- [ ] **Step 3: Run local full equivalent**
+- [ ] **Step 3: Run full local offline verification**
 
 ```bash
 python -m py_compile \
@@ -583,16 +701,14 @@ python sovereign-omega-v2/python/tests/test_cross_domain_collision.py
 python sovereign-omega-v2/python/tests/test_cross_domain_ingest.py
 ```
 
-Expected: all PASS, fully offline.
+- [ ] **Step 4: Refresh repository cognition canonically**
 
-- [ ] **Step 4: Refresh repository cognition using the canonical existing refresh path**
+Inspect the exact implementation head for the repository's existing cognition refresh command/workflow. Run that path; never hand-edit generated cognition hashes. Commit only generated output emitted by that path.
 
-First inspect the repository's current cognition workflow/command on the implementation head. Run that exact path; do not manually edit generated cognition hashes. Commit only generated changes produced by the canonical refresh.
+- [ ] **Step 5: Exact-head hosted verification**
 
-- [ ] **Step 5: Push and exact-head verify**
+Resolve the final SHA after cognition refresh. Inspect workflows on that exact SHA: `AEGIS Cross-Domain Collision V1`, inherited `AEGIS Zero-Discretion Type Gates`, `Kernel One`, and every repository-native check that actually triggers. Report SUCCESS/SKIPPED/FAILURE separately. Ancestor GREEN does not count.
 
-Resolve the final SHA after cognition refresh. Inspect `AEGIS Cross-Domain Collision V1`, inherited `AEGIS Zero-Discretion Type Gates`, `Kernel One`, and any repository-native mandatory checks that actually trigger on the final head. Report each by exact SHA and distinguish skipped/not-triggered from success.
+- [ ] **Step 6: Completion claim boundary**
 
-- [ ] **Step 6: Do not overclaim completion**
-
-The final evidence statement may say `CrossDomainCollisionV1 offline vertical slice = ESTABLISHED` only if the exact-head tests prove the specified contracts. It MUST still say `non-random cross-domain mechanism = NOT_ESTABLISHED` unless separate prospective evidence exists.
+Only if exact-head offline verification passes, report `CrossDomainCollisionV1 offline vertical slice = ESTABLISHED`. Continue to report `non-random cross-domain mechanism = NOT_ESTABLISHED` until separate prospective evidence exists.
