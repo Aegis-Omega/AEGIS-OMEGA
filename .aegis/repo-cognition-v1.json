@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "6c5a34653c777fe0da4080cdbeed72357c57f8b89f4cfa93e0cc65e5ceebe02a",
+  "corpus_root": "7f56a042a9921e5e8cc167b74249bcb7035726058bfa2614cf24a172165420aa",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1939,
@@ -28695,17 +28695,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "8c9c6e708cfc60390decaaab5e908babf9682b6ba8db7092da2cad247f33386f",
+      "content_sha256": "ae59d175da496353b35f76432791f46fb0c4c42e58cdd57a7fda9e0a9fe1313d",
       "dependency_hints": [],
-      "git_blob_sha": "84d31b6234899e2972f1e8c221b18510c4d1e3c6",
+      "git_blob_sha": "4abdb4e7675c58ca0f4df7e1f887b7070a563c9f",
       "heading_hint": "Cross-Domain Collision V1 Implementation Plan",
       "kind": "documentation",
       "language": "markdown",
-      "line_count": 598,
+      "line_count": 714,
       "mode": "100644",
       "object_type": "blob",
       "path": "docs/superpowers/plans/2026-08-25-cross-domain-collision-v1.md",
-      "size_bytes": 23596,
+      "size_bytes": 29666,
       "symbol_hints": []
     },
     {
