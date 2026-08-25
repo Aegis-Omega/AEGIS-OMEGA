@@ -79,6 +79,15 @@ Proof.
   unfold pole_closed_template, pole_kernel,
          pole_c_template, pole_s_template, pole_denominator.
   unfold pole_denominator in Hm, Hn.
+  assert (Hprod :
+    ~ ((L * L + k * k * m * m) *
+       (L * L + k * k * n * n) == 0)).
+  {
+    intro Hz.
+    destruct (Qmult_integral _ _ Hz) as [Hzm | Hzn].
+    - apply Hm. exact Hzm.
+    - apply Hn. exact Hzn.
+  }
   field; try ring; try assumption.
 Qed.
 
