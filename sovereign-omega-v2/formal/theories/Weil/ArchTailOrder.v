@@ -142,6 +142,11 @@ Proof.
   exact Hweight.
 Qed.
 
+(*
+  Promotion of the finite PSD status is an admission claim, not a source-code
+  claim: it requires the dedicated Arch Tail gate and the generic formal
+  attestation to both be terminal GREEN on the same exact commit.
+*)
 Inductive ArchTailOrderStatusV1 : Set :=
 | FINITE_RANK_TWO_GRAM_PSD_MACHINE_BOUND
 | CONTINUOUS_CAUCHY_STIELTJES_REPRESENTATION_NOT_MACHINE_BOUND
