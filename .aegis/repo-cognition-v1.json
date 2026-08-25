@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "f7308647bddfd9080f0ca60e28d956678d3ac58c4c0c767591b6bda70c67a424",
+  "corpus_root": "f13384fe95a01c932f198a32b38b20b6f7d1a26664e766ffa4376481787328c8",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1942,
@@ -39171,29 +39171,36 @@
       ]
     },
     {
-      "content_sha256": "95354bfcce11cfe0e99965f4af2ea595f6b908e24e47fb1c95a83f5dd6b3db5a",
+      "content_sha256": "243a8bebe0f3333a40acaec8a17f610263cd82a494cc9f92cb4f7fea34e536b6",
       "dependency_hints": [
         "pathlib",
         "sys",
         "unittest",
         "cross_domain_collision"
       ],
-      "git_blob_sha": "249c338ec676a56754db3045e314e047b6d7ee77",
+      "git_blob_sha": "28b5303ad3fa5987757441ba1045247346993afd",
       "heading_hint": null,
       "kind": "test",
       "language": "python",
-      "line_count": 82,
+      "line_count": 150,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/tests/test_cross_domain_collision.py",
-      "size_bytes": 2929,
+      "size_bytes": 6783,
       "symbol_hints": [
+        "fixture_criterion",
+        "fixture_observation",
         "CrossDomainCollisionTests",
         "test_integer_subject_is_representation_independent",
         "test_unicode_label_rejects_out_of_range_integer",
         "test_transform_epoch_changes_on_literal_edit",
         "test_snapshot_digest_changes_with_semantic_result",
-        "test_local_derivation_is_not_external_registry_evidence"
+        "test_local_derivation_is_not_external_registry_evidence",
+        "test_same_domain_cannot_inflate_independent_domain_count",
+        "test_local_derived_property_does_not_satisfy_external_threshold",
+        "test_two_unique_external_domains_form_collision",
+        "test_subject_splicing_fails_closed",
+        "test_unknown_transform_fails_closed"
       ]
     },
     {
