@@ -15,6 +15,9 @@ on:
       - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeContinuity.v"
       - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeConstructive.v"
       - "sovereign-omega-v2/formal/theories/Weil/O0ProductionConstructiveProbe.v"
+      - "sovereign-omega-v2/python/coq_attestation.py"
+      - "sovereign-omega-v2/python/tests/test_coq_attestation*.py"
+      - ".github/workflows/coq-formal-attestation.yml"
       - ".github/workflows/weil-o0-globalization.yml"
   workflow_dispatch:
 
