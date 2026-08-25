@@ -26,5 +26,7 @@ jobs:
           python-version: "3.11"
       - name: Run collision regressions
         run: python sovereign-omega-v2/python/tests/test_cross_domain_collision.py
+      - name: Run ingestion boundary regressions
+        run: python sovereign-omega-v2/python/tests/test_cross_domain_ingest.py
       - name: Run inherited research-gate regressions
         run: python sovereign-omega-v2/python/tests/test_research_invariants.py
