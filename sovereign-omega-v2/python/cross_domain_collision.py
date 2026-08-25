@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import pathlib
 import random
 from dataclasses import dataclass, field
 from enum import Enum
@@ -370,4 +372,233 @@ def evaluate_null_model(
         promotion_eligible=promotion_eligible,
         null_survived=null_survived,
         receipt_sha256=ri.sha256_hex(material),
+    )
+
+
+def _expected_query_key(subject: IntegerSubjectV1, transform: TransformSpecV1) -> str:
+    if transform.transform_id == "INTEGER_TO_UNICODE_CODEPOINT_V1":
+        return subject.unicode_codepoint_label
+    if transform.transform_id == "INTEGER_IDENTITY_EXTERNAL_LOOKUP_KEY_V1":
+        return str(subject.value)
+    raise ValueError(f"unsupported external snapshot transform: {transform.transform_id}")
+
+
+def verify_snapshot_observation(
+    *,
+    subject: IntegerSubjectV1,
+    snapshot: RegistrySnapshotV1,
+    transform: TransformSpecV1,
+    evidence_class: EvidenceClass,
+    normalized_claim: str,
+) -> DomainObservationV1:
+    """Verify the subject→query-key relation before minting an observation."""
+    if evidence_class is EvidenceClass.DERIVED_PROPERTY:
+        raise ValueError("external snapshot cannot be classified as DERIVED_PROPERTY")
+    expected_key = _expected_query_key(subject, transform)
+    if snapshot.query_key != expected_key:
+        raise ValueError("snapshot query key does not match transformed subject")
+    if transform.transform_id == "INTEGER_TO_UNICODE_CODEPOINT_V1":
+        if snapshot.query_key_type != "unicode-codepoint":
+            raise ValueError("Unicode transform requires unicode-codepoint query key type")
+        if isinstance(snapshot.canonical_result, Mapping):
+            result_codepoint = snapshot.canonical_result.get("codepoint")
+            if result_codepoint is not None and result_codepoint != expected_key:
+                raise ValueError("Unicode result codepoint does not match query key")
+    return DomainObservationV1(
+        subject_sha256=subject.subject_sha256,
+        domain_id=snapshot.registry_id,
+        evidence_class=evidence_class,
+        transform_id=transform.transform_id,
+        transform_criterion_sha256=transform.criterion_sha256,
+        evidence_artifact_sha256=snapshot.content_sha256,
+        normalized_claim=normalized_claim,
+    )
+
+
+@dataclass(frozen=True)
+class FixtureReplayV1:
+    subject: IntegerSubjectV1
+    provenance: SelectionProvenance
+    snapshots: tuple[RegistrySnapshotV1, ...]
+    derivations: tuple[DerivationReceiptV1, ...]
+    observations: tuple[DomainObservationV1, ...]
+    criterion: CollisionCriterionV1
+    collision: CollisionReceiptV1
+    status_history: tuple[ri.StatusTransitionV1, ...]
+
+    @property
+    def current_status(self) -> str | None:
+        return self.status_history[-1].next_status if self.status_history else None
+
+
+def load_fixture_bundle(path: str | pathlib.Path) -> Mapping[str, Any]:
+    data = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+    if not isinstance(data, Mapping):
+        raise ValueError("fixture root must be an object")
+    if data.get("schema") != "AEGIS_CROSS_DOMAIN_FIXTURE_V1":
+        raise ValueError("unsupported fixture schema")
+    return data
+
+
+def append_collision_status(
+    journal: ri.StatusJournalV1,
+    next_status: str,
+    evidence_receipt_digests: Sequence[str],
+    criterion_sha256: str,
+    reason: str,
+    *,
+    null_receipt: NullModelReceiptV1 | None = None,
+) -> ri.StatusTransitionV1:
+    if next_status == "STRUCTURAL_RELATION":
+        raise PermissionError("collision statistics cannot mint STRUCTURAL_RELATION")
+    allowed = {
+        None: {"OBSERVED"},
+        "OBSERVED": {"EXACT_MAPPING"},
+        "EXACT_MAPPING": {"CROSS_REGISTRY_COLLISION"},
+        "CROSS_REGISTRY_COLLISION": {"NULL_SURVIVED"},
+        "NULL_SURVIVED": {"REPLICATED"},
+    }
+    if next_status not in allowed.get(journal.current_status, set()):
+        raise PermissionError(
+            f"inadmissible collision status transition: {journal.current_status!r} -> {next_status!r}"
+        )
+    if next_status == "NULL_SURVIVED":
+        if null_receipt is None:
+            raise PermissionError("NULL_SURVIVED requires a null-model receipt")
+        if null_receipt.criterion_sha256 != criterion_sha256:
+            raise PermissionError("null-model receipt criterion mismatch")
+        if not null_receipt.promotion_eligible or null_receipt.null_survived is not True:
+            raise PermissionError("null-model receipt is not promotion-eligible and surviving")
+    return journal.append(
+        next_status=next_status,
+        evidence_receipt_digests=evidence_receipt_digests,
+        criterion_sha256=criterion_sha256,
+        reason=reason,
+    )
+
+
+def replay_fixture_bundle(path: str | pathlib.Path) -> FixtureReplayV1:
+    data = load_fixture_bundle(path)
+    subject_data = data.get("subject")
+    if not isinstance(subject_data, Mapping):
+        raise ValueError("fixture subject must be an object")
+    subject = IntegerSubjectV1(subject_data["value"])
+    provenance = SelectionProvenance(subject_data["provenance"])
+
+    expected = data.get("expected_representations")
+    if not isinstance(expected, Mapping):
+        raise ValueError("fixture expected_representations must be an object")
+    if expected.get("hex_upper") != subject.hex_upper:
+        raise ValueError("fixture hexadecimal representation mismatch")
+    if expected.get("unicode_codepoint_label") != subject.unicode_codepoint_label:
+        raise ValueError("fixture Unicode code-point representation mismatch")
+
+    snapshots: list[RegistrySnapshotV1] = []
+    observations: list[DomainObservationV1] = []
+    for entry in data.get("external_snapshots", []):
+        if not isinstance(entry, Mapping):
+            raise ValueError("external snapshot entry must be an object")
+        snapshot = RegistrySnapshotV1(
+            registry_id=entry["registry_id"],
+            registry_version_or_release=entry["registry_version_or_release"],
+            query_key=entry["query_key"],
+            query_key_type=entry["query_key_type"],
+            result_kind=entry["result_kind"],
+            canonical_result=entry["canonical_result"],
+            source_locator=entry["source_locator"],
+            source_observed_at=entry["source_observed_at"],
+            ingestion_producer_id=entry["ingestion_producer_id"],
+        )
+        transform_data = entry["transform"]
+        transform = TransformSpecV1(
+            transform_id=transform_data["transform_id"],
+            transform_version=transform_data["transform_version"],
+            input_type=transform_data["input_type"],
+            output_type=transform_data["output_type"],
+            criterion_text=transform_data["criterion_text"],
+        )
+        observation = verify_snapshot_observation(
+            subject=subject,
+            snapshot=snapshot,
+            transform=transform,
+            evidence_class=EvidenceClass(entry["evidence_class"]),
+            normalized_claim=entry["normalized_claim"],
+        )
+        snapshots.append(snapshot)
+        observations.append(observation)
+
+    derivations: list[DerivationReceiptV1] = []
+    for entry in data.get("local_derivations", []):
+        criterion_sha = ri.literal_sha256(entry["criterion_text"])
+        derivation = DerivationReceiptV1(
+            subject_sha256=subject.subject_sha256,
+            derivation_id=entry["derivation_id"],
+            derivation_version=entry["derivation_version"],
+            criterion_sha256=criterion_sha,
+            canonical_result=entry["canonical_result"],
+        )
+        derivations.append(derivation)
+        observations.append(
+            DomainObservationV1(
+                subject_sha256=subject.subject_sha256,
+                domain_id="number-theory",
+                evidence_class=EvidenceClass.DERIVED_PROPERTY,
+                transform_id=entry["derivation_id"],
+                transform_criterion_sha256=criterion_sha,
+                evidence_artifact_sha256=derivation.receipt_sha256,
+                normalized_claim=f"local derivation {entry['derivation_id']}",
+            )
+        )
+
+    criterion_data = data.get("collision_criterion")
+    if not isinstance(criterion_data, Mapping):
+        raise ValueError("fixture collision_criterion must be an object")
+    criterion = CollisionCriterionV1(
+        universe_min=criterion_data["universe_min"],
+        universe_max=criterion_data["universe_max"],
+        registry_set=tuple(criterion_data["registry_set"]),
+        transform_set=tuple(criterion_data["transform_set"]),
+        independence_rule_id=criterion_data["independence_rule_id"],
+        score_function_id=criterion_data["score_function_id"],
+        control_generator_id=criterion_data["control_generator_id"],
+        control_seed=criterion_data["control_seed"],
+        control_count=criterion_data["control_count"],
+        promotion_threshold=criterion_data["promotion_threshold"],
+        criterion_text=criterion_data["criterion_text"],
+    )
+    collision = evaluate_collision(subject, provenance, observations, criterion)
+
+    journal = ri.StatusJournalV1(f"cross-domain:{subject.subject_sha256}")
+    append_collision_status(
+        journal,
+        "OBSERVED",
+        [collision.receipt_sha256],
+        criterion.criterion_sha256,
+        "frozen integer observation replayed",
+    )
+    append_collision_status(
+        journal,
+        "EXACT_MAPPING",
+        [s.content_sha256 for s in snapshots] + [d.receipt_sha256 for d in derivations],
+        criterion.criterion_sha256,
+        "all frozen external mappings and local derivations replayed",
+    )
+    if collision.cross_registry_collision:
+        append_collision_status(
+            journal,
+            "CROSS_REGISTRY_COLLISION",
+            [collision.receipt_sha256],
+            criterion.criterion_sha256,
+            "at least two unique frozen external domains matched",
+        )
+
+    return FixtureReplayV1(
+        subject=subject,
+        provenance=provenance,
+        snapshots=tuple(snapshots),
+        derivations=tuple(derivations),
+        observations=tuple(observations),
+        criterion=criterion,
+        collision=collision,
+        status_history=journal.history,
     )
