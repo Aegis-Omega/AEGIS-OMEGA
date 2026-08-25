@@ -1,0 +1,149 @@
+name: Weil Prime Diagonal Trust Probe
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbePrimeDiagonal.v"
+      - ".github/workflows/weil-prime-diagonal-trust-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-prime-diagonal-trust-probe-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  probe:
+    name: coqc + Print Assumptions / diagnostic only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Prepare writable diagnostic workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/weil-prime-diagonal-trust-probe
+          chmod -R a+rwX sovereign-omega-v2/formal/theories/Weil sovereign-omega-v2/weil-prime-diagonal-trust-probe
+
+      - name: Compile diagnostic probe and print trust surface
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            DIR="$ROOT/formal/theories/Weil"
+            OUT="$ROOT/weil-prime-diagonal-trust-probe"
+            cd "$DIR"
+            coqc --version | tee "$OUT/coq-version.txt"
+            coqc O0TrustProbePrimeDiagonal.v 2>&1 | tee "$OUT/compile.log"
+
+            for theorem in \
+              prime_diagonal_classical_cos_phase_probe \
+              prime_source_classical_sin_phase_probe \
+              prime_source_classical_sine_derivative_probe
+            do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.assumptions.txt"
+              printf 'Set Coqtop Exit On Error.\nRequire Import O0TrustProbePrimeDiagonal.\nPrint Assumptions %s.\n' "$theorem" > "$query"
+              coqtop -quiet -batch -l "$query" > "$log" 2>&1
+              rm -f "$query"
+              cat "$log"
+              if grep -q 'Closed under the global context' "$log"; then
+                printf '%s\tCLOSED\n' "$theorem" | tee -a "$OUT/trust-summary.tsv"
+              elif grep -q '^Axioms:' "$log"; then
+                printf '%s\tASSUMPTION_BEARING\n' "$theorem" | tee -a "$OUT/trust-summary.tsv"
+              else
+                printf '%s\tUNRECOGNIZED\n' "$theorem" | tee -a "$OUT/trust-summary.tsv"
+                exit 1
+              fi
+            done
+
+            # Also expose the underlying chain-rule trust surface needed by
+            # the full source derivative, without promoting it to authority.
+            printf 'Set Coqtop Exit On Error.\nFrom Coq Require Import Ranalysis1.\nPrint Assumptions derivable_pt_comp.\nPrint Assumptions derive_pt_comp.\n' > "$OUT/chain-rule.v"
+            coqtop -quiet -batch -l "$OUT/chain-rule.v" > "$OUT/chain-rule.assumptions.txt" 2>&1
+            rm -f "$OUT/chain-rule.v"
+            cat "$OUT/chain-rule.assumptions.txt"
+
+      - name: Emit diagnostic receipt
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          out = Path('weil-prime-diagonal-trust-probe')
+          source = Path('formal/theories/Weil/O0TrustProbePrimeDiagonal.v')
+          names = [
+              'prime_diagonal_classical_cos_phase_probe',
+              'prime_source_classical_sin_phase_probe',
+              'prime_source_classical_sine_derivative_probe',
+          ]
+
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          statuses = {}
+          for line in (out / 'trust-summary.tsv').read_text().splitlines():
+              theorem, status = line.split('\t', 1)
+              statuses[theorem] = status
+
+          payload = {
+              'receipt_kind': 'AEGIS_WEIL_PRIME_DIAGONAL_TRUST_PROBE_V1',
+              'authority': 'DIAGNOSTIC_ONLY',
+              'source_commit': '${{ env.SOURCE_SHA }}',
+              'source_sha256': sha(source),
+              'compile_log_sha256': sha(out / 'compile.log'),
+              'chain_rule_assumptions_sha256': sha(out / 'chain-rule.assumptions.txt'),
+              'theorem_statuses': statuses,
+              'theorem_assumption_log_sha256': {
+                  name: sha(out / f'{name}.assumptions.txt') for name in names
+              },
+              'production_authority_granted': False,
+              'prime_diagonal_trig_periodicity_machine_bound': False,
+              'prime_source_sine_derivative_machine_bound': False,
+              'prime_diagonal_dictionary_formalized': False,
+              'global_weil_positivity_proven': False,
+              'rh_proven': False,
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          target = out / 'weil-prime-diagonal-trust-probe-receipt.json'
+          target.write_text(json.dumps(payload, sort_keys=True, indent=2) + '\n')
+          print(target.read_text())
+
+          assert payload['authority'] == 'DIAGNOSTIC_ONLY'
+          assert payload['production_authority_granted'] is False
+          assert payload['prime_diagonal_dictionary_formalized'] is False
+          assert payload['rh_proven'] is False
+          assert len(statuses) == 3
+          assert len(payload['receipt_sha256']) == 64
+          PY
+
+      - name: Upload diagnostic evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: weil-prime-diagonal-trust-probe-${{ env.SOURCE_SHA }}
+          path: sovereign-omega-v2/weil-prime-diagonal-trust-probe/
+          if-no-files-found: error
+          retention-days: 30
