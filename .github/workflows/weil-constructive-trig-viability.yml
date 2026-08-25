@@ -71,8 +71,10 @@ jobs:
                 \( -name '*.v' -o -name '*.vo' \) \
                 -printf '%f\n' | sort >> "$OUT/constructive-module-inventory.txt"
               if find "$dir" -maxdepth 1 -type f -name '*.v' -print -quit | grep -q .; then
+                # Match trig-like declaration identifiers, not arbitrary
+                # substrings such as "increasing" or "single_dist".
                 grep -RniE \
-                  '^[[:space:]]*(Definition|Lemma|Theorem|Corollary|Proposition|Fixpoint|CoFixpoint)[[:space:]]+[A-Za-z0-9_]*(sin|cos|pi)[A-Za-z0-9_]*' \
+                  '^[[:space:]]*(Definition|Lemma|Theorem|Corollary|Proposition|Fixpoint|CoFixpoint)[[:space:]]+((sin|cos|pi)[A-Za-z0-9_]*|[A-Za-z0-9_]+_(sin|cos|pi)(_[A-Za-z0-9_]*)?|[A-Za-z0-9_]*(Sin|Cos|Pi)[A-Za-z0-9_]*)' \
                   "$dir" >> "$OUT/constructive-trig-declaration-matches.txt" || true
               fi
             done
@@ -114,7 +116,6 @@ jobs:
           from pathlib import Path
 
           out = Path('weil-constructive-trig-viability')
-          test = Path('formal/tests/Weil/ConstructiveTrigViability.v')
 
           def sha(path: Path) -> str:
               return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -144,8 +145,9 @@ jobs:
               'constructive_module_inventory_sha256': sha(out / 'constructive-module-inventory.txt'),
               'constructive_module_inventory_count': len(inventory),
               'constructive_crsin_crcos_crpi_absent': True,
-              'constructive_trig_declaration_match_count': len(matches),
-              'constructive_trig_declaration_matches': matches,
+              'constructive_trig_named_api_candidate_count': len(matches),
+              'constructive_trig_named_api_candidates': matches,
+              'constructive_trig_scan_semantics': 'DECLARATION_IDENTIFIER_HEURISTIC_NOT_SEMANTIC_ABSENCE_PROOF',
               'coquelicot_version': '3.4.2',
               'coquelicot_theorem_statuses': statuses,
               'coquelicot_assumption_log_sha256': {
