@@ -17,6 +17,7 @@ import math
 import time
 from dataclasses import dataclass, field
 from enum import Enum
+from types import MappingProxyType
 from typing import Any, Iterable, Mapping, Sequence
 
 
@@ -50,6 +51,25 @@ class ResearchStatus(str, Enum):
     TYPE_CHECKED = "TYPE_CHECKED"
     COMPUTED = "COMPUTED"
     THEOREM = "THEOREM"
+
+
+def freeze_hash_material(value: Any) -> Any:
+    """Recursively detach and freeze material after/before deterministic hashing."""
+    if isinstance(value, Mapping):
+        return MappingProxyType(
+            {str(k): freeze_hash_material(value[k]) for k in sorted(value)}
+        )
+    if isinstance(value, (tuple, list)):
+        return tuple(freeze_hash_material(v) for v in value)
+    if isinstance(value, Enum):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("non-finite floats are not admissible in gate material")
+        return value
+    if isinstance(value, (str, int, bool)) or value is None:
+        return value
+    raise TypeError(f"unsupported gate material type: {type(value)!r}")
 
 
 def _canonical(value: Any) -> Any:
@@ -172,6 +192,7 @@ class GateReceipt:
         _check_digest(self.witness_sha256, "witness_sha256")
         if self.elapsed_ns < 0:
             raise ValueError("elapsed_ns must be non-negative")
+        object.__setattr__(self, "observation", freeze_hash_material(self.observation))
 
     def deterministic_material(self) -> Mapping[str, Any]:
         return {
@@ -181,11 +202,12 @@ class GateReceipt:
             "type_signature": self.type_signature,
             "object_digest": self.object_digest,
             "verdict": self.verdict.value,
-            "observation": dict(self.observation),
+            "observation": self.observation,
         }
 
     def to_dict(self) -> dict[str, Any]:
         payload = dict(self.deterministic_material())
+        payload["observation"] = _canonical(self.observation)
         payload["witness_sha256"] = self.witness_sha256
         payload["elapsed_ns"] = self.elapsed_ns
         return payload
@@ -196,7 +218,7 @@ class InvariantViolationError(RuntimeError):
         self.receipt = receipt
         super().__init__(
             f"{receipt.gate_id} {receipt.verdict.value}: "
-            f"{json.dumps(dict(receipt.observation), sort_keys=True)}"
+            f"{json.dumps(_canonical(receipt.observation), sort_keys=True)}"
         )
 
 
@@ -210,6 +232,7 @@ def _receipt(
     started_ns: int,
     gate_version: str = "1",
 ) -> GateReceipt:
+    frozen_observation = freeze_hash_material(observation)
     deterministic = {
         "schema": SCHEMA_VERSION,
         "gate_id": gate_id,
@@ -217,7 +240,7 @@ def _receipt(
         "type_signature": type_signature,
         "object_digest": object_digest,
         "verdict": verdict.value,
-        "observation": dict(observation),
+        "observation": frozen_observation,
     }
     return GateReceipt(
         gate_id=gate_id,
@@ -225,7 +248,7 @@ def _receipt(
         type_signature=type_signature,
         object_digest=object_digest,
         verdict=verdict,
-        observation=dict(observation),
+        observation=frozen_observation,
         witness_sha256=sha256_hex(deterministic),
         elapsed_ns=max(0, time.perf_counter_ns() - started_ns),
     )
@@ -782,15 +805,15 @@ def bind_relation(relation_id: str, participants: Mapping[str, str]) -> Relation
             raise ValueError("relation participant role must be non-empty")
         _check_digest(digest, f"participant[{role}]")
         normalized[role] = digest
-    normalized = dict(sorted(normalized.items()))
+    frozen_participants = freeze_hash_material(dict(sorted(normalized.items())))
     material = {
         "schema": "AEGIS_RELATION_BINDING_V1",
         "relation_id": relation_id,
-        "participants": normalized,
+        "participants": frozen_participants,
     }
     return RelationBindingV1(
         relation_id=relation_id,
-        participants=normalized,
+        participants=frozen_participants,
         relation_digest=sha256_hex(material),
     )
 
