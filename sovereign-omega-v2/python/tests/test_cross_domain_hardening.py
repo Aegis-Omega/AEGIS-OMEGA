@@ -6,6 +6,7 @@ import unittest
 MODULE_DIR = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(MODULE_DIR))
 import cross_domain_collision as cdc
+import cross_domain_coverage as cov
 import research_invariants as ri
 
 
@@ -13,15 +14,15 @@ def criterion(**overrides):
     values = dict(
         universe_min=0,
         universe_max=100000,
-        registry_set=("unicode", "ncbi-gene"),
-        transform_set=("UNICODE_LOOKUP_V1", "NCBI_LOOKUP_V1"),
+        registry_set=("fixture-a", "fixture-b"),
+        transform_set=("INTEGER_IDENTITY_EXTERNAL_LOOKUP_KEY_V1",),
         independence_rule_id="UNIQUE_DOMAIN_ID_V1",
         score_function_id="UNIQUE_EXTERNAL_DOMAINS_V1",
         control_generator_id="PY_RANDOM_UNIFORM_INT_V1",
         control_seed=1234,
         control_count=4,
         promotion_threshold=0.05,
-        criterion_text="hardening criterion v1",
+        criterion_text="hardening criterion v2 coverage-bound",
     )
     values.update(overrides)
     return cdc.CollisionCriterionV1(**values)
@@ -32,36 +33,73 @@ def observed_collision(c, subject_value=65010):
     observations = [
         cdc.DomainObservationV1(
             subject.subject_sha256,
-            "unicode",
-            cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING,
-            "UNICODE_LOOKUP_V1",
+            "fixture-a",
+            cdc.EvidenceClass.EXTERNAL_IDENTIFIER_MATCH,
+            "INTEGER_IDENTITY_EXTERNAL_LOOKUP_KEY_V1",
             "a" * 64,
             "b" * 64,
-            "unicode match",
+            "fixture-a match",
         ),
         cdc.DomainObservationV1(
             subject.subject_sha256,
-            "ncbi-gene",
+            "fixture-b",
             cdc.EvidenceClass.EXTERNAL_IDENTIFIER_MATCH,
-            "NCBI_LOOKUP_V1",
+            "INTEGER_IDENTITY_EXTERNAL_LOOKUP_KEY_V1",
             "c" * 64,
             "d" * 64,
-            "ncbi match",
+            "fixture-b match",
         ),
     ]
     return cdc.evaluate_collision(subject, cdc.SelectionProvenance.PROSPECTIVE, observations, c)
 
 
-def zero_control_receipts(c):
-    return tuple(
-        cdc.evaluate_collision(
-            cdc.IntegerSubjectV1(value),
-            cdc.SelectionProvenance.PROSPECTIVE,
-            [],
-            c,
-        )
-        for value in cdc.generate_controls(c)
+def adapter(registry_id):
+    return cov.RegistryAdapterContractV1(
+        registry_id=registry_id,
+        adapter_version="1",
+        query_key_type="integer-decimal",
+        transform_id="INTEGER_IDENTITY_EXTERNAL_LOOKUP_KEY_V1",
+        transform_criterion_sha256=ri.literal_sha256("integer identity external lookup key v1"),
+        positive_result_rule_id="MATCH_BOOL_TRUE_V1",
+        negative_result_rule_id="MATCH_BOOL_FALSE_V1",
+        ambiguous_result_rule_id="STATUS_NOT_ESTABLISHED_V1",
+        canonicalization_rule_id="CANONICAL_JSON_V1",
+        contract_text=f"hardening fixture adapter {registry_id} v1",
     )
+
+
+def negative_snapshot(subject, registry_id):
+    return cdc.RegistrySnapshotV1(
+        registry_id=registry_id,
+        registry_version_or_release="fixture-v1",
+        query_key=str(subject.value),
+        query_key_type="integer-decimal",
+        result_kind="fixture-registry-result",
+        canonical_result={"match": False},
+        source_locator=f"fixture://hardening/{registry_id}/{subject.value}",
+        source_observed_at="2026-08-25T00:00:00Z",
+        ingestion_producer_id="hardening-test",
+    )
+
+
+def covered_controls(c):
+    collisions = []
+    coverages = []
+    for value in cdc.generate_controls(c):
+        subject = cdc.IntegerSubjectV1(value)
+        probes = [
+            cov.probe_registry_snapshot(subject, c, adapter("fixture-a"), negative_snapshot(subject, "fixture-a")),
+            cov.probe_registry_snapshot(subject, c, adapter("fixture-b"), negative_snapshot(subject, "fixture-b")),
+        ]
+        collision, coverage = cov.evaluate_control_from_probes(subject, c, probes)
+        collisions.append(collision)
+        coverages.append(coverage)
+    return tuple(collisions), tuple(coverages)
+
+
+def valid_null_receipt(observed, c):
+    controls, coverages = covered_controls(c)
+    return cdc.evaluate_null_model(observed, c, controls, control_coverages=coverages)
 
 
 def journal_at_collision(collision, c):
@@ -150,19 +188,19 @@ class CrossDomainHardeningTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             cdc.evaluate_null_model(observed, c, [0, 0, 0, 0])
 
-    def test_null_receipt_consumes_collision_receipts_for_exact_generated_controls(self):
+    def test_null_receipt_consumes_exact_generated_collisions_and_coverage(self):
         c = criterion()
         observed = observed_collision(c)
-        controls = zero_control_receipts(c)
-        receipt = cdc.evaluate_null_model(observed, c, controls)
+        controls, coverages = covered_controls(c)
+        receipt = cdc.evaluate_null_model(observed, c, controls, control_coverages=coverages)
         self.assertEqual(receipt.control_count, 4)
         self.assertEqual(len(receipt.control_receipt_sha256s), 4)
+        self.assertEqual(len(receipt.control_coverage_receipt_sha256s), 4)
         self.assertTrue(receipt.promotion_eligible)
 
     def test_null_receipt_rejects_p_emp_tampering(self):
         c = criterion(control_count=100)
-        observed = observed_collision(c)
-        receipt = cdc.evaluate_null_model(observed, c, zero_control_receipts(c))
+        receipt = valid_null_receipt(observed_collision(c), c)
         tampered = replace(receipt, p_emp=0.5)
         with self.assertRaises(ValueError):
             cdc.verify_null_model_receipt(tampered)
@@ -170,7 +208,7 @@ class CrossDomainHardeningTests(unittest.TestCase):
     def test_null_status_rejects_tampered_receipt_digest(self):
         c = criterion(control_count=100)
         observed = observed_collision(c)
-        null_receipt = cdc.evaluate_null_model(observed, c, zero_control_receipts(c))
+        null_receipt = valid_null_receipt(observed, c)
         self.assertTrue(null_receipt.null_survived)
         tampered = replace(null_receipt, receipt_sha256="f" * 64)
         journal = journal_at_collision(observed, c)
@@ -188,7 +226,7 @@ class CrossDomainHardeningTests(unittest.TestCase):
         c = criterion(control_count=100)
         observed_a = observed_collision(c, 65010)
         observed_b = observed_collision(c, 65011)
-        null_b = cdc.evaluate_null_model(observed_b, c, zero_control_receipts(c))
+        null_b = valid_null_receipt(observed_b, c)
         self.assertTrue(null_b.null_survived)
         journal = journal_at_collision(observed_a, c)
         with self.assertRaises(PermissionError):
@@ -204,7 +242,7 @@ class CrossDomainHardeningTests(unittest.TestCase):
     def test_null_status_requires_null_receipt_digest_in_transition_evidence(self):
         c = criterion(control_count=100)
         observed = observed_collision(c)
-        null_receipt = cdc.evaluate_null_model(observed, c, zero_control_receipts(c))
+        null_receipt = valid_null_receipt(observed, c)
         self.assertTrue(null_receipt.null_survived)
         journal = journal_at_collision(observed, c)
         with self.assertRaises(PermissionError):
@@ -220,7 +258,7 @@ class CrossDomainHardeningTests(unittest.TestCase):
     def test_valid_null_status_requires_and_preserves_exact_lineage(self):
         c = criterion(control_count=100)
         observed = observed_collision(c)
-        null_receipt = cdc.evaluate_null_model(observed, c, zero_control_receipts(c))
+        null_receipt = valid_null_receipt(observed, c)
         self.assertTrue(null_receipt.null_survived)
         journal = journal_at_collision(observed, c)
         transition = cdc.append_collision_status(
@@ -228,7 +266,7 @@ class CrossDomainHardeningTests(unittest.TestCase):
             "NULL_SURVIVED",
             [null_receipt.receipt_sha256],
             c.criterion_sha256,
-            "verified null receipt on exact collision lineage",
+            "verified null receipt on exact collision and coverage lineage",
             null_receipt=null_receipt,
         )
         self.assertEqual(journal.current_status, "NULL_SURVIVED")
