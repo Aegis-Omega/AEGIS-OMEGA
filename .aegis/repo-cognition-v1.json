@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "7018c55365a3207a02784eb04ec2c4a17a9fcd2de195ac268475dcf727714796",
+  "corpus_root": "386c3eeb70a4d514ba0c28a9af4a8c4c3dc41a26fd8a971f7a2575ebe7134bf5",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1952,
@@ -922,17 +922,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "5f7129d430466466232a1fba694cfe4740a7a7f9f13389fbcda0f4a40dfb7d63",
+      "content_sha256": "b6de74f5be24b9b494ee1499a797ed9b78e1b61a1afd3d14f46650eb8bbbcbeb",
       "dependency_hints": [],
-      "git_blob_sha": "3bcc25aaf73d8a0a93c8a721ddf9fcc2b987dc50",
+      "git_blob_sha": "9f3a157fd6a1761372356cb6efd79cc54b403b8d",
       "heading_hint": null,
       "kind": "workflow",
       "language": "yaml",
-      "line_count": 50,
+      "line_count": 51,
       "mode": "100644",
       "object_type": "blob",
       "path": ".github/workflows/cross-domain-collision.yml",
-      "size_bytes": 2237,
+      "size_bytes": 2302,
       "symbol_hints": []
     },
     {
