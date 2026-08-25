@@ -5,6 +5,7 @@ on:
     paths:
       - "sovereign-omega-v2/formal/theories/Weil/FiniteBridge.v"
       - "sovereign-omega-v2/formal/theories/Weil/FiniteEntryDictionary.v"
+      - ".github/workflows/coq-formal-attestation.yml"
       - ".github/workflows/weil-concrete-finite-semantics.yml"
   workflow_dispatch:
 
