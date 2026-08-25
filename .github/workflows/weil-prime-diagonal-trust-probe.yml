@@ -3,7 +3,7 @@ name: Weil Prime Diagonal Trust Probe
 on:
   pull_request:
     paths:
-      - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbePrimeDiagonal.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeReals.v"
       - ".github/workflows/weil-prime-diagonal-trust-probe.yml"
   workflow_dispatch:
 
@@ -53,7 +53,7 @@ jobs:
             OUT="$ROOT/weil-prime-diagonal-trust-probe"
             cd "$DIR"
             coqc --version | tee "$OUT/coq-version.txt"
-            coqc O0TrustProbePrimeDiagonal.v 2>&1 | tee "$OUT/compile.log"
+            coqc O0TrustProbeReals.v 2>&1 | tee "$OUT/compile.log"
 
             for theorem in \
               prime_diagonal_classical_cos_phase_probe \
@@ -62,7 +62,7 @@ jobs:
             do
               query="$OUT/${theorem}.v"
               log="$OUT/${theorem}.assumptions.txt"
-              printf 'Set Coqtop Exit On Error.\nRequire Import O0TrustProbePrimeDiagonal.\nPrint Assumptions %s.\n' "$theorem" > "$query"
+              printf 'Set Coqtop Exit On Error.\nRequire Import O0TrustProbeReals.\nPrint Assumptions %s.\n' "$theorem" > "$query"
               coqtop -quiet -batch -l "$query" > "$log" 2>&1
               rm -f "$query"
               cat "$log"
@@ -93,7 +93,7 @@ jobs:
           from pathlib import Path
 
           out = Path('weil-prime-diagonal-trust-probe')
-          source = Path('formal/theories/Weil/O0TrustProbePrimeDiagonal.v')
+          source = Path('formal/theories/Weil/O0TrustProbeReals.v')
           names = [
               'prime_diagonal_classical_cos_phase_probe',
               'prime_source_classical_sin_phase_probe',
