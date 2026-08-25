@@ -14,7 +14,7 @@
  {
   "graph": "py_sovereign",
   "k": 8,
-  "p_acyclic": 0.0,
+  "p_acyclic": 0.005,
   "draws": 200
  },
  {
@@ -31,7 +31,7 @@
  },
  {
   "graph": "py_sovereign",
-  "k": 38,
+  "k": 36,
   "identity": true,
   "T_shard": 4,
   "T_dag": 4,
@@ -41,50 +41,50 @@
   "graph": "py_sovereign",
   "k": 2,
   "oracle": true,
-  "T_shard": 38,
-  "T_dag": 19,
+  "T_shard": 36,
+  "T_dag": 18,
   "D": 4,
   "penalty": 2.0,
-  "dag_off_opt": 4.75
+  "dag_off_opt": 4.5
  },
  {
   "graph": "py_sovereign",
   "k": 4,
   "oracle": true,
-  "T_shard": 29,
-  "T_dag": 10,
+  "T_shard": 36,
+  "T_dag": 9,
   "D": 4,
-  "penalty": 2.9,
-  "dag_off_opt": 2.5
+  "penalty": 4.0,
+  "dag_off_opt": 2.25
  },
  {
   "graph": "py_sovereign",
   "k": 8,
   "oracle": true,
-  "T_shard": 28,
-  "T_dag": 6,
+  "T_shard": 32,
+  "T_dag": 5,
   "D": 4,
-  "penalty": 4.666666666666667,
-  "dag_off_opt": 1.5
+  "penalty": 6.4,
+  "dag_off_opt": 1.25
  },
  {
   "graph": "py_sovereign",
   "k": 16,
   "oracle": true,
-  "T_shard": 11,
+  "T_shard": 24,
   "T_dag": 4,
   "D": 4,
-  "penalty": 2.75,
+  "penalty": 6.0,
   "dag_off_opt": 1.0
  },
  {
   "graph": "py_sovereign",
   "k": 32,
   "oracle": true,
-  "T_shard": 6,
+  "T_shard": 8,
   "T_dag": 4,
   "D": 4,
-  "penalty": 1.5,
+  "penalty": 2.0,
   "dag_off_opt": 1.0
  },
  {
