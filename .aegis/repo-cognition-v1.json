@@ -1,9 +1,9 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "0d8bf1aa7965abf597ad037f9fbe3affa0f20d1d15e5db0fb40f7ccb5e682670",
+  "corpus_root": "6fef05ac0a2da232c0807bb21b1e9fc90e04bf0ef46f1de471707e1d5760daf1",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
-  "eligible_file_count": 1944,
+  "eligible_file_count": 1945,
   "excluded_generated_paths": [
     ".aegis/repo-cognition-v1.json"
   ],
@@ -20,6 +20,20 @@
       "object_type": "blob",
       "path": ".aegis/claims-ledger.json",
       "size_bytes": 39,
+      "symbol_hints": []
+    },
+    {
+      "content_sha256": "4a887667c8ceee54958c9b862a0019a49be6099715cc645996bcf38b8454b992",
+      "dependency_hints": [],
+      "git_blob_sha": "3d22d25069fcd86542fac925e6881bb9ecffd215",
+      "heading_hint": null,
+      "kind": "config-or-data",
+      "language": "json",
+      "line_count": 90,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": ".aegis/cross-domain/fixtures/65010-v1.json",
+      "size_bytes": 3285,
       "symbol_hints": []
     },
     {
@@ -53927,8 +53941,8 @@
   ],
   "generator": "scripts/repo_cognition.py",
   "generator_version": "1.0.1",
-  "indexed_file_count": 1944,
+  "indexed_file_count": 1945,
   "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
   "schema": "AEGIS_REPO_COGNITION_V1",
-  "tracked_file_count": 1945
+  "tracked_file_count": 1946
 }
