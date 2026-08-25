@@ -366,6 +366,7 @@ class NullModelReceiptV1:
     observed_score: int
     control_subject_sha256s: tuple[str, ...]
     control_receipt_sha256s: tuple[str, ...]
+    control_coverage_receipt_sha256s: tuple[str, ...]
     control_scores_sha256: str
     control_count: int
     extreme_count: int
@@ -384,6 +385,7 @@ def _null_model_receipt_material(receipt: NullModelReceiptV1) -> Mapping[str, An
         "observed_score": receipt.observed_score,
         "control_subject_sha256s": receipt.control_subject_sha256s,
         "control_receipt_sha256s": receipt.control_receipt_sha256s,
+        "control_coverage_receipt_sha256s": receipt.control_coverage_receipt_sha256s,
         "control_scores_sha256": receipt.control_scores_sha256,
         "control_count": receipt.control_count,
         "extreme_count": receipt.extreme_count,
@@ -405,6 +407,8 @@ def verify_null_model_receipt(receipt: NullModelReceiptV1) -> None:
         ri._check_digest(digest, "control_subject_sha256")
     for digest in receipt.control_receipt_sha256s:
         ri._check_digest(digest, "control_receipt_sha256")
+    for digest in receipt.control_coverage_receipt_sha256s:
+        ri._check_digest(digest, "control_coverage_receipt_sha256")
     if isinstance(receipt.observed_score, bool) or not isinstance(receipt.observed_score, int) or receipt.observed_score < 0:
         raise ValueError("observed_score must be a non-negative integer")
     if isinstance(receipt.control_count, bool) or not isinstance(receipt.control_count, int) or receipt.control_count <= 0:
@@ -424,6 +428,11 @@ def verify_null_model_receipt(receipt: NullModelReceiptV1) -> None:
         raise ValueError("p_emp does not match finite-sample correction")
     if not isinstance(receipt.promotion_eligible, bool):
         raise ValueError("promotion_eligible must be boolean")
+    if receipt.promotion_eligible:
+        if len(receipt.control_coverage_receipt_sha256s) != receipt.control_count:
+            raise ValueError("promotion-eligible null receipt requires complete coverage lineage")
+    elif receipt.control_coverage_receipt_sha256s:
+        raise ValueError("non-eligible descriptive receipt cannot claim promotion-grade coverage lineage")
     if receipt.null_survived is not None and not isinstance(receipt.null_survived, bool):
         raise ValueError("null_survived must be bool or None")
     if not receipt.promotion_eligible and receipt.null_survived is not None:
@@ -437,6 +446,7 @@ def evaluate_null_model(
     criterion: CollisionCriterionV1,
     control_receipts: Sequence[CollisionReceiptV1],
     *,
+    control_coverages: Sequence[Any] | None = None,
     allow_retrospective_descriptive: bool = False,
 ) -> NullModelReceiptV1:
     verify_collision_receipt(observed)
@@ -450,10 +460,26 @@ def evaluate_null_model(
     if observed.provenance is SelectionProvenance.RETROSPECTIVE and not allow_retrospective_descriptive:
         raise PermissionError("retrospective observations are not promotion-eligible")
 
+    promotion_eligible = observed.provenance is SelectionProvenance.PROSPECTIVE
+    if promotion_eligible and control_coverages is None:
+        raise PermissionError("prospective null evaluation requires promotion-grade control coverage")
+    if not promotion_eligible and control_coverages not in (None, (), []):
+        raise ValueError("retrospective descriptive null evaluation does not accept promotion-grade coverage")
+
+    coverage_tuple = tuple(control_coverages or ())
+    if promotion_eligible and len(coverage_tuple) != criterion.control_count:
+        raise ValueError("control coverage count differs from frozen criterion")
+
     expected_values = generate_controls(criterion)
     expected_subjects = tuple(IntegerSubjectV1(value).subject_sha256 for value in expected_values)
     scores: list[int] = []
     receipt_digests: list[str] = []
+    coverage_digests: list[str] = []
+
+    coverage_module = None
+    if promotion_eligible:
+        import cross_domain_coverage as coverage_module
+
     for index, (control, expected_subject) in enumerate(zip(controls, expected_subjects)):
         verify_collision_receipt(control)
         if control.subject_sha256 != expected_subject:
@@ -462,14 +488,38 @@ def evaluate_null_model(
             raise ValueError(f"control receipt criterion mismatch at index {index}")
         if control.provenance is not SelectionProvenance.PROSPECTIVE:
             raise ValueError(f"control receipt provenance mismatch at index {index}")
+
+        if promotion_eligible:
+            coverage = coverage_tuple[index]
+            try:
+                coverage_module.verify_verified_control_coverage(coverage)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"invalid control coverage at index {index}") from exc
+            if not coverage.coverage_complete:
+                raise PermissionError(f"control coverage incomplete at index {index}")
+            if coverage.subject.subject_sha256 != expected_subject:
+                raise ValueError(f"control coverage subject mismatch at index {index}")
+            if coverage.criterion.criterion_sha256 != criterion.criterion_sha256:
+                raise ValueError(f"control coverage criterion mismatch at index {index}")
+            replayed_collision, replayed_coverage = coverage_module.evaluate_control_from_probes(
+                coverage.subject,
+                coverage.criterion,
+                coverage.probes,
+            )
+            if replayed_coverage.receipt != coverage.receipt:
+                raise ValueError(f"control coverage replay mismatch at index {index}")
+            if replayed_collision != control:
+                raise ValueError(f"control collision is not derived from bound coverage at index {index}")
+            coverage_digests.append(coverage.receipt_sha256)
+
         scores.append(control.score)
         receipt_digests.append(control.receipt_sha256)
 
     score_tuple = tuple(scores)
     receipt_digest_tuple = tuple(receipt_digests)
+    coverage_digest_tuple = tuple(coverage_digests)
     extreme = sum(1 for score in score_tuple if score >= observed.score)
     p_emp = (1 + extreme) / (1 + len(score_tuple))
-    promotion_eligible = observed.provenance is SelectionProvenance.PROSPECTIVE
     if not promotion_eligible or criterion.promotion_threshold is None:
         null_survived: bool | None = None
     else:
@@ -483,6 +533,7 @@ def evaluate_null_model(
         observed_score=observed.score,
         control_subject_sha256s=expected_subjects,
         control_receipt_sha256s=receipt_digest_tuple,
+        control_coverage_receipt_sha256s=coverage_digest_tuple,
         control_scores_sha256=scores_sha256,
         control_count=len(score_tuple),
         extreme_count=extreme,
@@ -498,6 +549,7 @@ def evaluate_null_model(
         observed_score=provisional.observed_score,
         control_subject_sha256s=provisional.control_subject_sha256s,
         control_receipt_sha256s=provisional.control_receipt_sha256s,
+        control_coverage_receipt_sha256s=provisional.control_coverage_receipt_sha256s,
         control_scores_sha256=provisional.control_scores_sha256,
         control_count=provisional.control_count,
         extreme_count=provisional.extreme_count,
