@@ -1,0 +1,90 @@
+{
+  "schema": "AEGIS_CROSS_DOMAIN_FIXTURE_V1",
+  "subject": {
+    "value": 65010,
+    "provenance": "RETROSPECTIVE"
+  },
+  "expected_representations": {
+    "hex_upper": "FDF2",
+    "unicode_codepoint_label": "U+FDF2"
+  },
+  "external_snapshots": [
+    {
+      "registry_id": "unicode",
+      "registry_version_or_release": "Unicode-16.0.0",
+      "query_key": "U+FDF2",
+      "query_key_type": "unicode-codepoint",
+      "result_kind": "assigned-codepoint-record",
+      "canonical_result": {
+        "codepoint": "U+FDF2",
+        "name": "ARABIC LIGATURE ALLAH ISOLATED FORM"
+      },
+      "source_locator": "https://www.unicode.org/versions/Unicode16.0.0/core-spec/chapter-9/",
+      "source_observed_at": "2026-08-25",
+      "ingestion_producer_id": "aegis-cross-domain-fixture-v1",
+      "domain_id": "unicode",
+      "evidence_class": "STANDARD_CODEPOINT_MAPPING",
+      "transform": {
+        "transform_id": "INTEGER_TO_UNICODE_CODEPOINT_V1",
+        "transform_version": "1",
+        "input_type": "IntegerSubjectV1",
+        "output_type": "UnicodeCodePointLabel",
+        "criterion_text": "map an integer in [0, 0x10FFFF] to uppercase U+ code-point notation"
+      },
+      "normalized_claim": "integer 65010 maps to assigned Unicode code point U+FDF2"
+    },
+    {
+      "registry_id": "ncbi-gene",
+      "registry_version_or_release": "NCBI-Gene-record-updated-2026-08-05",
+      "query_key": "65010",
+      "query_key_type": "gene-id",
+      "result_kind": "gene-record",
+      "canonical_result": {
+        "gene_id": 65010,
+        "symbol": "SLC26A6",
+        "organism": "Homo sapiens"
+      },
+      "source_locator": "https://www.ncbi.nlm.nih.gov/gene/65010/",
+      "source_observed_at": "2026-08-25",
+      "ingestion_producer_id": "aegis-cross-domain-fixture-v1",
+      "domain_id": "ncbi-gene",
+      "evidence_class": "EXTERNAL_IDENTIFIER_MATCH",
+      "transform": {
+        "transform_id": "INTEGER_IDENTITY_EXTERNAL_LOOKUP_KEY_V1",
+        "transform_version": "1",
+        "input_type": "IntegerSubjectV1",
+        "output_type": "DecimalIdentifierString",
+        "criterion_text": "map an integer to its canonical base-10 identifier string"
+      },
+      "normalized_claim": "NCBI Gene identifier 65010 resolves to human SLC26A6"
+    }
+  ],
+  "local_derivations": [
+    {
+      "derivation_id": "INTEGER_FACTORISATION_V1",
+      "derivation_version": "1",
+      "criterion_text": "exact prime factorisation of a positive integer",
+      "canonical_result": {
+        "prime_factors": [2, 3, 5, 11, 197],
+        "square_free": true
+      }
+    }
+  ],
+  "collision_criterion": {
+    "universe_min": 0,
+    "universe_max": 100000,
+    "registry_set": ["unicode", "ncbi-gene"],
+    "transform_set": [
+      "INTEGER_TO_UNICODE_CODEPOINT_V1",
+      "INTEGER_IDENTITY_EXTERNAL_LOOKUP_KEY_V1",
+      "INTEGER_FACTORISATION_V1"
+    ],
+    "independence_rule_id": "UNIQUE_DOMAIN_ID_V1",
+    "score_function_id": "UNIQUE_EXTERNAL_DOMAINS_V1",
+    "control_generator_id": "PY_RANDOM_UNIFORM_INT_V1",
+    "control_seed": 65010,
+    "control_count": 256,
+    "promotion_threshold": 0.05,
+    "criterion_text": "CDC-V1 retrospective replay criterion: count unique frozen external domains; local derivations do not count toward external-domain independence"
+  }
+}
