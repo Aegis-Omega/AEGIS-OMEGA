@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "c3c65f9806bd084d0c503e5239467259cb0e25d67dd2b72c9f4ba4d3a669a485",
+  "corpus_root": "8c6c8e1ef6b86ca1b2b16b28d9b7a5e272ddbed6ade729cdb242d7802e0b7715",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1948,
@@ -39317,7 +39317,7 @@
       ]
     },
     {
-      "content_sha256": "db331720f76bf52effc28a43993e3ef72f2afd2f680146fe4d541bf99b939035",
+      "content_sha256": "99d27789aff82e4beebc221c2f81de77bc6d47dad9821ba2fb61b369dca10e59",
       "dependency_hints": [
         "dataclasses",
         "pathlib",
@@ -39326,15 +39326,15 @@
         "cross_domain_collision",
         "research_invariants"
       ],
-      "git_blob_sha": "f07b936978b119abcf544c52bc5809b33343cc7f",
+      "git_blob_sha": "d7648c3948a3c769383bd6b8c3f9cca2bef0e195",
       "heading_hint": null,
       "kind": "test",
       "language": "python",
-      "line_count": 213,
+      "line_count": 243,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/tests/test_cross_domain_hardening.py",
-      "size_bytes": 7843,
+      "size_bytes": 9143,
       "symbol_hints": [
         "criterion",
         "observed_collision",
@@ -39342,10 +39342,13 @@
         "journal_at_collision",
         "CrossDomainHardeningTests",
         "test_snapshot_payload_is_deeply_immutable_after_hashing",
+        "test_derivation_payload_is_deeply_immutable_after_hashing",
+        "test_gate_receipt_observation_is_deeply_immutable_after_hashing",
         "test_criterion_defensively_freezes_registry_and_transform_sets",
         "test_relation_participant_map_is_immutable_after_digesting",
         "test_raw_control_scores_cannot_mint_null_receipt",
         "test_null_receipt_consumes_collision_receipts_for_exact_generated_controls",
+        "test_null_receipt_rejects_p_emp_tampering",
         "test_null_status_rejects_tampered_receipt_digest",
         "test_null_status_rejects_collision_receipt_splicing",
         "test_null_status_requires_null_receipt_digest_in_transition_evidence",
