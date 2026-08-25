@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "1f0378ecc55c0bb77d1fc2a5efff45efed755c698f43e989d2de7d8cf97663af",
+  "corpus_root": "80587b77cc71f9f7c88d030398ff06fc0b06446de1d0ba21810054b68295b55b",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1939,
@@ -38285,7 +38285,7 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "e94174bcd9a3c3498acfcb5c7e1358e1b44346fe71739a81c554e382bc3e4606",
+      "content_sha256": "88bbec4be0a50cedfe291ac1af4efa9f0f7265a3c740e2ebb1d5814052093987",
       "dependency_hints": [
         "__future__",
         "dataclasses",
@@ -38296,15 +38296,15 @@
         "math",
         "time"
       ],
-      "git_blob_sha": "7b66177bef98f97a18d87743e2ee3506aeeb0b99",
+      "git_blob_sha": "408892637047aa8d51d2a6e8cf5bdf027e735fe8",
       "heading_hint": null,
       "kind": "source",
       "language": "python",
-      "line_count": 762,
+      "line_count": 943,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/research_invariants.py",
-      "size_bytes": 25396,
+      "size_bytes": 32124,
       "symbol_hints": [
         "required_gates_for_type",
         "GateVerdict",
@@ -38348,7 +38348,17 @@
         "conjectured",
         "type_checked",
         "computed",
-        "theorem"
+        "theorem",
+        "RelationBindingV1",
+        "bind_relation",
+        "relation_gate_receipt",
+        "StatusTransitionV1",
+        "StatusJournalV1",
+        "history",
+        "current_status",
+        "_material",
+        "append",
+        "verify"
       ]
     },
     {
