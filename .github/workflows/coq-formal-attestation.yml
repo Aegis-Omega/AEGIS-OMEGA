@@ -155,6 +155,7 @@ jobs:
               'Core/LockIrreversibility.v' \
               'Bisimulation/ThreeWay.v' \
               'Weil/FiniteBridge.v' \
+              'Weil/FiniteEntryDictionary.v' \
               'Weil/O0TrustProbeReals.v' \
               'Weil/O0TrustProbeFunction.v' \
               'Weil/O0TrustProbeCompact.v' \
@@ -225,6 +226,7 @@ jobs:
               'Core/LatticeConvergence.v',
               'Core/LockIrreversibility.v',
               'Weil/FiniteBridge.v',
+              'Weil/FiniteEntryDictionary.v',
               'Weil/O0TrustProbeConstructive.v',
               'Weil/AnalyticDefinitions.v',
               'Weil/O0ProductionConstructiveProbe.v',
