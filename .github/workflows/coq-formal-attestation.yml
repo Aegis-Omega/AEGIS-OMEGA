@@ -136,8 +136,8 @@ jobs:
                   ) >"$assumption_log" 2>&1 || true
                   rm -f "$query"
                 done <<EOF
-            $(theorem_names "$source")
-            EOF
+$(theorem_names "$source")
+EOF
               else
                 record_status "$rel" 'COMPILE_FAILED' "$log"
               fi
@@ -163,6 +163,7 @@ jobs:
               'Weil/AnalyticDefinitions.v' \
               'Weil/O0ProductionConstructiveProbe.v' \
               'Weil/O0DependencyProbe.v' \
+              'Weil/ArchTailOrder.v' \
               'Weil/Globalization.v' \
               'Weil/WeilCriterion.v' \
               'Weil/O0.v' \
@@ -228,6 +229,7 @@ jobs:
               'Weil/O0TrustProbeConstructive.v',
               'Weil/AnalyticDefinitions.v',
               'Weil/O0ProductionConstructiveProbe.v',
+              'Weil/ArchTailOrder.v',
               'Weil/Globalization.v',
           }
           EXPECTED_BASELINE_SHA256 = '45c302e763e58c398d9b2a893cd62bdb2e585c8214d87b286f8e83d1b7d30e3e'

@@ -1,0 +1,147 @@
+name: Weil Arch Tail Order
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/formal/theories/Weil/ArchTailOrder.v"
+      - ".github/workflows/weil-arch-tail-order.yml"
+      - ".github/workflows/coq-formal-attestation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-arch-tail-order-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  attest:
+    name: coqc / finite Cauchy-Stieltjes Gram PSD
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Reject declared shortcuts
+        shell: bash
+        run: |
+          set -euo pipefail
+          src='sovereign-omega-v2/formal/theories/Weil/ArchTailOrder.v'
+          test -f "$src"
+          if grep -En '^[[:space:]]*(Axiom|Axioms|Parameter|Parameters|Admitted)[[:space:].]' "$src"; then
+            echo 'Declared assumption/admission forbidden in ArchTailOrder.v' >&2
+            exit 1
+          fi
+
+      - name: Prepare evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/weil-arch-tail-attestation
+          chmod -R a+rwX sovereign-omega-v2/formal/theories/Weil sovereign-omega-v2/weil-arch-tail-attestation
+
+      - name: Compile and print theorem assumptions
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            DIR="$ROOT/formal/theories/Weil"
+            OUT="$ROOT/weil-arch-tail-attestation"
+            cd "$DIR"
+            coqc --version | tee "$OUT/coq-version.txt"
+            coqc ArchTailOrder.v 2>&1 | tee "$OUT/compile.log"
+
+            for theorem in \
+              weighted_gram_energy_nonnegative \
+              rank_two_weighted_gram_energy_nonnegative \
+              finite_cauchy_stieltjes_rank_two_psd
+            do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.assumptions.txt"
+              printf 'Set Coqtop Exit On Error.\nRequire Import ArchTailOrder.\nPrint Assumptions %s.\n' "$theorem" > "$query"
+              coqtop -quiet -batch -l "$query" > "$log" 2>&1
+              rm -f "$query"
+              cat "$log"
+              grep -q 'Closed under the global context' "$log"
+              if grep -q '^Axioms:' "$log"; then
+                echo "Unexpected assumptions for $theorem" >&2
+                exit 1
+              fi
+            done
+
+      - name: Emit exact-head theorem receipt
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          source = Path('formal/theories/Weil/ArchTailOrder.v')
+          out = Path('weil-arch-tail-attestation')
+          names = [
+              'weighted_gram_energy_nonnegative',
+              'rank_two_weighted_gram_energy_nonnegative',
+              'finite_cauchy_stieltjes_rank_two_psd',
+          ]
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+          payload = {
+              'receipt_kind': 'AEGIS_WEIL_ARCH_TAIL_GRAM_RECEIPT_V1',
+              'authority': 'FORMAL_MATH_EVIDENCE_ONLY',
+              'source_commit': '${{ env.SOURCE_SHA }}',
+              'source_sha256': sha(source),
+              'coq_version_sha256': sha(out / 'coq-version.txt'),
+              'compile_log_sha256': sha(out / 'compile.log'),
+              'theorem_assumption_log_sha256': {
+                  name: sha(out / f'{name}.assumptions.txt') for name in names
+              },
+              'theorem_count': len(names),
+              'declared_assumptions': 0,
+              'finite_rank_two_gram_psd_machine_bound': True,
+              'continuous_cauchy_stieltjes_representation_proven': False,
+              'archimedean_tail_operator_order_proven': False,
+              'formula_to_weil_operator_identity_proven': False,
+              'global_weil_positivity_proven': False,
+              'rh_proven': False,
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          target = out / 'weil-arch-tail-gram-receipt.json'
+          target.write_text(json.dumps(payload, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+          assert payload['finite_rank_two_gram_psd_machine_bound'] is True
+          for field in (
+              'continuous_cauchy_stieltjes_representation_proven',
+              'archimedean_tail_operator_order_proven',
+              'formula_to_weil_operator_identity_proven',
+              'global_weil_positivity_proven',
+              'rh_proven',
+          ):
+              assert payload[field] is False
+          PY
+
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: weil-arch-tail-gram-${{ env.SOURCE_SHA }}
+          path: sovereign-omega-v2/weil-arch-tail-attestation/
+          if-no-files-found: error
+          retention-days: 30
