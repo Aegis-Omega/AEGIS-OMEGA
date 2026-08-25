@@ -1,9 +1,9 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "491459a378c6c230686881be2be9d371743bd8b10e9ada944271c4963287d53f",
+  "corpus_root": "76f2617230450c45f1504800f22bef64400785fded3aa890e48681c0a2b8a5be",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
-  "eligible_file_count": 1942,
+  "eligible_file_count": 1943,
   "excluded_generated_paths": [
     ".aegis/repo-cognition-v1.json"
   ],
@@ -908,17 +908,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "3f78af9b3a40255abaa6ac4b4accab582171b74121260c794d17e284845241d3",
+      "content_sha256": "979b5973c2c2ea0fa0989cd199e8f23cb8e4be6c0286b7462bdad2524addaf58",
       "dependency_hints": [],
-      "git_blob_sha": "baad59e4d86118649ad7a06a10f3b7fb6e95004c",
+      "git_blob_sha": "b2bcdcc35495c183b363cf163ea3cb53d40e8e9c",
       "heading_hint": null,
       "kind": "workflow",
       "language": "yaml",
-      "line_count": 30,
+      "line_count": 32,
       "mode": "100644",
       "object_type": "blob",
       "path": ".github/workflows/cross-domain-collision.yml",
-      "size_bytes": 1014,
+      "size_bytes": 1143,
       "symbol_hints": []
     },
     {
@@ -39219,6 +39219,35 @@
       ]
     },
     {
+      "content_sha256": "d39f03ce063436822103d3e0667d76d9ed2a5664adbd2a8797fc34d2618947ad",
+      "dependency_hints": [
+        "pathlib",
+        "sys",
+        "unittest",
+        "cross_domain_ingest"
+      ],
+      "git_blob_sha": "2e8df91da8b4aeda29c69357acb27b3e1d0f9666",
+      "heading_hint": null,
+      "kind": "test",
+      "language": "python",
+      "line_count": 93,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "sovereign-omega-v2/python/tests/test_cross_domain_ingest.py",
+      "size_bytes": 3383,
+      "symbol_hints": [
+        "FailingTransport",
+        "__call__",
+        "StaticTransport",
+        "__init__",
+        "CrossDomainIngestTests",
+        "test_live_failure_yields_not_established_and_no_snapshot",
+        "test_valid_json_constructs_snapshot",
+        "test_semantic_live_response_change_changes_snapshot_digest",
+        "test_malformed_json_is_not_established_not_negative"
+      ]
+    },
+    {
       "content_sha256": "eafc5f1569d2c29aa00b1a7b59624be663fc30ab1484ebf7e202e01dd370aa83",
       "dependency_hints": [
         "__future__",
@@ -53871,8 +53900,8 @@
   ],
   "generator": "scripts/repo_cognition.py",
   "generator_version": "1.0.1",
-  "indexed_file_count": 1942,
+  "indexed_file_count": 1943,
   "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
   "schema": "AEGIS_REPO_COGNITION_V1",
-  "tracked_file_count": 1943
+  "tracked_file_count": 1944
 }
