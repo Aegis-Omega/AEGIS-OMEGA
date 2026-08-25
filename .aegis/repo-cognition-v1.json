@@ -1,9 +1,9 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "123c5d3515509fe0d59ae3d1764e4b36fda140d132f98f8ab1bdbb973d784019",
+  "corpus_root": "5a54919751a4f3690c4ca56edc365154f789ea8e3727537f76502a1a7ad6d56e",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
-  "eligible_file_count": 1947,
+  "eligible_file_count": 1948,
   "excluded_generated_paths": [
     ".aegis/repo-cognition-v1.json"
   ],
@@ -39309,6 +39309,36 @@
       ]
     },
     {
+      "content_sha256": "096761d971eb1456811f2c9df0e6879e068ad0a53dbb5ca266b8aa3967ae9ee3",
+      "dependency_hints": [
+        "pathlib",
+        "sys",
+        "unittest",
+        "cross_domain_collision",
+        "research_invariants"
+      ],
+      "git_blob_sha": "70ee517070e6322b67b770abdb63646a34b1a0dc",
+      "heading_hint": null,
+      "kind": "test",
+      "language": "python",
+      "line_count": 115,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "sovereign-omega-v2/python/tests/test_cross_domain_hardening.py",
+      "size_bytes": 4064,
+      "symbol_hints": [
+        "criterion",
+        "observed_collision",
+        "zero_control_receipts",
+        "CrossDomainHardeningTests",
+        "test_snapshot_payload_is_deeply_immutable_after_hashing",
+        "test_criterion_defensively_freezes_registry_and_transform_sets",
+        "test_relation_participant_map_is_immutable_after_digesting",
+        "test_raw_control_scores_cannot_mint_null_receipt",
+        "test_null_receipt_consumes_collision_receipts_for_exact_generated_controls"
+      ]
+    },
+    {
       "content_sha256": "d39f03ce063436822103d3e0667d76d9ed2a5664adbd2a8797fc34d2618947ad",
       "dependency_hints": [
         "pathlib",
@@ -53990,8 +54020,8 @@
   ],
   "generator": "scripts/repo_cognition.py",
   "generator_version": "1.0.1",
-  "indexed_file_count": 1947,
+  "indexed_file_count": 1948,
   "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
   "schema": "AEGIS_REPO_COGNITION_V1",
-  "tracked_file_count": 1948
+  "tracked_file_count": 1949
 }
