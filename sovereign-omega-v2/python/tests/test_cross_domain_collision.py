@@ -7,6 +7,36 @@ sys.path.insert(0, str(MODULE_DIR))
 import cross_domain_collision as cdc
 
 
+def fixture_criterion(**overrides):
+    values = dict(
+        universe_min=0,
+        universe_max=100000,
+        registry_set=("unicode", "ncbi-gene"),
+        transform_set=("UNICODE_LOOKUP_V1", "NCBI_LOOKUP_V1", "INTEGER_FACTORISATION_V1"),
+        independence_rule_id="UNIQUE_DOMAIN_ID_V1",
+        score_function_id="UNIQUE_EXTERNAL_DOMAINS_V1",
+        control_generator_id="PY_RANDOM_UNIFORM_INT_V1",
+        control_seed=1234,
+        control_count=16,
+        promotion_threshold=0.05,
+        criterion_text="fixture collision criterion v1",
+    )
+    values.update(overrides)
+    return cdc.CollisionCriterionV1(**values)
+
+
+def fixture_observation(subject, domain_id, evidence_class, transform_id, suffix):
+    return cdc.DomainObservationV1(
+        subject_sha256=subject.subject_sha256,
+        domain_id=domain_id,
+        evidence_class=evidence_class,
+        transform_id=transform_id,
+        transform_criterion_sha256="c" * 64,
+        evidence_artifact_sha256=(suffix * 64)[:64],
+        normalized_claim=f"claim-{domain_id}-{suffix}",
+    )
+
+
 class CrossDomainCollisionTests(unittest.TestCase):
     def test_integer_subject_is_representation_independent(self):
         a = cdc.IntegerSubjectV1(65010)
@@ -76,6 +106,44 @@ class CrossDomainCollisionTests(unittest.TestCase):
             canonical_result={"prime_factors": [2, 3, 5, 11, 197]},
         )
         self.assertEqual(receipt.evidence_class, cdc.EvidenceClass.DERIVED_PROPERTY)
+
+    def test_same_domain_cannot_inflate_independent_domain_count(self):
+        subject = cdc.IntegerSubjectV1(65010)
+        a = fixture_observation(subject, "unicode", cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING, "UNICODE_LOOKUP_V1", "a")
+        b = fixture_observation(subject, "unicode", cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING, "UNICODE_LOOKUP_V1", "b")
+        receipt = cdc.evaluate_collision(subject, cdc.SelectionProvenance.RETROSPECTIVE, [a, b], fixture_criterion())
+        self.assertEqual(receipt.independent_external_domain_count, 1)
+        self.assertFalse(receipt.cross_registry_collision)
+
+    def test_local_derived_property_does_not_satisfy_external_threshold(self):
+        subject = cdc.IntegerSubjectV1(65010)
+        unicode_obs = fixture_observation(subject, "unicode", cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING, "UNICODE_LOOKUP_V1", "a")
+        arithmetic_obs = fixture_observation(subject, "number-theory", cdc.EvidenceClass.DERIVED_PROPERTY, "INTEGER_FACTORISATION_V1", "b")
+        receipt = cdc.evaluate_collision(subject, cdc.SelectionProvenance.RETROSPECTIVE, [unicode_obs, arithmetic_obs], fixture_criterion())
+        self.assertEqual(receipt.independent_external_domain_count, 1)
+        self.assertFalse(receipt.cross_registry_collision)
+
+    def test_two_unique_external_domains_form_collision(self):
+        subject = cdc.IntegerSubjectV1(65010)
+        unicode_obs = fixture_observation(subject, "unicode", cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING, "UNICODE_LOOKUP_V1", "a")
+        ncbi_obs = fixture_observation(subject, "ncbi-gene", cdc.EvidenceClass.EXTERNAL_IDENTIFIER_MATCH, "NCBI_LOOKUP_V1", "b")
+        receipt = cdc.evaluate_collision(subject, cdc.SelectionProvenance.RETROSPECTIVE, [unicode_obs, ncbi_obs], fixture_criterion())
+        self.assertEqual(receipt.independent_external_domain_count, 2)
+        self.assertTrue(receipt.cross_registry_collision)
+        self.assertEqual(receipt.score, 2)
+
+    def test_subject_splicing_fails_closed(self):
+        a = cdc.IntegerSubjectV1(65010)
+        b = cdc.IntegerSubjectV1(65011)
+        observation = fixture_observation(a, "unicode", cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING, "UNICODE_LOOKUP_V1", "a")
+        with self.assertRaises(ValueError):
+            cdc.evaluate_collision(b, cdc.SelectionProvenance.RETROSPECTIVE, [observation], fixture_criterion())
+
+    def test_unknown_transform_fails_closed(self):
+        subject = cdc.IntegerSubjectV1(65010)
+        observation = fixture_observation(subject, "unicode", cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING, "UNREGISTERED_TRANSFORM_V1", "a")
+        with self.assertRaises(ValueError):
+            cdc.evaluate_collision(subject, cdc.SelectionProvenance.RETROSPECTIVE, [observation], fixture_criterion())
 
 
 if __name__ == "__main__":
