@@ -1,9 +1,9 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "de1f90e7ef226774eacee31936e46bce637206c7d46dd18a97452afccee490a4",
+  "corpus_root": "aea9eec6705345c8a0836b62dceecde064ceba1fa5a4563d6fd3dc224d61009f",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
-  "eligible_file_count": 1952,
+  "eligible_file_count": 1953,
   "excluded_generated_paths": [
     ".aegis/repo-cognition-v1.json"
   ],
@@ -28807,6 +28807,20 @@
       "symbol_hints": []
     },
     {
+      "content_sha256": "83a8c0bcf89594247c9443e05081e4e6a55164f712d5613bda68fcfd199e7113",
+      "dependency_hints": [],
+      "git_blob_sha": "7e62457f10f9a630bf7d3143c2dacfcb90134368",
+      "heading_hint": "Prospective Cross-Domain Epoch V1 — Design",
+      "kind": "documentation",
+      "language": "markdown",
+      "line_count": 433,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "docs/superpowers/specs/2026-08-25-prospective-epoch-v1-design.md",
+      "size_bytes": 20638,
+      "symbol_hints": []
+    },
+    {
       "content_sha256": "d0ca08a0beaa985137db11575a19380a969da01d2bdfaa09356da17aa9ddece3",
       "dependency_hints": [],
       "git_blob_sha": "e14e7e655adfad75ea1667216d177dc47c559c07",
@@ -54173,8 +54187,8 @@
   ],
   "generator": "scripts/repo_cognition.py",
   "generator_version": "1.0.1",
-  "indexed_file_count": 1952,
+  "indexed_file_count": 1953,
   "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
   "schema": "AEGIS_REPO_COGNITION_V1",
-  "tracked_file_count": 1953
+  "tracked_file_count": 1954
 }
