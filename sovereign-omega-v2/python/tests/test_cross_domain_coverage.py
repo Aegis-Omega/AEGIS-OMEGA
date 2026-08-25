@@ -68,6 +68,42 @@ def complete_negative_probes(subject, c):
     ]
 
 
+def observed_collision(c):
+    subject = cdc.IntegerSubjectV1(65010)
+    observations = [
+        cdc.DomainObservationV1(
+            subject.subject_sha256,
+            "fixture-a",
+            cdc.EvidenceClass.EXTERNAL_IDENTIFIER_MATCH,
+            "INTEGER_IDENTITY_EXTERNAL_LOOKUP_KEY_V1",
+            "a" * 64,
+            "b" * 64,
+            "fixture-a match",
+        ),
+        cdc.DomainObservationV1(
+            subject.subject_sha256,
+            "fixture-b",
+            cdc.EvidenceClass.EXTERNAL_IDENTIFIER_MATCH,
+            "INTEGER_IDENTITY_EXTERNAL_LOOKUP_KEY_V1",
+            "c" * 64,
+            "d" * 64,
+            "fixture-b match",
+        ),
+    ]
+    return cdc.evaluate_collision(subject, cdc.SelectionProvenance.PROSPECTIVE, observations, c)
+
+
+def generated_complete_controls(c):
+    collisions = []
+    coverages = []
+    for value in cdc.generate_controls(c):
+        subject = cdc.IntegerSubjectV1(value)
+        collision, coverage = cov.evaluate_control_from_probes(subject, c, complete_negative_probes(subject, c))
+        collisions.append(collision)
+        coverages.append(coverage)
+    return tuple(collisions), tuple(coverages)
+
+
 class CoverageProbeTests(unittest.TestCase):
     def test_match_and_no_match_are_source_replayable_and_distinct(self):
         subject = cdc.IntegerSubjectV1(42)
@@ -165,6 +201,35 @@ class CoverageProbeTests(unittest.TestCase):
         a = cov.aggregate_control_coverage(subject, c, probes)
         b = cov.aggregate_control_coverage(subject, c, list(reversed(probes)))
         self.assertEqual(a.receipt_sha256, b.receipt_sha256)
+
+    def test_prospective_null_model_rejects_missing_coverage(self):
+        c = make_criterion(control_count=4)
+        collisions, _ = generated_complete_controls(c)
+        with self.assertRaises(PermissionError):
+            cdc.evaluate_null_model(observed_collision(c), c, collisions)
+
+    def test_prospective_null_model_rejects_reordered_coverage(self):
+        c = make_criterion(control_count=4)
+        collisions, coverages = generated_complete_controls(c)
+        with self.assertRaises(ValueError):
+            cdc.evaluate_null_model(
+                observed_collision(c), c, collisions,
+                control_coverages=tuple(reversed(coverages)),
+            )
+
+    def test_complete_coverage_is_bound_into_null_receipt(self):
+        c = make_criterion(control_count=100)
+        collisions, coverages = generated_complete_controls(c)
+        receipt = cdc.evaluate_null_model(
+            observed_collision(c), c, collisions,
+            control_coverages=coverages,
+        )
+        self.assertEqual(
+            receipt.control_coverage_receipt_sha256s,
+            tuple(x.receipt_sha256 for x in coverages),
+        )
+        self.assertTrue(receipt.promotion_eligible)
+        self.assertTrue(receipt.null_survived)
 
 
 if __name__ == "__main__":
