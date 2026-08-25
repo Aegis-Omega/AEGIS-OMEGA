@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "02918639c3c4cd81f4e8c48d47ac6ae13ca16a859406f962f3cb303729681a92",
+  "corpus_root": "6c5a34653c777fe0da4080cdbeed72357c57f8b89f4cfa93e0cc65e5ceebe02a",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1939,
@@ -28709,17 +28709,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "1c518491b0bdddc6630a7ab9e9973b6bb60aeaacd5602f33295dee3b06f79467",
+      "content_sha256": "ce09d28213ebd39d73f173f15598a1130d7a3a978fa2e64a880b8a012fbda4e8",
       "dependency_hints": [],
-      "git_blob_sha": "b2489eeb80abcb50e659df878b6f147eed94c6f2",
+      "git_blob_sha": "5395a900fa82d361beebbe1c3aeaa1c403fa5f81",
       "heading_hint": "Relational Gate + Status Journal Foundation V1 Implementation Plan",
       "kind": "documentation",
       "language": "markdown",
-      "line_count": 415,
+      "line_count": 422,
       "mode": "100644",
       "object_type": "blob",
       "path": "docs/superpowers/plans/2026-08-25-relational-status-foundation-v1.md",
-      "size_bytes": 15293,
+      "size_bytes": 15680,
       "symbol_hints": []
     },
     {
