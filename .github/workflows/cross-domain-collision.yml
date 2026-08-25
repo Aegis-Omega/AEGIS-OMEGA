@@ -7,6 +7,7 @@ on:
       - "sovereign-omega-v2/python/cross_domain_ingest.py"
       - "sovereign-omega-v2/python/tests/test_cross_domain_collision.py"
       - "sovereign-omega-v2/python/tests/test_cross_domain_ingest.py"
+      - "sovereign-omega-v2/python/tests/test_cross_domain_fixture.py"
       - ".aegis/cross-domain/fixtures/**"
       - "docs/research/cross-domain-collision-v1.md"
       - ".github/workflows/cross-domain-collision.yml"
@@ -28,5 +29,7 @@ jobs:
         run: python sovereign-omega-v2/python/tests/test_cross_domain_collision.py
       - name: Run ingestion boundary regressions
         run: python sovereign-omega-v2/python/tests/test_cross_domain_ingest.py
+      - name: Run frozen fixture replay regressions
+        run: python sovereign-omega-v2/python/tests/test_cross_domain_fixture.py
       - name: Run inherited research-gate regressions
         run: python sovereign-omega-v2/python/tests/test_research_invariants.py
