@@ -205,6 +205,8 @@
 "sovereign-omega-v2/python/tests/test_hardware_config.py",
 "sovereign-omega-v2/python/tests/test_ledger_persist.py",
 "sovereign-omega-v2/python/tests/test_ledger_persist_v2.py",
+"sovereign-omega-v2/python/tests/test_live_state_is_measured.py",
+"sovereign-omega-v2/python/tests/test_manifest_branch_invariance.py",
 "sovereign-omega-v2/python/tests/test_operator_visibility.py",
 "sovereign-omega-v2/python/tests/test_platform.py",
 "sovereign-omega-v2/python/tests/test_skill_authority.py",

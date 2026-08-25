@@ -3,7 +3,7 @@
 Four independent graphs, four languages, no synthetic data.
 Node = source file. Edge u->v = u depends on v (u imports v).
 """
-import os, re, json, sys
+import re, json, sys
 from pathlib import Path
 
 ROOT = Path("/home/user/AEGIS-OMEGA")

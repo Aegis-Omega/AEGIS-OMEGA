@@ -14,7 +14,7 @@ Holonic and multi-agent architecture proposals routinely specify that a task gra
 be partitioned into shards, and that a shard becomes executable once its
 cross-shard dependencies are resolved. We state that rule as a checkable
 predicate, implement it, and run it against four real module-dependency graphs
-extracted from this repository (n = 666 nodes, m = 887 edges across TypeScript,
+extracted from this repository (n = 668 nodes, m = 887 edges across TypeScript,
 Rust, and Python).
 
 The protocol does not merely underperform. **It deadlocks.** All four source graphs
@@ -78,7 +78,7 @@ the module tree by longest matching prefix; Python `import` / `from … import`.
 | `ts_sovereign` | `sovereign-omega-v2/src` | 193 | 559 | 2.90 | 10 | 0 |
 | `rust_cl_psi` | `aegis-cl-psi/src` | 423 | 277 | 0.65 | 12 | 0 |
 | `rust_runtime` | `aegis-runtime/src` | 14 | 8 | 0.57 | 2 | 0 |
-| `py_sovereign` | `sovereign-omega-v2/python` | 36 | 43 | 1.19 | 4 | 0 |
+| `py_sovereign` | `sovereign-omega-v2/python` | 38 | 43 | 1.13 | 4 | 0 |
 
 **All four are acyclic.** This matters: every deadlock reported below is created by
 the partition, not inherited from the graph.
@@ -127,7 +127,7 @@ cell:
 |---|---|---|---|---|---|---|---|---|---|
 | `ts_sovereign` (n=193) | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | — |
 | `rust_cl_psi` (n=423) | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.050 |
-| `py_sovereign` (n=36) | 0.000 | 0.000 | 0.005 | 0.030 | 0.355 | — | — | — | — |
+| `py_sovereign` (n=38) | 0.000 | 0.000 | 0.000 | 0.030 | 0.355 | — | — | — | — |
 | `rust_runtime` (n=14) | 0.750 | 0.840 | 0.930 | — | — | — | — | — | — |
 
 `rust_runtime` is the control that proves the mechanism: at n = 14 with m = 8 edges
@@ -172,8 +172,8 @@ it costs, at the same k:
 | | 32 | 121 | 22 | 12 | **5.50×** | 1.83× |
 | | **39** | **76** | **20** | **12** | **3.80×** | 1.67× |
 | | 64 | 48 | 17 | 12 | **2.82×** | 1.42× |
-| `py_sovereign` | 8 | 32 | 5 | 4 | **6.40×** | 1.25× |
-| | 16 | 24 | 4 | 4 | **6.00×** | 1.00× |
+| `py_sovereign` | 8 | 28 | 6 | 4 | **4.67×** | 1.50× |
+| | 16 | 11 | 4 | 4 | **2.75×** | 1.00× |
 | `rust_runtime` | 8 | 4 | 3 | 2 | **1.33×** | 1.50× |
 
 Penalty range across all cells: **1.33× to 7.56×**. The protocol never wins.
@@ -329,6 +329,13 @@ python dispersion.py graphs.json       # Poisson diagnosis
 
 Requires `numpy`. Seed `20260825` is recorded in `experiment.py`; every figure in
 this document is reproducible from the committed `*.json` without re-parsing the
-tree. `extract.py` re-derives the graphs from the working tree, so counts will move
-if the repository changes — the committed `graphs.json` is the frozen input for the
-numbers above.
+tree.
+
+**Input provenance.** `extract.py` re-derives the graphs from the working tree, so
+counts move if the repository changes. The committed `graphs.json` is the frozen
+input for every number above and was extracted from **this branch**, so
+`python extract.py graphs.json` reproduces it exactly here. Checked out elsewhere it
+will not: an earlier extraction on a sibling branch differed by two isolated nodes
+in `py_sovereign` (n = 36 vs 38, identical edge set), which moved that graph's
+penalty cells without touching any headline figure. Verify against the committed
+JSON, not against a re-extraction from a different tree.

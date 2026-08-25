@@ -16,7 +16,6 @@ Hub-structured graphs put most edge pairs in the two ZERO cases, which is why
 the uniform C(m,2) model over-predicted lambda and under-predicted P.
 """
 import json, sys
-from collections import defaultdict
 from pathlib import Path
 import numpy as np
 from experiment import build, topo_order, shard_schedule, SEED
