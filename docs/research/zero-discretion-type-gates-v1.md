@@ -176,7 +176,8 @@ This preserves the distinction:
 ## 11. Source layout
 
 - `python/research_invariants.py` — registry, gate executors, receipts,
-  literal criterion epochs, status records, admission controller.
+  literal criterion epochs, status records, relation bindings, append-only
+  status transitions, and admission controller.
 - `python/research_preflight.py` — CLI pre-flight for spectral coverage.
 - `python/tests/test_research_invariants.py` — executable regressions.
 - `.github/workflows/zero-discretion-type-gates.yml` — CI admission check.
@@ -184,3 +185,28 @@ This preserves the distinction:
 The existing `python/gate.py` remains mutation authority. The research gate
 layer is separate so a mathematical `PASS` cannot be confused with authority
 to mutate system state or perform an external effect.
+
+## 12. Late-bound relations and status history
+
+Some invariants become meaningful only after independently constructed objects
+are related. `RelationBindingV1` binds a named relation to a role-sensitive set
+of participant digests. Participant ordering is canonicalized, but role names
+are semantic: swapping `basis` and `gamma`, for example, creates a different
+relation digest.
+
+Relational verification does not create a second receipt or authority system.
+`relation_gate_receipt(...)` reuses ordinary `GateReceipt` with
+`object_digest == relation_digest`, so the existing `AdmissionController`
+anti-splicing check remains the authority boundary. A receipt for one
+counterpart cannot authorize a relation against another counterpart.
+
+Claim status is no longer limited to isolated point records. `StatusJournalV1`
+adds an append-only, hash-chained transition history. Each transition binds the
+claim id, previous and next status, evidence receipt digests, criterion epoch,
+reason, and previous transition digest. Promotion and demotion are both
+permitted; history is never silently rewritten.
+
+The journal proves only the integrity and ordering of recorded status
+transitions. It does **not** prove the underlying scientific or mathematical
+claim. Likewise, execution duration is telemetry only and has no authority in
+relation or status hashes.
