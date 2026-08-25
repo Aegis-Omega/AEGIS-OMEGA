@@ -136,8 +136,8 @@ jobs:
                   ) >"$assumption_log" 2>&1 || true
                   rm -f "$query"
                 done <<EOF
-$(theorem_names "$source")
-EOF
+            $(theorem_names "$source")
+            EOF
               else
                 record_status "$rel" 'COMPILE_FAILED' "$log"
               fi
