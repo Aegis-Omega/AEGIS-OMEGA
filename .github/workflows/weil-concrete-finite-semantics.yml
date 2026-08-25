@@ -1,0 +1,165 @@
+name: Weil Concrete Finite Semantics
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/formal/theories/Weil/FiniteBridge.v"
+      - "sovereign-omega-v2/formal/theories/Weil/FiniteEntryDictionary.v"
+      - ".github/workflows/weil-concrete-finite-semantics.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-concrete-finite-semantics-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  attest:
+    name: coqc / finite entry dictionary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Reject declared assumptions in authority sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          for src in \
+            sovereign-omega-v2/formal/theories/Weil/FiniteBridge.v \
+            sovereign-omega-v2/formal/theories/Weil/FiniteEntryDictionary.v
+          do
+            test -f "$src"
+            if grep -En '^[[:space:]]*(Axiom|Axioms|Parameter|Parameters|Admitted)[[:space:].]' "$src"; then
+              echo "Declared assumption/admission forbidden: $src" >&2
+              exit 1
+            fi
+          done
+
+      - name: Prepare evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/weil-concrete-finite-attestation
+          chmod -R a+rwX sovereign-omega-v2/formal/theories/Weil sovereign-omega-v2/weil-concrete-finite-attestation
+
+      - name: Compile and print assumptions
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            DIR="$ROOT/formal/theories/Weil"
+            OUT="$ROOT/weil-concrete-finite-attestation"
+            cd "$DIR"
+            coqc --version | tee "$OUT/coq-version.txt"
+            coqc FiniteBridge.v 2>&1 | tee "$OUT/finite-bridge.log"
+            coqc FiniteEntryDictionary.v 2>&1 | tee "$OUT/finite-entry-dictionary.log"
+
+            for theorem in \
+              prime_offdiag_matches_divided_difference \
+              pole_closed_template_factorizes \
+              prime_pole_offdiag_dictionary
+            do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.assumptions.txt"
+              printf 'Set Coqtop Exit On Error.\nRequire Import FiniteEntryDictionary.\nPrint Assumptions %s.\n' "$theorem" > "$query"
+              coqtop -quiet -batch -l "$query" > "$log" 2>&1
+              rm -f "$query"
+              cat "$log"
+              grep -q 'Closed under the global context' "$log"
+              if grep -q '^Axioms:' "$log"; then
+                echo "Unexpected assumptions for $theorem" >&2
+                exit 1
+              fi
+            done
+
+      - name: Emit content-addressed semantics receipt
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          out = Path('weil-concrete-finite-attestation')
+          source = Path('formal/theories/Weil/FiniteEntryDictionary.v')
+          dependency = Path('formal/theories/Weil/FiniteBridge.v')
+          names = [
+              'prime_offdiag_matches_divided_difference',
+              'pole_closed_template_factorizes',
+              'prime_pole_offdiag_dictionary',
+          ]
+
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          theorem_logs = {name: sha(out / f'{name}.assumptions.txt') for name in names}
+          payload = {
+              'receipt_kind': 'AEGIS_WEIL_CONCRETE_FINITE_SEMANTICS_RECEIPT_V1',
+              'authority': 'FORMAL_MATH_EVIDENCE_ONLY',
+              'source_commit': '${{ env.SOURCE_SHA }}',
+              'source_sha256': sha(source),
+              'finite_bridge_source_sha256': sha(dependency),
+              'coq_version_sha256': sha(out / 'coq-version.txt'),
+              'compile_log_sha256': sha(out / 'finite-entry-dictionary.log'),
+              'theorem_assumption_log_sha256': theorem_logs,
+              'theorem_count': len(names),
+              'declared_assumptions': 0,
+              'prime_offdiag_dictionary_formalized': True,
+              'pole_closed_template_factorization_formalized': True,
+              'prime_pole_offdiag_dictionary_formalized': True,
+              'prime_diagonal_dictionary_formalized': False,
+              'analytic_pole_normalization_machine_bound': False,
+              'archimedean_entry_identity_proven': False,
+              'guinand_weil_explicit_formula_machine_bound': False,
+              'formula_to_weil_operator_identity_proven': False,
+              'global_weil_positivity_proven': False,
+              'rh_proven': False,
+              'open_obligations': [
+                  'PRIME_DIAGONAL_DERIVATIVE_IDENTITY_NOT_MACHINE_FORMALIZED',
+                  'ANALYTIC_POLE_NORMALIZATION_NOT_MACHINE_BOUND',
+                  'ARCHIMEDEAN_ENTRY_IDENTITY_NOT_MACHINE_FORMALIZED',
+                  'GUINAND_WEIL_EXPLICIT_FORMULA_NOT_MACHINE_BOUND',
+                  'FORMULA_TO_WEIL_OPERATOR_IDENTITY_NOT_MACHINE_FORMALIZED',
+              ],
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          target = out / 'weil-concrete-finite-semantics-receipt.json'
+          target.write_text(json.dumps(payload, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+
+          assert payload['theorem_count'] == 3
+          assert payload['declared_assumptions'] == 0
+          assert payload['prime_pole_offdiag_dictionary_formalized'] is True
+          assert payload['formula_to_weil_operator_identity_proven'] is False
+          assert payload['global_weil_positivity_proven'] is False
+          assert payload['rh_proven'] is False
+          assert len(payload['receipt_sha256']) == 64
+          PY
+
+      - name: Upload semantics evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: weil-concrete-finite-semantics-${{ env.SOURCE_SHA }}
+          path: sovereign-omega-v2/weil-concrete-finite-attestation/
+          if-no-files-found: error
+          retention-days: 30
