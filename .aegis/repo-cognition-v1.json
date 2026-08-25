@@ -1,9 +1,9 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "d5785642bea2b107d8b34a48017cb39007e125d33421d608fe6ed0f62efce7f1",
+  "corpus_root": "25bcde45444f5e280cb3966953e2a4e08b31e5fac1ebf46385f063eafb380bf8",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
-  "eligible_file_count": 1936,
+  "eligible_file_count": 1937,
   "excluded_generated_paths": [
     ".aegis/repo-cognition-v1.json"
   ],
@@ -28695,6 +28695,20 @@
       "symbol_hints": []
     },
     {
+      "content_sha256": "f3ffb14a8d772f3da7c4b732eafd86fb3e701d726ef569e9ca089ec0799409d4",
+      "dependency_hints": [],
+      "git_blob_sha": "3ce80acc517960240c1efb6f8e0deaa67f260989",
+      "heading_hint": "Cross-Domain Collision V1 — Design",
+      "kind": "documentation",
+      "language": "markdown",
+      "line_count": 339,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "docs/superpowers/specs/2026-08-25-cross-domain-collision-v1-design.md",
+      "size_bytes": 13939,
+      "symbol_hints": []
+    },
+    {
       "content_sha256": "d0ca08a0beaa985137db11575a19380a969da01d2bdfaa09356da17aa9ddece3",
       "dependency_hints": [],
       "git_blob_sha": "e14e7e655adfad75ea1667216d177dc47c559c07",
@@ -53720,8 +53734,8 @@
   ],
   "generator": "scripts/repo_cognition.py",
   "generator_version": "1.0.1",
-  "indexed_file_count": 1936,
+  "indexed_file_count": 1937,
   "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
   "schema": "AEGIS_REPO_COGNITION_V1",
-  "tracked_file_count": 1937
+  "tracked_file_count": 1938
 }
