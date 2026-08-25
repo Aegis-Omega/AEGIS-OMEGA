@@ -37,6 +37,25 @@ def fixture_observation(subject, domain_id, evidence_class, transform_id, suffix
     )
 
 
+def two_domain_collision(provenance, criterion):
+    subject = cdc.IntegerSubjectV1(65010)
+    unicode_obs = fixture_observation(
+        subject,
+        "unicode",
+        cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING,
+        "UNICODE_LOOKUP_V1",
+        "a",
+    )
+    ncbi_obs = fixture_observation(
+        subject,
+        "ncbi-gene",
+        cdc.EvidenceClass.EXTERNAL_IDENTIFIER_MATCH,
+        "NCBI_LOOKUP_V1",
+        "b",
+    )
+    return cdc.evaluate_collision(subject, provenance, [unicode_obs, ncbi_obs], criterion)
+
+
 class CrossDomainCollisionTests(unittest.TestCase):
     def test_integer_subject_is_representation_independent(self):
         a = cdc.IntegerSubjectV1(65010)
@@ -53,18 +72,10 @@ class CrossDomainCollisionTests(unittest.TestCase):
 
     def test_transform_epoch_changes_on_literal_edit(self):
         a = cdc.TransformSpecV1(
-            "INTEGER_TO_HEX_V1",
-            "1",
-            "IntegerSubjectV1",
-            "HexString",
-            "uppercase hexadecimal",
+            "INTEGER_TO_HEX_V1", "1", "IntegerSubjectV1", "HexString", "uppercase hexadecimal"
         )
         b = cdc.TransformSpecV1(
-            "INTEGER_TO_HEX_V1",
-            "1",
-            "IntegerSubjectV1",
-            "HexString",
-            "uppercase  hexadecimal",
+            "INTEGER_TO_HEX_V1", "1", "IntegerSubjectV1", "HexString", "uppercase  hexadecimal"
         )
         self.assertNotEqual(a.criterion_sha256, b.criterion_sha256)
 
@@ -79,14 +90,8 @@ class CrossDomainCollisionTests(unittest.TestCase):
             source_observed_at="2026-08-25T00:00:00Z",
             ingestion_producer_id="fixture-test-v1",
         )
-        a = cdc.RegistrySnapshotV1(
-            canonical_result={"codepoint": "U+FDF2", "name": "A"},
-            **common,
-        )
-        b = cdc.RegistrySnapshotV1(
-            canonical_result={"codepoint": "U+FDF2", "name": "B"},
-            **common,
-        )
+        a = cdc.RegistrySnapshotV1(canonical_result={"codepoint": "U+FDF2", "name": "A"}, **common)
+        b = cdc.RegistrySnapshotV1(canonical_result={"codepoint": "U+FDF2", "name": "B"}, **common)
         self.assertNotEqual(a.content_sha256, b.content_sha256)
 
     def test_local_derivation_is_not_external_registry_evidence(self):
@@ -124,10 +129,7 @@ class CrossDomainCollisionTests(unittest.TestCase):
         self.assertFalse(receipt.cross_registry_collision)
 
     def test_two_unique_external_domains_form_collision(self):
-        subject = cdc.IntegerSubjectV1(65010)
-        unicode_obs = fixture_observation(subject, "unicode", cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING, "UNICODE_LOOKUP_V1", "a")
-        ncbi_obs = fixture_observation(subject, "ncbi-gene", cdc.EvidenceClass.EXTERNAL_IDENTIFIER_MATCH, "NCBI_LOOKUP_V1", "b")
-        receipt = cdc.evaluate_collision(subject, cdc.SelectionProvenance.RETROSPECTIVE, [unicode_obs, ncbi_obs], fixture_criterion())
+        receipt = two_domain_collision(cdc.SelectionProvenance.RETROSPECTIVE, fixture_criterion())
         self.assertEqual(receipt.independent_external_domain_count, 2)
         self.assertTrue(receipt.cross_registry_collision)
         self.assertEqual(receipt.score, 2)
@@ -144,6 +146,48 @@ class CrossDomainCollisionTests(unittest.TestCase):
         observation = fixture_observation(subject, "unicode", cdc.EvidenceClass.STANDARD_CODEPOINT_MAPPING, "UNREGISTERED_TRANSFORM_V1", "a")
         with self.assertRaises(ValueError):
             cdc.evaluate_collision(subject, cdc.SelectionProvenance.RETROSPECTIVE, [observation], fixture_criterion())
+
+    def test_control_generation_is_exactly_replayable(self):
+        criterion = fixture_criterion(control_seed=1234, control_count=16)
+        self.assertEqual(cdc.generate_controls(criterion), cdc.generate_controls(criterion))
+
+    def test_different_seed_changes_control_sequence(self):
+        a = fixture_criterion(control_seed=1234, control_count=16)
+        b = fixture_criterion(control_seed=1235, control_count=16)
+        self.assertNotEqual(cdc.generate_controls(a), cdc.generate_controls(b))
+
+    def test_retrospective_fixture_cannot_be_promoted_by_null_model(self):
+        criterion = fixture_criterion(control_count=100)
+        collision = two_domain_collision(cdc.SelectionProvenance.RETROSPECTIVE, criterion)
+        with self.assertRaises(PermissionError):
+            cdc.evaluate_null_model(collision, criterion, [0] * 100)
+
+    def test_retrospective_descriptive_null_receipt_is_not_promotion_eligible(self):
+        criterion = fixture_criterion(control_count=100)
+        collision = two_domain_collision(cdc.SelectionProvenance.RETROSPECTIVE, criterion)
+        receipt = cdc.evaluate_null_model(
+            collision,
+            criterion,
+            [0] * 100,
+            allow_retrospective_descriptive=True,
+        )
+        self.assertFalse(receipt.promotion_eligible)
+        self.assertIsNone(receipt.null_survived)
+
+    def test_prospective_null_survival_uses_finite_sample_correction(self):
+        criterion = fixture_criterion(control_count=100, promotion_threshold=0.05)
+        collision = two_domain_collision(cdc.SelectionProvenance.PROSPECTIVE, criterion)
+        receipt = cdc.evaluate_null_model(collision, criterion, [0] * 100)
+        self.assertAlmostEqual(receipt.p_emp, 1 / 101)
+        self.assertTrue(receipt.promotion_eligible)
+        self.assertTrue(receipt.null_survived)
+
+    def test_null_model_without_threshold_mints_no_survival_verdict(self):
+        criterion = fixture_criterion(control_count=10, promotion_threshold=None)
+        collision = two_domain_collision(cdc.SelectionProvenance.PROSPECTIVE, criterion)
+        receipt = cdc.evaluate_null_model(collision, criterion, [0] * 10)
+        self.assertTrue(receipt.promotion_eligible)
+        self.assertIsNone(receipt.null_survived)
 
 
 if __name__ == "__main__":
