@@ -1,9 +1,9 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "0040f20e80cac4007f096f19a995898afe0dca81264055487535ca5ea8757ff5",
+  "corpus_root": "123c5d3515509fe0d59ae3d1764e4b36fda140d132f98f8ab1bdbb973d784019",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
-  "eligible_file_count": 1946,
+  "eligible_file_count": 1947,
   "excluded_generated_paths": [
     ".aegis/repo-cognition-v1.json"
   ],
@@ -922,17 +922,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "d5a1da39847f890ebc06ec9d768640814e0c4e5c774346c22bdda25df4d5d624",
+      "content_sha256": "a8f1b544a5e392603ee9478fb2071b3079ff2d348136702ab6631e6a21561542",
       "dependency_hints": [],
-      "git_blob_sha": "9cafc39aaddb19d8c4765004c3eace86b222ac53",
+      "git_blob_sha": "c149cfe3ba76244eb749519ed135c0ace3b62123",
       "heading_hint": null,
       "kind": "workflow",
       "language": "yaml",
-      "line_count": 35,
+      "line_count": 43,
       "mode": "100644",
       "object_type": "blob",
       "path": ".github/workflows/cross-domain-collision.yml",
-      "size_bytes": 1347,
+      "size_bytes": 1767,
       "symbol_hints": []
     },
     {
@@ -28681,6 +28681,20 @@
       "symbol_hints": []
     },
     {
+      "content_sha256": "b840a326525eba2b35209ff165e458542a4be57339a3dc414b9efba959b061cf",
+      "dependency_hints": [],
+      "git_blob_sha": "8ca464b530ee352405cc89819991661ebdb1c9b7",
+      "heading_hint": "Cross-Domain Collision V1",
+      "kind": "documentation",
+      "language": "markdown",
+      "line_count": 152,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "docs/research/cross-domain-collision-v1.md",
+      "size_bytes": 7331,
+      "symbol_hints": []
+    },
+    {
       "content_sha256": "89af5ef0dcc689a607ee66226f9ceb52d9f1ed8e4ddec29fe281b06dac6d4abc",
       "dependency_hints": [],
       "git_blob_sha": "cc26a902f65e1d26eb89a89f3da8d0077e3e084e",
@@ -53976,8 +53990,8 @@
   ],
   "generator": "scripts/repo_cognition.py",
   "generator_version": "1.0.1",
-  "indexed_file_count": 1946,
+  "indexed_file_count": 1947,
   "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
   "schema": "AEGIS_REPO_COGNITION_V1",
-  "tracked_file_count": 1947
+  "tracked_file_count": 1948
 }
