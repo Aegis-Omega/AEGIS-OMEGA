@@ -166,8 +166,7 @@ Proof.
     as Hdiff_lt.
 
   pose proof
-    (CRplus_lt_compat_l
-      (R:=O0RealsV1)
+    (@CRplus_lt_compat_l O0RealsV1
       (QW f)
       (O0MinusV1 (QR n f) (QW f))
       eta Hdiff_lt)
