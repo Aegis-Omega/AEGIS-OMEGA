@@ -70,14 +70,39 @@ jobs:
               find "$dir" -maxdepth 1 -type f \
                 \( -name '*.v' -o -name '*.vo' \) \
                 -printf '%f\n' | sort >> "$OUT/constructive-module-inventory.txt"
-              if find "$dir" -maxdepth 1 -type f -name '*.v' -print -quit | grep -q .; then
-                # Match trig-like declaration identifiers, not arbitrary
-                # substrings such as "increasing" or "single_dist". Keep this
-                # case-sensitive so the explicit CamelCase branch is meaningful.
-                grep -RnE \
-                  '^[[:space:]]*(Definition|Lemma|Theorem|Corollary|Proposition|Fixpoint|CoFixpoint)[[:space:]]+((sin|cos|pi)[A-Za-z0-9_]*|[A-Za-z0-9_]+_(sin|cos|pi)(_[A-Za-z0-9_]*)?|[A-Za-z0-9_]*(Sin|Cos|Pi)[A-Za-z0-9_]*)' \
-                  "$dir" >> "$OUT/constructive-trig-declaration-matches.txt" || true
-              fi
+
+              python3 - "$dir" "$OUT/constructive-trig-declaration-matches.txt" <<'PY'
+            import re
+            import sys
+            from pathlib import Path
+
+            root = Path(sys.argv[1])
+            out = Path(sys.argv[2])
+            declaration = re.compile(
+                r"^\s*(?:Definition|Lemma|Theorem|Corollary|Proposition|Fixpoint|CoFixpoint)"
+                r"\s+([A-Za-z_][A-Za-z0-9_']*)"
+            )
+            camel = re.compile(r"(?:Sin|Cos|Pi)(?=$|[A-Z0-9_])")
+
+            def trig_named(identifier: str) -> bool:
+                pieces = identifier.lower().split('_')
+                if any(piece in {'sin', 'cos', 'pi'} for piece in pieces):
+                    return True
+                if identifier.startswith(('CRsin', 'CRcos', 'CRpi')):
+                    return True
+                return bool(camel.search(identifier))
+
+            hits = []
+            for source in sorted(root.glob('*.v')):
+                for lineno, line in enumerate(source.read_text(encoding='utf-8').splitlines(), 1):
+                    match = declaration.match(line)
+                    if match and trig_named(match.group(1)):
+                        hits.append(f"{source}:{lineno}:{line.strip()}")
+
+            with out.open('a', encoding='utf-8') as handle:
+                for hit in hits:
+                    handle.write(hit + '\n')
+            PY
             done
             sort -u -o "$OUT/constructive-module-inventory.txt" \
               "$OUT/constructive-module-inventory.txt"
