@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "a11018986278cbdb3cd719d95c804d0ca020e277a970dc940eb7b53576d46614",
+  "corpus_root": "8307fc6518b23d5a8b7e7e495237dabb134979f8d97c665a3082b2d7bc68c552",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1952,
@@ -38078,7 +38078,7 @@
       ]
     },
     {
-      "content_sha256": "4123cc184a34fdfb0ee9694134ca0e34305ea105397df2b2bd84d8704bfadc4d",
+      "content_sha256": "359f146255849cd9df08981dfaccf34219f58ec29e4ce21f1ed840fa4437c42e",
       "dependency_hints": [
         "__future__",
         "dataclasses",
@@ -38087,15 +38087,15 @@
         "cross_domain_collision",
         "research_invariants"
       ],
-      "git_blob_sha": "18c706823ca4e163d4af5ce34f189683e1e71160",
+      "git_blob_sha": "47912f081788da03dafb90131ba5f748509d26b7",
       "heading_hint": null,
       "kind": "source",
       "language": "python",
-      "line_count": 397,
+      "line_count": 409,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/cross_domain_coverage.py",
-      "size_bytes": 17382,
+      "size_bytes": 17655,
       "symbol_hints": [
         "RegistryProbeOutcomeV1",
         "RegistryAdapterContractV1",
@@ -38103,6 +38103,8 @@
         "_adapter_material",
         "verify_registry_adapter_contract",
         "ProbeFailureEvidenceV1",
+        "_failure_material",
+        "_verify_failure_evidence",
         "RegistryProbeReceiptV1",
         "_probe_receipt_material",
         "verify_registry_probe_receipt",
