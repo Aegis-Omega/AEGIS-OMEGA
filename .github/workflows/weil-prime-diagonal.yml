@@ -35,6 +35,12 @@ jobs:
         shell: bash
         run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
 
+      - name: Prepare writable Coq workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod -R a+rwX sovereign-omega-v2/formal/theories/Weil sovereign-omega-v2/formal/tests/Weil
+
       - name: Compile specification
         uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
         with:
