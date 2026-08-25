@@ -3,8 +3,10 @@ name: AEGIS Cross-Domain Collision V1
 on:
   pull_request:
     paths:
+      - "sovereign-omega-v2/python/research_invariants.py"
       - "sovereign-omega-v2/python/cross_domain_collision.py"
       - "sovereign-omega-v2/python/cross_domain_ingest.py"
+      - "sovereign-omega-v2/python/tests/test_research_invariants.py"
       - "sovereign-omega-v2/python/tests/test_cross_domain_collision.py"
       - "sovereign-omega-v2/python/tests/test_cross_domain_ingest.py"
       - "sovereign-omega-v2/python/tests/test_cross_domain_fixture.py"
@@ -25,6 +27,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Compile deterministic research modules
+        run: |
+          python -m py_compile \
+            sovereign-omega-v2/python/research_invariants.py \
+            sovereign-omega-v2/python/cross_domain_collision.py \
+            sovereign-omega-v2/python/cross_domain_ingest.py
       - name: Run collision regressions
         run: python sovereign-omega-v2/python/tests/test_cross_domain_collision.py
       - name: Run ingestion boundary regressions
