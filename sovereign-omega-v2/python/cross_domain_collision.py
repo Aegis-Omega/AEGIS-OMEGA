@@ -98,6 +98,8 @@ class RegistrySnapshotV1:
         ):
             if not value:
                 raise ValueError(f"{name} must be non-empty")
+        frozen_result = ri.freeze_hash_material(self.canonical_result)
+        object.__setattr__(self, "canonical_result", frozen_result)
         material = {
             "schema": "AEGIS_REGISTRY_SNAPSHOT_V1",
             "registry_id": self.registry_id,
@@ -105,7 +107,7 @@ class RegistrySnapshotV1:
             "query_key": self.query_key,
             "query_key_type": self.query_key_type,
             "result_kind": self.result_kind,
-            "canonical_result": self.canonical_result,
+            "canonical_result": frozen_result,
             "source_locator": self.source_locator,
             "source_observed_at": self.source_observed_at,
             "ingestion_producer_id": self.ingestion_producer_id,
@@ -128,13 +130,15 @@ class DerivationReceiptV1:
         ri._check_digest(self.criterion_sha256, "criterion_sha256")
         if not self.derivation_id or not self.derivation_version:
             raise ValueError("derivation_id and derivation_version must be non-empty")
+        frozen_result = ri.freeze_hash_material(self.canonical_result)
+        object.__setattr__(self, "canonical_result", frozen_result)
         material = {
             "schema": "AEGIS_DERIVATION_RECEIPT_V1",
             "subject_sha256": self.subject_sha256,
             "derivation_id": self.derivation_id,
             "derivation_version": self.derivation_version,
             "criterion_sha256": self.criterion_sha256,
-            "canonical_result": self.canonical_result,
+            "canonical_result": frozen_result,
             "evidence_class": self.evidence_class.value,
         }
         object.__setattr__(self, "receipt_sha256", ri.sha256_hex(material))
@@ -186,15 +190,21 @@ class CollisionCriterionV1:
     criterion_sha256: str = field(init=False)
 
     def __post_init__(self) -> None:
+        if isinstance(self.registry_set, (str, bytes)) or isinstance(self.transform_set, (str, bytes)):
+            raise TypeError("registry_set and transform_set must be sequences of ids")
+        registries = tuple(self.registry_set)
+        transforms = tuple(self.transform_set)
+        object.__setattr__(self, "registry_set", registries)
+        object.__setattr__(self, "transform_set", transforms)
         if self.universe_min > self.universe_max:
             raise ValueError("universe_min must not exceed universe_max")
         if self.control_count <= 0:
             raise ValueError("control_count must be positive")
-        if len(set(self.registry_set)) != len(self.registry_set):
+        if len(set(registries)) != len(registries):
             raise ValueError("registry_set must contain unique ids")
-        if len(set(self.transform_set)) != len(self.transform_set):
+        if len(set(transforms)) != len(transforms):
             raise ValueError("transform_set must contain unique ids")
-        if any(not value for value in self.registry_set + self.transform_set):
+        if any(not value for value in registries + transforms):
             raise ValueError("registry and transform ids must be non-empty")
         for name, value in (
             ("independence_rule_id", self.independence_rule_id),
@@ -210,8 +220,8 @@ class CollisionCriterionV1:
             "schema": "AEGIS_COLLISION_CRITERION_V1",
             "universe_min": self.universe_min,
             "universe_max": self.universe_max,
-            "registry_set": self.registry_set,
-            "transform_set": self.transform_set,
+            "registry_set": registries,
+            "transform_set": transforms,
             "independence_rule_id": self.independence_rule_id,
             "score_function_id": self.score_function_id,
             "control_generator_id": self.control_generator_id,
@@ -236,6 +246,44 @@ class CollisionReceiptV1:
     receipt_sha256: str
 
 
+def _collision_receipt_material(receipt: CollisionReceiptV1) -> Mapping[str, Any]:
+    return {
+        "schema": "AEGIS_COLLISION_RECEIPT_V1",
+        "subject_sha256": receipt.subject_sha256,
+        "provenance": receipt.provenance.value,
+        "observation_sha256s": receipt.observation_sha256s,
+        "criterion_sha256": receipt.criterion_sha256,
+        "independent_external_domains": receipt.independent_external_domains,
+        "independent_external_domain_count": receipt.independent_external_domain_count,
+        "score": receipt.score,
+        "cross_registry_collision": receipt.cross_registry_collision,
+    }
+
+
+def verify_collision_receipt(receipt: CollisionReceiptV1) -> None:
+    if not isinstance(receipt, CollisionReceiptV1):
+        raise TypeError("expected CollisionReceiptV1")
+    ri._check_digest(receipt.subject_sha256, "subject_sha256")
+    ri._check_digest(receipt.criterion_sha256, "criterion_sha256")
+    ri._check_digest(receipt.receipt_sha256, "receipt_sha256")
+    for digest in receipt.observation_sha256s:
+        ri._check_digest(digest, "observation_sha256")
+    if not isinstance(receipt.provenance, SelectionProvenance):
+        raise ValueError("collision provenance is not canonical")
+    domains = tuple(receipt.independent_external_domains)
+    if domains != tuple(sorted(set(domains))):
+        raise ValueError("collision domains must be unique and sorted")
+    count = len(domains)
+    if receipt.independent_external_domain_count != count:
+        raise ValueError("collision domain count mismatch")
+    if receipt.score != count:
+        raise ValueError("collision score does not match frozen score function")
+    if receipt.cross_registry_collision is not (count >= 2):
+        raise ValueError("collision boolean does not match domain count")
+    if ri.sha256_hex(_collision_receipt_material(receipt)) != receipt.receipt_sha256:
+        raise ValueError("collision receipt digest mismatch")
+
+
 def evaluate_collision(
     subject: IntegerSubjectV1,
     provenance: SelectionProvenance,
@@ -243,6 +291,8 @@ def evaluate_collision(
     criterion: CollisionCriterionV1,
 ) -> CollisionReceiptV1:
     """Evaluate only the frozen V1 domain-independence/score contract."""
+    if not isinstance(provenance, SelectionProvenance):
+        raise TypeError("provenance must be SelectionProvenance")
     if not criterion.universe_min <= subject.value <= criterion.universe_max:
         raise ValueError("subject is outside the frozen criterion universe")
     if criterion.independence_rule_id != "UNIQUE_DOMAIN_ID_V1":
@@ -270,30 +320,31 @@ def evaluate_collision(
     domains = tuple(sorted(external_domains))
     digests = tuple(sorted(observation_digests))
     count = len(domains)
-    score = count
-    collision = count >= 2
-    material = {
-        "schema": "AEGIS_COLLISION_RECEIPT_V1",
-        "subject_sha256": subject.subject_sha256,
-        "provenance": provenance.value,
-        "observation_sha256s": digests,
-        "criterion_sha256": criterion.criterion_sha256,
-        "independent_external_domains": domains,
-        "independent_external_domain_count": count,
-        "score": score,
-        "cross_registry_collision": collision,
-    }
-    return CollisionReceiptV1(
+    receipt = CollisionReceiptV1(
         subject_sha256=subject.subject_sha256,
         provenance=provenance,
         observation_sha256s=digests,
         criterion_sha256=criterion.criterion_sha256,
         independent_external_domains=domains,
         independent_external_domain_count=count,
-        score=score,
-        cross_registry_collision=collision,
+        score=count,
+        cross_registry_collision=count >= 2,
+        receipt_sha256="0" * 64,
+    )
+    material = _collision_receipt_material(receipt)
+    receipt = CollisionReceiptV1(
+        subject_sha256=receipt.subject_sha256,
+        provenance=receipt.provenance,
+        observation_sha256s=receipt.observation_sha256s,
+        criterion_sha256=receipt.criterion_sha256,
+        independent_external_domains=receipt.independent_external_domains,
+        independent_external_domain_count=receipt.independent_external_domain_count,
+        score=receipt.score,
+        cross_registry_collision=receipt.cross_registry_collision,
         receipt_sha256=ri.sha256_hex(material),
     )
+    verify_collision_receipt(receipt)
+    return receipt
 
 
 def generate_controls(criterion: CollisionCriterionV1) -> tuple[int, ...]:
@@ -312,6 +363,8 @@ class NullModelReceiptV1:
     collision_receipt_sha256: str
     criterion_sha256: str
     observed_score: int
+    control_subject_sha256s: tuple[str, ...]
+    control_receipt_sha256s: tuple[str, ...]
     control_scores_sha256: str
     control_count: int
     extreme_count: int
@@ -324,37 +377,57 @@ class NullModelReceiptV1:
 def evaluate_null_model(
     observed: CollisionReceiptV1,
     criterion: CollisionCriterionV1,
-    control_scores: Sequence[int],
+    control_receipts: Sequence[CollisionReceiptV1],
     *,
     allow_retrospective_descriptive: bool = False,
 ) -> NullModelReceiptV1:
+    verify_collision_receipt(observed)
     if observed.criterion_sha256 != criterion.criterion_sha256:
         raise ValueError("collision receipt criterion mismatch")
-    if len(control_scores) != criterion.control_count:
-        raise ValueError("control score count differs from frozen criterion")
-    scores = tuple(control_scores)
-    if any(isinstance(score, bool) or not isinstance(score, int) or score < 0 for score in scores):
-        raise ValueError("control scores must be non-negative integers")
+    controls = tuple(control_receipts)
+    if any(not isinstance(control, CollisionReceiptV1) for control in controls):
+        raise TypeError("null model requires CollisionReceiptV1 controls, not raw scores")
+    if len(controls) != criterion.control_count:
+        raise ValueError("control receipt count differs from frozen criterion")
     if observed.provenance is SelectionProvenance.RETROSPECTIVE and not allow_retrospective_descriptive:
         raise PermissionError("retrospective observations are not promotion-eligible")
 
-    extreme = sum(1 for score in scores if score >= observed.score)
-    p_emp = (1 + extreme) / (1 + len(scores))
+    expected_values = generate_controls(criterion)
+    expected_subjects = tuple(IntegerSubjectV1(value).subject_sha256 for value in expected_values)
+    scores: list[int] = []
+    receipt_digests: list[str] = []
+    for index, (control, expected_subject) in enumerate(zip(controls, expected_subjects)):
+        verify_collision_receipt(control)
+        if control.subject_sha256 != expected_subject:
+            raise ValueError(f"control receipt subject mismatch at index {index}")
+        if control.criterion_sha256 != criterion.criterion_sha256:
+            raise ValueError(f"control receipt criterion mismatch at index {index}")
+        if control.provenance is not SelectionProvenance.PROSPECTIVE:
+            raise ValueError(f"control receipt provenance mismatch at index {index}")
+        scores.append(control.score)
+        receipt_digests.append(control.receipt_sha256)
+
+    score_tuple = tuple(scores)
+    receipt_digest_tuple = tuple(receipt_digests)
+    extreme = sum(1 for score in score_tuple if score >= observed.score)
+    p_emp = (1 + extreme) / (1 + len(score_tuple))
     promotion_eligible = observed.provenance is SelectionProvenance.PROSPECTIVE
     if not promotion_eligible or criterion.promotion_threshold is None:
         null_survived: bool | None = None
     else:
         null_survived = p_emp <= criterion.promotion_threshold
 
-    scores_sha256 = ri.sha256_hex(scores)
+    scores_sha256 = ri.sha256_hex(score_tuple)
     material = {
         "schema": "AEGIS_NULL_MODEL_RECEIPT_V1",
         "subject_sha256": observed.subject_sha256,
         "collision_receipt_sha256": observed.receipt_sha256,
         "criterion_sha256": criterion.criterion_sha256,
         "observed_score": observed.score,
+        "control_subject_sha256s": expected_subjects,
+        "control_receipt_sha256s": receipt_digest_tuple,
         "control_scores_sha256": scores_sha256,
-        "control_count": len(scores),
+        "control_count": len(score_tuple),
         "extreme_count": extreme,
         "p_emp": p_emp,
         "promotion_eligible": promotion_eligible,
@@ -365,8 +438,10 @@ def evaluate_null_model(
         collision_receipt_sha256=observed.receipt_sha256,
         criterion_sha256=criterion.criterion_sha256,
         observed_score=observed.score,
+        control_subject_sha256s=expected_subjects,
+        control_receipt_sha256s=receipt_digest_tuple,
         control_scores_sha256=scores_sha256,
-        control_count=len(scores),
+        control_count=len(score_tuple),
         extreme_count=extreme,
         p_emp=p_emp,
         promotion_eligible=promotion_eligible,
