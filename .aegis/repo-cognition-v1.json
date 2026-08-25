@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "3dddb4597d074902736f2dd7c5390ae5f9cd0609a1908b6068b694bc19ca64cd",
+  "corpus_root": "f7308647bddfd9080f0ca60e28d956678d3ac58c4c0c767591b6bda70c67a424",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1942,
@@ -37970,7 +37970,7 @@
       ]
     },
     {
-      "content_sha256": "bb44fb6017edbf53377447347e883e27da7159db9861d134061253533757c5dc",
+      "content_sha256": "a62dd6d17e0f78c630070e2195038ab032bde10eb47515e0523a86e5fe974930",
       "dependency_hints": [
         "__future__",
         "dataclasses",
@@ -37978,15 +37978,15 @@
         "typing",
         "research_invariants"
       ],
-      "git_blob_sha": "3710c063b97cbb07c334e220f306edd6752bc341",
+      "git_blob_sha": "8f1aa388a63fc9a3b69399886282ab0cbf336628",
       "heading_hint": null,
       "kind": "source",
       "language": "python",
-      "line_count": 69,
+      "line_count": 137,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/cross_domain_collision.py",
-      "size_bytes": 2185,
+      "size_bytes": 4903,
       "symbol_hints": [
         "EvidenceClass",
         "SelectionProvenance",
@@ -37994,7 +37994,9 @@
         "__post_init__",
         "hex_upper",
         "unicode_codepoint_label",
-        "TransformSpecV1"
+        "TransformSpecV1",
+        "RegistrySnapshotV1",
+        "DerivationReceiptV1"
       ]
     },
     {
