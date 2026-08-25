@@ -1,9 +1,9 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "25a1dd2c70662cec5a7abfb1981bc1e82d634249698de9fa25262553e4db0a2e",
+  "corpus_root": "b70fe5be60dc16e5c4dff75f80041e74688f601e8bfc5b0e8eb9ad8dd28199fe",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
-  "eligible_file_count": 1949,
+  "eligible_file_count": 1950,
   "excluded_generated_paths": [
     ".aegis/repo-cognition-v1.json"
   ],
@@ -28751,6 +28751,20 @@
       "symbol_hints": []
     },
     {
+      "content_sha256": "8e63bf4e746eb7dce2fcd5ae4d06359463830aa3b5ed08d74e71f3e26aa0c4b0",
+      "dependency_hints": [],
+      "git_blob_sha": "7091035dbfd27bcb933294b08d97fbd050bb13a8",
+      "heading_hint": "Cross-Domain Control Coverage V1 Implementation Plan",
+      "kind": "documentation",
+      "language": "markdown",
+      "line_count": 453,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "docs/superpowers/plans/2026-08-25-cross-domain-control-coverage-v1.md",
+      "size_bytes": 20789,
+      "symbol_hints": []
+    },
+    {
       "content_sha256": "ce09d28213ebd39d73f173f15598a1130d7a3a978fa2e64a880b8a012fbda4e8",
       "dependency_hints": [],
       "git_blob_sha": "5395a900fa82d361beebbe1c3aeaa1c403fa5f81",
@@ -54051,8 +54065,8 @@
   ],
   "generator": "scripts/repo_cognition.py",
   "generator_version": "1.0.1",
-  "indexed_file_count": 1949,
+  "indexed_file_count": 1950,
   "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
   "schema": "AEGIS_REPO_COGNITION_V1",
-  "tracked_file_count": 1950
+  "tracked_file_count": 1951
 }
