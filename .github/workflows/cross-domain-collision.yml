@@ -35,6 +35,7 @@ jobs:
           python -m py_compile \
             sovereign-omega-v2/python/research_invariants.py \
             sovereign-omega-v2/python/cross_domain_collision.py \
+            sovereign-omega-v2/python/cross_domain_coverage.py \
             sovereign-omega-v2/python/cross_domain_ingest.py
       - name: Run collision regressions
         run: python sovereign-omega-v2/python/tests/test_cross_domain_collision.py
