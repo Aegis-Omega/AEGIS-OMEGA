@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "2fc0e4f441aeed2ea3389b480afe4ed58a4d2a3012c2551d5433bc17988e9acb",
+  "corpus_root": "6c8d5dbd74bd2be7a346bfbb3281029322284118c347152b0024cf0af78d9e83",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1956,
@@ -39582,22 +39582,23 @@
       ]
     },
     {
-      "content_sha256": "d39f03ce063436822103d3e0667d76d9ed2a5664adbd2a8797fc34d2618947ad",
+      "content_sha256": "6ee6aa67820ffa9154eccfd0105bd7d9e2df7a07e56e7f9acd01a075da8a060c",
       "dependency_hints": [
+        "dataclasses",
         "pathlib",
         "sys",
         "unittest",
         "cross_domain_ingest"
       ],
-      "git_blob_sha": "2e8df91da8b4aeda29c69357acb27b3e1d0f9666",
+      "git_blob_sha": "c31b514ad66fd914957c546e2723c256a1c8fcf9",
       "heading_hint": null,
       "kind": "test",
       "language": "python",
-      "line_count": 93,
+      "line_count": 159,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/tests/test_cross_domain_ingest.py",
-      "size_bytes": 3383,
+      "size_bytes": 6067,
       "symbol_hints": [
         "FailingTransport",
         "__call__",
@@ -39607,7 +39608,10 @@
         "test_live_failure_yields_not_established_and_no_snapshot",
         "test_valid_json_constructs_snapshot",
         "test_semantic_live_response_change_changes_snapshot_digest",
-        "test_malformed_json_is_not_established_not_negative"
+        "test_malformed_json_is_not_established_not_negative",
+        "SourceCaptureReceiptTests",
+        "test_raw_byte_tampering_breaks_capture_replay",
+        "test_retry_requires_previous_attempt_digest"
       ]
     },
     {
