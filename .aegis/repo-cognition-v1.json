@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "7f56a042a9921e5e8cc167b74249bcb7035726058bfa2614cf24a172165420aa",
+  "corpus_root": "1f0378ecc55c0bb77d1fc2a5efff45efed755c698f43e989d2de7d8cf97663af",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1939,
@@ -39788,23 +39788,24 @@
       ]
     },
     {
-      "content_sha256": "c2ca1817ef452101b12e396338b6c738120a11b2218bc1f2f893d423666e2d3c",
+      "content_sha256": "3ca45c8c9f76a9498e00348a0da8d8ca8cd01c017fc2b9b839bd8c4f465f133c",
       "dependency_hints": [
+        "dataclasses",
         "hashlib",
         "pathlib",
         "sys",
         "unittest",
         "research_invariants"
       ],
-      "git_blob_sha": "8553ac7b5c3ba2c111b326b92f1e4b93cfe695ea",
+      "git_blob_sha": "5a273baef6b7186f8681a576394a2eb941d2591f",
       "heading_hint": null,
       "kind": "test",
       "language": "python",
-      "line_count": 169,
+      "line_count": 251,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/tests/test_research_invariants.py",
-      "size_bytes": 7090,
+      "size_bytes": 10686,
       "symbol_hints": [
         "ZeroDiscretionTypeGateTests",
         "test_type_registry_is_zero_discretion_and_fail_closed",
@@ -39822,7 +39823,13 @@
         "test_admission_ticket_is_deterministic_except_timing",
         "test_status_type_checked_requires_pass_receipt",
         "test_status_computed_requires_reproducible_output_hash",
-        "test_theorem_requires_proof_and_checker_receipts"
+        "test_theorem_requires_proof_and_checker_receipts",
+        "test_relation_binding_is_order_stable_but_role_sensitive",
+        "test_relation_binding_rejects_invalid_roles",
+        "test_admission_accepts_receipt_bound_to_exact_relation",
+        "test_admission_rejects_receipt_from_different_counterpart",
+        "test_status_journal_preserves_promotion_and_demotion_history",
+        "test_status_transition_hash_detects_tampering"
       ]
     },
     {
