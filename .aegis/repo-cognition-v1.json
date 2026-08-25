@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "f414c590337d87c2aa85b3c17c4e4e901efe14b4944474a6caba085265effed1",
+  "corpus_root": "99e51351ed71ac4def1ed274f805c613db1b468b5715ed63c6832057c82826ec",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1954,
@@ -28765,17 +28765,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "66880fc0d68dc1fefe98966d2174074c3778d71b17123286e6f56e7e3c505d02",
+      "content_sha256": "f41768f2fc9e7d9b27928b1d2bb5473801b2396e86aa534661c747ae9bb375c6",
       "dependency_hints": [],
-      "git_blob_sha": "245c68b5396fcc43337bfd51ef08ccc4883427c2",
+      "git_blob_sha": "54688c8d5cebacb6e24947e83048c7dbbe84bbe0",
       "heading_hint": "Prospective Epoch V1 Implementation Plan",
       "kind": "documentation",
       "language": "markdown",
-      "line_count": 589,
+      "line_count": 488,
       "mode": "100644",
       "object_type": "blob",
       "path": "docs/superpowers/plans/2026-08-25-prospective-epoch-v1.md",
-      "size_bytes": 25398,
+      "size_bytes": 25068,
       "symbol_hints": []
     },
     {
