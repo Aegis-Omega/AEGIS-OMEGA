@@ -56,6 +56,11 @@ def make_snapshot(subject, registry_id, matched):
     )
 
 
+def rehash_receipt(receipt):
+    provisional = replace(receipt, receipt_sha256="0" * 64)
+    return replace(provisional, receipt_sha256=ri.sha256_hex(cov._probe_receipt_material(provisional)))
+
+
 class CoverageProbeTests(unittest.TestCase):
     def test_match_and_no_match_are_source_replayable_and_distinct(self):
         subject = cdc.IntegerSubjectV1(42)
@@ -89,6 +94,25 @@ class CoverageProbeTests(unittest.TestCase):
         wrong_source = make_snapshot(subject, "fixture-a", True)
         with self.assertRaises(ValueError):
             cov.verify_verified_probe(replace(probe, source_snapshot=wrong_source))
+
+    def test_hash_valid_subject_query_splicing_fails(self):
+        subject_42 = cdc.IntegerSubjectV1(42)
+        subject_43 = cdc.IntegerSubjectV1(43)
+        probe = cov.probe_registry_snapshot(subject_42, make_criterion(), make_adapter("fixture-a"), make_snapshot(subject_42, "fixture-a", False))
+        spliced = rehash_receipt(replace(probe.receipt, subject_sha256=subject_43.subject_sha256))
+        cov.verify_registry_probe_receipt(spliced)
+        with self.assertRaises(ValueError):
+            cov.verify_verified_probe(replace(probe, receipt=spliced))
+
+    def test_hash_valid_criterion_splicing_fails(self):
+        subject = cdc.IntegerSubjectV1(42)
+        original = make_criterion(control_count=4)
+        other = make_criterion(control_count=5)
+        probe = cov.probe_registry_snapshot(subject, original, make_adapter("fixture-a"), make_snapshot(subject, "fixture-a", False))
+        spliced = rehash_receipt(replace(probe.receipt, criterion_sha256=other.criterion_sha256))
+        cov.verify_registry_probe_receipt(spliced)
+        with self.assertRaises(ValueError):
+            cov.verify_verified_probe(replace(probe, receipt=spliced))
 
 
 if __name__ == "__main__":
