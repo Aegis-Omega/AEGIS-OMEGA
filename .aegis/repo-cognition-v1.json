@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "f2fd6a1fbcd9d5dcb428c476194f7d3654ea0c51a9593063fc0c887a247b43d2",
+  "corpus_root": "9f670835949078a11625c5502c7de010e5d43cfacf503f69242ffeadf7f26934",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1952,
@@ -39335,22 +39335,22 @@
       ]
     },
     {
-      "content_sha256": "3864c7bff15ed2ca693eb7904c84cfbe8fbb27179a3903d9d08d83c109d109ac",
+      "content_sha256": "e957960b955466b0124d1ba32cc8494ef21197df86a5f2345b4cab7f43468a53",
       "dependency_hints": [
         "pathlib",
         "sys",
         "unittest",
         "cross_domain_collision"
       ],
-      "git_blob_sha": "0a1ae6264bddb2f8a6015064f3e4e359d54dd57e",
+      "git_blob_sha": "67ba96caefb5f0f14668b18ad1655d24e05b0c23",
       "heading_hint": null,
       "kind": "test",
       "language": "python",
-      "line_count": 206,
+      "line_count": 204,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/tests/test_cross_domain_collision.py",
-      "size_bytes": 9440,
+      "size_bytes": 9344,
       "symbol_hints": [
         "fixture_criterion",
         "fixture_observation",
@@ -39371,8 +39371,8 @@
         "test_different_seed_changes_control_sequence",
         "test_retrospective_fixture_cannot_be_promoted_by_null_model",
         "test_retrospective_descriptive_null_receipt_is_not_promotion_eligible",
-        "test_prospective_null_survival_uses_finite_sample_correction",
-        "test_null_model_without_threshold_mints_no_survival_verdict"
+        "test_prospective_null_cannot_use_uncovered_synthetic_controls",
+        "test_threshold_free_prospective_null_still_requires_coverage"
       ]
     },
     {
