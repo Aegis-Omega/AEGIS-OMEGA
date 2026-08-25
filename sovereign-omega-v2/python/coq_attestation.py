@@ -4,6 +4,10 @@
 This module does not prove mathematics. It records source structure, compiler
 outcomes, and `Print Assumptions` evidence so downstream gates can distinguish
 compiled/axiom-free theorems from assumption-bearing or failed artifacts.
+
+Classical trust probes are retained as evidence, but they are explicitly
+DIAGNOSTIC_ONLY: their imported assumptions are never allowed to become
+production authority or baseline-regression inputs.
 """
 
 from __future__ import annotations
@@ -18,6 +22,21 @@ from typing import Any
 
 RECEIPT_KIND = "COQ_FORMAL_ATTESTATION_RECEIPT_V1"
 AUTHORITY = "FORMAL_MATH_EVIDENCE_ONLY"
+AUTHORITY_ELIGIBLE = "AUTHORITY_ELIGIBLE"
+DIAGNOSTIC_ONLY = "DIAGNOSTIC_ONLY"
+
+# These files intentionally probe the trust surface of classical Coq modules.
+# They are compiled and Print-Assumptions evidence is preserved, but they are
+# not proof-authority inputs and cannot create/clear production assumption debt.
+DIAGNOSTIC_ONLY_PATHS = frozenset(
+    {
+        "Weil/O0TrustProbeReals.v",
+        "Weil/O0TrustProbeFunction.v",
+        "Weil/O0TrustProbeCompact.v",
+        "Weil/O0TrustProbeContinuity.v",
+    }
+)
+
 THEOREM_RE = re.compile(
     r"(?m)^\s*(?:Theorem|Lemma|Corollary|Proposition|Fact|Remark)\s+([A-Za-z_][A-Za-z0-9_']*)\b"
 )
@@ -163,12 +182,25 @@ def _load_baseline(path: Path) -> tuple[dict[str, Any], str]:
     return value, _sha256_bytes(raw)
 
 
+def _is_diagnostic_entry(entry: dict[str, Any]) -> bool:
+    scope = entry.get("evidence_scope")
+    if scope is not None:
+        return scope == DIAGNOSTIC_ONLY
+    return entry.get("path") in DIAGNOSTIC_ONLY_PATHS
+
+
 def _assumption_snapshot(files: list[dict[str, Any]]) -> dict[str, Any]:
     declared: dict[str, list[str]] = {}
     theorem_assumptions: dict[str, list[str]] = {}
     admitted: dict[str, int] = {}
 
     for entry in files:
+        # Diagnostic trust probes are observations about imported trust surface,
+        # not authority-bearing proof sources. They stay in the receipt but do
+        # not participate in the production baseline comparison.
+        if _is_diagnostic_entry(entry):
+            continue
+
         declared_symbols = sorted(
             set(entry["axiom_symbols"]) | set(entry["parameter_symbols"])
         )
@@ -275,6 +307,12 @@ def build_receipt(
     axiom_free_theorems = 0
     assumption_bearing_theorems = 0
     unrecognized_assumption_outputs = 0
+    authority_axiom_free_theorems = 0
+    authority_assumption_bearing_theorems = 0
+    authority_unrecognized_assumption_outputs = 0
+    diagnostic_axiom_free_theorems = 0
+    diagnostic_assumption_bearing_theorems = 0
+    diagnostic_unrecognized_assumption_outputs = 0
     source_axiom_statements = 0
     source_parameter_statements = 0
     source_axiom_symbols = 0
@@ -283,6 +321,11 @@ def build_receipt(
     for source_path in sorted(formal_root.rglob("*.v")):
         relative = source_path.relative_to(formal_root)
         relative_key = relative.as_posix()
+        evidence_scope = (
+            DIAGNOSTIC_ONLY
+            if relative_key in DIAGNOSTIC_ONLY_PATHS
+            else AUTHORITY_ELIGIBLE
+        )
         manifest = inspect_coq_source(source_path)
         status_entry = compile_status.get(
             relative_key, {"status": "MISSING", "log_sha256": None}
@@ -293,7 +336,7 @@ def build_receipt(
         source_parameter_statements += int(manifest["parameter_statement_count"])
         source_axiom_symbols += int(manifest["axiom_symbol_count"])
         source_parameter_symbols += int(manifest["parameter_symbol_count"])
-        if manifest["admitted_count"]:
+        if manifest["admitted_count"] and evidence_scope == AUTHORITY_ELIGIBLE:
             admitted_sources += 1
 
         theorem_attestations: list[dict[str, Any]] = []
@@ -313,12 +356,30 @@ def build_receipt(
                         "raw_sha256": None,
                     }
                 theorem_attestations.append({"theorem": theorem, **parsed})
-                if parsed["closed_under_global_context"]:
+
+                is_closed = bool(parsed["closed_under_global_context"])
+                is_unrecognized = parsed["parse_status"] in {"UNRECOGNIZED", "MISSING"}
+                if is_closed:
                     axiom_free_theorems += 1
                 else:
                     assumption_bearing_theorems += 1
-                    if parsed["parse_status"] in {"UNRECOGNIZED", "MISSING"}:
+                    if is_unrecognized:
                         unrecognized_assumption_outputs += 1
+
+                if evidence_scope == DIAGNOSTIC_ONLY:
+                    if is_closed:
+                        diagnostic_axiom_free_theorems += 1
+                    else:
+                        diagnostic_assumption_bearing_theorems += 1
+                        if is_unrecognized:
+                            diagnostic_unrecognized_assumption_outputs += 1
+                else:
+                    if is_closed:
+                        authority_axiom_free_theorems += 1
+                    else:
+                        authority_assumption_bearing_theorems += 1
+                        if is_unrecognized:
+                            authority_unrecognized_assumption_outputs += 1
         else:
             compile_failures += 1
 
@@ -345,6 +406,7 @@ def build_receipt(
         files.append(
             {
                 "path": relative_key,
+                "evidence_scope": evidence_scope,
                 **manifest,
                 "compile_status": compile_state,
                 "compile_log_sha256": status_entry.get("log_sha256"),
@@ -356,6 +418,12 @@ def build_receipt(
 
     summary = {
         "file_count": len(files),
+        "authority_eligible_files": sum(
+            entry["evidence_scope"] == AUTHORITY_ELIGIBLE for entry in files
+        ),
+        "diagnostic_only_files": sum(
+            entry["evidence_scope"] == DIAGNOSTIC_ONLY for entry in files
+        ),
         "compiled_files": len(files) - compile_failures,
         "compile_failures": compile_failures,
         "admitted_sources": admitted_sources,
@@ -366,6 +434,12 @@ def build_receipt(
         "axiom_free_theorems": axiom_free_theorems,
         "assumption_bearing_theorems": assumption_bearing_theorems,
         "unrecognized_assumption_outputs": unrecognized_assumption_outputs,
+        "authority_axiom_free_theorems": authority_axiom_free_theorems,
+        "authority_assumption_bearing_theorems": authority_assumption_bearing_theorems,
+        "authority_unrecognized_assumption_outputs": authority_unrecognized_assumption_outputs,
+        "diagnostic_axiom_free_theorems": diagnostic_axiom_free_theorems,
+        "diagnostic_assumption_bearing_theorems": diagnostic_assumption_bearing_theorems,
+        "diagnostic_unrecognized_assumption_outputs": diagnostic_unrecognized_assumption_outputs,
     }
 
     baseline_diff = None
@@ -382,6 +456,7 @@ def build_receipt(
         "lean_runtime_status": "NOT_PRESENT_IN_REPO",
         "authority": AUTHORITY,
         "correspondence": "NOT_ESTABLISHED",
+        "diagnostic_only_paths": sorted(DIAGNOSTIC_ONLY_PATHS),
         "files": files,
         "summary": summary,
     }
