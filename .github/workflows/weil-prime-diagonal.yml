@@ -1,0 +1,51 @@
+name: Weil Prime Diagonal
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/formal/tests/Weil/PrimeDiagonalSpec.v"
+      - "sovereign-omega-v2/formal/theories/Weil/FinitePrimeDiagonal.v"
+      - ".github/workflows/weil-prime-diagonal.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-prime-diagonal-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  red-green:
+    name: coqc / prime diagonal specification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Compile specification
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            DIR="$ROOT/formal/theories/Weil"
+            TEST="$ROOT/formal/tests/Weil/PrimeDiagonalSpec.v"
+            cd "$DIR"
+            coqc FiniteBridge.v
+            coqc FiniteEntryDictionary.v
+            coqc "$TEST"
