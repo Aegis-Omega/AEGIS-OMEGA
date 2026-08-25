@@ -1,0 +1,172 @@
+name: Weil O0 Globalization
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/formal/theories/Weil/AnalyticDefinitions.v"
+      - "sovereign-omega-v2/formal/theories/Weil/Globalization.v"
+      - "sovereign-omega-v2/formal/theories/Weil/WeilCriterion.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0DependencyProbe.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0ClosureProbe.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeReals.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeFunction.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeCompact.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeContinuity.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0TrustProbeConstructive.v"
+      - "sovereign-omega-v2/formal/theories/Weil/O0ProductionConstructiveProbe.v"
+      - "sovereign-omega-v2/python/coq_attestation.py"
+      - "sovereign-omega-v2/python/tests/test_coq_attestation*.py"
+      - ".github/workflows/coq-formal-attestation.yml"
+      - ".github/workflows/weil-o0-globalization.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-o0-globalization-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  o0:
+    name: coqc / Weil O0 globalization
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Reject declared assumptions in O0 sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          for src in \
+            sovereign-omega-v2/formal/theories/Weil/AnalyticDefinitions.v \
+            sovereign-omega-v2/formal/theories/Weil/Globalization.v \
+            sovereign-omega-v2/formal/theories/Weil/WeilCriterion.v \
+            sovereign-omega-v2/formal/theories/Weil/O0.v
+          do
+            test -f "$src"
+            if grep -En '^[[:space:]]*(Axiom|Axioms|Parameter|Parameters|Admitted)[[:space:].]' "$src"; then
+              echo "Declared assumption/admission forbidden: $src" >&2
+              exit 1
+            fi
+          done
+
+      - name: Prepare writable O0 evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/weil-o0-attestation
+          chmod -R a+rwX sovereign-omega-v2/formal/theories/Weil sovereign-omega-v2/weil-o0-attestation
+
+      - name: Diagnose trust surface, compile vocabulary, and enforce open closure
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            DIR="$ROOT/formal/theories/Weil"
+            OUT="$ROOT/weil-o0-attestation"
+            cd "$DIR"
+            coqc --version | tee "$OUT/coq-version.txt"
+
+            for spec in \
+              'O0TrustProbeReals:o0_trust_probe_reals_reflexive' \
+              'O0TrustProbeFunction:o0_trust_probe_function_reflexive' \
+              'O0TrustProbeCompact:o0_trust_probe_compact_reflexive' \
+              'O0TrustProbeContinuity:o0_trust_probe_continuity_reflexive'
+            do
+              module="${spec%%:*}"
+              theorem="${spec##*:}"
+              coqc "$module.v"
+              query="$OUT/pre-${theorem}.v"
+              log="$OUT/pre-${theorem}.assumptions.txt"
+              printf 'Set Coqtop Exit On Error.\nRequire Import %s.\nPrint Assumptions %s.\n' "$module" "$theorem" > "$query"
+              coqtop -quiet -batch -l "$query" > "$log" 2>&1
+              rm -f "$query"
+              echo "===== CLASSICAL-DIAGNOSTIC $theorem ====="
+              cat "$log"
+            done
+
+            coqc O0TrustProbeConstructive.v
+            query="$OUT/o0_trust_probe_constructive_order_refl.v"
+            log="$OUT/o0_trust_probe_constructive_order_refl.assumptions.txt"
+            printf 'Set Coqtop Exit On Error.\nRequire Import O0TrustProbeConstructive.\nPrint Assumptions o0_trust_probe_constructive_order_refl.\n' > "$query"
+            coqtop -quiet -batch -l "$query" > "$log" 2>&1
+            rm -f "$query"
+            echo '===== CONSTRUCTIVE-CARRIER o0_trust_probe_constructive_order_refl ====='
+            cat "$log"
+            grep -q 'Closed under the global context' "$log"
+            if grep -q '^Axioms:' "$log"; then
+              echo 'Constructive real order probe is not closed' >&2
+              exit 1
+            fi
+
+            coqc AnalyticDefinitions.v 2>&1 | tee "$OUT/analytic-definitions.log"
+            coqc O0ProductionConstructiveProbe.v
+            query="$OUT/o0_production_real_order_reflexive.v"
+            log="$OUT/o0_production_real_order_reflexive.assumptions.txt"
+            printf 'Set Coqtop Exit On Error.\nRequire Import O0ProductionConstructiveProbe.\nPrint Assumptions o0_production_real_order_reflexive.\n' > "$query"
+            coqtop -quiet -batch -l "$query" > "$log" 2>&1
+            rm -f "$query"
+            echo '===== PRODUCTION-CARRIER o0_production_real_order_reflexive ====='
+            cat "$log"
+            grep -q 'Closed under the global context' "$log"
+            if grep -q '^Axioms:' "$log"; then
+              echo 'Production O0 real carrier is not closed' >&2
+              exit 1
+            fi
+
+            opam install -y coq-coquelicot.3.4.2
+            opam list --installed coq-coquelicot --short | tee "$OUT/dependency-probe.log"
+            coqc O0DependencyProbe.v
+
+            query="$OUT/post-o0_trust_probe_reals_reflexive.v"
+            log="$OUT/post-o0_trust_probe_reals_reflexive.assumptions.txt"
+            printf 'Set Coqtop Exit On Error.\nRequire Import O0TrustProbeReals.\nPrint Assumptions o0_trust_probe_reals_reflexive.\n' > "$query"
+            coqtop -quiet -batch -l "$query" > "$log" 2>&1
+            rm -f "$query"
+            echo '===== POST-COQUELICOT o0_trust_probe_reals_reflexive ====='
+            cat "$log"
+
+            coqc Globalization.v 2>&1 | tee "$OUT/globalization.log"
+            coqc WeilCriterion.v 2>&1 | tee "$OUT/weil-criterion.log"
+            coqc O0.v 2>&1 | tee "$OUT/o0.log"
+
+            for theorem in \
+              global_weil_positivity_v1_pointwise \
+              finite_lower_bound_v1_specialize \
+              o0_plus_minus_cancel_v1 \
+              o0_rational_half_balance_v1 \
+              globalization_ready_implies_global_weil_positivity_v1
+            do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.assumptions.txt"
+              printf 'Set Coqtop Exit On Error.\nRequire Import AnalyticDefinitions Globalization.\nPrint Assumptions %s.\n' "$theorem" > "$query"
+              coqtop -quiet -batch -l "$query" > "$log" 2>&1
+              rm -f "$query"
+              echo "===== CORE $theorem ====="
+              cat "$log"
+              grep -q 'Closed under the global context' "$log"
+              if grep -q '^Axioms:' "$log"; then
+                echo "Unexpected assumptions for $theorem" >&2
+                exit 1
+              fi
+            done
+
+            coqc O0ClosureProbe.v 2>&1 | tee "$OUT/closure-probe.log"
