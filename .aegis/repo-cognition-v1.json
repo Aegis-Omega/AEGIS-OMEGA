@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "6c8d5dbd74bd2be7a346bfbb3281029322284118c347152b0024cf0af78d9e83",
+  "corpus_root": "3deab3b8625c737aeeba89dc043fd23973cd7c035ba5cfddcc43d81f357abae0",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1956,
@@ -38197,30 +38197,39 @@
       ]
     },
     {
-      "content_sha256": "fe582e24dd43ea0a4dc9808f1f7dfc6eb53a6769833df5d30f9745cc843ae9af",
+      "content_sha256": "60965f18f89804305bcfc7f3ff30446ad23bb33549e7f99d788d3b6f3eb2ab66",
       "dependency_hints": [
         "__future__",
         "dataclasses",
         "typing",
+        "hashlib",
         "json",
         "urllib.request",
         "cross_domain_collision",
         "research_invariants"
       ],
-      "git_blob_sha": "513de6b84244a09f48e2e67dcd41ff2d31c5ce98",
+      "git_blob_sha": "2038404531089de42521ae5cadbe4357395bf579",
       "heading_hint": null,
       "kind": "source",
       "language": "python",
-      "line_count": 84,
+      "line_count": 264,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/cross_domain_ingest.py",
-      "size_bytes": 2647,
+      "size_bytes": 10576,
       "symbol_hints": [
         "IngestionOutcomeV1",
         "canonicalize_external_result",
         "_default_transport",
-        "fetch_json_snapshot"
+        "fetch_json_snapshot",
+        "SourceCaptureReceiptV1",
+        "_capture_receipt_material",
+        "verify_source_capture_receipt",
+        "VerifiedSourceCaptureV1",
+        "__post_init__",
+        "_raw_sha256",
+        "capture_source_bytes",
+        "verify_source_capture"
       ]
     },
     {
