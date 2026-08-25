@@ -2,6 +2,7 @@ import hashlib
 import pathlib
 import sys
 import unittest
+from dataclasses import replace
 
 MODULE_DIR = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(MODULE_DIR))
@@ -163,6 +164,87 @@ class ZeroDiscretionTypeGateTests(unittest.TestCase):
         )
         self.assertEqual(status.status, ri.ResearchStatus.THEOREM)
         self.assertIsNotNone(status.evidence_sha256)
+
+    def test_relation_binding_is_order_stable_but_role_sensitive(self):
+        a = "a" * 64
+        b = "b" * 64
+        first = ri.bind_relation("basis-against-gamma-v1", {"basis": a, "gamma": b})
+        reordered = ri.bind_relation("basis-against-gamma-v1", {"gamma": b, "basis": a})
+        swapped_roles = ri.bind_relation("basis-against-gamma-v1", {"basis": b, "gamma": a})
+        self.assertEqual(first.relation_digest, reordered.relation_digest)
+        self.assertNotEqual(first.relation_digest, swapped_roles.relation_digest)
+
+    def test_relation_binding_rejects_invalid_roles(self):
+        digest = "a" * 64
+        with self.assertRaises(ValueError):
+            ri.bind_relation("", {"left": digest})
+        with self.assertRaises(ValueError):
+            ri.bind_relation("x", {})
+        with self.assertRaises(ValueError):
+            ri.bind_relation("x", {"": digest})
+
+    def test_admission_accepts_receipt_bound_to_exact_relation(self):
+        relation = ri.bind_relation("x-against-y-v1", {"x": "a" * 64, "y": "b" * 64})
+        receipt = ri.relation_gate_receipt(
+            gate_id="relation-check",
+            relation=relation,
+            verdict=ri.GateVerdict.PASS,
+            observation={"matched": True},
+        )
+        ticket = ri.AdmissionController.admit(
+            stage_id="relational-stage",
+            subject_digest=relation.relation_digest,
+            required_gate_ids=["relation-check"],
+            receipts=[receipt],
+        )
+        self.assertEqual(ticket.subject_digest, relation.relation_digest)
+
+    def test_admission_rejects_receipt_from_different_counterpart(self):
+        old = ri.bind_relation("x-against-y-v1", {"x": "a" * 64, "y": "b" * 64})
+        new = ri.bind_relation("x-against-y-v1", {"x": "a" * 64, "y": "c" * 64})
+        receipt = ri.relation_gate_receipt(
+            gate_id="relation-check",
+            relation=old,
+            verdict=ri.GateVerdict.PASS,
+            observation={"matched": True},
+        )
+        with self.assertRaises(PermissionError):
+            ri.AdmissionController.admit(
+                stage_id="relational-stage",
+                subject_digest=new.relation_digest,
+                required_gate_ids=["relation-check"],
+                receipts=[receipt],
+            )
+
+    def test_status_journal_preserves_promotion_and_demotion_history(self):
+        journal = ri.StatusJournalV1("claim-1")
+        first = journal.append(
+            next_status="CROSS_REGISTRY_COLLISION",
+            evidence_receipt_digests=["a" * 64],
+            criterion_sha256="c" * 64,
+            reason="exact external mappings",
+        )
+        second = journal.append(
+            next_status="OBSERVED",
+            evidence_receipt_digests=["b" * 64],
+            criterion_sha256="c" * 64,
+            reason="corrected criterion demotion",
+        )
+        self.assertEqual(journal.current_status, "OBSERVED")
+        self.assertEqual(len(journal.history), 2)
+        self.assertEqual(second.previous_transition_sha256, first.transition_sha256)
+        self.assertTrue(ri.StatusJournalV1.verify(journal.history))
+
+    def test_status_transition_hash_detects_tampering(self):
+        journal = ri.StatusJournalV1("claim-1")
+        transition = journal.append(
+            next_status="OBSERVED",
+            evidence_receipt_digests=["a" * 64],
+            criterion_sha256="c" * 64,
+            reason="reason-a",
+        )
+        tampered = replace(transition, reason="reason-b")
+        self.assertFalse(ri.StatusJournalV1.verify([tampered]))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,803 @@
+"""AEGIS Ω — deterministic integer-first cross-domain collision core."""
+
+from __future__ import annotations
+
+import json
+import math
+import pathlib
+import random
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Mapping, Sequence
+
+import research_invariants as ri
+
+
+class EvidenceClass(str, Enum):
+    EXTERNAL_IDENTIFIER_MATCH = "EXTERNAL_IDENTIFIER_MATCH"
+    STANDARD_CODEPOINT_MAPPING = "STANDARD_CODEPOINT_MAPPING"
+    DERIVED_PROPERTY = "DERIVED_PROPERTY"
+
+
+class SelectionProvenance(str, Enum):
+    RETROSPECTIVE = "RETROSPECTIVE"
+    PROSPECTIVE = "PROSPECTIVE"
+
+
+@dataclass(frozen=True)
+class IntegerSubjectV1:
+    value: int
+    subject_sha256: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        if isinstance(self.value, bool) or not isinstance(self.value, int):
+            raise TypeError("IntegerSubjectV1.value must be an integer")
+        object.__setattr__(
+            self,
+            "subject_sha256",
+            ri.sha256_hex({"schema": "AEGIS_INTEGER_SUBJECT_V1", "value": self.value}),
+        )
+
+    @property
+    def hex_upper(self) -> str:
+        return ("-" if self.value < 0 else "") + format(abs(self.value), "X")
+
+    @property
+    def unicode_codepoint_label(self) -> str:
+        if not 0 <= self.value <= 0x10FFFF:
+            raise ValueError("integer is outside Unicode code-point range")
+        width = 4 if self.value <= 0xFFFF else 6
+        return f"U+{self.value:0{width}X}"
+
+
+@dataclass(frozen=True)
+class TransformSpecV1:
+    transform_id: str
+    transform_version: str
+    input_type: str
+    output_type: str
+    criterion_text: str
+    criterion_sha256: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("transform_id", self.transform_id),
+            ("transform_version", self.transform_version),
+            ("input_type", self.input_type),
+            ("output_type", self.output_type),
+        ):
+            if not value:
+                raise ValueError(f"{name} must be non-empty")
+        if not self.criterion_text:
+            raise ValueError("criterion_text must be non-empty")
+        object.__setattr__(self, "criterion_sha256", ri.literal_sha256(self.criterion_text))
+
+
+@dataclass(frozen=True)
+class RegistrySnapshotV1:
+    registry_id: str
+    registry_version_or_release: str
+    query_key: str
+    query_key_type: str
+    result_kind: str
+    canonical_result: Any
+    source_locator: str
+    source_observed_at: str
+    ingestion_producer_id: str
+    content_sha256: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("registry_id", self.registry_id),
+            ("registry_version_or_release", self.registry_version_or_release),
+            ("query_key", self.query_key),
+            ("query_key_type", self.query_key_type),
+            ("result_kind", self.result_kind),
+            ("source_locator", self.source_locator),
+            ("source_observed_at", self.source_observed_at),
+            ("ingestion_producer_id", self.ingestion_producer_id),
+        ):
+            if not value:
+                raise ValueError(f"{name} must be non-empty")
+        frozen_result = ri.freeze_hash_material(self.canonical_result)
+        object.__setattr__(self, "canonical_result", frozen_result)
+        material = {
+            "schema": "AEGIS_REGISTRY_SNAPSHOT_V1",
+            "registry_id": self.registry_id,
+            "registry_version_or_release": self.registry_version_or_release,
+            "query_key": self.query_key,
+            "query_key_type": self.query_key_type,
+            "result_kind": self.result_kind,
+            "canonical_result": frozen_result,
+            "source_locator": self.source_locator,
+            "source_observed_at": self.source_observed_at,
+            "ingestion_producer_id": self.ingestion_producer_id,
+        }
+        object.__setattr__(self, "content_sha256", ri.sha256_hex(material))
+
+
+@dataclass(frozen=True)
+class DerivationReceiptV1:
+    subject_sha256: str
+    derivation_id: str
+    derivation_version: str
+    criterion_sha256: str
+    canonical_result: Any
+    evidence_class: EvidenceClass = field(init=False, default=EvidenceClass.DERIVED_PROPERTY)
+    receipt_sha256: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        ri._check_digest(self.subject_sha256, "subject_sha256")
+        ri._check_digest(self.criterion_sha256, "criterion_sha256")
+        if not self.derivation_id or not self.derivation_version:
+            raise ValueError("derivation_id and derivation_version must be non-empty")
+        frozen_result = ri.freeze_hash_material(self.canonical_result)
+        object.__setattr__(self, "canonical_result", frozen_result)
+        material = {
+            "schema": "AEGIS_DERIVATION_RECEIPT_V1",
+            "subject_sha256": self.subject_sha256,
+            "derivation_id": self.derivation_id,
+            "derivation_version": self.derivation_version,
+            "criterion_sha256": self.criterion_sha256,
+            "canonical_result": frozen_result,
+            "evidence_class": self.evidence_class.value,
+        }
+        object.__setattr__(self, "receipt_sha256", ri.sha256_hex(material))
+
+
+@dataclass(frozen=True)
+class DomainObservationV1:
+    subject_sha256: str
+    domain_id: str
+    evidence_class: EvidenceClass
+    transform_id: str
+    transform_criterion_sha256: str
+    evidence_artifact_sha256: str
+    normalized_claim: str
+    observation_sha256: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        ri._check_digest(self.subject_sha256, "subject_sha256")
+        ri._check_digest(self.transform_criterion_sha256, "transform_criterion_sha256")
+        ri._check_digest(self.evidence_artifact_sha256, "evidence_artifact_sha256")
+        if not self.domain_id or not self.transform_id or not self.normalized_claim:
+            raise ValueError("domain_id, transform_id, and normalized_claim must be non-empty")
+        material = {
+            "schema": "AEGIS_DOMAIN_OBSERVATION_V1",
+            "subject_sha256": self.subject_sha256,
+            "domain_id": self.domain_id,
+            "evidence_class": self.evidence_class.value,
+            "transform_id": self.transform_id,
+            "transform_criterion_sha256": self.transform_criterion_sha256,
+            "evidence_artifact_sha256": self.evidence_artifact_sha256,
+            "normalized_claim": self.normalized_claim,
+        }
+        object.__setattr__(self, "observation_sha256", ri.sha256_hex(material))
+
+
+@dataclass(frozen=True)
+class CollisionCriterionV1:
+    universe_min: int
+    universe_max: int
+    registry_set: tuple[str, ...]
+    transform_set: tuple[str, ...]
+    independence_rule_id: str
+    score_function_id: str
+    control_generator_id: str
+    control_seed: int
+    control_count: int
+    promotion_threshold: float | None
+    criterion_text: str
+    criterion_sha256: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        if isinstance(self.registry_set, (str, bytes)) or isinstance(self.transform_set, (str, bytes)):
+            raise TypeError("registry_set and transform_set must be sequences of ids")
+        registries = tuple(self.registry_set)
+        transforms = tuple(self.transform_set)
+        object.__setattr__(self, "registry_set", registries)
+        object.__setattr__(self, "transform_set", transforms)
+        if self.universe_min > self.universe_max:
+            raise ValueError("universe_min must not exceed universe_max")
+        if self.control_count <= 0:
+            raise ValueError("control_count must be positive")
+        if len(set(registries)) != len(registries):
+            raise ValueError("registry_set must contain unique ids")
+        if len(set(transforms)) != len(transforms):
+            raise ValueError("transform_set must contain unique ids")
+        if any(not value for value in registries + transforms):
+            raise ValueError("registry and transform ids must be non-empty")
+        for name, value in (
+            ("independence_rule_id", self.independence_rule_id),
+            ("score_function_id", self.score_function_id),
+            ("control_generator_id", self.control_generator_id),
+            ("criterion_text", self.criterion_text),
+        ):
+            if not value:
+                raise ValueError(f"{name} must be non-empty")
+        if self.promotion_threshold is not None and not 0.0 <= self.promotion_threshold <= 1.0:
+            raise ValueError("promotion_threshold must lie in [0, 1]")
+        material = {
+            "schema": "AEGIS_COLLISION_CRITERION_V1",
+            "universe_min": self.universe_min,
+            "universe_max": self.universe_max,
+            "registry_set": registries,
+            "transform_set": transforms,
+            "independence_rule_id": self.independence_rule_id,
+            "score_function_id": self.score_function_id,
+            "control_generator_id": self.control_generator_id,
+            "control_seed": self.control_seed,
+            "control_count": self.control_count,
+            "promotion_threshold": self.promotion_threshold,
+            "criterion_text": self.criterion_text,
+        }
+        object.__setattr__(self, "criterion_sha256", ri.sha256_hex(material))
+
+
+@dataclass(frozen=True)
+class CollisionReceiptV1:
+    subject_sha256: str
+    provenance: SelectionProvenance
+    observation_sha256s: tuple[str, ...]
+    criterion_sha256: str
+    independent_external_domains: tuple[str, ...]
+    independent_external_domain_count: int
+    score: int
+    cross_registry_collision: bool
+    receipt_sha256: str
+
+
+def _collision_receipt_material(receipt: CollisionReceiptV1) -> Mapping[str, Any]:
+    return {
+        "schema": "AEGIS_COLLISION_RECEIPT_V1",
+        "subject_sha256": receipt.subject_sha256,
+        "provenance": receipt.provenance.value,
+        "observation_sha256s": receipt.observation_sha256s,
+        "criterion_sha256": receipt.criterion_sha256,
+        "independent_external_domains": receipt.independent_external_domains,
+        "independent_external_domain_count": receipt.independent_external_domain_count,
+        "score": receipt.score,
+        "cross_registry_collision": receipt.cross_registry_collision,
+    }
+
+
+def verify_collision_receipt(receipt: CollisionReceiptV1) -> None:
+    if not isinstance(receipt, CollisionReceiptV1):
+        raise TypeError("expected CollisionReceiptV1")
+    ri._check_digest(receipt.subject_sha256, "subject_sha256")
+    ri._check_digest(receipt.criterion_sha256, "criterion_sha256")
+    ri._check_digest(receipt.receipt_sha256, "receipt_sha256")
+    for digest in receipt.observation_sha256s:
+        ri._check_digest(digest, "observation_sha256")
+    if not isinstance(receipt.provenance, SelectionProvenance):
+        raise ValueError("collision provenance is not canonical")
+    domains = tuple(receipt.independent_external_domains)
+    if domains != tuple(sorted(set(domains))):
+        raise ValueError("collision domains must be unique and sorted")
+    count = len(domains)
+    if receipt.independent_external_domain_count != count:
+        raise ValueError("collision domain count mismatch")
+    if receipt.score != count:
+        raise ValueError("collision score does not match frozen score function")
+    if receipt.cross_registry_collision is not (count >= 2):
+        raise ValueError("collision boolean does not match domain count")
+    if ri.sha256_hex(_collision_receipt_material(receipt)) != receipt.receipt_sha256:
+        raise ValueError("collision receipt digest mismatch")
+
+
+def evaluate_collision(
+    subject: IntegerSubjectV1,
+    provenance: SelectionProvenance,
+    observations: Sequence[DomainObservationV1],
+    criterion: CollisionCriterionV1,
+) -> CollisionReceiptV1:
+    """Evaluate only the frozen V1 domain-independence/score contract."""
+    if not isinstance(provenance, SelectionProvenance):
+        raise TypeError("provenance must be SelectionProvenance")
+    if not criterion.universe_min <= subject.value <= criterion.universe_max:
+        raise ValueError("subject is outside the frozen criterion universe")
+    if criterion.independence_rule_id != "UNIQUE_DOMAIN_ID_V1":
+        raise ValueError("unsupported independence rule")
+    if criterion.score_function_id != "UNIQUE_EXTERNAL_DOMAINS_V1":
+        raise ValueError("unsupported score function")
+
+    external_classes = {
+        EvidenceClass.EXTERNAL_IDENTIFIER_MATCH,
+        EvidenceClass.STANDARD_CODEPOINT_MAPPING,
+    }
+    external_domains: set[str] = set()
+    observation_digests: list[str] = []
+    for observation in observations:
+        if observation.subject_sha256 != subject.subject_sha256:
+            raise ValueError("observation subject digest mismatch")
+        if observation.transform_id not in criterion.transform_set:
+            raise ValueError(f"transform not frozen in criterion: {observation.transform_id}")
+        if observation.evidence_class in external_classes:
+            if observation.domain_id not in criterion.registry_set:
+                raise ValueError(f"external domain not frozen in criterion: {observation.domain_id}")
+            external_domains.add(observation.domain_id)
+        observation_digests.append(observation.observation_sha256)
+
+    domains = tuple(sorted(external_domains))
+    digests = tuple(sorted(observation_digests))
+    count = len(domains)
+    receipt = CollisionReceiptV1(
+        subject_sha256=subject.subject_sha256,
+        provenance=provenance,
+        observation_sha256s=digests,
+        criterion_sha256=criterion.criterion_sha256,
+        independent_external_domains=domains,
+        independent_external_domain_count=count,
+        score=count,
+        cross_registry_collision=count >= 2,
+        receipt_sha256="0" * 64,
+    )
+    material = _collision_receipt_material(receipt)
+    receipt = CollisionReceiptV1(
+        subject_sha256=receipt.subject_sha256,
+        provenance=receipt.provenance,
+        observation_sha256s=receipt.observation_sha256s,
+        criterion_sha256=receipt.criterion_sha256,
+        independent_external_domains=receipt.independent_external_domains,
+        independent_external_domain_count=receipt.independent_external_domain_count,
+        score=receipt.score,
+        cross_registry_collision=receipt.cross_registry_collision,
+        receipt_sha256=ri.sha256_hex(material),
+    )
+    verify_collision_receipt(receipt)
+    return receipt
+
+
+def generate_controls(criterion: CollisionCriterionV1) -> tuple[int, ...]:
+    if criterion.control_generator_id != "PY_RANDOM_UNIFORM_INT_V1":
+        raise ValueError("unsupported control generator")
+    rng = random.Random(criterion.control_seed)
+    return tuple(
+        rng.randint(criterion.universe_min, criterion.universe_max)
+        for _ in range(criterion.control_count)
+    )
+
+
+@dataclass(frozen=True)
+class NullModelReceiptV1:
+    subject_sha256: str
+    collision_receipt_sha256: str
+    criterion_sha256: str
+    observed_score: int
+    control_subject_sha256s: tuple[str, ...]
+    control_receipt_sha256s: tuple[str, ...]
+    control_coverage_receipt_sha256s: tuple[str, ...]
+    control_scores_sha256: str
+    control_count: int
+    extreme_count: int
+    p_emp: float
+    promotion_eligible: bool
+    null_survived: bool | None
+    receipt_sha256: str
+
+
+def _null_model_receipt_material(receipt: NullModelReceiptV1) -> Mapping[str, Any]:
+    return {
+        "schema": "AEGIS_NULL_MODEL_RECEIPT_V1",
+        "subject_sha256": receipt.subject_sha256,
+        "collision_receipt_sha256": receipt.collision_receipt_sha256,
+        "criterion_sha256": receipt.criterion_sha256,
+        "observed_score": receipt.observed_score,
+        "control_subject_sha256s": receipt.control_subject_sha256s,
+        "control_receipt_sha256s": receipt.control_receipt_sha256s,
+        "control_coverage_receipt_sha256s": receipt.control_coverage_receipt_sha256s,
+        "control_scores_sha256": receipt.control_scores_sha256,
+        "control_count": receipt.control_count,
+        "extreme_count": receipt.extreme_count,
+        "p_emp": receipt.p_emp,
+        "promotion_eligible": receipt.promotion_eligible,
+        "null_survived": receipt.null_survived,
+    }
+
+
+def verify_null_model_receipt(receipt: NullModelReceiptV1) -> None:
+    if not isinstance(receipt, NullModelReceiptV1):
+        raise TypeError("expected NullModelReceiptV1")
+    ri._check_digest(receipt.subject_sha256, "subject_sha256")
+    ri._check_digest(receipt.collision_receipt_sha256, "collision_receipt_sha256")
+    ri._check_digest(receipt.criterion_sha256, "criterion_sha256")
+    ri._check_digest(receipt.control_scores_sha256, "control_scores_sha256")
+    ri._check_digest(receipt.receipt_sha256, "receipt_sha256")
+    for digest in receipt.control_subject_sha256s:
+        ri._check_digest(digest, "control_subject_sha256")
+    for digest in receipt.control_receipt_sha256s:
+        ri._check_digest(digest, "control_receipt_sha256")
+    for digest in receipt.control_coverage_receipt_sha256s:
+        ri._check_digest(digest, "control_coverage_receipt_sha256")
+    if isinstance(receipt.observed_score, bool) or not isinstance(receipt.observed_score, int) or receipt.observed_score < 0:
+        raise ValueError("observed_score must be a non-negative integer")
+    if isinstance(receipt.control_count, bool) or not isinstance(receipt.control_count, int) or receipt.control_count <= 0:
+        raise ValueError("control_count must be a positive integer")
+    if len(receipt.control_subject_sha256s) != receipt.control_count:
+        raise ValueError("control subject count mismatch")
+    if len(receipt.control_receipt_sha256s) != receipt.control_count:
+        raise ValueError("control receipt count mismatch")
+    if isinstance(receipt.extreme_count, bool) or not isinstance(receipt.extreme_count, int):
+        raise ValueError("extreme_count must be an integer")
+    if not 0 <= receipt.extreme_count <= receipt.control_count:
+        raise ValueError("extreme_count outside control-count range")
+    if not isinstance(receipt.p_emp, float) or not math.isfinite(receipt.p_emp):
+        raise ValueError("p_emp must be a finite float")
+    expected_p = (1 + receipt.extreme_count) / (1 + receipt.control_count)
+    if receipt.p_emp != expected_p:
+        raise ValueError("p_emp does not match finite-sample correction")
+    if not isinstance(receipt.promotion_eligible, bool):
+        raise ValueError("promotion_eligible must be boolean")
+    if receipt.promotion_eligible:
+        if len(receipt.control_coverage_receipt_sha256s) != receipt.control_count:
+            raise ValueError("promotion-eligible null receipt requires complete coverage lineage")
+    elif receipt.control_coverage_receipt_sha256s:
+        raise ValueError("non-eligible descriptive receipt cannot claim promotion-grade coverage lineage")
+    if receipt.null_survived is not None and not isinstance(receipt.null_survived, bool):
+        raise ValueError("null_survived must be bool or None")
+    if not receipt.promotion_eligible and receipt.null_survived is not None:
+        raise ValueError("non-eligible receipt cannot carry a survival verdict")
+    if ri.sha256_hex(_null_model_receipt_material(receipt)) != receipt.receipt_sha256:
+        raise ValueError("null-model receipt digest mismatch")
+
+
+def evaluate_null_model(
+    observed: CollisionReceiptV1,
+    criterion: CollisionCriterionV1,
+    control_receipts: Sequence[CollisionReceiptV1],
+    *,
+    control_coverages: Sequence[Any] | None = None,
+    allow_retrospective_descriptive: bool = False,
+) -> NullModelReceiptV1:
+    verify_collision_receipt(observed)
+    if observed.criterion_sha256 != criterion.criterion_sha256:
+        raise ValueError("collision receipt criterion mismatch")
+    controls = tuple(control_receipts)
+    if any(not isinstance(control, CollisionReceiptV1) for control in controls):
+        raise TypeError("null model requires CollisionReceiptV1 controls, not raw scores")
+    if len(controls) != criterion.control_count:
+        raise ValueError("control receipt count differs from frozen criterion")
+    if observed.provenance is SelectionProvenance.RETROSPECTIVE and not allow_retrospective_descriptive:
+        raise PermissionError("retrospective observations are not promotion-eligible")
+
+    promotion_eligible = observed.provenance is SelectionProvenance.PROSPECTIVE
+    if promotion_eligible and control_coverages is None:
+        raise PermissionError("prospective null evaluation requires promotion-grade control coverage")
+    if not promotion_eligible and control_coverages not in (None, (), []):
+        raise ValueError("retrospective descriptive null evaluation does not accept promotion-grade coverage")
+
+    coverage_tuple = tuple(control_coverages or ())
+    if promotion_eligible and len(coverage_tuple) != criterion.control_count:
+        raise ValueError("control coverage count differs from frozen criterion")
+
+    expected_values = generate_controls(criterion)
+    expected_subjects = tuple(IntegerSubjectV1(value).subject_sha256 for value in expected_values)
+    scores: list[int] = []
+    receipt_digests: list[str] = []
+    coverage_digests: list[str] = []
+
+    coverage_module = None
+    if promotion_eligible:
+        import cross_domain_coverage as coverage_module
+
+    for index, (control, expected_subject) in enumerate(zip(controls, expected_subjects)):
+        verify_collision_receipt(control)
+        if control.subject_sha256 != expected_subject:
+            raise ValueError(f"control receipt subject mismatch at index {index}")
+        if control.criterion_sha256 != criterion.criterion_sha256:
+            raise ValueError(f"control receipt criterion mismatch at index {index}")
+        if control.provenance is not SelectionProvenance.PROSPECTIVE:
+            raise ValueError(f"control receipt provenance mismatch at index {index}")
+
+        if promotion_eligible:
+            coverage = coverage_tuple[index]
+            try:
+                coverage_module.verify_verified_control_coverage(coverage)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"invalid control coverage at index {index}") from exc
+            if not coverage.coverage_complete:
+                raise PermissionError(f"control coverage incomplete at index {index}")
+            if coverage.subject.subject_sha256 != expected_subject:
+                raise ValueError(f"control coverage subject mismatch at index {index}")
+            if coverage.criterion.criterion_sha256 != criterion.criterion_sha256:
+                raise ValueError(f"control coverage criterion mismatch at index {index}")
+            replayed_collision, replayed_coverage = coverage_module.evaluate_control_from_probes(
+                coverage.subject,
+                coverage.criterion,
+                coverage.probes,
+            )
+            if replayed_coverage.receipt != coverage.receipt:
+                raise ValueError(f"control coverage replay mismatch at index {index}")
+            if replayed_collision != control:
+                raise ValueError(f"control collision is not derived from bound coverage at index {index}")
+            coverage_digests.append(coverage.receipt_sha256)
+
+        scores.append(control.score)
+        receipt_digests.append(control.receipt_sha256)
+
+    score_tuple = tuple(scores)
+    receipt_digest_tuple = tuple(receipt_digests)
+    coverage_digest_tuple = tuple(coverage_digests)
+    extreme = sum(1 for score in score_tuple if score >= observed.score)
+    p_emp = (1 + extreme) / (1 + len(score_tuple))
+    if not promotion_eligible or criterion.promotion_threshold is None:
+        null_survived: bool | None = None
+    else:
+        null_survived = p_emp <= criterion.promotion_threshold
+
+    scores_sha256 = ri.sha256_hex(score_tuple)
+    provisional = NullModelReceiptV1(
+        subject_sha256=observed.subject_sha256,
+        collision_receipt_sha256=observed.receipt_sha256,
+        criterion_sha256=criterion.criterion_sha256,
+        observed_score=observed.score,
+        control_subject_sha256s=expected_subjects,
+        control_receipt_sha256s=receipt_digest_tuple,
+        control_coverage_receipt_sha256s=coverage_digest_tuple,
+        control_scores_sha256=scores_sha256,
+        control_count=len(score_tuple),
+        extreme_count=extreme,
+        p_emp=p_emp,
+        promotion_eligible=promotion_eligible,
+        null_survived=null_survived,
+        receipt_sha256="0" * 64,
+    )
+    receipt = NullModelReceiptV1(
+        subject_sha256=provisional.subject_sha256,
+        collision_receipt_sha256=provisional.collision_receipt_sha256,
+        criterion_sha256=provisional.criterion_sha256,
+        observed_score=provisional.observed_score,
+        control_subject_sha256s=provisional.control_subject_sha256s,
+        control_receipt_sha256s=provisional.control_receipt_sha256s,
+        control_coverage_receipt_sha256s=provisional.control_coverage_receipt_sha256s,
+        control_scores_sha256=provisional.control_scores_sha256,
+        control_count=provisional.control_count,
+        extreme_count=provisional.extreme_count,
+        p_emp=provisional.p_emp,
+        promotion_eligible=provisional.promotion_eligible,
+        null_survived=provisional.null_survived,
+        receipt_sha256=ri.sha256_hex(_null_model_receipt_material(provisional)),
+    )
+    verify_null_model_receipt(receipt)
+    return receipt
+
+
+def _expected_query_key(subject: IntegerSubjectV1, transform: TransformSpecV1) -> str:
+    if transform.transform_id == "INTEGER_TO_UNICODE_CODEPOINT_V1":
+        return subject.unicode_codepoint_label
+    if transform.transform_id == "INTEGER_IDENTITY_EXTERNAL_LOOKUP_KEY_V1":
+        return str(subject.value)
+    raise ValueError(f"unsupported external snapshot transform: {transform.transform_id}")
+
+
+def verify_snapshot_observation(
+    *,
+    subject: IntegerSubjectV1,
+    snapshot: RegistrySnapshotV1,
+    transform: TransformSpecV1,
+    evidence_class: EvidenceClass,
+    normalized_claim: str,
+) -> DomainObservationV1:
+    """Verify the subject→query-key relation before minting an observation."""
+    if evidence_class is EvidenceClass.DERIVED_PROPERTY:
+        raise ValueError("external snapshot cannot be classified as DERIVED_PROPERTY")
+    expected_key = _expected_query_key(subject, transform)
+    if snapshot.query_key != expected_key:
+        raise ValueError("snapshot query key does not match transformed subject")
+    if transform.transform_id == "INTEGER_TO_UNICODE_CODEPOINT_V1":
+        if snapshot.query_key_type != "unicode-codepoint":
+            raise ValueError("Unicode transform requires unicode-codepoint query key type")
+        if isinstance(snapshot.canonical_result, Mapping):
+            result_codepoint = snapshot.canonical_result.get("codepoint")
+            if result_codepoint is not None and result_codepoint != expected_key:
+                raise ValueError("Unicode result codepoint does not match query key")
+    return DomainObservationV1(
+        subject_sha256=subject.subject_sha256,
+        domain_id=snapshot.registry_id,
+        evidence_class=evidence_class,
+        transform_id=transform.transform_id,
+        transform_criterion_sha256=transform.criterion_sha256,
+        evidence_artifact_sha256=snapshot.content_sha256,
+        normalized_claim=normalized_claim,
+    )
+
+
+@dataclass(frozen=True)
+class FixtureReplayV1:
+    subject: IntegerSubjectV1
+    provenance: SelectionProvenance
+    snapshots: tuple[RegistrySnapshotV1, ...]
+    derivations: tuple[DerivationReceiptV1, ...]
+    observations: tuple[DomainObservationV1, ...]
+    criterion: CollisionCriterionV1
+    collision: CollisionReceiptV1
+    status_history: tuple[ri.StatusTransitionV1, ...]
+
+    @property
+    def current_status(self) -> str | None:
+        return self.status_history[-1].next_status if self.status_history else None
+
+
+def load_fixture_bundle(path: str | pathlib.Path) -> Mapping[str, Any]:
+    data = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+    if not isinstance(data, Mapping):
+        raise ValueError("fixture root must be an object")
+    if data.get("schema") != "AEGIS_CROSS_DOMAIN_FIXTURE_V1":
+        raise ValueError("unsupported fixture schema")
+    return data
+
+
+def append_collision_status(
+    journal: ri.StatusJournalV1,
+    next_status: str,
+    evidence_receipt_digests: Sequence[str],
+    criterion_sha256: str,
+    reason: str,
+    *,
+    null_receipt: NullModelReceiptV1 | None = None,
+) -> ri.StatusTransitionV1:
+    if next_status == "STRUCTURAL_RELATION":
+        raise PermissionError("collision statistics cannot mint STRUCTURAL_RELATION")
+    allowed = {
+        None: {"OBSERVED"},
+        "OBSERVED": {"EXACT_MAPPING"},
+        "EXACT_MAPPING": {"CROSS_REGISTRY_COLLISION"},
+        "CROSS_REGISTRY_COLLISION": {"NULL_SURVIVED"},
+        "NULL_SURVIVED": {"REPLICATED"},
+    }
+    if next_status not in allowed.get(journal.current_status, set()):
+        raise PermissionError(
+            f"inadmissible collision status transition: {journal.current_status!r} -> {next_status!r}"
+        )
+    evidence = tuple(evidence_receipt_digests)
+    if next_status == "NULL_SURVIVED":
+        if null_receipt is None:
+            raise PermissionError("NULL_SURVIVED requires a null-model receipt")
+        try:
+            verify_null_model_receipt(null_receipt)
+        except (TypeError, ValueError) as exc:
+            raise PermissionError("invalid null-model receipt") from exc
+        if null_receipt.criterion_sha256 != criterion_sha256:
+            raise PermissionError("null-model receipt criterion mismatch")
+        if not null_receipt.promotion_eligible or null_receipt.null_survived is not True:
+            raise PermissionError("null-model receipt is not promotion-eligible and surviving")
+        if null_receipt.receipt_sha256 not in evidence:
+            raise PermissionError("NULL_SURVIVED transition must carry the null-model receipt digest")
+        if not journal.history:
+            raise PermissionError("NULL_SURVIVED requires prior collision history")
+        current = journal.history[-1]
+        if null_receipt.collision_receipt_sha256 not in current.evidence_receipt_digests:
+            raise PermissionError("null-model receipt is not bound to the current collision transition")
+    return journal.append(
+        next_status=next_status,
+        evidence_receipt_digests=evidence,
+        criterion_sha256=criterion_sha256,
+        reason=reason,
+    )
+
+
+def replay_fixture_bundle(path: str | pathlib.Path) -> FixtureReplayV1:
+    data = load_fixture_bundle(path)
+    subject_data = data.get("subject")
+    if not isinstance(subject_data, Mapping):
+        raise ValueError("fixture subject must be an object")
+    subject = IntegerSubjectV1(subject_data["value"])
+    provenance = SelectionProvenance(subject_data["provenance"])
+
+    expected = data.get("expected_representations")
+    if not isinstance(expected, Mapping):
+        raise ValueError("fixture expected_representations must be an object")
+    if expected.get("hex_upper") != subject.hex_upper:
+        raise ValueError("fixture hexadecimal representation mismatch")
+    if expected.get("unicode_codepoint_label") != subject.unicode_codepoint_label:
+        raise ValueError("fixture Unicode code-point representation mismatch")
+
+    snapshots: list[RegistrySnapshotV1] = []
+    observations: list[DomainObservationV1] = []
+    for entry in data.get("external_snapshots", []):
+        if not isinstance(entry, Mapping):
+            raise ValueError("external snapshot entry must be an object")
+        snapshot = RegistrySnapshotV1(
+            registry_id=entry["registry_id"],
+            registry_version_or_release=entry["registry_version_or_release"],
+            query_key=entry["query_key"],
+            query_key_type=entry["query_key_type"],
+            result_kind=entry["result_kind"],
+            canonical_result=entry["canonical_result"],
+            source_locator=entry["source_locator"],
+            source_observed_at=entry["source_observed_at"],
+            ingestion_producer_id=entry["ingestion_producer_id"],
+        )
+        transform_data = entry["transform"]
+        transform = TransformSpecV1(
+            transform_id=transform_data["transform_id"],
+            transform_version=transform_data["transform_version"],
+            input_type=transform_data["input_type"],
+            output_type=transform_data["output_type"],
+            criterion_text=transform_data["criterion_text"],
+        )
+        observation = verify_snapshot_observation(
+            subject=subject,
+            snapshot=snapshot,
+            transform=transform,
+            evidence_class=EvidenceClass(entry["evidence_class"]),
+            normalized_claim=entry["normalized_claim"],
+        )
+        snapshots.append(snapshot)
+        observations.append(observation)
+
+    derivations: list[DerivationReceiptV1] = []
+    for entry in data.get("local_derivations", []):
+        criterion_sha = ri.literal_sha256(entry["criterion_text"])
+        derivation = DerivationReceiptV1(
+            subject_sha256=subject.subject_sha256,
+            derivation_id=entry["derivation_id"],
+            derivation_version=entry["derivation_version"],
+            criterion_sha256=criterion_sha,
+            canonical_result=entry["canonical_result"],
+        )
+        derivations.append(derivation)
+        observations.append(
+            DomainObservationV1(
+                subject_sha256=subject.subject_sha256,
+                domain_id="number-theory",
+                evidence_class=EvidenceClass.DERIVED_PROPERTY,
+                transform_id=entry["derivation_id"],
+                transform_criterion_sha256=criterion_sha,
+                evidence_artifact_sha256=derivation.receipt_sha256,
+                normalized_claim=f"local derivation {entry['derivation_id']}",
+            )
+        )
+
+    criterion_data = data.get("collision_criterion")
+    if not isinstance(criterion_data, Mapping):
+        raise ValueError("fixture collision_criterion must be an object")
+    criterion = CollisionCriterionV1(
+        universe_min=criterion_data["universe_min"],
+        universe_max=criterion_data["universe_max"],
+        registry_set=tuple(criterion_data["registry_set"]),
+        transform_set=tuple(criterion_data["transform_set"]),
+        independence_rule_id=criterion_data["independence_rule_id"],
+        score_function_id=criterion_data["score_function_id"],
+        control_generator_id=criterion_data["control_generator_id"],
+        control_seed=criterion_data["control_seed"],
+        control_count=criterion_data["control_count"],
+        promotion_threshold=criterion_data["promotion_threshold"],
+        criterion_text=criterion_data["criterion_text"],
+    )
+    collision = evaluate_collision(subject, provenance, observations, criterion)
+
+    journal = ri.StatusJournalV1(f"cross-domain:{subject.subject_sha256}")
+    append_collision_status(
+        journal,
+        "OBSERVED",
+        [collision.receipt_sha256],
+        criterion.criterion_sha256,
+        "frozen integer observation replayed",
+    )
+    append_collision_status(
+        journal,
+        "EXACT_MAPPING",
+        [s.content_sha256 for s in snapshots] + [d.receipt_sha256 for d in derivations],
+        criterion.criterion_sha256,
+        "all frozen external mappings and local derivations replayed",
+    )
+    if collision.cross_registry_collision:
+        append_collision_status(
+            journal,
+            "CROSS_REGISTRY_COLLISION",
+            [collision.receipt_sha256],
+            criterion.criterion_sha256,
+            "at least two unique frozen external domains matched",
+        )
+
+    return FixtureReplayV1(
+        subject=subject,
+        provenance=provenance,
+        snapshots=tuple(snapshots),
+        derivations=tuple(derivations),
+        observations=tuple(observations),
+        criterion=criterion,
+        collision=collision,
+        status_history=journal.history,
+    )

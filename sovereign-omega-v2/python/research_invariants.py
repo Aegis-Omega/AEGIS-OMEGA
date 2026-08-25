@@ -17,6 +17,7 @@ import math
 import time
 from dataclasses import dataclass, field
 from enum import Enum
+from types import MappingProxyType
 from typing import Any, Iterable, Mapping, Sequence
 
 
@@ -50,6 +51,25 @@ class ResearchStatus(str, Enum):
     TYPE_CHECKED = "TYPE_CHECKED"
     COMPUTED = "COMPUTED"
     THEOREM = "THEOREM"
+
+
+def freeze_hash_material(value: Any) -> Any:
+    """Recursively detach and freeze material after/before deterministic hashing."""
+    if isinstance(value, Mapping):
+        return MappingProxyType(
+            {str(k): freeze_hash_material(value[k]) for k in sorted(value)}
+        )
+    if isinstance(value, (tuple, list)):
+        return tuple(freeze_hash_material(v) for v in value)
+    if isinstance(value, Enum):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("non-finite floats are not admissible in gate material")
+        return value
+    if isinstance(value, (str, int, bool)) or value is None:
+        return value
+    raise TypeError(f"unsupported gate material type: {type(value)!r}")
 
 
 def _canonical(value: Any) -> Any:
@@ -172,6 +192,7 @@ class GateReceipt:
         _check_digest(self.witness_sha256, "witness_sha256")
         if self.elapsed_ns < 0:
             raise ValueError("elapsed_ns must be non-negative")
+        object.__setattr__(self, "observation", freeze_hash_material(self.observation))
 
     def deterministic_material(self) -> Mapping[str, Any]:
         return {
@@ -181,11 +202,12 @@ class GateReceipt:
             "type_signature": self.type_signature,
             "object_digest": self.object_digest,
             "verdict": self.verdict.value,
-            "observation": dict(self.observation),
+            "observation": self.observation,
         }
 
     def to_dict(self) -> dict[str, Any]:
         payload = dict(self.deterministic_material())
+        payload["observation"] = _canonical(self.observation)
         payload["witness_sha256"] = self.witness_sha256
         payload["elapsed_ns"] = self.elapsed_ns
         return payload
@@ -196,7 +218,7 @@ class InvariantViolationError(RuntimeError):
         self.receipt = receipt
         super().__init__(
             f"{receipt.gate_id} {receipt.verdict.value}: "
-            f"{json.dumps(dict(receipt.observation), sort_keys=True)}"
+            f"{json.dumps(_canonical(receipt.observation), sort_keys=True)}"
         )
 
 
@@ -210,6 +232,7 @@ def _receipt(
     started_ns: int,
     gate_version: str = "1",
 ) -> GateReceipt:
+    frozen_observation = freeze_hash_material(observation)
     deterministic = {
         "schema": SCHEMA_VERSION,
         "gate_id": gate_id,
@@ -217,7 +240,7 @@ def _receipt(
         "type_signature": type_signature,
         "object_digest": object_digest,
         "verdict": verdict.value,
-        "observation": dict(observation),
+        "observation": frozen_observation,
     }
     return GateReceipt(
         gate_id=gate_id,
@@ -225,7 +248,7 @@ def _receipt(
         type_signature=type_signature,
         object_digest=object_digest,
         verdict=verdict,
-        observation=dict(observation),
+        observation=frozen_observation,
         witness_sha256=sha256_hex(deterministic),
         elapsed_ns=max(0, time.perf_counter_ns() - started_ns),
     )
@@ -384,7 +407,7 @@ def skew_quadratic_gate(
             observation={
                 "skew_residual_fro": skew_residual,
                 "max_abs_xTAx": max_abs_quadratic,
-                "witness_count": len(witness_vectors),
+                "witness_count": len(values),
                 "tolerance": tolerance,
             },
             started_ns=started,
@@ -760,3 +783,184 @@ class StatusRecord:
             evidence_sha256=combined,
             verifier_id=verifier_id,
         )
+
+
+@dataclass(frozen=True)
+class RelationBindingV1:
+    relation_id: str
+    participants: Mapping[str, str]
+    relation_digest: str
+
+
+def bind_relation(relation_id: str, participants: Mapping[str, str]) -> RelationBindingV1:
+    """Bind a late relation to role-sensitive participant digests."""
+    if not relation_id:
+        raise ValueError("relation_id must be non-empty")
+    if not participants:
+        raise ValueError("relation requires at least one participant")
+    normalized: dict[str, str] = {}
+    for raw_role, digest in participants.items():
+        role = str(raw_role)
+        if not role:
+            raise ValueError("relation participant role must be non-empty")
+        _check_digest(digest, f"participant[{role}]")
+        normalized[role] = digest
+    frozen_participants = freeze_hash_material(dict(sorted(normalized.items())))
+    material = {
+        "schema": "AEGIS_RELATION_BINDING_V1",
+        "relation_id": relation_id,
+        "participants": frozen_participants,
+    }
+    return RelationBindingV1(
+        relation_id=relation_id,
+        participants=frozen_participants,
+        relation_digest=sha256_hex(material),
+    )
+
+
+def relation_gate_receipt(
+    *,
+    gate_id: str,
+    relation: RelationBindingV1,
+    verdict: GateVerdict,
+    observation: Mapping[str, Any],
+    gate_version: str = "1",
+) -> GateReceipt:
+    """Reuse GateReceipt for a late-bound relation; no second authority type."""
+    return _receipt(
+        gate_id=gate_id,
+        type_signature="RelationBindingV1",
+        object_digest=relation.relation_digest,
+        verdict=verdict,
+        observation=observation,
+        started_ns=time.perf_counter_ns(),
+        gate_version=gate_version,
+    )
+
+
+@dataclass(frozen=True)
+class StatusTransitionV1:
+    claim_id: str
+    previous_status: str | None
+    next_status: str
+    evidence_receipt_digests: tuple[str, ...]
+    criterion_sha256: str | None
+    reason: str
+    previous_transition_sha256: str | None
+    transition_sha256: str
+
+
+class StatusJournalV1:
+    """Append-only hash-chained status history supporting explicit demotion."""
+
+    def __init__(self, claim_id: str):
+        if not claim_id:
+            raise ValueError("claim_id must be non-empty")
+        self._claim_id = claim_id
+        self._history: list[StatusTransitionV1] = []
+
+    @property
+    def history(self) -> tuple[StatusTransitionV1, ...]:
+        return tuple(self._history)
+
+    @property
+    def current_status(self) -> str | None:
+        return self._history[-1].next_status if self._history else None
+
+    @staticmethod
+    def _material(
+        *,
+        claim_id: str,
+        previous_status: str | None,
+        next_status: str,
+        evidence_receipt_digests: Sequence[str],
+        criterion_sha256: str | None,
+        reason: str,
+        previous_transition_sha256: str | None,
+    ) -> Mapping[str, Any]:
+        return {
+            "schema": "AEGIS_STATUS_TRANSITION_V1",
+            "claim_id": claim_id,
+            "previous_status": previous_status,
+            "next_status": next_status,
+            "evidence_receipt_digests": tuple(evidence_receipt_digests),
+            "criterion_sha256": criterion_sha256,
+            "reason": reason,
+            "previous_transition_sha256": previous_transition_sha256,
+        }
+
+    def append(
+        self,
+        next_status: str,
+        evidence_receipt_digests: Sequence[str],
+        criterion_sha256: str | None,
+        reason: str,
+    ) -> StatusTransitionV1:
+        if not next_status:
+            raise ValueError("next_status must be non-empty")
+        if not reason:
+            raise ValueError("reason must be non-empty")
+        evidence = tuple(evidence_receipt_digests)
+        for digest in evidence:
+            _check_digest(digest, "evidence_receipt_digest")
+        if criterion_sha256 is not None:
+            _check_digest(criterion_sha256, "criterion_sha256")
+        previous = self._history[-1] if self._history else None
+        previous_status = previous.next_status if previous else None
+        previous_sha = previous.transition_sha256 if previous else None
+        material = self._material(
+            claim_id=self._claim_id,
+            previous_status=previous_status,
+            next_status=next_status,
+            evidence_receipt_digests=evidence,
+            criterion_sha256=criterion_sha256,
+            reason=reason,
+            previous_transition_sha256=previous_sha,
+        )
+        transition = StatusTransitionV1(
+            claim_id=self._claim_id,
+            previous_status=previous_status,
+            next_status=next_status,
+            evidence_receipt_digests=evidence,
+            criterion_sha256=criterion_sha256,
+            reason=reason,
+            previous_transition_sha256=previous_sha,
+            transition_sha256=sha256_hex(material),
+        )
+        self._history.append(transition)
+        return transition
+
+    @classmethod
+    def verify(cls, history: Sequence[StatusTransitionV1]) -> bool:
+        previous: StatusTransitionV1 | None = None
+        try:
+            for transition in history:
+                if not transition.claim_id or not transition.next_status or not transition.reason:
+                    return False
+                for digest in transition.evidence_receipt_digests:
+                    _check_digest(digest, "evidence_receipt_digest")
+                if transition.criterion_sha256 is not None:
+                    _check_digest(transition.criterion_sha256, "criterion_sha256")
+                expected_previous_status = previous.next_status if previous else None
+                expected_previous_sha = previous.transition_sha256 if previous else None
+                if transition.previous_status != expected_previous_status:
+                    return False
+                if transition.previous_transition_sha256 != expected_previous_sha:
+                    return False
+                if previous is not None and transition.claim_id != previous.claim_id:
+                    return False
+                material = cls._material(
+                    claim_id=transition.claim_id,
+                    previous_status=transition.previous_status,
+                    next_status=transition.next_status,
+                    evidence_receipt_digests=transition.evidence_receipt_digests,
+                    criterion_sha256=transition.criterion_sha256,
+                    reason=transition.reason,
+                    previous_transition_sha256=transition.previous_transition_sha256,
+                )
+                if sha256_hex(material) != transition.transition_sha256:
+                    return False
+                previous = transition
+            return True
+        except (TypeError, ValueError):
+            return False
