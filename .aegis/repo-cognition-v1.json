@@ -1,9 +1,9 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "76f2617230450c45f1504800f22bef64400785fded3aa890e48681c0a2b8a5be",
+  "corpus_root": "0d8bf1aa7965abf597ad037f9fbe3affa0f20d1d15e5db0fb40f7ccb5e682670",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
-  "eligible_file_count": 1943,
+  "eligible_file_count": 1944,
   "excluded_generated_paths": [
     ".aegis/repo-cognition-v1.json"
   ],
@@ -38008,6 +38008,33 @@
       ]
     },
     {
+      "content_sha256": "fe582e24dd43ea0a4dc9808f1f7dfc6eb53a6769833df5d30f9745cc843ae9af",
+      "dependency_hints": [
+        "__future__",
+        "dataclasses",
+        "typing",
+        "json",
+        "urllib.request",
+        "cross_domain_collision",
+        "research_invariants"
+      ],
+      "git_blob_sha": "513de6b84244a09f48e2e67dcd41ff2d31c5ce98",
+      "heading_hint": null,
+      "kind": "source",
+      "language": "python",
+      "line_count": 84,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "sovereign-omega-v2/python/cross_domain_ingest.py",
+      "size_bytes": 2647,
+      "symbol_hints": [
+        "IngestionOutcomeV1",
+        "canonicalize_external_result",
+        "_default_transport",
+        "fetch_json_snapshot"
+      ]
+    },
+    {
       "content_sha256": "cd30ddd5db0403b0e64fb30ce53e0373997fc53cb900a26167eef7d0b69cf8d8",
       "dependency_hints": [
         "dataclasses",
@@ -53900,8 +53927,8 @@
   ],
   "generator": "scripts/repo_cognition.py",
   "generator_version": "1.0.1",
-  "indexed_file_count": 1943,
+  "indexed_file_count": 1944,
   "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
   "schema": "AEGIS_REPO_COGNITION_V1",
-  "tracked_file_count": 1944
+  "tracked_file_count": 1945
 }
