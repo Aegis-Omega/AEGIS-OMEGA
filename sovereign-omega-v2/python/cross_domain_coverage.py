@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import cross_domain_collision as cdc
 import research_invariants as ri
@@ -407,3 +407,241 @@ def verify_verified_probe(probe: VerifiedRegistryProbeV1) -> None:
         )
     if replayed.receipt != probe.receipt:
         raise ValueError("verified probe replay does not reproduce receipt")
+
+
+@dataclass(frozen=True)
+class ControlCoverageReceiptV1:
+    subject_sha256: str
+    criterion_sha256: str
+    required_registry_ids: tuple[str, ...]
+    probe_receipt_sha256s: tuple[str, ...]
+    covered_registry_ids: tuple[str, ...]
+    missing_registry_ids: tuple[str, ...]
+    unestablished_registry_ids: tuple[str, ...]
+    coverage_complete: bool
+    receipt_sha256: str
+
+
+def _coverage_receipt_material(receipt: ControlCoverageReceiptV1) -> Mapping[str, Any]:
+    return {
+        "schema": "AEGIS_CONTROL_COVERAGE_RECEIPT_V1",
+        "subject_sha256": receipt.subject_sha256,
+        "criterion_sha256": receipt.criterion_sha256,
+        "required_registry_ids": receipt.required_registry_ids,
+        "probe_receipt_sha256s": receipt.probe_receipt_sha256s,
+        "covered_registry_ids": receipt.covered_registry_ids,
+        "missing_registry_ids": receipt.missing_registry_ids,
+        "unestablished_registry_ids": receipt.unestablished_registry_ids,
+        "coverage_complete": receipt.coverage_complete,
+    }
+
+
+def _is_required_order_subsequence(values: tuple[str, ...], required: tuple[str, ...]) -> bool:
+    positions = {value: index for index, value in enumerate(required)}
+    try:
+        indexes = [positions[value] for value in values]
+    except KeyError:
+        return False
+    return indexes == sorted(indexes) and len(set(values)) == len(values)
+
+
+def verify_control_coverage_receipt(receipt: ControlCoverageReceiptV1) -> None:
+    if not isinstance(receipt, ControlCoverageReceiptV1):
+        raise TypeError("expected ControlCoverageReceiptV1")
+    ri._check_digest(receipt.subject_sha256, "subject_sha256")
+    ri._check_digest(receipt.criterion_sha256, "criterion_sha256")
+    ri._check_digest(receipt.receipt_sha256, "receipt_sha256")
+    for digest in receipt.probe_receipt_sha256s:
+        ri._check_digest(digest, "probe_receipt_sha256")
+    required = tuple(receipt.required_registry_ids)
+    covered = tuple(receipt.covered_registry_ids)
+    missing = tuple(receipt.missing_registry_ids)
+    unestablished = tuple(receipt.unestablished_registry_ids)
+    if not required or any(not isinstance(value, str) or not value for value in required):
+        raise ValueError("required registry ids must be non-empty strings")
+    if len(set(required)) != len(required):
+        raise ValueError("required registry ids must be unique")
+    for name, values in (
+        ("covered_registry_ids", covered),
+        ("missing_registry_ids", missing),
+        ("unestablished_registry_ids", unestablished),
+    ):
+        if not _is_required_order_subsequence(values, required):
+            raise ValueError(f"{name} is not a canonical required-order subsequence")
+    covered_set = set(covered)
+    missing_set = set(missing)
+    unestablished_set = set(unestablished)
+    if covered_set & missing_set or covered_set & unestablished_set or missing_set & unestablished_set:
+        raise ValueError("coverage registry partitions overlap")
+    if covered_set | missing_set | unestablished_set != set(required):
+        raise ValueError("coverage registry partitions do not cover required set")
+    if len(receipt.probe_receipt_sha256s) != len(covered) + len(unestablished):
+        raise ValueError("probe receipt count does not match present registry count")
+    expected_complete = not missing and not unestablished and covered == required
+    if type(receipt.coverage_complete) is not bool or receipt.coverage_complete != expected_complete:
+        raise ValueError("coverage_complete is not the derived coverage verdict")
+    if ri.sha256_hex(_coverage_receipt_material(receipt)) != receipt.receipt_sha256:
+        raise ValueError("control coverage receipt digest mismatch")
+
+
+def _canonicalize_probes(
+    subject: cdc.IntegerSubjectV1,
+    criterion: cdc.CollisionCriterionV1,
+    probes: Sequence[VerifiedRegistryProbeV1],
+) -> tuple[VerifiedRegistryProbeV1, ...]:
+    if not isinstance(subject, cdc.IntegerSubjectV1):
+        raise TypeError("expected IntegerSubjectV1")
+    if not isinstance(criterion, cdc.CollisionCriterionV1):
+        raise TypeError("expected CollisionCriterionV1")
+    required = tuple(criterion.registry_set)
+    by_registry: dict[str, VerifiedRegistryProbeV1] = {}
+    for probe in probes:
+        verify_verified_probe(probe)
+        if probe.subject != subject:
+            raise ValueError("coverage probe subject mismatch")
+        if probe.criterion.criterion_sha256 != criterion.criterion_sha256:
+            raise ValueError("coverage probe criterion mismatch")
+        registry_id = probe.receipt.registry_id
+        if registry_id not in required:
+            raise ValueError(f"coverage probe registry not frozen in criterion: {registry_id}")
+        if registry_id in by_registry:
+            raise ValueError(f"duplicate coverage probe for registry: {registry_id}")
+        by_registry[registry_id] = probe
+    return tuple(by_registry[registry_id] for registry_id in required if registry_id in by_registry)
+
+
+def _build_control_coverage_receipt(
+    subject: cdc.IntegerSubjectV1,
+    criterion: cdc.CollisionCriterionV1,
+    probes: Sequence[VerifiedRegistryProbeV1],
+) -> tuple[ControlCoverageReceiptV1, tuple[VerifiedRegistryProbeV1, ...]]:
+    ordered = _canonicalize_probes(subject, criterion, probes)
+    required = tuple(criterion.registry_set)
+    by_registry = {probe.receipt.registry_id: probe for probe in ordered}
+    covered = tuple(
+        registry_id for registry_id in required
+        if registry_id in by_registry
+        and by_registry[registry_id].receipt.outcome in {RegistryProbeOutcomeV1.MATCH, RegistryProbeOutcomeV1.NO_MATCH}
+    )
+    missing = tuple(registry_id for registry_id in required if registry_id not in by_registry)
+    unestablished = tuple(
+        registry_id for registry_id in required
+        if registry_id in by_registry
+        and by_registry[registry_id].receipt.outcome is RegistryProbeOutcomeV1.NOT_ESTABLISHED
+    )
+    probe_digests = tuple(probe.receipt.receipt_sha256 for probe in ordered)
+    complete = not missing and not unestablished and covered == required
+    provisional = ControlCoverageReceiptV1(
+        subject_sha256=subject.subject_sha256,
+        criterion_sha256=criterion.criterion_sha256,
+        required_registry_ids=required,
+        probe_receipt_sha256s=probe_digests,
+        covered_registry_ids=covered,
+        missing_registry_ids=missing,
+        unestablished_registry_ids=unestablished,
+        coverage_complete=complete,
+        receipt_sha256="0" * 64,
+    )
+    receipt = ControlCoverageReceiptV1(
+        subject_sha256=provisional.subject_sha256,
+        criterion_sha256=provisional.criterion_sha256,
+        required_registry_ids=provisional.required_registry_ids,
+        probe_receipt_sha256s=provisional.probe_receipt_sha256s,
+        covered_registry_ids=provisional.covered_registry_ids,
+        missing_registry_ids=provisional.missing_registry_ids,
+        unestablished_registry_ids=provisional.unestablished_registry_ids,
+        coverage_complete=provisional.coverage_complete,
+        receipt_sha256=ri.sha256_hex(_coverage_receipt_material(provisional)),
+    )
+    verify_control_coverage_receipt(receipt)
+    return receipt, ordered
+
+
+@dataclass(frozen=True)
+class VerifiedControlCoverageV1:
+    subject: cdc.IntegerSubjectV1
+    criterion: cdc.CollisionCriterionV1
+    receipt: ControlCoverageReceiptV1
+    probes: tuple[VerifiedRegistryProbeV1, ...]
+
+    @property
+    def coverage_complete(self) -> bool:
+        return self.receipt.coverage_complete
+
+    @property
+    def covered_registry_ids(self) -> tuple[str, ...]:
+        return self.receipt.covered_registry_ids
+
+    @property
+    def missing_registry_ids(self) -> tuple[str, ...]:
+        return self.receipt.missing_registry_ids
+
+    @property
+    def unestablished_registry_ids(self) -> tuple[str, ...]:
+        return self.receipt.unestablished_registry_ids
+
+    @property
+    def receipt_sha256(self) -> str:
+        return self.receipt.receipt_sha256
+
+
+def verify_verified_control_coverage(coverage: VerifiedControlCoverageV1) -> None:
+    if not isinstance(coverage, VerifiedControlCoverageV1):
+        raise TypeError("expected VerifiedControlCoverageV1")
+    verify_control_coverage_receipt(coverage.receipt)
+    if coverage.receipt.subject_sha256 != coverage.subject.subject_sha256:
+        raise ValueError("coverage receipt subject mismatch")
+    if coverage.receipt.criterion_sha256 != coverage.criterion.criterion_sha256:
+        raise ValueError("coverage receipt criterion mismatch")
+    rebuilt, ordered = _build_control_coverage_receipt(coverage.subject, coverage.criterion, coverage.probes)
+    if rebuilt != coverage.receipt:
+        raise ValueError("verified coverage replay does not reproduce receipt")
+    expected_probe_digests = tuple(probe.receipt.receipt_sha256 for probe in ordered)
+    if expected_probe_digests != coverage.receipt.probe_receipt_sha256s:
+        raise ValueError("coverage probe lineage mismatch")
+
+
+def aggregate_control_coverage(
+    subject: cdc.IntegerSubjectV1,
+    criterion: cdc.CollisionCriterionV1,
+    probes: Sequence[VerifiedRegistryProbeV1],
+) -> VerifiedControlCoverageV1:
+    receipt, ordered = _build_control_coverage_receipt(subject, criterion, probes)
+    coverage = VerifiedControlCoverageV1(
+        subject=subject,
+        criterion=criterion,
+        receipt=receipt,
+        probes=ordered,
+    )
+    verify_verified_control_coverage(coverage)
+    return coverage
+
+
+def evaluate_control_from_probes(
+    subject: cdc.IntegerSubjectV1,
+    criterion: cdc.CollisionCriterionV1,
+    probes: Sequence[VerifiedRegistryProbeV1],
+) -> tuple[cdc.CollisionReceiptV1, VerifiedControlCoverageV1]:
+    coverage = aggregate_control_coverage(subject, criterion, probes)
+    observations: list[cdc.DomainObservationV1] = []
+    for probe in coverage.probes:
+        if probe.receipt.outcome is not RegistryProbeOutcomeV1.MATCH:
+            continue
+        observations.append(
+            cdc.DomainObservationV1(
+                subject_sha256=subject.subject_sha256,
+                domain_id=probe.receipt.registry_id,
+                evidence_class=cdc.EvidenceClass.EXTERNAL_IDENTIFIER_MATCH,
+                transform_id=probe.receipt.transform_id,
+                transform_criterion_sha256=probe.receipt.transform_criterion_sha256,
+                evidence_artifact_sha256=probe.receipt.receipt_sha256,
+                normalized_claim=f"promotion-grade registry match:{probe.receipt.registry_id}",
+            )
+        )
+    collision = cdc.evaluate_collision(
+        subject,
+        cdc.SelectionProvenance.PROSPECTIVE,
+        observations,
+        criterion,
+    )
+    return collision, coverage
