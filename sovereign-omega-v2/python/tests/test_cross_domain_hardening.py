@@ -222,6 +222,23 @@ class CrossDomainHardeningTests(unittest.TestCase):
                 null_receipt=tampered,
             )
 
+    def test_null_status_rejects_coverage_lineage_tampering(self):
+        c = criterion(control_count=100)
+        observed = observed_collision(c)
+        null_receipt = valid_null_receipt(observed, c)
+        self.assertTrue(null_receipt.null_survived)
+        tampered = replace(null_receipt, control_coverage_receipt_sha256s=())
+        journal = journal_at_collision(observed, c)
+        with self.assertRaises(PermissionError):
+            cdc.append_collision_status(
+                journal,
+                "NULL_SURVIVED",
+                [tampered.receipt_sha256],
+                c.criterion_sha256,
+                "coverage lineage tampering must not promote",
+                null_receipt=tampered,
+            )
+
     def test_null_status_rejects_collision_receipt_splicing(self):
         c = criterion(control_count=100)
         observed_a = observed_collision(c, 65010)
