@@ -27,6 +27,8 @@ The canonical path is:
 
 `Live source -> RegistrySnapshotV1 -> Offline verifier -> CollisionReceiptV1 -> NullModelReceiptV1 -> StatusTransitionV1`
 
+Local deterministic derivations enter through a distinct derivation receipt rather than pretending to be an external registry snapshot.
+
 Any missing, stale, malformed, unbound, or schema-incompatible transition fails closed.
 
 ## 3. Required parent semantics
@@ -51,7 +53,7 @@ IntegerSubjectV1 {
 
 Decimal, hexadecimal, Unicode notation, registry IDs, and formatted strings are representations or transforms of the integer, not separate subjects.
 
-Example: `65010`, `0xFDF2`, and the code-point integer represented by `U+FDF2` refer to the same integer subject when the transform contract explicitly permits those representations.
+Example: `65010` and `0xFDF2` are two representations of the same integer subject. `U+FDF2` is the deterministic Unicode code-point label produced when the integer lies in the Unicode scalar/code-point range; the character assignment, official name, decomposition, and other Unicode semantics are separate facts established only by a frozen Unicode snapshot.
 
 ## 5. Transform registry
 
@@ -79,9 +81,9 @@ TransformSpecV1 {
 
 Unknown transforms are inadmissible. Editing transform semantics creates a new criterion epoch.
 
-## 6. Registry snapshot boundary
+## 6. External snapshot boundary and local derivations
 
-Live connectors never participate directly in deterministic collision verification. They produce `RegistrySnapshotV1` artifacts.
+Live external connectors never participate directly in deterministic collision verification. They produce `RegistrySnapshotV1` artifacts.
 
 ```text
 RegistrySnapshotV1 {
@@ -99,17 +101,20 @@ RegistrySnapshotV1 {
 }
 ```
 
-`content_sha256` binds all deterministic fields except non-authoritative local execution timing.
+`content_sha256` binds all canonical snapshot fields. Non-authoritative local execution duration or wall-clock timing is not part of the semantic receipt.
 
-The V1 registry set is intentionally small:
+The V1 external registry set is intentionally small:
 
-- Unicode code-point data
+- Unicode character/code-point data
 - NCBI Gene identifier data
-- deterministic number-theory derivations
 
-Number-theory derivations are classified as `DERIVED_PROPERTY`, not `EXTERNAL_IDENTIFIER_MATCH`. Multiple properties derived from one arithmetic engine do not count as independent external domains.
+The V1 local derived domain is:
 
-The ingestion layer may use live connectors, HTTP clients, or manually imported authoritative snapshots, but downstream offline verification sees only canonical snapshots.
+- deterministic number-theory properties
+
+Local arithmetic output MUST use a `DerivationReceiptV1` (or the generic parent receipt form extended for deterministic derivations) that binds subject, derivation implementation/version, criterion epoch, canonical result, and result digest. It MUST NOT be labeled `EXTERNAL_IDENTIFIER_MATCH` and MUST NOT increase the independent external-registry count.
+
+The ingestion layer may use live connectors, HTTP clients, or manually imported authoritative snapshots, but downstream offline verification sees only canonical snapshots and deterministic derivation receipts.
 
 ## 7. Collision evidence model
 
@@ -122,7 +127,7 @@ DomainObservationV1 {
   evidence_class
   transform_id
   transform_criterion_sha256
-  snapshot_sha256
+  evidence_artifact_sha256
   normalized_claim
   observation_sha256
 }
@@ -134,7 +139,9 @@ Initial evidence classes:
 - `STANDARD_CODEPOINT_MAPPING`
 - `DERIVED_PROPERTY`
 
-A collision is not simply "two facts exist". It is a set of domain observations satisfying independence and anti-double-counting rules.
+`evidence_artifact_sha256` binds either the external `RegistrySnapshotV1` or the local deterministic derivation receipt that supports the observation.
+
+A collision is not simply "two facts exist". It is a set of domain observations satisfying independence and anti-double-counting rules. `CROSS_REGISTRY_COLLISION` specifically requires at least two unique admissible external/standard domains under the frozen criterion; local derived properties may enrich the observation profile but cannot satisfy that threshold by themselves.
 
 `CollisionReceiptV1` MUST bind:
 
@@ -143,7 +150,8 @@ A collision is not simply "two facts exist". It is a set of domain observations 
 - unique domain identities;
 - evidence classes;
 - transform epochs;
-- registry snapshot digests;
+- evidence artifact digests;
+- independence classification;
 - collision score specification digest;
 - verdict and reason.
 
@@ -217,12 +225,13 @@ A `StatusTransitionV1` binds previous state, next state, claim digest, evidence 
 
 Promotion MUST fail when any of the following holds:
 
-- missing registry snapshot;
-- malformed or unsupported snapshot schema;
+- missing required external snapshot or local derivation receipt;
+- malformed or unsupported evidence schema;
 - snapshot subject/key mismatch;
 - stale or spliced subject digest;
 - unknown transform or criterion epoch;
 - duplicate counting of the same underlying domain;
+- local derived properties counted as independent external registries;
 - retrospective observation represented as prospective;
 - null model missing frozen universe/score/generator/seed;
 - non-deterministic replay under the same inputs;
@@ -239,16 +248,16 @@ Subject:
 
 `65010`
 
-Expected admissible mappings under frozen snapshots:
+Expected admissible mappings under frozen evidence:
 
-- integer -> hexadecimal `FDF2`;
-- integer -> Unicode code point `U+FDF2` under the Unicode transform/snapshot;
+- integer -> hexadecimal `FDF2` as a deterministic representation;
+- integer -> code-point label `U+FDF2` as a deterministic transform, while the Unicode snapshot separately establishes the assigned character metadata for `U+FDF2`;
 - integer -> an external NCBI Gene identifier record when the frozen NCBI snapshot establishes that exact identifier;
-- deterministic arithmetic properties from the local number-theory evaluator.
+- deterministic arithmetic properties from the local number-theory evaluator, carried by derivation receipt rather than external-registry classification.
 
 The fixture MUST remain `RETROSPECTIVE`.
 
-The expected status ceiling for the fixture without new prospective evidence is `CROSS_REGISTRY_COLLISION`.
+The expected status ceiling for the fixture without new prospective evidence is `CROSS_REGISTRY_COLLISION`, and reaching that state requires the frozen Unicode and NCBI evidence to satisfy the criterion's independence rules.
 
 The fixture MUST NOT be used to claim non-randomness, causation, biological linkage, or mathematical mechanism.
 
@@ -262,7 +271,7 @@ Rules:
 - adding a new transform after seeing a subject creates a new retrospective criterion epoch;
 - multiple formatting encodings of one mapping are one observation lineage;
 - multiple facts from one registry do not automatically imply independent domains;
-- derived arithmetic facts are tagged separately from external registry assignments;
+- derived arithmetic facts are tagged separately from external registry assignments and do not inflate external-registry count;
 - significance is reported against the exact tested universe, not against an unspecified notion of "all numbers";
 - every promoted claim retains the denominator: how many candidates were examined under that same criterion.
 
@@ -277,7 +286,7 @@ Expected implementation surfaces:
 - `sovereign-omega-v2/python/cross_domain_collision.py`
   - integer subject model;
   - transform specs;
-  - snapshot validation;
+  - snapshot/derivation validation;
   - domain observations;
   - collision scoring;
   - offline null-model verifier;
@@ -298,16 +307,17 @@ Generated repository-cognition artifacts are refreshed only after source/spec ch
 
 At minimum, implementation must prove:
 
-1. identical snapshots + criterion + seed replay to identical deterministic receipts;
+1. identical evidence artifacts + criterion + seed replay to identical deterministic receipts;
 2. changing one deterministic snapshot byte changes its digest and invalidates stale downstream receipts;
 3. same-registry duplicate observations cannot inflate independent domain count;
-4. a retrospective seed cannot be admitted as prospective;
-5. unknown transform epochs fail closed;
-6. connector failure cannot be interpreted as a negative registry result;
-7. null controls are exactly reproducible from frozen generator + seed;
-8. status can be demoted by new evidence while all prior transitions remain inspectable;
-9. `65010` reaches exact-mapping/collision status from frozen fixtures but cannot reach `NULL_SURVIVED` merely because it is interesting;
-10. `STRUCTURAL_RELATION` cannot be minted from a p-value or collision receipt alone.
+4. a local derived property cannot be counted as an independent external registry;
+5. a retrospective seed cannot be admitted as prospective;
+6. unknown transform epochs fail closed;
+7. connector failure cannot be interpreted as a negative registry result;
+8. null controls are exactly reproducible from frozen generator + seed;
+9. status can be demoted by new evidence while all prior transitions remain inspectable;
+10. `65010` reaches exact-mapping/collision status from frozen fixtures but cannot reach `NULL_SURVIVED` merely because it is interesting;
+11. `STRUCTURAL_RELATION` cannot be minted from a p-value or collision receipt alone.
 
 ## 16. CI and evidence boundary
 
@@ -332,7 +342,7 @@ V1 does not:
 
 ## 18. Success criterion
 
-The vertical slice is successful when an exact repository head can replay a frozen integer fixture entirely offline, independently verify every transform/snapshot binding, produce deterministic collision and status receipts, reject at least the specified adversarial falsifiers, and preserve a machine-auditable distinction between:
+The vertical slice is successful when an exact repository head can replay a frozen integer fixture entirely offline, independently verify every transform/evidence binding, produce deterministic collision and status receipts, reject at least the specified adversarial falsifiers, and preserve a machine-auditable distinction between:
 
 `exact fact -> observed collision -> statistical survival -> structural explanation`.
 
