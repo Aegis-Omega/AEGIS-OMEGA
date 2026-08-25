@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/weil-prime-diagonal-v1",
+    "source_ref": "probe/weil-corn-trig-viability-v1",
     "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "218fc748f219deb1cacf39ba8087e49d5febf7eb370ac05a551b9767cece6d3e"
+  "state_hash": "ba3b096c32f990173cd1c9e067e76cb0dd50fec9e7e99a075f32854da72f53a5"
 }
