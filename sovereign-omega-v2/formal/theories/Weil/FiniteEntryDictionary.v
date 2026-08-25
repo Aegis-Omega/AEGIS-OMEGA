@@ -78,7 +78,7 @@ Proof.
   intros a L k m n Hm Hn.
   unfold pole_closed_template, pole_kernel,
          pole_c_template, pole_s_template, pole_denominator.
-  field; ring.
+  field; try ring; try assumption.
 Qed.
 
 Definition prime_pole_offdiag_formula
