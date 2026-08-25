@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "4e992869200ef87f92a186d07afde849218158853becbba2711cbc54997008e5",
+  "corpus_root": "7018c55365a3207a02784eb04ec2c4a17a9fcd2de195ac268475dcf727714796",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1952,
@@ -28681,17 +28681,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "69a9a179ae27dbb6fb252d3b5c8674cda92609e2e3d1d5ba33e2f3314e9531ff",
+      "content_sha256": "c487b1a37a6424cd65ae1787d5358e0690fb0bab7df75697ff8afaf2037c9818",
       "dependency_hints": [],
-      "git_blob_sha": "c1a4a92236366e17d6dc4cc9dde3c1686dd865f8",
+      "git_blob_sha": "17a2e9d469292d8d9a28d96ee735eadc9404970d",
       "heading_hint": "Cross-Domain Collision V1",
       "kind": "documentation",
       "language": "markdown",
-      "line_count": 186,
+      "line_count": 160,
       "mode": "100644",
       "object_type": "blob",
       "path": "docs/research/cross-domain-collision-v1.md",
-      "size_bytes": 10808,
+      "size_bytes": 12390,
       "symbol_hints": []
     },
     {
