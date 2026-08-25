@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "80587b77cc71f9f7c88d030398ff06fc0b06446de1d0ba21810054b68295b55b",
+  "corpus_root": "4e8bc280aaaf7a737a5d50f3f29f48985a7fa4d5a1f0436e7a09beb0bae63b13",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1939,
@@ -28653,17 +28653,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "da2b967488bb6badb2fda3043a54c0e74edda27e3c5adf40134c84bee5f37e70",
+      "content_sha256": "89af5ef0dcc689a607ee66226f9ceb52d9f1ed8e4ddec29fe281b06dac6d4abc",
       "dependency_hints": [],
-      "git_blob_sha": "8d77eb4ab1e8cfc66addd5478e3ad5ed0b7a7ae3",
+      "git_blob_sha": "cc26a902f65e1d26eb89a89f3da8d0077e3e084e",
       "heading_hint": "Zero-Discretion Type Gates v1",
       "kind": "documentation",
       "language": "markdown",
-      "line_count": 186,
+      "line_count": 212,
       "mode": "100644",
       "object_type": "blob",
       "path": "docs/research/zero-discretion-type-gates-v1.md",
-      "size_bytes": 6393,
+      "size_bytes": 7798,
       "symbol_hints": []
     },
     {
