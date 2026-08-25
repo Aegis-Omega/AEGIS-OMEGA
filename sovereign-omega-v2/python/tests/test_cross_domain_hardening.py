@@ -108,6 +108,28 @@ class CrossDomainHardeningTests(unittest.TestCase):
         with self.assertRaises(TypeError):
             snapshot.canonical_result["parts"][0] = 9
 
+    def test_derivation_payload_is_deeply_immutable_after_hashing(self):
+        derivation = cdc.DerivationReceiptV1(
+            subject_sha256="a" * 64,
+            derivation_id="DERIVATION_V1",
+            derivation_version="1",
+            criterion_sha256="b" * 64,
+            canonical_result={"factors": [2, 3, 5]},
+        )
+        with self.assertRaises(TypeError):
+            derivation.canonical_result["factors"][0] = 7
+
+    def test_gate_receipt_observation_is_deeply_immutable_after_hashing(self):
+        relation = ri.bind_relation("x-against-y-v1", {"x": "a" * 64, "y": "b" * 64})
+        receipt = ri.relation_gate_receipt(
+            gate_id="hardening-relation-gate",
+            relation=relation,
+            verdict=ri.GateVerdict.PASS,
+            observation={"nested": {"values": [1, 2]}},
+        )
+        with self.assertRaises(TypeError):
+            receipt.observation["nested"]["values"][0] = 9
+
     def test_criterion_defensively_freezes_registry_and_transform_sets(self):
         registries = ["unicode", "ncbi-gene"]
         transforms = ["UNICODE_LOOKUP_V1", "NCBI_LOOKUP_V1"]
@@ -136,6 +158,14 @@ class CrossDomainHardeningTests(unittest.TestCase):
         self.assertEqual(receipt.control_count, 4)
         self.assertEqual(len(receipt.control_receipt_sha256s), 4)
         self.assertTrue(receipt.promotion_eligible)
+
+    def test_null_receipt_rejects_p_emp_tampering(self):
+        c = criterion(control_count=100)
+        observed = observed_collision(c)
+        receipt = cdc.evaluate_null_model(observed, c, zero_control_receipts(c))
+        tampered = replace(receipt, p_emp=0.5)
+        with self.assertRaises(ValueError):
+            cdc.verify_null_model_receipt(tampered)
 
     def test_null_status_rejects_tampered_receipt_digest(self):
         c = criterion(control_count=100)
