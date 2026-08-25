@@ -53,7 +53,8 @@ jobs:
             set -euo pipefail
             ROOT="$PWD/sovereign-omega-v2"
             THEORY="$ROOT/formal/theories/Weil"
-            TEST="$ROOT/formal/tests/Weil/CoRNTrigViability.v"
+            TESTDIR="$ROOT/formal/tests/Weil"
+            TEST="$TESTDIR/CoRNTrigViability.v"
             OUT="$ROOT/weil-corn-trig-viability"
 
             coqc --version | tee "$OUT/coq-version.txt"
@@ -64,22 +65,22 @@ jobs:
               | tee "$OUT/corn-package-metadata.txt"
 
             coqc -Q "$THEORY" "" "$THEORY/AnalyticDefinitions.v"
-            coqc -Q "$THEORY" "" "$TEST" 2>&1 \
+            coqc -Q "$THEORY" "" -Q "$TESTDIR" "" "$TEST" 2>&1 \
               | tee "$OUT/corn-surface-probe.log"
 
-            for theorem in sin_correct cos_correct Derivative_Sin Derivative_Cos Sin_plus Cos_plus
+            for theorem in \
+              sin_correct cos_correct Derivative_Sin Derivative_Cos Sin_plus Cos_plus \
+              corn_o0_corn_roundtrip_v1 o0_corn_o0_roundtrip_v1
             do
               query="$OUT/${theorem}.v"
               log="$OUT/${theorem}.assumptions.txt"
               cat > "$query" <<EOF
             Set Coqtop Exit On Error.
-            Require Import CoRN.reals.fast.CRsin.
-            Require Import CoRN.reals.fast.CRcos.
-            Require Import CoRN.reals.fast.CRpi.
-            Require Import CoRN.transc.SinCos.
+            Require Import CoRNTrigViability.
             Print Assumptions ${theorem}.
             EOF
-              coqtop -quiet -batch -l "$query" > "$log" 2>&1
+              coqtop -quiet -batch -Q "$THEORY" "" -Q "$TESTDIR" "" -l "$query" \
+                > "$log" 2>&1
               rm -f "$query"
               cat "$log"
               if grep -q 'Closed under the global context' "$log"; then
@@ -91,21 +92,6 @@ jobs:
                 exit 1
               fi
             done
-
-            bridge="$OUT/bridge-search.v"
-            cat > "$bridge" <<'EOF'
-            Set Coqtop Exit On Error.
-            Require Import AnalyticDefinitions.
-            Require Import CoRN.reals.fast.CRsin.
-            Require Import CoRN.reals.fast.CRcos.
-            Require Import CoRN.reals.stdlib.ConstructiveCauchyIntegral.
-            Search (CR -> O0RealV1).
-            Search (O0RealV1 -> CR).
-            EOF
-            coqtop -quiet -batch -Q "$THEORY" "" -l "$bridge" \
-              > "$OUT/corn-o0-bridge-search.txt" 2>&1
-            rm -f "$bridge"
-            cat "$OUT/corn-o0-bridge-search.txt"
 
       - name: Emit fail-closed CoRN viability receipt
         working-directory: sovereign-omega-v2
@@ -127,12 +113,11 @@ jobs:
               theorem, status = line.split('\t', 1)
               statuses[theorem] = status
 
-          bridge_lines = [
-              line.strip() for line in
-              (out / 'corn-o0-bridge-search.txt').read_text().splitlines()
-              if line.strip()
-          ]
           version = (out / 'corn-version.txt').read_text().strip()
+          bridge_theorems = {
+              'corn_o0_corn_roundtrip_v1',
+              'o0_corn_o0_roundtrip_v1',
+          }
 
           payload = {
               'receipt_kind': 'AEGIS_WEIL_CORN_TRIG_VIABILITY_V1',
@@ -148,13 +133,16 @@ jobs:
                   name: sha(out / f'{name}.assumptions.txt') for name in statuses
               },
               'o0_carrier': 'CRcarrier CRealConstructive',
-              'corn_fast_carrier': 'CoRN.reals.fast.CR',
+              'corn_fast_constructive_reals_instance': 'FastRealsConstructive',
+              'corn_fast_carrier': 'CRcarrier FastRealsConstructive = CoRN.reals.fast.CR',
               'direct_corn_fast_cr_to_o0_definitional_reuse': False,
-              'shared_constructive_reals_interface_module_loaded': True,
-              'corn_o0_bridge_established': False,
-              'corn_o0_bridge_search_sha256': sha(out / 'corn-o0-bridge-search.txt'),
-              'corn_o0_bridge_search_nonempty_line_count': len(bridge_lines),
-              'corn_o0_bridge_search_semantics': 'ENVIRONMENT_SEARCH_HEURISTIC_NOT_INTEROPERABILITY_PROOF',
+              'corn_o0_bridge_kind': 'SLOW_CONSTRUCTIVE_REALS_MORPHISM_PROOF_ORIENTED',
+              'corn_o0_bridge_established': True,
+              'corn_o0_bidirectional_roundtrip_machine_bound': True,
+              'corn_o0_bridge_theorem_statuses': {
+                  name: statuses[name] for name in sorted(bridge_theorems)
+              },
+              'corn_o0_trig_transport_machine_bound': False,
               'production_authority_granted': False,
               'prime_diagonal_trig_periodicity_machine_bound': False,
               'prime_source_sine_derivative_machine_bound': False,
@@ -171,12 +159,15 @@ jobs:
           assert payload['authority'] == 'DIAGNOSTIC_ONLY'
           assert version == '9.0.0'
           assert set(statuses) == {
-              'sin_correct', 'cos_correct', 'Derivative_Sin',
-              'Derivative_Cos', 'Sin_plus', 'Cos_plus'
+              'sin_correct', 'cos_correct', 'Derivative_Sin', 'Derivative_Cos',
+              'Sin_plus', 'Cos_plus',
+              'corn_o0_corn_roundtrip_v1', 'o0_corn_o0_roundtrip_v1'
           }
           assert all(status != 'UNRECOGNIZED' for status in statuses.values())
           assert payload['direct_corn_fast_cr_to_o0_definitional_reuse'] is False
-          assert payload['corn_o0_bridge_established'] is False
+          assert payload['corn_o0_bridge_established'] is True
+          assert payload['corn_o0_bidirectional_roundtrip_machine_bound'] is True
+          assert payload['corn_o0_trig_transport_machine_bound'] is False
           assert payload['production_authority_granted'] is False
           assert payload['prime_diagonal_dictionary_formalized'] is False
           assert payload['global_weil_positivity_proven'] is False
