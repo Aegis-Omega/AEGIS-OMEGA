@@ -8,11 +8,11 @@ Parent: Zero-Discretion Type Gates v1 (#320)
 
 Cross-Domain Collision V1 converts integer observations into replayable evidence without treating coincidence as mechanism.
 
-The authoritative path is:
+The promotion-grade computational path is now:
 
-`live source -> immutable snapshot -> offline relation verification -> collision receipt -> null-model receipt -> append-only status transition`
+`live/source evidence -> immutable source artifact -> frozen registry adapter -> verified registry probe -> verified control coverage -> collision receipt -> coverage-bound null-model receipt -> append-only status transition`
 
-Live connectors are evidence producers only. They cannot admit a claim, promote a status, authorize a mutation, or perform an external effect on behalf of the research verifier.
+Live connectors remain evidence producers only. They cannot admit a claim, promote a status, authorize a mutation, or perform an external effect on behalf of the research verifier.
 
 ## Integer-first scope
 
@@ -28,159 +28,133 @@ Unknown transforms fail closed.
 
 ## External snapshot boundary
 
-`RegistrySnapshotV1` binds the external registry identity, release/record version, exact query key, result kind, canonical result, source locator, observation date, ingestion producer, and deterministic content digest. Hash-bound nested payloads are defensively deep-frozen before they can be consumed downstream.
+`RegistrySnapshotV1` binds registry identity, release/record version, exact query key, result kind, canonical result, source locator, observation date, ingestion producer, and deterministic content digest. Hash-bound nested payloads are defensively deep-frozen before downstream use.
 
-The live ingestion module returns either:
-
-- `ESTABLISHED` with a valid snapshot; or
-- `NOT_ESTABLISHED` with no snapshot.
-
-Timeouts, malformed JSON, source failures, and validation failures never become negative registry findings.
+The live-ingestion boundary returns either established source evidence or `NOT_ESTABLISHED`; transport, parser, schema, and source failures never become negative registry findings.
 
 ## Relation verification
 
-A snapshot does not count merely because its digest exists. `verify_snapshot_observation(...)` recomputes the subject-to-query-key transform before minting `DomainObservationV1`.
+A snapshot does not count merely because its digest exists. Subject-to-query-key relations are recomputed before observations or probe evidence may be minted.
 
-For the Unicode transform, the expected query key is the subject's exact `U+` code-point label. For the external decimal-identifier transform, the expected key is the subject's canonical base-10 string. A mismatched key fails before collision scoring.
-
-Each observation binds:
-
-- subject digest;
-- domain id;
-- evidence class;
-- transform id and literal criterion epoch;
-- evidence artifact digest;
-- normalized claim;
-- deterministic observation digest.
-
-## Independence and score
-
-V1 supports only:
-
-`independence_rule_id = UNIQUE_DOMAIN_ID_V1`
-
-and
-
-`score_function_id = UNIQUE_EXTERNAL_DOMAINS_V1`.
-
-The score is the number of unique frozen external/standard domains. Two observations from the same domain count once. `DERIVED_PROPERTY` observations contribute context but never increase the external-domain count.
-
-`CROSS_REGISTRY_COLLISION` requires at least two unique admissible external/standard domains under the frozen criterion.
+Each collision observation binds the subject digest, domain, evidence class, transform and criterion epoch, source-evidence digest, normalized claim, and deterministic observation digest. Two observations from the same external domain still count once under `UNIQUE_DOMAIN_ID_V1`; local `DERIVED_PROPERTY` evidence never increases the external-domain score.
 
 ## Retrospective vs prospective provenance
 
-Every collision receipt binds one of:
+Every collision receipt binds `RETROSPECTIVE` or `PROSPECTIVE` provenance. That provenance is hash-bound.
 
-- `RETROSPECTIVE`: the subject was already known/selected before the frozen criterion;
-- `PROSPECTIVE`: the subject was encountered only after universe, transforms, registries, score function, generator, seed, count, and threshold were frozen.
+A retrospective subject cannot become prospective merely by rerunning it. Retrospective null evaluation is descriptive only, requires explicit opt-in, carries `promotion_eligible=false`, carries no `null_survived` verdict, and does not claim promotion-grade control coverage.
 
-The provenance is part of the collision receipt hash.
+## Proof-carrying registry probes
 
-A retrospective observation cannot become promotion-eligible by rerunning it. A retrospective null-model evaluation is descriptive only and requires an explicit opt-in; its receipt contains `promotion_eligible=false` and no `null_survived` verdict.
+An empty observation set is **not** evidence that a registry was queried and returned no match. It may equally mean that the registry was not queried, the query failed, the response was ambiguous, or evidence was omitted.
+
+Promotion-grade control evaluation therefore uses `RegistryProbeOutcomeV1` with three distinct outcomes:
+
+- `MATCH`;
+- `NO_MATCH`;
+- `NOT_ESTABLISHED`.
+
+`NO_MATCH` is not a fallback state. It requires an immutable source artifact whose result is classified by a frozen `RegistryAdapterContractV1` with an explicit negative-result rule. Timeout, missing data, malformed data, parser failure, unsupported semantics, and absent evidence are never converted into `NO_MATCH`.
+
+A raw hash-valid `RegistryProbeReceiptV1` is not sufficient promotion authority by itself. `VerifiedRegistryProbeV1` carries the exact subject, exact collision criterion, frozen adapter, probe receipt, and the immutable source snapshot or failure artifact needed to replay the classification. Verification reconstructs the probe and requires byte-semantic receipt equality. This blocks hash-valid subject, criterion, adapter, and source splicing.
+
+The current promotion-grade adapter implementation is intentionally narrow and deterministic. Its fixture rule family classifies a literal boolean `match` field under frozen local adapter contracts. This proves the evidence/authority mechanics; it is **not** a claim that real Unicode or NCBI negative-result semantics have already been formalized for prospective experiments.
+
+## Control coverage
+
+`ControlCoverageReceiptV1` binds one generated control subject to the complete frozen registry set. `VerifiedControlCoverageV1` additionally carries the source-bound verified probe bundles required to replay that receipt.
+
+For a frozen registry set `R`, coverage is complete iff every registry in `R` appears exactly once, no extra registry appears, every probe is bound to the same subject and criterion, every probe re-verifies, and every outcome is `MATCH` or `NO_MATCH`. Missing probes and `NOT_ESTABLISHED` outcomes are represented explicitly and make `coverage_complete=false`. Duplicate or extra registry probes fail closed.
+
+`coverage_complete` is derived; it is never accepted as caller-supplied authority.
+
+Control collision construction is also derived from the exact probe bundle. `MATCH` probes mint external collision observations; `NO_MATCH` probes contribute coverage but no collision observation; `NOT_ESTABLISHED` contributes neither a match nor complete coverage. The null evaluator recomputes each control collision from its bound coverage probes and rejects a collision/coverage score splice even when subject and criterion are otherwise identical.
 
 ## Deterministic null model
 
-`CollisionCriterionV1` binds:
+`CollisionCriterionV1` hash-binds universe bounds, registry set, transform set, independence rule, score function, control generator, seed, control count, optional threshold, and criterion text. V1 control generation uses a local `random.Random(seed)` instance; global PRNG state is irrelevant.
 
-- universe bounds;
-- external registry set;
-- transform set;
-- independence rule;
-- score function;
-- control generator;
-- control seed;
-- control count;
-- optional promotion threshold;
-- criterion text.
+The null evaluator does not accept caller-supplied scalar scores. It regenerates the exact ordered control-subject sequence. For a prospective observed collision, every generated control position must carry:
 
-The criterion digest binds all of those fields, not only the prose label.
+1. a hash-valid `CollisionReceiptV1`;
+2. a replay-valid `VerifiedControlCoverageV1`;
+3. exact subject equality with the generated control at that position;
+4. exact criterion equality;
+5. `coverage_complete=true`;
+6. a collision receipt that is reproduced from the exact bound probe bundle.
 
-V1 control generation uses a local `random.Random(seed)` instance under `PY_RANDOM_UNIFORM_INT_V1`; global PRNG state is irrelevant.
+Missing coverage blocks prospective null evaluation. Reordered coverage, cross-subject coverage, cross-criterion coverage, source/probe tampering, or collision/coverage score splicing fail closed.
 
-The null evaluator does not accept caller-supplied scalar scores. It regenerates the exact ordered control-subject sequence from the frozen criterion and requires one valid `CollisionReceiptV1` for each exact generated subject, under the same criterion and prospective provenance. The resulting `NullModelReceiptV1` binds all control subject digests, all control collision-receipt digests, and the deterministic control-score digest.
-
-For those receipt-bound control scores, the finite-sample empirical tail is:
+The finite-sample empirical tail remains:
 
 `p_emp = (1 + #{control_score >= observed_score}) / (1 + N_control)`.
 
-A threshold-free criterion produces a descriptive p-value but no survival verdict.
+`NullModelReceiptV1` binds the ordered generated subject digests, ordered control collision-receipt digests, ordered control coverage-receipt digests, control-score digest, empirical statistic, and promotion verdict. `verify_null_model_receipt(...)` checks its digest, cardinalities, finite-sample p-value identity, coverage-lineage shape, and promotion-shape invariants.
 
-`verify_null_model_receipt(...)` recomputes the receipt hash, finite-sample p-value relation, digest syntax, control cardinalities, and promotion-shape invariants before a `NULL_SURVIVED` transition can consume the receipt. The status transition additionally requires the exact null-receipt digest in its evidence set and requires the null receipt to name the exact collision receipt carried by the immediately preceding `CROSS_REGISTRY_COLLISION` transition.
+A threshold-free **prospective** null evaluation still requires complete coverage, even though it produces no survival verdict. A retrospective descriptive evaluation remains non-promoting and may omit promotion-grade coverage.
 
-## Control-coverage authority boundary
+## Status authority
 
-A collision receipt with score zero is not, by itself, proof that every frozen external registry was queried and returned no match. An empty observation sequence can also mean that no external registry evaluation was supplied.
-
-V1 therefore distinguishes two statements:
-
-- deterministic replay/statistics over the supplied receipt-bound control collision receipts is implemented and testable;
-- complete external-registry coverage for every prospective control subject is **NOT_ESTABLISHED** by the current V1 type graph.
-
-No real-world prospective significance claim may inherit authority from a synthetic or incompletely covered control set. In particular, the current 65010 fixture has no prospective control-coverage witness and cannot be promoted on the basis of synthetic zero-score controls. A future promotion-capable layer must carry explicit, independently verifiable per-control registry-coverage evidence rather than interpreting absence of observations as evidence of no match.
-
-This boundary is load-bearing: `COMPUTED p_emp` is not automatically `ESTABLISHED prospective significance`.
-
-## Status history
-
-Collision status is recorded through the generic hash-chained `StatusJournalV1` foundation.
-
-The V1 statistical vocabulary is:
+Collision status uses the generic hash-chained `StatusJournalV1` foundation:
 
 `OBSERVED -> EXACT_MAPPING -> CROSS_REGISTRY_COLLISION -> NULL_SURVIVED -> REPLICATED`.
 
-Within the implemented computational path, `NULL_SURVIVED` requires a matching, hash-valid null-model receipt that is both promotion-eligible and surviving, carries the exact receipt digest into transition evidence, and is bound to the current collision transition. This does not override the separate control-coverage boundary above for real-world scientific promotion.
+`NULL_SURVIVED` requires a hash-valid null receipt that is promotion-eligible and surviving, names the exact current collision receipt, contains promotion-grade coverage lineage for every control, and is itself carried in the transition evidence. Coverage-lineage field tampering invalidates the null receipt before status promotion.
 
-`STRUCTURAL_RELATION` is not a statistical promotion state and cannot be minted by this subsystem.
-
-The generic status journal separately supports explicit demotion while preserving prior evidence and transition hashes.
+`STRUCTURAL_RELATION` is not a statistical state and cannot be minted by this subsystem. The generic journal separately supports explicit demotion while retaining prior evidence and transition hashes.
 
 ## Frozen 65010 fixture
 
-`.aegis/cross-domain/fixtures/65010-v1.json` is a retrospective regression fixture, not a significance claim.
+`.aegis/cross-domain/fixtures/65010-v1.json` remains a retrospective regression fixture, not a significance claim.
 
 It freezes two independent external records observed on 2026-08-25:
 
-1. Unicode 16.0.0: integer `65010` has hexadecimal representation `FDF2`; the deterministic code-point label is `U+FDF2`; the frozen Unicode record names U+FDF2 `ARABIC LIGATURE ALLAH ISOLATED FORM`. Source locator: `https://www.unicode.org/versions/Unicode16.0.0/core-spec/chapter-9/`.
-2. NCBI Gene: identifier `65010` resolves to the human protein-coding gene symbol `SLC26A6`; the frozen record notes the NCBI Gene page update date 2026-08-05. Source locator: `https://www.ncbi.nlm.nih.gov/gene/65010/`.
+1. Unicode 16.0.0: integer `65010` has hexadecimal representation `FDF2`; its deterministic code-point label is `U+FDF2`; the frozen record names U+FDF2 `ARABIC LIGATURE ALLAH ISOLATED FORM`.
+2. NCBI Gene: identifier `65010` resolves in the frozen record to the human protein-coding gene symbol `SLC26A6`.
 
-The same bundle also freezes exact local factorisation data as `DERIVED_PROPERTY`; this arithmetic evidence does not count as a third external registry.
+The bundle also freezes exact local factorisation data as `DERIVED_PROPERTY`; that arithmetic evidence is not a third external registry.
 
-The fixture's maximum V1 status without new prospective evidence is `CROSS_REGISTRY_COLLISION`.
+Its V1 ceiling remains `CROSS_REGISTRY_COLLISION`. The control-coverage implementation does not retroactively make the known seed prospective.
 
-No fixture receipt claims causation, biological linkage, theorem-level equivalence, hidden semantics, or non-randomness.
+No fixture receipt claims causation, biological linkage, theorem-level equivalence, hidden semantics, non-randomness, RH, or AGI.
+
+## Synthetic coverage versus real registry coverage
+
+The new local fixture adapters establish that the authority machinery can distinguish and replay `MATCH`, explicit `NO_MATCH`, and `NOT_ESTABLISHED`; derive complete coverage; derive a control score from the same probe set; bind coverage into the null receipt; and block incomplete, reordered, or spliced evidence.
+
+That is an implementation/evidence result about the **control-plane semantics**.
+
+It does not establish that Unicode, NCBI, or any other real registry exposes promotion-grade exact-negative semantics suitable for a future experiment. Each real registry requires its own frozen adapter contract, authoritative source snapshot format, positive predicate, exact negative predicate, ambiguity/error classification, and canonicalization rule before it may contribute to prospective scientific promotion.
+
+Therefore:
+
+`synthetic fixture coverage semantics` ≠ `real Unicode/NCBI prospective coverage`.
 
 ## Fail-closed conditions
 
-Admission/promotion is blocked on missing snapshots, unsupported schemas, subject/query-key mismatch, stale subject digest, unknown transform, external domain absent from the frozen criterion, duplicate-domain inflation, raw caller-supplied null scores, control-subject/criterion/provenance mismatch, malformed or tampered null receipts, null/collision receipt splicing, retrospective-to-prospective relabeling, missing null receipt for `NULL_SURVIVED`, missing null-receipt digest in the transition evidence, or any attempt to mint `STRUCTURAL_RELATION` from collision statistics.
+Promotion is blocked by missing snapshots/evidence, unsupported schemas or adapter rules, subject/query-key mismatch, stale subject digest, unknown transform, external domain absent from the frozen criterion, duplicate-domain inflation, raw caller-supplied null scores, missing coverage, duplicate/extra registry probes, `NOT_ESTABLISHED` controls, control subject/criterion/provenance mismatch, reordered coverage, collision/coverage score splicing, malformed or tampered receipts, null/collision splicing, retrospective-to-prospective relabeling, missing null receipt or null digest at `NULL_SURVIVED`, or any attempt to mint `STRUCTURAL_RELATION` from collision statistics.
 
-Missing observations are never documented as proof of a negative external lookup. Complete registry coverage remains a separate unresolved evidence obligation for real prospective significance.
+Absence of observations is never documented as proof of an external negative lookup.
 
 ## CI boundary
 
-The authoritative GitHub Actions workflow is offline. It compiles the research modules and runs:
-
-- collision-core regressions;
-- live-ingestion boundary regressions using injected transports only;
-- frozen 65010 replay regressions;
-- adversarial immutability, receipt-lineage, and anti-splicing regressions;
-- inherited zero-discretion research-gate regressions.
-
-The hosted admission path performs no Unicode or NCBI network lookup. Updating an external fact requires a new captured snapshot and therefore new content/observation/collision evidence digests.
+The authoritative Cross-Domain GitHub Actions workflow is offline. It runs collision-core regressions, control-coverage regressions, injected-transport ingestion tests, frozen 65010 replay, adversarial immutability/lineage/anti-splicing tests, and inherited research-gate regressions. It performs no live Unicode or NCBI lookup.
 
 A green ancestor is not evidence for a descendant. Exact-head claims require terminal checks on the exact final commit SHA.
 
 ## Explicit epistemic state
 
-At V1:
+The implementation is designed to support these bounded statements when exact-head CI is green:
 
 - `65010 -> FDF2 -> U+FDF2` representation/code-point-label transform = deterministic fact;
-- the frozen Unicode and NCBI claims = snapshot-bound external evidence;
-- the frozen 65010 two-domain collision under its exact criterion = replay-established retrospective collision;
+- frozen Unicode and NCBI claims = snapshot-bound external evidence;
+- frozen 65010 two-domain collision = replay-established retrospective collision;
+- proof-carrying **synthetic fixture** control-coverage semantics = implementation-verifiable;
 - prospective statistical significance for 65010 = **NOT_ESTABLISHED**;
-- complete prospective control-registry coverage = **NOT_ESTABLISHED**;
+- real Unicode/NCBI promotion-grade control coverage = **NOT_ESTABLISHED**;
 - non-random cross-domain mechanism = **NOT_ESTABLISHED**;
 - structural or causal cross-domain relation = **NOT_ESTABLISHED**.
 
 ## Explicit non-claims
 
-V1 does not establish that cross-domain collisions are meaningful, causal, biologically coupled, mathematically necessary, or evidence for RH/AGI/metaphysical hypotheses. It establishes exact mappings, frozen provenance, deterministic offline replay, collision classification, receipt-bound null-model computation, and explicit boundaries for what future preregistered prospective evidence would still have to prove.
+V1 does not establish that cross-domain collisions are meaningful, causal, biologically coupled, mathematically necessary, or evidence for RH/AGI/metaphysical hypotheses. It establishes exact mappings, frozen provenance, deterministic offline replay, collision classification, proof-carrying synthetic control-coverage authority semantics, and explicit evidence obligations for future preregistered real-registry experiments.
