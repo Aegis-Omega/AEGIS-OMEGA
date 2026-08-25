@@ -114,15 +114,26 @@ class ProbeFailureEvidenceV1:
         ):
             if not isinstance(value, str) or not value:
                 raise ValueError(f"{name} must be a non-empty string")
-        material = {
-            "schema": "AEGIS_PROBE_FAILURE_EVIDENCE_V1",
-            "failure_class": self.failure_class,
-            "failure_message": self.failure_message,
-            "source_locator": self.source_locator,
-            "source_observed_at": self.source_observed_at,
-            "producer_id": self.producer_id,
-        }
-        object.__setattr__(self, "evidence_sha256", ri.sha256_hex(material))
+        object.__setattr__(self, "evidence_sha256", ri.sha256_hex(_failure_material(self)))
+
+
+def _failure_material(evidence: ProbeFailureEvidenceV1) -> Mapping[str, Any]:
+    return {
+        "schema": "AEGIS_PROBE_FAILURE_EVIDENCE_V1",
+        "failure_class": evidence.failure_class,
+        "failure_message": evidence.failure_message,
+        "source_locator": evidence.source_locator,
+        "source_observed_at": evidence.source_observed_at,
+        "producer_id": evidence.producer_id,
+    }
+
+
+def _verify_failure_evidence(evidence: ProbeFailureEvidenceV1) -> None:
+    if not isinstance(evidence, ProbeFailureEvidenceV1):
+        raise TypeError("expected ProbeFailureEvidenceV1")
+    ri._check_digest(evidence.evidence_sha256, "evidence_sha256")
+    if ri.sha256_hex(_failure_material(evidence)) != evidence.evidence_sha256:
+        raise ValueError("failure evidence digest mismatch")
 
 
 @dataclass(frozen=True)
@@ -263,6 +274,8 @@ def _validate_probe_context(
         raise TypeError("expected IntegerSubjectV1")
     if not isinstance(criterion, cdc.CollisionCriterionV1):
         raise TypeError("expected CollisionCriterionV1")
+    if cdc.IntegerSubjectV1(subject.value).subject_sha256 != subject.subject_sha256:
+        raise ValueError("subject digest does not match subject value")
     verify_registry_adapter_contract(adapter)
     if not criterion.universe_min <= subject.value <= criterion.universe_max:
         raise ValueError("subject outside frozen criterion universe")
@@ -277,6 +290,8 @@ def _validate_probe_context(
 
 @dataclass(frozen=True)
 class VerifiedRegistryProbeV1:
+    subject: cdc.IntegerSubjectV1
+    criterion: cdc.CollisionCriterionV1
     receipt: RegistryProbeReceiptV1
     adapter: RegistryAdapterContractV1
     source_snapshot: cdc.RegistrySnapshotV1 | None = None
@@ -316,7 +331,13 @@ def probe_registry_snapshot(
         outcome=outcome,
         criterion_sha256=criterion.criterion_sha256,
     )
-    return VerifiedRegistryProbeV1(receipt=receipt, adapter=adapter, source_snapshot=snapshot)
+    return VerifiedRegistryProbeV1(
+        subject=subject,
+        criterion=criterion,
+        receipt=receipt,
+        adapter=adapter,
+        source_snapshot=snapshot,
+    )
 
 
 def probe_not_established(
@@ -329,9 +350,7 @@ def probe_not_established(
     expected_key = _validate_probe_context(subject, criterion, adapter)
     if not isinstance(registry_version_or_release, str) or not registry_version_or_release:
         raise ValueError("registry_version_or_release must be non-empty")
-    if not isinstance(failure_evidence, ProbeFailureEvidenceV1):
-        raise TypeError("NOT_ESTABLISHED requires ProbeFailureEvidenceV1")
-    ri._check_digest(failure_evidence.evidence_sha256, "failure evidence digest")
+    _verify_failure_evidence(failure_evidence)
     receipt = _mint_probe_receipt(
         subject_sha256=subject.subject_sha256,
         registry_id=adapter.registry_id,
@@ -345,7 +364,13 @@ def probe_not_established(
         outcome=RegistryProbeOutcomeV1.NOT_ESTABLISHED,
         criterion_sha256=criterion.criterion_sha256,
     )
-    return VerifiedRegistryProbeV1(receipt=receipt, adapter=adapter, failure_evidence=failure_evidence)
+    return VerifiedRegistryProbeV1(
+        subject=subject,
+        criterion=criterion,
+        receipt=receipt,
+        adapter=adapter,
+        failure_evidence=failure_evidence,
+    )
 
 
 def verify_verified_probe(probe: VerifiedRegistryProbeV1) -> None:
@@ -353,6 +378,11 @@ def verify_verified_probe(probe: VerifiedRegistryProbeV1) -> None:
         raise TypeError("expected VerifiedRegistryProbeV1")
     verify_registry_probe_receipt(probe.receipt)
     verify_registry_adapter_contract(probe.adapter)
+    _validate_probe_context(probe.subject, probe.criterion, probe.adapter)
+    if probe.receipt.subject_sha256 != probe.subject.subject_sha256:
+        raise ValueError("probe receipt subject does not match carried subject")
+    if probe.receipt.criterion_sha256 != probe.criterion.criterion_sha256:
+        raise ValueError("probe receipt criterion does not match carried criterion")
     if probe.receipt.adapter_contract_sha256 != probe.adapter.contract_sha256:
         raise ValueError("probe adapter digest mismatch")
 
@@ -361,34 +391,16 @@ def verify_verified_probe(probe: VerifiedRegistryProbeV1) -> None:
     if has_snapshot == has_failure:
         raise ValueError("verified probe requires exactly one source carrier")
 
-    criterion_stub = cdc.CollisionCriterionV1(
-        universe_min=-10**30,
-        universe_max=10**30,
-        registry_set=(probe.receipt.registry_id,),
-        transform_set=(probe.receipt.transform_id,),
-        independence_rule_id="UNIQUE_DOMAIN_ID_V1",
-        score_function_id="UNIQUE_EXTERNAL_DOMAINS_V1",
-        control_generator_id="PY_RANDOM_UNIFORM_INT_V1",
-        control_seed=0,
-        control_count=1,
-        promotion_threshold=None,
-        criterion_text="probe replay stub",
-    )
-    object.__setattr__(criterion_stub, "criterion_sha256", probe.receipt.criterion_sha256)
-    subject_stub = object.__new__(cdc.IntegerSubjectV1)
-    object.__setattr__(subject_stub, "value", int(probe.receipt.query_key))
-    object.__setattr__(subject_stub, "subject_sha256", probe.receipt.subject_sha256)
-
     if probe.receipt.outcome in {RegistryProbeOutcomeV1.MATCH, RegistryProbeOutcomeV1.NO_MATCH}:
         if probe.source_snapshot is None:
             raise ValueError("MATCH/NO_MATCH requires source snapshot")
-        replayed = probe_registry_snapshot(subject_stub, criterion_stub, probe.adapter, probe.source_snapshot)
+        replayed = probe_registry_snapshot(probe.subject, probe.criterion, probe.adapter, probe.source_snapshot)
     else:
         if probe.failure_evidence is None:
             raise ValueError("NOT_ESTABLISHED requires failure evidence")
         replayed = probe_not_established(
-            subject_stub,
-            criterion_stub,
+            probe.subject,
+            probe.criterion,
             probe.adapter,
             probe.receipt.registry_version_or_release,
             probe.failure_evidence,
