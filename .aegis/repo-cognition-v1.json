@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "f0beaca19dba93510928337e4f331ad2fef3ff4c456df38012abf29d49d3bef7",
+  "corpus_root": "5c11e347d563c091d248a3be16797dcbcd5aff9b79accea7052bd33b3da02691",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1952,
@@ -39375,7 +39375,7 @@
       ]
     },
     {
-      "content_sha256": "c63d670cde47ce73a28df73070a11d2a67d93362d3719f8741fd5a76d2d49dbc",
+      "content_sha256": "4fcd40ad07e319bae7f6d670dd5d9e060f30eddbac6af21ae7c600ad9aad7a35",
       "dependency_hints": [
         "dataclasses",
         "pathlib",
@@ -39385,15 +39385,15 @@
         "cross_domain_coverage",
         "research_invariants"
       ],
-      "git_blob_sha": "ba88139d27bbe82c53efd3288448e3d65e422823",
+      "git_blob_sha": "705d282e617ed4c3ab333052ded9570a9459c163",
       "heading_hint": null,
       "kind": "test",
       "language": "python",
-      "line_count": 236,
+      "line_count": 259,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/tests/test_cross_domain_coverage.py",
-      "size_bytes": 10517,
+      "size_bytes": 11568,
       "symbol_hints": [
         "make_criterion",
         "make_adapter",
@@ -39416,6 +39416,7 @@
         "test_caller_probe_order_does_not_change_coverage_digest",
         "test_prospective_null_model_rejects_missing_coverage",
         "test_prospective_null_model_rejects_reordered_coverage",
+        "test_prospective_null_model_rejects_collision_coverage_splicing",
         "test_complete_coverage_is_bound_into_null_receipt"
       ]
     },
