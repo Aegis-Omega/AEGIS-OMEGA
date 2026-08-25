@@ -1,3 +1,4 @@
+from dataclasses import replace
 import pathlib
 import sys
 import unittest
@@ -26,8 +27,8 @@ def criterion(**overrides):
     return cdc.CollisionCriterionV1(**values)
 
 
-def observed_collision(c):
-    subject = cdc.IntegerSubjectV1(65010)
+def observed_collision(c, subject_value=65010):
+    subject = cdc.IntegerSubjectV1(subject_value)
     observations = [
         cdc.DomainObservationV1(
             subject.subject_sha256,
@@ -61,6 +62,32 @@ def zero_control_receipts(c):
         )
         for value in cdc.generate_controls(c)
     )
+
+
+def journal_at_collision(collision, c):
+    journal = ri.StatusJournalV1(f"hardening:{collision.subject_sha256}")
+    cdc.append_collision_status(
+        journal,
+        "OBSERVED",
+        [collision.receipt_sha256],
+        c.criterion_sha256,
+        "observed",
+    )
+    cdc.append_collision_status(
+        journal,
+        "EXACT_MAPPING",
+        [collision.receipt_sha256],
+        c.criterion_sha256,
+        "mapping",
+    )
+    cdc.append_collision_status(
+        journal,
+        "CROSS_REGISTRY_COLLISION",
+        [collision.receipt_sha256],
+        c.criterion_sha256,
+        "collision",
+    )
+    return journal
 
 
 class CrossDomainHardeningTests(unittest.TestCase):
@@ -109,6 +136,56 @@ class CrossDomainHardeningTests(unittest.TestCase):
         self.assertEqual(receipt.control_count, 4)
         self.assertEqual(len(receipt.control_receipt_sha256s), 4)
         self.assertTrue(receipt.promotion_eligible)
+
+    def test_null_status_rejects_tampered_receipt_digest(self):
+        c = criterion(control_count=100)
+        observed = observed_collision(c)
+        null_receipt = cdc.evaluate_null_model(observed, c, zero_control_receipts(c))
+        self.assertTrue(null_receipt.null_survived)
+        tampered = replace(null_receipt, receipt_sha256="f" * 64)
+        journal = journal_at_collision(observed, c)
+        with self.assertRaises(PermissionError):
+            cdc.append_collision_status(
+                journal,
+                "NULL_SURVIVED",
+                [tampered.receipt_sha256],
+                c.criterion_sha256,
+                "tampered receipt must not promote",
+                null_receipt=tampered,
+            )
+
+    def test_null_status_rejects_collision_receipt_splicing(self):
+        c = criterion(control_count=100)
+        observed_a = observed_collision(c, 65010)
+        observed_b = observed_collision(c, 65011)
+        null_b = cdc.evaluate_null_model(observed_b, c, zero_control_receipts(c))
+        self.assertTrue(null_b.null_survived)
+        journal = journal_at_collision(observed_a, c)
+        with self.assertRaises(PermissionError):
+            cdc.append_collision_status(
+                journal,
+                "NULL_SURVIVED",
+                [null_b.receipt_sha256],
+                c.criterion_sha256,
+                "different collision receipt must not splice",
+                null_receipt=null_b,
+            )
+
+    def test_null_status_requires_null_receipt_digest_in_transition_evidence(self):
+        c = criterion(control_count=100)
+        observed = observed_collision(c)
+        null_receipt = cdc.evaluate_null_model(observed, c, zero_control_receipts(c))
+        self.assertTrue(null_receipt.null_survived)
+        journal = journal_at_collision(observed, c)
+        with self.assertRaises(PermissionError):
+            cdc.append_collision_status(
+                journal,
+                "NULL_SURVIVED",
+                [observed.receipt_sha256],
+                c.criterion_sha256,
+                "null receipt digest must be carried into status evidence",
+                null_receipt=null_receipt,
+            )
 
 
 if __name__ == "__main__":
