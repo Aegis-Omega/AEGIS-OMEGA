@@ -37,7 +37,12 @@ jobs:
         working-directory: sovereign-omega-v2
         env:
           PYTHONPATH: python
-        run: python3 -m unittest python.tests.test_coq_attestation python.tests.test_coq_attestation_regressions -v
+        run: >-
+          python3 -m unittest
+          python.tests.test_coq_attestation
+          python.tests.test_coq_attestation_regressions
+          python.tests.test_coq_attestation_diagnostics
+          -v
 
       - name: Verify frozen assumption baseline
         working-directory: sovereign-omega-v2
@@ -138,13 +143,33 @@ jobs:
               fi
             }
 
-            compile_one 'Core/Event.v'
-            compile_one 'Core/Hash.v'
-            compile_one 'Core/Reducer.v'
-            compile_one 'Core/LatticeConvergence.v'
-            compile_one 'Core/LockIrreversibility.v'
-            compile_one 'Bisimulation/ThreeWay.v'
-            compile_one 'Weil/FiniteBridge.v'
+            # O0DependencyProbe imports Coquelicot; install the exact dependency
+            # before compiling the complete formal inventory.
+            opam install -y coq-coquelicot.3.4.2 || exit 1
+
+            for rel in \
+              'Core/Event.v' \
+              'Core/Hash.v' \
+              'Core/Reducer.v' \
+              'Core/LatticeConvergence.v' \
+              'Core/LockIrreversibility.v' \
+              'Bisimulation/ThreeWay.v' \
+              'Weil/FiniteBridge.v' \
+              'Weil/O0TrustProbeReals.v' \
+              'Weil/O0TrustProbeFunction.v' \
+              'Weil/O0TrustProbeCompact.v' \
+              'Weil/O0TrustProbeContinuity.v' \
+              'Weil/O0TrustProbeConstructive.v' \
+              'Weil/AnalyticDefinitions.v' \
+              'Weil/O0ProductionConstructiveProbe.v' \
+              'Weil/O0DependencyProbe.v' \
+              'Weil/Globalization.v' \
+              'Weil/WeilCriterion.v' \
+              'Weil/O0.v' \
+              'Weil/O0ClosureProbe.v'
+            do
+              compile_one "$rel"
+            done
 
             printf '\n}\n' >> "$STATUS"
             cat "$STATUS"
@@ -190,10 +215,20 @@ jobs:
           import json
           from pathlib import Path
 
+          DIAGNOSTIC_ONLY = {
+              'Weil/O0TrustProbeReals.v',
+              'Weil/O0TrustProbeFunction.v',
+              'Weil/O0TrustProbeCompact.v',
+              'Weil/O0TrustProbeContinuity.v',
+          }
           REQUIRE_AXIOM_FREE = {
               'Core/LatticeConvergence.v',
               'Core/LockIrreversibility.v',
               'Weil/FiniteBridge.v',
+              'Weil/O0TrustProbeConstructive.v',
+              'Weil/AnalyticDefinitions.v',
+              'Weil/O0ProductionConstructiveProbe.v',
+              'Weil/Globalization.v',
           }
           EXPECTED_BASELINE_SHA256 = '45c302e763e58c398d9b2a893cd62bdb2e585c8214d87b286f8e83d1b7d30e3e'
 
@@ -213,17 +248,25 @@ jobs:
           assert receipt['authority'] == 'FORMAL_MATH_EVIDENCE_ONLY'
           assert receipt['correspondence'] == 'NOT_ESTABLISHED'
           assert receipt['lean_runtime_status'] == 'NOT_PRESENT_IN_REPO'
+          assert set(receipt['diagnostic_only_paths']) == DIAGNOSTIC_ONLY
           assert set(files_by_path) == formal_paths, {
               'receipt_paths': sorted(files_by_path),
               'formal_paths': sorted(formal_paths),
           }
           assert summary['file_count'] == len(formal_paths), summary
+          assert summary['compiled_files'] == len(formal_paths), summary
           assert summary['compile_failures'] == 0, summary
           assert summary['admitted_sources'] == 0, summary
-          assert summary['unrecognized_assumption_outputs'] == 0, summary
+          assert summary['diagnostic_only_files'] == len(DIAGNOSTIC_ONLY), summary
+          assert summary['authority_eligible_files'] == len(formal_paths) - len(DIAGNOSTIC_ONLY), summary
+          assert summary['authority_unrecognized_assumption_outputs'] == 0, summary
+          assert summary['diagnostic_unrecognized_assumption_outputs'] == 0, summary
           assert summary['source_axiom_symbols'] == 1, summary
           assert summary['source_parameter_symbols'] == 7, summary
-          assert summary['assumption_bearing_theorems'] == 1, summary
+          # The single production assumption-bearing theorem remains the known
+          # Reducer -> Hash.sha256 dependency. Classical trust probes are
+          # diagnostic evidence and are not proof authority.
+          assert summary['authority_assumption_bearing_theorems'] == 1, summary
           assert len(receipt['receipt_sha256']) == 64
 
           assert baseline['baseline_kind'] == 'COQ_ASSUMPTION_BASELINE_V1'
@@ -236,6 +279,7 @@ jobs:
 
           for required_path in sorted(REQUIRE_AXIOM_FREE):
               entry = files_by_path[required_path]
+              assert entry['evidence_scope'] == 'AUTHORITY_ELIGIBLE', entry
               assert entry['compile_status'] == 'COMPILED', entry
               assert entry['attestation'] == 'AXIOM_FREE', entry
               assert entry['declaration_status'] == 'NO_DECLARED_ASSUMPTIONS', entry
@@ -251,7 +295,19 @@ jobs:
                   for theorem in entry['theorems']
               ), entry
 
+          for diagnostic_path in sorted(DIAGNOSTIC_ONLY):
+              entry = files_by_path[diagnostic_path]
+              assert entry['evidence_scope'] == 'DIAGNOSTIC_ONLY', entry
+              assert entry['compile_status'] == 'COMPILED', entry
+              assert entry['admitted_count'] == 0, entry
+              assert entry['theorem_count'] > 0, entry
+              assert all(
+                  theorem['parse_status'] not in {'MISSING', 'UNRECOGNIZED'}
+                  for theorem in entry['theorems']
+              ), entry
+
           threeway = files_by_path['Bisimulation/ThreeWay.v']
+          assert threeway['evidence_scope'] == 'AUTHORITY_ELIGIBLE', threeway
           assert threeway['attestation'] == 'COMPILED_NO_THEOREMS', threeway
           assert threeway['declaration_status'] == 'DECLARES_ASSUMPTIONS', threeway
           assert threeway['parameter_statement_count'] == 2, threeway
@@ -259,11 +315,13 @@ jobs:
           assert threeway['axiom_symbol_count'] == 1, threeway
 
           hash_file = files_by_path['Core/Hash.v']
+          assert hash_file['evidence_scope'] == 'AUTHORITY_ELIGIBLE', hash_file
           assert hash_file['attestation'] == 'COMPILED_NO_THEOREMS', hash_file
           assert hash_file['declaration_status'] == 'DECLARES_ASSUMPTIONS', hash_file
           assert hash_file['parameter_symbol_count'] == 1, hash_file
 
           reducer = files_by_path['Core/Reducer.v']
+          assert reducer['evidence_scope'] == 'AUTHORITY_ELIGIBLE', reducer
           assert reducer['attestation'] == 'ASSUMPTION_BEARING', reducer
           reducer_theorem = next(
               theorem for theorem in reducer['theorems']
