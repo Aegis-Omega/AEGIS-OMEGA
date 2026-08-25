@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "8307fc6518b23d5a8b7e7e495237dabb134979f8d97c665a3082b2d7bc68c552",
+  "corpus_root": "b1748f6cc2ac80dd8720ccec86b8efa99f780b832607987202550bd78db6c30d",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1952,
@@ -39360,7 +39360,7 @@
       ]
     },
     {
-      "content_sha256": "ff5ec9b2c7d0512cdfd915bae625e7763babb70ed1db8bac2da65f72232d4567",
+      "content_sha256": "ef40c9992c552d05cfda4e102e199fb35551ad5bf7b64ea3e2647d7ddf0c378a",
       "dependency_hints": [
         "dataclasses",
         "pathlib",
@@ -39370,27 +39370,33 @@
         "cross_domain_coverage",
         "research_invariants"
       ],
-      "git_blob_sha": "a39d428a78586b1eb9e7bb3375bcf023b634b8f0",
+      "git_blob_sha": "38aad4398a2bea4d1cb03693157f42ead2a22e02",
       "heading_hint": null,
       "kind": "test",
       "language": "python",
-      "line_count": 119,
+      "line_count": 171,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/tests/test_cross_domain_coverage.py",
-      "size_bytes": 5495,
+      "size_bytes": 8096,
       "symbol_hints": [
         "make_criterion",
         "make_adapter",
         "make_snapshot",
         "rehash_receipt",
+        "complete_negative_probes",
         "CoverageProbeTests",
         "test_match_and_no_match_are_source_replayable_and_distinct",
         "test_unsupported_adapter_rule_fails_closed",
         "test_probe_receipt_digest_tampering_is_detected",
         "test_source_payload_tampering_breaks_replay",
         "test_hash_valid_subject_query_splicing_fails",
-        "test_hash_valid_criterion_splicing_fails"
+        "test_hash_valid_criterion_splicing_fails",
+        "test_missing_registry_cannot_establish_complete_coverage",
+        "test_not_established_registry_blocks_complete_coverage",
+        "test_duplicate_registry_probe_fails_closed",
+        "test_complete_negative_coverage_mints_zero_score_control",
+        "test_caller_probe_order_does_not_change_coverage_digest"
       ]
     },
     {
