@@ -61,6 +61,13 @@ def rehash_receipt(receipt):
     return replace(provisional, receipt_sha256=ri.sha256_hex(cov._probe_receipt_material(provisional)))
 
 
+def complete_negative_probes(subject, c):
+    return [
+        cov.probe_registry_snapshot(subject, c, make_adapter("fixture-a"), make_snapshot(subject, "fixture-a", False)),
+        cov.probe_registry_snapshot(subject, c, make_adapter("fixture-b"), make_snapshot(subject, "fixture-b", False)),
+    ]
+
+
 class CoverageProbeTests(unittest.TestCase):
     def test_match_and_no_match_are_source_replayable_and_distinct(self):
         subject = cdc.IntegerSubjectV1(42)
@@ -113,6 +120,51 @@ class CoverageProbeTests(unittest.TestCase):
         cov.verify_registry_probe_receipt(spliced)
         with self.assertRaises(ValueError):
             cov.verify_verified_probe(replace(probe, receipt=spliced))
+
+    def test_missing_registry_cannot_establish_complete_coverage(self):
+        subject = cdc.IntegerSubjectV1(42)
+        c = make_criterion()
+        coverage = cov.aggregate_control_coverage(subject, c, complete_negative_probes(subject, c)[:1])
+        self.assertFalse(coverage.coverage_complete)
+        self.assertEqual(coverage.missing_registry_ids, ("fixture-b",))
+
+    def test_not_established_registry_blocks_complete_coverage(self):
+        subject = cdc.IntegerSubjectV1(42)
+        c = make_criterion()
+        failure = cov.ProbeFailureEvidenceV1(
+            "TimeoutError", "offline fixture timeout", "fixture://failure",
+            "2026-08-25T00:00:00Z", "coverage-test"
+        )
+        probes = [
+            cov.probe_registry_snapshot(subject, c, make_adapter("fixture-a"), make_snapshot(subject, "fixture-a", False)),
+            cov.probe_not_established(subject, c, make_adapter("fixture-b"), "fixture-v1", failure),
+        ]
+        coverage = cov.aggregate_control_coverage(subject, c, probes)
+        self.assertFalse(coverage.coverage_complete)
+        self.assertEqual(coverage.unestablished_registry_ids, ("fixture-b",))
+
+    def test_duplicate_registry_probe_fails_closed(self):
+        subject = cdc.IntegerSubjectV1(42)
+        c = make_criterion()
+        probe = complete_negative_probes(subject, c)[0]
+        with self.assertRaises(ValueError):
+            cov.aggregate_control_coverage(subject, c, [probe, probe])
+
+    def test_complete_negative_coverage_mints_zero_score_control(self):
+        subject = cdc.IntegerSubjectV1(42)
+        c = make_criterion()
+        collision, coverage = cov.evaluate_control_from_probes(subject, c, complete_negative_probes(subject, c))
+        self.assertTrue(coverage.coverage_complete)
+        self.assertEqual(collision.score, 0)
+        self.assertEqual(collision.provenance, cdc.SelectionProvenance.PROSPECTIVE)
+
+    def test_caller_probe_order_does_not_change_coverage_digest(self):
+        subject = cdc.IntegerSubjectV1(42)
+        c = make_criterion()
+        probes = complete_negative_probes(subject, c)
+        a = cov.aggregate_control_coverage(subject, c, probes)
+        b = cov.aggregate_control_coverage(subject, c, list(reversed(probes)))
+        self.assertEqual(a.receipt_sha256, b.receipt_sha256)
 
 
 if __name__ == "__main__":
