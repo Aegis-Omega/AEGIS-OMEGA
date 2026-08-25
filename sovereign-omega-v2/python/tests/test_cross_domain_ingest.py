@@ -1,6 +1,7 @@
 import pathlib
 import sys
 import unittest
+from dataclasses import replace
 
 MODULE_DIR = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(MODULE_DIR))
@@ -87,6 +88,71 @@ class CrossDomainIngestTests(unittest.TestCase):
         )
         self.assertEqual(outcome.status, "NOT_ESTABLISHED")
         self.assertIsNone(outcome.snapshot)
+
+
+class SourceCaptureReceiptTests(unittest.TestCase):
+    def test_raw_byte_tampering_breaks_capture_replay(self):
+        bundle = ingest.capture_source_bytes(
+            source_id="unicode-ucd",
+            source_contract_sha256="a" * 64,
+            request_identity="unicode://17.0.0/DerivedGeneralCategory.txt",
+            request_subject_sha256s=(),
+            source_version_or_release="17.0.0",
+            response_status=200,
+            media_type="text/plain",
+            raw_content=b"0041 ; Lu\n0378 ; Cn\n",
+            observed_at="2026-08-25T00:00:00Z",
+            producer_id="test",
+            attempt_index=0,
+        )
+        ingest.verify_source_capture(bundle)
+        with self.assertRaises(ValueError):
+            ingest.verify_source_capture(replace(bundle, raw_content=b"tampered"))
+
+    def test_retry_requires_previous_attempt_digest(self):
+        first = ingest.capture_source_bytes(
+            source_id="ncbi-gene-esearch",
+            source_contract_sha256="b" * 64,
+            request_identity="batch:1",
+            request_subject_sha256s=("c" * 64,),
+            source_version_or_release="observed-2026-08-25",
+            response_status=503,
+            media_type="application/json",
+            raw_content=b"{}",
+            observed_at="2026-08-25T00:00:00Z",
+            producer_id="test",
+            attempt_index=0,
+        )
+        second = ingest.capture_source_bytes(
+            source_id="ncbi-gene-esearch",
+            source_contract_sha256="b" * 64,
+            request_identity="batch:1",
+            request_subject_sha256s=("c" * 64,),
+            source_version_or_release="observed-2026-08-25",
+            response_status=200,
+            media_type="application/json",
+            raw_content=b"{}",
+            observed_at="2026-08-25T00:01:00Z",
+            producer_id="test",
+            attempt_index=1,
+            previous_attempt_sha256=first.receipt.receipt_sha256,
+        )
+        ingest.verify_source_capture(second)
+        with self.assertRaises(ValueError):
+            ingest.capture_source_bytes(
+                source_id="ncbi-gene-esearch",
+                source_contract_sha256="b" * 64,
+                request_identity="batch:1",
+                request_subject_sha256s=("c" * 64,),
+                source_version_or_release="observed-2026-08-25",
+                response_status=200,
+                media_type="application/json",
+                raw_content=b"{}",
+                observed_at="2026-08-25T00:01:00Z",
+                producer_id="test",
+                attempt_index=1,
+                previous_attempt_sha256=None,
+            )
 
 
 if __name__ == "__main__":
