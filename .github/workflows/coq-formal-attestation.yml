@@ -156,6 +156,7 @@ jobs:
               'Bisimulation/ThreeWay.v' \
               'Weil/FiniteBridge.v' \
               'Weil/FiniteEntryDictionary.v' \
+              'Weil/FinitePrimeDiagonal.v' \
               'Weil/O0TrustProbeReals.v' \
               'Weil/O0TrustProbeFunction.v' \
               'Weil/O0TrustProbeCompact.v' \
@@ -227,6 +228,7 @@ jobs:
               'Core/LockIrreversibility.v',
               'Weil/FiniteBridge.v',
               'Weil/FiniteEntryDictionary.v',
+              'Weil/FinitePrimeDiagonal.v',
               'Weil/O0TrustProbeConstructive.v',
               'Weil/AnalyticDefinitions.v',
               'Weil/O0ProductionConstructiveProbe.v',
