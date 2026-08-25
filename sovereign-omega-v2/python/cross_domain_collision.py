@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import pathlib
 import random
 from dataclasses import dataclass, field
@@ -374,6 +375,63 @@ class NullModelReceiptV1:
     receipt_sha256: str
 
 
+def _null_model_receipt_material(receipt: NullModelReceiptV1) -> Mapping[str, Any]:
+    return {
+        "schema": "AEGIS_NULL_MODEL_RECEIPT_V1",
+        "subject_sha256": receipt.subject_sha256,
+        "collision_receipt_sha256": receipt.collision_receipt_sha256,
+        "criterion_sha256": receipt.criterion_sha256,
+        "observed_score": receipt.observed_score,
+        "control_subject_sha256s": receipt.control_subject_sha256s,
+        "control_receipt_sha256s": receipt.control_receipt_sha256s,
+        "control_scores_sha256": receipt.control_scores_sha256,
+        "control_count": receipt.control_count,
+        "extreme_count": receipt.extreme_count,
+        "p_emp": receipt.p_emp,
+        "promotion_eligible": receipt.promotion_eligible,
+        "null_survived": receipt.null_survived,
+    }
+
+
+def verify_null_model_receipt(receipt: NullModelReceiptV1) -> None:
+    if not isinstance(receipt, NullModelReceiptV1):
+        raise TypeError("expected NullModelReceiptV1")
+    ri._check_digest(receipt.subject_sha256, "subject_sha256")
+    ri._check_digest(receipt.collision_receipt_sha256, "collision_receipt_sha256")
+    ri._check_digest(receipt.criterion_sha256, "criterion_sha256")
+    ri._check_digest(receipt.control_scores_sha256, "control_scores_sha256")
+    ri._check_digest(receipt.receipt_sha256, "receipt_sha256")
+    for digest in receipt.control_subject_sha256s:
+        ri._check_digest(digest, "control_subject_sha256")
+    for digest in receipt.control_receipt_sha256s:
+        ri._check_digest(digest, "control_receipt_sha256")
+    if isinstance(receipt.observed_score, bool) or not isinstance(receipt.observed_score, int) or receipt.observed_score < 0:
+        raise ValueError("observed_score must be a non-negative integer")
+    if isinstance(receipt.control_count, bool) or not isinstance(receipt.control_count, int) or receipt.control_count <= 0:
+        raise ValueError("control_count must be a positive integer")
+    if len(receipt.control_subject_sha256s) != receipt.control_count:
+        raise ValueError("control subject count mismatch")
+    if len(receipt.control_receipt_sha256s) != receipt.control_count:
+        raise ValueError("control receipt count mismatch")
+    if isinstance(receipt.extreme_count, bool) or not isinstance(receipt.extreme_count, int):
+        raise ValueError("extreme_count must be an integer")
+    if not 0 <= receipt.extreme_count <= receipt.control_count:
+        raise ValueError("extreme_count outside control-count range")
+    if not isinstance(receipt.p_emp, float) or not math.isfinite(receipt.p_emp):
+        raise ValueError("p_emp must be a finite float")
+    expected_p = (1 + receipt.extreme_count) / (1 + receipt.control_count)
+    if receipt.p_emp != expected_p:
+        raise ValueError("p_emp does not match finite-sample correction")
+    if not isinstance(receipt.promotion_eligible, bool):
+        raise ValueError("promotion_eligible must be boolean")
+    if receipt.null_survived is not None and not isinstance(receipt.null_survived, bool):
+        raise ValueError("null_survived must be bool or None")
+    if not receipt.promotion_eligible and receipt.null_survived is not None:
+        raise ValueError("non-eligible receipt cannot carry a survival verdict")
+    if ri.sha256_hex(_null_model_receipt_material(receipt)) != receipt.receipt_sha256:
+        raise ValueError("null-model receipt digest mismatch")
+
+
 def evaluate_null_model(
     observed: CollisionReceiptV1,
     criterion: CollisionCriterionV1,
@@ -418,22 +476,7 @@ def evaluate_null_model(
         null_survived = p_emp <= criterion.promotion_threshold
 
     scores_sha256 = ri.sha256_hex(score_tuple)
-    material = {
-        "schema": "AEGIS_NULL_MODEL_RECEIPT_V1",
-        "subject_sha256": observed.subject_sha256,
-        "collision_receipt_sha256": observed.receipt_sha256,
-        "criterion_sha256": criterion.criterion_sha256,
-        "observed_score": observed.score,
-        "control_subject_sha256s": expected_subjects,
-        "control_receipt_sha256s": receipt_digest_tuple,
-        "control_scores_sha256": scores_sha256,
-        "control_count": len(score_tuple),
-        "extreme_count": extreme,
-        "p_emp": p_emp,
-        "promotion_eligible": promotion_eligible,
-        "null_survived": null_survived,
-    }
-    return NullModelReceiptV1(
+    provisional = NullModelReceiptV1(
         subject_sha256=observed.subject_sha256,
         collision_receipt_sha256=observed.receipt_sha256,
         criterion_sha256=criterion.criterion_sha256,
@@ -446,8 +489,25 @@ def evaluate_null_model(
         p_emp=p_emp,
         promotion_eligible=promotion_eligible,
         null_survived=null_survived,
-        receipt_sha256=ri.sha256_hex(material),
+        receipt_sha256="0" * 64,
     )
+    receipt = NullModelReceiptV1(
+        subject_sha256=provisional.subject_sha256,
+        collision_receipt_sha256=provisional.collision_receipt_sha256,
+        criterion_sha256=provisional.criterion_sha256,
+        observed_score=provisional.observed_score,
+        control_subject_sha256s=provisional.control_subject_sha256s,
+        control_receipt_sha256s=provisional.control_receipt_sha256s,
+        control_scores_sha256=provisional.control_scores_sha256,
+        control_count=provisional.control_count,
+        extreme_count=provisional.extreme_count,
+        p_emp=provisional.p_emp,
+        promotion_eligible=provisional.promotion_eligible,
+        null_survived=provisional.null_survived,
+        receipt_sha256=ri.sha256_hex(_null_model_receipt_material(provisional)),
+    )
+    verify_null_model_receipt(receipt)
+    return receipt
 
 
 def _expected_query_key(subject: IntegerSubjectV1, transform: TransformSpecV1) -> str:
@@ -537,16 +597,28 @@ def append_collision_status(
         raise PermissionError(
             f"inadmissible collision status transition: {journal.current_status!r} -> {next_status!r}"
         )
+    evidence = tuple(evidence_receipt_digests)
     if next_status == "NULL_SURVIVED":
         if null_receipt is None:
             raise PermissionError("NULL_SURVIVED requires a null-model receipt")
+        try:
+            verify_null_model_receipt(null_receipt)
+        except (TypeError, ValueError) as exc:
+            raise PermissionError("invalid null-model receipt") from exc
         if null_receipt.criterion_sha256 != criterion_sha256:
             raise PermissionError("null-model receipt criterion mismatch")
         if not null_receipt.promotion_eligible or null_receipt.null_survived is not True:
             raise PermissionError("null-model receipt is not promotion-eligible and surviving")
+        if null_receipt.receipt_sha256 not in evidence:
+            raise PermissionError("NULL_SURVIVED transition must carry the null-model receipt digest")
+        if not journal.history:
+            raise PermissionError("NULL_SURVIVED requires prior collision history")
+        current = journal.history[-1]
+        if null_receipt.collision_receipt_sha256 not in current.evidence_receipt_digests:
+            raise PermissionError("null-model receipt is not bound to the current collision transition")
     return journal.append(
         next_status=next_status,
-        evidence_receipt_digests=evidence_receipt_digests,
+        evidence_receipt_digests=evidence,
         criterion_sha256=criterion_sha256,
         reason=reason,
     )
