@@ -50,9 +50,29 @@ Closed enum:
 
 There is intentionally no boolean `matched` field without the typed outcome.
 
-### 4.2 `RegistryProbeReceiptV1`
+### 4.2 `RegistryAdapterContractV1`
 
-A receipt binds exactly one `(subject, registry, criterion epoch)` probe:
+Every promotion-grade registry requires a frozen adapter contract. The contract binds the semantics needed to classify a source artifact without discretionary interpretation:
+
+- `registry_id`
+- `adapter_version`
+- `query_key_type`
+- `transform_id`
+- `transform_criterion_sha256`
+- `positive_result_rule_id`
+- `negative_result_rule_id`
+- `ambiguous_result_rule_id`
+- `canonicalization_rule_id`
+- `contract_text`
+- `contract_sha256`
+
+The contract digest covers every field. Unknown rule ids fail closed. V1 implementations may support only the concrete rule ids needed by the frozen test adapters; unsupported adapters remain `NOT_ESTABLISHED`.
+
+A registry that cannot define trustworthy exact-negative semantics is not promotion-grade in V1.
+
+### 4.3 `RegistryProbeReceiptV1`
+
+A receipt binds exactly one `(subject, registry, criterion epoch, adapter epoch)` probe:
 
 - `subject_sha256`
 - `registry_id`
@@ -61,22 +81,23 @@ A receipt binds exactly one `(subject, registry, criterion epoch)` probe:
 - `transform_id`
 - `transform_criterion_sha256`
 - `registry_version_or_release`
-- `source_snapshot_sha256 | None`
+- `adapter_contract_sha256`
+- `source_evidence_sha256`
 - `outcome: RegistryProbeOutcomeV1`
-- `evidence_sha256s`
 - `criterion_sha256`
 - `receipt_sha256`
 
 Rules:
 
-1. `MATCH` requires an admissible immutable external snapshot and a verified subject-to-query-key relation.
-2. `NO_MATCH` requires explicit negative evidence from the registry/source contract. Missing data is insufficient.
-3. `NOT_ESTABLISHED` may carry failure evidence but cannot contribute to complete coverage.
-4. The receipt digest covers every semantic field.
-5. Unknown outcome values fail closed.
-6. Nested/hash material is defensively frozen before hashing.
+1. `MATCH` requires an admissible immutable external source artifact and a verified subject-to-query-key relation.
+2. `NO_MATCH` requires an immutable source artifact whose exact-negative semantics are established by the frozen adapter contract. Missing data is insufficient.
+3. `NOT_ESTABLISHED` may bind a failure/ambiguous evidence artifact but cannot contribute to complete coverage.
+4. `source_evidence_sha256` is mandatory for every outcome; absence of evidence cannot mint a probe receipt.
+5. The receipt digest covers every semantic field.
+6. Unknown outcome values fail closed.
+7. Nested/hash material is defensively frozen before hashing.
 
-### 4.3 `ControlCoverageReceiptV1`
+### 4.4 `ControlCoverageReceiptV1`
 
 A coverage receipt binds one control subject to the complete frozen external registry set:
 
@@ -92,14 +113,17 @@ A coverage receipt binds one control subject to the complete frozen external reg
 
 `coverage_complete=True` is derived, never caller-supplied authority.
 
-It is true iff:
+Canonical ordering is deterministic: `required_registry_ids` equals the frozen `criterion.registry_set` tuple; probe-derived registry and digest sequences are ordered by that required registry order, not by caller input order.
+
+Coverage is complete iff:
 
 1. every registry in `criterion.registry_set` appears exactly once;
 2. no extra registry appears;
 3. every probe receipt has the same subject and criterion digest;
 4. every probe receipt is hash-valid;
 5. every probe outcome is either `MATCH` or `NO_MATCH`;
-6. there are no missing or `NOT_ESTABLISHED` registries.
+6. every probe binds a supported frozen adapter contract for that registry;
+7. there are no missing or `NOT_ESTABLISHED` registries.
 
 Duplicate registry probes fail closed rather than being silently deduplicated.
 
@@ -107,14 +131,14 @@ Duplicate registry probes fail closed rather than being silently deduplicated.
 
 Prospective control collision receipts must be constructible only from verified probe receipts plus the frozen criterion.
 
-For each `MATCH` probe, the evaluator may mint the corresponding external `DomainObservationV1` from the verified snapshot relation. `NO_MATCH` contributes coverage but no collision observation. `NOT_ESTABLISHED` contributes neither collision evidence nor complete coverage.
+For each `MATCH` probe, the evaluator mints the corresponding external `DomainObservationV1` from the verified source relation. `NO_MATCH` contributes coverage but no collision observation. `NOT_ESTABLISHED` contributes neither collision evidence nor complete coverage.
 
-A helper such as `evaluate_control_from_probes(...)` should return both:
+`evaluate_control_from_probes(...)` returns both:
 
 - `CollisionReceiptV1`
 - `ControlCoverageReceiptV1`
 
-The same probe set therefore determines both the control score and the evidence that the score was computed over the full required registry set.
+The same verified probe set therefore determines both the control score and the evidence that the score was computed over the full required registry set.
 
 The implementation must not accept a caller-provided score or caller-provided `coverage_complete` boolean.
 
@@ -129,6 +153,10 @@ For every generated control subject, the evaluator must receive:
 - matching subject digest;
 - matching criterion digest;
 - complete registry coverage.
+
+The control collision receipt and coverage receipt must refer to the same exact generated control subject at the same sequence position. Reordering or splicing controls fails closed.
+
+`NullModelReceiptV1` is extended to bind `control_coverage_receipt_sha256s` in the exact generated-control order, alongside the already bound control subject/collision receipt lineage.
 
 Promotion fails closed if any control lacks complete coverage.
 
@@ -150,7 +178,8 @@ For retrospective observations, existing behavior remains unchanged: descriptive
 4. exact null-receipt digest carried in status-transition evidence;
 5. `promotion_eligible=True`;
 6. `null_survived=True`;
-7. proof that every control receipt consumed by the null model has a corresponding complete `ControlCoverageReceiptV1`.
+7. exact `control_coverage_receipt_sha256s` lineage bound into the null receipt;
+8. proof that every control receipt consumed by the null model has the corresponding complete `ControlCoverageReceiptV1`.
 
 `STRUCTURAL_RELATION` remains unreachable from this subsystem.
 
@@ -158,26 +187,19 @@ For retrospective observations, existing behavior remains unchanged: descriptive
 
 Live ingestion remains non-authoritative.
 
-The ingestion layer may produce probe evidence/snapshots, but the offline verifier decides whether that evidence establishes `MATCH`, `NO_MATCH`, or `NOT_ESTABLISHED` under a frozen registry adapter contract.
+The ingestion layer may produce immutable source evidence artifacts/snapshots, but the offline verifier decides whether that evidence establishes `MATCH`, `NO_MATCH`, or `NOT_ESTABLISHED` under a frozen registry adapter contract.
 
-A network or parser failure must produce `NOT_ESTABLISHED`, never `NO_MATCH`.
+A network or parser failure must produce evidence classified as `NOT_ESTABLISHED`, never `NO_MATCH`.
 
 The authoritative CI path must remain network-free.
 
 ## 9. Registry Adapter Semantics
 
-A registry adapter contract must define what constitutes an exact negative result. This is registry-specific and must be frozen before prospective use.
+A registry adapter contract defines what constitutes exact positive, exact negative, and ambiguous results. This is registry-specific and frozen before prospective use.
 
-For each registry the adapter epoch binds at minimum:
+For the first vertical slice, promotion-grade behavior may be proven with deterministic local fixture adapters rather than live Unicode/NCBI controls. This isolates the authority semantics from network availability. Real registries become promotion-grade only after their exact-negative contracts and frozen source evidence are separately established.
 
-- registry identity/version semantics;
-- query-key transform;
-- positive-result predicate;
-- exact negative-result predicate;
-- malformed/ambiguous-result classification;
-- canonicalization rules.
-
-If a registry cannot provide a trustworthy exact negative semantic, that registry cannot participate in promotion-grade control coverage until such a contract is established.
+No generic "404 means no match" rule is permitted.
 
 ## 10. 65010 Boundary
 
@@ -197,16 +219,19 @@ The verifier must fail closed on:
 - subject mismatch;
 - criterion mismatch;
 - transform mismatch;
+- adapter-contract mismatch;
+- unsupported adapter rule;
 - tampered probe receipt digest;
 - tampered coverage receipt digest;
 - caller-supplied raw score;
 - caller-supplied `coverage_complete` authority;
 - `NOT_ESTABLISHED` treated as `NO_MATCH`;
-- missing source evidence for `MATCH`;
-- missing explicit negative evidence for `NO_MATCH`;
+- missing source evidence for any probe outcome;
+- missing explicit negative semantics/evidence for `NO_MATCH`;
 - incomplete coverage passed into null promotion;
 - coverage receipt spliced from a different control subject;
 - coverage receipt spliced from a different criterion epoch;
+- reordered collision/coverage lineage relative to generated controls;
 - null receipt that omits the exact coverage receipt lineage.
 
 ## 12. TDD / Verification Strategy
@@ -223,12 +248,15 @@ Required adversarial tests include:
 6. cross-criterion coverage splicing fails;
 7. tampered probe digest fails;
 8. tampered coverage digest fails;
-9. `NO_MATCH` without explicit negative evidence fails;
-10. `MATCH` without a verified snapshot relation fails;
-11. complete `MATCH/NO_MATCH` coverage permits a valid zero-score control;
-12. complete coverage for every generated control permits null evaluation;
-13. positive `NULL_SURVIVED` path preserves exact collision + coverage + null lineage;
-14. retrospective fixtures remain unable to promote.
+9. `NO_MATCH` without explicit negative evidence/adapter semantics fails;
+10. `MATCH` without a verified source relation fails;
+11. unsupported adapter rules fail closed;
+12. complete `MATCH/NO_MATCH` coverage permits a valid zero-score control;
+13. caller order cannot alter canonical coverage digest;
+14. complete coverage for every generated control permits null evaluation;
+15. reordered control coverage lineage fails;
+16. positive `NULL_SURVIVED` path preserves exact collision + coverage + null lineage;
+17. retrospective fixtures remain unable to promote.
 
 The hosted exact-head checks must include Cross-Domain Collision V1, Zero-Discretion Type Gates, Kernel One, repository cognition, and any repository-native checks triggered by the changed paths.
 
@@ -237,9 +265,9 @@ The hosted exact-head checks must include Cross-Domain Collision V1, Zero-Discre
 Preferred implementation keeps responsibilities small:
 
 - `cross_domain_collision.py`: collision/statistical receipts and status authority;
-- new `cross_domain_coverage.py`: probe receipts, coverage aggregation, registry adapter verification;
+- new `cross_domain_coverage.py`: adapter contracts, probe receipts, coverage aggregation, control evaluation;
 - `cross_domain_ingest.py`: live evidence production only;
-- dedicated unit/adversarial tests for coverage;
+- dedicated `test_cross_domain_coverage.py` plus adversarial lineage tests;
 - existing cross-domain workflow extended to run coverage regressions offline.
 
 No unrelated refactor is authorized.
