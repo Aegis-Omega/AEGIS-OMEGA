@@ -7,14 +7,18 @@ on:
       - "sovereign-omega-v2/python/cross_domain_collision.py"
       - "sovereign-omega-v2/python/cross_domain_coverage.py"
       - "sovereign-omega-v2/python/cross_domain_ingest.py"
+      - "sovereign-omega-v2/python/cross_domain_epoch.py"
       - "sovereign-omega-v2/python/tests/test_research_invariants.py"
       - "sovereign-omega-v2/python/tests/test_cross_domain_collision.py"
       - "sovereign-omega-v2/python/tests/test_cross_domain_coverage.py"
       - "sovereign-omega-v2/python/tests/test_cross_domain_ingest.py"
+      - "sovereign-omega-v2/python/tests/test_cross_domain_epoch.py"
       - "sovereign-omega-v2/python/tests/test_cross_domain_fixture.py"
       - "sovereign-omega-v2/python/tests/test_cross_domain_hardening.py"
       - ".aegis/cross-domain/fixtures/**"
       - "docs/research/cross-domain-collision-v1.md"
+      - "docs/superpowers/specs/2026-08-25-prospective-epoch-v1-design.md"
+      - "docs/superpowers/plans/2026-08-25-prospective-epoch-v1.md"
       - ".github/workflows/cross-domain-collision.yml"
   workflow_dispatch:
 
@@ -39,6 +43,8 @@ jobs:
             sovereign-omega-v2/python/cross_domain_ingest.py
       - name: Run collision regressions
         run: python sovereign-omega-v2/python/tests/test_cross_domain_collision.py
+      - name: Run prospective epoch regressions
+        run: python sovereign-omega-v2/python/tests/test_cross_domain_epoch.py
       - name: Run control-coverage regressions
         run: python sovereign-omega-v2/python/tests/test_cross_domain_coverage.py
       - name: Run ingestion boundary regressions
