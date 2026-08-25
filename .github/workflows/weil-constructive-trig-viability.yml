@@ -1,0 +1,184 @@
+name: Weil Constructive Trig Viability
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/formal/tests/Weil/ConstructiveTrigViability.v"
+      - ".github/workflows/weil-constructive-trig-viability.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-constructive-trig-viability-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  probe:
+    name: constructive stdlib + Coquelicot trust probe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Prepare writable diagnostic workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/weil-constructive-trig-viability
+          chmod -R a+rwX \
+            sovereign-omega-v2/formal/tests/Weil \
+            sovereign-omega-v2/weil-constructive-trig-viability
+
+      - name: Compile probe and inventory trust surface
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            TEST="$ROOT/formal/tests/Weil/ConstructiveTrigViability.v"
+            OUT="$ROOT/weil-constructive-trig-viability"
+
+            coqc --version | tee "$OUT/coq-version.txt"
+            coqc "$TEST" 2>&1 | tee "$OUT/constructive-name-probe.log"
+
+            COQWHERE="$(coqc -where)"
+            printf '%s\n' "$COQWHERE" > "$OUT/coq-where.txt"
+            : > "$OUT/constructive-module-inventory.txt"
+            : > "$OUT/constructive-trig-declaration-matches.txt"
+
+            for dir in \
+              "$COQWHERE/theories/Reals/Abstract" \
+              "$COQWHERE/theories/Reals/Cauchy"
+            do
+              test -d "$dir"
+              find "$dir" -maxdepth 1 -type f \
+                \( -name '*.v' -o -name '*.vo' \) \
+                -printf '%f\n' | sort >> "$OUT/constructive-module-inventory.txt"
+              if find "$dir" -maxdepth 1 -type f -name '*.v' -print -quit | grep -q .; then
+                grep -RniE \
+                  '^[[:space:]]*(Definition|Lemma|Theorem|Corollary|Proposition|Fixpoint|CoFixpoint)[[:space:]]+[A-Za-z0-9_]*(sin|cos|pi)[A-Za-z0-9_]*' \
+                  "$dir" >> "$OUT/constructive-trig-declaration-matches.txt" || true
+              fi
+            done
+            sort -u -o "$OUT/constructive-module-inventory.txt" \
+              "$OUT/constructive-module-inventory.txt"
+            sort -u -o "$OUT/constructive-trig-declaration-matches.txt" \
+              "$OUT/constructive-trig-declaration-matches.txt"
+            cat "$OUT/constructive-module-inventory.txt"
+            cat "$OUT/constructive-trig-declaration-matches.txt"
+
+            opam install -y coq-coquelicot.3.4.2
+            for theorem in is_derive_sin is_derive_cos
+            do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.assumptions.txt"
+              printf 'Set Coqtop Exit On Error.\nFrom Coquelicot Require Import ElemFct.\nPrint Assumptions %s.\n' \
+                "$theorem" > "$query"
+              coqtop -quiet -batch -l "$query" > "$log" 2>&1
+              rm -f "$query"
+              cat "$log"
+              if grep -q 'Closed under the global context' "$log"; then
+                printf '%s\tCLOSED\n' "$theorem" | tee -a "$OUT/coquelicot-trust-summary.tsv"
+              elif grep -q '^Axioms:' "$log"; then
+                printf '%s\tASSUMPTION_BEARING\n' "$theorem" | tee -a "$OUT/coquelicot-trust-summary.tsv"
+              else
+                printf '%s\tUNRECOGNIZED\n' "$theorem" | tee -a "$OUT/coquelicot-trust-summary.tsv"
+                exit 1
+              fi
+            done
+
+      - name: Emit fail-closed viability receipt
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          out = Path('weil-constructive-trig-viability')
+          test = Path('formal/tests/Weil/ConstructiveTrigViability.v')
+
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          statuses = {}
+          for line in (out / 'coquelicot-trust-summary.tsv').read_text().splitlines():
+              theorem, status = line.split('\t', 1)
+              statuses[theorem] = status
+
+          matches = [
+              line for line in
+              (out / 'constructive-trig-declaration-matches.txt').read_text().splitlines()
+              if line.strip()
+          ]
+          inventory = [
+              line for line in
+              (out / 'constructive-module-inventory.txt').read_text().splitlines()
+              if line.strip()
+          ]
+
+          payload = {
+              'receipt_kind': 'AEGIS_WEIL_CONSTRUCTIVE_TRIG_VIABILITY_V1',
+              'authority': 'DIAGNOSTIC_ONLY',
+              'source_commit': '${{ env.SOURCE_SHA }}',
+              'coq_version': (out / 'coq-version.txt').read_text().splitlines()[0].strip(),
+              'constructive_name_probe_sha256': sha(out / 'constructive-name-probe.log'),
+              'constructive_module_inventory_sha256': sha(out / 'constructive-module-inventory.txt'),
+              'constructive_module_inventory_count': len(inventory),
+              'constructive_crsin_crcos_crpi_absent': True,
+              'constructive_trig_declaration_match_count': len(matches),
+              'constructive_trig_declaration_matches': matches,
+              'coquelicot_version': '3.4.2',
+              'coquelicot_theorem_statuses': statuses,
+              'coquelicot_assumption_log_sha256': {
+                  name: sha(out / f'{name}.assumptions.txt') for name in statuses
+              },
+              'production_authority_granted': False,
+              'prime_diagonal_trig_periodicity_machine_bound': False,
+              'prime_source_sine_derivative_machine_bound': False,
+              'prime_diagonal_dictionary_formalized': False,
+              'global_weil_positivity_proven': False,
+              'rh_proven': False,
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          target = out / 'weil-constructive-trig-viability-receipt.json'
+          target.write_text(json.dumps(payload, sort_keys=True, indent=2) + '\n')
+          print(target.read_text())
+
+          assert payload['authority'] == 'DIAGNOSTIC_ONLY'
+          assert payload['constructive_crsin_crcos_crpi_absent'] is True
+          assert payload['constructive_module_inventory_count'] > 0
+          assert set(statuses) == {'is_derive_sin', 'is_derive_cos'}
+          assert all(status != 'UNRECOGNIZED' for status in statuses.values())
+          assert payload['production_authority_granted'] is False
+          assert payload['prime_diagonal_dictionary_formalized'] is False
+          assert payload['rh_proven'] is False
+          assert len(payload['receipt_sha256']) == 64
+          PY
+
+      - name: Upload viability evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: weil-constructive-trig-viability-${{ env.SOURCE_SHA }}
+          path: sovereign-omega-v2/weil-constructive-trig-viability/
+          if-no-files-found: error
+          retention-days: 30
