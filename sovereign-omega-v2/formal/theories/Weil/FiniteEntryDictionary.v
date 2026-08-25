@@ -88,7 +88,8 @@ Proof.
     - apply Hm. exact Hzm.
     - apply Hn. exact Hzn.
   }
-  field; try ring; try assumption.
+  field.
+  repeat split; assumption.
 Qed.
 
 Definition prime_pole_offdiag_formula
