@@ -187,6 +187,27 @@ class CrossDomainHardeningTests(unittest.TestCase):
                 null_receipt=null_receipt,
             )
 
+    def test_valid_null_status_requires_and_preserves_exact_lineage(self):
+        c = criterion(control_count=100)
+        observed = observed_collision(c)
+        null_receipt = cdc.evaluate_null_model(observed, c, zero_control_receipts(c))
+        self.assertTrue(null_receipt.null_survived)
+        journal = journal_at_collision(observed, c)
+        transition = cdc.append_collision_status(
+            journal,
+            "NULL_SURVIVED",
+            [null_receipt.receipt_sha256],
+            c.criterion_sha256,
+            "verified null receipt on exact collision lineage",
+            null_receipt=null_receipt,
+        )
+        self.assertEqual(journal.current_status, "NULL_SURVIVED")
+        self.assertEqual(
+            transition.evidence_receipt_digests,
+            (null_receipt.receipt_sha256,),
+        )
+        self.assertTrue(ri.StatusJournalV1.verify(journal.history))
+
 
 if __name__ == "__main__":
     unittest.main()
