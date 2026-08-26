@@ -1,9 +1,9 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "386c3eeb70a4d514ba0c28a9af4a8c4c3dc41a26fd8a971f7a2575ebe7134bf5",
+  "corpus_root": "e148b79430b175a04934754308bf21925b8c520612118948b33bf81be33ccedb",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
-  "eligible_file_count": 1952,
+  "eligible_file_count": 1959,
   "excluded_generated_paths": [
     ".aegis/repo-cognition-v1.json"
   ],
@@ -247,9 +247,9 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "85201c29860bdf309013cb4dc6b1d99538260f27f4d6dfa43300353a4c611363",
+      "content_sha256": "cfa09ff3000d54f7826496ff01b8d7981240ee413607e418c3357c6a4b817c97",
       "dependency_hints": [],
-      "git_blob_sha": "2e28e26ca56fe26dfdc604309665a4d3e7ab3ff2",
+      "git_blob_sha": "1fce0df830115aae17a0e5550718e791246344ff",
       "heading_hint": null,
       "kind": "config-or-data",
       "language": "json",
@@ -257,7 +257,7 @@
       "mode": "100644",
       "object_type": "blob",
       "path": ".claude.json",
-      "size_bytes": 19541,
+      "size_bytes": 19536,
       "symbol_hints": []
     },
     {
@@ -922,17 +922,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "b6de74f5be24b9b494ee1499a797ed9b78e1b61a1afd3d14f46650eb8bbbcbeb",
+      "content_sha256": "60f5dc3e0a7f80cb0ffd2b3187bb54c59d4de93301a6f5a8c6e34cb525ccdf5d",
       "dependency_hints": [],
-      "git_blob_sha": "9f3a157fd6a1761372356cb6efd79cc54b403b8d",
+      "git_blob_sha": "ccd3057405cfd70aed01abe143e6e41e1eafa2b6",
       "heading_hint": null,
       "kind": "workflow",
       "language": "yaml",
-      "line_count": 51,
+      "line_count": 63,
       "mode": "100644",
       "object_type": "blob",
       "path": ".github/workflows/cross-domain-collision.yml",
-      "size_bytes": 2302,
+      "size_bytes": 3098,
       "symbol_hints": []
     },
     {
@@ -28765,6 +28765,20 @@
       "symbol_hints": []
     },
     {
+      "content_sha256": "f41768f2fc9e7d9b27928b1d2bb5473801b2396e86aa534661c747ae9bb375c6",
+      "dependency_hints": [],
+      "git_blob_sha": "54688c8d5cebacb6e24947e83048c7dbbe84bbe0",
+      "heading_hint": "Prospective Epoch V1 Implementation Plan",
+      "kind": "documentation",
+      "language": "markdown",
+      "line_count": 488,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "docs/superpowers/plans/2026-08-25-prospective-epoch-v1.md",
+      "size_bytes": 25068,
+      "symbol_hints": []
+    },
+    {
       "content_sha256": "ce09d28213ebd39d73f173f15598a1130d7a3a978fa2e64a880b8a012fbda4e8",
       "dependency_hints": [],
       "git_blob_sha": "5395a900fa82d361beebbe1c3aeaa1c403fa5f81",
@@ -28804,6 +28818,20 @@
       "object_type": "blob",
       "path": "docs/superpowers/specs/2026-08-25-cross-domain-control-coverage-v1-design.md",
       "size_bytes": 12513,
+      "symbol_hints": []
+    },
+    {
+      "content_sha256": "e8a60f3d7e5d21e5cadbcd42e605012e23c647d12f5f2e543b9cd75dbaebeb16",
+      "dependency_hints": [],
+      "git_blob_sha": "8a449632b46526c96a536f9f63bba3cb18944e0b",
+      "heading_hint": "Prospective Cross-Domain Epoch V1 — Design",
+      "kind": "documentation",
+      "language": "markdown",
+      "line_count": 470,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "docs/superpowers/specs/2026-08-25-prospective-epoch-v1-design.md",
+      "size_bytes": 23373,
       "symbol_hints": []
     },
     {
@@ -38079,6 +38107,22 @@
       ]
     },
     {
+      "content_sha256": "f240c2dd1283d656ec0e1e9139d7f5ab215a2779b17a3bdb82025a2de86c04a5",
+      "dependency_hints": [
+        "cross_domain_coverage_core"
+      ],
+      "git_blob_sha": "3270f8eb18d0caf028697b2da5300c58429f9610",
+      "heading_hint": null,
+      "kind": "source",
+      "language": "python",
+      "line_count": 27,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "sovereign-omega-v2/python/cross_domain_coverage.py",
+      "size_bytes": 936,
+      "symbol_hints": []
+    },
+    {
       "content_sha256": "5b4b93308d1b85757895806b777a6904fef73bb424c634b7ec7169d2a27953ef",
       "dependency_hints": [
         "__future__",
@@ -38095,7 +38139,7 @@
       "line_count": 647,
       "mode": "100644",
       "object_type": "blob",
-      "path": "sovereign-omega-v2/python/cross_domain_coverage.py",
+      "path": "sovereign-omega-v2/python/cross_domain_coverage_core.py",
       "size_bytes": 28376,
       "symbol_hints": [
         "RegistryProbeOutcomeV1",
@@ -38135,30 +38179,118 @@
       ]
     },
     {
-      "content_sha256": "fe582e24dd43ea0a4dc9808f1f7dfc6eb53a6769833df5d30f9745cc843ae9af",
+      "content_sha256": "2d5a506d1c3f4bf3a9a67ca587a8525cb3dc2df09b30e1d54916d7624ae08ad7",
       "dependency_hints": [
         "__future__",
         "dataclasses",
         "typing",
+        "cross_domain_collision",
+        "cross_domain_coverage",
+        "research_invariants"
+      ],
+      "git_blob_sha": "5da194187acb5dae8dd847079058940f5c1de0d5",
+      "heading_hint": null,
+      "kind": "source",
+      "language": "python",
+      "line_count": 298,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "sovereign-omega-v2/python/cross_domain_epoch.py",
+      "size_bytes": 13041,
+      "symbol_hints": [
+        "_adapter_digest",
+        "ProspectiveEpochV1",
+        "__post_init__",
+        "_epoch_material",
+        "make_epoch_v1",
+        "verify_epoch",
+        "epoch_collision_criterion",
+        "SubjectGenerationReceiptV1",
+        "_generation_material",
+        "_generated_values",
+        "generate_subject_receipts",
+        "verify_subject_generation_receipt"
+      ]
+    },
+    {
+      "content_sha256": "60965f18f89804305bcfc7f3ff30446ad23bb33549e7f99d788d3b6f3eb2ab66",
+      "dependency_hints": [
+        "__future__",
+        "dataclasses",
+        "typing",
+        "hashlib",
         "json",
         "urllib.request",
         "cross_domain_collision",
         "research_invariants"
       ],
-      "git_blob_sha": "513de6b84244a09f48e2e67dcd41ff2d31c5ce98",
+      "git_blob_sha": "2038404531089de42521ae5cadbe4357395bf579",
       "heading_hint": null,
       "kind": "source",
       "language": "python",
-      "line_count": 84,
+      "line_count": 264,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/cross_domain_ingest.py",
-      "size_bytes": 2647,
+      "size_bytes": 10576,
       "symbol_hints": [
         "IngestionOutcomeV1",
         "canonicalize_external_result",
         "_default_transport",
-        "fetch_json_snapshot"
+        "fetch_json_snapshot",
+        "SourceCaptureReceiptV1",
+        "_capture_receipt_material",
+        "verify_source_capture_receipt",
+        "VerifiedSourceCaptureV1",
+        "__post_init__",
+        "_raw_sha256",
+        "capture_source_bytes",
+        "verify_source_capture"
+      ]
+    },
+    {
+      "content_sha256": "da8b48c82160c31e5b1693519ede93cd04f802f93f0e73b67bd1eb6029775ead",
+      "dependency_hints": [
+        "__future__",
+        "dataclasses",
+        "typing",
+        "urllib.parse",
+        "json",
+        "cross_domain_collision",
+        "cross_domain_coverage",
+        "cross_domain_ingest",
+        "research_invariants"
+      ],
+      "git_blob_sha": "aaeb031a47239f00006a21add05bff206bf84d59",
+      "heading_hint": null,
+      "kind": "source",
+      "language": "python",
+      "line_count": 420,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "sovereign-omega-v2/python/cross_domain_registry_adapters.py",
+      "size_bytes": 17098,
+      "symbol_hints": [
+        "SourceContractV1",
+        "SourceVerifiedProbeV1",
+        "_unicode_source_material",
+        "_ncbi_source_material",
+        "unicode_source_contract_v1",
+        "ncbi_gene_source_contract_v1",
+        "_adapter_contract",
+        "unicode_adapter_contract_v1",
+        "ncbi_gene_adapter_contract_v1",
+        "_validate_common_context",
+        "_validate_capture",
+        "_normalize_probe",
+        "_unicode_ranges",
+        "_unicode_category",
+        "probe_unicode_general_category",
+        "_canonical_ncbi_subjects",
+        "make_ncbi_batch_request",
+        "_ncbi_result",
+        "probe_ncbi_gene_esearch",
+        "verify_source_verified_probe"
       ]
     },
     {
@@ -39422,6 +39554,34 @@
       ]
     },
     {
+      "content_sha256": "4c2d09af0e735e53cc1c361bd70e208ac91fe8eb200e90716b26a93c7add1bf2",
+      "dependency_hints": [
+        "dataclasses",
+        "pathlib",
+        "sys",
+        "unittest",
+        "cross_domain_epoch"
+      ],
+      "git_blob_sha": "28f22f15b4978f64a500d0b3860aaec40a901588",
+      "heading_hint": null,
+      "kind": "test",
+      "language": "python",
+      "line_count": 54,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "sovereign-omega-v2/python/tests/test_cross_domain_epoch.py",
+      "size_bytes": 2248,
+      "symbol_hints": [
+        "ProspectiveEpochTests",
+        "test_epoch_is_exactly_unicode_plus_ncbi",
+        "test_epoch_digest_changes_when_seed_changes",
+        "test_generation_replays_identically",
+        "test_generation_receipt_wrong_index_fails",
+        "test_generation_receipt_cross_epoch_splice_fails",
+        "test_known_duplicate_seed_preserves_two_draw_positions"
+      ]
+    },
+    {
       "content_sha256": "2395451ffe9caf54135609fb67b3ddf0b81d087509aeffb7f133af45124fa9dd",
       "dependency_hints": [
         "pathlib",
@@ -39492,22 +39652,23 @@
       ]
     },
     {
-      "content_sha256": "d39f03ce063436822103d3e0667d76d9ed2a5664adbd2a8797fc34d2618947ad",
+      "content_sha256": "6ee6aa67820ffa9154eccfd0105bd7d9e2df7a07e56e7f9acd01a075da8a060c",
       "dependency_hints": [
+        "dataclasses",
         "pathlib",
         "sys",
         "unittest",
         "cross_domain_ingest"
       ],
-      "git_blob_sha": "2e8df91da8b4aeda29c69357acb27b3e1d0f9666",
+      "git_blob_sha": "c31b514ad66fd914957c546e2723c256a1c8fcf9",
       "heading_hint": null,
       "kind": "test",
       "language": "python",
-      "line_count": 93,
+      "line_count": 159,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/tests/test_cross_domain_ingest.py",
-      "size_bytes": 3383,
+      "size_bytes": 6067,
       "symbol_hints": [
         "FailingTransport",
         "__call__",
@@ -39517,7 +39678,47 @@
         "test_live_failure_yields_not_established_and_no_snapshot",
         "test_valid_json_constructs_snapshot",
         "test_semantic_live_response_change_changes_snapshot_digest",
-        "test_malformed_json_is_not_established_not_negative"
+        "test_malformed_json_is_not_established_not_negative",
+        "SourceCaptureReceiptTests",
+        "test_raw_byte_tampering_breaks_capture_replay",
+        "test_retry_requires_previous_attempt_digest"
+      ]
+    },
+    {
+      "content_sha256": "331e0c10d109b81be7d73ecfa19fb8b87353518d6169a3f6ba0407e3e310b3f8",
+      "dependency_hints": [
+        "pathlib",
+        "sys",
+        "unittest",
+        "cross_domain_collision",
+        "cross_domain_coverage",
+        "cross_domain_epoch",
+        "cross_domain_ingest",
+        "cross_domain_registry_adapters"
+      ],
+      "git_blob_sha": "4b98f649fc9d6a7d048652060046b0179373dd27",
+      "heading_hint": null,
+      "kind": "test",
+      "language": "python",
+      "line_count": 172,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "sovereign-omega-v2/python/tests/test_cross_domain_registry_adapters.py",
+      "size_bytes": 7446,
+      "symbol_hints": [
+        "criterion",
+        "unicode_capture",
+        "ncbi_fixture",
+        "RegistryAdapterTests",
+        "test_epoch_contract_digests_match_source_factories",
+        "test_unicode_non_cn_is_match_and_cn_is_no_match",
+        "test_unicode_overlap_fails_closed",
+        "test_unicode_uncovered_or_wrong_release_is_not_negative_evidence",
+        "test_ncbi_batch_is_sorted_unique_and_bounded",
+        "test_ncbi_uid_presence_and_absence_are_distinct",
+        "test_ncbi_unexpected_uid_fails_closed",
+        "test_ncbi_warning_truncation_or_transport_status_fails_closed",
+        "test_ncbi_capture_cannot_splice_to_unrequested_subject"
       ]
     },
     {
@@ -54173,8 +54374,8 @@
   ],
   "generator": "scripts/repo_cognition.py",
   "generator_version": "1.0.1",
-  "indexed_file_count": 1952,
+  "indexed_file_count": 1959,
   "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
   "schema": "AEGIS_REPO_COGNITION_V1",
-  "tracked_file_count": 1953
+  "tracked_file_count": 1960
 }
