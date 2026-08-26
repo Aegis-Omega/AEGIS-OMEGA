@@ -1,15 +1,15 @@
-"""Exact finite-dimensional kernel for the Observable Contraction Theorem.
+"""Exact finite-dimensional kernel for the Observable Contraction Freeze v1.
 
-This module is intentionally small and dependency-free.  It uses
-``fractions.Fraction`` throughout so the four committed falsification fixtures
-exercise algebraic identities rather than floating-point tolerances.
+This module is intentionally small and dependency-free. It uses
+``fractions.Fraction`` throughout so the committed exact regressions exercise
+algebraic identities rather than floating-point tolerances.
 
 Scope:
     A_plus = A_minus T
     D = A_minus (I - T T^T) A_minus^T
     R_minus = Ran(A_minus^T) = row-space(A_minus)
 
-The PSD condition on D certifies contraction only on R_minus.  It does not
+The PSD condition on D certifies contraction only on R_minus. It does not
 certify a global norm bound for a prescribed T unless R_minus is the whole
 ambient space.
 """
@@ -130,6 +130,32 @@ def determinant(a: Sequence[Sequence[object]]) -> F:
     return sign * det
 
 
+def det_affine_2x2_coefficients(
+    x: Sequence[Sequence[object]], y: Sequence[Sequence[object]]
+) -> tuple[F, F, F]:
+    """Return exact coefficients of det(X - lambda Y) for 2x2 matrices.
+
+    The result ``(c0, c1, c2)`` means
+
+        det(X - lambda Y) = c0 + c1*lambda + c2*lambda^2.
+
+    This small symbolic certificate is sufficient to lock the canonical
+    singular-Y Layer-1 cross-coupling fixture without sampling lambda values.
+    """
+    xx = _matrix(x)
+    yy = _matrix(y)
+    if shape(xx) != (2, 2) or shape(yy) != (2, 2):
+        raise ValueError("affine determinant certificate requires 2x2 matrices")
+    x00, x01 = xx[0]
+    x10, x11 = xx[1]
+    y00, y01 = yy[0]
+    y10, y11 = yy[1]
+    c0 = x00 * x11 - x01 * x10
+    c1 = -(x00 * y11 + y00 * x11) + (x01 * y10 + y01 * x10)
+    c2 = y00 * y11 - y01 * y10
+    return (c0, c1, c2)
+
+
 def _principal_submatrix(a: Matrix, indexes: Iterable[int]) -> Matrix:
     idx = tuple(indexes)
     return [[a[i][j] for j in idx] for i in idx]
@@ -145,7 +171,7 @@ def is_psd(a: Sequence[Sequence[object]]) -> bool:
     """Exact PSD decision for a real symmetric matrix.
 
     A real symmetric matrix is positive semidefinite iff every principal minor
-    is non-negative.  The exponential enumeration is intentional: this kernel
+    is non-negative. The exponential enumeration is intentional: this kernel
     is for tiny exact falsification fixtures, not large numerical workloads.
     """
     aa = _matrix(a)
@@ -243,7 +269,7 @@ def observable_defect_matrix(
     """Matrix of I - T T^T restricted to an exact row-space basis.
 
     If B has independent rows spanning R_- = Ran(A_-^T), this returns
-    B (I - T T^T) B^T.  PSD of this matrix is basis-independent and is
+    B (I - T T^T) B^T. PSD of this matrix is basis-independent and is
     equivalent to PSD of D = A_-(I-TT^T)A_-^T.
     """
     a = _matrix(a_minus)
