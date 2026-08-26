@@ -25,6 +25,6 @@ jobs:
       - name: Compile exact kernel and regressions
         working-directory: research/rh
         run: python -m py_compile observable_contraction_exact.py test_observable_contraction_exact.py
-      - name: Run four exact falsifiers
+      - name: Run seven exact regressions
         working-directory: research/rh
         run: python -m unittest -v test_observable_contraction_exact.py
