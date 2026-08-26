@@ -1,0 +1,131 @@
+{
+ "declared_not_derived": {
+  "C": 1000.0,
+  "epsilon": 0.001,
+  "norm_AmAmT": 0.2772493754498895,
+  "note": "C is a chosen safety multiplier; ||A_-A_-^T|| is measured at the worst-conditioned tested zero and is not invariant under rescaling"
+ },
+ "distribution": {
+  "C_crit_max": 6072937145497.139,
+  "C_crit_median": 100087441758.02933,
+  "C_crit_min": 143292.81839165115,
+  "M_max": 77929.05199922003,
+  "M_median": 10004.365266072626,
+  "M_min": 11.970497833910297,
+  "n_below_M10": 0,
+  "n_below_M100": 2
+ },
+ "epistemic_status": "VERIFIED_NUMERICAL",
+ "fitted_exponent": {
+  "max_log_residual": 2.6645352591003757e-15,
+  "slope": -0.4999999999999999
+ },
+ "identifiability": {
+  "T_is_min_norm": true,
+  "T_min_norm_note": "T = A_-^+ A_+ via lstsq; columns lie in range(A_-^T), so the kernel failure mode of the general Douglas converse cannot arise in this pipeline",
+  "ker_Aminus_trivial_on_all": true,
+  "pinv_amplification": 15061.073603785015,
+  "s_min_max": 0.1492005329559886,
+  "s_min_median": 0.07602266455300602,
+  "s_min_min": 6.639632912680866e-05,
+  "worst_zero_gamma": 402.86191776388614,
+  "worst_zero_index": 204
+ },
+ "margin_identity": "M(C) = sqrt(C_crit / C)",
+ "margin_identity_asserted": true,
+ "margin_vs_C": [
+  {
+   "C": 1.0,
+   "M": 378.5403788126851,
+   "tau": 1.7540091584169905e-07
+  },
+  {
+   "C": 10.0,
+   "M": 119.70497833910296,
+   "tau": 5.54666397739279e-07
+  },
+  {
+   "C": 100.0,
+   "M": 37.85403788126851,
+   "tau": 1.7540091584169905e-06
+  },
+  {
+   "C": 1000.0,
+   "M": 11.970497833910297,
+   "tau": 5.546663977392789e-06
+  },
+  {
+   "C": 10000.0,
+   "M": 3.7854037881268514,
+   "tau": 1.7540091584169903e-05
+  },
+  {
+   "C": 100000.0,
+   "M": 1.1970497833910299,
+   "tau": 5.546663977392789e-05
+  },
+  {
+   "C": 143292.81839165115,
+   "M": 1.0,
+   "tau": 6.639632912680866e-05
+  },
+  {
+   "C": 1000000.0,
+   "M": 0.37854037881268515,
+   "tau": 0.00017540091584169904
+  }
+ ],
+ "margin_vs_eps": [
+  {
+   "C_crit": 15038226.817716802,
+   "M_at_1e3": 122.63044816731609,
+   "eps": 0.1
+  },
+  {
+   "C_crit": 1439373.1382671786,
+   "M_at_1e3": 37.93907139437098,
+   "eps": 0.01
+  },
+  {
+   "C_crit": 143292.81839165115,
+   "M_at_1e3": 11.970497833910297,
+   "eps": 0.001
+  },
+  {
+   "C_crit": 14322.836884810902,
+   "M_at_1e3": 3.784552402175309,
+   "eps": 0.0001
+  },
+  {
+   "C_crit": 1432.2192389481538,
+   "M_at_1e3": 1.196753624998961,
+   "eps": 1e-05
+  }
+ ],
+ "normalization": {
+  "H": 3.5,
+  "NF": 720,
+  "n_zeros": 300,
+  "panel": 0.01
+ },
+ "not_claimed": [
+  "asymptotic validity",
+  "universal conditioning floor",
+  "theorem dim(P(V))=2",
+  "derived backward-error constant C"
+ ],
+ "observed_floor": {
+  "C_obs": 4.575243986486626,
+  "caveat": "measured at one zero, one perturbation family; covers floating-point evaluation at exact inputs only; not a backward-error bound",
+  "conservatism_factor": 218.56757868074038,
+  "draws": 400
+ },
+ "open_work": "derive C from the QR -> SVD -> P_Qg backward-error chain",
+ "scope": "first 300 tested zeros",
+ "seed": 20260825,
+ "worst_zero": {
+  "C_crit_at_eps_1e_3": 143292.81839165115,
+  "C_ratio_at_C_1e3": 143.29281839165114,
+  "M_at_C_1e3": 11.970497833910297
+ }
+}
