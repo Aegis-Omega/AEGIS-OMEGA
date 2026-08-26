@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/khatt-abjad-capability-bridge-v1",
+    "source_ref": "feat/abjad-encoder-v0-1-canonical-freeze",
     "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "9978cb419dfa4624e39fcbf2130311564e06d36116599427959da8e2fa4d8617"
+  "state_hash": "961a0a18ac19affc35f7c0bf8ba3ff535764f0ecf2bbaeb12be775be5a2a0bcc"
 }
