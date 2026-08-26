@@ -1,4 +1,4 @@
-use aegis_cl_psi::abjad_encoder_v01::{
+use aegis_cl_psi::abjad_encoder::{
     authorize_inequality_from_aggregate, encode_canonical, mode_a_delta, mode_a_dominates,
     profile_mod9, AbjadEncoderInputV01, AuthorityDomain, CanonicalLetter, Digest32, ExactU64,
     Mod9Orbit, ObservabilityAuthorityError, Rational,
