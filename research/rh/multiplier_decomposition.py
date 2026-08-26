@@ -64,7 +64,6 @@ WHAT THIS INSTRUMENT DOES
   is its P-dependence, not the term.
 """
 
-import cmath
 import json
 import math
 import os
