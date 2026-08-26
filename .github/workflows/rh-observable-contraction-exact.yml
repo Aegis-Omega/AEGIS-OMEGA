@@ -6,6 +6,7 @@ on:
       - "research/rh/observable_contraction_exact.py"
       - "research/rh/test_observable_contraction_exact.py"
       - "research/rh/CONDITIONING.md"
+      - "research/rh/OBSERVABLE_CONTRACTION_FREEZE.md"
       - ".github/workflows/rh-observable-contraction-exact.yml"
   workflow_dispatch:
 
