@@ -16,6 +16,10 @@ use crate::dodecagonal_router::{build_dodecagonal_mesh, ring_distance, route, DO
 use crate::vortex_classifier::{classify_vortex, digital_root, vortex_cycle_length, VortexFamily};
 use crate::proportional_metric::SQUARED_SUM_K8;
 
+// AbjadEncoder v0.1 canonical-freeze API. Legacy Gate 215 remains intact above/below.
+mod v01;
+pub use v01::*;
+
 /// One letter's encoding record.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LetterRecord {
