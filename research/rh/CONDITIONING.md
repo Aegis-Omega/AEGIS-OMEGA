@@ -21,6 +21,7 @@ NORMALIZATION    : current RH finite-model normalization (H=3.5, NF=720, panel=0
 - asymptotic validity
 - universal conditioning floor
 - theorem `dim(P(V)) = 2`
+- exact algebraic rank certificate for the 300 tested `A₋`
 - derived backward-error constant `C`
 
 ---
@@ -30,10 +31,18 @@ NORMALIZATION    : current RH finite-model normalization (H=3.5, NF=720, panel=0
 Three statements were previously compressed into one. They are not the same statement:
 
 ```
-κ = 0                 algebraic boundary
-ker(A₋) = {0}         identifiability
+κ_eff = 0             algebraic observable boundary
+ker(A₋) = {0}         identifiability / full-column-rank fact
 s_min(A₋) > τ(C)      numerical resolvability
 ```
+
+The general rank-free object is
+
+```
+κ_eff = ‖Tᵀ|Ran(A₋ᵀ)‖₂ − 1.
+```
+
+Only conditional on full-column-rank does `κ_eff = ‖T‖₂ − 1`.
 
 ## Error budget
 
@@ -104,24 +113,35 @@ M(1e3) < 10 : 0/300        M(1e3) < 100 : 2/300
 
 The worst zero is a **~6-order outlier**, not the typical case.
 
-## Identifiability holds, and more narrowly than the general theorem needs
+## Numerical rank classification — not an exact rank receipt
 
-`s_min(A₋) > 0` on all 300 tested zeros, so `ker(A₋) = {0}` throughout.
+The floating-point SVD returned measured `s_min(A₋) > 0` on all 300 tested
+instances. Therefore the 300 tested instances were **numerically classified as
+full-column-rank**.
 
-This matters because the Douglas converse — *difference ⪰ 0 ⟹ ‖T‖ ≤ 1* — is **false in
-general**: with `A₋ = 0`, any `T` satisfies it. The condition constrains `I − TTᵀ`
-only on `range(A₋ᵀ)`.
+This is `VERIFIED_NUMERICAL`, not a T0/exact proof of `ker(A₋)={0}`. Conditional
+on that numerical rank fact, the global-norm statement is the full-rank
+corollary of the Observable Contraction Theorem. Promotion of the rank fact to
+exact/formal authority requires either an exact rank certificate or a rigorous
+interval lower bound proving `s_min(A₋)>0`.
 
-In this pipeline that failure mode is structurally excluded: `T` is obtained as
-`A₋⁺A₊` via `lstsq`, i.e. minimum norm, so its columns lie in `range(A₋ᵀ)` and carry
-no component in `ker(A₋)` (verified: `‖KᵀT‖ = 0` over 500 rank-deficient draws).
+The general Douglas converse — *difference ⪰ 0 ⟹ ‖T‖ ≤ 1* — is false without a
+rank hypothesis: with `A₋ = 0`, any `T` satisfies the PSD difference. The exact
+general condition sees only `range(A₋ᵀ)` and is stated in
+`OBSERVABLE_CONTRACTION_FREEZE.md` via `κ_eff`.
 
-What remains is not a logical gap but amplification: `‖A₋⁺‖ = 1/s_min = 1.5061e+04`
-at the worst zero. That is what the margin above measures.
+In this numerical pipeline `T` is obtained as `A₋⁺A₊` via `lstsq`, i.e. the
+minimum-norm numerical solution. A separate numerical stress test over 500
+rank-deficient draws measured `‖KᵀT‖ = 0` at the reported precision. That is a
+numerical pipeline observation, not a universal exact certificate.
+
+What remains numerically important is amplification: at the worst tested zero,
+`1/s_min = 1.5061e+04`. That is what the conditioning margin above measures.
 
 ## Observed floor — measured, still not a bound
 
-400 exact-contraction draws (`‖T‖ = 1`, i.e. `κ = 0`; exact arithmetic gives 0):
+400 exact-contraction draws (`‖T‖ = 1`, i.e. the full-rank/global critical form;
+exact arithmetic gives 0):
 
 ```
 |λ|_max :  median=6.2860e-17   max=2.8166e-16
@@ -144,8 +164,11 @@ Layer 1   dim P(V) = 2  for all 300 tested zeros
           η ≡ 0 unless the hypotheses that implication needs are separately
           stated and proved.
 
-Layer 2   A₊ = A₋T ,  κ = ‖T‖₂ − 1 ,  A₋(I − TTᵀ)A₋ᵀ ⪰ 0
-          exact structural reduction + the finite conditioning envelope above.
+Layer 2   General finite-dimensional theorem:
+          D ⪰ 0 ⇔ κ_eff ≤ 0,
+          κ_eff = ‖Tᵀ|Ran(A₋ᵀ)‖₂ − 1.
+          Global κ = ‖T‖₂ − 1 is only the full-column-rank corollary.
+          The 300 instances are numerically, not exactly, classified full-rank.
           Sign: the PSD residual is A₋(I − TTᵀ)A₋ᵀ. Its negative is NOT PSD.
 
 Layer 3   "maximal non-destructive subtraction"
@@ -161,9 +184,13 @@ Layer 3   "maximal non-destructive subtraction"
 This is a **research evidence producer → deterministic receipt →
 non-authoritative numerical checkpoint**. It is deliberately **not** in blocking CI.
 
-Promotion to a stronger verification layer requires deriving `C` from the
-`QR → SVD → P_Qg` backward-error chain. Until then `C` is a convention and the
-margin is reported as a function of it, never as a single number.
+Promotion to a stronger numerical verification layer requires deriving `C` from
+the `QR → SVD → P_Qg` backward-error chain. Until then `C` is a convention and
+the margin is reported as a function of it, never as a single number.
+
+Promotion of the observed rank classification requires a separate exact or
+rigorous-interval rank certificate; the positive floating `s_min` values in this
+report do not provide that authority by themselves.
 
 ## Reproduce
 
