@@ -1,5 +1,4 @@
 import numpy as np, scipy.linalg as la
-from core import *
 SIG=0.1
 class Kappa:
     def __init__(self,M):
