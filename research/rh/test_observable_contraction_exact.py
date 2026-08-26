@@ -1,13 +1,17 @@
-"""Exact falsifiers for the observable-contraction freeze.
+"""Exact regressions for the Observable Contraction Freeze v1.
 
-These tests intentionally use Fraction arithmetic only.  They distinguish the
-operator seen through A_- from unobservable directions of a prescribed T.
+These tests intentionally use Fraction arithmetic only. They distinguish the
+operator seen through A_- from unobservable directions of a prescribed T,
+lock the exact PSD decision boundary, and preserve the singular-Y Layer-1
+cross-coupling counterexample.
 """
 from fractions import Fraction as F
 import unittest
 
 from observable_contraction_exact import (
+    det_affine_2x2_coefficients,
     difference,
+    dot,
     is_psd,
     matmul,
     matvec,
@@ -18,6 +22,27 @@ from observable_contraction_exact import (
 
 
 class ObservableContractionExactTests(unittest.TestCase):
+    def test_psd_requires_all_principal_minors_not_only_leading(self):
+        # Leading principal minors are 0 and 0, but the {2} principal minor is -1.
+        a = [[F(0), F(0)], [F(0), F(-1)]]
+        self.assertFalse(is_psd(a))
+
+    def test_psd_rejects_nonsymmetric_matrix(self):
+        b = [[F(1), F(1)], [F(0), F(1)]]
+        self.assertFalse(is_psd(b))
+
+    def test_layer1_singular_y_cross_coupling_has_no_finite_psd_threshold(self):
+        # ker(Y)=span(e2) and e2^T X e2 = 0, so the kernel condition holds.
+        # Yet det(X-lambda Y) == -1 for every lambda, hence no member of the
+        # affine family can be PSD.  Polynomial coefficients are ordered
+        # constant, lambda, lambda^2 and are computed exactly.
+        x = [[F(0), F(1)], [F(1), F(0)]]
+        y = [[F(1), F(0)], [F(0), F(0)]]
+        e2 = [F(0), F(1)]
+        self.assertEqual(matvec(y, e2), [F(0), F(0)])
+        self.assertEqual(dot(e2, matvec(x, e2)), F(0))
+        self.assertEqual(det_affine_2x2_coefficients(x, y), (F(-1), F(0), F(0)))
+
     def test_rank_deficient_prescribed_T_need_not_be_global_contraction(self):
         A = [[F(1), F(0)]]
         T = [[F(1), F(0)], [F(0), F(2)]]
