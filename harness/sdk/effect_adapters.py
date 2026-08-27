@@ -16,10 +16,10 @@ import re
 import stat as stat_module
 import threading
 import weakref
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from harness.sdk.sovereign_execution import ZERO_HASH, canonical_hash
 from harness.sdk.transition_receipts import ExecutionReceipt, TransitionIdentity
@@ -181,8 +181,9 @@ class FilesystemEffectAdapter:
             mtime_ns=0,
         )
 
-    def _open_beneath_allowed_root(self, *, target_identity: str) -> int:
-        """Open a regular-file candidate descriptor-relative with symlink following disabled."""
+    @contextmanager
+    def _open_beneath_allowed_root(self, *, target_identity: str) -> Iterator[int]:
+        """Yield a descriptor-relative file handle and close every descriptor on exit."""
         required = ("O_DIRECTORY", "O_NOFOLLOW")
         if os.name != "posix" or any(not hasattr(os, name) for name in required):
             raise EffectAdapterError("EFFECT_RACE_RESISTANT_OPEN_UNAVAILABLE")
@@ -217,7 +218,7 @@ class FilesystemEffectAdapter:
                 dir_fd = next_fd
 
             try:
-                return os.open(parts[-1], file_flags, dir_fd=dir_fd)
+                file_fd = os.open(parts[-1], file_flags, dir_fd=dir_fd)
             except FileNotFoundError:
                 raise
             except OSError as exc:
@@ -226,6 +227,8 @@ class FilesystemEffectAdapter:
                 if exc.errno in (errno.EISDIR, errno.ENOTDIR, errno.EACCES, errno.EPERM):
                     raise EffectAdapterError("EFFECT_TARGET_NOT_REGULAR_FILE") from exc
                 raise
+            descriptors.callback(os.close, file_fd)
+            yield file_fd
 
     def _observe_state(self, target: Path) -> FilesystemStateObservation:
         _, target_identity = self._resolve_target(target)
@@ -234,57 +237,53 @@ class FilesystemEffectAdapter:
             raise EffectAdapterError("EFFECT_OBSERVATION_SIZE_BOUND_INVALID")
 
         try:
-            fd = self._open_beneath_allowed_root(target_identity=target_identity)
+            with self._open_beneath_allowed_root(target_identity=target_identity) as fd:
+                stat_before = os.fstat(fd)
+                if not stat_module.S_ISREG(stat_before.st_mode):
+                    raise EffectAdapterError("EFFECT_TARGET_NOT_REGULAR_FILE")
+                if int(stat_before.st_size) > limit:
+                    raise EffectAdapterError("EFFECT_TARGET_TOO_LARGE")
+
+                digest = hashlib.sha256()
+                total = 0
+                while True:
+                    remaining_probe = limit - total + 1
+                    read_size = min(OBSERVATION_READ_CHUNK_BYTES, max(1, remaining_probe))
+                    chunk = os.read(fd, read_size)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > limit:
+                        raise EffectAdapterError("EFFECT_TARGET_TOO_LARGE")
+                    digest.update(chunk)
+
+                stat_after = os.fstat(fd)
+                stable_fields_before = (
+                    int(stat_before.st_dev),
+                    int(stat_before.st_ino),
+                    int(stat_before.st_size),
+                    int(stat_before.st_mtime_ns),
+                )
+                stable_fields_after = (
+                    int(stat_after.st_dev),
+                    int(stat_after.st_ino),
+                    int(stat_after.st_size),
+                    int(stat_after.st_mtime_ns),
+                )
+                if stable_fields_before != stable_fields_after or int(stat_after.st_size) != total:
+                    raise EffectAdapterError("EFFECT_TARGET_CHANGED_DURING_OBSERVATION")
+
+                return FilesystemStateObservation(
+                    target_identity=target_identity,
+                    exists=True,
+                    content_sha256=digest.hexdigest(),
+                    size_bytes=total,
+                    device=int(stat_after.st_dev),
+                    inode=int(stat_after.st_ino),
+                    mtime_ns=int(stat_after.st_mtime_ns),
+                )
         except FileNotFoundError:
             return self._missing_observation(target_identity=target_identity)
-
-        try:
-            stat_before = os.fstat(fd)
-            if not stat_module.S_ISREG(stat_before.st_mode):
-                raise EffectAdapterError("EFFECT_TARGET_NOT_REGULAR_FILE")
-            if int(stat_before.st_size) > limit:
-                raise EffectAdapterError("EFFECT_TARGET_TOO_LARGE")
-
-            digest = hashlib.sha256()
-            total = 0
-            while True:
-                remaining_probe = limit - total + 1
-                read_size = min(OBSERVATION_READ_CHUNK_BYTES, max(1, remaining_probe))
-                chunk = os.read(fd, read_size)
-                if not chunk:
-                    break
-                total += len(chunk)
-                if total > limit:
-                    raise EffectAdapterError("EFFECT_TARGET_TOO_LARGE")
-                digest.update(chunk)
-
-            stat_after = os.fstat(fd)
-            stable_fields_before = (
-                int(stat_before.st_dev),
-                int(stat_before.st_ino),
-                int(stat_before.st_size),
-                int(stat_before.st_mtime_ns),
-            )
-            stable_fields_after = (
-                int(stat_after.st_dev),
-                int(stat_after.st_ino),
-                int(stat_after.st_size),
-                int(stat_after.st_mtime_ns),
-            )
-            if stable_fields_before != stable_fields_after or int(stat_after.st_size) != total:
-                raise EffectAdapterError("EFFECT_TARGET_CHANGED_DURING_OBSERVATION")
-
-            return FilesystemStateObservation(
-                target_identity=target_identity,
-                exists=True,
-                content_sha256=digest.hexdigest(),
-                size_bytes=total,
-                device=int(stat_after.st_dev),
-                inode=int(stat_after.st_ino),
-                mtime_ns=int(stat_after.st_mtime_ns),
-            )
-        finally:
-            os.close(fd)
 
     @staticmethod
     def _state_commitment(observation: FilesystemStateObservation) -> str:

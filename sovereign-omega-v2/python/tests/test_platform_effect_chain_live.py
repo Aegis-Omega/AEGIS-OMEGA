@@ -17,7 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
 from harness.sdk.complete_verifier import TRUE  # noqa: E402
-from harness.sdk.effect_adapters import EFFECT_WITNESS_KIND, EffectAdapterError  # noqa: E402
+from harness.sdk.effect_adapters import EFFECT_WITNESS_KIND  # noqa: E402
 from harness.sdk.effect_verifier import FALSE, EffectVerifier  # noqa: E402
 from harness.sdk.proof_carrying_platform_execution import (  # noqa: E402
     PlatformExecutionDispatcher,

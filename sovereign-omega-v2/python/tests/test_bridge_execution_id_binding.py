@@ -9,10 +9,9 @@ import os
 import queue
 import threading
 import types
-import unittest
+from unittest import TestCase, main, mock
 from pathlib import Path
 import sys
-from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[3]
 BRIDGE = ROOT / "sovereign-omega-v2" / "python" / "bridge.py"
@@ -20,7 +19,6 @@ EXECUTION_ID = "aegis-0123456789abcdef0123456789abcdef"
 sys.path.insert(0, str(ROOT / "sovereign-omega-v2" / "python"))
 
 import platform_helpers  # noqa: E402
-from platform_helpers import validate_execution_id  # noqa: E402
 
 
 def load_do_post():
@@ -71,7 +69,7 @@ def runtime(executions):
         "_validate_collab_req": lambda data: (data["objective"], data["mode"], data["live"], 0, ""),
         "_validate_tier_caps": lambda *_args: None,
         "_parse_max_agents": platform_helpers.parse_max_agents,
-        "_validate_execution_id": validate_execution_id,
+        "_validate_execution_id": platform_helpers.validate_execution_id,
         "_queue_mod": queue,
         "_executions": executions,
         "_exec_queues": {},
@@ -83,7 +81,7 @@ def runtime(executions):
     }
 
 
-class BridgeExecutionIdentityBindingTests(unittest.TestCase):
+class BridgeExecutionIdentityBindingTests(TestCase):
     def test_read_only_lookup_uses_supabase_get_not_increment_rpc(self):
         requests = []
 
@@ -184,4 +182,4 @@ class BridgeExecutionIdentityBindingTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    main()

@@ -17,7 +17,6 @@ from harness.sdk.proof_trace import (
     EXTERNAL,
     MODEL,
     NO_AUTHORITY,
-    OK,
     T1,
     T2,
     TOOL,
