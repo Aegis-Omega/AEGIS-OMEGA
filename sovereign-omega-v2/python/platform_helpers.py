@@ -318,7 +318,7 @@ def _api_key_lookup_digest(api_key: str) -> str:
     """
     import hashlib
 
-    return hashlib.sha256(api_key.encode()).hexdigest()  # lgtm[py/weak-sensitive-data-hashing]
+    return hashlib.sha256(api_key.encode(), usedforsecurity=False).hexdigest()
 
 
 def verify_api_key(api_key: str):

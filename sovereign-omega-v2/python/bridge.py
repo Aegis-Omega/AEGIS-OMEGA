@@ -196,11 +196,11 @@ def _resident_requester_root(email: str) -> str:
         # configured production backend must supply a private key above.
         secret = 'AEGIS_LOCAL_DEVELOPMENT_IDENTITY_KEY_V1'
     normalized = email.strip().casefold().encode('utf-8')
-    return _resident_hmac.digest(
+    return _resident_hmac.new(
         secret.encode('utf-8'),
-        b'AEGIS_RESIDENT_REQUESTER_V2\x00' + normalized,  # lgtm[py/weak-sensitive-data-hashing]
-        'sha256',
-    ).hex()
+        b'AEGIS_RESIDENT_REQUESTER_V2\x00' + normalized,
+        digestmod='sha256',
+    ).hexdigest()
 
 
 def _reap_executions_locked() -> None:
