@@ -86,7 +86,23 @@ def _get_resident_runtime():
     with _resident_runtime_lock:
         if _resident_runtime_instance is None:
             from pathlib import Path as _ResidentPath
-            from harness.sdk.resident_runtime import ResidentRuntime
+            from harness.sdk.resident_runtime import (
+                OpenAICompatibleResidentCell,
+                ResidentRuntime,
+                ResidentRuntimeError,
+            )
+
+            def _bounded_env_int(name: str, default: int, minimum: int = 0) -> int:
+                raw = os.environ.get(name)
+                if raw is None or raw == '':
+                    return default
+                try:
+                    value = int(raw)
+                except (TypeError, ValueError) as exc:
+                    raise ResidentRuntimeError(f'{name}:INVALID_INTEGER') from exc
+                if value < minimum:
+                    raise ResidentRuntimeError(f'{name}:OUT_OF_RANGE')
+                return value
 
             default_repo = _ResidentPath(__file__).resolve().parents[2]
             repository_root = _ResidentPath(
@@ -95,9 +111,34 @@ def _get_resident_runtime():
             state_root = _ResidentPath(
                 os.environ.get('AEGIS_RESIDENT_STATE_ROOT', '/app/data/resident')
             )
+            local_endpoint = os.environ.get('AEGIS_LOCAL_INFERENCE_ENDPOINT', '').strip()
+            microcell = None
+            if local_endpoint:
+                provider_id = os.environ.get('AEGIS_LOCAL_INFERENCE_PROVIDER_ID', '').strip()
+                model_id = os.environ.get('AEGIS_LOCAL_INFERENCE_MODEL_ID', '').strip()
+                if not provider_id or not model_id:
+                    raise ResidentRuntimeError('LOCAL_INFERENCE_IDENTITY_REQUIRED')
+                microcell = OpenAICompatibleResidentCell(
+                    endpoint=local_endpoint,
+                    provider_id=provider_id,
+                    model_id=model_id,
+                    timeout_ms=_bounded_env_int('AEGIS_LOCAL_INFERENCE_TIMEOUT_MS', 10_000, 1),
+                    max_parallelism=_bounded_env_int('AEGIS_LOCAL_INFERENCE_MAX_PARALLELISM', 2, 1),
+                    circuit_breaker_failures=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_CIRCUIT_FAILURES', 3, 1
+                    ),
+                    circuit_breaker_cooldown_ms=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_CIRCUIT_COOLDOWN_MS', 30_000, 1
+                    ),
+                    microunits_per_1k_tokens=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_MICROUNITS_PER_1K_TOKENS', 0, 0
+                    ),
+                    api_key=os.environ.get('AEGIS_LOCAL_INFERENCE_API_KEY', ''),
+                )
             _resident_runtime_instance = ResidentRuntime(
                 repository_root=repository_root,
                 state_root=state_root,
+                microcell=microcell,
             )
         return _resident_runtime_instance
 

@@ -115,6 +115,36 @@ class ResidentLivePathTests(unittest.TestCase):
         self.assertFalse(projection["data"]["authority_self_escalation"])
         self.assertEqual(_git("status", "--porcelain", "--untracked-files=all"), before_status)
 
+    def test_configured_local_inference_outage_is_exposed_as_unknown(self) -> None:
+        head = _git("rev-parse", "HEAD")
+        event = {
+            "event_id": "live-local-outage-1",
+            "idempotency_key": "live-local-outage-1",
+            "repository_head": head,
+            "changed_path": "CLAUDE.md",
+            "question": "Classify this repository observation.",
+            "source": "git",
+            "sequence": 2,
+            "max_cost_microunits": 100,
+            "max_latency_ms": 2_000,
+            "requested_authority": "D1",
+        }
+        with patch.dict(
+            os.environ,
+            {
+                "AEGIS_LOCAL_INFERENCE_ENDPOINT": "http://127.0.0.1:1",
+                "AEGIS_LOCAL_INFERENCE_PROVIDER_ID": "local-openai-compatible",
+                "AEGIS_LOCAL_INFERENCE_MODEL_ID": "unavailable-test-model",
+            },
+            clear=False,
+        ):
+            bridge._resident_runtime_instance = None
+            status, response = self.request("POST", "/platform/resident/events", event)
+
+        self.assertEqual(status, 200)
+        self.assertEqual(response["data"]["knowledge_decision"], "UNKNOWN")
+        self.assertIn("LOCAL_MODEL_UNAVAILABLE", response["data"]["reason_codes"])
+
 
 if __name__ == "__main__":
     unittest.main()
