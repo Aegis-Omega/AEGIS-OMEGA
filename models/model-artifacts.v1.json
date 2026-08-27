@@ -53,8 +53,8 @@
       "source": {
         "kind": "huggingface",
         "repo_id": "deepseek-ai/DeepSeek-V4-Flash",
-        "revision": "7d0cce9",
-        "revision_kind": "VERIFIED_SHORT_COMMIT_PREFIX"
+        "revision": "216d76676e09d4e0aa3f73784e9ad53a6d0b2735",
+        "revision_kind": "FULL_COMMIT_SHA"
       },
       "checkpoint": {
         "declared_shard_count": 46,
@@ -70,10 +70,44 @@
       ],
       "checkout_path": "models/weights/deepseek-v4-flash",
       "mirror": {
-        "state": "BLOCKED_PENDING_FULL_SOURCE_SHA_AND_COMPLETE_SHARD_DIGESTS",
+        "state": "BLOCKED_PENDING_COMPLETE_SHARD_DIGESTS",
         "backend": "repository_release_assets",
         "release_tag": "aegis-model-deepseek-v4-flash-v1",
         "manifest_path": "models/releases/deepseek-v4-flash.release.json"
+      }
+    },
+    "deepseek-v4-pro": {
+      "family": "deepseek",
+      "provider": "deepseek",
+      "weight_availability": "OPEN_WEIGHTS",
+      "license": {
+        "spdx": "MIT",
+        "redistribution_status": "PERMITTED_BY_DECLARED_LICENSE"
+      },
+      "source": {
+        "kind": "huggingface",
+        "repo_id": "deepseek-ai/DeepSeek-V4-Pro",
+        "revision": "be12afa60486381cc54ba1f78f416b3d939dfdb9",
+        "revision_kind": "FULL_COMMIT_SHA"
+      },
+      "checkpoint": {
+        "declared_shard_count": 64,
+        "complete_shard_digest_set": false
+      },
+      "files": [
+        {
+          "path": "model-00001-of-00064.safetensors",
+          "sha256": "0ef64d991b80c86f24bd78d1bac9d452d95bc78e6b1d8feb6a182dae0240c7e5",
+          "required_for_local_execution": true,
+          "evidence_scope": "REPRESENTATIVE_SHARD_ONLY"
+        }
+      ],
+      "checkout_path": "models/weights/deepseek-v4-pro",
+      "mirror": {
+        "state": "BLOCKED_PENDING_COMPLETE_SHARD_DIGESTS",
+        "backend": "repository_release_assets",
+        "release_tag": "aegis-model-deepseek-v4-pro-v1",
+        "manifest_path": "models/releases/deepseek-v4-pro.release.json"
       }
     },
     "gpt-5.6-sol-remote": {
@@ -171,6 +205,27 @@
       "source": {
         "kind": "provider_api",
         "model_id": "claude-sonnet-5"
+      },
+      "files": [],
+      "checkout_path": null,
+      "mirror": {
+        "state": "NOT_APPLICABLE_REMOTE_ONLY",
+        "backend": null,
+        "release_tag": null,
+        "manifest_path": null
+      }
+    },
+    "qwen-plus-remote": {
+      "family": "qwen",
+      "provider": "dashscope",
+      "weight_availability": "REMOTE_ONLY_NO_PUBLIC_WEIGHTS",
+      "license": {
+        "spdx": null,
+        "redistribution_status": "NOT_APPLICABLE_NO_PUBLIC_WEIGHTS"
+      },
+      "source": {
+        "kind": "provider_api",
+        "model_id": "qwen-plus"
       },
       "files": [],
       "checkout_path": null,
