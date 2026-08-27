@@ -54,7 +54,7 @@ jobs:
           mkdir -p sovereign-omega-v2/qform-error-algebra-attestation
           chmod -R a+rwX sovereign-omega-v2/formal/theories/Weil sovereign-omega-v2/formal/tests/Weil sovereign-omega-v2/qform-error-algebra-attestation
 
-      - name: Compile preregistered specification
+      - name: Compile preregistered specification and proof kernels
         uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
         with:
           coq_version: '8.20'
@@ -67,12 +67,13 @@ jobs:
             OUT="$ROOT/qform-error-algebra-attestation"
             cd "$DIR"
             coqc --version | tee "$OUT/coq-version.txt"
-            if test -f QFormErrorAlgebra.v; then
-              coqc QFormErrorAlgebra.v 2>&1 | tee "$OUT/qform-error-algebra.log"
-            fi
+            coqc QFormErrorAlgebra.v 2>&1 | tee "$OUT/qform-error-algebra.log"
             coqc "$TEST" 2>&1 | tee "$OUT/qform-error-algebra-spec.log"
 
-            for theorem in normalized_quotient_cross_error_v1 normalized_quotient_stability_v1; do
+            for theorem in \
+              normalized_quotient_cross_error_sound_v1 \
+              normalized_quotient_stability_sound_v1
+            do
               query="$OUT/${theorem}.v"
               log="$OUT/${theorem}.assumptions.txt"
               printf 'Set Coqtop Exit On Error.\nRequire Import QFormErrorAlgebra.\nPrint Assumptions %s.\n' "$theorem" > "$query"
@@ -96,10 +97,21 @@ jobs:
           from pathlib import Path
           out = Path('qform-error-algebra-attestation')
           source = Path('formal/theories/Weil/QFormErrorAlgebra.v')
+          spec = Path('formal/tests/Weil/QFormErrorAlgebraSpec.v')
+          theorem_names = [
+              'normalized_quotient_cross_error_sound_v1',
+              'normalized_quotient_stability_sound_v1',
+          ]
           payload = {
               'receipt_kind': 'AEGIS_QFORM_ERROR_ALGEBRA_RECEIPT_V1',
               'source_commit': '${{ env.SOURCE_SHA }}',
               'source_sha256': hashlib.sha256(source.read_bytes()).hexdigest(),
+              'preregistered_spec_sha256': hashlib.sha256(spec.read_bytes()).hexdigest(),
+              'sound_theorem_count': len(theorem_names),
+              'sound_theorem_assumption_log_sha256': {
+                  name: hashlib.sha256((out / f'{name}.assumptions.txt').read_bytes()).hexdigest()
+                  for name in theorem_names
+              },
               'rational_cross_error_kernel_machine_bound': True,
               'rational_normalized_quotient_stability_machine_bound': True,
               'constructive_real_transport_machine_bound': False,
@@ -115,7 +127,9 @@ jobs:
           target = out / 'qform-error-algebra-receipt.json'
           target.write_text(json.dumps(payload, sort_keys=True, indent=2) + '\n')
           print(target.read_text())
+          assert payload['sound_theorem_count'] == 2
           assert payload['constructive_real_transport_machine_bound'] is False
+          assert payload['analytic_error_bound_machine_bound'] is False
           assert payload['rh_proven'] is False
           PY
 
