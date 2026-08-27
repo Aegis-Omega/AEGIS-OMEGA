@@ -62,9 +62,11 @@ Definition corn_fast_to_o0_v1 (x : CR) : O0RealV1 :=
 Definition o0_to_corn_fast_v1 (x : O0RealV1) : CR :=
   CRmorph o0_to_corn_fast_morphism_v1 x.
 
+(* Use the primitive order-equivalence relation exposed by the morphism API
+   rather than relying on the optional [CReq] notation being in scope. *)
 Theorem corn_o0_corn_roundtrip_v1 :
   forall x : CR,
-    CReq FastRealsConstructive
+    orderEq _ (CRlt FastRealsConstructive)
       (o0_to_corn_fast_v1 (corn_fast_to_o0_v1 x)) x.
 Proof.
   intros x.
@@ -75,7 +77,7 @@ Qed.
 
 Theorem o0_corn_o0_roundtrip_v1 :
   forall x : O0RealV1,
-    CReq O0RealsV1
+    orderEq _ (CRlt O0RealsV1)
       (corn_fast_to_o0_v1 (o0_to_corn_fast_v1 x)) x.
 Proof.
   intros x.
