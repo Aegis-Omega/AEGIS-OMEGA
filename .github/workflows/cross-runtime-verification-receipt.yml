@@ -1,0 +1,147 @@
+name: Cross-Runtime Verification Receipt
+
+on:
+  push:
+    branches: [feat/cross-runtime-verification-receipt-v1]
+    paths:
+      - 'harness/sdk/cross_runtime_verification.py'
+      - 'sovereign-omega-v2/python/tests/test_cross_runtime_verification_receipt.py'
+      - 'sovereign-omega-v2/python/tests/test_hardware_config.py'
+      - 'harness/sdk/qform_*.py'
+      - 'sovereign-omega-v2/python/tests/test_qform_receipt.py'
+      - '.github/workflows/cross-runtime-verification-receipt.yml'
+  pull_request:
+    paths:
+      - 'harness/sdk/cross_runtime_verification.py'
+      - 'sovereign-omega-v2/python/tests/test_cross_runtime_verification_receipt.py'
+      - 'sovereign-omega-v2/python/tests/test_hardware_config.py'
+      - 'harness/sdk/qform_*.py'
+      - 'sovereign-omega-v2/python/tests/test_qform_receipt.py'
+      - '.github/workflows/cross-runtime-verification-receipt.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  receipt:
+    name: Exact-source cross-runtime receipt
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install bounded verification dependencies
+        run: python -m pip install --disable-pip-version-check pytest==8.4.1 python-flint==0.8.0 jsonschema==4.25.1
+
+      - name: Run preregistered receipt falsifiers
+        run: python -m pytest -q sovereign-omega-v2/python/tests/test_cross_runtime_verification_receipt.py
+
+      - name: Replay T0 hardware suite on exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/cross-runtime"
+          python sovereign-omega-v2/python/tests/test_hardware_config.py \
+            | tee "$RUNNER_TEMP/cross-runtime/hardware.log"
+          count="$(grep -c '^  PASS  ' "$RUNNER_TEMP/cross-runtime/hardware.log")"
+          test "$count" = "159" || {
+            echo "HARDWARE_PASS_COUNT_MISMATCH expected=159 actual=$count" >&2
+            exit 1
+          }
+          ! grep -q '^  FAIL  ' "$RUNNER_TEMP/cross-runtime/hardware.log"
+          printf '%s\n' "$count" > "$RUNNER_TEMP/cross-runtime/hardware-pass-count.txt"
+
+      - name: Replay canonical QForm suite on exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q sovereign-omega-v2/python/tests/test_qform_receipt.py \
+            | tee "$RUNNER_TEMP/cross-runtime/qform.log"
+
+      - name: Verify public sovereign-guard reference without laundering local tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote="$(git ls-remote https://github.com/Aegis-Omega/sovereign-guard.git refs/heads/master | awk '{print $1}')"
+          printf '%s\n' "$remote" | tee "$RUNNER_TEMP/cross-runtime/sovereign-guard-remote-head.txt"
+          test "$remote" = "3c6568684fc58bbab015f0ea34a87f9df4cfe1aa"
+
+      - name: Emit fail-closed cross-runtime receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from harness.sdk.cross_runtime_verification import RuntimeEvidenceV1, build_cross_runtime_receipt
+
+          root = Path(os.environ['RUNNER_TEMP']) / 'cross-runtime'
+          hardware_passes = int((root / 'hardware-pass-count.txt').read_text().strip())
+          candidate = os.environ['EXPECTED_SHA']
+          guard_remote = (root / 'sovereign-guard-remote-head.txt').read_text().strip()
+
+          components = [
+              RuntimeEvidenceV1(
+                  component='hardware_config_t0', required=True,
+                  source_repo='Aegis-Omega/AEGIS-OMEGA', source_commit=candidate,
+                  execution_commit=candidate, execution_status='PASS',
+                  observed_passes=hardware_passes, observed_failures=0,
+                  evidence_origin='REMOTE_EXACT_HEAD_REPLAY',
+              ),
+              RuntimeEvidenceV1(
+                  component='qform_canonical_proof_carrying', required=True,
+                  source_repo='Aegis-Omega/AEGIS-OMEGA', source_commit=candidate,
+                  execution_commit=candidate, execution_status='PASS',
+                  observed_passes=None, observed_failures=0,
+                  evidence_origin='REMOTE_EXACT_HEAD_REPLAY',
+              ),
+              RuntimeEvidenceV1(
+                  component='sovereign_guard_64_suite', required=True,
+                  source_repo='Aegis-Omega/sovereign-guard', source_commit=None,
+                  execution_commit=None, execution_status='PASS',
+                  observed_passes=64, observed_failures=0,
+                  evidence_origin='LOCAL_WORKING_ENVIRONMENT_UNBOUND',
+                  remote_reference_commit=guard_remote,
+              ),
+          ]
+          receipt = build_cross_runtime_receipt(components).to_dict()
+          target = root / 'CrossRuntimeVerificationReceiptV1.json'
+          target.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
+          print(target.read_text())
+
+          assert receipt['overall_status'] == 'BLOCKED_UNBOUND_COMPONENT'
+          assert receipt['all_required_components_exact_head_bound'] is False
+          assert receipt['rh_proven'] is False
+          PY
+
+      - name: Emit evidence digests
+        shell: bash
+        run: |
+          sha256sum "$RUNNER_TEMP/cross-runtime/"* | tee "$RUNNER_TEMP/cross-runtime/SHA256SUMS"
+
+      - name: Upload cross-runtime evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cross-runtime-verification-${{ env.EXPECTED_SHA }}
+          path: ${{ runner.temp }}/cross-runtime/
+          if-no-files-found: error
+          retention-days: 30
