@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/qform-receipt-v1.schema.json",
+  "title": "QFormReceiptV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_version",
+    "provenance",
+    "parameters",
+    "exact_census",
+    "evaluations",
+    "error_budget",
+    "overall_authority"
+  ],
+  "properties": {
+    "receipt_version": {"const": "QFormReceiptV1"},
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit_sha", "tree_sha", "implementation_sha256", "parameter_sha256"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "commit_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "tree_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "implementation_sha256": {"$ref": "#/$defs/sha256"},
+        "parameter_sha256": {"$ref": "#/$defs/sha256"},
+        "ci_run_url": {"type": ["string", "null"]},
+        "theorem_refs": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+      }
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["P_cutoff", "sigma", "du", "U_max"],
+      "properties": {
+        "P_cutoff": {"type": "integer", "minimum": 2},
+        "sigma": {"type": "number", "exclusiveMinimum": 0},
+        "du": {"type": "number", "exclusiveMinimum": 0},
+        "U_max": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "exact_census": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "primes_count", "prime_powers_count", "census_sha256"],
+      "properties": {
+        "status": {"const": "EXACT"},
+        "primes_count": {"type": "integer", "minimum": 0},
+        "prime_powers_count": {"type": "integer", "minimum": 0},
+        "census_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "evaluations": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/evaluation"}
+    },
+    "error_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "arithmetic_cutoff",
+        "finite_domain_truncation",
+        "discretization",
+        "transcendental_rounding",
+        "operator_projection"
+      ],
+      "properties": {
+        "arithmetic_cutoff": {"$ref": "#/$defs/errorTerm"},
+        "finite_domain_truncation": {"$ref": "#/$defs/errorTerm"},
+        "discretization": {"$ref": "#/$defs/errorTerm"},
+        "transcendental_rounding": {"$ref": "#/$defs/errorTerm"},
+        "operator_projection": {"$ref": "#/$defs/errorTerm"}
+      }
+    },
+    "overall_authority": {"$ref": "#/$defs/authority"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "authority": {
+      "type": "string",
+      "enum": ["EXACT", "CERTIFIED_INTERVAL", "NUMERICALLY_VERIFIED", "EMPIRICAL_FIXTURE"]
+    },
+    "interval": {
+      "type": "array",
+      "prefixItems": [{"type": "number"}, {"type": "number"}],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {"$ref": "#/$defs/authority"},
+        "value": {"type": "number"},
+        "interval_bounds": {"$ref": "#/$defs/interval"},
+        "gamma": {"type": "number"},
+        "formula": {"type": "string"},
+        "method": {"type": "string"},
+        "theorem_ref": {"type": "string"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "CERTIFIED_INTERVAL"}}, "required": ["status"]},
+          "then": {"required": ["interval_bounds", "theorem_ref"]}
+        }
+      ]
+    },
+    "errorTerm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "description"],
+      "properties": {
+        "status": {"$ref": "#/$defs/authority"},
+        "description": {"type": "string", "minLength": 1},
+        "absolute_bound": {"type": "number", "minimum": 0},
+        "observed_error": {"type": "number", "minimum": 0},
+        "theorem_ref": {"type": "string"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "CERTIFIED_INTERVAL"}}, "required": ["status"]},
+          "then": {"required": ["absolute_bound", "theorem_ref"]}
+        }
+      ]
+    }
+  }
+}
