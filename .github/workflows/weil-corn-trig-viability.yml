@@ -69,7 +69,9 @@ jobs:
               | tee "$OUT/corn-surface-probe.log"
 
             for theorem in \
-              sin_correct cos_correct Derivative_Sin Derivative_Cos Sin_plus Cos_plus \
+              corn_sin_correct_probe_v1 corn_cos_correct_probe_v1 \
+              corn_derivative_sin_probe_v1 corn_derivative_cos_probe_v1 \
+              corn_sin_plus_probe_v1 corn_cos_plus_probe_v1 \
               corn_o0_corn_roundtrip_v1 o0_corn_o0_roundtrip_v1
             do
               query="$OUT/${theorem}.v"
@@ -141,6 +143,7 @@ jobs:
               'corn_assumption_log_sha256': {
                   name: sha(out / f'{name}.assumptions.txt') for name in statuses
               },
+              'corn_probe_aliases_transparent': True,
               'o0_carrier': 'CRcarrier CRealConstructive',
               'corn_fast_constructive_reals_instance': 'FastRealsConstructive',
               'corn_fast_carrier': 'CRcarrier FastRealsConstructive = CoRN.reals.fast.CR',
@@ -165,8 +168,9 @@ jobs:
           assert payload['authority'] == 'DIAGNOSTIC_ONLY'
           assert version == '9.0.0'
           assert set(statuses) == {
-              'sin_correct', 'cos_correct', 'Derivative_Sin', 'Derivative_Cos',
-              'Sin_plus', 'Cos_plus',
+              'corn_sin_correct_probe_v1', 'corn_cos_correct_probe_v1',
+              'corn_derivative_sin_probe_v1', 'corn_derivative_cos_probe_v1',
+              'corn_sin_plus_probe_v1', 'corn_cos_plus_probe_v1',
               'corn_o0_corn_roundtrip_v1', 'o0_corn_o0_roundtrip_v1'
           }
           assert all(status != 'UNRECOGNIZED' for status in statuses.values())
