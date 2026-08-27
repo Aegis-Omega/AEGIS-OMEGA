@@ -6,11 +6,13 @@ on:
     paths:
       - 'sovereign-omega-v2/formal/tests/Weil/QFormErrorAlgebraSpec.v'
       - 'sovereign-omega-v2/formal/theories/Weil/QFormErrorAlgebra.v'
+      - 'research/qform/qform-error-algebra-v1.md'
       - '.github/workflows/qform-error-algebra.yml'
   pull_request:
     paths:
       - 'sovereign-omega-v2/formal/tests/Weil/QFormErrorAlgebraSpec.v'
       - 'sovereign-omega-v2/formal/theories/Weil/QFormErrorAlgebra.v'
+      - 'research/qform/qform-error-algebra-v1.md'
       - '.github/workflows/qform-error-algebra.yml'
   workflow_dispatch:
 
