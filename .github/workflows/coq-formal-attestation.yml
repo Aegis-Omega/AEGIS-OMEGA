@@ -1,0 +1,331 @@
+name: Coq Formal Attestation
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coq-formal-attestation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  attest:
+    name: coqc + Print Assumptions receipt
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Unit-test attestation generator
+        working-directory: sovereign-omega-v2
+        env:
+          PYTHONPATH: python
+        run: >-
+          python3 -m unittest
+          python.tests.test_coq_attestation
+          python.tests.test_coq_attestation_regressions
+          python.tests.test_coq_attestation_diagnostics
+          -v
+
+      - name: Verify frozen assumption baseline
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s  %s\n' \
+            '45c302e763e58c398d9b2a893cd62bdb2e585c8214d87b286f8e83d1b7d30e3e' \
+            'formal/assumption-baseline-v1.json' | sha256sum -c -
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          baseline = json.loads(
+              Path('formal/assumption-baseline-v1.json').read_text(encoding='utf-8')
+          )
+          assert baseline['baseline_kind'] == 'COQ_ASSUMPTION_BASELINE_V1'
+          assert baseline['baseline_source_commit'] == '203c11cdb36f82e3d4f4d22993a118b4b870e691'
+          assert baseline['baseline_source_receipt_sha256'] == 'ac8535bb9d618456589fa57de9332c8f8472ea9d7bc553174d105834b9ffccd6'
+          assert baseline['baseline_source_workflow_run_id'] == 32308477587
+          assert baseline['baseline_source_artifact_digest'] == 'sha256:73f1f63b8f1756b083f35973041d35e3f44b544209971ae9ab9aa4d0d7aeabed'
+          assert baseline['correspondence'] == 'NOT_ESTABLISHED'
+          lineage = baseline['lineage']
+          assert lineage['lineage_kind'] == 'ROOT_BASELINE'
+          assert lineage['parent_baseline_sha256'] is None
+          assert isinstance(lineage['reason'], str) and lineage['reason'].strip()
+          PY
+
+      - name: Prepare writable Coq evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/coq-attestation/{assumptions,compile-logs}
+          chmod -R a+rwX sovereign-omega-v2/formal sovereign-omega-v2/coq-attestation
+
+      - name: Compile Coq sources and capture theorem assumptions
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -u
+            ROOT="$PWD/sovereign-omega-v2"
+            FORMAL="$ROOT/formal/theories"
+            OUT="$ROOT/coq-attestation"
+            ASSUMPTIONS="$OUT/assumptions"
+            LOGS="$OUT/compile-logs"
+            STATUS="$OUT/compile-status.json"
+
+            coqc --version | tee "$OUT/coq-version.txt"
+            printf '{\n' > "$STATUS"
+            first=1
+
+            record_status() {
+              rel="$1"
+              status="$2"
+              log="$3"
+              digest="$(sha256sum "$log" | awk '{print $1}')"
+              if [ "$first" -eq 0 ]; then printf ',\n' >> "$STATUS"; fi
+              first=0
+              printf '  "%s":{"status":"%s","log_sha256":"%s"}' \
+                "$rel" "$status" "$digest" >> "$STATUS"
+            }
+
+            theorem_names() {
+              grep -E '^[[:space:]]*(Theorem|Lemma|Corollary|Proposition|Fact|Remark)[[:space:]]+[A-Za-z_][A-Za-z0-9_'"'"']*' "$1" \
+                | sed -E 's/^[[:space:]]*(Theorem|Lemma|Corollary|Proposition|Fact|Remark)[[:space:]]+([A-Za-z_][A-Za-z0-9_'"'"']*).*/\2/' \
+                || true
+            }
+
+            compile_one() {
+              rel="$1"
+              dir="$(dirname "$rel")"
+              file="$(basename "$rel")"
+              module="${file%.v}"
+              source="$FORMAL/$rel"
+              safe="$(printf '%s' "$rel" | sed 's#/#__#g; s#\.v$##')"
+              log="$LOGS/${safe}.log"
+
+              if (cd "$FORMAL/$dir" && coqc "$file") >"$log" 2>&1; then
+                record_status "$rel" 'COMPILED' "$log"
+                while IFS= read -r theorem; do
+                  [ -n "$theorem" ] || continue
+                  assumption_log="$ASSUMPTIONS/${safe}__${theorem}.txt"
+                  query="$ASSUMPTIONS/${safe}__${theorem}.v"
+                  printf 'Set Coqtop Exit On Error.\nRequire Import %s.\nPrint Assumptions %s.\n' \
+                    "$module" "$theorem" > "$query"
+                  (
+                    cd "$FORMAL/$dir" || exit 1
+                    coqtop -quiet -batch -l "$query"
+                  ) >"$assumption_log" 2>&1 || true
+                  rm -f "$query"
+                done <<EOF
+            $(theorem_names "$source")
+            EOF
+              else
+                record_status "$rel" 'COMPILE_FAILED' "$log"
+              fi
+            }
+
+            # O0DependencyProbe imports Coquelicot; install the exact dependency
+            # before compiling the complete formal inventory.
+            opam install -y coq-coquelicot.3.4.2 || exit 1
+
+            for rel in \
+              'Core/Event.v' \
+              'Core/Hash.v' \
+              'Core/Reducer.v' \
+              'Core/LatticeConvergence.v' \
+              'Core/LockIrreversibility.v' \
+              'Bisimulation/ThreeWay.v' \
+              'Weil/FiniteBridge.v' \
+              'Weil/O0TrustProbeReals.v' \
+              'Weil/O0TrustProbeFunction.v' \
+              'Weil/O0TrustProbeCompact.v' \
+              'Weil/O0TrustProbeContinuity.v' \
+              'Weil/O0TrustProbeConstructive.v' \
+              'Weil/AnalyticDefinitions.v' \
+              'Weil/O0ProductionConstructiveProbe.v' \
+              'Weil/O0DependencyProbe.v' \
+              'Weil/Globalization.v' \
+              'Weil/WeilCriterion.v' \
+              'Weil/O0.v' \
+              'Weil/O0ClosureProbe.v'
+            do
+              compile_one "$rel"
+            done
+
+            printf '\n}\n' >> "$STATUS"
+            cat "$STATUS"
+
+      - name: Generate content-addressed Coq attestation receipt
+        if: always()
+        working-directory: sovereign-omega-v2
+        env:
+          PYTHONPATH: python
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f coq-attestation/compile-status.json
+          test -f coq-attestation/coq-version.txt
+          COQ_VERSION="$(grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' coq-attestation/coq-version.txt | head -n1)"
+          test -n "$COQ_VERSION"
+          python3 python/coq_attestation.py \
+            --formal-root formal/theories \
+            --compile-status coq-attestation/compile-status.json \
+            --assumptions-root coq-attestation/assumptions \
+            --source-commit "$SOURCE_SHA" \
+            --coq-version "$COQ_VERSION" \
+            --baseline formal/assumption-baseline-v1.json \
+            --out coq-attestation/coq-formal-attestation-receipt.json
+          cat coq-attestation/coq-formal-attestation-receipt.json
+
+      - name: Upload Coq attestation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coq-formal-attestation-${{ env.SOURCE_SHA }}
+          path: sovereign-omega-v2/coq-attestation/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce executable formal attestation boundary
+        if: always()
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          DIAGNOSTIC_ONLY = {
+              'Weil/O0TrustProbeReals.v',
+              'Weil/O0TrustProbeFunction.v',
+              'Weil/O0TrustProbeCompact.v',
+              'Weil/O0TrustProbeContinuity.v',
+          }
+          REQUIRE_AXIOM_FREE = {
+              'Core/LatticeConvergence.v',
+              'Core/LockIrreversibility.v',
+              'Weil/FiniteBridge.v',
+              'Weil/O0TrustProbeConstructive.v',
+              'Weil/AnalyticDefinitions.v',
+              'Weil/O0ProductionConstructiveProbe.v',
+              'Weil/Globalization.v',
+          }
+          EXPECTED_BASELINE_SHA256 = '45c302e763e58c398d9b2a893cd62bdb2e585c8214d87b286f8e83d1b7d30e3e'
+
+          path = Path('coq-attestation/coq-formal-attestation-receipt.json')
+          receipt = json.loads(path.read_text(encoding='utf-8'))
+          summary = receipt['summary']
+          baseline = receipt['baseline_diff']
+          formal_root = Path('formal/theories')
+          formal_paths = {
+              source.relative_to(formal_root).as_posix()
+              for source in formal_root.rglob('*.v')
+          }
+          files_by_path = {entry['path']: entry for entry in receipt['files']}
+
+          assert receipt['schema_version'] == '1.1.0'
+          assert receipt['receipt_kind'] == 'COQ_FORMAL_ATTESTATION_RECEIPT_V1'
+          assert receipt['authority'] == 'FORMAL_MATH_EVIDENCE_ONLY'
+          assert receipt['correspondence'] == 'NOT_ESTABLISHED'
+          assert receipt['lean_runtime_status'] == 'NOT_PRESENT_IN_REPO'
+          assert set(receipt['diagnostic_only_paths']) == DIAGNOSTIC_ONLY
+          assert set(files_by_path) == formal_paths, {
+              'receipt_paths': sorted(files_by_path),
+              'formal_paths': sorted(formal_paths),
+          }
+          assert summary['file_count'] == len(formal_paths), summary
+          assert summary['compiled_files'] == len(formal_paths), summary
+          assert summary['compile_failures'] == 0, summary
+          assert summary['admitted_sources'] == 0, summary
+          assert summary['diagnostic_only_files'] == len(DIAGNOSTIC_ONLY), summary
+          assert summary['authority_eligible_files'] == len(formal_paths) - len(DIAGNOSTIC_ONLY), summary
+          assert summary['authority_unrecognized_assumption_outputs'] == 0, summary
+          assert summary['diagnostic_unrecognized_assumption_outputs'] == 0, summary
+          assert summary['source_axiom_symbols'] == 1, summary
+          assert summary['source_parameter_symbols'] == 7, summary
+          # The single production assumption-bearing theorem remains the known
+          # Reducer -> Hash.sha256 dependency. Classical trust probes are
+          # diagnostic evidence and are not proof authority.
+          assert summary['authority_assumption_bearing_theorems'] == 1, summary
+          assert len(receipt['receipt_sha256']) == 64
+
+          assert baseline['baseline_kind'] == 'COQ_ASSUMPTION_BASELINE_V1'
+          assert baseline['baseline_source_commit'] == '203c11cdb36f82e3d4f4d22993a118b4b870e691'
+          assert baseline['baseline_sha256'] == EXPECTED_BASELINE_SHA256
+          assert baseline['regression'] is False, baseline
+          assert baseline['regression_count'] == 0, baseline
+
+          assert REQUIRE_AXIOM_FREE <= files_by_path.keys(), files_by_path.keys()
+
+          for required_path in sorted(REQUIRE_AXIOM_FREE):
+              entry = files_by_path[required_path]
+              assert entry['evidence_scope'] == 'AUTHORITY_ELIGIBLE', entry
+              assert entry['compile_status'] == 'COMPILED', entry
+              assert entry['attestation'] == 'AXIOM_FREE', entry
+              assert entry['declaration_status'] == 'NO_DECLARED_ASSUMPTIONS', entry
+              assert entry['theorem_count'] > 0, entry
+              assert entry['admitted_count'] == 0, entry
+              assert entry['axiom_symbol_count'] == 0, entry
+              assert entry['parameter_symbol_count'] == 0, entry
+              assert all(
+                  theorem['parse_status'] == 'CLOSED'
+                  and theorem['closed_under_global_context']
+                  and not theorem['assumption_lines']
+                  and not theorem['assumption_symbols']
+                  for theorem in entry['theorems']
+              ), entry
+
+          for diagnostic_path in sorted(DIAGNOSTIC_ONLY):
+              entry = files_by_path[diagnostic_path]
+              assert entry['evidence_scope'] == 'DIAGNOSTIC_ONLY', entry
+              assert entry['compile_status'] == 'COMPILED', entry
+              assert entry['admitted_count'] == 0, entry
+              assert entry['theorem_count'] > 0, entry
+              assert all(
+                  theorem['parse_status'] not in {'MISSING', 'UNRECOGNIZED'}
+                  for theorem in entry['theorems']
+              ), entry
+
+          threeway = files_by_path['Bisimulation/ThreeWay.v']
+          assert threeway['evidence_scope'] == 'AUTHORITY_ELIGIBLE', threeway
+          assert threeway['attestation'] == 'COMPILED_NO_THEOREMS', threeway
+          assert threeway['declaration_status'] == 'DECLARES_ASSUMPTIONS', threeway
+          assert threeway['parameter_statement_count'] == 2, threeway
+          assert threeway['parameter_symbol_count'] == 6, threeway
+          assert threeway['axiom_symbol_count'] == 1, threeway
+
+          hash_file = files_by_path['Core/Hash.v']
+          assert hash_file['evidence_scope'] == 'AUTHORITY_ELIGIBLE', hash_file
+          assert hash_file['attestation'] == 'COMPILED_NO_THEOREMS', hash_file
+          assert hash_file['declaration_status'] == 'DECLARES_ASSUMPTIONS', hash_file
+          assert hash_file['parameter_symbol_count'] == 1, hash_file
+
+          reducer = files_by_path['Core/Reducer.v']
+          assert reducer['evidence_scope'] == 'AUTHORITY_ELIGIBLE', reducer
+          assert reducer['attestation'] == 'ASSUMPTION_BEARING', reducer
+          reducer_theorem = next(
+              theorem for theorem in reducer['theorems']
+              if theorem['theorem'] == 'step_deterministic'
+          )
+          assert reducer_theorem['assumption_symbols'] == ['Hash.sha256'], reducer_theorem
+          PY

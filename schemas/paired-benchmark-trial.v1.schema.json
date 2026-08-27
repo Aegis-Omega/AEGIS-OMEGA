@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/paired-benchmark-trial.v1.schema.json",
+  "title": "PairedBenchmarkTrialV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pair_kind",
+    "campaign_root",
+    "track_root",
+    "task_trial_unit_root",
+    "system_result_root",
+    "baseline_result_root",
+    "system_runtime_commitment",
+    "baseline_runtime_commitment",
+    "budget_commitment",
+    "scorer_commitment",
+    "checker_run_id",
+    "system_checker_attestation_root",
+    "baseline_checker_attestation_root"
+  ],
+  "properties": {
+    "pair_kind": {"const": "PAIRED_BENCHMARK_TRIAL_V1"},
+    "campaign_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "track_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "task_trial_unit_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "system_result_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "baseline_result_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "system_runtime_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "baseline_runtime_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "budget_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "scorer_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "checker_run_id": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._:/@+#=-]+$"
+    },
+    "system_checker_attestation_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "baseline_checker_attestation_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"checker_run_id": {"type": "null"}},
+        "required": ["checker_run_id"]
+      },
+      "then": {
+        "properties": {
+          "system_checker_attestation_root": {"const": "0000000000000000000000000000000000000000000000000000000000000000"},
+          "baseline_checker_attestation_root": {"const": "0000000000000000000000000000000000000000000000000000000000000000"}
+        }
+      },
+      "else": {
+        "properties": {
+          "system_checker_attestation_root": {"not": {"const": "0000000000000000000000000000000000000000000000000000000000000000"}},
+          "baseline_checker_attestation_root": {"not": {"const": "0000000000000000000000000000000000000000000000000000000000000000"}}
+        }
+      }
+    }
+  ]
+}

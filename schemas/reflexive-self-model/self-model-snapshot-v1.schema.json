@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegis-omega.local/schemas/reflexive-self-model/self-model-snapshot-v1.schema.json",
+  "title": "SelfModelSnapshotV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_kind",
+    "schema_version",
+    "snapshot_id",
+    "created_at",
+    "source_commit_sha",
+    "policy_digest",
+    "epoch_id",
+    "state_root",
+    "capability_inventory_digest",
+    "claim_state_digest",
+    "calibration_state_digest",
+    "previous_snapshot_digest",
+    "snapshot_digest",
+    "epistemic_ceiling",
+    "authority"
+  ],
+  "properties": {
+    "record_kind": { "const": "SELF_MODEL_SNAPSHOT_V1" },
+    "schema_version": { "const": "1.0.0" },
+    "snapshot_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "integer", "minimum": 0 },
+    "source_commit_sha": { "type": "string", "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$" },
+    "policy_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "epoch_id": { "type": "string", "minLength": 1 },
+    "state_root": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "capability_inventory_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "claim_state_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "calibration_state_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "previous_snapshot_digest": {
+      "anyOf": [
+        { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        { "type": "null" }
+      ]
+    },
+    "snapshot_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "epistemic_ceiling": { "const": "T2" },
+    "authority": { "const": "SELF_MODEL_EVIDENCE_ONLY" }
+  }
+}

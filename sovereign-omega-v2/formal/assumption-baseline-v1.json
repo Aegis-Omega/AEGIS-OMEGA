@@ -1,0 +1,34 @@
+{
+  "admitted_sources": {},
+  "baseline_kind": "COQ_ASSUMPTION_BASELINE_V1",
+  "baseline_source_artifact_digest": "sha256:73f1f63b8f1756b083f35973041d35e3f44b544209971ae9ab9aa4d0d7aeabed",
+  "baseline_source_commit": "203c11cdb36f82e3d4f4d22993a118b4b870e691",
+  "baseline_source_receipt_sha256": "ac8535bb9d618456589fa57de9332c8f8472ea9d7bc553174d105834b9ffccd6",
+  "baseline_source_workflow_run_id": 32308477587,
+  "correspondence": "NOT_ESTABLISHED",
+  "declared_assumptions": {
+    "Bisimulation/ThreeWay.v": [
+      "cross_runtime_bisimulation",
+      "encode_JS",
+      "encode_PY",
+      "encode_WASM",
+      "step_JS",
+      "step_PY",
+      "step_WASM"
+    ],
+    "Core/Hash.v": [
+      "sha256"
+    ]
+  },
+  "lineage": {
+    "lineage_kind": "ROOT_BASELINE",
+    "parent_baseline_sha256": null,
+    "reason": "Initial frozen assumption baseline captured from exact-head Coq attestation before baseline-diff enforcement."
+  },
+  "scope": "sovereign-omega-v2/formal/theories",
+  "theorem_assumptions": {
+    "Core/Reducer.v::step_deterministic": [
+      "Hash.sha256"
+    ]
+  }
+}
