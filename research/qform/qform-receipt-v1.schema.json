@@ -1,0 +1,200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/qform-receipt-v1.schema.json",
+  "title": "QFormReceiptV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_kind",
+    "receipt_version",
+    "proof_semantics",
+    "provenance",
+    "parameters",
+    "exact_census",
+    "evaluations",
+    "gaussian_cutoff",
+    "error_budget",
+    "finite_formula_authority",
+    "overall_authority",
+    "formula_to_weil_operator_identity_proven",
+    "tail_order_theorem_verified",
+    "global_weil_positivity_proven",
+    "rh_proven",
+    "open_obligations",
+    "receipt_root"
+  ],
+  "properties": {
+    "receipt_kind": {"const": "AEGIS_QFORM_RECEIPT_V1"},
+    "receipt_version": {"const": "QFormReceiptV1"},
+    "proof_semantics": {"const": "RIGOROUS_FINITE_GAUSSIAN_PROBE_NOT_GLOBAL_WEIL_PROOF"},
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "commit_sha",
+        "tree_sha",
+        "implementation_sha256",
+        "parameter_sha256",
+        "backend",
+        "precision_bits"
+      ],
+      "properties": {
+        "repository": {"const": "Aegis-Omega/AEGIS-OMEGA"},
+        "commit_sha": {"$ref": "#/$defs/sha1"},
+        "tree_sha": {"$ref": "#/$defs/sha1"},
+        "implementation_sha256": {"$ref": "#/$defs/sha256"},
+        "parameter_sha256": {"$ref": "#/$defs/sha256"},
+        "backend": {"type": "string", "pattern": "^python-flint/"},
+        "precision_bits": {"type": "integer", "minimum": 128}
+      }
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["P_cutoff", "sigma", "du", "U_max", "prec_bits"],
+      "properties": {
+        "P_cutoff": {"type": "integer", "minimum": 2, "maximum": 100000},
+        "sigma": {"$ref": "#/$defs/positiveDecimalString"},
+        "du": {"$ref": "#/$defs/positiveDecimalString"},
+        "U_max": {"$ref": "#/$defs/positiveDecimalString"},
+        "prec_bits": {"type": "integer", "minimum": 128, "maximum": 32768}
+      }
+    },
+    "exact_census": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "primes_count",
+        "prime_powers_count",
+        "census_sha256",
+        "integer_crosscheck_verified",
+        "crosscheck_route"
+      ],
+      "properties": {
+        "status": {"const": "EXACT"},
+        "primes_count": {"type": "integer", "minimum": 0},
+        "prime_powers_count": {"type": "integer", "minimum": 0},
+        "census_sha256": {"$ref": "#/$defs/sha256"},
+        "integer_crosscheck_verified": {"const": true},
+        "crosscheck_route": {"type": "string", "minLength": 1}
+      }
+    },
+    "evaluations": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/evaluation"}
+    },
+    "gaussian_cutoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "epsilon",
+        "C_epsilon_ball",
+        "u_cut_ball",
+        "required_u_cut_ball",
+        "envelope_tail_ball",
+        "cutoff_relation_verified",
+        "envelope_below_epsilon_verified",
+        "theorem_ref",
+        "scope"
+      ],
+      "properties": {
+        "status": {"const": "CERTIFIED_INTERVAL"},
+        "epsilon": {"type": "string", "minLength": 1},
+        "C_epsilon_ball": {"$ref": "#/$defs/arbBall"},
+        "u_cut_ball": {"$ref": "#/$defs/arbBall"},
+        "required_u_cut_ball": {"$ref": "#/$defs/arbBall"},
+        "envelope_tail_ball": {"$ref": "#/$defs/arbBall"},
+        "cutoff_relation_verified": {"type": "boolean"},
+        "envelope_below_epsilon_verified": {"type": "boolean"},
+        "theorem_ref": {"const": "GAUSSIAN_ENVELOPE_ALGEBRA_V1"},
+        "scope": {"const": "SCALAR_GAUSSIAN_ENVELOPE_ONLY"}
+      }
+    },
+    "error_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "arithmetic_cutoff",
+        "finite_domain_truncation",
+        "discretization",
+        "transcendental_rounding",
+        "operator_projection"
+      ],
+      "properties": {
+        "arithmetic_cutoff": {"$ref": "#/$defs/errorTerm"},
+        "finite_domain_truncation": {"$ref": "#/$defs/errorTerm"},
+        "discretization": {"$ref": "#/$defs/errorTerm"},
+        "transcendental_rounding": {"$ref": "#/$defs/errorTerm"},
+        "operator_projection": {"$ref": "#/$defs/errorTerm"}
+      }
+    },
+    "finite_formula_authority": {"const": "CERTIFIED_INTERVAL"},
+    "overall_authority": {"const": "EMPIRICAL_FIXTURE"},
+    "formula_to_weil_operator_identity_proven": {"const": false},
+    "tail_order_theorem_verified": {"const": false},
+    "global_weil_positivity_proven": {"const": false},
+    "rh_proven": {"const": false},
+    "open_obligations": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "receipt_root": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "positiveDecimalString": {
+      "type": "string",
+      "pattern": "^(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?$"
+    },
+    "authority": {
+      "type": "string",
+      "enum": ["EXACT", "CERTIFIED_INTERVAL", "NUMERICALLY_VERIFIED", "EMPIRICAL_FIXTURE"]
+    },
+    "arbBall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mid", "rad"],
+      "properties": {
+        "mid": {"type": "string", "minLength": 1},
+        "rad": {"type": "string", "minLength": 1}
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {"$ref": "#/$defs/authority"},
+        "formula": {"type": "string"},
+        "arb_ball": {"$ref": "#/$defs/arbBall"},
+        "gamma": {"type": "string"},
+        "undamped_arb_ball": {"$ref": "#/$defs/arbBall"},
+        "gaussian_damped_arb_ball": {"$ref": "#/$defs/arbBall"},
+        "method": {"type": "string"},
+        "theorem_ref": {"type": "string"}
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "CERTIFIED_INTERVAL"}}, "required": ["status"]},
+          "then": {"required": ["arb_ball", "theorem_ref"]}
+        }
+      ]
+    },
+    "errorTerm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "description"],
+      "properties": {
+        "status": {"$ref": "#/$defs/authority"},
+        "description": {"type": "string", "minLength": 1},
+        "theorem_ref": {"type": "string"}
+      }
+    }
+  }
+}

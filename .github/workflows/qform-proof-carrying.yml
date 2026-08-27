@@ -1,0 +1,325 @@
+name: QForm Proof-Carrying Bridge
+
+on:
+  pull_request:
+    branches: [proof/weil-o0-globalization-v1]
+    paths:
+      - 'harness/sdk/qform_receipt.py'
+      - 'harness/sdk/qform_galerkin_crossprobe.py'
+      - 'harness/sdk/qform_operator.py'
+      - 'harness/sdk/qform_error_bound.py'
+      - 'sovereign-omega-v2/python/tests/test_qform_receipt.py'
+      - 'research/qform/**'
+      - '.github/workflows/qform-proof-carrying.yml'
+  push:
+    branches: [feat/qform-proof-carrying-v1]
+    paths:
+      - 'harness/sdk/qform_receipt.py'
+      - 'harness/sdk/qform_galerkin_crossprobe.py'
+      - 'harness/sdk/qform_operator.py'
+      - 'harness/sdk/qform_error_bound.py'
+      - 'sovereign-omega-v2/python/tests/test_qform_receipt.py'
+      - 'research/qform/**'
+      - '.github/workflows/qform-proof-carrying.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qform:
+    name: Exact-head finite Q-form receipt
+    runs-on: ubuntu-latest
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact candidate SHA
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_SHA" || {
+            echo "EXACT_HEAD_MISMATCH expected=$EXPECTED_SHA actual=$actual" >&2
+            exit 1
+          }
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install bounded verification dependencies
+        run: python -m pip install --disable-pip-version-check pytest==8.4.1 python-flint==0.8.0 jsonschema==4.25.1
+
+      - name: Compile Q-form bridge
+        run: |
+          python -m py_compile harness/sdk/qform_receipt.py
+          python -m py_compile harness/sdk/qform_galerkin_crossprobe.py
+          python -m py_compile harness/sdk/qform_operator.py
+          python -m py_compile harness/sdk/qform_error_bound.py
+          python -m py_compile sovereign-omega-v2/python/tests/test_qform_receipt.py
+
+      - name: Run Q-form receipt tests
+        run: python -m pytest -q sovereign-omega-v2/python/tests/test_qform_receipt.py
+
+      - name: Generate exact-head QForm receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/qform-receipt"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from harness.sdk.qform_receipt import QFormSpecV1, build_qform_receipt
+
+          receipt = build_qform_receipt(
+              QFormSpecV1(
+                  P_cutoff=65010,
+                  sigma='0.8',
+                  du='0.005',
+                  U_max='8.0',
+                  prec_bits=256,
+              ),
+              gamma_fixture='14.134725',
+              epsilon='1e-11',
+          ).to_dict()
+          target = Path(os.environ['RUNNER_TEMP']) / 'qform-receipt' / 'QFormReceiptV1.json'
+          target.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+          PY
+
+      - name: Validate QForm receipt schema and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+
+          receipt_path = Path(os.environ['RUNNER_TEMP']) / 'qform-receipt' / 'QFormReceiptV1.json'
+          schema_path = Path('research/qform/qform-receipt-v1.schema.json')
+          receipt = json.loads(receipt_path.read_text(encoding='utf-8'))
+          schema = json.loads(schema_path.read_text(encoding='utf-8'))
+          Draft202012Validator.check_schema(schema)
+          Draft202012Validator(schema).validate(receipt)
+
+          assert receipt['provenance']['commit_sha'] == os.environ['EXPECTED_SHA']
+          assert receipt['exact_census']['primes_count'] == 6494
+          assert receipt['exact_census']['prime_powers_count'] == 6586
+          assert receipt['exact_census']['integer_crosscheck_verified'] is True
+          assert receipt['finite_formula_authority'] == 'CERTIFIED_INTERVAL'
+          assert receipt['overall_authority'] == 'EMPIRICAL_FIXTURE'
+          assert receipt['gaussian_cutoff']['cutoff_relation_verified'] is True
+          assert receipt['gaussian_cutoff']['envelope_below_epsilon_verified'] is True
+          assert float(receipt['evaluations']['spectral_symbol_gamma_fixture']['undamped_arb_ball']['mid']) < -30.0
+          assert receipt['formula_to_weil_operator_identity_proven'] is False
+          assert receipt['tail_order_theorem_verified'] is False
+          assert receipt['global_weil_positivity_proven'] is False
+          assert receipt['rh_proven'] is False
+          print('QFORM_RECEIPT_AUTHORITY_BOUNDARY=PASS')
+          PY
+
+      - name: Generate fail-closed translation-operator receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from harness.sdk.qform_operator import QFormOperatorSpecV1, build_operator_receipt
+
+          receipt = build_operator_receipt(
+              QFormOperatorSpecV1(
+                  P_cutoff=100,
+                  sigma='0.8',
+                  du='0.04',
+                  U_max='4.1',
+                  N_F=8,
+                  h='1.0',
+                  gamma_max='14.2',
+                  prec_bits=192,
+              )
+          ).to_dict()
+          target = Path(os.environ['RUNNER_TEMP']) / 'qform-receipt' / 'QFormOperatorReceiptV1.json'
+          target.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+          PY
+
+      - name: Validate translation-operator authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ['RUNNER_TEMP']) / 'qform-receipt' / 'QFormOperatorReceiptV1.json'
+          receipt = json.loads(path.read_text(encoding='utf-8'))
+          assert receipt['preflight_status'] == 'PASS'
+          assert receipt['prime_power_count'] == 35
+          assert receipt['observed_relative_error_to_closed_form'] < 2e-6
+          ratio = receipt['observed_refinement_ratio']
+          assert ratio is not None and 3.8 < ratio < 4.2
+          assert receipt['discretization_status'] == 'NUMERICALLY_VERIFIED'
+          assert receipt['discretization_order_theorem_verified'] is False
+          assert receipt['finite_domain_error_theorem_verified'] is False
+          assert receipt['formula_to_weil_operator_identity_proven'] is False
+          assert receipt['global_weil_positivity_proven'] is False
+          assert receipt['rh_proven'] is False
+          print('QFORM_TRANSLATION_OPERATOR_BOUNDARY=PASS')
+          PY
+
+      - name: Generate conditional analytic error-budget receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from harness.sdk.qform_error_bound import build_analytic_error_budget
+          from harness.sdk.qform_operator import QFormOperatorSpecV1
+
+          receipt = build_analytic_error_budget(
+              QFormOperatorSpecV1(
+                  P_cutoff=100,
+                  sigma='0.8',
+                  du='0.04',
+                  U_max='4.1',
+                  N_F=8,
+                  h='1.0',
+                  gamma_max='14.2',
+                  prec_bits=192,
+              )
+          ).to_dict()
+          target = Path(os.environ['RUNNER_TEMP']) / 'qform-receipt' / 'QFormAnalyticErrorBudgetV1.json'
+          target.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+          PY
+
+      - name: Validate analytic error-budget non-promotion boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['RUNNER_TEMP']) / 'qform-receipt'
+          budget = json.loads((root / 'QFormAnalyticErrorBudgetV1.json').read_text(encoding='utf-8'))
+          operator = json.loads((root / 'QFormOperatorReceiptV1.json').read_text(encoding='utf-8'))
+          observed = abs(
+              operator['discrete_prime_trace_numeric'] -
+              operator['closed_form_prime_trace_numeric']
+          )
+          assert budget['subject_root'] == operator['subject_root']
+          assert budget['constant_arithmetic_status'] == 'CERTIFIED_INTERVAL'
+          assert budget['conditional_absolute_error_bound_upper'] > observed
+          assert budget['gaussian_tail_inequality_machine_bound'] is False
+          assert budget['composite_trapezoid_theorem_machine_bound'] is False
+          assert budget['quotient_stability_machine_bound'] is False
+          assert budget['analytic_error_bound_machine_bound'] is False
+          assert budget['formula_to_weil_operator_identity_proven'] is False
+          assert budget['global_weil_positivity_proven'] is False
+          assert budget['rh_proven'] is False
+          print('QFORM_ANALYTIC_ERROR_BUDGET_BOUNDARY=PASS')
+          PY
+
+      - name: Generate Gaussian-Galerkin blind cross-probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from harness.sdk.qform_galerkin_crossprobe import (
+              QFormGalerkinCrossSpecV1,
+              build_qform_galerkin_cross_receipt,
+          )
+
+          receipt = build_qform_galerkin_cross_receipt(
+              QFormGalerkinCrossSpecV1(
+                  c=65010,
+                  sigma='0.8',
+                  epsilon='1e-11',
+                  N=2,
+                  prec_bits=256,
+              )
+          ).to_dict()
+          target = Path(os.environ['RUNNER_TEMP']) / 'qform-receipt' / 'QFormGalerkinCrossReceiptV1.json'
+          target.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+          PY
+
+      - name: Validate cross-probe non-promotion invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ['RUNNER_TEMP']) / 'qform-receipt' / 'QFormGalerkinCrossReceiptV1.json'
+          receipt = json.loads(path.read_text(encoding='utf-8'))
+          assert receipt['provenance']['commit_sha'] == os.environ['EXPECTED_SHA']
+          assert receipt['scale_binding']['c_equals_P_cutoff_by_construction'] is True
+          assert receipt['scale_binding']['L_ge_C_sigma_verified'] is True
+          assert receipt['scale_binding']['gaussian_envelope_below_epsilon_verified'] is True
+          assert receipt['galerkin_replay']['c'] == 65010
+          assert receipt['galerkin_replay']['N'] == 2
+          assert receipt['galerkin_replay']['dimension'] == 5
+          assert receipt['galerkin_replay']['galerkin_semantics_verified'] is False
+          assert receipt['finite_scale_binding_authority'] == 'CERTIFIED_INTERVAL'
+          assert receipt['overall_authority'] == 'EMPIRICAL_FIXTURE'
+          assert receipt['gaussian_to_galerkin_semantics_verified'] is False
+          assert receipt['compact_support_bridge_verified'] is False
+          assert receipt['formula_to_weil_operator_identity_proven'] is False
+          assert receipt['global_weil_positivity_proven'] is False
+          assert receipt['rh_proven'] is False
+          print('QFORM_GALERKIN_CROSSPROBE_BOUNDARY=PASS')
+          print('GALERKIN_INERTIA', {
+              'verified': receipt['galerkin_replay']['interval_inertia_verified'],
+              'n_positive': receipt['galerkin_replay']['n_positive'],
+              'n_negative': receipt['galerkin_replay']['n_negative'],
+              'undetermined_pivot': receipt['galerkin_replay']['undetermined_pivot'],
+              'finite_matrix_psd_verified': receipt['galerkin_replay']['finite_matrix_psd_verified'],
+          })
+          PY
+
+      - name: Emit receipt digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            "$RUNNER_TEMP/qform-receipt/QFormReceiptV1.json" \
+            "$RUNNER_TEMP/qform-receipt/QFormOperatorReceiptV1.json" \
+            "$RUNNER_TEMP/qform-receipt/QFormAnalyticErrorBudgetV1.json" \
+            "$RUNNER_TEMP/qform-receipt/QFormGalerkinCrossReceiptV1.json" \
+            | tee "$RUNNER_TEMP/qform-receipt/SHA256SUMS"
+
+      - name: Upload exact-head Q-form evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: qform-receipt-${{ env.EXPECTED_SHA }}
+          path: ${{ runner.temp }}/qform-receipt
+          if-no-files-found: error
+          retention-days: 30
