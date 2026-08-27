@@ -11,6 +11,7 @@
 *)
 
 Require Import AnalyticDefinitions.
+From Coq Require Import Reals.Abstract.ConstructiveReals.
 From Coq Require Import Reals.Abstract.ConstructiveAbs.
 From Coq Require Import Ring.
 
