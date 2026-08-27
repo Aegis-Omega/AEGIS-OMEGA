@@ -6,7 +6,7 @@ Where a doc disagrees with the live system, the live system wins.
 
 ---
 
-## LATEST — 2026-08-27 (PR #334 proof-carrying live effect boundary)
+## LATEST — 2026-08-27 (PR #334 resident + proof-carrying effect boundary)
 
 This section supersedes older branch/PR snapshots below. Mutable GitHub state must still be
 revalidated before consequential actions.
@@ -24,6 +24,9 @@ revalidated before consequential actions.
 - Agent Dispatch was SKIPPED on that head because `vars.PROXY_URL` was absent; it was not an
   execution or verification failure.
 - Review ledger: 26/26 resolved. Same-tree targeted regression: 115/115 passed.
+
+These receipts predate the dispatch-hardening documentation commit below. Re-run exact-head
+checks after publication; do not transfer GREEN status between commits.
 
 ### Live verified transition
 
@@ -59,6 +62,43 @@ Agent Dispatch run `33088017673` completed SUCCESS; its disabled-status step ran
 and network-dispatch steps were SKIPPED. The post-Constitutional `workflow_run` event did not run
 on the PR branch because GitHub loads that trigger from the default branch. It can only be
 verified after the corrected workflow is admitted to `main`.
+
+The hardened follow-up goes further: the secret-bearing workflow no longer has a direct
+`pull_request` trigger, checks out only the trusted default branch, requires the exact
+`aegis-agent` label for issues or `@aegis-agent` for comments, and requires both HTTPS
+`PROXY_URL` and `AGENT_DISPATCH_API_KEY`. Missing configuration becomes the visible preflight
+state `DEFERRED_NOT_CONFIGURED`; no external side effect is attempted. See
+`docs/operations/AGENT_DISPATCH.md`.
+
+### Resident runtime and memory synthesis
+
+- The production Python `BridgeHandler` exposes authenticated, owner-bound resident event,
+  run/replay, status, and cross-provider memory synthesis/replay routes.
+- Provider/model memories remain T2 evidence candidates. Common roots are collapsed;
+  contradictions, missing provenance, and provenance cycles quarantine rather than promote.
+- Replay proves integrity and lineage, never semantic truth. Consensus cannot mint T1 knowledge.
+- Docker Compose persists `/app/data`; free Render storage is ephemeral. Missing sensor
+  initialization leaves the pre-existing bridge alive while resident capability returns
+  unavailable/`UNKNOWN`.
+- Exact route, identity, persistence, and epistemic contracts are in
+  `docs/operations/RESIDENT_RUNTIME.md`.
+
+### Verification snapshot for dispatch/resident documentation unit
+
+- TypeScript Gate 8 on the preceding hosted resident head: 254 files / 4,130 tests, typecheck,
+  and production build passed.
+- Python platform contract: 565/565 passed locally.
+- Resident live HTTP: 20/20; bootstrap: 5/5; dispatch classifier/workflow: 8/8.
+- Frozen constitutional files: 3/3 present and hash-verified.
+
+Counts bind only to the commit on which they ran. The new exact remote head requires fresh CI.
+
+### Remaining security admission boundary
+
+Aggregate CodeQL still presents two reviewed `py/weak-sensitive-data-hashing` alerts for a keyed
+HMAC-SHA256 identity pseudonym and a SHA-256 database lookup digest for a random bearer token
+(`usedforsecurity=False`). Do not disable the query globally. An operator/security admin must
+dismiss exactly those alerts as false positives or admit a supported sanitizer model.
 
 ### Authority ceiling
 

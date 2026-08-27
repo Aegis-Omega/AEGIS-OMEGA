@@ -30,10 +30,12 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
 | `cockpit/`, `studio/` | Internal telemetry / observability dashboards | deployable, not monetized |
 | `supabase/functions/` | Live: `verify-paypal` (payment), `agent`+`slack-events`+`notify` (ops), `chat` (Qwen) | Supabase edge |
 | `.claude/` hooks + `metacog/` | The live governance loop (session-start, per-prompt chain, pre-commit Gate 8, seal) | local to Claude Code |
-| CI | `ci.yml` (7-scale quorum), `frozen-files`, `osv-scanner`, `hadolint`; `deploy.yml` → Cloud Run | GitHub Actions |
+| CI | `ci.yml` (7-scale quorum), `frozen-files`, `osv-scanner`, `hadolint`; `deploy.yml` → Cloud Run; `agent-dispatch.yml` always classifies/preflights and calls the constitutional proxy only when its URL and credential are configured | GitHub Actions |
 
 **The one true money path:** `hub` PricingPage → PayPal → `verify-paypal` → API key. Tiers are
-**$48 operator / $498 sovereign + free Explorer** — *not* "$19".
+displayed as **$49 operator / $499 sovereign + free Explorer**. The PayPal verifier accepts
+minimums of $48/$498 solely as its documented $1 currency-rounding tolerance — those are not
+the advertised prices.
 
 ---
 
@@ -72,10 +74,12 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
   Cloud Run deploy, deliberately `workflow_dispatch`-only (auto-deploy disabled *to stop GCP billing* —
   that safety decision is encoded in its trigger).
 - **`.github/workflows/agent-dispatch.yml`** — optional external integration. It listens to the
-  actual Constitutional Automaton workflow name and emits an explicit successful `DISABLED`
-  summary when `PROXY_URL` is absent. A configured URL enables transport only; it does not grant
-  admission authority to the receiving agent system. GitHub loads `workflow_run` triggers from
-  the default branch, so the corrected post-CI trigger remains candidate-state until merged.
+  actual Constitutional Automaton workflow name and is an observable fail-closed integration.
+  Classification/preflight runs without credentials; the network step defers until both
+  `PROXY_URL` and `AGENT_DISPATCH_API_KEY` exist. Direct PR execution is excluded from this
+  secret-bearing workflow; GitHub loads the post-CI `workflow_run` trigger from the default
+  branch, so that path remains candidate-state until merged. See
+  `docs/operations/AGENT_DISPATCH.md`.
 - ~~`enterprise/dist/`~~ = **removed** (committed build artifact; `.gitignore` already excludes `dist/`).
 - **root `package.json`** named `aegis-tactical-dashboard` — frontend workspace entry removed; now `backend`-only (still an orphaned identity).
 - ~~`studio/dist/`~~ = **untracked** (committed build artifact removed from git).

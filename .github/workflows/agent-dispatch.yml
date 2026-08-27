@@ -4,111 +4,124 @@ on:
   workflow_run:
     workflows: ["⊕ AEGIS-Ω Constitutional Automaton"]
     types: [completed]
-  pull_request:
-    types: [opened, synchronize, review_requested]
   issues:
-    types: [opened, labeled]
+    types: [labeled]
   issue_comment:
     types: [created]
 
 jobs:
   dispatch:
-    name: Dispatch to AEGIS Agent Ecosystem
+    name: Classify and conditionally dispatch
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
       issues: read
     steps:
-      - name: Report dispatch boundary status
-        if: vars.PROXY_URL == ''
-        run: |
-          echo "## AEGIS Agent Dispatch" >> "$GITHUB_STEP_SUMMARY"
-          echo "Status: DISABLED" >> "$GITHUB_STEP_SUMMARY"
-          echo "Reason: repository variable PROXY_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
-          echo "No network request or agent execution was attempted." >> "$GITHUB_STEP_SUMMARY"
+      - name: Check out the trusted workflow source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.repository.default_branch }}
 
-      - name: Determine event type and payload
+      - name: Build bounded event envelope
         id: classify
-        if: vars.PROXY_URL != ''
-        # All untrusted external inputs bound to env vars — never interpolated inline.
         env:
           EVENT_NAME: ${{ github.event_name }}
-          WF_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
-          WF_BRANCH: ${{ github.event.workflow_run.head_branch }}
-          WF_RUN_ID: ${{ github.event.workflow_run.id }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_NUMBER: ${{ github.event.number }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
-          COMMENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          EVENT_PATH: ${{ github.event_path }}
+          REQUEST_PATH: ${{ runner.temp }}/agent-dispatch-request.json
         run: |
-          EVENT_TYPE=""
-          PAYLOAD="{}"
+          set +e
+          python3 scripts/agent_dispatch_payload.py \
+            --event-name "$EVENT_NAME" \
+            --event-path "$EVENT_PATH" \
+            --output "$REQUEST_PATH"
+          status=$?
+          set -e
 
-          if [ "$EVENT_NAME" = "workflow_run" ]; then
-            if [ "$WF_CONCLUSION" = "failure" ]; then
-              EVENT_TYPE="github_ci_failure"
-              PAYLOAD=$(jq -n \
-                --arg branch "$WF_BRANCH" \
-                --arg run_id "$WF_RUN_ID" \
-                --arg conclusion "$WF_CONCLUSION" \
-                '{"branch": $branch, "run_id": $run_id, "failures": $conclusion}')
-            elif [ "$WF_CONCLUSION" = "success" ]; then
-              EVENT_TYPE="github_ci_success"
-              PAYLOAD=$(jq -n \
-                --arg branch "$WF_BRANCH" \
-                '{"branch": $branch}')
-            fi
-
-          elif [ "$EVENT_NAME" = "pull_request" ]; then
-            EVENT_TYPE="github_pr_opened"
-            PAYLOAD=$(jq -n \
-              --arg title "$PR_TITLE" \
-              --arg number "$PR_NUMBER" \
-              --arg url "$PR_URL" \
-              '{"title": $title, "number": $number, "url": $url}')
-
-          elif [ "$EVENT_NAME" = "issues" ]; then
-            EVENT_TYPE="github_issue_opened"
-            PAYLOAD=$(jq -n \
-              --arg title "$ISSUE_TITLE" \
-              --arg number "$ISSUE_NUMBER" \
-              --arg body "$ISSUE_BODY" \
-              '{"title": $title, "number": $number, "body": $body}')
-
-          elif [ "$EVENT_NAME" = "issue_comment" ]; then
-            # Only dispatch if comment mentions @aegis-agent
-            if echo "$COMMENT_BODY" | grep -q "@aegis-agent"; then
-              EVENT_TYPE="github_pr_comment"
-              PAYLOAD=$(jq -n \
-                --arg body "$COMMENT_BODY" \
-                --arg number "$COMMENT_ISSUE_NUMBER" \
-                '{"body": $body, "number": $number}')
-            fi
+          if [ "$status" -eq 0 ]; then
+            echo "actionable=true" >> "$GITHUB_OUTPUT"
+          elif [ "$status" -eq 2 ]; then
+            echo "actionable=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Event classification failed closed (exit $status)." >&2
+            exit "$status"
           fi
 
-          echo "event_type=$EVENT_TYPE" >> $GITHUB_OUTPUT
-          echo "payload=$PAYLOAD" >> $GITHUB_OUTPUT
+      - name: Evaluate dispatch configuration
+        id: preflight
+        env:
+          ACTIONABLE: ${{ steps.classify.outputs.actionable }}
+          PROXY_URL: ${{ vars.PROXY_URL }}
+          DISPATCH_API_KEY: ${{ secrets.AGENT_DISPATCH_API_KEY }}
+        run: |
+          if [ "$ACTIONABLE" != "true" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "status=IGNORED_NO_ADMITTED_ROUTE" >> "$GITHUB_OUTPUT"
+          elif [ -z "$PROXY_URL" ] || [ -z "$DISPATCH_API_KEY" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "status=DEFERRED_NOT_CONFIGURED" >> "$GITHUB_OUTPUT"
+          elif [[ "$PROXY_URL" != https://* ]]; then
+            echo "PROXY_URL must use HTTPS." >&2
+            exit 1
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "status=READY" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Dispatch to AEGIS constitutional proxy
-        if: vars.PROXY_URL != '' && steps.classify.outputs.event_type != ''
+      - name: Record preflight status
+        env:
+          PREFLIGHT_STATUS: ${{ steps.preflight.outputs.status }}
+        run: |
+          {
+            echo "### Agent dispatch"
+            echo
+            echo "Preflight: \`$PREFLIGHT_STATUS\`"
+            echo
+            echo "A deferred result means no external side effect was attempted."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dispatch through authenticated constitutional proxy
+        id: send
+        if: steps.preflight.outputs.ready == 'true'
         env:
           PROXY_URL: ${{ vars.PROXY_URL }}
-          DISPATCH_EVENT_TYPE: ${{ steps.classify.outputs.event_type }}
-          DISPATCH_PAYLOAD: ${{ steps.classify.outputs.payload }}
+          DISPATCH_API_KEY: ${{ secrets.AGENT_DISPATCH_API_KEY }}
+          REQUEST_PATH: ${{ runner.temp }}/agent-dispatch-request.json
+          RESPONSE_PATH: ${{ runner.temp }}/agent-dispatch-response.json
+          RECEIPT_PATH: ${{ runner.temp }}/agent-dispatch-receipt.json
+          GITHUB_RUN_ID_VALUE: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT_VALUE: ${{ github.run_attempt }}
         run: |
-          set -euo pipefail
-          RESPONSE=$(curl --fail-with-body --show-error --silent --max-time 30 \
-            -X POST "${PROXY_URL%/}/agents/dispatch" \
-            -H "Content-Type: application/json" \
-            -d "$(jq -n \
-              --arg event_type "$DISPATCH_EVENT_TYPE" \
-              --argjson payload "$DISPATCH_PAYLOAD" \
-              '{"event_type": $event_type, "payload": $payload}')")
-          echo "$RESPONSE" | jq -e '.results | type == "array"' >/dev/null
-          echo "$RESPONSE" \
-            | jq '.results[] | {role, ralph_cycles, is_valid, output: (.output | .[0:500])}'
+          test "$(wc -c < "$REQUEST_PATH")" -le 8192
+          endpoint="${PROXY_URL%/}/agents/dispatch"
+
+          curl --fail-with-body --silent --show-error \
+            --max-time 30 \
+            --max-filesize 65536 \
+            --request POST "$endpoint" \
+            --header "Content-Type: application/json" \
+            --header "x-api-key: $DISPATCH_API_KEY" \
+            --data-binary "@$REQUEST_PATH" \
+            --output "$RESPONSE_PATH"
+
+          jq -e '.results | type == "array"' "$RESPONSE_PATH" >/dev/null
+          jq -n \
+            --arg run_id "$GITHUB_RUN_ID_VALUE" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT_VALUE" \
+            --arg event_type "$(jq -r '.event_type' "$REQUEST_PATH")" \
+            --argjson result_count "$(jq '.results | length' "$RESPONSE_PATH")" \
+            --argjson valid_count "$(jq '[.results[] | select(.is_valid == true)] | length' "$RESPONSE_PATH")" \
+            '{schema_version:"1.0", status:"DISPATCHED", github_run_id:$run_id,
+              github_run_attempt:$run_attempt, event_type:$event_type,
+              result_count:$result_count, valid_count:$valid_count,
+              semantic_truth_proven:false}' > "$RECEIPT_PATH"
+
+      - name: Upload non-authoritative dispatch receipt
+        if: steps.preflight.outputs.ready == 'true' && steps.send.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-dispatch-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/agent-dispatch-receipt.json
+          if-no-files-found: error
+          retention-days: 14
