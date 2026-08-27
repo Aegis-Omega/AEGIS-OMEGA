@@ -298,7 +298,10 @@ def build_operator_receipt(
     preflight_payload: Optional[Mapping[str, object]] = None,
 ) -> QFormOperatorReceiptV1:
     """Run the bounded translation experiment only after a valid preflight."""
-    preflight = build_preflight_receipt(spec) if preflight_payload is None else dict(preflight_payload)
+    if preflight_payload is None:
+        preflight = build_preflight_receipt(spec).to_dict()
+    else:
+        preflight = dict(preflight_payload)
     verify_preflight_receipt(preflight, spec)
 
     sigma = float(spec.sigma)
