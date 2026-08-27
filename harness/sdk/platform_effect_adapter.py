@@ -185,7 +185,11 @@ class PlatformExecutionEffectAdapter:
             "AEGIS_PLATFORM_EFFECT_ADAPTER_SCOPE_V1",
             {
                 "bridge_url": self.bridge_url,
-                "credential_binding": hashlib.sha256(self._api_key.encode("utf-8")).hexdigest(),
+                # Integrity/lineage commitment for a random bearer token; this is
+                # not password verification and intentionally preserves the V1 digest.
+                "credential_binding": hashlib.sha256(
+                    self._api_key.encode("utf-8"), usedforsecurity=False
+                ).hexdigest(),
                 "adapter_identity": self.identity,
                 "adapter_version": self.version,
             },

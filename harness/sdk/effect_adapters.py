@@ -181,6 +181,19 @@ class FilesystemEffectAdapter:
             mtime_ns=0,
         )
 
+    @staticmethod
+    @contextmanager
+    def _opened_fd(path: Any, flags: int, *, dir_fd: int | None = None) -> Iterator[int]:
+        """Open one descriptor and make its close operation structurally explicit."""
+        if dir_fd is None:
+            fd = os.open(path, flags)
+        else:
+            fd = os.open(path, flags, dir_fd=dir_fd)
+        try:
+            yield fd
+        finally:
+            os.close(fd)
+
     @contextmanager
     def _open_beneath_allowed_root(self, *, target_identity: str) -> Iterator[int]:
         """Yield a descriptor-relative file handle and close every descriptor on exit."""
@@ -198,14 +211,17 @@ class FilesystemEffectAdapter:
 
         with ExitStack() as descriptors:
             try:
-                root_fd = os.open(os.fspath(self.allowed_root), root_flags)
+                root_fd = descriptors.enter_context(
+                    self._opened_fd(os.fspath(self.allowed_root), root_flags)
+                )
             except (FileNotFoundError, NotADirectoryError, PermissionError, OSError) as exc:
                 raise EffectAdapterError("EFFECT_ALLOWED_ROOT_UNAVAILABLE") from exc
-            descriptors.callback(os.close, root_fd)
             dir_fd = root_fd
             for part in parts[:-1]:
                 try:
-                    next_fd = os.open(part, directory_flags, dir_fd=dir_fd)
+                    next_fd = descriptors.enter_context(
+                        self._opened_fd(part, directory_flags, dir_fd=dir_fd)
+                    )
                 except FileNotFoundError:
                     raise
                 except OSError as exc:
@@ -214,11 +230,12 @@ class FilesystemEffectAdapter:
                     if exc.errno in (errno.EACCES, errno.EPERM):
                         raise EffectAdapterError("EFFECT_TARGET_NOT_REGULAR_FILE") from exc
                     raise
-                descriptors.callback(os.close, next_fd)
                 dir_fd = next_fd
 
             try:
-                file_fd = os.open(parts[-1], file_flags, dir_fd=dir_fd)
+                file_fd = descriptors.enter_context(
+                    self._opened_fd(parts[-1], file_flags, dir_fd=dir_fd)
+                )
             except FileNotFoundError:
                 raise
             except OSError as exc:
@@ -227,7 +244,6 @@ class FilesystemEffectAdapter:
                 if exc.errno in (errno.EISDIR, errno.ENOTDIR, errno.EACCES, errno.EPERM):
                     raise EffectAdapterError("EFFECT_TARGET_NOT_REGULAR_FILE") from exc
                 raise
-            descriptors.callback(os.close, file_fd)
             yield file_fd
 
     def _observe_state(self, target: Path) -> FilesystemStateObservation:
