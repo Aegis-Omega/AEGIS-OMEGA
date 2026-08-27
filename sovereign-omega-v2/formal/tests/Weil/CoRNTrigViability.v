@@ -29,6 +29,18 @@ Check sin_correct.
 Check cos_correct.
 Check Derivative_Sin.
 Check Derivative_Cos.
+Check Sin_plus.
+Check Cos_plus.
+
+(* Transparent local aliases make the trust queries namespace-stable.  Print
+   Assumptions traverses these definitions into the upstream theorem bodies;
+   the aliases do not manufacture closure. *)
+Definition corn_sin_correct_probe_v1 := sin_correct.
+Definition corn_cos_correct_probe_v1 := cos_correct.
+Definition corn_derivative_sin_probe_v1 := Derivative_Sin.
+Definition corn_derivative_cos_probe_v1 := Derivative_Cos.
+Definition corn_sin_plus_probe_v1 := Sin_plus.
+Definition corn_cos_plus_probe_v1 := Cos_plus.
 
 (* AEGIS production carrier remains the stdlib constructive Cauchy real.
    [AnalyticDefinitions] already binds [O0RealsV1 := CRealConstructive]; the
