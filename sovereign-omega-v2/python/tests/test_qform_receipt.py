@@ -4,6 +4,10 @@ import math
 
 import pytest
 
+from harness.sdk.qform_galerkin_crossprobe import (
+    QFormGalerkinCrossSpecV1,
+    build_qform_galerkin_cross_receipt,
+)
 from harness.sdk.qform_receipt import (
     CERTIFIED_INTERVAL,
     EMPIRICAL_FIXTURE,
@@ -95,6 +99,35 @@ def test_reported_gamma1_fixture_is_rigorously_negative_at_finite_cutoff() -> No
     symbol = receipt["evaluations"]["spectral_symbol_gamma_fixture"]
     assert symbol["status"] == EMPIRICAL_FIXTURE
     assert float(symbol["undamped_arb_ball"]["mid"]) < -30.0
+
+
+def test_crossprobe_binds_scale_but_refuses_semantic_promotion() -> None:
+    receipt = build_qform_galerkin_cross_receipt(
+        QFormGalerkinCrossSpecV1(
+            c=10,
+            sigma="0.1",
+            epsilon="1e-6",
+            N=0,
+            prec_bits=128,
+        ),
+        source_commit=COMMIT,
+        source_tree=TREE,
+    ).to_dict()
+
+    assert receipt["finite_scale_binding_authority"] == CERTIFIED_INTERVAL
+    assert receipt["scale_binding"]["c_equals_P_cutoff_by_construction"] is True
+    assert receipt["scale_binding"]["L_ge_C_sigma_verified"] is True
+    assert receipt["scale_binding"]["gaussian_envelope_below_epsilon_verified"] is True
+    assert receipt["galerkin_replay"]["c"] == 10
+    assert receipt["galerkin_replay"]["N"] == 0
+    assert receipt["galerkin_replay"]["galerkin_semantics_verified"] is False
+    assert receipt["overall_authority"] == EMPIRICAL_FIXTURE
+    assert receipt["gaussian_to_galerkin_semantics_verified"] is False
+    assert receipt["compact_support_bridge_verified"] is False
+    assert receipt["formula_to_weil_operator_identity_proven"] is False
+    assert receipt["global_weil_positivity_proven"] is False
+    assert receipt["rh_proven"] is False
+    assert len(receipt["receipt_root"]) == 64
 
 
 def test_spec_rejects_precision_below_certification_floor() -> None:
