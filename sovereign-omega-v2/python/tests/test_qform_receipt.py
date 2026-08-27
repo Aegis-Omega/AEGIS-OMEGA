@@ -8,6 +8,13 @@ from harness.sdk.qform_galerkin_crossprobe import (
     QFormGalerkinCrossSpecV1,
     build_qform_galerkin_cross_receipt,
 )
+from harness.sdk.qform_operator import (
+    QFormOperatorSpecV1,
+    build_operator_receipt,
+    build_preflight_receipt,
+    exact_prime_power_indices,
+    verify_preflight_receipt,
+)
 from harness.sdk.qform_receipt import (
     CERTIFIED_INTERVAL,
     EMPIRICAL_FIXTURE,
@@ -133,3 +140,67 @@ def test_crossprobe_binds_scale_but_refuses_semantic_promotion() -> None:
 def test_spec_rejects_precision_below_certification_floor() -> None:
     with pytest.raises(QFormReceiptError, match="PRECISION_OUT_OF_RANGE"):
         QFormSpecV1(P_cutoff=100, sigma="0.8", du="0.01", U_max="6", prec_bits=64)
+
+
+def _operator_spec(**overrides: object) -> QFormOperatorSpecV1:
+    values: dict[str, object] = {
+        "P_cutoff": 100,
+        "sigma": "0.8",
+        "du": "0.04",
+        "U_max": "4.1",
+        "N_F": 8,
+        "h": "1.0",
+        "gamma_max": "14.2",
+        "prec_bits": 192,
+    }
+    values.update(overrides)
+    return QFormOperatorSpecV1(**values)  # type: ignore[arg-type]
+
+
+def test_operator_prime_power_indices_preserve_exact_structure() -> None:
+    terms = exact_prime_power_indices(100)
+    assert len(terms) == 35
+    assert (terms[0].q, terms[0].p, terms[0].k) == (2, 2, 1)
+    assert terms[2].tau_formula == "2*log(2)"
+    assert terms[2].weight_formula == "log(2)/sqrt(4)"
+
+
+def test_zero_discretion_preflight_blocks_insufficient_fourier_coverage() -> None:
+    receipt = build_preflight_receipt(_operator_spec(N_F=1, h="1", gamma_max="4")).to_dict()
+    assert receipt["blocked"] is True
+    assert receipt["status"] == "BLOCKED"
+    assert receipt["reason"] == "FOURIER_COVERAGE_INSUFFICIENT"
+    with pytest.raises(QFormReceiptError, match="PREFLIGHT_BLOCKED"):
+        verify_preflight_receipt(receipt, _operator_spec(N_F=1, h="1", gamma_max="4"))
+
+
+def test_preflight_receipt_is_invalidated_by_parameter_change() -> None:
+    original = _operator_spec()
+    receipt = build_preflight_receipt(original).to_dict()
+    verify_preflight_receipt(receipt, original)
+    mutated = _operator_spec(gamma_max="14.3")
+    with pytest.raises(QFormReceiptError, match="PREFLIGHT_PARAMETER_ROOT_MISMATCH"):
+        verify_preflight_receipt(receipt, mutated)
+
+
+def test_translation_operator_probe_matches_finite_gaussian_formula_without_promotion() -> None:
+    receipt = build_operator_receipt(_operator_spec()).to_dict()
+    assert receipt["preflight_status"] == "PASS"
+    assert receipt["prime_power_count"] == 35
+    assert receipt["discretization_status"] == NUMERICALLY_VERIFIED
+    assert receipt["observed_relative_error_to_closed_form"] < 2.0e-6
+    ratio = receipt["observed_refinement_ratio"]
+    assert ratio is not None
+    assert 3.8 < ratio < 4.2
+    assert receipt["discretization_order_theorem_verified"] is False
+    assert receipt["finite_domain_error_theorem_verified"] is False
+    assert receipt["formula_to_weil_operator_identity_proven"] is False
+    assert receipt["global_weil_positivity_proven"] is False
+    assert receipt["rh_proven"] is False
+
+
+def test_operator_probe_rejects_stale_preflight_before_numerics() -> None:
+    original = _operator_spec()
+    stale = build_preflight_receipt(original).to_dict()
+    with pytest.raises(QFormReceiptError, match="PREFLIGHT_PARAMETER_ROOT_MISMATCH"):
+        build_operator_receipt(_operator_spec(du="0.02"), preflight_payload=stale)
