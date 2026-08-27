@@ -74,7 +74,8 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
 - **`.github/workflows/agent-dispatch.yml`** — optional external integration. It listens to the
   actual Constitutional Automaton workflow name and emits an explicit successful `DISABLED`
   summary when `PROXY_URL` is absent. A configured URL enables transport only; it does not grant
-  admission authority to the receiving agent system.
+  admission authority to the receiving agent system. GitHub loads `workflow_run` triggers from
+  the default branch, so the corrected post-CI trigger remains candidate-state until merged.
 - ~~`enterprise/dist/`~~ = **removed** (committed build artifact; `.gitignore` already excludes `dist/`).
 - **root `package.json`** named `aegis-tactical-dashboard` — frontend workspace entry removed; now `backend`-only (still an orphaned identity).
 - ~~`studio/dist/`~~ = **untracked** (committed build artifact removed from git).

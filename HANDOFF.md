@@ -54,6 +54,12 @@ explicit successful receipt stating that no network request or agent execution o
 external dispatch remains fail-closed until an operator configures `PROXY_URL` and the target
 proxy is independently verified.
 
+Hosted evidence on follow-up head `5924122ae86b55ea03e88d0ac1de5b4d7ab20fbe`:
+Agent Dispatch run `33088017673` completed SUCCESS; its disabled-status step ran, while classify
+and network-dispatch steps were SKIPPED. The post-Constitutional `workflow_run` event did not run
+on the PR branch because GitHub loads that trigger from the default branch. It can only be
+verified after the corrected workflow is admitted to `main`.
+
 ### Authority ceiling
 
 PR #334 exact-head GREEN establishes the candidate implementation and replayable verification

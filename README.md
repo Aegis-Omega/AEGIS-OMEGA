@@ -170,6 +170,8 @@ cd packages/aegis-interface && python -m pytest
 
 The workflow listens to completion of the canonical `⊕ AEGIS-Ω Constitutional Automaton`, PR events, issues, and `@aegis-agent` comments. Configuring `PROXY_URL` establishes routing, not trust: the receiving proxy still owns authorization, execution, effect verification, and admission.
 
+GitHub evaluates `workflow_run` triggers from the default branch. Therefore the corrected post-CI trigger becomes live only after this workflow revision is admitted to `main`; on the draft PR, the `pull_request` path is the executable proof that the disabled-state receipt works. See [GitHub's event-trigger rules](https://docs.github.com/actions/using-workflows/events-that-trigger-workflows#workflow_run).
+
 ---
 
 ## Determinism invariants
