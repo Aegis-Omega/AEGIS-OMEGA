@@ -4,6 +4,7 @@ import math
 
 import pytest
 
+from harness.sdk.qform_error_bound import build_analytic_error_budget
 from harness.sdk.qform_galerkin_crossprobe import (
     QFormGalerkinCrossSpecV1,
     build_qform_galerkin_cross_receipt,
@@ -207,3 +208,29 @@ def test_operator_probe_rejects_stale_preflight_before_numerics() -> None:
     stale = build_preflight_receipt(original).to_dict()
     with pytest.raises(QFormReceiptError, match="PREFLIGHT_PARAMETER_ROOT_MISMATCH"):
         build_operator_receipt(_operator_spec(du="0.02"), preflight_payload=stale)
+
+
+def test_analytic_error_budget_computes_constants_but_refuses_theorem_promotion() -> None:
+    operator = build_operator_receipt(_operator_spec()).to_dict()
+    receipt = build_analytic_error_budget(_operator_spec()).to_dict()
+
+    observed_abs_error = abs(
+        operator["discrete_prime_trace_numeric"] - operator["closed_form_prime_trace_numeric"]
+    )
+    assert receipt["receipt_kind"] == "AEGIS_QFORM_ANALYTIC_ERROR_BUDGET_V1"
+    assert receipt["constant_arithmetic_status"] == CERTIFIED_INTERVAL
+    assert float(receipt["K_disc_ball"]["mid"]) > 0.0
+    assert float(receipt["finite_domain_tail_bound_ball"]["mid"]) > 0.0
+    assert receipt["conditional_absolute_error_bound_upper"] > observed_abs_error
+    assert receipt["gaussian_tail_inequality_machine_bound"] is False
+    assert receipt["composite_trapezoid_theorem_machine_bound"] is False
+    assert receipt["quotient_stability_machine_bound"] is False
+    assert receipt["analytic_error_bound_machine_bound"] is False
+    assert receipt["formula_to_weil_operator_identity_proven"] is False
+    assert receipt["global_weil_positivity_proven"] is False
+    assert receipt["rh_proven"] is False
+
+
+def test_analytic_error_budget_fails_closed_without_positive_shift_margin() -> None:
+    with pytest.raises(QFormReceiptError, match="DOMAIN_SHIFT_MARGIN_NONPOSITIVE"):
+        build_analytic_error_budget(_operator_spec(U_max="2.0"))
