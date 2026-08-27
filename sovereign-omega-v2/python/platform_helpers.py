@@ -1450,9 +1450,9 @@ def swarm_collaborate_live(
     Returns:
         {artifacts, constitutional_audit, projection}
 
-    Falls back to template outputs if no Anthropic client is available
-    (no ADC credentials and no ANTHROPIC_API_KEY) — callers always receive
-    a valid result.
+    Falls back to quarantined template outputs if no Anthropic client is
+    available (no ADC credentials and no ANTHROPIC_API_KEY). A provider
+    failure never fabricates an approval.
     """
     dept_manifest = '\n'.join(
         f'{d["id"]} | {d["role"]} ({d["category"]})'
@@ -1552,10 +1552,14 @@ def _parse_swarm_response(
 
     # Constitutional audit
     raw_audit = data.get('constitutional_audit', {})
-    verdict = raw_audit.get('verdict', 'APPROVED')
+    if not isinstance(raw_audit, dict):
+        raw_audit = {}
+    verdict = raw_audit.get('verdict', 'QUARANTINE')
     if verdict not in ('APPROVED', 'FLAG', 'QUARANTINE'):
-        verdict = 'APPROVED'
+        verdict = 'QUARANTINE'
     concerns = [str(c) for c in raw_audit.get('concerns', []) if c]
+    if verdict == 'QUARANTINE' and not concerns:
+        concerns = ['Model response did not provide a recognized admission verdict.']
 
     # Projection — clamp ARR to sane range
     raw_proj = data.get('projection', {})
@@ -1580,7 +1584,7 @@ def _parse_swarm_response(
 
 
 def _swarm_fallback(objective: str, mode: str, departments: list) -> dict:
-    """Constitutional template fallback when Claude API is unavailable."""
+    """Quarantined template output used when model evidence is unavailable."""
     arr_map = {
         'revenue':     2_400_000,
         'analysis':    1_800_000,
@@ -1597,7 +1601,12 @@ def _swarm_fallback(objective: str, mode: str, departments: list) -> dict:
             {'role': d['role'], 'output': dept_output(objective, mode, d)}
             for d in departments
         ],
-        'constitutional_audit': {'verdict': 'APPROVED', 'concerns': []},
+        'constitutional_audit': {
+            'verdict': 'QUARANTINE',
+            'concerns': [
+                'Synthetic fallback output is not independent verification evidence.',
+            ],
+        },
         'projection': {
             'first_year_arr_usd': arr_usd,
             'tier': 'T2',

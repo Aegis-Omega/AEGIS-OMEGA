@@ -780,7 +780,7 @@ def test_swarm_fallback():
     _chk('has constitutional_audit', 'constitutional_audit' in result)
     _chk('has projection', 'projection' in result)
     _chk('artifacts count matches departments', len(result['artifacts']) == len(depts))
-    _chk('audit verdict is APPROVED', result['constitutional_audit']['verdict'] == 'APPROVED')
+    _chk('fallback audit is QUARANTINE', result['constitutional_audit']['verdict'] == 'QUARANTINE')
     _chk('audit concerns is list', isinstance(result['constitutional_audit']['concerns'], list))
     _chk('projection has first_year_arr_usd', 'first_year_arr_usd' in result['projection'])
     _chk('projection arr > 0', result['projection']['first_year_arr_usd'] > 0)
@@ -798,8 +798,8 @@ def test_parse_swarm_response():
     # Invalid JSON → fallback
     result_bad = _parse_swarm_response('not valid json', 'test', 'revenue', depts)
     _chk('invalid JSON → has artifacts', 'artifacts' in result_bad)
-    _chk('invalid JSON → fallback verdict APPROVED',
-         result_bad['constitutional_audit']['verdict'] == 'APPROVED')
+    _chk('invalid JSON → fallback verdict QUARANTINE',
+         result_bad['constitutional_audit']['verdict'] == 'QUARANTINE')
 
     # Valid JSON with departments
     valid_json = json.dumps({
@@ -828,14 +828,14 @@ def test_swarm_thinking_parsing():
     r = _parse_swarm_response('', 'test', 'revenue', depts)
     _chk('empty text → fallback (has artifacts)', 'artifacts' in r)
 
-    # Response with unknown verdict is sanitised to APPROVED
+    # Response with unknown verdict is quarantined fail-closed
     bad_verdict = json.dumps({
         'departments': [],
         'constitutional_audit': {'verdict': 'UNKNOWN_VERDICT', 'concerns': []},
         'projection': {'first_year_arr_usd': 0, 'tier': 'T2', 'governed_note': ''},
     })
     r2 = _parse_swarm_response(bad_verdict, 'test', 'revenue', depts)
-    _chk('unknown verdict → sanitised to APPROVED', r2['constitutional_audit']['verdict'] == 'APPROVED')
+    _chk('unknown verdict → QUARANTINE', r2['constitutional_audit']['verdict'] == 'QUARANTINE')
 
     # Negative ARR → clamped to 0
     neg_arr = json.dumps({
