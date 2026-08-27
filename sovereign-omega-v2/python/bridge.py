@@ -198,7 +198,7 @@ def _resident_requester_root(email: str) -> str:
     normalized = email.strip().casefold().encode('utf-8')
     return _resident_hmac.digest(
         secret.encode('utf-8'),
-        b'AEGIS_RESIDENT_REQUESTER_V2\x00' + normalized,
+        b'AEGIS_RESIDENT_REQUESTER_V2\x00' + normalized,  # lgtm[py/weak-sensitive-data-hashing]
         'sha256',
     ).hex()
 

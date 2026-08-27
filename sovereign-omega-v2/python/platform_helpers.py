@@ -318,8 +318,7 @@ def _api_key_lookup_digest(api_key: str) -> str:
     """
     import hashlib
 
-    # codeql[py/weak-sensitive-data-hashing]
-    return hashlib.sha256(api_key.encode()).hexdigest()
+    return hashlib.sha256(api_key.encode()).hexdigest()  # lgtm[py/weak-sensitive-data-hashing]
 
 
 def verify_api_key(api_key: str):
