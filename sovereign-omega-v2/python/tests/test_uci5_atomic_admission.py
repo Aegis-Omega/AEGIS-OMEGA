@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """UCI-5 falsification suite for local transactional atomic admission.
 
-The initial import-only RED witness was already established on exact candidate
-``d508861f74728b775f737b3fcfb6670d659434c4``. These behavioral falsifiers are
-added before the production implementation is introduced.
+The initial import-only RED witness was established on exact candidate
+``d508861f74728b775f737b3fcfb6670d659434c4`` before production code existed.
+UCI-5 consumes byte-semantically frozen UCI-4 CompleteVerification artifacts
+under their historical admission-policy commitment, then applies a fresh UCI-5
+eligibility policy downstream.
 """
 from __future__ import annotations
 
@@ -53,7 +55,7 @@ class AtomicAdmissionV1Tests(TestCase):
         *,
         nonce: str = "nonce-uci5",
         decision_outcome: str = PERMIT,
-        admission_policy: str | None = None,
+        source_admission_policy: str | None = None,
         fence: str | None = None,
     ):
         tmp = tempfile.TemporaryDirectory()
@@ -61,7 +63,7 @@ class AtomicAdmissionV1Tests(TestCase):
         target = root / "state.txt"
         target.write_bytes(b"before")
         pre = filesystem_state_commitment(allowed_root=root, target=target)
-        policy = admission_policy or uci5_admission_policy_commitment()
+        source_policy = source_admission_policy or legacy_admission_policy_commitment()
         transition = TransitionIdentity(
             schema_version=SCHEMA_VERSION,
             source_commit=COMMIT,
@@ -73,7 +75,7 @@ class AtomicAdmissionV1Tests(TestCase):
             deterministic_nonce=nonce,
             fence_commitment=fence or HASHES[5],
             verifier_policy_commitment=verifier_policy_commitment(),
-            admission_policy_commitment=policy,
+            admission_policy_commitment=source_policy,
         )
         decision = DecisionReceipt(
             receipt_kind=DECISION_RECEIPT_KIND,
@@ -109,9 +111,7 @@ class AtomicAdmissionV1Tests(TestCase):
             witness=witness,
             verification=effect_verification,
         )
-        complete = CompleteVerifier(
-            expected_admission_policy_commitment=policy,
-        ).verify_complete(
+        complete = CompleteVerifier().verify_complete(
             transition=transition,
             decision_receipt=decision,
             execution_receipt=execution,
@@ -185,12 +185,15 @@ class AtomicAdmissionV1Tests(TestCase):
     def test_success_commits_state_and_record_together(self):
         bundle = self.bundle()
         self.addCleanup(bundle[0].cleanup)
+        self.assertEqual(bundle[8].status, TRUE)
         store = self.store(bundle)
         record = self.admit(store, bundle)
         self.assertIsInstance(record, AdmissionRecordV1)
         self.assertEqual(record.record_kind, ADMISSION_RECORD_KIND)
         self.assertEqual(record.transition_id, bundle[2].root)
         self.assertEqual(record.complete_verification_root, bundle[8].root)
+        self.assertEqual(record.source_admission_policy_commitment, legacy_admission_policy_commitment())
+        self.assertEqual(record.admission_policy_commitment, uci5_admission_policy_commitment())
         self.assertEqual(record.prior_state_commitment, bundle[2].pre_state_commitment)
         self.assertEqual(record.next_state_commitment, bundle[7].post_state_commitment)
         self.assertEqual(record.authority_epoch, AUTHORITY_EPOCH)
@@ -291,12 +294,12 @@ class AtomicAdmissionV1Tests(TestCase):
         )
         self.assertEqual(store.record_count(), 0)
 
-    def test_legacy_unavailable_admission_policy_cannot_be_admitted(self):
-        bundle = self.bundle(admission_policy=legacy_admission_policy_commitment())
+    def test_unaccepted_source_admission_policy_cannot_admit(self):
+        bundle = self.bundle(source_admission_policy=HASHES[36])
         self.addCleanup(bundle[0].cleanup)
-        self.assertEqual(bundle[8].status, TRUE)
+        self.assertEqual(bundle[8].status, FALSE)
         store = self.store(bundle)
-        self.assert_denied("ADMISSION_POLICY_NOT_ACTIVE", lambda: self.admit(store, bundle))
+        self.assert_denied("SOURCE_ADMISSION_POLICY_NOT_ACCEPTED", lambda: self.admit(store, bundle))
         self.assertEqual(store.record_count(), 0)
 
     def test_effect_receipt_splice_is_rejected_by_recompute(self):
