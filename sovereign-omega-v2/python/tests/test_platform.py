@@ -809,7 +809,10 @@ def test_parse_swarm_response():
     })
     result_good = _parse_swarm_response(valid_json, 'test', 'revenue', depts)
     _chk('valid JSON → artifacts', len(result_good['artifacts']) == len(depts))
-    _chk('valid JSON → verdict APPROVED', result_good['constitutional_audit']['verdict'] == 'APPROVED')
+    _chk('valid JSON → model APPROVED remains candidate',
+         result_good['constitutional_audit']['candidate_verdict'] == 'APPROVED')
+    _chk('valid JSON → authoritative verdict QUARANTINE',
+         result_good['constitutional_audit']['verdict'] == 'QUARANTINE')
     _chk('valid JSON → ARR clamped > 0', result_good['projection']['first_year_arr_usd'] >= 0)
 
     # Markdown-fenced JSON stripped correctly

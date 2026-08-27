@@ -72,6 +72,7 @@ _executions: dict = {}
 _exec_queues: dict = {}           # execution_id → queue.Queue
 _executions_lock = threading.Lock()
 _MAX_EXECUTIONS = 1000            # bound the in-memory execution registry
+_MAX_REQUEST_BODY_BYTES = 262_144 # bound unauthenticated HTTP allocation
 
 # Resident Intelligence Runtime is loaded lazily so the existing health and
 # governance paths remain available even when its optional deployment bundle is
@@ -97,7 +98,12 @@ def _get_resident_runtime():
                 ResidentRuntimeError,
             )
 
-            def _bounded_env_int(name: str, default: int, minimum: int = 0) -> int:
+            def _bounded_env_int(
+                name: str,
+                default: int,
+                minimum: int = 0,
+                maximum: int | None = None,
+            ) -> int:
                 raw = os.environ.get(name)
                 if raw is None or raw == '':
                     return default
@@ -105,7 +111,7 @@ def _get_resident_runtime():
                     value = int(raw)
                 except (TypeError, ValueError) as exc:
                     raise ResidentRuntimeError(f'{name}:INVALID_INTEGER') from exc
-                if value < minimum:
+                if value < minimum or (maximum is not None and value > maximum):
                     raise ResidentRuntimeError(f'{name}:OUT_OF_RANGE')
                 return value
 
@@ -127,17 +133,40 @@ def _get_resident_runtime():
                     endpoint=local_endpoint,
                     provider_id=provider_id,
                     model_id=model_id,
-                    timeout_ms=_bounded_env_int('AEGIS_LOCAL_INFERENCE_TIMEOUT_MS', 10_000, 1),
-                    max_parallelism=_bounded_env_int('AEGIS_LOCAL_INFERENCE_MAX_PARALLELISM', 2, 1),
+                    timeout_ms=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_TIMEOUT_MS', 10_000, 1, 120_000
+                    ),
+                    max_parallelism=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_MAX_PARALLELISM', 2, 1, 32
+                    ),
                     circuit_breaker_failures=_bounded_env_int(
-                        'AEGIS_LOCAL_INFERENCE_CIRCUIT_FAILURES', 3, 1
+                        'AEGIS_LOCAL_INFERENCE_CIRCUIT_FAILURES', 3, 1, 100
                     ),
                     circuit_breaker_cooldown_ms=_bounded_env_int(
-                        'AEGIS_LOCAL_INFERENCE_CIRCUIT_COOLDOWN_MS', 30_000, 1
+                        'AEGIS_LOCAL_INFERENCE_CIRCUIT_COOLDOWN_MS',
+                        30_000,
+                        1,
+                        3_600_000,
                     ),
                     microunits_per_1k_tokens=_bounded_env_int(
-                        'AEGIS_LOCAL_INFERENCE_MICROUNITS_PER_1K_TOKENS', 0, 0
+                        'AEGIS_LOCAL_INFERENCE_MICROUNITS_PER_1K_TOKENS',
+                        0,
+                        0,
+                        1_000_000,
                     ),
+                    max_output_tokens=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_MAX_OUTPUT_TOKENS', 512, 1, 8_192
+                    ),
+                    max_request_bytes=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_MAX_REQUEST_BYTES', 32_768, 1, 262_144
+                    ),
+                    max_response_bytes=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_MAX_RESPONSE_BYTES', 65_536, 1, 1_048_576
+                    ),
+                    completion_token_field=os.environ.get(
+                        'AEGIS_LOCAL_INFERENCE_TOKEN_LIMIT_FIELD',
+                        'max_completion_tokens',
+                    ).strip(),
                     api_key=os.environ.get('AEGIS_LOCAL_INFERENCE_API_KEY', ''),
                 )
             _resident_runtime_instance = ResidentRuntime(
@@ -146,6 +175,18 @@ def _get_resident_runtime():
                 microcell=microcell,
             )
         return _resident_runtime_instance
+
+
+def _resident_requester_root(email: str) -> str:
+    """Bind resident artifacts to a verified principal without storing raw PII."""
+    import hashlib as _resident_hashlib
+
+    if not isinstance(email, str) or not email.strip():
+        raise ValueError('resident requester identity unavailable')
+    normalized = email.strip().casefold().encode('utf-8')
+    return _resident_hashlib.sha256(
+        b'AEGIS_RESIDENT_REQUESTER_V1\x00' + normalized
+    ).hexdigest()
 
 
 def _reap_executions_locked() -> None:
@@ -334,7 +375,14 @@ def _platform_run_collaboration(
                 'fundraising': 5_000_000,
             }
             arr_usd = arr_map.get(mode, 2_000_000)
-            constitutional_audit = {'verdict': 'APPROVED', 'concerns': []}
+            constitutional_audit = {
+                'verdict': 'QUARANTINE',
+                'candidate_verdict': 'DEMO_TEMPLATE',
+                'authority': 'EVIDENCE_ONLY',
+                'concerns': [
+                    'Template output is not independent constitutional verification.',
+                ],
+            }
             projection = {
                 'first_year_arr_usd': arr_usd,
                 'tier': 'T2',
@@ -534,8 +582,30 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         global last_ack_sequence
-        length = int(self.headers.get('Content-Length', 0))
-        data = json.loads(self.rfile.read(length)) if length else {}
+        try:
+            length = int(self.headers.get('Content-Length', 0))
+        except (TypeError, ValueError):
+            self._respond(400, {'error': 'invalid Content-Length', 'code': 'INVALID_REQUEST'})
+            return
+        if length < 0:
+            self._respond(400, {'error': 'invalid Content-Length', 'code': 'INVALID_REQUEST'})
+            return
+        if length > _MAX_REQUEST_BODY_BYTES:
+            # Do not buffer an unauthenticated oversized body. Close the
+            # connection so unread bytes cannot be interpreted as a request.
+            self.close_connection = True
+            self._respond(413, {'error': 'request body too large', 'code': 'REQUEST_TOO_LARGE'})
+            return
+        try:
+            raw_body = self.rfile.read(length) if length else b''
+            if len(raw_body) != length:
+                raise ValueError('incomplete request body')
+            data = json.loads(raw_body) if raw_body else {}
+            if not isinstance(data, dict):
+                raise ValueError('request body root must be an object')
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+            self._respond(400, {'error': 'invalid JSON request body', 'code': 'INVALID_REQUEST'})
+            return
 
         if self.path == '/gate_signal':
             seq = data.get('sequence', -1)
@@ -767,7 +837,6 @@ class BridgeHandler(BaseHTTPRequestHandler):
             except ValueError as exc:
                 self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
                 return
-
             try:
                 objective, mode, live, generation, memory_context = _validate_collab_req(data)
             except ValueError as exc:
@@ -876,9 +945,20 @@ class BridgeHandler(BaseHTTPRequestHandler):
             # its receipt is evidence-only and cannot raise the D1 ceiling.
             import dataclasses as _resident_dataclasses
             try:
-                _platform_verify_api_key(self.headers.get('x-api-key', ''))
+                _resident_email, _resident_tier = _platform_verify_api_key(
+                    self.headers.get('x-api-key', '')
+                )
+                _resident_owner_root = _resident_requester_root(_resident_email)
             except ValueError as exc:
                 self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            try:
+                _validate_tier_caps(_resident_tier, True)
+            except ValueError as exc:
+                self._platform_respond(403, {
+                    'error': str(exc),
+                    'code': 'INSUFFICIENT_CAPABILITY',
+                })
                 return
             try:
                 from harness.sdk.resident_runtime import (
@@ -894,6 +974,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 return
             try:
                 event = _RepositoryEventV1.from_mapping(data)
+                # The remote payload cannot choose this value: the live bridge
+                # overwrites it with the verified principal binding.
+                event = _resident_dataclasses.replace(
+                    event,
+                    requester_root=_resident_owner_root,
+                )
                 receipt = _get_resident_runtime().process_repository_event(event)
             except _ResidentRuntimeError as exc:
                 status = 409 if exc.code == 'IDEMPOTENCY_CONFLICT' else 400
@@ -1029,8 +1115,24 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
         elif self.path == '/platform/resident/status':
             # Inspectable projection only. It cannot authorize tasks or mutate
-            # the runtime's configured authority ceiling.
+            # the runtime's configured authority ceiling. Authentication still
+            # applies because the projection exposes organization telemetry.
             import uuid as _resident_status_uuid
+            try:
+                _resident_status_email, _resident_status_tier = _platform_verify_api_key(
+                    self.headers.get('x-api-key', '')
+                )
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            try:
+                _validate_tier_caps(_resident_status_tier, True)
+            except ValueError as exc:
+                self._platform_respond(403, {
+                    'error': str(exc),
+                    'code': 'INSUFFICIENT_CAPABILITY',
+                })
+                return
             try:
                 projection = _get_resident_runtime().status()
             except Exception as exc:
@@ -1048,8 +1150,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
         elif self.path.startswith('/platform/resident/runs/'):
             import dataclasses as _resident_dataclasses
+            import hmac as _resident_hmac
             try:
-                _platform_verify_api_key(self.headers.get('x-api-key', ''))
+                _resident_email, _resident_tier = _platform_verify_api_key(
+                    self.headers.get('x-api-key', '')
+                )
+                requester_root = _resident_requester_root(_resident_email)
             except ValueError as exc:
                 self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
                 return
@@ -1058,18 +1164,32 @@ class BridgeHandler(BaseHTTPRequestHandler):
             run_id = suffix.removesuffix('/verify') if verify else suffix
             try:
                 runtime = _get_resident_runtime()
-                artifact = runtime.replay_verify(run_id) if verify else runtime.get_run(run_id)
+                receipt = runtime.get_run(run_id)
             except Exception as exc:
                 self._platform_respond(400, {
                     'error': str(exc)[:120],
                     'code': 'RESIDENT_RUN_REQUEST_INVALID',
                 })
                 return
-            if artifact is None:
+            if receipt is None or not _resident_hmac.compare_digest(
+                receipt.requester_root,
+                requester_root,
+            ):
+                # Hide both existence and ownership so a run id is never an
+                # authorization token. Historical unbound receipts also land
+                # here and remain inaccessible through the tenant API.
                 self._platform_respond(404, {
                     'error': 'resident run not found',
                     'code': 'NOT_FOUND',
                     'run_id': run_id,
+                })
+                return
+            try:
+                artifact = runtime.replay_verify(run_id) if verify else receipt
+            except Exception as exc:
+                self._platform_respond(400, {
+                    'error': str(exc)[:120],
+                    'code': 'RESIDENT_RUN_REQUEST_INVALID',
                 })
                 return
             self._platform_respond(

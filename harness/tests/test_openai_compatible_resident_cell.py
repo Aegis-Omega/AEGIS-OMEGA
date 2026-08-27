@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -101,7 +102,7 @@ class OpenAICompatibleResidentCellTests(unittest.TestCase):
             observed_content_sha256="b" * 64,
             observation_root="c" * 64,
             expected_information_gain_bps=5000,
-            budget_microunits=100,
+            budget_microunits=1_000,
         )
 
     def cell(self, **overrides) -> OpenAICompatibleResidentCell:
@@ -132,6 +133,7 @@ class OpenAICompatibleResidentCellTests(unittest.TestCase):
             _InferenceHandler.requests[0]["response_format"],
             {"type": "json_object"},
         )
+        self.assertEqual(_InferenceHandler.requests[0]["max_completion_tokens"], 512)
 
     def test_malformed_model_json_never_becomes_success(self) -> None:
         _InferenceHandler.response_content = "not-json"
@@ -172,6 +174,20 @@ class OpenAICompatibleResidentCellTests(unittest.TestCase):
         self.assertEqual(len(results), 5)
         self.assertTrue(all(result.status == "SUCCEEDED" for result in results))
         self.assertLessEqual(_InferenceHandler.max_active, 2)
+
+    def test_provider_response_bytes_are_bounded_and_fail_closed(self) -> None:
+        _InferenceHandler.response_content = "x" * 4_096
+
+        result = self.cell(max_response_bytes=512).analyze(self.packet)
+
+        self.assertEqual(result.status, "MALFORMED")
+        self.assertEqual(result.hypothesis, "")
+
+    def test_worst_case_provider_cost_over_budget_stops_before_call(self) -> None:
+        result = self.cell().analyze(replace(self.packet, budget_microunits=0))
+
+        self.assertEqual(result.status, "BUDGET_EXHAUSTED")
+        self.assertEqual(_InferenceHandler.requests, [])
 
 
 if __name__ == "__main__":

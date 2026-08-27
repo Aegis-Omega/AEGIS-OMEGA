@@ -19,6 +19,7 @@ from harness.sdk.resident_runtime import (
     FalsifierResultV1,
     RepositoryEventV1,
     ResidentRuntime,
+    ResidentRuntimeError,
 )
 
 
@@ -42,12 +43,16 @@ class _Cell:
         evidence_mode: str = "sensor",
         cost_microunits: int = 1,
         correlated_failure_group: str = "resident-cell",
+        hypothesis: str | None = None,
+        predicted_content_sha256: str | None = None,
     ) -> None:
         self.status = status
         self.escalation_reason = escalation_reason
         self.evidence_mode = evidence_mode
         self.cost_microunits = cost_microunits
         self.correlated_failure_group = correlated_failure_group
+        self.hypothesis = hypothesis
+        self.predicted_content_sha256 = predicted_content_sha256
         self.calls = 0
 
     def analyze(self, packet: AnalysisPacketV1) -> CellResultV1:
@@ -61,11 +66,13 @@ class _Cell:
         return CellResultV1(
             status=self.status,
             classification="repository_integrity",
-            hypothesis=(
+            hypothesis=self.hypothesis or (
                 f"At {packet.repository_head}, {packet.changed_path} has content "
                 f"digest {packet.observed_content_sha256}."
             ),
-            predicted_content_sha256=packet.observed_content_sha256,
+            predicted_content_sha256=(
+                self.predicted_content_sha256 or packet.observed_content_sha256
+            ),
             confidence_bps=6500,
             escalation_reason=self.escalation_reason,
             evidence_roots=roots,
@@ -215,6 +222,25 @@ class ResidentRuntimeTests(unittest.TestCase):
         self.assertTrue(replay.lineage_verified)
         self.assertFalse(replay.semantic_truth_proven)
 
+    def test_replay_rejects_outer_receipt_spliced_from_hashed_bundle(self) -> None:
+        runtime = self.runtime()
+        receipt = runtime.process_repository_event(self.event("outer-receipt-splice"))
+        bundle_path = self.state / "runs" / f"{receipt.run_id}.json"
+        payload = json.loads(bundle_path.read_text(encoding="utf-8"))
+        payload["receipt"]["knowledge_decision"] = (
+            "REJECTED" if receipt.knowledge_decision != "REJECTED" else "UNKNOWN"
+        )
+        bundle_path.write_text(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")),
+            encoding="utf-8",
+        )
+
+        replay = runtime.replay_verify(receipt.run_id)
+
+        self.assertFalse(replay.integrity_verified)
+        self.assertFalse(replay.lineage_verified)
+        self.assertIn("BUNDLE_RECEIPT_MISMATCH", replay.reason_codes)
+
     def test_local_model_unavailable_is_unknown_without_fabricated_experiment(self) -> None:
         receipt = self.runtime(microcell=_Cell(status="UNAVAILABLE")).process_repository_event(
             self.event("local-unavailable")
@@ -295,6 +321,33 @@ class ResidentRuntimeTests(unittest.TestCase):
         self.assertEqual(receipt.knowledge_decision, REJECTED)
         self.assertIn("EXPERIMENT_POSTCONDITION_FAILED", receipt.reason_codes)
 
+    def test_model_prediction_mismatch_is_rejected_by_real_experiment(self) -> None:
+        receipt = self.runtime(
+            microcell=_Cell(predicted_content_sha256="f" * 64),
+            builder=None,
+            falsifier=None,
+        ).process_repository_event(self.event("prediction-mismatch"))
+
+        self.assertEqual(receipt.knowledge_decision, REJECTED)
+        self.assertIn("EXPERIMENT_POSTCONDITION_FAILED", receipt.reason_codes)
+        self.assertIsNone(receipt.admitted_claim_kind)
+
+    def test_verified_result_does_not_promote_arbitrary_model_statement(self) -> None:
+        false_statement = "FALSE: this repository authorizes production D4 mutation."
+        receipt = self.runtime(
+            microcell=_Cell(hypothesis=false_statement),
+        ).process_repository_event(self.event("false-model-statement"))
+
+        self.assertEqual(receipt.knowledge_decision, VERIFIED)
+        bundle = json.loads(
+            (self.state / "runs" / f"{receipt.run_id}.json").read_text(encoding="utf-8")
+        )["bundle_body"]
+        self.assertEqual(bundle["candidate_claim"]["statement"], false_statement)
+        self.assertEqual(bundle["candidate_claim"]["epistemic_tier"], "T2")
+        self.assertNotEqual(bundle["admitted_claim"]["statement"], false_statement)
+        self.assertIn("matched preregistered SHA-256 prediction", bundle["admitted_claim"]["statement"])
+        self.assertEqual(bundle["admitted_claim"]["epistemic_tier"], "T1")
+
     def test_sandbox_timeout_is_unknown(self) -> None:
         receipt = self.runtime(builder=_Builder("TIMED_OUT")).process_repository_event(
             self.event("timeout")
@@ -318,6 +371,41 @@ class ResidentRuntimeTests(unittest.TestCase):
         self.assertEqual(second.run_id, first.run_id)
         self.assertEqual(second.bundle_digest, first.bundle_digest)
         self.assertEqual(cell.calls, 1)
+
+    def test_idempotency_and_event_ids_are_scoped_by_requester(self) -> None:
+        runtime = self.runtime()
+        first = runtime.process_repository_event(
+            self.event("shared-id", requester_root="a" * 64)
+        )
+        second = runtime.process_repository_event(
+            self.event("shared-id", requester_root="b" * 64)
+        )
+
+        self.assertNotEqual(first.run_id, second.run_id)
+        self.assertEqual(first.knowledge_decision, VERIFIED)
+        self.assertEqual(second.knowledge_decision, VERIFIED)
+
+    def test_oversized_event_is_rejected_before_persistence(self) -> None:
+        runtime = self.runtime()
+
+        with self.assertRaisesRegex(ResidentRuntimeError, "QUESTION_TOO_LARGE"):
+            runtime.process_repository_event(self.event("oversized", question="q" * 16_385))
+
+        with runtime.store._connect() as connection:
+            count = connection.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+        self.assertEqual(count, 0)
+
+    def test_attacker_selected_extreme_budgets_are_rejected(self) -> None:
+        runtime = self.runtime()
+
+        with self.assertRaisesRegex(ResidentRuntimeError, "COST_BUDGET_INVALID"):
+            runtime.process_repository_event(
+                self.event("cost-ceiling", max_cost_microunits=100_001)
+            )
+        with self.assertRaisesRegex(ResidentRuntimeError, "LATENCY_BUDGET_INVALID"):
+            runtime.process_repository_event(
+                self.event("latency-ceiling", max_latency_ms=120_001)
+            )
 
     def test_dirty_worktree_contradicting_head_is_quarantined(self) -> None:
         (self.root / "observed.txt").write_text("uncommitted contradiction\n", encoding="utf-8")

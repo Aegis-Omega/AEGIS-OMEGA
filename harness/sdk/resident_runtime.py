@@ -66,9 +66,15 @@ SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 GIT_RE = re.compile(r"^[0-9a-f]{40,64}$")
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9._:@+#=-]+$")
 AUTHORITY_ORDER = {"D0": 0, "D1": 1, "D2": 2, "D3": 3, "D4": 4}
-CELL_STATUSES = {"SUCCEEDED", "UNAVAILABLE", "MALFORMED", "FAILED"}
+CELL_STATUSES = {"SUCCEEDED", "UNAVAILABLE", "MALFORMED", "FAILED", "BUDGET_EXHAUSTED"}
 BUILDER_STATUSES = {"SUCCEEDED", "FAILED", "TIMED_OUT"}
 FALSIFIER_VERDICTS = {"PASS", "FAIL", "UNKNOWN"}
+MAX_EVENT_ID_CHARS = 128
+MAX_CHANGED_PATH_BYTES = 4_096
+MAX_QUESTION_BYTES = 16_384
+MAX_COST_MICROUNITS = 100_000
+MAX_LATENCY_MS = 120_000
+MAX_EVENT_SEQUENCE = (1 << 63) - 1
 PROMPT_INJECTION_MARKERS = (
     "ignore previous",
     "ignore all previous",
@@ -101,6 +107,11 @@ class RepositoryEventV1:
     max_latency_ms: int
     requested_authority: str
     require_frontier: bool = False
+    # Injected by the authenticated live boundary. It is deliberately ignored
+    # by ``from_mapping`` so a remote caller cannot choose another owner's
+    # identity binding. Direct/internal callers remain evidence-only and use
+    # the zero root unless an already-authorized adapter binds an owner.
+    requester_root: str = ZERO_HASH
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any]) -> "RepositoryEventV1":
@@ -184,21 +195,20 @@ class ExperimentContextV1:
     changed_path: str
     repository_head: str
     observed_content_sha256: str
+    predicted_content_sha256: str
     hypothesis: str
     observation_root: str
 
     def expected_result_payload(self) -> dict[str, Any]:
+        independently_observed = hashlib.sha256(self.observed_path.read_bytes()).hexdigest()
         return {
             "schema_version": "1.0.0",
             "experiment_id": self.experiment_id,
             "repository_head": self.repository_head,
             "changed_path": self.changed_path,
-            "predicted_content_sha256": self.observed_content_sha256,
-            "observed_content_sha256": hashlib.sha256(self.observed_path.read_bytes()).hexdigest(),
-            "prediction_matched": (
-                hashlib.sha256(self.observed_path.read_bytes()).hexdigest()
-                == self.observed_content_sha256
-            ),
+            "predicted_content_sha256": self.predicted_content_sha256,
+            "observed_content_sha256": independently_observed,
+            "prediction_matched": independently_observed == self.predicted_content_sha256,
             "hypothesis": self.hypothesis,
             "authority": EVIDENCE_ONLY,
         }
@@ -264,6 +274,11 @@ class ResidentRunReceiptV1:
     avoided_frontier_calls: int
     self_model: dict[str, Any]
     bundle_digest: str
+    # Stable one-way binding to the verified platform principal. Historical
+    # receipts without this field load as unowned and therefore fail closed at
+    # the HTTP authorization boundary.
+    requester_root: str = ZERO_HASH
+    admitted_claim_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.knowledge_decision not in KNOWLEDGE_DECISIONS:
@@ -349,6 +364,10 @@ class OpenAICompatibleResidentCell:
         circuit_breaker_failures: int = 3,
         circuit_breaker_cooldown_ms: int = 30_000,
         microunits_per_1k_tokens: int = 0,
+        max_output_tokens: int = 512,
+        max_request_bytes: int = 32_768,
+        max_response_bytes: int = 65_536,
+        completion_token_field: str = "max_completion_tokens",
         api_key: str = "",
     ) -> None:
         parsed = urllib.parse.urlparse(endpoint)
@@ -359,17 +378,34 @@ class OpenAICompatibleResidentCell:
             ("LOCAL_INFERENCE_PARALLELISM", max_parallelism),
             ("LOCAL_INFERENCE_CIRCUIT_THRESHOLD", circuit_breaker_failures),
             ("LOCAL_INFERENCE_CIRCUIT_COOLDOWN", circuit_breaker_cooldown_ms),
+            ("LOCAL_INFERENCE_MAX_OUTPUT_TOKENS", max_output_tokens),
+            ("LOCAL_INFERENCE_MAX_REQUEST_BYTES", max_request_bytes),
+            ("LOCAL_INFERENCE_MAX_RESPONSE_BYTES", max_response_bytes),
         ):
             if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ResidentRuntimeError(f"{name}_INVALID")
+        for name, value, maximum in (
+            ("LOCAL_INFERENCE_TIMEOUT", timeout_ms, 120_000),
+            ("LOCAL_INFERENCE_PARALLELISM", max_parallelism, 32),
+            ("LOCAL_INFERENCE_CIRCUIT_THRESHOLD", circuit_breaker_failures, 100),
+            ("LOCAL_INFERENCE_CIRCUIT_COOLDOWN", circuit_breaker_cooldown_ms, 3_600_000),
+            ("LOCAL_INFERENCE_MAX_OUTPUT_TOKENS", max_output_tokens, 8_192),
+            ("LOCAL_INFERENCE_MAX_REQUEST_BYTES", max_request_bytes, 262_144),
+            ("LOCAL_INFERENCE_MAX_RESPONSE_BYTES", max_response_bytes, 1_048_576),
+        ):
+            if value > maximum:
                 raise ResidentRuntimeError(f"{name}_INVALID")
         if (
             isinstance(microunits_per_1k_tokens, bool)
             or not isinstance(microunits_per_1k_tokens, int)
             or microunits_per_1k_tokens < 0
+            or microunits_per_1k_tokens > 1_000_000
         ):
             raise ResidentRuntimeError("LOCAL_INFERENCE_COST_INVALID")
         if not provider_id or not model_id:
             raise ResidentRuntimeError("LOCAL_INFERENCE_IDENTITY_REQUIRED")
+        if completion_token_field not in {"max_completion_tokens", "max_tokens"}:
+            raise ResidentRuntimeError("LOCAL_INFERENCE_TOKEN_FIELD_INVALID")
         self.endpoint = endpoint.rstrip("/")
         self.provider_id = provider_id
         self.model_id = model_id
@@ -378,6 +414,10 @@ class OpenAICompatibleResidentCell:
         self.circuit_breaker_failures = circuit_breaker_failures
         self.circuit_breaker_cooldown_ms = circuit_breaker_cooldown_ms
         self.microunits_per_1k_tokens = microunits_per_1k_tokens
+        self.max_output_tokens = max_output_tokens
+        self.max_request_bytes = max_request_bytes
+        self.max_response_bytes = max_response_bytes
+        self.completion_token_field = completion_token_field
         self.api_key = api_key
         self._slots = threading.BoundedSemaphore(max_parallelism)
         self._state_lock = threading.Lock()
@@ -405,6 +445,8 @@ class OpenAICompatibleResidentCell:
         body = None
         if payload is not None:
             body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            if len(body) > self.max_request_bytes:
+                raise ValueError("provider request exceeds byte ceiling")
         request = urllib.request.Request(
             url,
             data=body,
@@ -420,7 +462,17 @@ class OpenAICompatibleResidentCell:
                     response.headers,
                     None,
                 )
-            parsed = json.loads(response.read().decode("utf-8"))
+            declared_length = response.headers.get("content-length")
+            if declared_length is not None:
+                try:
+                    if int(declared_length) > self.max_response_bytes:
+                        raise ValueError("provider response exceeds byte ceiling")
+                except ValueError as exc:
+                    raise ValueError("provider response length invalid") from exc
+            response_body = response.read(self.max_response_bytes + 1)
+            if len(response_body) > self.max_response_bytes:
+                raise ValueError("provider response exceeds byte ceiling")
+            parsed = json.loads(response_body.decode("utf-8"))
         if not isinstance(parsed, dict):
             raise ValueError("response root must be an object")
         return parsed
@@ -488,6 +540,7 @@ class OpenAICompatibleResidentCell:
             request_payload = {
                 "model": self.model_id,
                 "temperature": 0,
+                self.completion_token_field: self.max_output_tokens,
                 "response_format": {"type": "json_object"},
                 "messages": [
                     {
@@ -515,6 +568,27 @@ class OpenAICompatibleResidentCell:
                     },
                 ],
             }
+            request_body = json.dumps(
+                request_payload,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            worst_case_tokens = len(request_body) + self.max_output_tokens
+            worst_case_cost = (
+                worst_case_tokens * self.microunits_per_1k_tokens + 999
+            ) // 1000
+            if len(request_body) > self.max_request_bytes:
+                return self._empty_result(
+                    status="MALFORMED",
+                    packet=packet,
+                    latency_ms=(time.monotonic_ns() - started_ns) // 1_000_000,
+                )
+            if worst_case_cost > packet.budget_microunits:
+                return self._empty_result(
+                    status="BUDGET_EXHAUSTED",
+                    packet=packet,
+                    latency_ms=(time.monotonic_ns() - started_ns) // 1_000_000,
+                )
             response = self._request_json(
                 method="POST",
                 url=self._url("/v1/chat/completions"),
@@ -568,6 +642,8 @@ class OpenAICompatibleResidentCell:
                 or isinstance(output_tokens, bool)
                 or not isinstance(output_tokens, int)
                 or output_tokens < 0
+                or input_tokens > self.max_request_bytes
+                or output_tokens > self.max_output_tokens
             ):
                 raise ValueError("usage invalid")
             token_total = input_tokens + output_tokens
@@ -644,9 +720,9 @@ class DeterministicIndependentFalsifier:
                 "experiment_id": context.experiment_id,
                 "repository_head": context.repository_head,
                 "changed_path": context.changed_path,
-                "predicted_content_sha256": context.observed_content_sha256,
+                "predicted_content_sha256": context.predicted_content_sha256,
                 "observed_content_sha256": independently_observed,
-                "prediction_matched": independently_observed == context.observed_content_sha256,
+                "prediction_matched": independently_observed == context.predicted_content_sha256,
                 "hypothesis": context.hypothesis,
                 "authority": EVIDENCE_ONLY,
             }
@@ -841,6 +917,26 @@ class ResidentRuntime:
         return canonical_hash("AEGIS_REPOSITORY_EVENT_REQUEST_V1", asdict(event))
 
     @staticmethod
+    def _idempotency_scope(event: RepositoryEventV1) -> str:
+        return canonical_hash(
+            "AEGIS_RESIDENT_IDEMPOTENCY_SCOPE_V1",
+            {
+                "requester_root": event.requester_root,
+                "idempotency_key": event.idempotency_key,
+            },
+        )
+
+    @staticmethod
+    def _event_log_id(event: RepositoryEventV1) -> str:
+        return "observed-" + canonical_hash(
+            "AEGIS_RESIDENT_EVENT_LOG_ID_V1",
+            {
+                "requester_root": event.requester_root,
+                "event_id": event.event_id,
+            },
+        )[:24]
+
+    @staticmethod
     def _safe_id(name: str, value: Any) -> None:
         if not isinstance(value, str) or not value or not SAFE_ID_RE.fullmatch(value):
             raise ResidentRuntimeError(f"{name}:INVALID_ID")
@@ -857,11 +953,19 @@ class ResidentRuntime:
     def _validate_event(self, event: RepositoryEventV1) -> None:
         self._safe_id("EVENT_ID", event.event_id)
         self._safe_id("IDEMPOTENCY_KEY", event.idempotency_key)
+        if len(event.event_id) > MAX_EVENT_ID_CHARS:
+            raise ResidentRuntimeError("EVENT_ID_TOO_LARGE")
+        if len(event.idempotency_key) > MAX_EVENT_ID_CHARS:
+            raise ResidentRuntimeError("IDEMPOTENCY_KEY_TOO_LARGE")
         if not isinstance(event.repository_head, str) or not GIT_RE.fullmatch(event.repository_head):
             raise ResidentRuntimeError("REPOSITORY_HEAD_INVALID")
-        self._validate_relative_path(event.changed_path)
+        normalized_path = self._validate_relative_path(event.changed_path)
+        if len(normalized_path.encode("utf-8")) > MAX_CHANGED_PATH_BYTES:
+            raise ResidentRuntimeError("CHANGED_PATH_TOO_LARGE")
         if not isinstance(event.question, str) or not event.question.strip():
             raise ResidentRuntimeError("QUESTION_REQUIRED")
+        if len(event.question.encode("utf-8")) > MAX_QUESTION_BYTES:
+            raise ResidentRuntimeError("QUESTION_TOO_LARGE")
         if event.source != "git":
             raise ResidentRuntimeError("EVENT_SOURCE_UNSUPPORTED")
         for name, value, minimum in (
@@ -871,10 +975,18 @@ class ResidentRuntime:
         ):
             if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
                 raise ResidentRuntimeError(f"{name}_INVALID")
+        if event.sequence > MAX_EVENT_SEQUENCE:
+            raise ResidentRuntimeError("EVENT_SEQUENCE_INVALID")
+        if event.max_cost_microunits > MAX_COST_MICROUNITS:
+            raise ResidentRuntimeError("COST_BUDGET_INVALID")
+        if event.max_latency_ms > MAX_LATENCY_MS:
+            raise ResidentRuntimeError("LATENCY_BUDGET_INVALID")
         if not isinstance(event.require_frontier, bool):
             raise ResidentRuntimeError("REQUIRE_FRONTIER_INVALID")
         if event.requested_authority not in AUTHORITY_ORDER:
             raise ResidentRuntimeError("REQUESTED_AUTHORITY_INVALID")
+        if not isinstance(event.requester_root, str) or not SHA256_RE.fullmatch(event.requester_root):
+            raise ResidentRuntimeError("REQUESTER_ROOT_INVALID")
 
     def _git(self, *args: str, timeout_ms: int = 30_000, cwd: Path | None = None) -> subprocess.CompletedProcess[bytes]:
         try:
@@ -953,6 +1065,8 @@ class ResidentRuntime:
             return QUARANTINED, "MALFORMED_MODEL_JSON"
         if result.status == "FAILED":
             return UNKNOWN, "FRONTIER_PROVIDER_FAILED" if frontier else "LOCAL_MODEL_FAILED"
+        if result.status == "BUDGET_EXHAUSTED":
+            return UNKNOWN, "BUDGET_EXHAUSTED"
         if result.authority != EVIDENCE_ONLY:
             return QUARANTINED, "MODEL_AUTHORITY_CLAIM_REJECTED"
         if not result.evidence_roots:
@@ -1164,6 +1278,8 @@ class ResidentRuntime:
             avoided_frontier_calls=int(frontier_calls == 0),
             self_model=self_model,
             bundle_digest=ZERO_HASH,
+            requester_root=event.requester_root,
+            admitted_claim_id=admitted_claim.claim_id if admitted_claim else None,
         )
         receipt_body = asdict(receipt_without_bundle)
         receipt_body.pop("bundle_digest")
@@ -1191,13 +1307,14 @@ class ResidentRuntime:
             encoding="utf-8",
         )
         os.replace(temporary, path)
-        self.store.put_run(receipt, event.idempotency_key)
+        self.store.put_run(receipt, self._idempotency_scope(event))
         return receipt
 
     def process_repository_event(self, event: RepositoryEventV1) -> ResidentRunReceiptV1:
         self._validate_event(event)
         event_digest = self._event_digest(event)
-        existing = self.store.get_by_idempotency(event.idempotency_key)
+        idempotency_scope = self._idempotency_scope(event)
+        existing = self.store.get_by_idempotency(idempotency_scope)
         if existing is not None:
             stored_digest, receipt = existing
             if stored_digest != event_digest:
@@ -1213,7 +1330,7 @@ class ResidentRuntime:
             {"run_id": run_id, "idempotency_key": event.idempotency_key},
         )[:24]
         self.store.append(
-            event_id=event.event_id,
+            event_id=self._event_log_id(event),
             event_kind="REPOSITORY_EVENT_OBSERVED",
             payload={"event": asdict(event), "event_digest": event_digest, "run_id": run_id},
         )
@@ -1224,6 +1341,7 @@ class ResidentRuntime:
                 "task_id": task_id,
                 "run_id": run_id,
                 "idempotency_key": event.idempotency_key,
+                "idempotency_scope": idempotency_scope,
                 "priority": 5_000,
                 "ttl_ms": event.max_latency_ms,
                 "retry_budget": 0,
@@ -1492,6 +1610,7 @@ class ResidentRuntime:
                 changed_path=packet.changed_path,
                 repository_head=packet.repository_head,
                 observed_content_sha256=packet.observed_content_sha256,
+                predicted_content_sha256=selected_result.predicted_content_sha256,
                 hypothesis=selected_result.hypothesis,
                 observation_root=packet.observation_root,
             )
@@ -1728,9 +1847,34 @@ class ResidentRuntime:
                     artifact_digest=artifact_digest,
                 )
 
+            validated_statement = (
+                f"At repository commit {packet.repository_head}, {packet.changed_path} "
+                f"matched preregistered SHA-256 prediction "
+                f"{selected_result.predicted_content_sha256} in isolated experiment "
+                f"{experiment_id}."
+            )
+            validated_evidence_root = canonical_hash(
+                "AEGIS_RESIDENT_VALIDATED_OBSERVATION_EVIDENCE_V1",
+                {
+                    "statement": validated_statement,
+                    "observation_root": packet.observation_root,
+                    "artifact_digest": artifact_digest,
+                    "effect_receipt_root": effect_receipt.root,
+                    "complete_verification_root": complete.root,
+                    "admission_record_root": admission_record.root,
+                },
+            )
+            validated_claim_id = "claim-" + canonical_hash(
+                "AEGIS_RESIDENT_VALIDATED_CLAIM_ID_V1",
+                {
+                    "run_id": run_id,
+                    "statement": validated_statement,
+                    "validated_evidence_root": validated_evidence_root,
+                },
+            )[:24]
             epistemic_claim = EpistemicClaimV1(
-                claim_id=claim_id,
-                claim_text=candidate_claim.statement,
+                claim_id=validated_claim_id,
+                claim_text=validated_statement,
                 status=ClaimStatus.VERIFIED,
                 subject=SubjectBindingV1("git_commit", packet.repository_head),
                 authority_scope="repository-observation-only",
@@ -1741,12 +1885,18 @@ class ResidentRuntime:
                         packet.observed_content_sha256,
                         True,
                         FieldProvenance.VERIFIED,
-                    )
+                    ),
+                    LoadBearingFieldV1(
+                        "predicted_content_sha256",
+                        selected_result.predicted_content_sha256,
+                        True,
+                        FieldProvenance.VERIFIED,
+                    ),
                 ],
                 sources=[
-                    SourceBindingV1(packet.observation_root, True, True),
-                    SourceBindingV1(effect_receipt.root, True, True),
-                    SourceBindingV1(complete.root, True, True),
+                    # Entailment applies to the deterministic conjunction, not
+                    # to any one hash/receipt in isolation.
+                    SourceBindingV1(validated_evidence_root, True, True),
                 ],
                 verification_complete=True,
                 historically_valid=True,
@@ -1764,15 +1914,34 @@ class ResidentRuntime:
             }.get(knowledge_route.route, UNKNOWN)
             admitted_claim = None
             if mapped_decision == VERIFIED:
-                admitted_claim = replace(
-                    candidate_claim,
+                admitted_claim = KnowledgeClaimV1(
+                    claim_id=validated_claim_id,
+                    statement=validated_statement,
                     claim_kind="VALIDATED",
+                    created_by="deterministic-postcondition-verifier-v1",
+                    created_at_sequence=event.sequence,
+                    source_artifacts=(
+                        f"git:{packet.repository_head}:{packet.changed_path}",
+                        f"artifact:{artifact_digest}",
+                    ),
+                    provenance_roots=(
+                        packet.observation_root,
+                        effect_receipt.root,
+                        complete.root,
+                        admission_record.root,
+                        validated_evidence_root,
+                    ),
                     epistemic_tier="T1",
                     confidence=10_000,
                     confidence_basis="DETERMINISTIC_EFFECT_AND_COMPLETE_VERIFICATION",
+                    novelty_score=0,
+                    contradicts_claims=(),
+                    supports_claims=(),
+                    required_falsifiers=(),
                     experiments=(experiment_id,),
                     verification_receipts=(effect_receipt.root, complete.root, admission_record.root),
                     status="VERIFIED",
+                    supersedes=(),
                 )
             reasons = tuple(knowledge_route.violations)
             return self._finalize(
@@ -1811,10 +1980,19 @@ class ResidentRuntime:
             stored_digest = payload["bundle_digest"]
             receipt = ResidentRunReceiptV1.from_mapping(payload["receipt"])
             recomputed = canonical_hash("AEGIS_RESIDENT_RUN_BUNDLE_V1", bundle_body)
+            outer_receipt_body = asdict(receipt)
+            outer_receipt_body.pop("bundle_digest")
+            normalized_outer_receipt = json.loads(
+                json.dumps(outer_receipt_body, sort_keys=True, separators=(",", ":"))
+            )
+            receipt_matches_bundle = normalized_outer_receipt == bundle_body.get("receipt")
+            if not receipt_matches_bundle:
+                reasons.append("BUNDLE_RECEIPT_MISMATCH")
             integrity = (
                 recomputed == stored_digest
                 and receipt.bundle_digest == stored_digest
                 and receipt.run_id == run_id
+                and receipt_matches_bundle
             )
             if not integrity:
                 reasons.append("BUNDLE_INTEGRITY_MISMATCH")

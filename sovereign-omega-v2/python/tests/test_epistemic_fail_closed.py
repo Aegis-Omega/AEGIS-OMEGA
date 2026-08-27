@@ -89,6 +89,41 @@ class EpistemicFailClosedTests(unittest.TestCase):
         )
         mock_urlopen.assert_not_called()
 
+    @patch('urllib.request.urlopen')
+    def test_allowed_model_approval_is_candidate_only_and_cannot_award_grace(
+        self,
+        mock_urlopen,
+    ) -> None:
+        response = json.dumps(
+            {
+                'departments': [
+                    {'id': 'EPI-01', 'output': 'plausible generated analysis'},
+                ],
+                'constitutional_audit': {
+                    'verdict': 'APPROVED',
+                    'concerns': [],
+                },
+                'projection': {
+                    'first_year_arr_usd': 0,
+                    'tier': 'T2',
+                    'governed_note': 'candidate',
+                },
+            }
+        )
+
+        result = helpers._parse_swarm_response(
+            response,
+            'inspect repository event',
+            'technical',
+            self.departments,
+        )
+
+        audit = result['constitutional_audit']
+        self.assertEqual(audit['candidate_verdict'], 'APPROVED')
+        self.assertEqual(audit['verdict'], 'QUARANTINE')
+        helpers.award_graces_for_cycle('cycle-model-approved', result['artifacts'], audit['verdict'])
+        mock_urlopen.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

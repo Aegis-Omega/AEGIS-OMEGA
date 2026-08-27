@@ -1617,12 +1617,18 @@ def _parse_swarm_response(
     raw_audit = data.get('constitutional_audit', {})
     if not isinstance(raw_audit, dict):
         raw_audit = {}
-    verdict = raw_audit.get('verdict', 'QUARANTINE')
-    if verdict not in ('APPROVED', 'FLAG', 'QUARANTINE'):
-        verdict = 'QUARANTINE'
+    candidate_verdict = raw_audit.get('verdict', 'UNKNOWN')
+    if candidate_verdict not in ('APPROVED', 'FLAG', 'QUARANTINE'):
+        candidate_verdict = 'UNKNOWN'
+    # A model may propose a verdict, but cannot issue an admission decision.
+    # Until an independent deterministic/receipt-bound verifier exists for this
+    # legacy collaboration path, every generated audit remains quarantined.
+    verdict = 'QUARANTINE'
     concerns = [str(c) for c in raw_audit.get('concerns', []) if c]
-    if verdict == 'QUARANTINE' and not concerns:
-        concerns = ['Model response did not provide a recognized admission verdict.']
+    concerns.append(
+        'Model-generated constitutional verdict is candidate evidence only; '
+        'independent admission verification is unavailable.'
+    )
 
     # Projection — clamp ARR to sane range
     raw_proj = data.get('projection', {})
@@ -1637,7 +1643,12 @@ def _parse_swarm_response(
 
     return {
         'artifacts': artifacts,
-        'constitutional_audit': {'verdict': verdict, 'concerns': concerns},
+        'constitutional_audit': {
+            'verdict': verdict,
+            'candidate_verdict': candidate_verdict,
+            'authority': 'EVIDENCE_ONLY',
+            'concerns': concerns,
+        },
         'projection': {
             'first_year_arr_usd': arr_usd,
             'tier': proj_tier,
@@ -1666,6 +1677,8 @@ def _swarm_fallback(objective: str, mode: str, departments: list) -> dict:
         ],
         'constitutional_audit': {
             'verdict': 'QUARANTINE',
+            'candidate_verdict': 'UNAVAILABLE',
+            'authority': 'EVIDENCE_ONLY',
             'concerns': [
                 'Synthetic fallback output is not independent verification evidence.',
             ],
