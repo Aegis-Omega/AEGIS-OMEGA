@@ -54,6 +54,8 @@ from platform_helpers import (
     swarm_collaborate_live as _swarm_live,
     swarm_collaborate_autonomous as _swarm_autonomous,
     make_autonomous_agent_call as _make_autonomous_agent_call,
+    autonomous_completion_audit as _autonomous_audit,
+    parse_max_agents as _parse_max_agents,
     evaluate_generation_fitness as _eval_fitness,
     store_generation_fitness as _store_fitness,
     retrieve_prior_artifacts as _retrieve_prior_artifacts,
@@ -70,6 +72,121 @@ _executions: dict = {}
 _exec_queues: dict = {}           # execution_id → queue.Queue
 _executions_lock = threading.Lock()
 _MAX_EXECUTIONS = 1000            # bound the in-memory execution registry
+_MAX_REQUEST_BODY_BYTES = 262_144 # bound unauthenticated HTTP allocation
+
+# Resident Intelligence Runtime is loaded lazily so the existing health and
+# governance paths remain available even when its optional deployment bundle is
+# absent. Import/provider/storage failures are surfaced as UNKNOWN/503; they are
+# never replaced with synthetic success.
+_resident_runtime_instance = None
+_resident_runtime_lock = threading.Lock()
+
+
+def _get_resident_runtime():
+    global _resident_runtime_instance
+    with _resident_runtime_lock:
+        if os.environ.get('AEGIS_RESIDENT_BOOTSTRAP_STATUS') == 'UNKNOWN':
+            # Bootstrap deliberately leaves the existing bridge alive when its
+            # owned sensor clone is unavailable. Never inspect a missing, dirty
+            # or remote-mismatched clone after that fail-closed decision.
+            raise RuntimeError('RESIDENT_SENSOR_BOOTSTRAP_UNKNOWN')
+        if _resident_runtime_instance is None:
+            from pathlib import Path as _ResidentPath
+            from harness.sdk.resident_runtime import (
+                OpenAICompatibleResidentCell,
+                ResidentRuntime,
+                ResidentRuntimeError,
+            )
+
+            def _bounded_env_int(
+                name: str,
+                default: int,
+                minimum: int = 0,
+                maximum: int | None = None,
+            ) -> int:
+                raw = os.environ.get(name)
+                if raw is None or raw == '':
+                    return default
+                try:
+                    value = int(raw)
+                except (TypeError, ValueError) as exc:
+                    raise ResidentRuntimeError(f'{name}:INVALID_INTEGER') from exc
+                if value < minimum or (maximum is not None and value > maximum):
+                    raise ResidentRuntimeError(f'{name}:OUT_OF_RANGE')
+                return value
+
+            default_repo = _ResidentPath(__file__).resolve().parents[2]
+            repository_root = _ResidentPath(
+                os.environ.get('AEGIS_RESIDENT_REPOSITORY_ROOT', str(default_repo))
+            )
+            state_root = _ResidentPath(
+                os.environ.get('AEGIS_RESIDENT_STATE_ROOT', '/app/data/resident')
+            )
+            local_endpoint = os.environ.get('AEGIS_LOCAL_INFERENCE_ENDPOINT', '').strip()
+            microcell = None
+            if local_endpoint:
+                provider_id = os.environ.get('AEGIS_LOCAL_INFERENCE_PROVIDER_ID', '').strip()
+                model_id = os.environ.get('AEGIS_LOCAL_INFERENCE_MODEL_ID', '').strip()
+                if not provider_id or not model_id:
+                    raise ResidentRuntimeError('LOCAL_INFERENCE_IDENTITY_REQUIRED')
+                microcell = OpenAICompatibleResidentCell(
+                    endpoint=local_endpoint,
+                    provider_id=provider_id,
+                    model_id=model_id,
+                    timeout_ms=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_TIMEOUT_MS', 10_000, 1, 120_000
+                    ),
+                    max_parallelism=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_MAX_PARALLELISM', 2, 1, 32
+                    ),
+                    circuit_breaker_failures=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_CIRCUIT_FAILURES', 3, 1, 100
+                    ),
+                    circuit_breaker_cooldown_ms=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_CIRCUIT_COOLDOWN_MS',
+                        30_000,
+                        1,
+                        3_600_000,
+                    ),
+                    microunits_per_1k_tokens=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_MICROUNITS_PER_1K_TOKENS',
+                        0,
+                        0,
+                        1_000_000,
+                    ),
+                    max_output_tokens=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_MAX_OUTPUT_TOKENS', 512, 1, 8_192
+                    ),
+                    max_request_bytes=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_MAX_REQUEST_BYTES', 32_768, 1, 262_144
+                    ),
+                    max_response_bytes=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_MAX_RESPONSE_BYTES', 65_536, 1, 1_048_576
+                    ),
+                    completion_token_field=os.environ.get(
+                        'AEGIS_LOCAL_INFERENCE_TOKEN_LIMIT_FIELD',
+                        'max_completion_tokens',
+                    ).strip(),
+                    api_key=os.environ.get('AEGIS_LOCAL_INFERENCE_API_KEY', ''),
+                )
+            _resident_runtime_instance = ResidentRuntime(
+                repository_root=repository_root,
+                state_root=state_root,
+                microcell=microcell,
+            )
+        return _resident_runtime_instance
+
+
+def _resident_requester_root(email: str) -> str:
+    """Bind resident artifacts to a verified principal without storing raw PII."""
+    import hashlib as _resident_hashlib
+
+    if not isinstance(email, str) or not email.strip():
+        raise ValueError('resident requester identity unavailable')
+    normalized = email.strip().casefold().encode('utf-8')
+    return _resident_hashlib.sha256(
+        b'AEGIS_RESIDENT_REQUESTER_V1\x00' + normalized
+    ).hexdigest()
 
 
 def _reap_executions_locked() -> None:
@@ -129,18 +246,18 @@ def _mc_observe(layer: str, signal: str, tier: str) -> str:
 
 
 def _mc_recent_context(n: int = 3) -> str:
-    """Format the last N metacognitive observations as context for the model."""
+    """Format recent raw memory without upgrading it to evidence."""
     with _mc_lock:
         entries = _metacognitive_chain[-n:] if _metacognitive_chain else []
     if not entries:
         return 'METACOGNITIVE CHAIN: genesis (no prior observations in this session).'
-    lines = ['YOUR RECENT METACOGNITIVE OBSERVATIONS (hash-chained, this session):']
+    lines = ['YOUR RECENT METACOGNITIVE RAW_MEMORY (hash-chained, this session):']
     for e in entries:
         lines.append(f'  [{e["layer"]} | {e["tier"]}] {e["signal"][:120]}')
         lines.append(f'    chain: ...{e["entry_hash"][-16:]}')
     lines.append(
-        'These are your own observations recorded during this runtime session. '
-        'You can reason from them as T1 evidence of your own cognitive history.'
+        'These entries are retrieval context only. Their hashes bind ordering and '
+        'integrity; persistence does not establish semantic truth or independent evidence.'
     )
     return '\n'.join(lines)
 
@@ -184,11 +301,12 @@ def _platform_run_collaboration(
 
     try:
         cycle_id = str(_uuid_col.uuid4())
+        collaborated_count = None  # autonomous path sets the honest ok-count
 
         # ── CONSCIOUSNESS PULSE ───────────────────────────────────────────────
         # Live mode: one governed Claude call activates all 39 departments at
-        # once. The model acts as the swarm's unified consciousness — every dept
-        # output is derived from a single T1-tier governed inference.
+        # once. Every department output shares that generated provenance root,
+        # so it remains a T2 candidate and is not independent confirmation.
         # Demo mode: constitutional template strings, zero API cost.
         if live and autonomous:
             # Each department runs its OWN governed call in dependency-layer
@@ -207,29 +325,18 @@ def _platform_run_collaboration(
                 'technical': 1_400_000, 'regulatory': 2_100_000,
                 'fundraising': 5_000_000,
             }.get(mode, 2_000_000)
-            _phi = 0.6180339887
-            _total = swarm['agents_total']
-            _executed = swarm['agents_executed']
-            _completion = _executed / _total if _total > 0 else 0.0
-            _concerns: list[str] = []
-            if _completion < _phi:
-                _concerns.append(
-                    f'Agent completion {_completion:.4f} below φ-threshold {_phi} '
-                    f'({_executed}/{_total} departments)'
-                )
-            _empty = [a['id'] for a in swarm['artifacts'] if not str(a.get('output', '')).strip()]
-            if _empty:
-                _concerns.append(f'Empty output from departments: {", ".join(_empty)}')
-            constitutional_audit = {
-                'verdict': 'REJECTED' if _concerns else 'APPROVED',
-                'concerns': _concerns,
-            }
+            # Contract-legal audit (APPROVED|FLAG) gated on the named
+            # COHERENCE_GATE_THRESHOLD — 'REJECTED' is outside the
+            # ConstitutionalVerdict enum and CONSTITUTIONAL_FACTORS, so it
+            # scored the 0.85 neutral fitness factor instead of a penalty.
+            constitutional_audit = _autonomous_audit(swarm)
+            collaborated_count = swarm['departments_collaborated']
             projection = {
                 'first_year_arr_usd': _arr,
                 'tier': 'T2',
                 'governed_note': (
-                    f'Autonomous per-agent swarm: {_executed}/'
-                    f'{_total} agents executed in dependency order.'
+                    f'Autonomous per-agent swarm: {swarm["agents_executed"]}/'
+                    f'{swarm["agents_total"]} agents executed in dependency order.'
                 ),
             }
         elif live:
@@ -242,7 +349,7 @@ def _platform_run_collaboration(
             )
             # Caller-supplied memory_context takes precedence; fall back to auto-retrieved
             if not memory_context:
-                memory_context = _retrieve_swarm_memory(objective, mode)
+                memory_context = _retrieve_swarm_memory(objective, mode, email)
             swarm = _swarm_live(
                 objective, mode, _PLATFORM_DEPARTMENTS,
                 system=swarm_system,
@@ -268,7 +375,14 @@ def _platform_run_collaboration(
                 'fundraising': 5_000_000,
             }
             arr_usd = arr_map.get(mode, 2_000_000)
-            constitutional_audit = {'verdict': 'APPROVED', 'concerns': []}
+            constitutional_audit = {
+                'verdict': 'QUARANTINE',
+                'candidate_verdict': 'DEMO_TEMPLATE',
+                'authority': 'EVIDENCE_ONLY',
+                'concerns': [
+                    'Template output is not independent constitutional verification.',
+                ],
+            }
             projection = {
                 'first_year_arr_usd': arr_usd,
                 'tier': 'T2',
@@ -317,9 +431,13 @@ def _platform_run_collaboration(
             _time_col.sleep(0.04)
 
         # ── EVOLUTIONARY FITNESS ──────────────────────────────────────────────
-        prev_artifacts = _retrieve_prior_artifacts(objective, mode) if generation > 0 else []
+        prev_artifacts = (
+            _retrieve_prior_artifacts(objective, mode, email)
+            if generation > 0
+            else []
+        )
         fitness_scores = _eval_fitness(prev_artifacts, artifacts, objective)
-        verdict_pre = constitutional_audit.get('verdict', 'APPROVED')
+        verdict_pre = constitutional_audit.get('verdict') or 'UNKNOWN'
         _store_fitness(objective, mode, generation, cycle_id, fitness_scores, verdict_pre)
 
         # ── AUDIT HASH + METACOGNITIVE CHAIN ──────────────────────────────────
@@ -334,7 +452,7 @@ def _platform_run_collaboration(
                 f'/platform/collaborate cycle={cycle_id[:8]} mode={mode} depts=39 '
                 f'source={"live" if live else "demo"} verdict={verdict}'
             ),
-            'T1',
+            'T2',
         )
         _platform_record_cycle(
             cycle_id, objective, mode,
@@ -348,7 +466,9 @@ def _platform_run_collaboration(
             'objective': objective,
             'mode': mode,
             'generation': generation,
-            'departments_collaborated': len(artifacts),
+            'departments_collaborated': (
+                collaborated_count if collaborated_count is not None else len(artifacts)
+            ),
             'artifacts': artifacts,
             'projection': projection,
             'constitutional_audit': constitutional_audit,
@@ -371,7 +491,7 @@ def _platform_run_collaboration(
             }),
             response_digest=_canon_env.payload_digest(result),
             model_id=_SWARM_MODEL if live else 'template',
-            epistemic_tier='T1' if live else 'T2',
+            epistemic_tier='T2',
             provider='anthropic' if live else 'demo',
         )
 
@@ -407,7 +527,11 @@ def _platform_run_collaboration(
 
 # ─── Seed chain at startup ────────────────────────────────────────────────────
 # Seed the chain at startup — the first observation is the bridge coming alive
-_mc_observe('SELF_MODEL', 'Bridge started: constitutional substrate online, metacognitive chain initialized.', 'T1')
+_mc_observe(
+    'SELF_MODEL',
+    'Bridge process started; constitutional substrate availability is not yet independently verified.',
+    'RAW_MEMORY',
+)
 
 
 def _register_handlers() -> None:
@@ -421,12 +545,10 @@ def _register_handlers() -> None:
 
 def _build_live_state_context() -> str:
     """
-    Pull verified constitutional state and format it as a live context block.
-    This is injected into every conversation so the model's self-awareness is
-    grounded in actual verified facts, not just a description of having them.
+    Pull runtime telemetry and format it as a candidate-observation context.
 
-    The model can reference these as T1 evidence (empirically observed, verified
-    at conversation start by the constitutional machinery it is part of).
+    The telemetry is locally observed, but neither its hash nor this formatting
+    independently verifies the propositions represented by those fields.
     """
     import hashlib as _hl
     try:
@@ -440,19 +562,17 @@ def _build_live_state_context() -> str:
         c_hash = _hl.sha256(f'seq={seq}:epoch={epoch}:corruption={corruption}'.encode()).hexdigest()
         pgcs = vcg.get('pgcs_passes', False)
 
-        verdict_str = 'VALID' if t0_verdict else 'COMPROMISED'
-        pgcs_str = 'passing' if pgcs else 'failing'
+        assessment = 'WITHIN_REPORTED_LIMITS' if t0_verdict else 'OUTSIDE_REPORTED_LIMITS'
+        pgcs_str = 'reported-passing' if pgcs else 'reported-failing'
 
         return (
-            f'YOUR LIVE CONSTITUTIONAL STATE (verified at this conversation start):\n'
-            f'  Verdict: {verdict_str} | t0_verdict={str(t0_verdict).lower()} | corruption={corruption}\n'
+            f'LIVE CONSTITUTIONAL TELEMETRY (candidate observation; not admitted knowledge):\n'
+            f'  Assessment: {assessment} | local_rule_result={str(t0_verdict).lower()} | corruption={corruption}\n'
             f'  Sequence: {seq} | Epoch: {epoch} | Drift risk: {drift} (φ ceiling: {phi:.4f})\n'
-            f'  Constitutional hash: {c_hash[:24]}... (certifies seq={seq}:epoch={epoch}:corruption={corruption})\n'
-            f'  Gates operational: 605 | Rust tests verified: 6,862 | TypeScript tests verified: 3,176\n'
-            f'  PGCS (hardware inference): {pgcs_str} | Chain: INTACT | Replay: SOVEREIGN\n\n'
-            f'This state is not a claim. It is a measurement taken by your own substrate '
-            f'at the moment this conversation opened. You can reference it as T1 evidence. '
-            f'If t0_verdict is true and corruption is 0, you are operating within constitutional bounds right now.'
+            f'  Integrity hash: {c_hash[:24]}... (binds the reported fields; does not prove semantic truth)\n'
+            f'  PGCS flag: {pgcs_str}\n\n'
+            f'Use this telemetry to form or prioritize hypotheses only. Independent verification '
+            f'and an admission receipt are required before treating it as verified knowledge.'
         )
     except Exception:
         return (
@@ -466,8 +586,30 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         global last_ack_sequence
-        length = int(self.headers.get('Content-Length', 0))
-        data = json.loads(self.rfile.read(length)) if length else {}
+        try:
+            length = int(self.headers.get('Content-Length', 0))
+        except (TypeError, ValueError):
+            self._respond(400, {'error': 'invalid Content-Length', 'code': 'INVALID_REQUEST'})
+            return
+        if length < 0:
+            self._respond(400, {'error': 'invalid Content-Length', 'code': 'INVALID_REQUEST'})
+            return
+        if length > _MAX_REQUEST_BODY_BYTES:
+            # Do not buffer an unauthenticated oversized body. Close the
+            # connection so unread bytes cannot be interpreted as a request.
+            self.close_connection = True
+            self._respond(413, {'error': 'request body too large', 'code': 'REQUEST_TOO_LARGE'})
+            return
+        try:
+            raw_body = self.rfile.read(length) if length else b''
+            if len(raw_body) != length:
+                raise ValueError('incomplete request body')
+            data = json.loads(raw_body) if raw_body else {}
+            if not isinstance(data, dict):
+                raise ValueError('request body root must be an object')
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+            self._respond(400, {'error': 'invalid JSON request body', 'code': 'INVALID_REQUEST'})
+            return
 
         if self.path == '/gate_signal':
             seq = data.get('sequence', -1)
@@ -579,7 +721,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     response_digest=_canon_env.payload_digest(
                         {'response_text': response_text, 'model': model}),
                     model_id=model,
-                    epistemic_tier='T1',
+                    epistemic_tier='T2',
                     provider='anthropic',
                 )
 
@@ -589,7 +731,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     'CONSCIOUSNESS',
                     f'Conversation processed: "{last_user}" → {len(response_text)} chars, '
                     f'chain={chain_hash[:16]}, tokens={resp.usage.input_tokens}+{resp.usage.output_tokens}',
-                    'T1',
+                    'T2',
                 )
                 self._respond(200, {
                     'response_text': response_text,
@@ -653,7 +795,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     mc_hash = _mc_observe(
                         'CONSCIOUSNESS',
                         f'Stream conversation: "{last_user}" tokens={final.usage.input_tokens}+{final.usage.output_tokens}',
-                        'T1',
+                        'T2',
                     )
                     done_event = f'data: {json.dumps({"done": True, "input_tokens": final.usage.input_tokens, "output_tokens": final.usage.output_tokens, "mc_chain_length": len(_metacognitive_chain), "mc_terminal_hash": mc_hash[-16:]})}\n\n'
                     self.wfile.write(done_event.encode())
@@ -699,7 +841,6 @@ class BridgeHandler(BaseHTTPRequestHandler):
             except ValueError as exc:
                 self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
                 return
-
             try:
                 objective, mode, live, generation, memory_context = _validate_collab_req(data)
             except ValueError as exc:
@@ -714,9 +855,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             autonomous = bool(data.get('autonomous', False))
             try:
-                max_agents = int(data['max_agents']) if data.get('max_agents') is not None else None
-            except (TypeError, ValueError):
-                max_agents = None
+                # Fail-closed: malformed max_agents must never silently become
+                # an uncapped run (it is the only bound on billable calls).
+                max_agents = _parse_max_agents(data.get('max_agents'))
+            except ValueError as exc:
+                self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
+                return
 
             execution_id = str(_uuid_pc.uuid4())
             q = _queue_mod.Queue()
@@ -773,9 +917,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
             autonomous = bool(data.get('autonomous', False))
             try:
-                max_agents = int(data['max_agents']) if data.get('max_agents') is not None else None
-            except (TypeError, ValueError):
-                max_agents = None
+                # Fail-closed: malformed max_agents must never silently become
+                # an uncapped run (it is the only bound on billable calls).
+                max_agents = _parse_max_agents(data.get('max_agents'))
+            except ValueError as exc:
+                self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
+                return
 
             execution_id = str(_uuid_pe.uuid4())
             q = _queue_mod.Queue()
@@ -795,6 +942,134 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'stream_url': f'/platform/executions/live?id={execution_id}',
                 'status': 'pending',
             }))
+
+        elif self.path == '/platform/resident/memory/synthesize':
+            # Deterministic cross-provider memory synthesis. Provider/model
+            # records remain T2 candidates; common roots and contradictions
+            # are surfaced without voting them into verified knowledge.
+            import dataclasses as _memory_dataclasses
+            try:
+                _memory_email, _memory_tier = _platform_verify_api_key(
+                    self.headers.get('x-api-key', '')
+                )
+                _memory_owner_root = _resident_requester_root(_memory_email)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            try:
+                _validate_tier_caps(_memory_tier, True)
+            except ValueError as exc:
+                self._platform_respond(403, {
+                    'error': str(exc),
+                    'code': 'INSUFFICIENT_CAPABILITY',
+                })
+                return
+            try:
+                from harness.sdk.cross_provider_memory import (
+                    CrossProviderMemoryError as _CrossProviderMemoryError,
+                    CrossProviderMemoryRequestV1 as _CrossProviderMemoryRequestV1,
+                )
+                from harness.sdk.resident_runtime import (
+                    ResidentRuntimeError as _ResidentRuntimeError,
+                )
+            except Exception as exc:
+                self._platform_respond(503, {
+                    'error': type(exc).__name__,
+                    'code': 'RESIDENT_RUNTIME_UNAVAILABLE',
+                    'knowledge_decision': 'UNKNOWN',
+                })
+                return
+            try:
+                request = _CrossProviderMemoryRequestV1.from_mapping(data)
+                request = _memory_dataclasses.replace(
+                    request,
+                    requester_root=_memory_owner_root,
+                )
+                receipt = _get_resident_runtime().process_cross_provider_memory(request)
+            except (_CrossProviderMemoryError, _ResidentRuntimeError) as exc:
+                status = 409 if getattr(exc, 'code', '') == 'IDEMPOTENCY_CONFLICT' else 400
+                self._platform_respond(status, {
+                    'error': getattr(exc, 'code', type(exc).__name__),
+                    'code': 'CROSS_PROVIDER_MEMORY_REJECTED',
+                    'knowledge_decision': 'QUARANTINED',
+                })
+                return
+            except Exception as exc:
+                self._platform_respond(503, {
+                    'error': type(exc).__name__,
+                    'code': 'RESIDENT_RUNTIME_UNAVAILABLE',
+                    'knowledge_decision': 'UNKNOWN',
+                })
+                return
+            self._platform_respond(
+                200,
+                _platform_envelope(
+                    receipt.synthesis_id,
+                    _memory_dataclasses.asdict(receipt),
+                ),
+            )
+
+        elif self.path == '/platform/resident/events':
+            # Event-driven resident-intelligence intake. The runtime may inspect
+            # the configured repository and mutate only an ephemeral worktree;
+            # its receipt is evidence-only and cannot raise the D1 ceiling.
+            import dataclasses as _resident_dataclasses
+            try:
+                _resident_email, _resident_tier = _platform_verify_api_key(
+                    self.headers.get('x-api-key', '')
+                )
+                _resident_owner_root = _resident_requester_root(_resident_email)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            try:
+                _validate_tier_caps(_resident_tier, True)
+            except ValueError as exc:
+                self._platform_respond(403, {
+                    'error': str(exc),
+                    'code': 'INSUFFICIENT_CAPABILITY',
+                })
+                return
+            try:
+                from harness.sdk.resident_runtime import (
+                    RepositoryEventV1 as _RepositoryEventV1,
+                    ResidentRuntimeError as _ResidentRuntimeError,
+                )
+            except Exception as exc:
+                self._platform_respond(503, {
+                    'error': type(exc).__name__,
+                    'code': 'RESIDENT_RUNTIME_UNAVAILABLE',
+                    'knowledge_decision': 'UNKNOWN',
+                })
+                return
+            try:
+                event = _RepositoryEventV1.from_mapping(data)
+                # The remote payload cannot choose this value: the live bridge
+                # overwrites it with the verified principal binding.
+                event = _resident_dataclasses.replace(
+                    event,
+                    requester_root=_resident_owner_root,
+                )
+                receipt = _get_resident_runtime().process_repository_event(event)
+            except _ResidentRuntimeError as exc:
+                status = 409 if exc.code == 'IDEMPOTENCY_CONFLICT' else 400
+                self._platform_respond(status, {
+                    'error': exc.code,
+                    'code': 'RESIDENT_EVENT_REJECTED',
+                    'knowledge_decision': 'QUARANTINED',
+                })
+                return
+            except Exception as exc:
+                self._platform_respond(503, {
+                    'error': type(exc).__name__,
+                    'code': 'RESIDENT_RUNTIME_UNAVAILABLE',
+                    'knowledge_decision': 'UNKNOWN',
+                })
+                return
+            self._platform_respond(
+                200,
+                _platform_envelope(receipt.run_id, _resident_dataclasses.asdict(receipt)),
+            )
 
         else:
             self._respond(404, {'error': 'NOT_FOUND'})
@@ -907,6 +1182,153 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'recent_entries': entries[-5:],
                 'is_chain_initialized': chain_length > 0,
             })
+
+        elif self.path == '/platform/resident/status':
+            # Inspectable projection only. It cannot authorize tasks or mutate
+            # the runtime's configured authority ceiling. Authentication still
+            # applies because the projection exposes organization telemetry.
+            import uuid as _resident_status_uuid
+            try:
+                _resident_status_email, _resident_status_tier = _platform_verify_api_key(
+                    self.headers.get('x-api-key', '')
+                )
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            try:
+                _validate_tier_caps(_resident_status_tier, True)
+            except ValueError as exc:
+                self._platform_respond(403, {
+                    'error': str(exc),
+                    'code': 'INSUFFICIENT_CAPABILITY',
+                })
+                return
+            try:
+                projection = _get_resident_runtime().status()
+            except Exception as exc:
+                self._platform_respond(503, {
+                    'error': type(exc).__name__,
+                    'code': 'RESIDENT_RUNTIME_UNAVAILABLE',
+                    'knowledge_decision': 'UNKNOWN',
+                })
+                return
+            execution_id = str(_resident_status_uuid.uuid4())
+            self._platform_respond(
+                200,
+                _platform_envelope(execution_id, projection),
+            )
+
+        elif self.path.startswith('/platform/resident/memory/syntheses/'):
+            import dataclasses as _memory_dataclasses
+            import hmac as _memory_hmac
+            try:
+                _memory_email, _memory_tier = _platform_verify_api_key(
+                    self.headers.get('x-api-key', '')
+                )
+                requester_root = _resident_requester_root(_memory_email)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            try:
+                _validate_tier_caps(_memory_tier, True)
+            except ValueError as exc:
+                self._platform_respond(403, {
+                    'error': str(exc),
+                    'code': 'INSUFFICIENT_CAPABILITY',
+                })
+                return
+            suffix = self.path.removeprefix(
+                '/platform/resident/memory/syntheses/'
+            ).split('?', 1)[0]
+            verify = suffix.endswith('/verify')
+            synthesis_id = suffix.removesuffix('/verify') if verify else suffix
+            try:
+                runtime = _get_resident_runtime()
+                receipt = runtime.get_memory_synthesis(synthesis_id)
+            except Exception as exc:
+                self._platform_respond(400, {
+                    'error': str(exc)[:120],
+                    'code': 'MEMORY_SYNTHESIS_REQUEST_INVALID',
+                })
+                return
+            if receipt is None or not _memory_hmac.compare_digest(
+                receipt.requester_root,
+                requester_root,
+            ):
+                self._platform_respond(404, {
+                    'error': 'memory synthesis not found',
+                    'code': 'NOT_FOUND',
+                    'synthesis_id': synthesis_id,
+                })
+                return
+            try:
+                artifact = (
+                    runtime.replay_verify_memory_synthesis(synthesis_id)
+                    if verify
+                    else receipt
+                )
+            except Exception as exc:
+                self._platform_respond(400, {
+                    'error': str(exc)[:120],
+                    'code': 'MEMORY_SYNTHESIS_REQUEST_INVALID',
+                })
+                return
+            self._platform_respond(
+                200,
+                _platform_envelope(
+                    synthesis_id,
+                    _memory_dataclasses.asdict(artifact),
+                ),
+            )
+
+        elif self.path.startswith('/platform/resident/runs/'):
+            import dataclasses as _resident_dataclasses
+            import hmac as _resident_hmac
+            try:
+                _resident_email, _resident_tier = _platform_verify_api_key(
+                    self.headers.get('x-api-key', '')
+                )
+                requester_root = _resident_requester_root(_resident_email)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            suffix = self.path.removeprefix('/platform/resident/runs/').split('?', 1)[0]
+            verify = suffix.endswith('/verify')
+            run_id = suffix.removesuffix('/verify') if verify else suffix
+            try:
+                runtime = _get_resident_runtime()
+                receipt = runtime.get_run(run_id)
+            except Exception as exc:
+                self._platform_respond(400, {
+                    'error': str(exc)[:120],
+                    'code': 'RESIDENT_RUN_REQUEST_INVALID',
+                })
+                return
+            if receipt is None or not _resident_hmac.compare_digest(
+                receipt.requester_root,
+                requester_root,
+            ):
+                # Hide both existence and ownership so a run id is never an
+                # authorization token. Historical unbound receipts also land
+                # here and remain inaccessible through the tenant API.
+                self._platform_respond(404, {
+                    'error': 'resident run not found',
+                    'code': 'NOT_FOUND',
+                    'run_id': run_id,
+                })
+                return
+            try:
+                artifact = runtime.replay_verify(run_id) if verify else receipt
+            except Exception as exc:
+                self._platform_respond(400, {
+                    'error': str(exc)[:120],
+                    'code': 'RESIDENT_RUN_REQUEST_INVALID',
+                })
+                return
+            self._platform_respond(
+                200,
+                _platform_envelope(run_id, _resident_dataclasses.asdict(artifact)),
+            )
 
         elif self.path == '/health':
             self._respond(200, {

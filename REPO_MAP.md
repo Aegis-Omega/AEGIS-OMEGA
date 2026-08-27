@@ -15,11 +15,12 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
 
 | Area | What it is | Deploy |
 |------|-----------|--------|
-| `python/bridge.py` (+ 11 modules) | The governance/swarm/inference HTTP service — `/telemetry`, `/platform/*`, `/claude`, `/node` | Cloud Run `aegis-vertex`, europe-west3 (`sovereign-omega-v2/Dockerfile` ships **only** `python/`) |
+| `sovereign-omega-v2/python/bridge.py` | The governance/swarm/inference HTTP service — `/telemetry`, `/platform/*`, `/claude`, `/node`; `/platform/resident/*` invokes the evidence-bound repository loop | Cloud Run `aegis-vertex`, europe-west3; the Dockerfile now packages `python/` plus the invoked `harness/`, `config/`, and `models/` runtime inputs |
+| `harness/sdk/resident_runtime.py` + receipt/admission SDK | Typed repository event → isolated experiment → independent falsifier → effect verification → fail-closed knowledge decision → SelfModel projection/replay | **WIRED** through the production `bridge.py` handler; docker-compose persists `/app/data`, while Render free storage remains ephemeral |
 | `vertex/serve.py` | FastAPI "constitutional-proxy" / `aegis-platform`; bundles `agents/` + `harness/` | `vertex/cloudbuild.yaml` |
 | `aegis-cl-psi/` | Rust CL-Ψ engine — ~7,198 tests, CI-gated ≥6800 | `aegis-cl-psi/deploy/Dockerfile`; CI `ci.yml` |
 | `aegis-runtime/` | Rust Seven-Pillar runtime | CI build+test |
-| `harness/` (`skill_tree.json`) | Python skill harness; `agents/coordinator.py` reads/writes it; baked into vertex image | via vertex |
+| `harness/skill_tree.json` | Python skill tree; `agents/coordinator.py` reads/writes it; baked into vertex image | via vertex |
 | `hub/` | **The storefront.** PayPal checkout → `supabase/functions/verify-paypal` → mints API key | Vercel + Cloud Run |
 | `platform-picker/`, `hook-generator/`, `content-calendar/` | The 3 commercial tools; share `packages/shared` (`@shared`); `AccessGate` → hub PayPal | Cloud Run via `deploy.yml` |
 | `packages/shared/` | Shared lib (access, constitutional-ai, inference-router, dashscope, AccessGate) | imported by the 3 tools |
@@ -36,6 +37,7 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
 
 ## 2. Built but not wired — the "97%" (TESTED-ONLY / DORMANT)
 
+- **Most of `harness/sdk/` remains selectively wired, not globally authoritative.** Only the resident runtime's explicitly imported receipt, effect-verification, atomic-admission, epistemic-admission, ProofTrace, and model-registry components are on the bridge path. Tests or file presence alone do not make the rest live.
 - **`sovereign-omega-v2/src/`: ~184 of 189 TS files never reach the running app.** `main.tsx` transitively uses only `components/` + `lib/telemetry.ts` (~5 files). Everything else — `core/`, `constitutional/`, `agents/`, `verifier/`, `consensus/`, `pipeline/`, `memory/`, `api/`, `compliance/`, `corpus-engine/`, etc. — is exercised only by the 250-file test suite.
 - **`src/skill-harness/` (the SHA-256 skill transfer)** — tested-only. The bridge's `/catalog` serves a **hardcoded 3-item literal**, not this code.
 - **`packages/kernel/`** (Rust) — orphaned workspace member; nothing depends on it.
