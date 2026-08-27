@@ -11,6 +11,7 @@
 *)
 
 Require Import AnalyticDefinitions.
+From Coq Require Import Reals.Abstract.ConstructiveReals.
 From Coq Require Import Reals.Abstract.ConstructiveRealsMorphisms.
 Require Import CoRN.reals.fast.CRsin.
 Require Import CoRN.reals.fast.CRcos.
@@ -62,11 +63,12 @@ Definition corn_fast_to_o0_v1 (x : CR) : O0RealV1 :=
 Definition o0_to_corn_fast_v1 (x : O0RealV1) : CR :=
   CRmorph o0_to_corn_fast_morphism_v1 x.
 
-(* Use the primitive order-equivalence relation exposed by the morphism API
-   rather than relying on the optional [CReq] notation being in scope. *)
+(* Import the same ConstructiveReals authority surface that production O0 uses,
+   then state morphism round trips in its canonical setoid equality.  This is
+   namespace binding only; it introduces no classical Reals dependency. *)
 Theorem corn_o0_corn_roundtrip_v1 :
   forall x : CR,
-    orderEq _ (CRlt FastRealsConstructive)
+    CReq FastRealsConstructive
       (o0_to_corn_fast_v1 (corn_fast_to_o0_v1 x)) x.
 Proof.
   intros x.
@@ -77,7 +79,7 @@ Qed.
 
 Theorem o0_corn_o0_roundtrip_v1 :
   forall x : O0RealV1,
-    orderEq _ (CRlt O0RealsV1)
+    CReq O0RealsV1
       (corn_fast_to_o0_v1 (o0_to_corn_fast_v1 x)) x.
 Proof.
   intros x.
