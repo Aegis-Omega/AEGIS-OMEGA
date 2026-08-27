@@ -7,6 +7,7 @@ on:
       - 'harness/sdk/qform_receipt.py'
       - 'harness/sdk/qform_galerkin_crossprobe.py'
       - 'harness/sdk/qform_operator.py'
+      - 'harness/sdk/qform_error_bound.py'
       - 'sovereign-omega-v2/python/tests/test_qform_receipt.py'
       - 'research/qform/**'
       - '.github/workflows/qform-proof-carrying.yml'
@@ -16,6 +17,7 @@ on:
       - 'harness/sdk/qform_receipt.py'
       - 'harness/sdk/qform_galerkin_crossprobe.py'
       - 'harness/sdk/qform_operator.py'
+      - 'harness/sdk/qform_error_bound.py'
       - 'sovereign-omega-v2/python/tests/test_qform_receipt.py'
       - 'research/qform/**'
       - '.github/workflows/qform-proof-carrying.yml'
@@ -61,6 +63,7 @@ jobs:
           python -m py_compile harness/sdk/qform_receipt.py
           python -m py_compile harness/sdk/qform_galerkin_crossprobe.py
           python -m py_compile harness/sdk/qform_operator.py
+          python -m py_compile harness/sdk/qform_error_bound.py
           python -m py_compile sovereign-omega-v2/python/tests/test_qform_receipt.py
 
       - name: Run Q-form receipt tests
@@ -180,6 +183,64 @@ jobs:
           print('QFORM_TRANSLATION_OPERATOR_BOUNDARY=PASS')
           PY
 
+      - name: Generate conditional analytic error-budget receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from harness.sdk.qform_error_bound import build_analytic_error_budget
+          from harness.sdk.qform_operator import QFormOperatorSpecV1
+
+          receipt = build_analytic_error_budget(
+              QFormOperatorSpecV1(
+                  P_cutoff=100,
+                  sigma='0.8',
+                  du='0.04',
+                  U_max='4.1',
+                  N_F=8,
+                  h='1.0',
+                  gamma_max='14.2',
+                  prec_bits=192,
+              )
+          ).to_dict()
+          target = Path(os.environ['RUNNER_TEMP']) / 'qform-receipt' / 'QFormAnalyticErrorBudgetV1.json'
+          target.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+          PY
+
+      - name: Validate analytic error-budget non-promotion boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['RUNNER_TEMP']) / 'qform-receipt'
+          budget = json.loads((root / 'QFormAnalyticErrorBudgetV1.json').read_text(encoding='utf-8'))
+          operator = json.loads((root / 'QFormOperatorReceiptV1.json').read_text(encoding='utf-8'))
+          observed = abs(
+              operator['discrete_prime_trace_numeric'] -
+              operator['closed_form_prime_trace_numeric']
+          )
+          assert budget['subject_root'] == operator['subject_root']
+          assert budget['constant_arithmetic_status'] == 'CERTIFIED_INTERVAL'
+          assert budget['conditional_absolute_error_bound_upper'] > observed
+          assert budget['gaussian_tail_inequality_machine_bound'] is False
+          assert budget['composite_trapezoid_theorem_machine_bound'] is False
+          assert budget['quotient_stability_machine_bound'] is False
+          assert budget['analytic_error_bound_machine_bound'] is False
+          assert budget['formula_to_weil_operator_identity_proven'] is False
+          assert budget['global_weil_positivity_proven'] is False
+          assert budget['rh_proven'] is False
+          print('QFORM_ANALYTIC_ERROR_BUDGET_BOUNDARY=PASS')
+          PY
+
       - name: Generate Gaussian-Galerkin blind cross-probe
         shell: bash
         run: |
@@ -251,6 +312,7 @@ jobs:
           sha256sum \
             "$RUNNER_TEMP/qform-receipt/QFormReceiptV1.json" \
             "$RUNNER_TEMP/qform-receipt/QFormOperatorReceiptV1.json" \
+            "$RUNNER_TEMP/qform-receipt/QFormAnalyticErrorBudgetV1.json" \
             "$RUNNER_TEMP/qform-receipt/QFormGalerkinCrossReceiptV1.json" \
             | tee "$RUNNER_TEMP/qform-receipt/SHA256SUMS"
 
