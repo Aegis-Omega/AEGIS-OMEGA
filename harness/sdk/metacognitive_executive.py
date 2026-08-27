@@ -1,23 +1,18 @@
 """AEGIS bounded metacognitive executive loop.
 
-This module turns an admitted goal envelope into a deterministic execution loop:
+Goal -> plan -> self-predict -> authorize -> execute -> verify -> calibrate
+     -> contract autonomy / continue -> evidence receipt.
 
-    goal -> plan -> self-predict -> authorize -> execute -> verify
-         -> calibrate -> contract autonomy / continue -> receipt
-
-The executive is deliberately *not* an authority root. Planner, predictor,
-worker, verifier, and metacognitive outputs remain evidence. Authorization is
-supplied by an external authority boundary, and this module never emits an
-Admission span or advances the control-state root.
-
-Metacognition is permitted to *contract* autonomy when calibration degrades or
-outcomes are unverified. It can never auto-expand autonomy.
+The executive is not an authority root. Planner/predictor/worker/verifier output
+is evidence only. Authorization is supplied by an external authority boundary.
+This layer never emits an Admission span and cannot advance the control-state
+root. Metacognition may contract autonomy, never auto-expand it.
 """
 from __future__ import annotations
 
 import re
 from dataclasses import asdict, dataclass
-from typing import Callable, Literal
+from typing import Callable, Iterable, Literal
 
 from harness.sdk.proof_trace import (
     DECISION,
@@ -55,7 +50,7 @@ SAFE_ID_RE = re.compile(r"^[A-Za-z0-9._:/@+#=-]+$")
 
 
 class MetacognitiveExecutiveError(ValueError):
-    """Fail-closed executive error with a stable machine-readable code."""
+    """Fail-closed executive error with stable machine-readable code."""
 
     def __init__(self, code: str):
         super().__init__(code)
@@ -208,6 +203,23 @@ Worker = Callable[[PlanStepV1, AuthorizationResultV1], WorkerResultV1]
 Verifier = Callable[[PlanStepV1, WorkerResultV1], VerifiedStepObservationV1]
 
 
+def _record_causal_span(
+    trace,
+    *,
+    name: str,
+    span_kind: str,
+    causal_parent_ids: Iterable[str],
+    **finish_kwargs,
+):
+    """Respect ProofTrace's split start/finish API for causal dependencies."""
+    handle = trace.start_span(
+        name=name,
+        span_kind=span_kind,
+        causal_parent_ids=tuple(causal_parent_ids),
+    )
+    return trace.finish_span(handle, **finish_kwargs)
+
+
 class MetacognitiveExecutive:
     """Deterministic evidence-bound executive with monotone autonomy contraction."""
 
@@ -240,7 +252,6 @@ class MetacognitiveExecutive:
 
     def run(self, goal: GoalEnvelopeV1) -> MetacognitiveExecutiveOutcomeV1:
         self._validate_goal(goal)
-
         trace = TraceSDK.start_trace(
             workflow_name="metacognitive-executive-v1",
             source_commit=goal.source_commit,
@@ -283,11 +294,12 @@ class MetacognitiveExecutive:
         for current_step in current_plan.steps:
             predicted_success_bps = self._predictor(goal, current_step, self_state)
             self._validate_prediction(predicted_success_bps)
-            prediction_span = trace.record_span(
+            prediction_span = _record_causal_span(
+                trace,
                 name=f"predict:{current_step.step_id}",
                 span_kind=MODEL,
-                epistemic_tier=T2,
                 causal_parent_ids=(planner_span.span_id,),
+                epistemic_tier=T2,
                 input_digest=digest_payload(
                     {
                         "step_id": current_step.step_id,
@@ -305,21 +317,20 @@ class MetacognitiveExecutive:
 
             authorization = self._authorizer(current_step)
             self._validate_authorization(current_step, authorization)
-            decision_status = {
-                "PERMIT": OK,
-                "DENY": DENIED,
-                "DEFER": DEFERRED,
-            }[authorization.outcome]
-            decision_span = trace.record_span(
+            decision_status = {"PERMIT": OK, "DENY": DENIED, "DEFER": DEFERRED}[
+                authorization.outcome
+            ]
+            decision_span = _record_causal_span(
+                trace,
                 name=f"authorize:{current_step.step_id}",
                 span_kind=DECISION,
+                causal_parent_ids=(prediction_span.span_id,),
                 status=decision_status,
                 authority_class=(
                     DECISION_AUTHORITY if authorization.outcome == "PERMIT" else NO_AUTHORITY
                 ),
                 epistemic_tier=T1,
                 transition_id=authorization.transition_id,
-                causal_parent_ids=(prediction_span.span_id,),
                 input_digest=digest_payload(
                     {
                         "step_id": current_step.step_id,
@@ -339,25 +350,25 @@ class MetacognitiveExecutive:
             if authorization.outcome == "DEFER":
                 self_state = self._contract_autonomy(self_state)
                 return self._finish(
-                    goal=goal,
-                    trace=trace,
-                    self_state=self_state,
-                    status="ESCALATE",
-                    completed=completed,
-                    failed_step_id=current_step.step_id,
-                    total_cost=total_cost,
-                    total_tokens=total_tokens,
+                    goal,
+                    trace,
+                    self_state,
+                    "ESCALATE",
+                    completed,
+                    current_step.step_id,
+                    total_cost,
+                    total_tokens,
                 )
             if authorization.outcome == "DENY":
                 return self._finish(
-                    goal=goal,
-                    trace=trace,
-                    self_state=self_state,
-                    status="HALT",
-                    completed=completed,
-                    failed_step_id=current_step.step_id,
-                    total_cost=total_cost,
-                    total_tokens=total_tokens,
+                    goal,
+                    trace,
+                    self_state,
+                    "HALT",
+                    completed,
+                    current_step.step_id,
+                    total_cost,
+                    total_tokens,
                 )
             if (
                 current_step.consequence_class == "D3"
@@ -376,18 +387,17 @@ class MetacognitiveExecutive:
             total_cost = new_total_cost
             total_tokens = new_total_tokens
 
-            execution_span = trace.record_span(
+            execution_span = _record_causal_span(
+                trace,
                 name=f"execute:{current_step.step_id}",
                 span_kind=EXECUTION,
-                status={
-                    "SUCCEEDED": OK,
-                    "FAILED": ERROR,
-                    "DEFERRED": DEFERRED,
-                }[result.status],
+                causal_parent_ids=(decision_span.span_id,),
+                status={"SUCCEEDED": OK, "FAILED": ERROR, "DEFERRED": DEFERRED}[
+                    result.status
+                ],
                 authority_class=NO_AUTHORITY,
                 epistemic_tier=T2,
                 transition_id=authorization.transition_id,
-                causal_parent_ids=(decision_span.span_id,),
                 input_digest=digest_payload(
                     {
                         "step_id": current_step.step_id,
@@ -402,13 +412,14 @@ class MetacognitiveExecutive:
 
             observation = self._verifier(current_step, result)
             self._validate_verified_observation(current_step, result, observation)
-            trace.record_span(
+            _record_causal_span(
+                trace,
                 name=f"verify:{current_step.step_id}",
                 span_kind=VERIFIER,
+                causal_parent_ids=(execution_span.span_id,),
                 status=(OK if observation.verdict == "PASS" else ERROR),
                 authority_class=NO_AUTHORITY,
                 epistemic_tier=T2,
-                causal_parent_ids=(execution_span.span_id,),
                 input_digest=result.output_digest,
                 output_digest=digest_payload(asdict(observation)),
                 receipt_roots=(observation.verifier_receipt_root,),
@@ -418,14 +429,14 @@ class MetacognitiveExecutive:
             if observation.verdict == "UNVERIFIED":
                 self_state = self._contract_autonomy(self_state)
                 return self._finish(
-                    goal=goal,
-                    trace=trace,
-                    self_state=self_state,
-                    status="ESCALATE",
-                    completed=completed,
-                    failed_step_id=current_step.step_id,
-                    total_cost=total_cost,
-                    total_tokens=total_tokens,
+                    goal,
+                    trace,
+                    self_state,
+                    "ESCALATE",
+                    completed,
+                    current_step.step_id,
+                    total_cost,
+                    total_tokens,
                 )
 
             actual_success_bps = 10000 if observation.verdict == "PASS" else 0
@@ -441,48 +452,44 @@ class MetacognitiveExecutive:
             if observation.verdict == "FAIL":
                 self_state = self._contract_autonomy(self_state)
                 return self._finish(
-                    goal=goal,
-                    trace=trace,
-                    self_state=self_state,
-                    status="HALT",
-                    completed=completed,
-                    failed_step_id=current_step.step_id,
-                    total_cost=total_cost,
-                    total_tokens=total_tokens,
+                    goal,
+                    trace,
+                    self_state,
+                    "HALT",
+                    completed,
+                    current_step.step_id,
+                    total_cost,
+                    total_tokens,
                 )
 
             completed.append(current_step.step_id)
             mean_error = self_state.mean_absolute_calibration_error_bps
-            if (
-                mean_error is not None
-                and mean_error > self._calibration_error_threshold_bps
-            ):
+            if mean_error is not None and mean_error > self._calibration_error_threshold_bps:
                 self_state = self._contract_autonomy(self_state)
                 return self._finish(
-                    goal=goal,
-                    trace=trace,
-                    self_state=self_state,
-                    status="ESCALATE",
-                    completed=completed,
-                    failed_step_id=None,
-                    total_cost=total_cost,
-                    total_tokens=total_tokens,
+                    goal,
+                    trace,
+                    self_state,
+                    "ESCALATE",
+                    completed,
+                    None,
+                    total_cost,
+                    total_tokens,
                 )
 
         return self._finish(
-            goal=goal,
-            trace=trace,
-            self_state=self_state,
-            status="COMPLETE",
-            completed=completed,
-            failed_step_id=None,
-            total_cost=total_cost,
-            total_tokens=total_tokens,
+            goal,
+            trace,
+            self_state,
+            "COMPLETE",
+            completed,
+            None,
+            total_cost,
+            total_tokens,
         )
 
     @staticmethod
     def _contract_autonomy(state: ExecutiveSelfStateV1) -> ExecutiveSelfStateV1:
-        # Monotone contraction: there is intentionally no inverse transition.
         if state.autonomy_mode == REVIEW_REQUIRED:
             return state
         return ExecutiveSelfStateV1(
@@ -505,7 +512,6 @@ class MetacognitiveExecutive:
         if goal.consequence_ceiling not in CONSEQUENCE_ORDER:
             raise MetacognitiveExecutiveError("GOAL_CONSEQUENCE_CEILING_UNSUPPORTED")
         _require_id("deterministic_nonce", goal.deterministic_nonce)
-
         for name, values in (
             ("allowed_capabilities", goal.allowed_capabilities),
             ("allowed_providers", goal.allowed_providers),
@@ -523,13 +529,14 @@ class MetacognitiveExecutive:
         if len(current_plan.steps) > goal.max_steps:
             raise MetacognitiveExecutiveError("PLAN_STEP_LIMIT_EXCEEDED")
 
+        all_ids = {current_step.step_id for current_step in current_plan.steps}
+        if len(all_ids) != len(current_plan.steps):
+            raise MetacognitiveExecutiveError("PLAN_STEP_ID_DUPLICATE")
         seen: set[str] = set()
         reserved_cost = 0
         reserved_tokens = 0
         for current_step in current_plan.steps:
             _require_id("step_id", current_step.step_id)
-            if current_step.step_id in seen:
-                raise MetacognitiveExecutiveError("PLAN_STEP_ID_DUPLICATE")
             _require_hash("step_objective_digest", current_step.objective_digest)
             if current_step.objective_digest != goal.objective_digest:
                 raise MetacognitiveExecutiveError("PLAN_OBJECTIVE_BINDING_MISMATCH")
@@ -537,9 +544,7 @@ class MetacognitiveExecutive:
             _require_id("provider", current_step.provider)
             _require_id("tool", current_step.tool)
             _require_hash("target_digest", current_step.target_digest)
-            _require_nonnegative_int(
-                "step_max_cost_microunits", current_step.max_cost_microunits
-            )
+            _require_nonnegative_int("step_max_cost_microunits", current_step.max_cost_microunits)
             _require_nonnegative_int("step_max_tokens", current_step.max_tokens)
             if current_step.consequence_class not in CONSEQUENCE_ORDER:
                 raise MetacognitiveExecutiveError("PLAN_CONSEQUENCE_CLASS_UNSUPPORTED")
@@ -556,16 +561,14 @@ class MetacognitiveExecutive:
                 raise MetacognitiveExecutiveError("PLAN_PROVIDER_NOT_ALLOWED")
             if current_step.tool not in goal.allowed_tools:
                 raise MetacognitiveExecutiveError("PLAN_TOOL_NOT_ALLOWED")
-
             for dependency_id in current_step.dependency_ids:
                 _require_id("dependency_id", dependency_id)
                 if dependency_id == current_step.step_id:
                     raise MetacognitiveExecutiveError("PLAN_DEPENDENCY_SELF_REFERENCE")
-                if dependency_id not in {step.step_id for step in current_plan.steps}:
+                if dependency_id not in all_ids:
                     raise MetacognitiveExecutiveError("PLAN_DEPENDENCY_UNKNOWN")
                 if dependency_id not in seen:
                     raise MetacognitiveExecutiveError("PLAN_NOT_TOPOLOGICALLY_ORDERED")
-
             reserved_cost += current_step.max_cost_microunits
             reserved_tokens += current_step.max_tokens
             if reserved_cost > goal.max_cost_microunits:
@@ -598,10 +601,7 @@ class MetacognitiveExecutive:
             raise MetacognitiveExecutiveError("AUTHORIZATION_BASIS_UNSUPPORTED")
 
     @staticmethod
-    def _validate_worker_result(
-        current_step: PlanStepV1,
-        result: WorkerResultV1,
-    ) -> None:
+    def _validate_worker_result(current_step: PlanStepV1, result: WorkerResultV1) -> None:
         if result.step_id != current_step.step_id:
             raise MetacognitiveExecutiveError("WORKER_STEP_BINDING_MISMATCH")
         if result.status not in WORKER_STATUSES:
@@ -632,9 +632,8 @@ class MetacognitiveExecutive:
 
     @staticmethod
     def _finish(
-        *,
         goal: GoalEnvelopeV1,
-        trace: TraceSDK,
+        trace,
         self_state: ExecutiveSelfStateV1,
         status: str,
         completed: list[str],
@@ -657,9 +656,7 @@ class MetacognitiveExecutive:
             "failed_step_id": failed_step_id,
             "total_cost_microunits": total_cost,
             "total_tokens": total_tokens,
-            "mean_absolute_calibration_error_bps": (
-                self_state.mean_absolute_calibration_error_bps
-            ),
+            "mean_absolute_calibration_error_bps": self_state.mean_absolute_calibration_error_bps,
             "autonomy_mode": self_state.autonomy_mode,
             "trace_bundle_root": trace_bundle.root,
             "authority": "EVIDENCE_ONLY",
@@ -677,9 +674,7 @@ class MetacognitiveExecutive:
             failed_step_id=failed_step_id,
             total_cost_microunits=total_cost,
             total_tokens=total_tokens,
-            mean_absolute_calibration_error_bps=(
-                self_state.mean_absolute_calibration_error_bps
-            ),
+            mean_absolute_calibration_error_bps=self_state.mean_absolute_calibration_error_bps,
             autonomy_mode=self_state.autonomy_mode,
             trace_bundle_root=trace_bundle.root,
             authority="EVIDENCE_ONLY",
