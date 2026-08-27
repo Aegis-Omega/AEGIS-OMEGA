@@ -1,0 +1,69 @@
+{
+  "receipt_version": "QFormReceiptV1",
+  "provenance": {
+    "repository": "Aegis-Omega/AEGIS-OMEGA",
+    "commit_sha": "0000000000000000000000000000000000000000",
+    "tree_sha": "0000000000000000000000000000000000000000",
+    "implementation_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "parameter_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "ci_run_url": null,
+    "theorem_refs": []
+  },
+  "parameters": {
+    "P_cutoff": 65010,
+    "sigma": 0.8,
+    "du": 0.005,
+    "U_max": 8.0
+  },
+  "exact_census": {
+    "status": "EXACT",
+    "primes_count": 6494,
+    "prime_powers_count": 6586,
+    "census_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "evaluations": {
+    "main_term": {
+      "value": 9.43793427,
+      "formula": "4*pi*sigma^2*exp(sigma^2/4)",
+      "status": "NUMERICALLY_VERIFIED",
+      "interval_bounds": [9.43793426, 9.43793428],
+      "method": "closed-form vs independent quadrature cross-check"
+    },
+    "prime_trace_functional": {
+      "value": 3.4830289,
+      "status": "NUMERICALLY_VERIFIED",
+      "interval_bounds": [3.4830236, 3.4830342],
+      "method": "finite prime-power sum"
+    },
+    "spectral_symbol_gamma1": {
+      "gamma": 14.134725,
+      "value": -36.1646,
+      "status": "EMPIRICAL_FIXTURE",
+      "method": "regression fixture only"
+    }
+  },
+  "error_budget": {
+    "arithmetic_cutoff": {
+      "status": "NUMERICALLY_VERIFIED",
+      "description": "Gaussian-envelope cutoff hypothesis pending theorem that includes the arithmetic summand."
+    },
+    "finite_domain_truncation": {
+      "status": "NUMERICALLY_VERIFIED",
+      "description": "Finite U_max truncation observed numerically; no rigorous absolute bound attached yet."
+    },
+    "discretization": {
+      "status": "NUMERICALLY_VERIFIED",
+      "description": "Observed second-order convergence under du refinement.",
+      "observed_error": 0.00000152
+    },
+    "transcendental_rounding": {
+      "status": "NUMERICALLY_VERIFIED",
+      "description": "Standard floating-point transcendental evaluation; outward-rounded interval backend not yet wired."
+    },
+    "operator_projection": {
+      "status": "EMPIRICAL_FIXTURE",
+      "description": "Finite matrix is a computational projection; infinite-dimensional convergence theorem remains open."
+    }
+  },
+  "overall_authority": "EMPIRICAL_FIXTURE"
+}
