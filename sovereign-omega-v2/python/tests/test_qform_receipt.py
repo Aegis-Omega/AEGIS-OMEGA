@@ -35,8 +35,11 @@ TREE = "b" * 40
 
 def test_exact_prime_power_counts_lock_reported_census() -> None:
     rows_100 = exact_prime_power_census(100)
+    rows_5000 = exact_prime_power_census(5000)
     rows_65010 = exact_prime_power_census(65010)
     assert len(rows_100) == 35
+    assert len(rows_5000) == 711
+    assert len({p for _q, p, _k in rows_5000}) == 669
     assert len(rows_65010) == 6586
     assert len({p for _q, p, _k in rows_65010}) == 6494
     assert rows_100[:6] == (
