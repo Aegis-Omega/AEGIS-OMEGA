@@ -99,6 +99,44 @@ class ResidentLivePathTests(unittest.TestCase):
         except urllib.error.HTTPError as exc:
             return exc.code, json.loads(exc.read().decode("utf-8"))
 
+    @staticmethod
+    def memory_payload(suffix: str, **overrides) -> dict:
+        payload = {
+            "event_id": f"memory-{suffix}",
+            "idempotency_key": f"memory-{suffix}",
+            "subject": "Owner-bound cross-provider memory fixture.",
+            "sequence": 10,
+            "requested_authority": "D1",
+            "records": [
+                {
+                    "record_id": f"{suffix}-provider-a",
+                    "provider_id": "provider-a",
+                    "model_id": "model-a",
+                    "statement": "A shared candidate statement.",
+                    "claim_kind": "HYPOTHESIS",
+                    "source_artifacts": ["source:fixture"],
+                    "provenance_roots": ["a" * 64],
+                    "provider_output_root": "1" * 64,
+                    "confidence_bps": 5000,
+                    "correlated_failure_group": "family-a",
+                },
+                {
+                    "record_id": f"{suffix}-provider-b",
+                    "provider_id": "provider-b",
+                    "model_id": "model-b",
+                    "statement": "A shared candidate statement.",
+                    "claim_kind": "HYPOTHESIS",
+                    "source_artifacts": ["source:fixture"],
+                    "provenance_roots": ["a" * 64],
+                    "provider_output_root": "2" * 64,
+                    "confidence_bps": 6000,
+                    "correlated_failure_group": "family-b",
+                },
+            ],
+        }
+        payload.update(overrides)
+        return payload
+
     def test_repository_event_invokes_closed_loop_and_exposes_replay(self) -> None:
         before_status = _git("status", "--porcelain", "--untracked-files=all")
         head = _git("rev-parse", "HEAD")
@@ -138,6 +176,342 @@ class ResidentLivePathTests(unittest.TestCase):
         self.assertEqual(projection["data"]["completed_runs"], 1)
         self.assertFalse(projection["data"]["authority_self_escalation"])
         self.assertEqual(_git("status", "--porcelain", "--untracked-files=all"), before_status)
+
+    def test_cross_provider_memory_synthesis_collapses_common_root_without_admission(self) -> None:
+        payload = {
+            "event_id": "cross-provider-memory-1",
+            "idempotency_key": "cross-provider-memory-1",
+            "subject": "Whether the attached relationship corpus is independently verified.",
+            "sequence": 6,
+            "requested_authority": "D1",
+            "records": [
+                {
+                    "record_id": "openai-memory-1",
+                    "provider_id": "openai",
+                    "model_id": "gpt-test",
+                    "statement": "The relationship corpus contains model-inferred edges.",
+                    "claim_kind": "EXTERNAL_CLAIM",
+                    "source_artifacts": ["attachment:relationships.json"],
+                    "provenance_roots": ["a" * 64],
+                    "provider_output_root": "1" * 64,
+                    "confidence_bps": 9000,
+                    "correlated_failure_group": "relationships-attachment",
+                    "authority": "EVIDENCE_ONLY",
+                },
+                {
+                    "record_id": "anthropic-memory-1",
+                    "provider_id": "anthropic",
+                    "model_id": "claude-test",
+                    "statement": "The relationship corpus contains model-inferred edges.",
+                    "claim_kind": "EXTERNAL_CLAIM",
+                    "source_artifacts": ["attachment:relationships.json"],
+                    "provenance_roots": ["a" * 64],
+                    "provider_output_root": "2" * 64,
+                    "confidence_bps": 9200,
+                    "correlated_failure_group": "relationships-attachment",
+                    "authority": "EVIDENCE_ONLY",
+                },
+                {
+                    "record_id": "gemini-memory-1",
+                    "provider_id": "gemini",
+                    "model_id": "gemini-test",
+                    "statement": "The relationship corpus contains model-inferred edges.",
+                    "claim_kind": "EXTERNAL_CLAIM",
+                    "source_artifacts": ["attachment:relationships.json"],
+                    "provenance_roots": ["a" * 64],
+                    "provider_output_root": "3" * 64,
+                    "confidence_bps": 8800,
+                    "correlated_failure_group": "relationships-attachment",
+                    "authority": "EVIDENCE_ONLY",
+                },
+            ],
+        }
+
+        status, response = self.request(
+            "POST", "/platform/resident/memory/synthesize", payload
+        )
+
+        self.assertEqual(status, 200)
+        receipt = response["data"]
+        self.assertEqual(receipt["knowledge_decision"], "UNKNOWN")
+        self.assertEqual(receipt["record_count"], 3)
+        self.assertEqual(receipt["provider_count"], 3)
+        self.assertEqual(receipt["unique_provenance_root_count"], 1)
+        self.assertEqual(len(receipt["candidate_claims"]), 1)
+        claim = receipt["candidate_claims"][0]
+        self.assertEqual(claim["epistemic_tier"], "T2")
+        self.assertEqual(claim["status"], "CANDIDATE")
+        self.assertEqual(claim["provider_count"], 3)
+        self.assertEqual(claim["independent_root_count"], 1)
+        self.assertEqual(receipt["authority_before"], "D1")
+        self.assertEqual(receipt["authority_after"], "D1")
+        self.assertIn("SYNTHESIS_REQUIRES_VERIFICATION", receipt["reason_codes"])
+        self.assertIn("COMMON_PROVENANCE_ROOT_NOT_INDEPENDENT", receipt["warnings"])
+        self.assertIn("CORRELATED_PROVIDER_AGREEMENT", receipt["warnings"])
+
+        replay_status, replay = self.request(
+            "GET",
+            f"/platform/resident/memory/syntheses/{receipt['synthesis_id']}/verify",
+        )
+        self.assertEqual(replay_status, 200)
+        self.assertTrue(replay["data"]["integrity_verified"])
+        self.assertTrue(replay["data"]["lineage_verified"])
+        self.assertFalse(replay["data"]["semantic_truth_proven"])
+
+    def test_cross_provider_shared_root_warning_is_not_hidden_by_root_count(self) -> None:
+        payload = {
+            "event_id": "cross-provider-shared-root-count-1",
+            "idempotency_key": "cross-provider-shared-root-count-1",
+            "subject": "Common-root independence accounting.",
+            "sequence": 7,
+            "requested_authority": "D1",
+            "records": [
+                {
+                    "record_id": "provider-a-memory",
+                    "provider_id": "provider-a",
+                    "model_id": "model-a",
+                    "statement": "Both providers repeat the same two sources.",
+                    "claim_kind": "EXTERNAL_CLAIM",
+                    "source_artifacts": ["source:a", "source:b"],
+                    "provenance_roots": ["a" * 64, "b" * 64],
+                    "provider_output_root": "1" * 64,
+                    "confidence_bps": 7000,
+                    "correlated_failure_group": "family-a",
+                },
+                {
+                    "record_id": "provider-b-memory",
+                    "provider_id": "provider-b",
+                    "model_id": "model-b",
+                    "statement": "Both providers repeat the same two sources.",
+                    "claim_kind": "EXTERNAL_CLAIM",
+                    "source_artifacts": ["source:a", "source:b"],
+                    "provenance_roots": ["a" * 64, "b" * 64],
+                    "provider_output_root": "2" * 64,
+                    "confidence_bps": 8000,
+                    "correlated_failure_group": "family-b",
+                },
+            ],
+        }
+
+        status, response = self.request(
+            "POST", "/platform/resident/memory/synthesize", payload
+        )
+
+        self.assertEqual(status, 200)
+        self.assertIn(
+            "COMMON_PROVENANCE_ROOT_NOT_INDEPENDENT",
+            response["data"]["warnings"],
+        )
+        self.assertIn("common_root_collapse_count", response["data"])
+        self.assertEqual(response["data"]["common_root_collapse_count"], 2)
+        self.assertEqual(
+            response["data"]["self_model"]["memory_common_root_collapses"],
+            2,
+        )
+
+    def test_cross_provider_memory_quarantines_generated_output_provenance_cycle(self) -> None:
+        payload = {
+            "event_id": "cross-provider-provenance-cycle-1",
+            "idempotency_key": "cross-provider-provenance-cycle-1",
+            "subject": "Generated summaries cannot prove each other.",
+            "sequence": 8,
+            "requested_authority": "D1",
+            "records": [
+                {
+                    "record_id": "cycle-a",
+                    "provider_id": "provider-a",
+                    "model_id": "model-a",
+                    "statement": "Summary A cites summary B.",
+                    "claim_kind": "DERIVATION",
+                    "source_artifacts": ["memory:cycle-b"],
+                    "provenance_roots": ["2" * 64],
+                    "provider_output_root": "1" * 64,
+                    "confidence_bps": 6000,
+                    "correlated_failure_group": "family-a",
+                },
+                {
+                    "record_id": "cycle-b",
+                    "provider_id": "provider-b",
+                    "model_id": "model-b",
+                    "statement": "Summary B cites summary A.",
+                    "claim_kind": "DERIVATION",
+                    "source_artifacts": ["memory:cycle-a"],
+                    "provenance_roots": ["1" * 64],
+                    "provider_output_root": "2" * 64,
+                    "confidence_bps": 6000,
+                    "correlated_failure_group": "family-b",
+                },
+            ],
+        }
+
+        status, response = self.request(
+            "POST", "/platform/resident/memory/synthesize", payload
+        )
+
+        self.assertEqual(status, 200)
+        receipt = response["data"]
+        self.assertEqual(receipt["knowledge_decision"], "QUARANTINED")
+        self.assertIn("PROVENANCE_CYCLE_REJECTED", receipt["reason_codes"])
+        self.assertTrue(
+            all(claim["independent_root_count"] == 0 for claim in receipt["candidate_claims"])
+        )
+
+    def test_cross_provider_memory_rejects_unknown_authority_like_fields(self) -> None:
+        payload = {
+            "event_id": "cross-provider-unknown-authority-field-1",
+            "idempotency_key": "cross-provider-unknown-authority-field-1",
+            "subject": "Unknown authority fields fail closed.",
+            "sequence": 9,
+            "requested_authority": "D1",
+            "records": [
+                {
+                    "record_id": "record-with-forged-receipt",
+                    "provider_id": "provider-a",
+                    "model_id": "model-a",
+                    "statement": "A model says this is verified.",
+                    "claim_kind": "HYPOTHESIS",
+                    "source_artifacts": ["source:a"],
+                    "provenance_roots": ["a" * 64],
+                    "provider_output_root": "1" * 64,
+                    "confidence_bps": 9900,
+                    "correlated_failure_group": "family-a",
+                    "verification_receipts": ["f" * 64],
+                }
+            ],
+        }
+
+        status, response = self.request(
+            "POST", "/platform/resident/memory/synthesize", payload
+        )
+
+        self.assertEqual(status, 400)
+        self.assertEqual(response["knowledge_decision"], "QUARANTINED")
+        self.assertEqual(response["error"], "MEMORY_RECORD_UNKNOWN_FIELD")
+
+    def test_cross_provider_memory_is_owner_scoped_and_ignores_forged_owner(self) -> None:
+        payload = self.memory_payload(
+            "owner-scope",
+            requester_root="f" * 64,
+        )
+
+        def verify_owner(api_key: str) -> tuple[str, str]:
+            owners = {
+                "aegis_memory_owner_a": ("memory-a@example.test", "operator"),
+                "aegis_memory_owner_b": ("memory-b@example.test", "operator"),
+            }
+            if api_key not in owners:
+                raise ValueError("invalid key")
+            return owners[api_key]
+
+        with patch.object(bridge, "_platform_verify_api_key", side_effect=verify_owner):
+            status, response = self.request(
+                "POST",
+                "/platform/resident/memory/synthesize",
+                payload,
+                api_key="aegis_memory_owner_a",
+            )
+            self.assertEqual(status, 200)
+            receipt = response["data"]
+            self.assertNotEqual(receipt["requester_root"], "f" * 64)
+
+            denied_status, denied = self.request(
+                "GET",
+                f"/platform/resident/memory/syntheses/{receipt['synthesis_id']}",
+                api_key="aegis_memory_owner_b",
+            )
+            owner_status, owner = self.request(
+                "GET",
+                f"/platform/resident/memory/syntheses/{receipt['synthesis_id']}",
+                api_key="aegis_memory_owner_a",
+            )
+
+        self.assertEqual(denied_status, 404)
+        self.assertEqual(denied["code"], "NOT_FOUND")
+        self.assertEqual(owner_status, 200)
+        self.assertEqual(owner["data"]["synthesis_id"], receipt["synthesis_id"])
+
+    def test_cross_provider_memory_is_idempotent_across_runtime_restart(self) -> None:
+        payload = self.memory_payload("restart")
+
+        first_status, first = self.request(
+            "POST", "/platform/resident/memory/synthesize", payload
+        )
+        bridge._resident_runtime_instance = None
+        second_status, second = self.request(
+            "POST", "/platform/resident/memory/synthesize", payload
+        )
+
+        self.assertEqual(first_status, 200)
+        self.assertEqual(second_status, 200)
+        self.assertEqual(
+            first["data"]["synthesis_id"], second["data"]["synthesis_id"]
+        )
+        self.assertEqual(first["data"]["bundle_digest"], second["data"]["bundle_digest"])
+        projection_status, projection = self.request("GET", "/platform/resident/status")
+        self.assertEqual(projection_status, 200)
+        self.assertEqual(projection["data"]["memory_syntheses"], 1)
+
+    def test_cross_provider_memory_idempotency_conflict_fails_closed(self) -> None:
+        payload = self.memory_payload("conflict")
+        changed = self.memory_payload(
+            "conflict",
+            subject="A different request under the same idempotency key.",
+        )
+
+        first_status, _ = self.request(
+            "POST", "/platform/resident/memory/synthesize", payload
+        )
+        conflict_status, conflict = self.request(
+            "POST", "/platform/resident/memory/synthesize", changed
+        )
+
+        self.assertEqual(first_status, 200)
+        self.assertEqual(conflict_status, 409)
+        self.assertEqual(conflict["knowledge_decision"], "QUARANTINED")
+        self.assertEqual(conflict["error"], "IDEMPOTENCY_CONFLICT")
+
+    def test_cross_provider_memory_replay_rejects_outer_receipt_splice(self) -> None:
+        status, response = self.request(
+            "POST",
+            "/platform/resident/memory/synthesize",
+            self.memory_payload("replay-splice"),
+        )
+        self.assertEqual(status, 200)
+        synthesis_id = response["data"]["synthesis_id"]
+        bundle_path = (
+            Path(self.tmp.name)
+            / "resident"
+            / "memory-syntheses"
+            / f"{synthesis_id}.json"
+        )
+        payload = json.loads(bundle_path.read_text(encoding="utf-8"))
+        payload["receipt"]["knowledge_decision"] = "REJECTED"
+        bundle_path.write_text(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")),
+            encoding="utf-8",
+        )
+
+        replay_status, replay = self.request(
+            "GET",
+            f"/platform/resident/memory/syntheses/{synthesis_id}/verify",
+        )
+
+        self.assertEqual(replay_status, 200)
+        self.assertFalse(replay["data"]["integrity_verified"])
+        self.assertFalse(replay["data"]["lineage_verified"])
+        self.assertIn("BUNDLE_RECEIPT_MISMATCH", replay["data"]["reason_codes"])
+
+    def test_cross_provider_memory_missing_provenance_fails_closed(self) -> None:
+        payload = self.memory_payload("missing-provenance")
+        payload["records"][0]["provenance_roots"] = []
+
+        status, response = self.request(
+            "POST", "/platform/resident/memory/synthesize", payload
+        )
+
+        self.assertEqual(status, 400)
+        self.assertEqual(response["knowledge_decision"], "QUARANTINED")
+        self.assertEqual(response["error"], "PROVENANCE_ROOT_COUNT_INVALID")
 
     def test_resident_run_is_scoped_to_verified_api_key_owner(self) -> None:
         head = _git("rev-parse", "HEAD")

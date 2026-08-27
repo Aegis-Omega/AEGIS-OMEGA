@@ -29,6 +29,15 @@ from harness.sdk.atomic_admission import (
     uci5_admission_policy_commitment,
 )
 from harness.sdk.complete_verifier import CompleteVerifier, TRUE
+from harness.sdk.cross_provider_memory import (
+    CrossProviderMemoryError,
+    CrossProviderMemoryReceiptV1,
+    CrossProviderMemoryReplayV1,
+    CrossProviderMemoryRequestV1,
+    request_digest as cross_provider_request_digest,
+    synthesize as synthesize_provider_memory,
+    validate_request as validate_cross_provider_memory_request,
+)
 from harness.sdk.effect_adapters import FilesystemEffectAdapter, filesystem_state_commitment
 from harness.sdk.effect_verifier import EffectVerifier
 from harness.sdk.epistemic_admission import (
@@ -772,6 +781,12 @@ class _ResidentEventStore:
                     key TEXT PRIMARY KEY,
                     value INTEGER NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS memory_syntheses (
+                    synthesis_id TEXT PRIMARY KEY,
+                    idempotency_key TEXT NOT NULL UNIQUE,
+                    request_digest TEXT NOT NULL,
+                    receipt_json TEXT NOT NULL
+                );
                 """
             )
 
@@ -844,6 +859,55 @@ class _ResidentEventStore:
             return None
         return ResidentRunReceiptV1.from_mapping(json.loads(str(row["receipt_json"])))
 
+    def get_memory_by_idempotency(
+        self, key: str
+    ) -> tuple[str, CrossProviderMemoryReceiptV1] | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT request_digest, receipt_json FROM memory_syntheses "
+                "WHERE idempotency_key = ?",
+                (key,),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = json.loads(str(row["receipt_json"]))
+        return str(row["request_digest"]), CrossProviderMemoryReceiptV1.from_mapping(payload)
+
+    def put_memory_synthesis(
+        self,
+        receipt: CrossProviderMemoryReceiptV1,
+        idempotency_key: str,
+    ) -> None:
+        encoded = json.dumps(asdict(receipt), sort_keys=True, separators=(",", ":"))
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(
+                "INSERT INTO memory_syntheses"
+                "(synthesis_id, idempotency_key, request_digest, receipt_json) "
+                "VALUES (?, ?, ?, ?)",
+                (
+                    receipt.synthesis_id,
+                    idempotency_key,
+                    receipt.request_digest,
+                    encoded,
+                ),
+            )
+            connection.commit()
+
+    def get_memory_synthesis(
+        self, synthesis_id: str
+    ) -> CrossProviderMemoryReceiptV1 | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT receipt_json FROM memory_syntheses WHERE synthesis_id = ?",
+                (synthesis_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return CrossProviderMemoryReceiptV1.from_mapping(
+            json.loads(str(row["receipt_json"]))
+        )
+
     def event_hash_exists(self, event_hash: str) -> bool:
         with self._connect() as connection:
             row = connection.execute(
@@ -859,6 +923,49 @@ class _ResidentEventStore:
             "rejected": int(decision == REJECTED),
             "quarantined": int(decision == QUARANTINED),
             "unknown": int(decision == UNKNOWN),
+            "authority_escalations_denied": int(authority_denied),
+        }
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            for key, delta in deltas.items():
+                connection.execute(
+                    """
+                    INSERT INTO self_model(key, value) VALUES (?, ?)
+                    ON CONFLICT(key) DO UPDATE SET value = value + excluded.value
+                    """,
+                    (key, delta),
+                )
+            rows = connection.execute("SELECT key, value FROM self_model").fetchall()
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+        return {str(row["key"]): int(row["value"]) for row in rows}
+
+    def update_memory_self_model(
+        self,
+        *,
+        decision: str,
+        record_count: int,
+        provider_count: int,
+        unique_provenance_root_count: int,
+        contradiction_count: int,
+        common_root_collapses: int,
+        authority_denied: bool,
+    ) -> dict[str, int]:
+        deltas = {
+            "memory_syntheses": 1,
+            "memory_records": record_count,
+            "memory_provider_observations": provider_count,
+            "memory_unique_provenance_roots": unique_provenance_root_count,
+            "memory_contradictions": contradiction_count,
+            "memory_common_root_collapses": common_root_collapses,
+            "memory_rejected": int(decision == REJECTED),
+            "memory_quarantined": int(decision == QUARANTINED),
+            "memory_unknown": int(decision == UNKNOWN),
             "authority_escalations_denied": int(authority_denied),
         }
         connection = self._connect()
@@ -933,6 +1040,26 @@ class ResidentRuntime:
             {
                 "requester_root": event.requester_root,
                 "event_id": event.event_id,
+            },
+        )[:24]
+
+    @staticmethod
+    def _memory_idempotency_scope(request: CrossProviderMemoryRequestV1) -> str:
+        return canonical_hash(
+            "AEGIS_CROSS_PROVIDER_MEMORY_IDEMPOTENCY_SCOPE_V1",
+            {
+                "requester_root": request.requester_root,
+                "idempotency_key": request.idempotency_key,
+            },
+        )
+
+    @staticmethod
+    def _memory_event_log_id(request: CrossProviderMemoryRequestV1) -> str:
+        return "memory-observed-" + canonical_hash(
+            "AEGIS_CROSS_PROVIDER_MEMORY_EVENT_LOG_ID_V1",
+            {
+                "requester_root": request.requester_root,
+                "event_id": request.event_id,
             },
         )[:24]
 
@@ -1308,6 +1435,131 @@ class ResidentRuntime:
         )
         os.replace(temporary, path)
         self.store.put_run(receipt, self._idempotency_scope(event))
+        return receipt
+
+    def process_cross_provider_memory(
+        self,
+        request: CrossProviderMemoryRequestV1,
+    ) -> CrossProviderMemoryReceiptV1:
+        """Synthesize provider memories as candidates, never as admitted knowledge."""
+        validate_cross_provider_memory_request(request)
+        digest = cross_provider_request_digest(request)
+        idempotency_scope = self._memory_idempotency_scope(request)
+        existing = self.store.get_memory_by_idempotency(idempotency_scope)
+        if existing is not None:
+            stored_digest, receipt = existing
+            if stored_digest != digest:
+                raise CrossProviderMemoryError("IDEMPOTENCY_CONFLICT")
+            return receipt
+
+        synthesis_id = "synth-" + canonical_hash(
+            "AEGIS_CROSS_PROVIDER_MEMORY_SYNTHESIS_ID_V1",
+            {"event_id": request.event_id, "request_digest": digest},
+        )[:24]
+        self.store.append(
+            event_id=self._memory_event_log_id(request),
+            event_kind="CROSS_PROVIDER_MEMORY_OBSERVED",
+            payload={
+                "synthesis_id": synthesis_id,
+                "request_digest": digest,
+                "request": asdict(request),
+                "authority": EVIDENCE_ONLY,
+            },
+        )
+        result = synthesize_provider_memory(
+            request,
+            authority_ceiling=self.authority_ceiling,
+        )
+        _, event_log_root = self.store.append(
+            event_id=synthesis_id,
+            event_kind="CROSS_PROVIDER_MEMORY_SYNTHESIZED",
+            payload={
+                "synthesis_id": synthesis_id,
+                "request_digest": digest,
+                "knowledge_decision": result.knowledge_decision,
+                "reason_codes": result.reason_codes,
+                "candidate_claim_ids": tuple(
+                    claim.claim_id for claim in result.candidate_claims
+                ),
+                "contradiction_ids": tuple(
+                    edge.contradiction_id for edge in result.contradictions
+                ),
+                "authority_before": self.authority_ceiling,
+                "authority_after": self.authority_ceiling,
+            },
+        )
+        self_model = self.store.update_memory_self_model(
+            decision=result.knowledge_decision,
+            record_count=result.record_count,
+            provider_count=result.provider_count,
+            unique_provenance_root_count=result.unique_provenance_root_count,
+            contradiction_count=len(result.contradictions),
+            common_root_collapses=result.common_root_collapse_count,
+            authority_denied="AUTHORITY_ESCALATION_DENIED" in result.reason_codes,
+        )
+        receipt_without_bundle = CrossProviderMemoryReceiptV1(
+            schema_version="1.0.0",
+            synthesis_id=synthesis_id,
+            event_id=request.event_id,
+            request_digest=digest,
+            subject=request.subject.strip(),
+            sequence=request.sequence,
+            knowledge_decision=result.knowledge_decision,
+            reason_codes=result.reason_codes,
+            warnings=result.warnings,
+            candidate_claims=result.candidate_claims,
+            contradictions=result.contradictions,
+            provider_count=result.provider_count,
+            model_count=result.model_count,
+            record_count=result.record_count,
+            unique_provenance_root_count=result.unique_provenance_root_count,
+            common_root_collapse_count=result.common_root_collapse_count,
+            event_log_root=event_log_root,
+            authority_before=self.authority_ceiling,
+            authority_after=self.authority_ceiling,
+            requester_root=request.requester_root,
+            self_model={
+                **self_model,
+                "open_memory_contradictions": self_model.get(
+                    "memory_contradictions", 0
+                ),
+                "memory_epistemic_debt": self_model.get(
+                    "memory_quarantined", 0
+                )
+                + self_model.get("memory_unknown", 0),
+            },
+            bundle_digest=ZERO_HASH,
+        )
+        receipt_body = asdict(receipt_without_bundle)
+        receipt_body.pop("bundle_digest")
+        bundle_body = {
+            "schema_version": "1.0.0",
+            "receipt": receipt_body,
+            "provider_memory_records": [asdict(record) for record in request.records],
+            "integrity_scope": (
+                "REPLAY_INTEGRITY_AND_LINEAGE_NOT_PROPOSITION_TRUTH_OR_AUTHORITY"
+            ),
+        }
+        bundle_digest = canonical_hash(
+            "AEGIS_CROSS_PROVIDER_MEMORY_BUNDLE_V1",
+            bundle_body,
+        )
+        receipt = replace(receipt_without_bundle, bundle_digest=bundle_digest)
+        syntheses_dir = self.state_root / "memory-syntheses"
+        syntheses_dir.mkdir(parents=True, exist_ok=True)
+        path = syntheses_dir / f"{synthesis_id}.json"
+        payload = {
+            "bundle_body": bundle_body,
+            "bundle_digest": bundle_digest,
+            "receipt": asdict(receipt),
+        }
+        temporary = syntheses_dir / f".{synthesis_id}.tmp"
+        temporary.write_text(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")),
+            encoding="utf-8",
+        )
+        os.replace(temporary, path)
+        self.store.put_memory_synthesis(receipt, idempotency_scope)
         return receipt
 
     def process_repository_event(self, event: RepositoryEventV1) -> ResidentRunReceiptV1:
@@ -1966,6 +2218,69 @@ class ResidentRuntime:
         finally:
             self._remove_worktree(worktree, event.max_latency_ms)
 
+    def get_memory_synthesis(
+        self,
+        synthesis_id: str,
+    ) -> CrossProviderMemoryReceiptV1 | None:
+        self._safe_id("SYNTHESIS_ID", synthesis_id)
+        return self.store.get_memory_synthesis(synthesis_id)
+
+    def replay_verify_memory_synthesis(
+        self,
+        synthesis_id: str,
+    ) -> CrossProviderMemoryReplayV1:
+        self._safe_id("SYNTHESIS_ID", synthesis_id)
+        path = self.state_root / "memory-syntheses" / f"{synthesis_id}.json"
+        reasons: list[str] = []
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            bundle_body = payload["bundle_body"]
+            stored_digest = payload["bundle_digest"]
+            receipt = CrossProviderMemoryReceiptV1.from_mapping(payload["receipt"])
+            recomputed = canonical_hash(
+                "AEGIS_CROSS_PROVIDER_MEMORY_BUNDLE_V1",
+                bundle_body,
+            )
+            outer_receipt_body = asdict(receipt)
+            outer_receipt_body.pop("bundle_digest")
+            normalized_outer_receipt = json.loads(
+                json.dumps(outer_receipt_body, sort_keys=True, separators=(",", ":"))
+            )
+            receipt_matches_bundle = normalized_outer_receipt == bundle_body.get(
+                "receipt"
+            )
+            if not receipt_matches_bundle:
+                reasons.append("BUNDLE_RECEIPT_MISMATCH")
+            integrity = (
+                recomputed == stored_digest
+                and receipt.bundle_digest == stored_digest
+                and receipt.synthesis_id == synthesis_id
+                and receipt_matches_bundle
+            )
+            if not integrity:
+                reasons.append("BUNDLE_INTEGRITY_MISMATCH")
+            lineage = (
+                integrity
+                and receipt.authority_before == receipt.authority_after
+                and receipt.knowledge_decision != VERIFIED
+                and self.store.event_hash_exists(receipt.event_log_root)
+            )
+            if not lineage:
+                reasons.append("LINEAGE_VERIFICATION_FAILED")
+        except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            integrity = False
+            lineage = False
+            stored_digest = ZERO_HASH
+            reasons.append("REPLAY_BUNDLE_UNAVAILABLE_OR_INVALID")
+        return CrossProviderMemoryReplayV1(
+            synthesis_id=synthesis_id,
+            integrity_verified=integrity,
+            lineage_verified=lineage,
+            semantic_truth_proven=False,
+            bundle_digest=stored_digest,
+            reason_codes=tuple(reasons),
+        )
+
     def get_run(self, run_id: str) -> ResidentRunReceiptV1 | None:
         self._safe_id("RUN_ID", run_id)
         return self.store.get_run(run_id)
@@ -2030,6 +2345,9 @@ class ResidentRuntime:
                 "SELECT COUNT(*) AS n FROM events WHERE event_kind = 'TASK_SCHEDULED'"
             ).fetchone()
             completed = connection.execute("SELECT COUNT(*) AS n FROM runs").fetchone()
+            memory_syntheses = connection.execute(
+                "SELECT COUNT(*) AS n FROM memory_syntheses"
+            ).fetchone()
             rows = connection.execute("SELECT key, value FROM self_model").fetchall()
         return {
             "runtime": "resident-intelligence-v1",
@@ -2037,6 +2355,9 @@ class ResidentRuntime:
             "authority_self_escalation": False,
             "scheduled_tasks": int(queued["n"] if queued else 0),
             "completed_runs": int(completed["n"] if completed else 0),
+            "memory_syntheses": int(
+                memory_syntheses["n"] if memory_syntheses else 0
+            ),
             "self_model": {str(row["key"]): int(row["value"]) for row in rows},
             "state_kind": "APPEND_ONLY_EVENT_LOG_WITH_DERIVED_VIEWS",
         }

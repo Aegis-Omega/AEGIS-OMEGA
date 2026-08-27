@@ -255,7 +255,7 @@ def test_dept_output():
         'retention':   'T2',
         'competitive': 'T2',
         'technical':   'T2',
-        'regulatory':  'T1',  # regulatory is T1 (compliance status, empirically validated)
+        'regulatory':  'T2',  # generated compliance analysis is not empirical evidence
         'fundraising': 'T2',
     }
     for mode, expected_tier in _tier_labels.items():

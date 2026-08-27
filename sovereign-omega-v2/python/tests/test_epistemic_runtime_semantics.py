@@ -65,7 +65,16 @@ class EpistemicRuntimeSemanticsTests(unittest.TestCase):
 
     def test_persisted_swarm_output_is_raw_memory_and_missing_verdict_is_unknown(self) -> None:
         rows = [{
-            "artifacts": [{"role": "Builder", "output": "A prior model said this."}],
+            "artifacts": [{
+                "role": "Builder",
+                "output": "A prior model said this.",
+                "memory_metadata": {
+                    "memory_class": "RAW_MEMORY",
+                    "epistemic_tier": "T2",
+                    "authority": "EVIDENCE_ONLY",
+                    "truth_status": "UNVERIFIED_MODEL_OUTPUT",
+                },
+            }],
             "projection": {"first_year_arr_usd": 123},
             "created_at": "2026-08-24T00:00:00Z",
         }]
@@ -80,7 +89,11 @@ class EpistemicRuntimeSemanticsTests(unittest.TestCase):
             ),
             patch("urllib.request.urlopen", return_value=_JsonResponse(rows)),
         ):
-            context = retrieve_swarm_memory("objective", "revenue")
+            context = retrieve_swarm_memory(
+                "objective",
+                "revenue",
+                "operator@example.test",
+            )
 
         self.assertIn("RAW_MEMORY", context)
         self.assertIn("verdict=UNKNOWN", context)

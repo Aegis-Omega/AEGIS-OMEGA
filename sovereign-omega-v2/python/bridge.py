@@ -349,7 +349,7 @@ def _platform_run_collaboration(
             )
             # Caller-supplied memory_context takes precedence; fall back to auto-retrieved
             if not memory_context:
-                memory_context = _retrieve_swarm_memory(objective, mode)
+                memory_context = _retrieve_swarm_memory(objective, mode, email)
             swarm = _swarm_live(
                 objective, mode, _PLATFORM_DEPARTMENTS,
                 system=swarm_system,
@@ -431,7 +431,11 @@ def _platform_run_collaboration(
             _time_col.sleep(0.04)
 
         # ── EVOLUTIONARY FITNESS ──────────────────────────────────────────────
-        prev_artifacts = _retrieve_prior_artifacts(objective, mode) if generation > 0 else []
+        prev_artifacts = (
+            _retrieve_prior_artifacts(objective, mode, email)
+            if generation > 0
+            else []
+        )
         fitness_scores = _eval_fitness(prev_artifacts, artifacts, objective)
         verdict_pre = constitutional_audit.get('verdict') or 'UNKNOWN'
         _store_fitness(objective, mode, generation, cycle_id, fitness_scores, verdict_pre)
@@ -939,6 +943,72 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'status': 'pending',
             }))
 
+        elif self.path == '/platform/resident/memory/synthesize':
+            # Deterministic cross-provider memory synthesis. Provider/model
+            # records remain T2 candidates; common roots and contradictions
+            # are surfaced without voting them into verified knowledge.
+            import dataclasses as _memory_dataclasses
+            try:
+                _memory_email, _memory_tier = _platform_verify_api_key(
+                    self.headers.get('x-api-key', '')
+                )
+                _memory_owner_root = _resident_requester_root(_memory_email)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            try:
+                _validate_tier_caps(_memory_tier, True)
+            except ValueError as exc:
+                self._platform_respond(403, {
+                    'error': str(exc),
+                    'code': 'INSUFFICIENT_CAPABILITY',
+                })
+                return
+            try:
+                from harness.sdk.cross_provider_memory import (
+                    CrossProviderMemoryError as _CrossProviderMemoryError,
+                    CrossProviderMemoryRequestV1 as _CrossProviderMemoryRequestV1,
+                )
+                from harness.sdk.resident_runtime import (
+                    ResidentRuntimeError as _ResidentRuntimeError,
+                )
+            except Exception as exc:
+                self._platform_respond(503, {
+                    'error': type(exc).__name__,
+                    'code': 'RESIDENT_RUNTIME_UNAVAILABLE',
+                    'knowledge_decision': 'UNKNOWN',
+                })
+                return
+            try:
+                request = _CrossProviderMemoryRequestV1.from_mapping(data)
+                request = _memory_dataclasses.replace(
+                    request,
+                    requester_root=_memory_owner_root,
+                )
+                receipt = _get_resident_runtime().process_cross_provider_memory(request)
+            except (_CrossProviderMemoryError, _ResidentRuntimeError) as exc:
+                status = 409 if getattr(exc, 'code', '') == 'IDEMPOTENCY_CONFLICT' else 400
+                self._platform_respond(status, {
+                    'error': getattr(exc, 'code', type(exc).__name__),
+                    'code': 'CROSS_PROVIDER_MEMORY_REJECTED',
+                    'knowledge_decision': 'QUARANTINED',
+                })
+                return
+            except Exception as exc:
+                self._platform_respond(503, {
+                    'error': type(exc).__name__,
+                    'code': 'RESIDENT_RUNTIME_UNAVAILABLE',
+                    'knowledge_decision': 'UNKNOWN',
+                })
+                return
+            self._platform_respond(
+                200,
+                _platform_envelope(
+                    receipt.synthesis_id,
+                    _memory_dataclasses.asdict(receipt),
+                ),
+            )
+
         elif self.path == '/platform/resident/events':
             # Event-driven resident-intelligence intake. The runtime may inspect
             # the configured repository and mutate only an ephemeral worktree;
@@ -1146,6 +1216,69 @@ class BridgeHandler(BaseHTTPRequestHandler):
             self._platform_respond(
                 200,
                 _platform_envelope(execution_id, projection),
+            )
+
+        elif self.path.startswith('/platform/resident/memory/syntheses/'):
+            import dataclasses as _memory_dataclasses
+            import hmac as _memory_hmac
+            try:
+                _memory_email, _memory_tier = _platform_verify_api_key(
+                    self.headers.get('x-api-key', '')
+                )
+                requester_root = _resident_requester_root(_memory_email)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            try:
+                _validate_tier_caps(_memory_tier, True)
+            except ValueError as exc:
+                self._platform_respond(403, {
+                    'error': str(exc),
+                    'code': 'INSUFFICIENT_CAPABILITY',
+                })
+                return
+            suffix = self.path.removeprefix(
+                '/platform/resident/memory/syntheses/'
+            ).split('?', 1)[0]
+            verify = suffix.endswith('/verify')
+            synthesis_id = suffix.removesuffix('/verify') if verify else suffix
+            try:
+                runtime = _get_resident_runtime()
+                receipt = runtime.get_memory_synthesis(synthesis_id)
+            except Exception as exc:
+                self._platform_respond(400, {
+                    'error': str(exc)[:120],
+                    'code': 'MEMORY_SYNTHESIS_REQUEST_INVALID',
+                })
+                return
+            if receipt is None or not _memory_hmac.compare_digest(
+                receipt.requester_root,
+                requester_root,
+            ):
+                self._platform_respond(404, {
+                    'error': 'memory synthesis not found',
+                    'code': 'NOT_FOUND',
+                    'synthesis_id': synthesis_id,
+                })
+                return
+            try:
+                artifact = (
+                    runtime.replay_verify_memory_synthesis(synthesis_id)
+                    if verify
+                    else receipt
+                )
+            except Exception as exc:
+                self._platform_respond(400, {
+                    'error': str(exc)[:120],
+                    'code': 'MEMORY_SYNTHESIS_REQUEST_INVALID',
+                })
+                return
+            self._platform_respond(
+                200,
+                _platform_envelope(
+                    synthesis_id,
+                    _memory_dataclasses.asdict(artifact),
+                ),
             )
 
         elif self.path.startswith('/platform/resident/runs/'):

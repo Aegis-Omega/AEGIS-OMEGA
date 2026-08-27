@@ -585,7 +585,9 @@ _MODE_TIERS: dict[str, str] = {
     'retention':    'T2',
     'competitive':  'T2',
     'technical':    'T2',
-    'regulatory':   'T1',  # compliance status is empirically validated
+    # A generated regulatory template is still an engineering candidate. Only
+    # source-bound observations and independent verification may establish T1.
+    'regulatory':   'T2',
     'fundraising':  'T2',
 }
 
@@ -1088,23 +1090,28 @@ def store_generation_fitness(
         print(f'[bridge] department_fitness_tracking write failed: {_exc}', file=sys.stderr)
 
 
-def retrieve_prior_artifacts(objective: str, mode: str) -> list:
+def retrieve_prior_artifacts(objective: str, mode: str, email: str = '') -> list:
     """
     Fetch the artifacts list from the most recent swarm_memory row for this
     objective+mode. Used as prev_artifacts in evaluate_generation_fitness().
     Returns [] if Supabase is unavailable or no prior run exists.
     """
+    import urllib.parse as _up_pa
     import urllib.request as _ur_pa
 
     supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
     service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
     if not supabase_url or not service_key:
         return []
+    if not isinstance(email, str) or not email.strip():
+        return []
 
     obj_hash = objective_hash(objective)
+    owner = _up_pa.quote(email.strip(), safe='')
     params = (
         f'?objective_hash=eq.{obj_hash}'
         f'&mode=eq.{mode}'
+        f'&customer_email=eq.{owner}'
         f'&order=created_at.desc'
         f'&limit=1'
         f'&select=artifacts'
@@ -1175,7 +1182,12 @@ def objective_hash(objective: str) -> str:
     return _hl_oh.sha256(objective.lower().strip().encode()).hexdigest()
 
 
-def retrieve_swarm_memory(objective: str, mode: str, limit: int = 3) -> str:
+def retrieve_swarm_memory(
+    objective: str,
+    mode: str,
+    email: str = '',
+    limit: int = 3,
+) -> str:
     """
     Fetch the most recent swarm_memory rows for this objective hash + mode.
     Returns a formatted context block injected into the swarm system prompt,
@@ -1184,6 +1196,7 @@ def retrieve_swarm_memory(objective: str, mode: str, limit: int = 3) -> str:
     Returned rows are RAW_MEMORY of prior generated activations. Persistence
     and retrieval preserve lineage but do not promote model output to evidence.
     """
+    import urllib.parse as _up_sm
     import urllib.request as _ur_sm
     import urllib.error as _ue_sm
 
@@ -1191,11 +1204,20 @@ def retrieve_swarm_memory(objective: str, mode: str, limit: int = 3) -> str:
     service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
     if not supabase_url or not service_key:
         return ''
+    # Objective hashes are global, so owner scope is mandatory whenever the
+    # shared production store is configured. Missing identity must not fall
+    # back to cross-tenant retrieval.
+    if not isinstance(email, str) or not email.strip():
+        return ''
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 10:
+        return ''
 
     obj_hash = objective_hash(objective)
+    owner = _up_sm.quote(email.strip(), safe='')
     params = (
         f'?objective_hash=eq.{obj_hash}'
         f'&mode=eq.{mode}'
+        f'&customer_email=eq.{owner}'
         f'&order=created_at.desc'
         f'&limit={limit}'
         f'&select=artifacts,projection,constitutional_verdict,created_at'
@@ -1225,11 +1247,37 @@ def retrieve_swarm_memory(objective: str, mode: str, limit: int = 3) -> str:
         projection = row.get('projection', {})
         verdict = row.get('constitutional_verdict') or 'UNKNOWN'
         arr = projection.get('first_year_arr_usd', 0)
-        # Sample 3 representative department outputs from prior run
+        # Sample 3 representative department outputs from prior run. Legacy
+        # unbound rows are retained in storage for audit but are not reinjected.
         sample = [a for a in artifacts if a.get('output', '').strip()][:3]
         lines.append(f'\nMemory {i} (verdict={verdict}, proj_arr=${arr:,}):')
         for a in sample:
-            lines.append(f'  {a["role"]}: {str(a.get("output",""))[:100]}')
+            metadata = a.get('memory_metadata')
+            if not isinstance(metadata, dict):
+                lines.append(
+                    f'  {a.get("role", "UNKNOWN")}: '
+                    '[QUARANTINED_LEGACY_UNBOUND_MEMORY]'
+                )
+                continue
+            metadata_valid = (
+                metadata.get('memory_class') == 'RAW_MEMORY'
+                and metadata.get('epistemic_tier') == 'T2'
+                and metadata.get('authority') == 'EVIDENCE_ONLY'
+                and metadata.get('truth_status') == 'UNVERIFIED_MODEL_OUTPUT'
+            )
+            if not metadata_valid:
+                lines.append(
+                    f'  {a.get("role", "UNKNOWN")}: '
+                    '[QUARANTINED_MEMORY_METADATA]'
+                )
+                continue
+            output = str(a.get('output', ''))
+            lowered = output.lower()
+            if any(marker in lowered for marker in _INJECTION_MARKERS):
+                preview = '[QUARANTINED_UNTRUSTED_CONTENT]'
+            else:
+                preview = output[:100]
+            lines.append(f'  {a.get("role", "UNKNOWN")}: {preview}')
     lines.append('')
     return '\n'.join(lines)
 
@@ -1241,11 +1289,17 @@ def store_swarm_memory(
     artifacts: list,
     projection: dict,
     verdict: str,
+    provider_id: str = 'anthropic',
+    model_id: str = SWARM_MODEL,
 ) -> None:
     """
-    Write a completed swarm collaboration to swarm_memory. Fire-and-forget.
-    Called after every successful live collaboration to build the memory corpus.
+    Write generated swarm output as explicitly unverified RAW_MEMORY.
+
+    The generated-output and generation hashes bind bytes/lineage only. They
+    are deliberately separate from source provenance and never promote model
+    output to T1 evidence or knowledge. Fire-and-forget.
     """
+    import hashlib as _hl_st
     import urllib.request as _ur_st
     import urllib.error as _ue_st
 
@@ -1254,11 +1308,51 @@ def store_swarm_memory(
     if not supabase_url or not service_key:
         return
 
+    generation_payload = {
+        'objective_hash': objective_hash(objective),
+        'mode': mode,
+        'provider_id': provider_id,
+        'model_id': model_id,
+        'artifacts': artifacts,
+        'projection': projection,
+        'constitutional_verdict': verdict,
+    }
+    generation_root = _hl_st.sha256(
+        json.dumps(
+            generation_payload,
+            sort_keys=True,
+            separators=(',', ':'),
+        ).encode('utf-8')
+    ).hexdigest()
+    stored_artifacts = []
+    for artifact in artifacts:
+        if isinstance(artifact, dict):
+            stored = dict(artifact)
+        else:
+            stored = {'role': 'UNKNOWN', 'output': str(artifact)}
+        output = str(stored.get('output', ''))
+        stored['memory_metadata'] = {
+            'schema_version': '1.0.0',
+            'memory_class': 'RAW_MEMORY',
+            'epistemic_tier': 'T2',
+            'authority': 'EVIDENCE_ONLY',
+            'truth_status': 'UNVERIFIED_MODEL_OUTPUT',
+            'provider_id': provider_id,
+            'model_id': model_id,
+            'provider_output_root': _hl_st.sha256(output.encode('utf-8')).hexdigest(),
+            'generation_root': generation_root,
+            'correlated_failure_group': generation_root,
+            'source_artifacts': [],
+            'provenance_roots': [],
+            'integrity_semantics': 'HASH_BINDS_BYTES_NOT_PROPOSITION_TRUTH',
+        }
+        stored_artifacts.append(stored)
+
     payload = json.dumps({
         'objective_hash': objective_hash(objective),
         'mode': mode,
         'customer_email': email,
-        'artifacts': artifacts,
+        'artifacts': stored_artifacts,
         'projection': projection,
         'constitutional_verdict': verdict,
     }).encode()
@@ -1566,7 +1660,8 @@ def swarm_collaborate_live(
 
     result = _parse_swarm_response(raw, objective, mode, departments)
 
-    # Store to swarm_memory so future calls can build on these insights (T1 corpus)
+    # Persist only as unverified RAW_MEMORY. Retrieval can compare prior model
+    # activations, but persistence/hash lineage never converts them into T1.
     if email:
         store_swarm_memory(
             email, objective, mode,
@@ -1598,6 +1693,8 @@ def _parse_swarm_response(
     try:
         data = json.loads(text)
     except Exception:
+        return _swarm_fallback(objective, mode, departments)
+    if not isinstance(data, dict):
         return _swarm_fallback(objective, mode, departments)
 
     # Build dept_id → output map from the response
@@ -1632,14 +1729,24 @@ def _parse_swarm_response(
 
     # Projection — clamp ARR to sane range
     raw_proj = data.get('projection', {})
+    if not isinstance(raw_proj, dict):
+        raw_proj = {}
     try:
         arr_usd = max(0, int(raw_proj.get('first_year_arr_usd', 2_000_000)))
     except (TypeError, ValueError):
         arr_usd = 2_000_000
-    proj_tier = raw_proj.get('tier', 'T2')
-    if proj_tier not in ('T0', 'T1', 'T2', 'T3'):
-        proj_tier = 'T2'
-    governed_note = str(raw_proj.get('governed_note', f'T2 hypothesis: {mode} mode analysis.'))
+    candidate_tier = raw_proj.get('tier', 'T2')
+    if candidate_tier not in ('T0', 'T1', 'T2', 'T3'):
+        candidate_tier = 'UNKNOWN'
+    candidate_note = str(
+        raw_proj.get('governed_note', f'{mode} mode model analysis.')
+    )
+    # Provider output cannot self-promote to an empirical or formal tier.
+    proj_tier = 'T2'
+    governed_note = (
+        'T2 model-generated projection; candidate note is unverified: '
+        f'{candidate_note}'
+    )
 
     return {
         'artifacts': artifacts,
@@ -1652,7 +1759,9 @@ def _parse_swarm_response(
         'projection': {
             'first_year_arr_usd': arr_usd,
             'tier': proj_tier,
+            'candidate_tier': candidate_tier,
             'governed_note': governed_note,
+            'candidate_governed_note': candidate_note,
         },
     }
 
