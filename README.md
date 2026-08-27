@@ -1,6 +1,6 @@
 # AEGIS-Ω
 
-**A self-governing constitutional AI runtime** — every decision is hash-chained, replay-verifiable, and tamper-evident.
+**A proof-carrying constitutional AI runtime** — governed transitions can be bound to independently observed effects, replay evidence, and tamper-evident receipts.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Aegis-Omega/AEGIS-OMEGA/ci.yml?branch=main&label=CI%20CEREMONY)](https://github.com/Aegis-Omega/AEGIS-OMEGA/actions)
 [![License](https://img.shields.io/badge/License-AGPL--3.0-blue)](LICENSE)
@@ -12,7 +12,9 @@
 
 ## What it is
 
-AEGIS-Ω doesn't *describe* governance — it enacts it mechanically. Every AI response, state transition, and epoch boundary is SHA-256 hash-chained, sequence-numbered, and stored in a tamper-evident ledger that can be replayed from genesis to the same fingerprint. If a replay diverges, that's a detected failure, not a silent one.
+AEGIS-Ω doesn't merely *describe* governance — its wired runtime paths enact it mechanically. The verified platform-start vertical slice binds an authority decision, execution attempt, independent pre/post observations, effect verification, and complete verification to one transition identity. Replayable subsystems use canonical SHA-256 lineage and fail when reconstruction diverges.
+
+This claim is deliberately scoped. Not every module or model response in the repository is on that live authority path; tested-only and dormant components are classified in [`REPO_MAP.md`](REPO_MAP.md).
 
 One law governs the whole system:
 
@@ -20,7 +22,20 @@ One law governs the whole system:
 AdaptivePower(T) ≤ ReplayVerifiability(T)
 ```
 
-*No part of the system can do more than it can prove it did.*
+*No authoritative claim may exceed the weakest verified transition required to establish it.*
+
+## Verified live action boundary
+
+The current evidence-bearing platform path is:
+
+```text
+Intent → DecisionReceipt → ExecutionReceipt → EffectObservation
+       → VerifyEffect → EffectReceipt → CompleteVerification
+```
+
+For `aegis_start_execution`, the runtime performs an independent pre-observation, the POST attempt, and two independent GET observations. All observations must bind to the same revision, contract, execution identity, and transition. A successful POST response alone cannot establish an effect, and read-only observations do not consume execution quota.
+
+Exact hosted evidence for the integration candidate is recorded on [PR #334](https://github.com/Aegis-Omega/AEGIS-OMEGA/pull/334). The verified candidate remains a draft until separately admitted and merged; GREEN CI is not a production-deployment receipt.
 
 ---
 
@@ -75,7 +90,7 @@ cd AEGIS-OMEGA
 bash scripts/ground-truth.sh
 
 # TypeScript governance runtime — Gate 8 (run before every commit)
-cd sovereign-omega-v2 && npm install
+cd sovereign-omega-v2 && npm ci
 npm run test && npm run typecheck && npm run build
 
 # Verify the constitutional membrane (must exit 0)
@@ -97,6 +112,8 @@ New here? Read [`HANDOFF.md`](HANDOFF.md) (current ground truth) and [`REPO_MAP.
 | `verifiable/` | Envelope + proofs | Domain-agnostic RFC 8785→SHA-256 lineage, a second (regulated-decision) domain, cross-language replay (Py/Node/Rust), self-certifying session cert |
 | `packages/aegis-interface/` | Interface compiler | RFC 0001/0005 — deterministic WIT→IR→{Rust, TS, Python} with a cross-language equivalence gate |
 | `packages/aegis-py/` | SDK + CLI | `AegisClient` / `AsyncAegisClient` / `aegis` CLI for the Platform API |
+| `harness/sdk/proof_carrying_platform_execution.py` | Action boundary | Authority decision → bridge execution → independent effect observations → complete verification |
+| `harness/sdk/platform_effect_adapter.py` | Effect observer | Revision-bound readback adapter; never trusts the POST response as effect proof |
 | `packages/shared/` | Shared infra | Inference router (DashScope→Ollama→Claude→CL-Ψ), constitutional-ai, payment tokens |
 | `clients/gemma-holon/` | Edge holon | Gemma-4E4B on-device constitutional validation node + Ogemma Mythos gates |
 | `hub/` | Web | [aegisomega.com](https://aegisomega.com) — live hash-chained metacognitive loop + WebGPU Φ-field |
@@ -130,10 +147,12 @@ Get a key at [aegisomega.com/pricing](https://aegisomega.com/pricing) — Explor
 
 | Suite | Count |
 |-------|-------|
-| TypeScript — `sovereign-omega-v2` | 4,076 |
+| TypeScript — `sovereign-omega-v2` | 4,130 passing on PR #334 exact-head Gate 8 |
 | Rust — `aegis-cl-psi` | 7,178 |
 | Rust — `aegis-runtime` | 133 |
 | Python — `aegis-interface` (RFC 0001/0005) | 50 |
+| Python — authorization/effect-chain targeted regression | 84 |
+| Python — proof-trace targeted regression | 31 |
 
 ```bash
 cd aegis-cl-psi   && cargo test          # never --all-features (ROCm-gated)
@@ -144,6 +163,12 @@ cd packages/aegis-interface && python -m pytest
 **Scale:** ~260k lines of source across Rust / TypeScript / Python / WGSL (~352k tracked total), ≈11,900 tests, plus TLA+ and Coq-style formal artifacts. Reproducible metrics: [`docs/PROOF.md`](docs/PROOF.md).
 
 **CI:** the CEREMONY gate is a BFT quorum of 6 jobs at threshold 1/φ ≈ 0.618 — fewer than 4/6 passing blocks merge.
+
+### Agent Dispatch status
+
+`.github/workflows/agent-dispatch.yml` is an optional external integration boundary. It dispatches only when the repository variable `PROXY_URL` identifies an explicitly configured constitutional proxy. Without that variable, the workflow completes successfully with `Status: DISABLED` and proves that no network request or agent execution was attempted.
+
+The workflow listens to completion of the canonical `⊕ AEGIS-Ω Constitutional Automaton`, PR events, issues, and `@aegis-agent` comments. Configuring `PROXY_URL` establishes routing, not trust: the receiving proxy still owns authorization, execution, effect verification, and admission.
 
 ---
 
@@ -178,6 +203,7 @@ sovereign-omega-v2/python/router.py  8c06ed37…
 - **GPU nondeterminism** — ROCm HIP kernels vary across hardware; gated behind `#[cfg(feature = "hip")]`, excluded from determinism guarantees.
 - **No live peer network** — the gossip layer is implemented and tested but not yet run against a real multi-node mesh.
 - **Verifier scalability** — `verify_chain()` is O(n); long chains need segmented verification.
+- **Agent dispatch deployment** — source wiring is present, but external dispatch remains intentionally disabled until `PROXY_URL` is configured and the receiving proxy is independently verified.
 - **Replay state explosion** — the full event log is not prunable without the lineage compactor.
 
 ---

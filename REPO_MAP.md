@@ -1,9 +1,10 @@
 # AEGIS Repo Map — what's real, what's dead, what lies
 
-**Why this exists:** the repo has ~40 top-level dirs and CLAUDE.md documents ~14. Holding
+**Why this exists:** the repo has many top-level systems and no single README can establish liveness. Holding
 "where is what" in your head is what caused the burnout. This is the index. It was produced
-by a full four-way inspection of all 1,649 real files (2026-06-13) and is the source of truth
-when a doc and the code disagree — **the code wins; the docs are stale.**
+from repository inspection and is maintained as an orientation map, not a census. The generated
+repository-cognition manifest owns tracked-file census; when documentation and executable state
+disagree, **exact code, workflow, and receipt evidence wins.**
 
 Status key: **WIRED** = runs in prod / built / deployed / imported · **TESTED-ONLY** = real code,
 only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does not compile ·
@@ -17,6 +18,7 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
 |------|-----------|--------|
 | `sovereign-omega-v2/python/bridge.py` | The governance/swarm/inference HTTP service — `/telemetry`, `/platform/*`, `/claude`, `/node`; `/platform/resident/*` invokes the evidence-bound repository loop | Cloud Run `aegis-vertex`, europe-west3; the Dockerfile now packages `python/` plus the invoked `harness/`, `config/`, and `models/` runtime inputs |
 | `harness/sdk/resident_runtime.py` + receipt/admission SDK | Typed repository event → isolated experiment → independent falsifier → effect verification → fail-closed knowledge decision → SelfModel projection/replay | **WIRED** through the production `bridge.py` handler; docker-compose persists `/app/data`, while Render free storage remains ephemeral |
+| `harness/sdk/proof_carrying_platform_execution.py` + `platform_effect_adapter.py` | `aegis_start_execution` authority decision → bridge POST → independent revision-bound GET observations → EffectReceipt → CompleteVerification | **WIRED in PR #334 candidate** through MCP and Python bridge; exact-head CI verified, production deployment not established |
 | `vertex/serve.py` | FastAPI "constitutional-proxy" / `aegis-platform`; bundles `agents/` + `harness/` | `vertex/cloudbuild.yaml` |
 | `aegis-cl-psi/` | Rust CL-Ψ engine — ~7,198 tests, CI-gated ≥6800 | `aegis-cl-psi/deploy/Dockerfile`; CI `ci.yml` |
 | `aegis-runtime/` | Rust Seven-Pillar runtime | CI build+test |
@@ -68,7 +70,11 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
 - ~~Lemon Squeezy subsystem~~ = **removed** from repo: `ls-webhook`/`issue-token`/`restore-access` + `gen-grant-keypair.mjs`. NOTE: the edge functions may still be **deployed on Supabase** — delete there separately if desired.
 - **`.github/workflows/deploy-cloud-run.yml`** — **NOT a no-op duplicate — keep.** It's the WIF keyless
   Cloud Run deploy, deliberately `workflow_dispatch`-only (auto-deploy disabled *to stop GCP billing* —
-  that safety decision is encoded in its trigger). `agent-dispatch.yml` = no-op unless a repo var is set.
+  that safety decision is encoded in its trigger).
+- **`.github/workflows/agent-dispatch.yml`** — optional external integration. It listens to the
+  actual Constitutional Automaton workflow name and emits an explicit successful `DISABLED`
+  summary when `PROXY_URL` is absent. A configured URL enables transport only; it does not grant
+  admission authority to the receiving agent system.
 - ~~`enterprise/dist/`~~ = **removed** (committed build artifact; `.gitignore` already excludes `dist/`).
 - **root `package.json`** named `aegis-tactical-dashboard` — frontend workspace entry removed; now `backend`-only (still an orphaned identity).
 - ~~`studio/dist/`~~ = **untracked** (committed build artifact removed from git).

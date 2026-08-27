@@ -2,7 +2,7 @@ name: AEGIS Agent Dispatch
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["⊕ AEGIS-Ω Constitutional Automaton"]
     types: [completed]
   pull_request:
     types: [opened, synchronize, review_requested]
@@ -19,12 +19,18 @@ jobs:
       contents: read
       pull-requests: read
       issues: read
-    # Only run if PROXY_URL is configured (won't block other CI)
-    if: vars.PROXY_URL != ''
-
     steps:
+      - name: Report dispatch boundary status
+        if: vars.PROXY_URL == ''
+        run: |
+          echo "## AEGIS Agent Dispatch" >> "$GITHUB_STEP_SUMMARY"
+          echo "Status: DISABLED" >> "$GITHUB_STEP_SUMMARY"
+          echo "Reason: repository variable PROXY_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+          echo "No network request or agent execution was attempted." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Determine event type and payload
         id: classify
+        if: vars.PROXY_URL != ''
         # All untrusted external inputs bound to env vars — never interpolated inline.
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -89,16 +95,20 @@ jobs:
           echo "payload=$PAYLOAD" >> $GITHUB_OUTPUT
 
       - name: Dispatch to AEGIS constitutional proxy
-        if: steps.classify.outputs.event_type != ''
+        if: vars.PROXY_URL != '' && steps.classify.outputs.event_type != ''
         env:
           PROXY_URL: ${{ vars.PROXY_URL }}
           DISPATCH_EVENT_TYPE: ${{ steps.classify.outputs.event_type }}
           DISPATCH_PAYLOAD: ${{ steps.classify.outputs.payload }}
         run: |
-          curl -s -X POST "$PROXY_URL/agents/dispatch" \
+          set -euo pipefail
+          RESPONSE=$(curl --fail-with-body --show-error --silent --max-time 30 \
+            -X POST "${PROXY_URL%/}/agents/dispatch" \
             -H "Content-Type: application/json" \
             -d "$(jq -n \
               --arg event_type "$DISPATCH_EVENT_TYPE" \
               --argjson payload "$DISPATCH_PAYLOAD" \
-              '{"event_type": $event_type, "payload": $payload}')" \
+              '{"event_type": $event_type, "payload": $payload}')")
+          echo "$RESPONSE" | jq -e '.results | type == "array"' >/dev/null
+          echo "$RESPONSE" \
             | jq '.results[] | {role, ralph_cycles, is_valid, output: (.output | .[0:500])}'

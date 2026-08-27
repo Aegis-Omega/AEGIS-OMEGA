@@ -47,6 +47,7 @@ KEY_FILES = (
     "docs/security/AUTOMATON3_THREAT_MODEL.md",
     "docs/operations/LAW_OF_SILENCE_V2.md",
     "docs/operations/BRANCH_RULESET_AUTOMATON3.md",
+    ".github/workflows/agent-dispatch.yml",
     ".github/workflows/automaton-3.yml",
     ".github/workflows/authorization-effect-chain.yml",
 )

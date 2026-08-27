@@ -4,6 +4,30 @@ A receipt anyone can reproduce in minutes. Every number below was measured
 directly from the tracked repository (excluding `node_modules` and build output),
 not asserted. Commands are included so you can confirm each figure yourself.
 
+## Current exact-head verification anchor
+
+PR #334 established the live platform effect boundary on hosted head
+`c2dcc75a4ea0befba496e067e9254e439dc0f7be`, tree
+`02e081e388dc288c9aa2687d7c8cd0ec85ac5362`:
+
+| Evidence | Result |
+|----------|--------|
+| Constitutional Automaton run `33085997488` | SUCCESS |
+| Authorization Effect Chain run `33085997557` | SUCCESS |
+| TypeScript Gate 8 | 254 files passed / 3 skipped; 4,130 tests passed / 68 skipped; typecheck and build passed |
+| Targeted Python receipt/effect chain | 84 passed |
+| Targeted Python ProofTrace | 31 passed |
+| Review ledger | 26/26 resolved |
+
+The verified transition is:
+
+```text
+DecisionReceipt → ExecutionReceipt → EffectObservation
+                → EffectReceipt → CompleteVerification
+```
+
+This is candidate-state evidence, not a production deployment receipt. The PR remains DRAFT.
+
 ---
 
 ## Scale
@@ -50,7 +74,7 @@ done
 | Python `def test_*` | **200** | measured (pattern count) |
 | **Total** | **≈ 11,949** | |
 
-Documented per-suite figures (from `CLAUDE.md` / `README.md`): TS 4,076 ·
+Latest executed per-suite figures: TS 4,130 passing on the PR #334 exact-head Gate 8 ·
 `aegis-cl-psi` 7,178 · `aegis-runtime` 133 · `aegis-interface` 50.
 
 ```bash
@@ -93,7 +117,7 @@ cd ../aegis-runtime  && cargo test                        # Seven-Pillar runtime
 AdaptivePower(T) ≤ ReplayVerifiability(T)
 ```
 
-No part of the system can do more than it can prove it did. φ-convergence:
+No authoritative claim may exceed the weakest verified transition required to establish it. φ-convergence:
 `MUTATION_RATE_LIMIT = DEFAULT_QUORUM_THRESHOLD = (√5−1)/2 ≈ 0.6180339887`.
 
 ---

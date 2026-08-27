@@ -90,6 +90,7 @@ class Automaton3PlatformManifestTests(unittest.TestCase):
             "sovereign-omega-v2/python/tests/test_bridge_execution_id_binding.py",
             "sovereign-omega-v2/python/tests/test_platform_effect_chain_live.py",
             "sovereign-omega-v2/python/tests/test_automaton3_platform_manifest.py",
+            ".github/workflows/agent-dispatch.yml",
             ".github/workflows/authorization-effect-chain.yml",
         }
         self.assertEqual(set(), required - paths)

@@ -1,8 +1,64 @@
-# AEGIS-Ω — Handoff (ground truth as of 2026-07-19)
+# AEGIS-Ω — Handoff
 
 A no-spin snapshot. Hand it to any engineer or AI and they're productive in 30 minutes.
 Everything here was verified by probing live systems and running the tests, not read from docs.
 Where a doc disagrees with the live system, the live system wins.
+
+---
+
+## LATEST — 2026-08-27 (PR #334 proof-carrying live effect boundary)
+
+This section supersedes older branch/PR snapshots below. Mutable GitHub state must still be
+revalidated before consequential actions.
+
+### Exact candidate state
+
+- PR **#334** — `feat/autopoietic-runtime-v1` → `main`, OPEN, DRAFT, mergeable at inspection.
+- Verified hosted head before this documentation follow-up:
+  `c2dcc75a4ea0befba496e067e9254e439dc0f7be`.
+- Source tree: `02e081e388dc288c9aa2687d7c8cd0ec85ac5362`.
+- Constitutional Automaton run `33085997488`: SUCCESS.
+- Authorization Effect Chain run `33085997557`: SUCCESS.
+- Automaton-2/3, Coordinator Authority, Scale OS, Experiment Admission, MCP Resources,
+  Kernel One, Integration Ledger, OSV, Hadolint, and four Vercel contexts: SUCCESS.
+- Agent Dispatch was SKIPPED on that head because `vars.PROXY_URL` was absent; it was not an
+  execution or verification failure.
+- Review ledger: 26/26 resolved. Same-tree targeted regression: 115/115 passed.
+
+### Live verified transition
+
+`aegis_start_execution` now follows:
+
+```text
+Intent → DecisionReceipt → ExecutionReceipt → EffectObservation
+       → VerifyEffect → EffectReceipt → CompleteVerification
+```
+
+The platform adapter takes an independent pre-observation and two independent post-observations.
+The POST response cannot self-certify an effect. Revision, contract, execution identity, policy,
+and transition bindings prevent receipt splicing. Read-only observation authentication does not
+consume execution quota. Failures before execution remain `NOT_EXECUTED`; uncertainty after an
+attempt remains `UNKNOWN` rather than being mislabeled as an authority denial.
+
+### Agent Dispatch correction in this follow-up
+
+The workflow had two independent reasons it never represented live dispatch:
+
+1. job-level `if: vars.PROXY_URL != ''` caused the entire PR check to be SKIPPED when the
+   repository variable was absent;
+2. its `workflow_run` trigger listened for a nonexistent workflow named `CI`, while the actual
+   workflow is `⊕ AEGIS-Ω Constitutional Automaton`.
+
+The follow-up changes the trigger to the canonical workflow name and makes the disabled state an
+explicit successful receipt stating that no network request or agent execution occurred. Actual
+external dispatch remains fail-closed until an operator configures `PROXY_URL` and the target
+proxy is independently verified.
+
+### Authority ceiling
+
+PR #334 exact-head GREEN establishes the candidate implementation and replayable verification
+path. It does **not** establish production deployment, live external Agent Dispatch, merge
+admission, or branch-protection enforcement. The PR remains DRAFT pending separate authority.
 
 ---
 
