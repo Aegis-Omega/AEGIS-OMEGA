@@ -73,6 +73,34 @@ _exec_queues: dict = {}           # execution_id → queue.Queue
 _executions_lock = threading.Lock()
 _MAX_EXECUTIONS = 1000            # bound the in-memory execution registry
 
+# Resident Intelligence Runtime is loaded lazily so the existing health and
+# governance paths remain available even when its optional deployment bundle is
+# absent. Import/provider/storage failures are surfaced as UNKNOWN/503; they are
+# never replaced with synthetic success.
+_resident_runtime_instance = None
+_resident_runtime_lock = threading.Lock()
+
+
+def _get_resident_runtime():
+    global _resident_runtime_instance
+    with _resident_runtime_lock:
+        if _resident_runtime_instance is None:
+            from pathlib import Path as _ResidentPath
+            from harness.sdk.resident_runtime import ResidentRuntime
+
+            default_repo = _ResidentPath(__file__).resolve().parents[2]
+            repository_root = _ResidentPath(
+                os.environ.get('AEGIS_RESIDENT_REPOSITORY_ROOT', str(default_repo))
+            )
+            state_root = _ResidentPath(
+                os.environ.get('AEGIS_RESIDENT_STATE_ROOT', '/app/data/resident')
+            )
+            _resident_runtime_instance = ResidentRuntime(
+                repository_root=repository_root,
+                state_root=state_root,
+            )
+        return _resident_runtime_instance
+
 
 def _reap_executions_locked() -> None:
     """Evict oldest COMPLETED executions when the registry is at capacity.
@@ -796,6 +824,51 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'status': 'pending',
             }))
 
+        elif self.path == '/platform/resident/events':
+            # Event-driven resident-intelligence intake. The runtime may inspect
+            # the configured repository and mutate only an ephemeral worktree;
+            # its receipt is evidence-only and cannot raise the D1 ceiling.
+            import dataclasses as _resident_dataclasses
+            try:
+                _platform_verify_api_key(self.headers.get('x-api-key', ''))
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            try:
+                from harness.sdk.resident_runtime import (
+                    RepositoryEventV1 as _RepositoryEventV1,
+                    ResidentRuntimeError as _ResidentRuntimeError,
+                )
+            except Exception as exc:
+                self._platform_respond(503, {
+                    'error': type(exc).__name__,
+                    'code': 'RESIDENT_RUNTIME_UNAVAILABLE',
+                    'knowledge_decision': 'UNKNOWN',
+                })
+                return
+            try:
+                event = _RepositoryEventV1.from_mapping(data)
+                receipt = _get_resident_runtime().process_repository_event(event)
+            except _ResidentRuntimeError as exc:
+                status = 409 if exc.code == 'IDEMPOTENCY_CONFLICT' else 400
+                self._platform_respond(status, {
+                    'error': exc.code,
+                    'code': 'RESIDENT_EVENT_REJECTED',
+                    'knowledge_decision': 'QUARANTINED',
+                })
+                return
+            except Exception as exc:
+                self._platform_respond(503, {
+                    'error': type(exc).__name__,
+                    'code': 'RESIDENT_RUNTIME_UNAVAILABLE',
+                    'knowledge_decision': 'UNKNOWN',
+                })
+                return
+            self._platform_respond(
+                200,
+                _platform_envelope(receipt.run_id, _resident_dataclasses.asdict(receipt)),
+            )
+
         else:
             self._respond(404, {'error': 'NOT_FOUND'})
 
@@ -907,6 +980,56 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'recent_entries': entries[-5:],
                 'is_chain_initialized': chain_length > 0,
             })
+
+        elif self.path == '/platform/resident/status':
+            # Inspectable projection only. It cannot authorize tasks or mutate
+            # the runtime's configured authority ceiling.
+            import uuid as _resident_status_uuid
+            try:
+                projection = _get_resident_runtime().status()
+            except Exception as exc:
+                self._platform_respond(503, {
+                    'error': type(exc).__name__,
+                    'code': 'RESIDENT_RUNTIME_UNAVAILABLE',
+                    'knowledge_decision': 'UNKNOWN',
+                })
+                return
+            execution_id = str(_resident_status_uuid.uuid4())
+            self._platform_respond(
+                200,
+                _platform_envelope(execution_id, projection),
+            )
+
+        elif self.path.startswith('/platform/resident/runs/'):
+            import dataclasses as _resident_dataclasses
+            try:
+                _platform_verify_api_key(self.headers.get('x-api-key', ''))
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            suffix = self.path.removeprefix('/platform/resident/runs/').split('?', 1)[0]
+            verify = suffix.endswith('/verify')
+            run_id = suffix.removesuffix('/verify') if verify else suffix
+            try:
+                runtime = _get_resident_runtime()
+                artifact = runtime.replay_verify(run_id) if verify else runtime.get_run(run_id)
+            except Exception as exc:
+                self._platform_respond(400, {
+                    'error': str(exc)[:120],
+                    'code': 'RESIDENT_RUN_REQUEST_INVALID',
+                })
+                return
+            if artifact is None:
+                self._platform_respond(404, {
+                    'error': 'resident run not found',
+                    'code': 'NOT_FOUND',
+                    'run_id': run_id,
+                })
+                return
+            self._platform_respond(
+                200,
+                _platform_envelope(run_id, _resident_dataclasses.asdict(artifact)),
+            )
 
         elif self.path == '/health':
             self._respond(200, {
