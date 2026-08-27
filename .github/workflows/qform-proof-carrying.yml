@@ -5,6 +5,7 @@ on:
     branches: [proof/weil-o0-globalization-v1]
     paths:
       - 'harness/sdk/qform_receipt.py'
+      - 'harness/sdk/qform_galerkin_crossprobe.py'
       - 'sovereign-omega-v2/python/tests/test_qform_receipt.py'
       - 'research/qform/**'
       - '.github/workflows/qform-proof-carrying.yml'
@@ -12,6 +13,7 @@ on:
     branches: [feat/qform-proof-carrying-v1]
     paths:
       - 'harness/sdk/qform_receipt.py'
+      - 'harness/sdk/qform_galerkin_crossprobe.py'
       - 'sovereign-omega-v2/python/tests/test_qform_receipt.py'
       - 'research/qform/**'
       - '.github/workflows/qform-proof-carrying.yml'
@@ -54,12 +56,13 @@ jobs:
       - name: Compile Q-form bridge
         run: |
           python -m py_compile harness/sdk/qform_receipt.py
+          python -m py_compile harness/sdk/qform_galerkin_crossprobe.py
           python -m py_compile sovereign-omega-v2/python/tests/test_qform_receipt.py
 
       - name: Run Q-form receipt tests
         run: python -m pytest -q sovereign-omega-v2/python/tests/test_qform_receipt.py
 
-      - name: Generate exact-head receipt
+      - name: Generate exact-head QForm receipt
         shell: bash
         run: |
           set -euo pipefail
@@ -87,7 +90,7 @@ jobs:
           print(target.read_text(encoding='utf-8'))
           PY
 
-      - name: Validate receipt schema and authority boundary
+      - name: Validate QForm receipt schema and authority boundary
         shell: bash
         run: |
           set -euo pipefail
@@ -120,11 +123,78 @@ jobs:
           print('QFORM_RECEIPT_AUTHORITY_BOUNDARY=PASS')
           PY
 
-      - name: Emit receipt digest
+      - name: Generate Gaussian-Galerkin blind cross-probe
         shell: bash
         run: |
           set -euo pipefail
-          sha256sum "$RUNNER_TEMP/qform-receipt/QFormReceiptV1.json" | tee "$RUNNER_TEMP/qform-receipt/SHA256SUMS"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from harness.sdk.qform_galerkin_crossprobe import (
+              QFormGalerkinCrossSpecV1,
+              build_qform_galerkin_cross_receipt,
+          )
+
+          receipt = build_qform_galerkin_cross_receipt(
+              QFormGalerkinCrossSpecV1(
+                  c=65010,
+                  sigma='0.8',
+                  epsilon='1e-11',
+                  N=2,
+                  prec_bits=256,
+              )
+          ).to_dict()
+          target = Path(os.environ['RUNNER_TEMP']) / 'qform-receipt' / 'QFormGalerkinCrossReceiptV1.json'
+          target.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+          PY
+
+      - name: Validate cross-probe non-promotion invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ['RUNNER_TEMP']) / 'qform-receipt' / 'QFormGalerkinCrossReceiptV1.json'
+          receipt = json.loads(path.read_text(encoding='utf-8'))
+          assert receipt['provenance']['commit_sha'] == os.environ['EXPECTED_SHA']
+          assert receipt['scale_binding']['c_equals_P_cutoff_by_construction'] is True
+          assert receipt['scale_binding']['L_ge_C_sigma_verified'] is True
+          assert receipt['scale_binding']['gaussian_envelope_below_epsilon_verified'] is True
+          assert receipt['galerkin_replay']['c'] == 65010
+          assert receipt['galerkin_replay']['N'] == 2
+          assert receipt['galerkin_replay']['dimension'] == 5
+          assert receipt['galerkin_replay']['galerkin_semantics_verified'] is False
+          assert receipt['finite_scale_binding_authority'] == 'CERTIFIED_INTERVAL'
+          assert receipt['overall_authority'] == 'EMPIRICAL_FIXTURE'
+          assert receipt['gaussian_to_galerkin_semantics_verified'] is False
+          assert receipt['compact_support_bridge_verified'] is False
+          assert receipt['formula_to_weil_operator_identity_proven'] is False
+          assert receipt['global_weil_positivity_proven'] is False
+          assert receipt['rh_proven'] is False
+          print('QFORM_GALERKIN_CROSSPROBE_BOUNDARY=PASS')
+          print('GALERKIN_INERTIA', {
+              'verified': receipt['galerkin_replay']['interval_inertia_verified'],
+              'n_positive': receipt['galerkin_replay']['n_positive'],
+              'n_negative': receipt['galerkin_replay']['n_negative'],
+              'undetermined_pivot': receipt['galerkin_replay']['undetermined_pivot'],
+              'finite_matrix_psd_verified': receipt['galerkin_replay']['finite_matrix_psd_verified'],
+          })
+          PY
+
+      - name: Emit receipt digests
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum \
+            "$RUNNER_TEMP/qform-receipt/QFormReceiptV1.json" \
+            "$RUNNER_TEMP/qform-receipt/QFormGalerkinCrossReceiptV1.json" \
+            | tee "$RUNNER_TEMP/qform-receipt/SHA256SUMS"
 
       - name: Upload exact-head Q-form evidence
         uses: actions/upload-artifact@v4
