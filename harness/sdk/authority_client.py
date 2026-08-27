@@ -113,6 +113,7 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         "authority_score": decision.authority_score,
         "denial_codes": list(decision.denial_codes),
         "decision_root": decision.decision_root,
+        "transition": asdict(transition),
         "transition_id": transition.root,
         "decision_receipt": asdict(decision_receipt),
         "decision_receipt_root": decision_receipt.root,

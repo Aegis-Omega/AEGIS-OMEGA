@@ -16,6 +16,7 @@ import re
 import stat as stat_module
 import threading
 import weakref
+from contextlib import ExitStack
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -25,6 +26,8 @@ from harness.sdk.transition_receipts import ExecutionReceipt, TransitionIdentity
 
 EFFECT_WITNESS_KIND = "EFFECT_WITNESS_V1"
 VERIFY_EFFECT_STATUS = "does not implement VerifyEffect"
+PLATFORM_EXECUTION_ADAPTER_IDENTITY = "aegis.platform-execution-effect-adapter"
+PLATFORM_EXECUTION_ADAPTER_VERSION = "1.0.0"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 DEFAULT_MAX_OBSERVATION_BYTES = 16 * 1024 * 1024
 OBSERVATION_READ_CHUNK_BYTES = 64 * 1024
@@ -192,14 +195,13 @@ class FilesystemEffectAdapter:
         if not parts or any(part in ("", ".", "..") for part in parts):
             raise EffectAdapterError("EFFECT_TARGET_OUTSIDE_ALLOWED_ROOT")
 
-        try:
-            root_fd = os.open(os.fspath(self.allowed_root), root_flags)
-        except (FileNotFoundError, NotADirectoryError, PermissionError, OSError) as exc:
-            raise EffectAdapterError("EFFECT_ALLOWED_ROOT_UNAVAILABLE") from exc
-
-        opened_dirs: list[int] = []
-        dir_fd = root_fd
-        try:
+        with ExitStack() as descriptors:
+            try:
+                root_fd = os.open(os.fspath(self.allowed_root), root_flags)
+            except (FileNotFoundError, NotADirectoryError, PermissionError, OSError) as exc:
+                raise EffectAdapterError("EFFECT_ALLOWED_ROOT_UNAVAILABLE") from exc
+            descriptors.callback(os.close, root_fd)
+            dir_fd = root_fd
             for part in parts[:-1]:
                 try:
                     next_fd = os.open(part, directory_flags, dir_fd=dir_fd)
@@ -211,7 +213,7 @@ class FilesystemEffectAdapter:
                     if exc.errno in (errno.EACCES, errno.EPERM):
                         raise EffectAdapterError("EFFECT_TARGET_NOT_REGULAR_FILE") from exc
                     raise
-                opened_dirs.append(next_fd)
+                descriptors.callback(os.close, next_fd)
                 dir_fd = next_fd
 
             try:
@@ -224,10 +226,6 @@ class FilesystemEffectAdapter:
                 if exc.errno in (errno.EISDIR, errno.ENOTDIR, errno.EACCES, errno.EPERM):
                     raise EffectAdapterError("EFFECT_TARGET_NOT_REGULAR_FILE") from exc
                 raise
-        finally:
-            for opened_fd in reversed(opened_dirs):
-                os.close(opened_fd)
-            os.close(root_fd)
 
     def _observe_state(self, target: Path) -> FilesystemStateObservation:
         _, target_identity = self._resolve_target(target)
@@ -435,10 +433,13 @@ def is_adapter_bound_effect_evidence(*, witness: EffectWitness) -> bool:
     """Process-local adapter-issued EffectEvidence check; not cryptographic attestation."""
     try:
         witness.validate()
+        supported_adapters = {
+            (FilesystemEffectAdapter.identity, FilesystemEffectAdapter.version),
+            (PLATFORM_EXECUTION_ADAPTER_IDENTITY, PLATFORM_EXECUTION_ADAPTER_VERSION),
+        }
         return (
             witness.witness_kind == EFFECT_WITNESS_KIND
-            and witness.adapter_identity == FilesystemEffectAdapter.identity
-            and witness.adapter_version == FilesystemEffectAdapter.version
+            and (witness.adapter_identity, witness.adapter_version) in supported_adapters
             and _is_process_local_issued_effect_witness(witness)
         )
     except (EffectAdapterError, ValueError, TypeError, AttributeError):

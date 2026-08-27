@@ -45,6 +45,7 @@ from platform_helpers import (
     platform_envelope as _platform_envelope,
     verify_api_key as _platform_verify_api_key,
     query_api_key_info as _platform_query_key_info,
+    verify_api_key_read_only as _platform_verify_api_key_read_only,
     record_revenue_cycle as _platform_record_cycle,
     dept_output as _platform_dept_output,
     make_sse_event as _make_sse_event,
@@ -56,6 +57,7 @@ from platform_helpers import (
     make_autonomous_agent_call as _make_autonomous_agent_call,
     autonomous_completion_audit as _autonomous_audit,
     parse_max_agents as _parse_max_agents,
+    validate_execution_id as _validate_execution_id,
     evaluate_generation_fitness as _eval_fitness,
     store_generation_fitness as _store_fitness,
     retrieve_prior_artifacts as _retrieve_prior_artifacts,
@@ -938,12 +940,29 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
                 return
 
-            execution_id = str(_uuid_pe.uuid4())
+            requested_execution_id = data.get('execution_id')
+            if requested_execution_id is None:
+                execution_id = str(_uuid_pe.uuid4())
+            else:
+                try:
+                    execution_id = _validate_execution_id(requested_execution_id)
+                except ValueError as exc:
+                    self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
+                    return
             q = _queue_mod.Queue()
             with _executions_lock:
                 _reap_executions_locked()
-                _executions[execution_id] = {'result': None, 'done': False, 'email': _email, 'error': None}
-                _exec_queues[execution_id] = q
+                duplicate_execution = execution_id in _executions
+                if not duplicate_execution:
+                    _executions[execution_id] = {'result': None, 'done': False, 'email': _email, 'error': None}
+                    _exec_queues[execution_id] = q
+
+            if duplicate_execution:
+                self._platform_respond(409, {
+                    'error': 'execution identity already exists',
+                    'code': 'EXECUTION_ID_CONFLICT',
+                })
+                return
 
             threading.Thread(
                 target=_platform_run_collaboration,
@@ -2120,7 +2139,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             execution_id = path_clean.split('/')[-1]
             api_key = self.headers.get('x-api-key', '')
             try:
-                _email, _tier = _platform_verify_api_key(api_key)
+                _email, _tier = _platform_verify_api_key_read_only(api_key)
             except ValueError as exc:
                 self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
                 return

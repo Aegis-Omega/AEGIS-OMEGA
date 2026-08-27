@@ -26,7 +26,7 @@ import json
 import re
 import threading
 from dataclasses import asdict, dataclass, field
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Sequence
 
 from harness.sdk.sovereign_execution import canonical_hash
 

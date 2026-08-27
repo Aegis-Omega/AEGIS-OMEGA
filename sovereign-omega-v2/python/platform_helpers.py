@@ -10,6 +10,7 @@ The bridge imports these; tests import them directly.
 """
 import json
 import os
+import re
 
 PLATFORM_CONTRACT_VERSION = '1.0.0'
 PLATFORM_GIT_SHA = os.environ.get('AEGIS_GIT_SHA', 'dev')
@@ -24,6 +25,15 @@ VALID_MODES = frozenset({
     'revenue', 'analysis', 'gtm', 'retention',
     'competitive', 'technical', 'regulatory', 'fundraising',
 })
+
+_EXECUTION_ID_RE = re.compile(r'^[A-Za-z0-9._-]{1,128}$')
+
+
+def validate_execution_id(value: str) -> str:
+    """Validate a caller-bound durable execution identifier."""
+    if not isinstance(value, str) or not _EXECUTION_ID_RE.fullmatch(value):
+        raise ValueError('execution_id must be 1-128 safe ASCII characters')
+    return value
 
 # ── Tier capability gates (brief §9/§10 — least latitude by default) ─────────
 # explorer: template/demo only (live=False, base-4 modes only).
@@ -703,6 +713,20 @@ def query_api_key_info(api_key: str):
         return None
 
     return rows[0] if rows else None
+
+
+def verify_api_key_read_only(api_key: str) -> tuple[str, str]:
+    """Authenticate an API key without incrementing execution usage."""
+    if not api_key:
+        raise ValueError('Missing x-api-key header')
+    info = query_api_key_info(api_key)
+    if not isinstance(info, dict):
+        raise ValueError('Invalid or revoked API key')
+    email = info.get('customer_email')
+    tier = info.get('tier')
+    if not isinstance(email, str) or not email or not isinstance(tier, str) or not tier:
+        raise ValueError('API key record malformed')
+    return email, tier
 
 
 def record_revenue_cycle(cycle_id: str, objective: str, mode: str,

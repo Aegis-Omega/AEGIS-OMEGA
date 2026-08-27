@@ -9,7 +9,14 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from harness.sdk.effect_adapters import EffectAdapterError, EffectWitness, FilesystemEffectAdapter, is_adapter_bound_effect_evidence
+from harness.sdk.effect_adapters import (
+    PLATFORM_EXECUTION_ADAPTER_IDENTITY,
+    PLATFORM_EXECUTION_ADAPTER_VERSION,
+    EffectAdapterError,
+    EffectWitness,
+    FilesystemEffectAdapter,
+    is_adapter_bound_effect_evidence,
+)
 from harness.sdk.sovereign_execution import ZERO_HASH, canonical_hash
 from harness.sdk.transition_receipts import (
     EFFECT_RECEIPT_KIND,
@@ -80,9 +87,12 @@ class EffectVerificationResult:
 
 
 class EffectVerifier:
-    """Reference VerifyEffect gate for the PR-3 filesystem observation surface."""
+    """Reference VerifyEffect gate for version-bound observation adapters."""
 
-    supported_adapters = {(FilesystemEffectAdapter.identity, FilesystemEffectAdapter.version)}
+    supported_adapters = {
+        (FilesystemEffectAdapter.identity, FilesystemEffectAdapter.version),
+        (PLATFORM_EXECUTION_ADAPTER_IDENTITY, PLATFORM_EXECUTION_ADAPTER_VERSION),
+    }
 
     @staticmethod
     def _obligations(default: str = MISSING) -> dict[str, str]:

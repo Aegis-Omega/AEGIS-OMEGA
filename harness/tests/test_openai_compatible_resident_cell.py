@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import replace
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
-import tempfile
 import threading
 import time
 import unittest

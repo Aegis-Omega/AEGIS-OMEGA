@@ -58,11 +58,15 @@ PR2_VERIFIER_POLICY = {
 }
 
 PR3_VERIFIER_POLICY = {
-    "policy_id": "AEGIS_PR3_VERIFIER_POLICY_V1",
+    "policy_id": "AEGIS_PR3_VERIFIER_POLICY_V2",
     "safe_incompleteness": True,
     "obligation_set_status": "EFFECT_ONLY_VERSION_BOUND",
-    "effect_observation_scope": "REFERENCE_ADAPTER_BOUND_ONLY",
+    "effect_observation_scope": "REFERENCE_ADAPTERS_VERSION_BOUND",
     "effect_evidence_production": "ADAPTER_BOUND_ONLY",
+    "supported_adapters": [
+        ["aegis.filesystem-effect-adapter", "1.0.0"],
+        ["aegis.platform-execution-effect-adapter", "1.0.0"],
+    ],
     "verify_effect": "REQUIRED",
     "effect_receipt_production": "VERIFIER_GATED_ONLY",
     "effect_obligations": [

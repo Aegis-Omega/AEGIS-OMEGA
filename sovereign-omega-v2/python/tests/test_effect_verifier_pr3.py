@@ -11,16 +11,13 @@ from unittest import TestCase, main
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
-import harness.sdk.transition_receipts as tr  # noqa: E402
 from harness.sdk.effect_adapters import FilesystemEffectAdapter, filesystem_state_commitment  # noqa: E402
 from harness.sdk.effect_verifier import (  # noqa: E402
-    ERROR,
     FALSE,
     MISSING,
     TRUE,
     UNKNOWN,
     EffectVerificationError,
-    EffectVerificationResult,
     EffectVerifier,
 )
 from harness.sdk.sovereign_execution import SCHEMA_VERSION  # noqa: E402
@@ -207,9 +204,10 @@ class EffectVerifierPR3Tests(TestCase):
         self.assertFalse(hasattr(receipt, "admitted"))
 
     def test_no_generic_effect_receipt_factory_exists(self):
-        self.assertFalse(hasattr(tr, "make_effect_receipt"))
-        self.assertFalse(hasattr(tr, "effect_receipt_from_post_state"))
-        self.assertFalse(hasattr(tr, "_issue_adapter_bound_effect_receipt"))
+        receipts_module = sys.modules["harness.sdk.transition_receipts"]
+        self.assertFalse(hasattr(receipts_module, "make_effect_receipt"))
+        self.assertFalse(hasattr(receipts_module, "effect_receipt_from_post_state"))
+        self.assertFalse(hasattr(receipts_module, "_issue_adapter_bound_effect_receipt"))
 
 
 if __name__ == "__main__":

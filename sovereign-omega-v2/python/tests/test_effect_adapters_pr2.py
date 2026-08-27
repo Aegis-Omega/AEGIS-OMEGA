@@ -13,7 +13,6 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
 from harness.sdk.sovereign_execution import MutationReceipt, SCHEMA_VERSION, ZERO_HASH  # noqa: E402
-import harness.sdk.transition_receipts as transition_receipts  # noqa: E402
 from harness.sdk.transition_receipts import (  # noqa: E402
     DECISION_RECEIPT_KIND,
     EFFECT_RECEIPT_KIND,
@@ -33,7 +32,6 @@ from harness.sdk.transition_receipts import (  # noqa: E402
     verifier_policy_commitment,
 )
 from harness.sdk.effect_adapters import (  # noqa: E402
-    EFFECT_WITNESS_KIND,
     EffectAdapterError,
     EffectWitness,
     FilesystemEffectAdapter,
@@ -247,8 +245,9 @@ class EffectAdapterPR2Tests(TestCase):
             witness = adapter.observe_effect(transition=transition, handle=handle, execution_receipt=execution)
             self.assertIsInstance(witness, EffectWitness)
             self.assertFalse(isinstance(witness, tuple))
-            self.assertFalse(hasattr(transition_receipts, "_issue_adapter_bound_effect_receipt"))
-            self.assertFalse(hasattr(transition_receipts, "_EFFECT_RECEIPT_PRODUCER_CAPABILITY"))
+            receipts_module = sys.modules["harness.sdk.transition_receipts"]
+            self.assertFalse(hasattr(receipts_module, "_issue_adapter_bound_effect_receipt"))
+            self.assertFalse(hasattr(receipts_module, "_EFFECT_RECEIPT_PRODUCER_CAPABILITY"))
             self.assertEqual(PR1_VERIFIER_POLICY["effect_receipt_production"], "UNAVAILABLE")
             self.assertEqual(PR2_VERIFIER_POLICY["effect_evidence_production"], "ADAPTER_BOUND_ONLY")
             self.assertEqual(PR2_VERIFIER_POLICY["verify_effect"], "NOT_IMPLEMENTED")

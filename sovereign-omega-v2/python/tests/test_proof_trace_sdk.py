@@ -243,7 +243,8 @@ def test_completed_span_can_be_bound_as_causal_parent():
     )
     derived = trace.finish_span(derived_handle, evidence_roots=(source.root,))
     assert derived.causal_parent_ids == (source.span_id,)
-    assert trace.close().spans[-1].span_id == derived.span_id
+    bundle = trace.close()
+    assert bundle.spans[-1].span_id == derived.span_id
 
 
 def test_trace_cannot_close_with_active_span():
@@ -299,9 +300,13 @@ def test_external_span_does_not_store_raw_external_ids_in_export():
 
 def test_context_scope_records_error_without_storing_exception_text():
     trace = new_trace()
-    with pytest.raises(RuntimeError):
+    raised = False
+    try:
         with trace.span(name="failure", span_kind=CUSTOM):
             raise RuntimeError("sensitive exception body")
+    except RuntimeError:
+        raised = True
+    assert raised is True
     bundle = trace.close()
     assert bundle.spans[0].status == ERROR
     assert bundle.spans[0].error_code == "UNHANDLED_EXCEPTION"
