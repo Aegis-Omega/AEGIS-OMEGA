@@ -52,6 +52,8 @@ services:
         value: /app/data/repository
       - key: AEGIS_RESIDENT_STATE_ROOT
         value: /app/data/resident
+      - key: AEGIS_RESIDENT_IDENTITY_HMAC_KEY
+        sync: false          # SECRET — minimum 32 bytes
       # --- Supabase (key store + swarm memory) ---
       - key: SUPABASE_URL
         sync: false          # SECRET

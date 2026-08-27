@@ -75,6 +75,44 @@ class ResidentLivePathTests(unittest.TestCase):
             raise ValueError("invalid key")
         return f"{api_key}@example.test", "operator"
 
+    def test_requester_root_is_keyed_normalized_and_domain_separated(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"AEGIS_RESIDENT_IDENTITY_HMAC_KEY": "a" * 32},
+            clear=False,
+        ):
+            first = bridge._resident_requester_root(" Owner@Example.Test ")
+            normalized = bridge._resident_requester_root("owner@example.test")
+        with patch.dict(
+            os.environ,
+            {"AEGIS_RESIDENT_IDENTITY_HMAC_KEY": "b" * 32},
+            clear=False,
+        ):
+            rotated = bridge._resident_requester_root("owner@example.test")
+
+        self.assertEqual(first, normalized)
+        self.assertNotEqual(first, rotated)
+        self.assertEqual(len(first), 64)
+
+    def test_requester_root_fails_closed_without_production_hmac_key(self) -> None:
+        production = {
+            "SUPABASE_URL": "https://example.supabase.co",
+            "SUPABASE_SERVICE_ROLE_KEY": "configured-service-role",
+            "AEGIS_RESIDENT_IDENTITY_HMAC_KEY": "",
+        }
+        with patch.dict(os.environ, production, clear=False):
+            with self.assertRaisesRegex(ValueError, "HMAC key unavailable"):
+                bridge._resident_requester_root("owner@example.test")
+
+    def test_requester_root_rejects_short_explicit_key(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"AEGIS_RESIDENT_IDENTITY_HMAC_KEY": "too-short"},
+            clear=False,
+        ):
+            with self.assertRaisesRegex(ValueError, "at least 32"):
+                bridge._resident_requester_root("owner@example.test")
+
     def request(
         self,
         method: str,

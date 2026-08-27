@@ -309,20 +309,32 @@ def platform_envelope(execution_id: str, data: dict) -> dict:
     }
 
 
+def _api_key_lookup_digest(api_key: str) -> str:
+    """Return the versioned Supabase lookup digest for a random bearer token.
+
+    Provisioned AEGIS keys contain 24 cryptographically random bytes. This is
+    an exact database lookup identifier, not password verification, and must
+    remain compatible with provision_platform_key() and api_key_store.key_hash.
+    """
+    import hashlib
+
+    # codeql[py/weak-sensitive-data-hashing]
+    return hashlib.sha256(api_key.encode()).hexdigest()
+
+
 def verify_api_key(api_key: str):
     """
     Verify against Supabase api_key_store. Returns (email, tier).
     Raises ValueError on failure.
     Falls back to dev bypass when SUPABASE_URL is unset (local dev / CI).
     """
-    import hashlib as _hl
     import urllib.request as _ur
     import urllib.error as _ue
 
     if not api_key:
         raise ValueError('Missing x-api-key header')
 
-    key_hash = _hl.sha256(api_key.encode()).hexdigest()
+    key_hash = _api_key_lookup_digest(api_key)
 
     supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
     service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
@@ -654,7 +666,6 @@ def query_api_key_info(api_key: str):
     Returns dict with customer_email, tier, usage_count, usage_limit, or None on failure.
     Dev bypass: any aegis_* key returns explorer defaults when SUPABASE_URL is unset.
     """
-    import hashlib as _hl2
     import urllib.request as _ur2
     import urllib.error as _ue2
 
@@ -665,7 +676,7 @@ def query_api_key_info(api_key: str):
     # verify_api_key() — the key_hash column stores encode(sha256(raw), 'hex').
     # Any other scheme (e.g. pbkdf2) never matches a stored row and the usage
     # readback silently returns None, breaking /platform/status observability.
-    key_hash = _hl2.sha256(api_key.encode()).hexdigest()
+    key_hash = _api_key_lookup_digest(api_key)
     supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
     service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 

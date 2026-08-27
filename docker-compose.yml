@@ -29,6 +29,7 @@ services:
       AEGIS_RESIDENT_REPOSITORY_BRANCH: "main"
       AEGIS_RESIDENT_REPOSITORY_ROOT: "/app/data/repository"
       AEGIS_RESIDENT_STATE_ROOT: "/app/data/resident"
+      AEGIS_RESIDENT_IDENTITY_HMAC_KEY: "${AEGIS_RESIDENT_IDENTITY_HMAC_KEY:?set a private identity HMAC key of at least 32 bytes}"
     volumes:
       # Persisted checkpoint — governance state survives restarts
       - bridge-checkpoint:/app/data

@@ -179,14 +179,28 @@ def _get_resident_runtime():
 
 def _resident_requester_root(email: str) -> str:
     """Bind resident artifacts to a verified principal without storing raw PII."""
-    import hashlib as _resident_hashlib
+    import hmac as _resident_hmac
 
     if not isinstance(email, str) or not email.strip():
         raise ValueError('resident requester identity unavailable')
+    secret = os.environ.get('AEGIS_RESIDENT_IDENTITY_HMAC_KEY', '')
+    if secret and len(secret.encode('utf-8')) < 32:
+        raise ValueError('resident identity HMAC key must be at least 32 bytes')
+    if not secret:
+        if (
+            os.environ.get('SUPABASE_URL', '').strip()
+            or os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '').strip()
+        ):
+            raise ValueError('resident identity HMAC key unavailable')
+        # Deterministic isolation for unconfigured local development only. Any
+        # configured production backend must supply a private key above.
+        secret = 'AEGIS_LOCAL_DEVELOPMENT_IDENTITY_KEY_V1'
     normalized = email.strip().casefold().encode('utf-8')
-    return _resident_hashlib.sha256(
-        b'AEGIS_RESIDENT_REQUESTER_V1\x00' + normalized
-    ).hexdigest()
+    return _resident_hmac.digest(
+        secret.encode('utf-8'),
+        b'AEGIS_RESIDENT_REQUESTER_V2\x00' + normalized,
+        'sha256',
+    ).hex()
 
 
 def _reap_executions_locked() -> None:

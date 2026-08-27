@@ -209,6 +209,16 @@ def test_verify_api_key():
             os.environ['SUPABASE_SERVICE_ROLE_KEY'] = old_key
 
 
+def test_api_key_lookup_digest_contract():
+    """The lookup digest must remain compatible with provision_platform_key()."""
+    import hashlib
+
+    raw = 'aegis_schema_compatible_test_token'
+    expected = hashlib.sha256(raw.encode()).hexdigest()
+    _chk('API key lookup digest matches Supabase schema',
+         _ph_module._api_key_lookup_digest(raw) == expected)
+
+
 # ── dept_output() ─────────────────────────────────────────────────────────────
 
 def test_dept_output():
@@ -1059,6 +1069,7 @@ if __name__ == '__main__':
     test_platform_ts()
     test_platform_envelope()
     test_verify_api_key()
+    test_api_key_lookup_digest_contract()
     test_query_api_key_info()
     test_record_revenue_cycle()
     test_dept_output()
