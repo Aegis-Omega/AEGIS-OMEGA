@@ -93,6 +93,14 @@ jobs:
               fi
             done
 
+            # Fail closed on the actual AEGIS<->CoRN carrier round-trip authority.
+            for theorem in corn_o0_corn_roundtrip_v1 o0_corn_o0_roundtrip_v1; do
+              grep -q "^${theorem}[[:space:]]*CLOSED$" "$OUT/corn-trust-summary.tsv" || {
+                echo "CORN_O0_ROUNDTRIP_NOT_CLOSED theorem=${theorem}" >&2
+                exit 1
+              }
+            done
+
       - name: Emit fail-closed CoRN viability receipt
         working-directory: sovereign-omega-v2
         shell: bash
@@ -118,6 +126,7 @@ jobs:
               'corn_o0_corn_roundtrip_v1',
               'o0_corn_o0_roundtrip_v1',
           }
+          bridge_closed = all(statuses.get(name) == 'CLOSED' for name in bridge_theorems)
 
           payload = {
               'receipt_kind': 'AEGIS_WEIL_CORN_TRIG_VIABILITY_V1',
@@ -137,11 +146,8 @@ jobs:
               'corn_fast_carrier': 'CRcarrier FastRealsConstructive = CoRN.reals.fast.CR',
               'direct_corn_fast_cr_to_o0_definitional_reuse': False,
               'corn_o0_bridge_kind': 'SLOW_CONSTRUCTIVE_REALS_MORPHISM_PROOF_ORIENTED',
-              'corn_o0_bridge_established': True,
-              'corn_o0_bidirectional_roundtrip_machine_bound': True,
-              'corn_o0_bridge_theorem_statuses': {
-                  name: statuses[name] for name in sorted(bridge_theorems)
-              },
+              'corn_o0_bridge_established': bridge_closed,
+              'corn_o0_bidirectional_roundtrip_machine_bound': bridge_closed,
               'corn_o0_trig_transport_machine_bound': False,
               'production_authority_granted': False,
               'prime_diagonal_trig_periodicity_machine_bound': False,
@@ -164,6 +170,7 @@ jobs:
               'corn_o0_corn_roundtrip_v1', 'o0_corn_o0_roundtrip_v1'
           }
           assert all(status != 'UNRECOGNIZED' for status in statuses.values())
+          assert bridge_closed is True
           assert payload['direct_corn_fast_cr_to_o0_definitional_reuse'] is False
           assert payload['corn_o0_bridge_established'] is True
           assert payload['corn_o0_bidirectional_roundtrip_machine_bound'] is True
