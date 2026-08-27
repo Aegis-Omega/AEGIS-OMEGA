@@ -1,0 +1,150 @@
+{
+  "schema_version": "1.0.0",
+  "epistemic_status": "T2_ENGINEERING_CONFIGURATION",
+  "authority_rule": "MODEL_OUTPUT_IS_EVIDENCE_NOT_AUTHORITY",
+  "selection_policy": {
+    "resolution_order": [
+      "consequence_class",
+      "required_capabilities",
+      "privacy_requirement",
+      "provider_diversity_requirement",
+      "cost_ceiling",
+      "latency_preference"
+    ],
+    "fail_closed": true,
+    "require_explicit_model_registration": true,
+    "allow_unknown_models": false
+  },
+  "roles": {
+    "planner": {
+      "required_capabilities": ["reasoning", "long_context", "tool_use"]
+    },
+    "adversarial_auditor": {
+      "required_capabilities": ["reasoning", "structured_output"],
+      "require_provider_diversity_from": ["planner"]
+    },
+    "coder": {
+      "required_capabilities": ["code", "tool_use", "structured_output"]
+    },
+    "cheap_executor": {
+      "required_capabilities": ["structured_output"]
+    },
+    "long_context_executor": {
+      "required_capabilities": ["long_context", "structured_output"]
+    },
+    "local_private_executor": {
+      "required_capabilities": ["local_execution", "structured_output"],
+      "privacy_requirement": "local_only"
+    },
+    "multimodal_executor": {
+      "required_capabilities": ["multimodal", "structured_output"]
+    }
+  },
+  "providers": {
+    "openai": {
+      "transport": "responses_api",
+      "server_side_credentials_only": true,
+      "model_family": "gpt",
+      "supports_openai_compatible_transport": true
+    },
+    "anthropic": {
+      "transport": "messages_api",
+      "server_side_credentials_only": true,
+      "model_family": "claude",
+      "supports_anthropic_compatible_transport": true
+    },
+    "deepseek": {
+      "transport": "openai_compatible",
+      "server_side_credentials_only": true,
+      "model_family": "deepseek",
+      "supports_openai_compatible_transport": true,
+      "supports_anthropic_compatible_transport": true
+    },
+    "google-local": {
+      "transport": "openai_compatible_local",
+      "server_side_credentials_only": false,
+      "model_family": "gemma",
+      "supports_openai_compatible_transport": true
+    },
+    "dashscope": {
+      "transport": "openai_compatible",
+      "server_side_credentials_only": true,
+      "model_family": "qwen",
+      "supports_openai_compatible_transport": true
+    },
+    "azure-openai": {
+      "transport": "azure_openai",
+      "server_side_credentials_only": true,
+      "model_family": "gpt",
+      "supports_openai_compatible_transport": true
+    }
+  },
+  "models": {
+    "gpt-5.6-sol": {
+      "provider": "openai",
+      "status": "candidate",
+      "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output", "multimodal"],
+      "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor", "multimodal_executor"]
+    },
+    "gpt-5.6-terra": {
+      "provider": "openai",
+      "status": "candidate",
+      "capabilities": ["reasoning", "tool_use", "code", "structured_output", "multimodal"],
+      "recommended_roles": ["coder", "cheap_executor", "multimodal_executor"]
+    },
+    "gpt-5.6-luna": {
+      "provider": "openai",
+      "status": "candidate",
+      "capabilities": ["tool_use", "structured_output"],
+      "recommended_roles": ["cheap_executor"]
+    },
+    "claude-opus-5": {
+      "provider": "anthropic",
+      "status": "candidate",
+      "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output", "multimodal"],
+      "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor"]
+    },
+    "claude-sonnet-5": {
+      "provider": "anthropic",
+      "status": "candidate",
+      "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output", "multimodal"],
+      "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor"]
+    },
+    "deepseek-v4-pro": {
+      "provider": "deepseek",
+      "status": "candidate",
+      "capabilities": ["reasoning", "long_context", "tool_use", "code", "structured_output"],
+      "recommended_roles": ["planner", "adversarial_auditor", "coder", "long_context_executor"]
+    },
+    "deepseek-v4-flash": {
+      "provider": "deepseek",
+      "status": "candidate",
+      "capabilities": ["reasoning", "tool_use", "code", "structured_output"],
+      "recommended_roles": ["coder", "cheap_executor"]
+    },
+    "gemma-4-local": {
+      "provider": "google-local",
+      "status": "candidate",
+      "capabilities": ["local_execution", "structured_output", "code", "multimodal"],
+      "recommended_roles": ["local_private_executor", "coder", "multimodal_executor"]
+    },
+    "qwen-plus": {
+      "provider": "dashscope",
+      "status": "active_legacy",
+      "capabilities": ["reasoning", "tool_use", "code", "structured_output"],
+      "recommended_roles": ["coder", "cheap_executor"]
+    }
+  },
+  "future_model_rule": {
+    "registration_required_before_use": true,
+    "minimum_fields": [
+      "provider",
+      "status",
+      "capabilities",
+      "recommended_roles"
+    ],
+    "must_not_change_authority_semantics": true,
+    "must_not_become_authority_by_configuration": true,
+    "must_preserve_receipt_and_replay_requirements": true
+  }
+}
