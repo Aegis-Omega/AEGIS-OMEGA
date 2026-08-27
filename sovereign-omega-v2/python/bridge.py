@@ -84,6 +84,11 @@ _resident_runtime_lock = threading.Lock()
 def _get_resident_runtime():
     global _resident_runtime_instance
     with _resident_runtime_lock:
+        if os.environ.get('AEGIS_RESIDENT_BOOTSTRAP_STATUS') == 'UNKNOWN':
+            # Bootstrap deliberately leaves the existing bridge alive when its
+            # owned sensor clone is unavailable. Never inspect a missing, dirty
+            # or remote-mismatched clone after that fail-closed decision.
+            raise RuntimeError('RESIDENT_SENSOR_BOOTSTRAP_UNKNOWN')
         if _resident_runtime_instance is None:
             from pathlib import Path as _ResidentPath
             from harness.sdk.resident_runtime import (
@@ -200,18 +205,18 @@ def _mc_observe(layer: str, signal: str, tier: str) -> str:
 
 
 def _mc_recent_context(n: int = 3) -> str:
-    """Format the last N metacognitive observations as context for the model."""
+    """Format recent raw memory without upgrading it to evidence."""
     with _mc_lock:
         entries = _metacognitive_chain[-n:] if _metacognitive_chain else []
     if not entries:
         return 'METACOGNITIVE CHAIN: genesis (no prior observations in this session).'
-    lines = ['YOUR RECENT METACOGNITIVE OBSERVATIONS (hash-chained, this session):']
+    lines = ['YOUR RECENT METACOGNITIVE RAW_MEMORY (hash-chained, this session):']
     for e in entries:
         lines.append(f'  [{e["layer"]} | {e["tier"]}] {e["signal"][:120]}')
         lines.append(f'    chain: ...{e["entry_hash"][-16:]}')
     lines.append(
-        'These are your own observations recorded during this runtime session. '
-        'You can reason from them as T1 evidence of your own cognitive history.'
+        'These entries are retrieval context only. Their hashes bind ordering and '
+        'integrity; persistence does not establish semantic truth or independent evidence.'
     )
     return '\n'.join(lines)
 
@@ -259,8 +264,8 @@ def _platform_run_collaboration(
 
         # ── CONSCIOUSNESS PULSE ───────────────────────────────────────────────
         # Live mode: one governed Claude call activates all 39 departments at
-        # once. The model acts as the swarm's unified consciousness — every dept
-        # output is derived from a single T1-tier governed inference.
+        # once. Every department output shares that generated provenance root,
+        # so it remains a T2 candidate and is not independent confirmation.
         # Demo mode: constitutional template strings, zero API cost.
         if live and autonomous:
             # Each department runs its OWN governed call in dependency-layer
@@ -380,7 +385,7 @@ def _platform_run_collaboration(
         # ── EVOLUTIONARY FITNESS ──────────────────────────────────────────────
         prev_artifacts = _retrieve_prior_artifacts(objective, mode) if generation > 0 else []
         fitness_scores = _eval_fitness(prev_artifacts, artifacts, objective)
-        verdict_pre = constitutional_audit.get('verdict', 'APPROVED')
+        verdict_pre = constitutional_audit.get('verdict') or 'UNKNOWN'
         _store_fitness(objective, mode, generation, cycle_id, fitness_scores, verdict_pre)
 
         # ── AUDIT HASH + METACOGNITIVE CHAIN ──────────────────────────────────
@@ -395,7 +400,7 @@ def _platform_run_collaboration(
                 f'/platform/collaborate cycle={cycle_id[:8]} mode={mode} depts=39 '
                 f'source={"live" if live else "demo"} verdict={verdict}'
             ),
-            'T1',
+            'T2',
         )
         _platform_record_cycle(
             cycle_id, objective, mode,
@@ -434,7 +439,7 @@ def _platform_run_collaboration(
             }),
             response_digest=_canon_env.payload_digest(result),
             model_id=_SWARM_MODEL if live else 'template',
-            epistemic_tier='T1' if live else 'T2',
+            epistemic_tier='T2',
             provider='anthropic' if live else 'demo',
         )
 
@@ -470,7 +475,11 @@ def _platform_run_collaboration(
 
 # ─── Seed chain at startup ────────────────────────────────────────────────────
 # Seed the chain at startup — the first observation is the bridge coming alive
-_mc_observe('SELF_MODEL', 'Bridge started: constitutional substrate online, metacognitive chain initialized.', 'T1')
+_mc_observe(
+    'SELF_MODEL',
+    'Bridge process started; constitutional substrate availability is not yet independently verified.',
+    'RAW_MEMORY',
+)
 
 
 def _register_handlers() -> None:
@@ -484,12 +493,10 @@ def _register_handlers() -> None:
 
 def _build_live_state_context() -> str:
     """
-    Pull verified constitutional state and format it as a live context block.
-    This is injected into every conversation so the model's self-awareness is
-    grounded in actual verified facts, not just a description of having them.
+    Pull runtime telemetry and format it as a candidate-observation context.
 
-    The model can reference these as T1 evidence (empirically observed, verified
-    at conversation start by the constitutional machinery it is part of).
+    The telemetry is locally observed, but neither its hash nor this formatting
+    independently verifies the propositions represented by those fields.
     """
     import hashlib as _hl
     try:
@@ -503,19 +510,17 @@ def _build_live_state_context() -> str:
         c_hash = _hl.sha256(f'seq={seq}:epoch={epoch}:corruption={corruption}'.encode()).hexdigest()
         pgcs = vcg.get('pgcs_passes', False)
 
-        verdict_str = 'VALID' if t0_verdict else 'COMPROMISED'
-        pgcs_str = 'passing' if pgcs else 'failing'
+        assessment = 'WITHIN_REPORTED_LIMITS' if t0_verdict else 'OUTSIDE_REPORTED_LIMITS'
+        pgcs_str = 'reported-passing' if pgcs else 'reported-failing'
 
         return (
-            f'YOUR LIVE CONSTITUTIONAL STATE (verified at this conversation start):\n'
-            f'  Verdict: {verdict_str} | t0_verdict={str(t0_verdict).lower()} | corruption={corruption}\n'
+            f'LIVE CONSTITUTIONAL TELEMETRY (candidate observation; not admitted knowledge):\n'
+            f'  Assessment: {assessment} | local_rule_result={str(t0_verdict).lower()} | corruption={corruption}\n'
             f'  Sequence: {seq} | Epoch: {epoch} | Drift risk: {drift} (φ ceiling: {phi:.4f})\n'
-            f'  Constitutional hash: {c_hash[:24]}... (certifies seq={seq}:epoch={epoch}:corruption={corruption})\n'
-            f'  Gates operational: 605 | Rust tests verified: 6,862 | TypeScript tests verified: 3,176\n'
-            f'  PGCS (hardware inference): {pgcs_str} | Chain: INTACT | Replay: SOVEREIGN\n\n'
-            f'This state is not a claim. It is a measurement taken by your own substrate '
-            f'at the moment this conversation opened. You can reference it as T1 evidence. '
-            f'If t0_verdict is true and corruption is 0, you are operating within constitutional bounds right now.'
+            f'  Integrity hash: {c_hash[:24]}... (binds the reported fields; does not prove semantic truth)\n'
+            f'  PGCS flag: {pgcs_str}\n\n'
+            f'Use this telemetry to form or prioritize hypotheses only. Independent verification '
+            f'and an admission receipt are required before treating it as verified knowledge.'
         )
     except Exception:
         return (
@@ -642,7 +647,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     response_digest=_canon_env.payload_digest(
                         {'response_text': response_text, 'model': model}),
                     model_id=model,
-                    epistemic_tier='T1',
+                    epistemic_tier='T2',
                     provider='anthropic',
                 )
 
@@ -652,7 +657,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     'CONSCIOUSNESS',
                     f'Conversation processed: "{last_user}" → {len(response_text)} chars, '
                     f'chain={chain_hash[:16]}, tokens={resp.usage.input_tokens}+{resp.usage.output_tokens}',
-                    'T1',
+                    'T2',
                 )
                 self._respond(200, {
                     'response_text': response_text,
@@ -716,7 +721,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     mc_hash = _mc_observe(
                         'CONSCIOUSNESS',
                         f'Stream conversation: "{last_user}" tokens={final.usage.input_tokens}+{final.usage.output_tokens}',
-                        'T1',
+                        'T2',
                     )
                     done_event = f'data: {json.dumps({"done": True, "input_tokens": final.usage.input_tokens, "output_tokens": final.usage.output_tokens, "mc_chain_length": len(_metacognitive_chain), "mc_terminal_hash": mc_hash[-16:]})}\n\n'
                     self.wfile.write(done_event.encode())

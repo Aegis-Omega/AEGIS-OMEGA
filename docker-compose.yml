@@ -16,9 +16,8 @@ services:
   # Python governance bridge — Layer B runtime
   bridge:
     build:
-      context: ./sovereign-omega-v2
-      dockerfile: Dockerfile
-      target: runtime
+      context: .
+      dockerfile: sovereign-omega-v2/Dockerfile
     container_name: aegis-bridge
     restart: unless-stopped
     ports:
@@ -26,6 +25,10 @@ services:
     environment:
       SOVEREIGN_BRIDGE_PORT: "7890"
       AEGIS_CHECKPOINT_PATH: "/app/data/aegis_checkpoint.json"
+      AEGIS_RESIDENT_REPOSITORY_URL: "https://github.com/Aegis-Omega/AEGIS-OMEGA.git"
+      AEGIS_RESIDENT_REPOSITORY_BRANCH: "main"
+      AEGIS_RESIDENT_REPOSITORY_ROOT: "/app/data/repository"
+      AEGIS_RESIDENT_STATE_ROOT: "/app/data/resident"
     volumes:
       # Persisted checkpoint — governance state survives restarts
       - bridge-checkpoint:/app/data

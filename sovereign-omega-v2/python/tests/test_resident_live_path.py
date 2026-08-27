@@ -9,8 +9,9 @@ import subprocess
 import sys
 import tempfile
 import threading
+from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import urllib.error
 import urllib.request
 
@@ -144,6 +145,51 @@ class ResidentLivePathTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(response["data"]["knowledge_decision"], "UNKNOWN")
         self.assertIn("LOCAL_MODEL_UNAVAILABLE", response["data"]["reason_codes"])
+
+    def test_failed_sensor_bootstrap_is_unavailable_not_quarantined_or_approved(self) -> None:
+        head = _git("rev-parse", "HEAD")
+        event = {
+            "event_id": "live-bootstrap-outage-1",
+            "idempotency_key": "live-bootstrap-outage-1",
+            "repository_head": head,
+            "changed_path": "CLAUDE.md",
+            "question": "Observe only if the resident sensor substrate is available.",
+            "source": "git",
+            "sequence": 3,
+            "max_cost_microunits": 100,
+            "max_latency_ms": 2_000,
+            "requested_authority": "D1",
+        }
+        with patch.dict(
+            os.environ,
+            {"AEGIS_RESIDENT_BOOTSTRAP_STATUS": "UNKNOWN"},
+            clear=False,
+        ):
+            bridge._resident_runtime_instance = None
+            status, response = self.request("POST", "/platform/resident/events", event)
+
+        self.assertEqual(status, 503)
+        self.assertEqual(response["knowledge_decision"], "UNKNOWN")
+        self.assertNotEqual(response["knowledge_decision"], "QUARANTINED")
+
+    def test_generated_claude_response_remains_t2_candidate_output(self) -> None:
+        response = SimpleNamespace(
+            content=[SimpleNamespace(type="text", text="candidate model statement")],
+            usage=SimpleNamespace(input_tokens=11, output_tokens=7),
+            stop_reason="end_turn",
+        )
+        client = SimpleNamespace(messages=SimpleNamespace(create=Mock(return_value=response)))
+
+        with patch("anth_client.get_client", return_value=client):
+            status, payload = self.request(
+                "POST",
+                "/claude",
+                {"messages": [{"role": "user", "content": "Generate a hypothesis."}]},
+            )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["envelope"]["epistemic_tier"], "T2")
+        self.assertEqual(bridge._metacognitive_chain[-1]["tier"], "T2")
 
 
 if __name__ == "__main__":

@@ -1181,8 +1181,8 @@ def retrieve_swarm_memory(objective: str, mode: str, limit: int = 3) -> str:
     Returns a formatted context block injected into the swarm system prompt,
     or '' if Supabase is unavailable or no memories exist.
 
-    Returned memories give the swarm T1 evidence of what prior activations
-    produced for the same objective, enabling evolutionary refinement.
+    Returned rows are RAW_MEMORY of prior generated activations. Persistence
+    and retrieval preserve lineage but do not promote model output to evidence.
     """
     import urllib.request as _ur_sm
     import urllib.error as _ue_sm
@@ -1217,13 +1217,13 @@ def retrieve_swarm_memory(objective: str, mode: str, limit: int = 3) -> str:
         return ''
 
     lines = [
-        'SWARM MEMORY — Prior activations for this objective (T1 evidence):',
-        'Use these to refine, not repeat. Build on prior insights; identify gaps.',
+        'SWARM RAW_MEMORY — Prior activations for this objective:',
+        'Use these for retrieval and comparison only. They are not independent evidence.',
     ]
     for i, row in enumerate(rows, 1):
         artifacts = row.get('artifacts', [])
         projection = row.get('projection', {})
-        verdict = row.get('constitutional_verdict', 'APPROVED')
+        verdict = row.get('constitutional_verdict') or 'UNKNOWN'
         arr = projection.get('first_year_arr_usd', 0)
         # Sample 3 representative department outputs from prior run
         sample = [a for a in artifacts if a.get('output', '').strip()][:3]
@@ -1795,7 +1795,7 @@ def fetch_compliance_export(from_ts: str | None, to_ts: str | None, limit: int) 
                 'timestamp':              row.get('created_at', ''),
                 'objective_hash':         obj_hash,
                 'mode':                   row.get('mode', ''),
-                'constitutional_verdict': row.get('constitutional_verdict', 'APPROVED'),
+                'constitutional_verdict': row.get('constitutional_verdict') or 'UNKNOWN',
                 'projected_arr_usd':      row.get('arr_usd', 0),
                 'is_replay_reconstructable': True,
             })
