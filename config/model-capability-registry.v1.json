@@ -125,7 +125,7 @@
     "gemma-4-local": {
       "provider": "google-local",
       "status": "candidate",
-      "capabilities": ["local_execution", "structured_output", "code", "multimodal"],
+      "capabilities": ["local_execution", "tool_use", "structured_output", "code", "multimodal"],
       "recommended_roles": ["local_private_executor", "coder", "multimodal_executor"]
     },
     "qwen-plus": {
