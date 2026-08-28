@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/qform-proof-carrying-v1",
+    "source_ref": "feat/cross-runtime-verification-receipt-v1",
     "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "ab6fa3924779268e7dcc93bc16ed445179adeafce4092a5856afe931372a6477"
+  "state_hash": "9c6ed47f232a7b4bf22cbe2476e24ebff8a7cac94d9c2b0e5e0cdcc897337140"
 }
