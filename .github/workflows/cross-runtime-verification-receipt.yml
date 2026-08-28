@@ -96,7 +96,7 @@ jobs:
         run: |
           set -euo pipefail
           root="$RUNNER_TEMP/cross-runtime"
-          guard="$RUNNER_TEMP/sovereign-guard-exact"
+          guard="$RUNNER_TEMP/sovereign-guard"
 
           git clone --quiet --no-tags --filter=blob:none https://github.com/Aegis-Omega/sovereign-guard.git "$guard"
           git -C "$guard" fetch --quiet --depth=1 origin "$GUARD_SOURCE_SHA"
