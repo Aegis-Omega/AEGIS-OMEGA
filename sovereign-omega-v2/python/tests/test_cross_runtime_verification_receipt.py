@@ -62,6 +62,42 @@ def test_local_verified_component_blocks_aggregate_authority():
     assert receipt["all_required_components_exact_head_bound"] is False
 
 
+def test_exact_public_guard_replay_does_not_launder_unbound_64_suite():
+    guard_sha = "1" * 40
+    public_package = RuntimeEvidenceV1(
+        component="sovereign_guard_public_package_v1",
+        required=True,
+        source_repo="Aegis-Omega/sovereign-guard",
+        source_commit=guard_sha,
+        execution_commit=guard_sha,
+        execution_status="PASS",
+        observed_passes=None,
+        observed_failures=0,
+        evidence_origin="REMOTE_EXACT_HEAD_REPLAY",
+    )
+    local_64 = RuntimeEvidenceV1(
+        component="sovereign_guard_64_suite",
+        required=True,
+        source_repo="Aegis-Omega/sovereign-guard",
+        source_commit=None,
+        execution_commit=None,
+        execution_status="PASS",
+        observed_passes=64,
+        observed_failures=0,
+        evidence_origin="OPERATOR_REPORTED_LOCAL_WORKING_ENVIRONMENT_UNBOUND",
+        remote_reference_commit=guard_sha,
+    )
+
+    receipt = build_cross_runtime_receipt([public_package, local_64]).to_dict()
+    components = {item["component"]: item for item in receipt["components"]}
+
+    assert components["sovereign_guard_public_package_v1"]["binding_status"] == "REMOTE_EXACT_HEAD_VERIFIED"
+    assert components["sovereign_guard_64_suite"]["binding_status"] == "LOCAL_VERIFIED_UNBOUND"
+    assert components["sovereign_guard_64_suite"]["remote_reference_grants_authority"] is False
+    assert receipt["overall_status"] == "BLOCKED_UNBOUND_COMPONENT"
+    assert receipt["all_required_components_exact_head_bound"] is False
+
+
 def test_remote_source_without_execution_replay_is_not_established():
     remote_only = RuntimeEvidenceV1(
         component="sovereign_guard_remote_v1",
