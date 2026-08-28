@@ -25,6 +25,11 @@ permissions:
 
 env:
   EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  GUARD_SOURCE_SHA: 5f04493e826f60dd18256e2711d7413c947749fb
+  GUARD_NPM_VERSION: 11.19.0
+  GUARD_EXPECTED_TGZ_SHA256: 3a3f880fdf22f945a024a14f10b64530a55678d852a294b631a6f944bd713f73
+  GUARD_EXPECTED_RECEIPT_ROOT: 22932ba31e7361a59d95a7e3dd60d28a081dee107404c50b240d95beb049f94c
+  GUARD_EXPECTED_RECEIPT_FILE_SHA256: dde23960c404e53c2aa21b1597eafcf42e22641d1f6e976b122e2aa45cfad068
 
 jobs:
   receipt:
@@ -75,13 +80,76 @@ jobs:
           python -m pytest -q sovereign-omega-v2/python/tests/test_qform_receipt.py \
             | tee "$RUNNER_TEMP/cross-runtime/qform.log"
 
-      - name: Verify public sovereign-guard reference without laundering local tests
+      - name: Set up Node for independent Sovereign Guard replay
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+
+      - name: Replay exact public Sovereign Guard package and supply-chain gates
         shell: bash
         run: |
           set -euo pipefail
-          remote="$(git ls-remote https://github.com/Aegis-Omega/sovereign-guard.git refs/heads/master | awk '{print $1}')"
-          printf '%s\n' "$remote" | tee "$RUNNER_TEMP/cross-runtime/sovereign-guard-remote-head.txt"
-          test "$remote" = "3c6568684fc58bbab015f0ea34a87f9df4cfe1aa"
+          root="$RUNNER_TEMP/cross-runtime"
+          guard="$RUNNER_TEMP/sovereign-guard-exact"
+
+          git clone --quiet --no-tags --filter=blob:none https://github.com/Aegis-Omega/sovereign-guard.git "$guard"
+          git -C "$guard" fetch --quiet --depth=1 origin "$GUARD_SOURCE_SHA"
+          git -C "$guard" checkout --quiet --detach "$GUARD_SOURCE_SHA"
+          test "$(git -C "$guard" rev-parse HEAD)" = "$GUARD_SOURCE_SHA"
+          printf '%s\n' "$GUARD_SOURCE_SHA" > "$root/sovereign-guard-source-sha.txt"
+
+          cd "$guard"
+          npm install --global "npm@$GUARD_NPM_VERSION"
+          test "$(npm --version)" = "$GUARD_NPM_VERSION"
+          node --version | tee "$root/sovereign-guard-node-version.txt"
+          npm --version | tee "$root/sovereign-guard-npm-version.txt"
+
+          npm ci
+          npm run build
+          npm test | tee "$root/sovereign-guard-tests.log"
+          npm audit --audit-level=high --json > "$root/sovereign-guard-npm-audit.json"
+          npm audit signatures --include-attestations \
+            | tee "$root/sovereign-guard-npm-signatures.txt"
+          npm sbom --sbom-format cyclonedx > "$root/sovereign-guard-sbom.cdx.json"
+
+          AEGIS_SOURCE_SHA="$GUARD_SOURCE_SHA" KEEP_NPM_TARBALL=1 npm run verify:package
+
+          mapfile -t tgz < <(find . -maxdepth 1 -type f -name 'sovereign-guard-*.tgz' -print)
+          test "${#tgz[@]}" -eq 1
+          actual_tgz_sha="$(sha256sum "${tgz[0]}" | awk '{print $1}')"
+          test "$actual_tgz_sha" = "$GUARD_EXPECTED_TGZ_SHA256"
+
+          actual_receipt_file_sha="$(sha256sum artifacts/NpmPackageReceiptV1.json | awk '{print $1}')"
+          test "$actual_receipt_file_sha" = "$GUARD_EXPECTED_RECEIPT_FILE_SHA256"
+
+          node - <<'NODE'
+          const fs = require('fs');
+          const receipt = JSON.parse(fs.readFileSync('artifacts/NpmPackageReceiptV1.json', 'utf8'));
+          const fail = (message) => { throw new Error(message); };
+
+          if (receipt.receipt_version !== 'NpmPackageReceiptV1') fail('receipt version mismatch');
+          if (receipt.source.repository !== 'Aegis-Omega/sovereign-guard') fail('repository mismatch');
+          if (receipt.source.git_sha !== process.env.GUARD_SOURCE_SHA) fail('source SHA mismatch');
+          if (receipt.package.name !== 'sovereign-guard' || receipt.package.version !== '1.0.0') fail('package identity mismatch');
+          if (receipt.package.sha256 !== process.env.GUARD_EXPECTED_TGZ_SHA256) fail('tarball SHA mismatch');
+          if (receipt.receipt_sha256 !== process.env.GUARD_EXPECTED_RECEIPT_ROOT) fail('receipt root mismatch');
+          if (receipt.verification.authority !== 'REMOTE_EXACT_SOURCE_PACK_VERIFIED') fail('authority mismatch');
+          if (receipt.verification.exact_source_sha_verified !== true) fail('exact source not verified');
+          if (receipt.verification.reproducible_pack_verified !== true) fail('reproducibility not verified');
+          if (receipt.reproducibility.independent_pack_count !== 2) fail('independent pack count mismatch');
+          if (receipt.reproducibility.byte_for_byte_equal !== true) fail('pack bytes diverged');
+          if (receipt.verification.local_64_suite_bound !== false) fail('64-suite boundary was laundered');
+          NODE
+
+          cp artifacts/NpmPackageReceiptV1.json "$root/GuardNpmPackageReceiptV1.json"
+          cp "${tgz[0]}" "$root/sovereign-guard-1.0.0.tgz"
+          sha256sum \
+            "$root/GuardNpmPackageReceiptV1.json" \
+            "$root/sovereign-guard-1.0.0.tgz" \
+            "$root/sovereign-guard-npm-audit.json" \
+            "$root/sovereign-guard-npm-signatures.txt" \
+            "$root/sovereign-guard-sbom.cdx.json" \
+            > "$root/sovereign-guard-replay.sha256"
 
       - name: Emit fail-closed cross-runtime receipt
         shell: bash
@@ -97,7 +165,14 @@ jobs:
           root = Path(os.environ['RUNNER_TEMP']) / 'cross-runtime'
           hardware_passes = int((root / 'hardware-pass-count.txt').read_text().strip())
           candidate = os.environ['EXPECTED_SHA']
-          guard_remote = (root / 'sovereign-guard-remote-head.txt').read_text().strip()
+          guard_receipt = json.loads((root / 'GuardNpmPackageReceiptV1.json').read_text())
+          guard_source = guard_receipt['source']['git_sha']
+
+          assert guard_source == os.environ['GUARD_SOURCE_SHA']
+          assert guard_receipt['package']['sha256'] == os.environ['GUARD_EXPECTED_TGZ_SHA256']
+          assert guard_receipt['receipt_sha256'] == os.environ['GUARD_EXPECTED_RECEIPT_ROOT']
+          assert guard_receipt['verification']['authority'] == 'REMOTE_EXACT_SOURCE_PACK_VERIFIED'
+          assert guard_receipt['verification']['local_64_suite_bound'] is False
 
           components = [
               RuntimeEvidenceV1(
@@ -115,12 +190,19 @@ jobs:
                   evidence_origin='REMOTE_EXACT_HEAD_REPLAY',
               ),
               RuntimeEvidenceV1(
+                  component='sovereign_guard_public_package_v1', required=True,
+                  source_repo='Aegis-Omega/sovereign-guard', source_commit=guard_source,
+                  execution_commit=guard_source, execution_status='PASS',
+                  observed_passes=None, observed_failures=0,
+                  evidence_origin='REMOTE_EXACT_HEAD_REPLAY',
+              ),
+              RuntimeEvidenceV1(
                   component='sovereign_guard_64_suite', required=True,
                   source_repo='Aegis-Omega/sovereign-guard', source_commit=None,
                   execution_commit=None, execution_status='PASS',
                   observed_passes=64, observed_failures=0,
-                  evidence_origin='LOCAL_WORKING_ENVIRONMENT_UNBOUND',
-                  remote_reference_commit=guard_remote,
+                  evidence_origin='OPERATOR_REPORTED_LOCAL_WORKING_ENVIRONMENT_UNBOUND',
+                  remote_reference_commit=guard_source,
               ),
           ]
           receipt = build_cross_runtime_receipt(components).to_dict()
@@ -128,6 +210,10 @@ jobs:
           target.write_text(json.dumps(receipt, indent=2, sort_keys=True) + '\n')
           print(target.read_text())
 
+          by_name = {item['component']: item for item in receipt['components']}
+          assert by_name['sovereign_guard_public_package_v1']['binding_status'] == 'REMOTE_EXACT_HEAD_VERIFIED'
+          assert by_name['sovereign_guard_64_suite']['binding_status'] == 'LOCAL_VERIFIED_UNBOUND'
+          assert by_name['sovereign_guard_64_suite']['remote_reference_grants_authority'] is False
           assert receipt['overall_status'] == 'BLOCKED_UNBOUND_COMPONENT'
           assert receipt['all_required_components_exact_head_bound'] is False
           assert receipt['rh_proven'] is False
