@@ -1,0 +1,79 @@
+name: Guard SBOM Cross-Context Diagnostic
+
+on:
+  push:
+    branches: [feat/cross-runtime-verification-receipt-v1]
+    paths: ['.github/workflows/guard-sbom-cross-context-diagnostic.yml']
+
+permissions:
+  contents: read
+
+env:
+  GUARD_SOURCE_SHA: e02341ef3cc452882916a524eb4675a395f081c7
+  GUARD_NPM_VERSION: 11.19.0
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout diagnostic exact head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Reproduce Guard supply evidence without promotion
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/guard-sbom-diagnostic"
+          guard="$RUNNER_TEMP/sovereign-guard-diagnostic"
+          mkdir -p "$out"
+          git clone --quiet --no-tags --filter=blob:none https://github.com/Aegis-Omega/sovereign-guard.git "$guard"
+          git -C "$guard" fetch --quiet --depth=1 origin "$GUARD_SOURCE_SHA"
+          git -C "$guard" checkout --quiet --detach "$GUARD_SOURCE_SHA"
+          test "$(git -C "$guard" rev-parse HEAD)" = "$GUARD_SOURCE_SHA"
+          cd "$guard"
+          npm install --global "npm@$GUARD_NPM_VERSION"
+          test "$(npm --version)" = "$GUARD_NPM_VERSION"
+          node --version > "$out/node-version.txt"
+          npm --version > "$out/npm-version.txt"
+          npm ci
+          npm run build
+          npm test > "$out/tests.log" 2>&1
+          mkdir -p artifacts
+          npm audit --audit-level=low --json > artifacts/npm-audit.json
+          npm audit signatures --json --include-attestations > artifacts/npm-signatures.json
+          npm sbom --sbom-format=cyclonedx > artifacts/sbom.cdx.json
+          AEGIS_SOURCE_SHA="$GUARD_SOURCE_SHA" KEEP_NPM_TARBALL=1 npm run verify:package > "$out/package-receipt.stdout" 2> "$out/package-receipt.stderr"
+          set +e
+          AEGIS_SOURCE_SHA="$GUARD_SOURCE_SHA" npm run verify:supply-chain > "$out/supply-receipt.stdout" 2> "$out/supply-receipt.stderr"
+          supply_status=$?
+          set -e
+          printf '%s\n' "$supply_status" > "$out/supply-receipt.exit-code.txt"
+          cp package.json package-lock.json "$out/"
+          cp artifacts/npm-audit.json artifacts/npm-signatures.json artifacts/sbom.cdx.json artifacts/NpmPackageReceiptV1.json "$out/"
+          if test -f artifacts/NpmSupplyChainReceiptV1.json; then cp artifacts/NpmSupplyChainReceiptV1.json "$out/"; fi
+          node - <<'NODE' > "$out/sbom-metadata-component.json"
+          const fs = require('fs');
+          const sbom = JSON.parse(fs.readFileSync('artifacts/sbom.cdx.json', 'utf8'));
+          console.log(JSON.stringify({
+            metadata_component: sbom.metadata?.component ?? null,
+            metadata: sbom.metadata ?? null,
+            root_name: sbom.name ?? null,
+            root_version: sbom.version ?? null,
+            serialNumber: sbom.serialNumber ?? null,
+            component_count: Array.isArray(sbom.components) ? sbom.components.length : null,
+          }, null, 2));
+          NODE
+          find "$out" -maxdepth 1 -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > "$out/SHA256SUMS"
+      - name: Upload diagnostic evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: guard-sbom-diagnostic-${{ github.sha }}
+          path: ${{ runner.temp }}/guard-sbom-diagnostic/
+          if-no-files-found: error
+          retention-days: 7
