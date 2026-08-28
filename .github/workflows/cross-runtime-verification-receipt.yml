@@ -25,11 +25,17 @@ permissions:
 
 env:
   EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  GUARD_SOURCE_SHA: 5f04493e826f60dd18256e2711d7413c947749fb
+  GUARD_SOURCE_SHA: e02341ef3cc452882916a524eb4675a395f081c7
   GUARD_NPM_VERSION: 11.19.0
-  GUARD_EXPECTED_TGZ_SHA256: 3a3f880fdf22f945a024a14f10b64530a55678d852a294b631a6f944bd713f73
-  GUARD_EXPECTED_RECEIPT_ROOT: 22932ba31e7361a59d95a7e3dd60d28a081dee107404c50b240d95beb049f94c
-  GUARD_EXPECTED_RECEIPT_FILE_SHA256: dde23960c404e53c2aa21b1597eafcf42e22641d1f6e976b122e2aa45cfad068
+  GUARD_EXPECTED_TGZ_SHA256: 1fdc22ea6e96ddcd7627593a9b9669f3eb869b8913b41c9fbdc1adb6abb2d373
+  GUARD_EXPECTED_PACKAGE_RECEIPT_ROOT: 7a412897a241dd1a8ec260973eedfb753b48b859b8acd822b78fb8e69ae6fabc
+  GUARD_EXPECTED_PACKAGE_RECEIPT_FILE_SHA256: 07d7c50f42ecdb00371ca8808eaf5f251ac258dbd98aa3511034793d9ec18396
+  GUARD_EXPECTED_SUPPLY_RECEIPT_ROOT: eb35d57aa44273a62c15f7570b33f3fb9b197e1b60c19548fc98705c58fc8c04
+  GUARD_EXPECTED_SUPPLY_RECEIPT_FILE_SHA256: 1b889ae57ede5dad12312cbe5506cda941d6eabe4a9031082f73199d27b0c3f0
+  GUARD_EXPECTED_LOCK_SHA256: 07b6c8b2ddb35d8f28ca7e142234354b7a094c8a9f4b1c17fe71f87924f7a235
+  GUARD_EXPECTED_AUDIT_CANONICAL_SHA256: abe54f13770b00a287157f44c1adb813cad81d992cddabc0917bb0ac6b8f6961
+  GUARD_EXPECTED_SIGNATURES_CANONICAL_SHA256: 03e643b3669e02666db2936807ae533ac0658bcea150c6d805eb0f418ee4ec59
+  GUARD_EXPECTED_NORMALIZED_SBOM_SHA256: faa549b738c8e38fe7e0ea84d088083f5a99b64af9986b38ab41484d5d78d532
 
 jobs:
   receipt:
@@ -85,7 +91,7 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Replay exact public Sovereign Guard package and supply-chain gates
+      - name: Replay exact public Sovereign Guard package and supply-chain receipts
         shell: bash
         run: |
           set -euo pipefail
@@ -107,55 +113,80 @@ jobs:
           npm ci
           npm run build
           npm test | tee "$root/sovereign-guard-tests.log"
-          npm audit --audit-level=high --json > "$root/sovereign-guard-npm-audit.json"
-          npm audit signatures --include-attestations \
-            | tee "$root/sovereign-guard-npm-signatures.txt"
-          npm sbom --sbom-format cyclonedx > "$root/sovereign-guard-sbom.cdx.json"
+          mkdir -p artifacts
+          npm audit --audit-level=low --json > artifacts/npm-audit.json
+          npm audit signatures --json --include-attestations > artifacts/npm-signatures.json
+          npm sbom --sbom-format=cyclonedx > artifacts/sbom.cdx.json
 
           AEGIS_SOURCE_SHA="$GUARD_SOURCE_SHA" KEEP_NPM_TARBALL=1 npm run verify:package
+          AEGIS_SOURCE_SHA="$GUARD_SOURCE_SHA" npm run verify:supply-chain
 
           mapfile -t tgz < <(find . -maxdepth 1 -type f -name 'sovereign-guard-*.tgz' -print)
           test "${#tgz[@]}" -eq 1
           actual_tgz_sha="$(sha256sum "${tgz[0]}" | awk '{print $1}')"
           test "$actual_tgz_sha" = "$GUARD_EXPECTED_TGZ_SHA256"
 
-          actual_receipt_file_sha="$(sha256sum artifacts/NpmPackageReceiptV1.json | awk '{print $1}')"
-          test "$actual_receipt_file_sha" = "$GUARD_EXPECTED_RECEIPT_FILE_SHA256"
+          package_file_sha="$(sha256sum artifacts/NpmPackageReceiptV1.json | awk '{print $1}')"
+          supply_file_sha="$(sha256sum artifacts/NpmSupplyChainReceiptV1.json | awk '{print $1}')"
+          test "$package_file_sha" = "$GUARD_EXPECTED_PACKAGE_RECEIPT_FILE_SHA256"
+          test "$supply_file_sha" = "$GUARD_EXPECTED_SUPPLY_RECEIPT_FILE_SHA256"
 
           node - <<'NODE'
           const fs = require('fs');
-          const receipt = JSON.parse(fs.readFileSync('artifacts/NpmPackageReceiptV1.json', 'utf8'));
+          const pkg = JSON.parse(fs.readFileSync('artifacts/NpmPackageReceiptV1.json', 'utf8'));
+          const supply = JSON.parse(fs.readFileSync('artifacts/NpmSupplyChainReceiptV1.json', 'utf8'));
           const fail = (message) => { throw new Error(message); };
 
-          if (receipt.receipt_version !== 'NpmPackageReceiptV1') fail('receipt version mismatch');
-          if (receipt.source.repository !== 'Aegis-Omega/sovereign-guard') fail('repository mismatch');
-          if (receipt.source.git_sha !== process.env.GUARD_SOURCE_SHA) fail('source SHA mismatch');
-          if (receipt.package.name !== 'sovereign-guard' || receipt.package.version !== '1.0.0') fail('package identity mismatch');
-          if (receipt.package.sha256 !== process.env.GUARD_EXPECTED_TGZ_SHA256) fail('tarball SHA mismatch');
-          if (receipt.receipt_sha256 !== process.env.GUARD_EXPECTED_RECEIPT_ROOT) fail('receipt root mismatch');
-          if (receipt.verification.authority !== 'REMOTE_EXACT_SOURCE_PACK_VERIFIED') fail('authority mismatch');
-          if (receipt.verification.exact_source_sha_verified !== true) fail('exact source not verified');
-          if (receipt.verification.reproducible_pack_verified !== true) fail('reproducibility not verified');
-          if (receipt.reproducibility.independent_pack_count !== 2) fail('independent pack count mismatch');
-          if (receipt.reproducibility.byte_for_byte_equal !== true) fail('pack bytes diverged');
-          if (receipt.verification.local_64_suite_bound !== false) fail('64-suite boundary was laundered');
+          if (pkg.receipt_version !== 'NpmPackageReceiptV1') fail('package receipt version mismatch');
+          if (pkg.source.repository !== 'Aegis-Omega/sovereign-guard') fail('repository mismatch');
+          if (pkg.source.git_sha !== process.env.GUARD_SOURCE_SHA) fail('source SHA mismatch');
+          if (pkg.package.name !== 'sovereign-guard' || pkg.package.version !== '1.0.0') fail('package identity mismatch');
+          if (pkg.package.sha256 !== process.env.GUARD_EXPECTED_TGZ_SHA256) fail('tarball SHA mismatch');
+          if (pkg.receipt_sha256 !== process.env.GUARD_EXPECTED_PACKAGE_RECEIPT_ROOT) fail('package receipt root mismatch');
+          if (pkg.verification.authority !== 'REMOTE_EXACT_SOURCE_PACK_VERIFIED') fail('package authority mismatch');
+          if (pkg.verification.exact_source_sha_verified !== true) fail('exact source not verified');
+          if (pkg.verification.reproducible_pack_verified !== true) fail('reproducibility not verified');
+          if (pkg.reproducibility.independent_pack_count !== 2 || pkg.reproducibility.byte_for_byte_equal !== true) fail('pack reproducibility mismatch');
+          if (pkg.verification.local_64_suite_bound !== false) fail('64-suite boundary laundered by package receipt');
+
+          if (supply.receipt_version !== 'NpmSupplyChainReceiptV1') fail('supply receipt version mismatch');
+          if (supply.source.git_sha !== process.env.GUARD_SOURCE_SHA) fail('supply source SHA mismatch');
+          if (supply.receipt_sha256 !== process.env.GUARD_EXPECTED_SUPPLY_RECEIPT_ROOT) fail('supply receipt root mismatch');
+          if (supply.verification.authority !== 'REMOTE_EXACT_SOURCE_SUPPLY_CHAIN_VERIFIED') fail('supply authority mismatch');
+          if (supply.package_receipt.receipt_root !== pkg.receipt_sha256) fail('supply/package root binding mismatch');
+          if (supply.package_receipt.tarball_sha256 !== pkg.package.sha256) fail('supply/tarball binding mismatch');
+          if (supply.lockfile.sha256 !== process.env.GUARD_EXPECTED_LOCK_SHA256) fail('lock SHA mismatch');
+          if (supply.audit.policy_threshold !== 'low' || supply.audit.vulnerabilities.total !== 0) fail('audit policy mismatch');
+          if (supply.audit.canonical_sha256 !== process.env.GUARD_EXPECTED_AUDIT_CANONICAL_SHA256) fail('audit canonical SHA mismatch');
+          if (supply.signatures.missing_count !== 0 || supply.signatures.invalid_count !== 0) fail('signature debt');
+          if (supply.signatures.verified_count !== 6 || supply.signatures.provenance_attestation_count !== 6) fail('signature/provenance count mismatch');
+          if (supply.signatures.canonical_sha256 !== process.env.GUARD_EXPECTED_SIGNATURES_CANONICAL_SHA256) fail('signatures canonical SHA mismatch');
+          if (supply.sbom.normalized_sha256 !== process.env.GUARD_EXPECTED_NORMALIZED_SBOM_SHA256) fail('normalized SBOM SHA mismatch');
+          if (supply.verification.local_64_suite_bound !== false || supply.non_claims.operator_reported_64_suite_authenticated !== false) fail('64-suite boundary laundered by supply receipt');
+          if (supply.non_claims.advisory_state_is_timeless !== false) fail('advisory state incorrectly promoted to timeless');
           NODE
 
           cp artifacts/NpmPackageReceiptV1.json "$root/GuardNpmPackageReceiptV1.json"
+          cp artifacts/NpmSupplyChainReceiptV1.json "$root/GuardNpmSupplyChainReceiptV1.json"
+          cp artifacts/npm-audit.json "$root/sovereign-guard-npm-audit.json"
+          cp artifacts/npm-signatures.json "$root/sovereign-guard-npm-signatures.json"
+          cp artifacts/sbom.cdx.json "$root/sovereign-guard-sbom.cdx.json"
           cp "${tgz[0]}" "$root/sovereign-guard-1.0.0.tgz"
           sha256sum \
             "$root/GuardNpmPackageReceiptV1.json" \
+            "$root/GuardNpmSupplyChainReceiptV1.json" \
             "$root/sovereign-guard-1.0.0.tgz" \
             "$root/sovereign-guard-npm-audit.json" \
-            "$root/sovereign-guard-npm-signatures.txt" \
+            "$root/sovereign-guard-npm-signatures.json" \
             "$root/sovereign-guard-sbom.cdx.json" \
             > "$root/sovereign-guard-replay.sha256"
 
-      - name: Emit fail-closed cross-runtime receipt
+      - name: Emit fail-closed cross-runtime receipt with artifact identities
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
+          import hashlib
           import json
           import os
           from pathlib import Path
@@ -165,14 +196,29 @@ jobs:
           root = Path(os.environ['RUNNER_TEMP']) / 'cross-runtime'
           hardware_passes = int((root / 'hardware-pass-count.txt').read_text().strip())
           candidate = os.environ['EXPECTED_SHA']
-          guard_receipt = json.loads((root / 'GuardNpmPackageReceiptV1.json').read_text())
-          guard_source = guard_receipt['source']['git_sha']
+          package_path = root / 'GuardNpmPackageReceiptV1.json'
+          supply_path = root / 'GuardNpmSupplyChainReceiptV1.json'
+          guard_package = json.loads(package_path.read_text())
+          guard_supply = json.loads(supply_path.read_text())
+          guard_source = guard_package['source']['git_sha']
+          package_file_sha = hashlib.sha256(package_path.read_bytes()).hexdigest()
+          supply_file_sha = hashlib.sha256(supply_path.read_bytes()).hexdigest()
 
           assert guard_source == os.environ['GUARD_SOURCE_SHA']
-          assert guard_receipt['package']['sha256'] == os.environ['GUARD_EXPECTED_TGZ_SHA256']
-          assert guard_receipt['receipt_sha256'] == os.environ['GUARD_EXPECTED_RECEIPT_ROOT']
-          assert guard_receipt['verification']['authority'] == 'REMOTE_EXACT_SOURCE_PACK_VERIFIED'
-          assert guard_receipt['verification']['local_64_suite_bound'] is False
+          assert guard_package['package']['sha256'] == os.environ['GUARD_EXPECTED_TGZ_SHA256']
+          assert guard_package['receipt_sha256'] == os.environ['GUARD_EXPECTED_PACKAGE_RECEIPT_ROOT']
+          assert package_file_sha == os.environ['GUARD_EXPECTED_PACKAGE_RECEIPT_FILE_SHA256']
+          assert guard_package['verification']['authority'] == 'REMOTE_EXACT_SOURCE_PACK_VERIFIED'
+          assert guard_package['verification']['local_64_suite_bound'] is False
+
+          assert guard_supply['source']['git_sha'] == guard_source
+          assert guard_supply['receipt_sha256'] == os.environ['GUARD_EXPECTED_SUPPLY_RECEIPT_ROOT']
+          assert supply_file_sha == os.environ['GUARD_EXPECTED_SUPPLY_RECEIPT_FILE_SHA256']
+          assert guard_supply['verification']['authority'] == 'REMOTE_EXACT_SOURCE_SUPPLY_CHAIN_VERIFIED'
+          assert guard_supply['audit']['vulnerabilities']['total'] == 0
+          assert guard_supply['signatures']['missing_count'] == 0
+          assert guard_supply['signatures']['invalid_count'] == 0
+          assert guard_supply['verification']['local_64_suite_bound'] is False
 
           components = [
               RuntimeEvidenceV1(
@@ -194,7 +240,18 @@ jobs:
                   source_repo='Aegis-Omega/sovereign-guard', source_commit=guard_source,
                   execution_commit=guard_source, execution_status='PASS',
                   observed_passes=None, observed_failures=0,
-                  evidence_origin='REMOTE_EXACT_HEAD_REPLAY',
+                  evidence_origin='REMOTE_EXACT_HEAD_ARTIFACT_REPLAY',
+                  evidence_kind='NpmPackageReceiptV1',
+                  evidence_sha256=package_file_sha,
+              ),
+              RuntimeEvidenceV1(
+                  component='sovereign_guard_public_supply_chain_v1', required=True,
+                  source_repo='Aegis-Omega/sovereign-guard', source_commit=guard_source,
+                  execution_commit=guard_source, execution_status='PASS',
+                  observed_passes=None, observed_failures=0,
+                  evidence_origin='REMOTE_EXACT_HEAD_ARTIFACT_REPLAY',
+                  evidence_kind='NpmSupplyChainReceiptV1',
+                  evidence_sha256=supply_file_sha,
               ),
               RuntimeEvidenceV1(
                   component='sovereign_guard_64_suite', required=True,
@@ -212,6 +269,9 @@ jobs:
 
           by_name = {item['component']: item for item in receipt['components']}
           assert by_name['sovereign_guard_public_package_v1']['binding_status'] == 'REMOTE_EXACT_HEAD_VERIFIED'
+          assert by_name['sovereign_guard_public_package_v1']['evidence_sha256'] == package_file_sha
+          assert by_name['sovereign_guard_public_supply_chain_v1']['binding_status'] == 'REMOTE_EXACT_HEAD_VERIFIED'
+          assert by_name['sovereign_guard_public_supply_chain_v1']['evidence_sha256'] == supply_file_sha
           assert by_name['sovereign_guard_64_suite']['binding_status'] == 'LOCAL_VERIFIED_UNBOUND'
           assert by_name['sovereign_guard_64_suite']['remote_reference_grants_authority'] is False
           assert receipt['overall_status'] == 'BLOCKED_UNBOUND_COMPONENT'
