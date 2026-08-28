@@ -1,10 +1,13 @@
 """
 AEGIS Ω — Cross-runtime verification receipt preregistration.
 
-TDD contract: committed before harness/sdk/cross_runtime_verification.py exists.
-The aggregate must fail closed when any required runtime lacks an exact source
-and execution binding. Local PASS counts are evidence, never remote authority.
+The aggregate binds execution evidence to exact source identity. Components
+whose authority depends on a concrete external artifact additionally require a
+cryptographic evidence digest. Local PASS counts remain evidence, never remote
+authority.
 """
+
+import pytest
 
 from harness.sdk.cross_runtime_verification import (
     RuntimeEvidenceV1,
@@ -23,6 +26,22 @@ def _bound(name: str, sha: str, passes: int) -> RuntimeEvidenceV1:
         observed_passes=passes,
         observed_failures=0,
         evidence_origin="REMOTE_EXACT_HEAD_REPLAY",
+    )
+
+
+def _artifact_bound(name: str, sha: str, evidence_sha256: str) -> RuntimeEvidenceV1:
+    return RuntimeEvidenceV1(
+        component=name,
+        required=True,
+        source_repo="Aegis-Omega/sovereign-guard",
+        source_commit=sha,
+        execution_commit=sha,
+        execution_status="PASS",
+        observed_passes=None,
+        observed_failures=0,
+        evidence_origin="REMOTE_EXACT_HEAD_ARTIFACT_REPLAY",
+        evidence_kind="NpmSupplyChainReceiptV1",
+        evidence_sha256=evidence_sha256,
     )
 
 
@@ -62,7 +81,7 @@ def test_local_verified_component_blocks_aggregate_authority():
     assert receipt["all_required_components_exact_head_bound"] is False
 
 
-def test_exact_public_guard_replay_does_not_launder_unbound_64_suite():
+def test_exact_public_guard_package_and_supply_replays_do_not_launder_unbound_64_suite():
     guard_sha = "1" * 40
     public_package = RuntimeEvidenceV1(
         component="sovereign_guard_public_package_v1",
@@ -73,7 +92,12 @@ def test_exact_public_guard_replay_does_not_launder_unbound_64_suite():
         execution_status="PASS",
         observed_passes=None,
         observed_failures=0,
-        evidence_origin="REMOTE_EXACT_HEAD_REPLAY",
+        evidence_origin="REMOTE_EXACT_HEAD_ARTIFACT_REPLAY",
+        evidence_kind="NpmPackageReceiptV1",
+        evidence_sha256="2" * 64,
+    )
+    public_supply = _artifact_bound(
+        "sovereign_guard_public_supply_chain_v1", guard_sha, "3" * 64
     )
     local_64 = RuntimeEvidenceV1(
         component="sovereign_guard_64_suite",
@@ -88,14 +112,68 @@ def test_exact_public_guard_replay_does_not_launder_unbound_64_suite():
         remote_reference_commit=guard_sha,
     )
 
-    receipt = build_cross_runtime_receipt([public_package, local_64]).to_dict()
+    receipt = build_cross_runtime_receipt([public_package, public_supply, local_64]).to_dict()
     components = {item["component"]: item for item in receipt["components"]}
 
     assert components["sovereign_guard_public_package_v1"]["binding_status"] == "REMOTE_EXACT_HEAD_VERIFIED"
+    assert components["sovereign_guard_public_package_v1"]["evidence_sha256"] == "2" * 64
+    assert components["sovereign_guard_public_supply_chain_v1"]["binding_status"] == "REMOTE_EXACT_HEAD_VERIFIED"
+    assert components["sovereign_guard_public_supply_chain_v1"]["evidence_sha256"] == "3" * 64
     assert components["sovereign_guard_64_suite"]["binding_status"] == "LOCAL_VERIFIED_UNBOUND"
     assert components["sovereign_guard_64_suite"]["remote_reference_grants_authority"] is False
     assert receipt["overall_status"] == "BLOCKED_UNBOUND_COMPONENT"
     assert receipt["all_required_components_exact_head_bound"] is False
+
+
+def test_artifact_replay_without_digest_fails_closed():
+    evidence = RuntimeEvidenceV1(
+        component="sovereign_guard_public_supply_chain_v1",
+        required=True,
+        source_repo="Aegis-Omega/sovereign-guard",
+        source_commit="4" * 40,
+        execution_commit="4" * 40,
+        execution_status="PASS",
+        observed_passes=None,
+        observed_failures=0,
+        evidence_origin="REMOTE_EXACT_HEAD_ARTIFACT_REPLAY",
+        evidence_kind="NpmSupplyChainReceiptV1",
+        evidence_sha256=None,
+    )
+    receipt = build_cross_runtime_receipt([evidence]).to_dict()
+
+    assert receipt["components"][0]["binding_status"] == "REMOTE_ARTIFACT_UNBOUND"
+    assert receipt["overall_status"] == "BLOCKED_UNBOUND_COMPONENT"
+
+
+def test_artifact_digest_requires_kind_and_valid_sha256():
+    with pytest.raises(ValueError, match="evidence_kind"):
+        RuntimeEvidenceV1(
+            component="artifact",
+            required=True,
+            source_repo="Aegis-Omega/sovereign-guard",
+            source_commit="5" * 40,
+            execution_commit="5" * 40,
+            execution_status="PASS",
+            observed_passes=None,
+            observed_failures=0,
+            evidence_origin="REMOTE_EXACT_HEAD_ARTIFACT_REPLAY",
+            evidence_sha256="6" * 64,
+        )
+
+    with pytest.raises(ValueError, match="evidence_sha256"):
+        RuntimeEvidenceV1(
+            component="artifact",
+            required=True,
+            source_repo="Aegis-Omega/sovereign-guard",
+            source_commit="5" * 40,
+            execution_commit="5" * 40,
+            execution_status="PASS",
+            observed_passes=None,
+            observed_failures=0,
+            evidence_origin="REMOTE_EXACT_HEAD_ARTIFACT_REPLAY",
+            evidence_kind="NpmSupplyChainReceiptV1",
+            evidence_sha256="not-a-sha",
+        )
 
 
 def test_remote_source_without_execution_replay_is_not_established():
@@ -140,4 +218,16 @@ def test_receipt_digest_changes_with_source_identity():
 
     assert len(r1["receipt_sha256"]) == 64
     assert len(r2["receipt_sha256"]) == 64
+    assert r1["receipt_sha256"] != r2["receipt_sha256"]
+
+
+def test_receipt_digest_changes_with_artifact_identity():
+    source = "7" * 40
+    r1 = build_cross_runtime_receipt([
+        _artifact_bound("sovereign_guard_public_supply_chain_v1", source, "8" * 64)
+    ]).to_dict()
+    r2 = build_cross_runtime_receipt([
+        _artifact_bound("sovereign_guard_public_supply_chain_v1", source, "9" * 64)
+    ]).to_dict()
+
     assert r1["receipt_sha256"] != r2["receipt_sha256"]
