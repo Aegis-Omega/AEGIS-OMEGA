@@ -1,8 +1,10 @@
 """AEGIS Ω cross-runtime verification receipt v1.
 
 This module binds execution evidence to the exact source identity that was
-executed. A local PASS count is retained as evidence but cannot acquire remote
-or exact-head authority without a source/execution commit binding.
+executed. Components whose authority depends on a concrete external artifact
+can additionally bind a SHA-256 evidence identity into the aggregate receipt.
+A local PASS count is retained as evidence but cannot acquire remote or
+exact-head authority without the required source/execution/artifact binding.
 
 This module does not prove scientific claims, global Weil positivity, or RH.
 """
@@ -17,6 +19,7 @@ from typing import Any, Iterable, Optional
 
 
 _SHA1_RE = re.compile(r"^[0-9a-f]{40}$")
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 @dataclass(frozen=True)
@@ -31,6 +34,8 @@ class RuntimeEvidenceV1:
     observed_failures: Optional[int]
     evidence_origin: str
     remote_reference_commit: Optional[str] = None
+    evidence_kind: Optional[str] = None
+    evidence_sha256: Optional[str] = None
 
     def __post_init__(self) -> None:
         if not self.component:
@@ -51,6 +56,13 @@ class RuntimeEvidenceV1:
             if value is not None and value < 0:
                 raise ValueError(f"{name} must be nonnegative")
 
+        if self.evidence_sha256 is not None and not _SHA256_RE.fullmatch(self.evidence_sha256):
+            raise ValueError("evidence_sha256 must be a lowercase 64-hex SHA-256 digest")
+        if self.evidence_sha256 is not None and not self.evidence_kind:
+            raise ValueError("evidence_kind must be non-empty when evidence_sha256 is provided")
+        if self.evidence_kind is not None and not self.evidence_kind:
+            raise ValueError("evidence_kind must be non-empty when provided")
+
     def binding_status(self) -> str:
         if (
             self.source_commit is not None
@@ -58,6 +70,17 @@ class RuntimeEvidenceV1:
             and self.source_commit != self.execution_commit
         ):
             return "SOURCE_EXECUTION_MISMATCH"
+
+        if self.evidence_origin == "REMOTE_EXACT_HEAD_ARTIFACT_REPLAY":
+            if self.evidence_sha256 is None or self.evidence_kind is None:
+                return "REMOTE_ARTIFACT_UNBOUND"
+            if (
+                self.source_commit is not None
+                and self.execution_commit == self.source_commit
+                and self.execution_status == "PASS"
+                and self.observed_failures in (0, None)
+            ):
+                return "REMOTE_EXACT_HEAD_VERIFIED"
 
         if (
             self.evidence_origin == "REMOTE_EXACT_HEAD_REPLAY"
