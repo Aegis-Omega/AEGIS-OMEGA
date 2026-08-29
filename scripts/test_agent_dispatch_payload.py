@@ -14,6 +14,7 @@ ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT))
 WORKFLOW = ROOT / ".github" / "workflows" / "agent-dispatch.yml"
 AUTH_WORKFLOW = ROOT / ".github" / "workflows" / "authorization-effect-chain.yml"
+DOCKERIGNORE = ROOT / ".dockerignore"
 VERTEX = ROOT / "vertex" / "serve.py"
 COORDINATOR = ROOT / "agents" / "coordinator_legacy.py"
 AUTOMATON3 = ROOT / "scripts" / "validate-automaton3.py"
@@ -193,6 +194,7 @@ class AgentDispatchPayloadTests(unittest.TestCase):
 
     def test_authorization_ci_builds_and_inspects_the_deployable_image(self) -> None:
         workflow = AUTH_WORKFLOW.read_text(encoding="utf-8")
+        dockerignore = DOCKERIGNORE.read_text(encoding="utf-8")
         self.assertIn("docker build --tag", workflow)
         self.assertIn("--file vertex/Dockerfile", workflow)
         self.assertIn("AEGIS_IMAGE_SOURCE_COMMIT", workflow)
@@ -201,6 +203,7 @@ class AgentDispatchPayloadTests(unittest.TestCase):
         self.assertIn("/app/skill-hashes.sha256", workflow)
         self.assertIn("/app/docs/claims.json", workflow)
         self.assertIn("harness.sdk.github_dispatch_identity", workflow)
+        self.assertIn("!docs/claims.json", dockerignore)
 
 
 if __name__ == "__main__":

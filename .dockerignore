@@ -31,7 +31,8 @@ sovereign-omega-v2/dist
 # VCS / CI / docs / local
 .git
 .github
-docs
+docs/*
+!docs/claims.json
 **/__pycache__
 **/*.pyc
 **/.env
