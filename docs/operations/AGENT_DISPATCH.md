@@ -73,6 +73,12 @@ fail-closed response checking. The identity suite uses a real RSA key to verify
 RS256/JWKS validation, exact-request audience binding, per-action context propagation,
 image/source anti-splicing, shared Redis replay fencing, and the expected capability denial.
 
+Hosted CI additionally builds `vertex/Dockerfile` from the repository root and runs the image
+with the exact candidate SHA. It fails unless `/app/CONSTITUTIONAL_DECLARATION.md`,
+`/app/.claude.json`, `/app/skill-hashes.sha256`, and `/app/docs/claims.json` exist and both
+`harness.sdk.github_dispatch_identity` and `serve.py` import successfully. A passing run emits
+`AGENT_DISPATCH_IMAGE_PASS`; this proves image buildability, not deployment.
+
 ## Remaining production admission blockers
 
 Authenticated transport is necessary but not sufficient. The candidate now requests a

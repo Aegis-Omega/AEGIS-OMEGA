@@ -146,6 +146,11 @@ JSON access logs (→ Cloud Logging) are on by every request.
 so the `agents/` package and `harness/skill_tree.json` land in the image. Without
 this the `/platform/*` and `/agents/*` routes return 503. A root `.dockerignore`
 keeps the upload small (excludes `node_modules`, rust `target/`, other frontends).
+PR CI uses the same root-context Docker build and runs the resulting image before
+admission. The gate verifies the four constitutional workspace anchors plus the
+OIDC verifier/service imports and emits `AGENT_DISPATCH_IMAGE_PASS`. Keep
+`.dockerignore`'s `!docs/claims.json` exception: removing it makes the production
+Dockerfile unbuildable.
 
 ### One-time secret (so the gate is live)
 

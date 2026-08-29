@@ -6,26 +6,26 @@ Where a doc disagrees with the live system, the live system wins.
 
 ---
 
-## LATEST — 2026-08-27 (PR #334 resident + proof-carrying effect boundary)
+## LATEST — 2026-08-29 (PR #334 OIDC + deployable-image boundary)
 
 This section supersedes older branch/PR snapshots below. Mutable GitHub state must still be
 revalidated before consequential actions.
 
-### Exact candidate state
+### Latest hosted evidence anchor
 
 - PR **#334** — `feat/autopoietic-runtime-v1` → `main`, OPEN, DRAFT, mergeable at inspection.
-- Verified hosted head before this documentation follow-up:
-  `c2dcc75a4ea0befba496e067e9254e439dc0f7be`.
-- Source tree: `02e081e388dc288c9aa2687d7c8cd0ec85ac5362`.
-- Constitutional Automaton run `33085997488`: SUCCESS.
-- Authorization Effect Chain run `33085997557`: SUCCESS.
+- Hosted head before this documentation follow-up:
+  `ba4d157b8846a0a07e06f5200858caa4c5cbef80`.
+- Source tree: `2a1ab83cf1a2bf6254369f241bcf5872eeb60932`.
+- Authorization Effect Chain run `33277497127`: SUCCESS — exact-head checkout, 99/99 tests,
+  Docker image build, constitutional-anchor inspection, OIDC/service imports, and
+  `AGENT_DISPATCH_IMAGE_PASS`.
 - Automaton-2/3, Coordinator Authority, Scale OS, Experiment Admission, MCP Resources,
   Kernel One, Integration Ledger, OSV, Hadolint, and four Vercel contexts: SUCCESS.
-- Agent Dispatch was SKIPPED on that head because `vars.PROXY_URL` was absent; it was not an
-  execution or verification failure.
-- Review ledger: 26/26 resolved. Same-tree targeted regression: 115/115 passed.
+- Constitutional Automaton on that anchor was still running when this documentation follow-up
+  began; its status must be re-read rather than inherited.
 
-These receipts predate the dispatch-hardening documentation commit below. Re-run exact-head
+These receipts predate this documentation commit. Re-run exact-head
 checks after publication; do not transfer GREEN status between commits.
 
 ### Live verified transition
@@ -80,6 +80,11 @@ event and image/source SHA, and every role receives its own action-bound identit
 process environment. This implementation is not production evidence until admitted and deployed;
 `orchestration_routing` remains `UNOBSERVED` with `validated_runs=0`, so the expected result is
 still `DENIED` and zero agents executed.
+
+The exact-candidate image is now a CI-tested artifact boundary. The first real build falsified the
+old packaging assumption because `.dockerignore` excluded `docs/claims.json`; the corrected build
+context retains only that required file from `docs/`. The runner then built and executed the image
+successfully. This closes image buildability, not Cloud Run deployment or live dispatch.
 
 ### Resident runtime and memory synthesis
 

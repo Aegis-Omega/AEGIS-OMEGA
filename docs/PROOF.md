@@ -6,16 +6,17 @@ not asserted. Commands are included so you can confirm each figure yourself.
 
 ## Current exact-head verification anchor
 
-PR #334's last hosted verification anchor before the request-bound OIDC candidate is
-`d6823c74da63174421a3b8a8f293b7a3ca011ce4`, tree
-`2896b159fd0766218a9b88566611a424ee24e7e7`:
+PR #334's last hosted verification anchor before this documentation reconciliation is
+`ba4d157b8846a0a07e06f5200858caa4c5cbef80`, tree
+`2a1ab83cf1a2bf6254369f241bcf5872eeb60932`:
 
 | Evidence | Result |
 |----------|--------|
-| Constitutional Automaton run `33250654595` | SUCCESS — all 15 jobs |
-| Authorization Effect Chain run `33250654626` | SUCCESS |
+| Constitutional Automaton | still running when this documentation follow-up began; do not inherit its prior status |
+| Authorization Effect Chain run `33277497127` | SUCCESS — exact-head checkout, 99/99 tests, image build and runtime inspection |
 | TypeScript Gate 8 | 254 files passed / 3 skipped; 4,130 tests passed / 68 skipped; typecheck and build passed |
-| Targeted Python receipt/effect chain | 93 passed on hosted anchor; current candidate expands the suite to 98 |
+| Targeted Python receipt/effect chain | 99 passed on hosted anchor |
+| Agent Dispatch image | `vertex/Dockerfile` built and ran; `AGENT_DISPATCH_IMAGE_PASS` |
 | Targeted Python ProofTrace | 31 passed |
 | Review ledger | 26/26 resolved |
 
@@ -28,10 +29,11 @@ DecisionReceipt → ExecutionReceipt → EffectObservation
 
 This is candidate-state evidence, not a production deployment receipt. The PR remains DRAFT.
 
-The follow-up request-bound identity slice is locally verified by 10 dispatch-envelope tests,
-4 RS256/request-context/replay tests, and the Automaton-3 replay-manifest test. Hosted exact-head status
-must be re-established after the candidate is committed; local success is not promoted to hosted
-or production status.
+The request-bound identity slice is hosted-verified by 11 dispatch-envelope/build-contract tests,
+4 RS256/request-context/replay tests, and the Automaton-3 replay-manifest test. The image gate
+also exposed and fixed an earlier `.dockerignore` contradiction that excluded the tracked
+`docs/claims.json` file required by the Dockerfile. Hosted image buildability is not promoted to
+Cloud Run deployment or production status.
 
 ---
 
