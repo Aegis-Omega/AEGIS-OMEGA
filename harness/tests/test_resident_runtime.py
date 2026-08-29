@@ -5,7 +5,9 @@ import json
 from pathlib import Path
 import subprocess
 import tempfile
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from harness.sdk.resident_runtime import (
     QUARANTINED,
@@ -18,6 +20,7 @@ from harness.sdk.resident_runtime import (
     ExperimentContextV1,
     FalsifierResultV1,
     RepositoryEventV1,
+    OpenAICompatibleResidentCell,
     ResidentRuntime,
     ResidentRuntimeError,
 )
@@ -438,3 +441,94 @@ class ResidentRuntimeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ProviderTransportRedirectTests(unittest.TestCase):
+    """The provider transport must not follow redirects.
+
+    ``urllib`` re-sends request headers to a redirect target across hosts, so a
+    provider endpoint answering 302 would leak the ``authorization: Bearer``
+    credential attached by ``_headers``. This pins the leak closed with two
+    live loopback servers rather than by reading the code.
+    """
+
+    @staticmethod
+    def _serve(handler):
+        class _H(BaseHTTPRequestHandler):
+            def do_POST(self):
+                handler(self)
+
+            def do_GET(self):
+                handler(self)
+
+            def log_message(self, *args):
+                pass
+
+        server = HTTPServer(("127.0.0.1", 0), _H)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        return server
+
+    def test_redirect_is_refused_and_bearer_never_reaches_the_target(self):
+        seen = {}
+
+        def victim(request):
+            seen["authorization"] = request.headers.get("authorization")
+            request.send_response(200)
+            request.send_header("content-length", "2")
+            request.end_headers()
+            request.wfile.write(b"{}")
+
+        victim_server = self._serve(victim)
+        self.addCleanup(victim_server.shutdown)
+
+        def origin(request):
+            request.send_response(302)
+            request.send_header(
+                "location", f"http://127.0.0.1:{victim_server.server_port}/stolen"
+            )
+            request.send_header("content-length", "0")
+            request.end_headers()
+
+        origin_server = self._serve(origin)
+        self.addCleanup(origin_server.shutdown)
+
+        cell = OpenAICompatibleResidentCell(
+            endpoint=f"http://127.0.0.1:{origin_server.server_port}",
+            provider_id="test-provider",
+            model_id="test-model",
+            timeout_ms=5_000,
+            api_key="SECRET-PROVIDER-KEY",
+        )
+
+        with self.assertRaises(ResidentRuntimeError) as caught:
+            cell._request_json(method="GET", url=cell.endpoint + "/health")
+        self.assertEqual(caught.exception.code, "LOCAL_INFERENCE_REDIRECT_REFUSED")
+        self.assertIsNone(
+            seen.get("authorization"),
+            "bearer credential reached the redirect target",
+        )
+
+    def test_a_non_redirecting_endpoint_still_works(self):
+        seen = {}
+
+        def ok(request):
+            seen["authorization"] = request.headers.get("authorization")
+            body = b'{"ok": true}'
+            request.send_response(200)
+            request.send_header("content-length", str(len(body)))
+            request.end_headers()
+            request.wfile.write(body)
+
+        server = self._serve(ok)
+        self.addCleanup(server.shutdown)
+
+        cell = OpenAICompatibleResidentCell(
+            endpoint=f"http://127.0.0.1:{server.server_port}",
+            provider_id="test-provider",
+            model_id="test-model",
+            timeout_ms=5_000,
+            api_key="SECRET-PROVIDER-KEY",
+        )
+        payload = cell._request_json(method="GET", url=cell.endpoint + "/health")
+        self.assertEqual(payload, {"ok": True})
+        self.assertEqual(seen["authorization"], "Bearer SECRET-PROVIDER-KEY")

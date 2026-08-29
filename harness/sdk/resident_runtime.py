@@ -103,6 +103,27 @@ class ResidentRuntimeError(ValueError):
         self.code = code
 
 
+class _RefuseRedirect(urllib.request.HTTPRedirectHandler):
+    """Refuse HTTP redirects on the provider transport.
+
+    ``urllib`` re-sends request headers to the redirect target, including the
+    ``authorization: Bearer`` header attached by ``_headers``, and it does so
+    across hosts. A local inference endpoint that answers 302 would therefore
+    hand the provider credential to whatever host it names. Measured with two
+    loopback servers: the redirect target received the bearer token verbatim.
+
+    The endpoint is operator-declared and every request URL is built from it
+    plus a fixed literal suffix, so a redirect is never part of normal
+    operation; refusing one loses no capability.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise ResidentRuntimeError("LOCAL_INFERENCE_REDIRECT_REFUSED")
+
+
+_NO_REDIRECT_OPENER = urllib.request.build_opener(_RefuseRedirect)
+
+
 @dataclass(frozen=True)
 class RepositoryEventV1:
     event_id: str
@@ -462,7 +483,7 @@ class OpenAICompatibleResidentCell:
             method=method,
             headers=self._headers(),
         )
-        with urllib.request.urlopen(request, timeout=self.timeout_ms / 1000) as response:
+        with _NO_REDIRECT_OPENER.open(request, timeout=self.timeout_ms / 1000) as response:
             if response.status < 200 or response.status >= 300:
                 raise urllib.error.HTTPError(
                     url,
