@@ -21,7 +21,6 @@ others, so it cannot fail on legitimate secondary hashes.
 from __future__ import annotations
 
 import re
-import sys
 
 HEAD_CLAIM_MARKERS = (
     "exact-head evidence",
