@@ -8,7 +8,7 @@ at 2026-08-29T22:07Z, when its head was aec7f236... but its body still cited
 
 import unittest
 
-from verify_body_head_binding import claims_a_head, verify
+from verify_body_head_binding import claims_a_head, strip_code, verify
 
 REAL_334_BODY = """### Exact-head evidence
 
@@ -68,6 +68,33 @@ class BodyHeadBindingTests(unittest.TestCase):
         self.assertTrue(claims_a_head("CURRENT EXACT HEAD"))
         self.assertTrue(claims_a_head("### exact-head evidence"))
         self.assertFalse(claims_a_head("just a normal description"))
+
+    def test_markers_quoted_in_code_are_not_a_claim(self):
+        # regression: PR #340's own description enumerates the marker strings
+        # as documentation. Quoting a marker must not assert a head claim.
+        body = (
+            "A body opts in by containing a head-claim marker -- "
+            "`Exact-head evidence`, `current exact head`, `PR head:`.\n"
+            "```\nExact-head evidence\nPR head: deadbeef\n```\n"
+        )
+        self.assertFalse(claims_a_head(body))
+        ok, msg = verify(body, REAL_334_ACTUAL_HEAD)
+        self.assertTrue(ok, msg)
+        self.assertIn("NO_HEAD_CLAIM", msg)
+
+    def test_markdown_heading_marker_still_counts(self):
+        # #334 asserts its head with a plain heading, not code -- must stay gated
+        self.assertTrue(claims_a_head("### Exact-head evidence\n- PR head: x"))
+
+    def test_strip_code_removes_fences_and_spans(self):
+        self.assertNotIn("secret", strip_code("a `secret` b"))
+        self.assertNotIn("secret", strip_code("a\n```\nsecret\n```\nb"))
+        self.assertIn("kept", strip_code("kept `dropped`"))
+
+    def test_head_sha_inside_a_code_fence_still_satisfies_the_gate(self):
+        body = f"## Current exact head\n\n```text\n{REAL_334_ACTUAL_HEAD}\n```\n"
+        ok, msg = verify(body, REAL_334_ACTUAL_HEAD)
+        self.assertTrue(ok, msg)
 
     def test_malformed_head_fails_closed(self):
         for bad in ("", "deadbeef", "ZZZ" + "0" * 37):

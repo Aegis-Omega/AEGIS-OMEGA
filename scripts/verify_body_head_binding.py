@@ -33,9 +33,25 @@ HEAD_CLAIM_MARKERS = (
 
 _SHA40 = re.compile(r"\b[0-9a-f]{40}\b")
 
+# ``` fenced blocks ``` and `inline code`
+_CODE = re.compile(r"```.*?```|~~~.*?~~~|`[^`\n]*`", re.DOTALL)
+
+
+def strip_code(body: str) -> str:
+    """Remove fenced blocks and inline code spans.
+
+    A marker inside code formatting is being QUOTED, not asserted -- this file
+    and the pull request that introduced it both enumerate the marker strings
+    as documentation, and without this the gate flags its own description.
+    Markers must therefore appear in prose. The head SHA itself is still
+    searched for across the whole body, because real descriptions legitimately
+    put it inside a code fence.
+    """
+    return _CODE.sub(" ", body)
+
 
 def claims_a_head(body: str) -> bool:
-    low = body.lower()
+    low = strip_code(body).lower()
     return any(marker in low for marker in HEAD_CLAIM_MARKERS)
 
 
