@@ -73,9 +73,13 @@ state `DEFERRED_NOT_CONFIGURED`; no external side effect is attempted. See
 The route belongs to the separate `vertex/serve.py` / `aegis-platform` image; `aegis-vertex`
 does not package it. The follow-up now validates non-empty central routing receipts, requires
 each result to match an `ADMITTED` receipt, records `EXECUTED` versus `DENIED`, and commits the
-response hash without uploading model output. Authenticated transport still cannot establish
-authority: no trustworthy request-bound `AEGIS_EXECUTION_IDENTITY_JSON` is provisioned and
-`orchestration_routing` remains `UNOBSERVED` with `validated_runs=0`.
+response hash without uploading model output. The current candidate replaces the missing static
+identity with a request-local GitHub OIDC projection: the custom audience binds the canonical
+request digest, the service verifies RS256/JWKS plus immutable repository ID, trusted workflow/ref,
+event and image/source SHA, and every role receives its own action-bound identity without mutating
+process environment. This implementation is not production evidence until admitted and deployed;
+`orchestration_routing` remains `UNOBSERVED` with `validated_runs=0`, so the expected result is
+still `DENIED` and zero agents executed.
 
 ### Resident runtime and memory synthesis
 

@@ -4,16 +4,20 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 import unittest
 from pathlib import Path
 
 
 SCRIPT = Path(__file__).with_name("agent_dispatch_payload.py")
 ROOT = Path(__file__).parents[1]
+sys.path.insert(0, str(ROOT))
 WORKFLOW = ROOT / ".github" / "workflows" / "agent-dispatch.yml"
 VERTEX = ROOT / "vertex" / "serve.py"
 COORDINATOR = ROOT / "agents" / "coordinator_legacy.py"
 AUTOMATON3 = ROOT / "scripts" / "validate-automaton3.py"
+
+from harness.sdk.sovereign_execution import canonical_hash  # noqa: E402
 
 
 def _load_module():
@@ -126,6 +130,21 @@ class AgentDispatchPayloadTests(unittest.TestCase):
     def test_unknown_event_fails_closed(self) -> None:
         self.assertIsNone(self.module.classify_event("repository_dispatch", {}))
 
+    def test_oidc_audience_matches_server_request_commitment(self) -> None:
+        request = {
+            "event_type": "github_ci_failure",
+            "payload": {"head_sha": "a" * 40, "run_id": "42"},
+        }
+        expected = "aegis-agent-dispatch:" + canonical_hash(
+            "AEGIS_AGENT_DISPATCH_REQUEST_V1", request
+        )
+
+        try:
+            actual = self.module.oidc_audience(request)
+        except AttributeError as exc:
+            self.fail(f"payload builder lacks request-bound OIDC audience: {exc}")
+        self.assertEqual(actual, expected)
+
     def test_workflow_has_visible_preflight_and_real_ci_trigger(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn('workflows: ["⊕ AEGIS-Ω Constitutional Automaton"]', workflow)
@@ -138,7 +157,10 @@ class AgentDispatchPayloadTests(unittest.TestCase):
     def test_network_dispatch_is_authenticated_bounded_and_checked(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertIn("secrets.AGENT_DISPATCH_API_KEY", workflow)
+        self.assertIn("id-token: write", workflow)
+        self.assertIn("--audience-output", workflow)
         self.assertIn('x-api-key: $DISPATCH_API_KEY', workflow)
+        self.assertIn('x-aegis-github-oidc: $oidc_token', workflow)
         self.assertIn("--max-time 30", workflow)
         self.assertIn("--max-filesize 65536", workflow)
         self.assertIn("--fail-with-body", workflow)
@@ -154,6 +176,8 @@ class AgentDispatchPayloadTests(unittest.TestCase):
         self.assertIn("MAX_AGENT_DISPATCH_REQUEST_BYTES = 8_192", vertex)
         self.assertIn("async for chunk in request.stream():", vertex)
         self.assertNotIn("raw_body = await request.body()", vertex)
+        self.assertIn("dispatch_replay_key", vertex)
+        self.assertIn("AEGIS_IMAGE_SOURCE_COMMIT", vertex)
         self.assertIn("if event_type not in EVENT_ROUTING:", vertex)
         self.assertIn('dispatch_status="EXECUTED"', workflow)
         self.assertIn('dispatch_status="DENIED"', workflow)

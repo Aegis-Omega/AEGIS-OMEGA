@@ -202,17 +202,26 @@ The GitHub integration targets this separate `aegis-platform` service, not the
 - Actions secret `AGENT_DISPATCH_API_KEY` = the same value stored in GCP Secret Manager as
   `platform-api-key` / exposed to the service as `PLATFORM_API_KEY`.
 
-The workflow sends `AGENT_DISPATCH_API_KEY` as `x-api-key`. Incomplete transport
+The workflow sends `AGENT_DISPATCH_API_KEY` as `x-api-key` and a short-lived GitHub OIDC
+token as `x-aegis-github-oidc`. The token audience is
+`aegis-agent-dispatch:<canonical-request-digest>`. Incomplete transport
 configuration is `DEFERRED_NOT_CONFIGURED`; a completed request is `DENIED` when central
 routing receipts admit zero agents or `EXECUTED` when every returned agent has a matching
 `ADMITTED` receipt.
 
-This does **not** complete the authority path. `agents/coordinator.py` also requires an
-exact action-bound `AEGIS_EXECUTION_IDENTITY_JSON`; the current `vertex/cloudbuild.yaml`
-does not provision one, and `orchestration_routing` remains `UNOBSERVED` with zero
-validated runs. Until a trustworthy request-bound identity/admission mechanism is
-implemented and verified, a deployed proxy must fail closed with routing denial receipts.
-Never install a static identity merely to bypass that boundary.
+The service verifies the token's RS256 signature against GitHub JWKS, issuer, immutable
+repository ID, trusted workflow/ref, allowed event, request audience, and the
+`AEGIS_IMAGE_SOURCE_COMMIT` baked into the Cloud Run revision. It then derives a separate
+action-bound identity for every candidate role without changing process environment. The image
+also contains the four constitutional files required by workspace verification. A shared Redis
+`SET NX` fence consumes each `jti + request digest` once; missing Redis or a replay denies before
+agent execution.
+
+This still does **not** complete the authority path. `orchestration_routing` remains
+`UNOBSERVED` with zero validated runs, and the OIDC revision is only candidate code until an
+exact-head workflow receipt and deployment receipt exist. Therefore the expected response is
+`DENIED` with zero agent results. Never install a static identity or edit the registry merely to
+bypass that boundary.
 
 ---
 

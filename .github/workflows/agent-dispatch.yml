@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
       pull-requests: read
       issues: read
     steps:
@@ -30,12 +31,14 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           EVENT_PATH: ${{ github.event_path }}
           REQUEST_PATH: ${{ runner.temp }}/agent-dispatch-request.json
+          AUDIENCE_PATH: ${{ runner.temp }}/agent-dispatch-audience.txt
         run: |
           set +e
           python3 scripts/agent_dispatch_payload.py \
             --event-name "$EVENT_NAME" \
             --event-path "$EVENT_PATH" \
-            --output "$REQUEST_PATH"
+            --output "$REQUEST_PATH" \
+            --audience-output "$AUDIENCE_PATH"
           status=$?
           set -e
 
@@ -90,11 +93,21 @@ jobs:
           REQUEST_PATH: ${{ runner.temp }}/agent-dispatch-request.json
           RESPONSE_PATH: ${{ runner.temp }}/agent-dispatch-response.json
           RECEIPT_PATH: ${{ runner.temp }}/agent-dispatch-receipt.json
+          AUDIENCE_PATH: ${{ runner.temp }}/agent-dispatch-audience.txt
           GITHUB_RUN_ID_VALUE: ${{ github.run_id }}
           GITHUB_RUN_ATTEMPT_VALUE: ${{ github.run_attempt }}
         run: |
           test "$(wc -c < "$REQUEST_PATH")" -le 8192
           endpoint="${PROXY_URL%/}/agents/dispatch"
+          oidc_audience="$(cat "$AUDIENCE_PATH")"
+          encoded_audience="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$oidc_audience")"
+          test -n "$ACTIONS_ID_TOKEN_REQUEST_URL"
+          test -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+          oidc_token="$(curl --fail-with-body --silent --show-error \
+            --max-time 10 \
+            --header "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}" | jq -er '.value')"
+          echo "::add-mask::$oidc_token"
 
           curl --fail-with-body --silent --show-error \
             --max-time 30 \
@@ -102,6 +115,7 @@ jobs:
             --request POST "$endpoint" \
             --header "Content-Type: application/json" \
             --header "x-api-key: $DISPATCH_API_KEY" \
+            --header "x-aegis-github-oidc: $oidc_token" \
             --data-binary "@$REQUEST_PATH" \
             --output "$RESPONSE_PATH"
 

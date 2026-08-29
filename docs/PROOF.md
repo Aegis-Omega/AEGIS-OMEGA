@@ -6,16 +6,16 @@ not asserted. Commands are included so you can confirm each figure yourself.
 
 ## Current exact-head verification anchor
 
-PR #334 established the live platform effect boundary on hosted head
-`c2dcc75a4ea0befba496e067e9254e439dc0f7be`, tree
-`02e081e388dc288c9aa2687d7c8cd0ec85ac5362`:
+PR #334's last hosted verification anchor before the request-bound OIDC candidate is
+`d6823c74da63174421a3b8a8f293b7a3ca011ce4`, tree
+`2896b159fd0766218a9b88566611a424ee24e7e7`:
 
 | Evidence | Result |
 |----------|--------|
-| Constitutional Automaton run `33085997488` | SUCCESS |
-| Authorization Effect Chain run `33085997557` | SUCCESS |
+| Constitutional Automaton run `33250654595` | SUCCESS — all 15 jobs |
+| Authorization Effect Chain run `33250654626` | SUCCESS |
 | TypeScript Gate 8 | 254 files passed / 3 skipped; 4,130 tests passed / 68 skipped; typecheck and build passed |
-| Targeted Python receipt/effect chain | 93 passed |
+| Targeted Python receipt/effect chain | 93 passed on hosted anchor; current candidate expands the suite to 98 |
 | Targeted Python ProofTrace | 31 passed |
 | Review ledger | 26/26 resolved |
 
@@ -27,6 +27,11 @@ DecisionReceipt → ExecutionReceipt → EffectObservation
 ```
 
 This is candidate-state evidence, not a production deployment receipt. The PR remains DRAFT.
+
+The follow-up request-bound identity slice is locally verified by 10 dispatch-envelope tests,
+4 RS256/request-context/replay tests, and the Automaton-3 replay-manifest test. Hosted exact-head status
+must be re-established after the candidate is committed; local success is not promoted to hosted
+or production status.
 
 ---
 

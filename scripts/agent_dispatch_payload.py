@@ -9,6 +9,7 @@ do not have an admitted route. It never decides that an agent result is true.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,19 @@ MAX_REQUEST_BYTES = 8_192
 MAX_TITLE_CHARS = 256
 MAX_BODY_CHARS = 2_000
 MAX_URL_CHARS = 2_048
+OIDC_AUDIENCE_PREFIX = "aegis-agent-dispatch:"
+
+
+def oidc_audience(request: dict[str, Any]) -> str:
+    """Bind the short-lived GitHub OIDC token to one canonical request."""
+    commitment = json.dumps(
+        {"domain": "AEGIS_AGENT_DISPATCH_REQUEST_V1", "value": request},
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return OIDC_AUDIENCE_PREFIX + hashlib.sha256(commitment).hexdigest()
 
 
 def _text(value: Any, limit: int) -> str:
@@ -110,6 +124,7 @@ def main() -> int:
     parser.add_argument("--event-name", required=True)
     parser.add_argument("--event-path", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--audience-output", type=Path)
     args = parser.parse_args()
 
     raw = json.loads(args.event_path.read_text(encoding="utf-8"))
@@ -122,6 +137,8 @@ def main() -> int:
         json.dumps(request, separators=(",", ":"), sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    if args.audience_output is not None:
+        args.audience_output.write_text(oidc_audience(request) + "\n", encoding="utf-8")
     return 0
 
 

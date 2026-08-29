@@ -64,20 +64,28 @@ comments require an explicit `@aegis-agent` mention.
 
 ```bash
 python3 scripts/test_agent_dispatch_payload.py
+python3 sovereign-omega-v2/python/tests/test_agent_dispatch_identity.py
 ```
 
 This test covers action-preserving classification, ignored events, input
 bounds, the real CI workflow name, authentication, timeout, response limit, and
-fail-closed response checking.
+fail-closed response checking. The identity suite uses a real RSA key to verify
+RS256/JWKS validation, exact-request audience binding, per-action context propagation,
+image/source anti-splicing, shared Redis replay fencing, and the expected capability denial.
 
 ## Remaining production admission blockers
 
-Authenticated transport is necessary but not sufficient. The coordinator requires
-an exact action-bound `AEGIS_EXECUTION_IDENTITY_JSON`; the current
-`vertex/cloudbuild.yaml` does not provision a trustworthy request-bound identity.
-The mapped `orchestration_routing` capability is also `UNOBSERVED` with
-`validated_runs=0`. Until both obligations are satisfied by independent evidence,
-the correct live outcome is `DENIED`.
+Authenticated transport is necessary but not sufficient. The candidate now requests a
+short-lived GitHub OIDC token with a custom audience bound to the canonical request digest.
+The service verifies its RS256 signature/JWKS, issuer, immutable repository ID, trusted
+workflow/ref, event and image/source SHA, then derives a per-action identity without using
+process-global environment state. Static `AEGIS_EXECUTION_IDENTITY_JSON` provisioning is
+neither required nor permitted for this route.
+
+The mapped `orchestration_routing` capability remains `UNOBSERVED` with
+`validated_runs=0`. The identity implementation is also not live evidence until this revision
+is admitted to `main` and the matching `aegis-platform` image is deployed. Until both
+obligations are independently established, the correct live outcome is `DENIED`.
 
 The route is owned by the separately deployed `vertex/serve.py` / `aegis-platform`
 image. The similarly named `aegis-vertex` bridge image does not package
