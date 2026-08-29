@@ -515,11 +515,16 @@ async def agent_dispatch(request: Request):
     """Dispatch an external event to the appropriate agents.
 
     Request:  {"event_type": "github_ci_failure", "payload": {...}}
-    Response: {"results": [{...}, ...]}
+    Response: {"results": [{...}, ...], "routing_receipts": [{...}, ...]}
     """
-    raw_body = await request.body()
-    if len(raw_body) > MAX_AGENT_DISPATCH_REQUEST_BYTES:
-        raise HTTPException(413, "dispatch request exceeds 8192-byte ceiling")
+    body_chunks: list[bytes] = []
+    body_size = 0
+    async for chunk in request.stream():
+        body_size += len(chunk)
+        if body_size > MAX_AGENT_DISPATCH_REQUEST_BYTES:
+            raise HTTPException(413, "dispatch request exceeds 8192-byte ceiling")
+        body_chunks.append(chunk)
+    raw_body = b"".join(body_chunks)
     try:
         body = json.loads(raw_body)
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:

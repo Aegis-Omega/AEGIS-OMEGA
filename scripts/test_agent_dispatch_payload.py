@@ -152,6 +152,8 @@ class AgentDispatchPayloadTests(unittest.TestCase):
 
         self.assertIn('"routing_receipts": last_dispatch_receipts()', vertex)
         self.assertIn("MAX_AGENT_DISPATCH_REQUEST_BYTES = 8_192", vertex)
+        self.assertIn("async for chunk in request.stream():", vertex)
+        self.assertNotIn("raw_body = await request.body()", vertex)
         self.assertIn("if event_type not in EVENT_ROUTING:", vertex)
         self.assertIn('dispatch_status="EXECUTED"', workflow)
         self.assertIn('dispatch_status="DENIED"', workflow)
