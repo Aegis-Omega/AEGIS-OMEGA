@@ -85,6 +85,8 @@ class Automaton3PlatformManifestTests(unittest.TestCase):
             "harness/sdk/platform_effect_adapter.py",
             "harness/sdk/proof_carrying_platform_execution.py",
             "scripts/automaton3-platform-execute.py",
+            "scripts/agent_dispatch_payload.py",
+            "scripts/test_agent_dispatch_payload.py",
             "sovereign-omega-v2/python/bridge.py",
             "sovereign-omega-v2/python/platform_helpers.py",
             "sovereign-omega-v2/python/tests/test_bridge_execution_id_binding.py",

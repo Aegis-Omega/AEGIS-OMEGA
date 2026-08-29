@@ -764,8 +764,12 @@ def _record_evolution(role: str, capabilities: list[str], succeeded: bool) -> No
 EVENT_ROUTING: dict[str, list[AgentRole]] = {
     # Engineering events
     "github_pr_opened":          [AgentRole.ENGINEERING],
+    "github_pr_synchronize":     [AgentRole.ENGINEERING],
+    "github_pr_review_requested": [AgentRole.ENGINEERING],
     "github_pr_comment":         [AgentRole.ENGINEERING],
+    "github_issue_comment_mention": [AgentRole.ENGINEERING],
     "github_issue_opened":       [AgentRole.ENGINEERING],
+    "github_issue_labeled":      [AgentRole.ENGINEERING],
     "github_ci_failure":         [AgentRole.ENGINEERING],
     "github_ci_success":         [AgentRole.ENGINEERING],
     "dependency_vulnerability":  [AgentRole.CYBERSECURITY, AgentRole.ENGINEERING],

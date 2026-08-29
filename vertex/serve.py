@@ -208,6 +208,7 @@ RATE_LIMIT_PER_MIN = int(os.environ.get("RATE_LIMIT_PER_MIN", "60"))
 
 # Routes that spend compute/money — require the API key when one is configured.
 _GATED_PREFIXES = ("/platform/collaborate", "/agents/run", "/agents/dispatch", "/v1/messages", "/predict")
+MAX_AGENT_DISPATCH_REQUEST_BYTES = 8_192
 
 # In-memory metrics (per-process; Cloud Run logs aggregate across instances).
 METRICS: dict[str, Any] = {
@@ -516,19 +517,32 @@ async def agent_dispatch(request: Request):
     Request:  {"event_type": "github_ci_failure", "payload": {...}}
     Response: {"results": [{...}, ...]}
     """
-    body = await request.json()
+    raw_body = await request.body()
+    if len(raw_body) > MAX_AGENT_DISPATCH_REQUEST_BYTES:
+        raise HTTPException(413, "dispatch request exceeds 8192-byte ceiling")
+    try:
+        body = json.loads(raw_body)
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise HTTPException(400, "dispatch request must be valid JSON") from exc
+    if not isinstance(body, dict):
+        raise HTTPException(400, "dispatch request root must be an object")
     event_type = body.get("event_type", "")
     payload = body.get("payload", {})
 
-    if not event_type:
+    if not isinstance(event_type, str) or not event_type:
         raise HTTPException(400, "event_type is required")
+    if not isinstance(payload, dict):
+        raise HTTPException(400, "payload must be an object")
 
     try:
         import sys, os
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-        from agents.coordinator import dispatch_event
+        from agents.coordinator import EVENT_ROUTING, dispatch_event, last_dispatch_receipts
     except ImportError as exc:
         raise HTTPException(503, f"Agent coordinator not available: {exc}")
+
+    if event_type not in EVENT_ROUTING:
+        raise HTTPException(400, "event_type has no admitted route")
 
     results = await dispatch_event(event_type, payload)
     return {
@@ -543,7 +557,8 @@ async def agent_dispatch(request: Request):
                 "is_valid": r.is_valid,
             }
             for r in results
-        ]
+        ],
+        "routing_receipts": last_dispatch_receipts(),
     }
 
 

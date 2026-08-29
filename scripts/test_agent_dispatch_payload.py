@@ -9,7 +9,11 @@ from pathlib import Path
 
 
 SCRIPT = Path(__file__).with_name("agent_dispatch_payload.py")
-WORKFLOW = Path(__file__).parents[1] / ".github" / "workflows" / "agent-dispatch.yml"
+ROOT = Path(__file__).parents[1]
+WORKFLOW = ROOT / ".github" / "workflows" / "agent-dispatch.yml"
+VERTEX = ROOT / "vertex" / "serve.py"
+COORDINATOR = ROOT / "agents" / "coordinator_legacy.py"
+AUTOMATON3 = ROOT / "scripts" / "validate-automaton3.py"
 
 
 def _load_module():
@@ -139,6 +143,26 @@ class AgentDispatchPayloadTests(unittest.TestCase):
         self.assertIn("--max-filesize 65536", workflow)
         self.assertIn("--fail-with-body", workflow)
         self.assertIn("jq -e", workflow)
+
+    def test_authority_receipts_and_event_routes_are_replay_bound(self) -> None:
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        vertex = VERTEX.read_text(encoding="utf-8")
+        coordinator = COORDINATOR.read_text(encoding="utf-8")
+        automaton3 = AUTOMATON3.read_text(encoding="utf-8")
+
+        self.assertIn('"routing_receipts": last_dispatch_receipts()', vertex)
+        self.assertIn("MAX_AGENT_DISPATCH_REQUEST_BYTES = 8_192", vertex)
+        self.assertIn("if event_type not in EVENT_ROUTING:", vertex)
+        self.assertIn('dispatch_status="EXECUTED"', workflow)
+        self.assertIn('dispatch_status="DENIED"', workflow)
+        self.assertIn("routing_receipt_count", workflow)
+        self.assertIn("response_sha256", workflow)
+        self.assertIn('"github_pr_synchronize"', coordinator)
+        self.assertIn('"github_pr_review_requested"', coordinator)
+        self.assertIn('"github_issue_labeled"', coordinator)
+        self.assertIn('"github_issue_comment_mention"', coordinator)
+        self.assertIn('"scripts/agent_dispatch_payload.py"', automaton3)
+        self.assertIn('"scripts/test_agent_dispatch_payload.py"', automaton3)
 
 
 if __name__ == "__main__":

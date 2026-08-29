@@ -20,6 +20,8 @@ of these states in the GitHub step summary:
 | `IGNORED_NO_ADMITTED_ROUTE` | The event/action has no admitted route | None |
 | `DEFERRED_NOT_CONFIGURED` | URL or dispatch credential is absent | None |
 | `READY` | The event is admitted and both settings are present | The authenticated dispatch step may run |
+| `DENIED` | Proxy reached; routing receipts deny every candidate | Request occurred; zero agents executed |
+| `EXECUTED` | Every returned agent has a matching admitted routing receipt | Governed execution occurred; semantic truth remains unproven |
 
 The network step may still appear skipped in the first two states. That is the
 intended fail-closed behavior; the job itself remains visible and successful.
@@ -49,10 +51,12 @@ comments require an explicit `@aegis-agent` mention.
   `aegis-agent` label, and comments explicitly mentioning `@aegis-agent` are
   routed. Direct PR workflows never receive the dispatch credential.
 - The call requires HTTPS and `x-api-key`, times out after 30 seconds, rejects
-  non-2xx responses, caps the response at 64 KiB, and validates a JSON
-  `results` array.
-- A successful call uploads a 14-day receipt containing counts and lineage
-  metadata, not model output or the untrusted source text.
+  non-2xx responses, caps the response at 64 KiB, and validates both `results`
+  and non-empty central `routing_receipts`. Every result must match an
+  `ADMITTED` receipt; a zero-result response must contain only `DENIED` receipts.
+- A successful call uploads a 14-day receipt containing result/denial counts,
+  lineage metadata, and a response SHA-256 commitment—not model output or the
+  untrusted source text.
 - The receipt explicitly records `semantic_truth_proven: false`. Dispatch does
   not admit claims, merge code, deploy services, or change authority.
 
@@ -65,3 +69,17 @@ python3 scripts/test_agent_dispatch_payload.py
 This test covers action-preserving classification, ignored events, input
 bounds, the real CI workflow name, authentication, timeout, response limit, and
 fail-closed response checking.
+
+## Remaining production admission blockers
+
+Authenticated transport is necessary but not sufficient. The coordinator requires
+an exact action-bound `AEGIS_EXECUTION_IDENTITY_JSON`; the current
+`vertex/cloudbuild.yaml` does not provision a trustworthy request-bound identity.
+The mapped `orchestration_routing` capability is also `UNOBSERVED` with
+`validated_runs=0`. Until both obligations are satisfied by independent evidence,
+the correct live outcome is `DENIED`.
+
+The route is owned by the separately deployed `vertex/serve.py` / `aegis-platform`
+image. The similarly named `aegis-vertex` bridge image does not package
+`/agents/dispatch`. Never install a static execution identity or mutate the
+capability registry merely to turn the workflow green.

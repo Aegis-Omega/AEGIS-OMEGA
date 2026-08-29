@@ -159,11 +159,11 @@ Resident route semantics, deployment requirements, and the strict distinction be
 | Rust — `aegis-cl-psi` | 7,178 |
 | Rust — `aegis-runtime` | 133 |
 | Python — `aegis-interface` (RFC 0001/0005) | 50 |
-| Python — authorization/effect-chain targeted regression | 84 |
+| Python — authorization/effect-chain targeted regression | 93 |
 | Python — proof-trace targeted regression | 31 |
 | Python — resident live HTTP path | 20 |
 | Python — platform contract | 565 |
-| Python — GitHub agent-dispatch envelope | 8 |
+| Python — GitHub agent-dispatch envelope | 9 |
 
 ```bash
 cd aegis-cl-psi   && cargo test          # never --all-features (ROCm-gated)
@@ -182,6 +182,8 @@ The counts above are the latest executed snapshot for the current resident-runti
 `.github/workflows/agent-dispatch.yml` is an optional external integration boundary. Classification and preflight remain visible without credentials; the summary reports `DEFERRED_NOT_CONFIGURED` and no network call occurs until both `PROXY_URL` and `AGENT_DISPATCH_API_KEY` are configured.
 
 The secret-bearing workflow deliberately does not run on `pull_request`. Pull-request outcomes arrive through completion of the canonical `⊕ AEGIS-Ω Constitutional Automaton`, using workflow code from the trusted default branch. Issues require the exact `aegis-agent` label and comments require `@aegis-agent`. Configuring transport grants neither effect verification nor knowledge admission authority. GitHub loads `workflow_run` triggers from the default branch, so the corrected post-CI trigger becomes live only after this revision is admitted to `main`. Full contract: [`docs/operations/AGENT_DISPATCH.md`](docs/operations/AGENT_DISPATCH.md).
+
+The receiving route belongs to the separately deployed `vertex/serve.py` / `aegis-platform` image, not the similarly named `aegis-vertex` bridge. A configured call is `EXECUTED` only when every returned agent has a matching central `ADMITTED` routing receipt; zero results must carry non-empty `DENIED` receipts. Live execution remains fail-closed because a trustworthy request-bound `AEGIS_EXECUTION_IDENTITY_JSON` is not yet provisioned and `orchestration_routing` remains `UNOBSERVED` with zero validated runs.
 
 ---
 

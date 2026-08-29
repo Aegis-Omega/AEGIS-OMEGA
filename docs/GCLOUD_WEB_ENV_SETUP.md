@@ -130,6 +130,7 @@ It exposes the 39 Mythos agents as a callable plane:
 | `GET /platform/catalog` | public | all 39 agents + pricing tiers (discovery) |
 | `POST /platform/collaborate` | **gated** | swarm collaboration (revenue / cognitive) |
 | `POST /agents/run` | **gated** | single governed agent run |
+| `POST /agents/dispatch` | **gated** | route an external event; returns agent results and authority routing receipts |
 | `POST /v1/messages` | **gated** | Anthropic-compatible governed gateway |
 | `GET /v1/audit/certify` | public | chain integrity |
 
@@ -191,6 +192,27 @@ curl -s -X POST "$URL/platform/collaborate" \
   -d '{"mode":"revenue","objective":"Sell constitutional governance to AI labs"}' \
   | jq '{departments_collaborated, projection: .projection.tier, chain_valid}'
 ```
+
+### Connect GitHub Agent Dispatch
+
+The GitHub integration targets this separate `aegis-platform` service, not the
+`aegis-vertex` bridge described in Path 5. Configure both repository values:
+
+- Actions variable `PROXY_URL` = the exact `aegis-platform` `status.url` returned by Cloud Run;
+- Actions secret `AGENT_DISPATCH_API_KEY` = the same value stored in GCP Secret Manager as
+  `platform-api-key` / exposed to the service as `PLATFORM_API_KEY`.
+
+The workflow sends `AGENT_DISPATCH_API_KEY` as `x-api-key`. Incomplete transport
+configuration is `DEFERRED_NOT_CONFIGURED`; a completed request is `DENIED` when central
+routing receipts admit zero agents or `EXECUTED` when every returned agent has a matching
+`ADMITTED` receipt.
+
+This does **not** complete the authority path. `agents/coordinator.py` also requires an
+exact action-bound `AEGIS_EXECUTION_IDENTITY_JSON`; the current `vertex/cloudbuild.yaml`
+does not provision one, and `orchestration_routing` remains `UNOBSERVED` with zero
+validated runs. Until a trustworthy request-bound identity/admission mechanism is
+implemented and verified, a deployed proxy must fail closed with routing denial receipts.
+Never install a static identity merely to bypass that boundary.
 
 ---
 

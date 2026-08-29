@@ -44,6 +44,7 @@ jobs:
           python sovereign-omega-v2/python/tests/test_bridge_execution_id_binding.py
           python sovereign-omega-v2/python/tests/test_platform_effect_chain_live.py
           python sovereign-omega-v2/python/tests/test_automaton3_platform_manifest.py
+          python scripts/test_agent_dispatch_payload.py
 
       - name: Run inherited effect-chain regression
         run: |

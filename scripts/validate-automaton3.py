@@ -27,6 +27,8 @@ KEY_FILES = (
     "harness/policies/capability-map.v1.json",
     "scripts/automaton3-authority.py",
     "scripts/automaton3-platform-execute.py",
+    "scripts/agent_dispatch_payload.py",
+    "scripts/test_agent_dispatch_payload.py",
     "scripts/run-automaton3-tests.py",
     "scripts/validate-automaton3.py",
     "agents/coordinator.py",

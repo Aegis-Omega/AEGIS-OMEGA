@@ -70,6 +70,13 @@ The hardened follow-up goes further: the secret-bearing workflow no longer has a
 state `DEFERRED_NOT_CONFIGURED`; no external side effect is attempted. See
 `docs/operations/AGENT_DISPATCH.md`.
 
+The route belongs to the separate `vertex/serve.py` / `aegis-platform` image; `aegis-vertex`
+does not package it. The follow-up now validates non-empty central routing receipts, requires
+each result to match an `ADMITTED` receipt, records `EXECUTED` versus `DENIED`, and commits the
+response hash without uploading model output. Authenticated transport still cannot establish
+authority: no trustworthy request-bound `AEGIS_EXECUTION_IDENTITY_JSON` is provisioned and
+`orchestration_routing` remains `UNOBSERVED` with `validated_runs=0`.
+
 ### Resident runtime and memory synthesis
 
 - The production Python `BridgeHandler` exposes authenticated, owner-bound resident event,

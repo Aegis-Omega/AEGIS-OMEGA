@@ -19,7 +19,7 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
 | `sovereign-omega-v2/python/bridge.py` | The governance/swarm/inference HTTP service — `/telemetry`, `/platform/*`, `/claude`, `/node`; `/platform/resident/*` invokes the evidence-bound repository loop | Cloud Run `aegis-vertex`, europe-west3; the Dockerfile now packages `python/` plus the invoked `harness/`, `config/`, and `models/` runtime inputs |
 | `harness/sdk/resident_runtime.py` + receipt/admission SDK | Typed repository event → isolated experiment → independent falsifier → effect verification → fail-closed knowledge decision → SelfModel projection/replay | **WIRED** through the production `bridge.py` handler; docker-compose persists `/app/data`, while Render free storage remains ephemeral |
 | `harness/sdk/proof_carrying_platform_execution.py` + `platform_effect_adapter.py` | `aegis_start_execution` authority decision → bridge POST → independent revision-bound GET observations → EffectReceipt → CompleteVerification | **WIRED in PR #334 candidate** through MCP and Python bridge; exact-head CI verified, production deployment not established |
-| `vertex/serve.py` | FastAPI "constitutional-proxy" / `aegis-platform`; bundles `agents/` + `harness/` | `vertex/cloudbuild.yaml` |
+| `vertex/serve.py` | FastAPI "constitutional-proxy" / `aegis-platform`; owns bounded `/agents/dispatch` and bundles `agents/` + `harness/` | Separate manual deploy via `vertex/cloudbuild.yaml`; not the `aegis-vertex` bridge |
 | `aegis-cl-psi/` | Rust CL-Ψ engine — ~7,198 tests, CI-gated ≥6800 | `aegis-cl-psi/deploy/Dockerfile`; CI `ci.yml` |
 | `aegis-runtime/` | Rust Seven-Pillar runtime | CI build+test |
 | `harness/skill_tree.json` | Python skill tree; `agents/coordinator.py` reads/writes it; baked into vertex image | via vertex |
@@ -79,7 +79,9 @@ the advertised prices.
   `PROXY_URL` and `AGENT_DISPATCH_API_KEY` exist. Direct PR execution is excluded from this
   secret-bearing workflow; GitHub loads the post-CI `workflow_run` trigger from the default
   branch, so that path remains candidate-state until merged. See
-  `docs/operations/AGENT_DISPATCH.md`.
+  `docs/operations/AGENT_DISPATCH.md`. Responses require non-empty central routing receipts;
+  results without a matching `ADMITTED` receipt fail closed, while zero results are reported as
+  `DENIED`, not execution.
 - ~~`enterprise/dist/`~~ = **removed** (committed build artifact; `.gitignore` already excludes `dist/`).
 - **root `package.json`** named `aegis-tactical-dashboard` — frontend workspace entry removed; now `backend`-only (still an orphaned identity).
 - ~~`studio/dist/`~~ = **untracked** (committed build artifact removed from git).

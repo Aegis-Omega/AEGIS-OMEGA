@@ -105,17 +105,53 @@ jobs:
             --data-binary "@$REQUEST_PATH" \
             --output "$RESPONSE_PATH"
 
-          jq -e '.results | type == "array"' "$RESPONSE_PATH" >/dev/null
+          jq -e '
+            (.results | type == "array") and
+            (.routing_receipts | type == "array") and
+            ((.routing_receipts | length) > 0) and
+            ((.routing_receipts | length) >= (.results | length)) and
+            all(.routing_receipts[]; .outcome == "ADMITTED" or .outcome == "DENIED") and
+            (if (.results | length) == 0
+             then all(.routing_receipts[]; .outcome == "DENIED")
+             else all(.results[] as $result;
+               any(.routing_receipts[];
+                 .role == $result.role and .outcome == "ADMITTED"))
+             end)
+          ' "$RESPONSE_PATH" >/dev/null
+
+          result_count="$(jq '.results | length' "$RESPONSE_PATH")"
+          routing_receipt_count="$(jq '.routing_receipts | length' "$RESPONSE_PATH")"
+          denied_count="$(jq '[.routing_receipts[] | select(.outcome == "DENIED")] | length' "$RESPONSE_PATH")"
+          if [ "$result_count" -gt 0 ]; then
+            dispatch_status="EXECUTED"
+          else
+            dispatch_status="DENIED"
+          fi
+          response_sha256="$(sha256sum "$RESPONSE_PATH" | cut -d' ' -f1)"
+
           jq -n \
+            --arg status "$dispatch_status" \
             --arg run_id "$GITHUB_RUN_ID_VALUE" \
             --arg run_attempt "$GITHUB_RUN_ATTEMPT_VALUE" \
             --arg event_type "$(jq -r '.event_type' "$REQUEST_PATH")" \
-            --argjson result_count "$(jq '.results | length' "$RESPONSE_PATH")" \
+            --arg response_sha256 "$response_sha256" \
+            --argjson result_count "$result_count" \
+            --argjson routing_receipt_count "$routing_receipt_count" \
+            --argjson denied_count "$denied_count" \
             --argjson valid_count "$(jq '[.results[] | select(.is_valid == true)] | length' "$RESPONSE_PATH")" \
-            '{schema_version:"1.0", status:"DISPATCHED", github_run_id:$run_id,
+            '{schema_version:"1.0", status:$status, github_run_id:$run_id,
               github_run_attempt:$run_attempt, event_type:$event_type,
               result_count:$result_count, valid_count:$valid_count,
+              routing_receipt_count:$routing_receipt_count, denied_count:$denied_count,
+              response_sha256:$response_sha256,
               semantic_truth_proven:false}' > "$RECEIPT_PATH"
+
+          {
+            echo
+            echo "Outcome: \`$dispatch_status\`"
+            echo "Executed agents: \`$result_count\`"
+            echo "Routing receipts: \`$routing_receipt_count\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload non-authoritative dispatch receipt
         if: steps.preflight.outputs.ready == 'true' && steps.send.outcome == 'success'

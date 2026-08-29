@@ -15,7 +15,7 @@ PR #334 established the live platform effect boundary on hosted head
 | Constitutional Automaton run `33085997488` | SUCCESS |
 | Authorization Effect Chain run `33085997557` | SUCCESS |
 | TypeScript Gate 8 | 254 files passed / 3 skipped; 4,130 tests passed / 68 skipped; typecheck and build passed |
-| Targeted Python receipt/effect chain | 84 passed |
+| Targeted Python receipt/effect chain | 93 passed |
 | Targeted Python ProofTrace | 31 passed |
 | Review ledger | 26/26 resolved |
 
