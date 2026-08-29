@@ -40,9 +40,9 @@ from harness.sdk.authority_client import authorize_with_context  # noqa: E402
 from harness.sdk.github_dispatch_identity import (  # noqa: E402
     VerifiedGitHubOIDCClaims,
     build_dispatch_authority_context,
+    dispatch_replay_key,
     verify_github_oidc_token,
 )
-import harness.sdk.github_dispatch_identity as dispatch_identity  # noqa: E402
 from harness.sdk.sovereign_execution import canonical_bytes, canonical_hash  # noqa: E402
 from agents.coordinator import dispatch_event, last_dispatch_receipts  # noqa: E402
 
@@ -114,7 +114,7 @@ class AgentDispatchIdentityTests(TestCase):
         first = {"event_type": "github_ci_failure", "payload": {"run_id": "1"}}
         second = {"event_type": "github_ci_failure", "payload": {"run_id": "2"}}
         try:
-            replay_key = dispatch_identity.dispatch_replay_key
+            replay_key = dispatch_replay_key
         except (ImportError, AttributeError, NameError) as exc:
             self.fail(f"request-bound replay fence is missing: {exc}")
 

@@ -219,7 +219,7 @@ MAX_GITHUB_OIDC_TOKEN_BYTES = 16_384
 MAX_GITHUB_OIDC_JWKS_BYTES = 65_536
 GITHUB_OIDC_JWKS_URL = "https://token.actions.githubusercontent.com/.well-known/jwks"
 GITHUB_OIDC_JWKS_TTL_SECONDS = 300
-_github_oidc_jwks: tuple[float, dict[str, Any]] | None = None
+_github_oidc_jwks_cache: dict[str, Any] = {"loaded_at": 0.0, "value": None}
 _github_oidc_jwks_lock = asyncio.Lock()
 
 # In-memory metrics (per-process; Cloud Run logs aggregate across instances).
@@ -248,14 +248,15 @@ def _rate_limited(client: str) -> bool:
 
 
 async def _get_github_oidc_jwks() -> dict[str, Any]:
-    global _github_oidc_jwks
     now = time.monotonic()
-    if _github_oidc_jwks is not None and now - _github_oidc_jwks[0] < GITHUB_OIDC_JWKS_TTL_SECONDS:
-        return _github_oidc_jwks[1]
+    cached = _github_oidc_jwks_cache["value"]
+    if cached is not None and now - _github_oidc_jwks_cache["loaded_at"] < GITHUB_OIDC_JWKS_TTL_SECONDS:
+        return cached
     async with _github_oidc_jwks_lock:
         now = time.monotonic()
-        if _github_oidc_jwks is not None and now - _github_oidc_jwks[0] < GITHUB_OIDC_JWKS_TTL_SECONDS:
-            return _github_oidc_jwks[1]
+        cached = _github_oidc_jwks_cache["value"]
+        if cached is not None and now - _github_oidc_jwks_cache["loaded_at"] < GITHUB_OIDC_JWKS_TTL_SECONDS:
+            return cached
         async with httpx.AsyncClient(timeout=5.0, follow_redirects=False) as client:
             response = await client.get(GITHUB_OIDC_JWKS_URL)
         response.raise_for_status()
@@ -264,7 +265,8 @@ async def _get_github_oidc_jwks() -> dict[str, Any]:
         value = response.json()
         if not isinstance(value, dict) or not isinstance(value.get("keys"), list):
             raise ValueError("GitHub OIDC JWKS is malformed")
-        _github_oidc_jwks = (now, value)
+        _github_oidc_jwks_cache["loaded_at"] = now
+        _github_oidc_jwks_cache["value"] = value
         return value
 
 

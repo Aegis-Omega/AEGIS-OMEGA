@@ -13,6 +13,7 @@ SCRIPT = Path(__file__).with_name("agent_dispatch_payload.py")
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT))
 WORKFLOW = ROOT / ".github" / "workflows" / "agent-dispatch.yml"
+AUTH_WORKFLOW = ROOT / ".github" / "workflows" / "authorization-effect-chain.yml"
 VERTEX = ROOT / "vertex" / "serve.py"
 COORDINATOR = ROOT / "agents" / "coordinator_legacy.py"
 AUTOMATON3 = ROOT / "scripts" / "validate-automaton3.py"
@@ -189,6 +190,17 @@ class AgentDispatchPayloadTests(unittest.TestCase):
         self.assertIn('"github_issue_comment_mention"', coordinator)
         self.assertIn('"scripts/agent_dispatch_payload.py"', automaton3)
         self.assertIn('"scripts/test_agent_dispatch_payload.py"', automaton3)
+
+    def test_authorization_ci_builds_and_inspects_the_deployable_image(self) -> None:
+        workflow = AUTH_WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("docker build --tag", workflow)
+        self.assertIn("--file vertex/Dockerfile", workflow)
+        self.assertIn("AEGIS_IMAGE_SOURCE_COMMIT", workflow)
+        self.assertIn("/app/CONSTITUTIONAL_DECLARATION.md", workflow)
+        self.assertIn("/app/.claude.json", workflow)
+        self.assertIn("/app/skill-hashes.sha256", workflow)
+        self.assertIn("/app/docs/claims.json", workflow)
+        self.assertIn("harness.sdk.github_dispatch_identity", workflow)
 
 
 if __name__ == "__main__":

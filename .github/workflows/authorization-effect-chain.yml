@@ -53,3 +53,15 @@ jobs:
           python sovereign-omega-v2/python/tests/test_effect_adapters_pr2.py
           python sovereign-omega-v2/python/tests/test_effect_verifier_pr3.py
           python sovereign-omega-v2/python/tests/test_complete_verifier_pr4.py
+
+      - name: Build and inspect exact-candidate Agent Dispatch image
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="aegis-agent-dispatch-ci:${CANDIDATE_SHA}"
+          docker build --tag "$image" --file vertex/Dockerfile .
+          docker run --rm \
+            --entrypoint python \
+            --env "AEGIS_IMAGE_SOURCE_COMMIT=${CANDIDATE_SHA}" \
+            "$image" \
+            -c 'from pathlib import Path; required=("/app/CONSTITUTIONAL_DECLARATION.md","/app/.claude.json","/app/skill-hashes.sha256","/app/docs/claims.json"); missing=[p for p in required if not Path(p).is_file()]; assert not missing, f"missing constitutional anchors: {missing}"; import harness.sdk.github_dispatch_identity; import serve; assert str(serve._RUNTIME_ROOT)=="/app"; print("AGENT_DISPATCH_IMAGE_PASS")'
