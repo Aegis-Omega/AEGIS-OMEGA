@@ -15,6 +15,26 @@ def test_machine_readable_rh_ledger_matches_fail_closed_default():
     assert "W10_FinalRiemannHypothesis" in result["open_obligations"]
 
 
+def test_state_space_surrogate_refutation_is_machine_readable_without_closing_w6():
+    with open("research/rh/proof-obligations-v1.json", "r", encoding="utf-8") as f:
+        payload = json.load(f)
+
+    entry = next(
+        item
+        for item in payload["refutations"]
+        if item["id"] == "FINITE-CUTOFF-STATE-SPACE-BOUNDARY-V1"
+    )
+    assert entry["target_obligation"] == "W6_GuinandWeilOperatorIdentity"
+    assert entry["classification"] == "REFUTED_ROUTE_UNDER_STATED_SURROGATE_SEMANTICS"
+    assert entry["verified_source_sha"] == "e7d9009233ea69631263853bbf9ecffa2454e34a"
+    assert entry["refutes"] == "FINITE_PRIME_CUTOFF_MULTIPLIER_POSITIVITY_ON_COMPACT_SPECTRAL_CCINFINITY_ZERO_MOMENT_SURROGATE"
+    assert "CLASSICAL_PALEY_WIENER_WEIL_ADMISSIBLE_SPACE" in entry["does_not_refute"]
+    assert entry["does_not_close_obligation"] is True
+
+    w6 = next(item for item in payload["proof_obligations"] if item["id"] == "W6_GuinandWeilOperatorIdentity")
+    assert w6["status"] == "OPEN"
+
+
 def test_formal_status_without_exact_proof_kernel_receipt_is_rejected(tmp_path):
     source = "research/rh/proof-obligations-v1.json"
     with open(source, "r", encoding="utf-8") as f:
