@@ -1,6 +1,8 @@
 from fractions import Fraction
 from pathlib import Path
 
+import pytest
+
 from harness.sdk.universal_intelligence_evidence import (
     EpistemicAuthorityTier,
     EvaluationCampaignContract,
@@ -9,8 +11,11 @@ from harness.sdk.universal_intelligence_evidence import (
 )
 from harness.sdk.rh_obligation_gate import (
     DEFAULT_OBLIGATIONS,
+    Obligation,
     ObligationState,
+    ProofKernelReceiptV1,
     RHObligationLedger,
+    verify_proof_kernel_receipt,
 )
 from research.rh.finite_to_global_counterexample import (
     build_refutation_receipt,
@@ -24,6 +29,19 @@ from scripts.generate_provenance_census import (
     partition_census_heads,
     partition_census_prs,
 )
+
+
+def _formal_receipt(seed: int):
+    nibble = format(seed % 16, "x")
+    return verify_proof_kernel_receipt(
+        ProofKernelReceiptV1(
+            exact_head=nibble * 40,
+            source_sha256=nibble * 64,
+            kind="PROOF_KERNEL_RECEIPT_V1",
+            axiom_free=True,
+            closed_under_global_context=True,
+        )
+    )
 
 
 def test_evidence_plane_cannot_mint_authority():
@@ -88,24 +106,47 @@ def test_default_rh_gate_is_not_proven_and_fail_closed():
     assert result["open_obligations"]
 
 
-def test_final_closure_requires_every_obligation_formally_verified():
+def test_programmatic_formal_promotion_requires_verified_receipt():
     ledger = RHObligationLedger()
-    for obligation in DEFAULT_OBLIGATIONS:
+    with pytest.raises(ValueError, match="verified formal receipt"):
+        ledger.with_state(
+            "W0_XiFormulation",
+            ObligationState.FORMALLY_VERIFIED,
+            authority_note="naked programmatic promotion",
+        )
+
+
+def test_direct_formal_obligation_without_verified_receipt_is_rejected():
+    obligations = list(DEFAULT_OBLIGATIONS)
+    obligations[0] = Obligation(
+        "W0_XiFormulation",
+        ObligationState.FORMALLY_VERIFIED,
+        authority_note="direct constructor bypass",
+    )
+    with pytest.raises(ValueError, match="verified formal receipt"):
+        RHObligationLedger(tuple(obligations))
+
+
+def test_final_closure_requires_every_obligation_formally_verified_with_receipts():
+    ledger = RHObligationLedger()
+    for index, obligation in enumerate(DEFAULT_OBLIGATIONS, start=1):
         ledger = ledger.with_state(
             obligation.obligation_id,
             ObligationState.FORMALLY_VERIFIED,
             authority_note="test-only proof-kernel fixture",
+            formal_receipt=_formal_receipt(index),
         )
     result = ledger.verify_final_closure()
     assert result["verdict"] == "RH_PROVEN_FORMALLY"
     assert result["gate_status"] == "ADMITTED"
 
 
-def test_dependency_violation_fails_closed():
+def test_dependency_violation_fails_closed_even_with_verified_receipt():
     ledger = RHObligationLedger().with_state(
         "W10_FinalRiemannHypothesis",
         ObligationState.FORMALLY_VERIFIED,
-        authority_note="adversarial fixture",
+        authority_note="adversarial dependency fixture",
+        formal_receipt=_formal_receipt(15),
     )
     result = ledger.verify_final_closure()
     assert result["verdict"] == "RH_NOT_PROVEN"
