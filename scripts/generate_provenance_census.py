@@ -5,14 +5,14 @@ This script is evidence acquisition only. It never merges, deletes, rebases, or
 moves refs. It fails closed if pagination, counts, or critical exact-head facts
 cannot be established.
 
-The integration branch was created *after* the frozen 150-head source census.
-Therefore v1 records two distinct quantities:
+The integration branch and its draft PR were created *after* the frozen source
+snapshot. Therefore v1 records two distinct quantities:
 
-- baseline/source heads: the original 150 heads, excluding this integration ref;
-- live heads: baseline heads plus the integration ref (151 at this checkpoint).
+- baseline/source state: the original 150 heads and 95 open PRs;
+- live state: baseline plus this integration ref and this integration PR.
 
-Conflating those counts would make the act of creating the audit branch falsify
-the historical census it is meant to preserve.
+Conflating those counts would make the act of creating the audit branch/PR
+falsify the historical census it is meant to preserve.
 """
 from __future__ import annotations
 
@@ -28,11 +28,15 @@ REPO = "Aegis-Omega/AEGIS-OMEGA"
 EXPECTED_BASE = "d83a9c6b35d4bed6bbe0542b5492a84ad7a4795f"
 EXPECTED_MAIN = "a34d664d66ae9f7c2e729cd4ccb07b74130c660f"
 INTEGRATION_BRANCH = "integration/aegis-universal-intelligence-rh-v1"
+INTEGRATION_PR_NUMBER = 342
 EXPECTED_BASELINE_HEAD_COUNT = 150
 EXPECTED_LIVE_HEAD_COUNT = 151
 EXPECTED_OPEN_PRS = 95
 EXPECTED_DRAFT_PRS = 73
 EXPECTED_NONDRAFT_PRS = 22
+EXPECTED_LIVE_OPEN_PRS = 96
+EXPECTED_LIVE_DRAFT_PRS = 74
+EXPECTED_LIVE_NONDRAFT_PRS = 22
 
 
 @dataclass(frozen=True)
@@ -43,11 +47,7 @@ class RemoteHead:
 
 
 def partition_census_heads(heads: list[RemoteHead]) -> tuple[list[RemoteHead], list[RemoteHead]]:
-    """Return (frozen_source_heads, current_live_heads) deterministically.
-
-    Exactly one live integration ref must exist. The frozen source census is the
-    live set with only that self-created audit ref removed.
-    """
+    """Return (frozen_source_heads, current_live_heads) deterministically."""
     live = sorted(heads, key=lambda head: head.name)
     integration = [head for head in live if head.name == INTEGRATION_BRANCH]
     if len(integration) != 1:
@@ -55,6 +55,20 @@ def partition_census_heads(heads: list[RemoteHead]) -> tuple[list[RemoteHead], l
             f"integration ref cardinality drift: {len(integration)} != 1 ({INTEGRATION_BRANCH})"
         )
     baseline = [head for head in live if head.name != INTEGRATION_BRANCH]
+    return baseline, live
+
+
+def partition_census_prs(
+    prs: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Return (frozen_source_prs, current_live_prs) with the self PR isolated."""
+    live = sorted(prs, key=lambda pr: int(pr["number"]))
+    integration = [pr for pr in live if int(pr["number"]) == INTEGRATION_PR_NUMBER]
+    if len(integration) != 1:
+        raise RuntimeError(
+            f"integration PR cardinality drift: {len(integration)} != 1 (#{INTEGRATION_PR_NUMBER})"
+        )
+    baseline = [pr for pr in live if int(pr["number"]) != INTEGRATION_PR_NUMBER]
     return baseline, live
 
 
@@ -95,6 +109,11 @@ def _pull_requests(token: str | None) -> list[dict[str, Any]]:
     return _paginate("pulls?state=open", token)
 
 
+def _draft_counts(prs: list[dict[str, Any]]) -> tuple[int, int]:
+    drafts = sum(1 for pr in prs if pr.get("draft") is True)
+    return drafts, len(prs) - drafts
+
+
 def generate(token: str | None) -> dict[str, Any]:
     branches = _paginate("branches", token)
     observed_heads = [
@@ -107,9 +126,10 @@ def generate(token: str | None) -> dict[str, Any]:
     ]
     baseline_heads, live_heads = partition_census_heads(observed_heads)
 
-    prs = _pull_requests(token)
-    drafts = sum(1 for pr in prs if pr.get("draft") is True)
-    nondrafts = len(prs) - drafts
+    observed_prs = _pull_requests(token)
+    baseline_prs, live_prs = partition_census_prs(observed_prs)
+    drafts, nondrafts = _draft_counts(baseline_prs)
+    live_drafts, live_nondrafts = _draft_counts(live_prs)
 
     main = next((h for h in live_heads if h.name == "main"), None)
     if main is None:
@@ -124,18 +144,29 @@ def generate(token: str | None) -> dict[str, Any]:
         raise RuntimeError(
             f"live remote-head count drift: {len(live_heads)} != {EXPECTED_LIVE_HEAD_COUNT}"
         )
-    if (len(prs), drafts, nondrafts) != (
+    if (len(baseline_prs), drafts, nondrafts) != (
         EXPECTED_OPEN_PRS,
         EXPECTED_DRAFT_PRS,
         EXPECTED_NONDRAFT_PRS,
     ):
         raise RuntimeError(
-            "open-PR census drift: "
-            f"{(len(prs), drafts, nondrafts)} != "
+            "baseline open-PR census drift: "
+            f"{(len(baseline_prs), drafts, nondrafts)} != "
             f"{(EXPECTED_OPEN_PRS, EXPECTED_DRAFT_PRS, EXPECTED_NONDRAFT_PRS)}"
+        )
+    if (len(live_prs), live_drafts, live_nondrafts) != (
+        EXPECTED_LIVE_OPEN_PRS,
+        EXPECTED_LIVE_DRAFT_PRS,
+        EXPECTED_LIVE_NONDRAFT_PRS,
+    ):
+        raise RuntimeError(
+            "live open-PR census drift: "
+            f"{(len(live_prs), live_drafts, live_nondrafts)} != "
+            f"{(EXPECTED_LIVE_OPEN_PRS, EXPECTED_LIVE_DRAFT_PRS, EXPECTED_LIVE_NONDRAFT_PRS)}"
         )
 
     integration_head = next(head for head in live_heads if head.name == INTEGRATION_BRANCH)
+    integration_pr = next(pr for pr in live_prs if int(pr["number"]) == INTEGRATION_PR_NUMBER)
 
     return {
         "schema_version": "1.0.0",
@@ -146,11 +177,21 @@ def generate(token: str | None) -> dict[str, Any]:
             "total_remote_heads": len(baseline_heads),
             "live_remote_heads_total": len(live_heads),
             "integration_ref_excluded_from_baseline": INTEGRATION_BRANCH,
-            "open_prs_total": len(prs),
+            "open_prs_total": len(baseline_prs),
             "open_prs_draft": drafts,
             "open_prs_nondraft": nondrafts,
+            "live_open_prs_total": len(live_prs),
+            "live_open_prs_draft": live_drafts,
+            "live_open_prs_nondraft": live_nondrafts,
+            "integration_pr_excluded_from_baseline": INTEGRATION_PR_NUMBER,
         },
         "integration_head": asdict(integration_head),
+        "integration_pr": {
+            "number": int(integration_pr["number"]),
+            "draft": bool(integration_pr.get("draft", False)),
+            "head_sha": integration_pr["head"]["sha"],
+            "base_sha": integration_pr["base"]["sha"],
+        },
         "critical_dispositions": {
             "PR_309": {
                 "exact_head": "1406aacca95fef02a942621a7060e0b6b14a5809",
