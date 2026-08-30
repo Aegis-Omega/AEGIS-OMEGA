@@ -13,7 +13,17 @@ restore the canonical workflow to ``generate_provenance_census.py``.
 """
 from __future__ import annotations
 
+from pathlib import Path
+import sys
 from typing import Any
+
+# This file is intentionally executable both as a script and as a module. When
+# invoked as ``python scripts/<name>.py``, Python puts ``scripts/`` rather than
+# the repository root on sys.path, so the namespace-package import below would
+# otherwise fail before the census can run.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from scripts import generate_provenance_census as base
 
