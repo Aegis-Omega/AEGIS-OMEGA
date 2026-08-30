@@ -54,9 +54,9 @@
     "original_user_table_reproduced": false,
     "phi_nonresonant_positivity_hypothesis": "NOT_SUPPORTED",
     "phi_specificity_established": false,
-    "finite_section_negativity": "OBSERVED_T1",
-    "liminf_proven": false
+    "finite_section_negativity": "OBSERVED_T1"
   },
+  "liminf_proven": false,
   "global_weil_positivity_proven": false,
   "rh_proven": false,
   "proof_authority": false
