@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0.0",
+  "repository": "Aegis-Omega/AEGIS-OMEGA",
+  "base_ref": "d83a9c6b35d4bed6bbe0542b5492a84ad7a4795f",
+  "canonical_main_head": "a34d664d66ae9f7c2e729cd4ccb07b74130c660f",
+  "census_summary": {
+    "total_remote_heads": 150,
+    "open_prs_total": 95,
+    "open_prs_draft": 73,
+    "open_prs_nondraft": 22
+  },
+  "generation_status": "SEED_CONTRACT_REQUIRES_LIVE_REGENERATION",
+  "critical_dispositions": {
+    "PR_309": {
+      "exact_head": "1406aacca95fef02a942621a7060e0b6b14a5809",
+      "mergeability": "MERGEABLE",
+      "disposition": "DO_NOT_MERGE_DIRECTLY",
+      "reason": "Effect path is superseded/evolved by PR #334; direct merge risks regression of the verified resident execution/effect loop."
+    },
+    "PR_308": {
+      "exact_head": "7972eb16e85cc6ea9d0983b33475e6e77adfe3c8",
+      "disposition": "RETAIN_BRANCH_NAME_NORMALIZATION_ONLY",
+      "reason": "Removes branch-name divergence from .claude.json; parent_state_hash divergence remains structural and unresolved."
+    },
+    "PR_303": {
+      "exact_head": "7c94ba577f62e5a9fcd96b9b5ae4859d106db081",
+      "disposition": "EXTRACT_ALGEBRAIC_KERNEL"
+    },
+    "PR_307": {
+      "exact_head": "41ad4ea70c09eb2b88c8457d3b7185c5db4f986a",
+      "disposition": "EXTRACT_CONSTRUCTIVE_ORDER"
+    },
+    "PR_335": {
+      "exact_head": "39e0f92507bee7ca0b78be527af1de567b863504",
+      "disposition": "EXTRACT_QFORM_EVALUATOR"
+    },
+    "PR_338": {
+      "exact_head": "97063f9d74c24f3889530cdc366e60f31b3edd48",
+      "disposition": "EXTRACT_QUOTIENT_KERNEL"
+    }
+  },
+  "remote_heads": [],
+  "authority_boundary": {
+    "model_output_can_mint_authority": false,
+    "agent_swarm_can_mint_authority": false,
+    "self_improvement_can_mint_authority": false,
+    "required_chain": "DecisionReceipt -> ExecutionReceipt -> EffectObservation -> EffectReceipt -> CompleteVerification -> AtomicAdmission"
+  },
+  "warning": "This committed seed is intentionally incomplete. scripts/generate_provenance_census.py must replace it with the live 150-head census before this artifact can be classified VERIFIED_AT_EXACT_HEAD."
+}
