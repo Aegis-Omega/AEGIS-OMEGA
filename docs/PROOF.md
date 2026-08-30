@@ -29,13 +29,13 @@ DecisionReceipt → ExecutionReceipt → EffectObservation
 
 This is candidate-state evidence, not a production deployment receipt. The PR remains DRAFT.
 
-The current candidate adds one real-server redirect falsifier and four issuance/scope falsifiers,
-bringing the targeted suite to 104 tests. It requires a `3xx` response to become
+The current candidate adds one real-server redirect falsifier and five issuance/scope falsifiers,
+bringing the targeted suite to 105 tests. It requires a `3xx` response to become
 `PLATFORM_REDIRECT_REJECTED`, proves that the
 redirect target receives zero requests, and proves that the platform API key is not forwarded.
-It also binds observation handles to their issuing adapter instance, prevents root retargeting,
-and preserves validity for independently issued equal witnesses. The hosted workflow must
-re-establish those 104 tests on the final exact head; this document does
+It also binds observation handles to their issuing adapter instance, prevents root retargeting
+and same-path root replacement, and preserves validity for independently issued equal witnesses.
+The hosted workflow must re-establish those 105 tests on the final exact head; this document does
 not transfer the baseline GREEN receipt to a later commit.
 
 The request-bound identity slice is hosted-verified by 11 dispatch-envelope/build-contract tests,

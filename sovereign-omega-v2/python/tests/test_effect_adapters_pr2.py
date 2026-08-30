@@ -272,6 +272,26 @@ class EffectAdapterPR2Tests(TestCase):
             self.assertTrue(is_adapter_bound_effect_evidence(witness=first))
             self.assertTrue(is_adapter_bound_effect_evidence(witness=second))
 
+    def test_same_path_root_replacement_is_rejected(self):
+        if sys.platform == "win32":
+            self.skipTest("descriptor-bound root falsifier requires POSIX")
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            root = base / "root"
+            root.mkdir()
+            target, transition, adapter, handle, execution = self.prepared(root)
+
+            root.rename(base / "old-root")
+            root.mkdir()
+            (root / "state.txt").write_text("replacement", encoding="utf-8")
+
+            with self.assertRaisesRegex(EffectAdapterError, "EFFECT_ADAPTER_SCOPE_MISMATCH"):
+                adapter.observe_effect(
+                    transition=transition,
+                    handle=handle,
+                    execution_receipt=execution,
+                )
+
     def test_post_state_is_derived_from_fresh_filesystem_read(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

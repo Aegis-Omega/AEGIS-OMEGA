@@ -73,6 +73,13 @@ class _ProcessLocalIssuanceRegistry:
             return entry is not None and entry[0]() is value and entry[1] == root
 
 
+def _close_fd_safely(fd: int) -> None:
+    try:
+        os.close(fd)
+    except OSError:
+        pass
+
+
 @dataclass(frozen=True)
 class EffectObservationHandle:
     transition_id: str
@@ -177,6 +184,10 @@ class FilesystemEffectAdapter:
         self._allowed_root = Path(allowed_root).resolve(strict=False)
         self.max_observation_bytes = DEFAULT_MAX_OBSERVATION_BYTES
         self._issued_observation_handles = _ProcessLocalIssuanceRegistry()
+        self._root_scope_lock = threading.RLock()
+        self._root_fd: int | None = None
+        self._root_identity: tuple[int, int] | None = None
+        self._root_finalizer: weakref.finalize | None = None
 
     @property
     def allowed_root(self) -> Path:
@@ -187,15 +198,69 @@ class FilesystemEffectAdapter:
         del value
         raise EffectAdapterError("EFFECT_ADAPTER_SCOPE_MISMATCH")
 
+    def _assert_root_scope_locked(self) -> None:
+        if self._root_fd is None or self._root_identity is None:
+            raise EffectAdapterError("EFFECT_ADAPTER_SCOPE_UNAVAILABLE")
+        try:
+            descriptor_stat = os.fstat(self._root_fd)
+            path_stat = os.stat(self._allowed_root, follow_symlinks=False)
+        except (FileNotFoundError, NotADirectoryError, PermissionError, OSError) as exc:
+            raise EffectAdapterError("EFFECT_ADAPTER_SCOPE_MISMATCH") from exc
+        descriptor_identity = (int(descriptor_stat.st_dev), int(descriptor_stat.st_ino))
+        path_identity = (int(path_stat.st_dev), int(path_stat.st_ino))
+        if (
+            not stat_module.S_ISDIR(descriptor_stat.st_mode)
+            or not stat_module.S_ISDIR(path_stat.st_mode)
+            or descriptor_identity != self._root_identity
+            or path_identity != self._root_identity
+        ):
+            raise EffectAdapterError("EFFECT_ADAPTER_SCOPE_MISMATCH")
+
+    def _acquire_root_descriptor(self) -> int:
+        required = ("O_DIRECTORY", "O_NOFOLLOW")
+        if os.name != "posix" or any(not hasattr(os, name) for name in required):
+            raise EffectAdapterError("EFFECT_RACE_RESISTANT_OPEN_UNAVAILABLE")
+        with self._root_scope_lock:
+            if self._root_fd is None:
+                flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+                root_fd: int | None = None
+                try:
+                    root_fd = os.open(os.fspath(self._allowed_root), flags)
+                    root_stat = os.fstat(root_fd)
+                    if not stat_module.S_ISDIR(root_stat.st_mode):
+                        raise EffectAdapterError("EFFECT_ALLOWED_ROOT_UNAVAILABLE")
+                except (FileNotFoundError, NotADirectoryError, PermissionError, OSError) as exc:
+                    raise EffectAdapterError("EFFECT_ALLOWED_ROOT_UNAVAILABLE") from exc
+                except Exception:
+                    if root_fd is not None:
+                        _close_fd_safely(root_fd)
+                    raise
+                assert root_fd is not None
+                self._root_fd = root_fd
+                self._root_identity = (int(root_stat.st_dev), int(root_stat.st_ino))
+                self._root_finalizer = weakref.finalize(self, _close_fd_safely, root_fd)
+            self._assert_root_scope_locked()
+            try:
+                return os.dup(self._root_fd)
+            except OSError as exc:
+                raise EffectAdapterError("EFFECT_ADAPTER_SCOPE_UNAVAILABLE") from exc
+
     def _adapter_scope_commitment(self) -> str:
-        return canonical_hash(
-            "AEGIS_FILESYSTEM_ADAPTER_SCOPE_V1",
-            {
-                "allowed_root": self._allowed_root.as_posix(),
-                "adapter_identity": self.identity,
-                "adapter_version": self.version,
-            },
-        )
+        with self._root_scope_lock:
+            root_fd = self._acquire_root_descriptor()
+            _close_fd_safely(root_fd)
+            self._assert_root_scope_locked()
+            assert self._root_identity is not None
+            return canonical_hash(
+                "AEGIS_FILESYSTEM_ADAPTER_SCOPE_V1",
+                {
+                    "allowed_root": self._allowed_root.as_posix(),
+                    "filesystem_device": self._root_identity[0],
+                    "filesystem_inode": self._root_identity[1],
+                    "adapter_identity": self.identity,
+                    "adapter_version": self.version,
+                },
+            )
 
     def _handle_issuance_root(self, handle: EffectObservationHandle) -> str:
         return canonical_hash(
@@ -256,7 +321,6 @@ class FilesystemEffectAdapter:
         if os.name != "posix" or any(not hasattr(os, name) for name in required):
             raise EffectAdapterError("EFFECT_RACE_RESISTANT_OPEN_UNAVAILABLE")
 
-        root_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
         file_flags = os.O_RDONLY | os.O_NOFOLLOW
         directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 
@@ -266,9 +330,8 @@ class FilesystemEffectAdapter:
 
         with ExitStack() as descriptors:
             try:
-                root_fd = descriptors.enter_context(
-                    self._opened_fd(os.fspath(self.allowed_root), root_flags)
-                )
+                root_fd = self._acquire_root_descriptor()
+                descriptors.callback(_close_fd_safely, root_fd)
             except (FileNotFoundError, NotADirectoryError, PermissionError, OSError) as exc:
                 raise EffectAdapterError("EFFECT_ALLOWED_ROOT_UNAVAILABLE") from exc
             dir_fd = root_fd

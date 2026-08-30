@@ -42,7 +42,7 @@ and transition bindings prevent receipt splicing. Read-only observation authenti
 consume execution quota. Failures before execution remain `NOT_EXECUTED`; uncertainty after an
 attempt remains `UNKNOWN` rather than being mislabeled as an authority denial.
 
-The security follow-up raises the targeted regression suite to 104 tests. Platform observation closes
+The security follow-up raises the targeted regression suite to 105 tests. Platform observation closes
 and explicitly rejects every `3xx` before parsing; a real local HTTP target proves that no
 redirect request occurs and the platform API key is not forwarded. This candidate still requires
 fresh hosted exact-head CI before the baseline status can be promoted.
@@ -50,7 +50,8 @@ fresh hosted exact-head CI before the baseline status can be promoted.
 Four additional falsifiers close a receipt-lineage regression discovered while comparing PR #309
 with #334: observation handles are now object-identity and snapshot bound to the issuing adapter,
 `allowed_root` cannot be retargeted after construction, and two independently issued equal
-witnesses remain independently valid.
+witnesses remain independently valid. The adapter also pins the root directory's device/inode
+identity, so replacement at the same path cannot splice pre- and post-observations.
 
 ### Agent Dispatch correction in this follow-up
 
