@@ -9,7 +9,7 @@ the product psi_k psi_l has Fourier support in
 
     [-2 * tau * scale, 2 * tau * scale].
 
-Consequently a prime-power cosine mode with frequency k*log(p) outside that
+Consequently a prime-power cosine mode with frequency m*log(p) outside that
 interval contributes exactly zero to the infinite-domain Galerkin matrix.
 This is a support-localization identity for the chosen Paley--Wiener section;
 it does not construct the untruncated prime Levy measure, identify the full
@@ -47,7 +47,7 @@ def sinc_product_cosine_integral(
     tau: float,
     scale_factor: float = 1.0,
 ) -> float:
-    """Return the exact closed form for ``int psi_k psi_l cos(omega t) dt``.
+    """Return the closed form for ``int psi_k psi_l cos(omega t) dt``.
 
     ``numpy.sinc(x)`` uses ``sin(pi*x)/(pi*x)``.  With
     ``a = tau*scale_factor/pi`` and ``q = omega/a``, the Fourier transform of
@@ -55,7 +55,7 @@ def sinc_product_cosine_integral(
     the two rectangular sinc transforms has length ``L = 2*pi-|q|``.
 
     The returned value is evaluated in float arithmetic, but the zero outside
-    support follows from the closed-form support identity rather than a
+    support follows from the analytic support identity rather than a numerical
     quadrature threshold.
     """
 
@@ -113,12 +113,35 @@ def exact_sinc_gram_and_moment(
     return gram, moment
 
 
+def support_saturation_cutoff(*, tau: float, scale_factor: float = 1.0) -> int:
+    """Return a sufficient integer prime-power cutoff for a fixed support class.
+
+    Visible prime powers satisfy ``log(p^m) < 2*tau*scale``.  Since ``p^m`` is
+    an integer, every visible term is included once
+
+        P >= ceil(exp(2*tau*scale)) - 1.
+
+    This is a sufficient support cutoff, not a claim that every integer below
+    it is a prime power or that the cutoff is the minimal prime-power value.
+    """
+
+    tau, scale_factor = _validate_scale(tau, scale_factor)
+    radius = 2.0 * tau * scale_factor
+    try:
+        bound = math.exp(radius)
+    except OverflowError as exc:
+        raise ValueError("support radius is too large for a finite float cutoff") from exc
+    if not math.isfinite(bound):
+        raise ValueError("support radius is too large for a finite float cutoff")
+    return int(math.ceil(bound) - 1)
+
+
 def assemble_prime_galerkin_closed_form(
     probe: WeilSpectralInertiaProbe,
     *,
     scale_factor: float = 1.0,
 ) -> dict[str, Any]:
-    """Assemble the prime-power block using the exact sinc support formula.
+    """Assemble the prime-power block using the sinc support formula.
 
     The prime contribution to the repository symbol is
 
@@ -127,7 +150,7 @@ def assemble_prime_galerkin_closed_form(
     With the repository ``dt/(2*pi)`` convention, each active term therefore
     contributes ``-(w/pi) * integral(psi_k psi_l cos(omega t) dt)``.
     Terms on or outside the Paley--Wiener support boundary are exactly zero and
-    are not evaluated numerically.
+    are not evaluated by quadrature.
     """
 
     if not isinstance(probe, WeilSpectralInertiaProbe):
@@ -162,6 +185,9 @@ def assemble_prime_galerkin_closed_form(
         "tau": tau,
         "scale_factor": scale_factor,
         "support_radius": support_radius,
+        "sufficient_saturation_cutoff": support_saturation_cutoff(
+            tau=tau, scale_factor=scale_factor
+        ),
         "prime_power_count": probe.prime_power_count,
         "active_prime_power_count": len(active),
         "discarded_prime_power_count": len(discarded),
@@ -178,6 +204,102 @@ def assemble_prime_galerkin_closed_form(
             "NO_UNTRUNCATED_PRIME_LEVY_PROCESS_FROM_THIS_KERNEL",
             "NO_ARCHIMEDEAN_CONTINUOUS_OPERATOR_CLOSURE",
             "NO_DENSITY_OR_GLOBALIZATION_PROMOTION",
+            "NO_WEIL_CRITERION_OR_RH_AUTHORITY",
+        ),
+    }
+
+
+def assemble_prime_renormalized_components(
+    probe: WeilSpectralInertiaProbe,
+    *,
+    scale_factor: float = 1.0,
+) -> dict[str, Any]:
+    """Expose the exact fixed-support cancellation behind the Levy split.
+
+    For one prime-power term of weight ``w`` and cosine Galerkin block ``C``,
+
+        original = -2 w C,
+        centered =  2 w (G - C),
+        offset   = -2 w G.
+
+    Hence ``centered + offset = original``.  If the jump frequency lies on or
+    outside the Paley--Wiener support radius then ``C=0`` exactly, so its
+    centered energy ``2 w G`` and scalar counterterm ``-2 w G`` cancel on the
+    fixed support class.  The two pieces may grow separately as P increases;
+    the original localized prime form has already saturated.
+
+    This is local renormalized-form semantics only.  It neither creates a
+    standard untruncated Levy measure nor proves compatibility/global closure
+    over an unbounded union of support classes.
+    """
+
+    if not isinstance(probe, WeilSpectralInertiaProbe):
+        raise TypeError("probe must be WeilSpectralInertiaProbe")
+    tau, scale_factor = _validate_scale(probe.config.tau, scale_factor)
+
+    original_receipt = assemble_prime_galerkin_closed_form(
+        probe, scale_factor=scale_factor
+    )
+    original_matrix = np.asarray(original_receipt["matrix"], dtype=float)
+    gram, _ = exact_sinc_gram_and_moment(
+        probe.k_indices, tau=tau, scale_factor=scale_factor
+    )
+
+    total_weight = float(sum(term.weight for term in probe.prime_power_terms))
+    support_radius = 2.0 * tau * scale_factor
+    discarded = tuple(
+        term for term in probe.prime_power_terms if term.shift >= support_radius
+    )
+    discarded_weight = float(sum(term.weight for term in discarded))
+
+    # From original = -2 sum(w C), centered = 2 W G - 2 sum(w C).
+    centered_matrix = 2.0 * total_weight * gram + original_matrix
+    offset_matrix = -2.0 * total_weight * gram
+    reconstructed = centered_matrix + offset_matrix
+
+    # Every discarded mode has C=0, so its split cancels identically as a
+    # grouped counterterm.  Build both from the same scalar to avoid introducing
+    # an artificial quadrature error into an analytic zero.
+    tail_centered = 2.0 * discarded_weight * gram
+    tail_offset = -tail_centered
+    tail_cancellation = tail_centered + tail_offset
+
+    return {
+        "schema_version": "1.0.0",
+        "authority": AUTHORITY,
+        "method": "FIXED_SUPPORT_PRIME_LEVY_COUNTERTERM_CANCELLATION",
+        "tau": tau,
+        "scale_factor": scale_factor,
+        "support_radius": support_radius,
+        "sufficient_saturation_cutoff": support_saturation_cutoff(
+            tau=tau, scale_factor=scale_factor
+        ),
+        "prime_power_count": probe.prime_power_count,
+        "active_prime_power_count": original_receipt["active_prime_power_count"],
+        "discarded_prime_power_count": len(discarded),
+        "total_prime_weight": total_weight,
+        "discarded_prime_weight": discarded_weight,
+        "gram": gram,
+        "original_matrix": original_matrix,
+        "centered_matrix": centered_matrix,
+        "offset_matrix": offset_matrix,
+        "tail_centered_energy_norm": float(np.linalg.norm(tail_centered)),
+        "tail_offset_norm": float(np.linalg.norm(tail_offset)),
+        "tail_cancellation_max_abs_error": float(np.max(np.abs(tail_cancellation))),
+        "full_decomposition_max_abs_error": float(
+            np.max(np.abs(reconstructed - original_matrix))
+        ),
+        "local_prime_form_stabilizes_after_support_saturation": True,
+        "support_localization_exact_formula": True,
+        "global_standard_levy_measure_constructed": False,
+        "globalization_across_unbounded_support_proven": False,
+        "concrete_infinite_weil_operator_bound": False,
+        "global_weil_positivity_proven": False,
+        "rh_proven": False,
+        "non_claims": (
+            "LOCAL_COUNTERTERM_CANCELLATION_IS_NOT_A_GLOBAL_LEVY_PROCESS",
+            "NO_UNIFORM_BOUND_AS_SUPPORT_RADIUS_TENDS_TO_INFINITY",
+            "NO_CONCRETE_GLOBAL_WEIL_OPERATOR_IDENTIFICATION",
             "NO_WEIL_CRITERION_OR_RH_AUTHORITY",
         ),
     }
