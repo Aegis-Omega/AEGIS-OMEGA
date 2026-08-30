@@ -1,14 +1,20 @@
 """Executable fail-closed obligation ledger for the RH proofline.
 
 The gate is intentionally unable to infer mathematical closure from numerical,
-empirical, CI, or prose evidence. Only FORMALLY_VERIFIED obligations count
-as closed for the final verdict.
+empirical, CI, or prose evidence. Only obligations carrying a verifier-issued
+formal proof receipt can enter ``FORMALLY_VERIFIED`` and count toward the final
+verdict.
+
+This module is an authority-boundary API, not a proof assistant. Syntactic
+receipt validation and an in-process verifier seal prevent naked programmatic
+state promotion; they do not replace checking the referenced proof artifact in
+its proof kernel or validating the external exact-head provenance chain.
 """
 from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Mapping
@@ -22,12 +28,90 @@ class ObligationState(str, Enum):
     REFUTED = "REFUTED"
 
 
+_FORMAL_RECEIPT_SEAL = object()
+
+
+@dataclass(frozen=True)
+class ProofKernelReceiptV1:
+    """Untrusted proof-kernel receipt payload presented to the RH gate."""
+
+    exact_head: str
+    source_sha256: str
+    kind: str = "PROOF_KERNEL_RECEIPT_V1"
+    axiom_free: bool = True
+    closed_under_global_context: bool = True
+
+    def validate(self) -> None:
+        if self.kind != "PROOF_KERNEL_RECEIPT_V1":
+            raise ValueError("invalid proof receipt kind")
+        if self.axiom_free is not True:
+            raise ValueError("formal receipt is not axiom-free")
+        if self.closed_under_global_context is not True:
+            raise ValueError("formal receipt is not globally closed")
+        if not isinstance(self.exact_head, str) or re.fullmatch(r"[0-9a-f]{40}", self.exact_head) is None:
+            raise ValueError("invalid exact_head in formal receipt")
+        if not isinstance(self.source_sha256, str) or re.fullmatch(r"[0-9a-f]{64}", self.source_sha256) is None:
+            raise ValueError("invalid source_sha256 in formal receipt")
+
+
+@dataclass(frozen=True, init=False)
+class VerifiedFormalReceiptV1:
+    """Receipt accepted by the local verifier boundary.
+
+    ``init=False`` deliberately prevents ordinary caller construction through
+    the public dataclass constructor. Instances are issued only by
+    :func:`verify_proof_kernel_receipt` and carry a process-local seal checked
+    again whenever a ledger is constructed.
+    """
+
+    exact_head: str
+    source_sha256: str
+    kind: str
+    axiom_free: bool
+    closed_under_global_context: bool
+    _seal: object = field(repr=False, compare=False)
+
+    def validate(self) -> None:
+        try:
+            sealed = self._seal is _FORMAL_RECEIPT_SEAL
+            raw = ProofKernelReceiptV1(
+                exact_head=self.exact_head,
+                source_sha256=self.source_sha256,
+                kind=self.kind,
+                axiom_free=self.axiom_free,
+                closed_under_global_context=self.closed_under_global_context,
+            )
+        except AttributeError as exc:
+            raise ValueError("verified formal receipt is not verifier-issued") from exc
+        if not sealed:
+            raise ValueError("verified formal receipt is not verifier-issued")
+        raw.validate()
+
+
+def verify_proof_kernel_receipt(receipt: ProofKernelReceiptV1) -> VerifiedFormalReceiptV1:
+    """Validate an untrusted receipt and issue a sealed formal-receipt token."""
+
+    if not isinstance(receipt, ProofKernelReceiptV1):
+        raise TypeError("receipt must be ProofKernelReceiptV1")
+    receipt.validate()
+    verified = object.__new__(VerifiedFormalReceiptV1)
+    object.__setattr__(verified, "exact_head", receipt.exact_head)
+    object.__setattr__(verified, "source_sha256", receipt.source_sha256)
+    object.__setattr__(verified, "kind", receipt.kind)
+    object.__setattr__(verified, "axiom_free", receipt.axiom_free)
+    object.__setattr__(verified, "closed_under_global_context", receipt.closed_under_global_context)
+    object.__setattr__(verified, "_seal", _FORMAL_RECEIPT_SEAL)
+    verified.validate()
+    return verified
+
+
 @dataclass(frozen=True)
 class Obligation:
     obligation_id: str
     state: ObligationState
     depends_on: tuple[str, ...] = ()
     authority_note: str = ""
+    formal_receipt: VerifiedFormalReceiptV1 | None = None
 
 
 DEFAULT_OBLIGATIONS: tuple[Obligation, ...] = (
@@ -72,6 +156,7 @@ class RHObligationLedger:
         if len(self._obligations) != len(obligations):
             raise ValueError("duplicate obligation_id")
         self._validate_dependencies()
+        self._validate_formal_authority()
 
     @property
     def obligations(self) -> Mapping[str, Obligation]:
@@ -105,27 +190,41 @@ class RHObligationLedger:
             authority_note = row.get("authority_note", "")
             if not isinstance(authority_note, str) or not authority_note.strip():
                 raise ValueError(f"authority_note required for {obligation_id}")
+            formal_receipt = None
             if state is ObligationState.FORMALLY_VERIFIED:
-                cls._validate_formal_receipt(obligation_id, row.get("proof_receipt"))
-            obligations.append(Obligation(obligation_id, state, tuple(depends_on), authority_note))
+                formal_receipt = cls._verify_formal_receipt_payload(
+                    obligation_id,
+                    row.get("proof_receipt"),
+                )
+            obligations.append(
+                Obligation(
+                    obligation_id,
+                    state,
+                    tuple(depends_on),
+                    authority_note,
+                    formal_receipt,
+                )
+            )
         return cls(tuple(obligations))
 
     @staticmethod
-    def _validate_formal_receipt(obligation_id: str, receipt: Any) -> None:
+    def _verify_formal_receipt_payload(
+        obligation_id: str,
+        receipt: Any,
+    ) -> VerifiedFormalReceiptV1:
         if not isinstance(receipt, dict):
             raise ValueError(f"FORMALLY_VERIFIED {obligation_id} requires proof_receipt")
-        if receipt.get("kind") != "PROOF_KERNEL_RECEIPT_V1":
-            raise ValueError(f"invalid proof receipt kind for {obligation_id}")
-        if receipt.get("axiom_free") is not True:
-            raise ValueError(f"formal receipt is not axiom-free for {obligation_id}")
-        if receipt.get("closed_under_global_context") is not True:
-            raise ValueError(f"formal receipt is not globally closed for {obligation_id}")
-        exact_head = receipt.get("exact_head")
-        source_sha256 = receipt.get("source_sha256")
-        if not isinstance(exact_head, str) or re.fullmatch(r"[0-9a-f]{40}", exact_head) is None:
-            raise ValueError(f"invalid exact_head in formal receipt for {obligation_id}")
-        if not isinstance(source_sha256, str) or re.fullmatch(r"[0-9a-f]{64}", source_sha256) is None:
-            raise ValueError(f"invalid source_sha256 in formal receipt for {obligation_id}")
+        raw = ProofKernelReceiptV1(
+            exact_head=receipt.get("exact_head"),
+            source_sha256=receipt.get("source_sha256"),
+            kind=receipt.get("kind"),
+            axiom_free=receipt.get("axiom_free"),
+            closed_under_global_context=receipt.get("closed_under_global_context"),
+        )
+        try:
+            return verify_proof_kernel_receipt(raw)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"invalid proof receipt for {obligation_id}: {exc}") from exc
 
     def _validate_dependencies(self) -> None:
         ids = set(self._obligations)
@@ -134,15 +233,57 @@ class RHObligationLedger:
             if missing:
                 raise ValueError(f"{obligation.obligation_id} has unknown dependencies: {sorted(missing)}")
 
-    def with_state(self, obligation_id: str, state: ObligationState, authority_note: str) -> "RHObligationLedger":
+    def _validate_formal_authority(self) -> None:
+        for obligation in self._obligations.values():
+            if obligation.state is ObligationState.FORMALLY_VERIFIED:
+                if not isinstance(obligation.formal_receipt, VerifiedFormalReceiptV1):
+                    raise ValueError(
+                        f"FORMALLY_VERIFIED {obligation.obligation_id} requires verified formal receipt"
+                    )
+                try:
+                    obligation.formal_receipt.validate()
+                except ValueError as exc:
+                    raise ValueError(
+                        f"FORMALLY_VERIFIED {obligation.obligation_id} requires verified formal receipt"
+                    ) from exc
+            elif obligation.formal_receipt is not None:
+                raise ValueError(
+                    f"non-formal obligation {obligation.obligation_id} cannot carry verified formal receipt"
+                )
+
+    def with_state(
+        self,
+        obligation_id: str,
+        state: ObligationState,
+        authority_note: str,
+        *,
+        formal_receipt: VerifiedFormalReceiptV1 | None = None,
+    ) -> "RHObligationLedger":
         if obligation_id not in self._obligations:
             raise KeyError(obligation_id)
+        if not isinstance(state, ObligationState):
+            raise TypeError("state must be ObligationState")
         if not authority_note.strip():
             raise ValueError("authority_note is required for every state transition")
-        updated = []
+        if state is ObligationState.FORMALLY_VERIFIED:
+            if not isinstance(formal_receipt, VerifiedFormalReceiptV1):
+                raise ValueError("FORMALLY_VERIFIED transition requires verified formal receipt")
+            formal_receipt.validate()
+        elif formal_receipt is not None:
+            raise ValueError("formal_receipt is only valid for FORMALLY_VERIFIED transitions")
+
+        updated: list[Obligation] = []
         for obligation in self._obligations.values():
             if obligation.obligation_id == obligation_id:
-                updated.append(Obligation(obligation_id, state, obligation.depends_on, authority_note))
+                updated.append(
+                    Obligation(
+                        obligation_id,
+                        state,
+                        obligation.depends_on,
+                        authority_note,
+                        formal_receipt,
+                    )
+                )
             else:
                 updated.append(obligation)
         return RHObligationLedger(tuple(updated))
@@ -182,3 +323,14 @@ class RHObligationLedger:
             "dependency_violations": [],
             "highest_leverage_blocker": None,
         }
+
+
+__all__ = [
+    "DEFAULT_OBLIGATIONS",
+    "Obligation",
+    "ObligationState",
+    "ProofKernelReceiptV1",
+    "RHObligationLedger",
+    "VerifiedFormalReceiptV1",
+    "verify_proof_kernel_receipt",
+]
