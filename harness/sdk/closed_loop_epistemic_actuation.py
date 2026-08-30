@@ -18,7 +18,6 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import math
 import re
-from typing import Any
 
 from harness.sdk.sovereign_execution import canonical_hash
 
