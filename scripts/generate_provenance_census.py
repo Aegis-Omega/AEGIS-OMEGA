@@ -35,18 +35,20 @@ EXPECTED_MAIN = "a34d664d66ae9f7c2e729cd4ccb07b74130c660f"
 INTEGRATION_BRANCH = "integration/aegis-universal-intelligence-rh-v1"
 INTEGRATION_PR_NUMBER = 342
 
-# These refs/open PRs were created after the frozen 150/95 source snapshot and
-# are explicitly provenance-classified. Unknown additions remain fail-closed.
+# These refs/PRs were created after the frozen 150/95 source snapshot and are
+# explicitly provenance-classified. Unknown additions remain fail-closed.
 POST_BASELINE_BRANCHES = frozenset(
     {
         INTEGRATION_BRANCH,
         "research/phi-finite-section-congruence-v1",
     }
 )
-# PR #344 is closed as superseded by the current integration base. It remains
-# in critical_dispositions as historical provenance, but is correctly absent
-# from the current open-PR census.
-POST_BASELINE_PRS = frozenset({INTEGRATION_PR_NUMBER})
+# Historical classification is distinct from current live-open membership.
+# PR #344 remains post-baseline provenance even after being closed as
+# superseded, so a fixture containing it must never leak it into the frozen
+# source census. Only #342 is required to be present in the live-open API set.
+POST_BASELINE_PRS = frozenset({INTEGRATION_PR_NUMBER, 344})
+REQUIRED_OPEN_POST_BASELINE_PRS = frozenset({INTEGRATION_PR_NUMBER})
 
 EXPECTED_BASELINE_HEAD_COUNT = 150
 EXPECTED_LIVE_HEAD_COUNT = 152
@@ -82,9 +84,9 @@ def partition_census_prs(
     """Return (frozen_source_prs, current_live_open_prs) with known children isolated."""
     live = sorted(prs, key=lambda pr: int(pr["number"]))
     numbers = {int(pr["number"]) for pr in live}
-    missing = sorted(POST_BASELINE_PRS - numbers)
+    missing = sorted(REQUIRED_OPEN_POST_BASELINE_PRS - numbers)
     if missing:
-        raise RuntimeError(f"classified post-baseline open PR missing: {missing}")
+        raise RuntimeError(f"required post-baseline open PR missing: {missing}")
     baseline = [pr for pr in live if int(pr["number"]) not in POST_BASELINE_PRS]
     return baseline, live
 
