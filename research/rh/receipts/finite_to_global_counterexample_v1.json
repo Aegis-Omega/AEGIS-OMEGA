@@ -1,0 +1,50 @@
+{
+  "authority": "EXACT_RATIONAL_REGRESSION_NOT_PROOF_ASSISTANT",
+  "classification": "REFUTED_SHORTCUT",
+  "dense_union": "union_N span(e_1,...,e_N) = c00, dense in H",
+  "does_not_refute": [
+    "CONTINUOUS_Q_EXTENDS_POSITIVITY_FROM_DENSE_SUBSPACE",
+    "LOWER_SEMICONTINUOUS_CLOSED_FORM_EXTENDS_POSITIVITY_UNDER_ITS_HYPOTHESES"
+  ],
+  "domain": "D = c00 (+) span{u*}",
+  "exact_stage_checks": [
+    {
+      "N": 1,
+      "Q_pN": "1/4",
+      "tail_norm_sq": "1/12"
+    },
+    {
+      "N": 2,
+      "Q_pN": "5/16",
+      "tail_norm_sq": "1/48"
+    },
+    {
+      "N": 4,
+      "Q_pN": "85/256",
+      "tail_norm_sq": "1/768"
+    },
+    {
+      "N": 8,
+      "Q_pN": "21845/65536",
+      "tail_norm_sq": "1/196608"
+    },
+    {
+      "N": 16,
+      "Q_pN": "1431655765/4294967296",
+      "tail_norm_sq": "1/12884901888"
+    }
+  ],
+  "finite_stage_property": "for x in V_N, Q(x)=||x||_2^2 >= 0",
+  "global_weil_positivity_proven": false,
+  "limit_vector": "u*_k = 2^-k",
+  "limit_witness_q": "-1/1",
+  "load_bearing_missing_premise": "CONTINUITY_OR_APPROPRIATE_CLOSED_FORM_LIMIT_THEOREM",
+  "quadratic_form": "Q(v + alpha*u*) = ||v||_2^2 - alpha^2",
+  "receipt_sha256": "646b5b0a9f6dfa48b310562bfefd750b065fce56bd6e36cc62c11b46506d09a3",
+  "refutation_id": "FTG-DENSITY-ALONE-COUNTEREXAMPLE-V1",
+  "refutes": "DENSITY_ALONE_FINITE_STAGE_POSITIVITY_IMPLIES_CLOSURE_POSITIVITY",
+  "rh_authority": "NONE",
+  "rh_proven": false,
+  "schema_version": "1.0.0",
+  "space": "H = l2(N)"
+}
