@@ -1,1 +1,0 @@
-# AEGIS-Ω Agent Ecosystem

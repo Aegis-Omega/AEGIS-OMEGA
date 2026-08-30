@@ -192,6 +192,14 @@ imports the GitHub OIDC verifier and live service module, and emits
 `AGENT_DISPATCH_IMAGE_PASS`. This establishes image buildability for that exact commit; it is
 still not a Cloud Run deployment or production-effect receipt.
 
+Latest code-bearing hosted anchor (2026-08-30): PR #334 at
+`17106c2a169d33f0cfd491b2775e9323f8ebaa30`. Authorization Effect Chain run
+`33298788040`, job `99222932112`, checked out that exact SHA and completed the targeted
+decision/execution/effect suites **105/105**, the resident runtime harness **52/52**, and the
+exact-candidate image inspection with `AGENT_DISPATCH_IMAGE_PASS`. These receipts establish
+candidate behavior only; CodeQL disposition, default-branch admission, deployment, and a live
+production EffectReceipt remain separate obligations.
+
 Platform effect observation never follows HTTP redirects. A `3xx` response is closed and
 classified as `PLATFORM_REDIRECT_REJECTED` before response parsing, so the platform API key
 cannot be forwarded to a redirect target. The live HTTP regression proves both zero target
