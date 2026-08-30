@@ -5,14 +5,15 @@ This script is evidence acquisition only. It never merges, deletes, rebases, or
 moves refs. It fails closed if pagination, counts, or critical exact-head facts
 cannot be established.
 
-The integration branch and its draft PR were created *after* the frozen source
-snapshot. Therefore v1 records two distinct quantities:
+The source snapshot was frozen before the integration branch and later research
+children existed.  Therefore v1 keeps two quantities separate:
 
 - baseline/source state: the original 150 heads and 95 open PRs;
-- live state: baseline plus this integration ref and this integration PR.
+- live state: baseline plus explicitly enumerated post-baseline refs/PRs.
 
-Conflating those counts would make the act of creating the audit branch/PR
-falsify the historical census it is meant to preserve.
+A new, unknown branch or PR is *not* silently subtracted.  It causes census
+drift until it is classified.  This preserves the frozen census while still
+allowing known child research lanes to coexist with the integration branch.
 """
 from __future__ import annotations
 
@@ -29,13 +30,24 @@ EXPECTED_BASE = "d83a9c6b35d4bed6bbe0542b5492a84ad7a4795f"
 EXPECTED_MAIN = "a34d664d66ae9f7c2e729cd4ccb07b74130c660f"
 INTEGRATION_BRANCH = "integration/aegis-universal-intelligence-rh-v1"
 INTEGRATION_PR_NUMBER = 342
+
+# These refs/PRs were created after the frozen 150/95 source snapshot and are
+# explicitly provenance-classified.  Unknown additions remain fail-closed.
+POST_BASELINE_BRANCHES = frozenset(
+    {
+        INTEGRATION_BRANCH,
+        "research/phi-finite-section-congruence-v1",
+    }
+)
+POST_BASELINE_PRS = frozenset({INTEGRATION_PR_NUMBER, 344})
+
 EXPECTED_BASELINE_HEAD_COUNT = 150
-EXPECTED_LIVE_HEAD_COUNT = 151
+EXPECTED_LIVE_HEAD_COUNT = 152
 EXPECTED_OPEN_PRS = 95
 EXPECTED_DRAFT_PRS = 73
 EXPECTED_NONDRAFT_PRS = 22
-EXPECTED_LIVE_OPEN_PRS = 96
-EXPECTED_LIVE_DRAFT_PRS = 74
+EXPECTED_LIVE_OPEN_PRS = 97
+EXPECTED_LIVE_DRAFT_PRS = 75
 EXPECTED_LIVE_NONDRAFT_PRS = 22
 
 
@@ -49,26 +61,24 @@ class RemoteHead:
 def partition_census_heads(heads: list[RemoteHead]) -> tuple[list[RemoteHead], list[RemoteHead]]:
     """Return (frozen_source_heads, current_live_heads) deterministically."""
     live = sorted(heads, key=lambda head: head.name)
-    integration = [head for head in live if head.name == INTEGRATION_BRANCH]
-    if len(integration) != 1:
-        raise RuntimeError(
-            f"integration ref cardinality drift: {len(integration)} != 1 ({INTEGRATION_BRANCH})"
-        )
-    baseline = [head for head in live if head.name != INTEGRATION_BRANCH]
+    names = {head.name for head in live}
+    missing = sorted(POST_BASELINE_BRANCHES - names)
+    if missing:
+        raise RuntimeError(f"classified post-baseline ref missing: {missing}")
+    baseline = [head for head in live if head.name not in POST_BASELINE_BRANCHES]
     return baseline, live
 
 
 def partition_census_prs(
     prs: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Return (frozen_source_prs, current_live_prs) with the self PR isolated."""
+    """Return (frozen_source_prs, current_live_prs) with classified children isolated."""
     live = sorted(prs, key=lambda pr: int(pr["number"]))
-    integration = [pr for pr in live if int(pr["number"]) == INTEGRATION_PR_NUMBER]
-    if len(integration) != 1:
-        raise RuntimeError(
-            f"integration PR cardinality drift: {len(integration)} != 1 (#{INTEGRATION_PR_NUMBER})"
-        )
-    baseline = [pr for pr in live if int(pr["number"]) != INTEGRATION_PR_NUMBER]
+    numbers = {int(pr["number"]) for pr in live}
+    missing = sorted(POST_BASELINE_PRS - numbers)
+    if missing:
+        raise RuntimeError(f"classified post-baseline PR missing: {missing}")
+    baseline = [pr for pr in live if int(pr["number"]) not in POST_BASELINE_PRS]
     return baseline, live
 
 
@@ -167,6 +177,21 @@ def generate(token: str | None) -> dict[str, Any]:
 
     integration_head = next(head for head in live_heads if head.name == INTEGRATION_BRANCH)
     integration_pr = next(pr for pr in live_prs if int(pr["number"]) == INTEGRATION_PR_NUMBER)
+    post_baseline_heads = [
+        asdict(head) for head in live_heads if head.name in POST_BASELINE_BRANCHES
+    ]
+    post_baseline_prs = [
+        {
+            "number": int(pr["number"]),
+            "draft": bool(pr.get("draft", False)),
+            "head_ref": pr["head"]["ref"],
+            "head_sha": pr["head"]["sha"],
+            "base_ref": pr["base"]["ref"],
+            "base_sha": pr["base"]["sha"],
+        }
+        for pr in live_prs
+        if int(pr["number"]) in POST_BASELINE_PRS
+    ]
 
     return {
         "schema_version": "1.0.0",
@@ -176,14 +201,14 @@ def generate(token: str | None) -> dict[str, Any]:
         "census_summary": {
             "total_remote_heads": len(baseline_heads),
             "live_remote_heads_total": len(live_heads),
-            "integration_ref_excluded_from_baseline": INTEGRATION_BRANCH,
+            "post_baseline_refs_excluded_from_baseline": sorted(POST_BASELINE_BRANCHES),
             "open_prs_total": len(baseline_prs),
             "open_prs_draft": drafts,
             "open_prs_nondraft": nondrafts,
             "live_open_prs_total": len(live_prs),
             "live_open_prs_draft": live_drafts,
             "live_open_prs_nondraft": live_nondrafts,
-            "integration_pr_excluded_from_baseline": INTEGRATION_PR_NUMBER,
+            "post_baseline_prs_excluded_from_baseline": sorted(POST_BASELINE_PRS),
         },
         "integration_head": asdict(integration_head),
         "integration_pr": {
@@ -192,6 +217,8 @@ def generate(token: str | None) -> dict[str, Any]:
             "head_sha": integration_pr["head"]["sha"],
             "base_sha": integration_pr["base"]["sha"],
         },
+        "post_baseline_heads": post_baseline_heads,
+        "post_baseline_prs": post_baseline_prs,
         "critical_dispositions": {
             "PR_309": {
                 "exact_head": "1406aacca95fef02a942621a7060e0b6b14a5809",
@@ -233,6 +260,11 @@ def generate(token: str | None) -> dict[str, Any]:
                 "exact_head": "63b566c7fe7830cecf906bf893bf9615d920fc7c",
                 "disposition": "RETAIN_INDEPENDENT_RECONSTRUCTION",
                 "reason": "Independently reconstructs finite prime-phase statements and records the index-set boundary; reported historical integration artefacts remain unreachable.",
+            },
+            "PR_344": {
+                "exact_head": "eea6fe818236246b807d3ed707b6bf3f4133c149",
+                "disposition": "PARALLEL_EXACT_FINITE_CONGRUENCE_FALSIFIER",
+                "reason": "Child research lane from integration@b80139b; exact finite-coordinate congruence only, with no global Weil or RH authority.",
             },
         },
         "remote_heads": [asdict(head) for head in baseline_heads],
