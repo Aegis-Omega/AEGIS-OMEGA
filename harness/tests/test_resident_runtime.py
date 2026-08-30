@@ -440,9 +440,6 @@ class ResidentRuntimeTests(unittest.TestCase):
         self.assertIn("FORBIDDEN_FILE_MUTATION", receipt.reason_codes)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class ProviderTransportRedirectTests(unittest.TestCase):
     """The provider transport must not follow redirects.
@@ -631,3 +628,6 @@ class ProviderTransportOriginPinTests(unittest.TestCase):
                 model_id="test-model",
             )
         self.assertEqual(caught.exception.code, "LOCAL_INFERENCE_ENDPOINT_INVALID")
+
+if __name__ == "__main__":
+    unittest.main()
