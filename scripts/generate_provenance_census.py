@@ -4,6 +4,15 @@
 This script is evidence acquisition only. It never merges, deletes, rebases, or
 moves refs. It fails closed if pagination, counts, or critical exact-head facts
 cannot be established.
+
+The integration branch was created *after* the frozen 150-head source census.
+Therefore v1 records two distinct quantities:
+
+- baseline/source heads: the original 150 heads, excluding this integration ref;
+- live heads: baseline heads plus the integration ref (151 at this checkpoint).
+
+Conflating those counts would make the act of creating the audit branch falsify
+the historical census it is meant to preserve.
 """
 from __future__ import annotations
 
@@ -11,7 +20,6 @@ import argparse
 import json
 import os
 import sys
-import urllib.parse
 import urllib.request
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -19,7 +27,9 @@ from typing import Any
 REPO = "Aegis-Omega/AEGIS-OMEGA"
 EXPECTED_BASE = "d83a9c6b35d4bed6bbe0542b5492a84ad7a4795f"
 EXPECTED_MAIN = "a34d664d66ae9f7c2e729cd4ccb07b74130c660f"
-EXPECTED_HEAD_COUNT = 150
+INTEGRATION_BRANCH = "integration/aegis-universal-intelligence-rh-v1"
+EXPECTED_BASELINE_HEAD_COUNT = 150
+EXPECTED_LIVE_HEAD_COUNT = 151
 EXPECTED_OPEN_PRS = 95
 EXPECTED_DRAFT_PRS = 73
 EXPECTED_NONDRAFT_PRS = 22
@@ -30,6 +40,22 @@ class RemoteHead:
     name: str
     sha: str
     protected: bool
+
+
+def partition_census_heads(heads: list[RemoteHead]) -> tuple[list[RemoteHead], list[RemoteHead]]:
+    """Return (frozen_source_heads, current_live_heads) deterministically.
+
+    Exactly one live integration ref must exist. The frozen source census is the
+    live set with only that self-created audit ref removed.
+    """
+    live = sorted(heads, key=lambda head: head.name)
+    integration = [head for head in live if head.name == INTEGRATION_BRANCH]
+    if len(integration) != 1:
+        raise RuntimeError(
+            f"integration ref cardinality drift: {len(integration)} != 1 ({INTEGRATION_BRANCH})"
+        )
+    baseline = [head for head in live if head.name != INTEGRATION_BRANCH]
+    return baseline, live
 
 
 def _request_json(url: str, token: str | None) -> Any:
@@ -71,7 +97,7 @@ def _pull_requests(token: str | None) -> list[dict[str, Any]]:
 
 def generate(token: str | None) -> dict[str, Any]:
     branches = _paginate("branches", token)
-    heads = [
+    observed_heads = [
         RemoteHead(
             name=row["name"],
             sha=row["commit"]["sha"],
@@ -79,19 +105,25 @@ def generate(token: str | None) -> dict[str, Any]:
         )
         for row in branches
     ]
-    heads.sort(key=lambda h: h.name)
+    baseline_heads, live_heads = partition_census_heads(observed_heads)
 
     prs = _pull_requests(token)
     drafts = sum(1 for pr in prs if pr.get("draft") is True)
     nondrafts = len(prs) - drafts
 
-    main = next((h for h in heads if h.name == "main"), None)
+    main = next((h for h in live_heads if h.name == "main"), None)
     if main is None:
         raise RuntimeError("main branch missing from census")
     if main.sha != EXPECTED_MAIN:
         raise RuntimeError(f"canonical main drift: {main.sha} != {EXPECTED_MAIN}")
-    if len(heads) != EXPECTED_HEAD_COUNT:
-        raise RuntimeError(f"remote-head count drift: {len(heads)} != {EXPECTED_HEAD_COUNT}")
+    if len(baseline_heads) != EXPECTED_BASELINE_HEAD_COUNT:
+        raise RuntimeError(
+            f"baseline remote-head count drift: {len(baseline_heads)} != {EXPECTED_BASELINE_HEAD_COUNT}"
+        )
+    if len(live_heads) != EXPECTED_LIVE_HEAD_COUNT:
+        raise RuntimeError(
+            f"live remote-head count drift: {len(live_heads)} != {EXPECTED_LIVE_HEAD_COUNT}"
+        )
     if (len(prs), drafts, nondrafts) != (
         EXPECTED_OPEN_PRS,
         EXPECTED_DRAFT_PRS,
@@ -103,17 +135,22 @@ def generate(token: str | None) -> dict[str, Any]:
             f"{(EXPECTED_OPEN_PRS, EXPECTED_DRAFT_PRS, EXPECTED_NONDRAFT_PRS)}"
         )
 
+    integration_head = next(head for head in live_heads if head.name == INTEGRATION_BRANCH)
+
     return {
         "schema_version": "1.0.0",
         "repository": REPO,
         "base_ref": EXPECTED_BASE,
         "canonical_main_head": EXPECTED_MAIN,
         "census_summary": {
-            "total_remote_heads": len(heads),
+            "total_remote_heads": len(baseline_heads),
+            "live_remote_heads_total": len(live_heads),
+            "integration_ref_excluded_from_baseline": INTEGRATION_BRANCH,
             "open_prs_total": len(prs),
             "open_prs_draft": drafts,
             "open_prs_nondraft": nondrafts,
         },
+        "integration_head": asdict(integration_head),
         "critical_dispositions": {
             "PR_309": {
                 "exact_head": "1406aacca95fef02a942621a7060e0b6b14a5809",
@@ -146,8 +183,18 @@ def generate(token: str | None) -> dict[str, Any]:
                 "disposition": "EXTRACT_QUOTIENT_KERNEL",
                 "reason": "Exact-rational quotient-stability kernel is machine-bound; constructive-real transport remains OPEN.",
             },
+            "PR_339": {
+                "exact_head": "2f73e0b7db5037f2640ad1d8ee4128e320709a38",
+                "disposition": "RETAIN_EXACT_SOURCE_RECEIPT_BOUNDARY",
+                "reason": "Cross-runtime exact-source receipt is useful provenance evidence; aggregate remains blocked by an unbound local component and carries no RH authority.",
+            },
+            "PR_341": {
+                "exact_head": "63b566c7fe7830cecf906bf893bf9615d920fc7c",
+                "disposition": "RETAIN_INDEPENDENT_RECONSTRUCTION",
+                "reason": "Independently reconstructs finite prime-phase statements and records the index-set boundary; reported historical integration artefacts remain unreachable.",
+            },
         },
-        "remote_heads": [asdict(head) for head in heads],
+        "remote_heads": [asdict(head) for head in baseline_heads],
         "authority_boundary": {
             "model_output_can_mint_authority": False,
             "agent_swarm_can_mint_authority": False,
