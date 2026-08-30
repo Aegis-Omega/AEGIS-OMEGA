@@ -6,13 +6,17 @@ moves refs. It fails closed if pagination, counts, or critical exact-head facts
 cannot be established.
 
 The source snapshot was frozen before the integration branch and later research
-children existed.  Therefore v1 keeps two quantities separate:
+children existed. Therefore v1 keeps two quantities separate:
 
 - baseline/source state: the original 150 heads and 95 open PRs;
-- live state: baseline plus explicitly enumerated post-baseline refs/PRs.
+- live state: baseline plus explicitly enumerated post-baseline *open* PRs/refs.
 
-A new, unknown branch or PR is *not* silently subtracted.  It causes census
-drift until it is classified.  This preserves the frozen census while still
+Closed/superseded PRs are historical provenance, not members of the live-open
+set. Their dispositions remain recorded below, but closing one must not make a
+live-open census internally inconsistent.
+
+A new, unknown branch or open PR is *not* silently subtracted. It causes census
+drift until it is classified. This preserves the frozen census while still
 allowing known child research lanes to coexist with the integration branch.
 """
 from __future__ import annotations
@@ -31,23 +35,26 @@ EXPECTED_MAIN = "a34d664d66ae9f7c2e729cd4ccb07b74130c660f"
 INTEGRATION_BRANCH = "integration/aegis-universal-intelligence-rh-v1"
 INTEGRATION_PR_NUMBER = 342
 
-# These refs/PRs were created after the frozen 150/95 source snapshot and are
-# explicitly provenance-classified.  Unknown additions remain fail-closed.
+# These refs/open PRs were created after the frozen 150/95 source snapshot and
+# are explicitly provenance-classified. Unknown additions remain fail-closed.
 POST_BASELINE_BRANCHES = frozenset(
     {
         INTEGRATION_BRANCH,
         "research/phi-finite-section-congruence-v1",
     }
 )
-POST_BASELINE_PRS = frozenset({INTEGRATION_PR_NUMBER, 344})
+# PR #344 is closed as superseded by the current integration base. It remains
+# in critical_dispositions as historical provenance, but is correctly absent
+# from the current open-PR census.
+POST_BASELINE_PRS = frozenset({INTEGRATION_PR_NUMBER})
 
 EXPECTED_BASELINE_HEAD_COUNT = 150
 EXPECTED_LIVE_HEAD_COUNT = 152
 EXPECTED_OPEN_PRS = 95
 EXPECTED_DRAFT_PRS = 73
 EXPECTED_NONDRAFT_PRS = 22
-EXPECTED_LIVE_OPEN_PRS = 97
-EXPECTED_LIVE_DRAFT_PRS = 75
+EXPECTED_LIVE_OPEN_PRS = 96
+EXPECTED_LIVE_DRAFT_PRS = 74
 EXPECTED_LIVE_NONDRAFT_PRS = 22
 
 
@@ -72,12 +79,12 @@ def partition_census_heads(heads: list[RemoteHead]) -> tuple[list[RemoteHead], l
 def partition_census_prs(
     prs: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Return (frozen_source_prs, current_live_prs) with classified children isolated."""
+    """Return (frozen_source_prs, current_live_open_prs) with known children isolated."""
     live = sorted(prs, key=lambda pr: int(pr["number"]))
     numbers = {int(pr["number"]) for pr in live}
     missing = sorted(POST_BASELINE_PRS - numbers)
     if missing:
-        raise RuntimeError(f"classified post-baseline PR missing: {missing}")
+        raise RuntimeError(f"classified post-baseline open PR missing: {missing}")
     baseline = [pr for pr in live if int(pr["number"]) not in POST_BASELINE_PRS]
     return baseline, live
 
@@ -262,9 +269,9 @@ def generate(token: str | None) -> dict[str, Any]:
                 "reason": "Independently reconstructs finite prime-phase statements and records the index-set boundary; reported historical integration artefacts remain unreachable.",
             },
             "PR_344": {
-                "exact_head": "eea6fe818236246b807d3ed707b6bf3f4133c149",
-                "disposition": "PARALLEL_EXACT_FINITE_CONGRUENCE_FALSIFIER",
-                "reason": "Child research lane from integration@b80139b; exact finite-coordinate congruence only, with no global Weil or RH authority.",
+                "exact_head": "e8dcc005a1e887661b7019f8b7f27d7a3f21a853",
+                "disposition": "CLOSED_SUPERSEDED_BY_CURRENT_BASE",
+                "reason": "The current integration parent already contains byte-identical production-kernel and test blobs; the PR carried no independent semantic delta and was closed to remove duplicate/conflict noise.",
             },
         },
         "remote_heads": [asdict(head) for head in baseline_heads],
