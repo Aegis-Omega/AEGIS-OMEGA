@@ -9,6 +9,7 @@ on:
       - 'harness/sdk/resident_runtime_impl.py'
       - 'sovereign-omega-v2/python/tests/test_closed_loop_epistemic_actuation.py'
       - 'sovereign-omega-v2/python/tests/test_epistemic_receipt_separation.py'
+      - 'sovereign-omega-v2/python/tests/test_evidence_replay_binding.py'
       - 'sovereign-omega-v2/python/tests/test_fiber_refinement_authority.py'
       - 'sovereign-omega-v2/python/tests/test_resident_learning_effect.py'
       - '.github/workflows/closed-loop-epistemic-actuation.yml'
@@ -22,6 +23,7 @@ on:
       - 'harness/sdk/resident_runtime_impl.py'
       - 'sovereign-omega-v2/python/tests/test_closed_loop_epistemic_actuation.py'
       - 'sovereign-omega-v2/python/tests/test_epistemic_receipt_separation.py'
+      - 'sovereign-omega-v2/python/tests/test_evidence_replay_binding.py'
       - 'sovereign-omega-v2/python/tests/test_fiber_refinement_authority.py'
       - 'sovereign-omega-v2/python/tests/test_resident_learning_effect.py'
       - '.github/workflows/closed-loop-epistemic-actuation.yml'
@@ -61,5 +63,6 @@ jobs:
           pytest -q \
             sovereign-omega-v2/python/tests/test_closed_loop_epistemic_actuation.py \
             sovereign-omega-v2/python/tests/test_epistemic_receipt_separation.py \
+            sovereign-omega-v2/python/tests/test_evidence_replay_binding.py \
             sovereign-omega-v2/python/tests/test_resident_learning_effect.py \
             sovereign-omega-v2/python/tests/test_fiber_refinement_authority.py
