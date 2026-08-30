@@ -8,6 +8,7 @@ on:
       - 'harness/sdk/rkhs_dominance_kernel.py'
       - 'harness/sdk/weil_spectral_inertia_probe.py'
       - 'harness/sdk/weil_levy_gap_probe.py'
+      - 'harness/sdk/weil_prime_support_kernel.py'
       - 'sovereign-omega-v2/python/tests/test_universal_intelligence_rh_gates.py'
       - 'scripts/generate_provenance_census.py'
       - 'docs/audits/provenance_census_v1.json'
@@ -18,6 +19,8 @@ on:
       - 'research/rh/test_rh_status_ledger.py'
       - 'research/rh/test_rkhs_dominance_kernel.py'
       - 'research/rh/test_weil_spectral_inertia_probe.py'
+      - 'research/rh/test_weil_prime_support_kernel.py'
+      - 'research/rh/test_weil_prime_tail_cancellation.py'
       - 'research/rh/proof-obligations-v1.json'
       - 'research/rh/receipts/finite_to_global_counterexample_v1.json'
       - 'research/rh/phi_spectral_probe_reference_v1.json'
@@ -31,6 +34,7 @@ on:
       - 'harness/sdk/rkhs_dominance_kernel.py'
       - 'harness/sdk/weil_spectral_inertia_probe.py'
       - 'harness/sdk/weil_levy_gap_probe.py'
+      - 'harness/sdk/weil_prime_support_kernel.py'
       - 'sovereign-omega-v2/python/tests/test_universal_intelligence_rh_gates.py'
       - 'scripts/generate_provenance_census.py'
       - 'docs/audits/provenance_census_v1.json'
@@ -41,6 +45,8 @@ on:
       - 'research/rh/test_rh_status_ledger.py'
       - 'research/rh/test_rkhs_dominance_kernel.py'
       - 'research/rh/test_weil_spectral_inertia_probe.py'
+      - 'research/rh/test_weil_prime_support_kernel.py'
+      - 'research/rh/test_weil_prime_tail_cancellation.py'
       - 'research/rh/proof-obligations-v1.json'
       - 'research/rh/receipts/finite_to_global_counterexample_v1.json'
       - 'research/rh/phi_spectral_probe_reference_v1.json'
@@ -83,6 +89,7 @@ jobs:
             harness/sdk/rkhs_dominance_kernel.py \
             harness/sdk/weil_spectral_inertia_probe.py \
             harness/sdk/weil_levy_gap_probe.py \
+            harness/sdk/weil_prime_support_kernel.py \
             research/rh/finite_to_global_counterexample.py \
             scripts/generate_provenance_census.py
 
@@ -96,7 +103,9 @@ jobs:
             research/rh/test_phi_spectral_probe_cli.py \
             research/rh/test_rh_status_ledger.py \
             research/rh/test_rkhs_dominance_kernel.py \
-            research/rh/test_weil_spectral_inertia_probe.py
+            research/rh/test_weil_spectral_inertia_probe.py \
+            research/rh/test_weil_prime_support_kernel.py \
+            research/rh/test_weil_prime_tail_cancellation.py
 
       - name: Run canonical phi spectral replay
         env:
