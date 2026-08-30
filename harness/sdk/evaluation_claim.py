@@ -9,8 +9,11 @@ authenticated, tamper-resistant, distributed, or externally timestamped ledger.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import re
 import sqlite3
+import weakref
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -24,6 +27,8 @@ SAFE_ID_RE = re.compile(r"^[A-Za-z0-9._:/@+#=-]+$")
 
 COMPUTE_BUDGET_KIND = "COMPUTE_BUDGET_V1"
 COMPUTE_MATCHED_BASELINE_KIND = "COMPUTE_MATCHED_BASELINE_SPEC_V1"
+COMPUTE_USAGE_OBSERVATION_KIND = "COMPUTE_USAGE_OBSERVATION_V1"
+COMPUTE_USAGE_ATTESTATION_KIND = "COMPUTE_USAGE_HMAC_ATTESTATION_V1"
 BASELINE_NOISE_CALIBRATION_KIND = "BASELINE_NOISE_CALIBRATION_V1"
 METRIC_COMPARISON_KIND = "METRIC_COMPARISON_V1"
 STRUCTURAL_VALUE_CLAIM_KIND = "PREREGISTERED_STRUCTURAL_VALUE_CLAIM_V1"
@@ -59,6 +64,11 @@ class BaselineStrategy(str, Enum):
 class CollectiveClaimStatus(str, Enum):
     SATISFIED = "SATISFIED"
     FALSIFIED = "FALSIFIED"
+
+
+class ComputeUsageRole(str, Enum):
+    SYSTEM = "SYSTEM"
+    BASELINE = "BASELINE"
 
 
 @dataclass(frozen=True)
@@ -100,6 +110,206 @@ class ComputeBudgetV1:
 
 
 @dataclass(frozen=True)
+class ComputeUsageObservationV1:
+    run_id: str
+    campaign_root: str
+    role: ComputeUsageRole
+    runtime_commitment: str
+    input_tokens: int
+    output_tokens: int
+    model_calls: int
+    tool_calls: int
+    execution_receipt_bundle_commitment: str
+    meter_source_commitment: str
+    observation_kind: str = COMPUTE_USAGE_OBSERVATION_KIND
+
+    def __post_init__(self) -> None:
+        self.validate()
+
+    def validate(self) -> None:
+        if self.observation_kind != COMPUTE_USAGE_OBSERVATION_KIND:
+            raise EvaluationCampaignError("COMPUTE_USAGE_OBSERVATION_KIND_MISMATCH")
+        _require_id("run_id", self.run_id)
+        _require_nonzero_hash("campaign_root", self.campaign_root)
+        if not isinstance(self.role, ComputeUsageRole):
+            raise EvaluationCampaignError("COMPUTE_USAGE_ROLE_INVALID")
+        _require_nonzero_hash("runtime_commitment", self.runtime_commitment)
+        _require_nonnegative_int("input_tokens", self.input_tokens)
+        _require_nonnegative_int("output_tokens", self.output_tokens)
+        _require_nonnegative_int("model_calls", self.model_calls)
+        _require_nonnegative_int("tool_calls", self.tool_calls)
+        _require_nonzero_hash(
+            "execution_receipt_bundle_commitment",
+            self.execution_receipt_bundle_commitment,
+        )
+        _require_nonzero_hash("meter_source_commitment", self.meter_source_commitment)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "observation_kind": self.observation_kind,
+            "run_id": self.run_id,
+            "campaign_root": self.campaign_root,
+            "role": self.role.value,
+            "runtime_commitment": self.runtime_commitment,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "model_calls": self.model_calls,
+            "tool_calls": self.tool_calls,
+            "execution_receipt_bundle_commitment": self.execution_receipt_bundle_commitment,
+            "meter_source_commitment": self.meter_source_commitment,
+        }
+
+
+_METER_ISSUED_OBSERVATIONS: dict[int, weakref.ReferenceType[ComputeUsageObservationV1]] = {}
+
+
+def _mark_meter_issued(observation: ComputeUsageObservationV1) -> None:
+    object_id = id(observation)
+
+    def _cleanup(ref: weakref.ReferenceType[ComputeUsageObservationV1]) -> None:
+        if _METER_ISSUED_OBSERVATIONS.get(object_id) is ref:
+            _METER_ISSUED_OBSERVATIONS.pop(object_id, None)
+
+    _METER_ISSUED_OBSERVATIONS[object_id] = weakref.ref(observation, _cleanup)
+
+
+def _is_meter_issued(observation: ComputeUsageObservationV1) -> bool:
+    ref = _METER_ISSUED_OBSERVATIONS.get(id(observation))
+    return ref is not None and ref() is observation
+
+
+class LocalComputeUsageMeterV1:
+    """Local reference meter.
+
+    Provenance is process-local by design: only observations returned by
+    ``observe`` are eligible for portable signing. The HMAC attestation is the
+    portable evidence; a publicly constructed look-alike cannot be signed.
+    """
+
+    def __init__(self, *, meter_source_commitment: str) -> None:
+        _require_nonzero_hash("meter_source_commitment", meter_source_commitment)
+        self.meter_source_commitment = meter_source_commitment
+
+    def observe(
+        self,
+        *,
+        run_id: str,
+        campaign_root: str,
+        role: ComputeUsageRole,
+        runtime_commitment: str,
+        input_tokens: int,
+        output_tokens: int,
+        model_calls: int,
+        tool_calls: int,
+        execution_receipt_bundle_commitment: str,
+    ) -> ComputeUsageObservationV1:
+        observation = ComputeUsageObservationV1(
+            run_id=run_id,
+            campaign_root=campaign_root,
+            role=role,
+            runtime_commitment=runtime_commitment,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            model_calls=model_calls,
+            tool_calls=tool_calls,
+            execution_receipt_bundle_commitment=execution_receipt_bundle_commitment,
+            meter_source_commitment=self.meter_source_commitment,
+        )
+        _mark_meter_issued(observation)
+        return observation
+
+
+@dataclass(frozen=True)
+class ComputeUsageHMACAttestationV1:
+    run_id: str
+    campaign_root: str
+    role: ComputeUsageRole
+    runtime_commitment: str
+    input_tokens: int
+    output_tokens: int
+    model_calls: int
+    tool_calls: int
+    execution_receipt_bundle_commitment: str
+    meter_source_commitment: str
+    key_id: str
+    mac_hex: str
+    attestation_kind: str = COMPUTE_USAGE_ATTESTATION_KIND
+
+    def observation(self) -> ComputeUsageObservationV1:
+        return ComputeUsageObservationV1(
+            run_id=self.run_id,
+            campaign_root=self.campaign_root,
+            role=self.role,
+            runtime_commitment=self.runtime_commitment,
+            input_tokens=self.input_tokens,
+            output_tokens=self.output_tokens,
+            model_calls=self.model_calls,
+            tool_calls=self.tool_calls,
+            execution_receipt_bundle_commitment=self.execution_receipt_bundle_commitment,
+            meter_source_commitment=self.meter_source_commitment,
+        )
+
+
+class PortableComputeUsageHMACV1:
+    def __init__(self, *, key_id: str, secret_key: bytes) -> None:
+        _require_id("key_id", key_id)
+        if not isinstance(secret_key, bytes) or len(secret_key) < 16:
+            raise EvaluationCampaignError("COMPUTE_USAGE_HMAC_KEY_INVALID")
+        self.key_id = key_id
+        self._secret_key = secret_key
+
+    @staticmethod
+    def _message(observation: ComputeUsageObservationV1) -> bytes:
+        observation.validate()
+        digest = canonical_hash(
+            "AEGIS_UCI8_COMPUTE_USAGE_OBSERVATION_HMAC_V1",
+            observation.to_dict(),
+        )
+        return digest.encode("ascii")
+
+    def issue(self, observation: ComputeUsageObservationV1) -> ComputeUsageHMACAttestationV1:
+        if not _is_meter_issued(observation):
+            raise EvaluationCampaignError("COMPUTE_USAGE_ISSUER_REQUIRES_METER_OBSERVATION")
+        observation.validate()
+        mac_hex = hmac.new(
+            self._secret_key,
+            self._message(observation),
+            hashlib.sha256,
+        ).hexdigest()
+        return ComputeUsageHMACAttestationV1(
+            run_id=observation.run_id,
+            campaign_root=observation.campaign_root,
+            role=observation.role,
+            runtime_commitment=observation.runtime_commitment,
+            input_tokens=observation.input_tokens,
+            output_tokens=observation.output_tokens,
+            model_calls=observation.model_calls,
+            tool_calls=observation.tool_calls,
+            execution_receipt_bundle_commitment=observation.execution_receipt_bundle_commitment,
+            meter_source_commitment=observation.meter_source_commitment,
+            key_id=self.key_id,
+            mac_hex=mac_hex,
+        )
+
+    def verify(self, attestation: ComputeUsageHMACAttestationV1) -> ComputeUsageObservationV1:
+        if not isinstance(attestation, ComputeUsageHMACAttestationV1):
+            raise EvaluationCampaignError("COMPUTE_USAGE_ATTESTATION_INVALID")
+        if attestation.attestation_kind != COMPUTE_USAGE_ATTESTATION_KIND:
+            raise EvaluationCampaignError("COMPUTE_USAGE_ATTESTATION_KIND_MISMATCH")
+        if attestation.key_id != self.key_id:
+            raise EvaluationCampaignError("COMPUTE_USAGE_KEY_ID_MISMATCH")
+        observation = attestation.observation()
+        expected = hmac.new(
+            self._secret_key,
+            self._message(observation),
+            hashlib.sha256,
+        ).hexdigest()
+        if not hmac.compare_digest(attestation.mac_hex, expected):
+            raise EvaluationCampaignError("COMPUTE_USAGE_MAC_INVALID")
+        return observation
+
+
+@dataclass(frozen=True)
 class ComputeMatchedBaselineSpecV1:
     campaign_root: str
     strongest_constituent_runtime_commitment: str
@@ -108,6 +318,7 @@ class ComputeMatchedBaselineSpecV1:
     baseline_total_budget: ComputeBudgetV1
     strategy: BaselineStrategy
     strategy_commitment: str
+    meter_source_commitment: str | None = None
     spec_kind: str = COMPUTE_MATCHED_BASELINE_KIND
 
     @classmethod
@@ -121,6 +332,7 @@ class ComputeMatchedBaselineSpecV1:
         baseline_total_budget: ComputeBudgetV1,
         strategy: BaselineStrategy,
         strategy_commitment: str,
+        meter_source_commitment: str | None = None,
     ) -> "ComputeMatchedBaselineSpecV1":
         spec = cls(
             campaign_root=campaign_root,
@@ -130,6 +342,7 @@ class ComputeMatchedBaselineSpecV1:
             baseline_total_budget=baseline_total_budget,
             strategy=strategy,
             strategy_commitment=strategy_commitment,
+            meter_source_commitment=meter_source_commitment,
         )
         spec.validate()
         return spec
@@ -144,6 +357,8 @@ class ComputeMatchedBaselineSpecV1:
             "strategy_commitment",
         ):
             _require_nonzero_hash(name, getattr(self, name))
+        if self.meter_source_commitment is not None:
+            _require_nonzero_hash("meter_source_commitment", self.meter_source_commitment)
         self.system_total_budget.validate()
         self.baseline_total_budget.validate()
         if self.baseline_runtime_commitment != self.strongest_constituent_runtime_commitment:
@@ -162,7 +377,7 @@ class ComputeMatchedBaselineSpecV1:
             raise EvaluationCampaignError("BASELINE_STRATEGY_INVALID")
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        data: dict[str, object] = {
             "spec_kind": self.spec_kind,
             "campaign_root": self.campaign_root,
             "strongest_constituent_runtime_commitment": self.strongest_constituent_runtime_commitment,
@@ -172,6 +387,9 @@ class ComputeMatchedBaselineSpecV1:
             "strategy": self.strategy.value,
             "strategy_commitment": self.strategy_commitment,
         }
+        if self.meter_source_commitment is not None:
+            data["meter_source_commitment"] = self.meter_source_commitment
+        return data
 
     @property
     def root(self) -> str:
@@ -321,6 +539,59 @@ class StructuralValueClaimEvaluationV1:
         }
 
 
+def _actual_compute_match_v1(
+    *,
+    spec: ComputeMatchedBaselineSpecV1,
+    system_usage: ComputeUsageHMACAttestationV1 | None,
+    baseline_usage: ComputeUsageHMACAttestationV1 | None,
+    usage_verifier: PortableComputeUsageHMACV1 | None,
+) -> None:
+    if spec.meter_source_commitment is None:
+        if system_usage is None and baseline_usage is None and usage_verifier is None:
+            return
+        raise EvaluationCampaignError("ACTUAL_COMPUTE_METER_SOURCE_NOT_PREREGISTERED")
+    if system_usage is None or baseline_usage is None or usage_verifier is None:
+        raise EvaluationCampaignError("ACTUAL_COMPUTE_MATCH_REQUIRED")
+
+    system = usage_verifier.verify(system_usage)
+    baseline = usage_verifier.verify(baseline_usage)
+
+    if system.role is not ComputeUsageRole.SYSTEM or baseline.role is not ComputeUsageRole.BASELINE:
+        raise EvaluationCampaignError("ACTUAL_COMPUTE_ROLE_MISMATCH")
+    if system.run_id != baseline.run_id:
+        raise EvaluationCampaignError("ACTUAL_COMPUTE_RUN_ID_MISMATCH")
+    if system.campaign_root != spec.campaign_root or baseline.campaign_root != spec.campaign_root:
+        raise EvaluationCampaignError("ACTUAL_COMPUTE_CAMPAIGN_ROOT_MISMATCH")
+    if (
+        system.meter_source_commitment != spec.meter_source_commitment
+        or baseline.meter_source_commitment != spec.meter_source_commitment
+    ):
+        raise EvaluationCampaignError("ACTUAL_COMPUTE_METER_SOURCE_MISMATCH")
+    if baseline.runtime_commitment != spec.baseline_runtime_commitment:
+        raise EvaluationCampaignError("ACTUAL_COMPUTE_BASELINE_RUNTIME_MISMATCH")
+
+    sb = spec.system_total_budget
+    bb = spec.baseline_total_budget
+    if (
+        system.input_tokens > sb.max_input_tokens
+        or system.output_tokens > sb.max_output_tokens
+        or system.model_calls > sb.max_model_calls
+        or system.tool_calls > sb.max_tool_calls
+        or baseline.input_tokens > bb.max_input_tokens
+        or baseline.output_tokens > bb.max_output_tokens
+        or baseline.model_calls > bb.max_model_calls
+        or baseline.tool_calls > bb.max_tool_calls
+    ):
+        raise EvaluationCampaignError("ACTUAL_COMPUTE_USAGE_EXCEEDS_PREREGISTERED_CAP")
+
+    if baseline.input_tokens < system.input_tokens or baseline.output_tokens < system.output_tokens:
+        raise EvaluationCampaignError("ACTUAL_COMPUTE_BASELINE_TOKEN_USAGE_INSUFFICIENT")
+    if baseline.model_calls < system.model_calls:
+        raise EvaluationCampaignError("ACTUAL_COMPUTE_BASELINE_MODEL_CALLS_INSUFFICIENT")
+    if baseline.tool_calls < system.tool_calls:
+        raise EvaluationCampaignError("ACTUAL_COMPUTE_BASELINE_TOOL_CALLS_INSUFFICIENT")
+
+
 @dataclass(frozen=True)
 class PreregisteredStructuralValueClaimV1:
     campaign_root: str
@@ -381,8 +652,21 @@ class PreregisteredStructuralValueClaimV1:
         self.validate()
         return canonical_hash("AEGIS_UCI8_PREREGISTERED_STRUCTURAL_VALUE_CLAIM_V1", self.to_dict())
 
-    def evaluate(self, comparisons: Iterable[MetricComparisonV1]) -> StructuralValueClaimEvaluationV1:
+    def evaluate(
+        self,
+        comparisons: Iterable[MetricComparisonV1],
+        *,
+        system_usage: ComputeUsageHMACAttestationV1 | None = None,
+        baseline_usage: ComputeUsageHMACAttestationV1 | None = None,
+        usage_verifier: PortableComputeUsageHMACV1 | None = None,
+    ) -> StructuralValueClaimEvaluationV1:
         self.validate()
+        _actual_compute_match_v1(
+            spec=self.compute_matched_baseline,
+            system_usage=system_usage,
+            baseline_usage=baseline_usage,
+            usage_verifier=usage_verifier,
+        )
         comparison_tuple = tuple(comparisons)
         calibration_by_metric = {calibration.metric_id: calibration for calibration in self.calibrations}
         comparison_ids = [comparison.metric_id for comparison in comparison_tuple]

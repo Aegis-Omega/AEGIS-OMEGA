@@ -42,6 +42,7 @@
     "strategy": {
       "enum": ["BEST_OF_N_DETERMINISTIC_CHECKER", "SELF_CONSISTENCY_DETERMINISTIC_AGGREGATOR"]
     },
-    "strategy_commitment": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"}
+    "strategy_commitment": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "meter_source_commitment": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"}
   }
 }
