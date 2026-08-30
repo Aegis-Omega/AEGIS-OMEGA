@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import math
-
 import numpy as np
 
 from harness.sdk.weil_prime_support_kernel import (
