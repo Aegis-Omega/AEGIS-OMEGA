@@ -52,7 +52,7 @@ def test_evidence_plane_cannot_mint_authority():
     assert plane.may_mint_admission_authority is False
 
 
-def test_positive_observation_promotes_only_to_empirical():
+def test_positive_observation_without_bound_replay_stays_hypothesis():
     plane = UniversalIntelligenceEvidencePlane(EvaluationCampaignContract("campaign-v1"))
     accepted = plane.record_falsification_run(
         EvidenceObservation(
@@ -62,8 +62,9 @@ def test_positive_observation_promotes_only_to_empirical():
             reproducible_receipt_sha="sha256:test",
         )
     )
-    assert accepted is True
-    assert plane.recorded_evidence[-1].tier is EpistemicAuthorityTier.T1_EMPIRICAL
+    assert accepted is False
+    assert plane.recorded_evidence[-1].tier is EpistemicAuthorityTier.T2_HYPOTHESIS
+    assert "REPLAY_RECEIPT_UNVERIFIED" in plane.recorded_evidence[-1].verification_reason_codes
     assert plane.evaluate_generalization_status()["agi_proven"] is False
 
 
