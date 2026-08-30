@@ -191,7 +191,7 @@ def test_resident_derives_v2_evidence_from_dereferenced_run_bundle() -> None:
         assert receipt.observation_receipt_root == run_receipt.self_model["observation_receipt_root"]
         assert receipt.provenance_roots == run_receipt.evidence_roots
 
-        # Tampering with the persisted run bundle must make a fresh acquisition fail closed.
+        # Tampering with the persisted run body must make a fresh acquisition fail closed.
         run_path = Path(tmp) / "resident" / "runs" / f"{run_receipt.run_id}.json"
         original = run_path.read_text(encoding="utf-8")
         run_path.write_text(original.replace('"integrity_scope"', '"integrity_scope_tampered"', 1), encoding="utf-8")
@@ -203,3 +203,24 @@ def test_resident_derives_v2_evidence_from_dereferenced_run_bundle() -> None:
         )
         assert failed.status == EVIDENCE_ACQUISITION_UNESTABLISHED
         assert failed.evidence_established is False
+
+        # Tampering only with the outer digest must also fail closed. Recomputing
+        # bundle_body alone is insufficient because the resident replay contract
+        # binds the outer envelope, outer receipt, and event lineage too.
+        run_path.write_text(original, encoding="utf-8")
+        zero = _sha("0")
+        outer_tampered = original.replace(
+            f'"bundle_digest":"{run_receipt.bundle_digest}"',
+            f'"bundle_digest":"{zero}"',
+            1,
+        )
+        assert outer_tampered != original
+        run_path.write_text(outer_tampered, encoding="utf-8")
+        failed_outer = record_replayed_evidence_acquisition(
+            runtime,
+            acquisition_id="evidence:resident-replay:outer-tampered",
+            run_id=run_receipt.run_id,
+            source_kind="RESIDENT_RUN_BUNDLE",
+        )
+        assert failed_outer.status == EVIDENCE_ACQUISITION_UNESTABLISHED
+        assert failed_outer.evidence_established is False
