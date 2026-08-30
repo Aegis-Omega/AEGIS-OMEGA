@@ -242,7 +242,7 @@ def test_census_keeps_original_95_pr_snapshot_separate_from_classified_post_base
 
 
 def test_closed_verified_child_is_not_required_in_live_open_pr_set():
-    assert REQUIRED_OPEN_POST_BASELINE_PRS == frozenset({342})
+    assert REQUIRED_OPEN_POST_BASELINE_PRS == frozenset({342, 347})
 
 
 def test_density_alone_shortcut_has_exact_counterexample():
