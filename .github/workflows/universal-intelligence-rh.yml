@@ -73,6 +73,7 @@ jobs:
             harness/sdk/universal_intelligence_evidence.py \
             harness/sdk/rh_obligation_gate.py \
             harness/sdk/rkhs_dominance_kernel.py \
+            harness/sdk/weil_spectral_inertia_probe.py \
             research/rh/finite_to_global_counterexample.py \
             scripts/generate_provenance_census.py
 
@@ -114,18 +115,23 @@ jobs:
           p=json.load(open('/tmp/provenance_census_v1.json'))
           s=p['census_summary']
           assert s['total_remote_heads'] == 150
-          assert s['live_remote_heads_total'] == 151
+          assert s['live_remote_heads_total'] == 152
           assert s['open_prs_total'] == 95
           assert s['open_prs_draft'] == 73
           assert s['open_prs_nondraft'] == 22
-          assert s['live_open_prs_total'] == 96
-          assert s['live_open_prs_draft'] == 74
+          assert s['live_open_prs_total'] == 97
+          assert s['live_open_prs_draft'] == 75
           assert s['live_open_prs_nondraft'] == 22
           assert len(p['remote_heads']) == 150
           assert p['integration_head']['name'] == 'integration/aegis-universal-intelligence-rh-v1'
           assert p['integration_pr']['number'] == 342
+          assert {x['name'] for x in p['post_baseline_heads']} == {
+              'integration/aegis-universal-intelligence-rh-v1',
+              'research/phi-finite-section-congruence-v1',
+          }
+          assert {x['number'] for x in p['post_baseline_prs']} == {342, 344}
           assert p['authority_boundary']['model_output_can_mint_authority'] is False
-          print('CENSUS_PASS baseline=150/95 live=151/96')
+          print('CENSUS_PASS baseline=150/95 live=152/97 classified_post_baseline=2')
           PY
 
       - name: Confirm RH remains fail-closed from machine ledger
