@@ -11,12 +11,15 @@ on:
       - 'scripts/generate_provenance_census.py'
       - 'docs/audits/provenance_census_v1.json'
       - 'research/rh/finite_to_global_counterexample.py'
+      - 'research/rh/run_phi_spectral_probe.py'
       - 'research/rh/test_finite_to_global_counterexample.py'
+      - 'research/rh/test_phi_spectral_probe_cli.py'
       - 'research/rh/test_rh_status_ledger.py'
       - 'research/rh/test_rkhs_dominance_kernel.py'
       - 'research/rh/test_weil_spectral_inertia_probe.py'
       - 'research/rh/proof-obligations-v1.json'
       - 'research/rh/receipts/finite_to_global_counterexample_v1.json'
+      - 'research/rh/phi_spectral_probe_reference_v1.json'
       - '.github/workflows/universal-intelligence-rh.yml'
   push:
     branches:
@@ -30,12 +33,15 @@ on:
       - 'scripts/generate_provenance_census.py'
       - 'docs/audits/provenance_census_v1.json'
       - 'research/rh/finite_to_global_counterexample.py'
+      - 'research/rh/run_phi_spectral_probe.py'
       - 'research/rh/test_finite_to_global_counterexample.py'
+      - 'research/rh/test_phi_spectral_probe_cli.py'
       - 'research/rh/test_rh_status_ledger.py'
       - 'research/rh/test_rkhs_dominance_kernel.py'
       - 'research/rh/test_weil_spectral_inertia_probe.py'
       - 'research/rh/proof-obligations-v1.json'
       - 'research/rh/receipts/finite_to_global_counterexample_v1.json'
+      - 'research/rh/phi_spectral_probe_reference_v1.json'
       - '.github/workflows/universal-intelligence-rh.yml'
 
 permissions:
@@ -84,9 +90,17 @@ jobs:
           pytest -q \
             sovereign-omega-v2/python/tests/test_universal_intelligence_rh_gates.py \
             research/rh/test_finite_to_global_counterexample.py \
+            research/rh/test_phi_spectral_probe_cli.py \
             research/rh/test_rh_status_ledger.py \
             research/rh/test_rkhs_dominance_kernel.py \
             research/rh/test_weil_spectral_inertia_probe.py
+
+      - name: Run canonical phi spectral replay
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python research/rh/run_phi_spectral_probe.py --output /tmp/phi-spectral-probe.json
+          cat /tmp/phi-spectral-probe.json
 
       - name: Verify deterministic refutation receipt
         env:
