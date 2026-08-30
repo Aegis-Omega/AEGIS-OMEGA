@@ -39,27 +39,40 @@ LEVY_RESEARCH_PR_NUMBER = 345
 LEVY_NEGATIVITY_PR_NUMBER = 346
 LEVY_VERIFIED_HEAD = "62ccb4318100d6618a5a242983fa753dd7ed5a18"
 LEVY_NEGATIVITY_VERIFIED_HEAD = "e7d9009233ea69631263853bbf9ecffa2454e34a"
+PRIME_TRIG_BRANCH = "proof/weil-constructive-prime-trig-v1"
+PRIME_TRIG_PR_NUMBER = 347
+PRIME_TRIG_HEAD = "47dbd953a7c8de01186de84846e6fe9c66cebaf7"
 
 POST_BASELINE_BRANCHES = frozenset(
     {
         INTEGRATION_BRANCH,
         "research/phi-finite-section-congruence-v1",
         LEVY_RESEARCH_BRANCH,
+        PRIME_TRIG_BRANCH,
     }
 )
 # PRs #344, #345, and #346 are historical post-baseline provenance after closure.
+# PRs #342 and #347 remain live/open and therefore are required below.
 POST_BASELINE_PRS = frozenset(
-    {INTEGRATION_PR_NUMBER, 344, LEVY_RESEARCH_PR_NUMBER, LEVY_NEGATIVITY_PR_NUMBER}
+    {
+        INTEGRATION_PR_NUMBER,
+        344,
+        LEVY_RESEARCH_PR_NUMBER,
+        LEVY_NEGATIVITY_PR_NUMBER,
+        PRIME_TRIG_PR_NUMBER,
+    }
 )
-REQUIRED_OPEN_POST_BASELINE_PRS = frozenset({INTEGRATION_PR_NUMBER})
+REQUIRED_OPEN_POST_BASELINE_PRS = frozenset(
+    {INTEGRATION_PR_NUMBER, PRIME_TRIG_PR_NUMBER}
+)
 
 EXPECTED_BASELINE_HEAD_COUNT = 150
-EXPECTED_LIVE_HEAD_COUNT = 153
+EXPECTED_LIVE_HEAD_COUNT = 154
 EXPECTED_OPEN_PRS = 95
 EXPECTED_DRAFT_PRS = 73
 EXPECTED_NONDRAFT_PRS = 22
-EXPECTED_LIVE_OPEN_PRS = 96
-EXPECTED_LIVE_DRAFT_PRS = 74
+EXPECTED_LIVE_OPEN_PRS = 97
+EXPECTED_LIVE_DRAFT_PRS = 75
 EXPECTED_LIVE_NONDRAFT_PRS = 22
 
 
@@ -302,6 +315,17 @@ def generate(token: str | None) -> dict[str, Any]:
                     "universal_intelligence_rh_gate_integration": 33297949571,
                 },
                 "reason": "Exact-head state-space boundary was selectively transplanted after GREEN verification. The refutation is limited to the compact spectral C_c^infinity zero-moment surrogate; Paley-Wiener/classical Weil admissibility, untruncated renormalized semantics, global Weil positivity, and RH remain open/non-promoted.",
+            },
+            "PR_347": {
+                "exact_head": PRIME_TRIG_HEAD,
+                "head_ref": PRIME_TRIG_BRANCH,
+                "disposition": "OPEN_DRAFT_CONSTRUCTIVE_PRIME_TRIG_RESEARCH",
+                "authority": "OPEN_RED_PROOFLINE_NO_RH_AUTHORITY",
+                "reason": (
+                    "Legitimate post-baseline constructive prime-trigonometric proof lane. "
+                    "The PR explicitly reports its current checkpoint as RED; no prime-diagonal closure, "
+                    "global Weil positivity, or RH authority is promoted by census classification."
+                ),
             },
         },
         "remote_heads": [asdict(head) for head in baseline_heads],
