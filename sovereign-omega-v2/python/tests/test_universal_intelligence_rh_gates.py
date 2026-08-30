@@ -19,6 +19,7 @@ from research.rh.finite_to_global_counterexample import (
     truncation_q,
 )
 from scripts.generate_provenance_census import (
+    REQUIRED_OPEN_POST_BASELINE_PRS,
     RemoteHead,
     partition_census_heads,
     partition_census_prs,
@@ -154,6 +155,10 @@ def test_census_keeps_original_95_pr_snapshot_separate_from_classified_post_base
     assert phi_child_pr in live
     assert integration_pr not in baseline
     assert phi_child_pr not in baseline
+
+
+def test_closed_verified_child_is_not_required_in_live_open_pr_set():
+    assert REQUIRED_OPEN_POST_BASELINE_PRS == frozenset({342})
 
 
 def test_density_alone_shortcut_has_exact_counterexample():
