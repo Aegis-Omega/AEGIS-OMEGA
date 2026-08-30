@@ -5,12 +5,14 @@ on:
     paths:
       - 'harness/sdk/universal_intelligence_evidence.py'
       - 'harness/sdk/rh_obligation_gate.py'
+      - 'harness/sdk/rkhs_dominance_kernel.py'
       - 'sovereign-omega-v2/python/tests/test_universal_intelligence_rh_gates.py'
       - 'scripts/generate_provenance_census.py'
       - 'docs/audits/provenance_census_v1.json'
       - 'research/rh/finite_to_global_counterexample.py'
       - 'research/rh/test_finite_to_global_counterexample.py'
       - 'research/rh/test_rh_status_ledger.py'
+      - 'research/rh/test_rkhs_dominance_kernel.py'
       - 'research/rh/proof-obligations-v1.json'
       - 'research/rh/receipts/finite_to_global_counterexample_v1.json'
       - '.github/workflows/universal-intelligence-rh.yml'
@@ -20,12 +22,14 @@ on:
     paths:
       - 'harness/sdk/universal_intelligence_evidence.py'
       - 'harness/sdk/rh_obligation_gate.py'
+      - 'harness/sdk/rkhs_dominance_kernel.py'
       - 'sovereign-omega-v2/python/tests/test_universal_intelligence_rh_gates.py'
       - 'scripts/generate_provenance_census.py'
       - 'docs/audits/provenance_census_v1.json'
       - 'research/rh/finite_to_global_counterexample.py'
       - 'research/rh/test_finite_to_global_counterexample.py'
       - 'research/rh/test_rh_status_ledger.py'
+      - 'research/rh/test_rkhs_dominance_kernel.py'
       - 'research/rh/proof-obligations-v1.json'
       - 'research/rh/receipts/finite_to_global_counterexample_v1.json'
       - '.github/workflows/universal-intelligence-rh.yml'
@@ -64,6 +68,7 @@ jobs:
           python -m py_compile \
             harness/sdk/universal_intelligence_evidence.py \
             harness/sdk/rh_obligation_gate.py \
+            harness/sdk/rkhs_dominance_kernel.py \
             research/rh/finite_to_global_counterexample.py \
             scripts/generate_provenance_census.py
 
@@ -74,7 +79,8 @@ jobs:
           pytest -q \
             sovereign-omega-v2/python/tests/test_universal_intelligence_rh_gates.py \
             research/rh/test_finite_to_global_counterexample.py \
-            research/rh/test_rh_status_ledger.py
+            research/rh/test_rh_status_ledger.py \
+            research/rh/test_rkhs_dominance_kernel.py
 
       - name: Verify deterministic refutation receipt
         env:
