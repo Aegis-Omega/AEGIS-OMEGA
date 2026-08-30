@@ -1,14 +1,16 @@
 """Derived replay/provenance evidence bindings for AEGIS Ω.
 
-This module hardens the evidence-acquisition lane without touching execution or
-admission authority.  Legacy ``EvidenceAcquisitionV1`` contains caller-supplied
-``*_verified`` booleans; V2 deliberately refuses to use those assertions as a
-verification source.  Instead it derives status from exact digest equality,
-anti-splicing observation bindings, and verifier/producer identity separation.
+This module is the fail-closed V2 evidence-acquisition boundary. Legacy
+``EvidenceAcquisitionV1`` accepts caller supplied ``*_verified`` booleans; V2
+never treats those assertions as verification. Status is derived from exact
+provenance equality, replay digest equality, anti-splicing bindings, verifier
+identity separation, and—when the resident helper is used—the resident runtime's
+full replay verifier over bundle body, outer envelope, receipt, and event
+lineage.
 
-The resident helper dereferences the persisted run bundle and compares it with
-the independently stored run receipt before emitting any V2 evidence receipt.
-All outputs remain ``EVIDENCE_ONLY`` and carry zero authority weight.
+All outputs are ``EVIDENCE_ONLY``. Nothing in this module can mint execution,
+effect, learning, CompleteVerification, AtomicAdmission, or production
+authority.
 """
 from __future__ import annotations
 
@@ -55,8 +57,6 @@ def _require_roots(name: str, roots: tuple[str, ...], *, allow_empty: bool) -> N
 
 @dataclass(frozen=True)
 class ProvenanceProofV1:
-    """Exact provenance comparison with explicit producer/verifier identities."""
-
     declared_roots: tuple[str, ...]
     independently_observed_roots: tuple[str, ...]
     producer_identity_root: str
@@ -104,7 +104,7 @@ class ProvenanceReceiptV1:
         _require_sha256("verifier_identity_root", self.verifier_identity_root)
         if self.provenance_established != (self.status == PROVENANCE_VERIFIED):
             raise ValueError("PROVENANCE_RECEIPT_STATUS_INCONSISTENT")
-        if not self.reason_codes:
+        if not isinstance(self.reason_codes, tuple) or not self.reason_codes:
             raise ValueError("PROVENANCE_RECEIPT_REASONS_INVALID")
         if self.receipt_type != "PROVENANCE_RECEIPT_V1":
             raise ValueError("PROVENANCE_RECEIPT_TYPE_INVALID")
@@ -154,8 +154,6 @@ def verify_provenance_proof(proof: ProvenanceProofV1) -> ProvenanceReceiptV1:
 
 @dataclass(frozen=True)
 class ReplayProofV1:
-    """Digest-level replay comparison; no caller-supplied verified boolean exists."""
-
     replay_id: str
     observation_receipt_root: str
     original_result_root: str
@@ -216,7 +214,7 @@ class ReplayReceiptV1:
             _require_sha256(name, getattr(self, name))
         if self.replay_verified != (self.status == INDEPENDENT_REPLAY_VERIFIED):
             raise ValueError("REPLAY_RECEIPT_STATUS_INCONSISTENT")
-        if not self.reason_codes:
+        if not isinstance(self.reason_codes, tuple) or not self.reason_codes:
             raise ValueError("REPLAY_RECEIPT_REASONS_INVALID")
         if self.receipt_type != "REPLAY_RECEIPT_V1":
             raise ValueError("REPLAY_RECEIPT_TYPE_INVALID")
@@ -315,15 +313,17 @@ class EvidenceAcquisitionReceiptV2:
         _require_roots("provenance_root", self.provenance_roots, allow_empty=False)
         _require_sha256("provenance_receipt_root", self.provenance_receipt_root)
         _require_sha256("replay_receipt_root", self.replay_receipt_root)
-        if isinstance(self.independent_verifier_count, bool) or not isinstance(
-            self.independent_verifier_count, int
-        ) or self.independent_verifier_count < 0:
+        if (
+            isinstance(self.independent_verifier_count, bool)
+            or not isinstance(self.independent_verifier_count, int)
+            or self.independent_verifier_count < 0
+        ):
             raise ValueError("INDEPENDENT_VERIFIER_COUNT_INVALID")
         if self.evidence_established != (
             self.status == EVIDENCE_ACQUISITION_VERIFIED
         ):
             raise ValueError("EVIDENCE_ACQUISITION_V2_STATUS_INCONSISTENT")
-        if not self.reason_codes:
+        if not isinstance(self.reason_codes, tuple) or not self.reason_codes:
             raise ValueError("EVIDENCE_ACQUISITION_V2_REASONS_INVALID")
         if self.receipt_type != "EVIDENCE_ACQUISITION_RECEIPT_V2":
             raise ValueError("EVIDENCE_ACQUISITION_V2_TYPE_INVALID")
@@ -372,14 +372,15 @@ def _unestablished_receipt(
 def reject_legacy_self_asserted_acquisition(
     acquisition: EvidenceAcquisitionV1,
 ) -> EvidenceAcquisitionReceiptV2:
-    """Migration gate: V1 flags are data, never verification evidence for V2."""
+    """V1 booleans are untrusted migration data, never V2 verification."""
 
     acquisition.validate()
-    provenance_assertion_root = canonical_hash(
+    assertion_root = canonical_hash(
         "AEGIS_LEGACY_PROVENANCE_ASSERTION_V1",
         {
             "provenance_roots": acquisition.provenance_roots,
             "provenance_verified": acquisition.provenance_verified,
+            "replay_verified": acquisition.replay_verified,
         },
     )
     return _unestablished_receipt(
@@ -387,7 +388,7 @@ def reject_legacy_self_asserted_acquisition(
         observation_receipt_root=acquisition.observation_receipt_root,
         source_kind=acquisition.source_kind,
         provenance_roots=acquisition.provenance_roots,
-        provenance_receipt_root=provenance_assertion_root,
+        provenance_receipt_root=assertion_root,
         replay_receipt_root=acquisition.replay_receipt_root,
         reason_codes=("LEGACY_SELF_ASSERTED_VERIFICATION_REJECTED",),
     )
@@ -397,24 +398,21 @@ def verify_evidence_acquisition_v2(
     acquisition: EvidenceAcquisitionV2,
 ) -> EvidenceAcquisitionReceiptV2:
     acquisition.validate()
-    reasons: list[str] = []
     provenance = acquisition.provenance_receipt
     replay = acquisition.replay_receipt
+    reasons: list[str] = []
     if not provenance.provenance_established:
         reasons.append("PROVENANCE_RECEIPT_UNESTABLISHED")
     if not replay.replay_verified:
         reasons.append("REPLAY_RECEIPT_UNESTABLISHED")
     if replay.observation_receipt_root != acquisition.observation_receipt_root:
         reasons.append("REPLAY_OBSERVATION_BINDING_MISMATCH")
-
     verifier_roots = {
         provenance.verifier_identity_root,
         replay.verifier_identity_root,
     }
-    independent_verifier_count = len(verifier_roots)
-    if independent_verifier_count < 2:
+    if len(verifier_roots) < 2:
         reasons.append("VERIFIER_DIVERSITY_UNESTABLISHED")
-
     established = not reasons
     receipt = EvidenceAcquisitionReceiptV2(
         status=(
@@ -428,7 +426,7 @@ def verify_evidence_acquisition_v2(
         provenance_roots=provenance.declared_roots,
         provenance_receipt_root=provenance.root,
         replay_receipt_root=replay.root,
-        independent_verifier_count=independent_verifier_count,
+        independent_verifier_count=len(verifier_roots),
         evidence_established=established,
         reason_codes=("PROVENANCE_REPLAY_BINDING_AND_VERIFIER_DIVERSITY_VERIFIED",)
         if established
@@ -438,7 +436,11 @@ def verify_evidence_acquisition_v2(
     return receipt
 
 
-def _persist_v2_receipt(runtime: Any, acquisition: EvidenceAcquisitionV2, receipt: EvidenceAcquisitionReceiptV2) -> None:
+def _persist_v2_receipt(
+    runtime: Any,
+    acquisition: EvidenceAcquisitionV2,
+    receipt: EvidenceAcquisitionReceiptV2,
+) -> None:
     receipts_dir = Path(runtime.state_root) / "evidence-acquisition-v2-receipts"
     receipts_dir.mkdir(parents=True, exist_ok=True)
     path = receipts_dir / f"{receipt.root}.json"
@@ -495,12 +497,14 @@ def record_replayed_evidence_acquisition(
     run_id: str,
     source_kind: str,
 ) -> EvidenceAcquisitionReceiptV2:
-    """Dereference one resident run and derive V2 evidence from persisted bytes.
+    """Derive V2 evidence from a fully replay-verified resident run envelope.
 
-    The database-backed run receipt supplies the original digest/provenance.  A
-    separate read of ``runs/<run_id>.json`` supplies the replayed bytes.  The
-    comparison therefore fails closed when the persisted bundle is altered,
-    even if caller-provided booleans claim success.
+    The stored DB receipt supplies the original digest/provenance. The persisted
+    run JSON is read separately. Crucially, ``runtime.replay_verify`` is also
+    mandatory: it checks the body hash *and* the outer bundle digest, embedded
+    receipt consistency, stored receipt, and event lineage. If that verifier
+    fails, replay/provenance inputs are deliberately collapsed to fail-closed
+    values even when the inner body still hashes correctly.
     """
 
     _require_text("acquisition_id", acquisition_id)
@@ -518,24 +522,32 @@ def record_replayed_evidence_acquisition(
     declared_roots = tuple(run_receipt.evidence_roots)
     _require_roots("declared_provenance_root", declared_roots, allow_empty=False)
 
+    resident_replay = runtime.replay_verify(run_id)
+    resident_replay_ok = bool(
+        resident_replay.integrity_verified and resident_replay.lineage_verified
+    )
+
     producer_identity_root = canonical_hash(
         "AEGIS_RESIDENT_RUN_PRODUCER_IDENTITY_V1",
         {"run_id": run_id, "bundle_digest": run_receipt.bundle_digest},
     )
     provenance_verifier_root = canonical_hash(
         "AEGIS_RESIDENT_PROVENANCE_VERIFIER_IDENTITY_V1",
-        {"implementation": "resident-bundle-provenance-v1"},
+        {"implementation": "resident-bundle-provenance-v2"},
     )
     replay_verifier_root = canonical_hash(
         "AEGIS_RESIDENT_REPLAY_VERIFIER_IDENTITY_V1",
-        {"implementation": "resident-bundle-replay-v1"},
+        {"implementation": "resident-full-envelope-replay-v2"},
     )
     environment_root = canonical_hash(
-        "AEGIS_RESIDENT_REPLAY_ENVIRONMENT_V1",
+        "AEGIS_RESIDENT_REPLAY_ENVIRONMENT_V2",
         {
             "repository_head": run_receipt.repository_head,
             "authority_ceiling": getattr(runtime, "authority_ceiling", "UNKNOWN"),
             "authority_epoch": getattr(runtime, "authority_epoch", 0),
+            "resident_replay_integrity_verified": resident_replay.integrity_verified,
+            "resident_replay_lineage_verified": resident_replay.lineage_verified,
+            "resident_replay_reason_codes": resident_replay.reason_codes,
         },
     )
 
@@ -547,17 +559,23 @@ def record_replayed_evidence_acquisition(
         bundle_body = payload["bundle_body"]
         if not isinstance(bundle_body, Mapping):
             raise ValueError("BUNDLE_BODY_INVALID")
-        recomputed_bundle_digest = canonical_hash(
-            "AEGIS_RESIDENT_RUN_BUNDLE_V1",
-            bundle_body,
-        )
+        candidate_digest = canonical_hash("AEGIS_RESIDENT_RUN_BUNDLE_V1", bundle_body)
+        outer_digest = payload.get("bundle_digest")
+        if not isinstance(outer_digest, str):
+            raise ValueError("OUTER_BUNDLE_DIGEST_INVALID")
         bundled_receipt = bundle_body.get("receipt")
         if not isinstance(bundled_receipt, Mapping):
             raise ValueError("BUNDLE_RECEIPT_INVALID")
         raw_roots = bundled_receipt.get("evidence_roots")
         if not isinstance(raw_roots, list):
             raise ValueError("BUNDLE_PROVENANCE_INVALID")
-        observed_roots = tuple(raw_roots)
+        if (
+            resident_replay_ok
+            and candidate_digest == run_receipt.bundle_digest
+            and outer_digest == run_receipt.bundle_digest
+        ):
+            recomputed_bundle_digest = candidate_digest
+            observed_roots = tuple(raw_roots)
     except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
         observed_roots = ()
         recomputed_bundle_digest = ZERO_HASH
