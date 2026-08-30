@@ -124,6 +124,25 @@ class _RefuseRedirect(urllib.request.HTTPRedirectHandler):
 _NO_REDIRECT_OPENER = urllib.request.build_opener(_RefuseRedirect)
 
 
+def _origin_of(url: str) -> tuple[str, str, int]:
+    """Return the ``(scheme, host, port)`` origin of ``url``.
+
+    Default ports are made explicit so ``http://h`` and ``http://h:80`` compare
+    equal, and the host is lowercased, so the comparison in ``_request_json``
+    turns on the origin itself rather than on spelling.
+    """
+    parsed = urllib.parse.urlparse(url)
+    scheme = parsed.scheme.lower()
+    host = (parsed.hostname or "").lower()
+    try:
+        port = parsed.port
+    except ValueError:
+        raise ResidentRuntimeError("LOCAL_INFERENCE_ORIGIN_NOT_PINNED") from None
+    if scheme not in {"http", "https"} or not host:
+        raise ResidentRuntimeError("LOCAL_INFERENCE_ORIGIN_NOT_PINNED")
+    return (scheme, host, port or (443 if scheme == "https" else 80))
+
+
 @dataclass(frozen=True)
 class RepositoryEventV1:
     event_id: str
@@ -400,9 +419,10 @@ class OpenAICompatibleResidentCell:
         completion_token_field: str = "max_completion_tokens",
         api_key: str = "",
     ) -> None:
-        parsed = urllib.parse.urlparse(endpoint)
-        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-            raise ResidentRuntimeError("LOCAL_INFERENCE_ENDPOINT_INVALID")
+        try:
+            origin = _origin_of(endpoint)
+        except ResidentRuntimeError:
+            raise ResidentRuntimeError("LOCAL_INFERENCE_ENDPOINT_INVALID") from None
         for name, value in (
             ("LOCAL_INFERENCE_TIMEOUT", timeout_ms),
             ("LOCAL_INFERENCE_PARALLELISM", max_parallelism),
@@ -437,6 +457,7 @@ class OpenAICompatibleResidentCell:
         if completion_token_field not in {"max_completion_tokens", "max_tokens"}:
             raise ResidentRuntimeError("LOCAL_INFERENCE_TOKEN_FIELD_INVALID")
         self.endpoint = endpoint.rstrip("/")
+        self._origin = origin
         self.provider_id = provider_id
         self.model_id = model_id
         self.timeout_ms = timeout_ms
@@ -472,6 +493,8 @@ class OpenAICompatibleResidentCell:
         url: str,
         payload: Mapping[str, Any] | None = None,
     ) -> Mapping[str, Any]:
+        if _origin_of(url) != self._origin:
+            raise ResidentRuntimeError("LOCAL_INFERENCE_ORIGIN_NOT_PINNED")
         body = None
         if payload is not None:
             body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")

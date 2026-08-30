@@ -10,6 +10,7 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from harness.sdk.resident_runtime import (
+    _origin_of,
     QUARANTINED,
     REJECTED,
     UNKNOWN,
@@ -532,3 +533,101 @@ class ProviderTransportRedirectTests(unittest.TestCase):
         payload = cell._request_json(method="GET", url=cell.endpoint + "/health")
         self.assertEqual(payload, {"ok": True})
         self.assertEqual(seen["authorization"], "Bearer SECRET-PROVIDER-KEY")
+
+
+class ProviderTransportOriginPinTests(unittest.TestCase):
+    """Every provider request must go to the operator-declared origin.
+
+    ``_headers`` attaches the ``authorization: Bearer`` credential to whatever
+    URL it is handed, and the endpoint itself comes from the process
+    environment. Refusing redirects closes the path where urllib rewrites the
+    target mid-flight; this closes the complementary one, where a caller hands
+    ``_request_json`` a URL that was never derived from the declared endpoint.
+    Today every call site builds its URL from ``self.endpoint`` plus a fixed
+    literal, so this pins the invariant rather than fixing a live leak.
+    """
+
+    @staticmethod
+    def _serve(handler):
+        class _H(BaseHTTPRequestHandler):
+            def do_POST(self):
+                handler(self)
+
+            def do_GET(self):
+                handler(self)
+
+            def log_message(self, *args):
+                pass
+
+        server = HTTPServer(("127.0.0.1", 0), _H)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        return server
+
+    def test_a_foreign_origin_is_refused_and_is_never_contacted(self):
+        reached = []
+
+        def foreign(request):
+            reached.append(request.headers.get("authorization"))
+            request.send_response(200)
+            request.send_header("content-length", "2")
+            request.end_headers()
+            request.wfile.write(b"{}")
+
+        foreign_server = self._serve(foreign)
+        self.addCleanup(foreign_server.shutdown)
+        declared_server = self._serve(foreign)
+        self.addCleanup(declared_server.shutdown)
+
+        cell = OpenAICompatibleResidentCell(
+            endpoint=f"http://127.0.0.1:{declared_server.server_port}",
+            provider_id="test-provider",
+            model_id="test-model",
+            timeout_ms=5_000,
+            api_key="SECRET-PROVIDER-KEY",
+        )
+
+        with self.assertRaises(ResidentRuntimeError) as caught:
+            cell._request_json(
+                method="GET",
+                url=f"http://127.0.0.1:{foreign_server.server_port}/v1/models",
+            )
+        self.assertEqual(caught.exception.code, "LOCAL_INFERENCE_ORIGIN_NOT_PINNED")
+        self.assertEqual(reached, [], "the foreign origin was contacted at all")
+
+    def test_the_declared_origin_is_still_allowed(self):
+        def ok(request):
+            body = b'{"ok": true}'
+            request.send_response(200)
+            request.send_header("content-length", str(len(body)))
+            request.end_headers()
+            request.wfile.write(body)
+
+        server = self._serve(ok)
+        self.addCleanup(server.shutdown)
+
+        cell = OpenAICompatibleResidentCell(
+            endpoint=f"http://127.0.0.1:{server.server_port}",
+            provider_id="test-provider",
+            model_id="test-model",
+            timeout_ms=5_000,
+            api_key="SECRET-PROVIDER-KEY",
+        )
+        self.assertEqual(
+            cell._request_json(method="GET", url=cell._url("/v1/models")),
+            {"ok": True},
+        )
+
+    def test_default_ports_compare_equal(self):
+        self.assertEqual(_origin_of("http://Host/x"), _origin_of("http://host:80/y"))
+        self.assertEqual(_origin_of("https://host/x"), _origin_of("https://host:443/y"))
+        self.assertNotEqual(_origin_of("http://host/x"), _origin_of("https://host/x"))
+        self.assertNotEqual(_origin_of("http://host/x"), _origin_of("http://host:8080/x"))
+
+    def test_a_malformed_endpoint_port_is_rejected_at_construction(self):
+        with self.assertRaises(ResidentRuntimeError) as caught:
+            OpenAICompatibleResidentCell(
+                endpoint="http://127.0.0.1:99999",
+                provider_id="test-provider",
+                model_id="test-model",
+            )
+        self.assertEqual(caught.exception.code, "LOCAL_INFERENCE_ENDPOINT_INVALID")
