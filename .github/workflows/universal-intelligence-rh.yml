@@ -6,6 +6,7 @@ on:
       - 'harness/sdk/universal_intelligence_evidence.py'
       - 'harness/sdk/rh_obligation_gate.py'
       - 'harness/sdk/rkhs_dominance_kernel.py'
+      - 'harness/sdk/weil_spectral_inertia_probe.py'
       - 'sovereign-omega-v2/python/tests/test_universal_intelligence_rh_gates.py'
       - 'scripts/generate_provenance_census.py'
       - 'docs/audits/provenance_census_v1.json'
@@ -13,6 +14,7 @@ on:
       - 'research/rh/test_finite_to_global_counterexample.py'
       - 'research/rh/test_rh_status_ledger.py'
       - 'research/rh/test_rkhs_dominance_kernel.py'
+      - 'research/rh/test_weil_spectral_inertia_probe.py'
       - 'research/rh/proof-obligations-v1.json'
       - 'research/rh/receipts/finite_to_global_counterexample_v1.json'
       - '.github/workflows/universal-intelligence-rh.yml'
@@ -23,6 +25,7 @@ on:
       - 'harness/sdk/universal_intelligence_evidence.py'
       - 'harness/sdk/rh_obligation_gate.py'
       - 'harness/sdk/rkhs_dominance_kernel.py'
+      - 'harness/sdk/weil_spectral_inertia_probe.py'
       - 'sovereign-omega-v2/python/tests/test_universal_intelligence_rh_gates.py'
       - 'scripts/generate_provenance_census.py'
       - 'docs/audits/provenance_census_v1.json'
@@ -30,6 +33,7 @@ on:
       - 'research/rh/test_finite_to_global_counterexample.py'
       - 'research/rh/test_rh_status_ledger.py'
       - 'research/rh/test_rkhs_dominance_kernel.py'
+      - 'research/rh/test_weil_spectral_inertia_probe.py'
       - 'research/rh/proof-obligations-v1.json'
       - 'research/rh/receipts/finite_to_global_counterexample_v1.json'
       - '.github/workflows/universal-intelligence-rh.yml'
@@ -60,8 +64,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install focused test dependency
-        run: python -m pip install 'pytest==8.4.1'
+      - name: Install focused test dependencies
+        run: python -m pip install 'pytest==8.4.1' 'numpy==2.3.2' 'scipy==1.16.1'
 
       - name: Compile gates
         run: |
@@ -80,7 +84,8 @@ jobs:
             sovereign-omega-v2/python/tests/test_universal_intelligence_rh_gates.py \
             research/rh/test_finite_to_global_counterexample.py \
             research/rh/test_rh_status_ledger.py \
-            research/rh/test_rkhs_dominance_kernel.py
+            research/rh/test_rkhs_dominance_kernel.py \
+            research/rh/test_weil_spectral_inertia_probe.py
 
       - name: Verify deterministic refutation receipt
         env:
