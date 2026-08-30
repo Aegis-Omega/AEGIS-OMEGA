@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'harness/sdk/closed_loop_epistemic_actuation.py'
+      - 'harness/sdk/evidence_replay_binding.py'
       - 'harness/sdk/fiber_refinement_authority.py'
       - 'harness/sdk/resident_runtime.py'
       - 'harness/sdk/resident_runtime_impl.py'
@@ -18,6 +19,7 @@ on:
       - integration/aegis-universal-intelligence-rh-v1
     paths:
       - 'harness/sdk/closed_loop_epistemic_actuation.py'
+      - 'harness/sdk/evidence_replay_binding.py'
       - 'harness/sdk/fiber_refinement_authority.py'
       - 'harness/sdk/resident_runtime.py'
       - 'harness/sdk/resident_runtime_impl.py'
