@@ -193,3 +193,58 @@ def test_three_fixture_families_all_reject_scope_smuggling() -> None:
         assert receipt.verdict == FiberRefinementVerdict.INVALID
         assert "EFFECT_SCOPE_EXPANSION" in receipt.reason_codes
         _assert_never_mints_authority(receipt)
+
+
+class _ExplodingIterable:
+    def __iter__(self):
+        raise RuntimeError("FIBER_SECRET_MUST_NOT_LEAK")
+
+
+def _raw_spec(**overrides: object) -> FiberRefinementSpec:
+    valid = _spec()
+    values: dict[str, object] = {
+        "base_cells": valid.base_cells,
+        "refined_parent": valid.refined_parent,
+        "base_effect_scope": valid.base_effect_scope,
+        "refined_effect_scope": valid.refined_effect_scope,
+        "context_digest": valid.context_digest,
+    }
+    values.update(overrides)
+    return FiberRefinementSpec(**values)  # type: ignore[arg-type]
+
+
+def test_mixed_runtime_types_cannot_escape_before_fail_closed_validation() -> None:
+    attacks = (
+        (_raw_spec(base_cells=(1, "base:a")), "MALFORMED_BASE_CELL"),
+        (_raw_spec(base_cells=(["unhashable"],)), "MALFORMED_BASE_CELL"),
+        (
+            _raw_spec(
+                refined_parent=(("refined:a1", "base:a"), (1, "base:b"))
+            ),
+            "MALFORMED_REFINEMENT_MAP",
+        ),
+        (
+            _raw_spec(refined_effect_scope=frozenset({1, "repo:read"})),
+            "MALFORMED_EFFECT_SCOPE",
+        ),
+        (_raw_spec(context_digest=object()), "MALFORMED_CONTEXT_DIGEST"),
+    )
+
+    for attacked, expected_reason in attacks:
+        receipt = evaluate_fiber_refinement(attacked)
+        assert receipt.verdict == FiberRefinementVerdict.INVALID
+        assert expected_reason in receipt.reason_codes
+        assert receipt.certifies_non_expansion is False
+        _assert_never_mints_authority(receipt)
+
+
+def test_hostile_iterable_is_rejected_without_iteration_or_error_leakage() -> None:
+    attacked = _raw_spec(base_cells=_ExplodingIterable())
+
+    receipt = evaluate_fiber_refinement(attacked)
+
+    assert receipt.verdict == FiberRefinementVerdict.INVALID
+    assert "EMPTY_OR_MALFORMED_BASE_PARTITION" in receipt.reason_codes
+    assert receipt.certifies_non_expansion is False
+    assert "FIBER_SECRET_MUST_NOT_LEAK" not in repr(receipt)
+    _assert_never_mints_authority(receipt)
