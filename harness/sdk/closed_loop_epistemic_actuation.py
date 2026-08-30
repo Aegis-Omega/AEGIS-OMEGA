@@ -6,7 +6,8 @@ This module separates four concepts that must not be conflated:
 
 Observation actions declare the transfer they intend to apply before evidence is
 acquired. Information gain is established only when a bound observation both
-reduces uncertainty and does not worsen calibration. Learning is established
+reduces uncertainty and does not worsen calibration. Evidence acquisition binds
+an observation to independently replayed provenance. Learning is established
 only from a matched-control adaptation with delayed retention, transfer, a
 changed durable-state commitment, and an independent replay receipt.
 
@@ -23,6 +24,9 @@ from harness.sdk.sovereign_execution import canonical_hash
 
 
 EVIDENCE_ONLY = "EVIDENCE_ONLY"
+COMPUTE_CAPABILITY_EFFECT = "COMPUTE_CAPABILITY_EFFECT"
+EVIDENCE_ACQUISITION_VERIFIED = "EVIDENCE_ACQUISITION_VERIFIED"
+EVIDENCE_ACQUISITION_UNESTABLISHED = "EVIDENCE_ACQUISITION_UNESTABLISHED"
 VERIFIED_INFORMATION_GAIN = "VERIFIED_INFORMATION_GAIN"
 INFORMATION_GAIN_UNESTABLISHED = "INFORMATION_GAIN_UNESTABLISHED"
 CAPABILITY_BOOST_ONLY = "CAPABILITY_BOOST_ONLY"
@@ -48,6 +52,16 @@ def _require_bps(name: str, value: int) -> None:
         raise ValueError(f"{name.upper()}_INVALID")
 
 
+def _require_signed_bps(name: str, value: int) -> None:
+    if isinstance(value, bool) or not isinstance(value, int) or not -10_000 <= value <= 10_000:
+        raise ValueError(f"{name.upper()}_INVALID")
+
+
+def _require_nonnegative_int(name: str, value: int) -> None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"{name.upper()}_INVALID")
+
+
 def _require_entropy(name: str, value: float | None) -> None:
     if value is None:
         return
@@ -56,6 +70,234 @@ def _require_entropy(name: str, value: float | None) -> None:
     value = float(value)
     if not math.isfinite(value) or value < 0.0:
         raise ValueError(f"{name.upper()}_INVALID")
+
+
+@dataclass(frozen=True)
+class ComputeUsageV1:
+    """Measured compute usage and its immediate capability effect.
+
+    This contract deliberately does not encode retention, transfer, a matched
+    control, or replayed adaptation evidence, so it cannot establish learning.
+    """
+
+    compute_action_id: str
+    mechanism: str
+    requested_units: int
+    consumed_units: int
+    pre_performance_bps: int
+    immediate_performance_bps: int
+    durable_state_before: str
+    durable_state_after: str
+    execution_receipt_root: str
+    authority: str = EVIDENCE_ONLY
+
+    def validate(self) -> None:
+        _require_text("compute_action_id", self.compute_action_id)
+        _require_text("mechanism", self.mechanism)
+        _require_nonnegative_int("requested_units", self.requested_units)
+        _require_nonnegative_int("consumed_units", self.consumed_units)
+        if self.requested_units < 1:
+            raise ValueError("REQUESTED_UNITS_INVALID")
+        if self.consumed_units > self.requested_units:
+            raise ValueError("CONSUMED_UNITS_EXCEED_REQUEST")
+        _require_bps("pre_performance_bps", self.pre_performance_bps)
+        _require_bps("immediate_performance_bps", self.immediate_performance_bps)
+        _require_sha256("durable_state_before", self.durable_state_before)
+        _require_sha256("durable_state_after", self.durable_state_after)
+        _require_sha256("execution_receipt_root", self.execution_receipt_root)
+        if self.authority != EVIDENCE_ONLY:
+            raise ValueError("COMPUTE_USAGE_AUTHORITY_INVALID")
+
+
+@dataclass(frozen=True)
+class ComputeReceiptV1:
+    status: str
+    compute_action_id: str
+    mechanism: str
+    requested_units: int
+    consumed_units: int
+    immediate_gain_bps: int
+    durable_state_changed: bool
+    execution_receipt_root: str
+    reason_codes: tuple[str, ...]
+    receipt_type: str = "COMPUTE_RECEIPT_V1"
+    learning_established: bool = False
+    authority: str = EVIDENCE_ONLY
+    may_mint_learning_authority: bool = False
+    may_mint_execution_authority: bool = False
+    may_mint_effect_authority: bool = False
+    may_mint_admission_authority: bool = False
+
+    def validate(self) -> None:
+        if self.status != COMPUTE_CAPABILITY_EFFECT:
+            raise ValueError("COMPUTE_RECEIPT_STATUS_INVALID")
+        _require_text("compute_action_id", self.compute_action_id)
+        _require_text("mechanism", self.mechanism)
+        _require_nonnegative_int("requested_units", self.requested_units)
+        _require_nonnegative_int("consumed_units", self.consumed_units)
+        if self.requested_units < 1 or self.consumed_units > self.requested_units:
+            raise ValueError("COMPUTE_RECEIPT_UNITS_INVALID")
+        _require_signed_bps("immediate_gain_bps", self.immediate_gain_bps)
+        if not isinstance(self.durable_state_changed, bool):
+            raise ValueError("DURABLE_STATE_CHANGED_INVALID")
+        _require_sha256("execution_receipt_root", self.execution_receipt_root)
+        if not isinstance(self.reason_codes, tuple) or not self.reason_codes:
+            raise ValueError("COMPUTE_RECEIPT_REASONS_INVALID")
+        if self.receipt_type != "COMPUTE_RECEIPT_V1":
+            raise ValueError("COMPUTE_RECEIPT_TYPE_INVALID")
+        if self.learning_established:
+            raise ValueError("COMPUTE_RECEIPT_CANNOT_ESTABLISH_LEARNING")
+        if self.authority != EVIDENCE_ONLY:
+            raise ValueError("COMPUTE_RECEIPT_AUTHORITY_INVALID")
+        if (
+            self.may_mint_learning_authority
+            or self.may_mint_execution_authority
+            or self.may_mint_effect_authority
+            or self.may_mint_admission_authority
+        ):
+            raise ValueError("COMPUTE_RECEIPT_AUTHORITY_ESCALATION")
+
+    @property
+    def root(self) -> str:
+        self.validate()
+        return canonical_hash("AEGIS_COMPUTE_RECEIPT_V1", asdict(self))
+
+
+def record_compute_effect(usage: ComputeUsageV1) -> ComputeReceiptV1:
+    """Record an immediate compute/capability effect without inferring learning."""
+
+    usage.validate()
+    reasons = ["COMPUTE_EFFECT_IS_CAPABILITY_NOT_LEARNING"]
+    durable_changed = usage.durable_state_before != usage.durable_state_after
+    if durable_changed:
+        reasons.append("DURABLE_STATE_CHANGE_REQUIRES_SEPARATE_LEARNING_VERIFICATION")
+    receipt = ComputeReceiptV1(
+        status=COMPUTE_CAPABILITY_EFFECT,
+        compute_action_id=usage.compute_action_id,
+        mechanism=usage.mechanism,
+        requested_units=usage.requested_units,
+        consumed_units=usage.consumed_units,
+        immediate_gain_bps=usage.immediate_performance_bps - usage.pre_performance_bps,
+        durable_state_changed=durable_changed,
+        execution_receipt_root=usage.execution_receipt_root,
+        reason_codes=tuple(reasons),
+    )
+    receipt.validate()
+    return receipt
+
+
+@dataclass(frozen=True)
+class EvidenceAcquisitionV1:
+    """Observation/provenance bundle requiring independent replay verification."""
+
+    acquisition_id: str
+    observation_receipt_root: str
+    source_kind: str
+    provenance_roots: tuple[str, ...]
+    replay_receipt_root: str
+    provenance_verified: bool
+    replay_verified: bool
+    independent_verifier_count: int
+    authority: str = EVIDENCE_ONLY
+
+    def validate(self) -> None:
+        _require_text("acquisition_id", self.acquisition_id)
+        _require_sha256("observation_receipt_root", self.observation_receipt_root)
+        _require_text("source_kind", self.source_kind)
+        if not isinstance(self.provenance_roots, tuple) or not self.provenance_roots:
+            raise ValueError("PROVENANCE_ROOTS_INVALID")
+        for root in self.provenance_roots:
+            _require_sha256("provenance_root", root)
+        _require_sha256("replay_receipt_root", self.replay_receipt_root)
+        if not isinstance(self.provenance_verified, bool):
+            raise ValueError("PROVENANCE_VERIFIED_INVALID")
+        if not isinstance(self.replay_verified, bool):
+            raise ValueError("REPLAY_VERIFIED_INVALID")
+        _require_nonnegative_int("independent_verifier_count", self.independent_verifier_count)
+        if self.authority != EVIDENCE_ONLY:
+            raise ValueError("EVIDENCE_ACQUISITION_AUTHORITY_INVALID")
+
+
+@dataclass(frozen=True)
+class EvidenceAcquisitionReceiptV1:
+    status: str
+    acquisition_id: str
+    observation_receipt_root: str
+    source_kind: str
+    provenance_roots: tuple[str, ...]
+    replay_receipt_root: str
+    independent_verifier_count: int
+    evidence_established: bool
+    reason_codes: tuple[str, ...]
+    receipt_type: str = "EVIDENCE_ACQUISITION_RECEIPT_V1"
+    authority: str = EVIDENCE_ONLY
+    may_mint_execution_authority: bool = False
+    may_mint_learning_authority: bool = False
+    may_mint_effect_authority: bool = False
+    may_mint_admission_authority: bool = False
+
+    def validate(self) -> None:
+        if self.status not in {EVIDENCE_ACQUISITION_VERIFIED, EVIDENCE_ACQUISITION_UNESTABLISHED}:
+            raise ValueError("EVIDENCE_ACQUISITION_RECEIPT_STATUS_INVALID")
+        _require_text("acquisition_id", self.acquisition_id)
+        _require_sha256("observation_receipt_root", self.observation_receipt_root)
+        _require_text("source_kind", self.source_kind)
+        if not isinstance(self.provenance_roots, tuple) or not self.provenance_roots:
+            raise ValueError("EVIDENCE_ACQUISITION_RECEIPT_PROVENANCE_INVALID")
+        for root in self.provenance_roots:
+            _require_sha256("provenance_root", root)
+        _require_sha256("replay_receipt_root", self.replay_receipt_root)
+        _require_nonnegative_int("independent_verifier_count", self.independent_verifier_count)
+        if not isinstance(self.evidence_established, bool):
+            raise ValueError("EVIDENCE_ESTABLISHED_INVALID")
+        if self.evidence_established != (self.status == EVIDENCE_ACQUISITION_VERIFIED):
+            raise ValueError("EVIDENCE_ACQUISITION_RECEIPT_STATUS_INCONSISTENT")
+        if not isinstance(self.reason_codes, tuple) or not self.reason_codes:
+            raise ValueError("EVIDENCE_ACQUISITION_RECEIPT_REASONS_INVALID")
+        if self.receipt_type != "EVIDENCE_ACQUISITION_RECEIPT_V1":
+            raise ValueError("EVIDENCE_ACQUISITION_RECEIPT_TYPE_INVALID")
+        if self.authority != EVIDENCE_ONLY:
+            raise ValueError("EVIDENCE_ACQUISITION_RECEIPT_AUTHORITY_INVALID")
+        if (
+            self.may_mint_execution_authority
+            or self.may_mint_learning_authority
+            or self.may_mint_effect_authority
+            or self.may_mint_admission_authority
+        ):
+            raise ValueError("EVIDENCE_ACQUISITION_RECEIPT_AUTHORITY_ESCALATION")
+
+    @property
+    def root(self) -> str:
+        self.validate()
+        return canonical_hash("AEGIS_EVIDENCE_ACQUISITION_RECEIPT_V1", asdict(self))
+
+
+def verify_evidence_acquisition(acquisition: EvidenceAcquisitionV1) -> EvidenceAcquisitionReceiptV1:
+    """Fail closed unless provenance and replay are independently verified."""
+
+    acquisition.validate()
+    reasons: list[str] = []
+    if not acquisition.provenance_verified:
+        reasons.append("PROVENANCE_NOT_VERIFIED")
+    if not acquisition.replay_verified:
+        reasons.append("REPLAY_NOT_VERIFIED")
+    if acquisition.independent_verifier_count < 1:
+        reasons.append("NO_INDEPENDENT_VERIFIER")
+
+    established = not reasons
+    receipt = EvidenceAcquisitionReceiptV1(
+        status=(EVIDENCE_ACQUISITION_VERIFIED if established else EVIDENCE_ACQUISITION_UNESTABLISHED),
+        acquisition_id=acquisition.acquisition_id,
+        observation_receipt_root=acquisition.observation_receipt_root,
+        source_kind=acquisition.source_kind,
+        provenance_roots=acquisition.provenance_roots,
+        replay_receipt_root=acquisition.replay_receipt_root,
+        independent_verifier_count=acquisition.independent_verifier_count,
+        evidence_established=established,
+        reason_codes=("PROVENANCE_REPLAY_AND_INDEPENDENCE_VERIFIED",) if established else tuple(reasons),
+    )
+    receipt.validate()
+    return receipt
 
 
 @dataclass(frozen=True)
@@ -362,16 +604,25 @@ def evaluate_learning_effect(
 
 __all__ = [
     "CAPABILITY_BOOST_ONLY",
+    "COMPUTE_CAPABILITY_EFFECT",
+    "EVIDENCE_ACQUISITION_UNESTABLISHED",
+    "EVIDENCE_ACQUISITION_VERIFIED",
     "EVIDENCE_ONLY",
     "INFORMATION_GAIN_UNESTABLISHED",
     "LEARNING_EFFECT_ESTABLISHED",
     "LEARNING_EFFECT_UNESTABLISHED",
     "VERIFIED_INFORMATION_GAIN",
+    "ComputeReceiptV1",
+    "ComputeUsageV1",
+    "EvidenceAcquisitionReceiptV1",
+    "EvidenceAcquisitionV1",
     "LearningInterventionV1",
     "LearningReceiptV1",
     "ObservationEvidenceV1",
     "ObservationReceiptV1",
     "ObservationTransformV1",
     "evaluate_learning_effect",
+    "record_compute_effect",
+    "verify_evidence_acquisition",
     "verify_observation_effect",
 ]
