@@ -10,6 +10,7 @@ The bridge imports these; tests import them directly.
 """
 import json
 import os
+import re
 
 PLATFORM_CONTRACT_VERSION = '1.0.0'
 PLATFORM_GIT_SHA = os.environ.get('AEGIS_GIT_SHA', 'dev')
@@ -24,6 +25,15 @@ VALID_MODES = frozenset({
     'revenue', 'analysis', 'gtm', 'retention',
     'competitive', 'technical', 'regulatory', 'fundraising',
 })
+
+_EXECUTION_ID_RE = re.compile(r'^[A-Za-z0-9._-]{1,128}$')
+
+
+def validate_execution_id(value: str) -> str:
+    """Validate a caller-bound durable execution identifier."""
+    if not isinstance(value, str) or not _EXECUTION_ID_RE.fullmatch(value):
+        raise ValueError('execution_id must be 1-128 safe ASCII characters')
+    return value
 
 # ── Tier capability gates (brief §9/§10 — least latitude by default) ─────────
 # explorer: template/demo only (live=False, base-4 modes only).
@@ -68,6 +78,69 @@ def validate_tier_capabilities(tier: str, live: bool, mode: str = '') -> None:
 # Below it, the caller should iterate or escalate rather than emit.
 # Named as a constant so callers can override via env and CI can assert it.
 COHERENCE_GATE_THRESHOLD: float = (5 ** 0.5 - 1) / 2  # φ ≈ 0.6180339887 — consistent with martingale ceiling
+
+
+def parse_max_agents(value):
+    """
+    Fail-closed parser for the max_agents cost ceiling.
+
+    None means "no explicit cap" (executor caps at roster size). Anything else
+    must be an integer >= 1. Malformed input raises ValueError so the API
+    returns 400 INVALID_REQUEST — it must never silently become an uncapped
+    run, because max_agents is the only bound on billable model calls.
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise ValueError('max_agents must be an integer, not a boolean')
+    if isinstance(value, float) and not value.is_integer():
+        raise ValueError('max_agents must be a whole number')
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f'max_agents must be an integer (got {value!r})')
+    if n < 1:
+        raise ValueError(f'max_agents must be >= 1 (got {n})')
+    return n
+
+
+def autonomous_completion_audit(swarm: dict) -> dict:
+    """
+    Derive a contract-legal constitutional audit from an autonomous swarm run.
+
+    Verdict is always one of ConstitutionalVerdict ('APPROVED'|'FLAG'|'QUARANTINE')
+    so CONSTITUTIONAL_FACTORS applies the intended fitness penalty — an
+    out-of-enum verdict falls through to the 0.85 neutral default, scoring
+    BETTER than QUARANTINE (0.20) despite signalling failure.
+
+    FLAG when: completion ratio below COHERENCE_GATE_THRESHOLD, any agent
+    errored, any agent was budget-skipped, or a completed agent produced empty
+    output. APPROVED only on a clean, complete run.
+    """
+    artifacts = swarm.get('artifacts', [])
+    total = swarm.get('agents_total', len(artifacts))
+    executed = swarm.get('agents_executed', 0)
+    completion = executed / total if total else 0.0
+
+    concerns: list = []
+    if completion < COHERENCE_GATE_THRESHOLD:
+        concerns.append(
+            f'Agent completion {completion:.4f} below coherence gate '
+            f'{COHERENCE_GATE_THRESHOLD:.10f} ({executed}/{total} departments)'
+        )
+    errored = [a['id'] for a in artifacts if str(a.get('status', '')).startswith('error')]
+    skipped = [a['id'] for a in artifacts if a.get('status') == 'skipped']
+    empty   = [a['id'] for a in artifacts
+               if a.get('status') == 'ok' and not str(a.get('output', '')).strip()]
+    if errored:
+        concerns.append(f'Errored departments: {", ".join(errored)}')
+    if skipped:
+        concerns.append(f'Budget-skipped departments: {", ".join(skipped)}')
+    if empty:
+        concerns.append(f'Empty output from completed departments: {", ".join(empty)}')
+
+    return {'verdict': 'FLAG' if concerns else 'APPROVED', 'concerns': concerns}
+
 
 # ── Prompt injection defence (T1 — layered; model-level robustness is separate) ─
 OBJECTIVE_MAX_CHARS = 4_000
@@ -246,20 +319,31 @@ def platform_envelope(execution_id: str, data: dict) -> dict:
     }
 
 
+def _api_key_lookup_digest(api_key: str) -> str:
+    """Return the versioned Supabase lookup digest for a random bearer token.
+
+    Provisioned AEGIS keys contain 24 cryptographically random bytes. This is
+    an exact database lookup identifier, not password verification, and must
+    remain compatible with provision_platform_key() and api_key_store.key_hash.
+    """
+    import hashlib
+
+    return hashlib.sha256(api_key.encode(), usedforsecurity=False).hexdigest()
+
+
 def verify_api_key(api_key: str):
     """
     Verify against Supabase api_key_store. Returns (email, tier).
     Raises ValueError on failure.
     Falls back to dev bypass when SUPABASE_URL is unset (local dev / CI).
     """
-    import hashlib as _hl
     import urllib.request as _ur
     import urllib.error as _ue
 
     if not api_key:
         raise ValueError('Missing x-api-key header')
 
-    key_hash = _hl.sha256(api_key.encode()).hexdigest()
+    key_hash = _api_key_lookup_digest(api_key)
 
     supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
     service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
@@ -522,7 +606,9 @@ _MODE_TIERS: dict[str, str] = {
     'retention':    'T2',
     'competitive':  'T2',
     'technical':    'T2',
-    'regulatory':   'T1',  # compliance status is empirically validated
+    # A generated regulatory template is still an engineering candidate. Only
+    # source-bound observations and independent verification may establish T1.
+    'regulatory':   'T2',
     'fundraising':  'T2',
 }
 
@@ -589,7 +675,6 @@ def query_api_key_info(api_key: str):
     Returns dict with customer_email, tier, usage_count, usage_limit, or None on failure.
     Dev bypass: any aegis_* key returns explorer defaults when SUPABASE_URL is unset.
     """
-    import hashlib as _hl2
     import urllib.request as _ur2
     import urllib.error as _ue2
 
@@ -600,7 +685,7 @@ def query_api_key_info(api_key: str):
     # verify_api_key() — the key_hash column stores encode(sha256(raw), 'hex').
     # Any other scheme (e.g. pbkdf2) never matches a stored row and the usage
     # readback silently returns None, breaking /platform/status observability.
-    key_hash = _hl2.sha256(api_key.encode()).hexdigest()
+    key_hash = _api_key_lookup_digest(api_key)
     supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
     service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
 
@@ -628,6 +713,20 @@ def query_api_key_info(api_key: str):
         return None
 
     return rows[0] if rows else None
+
+
+def verify_api_key_read_only(api_key: str) -> tuple[str, str]:
+    """Authenticate an API key without incrementing execution usage."""
+    if not api_key:
+        raise ValueError('Missing x-api-key header')
+    info = query_api_key_info(api_key)
+    if not isinstance(info, dict):
+        raise ValueError('Invalid or revoked API key')
+    email = info.get('customer_email')
+    tier = info.get('tier')
+    if not isinstance(email, str) or not email or not isinstance(tier, str) or not tier:
+        raise ValueError('API key record malformed')
+    return email, tier
 
 
 def record_revenue_cycle(cycle_id: str, objective: str, mode: str,
@@ -1025,23 +1124,28 @@ def store_generation_fitness(
         print(f'[bridge] department_fitness_tracking write failed: {_exc}', file=sys.stderr)
 
 
-def retrieve_prior_artifacts(objective: str, mode: str) -> list:
+def retrieve_prior_artifacts(objective: str, mode: str, email: str = '') -> list:
     """
     Fetch the artifacts list from the most recent swarm_memory row for this
     objective+mode. Used as prev_artifacts in evaluate_generation_fitness().
     Returns [] if Supabase is unavailable or no prior run exists.
     """
+    import urllib.parse as _up_pa
     import urllib.request as _ur_pa
 
     supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
     service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
     if not supabase_url or not service_key:
         return []
+    if not isinstance(email, str) or not email.strip():
+        return []
 
     obj_hash = objective_hash(objective)
+    owner = _up_pa.quote(email.strip(), safe='')
     params = (
         f'?objective_hash=eq.{obj_hash}'
         f'&mode=eq.{mode}'
+        f'&customer_email=eq.{owner}'
         f'&order=created_at.desc'
         f'&limit=1'
         f'&select=artifacts'
@@ -1112,15 +1216,21 @@ def objective_hash(objective: str) -> str:
     return _hl_oh.sha256(objective.lower().strip().encode()).hexdigest()
 
 
-def retrieve_swarm_memory(objective: str, mode: str, limit: int = 3) -> str:
+def retrieve_swarm_memory(
+    objective: str,
+    mode: str,
+    email: str = '',
+    limit: int = 3,
+) -> str:
     """
     Fetch the most recent swarm_memory rows for this objective hash + mode.
     Returns a formatted context block injected into the swarm system prompt,
     or '' if Supabase is unavailable or no memories exist.
 
-    Returned memories give the swarm T1 evidence of what prior activations
-    produced for the same objective, enabling evolutionary refinement.
+    Returned rows are RAW_MEMORY of prior generated activations. Persistence
+    and retrieval preserve lineage but do not promote model output to evidence.
     """
+    import urllib.parse as _up_sm
     import urllib.request as _ur_sm
     import urllib.error as _ue_sm
 
@@ -1128,11 +1238,20 @@ def retrieve_swarm_memory(objective: str, mode: str, limit: int = 3) -> str:
     service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
     if not supabase_url or not service_key:
         return ''
+    # Objective hashes are global, so owner scope is mandatory whenever the
+    # shared production store is configured. Missing identity must not fall
+    # back to cross-tenant retrieval.
+    if not isinstance(email, str) or not email.strip():
+        return ''
+    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 10:
+        return ''
 
     obj_hash = objective_hash(objective)
+    owner = _up_sm.quote(email.strip(), safe='')
     params = (
         f'?objective_hash=eq.{obj_hash}'
         f'&mode=eq.{mode}'
+        f'&customer_email=eq.{owner}'
         f'&order=created_at.desc'
         f'&limit={limit}'
         f'&select=artifacts,projection,constitutional_verdict,created_at'
@@ -1154,19 +1273,45 @@ def retrieve_swarm_memory(objective: str, mode: str, limit: int = 3) -> str:
         return ''
 
     lines = [
-        'SWARM MEMORY — Prior activations for this objective (T1 evidence):',
-        'Use these to refine, not repeat. Build on prior insights; identify gaps.',
+        'SWARM RAW_MEMORY — Prior activations for this objective:',
+        'Use these for retrieval and comparison only. They are not independent evidence.',
     ]
     for i, row in enumerate(rows, 1):
         artifacts = row.get('artifacts', [])
         projection = row.get('projection', {})
-        verdict = row.get('constitutional_verdict', 'APPROVED')
+        verdict = row.get('constitutional_verdict') or 'UNKNOWN'
         arr = projection.get('first_year_arr_usd', 0)
-        # Sample 3 representative department outputs from prior run
+        # Sample 3 representative department outputs from prior run. Legacy
+        # unbound rows are retained in storage for audit but are not reinjected.
         sample = [a for a in artifacts if a.get('output', '').strip()][:3]
         lines.append(f'\nMemory {i} (verdict={verdict}, proj_arr=${arr:,}):')
         for a in sample:
-            lines.append(f'  {a["role"]}: {str(a.get("output",""))[:100]}')
+            metadata = a.get('memory_metadata')
+            if not isinstance(metadata, dict):
+                lines.append(
+                    f'  {a.get("role", "UNKNOWN")}: '
+                    '[QUARANTINED_LEGACY_UNBOUND_MEMORY]'
+                )
+                continue
+            metadata_valid = (
+                metadata.get('memory_class') == 'RAW_MEMORY'
+                and metadata.get('epistemic_tier') == 'T2'
+                and metadata.get('authority') == 'EVIDENCE_ONLY'
+                and metadata.get('truth_status') == 'UNVERIFIED_MODEL_OUTPUT'
+            )
+            if not metadata_valid:
+                lines.append(
+                    f'  {a.get("role", "UNKNOWN")}: '
+                    '[QUARANTINED_MEMORY_METADATA]'
+                )
+                continue
+            output = str(a.get('output', ''))
+            lowered = output.lower()
+            if any(marker in lowered for marker in _INJECTION_MARKERS):
+                preview = '[QUARANTINED_UNTRUSTED_CONTENT]'
+            else:
+                preview = output[:100]
+            lines.append(f'  {a.get("role", "UNKNOWN")}: {preview}')
     lines.append('')
     return '\n'.join(lines)
 
@@ -1178,11 +1323,17 @@ def store_swarm_memory(
     artifacts: list,
     projection: dict,
     verdict: str,
+    provider_id: str = 'anthropic',
+    model_id: str = SWARM_MODEL,
 ) -> None:
     """
-    Write a completed swarm collaboration to swarm_memory. Fire-and-forget.
-    Called after every successful live collaboration to build the memory corpus.
+    Write generated swarm output as explicitly unverified RAW_MEMORY.
+
+    The generated-output and generation hashes bind bytes/lineage only. They
+    are deliberately separate from source provenance and never promote model
+    output to T1 evidence or knowledge. Fire-and-forget.
     """
+    import hashlib as _hl_st
     import urllib.request as _ur_st
     import urllib.error as _ue_st
 
@@ -1191,11 +1342,51 @@ def store_swarm_memory(
     if not supabase_url or not service_key:
         return
 
+    generation_payload = {
+        'objective_hash': objective_hash(objective),
+        'mode': mode,
+        'provider_id': provider_id,
+        'model_id': model_id,
+        'artifacts': artifacts,
+        'projection': projection,
+        'constitutional_verdict': verdict,
+    }
+    generation_root = _hl_st.sha256(
+        json.dumps(
+            generation_payload,
+            sort_keys=True,
+            separators=(',', ':'),
+        ).encode('utf-8')
+    ).hexdigest()
+    stored_artifacts = []
+    for artifact in artifacts:
+        if isinstance(artifact, dict):
+            stored = dict(artifact)
+        else:
+            stored = {'role': 'UNKNOWN', 'output': str(artifact)}
+        output = str(stored.get('output', ''))
+        stored['memory_metadata'] = {
+            'schema_version': '1.0.0',
+            'memory_class': 'RAW_MEMORY',
+            'epistemic_tier': 'T2',
+            'authority': 'EVIDENCE_ONLY',
+            'truth_status': 'UNVERIFIED_MODEL_OUTPUT',
+            'provider_id': provider_id,
+            'model_id': model_id,
+            'provider_output_root': _hl_st.sha256(output.encode('utf-8')).hexdigest(),
+            'generation_root': generation_root,
+            'correlated_failure_group': generation_root,
+            'source_artifacts': [],
+            'provenance_roots': [],
+            'integrity_semantics': 'HASH_BINDS_BYTES_NOT_PROPOSITION_TRUTH',
+        }
+        stored_artifacts.append(stored)
+
     payload = json.dumps({
         'objective_hash': objective_hash(objective),
         'mode': mode,
         'customer_email': email,
-        'artifacts': artifacts,
+        'artifacts': stored_artifacts,
         'projection': projection,
         'constitutional_verdict': verdict,
     }).encode()
@@ -1450,9 +1641,9 @@ def swarm_collaborate_live(
     Returns:
         {artifacts, constitutional_audit, projection}
 
-    Falls back to template outputs if no Anthropic client is available
-    (no ADC credentials and no ANTHROPIC_API_KEY) — callers always receive
-    a valid result.
+    Falls back to quarantined template outputs if no Anthropic client is
+    available (no ADC credentials and no ANTHROPIC_API_KEY). A provider
+    failure never fabricates an approval.
     """
     dept_manifest = '\n'.join(
         f'{d["id"]} | {d["role"]} ({d["category"]})'
@@ -1503,7 +1694,8 @@ def swarm_collaborate_live(
 
     result = _parse_swarm_response(raw, objective, mode, departments)
 
-    # Store to swarm_memory so future calls can build on these insights (T1 corpus)
+    # Persist only as unverified RAW_MEMORY. Retrieval can compare prior model
+    # activations, but persistence/hash lineage never converts them into T1.
     if email:
         store_swarm_memory(
             email, objective, mode,
@@ -1536,6 +1728,8 @@ def _parse_swarm_response(
         data = json.loads(text)
     except Exception:
         return _swarm_fallback(objective, mode, departments)
+    if not isinstance(data, dict):
+        return _swarm_fallback(objective, mode, departments)
 
     # Build dept_id → output map from the response
     dept_map: dict = {}
@@ -1552,35 +1746,62 @@ def _parse_swarm_response(
 
     # Constitutional audit
     raw_audit = data.get('constitutional_audit', {})
-    verdict = raw_audit.get('verdict', 'APPROVED')
-    if verdict not in ('APPROVED', 'FLAG', 'QUARANTINE'):
-        verdict = 'APPROVED'
+    if not isinstance(raw_audit, dict):
+        raw_audit = {}
+    candidate_verdict = raw_audit.get('verdict', 'UNKNOWN')
+    if candidate_verdict not in ('APPROVED', 'FLAG', 'QUARANTINE'):
+        candidate_verdict = 'UNKNOWN'
+    # A model may propose a verdict, but cannot issue an admission decision.
+    # Until an independent deterministic/receipt-bound verifier exists for this
+    # legacy collaboration path, every generated audit remains quarantined.
+    verdict = 'QUARANTINE'
     concerns = [str(c) for c in raw_audit.get('concerns', []) if c]
+    concerns.append(
+        'Model-generated constitutional verdict is candidate evidence only; '
+        'independent admission verification is unavailable.'
+    )
 
     # Projection — clamp ARR to sane range
     raw_proj = data.get('projection', {})
+    if not isinstance(raw_proj, dict):
+        raw_proj = {}
     try:
         arr_usd = max(0, int(raw_proj.get('first_year_arr_usd', 2_000_000)))
     except (TypeError, ValueError):
         arr_usd = 2_000_000
-    proj_tier = raw_proj.get('tier', 'T2')
-    if proj_tier not in ('T0', 'T1', 'T2', 'T3'):
-        proj_tier = 'T2'
-    governed_note = str(raw_proj.get('governed_note', f'T2 hypothesis: {mode} mode analysis.'))
+    candidate_tier = raw_proj.get('tier', 'T2')
+    if candidate_tier not in ('T0', 'T1', 'T2', 'T3'):
+        candidate_tier = 'UNKNOWN'
+    candidate_note = str(
+        raw_proj.get('governed_note', f'{mode} mode model analysis.')
+    )
+    # Provider output cannot self-promote to an empirical or formal tier.
+    proj_tier = 'T2'
+    governed_note = (
+        'T2 model-generated projection; candidate note is unverified: '
+        f'{candidate_note}'
+    )
 
     return {
         'artifacts': artifacts,
-        'constitutional_audit': {'verdict': verdict, 'concerns': concerns},
+        'constitutional_audit': {
+            'verdict': verdict,
+            'candidate_verdict': candidate_verdict,
+            'authority': 'EVIDENCE_ONLY',
+            'concerns': concerns,
+        },
         'projection': {
             'first_year_arr_usd': arr_usd,
             'tier': proj_tier,
+            'candidate_tier': candidate_tier,
             'governed_note': governed_note,
+            'candidate_governed_note': candidate_note,
         },
     }
 
 
 def _swarm_fallback(objective: str, mode: str, departments: list) -> dict:
-    """Constitutional template fallback when Claude API is unavailable."""
+    """Quarantined template output used when model evidence is unavailable."""
     arr_map = {
         'revenue':     2_400_000,
         'analysis':    1_800_000,
@@ -1597,7 +1818,14 @@ def _swarm_fallback(objective: str, mode: str, departments: list) -> dict:
             {'role': d['role'], 'output': dept_output(objective, mode, d)}
             for d in departments
         ],
-        'constitutional_audit': {'verdict': 'APPROVED', 'concerns': []},
+        'constitutional_audit': {
+            'verdict': 'QUARANTINE',
+            'candidate_verdict': 'UNAVAILABLE',
+            'authority': 'EVIDENCE_ONLY',
+            'concerns': [
+                'Synthetic fallback output is not independent verification evidence.',
+            ],
+        },
         'projection': {
             'first_year_arr_usd': arr_usd,
             'tier': 'T2',
@@ -1723,7 +1951,7 @@ def fetch_compliance_export(from_ts: str | None, to_ts: str | None, limit: int) 
                 'timestamp':              row.get('created_at', ''),
                 'objective_hash':         obj_hash,
                 'mode':                   row.get('mode', ''),
-                'constitutional_verdict': row.get('constitutional_verdict', 'APPROVED'),
+                'constitutional_verdict': row.get('constitutional_verdict') or 'UNKNOWN',
                 'projected_arr_usd':      row.get('arr_usd', 0),
                 'is_replay_reconstructable': True,
             })

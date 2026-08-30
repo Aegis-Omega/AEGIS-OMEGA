@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0.0",
+  "probe_id": "PHI_SPECTRAL_INERTIA_CANONICAL_V1",
+  "authority": "T1_NUMERICAL_DIAGNOSTIC",
+  "method": "FLOAT64_GENERALIZED_EIGENPROBLEM_WITH_NULLSPACE_MOMENT_CONSTRAINT",
+  "source_hosted_run": {
+    "workflow": "AEGIS Universal Intelligence RH Gate",
+    "run_id": 33295291106,
+    "job_id": 99213784947,
+    "exact_head": "166f991bd834ef8cd7bc36b2c071ff48eea87974"
+  },
+  "config": {
+    "tau": 2.0,
+    "p_cutoff": 100,
+    "k_basis_dim": 4,
+    "n_quad": 2048,
+    "t_bound": 50.0,
+    "max_prime_shift": null,
+    "zero_tolerance": 1e-10,
+    "negative_tolerance": 1e-8
+  },
+  "prime_power_count": 35,
+  "expected": {
+    "uniform": {
+      "nu_minus": 1,
+      "lambda_min_interval": [-10.4047712, -10.4047690]
+    },
+    "phi": {
+      "nu_minus": 4,
+      "lambda_min_interval": [-19.3952064, -19.3952042]
+    },
+    "sqrt2": {
+      "nu_minus": 4,
+      "lambda_min_interval": [-17.4570969, -17.4570947]
+    },
+    "sqrt3": {
+      "nu_minus": 4,
+      "lambda_min_interval": [-20.2269905, -20.2269882]
+    },
+    "e": {
+      "nu_minus": 4,
+      "lambda_min_interval": [-24.1028665, -24.1028641]
+    },
+    "pi": {
+      "nu_minus": 4,
+      "lambda_min_interval": [-26.4075641, -26.4075618]
+    },
+    "liouville_trunc4": {
+      "nu_minus": 1,
+      "lambda_min_interval": [-0.5383820, -0.5383798]
+    }
+  },
+  "interpretation": {
+    "original_user_table_reproduced": false,
+    "phi_nonresonant_positivity_hypothesis": "NOT_SUPPORTED",
+    "phi_specificity_established": false,
+    "finite_section_negativity": "OBSERVED_T1"
+  },
+  "liminf_proven": false,
+  "global_weil_positivity_proven": false,
+  "rh_proven": false,
+  "proof_authority": false
+}

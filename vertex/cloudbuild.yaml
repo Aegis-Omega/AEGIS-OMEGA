@@ -39,7 +39,7 @@ steps:
       # platform-api-key secret before first deploy, or the in-app gate stays
       # open (PLATFORM_API_KEY unset → catalog/health public, no key required).
       - --set-secrets=ANTHROPIC_API_KEY=anthropic-api-key:latest,PLATFORM_API_KEY=platform-api-key:latest
-      - --set-env-vars=AEGIS_DEFAULT_MODEL=claude-opus-4-8,RATE_LIMIT_PER_MIN=60
+      - --set-env-vars=AEGIS_DEFAULT_MODEL=claude-opus-4-8,RATE_LIMIT_PER_MIN=60,AEGIS_IMAGE_SOURCE_COMMIT=$COMMIT_SHA
       - --allow-unauthenticated
       - --port=8080
       - --memory=512Mi

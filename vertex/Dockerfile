@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir \
     anthropic==0.52.0 \
     redis[asyncio]==5.1.0 \
     httpx==0.27.0 \
+    cryptography==46.0.0 \
     pyyaml==6.0.2 \
     anyio==4.6.2
 
@@ -21,6 +22,10 @@ RUN pip install --no-cache-dir \
 COPY vertex/serve.py /app/serve.py
 COPY agents /app/agents
 COPY harness /app/harness
+COPY CONSTITUTIONAL_DECLARATION.md /app/CONSTITUTIONAL_DECLARATION.md
+COPY .claude.json /app/.claude.json
+COPY skill-hashes.sha256 /app/skill-hashes.sha256
+COPY docs/claims.json /app/docs/claims.json
 
 ENV PORT=8080
 EXPOSE 8080

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -13,8 +13,22 @@ from harness.sdk.sovereign_execution import (
     load_capability_registry, load_policy, make_mutation_receipt,
     verify_workspace,
 )
+from harness.sdk.transition_receipts import (
+    build_transition_identity,
+    decision_receipt_from_policy,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+LEGACY_RECEIPT_SEMANTICS = "DECISION_DERIVED_NOT_EFFECT_PROOF"
+
+
+@dataclass(frozen=True)
+class AuthorityContext:
+    """Request-local authority inputs; safe for concurrent server requests."""
+
+    identity: ExecutionIdentityEnvelope
+    workspace_observation: dict[str, Any]
+    approval: ApprovalGrant | None = None
 
 
 def _denial(code: str, detail: str = "") -> dict[str, Any]:
@@ -23,12 +37,9 @@ def _denial(code: str, detail: str = "") -> dict[str, Any]:
     return body
 
 
-def authorize_from_environment(*, action_class: str, authority_domain: str, requested_capability: str, tool: str, target: str, action: dict[str, Any], current_generation: int = 0, idempotency_key: str = "NONE", compensation_reference: str = "NONE") -> dict[str, Any]:
-    raw_identity = os.environ.get("AEGIS_EXECUTION_IDENTITY_JSON")
-    if not raw_identity:
-        return _denial("IDENTITY_UNAVAILABLE")
+def authorize_with_context(*, action_class: str, authority_domain: str, requested_capability: str, tool: str, target: str, action: dict[str, Any], context: AuthorityContext, current_generation: int = 0, idempotency_key: str = "NONE", compensation_reference: str = "NONE") -> dict[str, Any]:
+    identity = context.identity
     try:
-        identity = ExecutionIdentityEnvelope(**json.loads(raw_identity))
         identity_root = identity.root
     except Exception as exc:
         return _denial("IDENTITY_INVALID", str(exc))
@@ -36,8 +47,8 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
     if action_digest != identity.action_digest:
         return _denial("ACTION_DIGEST_MISMATCH")
 
+    observation = context.workspace_observation
     try:
-        observation = json.loads(os.environ.get("AEGIS_WORKSPACE_OBSERVATION_JSON", "{}"))
         workspace = verify_workspace(
             declared_root=REPO_ROOT,
             cwd=observation.get("actual_cwd", os.getcwd()),
@@ -65,13 +76,7 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
     except Exception as exc:
         return _denial("AUTHORITY_SERVICE_UNAVAILABLE", str(exc))
 
-    approval = None
-    raw_approval = os.environ.get("AEGIS_APPROVAL_GRANT_JSON")
-    if raw_approval:
-        try:
-            approval = ApprovalGrant(**json.loads(raw_approval))
-        except Exception as exc:
-            return _denial("APPROVAL_MALFORMED", str(exc))
+    approval = context.approval
     request = AuthorityRequest(
         action_class=action_class, authority_domain=authority_domain,
         requested_capability=requested_capability, tool=tool, target=target,
@@ -82,6 +87,19 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         idempotency_key=idempotency_key, compensation_reference=compensation_reference,
     )
     decision = AuthorityEvaluator(policy=policy, registry=registry, repository_root=REPO_ROOT).evaluate(request, approval=approval)
+    transition = build_transition_identity(
+        source_commit=identity.source_commit,
+        pre_state_commitment=identity.expected_pre_state,
+        identity_root=identity_root,
+        approval=approval,
+        requested_capability=requested_capability,
+        registry_root=registry_root,
+        action_digest=action_digest,
+        deterministic_nonce=identity.deterministic_nonce,
+        fence_token=os.environ.get("AEGIS_FENCING_TOKEN"),
+    )
+    decision_receipt = decision_receipt_from_policy(transition=transition, decision=decision)
+
     receipt = make_mutation_receipt(
         identity_root=identity_root, workspace_binding=identity.workspace_binding,
         decision=decision, pre_state_digest=identity.expected_pre_state,
@@ -93,8 +111,48 @@ def authorize_from_environment(*, action_class: str, authority_domain: str, requ
         "authority_score": decision.authority_score,
         "denial_codes": list(decision.denial_codes),
         "decision_root": decision.decision_root,
+        "transition": asdict(transition),
+        "transition_id": transition.root,
+        "decision_receipt": asdict(decision_receipt),
+        "decision_receipt_root": decision_receipt.root,
         "receipt_root": receipt.root,
+        "legacy_receipt_semantics": LEGACY_RECEIPT_SEMANTICS,
         "execution_identity_root": identity_root,
         "workspace_binding": identity.workspace_binding,
         "observation": asdict(workspace.observation),
     }
+
+
+def authorize_from_environment(*, action_class: str, authority_domain: str, requested_capability: str, tool: str, target: str, action: dict[str, Any], current_generation: int = 0, idempotency_key: str = "NONE", compensation_reference: str = "NONE") -> dict[str, Any]:
+    raw_identity = os.environ.get("AEGIS_EXECUTION_IDENTITY_JSON")
+    if not raw_identity:
+        return _denial("IDENTITY_UNAVAILABLE")
+    try:
+        identity = ExecutionIdentityEnvelope(**json.loads(raw_identity))
+        identity.root
+    except Exception as exc:
+        return _denial("IDENTITY_INVALID", str(exc))
+    try:
+        observation = json.loads(os.environ.get("AEGIS_WORKSPACE_OBSERVATION_JSON", "{}"))
+    except Exception as exc:
+        return _denial("WORKSPACE_OBSERVATION_INVALID", str(exc))
+
+    approval: ApprovalGrant | None = None
+    raw_approval = os.environ.get("AEGIS_APPROVAL_GRANT_JSON")
+    if raw_approval:
+        try:
+            approval = ApprovalGrant(**json.loads(raw_approval))
+        except Exception as exc:
+            return _denial("APPROVAL_MALFORMED", str(exc))
+    return authorize_with_context(
+        action_class=action_class,
+        authority_domain=authority_domain,
+        requested_capability=requested_capability,
+        tool=tool,
+        target=target,
+        action=action,
+        context=AuthorityContext(identity, observation, approval),
+        current_generation=current_generation,
+        idempotency_key=idempotency_key,
+        compensation_reference=compensation_reference,
+    )

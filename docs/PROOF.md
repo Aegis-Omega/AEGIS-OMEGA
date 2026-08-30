@@ -4,6 +4,46 @@ A receipt anyone can reproduce in minutes. Every number below was measured
 directly from the tracked repository (excluding `node_modules` and build output),
 not asserted. Commands are included so you can confirm each figure yourself.
 
+## Latest hosted baseline and candidate delta
+
+PR #334's last hosted verification baseline before the redirect-security delta is
+`aec7f236140ae3b3bd87e6bd52757f7b1da25e18`, tree
+`02d8f355c72596dc0272fa1ba470f1f691f36cdc`:
+
+| Evidence | Result |
+|----------|--------|
+| Constitutional Automaton | SUCCESS — all 15 jobs on the baseline head |
+| Authorization Effect Chain run `33277765961` | SUCCESS — exact-head checkout, 99/99 tests, image build and runtime inspection |
+| TypeScript Gate 8 | 254 files passed / 3 skipped; 4,130 tests passed / 68 skipped; typecheck and build passed |
+| Targeted Python receipt/effect chain | 99 passed on hosted anchor |
+| Agent Dispatch image | `vertex/Dockerfile` built and ran; `AGENT_DISPATCH_IMAGE_PASS` |
+| Targeted Python ProofTrace | 31 passed |
+| Review ledger | 28/28 resolved |
+
+The verified transition is:
+
+```text
+DecisionReceipt → ExecutionReceipt → EffectObservation
+                → EffectReceipt → CompleteVerification
+```
+
+This is candidate-state evidence, not a production deployment receipt. The PR remains DRAFT.
+
+The current candidate adds one real-server redirect falsifier and five issuance/scope falsifiers,
+bringing the targeted suite to 105 tests. It requires a `3xx` response to become
+`PLATFORM_REDIRECT_REJECTED`, proves that the
+redirect target receives zero requests, and proves that the platform API key is not forwarded.
+It also binds observation handles to their issuing adapter instance, prevents root retargeting
+and same-path root replacement, and preserves validity for independently issued equal witnesses.
+The hosted workflow must re-establish those 105 tests on the final exact head; this document does
+not transfer the baseline GREEN receipt to a later commit.
+
+The request-bound identity slice is hosted-verified by 11 dispatch-envelope/build-contract tests,
+4 RS256/request-context/replay tests, and the Automaton-3 replay-manifest test. The image gate
+also exposed and fixed an earlier `.dockerignore` contradiction that excluded the tracked
+`docs/claims.json` file required by the Dockerfile. Hosted image buildability is not promoted to
+Cloud Run deployment or production status.
+
 ---
 
 ## Scale
@@ -50,7 +90,7 @@ done
 | Python `def test_*` | **200** | measured (pattern count) |
 | **Total** | **≈ 11,949** | |
 
-Documented per-suite figures (from `CLAUDE.md` / `README.md`): TS 4,076 ·
+Latest executed per-suite figures: TS 4,130 passing on the PR #334 exact-head Gate 8 ·
 `aegis-cl-psi` 7,178 · `aegis-runtime` 133 · `aegis-interface` 50.
 
 ```bash
@@ -93,7 +133,7 @@ cd ../aegis-runtime  && cargo test                        # Seven-Pillar runtime
 AdaptivePower(T) ≤ ReplayVerifiability(T)
 ```
 
-No part of the system can do more than it can prove it did. φ-convergence:
+No authoritative claim may exceed the weakest verified transition required to establish it. φ-convergence:
 `MUTATION_RATE_LIMIT = DEFAULT_QUORUM_THRESHOLD = (√5−1)/2 ≈ 0.6180339887`.
 
 ---
