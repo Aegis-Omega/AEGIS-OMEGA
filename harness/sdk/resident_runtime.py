@@ -35,6 +35,10 @@ from harness.sdk.closed_loop_epistemic_actuation import (
 )
 from harness.sdk.sovereign_execution import canonical_hash
 
+# Preserve the legacy private helper imported by the resident regression suite.
+# Star imports intentionally omit underscore-prefixed names.
+_origin_of = _impl._origin_of
+
 
 @dataclass(frozen=True)
 class AnalysisPacketV1(_impl.AnalysisPacketV1):
