@@ -183,11 +183,17 @@ jobs:
           assert p['critical_dispositions']['PR_346']['disposition'] == 'CLOSED_VERIFIED_SUPERSEDED_BY_INTEGRATION'
           assert p['critical_dispositions']['PR_346']['exact_head'] == 'e7d9009233ea69631263853bbf9ecffa2454e34a'
           assert p['critical_dispositions']['PR_346']['authority'] == 'ANALYTIC_ARGUMENT_LEDGER_PLUS_T1_NUMERICAL_WITNESS_NO_RH_AUTHORITY'
-          assert p['critical_dispositions']['PR_347']['disposition'] == 'OPEN_DRAFT_CONSTRUCTIVE_PRIME_TRIG_RESEARCH'
-          assert p['critical_dispositions']['PR_347']['exact_head'] == '47dbd953a7c8de01186de84846e6fe9c66cebaf7'
-          assert p['critical_dispositions']['PR_347']['authority'] == 'OPEN_RED_PROOFLINE_NO_RH_AUTHORITY'
+          pr347 = next(x for x in p['post_baseline_prs'] if x['number'] == 347)
+          branch347 = next(
+              x for x in p['post_baseline_heads']
+              if x['name'] == 'proof/weil-constructive-prime-trig-v1'
+          )
+          disposition347 = p['critical_dispositions']['PR_347']
+          assert disposition347['disposition'] == 'OPEN_DRAFT_CONSTRUCTIVE_PRIME_TRIG_RESEARCH'
+          assert disposition347['authority'] == 'OPEN_DRAFT_PROOFLINE_NO_RH_AUTHORITY'
+          assert disposition347['exact_head'] == pr347['head_sha'] == branch347['sha']
           assert p['authority_boundary']['model_output_can_mint_authority'] is False
-          print('CENSUS_PASS baseline=150/95 live=155/97 cleanup_debt=tmp-unused pr347=open-draft-red')
+          print('CENSUS_PASS baseline=150/95 live=155/97 cleanup_debt=tmp-unused pr347=live-bound')
           PY
 
       - name: Confirm RH remains fail-closed from machine ledger
