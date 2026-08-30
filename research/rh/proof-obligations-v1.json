@@ -1,0 +1,138 @@
+{
+  "schema_version": "1.0.0",
+  "repository": "Aegis-Omega/AEGIS-OMEGA",
+  "integration_base": "d83a9c6b35d4bed6bbe0542b5492a84ad7a4795f",
+  "canonical_main": "a34d664d66ae9f7c2e729cd4ccb07b74130c660f",
+  "declared_verdict": "RH_NOT_PROVEN",
+  "gate_policy": "FAIL_CLOSED",
+  "proof_obligations": [
+    {
+      "id": "W0_XiFormulation",
+      "name": "Xi and Weil setup",
+      "status": "PARTIALLY_FORMALIZED",
+      "depends_on": [],
+      "authority_note": "Xi/Weil setup exists, but the concrete criterion correspondence and final closure are not machine-bound.",
+      "smallest_blocker": "Machine-bind the concrete Xi/Weil criterion semantics used by the final theorem.",
+      "proof_receipt": null
+    },
+    {
+      "id": "W1_FinitePrimePhaseBoundary",
+      "name": "Finite prime-phase boundary",
+      "status": "BLOCKED",
+      "depends_on": ["W0_XiFormulation"],
+      "authority_note": "Independent reconstruction shows the reflection index set is not closed under k -> m-k on the natural 1..m prime-power range without a boundary convention.",
+      "smallest_blocker": "Prove the intended term-wise statement or supply and verify an explicit k=0/boundary correction theorem.",
+      "proof_receipt": null
+    },
+    {
+      "id": "W2_ConstructiveTrigCalculus",
+      "name": "Constructive trigonometry and calculus bridge",
+      "status": "OPEN",
+      "depends_on": ["W0_XiFormulation"],
+      "authority_note": "The prime-diagonal sign/contribution interface is conditional on a trig-phase witness; an authority-safe constructive trig/calculus transport remains open.",
+      "smallest_blocker": "Machine-bind the periodicity/derivative witness on the constructive carrier used by the production proofline.",
+      "proof_receipt": null
+    },
+    {
+      "id": "W3_ArchimedeanSingularity",
+      "name": "Archimedean removable-singularity lane",
+      "status": "PARTIALLY_FORMALIZED",
+      "depends_on": ["W0_XiFormulation"],
+      "authority_note": "Analytic removable-singularity reasoning is available, but this ledger does not promote it to proof-kernel closure without an exact formal receipt matching the concrete distribution semantics.",
+      "smallest_blocker": "Bind the local cancellation statement to the concrete Archimedean distribution in the formal authority lane.",
+      "proof_receipt": null
+    },
+    {
+      "id": "W4_GaussianTailTheorem",
+      "name": "Gaussian two-sided tail theorem",
+      "status": "OPEN",
+      "depends_on": ["W0_XiFormulation"],
+      "authority_note": "QForm interval arithmetic computes certified constants, but the underlying real-analysis tail inequality is not machine-bound.",
+      "smallest_blocker": "Formalize and prove the Gaussian two-sided tail inequality on the selected constructive/real-analysis carrier.",
+      "proof_receipt": null
+    },
+    {
+      "id": "W5_CompositeTrapezoidTheorem",
+      "name": "Composite trapezoid remainder theorem",
+      "status": "OPEN",
+      "depends_on": ["W0_XiFormulation"],
+      "authority_note": "Observed refinement and certified constants remain computational evidence; the rigorous quadrature remainder theorem is not machine-bound.",
+      "smallest_blocker": "Formalize the smooth-bump derivative bounds and composite trapezoid error theorem used by the QForm budget.",
+      "proof_receipt": null
+    },
+    {
+      "id": "W6_GuinandWeilOperatorIdentity",
+      "name": "Concrete Guinand-Weil formula to operator identity",
+      "status": "OPEN",
+      "depends_on": [
+        "W1_FinitePrimePhaseBoundary",
+        "W2_ConstructiveTrigCalculus",
+        "W3_ArchimedeanSingularity"
+      ],
+      "authority_note": "Finite dictionary slices are machine-bound, but the full concrete formula-to-Weil operator identity is not.",
+      "smallest_blocker": "Complete prime diagonal, pole normalization, Archimedean entry semantics, and prove equality with the actual Weil quadratic operator.",
+      "proof_receipt": null
+    },
+    {
+      "id": "W7_ContinuousArchimedeanOrder",
+      "name": "Continuous Archimedean representation and order",
+      "status": "OPEN",
+      "depends_on": ["W3_ArchimedeanSingularity"],
+      "authority_note": "Exact finite Gram PSD is established for a finite algebraic kernel, but it does not imply the continuous Cauchy-Stieltjes representation or operator-order theorem.",
+      "smallest_blocker": "Prove the continuous representation and the corresponding positive/operator-order statement for the concrete Archimedean tail.",
+      "proof_receipt": null
+    },
+    {
+      "id": "W8_DensityContinuityCoverage",
+      "name": "Density, continuity, approximation and universal coverage",
+      "status": "OPEN",
+      "depends_on": [
+        "W4_GaussianTailTheorem",
+        "W5_CompositeTrapezoidTheorem",
+        "W6_GuinandWeilOperatorIdentity",
+        "W7_ContinuousArchimedeanOrder"
+      ],
+      "authority_note": "The density-only finite-stage positivity shortcut is explicitly refuted; a valid closure theorem must carry continuity/lower-semicontinuity or equivalent load-bearing hypotheses.",
+      "smallest_blocker": "Machine-bind the correct approximation/continuity theorem for the actual Weil form over the full target test space.",
+      "proof_receipt": null
+    },
+    {
+      "id": "W9_ConcreteWeilCriterion",
+      "name": "Concrete global Weil positivity and criterion",
+      "status": "OPEN",
+      "depends_on": ["W8_DensityContinuityCoverage"],
+      "authority_note": "Global positivity for the actual Weil quadratic form and its exact equivalence to RH are not machine-bound in the current authority lane.",
+      "smallest_blocker": "Close the concrete global positivity theorem and machine-bind the exact Weil criterion equivalence used by the final RH theorem.",
+      "proof_receipt": null
+    },
+    {
+      "id": "W10_FinalRiemannHypothesis",
+      "name": "Final Riemann Hypothesis theorem",
+      "status": "BLOCKED",
+      "depends_on": ["W9_ConcreteWeilCriterion"],
+      "authority_note": "The final theorem is strictly blocked until every upstream obligation is formally verified under the accepted proof-kernel boundary.",
+      "smallest_blocker": "W9 and all transitive dependencies must be FORMALLY_VERIFIED with exact proof-kernel receipts.",
+      "proof_receipt": null
+    }
+  ],
+  "refutations": [
+    {
+      "id": "FTG-DENSITY-ALONE-COUNTEREXAMPLE-V1",
+      "classification": "REFUTED_SHORTCUT",
+      "target_obligation": "W8_DensityContinuityCoverage",
+      "authority": "EXACT_RATIONAL_REGRESSION_NOT_PROOF_ASSISTANT",
+      "source": "research/rh/finite_to_global_counterexample.py",
+      "refutes": "DENSITY_ALONE_FINITE_STAGE_POSITIVITY_IMPLIES_CLOSURE_POSITIVITY",
+      "does_not_refute": [
+        "CONTINUOUS_Q_EXTENDS_POSITIVITY_FROM_DENSE_SUBSPACE",
+        "LOWER_SEMICONTINUOUS_CLOSED_FORM_EXTENDS_POSITIVITY_UNDER_ITS_HYPOTHESES"
+      ],
+      "does_not_close_obligation": true
+    }
+  ],
+  "non_claims": {
+    "global_weil_positivity_proven": false,
+    "concrete_weil_criterion_machine_bound": false,
+    "rh_proven": false
+  }
+}
