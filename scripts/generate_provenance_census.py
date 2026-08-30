@@ -34,24 +34,23 @@ EXPECTED_BASE = "d83a9c6b35d4bed6bbe0542b5492a84ad7a4795f"
 EXPECTED_MAIN = "a34d664d66ae9f7c2e729cd4ccb07b74130c660f"
 INTEGRATION_BRANCH = "integration/aegis-universal-intelligence-rh-v1"
 INTEGRATION_PR_NUMBER = 342
+LEVY_RESEARCH_BRANCH = "research/weil-levy-gap-v1"
+LEVY_RESEARCH_PR_NUMBER = 345
+LEVY_VERIFIED_HEAD = "62ccb4318100d6618a5a242983fa753dd7ed5a18"
 
-# These refs/PRs were created after the frozen 150/95 source snapshot and are
-# explicitly provenance-classified. Unknown additions remain fail-closed.
 POST_BASELINE_BRANCHES = frozenset(
     {
         INTEGRATION_BRANCH,
         "research/phi-finite-section-congruence-v1",
+        LEVY_RESEARCH_BRANCH,
     }
 )
-# Historical classification is distinct from current live-open membership.
-# PR #344 remains post-baseline provenance even after being closed as
-# superseded, so a fixture containing it must never leak it into the frozen
-# source census. Only #342 is required to be present in the live-open API set.
-POST_BASELINE_PRS = frozenset({INTEGRATION_PR_NUMBER, 344})
+# PRs #344 and #345 are historical post-baseline provenance after closure.
+POST_BASELINE_PRS = frozenset({INTEGRATION_PR_NUMBER, 344, LEVY_RESEARCH_PR_NUMBER})
 REQUIRED_OPEN_POST_BASELINE_PRS = frozenset({INTEGRATION_PR_NUMBER})
 
 EXPECTED_BASELINE_HEAD_COUNT = 150
-EXPECTED_LIVE_HEAD_COUNT = 152
+EXPECTED_LIVE_HEAD_COUNT = 153
 EXPECTED_OPEN_PRS = 95
 EXPECTED_DRAFT_PRS = 73
 EXPECTED_NONDRAFT_PRS = 22
@@ -70,10 +69,6 @@ class RemoteHead:
 def partition_census_heads(heads: list[RemoteHead]) -> tuple[list[RemoteHead], list[RemoteHead]]:
     """Return (frozen_source_heads, current_live_heads) deterministically."""
     live = sorted(heads, key=lambda head: head.name)
-    names = {head.name for head in live}
-    missing = sorted(POST_BASELINE_BRANCHES - names)
-    if missing:
-        raise RuntimeError(f"classified post-baseline ref missing: {missing}")
     baseline = [head for head in live if head.name not in POST_BASELINE_BRANCHES]
     return baseline, live
 
@@ -83,10 +78,6 @@ def partition_census_prs(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Return (frozen_source_prs, current_live_open_prs) with known children isolated."""
     live = sorted(prs, key=lambda pr: int(pr["number"]))
-    numbers = {int(pr["number"]) for pr in live}
-    missing = sorted(REQUIRED_OPEN_POST_BASELINE_PRS - numbers)
-    if missing:
-        raise RuntimeError(f"required post-baseline open PR missing: {missing}")
     baseline = [pr for pr in live if int(pr["number"]) not in POST_BASELINE_PRS]
     return baseline, live
 
@@ -143,9 +134,17 @@ def generate(token: str | None) -> dict[str, Any]:
         )
         for row in branches
     ]
+    head_names = {head.name for head in observed_heads}
+    missing_heads = sorted(POST_BASELINE_BRANCHES - head_names)
+    if missing_heads:
+        raise RuntimeError(f"classified post-baseline ref missing: {missing_heads}")
     baseline_heads, live_heads = partition_census_heads(observed_heads)
 
     observed_prs = _pull_requests(token)
+    open_pr_numbers = {int(pr["number"]) for pr in observed_prs}
+    missing_open_prs = sorted(REQUIRED_OPEN_POST_BASELINE_PRS - open_pr_numbers)
+    if missing_open_prs:
+        raise RuntimeError(f"required post-baseline open PR missing: {missing_open_prs}")
     baseline_prs, live_prs = partition_census_prs(observed_prs)
     drafts, nondrafts = _draft_counts(baseline_prs)
     live_drafts, live_nondrafts = _draft_counts(live_prs)
@@ -274,6 +273,18 @@ def generate(token: str | None) -> dict[str, Any]:
                 "exact_head": "e8dcc005a1e887661b7019f8b7f27d7a3f21a853",
                 "disposition": "CLOSED_SUPERSEDED_BY_CURRENT_BASE",
                 "reason": "The current integration parent already contains byte-identical production-kernel and test blobs; the PR carried no independent semantic delta and was closed to remove duplicate/conflict noise.",
+            },
+            "PR_345": {
+                "exact_head": LEVY_VERIFIED_HEAD,
+                "head_ref": LEVY_RESEARCH_BRANCH,
+                "disposition": "CLOSED_VERIFIED_SUPERSEDED_BY_INTEGRATION",
+                "authority": "T1_NUMERICAL_DIAGNOSTIC_ONLY",
+                "verification_runs": {
+                    "universal_intelligence_rh_gate": 33296701822,
+                    "kernel_one": 33296701804,
+                    "coordinator_authority": 33296701821,
+                },
+                "reason": "Exact-head research delta passed all three verification-critical workflows and was selectively transplanted; no infinite-process, global Weil positivity, or RH authority.",
             },
         },
         "remote_heads": [asdict(head) for head in baseline_heads],

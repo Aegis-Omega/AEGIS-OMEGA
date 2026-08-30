@@ -4,6 +4,7 @@ import math
 
 import numpy as np
 
+from harness.sdk.weil_levy_gap_probe import run_levy_gap_probe
 from harness.sdk.weil_spectral_inertia_probe import (
     SpectralProbeConfig,
     WeilSpectralInertiaProbe,
@@ -176,3 +177,35 @@ def test_reference_fixture_requires_integer_inertia_and_lambda_interval_match() 
     mismatch = verify_reference_fixture(observed, fixture)
     assert mismatch["reproduced"] is False
     assert "phi:NU_MINUS_MISMATCH" in mismatch["errors"]
+
+
+def test_finite_cutoff_weil_symbol_is_levy_exponent_plus_adverse_scalar_shift() -> None:
+    probe = WeilSpectralInertiaProbe(
+        SpectralProbeConfig(
+            tau=2.0,
+            p_cutoff=100,
+            k_basis_dim=3,
+            n_quad=2048,
+            t_bound=50.0,
+        )
+    )
+
+    receipt = run_levy_gap_probe(probe, scale_factor=1.0)
+
+    assert receipt["authority"] == "T1_NUMERICAL_DIAGNOSTIC"
+    assert receipt["finite_cutoff_standard_levy_measure"] is True
+    assert receipt["full_symbol_is_standard_levy_exponent"] is False
+    assert receipt["infinite_prime_measure_standard_levy_limit"] is False
+    assert abs(receipt["normalized_exponent_at_zero"]) < 1e-12
+    assert receipt["normalized_exponent_grid_min"] >= -1e-10
+    assert receipt["spectral_offset"] < 0.0
+    assert abs(receipt["adverse_shift_magnitude"] + receipt["spectral_offset"]) < 1e-12
+    assert receipt["matrix_decomposition_max_abs_error"] < 1e-9
+    assert receipt["lambda_shift_identity_abs_error"] < 1e-9
+    assert abs(
+        receipt["weil_lambda_min"]
+        - (receipt["levy_gap_lambda_min"] + receipt["spectral_offset"])
+    ) < 1e-9
+    assert receipt["uniform_gap_closed"] is False
+    assert receipt["global_weil_positivity_proven"] is False
+    assert receipt["rh_proven"] is False
