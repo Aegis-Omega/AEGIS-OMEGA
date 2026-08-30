@@ -1,3 +1,4 @@
+import json
 from fractions import Fraction
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from harness.sdk.universal_intelligence_evidence import (
 )
 from harness.sdk.rh_obligation_gate import (
     DEFAULT_OBLIGATIONS,
+    EXTERNAL_PROOF_KERNEL_VERIFICATION_REQUIRED,
     Obligation,
     ObligationState,
     ProofKernelReceiptV1,
@@ -104,9 +106,12 @@ def test_default_rh_gate_is_not_proven_and_fail_closed():
     assert result["open_obligations"]
 
 
-def test_programmatic_formal_promotion_requires_verified_receipt():
+def test_programmatic_formal_promotion_requires_external_proof_kernel():
     ledger = RHObligationLedger()
-    with pytest.raises(ValueError, match="verified formal receipt"):
+    with pytest.raises(
+        ValueError,
+        match=EXTERNAL_PROOF_KERNEL_VERIFICATION_REQUIRED,
+    ):
         ledger.with_state(
             "W0_XiFormulation",
             ObligationState.FORMALLY_VERIFIED,
@@ -114,31 +119,80 @@ def test_programmatic_formal_promotion_requires_verified_receipt():
         )
 
 
-def test_direct_formal_obligation_without_verified_receipt_is_rejected():
+def test_direct_formal_obligation_without_external_verification_is_rejected():
     obligations = list(DEFAULT_OBLIGATIONS)
     obligations[0] = Obligation(
         "W0_XiFormulation",
         ObligationState.FORMALLY_VERIFIED,
         authority_note="direct constructor bypass",
     )
-    with pytest.raises(ValueError, match="verified formal receipt"):
+    with pytest.raises(
+        ValueError,
+        match=EXTERNAL_PROOF_KERNEL_VERIFICATION_REQUIRED,
+    ):
         RHObligationLedger(tuple(obligations))
 
 
 def test_public_api_cannot_fabricate_positive_rh_closure():
     ledger = RHObligationLedger()
     for index, obligation in enumerate(DEFAULT_OBLIGATIONS, start=1):
-        with pytest.raises(ValueError, match="EXTERNAL_PROOF_KERNEL_VERIFICATION_REQUIRED"):
-            verify_proof_kernel_receipt(_raw_formal_receipt(index))
-        with pytest.raises(ValueError, match="verified formal receipt"):
+        raw = _raw_formal_receipt(index)
+        with pytest.raises(
+            ValueError,
+            match=EXTERNAL_PROOF_KERNEL_VERIFICATION_REQUIRED,
+        ):
+            verify_proof_kernel_receipt(raw)
+        with pytest.raises(
+            ValueError,
+            match=EXTERNAL_PROOF_KERNEL_VERIFICATION_REQUIRED,
+        ):
             ledger.with_state(
                 obligation.obligation_id,
                 ObligationState.FORMALLY_VERIFIED,
                 authority_note="self-minted fixture must not promote",
+                formal_receipt=raw,
             )
     result = ledger.verify_final_closure()
     assert result["verdict"] == "RH_NOT_PROVEN"
     assert result["gate_status"] == "FAIL_CLOSED"
+
+
+def test_terminal_closure_rechecks_authority_after_internal_mutation():
+    ledger = RHObligationLedger()
+    current = ledger._obligations["W10_FinalRiemannHypothesis"]
+    ledger._obligations["W10_FinalRiemannHypothesis"] = Obligation(
+        current.obligation_id,
+        ObligationState.FORMALLY_VERIFIED,
+        current.depends_on,
+        "adversarial internal mutation fixture",
+        _raw_formal_receipt(15),
+    )
+    with pytest.raises(
+        ValueError,
+        match=EXTERNAL_PROOF_KERNEL_VERIFICATION_REQUIRED,
+    ):
+        ledger.verify_final_closure()
+
+
+def test_machine_ledger_cannot_promote_from_well_formed_raw_receipt(tmp_path):
+    source = Path("research/rh/proof-obligations-v1.json")
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    payload["proof_obligations"][0]["status"] = "FORMALLY_VERIFIED"
+    payload["proof_obligations"][0]["proof_receipt"] = {
+        "kind": "PROOF_KERNEL_RECEIPT_V1",
+        "exact_head": "1" * 40,
+        "source_sha256": "2" * 64,
+        "axiom_free": True,
+        "closed_under_global_context": True,
+    }
+    tampered = tmp_path / "self-asserted-formal-ledger.json"
+    tampered.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(
+        ValueError,
+        match=EXTERNAL_PROOF_KERNEL_VERIFICATION_REQUIRED,
+    ):
+        RHObligationLedger.from_json_file(tampered)
 
 
 def test_census_keeps_original_150_head_snapshot_separate_from_classified_post_baseline_refs():
@@ -213,15 +267,3 @@ def test_machine_readable_rh_ledger_matches_fail_closed_default():
     assert result["verdict"] == "RH_NOT_PROVEN"
     assert result["gate_status"] == "FAIL_CLOSED"
     assert "W8_DensityContinuityCoverage" in result["open_obligations"]
-
-
-def test_syntactically_valid_receipt_cannot_self_mint_formal_authority():
-    receipt = ProofKernelReceiptV1(
-        exact_head="1" * 40,
-        source_sha256="2" * 64,
-        kind="PROOF_KERNEL_RECEIPT_V1",
-        axiom_free=True,
-        closed_under_global_context=True,
-    )
-    with pytest.raises(ValueError, match="EXTERNAL_PROOF_KERNEL_VERIFICATION_REQUIRED"):
-        verify_proof_kernel_receipt(receipt)
