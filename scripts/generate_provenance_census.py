@@ -41,7 +41,6 @@ LEVY_VERIFIED_HEAD = "62ccb4318100d6618a5a242983fa753dd7ed5a18"
 LEVY_NEGATIVITY_VERIFIED_HEAD = "e7d9009233ea69631263853bbf9ecffa2454e34a"
 PRIME_TRIG_BRANCH = "proof/weil-constructive-prime-trig-v1"
 PRIME_TRIG_PR_NUMBER = 347
-PRIME_TRIG_HEAD = "47dbd953a7c8de01186de84846e6fe9c66cebaf7"
 
 POST_BASELINE_BRANCHES = frozenset(
     {
@@ -202,6 +201,19 @@ def generate(token: str | None) -> dict[str, Any]:
 
     integration_head = next(head for head in live_heads if head.name == INTEGRATION_BRANCH)
     integration_pr = next(pr for pr in live_prs if int(pr["number"]) == INTEGRATION_PR_NUMBER)
+    prime_trig_head = next(head for head in live_heads if head.name == PRIME_TRIG_BRANCH)
+    prime_trig_pr = next(pr for pr in live_prs if int(pr["number"]) == PRIME_TRIG_PR_NUMBER)
+    if prime_trig_pr["head"]["ref"] != PRIME_TRIG_BRANCH:
+        raise RuntimeError(
+            f"PR #{PRIME_TRIG_PR_NUMBER} head-ref drift: "
+            f"{prime_trig_pr['head']['ref']} != {PRIME_TRIG_BRANCH}"
+        )
+    if prime_trig_pr["head"]["sha"] != prime_trig_head.sha:
+        raise RuntimeError(
+            f"PR #{PRIME_TRIG_PR_NUMBER} head SHA disagrees with branch census: "
+            f"{prime_trig_pr['head']['sha']} != {prime_trig_head.sha}"
+        )
+
     post_baseline_heads = [
         asdict(head) for head in live_heads if head.name in POST_BASELINE_BRANCHES
     ]
@@ -317,14 +329,14 @@ def generate(token: str | None) -> dict[str, Any]:
                 "reason": "Exact-head state-space boundary was selectively transplanted after GREEN verification. The refutation is limited to the compact spectral C_c^infinity zero-moment surrogate; Paley-Wiener/classical Weil admissibility, untruncated renormalized semantics, global Weil positivity, and RH remain open/non-promoted.",
             },
             "PR_347": {
-                "exact_head": PRIME_TRIG_HEAD,
+                "exact_head": prime_trig_head.sha,
                 "head_ref": PRIME_TRIG_BRANCH,
                 "disposition": "OPEN_DRAFT_CONSTRUCTIVE_PRIME_TRIG_RESEARCH",
-                "authority": "OPEN_RED_PROOFLINE_NO_RH_AUTHORITY",
+                "authority": "OPEN_DRAFT_PROOFLINE_NO_RH_AUTHORITY",
                 "reason": (
                     "Legitimate post-baseline constructive prime-trigonometric proof lane. "
-                    "The PR explicitly reports its current checkpoint as RED; no prime-diagonal closure, "
-                    "global Weil positivity, or RH authority is promoted by census classification."
+                    "The census binds its current head but does not infer proof closure from PR prose or CI status; "
+                    "no prime-diagonal closure, global Weil positivity, or RH authority is promoted here."
                 ),
             },
         },
