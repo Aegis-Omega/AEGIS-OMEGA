@@ -5,6 +5,7 @@ on:
     paths:
       - 'harness/sdk/weil_prime_support_kernel.py'
       - 'research/rh/test_weil_prime_support_kernel.py'
+      - 'research/rh/test_weil_prime_tail_cancellation.py'
       - '.github/workflows/weil-prime-support.yml'
   push:
     branches:
@@ -12,6 +13,7 @@ on:
     paths:
       - 'harness/sdk/weil_prime_support_kernel.py'
       - 'research/rh/test_weil_prime_support_kernel.py'
+      - 'research/rh/test_weil_prime_tail_cancellation.py'
       - '.github/workflows/weil-prime-support.yml'
 
 permissions:
@@ -45,4 +47,7 @@ jobs:
       - name: Run prime-support falsifiers
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: pytest -q research/rh/test_weil_prime_support_kernel.py
+        run: |
+          pytest -q \
+            research/rh/test_weil_prime_support_kernel.py \
+            research/rh/test_weil_prime_tail_cancellation.py
