@@ -12,7 +12,7 @@
     {"id":"W3_ArchimedeanSingularity","name":"Archimedean removable-singularity lane","status":"PARTIALLY_FORMALIZED","depends_on":["W0_XiFormulation"],"authority_note":"Analytic removable-singularity reasoning is available, but this ledger does not promote it to proof-kernel closure without an exact formal receipt matching the concrete distribution semantics.","smallest_blocker":"Bind the local cancellation statement to the concrete Archimedean distribution in the formal authority lane.","proof_receipt":null},
     {"id":"W4_GaussianTailTheorem","name":"Gaussian two-sided tail theorem","status":"OPEN","depends_on":["W0_XiFormulation"],"authority_note":"QForm interval arithmetic computes certified constants, but the underlying real-analysis tail inequality is not machine-bound.","smallest_blocker":"Formalize and prove the Gaussian two-sided tail inequality on the selected constructive/real-analysis carrier.","proof_receipt":null},
     {"id":"W5_CompositeTrapezoidTheorem","name":"Composite trapezoid remainder theorem","status":"OPEN","depends_on":["W0_XiFormulation"],"authority_note":"Observed refinement and certified constants remain computational evidence; the rigorous quadrature remainder theorem is not machine-bound.","smallest_blocker":"Formalize the smooth-bump derivative bounds and composite trapezoid error theorem used by the QForm budget.","proof_receipt":null},
-    {"id":"W6_GuinandWeilOperatorIdentity","name":"Concrete Guinand-Weil formula to operator identity","status":"OPEN","depends_on":["W1_FinitePrimePhaseBoundary","W2_ConstructiveTrigCalculus","W3_ArchimedeanSingularity"],"authority_note":"Finite dictionary slices are machine-bound, but the full concrete formula-to-Weil operator identity is not.","smallest_blocker":"Complete prime diagonal, pole normalization, Archimedean entry semantics, and prove equality with the actual Weil quadratic operator.","proof_receipt":null},
+    {"id":"W6_GuinandWeilOperatorIdentity","name":"Concrete Guinand-Weil formula to operator identity","status":"OPEN","depends_on":["W1_FinitePrimePhaseBoundary","W2_ConstructiveTrigCalculus","W3_ArchimedeanSingularity"],"authority_note":"Finite dictionary slices are machine-bound. On every fixed sinc/Paley-Wiener section the prime-power Galerkin block saturates exactly after the support cutoff, and the centered prime tail cancels its scalar counterterm on that fixed section. This does not identify the compact spectral surrogate with the classical Paley-Wiener/Weil admissible test space and does not provide uniform closure as support radius tends to infinity.","smallest_blocker":"Bind the actual Paley-Wiener admissible test-space semantics to the concrete Guinand-Weil operator and prove compatible uniform/global closure as the support radius grows, while retaining the prime diagonal, pole normalization and Archimedean entry semantics.","proof_receipt":null},
     {"id":"W7_ContinuousArchimedeanOrder","name":"Continuous Archimedean representation and order","status":"OPEN","depends_on":["W3_ArchimedeanSingularity"],"authority_note":"Exact finite Gram PSD is established for a finite algebraic kernel, but it does not imply the continuous Cauchy-Stieltjes representation or operator-order theorem.","smallest_blocker":"Prove the continuous representation and the corresponding positive/operator-order statement for the concrete Archimedean tail.","proof_receipt":null},
     {"id":"W8_DensityContinuityCoverage","name":"Density, continuity, approximation and universal coverage","status":"OPEN","depends_on":["W4_GaussianTailTheorem","W5_CompositeTrapezoidTheorem","W6_GuinandWeilOperatorIdentity","W7_ContinuousArchimedeanOrder"],"authority_note":"The density-only finite-stage positivity shortcut is explicitly refuted; a valid closure theorem must carry continuity/lower-semicontinuity or equivalent load-bearing hypotheses.","smallest_blocker":"Machine-bind the correct approximation/continuity theorem for the actual Weil form over the full target test space.","proof_receipt":null},
     {"id":"W9_ConcreteWeilCriterion","name":"Concrete global Weil positivity and criterion","status":"OPEN","depends_on":["W8_DensityContinuityCoverage"],"authority_note":"Global positivity for the actual Weil quadratic form and its exact equivalence to RH are not machine-bound in the current authority lane.","smallest_blocker":"Close the concrete global positivity theorem and machine-bind the exact Weil criterion equivalence used by the final RH theorem.","proof_receipt":null},
@@ -32,6 +32,31 @@
         "CONTINUOUS_Q_EXTENDS_POSITIVITY_FROM_DENSE_SUBSPACE",
         "LOWER_SEMICONTINUOUS_CLOSED_FORM_EXTENDS_POSITIVITY_UNDER_ITS_HYPOTHESES"
       ],
+      "does_not_close_obligation": true
+    },
+    {
+      "id": "FINITE-CUTOFF-STATE-SPACE-BOUNDARY-V1",
+      "classification": "REFUTED_ROUTE_UNDER_STATED_SURROGATE_SEMANTICS",
+      "target_obligation": "W6_GuinandWeilOperatorIdentity",
+      "authority": "ANALYTIC_ARGUMENT_LEDGER_PLUS_T1_NUMERICAL_WITNESS_NO_RH_AUTHORITY",
+      "source": "research/rh/finite_cutoff_state_space_boundary.py",
+      "verified_source_sha": "e7d9009233ea69631263853bbf9ecffa2454e34a",
+      "verification_runs": {
+        "finite_cutoff_state_space_boundary_research": 33297901098,
+        "kernel_one_research": 33297901100,
+        "finite_cutoff_state_space_boundary_integration": 33297949585,
+        "universal_intelligence_rh_gate_integration": 33297949571
+      },
+      "refutes": "FINITE_PRIME_CUTOFF_MULTIPLIER_POSITIVITY_ON_COMPACT_SPECTRAL_CCINFINITY_ZERO_MOMENT_SURROGATE",
+      "does_not_refute": [
+        "CLASSICAL_PALEY_WIENER_WEIL_ADMISSIBLE_SPACE",
+        "UNTRUNCATED_RENORMALIZED_WEIL_FORM",
+        "GLOBAL_WEIL_POSITIVITY",
+        "WEIL_CRITERION",
+        "RIEMANN_HYPOTHESIS"
+      ],
+      "fixed_support_prime_fact": "PRIME_POWER_GALERKIN_BLOCK_SATURATES_AFTER_EXACT_PALEY_WIENER_SUPPORT_CUTOFF",
+      "remaining_load_bearing_bridge": "CLASSICAL_PALEY_WIENER_TEST_SPACE_AND_UNIFORM_SUPPORT_RADIUS_TO_CONCRETE_WEIL_OPERATOR_SEMANTICS",
       "does_not_close_obligation": true
     }
   ],
