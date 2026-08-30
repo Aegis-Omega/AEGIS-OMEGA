@@ -1,0 +1,93 @@
+name: AEGIS Universal Intelligence RH Gate
+
+on:
+  pull_request:
+    paths:
+      - 'harness/sdk/universal_intelligence_evidence.py'
+      - 'harness/sdk/rh_obligation_gate.py'
+      - 'sovereign-omega-v2/python/tests/test_universal_intelligence_rh_gates.py'
+      - 'scripts/generate_provenance_census.py'
+      - 'docs/audits/provenance_census_v1.json'
+      - '.github/workflows/universal-intelligence-rh.yml'
+  push:
+    branches:
+      - integration/aegis-universal-intelligence-rh-v1
+    paths:
+      - 'harness/sdk/universal_intelligence_evidence.py'
+      - 'harness/sdk/rh_obligation_gate.py'
+      - 'sovereign-omega-v2/python/tests/test_universal_intelligence_rh_gates.py'
+      - 'scripts/generate_provenance_census.py'
+      - 'docs/audits/provenance_census_v1.json'
+      - '.github/workflows/universal-intelligence-rh.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Bind exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED='${{ github.event.pull_request.head.sha || github.sha }}'
+          ACTUAL="$(git rev-parse HEAD)"
+          test "$ACTUAL" = "$EXPECTED"
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install focused test dependency
+        run: python -m pip install 'pytest==8.4.1'
+
+      - name: Compile gates
+        run: |
+          python -m py_compile \
+            harness/sdk/universal_intelligence_evidence.py \
+            harness/sdk/rh_obligation_gate.py \
+            scripts/generate_provenance_census.py
+
+      - name: Run fail-closed falsifiers
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: pytest -q sovereign-omega-v2/python/tests/test_universal_intelligence_rh_gates.py
+
+      - name: Regenerate live branch census
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/generate_provenance_census.py --output /tmp/provenance_census_v1.json
+
+      - name: Assert census invariants
+        run: |
+          python - <<'PY'
+          import json
+          p=json.load(open('/tmp/provenance_census_v1.json'))
+          assert p['census_summary']['total_remote_heads'] == 150
+          assert p['census_summary']['open_prs_total'] == 95
+          assert p['census_summary']['open_prs_draft'] == 73
+          assert p['census_summary']['open_prs_nondraft'] == 22
+          assert len(p['remote_heads']) == 150
+          assert p['authority_boundary']['model_output_can_mint_authority'] is False
+          print('CENSUS_PASS 150/150')
+          PY
+
+      - name: Confirm RH remains fail-closed by default
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python - <<'PY'
+          from harness.sdk.rh_obligation_gate import RHObligationLedger
+          result = RHObligationLedger().verify_final_closure()
+          assert result['verdict'] == 'RH_NOT_PROVEN'
+          assert result['gate_status'] == 'FAIL_CLOSED'
+          print('RH_DEFAULT_BOUNDARY_PASS')
+          PY
