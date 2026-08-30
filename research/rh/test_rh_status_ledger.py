@@ -17,7 +17,8 @@ def test_machine_readable_rh_ledger_matches_fail_closed_default():
 
 def test_formal_status_without_exact_proof_kernel_receipt_is_rejected(tmp_path):
     source = "research/rh/proof-obligations-v1.json"
-    payload = json.load(open(source, "r", encoding="utf-8"))
+    with open(source, "r", encoding="utf-8") as f:
+        payload = json.load(f)
     payload["proof_obligations"][0]["status"] = "FORMALLY_VERIFIED"
     payload["proof_obligations"][0]["proof_receipt"] = None
 
@@ -30,7 +31,8 @@ def test_formal_status_without_exact_proof_kernel_receipt_is_rejected(tmp_path):
 
 def test_top_level_declared_verdict_cannot_promote_gate(tmp_path):
     source = "research/rh/proof-obligations-v1.json"
-    payload = json.load(open(source, "r", encoding="utf-8"))
+    with open(source, "r", encoding="utf-8") as f:
+        payload = json.load(f)
     payload["declared_verdict"] = "RH_PROVEN_FORMALLY"
 
     tampered = tmp_path / "prose-promoted-ledger.json"
