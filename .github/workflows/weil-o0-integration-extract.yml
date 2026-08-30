@@ -1,0 +1,92 @@
+name: Weil O0 Integration Extract
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/theories/Weil/AnalyticDefinitions.v'
+      - 'sovereign-omega-v2/formal/theories/Weil/Globalization.v'
+      - '.github/workflows/weil-o0-integration-extract.yml'
+  push:
+    branches:
+      - integration/aegis-universal-intelligence-rh-v1
+    paths:
+      - 'sovereign-omega-v2/formal/theories/Weil/AnalyticDefinitions.v'
+      - 'sovereign-omega-v2/formal/theories/Weil/Globalization.v'
+      - '.github/workflows/weil-o0-integration-extract.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-o0-integration-extract-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  SOURCE_PR307_HEAD: 41ad4ea70c09eb2b88c8457d3b7185c5db4f986a
+  ANALYTIC_GIT_BLOB: 45e57d4bef0c227917bab901bf555386a2f24756
+  GLOBALIZATION_GIT_BLOB: d8f687841db4fd362778a9ba034e0f26316fdaa0
+
+jobs:
+  verify-exact-extract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate and source-byte identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test -f sovereign-omega-v2/formal/theories/Weil/AnalyticDefinitions.v
+          test -f sovereign-omega-v2/formal/theories/Weil/Globalization.v
+          test "$(git hash-object sovereign-omega-v2/formal/theories/Weil/AnalyticDefinitions.v)" = "$ANALYTIC_GIT_BLOB"
+          test "$(git hash-object sovereign-omega-v2/formal/theories/Weil/Globalization.v)" = "$GLOBALIZATION_GIT_BLOB"
+
+      - name: Reject declared assumptions in extracted production files
+        shell: bash
+        run: |
+          set -euo pipefail
+          for src in \
+            sovereign-omega-v2/formal/theories/Weil/AnalyticDefinitions.v \
+            sovereign-omega-v2/formal/theories/Weil/Globalization.v
+          do
+            if grep -En '^[[:space:]]*(Axiom|Axioms|Parameter|Parameters|Admitted)[[:space:].]' "$src"; then
+              echo "Declared assumption/admission forbidden: $src" >&2
+              exit 1
+            fi
+          done
+
+      - name: Compile exact PR307 extraction and check assumptions
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            cd sovereign-omega-v2/formal/theories/Weil
+            coqc AnalyticDefinitions.v
+            coqc Globalization.v
+            for theorem in \
+              global_weil_positivity_v1_pointwise \
+              finite_lower_bound_v1_specialize \
+              globalization_ready_implies_global_weil_positivity_v1
+            do
+              query="/tmp/${theorem}.v"
+              log="/tmp/${theorem}.assumptions.txt"
+              printf 'Set Coqtop Exit On Error.\nRequire Import AnalyticDefinitions Globalization.\nPrint Assumptions %s.\n' "$theorem" > "$query"
+              coqtop -quiet -batch -l "$query" > "$log" 2>&1
+              cat "$log"
+              grep -q 'Closed under the global context' "$log"
+              if grep -q '^Axioms:' "$log"; then
+                echo "Unexpected assumptions for $theorem" >&2
+                exit 1
+              fi
+            done
+            echo "PR307_EXACT_SOURCE_EXTRACTION_PASS $SOURCE_PR307_HEAD"
