@@ -94,4 +94,4 @@ jobs:
                 exit 1
               fi
             done
-            echo "PR307_EXACT_SOURCE_EXTRACTION_PASS $SOURCE_PR307_HEAD"
+            echo "PR307_EXACT_SOURCE_EXTRACTION_PASS"
