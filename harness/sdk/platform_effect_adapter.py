@@ -135,6 +135,9 @@ def request_platform_json(
     try:
         response = opener.open(request, timeout=timeout_seconds)
     except urllib.error.HTTPError as exc:
+        if 300 <= exc.code < 400:
+            exc.close()
+            raise EffectAdapterError("PLATFORM_REDIRECT_REJECTED") from exc
         response = exc
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         raise EffectAdapterError("PLATFORM_OBSERVATION_UNAVAILABLE") from exc

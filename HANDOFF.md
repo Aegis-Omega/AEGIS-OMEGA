@@ -14,16 +14,15 @@ revalidated before consequential actions.
 ### Latest hosted evidence anchor
 
 - PR **#334** — `feat/autopoietic-runtime-v1` → `main`, OPEN, DRAFT, mergeable at inspection.
-- Hosted head before this documentation follow-up:
-  `ba4d157b8846a0a07e06f5200858caa4c5cbef80`.
-- Source tree: `2a1ab83cf1a2bf6254369f241bcf5872eeb60932`.
-- Authorization Effect Chain run `33277497127`: SUCCESS — exact-head checkout, 99/99 tests,
+- Hosted baseline before the redirect-security follow-up:
+  `aec7f236140ae3b3bd87e6bd52757f7b1da25e18`.
+- Source tree: `02d8f355c72596dc0272fa1ba470f1f691f36cdc`.
+- Authorization Effect Chain run `33277765961`: SUCCESS — exact-head checkout, 99/99 tests,
   Docker image build, constitutional-anchor inspection, OIDC/service imports, and
   `AGENT_DISPATCH_IMAGE_PASS`.
 - Automaton-2/3, Coordinator Authority, Scale OS, Experiment Admission, MCP Resources,
   Kernel One, Integration Ledger, OSV, Hadolint, and four Vercel contexts: SUCCESS.
-- Constitutional Automaton on that anchor was still running when this documentation follow-up
-  began; its status must be re-read rather than inherited.
+- Constitutional Automaton completed SUCCESS with all 15 jobs on that baseline.
 
 These receipts predate this documentation commit. Re-run exact-head
 checks after publication; do not transfer GREEN status between commits.
@@ -42,6 +41,11 @@ The POST response cannot self-certify an effect. Revision, contract, execution i
 and transition bindings prevent receipt splicing. Read-only observation authentication does not
 consume execution quota. Failures before execution remain `NOT_EXECUTED`; uncertainty after an
 attempt remains `UNKNOWN` rather than being mislabeled as an authority denial.
+
+The redirect-security follow-up adds the 100th targeted regression. Platform observation closes
+and explicitly rejects every `3xx` before parsing; a real local HTTP target proves that no
+redirect request occurs and the platform API key is not forwarded. This candidate still requires
+fresh hosted exact-head CI before the baseline status can be promoted.
 
 ### Agent Dispatch correction in this follow-up
 

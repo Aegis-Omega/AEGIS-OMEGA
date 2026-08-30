@@ -26,6 +26,14 @@ of these states in the GitHub step summary:
 The network step may still appear skipped in the first two states. That is the
 intended fail-closed behavior; the job itself remains visible and successful.
 
+Three GitHub UI states must not be conflated:
+
+- **whole job skipped** was the old job-level `if` defect and is removed by this candidate;
+- **network step skipped** is expected for `IGNORED_NO_ADMITTED_ROUTE` or
+  `DEFERRED_NOT_CONFIGURED` and proves that no dispatch was attempted;
+- **no post-CI run on the PR branch** is expected until this workflow revision reaches the
+  default branch, because GitHub resolves `workflow_run` definitions from the default branch.
+
 ## Required GitHub configuration
 
 Configure both values under repository **Settings → Secrets and variables →

@@ -17,7 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 
 from harness.sdk.complete_verifier import TRUE  # noqa: E402
-from harness.sdk.effect_adapters import EFFECT_WITNESS_KIND  # noqa: E402
+from harness.sdk.effect_adapters import EFFECT_WITNESS_KIND, EffectAdapterError  # noqa: E402
 from harness.sdk.effect_verifier import FALSE, EffectVerifier  # noqa: E402
 from harness.sdk.proof_carrying_platform_execution import (  # noqa: E402
     PlatformExecutionDispatcher,
@@ -25,7 +25,10 @@ from harness.sdk.proof_carrying_platform_execution import (  # noqa: E402
     execute_platform_start_from_environment,
     execute_verified_platform_start,
 )
-from harness.sdk.platform_effect_adapter import PlatformExecutionEffectAdapter  # noqa: E402
+from harness.sdk.platform_effect_adapter import (  # noqa: E402
+    PlatformExecutionEffectAdapter,
+    request_platform_json,
+)
 from harness.sdk.sovereign_execution import (  # noqa: E402
     SCHEMA_VERSION,
     ZERO_HASH,
@@ -74,6 +77,8 @@ class PlatformFixture:
         self.post_body: dict[str, object] | None = None
         self.git_sha = "b" * 40
         self.git_sha_after_post: str | None = None
+        self.redirect_target_count = 0
+        self.redirect_target_api_key: str | None = None
 
     def handler(self):
         fixture = self
@@ -93,6 +98,17 @@ class PlatformFixture:
                 self.wfile.write(body)
 
             def do_GET(self):
+                if self.path == "/redirect":
+                    host, port = self.server.server_address
+                    self.send_response(307)
+                    self.send_header("Location", f"http://{host}:{port}/redirect-target")
+                    self.end_headers()
+                    return
+                if self.path == "/redirect-target":
+                    fixture.redirect_target_count += 1
+                    fixture.redirect_target_api_key = self.headers.get("X-API-Key")
+                    self.respond(200, {"redirected": True})
+                    return
                 fixture.get_count += 1
                 if self.path != TARGET:
                     self.respond(404, {"error": "execution not found", "code": "NOT_FOUND", "execution_id": "wrong-target"})
@@ -190,6 +206,20 @@ class LivePlatformEffectChainTests(TestCase):
         self.assertEqual(1, self.fixture.post_count)
         self.assertEqual(3, self.fixture.get_count)  # one pre-state read + two independent post-state reads
         self.assertEqual(EXECUTION_ID, self.fixture.post_body["execution_id"])
+
+    def test_redirect_is_explicitly_rejected_without_forwarding_platform_credential(self) -> None:
+        bridge_url = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+        with self.assertRaisesRegex(EffectAdapterError, "PLATFORM_REDIRECT_REJECTED"):
+            request_platform_json(
+                bridge_url=bridge_url,
+                api_key="redirect-secret",
+                method="GET",
+                path="/redirect",
+            )
+
+        self.assertEqual(0, self.fixture.redirect_target_count)
+        self.assertIsNone(self.fixture.redirect_target_api_key)
 
     def test_post_acceptance_without_observed_record_cannot_create_effect_or_complete_receipt(self) -> None:
         self.fixture.materialize_on_post = False

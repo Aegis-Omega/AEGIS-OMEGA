@@ -159,7 +159,7 @@ Resident route semantics, deployment requirements, and the strict distinction be
 | Rust — `aegis-cl-psi` | 7,178 |
 | Rust — `aegis-runtime` | 133 |
 | Python — `aegis-interface` (RFC 0001/0005) | 50 |
-| Python — authorization/effect-chain targeted regression | 99 |
+| Python — authorization/effect-chain targeted regression | 100 |
 | Python — proof-trace targeted regression | 31 |
 | Python — resident live HTTP path | 20 |
 | Python — platform contract | 565 |
@@ -191,6 +191,11 @@ the exact-candidate image. The smoke gate verifies all four constitutional works
 imports the GitHub OIDC verifier and live service module, and emits
 `AGENT_DISPATCH_IMAGE_PASS`. This establishes image buildability for that exact commit; it is
 still not a Cloud Run deployment or production-effect receipt.
+
+Platform effect observation never follows HTTP redirects. A `3xx` response is closed and
+classified as `PLATFORM_REDIRECT_REJECTED` before response parsing, so the platform API key
+cannot be forwarded to a redirect target. The live HTTP regression proves both zero target
+requests and zero credential disclosure.
 
 ---
 

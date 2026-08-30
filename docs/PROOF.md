@@ -4,21 +4,21 @@ A receipt anyone can reproduce in minutes. Every number below was measured
 directly from the tracked repository (excluding `node_modules` and build output),
 not asserted. Commands are included so you can confirm each figure yourself.
 
-## Current exact-head verification anchor
+## Latest hosted baseline and candidate delta
 
-PR #334's last hosted verification anchor before this documentation reconciliation is
-`ba4d157b8846a0a07e06f5200858caa4c5cbef80`, tree
-`2a1ab83cf1a2bf6254369f241bcf5872eeb60932`:
+PR #334's last hosted verification baseline before the redirect-security delta is
+`aec7f236140ae3b3bd87e6bd52757f7b1da25e18`, tree
+`02d8f355c72596dc0272fa1ba470f1f691f36cdc`:
 
 | Evidence | Result |
 |----------|--------|
-| Constitutional Automaton | still running when this documentation follow-up began; do not inherit its prior status |
-| Authorization Effect Chain run `33277497127` | SUCCESS — exact-head checkout, 99/99 tests, image build and runtime inspection |
+| Constitutional Automaton | SUCCESS — all 15 jobs on the baseline head |
+| Authorization Effect Chain run `33277765961` | SUCCESS — exact-head checkout, 99/99 tests, image build and runtime inspection |
 | TypeScript Gate 8 | 254 files passed / 3 skipped; 4,130 tests passed / 68 skipped; typecheck and build passed |
 | Targeted Python receipt/effect chain | 99 passed on hosted anchor |
 | Agent Dispatch image | `vertex/Dockerfile` built and ran; `AGENT_DISPATCH_IMAGE_PASS` |
 | Targeted Python ProofTrace | 31 passed |
-| Review ledger | 26/26 resolved |
+| Review ledger | 28/28 resolved |
 
 The verified transition is:
 
@@ -28,6 +28,12 @@ DecisionReceipt → ExecutionReceipt → EffectObservation
 ```
 
 This is candidate-state evidence, not a production deployment receipt. The PR remains DRAFT.
+
+The current candidate adds one real-server redirect falsifier, bringing the targeted suite to
+100 tests. It requires a `3xx` response to become `PLATFORM_REDIRECT_REJECTED`, proves that the
+redirect target receives zero requests, and proves that the platform API key is not forwarded.
+The hosted workflow must re-establish those 100 tests on the final exact head; this document does
+not transfer the baseline GREEN receipt to a later commit.
 
 The request-bound identity slice is hosted-verified by 11 dispatch-envelope/build-contract tests,
 4 RS256/request-context/replay tests, and the Automaton-3 replay-manifest test. The image gate
