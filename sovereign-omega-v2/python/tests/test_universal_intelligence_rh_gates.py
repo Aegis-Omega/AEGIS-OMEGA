@@ -9,6 +9,7 @@ from harness.sdk.rh_obligation_gate import (
     ObligationState,
     RHObligationLedger,
 )
+from scripts.generate_provenance_census import RemoteHead, partition_census_heads
 
 
 def test_evidence_plane_cannot_mint_authority():
@@ -95,3 +96,22 @@ def test_dependency_violation_fails_closed():
     result = ledger.verify_final_closure()
     assert result["verdict"] == "RH_NOT_PROVEN"
     assert result["dependency_violations"]
+
+
+def test_census_keeps_original_150_head_snapshot_separate_from_integration_ref():
+    source_heads = [
+        RemoteHead(name=f"branch-{i:03d}", sha=f"{i:040x}", protected=False)
+        for i in range(150)
+    ]
+    integration = RemoteHead(
+        name="integration/aegis-universal-intelligence-rh-v1",
+        sha="f" * 40,
+        protected=False,
+    )
+
+    baseline, live = partition_census_heads(source_heads + [integration])
+
+    assert len(baseline) == 150
+    assert len(live) == 151
+    assert all(head.name != integration.name for head in baseline)
+    assert live[-1] == integration
