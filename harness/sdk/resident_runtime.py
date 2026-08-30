@@ -1,16 +1,17 @@
 """Resident-runtime facade with closed-loop epistemic actuation.
 
 The large production implementation remains byte-identical in
-``resident_runtime_impl``.  This facade adds the bounded sensing/evidence
-contract required by the resident path without rewriting unrelated execution,
-effect-verification, admission, replay, or memory logic.
+``resident_runtime_impl``.  This facade adds the bounded sensing/evidence and
+learning-evaluation contracts required by the resident path without rewriting
+unrelated execution, effect-verification, admission, replay, or memory logic.
 
 Core invariant:
 
     compute/capability != observation != evidence != learning != authority.
 
 A successful knowledge-verification path is therefore never used as a proxy for
-measured information gain.
+measured information gain, and an immediate compute/output gain is never used
+as a proxy for durable learning.
 """
 from __future__ import annotations
 
@@ -23,8 +24,13 @@ from typing import Any
 from harness.sdk import resident_runtime_impl as _impl
 from harness.sdk.resident_runtime_impl import *  # noqa: F401,F403
 from harness.sdk.closed_loop_epistemic_actuation import (
+    CAPABILITY_BOOST_ONLY,
+    LEARNING_EFFECT_ESTABLISHED,
+    LearningInterventionV1,
+    LearningReceiptV1,
     ObservationEvidenceV1,
     ObservationTransformV1,
+    evaluate_learning_effect,
     verify_observation_effect,
 )
 from harness.sdk.sovereign_execution import canonical_hash
@@ -50,7 +56,7 @@ _impl.AnalysisPacketV1 = AnalysisPacketV1
 
 
 class ResidentRuntime(_impl.ResidentRuntime):
-    """Production resident runtime with action-conditioned observation receipts."""
+    """Production resident runtime with bounded epistemic-effect receipts."""
 
     def _persist_observation_receipt(
         self,
@@ -103,7 +109,7 @@ class ResidentRuntime(_impl.ResidentRuntime):
             observed_transform=transform.predicted_transform,
             observation_root=packet.observation_root,
             # The existing resident path has no calibrated belief distribution
-            # or critical-feature oracle.  Missing measurements remain missing;
+            # or critical-feature oracle. Missing measurements remain missing;
             # a successful file verification is not converted into fake IG.
             prior_entropy_bits=None,
             posterior_entropy_bits=None,
@@ -124,6 +130,87 @@ class ResidentRuntime(_impl.ResidentRuntime):
             observed_information_gain_bps=None,
         )
         return extended, None
+
+    def evaluate_learning_intervention(
+        self,
+        intervention: LearningInterventionV1,
+        *,
+        minimum_effect_bps: int = 100,
+    ) -> LearningReceiptV1:
+        """Evaluate and persist a durable-learning claim as evidence only.
+
+        This method evaluates supplied matched-control evidence. It does not
+        perform the adaptation, mutate durable learning state, dereference the
+        replay SHA, or grant execution/effect/admission authority.
+        """
+        receipt = evaluate_learning_effect(
+            intervention,
+            minimum_effect_bps=minimum_effect_bps,
+        )
+
+        receipts_dir = self.state_root / "learning-receipts"
+        receipts_dir.mkdir(parents=True, exist_ok=True)
+        path = receipts_dir / f"{receipt.root}.json"
+        payload = {
+            "schema_version": "1.0.0",
+            "intervention": asdict(intervention),
+            "receipt": asdict(receipt),
+            "receipt_root": receipt.root,
+            "authority": _impl.EVIDENCE_ONLY,
+            "non_claims": [
+                "NO_EXECUTION_AUTHORITY",
+                "NO_EFFECT_AUTHORITY",
+                "NO_ATOMIC_ADMISSION_AUTHORITY",
+                "NO_LEARNING_CLAIM_FROM_IMMEDIATE_OUTPUT_GAIN_ALONE",
+            ],
+        }
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        if path.exists():
+            if path.read_text(encoding="utf-8") != encoded:
+                raise _impl.ResidentRuntimeError("LEARNING_RECEIPT_COLLISION")
+        else:
+            temporary = receipts_dir / f".{receipt.root}.tmp"
+            temporary.write_text(encoded, encoding="utf-8")
+            os.replace(temporary, path)
+
+        self.store.append(
+            event_id=f"learning-{receipt.root[:24]}",
+            event_kind="LEARNING_EFFECT_EVALUATED",
+            payload={
+                "intervention_id": intervention.intervention_id,
+                "receipt_root": receipt.root,
+                "status": receipt.status,
+                "learning_established": receipt.learning_established,
+                "authority": _impl.EVIDENCE_ONLY,
+                "may_mint_execution_authority": False,
+                "may_mint_effect_authority": False,
+                "may_mint_admission_authority": False,
+            },
+        )
+
+        deltas = {
+            "learning_evaluations": 1,
+            "learning_established": int(receipt.status == LEARNING_EFFECT_ESTABLISHED),
+            "capability_boost_only": int(receipt.status == CAPABILITY_BOOST_ONLY),
+        }
+        connection = self.store._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            for key, delta in deltas.items():
+                connection.execute(
+                    """
+                    INSERT INTO self_model(key, value) VALUES (?, ?)
+                    ON CONFLICT(key) DO UPDATE SET value = value + excluded.value
+                    """,
+                    (key, delta),
+                )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+        return receipt
 
     def _finalize(
         self,
