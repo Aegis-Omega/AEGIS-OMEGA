@@ -1,3 +1,6 @@
+from fractions import Fraction
+from pathlib import Path
+
 from harness.sdk.universal_intelligence_evidence import (
     EpistemicAuthorityTier,
     EvaluationCampaignContract,
@@ -8,6 +11,12 @@ from harness.sdk.rh_obligation_gate import (
     DEFAULT_OBLIGATIONS,
     ObligationState,
     RHObligationLedger,
+)
+from research.rh.finite_to_global_counterexample import (
+    build_refutation_receipt,
+    limit_witness_q,
+    tail_norm_sq,
+    truncation_q,
 )
 from scripts.generate_provenance_census import (
     RemoteHead,
@@ -136,3 +145,28 @@ def test_census_keeps_original_95_pr_snapshot_separate_from_self_pr():
     assert len(live) == 96
     assert integration_pr in live
     assert integration_pr not in baseline
+
+
+def test_density_alone_shortcut_has_exact_counterexample():
+    for n in (1, 2, 4, 8, 16):
+        assert truncation_q(n) > 0
+        assert tail_norm_sq(n) == Fraction(1, 3 * (4 ** n))
+    assert limit_witness_q() == Fraction(-1, 1)
+    assert tail_norm_sq(16) < Fraction(1, 10**9)
+
+    receipt = build_refutation_receipt()
+    assert receipt["classification"] == "REFUTED_SHORTCUT"
+    assert receipt["refutes"] == "DENSITY_ALONE_FINITE_STAGE_POSITIVITY_IMPLIES_CLOSURE_POSITIVITY"
+    assert receipt["does_not_refute"] == [
+        "CONTINUOUS_Q_EXTENDS_POSITIVITY_FROM_DENSE_SUBSPACE",
+        "LOWER_SEMICONTINUOUS_CLOSED_FORM_EXTENDS_POSITIVITY_UNDER_ITS_HYPOTHESES",
+    ]
+
+
+def test_machine_readable_rh_ledger_matches_fail_closed_default():
+    ledger_path = Path("research/rh/proof-obligations-v1.json")
+    ledger = RHObligationLedger.from_json_file(ledger_path)
+    result = ledger.verify_final_closure()
+    assert result["verdict"] == "RH_NOT_PROVEN"
+    assert result["gate_status"] == "FAIL_CLOSED"
+    assert "W8_DensityContinuityCoverage" in result["open_obligations"]
