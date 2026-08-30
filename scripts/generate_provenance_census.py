@@ -36,6 +36,7 @@ INTEGRATION_BRANCH = "integration/aegis-universal-intelligence-rh-v1"
 INTEGRATION_PR_NUMBER = 342
 LEVY_RESEARCH_BRANCH = "research/weil-levy-gap-v1"
 LEVY_RESEARCH_PR_NUMBER = 345
+LEVY_NEGATIVITY_PR_NUMBER = 346
 LEVY_VERIFIED_HEAD = "62ccb4318100d6618a5a242983fa753dd7ed5a18"
 
 POST_BASELINE_BRANCHES = frozenset(
@@ -46,16 +47,21 @@ POST_BASELINE_BRANCHES = frozenset(
     }
 )
 # PRs #344 and #345 are historical post-baseline provenance after closure.
-POST_BASELINE_PRS = frozenset({INTEGRATION_PR_NUMBER, 344, LEVY_RESEARCH_PR_NUMBER})
-REQUIRED_OPEN_POST_BASELINE_PRS = frozenset({INTEGRATION_PR_NUMBER})
+# PR #346 is a new open draft on the already-classified Levy research branch.
+POST_BASELINE_PRS = frozenset(
+    {INTEGRATION_PR_NUMBER, 344, LEVY_RESEARCH_PR_NUMBER, LEVY_NEGATIVITY_PR_NUMBER}
+)
+REQUIRED_OPEN_POST_BASELINE_PRS = frozenset(
+    {INTEGRATION_PR_NUMBER, LEVY_NEGATIVITY_PR_NUMBER}
+)
 
 EXPECTED_BASELINE_HEAD_COUNT = 150
 EXPECTED_LIVE_HEAD_COUNT = 153
 EXPECTED_OPEN_PRS = 95
 EXPECTED_DRAFT_PRS = 73
 EXPECTED_NONDRAFT_PRS = 22
-EXPECTED_LIVE_OPEN_PRS = 96
-EXPECTED_LIVE_DRAFT_PRS = 74
+EXPECTED_LIVE_OPEN_PRS = 97
+EXPECTED_LIVE_DRAFT_PRS = 75
 EXPECTED_LIVE_NONDRAFT_PRS = 22
 
 
@@ -185,6 +191,9 @@ def generate(token: str | None) -> dict[str, Any]:
 
     integration_head = next(head for head in live_heads if head.name == INTEGRATION_BRANCH)
     integration_pr = next(pr for pr in live_prs if int(pr["number"]) == INTEGRATION_PR_NUMBER)
+    levy_negativity_pr = next(
+        pr for pr in live_prs if int(pr["number"]) == LEVY_NEGATIVITY_PR_NUMBER
+    )
     post_baseline_heads = [
         asdict(head) for head in live_heads if head.name in POST_BASELINE_BRANCHES
     ]
@@ -285,6 +294,14 @@ def generate(token: str | None) -> dict[str, Any]:
                     "coordinator_authority": 33296701821,
                 },
                 "reason": "Exact-head research delta passed all three verification-critical workflows and was selectively transplanted; no infinite-process, global Weil positivity, or RH authority.",
+            },
+            "PR_346": {
+                "exact_head": levy_negativity_pr["head"]["sha"],
+                "head_ref": levy_negativity_pr["head"]["ref"],
+                "base_ref": levy_negativity_pr["base"]["ref"],
+                "disposition": "OPEN_RESEARCH_REQUIRE_SELECTIVE_REVIEW",
+                "authority": "NO_INTEGRATION_AUTHORITY",
+                "reason": "Draft child PR targets finite-cutoff multiplier positivity. It remains research input only until exact-head terminal verification and selective review/transplant; it cannot mutate the frozen baseline or RH status.",
             },
         },
         "remote_heads": [asdict(head) for head in baseline_heads],
