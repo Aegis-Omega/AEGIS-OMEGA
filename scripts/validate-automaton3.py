@@ -16,17 +16,36 @@ SHA_RE = re.compile(r"^[0-9a-f]{40,64}$")
 KEY_FILES = (
     "harness/sdk/sovereign_execution.py",
     "harness/sdk/authority_client.py",
+    "harness/sdk/transition_receipts.py",
+    "harness/sdk/effect_adapters.py",
+    "harness/sdk/effect_verifier.py",
+    "harness/sdk/complete_verifier.py",
+    "harness/sdk/platform_effect_adapter.py",
+    "harness/sdk/proof_carrying_platform_execution.py",
+    "harness/sdk/github_dispatch_identity.py",
     "harness/sdk/operator_visibility.py",
     "harness/policies/consequence-policy.v1.json",
     "harness/policies/capability-map.v1.json",
     "scripts/automaton3-authority.py",
+    "scripts/automaton3-platform-execute.py",
+    "scripts/agent_dispatch_payload.py",
+    "scripts/test_agent_dispatch_payload.py",
     "scripts/run-automaton3-tests.py",
     "scripts/validate-automaton3.py",
     "agents/coordinator.py",
+    "vertex/serve.py",
+    "vertex/Dockerfile",
+    "vertex/cloudbuild.yaml",
+    "sovereign-omega-v2/python/bridge.py",
+    "sovereign-omega-v2/python/platform_helpers.py",
     "sovereign-omega-v2/mcp-server/src/index.ts",
     "sovereign-omega-v2/mcp-server/test/automaton3-authority.mjs",
     "sovereign-omega-v2/python/tests/test_automaton3.py",
     "sovereign-omega-v2/python/tests/test_operator_visibility.py",
+    "sovereign-omega-v2/python/tests/test_bridge_execution_id_binding.py",
+    "sovereign-omega-v2/python/tests/test_platform_effect_chain_live.py",
+    "sovereign-omega-v2/python/tests/test_agent_dispatch_identity.py",
+    "sovereign-omega-v2/python/tests/test_automaton3_platform_manifest.py",
     "schemas/execution-identity-envelope.v1.schema.json",
     "schemas/mutation-receipt.v1.schema.json",
     "schemas/event-envelope.v1.schema.json",
@@ -35,7 +54,9 @@ KEY_FILES = (
     "docs/security/AUTOMATON3_THREAT_MODEL.md",
     "docs/operations/LAW_OF_SILENCE_V2.md",
     "docs/operations/BRANCH_RULESET_AUTOMATON3.md",
+    ".github/workflows/agent-dispatch.yml",
     ".github/workflows/automaton-3.yml",
+    ".github/workflows/authorization-effect-chain.yml",
 )
 
 REQUIRED_REPOSITORY_CONTROLS = (
@@ -171,11 +192,12 @@ def evaluate(
         if path.is_file() and prohibited.search(path.read_text(encoding="utf-8")):
             violations.append(f"prohibited bypass language in executable path: {rel}")
 
-    if require_oidc and not (
+    oidc_available = bool(
         os.environ.get("GITHUB_ACTIONS") == "true"
         and os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL")
         and os.environ.get("ACTIONS_ID_TOKEN_REQUEST_TOKEN")
-    ):
+    )
+    if require_oidc and not oidc_available:
         violations.append("OIDC execution identity unavailable")
 
     files.sort(key=lambda item: item["path"])
@@ -204,7 +226,14 @@ def evaluate(
         "policy_root": policy_root,
         "test_summary_root": test_summary_root,
         "mcp_log_root": mcp_log_root,
-        "signature_mode": "GITHUB_OIDC_ATTESTATION",
+        # This validator runs before actions/attest. It may establish that the
+        # hosted OIDC identity is available, but it cannot claim that the later
+        # artifact attestation already exists.
+        "signature_mode": (
+            "GITHUB_OIDC_PENDING_ATTESTATION"
+            if require_oidc and oidc_available
+            else "UNSIGNED_LOCAL"
+        ),
         "outcome": "ADMITTED" if not violations else "DENIED",
         "violation_count": len(violations),
         "violations": violations,

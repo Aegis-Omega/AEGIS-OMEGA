@@ -121,6 +121,50 @@ function denied(decision: AuthorityDecision): { content: Array<{ type: 'text'; t
   return decision.outcome === 'ADMITTED' ? null : text({ authority: decision, external_effect: 'NOT_EXECUTED' })
 }
 
+function proofCarryingPlatformStart(action: Record<string, unknown>): unknown {
+  const boundary = 'PROOF_CARRYING_PLATFORM_EXECUTION_V1'
+  const boundaryDenial = (code: string) => ({
+    verification_boundary: boundary,
+    authority: { outcome: 'DENIED', denial_codes: [code] },
+    external_effect: 'UNKNOWN', complete_verification: { status: 'MISSING' }, admission: 'UNAVAILABLE',
+  })
+  const python = process.env['AEGIS_PYTHON'] ?? 'python3'
+  const script = join(repoRoot(), 'scripts', 'automaton3-platform-execute.py')
+  const result = spawnSync(python, [script], {
+    cwd: repoRoot(), input: JSON.stringify(action), encoding: 'utf8',
+    env: { ...process.env, AEGIS_BRIDGE_URL: BRIDGE, AEGIS_API_KEY: API_KEY },
+    timeout: 30_000, maxBuffer: 4_194_304,
+  })
+  if (result.status !== 0 || !result.stdout) return boundaryDenial('PROOF_CARRYING_EXECUTION_UNAVAILABLE')
+  try {
+    const parsed = JSON.parse(result.stdout) as unknown
+    if (!parsed || typeof parsed !== 'object') return boundaryDenial('PROOF_CARRYING_EXECUTION_RESPONSE_MALFORMED')
+    const response = parsed as Record<string, unknown>
+    const authority = response['authority']
+    const complete = response['complete_verification']
+    const externalEffect = String(response['external_effect'])
+    const authorityOutcome = authority && typeof authority === 'object'
+      ? String((authority as Record<string, unknown>)['outcome']) : ''
+    const completeStatus = complete && typeof complete === 'object'
+      ? String((complete as Record<string, unknown>)['status']) : ''
+    if (
+      response['verification_boundary'] !== boundary
+      || response['admission'] !== 'UNAVAILABLE'
+      || !['NOT_EXECUTED', 'UNKNOWN', 'VERIFIED'].includes(externalEffect)
+      || !authority || typeof authority !== 'object'
+      || !['ADMITTED', 'DENIED'].includes(authorityOutcome)
+      || !complete || typeof complete !== 'object'
+      || !['TRUE', 'MISSING'].includes(completeStatus)
+      || (externalEffect === 'VERIFIED' && (authorityOutcome !== 'ADMITTED' || completeStatus !== 'TRUE'))
+      || (completeStatus === 'TRUE' && (authorityOutcome !== 'ADMITTED' || externalEffect !== 'VERIFIED'))
+      || (authorityOutcome === 'DENIED' && (externalEffect === 'VERIFIED' || completeStatus === 'TRUE'))
+    ) return boundaryDenial('PROOF_CARRYING_EXECUTION_RESPONSE_MALFORMED')
+    return response
+  } catch {
+    return boundaryDenial('PROOF_CARRYING_EXECUTION_RESPONSE_MALFORMED')
+  }
+}
+
 server.tool('aegis_health', 'Check AEGIS constitutional health: t0_verdict, corruption_count, hash chain status.', {}, async () => {
   const [health, node] = await Promise.all([bridgeGet('/health'), bridgeGet('/node')])
   const ok = (node as Record<string, unknown>)['t0_verdict'] === true && (node as Record<string, unknown>)['corruption_count'] === 0
@@ -152,10 +196,7 @@ server.tool(
   'Start a durable governed execution. Requires API key, identity, workspace binding, capability evidence, and D2 approval.',
   { objective: z.string().min(10), mode: z.enum(['revenue', 'gtm', 'analysis', 'risk', 'compliance']).default('analysis') },
   async ({ objective, mode }) => {
-    if (!API_KEY) return text({ error: 'AEGIS_API_KEY not set', external_effect: 'NOT_EXECUTED' })
-    const authority = authorizeAction({ actionClass: 'D2', authorityDomain: 'workflow:durable', requestedCapability: 'mcp.execution.start', tool: 'aegis_start_execution', target: '/platform/executions', action: { operation: 'start-execution', objective, mode, live: false } })
-    const denial = denied(authority); if (denial) return denial
-    return text({ authority, result: await bridgePost('/platform/executions', { objective, mode, live: false }, true) })
+    return text(proofCarryingPlatformStart({ operation: 'start-execution', objective, mode, live: false }))
   },
 )
 
