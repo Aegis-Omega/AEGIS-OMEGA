@@ -75,23 +75,32 @@ jobs:
             OUT="$ROOT/weil-constructive-prime-trig-attestation"
 
             coqc --version | tee "$OUT/coq-version.txt"
+
+            # RED must fail at the theorem contract itself, not after paying the
+            # ~10 minute CoRN build cost. With no production source, compile the
+            # specification immediately; Require Import PrimeTrigConstructive is
+            # the intended failure boundary and tee preserves the evidence log.
+            if ! test -f "$SOURCE"; then
+              echo 'RED checkpoint: PrimeTrigConstructive.v intentionally absent.' \
+                | tee "$OUT/red-checkpoint.txt"
+              coqc -Q "$THEORY" "" -Q "$TESTDIR" "" "$TEST" 2>&1 \
+                | tee "$OUT/prime-trig-constructive-spec.log"
+              echo 'RED contract unexpectedly compiled without production source.' >&2
+              exit 1
+            fi
+
+            # GREEN path: pin the constructive trigonometry dependency exactly.
             opam install -y coq-corn.9.0.0
             opam var coq-corn:version | tee "$OUT/corn-version.txt"
             test "$(tr -d '[:space:]' < "$OUT/corn-version.txt")" = "9.0.0"
             opam show coq-corn.9.0.0 --field=version,license,depends \
               | tee "$OUT/corn-package-metadata.txt"
 
-            if test -f "$SOURCE"; then
-              coqc -Q "$THEORY" "" "$SOURCE" 2>&1 \
-                | tee "$OUT/prime-trig-constructive.log"
-            fi
-
-            # RED intentionally fails here while the production module is absent.
-            # GREEN compiles both the production source above and this contract.
+            coqc -Q "$THEORY" "" "$SOURCE" 2>&1 \
+              | tee "$OUT/prime-trig-constructive.log"
             coqc -Q "$THEORY" "" -Q "$TESTDIR" "" "$TEST" 2>&1 \
               | tee "$OUT/prime-trig-constructive-spec.log"
 
-            test -f "$SOURCE"
             for theorem in \
               prime_diagonal_constructive_cos_phase_v1 \
               prime_source_constructive_sin_phase_v1
