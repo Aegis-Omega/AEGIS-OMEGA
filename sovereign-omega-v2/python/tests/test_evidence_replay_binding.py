@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import replace
 from pathlib import Path
 import subprocess
 import tempfile
 
-from harness.sdk.closed_loop_epistemic_actuation import (
+from harness.sdk.closed_loop_epistemic_actuation import EvidenceAcquisitionV1
+from harness.sdk.evidence_replay_binding import (
     EVIDENCE_ACQUISITION_UNESTABLISHED,
     EVIDENCE_ACQUISITION_VERIFIED,
-    EvidenceAcquisitionV1,
     EvidenceAcquisitionV2,
     ProvenanceProofV1,
     ReplayProofV1,
-    verify_evidence_acquisition,
+    record_replayed_evidence_acquisition,
+    reject_legacy_self_asserted_acquisition,
     verify_evidence_acquisition_v2,
     verify_provenance_proof,
     verify_replay_proof,
@@ -24,7 +24,7 @@ def _sha(ch: str) -> str:
     return ch * 64
 
 
-def test_legacy_self_asserted_replay_flags_cannot_establish_evidence() -> None:
+def test_legacy_self_asserted_replay_flags_are_rejected_by_v2_boundary() -> None:
     legacy = EvidenceAcquisitionV1(
         acquisition_id="legacy:self-asserted:1",
         observation_receipt_root=_sha("1"),
@@ -36,7 +36,7 @@ def test_legacy_self_asserted_replay_flags_cannot_establish_evidence() -> None:
         independent_verifier_count=99,
     )
 
-    receipt = verify_evidence_acquisition(legacy)
+    receipt = reject_legacy_self_asserted_acquisition(legacy)
 
     assert receipt.status == EVIDENCE_ACQUISITION_UNESTABLISHED
     assert receipt.evidence_established is False
@@ -179,7 +179,8 @@ def test_resident_derives_v2_evidence_from_dereferenced_run_bundle() -> None:
         assert replay.integrity_verified is True
         assert replay.lineage_verified is True
 
-        receipt = runtime.record_replayed_evidence_acquisition(
+        receipt = record_replayed_evidence_acquisition(
+            runtime,
             acquisition_id="evidence:resident-replay:1",
             run_id=run_receipt.run_id,
             source_kind="RESIDENT_RUN_BUNDLE",
@@ -194,7 +195,8 @@ def test_resident_derives_v2_evidence_from_dereferenced_run_bundle() -> None:
         run_path = Path(tmp) / "resident" / "runs" / f"{run_receipt.run_id}.json"
         original = run_path.read_text(encoding="utf-8")
         run_path.write_text(original.replace('"integrity_scope"', '"integrity_scope_tampered"', 1), encoding="utf-8")
-        failed = runtime.record_replayed_evidence_acquisition(
+        failed = record_replayed_evidence_acquisition(
+            runtime,
             acquisition_id="evidence:resident-replay:tampered",
             run_id=run_receipt.run_id,
             source_kind="RESIDENT_RUN_BUNDLE",
