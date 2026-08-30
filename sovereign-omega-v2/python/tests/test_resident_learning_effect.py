@@ -7,7 +7,7 @@ import tempfile
 from harness.sdk.closed_loop_epistemic_actuation import (
     CAPABILITY_BOOST_ONLY,
     EVIDENCE_ONLY,
-    LEARNING_EFFECT_ESTABLISHED,
+    LEARNING_EFFECT_UNESTABLISHED,
     LearningInterventionV1,
 )
 from harness.sdk.resident_runtime import ResidentRuntime
@@ -59,14 +59,15 @@ def _compute_only() -> LearningInterventionV1:
     )
 
 
-def test_resident_persists_learning_receipt_as_evidence_only() -> None:
+def test_resident_v1_adaptation_is_persisted_but_cannot_establish_learning_from_opaque_replay_hash() -> None:
     repo_root = Path(__file__).resolve().parents[3]
     with tempfile.TemporaryDirectory() as tmp:
         runtime = ResidentRuntime(repository_root=repo_root, state_root=Path(tmp) / "resident")
         receipt = runtime.evaluate_learning_intervention(_adaptation(), minimum_effect_bps=500)
 
-        assert receipt.status == LEARNING_EFFECT_ESTABLISHED
-        assert receipt.learning_established is True
+        assert receipt.status == LEARNING_EFFECT_UNESTABLISHED
+        assert receipt.learning_established is False
+        assert "LEGACY_UNDEREFERENCED_REPLAY_HASH_REJECTED" in receipt.reason_codes
         assert receipt.authority == EVIDENCE_ONLY
         assert receipt.may_mint_execution_authority is False
         assert receipt.may_mint_effect_authority is False
@@ -75,15 +76,14 @@ def test_resident_persists_learning_receipt_as_evidence_only() -> None:
         path = Path(tmp) / "resident" / "learning-receipts" / f"{receipt.root}.json"
         assert path.is_file()
         payload = json.loads(path.read_text(encoding="utf-8"))
-        assert payload["receipt"]["status"] == LEARNING_EFFECT_ESTABLISHED
+        assert payload["receipt"]["status"] == LEARNING_EFFECT_UNESTABLISHED
         assert payload["receipt_root"] == receipt.root
         assert payload["authority"] == EVIDENCE_ONLY
-        assert payload["non_claims"] == [
-            "NO_EXECUTION_AUTHORITY",
-            "NO_EFFECT_AUTHORITY",
-            "NO_ATOMIC_ADMISSION_AUTHORITY",
-            "NO_LEARNING_CLAIM_FROM_IMMEDIATE_OUTPUT_GAIN_ALONE",
-        ]
+        assert "NO_LEARNING_FROM_UNDEREFERENCED_REPLAY_HASH" in payload["non_claims"]
+
+        status = runtime.status()["self_model"]
+        assert status["learning_evaluations"] == 1
+        assert status.get("learning_established", 0) == 0
 
 
 def test_resident_compute_boost_is_persisted_but_never_promoted_to_learning() -> None:
