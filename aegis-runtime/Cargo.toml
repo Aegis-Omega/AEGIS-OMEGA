@@ -1,0 +1,24 @@
+[package]
+name = "aegis_runtime"
+version = "0.1.0"
+edition = "2021"
+authors = ["Tarik Skalić <tarikskalic33@gmail.com>"]
+description = "AEGIS-Ω Distributed Agent Swarm Runtime — Seven-Pillar constitutional substrate"
+license = "AGPL-3.0-or-later"
+
+# EPISTEMIC TIER: T2 (engineering hypothesis)
+# Constitutional root: AdaptivePower(T) ≤ ReplayVerifiability(T)
+# Zero-allocation claim: T2 — hot paths avoid heap; control structures use BTreeMap (bounded alloc)
+# No tokio dependency — std::thread + std::net::UdpSocket throughout
+# BTreeMap throughout — deterministic iteration order (no HashMap)
+
+[features]
+default = []
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+byteorder = "1.5"
+
+[dev-dependencies]

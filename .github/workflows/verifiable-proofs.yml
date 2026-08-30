@@ -1,0 +1,87 @@
+name: Verifiable Proofs
+
+# Least-privilege token: this workflow only reads the repo and runs proofs.
+permissions:
+  contents: read
+
+# Runs the genomics + verifiable-envelope proofs on every relevant change, across
+# two platforms/architectures (ubuntu x86-64, macOS arm64), and asserts the genomics
+# terminal hash is byte-identical to a pinned constant on both. This is the
+# cross-PLATFORM evidence the cross-runtime README names as the remaining step toward
+# T0 for "replay -> identical topology hash across platforms".
+on:
+  pull_request:
+    paths:
+      - 'genomics/**'
+      - 'verifiable/**'
+      - '.github/workflows/verifiable-proofs.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'genomics/**'
+      - 'verifiable/**'
+      - '.github/workflows/verifiable-proofs.yml'
+
+jobs:
+  proofs:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Provision Rust explicitly (matches ci.yml convention) rather than relying on
+      # whatever the runner image happens to ship — the cross-runtime step builds a crate.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: verifiable/cross_language/rust_rechain -> target
+
+      - name: Genomics deterministic proof (3 invariants)
+        run: cd genomics && python3 test_replay_proof.py
+
+      - name: Genomics governed-interpretation composition (offline)
+        run: cd genomics && python3 interpret_demo.py
+
+      - name: Envelope generality — second domain + byte-identical cross-check
+        run: cd verifiable && python3 test_generality.py
+
+      - name: Cross-runtime replay — Python == Node.js == Rust
+        run: bash verifiable/cross_language/verify.sh
+
+      - name: Assert cross-platform terminal hash equals the pinned constant
+        shell: bash
+        run: |
+          EXPECT=f8cb0093b9b7447cc44d7386f1305f427dc7eb887a23407f9b67522b8f5db8f1
+          GOT=$(python3 -c "import json,sys;print(json.load(open('verifiable/cross_language/stages.json'))['expected']['terminal'])")
+          echo "os=${{ matrix.os }} arch=$(uname -m) terminal=$GOT"
+          if [ "$GOT" != "$EXPECT" ]; then
+            echo "CROSS-PLATFORM DIVERGENCE: expected $EXPECT, got $GOT on ${{ matrix.os }}"
+            exit 1
+          fi
+          echo "cross-platform replay confirmed on ${{ matrix.os }}"
+
+      - name: Session certificate — whole substrate certifies itself, reproducibly
+        shell: bash
+        run: |
+          cd verifiable
+          OUT=$(python3 certify_all.py --twice)
+          echo "$OUT"
+          EXPECT=9b360cad56518c8a5a8c42ac2c97fe4bb17948bf1778b513f7c7db041ad6d142
+          GOT=$(echo "$OUT" | awk '/session cert/ {print $NF}')
+          echo "os=${{ matrix.os }} arch=$(uname -m) session_cert=$GOT"
+          if [ "$GOT" != "$EXPECT" ]; then
+            echo "SESSION CERTIFICATE DIVERGENCE: expected $EXPECT, got $GOT on ${{ matrix.os }}"
+            exit 1
+          fi
+          echo "session certificate confirmed cross-platform on ${{ matrix.os }}"

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://aegis.dev/schemas/evolution-cert-v5.json",
+  "compatibility": {
+    "backward": true,
+    "forward": true,
+    "recommended_version_bump": "minor",
+    "verdict": "FULL"
+  },
+  "compatibility_proof": {
+    "checks": [
+      {
+        "backward": true,
+        "forward": true,
+        "reason": "fully compatible (safe in both directions)",
+        "vector": "AddOptionalField(SkillSnapshot.reliability_index)"
+      }
+    ],
+    "engine": "aegis-structural-v1"
+  },
+  "evolution_vectors": [
+    {
+      "backward": true,
+      "detail": {
+        "type": "option<f64>"
+      },
+      "forward": true,
+      "name": "reliability_index",
+      "op": "AddOptionalField",
+      "path": "SkillSnapshot"
+    }
+  ],
+  "proof_obligations": {
+    "ConstraintPreserved": {
+      "holds": true,
+      "violated_by": []
+    },
+    "NoFieldLoss": {
+      "holds": true,
+      "violated_by": []
+    },
+    "SerializationInvariant": {
+      "holds": true,
+      "violated_by": []
+    },
+    "TypeSafetyPreserved": {
+      "holds": true,
+      "violated_by": []
+    }
+  },
+  "source_hash": "sha256:d3363318915a4fc4a136b736287202fad87b7f5f5152df819f24e1a42f120b76",
+  "target_hash": "sha256:b7eb97df1ceebef22f83574274d7f96bd5a8ff3872d4705a8c340c00bb0068ef"
+}

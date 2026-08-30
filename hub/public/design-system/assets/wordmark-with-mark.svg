@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 96" width="480" height="96">
+  
+  <g transform="translate(0, 16)" color="#C8A96E">
+    <rect x="0.5" y="0.5" width="63" height="63" fill="none" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke"></rect>
+    <circle cx="32" cy="20" r="7" fill="currentColor"></circle>
+    <path d="M 32 30 L 32 56" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>
+  </g>
+  <text x="84" y="60" class="word">AEGIS-Ω</text>
+  <text x="86" y="84" class="sub">CONSTITUTIONAL RUNTIME · TARIK SKALIĆ</text>
+</svg>

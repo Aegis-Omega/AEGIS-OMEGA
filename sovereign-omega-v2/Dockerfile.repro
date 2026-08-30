@@ -1,0 +1,22 @@
+FROM node:20.14.0-slim AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
+ENV SOURCE_DATE_EPOCH=1715000000
+ENV NODE_ENV=production
+ENV SO_BUILD_ID=repro
+COPY . .
+RUN node scripts/hash-transforms.mjs
+RUN npm run build
+RUN tar \
+  --sort=name \
+  --mtime="@${SOURCE_DATE_EPOCH}" \
+  --owner=0 \
+  --group=0 \
+  --numeric-owner \
+  -cf dist.tar dist/
+RUN sha256sum dist.tar > dist.tar.sha256
+
+FROM scratch AS export
+COPY --from=build /app/dist.tar /
+COPY --from=build /app/dist.tar.sha256 /

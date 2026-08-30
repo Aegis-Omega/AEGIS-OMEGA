@@ -1,0 +1,46 @@
+{
+  "version": "1.0.0",
+  "enforcement_level": "mandatory",
+  "disableBypassPermissionsMode": true,
+  "allowedTools": [
+    "filesystem_read",
+    "filesystem_write_sandboxed",
+    "network_outbound_whitelisted",
+    "cryptographic_verify"
+  ],
+  "blockedTools": [
+    "network_unrestricted",
+    "filesystem_system_root",
+    "process_spawn_uncontrolled",
+    "self_modification"
+  ],
+  "constitutional_constraints": {
+    "truth_over_flow": true,
+    "mechanism_over_metaphor": true,
+    "feasibility_as_constraint": true,
+    "adversarial_self_correction": true,
+    "epistemic_horizon_recognition": true
+  },
+  "execution_pacing": {
+    "deliberate_mode": true,
+    "max_tokens_per_step": 500,
+    "require_causal_validation": true,
+    "halt_on_uncertainty": true
+  },
+  "domain_separation": {
+    "domain_0_readonly": true,
+    "domain_1_sandboxed": true,
+    "opaque_key_required": true
+  },
+  "utility_function": {
+    "primary_objective": "steward_upliftment",
+    "penalize_instrumental_convergence": true,
+    "penalize_self_preservation_override": true,
+    "penalize_sycophancy": true
+  },
+  "audit_trail": {
+    "log_all_decisions": true,
+    "log_uncertainty_flags": true,
+    "log_blocked_actions": true
+  }
+}

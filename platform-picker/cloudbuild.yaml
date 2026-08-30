@@ -1,0 +1,43 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - -f
+      - platform-picker/Dockerfile
+      - -t
+      - gcr.io/$PROJECT_ID/aegis-platform:$COMMIT_SHA
+      - -t
+      - gcr.io/$PROJECT_ID/aegis-platform:latest
+      - --build-arg
+      - VITE_GRANT_SECRET=aegis-omega-v1
+      - --build-arg
+      - VITE_HUB_URL=https://aegisomega.com
+      - --build-arg
+      - VITE_DASHSCOPE_API_KEY=$_DASHSCOPE_API_KEY
+      - .
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [push, gcr.io/$PROJECT_ID/aegis-platform:$COMMIT_SHA]
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [push, gcr.io/$PROJECT_ID/aegis-platform:latest]
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - aegis-platform
+      - --image=gcr.io/$PROJECT_ID/aegis-platform:$COMMIT_SHA
+      - --region=europe-west3
+      - --platform=managed
+      - --allow-unauthenticated
+      - --port=8080
+      - --memory=256Mi
+      - --cpu=1
+      - --min-instances=0
+      - --max-instances=5
+
+images:
+  - gcr.io/$PROJECT_ID/aegis-platform:$COMMIT_SHA
+  - gcr.io/$PROJECT_ID/aegis-platform:latest

@@ -1,0 +1,11 @@
+{
+  "name": "@aegis/shared",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "lucide-react": "^1.16.0",
+    "react": "^19.1.0"
+  }
+}

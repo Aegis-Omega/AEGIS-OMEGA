@@ -1,0 +1,159 @@
+name: AEGIS Automaton-3
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+jobs:
+  automaton-3:
+    name: aegis / automaton-3
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+      EXPECTED_PARENT_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+
+      - name: Resolve deterministic parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$EXPECTED_PARENT_SHA" || "$EXPECTED_PARENT_SHA" =~ ^0+$ ]]; then
+            echo "EXPECTED_PARENT_SHA=$(git rev-parse "${CANDIDATE_SHA}^")" >> "$GITHUB_ENV"
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/mcp-server/package-lock.json
+
+      - name: Install exact schema validator
+        run: pip install jsonschema==4.23.0
+
+      - name: Validate JSON schemas
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from jsonschema.validators import validator_for
+          for path in sorted(Path('schemas').glob('*-envelope.v1.schema.json')) + sorted(Path('schemas').glob('*-receipt.v1.schema.json')) + [Path('schemas/writer-lease.v1.schema.json')]:
+              schema = json.loads(path.read_text(encoding='utf-8'))
+              validator_for(schema).check_schema(schema)
+              print(f'SCHEMA_OK {path}')
+          PY
+
+      - name: Run authority-abuse matrix at k=1,10,100
+        run: |
+          python scripts/run-automaton3-tests.py \
+            --output "$RUNNER_TEMP/AUTOMATON3_TEST_SUMMARY.json" \
+            --log "$RUNNER_TEMP/AUTOMATON3_TEST.log"
+
+      - name: Build and test MCP fail-closed integration
+        working-directory: sovereign-omega-v2/mcp-server
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run test:resources
+          npm run test:automaton3 | tee "$RUNNER_TEMP/AUTOMATON3_MCP.log"
+
+      - name: Validate claims and constitutional anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/validate-claims.mjs
+          (cd sovereign-omega-v2 && node scripts/verify-hashes.mjs)
+
+      - name: Verify repository control contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .github/workflows/automaton-2.yml
+          test -f .github/workflows/experiment-admission.yml
+          test -f .github/workflows/integration-ledger.yml
+          test -f .github/workflows/osv-scanner.yml
+          test -f .github/workflows/ci.yml
+          grep -F 'aegis / automaton-2' .github/workflows/automaton-2.yml
+          grep -F 'aegis / automaton-3' .github/workflows/automaton-3.yml
+          grep -F 'merge_group:' .github/workflows/automaton-2.yml
+          grep -F 'merge_group:' .github/workflows/automaton-3.yml
+
+      - name: Validate exact candidate and emit deterministic receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/validate-automaton3.py \
+            --candidate-sha "$CANDIDATE_SHA" \
+            --expected-parent-sha "$EXPECTED_PARENT_SHA" \
+            --test-summary "$RUNNER_TEMP/AUTOMATON3_TEST_SUMMARY.json" \
+            --mcp-log "$RUNNER_TEMP/AUTOMATON3_MCP.log" \
+            --receipt-output "$RUNNER_TEMP/AUTOMATON3_RECEIPT.json" \
+            --manifest-output "$RUNNER_TEMP/AUTOMATON3_CANDIDATE_MANIFEST.json" \
+            --require-oidc
+
+      - name: Build deterministic replay package
+        shell: bash
+        run: |
+          set -euo pipefail
+          replay="$RUNNER_TEMP/automaton3-replay"
+          mkdir -p "$replay"
+          cp "$RUNNER_TEMP/AUTOMATON3_RECEIPT.json" "$replay/"
+          cp "$RUNNER_TEMP/AUTOMATON3_CANDIDATE_MANIFEST.json" "$replay/"
+          cp "$RUNNER_TEMP/AUTOMATON3_TEST_SUMMARY.json" "$replay/"
+          cp "$RUNNER_TEMP/AUTOMATON3_TEST.log" "$replay/"
+          cp "$RUNNER_TEMP/AUTOMATON3_MCP.log" "$replay/"
+          cp harness/policies/consequence-policy.v1.json "$replay/"
+          cp harness/policies/capability-map.v1.json "$replay/"
+          git diff --name-only "$EXPECTED_PARENT_SHA...$CANDIDATE_SHA" | LC_ALL=C sort > "$replay/CHANGED_FILES.txt"
+          plan=".aegis/experiments/pr-221-automaton-3-sovereign-execution-v1.json"
+          if [[ -f "$plan" ]]; then cp "$plan" "$replay/EXPERIMENT_PLAN.json"; fi
+          (
+            cd "$replay"
+            find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\n' \
+              | LC_ALL=C sort \
+              | xargs sha256sum > SHA256SUMS
+          )
+
+      - name: Upload Automaton-3 replay evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-automaton-3-${{ env.CANDIDATE_SHA }}
+          path: ${{ runner.temp }}/automaton3-replay
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Attest exact Automaton-3 candidate
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            ${{ runner.temp }}/AUTOMATON3_RECEIPT.json
+            ${{ runner.temp }}/AUTOMATON3_CANDIDATE_MANIFEST.json
+            ${{ runner.temp }}/AUTOMATON3_TEST_SUMMARY.json
+            harness/policies/consequence-policy.v1.json
+            harness/policies/capability-map.v1.json
+            schemas/execution-identity-envelope.v1.schema.json
+            schemas/mutation-receipt.v1.schema.json

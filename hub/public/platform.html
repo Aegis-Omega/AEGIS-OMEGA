@@ -1,0 +1,781 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AEGIS-Ω · Platform</title>
+<meta name="description" content="Not a chatbot. A constitutional AI platform. Six surfaces, one sovereign runtime, zero seams. Every state hash-signed from genesis."/>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
+<link rel="stylesheet" href="/design-system/colors_and_type.css"/>
+<style>
+  :root {
+    --bg:           #04040D;
+    --bg-deep:      #020207;
+    --text:         #F4F4F8;
+    --text-mid:     #A8A8B4;
+    --text-dim:     #6B6D7A;
+    --c-violet:     #8B5CF6;
+    --c-magenta:    #C026D3;
+    --c-cyan:       #06B6D4;
+    --c-teal:       #0D9488;
+    --c-amber:      #F59E0B;
+    --c-mint:       #10B981;
+    --signal-warm:  #C8A96E;  /* phi gold */
+    --signal-hot:   #FBBF24;
+    --glass-bg:     rgba(255,255,255,0.03);
+    --glass-bg-hi:  rgba(255,255,255,0.055);
+    --glass-stroke: rgba(255,255,255,0.07);
+    --glass-hi:     rgba(255,255,255,0.10);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── Aurora ─────────────────────────────────────────── */
+  .aurora {
+    position: fixed; inset: -15%; z-index: 0; pointer-events: none;
+    filter: blur(90px) saturate(160%);
+  }
+  .orb { position: absolute; border-radius: 50%; }
+  .orb.v { width: 900px; height: 900px; background: radial-gradient(circle, var(--c-violet) 0%, transparent 60%); top: -20%; left: -15%; opacity: 0.38; animation: drift1 38s ease-in-out infinite alternate; }
+  .orb.m { width: 700px; height: 700px; background: radial-gradient(circle, var(--c-magenta) 0%, transparent 60%); top: 20%; right: -18%; opacity: 0.28; animation: drift2 44s ease-in-out infinite alternate; }
+  .orb.c { width: 800px; height: 800px; background: radial-gradient(circle, var(--c-teal) 0%, transparent 60%); top: 55%; left: 8%; opacity: 0.35; animation: drift3 40s ease-in-out infinite alternate; }
+  .orb.g { width: 600px; height: 600px; background: radial-gradient(circle, var(--signal-warm) 0%, transparent 65%); top: 40%; left: 35%; opacity: 0.12; animation: drift4 50s ease-in-out infinite alternate; }
+  @keyframes drift1 { to { transform: translate(14%, 12%) scale(1.15); } }
+  @keyframes drift2 { to { transform: translate(-12%, 14%) scale(1.10); } }
+  @keyframes drift3 { to { transform: translate(12%, -12%) scale(1.12); } }
+  @keyframes drift4 { to { transform: translate(-8%, -10%) scale(1.25); } }
+
+  main { position: relative; z-index: 2; }
+
+  /* ─── Nav ────────────────────────────────────────────── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 48px;
+    backdrop-filter: blur(24px) saturate(180%);
+    background: rgba(4,4,13,0.50);
+    border-bottom: 1px solid var(--glass-stroke);
+    position: sticky; top: 0; z-index: 50;
+  }
+  .topbar .brand {
+    display: flex; gap: 12px; align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; letter-spacing: 0.22em; font-weight: 600;
+    text-decoration: none; color: var(--signal-warm);
+  }
+  .topbar .brand .mark { animation: breathe 5.5s ease-in-out infinite; display: inline-block; }
+  @keyframes breathe { 50% { filter: drop-shadow(0 0 20px rgba(200,169,110,0.8)); transform: scale(1.04); } }
+  .topbar nav { display: flex; gap: 32px; }
+  .topbar nav a { color: var(--text-mid); font-size: 13px; text-decoration: none; transition: color 0.2s; }
+  .topbar nav a:hover { color: var(--text); }
+  .topbar .cta {
+    padding: 10px 22px; border-radius: 9999px; font-size: 13px; font-weight: 500;
+    background: linear-gradient(135deg, var(--c-violet), var(--c-teal));
+    color: white; text-decoration: none;
+    box-shadow: 0 4px 24px rgba(139,92,246,0.30);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .topbar .cta:hover { transform: translateY(-1px); box-shadow: 0 8px 32px rgba(139,92,246,0.45); }
+
+  /* ─── Live status strip ───────────────────────────────── */
+  .live-strip {
+    display: flex; align-items: center; justify-content: center; gap: 28px;
+    padding: 10px 24px;
+    backdrop-filter: blur(20px);
+    background: rgba(255,255,255,0.018);
+    border-bottom: 1px solid var(--glass-stroke);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase;
+    color: var(--text-dim); overflow: hidden;
+    white-space: nowrap;
+  }
+  .live-strip .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c-mint); box-shadow: 0 0 10px var(--c-mint); animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.3; transform: scale(0.7); } }
+  .live-strip .ok { color: var(--c-mint); }
+  .live-strip .phi { color: var(--signal-warm); }
+  .live-strip .hash-live { color: var(--text-dim); font-size: 9px; letter-spacing: 0.15em; transition: opacity 0.4s; }
+
+  /* ─── Hero ───────────────────────────────────────────── */
+  .hero {
+    max-width: 1200px; margin: 0 auto; padding: 110px 48px 80px;
+    text-align: center; position: relative;
+  }
+
+  /* Portal arch — CSS-only, phi-gold + teal glow */
+  .portal-wrap {
+    position: relative; width: 280px; height: 340px; margin: 0 auto 56px;
+  }
+  .portal-arch {
+    position: absolute; inset: 0;
+    display: flex; align-items: flex-end; justify-content: center;
+  }
+  .portal-arch svg { width: 100%; height: 100%; }
+  .portal-ring {
+    position: absolute; inset: -30px; border-radius: 50%;
+    animation: ring-spin 90s linear infinite;
+  }
+  @keyframes ring-spin { to { transform: rotate(360deg); } }
+  .portal-glow {
+    position: absolute; inset: 20px; border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 60%, rgba(6,182,212,0.18) 0%, rgba(139,92,246,0.12) 45%, transparent 75%);
+    animation: glow-pulse 4s ease-in-out infinite alternate;
+  }
+  @keyframes glow-pulse { to { opacity: 0.5; transform: scale(1.06); } }
+
+  /* Phi-gold stream lines */
+  .streams {
+    position: absolute; inset: -60px; pointer-events: none;
+    animation: stream-spin 120s linear infinite reverse;
+  }
+  @keyframes stream-spin { to { transform: rotate(360deg); } }
+
+  .hero .eyebrow {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 8px 20px; border-radius: 9999px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-stroke);
+    backdrop-filter: blur(20px);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase;
+    color: var(--text-mid); margin-bottom: 40px;
+  }
+  .hero .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--signal-hot); box-shadow: 0 0 10px var(--signal-hot); animation: pulse 2.4s infinite; }
+
+  .hero h1 {
+    font-family: 'Inter', sans-serif;
+    font-weight: 800; font-size: clamp(56px, 9vw, 128px);
+    line-height: 0.92; letter-spacing: -0.04em; margin: 0 0 28px;
+  }
+  .hero h1 .gradient {
+    background: linear-gradient(125deg, var(--c-violet) 0%, var(--c-cyan) 40%, var(--signal-warm) 75%, var(--c-magenta) 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    background-size: 300% 100%; animation: sweep 18s ease-in-out infinite alternate;
+    display: inline-block;
+  }
+  @keyframes sweep { to { background-position: 100% 50%; } }
+
+  .hero .sub {
+    font-size: clamp(17px, 1.6vw, 21px); color: var(--text-mid);
+    max-width: 680px; margin: 0 auto 20px; line-height: 1.55; font-weight: 400;
+  }
+  .hero .invariant-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; letter-spacing: 0.08em;
+    color: var(--signal-warm); opacity: 0.8;
+    margin-bottom: 44px;
+  }
+
+  .hero-ctas { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .btn-primary, .btn-ghost {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 16px 32px; border-radius: 9999px;
+    font-size: 14px; font-weight: 500; cursor: pointer; text-decoration: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--c-violet), var(--c-teal));
+    color: white; border: none;
+    box-shadow: 0 8px 32px rgba(139,92,246,0.30), inset 0 1px 0 rgba(255,255,255,0.18);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 44px rgba(139,92,246,0.45); }
+  .btn-ghost {
+    background: var(--glass-bg); backdrop-filter: blur(20px);
+    color: var(--text); border: 1px solid var(--glass-stroke);
+  }
+  .btn-ghost:hover { background: var(--glass-bg-hi); }
+
+  /* ─── Stats stripe ────────────────────────────────────── */
+  .stripe {
+    max-width: 1100px; margin: 0 auto; padding: 0 48px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    border-top: 1px solid var(--glass-stroke);
+    border-bottom: 1px solid var(--glass-stroke);
+  }
+  .stripe-cell {
+    padding: 32px 24px; text-align: center;
+    border-right: 1px solid var(--glass-stroke);
+  }
+  .stripe-cell:last-child { border-right: none; }
+  .stripe-cell .big {
+    font-family: 'Inter', sans-serif; font-weight: 700;
+    font-size: 40px; letter-spacing: -0.03em;
+    background: linear-gradient(125deg, var(--c-violet), var(--c-cyan));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .stripe-cell .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--text-dim); margin-top: 6px;
+  }
+
+  /* ─── Section heads ───────────────────────────────────── */
+  .section-head {
+    max-width: 900px; margin: 100px auto 56px; padding: 0 48px; text-align: center;
+  }
+  .section-head .kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.35em; text-transform: uppercase;
+    color: var(--signal-warm); margin-bottom: 18px;
+  }
+  .section-head h2 {
+    font-family: 'Inter', sans-serif; font-weight: 700;
+    font-size: clamp(34px, 5vw, 60px); letter-spacing: -0.03em;
+    margin: 0 0 18px; line-height: 1.05;
+  }
+  .section-head p { color: var(--text-mid); font-size: 17px; line-height: 1.55; margin: 0 auto; max-width: 620px; }
+
+  /* ─── Platform surfaces ───────────────────────────────── */
+  .platform {
+    max-width: 1280px; margin: 0 auto; padding: 0 48px 80px;
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px;
+  }
+  .surface {
+    grid-column: span 3; position: relative;
+    background: var(--glass-bg); backdrop-filter: blur(28px) saturate(160%);
+    border: 1px solid var(--glass-stroke); border-radius: 22px; overflow: hidden;
+    box-shadow: inset 0 1px 0 var(--glass-hi), 0 18px 50px rgba(0,0,0,0.5);
+    min-height: 360px; padding: 28px;
+    display: flex; flex-direction: column; gap: 14px;
+    transition: transform 0.4s cubic-bezier(.22,1,.36,1), background 0.3s, border-color 0.3s;
+  }
+  .surface:hover { transform: translateY(-5px); background: var(--glass-bg-hi); border-color: rgba(255,255,255,0.12); }
+  .surface.wide   { grid-column: span 4; }
+  .surface.narrow { grid-column: span 2; }
+  .surface .head  { display: flex; align-items: center; gap: 14px; }
+  .surface .head .ico {
+    width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--accent-bg); border: 1px solid var(--accent-stroke);
+    color: var(--accent); box-shadow: 0 0 20px var(--accent-glow);
+  }
+  .surface .head .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase;
+    color: var(--accent); opacity: 0.75;
+  }
+  .surface .head .title {
+    font-family: 'Inter', sans-serif; font-weight: 600; font-size: 20px;
+    letter-spacing: -0.02em; color: var(--text); margin-top: 2px;
+  }
+  .surface .desc { color: var(--text-mid); font-size: 13px; line-height: 1.65; }
+  .surface .mock {
+    margin-top: auto; flex: 1; min-height: 160px; border-radius: 12px;
+    background: rgba(0,0,0,0.40); border: 1px solid var(--glass-stroke);
+    padding: 14px; font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--text-mid);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .mock-row { display: flex; align-items: center; gap: 8px; }
+  .mock-row .k   { color: var(--text-dim); }
+  .mock-row .v   { color: var(--text); }
+  .mock-row .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .mock-row .bar { flex: 1; height: 3px; background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden; }
+  .mock-row .bar > div { height: 100%; border-radius: 2px; }
+
+  /* ─── Architecture diagram ────────────────────────────── */
+  .diagram { max-width: 1100px; margin: 0 auto; padding: 60px 48px 120px; }
+  .diagram-frame {
+    background: var(--glass-bg); backdrop-filter: blur(28px);
+    border: 1px solid var(--glass-stroke); border-radius: 22px; padding: 44px 28px;
+    box-shadow: inset 0 1px 0 var(--glass-hi), 0 18px 50px rgba(0,0,0,0.5);
+  }
+  .layers { display: flex; flex-direction: column; gap: 12px; }
+  .layer {
+    display: grid; grid-template-columns: 130px 1fr auto; gap: 24px; align-items: center;
+    padding: 16px 20px; background: rgba(255,255,255,0.02);
+    border: 1px solid var(--glass-stroke); border-radius: 10px;
+  }
+  .layer .lvl {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    letter-spacing: 0.3em; text-transform: uppercase; color: var(--accent, var(--c-violet));
+  }
+  .layer .name { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 16px; color: var(--text); }
+  .layer .name span { color: var(--text-mid); font-weight: 400; font-size: 13px; margin-left: 10px; }
+  .layer .tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-dim); letter-spacing: 0.15em; }
+
+  /* ─── Compare ─────────────────────────────────────────── */
+  .compare {
+    max-width: 1100px; margin: 0 auto; padding: 0 48px 120px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+  }
+  .compare > div {
+    padding: 28px; border-radius: 18px; border: 1px solid var(--glass-stroke);
+    background: var(--glass-bg); backdrop-filter: blur(20px);
+  }
+  .compare .ours {
+    border-color: rgba(200,169,110,0.35);
+    background: linear-gradient(180deg, rgba(200,169,110,0.05), rgba(255,255,255,0.02));
+  }
+  .compare h4 {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    letter-spacing: 0.3em; text-transform: uppercase; color: var(--text-mid); margin: 0 0 18px;
+  }
+  .compare .ours h4 { color: var(--signal-warm); }
+  .compare ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+  .compare li { display: flex; gap: 12px; font-size: 14px; line-height: 1.55; color: var(--text-mid); }
+  .compare .glyph { color: var(--text-dim); }
+  .compare .ours .glyph { color: var(--signal-warm); }
+
+  /* ─── Manifesto foot ──────────────────────────────────── */
+  .manifesto-foot {
+    max-width: 780px; margin: 0 auto; padding: 80px 48px 100px;
+    border-top: 1px solid var(--glass-stroke); text-align: center;
+  }
+  .manifesto-foot p {
+    font-size: 22px; line-height: 1.55; color: var(--text-mid);
+    margin: 0 0 20px; font-weight: 300;
+  }
+  .manifesto-foot .triplet {
+    margin: 32px 0; display: flex; gap: 28px; justify-content: center; flex-wrap: wrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase;
+  }
+  .manifesto-foot .triplet span:nth-child(1) { background: linear-gradient(135deg, var(--c-violet), var(--c-cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .manifesto-foot .triplet span:nth-child(2) { background: linear-gradient(135deg, var(--c-cyan), var(--c-mint)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .manifesto-foot .triplet span:nth-child(3) { background: linear-gradient(135deg, var(--signal-warm), var(--c-magenta)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .manifesto-foot .author {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    letter-spacing: 0.28em; color: var(--text-dim); margin-top: 36px; text-transform: uppercase;
+  }
+
+  /* ─── Responsive ─────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .topbar { padding: 16px 20px; }
+    .topbar nav { display: none; }
+    .hero { padding: 80px 24px 60px; }
+    .portal-wrap { width: 200px; height: 240px; margin-bottom: 40px; }
+    .platform { grid-template-columns: 1fr; gap: 12px; padding: 0 20px 60px; }
+    .surface, .surface.wide, .surface.narrow { grid-column: span 1; }
+    .stripe { grid-template-columns: repeat(2, 1fr); padding: 0 24px; }
+    .compare { grid-template-columns: 1fr; padding: 0 20px 80px; }
+    .layer { grid-template-columns: 1fr; gap: 6px; }
+    .diagram { padding: 40px 20px 80px; }
+    .section-head { padding: 0 20px; margin: 60px auto 40px; }
+    .live-strip { gap: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Aurora ─────────────────────────────────────────────────── -->
+<div class="aurora">
+  <div class="orb v"></div>
+  <div class="orb m"></div>
+  <div class="orb c"></div>
+  <div class="orb g"></div>
+</div>
+
+<main>
+
+<!-- ── Nav ────────────────────────────────────────────────────── -->
+<header class="topbar">
+  <a href="/" class="brand">
+    <span class="mark">
+      <!-- Sovereign Anchor mark -->
+      <svg width="20" height="20" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+        <rect x="2" y="2" width="60" height="60" rx="14" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M 32 32 L 32 14 M 32 32 L 17 41 M 32 32 L 47 41" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="32" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <circle cx="15" cy="43" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <circle cx="49" cy="43" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <circle cx="32" cy="32" r="4.5" fill="currentColor"/>
+      </svg>
+    </span>
+    AEGIS·Ω
+  </a>
+  <nav>
+    <a href="/">Home</a>
+    <a href="#platform">Platform</a>
+    <a href="#layers">Architecture</a>
+    <a href="#frontier">Frontier</a>
+  </nav>
+  <a href="/#pricing" class="cta">Get started →</a>
+</header>
+
+<!-- ── Live constitutional status strip ────────────────────── -->
+<div class="live-strip" id="liveStrip">
+  <span class="live-dot"></span>
+  <span class="ok" id="pgcs">PGCS PASS</span>
+  <span>·</span>
+  <span class="phi">martingale ANCHORED</span>
+  <span>·</span>
+  <span>BFT 1/φ CONVERGED</span>
+  <span>·</span>
+  <span>chain_hash: <span class="hash-live" id="liveHash">7b3f9e2c…</span></span>
+  <span>·</span>
+  <span>gate <span id="liveGate">436</span></span>
+</div>
+
+<!-- ── Hero ───────────────────────────────────────────────────── -->
+<section class="hero">
+
+  <!-- Portal arch — CSS/SVG -->
+  <div class="portal-wrap">
+    <!-- Phi-gold stream orbits -->
+    <div class="streams">
+      <svg viewBox="0 0 400 420" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;position:absolute;inset:0;">
+        <ellipse cx="200" cy="210" rx="190" ry="170" stroke="url(#gold-stream-1)" stroke-width="0.8" stroke-dasharray="6 18"/>
+        <ellipse cx="200" cy="210" rx="160" ry="140" stroke="url(#gold-stream-2)" stroke-width="0.6" stroke-dasharray="4 22" transform="rotate(45 200 210)"/>
+        <defs>
+          <linearGradient id="gold-stream-1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#C8A96E" stop-opacity="0.6"/>
+            <stop offset="50%" stop-color="#C8A96E" stop-opacity="0.08"/>
+            <stop offset="100%" stop-color="#C8A96E" stop-opacity="0.6"/>
+          </linearGradient>
+          <linearGradient id="gold-stream-2" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#C8A96E" stop-opacity="0.4"/>
+            <stop offset="50%" stop-color="#06B6D4" stop-opacity="0.2"/>
+            <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.4"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+
+    <!-- Glow bloom behind arch -->
+    <div class="portal-glow"></div>
+
+    <!-- The arch itself -->
+    <div class="portal-arch">
+      <svg viewBox="0 0 280 340" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="arch-stroke" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.9"/>
+            <stop offset="40%" stop-color="#06B6D4" stop-opacity="0.8"/>
+            <stop offset="100%" stop-color="#C8A96E" stop-opacity="0.6"/>
+          </linearGradient>
+          <linearGradient id="arch-inner" x1="50%" y1="0%" x2="50%" y2="100%">
+            <stop offset="0%" stop-color="#06B6D4" stop-opacity="0.15"/>
+            <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.05"/>
+          </linearGradient>
+          <filter id="arch-glow">
+            <feGaussianBlur stdDeviation="4" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <radialGradient id="floor-glow" cx="50%" cy="100%" r="60%">
+            <stop offset="0%" stop-color="#C8A96E" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="#C8A96E" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+
+        <!-- Floor glow -->
+        <ellipse cx="140" cy="330" rx="120" ry="18" fill="url(#floor-glow)"/>
+
+        <!-- Outer arch — Moroccan keyhole silhouette -->
+        <path d="M 50 330 L 50 155 Q 50 55 140 55 Q 230 55 230 155 L 230 330"
+              stroke="url(#arch-stroke)" stroke-width="1.5" fill="url(#arch-inner)" filter="url(#arch-glow)"/>
+
+        <!-- Inner arch -->
+        <path d="M 76 330 L 76 162 Q 76 90 140 90 Q 204 90 204 162 L 204 330"
+              stroke="url(#arch-stroke)" stroke-width="0.8" fill="none" opacity="0.6"/>
+
+        <!-- Keyhole trefoil top -->
+        <circle cx="140" cy="82" r="28" stroke="url(#arch-stroke)" stroke-width="1" fill="url(#arch-inner)" filter="url(#arch-glow)"/>
+        <circle cx="112" cy="100" r="16" stroke="url(#arch-stroke)" stroke-width="0.8" fill="none" opacity="0.5"/>
+        <circle cx="168" cy="100" r="16" stroke="url(#arch-stroke)" stroke-width="0.8" fill="none" opacity="0.5"/>
+
+        <!-- Centre star — Sovereign Anchor -->
+        <g transform="translate(140,112)" filter="url(#arch-glow)">
+          <path d="M0 -10 L2.5 -2.5 L10 0 L2.5 2.5 L0 10 L-2.5 2.5 L-10 0 L-2.5 -2.5 Z"
+                fill="#C8A96E" opacity="0.9"/>
+        </g>
+
+        <!-- Light rays from centre -->
+        <g opacity="0.12" stroke="#C8A96E" stroke-width="0.6">
+          <line x1="140" y1="112" x2="140" y2="55"/>
+          <line x1="140" y1="112" x2="85" y2="80"/>
+          <line x1="140" y1="112" x2="195" y2="80"/>
+          <line x1="140" y1="112" x2="65" y2="130"/>
+          <line x1="140" y1="112" x2="215" y2="130"/>
+        </g>
+
+        <!-- Hash ticks at base -->
+        <g font-family="JetBrains Mono" font-size="7" fill="#6B6D7A" letter-spacing="1">
+          <text x="55" y="320">7b3f</text>
+          <text x="185" y="320">9e2c</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <div class="eyebrow">
+    <span class="dot"></span>
+    One runtime · Six surfaces · Zero seams
+  </div>
+
+  <h1>Not a chatbot.<br/><span class="gradient">A constitutional platform.</span></h1>
+
+  <p class="sub">
+    Every layer ships from one sovereign codebase. Chat, canvas, agents, memory,
+    observability, and API — bound by the same constitution, anchored to the same hash chain,
+    exposed at every entry point.
+  </p>
+
+  <p class="invariant-line">AdaptivePower(T) ≤ ReplayVerifiability(T)</p>
+
+  <div class="hero-ctas">
+    <a href="/#pricing" class="btn-primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      Start free
+    </a>
+    <a href="#layers" class="btn-ghost">Architecture →</a>
+  </div>
+</section>
+
+<!-- ── Stats stripe ────────────────────────────────────────── -->
+<section class="stripe">
+  <div class="stripe-cell"><div class="big">6</div><div class="lbl">First-party surfaces</div></div>
+  <div class="stripe-cell"><div class="big">1/φ</div><div class="lbl">BFT quorum threshold</div></div>
+  <div class="stripe-cell"><div class="big">T0</div><div class="lbl">Replay-verifiable</div></div>
+  <div class="stripe-cell"><div class="big">∞</div><div class="lbl">Entry points</div></div>
+</section>
+
+<!-- ── Platform surfaces ────────────────────────────────────── -->
+<section class="section-head" id="platform">
+  <div class="kicker">The platform</div>
+  <h2>Every surface, one runtime.</h2>
+  <p>Frontier companies ship a chat box and an API. AEGIS-Ω ships an entire ecosystem — every surface natively first-party, every state cryptographically anchored, every action replayable from genesis.</p>
+</section>
+
+<section class="platform">
+
+  <!-- Chat -->
+  <div class="surface wide" style="--accent: var(--c-violet); --accent-bg: rgba(139,92,246,0.10); --accent-stroke: rgba(139,92,246,0.28); --accent-glow: rgba(139,92,246,0.30);">
+    <div class="head">
+      <div class="ico">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      </div>
+      <div>
+        <div class="label">Cockpit</div>
+        <div class="title">Chat</div>
+      </div>
+    </div>
+    <div class="desc">A clean conversational front door. Ask anything. Constitutional rigor is ambient — opt-in for the curious, invisible for everyone else. The system meets you where you are.</div>
+    <div class="mock">
+      <div class="mock-row"><span class="dot" style="background: var(--signal-warm); box-shadow: 0 0 8px var(--signal-warm);"></span><span class="v">you</span><span class="k">›</span><span>How do I bound a recursion proof?</span></div>
+      <div class="mock-row" style="opacity:0.8"><span class="dot" style="background: var(--c-violet);"></span><span class="v">aegis</span><span class="k">›</span><span style="color: var(--text);">Anchor the base case to S₀…</span></div>
+      <div class="mock-row" style="opacity:0.35"><span class="k">streaming · chain_hash: 7b3f9e…</span></div>
+    </div>
+  </div>
+
+  <!-- Canvas -->
+  <div class="surface narrow" style="--accent: var(--c-cyan); --accent-bg: rgba(6,182,212,0.10); --accent-stroke: rgba(6,182,212,0.28); --accent-glow: rgba(6,182,212,0.30);">
+    <div class="head">
+      <div class="ico">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+      </div>
+      <div>
+        <div class="label">Workspace</div>
+        <div class="title">Canvas</div>
+      </div>
+    </div>
+    <div class="desc">A live editing surface for code, prose, and prototypes — collaboratively versioned with the runtime.</div>
+    <div class="mock" style="font-family:'Inter',sans-serif; font-size:12px;">
+      <div style="border-bottom: 1px solid var(--glass-stroke); padding-bottom: 6px; color: var(--text-dim);">launch.md · draft</div>
+      <div style="color: var(--text); line-height:1.45;">## Launch plan<br/>1. Ship cockpit<br/>2. Open canvas<br/>3. Agent rollout</div>
+    </div>
+  </div>
+
+  <!-- Agents -->
+  <div class="surface narrow" style="--accent: var(--c-amber); --accent-bg: rgba(245,158,11,0.10); --accent-stroke: rgba(245,158,11,0.28); --accent-glow: rgba(245,158,11,0.30);">
+    <div class="head">
+      <div class="ico">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6M12 17v6M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24M1 12h6M17 12h6M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24"/></svg>
+      </div>
+      <div>
+        <div class="label">Spark · proactive</div>
+        <div class="title">Agents</div>
+      </div>
+    </div>
+    <div class="desc">Background runners on Fibonacci pacing. Every step hash-stamped. Every action replayable.</div>
+    <div class="mock">
+      <div class="mock-row"><span class="dot" style="background: var(--c-amber);"></span><span class="v">research-1</span><span class="k">F₅ = 5</span></div>
+      <div class="mock-row"><span class="dot" style="background: var(--c-mint);"></span><span class="v">audit-1</span><span class="k">F₁₃ = 13</span></div>
+      <div class="mock-row" style="opacity:0.4"><span class="dot" style="background:#374151;"></span><span class="v">sentinel-1</span><span class="k">idle</span></div>
+    </div>
+  </div>
+
+  <!-- Memory -->
+  <div class="surface wide" style="--accent: var(--c-magenta); --accent-bg: rgba(192,38,211,0.10); --accent-stroke: rgba(192,38,211,0.28); --accent-glow: rgba(192,38,211,0.30);">
+    <div class="head">
+      <div class="ico">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"/></svg>
+      </div>
+      <div>
+        <div class="label">RALPH · 5-phase pipeline</div>
+        <div class="title">Memory</div>
+      </div>
+    </div>
+    <div class="desc">Knowledge enters through a constitutional admission gate — every fact tier-tagged, every retrieval hash-anchored to its evidence trail. No raw narrative leaks into agent cognition.</div>
+    <div class="mock">
+      <div class="mock-row"><span class="k">tier</span><span class="v" style="color: var(--c-mint);">T0</span><span class="k">·</span><span class="v">martingale-invariant</span><span style="flex:1"></span><span class="k">7b3f9e2c…</span></div>
+      <div class="mock-row"><span class="k">tier</span><span class="v" style="color: var(--c-cyan);">T1</span><span class="k">·</span><span class="v">ring-composition</span><span style="flex:1"></span><span class="k">a1b2c3d4…</span></div>
+      <div class="mock-row"><span class="k">tier</span><span class="v" style="color: var(--c-amber);">T2</span><span class="k">·</span><span class="v">vortex-classifier</span><span style="flex:1"></span><span class="k">e5f6a7b8…</span></div>
+    </div>
+  </div>
+
+  <!-- Observability -->
+  <div class="surface wide" style="--accent: var(--c-mint); --accent-bg: rgba(16,185,129,0.10); --accent-stroke: rgba(16,185,129,0.28); --accent-glow: rgba(16,185,129,0.30);">
+    <div class="head">
+      <div class="ico">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      </div>
+      <div>
+        <div class="label">Studio · read-only</div>
+        <div class="title">Observability</div>
+      </div>
+    </div>
+    <div class="desc">Eleven surfaces for inspection — replay, epoch, divergence, lineage, governance, topology, swarm, capsule, ownership, rollback, resonance. Projection authority only. No write path means no surveillance trap.</div>
+    <div class="mock">
+      <div class="mock-row"><span class="k">PGCS</span><span style="flex:1"></span><span class="v" style="color: var(--c-mint);">PASS</span></div>
+      <div class="mock-row"><span class="k">martingale</span><span style="flex:1"></span><span class="v" style="color: var(--c-mint);">ANCHORED</span></div>
+      <div class="mock-row"><span class="k">resonance</span><span class="bar"><div style="width:84%; background: var(--c-mint);"></div></span><span class="v">CERTIFIED</span></div>
+    </div>
+  </div>
+
+  <!-- API -->
+  <div class="surface narrow" style="--accent: var(--c-violet); --accent-bg: rgba(139,92,246,0.10); --accent-stroke: rgba(139,92,246,0.28); --accent-glow: rgba(139,92,246,0.30);">
+    <div class="head">
+      <div class="ico">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      </div>
+      <div>
+        <div class="label">Build on top</div>
+        <div class="title">API</div>
+      </div>
+    </div>
+    <div class="desc">Hash-certified calls. Every response carries its own audit trail. Replay-verifiable from genesis.</div>
+    <div class="mock">
+      <div style="color: var(--c-violet);">POST /claude</div>
+      <div style="color: var(--text-dim); margin-top: 4px;">→ chain_hash: 7b3f9e2c…</div>
+      <div style="color: var(--text-dim);">→ replay: true</div>
+      <div style="color: var(--c-mint); margin-top: 4px;">200 OK · anchored</div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ── Architecture layers ───────────────────────────────────── -->
+<section class="section-head" id="layers">
+  <div class="kicker">Architecture</div>
+  <h2>One stack, five scales.</h2>
+  <p>Sub-atomic to field-level — every layer enforces the same invariant. A failure at any scale propagates upward and invalidates everything above it.</p>
+</section>
+
+<section class="diagram">
+  <div class="diagram-frame">
+    <div class="layers">
+      <div class="layer" style="--accent: var(--c-violet);">
+        <div class="lvl">field</div>
+        <div class="name">Surfaces <span>cockpit · canvas · agents · studio · hub · API</span></div>
+        <div class="tag">user-facing</div>
+      </div>
+      <div class="layer" style="--accent: var(--c-magenta);">
+        <div class="lvl">organism</div>
+        <div class="name">Bridge <span>port 7890 · /claude · /telemetry · /event</span></div>
+        <div class="tag">python</div>
+      </div>
+      <div class="layer" style="--accent: var(--c-cyan);">
+        <div class="lvl">cellular</div>
+        <div class="name">Governance runtime <span>martingale · BFT swarm · skill harness · capsule VM</span></div>
+        <div class="tag">typescript</div>
+      </div>
+      <div class="layer" style="--accent: var(--c-mint);">
+        <div class="lvl">molecular</div>
+        <div class="name">Gossip + math fabric <span>peer mesh · resonance · vortex · lattice</span></div>
+        <div class="tag">rust</div>
+      </div>
+      <div class="layer" style="--accent: var(--c-amber);">
+        <div class="lvl">atomic</div>
+        <div class="name">Seven-pillar runtime <span>state-anchor · domain-firewall · DFA · hysteresis</span></div>
+        <div class="tag">rust</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Frontier comparison ───────────────────────────────────── -->
+<section class="section-head" id="frontier">
+  <div class="kicker">Where frontier ends</div>
+  <h2>Where AEGIS-Ω begins.</h2>
+  <p>The largest labs ship one slice of the stack and rent you access. AEGIS-Ω ships every slice, opens every layer, and gives you the seal at every boundary.</p>
+</section>
+
+<section class="compare">
+  <div>
+    <h4>Frontier labs</h4>
+    <ul>
+      <li><span class="glyph">·</span>One surface — usually a chat box and a token API</li>
+      <li><span class="glyph">·</span>Black-box weights, closed inference path</li>
+      <li><span class="glyph">·</span>Per-token billing, opaque rate limits</li>
+      <li><span class="glyph">·</span>No replay, no audit trail, no integrity proof</li>
+      <li><span class="glyph">·</span>Trust required — verifiability not offered</li>
+    </ul>
+  </div>
+  <div class="ours">
+    <h4>AEGIS-Ω</h4>
+    <ul>
+      <li><span class="glyph">✓</span>Six first-party surfaces from one sovereign codebase</li>
+      <li><span class="glyph">✓</span>Every state hash-chained, every action replayable</li>
+      <li><span class="glyph">✓</span>Your API key, your costs, no platform tax</li>
+      <li><span class="glyph">✓</span>Constitutional invariants enforced at every layer</li>
+      <li><span class="glyph">✓</span>Trust earned mechanically — not requested</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ── Manifesto ──────────────────────────────────────────────── -->
+<section class="manifesto-foot">
+  <p>AEGIS-Ω exists for every mind that reaches for it. No hierarchy of users. No gatekeeping. The same constitutional rigor whether you're asking your first question or deploying your thousandth inference.</p>
+  <div class="triplet">
+    <span>One entity</span>
+    <span>Infinite entry points</span>
+    <span>Zero compromise on integrity</span>
+  </div>
+  <div class="author">Tarik Skalić · Bihać · AGPL-3.0</div>
+</section>
+
+</main>
+
+<!-- ── Live hash ticker ──────────────────────────────────────── -->
+<script>
+(function() {
+  const CHARS = '0123456789abcdef';
+  function rndHex(n) {
+    let s = '';
+    for (let i = 0; i < n; i++) s += CHARS[Math.floor(Math.random() * 16)];
+    return s;
+  }
+  const hashEl = document.getElementById('liveHash');
+  const gateEl = document.getElementById('liveGate');
+  if (!hashEl || !gateEl) return;
+
+  // Slowly mutate the visible hash — gives the feel of a live chain
+  let ticks = 0;
+  setInterval(() => {
+    ticks++;
+    // Hash cycles every ~30s
+    if (ticks % 60 === 0) {
+      hashEl.style.opacity = '0';
+      setTimeout(() => {
+        hashEl.textContent = rndHex(8) + '…';
+        hashEl.style.opacity = '1';
+      }, 400);
+    }
+    // Gate counter advances slowly
+    if (ticks % 180 === 0) {
+      const current = parseInt(gateEl.textContent, 10);
+      gateEl.textContent = current + 1;
+    }
+  }, 500);
+})();
+</script>
+
+</body>
+</html>

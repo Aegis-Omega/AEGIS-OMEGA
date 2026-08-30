@@ -1,0 +1,8 @@
+{
+  "framework": "vite",
+  "buildCommand": "cd hub && npm install && npm run build",
+  "outputDirectory": "hub/dist",
+  "installCommand": "echo 'install handled per-product'",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- :/hub :/cockpit :/studio :/platform-picker :/hook-generator :/content-calendar :/packages :/vercel.json",
+  "rewrites": [{"source": "/(.*)", "destination": "/index.html"}]
+}

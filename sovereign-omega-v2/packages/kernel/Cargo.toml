@@ -1,0 +1,12 @@
+[package]
+name = "kernel"
+version = "0.1.0"
+edition = "2021"
+description = "AEGIS Ω deterministic WASM kernel — T0 epistemic tier"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# No external dependencies — SHA-256 implemented inline for full auditability
+# and to guarantee no non-deterministic code paths in the dependency tree.

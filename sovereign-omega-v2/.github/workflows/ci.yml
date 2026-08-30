@@ -1,0 +1,110 @@
+name: Sovereign Omega CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  determinism:
+    name: Determinism Proof
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.14.0'
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Gate 1 — RFC 8785 Canonicalization
+        run: npm run test -- test/unit/jcs.test.ts --reporter=verbose
+
+      - name: Gate 2 — Sequence Allocator Integrity
+        run: npm run test -- test/unit/sequence.test.ts
+
+      - name: Gate 3 — Immutability Enforcement
+        run: npm run test -- test/unit/immutable.test.ts
+
+      - name: Gate 4 — Pure Reducers
+        run: npm run test -- test/unit/reducer.test.ts
+
+      - name: Cross-Engine Determinism
+        run: npm run test -- test/determinism/cross-engine.test.ts
+
+      - name: Reducer Impurity Fuzzing
+        run: npm run test -- test/determinism/reducer-impurity.test.ts
+
+  statistical:
+    name: Statistical Gate Validation
+    runs-on: ubuntu-latest
+    needs: determinism
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.14.0'
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Gate 5 — VCG Calibration
+        run: npm run test -- test/unit/vcg.test.ts
+
+      - name: Gate 6 — Bernstein Statistical Gate
+        run: npm run test -- test/unit/gate.test.ts
+
+  replay:
+    name: Replay Equivalence
+    runs-on: ubuntu-latest
+    needs: statistical
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.14.0'
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Gate 7 — Replay + Pipeline Integration
+        run: npm run test -- test/integration/replay.test.ts test/integration/pipeline.test.ts test/integration/gate.test.ts
+
+  build:
+    name: Gate 8 — Full Build (Deployment Gate)
+    runs-on: ubuntu-latest
+    needs: replay
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.14.0'
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Full test suite
+        run: npm run test
+
+      - name: TypeScript strict check
+        run: npm run typecheck
+
+      - name: Production build
+        run: npm run build
+
+      - name: Verify frozen constitutional files
+        run: node scripts/verify-hashes.mjs
+
+      - name: Canonicalization parity
+        run: node --input-type=module < scripts/verify-canonicalization.ts || npx tsx scripts/verify-canonicalization.ts
+
+  python:
+    name: Python Core Matrix Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install psutil
+      - name: Step P1 — 60s smoke test
+        run: python python/tests/stress_test.py --quick
+        timeout-minutes: 2

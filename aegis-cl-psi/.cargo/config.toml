@@ -1,0 +1,21 @@
+# AEGIS-Ω CL-Ψ — Cargo build configuration
+# Target: AMD RX 570 (gfx803) / x86_64 Linux
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = [
+  "-C", "target-cpu=native",
+  # ROCm/HIP linker flags — uncomment when ROCm toolkit is installed:
+  # "-L", "/opt/rocm/lib",
+  # "-l", "hiprtc",
+  # "-l", "amdhip64",
+  # "-l", "rocblas",
+]
+
+# Build with ROCm acceleration:
+#   cargo build --release --features "hip,rocblas"
+#
+# Build compliance-only (no hardware deps):
+#   cargo build --release --features "compliance"
+#
+# Minimal T2 core (no features):
+#   cargo build --release --no-default-features

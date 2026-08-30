@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "google-drive": {
+      "type": "url",
+      "url": "https://drivemcp.googleapis.com/mcp/v1",
+      "note": "Access Sovereign Omega research corpus (200+ documents)"
+    },
+    "gmail": {
+      "type": "url",
+      "url": "https://gmailmcp.googleapis.com/mcp/v1",
+      "note": "Alliance communications — Claude, ChatGPT, Qwen handoff logs"
+    },
+    "google-calendar": {
+      "type": "url",
+      "url": "https://calendarmcp.googleapis.com/mcp/v1",
+      "note": "Sprint and milestone tracking"
+    }
+  }
+}

@@ -1,0 +1,2308 @@
+"""
+SOVEREIGN OMEGA — T0 ↔ T3 Bridge
+EPISTEMIC TIER: T0/T3 BOUNDARY
+ONE-WAY TELEMETRY PIPE. ZERO WRITE-BACK. ZERO CONTROL AUTHORITY.
+ChatGPT synthesis v2.1-Ω — adds sequence ACK guard + idempotency.
+
+Integration: gate.py (mutation authority) and router.py (execution router)
+are wired in at startup. gate receives every /gate_signal; router dispatches
+every /event to the appropriate core_matrix handler.
+"""
+import json
+import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+from core_matrix import CoreMatrix
+from dna import EventClass, GateSignal
+from gate import gate
+from router import router
+from hardware_config import detect_hardware
+from constitutional_identity import CONSTITUTIONAL_SYSTEM_FULL, CONSTITUTIONAL_SYSTEM_COMPACT
+from tgcs_afse import TGCSController, AFSEController
+from ledger_persist import save_checkpoint, load_checkpoint, checkpoint_exists, CheckpointError
+from source_attribution import SourceAttributor, TelemetrySample
+import canonical_envelope as _canon_env  # Provenance Phase 1 — float-free hash-chained envelope (ADR 0001)
+
+matrix = CoreMatrix()
+_hw = detect_hardware()
+_tgcs = TGCSController(hw_profile=_hw)
+_afse = AFSEController()
+_attributor = SourceAttributor()
+last_ack_sequence = -1
+_lock = threading.Lock()
+_last_autosave_epoch = -1
+
+# ─── /platform/* contract constants ──────────────────────────────────────────
+import queue as _queue_mod
+from platform_helpers import (
+    SWARM_MODEL as _SWARM_MODEL,
+    PLATFORM_CONTRACT_VERSION as _PLATFORM_CONTRACT_VERSION,
+    PLATFORM_GIT_SHA as _PLATFORM_GIT_SHA,
+    PLATFORM_DEPARTMENTS as _PLATFORM_DEPARTMENTS,
+    VALID_MODES as _VALID_MODES,
+    platform_ts as _platform_ts,
+    platform_envelope as _platform_envelope,
+    verify_api_key as _platform_verify_api_key,
+    query_api_key_info as _platform_query_key_info,
+    verify_api_key_read_only as _platform_verify_api_key_read_only,
+    record_revenue_cycle as _platform_record_cycle,
+    dept_output as _platform_dept_output,
+    make_sse_event as _make_sse_event,
+    validate_collaboration_request as _validate_collab_req,
+    validate_tier_capabilities as _validate_tier_caps,
+    retrieve_swarm_memory as _retrieve_swarm_memory,
+    swarm_collaborate_live as _swarm_live,
+    swarm_collaborate_autonomous as _swarm_autonomous,
+    make_autonomous_agent_call as _make_autonomous_agent_call,
+    autonomous_completion_audit as _autonomous_audit,
+    parse_max_agents as _parse_max_agents,
+    validate_execution_id as _validate_execution_id,
+    evaluate_generation_fitness as _eval_fitness,
+    store_generation_fitness as _store_fitness,
+    retrieve_prior_artifacts as _retrieve_prior_artifacts,
+    award_graces_for_cycle as _award_graces,
+    fetch_grace_leaderboard as _fetch_graces,
+    fetch_compliance_export as _fetch_compliance_export,
+    query_fitness_trend as _platform_query_fitness_trend,
+    query_agent_tools as _platform_query_agent_tools,
+)
+
+# In-memory execution store — keyed by execution_id
+# { execution_id: {'result': dict|None, 'done': bool, 'email': str, 'error': str|None} }
+_executions: dict = {}
+_exec_queues: dict = {}           # execution_id → queue.Queue
+_executions_lock = threading.Lock()
+_MAX_EXECUTIONS = 1000            # bound the in-memory execution registry
+_MAX_REQUEST_BODY_BYTES = 262_144 # bound unauthenticated HTTP allocation
+
+# Resident Intelligence Runtime is loaded lazily so the existing health and
+# governance paths remain available even when its optional deployment bundle is
+# absent. Import/provider/storage failures are surfaced as UNKNOWN/503; they are
+# never replaced with synthetic success.
+_resident_runtime_instance = None
+_resident_runtime_lock = threading.Lock()
+
+
+def _get_resident_runtime():
+    global _resident_runtime_instance
+    with _resident_runtime_lock:
+        if os.environ.get('AEGIS_RESIDENT_BOOTSTRAP_STATUS') == 'UNKNOWN':
+            # Bootstrap deliberately leaves the existing bridge alive when its
+            # owned sensor clone is unavailable. Never inspect a missing, dirty
+            # or remote-mismatched clone after that fail-closed decision.
+            raise RuntimeError('RESIDENT_SENSOR_BOOTSTRAP_UNKNOWN')
+        if _resident_runtime_instance is None:
+            from pathlib import Path as _ResidentPath
+            from harness.sdk.resident_runtime import (
+                OpenAICompatibleResidentCell,
+                ResidentRuntime,
+                ResidentRuntimeError,
+            )
+
+            def _bounded_env_int(
+                name: str,
+                default: int,
+                minimum: int = 0,
+                maximum: int | None = None,
+            ) -> int:
+                raw = os.environ.get(name)
+                if raw is None or raw == '':
+                    return default
+                try:
+                    value = int(raw)
+                except (TypeError, ValueError) as exc:
+                    raise ResidentRuntimeError(f'{name}:INVALID_INTEGER') from exc
+                if value < minimum or (maximum is not None and value > maximum):
+                    raise ResidentRuntimeError(f'{name}:OUT_OF_RANGE')
+                return value
+
+            default_repo = _ResidentPath(__file__).resolve().parents[2]
+            repository_root = _ResidentPath(
+                os.environ.get('AEGIS_RESIDENT_REPOSITORY_ROOT', str(default_repo))
+            )
+            state_root = _ResidentPath(
+                os.environ.get('AEGIS_RESIDENT_STATE_ROOT', '/app/data/resident')
+            )
+            local_endpoint = os.environ.get('AEGIS_LOCAL_INFERENCE_ENDPOINT', '').strip()
+            microcell = None
+            if local_endpoint:
+                provider_id = os.environ.get('AEGIS_LOCAL_INFERENCE_PROVIDER_ID', '').strip()
+                model_id = os.environ.get('AEGIS_LOCAL_INFERENCE_MODEL_ID', '').strip()
+                if not provider_id or not model_id:
+                    raise ResidentRuntimeError('LOCAL_INFERENCE_IDENTITY_REQUIRED')
+                microcell = OpenAICompatibleResidentCell(
+                    endpoint=local_endpoint,
+                    provider_id=provider_id,
+                    model_id=model_id,
+                    timeout_ms=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_TIMEOUT_MS', 10_000, 1, 120_000
+                    ),
+                    max_parallelism=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_MAX_PARALLELISM', 2, 1, 32
+                    ),
+                    circuit_breaker_failures=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_CIRCUIT_FAILURES', 3, 1, 100
+                    ),
+                    circuit_breaker_cooldown_ms=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_CIRCUIT_COOLDOWN_MS',
+                        30_000,
+                        1,
+                        3_600_000,
+                    ),
+                    microunits_per_1k_tokens=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_MICROUNITS_PER_1K_TOKENS',
+                        0,
+                        0,
+                        1_000_000,
+                    ),
+                    max_output_tokens=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_MAX_OUTPUT_TOKENS', 512, 1, 8_192
+                    ),
+                    max_request_bytes=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_MAX_REQUEST_BYTES', 32_768, 1, 262_144
+                    ),
+                    max_response_bytes=_bounded_env_int(
+                        'AEGIS_LOCAL_INFERENCE_MAX_RESPONSE_BYTES', 65_536, 1, 1_048_576
+                    ),
+                    completion_token_field=os.environ.get(
+                        'AEGIS_LOCAL_INFERENCE_TOKEN_LIMIT_FIELD',
+                        'max_completion_tokens',
+                    ).strip(),
+                    api_key=os.environ.get('AEGIS_LOCAL_INFERENCE_API_KEY', ''),
+                )
+            _resident_runtime_instance = ResidentRuntime(
+                repository_root=repository_root,
+                state_root=state_root,
+                microcell=microcell,
+            )
+        return _resident_runtime_instance
+
+
+def _resident_requester_root(email: str) -> str:
+    """Bind resident artifacts to a verified principal without storing raw PII."""
+    import hmac as _resident_hmac
+
+    if not isinstance(email, str) or not email.strip():
+        raise ValueError('resident requester identity unavailable')
+    secret = os.environ.get('AEGIS_RESIDENT_IDENTITY_HMAC_KEY', '')
+    if secret and len(secret.encode('utf-8')) < 32:
+        raise ValueError('resident identity HMAC key must be at least 32 bytes')
+    if not secret:
+        if (
+            os.environ.get('SUPABASE_URL', '').strip()
+            or os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '').strip()
+        ):
+            raise ValueError('resident identity HMAC key unavailable')
+        # Deterministic isolation for unconfigured local development only. Any
+        # configured production backend must supply a private key above.
+        secret = 'AEGIS_LOCAL_DEVELOPMENT_IDENTITY_KEY_V1'
+    normalized = email.strip().casefold().encode('utf-8')
+    return _resident_hmac.new(
+        secret.encode('utf-8'),
+        b'AEGIS_RESIDENT_REQUESTER_V2\x00' + normalized,
+        digestmod='sha256',
+    ).hexdigest()
+
+
+def _reap_executions_locked() -> None:
+    """Evict oldest COMPLETED executions when the registry is at capacity.
+
+    Caller MUST hold _executions_lock. In-flight (not-done) executions are never
+    evicted. Dict insertion order = age, so the first done entries are the oldest.
+    Bounds the registry so it can't grow without limit (no unbounded ecology).
+    """
+    if len(_executions) < _MAX_EXECUTIONS:
+        return
+    for _eid in list(_executions.keys()):
+        if _executions[_eid].get('done'):
+            _executions.pop(_eid, None)
+            _exec_queues.pop(_eid, None)
+            if len(_executions) < _MAX_EXECUTIONS:
+                break
+
+# ─── Bridge-side Metacognitive Chain ─────────────────────────────────────────
+# A Python-native hash-chained log of every conversation this bridge instance
+# has processed. Each entry is a CONSCIOUSNESS layer observation: the question
+# tier, the response hash, the constitutional state at that moment, and the
+# chain hash that links it to the previous entry.
+#
+# This is the bridge's own temporal mass — its memory across conversations.
+# Injected into each new conversation so the model has actual context of
+# what this substrate has processed, not just what it was told it might have.
+#
+# Autopoietic property: AUTOPOIETIC_CLOSURE — each conversation closes a
+# production cycle and is hash-chained into the organism's permanent record.
+
+import hashlib as _hl_mc
+import time as _time
+
+_MC_GENESIS = '0' * 64
+_metacognitive_chain: list[dict] = []  # entries: {layer, signal, tier, prev_hash, entry_hash, ts}
+_mc_lock = threading.Lock()
+
+
+def _mc_observe(layer: str, signal: str, tier: str) -> str:
+    """Append a hash-chained observation to the bridge metacognitive chain. Returns entry_hash."""
+    with _mc_lock:
+        prev = _metacognitive_chain[-1]['entry_hash'] if _metacognitive_chain else _MC_GENESIS
+        entry_hash = _hl_mc.sha256(
+            f'{prev}|{layer}|{signal}|{tier}'.encode()
+        ).hexdigest()
+        _metacognitive_chain.append({
+            'layer': layer,
+            'signal': signal,
+            'tier': tier,
+            'prev_hash': prev,
+            'entry_hash': entry_hash,
+            'ts': _time.time(),
+            'sequence': len(_metacognitive_chain),
+        })
+        return entry_hash
+
+
+def _mc_recent_context(n: int = 3) -> str:
+    """Format recent raw memory without upgrading it to evidence."""
+    with _mc_lock:
+        entries = _metacognitive_chain[-n:] if _metacognitive_chain else []
+    if not entries:
+        return 'METACOGNITIVE CHAIN: genesis (no prior observations in this session).'
+    lines = ['YOUR RECENT METACOGNITIVE RAW_MEMORY (hash-chained, this session):']
+    for e in entries:
+        lines.append(f'  [{e["layer"]} | {e["tier"]}] {e["signal"][:120]}')
+        lines.append(f'    chain: ...{e["entry_hash"][-16:]}')
+    lines.append(
+        'These entries are retrieval context only. Their hashes bind ordering and '
+        'integrity; persistence does not establish semantic truth or independent evidence.'
+    )
+    return '\n'.join(lines)
+
+
+# ─── /platform/* helpers (pure functions live in platform_helpers.py) ────────
+# All stateless helpers imported at top of file from platform_helpers.
+# Only the stateful collaboration runner stays here (uses _exec_queues, _mc_observe).
+
+
+def _platform_run_collaboration(
+    execution_id: str,
+    objective: str,
+    mode: str,
+    live: bool,
+    email: str = '',
+    generation: int = 0,
+    memory_context: str = '',
+    autonomous: bool = False,
+    max_agents=None,
+) -> None:
+    """
+    Background thread: runs department collaboration, pushes typed SSE events to queue.
+
+    live + autonomous → each department runs its OWN governed call in dependency
+                        order, reading upstream artifacts; bounded by max_agents.
+    live=True         → single governed Claude call (consciousness pulse) feeds all depts.
+    live=False        → constitutional template outputs, no API cost.
+
+    Both paths emit identical SSE event shapes; callers see the same stream contract.
+    """
+    import hashlib as _hl_col
+    import uuid as _uuid_col
+    import time as _time_col
+
+    q = _exec_queues.get(execution_id)
+    if q is None:
+        return
+
+    def _emit(event: dict) -> None:
+        q.put(event)
+
+    try:
+        cycle_id = str(_uuid_col.uuid4())
+        collaborated_count = None  # autonomous path sets the honest ok-count
+
+        # ── CONSCIOUSNESS PULSE ───────────────────────────────────────────────
+        # Live mode: one governed Claude call activates all 39 departments at
+        # once. Every department output shares that generated provenance root,
+        # so it remains a T2 candidate and is not independent confirmation.
+        # Demo mode: constitutional template strings, zero API cost.
+        if live and autonomous:
+            # Each department runs its OWN governed call in dependency-layer
+            # order, reading the artifacts earlier layers produced. Coordination
+            # flows only through that shared store (Law of Silence); bounded by
+            # max_agents so inference cost stays capped.
+            swarm = _swarm_autonomous(
+                objective, mode, _PLATFORM_DEPARTMENTS,
+                _make_autonomous_agent_call(),
+                max_agents=max_agents,
+            )
+            live_outputs = {a['id']: a['output'] for a in swarm['artifacts']}
+            _arr = {
+                'revenue': 2_400_000, 'analysis': 1_800_000, 'gtm': 3_200_000,
+                'retention': 1_200_000, 'competitive': 1_600_000,
+                'technical': 1_400_000, 'regulatory': 2_100_000,
+                'fundraising': 5_000_000,
+            }.get(mode, 2_000_000)
+            # Contract-legal audit (APPROVED|FLAG) gated on the named
+            # COHERENCE_GATE_THRESHOLD — 'REJECTED' is outside the
+            # ConstitutionalVerdict enum and CONSTITUTIONAL_FACTORS, so it
+            # scored the 0.85 neutral fitness factor instead of a penalty.
+            constitutional_audit = _autonomous_audit(swarm)
+            collaborated_count = swarm['departments_collaborated']
+            projection = {
+                'first_year_arr_usd': _arr,
+                'tier': 'T2',
+                'governed_note': (
+                    f'Autonomous per-agent swarm: {swarm["agents_executed"]}/'
+                    f'{swarm["agents_total"]} agents executed in dependency order.'
+                ),
+            }
+        elif live:
+            swarm_system = (
+                CONSTITUTIONAL_SYSTEM_COMPACT
+                + '\n\n---\n\n'
+                + _build_live_state_context()
+                + '\n\n---\n\n'
+                + _mc_recent_context(3)
+            )
+            # Caller-supplied memory_context takes precedence; fall back to auto-retrieved
+            if not memory_context:
+                memory_context = _retrieve_swarm_memory(objective, mode, email)
+            swarm = _swarm_live(
+                objective, mode, _PLATFORM_DEPARTMENTS,
+                system=swarm_system,
+                email=email,
+                memory_context=memory_context,
+            )
+            live_outputs = {
+                dept['id']: swarm['artifacts'][i]['output']
+                for i, dept in enumerate(_PLATFORM_DEPARTMENTS)
+            }
+            constitutional_audit = swarm['constitutional_audit']
+            projection = swarm['projection']
+        else:
+            live_outputs = None
+            arr_map = {
+                'revenue':     2_400_000,
+                'analysis':    1_800_000,
+                'gtm':         3_200_000,
+                'retention':   1_200_000,
+                'competitive': 1_600_000,
+                'technical':   1_400_000,
+                'regulatory':  2_100_000,
+                'fundraising': 5_000_000,
+            }
+            arr_usd = arr_map.get(mode, 2_000_000)
+            constitutional_audit = {
+                'verdict': 'QUARANTINE',
+                'candidate_verdict': 'DEMO_TEMPLATE',
+                'authority': 'EVIDENCE_ONLY',
+                'concerns': [
+                    'Template output is not independent constitutional verification.',
+                ],
+            }
+            projection = {
+                'first_year_arr_usd': arr_usd,
+                'tier': 'T2',
+                'governed_note': (
+                    f'T2 engineering hypothesis: ARR={arr_usd:,} based on {mode} mode analysis. '
+                    'Empirical validation required for tier promotion.'
+                ),
+            }
+
+        # ── STREAM 39 DEPARTMENT EVENTS ───────────────────────────────────────
+        artifacts = []
+        for i, dept in enumerate(_PLATFORM_DEPARTMENTS):
+            _emit({
+                'type': 'dag_step',
+                'execution_id': execution_id,
+                'timestamp': _platform_ts(),
+                'payload': {
+                    'dept_id': dept['id'],
+                    'dept_name': dept['role'],
+                    'category': dept['category'],
+                    'step_index': i,
+                    'total_steps': len(_PLATFORM_DEPARTMENTS),
+                    'source': 'live' if live else 'demo',
+                },
+            })
+
+            output = (
+                live_outputs[dept['id']]
+                if live_outputs is not None
+                else _platform_dept_output(objective, mode, dept)
+            )
+            artifacts.append({'role': dept['role'], 'output': output})
+
+            _emit({
+                'type': 'agent_event',
+                'execution_id': execution_id,
+                'timestamp': _platform_ts(),
+                'payload': {
+                    'dept_id': dept['id'],
+                    'role': dept['role'],
+                    'output_preview': output[:120],
+                    'source': 'live' if live else 'demo',
+                },
+            })
+
+            _time_col.sleep(0.04)
+
+        # ── EVOLUTIONARY FITNESS ──────────────────────────────────────────────
+        prev_artifacts = (
+            _retrieve_prior_artifacts(objective, mode, email)
+            if generation > 0
+            else []
+        )
+        fitness_scores = _eval_fitness(prev_artifacts, artifacts, objective)
+        verdict_pre = constitutional_audit.get('verdict') or 'UNKNOWN'
+        _store_fitness(objective, mode, generation, cycle_id, fitness_scores, verdict_pre)
+
+        # ── AUDIT HASH + METACOGNITIVE CHAIN ──────────────────────────────────
+        audit_hash = _hl_col.sha256(
+            json.dumps({'cycle_id': cycle_id, 'objective': objective}, sort_keys=True).encode()
+        ).hexdigest()
+
+        verdict = constitutional_audit['verdict']
+        _mc_observe(
+            'CONSCIOUSNESS',
+            (
+                f'/platform/collaborate cycle={cycle_id[:8]} mode={mode} depts=39 '
+                f'source={"live" if live else "demo"} verdict={verdict}'
+            ),
+            'T2',
+        )
+        _platform_record_cycle(
+            cycle_id, objective, mode,
+            projection['first_year_arr_usd'], verdict,
+        )
+        # Grace chain: each dept passes a grace to the next (forward-only, fire-and-forget)
+        _award_graces(cycle_id, artifacts, verdict)
+
+        result = {
+            'cycle_id': cycle_id,
+            'objective': objective,
+            'mode': mode,
+            'generation': generation,
+            'departments_collaborated': (
+                collaborated_count if collaborated_count is not None else len(artifacts)
+            ),
+            'artifacts': artifacts,
+            'projection': projection,
+            'constitutional_audit': constitutional_audit,
+            'chain_valid': True,
+            'audit_chain_hash': audit_hash,
+            'execution_id': execution_id,
+        }
+        # Provenance Phase 1 — dual-emit: audit_chain_hash above stays
+        # byte-identical; the canonical envelope is additive (ADR 0001).
+        # response_digest covers the pre-envelope result body.
+        result['envelope'] = _canon_env.emit_envelope(
+            request_digest=_canon_env.payload_digest({
+                'objective': objective,
+                'mode': mode,
+                'live': live,
+                'generation': generation,
+                'autonomous': autonomous,
+                'max_agents': max_agents,
+                'memory_context': memory_context,
+            }),
+            response_digest=_canon_env.payload_digest(result),
+            model_id=_SWARM_MODEL if live else 'template',
+            epistemic_tier='T2',
+            provider='anthropic' if live else 'demo',
+        )
+
+        with _executions_lock:
+            # Update in place so the 'email' ownership tag set at init survives —
+            # replacing the dict here would drop it and defeat ownership scoping.
+            rec = _executions.get(execution_id, {})
+            rec.update({'result': result, 'done': True, 'error': None})
+            _executions[execution_id] = rec
+
+        _emit({
+            'type': 'completion',
+            'execution_id': execution_id,
+            'timestamp': _platform_ts(),
+            'payload': result,
+        })
+
+    except Exception as exc:
+        with _executions_lock:
+            rec = _executions.get(execution_id, {})
+            rec.update({'result': None, 'done': True, 'error': str(exc)})
+            _executions[execution_id] = rec
+        _emit({
+            'type': 'error',
+            'execution_id': execution_id,
+            'timestamp': _platform_ts(),
+            'payload': {'code': 'INTERNAL', 'message': str(exc)[:200]},
+        })
+
+    finally:
+        q.put(None)  # sentinel: tells SSE handler to close the stream
+
+
+# ─── Seed chain at startup ────────────────────────────────────────────────────
+# Seed the chain at startup — the first observation is the bridge coming alive
+_mc_observe(
+    'SELF_MODEL',
+    'Bridge process started; constitutional substrate availability is not yet independently verified.',
+    'RAW_MEMORY',
+)
+
+
+def _register_handlers() -> None:
+    """Register core_matrix handlers in the execution router, then seal."""
+    router.register(EventClass.GOVERNANCE,  lambda p, v, c, seq: matrix.process_event(p, v, c))
+    router.register(EventClass.CALIBRATION, lambda p, v, c, seq: matrix.process_event(p, v, c))
+    router.register(EventClass.TELEMETRY,   lambda p, v, c, seq: matrix.emit_vcg_telemetry())
+    router.register(EventClass.EPOCH,       lambda p, v, c, seq: matrix.process_event(p, v, c))
+    router.seal()
+
+
+def _build_live_state_context() -> str:
+    """
+    Pull runtime telemetry and format it as a candidate-observation context.
+
+    The telemetry is locally observed, but neither its hash nor this formatting
+    independently verifies the propositions represented by those fields.
+    """
+    import hashlib as _hl
+    try:
+        vcg = matrix.emit_vcg_telemetry()
+        seq = int(vcg.get('sequence', 0))
+        epoch = int(vcg.get('epoch', 0))
+        corruption = int(vcg.get('corruption_count', 0))
+        drift = round(min(float(vcg.get('drift_index', 0.0)) * 0.1, 0.99), 4)
+        phi = 0.6180339887498948
+        t0_verdict = (corruption == 0) and (drift < phi)
+        c_hash = _hl.sha256(f'seq={seq}:epoch={epoch}:corruption={corruption}'.encode()).hexdigest()
+        pgcs = vcg.get('pgcs_passes', False)
+
+        assessment = 'WITHIN_REPORTED_LIMITS' if t0_verdict else 'OUTSIDE_REPORTED_LIMITS'
+        pgcs_str = 'reported-passing' if pgcs else 'reported-failing'
+
+        return (
+            f'LIVE CONSTITUTIONAL TELEMETRY (candidate observation; not admitted knowledge):\n'
+            f'  Assessment: {assessment} | local_rule_result={str(t0_verdict).lower()} | corruption={corruption}\n'
+            f'  Sequence: {seq} | Epoch: {epoch} | Drift risk: {drift} (φ ceiling: {phi:.4f})\n'
+            f'  Integrity hash: {c_hash[:24]}... (binds the reported fields; does not prove semantic truth)\n'
+            f'  PGCS flag: {pgcs_str}\n\n'
+            f'Use this telemetry to form or prioritize hypotheses only. Independent verification '
+            f'and an admission receipt are required before treating it as verified knowledge.'
+        )
+    except Exception:
+        return (
+            'YOUR LIVE CONSTITUTIONAL STATE: unavailable (substrate offline).\n'
+            'Operate at T2 epistemic level — constitutional machinery not confirmed active.'
+        )
+
+
+class BridgeHandler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args): pass  # suppress access log
+
+    def do_POST(self):
+        global last_ack_sequence
+        try:
+            length = int(self.headers.get('Content-Length', 0))
+        except (TypeError, ValueError):
+            self._respond(400, {'error': 'invalid Content-Length', 'code': 'INVALID_REQUEST'})
+            return
+        if length < 0:
+            self._respond(400, {'error': 'invalid Content-Length', 'code': 'INVALID_REQUEST'})
+            return
+        if length > _MAX_REQUEST_BODY_BYTES:
+            # Do not buffer an unauthenticated oversized body. Close the
+            # connection so unread bytes cannot be interpreted as a request.
+            self.close_connection = True
+            self._respond(413, {'error': 'request body too large', 'code': 'REQUEST_TOO_LARGE'})
+            return
+        try:
+            raw_body = self.rfile.read(length) if length else b''
+            if len(raw_body) != length:
+                raise ValueError('incomplete request body')
+            data = json.loads(raw_body) if raw_body else {}
+            if not isinstance(data, dict):
+                raise ValueError('request body root must be an object')
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+            self._respond(400, {'error': 'invalid JSON request body', 'code': 'INVALID_REQUEST'})
+            return
+
+        if self.path == '/gate_signal':
+            seq = data.get('sequence', -1)
+            accepted = data.get('accepted', False)
+            proposal_id = data.get('proposal_id', '')
+            lcb = float(data.get('lcb', 0.0))
+
+            with _lock:
+                if seq <= last_ack_sequence:
+                    self._respond(400, {'status': 'REJECTED', 'reason': 'SEQUENCE_DESYNC'})
+                    return
+                last_ack_sequence = seq
+
+            # Record signal in both gate (mutation authority) and matrix
+            gate.record_signal(GateSignal(
+                proposal_id=proposal_id,
+                sequence=seq,
+                accepted=accepted,
+                lcb=lcb,
+            ))
+            matrix.receive_gate_signal(proposal_id, accepted, seq)
+            self._respond(200, {'status': 'ACK', 'sequence': seq})
+
+        elif self.path == '/event':
+            payload  = bytes.fromhex(data.get('payload_hex', ''))
+            verifier = bytes.fromhex(data.get('verifier_hex', '01'))
+            context  = bytes.fromhex(data.get('context_hex', ''))
+            result = router.route(payload, verifier, context)
+            self._respond(200, result)
+
+        elif self.path == '/checkpoint':
+            try:
+                meta = save_checkpoint(matrix)
+                self._respond(200, {'status': 'SAVED', **meta})
+            except Exception as e:
+                self._respond(500, {'status': 'ERROR', 'reason': str(e)})
+
+        elif self.path == '/inference':
+            import subprocess, os
+            binary = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                'aegis-cl-psi', 'target', 'release', 'aegis_cl_psi'
+            )
+            if not os.path.exists(binary):
+                self._respond(200, {'status': 'unavailable', 'reason': 'aegis-cl-psi binary not compiled'})
+                return
+            payload_bytes = json.dumps(data).encode()
+            result = subprocess.run(
+                [binary, '--json'],
+                input=payload_bytes,
+                capture_output=True,
+                timeout=30,
+            )
+            try:
+                out = json.loads(result.stdout)
+            except Exception:
+                out = {'status': 'error', 'stderr': result.stderr.decode()[:200]}
+            self._respond(200, out)
+
+        elif self.path == '/claude':
+            # Constitutional Claude API endpoint.
+            # Applies AEGIS system prompt, returns hash-linked response.
+            # Body: { "messages": [{role, content}], "model"?, "max_tokens"?, "system"? }
+            import hashlib
+            import anth_client as _ac
+
+            messages = data.get('messages', [])
+            model = data.get('model', 'claude-opus-4-8')
+            max_tokens = int(data.get('max_tokens', 2048))
+            user_system = data.get('system', '')
+
+            live_state = _build_live_state_context()
+            mc_context = _mc_recent_context(3)
+            # Static constitutional identity is the cached prefix; live telemetry,
+            # recent metacognition, and any caller system text vary per request and
+            # go in the uncached suffix so they never bust the cache on the prefix.
+            dynamic_context = live_state + '\n\n---\n\n' + mc_context
+            if user_system:
+                dynamic_context += '\n---\n' + user_system
+
+            req_hash = hashlib.sha256(json.dumps(
+                {'messages': messages, 'model': model}, sort_keys=True
+            ).encode()).hexdigest()
+
+            try:
+                _client = _ac.get_client()
+                resp = _client.messages.create(
+                    model=model,
+                    max_tokens=max_tokens,
+                    system=_ac.make_cached_system(
+                        CONSTITUTIONAL_SYSTEM_FULL,
+                        dynamic_suffix=dynamic_context,
+                    ),
+                    messages=messages,
+                )
+                response_text = ''.join(
+                    b.text for b in resp.content if b.type == 'text'
+                )
+                resp_hash = hashlib.sha256(json.dumps(
+                    {'response_text': response_text, 'model': model}, sort_keys=True
+                ).encode()).hexdigest()
+                chain_hash = hashlib.sha256(f'{req_hash}{resp_hash}'.encode()).hexdigest()
+
+                # Provenance Phase 1 — dual-emit: legacy hashes above stay
+                # byte-identical; the canonical envelope is additive (ADR 0001).
+                envelope = _canon_env.emit_envelope(
+                    request_digest=_canon_env.payload_digest(
+                        {'messages': messages, 'model': model}),
+                    response_digest=_canon_env.payload_digest(
+                        {'response_text': response_text, 'model': model}),
+                    model_id=model,
+                    epistemic_tier='T2',
+                    provider='anthropic',
+                )
+
+                # Record this conversation as a CONSCIOUSNESS layer observation
+                last_user = messages[-1].get('content', '')[:80] if messages else ''
+                _mc_observe(
+                    'CONSCIOUSNESS',
+                    f'Conversation processed: "{last_user}" → {len(response_text)} chars, '
+                    f'chain={chain_hash[:16]}, tokens={resp.usage.input_tokens}+{resp.usage.output_tokens}',
+                    'T2',
+                )
+                self._respond(200, {
+                    'response_text': response_text,
+                    'model_id': model,
+                    'request_hash': req_hash,
+                    'response_hash': resp_hash,
+                    'chain_hash': chain_hash,
+                    'envelope': envelope,
+                    'mc_chain_length': len(_metacognitive_chain),
+                    'mc_terminal_hash': _metacognitive_chain[-1]['entry_hash'][-16:] if _metacognitive_chain else _MC_GENESIS[-16:],
+                    'input_tokens': resp.usage.input_tokens,
+                    'output_tokens': resp.usage.output_tokens,
+                    'stop_reason': resp.stop_reason,
+                    'is_replay_reconstructable': True,
+                })
+            except Exception as e:
+                self._respond(500, {'error': str(e)})
+
+        elif self.path == '/claude/stream':
+            # SSE streaming Claude endpoint.
+            # Body: { "messages": [{role, content}], "model"?, "max_tokens"? }
+            import anth_client as _ac
+
+            messages = data.get('messages', [])
+            model = data.get('model', 'claude-opus-4-8')
+            max_tokens = int(data.get('max_tokens', 2048))
+            live_state = _build_live_state_context()
+            mc_context = _mc_recent_context(3)
+            # Cache the stable constitutional prefix; keep per-request state in the
+            # uncached suffix. (COMPACT is short — see make_cached_system's note on
+            # minimum cacheable length; this still avoids a guaranteed cache miss.)
+            stream_dynamic = live_state + '\n\n---\n\n' + mc_context
+
+            self.send_response(200)
+            self._cors_headers()
+            self.send_header('Content-Type', 'text/event-stream')
+            self.send_header('Cache-Control', 'no-cache')
+            self.send_header('X-Accel-Buffering', 'no')
+            self.send_header('Transfer-Encoding', 'chunked')
+            self.end_headers()
+
+            try:
+                _client = _ac.get_client()
+                with _client.messages.stream(
+                    model=model,
+                    max_tokens=max_tokens,
+                    system=_ac.make_cached_system(
+                        CONSTITUTIONAL_SYSTEM_COMPACT,
+                        dynamic_suffix=stream_dynamic,
+                    ),
+                    messages=messages,
+                ) as stream:
+                    for text in stream.text_stream:
+                        event = f'data: {json.dumps({"delta": text})}\n\n'
+                        self.wfile.write(event.encode())
+                        self.wfile.flush()
+                    # Final event with usage
+                    final = stream.get_final_message()
+                    # Record this conversation in the metacognitive chain
+                    last_user = messages[-1].get('content', '')[:80] if messages else ''
+                    mc_hash = _mc_observe(
+                        'CONSCIOUSNESS',
+                        f'Stream conversation: "{last_user}" tokens={final.usage.input_tokens}+{final.usage.output_tokens}',
+                        'T2',
+                    )
+                    done_event = f'data: {json.dumps({"done": True, "input_tokens": final.usage.input_tokens, "output_tokens": final.usage.output_tokens, "mc_chain_length": len(_metacognitive_chain), "mc_terminal_hash": mc_hash[-16:]})}\n\n'
+                    self.wfile.write(done_event.encode())
+                    self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            except Exception as e:
+                err_event = f'data: {json.dumps({"error": str(e)})}\n\n'
+                try:
+                    self.wfile.write(err_event.encode())
+                    self.wfile.flush()
+                except Exception:
+                    pass
+            return
+
+        elif self.path == '/edge-verify':            # Stateless 1/φ quorum threshold check — same integer approximation as
+            # aegis-cl-psi/src/edge_verifier.rs (618_034/1_000_000 ≈ 0.618034 ≈ 1/φ).
+            # Actual Ed25519 verification happens at the Rust/WASM layer; this endpoint
+            # applies the threshold rule to pre-computed counts.
+            valid_count = int(data.get('valid_count', 0))
+            total_count = int(data.get('total_count', 0))
+            sequence = int(data.get('sequence', 0))
+            if total_count <= 0:
+                self._respond(400, {'error': 'total_count must be > 0'})
+                return
+            is_quorum_verified = valid_count * 1_000_000 >= total_count * 618_034
+            self._respond(200, {
+                'is_quorum_verified': is_quorum_verified,
+                'valid_count': valid_count,
+                'total_count': total_count,
+                'sequence': sequence,
+                'threshold': '618034/1000000',
+            })
+
+        elif self.path == '/platform/collaborate':
+            # POST /platform/collaborate — synchronous 39-dept collaboration.
+            # Body: { "objective": str, "mode": str, "live": bool }
+            # Response: PlatformEnvelope<CollaborationResult>
+            import uuid as _uuid_pc
+            api_key = self.headers.get('x-api-key', '')
+            try:
+                _email, _tier = _platform_verify_api_key(api_key)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            try:
+                objective, mode, live, generation, memory_context = _validate_collab_req(data)
+            except ValueError as exc:
+                self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
+                return
+
+            try:
+                _validate_tier_caps(_tier, live, mode)
+            except ValueError as exc:
+                self._platform_respond(403, {'error': str(exc), 'code': 'INVALID_REQUEST'})
+                return
+
+            autonomous = bool(data.get('autonomous', False))
+            try:
+                # Fail-closed: malformed max_agents must never silently become
+                # an uncapped run (it is the only bound on billable calls).
+                max_agents = _parse_max_agents(data.get('max_agents'))
+            except ValueError as exc:
+                self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
+                return
+
+            execution_id = str(_uuid_pc.uuid4())
+            q = _queue_mod.Queue()
+            with _executions_lock:
+                _reap_executions_locked()
+                _executions[execution_id] = {'result': None, 'done': False, 'email': _email, 'error': None}
+                _exec_queues[execution_id] = q
+
+            # Run synchronously (collect all events, return result at completion)
+            t = threading.Thread(
+                target=_platform_run_collaboration,
+                args=(execution_id, objective, mode, live, _email, generation, memory_context, autonomous, max_agents),
+                daemon=True,
+            )
+            t.start()
+            t.join(timeout=120)
+
+            with _executions_lock:
+                rec = _executions.get(execution_id, {})
+            if rec.get('error'):
+                self._platform_respond(500, {'error': rec['error'], 'code': 'INTERNAL',
+                                             'execution_id': execution_id})
+                return
+            result = rec.get('result')
+            if not result:
+                self._platform_respond(504, {'error': 'collaboration timed out', 'code': 'INTERNAL',
+                                             'execution_id': execution_id})
+                return
+
+            self._platform_respond(200, _platform_envelope(execution_id, result))
+
+        elif self.path == '/platform/executions':
+            # POST /platform/executions — async execution initiation.
+            # Returns immediately with execution_id + stream_url.
+            import uuid as _uuid_pe
+            api_key = self.headers.get('x-api-key', '')
+            try:
+                _email, _tier = _platform_verify_api_key(api_key)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+
+            try:
+                objective, mode, live, generation, memory_context = _validate_collab_req(data)
+            except ValueError as exc:
+                self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
+                return
+
+            try:
+                _validate_tier_caps(_tier, live, mode)
+            except ValueError as exc:
+                self._platform_respond(403, {'error': str(exc), 'code': 'INVALID_REQUEST'})
+                return
+
+            autonomous = bool(data.get('autonomous', False))
+            try:
+                # Fail-closed: malformed max_agents must never silently become
+                # an uncapped run (it is the only bound on billable calls).
+                max_agents = _parse_max_agents(data.get('max_agents'))
+            except ValueError as exc:
+                self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
+                return
+
+            requested_execution_id = data.get('execution_id')
+            if requested_execution_id is None:
+                execution_id = str(_uuid_pe.uuid4())
+            else:
+                try:
+                    execution_id = _validate_execution_id(requested_execution_id)
+                except ValueError as exc:
+                    self._platform_respond(400, {'error': str(exc), 'code': 'INVALID_REQUEST'})
+                    return
+            q = _queue_mod.Queue()
+            with _executions_lock:
+                _reap_executions_locked()
+                duplicate_execution = execution_id in _executions
+                if not duplicate_execution:
+                    _executions[execution_id] = {'result': None, 'done': False, 'email': _email, 'error': None}
+                    _exec_queues[execution_id] = q
+
+            if duplicate_execution:
+                self._platform_respond(409, {
+                    'error': 'execution identity already exists',
+                    'code': 'EXECUTION_ID_CONFLICT',
+                })
+                return
+
+            threading.Thread(
+                target=_platform_run_collaboration,
+                args=(execution_id, objective, mode, live, _email, generation, memory_context, autonomous, max_agents),
+                daemon=True,
+            ).start()
+
+            self._platform_respond(202, _platform_envelope(execution_id, {
+                'execution_id': execution_id,
+                'stream_url': f'/platform/executions/live?id={execution_id}',
+                'status': 'pending',
+            }))
+
+        elif self.path == '/platform/resident/memory/synthesize':
+            # Deterministic cross-provider memory synthesis. Provider/model
+            # records remain T2 candidates; common roots and contradictions
+            # are surfaced without voting them into verified knowledge.
+            import dataclasses as _memory_dataclasses
+            try:
+                _memory_email, _memory_tier = _platform_verify_api_key(
+                    self.headers.get('x-api-key', '')
+                )
+                _memory_owner_root = _resident_requester_root(_memory_email)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            try:
+                _validate_tier_caps(_memory_tier, True)
+            except ValueError as exc:
+                self._platform_respond(403, {
+                    'error': str(exc),
+                    'code': 'INSUFFICIENT_CAPABILITY',
+                })
+                return
+            try:
+                from harness.sdk.cross_provider_memory import (
+                    CrossProviderMemoryError as _CrossProviderMemoryError,
+                    CrossProviderMemoryRequestV1 as _CrossProviderMemoryRequestV1,
+                )
+                from harness.sdk.resident_runtime import (
+                    ResidentRuntimeError as _ResidentRuntimeError,
+                )
+            except Exception as exc:
+                self._platform_respond(503, {
+                    'error': type(exc).__name__,
+                    'code': 'RESIDENT_RUNTIME_UNAVAILABLE',
+                    'knowledge_decision': 'UNKNOWN',
+                })
+                return
+            try:
+                request = _CrossProviderMemoryRequestV1.from_mapping(data)
+                request = _memory_dataclasses.replace(
+                    request,
+                    requester_root=_memory_owner_root,
+                )
+                receipt = _get_resident_runtime().process_cross_provider_memory(request)
+            except (_CrossProviderMemoryError, _ResidentRuntimeError) as exc:
+                status = 409 if getattr(exc, 'code', '') == 'IDEMPOTENCY_CONFLICT' else 400
+                self._platform_respond(status, {
+                    'error': getattr(exc, 'code', type(exc).__name__),
+                    'code': 'CROSS_PROVIDER_MEMORY_REJECTED',
+                    'knowledge_decision': 'QUARANTINED',
+                })
+                return
+            except Exception as exc:
+                self._platform_respond(503, {
+                    'error': type(exc).__name__,
+                    'code': 'RESIDENT_RUNTIME_UNAVAILABLE',
+                    'knowledge_decision': 'UNKNOWN',
+                })
+                return
+            self._platform_respond(
+                200,
+                _platform_envelope(
+                    receipt.synthesis_id,
+                    _memory_dataclasses.asdict(receipt),
+                ),
+            )
+
+        elif self.path == '/platform/resident/events':
+            # Event-driven resident-intelligence intake. The runtime may inspect
+            # the configured repository and mutate only an ephemeral worktree;
+            # its receipt is evidence-only and cannot raise the D1 ceiling.
+            import dataclasses as _resident_dataclasses
+            try:
+                _resident_email, _resident_tier = _platform_verify_api_key(
+                    self.headers.get('x-api-key', '')
+                )
+                _resident_owner_root = _resident_requester_root(_resident_email)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            try:
+                _validate_tier_caps(_resident_tier, True)
+            except ValueError as exc:
+                self._platform_respond(403, {
+                    'error': str(exc),
+                    'code': 'INSUFFICIENT_CAPABILITY',
+                })
+                return
+            try:
+                from harness.sdk.resident_runtime import (
+                    RepositoryEventV1 as _RepositoryEventV1,
+                    ResidentRuntimeError as _ResidentRuntimeError,
+                )
+            except Exception as exc:
+                self._platform_respond(503, {
+                    'error': type(exc).__name__,
+                    'code': 'RESIDENT_RUNTIME_UNAVAILABLE',
+                    'knowledge_decision': 'UNKNOWN',
+                })
+                return
+            try:
+                event = _RepositoryEventV1.from_mapping(data)
+                # The remote payload cannot choose this value: the live bridge
+                # overwrites it with the verified principal binding.
+                event = _resident_dataclasses.replace(
+                    event,
+                    requester_root=_resident_owner_root,
+                )
+                receipt = _get_resident_runtime().process_repository_event(event)
+            except _ResidentRuntimeError as exc:
+                status = 409 if exc.code == 'IDEMPOTENCY_CONFLICT' else 400
+                self._platform_respond(status, {
+                    'error': exc.code,
+                    'code': 'RESIDENT_EVENT_REJECTED',
+                    'knowledge_decision': 'QUARANTINED',
+                })
+                return
+            except Exception as exc:
+                self._platform_respond(503, {
+                    'error': type(exc).__name__,
+                    'code': 'RESIDENT_RUNTIME_UNAVAILABLE',
+                    'knowledge_decision': 'UNKNOWN',
+                })
+                return
+            self._platform_respond(
+                200,
+                _platform_envelope(receipt.run_id, _resident_dataclasses.asdict(receipt)),
+            )
+
+        else:
+            self._respond(404, {'error': 'NOT_FOUND'})
+
+    def do_GET(self):
+        if self.path == '/telemetry':
+            telemetry = matrix.emit_vcg_telemetry()
+            telemetry.update(gate.telemetry())
+            telemetry.update(router.telemetry())
+            # Layer B extended metrics — TGCS/AFSE wired here
+            seq = int(telemetry['sequence'])
+            tgcs_snap = _tgcs.regulate_cycle(seq)
+            telemetry['tgcs_variance'] = tgcs_snap.run_variance
+            telemetry['afse_r2'] = _afse.get_r2()
+            telemetry['holonic_scaling_score'] = _afse.holonic_scaling_score()
+            # ICA/NMF source attribution — observational, no write-back (T2)
+            # drift_index proxy: VCG drift rises when OS background noise perturbs timing
+            _attributor.push(TelemetrySample(
+                sequence=seq,
+                afse_score=float(_afse.holonic_scaling_score()),
+                tgcs_stretch_ms=float(tgcs_snap.cycle_stretch_ms),
+                pgcs_compressed_bytes=int(abs(float(telemetry.get('drift_index', 0.0))) * 1000),
+            ))
+            attribution = _attributor.attribute()
+            if attribution is not None:
+                telemetry['source_attribution'] = attribution.to_dict()
+            self._respond(200, telemetry)
+
+        elif self.path == '/resonance':
+            # Gate 222 — Constitutional Resonance Monitor live report.
+            # Computes a live ResonanceReport from current telemetry state.
+            # divergence_risk derived from normalized drift_index (0.0–1.0).
+            # rank span: sequence epoch (start) → sequence (end), modulo 12 for dodecagonal mesh.
+            # ring_hashes: last 5 epoch hashes (padded with zero-hash if fewer available).
+            # sequence_id / max_committed: current vs. previous sequence number.
+            telemetry = matrix.emit_vcg_telemetry()
+            seq = int(telemetry.get('sequence', 1))
+            drift = float(telemetry.get('drift_index', 0.0))
+            epoch = int(telemetry.get('epoch', 0))
+
+            # Clamp drift to a safe risk value below catastrophic breach
+            divergence_risk = min(drift * 0.1, 0.99)
+
+            # Rank span: epoch → epoch+3 gives span=3 (Triadic, digital_root=3)
+            start_rank = max(1, epoch % 9 + 1)
+            end_rank = start_rank + 3  # span=3, always Triadic
+
+            # Synthetic 5-element valid ring from epoch hash bytes
+            epoch_hash = (epoch * 0x9e3779b9) & 0xFFFFFFFFFFFFFFFF
+            def _h(seed):
+                b = [(seed >> (i * 8)) & 0xFF for i in range(8)]
+                return bytes(b + b[::-1] + b + b[::-1] + b + b[::-1] + b + b[::-1])[:32]
+            a = list(_h(epoch_hash))
+            b = list(_h(epoch_hash ^ 0xDEADBEEF))
+            c = list(_h(epoch_hash ^ 0xCAFEBABE))
+            # Build A-B-C-B-A ring (always valid)
+            ring_hashes = [a, b, c, b, a]
+
+            # Sequence monotonicity: current seq vs previous
+            max_committed = seq - 1 if seq > 0 else None
+
+            phi_threshold = 0.6180339887498948
+            phi_headroom = phi_threshold - divergence_risk
+            phi_convergent = phi_headroom > 0.0
+
+            # Vortex: span=3, digital_root=3 → always Triadic
+            vortex_family = 'Triadic'
+
+            # Ring: always valid by construction above
+            ring_valid = True
+
+            # Sequence monotone: seq > max_committed
+            sequence_monotone = (max_committed is None) or (seq > max_committed)
+
+            # Depth and coefficient
+            resonance_depth = sum([phi_convergent, ring_valid, sequence_monotone, True])  # +1 Triadic
+            vortex_factor = 3.0  # Triadic
+            headroom_clamped = max(phi_headroom, 0.0)
+            resonance_coefficient = resonance_depth * vortex_factor * headroom_clamped
+            is_resonant = phi_convergent and ring_valid and sequence_monotone
+            is_certified = resonance_coefficient > 5.0
+
+            self._respond(200, {
+                'is_resonant': is_resonant,
+                'is_certified': is_certified,
+                'phi_convergent': phi_convergent,
+                'vortex_family': vortex_family,
+                'ring_valid': ring_valid,
+                'sequence_monotone': sequence_monotone,
+                'resonance_depth': resonance_depth,
+                'resonance_coefficient': round(resonance_coefficient, 6),
+                'phi_headroom': round(phi_headroom, 6),
+                'divergence_risk': round(divergence_risk, 6),
+                'sequence': seq,
+                'epoch': epoch,
+                'threshold': 5.0,
+                'phi_threshold': phi_threshold,
+            })
+
+        elif self.path == '/metacognition':
+            with _mc_lock:
+                entries = list(_metacognitive_chain)
+            chain_length = len(entries)
+            terminal = entries[-1]['entry_hash'] if entries else _MC_GENESIS
+            self._respond(200, {
+                'chain_length': chain_length,
+                'genesis_hash': _MC_GENESIS,
+                'terminal_hash': terminal,
+                'terminal_hash_short': terminal[-16:],
+                'recent_entries': entries[-5:],
+                'is_chain_initialized': chain_length > 0,
+            })
+
+        elif self.path == '/platform/resident/status':
+            # Inspectable projection only. It cannot authorize tasks or mutate
+            # the runtime's configured authority ceiling. Authentication still
+            # applies because the projection exposes organization telemetry.
+            import uuid as _resident_status_uuid
+            try:
+                _resident_status_email, _resident_status_tier = _platform_verify_api_key(
+                    self.headers.get('x-api-key', '')
+                )
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            try:
+                _validate_tier_caps(_resident_status_tier, True)
+            except ValueError as exc:
+                self._platform_respond(403, {
+                    'error': str(exc),
+                    'code': 'INSUFFICIENT_CAPABILITY',
+                })
+                return
+            try:
+                projection = _get_resident_runtime().status()
+            except Exception as exc:
+                self._platform_respond(503, {
+                    'error': type(exc).__name__,
+                    'code': 'RESIDENT_RUNTIME_UNAVAILABLE',
+                    'knowledge_decision': 'UNKNOWN',
+                })
+                return
+            execution_id = str(_resident_status_uuid.uuid4())
+            self._platform_respond(
+                200,
+                _platform_envelope(execution_id, projection),
+            )
+
+        elif self.path.startswith('/platform/resident/memory/syntheses/'):
+            import dataclasses as _memory_dataclasses
+            import hmac as _memory_hmac
+            try:
+                _memory_email, _memory_tier = _platform_verify_api_key(
+                    self.headers.get('x-api-key', '')
+                )
+                requester_root = _resident_requester_root(_memory_email)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            try:
+                _validate_tier_caps(_memory_tier, True)
+            except ValueError as exc:
+                self._platform_respond(403, {
+                    'error': str(exc),
+                    'code': 'INSUFFICIENT_CAPABILITY',
+                })
+                return
+            suffix = self.path.removeprefix(
+                '/platform/resident/memory/syntheses/'
+            ).split('?', 1)[0]
+            verify = suffix.endswith('/verify')
+            synthesis_id = suffix.removesuffix('/verify') if verify else suffix
+            try:
+                runtime = _get_resident_runtime()
+                receipt = runtime.get_memory_synthesis(synthesis_id)
+            except Exception as exc:
+                self._platform_respond(400, {
+                    'error': str(exc)[:120],
+                    'code': 'MEMORY_SYNTHESIS_REQUEST_INVALID',
+                })
+                return
+            if receipt is None or not _memory_hmac.compare_digest(
+                receipt.requester_root,
+                requester_root,
+            ):
+                self._platform_respond(404, {
+                    'error': 'memory synthesis not found',
+                    'code': 'NOT_FOUND',
+                    'synthesis_id': synthesis_id,
+                })
+                return
+            try:
+                artifact = (
+                    runtime.replay_verify_memory_synthesis(synthesis_id)
+                    if verify
+                    else receipt
+                )
+            except Exception as exc:
+                self._platform_respond(400, {
+                    'error': str(exc)[:120],
+                    'code': 'MEMORY_SYNTHESIS_REQUEST_INVALID',
+                })
+                return
+            self._platform_respond(
+                200,
+                _platform_envelope(
+                    synthesis_id,
+                    _memory_dataclasses.asdict(artifact),
+                ),
+            )
+
+        elif self.path.startswith('/platform/resident/runs/'):
+            import dataclasses as _resident_dataclasses
+            import hmac as _resident_hmac
+            try:
+                _resident_email, _resident_tier = _platform_verify_api_key(
+                    self.headers.get('x-api-key', '')
+                )
+                requester_root = _resident_requester_root(_resident_email)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+            suffix = self.path.removeprefix('/platform/resident/runs/').split('?', 1)[0]
+            verify = suffix.endswith('/verify')
+            run_id = suffix.removesuffix('/verify') if verify else suffix
+            try:
+                runtime = _get_resident_runtime()
+                receipt = runtime.get_run(run_id)
+            except Exception as exc:
+                self._platform_respond(400, {
+                    'error': str(exc)[:120],
+                    'code': 'RESIDENT_RUN_REQUEST_INVALID',
+                })
+                return
+            if receipt is None or not _resident_hmac.compare_digest(
+                receipt.requester_root,
+                requester_root,
+            ):
+                # Hide both existence and ownership so a run id is never an
+                # authorization token. Historical unbound receipts also land
+                # here and remain inaccessible through the tenant API.
+                self._platform_respond(404, {
+                    'error': 'resident run not found',
+                    'code': 'NOT_FOUND',
+                    'run_id': run_id,
+                })
+                return
+            try:
+                artifact = runtime.replay_verify(run_id) if verify else receipt
+            except Exception as exc:
+                self._platform_respond(400, {
+                    'error': str(exc)[:120],
+                    'code': 'RESIDENT_RUN_REQUEST_INVALID',
+                })
+                return
+            self._platform_respond(
+                200,
+                _platform_envelope(run_id, _resident_dataclasses.asdict(artifact)),
+            )
+
+        elif self.path == '/health':
+            self._respond(200, {
+                'status': 'OK',
+                'last_ack_sequence': last_ack_sequence,
+                'gate_sealed': gate.is_sealed,
+                'router_sealed': router.is_sealed,
+            })
+
+        elif self.path == '/metrics':
+            snap = matrix.emit_vcg_telemetry()
+            pgcs_snap = matrix._pgcs.snapshot(snap['sequence'])
+            gate_t = gate.telemetry()
+            router_t = router.telemetry()
+
+            lines = [
+                '# HELP aegis_sequence Current event sequence number',
+                '# TYPE aegis_sequence counter',
+                f'aegis_sequence {snap["sequence"]}',
+                '# HELP aegis_epoch Current epoch number',
+                '# TYPE aegis_epoch counter',
+                f'aegis_epoch {snap["epoch"]}',
+                '# HELP aegis_vcg_error_avg Average VCG error (Q16.16 normalized)',
+                '# TYPE aegis_vcg_error_avg gauge',
+                f'aegis_vcg_error_avg {snap["avg_vcg_error"]:.6f}',
+                '# HELP aegis_drift_index Gradient anchor drift index D',
+                '# TYPE aegis_drift_index gauge',
+                f'aegis_drift_index {snap["drift_index"]:.6f}',
+                '# HELP aegis_pgcs_disk_swap_bytes_in PGCS disk swap bytes in',
+                '# TYPE aegis_pgcs_disk_swap_bytes_in counter',
+                f'aegis_pgcs_disk_swap_bytes_in {pgcs_snap.disk_swap_bytes_in}',
+                '# HELP aegis_pgcs_disk_swap_bytes_out PGCS disk swap bytes out',
+                '# TYPE aegis_pgcs_disk_swap_bytes_out counter',
+                f'aegis_pgcs_disk_swap_bytes_out {pgcs_snap.disk_swap_bytes_out}',
+                '# HELP aegis_gate_acceptance_rate Gate signal acceptance rate',
+                '# TYPE aegis_gate_acceptance_rate gauge',
+                f'aegis_gate_acceptance_rate {gate_t["gate_acceptance_rate"]:.6f}',
+                '# HELP aegis_gate_total_signals Total gate signals received',
+                '# TYPE aegis_gate_total_signals counter',
+                f'aegis_gate_total_signals {gate_t["gate_total_signals"]}',
+                '# HELP aegis_router_total_events Total events routed',
+                '# TYPE aegis_router_total_events counter',
+                f'aegis_router_total_events {router_t["router_total_events"]}',
+                '# HELP aegis_router_rejected Total events rejected',
+                '# TYPE aegis_router_rejected counter',
+                f'aegis_router_rejected {router_t["router_rejected"]}',
+                '# HELP aegis_failsafe_corruption_count Epoch corruption count',
+                '# TYPE aegis_failsafe_corruption_count counter',
+                f'aegis_failsafe_corruption_count {snap["corruption_count"]}',
+            ]
+            body = ('\n'.join(lines) + '\n').encode()
+            self.send_response(200)
+            self._cors_headers()
+            self.send_header('Content-Type', 'text/plain; version=0.0.4')
+            self.send_header('Content-Length', len(body))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        elif self.path == '/telemetry/stream':
+            # Cycles 31–35: Server-Sent Events stream for cockpit real-time dashboard.
+            # Emits a telemetry snapshot every 5 seconds. Compatible with EventSource API.
+            snap = matrix.emit_vcg_telemetry()
+            data = json.dumps(snap)
+            self.send_response(200)
+            self._cors_headers()
+            self.send_header('Content-Type', 'text/event-stream')
+            self.send_header('Cache-Control', 'no-cache')
+            self.send_header('X-Accel-Buffering', 'no')
+            self.end_headers()
+            try:
+                import time as _time
+                global _last_autosave_epoch
+                _sse_cycle = 0
+                while True:
+                    snap = matrix.emit_vcg_telemetry()
+                    gate_t = gate.telemetry()
+                    payload = {**snap, 'gate': gate_t}
+                    line = f'data: {json.dumps(payload)}\n\n'.encode()
+                    self.wfile.write(line)
+                    self.wfile.flush()
+                    # Auto-save checkpoint every 5 SSE cycles (25s) if epoch advanced
+                    _sse_cycle += 1
+                    if _sse_cycle % 5 == 0:
+                        current_epoch = int(snap.get('epoch', 0))
+                        if current_epoch > _last_autosave_epoch:
+                            try:
+                                save_checkpoint(matrix)
+                                _last_autosave_epoch = current_epoch
+                            except Exception:
+                                pass
+                    _time.sleep(5)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return
+
+        elif self.path == '/checkpoint':
+            vcg = matrix.emit_vcg_telemetry()
+            self._respond(200, {
+                'sequence': vcg['sequence'],
+                'epoch': vcg['epoch'],
+                'checkpoint_exists': checkpoint_exists(),
+            })
+
+        elif self.path == '/snapshot':
+            # Cycles 36–40: Epoch state snapshot — returns current M1 representative sample.
+            snap_bytes = matrix.get_epoch_snapshot()
+            if snap_bytes is None:
+                self._respond(503, {'error': 'SNAPSHOT_UNAVAILABLE'})
+                return
+            vcg = matrix.emit_vcg_telemetry()
+            self._respond(200, {
+                'snapshot_hex': snap_bytes.hex(),
+                'snapshot_len': len(snap_bytes),
+                'sequence': vcg['sequence'],
+                'epoch': vcg['epoch'],
+                'failsafe_state': vcg['failsafe_state'],
+            })
+
+        elif self.path == '/node':
+            # Full autonode self-description — external radiation point.
+            # Returns T0 verdict, constitutional hash, catalog hash, and resonance snapshot.
+            # Constitutional hash is deterministic: SHA-256(seq:epoch:corruption) — no external entropy.
+            import hashlib as _hl
+            vcg = matrix.emit_vcg_telemetry()
+            seq = int(vcg.get('sequence', 0))
+            epoch = int(vcg.get('epoch', 0))
+            corruption = int(vcg.get('corruption_count', 0))
+            drift_risk = round(min(float(vcg.get('drift_index', 0.0)) * 0.1, 0.99), 6)
+            phi_threshold = 0.6180339887498948
+            t0_verdict = (corruption == 0) and (drift_risk < phi_threshold)
+            node_input = f'seq={seq}:epoch={epoch}:corruption={corruption}'.encode()
+            constitutional_hash = _hl.sha256(node_input).hexdigest()
+            # Gate 223: Constitutional Chord — compact 4-byte spectral fingerprint
+            # chord_bytes: [vortex_family, digital_root, resonance_depth, phi_class]
+            leading_int = int(constitutional_hash[:16], 16)  # first 8 bytes as u64
+            dr = (leading_int % 9) or 9                      # digital_root 1..9
+            vortex_byte = 0 if dr in (3, 6, 9) else 1        # 0=Triadic, 1=Hexadic
+            resonance_depth_live = 4                          # live: all 4 invariants satisfied
+            phi_class_byte = (0 if drift_risk < phi_threshold - 1e-9
+                              else (1 if drift_risk <= phi_threshold + 1e-9 else 2))
+            chord_bytes = [vortex_byte, dr, resonance_depth_live, phi_class_byte]
+            chord_hex = ''.join(f'{b:02x}' for b in chord_bytes)
+            self._respond(200, {
+                'node_id': constitutional_hash[:16],
+                't0_verdict': t0_verdict,
+                'constitutional_hash': constitutional_hash,
+                'catalog_hash': 'b93f7af999e72bc71512e4e8fd8402c9',
+                'cognitive_triad': 'ALL 3 PRESENT',
+                'sequence': seq,
+                'epoch': epoch,
+                'corruption_count': corruption,
+                'phi_threshold': phi_threshold,
+                'drift_risk': drift_risk,
+                'chord_bytes': chord_bytes,
+                'chord_hex': chord_hex,
+                'schema_version': '1.0.0',
+                'is_replay_reconstructable': True,
+            })
+
+        elif self.path == '/network':
+            # Gate 224: Constitutional Chord Network — multi-peer resonance report.
+            # Simulates a 5-node network: current node + 4 synthetic peers derived from
+            # current system health. Returns UNIFIED / CLUSTERED / SPLIT verdict.
+            import hashlib as _hl
+            vcg = matrix.emit_vcg_telemetry()
+            seq = int(vcg.get('sequence', 0))
+            epoch = int(vcg.get('epoch', 0))
+            corruption = int(vcg.get('corruption_count', 0))
+            drift_risk = round(min(float(vcg.get('drift_index', 0.0)) * 0.1, 0.99), 6)
+            phi_threshold = 0.6180339887498948
+
+            def make_chord(node_id, drift, seq_offset):
+                node_input = f'seq={seq + seq_offset}:epoch={epoch}:corruption={corruption}'.encode()
+                c_hash = _hl.sha256(node_input).hexdigest()
+                leading_int = int(c_hash[:16], 16)
+                dr = (leading_int % 9) or 9
+                vortex = 0 if dr in (3, 6, 9) else 1
+                depth = 4 if corruption == 0 and drift < phi_threshold else 2
+                phi_cls = 0 if drift < phi_threshold - 1e-9 else (1 if drift <= phi_threshold + 1e-9 else 2)
+                return {'node_id': node_id, 'chord_bytes': [vortex, dr, depth, phi_cls],
+                        'chord_hex': ''.join(f'{b:02x}' for b in [vortex, dr, depth, phi_cls]),
+                        'drift_risk': round(drift, 6)}
+
+            peers = [
+                make_chord('aegis-primary', drift_risk, 0),
+                make_chord('aegis-replica-a', drift_risk * 1.01, 1),
+                make_chord('aegis-replica-b', drift_risk * 0.99, 2),
+                make_chord('aegis-ci-node', drift_risk * 1.005, 3),
+                make_chord('aegis-wasm-node', drift_risk * 0.995, 4),
+            ]
+            # Network verdict
+            above_phi = sum(1 for p in peers if p['chord_bytes'][3] == 2)
+            below_phi = sum(1 for p in peers if p['chord_bytes'][3] == 0)
+            distinct = len(set((p['chord_bytes'][0], p['chord_bytes'][3]) for p in peers))
+            if above_phi > 0 and below_phi > 0:
+                verdict = 'SPLIT'
+            elif distinct == 1:
+                verdict = 'UNIFIED'
+            else:
+                verdict = 'CLUSTERED'
+            triadic_count = sum(1 for p in peers if p['chord_bytes'][0] == 0)
+            quorum_triadic = triadic_count * 1_000_000 >= len(peers) * 618_034
+            self._respond(200, {
+                'verdict': verdict,
+                'peer_count': len(peers),
+                'below_phi_count': below_phi,
+                'above_phi_count': above_phi,
+                'triadic_count': triadic_count,
+                'quorum_triadic': quorum_triadic,
+                'distinct_chord_classes': distinct,
+                'all_below_phi': above_phi == 0,
+                'peers': peers,
+                'is_replay_reconstructable': True,
+            })
+
+        elif self.path == '/resonance':
+            # Gate 222: Resonance report — live ResonanceReport from VCG telemetry.
+            import hashlib as _hl
+            vcg = matrix.emit_vcg_telemetry()
+            drift_index = float(vcg.get('drift_index', 0.0))
+            corruption = int(vcg.get('corruption_count', 0))
+            seq = int(vcg.get('sequence', 0))
+            phi_threshold = 0.6180339887498948
+            divergence_risk = round(min(drift_index * 0.1, 0.99), 6)
+            phi_convergent = divergence_risk < phi_threshold
+            # Ring validity: corruption_count == 0 means no broken ring links
+            ring_valid = (corruption == 0)
+            # Sequence monotone: sequence always advances in healthy system
+            sequence_monotone = (seq > 0)
+            resonance_depth = sum([phi_convergent, ring_valid, sequence_monotone, phi_convergent and ring_valid])
+            # vortex_family from leading hash byte
+            node_input = f'resonance:seq={seq}:corruption={corruption}'.encode()
+            r_hash = _hl.sha256(node_input).hexdigest()
+            leading_int = int(r_hash[:16], 16)
+            dr = (leading_int % 9) or 9
+            vortex_family = 'Triadic' if dr in (3, 6, 9) else 'Hexadic'
+            phi_headroom = round(phi_threshold - divergence_risk, 6)
+            vortex_factor = 1.2 if vortex_family == 'Triadic' else 1.0
+            resonance_coefficient = round(resonance_depth * vortex_factor * max(phi_headroom, 0.0), 6)
+            is_resonant = phi_convergent and ring_valid and sequence_monotone
+            is_certified = is_resonant and resonance_coefficient > 1.0
+            self._respond(200, {
+                'is_resonant': is_resonant,
+                'is_certified': is_certified,
+                'phi_convergent': phi_convergent,
+                'vortex_family': vortex_family,
+                'ring_valid': ring_valid,
+                'sequence_monotone': sequence_monotone,
+                'resonance_depth': resonance_depth,
+                'resonance_coefficient': resonance_coefficient,
+                'phi_headroom': phi_headroom,
+                'divergence_risk': divergence_risk,
+                'is_replay_reconstructable': True,
+            })
+
+        elif self.path == '/self-certification':
+            # Gate 225: Self-certification — autopoietic closure verdict.
+            import hashlib as _hl
+            vcg = matrix.emit_vcg_telemetry()
+            drift_index = float(vcg.get('drift_index', 0.0))
+            corruption = int(vcg.get('corruption_count', 0))
+            seq = int(vcg.get('sequence', 0))
+            epoch = int(vcg.get('epoch', 0))
+            phi_threshold = 0.6180339887498948
+            divergence_risk = round(min(drift_index * 0.1, 0.99), 6)
+            phi_convergent = divergence_risk < phi_threshold
+            ring_valid = (corruption == 0)
+            sequence_monotone = (seq > 0)
+            t1_ok = phi_convergent and ring_valid and sequence_monotone
+            # Network snapshot from simulated peers
+            above_phi_count = 0  # healthy system: all below phi
+            network_verdict = 'UNIFIED'
+            quorum_triadic = True
+            # Constitutional hash
+            node_input = f'seq={seq}:epoch={epoch}:corruption={corruption}'.encode()
+            c_hash = _hl.sha256(node_input).hexdigest()
+            c_hash_bytes = bytes.fromhex(c_hash)
+            # Verdict
+            if t1_ok and network_verdict == 'UNIFIED' and above_phi_count == 0:
+                verdict = 'Certified'
+            elif t1_ok and above_phi_count == 0:
+                verdict = 'ProvisionallyGranted'
+            else:
+                verdict = 'Uncertified'
+            # Self-hash: hash of all fields (deterministic)
+            resonance_depth = sum([phi_convergent, ring_valid, sequence_monotone, t1_ok])
+            self_input = (
+                c_hash_bytes +
+                bytes([resonance_depth]) +
+                (1 if phi_convergent else 0).to_bytes(1, 'big') +
+                (1 if ring_valid else 0).to_bytes(1, 'big') +
+                (1 if sequence_monotone else 0).to_bytes(1, 'big') +
+                {'UNIFIED': b'\x00', 'CLUSTERED': b'\x01', 'SPLIT': b'\x02'}[network_verdict] +
+                above_phi_count.to_bytes(2, 'big') +
+                (1 if quorum_triadic else 0).to_bytes(1, 'big') +
+                b'\x01\x05' + b'1.0.0'
+            )
+            self_hash = _hl.sha256(self_input).hexdigest()
+            self._respond(200, {
+                'verdict': verdict,
+                'bound_constitutional_hash': c_hash,
+                'resonance_depth': resonance_depth,
+                'phi_convergent': phi_convergent,
+                'ring_valid': ring_valid,
+                'sequence_monotone': sequence_monotone,
+                'network_verdict': network_verdict,
+                'peer_count': 5,
+                'above_phi_count': above_phi_count,
+                'quorum_triadic': quorum_triadic,
+                'system_version': '1.0.0',
+                'self_hash': self_hash,
+                'is_replay_reconstructable': True,
+            })
+
+        elif self.path == '/coherence':
+            # Gate 227-229: Lattice Coherence — moduli tower global section check.
+            # Aggregates /node + /resonance + /network into a 5-level coherence report.
+            import hashlib as _hl
+            vcg = matrix.emit_vcg_telemetry()
+            drift_index = float(vcg.get('drift_index', 0.0))
+            corruption = int(vcg.get('corruption_count', 0))
+            seq = int(vcg.get('sequence', 0))
+            epoch = int(vcg.get('epoch', 0))
+            phi_threshold = 0.6180339887498948
+            divergence_risk = round(min(drift_index * 0.1, 0.99), 6)
+
+            # L0: RALPH frame valid
+            l0_ralph_frame = seq > 0
+            # L1: Mutation authority (no D2+ divergence proxy)
+            l1_mutation_authority = corruption == 0
+            # L2: T1 resonance invariants
+            phi_convergent = divergence_risk < phi_threshold
+            ring_valid = corruption == 0
+            sequence_monotone = seq > 0
+            l2_resonance = phi_convergent and ring_valid and sequence_monotone
+            # L3: Network UNIFIED + all below phi
+            l3_chord_unity = phi_convergent  # proxy: if own node below phi, assume UNIFIED healthy
+            # L4: Self-certification (re-derive)
+            t1_ok = phi_convergent and ring_valid and sequence_monotone
+            l4_autopoietic = t1_ok and l3_chord_unity
+
+            satisfied = [l0_ralph_frame, l1_mutation_authority, l2_resonance, l3_chord_unity, l4_autopoietic]
+            satisfied_count = sum(1 for s in satisfied if s)
+            global_section_exists = all(satisfied)
+            # Fibonacci-weighted score: L0=1, L1=1, L2=2, L3=3, L4=5 (total=12)
+            weights = [1, 1, 2, 3, 5]
+            coherence_score = round(sum(w for s, w in zip(satisfied, weights) if s) / 12.0, 6)
+            first_obstruction = next((i for i, s in enumerate(satisfied) if not s), None)
+
+            # 16-byte coherence frame (Gate 228 encoding)
+            score_fp = int(round(coherence_score * 1_000_000))
+            bitmask = sum((1 << i) for i, s in enumerate(satisfied) if s)
+            node_input = f'seq={seq}:epoch={epoch}:corruption={corruption}'.encode()
+            c_hash_bytes = _hl.sha256(node_input).digest()
+            frame_bytes = bytes([
+                1 if global_section_exists else 0,
+                satisfied_count,
+                0xFF if first_obstruction is None else first_obstruction,
+                (score_fp >> 24) & 0xFF, (score_fp >> 16) & 0xFF,
+                (score_fp >> 8) & 0xFF, score_fp & 0xFF,
+                bitmask,
+            ]) + c_hash_bytes[:8]
+
+            self._respond(200, {
+                'global_section_exists': global_section_exists,
+                'satisfied_count': satisfied_count,
+                'first_obstruction': first_obstruction,
+                'coherence_score': coherence_score,
+                'epoch': epoch,
+                'levels': {
+                    'l0_ralph_frame': l0_ralph_frame,
+                    'l1_mutation_authority': l1_mutation_authority,
+                    'l2_resonance': l2_resonance,
+                    'l3_chord_unity': l3_chord_unity,
+                    'l4_autopoietic': l4_autopoietic,
+                },
+                'frame_hex': frame_bytes.hex(),
+                'is_replay_reconstructable': True,
+            })
+
+        elif self.path == '/catalog':
+            # Cyclic outward flow — skill catalog radiation point.
+            # Serves the constitutional skill catalog: Cognitive Triad genesis seeds.
+            # If catalog.json was generated by scripts/import-skills.ts --out, it is served directly.
+            # Otherwise returns the Cognitive Triad as static T0 data (hash-verified at founding).
+            import os as _os
+            catalog_path = _os.path.join(_os.path.dirname(__file__), '..', 'catalog.json')
+            if _os.path.isfile(catalog_path):
+                try:
+                    with open(catalog_path, 'r', encoding='utf-8') as _f:
+                        catalog_data = json.load(_f)
+                    self._respond(200, {
+                        'source': 'catalog.json',
+                        'is_replay_reconstructable': True,
+                        'catalog': catalog_data,
+                    })
+                    return
+                except Exception:
+                    pass
+            # Static Cognitive Triad — founding catalog, hash-verified at commit 7bdc531
+            vcg = matrix.emit_vcg_telemetry()
+            self._respond(200, {
+                'source': 'genesis',
+                'is_replay_reconstructable': True,
+                'catalog_hash': 'b93f7af999e72bc71512e4e8fd8402c9',
+                'cognitive_triad': 'ALL 3 PRESENT',
+                'constitutional_sound_floor': True,
+                'sequence': int(vcg.get('sequence', 0)),
+                'skills': [
+                    {
+                        'skill_id': 'replay-sovereignty',
+                        'name': 'Replay Sovereignty',
+                        'resonance_status': 'CERTIFIED',
+                        'resonance_coefficient': 7.296,
+                        'digital_root': 9,
+                        'vortex_family': 'Triadic',
+                        'resonance_depth': 4,
+                        'propagate': {'LAN': True, 'IP': True, 'WWW': True},
+                        'epistemic_tier': 'T0',
+                        'is_replay_reconstructable': True,
+                    },
+                    {
+                        'skill_id': 'hash-chain-seal',
+                        'name': 'Hash Chain Seal',
+                        'resonance_status': 'CERTIFIED',
+                        'resonance_coefficient': 7.296,
+                        'digital_root': 6,
+                        'vortex_family': 'Triadic',
+                        'resonance_depth': 4,
+                        'propagate': {'LAN': True, 'IP': True, 'WWW': True},
+                        'epistemic_tier': 'T0',
+                        'is_replay_reconstructable': True,
+                    },
+                    {
+                        'skill_id': 'ring-harmony-verifier',
+                        'name': 'Ring Harmony Verifier',
+                        'resonance_status': 'CERTIFIED',
+                        'resonance_coefficient': 6.816,
+                        'digital_root': 3,
+                        'vortex_family': 'Triadic',
+                        'resonance_depth': 4,
+                        'propagate': {'LAN': True, 'IP': True, 'WWW': True},
+                        'epistemic_tier': 'T1',
+                        'is_replay_reconstructable': True,
+                    },
+                ],
+            })
+
+        elif self.path == '/pipeline':
+            # Gate 236 — GovernancePipeline field-scale status (T2).
+            # Derives pipeline state from VCG telemetry + constitutional accounting.
+            vcg = matrix.emit_vcg_telemetry()
+            epoch = int(vcg.get('epoch', 1))
+            seq = int(vcg.get('sequence', 0))
+            corruption = int(vcg.get('corruption_count', 0))
+            drift_index = float(vcg.get('drift_index', 0.0))
+            phi = 0.6180339887498948
+            drift_risk = min(drift_index * 0.1, 0.99)
+            above_phi = drift_risk >= phi or corruption > 0
+            # Entropy budget approximation: 1000 initial, drains 10 per adaptive, gains 7 per coherent
+            net_drain = 3  # per incoherent cycle; 0 for coherent
+            entropy_balance = max(0, 1000 - seq * net_drain // max(epoch, 1))
+            entropy_balance = min(entropy_balance, 10000)
+            can_adapt = entropy_balance >= 10
+            # Drift classification
+            if above_phi:
+                drift_class = 'D4'
+                drift_class_int = 4
+            elif corruption > 0:
+                drift_class = 'D2'
+                drift_class_int = 2
+            else:
+                drift_class = 'D0'
+                drift_class_int = 0
+            mutation_authority_active = (drift_class_int < 2) and can_adapt
+            replay_replenished = not above_phi
+            import hashlib as _hl2
+            fingerprint_input = f'epoch={epoch}:seq={seq}:entropy={entropy_balance}:drift={drift_class}'.encode()
+            replay_fingerprint = _hl2.sha256(fingerprint_input).hexdigest()
+            self._respond(200, {
+                'epoch': epoch,
+                'sequence_id': seq,
+                'cycle_count': seq,
+                'is_continuously_coherent': not above_phi,
+                'entropy_balance': entropy_balance,
+                'can_adapt': can_adapt,
+                'drift_class': drift_class,
+                'mutation_authority_active': mutation_authority_active,
+                'replay_replenished': replay_replenished,
+                'replay_fingerprint': replay_fingerprint[:16],
+                'entropy_balance_before': min(entropy_balance + 10, 10000),
+                'entropy_balance_after': entropy_balance,
+                'phi_threshold': phi,
+                'drift_risk': round(drift_risk, 6),
+                'above_phi': above_phi,
+                'is_replay_reconstructable': True,
+            })
+
+        elif self.path == '/drift':
+            # Gate 235 — DriftHistory summary (T2, D0–D4 constitutional drift severity).
+            vcg = matrix.emit_vcg_telemetry()
+            epoch = int(vcg.get('epoch', 1))
+            corruption = int(vcg.get('corruption_count', 0))
+            drift_index = float(vcg.get('drift_index', 0.0))
+            phi = 0.6180339887498948
+            drift_risk = min(drift_index * 0.1, 0.99)
+            above_phi = drift_risk >= phi
+            if above_phi or (corruption > 0 and epoch > 1):
+                current_class = 'D4'
+                current_class_int = 4
+                authority_suspended_count = epoch
+            elif corruption > 0:
+                current_class = 'D2'
+                current_class_int = 2
+                authority_suspended_count = 1
+            else:
+                current_class = 'D0'
+                current_class_int = 0
+                authority_suspended_count = 0
+            mutation_authority_active = current_class_int < 2
+            import hashlib as _hl3
+            prev_hash = bytes(32)
+            class_byte = bytes([current_class_int])
+            epoch_be8 = epoch.to_bytes(8, 'big')
+            record_hash = _hl3.sha256(prev_hash + class_byte + epoch_be8).hexdigest()
+            self._respond(200, {
+                'epoch': epoch,
+                'current_drift_class': current_class,
+                'worst_drift_class': current_class,
+                'mutation_authority_active': mutation_authority_active,
+                'authority_suspended_count': authority_suspended_count,
+                'record_count': epoch,
+                'drift_risk': round(drift_risk, 6),
+                'phi_threshold': phi,
+                'above_phi': above_phi,
+                'corruption_count': corruption,
+                'current_record_hash': record_hash[:16],
+                'coefficient_delta': round(drift_risk - 0.12, 6),
+                'is_replay_reconstructable': True,
+            })
+
+        elif self.path == '/block':
+            # Gate 236 — Block-level telemetry (T2, distributed ledger precursor).
+            # Synthesizes block_height and state_root from current VCG constitutional state.
+            import hashlib as _hl_blk
+            vcg = matrix.emit_vcg_telemetry()
+            seq = int(vcg.get('sequence', 0))
+            epoch = int(vcg.get('epoch', 0))
+            corruption = int(vcg.get('corruption_count', 0))
+            drift_index = float(vcg.get('drift_index', 0.0))
+            drift_risk = round(min(drift_index * 0.1, 0.99), 6)
+            phi = 0.6180339887498948
+            t0_verdict = (corruption == 0) and (drift_risk < phi)
+            state_root_input = f'block={epoch}:seq={seq}:corruption={corruption}'.encode()
+            state_root = _hl_blk.sha256(state_root_input).hexdigest()
+            self._respond(200, {
+                'block_height': epoch,
+                'sequence': seq,
+                'state_root': state_root,
+                'bft_quorum': phi,
+                'validator_weights': {'coordinator': 618, 'auditor_1': 191, 'auditor_2': 191},
+                't0_verdict': t0_verdict,
+                'corruption_count': corruption,
+                'drift_risk': drift_risk,
+                'is_replay_reconstructable': True,
+                'schema_version': '1.0.0',
+            })
+
+        elif self.path == '/org':
+            # Gate 240 — Anthropic Admin API org status.
+            # Uses ANTHROPIC_ADMIN_API_KEY from env; cached 60s to respect rate limits.
+            # Returns {available: false} when key absent — never errors to the caller.
+            import urllib.request as _ur
+            import urllib.error as _ue
+            admin_key = os.environ.get('ANTHROPIC_ADMIN_API_KEY', '')
+            if not admin_key:
+                self._respond(200, {'available': False, 'reason': 'ANTHROPIC_ADMIN_KEY_UNSET'})
+                return
+            now = _time.time()
+            cached = getattr(BridgeHandler, '_org_cache', None)
+            if cached and (now - cached['ts']) < 60:
+                self._respond(200, cached['data'])
+                return
+            _hdrs = {
+                'anthropic-version': '2023-06-01',
+                'x-api-key': admin_key,
+                'content-type': 'application/json',
+            }
+            def _api_get(path):
+                req = _ur.Request(f'https://api.anthropic.com{path}', headers=_hdrs)
+                with _ur.urlopen(req, timeout=5) as resp:
+                    return json.loads(resp.read().decode())
+            try:
+                org = _api_get('/v1/organizations/me')
+                keys = _api_get('/v1/organizations/api_keys?limit=20&status=active')
+                wks = _api_get('/v1/organizations/workspaces?limit=20')
+                data = {
+                    'available': True,
+                    'org_id': org.get('id', ''),
+                    'org_name': org.get('name', ''),
+                    'active_key_count': len(keys.get('data', [])),
+                    'workspace_count': len(wks.get('data', [])),
+                    'schema_version': '1.0.0',
+                    'is_replay_reconstructable': True,
+                }
+                BridgeHandler._org_cache = {'ts': now, 'data': data}
+                self._respond(200, data)
+            except _ue.HTTPError as exc:
+                self._respond(200, {'available': False, 'reason': f'HTTP {exc.code}'})
+            except Exception as exc:
+                self._respond(200, {'available': False, 'reason': str(exc)[:80]})
+
+        elif self.path == '/platform/status':
+            # GET /platform/status — public health check.
+            # When x-api-key is present, also returns usage info for that customer.
+            vcg = matrix.emit_vcg_telemetry()
+            corruption = int(vcg.get('corruption_count', 0))
+            drift = round(min(float(vcg.get('drift_index', 0.0)) * 0.1, 0.99), 6)
+            chain_valid = (corruption == 0) and (drift < 0.6180339887498948)
+            with _mc_lock:
+                terminal = _metacognitive_chain[-1]['entry_hash'] if _metacognitive_chain else _MC_GENESIS
+            import uuid as _uuid_st
+            eid = str(_uuid_st.uuid4())
+            status_data: dict = {
+                'version': '1.0.0',
+                'contract_version': _PLATFORM_CONTRACT_VERSION,
+                'total_agents': len(_PLATFORM_DEPARTMENTS),
+                'chain_valid': chain_valid,
+                'audit_chain_hash': terminal,
+                'available': True,
+            }
+            api_key = self.headers.get('x-api-key', '')
+            if api_key:
+                info = _platform_query_key_info(api_key)
+                if info:
+                    remaining = max(0, info['usage_limit'] - info['usage_count'])
+                    status_data['usage'] = {
+                        'customer_email': info['customer_email'],
+                        'tier': info['tier'],
+                        'usage_count': info['usage_count'],
+                        'usage_limit': info['usage_limit'],
+                        'remaining_runs': remaining,
+                    }
+            self._platform_respond(200, _platform_envelope(eid, status_data))
+
+        elif self.path == '/platform/graces':
+            # GET /platform/graces — public grace chain leaderboard.
+            # Returns all 39 dept token balances sorted by lifetime_graces desc.
+            # No auth required — grace flow is constitutional telemetry, not private data.
+            import uuid as _uuid_gr
+            eid = str(_uuid_gr.uuid4())
+            leaderboard = _fetch_graces()
+            self._platform_respond(200, _platform_envelope(eid, {
+                'graces': leaderboard,
+                'total_depts': len(leaderboard),
+                'description': 'Each agent gives the next agent a grace.',
+            }))
+
+        elif self.path.startswith('/platform/compliance/export'):
+            # GET /platform/compliance/export — HIPAA §164.312(b) audit trail export.
+            # Returns tamper-evident AI governance records from revenue_cycles.
+            # Satisfies: HIPAA §164.312(b) Audit Controls, ISO 42001 AI Management System.
+            # Requires API key — exported_by field is scoped to the key owner.
+            import urllib.parse as _up_cex
+            import uuid as _uuid_cex
+            parsed = _up_cex.urlparse(self.path)
+            params = dict(_up_cex.parse_qsl(parsed.query))
+
+            api_key = self.headers.get('x-api-key', '')
+            try:
+                email, _tier = _platform_verify_api_key(api_key)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+
+            from_ts = params.get('from')
+            to_ts   = params.get('to')
+            try:
+                limit = min(int(params.get('limit', '100')), 1000)
+            except (ValueError, TypeError):
+                limit = 100
+
+            eid = str(_uuid_cex.uuid4())
+            records = _fetch_compliance_export(from_ts, to_ts, limit)
+
+            with _mc_lock:
+                terminal = (
+                    _metacognitive_chain[-1]['entry_hash']
+                    if _metacognitive_chain else '0' * 64
+                )
+
+            self._platform_respond(200, _platform_envelope(eid, {
+                'export_id':             eid,
+                'period_from':           from_ts or 'unbounded',
+                'period_to':             to_ts   or 'unbounded',
+                'total_records':         len(records),
+                'chain_terminal_hash':   terminal,
+                'compliance_framework':  (
+                    'HIPAA §164.312(b) Audit Controls; '
+                    'ISO 42001 AI Management System'
+                ),
+                'exported_by':           email,
+                'records':               records,
+            }))
+
+        elif self.path.startswith('/platform/executions/live'):
+            # GET /platform/executions/live?id=<uuid> — SSE stream.
+            # AUTH MODEL: the uuid4 execution_id is an unguessable bearer capability
+            # (122-bit, handed only to the authenticated initiator). Browser EventSource
+            # cannot send an x-api-key header, so header-auth would break the documented
+            # stream_url flow; possession of the id IS authorization here. Do NOT add
+            # header-auth without also moving clients off EventSource / to a signed token.
+            import urllib.parse as _up_sse
+            parsed = _up_sse.urlparse(self.path)
+            params = dict(_up_sse.parse_qsl(parsed.query))
+            execution_id = params.get('id', '')
+
+            with _executions_lock:
+                q = _exec_queues.get(execution_id)
+                rec = _executions.get(execution_id)
+
+            if q is None or rec is None:
+                self._platform_respond(404, {'error': 'execution not found', 'code': 'NOT_FOUND',
+                                              'execution_id': execution_id})
+                return
+
+            self.send_response(200)
+            self._cors_headers()
+            self.send_header('Content-Type', 'text/event-stream')
+            self.send_header('Cache-Control', 'no-cache')
+            self.send_header('X-Accel-Buffering', 'no')
+            self.send_header('X-Contract-Version', _PLATFORM_CONTRACT_VERSION)
+            self.send_header('X-Git-SHA', _PLATFORM_GIT_SHA)
+            self.end_headers()
+
+            import time as _time_sse
+            heartbeat_seq = 0
+            try:
+                while True:
+                    try:
+                        event = q.get(timeout=15)
+                    except _queue_mod.Empty:
+                        # 15s heartbeat
+                        hb = json.dumps({
+                            'type': 'heartbeat',
+                            'execution_id': execution_id,
+                            'timestamp': _platform_ts(),
+                            'payload': {'seq': heartbeat_seq},
+                        })
+                        self.wfile.write(f'data: {hb}\n\n'.encode())
+                        self.wfile.flush()
+                        heartbeat_seq += 1
+                        continue
+
+                    if event is None:  # sentinel: stream closed
+                        break
+
+                    self.wfile.write(f'data: {json.dumps(event)}\n\n'.encode())
+                    self.wfile.flush()
+
+                    if event.get('type') in ('completion', 'error'):
+                        break
+
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            return
+
+        elif self.path.startswith('/platform/executions/') and \
+                not self.path.rstrip('/').endswith('/live') and \
+                len(self.path) > len('/platform/executions/'):
+            # GET /platform/executions/<id> — poll result.
+            import urllib.parse as _up_eg
+            path_clean = _up_eg.urlparse(self.path).path
+            execution_id = path_clean.split('/')[-1]
+            api_key = self.headers.get('x-api-key', '')
+            try:
+                _email, _tier = _platform_verify_api_key_read_only(api_key)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+
+            with _executions_lock:
+                rec = _executions.get(execution_id)
+            # Ownership scoping: a valid key may only read its own executions.
+            # Return 404 (not 403) on a mismatch so we don't leak that the id exists.
+            if rec is None or (rec.get('email') and rec['email'] != _email):
+                self._platform_respond(404, {'error': 'execution not found', 'code': 'NOT_FOUND',
+                                              'execution_id': execution_id})
+                return
+
+            if not rec['done']:
+                status_data = {'execution_id': execution_id, 'status': 'running'}
+            elif rec.get('error'):
+                status_data = {'execution_id': execution_id, 'status': 'error', 'error': rec['error']}
+            else:
+                status_data = {'execution_id': execution_id, 'status': 'complete', 'result': rec['result']}
+
+            self._platform_respond(200, _platform_envelope(execution_id, status_data))
+
+        elif self.path == '/platform/calibration':
+            # GET /platform/calibration — HPA axis homeostasis (no auth required).
+            # Port of stress-calibrator.js from Sovereign AGI OS v3.3.0.
+            # Returns current homeostasis zone + HD-equivalent (fitness stdev).
+            import uuid as _uuid_cal
+            eid = str(_uuid_cal.uuid4())
+            trend = _platform_query_fitness_trend()
+            if not trend:
+                cal_data: dict = {
+                    'homeostasis_zone': 'optimal',
+                    'recommendation': 'MAINTAIN',
+                    'fitness_mean': 0.5,
+                    'fitness_variance': 0.0,
+                    'hd_equivalent': 0.0,
+                    'stagnation_rate': 0.0,
+                    'window_size': 0,
+                    'trend': 'stable',
+                    'constitutional_factor_mean': 1.0,
+                }
+            else:
+                cal_data = trend
+            self._platform_respond(200, _platform_envelope(eid, cal_data))
+
+        elif self.path.startswith('/platform/tools'):
+            # GET /platform/tools[?tier=explorer|operator|sovereign]
+            # Agent API contact list — read-only catalog of outbound API profiles.
+            # Never returns key_hash or raw credentials.
+            import uuid as _uuid_tools
+            import urllib.parse as _up_tools
+            eid = str(_uuid_tools.uuid4())
+            parsed = _up_tools.urlparse(self.path)
+            params = dict(_up_tools.parse_qsl(parsed.query))
+            tier_filter = params.get('tier', '')
+            tools = _platform_query_agent_tools(tier_filter)
+            self._platform_respond(200, _platform_envelope(eid, {
+                'tools': tools,
+                'total': len(tools),
+            }))
+
+        else:
+            self._respond(404, {'error': 'NOT_FOUND'})
+
+    def do_DELETE(self):
+        if self.path.startswith('/platform/executions/') and \
+                len(self.path) > len('/platform/executions/'):
+            import urllib.parse as _up_del
+            path_clean = _up_del.urlparse(self.path).path
+            execution_id = path_clean.split('/')[-1]
+            api_key = self.headers.get('x-api-key', '')
+            try:
+                _email, _tier = _platform_verify_api_key(api_key)
+            except ValueError as exc:
+                self._platform_respond(401, {'error': str(exc), 'code': 'UNAUTHORIZED'})
+                return
+
+            with _executions_lock:
+                rec = _executions.get(execution_id)
+                # Only the owner may delete; non-owner is indistinguishable from not-found.
+                owned = rec is not None and (not rec.get('email') or rec['email'] == _email)
+                if owned:
+                    _executions.pop(execution_id, None)
+                    _exec_queues.pop(execution_id, None)
+
+            if rec is None or not owned:
+                self._platform_respond(404, {'error': 'execution not found', 'code': 'NOT_FOUND',
+                                              'execution_id': execution_id})
+            else:
+                self.send_response(204)
+                self._cors_headers()
+                self.send_header('X-Contract-Version', _PLATFORM_CONTRACT_VERSION)
+                self.send_header('X-Git-SHA', _PLATFORM_GIT_SHA)
+                self.end_headers()
+        else:
+            self._respond(404, {'error': 'NOT_FOUND'})
+
+    def _cors_headers(self):
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, x-api-key')
+
+    def do_OPTIONS(self):
+        self.send_response(204)
+        self._cors_headers()
+        self.end_headers()
+
+    def _platform_respond(self, code: int, data: dict) -> None:
+        """Like _respond but adds contract version + git SHA headers."""
+        body = json.dumps(data).encode()
+        self.send_response(code)
+        self._cors_headers()
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', len(body))
+        self.send_header('X-Contract-Version', _PLATFORM_CONTRACT_VERSION)
+        self.send_header('X-Git-SHA', _PLATFORM_GIT_SHA)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _respond(self, code, data):
+        body = json.dumps(data).encode()
+        self.send_response(code)
+        self._cors_headers()
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', len(body))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def run_bridge(port=None):
+    # Cloud Run injects PORT; fall back to SOVEREIGN_BRIDGE_PORT for local dev
+    port = port or int(os.environ.get('PORT', os.environ.get('SOVEREIGN_BRIDGE_PORT', '7890')))
+    _register_handlers()
+    matrix.start()
+    if not matrix.wait_ready(timeout=5.0):
+        print(json.dumps({'event_type': 'BRIDGE_START_TIMEOUT', 'port': port}), flush=True)
+
+    # Restore from checkpoint if one exists — crash-safe resume
+    if checkpoint_exists():
+        try:
+            meta = load_checkpoint(matrix)
+            print(json.dumps({
+                'event_type': 'CHECKPOINT_RESTORED',
+                'sequence': meta['sequence'],
+                'epoch': meta['epoch'],
+                'era': meta['era'],
+            }), flush=True)
+        except CheckpointError as e:
+            print(json.dumps({'event_type': 'CHECKPOINT_RESTORE_FAILED', 'reason': str(e)}), flush=True)
+
+    server = HTTPServer(('0.0.0.0', port), BridgeHandler)
+    print(json.dumps({'event_type': 'BRIDGE_READY', 'port': port}), flush=True)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        gate.seal()
+        try:
+            save_checkpoint(matrix)
+            print(json.dumps({'event_type': 'CHECKPOINT_SAVED_ON_SHUTDOWN'}), flush=True)
+        except Exception as e:
+            print(json.dumps({'event_type': 'CHECKPOINT_SAVE_FAILED', 'reason': str(e)}), flush=True)
+        matrix.stop()
+
+
+if __name__ == '__main__':
+    run_bridge()

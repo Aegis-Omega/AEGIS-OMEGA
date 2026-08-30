@@ -1,0 +1,177 @@
+name: AEGIS Agent Dispatch
+
+on:
+  workflow_run:
+    workflows: ["⊕ AEGIS-Ω Constitutional Automaton"]
+    types: [completed]
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+
+jobs:
+  dispatch:
+    name: Classify and conditionally dispatch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: read
+      issues: read
+    steps:
+      - name: Check out the trusted workflow source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Build bounded event envelope
+        id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_PATH: ${{ github.event_path }}
+          REQUEST_PATH: ${{ runner.temp }}/agent-dispatch-request.json
+          AUDIENCE_PATH: ${{ runner.temp }}/agent-dispatch-audience.txt
+        run: |
+          set +e
+          python3 scripts/agent_dispatch_payload.py \
+            --event-name "$EVENT_NAME" \
+            --event-path "$EVENT_PATH" \
+            --output "$REQUEST_PATH" \
+            --audience-output "$AUDIENCE_PATH"
+          status=$?
+          set -e
+
+          if [ "$status" -eq 0 ]; then
+            echo "actionable=true" >> "$GITHUB_OUTPUT"
+          elif [ "$status" -eq 2 ]; then
+            echo "actionable=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Event classification failed closed (exit $status)." >&2
+            exit "$status"
+          fi
+
+      - name: Evaluate dispatch configuration
+        id: preflight
+        env:
+          ACTIONABLE: ${{ steps.classify.outputs.actionable }}
+          PROXY_URL: ${{ vars.PROXY_URL }}
+          DISPATCH_API_KEY: ${{ secrets.AGENT_DISPATCH_API_KEY }}
+        run: |
+          if [ "$ACTIONABLE" != "true" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "status=IGNORED_NO_ADMITTED_ROUTE" >> "$GITHUB_OUTPUT"
+          elif [ -z "$PROXY_URL" ] || [ -z "$DISPATCH_API_KEY" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "status=DEFERRED_NOT_CONFIGURED" >> "$GITHUB_OUTPUT"
+          elif [[ "$PROXY_URL" != https://* ]]; then
+            echo "PROXY_URL must use HTTPS." >&2
+            exit 1
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "status=READY" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Record preflight status
+        env:
+          PREFLIGHT_STATUS: ${{ steps.preflight.outputs.status }}
+        run: |
+          {
+            echo "### Agent dispatch"
+            echo
+            echo "Preflight: \`$PREFLIGHT_STATUS\`"
+            echo
+            echo "A deferred result means no external side effect was attempted."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dispatch through authenticated constitutional proxy
+        id: send
+        if: steps.preflight.outputs.ready == 'true'
+        env:
+          PROXY_URL: ${{ vars.PROXY_URL }}
+          DISPATCH_API_KEY: ${{ secrets.AGENT_DISPATCH_API_KEY }}
+          REQUEST_PATH: ${{ runner.temp }}/agent-dispatch-request.json
+          RESPONSE_PATH: ${{ runner.temp }}/agent-dispatch-response.json
+          RECEIPT_PATH: ${{ runner.temp }}/agent-dispatch-receipt.json
+          AUDIENCE_PATH: ${{ runner.temp }}/agent-dispatch-audience.txt
+          GITHUB_RUN_ID_VALUE: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT_VALUE: ${{ github.run_attempt }}
+        run: |
+          test "$(wc -c < "$REQUEST_PATH")" -le 8192
+          endpoint="${PROXY_URL%/}/agents/dispatch"
+          oidc_audience="$(cat "$AUDIENCE_PATH")"
+          encoded_audience="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$oidc_audience")"
+          test -n "$ACTIONS_ID_TOKEN_REQUEST_URL"
+          test -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+          oidc_token="$(curl --fail-with-body --silent --show-error \
+            --max-time 10 \
+            --header "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${encoded_audience}" | jq -er '.value')"
+          echo "::add-mask::$oidc_token"
+
+          curl --fail-with-body --silent --show-error \
+            --max-time 30 \
+            --max-filesize 65536 \
+            --request POST "$endpoint" \
+            --header "Content-Type: application/json" \
+            --header "x-api-key: $DISPATCH_API_KEY" \
+            --header "x-aegis-github-oidc: $oidc_token" \
+            --data-binary "@$REQUEST_PATH" \
+            --output "$RESPONSE_PATH"
+
+          jq -e '
+            (.results | type == "array") and
+            (.routing_receipts | type == "array") and
+            ((.routing_receipts | length) > 0) and
+            ((.routing_receipts | length) >= (.results | length)) and
+            all(.routing_receipts[]; .outcome == "ADMITTED" or .outcome == "DENIED") and
+            (if (.results | length) == 0
+             then all(.routing_receipts[]; .outcome == "DENIED")
+             else all(.results[] as $result;
+               any(.routing_receipts[];
+                 .role == $result.role and .outcome == "ADMITTED"))
+             end)
+          ' "$RESPONSE_PATH" >/dev/null
+
+          result_count="$(jq '.results | length' "$RESPONSE_PATH")"
+          routing_receipt_count="$(jq '.routing_receipts | length' "$RESPONSE_PATH")"
+          denied_count="$(jq '[.routing_receipts[] | select(.outcome == "DENIED")] | length' "$RESPONSE_PATH")"
+          if [ "$result_count" -gt 0 ]; then
+            dispatch_status="EXECUTED"
+          else
+            dispatch_status="DENIED"
+          fi
+          response_sha256="$(sha256sum "$RESPONSE_PATH" | cut -d' ' -f1)"
+
+          jq -n \
+            --arg status "$dispatch_status" \
+            --arg run_id "$GITHUB_RUN_ID_VALUE" \
+            --arg run_attempt "$GITHUB_RUN_ATTEMPT_VALUE" \
+            --arg event_type "$(jq -r '.event_type' "$REQUEST_PATH")" \
+            --arg response_sha256 "$response_sha256" \
+            --argjson result_count "$result_count" \
+            --argjson routing_receipt_count "$routing_receipt_count" \
+            --argjson denied_count "$denied_count" \
+            --argjson valid_count "$(jq '[.results[] | select(.is_valid == true)] | length' "$RESPONSE_PATH")" \
+            '{schema_version:"1.0", status:$status, github_run_id:$run_id,
+              github_run_attempt:$run_attempt, event_type:$event_type,
+              result_count:$result_count, valid_count:$valid_count,
+              routing_receipt_count:$routing_receipt_count, denied_count:$denied_count,
+              response_sha256:$response_sha256,
+              semantic_truth_proven:false}' > "$RECEIPT_PATH"
+
+          {
+            echo
+            echo "Outcome: \`$dispatch_status\`"
+            echo "Executed agents: \`$result_count\`"
+            echo "Routing receipts: \`$routing_receipt_count\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload non-authoritative dispatch receipt
+        if: steps.preflight.outputs.ready == 'true' && steps.send.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-dispatch-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/agent-dispatch-receipt.json
+          if-no-files-found: error
+          retention-days: 14

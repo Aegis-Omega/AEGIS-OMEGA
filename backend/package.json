@@ -1,0 +1,23 @@
+{
+  "name": "aegis-tactical-dashboard-api-backend-server",
+  "type": "module",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Node backend for proxying Google Cloud API requests",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --env-file=.env.local server.js",
+    "dev": "nodemon --env-file=.env.local server.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "google-auth-library": "^10.5.0",
+    "express-rate-limit": "^7.5.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.0",
+    "nodemon": "^3.1.11"
+  }
+}

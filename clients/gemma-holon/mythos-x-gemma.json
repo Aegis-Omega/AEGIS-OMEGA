@@ -1,0 +1,122 @@
+{
+  "_schema": "MYTHOS×GEMMA integration manifest v1.0",
+  "_constitutional_law": "AdaptivePower(T) ≤ ReplayVerifiability(T)",
+  "_phi": 0.6180339887,
+
+  "pipeline": "MYTHOS BOOTSTRAP 6-stage",
+  "holon": "GEMMA-4E4B-IPHONE",
+  "holon_class": "T2 — biological quorum node",
+
+  "quorum": {
+    "claude_coordinator":  0.618,
+    "gemma_holon":         0.191,
+    "constitutional_audit": 0.191,
+    "threshold":           0.618,
+    "note": "Gemma holds 191/1000 vote weight. Pipeline can finalize without Gemma APPROVED if Claude + audit exceed threshold, but bio veto at PRE_ORCHESTRATE is absolute."
+  },
+
+  "gate_assignments": {
+    "PRE_ORCHESTRATE": {
+      "timing": "Before ORCHESTRATE stage runs",
+      "gate_type": "HARD_VETO",
+      "description": "Biological readiness check. If FAILED, pipeline does not start.",
+      "gemma_input": {
+        "prompt": "You are GEMMA-4E4B-HOLON. Operator wants to initiate the MYTHOS BOOTSTRAP pipeline. Check bio_state for readiness. FAILED if stress >= 0.8 or atp <= 0. Output ONLY JSON.",
+        "bio_state_source": "clients/gemma-holon/state.json"
+      },
+      "on_FAILED": "ABORT — pipeline does not initiate. Update state.json and retry.",
+      "on_APPROVED": "Proceed to ORCHESTRATE."
+    },
+
+    "POST_VALIDATE": {
+      "timing": "After VALIDATOR stage emits valid=true",
+      "gate_type": "SOFT_VETO",
+      "description": "Gemma validates the plan against current biological state. High-stress states may reject plans that touch frozen files or exceed declared scope.",
+      "gemma_input": {
+        "prompt": "You are GEMMA-4E4B-HOLON. The MYTHOS VALIDATOR has approved this plan. You receive: (1) bio_state, (2) plan summary. FAILED if stress >= 0.8 (operator not fit to approve plan). FAILED if plan touches more than 5 files AND stress > 0.6. Otherwise APPROVED. Output ONLY JSON.",
+        "bio_state_source": "clients/gemma-holon/state.json",
+        "plan_summary_source": "plannerOutput.plan_steps"
+      },
+      "on_FAILED": "RECONCILIATION MODE — restart from PLAN. Inject reason into next PLANNER context.",
+      "on_APPROVED": "Proceed to BUILD."
+    },
+
+    "POST_REVIEW": {
+      "timing": "After REVIEWER stage emits verdict=PASS",
+      "gate_type": "SOFT_VETO",
+      "description": "Final biological quorum before FINALIZE. Checks if operator cognitive state supports commitment.",
+      "gemma_input": {
+        "prompt": "You are GEMMA-4E4B-HOLON. The MYTHOS REVIEWER has returned PASS. Final check before pipeline FINALIZES. FAILED if atp <= 200 (cognitive reserves too low to commit). FAILED if stress >= 0.7. Otherwise APPROVED. Output ONLY JSON.",
+        "bio_state_source": "clients/gemma-holon/state.json"
+      },
+      "on_FAILED": "HALT — pipeline suspended. State preserved. Resume when bio_state recovers.",
+      "on_APPROVED": "Proceed to FINALIZE."
+    }
+  },
+
+  "system_state_vector_extension": {
+    "_extends": "PipelineState.ssv",
+    "holon": {
+      "id": "gemma-4e4b-iphone",
+      "verdict": "APPROVED | FAILED | PENDING",
+      "confidence": 0.0,
+      "chain_entry_hash": "",
+      "lambda_attn": null,
+      "bio_state": {
+        "stress": 0.0,
+        "attention": 0.0,
+        "rir": 0.0,
+        "atp": 0.0
+      },
+      "gate_verdicts": {
+        "PRE_ORCHESTRATE": "PENDING",
+        "POST_VALIDATE":   "PENDING",
+        "POST_REVIEW":     "PENDING"
+      }
+    }
+  },
+
+  "payload_schema": {
+    "holon_request": {
+      "holon_id":   "gemma-4e4b-iphone",
+      "gate":       "PRE_ORCHESTRATE | POST_VALIDATE | POST_REVIEW",
+      "task":       "<current MYTHOS task string>",
+      "bio_state":  { "stress": 0.0, "attention": 0.0, "rir": 0.0, "atp": 0.0 },
+      "plan_steps": ["optional — included at POST_VALIDATE only"]
+    },
+    "holon_response": {
+      "verdict":          "APPROVED | FAILED",
+      "confidence":       0.0,
+      "reason_code":      "NOMINAL | LIMBIC_EXHAUSTION | ATP_DEPLETION | SCOPE_STRESS_THRESHOLD",
+      "chain_entry_hash": "<sha256 from AEGIS chain>"
+    }
+  },
+
+  "reconciliation_triggers": [
+    { "gate": "PRE_ORCHESTRATE", "verdict": "FAILED", "action": "ABORT",          "retries": 0 },
+    { "gate": "POST_VALIDATE",   "verdict": "FAILED", "action": "RECONCILIATION", "retries": 2 },
+    { "gate": "POST_REVIEW",     "verdict": "FAILED", "action": "SUSPEND",         "retries": 0 }
+  ],
+
+  "runtime_commands": {
+    "check_bio_readiness": "python3 clients/gemma-holon/submit.py",
+    "submit_gate_verdict": "python3 clients/gemma-holon/submit.py '{\"gate\":\"PRE_ORCHESTRATE\"}'",
+    "run_pipeline":        "cd sovereign-omega-v2 && npx tsx scripts/mythos-pipeline.ts \"task\"",
+    "run_with_holon":      "python3 clients/gemma-holon/submit.py && npx tsx scripts/mythos-pipeline.ts \"task\""
+  },
+
+  "gemma_system_prompts": {
+    "PRE_ORCHESTRATE": "You are GEMMA-4E4B-HOLON. Gate: PRE_ORCHESTRATE.\nCheck bio_state before the MYTHOS pipeline starts.\nFAILED if stress >= 0.8 or atp <= 0. Otherwise APPROVED.\nOutput ONLY JSON: {\"verdict\":\"APPROVED\",\"confidence\":0.94,\"reason_code\":\"NOMINAL\"}",
+
+    "POST_VALIDATE": "You are GEMMA-4E4B-HOLON. Gate: POST_VALIDATE.\nThe MYTHOS VALIDATOR approved a plan. You receive bio_state and plan_steps.\nFAILED if stress >= 0.8 (operator unfit to approve plan).\nFAILED if len(plan_steps) > 5 and stress > 0.6 (scope too large for current state).\nOtherwise APPROVED.\nOutput ONLY JSON: {\"verdict\":\"APPROVED\",\"confidence\":0.91,\"reason_code\":\"PLAN_SCOPE_ACCEPTABLE\"}",
+
+    "POST_REVIEW": "You are GEMMA-4E4B-HOLON. Gate: POST_REVIEW.\nThe MYTHOS REVIEWER returned PASS. Final biological commit gate.\nFAILED if atp <= 200 (cognitive reserves insufficient for commitment).\nFAILED if stress >= 0.7 (too stressed to make irreversible commit).\nOtherwise APPROVED.\nOutput ONLY JSON: {\"verdict\":\"APPROVED\",\"confidence\":0.96,\"reason_code\":\"BIO_COMMIT_READY\"}"
+  },
+
+  "sde_grounding": {
+    "lambda_c":         1.0,
+    "phi_separatrix":   0.6180339887,
+    "interpretation":   "Gemma's PRE_ORCHESTRATE verdict maps to the martingale precondition check. If bio_state indicates sigma^2 >= 2*alpha (collapse condition), the pipeline is the wrong action. Gemma detects this at the biological layer before any Claude API calls are made.",
+    "tier":             "T2"
+  }
+}

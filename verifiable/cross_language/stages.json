@@ -1,0 +1,240 @@
+{
+  "expected": {
+    "stage_hashes": [
+      "7ac5f184131e0bb09c8d29ea38951ecbdff563f4afd26f337646f99294f47195",
+      "f75f544dbaca43713030d4e59ef077c7cccec3af9eea9f3faead6532cb2e014e",
+      "88de9a257f1c957182d3bf5656d7319a918666a2188886489e13b606b1709e46",
+      "c2ac43faa6896b490175d69c65d8f4c824a9d338a0b864c6933d978db91c1de0",
+      "f8cb0093b9b7447cc44d7386f1305f427dc7eb887a23407f9b67522b8f5db8f1"
+    ],
+    "terminal": "f8cb0093b9b7447cc44d7386f1305f427dc7eb887a23407f9b67522b8f5db8f1"
+  },
+  "stages": [
+    {
+      "output": {
+        "length": 16,
+        "reference": "ACGTACGTACGTACGT"
+      },
+      "stage": "REFERENCE_LOAD"
+    },
+    {
+      "output": {
+        "aligned_reads": [
+          [
+            0,
+            "ACGTT"
+          ],
+          [
+            2,
+            "GTACG"
+          ],
+          [
+            3,
+            "TACGT"
+          ],
+          [
+            4,
+            "ATGTA"
+          ],
+          [
+            5,
+            "CGTAC"
+          ],
+          [
+            5,
+            "TGTAC"
+          ],
+          [
+            9,
+            "CGTAC"
+          ]
+        ],
+        "count": 7
+      },
+      "stage": "ALIGN"
+    },
+    {
+      "output": {
+        "pileup": [
+          [
+            0,
+            "A",
+            [
+              [
+                "A",
+                1
+              ]
+            ]
+          ],
+          [
+            1,
+            "C",
+            [
+              [
+                "C",
+                1
+              ]
+            ]
+          ],
+          [
+            2,
+            "G",
+            [
+              [
+                "G",
+                2
+              ]
+            ]
+          ],
+          [
+            3,
+            "T",
+            [
+              [
+                "T",
+                3
+              ]
+            ]
+          ],
+          [
+            4,
+            "A",
+            [
+              [
+                "A",
+                3
+              ],
+              [
+                "T",
+                1
+              ]
+            ]
+          ],
+          [
+            5,
+            "C",
+            [
+              [
+                "C",
+                3
+              ],
+              [
+                "T",
+                2
+              ]
+            ]
+          ],
+          [
+            6,
+            "G",
+            [
+              [
+                "G",
+                5
+              ]
+            ]
+          ],
+          [
+            7,
+            "T",
+            [
+              [
+                "T",
+                4
+              ]
+            ]
+          ],
+          [
+            8,
+            "A",
+            [
+              [
+                "A",
+                3
+              ]
+            ]
+          ],
+          [
+            9,
+            "C",
+            [
+              [
+                "C",
+                3
+              ]
+            ]
+          ],
+          [
+            10,
+            "G",
+            [
+              [
+                "G",
+                1
+              ]
+            ]
+          ],
+          [
+            11,
+            "T",
+            [
+              [
+                "T",
+                1
+              ]
+            ]
+          ],
+          [
+            12,
+            "A",
+            [
+              [
+                "A",
+                1
+              ]
+            ]
+          ],
+          [
+            13,
+            "C",
+            [
+              [
+                "C",
+                1
+              ]
+            ]
+          ]
+        ]
+      },
+      "stage": "PILEUP"
+    },
+    {
+      "output": {
+        "n_variants": 1,
+        "variants": [
+          [
+            5,
+            "C",
+            "T",
+            2
+          ]
+        ]
+      },
+      "stage": "VARIANT_CALL"
+    },
+    {
+      "output": {
+        "annotated_variants": [
+          [
+            5,
+            "C",
+            "T",
+            2,
+            "uncertain_significance"
+          ]
+        ]
+      },
+      "stage": "ANNOTATE"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "cockpit-server",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.54.0",
+    "@anthropic-ai/vertex-sdk": "^0.7.0",
+    "express": "^4.22.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.0.0",
+    "typescript": "~6.0.2"
+  },
+  "overrides": {
+    "uuid": ">=11.1.1"
+  }
+}

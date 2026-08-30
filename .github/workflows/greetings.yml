@@ -1,0 +1,33 @@
+name: First Interaction
+
+on: [pull_request_target, issues]
+
+jobs:
+  greet:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            Thank you for opening an issue against AEGIS-Ω.
+
+            Note: changes to `sovereign-omega-v2/python/gate.py`, `dna.py`, or `router.py`
+            require a `/guardian APPROVED` verdict — those files are constitutionally frozen.
+            The `frozen-files` workflow will block any PR that modifies them without the
+            correct SHA-256 hash.
+          pr-message: |
+            Thank you for contributing to AEGIS-Ω.
+
+            The Constitutional Automaton CI runs automatically. All jobs must reach
+            1/φ quorum (≥ 61.8 % green) before merging is permitted.
+
+            Critical invariants:
+            - `AdaptivePower(T) ≤ ReplayVerifiability(T)` must hold
+            - No `Date.now()` except in `sovereign-omega-v2/src/event/uuid.ts`
+            - No `JSON.stringify` for integrity — use `canonicalizeJCS`
+            - No `HashMap` in Rust — `BTreeMap`/`BTreeSet` only
+            - Constitutional frozen files must not be modified without `/guardian APPROVED`

@@ -1,0 +1,16 @@
+# Gate 206 — Constitutional Hypervisor (standalone crate)
+# Adds the crate root that lets src/hypervisor/ compile and be tested.
+# Standalone [package] (no [workspace]): the other Rust crates
+# (aegis-cl-psi, aegis-runtime, crates/*, packages/kernel) keep their own
+# manifests and are unaffected.
+[package]
+name = "aegis-hypervisor"
+version = "0.1.0"
+edition = "2021"
+description = "Gate 206 Constitutional Hypervisor — server-managed constraint enforcement for mesh nodes"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+serde_json = "1"

@@ -1,0 +1,126 @@
+# ============================================================
+# SOVEREIGN OMEGA — Agent Orchestration Manifest
+# Epistemic Tier: T2
+# Defines the bounded authority, capability class, and
+# semantic scope of each agent in the AEGIS ecosystem.
+# ============================================================
+
+version: "1.0"
+company: sovereign-omega-aegis
+runtime: sovereign-omega-v2
+spec_version: "2.0"
+last_updated: "2026-05-17"
+
+# ─── Alliance Definition ───────────────────────────────────
+
+alliance:
+  coordinator: claude
+  adversarial_auditor: chatgpt
+  implementer: qwen
+  guardian_authority: operator  # Tarik Skalić — unconditional veto over constitutional files
+
+# ─── Agent Declarations ────────────────────────────────────
+
+agents:
+
+  - id: claude
+    role: coordinator
+    capability_class: ORCHESTRATION
+    k_bound: 0              # coordinator does not directly modify T0 files
+    epistemic_tier_ceiling: T2
+    authority:
+      can_read:
+        - "**/*"
+      can_write:
+        - "src/**"
+        - "test/**"
+        - "docs/**"
+        - "paperclip/**"
+        - ".claude/**"
+      cannot_write_without_guardian:
+        - "sovereign-omega-v2/python/gate.py"
+        - "sovereign-omega-v2/python/dna.py"
+        - "sovereign-omega-v2/python/router.py"
+        - "sovereign-omega-v2/ARTIFACT_REGISTRY.md"
+        - "sovereign-omega-v2/docs/SOVEREIGN_OMEGA_INTEGRATED_SPEC_v2.md"
+      gate_sequence_required: true
+      may_invoke_subagents: true
+      subagent_scope_binding: strict   # subagents inherit no more authority than this agent
+
+  - id: qwen
+    role: implementer
+    capability_class: INFERENCE
+    k_bound: 5              # may propose up to K=5 complexity-unit modifications per gate epoch
+    epistemic_tier_ceiling: T1
+    authority:
+      can_read:
+        - "src/**"
+        - "test/**"
+        - "docs/**"
+      can_write:
+        - "src/**"
+        - "test/**"
+      cannot_write_without_guardian:
+        - "sovereign-omega-v2/python/gate.py"
+        - "sovereign-omega-v2/python/dna.py"
+        - "sovereign-omega-v2/python/router.py"
+      gate_sequence_required: true
+      may_invoke_subagents: false
+      prohibited_actions:
+        - "speculative physics vocabulary in T0-T2 files"
+        - "autonomous agent mythology"
+        - "runtime authority escalation"
+        - "weakening test assertions"
+        - "proceeding past a failed gate"
+
+  - id: chatgpt
+    role: adversarial_auditor
+    capability_class: SCHEMA_ONLY  # advisory read-only — never modifies codebase
+    k_bound: 0
+    epistemic_tier_ceiling: T2
+    authority:
+      can_read:
+        - "**/*"
+      can_write: []          # no write authority — audit only
+      audit_temperature: 0.99
+      audit_scope:
+        - architectural correctness
+        - guarantee inflation detection
+        - tier boundary violations
+        - invariant consistency
+        - statistical bound validity
+
+  - id: operator
+    role: guardian
+    capability_class: SELF_MODIFYING   # unconditional authority
+    k_bound: null                      # unbounded — operator is the constitutional authority
+    epistemic_tier_ceiling: T5
+    authority:
+      can_write: ["**/*"]
+      guardian_approval_required_from_others: true
+      veto_authority: absolute
+
+# ─── Escalation Protocol ───────────────────────────────────
+
+escalation:
+  tier_violation:
+    handler: guardian
+    action: HALT_AND_REPORT
+  frozen_file_write:
+    handler: guardian
+    action: VETO_AND_BLOCK
+  gate_failure:
+    handler: coordinator
+    action: HALT_DO_NOT_PROCEED
+  k_bound_exceeded:
+    handler: coordinator
+    action: REJECT_MODIFICATION
+
+# ─── Subagent Scope Binding ────────────────────────────────
+
+subagent_rules:
+  - no subagent may write to files outside its declared semantic scope
+  - no subagent may escalate its own authority
+  - all subagent outputs carry the lineage of their delegating agent
+  - subagent results are advisory until the coordinator incorporates them
+  - contradiction detection is mandatory before accepting subagent synthesis

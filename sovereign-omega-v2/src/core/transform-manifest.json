@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Sovereign Omega Transform Manifest",
+  "description": "Registry of all schema versions and their transform functions. Loaded at startup to validate version pin integrity.",
+  "version": "1.0.0",
+  "transforms": [
+    {
+      "schema_id": "event-envelope",
+      "version": "1.0.0",
+      "hash": "sha256-placeholder-replace-at-build",
+      "fields_required": [
+        "event_id", "stream_id", "event_type", "timestamp_ms",
+        "sequence", "producer_id", "producer_version",
+        "payload_schema_version", "payload", "prev_hash",
+        "self_hash", "retention_class"
+      ]
+    },
+    {
+      "schema_id": "gate-decision",
+      "version": "1.0.0",
+      "hash": "sha256-placeholder-replace-at-build",
+      "fields_required": [
+        "proposal_id", "component_id", "lcb_value", "e_value",
+        "delta_metric", "sample_size", "accepted",
+        "risk_spent", "budget_remaining", "freeze_triggered", "method"
+      ]
+    },
+    {
+      "schema_id": "vcg-metric",
+      "version": "1.0.0",
+      "hash": "sha256-placeholder-replace-at-build",
+      "fields_required": [
+        "domain_id", "weighted_error", "bootstrap_ci_95",
+        "effective_sample_size", "decay_factor", "sample_count",
+        "epoch_start_ms"
+      ]
+    },
+    {
+      "schema_id": "decision-schema",
+      "version": "1.0.0",
+      "hash": "sha256-placeholder-replace-at-build",
+      "fields_required": [
+        "score", "strengths", "risks", "positioning",
+        "actions", "confidence", "audit_trace_id",
+        "vcg_at_emission", "schema_version"
+      ]
+    }
+  ],
+  "migration_chains": [],
+  "sealed": false,
+  "_note": "Replace sha256-placeholder values at build time using scripts/verify-canonicalization.ts"
+}

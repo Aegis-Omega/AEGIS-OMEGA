@@ -1,0 +1,13 @@
+[package]
+name = "constitutional-substrate"
+version = "1.0.0"
+edition = "2021"
+description = "Constitutional execution substrate — deterministic replay-verifiable enforcement primitives"
+license = "MIT"
+
+# Constitutional minimalism: zero external runtime dependencies.
+# Cryptographic hashing (SHA-256) is the integration boundary — supplied by callers
+# via ChainHasher trait. The substrate stores and chains hashes; it does not compute them.
+[dependencies]
+
+[dev-dependencies]

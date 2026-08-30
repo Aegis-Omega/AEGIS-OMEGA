@@ -1,0 +1,128 @@
+name: Deploy to Cloud Run
+
+on:
+  # Auto-deploy to Cloud Run DISABLED to stop GCP billing. Manual-only; re-enable
+  # by restoring the `push: branches: [main]` trigger.
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: aegisomegav1
+  REGION: europe-west3
+
+jobs:
+  deploy-hub:
+    name: Deploy Hub (aegisomega.com)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Build and push
+        run: |
+          gcloud builds submit \
+            --config hub/cloudbuild.yaml \
+            --project=$PROJECT_ID .
+
+  deploy-platform:
+    name: Deploy Platform Picker (platform.aegisomega.com)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Build and push
+        run: |
+          gcloud builds submit \
+            --config platform-picker/cloudbuild.yaml \
+            --substitutions=_DASHSCOPE_API_KEY=${{ secrets.DASHSCOPE_API_KEY }} \
+            --project=$PROJECT_ID .
+
+  deploy-hooks:
+    name: Deploy Hook Generator (hooks.aegisomega.com)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Build and push
+        run: |
+          gcloud builds submit \
+            --config hook-generator/cloudbuild.yaml \
+            --substitutions=_DASHSCOPE_API_KEY=${{ secrets.DASHSCOPE_API_KEY }} \
+            --project=$PROJECT_ID .
+
+  deploy-calendar:
+    name: Deploy Content Calendar (calendar.aegisomega.com)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Build and push
+        run: |
+          gcloud builds submit \
+            --config content-calendar/cloudbuild.yaml \
+            --substitutions=_DASHSCOPE_API_KEY=${{ secrets.DASHSCOPE_API_KEY }} \
+            --project=$PROJECT_ID .
+
+  deploy-cockpit:
+    name: Deploy Cockpit (cockpit.aegisomega.com)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Build and push
+        run: |
+          gcloud builds submit \
+            --config cockpit/cloudbuild.yaml \
+            --project=$PROJECT_ID .
+
+  deploy-bridge:
+    name: Deploy Bridge (aegis-vertex.aegisomega.com)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Build and push
+        run: |
+          gcloud builds submit \
+            --config sovereign-omega-v2/cloudbuild.yaml \
+            --project=$PROJECT_ID .

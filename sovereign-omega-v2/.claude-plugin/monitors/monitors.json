@@ -1,0 +1,26 @@
+[
+  {
+    "name": "bridge-telemetry",
+    "description": "Python bridge health — t0_verdict, corruption_count, PGCS/TGCS status",
+    "command": "while true; do result=$(curl -sf http://localhost:${user_config.bridge_port}/health 2>/dev/null); if [ -n \"$result\" ]; then echo \"$result\" | python3 -c \"import sys,json; d=json.load(sys.stdin); t=d.get('t0_verdict','?'); c=d.get('corruption_count','?'); print(f'BRIDGE t0={t} corruption={c}')\" 2>/dev/null || echo \"BRIDGE parse error\"; else echo \"BRIDGE offline\"; fi; sleep 10; done",
+    "when": "on-skill-invoke:morning-audit"
+  },
+  {
+    "name": "frozen-file-watch",
+    "description": "Frozen constitutional file integrity — gate.py · dna.py · router.py",
+    "command": "while true; do result=$(cd \"${CLAUDE_PROJECT_DIR}\" && node scripts/verify-hashes.mjs 2>&1); if echo \"$result\" | grep -q 'VIOLATION\\|Error\\|error'; then echo \"FROZEN FILE VIOLATION: $result\"; else echo \"HASHES OK\"; fi; sleep 60; done",
+    "when": "always"
+  },
+  {
+    "name": "test-drift",
+    "description": "Uncommitted src/ changes that have not passed Gate 8",
+    "command": "while true; do dirty=$(git -C \"${CLAUDE_PROJECT_DIR}\" diff --name-only HEAD -- 'src/*.ts' 'src/**/*.ts' 2>/dev/null | head -5); if [ -n \"$dirty\" ]; then count=$(echo \"$dirty\" | wc -l | tr -d ' '); echo \"UNCOMMITTED SRC: $count file(s) — $(echo $dirty | tr '\\n' ' ')\"; fi; sleep 30; done",
+    "when": "on-skill-invoke:branch-coverage"
+  },
+  {
+    "name": "lsp-diagnostics",
+    "description": "TypeScript compilation errors surfaced in real time during src/ edits",
+    "command": "cd \"${CLAUDE_PROJECT_DIR}\" && npx tsc --watch --noEmit --pretty false 2>&1 | grep -E 'error TS|warning TS' | while read line; do echo \"TSC: $line\"; done",
+    "when": "on-skill-invoke:tdd"
+  }
+]

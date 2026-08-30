@@ -1,0 +1,15 @@
+{
+  "name": "aegis-ccil-verifier",
+  "version": "5.0.0",
+  "private": true,
+  "description": "AEGIS CCIL v5 cross-language Ed25519 signed-record verifier",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "./test_cross_verify.sh"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.4.1"
+  }
+}

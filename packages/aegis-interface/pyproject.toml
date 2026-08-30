@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegis-interface"
+version = "1.0.0"
+description = "RFC 0001 Stage 1 — deterministic WIT -> IR -> {Rust,TypeScript,Python} interface compiler with a CI equivalence gate"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+aegis-interface = "aegis_interface.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["aegis_interface*"]

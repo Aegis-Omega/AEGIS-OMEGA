@@ -1,0 +1,53 @@
+company:
+  name: Sovereign Omega
+  mission: >
+    Build, validate, and deploy the governance-constrained AI runtime as
+    regulated infrastructure for high-auditability decision workflows.
+  board_approval_required_for:
+    - hiring new agents
+    - K-bound expansions
+    - budget resets
+    - frozen file modifications
+    - tier migration above T2
+
+goals:
+  - id: goal-1
+    title: Complete TypeScript governance runtime
+    description: >
+      Implement all eight build gates in the TypeScript sovereign-runtime package.
+      Gate 8 must pass (npm test, typecheck, build) before deployment.
+    success_metric: npm run test exits 0, vercel deploy succeeds
+    tier: T0
+
+  - id: goal-2
+    title: Validate Python core matrix on AMD RX 570
+    description: >
+      Run the 12-hour multi-hop stress test. PGCS disk I/O = 0,
+      epoch failsafe corruption count = 0, drift index D = 0.
+    success_metric: python tests/stress_test.py exits 0
+    tier: T0
+
+  - id: goal-3
+    title: Launch Track B commercial products
+    description: >
+      Deploy Platform Picker and decision-compression tools at $19 via
+      Gumroad + Vercel. Zero backend. Buyer pays API via DashScope.
+    success_metric: first paying customer
+    tier: T2
+
+budgets:
+  guardian:
+    monthly_usd: 10
+    token_budget: 50000
+    auto_pause_at_fraction: 1.0
+
+  implementer:
+    monthly_usd: 80
+    token_budget: 400000
+    auto_pause_at_fraction: 0.9
+    soft_warning_at_fraction: 0.8
+
+  verifier:
+    monthly_usd: 30
+    token_budget: 150000
+    auto_pause_at_fraction: 1.0

@@ -1,0 +1,160 @@
+# ============================================================
+# SOVEREIGN OMEGA — Agent Orchestration Configuration
+# Governs resource allocation, execution limits, and agent
+# behaviour for Claude Code and compatible coding agents.
+# ============================================================
+
+agent:
+  name: sovereign-omega-builder
+  version: "1.0.0"
+  role: deterministic_implementation
+  instruction_files:
+    - AGENTS.md
+    - CLAUDE.md
+    - docs/SOVEREIGN_OMEGA_IMPL_BRIEF_Qwen.md
+
+# ─── Authorization Gates ─────────────────────────────────────
+# Each gate must pass before the agent proceeds to the next phase.
+# The agent must not skip gates or proceed on partial pass.
+authorization:
+  gate_enforcement: strict          # halt on any gate failure
+  frozen_file_protection: true      # reject writes to FROZEN files
+  dynamic_injection_prevention: true  # reject new operator registrations at runtime
+  require_env_check: true           # verify .env exists before phase 2
+
+# ─── Execution Phases ────────────────────────────────────────
+# The agent executes phases in order. No phase may begin before
+# the previous phase completes successfully.
+phases:
+  - id: setup
+    name: Environment Setup
+    commands:
+      - npm install
+      - cp .env.example .env  # if .env does not exist
+    success_condition: node_modules exists, .env populated
+    halt_on_failure: true
+
+  - id: gate_1
+    name: RFC 8785 Canonicalization
+    commands:
+      - npm run test -- --reporter=verbose test/unit/jcs.test.ts
+    success_condition: all test vectors pass
+    halt_on_failure: true
+
+  - id: gate_2
+    name: Event Store and Sequence Allocator
+    commands:
+      - npm run test -- test/unit/sequence.test.ts
+    success_condition: atomic commit verified, collision rejection verified
+    halt_on_failure: true
+
+  - id: gate_3
+    name: Immutability Infrastructure
+    commands:
+      - npm run test -- test/unit/immutable.test.ts
+    success_condition: zero reference leakage, all states frozen
+    halt_on_failure: true
+
+  - id: gate_4
+    name: Projection State and Reducers
+    commands:
+      - npm run test -- test/unit/reducer.test.ts
+    success_condition: pure function behaviour confirmed
+    halt_on_failure: true
+
+  - id: gate_5
+    name: VCG Calibration Tracker
+    commands:
+      - npm run test -- test/unit/vcg.test.ts
+    success_condition: deterministic CI, correct trust partitioning
+    halt_on_failure: true
+
+  - id: gate_6
+    name: Confidence Sequence and Risk Budget
+    commands:
+      - npm run test -- test/unit/gate.test.ts
+    success_condition: Bernstein bounds valid, budget enforcement correct
+    halt_on_failure: true
+
+  - id: gate_7
+    name: Pipeline Integration
+    commands:
+      - npm run test -- test/integration/replay.test.ts test/integration/pipeline.test.ts
+    success_condition: byte-identical DecisionSchema across replay runs
+    halt_on_failure: true
+
+  - id: gate_8
+    name: Full Test Suite and Build (Deployment Gate)
+    commands:
+      - npm run test
+      - npm run typecheck
+      - npm run build
+    success_condition: all tests pass, zero type errors, build exits 0
+    halt_on_failure: true
+
+  - id: deploy
+    name: Vercel Deployment
+    commands:
+      - node scripts/verify-canonicalization.ts
+      - vercel --prod
+    success_condition: deployment URL returned, health check passes
+    halt_on_failure: true
+    requires_human_approval: false
+
+# ─── Compute Limits ──────────────────────────────────────────
+# Logistic growth bound on sub-agent threads (maps to K in E4 gate).
+# N(t) = K / (1 + ((K - N0) / N0) * exp(-r * t))
+# where K = carrying_capacity, N0 = initial_agents, r = branching_rate
+compute:
+  carrying_capacity: 4          # maximum concurrent agent threads
+  initial_agents: 1
+  branching_rate: 0.5
+  max_tool_calls_per_phase: 50
+  max_file_writes_per_session: 100
+  timeout_per_phase_ms: 300000  # 5 minutes per phase
+
+# ─── Memory and Context ──────────────────────────────────────
+# The agent maintains context through the event substrate (E3).
+# No external vector store is required for the build phase.
+# Long-horizon context is maintained via the frozen specification.
+memory:
+  primary_context: docs/SOVEREIGN_OMEGA_INTEGRATED_SPEC_v2.md
+  secondary_context: docs/SOVEREIGN_OMEGA_IMPL_BRIEF_Qwen.md
+  project_memory: CLAUDE.md
+  artifact_registry: ARTIFACT_REGISTRY.md
+  context_window_strategy: specification_first
+  blank_slate_prevention: true   # always reload spec on session start
+
+# ─── Silent Execution Mode ───────────────────────────────────
+# The agent completes each gate without requiring UI acknowledgment.
+# Output is written directly to files and test results.
+execution:
+  mode: gate_sequential
+  notification_on_gate_pass: false
+  notification_on_gate_fail: true   # always notify on failure
+  write_gate_log: true
+  gate_log_path: .sovereign-build-log.json
+
+# ─── Frozen File Protection ──────────────────────────────────
+# These files must not be modified without /guardian APPROVED.
+frozen_files:
+  - gate.py
+  - dna.py
+  - router.py
+  - docs/SOVEREIGN_OMEGA_INTEGRATED_SPEC_v2.md
+
+# ─── Epistemic Tier Enforcement ──────────────────────────────
+# The agent must not introduce T4/T5 concepts into T0-T2 code.
+# Flag any proposed change that would violate tier boundaries.
+epistemic_tiers:
+  enforcement: flag_and_halt
+  tier_map:
+    src/core: T0
+    src/event: T0
+    src/verifier: T0-T1
+    src/calibration: T1
+    src/gate: T0
+    src/projection: T0-T2
+    src/pipeline: T2
+    src/compliance: T0
+    test: T0

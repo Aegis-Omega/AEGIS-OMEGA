@@ -1,0 +1,20 @@
+name: Constitutional Integrity
+on:
+  push:
+    paths:
+      - 'sovereign-omega-v2/python/gate.py'
+      - 'sovereign-omega-v2/python/dna.py'
+      - 'sovereign-omega-v2/python/router.py'
+
+jobs:
+  verify-hashes:
+    name: Frozen File Verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: cd sovereign-omega-v2 && npm ci --ignore-scripts
+      - name: Verify constitutional file hashes
+        run: cd sovereign-omega-v2 && node scripts/verify-hashes.mjs

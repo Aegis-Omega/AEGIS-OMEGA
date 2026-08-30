@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AEGIS-Ω Audit Log Entry",
+  "description": "EU AI Act Article 12 compliant audit log schema for CL-Ψ inference steps",
+  "type": "object",
+  "required": ["step", "event_type", "chain_hash", "risk_tier", "timestamp_seq"],
+  "properties": {
+    "step": { "type": "integer", "minimum": 0 },
+    "event_type": { "type": "string" },
+    "chain_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "risk_tier": { "type": "string", "enum": ["Limited", "High", "Critical", "Degraded"] },
+    "timestamp_seq": { "type": "integer", "description": "Sequence number from event substrate — not wall-clock time" },
+    "lyapunov_stable": { "type": "boolean" },
+    "obstruction_class": { "type": "string" }
+  }
+}

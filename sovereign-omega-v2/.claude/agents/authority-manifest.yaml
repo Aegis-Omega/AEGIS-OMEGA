@@ -1,0 +1,139 @@
+# ============================================================
+# SOVEREIGN OMEGA — Agent Authority Manifest
+# Epistemic Tier: T2
+# Machine-readable authority boundaries for all agents.
+# Supplements the narrative descriptions in guardian.md,
+# implementer.md, and verifier.md with structured scope.
+# ============================================================
+
+version: "1.0"
+schema: "agent-authority-manifest-v1"
+
+agents:
+
+  claude:
+    role: coordinator
+    capability_class: ORCHESTRATION
+    k_bound: 0
+    epistemic_scope:
+      max_tier_writable: T2
+      may_write_T0: true       # with gate sequence compliance
+      may_write_T1: true
+      may_write_T2: true
+      may_write_T3: false      # docs/research only — no implementation
+      may_write_T4: false
+      may_write_T5: false
+    semantic_authority:
+      sovereign_omega_v2:
+        src: read_write
+        test: read_write
+        docs: read_write
+        python: read_write_non_constitutional
+        scripts: read_write
+      monorepo_root:
+        paperclip: read_write
+        docs: read_write
+        platform_picker: read_write
+        hook_generator: read_write
+        content_calendar: read_write
+        hub: read_write
+        cockpit: read_write
+        packages: read_write
+    constitutional_restrictions:
+      - "python/gate.py — FROZEN — guardian approval required"
+      - "python/dna.py — FROZEN — guardian approval required"
+      - "python/router.py — FROZEN — guardian approval required"
+      - "ARTIFACT_REGISTRY.md — FROZEN — guardian approval required"
+      - "docs/SOVEREIGN_OMEGA_INTEGRATED_SPEC_v2.md — FROZEN"
+    gate_compliance: required
+    may_invoke_subagents: true
+    subagent_types_permitted:
+      - Explore
+      - claude-code-guide
+      - general-purpose
+      - Plan
+
+  qwen:
+    role: implementer
+    capability_class: INFERENCE
+    k_bound: 5
+    epistemic_scope:
+      max_tier_writable: T1
+      may_write_T0: true       # strictly gate-sequence compliant
+      may_write_T1: true
+      may_write_T2: false      # requires coordinator approval
+      may_write_T3: false
+      may_write_T4: false
+      may_write_T5: false
+    semantic_authority:
+      sovereign_omega_v2:
+        src: read_write
+        test: read_write
+        docs: read_only
+        python: read_write_non_constitutional
+    prohibited_actions:
+      - speculative_physics_in_implementation
+      - autonomous_authority_escalation
+      - weakening_test_assertions
+      - proceeding_past_failed_gate
+      - t4_t5_vocabulary_in_t0_t2_files
+    gate_compliance: required
+    may_invoke_subagents: false
+
+  chatgpt:
+    role: adversarial_auditor
+    capability_class: SCHEMA_ONLY
+    k_bound: 0
+    epistemic_scope:
+      max_tier_writable: null   # no write authority
+    semantic_authority:
+      all_paths: read_only
+    audit_parameters:
+      temperature: 0.99
+      scope:
+        - architectural_correctness
+        - guarantee_inflation
+        - tier_boundary_violations
+        - invariant_consistency
+        - statistical_bound_validity
+    may_invoke_subagents: false
+    write_authority: none
+
+  operator:
+    role: guardian
+    capability_class: SELF_MODIFYING
+    k_bound: unlimited
+    epistemic_scope:
+      max_tier_writable: T5    # unconditional
+    semantic_authority:
+      all_paths: read_write
+    constitutional_authority: absolute
+    veto_authority: absolute
+    guardian_approval_requests: receives_all
+
+# ─── Contradiction Escalation Routing ─────────────────────
+
+contradiction_escalation:
+  tier_boundary_violation:
+    detected_by: [claude, guardian_hook, tier-check.sh]
+    escalate_to: operator
+    action: HALT_AND_REPORT
+  frozen_file_access:
+    detected_by: [block-frozen-writes.sh]
+    escalate_to: operator
+    action: BLOCK_WRITE
+  semantic_ancestry_conflict:
+    detected_by: [claude]
+    escalate_to: operator
+    action: FLAG_AND_PAUSE
+  gate_failure:
+    detected_by: [claude, verifier]
+    escalate_to: claude_coordinator
+    action: HALT_DO_NOT_PROCEED
+
+# ─── Replay Safety ─────────────────────────────────────────
+
+replay_safety:
+  all_subagent_outputs: lineage_bound   # carry delegating agent's stream_id
+  authority_inheritance: non_escalating  # subagents receive subset of parent authority
+  contradiction_detection: mandatory_before_synthesis
