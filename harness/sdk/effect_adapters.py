@@ -230,6 +230,8 @@ class FilesystemEffectAdapter:
                     if not stat_module.S_ISDIR(root_stat.st_mode):
                         raise EffectAdapterError("EFFECT_ALLOWED_ROOT_UNAVAILABLE")
                 except (FileNotFoundError, NotADirectoryError, PermissionError, OSError) as exc:
+                    if root_fd is not None:
+                        _close_fd_safely(root_fd)
                     raise EffectAdapterError("EFFECT_ALLOWED_ROOT_UNAVAILABLE") from exc
                 except Exception:
                     if root_fd is not None:
