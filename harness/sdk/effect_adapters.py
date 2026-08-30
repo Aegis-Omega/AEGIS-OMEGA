@@ -77,7 +77,9 @@ def _close_fd_safely(fd: int) -> None:
     try:
         os.close(fd)
     except OSError:
-        pass
+        # Best-effort cleanup: fd may already be closed/invalid after prior teardown.
+        # Close failures are intentionally ignored in this helper.
+        return
 
 
 @dataclass(frozen=True)
