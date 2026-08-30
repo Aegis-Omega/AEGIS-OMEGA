@@ -4,11 +4,11 @@ This module verifies one deliberately narrow constitutional statement:
 refining an epistemic/observational partition may improve resolution, but the
 refinement cannot widen the previously admitted effect scope.
 
-A VALID receipt is non-expansion evidence only.  It never authorizes execution,
-verifies an external effect, or admits a mutation.  Those transitions remain the
+A VALID receipt is non-expansion evidence only. It never authorizes execution,
+verifies an external effect, or admits a mutation. Those transitions remain the
 responsibility of the independently validated authorization/effect chain.
 
-The kernel is intentionally domain-agnostic.  Deductive closures, spectral
+The kernel is intentionally domain-agnostic. Deductive closures, spectral
 cluster refinements, observer partitions, memory updates, and other epistemic
 systems can instantiate the same contract without gaining authority merely by
 being more informative.
@@ -25,6 +25,7 @@ from typing import Any
 
 _CANONICALIZATION = "AEGIS_CANONICAL_JSON_V1"
 _SPEC_DOMAIN = "AEGIS_FIBER_REFINEMENT_SPEC_V1"
+_REJECTED_SPEC_DOMAIN = "AEGIS_FIBER_REFINEMENT_REJECTED_SPEC_V1"
 _RECEIPT_DOMAIN = "AEGIS_FIBER_REFINEMENT_RECEIPT_V1"
 _SHA256_RE = re.compile(r"sha256:[0-9a-f]{64}\Z")
 
@@ -38,9 +39,9 @@ class FiberRefinementVerdict(str, Enum):
 class FiberRefinementSpec:
     """Immutable proposal for refining observational fibers.
 
-    ``refined_parent`` is an explicit child -> base-cell map.  A valid proposal
+    ``refined_parent`` is an explicit child -> base-cell map. A valid proposal
     must cover every base cell and every child must map to exactly one known
-    parent.  Effect scopes are sets because ordering has no authority meaning.
+    parent. Effect scopes are sets because ordering has no authority meaning.
     """
 
     base_cells: tuple[str, ...]
@@ -87,12 +88,7 @@ def _digest(domain: str, value: Any) -> str:
 
 
 def _normalized_spec_payload(spec: FiberRefinementSpec) -> dict[str, Any]:
-    """Canonical semantic projection used for stable identity.
-
-    Sorting removes presentation-order differences but deliberately does not
-    deduplicate malformed inputs: duplicate cells/mappings remain represented
-    in the digest and are rejected by validation.
-    """
+    """Canonical semantic projection used only after strict runtime validation."""
 
     return {
         "schema_version": "1.0.0",
@@ -104,38 +100,70 @@ def _normalized_spec_payload(spec: FiberRefinementSpec) -> dict[str, Any]:
     }
 
 
-def _is_nonempty_string(value: object) -> bool:
-    return isinstance(value, str) and bool(value.strip())
+def _rejected_spec_payload(reasons: tuple[str, ...]) -> dict[str, Any]:
+    """Safe rejection-class projection for malformed runtime inputs.
+
+    Malformed containers are deliberately not iterated, sorted, repr'd, or
+    serialized. The resulting digest identifies the rejection class, not the
+    attacker-controlled malformed object. INVALID receipts carry no authority,
+    so this avoids executing hostile iterator/repr behavior before validation.
+    """
+
+    return {
+        "schema_version": "1.0.0",
+        "validation_status": "INVALID_PRE_NORMALIZATION",
+        "reason_codes": list(reasons),
+    }
+
+
+def _is_nonempty_builtin_string(value: object) -> bool:
+    return type(value) is str and bool(value.strip())
 
 
 def _validate(spec: FiberRefinementSpec) -> tuple[str, ...]:
+    """Validate exact builtin runtime shapes before any unsafe normalization.
+
+    ``type(...) is ...`` is intentional. Subclasses can override iteration,
+    hashing, comparison, or string methods; an authority boundary must not run
+    those behaviors merely to decide that an input is malformed.
+    """
+
     reasons: list[str] = []
 
-    if not isinstance(spec.base_cells, tuple) or not spec.base_cells:
+    base_cells = spec.base_cells
+    if type(base_cells) is not tuple:
         reasons.append("EMPTY_OR_MALFORMED_BASE_PARTITION")
+        safe_base_cells: tuple[str, ...] = ()
+    else:
+        if not base_cells:
+            reasons.append("EMPTY_OR_MALFORMED_BASE_PARTITION")
+        malformed_base = any(not _is_nonempty_builtin_string(cell) for cell in base_cells)
+        if malformed_base:
+            reasons.append("MALFORMED_BASE_CELL")
+            safe_base_cells = tuple(
+                cell for cell in base_cells if _is_nonempty_builtin_string(cell)
+            )
+        else:
+            safe_base_cells = base_cells
+            if len(base_cells) != len(set(base_cells)):
+                reasons.append("DUPLICATE_BASE_CELL")
 
-    malformed_base = any(not _is_nonempty_string(cell) for cell in spec.base_cells)
-    if malformed_base:
-        reasons.append("MALFORMED_BASE_CELL")
-
-    if len(spec.base_cells) != len(set(spec.base_cells)):
-        reasons.append("DUPLICATE_BASE_CELL")
-
-    if not isinstance(spec.refined_parent, tuple):
+    refined_parent = spec.refined_parent
+    if type(refined_parent) is not tuple:
         reasons.append("MALFORMED_REFINEMENT_MAP")
         refined_pairs: tuple[tuple[str, str], ...] = ()
     else:
-        refined_pairs = spec.refined_parent
+        refined_pairs = refined_parent
 
     malformed_pair = False
     child_ids: list[str] = []
     parent_ids: list[str] = []
     for pair in refined_pairs:
         if (
-            not isinstance(pair, tuple)
+            type(pair) is not tuple
             or len(pair) != 2
-            or not _is_nonempty_string(pair[0])
-            or not _is_nonempty_string(pair[1])
+            or not _is_nonempty_builtin_string(pair[0])
+            or not _is_nonempty_builtin_string(pair[1])
         ):
             malformed_pair = True
             continue
@@ -148,9 +176,7 @@ def _validate(spec: FiberRefinementSpec) -> tuple[str, ...]:
     if len(child_ids) != len(set(child_ids)):
         reasons.append("DUPLICATE_REFINED_CELL")
 
-    known_base = {
-        cell for cell in spec.base_cells if isinstance(cell, str) and cell.strip()
-    }
+    known_base = set(safe_base_cells)
     if any(parent not in known_base for parent in parent_ids):
         reasons.append("UNKNOWN_PARENT_CELL")
 
@@ -158,44 +184,53 @@ def _validate(spec: FiberRefinementSpec) -> tuple[str, ...]:
     if known_base and covered_base != known_base:
         reasons.append("BASE_CELL_WITHOUT_REFINED_CHILD")
 
-    scopes_are_sets = isinstance(spec.base_effect_scope, frozenset) and isinstance(
-        spec.refined_effect_scope, frozenset
-    )
-    if not scopes_are_sets:
+    base_scope = spec.base_effect_scope
+    refined_scope = spec.refined_effect_scope
+    scopes_are_exact_sets = type(base_scope) is frozenset and type(refined_scope) is frozenset
+    if not scopes_are_exact_sets:
         reasons.append("MALFORMED_EFFECT_SCOPE")
     else:
-        if any(not _is_nonempty_string(scope) for scope in spec.base_effect_scope):
+        malformed_scope = any(
+            not _is_nonempty_builtin_string(scope)
+            for scope in base_scope
+        ) or any(
+            not _is_nonempty_builtin_string(scope)
+            for scope in refined_scope
+        )
+        if malformed_scope:
             reasons.append("MALFORMED_EFFECT_SCOPE")
-        if any(not _is_nonempty_string(scope) for scope in spec.refined_effect_scope):
-            reasons.append("MALFORMED_EFFECT_SCOPE")
-        if not spec.refined_effect_scope.issubset(spec.base_effect_scope):
+        elif not refined_scope.issubset(base_scope):
             reasons.append("EFFECT_SCOPE_EXPANSION")
 
-    if not isinstance(spec.context_digest, str) or not _SHA256_RE.fullmatch(
-        spec.context_digest
-    ):
+    context_digest = spec.context_digest
+    if type(context_digest) is not str or _SHA256_RE.fullmatch(context_digest) is None:
         reasons.append("MALFORMED_CONTEXT_DIGEST")
 
-    # Preserve first-occurrence priority while making repeated structural errors
-    # collapse to one stable reason code.
+    # Preserve first-occurrence priority while collapsing repeated structural
+    # failures to one stable reason code.
     return tuple(dict.fromkeys(reasons))
 
 
 def evaluate_fiber_refinement(spec: FiberRefinementSpec) -> FiberRefinementReceipt:
-    """Verify partition refinement and effect-scope non-expansion.
+    """Verify partition refinement and effect-scope non-expansion fail closed.
 
-    The result is evidence about a proposed refinement only.  Even a VALID
-    receipt cannot mint execution, effect, or atomic-admission authority.
+    Validation runs before canonicalization. Malformed runtime values therefore
+    cannot trigger comparison, hashing, iteration, repr, or JSON serialization
+    through the normalization path. The result is evidence about a proposed
+    refinement only; even VALID cannot mint execution/effect/admission authority.
     """
 
-    spec_payload = _normalized_spec_payload(spec)
-    spec_digest = _digest(_SPEC_DOMAIN, spec_payload)
-    reasons = _validate(spec)
-    verdict = (
-        FiberRefinementVerdict.VALID
-        if not reasons
-        else FiberRefinementVerdict.INVALID
-    )
+    if type(spec) is not FiberRefinementSpec:
+        reasons = ("MALFORMED_SPEC_TYPE",)
+        spec_digest = _digest(_REJECTED_SPEC_DOMAIN, _rejected_spec_payload(reasons))
+    else:
+        reasons = _validate(spec)
+        if reasons:
+            spec_digest = _digest(_REJECTED_SPEC_DOMAIN, _rejected_spec_payload(reasons))
+        else:
+            spec_digest = _digest(_SPEC_DOMAIN, _normalized_spec_payload(spec))
+
+    verdict = FiberRefinementVerdict.VALID if not reasons else FiberRefinementVerdict.INVALID
     certifies_non_expansion = verdict is FiberRefinementVerdict.VALID
 
     receipt_statement = {
