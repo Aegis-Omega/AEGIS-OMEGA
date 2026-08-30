@@ -7,8 +7,11 @@ import numpy as np
 from harness.sdk.weil_spectral_inertia_probe import (
     SpectralProbeConfig,
     WeilSpectralInertiaProbe,
+    build_scale_controls,
     generalized_inertia,
+    run_convergence_matrix,
     truncated_liouville_control,
+    verify_reference_fixture,
 )
 
 
@@ -109,3 +112,67 @@ def test_liouville_control_is_explicitly_truncated_not_claimed_exact() -> None:
     assert control["label"] == "TRUNCATED_LIOUVILLE_APPROXIMATION"
     assert control["is_exact_liouville_number"] is False
     assert 0.0 < control["value"] < 1.0
+
+
+def test_scale_controls_do_not_label_finite_decimal_as_liouville_number() -> None:
+    controls = build_scale_controls()
+
+    assert set(controls) == {"uniform", "phi", "sqrt2", "sqrt3", "e", "pi", "liouville_trunc4"}
+    assert controls["phi"] == (1.0 + math.sqrt(5.0)) / 2.0
+    assert controls["liouville_trunc4"] == truncated_liouville_control(4)["value"]
+
+
+def test_convergence_matrix_is_t1_and_makes_no_liminf_claim() -> None:
+    configs = {
+        "coarse": SpectralProbeConfig(
+            tau=2.0,
+            p_cutoff=50,
+            k_basis_dim=3,
+            n_quad=512,
+            t_bound=30.0,
+        ),
+        "refined_quad": SpectralProbeConfig(
+            tau=2.0,
+            p_cutoff=50,
+            k_basis_dim=3,
+            n_quad=1024,
+            t_bound=30.0,
+        ),
+    }
+    result = run_convergence_matrix(configs, scale_factor=(1.0 + math.sqrt(5.0)) / 2.0)
+
+    assert result["authority"] == "T1_NUMERICAL_DIAGNOSTIC"
+    assert result["liminf_proven"] is False
+    assert set(result["cases"]) == {"coarse", "refined_quad"}
+    assert all(case["rh_proven"] is False for case in result["cases"].values())
+
+
+def test_reference_fixture_requires_integer_inertia_and_lambda_interval_match() -> None:
+    observed = {
+        "authority": "T1_NUMERICAL_DIAGNOSTIC",
+        "global_weil_positivity_proven": False,
+        "rh_proven": False,
+        "results": {
+            "uniform": {"nu_minus": 1, "lambda_min": -2.0},
+            "phi": {"nu_minus": 3, "lambda_min": -1.25},
+        },
+    }
+    fixture = {
+        "schema_version": "1.0.0",
+        "authority": "T1_NUMERICAL_DIAGNOSTIC",
+        "expected": {
+            "uniform": {"nu_minus": 1, "lambda_min_interval": [-2.0001, -1.9999]},
+            "phi": {"nu_minus": 3, "lambda_min_interval": [-1.2501, -1.2499]},
+        },
+    }
+
+    verdict = verify_reference_fixture(observed, fixture)
+    assert verdict["reproduced"] is True
+    assert verdict["authority"] == "T1_NUMERICAL_DIAGNOSTIC"
+    assert verdict["global_weil_positivity_proven"] is False
+    assert verdict["rh_proven"] is False
+
+    fixture["expected"]["phi"]["nu_minus"] = 2
+    mismatch = verify_reference_fixture(observed, fixture)
+    assert mismatch["reproduced"] is False
+    assert "phi:NU_MINUS_MISMATCH" in mismatch["errors"]
