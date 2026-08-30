@@ -33,11 +33,17 @@ del _name, _value
 from harness.sdk.closed_loop_epistemic_actuation import (
     CAPABILITY_BOOST_ONLY,
     LEARNING_EFFECT_ESTABLISHED,
+    ComputeReceiptV1,
+    ComputeUsageV1,
+    EvidenceAcquisitionReceiptV1,
+    EvidenceAcquisitionV1,
     LearningInterventionV1,
     LearningReceiptV1,
     ObservationEvidenceV1,
     ObservationTransformV1,
     evaluate_learning_effect,
+    record_compute_effect,
+    verify_evidence_acquisition,
     verify_observation_effect,
 )
 from harness.sdk.sovereign_execution import canonical_hash
@@ -141,6 +147,122 @@ class ResidentRuntime(_impl.ResidentRuntime):
         )
         return extended, None
 
+    def _update_epistemic_counters(self, deltas: dict[str, int]) -> None:
+        connection = self.store._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            for key, delta in deltas.items():
+                connection.execute(
+                    """
+                    INSERT INTO self_model(key, value) VALUES (?, ?)
+                    ON CONFLICT(key) DO UPDATE SET value = value + excluded.value
+                    """,
+                    (key, delta),
+                )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    def record_compute_usage(self, usage: ComputeUsageV1) -> ComputeReceiptV1:
+        """Persist compute/capability evidence without converting it to learning."""
+        receipt = record_compute_effect(usage)
+        receipts_dir = self.state_root / "compute-receipts"
+        receipts_dir.mkdir(parents=True, exist_ok=True)
+        path = receipts_dir / f"{receipt.root}.json"
+        payload = {
+            "schema_version": "1.0.0",
+            "usage": asdict(usage),
+            "receipt": asdict(receipt),
+            "receipt_root": receipt.root,
+            "authority": _impl.EVIDENCE_ONLY,
+            "non_claims": [
+                "NO_LEARNING_AUTHORITY",
+                "NO_EXECUTION_AUTHORITY",
+                "NO_EFFECT_AUTHORITY",
+                "NO_ATOMIC_ADMISSION_AUTHORITY",
+            ],
+        }
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        if path.exists():
+            if path.read_text(encoding="utf-8") != encoded:
+                raise _impl.ResidentRuntimeError("COMPUTE_RECEIPT_COLLISION")
+        else:
+            temporary = receipts_dir / f".{receipt.root}.tmp"
+            temporary.write_text(encoded, encoding="utf-8")
+            os.replace(temporary, path)
+
+        self.store.append(
+            event_id=f"compute-{receipt.root[:24]}",
+            event_kind="COMPUTE_EFFECT_RECORDED",
+            payload={
+                "compute_action_id": usage.compute_action_id,
+                "receipt_root": receipt.root,
+                "status": receipt.status,
+                "learning_established": False,
+                "authority": _impl.EVIDENCE_ONLY,
+            },
+        )
+        self._update_epistemic_counters(
+            {
+                "compute_receipts": 1,
+                "learning_evaluations": 0,
+            }
+        )
+        return receipt
+
+    def record_evidence_acquisition(
+        self,
+        acquisition: EvidenceAcquisitionV1,
+    ) -> EvidenceAcquisitionReceiptV1:
+        """Persist independently verified evidence acquisition without authority."""
+        receipt = verify_evidence_acquisition(acquisition)
+        receipts_dir = self.state_root / "evidence-acquisition-receipts"
+        receipts_dir.mkdir(parents=True, exist_ok=True)
+        path = receipts_dir / f"{receipt.root}.json"
+        payload = {
+            "schema_version": "1.0.0",
+            "acquisition": asdict(acquisition),
+            "receipt": asdict(receipt),
+            "receipt_root": receipt.root,
+            "authority": _impl.EVIDENCE_ONLY,
+            "non_claims": [
+                "NO_LEARNING_AUTHORITY",
+                "NO_EXECUTION_AUTHORITY",
+                "NO_EFFECT_AUTHORITY",
+                "NO_ATOMIC_ADMISSION_AUTHORITY",
+            ],
+        }
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        if path.exists():
+            if path.read_text(encoding="utf-8") != encoded:
+                raise _impl.ResidentRuntimeError("EVIDENCE_ACQUISITION_RECEIPT_COLLISION")
+        else:
+            temporary = receipts_dir / f".{receipt.root}.tmp"
+            temporary.write_text(encoded, encoding="utf-8")
+            os.replace(temporary, path)
+
+        self.store.append(
+            event_id=f"evidence-{receipt.root[:24]}",
+            event_kind="EVIDENCE_ACQUISITION_EVALUATED",
+            payload={
+                "acquisition_id": acquisition.acquisition_id,
+                "receipt_root": receipt.root,
+                "status": receipt.status,
+                "evidence_established": receipt.evidence_established,
+                "authority": _impl.EVIDENCE_ONLY,
+            },
+        )
+        self._update_epistemic_counters(
+            {
+                "evidence_acquisition_receipts": 1,
+                "learning_evaluations": 0,
+            }
+        )
+        return receipt
+
     def evaluate_learning_intervention(
         self,
         intervention: LearningInterventionV1,
@@ -198,28 +320,13 @@ class ResidentRuntime(_impl.ResidentRuntime):
             },
         )
 
-        deltas = {
-            "learning_evaluations": 1,
-            "learning_established": int(receipt.status == LEARNING_EFFECT_ESTABLISHED),
-            "capability_boost_only": int(receipt.status == CAPABILITY_BOOST_ONLY),
-        }
-        connection = self.store._connect()
-        try:
-            connection.execute("BEGIN IMMEDIATE")
-            for key, delta in deltas.items():
-                connection.execute(
-                    """
-                    INSERT INTO self_model(key, value) VALUES (?, ?)
-                    ON CONFLICT(key) DO UPDATE SET value = value + excluded.value
-                    """,
-                    (key, delta),
-                )
-            connection.commit()
-        except Exception:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
+        self._update_epistemic_counters(
+            {
+                "learning_evaluations": 1,
+                "learning_established": int(receipt.status == LEARNING_EFFECT_ESTABLISHED),
+                "capability_boost_only": int(receipt.status == CAPABILITY_BOOST_ONLY),
+            }
+        )
         return receipt
 
     def _finalize(
