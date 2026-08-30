@@ -225,3 +225,15 @@ def test_machine_readable_rh_ledger_matches_fail_closed_default():
     assert result["verdict"] == "RH_NOT_PROVEN"
     assert result["gate_status"] == "FAIL_CLOSED"
     assert "W8_DensityContinuityCoverage" in result["open_obligations"]
+
+
+def test_syntactically_valid_receipt_cannot_self_mint_formal_authority():
+    receipt = ProofKernelReceiptV1(
+        exact_head="1" * 40,
+        source_sha256="2" * 64,
+        kind="PROOF_KERNEL_RECEIPT_V1",
+        axiom_free=True,
+        closed_under_global_context=True,
+    )
+    with pytest.raises(ValueError, match="EXTERNAL_PROOF_KERNEL_VERIFICATION_REQUIRED"):
+        verify_proof_kernel_receipt(receipt)
