@@ -31,16 +31,14 @@ from scripts.generate_provenance_census import (
 )
 
 
-def _formal_receipt(seed: int):
+def _raw_formal_receipt(seed: int) -> ProofKernelReceiptV1:
     nibble = format(seed % 16, "x")
-    return verify_proof_kernel_receipt(
-        ProofKernelReceiptV1(
-            exact_head=nibble * 40,
-            source_sha256=nibble * 64,
-            kind="PROOF_KERNEL_RECEIPT_V1",
-            axiom_free=True,
-            closed_under_global_context=True,
-        )
+    return ProofKernelReceiptV1(
+        exact_head=nibble * 40,
+        source_sha256=nibble * 64,
+        kind="PROOF_KERNEL_RECEIPT_V1",
+        axiom_free=True,
+        closed_under_global_context=True,
     )
 
 
@@ -127,30 +125,20 @@ def test_direct_formal_obligation_without_verified_receipt_is_rejected():
         RHObligationLedger(tuple(obligations))
 
 
-def test_final_closure_requires_every_obligation_formally_verified_with_receipts():
+def test_public_api_cannot_fabricate_positive_rh_closure():
     ledger = RHObligationLedger()
     for index, obligation in enumerate(DEFAULT_OBLIGATIONS, start=1):
-        ledger = ledger.with_state(
-            obligation.obligation_id,
-            ObligationState.FORMALLY_VERIFIED,
-            authority_note="test-only proof-kernel fixture",
-            formal_receipt=_formal_receipt(index),
-        )
-    result = ledger.verify_final_closure()
-    assert result["verdict"] == "RH_PROVEN_FORMALLY"
-    assert result["gate_status"] == "ADMITTED"
-
-
-def test_dependency_violation_fails_closed_even_with_verified_receipt():
-    ledger = RHObligationLedger().with_state(
-        "W10_FinalRiemannHypothesis",
-        ObligationState.FORMALLY_VERIFIED,
-        authority_note="adversarial dependency fixture",
-        formal_receipt=_formal_receipt(15),
-    )
+        with pytest.raises(ValueError, match="EXTERNAL_PROOF_KERNEL_VERIFICATION_REQUIRED"):
+            verify_proof_kernel_receipt(_raw_formal_receipt(index))
+        with pytest.raises(ValueError, match="verified formal receipt"):
+            ledger.with_state(
+                obligation.obligation_id,
+                ObligationState.FORMALLY_VERIFIED,
+                authority_note="self-minted fixture must not promote",
+            )
     result = ledger.verify_final_closure()
     assert result["verdict"] == "RH_NOT_PROVEN"
-    assert result["dependency_violations"]
+    assert result["gate_status"] == "FAIL_CLOSED"
 
 
 def test_census_keeps_original_150_head_snapshot_separate_from_classified_post_baseline_refs():
