@@ -143,9 +143,9 @@ jobs:
               fi
             }
 
-            # O0DependencyProbe imports Coquelicot; install the exact dependency
-            # before compiling the complete formal inventory.
-            opam install -y coq-coquelicot.3.4.2 || exit 1
+            # Exact dependencies required by the complete formal inventory.
+            opam install -y coq-coquelicot.3.4.2 coq-corn.9.0.0 || exit 1
+            test "$(opam var coq-corn:version | tr -d '[:space:]')" = '9.0.0' || exit 1
 
             for rel in \
               'Core/Event.v' \
@@ -157,6 +157,7 @@ jobs:
               'Weil/FiniteBridge.v' \
               'Weil/FiniteEntryDictionary.v' \
               'Weil/FinitePrimeDiagonal.v' \
+              'Weil/PrimeTrigConstructive.v' \
               'Weil/O0TrustProbeReals.v' \
               'Weil/O0TrustProbeFunction.v' \
               'Weil/O0TrustProbeCompact.v' \
@@ -229,6 +230,7 @@ jobs:
               'Weil/FiniteBridge.v',
               'Weil/FiniteEntryDictionary.v',
               'Weil/FinitePrimeDiagonal.v',
+              'Weil/PrimeTrigConstructive.v',
               'Weil/O0TrustProbeConstructive.v',
               'Weil/AnalyticDefinitions.v',
               'Weil/O0ProductionConstructiveProbe.v',
