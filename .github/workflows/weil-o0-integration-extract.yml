@@ -70,7 +70,12 @@ jobs:
           ocaml_version: 'default'
           custom_script: |
             set -euo pipefail
-            cd sovereign-omega-v2/formal/theories/Weil
+            work=/tmp/aegis-weil-o0-extract
+            rm -rf "$work"
+            mkdir -p "$work"
+            cp sovereign-omega-v2/formal/theories/Weil/AnalyticDefinitions.v "$work/AnalyticDefinitions.v"
+            cp sovereign-omega-v2/formal/theories/Weil/Globalization.v "$work/Globalization.v"
+            cd "$work"
             coqc AnalyticDefinitions.v
             coqc Globalization.v
             for theorem in \
