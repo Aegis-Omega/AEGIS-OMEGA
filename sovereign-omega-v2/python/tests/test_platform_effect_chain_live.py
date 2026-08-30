@@ -221,6 +221,20 @@ class LivePlatformEffectChainTests(TestCase):
         self.assertEqual(0, self.fixture.redirect_target_count)
         self.assertIsNone(self.fixture.redirect_target_api_key)
 
+    def test_adapter_scope_excludes_transport_secret_without_weakening_handle_issuance(self) -> None:
+        bridge_url = f"http://127.0.0.1:{self.server.server_address[1]}"
+        first = PlatformExecutionEffectAdapter(bridge_url=bridge_url, api_key="first-secret")
+        rotated = PlatformExecutionEffectAdapter(bridge_url=bridge_url, api_key="rotated-secret")
+        other_scope = PlatformExecutionEffectAdapter(bridge_url="https://example.invalid", api_key="first-secret")
+
+        self.assertEqual(first._scope_commitment(), rotated._scope_commitment())
+        self.assertNotEqual(first._scope_commitment(), other_scope._scope_commitment())
+
+        transition, _ = self.transition_and_decision()
+        handle = first.prepare_observation(transition=transition, execution_id=EXECUTION_ID)
+        with self.assertRaisesRegex(EffectAdapterError, "EFFECT_OBSERVATION_HANDLE_UNISSUED"):
+            rotated.artifact_provenance(handle=handle)
+
     def test_post_acceptance_without_observed_record_cannot_create_effect_or_complete_receipt(self) -> None:
         self.fixture.materialize_on_post = False
 
