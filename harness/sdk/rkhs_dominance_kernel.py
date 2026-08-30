@@ -1,18 +1,14 @@
-"""Exact finite RKHS dominance certificate kernel for the RH research lane.
+"""Exact finite RKHS certificate kernels for the RH research lane.
 
-This is a selective algebraic extraction of the certificate pattern used by
-PR #303's exact-rational LDL^T verifier.  It verifies only the finite statement
+This module contains two deliberately finite algebraic verifiers:
 
-    K_positive - K_negative = L D L^T,   D_i >= 0
+1. finite RKHS dominance via an exact rational LDL^T certificate; and
+2. finite-section same-span congruence via exact rational verification of
+   ``M' = S^T M S`` and ``G' = S^T G S`` with invertible ``S``.
 
-and therefore certifies finite-matrix dominance on the supplied coordinates.
-It deliberately does *not* identify either matrix with the prime-power or
-Archimedean pieces of the classical Weil functional.  A semantic binding hash
-is a commitment, not theorem authority.
-
-Consequently:
-
-    finite RKHS dominance != global Weil positivity != RH.
+Neither verifier identifies a supplied finite matrix with the classical Weil
+functional.  Consequently, finite dominance or finite congruence cannot mint
+continuous/global Weil positivity or RH authority.
 """
 from __future__ import annotations
 
@@ -28,6 +24,8 @@ SOURCE_EXACT_LDLT_GIT_BLOB = "2885b23d14f857fbcb7aa358ef0183a095482ba9"
 DERIVATION = "SELECTIVE_ALGEBRAIC_EXTRACTION_FROM_PR303_EXACT_LDLT_PATTERN"
 PROOF_SEMANTICS = "FINITE_RKHS_MATRIX_DOMINANCE_ONLY"
 RECEIPT_KIND = "AEGIS_FINITE_RKHS_DOMINANCE_RECEIPT_V1"
+CONGRUENCE_PROOF_SEMANTICS = "FINITE_SAME_SPAN_CONGRUENCE_ONLY"
+CONGRUENCE_RECEIPT_KIND = "AEGIS_FINITE_SECTION_CONGRUENCE_RECEIPT_V1"
 MAX_MATRIX_DIMENSION = 256
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -132,6 +130,11 @@ class _LowerWrapper:
 
 
 @dataclass(frozen=True)
+class _TransitionWrapper:
+    rows: tuple[tuple[ExactRationalV1, ...], ...]
+
+
+@dataclass(frozen=True)
 class FiniteRKHSDominanceReceiptV1:
     receipt_kind: str
     proof_semantics: str
@@ -157,6 +160,87 @@ class FiniteRKHSDominanceReceiptV1:
     @property
     def receipt_root(self) -> str:
         return canonical_hash("AEGIS_FINITE_RKHS_DOMINANCE_RECEIPT_ROOT_V1", asdict(self))
+
+
+@dataclass(frozen=True)
+class FiniteSectionCongruenceCertificateV1:
+    """Exact coordinate-equivalence claim for two finite quadratic problems.
+
+    The columns of ``transition`` express the target basis in source-basis
+    coordinates. Therefore a valid same-span claim must satisfy both
+    ``target_form = S^T source_form S`` and
+    ``target_gram = S^T source_gram S`` with ``det(S) != 0``.
+    """
+
+    source_form: ExactSymmetricMatrixV1
+    target_form: ExactSymmetricMatrixV1
+    source_gram: ExactSymmetricMatrixV1
+    target_gram: ExactSymmetricMatrixV1
+    transition: tuple[tuple[ExactRationalV1, ...], ...]
+    source_section_root: str
+    target_section_root: str
+    proof_semantics: str = CONGRUENCE_PROOF_SEMANTICS
+
+    def __post_init__(self) -> None:
+        if self.proof_semantics != CONGRUENCE_PROOF_SEMANTICS:
+            raise RKHSDominanceError("CONGRUENCE_PROOF_SEMANTICS_MISMATCH")
+        n = self.source_form.dimension
+        if any(
+            matrix.dimension != n
+            for matrix in (self.target_form, self.source_gram, self.target_gram)
+        ):
+            raise RKHSDominanceError("CONGRUENCE_MATRIX_DIMENSION_MISMATCH")
+        if len(self.transition) != n or any(len(row) != n for row in self.transition):
+            raise RKHSDominanceError("TRANSITION_SHAPE_INVALID")
+        if not isinstance(self.source_section_root, str) or SHA256_RE.fullmatch(self.source_section_root) is None:
+            raise RKHSDominanceError("SOURCE_SECTION_ROOT_INVALID")
+        if not isinstance(self.target_section_root, str) or SHA256_RE.fullmatch(self.target_section_root) is None:
+            raise RKHSDominanceError("TARGET_SECTION_ROOT_INVALID")
+
+    @property
+    def root(self) -> str:
+        return canonical_hash(
+            "AEGIS_FINITE_SECTION_CONGRUENCE_CERTIFICATE_ROOT_V1",
+            {
+                "source_form_root": self.source_form.root,
+                "target_form_root": self.target_form.root,
+                "source_gram_root": self.source_gram.root,
+                "target_gram_root": self.target_gram.root,
+                "transition": asdict(_TransitionWrapper(self.transition))["rows"],
+                "source_section_root": self.source_section_root,
+                "target_section_root": self.target_section_root,
+                "proof_semantics": self.proof_semantics,
+            },
+        )
+
+
+@dataclass(frozen=True)
+class FiniteSectionCongruenceReceiptV1:
+    receipt_kind: str
+    proof_semantics: str
+    certificate_root: str
+    source_form_root: str
+    target_form_root: str
+    source_gram_root: str
+    target_gram_root: str
+    source_section_root: str
+    target_section_root: str
+    valid: bool
+    status: str
+    transition_invertible: bool
+    form_congruence_verified: bool
+    gram_congruence_verified: bool
+    same_span_congruence_verified: bool
+    inertia_must_match: bool
+    concrete_weil_semantics_verified: bool
+    global_weil_positivity_proven: bool
+    rh_proven: bool
+    errors: tuple[str, ...]
+    open_obligations: tuple[str, ...]
+
+    @property
+    def receipt_root(self) -> str:
+        return canonical_hash("AEGIS_FINITE_SECTION_CONGRUENCE_RECEIPT_ROOT_V1", asdict(self))
 
 
 def _canonical_lower(lower: tuple[tuple[ExactRationalV1, ...], ...]) -> bool:
@@ -187,6 +271,55 @@ def _reconstructed_entry(certificate: FiniteRKHSDominanceCertificateV1, i: int, 
             * certificate.lower[j][k].fraction
         )
     return total
+
+
+def _exact_determinant(rows: tuple[tuple[ExactRationalV1, ...], ...]) -> Fraction:
+    """Compute a square matrix determinant exactly over Q."""
+    work = [[entry.fraction for entry in row] for row in rows]
+    n = len(work)
+    det = Fraction(1, 1)
+    sign = 1
+    for col in range(n):
+        pivot = next((row for row in range(col, n) if work[row][col] != 0), None)
+        if pivot is None:
+            return Fraction(0, 1)
+        if pivot != col:
+            work[col], work[pivot] = work[pivot], work[col]
+            sign = -sign
+        pivot_value = work[col][col]
+        det *= pivot_value
+        for row in range(col + 1, n):
+            if work[row][col] == 0:
+                continue
+            factor = work[row][col] / pivot_value
+            work[row][col] = Fraction(0, 1)
+            for k in range(col + 1, n):
+                work[row][k] -= factor * work[col][k]
+    return det if sign > 0 else -det
+
+
+def _congruence_matches(
+    source: ExactSymmetricMatrixV1,
+    target: ExactSymmetricMatrixV1,
+    transition: tuple[tuple[ExactRationalV1, ...], ...],
+) -> bool:
+    """Check target = S^T source S exactly over Q."""
+    n = source.dimension
+    for i in range(n):
+        for j in range(n):
+            total = Fraction(0, 1)
+            for left in range(n):
+                s_left = transition[left][i].fraction
+                if s_left == 0:
+                    continue
+                for right in range(n):
+                    s_right = transition[right][j].fraction
+                    if s_right == 0:
+                        continue
+                    total += s_left * source.rows[left][right].fraction * s_right
+            if total != target.rows[i][j].fraction:
+                return False
+    return True
 
 
 def verify_finite_rkhs_dominance(
@@ -241,5 +374,63 @@ def verify_finite_rkhs_dominance(
             "FINITE_RKHS_DOMINANCE_DOES_NOT_ESTABLISH_CONTINUOUS_POSITIVITY",
             "DENSITY_CONTINUITY_COVERAGE_REMAINS_OPEN",
             "CONCRETE_WEIL_CRITERION_REMAINS_OPEN",
+        ),
+    )
+
+
+def verify_finite_section_congruence(
+    certificate: FiniteSectionCongruenceCertificateV1,
+) -> FiniteSectionCongruenceReceiptV1:
+    """Verify exact same-span coordinate congruence without semantic promotion."""
+    errors: list[str] = []
+    transition_invertible = _exact_determinant(certificate.transition) != 0
+    if not transition_invertible:
+        errors.append("TRANSITION_SINGULAR")
+
+    form_ok = _congruence_matches(
+        certificate.source_form,
+        certificate.target_form,
+        certificate.transition,
+    )
+    if not form_ok:
+        errors.append("FORM_CONGRUENCE_MISMATCH")
+
+    gram_ok = _congruence_matches(
+        certificate.source_gram,
+        certificate.target_gram,
+        certificate.transition,
+    )
+    if not gram_ok:
+        errors.append("GRAM_CONGRUENCE_MISMATCH")
+
+    same_span = transition_invertible and form_ok and gram_ok
+    valid = same_span and not errors
+
+    return FiniteSectionCongruenceReceiptV1(
+        receipt_kind=CONGRUENCE_RECEIPT_KIND,
+        proof_semantics=CONGRUENCE_PROOF_SEMANTICS,
+        certificate_root=certificate.root,
+        source_form_root=certificate.source_form.root,
+        target_form_root=certificate.target_form.root,
+        source_gram_root=certificate.source_gram.root,
+        target_gram_root=certificate.target_gram.root,
+        source_section_root=certificate.source_section_root,
+        target_section_root=certificate.target_section_root,
+        valid=valid,
+        status="SAME_SPAN_CONGRUENCE_VERIFIED" if valid else "REJECTED",
+        transition_invertible=transition_invertible,
+        form_congruence_verified=form_ok,
+        gram_congruence_verified=gram_ok,
+        same_span_congruence_verified=same_span,
+        inertia_must_match=same_span,
+        concrete_weil_semantics_verified=False,
+        global_weil_positivity_proven=False,
+        rh_proven=False,
+        errors=tuple(sorted(set(errors))),
+        open_obligations=(
+            "FINITE_CONGRUENCE_DOES_NOT_BIND_SECTION_TO_CLASSICAL_WEIL_FORM",
+            "FINITE_SECTION_CONVERGENCE_REMAINS_OPEN",
+            "GLOBAL_WEIL_POSITIVITY_REMAINS_OPEN",
+            "RH_REMAINS_NOT_PROVEN",
         ),
     )
