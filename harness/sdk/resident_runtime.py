@@ -32,7 +32,9 @@ del _name, _value
 
 from harness.sdk.closed_loop_epistemic_actuation import (
     CAPABILITY_BOOST_ONLY,
+    EVIDENCE_ACQUISITION_UNESTABLISHED,
     LEARNING_EFFECT_ESTABLISHED,
+    LEARNING_EFFECT_UNESTABLISHED,
     ComputeReceiptV1,
     ComputeUsageV1,
     EvidenceAcquisitionReceiptV1,
@@ -43,7 +45,6 @@ from harness.sdk.closed_loop_epistemic_actuation import (
     ObservationTransformV1,
     evaluate_learning_effect,
     record_compute_effect,
-    verify_evidence_acquisition,
     verify_observation_effect,
 )
 from harness.sdk.sovereign_execution import canonical_hash
@@ -217,8 +218,20 @@ class ResidentRuntime(_impl.ResidentRuntime):
         self,
         acquisition: EvidenceAcquisitionV1,
     ) -> EvidenceAcquisitionReceiptV1:
-        """Persist independently verified evidence acquisition without authority."""
-        receipt = verify_evidence_acquisition(acquisition)
+        """Persist legacy V1 acquisition only as fail-closed migration evidence."""
+        acquisition.validate()
+        receipt = EvidenceAcquisitionReceiptV1(
+            status=EVIDENCE_ACQUISITION_UNESTABLISHED,
+            acquisition_id=acquisition.acquisition_id,
+            observation_receipt_root=acquisition.observation_receipt_root,
+            source_kind=acquisition.source_kind,
+            provenance_roots=acquisition.provenance_roots,
+            replay_receipt_root=acquisition.replay_receipt_root,
+            independent_verifier_count=0,
+            evidence_established=False,
+            reason_codes=("LEGACY_SELF_ASSERTED_VERIFICATION_REJECTED",),
+        )
+        receipt.validate()
         receipts_dir = self.state_root / "evidence-acquisition-receipts"
         receipts_dir.mkdir(parents=True, exist_ok=True)
         path = receipts_dir / f"{receipt.root}.json"
@@ -233,6 +246,7 @@ class ResidentRuntime(_impl.ResidentRuntime):
                 "NO_EXECUTION_AUTHORITY",
                 "NO_EFFECT_AUTHORITY",
                 "NO_ATOMIC_ADMISSION_AUTHORITY",
+                "NO_VERIFIED_EVIDENCE_FROM_SELF_ASSERTED_V1_FLAGS",
             ],
         }
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
@@ -269,16 +283,22 @@ class ResidentRuntime(_impl.ResidentRuntime):
         *,
         minimum_effect_bps: int = 100,
     ) -> LearningReceiptV1:
-        """Evaluate and persist a durable-learning claim as evidence only.
-
-        This method evaluates supplied matched-control evidence. It does not
-        perform the adaptation, mutate durable learning state, dereference the
-        replay SHA, or grant execution/effect/admission authority.
-        """
+        """Evaluate legacy V1 learning evidence without trusting its opaque replay hash."""
         receipt = evaluate_learning_effect(
             intervention,
             minimum_effect_bps=minimum_effect_bps,
         )
+        if (
+            intervention.mechanism_class != "COMPUTE_ONLY"
+            and receipt.status == LEARNING_EFFECT_ESTABLISHED
+        ):
+            receipt = replace(
+                receipt,
+                status=LEARNING_EFFECT_UNESTABLISHED,
+                learning_established=False,
+                reason_codes=("LEGACY_UNDEREFERENCED_REPLAY_HASH_REJECTED",),
+            )
+            receipt.validate()
 
         receipts_dir = self.state_root / "learning-receipts"
         receipts_dir.mkdir(parents=True, exist_ok=True)
@@ -294,6 +314,7 @@ class ResidentRuntime(_impl.ResidentRuntime):
                 "NO_EFFECT_AUTHORITY",
                 "NO_ATOMIC_ADMISSION_AUTHORITY",
                 "NO_LEARNING_CLAIM_FROM_IMMEDIATE_OUTPUT_GAIN_ALONE",
+                "NO_LEARNING_FROM_UNDEREFERENCED_REPLAY_HASH",
             ],
         }
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
