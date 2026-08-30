@@ -12,13 +12,15 @@ Key safeguards:
   tiny regularizing eigenvalue in the removed direction;
 * inertia comparisons on the same span use the Gram metric;
 * Diophantine control values are labelled conservatively;
+* convergence sweeps are finite diagnostics and never assert an infinite liminf;
+* reference replay requires exact inertia counts plus bounded eigenvalue windows;
 * every emitted receipt is numerical diagnostic evidence only.
 """
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 import math
-from typing import Mapping
+from typing import Any, Mapping
 
 import numpy as np
 import scipy.linalg as la
@@ -245,7 +247,7 @@ class WeilSpectralInertiaProbe:
         return {
             "schema_version": "1.0.0",
             "authority": T1_AUTHORITY,
-            "method": "FLOAT64_GENERALIZED_EIGENPROBLEM_WITH_EXACT_NULLSPACE_CONSTRAINT_IN_COORDINATES",
+            "method": "FLOAT64_GENERALIZED_EIGENPROBLEM_WITH_NULLSPACE_MOMENT_CONSTRAINT",
             "config": asdict(self.config),
             "prime_power_count": self.prime_power_count,
             "results": results,
@@ -278,4 +280,148 @@ def truncated_liouville_control(terms: int = 4) -> dict[str, object]:
         "value": float(value),
         "is_exact_liouville_number": False,
         "authority": T1_AUTHORITY,
+    }
+
+
+def build_scale_controls() -> dict[str, float]:
+    """Return the fixed specificity-control family used by the φ probe.
+
+    The last entry is a *finite truncation* of Liouville's constant and carries
+    no claim about the Diophantine class of its machine representation.
+    """
+
+    return {
+        "uniform": 1.0,
+        "phi": (1.0 + math.sqrt(5.0)) / 2.0,
+        "sqrt2": math.sqrt(2.0),
+        "sqrt3": math.sqrt(3.0),
+        "e": math.e,
+        "pi": math.pi,
+        "liouville_trunc4": float(truncated_liouville_control(4)["value"]),
+    }
+
+
+def run_convergence_matrix(
+    configs: Mapping[str, SpectralProbeConfig],
+    *,
+    scale_factor: float,
+) -> dict[str, object]:
+    """Run a finite convergence matrix without inferring an infinite limit.
+
+    This is a diagnostic matrix over explicitly supplied finite configurations.
+    Stability across these rows may motivate analysis, but never establishes a
+    liminf, global positivity, or RH.
+    """
+
+    if not configs:
+        raise ValueError("at least one convergence configuration is required")
+    if not math.isfinite(scale_factor) or scale_factor <= 0.0:
+        raise ValueError("scale_factor must be finite and positive")
+
+    cases: dict[str, dict[str, object]] = {}
+    for label, config in configs.items():
+        if not isinstance(label, str) or not label:
+            raise ValueError("convergence labels must be non-empty strings")
+        if not isinstance(config, SpectralProbeConfig):
+            raise TypeError("each convergence case must use SpectralProbeConfig")
+        result = WeilSpectralInertiaProbe(config).solve_generalized_inertia(scale_factor)
+        cases[label] = {
+            "config": asdict(config),
+            "scale": float(scale_factor),
+            **result.to_dict(),
+            "authority": T1_AUTHORITY,
+            "global_weil_positivity_proven": False,
+            "rh_proven": False,
+        }
+
+    return {
+        "schema_version": "1.0.0",
+        "authority": T1_AUTHORITY,
+        "scale": float(scale_factor),
+        "cases": cases,
+        "liminf_proven": False,
+        "global_weil_positivity_proven": False,
+        "rh_proven": False,
+        "interpretation": "FINITE_CONVERGENCE_DIAGNOSTIC_ONLY",
+    }
+
+
+def verify_reference_fixture(
+    observed: Mapping[str, Any],
+    fixture: Mapping[str, Any],
+) -> dict[str, object]:
+    """Verify a bounded T1 replay fixture without converting it into proof authority.
+
+    Inertia counts are discrete and must match exactly.  ``lambda_min`` is a
+    floating-point quantity and is therefore checked against a committed closed
+    interval rather than by byte/hash equality.
+    """
+
+    errors: list[str] = []
+    if observed.get("authority") != T1_AUTHORITY:
+        errors.append("OBSERVED_AUTHORITY_MISMATCH")
+    if fixture.get("authority") != T1_AUTHORITY:
+        errors.append("FIXTURE_AUTHORITY_MISMATCH")
+    if observed.get("global_weil_positivity_proven") is not False:
+        errors.append("OBSERVED_GLOBAL_POSITIVITY_MUST_BE_FALSE")
+    if observed.get("rh_proven") is not False:
+        errors.append("OBSERVED_RH_PROVEN_MUST_BE_FALSE")
+
+    observed_results = observed.get("results")
+    expected = fixture.get("expected")
+    if not isinstance(observed_results, Mapping):
+        errors.append("OBSERVED_RESULTS_INVALID")
+        observed_results = {}
+    if not isinstance(expected, Mapping) or not expected:
+        errors.append("FIXTURE_EXPECTED_INVALID")
+        expected = {}
+
+    for label, requirement in expected.items():
+        if label not in observed_results:
+            errors.append(f"{label}:MISSING_OBSERVED_RESULT")
+            continue
+        if not isinstance(requirement, Mapping):
+            errors.append(f"{label}:FIXTURE_REQUIREMENT_INVALID")
+            continue
+        actual = observed_results[label]
+        if not isinstance(actual, Mapping):
+            errors.append(f"{label}:OBSERVED_RESULT_INVALID")
+            continue
+
+        expected_nu = requirement.get("nu_minus")
+        actual_nu = actual.get("nu_minus")
+        if isinstance(expected_nu, bool) or not isinstance(expected_nu, int):
+            errors.append(f"{label}:NU_MINUS_FIXTURE_INVALID")
+        elif actual_nu != expected_nu:
+            errors.append(f"{label}:NU_MINUS_MISMATCH")
+
+        interval = requirement.get("lambda_min_interval")
+        if (
+            not isinstance(interval, (list, tuple))
+            or len(interval) != 2
+            or isinstance(interval[0], bool)
+            or isinstance(interval[1], bool)
+        ):
+            errors.append(f"{label}:LAMBDA_INTERVAL_INVALID")
+            continue
+        try:
+            lower = float(interval[0])
+            upper = float(interval[1])
+            value = float(actual.get("lambda_min"))
+        except (TypeError, ValueError):
+            errors.append(f"{label}:LAMBDA_VALUE_INVALID")
+            continue
+        if not all(math.isfinite(x) for x in (lower, upper, value)) or lower > upper:
+            errors.append(f"{label}:LAMBDA_INTERVAL_INVALID")
+        elif not lower <= value <= upper:
+            errors.append(f"{label}:LAMBDA_MIN_OUTSIDE_INTERVAL")
+
+    return {
+        "schema_version": "1.0.0",
+        "authority": T1_AUTHORITY,
+        "reproduced": not errors,
+        "errors": tuple(sorted(set(errors))),
+        "global_weil_positivity_proven": False,
+        "rh_proven": False,
+        "proof_authority": False,
     }
