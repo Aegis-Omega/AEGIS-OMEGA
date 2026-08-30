@@ -22,7 +22,10 @@ from typing import Any, Iterable
 
 import numpy as np
 
-from harness.sdk.weil_spectral_inertia_probe import WeilSpectralInertiaProbe
+from harness.sdk.weil_spectral_inertia_probe import (
+    SpectralProbeConfig,
+    WeilSpectralInertiaProbe,
+)
 
 
 AUTHORITY = "T1_ANALYTIC_CLOSED_FORM_DIAGNOSTIC"
@@ -205,6 +208,165 @@ def assemble_prime_galerkin_closed_form(
             "NO_ARCHIMEDEAN_CONTINUOUS_OPERATOR_CLOSURE",
             "NO_DENSITY_OR_GLOBALIZATION_PROMOTION",
             "NO_WEIL_CRITERION_OR_RH_AUTHORITY",
+        ),
+    }
+
+
+def _zero_moment_operator_norm(matrix: np.ndarray, gram: np.ndarray) -> float:
+    """Return the generalized operator norm on ``sum(c_k)=0``.
+
+    The basis for the nullspace is deterministic: ``e_i - e_last``.  The
+    compressed Hermitian form is whitened by the exact closed-form Gram matrix
+    before its extremal absolute eigenvalue is measured.
+    """
+
+    matrix = np.asarray(matrix, dtype=float)
+    gram = np.asarray(gram, dtype=float)
+    if matrix.shape != gram.shape or matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
+        raise ValueError("matrix and gram must be square arrays of the same shape")
+    dim = matrix.shape[0]
+    if dim < 2:
+        return 0.0
+
+    null_basis = np.zeros((dim, dim - 1), dtype=float)
+    for i in range(dim - 1):
+        null_basis[i, i] = 1.0
+        null_basis[-1, i] = -1.0
+
+    compressed_matrix = null_basis.T @ matrix @ null_basis
+    compressed_gram = null_basis.T @ gram @ null_basis
+    chol = np.linalg.cholesky(compressed_gram)
+    left_whitened = np.linalg.solve(chol, compressed_matrix)
+    whitened = np.linalg.solve(chol, left_whitened.T).T
+    whitened = 0.5 * (whitened + whitened.T)
+    eigenvalues = np.linalg.eigvalsh(whitened)
+    return float(np.max(np.abs(eigenvalues)))
+
+
+def run_support_growth_probe(
+    *,
+    support_radii: Iterable[float],
+    tau: float,
+    k_basis_dim: int,
+) -> dict[str, Any]:
+    """Measure finite-radius prime-block growth without extrapolation authority.
+
+    For each requested support radius ``R`` the probe chooses
+
+        scale = R / (2*tau)
+        P_R  = ceil(exp(R)) - 1,
+
+    so the closed-form prime block is already saturated for that Paley--Wiener
+    section.  Its generalized operator norm is measured on the exact
+    zero-moment subspace ``sum(c_k)=0``.
+
+    Two conservative bounds are recorded.  Compression of multiplication by a
+    cosine has norm at most one, hence
+
+        ||B_R|| <= 2 * sum_active w_{p,m}.
+
+    Also ``log(p) <= log(p^m) < R`` and the active prime powers are a subset of
+    integers ``2 <= n < exp(R)``.  Therefore
+
+        2 * sum_active log(p)/sqrt(p^m)
+          <= 2 R * sum_{n < exp(R)} n^(-1/2)
+          <= 4 R exp(R/2).
+
+    These are finite-radius diagnostics.  The receipt explicitly withholds any
+    claim of a uniform R->infinity bound, operator unboundedness, globalization,
+    Weil positivity, or RH.
+    """
+
+    tau = float(tau)
+    if not math.isfinite(tau) or tau <= 0.0:
+        raise ValueError("tau must be finite and positive")
+    k_basis_dim = int(k_basis_dim)
+    if k_basis_dim < 1:
+        raise ValueError("k_basis_dim must be positive")
+
+    radii = tuple(float(radius) for radius in support_radii)
+    if not radii:
+        raise ValueError("support_radii must be non-empty")
+    if any((not math.isfinite(radius) or radius <= 0.0) for radius in radii):
+        raise ValueError("support radii must be finite and positive")
+    if len(set(radii)) != len(radii):
+        raise ValueError("support radii must be distinct")
+
+    cases: dict[str, Any] = {}
+    observed_norms: list[float] = []
+
+    for radius in radii:
+        scale_factor = radius / (2.0 * tau)
+        cutoff = support_saturation_cutoff(tau=tau, scale_factor=scale_factor)
+        probe = WeilSpectralInertiaProbe(
+            SpectralProbeConfig(
+                tau=tau,
+                p_cutoff=cutoff,
+                k_basis_dim=k_basis_dim,
+                n_quad=512,
+                t_bound=max(30.0, 2.0 * radius),
+            )
+        )
+        prime_receipt = assemble_prime_galerkin_closed_form(
+            probe,
+            scale_factor=scale_factor,
+        )
+        gram, _ = exact_sinc_gram_and_moment(
+            probe.k_indices,
+            tau=tau,
+            scale_factor=scale_factor,
+        )
+        operator_norm = _zero_moment_operator_norm(
+            np.asarray(prime_receipt["matrix"], dtype=float),
+            gram,
+        )
+        active_weight = float(
+            sum(term.weight for term in probe.prime_power_terms if term.shift < radius)
+        )
+        compression_weight_bound = 2.0 * active_weight
+        elementary_growth_bound = 4.0 * radius * math.exp(radius / 2.0)
+
+        if operator_norm > compression_weight_bound + 1e-10:
+            raise RuntimeError("closed-form compression exceeded prime-weight norm bound")
+        if compression_weight_bound > elementary_growth_bound + 1e-10:
+            raise RuntimeError("prime-weight bound exceeded elementary support-growth bound")
+
+        cases[f"R={radius:g}"] = {
+            "support_radius": radius,
+            "scale_factor": scale_factor,
+            "sufficient_saturation_cutoff": cutoff,
+            "active_prime_power_count": prime_receipt["active_prime_power_count"],
+            "zero_moment_constraint": "SUM_COEFFICIENTS_EQUALS_ZERO",
+            "operator_norm": operator_norm,
+            "compression_weight_bound": compression_weight_bound,
+            "elementary_growth_bound": elementary_growth_bound,
+        }
+        observed_norms.append(operator_norm)
+
+    finite_grid_growth_observed = all(
+        observed_norms[index] < observed_norms[index + 1]
+        for index in range(len(observed_norms) - 1)
+    )
+
+    return {
+        "schema_version": "1.0.0",
+        "authority": AUTHORITY,
+        "method": "FINITE_SUPPORT_RADIUS_PRIME_BLOCK_GROWTH_DIAGNOSTIC",
+        "tau": tau,
+        "k_basis_dim": k_basis_dim,
+        "support_radii": radii,
+        "cases": cases,
+        "finite_grid_growth_observed": finite_grid_growth_observed,
+        "uniform_support_bound_proven": False,
+        "operator_norm_unbounded_proven": False,
+        "globalization_across_unbounded_support_proven": False,
+        "global_weil_positivity_proven": False,
+        "rh_proven": False,
+        "non_claims": (
+            "FINITE_GRID_MONOTONICITY_IS_NOT_AN_R_TO_INFINITY_THEOREM",
+            "NO_UNIFORM_SUPPORT_RADIUS_OPERATOR_BOUND",
+            "NO_OPERATOR_UNBOUNDEDNESS_THEOREM",
+            "NO_GLOBAL_WEIL_OR_RH_AUTHORITY",
         ),
     }
 
