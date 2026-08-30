@@ -6,6 +6,7 @@ import tempfile
 
 from harness.sdk.closed_loop_epistemic_actuation import (
     COMPUTE_CAPABILITY_EFFECT,
+    EVIDENCE_ACQUISITION_UNESTABLISHED,
     EVIDENCE_ACQUISITION_VERIFIED,
     EVIDENCE_ONLY,
     ComputeUsageV1,
@@ -45,7 +46,7 @@ def test_compute_receipt_is_distinct_from_learning_receipt_and_cannot_mint_learn
     assert len(receipt.root) == 64
 
 
-def test_evidence_acquisition_receipt_binds_observation_and_provenance_without_authority() -> None:
+def test_legacy_evidence_helper_preserves_v1_shape_but_is_not_resident_authority() -> None:
     acquisition = EvidenceAcquisitionV1(
         acquisition_id="evidence:trial:1",
         observation_receipt_root=_sha("3"),
@@ -59,6 +60,8 @@ def test_evidence_acquisition_receipt_binds_observation_and_provenance_without_a
 
     receipt = verify_evidence_acquisition(acquisition)
 
+    # Compatibility behavior remains visible at the pure V1 helper boundary.
+    # Production resident admission below must downgrade this self-asserted form.
     assert receipt.status == EVIDENCE_ACQUISITION_VERIFIED
     assert receipt.evidence_established is True
     assert receipt.receipt_type == "EVIDENCE_ACQUISITION_RECEIPT_V1"
@@ -88,7 +91,7 @@ def test_evidence_acquisition_fails_closed_without_independent_replay_verificati
     assert "NO_INDEPENDENT_VERIFIER" in receipt.reason_codes
 
 
-def test_resident_persists_compute_and_evidence_receipts_in_separate_namespaces() -> None:
+def test_resident_persists_compute_but_downgrades_self_asserted_v1_evidence() -> None:
     repo_root = Path(__file__).resolve().parents[3]
     usage = ComputeUsageV1(
         compute_action_id="compute:resident:1",
@@ -118,6 +121,10 @@ def test_resident_persists_compute_and_evidence_receipts_in_separate_namespaces(
         compute_receipt = runtime.record_compute_usage(usage)
         evidence_receipt = runtime.record_evidence_acquisition(acquisition)
 
+        assert evidence_receipt.status == EVIDENCE_ACQUISITION_UNESTABLISHED
+        assert evidence_receipt.evidence_established is False
+        assert "LEGACY_SELF_ASSERTED_VERIFICATION_REJECTED" in evidence_receipt.reason_codes
+
         compute_path = root / "compute-receipts" / f"{compute_receipt.root}.json"
         evidence_path = root / "evidence-acquisition-receipts" / f"{evidence_receipt.root}.json"
         assert compute_path.is_file()
@@ -130,6 +137,7 @@ def test_resident_persists_compute_and_evidence_receipts_in_separate_namespaces(
         assert evidence_payload["receipt"]["receipt_type"] == "EVIDENCE_ACQUISITION_RECEIPT_V1"
         assert compute_payload["authority"] == EVIDENCE_ONLY
         assert evidence_payload["authority"] == EVIDENCE_ONLY
+        assert "NO_VERIFIED_EVIDENCE_FROM_SELF_ASSERTED_V1_FLAGS" in evidence_payload["non_claims"]
 
         status = runtime.status()["self_model"]
         assert status["compute_receipts"] == 1
