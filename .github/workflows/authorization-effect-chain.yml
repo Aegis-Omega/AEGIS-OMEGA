@@ -54,6 +54,15 @@ jobs:
           python sovereign-omega-v2/python/tests/test_effect_verifier_pr3.py
           python sovereign-omega-v2/python/tests/test_complete_verifier_pr4.py
 
+      - name: Run resident runtime harness suites
+        env:
+          PYTHONPATH: .
+        run: |
+          python harness/tests/test_resident_runtime.py
+          python harness/tests/test_openai_compatible_resident_cell.py
+          python harness/tests/test_cross_provider_memory.py
+          python harness/tests/test_epistemic_admission.py
+
       - name: Build and inspect exact-candidate Agent Dispatch image
         shell: bash
         run: |
