@@ -18,11 +18,18 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, replace
 import json
 import os
-from pathlib import Path
 from typing import Any
 
 from harness.sdk import resident_runtime_impl as _impl
-from harness.sdk.resident_runtime_impl import *  # noqa: F401,F403
+
+# Preserve the implementation module's public facade surface without a wildcard
+# import. Existing local names stay authoritative and private implementation
+# helpers remain private unless explicitly compatibility-exported below.
+for _name, _value in vars(_impl).items():
+    if not _name.startswith("_") and _name not in globals():
+        globals()[_name] = _value
+del _name, _value
+
 from harness.sdk.closed_loop_epistemic_actuation import (
     CAPABILITY_BOOST_ONLY,
     LEARNING_EFFECT_ESTABLISHED,
@@ -36,7 +43,6 @@ from harness.sdk.closed_loop_epistemic_actuation import (
 from harness.sdk.sovereign_execution import canonical_hash
 
 # Preserve the legacy private helper imported by the resident regression suite.
-# Star imports intentionally omit underscore-prefixed names.
 _origin_of = _impl._origin_of
 
 
