@@ -1,0 +1,46 @@
+{
+  "affine_identity_exact": true,
+  "cancellation_is_weight_independent": true,
+  "index_closure": {
+    "20": {
+      "inside": 4,
+      "outside": 8,
+      "terms": 12
+    },
+    "100": {
+      "inside": 10,
+      "outside": 25,
+      "terms": 35
+    },
+    "1000": {
+      "inside": 25,
+      "outside": 168,
+      "terms": 193
+    },
+    "20000": {
+      "inside": 66,
+      "outside": 2262,
+      "terms": 2328
+    }
+  },
+  "n_prime_power_terms_p20000": 2328,
+  "odd_reflection_verified_for_m": [
+    2,
+    3,
+    5,
+    8,
+    13
+  ],
+  "p_ladder": [
+    20,
+    100,
+    1000,
+    20000
+  ],
+  "phase": "S(x) = sin(2*pi*x/m)",
+  "pi_20000": 2262,
+  "prec_bits": 300,
+  "premise_is_load_bearing": true,
+  "truncation_failures": 0,
+  "truncations_checked": 2328
+}
