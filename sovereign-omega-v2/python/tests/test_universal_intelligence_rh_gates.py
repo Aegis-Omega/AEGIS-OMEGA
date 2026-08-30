@@ -9,7 +9,11 @@ from harness.sdk.rh_obligation_gate import (
     ObligationState,
     RHObligationLedger,
 )
-from scripts.generate_provenance_census import RemoteHead, partition_census_heads
+from scripts.generate_provenance_census import (
+    RemoteHead,
+    partition_census_heads,
+    partition_census_prs,
+)
 
 
 def test_evidence_plane_cannot_mint_authority():
@@ -115,3 +119,20 @@ def test_census_keeps_original_150_head_snapshot_separate_from_integration_ref()
     assert len(live) == 151
     assert all(head.name != integration.name for head in baseline)
     assert live[-1] == integration
+
+
+def test_census_keeps_original_95_pr_snapshot_separate_from_self_pr():
+    baseline_fixture = [
+        {"number": i + 1, "draft": i < 73}
+        for i in range(95)
+    ]
+    integration_pr = {"number": 342, "draft": True}
+
+    baseline, live = partition_census_prs(baseline_fixture + [integration_pr])
+
+    assert len(baseline) == 95
+    assert sum(1 for pr in baseline if pr["draft"] is True) == 73
+    assert sum(1 for pr in baseline if pr["draft"] is not True) == 22
+    assert len(live) == 96
+    assert integration_pr in live
+    assert integration_pr not in baseline
