@@ -6,8 +6,11 @@ as closed for the final verdict.
 """
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Any, Mapping
 
 
@@ -28,8 +31,6 @@ class Obligation:
 
 
 DEFAULT_OBLIGATIONS: tuple[Obligation, ...] = (
-    # Conservative initial classifications: do not promote analytic or
-    # computational evidence to machine-checked theorem status.
     Obligation("W0_XiFormulation", ObligationState.PARTIALLY_FORMALIZED,
                authority_note="Xi/Weil setup exists, but final concrete criterion closure is not machine-bound."),
     Obligation("W1_FinitePrimePhaseBoundary", ObligationState.BLOCKED,
@@ -76,6 +77,56 @@ class RHObligationLedger:
     def obligations(self) -> Mapping[str, Obligation]:
         return dict(self._obligations)
 
+    @classmethod
+    def from_json_file(cls, path: str | Path) -> "RHObligationLedger":
+        """Load a machine-readable ledger without trusting its claimed verdict."""
+        with Path(path).open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        if payload.get("schema_version") != "1.0.0":
+            raise ValueError("unsupported RH obligation ledger schema")
+        rows = payload.get("proof_obligations")
+        if not isinstance(rows, list) or not rows:
+            raise ValueError("proof_obligations must be a non-empty list")
+
+        obligations: list[Obligation] = []
+        for row in rows:
+            if not isinstance(row, dict):
+                raise ValueError("obligation row must be an object")
+            obligation_id = row.get("id")
+            if not isinstance(obligation_id, str) or not obligation_id:
+                raise ValueError("obligation id must be a non-empty string")
+            try:
+                state = ObligationState(row.get("status"))
+            except ValueError as exc:
+                raise ValueError(f"invalid state for {obligation_id}") from exc
+            depends_on = row.get("depends_on", [])
+            if not isinstance(depends_on, list) or not all(isinstance(dep, str) and dep for dep in depends_on):
+                raise ValueError(f"invalid depends_on for {obligation_id}")
+            authority_note = row.get("authority_note", "")
+            if not isinstance(authority_note, str) or not authority_note.strip():
+                raise ValueError(f"authority_note required for {obligation_id}")
+            if state is ObligationState.FORMALLY_VERIFIED:
+                cls._validate_formal_receipt(obligation_id, row.get("proof_receipt"))
+            obligations.append(Obligation(obligation_id, state, tuple(depends_on), authority_note))
+        return cls(tuple(obligations))
+
+    @staticmethod
+    def _validate_formal_receipt(obligation_id: str, receipt: Any) -> None:
+        if not isinstance(receipt, dict):
+            raise ValueError(f"FORMALLY_VERIFIED {obligation_id} requires proof_receipt")
+        if receipt.get("kind") != "PROOF_KERNEL_RECEIPT_V1":
+            raise ValueError(f"invalid proof receipt kind for {obligation_id}")
+        if receipt.get("axiom_free") is not True:
+            raise ValueError(f"formal receipt is not axiom-free for {obligation_id}")
+        if receipt.get("closed_under_global_context") is not True:
+            raise ValueError(f"formal receipt is not globally closed for {obligation_id}")
+        exact_head = receipt.get("exact_head")
+        source_sha256 = receipt.get("source_sha256")
+        if not isinstance(exact_head, str) or re.fullmatch(r"[0-9a-f]{40}", exact_head) is None:
+            raise ValueError(f"invalid exact_head in formal receipt for {obligation_id}")
+        if not isinstance(source_sha256, str) or re.fullmatch(r"[0-9a-f]{64}", source_sha256) is None:
+            raise ValueError(f"invalid source_sha256 in formal receipt for {obligation_id}")
+
     def _validate_dependencies(self) -> None:
         ids = set(self._obligations)
         for obligation in self._obligations.values():
@@ -84,12 +135,6 @@ class RHObligationLedger:
                 raise ValueError(f"{obligation.obligation_id} has unknown dependencies: {sorted(missing)}")
 
     def with_state(self, obligation_id: str, state: ObligationState, authority_note: str) -> "RHObligationLedger":
-        """Return a new ledger with one explicit state update.
-
-        State changes require an authority note so callers cannot silently promote
-        an obligation. This class still does not validate a proof artifact itself;
-        the external proof-kernel/receipt verifier must do that before calling it.
-        """
         if obligation_id not in self._obligations:
             raise KeyError(obligation_id)
         if not authority_note.strip():
