@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+import subprocess
+import tempfile
+
 import pytest
 
 from harness.sdk.closed_loop_epistemic_actuation import (
@@ -14,7 +18,13 @@ from harness.sdk.closed_loop_epistemic_actuation import (
     evaluate_learning_effect,
     verify_observation_effect,
 )
-from harness.sdk.resident_runtime import AnalysisPacketV1, ZERO_HASH
+from harness.sdk.resident_runtime import (
+    AnalysisPacketV1,
+    RepositoryEventV1,
+    ResidentRuntime,
+    VERIFIED,
+    ZERO_HASH,
+)
 
 
 def _sha(ch: str) -> str:
@@ -178,3 +188,60 @@ def test_resident_analysis_packet_no_longer_defaults_verified_decision_to_inform
     assert packet.observation_transform_root == ZERO_HASH
     assert packet.observation_receipt_root == ZERO_HASH
     assert packet.observed_information_gain_bps is None
+
+
+def test_resident_repository_observation_emits_bound_transform_receipt_without_fabricated_information_gain() -> None:
+    repo_root = Path(__file__).resolve().parents[3]
+    head = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    event = RepositoryEventV1(
+        event_id="epistemic-observation-1",
+        idempotency_key="epistemic-observation-1",
+        repository_head=head,
+        changed_path="CLAUDE.md",
+        question="Inspect the exact committed file without inferring information gain.",
+        source="git",
+        sequence=1,
+        max_cost_microunits=10,
+        max_latency_ms=30_000,
+        requested_authority="D1",
+    )
+
+    with tempfile.TemporaryDirectory() as tmp:
+        runtime = ResidentRuntime(repository_root=repo_root, state_root=Path(tmp) / "resident")
+        packet, failure = runtime._observe_repository(event)
+
+        assert failure is None
+        assert packet is not None
+        assert packet.observation_transform_root != ZERO_HASH
+        assert packet.observation_receipt_root != ZERO_HASH
+        assert packet.observed_information_gain_bps is None
+
+        receipt = runtime._finalize(
+            event=event,
+            run_id=packet.run_id,
+            task_id=packet.task_id,
+            decision=VERIFIED,
+            reasons=(),
+            warnings=(),
+            packet=packet,
+            candidate_claim=None,
+            admitted_claim=None,
+            experiment_id=None,
+            verification_root=None,
+            admission_root=None,
+            evidence_roots=(packet.observation_root,),
+            local_calls=0,
+            frontier_calls=0,
+            independent_model_confirmations=0,
+        )
+
+        assert receipt.self_model["observed_information_gain_bps"] == 0
+        assert receipt.self_model["information_gain_established"] is False
+        assert receipt.self_model["observation_transform_root"] == packet.observation_transform_root
+        assert receipt.self_model["observation_receipt_root"] == packet.observation_receipt_root
