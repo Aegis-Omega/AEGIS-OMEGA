@@ -13,8 +13,10 @@ on:
       - 'scripts/generate_provenance_census.py'
       - 'docs/audits/provenance_census_v1.json'
       - 'research/rh/finite_to_global_counterexample.py'
+      - 'research/rh/finite_cutoff_state_space_boundary.py'
       - 'research/rh/run_phi_spectral_probe.py'
       - 'research/rh/test_finite_to_global_counterexample.py'
+      - 'research/rh/test_finite_cutoff_state_space_boundary.py'
       - 'research/rh/test_phi_spectral_probe_cli.py'
       - 'research/rh/test_rh_status_ledger.py'
       - 'research/rh/test_rkhs_dominance_kernel.py'
@@ -39,8 +41,10 @@ on:
       - 'scripts/generate_provenance_census.py'
       - 'docs/audits/provenance_census_v1.json'
       - 'research/rh/finite_to_global_counterexample.py'
+      - 'research/rh/finite_cutoff_state_space_boundary.py'
       - 'research/rh/run_phi_spectral_probe.py'
       - 'research/rh/test_finite_to_global_counterexample.py'
+      - 'research/rh/test_finite_cutoff_state_space_boundary.py'
       - 'research/rh/test_phi_spectral_probe_cli.py'
       - 'research/rh/test_rh_status_ledger.py'
       - 'research/rh/test_rkhs_dominance_kernel.py'
@@ -91,6 +95,7 @@ jobs:
             harness/sdk/weil_levy_gap_probe.py \
             harness/sdk/weil_prime_support_kernel.py \
             research/rh/finite_to_global_counterexample.py \
+            research/rh/finite_cutoff_state_space_boundary.py \
             scripts/generate_provenance_census.py
 
       - name: Run fail-closed falsifiers
@@ -100,6 +105,7 @@ jobs:
           pytest -q \
             sovereign-omega-v2/python/tests/test_universal_intelligence_rh_gates.py \
             research/rh/test_finite_to_global_counterexample.py \
+            research/rh/test_finite_cutoff_state_space_boundary.py \
             research/rh/test_phi_spectral_probe_cli.py \
             research/rh/test_rh_status_ledger.py \
             research/rh/test_rkhs_dominance_kernel.py \
@@ -145,8 +151,8 @@ jobs:
           assert s['open_prs_total'] == 95
           assert s['open_prs_draft'] == 73
           assert s['open_prs_nondraft'] == 22
-          assert s['live_open_prs_total'] == 97
-          assert s['live_open_prs_draft'] == 75
+          assert s['live_open_prs_total'] == 96
+          assert s['live_open_prs_draft'] == 74
           assert s['live_open_prs_nondraft'] == 22
           assert len(p['remote_heads']) == 150
           assert p['integration_head']['name'] == 'integration/aegis-universal-intelligence-rh-v1'
@@ -156,15 +162,16 @@ jobs:
               'research/phi-finite-section-congruence-v1',
               'research/weil-levy-gap-v1',
           }
-          assert {x['number'] for x in p['post_baseline_prs']} == {342, 346}
+          assert {x['number'] for x in p['post_baseline_prs']} == {342}
           assert p['critical_dispositions']['PR_344']['disposition'] == 'CLOSED_SUPERSEDED_BY_CURRENT_BASE'
           assert p['critical_dispositions']['PR_345']['disposition'] == 'CLOSED_VERIFIED_SUPERSEDED_BY_INTEGRATION'
           assert p['critical_dispositions']['PR_345']['exact_head'] == '62ccb4318100d6618a5a242983fa753dd7ed5a18'
           assert p['critical_dispositions']['PR_345']['authority'] == 'T1_NUMERICAL_DIAGNOSTIC_ONLY'
-          assert p['critical_dispositions']['PR_346']['disposition'] == 'OPEN_RESEARCH_REQUIRE_SELECTIVE_REVIEW'
-          assert p['critical_dispositions']['PR_346']['authority'] == 'NO_INTEGRATION_AUTHORITY'
+          assert p['critical_dispositions']['PR_346']['disposition'] == 'CLOSED_VERIFIED_SUPERSEDED_BY_INTEGRATION'
+          assert p['critical_dispositions']['PR_346']['exact_head'] == 'e7d9009233ea69631263853bbf9ecffa2454e34a'
+          assert p['critical_dispositions']['PR_346']['authority'] == 'ANALYTIC_ARGUMENT_LEDGER_PLUS_T1_NUMERICAL_WITNESS_NO_RH_AUTHORITY'
           assert p['authority_boundary']['model_output_can_mint_authority'] is False
-          print('CENSUS_PASS baseline=150/95 live=153/97 classified_open_child=346')
+          print('CENSUS_PASS baseline=150/95 live=153/96 closed_verified_child=346')
           PY
 
       - name: Confirm RH remains fail-closed from machine ledger
