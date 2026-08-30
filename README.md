@@ -159,7 +159,7 @@ Resident route semantics, deployment requirements, and the strict distinction be
 | Rust — `aegis-cl-psi` | 7,178 |
 | Rust — `aegis-runtime` | 133 |
 | Python — `aegis-interface` (RFC 0001/0005) | 50 |
-| Python — authorization/effect-chain targeted regression | 100 |
+| Python — authorization/effect-chain targeted regression | 104 |
 | Python — proof-trace targeted regression | 31 |
 | Python — resident live HTTP path | 20 |
 | Python — platform contract | 565 |

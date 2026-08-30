@@ -47,6 +47,32 @@ def _require_text(name: str, value: str) -> None:
         raise EffectAdapterError(f"{name}:INVALID_VALUE")
 
 
+class _ProcessLocalIssuanceRegistry:
+    """Identity-and-snapshot registry; a Python process is not a security sandbox."""
+
+    def __init__(self) -> None:
+        self._entries: dict[int, tuple[weakref.ReferenceType[Any], str]] = {}
+        self._lock = threading.RLock()
+
+    def register(self, value: Any, *, root: str) -> None:
+        object_id = id(value)
+
+        def remove(dead_reference: weakref.ReferenceType[Any]) -> None:
+            with self._lock:
+                current = self._entries.get(object_id)
+                if current is not None and current[0] is dead_reference:
+                    self._entries.pop(object_id, None)
+
+        reference = weakref.ref(value, remove)
+        with self._lock:
+            self._entries[object_id] = (reference, root)
+
+    def contains(self, value: Any, *, root: str) -> bool:
+        with self._lock:
+            entry = self._entries.get(id(value))
+            return entry is not None and entry[0]() is value and entry[1] == root
+
+
 @dataclass(frozen=True)
 class EffectObservationHandle:
     transition_id: str
@@ -67,6 +93,11 @@ class EffectObservationHandle:
             _require_hash(name, getattr(self, name))
         for name in ("target_identity", "adapter_identity", "adapter_version"):
             _require_text(name, getattr(self, name))
+
+    @property
+    def root(self) -> str:
+        self.validate()
+        return canonical_hash("AEGIS_EFFECT_OBSERVATION_HANDLE_V1", asdict(self))
 
 
 @dataclass(frozen=True)
@@ -112,22 +143,17 @@ class EffectWitness:
         return canonical_hash("AEGIS_EFFECT_WITNESS_V1", asdict(self))
 
 
-_ISSUED_EFFECT_WITNESSES: weakref.WeakValueDictionary[str, EffectWitness] = weakref.WeakValueDictionary()
-_ISSUED_EFFECT_WITNESSES_LOCK = threading.RLock()
+_ISSUED_EFFECT_WITNESSES = _ProcessLocalIssuanceRegistry()
 
 
 def _register_issued_effect_witness(witness: EffectWitness) -> None:
     """Record one adapter-produced witness object for this process-local reference."""
-    root = witness.root
-    with _ISSUED_EFFECT_WITNESSES_LOCK:
-        _ISSUED_EFFECT_WITNESSES[root] = witness
+    _ISSUED_EFFECT_WITNESSES.register(witness, root=witness.root)
 
 
 def _is_process_local_issued_effect_witness(witness: EffectWitness) -> bool:
     """Nominal local-reference provenance check; not cryptographic attestation."""
-    root = witness.root
-    with _ISSUED_EFFECT_WITNESSES_LOCK:
-        return _ISSUED_EFFECT_WITNESSES.get(root) is witness
+    return _ISSUED_EFFECT_WITNESSES.contains(witness, root=witness.root)
 
 
 @dataclass(frozen=True)
@@ -148,8 +174,37 @@ class FilesystemEffectAdapter:
     version = "1.0.0"
 
     def __init__(self, *, allowed_root: Path):
-        self.allowed_root = Path(allowed_root).resolve(strict=False)
+        self._allowed_root = Path(allowed_root).resolve(strict=False)
         self.max_observation_bytes = DEFAULT_MAX_OBSERVATION_BYTES
+        self._issued_observation_handles = _ProcessLocalIssuanceRegistry()
+
+    @property
+    def allowed_root(self) -> Path:
+        return self._allowed_root
+
+    @allowed_root.setter
+    def allowed_root(self, value: Path) -> None:
+        del value
+        raise EffectAdapterError("EFFECT_ADAPTER_SCOPE_MISMATCH")
+
+    def _adapter_scope_commitment(self) -> str:
+        return canonical_hash(
+            "AEGIS_FILESYSTEM_ADAPTER_SCOPE_V1",
+            {
+                "allowed_root": self._allowed_root.as_posix(),
+                "adapter_identity": self.identity,
+                "adapter_version": self.version,
+            },
+        )
+
+    def _handle_issuance_root(self, handle: EffectObservationHandle) -> str:
+        return canonical_hash(
+            "AEGIS_EFFECT_OBSERVATION_HANDLE_ISSUANCE_V1",
+            {
+                "handle_root": handle.root,
+                "adapter_scope_commitment": self._adapter_scope_commitment(),
+            },
+        )
 
     def _resolve_target(self, target: Path) -> tuple[Path, str]:
         """Lexically bind a target beneath allowed_root without following target symlinks."""
@@ -381,6 +436,10 @@ class FilesystemEffectAdapter:
             observation_id=observation_id,
         )
         result.validate()
+        self._issued_observation_handles.register(
+            result,
+            root=self._handle_issuance_root(result),
+        )
         return result
 
     def observe_effect(
@@ -408,6 +467,11 @@ class FilesystemEffectAdapter:
         )
         if handle.observation_id != expected_observation_id:
             raise EffectAdapterError("EFFECT_OBSERVATION_HANDLE_MISMATCH")
+        if not self._issued_observation_handles.contains(
+            handle,
+            root=self._handle_issuance_root(handle),
+        ):
+            raise EffectAdapterError("EFFECT_OBSERVATION_HANDLE_UNISSUED")
         post_target = self.allowed_root / handle.target_identity
         observation = self._observe_state(post_target)
         if observation.target_identity != handle.target_identity:

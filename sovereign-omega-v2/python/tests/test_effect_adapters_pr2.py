@@ -211,6 +211,67 @@ class EffectAdapterPR2Tests(TestCase):
             with self.assertRaisesRegex(EffectAdapterError, "EFFECT_OBSERVATION_HANDLE_MISMATCH"):
                 adapter.observe_effect(transition=transition, handle=forged, execution_receipt=execution)
 
+    def test_fabricated_observation_handle_cannot_be_promoted_to_effect_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target, transition, adapter, handle, execution = self.prepared(Path(tmp))
+            fabricated = replace(handle, pre_observation_provenance="f" * 64)
+            target.write_text("after", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                EffectAdapterError,
+                "EFFECT_OBSERVATION_HANDLE_UNISSUED",
+            ):
+                adapter.observe_effect(
+                    transition=transition,
+                    handle=fabricated,
+                    execution_receipt=execution,
+                )
+
+    def test_observation_handle_is_bound_to_the_issuing_adapter_instance(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target, transition, issuer, handle, execution = self.prepared(Path(tmp))
+            non_issuer = FilesystemEffectAdapter(allowed_root=Path(tmp))
+            target.write_text("after", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                EffectAdapterError,
+                "EFFECT_OBSERVATION_HANDLE_UNISSUED",
+            ):
+                non_issuer.observe_effect(
+                    transition=transition,
+                    handle=handle,
+                    execution_receipt=execution,
+                )
+
+    def test_allowed_root_cannot_be_retargeted_after_adapter_construction(self):
+        with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
+            adapter = FilesystemEffectAdapter(allowed_root=Path(first))
+
+            with self.assertRaisesRegex(EffectAdapterError, "EFFECT_ADAPTER_SCOPE_MISMATCH"):
+                adapter.allowed_root = Path(second)
+
+    def test_equal_adapter_issued_witnesses_remain_independently_valid(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target, transition, adapter, first_handle, execution = self.prepared(root)
+            second_handle = adapter.prepare_observation(transition=transition, target=target)
+            target.write_text("after", encoding="utf-8")
+            first = adapter.observe_effect(
+                transition=transition,
+                handle=first_handle,
+                execution_receipt=execution,
+            )
+            second = adapter.observe_effect(
+                transition=transition,
+                handle=second_handle,
+                execution_receipt=execution,
+            )
+
+            self.assertEqual(first.root, second.root)
+            self.assertIsNot(first, second)
+            self.assertTrue(is_adapter_bound_effect_evidence(witness=first))
+            self.assertTrue(is_adapter_bound_effect_evidence(witness=second))
+
     def test_post_state_is_derived_from_fresh_filesystem_read(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
