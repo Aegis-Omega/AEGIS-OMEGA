@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "integration/aegis-universal-intelligence-rh-v1",
+    "source_ref": "research/weil-levy-gap-v1",
     "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "2c40576a2289c61c9309f2d5b27c64488a43e6099f227137fa2dd2166427aeaf"
+  "state_hash": "d1f3edc345b156b219996a24f06f87a8370ae0f374c67ea5e355696355f3d216"
 }
