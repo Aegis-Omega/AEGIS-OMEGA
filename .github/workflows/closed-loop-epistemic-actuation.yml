@@ -5,7 +5,9 @@ on:
     paths:
       - 'harness/sdk/closed_loop_epistemic_actuation.py'
       - 'harness/sdk/resident_runtime.py'
+      - 'harness/sdk/resident_runtime_impl.py'
       - 'sovereign-omega-v2/python/tests/test_closed_loop_epistemic_actuation.py'
+      - 'sovereign-omega-v2/python/tests/test_resident_learning_effect.py'
       - '.github/workflows/closed-loop-epistemic-actuation.yml'
   push:
     branches:
@@ -13,7 +15,9 @@ on:
     paths:
       - 'harness/sdk/closed_loop_epistemic_actuation.py'
       - 'harness/sdk/resident_runtime.py'
+      - 'harness/sdk/resident_runtime_impl.py'
       - 'sovereign-omega-v2/python/tests/test_closed_loop_epistemic_actuation.py'
+      - 'sovereign-omega-v2/python/tests/test_resident_learning_effect.py'
       - '.github/workflows/closed-loop-epistemic-actuation.yml'
 
 permissions:
@@ -47,4 +51,7 @@ jobs:
       - name: Run closed-loop epistemic falsifiers
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: pytest -q sovereign-omega-v2/python/tests/test_closed_loop_epistemic_actuation.py
+        run: |
+          pytest -q \
+            sovereign-omega-v2/python/tests/test_closed_loop_epistemic_actuation.py \
+            sovereign-omega-v2/python/tests/test_resident_learning_effect.py
