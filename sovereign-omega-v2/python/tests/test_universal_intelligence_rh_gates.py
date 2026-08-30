@@ -111,7 +111,7 @@ def test_dependency_violation_fails_closed():
     assert result["dependency_violations"]
 
 
-def test_census_keeps_original_150_head_snapshot_separate_from_integration_ref():
+def test_census_keeps_original_150_head_snapshot_separate_from_classified_post_baseline_refs():
     source_heads = [
         RemoteHead(name=f"branch-{i:03d}", sha=f"{i:040x}", protected=False)
         for i in range(150)
@@ -121,30 +121,39 @@ def test_census_keeps_original_150_head_snapshot_separate_from_integration_ref()
         sha="f" * 40,
         protected=False,
     )
+    phi_child = RemoteHead(
+        name="research/phi-finite-section-congruence-v1",
+        sha="e" * 40,
+        protected=False,
+    )
 
-    baseline, live = partition_census_heads(source_heads + [integration])
+    baseline, live = partition_census_heads(source_heads + [integration, phi_child])
 
     assert len(baseline) == 150
-    assert len(live) == 151
-    assert all(head.name != integration.name for head in baseline)
-    assert live[-1] == integration
+    assert len(live) == 152
+    assert all(head.name not in {integration.name, phi_child.name} for head in baseline)
+    assert integration in live
+    assert phi_child in live
 
 
-def test_census_keeps_original_95_pr_snapshot_separate_from_self_pr():
+def test_census_keeps_original_95_pr_snapshot_separate_from_classified_post_baseline_prs():
     baseline_fixture = [
         {"number": i + 1, "draft": i < 73}
         for i in range(95)
     ]
     integration_pr = {"number": 342, "draft": True}
+    phi_child_pr = {"number": 344, "draft": True}
 
-    baseline, live = partition_census_prs(baseline_fixture + [integration_pr])
+    baseline, live = partition_census_prs(baseline_fixture + [integration_pr, phi_child_pr])
 
     assert len(baseline) == 95
     assert sum(1 for pr in baseline if pr["draft"] is True) == 73
     assert sum(1 for pr in baseline if pr["draft"] is not True) == 22
-    assert len(live) == 96
+    assert len(live) == 97
     assert integration_pr in live
+    assert phi_child_pr in live
     assert integration_pr not in baseline
+    assert phi_child_pr not in baseline
 
 
 def test_density_alone_shortcut_has_exact_counterexample():
