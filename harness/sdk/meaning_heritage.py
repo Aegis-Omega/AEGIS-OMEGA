@@ -6,12 +6,15 @@ hash primitive and all successful receipts remain authority_class == "NONE".
 """
 from __future__ import annotations
 
+import hashlib
+import re
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Callable, Mapping, Protocol
+from typing import Protocol
 
 from harness.sdk.sovereign_execution import canonical_hash
-from harness.sdk.proof_trace import SHA256_RE
+
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 DOM_CLAIMSET_ENVELOPE = "AEGIS_MHP1_CLAIMSET_ENVELOPE_V1"
 DOM_CLAIMSET_VERIFICATION = "AEGIS_MHP1_CLAIMSET_VERIFICATION_V1"
@@ -171,7 +174,7 @@ class ClaimSetVerifierV13:
         actual_payload_bytes: bytes,
         extractor: ClaimExtractorV1,
     ) -> ClaimSetReceiptV1:
-        payload_root = __import__("hashlib").sha256(actual_payload_bytes).hexdigest()
+        payload_root = hashlib.sha256(actual_payload_bytes).hexdigest()
         if payload_root != envelope.payload_root:
             raise HeritageError("CLAIMSET_PAYLOAD_ROOT_MISMATCH")
         require_hash("extractor.extractor_root", extractor.extractor_root)
