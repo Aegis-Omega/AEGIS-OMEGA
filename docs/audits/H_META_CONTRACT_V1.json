@@ -1,0 +1,66 @@
+{
+  "$schema": "https://aegis.dev/schemas/h-meta-contract.v1.json",
+  "schema_version": "aegis.h-meta-contract.v1",
+  "meta_state": "FAIL_CLOSED_ACTIVE",
+  "contract_provenance": {
+    "repository": "Aegis-Omega/AEGIS-OMEGA",
+    "base_branch": "main",
+    "base_head": "a34d664d66ae9f7c2e729cd4ccb07b74130c660f",
+    "verified_at_utc": "2026-08-31T09:29:11Z",
+    "authority_class": "NONE"
+  },
+  "census_interval": {
+    "observed_count": 98,
+    "head_commit": "abb5aa9ea5410da8937c5ff6b605a4c259f5ed0d",
+    "valid_from_utc": "2026-08-31T09:00:00Z",
+    "valid_to_utc": "2026-08-31T10:30:00Z",
+    "superseded_by_count": 99,
+    "status": "SUPERSEDED",
+    "provenance": "OPERATOR_REPORTED_HISTORICAL_CENSUS"
+  },
+  "current_observation": {
+    "open_pr_count": 100,
+    "observed_at_utc": "2026-08-31T09:29:11Z",
+    "main_head": "a34d664d66ae9f7c2e729cd4ccb07b74130c660f",
+    "method": "GitHub REST pulls state=open per_page=100: page_1_full, page_2_empty",
+    "status": "LIVE_OBSERVATION"
+  },
+  "invariants": {
+    "I_1_single_writer": {
+      "predicate": "exclusive_ownership(cognitive_manifest_refresh, ['.claude.json', 'skill-hashes.sha256'])",
+      "target_branch": "fix/automaton2-single-anchor-writer",
+      "target_head": "1e4a75786304af8f09e034ba1a2b86dd2a534401",
+      "checker_path": "scripts/test-cognitive-anchor-writer-boundary.py",
+      "checker_sha256": "d34f514539c703232d871fcb8c48fdfdc81e5b466e5fc94d05cdbbf75520033d",
+      "authority_class": "NONE",
+      "status": "BOUND"
+    },
+    "I_2_provenance_weight_zero": {
+      "predicate": "weight(UI_evidence_axes) == 0 and authority(RH_ledger) == FAIL_CLOSED",
+      "target_branch": "integration/aegis-universal-intelligence-rh-v1",
+      "target_head": "abb5aa9ea5410da8937c5ff6b605a4c259f5ed0d",
+      "checker_path": "sovereign-omega-v2/python/tests/test_universal_intelligence_rh_gates.py",
+      "checker_sha256": "b0b8d6156f2f61b6da723fa743d712724071034979096bbd30b3e3f28cfea731",
+      "authority_class": "NONE",
+      "status": "BOUND"
+    },
+    "I_3_trig_pointwise_bounds": {
+      "predicate": "receipt.rh_proven == False and receipt.global_weil_positivity_proven == False and len(receipt.open_obligations) == 7 and receipt.corn_ir_phase_identity_scope == 'CORN_CONSTRUCTIVE_IR_INTEGER_FREQUENCY_ONLY'",
+      "binding_predicate": "receipt.source_sha == target_head and receipt.source_sha256 == source_sha256 and receipt.authority_weight == 0",
+      "target_branch": "proof/weil-constructive-prime-trig-v1",
+      "target_head": "d2f5f0704cf17e005793d5d0da5f89e94ebee010",
+      "source_path": "sovereign-omega-v2/formal/theories/Weil/PrimeTrigConstructive.v",
+      "source_sha256": "143080621818027ffa86d3a285f84de19cc81b1843e343696fd5b2ba0e992ada",
+      "receipt_binding": {
+        "workflow_run_id": 33340095351,
+        "artifact_id": 9740404220,
+        "artifact_name": "weil-constructive-prime-trig-d2f5f0704cf17e005793d5d0da5f89e94ebee010",
+        "artifact_sha256": "e9462726308bfdba3beaee7f5a8c498f32388739947cedebe01663930909f3d9",
+        "receipt_member": "weil-constructive-prime-trig-receipt.json",
+        "receipt_self_sha256": "803650f1ac0290f0751fa0c53de8ae37a358254615debf58d6a25f6215095e79"
+      },
+      "authority_class": "NONE",
+      "status": "BOUND"
+    }
+  }
+}
