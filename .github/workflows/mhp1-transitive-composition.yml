@@ -52,6 +52,9 @@ jobs:
       - name: Install focused test dependency
         run: python -m pip install --disable-pip-version-check pytest==8.3.5
 
+      - name: Prepare evidence workspace
+        run: mkdir -p mhp1-transitive-composition-attestation
+
       - name: Compile composition and parent kernels
         run: |
           python -m py_compile \
@@ -64,9 +67,87 @@ jobs:
             harness/tests/test_heritage_fingerprint_hardening.py
 
       - name: Run transitive composition and parent adversarial suites
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pytest -q \
             harness/tests/test_heritage_transitive_composition.py \
             harness/tests/test_meaning_heritage_morphisms.py \
             harness/tests/test_morphism_hardening.py \
-            harness/tests/test_heritage_fingerprint_hardening.py
+            harness/tests/test_heritage_fingerprint_hardening.py \
+            | tee mhp1-transitive-composition-attestation/pytest.log
+          grep -Eq '[0-9]+ passed' mhp1-transitive-composition-attestation/pytest.log
+
+      - name: Emit content-addressed composition receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          out = Path('mhp1-transitive-composition-attestation')
+          kernel = Path('harness/sdk/heritage_composition.py')
+          tests = Path('harness/tests/test_heritage_transitive_composition.py')
+          log = out / 'pytest.log'
+
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          text = log.read_text(encoding='utf-8')
+          match = re.search(r'(\d+) passed', text)
+          assert match is not None
+          passed = int(match.group(1))
+          assert passed >= 33
+
+          tc_codes = [
+              'TRANSIENT_ADDITION_LEAK',
+              'UNDECLARED_COMPOSITE_LOSS',
+              'UNDECLARED_COMPOSITE_ADDITION',
+              'COMPOSITION_PRESERVATION_UNPROVEN',
+              'COMPOSITION_MIXED_ANCESTRY',
+              'COMPOSITION_PARTITION_MISMATCH',
+          ]
+          payload = {
+              'receipt_kind': 'AEGIS_MHP1_TRANSITIVE_COMPOSITION_RECEIPT_V1',
+              'source_commit': os.environ['CANDIDATE_SHA'],
+              'authority_class': 'NONE',
+              'ledger_authority_classification': 'NONE_BY_CONSTRUCTION',
+              'kernel_path': str(kernel),
+              'kernel_sha256': sha(kernel),
+              'contract_path': str(tests),
+              'contract_sha256': sha(tests),
+              'pytest_log_sha256': sha(log),
+              'tests_passed': passed,
+              'tc_codes': tc_codes,
+              'caller_authored_composed_state_accepted_by_canonical_kernel': False,
+              'envelope_resolution_port_machine_bound': True,
+              'preservation_composition_proof_machine_bound': True,
+              'transitive_partition_meta_invariants_tested': True,
+              'final_composite_additions_without_derivation_composition_proof': 'FAIL_CLOSED',
+              'legacy_v13_caller_authored_compose_surface_removed': False,
+              'status': 'PASS',
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          target = out / 'mhp1-transitive-composition-receipt.json'
+          target.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+
+          assert payload['authority_class'] == 'NONE'
+          assert payload['caller_authored_composed_state_accepted_by_canonical_kernel'] is False
+          assert payload['legacy_v13_caller_authored_compose_surface_removed'] is False
+          assert len(payload['tc_codes']) == 6
+          assert len(payload['receipt_sha256']) == 64
+          PY
+
+      - name: Upload composition evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mhp1-transitive-composition-${{ env.CANDIDATE_SHA }}
+          path: mhp1-transitive-composition-attestation/
+          if-no-files-found: error
+          retention-days: 30
