@@ -12,22 +12,65 @@ on:
     types: [created]
 
 jobs:
+  admission:
+    name: Agent Dispatch Admission
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      configured: ${{ steps.config.outputs.configured }}
+      reason: ${{ steps.config.outputs.reason }}
+    steps:
+      - name: Classify routing configuration
+        id: config
+        env:
+          PROXY_URL: ${{ vars.PROXY_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "$PROXY_URL" ]; then
+            configured=false
+            reason=PROXY_URL_UNCONFIGURED
+          else
+            case "$PROXY_URL" in
+              https://*)
+                configured=true
+                reason=ROUTING_CONFIGURED
+                ;;
+              *)
+                echo "PROXY_URL is configured but must use https://" >&2
+                exit 2
+                ;;
+            esac
+          fi
+
+          printf 'configured=%s\n' "$configured" >> "$GITHUB_OUTPUT"
+          printf 'reason=%s\n' "$reason" >> "$GITHUB_OUTPUT"
+          {
+            printf '### AEGIS Agent Dispatch Admission\n\n'
+            printf -- '- configured: `%s`\n' "$configured"
+            printf -- '- reason: `%s`\n' "$reason"
+            if [ "$configured" = false ]; then
+              printf -- '- effect: no external agent/model spend is authorized for this run.\n'
+            else
+              printf -- '- effect: event classification may proceed; dispatch still requires an admissible event and `AEGIS_PLATFORM_API_KEY`.\n'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
   dispatch:
     name: Dispatch to AEGIS Agent Ecosystem
+    needs: admission
+    if: needs.admission.outputs.configured == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
       issues: read
-    # PROXY_URL is non-secret routing configuration. The dispatch step separately
-    # requires AEGIS_PLATFORM_API_KEY and fails closed when it is absent.
-    if: vars.PROXY_URL != ''
 
     steps:
       - name: Determine event type and payload
         id: classify
-        # Untrusted GitHub event fields are transported through environment
-        # variables and compact JSON, never interpolated into shell source.
         env:
           EVENT_NAME: ${{ github.event_name }}
           WF_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
@@ -60,8 +103,6 @@ jobs:
           }
 
           if [ "$EVENT_NAME" = "workflow_run" ]; then
-            # A CI result originating from a fork is evidence, not authorization
-            # to spend agent/model resources.
             if [ "$WF_HEAD_REPOSITORY" != "$CURRENT_REPOSITORY" ]; then
               printf 'Skipping workflow_run from untrusted repository: %s\n' "$WF_HEAD_REPOSITORY"
             elif [ "$WF_CONCLUSION" = "failure" ]; then
@@ -79,8 +120,6 @@ jobs:
             fi
 
           elif [ "$EVENT_NAME" = "pull_request" ]; then
-            # Public/fork PRs must not become a model-spend trigger merely by
-            # opening or synchronizing a branch.
             if is_trusted_association "$PR_ASSOCIATION"; then
               EVENT_TYPE="github_pr_opened"
               PAYLOAD=$(jq -cn \
@@ -93,8 +132,6 @@ jobs:
             fi
 
           elif [ "$EVENT_NAME" = "issues" ]; then
-            # A maintainer-applied label is the explicit authorization edge for
-            # issue-originated dispatch. Opening an issue alone is insufficient.
             if [ "$ISSUE_LABEL" = "aegis-dispatch-approved" ]; then
               EVENT_TYPE="github_issue_approved"
               PAYLOAD=$(jq -cn \
@@ -105,8 +142,6 @@ jobs:
             fi
 
           elif [ "$EVENT_NAME" = "issue_comment" ]; then
-            # Mention-based dispatch is accepted only from repository-trusted
-            # actors; untrusted comment text remains data, never authority.
             if is_trusted_association "$COMMENT_ASSOCIATION" && \
                printf '%s' "$COMMENT_BODY" | grep -Fq "@aegis-agent"; then
               EVENT_TYPE="github_pr_comment"
@@ -117,10 +152,12 @@ jobs:
             fi
           fi
 
-          # jq -c guarantees one-line JSON, so GitHub's line-oriented output
-          # protocol cannot be broken by newlines in issue/comment content.
           printf 'event_type=%s\n' "$EVENT_TYPE" >> "$GITHUB_OUTPUT"
           printf 'payload=%s\n' "$PAYLOAD" >> "$GITHUB_OUTPUT"
+
+          if [ -z "$EVENT_TYPE" ]; then
+            echo 'No admissible dispatch event was derived; no external effect will occur.' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Dispatch to AEGIS constitutional proxy
         if: steps.classify.outputs.event_type != ''
@@ -136,11 +173,6 @@ jobs:
             echo "AEGIS_PLATFORM_API_KEY is required for agent dispatch" >&2
             exit 2
           fi
-
-          case "$PROXY_URL" in
-            https://*) ;;
-            *) echo "PROXY_URL must use https://" >&2; exit 2 ;;
-          esac
 
           REQUEST_BODY=$(jq -cn \
             --arg event_type "$DISPATCH_EVENT_TYPE" \
