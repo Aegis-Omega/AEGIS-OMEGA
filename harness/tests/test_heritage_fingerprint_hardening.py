@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 
 from harness.sdk.meaning_heritage import (
     ClaimRef,
@@ -129,16 +130,16 @@ def test_derivation_receipt_must_bind_source_and_derived_semantic_fingerprints()
     store.preservation[preservation.root] = preservation
 
     transform_root = h("TRANSFORM", "augment-A-to-B")
-    # V1.3 RED witness: this proof binds only digests, so it cannot distinguish
-    # the authenticated fingerprints from a different semantic context.
-    derivation = DerivationProofReceiptV1(
+    forged_derivation = DerivationProofReceiptV1(
         derived_claim_digest=b_digest,
         source_claim_digests=(a_digest,),
+        source_semantic_fingerprints=("fp:A-forged",),
+        derived_semantic_fingerprint="fp:B-forged",
         transform_root=transform_root,
         verifier_root=h("DERIVATION_VERIFIER", 1),
         policy_root=h("DERIVATION_POLICY", 1),
     )
-    store.derivation[derivation.root] = derivation
+    store.derivation[forged_derivation.root] = forged_derivation
 
     envelope = SemanticLineageEnvelopeV1(
         lineage_id="derivation-fingerprint-splice",
@@ -158,7 +159,7 @@ def test_derivation_receipt_must_bind_source_and_derived_semantic_fingerprints()
             ),
         ),
         declared_omission_digests=(),
-        declared_additions=(DeclaredAdditionEdge(b_digest, derivation.root),),
+        declared_additions=(DeclaredAdditionEdge(b_digest, forged_derivation.root),),
         uncertainty_bps=0,
     )
     verifier = HeritageVerifierV13(
@@ -169,3 +170,22 @@ def test_derivation_receipt_must_bind_source_and_derived_semantic_fingerprints()
     result, receipt = verifier.verify(envelope, source, derived)
     assert receipt is None
     assert "DERIVATION_PROOF_FINGERPRINT_MISMATCH" in result.error_codes
+
+    valid_derivation = DerivationProofReceiptV1(
+        derived_claim_digest=b_digest,
+        source_claim_digests=(a_digest,),
+        source_semantic_fingerprints=(source_a.semantic_fingerprint,),
+        derived_semantic_fingerprint=derived_b.semantic_fingerprint,
+        transform_root=transform_root,
+        verifier_root=h("DERIVATION_VERIFIER", 1),
+        policy_root=h("DERIVATION_POLICY", 1),
+    )
+    assert valid_derivation.root != forged_derivation.root
+    store.derivation[valid_derivation.root] = valid_derivation
+    valid_envelope = replace(
+        envelope,
+        declared_additions=(DeclaredAdditionEdge(b_digest, valid_derivation.root),),
+    )
+    result2, receipt2 = verifier.verify(valid_envelope, source, derived)
+    assert result2.status == "PASS"
+    assert receipt2 is not None
