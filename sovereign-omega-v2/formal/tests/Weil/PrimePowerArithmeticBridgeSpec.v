@@ -1,18 +1,31 @@
 (*
-  AEGIS Ω — prime-power arithmetic semantics RED contract v1
+  AEGIS Ω — prime-power arithmetic semantics theorem contract v1
 
-  This test is intentionally RED.  The production module
-  [PrimePowerArithmeticBridge] does not exist at this checkpoint.
+  This theorem-level contract is installed before the production module.
+  While [PrimePowerArithmeticBridge] is absent, the dedicated RED workflow
+  must still fail exactly at this import and nowhere else.
 
-  The dedicated workflow must first compile the exact A2a parent chain,
-  including [FinitePrimeSourceSum], and then prove that this test fails only
-  because the new arithmetic bridge logical module is absent.
+  A later GREEN transition must provide:
+  - a proof-carrying natural prime-power certificate;
+  - the CoRN-IR identity induced by q = p^k;
+  - the corresponding constructive logarithm identity;
+  - the square identity for the canonical constructive square root; and
+  - finite derivative linearity for the certified prime-power family.
 
-  The later GREEN transition is deliberately narrow.  It may bind supplied
-  analytic descriptors to an authenticated finite family of actual prime-power
-  data, including q = p^k and the corresponding constructive real log/root
-  identities, but it must not claim CoRN-to-O0 transport, the Guinand-Weil
+  The contract does not request a total factorization algorithm, a total
+  von Mangoldt implementation, CoRN-to-O0 transport, the Guinand-Weil
   explicit formula, global Weil positivity, or RH.
 *)
 
 Require Import PrimePowerArithmeticBridge.
+
+Check prime_power_certificate_v1.
+Check certified_prime_power_ir_power_identity_v1.
+Check certified_prime_power_log_identity_v1.
+Check certified_prime_power_sqrt_square_identity_v1.
+Check certified_prime_power_finite_sum_derivative_constructive_v1.
+
+Print Assumptions certified_prime_power_ir_power_identity_v1.
+Print Assumptions certified_prime_power_log_identity_v1.
+Print Assumptions certified_prime_power_sqrt_square_identity_v1.
+Print Assumptions certified_prime_power_finite_sum_derivative_constructive_v1.
