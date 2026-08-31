@@ -100,22 +100,19 @@ jobs:
               exit 1
             fi
 
-            expected='Cannot find a physical path bound to logical path[[:space:]]+FinitePrimeSourceSum|Cannot find library[[:space:]]+FinitePrimeSourceSum'
-            if ! grep -Eq "$expected" "$OUT/finite-prime-source-sum-spec.log"; then
-              echo 'RED failure was not the expected FinitePrimeSourceSum module-resolution error.' >&2
-              exit 1
-            fi
-
             error_count="$(grep -c '^Error:' "$OUT/finite-prime-source-sum-spec.log" || true)"
             if test "$error_count" -ne 1; then
               echo "Expected exactly one Coq Error line; observed $error_count." >&2
               exit 1
             fi
 
-            if grep '^Error:' "$OUT/finite-prime-source-sum-spec.log" \
-              | grep -Ev 'Cannot find a physical path bound to logical path|Cannot find library' \
-              | grep -q .; then
-              echo 'Unexpected secondary Coq error in RED contract.' >&2
+            normalized="$(
+              tr '\n' ' ' < "$OUT/finite-prime-source-sum-spec.log" \
+                | sed -E 's/[[:space:]]+/ /g'
+            )"
+            expected='Error: Cannot find a physical path bound to logical path FinitePrimeSourceSum.'
+            if ! printf '%s\n' "$normalized" | grep -Fq "$expected"; then
+              echo 'RED failure was not the exact FinitePrimeSourceSum module-resolution error.' >&2
               exit 1
             fi
 
