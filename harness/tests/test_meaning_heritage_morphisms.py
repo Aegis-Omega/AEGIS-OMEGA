@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 import pytest
 
@@ -190,21 +190,23 @@ def test_heritage_semantic_proof_must_be_authenticated_and_input_bound():
         policy_root=h("SEMANTIC_POLICY", 1),
     )
     proof_store.preservation[proof.root] = proof
-    env2 = SemanticLineageEnvelopeV1(
-        **{**asdict(env), "preservation_edges": (PreservationEdge(a.claim_digest, b.claim_digest, PreservationRelation.SEMANTIC_EQUIVALENCE, proof.root),)}
+    env2 = replace(
+        env,
+        preservation_edges=(
+            PreservationEdge(
+                a.claim_digest,
+                b.claim_digest,
+                PreservationRelation.SEMANTIC_EQUIVALENCE,
+                proof.root,
+            ),
+        ),
     )
     result2, receipt2 = verifier.verify(env2, src, der)
     assert result2.status == "PASS"
     assert receipt2 is not None
 
     # Different subject => different verification root.
-    result3, receipt3 = verifier.verify(
-        SemanticLineageEnvelopeV1(
-            **{**asdict(env2), "lineage_id": "lin-other"}
-        ),
-        src,
-        der,
-    )
+    result3, receipt3 = verifier.verify(replace(env2, lineage_id="lin-other"), src, der)
     assert receipt3 is not None
     assert result2.verification_root != result3.verification_root
 
