@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/rh-finite-prime-source-sum",
+    "source_ref": "proof/weil-prime-power-arithmetic-v1",
     "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "abe8b530a2cc01d348c180ff1d6566c18301fa0f132df2552438d2171073fd61"
+  "state_hash": "18b3316ec58cb92e1973400915b5f9eef632dafea686dae58330ebf1b234ac48"
 }
