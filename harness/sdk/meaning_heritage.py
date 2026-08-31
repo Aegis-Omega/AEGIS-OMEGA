@@ -369,8 +369,15 @@ class SemanticLineageEnvelopeV1:
         )
         if len(edge_keys) != len(set(edge_keys)):
             raise HeritageError("PRESERVATION_EDGE_DUPLICATE")
+        preserved_source_digests = {edge.source_claim_digest for edge in self.preservation_edges}
+        preserved_derived_digests = {edge.derived_claim_digest for edge in self.preservation_edges}
+        omission_digests = set(self.declared_omission_digests)
+        if preserved_source_digests & omission_digests:
+            raise HeritageError("PRESERVATION_OMISSION_OVERLAP")
         addition_keys = tuple(addition.derived_claim_digest for addition in self.declared_additions)
         _require_unique("declared_additions", addition_keys)
+        if preserved_derived_digests & set(addition_keys):
+            raise HeritageError("PRESERVATION_ADDITION_OVERLAP")
         if (
             isinstance(self.uncertainty_bps, bool)
             or not isinstance(self.uncertainty_bps, int)
