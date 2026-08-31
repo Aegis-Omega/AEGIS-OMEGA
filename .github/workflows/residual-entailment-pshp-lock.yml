@@ -1,0 +1,58 @@
+name: Residual Entailment + PSHP Lock
+
+on:
+  push:
+    paths:
+      - 'harness/sdk/residual_entailment_v2.py'
+      - 'harness/sdk/pshp_lock.py'
+      - 'tests/test_residual_entailment_v2.py'
+      - 'tests/test_pshp_lock.py'
+      - '.github/workflows/residual-entailment-pshp-lock.yml'
+  pull_request:
+    paths:
+      - 'harness/sdk/residual_entailment_v2.py'
+      - 'harness/sdk/pshp_lock.py'
+      - 'tests/test_residual_entailment_v2.py'
+      - 'tests/test_pshp_lock.py'
+      - '.github/workflows/residual-entailment-pshp-lock.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: aegis / residual-entailment-pshp-lock
+    runs-on: ubuntu-latest
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 1
+
+      - name: Assert exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install focused test dependency
+        run: python -m pip install --disable-pip-version-check pytest==8.3.5
+
+      - name: Compile focused kernel and falsifiers
+        run: |
+          python -m py_compile \
+            harness/sdk/residual_entailment_v2.py \
+            harness/sdk/pshp_lock.py \
+            tests/test_residual_entailment_v2.py \
+            tests/test_pshp_lock.py
+
+      - name: Run focused adversarial suite
+        run: python -m pytest -q tests/test_residual_entailment_v2.py tests/test_pshp_lock.py
