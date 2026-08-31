@@ -1,0 +1,201 @@
+name: Weil Prime Power Weight Bridge
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/formal/tests/Weil/PrimePowerWeightBridgeSpec.v"
+      - "sovereign-omega-v2/formal/theories/Weil/PrimePowerWeightBridge.v"
+      - ".github/workflows/weil-prime-power-weight-bridge.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-prime-power-weight-bridge-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  attest:
+    name: coqc / prime-power weight and pi normalization
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Reject declared assumptions in authority source when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=sovereign-omega-v2/formal/theories/Weil/PrimePowerWeightBridge.v
+          if test -f "$src"; then
+            if grep -En '^[[:space:]]*(Axiom|Axioms|Parameter|Parameters|Admitted)[[:space:].]' "$src"; then
+              echo "Declared assumption/admission forbidden: $src" >&2
+              exit 1
+            fi
+          fi
+
+      - name: Prepare writable evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/weil-prime-power-weight-bridge-attestation
+          chmod -R a+rwX \
+            sovereign-omega-v2/formal/theories/Weil \
+            sovereign-omega-v2/formal/tests/Weil \
+            sovereign-omega-v2/weil-prime-power-weight-bridge-attestation
+
+      - name: Compile RED or GREEN bridge contract
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            THEORY="$ROOT/formal/theories/Weil"
+            TESTDIR="$ROOT/formal/tests/Weil"
+            SOURCE="$THEORY/PrimePowerWeightBridge.v"
+            DERIV="$THEORY/PrimeSourceDerivativeConstructive.v"
+            TEST="$TESTDIR/PrimePowerWeightBridgeSpec.v"
+            OUT="$ROOT/weil-prime-power-weight-bridge-attestation"
+
+            coqc --version | tee "$OUT/coq-version.txt"
+            test -f "$DERIV"
+
+            if ! test -f "$SOURCE"; then
+              echo 'RED checkpoint: PrimePowerWeightBridge.v intentionally absent.' \
+                | tee "$OUT/red-checkpoint.txt"
+              coqc -Q "$THEORY" "" -Q "$TESTDIR" "" "$TEST" 2>&1 \
+                | tee "$OUT/prime-power-weight-bridge-spec.log"
+              echo 'RED contract unexpectedly compiled without production source.' >&2
+              exit 1
+            fi
+
+            opam install -y coq-corn.9.0.0
+            opam var coq-corn:version | tee "$OUT/corn-version.txt"
+            test "$(tr -d '[:space:]' < "$OUT/corn-version.txt")" = "9.0.0"
+            opam show coq-corn.9.0.0 --field=version,license,depends \
+              | tee "$OUT/corn-package-metadata.txt"
+
+            coqc -Q "$THEORY" "" "$DERIV" 2>&1 \
+              | tee "$OUT/prime-source-derivative.log"
+            coqc -Q "$THEORY" "" "$SOURCE" 2>&1 \
+              | tee "$OUT/prime-power-weight-bridge.log"
+            coqc -Q "$THEORY" "" -Q "$TESTDIR" "" "$TEST" 2>&1 \
+              | tee "$OUT/prime-power-weight-bridge-spec.log"
+
+            for theorem in \
+              prime_power_weight_derivative_constructive_v1 \
+              prime_power_scalar_normalization_v1
+            do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.assumptions.txt"
+              cat > "$query" <<EOF
+            Set Coqtop Exit On Error.
+            Require Import PrimePowerWeightBridge.
+            Print Assumptions ${theorem}.
+            EOF
+              coqtop -quiet -batch -Q "$THEORY" "" -l "$query" > "$log" 2>&1
+              rm -f "$query"
+              cat "$log"
+              grep -q 'Closed under the global context' "$log"
+              if grep -q '^Axioms:' "$log"; then
+                echo "Unexpected assumptions for $theorem" >&2
+                exit 1
+              fi
+            done
+
+      - name: Emit content-addressed weight-bridge receipt
+        if: success()
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          out = Path('weil-prime-power-weight-bridge-attestation')
+          source = Path('formal/theories/Weil/PrimePowerWeightBridge.v')
+          names = [
+              'prime_power_weight_derivative_constructive_v1',
+              'prime_power_scalar_normalization_v1',
+          ]
+
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          version = (out / 'corn-version.txt').read_text(encoding='utf-8').strip()
+          payload = {
+              'receipt_kind': 'AEGIS_WEIL_PRIME_POWER_WEIGHT_BRIDGE_RECEIPT_V1',
+              'authority': 'FORMAL_MATH_EVIDENCE_ONLY',
+              'source_commit': '${{ env.SOURCE_SHA }}',
+              'source_sha256': sha(source),
+              'coq_version_sha256': sha(out / 'coq-version.txt'),
+              'corn_requested_version': '9.0.0',
+              'corn_installed_version': version,
+              'corn_package_metadata_sha256': sha(out / 'corn-package-metadata.txt'),
+              'compile_log_sha256': sha(out / 'prime-power-weight-bridge.log'),
+              'spec_log_sha256': sha(out / 'prime-power-weight-bridge-spec.log'),
+              'theorem_assumption_log_sha256': {
+                  name: sha(out / f'{name}.assumptions.txt') for name in names
+              },
+              'theorem_count': 2,
+              'declared_assumptions': 0,
+              'prime_power_weight_semantics_formalized': True,
+              'pi_normalization_machine_bound': True,
+              'finite_prime_source_sum_machine_bound': False,
+              'corn_o0_trig_transport_machine_bound': False,
+              'guinand_weil_explicit_formula_machine_bound': False,
+              'global_weil_positivity_proven': False,
+              'rh_proven': False,
+              'open_obligations': [
+                  'FINITE_PRIME_SOURCE_SUM_NOT_MACHINE_BOUND',
+                  'CORN_IR_TO_O0_TRIG_TRANSPORT_NOT_MACHINE_BOUND',
+                  'GUINAND_WEIL_EXPLICIT_FORMULA_NOT_MACHINE_BOUND',
+                  'FORMULA_TO_WEIL_OPERATOR_IDENTITY_NOT_MACHINE_BOUND',
+                  'GLOBAL_WEIL_POSITIVITY_NOT_PROVEN',
+              ],
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          target = out / 'weil-prime-power-weight-bridge-receipt.json'
+          target.write_text(json.dumps(payload, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+
+          assert version == '9.0.0'
+          assert payload['theorem_count'] == 2
+          assert payload['declared_assumptions'] == 0
+          assert payload['prime_power_weight_semantics_formalized'] is True
+          assert payload['pi_normalization_machine_bound'] is True
+          assert payload['finite_prime_source_sum_machine_bound'] is False
+          assert payload['global_weil_positivity_proven'] is False
+          assert payload['rh_proven'] is False
+          assert len(payload['open_obligations']) == 5
+          assert len(payload['receipt_sha256']) == 64
+          PY
+
+      - name: Upload weight-bridge evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: weil-prime-power-weight-bridge-${{ env.SOURCE_SHA }}
+          path: sovereign-omega-v2/weil-prime-power-weight-bridge-attestation/
+          if-no-files-found: warn
+          retention-days: 30
