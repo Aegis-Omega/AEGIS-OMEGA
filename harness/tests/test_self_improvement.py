@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
+
 from harness.sdk.self_improvement import (
     CandidateObservationV1,
     EvaluationReceiptV1,
     ExperimentContractV1,
     HypothesisEnvelopeV1,
+    ImprovementError,
     ImprovementVerifierV1,
     MetricDirection,
     MetricObservationV1,
@@ -262,3 +265,139 @@ def test_contamination_flag_fails_closed():
     )
     assert receipt is None
     assert "EVALUATION_CONTAMINATION_DETECTED" in result.error_codes
+
+
+def test_trial_bound_is_frozen_by_contract():
+    hypothesis, contract, candidate, evaluation, _, verifier = make_case()
+    out_of_bounds = replace(candidate, trial_index=contract.max_trials)
+    result, receipt = verifier.verify_and_issue(
+        hypothesis=hypothesis,
+        contract=contract,
+        candidate=out_of_bounds,
+        evaluation_receipt_root=evaluation.root,
+    )
+    assert receipt is None
+    assert "TRIAL_BOUND_FAILURE" in result.error_codes
+
+
+def test_verifier_and_policy_roots_are_frozen_by_contract():
+    hypothesis, contract, candidate, evaluation, store, _ = make_case()
+    wrong = ImprovementVerifierV1(
+        verifier_root=h("IMPROVEMENT_VERIFIER", "wrong"),
+        policy_root=h("IMPROVEMENT_POLICY", "wrong"),
+        evaluation_store=store,
+    )
+    result, receipt = wrong.verify_and_issue(
+        hypothesis=hypothesis,
+        contract=contract,
+        candidate=candidate,
+        evaluation_receipt_root=evaluation.root,
+    )
+    assert receipt is None
+    assert "VERIFIER_BINDING_FAILURE" in result.error_codes
+    assert "POLICY_BINDING_FAILURE" in result.error_codes
+
+
+def test_evaluator_policy_root_is_frozen_by_contract():
+    hypothesis, contract, candidate, evaluation, store, verifier = make_case()
+    forged = replace(
+        evaluation,
+        evaluator_policy_root=h("EVALUATOR_POLICY", "candidate-selected"),
+    )
+    store.put(forged)
+    result, receipt = verifier.verify_and_issue(
+        hypothesis=hypothesis,
+        contract=contract,
+        candidate=candidate,
+        evaluation_receipt_root=forged.root,
+    )
+    assert receipt is None
+    assert "EVALUATOR_POLICY_BINDING_FAILURE" in result.error_codes
+
+
+def test_non_pass_independent_evaluation_is_denied():
+    hypothesis, contract, candidate, evaluation, store, verifier = make_case()
+    failed_evaluation = replace(evaluation, status="FAIL")
+    store.put(failed_evaluation)
+    result, receipt = verifier.verify_and_issue(
+        hypothesis=hypothesis,
+        contract=contract,
+        candidate=candidate,
+        evaluation_receipt_root=failed_evaluation.root,
+    )
+    assert receipt is None
+    assert "EVALUATION_STATUS_FAILURE" in result.error_codes
+
+
+def test_metric_set_must_equal_preregistered_rules():
+    hypothesis, contract, candidate, evaluation, store, verifier = make_case()
+    incomplete = replace(
+        evaluation,
+        candidate_metrics=(MetricObservationV1("quality", 806_000),),
+    )
+    store.put(incomplete)
+    result, receipt = verifier.verify_and_issue(
+        hypothesis=hypothesis,
+        contract=contract,
+        candidate=candidate,
+        evaluation_receipt_root=incomplete.root,
+    )
+    assert receipt is None
+    assert "METRIC_SET_MISMATCH" in result.error_codes
+
+
+def test_candidate_environment_is_frozen_by_contract():
+    hypothesis, contract, candidate, evaluation, _, verifier = make_case()
+    moved = replace(candidate, environment_root=h("ENVIRONMENT", "different"))
+    result, receipt = verifier.verify_and_issue(
+        hypothesis=hypothesis,
+        contract=contract,
+        candidate=moved,
+        evaluation_receipt_root=evaluation.root,
+    )
+    assert receipt is None
+    assert "CANDIDATE_ENVIRONMENT_MISMATCH" in result.error_codes
+
+
+def test_hypothesis_binding_is_frozen_by_contract():
+    hypothesis, contract, candidate, evaluation, _, verifier = make_case()
+    spliced = replace(hypothesis, proposal_root=h("PROPOSAL", "spliced"))
+    result, receipt = verifier.verify_and_issue(
+        hypothesis=spliced,
+        contract=contract,
+        candidate=candidate,
+        evaluation_receipt_root=evaluation.root,
+    )
+    assert receipt is None
+    assert "HYPOTHESIS_BINDING_FAILURE" in result.error_codes
+
+
+def test_canonical_roots_do_not_depend_on_tuple_order():
+    _, contract, candidate, evaluation, _, _ = make_case()
+    reordered_contract = replace(contract, metric_rules=tuple(reversed(contract.metric_rules)))
+    reordered_evaluation = replace(
+        evaluation,
+        baseline_metrics=tuple(reversed(evaluation.baseline_metrics)),
+        candidate_metrics=tuple(reversed(evaluation.candidate_metrics)),
+    )
+    extra = h("PUBLIC_RESOURCE", "extra")
+    candidate_a = replace(
+        candidate,
+        accessed_roots=(contract.evaluation_input_root, extra),
+    )
+    candidate_b = replace(
+        candidate,
+        accessed_roots=(extra, contract.evaluation_input_root),
+    )
+    assert reordered_contract.root == contract.root
+    assert reordered_evaluation.root == evaluation.root
+    assert candidate_a.root == candidate_b.root
+
+
+def test_metric_boundary_rejects_float_bool_and_untyped_direction():
+    with pytest.raises(ImprovementError, match="INTEGER_REQUIRED"):
+        MetricObservationV1("quality", 1.0)  # type: ignore[arg-type]
+    with pytest.raises(ImprovementError, match="INTEGER_REQUIRED"):
+        MetricObservationV1("quality", True)  # type: ignore[arg-type]
+    with pytest.raises(ImprovementError, match="direction:INVALID"):
+        MetricRuleV1("quality", "MAXIMIZE", 1)  # type: ignore[arg-type]
