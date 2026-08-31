@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 from dataclasses import replace
 
+import pytest
+
 from harness.sdk.meaning_heritage import (
     ClaimRef,
     ClaimSetEnvelopeV1,
@@ -10,6 +12,7 @@ from harness.sdk.meaning_heritage import (
     ClaimSetVerifierV13,
     DeclaredAdditionEdge,
     DerivationProofReceiptV1,
+    HeritageError,
     HeritageVerifierV13,
     LossType,
     PreservationEdge,
@@ -258,3 +261,17 @@ def test_claimset_receipts_must_be_trusted_not_merely_self_consistent():
     result, receipt = verifier.verify(envelope, forged, forged)
     assert receipt is None
     assert "CLAIMSET_RECEIPT_UNTRUSTED" in result.error_codes
+
+
+def test_same_claim_root_requires_same_semantic_fingerprint():
+    digest = h("CLAIM", {"statement": "same digest, different semantic contexts"})
+    with pytest.raises(HeritageError, match="SAME_CLAIM_ROOT_FINGERPRINT_MISMATCH"):
+        PreservationProofReceiptV1(
+            source_claim_digest=digest,
+            derived_claim_digest=digest,
+            relation=PreservationRelation.SAME_CLAIM_ROOT,
+            source_semantic_fingerprint="fp:carrier-A",
+            derived_semantic_fingerprint="fp:carrier-B",
+            verifier_root=h("SEMANTIC_VERIFIER", "same-root-context"),
+            policy_root=h("SEMANTIC_POLICY", "same-root-context"),
+        )
