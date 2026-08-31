@@ -79,6 +79,7 @@ class VerificationErrorCode(str, Enum):
     CLAIMSET_DERIVED_BINDING_FAILURE = "CLAIMSET_DERIVED_BINDING_FAILURE"
     CLAIMSET_TRUST_STORE_REQUIRED = "CLAIMSET_TRUST_STORE_REQUIRED"
     CLAIMSET_RECEIPT_UNTRUSTED = "CLAIMSET_RECEIPT_UNTRUSTED"
+    DECLARED_OMISSION_OUTSIDE_SOURCE = "DECLARED_OMISSION_OUTSIDE_SOURCE"
     UNDECLARED_LOSS = "UNDECLARED_LOSS"
     UNDECLARED_ADDITION = "UNDECLARED_ADDITION"
     PRESERVATION_PROOF_UNTRUSTED = "PRESERVATION_PROOF_UNTRUSTED"
@@ -545,6 +546,8 @@ class HeritageVerifierV13:
                 )
 
         omissions = set(envelope.declared_omission_digests)
+        if omissions - src:
+            errors.append(VerificationErrorCode.DECLARED_OMISSION_OUTSIDE_SOURCE.value)
         if src - (preserved_src | omissions):
             errors.append(VerificationErrorCode.UNDECLARED_LOSS.value)
 
