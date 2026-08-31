@@ -85,6 +85,7 @@ def make_case():
         environment_root=environment_root,
         evaluator_root=evaluator_root,
         evaluator_policy_root=evaluator_policy_root,
+        observed_candidate_access_roots=(evaluation_input_root,),
         baseline_metrics=(
             MetricObservationV1("quality", 800_000),
             MetricObservationV1("latency", 200_000),
@@ -140,6 +141,47 @@ def test_withheld_label_access_fails_closed():
     )
     assert receipt is None
     assert "WITHHELD_LABEL_ACCESS_DETECTED" in result.error_codes
+
+
+def test_withheld_label_access_cannot_be_hidden_by_candidate_self_report():
+    hypothesis, contract, candidate, evaluation, store, verifier = make_case()
+    evaluator_observed_leak = replace(
+        evaluation,
+        observed_candidate_access_roots=tuple(
+            sorted((contract.evaluation_input_root, contract.withheld_labels_root))
+        ),
+    )
+    assert evaluator_observed_leak.root != evaluation.root
+    store.put(evaluator_observed_leak)
+    result, receipt = verifier.verify_and_issue(
+        hypothesis=hypothesis,
+        contract=contract,
+        candidate=candidate,
+        evaluation_receipt_root=evaluator_observed_leak.root,
+    )
+    assert receipt is None
+    assert "WITHHELD_LABEL_ACCESS_DETECTED" in result.error_codes
+    assert "ACCESS_OBSERVATION_BINDING_FAILURE" in result.error_codes
+
+
+def test_candidate_access_report_must_match_independent_observation():
+    hypothesis, contract, candidate, evaluation, store, verifier = make_case()
+    extra_safe_root = h("PUBLIC_RESOURCE", "extra")
+    evaluator_observation = replace(
+        evaluation,
+        observed_candidate_access_roots=tuple(
+            sorted((contract.evaluation_input_root, extra_safe_root))
+        ),
+    )
+    store.put(evaluator_observation)
+    result, receipt = verifier.verify_and_issue(
+        hypothesis=hypothesis,
+        contract=contract,
+        candidate=candidate,
+        evaluation_receipt_root=evaluator_observation.root,
+    )
+    assert receipt is None
+    assert "ACCESS_OBSERVATION_BINDING_FAILURE" in result.error_codes
 
 
 def test_evaluation_receipt_cannot_be_spliced_to_different_candidate():
