@@ -1,21 +1,18 @@
 """AEGIS antropolimorphic morphism verification engine v1.1.
 
-Morphism envelopes are evidence subjects, not authority. Receipts can only be
-issued by registered kind-specific verifiers. Cross-kind composition is
-fail-closed and requires authenticated predecessor receipts plus an explicit
-composition policy/verifier binding.
+Morphism envelopes and receipts are evidence subjects, never authority. Every
+proof-bearing root must resolve through a trusted store, match the exact subject
+and proof-obligation kind, and composition requires its own authenticated proof.
 """
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Mapping, Protocol, TypeAlias
+from typing import Any, Protocol, TypeAlias
 
 from harness.sdk.meaning_heritage import (
     HeritageReceiptV1,
-    HeritageVerifierV13,
-    SemanticLineageEnvelopeV1,
-    ClaimSetReceiptV1,
+    TrustedHeritageReceiptStore,
     canonical_hash,
     require_hash,
     require_id,
@@ -25,6 +22,8 @@ DOM_MORPHISM_ENVELOPE = "AEGIS_MORPHISM_ENVELOPE_V1"
 DOM_MORPHISM_VERIFICATION = "AEGIS_MORPHISM_VERIFICATION_V1"
 DOM_MORPHISM_RECEIPT = "AEGIS_MORPHISM_RECEIPT_V1"
 DOM_MORPHISM_COMPOSITION = "AEGIS_MORPHISM_COMPOSITION_V1"
+DOM_MORPHISM_COMPOSITION_PROOF = "AEGIS_MORPHISM_COMPOSITION_PROOF_V1"
+DOM_MORPHISM_PROOF_ARTIFACT = "AEGIS_MORPHISM_PROOF_ARTIFACT_V1"
 
 NO_AUTHORITY = "NONE"
 PASS = "PASS"
@@ -46,6 +45,21 @@ class MorphismKind(str, Enum):
     HERITAGE = "HERITAGE"
 
 
+class ProofArtifactKind(str, Enum):
+    CARRIER_TRANSPORT = "CARRIER_TRANSPORT"
+    SPACE_IMAGE_MEMBERSHIP = "SPACE_IMAGE_MEMBERSHIP"
+    SPACE_ADMISSIBILITY = "SPACE_ADMISSIBILITY"
+    SPACE_BOUNDARY = "SPACE_BOUNDARY"
+    REPRESENTATION_LEFT_INVERSE = "REPRESENTATION_LEFT_INVERSE"
+    REPRESENTATION_RIGHT_INVERSE = "REPRESENTATION_RIGHT_INVERSE"
+    REPRESENTATION_OBSERVABLE_COMMUTATION = "REPRESENTATION_OBSERVABLE_COMMUTATION"
+    LIMIT_CONVERGENCE = "LIMIT_CONVERGENCE"
+    LIMIT_UNIVERSAL_PROPERTY = "LIMIT_UNIVERSAL_PROPERTY"
+    SEMANTIC_SOUNDNESS = "SEMANTIC_SOUNDNESS"
+    SEMANTIC_CORRESPONDENCE = "SEMANTIC_CORRESPONDENCE"
+    SEMANTIC_COMPLETENESS = "SEMANTIC_COMPLETENESS"
+
+
 @dataclass(frozen=True)
 class TheoremContextV1:
     theorem_digest: str
@@ -56,8 +70,11 @@ class TheoremContextV1:
 
     def __post_init__(self) -> None:
         for name in (
-            "theorem_digest", "carrier_root", "hypotheses_root",
-            "normalization_root", "proof_context_root",
+            "theorem_digest",
+            "carrier_root",
+            "hypotheses_root",
+            "normalization_root",
+            "proof_context_root",
         ):
             require_hash(name, getattr(self, name))
 
@@ -85,8 +102,11 @@ class SpaceProofObligationV1:
 
     def __post_init__(self) -> None:
         for name in (
-            "subject_root", "source_space_root", "target_space_root",
-            "image_membership_receipt_root", "admissibility_receipt_root",
+            "subject_root",
+            "source_space_root",
+            "target_space_root",
+            "image_membership_receipt_root",
+            "admissibility_receipt_root",
         ):
             require_hash(name, getattr(self, name))
         if self.boundary_condition_receipt_root is not None:
@@ -119,8 +139,11 @@ class LimitProofObligationV1:
 
     def __post_init__(self) -> None:
         for name in (
-            "diagram_root", "index_filter_root", "topology_root",
-            "limit_object_root", "convergence_theorem_receipt_root",
+            "diagram_root",
+            "index_filter_root",
+            "topology_root",
+            "limit_object_root",
+            "convergence_theorem_receipt_root",
         ):
             require_hash(name, getattr(self, name))
         if self.universal_property_receipt_root is not None:
@@ -138,8 +161,11 @@ class SemanticProofObligationV1:
 
     def __post_init__(self) -> None:
         for name in (
-            "formal_object_root", "target_semantics_root", "convention_root",
-            "soundness_receipt_root", "correspondence_receipt_root",
+            "formal_object_root",
+            "target_semantics_root",
+            "convention_root",
+            "soundness_receipt_root",
+            "correspondence_receipt_root",
         ):
             require_hash(name, getattr(self, name))
         if self.completeness_receipt_root is not None:
@@ -165,7 +191,7 @@ ProofObligation: TypeAlias = (
     | HeritageProofObligationV1
 )
 
-_EXPECTED_OBLIGATION_TYPE: dict[MorphismKind, type[ProofObligation]] = {
+_EXPECTED_OBLIGATION_TYPE: dict[MorphismKind, type] = {
     MorphismKind.CARRIER: CarrierProofObligationV1,
     MorphismKind.SPACE: SpaceProofObligationV1,
     MorphismKind.REPRESENTATION: RepresentationProofObligationV1,
@@ -201,6 +227,7 @@ class MorphismEnvelopeV1:
 
 @dataclass(frozen=True)
 class ProofArtifactReceiptV1:
+    proof_kind: ProofArtifactKind
     subject_root: str
     verifier_root: str
     policy_root: str
@@ -216,7 +243,9 @@ class ProofArtifactReceiptV1:
 
     @property
     def root(self) -> str:
-        return canonical_hash("AEGIS_MORPHISM_PROOF_ARTIFACT_V1", asdict(self))
+        data = asdict(self)
+        data["proof_kind"] = self.proof_kind.value
+        return canonical_hash(DOM_MORPHISM_PROOF_ARTIFACT, data)
 
 
 class TrustedProofArtifactStore(Protocol):
@@ -225,6 +254,42 @@ class TrustedProofArtifactStore(Protocol):
 
 class TrustedMorphismReceiptStore(Protocol):
     def fetch_verified(self, root: str) -> "MorphismReceiptV1 | None": ...
+
+
+@dataclass(frozen=True)
+class CompositionProofReceiptV1:
+    left_morphism_root: str
+    right_morphism_root: str
+    composed_envelope_root: str
+    midpoint_domain_root: str
+    interface_contract_root: str
+    verifier_root: str
+    policy_root: str
+    status: str = PASS
+    authority_class: str = field(default=NO_AUTHORITY, init=False)
+    schema_version: str = "aegis.morphism-composition-proof.v1"
+
+    def __post_init__(self) -> None:
+        for name in (
+            "left_morphism_root",
+            "right_morphism_root",
+            "composed_envelope_root",
+            "midpoint_domain_root",
+            "interface_contract_root",
+            "verifier_root",
+            "policy_root",
+        ):
+            require_hash(name, getattr(self, name))
+        if self.status != PASS:
+            raise MorphismError("COMPOSITION_PROOF_NOT_PASS")
+
+    @property
+    def root(self) -> str:
+        return canonical_hash(DOM_MORPHISM_COMPOSITION_PROOF, asdict(self))
+
+
+class TrustedCompositionProofStore(Protocol):
+    def fetch_verified(self, root: str) -> CompositionProofReceiptV1 | None: ...
 
 
 @dataclass(frozen=True)
@@ -247,12 +312,14 @@ class MorphismReceiptV1:
     authority_class: str = field(default=NO_AUTHORITY, init=False)
     schema_version: str = "aegis.morphism-receipt.v1"
 
-    _ISSUE_TOKEN = object()
-
     def __post_init__(self) -> None:
         for name in (
-            "envelope_root", "source_domain_root", "target_domain_root",
-            "verification_root", "verifier_root", "policy_root",
+            "envelope_root",
+            "source_domain_root",
+            "target_domain_root",
+            "verification_root",
+            "verifier_root",
+            "policy_root",
         ):
             require_hash(name, getattr(self, name))
         for root in self.predecessor_morphism_roots:
@@ -313,9 +380,20 @@ class _ReceiptBackedVerifier:
         self.policy_root = policy_root
         self.proof_store = proof_store
 
-    def _require_proof(self, root: str, subject_root: str, code: str) -> str | None:
+    def _require_proof(
+        self,
+        root: str,
+        subject_root: str,
+        expected_kind: ProofArtifactKind,
+        code: str,
+    ) -> str | None:
         receipt = self.proof_store.fetch_verified(root)
-        if receipt is None or receipt.root != root or receipt.subject_root != subject_root:
+        if (
+            receipt is None
+            or receipt.root != root
+            or receipt.subject_root != subject_root
+            or receipt.proof_kind != expected_kind
+        ):
             return code
         return None
 
@@ -327,16 +405,29 @@ class CarrierVerifierV1(_ReceiptBackedVerifier):
     def verify(self, envelope: MorphismEnvelopeV1) -> tuple[str, ...]:
         o = envelope.proof_obligation
         assert isinstance(o, CarrierProofObligationV1)
-        err = self._require_proof(
-            o.transport_proof_receipt_root,
-            canonical_hash("AEGIS_CARRIER_TRANSPORT_SUBJECT_V1", {
+        errors: list[str] = []
+        if (
+            envelope.source_domain_root != o.source_theorem.carrier_root
+            or envelope.target_domain_root != o.target_theorem.carrier_root
+        ):
+            errors.append("CARRIER_ENDPOINT_BINDING_FAILURE")
+        subject = canonical_hash(
+            "AEGIS_CARRIER_TRANSPORT_SUBJECT_V1",
+            {
                 "source": asdict(o.source_theorem),
                 "target": asdict(o.target_theorem),
                 "transport_map_root": o.transport_map_root,
-            }),
+            },
+        )
+        err = self._require_proof(
+            o.transport_proof_receipt_root,
+            subject,
+            ProofArtifactKind.CARRIER_TRANSPORT,
             "CARRIER_TRANSPORT_PROOF_INVALID",
         )
-        return () if err is None else (err,)
+        if err:
+            errors.append(err)
+        return tuple(sorted(set(errors)))
 
 
 class SpaceVerifierV1(_ReceiptBackedVerifier):
@@ -346,21 +437,42 @@ class SpaceVerifierV1(_ReceiptBackedVerifier):
     def verify(self, envelope: MorphismEnvelopeV1) -> tuple[str, ...]:
         o = envelope.proof_obligation
         assert isinstance(o, SpaceProofObligationV1)
-        subject = canonical_hash("AEGIS_SPACE_SUBJECT_V1", {
-            "subject_root": o.subject_root,
-            "source_space_root": o.source_space_root,
-            "target_space_root": o.target_space_root,
-        })
         errors: list[str] = []
-        for root, code in (
-            (o.image_membership_receipt_root, "SPACE_IMAGE_MEMBERSHIP_INVALID"),
-            (o.admissibility_receipt_root, "SPACE_ADMISSIBILITY_INVALID"),
+        if (
+            envelope.source_domain_root != o.source_space_root
+            or envelope.target_domain_root != o.target_space_root
         ):
-            err = self._require_proof(root, subject, code)
+            errors.append("SPACE_ENDPOINT_BINDING_FAILURE")
+        subject = canonical_hash(
+            "AEGIS_SPACE_SUBJECT_V1",
+            {
+                "subject_root": o.subject_root,
+                "source_space_root": o.source_space_root,
+                "target_space_root": o.target_space_root,
+            },
+        )
+        for root, kind, code in (
+            (
+                o.image_membership_receipt_root,
+                ProofArtifactKind.SPACE_IMAGE_MEMBERSHIP,
+                "SPACE_IMAGE_MEMBERSHIP_INVALID",
+            ),
+            (
+                o.admissibility_receipt_root,
+                ProofArtifactKind.SPACE_ADMISSIBILITY,
+                "SPACE_ADMISSIBILITY_INVALID",
+            ),
+        ):
+            err = self._require_proof(root, subject, kind, code)
             if err:
                 errors.append(err)
         if o.boundary_condition_receipt_root:
-            err = self._require_proof(o.boundary_condition_receipt_root, subject, "SPACE_BOUNDARY_INVALID")
+            err = self._require_proof(
+                o.boundary_condition_receipt_root,
+                subject,
+                ProofArtifactKind.SPACE_BOUNDARY,
+                "SPACE_BOUNDARY_INVALID",
+            )
             if err:
                 errors.append(err)
         return tuple(sorted(set(errors)))
@@ -373,19 +485,39 @@ class RepresentationVerifierV1(_ReceiptBackedVerifier):
     def verify(self, envelope: MorphismEnvelopeV1) -> tuple[str, ...]:
         o = envelope.proof_obligation
         assert isinstance(o, RepresentationProofObligationV1)
-        subject = canonical_hash("AEGIS_REPRESENTATION_ISOMORPHISM_SUBJECT_V1", {
-            "source": o.source_representation_root,
-            "target": o.target_representation_root,
-            "forward": o.forward_map_root,
-            "inverse": o.inverse_map_root,
-        })
         errors: list[str] = []
-        for root, code in (
-            (o.left_inverse_proof_root, "REPRESENTATION_LEFT_INVERSE_INVALID"),
-            (o.right_inverse_proof_root, "REPRESENTATION_RIGHT_INVERSE_INVALID"),
-            (o.observable_commutation_proof_root, "REPRESENTATION_COMMUTATION_INVALID"),
+        if (
+            envelope.source_domain_root != o.source_representation_root
+            or envelope.target_domain_root != o.target_representation_root
         ):
-            err = self._require_proof(root, subject, code)
+            errors.append("REPRESENTATION_ENDPOINT_BINDING_FAILURE")
+        subject = canonical_hash(
+            "AEGIS_REPRESENTATION_ISOMORPHISM_SUBJECT_V1",
+            {
+                "source": o.source_representation_root,
+                "target": o.target_representation_root,
+                "forward": o.forward_map_root,
+                "inverse": o.inverse_map_root,
+            },
+        )
+        for root, kind, code in (
+            (
+                o.left_inverse_proof_root,
+                ProofArtifactKind.REPRESENTATION_LEFT_INVERSE,
+                "REPRESENTATION_LEFT_INVERSE_INVALID",
+            ),
+            (
+                o.right_inverse_proof_root,
+                ProofArtifactKind.REPRESENTATION_RIGHT_INVERSE,
+                "REPRESENTATION_RIGHT_INVERSE_INVALID",
+            ),
+            (
+                o.observable_commutation_proof_root,
+                ProofArtifactKind.REPRESENTATION_OBSERVABLE_COMMUTATION,
+                "REPRESENTATION_COMMUTATION_INVALID",
+            ),
+        ):
+            err = self._require_proof(root, subject, kind, code)
             if err:
                 errors.append(err)
         return tuple(sorted(set(errors)))
@@ -398,18 +530,33 @@ class LimitVerifierV1(_ReceiptBackedVerifier):
     def verify(self, envelope: MorphismEnvelopeV1) -> tuple[str, ...]:
         o = envelope.proof_obligation
         assert isinstance(o, LimitProofObligationV1)
-        subject = canonical_hash("AEGIS_LIMIT_SUBJECT_V1", {
-            "diagram_root": o.diagram_root,
-            "index_filter_root": o.index_filter_root,
-            "topology_root": o.topology_root,
-            "limit_object_root": o.limit_object_root,
-        })
         errors: list[str] = []
-        err = self._require_proof(o.convergence_theorem_receipt_root, subject, "LIMIT_CONVERGENCE_INVALID")
+        if envelope.source_domain_root != o.diagram_root or envelope.target_domain_root != o.limit_object_root:
+            errors.append("LIMIT_ENDPOINT_BINDING_FAILURE")
+        subject = canonical_hash(
+            "AEGIS_LIMIT_SUBJECT_V1",
+            {
+                "diagram_root": o.diagram_root,
+                "index_filter_root": o.index_filter_root,
+                "topology_root": o.topology_root,
+                "limit_object_root": o.limit_object_root,
+            },
+        )
+        err = self._require_proof(
+            o.convergence_theorem_receipt_root,
+            subject,
+            ProofArtifactKind.LIMIT_CONVERGENCE,
+            "LIMIT_CONVERGENCE_INVALID",
+        )
         if err:
             errors.append(err)
         if o.universal_property_receipt_root:
-            err = self._require_proof(o.universal_property_receipt_root, subject, "LIMIT_UNIVERSAL_PROPERTY_INVALID")
+            err = self._require_proof(
+                o.universal_property_receipt_root,
+                subject,
+                ProofArtifactKind.LIMIT_UNIVERSAL_PROPERTY,
+                "LIMIT_UNIVERSAL_PROPERTY_INVALID",
+            )
             if err:
                 errors.append(err)
         return tuple(sorted(set(errors)))
@@ -422,21 +569,42 @@ class SemanticVerifierV1(_ReceiptBackedVerifier):
     def verify(self, envelope: MorphismEnvelopeV1) -> tuple[str, ...]:
         o = envelope.proof_obligation
         assert isinstance(o, SemanticProofObligationV1)
-        subject = canonical_hash("AEGIS_SEMANTIC_CORRESPONDENCE_SUBJECT_V1", {
-            "formal_object_root": o.formal_object_root,
-            "target_semantics_root": o.target_semantics_root,
-            "convention_root": o.convention_root,
-        })
         errors: list[str] = []
-        for root, code in (
-            (o.soundness_receipt_root, "SEMANTIC_SOUNDNESS_INVALID"),
-            (o.correspondence_receipt_root, "SEMANTIC_CORRESPONDENCE_INVALID"),
+        if (
+            envelope.source_domain_root != o.formal_object_root
+            or envelope.target_domain_root != o.target_semantics_root
         ):
-            err = self._require_proof(root, subject, code)
+            errors.append("SEMANTIC_ENDPOINT_BINDING_FAILURE")
+        subject = canonical_hash(
+            "AEGIS_SEMANTIC_CORRESPONDENCE_SUBJECT_V1",
+            {
+                "formal_object_root": o.formal_object_root,
+                "target_semantics_root": o.target_semantics_root,
+                "convention_root": o.convention_root,
+            },
+        )
+        for root, kind, code in (
+            (
+                o.soundness_receipt_root,
+                ProofArtifactKind.SEMANTIC_SOUNDNESS,
+                "SEMANTIC_SOUNDNESS_INVALID",
+            ),
+            (
+                o.correspondence_receipt_root,
+                ProofArtifactKind.SEMANTIC_CORRESPONDENCE,
+                "SEMANTIC_CORRESPONDENCE_INVALID",
+            ),
+        ):
+            err = self._require_proof(root, subject, kind, code)
             if err:
                 errors.append(err)
         if o.completeness_receipt_root:
-            err = self._require_proof(o.completeness_receipt_root, subject, "SEMANTIC_COMPLETENESS_INVALID")
+            err = self._require_proof(
+                o.completeness_receipt_root,
+                subject,
+                ProofArtifactKind.SEMANTIC_COMPLETENESS,
+                "SEMANTIC_COMPLETENESS_INVALID",
+            )
             if err:
                 errors.append(err)
         return tuple(sorted(set(errors)))
@@ -445,7 +613,13 @@ class SemanticVerifierV1(_ReceiptBackedVerifier):
 class HeritageMorphismVerifierV1:
     kind = MorphismKind.HERITAGE
 
-    def __init__(self, *, verifier_root: str, policy_root: str, heritage_store: Mapping[str, HeritageReceiptV1]) -> None:
+    def __init__(
+        self,
+        *,
+        verifier_root: str,
+        policy_root: str,
+        heritage_store: TrustedHeritageReceiptStore,
+    ) -> None:
         require_hash("verifier_root", verifier_root)
         require_hash("policy_root", policy_root)
         self.verifier_root = verifier_root
@@ -455,7 +629,7 @@ class HeritageMorphismVerifierV1:
     def verify(self, envelope: MorphismEnvelopeV1) -> tuple[str, ...]:
         o = envelope.proof_obligation
         assert isinstance(o, HeritageProofObligationV1)
-        receipt = self.heritage_store.get(o.heritage_receipt_root)
+        receipt = self.heritage_store.fetch_verified(o.heritage_receipt_root)
         if receipt is None or receipt.root != o.heritage_receipt_root:
             return ("HERITAGE_RECEIPT_UNTRUSTED",)
         if receipt.envelope_root != o.lineage_envelope_root:
@@ -533,26 +707,61 @@ class MorphismVerifierRegistryV1:
         composed_envelope: MorphismEnvelopeV1,
         *,
         receipt_store: TrustedMorphismReceiptStore,
-        composition_verifier_root: str,
-        composition_policy_root: str,
+        composition_store: TrustedCompositionProofStore,
+        composition_proof_root: str,
     ) -> tuple[MorphismVerificationResultV1, MorphismReceiptV1 | None]:
-        require_hash("composition_verifier_root", composition_verifier_root)
-        require_hash("composition_policy_root", composition_policy_root)
+        require_hash("composition_proof_root", composition_proof_root)
         if left.target_domain_root != right.source_domain_root:
-            return MorphismVerificationResultV1(DENIED, ("MORPHISM_COMPOSITION_ENDPOINT_MISMATCH",), None), None
-        if composed_envelope.source_domain_root != left.source_domain_root or composed_envelope.target_domain_root != right.target_domain_root:
-            return MorphismVerificationResultV1(DENIED, ("MORPHISM_COMPOSITION_OUTER_ENDPOINT_MISMATCH",), None), None
+            return MorphismVerificationResultV1(
+                DENIED,
+                ("MORPHISM_COMPOSITION_ENDPOINT_MISMATCH",),
+                None,
+            ), None
+        if (
+            composed_envelope.source_domain_root != left.source_domain_root
+            or composed_envelope.target_domain_root != right.target_domain_root
+        ):
+            return MorphismVerificationResultV1(
+                DENIED,
+                ("MORPHISM_COMPOSITION_OUTER_ENDPOINT_MISMATCH",),
+                None,
+            ), None
+
         for receipt in (left, right):
             trusted = receipt_store.fetch_verified(receipt.root)
             if trusted is None or trusted.root != receipt.root:
-                return MorphismVerificationResultV1(DENIED, ("MORPHISM_PREDECESSOR_UNTRUSTED",), None), None
+                return MorphismVerificationResultV1(
+                    DENIED,
+                    ("MORPHISM_PREDECESSOR_UNTRUSTED",),
+                    None,
+                ), None
 
-        result, receipt = self.verify_and_issue(
+        composition_proof = composition_store.fetch_verified(composition_proof_root)
+        if composition_proof is None or composition_proof.root != composition_proof_root:
+            return MorphismVerificationResultV1(
+                DENIED,
+                ("MORPHISM_COMPOSITION_PROOF_UNTRUSTED",),
+                None,
+            ), None
+        if (
+            composition_proof.left_morphism_root != left.root
+            or composition_proof.right_morphism_root != right.root
+            or composition_proof.composed_envelope_root != composed_envelope.root
+            or composition_proof.midpoint_domain_root != left.target_domain_root
+            or composition_proof.midpoint_domain_root != right.source_domain_root
+        ):
+            return MorphismVerificationResultV1(
+                DENIED,
+                ("MORPHISM_COMPOSITION_PROOF_BINDING_FAILURE",),
+                None,
+            ), None
+
+        result, kind_receipt = self.verify_and_issue(
             composed_envelope,
             predecessor_receipts=(left, right),
             receipt_store=receipt_store,
         )
-        if receipt is None:
+        if kind_receipt is None:
             return result, None
 
         composition_root = canonical_hash(
@@ -561,17 +770,17 @@ class MorphismVerifierRegistryV1:
                 "left_receipt_root": left.root,
                 "right_receipt_root": right.root,
                 "composed_envelope_root": composed_envelope.root,
-                "composition_verifier_root": composition_verifier_root,
-                "composition_policy_root": composition_policy_root,
-                "kind_verification_root": receipt.verification_root,
+                "composition_proof_root": composition_proof.root,
+                "interface_contract_root": composition_proof.interface_contract_root,
+                "kind_verification_root": kind_receipt.verification_root,
                 "status": PASS,
             },
         )
         final_receipt = MorphismReceiptV1._issue(
             envelope=composed_envelope,
             verification_root=composition_root,
-            verifier_root=composition_verifier_root,
-            policy_root=composition_policy_root,
+            verifier_root=composition_proof.verifier_root,
+            policy_root=composition_proof.policy_root,
             predecessor_morphism_roots=(left.root, right.root),
         )
         return MorphismVerificationResultV1(PASS, (), composition_root), final_receipt
