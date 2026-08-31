@@ -665,36 +665,3 @@ class HeritageVerifierV13:
             predecessor_receipt_roots=tuple(sorted(predecessor_roots)),
         )
         return HeritageVerificationResultV1(PASS, (), verification_root), receipt
-
-    def compose(
-        self,
-        h1: HeritageReceiptV1,
-        h2: HeritageReceiptV1,
-        composed_envelope: SemanticLineageEnvelopeV1,
-        source_claimset: ClaimSetReceiptV1,
-        derived_claimset: ClaimSetReceiptV1,
-    ) -> tuple[HeritageVerificationResultV1, HeritageReceiptV1 | None]:
-        if (
-            h1.derived_root != h2.source_root
-            or h1.derived_claimset_receipt_root != h2.source_claimset_receipt_root
-            or composed_envelope.source_root != h1.source_root
-            or composed_envelope.source_claimset_receipt_root
-            != h1.source_claimset_receipt_root
-            or composed_envelope.derived_root != h2.derived_root
-            or composed_envelope.derived_claimset_receipt_root
-            != h2.derived_claimset_receipt_root
-        ):
-            return (
-                HeritageVerificationResultV1(
-                    DENIED,
-                    (VerificationErrorCode.COMPOSITION_ENDPOINT_MISMATCH.value,),
-                    None,
-                ),
-                None,
-            )
-        return self.verify(
-            composed_envelope,
-            source_claimset,
-            derived_claimset,
-            (h1, h2),
-        )
