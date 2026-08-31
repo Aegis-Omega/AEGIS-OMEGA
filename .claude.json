@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/self-improvement-loop-v1",
+    "source_ref": "feat/mhp1-morphism-engine-v1",
     "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "02a9d1a25cdaaad6e58c94c37081eff233bdcc06a17d36e1413e71cd6fc6911a"
+  "state_hash": "e54aa69370d4b0d9f1619c20615aa014c5b7a790e92994f6275f6af27a4fd3c8"
 }
