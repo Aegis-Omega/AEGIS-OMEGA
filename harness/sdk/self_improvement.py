@@ -207,6 +207,7 @@ class EvaluationReceiptV1:
     environment_root: str
     evaluator_root: str
     evaluator_policy_root: str
+    observed_candidate_access_roots: tuple[str, ...]
     baseline_metrics: tuple[MetricObservationV1, ...]
     candidate_metrics: tuple[MetricObservationV1, ...]
     contamination_detected: bool
@@ -225,6 +226,12 @@ class EvaluationReceiptV1:
             "evaluator_policy_root",
         ):
             require_hash(name, getattr(self, name))
+        for root in self.observed_candidate_access_roots:
+            require_hash("observed_candidate_access_root", root)
+        _require_unique(
+            "observed_candidate_access_roots",
+            self.observed_candidate_access_roots,
+        )
         if not isinstance(self.contamination_detected, bool):
             raise ImprovementError("contamination_detected:BOOLEAN_REQUIRED")
         require_id("status", self.status)
@@ -242,6 +249,9 @@ class EvaluationReceiptV1:
     @property
     def root(self) -> str:
         data = asdict(self)
+        data["observed_candidate_access_roots"] = sorted(
+            self.observed_candidate_access_roots
+        )
         data["baseline_metrics"] = [
             asdict(item) for item in sorted(self.baseline_metrics, key=lambda item: item.metric_id)
         ]
@@ -393,6 +403,16 @@ class ImprovementVerifierV1:
             errors.append("EVALUATOR_BINDING_FAILURE")
         if evaluation.evaluator_policy_root != contract.evaluator_policy_root:
             errors.append("EVALUATOR_POLICY_BINDING_FAILURE")
+
+        candidate_access = tuple(sorted(candidate.accessed_roots))
+        independently_observed_access = tuple(
+            sorted(evaluation.observed_candidate_access_roots)
+        )
+        if candidate_access != independently_observed_access:
+            errors.append("ACCESS_OBSERVATION_BINDING_FAILURE")
+        if contract.withheld_labels_root in evaluation.observed_candidate_access_roots:
+            errors.append("WITHHELD_LABEL_ACCESS_DETECTED")
+
         if evaluation.contamination_detected:
             errors.append("EVALUATION_CONTAMINATION_DETECTED")
         if evaluation.status != PASS:
