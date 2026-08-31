@@ -23,17 +23,31 @@ def mock_eval(atom: str, ctx: Set[str]) -> EvaluatorReturnType:
     return (atom in ctx), signature, []
 
 
+def _test_witness_signature(judge_id: str, raw_digest: str, vote: bool) -> str:
+    return canonical_hash(
+        "WITNESS_SIG",
+        {"judge_id": judge_id, "raw_response_digest": raw_digest, "vote": vote},
+    )
+
+
+def verify_test_witness(vote: WitnessVote) -> bool:
+    return vote.signature == _test_witness_signature(
+        vote.judge_id,
+        vote.raw_response_digest,
+        vote.vote,
+    )
+
+
+TEST_WITNESS_VERIFIER_ROOT = canonical_hash("WITNESS_VERIFIER_CONTRACT", "test-v1")
+
+
 def _attested_eval(atom: str, ctx: Set[str]) -> EvaluatorReturnType:
     outcome = atom in ctx
     votes = []
     for i in range(3):
         judge_id = f"j{i}"
         raw = canonical_hash("RAW", {"judge_id": judge_id, "atom": atom, "ctx": sorted(ctx), "vote": outcome})
-        sig = canonical_hash(
-            "WITNESS_SIG",
-            {"judge_id": judge_id, "raw_response_digest": raw, "vote": outcome},
-        )
-        votes.append(WitnessVote(judge_id, outcome, raw, sig))
+        votes.append(WitnessVote(judge_id, outcome, raw, _test_witness_signature(judge_id, raw, outcome)))
     return outcome, canonical_hash("ATTESTED_EVAL", {"atom": atom, "ctx": sorted(ctx)}), votes
 
 
@@ -72,6 +86,8 @@ def test_pshp_lock_full_state_matrix():
         entailment_evaluator=_attested_eval,
         evidence_class=EvidenceClass.ATTESTED,
         quorum_config=QuorumConfig(required_n=2, total_m=3),
+        witness_signature_verifier=verify_test_witness,
+        witness_verifier_contract_digest=TEST_WITNESS_VERIFIER_ROOT,
     )
     controller_attested = PSHPLockController(engine_attested)
     attested_receipt = engine_attested.execute_subtraction(claim, corpus_0)
