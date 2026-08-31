@@ -1,0 +1,252 @@
+name: Weil Prime Power Arithmetic Bridge
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/formal/tests/Weil/PrimePowerArithmeticBridgeSpec.v"
+      - "sovereign-omega-v2/formal/theories/Weil/PrimePowerArithmeticBridge.v"
+      - "sovereign-omega-v2/formal/theories/Weil/FinitePrimeSourceSum.v"
+      - "sovereign-omega-v2/formal/theories/Weil/PrimePowerWeightBridge.v"
+      - "sovereign-omega-v2/formal/theories/Weil/PrimeSourceDerivativeConstructive.v"
+      - ".github/workflows/weil-prime-power-arithmetic.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-prime-power-arithmetic-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  ADMISSION_PARENT_SHA: 4c734a45c98a0844776e6cf96b1129b553f3b8e6
+  A2A_GREEN_RECEIPT_SHA256: c628ba9e17901fbdc283469d4458a87441a5ffed18846621d3fc8b08b5db81d5
+
+jobs:
+  attest-red:
+    name: coqc / validated prime-power arithmetic RED checkpoint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Prepare writable evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/weil-prime-power-arithmetic-attestation
+          chmod -R a+rwX \
+            sovereign-omega-v2/formal/theories/Weil \
+            sovereign-omega-v2/formal/tests/Weil \
+            sovereign-omega-v2/weil-prime-power-arithmetic-attestation
+
+      - name: Validate A2a parent and RED failure boundary
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            THEORY="$ROOT/formal/theories/Weil"
+            TESTDIR="$ROOT/formal/tests/Weil"
+            DERIV="$THEORY/PrimeSourceDerivativeConstructive.v"
+            WEIGHT="$THEORY/PrimePowerWeightBridge.v"
+            FINITE="$THEORY/FinitePrimeSourceSum.v"
+            FINITE_TEST="$TESTDIR/FinitePrimeSourceSumSpec.v"
+            SOURCE="$THEORY/PrimePowerArithmeticBridge.v"
+            TEST="$TESTDIR/PrimePowerArithmeticBridgeSpec.v"
+            OUT="$ROOT/weil-prime-power-arithmetic-attestation"
+
+            coqc --version | tee "$OUT/coq-version.txt"
+            opam install -y coq-corn.9.0.0
+            opam var coq-corn:version | tee "$OUT/corn-version.txt"
+            test "$(tr -d '[:space:]' < "$OUT/corn-version.txt")" = "9.0.0"
+            opam show coq-corn.9.0.0 --field=version,license,depends \
+              | tee "$OUT/corn-package-metadata.txt"
+
+            test -f "$DERIV"
+            test -f "$WEIGHT"
+            test -f "$FINITE"
+            test -f "$FINITE_TEST"
+            test -f "$TEST"
+
+            coqc -Q "$THEORY" "" "$DERIV" 2>&1 \
+              | tee "$OUT/prime-source-derivative.log"
+            coqc -Q "$THEORY" "" "$WEIGHT" 2>&1 \
+              | tee "$OUT/prime-power-weight-bridge.log"
+            coqc -Q "$THEORY" "" "$FINITE" 2>&1 \
+              | tee "$OUT/finite-prime-source-sum.log"
+            coqc -Q "$THEORY" "" -Q "$TESTDIR" "" "$FINITE_TEST" 2>&1 \
+              | tee "$OUT/finite-prime-source-sum-spec.log"
+
+            if test -f "$SOURCE"; then
+              echo 'RED checkpoint invalid: PrimePowerArithmeticBridge.v already exists.' >&2
+              echo 'Transition the harness to an explicit GREEN arithmetic contract.' >&2
+              exit 1
+            fi
+
+            set +e
+            coqc -Q "$THEORY" "" -Q "$TESTDIR" "" "$TEST" \
+              > "$OUT/prime-power-arithmetic-spec.log" 2>&1
+            rc=$?
+            set -e
+            cat "$OUT/prime-power-arithmetic-spec.log"
+
+            if test "$rc" -eq 0; then
+              echo 'RED contract unexpectedly compiled without production arithmetic source.' >&2
+              exit 1
+            fi
+
+            error_count="$(grep -c '^Error:' "$OUT/prime-power-arithmetic-spec.log" || true)"
+            if test "$error_count" -ne 1; then
+              echo "Expected exactly one Coq Error line; observed $error_count." >&2
+              exit 1
+            fi
+
+            normalized="$(
+              tr '\n' ' ' < "$OUT/prime-power-arithmetic-spec.log" \
+                | sed -E 's/[[:space:]]+/ /g'
+            )"
+            expected='Error: Cannot find a physical path bound to logical path PrimePowerArithmeticBridge.'
+            if ! printf '%s\n' "$normalized" | grep -Fq "$expected"; then
+              echo 'RED failure was not the exact PrimePowerArithmeticBridge module-resolution error.' >&2
+              exit 1
+            fi
+
+            cat > "$OUT/red-checkpoint.txt" <<'EOF'
+            RED_CHECKPOINT_VERIFIED=true
+            A2A_PARENT_COMPILE_PASSED=true
+            PRODUCTION_SOURCE_PRESENT=false
+            EXPECTED_FAILURE_KIND=MISSING_LOGICAL_MODULE
+            EXPECTED_MISSING_MODULE=PrimePowerArithmeticBridge
+            ERROR_CARDINALITY=1
+            PRIME_POWER_ARITHMETIC_SEMANTICS_MACHINE_BOUND=false
+            CANONICAL_VON_MANGOLDT_BINDING_MACHINE_BOUND=false
+            CANONICAL_LOG_PRIME_POWER_BINDING_MACHINE_BOUND=false
+            CANONICAL_SQRT_PRIME_POWER_BINDING_MACHINE_BOUND=false
+            EOF
+
+      - name: Emit content-addressed A2b RED receipt
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          out = Path('weil-prime-power-arithmetic-attestation')
+          theory = Path('formal/theories/Weil')
+          tests = Path('formal/tests/Weil')
+          derivative = theory / 'PrimeSourceDerivativeConstructive.v'
+          weight = theory / 'PrimePowerWeightBridge.v'
+          finite = theory / 'FinitePrimeSourceSum.v'
+          finite_test = tests / 'FinitePrimeSourceSumSpec.v'
+          red_spec = tests / 'PrimePowerArithmeticBridgeSpec.v'
+          source = theory / 'PrimePowerArithmeticBridge.v'
+          red_log = out / 'prime-power-arithmetic-spec.log'
+
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          version = (out / 'corn-version.txt').read_text(encoding='utf-8').strip()
+          checkpoint = (out / 'red-checkpoint.txt').read_text(encoding='utf-8')
+          error_cardinality = sum(
+              1
+              for line in red_log.read_text(encoding='utf-8').splitlines()
+              if line.startswith('Error:')
+          )
+
+          payload = {
+              'receipt_kind': 'AEGIS_A2B_PRIME_POWER_ARITHMETIC_RED_RECEIPT_V1',
+              'authority': 'FORMAL_TEST_HARNESS_EVIDENCE_ONLY',
+              'source_commit': os.environ['SOURCE_SHA'],
+              'admission_parent_commit': os.environ['ADMISSION_PARENT_SHA'],
+              'parent_a2a_green_receipt_sha256': os.environ['A2A_GREEN_RECEIPT_SHA256'],
+              'coq_version_sha256': sha(out / 'coq-version.txt'),
+              'corn_requested_version': '9.0.0',
+              'corn_installed_version': version,
+              'corn_package_metadata_sha256': sha(out / 'corn-package-metadata.txt'),
+              'derivative_source_sha256': sha(derivative),
+              'weight_bridge_source_sha256': sha(weight),
+              'finite_sum_source_sha256': sha(finite),
+              'finite_sum_spec_sha256': sha(finite_test),
+              'red_spec_sha256': sha(red_spec),
+              'finite_sum_compile_log_sha256': sha(out / 'finite-prime-source-sum.log'),
+              'finite_sum_spec_log_sha256': sha(out / 'finite-prime-source-sum-spec.log'),
+              'red_compile_log_sha256': sha(red_log),
+              'red_checkpoint_sha256': sha(out / 'red-checkpoint.txt'),
+              'a2a_parent_compile_passed': True,
+              'production_source_present': source.exists(),
+              'red_checkpoint_verified': 'RED_CHECKPOINT_VERIFIED=true' in checkpoint,
+              'expected_failure_kind': 'MISSING_LOGICAL_MODULE',
+              'expected_missing_module': 'PrimePowerArithmeticBridge',
+              'error_cardinality': error_cardinality,
+              'prime_power_arithmetic_semantics_machine_bound': False,
+              'canonical_von_mangoldt_binding_machine_bound': False,
+              'canonical_log_prime_power_binding_machine_bound': False,
+              'canonical_sqrt_prime_power_binding_machine_bound': False,
+              'finite_prime_source_sum_machine_bound': True,
+              'finite_prime_source_sum_scope': 'SUPPLIED_ANALYTIC_DESCRIPTORS_ONLY',
+              'corn_o0_trig_transport_machine_bound': False,
+              'guinand_weil_explicit_formula_machine_bound': False,
+              'formula_to_weil_operator_identity_proven': False,
+              'global_weil_positivity_proven': False,
+              'rh_proven': False,
+              'open_obligations': [
+                  'PRIME_POWER_ARITHMETIC_BRIDGE_NOT_MACHINE_BOUND',
+                  'CANONICAL_VON_MANGOLDT_BINDING_NOT_MACHINE_BOUND',
+                  'CANONICAL_LOG_PRIME_POWER_BINDING_NOT_MACHINE_BOUND',
+                  'CANONICAL_SQRT_PRIME_POWER_BINDING_NOT_MACHINE_BOUND',
+                  'CORN_IR_TO_O0_TRIG_TRANSPORT_NOT_MACHINE_BOUND',
+                  'GUINAND_WEIL_EXPLICIT_FORMULA_NOT_MACHINE_BOUND',
+                  'FORMULA_TO_WEIL_OPERATOR_IDENTITY_NOT_MACHINE_BOUND',
+                  'GLOBAL_WEIL_POSITIVITY_NOT_PROVEN',
+              ],
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          target = out / 'weil-prime-power-arithmetic-red-receipt.json'
+          target.write_text(json.dumps(payload, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+
+          assert version == '9.0.0'
+          assert payload['admission_parent_commit'] == '4c734a45c98a0844776e6cf96b1129b553f3b8e6'
+          assert payload['parent_a2a_green_receipt_sha256'] == 'c628ba9e17901fbdc283469d4458a87441a5ffed18846621d3fc8b08b5db81d5'
+          assert payload['a2a_parent_compile_passed'] is True
+          assert payload['production_source_present'] is False
+          assert payload['red_checkpoint_verified'] is True
+          assert payload['error_cardinality'] == 1
+          assert payload['prime_power_arithmetic_semantics_machine_bound'] is False
+          assert payload['canonical_von_mangoldt_binding_machine_bound'] is False
+          assert payload['canonical_log_prime_power_binding_machine_bound'] is False
+          assert payload['canonical_sqrt_prime_power_binding_machine_bound'] is False
+          assert payload['finite_prime_source_sum_machine_bound'] is True
+          assert payload['global_weil_positivity_proven'] is False
+          assert payload['rh_proven'] is False
+          assert len(payload['receipt_sha256']) == 64
+          PY
+
+      - name: Upload A2b RED evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: weil-prime-power-arithmetic-red-${{ env.SOURCE_SHA }}
+          path: sovereign-omega-v2/weil-prime-power-arithmetic-attestation/
+          if-no-files-found: warn
+          retention-days: 30
