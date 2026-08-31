@@ -255,11 +255,11 @@ class PreservationProofReceiptV1:
         require_hash("policy_root", self.policy_root)
         if self.status != PASS:
             raise HeritageError("PRESERVATION_PROOF_NOT_PASS")
-        if (
-            self.relation == PreservationRelation.SAME_CLAIM_ROOT
-            and self.source_claim_digest != self.derived_claim_digest
-        ):
-            raise HeritageError("SAME_CLAIM_ROOT_MISMATCH")
+        if self.relation == PreservationRelation.SAME_CLAIM_ROOT:
+            if self.source_claim_digest != self.derived_claim_digest:
+                raise HeritageError("SAME_CLAIM_ROOT_MISMATCH")
+            if self.source_semantic_fingerprint != self.derived_semantic_fingerprint:
+                raise HeritageError("SAME_CLAIM_ROOT_FINGERPRINT_MISMATCH")
 
     @property
     def root(self) -> str:
