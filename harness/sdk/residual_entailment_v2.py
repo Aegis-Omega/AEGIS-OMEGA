@@ -8,6 +8,11 @@ The repository's canonical ``harness.sdk.sovereign_execution.canonical_hash`` is
 reused rather than redefining a parallel hashing scheme. ``timestamp_utc`` is
 observational metadata and is deliberately excluded from deterministic receipt
 roots, matching the sovereign execution invariant for timestamps.
+
+ATTESTED evidence is fail-closed: an external witness-signature verifier and its
+contract digest are mandatory. Signature bytes are opaque to this module so a
+real public-key verifier can be injected; a well-formed digest is never treated
+as cryptographic authentication by itself.
 """
 from __future__ import annotations
 
@@ -69,7 +74,7 @@ class WitnessVote:
         if not isinstance(self.vote, bool):
             raise ValueError("vote:BOOLEAN_REQUIRED")
         _require_sha256("raw_response_digest", self.raw_response_digest)
-        _require_sha256("signature", self.signature)
+        _require_nonempty("signature", self.signature)
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -206,6 +211,7 @@ class ResidualEntailmentReceiptV2:
 
 
 EvaluatorReturnType = Tuple[bool, str, List[WitnessVote]]
+WitnessSignatureVerifier = Callable[[WitnessVote], bool]
 
 
 class ResidualVerifierEngineV2:
@@ -218,20 +224,33 @@ class ResidualVerifierEngineV2:
         quorum_config: Optional[QuorumConfig] = None,
         history_lock_roots: Optional[Set[str]] = None,
         evaluator_contract_digest: Optional[str] = None,
+        witness_signature_verifier: Optional[WitnessSignatureVerifier] = None,
+        witness_verifier_contract_digest: Optional[str] = None,
     ):
         if not isinstance(evidence_class, EvidenceClass):
             raise ValueError("evidence_class:INVALID")
         _require_sha256("atomizer_contract_digest", atomizer_contract_digest)
-        if evidence_class == EvidenceClass.ATTESTED and quorum_config is None:
-            raise ValueError("ATTESTED evidence class requires an explicit QuorumConfig.")
-        if evidence_class == EvidenceClass.DERIVED and quorum_config is not None:
-            raise ValueError("DERIVED evidence class cannot carry QuorumConfig.")
+        if evidence_class == EvidenceClass.ATTESTED:
+            if quorum_config is None:
+                raise ValueError("ATTESTED_QUORUM_CONFIG_REQUIRED")
+            if witness_signature_verifier is None or witness_verifier_contract_digest is None:
+                raise ValueError("ATTESTED_WITNESS_VERIFIER_REQUIRED")
+            if not callable(witness_signature_verifier):
+                raise ValueError("ATTESTED_WITNESS_VERIFIER_NOT_CALLABLE")
+            _require_sha256("witness_verifier_contract_digest", witness_verifier_contract_digest)
+        else:
+            if quorum_config is not None:
+                raise ValueError("DERIVED_QUORUM_FORBIDDEN")
+            if witness_signature_verifier is not None or witness_verifier_contract_digest is not None:
+                raise ValueError("DERIVED_WITNESS_VERIFIER_FORBIDDEN")
 
         self.atomizer = atomizer
         self.atomizer_contract_digest = atomizer_contract_digest
         self.entailment_evaluator = entailment_evaluator
         self.evidence_class = evidence_class
         self.quorum_config = quorum_config
+        self.witness_signature_verifier = witness_signature_verifier
+        self.witness_verifier_contract_digest = witness_verifier_contract_digest
         self.history_lock_roots = set(history_lock_roots or set())
         for root in self.history_lock_roots:
             _require_sha256("history_lock_root", root)
@@ -250,6 +269,7 @@ class ResidualVerifierEngineV2:
                 "evaluator_contract_digest": self.evaluator_contract_digest,
                 "evidence_class": self.evidence_class.value,
                 "quorum_config": self.quorum_config.to_dict() if self.quorum_config else None,
+                "witness_verifier_contract_digest": self.witness_verifier_contract_digest,
                 "schema_version": "aegis.residual-verifier.v2",
             },
         )
@@ -392,25 +412,6 @@ class ResidualVerifierEngineV2:
             timestamp_utc=timestamp_utc or _now_utc(),
         )
 
-    @staticmethod
-    def _verify_vote_token(vote: WitnessVote) -> bool:
-        """Verify the deterministic v2 witness integrity token.
-
-        This is not a public-key signature scheme. Deployments claiming external
-        cryptographic attestation must wrap/replace this boundary with a trusted
-        key registry and signature verifier; the receipt itself does not mint that
-        trust merely from a SHA-256 token.
-        """
-        expected = canonical_hash(
-            "WITNESS_SIG",
-            {
-                "judge_id": vote.judge_id,
-                "raw_response_digest": vote.raw_response_digest,
-                "vote": vote.vote,
-            },
-        )
-        return vote.signature == expected
-
     def _verify_quorum_votes(
         self,
         votes: Tuple[WitnessVote, ...],
@@ -420,6 +421,7 @@ class ResidualVerifierEngineV2:
         errors: List[str],
     ) -> None:
         assert self.quorum_config is not None
+        assert self.witness_signature_verifier is not None
         if len(votes) != self.quorum_config.total_m:
             errors.append(f"QUORUM_TOTAL_M_MISMATCH:{pass_index}:{atom_digest}")
         if len({vote.judge_id for vote in votes}) != len(votes):
@@ -427,8 +429,12 @@ class ResidualVerifierEngineV2:
         if not self.quorum_config.is_satisfied(votes, expected_outcome):
             errors.append(f"QUORUM_THRESHOLD_FAILURE:{pass_index}:{atom_digest}")
         for vote in votes:
-            if not self._verify_vote_token(vote):
-                errors.append(f"WITNESS_TOKEN_INVALID:{pass_index}:{atom_digest}:{vote.judge_id}")
+            try:
+                signature_valid = bool(self.witness_signature_verifier(vote))
+            except Exception:
+                signature_valid = False
+            if not signature_valid:
+                errors.append(f"WITNESS_SIGNATURE_INVALID:{pass_index}:{atom_digest}:{vote.judge_id}")
 
     def verify_residual_entailment(
         self,
@@ -522,6 +528,8 @@ class ResidualVerifierEngineV2:
                 errors.append("ATTESTATION_QUORUM_MISSING")
             elif self.quorum_config is None or receipt.quorum_config != self.quorum_config:
                 errors.append("ATTESTATION_QUORUM_CONFIG_MISMATCH")
+            elif self.witness_signature_verifier is None or self.witness_verifier_contract_digest is None:
+                errors.append("ATTESTED_WITNESS_VERIFIER_UNAVAILABLE")
             else:
                 for verdict in receipt.per_atom_verdicts:
                     self._verify_quorum_votes(
