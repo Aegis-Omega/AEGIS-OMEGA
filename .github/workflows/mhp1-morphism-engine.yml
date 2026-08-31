@@ -1,0 +1,57 @@
+name: MHP-1 Morphism Engine
+
+on:
+  push:
+    branches: [feat/mhp1-morphism-engine-v1]
+    paths:
+      - 'harness/sdk/meaning_heritage.py'
+      - 'harness/sdk/morphisms.py'
+      - 'harness/tests/test_meaning_heritage_morphisms.py'
+      - '.github/workflows/mhp1-morphism-engine.yml'
+  pull_request:
+    paths:
+      - 'harness/sdk/meaning_heritage.py'
+      - 'harness/sdk/morphisms.py'
+      - 'harness/tests/test_meaning_heritage_morphisms.py'
+      - '.github/workflows/mhp1-morphism-engine.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: aegis / mhp1-morphism-engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 1
+
+      - name: Assert exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install focused test dependency
+        run: python -m pip install --disable-pip-version-check pytest==8.3.5
+
+      - name: Compile MHP-1 and morphism kernels
+        run: |
+          python -m py_compile \
+            harness/sdk/meaning_heritage.py \
+            harness/sdk/morphisms.py \
+            harness/tests/test_meaning_heritage_morphisms.py
+
+      - name: Run adversarial falsifier suite
+        run: python -m pytest -q harness/tests/test_meaning_heritage_morphisms.py
