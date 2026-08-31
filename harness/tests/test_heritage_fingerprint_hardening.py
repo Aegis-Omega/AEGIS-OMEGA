@@ -6,6 +6,7 @@ from dataclasses import replace
 from harness.sdk.meaning_heritage import (
     ClaimRef,
     ClaimSetEnvelopeV1,
+    ClaimSetReceiptV1,
     ClaimSetVerifierV13,
     DeclaredAdditionEdge,
     DerivationProofReceiptV1,
@@ -189,3 +190,60 @@ def test_derivation_receipt_must_bind_source_and_derived_semantic_fingerprints()
     result2, receipt2 = verifier.verify(valid_envelope, source, derived)
     assert result2.status == "PASS"
     assert receipt2 is not None
+
+
+def test_claimset_receipts_must_be_trusted_not_merely_self_consistent():
+    claim = ClaimRef(
+        "forged",
+        h("CLAIM", {"statement": "fabricated without extractor replay"}),
+        "fp:forged-claimset",
+    )
+    forged = ClaimSetReceiptV1(
+        claimset_envelope_root=h("FORGED_CLAIMSET_ENVELOPE", 1),
+        payload_root=h("FORGED_PAYLOAD", 1),
+        extractor_root=h("FORGED_EXTRACTOR", 1),
+        extractor_policy_root=h("FORGED_EXTRACTOR_POLICY", 1),
+        claimset_root=h("FORGED_CLAIMSET", 1),
+        sorted_claims=(claim,),
+        verification_root=h("FORGED_CLAIMSET_VERIFICATION", 1),
+    )
+    proof = PreservationProofReceiptV1(
+        source_claim_digest=claim.claim_digest,
+        derived_claim_digest=claim.claim_digest,
+        relation=PreservationRelation.SAME_CLAIM_ROOT,
+        source_semantic_fingerprint=claim.semantic_fingerprint,
+        derived_semantic_fingerprint=claim.semantic_fingerprint,
+        verifier_root=h("SEMANTIC_VERIFIER", "forged-claimset"),
+        policy_root=h("SEMANTIC_POLICY", "forged-claimset"),
+    )
+    store = ProofStore()
+    store.preservation[proof.root] = proof
+    envelope = SemanticLineageEnvelopeV1(
+        lineage_id="forged-claimset-receipt",
+        source_root=forged.payload_root,
+        source_claimset_receipt_root=forged.root,
+        derived_root=forged.payload_root,
+        derived_claimset_receipt_root=forged.root,
+        transform_root=h("IDENTITY_TRANSFORM", 1),
+        transform_relation=TransformRelation.IDENTITY,
+        loss_type=LossType.EXACT_LOSSLESS,
+        preservation_edges=(
+            PreservationEdge(
+                claim.claim_digest,
+                claim.claim_digest,
+                PreservationRelation.SAME_CLAIM_ROOT,
+                proof.root,
+            ),
+        ),
+        declared_omission_digests=(),
+        declared_additions=(),
+        uncertainty_bps=0,
+    )
+    verifier = HeritageVerifierV13(
+        verifier_root=h("HERITAGE_VERIFIER", "forged-claimset"),
+        policy_root=h("HERITAGE_POLICY", "forged-claimset"),
+        proof_store=store,
+    )
+    result, receipt = verifier.verify(envelope, forged, forged)
+    assert receipt is None
+    assert "CLAIMSET_RECEIPT_UNTRUSTED" in result.error_codes
