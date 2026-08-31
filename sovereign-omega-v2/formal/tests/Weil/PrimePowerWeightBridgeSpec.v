@@ -9,6 +9,7 @@
   transport, the explicit formula, global Weil positivity, or RH.
 *)
 
+Require Import CoRN.transc.Pi.
 Require Import PrimePowerWeightBridge.
 
 Definition prime_power_weight_derivative_contract_v1 :
