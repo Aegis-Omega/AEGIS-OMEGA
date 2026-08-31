@@ -29,6 +29,36 @@ def mock_derived_eval(atom: str, ctx: Set[str]) -> EvaluatorReturnType:
     return False, sig, []
 
 
+def _test_witness_signature(judge_id: str, raw_digest: str, vote: bool) -> str:
+    return canonical_hash(
+        "WITNESS_SIG",
+        {"judge_id": judge_id, "raw_response_digest": raw_digest, "vote": vote},
+    )
+
+
+def verify_test_witness(vote: WitnessVote) -> bool:
+    return vote.signature == _test_witness_signature(
+        vote.judge_id,
+        vote.raw_response_digest,
+        vote.vote,
+    )
+
+
+TEST_WITNESS_VERIFIER_ROOT = canonical_hash("WITNESS_VERIFIER_CONTRACT", "test-v1")
+
+
+def attested_engine(evaluator, contract_suffix: str) -> ResidualVerifierEngineV2:
+    return ResidualVerifierEngineV2(
+        atomizer=mock_atomizer,
+        atomizer_contract_digest=canonical_hash("CONTRACT", contract_suffix),
+        entailment_evaluator=evaluator,
+        evidence_class=EvidenceClass.ATTESTED,
+        quorum_config=QuorumConfig(required_n=2, total_m=3),
+        witness_signature_verifier=verify_test_witness,
+        witness_verifier_contract_digest=TEST_WITNESS_VERIFIER_ROOT,
+    )
+
+
 def test_derived_lifecycle():
     corpus = {"Theorem_Alpha", "Alpha_Implies_Beta"}
     engine = ResidualVerifierEngineV2(
@@ -65,25 +95,26 @@ def _attested_eval(atom: str, ctx: Set[str]) -> EvaluatorReturnType:
     for i in range(3):
         judge_id = f"judge_{i}"
         raw = canonical_hash("RAW", {"judge_id": judge_id, "atom": atom, "ctx": sorted(ctx), "vote": ground_truth})
-        sig = canonical_hash(
-            "WITNESS_SIG",
-            {"judge_id": judge_id, "raw_response_digest": raw, "vote": ground_truth},
-        )
-        votes.append(WitnessVote(judge_id, ground_truth, raw, sig))
+        votes.append(WitnessVote(judge_id, ground_truth, raw, _test_witness_signature(judge_id, raw, ground_truth)))
     evaluator_sig = canonical_hash("ATTESTED_EVAL", {"atom": atom, "ctx": sorted(ctx)})
     return ground_truth, evaluator_sig, votes
+
+
+def test_attested_requires_explicit_signature_verifier_boundary():
+    with pytest.raises(ValueError, match="ATTESTED_WITNESS_VERIFIER_REQUIRED"):
+        ResidualVerifierEngineV2(
+            atomizer=mock_atomizer,
+            atomizer_contract_digest=canonical_hash("CONTRACT", "missing-attestation-verifier"),
+            entailment_evaluator=_attested_eval,
+            evidence_class=EvidenceClass.ATTESTED,
+            quorum_config=QuorumConfig(required_n=2, total_m=3),
+        )
 
 
 def test_attested_quorum_consistency():
     corpus = {"Theorem_Alpha"}
     claim = "Theorem_Alpha; Novel_Gamma"
-    engine = ResidualVerifierEngineV2(
-        atomizer=mock_atomizer,
-        atomizer_contract_digest=canonical_hash("CONTRACT", "v2.0-attested"),
-        entailment_evaluator=_attested_eval,
-        evidence_class=EvidenceClass.ATTESTED,
-        quorum_config=QuorumConfig(required_n=2, total_m=3),
-    )
+    engine = attested_engine(_attested_eval, "v2.0-attested")
 
     receipt = engine.execute_subtraction(claim, corpus)
     valid, errors = engine.verify_residual_entailment(claim, corpus, receipt)
@@ -120,24 +151,34 @@ def test_attested_quorum_requires_distinct_judges_and_exact_total_m():
     def duplicate_judge_eval(atom: str, ctx: Set[str]) -> EvaluatorReturnType:
         vote = False
         raw = canonical_hash("RAW", {"atom": atom, "ctx": sorted(ctx), "vote": vote})
-        sig = canonical_hash(
-            "WITNESS_SIG",
-            {"judge_id": "same", "raw_response_digest": raw, "vote": vote},
-        )
+        sig = _test_witness_signature("same", raw, vote)
         votes = [WitnessVote("same", vote, raw, sig) for _ in range(3)]
         return vote, canonical_hash("ATTESTED_EVAL", atom), votes
 
-    engine = ResidualVerifierEngineV2(
-        atomizer=mock_atomizer,
-        atomizer_contract_digest=canonical_hash("CONTRACT", "quorum-distinct"),
-        entailment_evaluator=duplicate_judge_eval,
-        evidence_class=EvidenceClass.ATTESTED,
-        quorum_config=QuorumConfig(required_n=2, total_m=3),
-    )
+    engine = attested_engine(duplicate_judge_eval, "quorum-distinct")
     receipt = engine.execute_subtraction(claim, corpus)
     valid, errors = engine.verify_residual_entailment(claim, corpus, receipt)
     assert not valid
     assert any("QUORUM_DISTINCT_JUDGES_REQUIRED" in error for error in errors)
+
+
+def test_forged_attested_signature_fails_external_verifier():
+    corpus: Set[str] = set()
+    claim = "Novel"
+
+    def forged_eval(atom: str, ctx: Set[str]) -> EvaluatorReturnType:
+        votes = []
+        for i in range(3):
+            judge_id = f"judge_{i}"
+            raw = canonical_hash("RAW", {"judge_id": judge_id, "atom": atom})
+            votes.append(WitnessVote(judge_id, False, raw, canonical_hash("FORGED", judge_id)))
+        return False, canonical_hash("ATTESTED_EVAL", atom), votes
+
+    engine = attested_engine(forged_eval, "forged-signature")
+    receipt = engine.execute_subtraction(claim, corpus)
+    valid, errors = engine.verify_residual_entailment(claim, corpus, receipt)
+    assert not valid
+    assert any("WITNESS_SIGNATURE_INVALID" in error for error in errors)
 
 
 def test_engine_binding_and_evidence_class_are_frozen():
