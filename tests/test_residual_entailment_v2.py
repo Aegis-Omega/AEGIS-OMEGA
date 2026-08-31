@@ -178,10 +178,8 @@ def test_retry_chain_requires_sha256_predecessor_and_nonnegative_attempt():
     assert not valid_negative
     assert "ATTEMPT_INDEX_INVALID" in negative_errors
 
-    malformed_prev = replace(receipt, attempt_index=1, previous_attempt_sha256="not-a-digest")
-    valid_prev, prev_errors = engine.verify_residual_entailment(claim, corpus, malformed_prev)
-    assert not valid_prev
-    assert "PREVIOUS_ATTEMPT_SHA256_INVALID" in prev_errors
+    with pytest.raises(ValueError, match="previous_attempt_sha256:INVALID_SHA256"):
+        replace(receipt, attempt_index=1, previous_attempt_sha256="not-a-digest")
 
 
 def test_quorum_config_rejects_impossible_thresholds():
