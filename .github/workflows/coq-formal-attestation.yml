@@ -161,6 +161,7 @@ jobs:
               'Weil/PrimeSourceDerivativeConstructive.v' \
               'Weil/PrimePowerWeightBridge.v' \
               'Weil/FinitePrimeSourceSum.v' \
+              'Weil/PrimePowerArithmeticBridge.v' \
               'Weil/O0TrustProbeReals.v' \
               'Weil/O0TrustProbeFunction.v' \
               'Weil/O0TrustProbeCompact.v' \
@@ -237,6 +238,7 @@ jobs:
               'Weil/PrimeSourceDerivativeConstructive.v',
               'Weil/PrimePowerWeightBridge.v',
               'Weil/FinitePrimeSourceSum.v',
+              'Weil/PrimePowerArithmeticBridge.v',
               'Weil/O0TrustProbeConstructive.v',
               'Weil/AnalyticDefinitions.v',
               'Weil/O0ProductionConstructiveProbe.v',
