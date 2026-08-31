@@ -327,3 +327,51 @@ def test_preserved_derived_cannot_also_be_declared_added():
             ),
             uncertainty_bps=0,
         )
+
+
+def test_declared_omission_must_belong_to_source_claimset():
+    claim = ClaimRef("A", h("CLAIM", "real-source-claim"), "fp:A")
+    source = issue(b"source-real-A", (claim,), "omission-source")
+    derived = issue(b"derived-real-A", (claim,), "omission-derived")
+    proof = PreservationProofReceiptV1(
+        source_claim_digest=claim.claim_digest,
+        derived_claim_digest=claim.claim_digest,
+        relation=PreservationRelation.SAME_CLAIM_ROOT,
+        source_semantic_fingerprint=claim.semantic_fingerprint,
+        derived_semantic_fingerprint=claim.semantic_fingerprint,
+        verifier_root=h("SEMANTIC_VERIFIER", "omission-membership"),
+        policy_root=h("SEMANTIC_POLICY", "omission-membership"),
+    )
+    store = ProofStore()
+    store.preservation[proof.root] = proof
+    bogus_omission = h("CLAIM", "never-present-in-source")
+    envelope = SemanticLineageEnvelopeV1(
+        lineage_id="bogus-omission",
+        source_root=source.payload_root,
+        source_claimset_receipt_root=source.root,
+        derived_root=derived.payload_root,
+        derived_claimset_receipt_root=derived.root,
+        transform_root=h("TRANSFORM", "bogus-omission"),
+        transform_relation=TransformRelation.LOSSY_TRANSFORM,
+        loss_type=LossType.HEURISTIC_ABSTRACTION,
+        preservation_edges=(
+            PreservationEdge(
+                claim.claim_digest,
+                claim.claim_digest,
+                PreservationRelation.SAME_CLAIM_ROOT,
+                proof.root,
+            ),
+        ),
+        declared_omission_digests=(bogus_omission,),
+        declared_additions=(),
+        uncertainty_bps=100,
+    )
+    verifier = HeritageVerifierV13(
+        verifier_root=h("HERITAGE_VERIFIER", "omission-membership"),
+        policy_root=h("HERITAGE_POLICY", "omission-membership"),
+        proof_store=store,
+        claimset_store=ClaimSetStore(source, derived),
+    )
+    result, receipt = verifier.verify(envelope, source, derived)
+    assert receipt is None
+    assert "DECLARED_OMISSION_OUTSIDE_SOURCE" in result.error_codes
