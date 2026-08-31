@@ -158,14 +158,17 @@ jobs:
               },
               'theorem_count': 2,
               'declared_assumptions': 0,
-              'prime_power_weight_semantics_formalized': True,
+              'prime_power_weight_parameterization_machine_bound': True,
               'pi_normalization_machine_bound': True,
+              'prime_power_arithmetic_semantics_machine_bound': False,
               'finite_prime_source_sum_machine_bound': False,
               'corn_o0_trig_transport_machine_bound': False,
               'guinand_weil_explicit_formula_machine_bound': False,
+              'formula_to_weil_operator_identity_proven': False,
               'global_weil_positivity_proven': False,
               'rh_proven': False,
               'open_obligations': [
+                  'PRIME_POWER_ARITHMETIC_SEMANTICS_NOT_MACHINE_BOUND',
                   'FINITE_PRIME_SOURCE_SUM_NOT_MACHINE_BOUND',
                   'CORN_IR_TO_O0_TRIG_TRANSPORT_NOT_MACHINE_BOUND',
                   'GUINAND_WEIL_EXPLICIT_FORMULA_NOT_MACHINE_BOUND',
@@ -182,12 +185,13 @@ jobs:
           assert version == '9.0.0'
           assert payload['theorem_count'] == 2
           assert payload['declared_assumptions'] == 0
-          assert payload['prime_power_weight_semantics_formalized'] is True
+          assert payload['prime_power_weight_parameterization_machine_bound'] is True
           assert payload['pi_normalization_machine_bound'] is True
+          assert payload['prime_power_arithmetic_semantics_machine_bound'] is False
           assert payload['finite_prime_source_sum_machine_bound'] is False
           assert payload['global_weil_positivity_proven'] is False
           assert payload['rh_proven'] is False
-          assert len(payload['open_obligations']) == 5
+          assert len(payload['open_obligations']) == 6
           assert len(payload['receipt_sha256']) == 64
           PY
 
