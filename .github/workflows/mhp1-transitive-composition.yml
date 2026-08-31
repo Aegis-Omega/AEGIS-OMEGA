@@ -1,0 +1,60 @@
+name: MHP-1 Transitive Composition
+
+on:
+  push:
+    branches: [feat/mhp1-transitive-composition-v1]
+    paths:
+      - 'harness/sdk/meaning_heritage.py'
+      - 'harness/tests/test_heritage_transitive_composition.py'
+      - '.github/workflows/mhp1-transitive-composition.yml'
+  pull_request:
+    paths:
+      - 'harness/sdk/meaning_heritage.py'
+      - 'harness/tests/test_heritage_transitive_composition.py'
+      - '.github/workflows/mhp1-transitive-composition.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mhp1-transitive-composition-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  verify:
+    name: aegis / mhp1-transitive-composition
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install focused test dependency
+        run: python -m pip install --disable-pip-version-check pytest==8.3.5
+
+      - name: Compile composition contract
+        run: |
+          python -m py_compile \
+            harness/sdk/meaning_heritage.py \
+            harness/tests/test_heritage_transitive_composition.py
+
+      - name: Run preregistered TC-01..TC-06 RED suite
+        run: python -m pytest -q harness/tests/test_heritage_transitive_composition.py
