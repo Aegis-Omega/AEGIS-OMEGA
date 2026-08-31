@@ -1,17 +1,13 @@
 (*
-  AEGIS Ω — finite prime-source sum RED contract v1
+  AEGIS Ω — finite prime-source sum GREEN contract v1
 
-  This test is intentionally RED. The production module
-  [FinitePrimeSourceSum] does not exist at this checkpoint.
-
-  The dedicated workflow is responsible for proving that:
-    1. the verified parent derivative and weight-bridge modules compile first;
-    2. this file then fails specifically at logical-module resolution for
-       [FinitePrimeSourceSum]; and
-    3. no such RED result is promoted to theorem authority.
-
-  A later GREEN transition must introduce the production module and replace
-  this import-only contract with an explicit finite-sum theorem contract.
+  This specification binds only the constructive finite-linearity theorem over
+  supplied analytic descriptors.  It does not establish arithmetic prime-power
+  semantics, CoRN-IR to O0 transport, an explicit formula, global Weil
+  positivity, or RH.
 *)
 
 Require Import FinitePrimeSourceSum.
+
+Check finite_prime_source_sum_derivative_constructive_v1.
+Print Assumptions finite_prime_source_sum_derivative_constructive_v1.

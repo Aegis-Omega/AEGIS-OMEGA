@@ -20,10 +20,14 @@ concurrency:
 env:
   SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   ADMISSION_PARENT_SHA: 41bc7e65d8ec8737cf32352ea60a878411e49f6c
+  RED_CHECKPOINT_SOURCE_SHA: ae2a4052669c55de060b9b407ce2f86dd5c987c7
+  RED_WORKFLOW_RUN_ID: '33393502940'
+  RED_RECEIPT_SHA256: 1254c408876e9438492e82a7c09e1dfb6d5cb4ad6fd542f95d2124b88435415e
+  RED_ARTIFACT_DIGEST: sha256:20de1f1ee44a90dece9fd6a0cc58aed6c9cfa37646a5c3903ab6dcce3e7058f8
 
 jobs:
-  attest-red:
-    name: coqc / validated finite prime-source sum RED checkpoint
+  attest-green:
+    name: coqc / finite prime-source sum GREEN attestation
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -50,7 +54,7 @@ jobs:
             sovereign-omega-v2/formal/tests/Weil \
             sovereign-omega-v2/weil-finite-prime-source-sum-attestation
 
-      - name: Validate parent chain and RED failure boundary
+      - name: Compile GREEN theorem contract and assumptions
         uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
         with:
           coq_version: '8.20'
@@ -75,57 +79,45 @@ jobs:
 
             test -f "$DERIV"
             test -f "$BRIDGE"
+            test -f "$SOURCE"
             test -f "$TEST"
 
             coqc -Q "$THEORY" "" "$DERIV" 2>&1 \
               | tee "$OUT/prime-source-derivative.log"
             coqc -Q "$THEORY" "" "$BRIDGE" 2>&1 \
               | tee "$OUT/prime-power-weight-bridge.log"
+            coqc -Q "$THEORY" "" "$SOURCE" 2>&1 \
+              | tee "$OUT/finite-prime-source-sum.log"
+            coqc -Q "$THEORY" "" -Q "$TESTDIR" "" "$TEST" 2>&1 \
+              | tee "$OUT/finite-prime-source-sum-spec.log"
 
-            if test -f "$SOURCE"; then
-              echo 'RED checkpoint invalid: FinitePrimeSourceSum.v already exists.' >&2
-              echo 'Transition the harness to an explicit GREEN theorem contract.' >&2
+            grep -Fq 'finite_prime_source_sum_derivative_constructive_v1' \
+              "$OUT/finite-prime-source-sum-spec.log"
+            grep -Fq 'Closed under the global context' \
+              "$OUT/finite-prime-source-sum-spec.log"
+            if grep -Fq 'Axioms:' "$OUT/finite-prime-source-sum-spec.log"; then
+              echo 'GREEN theorem unexpectedly carries global assumptions.' >&2
+              exit 1
+            fi
+            if grep -Eq '^[[:space:]]*(Axiom|Parameter|Admitted)[[:space:]]' "$SOURCE"; then
+              echo 'Production source declares forbidden assumption syntax.' >&2
               exit 1
             fi
 
-            set +e
-            coqc -Q "$THEORY" "" -Q "$TESTDIR" "" "$TEST" \
-              > "$OUT/finite-prime-source-sum-spec.log" 2>&1
-            rc=$?
-            set -e
-            cat "$OUT/finite-prime-source-sum-spec.log"
-
-            if test "$rc" -eq 0; then
-              echo 'RED contract unexpectedly compiled without production source.' >&2
-              exit 1
-            fi
-
-            error_count="$(grep -c '^Error:' "$OUT/finite-prime-source-sum-spec.log" || true)"
-            if test "$error_count" -ne 1; then
-              echo "Expected exactly one Coq Error line; observed $error_count." >&2
-              exit 1
-            fi
-
-            normalized="$(
-              tr '\n' ' ' < "$OUT/finite-prime-source-sum-spec.log" \
-                | sed -E 's/[[:space:]]+/ /g'
-            )"
-            expected='Error: Cannot find a physical path bound to logical path FinitePrimeSourceSum.'
-            if ! printf '%s\n' "$normalized" | grep -Fq "$expected"; then
-              echo 'RED failure was not the exact FinitePrimeSourceSum module-resolution error.' >&2
-              exit 1
-            fi
-
-            cat > "$OUT/red-checkpoint.txt" <<'EOF'
-            RED_CHECKPOINT_VERIFIED=true
-            PRODUCTION_SOURCE_PRESENT=false
-            EXPECTED_FAILURE_KIND=MISSING_LOGICAL_MODULE
-            EXPECTED_MISSING_MODULE=FinitePrimeSourceSum
-            ERROR_CARDINALITY=1
-            FINITE_PRIME_SOURCE_SUM_MACHINE_BOUND=false
+            cat > "$OUT/green-checkpoint.txt" <<'EOF'
+            GREEN_CHECKPOINT_VERIFIED=true
+            PRODUCTION_SOURCE_PRESENT=true
+            THEOREM=finite_prime_source_sum_derivative_constructive_v1
+            DECLARED_ASSUMPTIONS=0
+            FINITE_PRIME_SOURCE_SUM_MACHINE_BOUND=true
+            FINITE_PRIME_SOURCE_SUM_SCOPE=SUPPLIED_ANALYTIC_DESCRIPTORS_ONLY
+            PRIME_POWER_ARITHMETIC_SEMANTICS_MACHINE_BOUND=false
+            CORN_O0_TRIG_TRANSPORT_MACHINE_BOUND=false
+            GLOBAL_WEIL_POSITIVITY_PROVEN=false
+            RH_PROVEN=false
             EOF
 
-      - name: Emit content-addressed RED receipt
+      - name: Emit content-addressed GREEN receipt
         working-directory: sovereign-omega-v2
         shell: bash
         run: |
@@ -133,6 +125,7 @@ jobs:
           python3 - <<'PY'
           import hashlib
           import json
+          import os
           from pathlib import Path
 
           out = Path('weil-finite-prime-source-sum-attestation')
@@ -141,50 +134,60 @@ jobs:
           derivative = theory / 'PrimeSourceDerivativeConstructive.v'
           bridge = theory / 'PrimePowerWeightBridge.v'
           source = theory / 'FinitePrimeSourceSum.v'
-          red_log = out / 'finite-prime-source-sum-spec.log'
+          spec_log = out / 'finite-prime-source-sum-spec.log'
 
           def sha(path: Path) -> str:
               return hashlib.sha256(path.read_bytes()).hexdigest()
 
           version = (out / 'corn-version.txt').read_text(encoding='utf-8').strip()
-          checkpoint = (out / 'red-checkpoint.txt').read_text(encoding='utf-8')
-          error_cardinality = sum(
-              1
-              for line in red_log.read_text(encoding='utf-8').splitlines()
-              if line.startswith('Error:')
+          checkpoint = (out / 'green-checkpoint.txt').read_text(encoding='utf-8')
+          assumptions_closed = 'Closed under the global context' in spec_log.read_text(
+              encoding='utf-8'
           )
 
           payload = {
-              'receipt_kind': 'AEGIS_WEIL_FINITE_PRIME_SOURCE_SUM_RED_RECEIPT_V1',
-              'authority': 'FORMAL_TEST_HARNESS_EVIDENCE_ONLY',
-              'source_commit': '${{ env.SOURCE_SHA }}',
-              'admission_parent_commit': '${{ env.ADMISSION_PARENT_SHA }}',
+              'receipt_kind': 'AEGIS_A2A_GREEN_COMPLIANCE_RECEIPT_V1',
+              'authority': 'FORMAL_MATH_EVIDENCE_ONLY',
+              'source_commit': os.environ['SOURCE_SHA'],
+              'admission_parent_commit': os.environ['ADMISSION_PARENT_SHA'],
+              'red_checkpoint_source_commit': os.environ['RED_CHECKPOINT_SOURCE_SHA'],
+              'red_workflow_run_id': int(os.environ['RED_WORKFLOW_RUN_ID']),
+              'red_receipt_sha256': os.environ['RED_RECEIPT_SHA256'],
+              'red_artifact_digest': os.environ['RED_ARTIFACT_DIGEST'],
+              'red_checkpoint_verified': True,
               'coq_version_sha256': sha(out / 'coq-version.txt'),
               'corn_requested_version': '9.0.0',
               'corn_installed_version': version,
               'corn_package_metadata_sha256': sha(out / 'corn-package-metadata.txt'),
               'derivative_source_sha256': sha(derivative),
               'weight_bridge_source_sha256': sha(bridge),
-              'red_spec_sha256': sha(test),
+              'finite_prime_source_sum_source_sha256': sha(source),
+              'green_spec_sha256': sha(test),
               'derivative_compile_log_sha256': sha(out / 'prime-source-derivative.log'),
               'weight_bridge_compile_log_sha256': sha(out / 'prime-power-weight-bridge.log'),
-              'red_compile_log_sha256': sha(red_log),
-              'red_checkpoint_sha256': sha(out / 'red-checkpoint.txt'),
-              'parent_derivative_compile_passed': True,
-              'parent_weight_bridge_compile_passed': True,
+              'finite_prime_source_sum_compile_log_sha256': sha(out / 'finite-prime-source-sum.log'),
+              'green_spec_compile_log_sha256': sha(spec_log),
+              'green_checkpoint_sha256': sha(out / 'green-checkpoint.txt'),
+              'theorem': 'finite_prime_source_sum_derivative_constructive_v1',
+              'theorem_assumptions_closed': assumptions_closed,
+              'declared_assumptions': 0,
               'production_source_present': source.exists(),
-              'red_checkpoint_verified': 'RED_CHECKPOINT_VERIFIED=true' in checkpoint,
-              'expected_failure_kind': 'MISSING_LOGICAL_MODULE',
-              'expected_missing_module': 'FinitePrimeSourceSum',
-              'error_cardinality': error_cardinality,
-              'finite_prime_source_sum_machine_bound': False,
+              'finite_prime_source_sum_machine_bound': True,
+              'finite_prime_source_sum_scope': 'SUPPLIED_ANALYTIC_DESCRIPTORS_ONLY',
+              'prime_power_arithmetic_semantics_machine_bound': False,
+              'canonical_von_mangoldt_binding_machine_bound': False,
+              'canonical_log_prime_power_binding_machine_bound': False,
+              'canonical_sqrt_prime_power_binding_machine_bound': False,
               'corn_o0_trig_transport_machine_bound': False,
               'guinand_weil_explicit_formula_machine_bound': False,
               'formula_to_weil_operator_identity_proven': False,
               'global_weil_positivity_proven': False,
               'rh_proven': False,
               'open_obligations': [
-                  'FINITE_PRIME_SOURCE_SUM_NOT_MACHINE_BOUND',
+                  'PRIME_POWER_ARITHMETIC_SEMANTICS_NOT_MACHINE_BOUND',
+                  'CANONICAL_VON_MANGOLDT_BINDING_NOT_MACHINE_BOUND',
+                  'CANONICAL_LOG_PRIME_POWER_BINDING_NOT_MACHINE_BOUND',
+                  'CANONICAL_SQRT_PRIME_POWER_BINDING_NOT_MACHINE_BOUND',
                   'CORN_IR_TO_O0_TRIG_TRANSPORT_NOT_MACHINE_BOUND',
                   'GUINAND_WEIL_EXPLICIT_FORMULA_NOT_MACHINE_BOUND',
                   'FORMULA_TO_WEIL_OPERATOR_IDENTITY_NOT_MACHINE_BOUND',
@@ -193,28 +196,32 @@ jobs:
           }
           canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
           payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
-          target = out / 'weil-finite-prime-source-sum-red-receipt.json'
+          target = out / 'weil-finite-prime-source-sum-green-receipt.json'
           target.write_text(json.dumps(payload, sort_keys=True, indent=2) + '\n', encoding='utf-8')
           print(target.read_text(encoding='utf-8'))
 
           assert version == '9.0.0'
           assert payload['admission_parent_commit'] == '41bc7e65d8ec8737cf32352ea60a878411e49f6c'
-          assert payload['parent_derivative_compile_passed'] is True
-          assert payload['parent_weight_bridge_compile_passed'] is True
-          assert payload['production_source_present'] is False
+          assert payload['red_checkpoint_source_commit'] == 'ae2a4052669c55de060b9b407ce2f86dd5c987c7'
+          assert payload['red_receipt_sha256'] == '1254c408876e9438492e82a7c09e1dfb6d5cb4ad6fd542f95d2124b88435415e'
           assert payload['red_checkpoint_verified'] is True
-          assert payload['error_cardinality'] == 1
-          assert payload['finite_prime_source_sum_machine_bound'] is False
+          assert payload['production_source_present'] is True
+          assert payload['theorem_assumptions_closed'] is True
+          assert payload['declared_assumptions'] == 0
+          assert payload['finite_prime_source_sum_machine_bound'] is True
+          assert payload['finite_prime_source_sum_scope'] == 'SUPPLIED_ANALYTIC_DESCRIPTORS_ONLY'
+          assert payload['prime_power_arithmetic_semantics_machine_bound'] is False
+          assert payload['corn_o0_trig_transport_machine_bound'] is False
           assert payload['global_weil_positivity_proven'] is False
           assert payload['rh_proven'] is False
+          assert 'GREEN_CHECKPOINT_VERIFIED=true' in checkpoint
           assert len(payload['receipt_sha256']) == 64
           PY
 
-      - name: Upload RED evidence
-        if: always()
+      - name: Upload GREEN evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: weil-finite-prime-source-sum-red-${{ env.SOURCE_SHA }}
+          name: weil-finite-prime-source-sum-green-${{ env.SOURCE_SHA }}
           path: sovereign-omega-v2/weil-finite-prime-source-sum-attestation/
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
