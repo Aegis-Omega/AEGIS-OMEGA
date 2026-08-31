@@ -205,3 +205,19 @@ A verifier that merely rejects everything therefore cannot satisfy the positive 
 6. run the complete focused adversarial suite.
 
 A workflow success establishes only this bounded verification slice at that exact head. It does not establish recursive self-improvement, autonomous admission, AGI, mathematical theorem authority, Weil positivity, or RH.
+
+## TDD evidence ledger
+
+The implementation history intentionally preserves RED witnesses rather than rewriting them away:
+
+- `618e9130ddf4db3a1e6c30a28a359373282d91b9` — run `33378918203`, job `99446562594`: exact checkout and SHA assertion PASS; compile RED because `harness/sdk/self_improvement.py` did not yet exist.
+- `31c80434ddf9c6da5246784f72cde03c5503d6f7` — run `33379154278`, job `99447295186`: first kernel GREEN, 7 focused tests PASS.
+- `d6a24616ae1002466b726c38db17e03bad6667db` — run `33379306938`, job `99447764356`: independent-access-trace RED; production receipt lacked `observed_candidate_access_roots`.
+- `c238818bb60fc3b18001969322276e16531f3a03` — run `33379430047`, job `99448152250`: access-trace hardening GREEN, 9 focused tests PASS.
+- `c847ff61bd02752636b6cb8e73ee8ab7f8a38922` — run `33379560109`, job `99448569689`: typed-boundary RED, `17 passed, 1 failed`; sole failure was acceptance of raw string `"MAXIMIZE"` instead of a typed `MetricDirection`.
+- `e0af6ffebfd448d3946d43f19c79de9e34ee09f0` — run `33379690850`, job `99448990912`: typed metric-direction fix GREEN; exact checkout, SHA assertion, compile and all `18 passed in 0.09s`.
+- `adf77b27f0cb56dd73fc770e614ea295bc75cf52` — run `33379891266`, job `99449621622`: docs-aligned exact-head GREEN after the independent access-trace contract was recorded.
+
+The branch also restores `.claude.json` to the exact inherited blob from stacked base `7cec7598721bef36281fb71198e24148814678e3`, keeping the feature diff scoped to self-improvement kernel, tests, workflow, plan, and design specification only.
+
+The final exact-head verification record is the workflow result attached to the current branch head; historical GREEN entries above are evidence for their own exact trees only.
