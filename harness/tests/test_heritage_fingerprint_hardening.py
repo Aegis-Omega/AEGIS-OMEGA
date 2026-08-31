@@ -47,6 +47,14 @@ class ProofStore:
         return self.derivation.get(root)
 
 
+class ClaimSetStore:
+    def __init__(self, *receipts: ClaimSetReceiptV1) -> None:
+        self.data = {receipt.root: receipt for receipt in receipts}
+
+    def fetch_verified(self, root: str):
+        return self.data.get(root)
+
+
 def issue(payload: bytes, claims: tuple[ClaimRef, ...], name: str):
     extractor = FixedExtractor(claims, name)
     envelope = ClaimSetEnvelopeV1(
@@ -103,6 +111,7 @@ def test_preservation_receipt_fingerprint_must_match_authenticated_claimsets():
         verifier_root=h("HERITAGE_VERIFIER", 1),
         policy_root=h("HERITAGE_POLICY", 1),
         proof_store=store,
+        claimset_store=ClaimSetStore(source, derived),
     )
     result, receipt = verifier.verify(envelope, source, derived)
     assert receipt is None
@@ -167,6 +176,7 @@ def test_derivation_receipt_must_bind_source_and_derived_semantic_fingerprints()
         verifier_root=h("HERITAGE_VERIFIER", 2),
         policy_root=h("HERITAGE_POLICY", 2),
         proof_store=store,
+        claimset_store=ClaimSetStore(source, derived),
     )
     result, receipt = verifier.verify(envelope, source, derived)
     assert receipt is None
@@ -243,6 +253,7 @@ def test_claimset_receipts_must_be_trusted_not_merely_self_consistent():
         verifier_root=h("HERITAGE_VERIFIER", "forged-claimset"),
         policy_root=h("HERITAGE_POLICY", "forged-claimset"),
         proof_store=store,
+        claimset_store=ClaimSetStore(),
     )
     result, receipt = verifier.verify(envelope, forged, forged)
     assert receipt is None
