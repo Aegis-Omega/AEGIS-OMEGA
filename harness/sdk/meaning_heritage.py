@@ -81,6 +81,7 @@ class VerificationErrorCode(str, Enum):
     UNDECLARED_ADDITION = "UNDECLARED_ADDITION"
     PRESERVATION_PROOF_UNTRUSTED = "PRESERVATION_PROOF_UNTRUSTED"
     PRESERVATION_PROOF_BINDING_FAILURE = "PRESERVATION_PROOF_BINDING_FAILURE"
+    PRESERVATION_PROOF_FINGERPRINT_MISMATCH = "PRESERVATION_PROOF_FINGERPRINT_MISMATCH"
     DERIVATION_PROOF_UNTRUSTED = "DERIVATION_PROOF_UNTRUSTED"
     DERIVATION_PROOF_BINDING_FAILURE = "DERIVATION_PROOF_BINDING_FAILURE"
     LOSS_CONTRACT_INCONSISTENT = "LOSS_CONTRACT_INCONSISTENT"
@@ -145,26 +146,38 @@ class ClaimSetReceiptV1:
     extractor_root: str
     extractor_policy_root: str
     claimset_root: str
-    sorted_claim_digests: tuple[str, ...]
+    sorted_claims: tuple[ClaimRef, ...]
     verification_root: str
     authority_class: str = field(default=NO_AUTHORITY, init=False)
     schema_version: str = "aegis.claimset-receipt.v1"
 
     def __post_init__(self) -> None:
         for name in (
-            "claimset_envelope_root", "payload_root", "extractor_root",
-            "extractor_policy_root", "claimset_root", "verification_root",
+            "claimset_envelope_root",
+            "payload_root",
+            "extractor_root",
+            "extractor_policy_root",
+            "claimset_root",
+            "verification_root",
         ):
             require_hash(name, getattr(self, name))
-        for digest in self.sorted_claim_digests:
-            require_hash("sorted_claim_digest", digest)
-        _require_unique("sorted_claim_digests", self.sorted_claim_digests)
-        if self.sorted_claim_digests != tuple(sorted(self.sorted_claim_digests)):
-            raise HeritageError("CLAIMSET_DIGEST_ORDER_NONCANONICAL")
+        canonical = canonicalize_claims(self.sorted_claims)
+        if self.sorted_claims != canonical:
+            raise HeritageError("CLAIMSET_ORDER_NONCANONICAL")
+
+    @property
+    def sorted_claim_digests(self) -> tuple[str, ...]:
+        return tuple(claim.claim_digest for claim in self.sorted_claims)
+
+    @property
+    def claim_map(self) -> dict[str, ClaimRef]:
+        return {claim.claim_digest: claim for claim in self.sorted_claims}
 
     @property
     def root(self) -> str:
-        return canonical_hash(DOM_CLAIMSET_RECEIPT, asdict(self))
+        data = asdict(self)
+        data["sorted_claims"] = [asdict(c) for c in self.sorted_claims]
+        return canonical_hash(DOM_CLAIMSET_RECEIPT, data)
 
 
 class ClaimSetVerifierV13:
@@ -179,7 +192,10 @@ class ClaimSetVerifierV13:
             raise HeritageError("CLAIMSET_PAYLOAD_ROOT_MISMATCH")
         require_hash("extractor.extractor_root", extractor.extractor_root)
         require_hash("extractor.policy_root", extractor.policy_root)
-        if extractor.extractor_root != envelope.extractor_root or extractor.policy_root != envelope.extractor_policy_root:
+        if (
+            extractor.extractor_root != envelope.extractor_root
+            or extractor.policy_root != envelope.extractor_policy_root
+        ):
             raise HeritageError(VerificationErrorCode.CLAIMSET_EXTRACTION_MISMATCH.value)
 
         declared = canonicalize_claims(envelope.raw_claims)
@@ -206,7 +222,7 @@ class ClaimSetVerifierV13:
             extractor_root=extractor.extractor_root,
             extractor_policy_root=extractor.policy_root,
             claimset_root=claimset_root,
-            sorted_claim_digests=tuple(c.claim_digest for c in recomputed),
+            sorted_claims=recomputed,
             verification_root=verification_root,
         )
 
@@ -226,11 +242,16 @@ class PreservationProofReceiptV1:
     def __post_init__(self) -> None:
         require_hash("source_claim_digest", self.source_claim_digest)
         require_hash("derived_claim_digest", self.derived_claim_digest)
+        require_id("source_semantic_fingerprint", self.source_semantic_fingerprint)
+        require_id("derived_semantic_fingerprint", self.derived_semantic_fingerprint)
         require_hash("verifier_root", self.verifier_root)
         require_hash("policy_root", self.policy_root)
         if self.status != PASS:
             raise HeritageError("PRESERVATION_PROOF_NOT_PASS")
-        if self.relation == PreservationRelation.SAME_CLAIM_ROOT and self.source_claim_digest != self.derived_claim_digest:
+        if (
+            self.relation == PreservationRelation.SAME_CLAIM_ROOT
+            and self.source_claim_digest != self.derived_claim_digest
+        ):
             raise HeritageError("SAME_CLAIM_ROOT_MISMATCH")
 
     @property
@@ -268,6 +289,7 @@ class DerivationProofReceiptV1:
 
 class TrustedSemanticProofStore(Protocol):
     def fetch_preservation(self, root: str) -> PreservationProofReceiptV1 | None: ...
+
     def fetch_derivation(self, root: str) -> DerivationProofReceiptV1 | None: ...
 
 
@@ -317,19 +339,29 @@ class SemanticLineageEnvelopeV1:
     def __post_init__(self) -> None:
         require_id("lineage_id", self.lineage_id)
         for name in (
-            "source_root", "source_claimset_receipt_root", "derived_root",
-            "derived_claimset_receipt_root", "transform_root",
+            "source_root",
+            "source_claimset_receipt_root",
+            "derived_root",
+            "derived_claimset_receipt_root",
+            "transform_root",
         ):
             require_hash(name, getattr(self, name))
         for digest in self.declared_omission_digests:
             require_hash("declared_omission_digest", digest)
         _require_unique("declared_omission_digests", self.declared_omission_digests)
-        edge_keys = tuple((e.source_claim_digest, e.derived_claim_digest, e.relation.value) for e in self.preservation_edges)
+        edge_keys = tuple(
+            (edge.source_claim_digest, edge.derived_claim_digest, edge.relation.value)
+            for edge in self.preservation_edges
+        )
         if len(edge_keys) != len(set(edge_keys)):
             raise HeritageError("PRESERVATION_EDGE_DUPLICATE")
-        addition_keys = tuple(a.derived_claim_digest for a in self.declared_additions)
+        addition_keys = tuple(addition.derived_claim_digest for addition in self.declared_additions)
         _require_unique("declared_additions", addition_keys)
-        if isinstance(self.uncertainty_bps, bool) or not isinstance(self.uncertainty_bps, int) or not 0 <= self.uncertainty_bps <= 10000:
+        if (
+            isinstance(self.uncertainty_bps, bool)
+            or not isinstance(self.uncertainty_bps, int)
+            or not 0 <= self.uncertainty_bps <= 10000
+        ):
             raise HeritageError("UNCERTAINTY_BPS_INVALID")
 
     @property
@@ -340,18 +372,23 @@ class SemanticLineageEnvelopeV1:
         data["preservation_edges"] = sorted(
             [
                 {
-                    "source_claim_digest": e.source_claim_digest,
-                    "derived_claim_digest": e.derived_claim_digest,
-                    "relation": e.relation.value,
-                    "proof_receipt_root": e.proof_receipt_root,
+                    "source_claim_digest": edge.source_claim_digest,
+                    "derived_claim_digest": edge.derived_claim_digest,
+                    "relation": edge.relation.value,
+                    "proof_receipt_root": edge.proof_receipt_root,
                 }
-                for e in self.preservation_edges
+                for edge in self.preservation_edges
             ],
-            key=lambda x: (x["source_claim_digest"], x["derived_claim_digest"], x["relation"]),
+            key=lambda item: (
+                item["source_claim_digest"],
+                item["derived_claim_digest"],
+                item["relation"],
+            ),
         )
         data["declared_omission_digests"] = sorted(self.declared_omission_digests)
         data["declared_additions"] = sorted(
-            [asdict(a) for a in self.declared_additions], key=lambda x: x["derived_claim_digest"]
+            [asdict(addition) for addition in self.declared_additions],
+            key=lambda item: item["derived_claim_digest"],
         )
         return canonical_hash(DOM_LINEAGE, data)
 
@@ -385,8 +422,13 @@ class HeritageReceiptV1:
 
     def __post_init__(self) -> None:
         for name in (
-            "envelope_root", "source_root", "source_claimset_receipt_root",
-            "derived_root", "derived_claimset_receipt_root", "transform_root", "verification_root",
+            "envelope_root",
+            "source_root",
+            "source_claimset_receipt_root",
+            "derived_root",
+            "derived_claimset_receipt_root",
+            "transform_root",
+            "verification_root",
         ):
             require_hash(name, getattr(self, name))
         for root in self.predecessor_receipt_roots:
@@ -426,13 +468,21 @@ class HeritageVerifierV13:
         predecessor_receipts: tuple[HeritageReceiptV1, ...] = (),
     ) -> tuple[HeritageVerificationResultV1, HeritageReceiptV1 | None]:
         errors: list[str] = []
-        if source_claimset.root != envelope.source_claimset_receipt_root or source_claimset.payload_root != envelope.source_root:
+        if (
+            source_claimset.root != envelope.source_claimset_receipt_root
+            or source_claimset.payload_root != envelope.source_root
+        ):
             errors.append(VerificationErrorCode.CLAIMSET_SOURCE_BINDING_FAILURE.value)
-        if derived_claimset.root != envelope.derived_claimset_receipt_root or derived_claimset.payload_root != envelope.derived_root:
+        if (
+            derived_claimset.root != envelope.derived_claimset_receipt_root
+            or derived_claimset.payload_root != envelope.derived_root
+        ):
             errors.append(VerificationErrorCode.CLAIMSET_DERIVED_BINDING_FAILURE.value)
 
-        src = set(source_claimset.sorted_claim_digests)
-        der = set(derived_claimset.sorted_claim_digests)
+        src_map = source_claimset.claim_map
+        der_map = derived_claimset.claim_map
+        src = set(src_map)
+        der = set(der_map)
         preserved_src: set[str] = set()
         preserved_der: set[str] = set()
 
@@ -449,8 +499,18 @@ class HeritageVerifierV13:
                 or proof.relation != edge.relation
             ):
                 errors.append(VerificationErrorCode.PRESERVATION_PROOF_BINDING_FAILURE.value)
-            if edge.source_claim_digest not in src or edge.derived_claim_digest not in der:
+            source_claim = src_map.get(edge.source_claim_digest)
+            derived_claim = der_map.get(edge.derived_claim_digest)
+            if source_claim is None or derived_claim is None:
                 errors.append(VerificationErrorCode.PRESERVATION_PROOF_BINDING_FAILURE.value)
+                continue
+            if (
+                proof.source_semantic_fingerprint != source_claim.semantic_fingerprint
+                or proof.derived_semantic_fingerprint != derived_claim.semantic_fingerprint
+            ):
+                errors.append(
+                    VerificationErrorCode.PRESERVATION_PROOF_FINGERPRINT_MISMATCH.value
+                )
 
         omissions = set(envelope.declared_omission_digests)
         if src - (preserved_src | omissions):
@@ -463,7 +523,10 @@ class HeritageVerifierV13:
             if proof is None or proof.root != addition.derivation_receipt_root:
                 errors.append(VerificationErrorCode.DERIVATION_PROOF_UNTRUSTED.value)
                 continue
-            if proof.derived_claim_digest != addition.derived_claim_digest or proof.transform_root != envelope.transform_root:
+            if (
+                proof.derived_claim_digest != addition.derived_claim_digest
+                or proof.transform_root != envelope.transform_root
+            ):
                 errors.append(VerificationErrorCode.DERIVATION_PROOF_BINDING_FAILURE.value)
             if not set(proof.source_claim_digests).issubset(src):
                 errors.append(VerificationErrorCode.DERIVATION_PROOF_BINDING_FAILURE.value)
@@ -474,7 +537,8 @@ class HeritageVerifierV13:
         if envelope.transform_relation == TransformRelation.IDENTITY:
             if (
                 envelope.source_root != envelope.derived_root
-                or envelope.source_claimset_receipt_root != envelope.derived_claimset_receipt_root
+                or envelope.source_claimset_receipt_root
+                != envelope.derived_claimset_receipt_root
                 or envelope.loss_type != LossType.EXACT_LOSSLESS
                 or omissions
                 or additions
@@ -482,13 +546,22 @@ class HeritageVerifierV13:
             ):
                 errors.append(VerificationErrorCode.LOSS_CONTRACT_INCONSISTENT.value)
         elif envelope.transform_relation == TransformRelation.LOSSLESS_TRANSFORM:
-            if envelope.loss_type != LossType.EXACT_LOSSLESS or omissions or additions or envelope.uncertainty_bps != 0:
+            if (
+                envelope.loss_type != LossType.EXACT_LOSSLESS
+                or omissions
+                or additions
+                or envelope.uncertainty_bps != 0
+            ):
                 errors.append(VerificationErrorCode.LOSS_CONTRACT_INCONSISTENT.value)
         elif envelope.transform_relation == TransformRelation.LOSSY_TRANSFORM:
             if envelope.loss_type == LossType.EXACT_LOSSLESS:
                 errors.append(VerificationErrorCode.LOSS_CONTRACT_INCONSISTENT.value)
         elif envelope.transform_relation == TransformRelation.AUGMENTING_TRANSFORM:
-            if omissions or envelope.loss_type != LossType.EXACT_LOSSLESS or envelope.uncertainty_bps != 0:
+            if (
+                omissions
+                or envelope.loss_type != LossType.EXACT_LOSSLESS
+                or envelope.uncertainty_bps != 0
+            ):
                 errors.append(VerificationErrorCode.LOSS_CONTRACT_INCONSISTENT.value)
 
         predecessor_roots: list[str] = []
@@ -496,15 +569,22 @@ class HeritageVerifierV13:
             if self.heritage_store is None:
                 errors.append(VerificationErrorCode.TRUST_STORE_REQUIRED.value)
             else:
-                for pred in predecessor_receipts:
-                    root = pred.root
+                for predecessor in predecessor_receipts:
+                    root = predecessor.root
                     trusted = self.heritage_store.fetch_verified(root)
                     if trusted is None or trusted.root != root:
                         errors.append(VerificationErrorCode.PREDECESSOR_RECEIPT_INVALID.value)
                     predecessor_roots.append(root)
 
         if errors:
-            return HeritageVerificationResultV1(DENIED, tuple(sorted(set(errors))), None), None
+            return (
+                HeritageVerificationResultV1(
+                    DENIED,
+                    tuple(sorted(set(errors))),
+                    None,
+                ),
+                None,
+            )
 
         verification_root = canonical_hash(
             DOM_HERITAGE_VERIFICATION,
@@ -544,11 +624,23 @@ class HeritageVerifierV13:
             h1.derived_root != h2.source_root
             or h1.derived_claimset_receipt_root != h2.source_claimset_receipt_root
             or composed_envelope.source_root != h1.source_root
-            or composed_envelope.source_claimset_receipt_root != h1.source_claimset_receipt_root
+            or composed_envelope.source_claimset_receipt_root
+            != h1.source_claimset_receipt_root
             or composed_envelope.derived_root != h2.derived_root
-            or composed_envelope.derived_claimset_receipt_root != h2.derived_claimset_receipt_root
+            or composed_envelope.derived_claimset_receipt_root
+            != h2.derived_claimset_receipt_root
         ):
-            return HeritageVerificationResultV1(
-                DENIED, (VerificationErrorCode.COMPOSITION_ENDPOINT_MISMATCH.value,), None
-            ), None
-        return self.verify(composed_envelope, source_claimset, derived_claimset, (h1, h2))
+            return (
+                HeritageVerificationResultV1(
+                    DENIED,
+                    (VerificationErrorCode.COMPOSITION_ENDPOINT_MISMATCH.value,),
+                    None,
+                ),
+                None,
+            )
+        return self.verify(
+            composed_envelope,
+            source_claimset,
+            derived_claimset,
+            (h1, h2),
+        )
