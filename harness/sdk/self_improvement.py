@@ -71,6 +71,8 @@ class MetricRuleV1:
 
     def __post_init__(self) -> None:
         require_id("metric_id", self.metric_id)
+        if not isinstance(self.direction, MetricDirection):
+            raise ImprovementError("direction:INVALID")
         require_int("minimum_improvement_micros", self.minimum_improvement_micros)
         if self.minimum_improvement_micros < 0:
             raise ImprovementError("minimum_improvement_micros:NEGATIVE")
