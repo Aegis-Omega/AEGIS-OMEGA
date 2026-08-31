@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/weil-prime-power-weight-bridge-v1",
+    "source_ref": "proof/rh-finite-prime-source-sum",
     "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "da25ef86aa29c1268946d73d1303fe5598302280c3c1badbcd76948862b204ff"
+  "state_hash": "abe8b530a2cc01d348c180ff1d6566c18301fa0f132df2552438d2171073fd61"
 }
