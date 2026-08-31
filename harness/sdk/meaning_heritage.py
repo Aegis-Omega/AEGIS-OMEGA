@@ -84,6 +84,7 @@ class VerificationErrorCode(str, Enum):
     PRESERVATION_PROOF_FINGERPRINT_MISMATCH = "PRESERVATION_PROOF_FINGERPRINT_MISMATCH"
     DERIVATION_PROOF_UNTRUSTED = "DERIVATION_PROOF_UNTRUSTED"
     DERIVATION_PROOF_BINDING_FAILURE = "DERIVATION_PROOF_BINDING_FAILURE"
+    DERIVATION_PROOF_FINGERPRINT_MISMATCH = "DERIVATION_PROOF_FINGERPRINT_MISMATCH"
     LOSS_CONTRACT_INCONSISTENT = "LOSS_CONTRACT_INCONSISTENT"
     TRUST_STORE_REQUIRED = "TRUST_STORE_REQUIRED"
     PREDECESSOR_RECEIPT_INVALID = "PREDECESSOR_RECEIPT_INVALID"
@@ -265,6 +266,8 @@ class PreservationProofReceiptV1:
 class DerivationProofReceiptV1:
     derived_claim_digest: str
     source_claim_digests: tuple[str, ...]
+    source_semantic_fingerprints: tuple[str, ...]
+    derived_semantic_fingerprint: str
     transform_root: str
     verifier_root: str
     policy_root: str
@@ -276,6 +279,11 @@ class DerivationProofReceiptV1:
         for digest in self.source_claim_digests:
             require_hash("source_claim_digest", digest)
         _require_unique("source_claim_digests", self.source_claim_digests)
+        if len(self.source_semantic_fingerprints) != len(self.source_claim_digests):
+            raise HeritageError("DERIVATION_SOURCE_FINGERPRINT_ARITY_MISMATCH")
+        for fingerprint in self.source_semantic_fingerprints:
+            require_id("source_semantic_fingerprint", fingerprint)
+        require_id("derived_semantic_fingerprint", self.derived_semantic_fingerprint)
         require_hash("transform_root", self.transform_root)
         require_hash("verifier_root", self.verifier_root)
         require_hash("policy_root", self.policy_root)
@@ -528,8 +536,27 @@ class HeritageVerifierV13:
                 or proof.transform_root != envelope.transform_root
             ):
                 errors.append(VerificationErrorCode.DERIVATION_PROOF_BINDING_FAILURE.value)
+            source_claims = [src_map.get(digest) for digest in proof.source_claim_digests]
+            derived_claim = der_map.get(addition.derived_claim_digest)
             if not set(proof.source_claim_digests).issubset(src):
                 errors.append(VerificationErrorCode.DERIVATION_PROOF_BINDING_FAILURE.value)
+            if derived_claim is None or any(claim is None for claim in source_claims):
+                errors.append(VerificationErrorCode.DERIVATION_PROOF_BINDING_FAILURE.value)
+            else:
+                authenticated_source_fingerprints = tuple(
+                    claim.semantic_fingerprint
+                    for claim in source_claims
+                    if claim is not None
+                )
+                if (
+                    proof.source_semantic_fingerprints
+                    != authenticated_source_fingerprints
+                    or proof.derived_semantic_fingerprint
+                    != derived_claim.semantic_fingerprint
+                ):
+                    errors.append(
+                        VerificationErrorCode.DERIVATION_PROOF_FINGERPRINT_MISMATCH.value
+                    )
 
         if der - (preserved_der | additions):
             errors.append(VerificationErrorCode.UNDECLARED_ADDITION.value)
