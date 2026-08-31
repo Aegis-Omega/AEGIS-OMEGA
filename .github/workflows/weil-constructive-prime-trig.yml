@@ -76,10 +76,6 @@ jobs:
 
             coqc --version | tee "$OUT/coq-version.txt"
 
-            # RED must fail at the theorem contract itself, not after paying the
-            # ~10 minute CoRN build cost. With no production source, compile the
-            # specification immediately; Require Import PrimeTrigConstructive is
-            # the intended failure boundary and tee preserves the evidence log.
             if ! test -f "$SOURCE"; then
               echo 'RED checkpoint: PrimeTrigConstructive.v intentionally absent.' \
                 | tee "$OUT/red-checkpoint.txt"
@@ -89,7 +85,6 @@ jobs:
               exit 1
             fi
 
-            # GREEN path: pin the constructive trigonometry dependency exactly.
             opam install -y coq-corn.9.0.0
             opam var coq-corn:version | tee "$OUT/corn-version.txt"
             test "$(tr -d '[:space:]' < "$OUT/corn-version.txt")" = "9.0.0"
@@ -102,6 +97,8 @@ jobs:
               | tee "$OUT/prime-trig-constructive-spec.log"
 
             for theorem in \
+              prime_diagonal_constructive_cos_phase_Z_v1 \
+              prime_source_constructive_sin_phase_Z_v1 \
               prime_diagonal_constructive_cos_phase_v1 \
               prime_source_constructive_sin_phase_v1
             do
@@ -135,6 +132,8 @@ jobs:
           out = Path('weil-constructive-prime-trig-attestation')
           source = Path('formal/theories/Weil/PrimeTrigConstructive.v')
           names = [
+              'prime_diagonal_constructive_cos_phase_Z_v1',
+              'prime_source_constructive_sin_phase_Z_v1',
               'prime_diagonal_constructive_cos_phase_v1',
               'prime_source_constructive_sin_phase_v1',
           ]
@@ -154,6 +153,7 @@ jobs:
               'corn_package_metadata_sha256': sha(out / 'corn-package-metadata.txt'),
               'compile_log_sha256': sha(out / 'prime-trig-constructive.log'),
               'spec_log_sha256': sha(out / 'prime-trig-constructive-spec.log'),
+              'theorem_names': names,
               'theorem_assumption_log_sha256': {
                   name: sha(out / f'{name}.assumptions.txt') for name in names
               },
@@ -161,6 +161,8 @@ jobs:
               'declared_assumptions': 0,
               'corn_ir_cos_complement_phase_machine_bound': True,
               'corn_ir_sin_complement_phase_machine_bound': True,
+              'corn_ir_frequency_domain': 'Z',
+              'corn_ir_negative_frequency_covered': True,
               'corn_ir_phase_identity_scope': 'CORN_CONSTRUCTIVE_IR_INTEGER_FREQUENCY_ONLY',
               'prime_diagonal_trig_periodicity_machine_bound': False,
               'corn_o0_trig_transport_machine_bound': False,
@@ -189,8 +191,10 @@ jobs:
           print(target.read_text(encoding='utf-8'))
 
           assert version == '9.0.0'
-          assert payload['theorem_count'] == 2
+          assert payload['theorem_count'] == 4
           assert payload['declared_assumptions'] == 0
+          assert payload['corn_ir_frequency_domain'] == 'Z'
+          assert payload['corn_ir_negative_frequency_covered'] is True
           assert payload['corn_ir_cos_complement_phase_machine_bound'] is True
           assert payload['corn_ir_sin_complement_phase_machine_bound'] is True
           assert payload['prime_diagonal_trig_periodicity_machine_bound'] is False
