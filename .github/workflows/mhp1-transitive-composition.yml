@@ -89,6 +89,8 @@ jobs:
           import re
           from pathlib import Path
 
+          from harness.sdk.meaning_heritage import HeritageVerifierV13
+
           out = Path('mhp1-transitive-composition-attestation')
           kernel = Path('harness/sdk/heritage_composition.py')
           tests = Path('harness/tests/test_heritage_transitive_composition.py')
@@ -101,7 +103,7 @@ jobs:
           match = re.search(r'(\d+) passed', text)
           assert match is not None
           passed = int(match.group(1))
-          assert passed >= 33
+          assert passed >= 34
 
           tc_codes = [
               'TRANSIENT_ADDITION_LEAK',
@@ -128,7 +130,7 @@ jobs:
               'preservation_composition_proof_machine_bound': True,
               'transitive_partition_meta_invariants_tested': True,
               'final_composite_additions_without_derivation_composition_proof': 'FAIL_CLOSED',
-              'legacy_v13_caller_authored_compose_surface_removed': False,
+              'legacy_v13_caller_authored_compose_surface_removed': not hasattr(HeritageVerifierV13, 'compose'),
               'status': 'PASS',
           }
           canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
@@ -139,7 +141,7 @@ jobs:
 
           assert payload['authority_class'] == 'NONE'
           assert payload['caller_authored_composed_state_accepted_by_canonical_kernel'] is False
-          assert payload['legacy_v13_caller_authored_compose_surface_removed'] is False
+          assert payload['legacy_v13_caller_authored_compose_surface_removed'] is True
           assert len(payload['tc_codes']) == 6
           assert len(payload['receipt_sha256']) == 64
           PY
