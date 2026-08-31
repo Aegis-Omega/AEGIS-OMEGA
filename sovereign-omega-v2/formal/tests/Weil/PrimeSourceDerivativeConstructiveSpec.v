@@ -7,6 +7,8 @@
   transport, prime-power arithmetic semantics, the explicit formula, global
   Weil positivity, or RH.
 *)
+Require Import CoRN.transc.Trigonometric.
+Require Import CoRN.tactics.DiffTactics3.
 Require Import PrimeSourceDerivativeConstructive.
 
 Definition scaled_sine_derivative_constructive_contract_v1 :
