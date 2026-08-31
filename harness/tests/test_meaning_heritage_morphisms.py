@@ -8,6 +8,7 @@ import pytest
 from harness.sdk.meaning_heritage import (
     ClaimRef,
     ClaimSetEnvelopeV1,
+    ClaimSetReceiptV1,
     ClaimSetVerifierV13,
     HeritageError,
     HeritageReceiptV1,
@@ -64,6 +65,14 @@ class SemanticProofStore:
 
     def fetch_derivation(self, root: str):
         return self.derivation.get(root)
+
+
+class ClaimSetStore:
+    def __init__(self, *receipts: ClaimSetReceiptV1) -> None:
+        self.data = {receipt.root: receipt for receipt in receipts}
+
+    def fetch_verified(self, root: str):
+        return self.data.get(root)
 
 
 class HeritageStore:
@@ -178,6 +187,7 @@ def test_heritage_semantic_proof_must_be_authenticated_and_input_bound():
         verifier_root=h("HERITAGE_VERIFIER", 1),
         policy_root=h("HERITAGE_POLICY", 1),
         proof_store=proof_store,
+        claimset_store=ClaimSetStore(src, der),
     )
     fake_root = h("FAKE_PROOF", 1)
     env = SemanticLineageEnvelopeV1(
@@ -275,6 +285,7 @@ def test_predecessors_require_trusted_store():
         verifier_root=h("HV", 1),
         policy_root=h("HP", 1),
         proof_store=proof_store,
+        claimset_store=ClaimSetStore(rec),
     )
     _, first = verifier.verify(env, rec, rec)
     assert first is not None
