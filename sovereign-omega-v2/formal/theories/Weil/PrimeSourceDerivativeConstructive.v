@@ -24,8 +24,45 @@ Theorem scaled_sine_derivative_constructive_v1 :
       (a{**}((Cosine[o](kappa{**}FId)){*}(kappa{**}[-C-][1]))).
 Proof.
   intros H a kappa.
+
+  assert (Dlin :
+    Derivative realline H
+      (kappa{**}FId)
+      (kappa{**}[-C-][1])).
+  {
+    apply Derivative_scal.
+    apply Derivative_id.
+  }
+
+  assert (Clin : Continuous realline (kappa{**}FId)).
+  {
+    apply Derivative_imp_Continuous with (G := kappa{**}[-C-][1]).
+    exact Dlin.
+  }
+
+  assert (Hmap :
+    maps_compacts_into realline realline (kappa{**}FId)).
+  {
+    apply Continuous_imp_maps_compacts_into.
+    exact Clin.
+  }
+
   assert (Dsin : Derivative realline H Sine Cosine).
-  { apply Derivative_Sin. }
-  Derivative_Help.
-  FEQ.
+  {
+    apply Derivative_Sin.
+  }
+
+  assert (Dcomp :
+    Derivative realline H
+      (Sine[o](kappa{**}FId))
+      ((Cosine[o](kappa{**}FId)){*}(kappa{**}[-C-][1]))).
+  {
+    eapply Derivative_comp.
+    - exact Hmap.
+    - exact Dlin.
+    - exact Dsin.
+  }
+
+  apply Derivative_scal.
+  exact Dcomp.
 Qed.
