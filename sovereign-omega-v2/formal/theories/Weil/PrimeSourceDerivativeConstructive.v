@@ -36,7 +36,7 @@ Proof.
 
   assert (Clin : Continuous realline (kappa{**}FId)).
   {
-    apply Derivative_imp_Continuous with (G := kappa{**}[-C-][1]).
+    apply Derivative_imp_Continuous with H (kappa{**}[-C-][1]).
     exact Dlin.
   }
 
