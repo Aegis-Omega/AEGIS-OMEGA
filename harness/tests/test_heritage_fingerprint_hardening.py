@@ -275,3 +275,55 @@ def test_same_claim_root_requires_same_semantic_fingerprint():
             verifier_root=h("SEMANTIC_VERIFIER", "same-root-context"),
             policy_root=h("SEMANTIC_POLICY", "same-root-context"),
         )
+
+
+def test_preserved_source_cannot_also_be_declared_omitted():
+    digest = h("CLAIM", "overlap-source")
+    edge = PreservationEdge(
+        digest,
+        digest,
+        PreservationRelation.SAME_CLAIM_ROOT,
+        h("PRESERVATION_PROOF", "overlap-source"),
+    )
+    with pytest.raises(HeritageError, match="PRESERVATION_OMISSION_OVERLAP"):
+        SemanticLineageEnvelopeV1(
+            lineage_id="preserved-and-omitted",
+            source_root=h("PAYLOAD", "source"),
+            source_claimset_receipt_root=h("CLAIMSET_RECEIPT", "source"),
+            derived_root=h("PAYLOAD", "derived"),
+            derived_claimset_receipt_root=h("CLAIMSET_RECEIPT", "derived"),
+            transform_root=h("TRANSFORM", "overlap-source"),
+            transform_relation=TransformRelation.LOSSY_TRANSFORM,
+            loss_type=LossType.HEURISTIC_ABSTRACTION,
+            preservation_edges=(edge,),
+            declared_omission_digests=(digest,),
+            declared_additions=(),
+            uncertainty_bps=100,
+        )
+
+
+def test_preserved_derived_cannot_also_be_declared_added():
+    digest = h("CLAIM", "overlap-derived")
+    edge = PreservationEdge(
+        digest,
+        digest,
+        PreservationRelation.SAME_CLAIM_ROOT,
+        h("PRESERVATION_PROOF", "overlap-derived"),
+    )
+    with pytest.raises(HeritageError, match="PRESERVATION_ADDITION_OVERLAP"):
+        SemanticLineageEnvelopeV1(
+            lineage_id="preserved-and-added",
+            source_root=h("PAYLOAD", "source2"),
+            source_claimset_receipt_root=h("CLAIMSET_RECEIPT", "source2"),
+            derived_root=h("PAYLOAD", "derived2"),
+            derived_claimset_receipt_root=h("CLAIMSET_RECEIPT", "derived2"),
+            transform_root=h("TRANSFORM", "overlap-derived"),
+            transform_relation=TransformRelation.AUGMENTING_TRANSFORM,
+            loss_type=LossType.EXACT_LOSSLESS,
+            preservation_edges=(edge,),
+            declared_omission_digests=(),
+            declared_additions=(
+                DeclaredAdditionEdge(digest, h("DERIVATION_PROOF", "overlap-derived")),
+            ),
+            uncertainty_bps=0,
+        )
