@@ -27,4 +27,5 @@ Proof.
   assert (Dsin : Derivative realline H Sine Cosine).
   { apply Derivative_Sin. }
   Derivative_Help.
+  FEQ.
 Qed.
