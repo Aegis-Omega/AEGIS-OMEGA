@@ -77,6 +77,8 @@ class VerificationErrorCode(str, Enum):
     DUPLICATE_CLAIM_DIGEST = "DUPLICATE_CLAIM_DIGEST"
     CLAIMSET_SOURCE_BINDING_FAILURE = "CLAIMSET_SOURCE_BINDING_FAILURE"
     CLAIMSET_DERIVED_BINDING_FAILURE = "CLAIMSET_DERIVED_BINDING_FAILURE"
+    CLAIMSET_TRUST_STORE_REQUIRED = "CLAIMSET_TRUST_STORE_REQUIRED"
+    CLAIMSET_RECEIPT_UNTRUSTED = "CLAIMSET_RECEIPT_UNTRUSTED"
     UNDECLARED_LOSS = "UNDECLARED_LOSS"
     UNDECLARED_ADDITION = "UNDECLARED_ADDITION"
     PRESERVATION_PROOF_UNTRUSTED = "PRESERVATION_PROOF_UNTRUSTED"
@@ -226,6 +228,10 @@ class ClaimSetVerifierV13:
             sorted_claims=recomputed,
             verification_root=verification_root,
         )
+
+
+class TrustedClaimSetReceiptStore(Protocol):
+    def fetch_verified(self, root: str) -> ClaimSetReceiptV1 | None: ...
 
 
 @dataclass(frozen=True)
@@ -459,6 +465,7 @@ class HeritageVerifierV13:
         verifier_root: str,
         policy_root: str,
         proof_store: TrustedSemanticProofStore,
+        claimset_store: TrustedClaimSetReceiptStore | None = None,
         heritage_store: TrustedHeritageReceiptStore | None = None,
     ) -> None:
         require_hash("verifier_root", verifier_root)
@@ -466,6 +473,7 @@ class HeritageVerifierV13:
         self.verifier_root = verifier_root
         self.policy_root = policy_root
         self.proof_store = proof_store
+        self.claimset_store = claimset_store
         self.heritage_store = heritage_store
 
     def verify(
@@ -476,6 +484,15 @@ class HeritageVerifierV13:
         predecessor_receipts: tuple[HeritageReceiptV1, ...] = (),
     ) -> tuple[HeritageVerificationResultV1, HeritageReceiptV1 | None]:
         errors: list[str] = []
+        if self.claimset_store is None:
+            errors.append(VerificationErrorCode.CLAIMSET_TRUST_STORE_REQUIRED.value)
+            errors.append(VerificationErrorCode.CLAIMSET_RECEIPT_UNTRUSTED.value)
+        else:
+            for claimset in (source_claimset, derived_claimset):
+                trusted = self.claimset_store.fetch_verified(claimset.root)
+                if trusted is None or trusted != claimset or trusted.root != claimset.root:
+                    errors.append(VerificationErrorCode.CLAIMSET_RECEIPT_UNTRUSTED.value)
+
         if (
             source_claimset.root != envelope.source_claimset_receipt_root
             or source_claimset.payload_root != envelope.source_root
