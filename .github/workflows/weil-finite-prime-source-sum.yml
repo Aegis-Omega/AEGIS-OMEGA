@@ -121,6 +121,7 @@ jobs:
             PRODUCTION_SOURCE_PRESENT=false
             EXPECTED_FAILURE_KIND=MISSING_LOGICAL_MODULE
             EXPECTED_MISSING_MODULE=FinitePrimeSourceSum
+            ERROR_CARDINALITY=1
             FINITE_PRIME_SOURCE_SUM_MACHINE_BOUND=false
             EOF
 
@@ -140,12 +141,18 @@ jobs:
           derivative = theory / 'PrimeSourceDerivativeConstructive.v'
           bridge = theory / 'PrimePowerWeightBridge.v'
           source = theory / 'FinitePrimeSourceSum.v'
+          red_log = out / 'finite-prime-source-sum-spec.log'
 
           def sha(path: Path) -> str:
               return hashlib.sha256(path.read_bytes()).hexdigest()
 
           version = (out / 'corn-version.txt').read_text(encoding='utf-8').strip()
           checkpoint = (out / 'red-checkpoint.txt').read_text(encoding='utf-8')
+          error_cardinality = sum(
+              1
+              for line in red_log.read_text(encoding='utf-8').splitlines()
+              if line.startswith('Error:')
+          )
 
           payload = {
               'receipt_kind': 'AEGIS_WEIL_FINITE_PRIME_SOURCE_SUM_RED_RECEIPT_V1',
@@ -161,7 +168,7 @@ jobs:
               'red_spec_sha256': sha(test),
               'derivative_compile_log_sha256': sha(out / 'prime-source-derivative.log'),
               'weight_bridge_compile_log_sha256': sha(out / 'prime-power-weight-bridge.log'),
-              'red_compile_log_sha256': sha(out / 'finite-prime-source-sum-spec.log'),
+              'red_compile_log_sha256': sha(red_log),
               'red_checkpoint_sha256': sha(out / 'red-checkpoint.txt'),
               'parent_derivative_compile_passed': True,
               'parent_weight_bridge_compile_passed': True,
@@ -169,6 +176,7 @@ jobs:
               'red_checkpoint_verified': 'RED_CHECKPOINT_VERIFIED=true' in checkpoint,
               'expected_failure_kind': 'MISSING_LOGICAL_MODULE',
               'expected_missing_module': 'FinitePrimeSourceSum',
+              'error_cardinality': error_cardinality,
               'finite_prime_source_sum_machine_bound': False,
               'corn_o0_trig_transport_machine_bound': False,
               'guinand_weil_explicit_formula_machine_bound': False,
@@ -195,6 +203,7 @@ jobs:
           assert payload['parent_weight_bridge_compile_passed'] is True
           assert payload['production_source_present'] is False
           assert payload['red_checkpoint_verified'] is True
+          assert payload['error_cardinality'] == 1
           assert payload['finite_prime_source_sum_machine_bound'] is False
           assert payload['global_weil_positivity_proven'] is False
           assert payload['rh_proven'] is False
