@@ -327,6 +327,31 @@ def test_green_same_composition_is_mechanically_derived_and_partitioned() -> Non
     assert a13 == set()
 
 
+def test_legacy_verifier_cannot_accept_caller_authored_composite_envelope() -> None:
+    _, c1, _, c3, claims, semantic, heritage, envelopes, h1, h2 = prepare_same_chain()
+    k = kernel()
+    result, outcome = k.compose(
+        h1,
+        h2,
+        heritage_store=heritage,
+        envelope_store=envelopes,
+        claimset_store=claims,
+        semantic_proof_store=semantic,
+        composition_proof_store=CompositionStore(),
+    )
+    assert result.status == "PASS"
+    assert outcome is not None
+
+    legacy_verifier = HeritageVerifierV13(
+        verifier_root=k.verifier_root,
+        policy_root=k.policy_root,
+        proof_store=semantic,
+        claimset_store=claims,
+    )
+    with pytest.raises(AttributeError, match="compose"):
+        legacy_verifier.compose(h1, h2, outcome.envelope, c1, c3)
+
+
 def prepare_non_same_chain():
     a, b, c = claim("A"), claim("B"), claim("C")
     c1 = issue_claimset(b"ns1", (a,), "ns1")
