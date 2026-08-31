@@ -8,6 +8,7 @@ on:
       - 'harness/sdk/morphisms.py'
       - 'harness/tests/test_meaning_heritage_morphisms.py'
       - 'harness/tests/test_morphism_hardening.py'
+      - 'harness/tests/test_heritage_fingerprint_hardening.py'
       - '.github/workflows/mhp1-morphism-engine.yml'
   pull_request:
     paths:
@@ -15,6 +16,7 @@ on:
       - 'harness/sdk/morphisms.py'
       - 'harness/tests/test_meaning_heritage_morphisms.py'
       - 'harness/tests/test_morphism_hardening.py'
+      - 'harness/tests/test_heritage_fingerprint_hardening.py'
       - '.github/workflows/mhp1-morphism-engine.yml'
 
 permissions:
@@ -54,10 +56,12 @@ jobs:
             harness/sdk/meaning_heritage.py \
             harness/sdk/morphisms.py \
             harness/tests/test_meaning_heritage_morphisms.py \
-            harness/tests/test_morphism_hardening.py
+            harness/tests/test_morphism_hardening.py \
+            harness/tests/test_heritage_fingerprint_hardening.py
 
       - name: Run adversarial falsifier suite
         run: |
           python -m pytest -q \
             harness/tests/test_meaning_heritage_morphisms.py \
-            harness/tests/test_morphism_hardening.py
+            harness/tests/test_morphism_hardening.py \
+            harness/tests/test_heritage_fingerprint_hardening.py
