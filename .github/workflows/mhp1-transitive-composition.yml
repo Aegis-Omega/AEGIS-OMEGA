@@ -5,11 +5,13 @@ on:
     branches: [feat/mhp1-transitive-composition-v1]
     paths:
       - 'harness/sdk/meaning_heritage.py'
+      - 'harness/sdk/heritage_composition.py'
       - 'harness/tests/test_heritage_transitive_composition.py'
       - '.github/workflows/mhp1-transitive-composition.yml'
   pull_request:
     paths:
       - 'harness/sdk/meaning_heritage.py'
+      - 'harness/sdk/heritage_composition.py'
       - 'harness/tests/test_heritage_transitive_composition.py'
       - '.github/workflows/mhp1-transitive-composition.yml'
 
@@ -50,11 +52,21 @@ jobs:
       - name: Install focused test dependency
         run: python -m pip install --disable-pip-version-check pytest==8.3.5
 
-      - name: Compile composition contract
+      - name: Compile composition and parent kernels
         run: |
           python -m py_compile \
             harness/sdk/meaning_heritage.py \
-            harness/tests/test_heritage_transitive_composition.py
+            harness/sdk/heritage_composition.py \
+            harness/sdk/morphisms.py \
+            harness/tests/test_heritage_transitive_composition.py \
+            harness/tests/test_meaning_heritage_morphisms.py \
+            harness/tests/test_morphism_hardening.py \
+            harness/tests/test_heritage_fingerprint_hardening.py
 
-      - name: Run preregistered TC-01..TC-06 RED suite
-        run: python -m pytest -q harness/tests/test_heritage_transitive_composition.py
+      - name: Run transitive composition and parent adversarial suites
+        run: |
+          python -m pytest -q \
+            harness/tests/test_heritage_transitive_composition.py \
+            harness/tests/test_meaning_heritage_morphisms.py \
+            harness/tests/test_morphism_hardening.py \
+            harness/tests/test_heritage_fingerprint_hardening.py
