@@ -56,6 +56,17 @@ Proof.
   - exact H_base_gt_one.
 Qed.
 
+Lemma certified_prime_base_divisor_classification_v1 :
+  forall (certificate : prime_power_certificate_v1) (d : nat),
+    divides_nat_v1 d (certified_prime_base_v1 certificate) ->
+    d = 1 \/ d = certified_prime_base_v1 certificate.
+Proof.
+  intros certificate d H_divides.
+  destruct (certified_prime_base_is_prime_v1 certificate)
+    as [_ H_classification].
+  exact (H_classification d H_divides).
+Qed.
+
 Definition certified_prime_base_ir_v1
     (certificate : prime_power_certificate_v1) : IR :=
   nring (certified_prime_base_v1 certificate).
@@ -225,4 +236,26 @@ Proof.
   unfold certified_prime_power_source_term_v1,
     certified_prime_power_derivative_term_raw_v1.
   apply prime_power_weight_derivative_constructive_v1.
+Qed.
+
+Theorem certified_prime_power_finite_sum_shared_scale_derivative_constructive_v1 :
+  forall (H : proper realline)
+         (n : nat)
+         (certificates : nat -> prime_power_certificate_v1)
+         (L : IR)
+         (H_L_pos : [0] [<] L),
+    Derivative realline H
+      (FSumx n
+        (fun i _ =>
+          certified_prime_power_source_term_v1
+            L H_L_pos (certificates i)))
+      (FSumx n
+        (fun i _ =>
+          certified_prime_power_derivative_term_raw_v1
+            L H_L_pos (certificates i))).
+Proof.
+  intros H n certificates L H_L_pos.
+  exact
+    (certified_prime_power_finite_sum_derivative_constructive_v1
+       H n certificates (fun _ : nat => L) (fun _ : nat => H_L_pos)).
 Qed.

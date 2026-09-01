@@ -117,7 +117,8 @@ jobs:
               certified_prime_power_ir_power_identity_v1 \
               certified_prime_power_log_identity_v1 \
               certified_prime_power_sqrt_square_identity_v1 \
-              certified_prime_power_finite_sum_derivative_constructive_v1
+              certified_prime_power_finite_sum_derivative_constructive_v1 \
+              certified_prime_power_finite_sum_shared_scale_derivative_constructive_v1
             do
               query="$OUT/${theorem}.v"
               log="$OUT/${theorem}.assumptions.txt"
@@ -139,10 +140,11 @@ jobs:
             cat > "$OUT/green-checkpoint.txt" <<'EOF'
             GREEN_CHECKPOINT_VERIFIED=true
             PRODUCTION_SOURCE_PRESENT=true
-            THEOREM_COUNT=5
+            THEOREM_COUNT=6
             DECLARED_ASSUMPTIONS=0
             CERTIFIED_PRIME_BASE_PRIMALITY_MACHINE_BOUND=true
             PRIME_PREDICATE_SCOPE=BESPOKE_DIVISOR_CLASSIFICATION_V1
+            PRIME_DIVISOR_CLAUSE_LOAD_BEARING_IN_ANALYTIC_IDENTITIES=false
             STDLIB_PRIME_PREDICATE_BRIDGE_MACHINE_BOUND=false
             PRIME_POWER_ARITHMETIC_SEMANTICS_MACHINE_BOUND=true
             PRIME_POWER_ARITHMETIC_SEMANTICS_SCOPE=SUPPLIED_CERTIFICATES_UNDER_BESPOKE_DIVISOR_PRIMALITY_V1_ONLY
@@ -183,6 +185,7 @@ jobs:
               'certified_prime_power_log_identity_v1',
               'certified_prime_power_sqrt_square_identity_v1',
               'certified_prime_power_finite_sum_derivative_constructive_v1',
+              'certified_prime_power_finite_sum_shared_scale_derivative_constructive_v1',
           ]
 
           def sha(path: Path) -> str:

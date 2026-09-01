@@ -4,7 +4,8 @@
   This contract separates three claims that must not be flattened:
   - a supplied certificate exposes the full local primality predicate;
   - q = p^k induces constructive CoRN-IR power/log/root identities; and
-  - the finite derivative family uses one shared scale L.
+  - the finite derivative family admits one shared scale L, as a corollary
+    of the general per-index statement.
 
   The contract does not establish a standard-library primality bridge, total
   factorization, a total von Mangoldt function, canonical prime-power
@@ -25,7 +26,9 @@ Check certified_prime_power_ir_power_identity_v1.
 Check certified_prime_power_log_identity_v1.
 Check certified_prime_power_sqrt_square_identity_v1.
 
-Check certified_prime_power_finite_sum_derivative_constructive_v1
+Check certified_prime_power_finite_sum_derivative_constructive_v1.
+
+Check certified_prime_power_finite_sum_shared_scale_derivative_constructive_v1
   : forall (H : proper realline)
            (n : nat)
            (certificates : nat -> prime_power_certificate_v1)
@@ -46,3 +49,5 @@ Print Assumptions certified_prime_power_ir_power_identity_v1.
 Print Assumptions certified_prime_power_log_identity_v1.
 Print Assumptions certified_prime_power_sqrt_square_identity_v1.
 Print Assumptions certified_prime_power_finite_sum_derivative_constructive_v1.
+Print Assumptions
+  certified_prime_power_finite_sum_shared_scale_derivative_constructive_v1.
