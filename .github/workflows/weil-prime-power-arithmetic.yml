@@ -286,7 +286,7 @@ jobs:
           )
           assert payload['red_checkpoint_verified'] is True
           assert payload['production_source_present'] is True
-          assert payload['theorem_count'] == 5
+          assert payload['theorem_count'] == 6
           assert payload['declared_assumptions'] == 0
           assert payload['certified_prime_base_primality_machine_bound'] is True
           assert payload['stdlib_prime_predicate_bridge_machine_bound'] is False
