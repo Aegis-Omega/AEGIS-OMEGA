@@ -13,6 +13,12 @@
   global Weil positivity, or RH.
 *)
 
+From Coq Require Import Arith.PeanoNat.
+
+Require Import CoRN.reals.NRootIR.
+Require Import CoRN.transc.Exponential.
+Require Import CoRN.ftc.MoreFunctions.
+Require Import PrimePowerWeightBridge.
 Require Import PrimePowerArithmeticBridge.
 
 Check prime_power_certificate_v1.
