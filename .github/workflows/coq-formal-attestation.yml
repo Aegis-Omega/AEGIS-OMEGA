@@ -33,6 +33,13 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
 
+      - name: Assert Coq inventory matches sources
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/coq_inventory.py --check
+
       - name: Unit-test attestation generator
         working-directory: sovereign-omega-v2
         env:
@@ -147,36 +154,14 @@ jobs:
             opam install -y coq-coquelicot.3.4.2 coq-corn.9.0.0 || exit 1
             test "$(opam var coq-corn:version | tr -d '[:space:]')" = '9.0.0' || exit 1
 
-            for rel in \
-              'Core/Event.v' \
-              'Core/Hash.v' \
-              'Core/Reducer.v' \
-              'Core/LatticeConvergence.v' \
-              'Core/LockIrreversibility.v' \
-              'Bisimulation/ThreeWay.v' \
-              'Weil/FiniteBridge.v' \
-              'Weil/FiniteEntryDictionary.v' \
-              'Weil/FinitePrimeDiagonal.v' \
-              'Weil/PrimeTrigConstructive.v' \
-              'Weil/PrimeSourceDerivativeConstructive.v' \
-              'Weil/PrimePowerWeightBridge.v' \
-              'Weil/FinitePrimeSourceSum.v' \
-              'Weil/PrimePowerArithmeticBridge.v' \
-              'Weil/PrimalityStdlibBridge.v' \
-              'Weil/VonMangoldtCanonicalBridge.v' \
-              'Weil/CanonicalPrimeSourceSum.v' \
-              'Weil/O0TrustProbeReals.v' \
-              'Weil/O0TrustProbeFunction.v' \
-              'Weil/O0TrustProbeCompact.v' \
-              'Weil/O0TrustProbeContinuity.v' \
-              'Weil/O0TrustProbeConstructive.v' \
-              'Weil/AnalyticDefinitions.v' \
-              'Weil/O0ProductionConstructiveProbe.v' \
-              'Weil/O0DependencyProbe.v' \
-              'Weil/Globalization.v' \
-              'Weil/WeilCriterion.v' \
-              'Weil/O0.v' \
-              'Weil/O0ClosureProbe.v'
+            # Compile order is generated, never hand-maintained: see
+            # scripts/coq_inventory.py and formal/coq-inventory.json.  The
+            # "Assert Coq inventory matches sources" step earlier in this job
+            # fails the run if the committed inventory has drifted from disk,
+            # so a new module can no longer be discovered-but-never-compiled.
+            ORDER="$(python3 -c "import json; print(' '.join(json.load(open('formal/coq-inventory.json'))['compile_order']))")"
+            test -n "$ORDER"
+            for rel in $ORDER
             do
               compile_one "$rel"
             done
@@ -225,31 +210,21 @@ jobs:
           import json
           from pathlib import Path
 
+          INVENTORY = json.loads(
+              Path('formal/coq-inventory.json').read_text(encoding='utf-8')
+          )
           DIAGNOSTIC_ONLY = {
-              'Weil/O0TrustProbeReals.v',
-              'Weil/O0TrustProbeFunction.v',
-              'Weil/O0TrustProbeCompact.v',
-              'Weil/O0TrustProbeContinuity.v',
+              e['path'] for e in INVENTORY['files']
+              if e['classification'] == 'DIAGNOSTIC_ONLY'
           }
           REQUIRE_AXIOM_FREE = {
-              'Core/LatticeConvergence.v',
-              'Core/LockIrreversibility.v',
-              'Weil/FiniteBridge.v',
-              'Weil/FiniteEntryDictionary.v',
-              'Weil/FinitePrimeDiagonal.v',
-              'Weil/PrimeTrigConstructive.v',
-              'Weil/PrimeSourceDerivativeConstructive.v',
-              'Weil/PrimePowerWeightBridge.v',
-              'Weil/FinitePrimeSourceSum.v',
-              'Weil/PrimePowerArithmeticBridge.v',
-              'Weil/PrimalityStdlibBridge.v',
-              'Weil/VonMangoldtCanonicalBridge.v',
-              'Weil/CanonicalPrimeSourceSum.v',
-              'Weil/O0TrustProbeConstructive.v',
-              'Weil/AnalyticDefinitions.v',
-              'Weil/O0ProductionConstructiveProbe.v',
-              'Weil/Globalization.v',
+              e['path'] for e in INVENTORY['files']
+              if e['classification'] == 'REQUIRE_AXIOM_FREE'
           }
+          # The inventory is the single source of truth for WHICH files exist
+          # and in what order they compile; the assertions below still decide
+          # WHAT each classification must prove.
+          assert set(INVENTORY['compile_order']) == {e['path'] for e in INVENTORY['files']}
           EXPECTED_BASELINE_SHA256 = '45c302e763e58c398d9b2a893cd62bdb2e585c8214d87b286f8e83d1b7d30e3e'
 
           path = Path('coq-attestation/coq-formal-attestation-receipt.json')

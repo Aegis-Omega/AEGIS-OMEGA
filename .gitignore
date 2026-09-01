@@ -97,3 +97,6 @@ state/
 .*.aux
 .lia.cache
 .nia.cache
+
+# Local attestation simulation output
+sovereign-omega-v2/coq-attestation/

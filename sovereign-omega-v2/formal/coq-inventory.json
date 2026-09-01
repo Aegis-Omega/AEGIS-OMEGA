@@ -1,0 +1,270 @@
+{
+  "schema_version": "1.0.0",
+  "formal_root": "formal/theories",
+  "compile_model": "cd <directory> && coqc <file>; intra-directory Requires only",
+  "file_count": 28,
+  "counts": {
+    "REQUIRE_AXIOM_FREE": 16,
+    "DIAGNOSTIC_ONLY": 4,
+    "AUTHORITY_ELIGIBLE": 8
+  },
+  "compile_order": [
+    "Bisimulation/ThreeWay.v",
+    "Core/Event.v",
+    "Core/LatticeConvergence.v",
+    "Core/LockIrreversibility.v",
+    "Weil/AnalyticDefinitions.v",
+    "Weil/FiniteBridge.v",
+    "Weil/FinitePrimeDiagonal.v",
+    "Weil/O0DependencyProbe.v",
+    "Weil/O0TrustProbeCompact.v",
+    "Weil/O0TrustProbeConstructive.v",
+    "Weil/O0TrustProbeContinuity.v",
+    "Weil/O0TrustProbeFunction.v",
+    "Weil/O0TrustProbeReals.v",
+    "Weil/PrimeSourceDerivativeConstructive.v",
+    "Weil/PrimeTrigConstructive.v",
+    "Core/Hash.v",
+    "Weil/FiniteEntryDictionary.v",
+    "Weil/Globalization.v",
+    "Weil/O0ProductionConstructiveProbe.v",
+    "Weil/PrimePowerWeightBridge.v",
+    "Core/Reducer.v",
+    "Weil/FinitePrimeSourceSum.v",
+    "Weil/PrimePowerArithmeticBridge.v",
+    "Weil/WeilCriterion.v",
+    "Weil/O0.v",
+    "Weil/PrimalityStdlibBridge.v",
+    "Weil/O0ClosureProbe.v",
+    "Weil/VonMangoldtCanonicalBridge.v"
+  ],
+  "files": [
+    {
+      "path": "Bisimulation/ThreeWay.v",
+      "directory": "Bisimulation",
+      "module": "ThreeWay",
+      "requires": [],
+      "classification": "AUTHORITY_ELIGIBLE"
+    },
+    {
+      "path": "Core/Event.v",
+      "directory": "Core",
+      "module": "Event",
+      "requires": [],
+      "classification": "AUTHORITY_ELIGIBLE"
+    },
+    {
+      "path": "Core/LatticeConvergence.v",
+      "directory": "Core",
+      "module": "LatticeConvergence",
+      "requires": [],
+      "classification": "REQUIRE_AXIOM_FREE"
+    },
+    {
+      "path": "Core/LockIrreversibility.v",
+      "directory": "Core",
+      "module": "LockIrreversibility",
+      "requires": [],
+      "classification": "REQUIRE_AXIOM_FREE"
+    },
+    {
+      "path": "Weil/AnalyticDefinitions.v",
+      "directory": "Weil",
+      "module": "AnalyticDefinitions",
+      "requires": [],
+      "classification": "REQUIRE_AXIOM_FREE"
+    },
+    {
+      "path": "Weil/FiniteBridge.v",
+      "directory": "Weil",
+      "module": "FiniteBridge",
+      "requires": [],
+      "classification": "REQUIRE_AXIOM_FREE"
+    },
+    {
+      "path": "Weil/FinitePrimeDiagonal.v",
+      "directory": "Weil",
+      "module": "FinitePrimeDiagonal",
+      "requires": [],
+      "classification": "REQUIRE_AXIOM_FREE"
+    },
+    {
+      "path": "Weil/O0DependencyProbe.v",
+      "directory": "Weil",
+      "module": "O0DependencyProbe",
+      "requires": [],
+      "classification": "AUTHORITY_ELIGIBLE"
+    },
+    {
+      "path": "Weil/O0TrustProbeCompact.v",
+      "directory": "Weil",
+      "module": "O0TrustProbeCompact",
+      "requires": [],
+      "classification": "DIAGNOSTIC_ONLY"
+    },
+    {
+      "path": "Weil/O0TrustProbeConstructive.v",
+      "directory": "Weil",
+      "module": "O0TrustProbeConstructive",
+      "requires": [],
+      "classification": "REQUIRE_AXIOM_FREE"
+    },
+    {
+      "path": "Weil/O0TrustProbeContinuity.v",
+      "directory": "Weil",
+      "module": "O0TrustProbeContinuity",
+      "requires": [],
+      "classification": "DIAGNOSTIC_ONLY"
+    },
+    {
+      "path": "Weil/O0TrustProbeFunction.v",
+      "directory": "Weil",
+      "module": "O0TrustProbeFunction",
+      "requires": [],
+      "classification": "DIAGNOSTIC_ONLY"
+    },
+    {
+      "path": "Weil/O0TrustProbeReals.v",
+      "directory": "Weil",
+      "module": "O0TrustProbeReals",
+      "requires": [],
+      "classification": "DIAGNOSTIC_ONLY"
+    },
+    {
+      "path": "Weil/PrimeSourceDerivativeConstructive.v",
+      "directory": "Weil",
+      "module": "PrimeSourceDerivativeConstructive",
+      "requires": [],
+      "classification": "REQUIRE_AXIOM_FREE"
+    },
+    {
+      "path": "Weil/PrimeTrigConstructive.v",
+      "directory": "Weil",
+      "module": "PrimeTrigConstructive",
+      "requires": [],
+      "classification": "REQUIRE_AXIOM_FREE"
+    },
+    {
+      "path": "Core/Hash.v",
+      "directory": "Core",
+      "module": "Hash",
+      "requires": [
+        "Event"
+      ],
+      "classification": "AUTHORITY_ELIGIBLE"
+    },
+    {
+      "path": "Weil/FiniteEntryDictionary.v",
+      "directory": "Weil",
+      "module": "FiniteEntryDictionary",
+      "requires": [
+        "FiniteBridge"
+      ],
+      "classification": "REQUIRE_AXIOM_FREE"
+    },
+    {
+      "path": "Weil/Globalization.v",
+      "directory": "Weil",
+      "module": "Globalization",
+      "requires": [
+        "AnalyticDefinitions"
+      ],
+      "classification": "REQUIRE_AXIOM_FREE"
+    },
+    {
+      "path": "Weil/O0ProductionConstructiveProbe.v",
+      "directory": "Weil",
+      "module": "O0ProductionConstructiveProbe",
+      "requires": [
+        "AnalyticDefinitions"
+      ],
+      "classification": "REQUIRE_AXIOM_FREE"
+    },
+    {
+      "path": "Weil/PrimePowerWeightBridge.v",
+      "directory": "Weil",
+      "module": "PrimePowerWeightBridge",
+      "requires": [
+        "PrimeSourceDerivativeConstructive"
+      ],
+      "classification": "REQUIRE_AXIOM_FREE"
+    },
+    {
+      "path": "Core/Reducer.v",
+      "directory": "Core",
+      "module": "Reducer",
+      "requires": [
+        "Hash",
+        "Event"
+      ],
+      "classification": "AUTHORITY_ELIGIBLE"
+    },
+    {
+      "path": "Weil/FinitePrimeSourceSum.v",
+      "directory": "Weil",
+      "module": "FinitePrimeSourceSum",
+      "requires": [
+        "PrimePowerWeightBridge"
+      ],
+      "classification": "REQUIRE_AXIOM_FREE"
+    },
+    {
+      "path": "Weil/PrimePowerArithmeticBridge.v",
+      "directory": "Weil",
+      "module": "PrimePowerArithmeticBridge",
+      "requires": [
+        "PrimePowerWeightBridge"
+      ],
+      "classification": "REQUIRE_AXIOM_FREE"
+    },
+    {
+      "path": "Weil/WeilCriterion.v",
+      "directory": "Weil",
+      "module": "WeilCriterion",
+      "requires": [
+        "Globalization"
+      ],
+      "classification": "AUTHORITY_ELIGIBLE"
+    },
+    {
+      "path": "Weil/O0.v",
+      "directory": "Weil",
+      "module": "O0",
+      "requires": [
+        "AnalyticDefinitions",
+        "Globalization",
+        "WeilCriterion"
+      ],
+      "classification": "AUTHORITY_ELIGIBLE"
+    },
+    {
+      "path": "Weil/PrimalityStdlibBridge.v",
+      "directory": "Weil",
+      "module": "PrimalityStdlibBridge",
+      "requires": [
+        "PrimePowerArithmeticBridge"
+      ],
+      "classification": "REQUIRE_AXIOM_FREE"
+    },
+    {
+      "path": "Weil/O0ClosureProbe.v",
+      "directory": "Weil",
+      "module": "O0ClosureProbe",
+      "requires": [
+        "O0"
+      ],
+      "classification": "AUTHORITY_ELIGIBLE"
+    },
+    {
+      "path": "Weil/VonMangoldtCanonicalBridge.v",
+      "directory": "Weil",
+      "module": "VonMangoldtCanonicalBridge",
+      "requires": [
+        "PrimePowerWeightBridge",
+        "PrimePowerArithmeticBridge",
+        "PrimalityStdlibBridge"
+      ],
+      "classification": "REQUIRE_AXIOM_FREE"
+    }
+  ]
+}

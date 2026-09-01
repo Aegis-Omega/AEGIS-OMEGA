@@ -1,0 +1,37 @@
+{
+  "_comment": "Every .v under formal/theories must appear in exactly one set. REQUIRE_AXIOM_FREE: production evidence, every theorem must close with no axioms. DIAGNOSTIC_ONLY: classical trust probes, compiled but not proof authority. AUTHORITY_ELIGIBLE: compiled and eligible, assumptions governed by formal/assumption-baseline-v1.json.",
+  "REQUIRE_AXIOM_FREE": [
+    "Core/LatticeConvergence.v",
+    "Core/LockIrreversibility.v",
+    "Weil/AnalyticDefinitions.v",
+    "Weil/FiniteBridge.v",
+    "Weil/FiniteEntryDictionary.v",
+    "Weil/FinitePrimeDiagonal.v",
+    "Weil/FinitePrimeSourceSum.v",
+    "Weil/Globalization.v",
+    "Weil/O0ProductionConstructiveProbe.v",
+    "Weil/O0TrustProbeConstructive.v",
+    "Weil/PrimalityStdlibBridge.v",
+    "Weil/PrimePowerArithmeticBridge.v",
+    "Weil/PrimePowerWeightBridge.v",
+    "Weil/PrimeSourceDerivativeConstructive.v",
+    "Weil/PrimeTrigConstructive.v",
+    "Weil/VonMangoldtCanonicalBridge.v"
+  ],
+  "DIAGNOSTIC_ONLY": [
+    "Weil/O0TrustProbeCompact.v",
+    "Weil/O0TrustProbeContinuity.v",
+    "Weil/O0TrustProbeFunction.v",
+    "Weil/O0TrustProbeReals.v"
+  ],
+  "AUTHORITY_ELIGIBLE": [
+    "Bisimulation/ThreeWay.v",
+    "Core/Event.v",
+    "Core/Hash.v",
+    "Core/Reducer.v",
+    "Weil/O0.v",
+    "Weil/O0ClosureProbe.v",
+    "Weil/O0DependencyProbe.v",
+    "Weil/WeilCriterion.v"
+  ]
+}
