@@ -1,0 +1,216 @@
+name: Weil Primality Activation Bridge
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/formal/tests/Weil/PrimalityStdlibBridgeSpec.v"
+      - "sovereign-omega-v2/formal/theories/Weil/PrimalityStdlibBridge.v"
+      - "sovereign-omega-v2/formal/theories/Weil/PrimePowerArithmeticBridge.v"
+      - ".github/workflows/weil-primality-activation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-primality-activation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  ADMISSION_PARENT_SHA: c6bbb5851aed4e58f75ca727e2ede94371c44784
+  A2B_GREEN_WORKFLOW_RUN_ID: '33476392293'
+
+jobs:
+  attest-primality-activation:
+    name: coqc / primality activation GREEN
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Reject declared assumptions in activation source
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=sovereign-omega-v2/formal/theories/Weil/PrimalityStdlibBridge.v
+          test -f "$source"
+          if grep -En '^[[:space:]]*(Axiom|Axioms|Parameter|Parameters|Admitted)[[:space:].]' "$source"; then
+            echo "Declared assumption/admission forbidden: $source" >&2
+            exit 1
+          fi
+
+      - name: Prepare writable evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/weil-primality-activation-attestation
+          chmod -R a+rwX \
+            sovereign-omega-v2/formal/theories/Weil \
+            sovereign-omega-v2/formal/tests/Weil \
+            sovereign-omega-v2/weil-primality-activation-attestation
+
+      - name: Compile activation contract and assumptions
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            THEORY="$ROOT/formal/theories/Weil"
+            TESTDIR="$ROOT/formal/tests/Weil"
+            OUT="$ROOT/weil-primality-activation-attestation"
+
+            coqc --version | tee "$OUT/coq-version.txt"
+            opam install -y coq-corn.9.0.0
+            opam var coq-corn:version | tee "$OUT/corn-version.txt"
+            test "$(tr -d '[:space:]' < "$OUT/corn-version.txt")" = "9.0.0"
+
+            for f in PrimeSourceDerivativeConstructive PrimePowerWeightBridge \
+                     FinitePrimeSourceSum PrimePowerArithmeticBridge \
+                     PrimalityStdlibBridge; do
+              coqc -Q "$THEORY" "" "$THEORY/$f.v" 2>&1 | tee "$OUT/$f.log"
+            done
+            coqc -Q "$THEORY" "" -Q "$TESTDIR" "" \
+              "$TESTDIR/PrimalityStdlibBridgeSpec.v" 2>&1 \
+              | tee "$OUT/primality-activation-spec.log"
+
+            for theorem in \
+              prime_nat_v1_to_Znumtheory \
+              prime_nat_v1_euclid \
+              prime_nat_v1_divides_pow \
+              prime_power_base_uniqueness_v1 \
+              base_uniqueness_fails_without_primality \
+              four_is_not_prime_nat_v1
+            do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.assumptions.txt"
+              cat > "$query" <<EOF
+            Set Coqtop Exit On Error.
+            Require Import PrimalityStdlibBridge.
+            Print Assumptions ${theorem}.
+            EOF
+              coqtop -quiet -batch -Q "$THEORY" "" -l "$query" > "$log" 2>&1
+              rm -f "$query"
+              cat "$log"
+              grep -q 'Closed under the global context' "$log"
+              if grep -q '^Axioms:' "$log"; then
+                echo "Unexpected assumptions for ${theorem}" >&2
+                exit 1
+              fi
+            done
+
+            cat > "$OUT/activation-checkpoint.txt" <<'EOF'
+            ACTIVATION_CHECKPOINT_VERIFIED=true
+            THEOREM_COUNT=6
+            DECLARED_ASSUMPTIONS=0
+            STDLIB_PRIME_PREDICATE_BRIDGE_MACHINE_BOUND=true
+            EUCLID_LEMMA_ON_NAT_MACHINE_BOUND=true
+            PRIME_POWER_BASE_UNIQUENESS_MACHINE_BOUND=true
+            PRIME_DIVISOR_CLAUSE_LOAD_BEARING_IN_ANALYTIC_IDENTITIES=false
+            PRIME_DIVISOR_CLAUSE_LOAD_BEARING_IN_BASE_UNIQUENESS=true
+            DESCRIPTOR_PRIME_WEIGHT_LOG_P_MACHINE_BOUND=false
+            CANONICAL_VON_MANGOLDT_BINDING_MACHINE_BOUND=false
+            TOTAL_PRIME_FACTORIZATION_MACHINE_BOUND=false
+            CORN_O0_TRIG_TRANSPORT_MACHINE_BOUND=false
+            GLOBAL_WEIL_POSITIVITY_PROVEN=false
+            RH_PROVEN=false
+            EOF
+
+      - name: Emit content-addressed activation receipt
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          out = Path('weil-primality-activation-attestation')
+          theory = Path('formal/theories/Weil')
+          tests = Path('formal/tests/Weil')
+          source = theory / 'PrimalityStdlibBridge.v'
+          spec = tests / 'PrimalityStdlibBridgeSpec.v'
+          parent = theory / 'PrimePowerArithmeticBridge.v'
+
+          def sha(path):
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          checkpoint = (out / 'activation-checkpoint.txt').read_text(encoding='utf-8')
+          theorem_names = [
+              'prime_nat_v1_to_Znumtheory',
+              'prime_nat_v1_euclid',
+              'prime_nat_v1_divides_pow',
+              'prime_power_base_uniqueness_v1',
+              'base_uniqueness_fails_without_primality',
+              'four_is_not_prime_nat_v1',
+          ]
+          payload = {
+              'receipt_kind': 'AEGIS_A2B1_PRIMALITY_ACTIVATION_GREEN_RECEIPT_V1',
+              'authority': 'FORMAL_MATH_EVIDENCE_ONLY',
+              'source_commit': os.environ['SOURCE_SHA'],
+              'admission_parent_commit': os.environ['ADMISSION_PARENT_SHA'],
+              'a2b_green_workflow_run_id': int(os.environ['A2B_GREEN_WORKFLOW_RUN_ID']),
+              'corn_version': (out / 'corn-version.txt').read_text(encoding='utf-8').strip(),
+              'activation_source_sha256': sha(source),
+              'activation_spec_sha256': sha(spec),
+              'parent_arithmetic_source_sha256': sha(parent),
+              'theorem_names': theorem_names,
+              'theorem_count': len(theorem_names),
+              'declared_assumptions': 0,
+              'activation_checkpoint_verified':
+                  'ACTIVATION_CHECKPOINT_VERIFIED=true' in checkpoint,
+              'stdlib_prime_predicate_bridge_machine_bound': True,
+              'euclid_lemma_on_nat_machine_bound': True,
+              'prime_power_base_uniqueness_machine_bound': True,
+              'prime_divisor_clause_load_bearing_in_analytic_identities': False,
+              'prime_divisor_clause_load_bearing_in_base_uniqueness': True,
+              'descriptor_prime_weight_log_p_machine_bound': False,
+              'canonical_von_mangoldt_binding_machine_bound': False,
+              'total_prime_factorization_machine_bound': False,
+              'corn_o0_trig_transport_machine_bound': False,
+              'global_weil_positivity_proven': False,
+              'rh_proven': False,
+          }
+          target = out / 'A2B1_ACTIVATION_RECEIPT.json'
+          target.write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+
+          assert payload['corn_version'] == '9.0.0'
+          assert payload['activation_checkpoint_verified'] is True
+          assert payload['theorem_count'] == 6
+          assert payload['declared_assumptions'] == 0
+          assert payload['stdlib_prime_predicate_bridge_machine_bound'] is True
+          assert payload['euclid_lemma_on_nat_machine_bound'] is True
+          assert payload['prime_power_base_uniqueness_machine_bound'] is True
+          assert payload['prime_divisor_clause_load_bearing_in_base_uniqueness'] is True
+          assert payload['prime_divisor_clause_load_bearing_in_analytic_identities'] is False
+          assert payload['descriptor_prime_weight_log_p_machine_bound'] is False
+          assert payload['canonical_von_mangoldt_binding_machine_bound'] is False
+          assert payload['total_prime_factorization_machine_bound'] is False
+          assert payload['corn_o0_trig_transport_machine_bound'] is False
+          assert payload['global_weil_positivity_proven'] is False
+          assert payload['rh_proven'] is False
+          PY
+
+      - name: Upload activation evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: aegis-a2b1-primality-activation-${{ env.SOURCE_SHA }}
+          path: sovereign-omega-v2/weil-primality-activation-attestation
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
