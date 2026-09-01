@@ -88,3 +88,12 @@ worker-configuration.d.ts
 
 # Sovereign-mesh pipeline run artifacts (architect/artisan/auditor) — regenerated per sprint, not source
 state/
+
+# Coq build outputs (local proof checking)
+*.vo
+*.vok
+*.vos
+*.glob
+.*.aux
+.lia.cache
+.nia.cache
