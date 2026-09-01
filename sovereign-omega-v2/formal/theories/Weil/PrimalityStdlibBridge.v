@@ -124,11 +124,11 @@ Qed.
 (* Falsification: the conclusion is FALSE for merely-greater-than-one bases.
    4^3 = 64 = 2^6 with 4 <> 2 and 3 <> 6.  The only hypothesis that blocks
    this instance is primality, so primality is load-bearing here. *)
-Example base_uniqueness_fails_without_primality :
+Lemma base_uniqueness_fails_without_primality :
   Nat.pow 4 3 = Nat.pow 2 6 /\ (4 <> 2)%nat /\ (3 <> 6)%nat.
 Proof. split; [reflexivity|]. split; discriminate. Qed.
 
-Example four_is_not_prime_nat_v1 : ~ prime_nat_v1 4.
+Lemma four_is_not_prime_nat_v1 : ~ prime_nat_v1 4.
 Proof.
   intros [_ Hclass].
   destruct (Hclass 2%nat (ex_intro _ 2%nat eq_refl)) as [H|H]; discriminate.
