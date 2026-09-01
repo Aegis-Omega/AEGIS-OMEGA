@@ -159,8 +159,11 @@ jobs:
             # "Assert Coq inventory matches sources" step earlier in this job
             # fails the run if the committed inventory has drifted from disk,
             # so a new module can no longer be discovered-but-never-compiled.
-            ORDER="$(python3 -c "import json; print(' '.join(json.load(open('formal/coq-inventory.json'))['compile_order']))")"
-            test -n "$ORDER"
+            # This script runs inside the opam container with $PWD at the
+            # repository root and only "set -u" in effect, so the inventory is
+            # addressed through $ROOT and every step guards with "|| exit 1".
+            ORDER="$(python3 -c "import json,sys; print(' '.join(json.load(open(sys.argv[1]))['compile_order']))" "$ROOT/formal/coq-inventory.json")" || exit 1
+            test -n "$ORDER" || exit 1
             for rel in $ORDER
             do
               compile_one "$rel"
