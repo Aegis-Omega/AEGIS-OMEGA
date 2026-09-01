@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/weil-primality-activation-v1",
+    "source_ref": "proof/weil-von-mangoldt-canonical-v1",
     "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "f55b493db109a179fbdf990518f9ac6a366c1f31f489e57d55bb1d2db6d392ba"
+  "state_hash": "68c9ba8e91138f5fa21faed87f6e8760778876a54b00c56e20f80c06eaec0f1b"
 }
