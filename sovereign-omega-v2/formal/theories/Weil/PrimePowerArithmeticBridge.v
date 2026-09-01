@@ -92,10 +92,14 @@ Proof.
   induction k as [| k IH].
   - simpl. algebra.
   - simpl.
-    astepl
-      ((nring (Nat.pow p k) : IR) [*] (nring p : IR)).
-    apply mult_wdl.
-    exact IH.
+    apply eq_transitive_unfolded with
+      ((nring p : IR) [*] (nring (Nat.pow p k) : IR)).
+    + apply nring_comm_mult.
+    + apply eq_transitive_unfolded with
+        ((nring (Nat.pow p k) : IR) [*] (nring p : IR)).
+      * rational.
+      * apply mult_wdl.
+        exact IH.
 Qed.
 
 Theorem certified_prime_power_ir_power_identity_v1 :
