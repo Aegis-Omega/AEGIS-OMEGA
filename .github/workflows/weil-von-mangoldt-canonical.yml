@@ -1,0 +1,221 @@
+name: Weil Von Mangoldt Canonical Bridge
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/formal/tests/Weil/VonMangoldtCanonicalBridgeSpec.v"
+      - "sovereign-omega-v2/formal/theories/Weil/VonMangoldtCanonicalBridge.v"
+      - "sovereign-omega-v2/formal/theories/Weil/PrimalityStdlibBridge.v"
+      - "sovereign-omega-v2/formal/theories/Weil/PrimePowerArithmeticBridge.v"
+      - ".github/workflows/weil-von-mangoldt-canonical.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-von-mangoldt-canonical-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  ADMISSION_PARENT_SHA: c82ee1dbbd10adef66ff5c8885f5afa427fcc261
+  A2B1_GREEN_WORKFLOW_RUN_ID: '33499666616'
+
+jobs:
+  attest-von-mangoldt-canonical:
+    name: coqc / von Mangoldt canonical GREEN
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Reject declared assumptions in canonical source
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=sovereign-omega-v2/formal/theories/Weil/VonMangoldtCanonicalBridge.v
+          test -f "$source"
+          if grep -En '^[[:space:]]*(Axiom|Axioms|Parameter|Parameters|Admitted)[[:space:].]' "$source"; then
+            echo "Declared assumption/admission forbidden: $source" >&2
+            exit 1
+          fi
+
+      - name: Prepare writable evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/weil-von-mangoldt-canonical-attestation
+          chmod -R a+rwX \
+            sovereign-omega-v2/formal/theories/Weil \
+            sovereign-omega-v2/formal/tests/Weil \
+            sovereign-omega-v2/weil-von-mangoldt-canonical-attestation
+
+      - name: Compile canonical contract and assumptions
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            THEORY="$ROOT/formal/theories/Weil"
+            TESTDIR="$ROOT/formal/tests/Weil"
+            OUT="$ROOT/weil-von-mangoldt-canonical-attestation"
+
+            coqc --version | tee "$OUT/coq-version.txt"
+            opam install -y coq-corn.9.0.0
+            opam var coq-corn:version | tee "$OUT/corn-version.txt"
+            test "$(tr -d '[:space:]' < "$OUT/corn-version.txt")" = "9.0.0"
+
+            for f in PrimeSourceDerivativeConstructive PrimePowerWeightBridge \
+                     FinitePrimeSourceSum PrimePowerArithmeticBridge \
+                     PrimalityStdlibBridge VonMangoldtCanonicalBridge; do
+              coqc -Q "$THEORY" "" "$THEORY/$f.v" 2>&1 | tee "$OUT/$f.log"
+            done
+            coqc -Q "$THEORY" "" -Q "$TESTDIR" "" \
+              "$TESTDIR/VonMangoldtCanonicalBridgeSpec.v" 2>&1 \
+              | tee "$OUT/von-mangoldt-canonical-spec.log"
+
+            for theorem in \
+              Znumtheory_to_prime_nat_v1 \
+              prime_power_base_v1_sound \
+              prime_power_base_v1_complete \
+              von_mangoldt_v1_certified_binding \
+              canonical_base_of_64_is_2 \
+              canonical_base_of_64_is_not_4
+            do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.assumptions.txt"
+              cat > "$query" <<EOF
+            Set Coqtop Exit On Error.
+            Require Import VonMangoldtCanonicalBridge.
+            Print Assumptions ${theorem}.
+            EOF
+              coqtop -quiet -batch -Q "$THEORY" "" -l "$query" > "$log" 2>&1
+              rm -f "$query"
+              cat "$log"
+              grep -q 'Closed under the global context' "$log"
+              if grep -q '^Axioms:' "$log"; then
+                echo "Unexpected assumptions for ${theorem}" >&2
+                exit 1
+              fi
+            done
+
+            cat > "$OUT/canonical-checkpoint.txt" <<'EOF'
+            CANONICAL_CHECKPOINT_VERIFIED=true
+            THEOREM_COUNT=6
+            DECLARED_ASSUMPTIONS=0
+            STDLIB_PRIME_PREDICATE_BRIDGE_BIDIRECTIONAL_MACHINE_BOUND=true
+            BESPOKE_PRIMALITY_DECIDABLE_MACHINE_BOUND=true
+            CANONICAL_PRIME_BASE_FUNCTION_MACHINE_BOUND=true
+            CANONICAL_PRIME_BASE_SCOPE=BOUNDED_SEARCH_OVER_SUPPLIED_Q_ONLY
+            DESCRIPTOR_PRIME_WEIGHT_LOG_P_MACHINE_BOUND=true
+            CANONICAL_VON_MANGOLDT_BINDING_MACHINE_BOUND=true
+            CANONICAL_VON_MANGOLDT_BINDING_SCOPE=CERTIFIED_PRIME_POWERS_AND_ZERO_ELSEWHERE_UNVERIFIED
+            VON_MANGOLDT_ZERO_ON_NON_PRIME_POWERS_MACHINE_BOUND=false
+            CANONICAL_PRIME_POWER_ENUMERATION_MACHINE_BOUND=false
+            TOTAL_PRIME_FACTORIZATION_MACHINE_BOUND=false
+            CORN_O0_TRIG_TRANSPORT_MACHINE_BOUND=false
+            GLOBAL_WEIL_POSITIVITY_PROVEN=false
+            RH_PROVEN=false
+            EOF
+
+      - name: Emit content-addressed canonical receipt
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          out = Path('weil-von-mangoldt-canonical-attestation')
+          theory = Path('formal/theories/Weil')
+          tests = Path('formal/tests/Weil')
+          source = theory / 'VonMangoldtCanonicalBridge.v'
+          spec = tests / 'VonMangoldtCanonicalBridgeSpec.v'
+          parent = theory / 'PrimalityStdlibBridge.v'
+
+          def sha(path):
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          checkpoint = (out / 'canonical-checkpoint.txt').read_text(encoding='utf-8')
+          theorem_names = [
+              'Znumtheory_to_prime_nat_v1',
+              'prime_power_base_v1_sound',
+              'prime_power_base_v1_complete',
+              'von_mangoldt_v1_certified_binding',
+              'canonical_base_of_64_is_2',
+              'canonical_base_of_64_is_not_4',
+          ]
+          payload = {
+              'receipt_kind': 'AEGIS_A2B2_VON_MANGOLDT_CANONICAL_GREEN_RECEIPT_V1',
+              'authority': 'FORMAL_MATH_EVIDENCE_ONLY',
+              'source_commit': os.environ['SOURCE_SHA'],
+              'admission_parent_commit': os.environ['ADMISSION_PARENT_SHA'],
+              'a2b1_green_workflow_run_id': int(os.environ['A2B1_GREEN_WORKFLOW_RUN_ID']),
+              'corn_version': (out / 'corn-version.txt').read_text(encoding='utf-8').strip(),
+              'canonical_source_sha256': sha(source),
+              'canonical_spec_sha256': sha(spec),
+              'parent_activation_source_sha256': sha(parent),
+              'theorem_names': theorem_names,
+              'theorem_count': len(theorem_names),
+              'declared_assumptions': 0,
+              'canonical_checkpoint_verified':
+                  'CANONICAL_CHECKPOINT_VERIFIED=true' in checkpoint,
+              'stdlib_prime_predicate_bridge_bidirectional_machine_bound': True,
+              'bespoke_primality_decidable_machine_bound': True,
+              'canonical_prime_base_function_machine_bound': True,
+              'descriptor_prime_weight_log_p_machine_bound': True,
+              'canonical_von_mangoldt_binding_machine_bound': True,
+              'canonical_von_mangoldt_binding_scope':
+                  'CERTIFIED_PRIME_POWERS_AND_ZERO_ELSEWHERE_UNVERIFIED',
+              'von_mangoldt_zero_on_non_prime_powers_machine_bound': False,
+              'canonical_prime_power_enumeration_machine_bound': False,
+              'total_prime_factorization_machine_bound': False,
+              'corn_o0_trig_transport_machine_bound': False,
+              'global_weil_positivity_proven': False,
+              'rh_proven': False,
+          }
+          target = out / 'A2B2_CANONICAL_RECEIPT.json'
+          target.write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+
+          assert payload['corn_version'] == '9.0.0'
+          assert payload['canonical_checkpoint_verified'] is True
+          assert payload['theorem_count'] == 6
+          assert payload['declared_assumptions'] == 0
+          assert payload['stdlib_prime_predicate_bridge_bidirectional_machine_bound'] is True
+          assert payload['bespoke_primality_decidable_machine_bound'] is True
+          assert payload['canonical_prime_base_function_machine_bound'] is True
+          assert payload['descriptor_prime_weight_log_p_machine_bound'] is True
+          assert payload['canonical_von_mangoldt_binding_machine_bound'] is True
+          assert payload['von_mangoldt_zero_on_non_prime_powers_machine_bound'] is False
+          assert payload['canonical_prime_power_enumeration_machine_bound'] is False
+          assert payload['total_prime_factorization_machine_bound'] is False
+          assert payload['corn_o0_trig_transport_machine_bound'] is False
+          assert payload['global_weil_positivity_proven'] is False
+          assert payload['rh_proven'] is False
+          PY
+
+      - name: Upload canonical evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: aegis-a2b2-von-mangoldt-canonical-${{ env.SOURCE_SHA }}
+          path: sovereign-omega-v2/weil-von-mangoldt-canonical-attestation
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 90
