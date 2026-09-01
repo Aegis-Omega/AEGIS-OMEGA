@@ -164,6 +164,7 @@ jobs:
               'Weil/PrimePowerArithmeticBridge.v' \
               'Weil/PrimalityStdlibBridge.v' \
               'Weil/VonMangoldtCanonicalBridge.v' \
+              'Weil/CanonicalPrimeSourceSum.v' \
               'Weil/O0TrustProbeReals.v' \
               'Weil/O0TrustProbeFunction.v' \
               'Weil/O0TrustProbeCompact.v' \
@@ -243,6 +244,7 @@ jobs:
               'Weil/PrimePowerArithmeticBridge.v',
               'Weil/PrimalityStdlibBridge.v',
               'Weil/VonMangoldtCanonicalBridge.v',
+              'Weil/CanonicalPrimeSourceSum.v',
               'Weil/O0TrustProbeConstructive.v',
               'Weil/AnalyticDefinitions.v',
               'Weil/O0ProductionConstructiveProbe.v',
