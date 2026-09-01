@@ -3,14 +3,16 @@
 
   Production FORMAL_MATH_EVIDENCE_ONLY.
 
-  This module binds an explicitly supplied certificate to a natural prime
-  [p], a positive exponent [k], and [q = p^k].  It then constructs canonical
-  CoRN-IR values for log(p), log(q), and sqrt(q), proves their power/log/root
-  identities, and derives the finite source family.
+  This module binds an explicitly supplied certificate to a base [p] that
+  satisfies the local [prime_nat_v1] predicate, a positive exponent [k], and
+  [q = p^k].  It then constructs canonical CoRN-IR values for log(p), log(q),
+  and sqrt(q), proves their power/log/root identities, and derives the finite
+  source family.
 
   It does not implement total factorization, total von Mangoldt evaluation,
-  canonical prime-power enumeration, CoRN-to-O0 transport, the Guinand-Weil
-  explicit formula, global Weil positivity, or RH.
+  canonical prime-power enumeration, a bridge to the standard-library prime
+  predicate, CoRN-to-O0 transport, the Guinand-Weil explicit formula, global
+  Weil positivity, or RH.
 *)
 
 From Coq Require Import Arith.PeanoNat.
@@ -92,8 +94,8 @@ Proof.
   - simpl.
     eapply eq_transitive_unfolded.
     + apply nring_comm_mult.
-    + setoid_rewrite IH.
-      rational.
+    + apply mult_wdl.
+      exact IH.
 Qed.
 
 Theorem certified_prime_power_ir_power_identity_v1 :
@@ -130,8 +132,20 @@ Theorem certified_prime_power_log_identity_v1 :
       [*] certified_prime_log_v1 certificate.
 Proof.
   intros certificate.
+  assert (H_power_pos :
+    [0] [<]
+      (certified_prime_base_ir_v1 certificate)
+        [^](certified_prime_exponent_v1 certificate)).
+  {
+    apply nexp_resp_pos.
+    apply certified_prime_base_ir_positive_v1.
+  }
   unfold certified_prime_power_log_v1, certified_prime_log_v1.
-  eapply eq_transitive_unfolded.
+  apply eq_transitive_unfolded with
+    (Log
+      ((certified_prime_base_ir_v1 certificate)
+        [^](certified_prime_exponent_v1 certificate))
+      H_power_pos).
   - apply Log_wd.
     apply certified_prime_power_ir_power_identity_v1.
   - apply Log_nexp.

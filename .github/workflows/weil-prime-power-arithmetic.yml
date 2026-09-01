@@ -113,6 +113,7 @@ jobs:
               | tee "$OUT/prime-power-arithmetic-spec.log"
 
             for theorem in \
+              certified_prime_base_divisor_classification_v1 \
               certified_prime_power_ir_power_identity_v1 \
               certified_prime_power_log_identity_v1 \
               certified_prime_power_sqrt_square_identity_v1 \
@@ -138,10 +139,17 @@ jobs:
             cat > "$OUT/green-checkpoint.txt" <<'EOF'
             GREEN_CHECKPOINT_VERIFIED=true
             PRODUCTION_SOURCE_PRESENT=true
-            THEOREM_COUNT=4
+            THEOREM_COUNT=5
             DECLARED_ASSUMPTIONS=0
+            CERTIFIED_PRIME_BASE_PRIMALITY_MACHINE_BOUND=true
+            PRIME_PREDICATE_SCOPE=BESPOKE_DIVISOR_CLASSIFICATION_V1
+            STDLIB_PRIME_PREDICATE_BRIDGE_MACHINE_BOUND=false
             PRIME_POWER_ARITHMETIC_SEMANTICS_MACHINE_BOUND=true
-            PRIME_POWER_ARITHMETIC_SEMANTICS_SCOPE=SUPPLIED_PROOF_CARRYING_PRIME_POWER_CERTIFICATES_ONLY
+            PRIME_POWER_ARITHMETIC_SEMANTICS_SCOPE=SUPPLIED_CERTIFICATES_UNDER_BESPOKE_DIVISOR_PRIMALITY_V1_ONLY
+            SHARED_SCALE_L_MACHINE_BOUND=true
+            DESCRIPTOR_LOG_BASE_POWER_BINDING_MACHINE_BOUND=true
+            DESCRIPTOR_PRIME_WEIGHT_LOG_P_MACHINE_BOUND=false
+            DESCRIPTOR_VON_MANGOLDT_BINDING_MACHINE_BOUND=false
             TOTAL_PRIME_FACTORIZATION_MACHINE_BOUND=false
             TOTAL_VON_MANGOLDT_FUNCTION_MACHINE_BOUND=false
             CORN_O0_TRIG_TRANSPORT_MACHINE_BOUND=false
@@ -170,6 +178,7 @@ jobs:
           source = theory / 'PrimePowerArithmeticBridge.v'
           spec = tests / 'PrimePowerArithmeticBridgeSpec.v'
           theorem_names = [
+              'certified_prime_base_divisor_classification_v1',
               'certified_prime_power_ir_power_identity_v1',
               'certified_prime_power_log_identity_v1',
               'certified_prime_power_sqrt_square_identity_v1',
@@ -182,7 +191,7 @@ jobs:
           version = (out / 'corn-version.txt').read_text(encoding='utf-8').strip()
           checkpoint = (out / 'green-checkpoint.txt').read_text(encoding='utf-8')
           payload = {
-              'receipt_kind': 'AEGIS_A2B_PRIME_POWER_ARITHMETIC_GREEN_RECEIPT_V1',
+              'receipt_kind': 'AEGIS_A2B_PROOF_CARRYING_PRIME_POWER_GREEN_RECEIPT_V2',
               'authority': 'FORMAL_MATH_EVIDENCE_ONLY',
               'source_commit': os.environ['SOURCE_SHA'],
               'admission_parent_commit': os.environ['ADMISSION_PARENT_SHA'],
@@ -218,14 +227,21 @@ jobs:
               'declared_assumptions': 0,
               'production_source_present': source.exists(),
               'prime_power_certificate_machine_bound': True,
+              'certified_prime_base_primality_machine_bound': True,
+              'prime_predicate_scope': 'BESPOKE_DIVISOR_CLASSIFICATION_V1',
+              'stdlib_prime_predicate_bridge_machine_bound': False,
               'prime_power_ir_power_identity_machine_bound': True,
-              'canonical_log_prime_power_binding_machine_bound': True,
-              'canonical_sqrt_prime_power_binding_machine_bound': True,
+              'constructive_log_base_power_identity_machine_bound': True,
+              'constructive_sqrt_prime_power_square_identity_machine_bound': True,
               'certified_prime_power_finite_sum_machine_bound': True,
+              'shared_scale_L_machine_bound': True,
               'prime_power_arithmetic_semantics_machine_bound': True,
               'prime_power_arithmetic_semantics_scope':
-                  'SUPPLIED_PROOF_CARRYING_PRIME_POWER_CERTIFICATES_ONLY',
-              'descriptor_von_mangoldt_binding_machine_bound': True,
+                  'SUPPLIED_CERTIFICATES_UNDER_BESPOKE_DIVISOR_PRIMALITY_V1_ONLY',
+              'descriptor_log_base_power_binding_machine_bound': True,
+              'descriptor_prime_weight_log_p_machine_bound': False,
+              'descriptor_von_mangoldt_binding_machine_bound': False,
+              'prime_power_base_uniqueness_machine_bound': False,
               'total_prime_factorization_machine_bound': False,
               'total_von_mangoldt_function_machine_bound': False,
               'canonical_prime_power_enumeration_machine_bound': False,
@@ -236,6 +252,10 @@ jobs:
               'global_weil_positivity_proven': False,
               'rh_proven': False,
               'open_obligations': [
+                  'STDLIB_PRIME_PREDICATE_BRIDGE_NOT_MACHINE_BOUND',
+                  'PRIME_POWER_BASE_UNIQUENESS_NOT_MACHINE_BOUND',
+                  'DESCRIPTOR_PRIME_WEIGHT_LOG_P_NOT_MACHINE_BOUND',
+                  'DESCRIPTOR_VON_MANGOLDT_BINDING_NOT_MACHINE_BOUND',
                   'TOTAL_PRIME_FACTORIZATION_NOT_MACHINE_BOUND',
                   'TOTAL_VON_MANGOLDT_FUNCTION_NOT_MACHINE_BOUND',
                   'CANONICAL_PRIME_POWER_ENUMERATION_NOT_MACHINE_BOUND',
@@ -263,12 +283,18 @@ jobs:
           )
           assert payload['red_checkpoint_verified'] is True
           assert payload['production_source_present'] is True
-          assert payload['theorem_count'] == 4
+          assert payload['theorem_count'] == 5
           assert payload['declared_assumptions'] == 0
+          assert payload['certified_prime_base_primality_machine_bound'] is True
+          assert payload['stdlib_prime_predicate_bridge_machine_bound'] is False
           assert payload['prime_power_arithmetic_semantics_machine_bound'] is True
           assert payload['prime_power_arithmetic_semantics_scope'] == (
-              'SUPPLIED_PROOF_CARRYING_PRIME_POWER_CERTIFICATES_ONLY'
+              'SUPPLIED_CERTIFICATES_UNDER_BESPOKE_DIVISOR_PRIMALITY_V1_ONLY'
           )
+          assert payload['shared_scale_L_machine_bound'] is True
+          assert payload['descriptor_log_base_power_binding_machine_bound'] is True
+          assert payload['descriptor_prime_weight_log_p_machine_bound'] is False
+          assert payload['descriptor_von_mangoldt_binding_machine_bound'] is False
           assert payload['total_prime_factorization_machine_bound'] is False
           assert payload['total_von_mangoldt_function_machine_bound'] is False
           assert payload['corn_o0_trig_transport_machine_bound'] is False

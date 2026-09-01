@@ -1,30 +1,47 @@
 (*
-  AEGIS Ω — prime-power arithmetic semantics theorem contract v1
+  AEGIS Ω — prime-power arithmetic semantics theorem contract v2
 
-  This theorem-level contract is installed before the production module.
-  While [PrimePowerArithmeticBridge] is absent, the dedicated RED workflow
-  must still fail exactly at this import and nowhere else.
+  This contract separates three claims that must not be flattened:
+  - a supplied certificate exposes the full local primality predicate;
+  - q = p^k induces constructive CoRN-IR power/log/root identities; and
+  - the finite derivative family uses one shared scale L.
 
-  A later GREEN transition must provide:
-  - a proof-carrying natural prime-power certificate;
-  - the CoRN-IR identity induced by q = p^k;
-  - the corresponding constructive logarithm identity;
-  - the square identity for the canonical constructive square root; and
-  - finite derivative linearity for the certified prime-power family.
-
-  The contract does not request a total factorization algorithm, a total
-  von Mangoldt implementation, CoRN-to-O0 transport, the Guinand-Weil
-  explicit formula, global Weil positivity, or RH.
+  The contract does not establish a standard-library primality bridge, total
+  factorization, a total von Mangoldt function, canonical prime-power
+  enumeration, CoRN-to-O0 transport, the Guinand-Weil explicit formula,
+  global Weil positivity, or RH.
 *)
 
 Require Import PrimePowerArithmeticBridge.
 
 Check prime_power_certificate_v1.
+
+Check certified_prime_base_divisor_classification_v1
+  : forall (certificate : prime_power_certificate_v1) (d : nat),
+      divides_nat_v1 d (certified_prime_base_v1 certificate) ->
+      d = 1 \/ d = certified_prime_base_v1 certificate.
+
 Check certified_prime_power_ir_power_identity_v1.
 Check certified_prime_power_log_identity_v1.
 Check certified_prime_power_sqrt_square_identity_v1.
-Check certified_prime_power_finite_sum_derivative_constructive_v1.
 
+Check certified_prime_power_finite_sum_derivative_constructive_v1
+  : forall (H : proper realline)
+           (n : nat)
+           (certificates : nat -> prime_power_certificate_v1)
+           (L : IR)
+           (H_L_pos : [0] [<] L),
+      Derivative realline H
+        (FSumx n
+          (fun i _ =>
+            certified_prime_power_source_term_v1
+              L H_L_pos (certificates i)))
+        (FSumx n
+          (fun i _ =>
+            certified_prime_power_derivative_term_raw_v1
+              L H_L_pos (certificates i))).
+
+Print Assumptions certified_prime_base_divisor_classification_v1.
 Print Assumptions certified_prime_power_ir_power_identity_v1.
 Print Assumptions certified_prime_power_log_identity_v1.
 Print Assumptions certified_prime_power_sqrt_square_identity_v1.
