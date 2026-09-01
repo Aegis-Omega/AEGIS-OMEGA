@@ -94,7 +94,7 @@ Proof.
   - simpl.
     eapply eq_transitive_unfolded.
     + apply nring_comm_mult.
-    + apply mult_wdl.
+    + apply mult_wdr.
       exact IH.
 Qed.
 
