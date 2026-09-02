@@ -8,6 +8,7 @@ on:
       - "scripts/agent_governance_lint.py"
       - "clients/python/aegis_omega/tourbillon.py"
       - "clients/python/tests/test_quantum_tourbillon.py"
+      - "clients/python/tests/test_amps_mpvc_semantic_join.py"
       - "clients/python/TOURBILLON_MERGE_MANIFEST.json"
       - ".github/workflows/agent-calibration.yml"
   workflow_dispatch:
@@ -70,4 +71,7 @@ jobs:
         working-directory: clients/python
         run: |
           set -euo pipefail
-          python -m pytest tests/test_quantum_tourbillon.py -v
+          python -m pytest \
+            tests/test_quantum_tourbillon.py \
+            tests/test_amps_mpvc_semantic_join.py \
+            -v

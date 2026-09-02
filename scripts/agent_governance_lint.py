@@ -94,12 +94,18 @@ def lint_contract() -> list[str]:
         errors.append(f"mandatory_gates: contract {want} != code {have}")
 
     tiers = contract["authority_tiers"]
+    admission_authorities = {
+        t.AuthorityLevel.ADMISSION_GATE,
+        t.AuthorityLevel.STRUCTURAL_GATE,
+        t.AuthorityLevel.BOUNDED_FALSIFICATION,
+    }
     for perspective, tier in contract["perspective_tiers"].items():
         authority = t.PERSPECTIVE_AUTHORITY[t.Perspective(perspective)]
-        if tiers[tier]["admission_gate"] != authority.admission_bearing:
+        admission_bearing = authority in admission_authorities
+        if tiers[tier]["admission_gate"] != admission_bearing:
             errors.append(
                 f"{perspective}: contract tier {tier} admission={tiers[tier]['admission_gate']} "
-                f"!= code {authority.admission_bearing}"
+                f"!= code {admission_bearing}"
             )
 
     capacity = 2 ** tiers["T1_DIAGNOSTIC"]["max_qubits_deterministic"]
@@ -108,13 +114,16 @@ def lint_contract() -> list[str]:
             f"T1_DIAGNOSTIC capacity: contract {capacity} != code "
             f"{t.DiagnosticOracleRegistry.CAPACITY}"
         )
-    if t.PERSPECTIVE_AUTHORITY[t.Perspective.P_QUANTUM_GROVER].admission_bearing:
+    if t.PERSPECTIVE_AUTHORITY[t.Perspective.P_QUANTUM_GROVER] in admission_authorities:
         errors.append("P_QUANTUM_GROVER is admission-bearing in code")
 
     try:
         t.PerspectiveReceipt(
             perspective=t.Perspective.P5_WEIL_DUALITY,
             outcome=t.PerspectiveOutcome.PASS,
+            source_sha="0" * 40,
+            claim_digest="0" * 64,
+            execution_digest="0" * 64,
         )
         errors.append("OPEN perspective accepted PASS")
     except ValueError:
