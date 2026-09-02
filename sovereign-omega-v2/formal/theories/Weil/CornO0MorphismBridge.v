@@ -192,6 +192,7 @@ Proof.
   intros x y Hxy.
   unfold corn_ir_to_o0_carrier_v1, O0LeV1.
   apply CRmorph_le.
+  change (CRltT (IRasCR y) (IRasCR x) -> False).
   apply corn_fast_le_to_stdlib_le_a1c_v1.
   exact (proj1 (IR_leEq_as_CR x y) Hxy).
 Qed.
