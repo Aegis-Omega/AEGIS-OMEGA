@@ -245,6 +245,13 @@ def execute_observable_set(backend: BackendSpec, thetas: tuple[float, ...]) -> d
 
     with _TARGET_LOCK:
         try:
+            previous_target = cudaq.get_target()
+        except Exception as exc:
+            raise BackendUnavailableException(
+                f"BACKEND_UNAVAILABLE: could not capture current CUDA-Q target: {exc}"
+            ) from exc
+
+        try:
             cudaq.set_target(backend.target, **backend.option_dict())
             observed = cudaq.observe(
                 self_witness_kernel,
@@ -268,9 +275,9 @@ def execute_observable_set(backend: BackendSpec, thetas: tuple[float, ...]) -> d
             ) from exc
         finally:
             try:
-                cudaq.reset_target()
+                cudaq.set_target(previous_target)
             except Exception as exc:
-                raise ProtocolViolation(f"CUDA-Q target reset failed: {exc}") from exc
+                raise ProtocolViolation(f"CUDA-Q target restoration failed: {exc}") from exc
 
     return _validate_observables(values)
 
