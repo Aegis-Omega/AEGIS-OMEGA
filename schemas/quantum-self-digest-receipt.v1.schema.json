@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/quantum-self-digest-receipt.v1.schema.json",
+  "title": "QuantumSelfDigestReceiptV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_version",
+    "epistemic_layer",
+    "source_sha",
+    "self_hash",
+    "self_hash_algorithm",
+    "mapping_version",
+    "mapping_spec_digest",
+    "theta_words_u32",
+    "thetas_rad",
+    "kernel_spec_version",
+    "kernel_spec_digest",
+    "observable_set_version",
+    "observable_spec_digest",
+    "backend_a",
+    "backend_a_config",
+    "backend_b",
+    "backend_b_config",
+    "observables_a",
+    "observables_b",
+    "discrepancies",
+    "max_discrepancy",
+    "tolerance_epsilon",
+    "differential_gate_status",
+    "execution_digest",
+    "receipt_canonicalization",
+    "receipt_digest_algorithm",
+    "authority_class",
+    "authority_effect",
+    "quantum_physical_advantage",
+    "rh_status"
+  ],
+  "$defs": {
+    "digest64": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "observables": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Z0", "Z1", "Z2", "Z3", "Z0Z1", "Z2Z3", "X0X1X2X3"],
+      "properties": {
+        "Z0": { "type": "number", "minimum": -1.000000001, "maximum": 1.000000001 },
+        "Z1": { "type": "number", "minimum": -1.000000001, "maximum": 1.000000001 },
+        "Z2": { "type": "number", "minimum": -1.000000001, "maximum": 1.000000001 },
+        "Z3": { "type": "number", "minimum": -1.000000001, "maximum": 1.000000001 },
+        "Z0Z1": { "type": "number", "minimum": -1.000000001, "maximum": 1.000000001 },
+        "Z2Z3": { "type": "number", "minimum": -1.000000001, "maximum": 1.000000001 },
+        "X0X1X2X3": { "type": "number", "minimum": -1.000000001, "maximum": 1.000000001 }
+      }
+    },
+    "discrepancies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Z0", "Z1", "Z2", "Z3", "Z0Z1", "Z2Z3", "X0X1X2X3"],
+      "properties": {
+        "Z0": { "type": "number", "minimum": 0 },
+        "Z1": { "type": "number", "minimum": 0 },
+        "Z2": { "type": "number", "minimum": 0 },
+        "Z3": { "type": "number", "minimum": 0 },
+        "Z0Z1": { "type": "number", "minimum": 0 },
+        "Z2Z3": { "type": "number", "minimum": 0 },
+        "X0X1X2X3": { "type": "number", "minimum": 0 }
+      }
+    },
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "execution_mode", "options"],
+      "properties": {
+        "target": { "type": "string", "minLength": 1 },
+        "execution_mode": { "type": "string", "enum": ["ANALYTIC_STATEVECTOR"] },
+        "options": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    }
+  },
+  "properties": {
+    "protocol_version": { "const": "QUANTUM_SELF_DIGEST_RECEIPT_V1" },
+    "epistemic_layer": { "const": "L6_QUANTUM_DIAGNOSTICS" },
+    "source_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "self_hash": { "$ref": "#/$defs/digest64" },
+    "self_hash_algorithm": { "type": "string", "enum": ["SHA-256", "BLAKE3-256"] },
+    "mapping_version": { "const": "SELF_HASH_U32_BE_TO_ANGLE_V1" },
+    "mapping_spec_digest": { "$ref": "#/$defs/digest64" },
+    "theta_words_u32": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 }
+    },
+    "thetas_rad": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "type": "number",
+        "minimum": 0,
+        "exclusiveMaximum": 6.283185307179586
+      }
+    },
+    "kernel_spec_version": { "const": "SELF_WITNESS_4Q_RY_CZ_RING_RZ_V1" },
+    "kernel_spec_digest": { "$ref": "#/$defs/digest64" },
+    "observable_set_version": { "const": "SELF_WITNESS_OBSERVABLES_V1" },
+    "observable_spec_digest": { "$ref": "#/$defs/digest64" },
+    "backend_a": { "const": "qpp-cpu" },
+    "backend_a_config": { "$ref": "#/$defs/backend" },
+    "backend_b": { "const": "nvidia" },
+    "backend_b_config": { "$ref": "#/$defs/backend" },
+    "observables_a": { "$ref": "#/$defs/observables" },
+    "observables_b": { "$ref": "#/$defs/observables" },
+    "discrepancies": { "$ref": "#/$defs/discrepancies" },
+    "max_discrepancy": { "type": "number", "minimum": 0 },
+    "tolerance_epsilon": { "type": "number", "exclusiveMinimum": 0 },
+    "differential_gate_status": { "type": "string", "enum": ["PASS", "FAIL"] },
+    "execution_digest": { "$ref": "#/$defs/digest64" },
+    "receipt_canonicalization": { "const": "RFC8785" },
+    "receipt_digest_algorithm": { "const": "SHA-256" },
+    "authority_class": { "const": "NONE" },
+    "authority_effect": { "const": "NONE" },
+    "quantum_physical_advantage": { "const": "NOT_ESTABLISHED" },
+    "rh_status": { "const": "NOT_PROVEN" }
+  },
+  "allOf": [
+    {
+      "properties": {
+        "backend_a_config": {
+          "properties": {
+            "target": { "const": "qpp-cpu" },
+            "options": { "maxProperties": 0 }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "backend_b_config": {
+          "properties": {
+            "target": { "const": "nvidia" },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["option"],
+              "properties": {
+                "option": { "const": "fp64" }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
