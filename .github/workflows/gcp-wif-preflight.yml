@@ -1,0 +1,206 @@
+name: GCP WIF Read-Only Preflight
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gcp-wif-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: aegisomegav1
+
+jobs:
+  preflight:
+    name: Keyless auth + read-only census
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify WIF identifiers are configured
+        id: config
+        shell: bash
+        env:
+          WIF_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          WIF_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          provider_present=false
+          service_account_present=false
+          [[ -n "${WIF_PROVIDER}" ]] && provider_present=true
+          [[ -n "${WIF_SERVICE_ACCOUNT}" ]] && service_account_present=true
+
+          cat > gcp_wif_preflight_receipt.json <<EOF
+          {
+            "schema": "aegis.gcp.wif_preflight.v1",
+            "project_id": "${PROJECT_ID}",
+            "repository": "${GITHUB_REPOSITORY}",
+            "repository_id": "${GITHUB_REPOSITORY_ID}",
+            "ref": "${GITHUB_REF}",
+            "sha": "${GITHUB_SHA}",
+            "event_name": "${GITHUB_EVENT_NAME}",
+            "provider_identifier_present": ${provider_present},
+            "service_account_identifier_present": ${service_account_present},
+            "oidc_claims_verified": false,
+            "wif_auth": "NOT_ATTEMPTED",
+            "project_read": "NOT_ATTEMPTED",
+            "bucket_census": "NOT_ATTEMPTED",
+            "authority": "READ_ONLY_PREFLIGHT"
+          }
+          EOF
+
+          if [[ "${provider_present}" != true || "${service_account_present}" != true ]]; then
+            echo "::error::Required WIF identifier secret is absent. No key file is expected or required."
+            exit 20
+          fi
+
+      - name: Capture safe GitHub OIDC claim receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          oidc_response="$(curl -fsSL \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=aegis-gcp-wif-preflight")"
+          oidc_jwt="$(jq -r '.value' <<<"${oidc_response}")"
+
+          OIDC_JWT="${oidc_jwt}" python3 - <<'PY'
+          import base64, json, os
+          from pathlib import Path
+
+          token = os.environ['OIDC_JWT']
+          parts = token.split('.')
+          if len(parts) != 3:
+              raise SystemExit('invalid OIDC JWT structure')
+          payload = parts[1]
+          payload += '=' * (-len(payload) % 4)
+          claims = json.loads(base64.urlsafe_b64decode(payload.encode()))
+
+          safe_keys = (
+              'iss', 'aud', 'sub', 'repository', 'repository_id',
+              'repository_owner', 'repository_owner_id', 'ref', 'sha',
+              'actor', 'event_name', 'workflow_ref'
+          )
+          safe = {k: claims.get(k) for k in safe_keys}
+          print(json.dumps(safe, sort_keys=True, indent=2))
+
+          expected_repo = os.environ['GITHUB_REPOSITORY']
+          expected_repo_id = os.environ['GITHUB_REPOSITORY_ID']
+          if claims.get('repository') != expected_repo:
+              raise SystemExit('OIDC repository claim differs from GITHUB_REPOSITORY')
+          if str(claims.get('repository_id')) != str(expected_repo_id):
+              raise SystemExit('OIDC repository_id claim differs from GITHUB_REPOSITORY_ID')
+
+          path = Path('gcp_wif_preflight_receipt.json')
+          receipt = json.loads(path.read_text())
+          receipt['oidc_claims_verified'] = True
+          receipt['oidc_safe_claims'] = safe
+          path.write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n')
+          PY
+
+      - name: Authenticate to Google Cloud with WIF
+        id: auth
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Record WIF auth outcome
+        if: always()
+        shell: bash
+        env:
+          AUTH_OUTCOME: ${{ steps.auth.outcome }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          path = Path('gcp_wif_preflight_receipt.json')
+          receipt = json.loads(path.read_text())
+          outcome = os.environ.get('AUTH_OUTCOME', 'unknown')
+          receipt['wif_auth'] = 'SUCCESS' if outcome == 'success' else 'FAILED'
+          path.write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n')
+          PY
+
+      - name: Set up gcloud
+        if: steps.auth.outcome == 'success'
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Read project metadata
+        id: project_read
+        if: steps.auth.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud projects describe "${PROJECT_ID}" \
+            --format='yaml(projectId,projectNumber,name,lifecycleState)'
+
+      - name: Read Cloud Storage bucket census
+        id: bucket_census
+        if: steps.auth.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud storage buckets list \
+            --project="${PROJECT_ID}" \
+            --format='table(name,location,storageClass)' | tee gcp_bucket_census.txt
+
+      - name: Finalize receipt
+        if: always()
+        shell: bash
+        env:
+          AUTH_OUTCOME: ${{ steps.auth.outcome }}
+          PROJECT_OUTCOME: ${{ steps.project_read.outcome }}
+          BUCKET_OUTCOME: ${{ steps.bucket_census.outcome }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          path = Path('gcp_wif_preflight_receipt.json')
+          receipt = json.loads(path.read_text())
+          receipt['project_read'] = 'SUCCESS' if os.environ.get('PROJECT_OUTCOME') == 'success' else 'FAILED_OR_SKIPPED'
+          receipt['bucket_census'] = 'SUCCESS' if os.environ.get('BUCKET_OUTCOME') == 'success' else 'FAILED_OR_SKIPPED'
+
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':')).encode()
+          receipt['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          path.write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n')
+          print(path.read_text())
+          PY
+
+      - name: Upload preflight receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gcp-wif-preflight-receipt
+          path: |
+            gcp_wif_preflight_receipt.json
+            gcp_bucket_census.txt
+          if-no-files-found: ignore
+
+      - name: Fail closed on auth or read boundary
+        if: always()
+        shell: bash
+        env:
+          AUTH_OUTCOME: ${{ steps.auth.outcome }}
+          PROJECT_OUTCOME: ${{ steps.project_read.outcome }}
+        run: |
+          set -euo pipefail
+          if [[ "${AUTH_OUTCOME}" != "success" ]]; then
+            echo "::error::WIF authentication failed. Compare the emitted OIDC repository claim with the IAM workloadIdentityUser binding."
+            exit 41
+          fi
+          if [[ "${PROJECT_OUTCOME}" != "success" ]]; then
+            echo "::error::WIF authenticated, but read access to project ${PROJECT_ID} failed."
+            exit 42
+          fi
+          echo "GCP WIF preflight established on ${GITHUB_SHA}; no deployment or mutation executed."
