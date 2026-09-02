@@ -1618,72 +1618,63 @@ def _swarm_fallback(objective: str, mode: str, departments: list) -> dict:
 
 def award_graces_for_cycle(cycle_id: str, artifacts: list, verdict: str) -> None:
     """
-    Award grace tokens through the dept sequence for one collaboration cycle.
+    Award grace tokens through the ordered department sequence for one cycle.
 
-    artifacts: list of {'role': str, 'output': str} dicts — ordered by dept sequence.
-    verdict:   constitutional verdict ('APPROVED', 'FLAG', 'QUARANTINE').
-
-    Only APPROVED and FLAG cycles award graces; QUARANTINE awards none.
-    Grace flows from dept[i] → dept[i+1] for every dept whose output is non-empty.
-    The first dept in the chain receives its grace from '__genesis__' (the cycle itself).
-
-    Fire-and-forget — never raises; Supabase errors logged to stderr only.
+    Only APPROVED and FLAG cycles award graces. QUARANTINE is fail-closed and
+    emits no requests. Empty outputs are excluded while order is preserved.
+    Supabase failures are bounded per request and never break later awards.
     """
     import urllib.request as _urG
-    import urllib.error as _ueG
     import sys
 
-    if verdict == 'QUARANTINE':
-        return  # no graces for quarantined cycles
-# ─── HPA axis calibration (port of stress-calibrator.js) ─────────────────────
-
-def query_fitness_trend(window: int = 10) -> dict:
-    """
-    Reads recent fitness data from department_fitness_tracking and computes
-    the system's homeostasis state. Mirrors the hormetic curve from the
-    Sovereign AGI OS stress-calibrator.js HPA axis (v3.3.0).
-
-    HD-equivalent = stdev of fitness scores across the window.
-    High spread = unreliable outputs = HD analog of claimed vs actual quality.
-
-    Returns {} when Supabase is unavailable (caller returns degraded status).
-    """
-    import urllib.request as _ur_ft
-    import math as _math_ft
+    if verdict not in ('APPROVED', 'FLAG'):
+        return
 
     supabase_url = os.environ.get('SUPABASE_URL', '').rstrip('/')
-    service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
+    service_key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
     if not supabase_url or not service_key:
-        return  # dev mode — no DB write
+        return
 
-    auth_headers = {
-        'apikey':        service_key,
-        'Authorization': f'Bearer {service_key}',
-        'Content-Type':  'application/json',
-    }
-    rpc_url = f'{supabase_url}/rest/v1/rpc/award_grace'
-
-    # Build ordered list of depts with non-empty output
-    active = [a['role'] for a in artifacts if a.get('output', '').strip()]
+    active = [
+        artifact['role']
+        for artifact in artifacts
+        if artifact.get('output', '').strip() and artifact.get('role')
+    ]
     if not active:
         return
 
-    for i, to_dept in enumerate(active):
-        from_dept = active[i - 1] if i > 0 else None
+    rpc_url = f'{supabase_url}/rest/v1/rpc/award_grace'
+    auth_headers = {
+        'apikey': service_key,
+        'Authorization': f'Bearer {service_key}',
+        'Content-Type': 'application/json',
+    }
+
+    for index, to_dept in enumerate(active):
+        from_dept = active[index - 1] if index > 0 else None
         payload = json.dumps({
-            'p_cycle_id':        cycle_id,
-            'p_from_dept':       from_dept,   # null → __genesis__ handled in SQL
-            'p_to_dept':         to_dept,
-            'p_graces':          1,
-            'p_viability_score': None,         # optional enrichment; skip for speed
+            'p_cycle_id': cycle_id,
+            'p_from_dept': from_dept,
+            'p_to_dept': to_dept,
+            'p_graces': 1,
+            'p_viability_score': None,
         }).encode()
-        req = _urG.Request(rpc_url, data=payload, headers=auth_headers, method='POST')
+        request = _urG.Request(
+            rpc_url,
+            data=payload,
+            headers=auth_headers,
+            method='POST',
+        )
         try:
-            with _urG.urlopen(req, timeout=3):
+            with _urG.urlopen(request, timeout=3):
                 pass
         except Exception as exc:
             print(f'[bridge] grace award failed ({to_dept}): {exc}', file=sys.stderr)
 
+
+def query_fitness_trend(window: int = 10) -> dict:
+    """Return read-only homeostasis diagnostics for the requested recent window."""
+    return _fetch_dept_fitness_stats(window)
 
 def fetch_compliance_export(from_ts: str | None, to_ts: str | None, limit: int) -> list:
     """

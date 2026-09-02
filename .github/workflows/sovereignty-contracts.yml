@@ -1,0 +1,45 @@
+name: Sovereignty Contracts
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - sovereign-omega-v2/src/sovereignty/**
+      - sovereign-omega-v2/test/unit/sovereignty-contracts.test.ts
+      - sovereign-omega-v2/src/core/canonicalize.ts
+      - sovereign-omega-v2/src/core/hashing.ts
+      - .github/workflows/sovereignty-contracts.yml
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  contracts-v1:
+    name: V1 vectors and type safety
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sovereign-omega-v2
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Run sovereignty golden vectors
+        run: npx vitest run test/unit/sovereignty-contracts.test.ts
+
+      - name: Typecheck runtime contracts
+        run: npm run typecheck

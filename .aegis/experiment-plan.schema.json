@@ -1,0 +1,284 @@
+{
+  "$defs": {
+    "gitBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "blob_id": {
+          "pattern": "^[0-9a-f]{40,64}$",
+          "type": "string"
+        },
+        "path": {
+          "$ref": "#/$defs/safePath"
+        }
+      },
+      "required": [
+        "path",
+        "blob_id"
+      ],
+      "type": "object"
+    },
+    "safePath": {
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._@/+:-]+$",
+      "type": "string"
+    }
+  },
+  "$id": "https://aegisomega.com/schemas/experiment-admission-v0.1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "admission_executable": {
+      "$ref": "#/$defs/gitBinding"
+    },
+    "admission_workflow": {
+      "$ref": "#/$defs/gitBinding"
+    },
+    "budget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_cost_microunits": {
+          "maximum": 1000000000000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_duration_seconds": {
+          "maximum": 21600,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_mutations": {
+          "maximum": 1000,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_duration_seconds",
+        "max_mutations",
+        "max_cost_microunits"
+      ],
+      "type": "object"
+    },
+    "claims_ledger": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/safePath"
+        },
+        "root": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "root"
+      ],
+      "type": "object"
+    },
+    "constitution": {
+      "$ref": "#/$defs/gitBinding"
+    },
+    "evidence_tier": {
+      "enum": [
+        "T0",
+        "T1",
+        "T2",
+        "T3"
+      ]
+    },
+    "execution_class": {
+      "enum": [
+        "BOOTSTRAP_GOVERNANCE",
+        "EXPERIMENT"
+      ]
+    },
+    "expected_outputs": {
+      "items": {
+        "$ref": "#/$defs/safePath"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "expected_parent_sha": {
+      "pattern": "^[0-9a-f]{40,64}$",
+      "type": "string"
+    },
+    "expected_parent_state_root": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "experiment_id": {
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$",
+      "type": "string"
+    },
+    "integration_ledger_generator": {
+      "$ref": "#/$defs/gitBinding"
+    },
+    "observability": {
+      "additionalProperties": false,
+      "properties": {
+        "cancellation_mechanism": {
+          "const": "github-actions-cancel-run"
+        },
+        "durable_execution_required": {
+          "const": true
+        },
+        "emergency_stop_reference": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "heartbeat_max_seconds": {
+          "maximum": 3600,
+          "minimum": 30,
+          "type": "integer"
+        },
+        "provider": {
+          "const": "github-actions"
+        }
+      },
+      "required": [
+        "provider",
+        "durable_execution_required",
+        "cancellation_mechanism",
+        "heartbeat_max_seconds",
+        "emergency_stop_reference"
+      ],
+      "type": "object"
+    },
+    "operator_approval": {
+      "additionalProperties": false,
+      "properties": {
+        "approval_record_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "authorization_basis": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "decided_at": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "operator_actor_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "operator_session_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "required": {
+          "const": true
+        },
+        "signature_mode": {
+          "const": "GITHUB_OIDC_ATTESTATION"
+        },
+        "state": {
+          "const": "APPROVED"
+        }
+      },
+      "required": [
+        "required",
+        "state",
+        "operator_actor_id",
+        "operator_session_id",
+        "authorization_basis",
+        "decided_at",
+        "signature_mode",
+        "approval_record_hash"
+      ],
+      "type": "object"
+    },
+    "policy": {
+      "$ref": "#/$defs/gitBinding"
+    },
+    "replay_package": {
+      "additionalProperties": false,
+      "properties": {
+        "include_admission_receipt": {
+          "const": true
+        },
+        "include_evidence_manifest": {
+          "const": true
+        },
+        "include_integration_ledger": {
+          "const": true
+        },
+        "include_plan": {
+          "const": true
+        },
+        "required": {
+          "const": true
+        }
+      },
+      "required": [
+        "required",
+        "include_plan",
+        "include_admission_receipt",
+        "include_evidence_manifest",
+        "include_integration_ledger"
+      ],
+      "type": "object"
+    },
+    "repository": {
+      "const": "Aegis-Omega/AEGIS-OMEGA",
+      "type": "string"
+    },
+    "requested_authority_domains": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "sovereignty_contracts": {
+      "$ref": "#/$defs/gitBinding"
+    },
+    "termination_conditions": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 3,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "title": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "experiment_id",
+    "title",
+    "execution_class",
+    "repository",
+    "expected_parent_sha",
+    "expected_parent_state_root",
+    "constitution",
+    "policy",
+    "sovereignty_contracts",
+    "claims_ledger",
+    "admission_workflow",
+    "admission_executable",
+    "integration_ledger_generator",
+    "requested_authority_domains",
+    "expected_outputs",
+    "evidence_tier",
+    "budget",
+    "termination_conditions",
+    "operator_approval",
+    "observability",
+    "replay_package"
+  ],
+  "title": "AEGIS Experiment Plan v0.1",
+  "type": "object"
+}
