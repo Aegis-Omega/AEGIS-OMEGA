@@ -26,7 +26,7 @@
             "path": ".github/workflows/trusted-cognitive-admission.yml",
             "ref": "refs/heads/repair/trusted-ruleset-workflow-v1",
             "repository_id": 1095915905,
-            "sha": "40054b773db2450f35c873e79bfea67218835eeb"
+            "sha": "a69160080a831891ccfd3e643b166374d8b17073"
           }
         ]
       }
