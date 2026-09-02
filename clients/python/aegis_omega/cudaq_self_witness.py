@@ -44,7 +44,7 @@ PROTOCOL_VERSION = "QUANTUM_SELF_DIGEST_RECEIPT_V1"
 MAPPING_VERSION = "SELF_HASH_U32_BE_TO_ANGLE_V1"
 KERNEL_SPEC_VERSION = "SELF_WITNESS_4Q_RY_CZ_RING_RZ_V1"
 OBSERVABLE_SET_VERSION = "SELF_WITNESS_OBSERVABLES_V1"
-EPistemic_LAYER = "L6_QUANTUM_DIAGNOSTICS"
+EPISTEMIC_LAYER = "L6_QUANTUM_DIAGNOSTICS"
 AUTHORITY_CLASS = "NONE"
 AUTHORITY_EFFECT = "NONE"
 QUANTUM_PHYSICAL_ADVANTAGE = "NOT_ESTABLISHED"
@@ -349,7 +349,7 @@ class SelfWitnessEngine:
 
         receipt_payload: dict[str, Any] = {
             "protocol_version": PROTOCOL_VERSION,
-            "epistemic_layer": EPistemic_LAYER,
+            "epistemic_layer": EPISTEMIC_LAYER,
             "source_sha": source_sha,
             "self_hash": self_hash,
             "self_hash_algorithm": self_hash_algorithm,
