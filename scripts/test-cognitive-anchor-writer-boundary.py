@@ -85,7 +85,9 @@ class CognitiveAnchorWriterBoundaryTests(TestCase):
         self.assertIn("target_ref:", source)
         self.assertIn("steps.admission.outputs.allowed == 'true'", source)
         self.assertIn("ref: ${{ inputs.target_ref }}", source)
-        self.assertIn('git push origin "HEAD:${{ inputs.target_ref }}"', source)
+        self.assertIn("TARGET_REF: ${{ inputs.target_ref }}", source)
+        self.assertIn('git push origin "HEAD:$TARGET_REF"', source)
+        self.assertNotIn('git push origin "HEAD:${{ inputs.target_ref }}"', source)
 
 
 if __name__ == "__main__":
