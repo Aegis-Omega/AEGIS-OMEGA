@@ -5,12 +5,10 @@ import {
 } from '../../src/agents/coordination/provider-cognition.js'
 
 describe('provider-native cognitive depth', () => {
-  it('uses the quality-first OpenAI profile for frontier research without minting authority', () => {
+  it('uses quality-first long-horizon OpenAI cognition without minting authority', () => {
     const profile = selectProviderCognitiveProfile('openai', 'frontier-research')
     expect(profile.model).toBe('gpt-5.6-sol')
-    expect(profile.reasoning).toEqual({
-      kind: 'openai', effort: 'max', mode: 'pro', context: 'current_turn',
-    })
+    expect(profile.reasoning).toEqual({ kind: 'openai', effort: 'max', mode: 'pro', context: 'all_turns' })
     expect(profile.storage).toBe('stateless')
     expect(profile.raw_output_authority).toBe('NONE')
   })
@@ -29,10 +27,10 @@ describe('provider-native cognitive depth', () => {
     expect(profile.raw_output_authority).toBe('NONE')
   })
 
-  it('uses Qwen flagship maximum-intensity reasoning with preserved thinking provenance', () => {
+  it('uses Qwen flagship maximum-intensity Responses reasoning', () => {
     const profile = selectProviderCognitiveProfile('dashscope', 'implementation')
     expect(profile.model).toBe('qwen3.8-max')
-    expect(profile.reasoning).toEqual({ kind: 'dashscope', effort: 'xhigh', preserve_thinking: true })
+    expect(profile.reasoning).toEqual({ kind: 'dashscope', effort: 'xhigh' })
     expect(profile.raw_output_authority).toBe('NONE')
   })
 
@@ -57,11 +55,11 @@ describe('provider-native cognitive depth', () => {
     const audit = selectAllianceProviderProfile('adversarial-audit')
     expect(audit.provider).toBe('openai')
     expect(audit.model).toBe('gpt-5.6-sol')
-    expect(audit.reasoning).toEqual({ kind: 'openai', effort: 'max', mode: 'pro', context: 'current_turn' })
+    expect(audit.reasoning).toEqual({ kind: 'openai', effort: 'max', mode: 'pro', context: 'all_turns' })
 
     const implementation = selectAllianceProviderProfile('implementation')
     expect(implementation.provider).toBe('dashscope')
     expect(implementation.model).toBe('qwen3.8-max')
-    expect(implementation.reasoning).toEqual({ kind: 'dashscope', effort: 'xhigh', preserve_thinking: true })
+    expect(implementation.reasoning).toEqual({ kind: 'dashscope', effort: 'xhigh' })
   })
 })
