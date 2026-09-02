@@ -94,8 +94,18 @@ Declare **SEPARATED** only if both hold:
 Otherwise the verdict is **UNRESOLVED**. A single-task difference, however
 large, is UNRESOLVED — one task is one task.
 
-If either model scores 0 on a task both should trivially pass, the run is
-**INVALID** (suspected harness or transport fault), not a finding.
+If **both** models score 0 on the same task, the run is **INVALID** for that
+task (suspected harness, transport, or grader fault), not a finding.
+
+> **Amendment A1, 2026-09-02, before any data exists.** This clause first read
+> "if *either* model scores 0 on a task both should trivially pass". That is not
+> implementable: nothing in the protocol declares which tasks are trivial, and
+> read literally it voids the run whenever one model fails a task 5/5 — which is
+> the separation the battery is built to detect. Two independent models failing
+> the same task 5/5 is better explained by a broken grader than by two
+> coincident capability gaps, so the rule is now the conjunction. Recorded here
+> rather than applied silently; §9 confirms no run has occurred, so this
+> amendment cannot have been fitted to a result.
 
 ## 8. Recorded outputs
 
@@ -119,7 +129,8 @@ absent binding, not absent code.
 
 ```bash
 cd sovereign-omega-v2
-ANTHROPIC_API_KEY=sk-... npx tsx scripts/model-capability/run.ts <model-a> <model-b>
+export ANTHROPIC_API_KEY=...      # from the operator's own credential store
+npx tsx scripts/model-capability/run.ts <model-a> <model-b>
 ```
 
 Exit 0 = battery completed (whatever the verdict). Exit 1 = harness fault.
