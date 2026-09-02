@@ -84,7 +84,12 @@ Proof.
   - apply CRmorph_proper.
     apply corn_fast_eq_to_stdlib_eq_a1c_v1.
     exact (IR_inj_Q_as_CR q).
-  - apply CRmorph_rat.
+  - change
+      (CReq O0RealsV1
+        (CRmorph corn_fast_to_o0_morphism_a1c_v1
+          (CR_of_Q FastRealsConstructive q))
+        (CR_of_Q O0RealsV1 q)).
+    exact (CRmorph_rat corn_fast_to_o0_morphism_a1c_v1 q).
 Qed.
 
 (* A1-STRICT for the reference carrier. *)
