@@ -20,6 +20,7 @@ Require Import AnalyticDefinitions.
 From Coq Require Import QArith.
 From Coq Require Import Reals.Abstract.ConstructiveReals.
 From Coq Require Import Reals.Abstract.ConstructiveRealsMorphisms.
+Require Import CoRN.reals.R_morphism.
 Require Import CoRN.reals.fast.CRIR.
 Require Import CoRN.reals.fast.CRArith.
 Require Import CoRN.reals.stdlib.ConstructiveFastReals.
