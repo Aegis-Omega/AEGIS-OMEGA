@@ -127,6 +127,11 @@ describe('CUDA-Q simulator smoke execution', () => {
     expect(runner.calls[0]?.command).toBe('python3')
     const script = runner.calls[0]?.args.join(' ') ?? ''
     expect(script).toContain('cudaq.set_target("qpp-cpu")')
+    expect(script).toContain('cudaq.make_kernel()')
+    expect(script).toContain('kernel.qalloc(2)')
+    expect(script).toContain('kernel.h(q[0])')
+    expect(script).toContain('kernel.cx(q[0], q[1])')
+    expect(script).not.toContain('@cudaq.kernel')
     expect(script).toContain('cudaq.sample')
     expect(script).toContain('shots_count=8')
   })
