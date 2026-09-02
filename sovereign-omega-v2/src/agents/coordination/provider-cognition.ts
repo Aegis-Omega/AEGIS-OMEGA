@@ -15,6 +15,8 @@ export type CognitiveWorkClass =
   | 'implementation'
   | 'routine'
 
+export type AllianceRole = 'coordinator' | 'adversarial-audit' | 'implementation'
+
 export type OpenAIReasoningProfile = Readonly<{
   kind: 'openai'
   effort: 'medium' | 'high' | 'xhigh' | 'max'
@@ -158,4 +160,15 @@ export function selectProviderCognitiveProfile(
     raw_output_authority: 'NONE',
     schema_version: '1.0.0',
   })
+}
+
+export function selectAllianceProviderProfile(role: AllianceRole): ProviderCognitiveProfile {
+  switch (role) {
+    case 'coordinator':
+      return selectProviderCognitiveProfile('anthropic', 'frontier-research')
+    case 'adversarial-audit':
+      return selectProviderCognitiveProfile('openai', 'formal-review')
+    case 'implementation':
+      return selectProviderCognitiveProfile('dashscope', 'implementation')
+  }
 }
