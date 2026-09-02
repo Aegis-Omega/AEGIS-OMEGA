@@ -70,6 +70,12 @@ Qed.
    filter and the theorem above proves its zero branch. *)
 Definition canonical_integer_q_v1 (i : nat) : nat := S (S i).
 
+(* The index scope q = 2, ..., count + 1 is a checked statement, not a
+   definitional accident: a mutant index leaves everything else green. *)
+Lemma canonical_integer_q_v1_scope :
+  forall i : nat, canonical_integer_q_v1 i = S (S i).
+Proof. intro i. reflexivity. Qed.
+
 Lemma canonical_integer_q_positive_v1 :
   forall i : nat, (0 < canonical_integer_q_v1 i)%nat.
 Proof. intros i. unfold canonical_integer_q_v1. lia. Qed.
@@ -178,8 +184,7 @@ Definition canonical_von_mangoldt_derivative_term_raw_v1
     (canonical_integer_sqrt_positive_v1 i)
     (canonical_integer_log_v1 i).
 
-Theorem
-  canonical_von_mangoldt_finite_sum_shared_scale_derivative_constructive_v1 :
+Theorem canonical_von_mangoldt_finite_sum_shared_scale_derivative_constructive_v1 :
   forall (H : proper realline)
          (count : nat)
          (L : IR)

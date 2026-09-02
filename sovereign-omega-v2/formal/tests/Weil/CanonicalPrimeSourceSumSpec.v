@@ -35,6 +35,9 @@ Check von_mangoldt_v1_zero_off_prime_powers
 
 Check canonical_integer_q_v1 : nat -> nat.
 
+Check canonical_integer_q_v1_scope
+  : forall i : nat, canonical_integer_q_v1 i = S (S i).
+
 Check canonical_integer_parameters_certified_binding_v1
   : forall (i : nat) (certificate : prime_power_certificate_v1),
       canonical_integer_q_v1 i =
@@ -71,6 +74,7 @@ Check canonical_von_mangoldt_finite_sum_shared_scale_derivative_constructive_v1
             canonical_von_mangoldt_derivative_term_raw_v1 L H_L_pos i)).
 
 Print Assumptions prime_power_base_v1_none_iff.
+Print Assumptions canonical_integer_q_v1_scope.
 Print Assumptions von_mangoldt_v1_zero_off_prime_powers.
 Print Assumptions canonical_integer_parameters_certified_binding_v1.
 Print Assumptions

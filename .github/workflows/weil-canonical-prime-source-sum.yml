@@ -94,6 +94,7 @@ jobs:
 
             for theorem in \
               prime_power_base_v1_none_iff \
+              canonical_integer_q_v1_scope \
               von_mangoldt_v1_zero_off_prime_powers \
               canonical_integer_parameters_certified_binding_v1 \
               canonical_von_mangoldt_amplitude_zero_off_prime_powers_v1 \
@@ -118,7 +119,7 @@ jobs:
 
             cat > "$OUT/prime-source-checkpoint.txt" <<'EOF'
             CANONICAL_PRIME_SOURCE_CHECKPOINT_VERIFIED=true
-            THEOREM_COUNT=5
+            THEOREM_COUNT=6
             DECLARED_ASSUMPTIONS=0
             PRIME_POWER_NEGATIVE_SPECIFICATION_MACHINE_BOUND=true
             VON_MANGOLDT_ZERO_ON_NON_PRIME_POWERS_MACHINE_BOUND=true
@@ -158,11 +159,25 @@ jobs:
           checkpoint = (out / 'prime-source-checkpoint.txt').read_text(encoding='utf-8')
           theorem_names = [
               'prime_power_base_v1_none_iff',
+              'canonical_integer_q_v1_scope',
               'von_mangoldt_v1_zero_off_prime_powers',
               'canonical_integer_parameters_certified_binding_v1',
               'canonical_von_mangoldt_amplitude_zero_off_prime_powers_v1',
               'canonical_von_mangoldt_finite_sum_shared_scale_derivative_constructive_v1',
           ]
+          def closed(theorem):
+              # Derived from the coqtop output the loop above recorded, never
+              # from a literal: closed under the global context and no Axioms.
+              text = (out / f'{theorem}.assumptions.txt').read_text(encoding='utf-8')
+              lines = [line.strip() for line in text.splitlines() if line.strip()]
+              return (
+                  bool(lines)
+                  and any('Closed under the global context' in line for line in lines)
+                  and not any(line.startswith('Axioms:') for line in lines)
+              )
+
+          closed_by_theorem = {name: closed(name) for name in theorem_names}
+          scope_bound = closed_by_theorem['canonical_integer_q_v1_scope']
           payload = {
               'receipt_kind': 'AEGIS_A2B3_CANONICAL_PRIME_SOURCE_GREEN_RECEIPT_V1',
               'authority': 'FORMAL_MATH_EVIDENCE_ONLY',
@@ -175,17 +190,23 @@ jobs:
               'parent_canonical_source_sha256': sha(parent),
               'theorem_names': theorem_names,
               'theorem_count': len(theorem_names),
-              'declared_assumptions': 0,
+              'closed_by_theorem': closed_by_theorem,
+              'declared_assumptions': sum(1 for ok in closed_by_theorem.values() if not ok),
               'canonical_prime_source_checkpoint_verified':
                   'CANONICAL_PRIME_SOURCE_CHECKPOINT_VERIFIED=true' in checkpoint,
-              'prime_power_negative_specification_machine_bound': True,
-              'von_mangoldt_zero_on_non_prime_powers_machine_bound': True,
-              'canonical_all_integer_q_index_machine_bound': True,
+              'prime_power_negative_specification_machine_bound':
+                  closed_by_theorem['prime_power_base_v1_none_iff'],
+              'von_mangoldt_zero_on_non_prime_powers_machine_bound':
+                  closed_by_theorem['von_mangoldt_v1_zero_off_prime_powers'],
+              'canonical_all_integer_q_index_machine_bound': scope_bound,
               'canonical_all_integer_q_index_scope':
-                  'Q_EQUALS_2_THROUGH_COUNT_PLUS_1',
-              'certificate_parameter_binding_machine_bound': True,
-              'non_prime_power_amplitude_zero_machine_bound': True,
-              'certificate_free_finite_source_derivative_machine_bound': True,
+                  'Q_EQUALS_2_THROUGH_COUNT_PLUS_1' if scope_bound else 'UNBOUND',
+              'certificate_parameter_binding_machine_bound':
+                  closed_by_theorem['canonical_integer_parameters_certified_binding_v1'],
+              'non_prime_power_amplitude_zero_machine_bound':
+                  closed_by_theorem['canonical_von_mangoldt_amplitude_zero_off_prime_powers_v1'],
+              'certificate_free_finite_source_derivative_machine_bound':
+                  closed_by_theorem['canonical_von_mangoldt_finite_sum_shared_scale_derivative_constructive_v1'],
               'canonical_prime_power_enumeration_machine_bound': False,
               'total_prime_factorization_machine_bound': False,
               'corn_o0_trig_transport_machine_bound': False,
@@ -201,7 +222,9 @@ jobs:
 
           assert payload['corn_version'] == '9.0.0'
           assert payload['canonical_prime_source_checkpoint_verified'] is True
-          assert payload['theorem_count'] == 5
+          assert payload['theorem_count'] == 6
+          assert all(payload['closed_by_theorem'].values()), payload['closed_by_theorem']
+          assert payload['canonical_all_integer_q_index_scope'] == 'Q_EQUALS_2_THROUGH_COUNT_PLUS_1'
           assert payload['declared_assumptions'] == 0
           assert payload['prime_power_negative_specification_machine_bound'] is True
           assert payload['von_mangoldt_zero_on_non_prime_powers_machine_bound'] is True
