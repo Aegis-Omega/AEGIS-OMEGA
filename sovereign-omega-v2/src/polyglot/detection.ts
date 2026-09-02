@@ -83,7 +83,7 @@ const DETECTOR_BY_ID = new Map(
 )
 
 export class ToolchainDetectionError extends Error {
-  override readonly name = 'ToolchainDetectionError'
+  override readonly name: string = 'ToolchainDetectionError'
 
   constructor(message: string) {
     super(message)
