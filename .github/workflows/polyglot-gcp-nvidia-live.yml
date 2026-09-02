@@ -99,7 +99,7 @@ jobs:
           set -euo pipefail
           mkdir -p sovereign-omega-v2/artifacts
           DISPLAY_NAME="aegis-nvidia-probe-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          cat > /tmp/vertex-a100-probe.yaml <<YAML
+          cat > /tmp/vertex-a100-probe.yaml <<'YAML'
           workerPoolSpecs:
           - machineSpec:
               machineType: a2-highgpu-1g
@@ -110,7 +110,7 @@ jobs:
               bootDiskType: pd-ssd
               bootDiskSizeGb: 100
             containerSpec:
-              imageUri: ${CUDA_IMAGE}
+              imageUri: __CUDA_IMAGE__
               command:
               - bash
               - -lc
@@ -119,7 +119,7 @@ jobs:
                   set -euo pipefail
                   echo 'AEGIS_NVIDIA_REMOTE_GPU_PROBE_SCHEMA=AEGIS-NVIDIA-REMOTE-GPU-PROBE-V1'
                   echo 'AEGIS_NVIDIA_REMOTE_GPU_PROVIDER=GCP_VERTEX'
-                  echo 'AEGIS_NVIDIA_REMOTE_GPU_CANDIDATE_SHA=${EXPECTED_SHA}'
+                  echo 'AEGIS_NVIDIA_REMOTE_GPU_CANDIDATE_SHA=__EXPECTED_SHA__'
                   CUDA_DRIVER_VERSION="$(nvidia-smi | sed -n 's/.*CUDA Version:[[:space:]]*\([0-9.]*\).*/\1/p' | head -n1)"
                   test -n "$CUDA_DRIVER_VERSION"
                   echo "AEGIS_NVIDIA_REMOTE_GPU_CUDA_DRIVER_VERSION=$CUDA_DRIVER_VERSION"
@@ -130,6 +130,10 @@ jobs:
             restartJobOnWorkerRestart: false
             disableRetries: true
           YAML
+          sed -i \
+            -e "s|__CUDA_IMAGE__|${CUDA_IMAGE}|g" \
+            -e "s|__EXPECTED_SHA__|${EXPECTED_SHA}|g" \
+            /tmp/vertex-a100-probe.yaml
 
           gcloud ai custom-jobs create \
             --project="$PROJECT_ID" \
