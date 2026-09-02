@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
+from pathlib import Path
 import unittest
 from unittest.mock import patch
 
@@ -10,10 +12,15 @@ import check_repository_enforcement as enforcement
 REPO = "Aegis-Omega/AEGIS-OMEGA"
 BRANCH = "main"
 GITHUB_ACTIONS_APP_ID = 15368
+REPO_ROOT = Path(__file__).resolve().parents[1]
+POLICY_PATH = REPO_ROOT / "security" / "repository-enforcement-policy.json"
+PAYLOAD_PATH = REPO_ROOT / "security" / "main-branch-ruleset.payload.json"
 CONTEXTS = (
     "Body cites current head",
     "aegis / kernel-one",
     "scan-pr / osv-scan",
+    "aegis / automaton-2",
+    "aegis / automaton-3",
     "Main branch enforcement",
 )
 POLICY = enforcement.Policy(
@@ -102,6 +109,22 @@ def ruleset_inventory():
 
 
 class RepositoryEnforcementTests(unittest.TestCase):
+    def test_deployable_policy_requires_both_admission_automata(self) -> None:
+        raw = json.loads(POLICY_PATH.read_text(encoding="utf-8"))
+        contexts = raw["policy"]["required_status_check_contexts"]
+        self.assertIn("aegis / automaton-2", contexts)
+        self.assertIn("aegis / automaton-3", contexts)
+
+    def test_deployment_payload_requires_both_admission_automata_from_github_actions(self) -> None:
+        raw = json.loads(PAYLOAD_PATH.read_text(encoding="utf-8"))
+        status_rule = next(rule for rule in raw["rules"] if rule["type"] == "required_status_checks")
+        checks = {
+            item["context"]: item.get("integration_id")
+            for item in status_rule["parameters"]["required_status_checks"]
+        }
+        self.assertEqual(checks.get("aegis / automaton-2"), GITHUB_ACTIONS_APP_ID)
+        self.assertEqual(checks.get("aegis / automaton-3"), GITHUB_ACTIONS_APP_ID)
+
     def test_unprotected_branch_denies_without_ruleset_lookup(self) -> None:
         calls: list[str] = []
 
