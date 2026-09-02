@@ -360,9 +360,11 @@ Proof.
   pose proof (corn_ir_to_o0_completion_equivalence_v1 y) as Hy.
   unfold O0EqV1 in Hx, Hy.
   unfold O0LtV1.
-  eapply CRle_lt_trans.
-  - exact (proj1 Hx).
-  - eapply CRlt_le_trans.
+  eapply
+    (@Coq.Reals.Abstract.ConstructiveReals.CRle_lt_trans O0RealsV1).
+  - exact (proj2 Hx).
+  - eapply
+      (@Coq.Reals.Abstract.ConstructiveReals.CRlt_le_trans O0RealsV1).
     + exact (corn_ir_to_o0_strict_v1 x y Hxy).
-    + exact (proj2 Hy).
+    + exact (proj1 Hy).
 Qed.
