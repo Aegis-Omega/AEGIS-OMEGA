@@ -10,7 +10,7 @@
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
     "source_ref": "proof/corn-o0-completion-equivalence-v1",
-    "parent_state_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "parent_state_hash": "9c59c14998d0259e5a60c59330a67add9f9b3fca4822c247942a2775e2d5964c",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "18be0bd307295367e318041bb9b28890c7f170195fb5bf67ccf9fd1d625b44fa"
+  "state_hash": "a08ac63477b7fd4b084dc8ee5dc5fc3328d0a22e27f8cbcc298a7268e95b759c"
 }
