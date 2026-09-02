@@ -57,6 +57,33 @@ def valid_request() -> dict:
     }
 
 
+def valid_receipt() -> dict:
+    return {
+        "receipt_kind": "AEGIS_COGNITIVE_RECOVERY_ADMISSION_RECEIPT_V1",
+        "schema_version": "1.0.0",
+        "request_digest": SHA256_1,
+        "repository_id": "Aegis-Omega/AEGIS-OMEGA",
+        "candidate_sha": SHA1_D,
+        "denied_base_sha": SHA1_C,
+        "trusted_control_plane_sha": SHA1_A,
+        "recovery_parent_sha": SHA1_B,
+        "recovery_receipt_hash": SHA256_2,
+        "writer_workflow_blob": "1" * 40,
+        "platform_governance_observation_digest": SHA256_8,
+        "platform_governance_state": "ENFORCED",
+        "operator_approval_digest": SHA256_7,
+        "verified_gates": ["R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7"],
+        "violations": [],
+        "outcome": "RECOVERY_ADMISSION_GRANTED",
+        "scope": "ONE_EXACT_CANONICAL_RECOVERY_TRANSITION",
+        "authority": "RECOVERY_ADMISSION_ONLY",
+        "mutation_authority": "NONE",
+        "verifier_identity": "offline:aegis-cognitive-recovery-admission-v1",
+        "verifier_code_digest": SHA256_6,
+        "receipt_hash": SHA256_5,
+    }
+
+
 class RecoveryAdmissionSchemaTests(TestCase):
     def test_request_schema_accepts_closed_valid_fixture(self) -> None:
         schema = load_schema(REQUEST_SCHEMA_PATH)
@@ -67,6 +94,17 @@ class RecoveryAdmissionSchemaTests(TestCase):
         request = valid_request()
         request["gcp_enabled"] = True
         errors = list(Draft202012Validator(load_schema(REQUEST_SCHEMA_PATH)).iter_errors(request))
+        self.assertTrue(errors)
+
+    def test_receipt_schema_accepts_authority_bounded_fixture(self) -> None:
+        schema = load_schema(RECEIPT_SCHEMA_PATH)
+        Draft202012Validator.check_schema(schema)
+        Draft202012Validator(schema).validate(valid_receipt())
+
+    def test_receipt_schema_rejects_mutation_authority(self) -> None:
+        receipt = valid_receipt()
+        receipt["mutation_authority"] = "WRITE_MAIN"
+        errors = list(Draft202012Validator(load_schema(RECEIPT_SCHEMA_PATH)).iter_errors(receipt))
         self.assertTrue(errors)
 
 
