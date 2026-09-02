@@ -158,6 +158,68 @@ def test_v1_rejects_backend_options_not_representable_by_schema() -> None:
         )
 
 
+def test_execute_observable_set_restores_callers_previous_cudaq_target(monkeypatch) -> None:
+    import aegis_omega.cudaq_self_witness as sw
+
+    class FakeResult:
+        def expectation(self) -> float:
+            return 0.0
+
+    class FakeOp:
+        def __mul__(self, _other):
+            return self
+
+    class FakeSpin:
+        @staticmethod
+        def z(_index: int) -> FakeOp:
+            return FakeOp()
+
+        @staticmethod
+        def x(_index: int) -> FakeOp:
+            return FakeOp()
+
+    previous_target = object()
+    calls: list[tuple] = []
+
+    class FakeCudaq:
+        @staticmethod
+        def has_target(_target: str) -> bool:
+            return True
+
+        @staticmethod
+        def get_target():
+            calls.append(("get_target",))
+            return previous_target
+
+        @staticmethod
+        def set_target(target, **kwargs) -> None:
+            calls.append(("set_target", target, kwargs))
+
+        @staticmethod
+        def observe(_kernel, operators, _thetas, *, shots_count: int):
+            assert shots_count == -1
+            return [FakeResult() for _ in operators]
+
+        @staticmethod
+        def reset_target() -> None:
+            calls.append(("reset_target",))
+
+    monkeypatch.setattr(sw, "CUDAQ_AVAILABLE", True)
+    monkeypatch.setattr(sw, "cudaq", FakeCudaq())
+    monkeypatch.setattr(sw, "spin", FakeSpin())
+    monkeypatch.setattr(sw, "self_witness_kernel", object())
+
+    values = sw.execute_observable_set(
+        BackendSpec.qpp_cpu(),
+        map_hash_to_angles(DUMMY_SELF_HASH).angles_rad,
+    )
+
+    assert tuple(values) == OBSERVABLE_NAMES
+    assert ("get_target",) in calls
+    assert calls[-1] == ("set_target", previous_target, {})
+    assert not any(call[0] == "reset_target" for call in calls)
+
+
 def test_source_sha_must_be_exact_lowercase_commit() -> None:
     engine = SelfWitnessEngine(executor=lambda _backend, _thetas: _observables())
     with pytest.raises(ValueError, match="source_sha"):
