@@ -264,6 +264,13 @@ class RecoveryAdmissionDigestTests(TestCase):
         right["candidate_sha"] = "8" * 40
         self.assertNotEqual(validator.request_digest(left), validator.request_digest(right))
 
+    def test_operator_approval_digest_is_post_identity_attachment(self) -> None:
+        validator = load_module("recovery_admission_preapproval_identity", VALIDATOR_PATH)
+        left = valid_request()
+        right = valid_request()
+        right["operator_approval_digest"] = "9" * 64
+        self.assertEqual(validator.request_digest(left), validator.request_digest(right))
+
     def test_canonical_json_rejects_nan(self) -> None:
         validator = load_module("recovery_admission_nan", VALIDATOR_PATH)
         with self.assertRaises(ValueError):
