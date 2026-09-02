@@ -1,56 +1,101 @@
-# NVIDIA Scientific Substrate v1
+# NVIDIA Scientific Substrate v2
 
-Status: **T2 capability substrate / authority NONE**
+Status: **T2 capability/execution-evidence substrate / authority NONE**
 
 This document defines the NVIDIA-facing extension of `POLYGLOT-METACOGNITION-0`.
-It is deliberately capability-bound: catalogue presence is not execution evidence,
-and execution evidence is not proof, knowledge admission, QPU access, or quantum
-advantage.
+Catalogue presence is not execution evidence. Execution evidence is not proof,
+knowledge admission, physical QPU access, or quantum advantage.
 
 ## Connector set
 
 | Connector | AEGIS capability | Detection contract | Authority |
 |---|---|---|---|
-| NVIDIA Agent Intelligence Toolkit | `AGENT_ORCHESTRATION` | `nat --version` | `NONE` |
-| BioNeMo Inference Runtime (BioIR) | `BIOMOLECULAR_AI` | import `bionemo_ir` + version + executable/package digest | `NONE` |
+| NVIDIA Agent Intelligence Toolkit (legacy NAT path) | `AGENT_ORCHESTRATION` | `nat --version` + executable SHA-256 | `NONE` |
+| NVIDIA NeMo Platform | `AGENT_PLATFORM` | `nemo --version` + executable SHA-256 | `NONE` |
+| NVIDIA NeMo Fabric | `AGENT_RUNTIME_FABRIC` | import `nemo_fabric` + `nemo-fabric` version + module SHA-256 | `NONE` |
+| NVIDIA BioNeMo Framework | `BIOMOLECULAR_TRAINING` | import `bionemo.fw` + `bionemo-fw` version + module SHA-256 | `NONE` |
+| BioNeMo Inference Runtime (BioIR) | `BIOMOLECULAR_AI` | import `bionemo_ir` + version + module SHA-256 | `NONE` |
 | NVIDIA CUDA-Q | `QUANTUM_PROGRAMMING` | package `cudaq` + version + digest | `NONE` |
 | NVIDIA cuQuantum | `QUANTUM_SIMULATION` | package `cuquantum-python` / import `cuquantum` + version + digest | `NONE` |
 
-Every admitted connector requires:
+Every admitted connector requires positive detection, a non-empty version,
+SHA-256 runtime/module evidence, a SHA-256 capability receipt, and
+`AUTHORITY_CLASS=NONE / AUTHORITY_EFFECT=NONE`. Absence fails closed; no mock
+backend is synthesized.
 
-1. positive detection observation,
-2. non-empty version,
-3. SHA-256 executable/package digest,
-4. SHA-256 capability receipt digest,
-5. `AUTHORITY_CLASS=NONE`,
-6. `AUTHORITY_EFFECT=NONE`.
+## NeMo agent plane
 
-Absence fails closed as `TOOLCHAIN_UNAVAILABLE`; no mock backend is synthesized.
+The current agent-plane contract is:
 
-## BioNeMo agent fabric
+```text
+nemo-platform verified
+  + nemo-fabric verified
+  -> agent_platform.state = READY
+```
 
-`biomolecular_agent_fabric.state = READY` requires exact verified evidence for
-both:
+`READY` is capability readiness only. `agent_platform.execution` remains
+`NOT_ESTABLISHED` until an admitted `NvidiaAgentRunReceipt` exists.
 
-- `nvidia-agent-toolkit`, and
-- `bionemo-ir`.
+Two execution contracts are intentionally separate:
 
-This state means only that the software connector pair is verified and can be
-considered by an adapter-specific execution layer. It does **not** establish
-that a supported NVIDIA GPU, driver, model weights, NGC credentials, or a
-successful BioNeMo inference run exists. Therefore v1 fixes
-`gpu_execution = NOT_ESTABLISHED` until a separate hardware/execution receipt
-is introduced.
+- `NEMO_PLATFORM` requires exactly `nemo-platform + nemo-fabric` evidence.
+- `NAT_LEGACY` requires exactly `nvidia-agent-toolkit` evidence.
 
-The current NVIDIA BioNeMo Inference Runtime documentation describes BioIR as a
-Python library for accelerated biomolecular structure-model inference on NVIDIA
-GPUs and documents `bionemo_ir` as the public import namespace. Release wheels
-and runtime support remain environment-specific and must be attested separately.
+Legacy NAT evidence cannot satisfy a current NeMo Platform execution receipt.
+Successful agent execution remains `knowledge_admission = NOT_ESTABLISHED`.
+
+## BioNeMo stack
+
+BioNeMo Framework and BioNeMo Inference Runtime are distinct capabilities.
+Framework presence never implies BioIR availability or GPU execution.
+
+### Framework readiness
+
+```text
+bionemo-framework verified
+  -> bionemo_stack.framework.state = READY
+```
+
+This establishes only the `bionemo.fw` / `bionemo-fw` software capability.
+Training execution remains separately evidenced.
+
+### Current agentic inference readiness
+
+```text
+nemo-platform verified
+  + nemo-fabric verified
+  + bionemo-ir verified
+  -> bionemo_stack.agentic_inference.state = READY
+```
+
+Even at `READY`, both `gpu_execution` and `agent_execution` remain
+`NOT_ESTABLISHED` until execution receipts exist.
+
+`BioNemoExecutionReceipt` requires a concrete supported GPU-environment receipt,
+BioIR connector evidence, exact task/model/input/output digests and an execution
+receipt digest. The GPU receipt explicitly records BioIR driver compatibility;
+unsupported driver evidence is denied rather than downgraded silently.
+
+`NvidiaAgenticBioNemoReceipt` composes two independently admitted receipts:
+
+```text
+NvidiaAgentRunReceipt(runtime = NEMO_PLATFORM)
+  + BioNemoExecutionReceipt(gpu_execution = ESTABLISHED_FOR_THIS_RECEIPT)
+  + same task id
+  + exact source receipt digests
+  + handoff trace digest
+  -> NEMO_PLATFORM_BIONEMO_IR
+```
+
+The join re-hashes and verifies both source receipts before composition. It
+rejects cross-task splicing, stale/wrong receipt digests, legacy NAT substitution,
+failed terminal state, malformed handoff evidence and authority-bearing inputs.
+The resulting receipt still records `knowledge_admission = NOT_ESTABLISHED`.
 
 ## Quantum manifold
 
-AEGIS previously used “quantum manifold” as a vision-layer term. In this v1
-substrate it receives a narrow machine-checkable meaning:
+In this substrate, “quantum manifold” has a deliberately narrow,
+machine-checkable meaning:
 
 ```text
 CUDA-Q verified
@@ -58,44 +103,48 @@ CUDA-Q verified
   -> CUDAQ_CUQUANTUM_SIMULATION_READY
 ```
 
-CUDA-Q supplies the heterogeneous CPU/GPU/QPU programming model and backend
-abstraction. cuQuantum supplies GPU-accelerated quantum simulation primitives.
-The composite state is therefore a **software simulation substrate**, not a
-claim that a physical QPU is connected.
+CUDA-Q provides the heterogeneous quantum programming/backend abstraction and
+cuQuantum provides NVIDIA quantum-simulation capability. The composite is a
+software simulation substrate, not evidence of physical QPU access.
 
-The receipt permanently records in v1:
+The repository also carries a dedicated live CPU-simulator receipt lane using a
+pinned CUDA-Q runtime and `qpp-cpu`. That lane executes a Bell-state sample with
+`cudaq.make_kernel()` and emits a digest-bound receipt artifact. It deliberately
+does not contact a remote or hardware QPU.
+
+Every simulation-level receipt keeps:
 
 - `qpu_access = NOT_ESTABLISHED`,
 - `quantum_advantage = NOT_ESTABLISHED`,
 - `authority_scope = DIAGNOSTIC_ONLY`.
 
-CUDA-Q alone must not establish the composite quantum manifold. cuQuantum alone
-must not establish it either.
+A future physical-QPU receipt must be a separate hardware-bound evidence class;
+it cannot be inferred from CUDA-Q package presence or simulator success.
 
-## Required next receipts for real execution
+## Probe and execution boundaries
 
-The next execution slice should introduce adapter-owned, sandbox-produced
-receipts rather than widening planner authority:
+Current machine-level NVIDIA boundaries include:
 
-- `NvidiaGpuEnvironmentReceipt`: GPU identity, compute capability, driver,
-  CUDA compatibility, container/runtime digest.
-- `BioNemoExecutionReceipt`: exact model/config/input/output digests, GPU
-  environment receipt binding, terminal execution state, numerical metadata.
-- `CudaQBackendReceipt`: selected CUDA-Q target, simulator/remote/emulated
-  classification, backend configuration digest.
-- `QuantumExecutionReceipt`: circuit/kernel digest, shots/observables, backend
-  identity, simulator/QPU classification, raw result digest.
-- `NvidiaAgentRunReceipt`: Agent Toolkit workflow/config/tool graph digests,
-  input/output evidence digests and profiler/evaluator metadata.
+- `NvidiaGpuEnvironmentReceipt`
+- `BioNemoExecutionReceipt`
+- `CudaQBackendReceipt`
+- `NvidiaQuantumExecutionReceipt`
+- `NvidiaAgentRunReceipt`
+- `NvidiaAgenticBioNemoReceipt`
 
-None of those receipts may directly promote T2/T3 state into canonical T4
-knowledge. Existing verification/admission gates remain mandatory.
+Probe adapters are shell-free and capability-specific. Runtime observations are
+bound to executable/module digests and source receipt digests. Execution
+admission performs anti-splicing checks before producing a new receipt.
+
+No NVIDIA receipt directly promotes T2/T3 state into canonical T4 knowledge.
+Existing verification/admission gates remain mandatory.
 
 ## Upstream references
 
 - NVIDIA BioNeMo Inference Runtime: https://docs.nvidia.com/bionemo/inference-runtime/overview/
-- BioNeMo Python API: https://docs.nvidia.com/bionemo/inference-runtime/latest/references/api/
+- BioNeMo Inference Runtime API: https://docs.nvidia.com/bionemo/inference-runtime/latest/references/api/
+- NVIDIA BioNeMo Framework: https://docs.nvidia.com/bionemo-framework/
+- NVIDIA NeMo Platform: https://docs.nvidia.com/nemo-platform/
 - NVIDIA CUDA-Q: https://nvidia.github.io/cuda-quantum/latest/index.html
-- CUDA-Q quantum platform abstraction: https://nvidia.github.io/cuda-quantum/latest/specification/cudaq/platform.html
+- CUDA-Q platform abstraction: https://nvidia.github.io/cuda-quantum/latest/specification/cudaq/platform.html
 - NVIDIA cuQuantum: https://developer.nvidia.com/cuquantum
-- NVIDIA documentation hub / Agent Intelligence Toolkit: https://docs.nvidia.com/
