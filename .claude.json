@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "fix/body-head-provenance-gate",
-    "parent_state_hash": "17a5ca4134b6962fc46eaa3a71f18755f5e63c0bb0494181d3967909529cb76d",
+    "source_ref": "experimental/egraph-0-equality-saturation-v1",
+    "parent_state_hash": "0000000000000000000000000000000000000000000000000000000000000000",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "1a68e9a42751f99b3935ba562ef2dda146b4d40e750ec3080210d12391888066"
+  "state_hash": "4453646e9fc496778fc3d9ee0e6cddbfbcd2b864fd9acae42d87edc8f3dc051f"
 }
