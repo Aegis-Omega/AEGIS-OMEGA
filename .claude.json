@@ -10,7 +10,7 @@
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
     "source_ref": "proof/corn-o0-morphism-a1c-v1",
-    "parent_state_hash": "17a5ca4134b6962fc46eaa3a71f18755f5e63c0bb0494181d3967909529cb76d",
+    "parent_state_hash": "1a68e9a42751f99b3935ba562ef2dda146b4d40e750ec3080210d12391888066",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "9c59c14998d0259e5a60c59330a67add9f9b3fca4822c247942a2775e2d5964c"
+  "state_hash": "65cdc9bfeb0b7934f293398ca2c70ae9c44a30dca28d991e26e9991e011e7415"
 }
