@@ -167,6 +167,22 @@ class RecoveryWorkflowTrustContractTests(TestCase):
         self.assertNotIn("actions/attest@", self.workflow)
         self.assertNotIn("--require-oidc", self.workflow)
 
+    def test_inherited_zero_parent_repair_is_exactly_pinned_before_allowlisting(self) -> None:
+        required = (
+            "ZERO_PARENT_REPAIR_SHA: 495fccdded0d9f5cdef2aac2ac5bbd8465063cf1",
+            "EXPECTED_ZERO_PARENT_VALIDATOR_BLOB: 3e79b6208e20331d0e379d2bb3f2bb3ab49f1384",
+            "EXPECTED_ZERO_PARENT_TEST_BLOB: 9fab71959b073f485ccf9a74612fbc9ce93f3433",
+            'git merge-base --is-ancestor "$ZERO_PARENT_REPAIR_SHA" "$CANDIDATE_SHA"',
+            'git rev-parse "$ZERO_PARENT_REPAIR_SHA:scripts/validate-automaton2.py"',
+            'git rev-parse "$CANDIDATE_SHA:scripts/validate-automaton2.py"',
+            'git rev-parse "$ZERO_PARENT_REPAIR_SHA:sovereign-omega-v2/python/tests/test_automaton2.py"',
+            'git rev-parse "$CANDIDATE_SHA:sovereign-omega-v2/python/tests/test_automaton2.py"',
+            "scripts/validate-automaton2.py",
+            "sovereign-omega-v2/python/tests/test_automaton2.py",
+        )
+        for item in required:
+            self.assertIn(item, self.workflow)
+
 
 if __name__ == "__main__":
     main()
