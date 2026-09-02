@@ -37,7 +37,8 @@ export type GeminiReasoningProfile = Readonly<{
 
 export type DashScopeReasoningProfile = Readonly<{
   kind: 'dashscope'
-  mode: 'standard' | 'deep'
+  thinking: 'adaptive'
+  preserve_thinking: true
 }>
 
 export type LocalReasoningProfile = Readonly<{
@@ -67,11 +68,14 @@ export interface ProviderCognitiveOverrides {
   readonly model?: string
 }
 
+// Capability defaults are intentionally refreshable configuration inputs, not
+// permanent constitutional identities. Exact effective model/reasoning values
+// are bound into ProviderExecutionReceiptV1 for replay and audit.
 const DEFAULT_MODELS: Readonly<Record<ProviderName, string>> = Object.freeze({
   openai: 'gpt-5.6-sol',
-  anthropic: 'claude-opus-4-8',
+  anthropic: 'claude-opus-5',
   gemini: 'gemini-3.1-pro-preview',
-  dashscope: 'qwen3.7-plus',
+  dashscope: 'qwen3.8-max',
   local: 'configured-local-reasoner',
 })
 
@@ -115,10 +119,11 @@ function geminiReasoning(workClass: CognitiveWorkClass): GeminiReasoningProfile 
   })
 }
 
-function dashScopeReasoning(workClass: CognitiveWorkClass): DashScopeReasoningProfile {
+function dashScopeReasoning(_workClass: CognitiveWorkClass): DashScopeReasoningProfile {
   return Object.freeze({
     kind: 'dashscope',
-    mode: workClass === 'routine' ? 'standard' : 'deep',
+    thinking: 'adaptive',
+    preserve_thinking: true,
   })
 }
 
