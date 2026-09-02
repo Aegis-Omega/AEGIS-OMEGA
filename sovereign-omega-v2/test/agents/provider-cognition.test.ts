@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { selectProviderCognitiveProfile } from '../../src/agents/coordination/provider-cognition.js'
+import {
+  selectAllianceProviderProfile,
+  selectProviderCognitiveProfile,
+} from '../../src/agents/coordination/provider-cognition.js'
 
 describe('provider-native cognitive depth', () => {
   it('uses the quality-first OpenAI profile for frontier research without minting authority', () => {
@@ -48,5 +51,30 @@ describe('provider-native cognitive depth', () => {
     })
     expect(profile.model).toBe('future-openai-reasoner')
     expect(profile.raw_output_authority).toBe('NONE')
+  })
+
+  it('maps orchestration roles to provider-native deep work profiles', () => {
+    const coordinator = selectAllianceProviderProfile('coordinator')
+    expect(coordinator.provider).toBe('anthropic')
+    expect(coordinator.model).toBe('claude-opus-4-8')
+    expect(coordinator.reasoning).toEqual({
+      kind: 'anthropic',
+      thinking: 'adaptive',
+      effort: 'high',
+    })
+
+    const audit = selectAllianceProviderProfile('adversarial-audit')
+    expect(audit.provider).toBe('openai')
+    expect(audit.model).toBe('gpt-5.6-sol')
+    expect(audit.reasoning).toEqual({
+      kind: 'openai',
+      effort: 'max',
+      mode: 'pro',
+      context: 'current_turn',
+    })
+
+    const implementation = selectAllianceProviderProfile('implementation')
+    expect(implementation.provider).toBe('dashscope')
+    expect(implementation.reasoning).toEqual({ kind: 'dashscope', mode: 'deep' })
   })
 })
