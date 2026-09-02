@@ -1,0 +1,49 @@
+name: Polyglot Metacognition
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/src/polyglot/**'
+      - 'sovereign-omega-v2/test/unit/polyglot-fabric.test.ts'
+      - '.github/workflows/polyglot-metacognition.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sovereign-omega-v2
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Set up Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Run polyglot metacognition contract
+        run: npx vitest run test/unit/polyglot-fabric.test.ts
+
+      - name: Typecheck runtime
+        run: npm run typecheck
