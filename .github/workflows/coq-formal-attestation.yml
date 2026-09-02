@@ -114,10 +114,11 @@ jobs:
                 "$rel" "$status" "$digest" >> "$STATUS"
             }
 
+            # One discovery routine for the whole lane: the same regex the
+            # receipt builder uses, cross-checked against the .glob that the
+            # coqc call just above produced.  A disagreement aborts the job.
             theorem_names() {
-              grep -E '^[[:space:]]*(Theorem|Lemma|Corollary|Proposition|Fact|Remark)[[:space:]]+[A-Za-z_][A-Za-z0-9_'"'"']*' "$1" \
-                | sed -E 's/^[[:space:]]*(Theorem|Lemma|Corollary|Proposition|Fact|Remark)[[:space:]]+([A-Za-z_][A-Za-z0-9_'"'"']*).*/\2/' \
-                || true
+              python3 "$ROOT/scripts/coq_theorem_discovery.py" "$1" || exit 1
             }
 
             compile_one() {
