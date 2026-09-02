@@ -1,0 +1,43 @@
+name: AEGIS Scale OS Controls
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  scale-os-controls:
+    name: aegis / scale-os-controls
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact workflow parser
+        run: pip install PyYAML==6.0.2
+
+      - name: Prove grace-cycle control flow
+        run: python sovereign-omega-v2/python/tests/test_grace_chain_repair.py
+
+      - name: Validate OSV workflow startup contract
+        run: python scripts/validate-osv-workflow.py --output "$RUNNER_TEMP/OSV_STARTUP_RECEIPT.json"
+
+      - name: Upload OSV startup receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-osv-startup-${{ github.sha }}
+          path: ${{ runner.temp }}/OSV_STARTUP_RECEIPT.json
+          if-no-files-found: error
+          retention-days: 90

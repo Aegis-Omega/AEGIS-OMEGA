@@ -1,0 +1,65 @@
+name: Cognitive Manifest Refresh
+
+on:
+  push:
+    branches-ignore: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cognitive-manifest-refresh-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    name: aegis / cognitive-manifest-refresh
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Resolve current main parent state
+        id: parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          parent_hash="$(git show origin/main:.claude.json 2>/dev/null | python -c 'import json,sys; print(json.load(sys.stdin)["state_hash"])' 2>/dev/null || true)"
+          if [[ ! "$parent_hash" =~ ^[0-9a-f]{64}$ ]]; then
+            parent_hash="$(printf '0%.0s' {1..64})"
+          fi
+          echo "state_hash=$parent_hash" >> "$GITHUB_OUTPUT"
+
+      - name: Generate deterministic anchors
+        run: |
+          python scripts/build-cognitive-manifest.py \
+            --ref "$GITHUB_REF_NAME" \
+            --parent-state-hash "${{ steps.parent.outputs.state_hash }}"
+          python scripts/build-cognitive-manifest.py \
+            --check \
+            --ref "$GITHUB_REF_NAME" \
+            --parent-state-hash "${{ steps.parent.outputs.state_hash }}"
+
+      - name: Commit refreshed anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- .claude.json skill-hashes.sha256; then
+            echo "Manifest already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .claude.json skill-hashes.sha256
+          git commit -m "chore(manifest): refresh cognitive-state anchors"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

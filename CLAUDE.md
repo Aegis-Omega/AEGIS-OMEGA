@@ -127,13 +127,13 @@ rules that matter most:
 /packages/aegis-py/    Python SDK — AegisClient / AsyncAegisClient / aegis CLI
 /packages/shared/      Shared infra (DashScope, useAsyncForm, inference-router, constitutional-ai)
 /cockpit/              AI chat UI with sovereign-omega telemetry integration
-/platform-picker/      Commercial product — platform recommendation ($19)
-/hook-generator/       Commercial product — viral hook generator ($19)
-/content-calendar/     Commercial product — content calendar ($19)
+/platform-picker/      Commercial product — platform recommendation (tier-gated)
+/hook-generator/       Commercial product — viral hook generator (tier-gated)
+/content-calendar/     Commercial product — content calendar (tier-gated)
 /hub/                  Landing page + hash-chained MetacognitiveLoop in browser
 /aegisomega-webgpu/    Standalone WebGPU frame graph engine (σ/ρ/λ Φ-field simulation)
 /studio/               Constitutional observability (projection only, no authority)
-/supabase/functions/   Edge functions: verify-payment, issue-token, ls-webhook
+/supabase/functions/   Edge functions: verify-stripe, verify-paypal, github-sponsors, agent, chat, notify, slack-events (P-256 issuance in functions/_shared/jwt.ts)
 /docs/                 Architecture diagrams, governance specs, partnership brief
 ```
 
@@ -274,7 +274,7 @@ All `/platform/*` responses: `PlatformEnvelope<T>` + `X-Contract-Version: 1.0.0`
 | Module | Purpose |
 |--------|---------|
 | `@shared/lib/dashscope` | DashScope/Qwen API caller |
-| `@shared/lib/inference-router` | DashScope → Ollama → Claude → CL-Ψ fallback |
+| `@shared/lib/inference-router` | CL-Ψ → OpenAI (opt-in `VITE_ENABLE_OPENAI`) → Ollama → Claude → DashScope fallback (`packages/shared/lib/inference-router.ts`) |
 | `@shared/lib/constitutional-ai` | `callConstitutional<T>()` — audit chain + martingale |
 | `@shared/lib/access` | P-256 server-issued payment tokens |
 
@@ -343,14 +343,20 @@ content-calendar/.env · sovereign-omega-v2/.env
 
 ## Deployment
 
-**Commercial products → Vercel:** `vercel --prod` from each product dir after Gate 8 passes.  
-Gumroad: $19/product, $29 (any 2), $39 (all 3).
+**Commercial products:** hub + products serve via Vercel (git integration builds on push)
+AND carry Cloud Run `cloudbuild.yaml` configs (hub, cockpit, platform-picker, hook-generator,
+content-calendar) — deploy after Gate 8 passes.  
+Pricing tiers: free Explorer / $49 Operator / $499 Sovereign (PayPal verify floors $48/$498)
+via Stripe, PayPal, and GitHub Sponsors — see `hub/src/components/PricingPage.tsx` and
+`supabase/functions/verify-{stripe,paypal}`.
 
-**Core services → Cloud Run (europe-west3):** `git push origin main` triggers GitHub Actions WIF deploy.  
+**Core services → Cloud Run (europe-west3):** auto-deploy is currently DISABLED —
+`deploy.yml` and `deploy-cloud-run.yml` are manual `workflow_dispatch` only (billing
+safety), and the WIF attribute-condition fix is pending (see `HANDOFF.md` §4).  
 Domain: `aegisomega.com` (Cloudflare DNS). GCP account: `info@aegisomega.com`.
 
 **Payment security:** tokens minted server-side only via Supabase edge functions.  
-Never re-introduce client-side token minting (`ls-webhook`: always include `ls_product_id` NOT NULL).
+Never re-introduce client-side token minting (webhook handlers must bind product ids server-side).
 
 ---
 

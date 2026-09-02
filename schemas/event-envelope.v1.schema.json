@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/event-envelope.v1.schema.json",
+  "title": "AEGIS EventEnvelope V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sender_identity_root","recipient_or_routing_domain","source_state","capability_request","payload_schema","payload","payload_digest","provenance","policy_decision","parent_event","sequence","receipt_reference"],
+  "properties": {
+    "sender_identity_root": {"$ref": "#/$defs/hash"},
+    "recipient_or_routing_domain": {"type": "string", "minLength": 1},
+    "source_state": {"$ref": "#/$defs/hash"},
+    "capability_request": {"type": "string", "minLength": 1},
+    "payload_schema": {"type": "string", "minLength": 1},
+    "payload": {"type": "object", "additionalProperties": false, "properties": {"data": {}, "text": {"type": "string", "maxLength": 4096}, "content_type": {"type": "string"}}},
+    "payload_digest": {"$ref": "#/$defs/hash"},
+    "provenance": {"type": "string", "minLength": 1},
+    "policy_decision": {"$ref": "#/$defs/hash"},
+    "parent_event": {"$ref": "#/$defs/hash"},
+    "sequence": {"type": "integer", "minimum": 0},
+    "receipt_reference": {"$ref": "#/$defs/hash"}
+  },
+  "$defs": {"hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

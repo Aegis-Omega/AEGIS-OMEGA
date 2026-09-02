@@ -156,6 +156,16 @@ export function DocsPage() {
               on any business objective. Every response is SHA-256 hash-chained, replay-verifiable, and
               includes a constitutional audit verdict.
             </p>
+            <p className="text-gray-400 leading-relaxed mb-2">
+              Fastest start — the Python SDK and <code className="text-gray-300 text-xs">aegis</code> CLI:
+            </p>
+            <CodeBlock code={`pip install "git+https://github.com/Aegis-Omega/AEGIS-OMEGA.git#subdirectory=packages/aegis-py"
+export AEGIS_API_KEY=aegis_YOUR_KEY
+aegis collaborate "Enter EU fintech market Q4 2026" --mode gtm`} />
+            <p className="text-xs text-gray-600 mt-2 mb-4">
+              Prefer raw HTTP? Every endpoint below works with curl — see{' '}
+              <a href="#auth" className="text-gray-500 hover:text-gray-400 underline">Authentication</a>.
+            </p>
             <div className="grid grid-cols-2 gap-4 mt-6">
               {[
                 { k: 'Base URL',          v: BASE },
