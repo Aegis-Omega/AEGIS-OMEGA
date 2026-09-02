@@ -190,7 +190,14 @@ export function validTuple(v: CommitVertex): boolean {
   if (isRebase(v.transform)) {
     const x = v.rebase_extension
     if (!x) return false
-    return c0 === x.selected_parent_hash && c1 === x.original_intended_parent_hash && c2 === x.decision_record_hash
+    // c2 is checked against H, not only against the extension. Equality alone
+    // would admit any string the two fields happen to share.
+    if (!isSha256Ref(c2)) return false
+    return (
+      c0 === x.selected_parent_hash &&
+      c1 === x.original_intended_parent_hash &&
+      c2 === x.decision_record_hash
+    )
   }
   return v.rebase_extension === null && c1 === v.parent && c2 === null
 }
