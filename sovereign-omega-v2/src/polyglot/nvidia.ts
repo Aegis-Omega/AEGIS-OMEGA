@@ -21,6 +21,7 @@ export type NvidiaConnectorId =
   | 'nvidia-agent-toolkit'
   | 'nemo-platform'
   | 'nemo-fabric'
+  | 'bionemo-framework'
   | 'bionemo-ir'
   | 'cudaq'
   | 'cuquantum'
@@ -29,6 +30,7 @@ export type NvidiaCapabilityKind =
   | 'AGENT_ORCHESTRATION'
   | 'AGENT_PLATFORM'
   | 'AGENT_RUNTIME_FABRIC'
+  | 'BIOMOLECULAR_TRAINING'
   | 'BIOMOLECULAR_AI'
   | 'QUANTUM_PROGRAMMING'
   | 'QUANTUM_SIMULATION'
@@ -77,6 +79,18 @@ export const NVIDIA_CONNECTOR_CATALOG: readonly NvidiaConnectorDescriptor[] = de
     runtime_family: 'nvidia-nemo-fabric',
     probe_locator: 'python:nemo_fabric',
     version_probe: ['package-version', 'nemo-fabric'],
+    digest_algorithm: 'SHA-256',
+    capability_receipt_required: true,
+    authority_class: 'NONE',
+    authority_effect: 'NONE',
+    default_state: 'CATALOGUED_NOT_VERIFIED',
+  },
+  {
+    connector_id: 'bionemo-framework',
+    capability_kind: 'BIOMOLECULAR_TRAINING',
+    runtime_family: 'nvidia-bionemo-framework',
+    probe_locator: 'python:bionemo.fw',
+    version_probe: ['package-version', 'bionemo-fw'],
     digest_algorithm: 'SHA-256',
     capability_receipt_required: true,
     authority_class: 'NONE',
@@ -164,6 +178,22 @@ export interface NvidiaScientificSubstrateReceipt {
     readonly missing_connectors: readonly NvidiaConnectorId[]
     readonly execution: 'NOT_ESTABLISHED'
     readonly authority_scope: 'EXECUTION_EVIDENCE_ONLY'
+  }
+  readonly bionemo_stack: {
+    readonly framework: {
+      readonly state: 'READY' | 'NOT_ESTABLISHED'
+      readonly required_connector: 'bionemo-framework'
+      readonly execution: 'NOT_ESTABLISHED'
+      readonly authority_scope: 'EXECUTION_EVIDENCE_ONLY'
+    }
+    readonly agentic_inference: {
+      readonly state: 'READY' | 'NOT_ESTABLISHED'
+      readonly required_connectors: readonly ['nemo-platform', 'nemo-fabric', 'bionemo-ir']
+      readonly missing_connectors: readonly NvidiaConnectorId[]
+      readonly gpu_execution: 'NOT_ESTABLISHED'
+      readonly agent_execution: 'NOT_ESTABLISHED'
+      readonly authority_scope: 'EXECUTION_EVIDENCE_ONLY'
+    }
   }
   readonly biomolecular_agent_fabric: {
     readonly state: 'READY' | 'NOT_ESTABLISHED'
@@ -317,11 +347,14 @@ export async function buildNvidiaScientificSubstrateReceipt(
     .filter(connector => available.has(connector))
 
   const platformRequired = ['nemo-platform', 'nemo-fabric'] as const
+  const bionemoAgenticRequired = ['nemo-platform', 'nemo-fabric', 'bionemo-ir'] as const
   const biomolecularRequired = ['nvidia-agent-toolkit', 'bionemo-ir'] as const
   const quantumRequired = ['cudaq', 'cuquantum'] as const
   const platformMissing = missingConnectors(platformRequired, available)
+  const bionemoAgenticMissing = missingConnectors(bionemoAgenticRequired, available)
   const biomolecularMissing = missingConnectors(biomolecularRequired, available)
   const quantumMissing = missingConnectors(quantumRequired, available)
+  const bionemoFrameworkReady = available.has('bionemo-framework')
 
   const digestPayload = {
     schema_version: NVIDIA_SUBSTRATE_RECEIPT_SCHEMA,
@@ -333,6 +366,22 @@ export async function buildNvidiaScientificSubstrateReceipt(
       missing_connectors: platformMissing,
       execution: 'NOT_ESTABLISHED' as const,
       authority_scope: 'EXECUTION_EVIDENCE_ONLY' as const,
+    },
+    bionemo_stack: {
+      framework: {
+        state: bionemoFrameworkReady ? 'READY' as const : 'NOT_ESTABLISHED' as const,
+        required_connector: 'bionemo-framework' as const,
+        execution: 'NOT_ESTABLISHED' as const,
+        authority_scope: 'EXECUTION_EVIDENCE_ONLY' as const,
+      },
+      agentic_inference: {
+        state: bionemoAgenticMissing.length === 0 ? 'READY' as const : 'NOT_ESTABLISHED' as const,
+        required_connectors: bionemoAgenticRequired,
+        missing_connectors: bionemoAgenticMissing,
+        gpu_execution: 'NOT_ESTABLISHED' as const,
+        agent_execution: 'NOT_ESTABLISHED' as const,
+        authority_scope: 'EXECUTION_EVIDENCE_ONLY' as const,
+      },
     },
     biomolecular_agent_fabric: {
       state: biomolecularMissing.length === 0 ? 'READY' as const : 'NOT_ESTABLISHED' as const,
