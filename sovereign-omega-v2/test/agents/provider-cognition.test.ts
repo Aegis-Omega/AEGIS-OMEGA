@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildProviderCognitiveCouncil,
   selectAllianceProviderProfile,
   selectProviderCognitiveProfile,
 } from '../../src/agents/coordination/provider-cognition.js'
@@ -46,7 +47,27 @@ describe('provider-native cognitive depth', () => {
     expect(profile.raw_output_authority).toBe('NONE')
   })
 
-  it('maps orchestration roles to provider-native deep work profiles', () => {
+  it('builds a deterministic five-provider frontier council with zero raw authority', () => {
+    const council = buildProviderCognitiveCouncil('frontier-research')
+    expect(council.map(profile => profile.provider)).toEqual([
+      'anthropic', 'dashscope', 'gemini', 'local', 'openai',
+    ])
+    expect(council).toHaveLength(5)
+    expect(council.every(profile => profile.raw_output_authority === 'NONE')).toBe(true)
+    expect(council.find(profile => profile.provider === 'openai')?.reasoning)
+      .toEqual({ kind: 'openai', effort: 'max', mode: 'pro', context: 'all_turns' })
+    expect(council.find(profile => profile.provider === 'anthropic')?.reasoning)
+      .toEqual({ kind: 'anthropic', thinking: 'adaptive', effort: 'max' })
+    expect(council.find(profile => profile.provider === 'gemini')?.reasoning)
+      .toEqual({ kind: 'gemini', thinking_level: 'high' })
+    expect(council.find(profile => profile.provider === 'dashscope')?.reasoning)
+      .toEqual({ kind: 'dashscope', effort: 'xhigh' })
+    expect(council.find(profile => profile.provider === 'local')?.reasoning)
+      .toEqual({ kind: 'local', mode: 'deep' })
+    expect(Object.isFrozen(council)).toBe(true)
+  })
+
+  it('maps authority-sensitive orchestration roles without changing their topology', () => {
     const coordinator = selectAllianceProviderProfile('coordinator')
     expect(coordinator.provider).toBe('anthropic')
     expect(coordinator.model).toBe('claude-opus-5')
