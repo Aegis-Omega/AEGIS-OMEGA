@@ -26,6 +26,8 @@ def test_relative_and_absolute_local_imports_form_one_deterministic_closure(tmp_
 
     closure = discover_python_closure(tmp_path, ("scripts.avd.a",))
     assert closure == (
+        "scripts/__init__.py",
+        "scripts/avd/__init__.py",
         "scripts/avd/a.py",
         "scripts/avd/b.py",
         "scripts/avd/c.py",
