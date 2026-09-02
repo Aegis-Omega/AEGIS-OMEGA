@@ -78,7 +78,7 @@ class RepositoryCartographerContract(unittest.TestCase):
 
     def test_workflow_attests_post_merge_main_heads(self) -> None:
         workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
-        push_block = re.search(r"(?ms)^  push:\n(?P<body>(?: {4,}.*\n)+)", workflow)
+        push_block = re.search(r"(?m)^  push:\n(?P<body>(?: {4,}[^\n]*\n)+)", workflow)
         self.assertIsNotNone(push_block, "repository cartography workflow has no push trigger")
         assert push_block is not None
         self.assertRegex(
