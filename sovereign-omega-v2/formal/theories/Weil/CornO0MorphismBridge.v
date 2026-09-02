@@ -163,7 +163,9 @@ Proof.
   - apply CRmorph_proper.
     apply corn_fast_eq_to_stdlib_eq_a1c_v1.
     exact (IR_plus_as_CR x y).
-  - apply CRmorph_plus.
+  - exact
+      (CRmorph_plus corn_fast_to_o0_morphism_a1c_v1
+         (IRasCR x) (IRasCR y)).
 Qed.
 
 Theorem corn_ir_to_o0_preserves_mult_v1 :
@@ -178,7 +180,9 @@ Proof.
   - apply CRmorph_proper.
     apply corn_fast_eq_to_stdlib_eq_a1c_v1.
     exact (IR_mult_as_CR x y).
-  - apply CRmorph_mult.
+  - exact
+      (CRmorph_mult corn_fast_to_o0_morphism_a1c_v1
+         (IRasCR x) (IRasCR y)).
 Qed.
 
 Theorem corn_ir_to_o0_preserves_le_v1 :
