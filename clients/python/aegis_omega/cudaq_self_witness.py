@@ -22,7 +22,7 @@ import re
 import struct
 import threading
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Any, Mapping
 
 try:
     import rfc8785
@@ -282,17 +282,12 @@ def execute_observable_set(backend: BackendSpec, thetas: tuple[float, ...]) -> d
     return _validate_observables(values)
 
 
-Executor = Callable[[BackendSpec, tuple[float, ...]], Mapping[str, float]]
-
-
 class SelfWitnessEngine:
     def __init__(
         self,
         tolerance: DifferentialGateTolerance = DifferentialGateTolerance(),
-        executor: Executor | None = None,
     ) -> None:
         self.tolerance = tolerance
-        self._executor: Executor = executor or execute_observable_set
 
     @staticmethod
     def _validate_v1_backends(backend_a: BackendSpec, backend_b: BackendSpec) -> None:
@@ -326,8 +321,8 @@ class SelfWitnessEngine:
         self._validate_v1_backends(a, b)
 
         encoding = map_hash_to_angles(self_hash)
-        obs_a = _validate_observables(self._executor(a, encoding.angles_rad))
-        obs_b = _validate_observables(self._executor(b, encoding.angles_rad))
+        obs_a = _validate_observables(execute_observable_set(a, encoding.angles_rad))
+        obs_b = _validate_observables(execute_observable_set(b, encoding.angles_rad))
 
         discrepancies = {
             name: abs(obs_a[name] - obs_b[name])
