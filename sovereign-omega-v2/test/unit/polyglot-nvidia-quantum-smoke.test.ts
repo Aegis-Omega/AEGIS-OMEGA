@@ -126,7 +126,7 @@ describe('CUDA-Q simulator smoke execution', () => {
     expect(runner.calls).toHaveLength(1)
     expect(runner.calls[0]?.command).toBe('python3')
     const script = runner.calls[0]?.args.join(' ') ?? ''
-    expect(script).toContain("cudaq.set_target('qpp-cpu')")
+    expect(script).toContain('cudaq.set_target("qpp-cpu")')
     expect(script).toContain('cudaq.sample')
     expect(script).toContain('shots_count=8')
   })
