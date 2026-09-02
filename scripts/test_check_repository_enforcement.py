@@ -7,50 +7,175 @@ from unittest.mock import patch
 import check_repository_enforcement as enforcement
 
 
+REPO = "Aegis-Omega/AEGIS-OMEGA"
+BRANCH = "main"
+CONTEXTS = (
+    "Body cites current head",
+    "aegis / kernel-one",
+    "scan-pr / osv-scan",
+    "Main branch enforcement",
+)
+POLICY = enforcement.Policy(
+    ruleset_name="AEGIS Main Enforcement",
+    required_approving_review_count=0,
+    dismiss_stale_reviews_on_push=False,
+    require_last_push_approval=False,
+    require_code_owner_review=False,
+    require_conversation_resolution=True,
+    require_branches_up_to_date=True,
+    required_status_check_contexts=CONTEXTS,
+)
+
+
+def active_rules(contexts: tuple[str, ...] = CONTEXTS, *, strict: bool = True):
+    return [
+        {
+            "type": "deletion",
+            "ruleset_source_type": "Repository",
+            "ruleset_source": REPO,
+            "ruleset_id": 4242,
+        },
+        {
+            "type": "non_fast_forward",
+            "ruleset_source_type": "Repository",
+            "ruleset_source": REPO,
+            "ruleset_id": 4242,
+        },
+        {
+            "type": "required_signatures",
+            "ruleset_source_type": "Repository",
+            "ruleset_source": REPO,
+            "ruleset_id": 4242,
+        },
+        {
+            "type": "pull_request",
+            "ruleset_source_type": "Repository",
+            "ruleset_source": REPO,
+            "ruleset_id": 4242,
+            "parameters": {
+                "allowed_merge_methods": ["merge", "squash", "rebase"],
+                "dismiss_stale_reviews_on_push": False,
+                "require_code_owner_review": False,
+                "require_last_push_approval": False,
+                "required_approving_review_count": 0,
+                "required_review_thread_resolution": True,
+            },
+        },
+        {
+            "type": "required_status_checks",
+            "ruleset_source_type": "Repository",
+            "ruleset_source": REPO,
+            "ruleset_id": 4242,
+            "parameters": {
+                "do_not_enforce_on_create": False,
+                "required_status_checks": [{"context": context} for context in contexts],
+                "strict_required_status_checks_policy": strict,
+            },
+        },
+    ]
+
+
 class RepositoryEnforcementTests(unittest.TestCase):
-    def test_unprotected_branch_denies_without_privileged_lookup(self) -> None:
+    def test_unprotected_branch_denies_without_ruleset_lookup(self) -> None:
         calls: list[str] = []
 
         def fake_get(path: str, token: str | None):
             calls.append(path)
-            if path == "/repos/Aegis-Omega/AEGIS-OMEGA/branches/main":
-                return 200, {"name": "main", "protected": False}
-            self.fail(f"unexpected privileged lookup: {path}")
+            if path == f"/repos/{REPO}/branches/{BRANCH}":
+                return 200, {"name": BRANCH, "protected": False}
+            self.fail(f"unexpected lookup: {path}")
 
         with patch.object(enforcement, "_get", side_effect=fake_get):
-            result = enforcement.verify("Aegis-Omega/AEGIS-OMEGA", "main", "token")
+            result = enforcement.verify(REPO, BRANCH, "token", POLICY)
 
         self.assertFalse(result.ok)
         self.assertEqual(result.source, "branch_endpoint:protected=false")
-        self.assertEqual(calls, ["/repos/Aegis-Omega/AEGIS-OMEGA/branches/main"])
+        self.assertEqual(calls, [f"/repos/{REPO}/branches/{BRANCH}"])
         self.assertEqual(result.as_dict()["production_admission"], "FORBIDDEN")
+        self.assertEqual(set(result.missing_required_status_check_contexts), set(CONTEXTS))
 
-    def test_protected_branch_requires_detailed_policy_evidence(self) -> None:
-        responses = {
-            "/repos/Aegis-Omega/AEGIS-OMEGA/branches/main": (200, {"protected": True}),
-            "/repos/Aegis-Omega/AEGIS-OMEGA/branches/main/protection": (
-                200,
-                {
-                    "required_pull_request_reviews": {"required_approving_review_count": 1},
-                    "required_status_checks": {"contexts": ["Repository Enforcement"]},
-                    "enforce_admins": {"enabled": True},
-                    "required_signatures": {"enabled": True},
-                    "required_conversation_resolution": {"enabled": True},
-                    "allow_force_pushes": {"enabled": False},
-                    "allow_deletions": {"enabled": False},
-                },
-            ),
-            "/repos/Aegis-Omega/AEGIS-OMEGA/rules/branches/main": (404, {"message": "Not Found"}),
-        }
+    def test_active_effective_rules_satisfy_contract_without_privileged_protection_api(self) -> None:
+        calls: list[str] = []
 
         def fake_get(path: str, token: str | None):
-            return responses[path]
+            calls.append(path)
+            if path == f"/repos/{REPO}/branches/{BRANCH}":
+                return 200, {"name": BRANCH, "protected": True}
+            if path == f"/repos/{REPO}/rules/branches/{BRANCH}?per_page=100":
+                return 200, active_rules()
+            if path == f"/repos/{REPO}/rulesets?per_page=100&targets=branch":
+                return 200, [
+                    {
+                        "id": 4242,
+                        "name": "AEGIS Main Enforcement",
+                        "target": "branch",
+                        "source_type": "Repository",
+                        "source": REPO,
+                        "enforcement": "active",
+                    }
+                ]
+            self.fail(f"unexpected lookup: {path}")
 
         with patch.object(enforcement, "_get", side_effect=fake_get):
-            result = enforcement.verify("Aegis-Omega/AEGIS-OMEGA", "main", "token")
+            result = enforcement.verify(REPO, BRANCH, "token", POLICY)
 
         self.assertTrue(result.ok)
-        self.assertEqual(result.source, "classic_branch_protection")
+        self.assertEqual(result.source, "effective_repository_rulesets")
+        self.assertEqual(result.missing_required_status_check_contexts, ())
+        self.assertEqual(result.effective_ruleset_ids, (4242,))
+        self.assertFalse(any(path.endswith("/protection") for path in calls))
+
+    def test_missing_required_check_is_verified_deny(self) -> None:
+        missing = CONTEXTS[:-1]
+
+        def fake_get(path: str, token: str | None):
+            if path == f"/repos/{REPO}/branches/{BRANCH}":
+                return 200, {"protected": True}
+            if path == f"/repos/{REPO}/rules/branches/{BRANCH}?per_page=100":
+                return 200, active_rules(missing)
+            if path == f"/repos/{REPO}/rulesets?per_page=100&targets=branch":
+                return 200, [
+                    {
+                        "id": 4242,
+                        "name": "AEGIS Main Enforcement",
+                        "source_type": "Repository",
+                        "source": REPO,
+                        "enforcement": "active",
+                    }
+                ]
+            self.fail(f"unexpected lookup: {path}")
+
+        with patch.object(enforcement, "_get", side_effect=fake_get):
+            result = enforcement.verify(REPO, BRANCH, "token", POLICY)
+
+        self.assertFalse(result.ok)
+        self.assertFalse(result.required_status_check_contexts_complete)
+        self.assertEqual(result.missing_required_status_check_contexts, ("Main branch enforcement",))
+        self.assertEqual(result.as_dict()["production_admission"], "FORBIDDEN")
+
+    def test_non_strict_required_checks_are_rejected(self) -> None:
+        def fake_get(path: str, token: str | None):
+            if path == f"/repos/{REPO}/branches/{BRANCH}":
+                return 200, {"protected": True}
+            if path == f"/repos/{REPO}/rules/branches/{BRANCH}?per_page=100":
+                return 200, active_rules(strict=False)
+            if path == f"/repos/{REPO}/rulesets?per_page=100&targets=branch":
+                return 200, [
+                    {
+                        "id": 4242,
+                        "name": "AEGIS Main Enforcement",
+                        "source_type": "Repository",
+                        "source": REPO,
+                        "enforcement": "active",
+                    }
+                ]
+            self.fail(f"unexpected lookup: {path}")
+
+        with patch.object(enforcement, "_get", side_effect=fake_get):
+            result = enforcement.verify(REPO, BRANCH, "token", POLICY)
+
+        self.assertFalse(result.ok)
+        self.assertFalse(result.branches_up_to_date_required)
 
 
 if __name__ == "__main__":
