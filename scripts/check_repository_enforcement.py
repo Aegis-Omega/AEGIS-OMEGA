@@ -5,6 +5,10 @@ The verifier intentionally uses GitHub's effective-rules surface, not privileged
 branch-protection administration endpoints. For a public repository the effective
 branch rules are observable with Metadata:read (and without authentication), which
 lets CI prove active enforcement semantics without acquiring mutation authority.
+
+Anti-splicing invariant: one named repository ruleset must independently establish
+all required guarantees. Guarantees from unrelated repository/organization rulesets
+are never joined to manufacture a passing result.
 """
 
 from __future__ import annotations
@@ -81,6 +85,7 @@ class Result:
     deletion_blocked: bool
     signatures_required: bool
     source: str
+    evaluated_ruleset_id: int | None = None
     observed_required_approving_review_count: int = 0
     observed_dismiss_stale_reviews_on_push: bool = False
     observed_require_last_push_approval: bool = False
@@ -88,7 +93,7 @@ class Result:
     observed_required_status_check_contexts: tuple[str, ...] = ()
     missing_required_status_check_contexts: tuple[str, ...] = ()
     publisher_mismatch_contexts: tuple[str, ...] = ()
-    effective_ruleset_ids: tuple[int, ...] = ()
+    all_effective_ruleset_ids: tuple[int, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -123,6 +128,7 @@ class Result:
             "force_push_blocked": self.force_push_blocked,
             "deletion_blocked": self.deletion_blocked,
             "signatures_required": self.signatures_required,
+            "evaluated_ruleset_id": self.evaluated_ruleset_id,
             "observed_required_approving_review_count": self.observed_required_approving_review_count,
             "observed_dismiss_stale_reviews_on_push": self.observed_dismiss_stale_reviews_on_push,
             "observed_require_last_push_approval": self.observed_require_last_push_approval,
@@ -130,7 +136,7 @@ class Result:
             "observed_required_status_check_contexts": list(self.observed_required_status_check_contexts),
             "missing_required_status_check_contexts": list(self.missing_required_status_check_contexts),
             "publisher_mismatch_contexts": list(self.publisher_mismatch_contexts),
-            "effective_ruleset_ids": list(self.effective_ruleset_ids),
+            "all_effective_ruleset_ids": list(self.all_effective_ruleset_ids),
             "source": self.source,
             "production_admission": "ELIGIBLE" if self.ok else "FORBIDDEN",
         }
@@ -158,9 +164,9 @@ def _get(path: str, token: str | None) -> tuple[int, Any]:
         return exc.code, parsed
 
 
-def _deny(source: str, policy: Policy) -> Result:
+def _deny(source: str, policy: Policy, *, protected: bool = False) -> Result:
     return Result(
-        protected=False,
+        protected=protected,
         named_ruleset_active=False,
         pull_request_required=False,
         review_policy_matches=False,
@@ -183,36 +189,50 @@ def _parameters(rule: dict[str, Any]) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def _named_ruleset_active(repo: str, token: str | None, policy: Policy) -> bool:
+def _named_active_ruleset_id(repo: str, token: str | None, policy: Policy) -> int | None:
     status, rulesets = _get(f"/repos/{repo}/rulesets?per_page=100&targets=branch", token)
     if status != 200 or not isinstance(rulesets, list):
         raise EnforcementError(f"ruleset inventory lookup failed: HTTP {status}: {rulesets}")
-    return any(
-        isinstance(item, dict)
+    matches = [
+        item.get("id")
+        for item in rulesets
+        if isinstance(item, dict)
         and item.get("name") == policy.ruleset_name
         and item.get("enforcement") == "active"
         and item.get("source_type") == "Repository"
         and item.get("source") == repo
-        for item in rulesets
-    )
+        and isinstance(item.get("id"), int)
+    ]
+    if len(matches) > 1:
+        raise EnforcementError(f"ambiguous active rulesets named {policy.ruleset_name!r}: {matches}")
+    return matches[0] if matches else None
 
 
 def _effective_rules(repo: str, branch: str, token: str | None, protected: bool, policy: Policy) -> Result:
+    named_ruleset_id = _named_active_ruleset_id(repo, token, policy)
+    if named_ruleset_id is None:
+        return _deny("named_ruleset_not_active", policy, protected=protected)
+
     status, rules = _get(
         f"/repos/{repo}/rules/branches/{urllib.parse.quote(branch, safe='')}?per_page=100", token
     )
     if status != 200 or not isinstance(rules, list):
         raise EnforcementError(f"effective branch rules lookup failed: HTTP {status}: {rules}")
 
-    by_type: dict[str, list[dict[str, Any]]] = {}
-    ruleset_ids: set[int] = set()
+    all_ruleset_ids: set[int] = set()
+    named_rules: list[dict[str, Any]] = []
     for rule in rules:
         if not isinstance(rule, dict):
             continue
-        by_type.setdefault(str(rule.get("type", "")), []).append(rule)
         ruleset_id = rule.get("ruleset_id")
         if isinstance(ruleset_id, int):
-            ruleset_ids.add(ruleset_id)
+            all_ruleset_ids.add(ruleset_id)
+        if ruleset_id == named_ruleset_id:
+            named_rules.append(rule)
+
+    by_type: dict[str, list[dict[str, Any]]] = {}
+    for rule in named_rules:
+        by_type.setdefault(str(rule.get("type", "")), []).append(rule)
 
     pull_requests = by_type.get("pull_request", [])
     pr_params = [_parameters(rule) for rule in pull_requests]
@@ -271,7 +291,7 @@ def _effective_rules(repo: str, branch: str, token: str | None, protected: bool,
 
     return Result(
         protected=protected,
-        named_ruleset_active=_named_ruleset_active(repo, token, policy),
+        named_ruleset_active=True,
         pull_request_required=bool(pull_requests),
         review_policy_matches=review_policy_matches,
         conversation_resolution_required=conversation_resolution_required,
@@ -282,7 +302,8 @@ def _effective_rules(repo: str, branch: str, token: str | None, protected: bool,
         force_push_blocked=bool(by_type.get("non_fast_forward")),
         deletion_blocked=bool(by_type.get("deletion")),
         signatures_required=bool(by_type.get("required_signatures")),
-        source="effective_repository_rulesets",
+        source="effective_repository_rulesets:no_splicing",
+        evaluated_ruleset_id=named_ruleset_id,
         observed_required_approving_review_count=observed_approvals,
         observed_dismiss_stale_reviews_on_push=observed_dismiss_stale,
         observed_require_last_push_approval=observed_last_push,
@@ -290,7 +311,7 @@ def _effective_rules(repo: str, branch: str, token: str | None, protected: bool,
         observed_required_status_check_contexts=tuple(sorted(observed_contexts)),
         missing_required_status_check_contexts=missing,
         publisher_mismatch_contexts=publisher_mismatches,
-        effective_ruleset_ids=tuple(sorted(ruleset_ids)),
+        all_effective_ruleset_ids=tuple(sorted(all_ruleset_ids)),
     )
 
 
