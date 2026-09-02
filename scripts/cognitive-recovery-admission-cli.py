@@ -56,6 +56,14 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--recovery-evidence", required=True)
     parser.add_argument("--platform-observation", required=True)
     parser.add_argument("--operator-approval", required=True)
+    parser.add_argument(
+        "--replay-state",
+        required=False,
+        help=(
+            "Optional replay-state evidence envelope. Omitting it preserves the "
+            "historical fail-closed REPLAY_STATE_NOT_EVALUATED behavior."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -77,6 +85,11 @@ def main(argv: list[str] | None = None) -> int:
         operator_approval = _load_json_object(
             Path(args.operator_approval), "OPERATOR_APPROVAL"
         )
+        replay_state = (
+            _load_json_object(Path(args.replay_state), "REPLAY_STATE")
+            if args.replay_state is not None
+            else None
+        )
     except CliInputError as exc:
         sys.stderr.write(f"INPUT_ERROR: {exc}\n")
         return 2
@@ -90,6 +103,7 @@ def main(argv: list[str] | None = None) -> int:
             recovery_evidence=recovery_evidence,
             platform_observation=platform_observation,
             operator_approval=operator_approval,
+            replay_state=replay_state,
             verifier_code_digest=verifier_code_digest,
         )
         output = validator.canonical_bytes(receipt).decode("utf-8")
