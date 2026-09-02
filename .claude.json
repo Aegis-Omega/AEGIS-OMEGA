@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "chore/coq-inventory-generator-v1",
+    "source_ref": "proof/corn-o0-morphism-a1c-v1",
     "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "c1575ee461274651d4e425efa6c8174e3cce49cac61e1f70dd6b1dd842bc84a3"
+  "state_hash": "a8f695e26fe9f3e917a82bf1951e07ed5ac39e35909fb6e5cae9210737e35826"
 }
