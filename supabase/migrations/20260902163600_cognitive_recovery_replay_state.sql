@@ -91,7 +91,7 @@ BEGIN
     'UNUSED',
     0
   )
-  ON CONFLICT (request_digest) DO NOTHING;
+  ON CONFLICT ON CONSTRAINT cognitive_recovery_replay_state_pkey DO NOTHING;
 
   RETURN QUERY
   SELECT r.request_digest, r.state, r.generation
