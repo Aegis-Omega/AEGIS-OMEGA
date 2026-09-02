@@ -6,6 +6,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from .coq_signature_contract import build_signature_contract
+
 
 REQUIRED_THEOREMS = (
     "corn_ir_to_o0_preserves_rat_v1",
@@ -54,6 +56,24 @@ def verify_coq_candidate(workspace_root: Path) -> dict[str, Any]:
             "stderr": compile_source.stderr,
         }
 
+    # The historical RED spec checks public names, but name existence alone is
+    # insufficient: a captured candidate could keep the names and weaken their
+    # propositions. A verifier-owned exact-type assignment closes that gap.
+    with tempfile.TemporaryDirectory(prefix="avd-a1c-signature-") as tmp:
+        signature_path = Path(tmp) / "AVDA1cSignatureContract.v"
+        signature_path.write_text(build_signature_contract(), encoding="utf-8")
+        compile_signature = _run(
+            ["coqc", "-Q", str(weil_dir), "", str(signature_path)],
+            cwd=workspace_root,
+        )
+    if compile_signature.returncode != 0:
+        return {
+            "status": "FAIL",
+            "reason": "SIGNATURE_CONTRACT_FAILURE",
+            "stdout": compile_signature.stdout,
+            "stderr": compile_signature.stderr,
+        }
+
     compile_spec = _run(
         ["coqc", "-Q", str(weil_dir), "", "-Q", str(test_dir), "", str(spec)],
         cwd=workspace_root,
@@ -89,4 +109,4 @@ def verify_coq_candidate(workspace_root: Path) -> dict[str, Any]:
         if "Closed under the global context" not in combined or re.search(r"^Axioms:", combined, re.MULTILINE):
             return {"status": "FAIL", "reason": f"UNVETTED_AXIOMS_IN_THEOREM:{theorem}", "output": combined}
 
-    return {"status": "PASS", "reason": "ALL_THEOREMS_CLOSED"}
+    return {"status": "PASS", "reason": "ALL_THEOREMS_CLOSED_AND_SIGNATURE_LOCKED"}
