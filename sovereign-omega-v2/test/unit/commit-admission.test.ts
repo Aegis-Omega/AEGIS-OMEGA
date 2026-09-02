@@ -145,6 +145,17 @@ describe('section 10.2 — causal tuple validity', () => {
     expect(validTuple(normalVertex({ causal_tuple: [PARENT, PARENT, DECISION] }))).toBe(false)
   })
 
+  it('requires c2 to be a member of H, not merely equal to the extension field', () => {
+    // c0 and c1 were always checked against H; c2 was only checked for equality
+    // with decision_record_hash, so any string the two shared passed.
+    for (const bogus of ['missing', '', 'sha256:nope', DECISION.toUpperCase()]) {
+      const v = rebaseVertex({
+        causal_tuple: [PARENT, INTENDED, bogus],
+        rebase_extension: ext({ decision_record_hash: bogus }),
+      })
+      expect(validTuple(v)).toBe(false)
+    }
+  })
 })
 
 describe('A3 — genesis anchor', () => {
@@ -249,7 +260,7 @@ describe('section 10.3 / A1 — strategy alignment, and the fail-open it closes'
 
   it('A1: a transform/strategy mismatch passed every conjunct 9.2 originally listed', () => {
     const mismatched = rebaseVertex({ transform: 'fork_from_archive' }) // strategy stays reparent_*
-    // Everything the spec's admission conjunction actually checks:
+    // Everything the spec's admission conjunction checks:
     expect(validTuple(mismatched)).toBe(true)
     expect(proofReferencesPresent(mismatched)).toBe(true)
     // ...and the predicate the spec defines but never consults:
