@@ -1,6 +1,11 @@
 name: NVIDIA Vertex Live GPU Receipt
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/polyglot-gcp-nvidia-live.yml'
+      - 'sovereign-omega-v2/src/polyglot/nvidia-remote-gpu.ts'
+      - 'sovereign-omega-v2/test/integration/polyglot-nvidia-vertex-live.test.ts'
   workflow_dispatch:
     inputs:
       acknowledge_cost:
@@ -27,11 +32,41 @@ concurrency:
 
 env:
   PROJECT_ID: aegisomegav1
-  EXPECTED_SHA: ${{ github.sha }}
+  EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   CUDA_IMAGE: nvidia/cuda:13.2.0-base-ubuntu24.04
 
 jobs:
+  nonbillable-contract:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          persist-credentials: false
+
+      - name: Prove live workflow remains manual and cost bounded
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORKFLOW=.github/workflows/polyglot-gcp-nvidia-live.yml
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          grep -F "workflow_dispatch:" "$WORKFLOW"
+          grep -F "github.event_name == 'workflow_dispatch'" "$WORKFLOW"
+          grep -F "ACKNOWLEDGE_COST" "$WORKFLOW"
+          grep -F "a2-highgpu-1g" "$WORKFLOW"
+          grep -F "NVIDIA_TESLA_A100" "$WORKFLOW"
+          grep -F "timeout: 900s" "$WORKFLOW"
+          grep -F "GCP_WORKLOAD_IDENTITY_PROVIDER" "$WORKFLOW"
+          grep -F "nvidia/cuda:13.2.0-base-ubuntu24.04" "$WORKFLOW"
+          grep -F "<<'YAML'" "$WORKFLOW"
+          ! grep -Eq '^  push:' "$WORKFLOW"
+          ! grep -F 'service-account-key-file' "$WORKFLOW"
+
   vertex-a100-live:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
