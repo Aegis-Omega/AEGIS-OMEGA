@@ -54,7 +54,10 @@ class RepositoryEnforcementContractTests(unittest.TestCase):
         self.assertEqual(payload["conditions"]["ref_name"]["include"], ["~DEFAULT_BRANCH"])
         self.assertEqual(payload["conditions"]["ref_name"]["exclude"], [])
         rule_types = {rule["type"] for rule in payload["rules"]}
-        self.assertTrue({"deletion", "non_fast_forward", "required_signatures", "pull_request", "required_status_checks"} <= rule_types)
+        self.assertLessEqual(
+            {"deletion", "non_fast_forward", "required_signatures", "pull_request", "required_status_checks"},
+            rule_types,
+        )
 
     def test_trusted_admission_is_source_pinned_to_verified_main_not_feature_branch(self) -> None:
         payload = load(TRUSTED_WORKFLOW_RULESET_PATH)
