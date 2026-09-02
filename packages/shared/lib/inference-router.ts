@@ -93,7 +93,7 @@ async function callClaudeBackend(req: InferenceRequest): Promise<InferenceRespon
   const apiKey = import.meta.env.VITE_CLAUDE_API_KEY as string | undefined
   if (!apiKey) throw new Error('VITE_CLAUDE_API_KEY not configured')
 
-  const model = req.model ?? (import.meta.env.VITE_CLAUDE_MODEL as string | undefined) ?? 'claude-haiku-4-5-20251001'
+  const model = req.model ?? (import.meta.env.VITE_CLAUDE_MODEL as string | undefined) ?? 'claude-opus-5'
   const t0 = Date.now()
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',

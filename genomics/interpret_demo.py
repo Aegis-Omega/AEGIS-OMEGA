@@ -31,14 +31,14 @@ def _variants(chain):
 def main() -> int:
     live = os.environ.get("AEGIS_LIVE") == "1"
     client = None
-    model = "claude-opus-4-8"
+    model = "claude-opus-5"
     if live:
         import sys
         here = os.path.dirname(os.path.abspath(__file__))
         sys.path.insert(0, os.path.abspath(os.path.join(here, "..", "sovereign-omega-v2", "python")))
         from anth_client import get_client
         client = get_client()
-        model = os.environ.get("AEGIS_SWARM_MODEL", "claude-opus-4-8")
+        model = os.environ.get("AEGIS_SWARM_MODEL", "claude-opus-5")
 
     print("AEGIS-Ω Genomics — deterministic caller + governed cached interpretation")
     print("=" * 72)

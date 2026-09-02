@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 AEGIS Auto-Gate Builder
-Uses Claude claude-sonnet-4-6 via Anthropic API to generate, test, and commit gate modules.
+Uses Claude claude-opus-5 via Anthropic API to generate, test, and commit gate modules.
 
 Usage:
   python3 scripts/auto-gate.py                         # build next 2 gates (pair)
@@ -60,7 +60,7 @@ def load_checkpoint() -> dict | None:
         return None
 
 
-# claude-sonnet-4-6 pricing (USD per token)
+# claude-opus-5 pricing (USD per token)
 _INPUT_PRICE_PER_TOKEN  = 3.00 / 1_000_000
 _OUTPUT_PRICE_PER_TOKEN = 15.00 / 1_000_000
 
@@ -377,7 +377,7 @@ Output ONLY the complete Rust file contents. No markdown. No explanation."""
             print(f"  ✗ Budget would be exceeded before attempt {attempt} — stopping")
             return False, gate_cost
 
-        print(f"  Calling Claude claude-sonnet-4-6 (attempt {attempt}/3)...")
+        print(f"  Calling Claude claude-opus-5 (attempt {attempt}/3)...")
 
         messages = [{"role": "user", "content": prompt}]
         if attempt > 1:
@@ -386,7 +386,7 @@ Output ONLY the complete Rust file contents. No markdown. No explanation."""
 
         try:
             response = client.messages.create(
-                model="claude-sonnet-4-6",
+                model="claude-opus-5",
                 max_tokens=4096,
                 system=SYSTEM_PROMPT,
                 messages=messages,
@@ -445,7 +445,7 @@ def commit_and_push(gates: list[int]):
     msg = (
         f"Gates {gate_range}: Auto-generated gossip broadcast monitors\n\n"
         f"{test_count} Rust tests passing. Generated via scripts/auto-gate.py\n"
-        f"using claude-sonnet-4-6 with self-correcting retry loop.\n\n"
+        f"using claude-opus-5 with self-correcting retry loop.\n\n"
         f"https://claude.ai/code/session_01WvFyntZArqThRgLczRutuM"
     )
     subprocess.run(["git", "commit", "-m", msg], check=True)
