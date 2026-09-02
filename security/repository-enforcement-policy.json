@@ -20,6 +20,8 @@
       "Body cites current head",
       "aegis / kernel-one",
       "scan-pr / osv-scan",
+      "aegis / automaton-2",
+      "aegis / automaton-3",
       "Main branch enforcement"
     ],
     "block_force_pushes": true,
@@ -33,14 +35,16 @@
     "FORCE_PUSH_TO_MAIN_IS_FORBIDDEN",
     "STALE_HEAD_EVIDENCE_CANNOT_AUTHORIZE_CURRENT_HEAD",
     "SECURITY_GATES_MUST_BE_REPOSITORY_ENFORCED",
+    "AUTOMATON_2_AND_AUTOMATON_3_MUST_BE_REPOSITORY_REQUIRED",
     "REQUIRED_CHECK_NAME_WITHOUT_PUBLISHER_BINDING_IS_INSUFFICIENT",
     "HASH_INTEGRITY_IS_NOT_SIGNER_AUTHENTICITY",
     "SIGNED_RECEIPT_IS_NOT_TRANSPARENCY_OR_NON_EQUIVOCATION"
   ],
   "rationale": {
     "human_approval_count": "Zero is deliberate for the current single-operator repository. GitHub does not allow a pull-request author to approve their own pull request; requiring one approval without an established independent write-level reviewer would create an availability deadlock or force a bypass. Review authority is therefore carried by mandatory machine gates and resolved review threads until an independent reviewer principal is established.",
-    "ruleset_preference": "A repository ruleset exposes effective branch rules through GitHub's branch-rules API, allowing the read-only CI verifier to prove the active enforcement surface without privileged Administration reads.",
-    "check_publisher_binding": "The four frozen check contexts were observed as GitHub Actions check runs from integration/app id 15368. The ruleset pins both context and integration id to prevent same-name status spoofing by another publisher."
+    "ruleset_preference": "A repository ruleset exposes effective branch rules through GitHub's branch-rules API, allowing the read-only CI verifier to prove the active enforcement surface without acquiring mutation authority.",
+    "admission_automata": "Automaton-2 and Automaton-3 are independent admission gates. Kernel One success is not a transitive substitute: exact-head evidence demonstrates Kernel One can succeed while Automaton-2 fails, so both automata must be separately repository-required.",
+    "check_publisher_binding": "The six frozen check contexts are GitHub Actions check-run contexts from integration/app id 15368. The ruleset pins both context and integration id to prevent same-name publisher substitution."
   },
   "notes": [
     "This file is declarative; GitHub repository settings remain the enforcement authority.",
