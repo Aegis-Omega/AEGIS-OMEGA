@@ -41,9 +41,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          parent="${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}"
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            base_ref="${{ github.event.pull_request.base.ref }}"
+            if [[ -z "$base_ref" ]]; then
+              echo "Pull-request base ref is unavailable; refusing stale parent resolution." >&2
+              exit 1
+            fi
+            git fetch origin "$base_ref" --no-tags
+            parent="$(git rev-parse "origin/$base_ref")"
+          else
+            parent="${{ github.event.merge_group.base_sha || github.event.before }}"
+            if [[ -z "$parent" || "$parent" =~ ^0+$ ]]; then
+              parent="$(git rev-parse "${CANDIDATE_SHA}^")"
+            fi
+          fi
           if [[ -z "$parent" || "$parent" =~ ^0+$ ]]; then
-            parent="$(git rev-parse "${CANDIDATE_SHA}^")"
+            echo "Parent SHA is unavailable; refusing to synthesize a root transition." >&2
+            exit 1
           fi
           parent_manifest="$RUNNER_TEMP/PARENT_CLAUDE.json"
           parent_hash="$(printf '0%.0s' {1..64})"

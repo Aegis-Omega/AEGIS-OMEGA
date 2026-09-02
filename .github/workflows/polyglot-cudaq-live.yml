@@ -1,0 +1,87 @@
+name: CUDA-Q Live Simulator Receipt
+
+on:
+  push:
+    branches:
+      - research/polyglot-metacognition-v1
+    paths:
+      - '.github/workflows/polyglot-cudaq-live.yml'
+      - '.github/workflows/polyglot-metacognition.yml'
+      - 'sovereign-omega-v2/src/polyglot/nvidia.ts'
+      - 'sovereign-omega-v2/src/polyglot/nvidia-execution.ts'
+      - 'sovereign-omega-v2/src/polyglot/nvidia-probe.ts'
+      - 'sovereign-omega-v2/src/polyglot/nvidia-quantum-smoke.ts'
+      - 'sovereign-omega-v2/test/integration/polyglot-cudaq-live.test.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cudaq-live-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXPECTED_SHA: ${{ github.sha }}
+
+jobs:
+  qpp-cpu-live:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Set up Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+
+      - name: Install pinned CUDA-Q runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --upgrade 'pip>=24'
+          python3 -m pip install 'cudaq==0.15.1'
+          python3 - <<'PY'
+          import cudaq
+          import importlib.metadata
+          print('cudaq_package_version=' + importlib.metadata.version('cudaq'))
+          print('cudaq_target=' + cudaq.get_target().name)
+          PY
+
+      - name: Install exact Node dependencies
+        working-directory: sovereign-omega-v2
+        run: npm ci
+
+      - name: Execute live qpp-cpu receipt chain
+        working-directory: sovereign-omega-v2
+        env:
+          AEGIS_CUDAQ_LIVE: '1'
+          AEGIS_CUDAQ_RECEIPT_PATH: artifacts/cudaq-live-receipt.json
+        run: npx vitest run test/integration/polyglot-cudaq-live.test.ts
+
+      - name: Upload digest-bound receipt artifact
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cudaq-live-receipt-${{ github.sha }}
+          path: sovereign-omega-v2/artifacts/cudaq-live-receipt.json
+          if-no-files-found: error
+          retention-days: 14
