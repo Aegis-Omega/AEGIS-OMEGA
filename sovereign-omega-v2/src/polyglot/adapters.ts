@@ -175,7 +175,7 @@ export const FIRST_WAVE_ADAPTERS: readonly PolyglotAdapterDescriptor[] = deepFre
   },
 ])
 
-const ADAPTER_BY_TOOLCHAIN = new Map(
+const ADAPTER_BY_TOOLCHAIN: ReadonlyMap<string, PolyglotAdapterDescriptor> = new Map(
   FIRST_WAVE_ADAPTERS.map(adapter => [adapter.toolchain_id, adapter] as const),
 )
 
