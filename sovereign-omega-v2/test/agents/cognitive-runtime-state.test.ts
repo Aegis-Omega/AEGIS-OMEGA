@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { hashValue } from '../../src/core/hashing.js'
 import type { SHA256Hex } from '../../src/core/types.js'
 import { selectProviderCognitiveProfile } from '../../src/agents/coordination/provider-cognition.js'
 import {
@@ -135,16 +136,16 @@ describe('OpenAI continuation transports', () => {
     expect(request.include).toEqual(['reasoning.encrypted_content'])
   })
 
-  it('requires explicit retention for previous_response_id and emits API-native compaction fields', () => {
+  it('requires explicit retention for previous_response_id and emits API-native compaction fields', async () => {
     const profile = selectProviderCognitiveProfile('openai', 'frontier-research')
-    expect(() => buildOpenAIResponsesContinuationRequest({
+    await expect(Promise.resolve().then(() => buildOpenAIResponsesContinuationRequest({
       profile,
       state: state(),
       input: 'continue proof search',
       retention_policy: 'STATELESS',
-    })).toThrow(/retention/i)
+    }))).rejects.toThrow(/retention/i)
 
-    const request = buildOpenAIResponsesContinuationRequest({
+    const request = await buildOpenAIResponsesContinuationRequest({
       profile,
       state: state(),
       input: 'continue proof search',
@@ -156,29 +157,41 @@ describe('OpenAI continuation transports', () => {
     expect(request.context_management).toEqual([{ type: 'compaction', compact_threshold: 20_000 }])
   })
 
-  it('fails closed unless ZDR replay resolves the complete prior stateless context window', () => {
+  it('fails closed unless ZDR replay resolves and digest-binds the complete ordered stateless context', async () => {
     const profile = selectProviderCognitiveProfile('openai', 'frontier-research')
+    const refs = [
+      'vault://responses/context/user-1',
+      'vault://responses/context/reasoning-1',
+      'vault://responses/context/message-1',
+    ] as const
+    const priorContext = [
+      { type: 'message', role: 'user', content: 'prior question' },
+      { type: 'reasoning', encrypted_content: 'opaque-ciphertext' },
+      { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'prior answer' }] },
+    ] as const
+    const replayDigest = await hashValue({
+      receipt_kind: 'AEGIS_OPENAI_STATELESS_REPLAY_V1',
+      schema_version: '1.0.0',
+      stateless_context_item_refs: refs,
+      stateless_context_items: priorContext,
+    })
     const replayState: WorkingCognitiveStateV1 = {
       ...state(),
       provider_continuation: {
         transport: 'OPENAI_ENCRYPTED_REPLAY',
-        stateless_context_item_refs: [
-          'vault://responses/context/user-1',
-          'vault://responses/context/reasoning-1',
-          'vault://responses/context/message-1',
-        ],
-        opaque_payload_digest: sha('d'),
+        stateless_context_item_refs: refs,
+        opaque_payload_digest: replayDigest,
       },
     }
 
-    expect(() => buildOpenAIResponsesContinuationRequest({
+    await expect(Promise.resolve().then(() => buildOpenAIResponsesContinuationRequest({
       profile,
       state: replayState,
       input: 'continue proof search',
       retention_policy: 'ZDR',
-    })).toThrow(/resolved stateless context/i)
+    }))).rejects.toThrow(/resolved stateless context/i)
 
-    expect(() => buildOpenAIResponsesContinuationRequest({
+    await expect(Promise.resolve().then(() => buildOpenAIResponsesContinuationRequest({
       profile,
       state: replayState,
       input: 'continue proof search',
@@ -186,14 +199,31 @@ describe('OpenAI continuation transports', () => {
       resolved_stateless_context_items: [
         { type: 'message', role: 'user', content: 'prior question' },
       ],
-    })).toThrow(/one resolved stateless context item per reference/i)
+    }))).rejects.toThrow(/one resolved stateless context item per reference/i)
 
-    const priorContext = [
-      { type: 'message', role: 'user', content: 'prior question' },
-      { type: 'reasoning', encrypted_content: 'opaque-ciphertext' },
-      { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'prior answer' }] },
+    const substitutedContext = [
+      priorContext[0],
+      priorContext[1],
+      { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'spliced answer' }] },
     ] as const
-    const request = buildOpenAIResponsesContinuationRequest({
+    await expect(Promise.resolve().then(() => buildOpenAIResponsesContinuationRequest({
+      profile,
+      state: replayState,
+      input: 'continue proof search',
+      retention_policy: 'ZDR',
+      resolved_stateless_context_items: substitutedContext,
+    }))).rejects.toThrow(/digest/i)
+
+    const reorderedContext = [priorContext[1], priorContext[0], priorContext[2]] as const
+    await expect(Promise.resolve().then(() => buildOpenAIResponsesContinuationRequest({
+      profile,
+      state: replayState,
+      input: 'continue proof search',
+      retention_policy: 'ZDR',
+      resolved_stateless_context_items: reorderedContext,
+    }))).rejects.toThrow(/digest/i)
+
+    const request = await buildOpenAIResponsesContinuationRequest({
       profile,
       state: replayState,
       input: 'continue proof search',
