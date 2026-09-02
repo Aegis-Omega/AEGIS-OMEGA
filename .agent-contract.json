@@ -1,0 +1,36 @@
+{
+  "protocol": "AMPS",
+  "protocol_version": "1.0.0",
+  "governance": {
+    "narrative_memory_equals_evidence_memory": false,
+    "vacuous_truth_allowed": false,
+    "fail_closed": true,
+    "tests_may_be_skipped_to_pass": false
+  },
+  "authority_tiers": {
+    "T0_FORMAL": { "admission_gate": true, "requires_closed_under_global_context": true, "axiom_policy": "sovereign-omega-v2/formal/coq-inventory-policy.json" },
+    "T0_STRUCTURAL": { "admission_gate": true, "acyclic_inventory_required": true, "inventory": "sovereign-omega-v2/formal/coq-inventory.json" },
+    "T1_BOUNDED_FALSIFICATION": { "admission_gate": true, "failure_state": "QUARANTINED" },
+    "T1_DIAGNOSTIC": { "admission_gate": false, "escalation_forbidden": true, "max_qubits_deterministic": 2 },
+    "OPEN": { "admission_gate": false, "may_report_pass": false, "default_outcome": "UNKNOWN" }
+  },
+  "mandatory_gates": ["P1_COQ_KERNEL", "P2_EXACT_HEAD", "P3_DEPENDENCY_GRAPH", "P4_ARITHMETIC_BOUND"],
+  "perspective_tiers": {
+    "P1_COQ_KERNEL": "T0_FORMAL",
+    "P2_EXACT_HEAD": "T0_FORMAL",
+    "P3_DEPENDENCY_GRAPH": "T0_STRUCTURAL",
+    "P4_ARITHMETIC_BOUND": "T1_BOUNDED_FALSIFICATION",
+    "P5_WEIL_DUALITY": "OPEN",
+    "P_QUANTUM_GROVER": "T1_DIAGNOSTIC"
+  },
+  "canonical_status": {
+    "QuantumTourbillon": "ARCHITECTURAL_HYPOTHESIS",
+    "QUANTUM_PHYSICAL_ADVANTAGE": "NOT_ESTABLISHED",
+    "RH": "NOT_PROVEN",
+    "UCR": { "status": "PROTO_RESONANT", "machine_established": false }
+  },
+  "bindings": {
+    "mpvc_module": "clients/python/aegis_omega/tourbillon.py",
+    "mpvc_manifest": "clients/python/TOURBILLON_MERGE_MANIFEST.json"
+  }
+}

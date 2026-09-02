@@ -1,0 +1,77 @@
+name: Agent Governance & Calibration Gate
+
+on:
+  pull_request:
+    paths:
+      - "AGENTS.md"
+      - ".agent-contract.json"
+      - "scripts/agent_governance_lint.py"
+      - "clients/python/aegis_omega/tourbillon.py"
+      - "clients/python/tests/test_quantum_tourbillon.py"
+      - "clients/python/tests/test_amps_mpvc_semantic_join.py"
+      - "clients/python/TOURBILLON_MERGE_MANIFEST.json"
+      - ".github/workflows/agent-calibration.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-calibration-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  enforce-calibration:
+    name: AMPS-v1 lint + hardened MPVC contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Install pinned MPVC diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e './clients/python[quantum]' 'pytest==8.3.5'
+          python - <<'PY'
+          from importlib.metadata import version
+          import qiskit
+          assert qiskit.__version__ == '2.5.2'
+          assert version('blake3') == '1.0.9'
+          assert version('pytest') == '8.3.5'
+          PY
+
+      - name: Governance lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/agent_governance_lint.py
+
+      - name: Hardened MPVC contract tests
+        shell: bash
+        working-directory: clients/python
+        run: |
+          set -euo pipefail
+          python -m pytest \
+            tests/test_quantum_tourbillon.py \
+            tests/test_amps_mpvc_semantic_join.py \
+            -v

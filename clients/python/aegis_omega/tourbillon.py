@@ -1,35 +1,24 @@
 """
-QuantumTourbillon — multi-perspective verification carousel (MPVC).
+QuantumTourbillon — deterministic multi-perspective verification carousel (MPVC).
 
-Status: ARCHITECTURAL_HYPOTHESIS.  QUANTUM_PHYSICAL_ADVANTAGE = NOT_ESTABLISHED.
-RH = NOT_PROVEN.  Nothing in this module carries proof authority.
+Status: ARCHITECTURAL_HYPOTHESIS. QUANTUM_PHYSICAL_ADVANTAGE = NOT_ESTABLISHED.
+RH = NOT_PROVEN. The Grover path is T1_DIAGNOSTIC and has zero admission authority.
 
-Authority taxonomy (fixed at import time, enforced on receipt construction):
+Admission invariant:
+    ADMITTED iff exactly one provenance-coherent PASS receipt exists for each
+    mandatory gate P1..P4 and every mandatory receipt has its fixed authority.
 
-    P1_COQ_KERNEL        -> ADMISSION_GATE
-    P2_EXACT_HEAD        -> ADMISSION_GATE
-    P3_DEPENDENCY_GRAPH  -> STRUCTURAL_GATE
-    P4_ARITHMETIC_BOUND  -> BOUNDED_FALSIFICATION
-    P5_WEIL_DUALITY      -> OPEN            (never PASS; recorded, never consulted)
-    P_QUANTUM_GROVER     -> T1_DIAGNOSTIC   (zero admission authority)
-
-Core invariant.  Admit(C) iff every mandatory gate (P1..P4) returns PASS.
-Any FAIL on a mandatory gate -> QUARANTINED.  Any UNKNOWN or UNAVAILABLE on a
-mandatory gate, or a mandatory gate absent -> UNKNOWN.  Receipts whose
-authority is OPEN or T1_DIAGNOSTIC are hashed into the chain but have no vote.
-
-Determinism.  Receipts are hashed with BLAKE3 over canonical JSON (sorted
-keys, no whitespace, ASCII).  No wall-clock time enters any digest.
-
-The Grover fault locator is a 2-qubit circuit simulated locally with the
-Qiskit statevector; it demonstrates amplitude amplification onto a marked
-failing perspective and nothing more.  No cloud backend is contacted.
+Any mandatory FAIL or receipt-integrity/provenance violation -> QUARANTINED.
+Missing, UNKNOWN, or UNAVAILABLE mandatory evidence -> UNKNOWN.
+OPEN and T1_DIAGNOSTIC receipts are retained in the receipt chain but never vote.
 """
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from enum import Enum
+from types import MappingProxyType
 from typing import Any, Mapping, Sequence
 
 import blake3
@@ -46,14 +35,15 @@ __all__ = [
     "PerspectiveOutcome",
     "PerspectiveReceipt",
     "QuantumPerspectiveCarousel",
+    "RECEIPT_VERSION",
     "canonical_bytes",
     "resolve_claim",
 ]
 
+RECEIPT_VERSION = "1.1.0"
+_HEX40 = re.compile(r"^[0-9a-f]{40}$")
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
-# ---------------------------------------------------------------------------
-# Taxonomy
-# ---------------------------------------------------------------------------
 
 class PerspectiveOutcome(str, Enum):
     PASS = "PASS"
@@ -75,17 +65,6 @@ class AuthorityLevel(str, Enum):
     OPEN = "OPEN"
     T1_DIAGNOSTIC = "T1_DIAGNOSTIC"
 
-    @property
-    def admission_bearing(self) -> bool:
-        return self in _ADMISSION_BEARING
-
-
-_ADMISSION_BEARING = frozenset({
-    AuthorityLevel.ADMISSION_GATE,
-    AuthorityLevel.STRUCTURAL_GATE,
-    AuthorityLevel.BOUNDED_FALSIFICATION,
-})
-
 
 class Perspective(str, Enum):
     P1_COQ_KERNEL = "P1_COQ_KERNEL"
@@ -96,14 +75,14 @@ class Perspective(str, Enum):
     P_QUANTUM_GROVER = "P_QUANTUM_GROVER"
 
 
-PERSPECTIVE_AUTHORITY: Mapping[Perspective, AuthorityLevel] = {
+PERSPECTIVE_AUTHORITY: Mapping[Perspective, AuthorityLevel] = MappingProxyType({
     Perspective.P1_COQ_KERNEL: AuthorityLevel.ADMISSION_GATE,
     Perspective.P2_EXACT_HEAD: AuthorityLevel.ADMISSION_GATE,
     Perspective.P3_DEPENDENCY_GRAPH: AuthorityLevel.STRUCTURAL_GATE,
     Perspective.P4_ARITHMETIC_BOUND: AuthorityLevel.BOUNDED_FALSIFICATION,
     Perspective.P5_WEIL_DUALITY: AuthorityLevel.OPEN,
     Perspective.P_QUANTUM_GROVER: AuthorityLevel.T1_DIAGNOSTIC,
-}
+})
 
 MANDATORY_GATES: tuple[Perspective, ...] = (
     Perspective.P1_COQ_KERNEL,
@@ -111,47 +90,92 @@ MANDATORY_GATES: tuple[Perspective, ...] = (
     Perspective.P3_DEPENDENCY_GRAPH,
     Perspective.P4_ARITHMETIC_BOUND,
 )
+_MANDATORY_SET = frozenset(MANDATORY_GATES)
 
-
-# ---------------------------------------------------------------------------
-# Receipts
-# ---------------------------------------------------------------------------
 
 def canonical_bytes(payload: Any) -> bytes:
-    """Canonical JSON: sorted keys, no whitespace, ASCII-only, UTF-8 bytes."""
+    """Strict canonical JSON bytes for deterministic hashing.
+
+    NaN/Infinity are rejected. Key order and incidental whitespace never affect
+    the digest.
+    """
     return json.dumps(
-        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
     ).encode("utf-8")
+
+
+def _freeze_json(value: Any) -> Any:
+    if isinstance(value, dict):
+        return MappingProxyType({key: _freeze_json(item) for key, item in value.items()})
+    if isinstance(value, list):
+        return tuple(_freeze_json(item) for item in value)
+    return value
+
+
+def _thaw_json(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {key: _thaw_json(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_thaw_json(item) for item in value]
+    return value
+
+
+def _require_source_sha(value: str) -> None:
+    if not isinstance(value, str) or _HEX40.fullmatch(value) is None:
+        raise ValueError("source_sha must be a full lowercase 40-hex Git commit SHA")
+
+
+def _require_digest(name: str, value: str) -> None:
+    if not isinstance(value, str) or _HEX64.fullmatch(value) is None:
+        raise ValueError(f"{name} must be a lowercase 64-hex digest")
 
 
 @dataclass(frozen=True)
 class PerspectiveReceipt:
     perspective: Perspective
     outcome: PerspectiveOutcome
+    source_sha: str
+    claim_digest: str
+    execution_digest: str
     evidence: Mapping[str, Any] = field(default_factory=dict)
+    version: str = RECEIPT_VERSION
     authority: AuthorityLevel = field(init=False)
+    _canonical_evidence: bytes = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
+        if self.version != RECEIPT_VERSION:
+            raise ValueError(f"unsupported receipt version: {self.version!r}")
+        _require_source_sha(self.source_sha)
+        _require_digest("claim_digest", self.claim_digest)
+        _require_digest("execution_digest", self.execution_digest)
+
         expected = PERSPECTIVE_AUTHORITY[self.perspective]
         object.__setattr__(self, "authority", expected)
-        if (
-            expected is AuthorityLevel.OPEN
-            and self.outcome is PerspectiveOutcome.PASS
-        ):
-            raise ValueError(
-                f"{self.perspective.value} is OPEN and can never report PASS"
-            )
+        if expected is AuthorityLevel.OPEN and self.outcome is PerspectiveOutcome.PASS:
+            raise ValueError(f"{self.perspective.value} is OPEN and can never report PASS")
+
         try:
-            canonical_bytes(dict(self.evidence))
+            canonical = canonical_bytes(dict(self.evidence))
+            normalized = json.loads(canonical)
         except (TypeError, ValueError) as exc:
-            raise ValueError("receipt evidence must be canonical-JSON serialisable") from exc
+            raise ValueError("receipt evidence must be strict canonical-JSON serialisable") from exc
+        object.__setattr__(self, "_canonical_evidence", canonical)
+        object.__setattr__(self, "evidence", _freeze_json(normalized))
 
     def payload(self) -> dict[str, Any]:
         return {
+            "version": self.version,
+            "source_sha": self.source_sha,
+            "claim_digest": self.claim_digest,
+            "execution_digest": self.execution_digest,
             "perspective": self.perspective.value,
             "authority": self.authority.value,
             "outcome": self.outcome.value,
-            "evidence": dict(self.evidence),
+            "evidence": _thaw_json(self.evidence),
         }
 
     def digest(self) -> str:
@@ -161,53 +185,95 @@ class PerspectiveReceipt:
 @dataclass(frozen=True)
 class ClaimResolution:
     state: ClaimState
+    source_sha: str
+    claim_digest: str
     consulted: tuple[str, ...]
     ignored: tuple[str, ...]
     receipt_digests: tuple[str, ...]
     chain_digest: str
+    violations: tuple[str, ...]
 
 
-def resolve_claim(receipts: Sequence[PerspectiveReceipt]) -> ClaimResolution:
-    """Apply the core invariant.  Only admission-bearing receipts have a vote."""
+def resolve_claim(
+    receipts: Sequence[PerspectiveReceipt],
+    *,
+    expected_source_sha: str,
+    expected_claim_digest: str,
+) -> ClaimResolution:
+    """Resolve one claim under exact-head and claim-digest provenance binding."""
+    _require_source_sha(expected_source_sha)
+    _require_digest("expected_claim_digest", expected_claim_digest)
+
+    receipts = tuple(receipts)
     by_perspective: dict[Perspective, PerspectiveReceipt] = {}
+    violations: list[str] = []
+
     for receipt in receipts:
         if receipt.perspective in by_perspective:
-            raise ValueError(f"duplicate receipt for {receipt.perspective.value}")
-        by_perspective[receipt.perspective] = receipt
+            violations.append(f"DUPLICATE_PERSPECTIVE:{receipt.perspective.value}")
+        else:
+            by_perspective[receipt.perspective] = receipt
 
-    consulted = [r for r in receipts if r.authority.admission_bearing]
-    ignored = [r for r in receipts if not r.authority.admission_bearing]
+        expected_authority = PERSPECTIVE_AUTHORITY[receipt.perspective]
+        if receipt.authority is not expected_authority:
+            violations.append(f"AUTHORITY_MISMATCH:{receipt.perspective.value}")
+        if receipt.source_sha != expected_source_sha:
+            violations.append(f"SOURCE_SHA_MISMATCH:{receipt.perspective.value}")
+        if receipt.claim_digest != expected_claim_digest:
+            violations.append(f"CLAIM_DIGEST_MISMATCH:{receipt.perspective.value}")
 
-    outcomes = [r.outcome for r in consulted]
-    missing = [g for g in MANDATORY_GATES if g not in by_perspective]
-
-    if PerspectiveOutcome.FAIL in outcomes:
-        state = ClaimState.QUARANTINED
-    elif (
-        missing
-        or PerspectiveOutcome.UNKNOWN in outcomes
-        or PerspectiveOutcome.UNAVAILABLE in outcomes
-    ):
-        state = ClaimState.UNKNOWN
-    else:
-        state = ClaimState.ADMITTED
-
-    digests = tuple(r.digest() for r in receipts)
-    chain_digest = blake3.blake3(
-        canonical_bytes({"receipts": list(digests), "state": state.value})
-    ).hexdigest()
-    return ClaimResolution(
-        state=state,
-        consulted=tuple(r.perspective.value for r in consulted),
-        ignored=tuple(r.perspective.value for r in ignored),
-        receipt_digests=digests,
-        chain_digest=chain_digest,
+    consulted = tuple(
+        receipt.perspective.value for receipt in receipts
+        if receipt.perspective in _MANDATORY_SET
+    )
+    ignored = tuple(
+        receipt.perspective.value for receipt in receipts
+        if receipt.perspective not in _MANDATORY_SET
     )
 
+    mandatory = [by_perspective.get(gate) for gate in MANDATORY_GATES]
+    if violations:
+        state = ClaimState.QUARANTINED
+    elif any(
+        receipt is not None and receipt.outcome is PerspectiveOutcome.FAIL
+        for receipt in mandatory
+    ):
+        state = ClaimState.QUARANTINED
+    elif any(
+        receipt is None
+        or receipt.outcome in (PerspectiveOutcome.UNKNOWN, PerspectiveOutcome.UNAVAILABLE)
+        for receipt in mandatory
+    ):
+        state = ClaimState.UNKNOWN
+    elif all(
+        receipt is not None and receipt.outcome is PerspectiveOutcome.PASS
+        for receipt in mandatory
+    ):
+        state = ClaimState.ADMITTED
+    else:
+        state = ClaimState.UNKNOWN
 
-# ---------------------------------------------------------------------------
-# Grover fault locator (2 qubits, exact, local statevector)
-# ---------------------------------------------------------------------------
+    receipt_digests = tuple(receipt.digest() for receipt in receipts)
+    chain_digest = blake3.blake3(canonical_bytes({
+        "version": RECEIPT_VERSION,
+        "source_sha": expected_source_sha,
+        "claim_digest": expected_claim_digest,
+        "receipts": list(receipt_digests),
+        "state": state.value,
+        "violations": violations,
+    })).hexdigest()
+
+    return ClaimResolution(
+        state=state,
+        source_sha=expected_source_sha,
+        claim_digest=expected_claim_digest,
+        consulted=consulted,
+        ignored=ignored,
+        receipt_digests=receipt_digests,
+        chain_digest=chain_digest,
+        violations=tuple(violations),
+    )
+
 
 @dataclass(frozen=True)
 class GroverDiagnostic:
@@ -218,7 +284,13 @@ class GroverDiagnostic:
     circuit_qasm_depth: int
     marked_name: str | None = None
 
-    def as_receipt(self) -> PerspectiveReceipt:
+    def as_receipt(
+        self,
+        *,
+        source_sha: str,
+        claim_digest: str,
+        execution_digest: str,
+    ) -> PerspectiveReceipt:
         outcome = (
             PerspectiveOutcome.PASS
             if self.located_index is not None and self.probability > 0.99
@@ -227,6 +299,9 @@ class GroverDiagnostic:
         return PerspectiveReceipt(
             perspective=Perspective.P_QUANTUM_GROVER,
             outcome=outcome,
+            source_sha=source_sha,
+            claim_digest=claim_digest,
+            execution_digest=execution_digest,
             evidence={
                 "marked_index": self.marked_index,
                 "marked_name": self.marked_name,
@@ -235,45 +310,66 @@ class GroverDiagnostic:
                 "probabilities": [round(p, 12) for p in self.probabilities],
                 "backend": "qiskit.quantum_info.Statevector",
                 "physical_advantage": "NOT_ESTABLISHED",
+                "admission_authority": "NONE",
             },
         )
 
 
 class QuantumPerspectiveCarousel:
-    """Indexes the four mandatory gates on a 2-qubit register and runs one
-    exact Grover iteration against the first non-PASS gate."""
+    """2-qubit local fault locator over the four mandatory gates.
 
-    REGISTER: tuple[Perspective, ...] = MANDATORY_GATES  # index 0..3
+    The quantum receipt is always T1_DIAGNOSTIC. Classical resolution remains
+    the sole source of claim state.
+    """
 
-    def __init__(self, receipts: Sequence[PerspectiveReceipt]) -> None:
+    REGISTER: tuple[Perspective, ...] = MANDATORY_GATES
+
+    def __init__(
+        self,
+        receipts: Sequence[PerspectiveReceipt],
+        *,
+        source_sha: str,
+        claim_digest: str,
+        diagnostic_execution_digest: str,
+    ) -> None:
+        _require_source_sha(source_sha)
+        _require_digest("claim_digest", claim_digest)
+        _require_digest("diagnostic_execution_digest", diagnostic_execution_digest)
         self.receipts = tuple(receipts)
-        self._by_perspective = {r.perspective: r for r in self.receipts}
+        self.source_sha = source_sha
+        self.claim_digest = claim_digest
+        self.diagnostic_execution_digest = diagnostic_execution_digest
 
     def failing_index(self) -> int | None:
         for index, perspective in enumerate(self.REGISTER):
-            receipt = self._by_perspective.get(perspective)
-            if receipt is None or receipt.outcome is not PerspectiveOutcome.PASS:
+            matches = [r for r in self.receipts if r.perspective is perspective]
+            if len(matches) != 1:
+                return index
+            receipt = matches[0]
+            if (
+                receipt.authority is not PERSPECTIVE_AUTHORITY[perspective]
+                or receipt.source_sha != self.source_sha
+                or receipt.claim_digest != self.claim_digest
+                or receipt.outcome is not PerspectiveOutcome.PASS
+            ):
                 return index
         return None
 
     @staticmethod
     def build_fault_locator(marked_index: int):
-        """Exact 2-qubit Grover: H⊗H, phase oracle on |marked⟩, diffuser.
-        For N = 4 with one marked item a single iteration is exact (p = 1)."""
+        """Exact N=4 Grover circuit; one iteration gives p=1 for one mark."""
         if not 0 <= marked_index < 4:
             raise ValueError("marked_index must be in 0..3")
         from qiskit import QuantumCircuit
 
         qc = QuantumCircuit(2, name=f"grover_fault_{marked_index}")
         qc.h([0, 1])
-        # oracle: flip the phase of |marked⟩ (qubit 0 is the least-significant bit)
         zeros = [q for q in (0, 1) if not (marked_index >> q) & 1]
         if zeros:
             qc.x(zeros)
         qc.cz(0, 1)
         if zeros:
             qc.x(zeros)
-        # diffuser: 2|s><s| - I
         qc.h([0, 1])
         qc.x([0, 1])
         qc.cz(0, 1)
@@ -286,7 +382,9 @@ class QuantumPerspectiveCarousel:
         from qiskit.quantum_info import Statevector
 
         qc = cls.build_fault_locator(marked_index)
-        probabilities = tuple(float(p) for p in Statevector.from_instruction(qc).probabilities())
+        probabilities = tuple(
+            float(p) for p in Statevector.from_instruction(qc).probabilities()
+        )
         located = max(range(4), key=probabilities.__getitem__)
         return GroverDiagnostic(
             marked_index=marked_index,
@@ -309,25 +407,20 @@ class QuantumPerspectiveCarousel:
         return self.amplify(marked)
 
     def resolve(self) -> ClaimResolution:
-        """Resolve the claim with the Grover receipt appended.  The appended
-        receipt is T1_DIAGNOSTIC and therefore never consulted."""
-        return resolve_claim([*self.receipts, self.locate_fault().as_receipt()])
+        diagnostic = self.locate_fault().as_receipt(
+            source_sha=self.source_sha,
+            claim_digest=self.claim_digest,
+            execution_digest=self.diagnostic_execution_digest,
+        )
+        return resolve_claim(
+            [*self.receipts, diagnostic],
+            expected_source_sha=self.source_sha,
+            expected_claim_digest=self.claim_digest,
+        )
 
-
-# ---------------------------------------------------------------------------
-# Diagnostic oracle registry (integration seam for external invariants)
-# ---------------------------------------------------------------------------
 
 class DiagnosticOracleRegistry:
-    """Registers named invariants and turns the first one that fails into the
-    marked state of the 2-qubit fault locator.
-
-    The register holds at most four invariants because the single-iteration
-    Grover circuit is exact only for N = 4 with one marked item; a larger
-    search space needs round(pi/4 * sqrt(N)) iterations and is no longer
-    exact, which is a different diagnostic and is not implemented here.
-    An invariant that raises counts as failing.  T1_DIAGNOSTIC only.
-    """
+    """T1_DIAGNOSTIC registry for up to four local invariants."""
 
     CAPACITY = 4
 

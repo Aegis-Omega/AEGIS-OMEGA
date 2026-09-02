@@ -1,0 +1,128 @@
+name: Quantum Tourbillon MPVC
+
+on:
+  pull_request:
+    paths:
+      - "clients/python/aegis_omega/tourbillon.py"
+      - "clients/python/tests/test_quantum_tourbillon.py"
+      - "clients/python/setup.py"
+      - "clients/python/TOURBILLON_MERGE_MANIFEST.json"
+      - ".github/workflows/quantum-tourbillon-mpvc.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quantum-tourbillon-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  provenance-bound-mpvc:
+    name: T1_DIAGNOSTIC / provenance-bound MPVC
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pinned diagnostic dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e './clients/python[quantum]' 'pytest==8.3.5'
+          python - <<'PY'
+          from importlib.metadata import version
+          import qiskit
+          assert qiskit.__version__ == "2.5.2", qiskit.__version__
+          assert version("blake3") == "1.0.9", version("blake3")
+          assert version("pytest") == "8.3.5", version("pytest")
+          PY
+
+      - name: Compile Python surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            clients/python/aegis_omega/tourbillon.py \
+            clients/python/tests/test_quantum_tourbillon.py
+
+      - name: Run fail-closed MPVC contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tourbillon-attestation
+          cd clients/python
+          python -m pytest tests/test_quantum_tourbillon.py -v \
+            | tee ../../tourbillon-attestation/pytest.txt
+
+      - name: Emit exact-head diagnostic receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from importlib.metadata import version
+          from pathlib import Path
+          import blake3, qiskit
+
+          paths = [
+              Path('clients/python/aegis_omega/tourbillon.py'),
+              Path('clients/python/tests/test_quantum_tourbillon.py'),
+              Path('clients/python/setup.py'),
+              Path('.github/workflows/quantum-tourbillon-mpvc.yml'),
+          ]
+          pytest_text = Path('tourbillon-attestation/pytest.txt').read_text(encoding='utf-8')
+          payload = {
+              'receipt_kind': 'AEGIS_QUANTUM_TOURBILLON_MPVC_HARDENING_RECEIPT_V1',
+              'authority': 'T1_DIAGNOSTIC',
+              'admission_authority': 'NONE',
+              'source_commit': os.environ['SOURCE_SHA'],
+              'receipt_contract_version': '1.1.0',
+              'files_blake3': {
+                  str(path): blake3.blake3(path.read_bytes()).hexdigest()
+                  for path in paths
+              },
+              'toolchain': {
+                  'python': os.sys.version.split()[0],
+                  'qiskit': qiskit.__version__,
+                  'blake3': version('blake3'),
+                  'pytest': version('pytest'),
+                  'backend': 'qiskit.quantum_info.Statevector',
+                  'cloud': 'NONE',
+              },
+              'pytest_passed': ' passed in ' in pytest_text and ' failed' not in pytest_text,
+              'quantum_physical_advantage': 'NOT_ESTABLISHED',
+              'rh_proven': False,
+          }
+          assert payload['pytest_passed'] is True
+          target = Path('tourbillon-attestation/receipt.json')
+          target.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+          PY
+
+      - name: Upload diagnostic attestation
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: quantum-tourbillon-${{ env.SOURCE_SHA }}
+          path: tourbillon-attestation
+          if-no-files-found: error
+          retention-days: 90
