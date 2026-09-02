@@ -119,8 +119,8 @@ function quantumObservation(
 }
 
 describe('NVIDIA execution receipt boundaries', () => {
-  it('fails closed when no NVIDIA GPU environment is detected', () => {
-    expect(() => admitNvidiaGpuEnvironment(gpuObservation({
+  it('fails closed when no NVIDIA GPU environment is detected', async () => {
+    await expect(admitNvidiaGpuEnvironment(gpuObservation({
       detected: false,
       gpu_count: 0,
       driver_version: null,
@@ -128,7 +128,7 @@ describe('NVIDIA execution receipt boundaries', () => {
       gpu_architectures: [],
       device_inventory_digest_sha256: null,
       capability_receipt_digest: null,
-    }))).toThrow(NvidiaGpuEnvironmentUnavailableError)
+    }))).rejects.toThrow(NvidiaGpuEnvironmentUnavailableError)
   })
 
   it('admits an immutable digest-bound GPU environment without granting execution authority', async () => {
