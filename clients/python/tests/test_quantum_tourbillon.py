@@ -1,11 +1,13 @@
 """RED-first contract for the QuantumTourbillon (MPVC) layer.
 
-Four explicit failure modes:
+Five explicit failure modes:
   1. a quantum diagnostic PASS can never yield ADMITTED (zero admission authority)
   2. receipt hashing is deterministic BLAKE3 over canonical JSON
   3. UNAVAILABLE on a mandatory gate blocks any implicit PASS -> UNKNOWN
   4. real Qiskit 2.5.2 Grover amplification concentrates on the marked failing
      perspective with p > 0.99, on a local statevector, for every marked index
+  5. the diagnostic oracle registry marks the first failing named invariant and
+     the located fault carries no admission authority
 
 Runs offline.  No cloud backend, no wall-clock time.
 """
@@ -18,6 +20,7 @@ import qiskit
 from aegis_omega.tourbillon import (
     AuthorityLevel,
     ClaimState,
+    DiagnosticOracleRegistry,
     Perspective,
     PerspectiveOutcome,
     PerspectiveReceipt,
@@ -170,3 +173,40 @@ def test_grover_amplification_locates_marked_failing_perspective():
     clean = QuantumPerspectiveCarousel(all_pass()).locate_fault()
     assert clean.marked_index is None and clean.located_index is None
     assert clean.as_receipt().outcome is O.UNKNOWN
+
+
+# 5 ---------------------------------------------------------------------------
+
+def test_diagnostic_oracle_registry_marks_first_failing_invariant():
+    reg = DiagnosticOracleRegistry()
+    reg.register("kernel_closed", lambda: True)
+    reg.register("head_exact", lambda: 1 / 0)          # raises -> counts as failing
+    reg.register("dag_acyclic", lambda: False)
+    assert reg.names == ("kernel_closed", "head_exact", "dag_acyclic")
+    assert reg.first_failing_index() == 1
+
+    diag = reg.locate_fault()
+    assert diag.marked_index == 1 and diag.located_index == 1
+    assert diag.marked_name == "head_exact"
+    assert diag.probability > 0.99
+    q = diag.as_receipt()
+    assert q.authority is AuthorityLevel.T1_DIAGNOSTIC
+    assert q.evidence["marked_name"] == "head_exact"
+
+    # a located fault still has no admission authority
+    assert resolve_claim([*all_pass(), q]).state is ClaimState.ADMITTED
+    assert resolve_claim([q]).state is ClaimState.UNKNOWN
+
+    # all invariants hold -> nothing marked
+    clean = DiagnosticOracleRegistry()
+    clean.register("a", lambda: True)
+    assert clean.locate_fault().marked_index is None
+
+    # the exact 2-qubit locator addresses at most four invariants; duplicates refused
+    full = DiagnosticOracleRegistry()
+    for name in "abcd":
+        full.register(name, lambda: True)
+    with pytest.raises(ValueError):
+        full.register("e", lambda: True)
+    with pytest.raises(ValueError):
+        reg.register("kernel_closed", lambda: True)

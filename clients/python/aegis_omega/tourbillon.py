@@ -38,6 +38,7 @@ __all__ = [
     "AuthorityLevel",
     "ClaimResolution",
     "ClaimState",
+    "DiagnosticOracleRegistry",
     "GroverDiagnostic",
     "PERSPECTIVE_AUTHORITY",
     "Perspective",
@@ -214,6 +215,7 @@ class GroverDiagnostic:
     probability: float
     probabilities: tuple[float, ...]
     circuit_qasm_depth: int
+    marked_name: str | None = None
 
     def as_receipt(self) -> PerspectiveReceipt:
         outcome = (
@@ -226,6 +228,7 @@ class GroverDiagnostic:
             outcome=outcome,
             evidence={
                 "marked_index": self.marked_index,
+                "marked_name": self.marked_name,
                 "located_index": self.located_index,
                 "probability": round(self.probability, 12),
                 "probabilities": [round(p, 12) for p in self.probabilities],
@@ -308,3 +311,66 @@ class QuantumPerspectiveCarousel:
         """Resolve the claim with the Grover receipt appended.  The appended
         receipt is T1_DIAGNOSTIC and therefore never consulted."""
         return resolve_claim([*self.receipts, self.locate_fault().as_receipt()])
+
+
+# ---------------------------------------------------------------------------
+# Diagnostic oracle registry (integration seam for external invariants)
+# ---------------------------------------------------------------------------
+
+class DiagnosticOracleRegistry:
+    """Registers named invariants and turns the first one that fails into the
+    marked state of the 2-qubit fault locator.
+
+    The register holds at most four invariants because the single-iteration
+    Grover circuit is exact only for N = 4 with one marked item; a larger
+    search space needs round(pi/4 * sqrt(N)) iterations and is no longer
+    exact, which is a different diagnostic and is not implemented here.
+    An invariant that raises counts as failing.  T1_DIAGNOSTIC only.
+    """
+
+    CAPACITY = 4
+
+    def __init__(self) -> None:
+        self._invariants: list[tuple[str, Any]] = []
+
+    def register(self, name: str, check) -> None:
+        if len(self._invariants) >= self.CAPACITY:
+            raise ValueError(
+                f"the 2-qubit fault locator addresses at most {self.CAPACITY} invariants"
+            )
+        if any(existing == name for existing, _ in self._invariants):
+            raise ValueError(f"duplicate invariant {name!r}")
+        self._invariants.append((name, check))
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        return tuple(name for name, _ in self._invariants)
+
+    def first_failing_index(self) -> int | None:
+        for index, (_, check) in enumerate(self._invariants):
+            try:
+                if not bool(check()):
+                    return index
+            except Exception:
+                return index
+        return None
+
+    def locate_fault(self) -> GroverDiagnostic:
+        marked = self.first_failing_index()
+        if marked is None:
+            return GroverDiagnostic(
+                marked_index=None,
+                located_index=None,
+                probability=0.0,
+                probabilities=(0.25, 0.25, 0.25, 0.25),
+                circuit_qasm_depth=0,
+            )
+        diagnostic = QuantumPerspectiveCarousel.amplify(marked)
+        return GroverDiagnostic(
+            marked_index=diagnostic.marked_index,
+            located_index=diagnostic.located_index,
+            probability=diagnostic.probability,
+            probabilities=diagnostic.probabilities,
+            circuit_qasm_depth=diagnostic.circuit_qasm_depth,
+            marked_name=self.names[marked],
+        )
