@@ -19,7 +19,36 @@ Canonical GitHub identity:
 
 The repository was previously named `Aegis-Omega/AEGIS--` and retained repository ID `1095915905` through the rename.
 
-## Machine-bound failure evidence
+## Recovered original WIF policy
+
+The exact historical setup was recovered from repository commit `8fc1eadb0e86f809afa579b09a667c20a802a536`, `docs/GCLOUD_WEB_ENV_SETUP.md`.
+
+It created the GitHub OIDC provider with this mutable-name condition:
+
+```text
+assertion.repository=='Aegis-Omega/AEGIS--'
+```
+
+and mapped:
+
+```text
+google.subject=assertion.sub
+attribute.repository=assertion.repository
+```
+
+The service-account impersonation binding likewise used the mutable repository-name principal set:
+
+```text
+principalSet://iam.googleapis.com/projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/github-pool/attribute.repository/Aegis-Omega/AEGIS--
+```
+
+This is the exact policy prescribed by the historical AEGIS setup, not a reconstructed guess.
+
+The current provider cannot be described from this session because federation is rejected before a Google access token is issued and this environment has no independent authenticated `gcloud` session. Therefore the exact **current** provider descriptor has not been read. However, the current STS failure plus the recovered setup policy and current OIDC claim establish a direct rename-bound incompatibility if that provider condition remains deployed.
+
+Historical GitHub audit evidence also shows WIF deploy failures while the repository was still named `Aegis-Omega/AEGIS--`. Therefore the rename explains the current policy incompatibility but is **not** asserted to explain every historical WIF failure.
+
+## Machine-bound current failure evidence
 
 PR #397 added `.github/workflows/gcp-wif-preflight.yml`, a read-only diagnostic lane.
 
@@ -53,15 +82,23 @@ Google STS returned the same `unauthorized_client / rejected by the attribute co
 
 Receipt SHA-256: `8f5d23ec89519e8036062e9952394d540c9cc4fefdd9e365fea03addd0126d0f`
 
-Therefore PR-event-specific `sub` or `ref` restrictions are not sufficient to explain the failure. The active blocker is the workload identity provider's attribute policy against the current GitHub identity.
+Therefore PR-event-specific `sub` or `ref` restrictions are not sufficient to explain the failure. The active boundary is the workload identity provider attribute policy against the current GitHub identity.
 
-Historical GitHub audit evidence also shows WIF authentication failures while the repository was still named `Aegis-Omega/AEGIS--`, so the rename is not assumed to be the sole historical cause.
+### Exact-head recovery-tool arm
+
+Run `33658364196` on head `8640609767186eca4b12343b47e1a928a88a5e8d` additionally established:
+
+- `scripts/gcp-wif-repair-plan.sh` passes `bash -n`;
+- its help path executes without invoking GCP;
+- the same safe OIDC identity is emitted;
+- STS still fails only at the provider attribute condition;
+- project read and Cloud Storage bucket census remain correctly skipped.
+
+Receipt SHA-256: `2478fb4229fb25b687838ae2ca2a364ff329c6496815ac5074c3762d6b961c22`
 
 ## Why repository-name trust is deprecated
 
-Historical AEGIS guidance mapped `attribute.repository=assertion.repository` and granted `roles/iam.workloadIdentityUser` to a principal set containing the old mutable repository name.
-
-That design is brittle because repository names can change. Google Cloud's current WIF guidance exposes GitHub `repository_id` and `repository_owner_id`, and recommends immutable attributes for federation policy.
+Repository names are mutable. GitHub repository and owner IDs are stable across renames. Google Cloud WIF exposes `repository_id` and `repository_owner_id`, and current Google guidance recommends immutable attributes when defining federation trust.
 
 AEGIS canonical trust target is therefore:
 
