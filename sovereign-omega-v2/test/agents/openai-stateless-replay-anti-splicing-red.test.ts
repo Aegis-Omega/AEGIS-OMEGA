@@ -5,6 +5,7 @@ import { selectProviderCognitiveProfile } from '../../src/agents/coordination/pr
 import type { WorkingCognitiveStateV1 } from '../../src/agents/coordination/cognitive-state.js'
 import { buildOpenAIResponsesContinuationRequest } from '../../src/agents/providers/openai-responses.js'
 
+// Cycle 3 CI retrigger only: preserve the preregistered RED semantics verbatim.
 const sha = (c: string): SHA256Hex => c.repeat(64) as SHA256Hex
 
 async function replayFixture() {
