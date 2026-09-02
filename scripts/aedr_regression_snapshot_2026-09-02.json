@@ -75,50 +75,109 @@
       "evidence_receipts": ["actions:33578261639:success"]
     }
   ],
-  "ancestry": [
-    {
-      "base_pr": 309,
-      "head_pr": 334,
-      "relation": {
-        "base_sha": "1406aacca95fef02a942621a7060e0b6b14a5809",
+  "edges": {
+    "E_git": [
+      {
+        "base_pr": 309,
+        "head_pr": 334,
+        "relation": {
+          "base_sha": "1406aacca95fef02a942621a7060e0b6b14a5809",
+          "head_sha": "65f97558615c848c46239706a019c3478bea5a87",
+          "merge_base_sha": "a34d664d66ae9f7c2e729cd4ccb07b74130c660f",
+          "ahead_by": 71,
+          "behind_by": 69,
+          "status": "diverged"
+        }
+      },
+      {
+        "base_pr": 354,
+        "head_pr": 356,
+        "relation": {
+          "base_sha": "f481f189019f5ff130331dcabc1eded504f834e2",
+          "head_sha": "5bf54f67d43fcbb6de2e89b0afa7945d7d4cb475",
+          "merge_base_sha": "b7ed712bfa54d0ffca9803344f8ffc7e7bfaeef2",
+          "ahead_by": 7,
+          "behind_by": 5,
+          "status": "diverged"
+        }
+      },
+      {
+        "base_pr": 363,
+        "head_pr": 364,
+        "relation": {
+          "base_sha": "98e7ec038cb1e8a8722b5dcc3346a56d9da9801a",
+          "head_sha": "cc234e455015e104c70da6515c95e2a650dd6b46",
+          "merge_base_sha": "7003e7b343fabf6a486e2fe5d5ecc393c077ebbd",
+          "ahead_by": 3,
+          "behind_by": 7,
+          "status": "diverged"
+        }
+      }
+    ],
+    "E_sem": [
+      {
+        "consumer_pr": 364,
+        "provider_pr": 363,
+        "dependency_kind": "GOVERNS_HARDENED_MPVC",
+        "requires_ancestry_binding": true
+      }
+    ],
+    "E_auth": [],
+    "E_evidence": [
+      {
+        "pr_number": 309,
+        "head_sha": "1406aacca95fef02a942621a7060e0b6b14a5809",
+        "receipt_id": "actions:32701938852",
+        "state": "SUCCESS"
+      },
+      {
+        "pr_number": 334,
         "head_sha": "65f97558615c848c46239706a019c3478bea5a87",
-        "merge_base_sha": "a34d664d66ae9f7c2e729cd4ccb07b74130c660f",
-        "ahead_by": 71,
-        "behind_by": 69,
-        "status": "diverged"
-      }
-    },
-    {
-      "base_pr": 354,
-      "head_pr": 356,
-      "relation": {
-        "base_sha": "f481f189019f5ff130331dcabc1eded504f834e2",
+        "receipt_id": "actions:33302655448",
+        "state": "SUCCESS"
+      },
+      {
+        "pr_number": 354,
+        "head_sha": "f481f189019f5ff130331dcabc1eded504f834e2",
+        "receipt_id": "actions:33394519546",
+        "state": "SUCCESS"
+      },
+      {
+        "pr_number": 356,
         "head_sha": "5bf54f67d43fcbb6de2e89b0afa7945d7d4cb475",
-        "merge_base_sha": "b7ed712bfa54d0ffca9803344f8ffc7e7bfaeef2",
-        "ahead_by": 7,
-        "behind_by": 5,
-        "status": "diverged"
-      }
-    },
-    {
-      "base_pr": 363,
-      "head_pr": 364,
-      "relation": {
-        "base_sha": "98e7ec038cb1e8a8722b5dcc3346a56d9da9801a",
+        "receipt_id": "actions:33393483371",
+        "state": "FAILURE"
+      },
+      {
+        "pr_number": 363,
+        "head_sha": "98e7ec038cb1e8a8722b5dcc3346a56d9da9801a",
+        "receipt_id": "actions:33577938612",
+        "state": "SUCCESS"
+      },
+      {
+        "pr_number": 364,
         "head_sha": "cc234e455015e104c70da6515c95e2a650dd6b46",
-        "merge_base_sha": "7003e7b343fabf6a486e2fe5d5ecc393c077ebbd",
-        "ahead_by": 3,
-        "behind_by": 7,
-        "status": "diverged"
+        "receipt_id": "actions:33578261639",
+        "state": "SUCCESS"
       }
-    }
-  ],
+    ],
+    "E_conflict": [
+      {
+        "left_pr": 309,
+        "right_pr": 334,
+        "kind": "OVERLAP"
+      }
+    ]
+  },
   "stack_edges": [[356, 354]],
-  "semantic_edges": [[364, 363]],
-  "overlap_pairs": [[309, 334]],
   "head_deltas": [],
   "generated_paths": [".claude.json"],
   "branch_protection_enabled": null,
   "ruleset_enforcements": ["disabled"],
-  "census": {"open": 6, "draft": 5, "non_draft": 1}
+  "census": {
+    "scope": "REGRESSION_SUBGRAPH",
+    "open": 6,
+    "draft": 5,
+    "non_draft": 1
+  }
 }
