@@ -111,7 +111,7 @@ jobs:
           SOURCE_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          python trusted-source/scripts/trusted-cognitive-admission.py \
+          python trusted-source/scripts/trusted-cognitive-admission-v2.py \
             --candidate-root candidate-data \
             --base-root base-data \
             --source-ref "$SOURCE_REF" \
