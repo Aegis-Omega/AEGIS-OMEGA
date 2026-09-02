@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "agent/gcp-trigger-census-clean",
+    "source_ref": "claude/test-coverage-analysis-keTIk",
     "parent_state_hash": "84a384008aa8bac9c83e065f6fdb2f54338cbfd252eba4324e1289869c1e35c2",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "080fda9f50f4cd26be70b70c87563552a6a539b80d3207d1bc7ad5b1c69b29ea"
+  "state_hash": "1b295ea2966e3540c7ed06b60fe0b9d4839096be39d8fb6f526238c6ed3d2295"
 }
