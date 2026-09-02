@@ -156,32 +156,56 @@ describe('OpenAI continuation transports', () => {
     expect(request.context_management).toEqual([{ type: 'compaction', compact_threshold: 20_000 }])
   })
 
-  it('fails closed when encrypted replay references are unresolved', () => {
+  it('fails closed unless ZDR replay resolves the complete prior stateless context window', () => {
     const profile = selectProviderCognitiveProfile('openai', 'frontier-research')
     const replayState: WorkingCognitiveStateV1 = {
       ...state(),
       provider_continuation: {
         transport: 'OPENAI_ENCRYPTED_REPLAY',
-        encrypted_reasoning_item_refs: ['vault://reasoning/item-1'],
+        stateless_context_item_refs: [
+          'vault://responses/context/user-1',
+          'vault://responses/context/reasoning-1',
+          'vault://responses/context/message-1',
+        ],
         opaque_payload_digest: sha('d'),
       },
     }
+
     expect(() => buildOpenAIResponsesContinuationRequest({
       profile,
       state: replayState,
       input: 'continue proof search',
       retention_policy: 'ZDR',
-    })).toThrow(/resolved replay/i)
+    })).toThrow(/resolved stateless context/i)
 
+    expect(() => buildOpenAIResponsesContinuationRequest({
+      profile,
+      state: replayState,
+      input: 'continue proof search',
+      retention_policy: 'ZDR',
+      resolved_stateless_context_items: [
+        { type: 'message', role: 'user', content: 'prior question' },
+      ],
+    })).toThrow(/one resolved stateless context item per reference/i)
+
+    const priorContext = [
+      { type: 'message', role: 'user', content: 'prior question' },
+      { type: 'reasoning', encrypted_content: 'opaque-ciphertext' },
+      { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'prior answer' }] },
+    ] as const
     const request = buildOpenAIResponsesContinuationRequest({
       profile,
       state: replayState,
       input: 'continue proof search',
       retention_policy: 'ZDR',
-      resolved_replay_items: [{ type: 'reasoning', encrypted_content: 'opaque-ciphertext' }],
+      resolved_stateless_context_items: priorContext,
     })
+
     expect(request.store).toBe(false)
-    expect(Array.isArray(request.input)).toBe(true)
+    expect(request.input).toEqual([
+      ...priorContext,
+      { role: 'user', content: 'continue proof search' },
+    ])
   })
 })
 
