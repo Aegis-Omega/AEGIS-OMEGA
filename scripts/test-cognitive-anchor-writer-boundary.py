@@ -175,37 +175,39 @@ class TrustedAdmissionBoundaryTests(TestCase):
         self.assertRegex(binding["sha"], r"^[0-9a-f]{40}$")
         self.assertNotEqual(binding["sha"], ZERO_HASH[:40])
 
+    def _build_exact_fixture(self, root: Path):
+        evaluator = load_module("trusted_cognitive_admission_fixture", TRUSTED_EVALUATOR)
+        generator = load_module("trusted_generator_fixture", REPO_ROOT / "scripts" / "build-cognitive-manifest.py")
+        base = root / "base"
+        candidate = root / "candidate"
+        for repo in (base, candidate):
+            skill = repo / ".claude" / "skills" / "test" / "SKILL.md"
+            skill.parent.mkdir(parents=True)
+            skill.write_text("---\nname: test-skill\n---\n# Test\n", encoding="utf-8")
+
+        base_manifest, base_hashes = generator.build_manifest(
+            base,
+            source_ref="main",
+            parent_state_hash="1" * 64,
+        )
+        (base / ".claude.json").write_text(generator.render_manifest(base_manifest), encoding="utf-8")
+        (base / "skill-hashes.sha256").write_text(base_hashes, encoding="utf-8")
+
+        candidate_manifest, candidate_hashes = generator.build_manifest(
+            candidate,
+            source_ref="feature/test",
+            parent_state_hash=base_manifest["state_hash"],
+        )
+        (candidate / ".claude.json").write_text(
+            generator.render_manifest(candidate_manifest), encoding="utf-8"
+        )
+        (candidate / "skill-hashes.sha256").write_text(candidate_hashes, encoding="utf-8")
+        return evaluator, generator, base, candidate
+
     def test_trusted_evaluator_admits_only_exact_regeneration(self) -> None:
         self.assertTrue(TRUSTED_EVALUATOR.is_file(), "trusted evaluator is missing")
-        evaluator = load_module("trusted_cognitive_admission", TRUSTED_EVALUATOR)
-        generator = load_module("trusted_generator_test", REPO_ROOT / "scripts" / "build-cognitive-manifest.py")
         with TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            base = root / "base"
-            candidate = root / "candidate"
-            for repo in (base, candidate):
-                skill = repo / ".claude" / "skills" / "test" / "SKILL.md"
-                skill.parent.mkdir(parents=True)
-                skill.write_text("---\nname: test-skill\n---\n# Test\n", encoding="utf-8")
-
-            base_manifest, base_hashes = generator.build_manifest(
-                base,
-                source_ref="main",
-                parent_state_hash="1" * 64,
-            )
-            (base / ".claude.json").write_text(generator.render_manifest(base_manifest), encoding="utf-8")
-            (base / "skill-hashes.sha256").write_text(base_hashes, encoding="utf-8")
-
-            candidate_manifest, candidate_hashes = generator.build_manifest(
-                candidate,
-                source_ref="feature/test",
-                parent_state_hash=base_manifest["state_hash"],
-            )
-            (candidate / ".claude.json").write_text(
-                generator.render_manifest(candidate_manifest), encoding="utf-8"
-            )
-            (candidate / "skill-hashes.sha256").write_text(candidate_hashes, encoding="utf-8")
-
+            evaluator, _, base, candidate = self._build_exact_fixture(Path(tmp))
             receipt = evaluator.evaluate(
                 candidate_root=candidate,
                 base_root=base,
@@ -229,6 +231,26 @@ class TrustedAdmissionBoundaryTests(TestCase):
             )
             self.assertEqual(denied["outcome"], "DENIED")
             self.assertGreater(denied["violation_count"], 0)
+
+    def test_trusted_evaluator_ignores_large_unrelated_regular_files(self) -> None:
+        self.assertTrue(TRUSTED_EVALUATOR.is_file(), "trusted evaluator is missing")
+        with TemporaryDirectory() as tmp:
+            evaluator, _, base, candidate = self._build_exact_fixture(Path(tmp))
+            unrelated = candidate / "assets" / "model.bin"
+            unrelated.parent.mkdir(parents=True)
+            with unrelated.open("wb") as handle:
+                handle.truncate(evaluator.MAX_SINGLE_FILE_BYTES + 1)
+
+            receipt = evaluator.evaluate(
+                candidate_root=candidate,
+                base_root=base,
+                source_ref="feature/test",
+                candidate_sha="a" * 40,
+                base_sha="b" * 40,
+                workflow_sha="c" * 40,
+            )
+            self.assertEqual(receipt["outcome"], "ADMITTED")
+            self.assertEqual(receipt["violation_count"], 0)
 
 
 if __name__ == "__main__":
