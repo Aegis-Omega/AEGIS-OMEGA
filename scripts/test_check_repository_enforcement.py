@@ -137,11 +137,38 @@ class RepositoryEnforcementTests(unittest.TestCase):
             result = enforcement.verify(REPO, BRANCH, "token", POLICY)
 
         self.assertTrue(result.ok)
-        self.assertEqual(result.source, "effective_repository_rulesets")
+        self.assertEqual(result.source, "effective_repository_rulesets:no_splicing")
         self.assertEqual(result.missing_required_status_check_contexts, ())
         self.assertEqual(result.publisher_mismatch_contexts, ())
-        self.assertEqual(result.effective_ruleset_ids, (4242,))
+        self.assertEqual(result.evaluated_ruleset_id, 4242)
+        self.assertEqual(result.all_effective_ruleset_ids, (4242,))
         self.assertFalse(any(path.endswith("/protection") for path in calls))
+
+    def test_partial_guarantees_from_other_ruleset_are_not_spliced(self) -> None:
+        rules = active_rules()
+        for rule in rules:
+            if rule["type"] in {"deletion", "required_signatures"}:
+                rule["ruleset_id"] = 4343
+
+        def fake_get(path: str, token: str | None):
+            if path == f"/repos/{REPO}/branches/{BRANCH}":
+                return 200, {"protected": True}
+            if path == f"/repos/{REPO}/rules/branches/{BRANCH}?per_page=100":
+                return 200, rules
+            if path == f"/repos/{REPO}/rulesets?per_page=100&targets=branch":
+                return 200, ruleset_inventory()
+            self.fail(f"unexpected lookup: {path}")
+
+        with patch.object(enforcement, "_get", side_effect=fake_get):
+            result = enforcement.verify(REPO, BRANCH, "token", POLICY)
+
+        self.assertFalse(result.ok)
+        self.assertEqual(result.source, "effective_repository_rulesets:no_splicing")
+        self.assertEqual(result.evaluated_ruleset_id, 4242)
+        self.assertEqual(result.all_effective_ruleset_ids, (4242, 4343))
+        self.assertFalse(result.deletion_blocked)
+        self.assertFalse(result.signatures_required)
+        self.assertEqual(result.as_dict()["production_admission"], "FORBIDDEN")
 
     def test_missing_required_check_is_verified_deny(self) -> None:
         missing = CONTEXTS[:-1]
