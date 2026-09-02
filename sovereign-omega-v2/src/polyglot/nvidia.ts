@@ -151,7 +151,7 @@ export interface NvidiaScientificSubstrateReceipt {
 }
 
 export class NvidiaSubstrateError extends Error {
-  override readonly name = 'NvidiaSubstrateError'
+  override readonly name: string = 'NvidiaSubstrateError'
 
   constructor(message: string) {
     super(message)
