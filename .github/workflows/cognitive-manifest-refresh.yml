@@ -2,7 +2,9 @@ name: Cognitive Manifest Refresh
 
 on:
   push:
-    branches-ignore: [main]
+    branches-ignore:
+      - main
+      - 'repair/cognitive-anchor-*'
   workflow_dispatch:
 
 permissions:

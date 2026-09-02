@@ -48,6 +48,12 @@ class CognitiveAnchorWriterBoundaryTests(TestCase):
         self.assertEqual(workflow_contents_permission(automaton2), "read")
         self.assertFalse(writes_cognitive_anchors(automaton2))
 
+    def test_recovery_branches_are_not_auto_mutated(self) -> None:
+        refresh = WORKFLOW_ROOT / "cognitive-manifest-refresh.yml"
+        source = refresh.read_text(encoding="utf-8")
+
+        self.assertIn("repair/cognitive-anchor-*", source)
+
 
 if __name__ == "__main__":
     main()
