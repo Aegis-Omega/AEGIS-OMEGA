@@ -74,19 +74,24 @@ jobs:
                   info = path.lstat()
                   if not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)):
                       raise SystemExit(f"special file forbidden in candidate data: {path}")
-                  if stat.S_ISREG(info.st_mode) and info.st_size > MAX_SINGLE_FILE_BYTES:
-                      raise SystemExit(f"candidate file exceeds parser bound: {path}")
+
               for name in filenames:
                   path = current_path / name
                   info = path.lstat()
                   if not stat.S_ISREG(info.st_mode):
                       continue
                   relative = path.relative_to(root).as_posix()
+                  is_cognitive = (
+                      name == "SKILL.md"
+                      or relative in {".claude.json", "skill-hashes.sha256"}
+                  )
+                  if not is_cognitive:
+                      continue
+                  if info.st_size > MAX_SINGLE_FILE_BYTES:
+                      raise SystemExit(f"cognitive file exceeds parser bound: {path}")
+                  cognitive_bytes += info.st_size
                   if name == "SKILL.md":
                       skill_files += 1
-                      cognitive_bytes += info.st_size
-                  elif relative in {".claude.json", "skill-hashes.sha256"}:
-                      cognitive_bytes += info.st_size
 
           if skill_files > MAX_SKILL_FILES:
               raise SystemExit(
