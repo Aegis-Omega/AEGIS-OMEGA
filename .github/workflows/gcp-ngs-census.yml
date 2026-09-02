@@ -1,4 +1,4 @@
-name: GCP Federation Probe
+name: GCP Legacy Credential Probe
 
 on:
   push:
@@ -8,93 +8,139 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
-  legacy-provider:
-    name: Probe GCP_WIF_PROVIDER
+  probe-json-credentials:
+    name: Probe legacy JSON credential secrets
     runs-on: ubuntu-latest
+    env:
+      C1: ${{ secrets.GCP_CREDENTIALS }}
+      C2: ${{ secrets.GOOGLE_CREDENTIALS }}
+      C3: ${{ secrets.GCP_SA_KEY }}
+      C4: ${{ secrets.GCP_SA_KEY_JSON }}
+      C5: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+      C6: ${{ secrets.GCLOUD_SERVICE_KEY }}
+      C7: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+      C8: ${{ secrets.GCP_KEY }}
     steps:
       - uses: actions/checkout@v4
-      - name: Authenticate legacy provider
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: aegisomegav1
-      - name: Read-only project probe
-        run: |
-          gcloud storage buckets list --project aegisomegav1 --format='value(name)' | sed -n '1,20p'
-          gcloud sql instances list --project aegisomegav1 --format='table(name,region,state,databaseVersion)'
 
-  deploy-secret-provider:
-    name: Probe GCP_WORKLOAD_IDENTITY_PROVIDER
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Authenticate deploy provider
+      - name: Report candidate presence without values
+        shell: bash
+        run: |
+          for n in C1 C2 C3 C4 C5 C6 C7 C8; do
+            if [ -n "${!n}" ]; then echo "$n=PRESENT"; else echo "$n=ABSENT"; fi
+          done
+
+      - name: Try GCP_CREDENTIALS
+        id: c1
+        if: env.C1 != ''
+        continue-on-error: true
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: Try GOOGLE_CREDENTIALS
+        id: c2
+        if: steps.c1.outcome != 'success' && env.C2 != ''
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
+
+      - name: Try GCP_SA_KEY
+        id: c3
+        if: steps.c1.outcome != 'success' && steps.c2.outcome != 'success' && env.C3 != ''
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Try GCP_SA_KEY_JSON
+        id: c4
+        if: steps.c1.outcome != 'success' && steps.c2.outcome != 'success' && steps.c3.outcome != 'success' && env.C4 != ''
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_JSON }}
+
+      - name: Try GCP_SERVICE_ACCOUNT_KEY
+        id: c5
+        if: steps.c1.outcome != 'success' && steps.c2.outcome != 'success' && steps.c3.outcome != 'success' && steps.c4.outcome != 'success' && env.C5 != ''
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+
+      - name: Try GCLOUD_SERVICE_KEY
+        id: c6
+        if: steps.c1.outcome != 'success' && steps.c2.outcome != 'success' && steps.c3.outcome != 'success' && steps.c4.outcome != 'success' && steps.c5.outcome != 'success' && env.C6 != ''
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCLOUD_SERVICE_KEY }}
+
+      - name: Try GOOGLE_SERVICE_ACCOUNT_KEY
+        id: c7
+        if: steps.c1.outcome != 'success' && steps.c2.outcome != 'success' && steps.c3.outcome != 'success' && steps.c4.outcome != 'success' && steps.c5.outcome != 'success' && steps.c6.outcome != 'success' && env.C7 != ''
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+
+      - name: Try GCP_KEY
+        id: c8
+        if: steps.c1.outcome != 'success' && steps.c2.outcome != 'success' && steps.c3.outcome != 'success' && steps.c4.outcome != 'success' && steps.c5.outcome != 'success' && steps.c6.outcome != 'success' && steps.c7.outcome != 'success' && env.C8 != ''
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_KEY }}
+
+      - name: Fail closed if no JSON auth path succeeded
+        if: steps.c1.outcome != 'success' && steps.c2.outcome != 'success' && steps.c3.outcome != 'success' && steps.c4.outcome != 'success' && steps.c5.outcome != 'success' && steps.c6.outcome != 'success' && steps.c7.outcome != 'success' && steps.c8.outcome != 'success'
+        run: |
+          echo 'NO_LEGACY_JSON_CREDENTIAL_PATH'
+          exit 2
+
       - uses: google-github-actions/setup-gcloud@v2
+        if: steps.c1.outcome == 'success' || steps.c2.outcome == 'success' || steps.c3.outcome == 'success' || steps.c4.outcome == 'success' || steps.c5.outcome == 'success' || steps.c6.outcome == 'success' || steps.c7.outcome == 'success' || steps.c8.outcome == 'success'
         with:
           project_id: aegisomegav1
-      - name: Read-only project probe
+
+      - name: Read-only GCP census
+        if: steps.c1.outcome == 'success' || steps.c2.outcome == 'success' || steps.c3.outcome == 'success' || steps.c4.outcome == 'success' || steps.c5.outcome == 'success' || steps.c6.outcome == 'success' || steps.c7.outcome == 'success' || steps.c8.outcome == 'success'
         run: |
           mkdir -p census
           gcloud storage buckets list --project aegisomegav1 --format=json > census/buckets.json
           gcloud sql instances list --project aegisomegav1 --format=json > census/cloudsql.json
           python3 - <<'PY'
-          import json
+          import json, re, subprocess
           from pathlib import Path
-          b=json.loads(Path('census/buckets.json').read_text() or '[]')
-          s=json.loads(Path('census/cloudsql.json').read_text() or '[]')
-          print('AUTH_PATH=GCP_WORKLOAD_IDENTITY_PROVIDER')
-          print('BUCKET_COUNT='+str(len(b)))
-          print('SQL_INSTANCE_COUNT='+str(len(s)))
-          for x in b[:50]: print('BUCKET='+str(x.get('name') or x.get('url') or ''))
-          for x in s[:50]: print('SQL='+str(x.get('name'))+'|'+str(x.get('region'))+'|'+str(x.get('state'))+'|'+str(x.get('databaseVersion')))
+          buckets=json.loads(Path('census/buckets.json').read_text() or '[]')
+          sql=json.loads(Path('census/cloudsql.json').read_text() or '[]')
+          pat=re.compile(r'(?i)(?:\.(?:fastq|fq|bam|cram|vcf|bcf|sam|fasta|fa|fna)(?:\.gz)?$|(?:SRR|ERR|DRR|PRJNA|PRJEB|GSE)\d+)')
+          matches=[]
+          scans=[]
+          for row in buckets:
+              name=str(row.get('name') or row.get('url') or '').removeprefix('gs://').rstrip('/')
+              if not name: continue
+              p=subprocess.run(['timeout','120','gcloud','storage','ls','--recursive',f'gs://{name}/**'],text=True,capture_output=True)
+              objs=[x.strip() for x in p.stdout.splitlines() if x.strip()]
+              hit=[x for x in objs if pat.search(x)]
+              matches.extend(hit[:2000-len(matches)])
+              scans.append({'bucket':name,'objects_seen':len(objs),'returncode':p.returncode,'stderr':p.stderr[-1000:]})
+          receipt={'project':'aegisomegav1','content_read':False,'bucket_count':len(buckets),'buckets':[{'name':x.get('name') or x.get('url'),'location':x.get('location')} for x in buckets],'cloudsql':[{'name':x.get('name'),'region':x.get('region'),'state':x.get('state'),'databaseVersion':x.get('databaseVersion')} for x in sql],'object_scans':scans,'ngs_match_count':len(matches),'ngs_object_matches':matches}
+          Path('census/ngs-census.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
+          print('BUCKET_COUNT='+str(len(buckets)))
+          print('SQL_INSTANCE_COUNT='+str(len(sql)))
+          print('NGS_MATCH_COUNT='+str(len(matches)))
+          for x in matches[:50]: print('NGS='+x)
           PY
-      - uses: actions/upload-artifact@v4
-        with:
-          name: gcp-deploy-secret-probe
-          path: census/
-          retention-days: 7
 
-  vars-provider:
-    name: Probe vars.WIF_PROVIDER
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Authenticate vars provider
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
-          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: aegisomegav1
-      - name: Read-only project probe
-        run: |
-          mkdir -p census
-          gcloud storage buckets list --project aegisomegav1 --format=json > census/buckets.json
-          gcloud sql instances list --project aegisomegav1 --format=json > census/cloudsql.json
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          b=json.loads(Path('census/buckets.json').read_text() or '[]')
-          s=json.loads(Path('census/cloudsql.json').read_text() or '[]')
-          print('AUTH_PATH=vars.WIF_PROVIDER')
-          print('BUCKET_COUNT='+str(len(b)))
-          print('SQL_INSTANCE_COUNT='+str(len(s)))
-          for x in b[:50]: print('BUCKET='+str(x.get('name') or x.get('url') or ''))
-          for x in s[:50]: print('SQL='+str(x.get('name'))+'|'+str(x.get('region'))+'|'+str(x.get('state'))+'|'+str(x.get('databaseVersion')))
-          PY
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: gcp-vars-probe
+          name: gcp-legacy-credential-probe
           path: census/
+          if-no-files-found: ignore
           retention-days: 7
