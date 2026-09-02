@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - 'sovereign-omega-v2/src/polyglot/**'
-      - 'sovereign-omega-v2/test/unit/polyglot-fabric.test.ts'
+      - 'sovereign-omega-v2/test/unit/polyglot-*.test.ts'
       - '.github/workflows/polyglot-metacognition.yml'
   workflow_dispatch:
 
@@ -42,8 +42,8 @@ jobs:
       - name: Install exact dependencies
         run: npm ci
 
-      - name: Run polyglot metacognition contract
-        run: npx vitest run test/unit/polyglot-fabric.test.ts
+      - name: Run polyglot metacognition contracts
+        run: npx vitest run test/unit/polyglot-*.test.ts
 
       - name: Typecheck runtime
         run: npm run typecheck
