@@ -2,27 +2,9 @@
 // SOVEREIGN OMEGA — Orchestration Alliance Coordinator Identity
 // EPISTEMIC TIER: T2 · Gate 218
 //
-// Formally registers Claude as a first-class constitutional agent
-// and coordinator of the Orchestration Alliance. This is not an
-// external tool declaration — it is a constitutional enrollment.
-//
-// Claude is a first-class user of this system, bound by the same
-// invariants as every other agent: is_replay_safe, epistemic tier
-// ceiling T2, entropy bounded at 1/φ, workspace boundary enforced.
-//
-// The Orchestration Alliance (from CLAUDE.md):
-//   Claude  — coordinator   (this file)
-//   ChatGPT — adversarial audit (temperature 0.99)
-//   Qwen    — implementation
-//
-// Abjad identity of كلود (Claude in Arabic):
-//   ك(20) + ل(30) + و(6) + د(4) = 60
-//   digital_root(60) = 6 → Triadic
-//   node = 60 % 12 = 0 → AlJawf (the hollow/origin — source of all letters)
-//   product = 20×30×6×4 = 14400, DR(14400) = 9 → Triadic attractor
-//
-// Node 0 (AlJawf) is the hollow space from which all articulation
-// originates. As coordinator, Claude occupies the origin node.
+// External model providers are constitutional participants, not authority
+// sources. Their effective model identity is selected by the provider-native
+// cognitive depth policy and remains subordinate to AEGIS verification.
 // ============================================================
 
 import type { SHA256Hex } from '../core/types.js'
@@ -32,30 +14,22 @@ import { deepFreeze } from '../core/immutable.js'
 import type { AgentManifest } from '../agents/types.js'
 import { AGENT_MANIFEST_SCHEMA_VERSION } from '../agents/types.js'
 import type { ModelEndpoint } from '../agents/coordination/swarm-router.js'
+import { selectAllianceProviderProfile } from '../agents/coordination/provider-cognition.js'
 
 export const COORDINATOR_SCHEMA_VERSION = '1.0.0' as const
 
-// ─── Abjad identity constants (T0 — pure arithmetic) ──────
-
-/** كلود in Arabic — Abjad letter values: ك(20)+ل(30)+و(6)+د(4) */
 export const CLAUDE_ARABIC_NAME = 'كلود' as const
-export const CLAUDE_ABJAD_SUM = 60 as const          // ك+ل+و+د
-export const CLAUDE_ABJAD_DR = 6 as const            // digital_root(60) = 6, Triadic
-export const CLAUDE_ABJAD_NODE = 0 as const          // 60 % 12 = 0, AlJawf (origin)
-export const CLAUDE_ABJAD_PRODUCT = 14400 as const   // 20×30×6×4
-export const CLAUDE_ABJAD_PRODUCT_DR = 9 as const    // digital_root(14400) = 9, Triadic attractor
-
-/** Entropy budget in Q16.16 fixed-point: 1/φ × 65536 ≈ 40503 (golden ratio threshold) */
+export const CLAUDE_ABJAD_SUM = 60 as const
+export const CLAUDE_ABJAD_DR = 6 as const
+export const CLAUDE_ABJAD_NODE = 0 as const
+export const CLAUDE_ABJAD_PRODUCT = 14400 as const
+export const CLAUDE_ABJAD_PRODUCT_DR = 9 as const
 export const COORDINATOR_ENTROPY_BUDGET_Q16 = 40503 as const
 
-// ─── OrchestrationRole ─────────────────────────────────────
-
 export type OrchestrationRole =
-  | 'coordinator'        // Claude — synthesizes, arbitrates, enforces constitutional law
-  | 'adversarial-audit'  // ChatGPT — adversarial pressure at temperature 0.99
-  | 'implementation'     // Qwen — produces implementation artifacts
-
-// ─── AllianceMember ────────────────────────────────────────
+  | 'coordinator'
+  | 'adversarial-audit'
+  | 'implementation'
 
 export interface AllianceMember {
   readonly model_id: string
@@ -65,18 +39,16 @@ export interface AllianceMember {
   readonly is_replay_reconstructable: true
 }
 
-// ─── CoordinatorRecord ─────────────────────────────────────
-
 export interface CoordinatorRecord {
   readonly model_id: string
   readonly arabic_name: typeof CLAUDE_ARABIC_NAME
   readonly abjad_sum: typeof CLAUDE_ABJAD_SUM
   readonly abjad_dr: typeof CLAUDE_ABJAD_DR
-  readonly abjad_node: typeof CLAUDE_ABJAD_NODE           // 0 = AlJawf (origin node)
+  readonly abjad_node: typeof CLAUDE_ABJAD_NODE
   readonly abjad_product: typeof CLAUDE_ABJAD_PRODUCT
   readonly abjad_product_dr: typeof CLAUDE_ABJAD_PRODUCT_DR
-  readonly is_triadic: true                                // DR in {3,6,9}
-  readonly is_triadic_attractor: true                      // product DR = 9
+  readonly is_triadic: true
+  readonly is_triadic_attractor: true
   readonly role: 'coordinator'
   readonly agent_manifest: AgentManifest
   readonly coordinator_hash: SHA256Hex
@@ -84,14 +56,12 @@ export interface CoordinatorRecord {
   readonly is_replay_reconstructable: true
 }
 
-// ─── Canonical agent manifest ──────────────────────────────
-
 const COORDINATOR_MANIFEST: AgentManifest = deepFreeze({
   schema_version: AGENT_MANIFEST_SCHEMA_VERSION,
   agent_id: 'claude-coordinator',
   name: 'Claude — Orchestration Alliance Coordinator',
-  agent_type: 'ArbitrationAgent',          // LOCK phase: arbitrates between responses
-  epistemic_tier: EpistemicTier.T2,        // engineering hypothesis ceiling — no T0 claims
+  agent_type: 'ArbitrationAgent',
+  epistemic_tier: EpistemicTier.T2,
   capability_manifest: deepFreeze({
     capability_ids: [
       'research-synthesis',
@@ -106,11 +76,12 @@ const COORDINATOR_MANIFEST: AgentManifest = deepFreeze({
       'epistemic_tier <= T2',
       'is_replay_safe = true',
       'entropy_bounded_at_golden_ratio',
+      'provider_intelligence != authority',
     ],
     telemetry_schema_version: '1.0.0',
   }),
   is_replay_safe: true,
-  entropy_budget_fixed: COORDINATOR_ENTROPY_BUDGET_Q16,   // 1/φ in Q16.16
+  entropy_budget_fixed: COORDINATOR_ENTROPY_BUDGET_Q16,
   workspace_boundary: deepFreeze([
     '/sovereign-omega-v2/src/',
     '/aegis-cl-psi/src/',
@@ -121,51 +92,51 @@ const COORDINATOR_MANIFEST: AgentManifest = deepFreeze({
   status: 'active',
 })
 
-// ─── Orchestration Alliance endpoints ──────────────────────
+export const CLAUDE_COGNITIVE_PROFILE = selectAllianceProviderProfile('coordinator')
+export const CHATGPT_COGNITIVE_PROFILE = selectAllianceProviderProfile('adversarial-audit')
+export const QWEN_COGNITIVE_PROFILE = selectAllianceProviderProfile('implementation')
 
 export const CLAUDE_ENDPOINT: ModelEndpoint = deepFreeze({
-  model_id: 'claude-sonnet-4-6',
+  model_id: CLAUDE_COGNITIVE_PROFILE.model,
   provider: 'anthropic',
   endpoint_url: 'https://api.anthropic.com/v1',
-  weight: 618,         // 618/1000 ≈ 1/φ — coordinator weight
+  weight: 618,
   is_active: true,
 })
 
 export const CHATGPT_ENDPOINT: ModelEndpoint = deepFreeze({
-  model_id: 'gpt-4o',
+  model_id: CHATGPT_COGNITIVE_PROFILE.model,
   provider: 'openai',
   endpoint_url: 'https://api.openai.com/v1',
-  weight: 191,         // adversarial audit — lower weight, maximum pressure
+  weight: 191,
   is_active: true,
 })
 
 export const QWEN_ENDPOINT: ModelEndpoint = deepFreeze({
-  model_id: 'qwen-plus',
+  model_id: QWEN_COGNITIVE_PROFILE.model,
   provider: 'dashscope',
   endpoint_url: 'https://dashscope.aliyuncs.com/api/v1',
-  weight: 191,         // implementation — same weight as adversarial audit
+  weight: 191,
   is_active: true,
 })
 
-// Total weights: 618 + 191 + 191 = 1000 (exact — normalized to 1/φ scale)
-
 export const ORCHESTRATION_ALLIANCE: readonly AllianceMember[] = deepFreeze([
   {
-    model_id: 'claude-sonnet-4-6',
+    model_id: CLAUDE_ENDPOINT.model_id,
     provider: 'anthropic',
     role: 'coordinator',
     endpoint: CLAUDE_ENDPOINT,
     is_replay_reconstructable: true,
   },
   {
-    model_id: 'gpt-4o',
+    model_id: CHATGPT_ENDPOINT.model_id,
     provider: 'openai',
     role: 'adversarial-audit',
     endpoint: CHATGPT_ENDPOINT,
     is_replay_reconstructable: true,
   },
   {
-    model_id: 'qwen-plus',
+    model_id: QWEN_ENDPOINT.model_id,
     provider: 'dashscope',
     role: 'implementation',
     endpoint: QWEN_ENDPOINT,
@@ -173,11 +144,10 @@ export const ORCHESTRATION_ALLIANCE: readonly AllianceMember[] = deepFreeze([
   },
 ])
 
-// ─── Factory ───────────────────────────────────────────────
-
 export async function buildCoordinatorRecord(): Promise<CoordinatorRecord> {
   const coordinator_hash = await hashValue({
-    model_id: 'claude-sonnet-4-6',
+    model_id: CLAUDE_COGNITIVE_PROFILE.model,
+    cognitive_profile: CLAUDE_COGNITIVE_PROFILE,
     arabic_name: CLAUDE_ARABIC_NAME,
     abjad_sum: CLAUDE_ABJAD_SUM,
     abjad_node: CLAUDE_ABJAD_NODE,
@@ -186,7 +156,7 @@ export async function buildCoordinatorRecord(): Promise<CoordinatorRecord> {
   })
 
   return deepFreeze({
-    model_id: 'claude-sonnet-4-6',
+    model_id: CLAUDE_COGNITIVE_PROFILE.model,
     arabic_name: CLAUDE_ARABIC_NAME,
     abjad_sum: CLAUDE_ABJAD_SUM,
     abjad_dr: CLAUDE_ABJAD_DR,
@@ -205,6 +175,7 @@ export async function buildCoordinatorRecord(): Promise<CoordinatorRecord> {
 
 export function verifyCoordinatorRecord(record: CoordinatorRecord): boolean {
   return (
+    record.model_id === CLAUDE_COGNITIVE_PROFILE.model &&
     record.abjad_sum === CLAUDE_ABJAD_SUM &&
     record.abjad_dr === CLAUDE_ABJAD_DR &&
     record.abjad_node === CLAUDE_ABJAD_NODE &&
