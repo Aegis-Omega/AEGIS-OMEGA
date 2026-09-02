@@ -1,0 +1,31 @@
+name: Cognitive Anchor Recovery
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  recovery-contract:
+    name: aegis / cognitive-anchor-recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact recovery candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run recovery contract tests
+        run: python sovereign-omega-v2/python/tests/test_cognitive_recovery.py
