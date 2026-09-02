@@ -269,6 +269,27 @@ class RecoveryAdmissionDigestTests(TestCase):
         with self.assertRaises(ValueError):
             validator.canonical_bytes({"x": float("nan")})
 
+    def test_receipt_sorts_and_deduplicates_gate_sets(self) -> None:
+        validator = load_module("recovery_admission_receipt_set", VALIDATOR_PATH)
+        request = valid_request()
+        first = validator.build_receipt(
+            request=request,
+            verified_gates=["R3", "R1", "R3"],
+            violations=["R5:z", "R2:a", "R5:z"],
+            platform_governance_state="UNKNOWN",
+            verifier_code_digest=SHA256_6,
+        )
+        second = validator.build_receipt(
+            request=request,
+            verified_gates=["R1", "R3"],
+            violations=["R2:a", "R5:z"],
+            platform_governance_state="UNKNOWN",
+            verifier_code_digest=SHA256_6,
+        )
+        self.assertEqual(first["verified_gates"], ["R1", "R3"])
+        self.assertEqual(first["violations"], ["R2:a", "R5:z"])
+        self.assertEqual(first["receipt_hash"], second["receipt_hash"])
+
 
 class RecoveryAdmissionR0R5Tests(TestCase):
     def setUp(self) -> None:
@@ -283,7 +304,7 @@ class RecoveryAdmissionR0R5Tests(TestCase):
             repo=self.fixture.repo,
             request=request or self.fixture.request,
             recovery_evidence=recovery_evidence or self.fixture.recovery_evidence,
-            platform_observation={"state": "UNKNOWN"},
+            platform_observation={"state": "ENFORCED"},
             operator_approval={},
             verifier_code_digest=SHA256_6,
         )
@@ -298,7 +319,19 @@ class RecoveryAdmissionR0R5Tests(TestCase):
         receipt = self.evaluate()
         self.assertEqual(receipt["outcome"], "RECOVERY_ADMISSION_GRANTED")
         self.assertEqual(receipt["verified_gates"], ["R0", "R1", "R2", "R3", "R4", "R5"])
+        self.assertEqual(receipt["platform_governance_state"], "ENFORCED")
         self.assertEqual(receipt["mutation_authority"], "NONE")
+
+    def test_request_id_mismatch_denies(self) -> None:
+        request = copy.deepcopy(self.fixture.request)
+        request["request_id"] = "9" * 64
+        self.assert_gate_violation(self.evaluate(request=request), "R0")
+
+    def test_declared_recovery_parent_must_match_denied_base_parent(self) -> None:
+        request = copy.deepcopy(self.fixture.request)
+        request["recovery_parent_sha"] = self.fixture.trusted
+        request["request_id"] = self.validator.request_digest(request)
+        self.assert_gate_violation(self.evaluate(request=request), "R1")
 
     def test_candidate_must_descend_from_exact_zero_parent_repair(self) -> None:
         request = copy.deepcopy(self.fixture.request)
