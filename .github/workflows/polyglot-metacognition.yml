@@ -1,5 +1,6 @@
 name: Polyglot Metacognition
 
+# Exact-head closure: changes to either verification workflow retrigger both contract and live receipt lanes.
 on:
   push:
     branches:
