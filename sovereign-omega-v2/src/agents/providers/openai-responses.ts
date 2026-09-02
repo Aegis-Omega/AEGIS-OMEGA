@@ -96,7 +96,8 @@ export interface BuildOpenAIResponsesContinuationRequestInput {
   readonly input: string
   readonly retention_policy: OpenAIContinuationRetentionPolicy
   readonly compact_threshold?: number
-  readonly resolved_replay_items?: readonly OpenAIResponsesInputItem[]
+  /** Complete prior stateless Responses context, resolved only for this call. */
+  readonly resolved_stateless_context_items?: readonly OpenAIResponsesInputItem[]
   readonly safety_identifier?: string
   readonly tool_set?: BoundProviderToolSetV1
 }
@@ -134,8 +135,12 @@ function structuredContinuationItem(state: WorkingCognitiveStateV1): OpenAIRespo
  * Build a provider-native continuation request without promoting provider state
  * into AEGIS authority. The default builder above remains stateless; retained
  * provider state is available only through an explicit retention policy.
- * Encrypted reasoning payloads are resolved ephemerally by the caller and are
- * never persisted inside WorkingCognitiveStateV1.
+ *
+ * For store:false/ZDR continuation, the caller resolves the complete prior
+ * stateless Responses context ephemerally — prior user inputs plus every output
+ * item needed by the provider, including encrypted reasoning, messages, tool
+ * items and compaction items. None of those payloads are persisted inside
+ * WorkingCognitiveStateV1; Tier 2 carries only opaque refs/digests.
  */
 export function buildOpenAIResponsesContinuationRequest(
   input: BuildOpenAIResponsesContinuationRequestInput,
@@ -168,19 +173,19 @@ export function buildOpenAIResponsesContinuationRequest(
     if (input.retention_policy === 'PROVIDER_RETAINED') {
       throw new TypeError('OPENAI_ENCRYPTED_REPLAY is a stateless/ZDR transport, not provider retention')
     }
-    if (continuation.encrypted_reasoning_item_refs.length === 0) {
-      throw new TypeError('Encrypted replay requires at least one opaque reasoning item reference')
+    if (continuation.stateless_context_item_refs.length === 0) {
+      throw new TypeError('Stateless replay requires at least one opaque context item reference')
     }
-    if (
-      input.resolved_replay_items === undefined
-      || input.resolved_replay_items.length !== continuation.encrypted_reasoning_item_refs.length
-    ) {
-      throw new TypeError('Encrypted reasoning references require one resolved replay item per reference')
+    if (input.resolved_stateless_context_items === undefined) {
+      throw new TypeError('Stateless context references require resolved stateless context items')
+    }
+    if (input.resolved_stateless_context_items.length !== continuation.stateless_context_item_refs.length) {
+      throw new TypeError('Stateless context references require one resolved stateless context item per reference')
     }
     return Object.freeze({
       ...base,
       input: Object.freeze([
-        ...input.resolved_replay_items,
+        ...input.resolved_stateless_context_items,
         Object.freeze({ role: 'user', content: input.input }),
       ]),
       store: false,
