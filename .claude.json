@@ -10,7 +10,7 @@
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
     "source_ref": "claude/fable-mythos-behavior-analysis-yjm4yr",
-    "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
+    "parent_state_hash": "f56de83c22d4457aaae0d310358c7ec7f3d545201ce6a5e971798751de185b03",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "6ca0f667f8f89b05f94c418efe258e10b9057e6555669e9b19b0bc2199a866f6"
+  "state_hash": "c29018e60890ed73437bfb94fd48af203588c799e5e9f21e45dc4dd08808f877"
 }
