@@ -1,0 +1,102 @@
+name: Materialize Polyglot Anchor Blob
+
+on:
+  push:
+    branches:
+      - scratch/materialize-polyglot-anchor-69e3
+    paths:
+      - '.github/workflows/materialize-polyglot-anchor-blob.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      TARGET_REF: research/polyglot-metacognition-v1
+      TARGET_PARENT_STATE_HASH: 7f376dbf8f74387f85dad5d091819925b94bd64cf04079368021869a19536b4f
+    steps:
+      - name: Checkout source exact head
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: 69e3b3c5f9d487469e2efbed19d902b047f6d4b9
+          persist-credentials: false
+
+      - name: Generate exact target anchor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/anchors"
+          python3 scripts/build-cognitive-manifest.py \
+            --ref "$TARGET_REF" \
+            --parent-state-hash "$TARGET_PARENT_STATE_HASH" \
+            --output-dir "$RUNNER_TEMP/anchors"
+          python3 scripts/build-cognitive-manifest.py \
+            --check \
+            --ref "$TARGET_REF" \
+            --parent-state-hash "$TARGET_PARENT_STATE_HASH" \
+            --output-dir "$RUNNER_TEMP/anchors"
+
+      - name: Create unreferenced Git blob only
+        id: blob
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload="$RUNNER_TEMP/blob-request.json"
+          response="$RUNNER_TEMP/blob-response.json"
+          python3 - <<'PY'
+          import base64, json, os
+          from pathlib import Path
+          src = Path(os.environ['RUNNER_TEMP']) / 'anchors' / '.claude.json'
+          body = {'content': base64.b64encode(src.read_bytes()).decode('ascii'), 'encoding': 'base64'}
+          (Path(os.environ['RUNNER_TEMP']) / 'blob-request.json').write_text(
+              json.dumps(body, separators=(',', ':')), encoding='utf-8'
+          )
+          PY
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --data-binary "@$payload" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/git/blobs" \
+            > "$response"
+          blob_sha="$(jq -er '.sha' "$response")"
+          echo "sha=$blob_sha" >> "$GITHUB_OUTPUT"
+          echo "MATERIALIZED_BLOB_SHA=$blob_sha"
+
+      - name: Emit materialization receipt
+        shell: bash
+        env:
+          BLOB_SHA: ${{ steps.blob.outputs.sha }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          src = Path(os.environ['RUNNER_TEMP']) / 'anchors' / '.claude.json'
+          receipt = {
+              'schema': 'aegis.anchor-blob-materialization.v1',
+              'target_ref': os.environ['TARGET_REF'],
+              'target_parent_state_hash': os.environ['TARGET_PARENT_STATE_HASH'],
+              'blob_sha': os.environ['BLOB_SHA'],
+              'content_sha256': hashlib.sha256(src.read_bytes()).hexdigest(),
+              'ref_mutated': False,
+          }
+          out = Path(os.environ['RUNNER_TEMP']) / 'ANCHOR_BLOB_MATERIALIZATION_RECEIPT.json'
+          out.write_text(json.dumps(receipt, sort_keys=True, separators=(',', ':')) + '\n', encoding='utf-8')
+          print(out.read_text(encoding='utf-8'), end='')
+          PY
+
+      - name: Upload materialization receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: polyglot-anchor-blob-materialization-${{ github.sha }}
+          path: ${{ runner.temp }}/ANCHOR_BLOB_MATERIALIZATION_RECEIPT.json
+          if-no-files-found: error
+          retention-days: 7
