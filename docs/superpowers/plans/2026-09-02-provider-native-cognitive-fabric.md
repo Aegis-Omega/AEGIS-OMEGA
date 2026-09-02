@@ -1,12 +1,10 @@
 # Provider-Native Cognitive Fabric Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** Use TDD and exact-head verification. Hosted CI remains the final repository authority.
 
-**Goal:** Add a deterministic provider-native deep-cognition policy layer that maximizes provider reasoning quality per work class while preserving AEGIS authority conservation and exact execution provenance.
+**Goal:** Add a deterministic provider-native deep-cognition layer that maximizes reasoning quality per work class while preserving AEGIS authority conservation and exact execution provenance.
 
-**Architecture:** Add a pure TypeScript profile selector beside the existing swarm router, test it independently, then wire only provenance-safe profile selection into provider execution surfaces. This slice does not change quorum or admission semantics and does not perform live provider calls.
-
-**Tech Stack:** TypeScript 5.x, Vitest, existing AEGIS hashing/immutability primitives, provider REST/SDK adapters in later slices.
+**Architecture:** Pure TypeScript provider profiles + pure provider request builders + deterministic execution receipts. This slice does not change quorum, admission, or effect-verification semantics and performs no live provider calls.
 
 **Spec:** `docs/superpowers/specs/2026-09-02-provider-native-cognitive-fabric-design.md`
 
@@ -14,81 +12,79 @@
 
 - Raw provider output authority is always `NONE`.
 - No provider framework replaces AEGIS admission/effect verification.
-- Model slugs are defaults/overrides, never permanent constitutional identities.
-- Exact effective model and reasoning controls must be recordable in provenance.
+- Model slugs are refreshable defaults/overrides, never permanent constitutional identities.
+- Exact effective model and reasoning controls are receipt-bound provenance.
 - Physical quantum execution remains a separately authorized capability.
 
----
-
-### Task 1: Provider cognitive profile contract
+### Task 1: Provider cognitive profile contract — IMPLEMENTED
 
 **Files:**
-- Create: `sovereign-omega-v2/src/agents/coordination/provider-cognition.ts`
-- Test: `sovereign-omega-v2/test/agents/provider-cognition.test.ts`
+- `sovereign-omega-v2/src/agents/coordination/provider-cognition.ts`
+- `sovereign-omega-v2/test/agents/provider-cognition.test.ts`
 
-**Interfaces:**
-- Produces: `ProviderName`, `CognitiveWorkClass`, `ProviderCognitiveProfile`, `selectProviderCognitiveProfile(provider, workClass, overrides?)`.
-- Guarantees: deterministic output; frontier/formal OpenAI uses max reasoning; Anthropic adaptive/high; Gemini high thinking; all raw authority `NONE`.
+- [x] RED-first provider-depth tests.
+- [x] OpenAI frontier/formal: `gpt-5.6-sol`, max/pro.
+- [x] Anthropic frontier/formal: `claude-opus-5`, adaptive/max; implementation xhigh.
+- [x] Gemini non-routine: `gemini-3.1-pro-preview`, high thinking.
+- [x] Qwen non-routine: `qwen3.8-max`, xhigh reasoning.
+- [x] All raw output authority = `NONE`.
 
-- [ ] Write tests for deep provider-native profiles and authority conservation.
-- [ ] Run the focused test and verify RED because the module does not exist.
-- [ ] Implement the minimal pure selector.
-- [ ] Re-run focused tests and verify GREEN.
-- [ ] Run TypeScript typecheck for the new module/test surface.
-
-### Task 2: Execution receipt contract
+### Task 2: Execution receipt contract — IMPLEMENTED
 
 **Files:**
-- Create: `sovereign-omega-v2/src/agents/coordination/provider-execution-receipt.ts`
-- Test: `sovereign-omega-v2/test/agents/provider-execution-receipt.test.ts`
+- `sovereign-omega-v2/src/agents/coordination/provider-execution-receipt.ts`
+- `sovereign-omega-v2/test/agents/provider-execution-receipt.test.ts`
 
-**Interfaces:**
-- Consumes: `ProviderCognitiveProfile`.
-- Produces: `ProviderExecutionReceiptV1` and `buildProviderExecutionReceiptV1` binding provider, model, reasoning profile, task digest, output digest, tool-policy digest and `authority_class: "NONE"`.
+- [x] Deterministic receipt test.
+- [x] Bind provider/model/work class/reasoning/task/output/tool-policy digests.
+- [x] Hard-bind `authority_class = "NONE"`.
 
-- [ ] Write deterministic-receipt and anti-authority-escalation tests.
-- [ ] Verify RED before implementation.
-- [ ] Implement minimal frozen/hash-linked receipt construction using existing AEGIS hashing primitives.
-- [ ] Verify focused GREEN and typecheck.
-
-### Task 3: Remove stale OpenAI constitutional model identity
+### Task 3: Constitutional model identity decoupling — IMPLEMENTED
 
 **Files:**
-- Modify: `sovereign-omega-v2/src/constitutional/coordinator.ts`
-- Test: existing coordinator tests plus a new assertion if needed.
+- `sovereign-omega-v2/src/constitutional/coordinator.ts`
+- `sovereign-omega-v2/test/unit/coordinator.test.ts`
 
-**Interfaces:**
-- Consumes: provider cognitive profile/configured model rather than a permanent `gpt-4o` constitutional identity.
-- Preserves: provider role and replay contract; no authority increase.
+- [x] Remove stale fixed `gpt-4o`/old provider model identity from alliance endpoints.
+- [x] Derive endpoint models from provider cognition policy.
+- [x] Preserve alliance roles, weights, replay contract and authority semantics.
 
-- [ ] Add failing test proving OpenAI member identity is configuration-bound rather than hard-coded to `gpt-4o`.
-- [ ] Verify RED.
-- [ ] Replace stale fixed model with a policy/configured model identifier while keeping deterministic defaults.
-- [ ] Verify coordinator tests and typecheck.
+### Task 4: Provider-native execution request builders — IMPLEMENTED
 
-### Task 4: OpenAI Responses request builder
+**OpenAI**
+- `sovereign-omega-v2/src/agents/providers/openai-responses.ts`
+- `sovereign-omega-v2/test/agents/openai-responses.test.ts`
+- [x] Responses API request, `store=false`, encrypted reasoning continuity, max/pro for frontier/formal, safety identifier support.
 
-**Files:**
-- Create: `sovereign-omega-v2/src/agents/providers/openai-responses.ts`
-- Test: `sovereign-omega-v2/test/agents/openai-responses.test.ts`
+**Anthropic**
+- `sovereign-omega-v2/src/agents/providers/anthropic-messages.ts`
+- `sovereign-omega-v2/test/agents/anthropic-messages.test.ts`
+- [x] Messages API request, adaptive thinking, max/xhigh effort by work class, omitted thinking display, AEGIS-authorized tools only.
 
-**Interfaces:**
-- Consumes: `ProviderCognitiveProfile`, task input, optional privacy-preserving safety identifier and allowed tools.
-- Produces: a pure serializable Responses API request object; no network call in this slice.
-- For frontier/formal work, binds configured flagship model and maximum reasoning effort; records stateless/storage policy explicitly.
+**Gemini**
+- `sovereign-omega-v2/src/agents/providers/gemini-interactions.ts`
+- `sovereign-omega-v2/test/agents/gemini-interactions.test.ts`
+- [x] Interactions API request, `store=false`, high thinking for non-routine work, no thought summaries, AEGIS-authorized tools only.
 
-- [ ] Write failing request-shape tests.
-- [ ] Verify RED.
-- [ ] Implement pure builder.
-- [ ] Verify GREEN/typecheck.
+**DashScope/Qwen**
+- `sovereign-omega-v2/src/agents/providers/qwen-responses.ts`
+- `sovereign-omega-v2/test/agents/qwen-responses.test.ts`
+- [x] Model Studio Responses request, `store=false`, xhigh maximum-intensity reasoning for non-routine work, AEGIS-authorized tools only.
 
-### Task 5: Documentation and integration proof
+### Task 5: Verification and documentation — IN PROGRESS
 
-**Files:**
-- Modify: `docs/PROOF.md` or nearest provider architecture documentation if present.
-- Create/update focused README section only if the repo already documents model routing there.
+- [x] Ratified design updated to current vendor APIs/defaults.
+- [x] RED compile failure observed for missing provider request builders.
+- [x] Isolated TypeScript smoke GREEN for Anthropic/Gemini/Qwen request builders.
+- [x] DRAFT PR #365 opened.
+- [ ] Re-resolve current exact PR head after all documentation/provider commits.
+- [ ] Require terminal hosted CI for current exact head; older-head GREEN is stale.
+- [ ] Inspect any exact-head failure by job/step and classify code vs infrastructure/auth boundary.
+- [ ] Keep DRAFT / NOT_ADMITTED until terminal exact-head verification.
 
-- [ ] Document `information amplification != authority amplification` and provider-native configuration semantics.
-- [ ] Run focused tests and full available typecheck/test subset.
-- [ ] Inspect exact branch diff for accidental constitutional/security changes.
-- [ ] Open a DRAFT PR; hosted CI becomes the exact-head authority.
+### Follow-up slice after this PR is exact-head GREEN
+
+- Wire pure request builders into authenticated network adapters/Agents SDK runtime behind capability manifests.
+- Add provider-specific response parsers that produce `ProviderExecutionReceiptV1` from observed effective execution metadata.
+- Add cross-provider UCR ablation/eval harness: quality gain, false-promotion rate, verified progress per compute, authority violations.
+- Add SandboxAgent/compute-plane integration without granting sandbox authority.
