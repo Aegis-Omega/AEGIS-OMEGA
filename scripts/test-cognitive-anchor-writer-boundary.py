@@ -13,10 +13,10 @@ WORKFLOW_ROOT = REPO_ROOT / ".github" / "workflows"
 CHECKOUT_SHA = "11d5960a326750d5838078e36cf38b85af677262"
 SETUP_PYTHON_SHA = "a26af69be951a213d495a4c3e4e4022e16d87065"
 UPLOAD_ARTIFACT_SHA = "ea165f8d65b6e75b540449e92b4886f43607fa02"
-TRUSTED_SOURCE_SHA = "d695856884fc7f2a444735f15e14fab7a3c3387c"
+TRUSTED_SOURCE_SHA = "6e175394d672ad04eb1f4d30bf688c1b0c5d9f6f"
 TRUSTED_SOURCE_REF = "refs/heads/repair/trusted-admission-v2"
 TRUSTED_WORKFLOW = WORKFLOW_ROOT / "trusted-cognitive-admission.yml"
-TRUSTED_EVALUATOR = REPO_ROOT / "scripts" / "trusted-cognitive-admission.py"
+TRUSTED_EVALUATOR = REPO_ROOT / "scripts" / "trusted-cognitive-admission-v2.py"
 ORG_RULESET_PAYLOAD = REPO_ROOT / "security" / "org-main-trusted-admission.payload.json"
 REPOSITORY_ID = 1095915905
 
@@ -113,7 +113,7 @@ class TrustedAdmissionBoundaryTests(TestCase):
             "os.path.islink",
             "MAX_SKILL_FILES",
             "MAX_COGNITIVE_BYTES",
-            "trusted-source/scripts/trusted-cognitive-admission.py",
+            "trusted-source/scripts/trusted-cognitive-admission-v2.py",
             "--candidate-root candidate-data",
             "--base-root base-data",
         ):
@@ -181,6 +181,30 @@ class TrustedAdmissionBoundaryTests(TestCase):
             denied = evaluator.evaluate(**kwargs)
             self.assertEqual(denied["outcome"], "DENIED")
             self.assertGreater(denied["violation_count"], 0)
+
+    def test_manifest_whitespace_is_not_authority_but_semantic_tampering_is(self) -> None:
+        with TemporaryDirectory() as tmp:
+            evaluator, base, candidate = self._build_exact_fixture(Path(tmp))
+            base_path = base / ".claude.json"
+            candidate_path = candidate / ".claude.json"
+            base_obj = json.loads(base_path.read_text(encoding="utf-8"))
+            candidate_obj = json.loads(candidate_path.read_text(encoding="utf-8"))
+            base_path.write_text(json.dumps(base_obj, separators=(",", ":")) + "\n", encoding="utf-8")
+            candidate_path.write_text(json.dumps(candidate_obj, separators=(",", ":")) + "\n", encoding="utf-8")
+            kwargs = dict(
+                candidate_root=candidate,
+                base_root=base,
+                source_ref="feature/test",
+                candidate_sha="a" * 40,
+                base_sha="b" * 40,
+                workflow_sha="c" * 40,
+            )
+            admitted = evaluator.evaluate(**kwargs)
+            self.assertEqual(admitted["outcome"], "ADMITTED")
+            candidate_obj["provenance"]["source_ref"] = "feature/tampered"
+            candidate_path.write_text(json.dumps(candidate_obj, separators=(",", ":")) + "\n", encoding="utf-8")
+            denied = evaluator.evaluate(**kwargs)
+            self.assertEqual(denied["outcome"], "DENIED")
 
 
 if __name__ == "__main__":
