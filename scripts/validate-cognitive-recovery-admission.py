@@ -22,6 +22,7 @@ REQUEST_DOMAIN = "AEGIS_COGNITIVE_RECOVERY_ADMISSION_REQUEST_V1"
 SCHEMA_VERSION = "1.0.0"
 VERIFIER_IDENTITY = "offline:aegis-cognitive-recovery-admission-v1"
 REPOSITORY_ID = "Aegis-Omega/AEGIS-OMEGA"
+ALL_GATES = frozenset({"R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7"})
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REQUEST_SCHEMA_PATH = REPO_ROOT / "schemas" / "cognitive-recovery-admission-request.v1.schema.json"
@@ -39,6 +40,23 @@ FORBIDDEN_RECOVERY_PATH_PREFIXES = (
     "deploy/",
     ".github/workflows/deploy",
 )
+
+DIRECT_AUTHORITY_ENABLE_KEYS = frozenset(
+    {
+        "gcp_enabled",
+        "enable_gcp",
+        "billing_enabled",
+        "enable_billing",
+        "deployment_enabled",
+        "enable_deployment",
+        "provider_enabled",
+        "enable_provider",
+        "cloud_enabled",
+        "enable_cloud",
+    }
+)
+SENSITIVE_AUTHORITY_DOMAINS = frozenset({"gcp", "billing", "deployment", "provider", "cloud"})
+NESTED_ENABLE_KEYS = frozenset({"enabled", "enable", "active", "default_enabled"})
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -88,7 +106,7 @@ def build_receipt(
     """Build a deterministic authority-bounded admission decision receipt."""
     gates = sorted(set(verified_gates))
     violation_list = sorted(set(violations))
-    granted = len(violation_list) == 0
+    granted = len(violation_list) == 0 and set(gates) == ALL_GATES
 
     body: dict[str, Any] = {
         "receipt_kind": RECEIPT_KIND,
@@ -162,6 +180,13 @@ def _changed_paths(repo: Path, base: str, candidate: str) -> set[str] | None:
     return {line for line in result.stdout.splitlines() if line}
 
 
+def _json_at(repo: Path, commit: str, path: str) -> Any:
+    result = _git(repo, "show", f"{commit}:{path}")
+    if result.returncode != 0:
+        raise ValueError(f"unreadable JSON path {path}")
+    return json.loads(result.stdout)
+
+
 def _valid_relative_path(path: str) -> bool:
     pure = Path(path)
     return bool(path) and not pure.is_absolute() and ".." not in pure.parts and path.replace("\\", "/") == path
@@ -170,6 +195,48 @@ def _valid_relative_path(path: str) -> bool:
 def _forbidden_authority_path(path: str) -> bool:
     normalized = path.lstrip("./")
     return any(normalized.startswith(prefix) for prefix in FORBIDDEN_RECOVERY_PATH_PREFIXES)
+
+
+def _authority_value_enabled(value: Any) -> bool:
+    if value is True:
+        return True
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() not in {
+            "",
+            "0",
+            "false",
+            "off",
+            "disabled",
+            "none",
+            "not_enabled",
+            "not_authorized",
+        }
+    return False
+
+
+def _semantic_authority_violations(value: Any, *, path: str) -> list[str]:
+    violations: list[str] = []
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            key_text = str(key)
+            normalized = key_text.lower().replace("-", "_")
+            child_path = f"{path}.{key_text}"
+            if normalized in DIRECT_AUTHORITY_ENABLE_KEYS and _authority_value_enabled(child):
+                violations.append(f"R5:FORBIDDEN_AUTHORITY_ENABLE:{child_path}")
+            if normalized in SENSITIVE_AUTHORITY_DOMAINS and isinstance(child, Mapping):
+                for nested_key, nested_value in child.items():
+                    nested_normalized = str(nested_key).lower().replace("-", "_")
+                    if nested_normalized in NESTED_ENABLE_KEYS and _authority_value_enabled(nested_value):
+                        violations.append(
+                            f"R5:FORBIDDEN_AUTHORITY_ENABLE:{child_path}.{nested_key}"
+                        )
+            violations.extend(_semantic_authority_violations(child, path=child_path))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            violations.extend(_semantic_authority_violations(child, path=f"{path}[{index}]"))
+    return violations
 
 
 def _gate_r0(request: dict[str, Any]) -> list[str]:
@@ -229,17 +296,27 @@ def _gate_r2(repo: Path, request: dict[str, Any]) -> list[str]:
         violations.append("R2:CANDIDATE_NOT_DESCENDED_FROM_ZERO_PARENT_REPAIR")
         return violations
 
-    expected_blobs = {
+    repair_blobs = {
         ZERO_PARENT_VALIDATOR_PATH: request.get("zero_parent_validator_blob"),
         ZERO_PARENT_TEST_PATH: request.get("zero_parent_test_blob"),
         WRITER_WORKFLOW_PATH: request.get("writer_workflow_blob"),
+    }
+    for path, expected in repair_blobs.items():
+        repair_actual = _blob_sha(repo, repair, path)
+        candidate_actual = _blob_sha(repo, candidate, path)
+        if not isinstance(expected, str) or repair_actual != expected:
+            violations.append(f"R2:REPAIR_BLOB_MISMATCH:{path}")
+        if not isinstance(expected, str) or candidate_actual != expected:
+            violations.append(f"R2:CANDIDATE_BLOB_MISMATCH:{path}")
+
+    candidate_blobs = {
         MANIFEST_PATH: request.get("expected_manifest_blob"),
         SKILL_HASHES_PATH: request.get("expected_skill_hashes_blob"),
     }
-    for path, expected in expected_blobs.items():
+    for path, expected in candidate_blobs.items():
         actual = _blob_sha(repo, candidate, path)
         if not isinstance(expected, str) or actual != expected:
-            violations.append(f"R2:BLOB_MISMATCH:{path}")
+            violations.append(f"R2:CANDIDATE_BLOB_MISMATCH:{path}")
     return violations
 
 
@@ -288,13 +365,25 @@ def _gate_r4(request: dict[str, Any], recovery_evidence: Mapping[str, Any] | Non
     return violations
 
 
-def _gate_r5(request: dict[str, Any], changed_paths: set[str]) -> list[str]:
+def _gate_r5(repo: Path, request: dict[str, Any], changed_paths: set[str]) -> list[str]:
     violations: list[str] = []
     requested_paths = request.get("allowed_changed_paths")
     candidate_paths = set(requested_paths) if isinstance(requested_paths, list) else set()
     for path in sorted(changed_paths | candidate_paths):
         if isinstance(path, str) and _forbidden_authority_path(path):
             violations.append(f"R5:FORBIDDEN_AUTHORITY_PATH:{path}")
+
+    violations.extend(_semantic_authority_violations(request, path="request"))
+    candidate = request.get("candidate_sha")
+    if isinstance(candidate, str):
+        try:
+            manifest = _json_at(repo, candidate, MANIFEST_PATH)
+        except (ValueError, json.JSONDecodeError):
+            violations.append("R5:CONTROL_MANIFEST_UNREADABLE")
+        else:
+            violations.extend(_semantic_authority_violations(manifest, path=MANIFEST_PATH))
+    else:
+        violations.append("R5:CANDIDATE_IDENTITY_INVALID")
     return violations
 
 
@@ -338,7 +427,7 @@ def evaluate(
     if not r4:
         verified.append("R4")
 
-    r5 = _gate_r5(request, changed_paths)
+    r5 = _gate_r5(repo, request, changed_paths)
     violations.extend(r5)
     if not r5:
         verified.append("R5")
