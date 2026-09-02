@@ -1,0 +1,41 @@
+{
+  "schema_version": "AEDR-FALSIFIER-MANIFEST-V1",
+  "required_behavior_ids": [
+    "BEHAVIOR_ARTIFACT_PINNING",
+    "BEHAVIOR_CREDENTIAL_ISOLATED_DOWNLOAD",
+    "BEHAVIOR_DEEP_IMMUTABLE_SNAPSHOT",
+    "BEHAVIOR_DETERMINISTIC_CANONICALIZATION",
+    "BEHAVIOR_DOUBLE_COLLECT_ISOLATION",
+    "BEHAVIOR_EXACT_HEAD_FILTER",
+    "BEHAVIOR_STRICT_SURFACE_SCHEMA",
+    "BEHAVIOR_SURFACE_ARTIFACT_PRODUCTION"
+  ],
+  "required_falsifier_ids": [
+    "FALSIFIER_AMBIGUOUS_ARTIFACT_REJECTED",
+    "FALSIFIER_CREDENTIAL_REDIRECT_LEAK_REJECTED",
+    "FALSIFIER_MUTATION_RACE_DETECTED",
+    "FALSIFIER_STALE_HEAD_REJECTED",
+    "FALSIFIER_STALE_RUN_REJECTED",
+    "FALSIFIER_TAMPERED_SURFACE_REJECTED",
+    "FALSIFIER_UNCLAIMED_VERIFICATION_REJECTED",
+    "FALSIFIER_ZIP_BOMB_REJECTED",
+    "FALSIFIER_ZIP_TRAVERSAL_REJECTED"
+  ],
+  "unique_non_generated_paths": [
+    "scripts/aedr/acquisition_adapter.py",
+    "scripts/aedr/acquisition_types.py",
+    "scripts/aedr/artifact_surface_oracle.py",
+    "scripts/aedr/dag_evaluator.py",
+    "scripts/aedr/dag_model.py",
+    "scripts/aedr/live_oracle.py",
+    "scripts/aedr/snapshot_builder.py",
+    "scripts/aedr/surface_ingestor.py",
+    "scripts/aedr/surface_producer.py"
+  ],
+  "assumption_identities": [
+    "ASSUMP_AEDR_EXTERNAL_ASSUMPTION_DISCOVERY_NOT_INTEGRATED"
+  ],
+  "security_exposure_identities": [
+    "SECURITY_AEDR_EXTERNAL_SECURITY_SCAN_NOT_INTEGRATED"
+  ]
+}
