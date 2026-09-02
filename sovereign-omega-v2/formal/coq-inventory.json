@@ -2,9 +2,9 @@
   "schema_version": "1.0.0",
   "formal_root": "formal/theories",
   "compile_model": "cd <directory> && coqc <file>; intra-directory Requires only",
-  "file_count": 28,
+  "file_count": 29,
   "counts": {
-    "REQUIRE_AXIOM_FREE": 16,
+    "REQUIRE_AXIOM_FREE": 17,
     "DIAGNOSTIC_ONLY": 4,
     "AUTHORITY_ELIGIBLE": 8
   },
@@ -36,7 +36,8 @@
     "Weil/O0.v",
     "Weil/PrimalityStdlibBridge.v",
     "Weil/O0ClosureProbe.v",
-    "Weil/VonMangoldtCanonicalBridge.v"
+    "Weil/VonMangoldtCanonicalBridge.v",
+    "Weil/CanonicalPrimeSourceSum.v"
   ],
   "files": [
     {
@@ -263,6 +264,17 @@
         "PrimePowerWeightBridge",
         "PrimePowerArithmeticBridge",
         "PrimalityStdlibBridge"
+      ],
+      "classification": "REQUIRE_AXIOM_FREE"
+    },
+    {
+      "path": "Weil/CanonicalPrimeSourceSum.v",
+      "directory": "Weil",
+      "module": "CanonicalPrimeSourceSum",
+      "requires": [
+        "PrimePowerWeightBridge",
+        "PrimePowerArithmeticBridge",
+        "VonMangoldtCanonicalBridge"
       ],
       "classification": "REQUIRE_AXIOM_FREE"
     }

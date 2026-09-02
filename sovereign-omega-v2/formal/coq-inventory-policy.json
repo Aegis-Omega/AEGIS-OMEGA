@@ -4,6 +4,7 @@
     "Core/LatticeConvergence.v",
     "Core/LockIrreversibility.v",
     "Weil/AnalyticDefinitions.v",
+    "Weil/CanonicalPrimeSourceSum.v",
     "Weil/FiniteBridge.v",
     "Weil/FiniteEntryDictionary.v",
     "Weil/FinitePrimeDiagonal.v",
