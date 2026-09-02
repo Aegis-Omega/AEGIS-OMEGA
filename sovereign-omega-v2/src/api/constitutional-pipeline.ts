@@ -195,7 +195,7 @@ export class ConstitutionalPipeline {
       useThinking?: boolean
     } = {}
   ): Promise<PipelineResult> {
-    const model = options.model ?? 'claude-sonnet-4-6'
+    const model = options.model ?? 'claude-opus-5'
     const maxTokens = options.maxTokens ?? 2048
 
     // Stage 1: hash-certify input
@@ -228,7 +228,7 @@ export class ConstitutionalPipeline {
       ? await this._client.think(
           [{ role: 'user', content: enrichedPrompt }],
           model,
-          8000,
+          'high',
           maxTokens
         )
       : await this._client.send({

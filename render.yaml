@@ -37,7 +37,7 @@ services:
         sync: false          # SECRET — set in Render dashboard
       # Opus 4.8 is generally available; avoids the Fable 5 entitlement block
       - key: AEGIS_SWARM_MODEL
-        value: claude-opus-4-8
+        value: claude-opus-5
       # CoreMatrix isn't needed for the swarm — shrink it so it fits the free 512MB box
       - key: AEGIS_ARRAY_BYTES
         value: "4096"

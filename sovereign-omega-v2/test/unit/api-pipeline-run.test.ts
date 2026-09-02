@@ -46,7 +46,7 @@ afterEach(() => vi.clearAllMocks())
 function makeFakeResponse(text: string) {
   return {
     response_text: text,
-    model_id: 'claude-haiku-4-5-20251001',
+    model_id: 'claude-opus-5',
     request_hash:  '0'.repeat(64) as SHA256Hex,
     response_hash: '1'.repeat(64) as SHA256Hex,
     chain_hash:    '2'.repeat(64) as SHA256Hex,

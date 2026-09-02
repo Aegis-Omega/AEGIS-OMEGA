@@ -48,7 +48,7 @@ _ROOT = os.path.dirname(os.path.abspath(__file__))
 _REPO_ROOT = os.path.dirname(_ROOT)
 PROXY_URL = os.environ.get("PROXY_URL", "http://localhost:8080")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
-DEFAULT_MODEL = os.environ.get("AEGIS_DEFAULT_MODEL", "claude-opus-4-8")
+DEFAULT_MODEL = os.environ.get("AEGIS_DEFAULT_MODEL", "claude-opus-5")
 VERTEX_PROJECT = os.environ.get("VERTEX_PROJECT_ID", "aegisomegav1")
 VERTEX_REGION = os.environ.get("VERTEX_REGION", "us-east5")
 EVENTBUS_CHANNEL = "aegis:events"
@@ -521,7 +521,7 @@ class VertexClient:
         dept_id: str,
         messages: list[dict],
         system: str,
-        model: str = "claude-opus-4-8@001",
+        model: str = "claude-opus-5",
         max_tokens: int = 8192,
     ) -> dict:
         loop = asyncio.get_event_loop()

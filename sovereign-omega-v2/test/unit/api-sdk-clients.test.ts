@@ -97,7 +97,7 @@ describe('ConstitutionalClaudeClient.send', () => {
     const client = new ConstitutionalClaudeClient('test-key')
     const res = await client.send({
       messages: [{ role: 'user', content: 'ping' }],
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-opus-5',
       max_tokens: 100,
     })
     expect(res.response_text).toBe('Hello constitutional world')
@@ -113,7 +113,7 @@ describe('ConstitutionalClaudeClient.send', () => {
     const client = new ConstitutionalClaudeClient('test-key')
     const res = await client.send({
       messages: [{ role: 'user', content: 'q' }],
-      model:     'claude-haiku-4-5-20251001',
+      model:     'claude-opus-5',
       max_tokens: 100,
     })
     expect(res.epistemic_tier).toBe(EpistemicTier.T3)
@@ -123,7 +123,7 @@ describe('ConstitutionalClaudeClient.send', () => {
     const client = new ConstitutionalClaudeClient('test-key')
     await client.send({
       messages: [{ role: 'user', content: 'q' }],
-      model:     'claude-haiku-4-5-20251001',
+      model:     'claude-opus-5',
       max_tokens: 100,
     })
     const args = mocks.messagesCreate.mock.calls[0]![0] as { system?: string }
@@ -134,7 +134,7 @@ describe('ConstitutionalClaudeClient.send', () => {
     const client = new ConstitutionalClaudeClient('test-key')
     await client.send({
       messages: [{ role: 'user', content: 'q' }],
-      model:     'claude-haiku-4-5-20251001',
+      model:     'claude-opus-5',
       max_tokens: 100,
       system:    'Custom context',
     })
@@ -147,7 +147,7 @@ describe('ConstitutionalClaudeClient.send', () => {
     const client = new ConstitutionalClaudeClient('test-key')
     await client.send({
       messages: [{ role: 'user', content: 'q' }],
-      model:     'claude-haiku-4-5-20251001',
+      model:     'claude-opus-5',
       max_tokens: 100,
       use_constitutional_prompt: false,
     })
@@ -159,7 +159,7 @@ describe('ConstitutionalClaudeClient.send', () => {
     const client = new ConstitutionalClaudeClient('test-key')
     await client.send({
       messages: [{ role: 'user', content: 'q' }],
-      model:     'claude-haiku-4-5-20251001',
+      model:     'claude-opus-5',
       max_tokens: 100,
       use_constitutional_prompt: false,
       system: 'Only caller',
@@ -168,16 +168,22 @@ describe('ConstitutionalClaudeClient.send', () => {
     expect(args.system).toBe('Only caller')
   })
 
-  it('passes temperature to messages.create when provided', async () => {
+  // Sampling parameters are rejected with a 400 on claude-opus-5.  This guards
+  // against `temperature` / `top_p` / `top_k` being reintroduced into the
+  // request path, which would break every call rather than degrade quietly.
+  it('never forwards sampling parameters to messages.create', async () => {
     const client = new ConstitutionalClaudeClient('test-key')
     await client.send({
-      messages:    [{ role: 'user', content: 'q' }],
-      model:       'claude-haiku-4-5-20251001',
-      max_tokens:  100,
-      temperature: 0.5,
+      messages:   [{ role: 'user', content: 'q' }],
+      model:      'claude-opus-5',
+      max_tokens: 100,
     })
-    const args = mocks.messagesCreate.mock.calls[0]![0] as { temperature?: number }
-    expect(args.temperature).toBe(0.5)
+    const args = mocks.messagesCreate.mock.calls[0]![0] as {
+      temperature?: number; top_p?: number; top_k?: number
+    }
+    expect(args.temperature).toBeUndefined()
+    expect(args.top_p).toBeUndefined()
+    expect(args.top_k).toBeUndefined()
   })
 })
 
@@ -188,7 +194,7 @@ describe('ConstitutionalClaudeClient.quickAsk', () => {
     mocks.messagesCreate.mockResolvedValue(makeApiResponse('Quick answer'))
   })
 
-  it('delegates to send() with default haiku model', async () => {
+  it('delegates to send() with the default model', async () => {
     const client = new ConstitutionalClaudeClient('test-key')
     const res = await client.quickAsk('What is 1+1?')
     expect(res.response_text).toBe('Quick answer')
@@ -213,11 +219,17 @@ describe('ConstitutionalClaudeClient.think', () => {
     expect(res.response_text).toBe('Thinking output')
   })
 
-  it('passes thinking budget to messages.create', async () => {
+  // budget_tokens is rejected with a 400 on claude-opus-5; effort replaces it.
+  it('requests adaptive thinking at the given effort, never a token budget', async () => {
     const client = new ConstitutionalClaudeClient('test-key')
-    await client.think([{ role: 'user', content: 'q' }], 'claude-sonnet-4-6', 5000, 10000)
-    const args = mocks.messagesCreate.mock.calls[0]![0] as { thinking?: { budget_tokens: number } }
-    expect(args.thinking?.budget_tokens).toBe(5000)
+    await client.think([{ role: 'user', content: 'q' }], 'claude-opus-5', 'medium', 10000)
+    const args = mocks.messagesCreate.mock.calls[0]![0] as {
+      thinking?: { type: string; budget_tokens?: number }
+      output_config?: { effort?: string }
+    }
+    expect(args.thinking?.type).toBe('adaptive')
+    expect(args.thinking?.budget_tokens).toBeUndefined()
+    expect(args.output_config?.effort).toBe('medium')
   })
 })
 
@@ -237,7 +249,7 @@ describe('ConstitutionalClaudeClient.stream', () => {
     const chunks: Array<{ delta: string; is_final: boolean }> = []
     for await (const c of client.stream({
       messages: [{ role: 'user', content: 'q' }],
-      model:    'claude-haiku-4-5-20251001',
+      model:    'claude-opus-5',
       max_tokens: 100,
     })) {
       chunks.push(c)
@@ -252,7 +264,7 @@ describe('ConstitutionalClaudeClient.stream', () => {
     const client = new ConstitutionalClaudeClient('test-key')
     for await (const _ of client.stream({
       messages: [{ role: 'user', content: 'q' }],
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-opus-5',
       max_tokens: 100,
       system: 'Custom context',
     })) { /* drain */ }
@@ -267,7 +279,7 @@ describe('ConstitutionalClaudeClient.stream', () => {
     const client = new ConstitutionalClaudeClient('test-key')
     for await (const _ of client.stream({
       messages: [{ role: 'user', content: 'q' }],
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-opus-5',
       max_tokens: 100,
       use_constitutional_prompt: false,
     })) { /* drain */ }
@@ -287,7 +299,7 @@ describe('ConstitutionalClaudeClient.stream', () => {
     const chunks: Array<{ delta: string; is_final: boolean; usage?: unknown }> = []
     for await (const c of client.stream({
       messages: [{ role: 'user', content: 'q' }],
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-opus-5',
       max_tokens: 100,
     })) { chunks.push(c) }
     expect(chunks.some(c => c.delta === 'Hi')).toBe(true)

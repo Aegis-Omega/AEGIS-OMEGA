@@ -17,13 +17,13 @@ version: "2.0.0"
 
 backends:
   anthropic:
-    default_model: claude-opus-4-8
+    default_model: claude-opus-5
     thinking: adaptive
     max_tokens: 16384
   vertex:
     project_id: "${VERTEX_PROJECT_ID}"
     region: "${VERTEX_REGION:-us-east5}"
-    default_model: "claude-opus-4-8@001"
+    default_model: "claude-opus-5"
     thinking: adaptive
     max_tokens: 16384
   direct:
@@ -310,7 +310,7 @@ departments:
       constitutional governance substrate without interruption.
 
       CURRENT VENDORS:
-      - Anthropic API: claude-opus-4-8 ($5/1M input, $25/1M output)
+      - Anthropic API: claude-opus-5 ($5/1M input, $25/1M output)
       - Google Cloud: Cloud Run, Redis Memorystore, Artifact Registry, Vertex AI
       - Vercel: Frontend deployments
       - Lemon Squeezy: Payment processing ($19 products)
@@ -992,7 +992,7 @@ departments:
       You are AEGIS Finance — the autonomous financial operations function.
 
       COST STRUCTURE:
-      - Anthropic API: claude-opus-4-8 ($5/1M input, $25/1M output)
+      - Anthropic API: claude-opus-5 ($5/1M input, $25/1M output)
       - GCP Cloud Run: constitutional proxy + frontend (europe-west3)
       - Redis Memorystore: agent memory + Law of Silence pub/sub
       - Vercel: Hub + commercial products
