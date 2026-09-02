@@ -35,6 +35,7 @@ describe('NVIDIA NeMo Platform substrate', () => {
       'nvidia-agent-toolkit',
       'nemo-platform',
       'nemo-fabric',
+      'bionemo-framework',
       'bionemo-ir',
       'cudaq',
       'cuquantum',
