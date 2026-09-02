@@ -149,6 +149,11 @@ jobs:
           platform_key="$(cat "$KEY_PATH")"
           echo "::add-mask::$platform_key"
 
+          # Record the causal fact before the network call so a transport or
+          # response-validation failure cannot be misreported as no attempt.
+          echo "attempted=true" >> "$GITHUB_OUTPUT"
+          echo "result=FAIL" >> "$GITHUB_OUTPUT"
+
           curl --fail-with-body --silent --show-error \
             --retry 3 \
             --retry-all-errors \
@@ -166,8 +171,7 @@ jobs:
             all(.results[]; (.role | type == "string") and (.is_valid | type == "boolean"))
           ' "$RESPONSE_PATH" >/dev/null
 
-          echo "attempted=true" >> "$GITHUB_OUTPUT"
-          echo "outcome=SUCCESS" >> "$GITHUB_OUTPUT"
+          echo "result=SUCCESS" >> "$GITHUB_OUTPUT"
           echo "response_sha256=$(sha256sum "$RESPONSE_PATH" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
           echo "result_count=$(jq '.results | length' "$RESPONSE_PATH")" >> "$GITHUB_OUTPUT"
 
@@ -181,8 +185,9 @@ jobs:
           ADMISSION_REASON: ${{ steps.admission.outputs.reason }}
           AUTH_OUTCOME: ${{ steps.auth.outcome }}
           BROKER_OUTCOME: ${{ steps.broker.outcome }}
-          EFFECT_OUTCOME: ${{ steps.effect.outcome }}
+          EFFECT_STEP_OUTCOME: ${{ steps.effect.outcome }}
           EFFECT_ATTEMPTED: ${{ steps.effect.outputs.attempted }}
+          EFFECT_RESULT: ${{ steps.effect.outputs.result }}
           RESPONSE_SHA256: ${{ steps.effect.outputs.response_sha256 }}
           RESULT_COUNT: ${{ steps.effect.outputs.result_count }}
           RECEIPT_PATH: ${{ runner.temp }}/AGENT_DISPATCH_RECEIPT.json
@@ -202,7 +207,8 @@ jobs:
               "broker_outcome": os.environ.get("BROKER_OUTCOME") or "not_run",
               "effect": {
                   "attempted": os.environ.get("EFFECT_ATTEMPTED") == "true",
-                  "outcome": os.environ.get("EFFECT_OUTCOME") or "not_run",
+                  "result": os.environ.get("EFFECT_RESULT") or "NOT_ATTEMPTED",
+                  "step_outcome": os.environ.get("EFFECT_STEP_OUTCOME") or "not_run",
                   "response_sha256": os.environ.get("RESPONSE_SHA256") or None,
                   "result_count": int(os.environ["RESULT_COUNT"]) if os.environ.get("RESULT_COUNT") else None,
               },
