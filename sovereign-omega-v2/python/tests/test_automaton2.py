@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import subprocess
 from tempfile import TemporaryDirectory
 from unittest import TestCase, main
 from unittest.mock import patch
@@ -68,7 +69,7 @@ class Automaton2Tests(TestCase):
         (self.root / "skill-hashes.sha256").write_text(hashes, encoding="utf-8")
         return manifest
 
-    def evaluate(self, *, require_oidc: bool = False) -> dict:
+    def evaluate(self, *, require_oidc: bool = False, allow_genesis: bool = False) -> dict:
         return VALIDATOR.evaluate(
             root=self.root,
             manifest_path=self.root / ".claude.json",
@@ -78,6 +79,7 @@ class Automaton2Tests(TestCase):
             expected_parent_state_hash=self.parent_hash,
             candidate_sha="a" * 40,
             require_oidc=require_oidc,
+            allow_genesis=allow_genesis,
         )
 
     def rewrite_manifest(self, manifest: dict) -> None:
@@ -104,6 +106,46 @@ class Automaton2Tests(TestCase):
         self.parent_hash = "0" * 64
         self.write_manifest()
         receipt = self.evaluate()
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertIn(
+            "zero parent state requires explicit genesis mode",
+            receipt["violations"],
+        )
+
+    def test_explicit_genesis_allows_zero_parent_without_existing_parent(self) -> None:
+        self.parent_hash = "0" * 64
+        self.write_manifest()
+        receipt = self.evaluate(allow_genesis=True)
+        self.assertEqual(receipt["outcome"], "ADMITTED")
+        self.assertEqual(receipt["violation_count"], 0)
+
+    def test_existing_zero_parent_cannot_be_overridden_by_genesis_flag(self) -> None:
+        self.parent_hash = "0" * 64
+        self.write_manifest()
+        parent_manifest = self.root / "parent.json"
+        parent_manifest.write_text(json.dumps({"state_hash": self.parent_hash}), encoding="utf-8")
+        output = self.root / "receipt.json"
+        completed = subprocess.run(
+            [
+                "python",
+                str(REPO_ROOT / "scripts" / "validate-automaton2.py"),
+                "--root",
+                str(self.root),
+                "--parent-manifest",
+                str(parent_manifest),
+                "--candidate-sha",
+                "a" * 40,
+                "--allow-genesis",
+                "--output",
+                str(output),
+            ],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        self.assertNotEqual(completed.returncode, 0)
+        receipt = json.loads(output.read_text(encoding="utf-8"))
         self.assertEqual(receipt["outcome"], "DENIED")
         self.assertIn(
             "zero parent state requires explicit genesis mode",
