@@ -18,6 +18,12 @@ _DYNAMIC_CALL_ATTRS = {
     "run_module",
     "run_path",
 }
+_DYNAMIC_IMPORT_FROM_MODULES = {
+    "importlib": {"import_module"},
+    "importlib.util": {"spec_from_file_location"},
+    "importlib.machinery": {"SourceFileLoader", "SourcelessFileLoader"},
+    "runpy": {"run_module", "run_path"},
+}
 
 
 def _module_candidates(repo_root: Path, module: str) -> tuple[Path, ...]:
@@ -78,11 +84,24 @@ def _relative_base(current_module: str, current_is_package: bool, level: int) ->
 
 
 def _dynamic_import_guard(tree: ast.AST, rel: str) -> None:
+    dynamic_bound_names: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        allowed = _DYNAMIC_IMPORT_FROM_MODULES.get(node.module or "")
+        if not allowed:
+            continue
+        for alias in node.names:
+            if alias.name in allowed:
+                dynamic_bound_names.add(alias.asname or alias.name)
+
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         func = node.func
-        if isinstance(func, ast.Name) and func.id in _DYNAMIC_CALL_NAMES:
+        if isinstance(func, ast.Name) and (
+            func.id in _DYNAMIC_CALL_NAMES or func.id in dynamic_bound_names
+        ):
             raise PythonClosureError(f"DYNAMIC_IMPORT_FORBIDDEN:{rel}:{func.id}")
         if isinstance(func, ast.Attribute) and func.attr in _DYNAMIC_CALL_ATTRS:
             raise PythonClosureError(f"DYNAMIC_IMPORT_FORBIDDEN:{rel}:{func.attr}")
@@ -158,9 +177,10 @@ def discover_python_closure(repo_root: Path, entry_modules: Iterable[str]) -> tu
     """Discover deterministic transitive Python source closure for judge code.
 
     Local modules are resolved from the repository itself. Existing package
-    initializers are included because import-time code is executable. Dynamic
-    import/code-loading primitives fail closed: a static content commitment
-    cannot safely claim completeness when runtime module discovery is opaque.
+    initializers are included and traversed because import-time code is
+    executable. Dynamic import/code-loading primitives fail closed: a static
+    content commitment cannot safely claim completeness when runtime module
+    discovery is opaque.
     """
     repo_root = repo_root.resolve()
     if not repo_root.is_dir():
@@ -172,6 +192,7 @@ def discover_python_closure(repo_root: Path, entry_modules: Iterable[str]) -> tu
 
     visited_modules: set[str] = set()
     committed_paths: set[Path] = set()
+    traversed_paths: set[Path] = set()
 
     while queue:
         module = queue.pop(0)
@@ -185,7 +206,7 @@ def discover_python_closure(repo_root: Path, entry_modules: Iterable[str]) -> tu
             resolved.relative_to(repo_root)
         except ValueError as exc:
             raise PythonClosureError(f"MODULE_ESCAPES_REPOSITORY:{module}") from exc
-        if resolved.is_symlink():
+        if path.is_symlink():
             raise PythonClosureError(f"SYMLINK_MODULE_FORBIDDEN:{module}")
 
         current_name, is_package = _module_name(repo_root, resolved)
@@ -195,12 +216,31 @@ def discover_python_closure(repo_root: Path, entry_modules: Iterable[str]) -> tu
             )
 
         visited_modules.add(module)
-        committed_paths.add(resolved)
-        committed_paths.update(_package_initializers(repo_root, module, module_is_package=is_package))
+        executable_paths = [resolved]
+        executable_paths.extend(
+            init.resolve()
+            for init in _package_initializers(
+                repo_root, module, module_is_package=is_package
+            )
+        )
 
-        for dependency in _local_imports(repo_root, resolved):
-            if dependency not in visited_modules and dependency not in queue:
-                queue.append(dependency)
+        for executable_path in sorted(
+            set(executable_paths),
+            key=lambda item: item.relative_to(repo_root).as_posix(),
+        ):
+            try:
+                executable_path.relative_to(repo_root)
+            except ValueError as exc:
+                raise PythonClosureError(
+                    f"MODULE_ESCAPES_REPOSITORY:{module}"
+                ) from exc
+            committed_paths.add(executable_path)
+            if executable_path in traversed_paths:
+                continue
+            traversed_paths.add(executable_path)
+            for dependency in _local_imports(repo_root, executable_path):
+                if dependency not in visited_modules and dependency not in queue:
+                    queue.append(dependency)
         queue.sort()
 
     return tuple(
