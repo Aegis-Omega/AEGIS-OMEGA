@@ -21,6 +21,7 @@ From Coq Require Import Reals.Abstract.ConstructiveLimits.
 From Coq Require Import Reals.Abstract.ConstructiveRealsMorphisms.
 Require Import CoRN.reals.R_morphism.
 Require Import CoRN.reals.Q_dense.
+Require Import CoRN.reals.Q_in_CReals.
 Require Import CoRN.reals.fast.CRIR.
 Require Import CoRN.reals.fast.CRArith.
 Require Import CoRN.reals.fast.CRabs.
@@ -121,7 +122,12 @@ Proof.
   - apply CRmorph_proper.
     apply corn_fast_eq_to_stdlib_eq_a1c_v1.
     exact IR_Zero_as_CR.
-  - apply CRmorph_zero.
+  - change
+      (CReq O0RealsV1
+        (CRmorph corn_fast_to_o0_morphism_a1c_v1
+          (CR_of_Q FastRealsConstructive 0%Q))
+        (CR_of_Q O0RealsV1 0%Q)).
+    exact (CRmorph_zero corn_fast_to_o0_morphism_a1c_v1).
 Qed.
 
 Theorem corn_ir_to_o0_preserves_one_v1 :
@@ -134,7 +140,12 @@ Proof.
   - apply CRmorph_proper.
     apply corn_fast_eq_to_stdlib_eq_a1c_v1.
     exact IR_One_as_CR.
-  - apply CRmorph_one.
+  - change
+      (CReq O0RealsV1
+        (CRmorph corn_fast_to_o0_morphism_a1c_v1
+          (CR_of_Q FastRealsConstructive 1%Q))
+        (CR_of_Q O0RealsV1 1%Q)).
+    exact (CRmorph_one corn_fast_to_o0_morphism_a1c_v1).
 Qed.
 
 Theorem corn_ir_to_o0_preserves_plus_v1 :
@@ -149,7 +160,9 @@ Proof.
   - apply CRmorph_proper.
     apply corn_fast_eq_to_stdlib_eq_a1c_v1.
     exact (IR_plus_as_CR x y).
-  - apply CRmorph_plus.
+  - exact
+      (CRmorph_plus corn_fast_to_o0_morphism_a1c_v1
+         (IRasCR x) (IRasCR y)).
 Qed.
 
 Theorem corn_ir_to_o0_preserves_mult_v1 :
@@ -164,7 +177,9 @@ Proof.
   - apply CRmorph_proper.
     apply corn_fast_eq_to_stdlib_eq_a1c_v1.
     exact (IR_mult_as_CR x y).
-  - apply CRmorph_mult.
+  - exact
+      (CRmorph_mult corn_fast_to_o0_morphism_a1c_v1
+         (IRasCR x) (IRasCR y)).
 Qed.
 
 Theorem corn_ir_to_o0_preserves_le_v1 :
@@ -344,8 +359,8 @@ Proof.
   unfold O0EqV1 in Hx, Hy.
   unfold O0LtV1.
   eapply CRle_lt_trans.
-  - exact (proj2 Hx).
+  - exact (proj1 Hx).
   - eapply CRlt_le_trans.
     + exact (corn_ir_to_o0_strict_v1 x y Hxy).
-    + exact (proj1 Hy).
+    + exact (proj2 Hy).
 Qed.
