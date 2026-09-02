@@ -11,12 +11,35 @@ from scripts.avd.mutation_builder import MutationBuilderError, MutationFixtureBu
 TARGET = "sovereign-omega-v2/formal/theories/Weil/CornO0MorphismBridge.v"
 
 
+# Synthetic but structurally representative of the real A1c source.  The
+# semantic mutation anchors are intentionally present so build_all() exercises
+# every registered mutation without weakening fail-closed source anchoring.
 REFERENCE_SOURCE = """\
 Definition corn_ir_to_o0_carrier_v1 (x : IR) : O0RealV1 :=
   CRmorph corn_fast_to_o0_morphism_a1c_v1 (IRasCR x).
 
 Theorem corn_ir_to_o0_preserves_rat_v1 : forall q : Q, True.
-Proof. intros q. exact I. Qed.
+Proof.
+  intros q.
+  eapply CReq_trans.
+  - exact dummy_rat_left.
+  - apply CRmorph_rat.
+Qed.
+
+Theorem corn_ir_to_o0_strict_v1 : forall x y : IR, x [<] y -> True.
+Proof.
+  intros x y Hxy.
+  exact
+    (map_pres_less_unfolded
+       IR CRasCReals
+       (iso_map_rht CRasCReals IR CRIR_iso)
+       x y Hxy).
+Qed.
+"""
+
+MINIMAL_REFERENCE_SOURCE = """\
+Definition corn_ir_to_o0_carrier_v1 (x : IR) : O0RealV1 :=
+  CRmorph corn_fast_to_o0_morphism_a1c_v1 (IRasCR x).
 """
 
 
@@ -111,6 +134,16 @@ def test_integrity_and_provenance_mutants_are_structurally_explicit() -> None:
     assert fixtures["MUT_12"].anchor_override is not None
     assert fixtures["MUT_13"].authority_override == "FORMAL_MATH_EVIDENCE_ONLY"
     assert fixtures["MUT_14"].commitment_override is not None
+
+
+def test_semantic_mutation_anchors_fail_closed_when_reference_shape_drifts() -> None:
+    minimal = MINIMAL_REFERENCE_SOURCE.encode("utf-8")
+    builder = MutationFixtureBuilderV1(_frozen_reference(MINIMAL_REFERENCE_SOURCE), minimal)
+
+    with pytest.raises(MutationBuilderError, match="RATIONAL_MUTATION_ANCHOR_NOT_FOUND"):
+        builder.build("MUT_05")
+    with pytest.raises(MutationBuilderError, match="ORDER_MUTATION_ANCHOR_NOT_FOUND"):
+        builder.build("MUT_06")
 
 
 def test_unknown_mutation_id_fails_closed() -> None:
