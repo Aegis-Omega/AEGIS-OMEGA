@@ -1,0 +1,53 @@
+name: Cognitive Recovery Admission Validator
+
+on:
+  push:
+    branches:
+      - repair/cognitive-recovery-admission-validator-v1
+  pull_request:
+    branches:
+      - repair/cognitive-anchor-recovery-admission-v1
+  workflow_dispatch:
+
+# Candidate-controlled verification only. This lane cannot sign, mutate refs,
+# deploy, attest, or grant production recovery authority.
+permissions:
+  contents: read
+
+jobs:
+  recovery-admission-contract:
+    name: aegis / cognitive-recovery-admission-validator
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install exact schema dependency
+        run: pip install jsonschema==4.23.0
+
+      - name: Run recovery admission contract tests
+        run: python sovereign-omega-v2/python/tests/test_cognitive_recovery_admission.py
+
+      - name: Assert authority-neutral workflow contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -Eq 'contents:[[:space:]]*write|id-token:[[:space:]]*write|attestations:[[:space:]]*write|deployments:[[:space:]]*write' .github/workflows/cognitive-recovery-admission-validator.yml
