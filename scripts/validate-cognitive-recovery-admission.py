@@ -3,8 +3,8 @@
 
 This milestone is authority-neutral. It does not sign, mutate refs, update main,
 modify repository governance, deploy, or grant production recovery authority.
-R0-R5 are mechanical evidence gates. R6 live governance and R7 operator approval
-remain fail-closed and explicitly unevaluated in this slice.
+R0-R7 validate bounded recovery evidence. Replay state remains fail-closed and
+must be implemented by a later base-owned admission layer before any grant.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -19,10 +20,19 @@ from jsonschema import Draft202012Validator
 
 RECEIPT_KIND = "AEGIS_COGNITIVE_RECOVERY_ADMISSION_RECEIPT_V1"
 REQUEST_DOMAIN = "AEGIS_COGNITIVE_RECOVERY_ADMISSION_REQUEST_V1"
+PLATFORM_DOMAIN = "AEGIS_PLATFORM_GOVERNANCE_OBSERVATION_V1"
+APPROVAL_DOMAIN = "AEGIS_RECOVERY_OPERATOR_APPROVAL_V1"
 SCHEMA_VERSION = "1.0.0"
 VERIFIER_IDENTITY = "offline:aegis-cognitive-recovery-admission-v1"
 REPOSITORY_ID = "Aegis-Omega/AEGIS-OMEGA"
 ALL_GATES = frozenset({"R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7"})
+REQUIRED_PLATFORM_CHECKS = frozenset(
+    {
+        "Main branch enforcement",
+        "aegis / automaton-2",
+        "aegis / automaton-3",
+    }
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REQUEST_SCHEMA_PATH = REPO_ROOT / "schemas" / "cognitive-recovery-admission-request.v1.schema.json"
@@ -88,6 +98,41 @@ def request_digest(request: dict[str, Any]) -> str:
         if key not in {"request_id", "operator_approval_digest"}
     }
     return sha256_hex(canonical_bytes({"domain": REQUEST_DOMAIN, "request": body}))
+
+
+def _domain_digest(
+    value: Mapping[str, Any], *, domain: str, envelope_key: str, self_field: str
+) -> str:
+    body = {key: item for key, item in value.items() if key != self_field}
+    return sha256_hex(canonical_bytes({"domain": domain, envelope_key: body}))
+
+
+def platform_observation_digest(observation: Mapping[str, Any]) -> str:
+    return _domain_digest(
+        observation,
+        domain=PLATFORM_DOMAIN,
+        envelope_key="observation",
+        self_field="observation_digest",
+    )
+
+
+def operator_approval_digest(approval: Mapping[str, Any]) -> str:
+    return _domain_digest(
+        approval,
+        domain=APPROVAL_DOMAIN,
+        envelope_key="approval",
+        self_field="approval_digest",
+    )
+
+
+def _parse_rfc3339(value: Any) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else None
 
 
 def _safe_request_value(request: Mapping[str, Any], key: str, fallback: str) -> str:
@@ -387,6 +432,84 @@ def _gate_r5(repo: Path, request: dict[str, Any], changed_paths: set[str]) -> li
     return violations
 
 
+def _gate_r6(
+    request: Mapping[str, Any], platform_observation: Mapping[str, Any] | None
+) -> list[str]:
+    if not isinstance(platform_observation, Mapping):
+        return ["R6:PLATFORM_OBSERVATION_MISSING"]
+
+    violations: list[str] = []
+    observation_digest = platform_observation.get("observation_digest")
+    try:
+        recomputed_digest = platform_observation_digest(platform_observation)
+    except (TypeError, ValueError):
+        recomputed_digest = None
+    if (
+        not isinstance(observation_digest, str)
+        or observation_digest != recomputed_digest
+        or request.get("platform_governance_observation_digest") != observation_digest
+    ):
+        violations.append("R6:OBSERVATION_DIGEST_MISMATCH")
+
+    if platform_observation.get("schema_version") != SCHEMA_VERSION:
+        violations.append("R6:SCHEMA_VERSION_MISMATCH")
+    if platform_observation.get("repository_id") != REPOSITORY_ID:
+        violations.append("R6:REPOSITORY_ID_MISMATCH")
+    if platform_observation.get("observed_for_candidate_sha") != request.get("candidate_sha"):
+        violations.append("R6:CANDIDATE_BINDING_MISMATCH")
+    if platform_observation.get("state") != "ENFORCED":
+        violations.append("R6:PLATFORM_STATE_NOT_ENFORCED")
+
+    ruleset_ids = platform_observation.get("ruleset_ids")
+    if not isinstance(ruleset_ids, list) or not ruleset_ids:
+        violations.append("R6:RULESET_IDS_MISSING")
+
+    required_checks = platform_observation.get("required_checks")
+    observed_checks = set(required_checks) if isinstance(required_checks, list) else set()
+    if not REQUIRED_PLATFORM_CHECKS.issubset(observed_checks):
+        violations.append("R6:REQUIRED_CHECKS_MISSING")
+
+    observed_at = _parse_rfc3339(platform_observation.get("observed_at"))
+    expires_at = _parse_rfc3339(request.get("expires_at"))
+    if observed_at is None or expires_at is None:
+        violations.append("R6:TIME_BINDING_INVALID")
+    elif observed_at > expires_at:
+        violations.append("R6:OBSERVATION_AFTER_REQUEST_EXPIRY")
+
+    return violations
+
+
+def _gate_r7(
+    request: Mapping[str, Any], operator_approval: Mapping[str, Any] | None
+) -> list[str]:
+    if not isinstance(operator_approval, Mapping):
+        return ["R7:OPERATOR_APPROVAL_MISSING"]
+
+    violations: list[str] = []
+    approval_digest = operator_approval.get("approval_digest")
+    try:
+        recomputed_digest = operator_approval_digest(operator_approval)
+    except (TypeError, ValueError):
+        recomputed_digest = None
+    if (
+        not isinstance(approval_digest, str)
+        or approval_digest != recomputed_digest
+        or request.get("operator_approval_digest") != approval_digest
+    ):
+        violations.append("R7:APPROVAL_DIGEST_MISMATCH")
+
+    if operator_approval.get("schema_version") != SCHEMA_VERSION:
+        violations.append("R7:SCHEMA_VERSION_MISMATCH")
+    if operator_approval.get("request_digest") != request.get("request_id"):
+        violations.append("R7:REQUEST_BINDING_MISMATCH")
+    if operator_approval.get("candidate_sha") != request.get("candidate_sha"):
+        violations.append("R7:CANDIDATE_BINDING_MISMATCH")
+    if operator_approval.get("decision") != "APPROVE_RECOVERY_ADMISSION_EVALUATION":
+        violations.append("R7:DECISION_NOT_APPROVED")
+
+    return violations
+
+
 def evaluate(
     *,
     repo: Path,
@@ -396,9 +519,7 @@ def evaluate(
     operator_approval: Mapping[str, Any] | None,
     verifier_code_digest: str,
 ) -> dict[str, Any]:
-    """Evaluate mechanical R0-R5 and remain fail-closed on unevaluated R6/R7."""
-    del operator_approval  # R7 is deliberately a later slice.
-
+    """Evaluate R0-R7 evidence and remain fail-closed on replay state."""
     verified: list[str] = []
     violations: list[str] = []
 
@@ -432,8 +553,20 @@ def evaluate(
     if not r5:
         verified.append("R5")
 
-    # These are explicit fail-closed barriers, not claims that the gates ran.
-    violations.extend(("R6:NOT_EVALUATED", "R7:NOT_EVALUATED"))
+    r6 = _gate_r6(request, platform_observation)
+    violations.extend(r6)
+    if not r6:
+        verified.append("R6")
+
+    r7 = _gate_r7(request, operator_approval)
+    violations.extend(r7)
+    if not r7:
+        verified.append("R7")
+
+    # Replay/consumption state is deliberately outside this candidate-controlled
+    # offline verifier. Until a base-owned atomic state transition exists, no
+    # admission authority may be minted even when all eight evidence gates pass.
+    violations.append("R0:REPLAY_STATE_NOT_EVALUATED")
 
     platform_state = "UNKNOWN"
     if isinstance(platform_observation, Mapping):
