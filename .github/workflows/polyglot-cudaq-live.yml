@@ -6,6 +6,7 @@ on:
       - research/polyglot-metacognition-v1
     paths:
       - '.github/workflows/polyglot-cudaq-live.yml'
+      - '.github/workflows/polyglot-metacognition.yml'
       - 'sovereign-omega-v2/src/polyglot/nvidia.ts'
       - 'sovereign-omega-v2/src/polyglot/nvidia-execution.ts'
       - 'sovereign-omega-v2/src/polyglot/nvidia-probe.ts'
