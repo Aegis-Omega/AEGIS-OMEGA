@@ -10,7 +10,7 @@
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
     "source_ref": "security/agent-dispatch-capability-v1",
-    "parent_state_hash": "7f376dbf8f74387f85dad5d091819925b94bd64cf04079368021869a19536b4f",
+    "parent_state_hash": "0000000000000000000000000000000000000000000000000000000000000000",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "4a591c3fe6d184f6816c67c1e2055e44f7ab8ca1684a8cdb72a161f08e5fc177"
+  "state_hash": "4d52664e255ff4593d2dc22f1bc2b7b4175f935387a930c298c5de4aafd16f88"
 }
