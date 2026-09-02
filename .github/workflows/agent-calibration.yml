@@ -1,0 +1,27 @@
+name: Agent Governance & Calibration Gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'proof/**'
+      - 'experimental/**'
+      - 'governance/**'
+
+permissions:
+  contents: read
+
+jobs:
+  enforce-calibration:
+    name: AMPS-v1 lint + MPVC contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Install the MPVC package with its quantum extra
+        run: python3 -m pip install --quiet -e 'clients/python[quantum]'
+      - name: Governance lint (fail-closed)
+        run: python3 scripts/agent_governance_lint.py
+      - name: MPVC contract tests (hosted exact-head attestation)
+        working-directory: clients/python
+        run: python3 -m pytest tests/test_quantum_tourbillon.py -v
