@@ -4,7 +4,7 @@
 The verifier intentionally uses GitHub's effective-rules surface, not privileged
 branch-protection administration endpoints. For a public repository the effective
 branch rules are observable with Metadata:read (and without authentication), which
-lets CI prove the active enforcement semantics without acquiring mutation authority.
+lets CI prove active enforcement semantics without acquiring mutation authority.
 """
 
 from __future__ import annotations
@@ -38,6 +38,7 @@ class Policy:
     require_code_owner_review: bool
     require_conversation_resolution: bool
     require_branches_up_to_date: bool
+    required_status_check_integration_id: int
     required_status_check_contexts: tuple[str, ...]
 
     @classmethod
@@ -49,6 +50,9 @@ class Policy:
         contexts = policy.get("required_status_check_contexts")
         if not isinstance(contexts, list) or not contexts or not all(isinstance(item, str) and item for item in contexts):
             raise EnforcementError("required_status_check_contexts must be a non-empty string list")
+        integration_id = policy.get("required_status_check_integration_id")
+        if not isinstance(integration_id, int) or integration_id <= 0:
+            raise EnforcementError("required_status_check_integration_id must be a positive integer")
         return cls(
             ruleset_name=str(raw.get("ruleset_name") or "AEGIS Main Enforcement"),
             required_approving_review_count=int(policy.get("required_approving_review_count", 0)),
@@ -57,6 +61,7 @@ class Policy:
             require_code_owner_review=bool(policy.get("require_code_owner_review", False)),
             require_conversation_resolution=bool(policy.get("require_conversation_resolution", True)),
             require_branches_up_to_date=bool(policy.get("require_branches_up_to_date", True)),
+            required_status_check_integration_id=integration_id,
             required_status_check_contexts=tuple(contexts),
         )
 
@@ -70,6 +75,7 @@ class Result:
     conversation_resolution_required: bool
     status_checks_required: bool
     required_status_check_contexts_complete: bool
+    required_status_check_publishers_pinned: bool
     branches_up_to_date_required: bool
     force_push_blocked: bool
     deletion_blocked: bool
@@ -81,6 +87,7 @@ class Result:
     observed_require_code_owner_review: bool = False
     observed_required_status_check_contexts: tuple[str, ...] = ()
     missing_required_status_check_contexts: tuple[str, ...] = ()
+    publisher_mismatch_contexts: tuple[str, ...] = ()
     effective_ruleset_ids: tuple[int, ...] = ()
 
     @property
@@ -94,6 +101,7 @@ class Result:
                 self.conversation_resolution_required,
                 self.status_checks_required,
                 self.required_status_check_contexts_complete,
+                self.required_status_check_publishers_pinned,
                 self.branches_up_to_date_required,
                 self.force_push_blocked,
                 self.deletion_blocked,
@@ -110,6 +118,7 @@ class Result:
             "conversation_resolution_required": self.conversation_resolution_required,
             "status_checks_required": self.status_checks_required,
             "required_status_check_contexts_complete": self.required_status_check_contexts_complete,
+            "required_status_check_publishers_pinned": self.required_status_check_publishers_pinned,
             "branches_up_to_date_required": self.branches_up_to_date_required,
             "force_push_blocked": self.force_push_blocked,
             "deletion_blocked": self.deletion_blocked,
@@ -120,6 +129,7 @@ class Result:
             "observed_require_code_owner_review": self.observed_require_code_owner_review,
             "observed_required_status_check_contexts": list(self.observed_required_status_check_contexts),
             "missing_required_status_check_contexts": list(self.missing_required_status_check_contexts),
+            "publisher_mismatch_contexts": list(self.publisher_mismatch_contexts),
             "effective_ruleset_ids": list(self.effective_ruleset_ids),
             "source": self.source,
             "production_admission": "ELIGIBLE" if self.ok else "FORBIDDEN",
@@ -150,19 +160,21 @@ def _get(path: str, token: str | None) -> tuple[int, Any]:
 
 def _deny(source: str, policy: Policy) -> Result:
     return Result(
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        source,
+        protected=False,
+        named_ruleset_active=False,
+        pull_request_required=False,
+        review_policy_matches=False,
+        conversation_resolution_required=False,
+        status_checks_required=False,
+        required_status_check_contexts_complete=False,
+        required_status_check_publishers_pinned=False,
+        branches_up_to_date_required=False,
+        force_push_blocked=False,
+        deletion_blocked=False,
+        signatures_required=False,
+        source=source,
         missing_required_status_check_contexts=policy.required_status_check_contexts,
+        publisher_mismatch_contexts=policy.required_status_check_contexts,
     )
 
 
@@ -227,6 +239,7 @@ def _effective_rules(repo: str, branch: str, token: str | None, protected: bool,
 
     status_rules = by_type.get("required_status_checks", [])
     observed_contexts: set[str] = set()
+    context_publishers: dict[str, set[int | None]] = {}
     strict_observed = False
     for rule in status_rules:
         params = _parameters(rule)
@@ -235,12 +248,25 @@ def _effective_rules(repo: str, branch: str, token: str | None, protected: bool,
         if not isinstance(checks, list):
             continue
         for check in checks:
-            if isinstance(check, dict) and isinstance(check.get("context"), str):
-                observed_contexts.add(check["context"])
+            if not isinstance(check, dict) or not isinstance(check.get("context"), str):
+                continue
+            context = check["context"]
+            integration_id = check.get("integration_id")
+            publisher = integration_id if isinstance(integration_id, int) else None
+            observed_contexts.add(context)
+            context_publishers.setdefault(context, set()).add(publisher)
 
     required_contexts = set(policy.required_status_check_contexts)
     missing = tuple(sorted(required_contexts - observed_contexts))
+    publisher_mismatches = tuple(
+        sorted(
+            context
+            for context in required_contexts
+            if policy.required_status_check_integration_id not in context_publishers.get(context, set())
+        )
+    )
     contexts_complete = bool(status_rules) and not missing
+    publishers_pinned = bool(status_rules) and not publisher_mismatches
     branches_up_to_date = strict_observed if policy.require_branches_up_to_date else True
 
     return Result(
@@ -251,6 +277,7 @@ def _effective_rules(repo: str, branch: str, token: str | None, protected: bool,
         conversation_resolution_required=conversation_resolution_required,
         status_checks_required=bool(status_rules),
         required_status_check_contexts_complete=contexts_complete,
+        required_status_check_publishers_pinned=publishers_pinned,
         branches_up_to_date_required=branches_up_to_date,
         force_push_blocked=bool(by_type.get("non_fast_forward")),
         deletion_blocked=bool(by_type.get("deletion")),
@@ -262,6 +289,7 @@ def _effective_rules(repo: str, branch: str, token: str | None, protected: bool,
         observed_require_code_owner_review=observed_code_owner,
         observed_required_status_check_contexts=tuple(sorted(observed_contexts)),
         missing_required_status_check_contexts=missing,
+        publisher_mismatch_contexts=publisher_mismatches,
         effective_ruleset_ids=tuple(sorted(ruleset_ids)),
     )
 
