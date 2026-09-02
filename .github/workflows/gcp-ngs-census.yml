@@ -1,0 +1,114 @@
+name: GCP NGS Census
+
+on:
+  push:
+    branches:
+      - agent/gcp-ngs-census-v1
+    paths:
+      - '.github/workflows/gcp-ngs-census.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  census:
+    name: Read-only aegisomegav1 NGS census
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GCP_PROJECT: aegisomegav1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate using existing GitHub GCP federation
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER || secrets.GCP_WORKLOAD_IDENTITY_PROVIDER || vars.WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT || vars.WIF_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: aegisomegav1
+
+      - name: Bind and enumerate buckets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p census
+          gcloud config set project "$GCP_PROJECT" >/dev/null
+          printf 'project=%s\nauthenticated=true\n' "$GCP_PROJECT" > census/binding.txt
+          gcloud storage buckets list --project "$GCP_PROJECT" --format=json > census/buckets.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('census/buckets.json').read_text() or '[]')
+          names=[]
+          for r in data:
+              n=(r.get('name') or r.get('storage_url') or r.get('url') or '').removeprefix('gs://').rstrip('/')
+              if n: names.append(n)
+          Path('census/bucket-names.txt').write_text('\n'.join(sorted(set(names))) + ('\n' if names else ''))
+          print('bucket_count=', len(set(names)))
+          PY
+
+      - name: Scan object names for sequencing inputs
+        shell: bash
+        run: |
+          set +e
+          : > census/ngs-object-paths.txt
+          : > census/object-scan-status.tsv
+          : > census/object-scan.stderr
+          PATTERN='\.(fastq|fq|bam|cram|vcf|bcf|fasta|fa|fna)(\.gz)?$|(^|/)(SRR|ERR|DRR)[0-9]+|(^|/)(PRJNA|PRJEB|GSE)[0-9]+|23andme|ancestrydna|rna[-_]?seq|wgs|wes|nanopore|pacbio|illumina|sequenc|genom'
+          while IFS= read -r B; do
+            [ -z "$B" ] && continue
+            TMP=$(mktemp)
+            timeout 120s gcloud storage ls --recursive "gs://${B}/**" > "$TMP" 2>> census/object-scan.stderr
+            RC=$?
+            grep -Ei "$PATTERN" "$TMP" >> census/ngs-object-paths.txt || true
+            printf '%s\t%s\n' "$B" "$RC" >> census/object-scan-status.tsv
+            rm -f "$TMP"
+          done < census/bucket-names.txt
+          sort -u -o census/ngs-object-paths.txt census/ngs-object-paths.txt
+          echo "ngs_like_object_count=$(wc -l < census/ngs-object-paths.txt | tr -d ' ')"
+          exit 0
+
+      - name: Enumerate Cloud SQL metadata only
+        shell: bash
+        run: |
+          set +e
+          gcloud sql instances list --project "$GCP_PROJECT" --format=json > census/cloudsql-instances.json 2> census/cloudsql.stderr
+          echo "$?" > census/cloudsql.exit
+          exit 0
+
+      - name: Build census receipt
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          root=Path('census')
+          buckets=[x for x in (root/'bucket-names.txt').read_text().splitlines() if x] if (root/'bucket-names.txt').exists() else []
+          ngs=[x for x in (root/'ngs-object-paths.txt').read_text().splitlines() if x] if (root/'ngs-object-paths.txt').exists() else []
+          receipt={
+            'schema':'aegis.gcp.ngs_census.v1',
+            'project':'aegisomegav1',
+            'authority':'READ_ONLY_METADATA',
+            'bucket_count':len(buckets),
+            'ngs_like_object_count':len(ngs),
+            'analysis_executed':False,
+            'status':'NGS_INPUT_LOCATED' if ngs else 'NO_NGS_OBJECT_FOUND'
+          }
+          canonical=json.dumps(receipt,sort_keys=True,separators=(',',':')).encode()
+          receipt['receipt_sha256']=hashlib.sha256(canonical).hexdigest()
+          (root/'receipt.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(receipt,indent=2,sort_keys=True))
+          PY
+          sha256sum census/* > census/SHA256SUMS || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gcp-ngs-census
+          path: census/
+          retention-days: 7
+          if-no-files-found: error
