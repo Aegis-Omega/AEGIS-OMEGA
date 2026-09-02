@@ -56,6 +56,7 @@ jobs:
           python sovereign-omega-v2/python/tests/test_cognitive_recovery_admission_hardening.py
           python sovereign-omega-v2/python/tests/test_cognitive_recovery_admission_r6_r7.py
           python sovereign-omega-v2/python/tests/test_cognitive_recovery_admission_replay.py
+          python sovereign-omega-v2/python/tests/test_cognitive_recovery_replay_registry.py
           python sovereign-omega-v2/python/tests/test_cognitive_recovery_admission_cli.py
 
       - name: Classify contract result
