@@ -1,0 +1,165 @@
+name: AEDR Repository DAG Reactor
+
+on:
+  pull_request:
+    paths:
+      - "scripts/aedr_dag_consolidator.py"
+      - "scripts/test_aedr_dag_consolidator.py"
+      - "scripts/aedr_regression_snapshot_2026-09-02.json"
+      - "scripts/aedr_live_semantic_manifest.json"
+      - ".github/workflows/aedr-dag-reactor.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+concurrency:
+  group: aedr-dag-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  GITHUB_TOKEN: ${{ github.token }}
+
+jobs:
+  verify:
+    name: authority-none typed DAG receipt
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+
+      - name: Reject embedded current commit identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          source = Path('scripts/aedr_dag_consolidator.py').read_text(encoding='utf-8')
+          matches = re.findall(r'(?<![0-9a-f])[0-9a-f]{40}(?![0-9a-f])', source)
+          assert not matches, f'current/static SHA literals forbidden in AEDR source: {matches}'
+          PY
+
+      - name: Compile and run falsifier corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p aedr-attestation
+          python -m py_compile \
+            scripts/aedr_dag_consolidator.py \
+            scripts/test_aedr_dag_consolidator.py
+          python scripts/test_aedr_dag_consolidator.py 2>&1 \
+            | tee aedr-attestation/tests.txt
+
+      - name: Reproduce measured regression subgraph
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/aedr_dag_consolidator.py \
+            --snapshot scripts/aedr_regression_snapshot_2026-09-02.json \
+            --output aedr-attestation/regression-receipt.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('aedr-attestation/regression-receipt.json').read_text())
+          assert receipt['authority'] == 'NONE'
+          assert receipt['mutation_authority'] == 'NONE'
+          assert receipt['snapshot']['census']['scope'] == 'REGRESSION_SUBGRAPH'
+          codes = {item['code'] for item in receipt['anomalies']}
+          required = {'MISSING_SEMANTIC_JOIN', 'STALE_PARENT', 'DIVERGENT_OVERLAP'}
+          assert required <= codes, (required, codes)
+          assert all(action.startswith('PROPOSE_') for action in receipt['recommended_actions'])
+          PY
+
+      - name: Measure live repository DAG
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/aedr_dag_consolidator.py \
+            --repo "$GITHUB_REPOSITORY" \
+            --semantic-manifest scripts/aedr_live_semantic_manifest.json \
+            --output aedr-attestation/live-receipt.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path('aedr-attestation/live-receipt.json').read_text())
+          snapshot = receipt['snapshot']
+          census = snapshot['census']
+          assert receipt['authority'] == 'NONE'
+          assert receipt['mutation_authority'] == 'NONE'
+          assert census['scope'] == 'FULL_OPEN_PR_CENSUS'
+          assert census['open'] == census['draft'] + census['non_draft']
+          assert len(snapshot['main_sha']) == 40
+          assert all(action.startswith('PROPOSE_') for action in receipt['recommended_actions'])
+          PY
+
+      - name: Bind exact-head CI evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          paths = [
+              Path('scripts/aedr_dag_consolidator.py'),
+              Path('scripts/test_aedr_dag_consolidator.py'),
+              Path('scripts/aedr_regression_snapshot_2026-09-02.json'),
+              Path('scripts/aedr_live_semantic_manifest.json'),
+              Path('.github/workflows/aedr-dag-reactor.yml'),
+              Path('aedr-attestation/tests.txt'),
+              Path('aedr-attestation/regression-receipt.json'),
+              Path('aedr-attestation/live-receipt.json'),
+          ]
+          payload = {
+              'receipt_kind': 'AEGIS_AEDR_CI_BINDING_V1',
+              'source_commit': os.environ['CANDIDATE_SHA'],
+              'authority': 'NONE',
+              'mutation_authority': 'NONE',
+              'attestation_semantics': 'PROVENANCE_ONLY',
+              'files_sha256': {
+                  str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+                  for path in paths
+              },
+          }
+          target = Path('aedr-attestation/ci-binding.json')
+          target.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          PY
+
+      - name: Upload AEDR evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: aedr-dag-${{ env.CANDIDATE_SHA }}
+          path: aedr-attestation
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Keyless attest AEDR provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: |
+            aedr-attestation/regression-receipt.json
+            aedr-attestation/live-receipt.json
+            aedr-attestation/ci-binding.json
