@@ -4,7 +4,7 @@
     "path": "sovereign-omega-v2/scripts/validate-experiment-plan.ts"
   },
   "admission_workflow": {
-    "blob_id": "01a59d129b0431c9ccb92b1227a0e46992b1562f",
+    "blob_id": "536d34732b9eefc153eb6bb24a8ce1977a6b043a",
     "path": ".github/workflows/experiment-admission.yml"
   },
   "budget": {
@@ -30,8 +30,8 @@
     "INTEGRATION_LEDGER.md",
     "SHA256SUMS"
   ],
-  "expected_parent_sha": "ed426124475cc9ee8b4d138b2928ae547352e97b",
-  "expected_parent_state_root": "32e3752034e30dcc2280d5b2028a71f47e2131aecb8ae595aa5f909a95ffa87f",
+  "expected_parent_sha": "3934ef62316ad5e63a78042fd01fd4b75a082cb5",
+  "expected_parent_state_root": "e99f04830945045ac67911e2e26ef08867e29504250ade774dc973d2f67bf3bb",
   "experiment_id": "pr-229-epistemic-audit-adoption-v1",
   "integration_ledger_generator": {
     "blob_id": "28823ae5b630be273b78210f0addf9c0a86aad05",
