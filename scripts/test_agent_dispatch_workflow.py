@@ -41,6 +41,10 @@ require("--max-time 30")
 # Every run emits a machine-readable decision/effect receipt even when no dispatch occurs.
 require("AGENT_DISPATCH_RECEIPT.json")
 require("actions/upload-artifact@")
-require("agent-dispatch-receipt-${{ github.sha }}")
+
+# Receipts and artifacts bind to the real candidate head, never GitHub's synthetic PR merge ref.
+require("CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha || github.sha }}")
+require("agent-dispatch-receipt-${{ env.CANDIDATE_SHA }}")
+forbid("agent-dispatch-receipt-${{ github.sha }}")
 
 print("agent_dispatch_workflow_contract: PASS")
