@@ -10,6 +10,8 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  attestations: write
 
 jobs:
   contract:
@@ -56,6 +58,69 @@ jobs:
             --head-sha "$AEDR_HEAD_SHA" \
             --run-id "$AEDR_RUN_ID" \
             --output "$RUNNER_TEMP/aedr-surface.json"
+
+      - name: Build exact-run IAP predicate
+        if: ${{ github.event_name == 'pull_request' }}
+        shell: bash
+        env:
+          AEDR_PR_NUMBER: ${{ github.event.pull_request.number }}
+          AEDR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          AEDR_RUN_ID: ${{ github.run_id }}
+          AEDR_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python scripts/aedr/iap_verifier.py predicate \
+            --surface "$RUNNER_TEMP/aedr-surface.json" \
+            --repository "$AEDR_REPOSITORY" \
+            --workflow-path ".github/workflows/aedr-multilayer-dag.yml" \
+            --expected-pr "$AEDR_PR_NUMBER" \
+            --expected-head-sha "$AEDR_HEAD_SHA" \
+            --expected-run-id "$AEDR_RUN_ID" \
+            --output "$RUNNER_TEMP/aedr-iap-predicate.json"
+
+      - name: Attest exact-run AEDR falsification surface
+        id: iap-attest
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4 exact commit
+        with:
+          subject-path: ${{ runner.temp }}/aedr-surface.json
+          predicate-type: https://aegisomega.com/attestations/aedr-falsification-surface/v1
+          predicate-path: ${{ runner.temp }}/aedr-iap-predicate.json
+
+      - name: Verify exact-run AEDR IAP identity
+        if: ${{ github.event_name == 'pull_request' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AEDR_PR_NUMBER: ${{ github.event.pull_request.number }}
+          AEDR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          AEDR_RUN_ID: ${{ github.run_id }}
+          AEDR_REPOSITORY: ${{ github.repository }}
+          IAP_BUNDLE_PATH: ${{ steps.iap-attest.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          test -n "$IAP_BUNDLE_PATH"
+          test -f "$IAP_BUNDLE_PATH"
+          python scripts/aedr/iap_verifier.py verify \
+            --surface "$RUNNER_TEMP/aedr-surface.json" \
+            --bundle "$IAP_BUNDLE_PATH" \
+            --repository "$AEDR_REPOSITORY" \
+            --workflow-path ".github/workflows/aedr-multilayer-dag.yml" \
+            --expected-pr "$AEDR_PR_NUMBER" \
+            --expected-head-sha "$AEDR_HEAD_SHA" \
+            --expected-run-id "$AEDR_RUN_ID" \
+            --receipt-output "$RUNNER_TEMP/aedr-iap-receipt.json"
+
+      - name: Upload exact-run IAP receipt
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1 / Node 24
+        with:
+          name: aedr-iap-receipt-${{ github.run_id }}-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/aedr-iap-receipt.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+          overwrite: false
 
       - name: Upload exact-run AEDR falsification surface
         if: ${{ github.event_name == 'pull_request' }}
