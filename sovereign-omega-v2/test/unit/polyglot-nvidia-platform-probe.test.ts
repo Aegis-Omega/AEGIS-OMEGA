@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  probeNvidiaAgentPythonConnector,
   probeNvidiaCliConnector,
-  probeNvidiaPythonConnector,
+} from '../../src/polyglot/nvidia-agent-probe'
+import {
   type NvidiaProbeCommandResult,
   type NvidiaProbeRunner,
 } from '../../src/polyglot/nvidia-probe'
@@ -107,7 +109,7 @@ describe('NVIDIA NeMo runtime probes', () => {
       module_file_sha256: 'c'.repeat(64),
     }))])
 
-    const observation = await probeNvidiaPythonConnector({
+    const observation = await probeNvidiaAgentPythonConnector({
       connector_id: 'nemo-fabric',
       runner,
       python_executable: 'python3',
