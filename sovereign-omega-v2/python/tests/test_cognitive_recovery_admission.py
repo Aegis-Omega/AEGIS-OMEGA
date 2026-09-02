@@ -315,10 +315,13 @@ class RecoveryAdmissionR0R5Tests(TestCase):
         self.assertEqual(receipt["mutation_authority"], "NONE")
         self.assertTrue(any(item.startswith(f"{gate}:") for item in receipt["violations"]), receipt)
 
-    def test_valid_r0_r5_fixture_grants_bounded_admission(self) -> None:
+    def test_valid_r0_r5_fixture_stays_denied_until_r6_r7(self) -> None:
         receipt = self.evaluate()
-        self.assertEqual(receipt["outcome"], "RECOVERY_ADMISSION_GRANTED")
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertEqual(receipt["authority"], "NONE")
         self.assertEqual(receipt["verified_gates"], ["R0", "R1", "R2", "R3", "R4", "R5"])
+        self.assertIn("R6:NOT_EVALUATED", receipt["violations"])
+        self.assertIn("R7:NOT_EVALUATED", receipt["violations"])
         self.assertEqual(receipt["platform_governance_state"], "ENFORCED")
         self.assertEqual(receipt["mutation_authority"], "NONE")
 
