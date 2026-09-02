@@ -20,19 +20,19 @@
     "skills_root_scope": "canonical ordered array of path, sha256, and size_bytes",
     "state_hash_scope": "canonical manifest with state_hash omitted"
   },
-  "skills_root_hash": "771ed5dc7b12f43b8aaddc30b02ad0f64f5e24b75129acdd41da3c3e3a3ab0c7",
+  "skills_root_hash": "7ea79f4d61c44c9f916121f33f00b329c8cd750d73914b39c9c7fee347c2531b",
   "rotational_axis": {
     "axis_3": {
       "focus": "kinetic_entropy",
-      "manifest_hash": "abd026e90f651507b88f701800c7f0194ac702ecd399d6c8f9a39620fca977e6"
+      "manifest_hash": "eb364c1cdcbb56cf884b3d6b86872f9c2493b18a19bce52c5739550cb13426bc"
     },
     "axis_6": {
       "focus": "dynamic_mutation",
-      "manifest_hash": "0c5d801417613066500612b3e6dafd69630d9b8e19ef44aad9984177c0918847"
+      "manifest_hash": "67d00baf99122748a462cb1282a018d659fd6ec6fa6d44a20dde29eaf437279b"
     },
     "axis_9": {
       "focus": "immutable_truth",
-      "manifest_hash": "b10b9721f0414a3041cf6de756fa232007755a8d7eddbbf632a23d33a626b618"
+      "manifest_hash": "b5d1b45f50444d7234a93c9f3e5360f182f1b4df8c4461e29bbe12af80b11862"
     }
   },
   "cognitive_state": {
@@ -71,379 +71,379 @@
     },
     "skills": {
       "count": 62,
-      "root_hash": "771ed5dc7b12f43b8aaddc30b02ad0f64f5e24b75129acdd41da3c3e3a3ab0c7",
+      "root_hash": "7ea79f4d61c44c9f916121f33f00b329c8cd750d73914b39c9c7fee347c2531b",
       "entries": [
         {
           "name": "run-aegis",
           "path": ".claude/skills/run-aegis/SKILL.md",
-          "sha256": "154d2084c795ab96f41b4139a140e8c2e3b893080d4b3f18b72bb01c74a25943",
-          "size_bytes": 5115
+          "sha256": "86ee2f2f1018b3262f8547f088caa400b35183e376bcceef28767c901f34fae2",
+          "size_bytes": 4970
         },
         {
           "name": "aegis-architecture",
           "path": "sovereign-omega-v2/.claude/skills/aegis-architecture/SKILL.md",
-          "sha256": "58cab1c6c7ae5bb1fd8d0f3f93b0a7d19521f166a2c2e676612e0dd84cb50a0e",
-          "size_bytes": 3924
+          "sha256": "3e53e9cdd8f36b74baf82ab30ae45d7b9f699770105cfcffcea477cdde1bb4be",
+          "size_bytes": 3852
         },
         {
           "name": "agent-constitution",
           "path": "sovereign-omega-v2/.claude/skills/agent-constitution/SKILL.md",
-          "sha256": "e4f957113790fc4cc9a75b623fb7e90e70709661bf6e13408266c76d2162b9ad",
-          "size_bytes": 3385
+          "sha256": "c54c603bda3dbff44500633b02881d3907f87d340d6b3e726871ccb3afc1f21f",
+          "size_bytes": 3321
         },
         {
           "name": "agent-mesh",
           "path": "sovereign-omega-v2/.claude/skills/agent-mesh/SKILL.md",
-          "sha256": "f8c2ac078a499aed10c64c07a5f5a01499cf1081e03cd858944fceb8af946c92",
-          "size_bytes": 9387
+          "sha256": "d527c8335e76f295a887642ee80620a680c8625245f71c395bdd067528997c35",
+          "size_bytes": 9182
         },
         {
           "name": "anthropic-alignment",
           "path": "sovereign-omega-v2/.claude/skills/anthropic-alignment/SKILL.md",
-          "sha256": "cc6cd365557ad744611353d8f4f76e5660506d737843b2db7b515d90cc95146f",
-          "size_bytes": 37383
+          "sha256": "a29b529cc0e5077f59a496327ca079e148c1ec5a07303b5594b7fafa7444bdf1",
+          "size_bytes": 36977
         },
         {
           "name": "audit-findings",
           "path": "sovereign-omega-v2/.claude/skills/audit-findings/SKILL.md",
-          "sha256": "ab3d90f856dd8452d321b86fa87e85f5f9c58fe1a47f5319486a27c091d0a0e1",
-          "size_bytes": 3436
+          "sha256": "9d49ae21a70d2f0837588aa20b0837c0493c4926c7d1b1667e7c81acd9fd3ee1",
+          "size_bytes": 3375
         },
         {
           "name": "auto-agent",
           "path": "sovereign-omega-v2/.claude/skills/auto-agent/SKILL.md",
-          "sha256": "31a3e683926b5cebb171d1c9f5fe134f6c780eb68c0f994010ff11216675dc9f",
-          "size_bytes": 7329
+          "sha256": "19220c6538bb7268a0b71f588e08ba87ffa7e11a8a6e5831cb3a5a84f69d20f8",
+          "size_bytes": 7137
         },
         {
           "name": "automaton-workflow",
           "path": "sovereign-omega-v2/.claude/skills/automaton-workflow/SKILL.md",
-          "sha256": "c83efb3ea4306ec240d72da17f5a41c582d93bce77eb0ec2c70be519e08ccc45",
-          "size_bytes": 10230
+          "sha256": "319cbfe61387780a133f99ec39670cbd91e6335404ce1ac04ec650ac8d322633",
+          "size_bytes": 9989
         },
         {
           "name": "autopoiesis",
           "path": "sovereign-omega-v2/.claude/skills/autopoiesis/SKILL.md",
-          "sha256": "2fe0b224b4f9af36d5cd81451284bbbb218ec0304dc177191fb8e990132a650a",
-          "size_bytes": 11327
+          "sha256": "9b246b58463ad7f690d8fa454091763aae43742ea8aceb95b89dd277c776d9ef",
+          "size_bytes": 11156
         },
         {
           "name": "bls-threshold-aggregation",
           "path": "sovereign-omega-v2/.claude/skills/bls-threshold-aggregation/SKILL.md",
-          "sha256": "a3012798b317f8049baa0eee32da431c3885607dd848dc6128a436d7fb8fea33",
-          "size_bytes": 3734
+          "sha256": "74cb86606ed58ea6b566a8b8dce0d53168d6f1bfb5dd330299b80f2abb91370b",
+          "size_bytes": 3682
         },
         {
           "name": "brainstorming",
           "path": "sovereign-omega-v2/.claude/skills/brainstorming/SKILL.md",
-          "sha256": "b1a5a223c802500c7545d5161fa64aa8df54b7639f62faa705e9a650fb8fc338",
-          "size_bytes": 4089
+          "sha256": "5c94ce3a4bf025dde492e400810b25a1a4e68fb10a96b79b96f225ffd8178291",
+          "size_bytes": 3994
         },
         {
           "name": "branch-coverage",
           "path": "sovereign-omega-v2/.claude/skills/branch-coverage/SKILL.md",
-          "sha256": "6afdc1c73c610f9acc1a8c7d23fb5fc64c307313b4594244fb27eccf6db1897c",
-          "size_bytes": 7557
+          "sha256": "bdafb45a9030c000bcf5678e45e2896918fda57b252b4f185d49d3793e94fd9d",
+          "size_bytes": 7368
         },
         {
           "name": "chronology",
           "path": "sovereign-omega-v2/.claude/skills/chronology/SKILL.md",
-          "sha256": "090dbfd58e2f8095f8c93008c214aaea0f77e280906fc34fd9358babad9d522a",
-          "size_bytes": 19505
+          "sha256": "b45a32cb8fedc24c5e1406addfa06fbafddf29b5d9e3f92deb8a3f0f54c9f772",
+          "size_bytes": 19004
         },
         {
           "name": "claude-api-ref",
           "path": "sovereign-omega-v2/.claude/skills/claude-api-ref/SKILL.md",
-          "sha256": "fe6bfe28a905322a3bed605613ddc195f23854675b81a78d9a2d006840b643c5",
-          "size_bytes": 4984
+          "sha256": "f6264e3ad0be609fd0d1c9dd7a84e7d90b22dcff33742554ccb6ce97f6330cca",
+          "size_bytes": 4861
         },
         {
           "name": "compact",
           "path": "sovereign-omega-v2/.claude/skills/compact/SKILL.md",
-          "sha256": "da8815a74a6e29c2684172cb08bb750f27e79ffce3e724e81b4d84f4893735c1",
-          "size_bytes": 3082
+          "sha256": "2aacf25e5aa57edf0bcfc3ffce8a0dc1f7067a0e14fb9a64879df3e2c5efa63a",
+          "size_bytes": 3018
         },
         {
           "name": "compaction-prep",
           "path": "sovereign-omega-v2/.claude/skills/compaction-prep/SKILL.md",
-          "sha256": "a090ebff602c3c50b82fcab606aaea5657443ca0eca880a78c82857ef2112ba0",
-          "size_bytes": 6054
+          "sha256": "2153c3541635bd7ced7d75541d9125931580c01290a59f2410738b57cf85e59b",
+          "size_bytes": 5924
         },
         {
           "name": "constitutional-audit",
           "path": "sovereign-omega-v2/.claude/skills/constitutional-audit/SKILL.md",
-          "sha256": "cce7182ea5a49c775347ae660314a3ce7fc092d6298b2def1696852cd7885049",
-          "size_bytes": 4927
+          "sha256": "1ad319ea8ed7a7ca76327b92c933e7e0290cd54552e19ef0e003f61f75f612db",
+          "size_bytes": 4815
         },
         {
           "name": "constitutional-law",
           "path": "sovereign-omega-v2/.claude/skills/constitutional-law/SKILL.md",
-          "sha256": "455148f2381c7bbe0b40d0a6f23af18c5cf58247d211e86d9377caec4bed7260",
-          "size_bytes": 3546
+          "sha256": "05285be2fd17e6175b556371ade83d46b49d633a629e73027fec5b7e2fa85a9e",
+          "size_bytes": 3454
         },
         {
           "name": "core-matrix",
           "path": "sovereign-omega-v2/.claude/skills/core-matrix/SKILL.md",
-          "sha256": "d909880f18b274752d39ca03306be3a2da14eb24657cb38a52a29202888b53a6",
-          "size_bytes": 1696
+          "sha256": "a660358fa3787b24d7bf32a12e6e562a8be0ca88a9250ce671cfa9739880b5df",
+          "size_bytes": 1662
         },
         {
           "name": "corpus-ingestion",
           "path": "sovereign-omega-v2/.claude/skills/corpus-ingestion/SKILL.md",
-          "sha256": "e2ba88fcbc91134630ad6e78dba58dcd8e04821e808ab194ec1e0b5b17ee9e4e",
-          "size_bytes": 8316
+          "sha256": "cf83ba81553766241b2c2f7b0191269731fbad6670616b37bd2b8f612bbf815e",
+          "size_bytes": 8126
         },
         {
           "name": "deploy",
           "path": "sovereign-omega-v2/.claude/skills/deploy/SKILL.md",
-          "sha256": "c48a2aff34631abfb607db99faeca5bca1e374b621ce529f152b7fb4852c51cd",
-          "size_bytes": 6864
+          "sha256": "1faba4703f79ec42f40161eb7d31b5c2481e6d261c178216df969e62b600fca0",
+          "size_bytes": 6642
         },
         {
           "name": "diagnose",
           "path": "sovereign-omega-v2/.claude/skills/diagnose/SKILL.md",
-          "sha256": "35e7e7903b9dd2ee02b9f13ee108af046956a619e842d6d4e64c9b8543a0609e",
-          "size_bytes": 4538
+          "sha256": "78138f791cf04937ba20629098683abf09ae2a4b5bb9924c0d4ee46ecf104190",
+          "size_bytes": 4438
         },
         {
           "name": "dispatching-parallel-agents",
           "path": "sovereign-omega-v2/.claude/skills/dispatching-parallel-agents/SKILL.md",
-          "sha256": "850ebd907f782062c69dde67719abf0e229f04bde0731cf96d3df9b54c0aab0b",
-          "size_bytes": 3472
+          "sha256": "b21e1dabc5120e00ba15c4ecfe9c6787224a3d1e52c871fb78a93a3e4483128e",
+          "size_bytes": 3381
         },
         {
           "name": "docx",
           "path": "sovereign-omega-v2/.claude/skills/docx/SKILL.md",
-          "sha256": "11a4f245cf4f96012c63bb0a205abe864cd7840cf98e1b32a01c3ce81172ddba",
-          "size_bytes": 6581
+          "sha256": "84d81987cd9e694ac3345d96d9dd809f574da5b4a813d90b31b4f02476cd04e3",
+          "size_bytes": 6371
         },
         {
           "name": "drift-check",
           "path": "sovereign-omega-v2/.claude/skills/drift-check/SKILL.md",
-          "sha256": "4c2248f05ec5def0bfcd8cb17a5682fb076b88e05d6df4ada0c1e727f25a39f0",
-          "size_bytes": 6557
+          "sha256": "847daaad14440f4bc03f99306faacdc11fd3021035218d098935f0b8cfff6334",
+          "size_bytes": 6412
         },
         {
           "name": "enterprise",
           "path": "sovereign-omega-v2/.claude/skills/enterprise/SKILL.md",
-          "sha256": "44cbed9d10602f16873574bd654bd00079d9c3ab2c7905ae604386b4edf52ee5",
-          "size_bytes": 10109
+          "sha256": "f3d5a3a23714da1c7eec9a8b508748d7c37ff0d1e89852b422b67226ce26f5ab",
+          "size_bytes": 9808
         },
         {
           "name": "evening-seal",
           "path": "sovereign-omega-v2/.claude/skills/evening-seal/SKILL.md",
-          "sha256": "b175b19be3022d1248265c7781416a28ca9e9cfa548e7f933d9888a6655213d2",
-          "size_bytes": 5674
+          "sha256": "d0e918e2374c048bbb10d353035ed10e84bb2b71f4a55e9149f095267c698457",
+          "size_bytes": 5541
         },
         {
           "name": "execution-boundary",
           "path": "sovereign-omega-v2/.claude/skills/execution-boundary/SKILL.md",
-          "sha256": "2c865d5d7fdf9c2d6434eed589bfd124280dd4ac0e2ea32c4d8de6cfdece85d3",
-          "size_bytes": 4364
+          "sha256": "c52f40ede81aa701b53317a948d93ffac40cd3f7e031a13e5f94e8d2410b11d9",
+          "size_bytes": 4289
         },
         {
           "name": "frozen-file-check",
           "path": "sovereign-omega-v2/.claude/skills/frozen-file-check/SKILL.md",
-          "sha256": "109f39af08e5e7035ce560f3532ad1c2f9c64f1f5e8a9609a11fdd4ad38f7f49",
-          "size_bytes": 2173
+          "sha256": "90d477dc9bf3c12001e3b2b07a6cf598a6d3d87f9b617b66c19cf860d289f814",
+          "size_bytes": 2139
         },
         {
           "name": "gate-execution",
           "path": "sovereign-omega-v2/.claude/skills/gate-execution/SKILL.md",
-          "sha256": "df4e6df6f2592cf3c42bfa39ce2e027e913cee1de73afb16a02027135f6b729c",
-          "size_bytes": 2494
+          "sha256": "d27e07071a88c5b436a082403d933b8381fbceaf7e9f17fadc5af5fd3fb7140f",
+          "size_bytes": 2456
         },
         {
           "name": "gate-pair",
           "path": "sovereign-omega-v2/.claude/skills/gate-pair/SKILL.md",
-          "sha256": "734da35c536028b34851a6366ecf4a06f77556bd68c131ebbdca1ebbb3ab5bfa",
-          "size_bytes": 8550
+          "sha256": "abf39c139bb5e170d06c44c91256940e340007d3c4608d90d31e25c0d7b9bcc0",
+          "size_bytes": 8347
         },
         {
           "name": "gate-specs",
           "path": "sovereign-omega-v2/.claude/skills/gate-specs/SKILL.md",
-          "sha256": "28df8e092095fac6390c66fdbe2a9779df981eda556e32c7809d9078223d7b2a",
-          "size_bytes": 3577
+          "sha256": "c07680d5a6287d68d9d27bf41c728f7c997e706d32feabdc6d1269b3cbc1ada7",
+          "size_bytes": 3522
         },
         {
           "name": "handoff-docs",
           "path": "sovereign-omega-v2/.claude/skills/handoff-docs/SKILL.md",
-          "sha256": "9382815662c0545b8846b33ba05cc8421df53ce2e1a289a4e21252ca50abe466",
-          "size_bytes": 3602
+          "sha256": "69fb555a9fa87cd0d922fdef8f34c96c3fdf29922f0e29217addf11a0eff7f24",
+          "size_bytes": 3517
         },
         {
           "name": "ica-nmf-telemetry",
           "path": "sovereign-omega-v2/.claude/skills/ica-nmf-telemetry/SKILL.md",
-          "sha256": "75bc31456f7a38bd75825cac4b2ef53c89afc343d9a4691c3bfd771613e057ec",
-          "size_bytes": 4306
+          "sha256": "5d9df7041fe6ec14f30ca234d0d9b2e4dac175b1587fe6cecb10773296643523",
+          "size_bytes": 4236
         },
         {
           "name": "int4-lut-kan",
           "path": "sovereign-omega-v2/.claude/skills/int4-lut-kan/SKILL.md",
-          "sha256": "073825419ab3e2230a706f90bcab3f45bd0f78135a1e47a956512927938de06c",
-          "size_bytes": 6128
+          "sha256": "8ab8edd2813a73bde3e4f369e83a9b8f1a10ea998df8fa458176f084cda312a9",
+          "size_bytes": 6030
         },
         {
           "name": "mcp-builder",
           "path": "sovereign-omega-v2/.claude/skills/mcp-builder/SKILL.md",
-          "sha256": "de024fbd8ee067a1da5c82086bcc4771787b89738d811c292e0bc9cd23a35c18",
-          "size_bytes": 4453
+          "sha256": "bdaf79715dd2717bcdb7eb2ea84120760952126af2aa5a1513aa809744b2fe5f",
+          "size_bytes": 4318
         },
         {
           "name": "metacognition",
           "path": "sovereign-omega-v2/.claude/skills/metacognition/SKILL.md",
-          "sha256": "298e7d2cbecbd6b7ca8b26e946e7f3d93d94fe025115b8dbdb1a74dc12fa18af",
-          "size_bytes": 12633
+          "sha256": "ac20f5477282be5599e1dc29bb1cd5fa4cdac5a8cb4298981ca68d1ecd94400a",
+          "size_bytes": 12397
         },
         {
           "name": "morning-audit",
           "path": "sovereign-omega-v2/.claude/skills/morning-audit/SKILL.md",
-          "sha256": "2f427dc7a48d1637d1a10704caa344be73805074b51939801b05890fb79235e7",
-          "size_bytes": 5733
+          "sha256": "e681b35bc0bdb6fd806c581cda589c90055f69f4e420443d6a827c3237903911",
+          "size_bytes": 5608
         },
         {
           "name": "mythos-bootstrap",
           "path": "sovereign-omega-v2/.claude/skills/mythos-bootstrap/SKILL.md",
-          "sha256": "2273a31ee0df5a481301bcdab09418065dcb164e65130231e722e71c66687ac0",
-          "size_bytes": 5645
+          "sha256": "60d4ce87bdeda14f51003d1b8a6083a6cfe2313ebf4edaa694c7814af1f4214f",
+          "size_bytes": 5473
         },
         {
           "name": "mythos",
           "path": "sovereign-omega-v2/.claude/skills/mythos/SKILL.md",
-          "sha256": "395a1499d5a180010f3683924e7336d925404631be41516caa3476f700a844b2",
-          "size_bytes": 8609
+          "sha256": "96cd3e6d207fcc7dba6e529e2e37b76e3d8e2bf1850f1d6f660ba9d0c17e0896",
+          "size_bytes": 8391
         },
         {
           "name": "pdf",
           "path": "sovereign-omega-v2/.claude/skills/pdf/SKILL.md",
-          "sha256": "d7ecea4a0240bfa2f72aa3f320b6e83c6bf38d0d081bc20313a0e559b95ac5c9",
-          "size_bytes": 7758
+          "sha256": "a4dcc5c324e366ac457dd19f04300380b77f9e83f1ac2c798b57cb24552bdd95",
+          "size_bytes": 7473
         },
         {
           "name": "plonky3-zk-compression",
           "path": "sovereign-omega-v2/.claude/skills/plonky3-zk-compression/SKILL.md",
-          "sha256": "923d7b5cd680b96a2866b4be705345e5b78184d9689564bec678a51892172c6c",
-          "size_bytes": 3272
+          "sha256": "9c2b823a66ccdebb33be28e138420f13ee95dedf86a808b61d0c3388c378c6ae",
+          "size_bytes": 3222
         },
         {
           "name": "reload-skills",
           "path": "sovereign-omega-v2/.claude/skills/reload-skills/SKILL.md",
-          "sha256": "97203fc701887233293052d9a41f4bd50e4650c30fd86b80e87a7ec7e978776f",
-          "size_bytes": 2420
+          "sha256": "19b7eaeb0b3caecb8bb2ff31757f76ac3bf72160c5586e2eb4c6e434e9305521",
+          "size_bytes": 2357
         },
         {
           "name": "replay-constitution",
           "path": "sovereign-omega-v2/.claude/skills/replay-constitution/SKILL.md",
-          "sha256": "4a0c8b4dd870196767b520c3f07643a83afe2a7b8d2463541d7b2211c80f5390",
-          "size_bytes": 2744
+          "sha256": "6f17819efa21e741e7527754db548889d0410e51d06e51ea881cb0b99f82ffca",
+          "size_bytes": 2678
         },
         {
           "name": "replay-sovereignty",
           "path": "sovereign-omega-v2/.claude/skills/replay-sovereignty/SKILL.md",
-          "sha256": "2d7309d22f8e31548322bcbd9189b4bfab50e4b7f47add200fc8ac545968b6b5",
-          "size_bytes": 5371
+          "sha256": "74a7abf8b746020de7a1effd9a49850b4a38dd9c2645eb17ca94dda0bf36eacb",
+          "size_bytes": 5284
         },
         {
           "name": "run-skill-generator",
           "path": "sovereign-omega-v2/.claude/skills/run-skill-generator/SKILL.md",
-          "sha256": "5d681d24927956cd653a475c4babd2f8383af53bad6cda2bdb917caf6eaf4782",
-          "size_bytes": 1863
+          "sha256": "1003108a1dca88a7bb09857b962a1b54513eae6b693ea06be1f1de5f3c256f30",
+          "size_bytes": 1817
         },
         {
           "name": "rwkv7-wave-logic",
           "path": "sovereign-omega-v2/.claude/skills/rwkv7-wave-logic/SKILL.md",
-          "sha256": "a34363f349f2efe6df6c590ee5a181dfe9fe3b7fbbcb7c23c3e98dee085ea33b",
-          "size_bytes": 3196
+          "sha256": "a14ac60ebc5d296f9cc1353e85a83b55d80b0243b0bb27090e6a763cd0356515",
+          "size_bytes": 3145
         },
         {
           "name": "security-scan",
           "path": "sovereign-omega-v2/.claude/skills/security-scan/SKILL.md",
-          "sha256": "7d880f8d36456e6569902e30fcc8d76d6a6ea0e299a88d924b0703ea7fbc8954",
-          "size_bytes": 4357
+          "sha256": "9e9575e90af79165f6d7f789d7321194e54a52b8b47e4f6e155ac8fb953a1d4a",
+          "size_bytes": 4231
         },
         {
           "name": "ship",
           "path": "sovereign-omega-v2/.claude/skills/ship/SKILL.md",
-          "sha256": "a1d6638681f3c46cb4c7c2b02fd4ccb495c5b3ba6194a4796f9d5f0ef5e8a4c8",
-          "size_bytes": 4924
+          "sha256": "1016b781e3a4ae487f4d8163fa12c0eae23763e6a1becf03cc3f3315223598bc",
+          "size_bytes": 4788
         },
         {
           "name": "skill-creator",
           "path": "sovereign-omega-v2/.claude/skills/skill-creator/SKILL.md",
-          "sha256": "683885620f66b62d83a160458c63336344a9ed9e1dd847642c94320a349b7bcf",
-          "size_bytes": 3256
+          "sha256": "f2cb20c9d02878a817f97642511dd272d153787958e508e1267f325784f6d862",
+          "size_bytes": 3152
         },
         {
           "name": "spec-compliance",
           "path": "sovereign-omega-v2/.claude/skills/spec-compliance/SKILL.md",
-          "sha256": "ba23d9a4dee96260b2ea82aaa831214828eaa88af309f82f89d986ecf9990911",
-          "size_bytes": 2651
+          "sha256": "2e444b55f1304e40623edc4bed590bfb9271d85b9fd25fd07d38f9c9e32877fa",
+          "size_bytes": 2611
         },
         {
           "name": "stop-slop",
           "path": "sovereign-omega-v2/.claude/skills/stop-slop/SKILL.md",
-          "sha256": "bc9c7614d964c2a2ab6b914d902e7442db3337f07de5f1d46b559300f1edc8c2",
-          "size_bytes": 6703
+          "sha256": "7adee7d86601e3c1d01a70aeaed0324b635728cadc24c6e48adb4f6cface2074",
+          "size_bytes": 6519
         },
         {
           "name": "studio-projection",
           "path": "sovereign-omega-v2/.claude/skills/studio-projection/SKILL.md",
-          "sha256": "72d506236e1ba372eab47e4fa13b906adb621e2115176d427802ad1cb6308bf2",
-          "size_bytes": 5105
+          "sha256": "c25570217eb01ff5bf4be5343f286c71c3b2ce24a1f947afb7825138f457fa83",
+          "size_bytes": 5001
         },
         {
           "name": "studio-spec",
           "path": "sovereign-omega-v2/.claude/skills/studio-spec/SKILL.md",
-          "sha256": "fe5d1e23ff202fb35dbf4bf93026387593acf4acc18159f81867a6ecc69cff06",
-          "size_bytes": 2450
+          "sha256": "b54ed50e1bc18339be7dc6a59d6090f551e8112f8137670a6274169f47642dcf",
+          "size_bytes": 2383
         },
         {
           "name": "substrate-ecology",
           "path": "sovereign-omega-v2/.claude/skills/substrate-ecology/SKILL.md",
-          "sha256": "76617418cbcf25725329aa803a81f06fcd22b9e07a69d677035d2ca69394c10a",
-          "size_bytes": 3313
+          "sha256": "fe1030ea620648ef6c02b6dd4d1c27e80386e475d62d441b35c1b60c7fb67a8a",
+          "size_bytes": 3240
         },
         {
           "name": "systematic-debugging",
           "path": "sovereign-omega-v2/.claude/skills/systematic-debugging/SKILL.md",
-          "sha256": "57a0f0754922547afa6a5bd305811ee988bb7324a5ab77171ea98362b3ea33f8",
-          "size_bytes": 5375
+          "sha256": "0ddbaff1ff7ebec4d7f6798b05d8b65ffd2759907f17b9de04382da9692ec064",
+          "size_bytes": 5257
         },
         {
           "name": "tdd",
           "path": "sovereign-omega-v2/.claude/skills/tdd/SKILL.md",
-          "sha256": "5a1bfc2ef98cd26afdab33c706652ea79d94255b1c16e5969eb68bcd0c0c02fa",
-          "size_bytes": 7048
+          "sha256": "ca26f2e1cbb5d1aaae1c9ee6600fab4d94b785caa0494aac03a9f05fdf1ae0da",
+          "size_bytes": 6912
         },
         {
           "name": "telemetry-spec",
           "path": "sovereign-omega-v2/.claude/skills/telemetry-spec/SKILL.md",
-          "sha256": "153844d8b2f38817bdc09b91145d22272e502a900f035297def9f869a8a59f30",
-          "size_bytes": 3135
+          "sha256": "4bdd5ca671c5cebc416a71c0be2c059a7926aa8abd601b564c73114af0f7b2bb",
+          "size_bytes": 3069
         },
         {
           "name": "tier-classification",
           "path": "sovereign-omega-v2/.claude/skills/tier-classification/SKILL.md",
-          "sha256": "86430b2df3660d23231cd17902f6a632e379f94c16d1e7182948b5c8a3aba9c6",
-          "size_bytes": 2760
+          "sha256": "6200a10dde9714db5df54673d1a243b82f96bf206c422c4103f1d8fde5e8b566",
+          "size_bytes": 2722
         },
         {
           "name": "vcg-calibration",
           "path": "sovereign-omega-v2/.claude/skills/vcg-calibration/SKILL.md",
-          "sha256": "1c9a68b52f09c1b8c4a686199218869714a58fc7b5b5ce91cc2b2a0ffb676552",
-          "size_bytes": 2907
+          "sha256": "76453672b97ce40b7aa74a5b77cc6ae055d1db5d2ac6534b2b9de6093b59d563",
+          "size_bytes": 2864
         },
         {
           "name": "verification-before-completion",
           "path": "sovereign-omega-v2/.claude/skills/verification-before-completion/SKILL.md",
-          "sha256": "cbe64038d878935d027e428899cf31358ec88fb4a99c1d0f5d1f54918463d463",
-          "size_bytes": 4464
+          "sha256": "506de9c2b1a5a2fa91e7ae91430c1da786d19f07fd45522d5d0fd9965e906a50",
+          "size_bytes": 4368
         },
         {
           "name": "zoom-out",
           "path": "sovereign-omega-v2/.claude/skills/zoom-out/SKILL.md",
-          "sha256": "df9c4b43fc22fa403d4aff111821a8c803f972e17a0baf5bb3b9526dab850cab",
-          "size_bytes": 3871
+          "sha256": "ab9127e73231a68efabca27a16c7f61ee016b8407f16646f8435b05792825bb5",
+          "size_bytes": 3770
         }
       ]
     },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "4187d6ccb0e425deda39abd3b875a97b64a1d1e3db382c04e07a4c71362d6d41"
+  "state_hash": "aa876650bdc9aae253a887e0df104b76bff98ba8e9721acb970d3e2bc18006b3"
 }
