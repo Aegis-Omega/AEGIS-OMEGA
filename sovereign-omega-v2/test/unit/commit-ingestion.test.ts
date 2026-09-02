@@ -90,6 +90,18 @@ describe('applyIngestion — section 9.3', () => {
     expect(before).toEqual(emptyLedger())
   })
 
+  it('refuses a decision reached about a different vertex', async () => {
+    // Deciding and applying are separate calls, so the two arguments can
+    // disagree. An admit for one vertex must not carry another one in.
+    const admitted = await sealed()
+    const other = await sealed({ id: 'v-other', root9: 7 })
+    const decision = await admitCommit(admitted, emptyLedger(), SNAPSHOT)
+
+    expect(decision.admitted).toBe(true)
+    expect(decision.vertex_hash).toBe(admitted.semantic_hash)
+    expect(applyIngestion(other, emptyLedger(), decision)).toBeNull()
+  })
+
   it('does not mutate the state it was given', async () => {
     const v = await sealed()
     const before = emptyLedger()

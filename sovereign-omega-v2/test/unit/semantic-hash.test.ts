@@ -36,6 +36,18 @@ describe('section 5.2 — canonical pre-image', () => {
     expect(keys).not.toContain('semantic_hash')
   })
 
+  it('serializes an absent optional field as explicit null, not as a dropped key', async () => {
+    // A wire vertex that omits the key reads back as `undefined`. JCS drops
+    // undefined-valued keys, so without coercion this would hash differently
+    // from the identical document that spells the field out as null.
+    const omitted = vertex()
+    delete (omitted as { policy_delta?: unknown }).policy_delta
+    const spelled = vertex({ policy_delta: null })
+
+    expect(semanticPreImage(omitted)).toHaveProperty('policy_delta', null)
+    expect(await semanticHash(omitted)).toBe(await semanticHash(spelled))
+  })
+
   it('binds every field the spec lists', () => {
     expect(Object.keys(semanticPreImage(vertex())).sort()).toEqual([
       'authority_delta',
