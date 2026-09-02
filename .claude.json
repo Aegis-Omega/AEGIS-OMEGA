@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "experimental/quantum-tourbillon-mpvc-v1",
+    "source_ref": "governance/amps-v1",
     "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "b5c5f850346cee49f678c00d90aa359130e7bf1b299b9859857ad22661bdef67"
+  "state_hash": "8205760ffbdfad093f99327a71996ec327ebf168a9f04256a45ab5088d1eecbb"
 }
