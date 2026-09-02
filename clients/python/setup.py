@@ -5,6 +5,7 @@ setup(
     version="1.0.0",
     packages=find_packages(),
     install_requires=["httpx>=0.27.0"],
+    extras_require={"quantum": ["qiskit==2.5.2", "blake3>=0.4"]},
     python_requires=">=3.10",
     description="AEGIS-Ω Agent Platform — 39 Mythos-level governed agents",
     long_description="Constitutional AI governance platform. 39 autonomous agents. Replay-certifiable.",
