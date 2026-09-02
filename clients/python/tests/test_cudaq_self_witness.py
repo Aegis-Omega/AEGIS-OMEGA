@@ -1,3 +1,4 @@
+import inspect
 import json
 import math
 from pathlib import Path
@@ -218,6 +219,10 @@ def test_execute_observable_set_restores_callers_previous_cudaq_target(monkeypat
     assert ("get_target",) in calls
     assert calls[-1] == ("set_target", previous_target, {})
     assert not any(call[0] == "reset_target" for call in calls)
+
+
+def test_engine_constructor_exposes_no_executor_override() -> None:
+    assert "executor" not in inspect.signature(SelfWitnessEngine).parameters
 
 
 def test_source_sha_must_be_exact_lowercase_commit() -> None:
