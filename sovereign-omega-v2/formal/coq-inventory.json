@@ -2,9 +2,9 @@
   "schema_version": "1.0.0",
   "formal_root": "formal/theories",
   "compile_model": "cd <directory> && coqc <file>; intra-directory Requires only",
-  "file_count": 29,
+  "file_count": 30,
   "counts": {
-    "REQUIRE_AXIOM_FREE": 17,
+    "REQUIRE_AXIOM_FREE": 18,
     "DIAGNOSTIC_ONLY": 4,
     "AUTHORITY_ELIGIBLE": 8
   },
@@ -25,6 +25,7 @@
     "Weil/PrimeSourceDerivativeConstructive.v",
     "Weil/PrimeTrigConstructive.v",
     "Core/Hash.v",
+    "Weil/CornO0MorphismBridge.v",
     "Weil/FiniteEntryDictionary.v",
     "Weil/Globalization.v",
     "Weil/O0ProductionConstructiveProbe.v",
@@ -153,6 +154,15 @@
         "Event"
       ],
       "classification": "AUTHORITY_ELIGIBLE"
+    },
+    {
+      "path": "Weil/CornO0MorphismBridge.v",
+      "directory": "Weil",
+      "module": "CornO0MorphismBridge",
+      "requires": [
+        "AnalyticDefinitions"
+      ],
+      "classification": "REQUIRE_AXIOM_FREE"
     },
     {
       "path": "Weil/FiniteEntryDictionary.v",
