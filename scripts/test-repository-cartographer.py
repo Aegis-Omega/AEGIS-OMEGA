@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import re
 import subprocess
 import tempfile
 import unittest
@@ -11,6 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = ROOT / "harness" / "sdk" / "repository_knowledge.py"
+WORKFLOW_PATH = ROOT / ".github" / "workflows" / "repository-knowledge.yml"
 
 
 def git(repo: Path, *args: str) -> str:
@@ -73,6 +75,17 @@ class RepositoryCartographerContract(unittest.TestCase):
 
     def test_production_module_exists(self) -> None:
         self.assertTrue(MODULE_PATH.exists(), "repository knowledge module is not implemented")
+
+    def test_workflow_attests_post_merge_main_heads(self) -> None:
+        workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
+        push_block = re.search(r"(?m)^  push:\n(?P<body>(?: {4,}[^\n]*\n)+)", workflow)
+        self.assertIsNotNone(push_block, "repository cartography workflow has no push trigger")
+        assert push_block is not None
+        self.assertRegex(
+            push_block.group("body"),
+            r"(?m)^\s*-\s+main\s*$",
+            "post-merge main heads are not independently attested",
+        )
 
     @unittest.skipUnless(MODULE_PATH.exists(), "RED: cartographer module absent")
     def test_snapshot_is_exact_head_content_addressed_and_deterministic(self) -> None:
