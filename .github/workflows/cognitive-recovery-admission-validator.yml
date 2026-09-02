@@ -1,0 +1,49 @@
+name: Cognitive Recovery Admission Validator
+
+on:
+  pull_request:
+    branches:
+      - repair/cognitive-anchor-writer-authority-v1
+    paths:
+      - 'schemas/cognitive-recovery-admission-*.v1.schema.json'
+      - 'scripts/validate-cognitive-recovery-admission.py'
+      - 'sovereign-omega-v2/python/tests/test_cognitive_recovery_admission.py'
+      - '.github/workflows/cognitive-recovery-admission-validator.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validator:
+    name: recovery admission / authority-none validator
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact schema validator
+        run: python -m pip install 'jsonschema==4.23.0'
+
+      - name: Run recovery admission contract tests
+        run: python sovereign-omega-v2/python/tests/test_cognitive_recovery_admission.py
+
+      - name: Assert authority-none workflow surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow=.github/workflows/cognitive-recovery-admission-validator.yml
+          ! grep -Eq 'contents:[[:space:]]*write|id-token:[[:space:]]*write|attestations:[[:space:]]*write|artifact-metadata:[[:space:]]*write' "$workflow"
+          ! grep -Eq '\bgcloud\b|google-github-actions/auth|terraform[[:space:]]+apply|git[[:space:]]+push' "$workflow"
+          echo 'AUTHORITY_NONE_SURFACE_OK'
