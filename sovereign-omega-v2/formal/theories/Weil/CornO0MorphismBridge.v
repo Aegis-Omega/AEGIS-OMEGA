@@ -125,7 +125,12 @@ Proof.
   - apply CRmorph_proper.
     apply corn_fast_eq_to_stdlib_eq_a1c_v1.
     exact IR_Zero_as_CR.
-  - apply CRmorph_zero.
+  - change
+      (CReq O0RealsV1
+        (CRmorph corn_fast_to_o0_morphism_a1c_v1
+          (CR_of_Q FastRealsConstructive 0%Q))
+        (CR_of_Q O0RealsV1 0%Q)).
+    exact (CRmorph_zero corn_fast_to_o0_morphism_a1c_v1).
 Qed.
 
 Theorem corn_ir_to_o0_preserves_one_v1 :
@@ -138,7 +143,12 @@ Proof.
   - apply CRmorph_proper.
     apply corn_fast_eq_to_stdlib_eq_a1c_v1.
     exact IR_One_as_CR.
-  - apply CRmorph_one.
+  - change
+      (CReq O0RealsV1
+        (CRmorph corn_fast_to_o0_morphism_a1c_v1
+          (CR_of_Q FastRealsConstructive 1%Q))
+        (CR_of_Q O0RealsV1 1%Q)).
+    exact (CRmorph_one corn_fast_to_o0_morphism_a1c_v1).
 Qed.
 
 Theorem corn_ir_to_o0_preserves_plus_v1 :
