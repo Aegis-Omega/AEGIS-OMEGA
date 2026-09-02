@@ -39,6 +39,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pytest -q \
-            tests/aedr/test_dag_consolidator.py \
-            tests/aedr/test_live_acquisition.py
+          python -m pytest -q tests/aedr
