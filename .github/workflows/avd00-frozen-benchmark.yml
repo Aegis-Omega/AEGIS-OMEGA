@@ -17,6 +17,8 @@ concurrency:
 
 env:
   SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  AVD_ANCHOR_COMMIT: d98ef00c6d65b45e253aa13eeebb6f9b1f256009
+  AVD_ANCHOR_TREE: 8fa6cc600d75cd78a518a8b5b08cfb9f4e665c30
   AVD_COQ_IMAGE: coqorg/coq:8.20@sha256:18ebf3da56e60e3ddfd7d4e51f4c53d10241a129f34e93dacbc71562dd43c57a
 
 jobs:
@@ -56,9 +58,124 @@ jobs:
           set -euo pipefail
           python -m pytest -q tests/avd
 
+  historical-problem:
+    name: exact historical problem preparation
+    needs: contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact control-plane candidate
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact control-plane candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Fetch only frozen historical anchor object
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 \
+            https://github.com/Aegis-Omega/AEGIS-OMEGA.git \
+            "$AVD_ANCHOR_COMMIT"
+          observed_commit="$(git rev-parse --verify "$AVD_ANCHOR_COMMIT^{commit}")"
+          observed_tree="$(git rev-parse "$AVD_ANCHOR_COMMIT^{tree}")"
+          test "$observed_commit" = "$AVD_ANCHOR_COMMIT"
+          test "$observed_tree" = "$AVD_ANCHOR_TREE"
+
+      - name: Export exact tree and bind H_P
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          from scripts.avd.anchor import AVD00_ANCHOR
+          from scripts.avd.git_tree_snapshot import GitTreeSnapshotV1
+          from scripts.avd.problem_package import ProblemPackageV1
+
+          repo = Path(os.environ['GITHUB_WORKSPACE'])
+          out = Path(os.environ['RUNNER_TEMP']) / 'avd-historical-problem'
+          snapshot = out / 'snapshot'
+          out.mkdir(parents=True, exist_ok=True)
+
+          spec_path = 'sovereign-omega-v2/formal/tests/Weil/CornO0MorphismBridgeSpec.v'
+          tree_binding = GitTreeSnapshotV1.export(
+              repo_root=repo,
+              snapshot_root=snapshot,
+              anchor_commit_sha=AVD00_ANCHOR.anchor_commit_sha,
+              expected_tree_sha=AVD00_ANCHOR.anchor_tree_sha,
+              required_path=spec_path,
+              forbidden_path=AVD00_ANCHOR.target_production_file,
+          )
+          package = ProblemPackageV1.compute(
+              snapshot_root=snapshot,
+              anchor_commit_sha=AVD00_ANCHOR.anchor_commit_sha,
+              anchor_tree_sha=AVD00_ANCHOR.anchor_tree_sha,
+              target_path=AVD00_ANCHOR.target_production_file,
+              spec_path=spec_path,
+              canonical_coq_logical_path=AVD00_ANCHOR.canonical_coq_logical_path,
+          )
+
+          if tree_binding.snapshot_sha256 != package.snapshot_sha256:
+              raise SystemExit('SNAPSHOT_DIGEST_COMPOSITION_MISMATCH')
+
+          receipt = {
+              'schema_version': 'AVD_HISTORICAL_PROBLEM_PREPARATION_V1',
+              'authority_class': 'NONE',
+              'control_plane_source_sha': os.environ['SOURCE_SHA'],
+              'historical_anchor_network_fetch_exact_sha_only': True,
+              'anchor_tree_source_verified': True,
+              'sanitized_snapshot_git_metadata_absent': True,
+              'future_solution_absent_from_anchor_tree': True,
+              'git_tree_snapshot': tree_binding.to_dict(),
+              'problem_package': package.to_dict(),
+              'open_boundaries': [
+                  'CANDIDATE_EXECUTION_NOT_STARTED',
+                  'FROZEN_REFERENCE_LIVE_BINDING_NOT_ESTABLISHED',
+                  'REAL_MUTATION_CALIBRATION_NOT_ESTABLISHED',
+                  'COMPARATIVE_EFFICACY_NONE',
+              ],
+          }
+          receipt_path = out / 'historical-problem-receipt.json'
+          receipt_path.write_text(
+              json.dumps(receipt, sort_keys=True, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          print(receipt_path.read_text(encoding='utf-8'))
+          PY
+
+      - name: Re-validate sanitized challenge boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/avd-historical-problem/snapshot"
+          test -d "$root"
+          test ! -e "$root/.git"
+          test -f "$root/sovereign-omega-v2/formal/tests/Weil/CornO0MorphismBridgeSpec.v"
+          test ! -e "$root/sovereign-omega-v2/formal/theories/Weil/CornO0MorphismBridge.v"
+
+      - name: Upload frozen historical problem evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: avd-historical-problem-${{ env.SOURCE_SHA }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/avd-historical-problem/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+          overwrite: false
+
   network-none:
     name: candidate OS network-none attestation
-    needs: contract
+    needs: [contract, historical-problem]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
