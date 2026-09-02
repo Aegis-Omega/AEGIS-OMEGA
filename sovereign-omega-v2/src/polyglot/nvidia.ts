@@ -19,12 +19,16 @@ export const NVIDIA_SUBSTRATE_RECEIPT_SCHEMA =
 
 export type NvidiaConnectorId =
   | 'nvidia-agent-toolkit'
+  | 'nemo-platform'
+  | 'nemo-fabric'
   | 'bionemo-ir'
   | 'cudaq'
   | 'cuquantum'
 
 export type NvidiaCapabilityKind =
   | 'AGENT_ORCHESTRATION'
+  | 'AGENT_PLATFORM'
+  | 'AGENT_RUNTIME_FABRIC'
   | 'BIOMOLECULAR_AI'
   | 'QUANTUM_PROGRAMMING'
   | 'QUANTUM_SIMULATION'
@@ -49,6 +53,30 @@ export const NVIDIA_CONNECTOR_CATALOG: readonly NvidiaConnectorDescriptor[] = de
     runtime_family: 'nvidia-agent-intelligence-toolkit',
     probe_locator: 'nat',
     version_probe: ['--version'],
+    digest_algorithm: 'SHA-256',
+    capability_receipt_required: true,
+    authority_class: 'NONE',
+    authority_effect: 'NONE',
+    default_state: 'CATALOGUED_NOT_VERIFIED',
+  },
+  {
+    connector_id: 'nemo-platform',
+    capability_kind: 'AGENT_PLATFORM',
+    runtime_family: 'nvidia-nemo-platform',
+    probe_locator: 'nemo',
+    version_probe: ['--version'],
+    digest_algorithm: 'SHA-256',
+    capability_receipt_required: true,
+    authority_class: 'NONE',
+    authority_effect: 'NONE',
+    default_state: 'CATALOGUED_NOT_VERIFIED',
+  },
+  {
+    connector_id: 'nemo-fabric',
+    capability_kind: 'AGENT_RUNTIME_FABRIC',
+    runtime_family: 'nvidia-nemo-fabric',
+    probe_locator: 'python:nemo_fabric',
+    version_probe: ['package-version', 'nemo-fabric'],
     digest_algorithm: 'SHA-256',
     capability_receipt_required: true,
     authority_class: 'NONE',
@@ -130,6 +158,13 @@ export interface NvidiaScientificSubstrateReceipt {
   readonly schema_version: typeof NVIDIA_SUBSTRATE_RECEIPT_SCHEMA
   readonly task_id: string
   readonly verified_connectors: readonly NvidiaConnectorId[]
+  readonly agent_platform: {
+    readonly state: 'READY' | 'NOT_ESTABLISHED'
+    readonly required_connectors: readonly ['nemo-platform', 'nemo-fabric']
+    readonly missing_connectors: readonly NvidiaConnectorId[]
+    readonly execution: 'NOT_ESTABLISHED'
+    readonly authority_scope: 'EXECUTION_EVIDENCE_ONLY'
+  }
   readonly biomolecular_agent_fabric: {
     readonly state: 'READY' | 'NOT_ESTABLISHED'
     readonly required_connectors: readonly ['nvidia-agent-toolkit', 'bionemo-ir']
@@ -281,8 +316,10 @@ export async function buildNvidiaScientificSubstrateReceipt(
     .map(descriptor => descriptor.connector_id)
     .filter(connector => available.has(connector))
 
+  const platformRequired = ['nemo-platform', 'nemo-fabric'] as const
   const biomolecularRequired = ['nvidia-agent-toolkit', 'bionemo-ir'] as const
   const quantumRequired = ['cudaq', 'cuquantum'] as const
+  const platformMissing = missingConnectors(platformRequired, available)
   const biomolecularMissing = missingConnectors(biomolecularRequired, available)
   const quantumMissing = missingConnectors(quantumRequired, available)
 
@@ -290,6 +327,13 @@ export async function buildNvidiaScientificSubstrateReceipt(
     schema_version: NVIDIA_SUBSTRATE_RECEIPT_SCHEMA,
     task_id: request.task_id,
     verified_connectors,
+    agent_platform: {
+      state: platformMissing.length === 0 ? 'READY' as const : 'NOT_ESTABLISHED' as const,
+      required_connectors: platformRequired,
+      missing_connectors: platformMissing,
+      execution: 'NOT_ESTABLISHED' as const,
+      authority_scope: 'EXECUTION_EVIDENCE_ONLY' as const,
+    },
     biomolecular_agent_fabric: {
       state: biomolecularMissing.length === 0 ? 'READY' as const : 'NOT_ESTABLISHED' as const,
       required_connectors: biomolecularRequired,
