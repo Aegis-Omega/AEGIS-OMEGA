@@ -6,6 +6,55 @@ from enum import Enum
 from typing import Any, Dict, Tuple
 
 
+class FrozenDict(dict):
+    """JSON-compatible dictionary that rejects every post-construction mutation."""
+
+    @staticmethod
+    def _blocked(*args, **kwargs):
+        raise TypeError("AEDR snapshot payload is immutable")
+
+    __setitem__ = _blocked
+    __delitem__ = _blocked
+    clear = _blocked
+    pop = _blocked
+    popitem = _blocked
+    setdefault = _blocked
+    update = _blocked
+    __ior__ = _blocked
+
+
+class FrozenList(list):
+    """JSON-compatible list that rejects every post-construction mutation."""
+
+    @staticmethod
+    def _blocked(*args, **kwargs):
+        raise TypeError("AEDR snapshot payload is immutable")
+
+    __setitem__ = _blocked
+    __delitem__ = _blocked
+    __iadd__ = _blocked
+    __imul__ = _blocked
+    append = _blocked
+    clear = _blocked
+    extend = _blocked
+    insert = _blocked
+    pop = _blocked
+    remove = _blocked
+    reverse = _blocked
+    sort = _blocked
+
+
+def freeze_json(value: Any) -> Any:
+    """Recursively freeze JSON-shaped data while preserving json.dumps compatibility."""
+    if isinstance(value, dict):
+        return FrozenDict({str(key): freeze_json(item) for key, item in value.items()})
+    if isinstance(value, list):
+        return FrozenList(freeze_json(item) for item in value)
+    if isinstance(value, tuple):
+        return tuple(freeze_json(item) for item in value)
+    return value
+
+
 class WorkflowRunConclusion(str, Enum):
     SUCCESS = "success"
     FAILURE = "failure"
