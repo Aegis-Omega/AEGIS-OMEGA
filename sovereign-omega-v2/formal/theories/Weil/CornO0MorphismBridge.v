@@ -137,9 +137,7 @@ Theorem corn_ir_to_o0_preserves_plus_v1 :
   forall x y : IR,
     O0EqV1
       (corn_ir_to_o0_carrier_v1 (x [+] y))
-      (CRplus O0RealsV1
-        (corn_ir_to_o0_carrier_v1 x)
-        (corn_ir_to_o0_carrier_v1 y)).
+      ((corn_ir_to_o0_carrier_v1 x + corn_ir_to_o0_carrier_v1 y)%ConstructiveReals).
 Proof.
   intros x y.
   unfold corn_ir_to_o0_carrier_v1, O0EqV1.
@@ -154,9 +152,7 @@ Theorem corn_ir_to_o0_preserves_mult_v1 :
   forall x y : IR,
     O0EqV1
       (corn_ir_to_o0_carrier_v1 (x [*] y))
-      (CRmult O0RealsV1
-        (corn_ir_to_o0_carrier_v1 x)
-        (corn_ir_to_o0_carrier_v1 y)).
+      ((corn_ir_to_o0_carrier_v1 x * corn_ir_to_o0_carrier_v1 y)%ConstructiveReals).
 Proof.
   intros x y.
   unfold corn_ir_to_o0_carrier_v1, O0EqV1.
