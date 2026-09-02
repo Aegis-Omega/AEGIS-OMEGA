@@ -121,9 +121,14 @@ export function buildProviderCognitiveCouncil(
   workClass: CognitiveWorkClass,
   modelOverrides: ProviderModelOverrides = {},
 ): readonly ProviderCognitiveProfile[] {
-  return Object.freeze(PROVIDER_ORDER.map(provider =>
-    selectProviderCognitiveProfile(provider, workClass, { model: modelOverrides[provider] }),
-  ))
+  return Object.freeze(PROVIDER_ORDER.map(provider => {
+    const model = modelOverrides[provider]
+    return selectProviderCognitiveProfile(
+      provider,
+      workClass,
+      model === undefined ? {} : { model },
+    )
+  }))
 }
 
 export function selectAllianceProviderProfile(role: AllianceRole): ProviderCognitiveProfile {
