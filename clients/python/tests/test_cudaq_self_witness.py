@@ -137,6 +137,27 @@ def test_v1_rejects_physical_qpu_target_instead_of_reusing_statevector_gate() ->
         )
 
 
+def test_v1_rejects_backend_options_not_representable_by_schema() -> None:
+    engine = SelfWitnessEngine(executor=lambda _backend, _thetas: _observables())
+
+    with pytest.raises(ProtocolViolation, match="qpp-cpu options"):
+        engine.run_witness_cycle(
+            DUMMY_SELF_HASH,
+            source_sha=SOURCE_SHA,
+            backend_a=BackendSpec(target="qpp-cpu", options=(("unexpected", "1"),)),
+        )
+
+    with pytest.raises(ProtocolViolation, match="nvidia options"):
+        engine.run_witness_cycle(
+            DUMMY_SELF_HASH,
+            source_sha=SOURCE_SHA,
+            backend_b=BackendSpec(
+                target="nvidia",
+                options=(("option", "fp64"), ("unexpected", "1")),
+            ),
+        )
+
+
 def test_source_sha_must_be_exact_lowercase_commit() -> None:
     engine = SelfWitnessEngine(executor=lambda _backend, _thetas: _observables())
     with pytest.raises(ValueError, match="source_sha"):
