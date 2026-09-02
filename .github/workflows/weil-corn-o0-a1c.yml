@@ -3,6 +3,7 @@ name: Weil CoRN to O0 A1c Morphism
 on:
   pull_request:
     paths:
+      - "sovereign-omega-v2/formal/theories/Weil/AnalyticDefinitions.v"
       - "sovereign-omega-v2/formal/theories/Weil/CornO0MorphismBridge.v"
       - "sovereign-omega-v2/formal/tests/Weil/CornO0MorphismBridgeSpec.v"
       - "sovereign-omega-v2/formal/coq-inventory.json"
@@ -81,7 +82,6 @@ jobs:
             THEORY="$ROOT/formal/theories/Weil"
             TESTDIR="$ROOT/formal/tests/Weil"
             SOURCE="$THEORY/CornO0MorphismBridge.v"
-            TEST="$TESTDIR/CornO0MorphismBridgeSpec.v"
             OUT="$ROOT/weil-corn-o0-a1c-attestation"
 
             coqc --version | tee "$OUT/coq-version.txt"
@@ -106,8 +106,11 @@ jobs:
               exit 1
             fi
 
-            # Match the canonical global attestation compile model exactly:
-            # sibling Requires are resolved by compiling from the theorem dir.
+            # Match the canonical global attestation compile model.  The
+            # inventory records AnalyticDefinitions as A1c's sole local
+            # prerequisite, so build it first and then the authority source.
+            (cd "$THEORY" && coqc AnalyticDefinitions.v) 2>&1 \
+              | tee "$OUT/analytic-definitions.log"
             (cd "$THEORY" && coqc CornO0MorphismBridge.v) 2>&1 \
               | tee "$OUT/a1c-source.log"
             (cd "$TESTDIR" && coqc -Q "$THEORY" "" CornO0MorphismBridgeSpec.v) 2>&1 \
@@ -175,6 +178,7 @@ jobs:
               'corn_requested_version': '9.0.0',
               'corn_installed_version': version,
               'corn_package_metadata_sha256': sha(out / 'corn-package-metadata.txt'),
+              'analytic_definitions_log_sha256': sha(out / 'analytic-definitions.log'),
               'compile_log_sha256': sha(out / 'a1c-source.log'),
               'spec_log_sha256': sha(out / 'a1c-spec.log'),
               'theorem_names': names,
