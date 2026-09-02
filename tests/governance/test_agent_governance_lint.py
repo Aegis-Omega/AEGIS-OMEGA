@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 from pathlib import Path
 
@@ -35,6 +36,11 @@ def _seed_quarantine(root: Path) -> None:
     )
 
 
+def _git_blob_sha(text: str) -> str:
+    data = text.encode("utf-8")
+    return hashlib.sha1(f"blob {len(data)}\0".encode("ascii") + data).hexdigest()
+
+
 def test_clean_repo_shape_passes(tmp_path: Path) -> None:
     lint = _load_lint_module()
     _seed_quarantine(tmp_path)
@@ -58,6 +64,25 @@ def test_quarantine_requires_zero_authority_markers(tmp_path: Path) -> None:
 
     violations = lint.collect_violations(tmp_path)
     assert any(v.code == "QUARANTINE_HEADER_MISSING" for v in violations)
+
+
+def test_quarantine_body_is_bound_to_original_git_blob(tmp_path: Path) -> None:
+    lint = _load_lint_module()
+    historical = "#!/usr/bin/env python3\nprint('legacy')\n"
+    quarantined = (
+        "#!/usr/bin/env python3\n"
+        "# LEGACY DIAGNOSTIC PROTOTYPE ONLY - ZERO RUNTIME OR VERIFICATION AUTHORITY\n"
+        "# CONTAINS MOCK/RNG FALLBACKS - PROHIBITED FROM AEGIS KERNEL & ADMISSION PIPELINES\n"
+        "print('legacy')\n"
+    )
+    path = _write(tmp_path, "quarantine/legacy-quantum-demonstrator/server.py", quarantined)
+    expected = _git_blob_sha(historical)
+
+    assert lint.collect_violations(tmp_path, expected_legacy_blob_sha=expected) == []
+
+    path.write_text(quarantined.replace("print('legacy')", "print('rewritten')"), encoding="utf-8")
+    violations = lint.collect_violations(tmp_path, expected_legacy_blob_sha=expected)
+    assert any(v.code == "QUARANTINE_CONTENT_DRIFT" for v in violations)
 
 
 @pytest.mark.parametrize(
