@@ -11,10 +11,6 @@ jobs:
     name: aegis / trusted-cognitive-admission
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      # job.workflow_sha identifies the workflow source used by a ruleset workflow;
-      # github.workflow_sha is retained as the documented fallback identity.
-      GITHUB_WORKFLOW_SHA: ${{ job.workflow_sha || github.workflow_sha }}
     steps:
       - name: Checkout trusted workflow source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -109,6 +105,7 @@ jobs:
       - name: Evaluate candidate with trusted source only
         shell: bash
         env:
+          GITHUB_WORKFLOW_SHA: ${{ job.workflow_sha || github.workflow_sha }}
           CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           SOURCE_REF: ${{ github.event.pull_request.head.ref }}
