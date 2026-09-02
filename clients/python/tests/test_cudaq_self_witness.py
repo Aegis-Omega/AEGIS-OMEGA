@@ -2,6 +2,7 @@ import inspect
 import json
 import math
 from pathlib import Path
+from typing import Callable
 
 import pytest
 from jsonschema import Draft202012Validator
@@ -22,6 +23,8 @@ DUMMY_SELF_HASH = "8fa6cc600d75cd78a518a8b5b08cfb9f4e665c3016769820d37616d319cde
 SOURCE_SHA = "98e7ec038cb1e8a8722b5dcc3346a56d9da9801a"
 SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "quantum-self-digest-receipt.v1.schema.json"
 
+Executor = Callable[[BackendSpec, tuple[float, ...]], dict[str, float]]
+
 
 def _observables(z0: float = 0.5) -> dict[str, float]:
     return {
@@ -38,6 +41,12 @@ def _observables(z0: float = 0.5) -> dict[str, float]:
 def _deterministic_executor(backend: BackendSpec, _thetas: tuple[float, ...]) -> dict[str, float]:
     assert backend.execution_mode == "ANALYTIC_STATEVECTOR"
     return _observables(0.5 if backend.target == "qpp-cpu" else 0.50000001)
+
+
+def _patch_execution(monkeypatch: pytest.MonkeyPatch, executor: Executor) -> None:
+    import aegis_omega.cudaq_self_witness as sw
+
+    monkeypatch.setattr(sw, "execute_observable_set", executor)
 
 
 def test_deterministic_angle_mapping_is_half_open() -> None:
@@ -63,10 +72,12 @@ def test_invalid_or_noncanonical_hash_is_rejected() -> None:
         map_hash_to_angles(DUMMY_SELF_HASH.upper())
 
 
-def test_differential_gate_passes_within_tolerance_and_has_no_authority() -> None:
+def test_differential_gate_passes_within_tolerance_and_has_no_authority(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_execution(monkeypatch, _deterministic_executor)
     engine = SelfWitnessEngine(
         tolerance=DifferentialGateTolerance(epsilon_max_abs_diff=1e-5),
-        executor=_deterministic_executor,
     )
     result = engine.run_witness_cycle(DUMMY_SELF_HASH, source_sha=SOURCE_SHA)
     receipt = result["receipt"]
@@ -82,8 +93,11 @@ def test_differential_gate_passes_within_tolerance_and_has_no_authority() -> Non
     assert "purity" not in json.dumps(receipt).lower()
 
 
-def test_receipt_is_rfc8785_deterministic_and_schema_valid() -> None:
-    engine = SelfWitnessEngine(executor=_deterministic_executor)
+def test_receipt_is_rfc8785_deterministic_and_schema_valid(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_execution(monkeypatch, _deterministic_executor)
+    engine = SelfWitnessEngine()
     first = engine.run_witness_cycle(DUMMY_SELF_HASH, source_sha=SOURCE_SHA)
     second = engine.run_witness_cycle(DUMMY_SELF_HASH, source_sha=SOURCE_SHA)
 
@@ -93,13 +107,13 @@ def test_receipt_is_rfc8785_deterministic_and_schema_valid() -> None:
     Draft202012Validator(schema).validate(first["receipt"])
 
 
-def test_differential_gate_fails_above_tolerance() -> None:
+def test_differential_gate_fails_above_tolerance(monkeypatch: pytest.MonkeyPatch) -> None:
     def executor(backend: BackendSpec, _thetas: tuple[float, ...]) -> dict[str, float]:
         return _observables(0.5 if backend.target == "qpp-cpu" else 0.51)
 
+    _patch_execution(monkeypatch, executor)
     engine = SelfWitnessEngine(
         tolerance=DifferentialGateTolerance(epsilon_max_abs_diff=1e-4),
-        executor=executor,
     )
     receipt = engine.run_witness_cycle(DUMMY_SELF_HASH, source_sha=SOURCE_SHA)["receipt"]
 
@@ -108,28 +122,32 @@ def test_differential_gate_fails_above_tolerance() -> None:
     assert receipt["authority_class"] == "NONE"
 
 
-def test_backend_unavailable_raises_and_never_fabricates_receipt() -> None:
+def test_backend_unavailable_raises_and_never_fabricates_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def unavailable(_backend: BackendSpec, _thetas: tuple[float, ...]) -> dict[str, float]:
         raise BackendUnavailableException("BACKEND_UNAVAILABLE")
 
-    engine = SelfWitnessEngine(executor=unavailable)
+    _patch_execution(monkeypatch, unavailable)
+    engine = SelfWitnessEngine()
     with pytest.raises(BackendUnavailableException, match="BACKEND_UNAVAILABLE"):
         engine.run_witness_cycle(DUMMY_SELF_HASH, source_sha=SOURCE_SHA)
 
 
-def test_non_finite_observable_is_protocol_violation() -> None:
+def test_non_finite_observable_is_protocol_violation(monkeypatch: pytest.MonkeyPatch) -> None:
     def executor(_backend: BackendSpec, _thetas: tuple[float, ...]) -> dict[str, float]:
         values = _observables()
         values["Z2"] = math.nan
         return values
 
-    engine = SelfWitnessEngine(executor=executor)
+    _patch_execution(monkeypatch, executor)
+    engine = SelfWitnessEngine()
     with pytest.raises(ProtocolViolation, match="non-finite"):
         engine.run_witness_cycle(DUMMY_SELF_HASH, source_sha=SOURCE_SHA)
 
 
 def test_v1_rejects_physical_qpu_target_instead_of_reusing_statevector_gate() -> None:
-    engine = SelfWitnessEngine(executor=lambda _backend, _thetas: _observables())
+    engine = SelfWitnessEngine()
     with pytest.raises(ProtocolViolation, match="simulator-only"):
         engine.run_witness_cycle(
             DUMMY_SELF_HASH,
@@ -139,7 +157,7 @@ def test_v1_rejects_physical_qpu_target_instead_of_reusing_statevector_gate() ->
 
 
 def test_v1_rejects_backend_options_not_representable_by_schema() -> None:
-    engine = SelfWitnessEngine(executor=lambda _backend, _thetas: _observables())
+    engine = SelfWitnessEngine()
 
     with pytest.raises(ProtocolViolation, match="qpp-cpu options"):
         engine.run_witness_cycle(
@@ -226,6 +244,6 @@ def test_engine_constructor_exposes_no_executor_override() -> None:
 
 
 def test_source_sha_must_be_exact_lowercase_commit() -> None:
-    engine = SelfWitnessEngine(executor=lambda _backend, _thetas: _observables())
+    engine = SelfWitnessEngine()
     with pytest.raises(ValueError, match="source_sha"):
         engine.run_witness_cycle(DUMMY_SELF_HASH, source_sha="98e7ec03")
