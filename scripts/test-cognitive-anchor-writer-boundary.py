@@ -7,6 +7,8 @@ from unittest import TestCase, main
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_ROOT = REPO_ROOT / ".github" / "workflows"
+CHECKOUT_SHA = "11d5960a326750d5838078e36cf38b85af677262"
+SETUP_PYTHON_SHA = "a26af69be951a213d495a4c3e4e4022e16d87065"
 
 
 def workflow_contents_permission(path: Path) -> str | None:
@@ -78,16 +80,26 @@ class CognitiveAnchorWriterBoundaryTests(TestCase):
         self.assertIn("app", source)
         self.assertIn("id", source)
 
-    def test_writer_targets_explicit_branch_only_after_admission_gate(self) -> None:
+    def test_writer_targets_existing_remote_branch_only_after_admission_gate(self) -> None:
         refresh = WORKFLOW_ROOT / "cognitive-manifest-refresh.yml"
         source = refresh.read_text(encoding="utf-8")
 
         self.assertIn("target_ref:", source)
         self.assertIn("steps.admission.outputs.allowed == 'true'", source)
-        self.assertIn("ref: ${{ inputs.target_ref }}", source)
         self.assertIn("TARGET_REF: ${{ inputs.target_ref }}", source)
-        self.assertIn('git push origin "HEAD:$TARGET_REF"', source)
+        self.assertIn('git ls-remote --exit-code --heads origin "refs/heads/$TARGET_REF"', source)
+        self.assertIn("ref: refs/heads/${{ inputs.target_ref }}", source)
+        self.assertIn('git push origin "HEAD:refs/heads/$TARGET_REF"', source)
         self.assertNotIn('git push origin "HEAD:${{ inputs.target_ref }}"', source)
+
+    def test_writer_actions_are_immutable_commit_pinned(self) -> None:
+        refresh = WORKFLOW_ROOT / "cognitive-manifest-refresh.yml"
+        source = refresh.read_text(encoding="utf-8")
+
+        self.assertIn(f"uses: actions/checkout@{CHECKOUT_SHA}", source)
+        self.assertIn(f"uses: actions/setup-python@{SETUP_PYTHON_SHA}", source)
+        self.assertNotIn("uses: actions/checkout@v", source)
+        self.assertNotIn("uses: actions/setup-python@v", source)
 
 
 if __name__ == "__main__":
