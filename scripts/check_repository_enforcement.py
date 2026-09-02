@@ -90,6 +90,10 @@ def _get(path: str, token: str | None) -> tuple[int, Any]:
         return exc.code, parsed
 
 
+def _deny(source: str) -> Result:
+    return Result(False, False, False, False, False, False, False, False, source)
+
+
 def _classic(repo: str, branch: str, token: str | None, protected: bool) -> Result | None:
     status, protection = _get(
         f"/repos/{repo}/branches/{urllib.parse.quote(branch, safe='')}/protection", token
@@ -107,8 +111,8 @@ def _classic(repo: str, branch: str, token: str | None, protected: bool) -> Resu
     allow_force = protection.get("allow_force_pushes") or {}
     allow_delete = protection.get("allow_deletions") or {}
 
-    # Admin enforcement is not exposed as a separate Result field, but a classic
-    # policy that permits admin bypass is not accepted as a protected authority boundary.
+    # Admin enforcement is part of the authority boundary. A classic policy that
+    # allows administrator bypass is not accepted as production enforcement.
     classic_protected = protected and bool(enforce_admins.get("enabled"))
 
     contexts = checks.get("contexts") or []
@@ -176,7 +180,15 @@ def verify(repo: str, branch: str, token: str | None) -> Result:
     )
     if status != 200 or not isinstance(branch_data, dict):
         raise EnforcementError(f"branch lookup failed: HTTP {status}: {branch_data}")
+
     protected = bool(branch_data.get("protected"))
+
+    # This field is available from the ordinary branch endpoint. If GitHub itself
+    # says the branch is not protected, that is already sufficient to deny
+    # production admission. Do not require a privileged protection endpoint just
+    # to rediscover a fact we already know.
+    if not protected:
+        return _deny("branch_endpoint:protected=false")
 
     candidates = [
         result
@@ -187,14 +199,28 @@ def verify(repo: str, branch: str, token: str | None) -> Result:
         if result is not None
     ]
     if not candidates:
-        return Result(False, False, False, False, False, False, False, False, "none")
+        return _deny("protected_without_readable_policy")
 
     # Multiple mechanisms may coexist. Accept only if one mechanism independently
     # establishes the full authority boundary; do not splice partial guarantees.
     for result in candidates:
         if result.ok:
             return result
-    return max(candidates, key=lambda item: sum(bool(v) for k, v in item.as_dict().items() if k not in {"source", "production_admission"}))
+    return max(
+        candidates,
+        key=lambda item: sum(
+            bool(value)
+            for key, value in item.as_dict().items()
+            if key not in {"source", "production_admission"}
+        ),
+    )
+
+
+def _write_result(path: str | None, payload: dict[str, Any]) -> None:
+    if not path:
+        return
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, sort_keys=True, indent=2) + "\n")
 
 
 def main() -> int:
@@ -208,15 +234,27 @@ def main() -> int:
     try:
         result = verify(args.repo, args.branch, token)
     except EnforcementError as exc:
+        payload = {
+            "repository": args.repo,
+            "branch": args.branch,
+            "production_admission": "FORBIDDEN",
+            "verification_status": "UNKNOWN",
+            "error": str(exc),
+        }
+        _write_result(args.json_output, payload)
+        print(json.dumps(payload, sort_keys=True, indent=2))
         print(f"REPOSITORY_ENFORCEMENT=UNKNOWN error={exc}", file=sys.stderr)
         return 2
 
-    payload = result.as_dict()
+    payload = {
+        "repository": args.repo,
+        "branch": args.branch,
+        "verification_status": "VERIFIED",
+        **result.as_dict(),
+    }
     rendered = json.dumps(payload, sort_keys=True, indent=2)
     print(rendered)
-    if args.json_output:
-        with open(args.json_output, "w", encoding="utf-8") as handle:
-            handle.write(rendered + "\n")
+    _write_result(args.json_output, payload)
 
     if not result.ok:
         print("REPOSITORY_ENFORCEMENT=FAIL_CLOSED", file=sys.stderr)
