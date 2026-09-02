@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "integration/amps-hardened-mpvc-join-v1",
-    "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
+    "source_ref": "experimental/quantum-tourbillon-mpvc-v1-hardening",
+    "parent_state_hash": "17a5ca4134b6962fc46eaa3a71f18755f5e63c0bb0494181d3967909529cb76d",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "90d4452accb16af2cfe23c7b28b063de28c139c50d5df4b1cdb6f25997625c79"
+  "state_hash": "8bc9c976aea84e70df92f2e0069b455e5cb41ea8ecfe05aab99f235820dbf19f"
 }
