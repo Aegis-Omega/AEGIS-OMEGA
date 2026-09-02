@@ -39,6 +39,7 @@ export type InversionFailureCode =
   | 'operator_undeclared'
   | 'operator_out_of_scope'
   | 'k_bound_exceeded'
+  | 'k_bound_unparsable'
   | 'claim_unlogged'
   | 'claim_action_mismatch'
   | 'verification_absent'
@@ -162,10 +163,18 @@ export function checkAuthorizationInversion(request: InversionRequest): Inversio
   //    compare, so the check cannot pass — but it is not an *exceeded* bound
   //    and must not be reported as one. The missing input is already failing
   //    closed under check 1 or check 4.
+  //    A non-finite operand fails the comparison rather than the bound: NaN is
+  //    not greater than anything, so an unparsable budget would otherwise be
+  //    admitted as within bound. Same fail-open shape as the date check above.
   let within_k_bound = false
   if (svid && claim) {
-    if (claim.k_contribution > svid.k_bound) failures.push('k_bound_exceeded')
-    else within_k_bound = true
+    if (!Number.isFinite(claim.k_contribution) || !Number.isFinite(svid.k_bound)) {
+      failures.push('k_bound_unparsable')
+    } else if (claim.k_contribution > svid.k_bound) {
+      failures.push('k_bound_exceeded')
+    } else {
+      within_k_bound = true
+    }
   }
 
   // 4. Claim logged
