@@ -40,6 +40,7 @@ __all__ = [
     "ClaimState",
     "DiagnosticOracleRegistry",
     "GroverDiagnostic",
+    "MANDATORY_GATES",
     "PERSPECTIVE_AUTHORITY",
     "Perspective",
     "PerspectiveOutcome",

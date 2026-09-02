@@ -21,6 +21,7 @@ from aegis_omega.tourbillon import (
     AuthorityLevel,
     ClaimState,
     DiagnosticOracleRegistry,
+    MANDATORY_GATES,
     Perspective,
     PerspectiveOutcome,
     PerspectiveReceipt,
@@ -148,7 +149,7 @@ def test_grover_amplification_locates_marked_failing_perspective():
     for marked in range(4):
         diag = QuantumPerspectiveCarousel.amplify(marked)
         assert diag.located_index == marked
-        assert diag.probability > 0.99
+        assert diag.probability > 0.9999
         assert abs(sum(diag.probabilities) - 1.0) < 1e-9
         assert diag.circuit_qasm_depth > 0
 
@@ -210,3 +211,19 @@ def test_diagnostic_oracle_registry_marks_first_failing_invariant():
         full.register("e", lambda: True)
     with pytest.raises(ValueError):
         reg.register("kernel_closed", lambda: True)
+
+
+# 6 ---------------------------------------------------------------------------
+
+def test_p4_bounded_falsification_is_a_mandatory_gate():
+    # P4 absent -> UNKNOWN, never an implicit PASS
+    p1_p3 = all_pass()[:3]
+    assert resolve_claim(p1_p3).state is ClaimState.UNKNOWN
+    # P4 FAIL -> QUARANTINED even with P1..P3 PASS
+    assert resolve_claim([*p1_p3, receipt(P.P4_ARITHMETIC_BOUND, O.FAIL, bound="violated")]).state is ClaimState.QUARANTINED
+    # P4 PASS completes the mandatory set
+    assert resolve_claim([*p1_p3, receipt(P.P4_ARITHMETIC_BOUND, O.PASS)]).state is ClaimState.ADMITTED
+    # the quantum perspective can never occupy a mandatory slot: authority is
+    # derived from the perspective, so the escalation is unrepresentable
+    q = receipt(P.P_QUANTUM_GROVER, O.PASS)
+    assert q.authority is AuthorityLevel.T1_DIAGNOSTIC and q.perspective not in MANDATORY_GATES
