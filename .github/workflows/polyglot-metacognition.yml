@@ -1,6 +1,6 @@
 name: Polyglot Metacognition
 
-# Exact-head closure: changes to either verification workflow retrigger both contract and live receipt lanes.
+# Exact-head closure: changes to verification and NVIDIA live-receipt surfaces retrigger the contract lane.
 on:
   push:
     branches:
@@ -8,16 +8,20 @@ on:
     paths:
       - 'sovereign-omega-v2/src/polyglot/**'
       - 'sovereign-omega-v2/test/unit/polyglot-*.test.ts'
+      - 'sovereign-omega-v2/test/integration/polyglot-nvidia-vertex-live.test.ts'
       - '.github/workflows/polyglot-metacognition.yml'
       - '.github/workflows/cognitive-manifest-refresh.yml'
       - '.github/workflows/polyglot-cudaq-live.yml'
+      - '.github/workflows/polyglot-gcp-nvidia-live.yml'
   pull_request:
     paths:
       - 'sovereign-omega-v2/src/polyglot/**'
       - 'sovereign-omega-v2/test/unit/polyglot-*.test.ts'
+      - 'sovereign-omega-v2/test/integration/polyglot-nvidia-vertex-live.test.ts'
       - '.github/workflows/polyglot-metacognition.yml'
       - '.github/workflows/cognitive-manifest-refresh.yml'
       - '.github/workflows/polyglot-cudaq-live.yml'
+      - '.github/workflows/polyglot-gcp-nvidia-live.yml'
   workflow_dispatch:
 
 permissions:
