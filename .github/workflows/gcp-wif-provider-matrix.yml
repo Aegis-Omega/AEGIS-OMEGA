@@ -1,0 +1,193 @@
+name: GCP WIF Provider Matrix
+
+on:
+  push:
+    branches: [ops/gcp-wif-preflight-v1]
+    paths:
+      - '.github/workflows/gcp-wif-provider-matrix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: aegisomegav1
+
+jobs:
+  dispatch-provider:
+    name: Probe dispatch provider
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Detect configured slot
+        id: cfg
+        shell: bash
+        env:
+          PROVIDER: ${{ secrets.GCP_WIF_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+        run: |
+          [[ -n "$PROVIDER" ]] && echo 'provider=true' >> "$GITHUB_OUTPUT" || echo 'provider=false' >> "$GITHUB_OUTPUT"
+          [[ -n "$SERVICE_ACCOUNT" ]] && echo 'service_account=true' >> "$GITHUB_OUTPUT" || echo 'service_account=false' >> "$GITHUB_OUTPUT"
+      - name: Authenticate dispatch provider
+        id: auth
+        if: steps.cfg.outputs.provider == 'true' && steps.cfg.outputs.service_account == 'true'
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - name: Set up gcloud
+        if: steps.auth.outcome == 'success'
+        uses: google-github-actions/setup-gcloud@v2
+      - name: Project and bucket read
+        id: read
+        if: steps.auth.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud projects describe "$PROJECT_ID" --format='value(projectId,projectNumber,lifecycleState)'
+          gcloud storage buckets list --project="$PROJECT_ID" --format='table(name,location,storageClass)' | tee dispatch-buckets.txt
+      - name: Emit safe receipt
+        if: always()
+        shell: bash
+        env:
+          PROVIDER_PRESENT: ${{ steps.cfg.outputs.provider }}
+          SA_PRESENT: ${{ steps.cfg.outputs.service_account }}
+          AUTH: ${{ steps.auth.outcome }}
+          READ: ${{ steps.read.outcome }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os
+          r={"schema":"aegis.gcp.wif_provider_probe.v1","slot":"GCP_WIF_PROVIDER","provider_present":os.getenv("PROVIDER_PRESENT") == "true","service_account_present":os.getenv("SA_PRESENT") == "true","auth_outcome":os.getenv("AUTH") or "skipped","project_bucket_read":os.getenv("READ") or "skipped","repository":os.getenv("GITHUB_REPOSITORY"),"repository_id":os.getenv("GITHUB_REPOSITORY_ID"),"sha":os.getenv("GITHUB_SHA")}
+          b=json.dumps(r,sort_keys=True,separators=(",",":")).encode(); r["receipt_sha256"]=hashlib.sha256(b).hexdigest()
+          open("dispatch-provider-receipt.json","w").write(json.dumps(r,sort_keys=True,indent=2)+"\n")
+          print(json.dumps(r,sort_keys=True,indent=2))
+          PY
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dispatch-provider-probe
+          path: |
+            dispatch-provider-receipt.json
+            dispatch-buckets.txt
+          if-no-files-found: ignore
+
+  deployment-provider:
+    name: Probe deployment provider
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Detect configured slot
+        id: cfg
+        shell: bash
+        env:
+          PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+        run: |
+          [[ -n "$PROVIDER" ]] && echo 'provider=true' >> "$GITHUB_OUTPUT" || echo 'provider=false' >> "$GITHUB_OUTPUT"
+          [[ -n "$SERVICE_ACCOUNT" ]] && echo 'service_account=true' >> "$GITHUB_OUTPUT" || echo 'service_account=false' >> "$GITHUB_OUTPUT"
+      - name: Authenticate deployment provider
+        id: auth
+        if: steps.cfg.outputs.provider == 'true' && steps.cfg.outputs.service_account == 'true'
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - name: Set up gcloud
+        if: steps.auth.outcome == 'success'
+        uses: google-github-actions/setup-gcloud@v2
+      - name: Project and bucket read
+        id: read
+        if: steps.auth.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud projects describe "$PROJECT_ID" --format='value(projectId,projectNumber,lifecycleState)'
+          gcloud storage buckets list --project="$PROJECT_ID" --format='table(name,location,storageClass)' | tee deployment-buckets.txt
+      - name: Emit safe receipt
+        if: always()
+        shell: bash
+        env:
+          PROVIDER_PRESENT: ${{ steps.cfg.outputs.provider }}
+          SA_PRESENT: ${{ steps.cfg.outputs.service_account }}
+          AUTH: ${{ steps.auth.outcome }}
+          READ: ${{ steps.read.outcome }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os
+          r={"schema":"aegis.gcp.wif_provider_probe.v1","slot":"GCP_WORKLOAD_IDENTITY_PROVIDER","provider_present":os.getenv("PROVIDER_PRESENT") == "true","service_account_present":os.getenv("SA_PRESENT") == "true","auth_outcome":os.getenv("AUTH") or "skipped","project_bucket_read":os.getenv("READ") or "skipped","repository":os.getenv("GITHUB_REPOSITORY"),"repository_id":os.getenv("GITHUB_REPOSITORY_ID"),"sha":os.getenv("GITHUB_SHA")}
+          b=json.dumps(r,sort_keys=True,separators=(",",":")).encode(); r["receipt_sha256"]=hashlib.sha256(b).hexdigest()
+          open("deployment-provider-receipt.json","w").write(json.dumps(r,sort_keys=True,indent=2)+"\n")
+          print(json.dumps(r,sort_keys=True,indent=2))
+          PY
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-provider-probe
+          path: |
+            deployment-provider-receipt.json
+            deployment-buckets.txt
+          if-no-files-found: ignore
+
+  variable-provider:
+    name: Probe variable provider
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Detect configured slot
+        id: cfg
+        shell: bash
+        env:
+          PROVIDER: ${{ vars.WIF_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ vars.WIF_SERVICE_ACCOUNT }}
+        run: |
+          [[ -n "$PROVIDER" ]] && echo 'provider=true' >> "$GITHUB_OUTPUT" || echo 'provider=false' >> "$GITHUB_OUTPUT"
+          [[ -n "$SERVICE_ACCOUNT" ]] && echo 'service_account=true' >> "$GITHUB_OUTPUT" || echo 'service_account=false' >> "$GITHUB_OUTPUT"
+      - name: Authenticate variable provider
+        id: auth
+        if: steps.cfg.outputs.provider == 'true' && steps.cfg.outputs.service_account == 'true'
+        continue-on-error: true
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+      - name: Set up gcloud
+        if: steps.auth.outcome == 'success'
+        uses: google-github-actions/setup-gcloud@v2
+      - name: Project and bucket read
+        id: read
+        if: steps.auth.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud projects describe "$PROJECT_ID" --format='value(projectId,projectNumber,lifecycleState)'
+          gcloud storage buckets list --project="$PROJECT_ID" --format='table(name,location,storageClass)' | tee variable-buckets.txt
+      - name: Emit safe receipt
+        if: always()
+        shell: bash
+        env:
+          PROVIDER_PRESENT: ${{ steps.cfg.outputs.provider }}
+          SA_PRESENT: ${{ steps.cfg.outputs.service_account }}
+          AUTH: ${{ steps.auth.outcome }}
+          READ: ${{ steps.read.outcome }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os
+          r={"schema":"aegis.gcp.wif_provider_probe.v1","slot":"vars.WIF_PROVIDER","provider_present":os.getenv("PROVIDER_PRESENT") == "true","service_account_present":os.getenv("SA_PRESENT") == "true","auth_outcome":os.getenv("AUTH") or "skipped","project_bucket_read":os.getenv("READ") or "skipped","repository":os.getenv("GITHUB_REPOSITORY"),"repository_id":os.getenv("GITHUB_REPOSITORY_ID"),"sha":os.getenv("GITHUB_SHA")}
+          b=json.dumps(r,sort_keys=True,separators=(",",":")).encode(); r["receipt_sha256"]=hashlib.sha256(b).hexdigest()
+          open("variable-provider-receipt.json","w").write(json.dumps(r,sort_keys=True,indent=2)+"\n")
+          print(json.dumps(r,sort_keys=True,indent=2))
+          PY
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: variable-provider-probe
+          path: |
+            variable-provider-receipt.json
+            variable-buckets.txt
+          if-no-files-found: ignore
