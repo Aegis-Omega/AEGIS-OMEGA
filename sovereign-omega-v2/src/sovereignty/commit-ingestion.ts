@@ -38,6 +38,12 @@ export interface AdmissionDecision {
   readonly failures: readonly AdmissionFailure[]
   /** The hash recomputed from content, not the one the vertex claimed. */
   readonly computed_hash_verified: boolean
+  /**
+   * The vertex this decision was reached about. `applyIngestion` refuses a
+   * decision that does not name the vertex being applied, so an admit for one
+   * vertex cannot be replayed to admit another.
+   */
+  readonly vertex_hash: string
 }
 
 /** Section 9.2, with V_hash computed rather than asserted by the caller. */
@@ -48,7 +54,12 @@ export async function admitCommit(
 ): Promise<AdmissionDecision> {
   const hashVerified = await verifySemanticHash(v)
   const failures = admissionFailures(v, ledger, policySnapshotHash, hashVerified)
-  return { admitted: failures.length === 0, failures, computed_hash_verified: hashVerified }
+  return {
+    admitted: failures.length === 0,
+    failures,
+    computed_hash_verified: hashVerified,
+    vertex_hash: v.semantic_hash,
+  }
 }
 
 /**
@@ -56,6 +67,15 @@ export async function admitCommit(
  *
  * The prior state is never mutated: a denied ingestion leaves the caller
  * holding exactly the state it started with.
+ *
+ * A decision is only usable for the vertex it was reached about. Splitting
+ * decide from apply means the two arguments can disagree, and an admit carried
+ * over from another vertex would otherwise ingest this one unchecked.
+ *
+ * It does NOT establish that `ledger` is the state the decision was reached
+ * against. Admission reads the ledger, so a decision taken against a stale
+ * state can still be applied to a newer one; the linearization point has to
+ * come from the substrate, as the header says.
  */
 export function applyIngestion(
   v: SemanticVertex,
@@ -63,6 +83,7 @@ export function applyIngestion(
   decision: AdmissionDecision,
 ): LedgerState | null {
   if (!decision.admitted) return null
+  if (decision.vertex_hash !== v.semantic_hash) return null
 
   return Object.freeze({
     active_count: ledger.active_count + 1,

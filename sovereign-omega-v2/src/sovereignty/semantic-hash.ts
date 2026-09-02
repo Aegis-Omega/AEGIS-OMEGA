@@ -49,19 +49,31 @@ export interface SemanticVertex extends CommitVertex {
  * Section 5.2. Every key is present; absent values serialize as explicit null
  * rather than being omitted, so two vertices differing only in which field is
  * missing cannot collide.
+ *
+ * The `?? null` coercions are what make that true. JCS follows JSON in dropping
+ * a key whose value is `undefined`, and the types here do not stop `undefined`
+ * arriving at runtime — a wire vertex that omits `policy_delta` yields
+ * `undefined` on read. Without the coercion that vertex drops the key and hashes
+ * differently from an otherwise identical one carrying `"policy_delta": null`,
+ * even though the two documents mean the same thing. The bug is divergence
+ * between equivalent inputs, not collision between distinct ones.
  */
 export function semanticPreImage(v: SemanticVertex): Record<string, unknown> {
   return {
     id: v.id,
     parent: v.parent,
-    causal_tuple: [v.causal_tuple[0], v.causal_tuple[1], v.causal_tuple[2]],
+    causal_tuple: [
+      v.causal_tuple[0] ?? null,
+      v.causal_tuple[1] ?? null,
+      v.causal_tuple[2] ?? null,
+    ],
     transform: v.transform,
     hlc: { logical: v.hlc.logical, counter: v.hlc.counter, node: v.hlc.node },
-    authority_delta: v.authority_delta,
-    policy_delta: v.policy_delta,
-    rollback_digest: v.rollback_digest,
+    authority_delta: v.authority_delta ?? null,
+    policy_delta: v.policy_delta ?? null,
+    rollback_digest: v.rollback_digest ?? null,
     root9: v.root9,
-    rebase_extension: v.rebase_extension,
+    rebase_extension: v.rebase_extension ?? null,
   }
 }
 
