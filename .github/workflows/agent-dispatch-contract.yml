@@ -1,0 +1,32 @@
+name: Agent Dispatch Contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/agent-dispatch.yml'
+      - '.github/workflows/agent-dispatch-contract.yml'
+      - 'scripts/test_agent_dispatch_contract.py'
+      - 'vertex/serve.py'
+      - 'vertex/cloudbuild.yaml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/agent-dispatch.yml'
+      - '.github/workflows/agent-dispatch-contract.yml'
+      - 'scripts/test_agent_dispatch_contract.py'
+      - 'vertex/serve.py'
+      - 'vertex/cloudbuild.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Agent dispatch authority contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run dispatch contract regressions
+        run: python3 scripts/test_agent_dispatch_contract.py -v
