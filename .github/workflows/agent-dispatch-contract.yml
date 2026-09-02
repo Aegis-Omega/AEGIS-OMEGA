@@ -7,7 +7,9 @@ on:
       - '.github/workflows/agent-dispatch.yml'
       - '.github/workflows/agent-dispatch-contract.yml'
       - 'scripts/test_agent_dispatch_contract.py'
-      - 'vertex/serve.py'
+      - 'scripts/test_platform_authority_boundary.py'
+      - 'vertex/authority_boundary.py'
+      - 'vertex/Dockerfile'
       - 'vertex/cloudbuild.yaml'
   push:
     branches: [main]
@@ -15,7 +17,9 @@ on:
       - '.github/workflows/agent-dispatch.yml'
       - '.github/workflows/agent-dispatch-contract.yml'
       - 'scripts/test_agent_dispatch_contract.py'
-      - 'vertex/serve.py'
+      - 'scripts/test_platform_authority_boundary.py'
+      - 'vertex/authority_boundary.py'
+      - 'vertex/Dockerfile'
       - 'vertex/cloudbuild.yaml'
 
 permissions:
@@ -28,5 +32,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Run dispatch contract regressions
+      - name: Run dispatch wiring contract
         run: python3 scripts/test_agent_dispatch_contract.py -v
+      - name: Run platform authority-boundary behavior
+        run: python3 scripts/test_platform_authority_boundary.py -v
