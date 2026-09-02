@@ -70,6 +70,18 @@ class CognitiveAnchorMutationBoundaryTests(TestCase):
         self.assertEqual(workflow_contents_permission(automaton2), "read")
         self.assertFalse(writes_cognitive_anchors(automaton2))
 
+    def test_automaton2_resolves_pull_request_parent_from_live_base_ref(self) -> None:
+        automaton2 = WORKFLOW_ROOT / "automaton-2.yml"
+        source = automaton2.read_text(encoding="utf-8")
+
+        self.assertIn('base_ref="${{ github.event.pull_request.base.ref }}"', source)
+        self.assertIn('git fetch origin "$base_ref" --no-tags', source)
+        self.assertIn('git rev-parse "origin/$base_ref"', source)
+        self.assertNotIn(
+            'github.event.pull_request.base.sha || github.event.merge_group.base_sha',
+            source,
+        )
+
 
 if __name__ == "__main__":
     main()
