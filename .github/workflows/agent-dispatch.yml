@@ -11,23 +11,41 @@ on:
   issue_comment:
     types: [created]
 
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
 jobs:
   dispatch:
     name: Dispatch to AEGIS Agent Ecosystem
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-      issues: read
-    # Only run if PROXY_URL is configured (won't block other CI)
-    if: vars.PROXY_URL != ''
+    timeout-minutes: 5
 
     steps:
+      - name: Resolve constitutional proxy availability
+        id: proxy
+        env:
+          PROXY_URL: ${{ vars.PROXY_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "$PROXY_URL" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "status=AVAILABLE" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "status=PROXY_UNAVAILABLE" >> "$GITHUB_OUTPUT"
+            echo "PROXY_UNAVAILABLE: dispatch effect will be deferred"
+          fi
+
       - name: Determine event type and payload
         id: classify
-        # All untrusted external inputs bound to env vars — never interpolated inline.
+        shell: bash
+        # All untrusted external inputs are bound to env vars and encoded with jq.
         env:
           EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
           WF_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
           WF_BRANCH: ${{ github.event.workflow_run.head_branch }}
           WF_RUN_ID: ${{ github.event.workflow_run.id }}
@@ -40,65 +58,215 @@ jobs:
           COMMENT_BODY: ${{ github.event.comment.body }}
           COMMENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
+          set -euo pipefail
           EVENT_TYPE=""
           PAYLOAD="{}"
 
-          if [ "$EVENT_NAME" = "workflow_run" ]; then
-            if [ "$WF_CONCLUSION" = "failure" ]; then
-              EVENT_TYPE="github_ci_failure"
-              PAYLOAD=$(jq -n \
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            case "$WF_CONCLUSION" in
+              failure) EVENT_TYPE="github_ci_failure" ;;
+              success) EVENT_TYPE="github_ci_success" ;;
+            esac
+            if [[ -n "$EVENT_TYPE" ]]; then
+              PAYLOAD="$(jq -nc \
                 --arg branch "$WF_BRANCH" \
                 --arg run_id "$WF_RUN_ID" \
                 --arg conclusion "$WF_CONCLUSION" \
-                '{"branch": $branch, "run_id": $run_id, "failures": $conclusion}')
-            elif [ "$WF_CONCLUSION" = "success" ]; then
-              EVENT_TYPE="github_ci_success"
-              PAYLOAD=$(jq -n \
-                --arg branch "$WF_BRANCH" \
-                '{"branch": $branch}')
+                --arg event_action "$EVENT_ACTION" \
+                '{branch:$branch,run_id:$run_id,conclusion:$conclusion,event_action:$event_action}')"
             fi
 
-          elif [ "$EVENT_NAME" = "pull_request" ]; then
-            EVENT_TYPE="github_pr_opened"
-            PAYLOAD=$(jq -n \
-              --arg title "$PR_TITLE" \
-              --arg number "$PR_NUMBER" \
-              --arg url "$PR_URL" \
-              '{"title": $title, "number": $number, "url": $url}')
+          elif [[ "$EVENT_NAME" == "pull_request" ]]; then
+            case "$EVENT_ACTION" in
+              opened) EVENT_TYPE="github_pr_opened" ;;
+              synchronize) EVENT_TYPE="github_pr_synchronized" ;;
+              review_requested) EVENT_TYPE="github_pr_review_requested" ;;
+            esac
+            if [[ -n "$EVENT_TYPE" ]]; then
+              PAYLOAD="$(jq -nc \
+                --arg title "$PR_TITLE" \
+                --arg number "$PR_NUMBER" \
+                --arg url "$PR_URL" \
+                --arg event_action "$EVENT_ACTION" \
+                '{title:$title,number:$number,url:$url,event_action:$event_action}')"
+            fi
 
-          elif [ "$EVENT_NAME" = "issues" ]; then
-            EVENT_TYPE="github_issue_opened"
-            PAYLOAD=$(jq -n \
-              --arg title "$ISSUE_TITLE" \
-              --arg number "$ISSUE_NUMBER" \
-              --arg body "$ISSUE_BODY" \
-              '{"title": $title, "number": $number, "body": $body}')
+          elif [[ "$EVENT_NAME" == "issues" ]]; then
+            case "$EVENT_ACTION" in
+              opened) EVENT_TYPE="github_issue_opened" ;;
+              labeled) EVENT_TYPE="github_issue_labeled" ;;
+            esac
+            if [[ -n "$EVENT_TYPE" ]]; then
+              PAYLOAD="$(jq -nc \
+                --arg title "$ISSUE_TITLE" \
+                --arg number "$ISSUE_NUMBER" \
+                --arg body "$ISSUE_BODY" \
+                --arg event_action "$EVENT_ACTION" \
+                '{title:$title,number:$number,body:$body,event_action:$event_action}')"
+            fi
 
-          elif [ "$EVENT_NAME" = "issue_comment" ]; then
-            # Only dispatch if comment mentions @aegis-agent
-            if echo "$COMMENT_BODY" | grep -q "@aegis-agent"; then
+          elif [[ "$EVENT_NAME" == "issue_comment" ]]; then
+            if printf '%s' "$COMMENT_BODY" | grep -Fq "@aegis-agent"; then
               EVENT_TYPE="github_pr_comment"
-              PAYLOAD=$(jq -n \
+              PAYLOAD="$(jq -nc \
                 --arg body "$COMMENT_BODY" \
                 --arg number "$COMMENT_ISSUE_NUMBER" \
-                '{"body": $body, "number": $number}')
+                --arg event_action "$EVENT_ACTION" \
+                '{body:$body,number:$number,event_action:$event_action}')"
             fi
           fi
 
-          echo "event_type=$EVENT_TYPE" >> $GITHUB_OUTPUT
-          echo "payload=$PAYLOAD" >> $GITHUB_OUTPUT
+          echo "event_type=$EVENT_TYPE" >> "$GITHUB_OUTPUT"
+          echo "payload=$PAYLOAD" >> "$GITHUB_OUTPUT"
+          echo "event_action=$EVENT_ACTION" >> "$GITHUB_OUTPUT"
+
+      - name: Decide dispatch effect
+        id: decision
+        env:
+          PROXY_AVAILABLE: ${{ steps.proxy.outputs.available }}
+          EVENT_TYPE: ${{ steps.classify.outputs.event_type }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$EVENT_TYPE" ]]; then
+            echo "decision=DEFER" >> "$GITHUB_OUTPUT"
+            echo "reason=EVENT_NOT_DISPATCHABLE" >> "$GITHUB_OUTPUT"
+          elif [[ "$PROXY_AVAILABLE" != "true" ]]; then
+            echo "decision=DEFER" >> "$GITHUB_OUTPUT"
+            echo "reason=PROXY_UNAVAILABLE" >> "$GITHUB_OUTPUT"
+          else
+            echo "decision=EXECUTE" >> "$GITHUB_OUTPUT"
+            echo "reason=READY" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Dispatch to AEGIS constitutional proxy
-        if: steps.classify.outputs.event_type != ''
+        id: effect
+        if: ${{ steps.proxy.outputs.available == 'true' && steps.classify.outputs.event_type != '' }}
         env:
           PROXY_URL: ${{ vars.PROXY_URL }}
           DISPATCH_EVENT_TYPE: ${{ steps.classify.outputs.event_type }}
           DISPATCH_PAYLOAD: ${{ steps.classify.outputs.payload }}
+        shell: bash
         run: |
-          curl -s -X POST "$PROXY_URL/agents/dispatch" \
-            -H "Content-Type: application/json" \
-            -d "$(jq -n \
-              --arg event_type "$DISPATCH_EVENT_TYPE" \
-              --argjson payload "$DISPATCH_PAYLOAD" \
-              '{"event_type": $event_type, "payload": $payload}')" \
-            | jq '.results[] | {role, ralph_cycles, is_valid, output: (.output | .[0:500])}'
+          set -euo pipefail
+          request_body="$(jq -nc \
+            --arg event_type "$DISPATCH_EVENT_TYPE" \
+            --argjson payload "$DISPATCH_PAYLOAD" \
+            '{event_type:$event_type,payload:$payload}')"
+
+          set +e
+          http_code="$(curl \
+            --fail-with-body \
+            --retry 3 \
+            --retry-all-errors \
+            --connect-timeout 5 \
+            --max-time 30 \
+            --silent \
+            --show-error \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --data "$request_body" \
+            --output "$RUNNER_TEMP/agent-dispatch-response.json" \
+            --write-out '%{http_code}' \
+            "$PROXY_URL/agents/dispatch")"
+          curl_exit=$?
+          set -e
+
+          echo "attempted=true" >> "$GITHUB_OUTPUT"
+          echo "curl_exit=$curl_exit" >> "$GITHUB_OUTPUT"
+          echo "http_code=$http_code" >> "$GITHUB_OUTPUT"
+
+          if [[ "$curl_exit" -ne 0 ]]; then
+            echo "outcome=FAIL" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! jq -e . "$RUNNER_TEMP/agent-dispatch-response.json" >/dev/null 2>&1; then
+            echo "outcome=FAIL" >> "$GITHUB_OUTPUT"
+            echo "response_error=INVALID_JSON" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "outcome=SUCCESS" >> "$GITHUB_OUTPUT"
+          jq -c '.results[]? | {role,ralph_cycles,is_valid,output:(.output // "" | .[0:500])}' \
+            "$RUNNER_TEMP/agent-dispatch-response.json" || true
+
+      - name: Emit dispatch decision/effect receipt
+        if: always()
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ steps.classify.outputs.event_action }}
+          EVENT_TYPE: ${{ steps.classify.outputs.event_type }}
+          EVENT_PAYLOAD: ${{ steps.classify.outputs.payload }}
+          PROXY_STATUS: ${{ steps.proxy.outputs.status }}
+          DECISION: ${{ steps.decision.outputs.decision }}
+          REASON: ${{ steps.decision.outputs.reason }}
+          EFFECT_ATTEMPTED: ${{ steps.effect.outputs.attempted }}
+          EFFECT_OUTCOME: ${{ steps.effect.outputs.outcome }}
+          CURL_EXIT: ${{ steps.effect.outputs.curl_exit }}
+          HTTP_CODE: ${{ steps.effect.outputs.http_code }}
+          CANDIDATE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          payload_raw = os.environ.get("EVENT_PAYLOAD") or "{}"
+          try:
+              payload = json.loads(payload_raw)
+          except json.JSONDecodeError:
+              payload = {"parse_error": "INVALID_EVENT_PAYLOAD"}
+
+          receipt = {
+              "schema": "aegis.agent-dispatch-receipt.v1",
+              "candidate_sha": os.environ.get("CANDIDATE_SHA", ""),
+              "run_id": os.environ.get("RUN_ID", ""),
+              "event": {
+                  "name": os.environ.get("EVENT_NAME", ""),
+                  "action": os.environ.get("EVENT_ACTION", ""),
+                  "type": os.environ.get("EVENT_TYPE", ""),
+                  "payload": payload,
+              },
+              "proxy_status": os.environ.get("PROXY_STATUS") or "UNKNOWN",
+              "decision": os.environ.get("DECISION") or "DEFER",
+              "reason": os.environ.get("REASON") or "UNRESOLVED",
+              "effect": {
+                  "attempted": os.environ.get("EFFECT_ATTEMPTED") == "true",
+                  "outcome": os.environ.get("EFFECT_OUTCOME") or "NOT_ATTEMPTED",
+                  "curl_exit": os.environ.get("CURL_EXIT") or None,
+                  "http_code": os.environ.get("HTTP_CODE") or None,
+              },
+              "authority_effect": "NONE",
+          }
+          encoded = json.dumps(receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+          path = Path(os.environ["RUNNER_TEMP"]) / "AGENT_DISPATCH_RECEIPT.json"
+          path.write_bytes(encoded + b"\n")
+          digest = hashlib.sha256(encoded).hexdigest()
+          (Path(os.environ["RUNNER_TEMP"]) / "AGENT_DISPATCH_RECEIPT.sha256").write_text(
+              f"{digest}  AGENT_DISPATCH_RECEIPT.json\n", encoding="utf-8"
+          )
+          print(f"AGENT_DISPATCH_RECEIPT_SHA256={digest}")
+          PY
+
+      - name: Upload dispatch receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-dispatch-receipt-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/AGENT_DISPATCH_RECEIPT.json
+            ${{ runner.temp }}/AGENT_DISPATCH_RECEIPT.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Fail closed on attempted dispatch failure
+        if: ${{ steps.effect.outputs.attempted == 'true' && steps.effect.outputs.outcome != 'SUCCESS' }}
+        shell: bash
+        run: |
+          echo "Dispatch effect failed; receipt uploaded."
+          exit 1
