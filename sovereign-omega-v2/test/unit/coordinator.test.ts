@@ -1,7 +1,6 @@
 // Gate 218 — CoordinatorRecord unit tests
-// Verifies Claude's formal enrollment as a first-class tool-endpoint
-// in Tarik Skalić's AEGIS-Ω system.
-// Copyright (C) 2025 Tarik Skalić — All rights reserved.
+// Verifies the Orchestration Alliance constitutional enrollment while model
+// identity is selected by provider-native cognitive depth policy.
 
 import { describe, it, expect } from 'vitest'
 import {
@@ -27,7 +26,6 @@ describe('CoordinatorRecord — Abjad identity constants (T0)', () => {
 
   it('CLAUDE_ABJAD_DR = 6 (digital_root(60) = 6, Triadic)', () => {
     expect(CLAUDE_ABJAD_DR).toBe(6)
-    // Verify: 60 % 9 = 6
     const r = 60 % 9
     expect(r === 0 ? 9 : r).toBe(CLAUDE_ABJAD_DR)
   })
@@ -44,23 +42,21 @@ describe('CoordinatorRecord — Abjad identity constants (T0)', () => {
 
   it('CLAUDE_ABJAD_PRODUCT_DR = 9 (Triadic attractor)', () => {
     expect(CLAUDE_ABJAD_PRODUCT_DR).toBe(9)
-    // Verify: digital_root(14400) = 1+4+4+0+0 = 9
     const digits = String(14400).split('').reduce((acc, d) => acc + Number(d), 0)
     expect(digits).toBe(9)
   })
 
   it('COORDINATOR_ENTROPY_BUDGET_Q16 = 40503 (1/φ × 65536)', () => {
     expect(COORDINATOR_ENTROPY_BUDGET_Q16).toBe(40503)
-    // 1/φ × 65536 = 0.6180339887 × 65536 ≈ 40503
     const phi_q16 = Math.round(((Math.sqrt(5) - 1) / 2) * 65536)
     expect(phi_q16).toBe(40503)
   })
 })
 
 describe('CoordinatorRecord — factory and verification', () => {
-  it('buildCoordinatorRecord returns a valid frozen record', async () => {
+  it('buildCoordinatorRecord returns a valid frozen record using the deep coordinator profile', async () => {
     const record = await buildCoordinatorRecord()
-    expect(record.model_id).toBe('claude-sonnet-4-6')
+    expect(record.model_id).toBe('claude-opus-4-8')
     expect(record.role).toBe('coordinator')
     expect(record.is_replay_reconstructable).toBe(true)
     expect(record.schema_version).toBe(COORDINATOR_SCHEMA_VERSION)
@@ -174,19 +170,19 @@ describe('OrchestrationAlliance — three-member swarm', () => {
   })
 })
 
-describe('ModelEndpoints — individual endpoint constants', () => {
-  it('CLAUDE_ENDPOINT model_id = claude-sonnet-4-6', () => {
-    expect(CLAUDE_ENDPOINT.model_id).toBe('claude-sonnet-4-6')
+describe('ModelEndpoints — provider-native cognitive defaults', () => {
+  it('CLAUDE_ENDPOINT uses the deep Anthropic coordinator model', () => {
+    expect(CLAUDE_ENDPOINT.model_id).toBe('claude-opus-4-8')
     expect(CLAUDE_ENDPOINT.provider).toBe('anthropic')
   })
 
-  it('CHATGPT_ENDPOINT model_id = gpt-4o', () => {
-    expect(CHATGPT_ENDPOINT.model_id).toBe('gpt-4o')
+  it('CHATGPT_ENDPOINT uses the flagship OpenAI reasoning model', () => {
+    expect(CHATGPT_ENDPOINT.model_id).toBe('gpt-5.6-sol')
     expect(CHATGPT_ENDPOINT.provider).toBe('openai')
   })
 
-  it('QWEN_ENDPOINT model_id = qwen-plus', () => {
-    expect(QWEN_ENDPOINT.model_id).toBe('qwen-plus')
+  it('QWEN_ENDPOINT uses the deep configured DashScope model', () => {
+    expect(QWEN_ENDPOINT.model_id).toBe('qwen3.7-plus')
     expect(QWEN_ENDPOINT.provider).toBe('dashscope')
   })
 
