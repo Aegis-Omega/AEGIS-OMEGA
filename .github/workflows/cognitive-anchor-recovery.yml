@@ -1,0 +1,217 @@
+name: Cognitive Anchor Recovery
+
+on:
+  pull_request:
+    branches: [main]
+
+# This workflow is candidate-controlled under pull_request semantics. It may
+# reproduce deterministic recovery evidence, but it must never mint signer or
+# production authority for itself. Privileged attestation belongs in a separate
+# base-owned control-plane verifier after recovery bootstrap.
+permissions:
+  contents: read
+
+jobs:
+  recovery-contract:
+    name: aegis / cognitive-anchor-recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+      DENIED_BASE_SHA: d93e75e362e9d51fdf0732f3798e7d9bd34c4d13
+      RECOVERY_PARENT_SHA: 1bc8ceff51abe4e8142ef93dde1af316b8bf014d
+      TRUSTED_ADMITTED_SHA: fe7582bf05d7a7242cf8c2f4949b4ac84bf056c9
+      ZERO_PARENT_REPAIR_SHA: 495fccdded0d9f5cdef2aac2ac5bbd8465063cf1
+      EXPECTED_PARENT_STATE_HASH: 7f376dbf8f74387f85dad5d091819925b94bd64cf04079368021869a19536b4f
+      EXPECTED_RECOVERY_STATE_HASH: 85b068c0c454c711afc347f98cfc1d55e5ef319b0908f3a253ccb32a91e3a92a
+      EXPECTED_MANIFEST_BLOB: 7110dfc5a797a79dbb2dacb248df96251523d08e
+      EXPECTED_SKILL_HASHES_BLOB: 87a6b41bee35a6e4f8624e71bbee088e2df09d41
+      EXPECTED_DENIED_RECEIPT_HASH: 64cece801823fe2eab573961ec8cefe4887aecc6a120d0297a0c88d530feb359
+      EXPECTED_TRUSTED_AUTOMATON2_VALIDATOR_BLOB: e388aaa1b3bc305c80e6eb04709e40b03d220052
+      EXPECTED_TRUSTED_AUTOMATON2_WORKFLOW_BLOB: c59b0af9dd4bb41bb8e7c7d1f3593ebc2e2df7ec
+      EXPECTED_TRUSTED_MANIFEST_BLOB: d42c9b91f73f8f311be4e9796a86e8ea7c7e9e59
+      EXPECTED_TRUSTED_SKILL_HASHES_BLOB: 87a6b41bee35a6e4f8624e71bbee088e2df09d41
+      EXPECTED_ZERO_PARENT_VALIDATOR_BLOB: 3e79b6208e20331d0e379d2bb3f2bb3ab49f1384
+      EXPECTED_ZERO_PARENT_TEST_BLOB: 9fab71959b073f485ccf9a74612fbc9ce93f3433
+    steps:
+      - name: Checkout exact recovery candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install exact validator dependency
+        run: pip install jsonschema==4.23.0
+
+      - name: Run recovery contract tests
+        run: python sovereign-omega-v2/python/tests/test_cognitive_recovery.py
+
+      - name: Materialize immutable trust, denied, and recovery-parent trees
+        shell: bash
+        run: |
+          set -euo pipefail
+          git worktree add --detach "$RUNNER_TEMP/trusted-admitted" "$TRUSTED_ADMITTED_SHA"
+          git worktree add --detach "$RUNNER_TEMP/recovery-parent" "$RECOVERY_PARENT_SHA"
+          git worktree add --detach "$RUNNER_TEMP/denied-base" "$DENIED_BASE_SHA"
+          test "$(git -C "$RUNNER_TEMP/trusted-admitted" rev-parse HEAD)" = "$TRUSTED_ADMITTED_SHA"
+          test "$(git -C "$RUNNER_TEMP/recovery-parent" rev-parse HEAD)" = "$RECOVERY_PARENT_SHA"
+          test "$(git -C "$RUNNER_TEMP/denied-base" rev-parse HEAD)" = "$DENIED_BASE_SHA"
+
+      - name: Verify admitted control-plane trust root and inherited zero-parent repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$TRUSTED_ADMITTED_SHA" "$RECOVERY_PARENT_SHA"
+          git merge-base --is-ancestor "$TRUSTED_ADMITTED_SHA" "$DENIED_BASE_SHA"
+
+          test "$(git rev-parse "$TRUSTED_ADMITTED_SHA:scripts/validate-automaton2.py")" = "$EXPECTED_TRUSTED_AUTOMATON2_VALIDATOR_BLOB"
+          test "$(git rev-parse "$TRUSTED_ADMITTED_SHA:.github/workflows/automaton-2.yml")" = "$EXPECTED_TRUSTED_AUTOMATON2_WORKFLOW_BLOB"
+          test "$(git rev-parse "$TRUSTED_ADMITTED_SHA:.claude.json")" = "$EXPECTED_TRUSTED_MANIFEST_BLOB"
+          test "$(git rev-parse "$TRUSTED_ADMITTED_SHA:skill-hashes.sha256")" = "$EXPECTED_TRUSTED_SKILL_HASHES_BLOB"
+
+          test "$(git rev-parse "$RECOVERY_PARENT_SHA:scripts/validate-automaton2.py")" = "$EXPECTED_TRUSTED_AUTOMATON2_VALIDATOR_BLOB"
+          test "$(git rev-parse "$RECOVERY_PARENT_SHA:.github/workflows/automaton-2.yml")" = "$EXPECTED_TRUSTED_AUTOMATON2_WORKFLOW_BLOB"
+          test "$(git rev-parse "$RECOVERY_PARENT_SHA:.claude.json")" = "$EXPECTED_TRUSTED_MANIFEST_BLOB"
+          test "$(git rev-parse "$RECOVERY_PARENT_SHA:skill-hashes.sha256")" = "$EXPECTED_TRUSTED_SKILL_HASHES_BLOB"
+
+          # The recovery parent may carry unrelated later work, but the entire
+          # pre-incident cognitive verification control surface must remain
+          # byte-identical to the independently admitted trust root.
+          git diff --quiet "$TRUSTED_ADMITTED_SHA" "$RECOVERY_PARENT_SHA" -- \
+            scripts/validate-automaton2.py \
+            .github/workflows/automaton-2.yml \
+            scripts/build-cognitive-manifest.py \
+            schemas/cognitive-state.v1.schema.json \
+            .claude.json \
+            skill-hashes.sha256
+
+          # #385 is a deliberately non-admitted semantic repair whose exact
+          # zero-parent contract was TDD-verified. It can be inherited by this
+          # recovery candidate only if both ancestry and exact blobs match.
+          git merge-base --is-ancestor "$ZERO_PARENT_REPAIR_SHA" "$CANDIDATE_SHA"
+          test "$(git rev-parse "$ZERO_PARENT_REPAIR_SHA:scripts/validate-automaton2.py")" = "$EXPECTED_ZERO_PARENT_VALIDATOR_BLOB"
+          test "$(git rev-parse "$CANDIDATE_SHA:scripts/validate-automaton2.py")" = "$EXPECTED_ZERO_PARENT_VALIDATOR_BLOB"
+          test "$(git rev-parse "$ZERO_PARENT_REPAIR_SHA:sovereign-omega-v2/python/tests/test_automaton2.py")" = "$EXPECTED_ZERO_PARENT_TEST_BLOB"
+          test "$(git rev-parse "$CANDIDATE_SHA:sovereign-omega-v2/python/tests/test_automaton2.py")" = "$EXPECTED_ZERO_PARENT_TEST_BLOB"
+
+      - name: Prove candidate diff is recovery-bounded before any counterfactual validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          allowed="$RUNNER_TEMP/recovery-allowed-paths.txt"
+          cat > "$allowed" <<'EOF'
+          .claude.json
+          .github/workflows/cognitive-anchor-recovery.yml
+          .github/workflows/cognitive-manifest-refresh.yml
+          scripts/test-cognitive-anchor-writer-boundary.py
+          scripts/validate-automaton2.py
+          scripts/validate-cognitive-recovery.py
+          skill-hashes.sha256
+          sovereign-omega-v2/python/tests/test_automaton2.py
+          sovereign-omega-v2/python/tests/test_cognitive_recovery.py
+          EOF
+          LC_ALL=C sort -o "$allowed" "$allowed"
+          observed="$RUNNER_TEMP/recovery-observed-paths.txt"
+          git diff --name-only "$DENIED_BASE_SHA" "$CANDIDATE_SHA" | LC_ALL=C sort -u > "$observed"
+          unexpected="$RUNNER_TEMP/recovery-unexpected-paths.txt"
+          comm -23 "$observed" "$allowed" > "$unexpected"
+          if [[ -s "$unexpected" ]]; then
+            echo "Recovery candidate changes non-allowlisted paths:" >&2
+            cat "$unexpected" >&2
+            exit 1
+          fi
+
+      - name: Build trusted evaluation roots
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/denied-eval" "$RUNNER_TEMP/candidate-eval"
+          cp -a "$RUNNER_TEMP/trusted-admitted/." "$RUNNER_TEMP/denied-eval/"
+          cp -a "$RUNNER_TEMP/trusted-admitted/." "$RUNNER_TEMP/candidate-eval/"
+          cp "$RUNNER_TEMP/denied-base/.claude.json" "$RUNNER_TEMP/denied-eval/.claude.json"
+          cp "$RUNNER_TEMP/denied-base/skill-hashes.sha256" "$RUNNER_TEMP/denied-eval/skill-hashes.sha256"
+          cp "$GITHUB_WORKSPACE/.claude.json" "$RUNNER_TEMP/candidate-eval/.claude.json"
+          cp "$GITHUB_WORKSPACE/skill-hashes.sha256" "$RUNNER_TEMP/candidate-eval/skill-hashes.sha256"
+
+      - name: Reproduce denied main state with admitted Automaton-2 bytes
+        id: denied
+        shell: bash
+        run: |
+          set -euo pipefail
+          denied_receipt="$RUNNER_TEMP/DENIED_AUTOMATON2_RECEIPT.json"
+          set +e
+          python "$RUNNER_TEMP/trusted-admitted/scripts/validate-automaton2.py" \
+            --root "$RUNNER_TEMP/denied-eval" \
+            --parent-manifest "$RUNNER_TEMP/trusted-admitted/.claude.json" \
+            --candidate-sha "$DENIED_BASE_SHA" \
+            --output "$denied_receipt"
+          rc=$?
+          set -e
+          if [[ "$rc" -eq 0 ]]; then
+            echo "Denied base unexpectedly validated" >&2
+            exit 1
+          fi
+          outcome="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["outcome"])' "$denied_receipt")"
+          receipt_hash="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["receipt_hash"])' "$denied_receipt")"
+          test "$outcome" = "DENIED"
+          test "$receipt_hash" = "$EXPECTED_DENIED_RECEIPT_HASH"
+          echo "receipt_hash=$receipt_hash" >> "$GITHUB_OUTPUT"
+
+      - name: Counterfactually validate recovered anchors with admitted Automaton-2 bytes
+        id: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate_receipt="$RUNNER_TEMP/RECOVERY_PARENT_AUTOMATON2_RECEIPT.json"
+          python "$RUNNER_TEMP/trusted-admitted/scripts/validate-automaton2.py" \
+            --root "$RUNNER_TEMP/candidate-eval" \
+            --parent-manifest "$RUNNER_TEMP/trusted-admitted/.claude.json" \
+            --candidate-sha "$CANDIDATE_SHA" \
+            --output "$candidate_receipt"
+          outcome="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["outcome"])' "$candidate_receipt")"
+          receipt_hash="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["receipt_hash"])' "$candidate_receipt")"
+          test "$outcome" = "ADMITTED"
+          echo "receipt_hash=$receipt_hash" >> "$GITHUB_OUTPUT"
+
+      - name: Emit bounded non-authoritative recovery receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/validate-cognitive-recovery.py \
+            --candidate-sha "$CANDIDATE_SHA" \
+            --denied-base-sha "$DENIED_BASE_SHA" \
+            --recovery-parent-sha "$RECOVERY_PARENT_SHA" \
+            --expected-parent-state-hash "$EXPECTED_PARENT_STATE_HASH" \
+            --expected-recovery-state-hash "$EXPECTED_RECOVERY_STATE_HASH" \
+            --expected-manifest-blob "$EXPECTED_MANIFEST_BLOB" \
+            --expected-skill-hashes-blob "$EXPECTED_SKILL_HASHES_BLOB" \
+            --denied-receipt-hash "${{ steps.denied.outputs.receipt_hash }}" \
+            --recovery-validation-receipt-hash "${{ steps.candidate.outputs.receipt_hash }}" \
+            --expected-source-ref main \
+            --allow-candidate-path .claude.json \
+            --allow-candidate-path skill-hashes.sha256 \
+            --allow-candidate-path .github/workflows/cognitive-manifest-refresh.yml \
+            --allow-candidate-path scripts/test-cognitive-anchor-writer-boundary.py \
+            --allow-candidate-path scripts/validate-automaton2.py \
+            --allow-candidate-path sovereign-omega-v2/python/tests/test_automaton2.py \
+            --allow-candidate-path sovereign-omega-v2/python/tests/test_cognitive_recovery.py \
+            --allow-candidate-path scripts/validate-cognitive-recovery.py \
+            --allow-candidate-path .github/workflows/cognitive-anchor-recovery.yml \
+            --output "$RUNNER_TEMP/COGNITIVE_RECOVERY_RECEIPT.json"
+
+      - name: Upload non-authoritative recovery evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: aegis-cognitive-recovery-${{ env.CANDIDATE_SHA }}
+          path: |
+            ${{ runner.temp }}/DENIED_AUTOMATON2_RECEIPT.json
+            ${{ runner.temp }}/RECOVERY_PARENT_AUTOMATON2_RECEIPT.json
+            ${{ runner.temp }}/COGNITIVE_RECOVERY_RECEIPT.json
+          if-no-files-found: error
+          retention-days: 90
