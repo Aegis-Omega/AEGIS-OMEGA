@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 from unittest import TestCase, main
@@ -9,6 +10,7 @@ from jsonschema import Draft202012Validator
 REPO_ROOT = Path(__file__).resolve().parents[3]
 REQUEST_SCHEMA_PATH = REPO_ROOT / "schemas" / "cognitive-recovery-admission-request.v1.schema.json"
 RECEIPT_SCHEMA_PATH = REPO_ROOT / "schemas" / "cognitive-recovery-admission-receipt.v1.schema.json"
+VALIDATOR_PATH = REPO_ROOT / "scripts" / "validate-cognitive-recovery-admission.py"
 
 SHA1_A = "a" * 40
 SHA1_B = "b" * 40
@@ -26,6 +28,15 @@ SHA256_8 = "8" * 64
 
 def load_schema(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_module(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def valid_request() -> dict:
@@ -106,6 +117,22 @@ class RecoveryAdmissionSchemaTests(TestCase):
         receipt["mutation_authority"] = "MAIN_WRITE"
         errors = list(Draft202012Validator(load_schema(RECEIPT_SCHEMA_PATH)).iter_errors(receipt))
         self.assertTrue(errors)
+
+
+class RecoveryAdmissionDigestTests(TestCase):
+    def test_request_digest_ignores_only_request_id(self) -> None:
+        validator = load_module("recovery_admission", VALIDATOR_PATH)
+        left = valid_request()
+        right = valid_request()
+        right["request_id"] = "9" * 64
+        self.assertEqual(validator.request_digest(left), validator.request_digest(right))
+        right["candidate_sha"] = "8" * 40
+        self.assertNotEqual(validator.request_digest(left), validator.request_digest(right))
+
+    def test_canonical_json_rejects_nan(self) -> None:
+        validator = load_module("recovery_admission_nan", VALIDATOR_PATH)
+        with self.assertRaises(ValueError):
+            validator.canonical_bytes({"x": float("nan")})
 
 
 if __name__ == "__main__":
