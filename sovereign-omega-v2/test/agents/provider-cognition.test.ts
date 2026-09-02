@@ -18,8 +18,9 @@ describe('provider-native cognitive depth', () => {
     expect(profile.raw_output_authority).toBe('NONE')
   })
 
-  it('uses adaptive high-effort Anthropic reasoning for formal review', () => {
+  it('uses the active deepest Anthropic model with adaptive high-effort reasoning', () => {
     const profile = selectProviderCognitiveProfile('anthropic', 'formal-review')
+    expect(profile.model).toBe('claude-opus-5')
     expect(profile.reasoning).toEqual({
       kind: 'anthropic',
       thinking: 'adaptive',
@@ -30,11 +31,23 @@ describe('provider-native cognitive depth', () => {
 
   it('uses high Gemini thinking for frontier research', () => {
     const profile = selectProviderCognitiveProfile('gemini', 'frontier-research')
+    expect(profile.model).toBe('gemini-3.1-pro-preview')
     expect(profile.reasoning).toEqual({ kind: 'gemini', thinking_level: 'high' })
     expect(profile.raw_output_authority).toBe('NONE')
   })
 
-  it('allows lower-cost routine cognition without weakening authority conservation', () => {
+  it('uses Qwen flagship adaptive reasoning with preserved thinking provenance', () => {
+    const profile = selectProviderCognitiveProfile('dashscope', 'implementation')
+    expect(profile.model).toBe('qwen3.8-max')
+    expect(profile.reasoning).toEqual({
+      kind: 'dashscope',
+      thinking: 'adaptive',
+      preserve_thinking: true,
+    })
+    expect(profile.raw_output_authority).toBe('NONE')
+  })
+
+  it('allows lower-cost routine OpenAI cognition without weakening authority conservation', () => {
     const profile = selectProviderCognitiveProfile('openai', 'routine')
     expect(profile.reasoning).toEqual({
       kind: 'openai',
@@ -56,7 +69,7 @@ describe('provider-native cognitive depth', () => {
   it('maps orchestration roles to provider-native deep work profiles', () => {
     const coordinator = selectAllianceProviderProfile('coordinator')
     expect(coordinator.provider).toBe('anthropic')
-    expect(coordinator.model).toBe('claude-opus-4-8')
+    expect(coordinator.model).toBe('claude-opus-5')
     expect(coordinator.reasoning).toEqual({
       kind: 'anthropic',
       thinking: 'adaptive',
@@ -75,6 +88,11 @@ describe('provider-native cognitive depth', () => {
 
     const implementation = selectAllianceProviderProfile('implementation')
     expect(implementation.provider).toBe('dashscope')
-    expect(implementation.reasoning).toEqual({ kind: 'dashscope', mode: 'deep' })
+    expect(implementation.model).toBe('qwen3.8-max')
+    expect(implementation.reasoning).toEqual({
+      kind: 'dashscope',
+      thinking: 'adaptive',
+      preserve_thinking: true,
+    })
   })
 })
