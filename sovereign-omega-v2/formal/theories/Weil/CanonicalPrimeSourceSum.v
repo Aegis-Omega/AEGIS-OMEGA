@@ -76,6 +76,21 @@ Lemma canonical_integer_q_v1_scope :
   forall i : nat, canonical_integer_q_v1 i = S (S i).
 Proof. intro i. reflexivity. Qed.
 
+(* The index is injective and never reaches q = 1, where Lambda(1) = 0 would
+   make the index silently inert.  Together with the scope lemma these rule
+   out a constant, a collapsed range, and a degenerate index. *)
+Lemma canonical_integer_q_v1_injective :
+  forall i j : nat, canonical_integer_q_v1 i = canonical_integer_q_v1 j -> i = j.
+Proof.
+  intros i j H. unfold canonical_integer_q_v1 in H. inversion H. reflexivity.
+Qed.
+
+Lemma canonical_integer_q_v1_ge_2 :
+  forall i : nat, (2 <= canonical_integer_q_v1 i)%nat.
+Proof.
+  intro i. unfold canonical_integer_q_v1. lia.
+Qed.
+
 Lemma canonical_integer_q_positive_v1 :
   forall i : nat, (0 < canonical_integer_q_v1 i)%nat.
 Proof. intros i. unfold canonical_integer_q_v1. lia. Qed.
