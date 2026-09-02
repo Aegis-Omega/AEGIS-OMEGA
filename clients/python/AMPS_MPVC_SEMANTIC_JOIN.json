@@ -1,0 +1,44 @@
+{
+  "receipt_kind": "AEGIS_AMPS_MPVC_SEMANTIC_JOIN_SOURCE_V1",
+  "authority": "NONE",
+  "admission_authority": "NONE",
+  "relation": "AMPS_GOVERNS_HARDENED_MPVC",
+  "hardened_provider": {
+    "pr": 363,
+    "head_sha": "98e7ec038cb1e8a8722b5dcc3346a56d9da9801a"
+  },
+  "governance_source": {
+    "pr": 364,
+    "head_sha": "cc234e455015e104c70da6515c95e2a650dd6b46"
+  },
+  "source_file_dispositions": {
+    ".agent-contract.json": {
+      "disposition": "BYTE_EQUIVALENT",
+      "source_blob_sha": "18bae4d8b7a4201fa96e5ae81245c487c6bf869c"
+    },
+    "AGENTS.md": {
+      "disposition": "BYTE_EQUIVALENT",
+      "source_blob_sha": "5df8b18026caaa57a25ff3f4ac45548742ec379e"
+    },
+    "scripts/agent_governance_lint.py": {
+      "disposition": "SEMANTIC_REPLACEMENT",
+      "source_blob_sha": "0b17f53214d68fe645d520ccc05a0061ec01fd69",
+      "receipt_required": true
+    },
+    ".github/workflows/agent-calibration.yml": {
+      "disposition": "SEMANTIC_REPLACEMENT",
+      "source_blob_sha": "8672888fe919b616597751749c5380921cb46943",
+      "receipt_required": true
+    },
+    ".claude.json": {
+      "disposition": "GENERATED_ONLY_REBIND",
+      "receipt_required": true
+    }
+  },
+  "canonical_status": {
+    "QuantumTourbillon": "ARCHITECTURAL_HYPOTHESIS",
+    "QUANTUM_PHYSICAL_ADVANTAGE": "NOT_ESTABLISHED",
+    "RH": "NOT_PROVEN"
+  },
+  "status": "CI_REQUIRED_FOR_JOIN_HEAD"
+}
