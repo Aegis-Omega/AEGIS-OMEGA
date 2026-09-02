@@ -11,6 +11,7 @@ from unittest import TestCase, main
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RECOVERY_PATH = REPO_ROOT / "scripts" / "validate-cognitive-recovery.py"
+RECOVERY_WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "cognitive-anchor-recovery.yml"
 
 
 def load_module(name: str, path: Path):
@@ -136,6 +137,35 @@ class CognitiveRecoveryTests(TestCase):
 
     def test_receipt_is_deterministic(self) -> None:
         self.assertEqual(self.evaluate(), self.evaluate())
+
+
+class RecoveryWorkflowTrustContractTests(TestCase):
+    def setUp(self) -> None:
+        self.workflow = RECOVERY_WORKFLOW_PATH.read_text(encoding="utf-8")
+
+    def test_denied_receipt_hash_is_bound_to_original_exact_head_receipt(self) -> None:
+        self.assertIn(
+            "EXPECTED_DENIED_RECEIPT_HASH: 64cece801823fe2eab573961ec8cefe4887aecc6a120d0297a0c88d530feb359",
+            self.workflow,
+        )
+
+    def test_preincident_admitted_control_plane_is_explicitly_byte_bound(self) -> None:
+        required = (
+            "TRUSTED_ADMITTED_SHA: fe7582bf05d7a7242cf8c2f4949b4ac84bf056c9",
+            "EXPECTED_TRUSTED_AUTOMATON2_VALIDATOR_BLOB: e388aaa1b3bc305c80e6eb04709e40b03d220052",
+            "EXPECTED_TRUSTED_AUTOMATON2_WORKFLOW_BLOB: c59b0af9dd4bb41bb8e7c7d1f3593ebc2e2df7ec",
+            "EXPECTED_TRUSTED_MANIFEST_BLOB: d42c9b91f73f8f311be4e9796a86e8ea7c7e9e59",
+            "EXPECTED_TRUSTED_SKILL_HASHES_BLOB: 87a6b41bee35a6e4f8624e71bbee088e2df09d41",
+        )
+        for item in required:
+            self.assertIn(item, self.workflow)
+
+    def test_candidate_controlled_pull_request_workflow_has_no_signing_authority(self) -> None:
+        self.assertNotIn("id-token: write", self.workflow)
+        self.assertNotIn("attestations: write", self.workflow)
+        self.assertNotIn("artifact-metadata: write", self.workflow)
+        self.assertNotIn("actions/attest@", self.workflow)
+        self.assertNotIn("--require-oidc", self.workflow)
 
 
 if __name__ == "__main__":
