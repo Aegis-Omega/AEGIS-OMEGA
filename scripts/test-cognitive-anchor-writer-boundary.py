@@ -54,6 +54,39 @@ class CognitiveAnchorWriterBoundaryTests(TestCase):
 
         self.assertIn("repair/cognitive-anchor-*", source)
 
+    def test_writer_does_not_execute_from_candidate_pushes(self) -> None:
+        refresh = WORKFLOW_ROOT / "cognitive-manifest-refresh.yml"
+        source = refresh.read_text(encoding="utf-8")
+
+        self.assertNotIn("\n  push:\n", source)
+        self.assertIn("workflow_dispatch:", source)
+        self.assertIn("github.ref == 'refs/heads/main'", source)
+
+    def test_writer_requires_exact_admitted_main_before_mutation(self) -> None:
+        refresh = WORKFLOW_ROOT / "cognitive-manifest-refresh.yml"
+        source = refresh.read_text(encoding="utf-8")
+
+        self.assertIn("checks: read", source)
+        self.assertIn("GITHUB_ACTIONS_APP_ID: '15368'", source)
+        self.assertIn("aegis / automaton-2", source)
+        self.assertIn("aegis / automaton-3", source)
+        self.assertIn("Main branch enforcement", source)
+        self.assertIn("implicit zero parent is forbidden", source)
+        self.assertIn("state_hash mismatch", source)
+        self.assertIn("head_sha", source)
+        self.assertIn("conclusion", source)
+        self.assertIn("app", source)
+        self.assertIn("id", source)
+
+    def test_writer_targets_explicit_branch_only_after_admission_gate(self) -> None:
+        refresh = WORKFLOW_ROOT / "cognitive-manifest-refresh.yml"
+        source = refresh.read_text(encoding="utf-8")
+
+        self.assertIn("target_ref:", source)
+        self.assertIn("steps.admission.outputs.allowed == 'true'", source)
+        self.assertIn("ref: ${{ inputs.target_ref }}", source)
+        self.assertIn('git push origin "HEAD:${{ inputs.target_ref }}"', source)
+
 
 if __name__ == "__main__":
     main()
