@@ -1,1 +1,34 @@
-placeholder
+{
+  "schema_version": 1,
+  "repository": "Aegis-Omega/AEGIS-OMEGA",
+  "default_branch": "main",
+  "epistemic_status": "DESIRED_REPOSITORY_ENFORCEMENT_CONTRACT",
+  "policy": {
+    "require_protected_default_branch": true,
+    "require_pull_request": true,
+    "required_approving_review_count": 1,
+    "dismiss_stale_reviews": true,
+    "require_last_push_approval": true,
+    "require_conversation_resolution": true,
+    "require_status_checks": true,
+    "require_branches_up_to_date": true,
+    "block_force_pushes": true,
+    "block_deletions": true,
+    "require_signed_commits": true,
+    "bypass_policy": "explicit_recovery_only"
+  },
+  "invariants": [
+    "CI_SUCCESS_IS_NOT_PRODUCTION_ADMISSION",
+    "DIRECT_PUSH_TO_MAIN_IS_FORBIDDEN",
+    "FORCE_PUSH_TO_MAIN_IS_FORBIDDEN",
+    "STALE_HEAD_EVIDENCE_CANNOT_AUTHORIZE_CURRENT_HEAD",
+    "SECURITY_GATES_MUST_BE_REPOSITORY_ENFORCED",
+    "HASH_INTEGRITY_IS_NOT_SIGNER_AUTHENTICITY",
+    "SIGNED_RECEIPT_IS_NOT_TRANSPARENCY_OR_NON_EQUIVOCATION"
+  ],
+  "notes": [
+    "This file is declarative; GitHub repository settings remain the enforcement authority.",
+    "Repository-level protection must fail closed before main is classified as production-admitted.",
+    "Exact required check contexts must be derived from current workflow/check names before enabling protection."
+  ]
+}
