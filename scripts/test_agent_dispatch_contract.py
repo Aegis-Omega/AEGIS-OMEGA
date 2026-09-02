@@ -9,6 +9,7 @@ WORKFLOW = ROOT / ".github" / "workflows" / "agent-dispatch.yml"
 DOCKERFILE = ROOT / "vertex" / "Dockerfile"
 RUNTIME = ROOT / "vertex" / "runtime.py"
 BOUNDARY = ROOT / "vertex" / "authority_boundary.py"
+AUTH_ACTION_SHA = "c200f3691d83b41bf9bbd8638997a462592937ed"
 
 
 class AgentDispatchContractTests(unittest.TestCase):
@@ -35,9 +36,10 @@ class AgentDispatchContractTests(unittest.TestCase):
         self.assertIn("github.event.repository.default_branch", self.workflow)
         self.assertIn("persist-credentials: false", self.workflow)
 
-    def test_external_effect_uses_keyless_wif_and_execution_time_secret_brokerage(self) -> None:
+    def test_external_effect_uses_source_pinned_keyless_wif_and_execution_time_secret_brokerage(self) -> None:
         self.assertIn("id-token: write", self.workflow)
-        self.assertIn("google-github-actions/auth@v2", self.workflow)
+        self.assertIn(f"google-github-actions/auth@{AUTH_ACTION_SHA}", self.workflow)
+        self.assertNotIn("google-github-actions/auth@v2", self.workflow)
         self.assertIn("vars.WIF_PROVIDER", self.workflow)
         self.assertIn("vars.WIF_SERVICE_ACCOUNT", self.workflow)
         self.assertIn("gcloud run services describe aegis-platform", self.workflow)
