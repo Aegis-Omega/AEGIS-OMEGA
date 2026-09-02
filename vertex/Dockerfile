@@ -1,7 +1,7 @@
 # AEGIS-Ω Agent Platform — Cloud Run service image.
 # IMPORTANT: build context is the REPOSITORY ROOT (not vertex/), because the
 # platform endpoints import the `agents` package and read `harness/skill_tree.json`.
-# Build with:  docker build -f vertex/Dockerfile -t <img> .
+# Build with: docker build -f vertex/Dockerfile -t <img> .
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -15,14 +15,16 @@ RUN pip install --no-cache-dir \
     pyyaml==6.0.2 \
     anyio==4.6.2
 
-# serve.py at /app, agents package at /app/agents, harness data at /app/harness.
-# evolution.py computes _REPO_ROOT = dirname(agents) = /app, so it finds
-# /app/harness/skill_tree.json. serve.py's path setup adds /app to sys.path.
+# runtime.py installs a standard-library outer authority membrane before the
+# FastAPI application can observe paid or webhook requests. Missing authority
+# configuration therefore fails closed rather than silently becoming public.
 COPY vertex/serve.py /app/serve.py
+COPY vertex/authority_boundary.py /app/authority_boundary.py
+COPY vertex/runtime.py /app/runtime.py
 COPY agents /app/agents
 COPY harness /app/harness
 
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["python", "serve.py"]
+CMD ["python", "runtime.py"]
