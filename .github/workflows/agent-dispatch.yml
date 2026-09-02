@@ -103,7 +103,7 @@ jobs:
         id: auth
         if: steps.admission.outputs.decision == 'EXECUTE'
         continue-on-error: true
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed
         with:
           workload_identity_provider: ${{ vars.WIF_PROVIDER }}
           service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
@@ -149,8 +149,6 @@ jobs:
           platform_key="$(cat "$KEY_PATH")"
           echo "::add-mask::$platform_key"
 
-          # Record the causal fact before the network call so a transport or
-          # response-validation failure cannot be misreported as no attempt.
           echo "attempted=true" >> "$GITHUB_OUTPUT"
           echo "result=FAIL" >> "$GITHUB_OUTPUT"
 
