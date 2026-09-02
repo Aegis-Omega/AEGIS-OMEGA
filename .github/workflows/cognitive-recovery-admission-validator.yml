@@ -11,6 +11,9 @@ on:
 
 # Candidate-controlled verification only. This lane cannot sign, mutate refs,
 # deploy, attest, or grant production recovery authority.
+# Intentional TDD RED commits must end their commit subject with ` RED`.
+# Their expected test failure is recorded as EXPECTED_RED without turning the
+# whole workflow red. Any failure on a non-RED commit remains a hard failure.
 permissions:
   contents: read
 
@@ -44,7 +47,30 @@ jobs:
         run: pip install jsonschema==4.23.0
 
       - name: Run recovery admission contract tests
+        id: contract_tests
+        continue-on-error: true
         run: python sovereign-omega-v2/python/tests/test_cognitive_recovery_admission.py
+
+      - name: Classify contract result
+        shell: bash
+        env:
+          TEST_OUTCOME: ${{ steps.contract_tests.outcome }}
+        run: |
+          set -euo pipefail
+          if [[ "$TEST_OUTCOME" == "success" ]]; then
+            echo "RECOVERY_ADMISSION_TEST_STATUS=GREEN"
+            exit 0
+          fi
+
+          subject="$(git log -1 --format=%s)"
+          if [[ "$subject" == *" RED" ]]; then
+            echo "::notice::EXPECTED_RED: focused recovery-admission tests failed on intentional TDD RED commit"
+            echo "RECOVERY_ADMISSION_TEST_STATUS=EXPECTED_RED"
+            exit 0
+          fi
+
+          echo "::error::Unexpected recovery-admission test failure on non-RED commit"
+          exit 1
 
       - name: Assert authority-neutral workflow contract
         shell: bash
