@@ -1,0 +1,289 @@
+name: NVIDIA Vertex Live GPU Receipt
+
+on:
+  workflow_dispatch:
+    inputs:
+      acknowledge_cost:
+        description: 'Type YES to authorize creation of one short-lived Vertex A100 CustomJob'
+        required: true
+        default: 'NO'
+        type: choice
+        options:
+          - 'NO'
+          - 'YES'
+      region:
+        description: 'Vertex AI region'
+        required: true
+        default: 'us-central1'
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: nvidia-vertex-live-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: aegisomegav1
+  EXPECTED_SHA: ${{ github.sha }}
+  CUDA_IMAGE: nvidia/cuda:13.2.0-base-ubuntu24.04
+
+jobs:
+  vertex-a100-live:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Refuse unacknowledged billable execution
+        shell: bash
+        env:
+          ACKNOWLEDGE_COST: ${{ inputs.acknowledge_cost }}
+        run: |
+          set -euo pipefail
+          if [[ "$ACKNOWLEDGE_COST" != "YES" ]]; then
+            echo 'BILLABLE_GPU_EXECUTION_NOT_ACKNOWLEDGED' >&2
+            exit 64
+          fi
+
+      - name: Checkout exact candidate
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ env.EXPECTED_SHA }}
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Require existing keyless GCP identifiers
+        shell: bash
+        env:
+          WIF_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          [[ -n "$WIF_PROVIDER" ]] || { echo 'GCP_WORKLOAD_IDENTITY_PROVIDER_MISSING' >&2; exit 65; }
+          [[ -n "$SERVICE_ACCOUNT" ]] || { echo 'GCP_SERVICE_ACCOUNT_MISSING' >&2; exit 66; }
+
+      - name: Authenticate to Google Cloud without a long-lived key
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          create_credentials_file: true
+          export_environment_variables: true
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Prove project access before GPU creation
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud projects describe "$PROJECT_ID" --format='value(projectId)' | grep -Fx "$PROJECT_ID"
+          gcloud services list --enabled --project="$PROJECT_ID" \
+            --filter='config.name:aiplatform.googleapis.com' \
+            --format='value(config.name)' | grep -Fx 'aiplatform.googleapis.com'
+
+      - name: Create bounded Vertex A100 probe job
+        id: create_job
+        shell: bash
+        env:
+          REGION: ${{ inputs.region }}
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/artifacts
+          DISPLAY_NAME="aegis-nvidia-probe-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          cat > /tmp/vertex-a100-probe.yaml <<YAML
+          workerPoolSpecs:
+          - machineSpec:
+              machineType: a2-highgpu-1g
+              acceleratorType: NVIDIA_TESLA_A100
+              acceleratorCount: 1
+            replicaCount: 1
+            diskSpec:
+              bootDiskType: pd-ssd
+              bootDiskSizeGb: 100
+            containerSpec:
+              imageUri: ${CUDA_IMAGE}
+              command:
+              - bash
+              - -lc
+              args:
+              - |
+                  set -euo pipefail
+                  echo 'AEGIS_NVIDIA_REMOTE_GPU_PROBE_SCHEMA=AEGIS-NVIDIA-REMOTE-GPU-PROBE-V1'
+                  echo 'AEGIS_NVIDIA_REMOTE_GPU_PROVIDER=GCP_VERTEX'
+                  echo 'AEGIS_NVIDIA_REMOTE_GPU_CANDIDATE_SHA=${EXPECTED_SHA}'
+                  CUDA_DRIVER_VERSION="$(nvidia-smi | sed -n 's/.*CUDA Version:[[:space:]]*\([0-9.]*\).*/\1/p' | head -n1)"
+                  test -n "$CUDA_DRIVER_VERSION"
+                  echo "AEGIS_NVIDIA_REMOTE_GPU_CUDA_DRIVER_VERSION=$CUDA_DRIVER_VERSION"
+                  nvidia-smi --query-gpu=uuid,name,driver_version,compute_cap --format=csv,noheader,nounits \
+                    | sed 's/^/AEGIS_NVIDIA_REMOTE_GPU_ROW=/'
+          scheduling:
+            timeout: 900s
+            restartJobOnWorkerRestart: false
+            disableRetries: true
+          YAML
+
+          gcloud ai custom-jobs create \
+            --project="$PROJECT_ID" \
+            --region="$REGION" \
+            --display-name="$DISPLAY_NAME" \
+            --config=/tmp/vertex-a100-probe.yaml \
+            --format=json > sovereign-omega-v2/artifacts/vertex-create.json
+
+          JOB_NAME="$(jq -r '.name // empty' sovereign-omega-v2/artifacts/vertex-create.json)"
+          [[ "$JOB_NAME" == projects/*/locations/*/customJobs/* ]] || {
+            echo 'VERTEX_JOB_RESOURCE_NAME_MISSING' >&2
+            cat sovereign-omega-v2/artifacts/vertex-create.json >&2
+            exit 67
+          }
+          JOB_ID="${JOB_NAME##*/}"
+          printf 'job_name=%s\njob_id=%s\n' "$JOB_NAME" "$JOB_ID" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$JOB_NAME" > sovereign-omega-v2/artifacts/vertex-job-name.txt
+
+      - name: Stream exact Vertex job logs
+        id: stream
+        shell: bash
+        env:
+          REGION: ${{ inputs.region }}
+          JOB_ID: ${{ steps.create_job.outputs.job_id }}
+        run: |
+          set -uo pipefail
+          gcloud ai custom-jobs stream-logs "$JOB_ID" \
+            --project="$PROJECT_ID" \
+            --region="$REGION" 2>&1 \
+            | tee sovereign-omega-v2/artifacts/vertex-job.log
+          STREAM_EXIT="${PIPESTATUS[0]}"
+          echo "stream_exit=$STREAM_EXIT" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Require terminal successful Vertex job
+        shell: bash
+        env:
+          REGION: ${{ inputs.region }}
+          JOB_ID: ${{ steps.create_job.outputs.job_id }}
+        run: |
+          set -euo pipefail
+          gcloud ai custom-jobs describe "$JOB_ID" \
+            --project="$PROJECT_ID" \
+            --region="$REGION" \
+            --format=json > sovereign-omega-v2/artifacts/vertex-describe.json
+          STATE="$(jq -r '.state // empty' sovereign-omega-v2/artifacts/vertex-describe.json)"
+          test "$STATE" = 'JOB_STATE_SUCCEEDED' || {
+            echo "VERTEX_GPU_JOB_NOT_SUCCESSFUL:$STATE" >&2
+            exit 68
+          }
+
+      - name: Normalize raw provider evidence
+        shell: bash
+        env:
+          JOB_NAME: ${{ steps.create_job.outputs.job_name }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          log_path = Path('sovereign-omega-v2/artifacts/vertex-job.log')
+          lines = log_path.read_text(encoding='utf-8', errors='replace').splitlines()
+
+          def unique_value(prefix: str) -> str:
+              values = [line.split(prefix, 1)[1].strip() for line in lines if prefix in line]
+              values = list(dict.fromkeys(values))
+              if len(values) != 1 or not values[0]:
+                  raise SystemExit(f'REMOTE_GPU_MARKER_INVALID:{prefix}:{values}')
+              return values[0]
+
+          schema = unique_value('AEGIS_NVIDIA_REMOTE_GPU_PROBE_SCHEMA=')
+          provider = unique_value('AEGIS_NVIDIA_REMOTE_GPU_PROVIDER=')
+          candidate = unique_value('AEGIS_NVIDIA_REMOTE_GPU_CANDIDATE_SHA=')
+          cuda_driver = unique_value('AEGIS_NVIDIA_REMOTE_GPU_CUDA_DRIVER_VERSION=')
+
+          rows = []
+          marker = 'AEGIS_NVIDIA_REMOTE_GPU_ROW='
+          for line in lines:
+              if marker not in line:
+                  continue
+              value = line.split(marker, 1)[1].strip()
+              fields = [field.strip() for field in value.split(',', 3)]
+              if len(fields) != 4 or not all(fields):
+                  raise SystemExit(f'REMOTE_GPU_ROW_INVALID:{value}')
+              rows.append({
+                  'uuid': fields[0],
+                  'name': fields[1],
+                  'driver_version': fields[2],
+                  'compute_capability': fields[3],
+              })
+          if not rows:
+              raise SystemExit('REMOTE_GPU_INVENTORY_EMPTY')
+
+          payload = {
+              'schema_version': schema,
+              'provider': provider,
+              'provider_job_id': os.environ['JOB_NAME'],
+              'candidate_sha': candidate,
+              'cuda_driver_version': cuda_driver,
+              'inventory': rows,
+              'authority_class': 'NONE',
+              'authority_effect': 'NONE',
+          }
+          out = Path('sovereign-omega-v2/artifacts/vertex-gpu-probe.json')
+          out.write_text(json.dumps(payload, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Set up Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+
+      - name: Install exact Node dependencies
+        working-directory: sovereign-omega-v2
+        run: npm ci
+
+      - name: Admit remote GPU evidence through AEGIS receipt boundary
+        working-directory: sovereign-omega-v2
+        env:
+          AEGIS_NVIDIA_VERTEX_LIVE: '1'
+          AEGIS_EXPECTED_SHA: ${{ env.EXPECTED_SHA }}
+          AEGIS_NVIDIA_REMOTE_PROBE_PATH: artifacts/vertex-gpu-probe.json
+          AEGIS_NVIDIA_GPU_RECEIPT_PATH: artifacts/vertex-gpu-environment-receipt.json
+        run: npx vitest run test/integration/polyglot-nvidia-vertex-live.test.ts
+
+      - name: Upload raw and admitted GPU receipts
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: nvidia-vertex-a100-receipt-${{ github.sha }}
+          path: |
+            sovereign-omega-v2/artifacts/vertex-create.json
+            sovereign-omega-v2/artifacts/vertex-describe.json
+            sovereign-omega-v2/artifacts/vertex-job-name.txt
+            sovereign-omega-v2/artifacts/vertex-job.log
+            sovereign-omega-v2/artifacts/vertex-gpu-probe.json
+            sovereign-omega-v2/artifacts/vertex-gpu-environment-receipt.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Cancel any nonterminal Vertex job on workflow failure
+        if: ${{ failure() && steps.create_job.outputs.job_id != '' }}
+        continue-on-error: true
+        shell: bash
+        env:
+          REGION: ${{ inputs.region }}
+          JOB_ID: ${{ steps.create_job.outputs.job_id }}
+        run: |
+          set -euo pipefail
+          STATE="$(gcloud ai custom-jobs describe "$JOB_ID" --project="$PROJECT_ID" --region="$REGION" --format='value(state)' || true)"
+          case "$STATE" in
+            JOB_STATE_SUCCEEDED|JOB_STATE_FAILED|JOB_STATE_CANCELLED|JOB_STATE_EXPIRED) ;;
+            *) gcloud ai custom-jobs cancel "$JOB_ID" --project="$PROJECT_ID" --region="$REGION" --quiet || true ;;
+          esac
