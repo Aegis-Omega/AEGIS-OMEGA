@@ -1,0 +1,52 @@
+name: Cycle 3 OpenAI Replay RED Witness
+
+on:
+  push:
+    branches:
+      - feat/provider-native-cognitive-fabric-v1
+
+permissions:
+  contents: read
+
+jobs:
+  named-red-witness:
+    name: Gate8 RED Witness · OpenAI Replay Anti-Splicing
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sovereign-omega-v2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+      - run: npm ci
+      - name: Prove ENFORCE_RED_1 and ENFORCE_RED_2 independently fail
+        shell: bash
+        run: |
+          set -uo pipefail
+          TEST_FILE='test/agents/openai-stateless-replay-anti-splicing-red.test.ts'
+
+          set +e
+          npm run test -- "$TEST_FILE" -t 'ENFORCE_RED_1: rejects same-count substituted replay context' --reporter=verbose 2>&1 | tee /tmp/enforce-red-1.log
+          RED1=${PIPESTATUS[0]}
+          npm run test -- "$TEST_FILE" -t 'ENFORCE_RED_2: rejects reordered replay context' --reporter=verbose 2>&1 | tee /tmp/enforce-red-2.log
+          RED2=${PIPESTATUS[0]}
+          set -e
+
+          if [[ "$RED1" -eq 0 ]]; then
+            echo 'ENFORCE_RED_1 status=UNEXPECTED_GREEN' >&2
+            exit 2
+          fi
+          echo 'ENFORCE_RED_1 status=FAILED'
+
+          if [[ "$RED2" -eq 0 ]]; then
+            echo 'ENFORCE_RED_2 status=UNEXPECTED_GREEN' >&2
+            exit 3
+          fi
+          echo 'ENFORCE_RED_2 status=FAILED'
+
+          echo 'DOKAZANI_RED: both preregistered anti-splicing regressions independently failed on this exact head.'
+          exit 1
