@@ -144,6 +144,7 @@ jobs:
       - name: Gate 8 — Full suite + typecheck + build
         id: suite
         run: |
+          set -o pipefail
           npm run test -- --reporter=verbose 2>&1 | tee /tmp/ts-results.txt
           npm run typecheck
           npm run build
