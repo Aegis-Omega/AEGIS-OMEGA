@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { probeBioNemoFramework } from '../../src/polyglot/nvidia-bionemo-probe'
 import {
-  probeNvidiaPythonConnector,
   type NvidiaProbeCommandResult,
   type NvidiaProbeRunner,
 } from '../../src/polyglot/nvidia-probe'
@@ -34,8 +34,7 @@ describe('NVIDIA BioNeMo Framework runtime probe', () => {
       module_file_sha256: 'f'.repeat(64),
     }))])
 
-    const observation = await probeNvidiaPythonConnector({
-      connector_id: 'bionemo-framework',
+    const observation = await probeBioNemoFramework({
       runner,
       python_executable: 'python3',
     })
