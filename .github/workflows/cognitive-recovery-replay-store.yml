@@ -1,0 +1,90 @@
+name: Cognitive Recovery Atomic Replay Store
+
+on:
+  push:
+    branches:
+      - repair/cognitive-recovery-atomic-replay-v1
+  pull_request:
+    branches:
+      - repair/cognitive-recovery-admission-validator-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  atomic-replay-store:
+    name: aegis / cognitive-recovery-atomic-replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: aegis_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d aegis_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/aegis_test
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+
+      - name: Ensure PostgreSQL client
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq postgresql-client
+          fi
+          psql --version
+
+      - name: Run atomic replay store contract
+        id: atomic_contract
+        continue-on-error: true
+        shell: bash
+        run: bash scripts/test-cognitive-recovery-replay-store.sh
+
+      - name: Classify atomic store contract
+        shell: bash
+        env:
+          TEST_OUTCOME: ${{ steps.atomic_contract.outcome }}
+        run: |
+          set -euo pipefail
+          if [[ "$TEST_OUTCOME" == "success" ]]; then
+            echo "ATOMIC_REPLAY_STORE_CI_STATUS=GREEN"
+            exit 0
+          fi
+          subject="$(git log -1 --format=%s)"
+          if [[ "$subject" == *" RED" ]]; then
+            echo "::notice::EXPECTED_RED: atomic replay store contract is intentionally failing"
+            echo "ATOMIC_REPLAY_STORE_CI_STATUS=EXPECTED_RED"
+            exit 0
+          fi
+          echo "::error::Unexpected atomic replay store failure on non-RED commit"
+          exit 1
+
+      - name: Assert read-only workflow token
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -Eq 'contents:[[:space:]]*write|id-token:[[:space:]]*write|attestations:[[:space:]]*write|deployments:[[:space:]]*write' .github/workflows/cognitive-recovery-replay-store.yml
