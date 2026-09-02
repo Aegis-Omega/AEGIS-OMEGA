@@ -12,6 +12,7 @@ from .acquisition_types import (
     RawGitCompare,
     RawPullRequestRecord,
     RawWorkflowReceipt,
+    freeze_json,
 )
 
 
@@ -282,13 +283,15 @@ class DeterministicSnapshotBuilder:
         # captured_at_utc is observational metadata and intentionally excluded
         # from the content digest so identical repository/API observations hash identically.
         captured_at_utc = datetime.now(timezone.utc).isoformat()
+        frozen_nodes = tuple(freeze_json(node) for node in nodes_payload)
+        frozen_ancestry = tuple(freeze_json(edge) for edge in ancestry_payload)
         return MultilayerDAGSnapshot(
             schema_version=self.SCHEMA_VERSION,
             global_main_sha=initial_main_sha,
             captured_at_utc=captured_at_utc,
             node_count=len(nodes_payload),
-            nodes=tuple(nodes_payload),
-            ancestry_matrix=tuple(ancestry_payload),
+            nodes=frozen_nodes,
+            ancestry_matrix=frozen_ancestry,
             merkle_root=merkle_root,
             snapshot_digest=snapshot_digest,
         )
