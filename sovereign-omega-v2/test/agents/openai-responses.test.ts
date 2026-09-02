@@ -3,7 +3,7 @@ import { selectProviderCognitiveProfile } from '../../src/agents/coordination/pr
 import { buildOpenAIResponsesRequest } from '../../src/agents/providers/openai-responses.js'
 
 describe('OpenAI Responses execution contract', () => {
-  it('maps frontier cognition to stateless max/pro Responses semantics', () => {
+  it('maps frontier cognition to stateless max/pro long-horizon Responses semantics', () => {
     const profile = selectProviderCognitiveProfile('openai', 'frontier-research')
     const request = buildOpenAIResponsesRequest({
       profile,
@@ -14,11 +14,7 @@ describe('OpenAI Responses execution contract', () => {
 
     expect(request.model).toBe('gpt-5.6-sol')
     expect(request.store).toBe(false)
-    expect(request.reasoning).toEqual({
-      effort: 'max',
-      mode: 'pro',
-      context: 'current_turn',
-    })
+    expect(request.reasoning).toEqual({ effort: 'max', mode: 'pro', context: 'all_turns' })
     expect(request.include).toEqual(['reasoning.encrypted_content'])
     expect(request.safety_identifier).toBe('actor_abc123')
     expect(request.metadata).toEqual({
