@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/aedr-multilayer-dag-v1",
+    "source_ref": "feat/aedr-live-acquisition-v1",
     "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "2884d7689370d7945522070854589c63b9c76e32c23f8317dcd541de399f84f8"
+  "state_hash": "b0f8e915cb3267b8a25049368a961bda64a28be24fc67d6bc3e857b2c8a1a4e3"
 }
