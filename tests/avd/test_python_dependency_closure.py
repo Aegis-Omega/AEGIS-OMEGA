@@ -57,6 +57,31 @@ def test_dynamic_import_in_committed_runtime_fails_closed(tmp_path: Path) -> Non
         discover_python_closure(tmp_path, ("scripts.avd.a",))
 
 
+def test_package_initializer_transitive_dependency_is_included(tmp_path: Path) -> None:
+    _write(tmp_path, "scripts/__init__.py", "")
+    _write(tmp_path, "scripts/avd/__init__.py", "from . import hidden\n")
+    _write(tmp_path, "scripts/avd/a.py", "VALUE = 1\n")
+    _write(tmp_path, "scripts/avd/hidden.py", "HIDDEN = 1\n")
+
+    closure = discover_python_closure(tmp_path, ("scripts.avd.a",))
+    assert "scripts/avd/hidden.py" in closure
+
+
+def test_aliased_import_module_call_fails_closed(tmp_path: Path) -> None:
+    _write(tmp_path, "scripts/__init__.py", "")
+    _write(tmp_path, "scripts/avd/__init__.py", "")
+    _write(
+        tmp_path,
+        "scripts/avd/a.py",
+        "from importlib import import_module as load\n"
+        "mod = load('scripts.avd.hidden')\n",
+    )
+    _write(tmp_path, "scripts/avd/hidden.py", "X = 1\n")
+
+    with pytest.raises(PythonClosureError, match="DYNAMIC_IMPORT_FORBIDDEN"):
+        discover_python_closure(tmp_path, ("scripts.avd.a",))
+
+
 def test_real_verifier_and_oracle_entrypoints_have_closed_local_dependency_graph() -> None:
     repo = Path(__file__).resolve().parents[2]
     verifier = discover_python_closure(
