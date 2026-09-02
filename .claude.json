@@ -10,7 +10,7 @@
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
     "source_ref": "agent/gcp-ngs-census-v1",
-    "parent_state_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "parent_state_hash": "84a384008aa8bac9c83e065f6fdb2f54338cbfd252eba4324e1289869c1e35c2",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "0ee6dc7a716a9eabb7737b8f421e85d4a168901eb6ba8f08e61fe720159ac459"
+  "state_hash": "e602cf272494863f9fbd1850a5dc3755c7c75f6ae045727a182a391e62a4cf9c"
 }
