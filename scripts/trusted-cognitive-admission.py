@@ -56,7 +56,7 @@ def _validate_sha(name: str, value: str) -> None:
 
 
 def _scan_untrusted_root(root: Path) -> list[str]:
-    """Reject link/device tricks and bound cognitive input size before parsing."""
+    """Reject path tricks globally and bound only inputs the trusted parser reads."""
     violations: list[str] = []
     if not root.is_dir():
         return [f"missing repository root: {root}"]
@@ -78,9 +78,6 @@ def _scan_untrusted_root(root: Path) -> list[str]:
                 continue
             if not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)):
                 violations.append(f"special file forbidden: {relative}")
-                continue
-            if stat.S_ISREG(info.st_mode) and info.st_size > MAX_SINGLE_FILE_BYTES:
-                violations.append(f"file exceeds trusted parser bound: {relative}")
 
         for name in filenames:
             path = current_path / name
@@ -98,6 +95,8 @@ def _scan_untrusted_root(root: Path) -> list[str]:
             )
             if not is_cognitive:
                 continue
+            if info.st_size > MAX_SINGLE_FILE_BYTES:
+                violations.append(f"cognitive file exceeds trusted parser bound: {relative}")
             cognitive_bytes += info.st_size
             if name == "SKILL.md":
                 skill_count += 1
@@ -141,7 +140,7 @@ def _validate_base(generator, base_root: Path, violations: list[str]) -> tuple[s
     try:
         manifest = json.loads(manifest_bytes.decode("utf-8"))
         generator.validate_manifest(manifest)
-    except Exception as exc:  # fail closed on any malformed trusted-base claim
+    except Exception as exc:
         violations.append(f"base manifest invalid: {exc}")
         return None, None
 
@@ -231,9 +230,7 @@ def evaluate(
         "workflow_sha": workflow_sha,
         "source_ref": source_ref,
         "base_state_hash": base_state_hash,
-        "trusted_generator_sha256": _sha256(
-            Path(generator.__file__).read_bytes()
-        ),
+        "trusted_generator_sha256": _sha256(Path(generator.__file__).read_bytes()),
         "trusted_evaluator_sha256": _sha256(Path(__file__).read_bytes()),
         "actual_candidate_manifest_sha256": (
             _sha256(actual_manifest_bytes) if actual_manifest_bytes is not None else None
