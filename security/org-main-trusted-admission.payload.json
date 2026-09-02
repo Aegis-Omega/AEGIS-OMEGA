@@ -24,9 +24,9 @@
         "workflows": [
           {
             "path": ".github/workflows/trusted-cognitive-admission.yml",
-            "ref": "refs/heads/repair/trusted-admission-v2",
+            "ref": "refs/heads/main",
             "repository_id": 1095915905,
-            "sha": "6e175394d672ad04eb1f4d30bf688c1b0c5d9f6f"
+            "sha": "3934ef62316ad5e63a78042fd01fd4b75a082cb5"
           }
         ]
       }
