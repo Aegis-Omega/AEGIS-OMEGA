@@ -49,7 +49,11 @@ jobs:
       - name: Run recovery admission contract tests
         id: contract_tests
         continue-on-error: true
-        run: python sovereign-omega-v2/python/tests/test_cognitive_recovery_admission.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          python sovereign-omega-v2/python/tests/test_cognitive_recovery_admission.py
+          python sovereign-omega-v2/python/tests/test_cognitive_recovery_admission_hardening.py
 
       - name: Classify contract result
         shell: bash
