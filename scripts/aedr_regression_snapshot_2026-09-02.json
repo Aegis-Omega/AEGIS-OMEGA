@@ -1,0 +1,124 @@
+{
+  "repository": "Aegis-Omega/AEGIS-OMEGA",
+  "main_sha": "a34d664d66ae9f7c2e729cd4ccb07b74130c660f",
+  "nodes": [
+    {
+      "number": 309,
+      "head_sha": "1406aacca95fef02a942621a7060e0b6b14a5809",
+      "base_sha": "a34d664d66ae9f7c2e729cd4ccb07b74130c660f",
+      "base_ref": "main",
+      "draft": false,
+      "mergeable": "true",
+      "authority_domains": ["RUNTIME_EFFECT"],
+      "git_parents": [],
+      "semantic_dependencies": [],
+      "evidence_receipts": ["actions:32701938852:success"]
+    },
+    {
+      "number": 334,
+      "head_sha": "65f97558615c848c46239706a019c3478bea5a87",
+      "base_sha": "a34d664d66ae9f7c2e729cd4ccb07b74130c660f",
+      "base_ref": "main",
+      "draft": true,
+      "mergeable": "true",
+      "authority_domains": ["RUNTIME_EFFECT"],
+      "git_parents": [],
+      "semantic_dependencies": [],
+      "evidence_receipts": ["actions:33302655448:success"]
+    },
+    {
+      "number": 354,
+      "head_sha": "f481f189019f5ff130331dcabc1eded504f834e2",
+      "base_sha": "65b3f515faaa821eadd0ec61d8604a39699c1707",
+      "base_ref": "feat/mhp1-morphism-engine-v1",
+      "draft": true,
+      "mergeable": "true",
+      "authority_domains": ["MHP_SEMANTIC_PROVENANCE"],
+      "git_parents": [],
+      "semantic_dependencies": [],
+      "evidence_receipts": ["actions:33394519546:success"]
+    },
+    {
+      "number": 356,
+      "head_sha": "5bf54f67d43fcbb6de2e89b0afa7945d7d4cb475",
+      "base_sha": "b7ed712bfa54d0ffca9803344f8ffc7e7bfaeef2",
+      "base_ref": "feat/mhp1-transitive-composition-v1",
+      "draft": true,
+      "mergeable": "true",
+      "authority_domains": ["MHP_SEMANTIC_PROVENANCE"],
+      "git_parents": [],
+      "semantic_dependencies": [],
+      "evidence_receipts": ["actions:33393483371:failure"]
+    },
+    {
+      "number": 363,
+      "head_sha": "98e7ec038cb1e8a8722b5dcc3346a56d9da9801a",
+      "base_sha": "7003e7b343fabf6a486e2fe5d5ecc393c077ebbd",
+      "base_ref": "experimental/quantum-tourbillon-mpvc-v1",
+      "draft": true,
+      "mergeable": "true",
+      "authority_domains": ["QUANTUM_DIAGNOSTIC"],
+      "git_parents": [],
+      "semantic_dependencies": [],
+      "evidence_receipts": ["actions:33577938612:success"]
+    },
+    {
+      "number": 364,
+      "head_sha": "cc234e455015e104c70da6515c95e2a650dd6b46",
+      "base_sha": "7003e7b343fabf6a486e2fe5d5ecc393c077ebbd",
+      "base_ref": "experimental/quantum-tourbillon-mpvc-v1",
+      "draft": true,
+      "mergeable": "true",
+      "authority_domains": ["GOVERNANCE"],
+      "git_parents": [],
+      "semantic_dependencies": [363],
+      "evidence_receipts": ["actions:33578261639:success"]
+    }
+  ],
+  "ancestry": [
+    {
+      "base_pr": 309,
+      "head_pr": 334,
+      "relation": {
+        "base_sha": "1406aacca95fef02a942621a7060e0b6b14a5809",
+        "head_sha": "65f97558615c848c46239706a019c3478bea5a87",
+        "merge_base_sha": "a34d664d66ae9f7c2e729cd4ccb07b74130c660f",
+        "ahead_by": 71,
+        "behind_by": 69,
+        "status": "diverged"
+      }
+    },
+    {
+      "base_pr": 354,
+      "head_pr": 356,
+      "relation": {
+        "base_sha": "f481f189019f5ff130331dcabc1eded504f834e2",
+        "head_sha": "5bf54f67d43fcbb6de2e89b0afa7945d7d4cb475",
+        "merge_base_sha": "b7ed712bfa54d0ffca9803344f8ffc7e7bfaeef2",
+        "ahead_by": 7,
+        "behind_by": 5,
+        "status": "diverged"
+      }
+    },
+    {
+      "base_pr": 363,
+      "head_pr": 364,
+      "relation": {
+        "base_sha": "98e7ec038cb1e8a8722b5dcc3346a56d9da9801a",
+        "head_sha": "cc234e455015e104c70da6515c95e2a650dd6b46",
+        "merge_base_sha": "7003e7b343fabf6a486e2fe5d5ecc393c077ebbd",
+        "ahead_by": 3,
+        "behind_by": 7,
+        "status": "diverged"
+      }
+    }
+  ],
+  "stack_edges": [[356, 354]],
+  "semantic_edges": [[364, 363]],
+  "overlap_pairs": [[309, 334]],
+  "head_deltas": [],
+  "generated_paths": [".claude.json"],
+  "branch_protection_enabled": null,
+  "ruleset_enforcements": ["disabled"],
+  "census": {"open": 6, "draft": 5, "non_draft": 1}
+}
