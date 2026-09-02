@@ -8,11 +8,15 @@ on:
       - 'sovereign-omega-v2/src/polyglot/**'
       - 'sovereign-omega-v2/test/unit/polyglot-*.test.ts'
       - '.github/workflows/polyglot-metacognition.yml'
+      - '.github/workflows/cognitive-manifest-refresh.yml'
+      - '.github/workflows/polyglot-cudaq-live.yml'
   pull_request:
     paths:
       - 'sovereign-omega-v2/src/polyglot/**'
       - 'sovereign-omega-v2/test/unit/polyglot-*.test.ts'
       - '.github/workflows/polyglot-metacognition.yml'
+      - '.github/workflows/cognitive-manifest-refresh.yml'
+      - '.github/workflows/polyglot-cudaq-live.yml'
   workflow_dispatch:
 
 permissions:
