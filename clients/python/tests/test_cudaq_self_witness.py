@@ -1,6 +1,9 @@
+import json
 import math
+from pathlib import Path
 
 import pytest
+from jsonschema import Draft202012Validator
 
 from aegis_omega.cudaq_self_witness import (
     AUTHORITY_CLASS,
@@ -16,6 +19,7 @@ from aegis_omega.cudaq_self_witness import (
 
 DUMMY_SELF_HASH = "8fa6cc600d75cd78a518a8b5b08cfb9f4e665c3016769820d37616d319cdee8a"
 SOURCE_SHA = "98e7ec038cb1e8a8722b5dcc3346a56d9da9801a"
+SCHEMA_PATH = Path(__file__).resolve().parents[3] / "schemas" / "quantum-self-digest-receipt.v1.schema.json"
 
 
 def _observables(z0: float = 0.5) -> dict[str, float]:
@@ -28,6 +32,11 @@ def _observables(z0: float = 0.5) -> dict[str, float]:
         "Z2Z3": 0.25,
         "X0X1X2X3": 0.1,
     }
+
+
+def _deterministic_executor(backend: BackendSpec, _thetas: tuple[float, ...]) -> dict[str, float]:
+    assert backend.execution_mode == "ANALYTIC_STATEVECTOR"
+    return _observables(0.5 if backend.target == "qpp-cpu" else 0.50000001)
 
 
 def test_deterministic_angle_mapping_is_half_open() -> None:
@@ -54,15 +63,9 @@ def test_invalid_or_noncanonical_hash_is_rejected() -> None:
 
 
 def test_differential_gate_passes_within_tolerance_and_has_no_authority() -> None:
-    def executor(backend: BackendSpec, _thetas: tuple[float, ...]) -> dict[str, float]:
-        assert backend.execution_mode == "ANALYTIC_STATEVECTOR"
-        if backend.target == "qpp-cpu":
-            return _observables(0.5)
-        return _observables(0.50000001)
-
     engine = SelfWitnessEngine(
         tolerance=DifferentialGateTolerance(epsilon_max_abs_diff=1e-5),
-        executor=executor,
+        executor=_deterministic_executor,
     )
     result = engine.run_witness_cycle(DUMMY_SELF_HASH, source_sha=SOURCE_SHA)
     receipt = result["receipt"]
@@ -73,7 +76,20 @@ def test_differential_gate_passes_within_tolerance_and_has_no_authority() -> Non
     assert receipt["quantum_physical_advantage"] == "NOT_ESTABLISHED"
     assert receipt["rh_status"] == "NOT_PROVEN"
     assert set(receipt["observables_a"]) == set(OBSERVABLE_NAMES)
+    assert receipt["backend_b_config"]["options"] == {"option": "fp64"}
     assert len(result["receipt_digest"]) == 64
+    assert "purity" not in json.dumps(receipt).lower()
+
+
+def test_receipt_is_rfc8785_deterministic_and_schema_valid() -> None:
+    engine = SelfWitnessEngine(executor=_deterministic_executor)
+    first = engine.run_witness_cycle(DUMMY_SELF_HASH, source_sha=SOURCE_SHA)
+    second = engine.run_witness_cycle(DUMMY_SELF_HASH, source_sha=SOURCE_SHA)
+
+    assert first == second
+    schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+    Draft202012Validator(schema).validate(first["receipt"])
 
 
 def test_differential_gate_fails_above_tolerance() -> None:
