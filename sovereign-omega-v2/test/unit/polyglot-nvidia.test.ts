@@ -41,6 +41,7 @@ describe('NVIDIA scientific substrate extension', () => {
       'nvidia-agent-toolkit',
       'nemo-platform',
       'nemo-fabric',
+      'bionemo-framework',
       'bionemo-ir',
       'cudaq',
       'cuquantum',
