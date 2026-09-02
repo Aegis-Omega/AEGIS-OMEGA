@@ -65,6 +65,36 @@ jobs:
           print('cudaq_target=' + cudaq.get_target().name)
           PY
 
+      - name: Diagnose exact python-c smoke subprocess
+        continue-on-error: true
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import subprocess
+          script = '''import cudaq, json
+          cudaq.set_target("qpp-cpu")
+          @cudaq.kernel
+          def aegis_bell_smoke():
+              q = cudaq.qvector(2)
+              h(q[0])
+              x.ctrl(q[0], q[1])
+              mz(q)
+          result = cudaq.sample(aegis_bell_smoke, shots_count=32)
+          counts = {str(bits): int(count) for bits, count in result.items()}
+          payload = {'target_name': cudaq.get_target().name, 'counts': counts}
+          print(json.dumps(payload, sort_keys=True, separators=(',', ':')))
+          '''
+          result = subprocess.run(['python3', '-c', script], text=True, capture_output=True)
+          print('diagnostic_exit_code=' + str(result.returncode))
+          print('diagnostic_stdout_begin')
+          print(result.stdout)
+          print('diagnostic_stdout_end')
+          print('diagnostic_stderr_begin')
+          print(result.stderr)
+          print('diagnostic_stderr_end')
+          raise SystemExit(result.returncode)
+          PY
+
       - name: Install exact Node dependencies
         working-directory: sovereign-omega-v2
         run: npm ci
