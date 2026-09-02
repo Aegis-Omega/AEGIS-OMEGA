@@ -1,5 +1,5 @@
 {
-  "anchor_base_commit": "7167722108bdc52501b9d622e583d5d9c4ca1f2b",
+  "anchor_base_commit": "99d3700c2d5a2aab73a756109dda80de439d1baa",
   "authority": "T1_DIAGNOSTIC",
   "branch": "experimental/quantum-tourbillon-mpvc-v1",
   "canonical_status": {
@@ -8,12 +8,12 @@
     "RH": "NOT_PROVEN"
   },
   "files_blake3": {
-    "clients/python/aegis_omega/tourbillon.py": "0454665daf129ca60b4cf89f248fc6e918d12e85e18a5481a6068659b90c8d44",
+    "clients/python/aegis_omega/tourbillon.py": "554620f483e4122ae224e86d96cdd35e86285a34bfed15040337bd53d4335def",
     "clients/python/setup.py": "3c8468134d470dc5ff1bb9cd38f6f31939c1a622bffb0a81d6caa3b4d4ec6b57",
     "clients/python/tests/conftest.py": "d6b4501aa4444b3a9b08f9f7b0944bf57c988840090b507b6a6d7ee488e51c1d",
-    "clients/python/tests/test_quantum_tourbillon.py": "4638bc3ac51e405496addcc67d193000900a86ba5b9224d6d95e8756c78f1d23"
+    "clients/python/tests/test_quantum_tourbillon.py": "d3fda80bed59b8508614b555f5ee7cefb286876300de92d2f90f8f3380c00a11"
   },
-  "green_commit": "061db234608ddba0aa838f4b9f2b0619bbf338a1",
+  "green_commit": "e10a633cfac71eb032dc878c7523f9ebf02ef199",
   "grover_probabilities_by_marked_index": {
     "0": [
       1.0,
@@ -42,13 +42,14 @@
   },
   "main_untouched_at": "a34d664d",
   "pytest": [
-    "tests/test_quantum_tourbillon.py::test_unauthorized_quantum_admission PASSED [ 25%]",
-    "tests/test_quantum_tourbillon.py::test_deterministic_blake3_receipt_hashing PASSED [ 50%]",
-    "tests/test_quantum_tourbillon.py::test_unavailable_blocks_implicit_pass PASSED [ 75%]",
-    "tests/test_quantum_tourbillon.py::test_grover_amplification_locates_marked_failing_perspective PASSED [100%]",
-    "============================== 4 passed in 0.49s ==============================="
+    "tests/test_quantum_tourbillon.py::test_unauthorized_quantum_admission PASSED [ 20%]",
+    "tests/test_quantum_tourbillon.py::test_deterministic_blake3_receipt_hashing PASSED [ 40%]",
+    "tests/test_quantum_tourbillon.py::test_unavailable_blocks_implicit_pass PASSED [ 60%]",
+    "tests/test_quantum_tourbillon.py::test_grover_amplification_locates_marked_failing_perspective PASSED [ 80%]",
+    "tests/test_quantum_tourbillon.py::test_diagnostic_oracle_registry_marks_first_failing_invariant PASSED [100%]",
+    "============================== 5 passed in 0.52s ==============================="
   ],
-  "receipt_blake3": "b6a10e098cb548c388216145882c32c9f6235465bac7caab43f1cb6aa3f4c75e",
+  "receipt_blake3": "f28726a23b4714c00c12d32a6d1f6284371faa235d341787879b3b822730884a",
   "receipt_kind": "AEGIS_QUANTUM_TOURBILLON_MPVC_RECEIPT_V1",
   "regenerate": "cd clients/python && python3 -m pytest tests/test_quantum_tourbillon.py -v; recompute files_blake3 with blake3 over each file",
   "toolchain": {
