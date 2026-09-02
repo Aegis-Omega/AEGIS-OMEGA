@@ -10,7 +10,7 @@
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
     "source_ref": "research/polyglot-metacognition-v1",
-    "parent_state_hash": "1a68e9a42751f99b3935ba562ef2dda146b4d40e750ec3080210d12391888066",
+    "parent_state_hash": "2a53523bea9aad7ec6088fd258d64674417bb6f2ee83888dbd85b503e3999c6a",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "eb59deda32fb7b69dffff86838f478efbdf93ee2eed5c9abe013e2b74f3e4ff5"
+  "state_hash": "5908434f237fe5951bcbc64e70159e4b353913b84c2a39ec8b3123cc9ae1329e"
 }
