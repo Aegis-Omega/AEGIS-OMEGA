@@ -44,10 +44,13 @@ Proof.
   exact (proj1 (CReq_nlt x y) Hxy).
 Qed.
 
+(* [CRle] is also a CoRN identifier after the fast-real imports.  State the
+   stdlib order at FastRealsConstructive in its definitionally equal normal
+   form instead of relying on an ambiguous unqualified projection name. *)
 Lemma corn_fast_le_to_stdlib_le_a1c_v1 :
   forall x y : CR,
     (x <= y)%CR ->
-    CRle FastRealsConstructive x y.
+    (CRltT y x -> False).
 Proof.
   intros x y Hxy.
   exact (proj1 (CRle_not_lt x y) Hxy).
