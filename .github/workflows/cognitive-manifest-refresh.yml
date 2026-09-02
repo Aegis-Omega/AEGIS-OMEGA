@@ -26,13 +26,13 @@ jobs:
       GITHUB_ACTIONS_APP_ID: '15368'
     steps:
       - name: Checkout trusted main control plane
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: main
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.12'
 
@@ -52,6 +52,10 @@ jobs:
           fi
           if [[ "$TARGET_REF" == repair/cognitive-anchor-* ]]; then
             echo "Recovery branches are never auto-mutated: $TARGET_REF" >&2
+            exit 1
+          fi
+          if ! git ls-remote --exit-code --heads origin "refs/heads/$TARGET_REF" >/dev/null; then
+            echo "Target must already exist as a remote branch: refs/heads/$TARGET_REF" >&2
             exit 1
           fi
 
@@ -162,9 +166,9 @@ jobs:
 
       - name: Checkout explicit target after admission gate
         if: steps.admission.outputs.allowed == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ inputs.target_ref }}
+          ref: refs/heads/${{ inputs.target_ref }}
           fetch-depth: 0
 
       - name: Generate deterministic anchors with trusted main generator
@@ -200,4 +204,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .claude.json skill-hashes.sha256
           git commit -m "chore(manifest): refresh cognitive-state anchors"
-          git push origin "HEAD:$TARGET_REF"
+          git push origin "HEAD:refs/heads/$TARGET_REF"
