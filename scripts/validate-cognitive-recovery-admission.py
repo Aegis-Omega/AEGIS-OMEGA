@@ -3,8 +3,8 @@
 
 This milestone is authority-neutral. It does not sign, mutate refs, update main,
 modify repository governance, deploy, or grant production recovery authority.
-R0-R7 validate bounded recovery evidence. Replay state remains fail-closed and
-must be implemented by a later base-owned admission layer before any grant.
+R0-R7 validate bounded recovery evidence. Replay observations are validated here,
+but atomic replay reservation/consumption remains a later base-owned authority layer.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ RECEIPT_KIND = "AEGIS_COGNITIVE_RECOVERY_ADMISSION_RECEIPT_V1"
 REQUEST_DOMAIN = "AEGIS_COGNITIVE_RECOVERY_ADMISSION_REQUEST_V1"
 PLATFORM_DOMAIN = "AEGIS_PLATFORM_GOVERNANCE_OBSERVATION_V1"
 APPROVAL_DOMAIN = "AEGIS_RECOVERY_OPERATOR_APPROVAL_V1"
+REPLAY_DOMAIN = "AEGIS_COGNITIVE_RECOVERY_REPLAY_STATE_V1"
 SCHEMA_VERSION = "1.0.0"
 VERIFIER_IDENTITY = "offline:aegis-cognitive-recovery-admission-v1"
 REPOSITORY_ID = "Aegis-Omega/AEGIS-OMEGA"
@@ -33,6 +34,7 @@ REQUIRED_PLATFORM_CHECKS = frozenset(
         "aegis / automaton-3",
     }
 )
+_REPLAY_NOT_SUPPLIED = object()
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REQUEST_SCHEMA_PATH = REPO_ROOT / "schemas" / "cognitive-recovery-admission-request.v1.schema.json"
@@ -122,6 +124,15 @@ def operator_approval_digest(approval: Mapping[str, Any]) -> str:
         domain=APPROVAL_DOMAIN,
         envelope_key="approval",
         self_field="approval_digest",
+    )
+
+
+def replay_state_digest(replay_state: Mapping[str, Any]) -> str:
+    return _domain_digest(
+        replay_state,
+        domain=REPLAY_DOMAIN,
+        envelope_key="replay_state",
+        self_field="replay_state_digest",
     )
 
 
@@ -510,6 +521,52 @@ def _gate_r7(
     return violations
 
 
+def _gate_replay(
+    request: Mapping[str, Any], replay_state: Mapping[str, Any] | None
+) -> list[str]:
+    if not isinstance(replay_state, Mapping):
+        return ["REPLAY:STATE_NOT_EVALUATED"]
+
+    violations: list[str] = []
+    if replay_state.get("schema_version") != SCHEMA_VERSION:
+        violations.append("REPLAY:SCHEMA_VERSION_MISMATCH")
+    if replay_state.get("repository_id") != REPOSITORY_ID:
+        violations.append("REPLAY:REPOSITORY_ID_MISMATCH")
+    if replay_state.get("request_digest") != request.get("request_id"):
+        violations.append("REPLAY:REQUEST_BINDING_MISMATCH")
+    if replay_state.get("candidate_sha") != request.get("candidate_sha"):
+        violations.append("REPLAY:CANDIDATE_BINDING_MISMATCH")
+    if replay_state.get("operator_approval_digest") != request.get("operator_approval_digest"):
+        violations.append("REPLAY:APPROVAL_BINDING_MISMATCH")
+
+    supplied_digest = replay_state.get("replay_state_digest")
+    try:
+        recomputed_digest = replay_state_digest(replay_state)
+    except (TypeError, ValueError):
+        recomputed_digest = None
+    if not isinstance(supplied_digest, str) or supplied_digest != recomputed_digest:
+        violations.append("REPLAY:DIGEST_MISMATCH")
+
+    generation = replay_state.get("generation")
+    if not isinstance(generation, int) or isinstance(generation, bool) or generation < 0:
+        violations.append("REPLAY:GENERATION_INVALID")
+
+    state = replay_state.get("state")
+    if state == "UNUSED":
+        if not violations:
+            violations.append("REPLAY:ATOMIC_CONSUMPTION_NOT_ESTABLISHED")
+    elif state == "RESERVED":
+        violations.append("REPLAY:STATE_RESERVED")
+    elif state == "CONSUMED":
+        violations.append("REPLAY:STATE_CONSUMED")
+    elif state == "UNKNOWN":
+        violations.append("REPLAY:STATE_UNKNOWN")
+    else:
+        violations.append("REPLAY:STATE_INVALID")
+
+    return violations
+
+
 def evaluate(
     *,
     repo: Path,
@@ -518,8 +575,9 @@ def evaluate(
     platform_observation: Mapping[str, Any] | None,
     operator_approval: Mapping[str, Any] | None,
     verifier_code_digest: str,
+    replay_state: Mapping[str, Any] | None | object = _REPLAY_NOT_SUPPLIED,
 ) -> dict[str, Any]:
-    """Evaluate R0-R7 evidence and remain fail-closed on replay state."""
+    """Evaluate bounded recovery evidence and fail closed before atomic consumption."""
     verified: list[str] = []
     violations: list[str] = []
 
@@ -563,10 +621,12 @@ def evaluate(
     if not r7:
         verified.append("R7")
 
-    # Replay/consumption state is deliberately outside this candidate-controlled
-    # offline verifier. Until a base-owned atomic state transition exists, no
-    # admission authority may be minted even when all eight evidence gates pass.
-    violations.append("R0:REPLAY_STATE_NOT_EVALUATED")
+    # Preserve the historical omitted-input marker for callers that have not yet
+    # adopted the replay envelope. Explicit replay input uses the new typed lane.
+    if replay_state is _REPLAY_NOT_SUPPLIED:
+        violations.append("R0:REPLAY_STATE_NOT_EVALUATED")
+    else:
+        violations.extend(_gate_replay(request, replay_state if isinstance(replay_state, Mapping) else None))
 
     platform_state = "UNKNOWN"
     if isinstance(platform_observation, Mapping):
