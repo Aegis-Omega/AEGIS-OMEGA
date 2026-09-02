@@ -17,6 +17,7 @@ concurrency:
 
 env:
   SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  AVD_COQ_IMAGE: coqorg/coq:8.20@sha256:18ebf3da56e60e3ddfd7d4e51f4c53d10241a129f34e93dacbc71562dd43c57a
 
 jobs:
   contract:
@@ -48,3 +49,85 @@ jobs:
         run: |
           set -euo pipefail
           python -m pytest -q tests/avd
+
+  network-none:
+    name: candidate OS network-none attestation
+    needs: contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Pull pinned historical toolchain image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull "$AVD_COQ_IMAGE"
+          resolved="$(docker image inspect "$AVD_COQ_IMAGE" --format '{{join .RepoDigests "\n"}}')"
+          printf '%s\n' "$resolved"
+          printf '%s\n' "$resolved" | grep -F 'sha256:18ebf3da56e60e3ddfd7d4e51f4c53d10241a129f34e93dacbc71562dd43c57a'
+
+      - name: Prove Docker network-none boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          cid="$(docker create --network none --entrypoint /bin/sh "$AVD_COQ_IMAGE" -c 'sleep 60')"
+          cleanup() { docker rm -f "$cid" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+          docker start "$cid" >/dev/null
+
+          mode="$(docker inspect -f '{{.HostConfig.NetworkMode}}' "$cid")"
+          test "$mode" = 'none'
+
+          non_none="$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{if ne $k "none"}}{{$k}}{{end}}{{end}}' "$cid")"
+          test -z "$non_none"
+
+          docker exec "$cid" /bin/sh -c 'test ! -e /sys/class/net/eth0'
+
+          cat > "$RUNNER_TEMP/avd-network-none.json" <<'JSON'
+          {
+            "schema_version": "AVD-NETWORK-NONE-ATTESTATION-V1",
+            "authority_class": "NONE",
+            "toolchain_image_digest": "sha256:18ebf3da56e60e3ddfd7d4e51f4c53d10241a129f34e93dacbc71562dd43c57a",
+            "docker_network_mode": "none",
+            "docker_networks_empty": true,
+            "eth0_absent": true
+          }
+          JSON
+
+      - name: Validate network-none attestation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - "$RUNNER_TEMP/avd-network-none.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          from scripts.avd.network_none_attestation import NetworkNoneAttestationV1
+
+          path = Path(sys.argv[1])
+          att = NetworkNoneAttestationV1.from_dict(json.loads(path.read_text(encoding='utf-8')))
+          assert att.os_network_none_attested is True
+          print('AVD_OS_NETWORK_NONE_ATTESTED')
+          PY
+
+      - name: Upload network-none evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: avd-network-none-${{ env.SOURCE_SHA }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/avd-network-none.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+          overwrite: false
