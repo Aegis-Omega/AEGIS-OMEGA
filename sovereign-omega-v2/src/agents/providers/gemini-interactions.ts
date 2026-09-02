@@ -1,4 +1,8 @@
 import type { GeminiReasoningProfile, ProviderCognitiveProfile } from '../coordination/provider-cognition.js'
+import {
+  assertBoundProviderToolSetV1,
+  type BoundProviderToolSetV1,
+} from '../coordination/provider-tool-set.js'
 
 export interface GeminiInteractionRequest {
   readonly model: string
@@ -15,7 +19,7 @@ export interface GeminiInteractionRequest {
 export interface BuildGeminiInteractionRequestInput {
   readonly profile: ProviderCognitiveProfile
   readonly input: string
-  readonly tools?: readonly Readonly<Record<string, unknown>>[]
+  readonly tool_set?: BoundProviderToolSetV1
 }
 
 export function buildGeminiInteractionRequest(
@@ -25,6 +29,7 @@ export function buildGeminiInteractionRequest(
     throw new TypeError('buildGeminiInteractionRequest requires a Gemini profile')
   }
   if (!input.input.trim()) throw new TypeError('Gemini interaction input must not be empty')
+  if (input.tool_set !== undefined) assertBoundProviderToolSetV1(input.tool_set)
 
   return Object.freeze({
     model: input.profile.model,
@@ -35,6 +40,6 @@ export function buildGeminiInteractionRequest(
       thinking_summaries: 'none' as const,
       tool_choice: 'auto' as const,
     }),
-    ...(input.tools !== undefined ? { tools: Object.freeze([...input.tools]) } : {}),
+    ...(input.tool_set !== undefined ? { tools: input.tool_set.tools } : {}),
   })
 }
