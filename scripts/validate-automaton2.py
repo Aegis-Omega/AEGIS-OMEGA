@@ -77,11 +77,19 @@ def validate_state_hash(manifest: dict[str, Any]) -> list[str]:
     return [] if state_hash == expected else ["state_hash mismatch"]
 
 
-def validate_parent_state(manifest: dict[str, Any], expected: str) -> list[str]:
+def validate_parent_state(
+    manifest: dict[str, Any],
+    expected: str,
+    *,
+    allow_genesis: bool = False,
+) -> list[str]:
+    errors: list[str] = []
+    if expected == ZERO_HASH and not allow_genesis:
+        errors.append("zero parent state requires explicit genesis mode")
     actual = manifest.get("provenance", {}).get("parent_state_hash")
-    return [] if actual == expected else [
-        f"parent_state_hash mismatch: expected {expected}, got {actual}"
-    ]
+    if actual != expected:
+        errors.append(f"parent_state_hash mismatch: expected {expected}, got {actual}")
+    return errors
 
 
 def validate_signature_contract(manifest: dict[str, Any], require_oidc: bool) -> list[str]:
@@ -208,6 +216,7 @@ def evaluate(
     expected_parent_state_hash: str,
     candidate_sha: str,
     require_oidc: bool,
+    allow_genesis: bool = False,
 ) -> dict[str, Any]:
     violations: list[str] = []
     manifest: dict[str, Any] | None = None
@@ -221,7 +230,13 @@ def evaluate(
             raise ValueError("schema root is not an object")
         violations.extend(validate_schema(manifest, schema))
         violations.extend(validate_state_hash(manifest))
-        violations.extend(validate_parent_state(manifest, expected_parent_state_hash))
+        violations.extend(
+            validate_parent_state(
+                manifest,
+                expected_parent_state_hash,
+                allow_genesis=allow_genesis,
+            )
+        )
         violations.extend(validate_signature_contract(manifest, require_oidc))
         violations.extend(validate_skill_evidence(root, manifest))
         violations.extend(validate_replay(root, manifest, generator_path, hashes_path))
@@ -249,12 +264,16 @@ def main() -> int:
     parser.add_argument("--expected-parent-state-hash", default=None)
     parser.add_argument("--candidate-sha", default=os.environ.get("GITHUB_SHA", "local"))
     parser.add_argument("--require-oidc", action="store_true")
+    parser.add_argument("--allow-genesis", action="store_true")
     parser.add_argument("--output", default="AUTOMATON2_RECEIPT.json")
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
     parent_manifest = Path(args.parent_manifest).resolve() if args.parent_manifest else None
     expected = expected_parent_hash(parent_manifest, args.expected_parent_state_hash)
+    # Genesis is an explicit no-parent mode. A present parent manifest can never
+    # be reclassified as genesis merely because it carries ZERO_HASH.
+    genesis_allowed = bool(args.allow_genesis and parent_manifest is None)
     receipt = evaluate(
         root=root,
         manifest_path=(root / args.manifest).resolve(),
@@ -264,6 +283,7 @@ def main() -> int:
         expected_parent_state_hash=expected,
         candidate_sha=args.candidate_sha,
         require_oidc=args.require_oidc,
+        allow_genesis=genesis_allowed,
     )
     Path(args.output).write_bytes(canonical_bytes(receipt))
     print(f"{receipt['outcome']} {receipt['receipt_hash']}")
