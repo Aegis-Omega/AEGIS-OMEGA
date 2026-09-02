@@ -95,7 +95,7 @@ jobs:
               echo 'RED checkpoint: CornO0MorphismBridge.v intentionally absent.' \
                 | tee "$OUT/red-checkpoint.txt"
               set +e
-              coqc -Q "$THEORY" "" -Q "$TESTDIR" "" "$TEST" 2>&1 \
+              (cd "$TESTDIR" && coqc -Q "$THEORY" "" CornO0MorphismBridgeSpec.v) 2>&1 \
                 | tee "$OUT/a1c-spec.log"
               status=${PIPESTATUS[0]}
               set -e
@@ -106,8 +106,11 @@ jobs:
               exit 1
             fi
 
-            coqc -Q "$THEORY" "" "$SOURCE" 2>&1 | tee "$OUT/a1c-source.log"
-            coqc -Q "$THEORY" "" -Q "$TESTDIR" "" "$TEST" 2>&1 \
+            # Match the canonical global attestation compile model exactly:
+            # sibling Requires are resolved by compiling from the theorem dir.
+            (cd "$THEORY" && coqc CornO0MorphismBridge.v) 2>&1 \
+              | tee "$OUT/a1c-source.log"
+            (cd "$TESTDIR" && coqc -Q "$THEORY" "" CornO0MorphismBridgeSpec.v) 2>&1 \
               | tee "$OUT/a1c-spec.log"
 
             for theorem in \
@@ -126,7 +129,7 @@ jobs:
             Require Import CornO0MorphismBridge.
             Print Assumptions ${theorem}.
             EOF
-              coqtop -quiet -batch -Q "$THEORY" "" -l "$query" > "$log" 2>&1
+              (cd "$THEORY" && coqtop -quiet -batch -l "$query") > "$log" 2>&1
               rm -f "$query"
               cat "$log"
               grep -q 'Closed under the global context' "$log"
