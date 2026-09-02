@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "fix/automaton2-single-anchor-writer",
-    "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
+    "source_ref": "codex/validate-aegis_batch_max_usd-in-configuration",
+    "parent_state_hash": "17a5ca4134b6962fc46eaa3a71f18755f5e63c0bb0494181d3967909529cb76d",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "17a5ca4134b6962fc46eaa3a71f18755f5e63c0bb0494181d3967909529cb76d"
+  "state_hash": "fd487e71b8479620ff74188b14f5e61cad98fbfe634579a172a8b1a269690db9"
 }

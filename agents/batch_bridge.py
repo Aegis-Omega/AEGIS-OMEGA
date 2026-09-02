@@ -25,6 +25,7 @@ Live (guarded):          AEGIS_BATCH_LIVE=1 AEGIS_BATCH_MAX_USD=0.50 python3 -m 
 from __future__ import annotations
 
 import json
+import math
 import os
 import pathlib
 from dataclasses import dataclass, field
@@ -32,7 +33,29 @@ from dataclasses import dataclass, field
 # ── Config (env, explicit) ──────────────────────────────────────────────────
 MODEL = os.environ.get("AEGIS_SWARM_MODEL", "claude-opus-4-8")
 MAX_TOKENS = int(os.environ.get("AEGIS_BATCH_MAX_TOKENS", "2048"))
-MAX_USD = float(os.environ.get("AEGIS_BATCH_MAX_USD", "1.00"))
+
+
+def _validate_cap(value: object, *, name: str = "cap") -> float:
+    """Return a finite, strictly positive USD cap or fail closed."""
+    try:
+        cap = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"Invalid {name}: must be a finite, strictly positive USD value; "
+            f"got {value!r}."
+        ) from None
+    if not math.isfinite(cap) or cap <= 0:
+        raise ValueError(
+            f"Invalid {name}: must be a finite, strictly positive USD value; "
+            f"got {value!r}."
+        )
+    return cap
+
+
+MAX_USD = _validate_cap(
+    os.environ.get("AEGIS_BATCH_MAX_USD", "1.00"),
+    name="AEGIS_BATCH_MAX_USD",
+)
 LIVE = os.environ.get("AEGIS_BATCH_LIVE") == "1"
 STORE_DIR = pathlib.Path(os.environ.get(
     "AEGIS_BATCH_STORE", str(pathlib.Path(__file__).parent / ".batch_state")))
@@ -63,7 +86,7 @@ class FileStore:
 
 @dataclass
 class AgentTask:
-    custom_id: str          # stable id → lets results sync back to the right agent
+    custom_id: str
     system: str
     prompt: str
     max_tokens: int = MAX_TOKENS
@@ -79,7 +102,8 @@ class BatchPlan:
 
 
 def _tok(text: str) -> int:
-    return max(1, len(text) // 4)  # ~4 chars/token, worst-case-friendly
+    """Conservative arbitrary-text input bound based on UTF-8 bytes."""
+    return max(1, len(text.encode("utf-8")))
 
 
 def estimate(tasks: list[AgentTask], model: str) -> float:
@@ -93,6 +117,7 @@ def estimate(tasks: list[AgentTask], model: str) -> float:
 
 
 def plan(tasks: list[AgentTask], model: str = MODEL, cap: float = MAX_USD) -> BatchPlan:
+    cap = _validate_cap(cap)
     est = estimate(tasks, model)
     requests = [{
         "custom_id": t.custom_id,
@@ -109,9 +134,8 @@ def plan(tasks: list[AgentTask], model: str = MODEL, cap: float = MAX_USD) -> Ba
 
 def submit(tasks: list[AgentTask], *, live: bool = LIVE, cap: float = MAX_USD,
            store: FileStore | None = None) -> dict:
-    """Plan the batch, enforce the cap, and only submit when explicitly live and
-    under cap. Returns a record persisted to the store for session synchronization.
-    NEVER spends money in dry-run or when over cap."""
+    """Plan the batch, enforce the cap, and submit only when explicitly live."""
+    cap = _validate_cap(cap)
     store = store or FileStore(STORE_DIR)
     p = plan(tasks, cap=cap)
     record = {"model": p.model, "n_requests": p.n, "est_usd": p.est_usd,
@@ -123,8 +147,7 @@ def submit(tasks: list[AgentTask], *, live: bool = LIVE, cap: float = MAX_USD,
     elif p.over_cap:
         record["status"] = "refused_over_cap"
     else:
-        # LIVE, under cap → Anthropic Message Batches API (50% cheaper, async).
-        from anthropic import Anthropic  # imported only on the live path
+        from anthropic import Anthropic
         client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
         batch = client.messages.batches.create(requests=p.requests)
         record["status"] = "submitted"
@@ -134,7 +157,6 @@ def submit(tasks: list[AgentTask], *, live: bool = LIVE, cap: float = MAX_USD,
     return record
 
 
-# ── Demonstration: dry-run over the registered agents, $0 ───────────────────
 def _sample_tasks() -> list[AgentTask]:
     reg_path = pathlib.Path(__file__).parent / "agent_registry.json"
     reg = json.loads(reg_path.read_text()) if reg_path.exists() else {}
@@ -147,7 +169,7 @@ def _sample_tasks() -> list[AgentTask]:
 
 if __name__ == "__main__":
     tasks = _sample_tasks()
-    rec = submit(tasks)  # dry-run by default
+    rec = submit(tasks)
     print("AEGIS Batch Bridge — plan")
     print("=" * 56)
     print(f"  model         : {rec['model']}")
