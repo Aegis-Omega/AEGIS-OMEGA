@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Fail-closed verifier for GitHub default-branch enforcement.
+"""Fail-closed verifier for the AEGIS default-branch repository ruleset.
 
-This checker deliberately separates repository evidence from repository authority:
-a green CI run is not production admission unless GitHub itself enforces the branch.
-It accepts either classic branch protection or repository rulesets, but requires the
-same core invariants in either mechanism.
+The verifier intentionally uses GitHub's effective-rules surface, not privileged
+branch-protection administration endpoints. For a public repository the effective
+branch rules are observable with Metadata:read (and without authentication), which
+lets CI prove active enforcement semantics without acquiring mutation authority.
+
+Anti-splicing invariant: one named repository ruleset must independently establish
+all required guarantees. Guarantees from unrelated repository/organization rulesets
+are never joined to manufacture a passing result.
 """
 
 from __future__ import annotations
@@ -17,9 +21,12 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 API = "https://api.github.com"
+API_VERSION = "2026-03-10"
+DEFAULT_POLICY = Path(__file__).resolve().parents[1] / "security" / "repository-enforcement-policy.json"
 
 
 class EnforcementError(RuntimeError):
@@ -27,42 +34,109 @@ class EnforcementError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class Policy:
+    ruleset_name: str
+    required_approving_review_count: int
+    dismiss_stale_reviews_on_push: bool
+    require_last_push_approval: bool
+    require_code_owner_review: bool
+    require_conversation_resolution: bool
+    require_branches_up_to_date: bool
+    required_status_check_integration_id: int
+    required_status_check_contexts: tuple[str, ...]
+
+    @classmethod
+    def load(cls, path: str | Path) -> "Policy":
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+        policy = raw.get("policy")
+        if not isinstance(policy, dict):
+            raise EnforcementError("repository enforcement policy has no policy object")
+        contexts = policy.get("required_status_check_contexts")
+        if not isinstance(contexts, list) or not contexts or not all(isinstance(item, str) and item for item in contexts):
+            raise EnforcementError("required_status_check_contexts must be a non-empty string list")
+        integration_id = policy.get("required_status_check_integration_id")
+        if not isinstance(integration_id, int) or integration_id <= 0:
+            raise EnforcementError("required_status_check_integration_id must be a positive integer")
+        return cls(
+            ruleset_name=str(raw.get("ruleset_name") or "AEGIS Main Enforcement"),
+            required_approving_review_count=int(policy.get("required_approving_review_count", 0)),
+            dismiss_stale_reviews_on_push=bool(policy.get("dismiss_stale_reviews_on_push", False)),
+            require_last_push_approval=bool(policy.get("require_last_push_approval", False)),
+            require_code_owner_review=bool(policy.get("require_code_owner_review", False)),
+            require_conversation_resolution=bool(policy.get("require_conversation_resolution", True)),
+            require_branches_up_to_date=bool(policy.get("require_branches_up_to_date", True)),
+            required_status_check_integration_id=integration_id,
+            required_status_check_contexts=tuple(contexts),
+        )
+
+
+@dataclass(frozen=True)
 class Result:
     protected: bool
+    named_ruleset_active: bool
     pull_request_required: bool
-    approving_review_required: bool
+    review_policy_matches: bool
+    conversation_resolution_required: bool
     status_checks_required: bool
+    required_status_check_contexts_complete: bool
+    required_status_check_publishers_pinned: bool
+    branches_up_to_date_required: bool
     force_push_blocked: bool
     deletion_blocked: bool
     signatures_required: bool
-    conversation_resolution_required: bool
     source: str
+    evaluated_ruleset_id: int | None = None
+    observed_required_approving_review_count: int = 0
+    observed_dismiss_stale_reviews_on_push: bool = False
+    observed_require_last_push_approval: bool = False
+    observed_require_code_owner_review: bool = False
+    observed_required_status_check_contexts: tuple[str, ...] = ()
+    missing_required_status_check_contexts: tuple[str, ...] = ()
+    publisher_mismatch_contexts: tuple[str, ...] = ()
+    all_effective_ruleset_ids: tuple[int, ...] = ()
 
     @property
     def ok(self) -> bool:
         return all(
             (
                 self.protected,
+                self.named_ruleset_active,
                 self.pull_request_required,
-                self.approving_review_required,
+                self.review_policy_matches,
+                self.conversation_resolution_required,
                 self.status_checks_required,
+                self.required_status_check_contexts_complete,
+                self.required_status_check_publishers_pinned,
+                self.branches_up_to_date_required,
                 self.force_push_blocked,
                 self.deletion_blocked,
                 self.signatures_required,
-                self.conversation_resolution_required,
             )
         )
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "protected": self.protected,
+            "named_ruleset_active": self.named_ruleset_active,
             "pull_request_required": self.pull_request_required,
-            "approving_review_required": self.approving_review_required,
+            "review_policy_matches": self.review_policy_matches,
+            "conversation_resolution_required": self.conversation_resolution_required,
             "status_checks_required": self.status_checks_required,
+            "required_status_check_contexts_complete": self.required_status_check_contexts_complete,
+            "required_status_check_publishers_pinned": self.required_status_check_publishers_pinned,
+            "branches_up_to_date_required": self.branches_up_to_date_required,
             "force_push_blocked": self.force_push_blocked,
             "deletion_blocked": self.deletion_blocked,
             "signatures_required": self.signatures_required,
-            "conversation_resolution_required": self.conversation_resolution_required,
+            "evaluated_ruleset_id": self.evaluated_ruleset_id,
+            "observed_required_approving_review_count": self.observed_required_approving_review_count,
+            "observed_dismiss_stale_reviews_on_push": self.observed_dismiss_stale_reviews_on_push,
+            "observed_require_last_push_approval": self.observed_require_last_push_approval,
+            "observed_require_code_owner_review": self.observed_require_code_owner_review,
+            "observed_required_status_check_contexts": list(self.observed_required_status_check_contexts),
+            "missing_required_status_check_contexts": list(self.missing_required_status_check_contexts),
+            "publisher_mismatch_contexts": list(self.publisher_mismatch_contexts),
+            "all_effective_ruleset_ids": list(self.all_effective_ruleset_ids),
             "source": self.source,
             "production_admission": "ELIGIBLE" if self.ok else "FORBIDDEN",
         }
@@ -73,8 +147,8 @@ def _get(path: str, token: str | None) -> tuple[int, Any]:
         API + path,
         headers={
             "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "aegis-repository-enforcement/1",
+            "X-GitHub-Api-Version": API_VERSION,
+            "User-Agent": "aegis-repository-enforcement/2",
             **({"Authorization": f"Bearer {token}"} if token else {}),
         },
     )
@@ -90,91 +164,158 @@ def _get(path: str, token: str | None) -> tuple[int, Any]:
         return exc.code, parsed
 
 
-def _deny(source: str) -> Result:
-    return Result(False, False, False, False, False, False, False, False, source)
-
-
-def _classic(repo: str, branch: str, token: str | None, protected: bool) -> Result | None:
-    status, protection = _get(
-        f"/repos/{repo}/branches/{urllib.parse.quote(branch, safe='')}/protection", token
-    )
-    if status == 404:
-        return None
-    if status != 200 or not isinstance(protection, dict):
-        raise EnforcementError(f"classic protection lookup failed: HTTP {status}: {protection}")
-
-    reviews = protection.get("required_pull_request_reviews") or {}
-    checks = protection.get("required_status_checks") or {}
-    enforce_admins = protection.get("enforce_admins") or {}
-    signatures = protection.get("required_signatures") or {}
-    conversations = protection.get("required_conversation_resolution") or {}
-    allow_force = protection.get("allow_force_pushes") or {}
-    allow_delete = protection.get("allow_deletions") or {}
-
-    # Admin enforcement is part of the authority boundary. A classic policy that
-    # allows administrator bypass is not accepted as production enforcement.
-    classic_protected = protected and bool(enforce_admins.get("enabled"))
-
-    contexts = checks.get("contexts") or []
-    check_objects = checks.get("checks") or []
+def _deny(source: str, policy: Policy, *, protected: bool = False) -> Result:
     return Result(
-        protected=classic_protected,
-        pull_request_required=bool(reviews),
-        approving_review_required=int(reviews.get("required_approving_review_count") or 0) >= 1,
-        status_checks_required=bool(checks) and bool(contexts or check_objects),
-        force_push_blocked=not bool(allow_force.get("enabled", False)),
-        deletion_blocked=not bool(allow_delete.get("enabled", False)),
-        signatures_required=bool(signatures.get("enabled")),
-        conversation_resolution_required=bool(conversations.get("enabled")),
-        source="classic_branch_protection",
+        protected=protected,
+        named_ruleset_active=False,
+        pull_request_required=False,
+        review_policy_matches=False,
+        conversation_resolution_required=False,
+        status_checks_required=False,
+        required_status_check_contexts_complete=False,
+        required_status_check_publishers_pinned=False,
+        branches_up_to_date_required=False,
+        force_push_blocked=False,
+        deletion_blocked=False,
+        signatures_required=False,
+        source=source,
+        missing_required_status_check_contexts=policy.required_status_check_contexts,
+        publisher_mismatch_contexts=policy.required_status_check_contexts,
     )
 
 
-def _rulesets(repo: str, branch: str, token: str | None, protected: bool) -> Result | None:
+def _parameters(rule: dict[str, Any]) -> dict[str, Any]:
+    value = rule.get("parameters")
+    return value if isinstance(value, dict) else {}
+
+
+def _named_active_ruleset_id(repo: str, token: str | None, policy: Policy) -> int | None:
+    status, rulesets = _get(f"/repos/{repo}/rulesets?per_page=100&targets=branch", token)
+    if status != 200 or not isinstance(rulesets, list):
+        raise EnforcementError(f"ruleset inventory lookup failed: HTTP {status}: {rulesets}")
+    matches = [
+        item.get("id")
+        for item in rulesets
+        if isinstance(item, dict)
+        and item.get("name") == policy.ruleset_name
+        and item.get("enforcement") == "active"
+        and item.get("source_type") == "Repository"
+        and item.get("source") == repo
+        and isinstance(item.get("id"), int)
+    ]
+    if len(matches) > 1:
+        raise EnforcementError(f"ambiguous active rulesets named {policy.ruleset_name!r}: {matches}")
+    return matches[0] if matches else None
+
+
+def _effective_rules(repo: str, branch: str, token: str | None, protected: bool, policy: Policy) -> Result:
+    named_ruleset_id = _named_active_ruleset_id(repo, token, policy)
+    if named_ruleset_id is None:
+        return _deny("named_ruleset_not_active", policy, protected=protected)
+
     status, rules = _get(
-        f"/repos/{repo}/rules/branches/{urllib.parse.quote(branch, safe='')}", token
+        f"/repos/{repo}/rules/branches/{urllib.parse.quote(branch, safe='')}?per_page=100", token
     )
-    if status == 404:
-        return None
     if status != 200 or not isinstance(rules, list):
-        raise EnforcementError(f"branch rules lookup failed: HTTP {status}: {rules}")
+        raise EnforcementError(f"effective branch rules lookup failed: HTTP {status}: {rules}")
+
+    all_ruleset_ids: set[int] = set()
+    named_rules: list[dict[str, Any]] = []
+    for rule in rules:
+        if not isinstance(rule, dict):
+            continue
+        ruleset_id = rule.get("ruleset_id")
+        if isinstance(ruleset_id, int):
+            all_ruleset_ids.add(ruleset_id)
+        if ruleset_id == named_ruleset_id:
+            named_rules.append(rule)
 
     by_type: dict[str, list[dict[str, Any]]] = {}
-    for rule in rules:
-        if isinstance(rule, dict):
-            by_type.setdefault(str(rule.get("type", "")), []).append(rule)
+    for rule in named_rules:
+        by_type.setdefault(str(rule.get("type", "")), []).append(rule)
 
-    prs = by_type.get("pull_request", [])
-    checks = by_type.get("required_status_checks", [])
+    pull_requests = by_type.get("pull_request", [])
+    pr_params = [_parameters(rule) for rule in pull_requests]
+    observed_approvals = max(
+        (int(params.get("required_approving_review_count") or 0) for params in pr_params),
+        default=0,
+    )
+    observed_dismiss_stale = any(bool(params.get("dismiss_stale_reviews_on_push")) for params in pr_params)
+    observed_last_push = any(bool(params.get("require_last_push_approval")) for params in pr_params)
+    observed_code_owner = any(bool(params.get("require_code_owner_review")) for params in pr_params)
+    observed_resolution = any(bool(params.get("required_review_thread_resolution")) for params in pr_params)
 
-    def params(rule: dict[str, Any]) -> dict[str, Any]:
-        value = rule.get("parameters")
-        return value if isinstance(value, dict) else {}
+    review_policy_matches = bool(pull_requests) and all(
+        (
+            observed_approvals == policy.required_approving_review_count,
+            observed_dismiss_stale == policy.dismiss_stale_reviews_on_push,
+            observed_last_push == policy.require_last_push_approval,
+            observed_code_owner == policy.require_code_owner_review,
+        )
+    )
+    conversation_resolution_required = (
+        observed_resolution if policy.require_conversation_resolution else not observed_resolution
+    )
 
-    approving_review_required = any(
-        int(params(rule).get("required_approving_review_count") or 0) >= 1 for rule in prs
+    status_rules = by_type.get("required_status_checks", [])
+    observed_contexts: set[str] = set()
+    context_publishers: dict[str, set[int | None]] = {}
+    strict_observed = False
+    for rule in status_rules:
+        params = _parameters(rule)
+        strict_observed = strict_observed or bool(params.get("strict_required_status_checks_policy"))
+        checks = params.get("required_status_checks")
+        if not isinstance(checks, list):
+            continue
+        for check in checks:
+            if not isinstance(check, dict) or not isinstance(check.get("context"), str):
+                continue
+            context = check["context"]
+            integration_id = check.get("integration_id")
+            publisher = integration_id if isinstance(integration_id, int) else None
+            observed_contexts.add(context)
+            context_publishers.setdefault(context, set()).add(publisher)
+
+    required_contexts = set(policy.required_status_check_contexts)
+    missing = tuple(sorted(required_contexts - observed_contexts))
+    publisher_mismatches = tuple(
+        sorted(
+            context
+            for context in required_contexts
+            if policy.required_status_check_integration_id not in context_publishers.get(context, set())
+        )
     )
-    conversation_resolution_required = any(
-        bool(params(rule).get("required_review_thread_resolution")) for rule in prs
-    )
-    status_checks_required = any(
-        bool(params(rule).get("required_status_checks")) for rule in checks
-    )
+    contexts_complete = bool(status_rules) and not missing
+    publishers_pinned = bool(status_rules) and not publisher_mismatches
+    branches_up_to_date = strict_observed if policy.require_branches_up_to_date else True
 
     return Result(
         protected=protected,
-        pull_request_required=bool(prs),
-        approving_review_required=approving_review_required,
-        status_checks_required=status_checks_required,
+        named_ruleset_active=True,
+        pull_request_required=bool(pull_requests),
+        review_policy_matches=review_policy_matches,
+        conversation_resolution_required=conversation_resolution_required,
+        status_checks_required=bool(status_rules),
+        required_status_check_contexts_complete=contexts_complete,
+        required_status_check_publishers_pinned=publishers_pinned,
+        branches_up_to_date_required=branches_up_to_date,
         force_push_blocked=bool(by_type.get("non_fast_forward")),
         deletion_blocked=bool(by_type.get("deletion")),
         signatures_required=bool(by_type.get("required_signatures")),
-        conversation_resolution_required=conversation_resolution_required,
-        source="repository_rulesets",
+        source="effective_repository_rulesets:no_splicing",
+        evaluated_ruleset_id=named_ruleset_id,
+        observed_required_approving_review_count=observed_approvals,
+        observed_dismiss_stale_reviews_on_push=observed_dismiss_stale,
+        observed_require_last_push_approval=observed_last_push,
+        observed_require_code_owner_review=observed_code_owner,
+        observed_required_status_check_contexts=tuple(sorted(observed_contexts)),
+        missing_required_status_check_contexts=missing,
+        publisher_mismatch_contexts=publisher_mismatches,
+        all_effective_ruleset_ids=tuple(sorted(all_ruleset_ids)),
     )
 
 
-def verify(repo: str, branch: str, token: str | None) -> Result:
+def verify(repo: str, branch: str, token: str | None, policy: Policy) -> Result:
     status, branch_data = _get(
         f"/repos/{repo}/branches/{urllib.parse.quote(branch, safe='')}", token
     )
@@ -182,38 +323,10 @@ def verify(repo: str, branch: str, token: str | None) -> Result:
         raise EnforcementError(f"branch lookup failed: HTTP {status}: {branch_data}")
 
     protected = bool(branch_data.get("protected"))
-
-    # This field is available from the ordinary branch endpoint. If GitHub itself
-    # says the branch is not protected, that is already sufficient to deny
-    # production admission. Do not require a privileged protection endpoint just
-    # to rediscover a fact we already know.
     if not protected:
-        return _deny("branch_endpoint:protected=false")
+        return _deny("branch_endpoint:protected=false", policy)
 
-    candidates = [
-        result
-        for result in (
-            _classic(repo, branch, token, protected),
-            _rulesets(repo, branch, token, protected),
-        )
-        if result is not None
-    ]
-    if not candidates:
-        return _deny("protected_without_readable_policy")
-
-    # Multiple mechanisms may coexist. Accept only if one mechanism independently
-    # establishes the full authority boundary; do not splice partial guarantees.
-    for result in candidates:
-        if result.ok:
-            return result
-    return max(
-        candidates,
-        key=lambda item: sum(
-            bool(value)
-            for key, value in item.as_dict().items()
-            if key not in {"source", "production_admission"}
-        ),
-    )
+    return _effective_rules(repo, branch, token, protected, policy)
 
 
 def _write_result(path: str | None, payload: dict[str, Any]) -> None:
@@ -227,13 +340,15 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", "Aegis-Omega/AEGIS-OMEGA"))
     parser.add_argument("--branch", default="main")
+    parser.add_argument("--policy", default=str(DEFAULT_POLICY))
     parser.add_argument("--json-output")
     args = parser.parse_args()
 
     token = os.environ.get("GITHUB_TOKEN")
     try:
-        result = verify(args.repo, args.branch, token)
-    except EnforcementError as exc:
+        policy = Policy.load(args.policy)
+        result = verify(args.repo, args.branch, token, policy)
+    except (EnforcementError, OSError, ValueError, json.JSONDecodeError) as exc:
         payload = {
             "repository": args.repo,
             "branch": args.branch,

@@ -1,21 +1,31 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "repository": "Aegis-Omega/AEGIS-OMEGA",
   "default_branch": "main",
-  "epistemic_status": "DESIRED_REPOSITORY_ENFORCEMENT_CONTRACT",
+  "mechanism": "repository_ruleset",
+  "ruleset_name": "AEGIS Main Enforcement",
+  "epistemic_status": "DEPLOYABLE_REPOSITORY_ENFORCEMENT_CONTRACT",
   "policy": {
     "require_protected_default_branch": true,
     "require_pull_request": true,
-    "required_approving_review_count": 1,
-    "dismiss_stale_reviews": true,
-    "require_last_push_approval": true,
+    "required_approving_review_count": 0,
+    "dismiss_stale_reviews_on_push": false,
+    "require_last_push_approval": false,
+    "require_code_owner_review": false,
     "require_conversation_resolution": true,
     "require_status_checks": true,
     "require_branches_up_to_date": true,
+    "required_status_check_integration_id": 15368,
+    "required_status_check_contexts": [
+      "Body cites current head",
+      "aegis / kernel-one",
+      "scan-pr / osv-scan",
+      "Main branch enforcement"
+    ],
     "block_force_pushes": true,
     "block_deletions": true,
     "require_signed_commits": true,
-    "bypass_policy": "explicit_recovery_only"
+    "bypass_policy": "none"
   },
   "invariants": [
     "CI_SUCCESS_IS_NOT_PRODUCTION_ADMISSION",
@@ -23,12 +33,19 @@
     "FORCE_PUSH_TO_MAIN_IS_FORBIDDEN",
     "STALE_HEAD_EVIDENCE_CANNOT_AUTHORIZE_CURRENT_HEAD",
     "SECURITY_GATES_MUST_BE_REPOSITORY_ENFORCED",
+    "REQUIRED_CHECK_NAME_WITHOUT_PUBLISHER_BINDING_IS_INSUFFICIENT",
     "HASH_INTEGRITY_IS_NOT_SIGNER_AUTHENTICITY",
     "SIGNED_RECEIPT_IS_NOT_TRANSPARENCY_OR_NON_EQUIVOCATION"
   ],
+  "rationale": {
+    "human_approval_count": "Zero is deliberate for the current single-operator repository. GitHub does not allow a pull-request author to approve their own pull request; requiring one approval without an established independent write-level reviewer would create an availability deadlock or force a bypass. Review authority is therefore carried by mandatory machine gates and resolved review threads until an independent reviewer principal is established.",
+    "ruleset_preference": "A repository ruleset exposes effective branch rules through GitHub's branch-rules API, allowing the read-only CI verifier to prove the active enforcement surface without privileged Administration reads.",
+    "check_publisher_binding": "The four frozen check contexts were observed as GitHub Actions check runs from integration/app id 15368. The ruleset pins both context and integration id to prevent same-name status spoofing by another publisher."
+  },
   "notes": [
     "This file is declarative; GitHub repository settings remain the enforcement authority.",
-    "Repository-level protection must fail closed before main is classified as production-admitted.",
-    "Exact required check contexts must be derived from current workflow/check names before enabling protection."
+    "Repository-level enforcement must fail closed before main is classified as production-admitted.",
+    "Required check context strings are frozen from observed GitHub check-run names, not workflow display names.",
+    "The deployment payload is security/main-branch-ruleset.payload.json."
   ]
 }
