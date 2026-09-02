@@ -8,13 +8,7 @@
 // ============================================================
 
 export type ProviderName = 'openai' | 'anthropic' | 'gemini' | 'dashscope' | 'local'
-
-export type CognitiveWorkClass =
-  | 'frontier-research'
-  | 'formal-review'
-  | 'implementation'
-  | 'routine'
-
+export type CognitiveWorkClass = 'frontier-research' | 'formal-review' | 'implementation' | 'routine'
 export type AllianceRole = 'coordinator' | 'adversarial-audit' | 'implementation'
 
 export type OpenAIReasoningProfile = Readonly<{
@@ -38,7 +32,6 @@ export type GeminiReasoningProfile = Readonly<{
 export type DashScopeReasoningProfile = Readonly<{
   kind: 'dashscope'
   effort: 'medium' | 'xhigh'
-  preserve_thinking: true
 }>
 
 export type LocalReasoningProfile = Readonly<{
@@ -64,13 +57,8 @@ export interface ProviderCognitiveProfile {
   readonly schema_version: '1.0.0'
 }
 
-export interface ProviderCognitiveOverrides {
-  readonly model?: string
-}
+export interface ProviderCognitiveOverrides { readonly model?: string }
 
-// Capability defaults are refreshable configuration inputs, not permanent
-// constitutional identities. Exact effective model/reasoning values are bound
-// into ProviderExecutionReceiptV1 for replay and audit.
 const DEFAULT_MODELS: Readonly<Record<ProviderName, string>> = Object.freeze({
   openai: 'gpt-5.6-sol',
   anthropic: 'claude-opus-5',
@@ -81,10 +69,10 @@ const DEFAULT_MODELS: Readonly<Record<ProviderName, string>> = Object.freeze({
 
 function openAIReasoning(workClass: CognitiveWorkClass): OpenAIReasoningProfile {
   if (workClass === 'frontier-research' || workClass === 'formal-review') {
-    return Object.freeze({ kind: 'openai', effort: 'max', mode: 'pro', context: 'current_turn' })
+    return Object.freeze({ kind: 'openai', effort: 'max', mode: 'pro', context: 'all_turns' })
   }
   if (workClass === 'implementation') {
-    return Object.freeze({ kind: 'openai', effort: 'xhigh', mode: 'standard', context: 'current_turn' })
+    return Object.freeze({ kind: 'openai', effort: 'xhigh', mode: 'standard', context: 'all_turns' })
   }
   return Object.freeze({ kind: 'openai', effort: 'medium', mode: 'standard', context: 'current_turn' })
 }
@@ -104,11 +92,7 @@ function geminiReasoning(workClass: CognitiveWorkClass): GeminiReasoningProfile 
 }
 
 function dashScopeReasoning(workClass: CognitiveWorkClass): DashScopeReasoningProfile {
-  return Object.freeze({
-    kind: 'dashscope',
-    effort: workClass === 'routine' ? 'medium' : 'xhigh',
-    preserve_thinking: true,
-  })
+  return Object.freeze({ kind: 'dashscope', effort: workClass === 'routine' ? 'medium' : 'xhigh' })
 }
 
 function localReasoning(workClass: CognitiveWorkClass): LocalReasoningProfile {
