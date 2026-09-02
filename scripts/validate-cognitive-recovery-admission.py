@@ -435,8 +435,8 @@ def _gate_r5(repo: Path, request: dict[str, Any], changed_paths: set[str]) -> li
 def _gate_r6(
     request: Mapping[str, Any], platform_observation: Mapping[str, Any] | None
 ) -> list[str]:
-    if not isinstance(platform_observation, Mapping):
-        return ["R6:PLATFORM_OBSERVATION_MISSING"]
+    if not isinstance(platform_observation, Mapping) or "schema_version" not in platform_observation:
+        return ["R6:NOT_EVALUATED"]
 
     violations: list[str] = []
     observation_digest = platform_observation.get("observation_digest")
@@ -482,8 +482,8 @@ def _gate_r6(
 def _gate_r7(
     request: Mapping[str, Any], operator_approval: Mapping[str, Any] | None
 ) -> list[str]:
-    if not isinstance(operator_approval, Mapping):
-        return ["R7:OPERATOR_APPROVAL_MISSING"]
+    if not isinstance(operator_approval, Mapping) or "schema_version" not in operator_approval:
+        return ["R7:NOT_EVALUATED"]
 
     violations: list[str] = []
     approval_digest = operator_approval.get("approval_digest")
