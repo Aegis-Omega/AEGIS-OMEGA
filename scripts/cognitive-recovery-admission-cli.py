@@ -97,15 +97,20 @@ def main(argv: list[str] | None = None) -> int:
     try:
         validator = _load_validator()
         verifier_code_digest = hashlib.sha256(VALIDATOR_PATH.read_bytes()).hexdigest()
-        receipt = validator.evaluate(
-            repo=repo,
-            request=request,
-            recovery_evidence=recovery_evidence,
-            platform_observation=platform_observation,
-            operator_approval=operator_approval,
-            replay_state=replay_state,
-            verifier_code_digest=verifier_code_digest,
-        )
+        evaluate_kwargs: dict[str, Any] = {
+            "repo": repo,
+            "request": request,
+            "recovery_evidence": recovery_evidence,
+            "platform_observation": platform_observation,
+            "operator_approval": operator_approval,
+            "verifier_code_digest": verifier_code_digest,
+        }
+        # Do not pass an explicit None: the validator deliberately distinguishes
+        # an omitted replay envelope from an explicitly evaluated missing value.
+        if args.replay_state is not None:
+            evaluate_kwargs["replay_state"] = replay_state
+
+        receipt = validator.evaluate(**evaluate_kwargs)
         output = validator.canonical_bytes(receipt).decode("utf-8")
     except (OSError, RuntimeError, TypeError, ValueError) as exc:
         # Internal verification errors never emit a partial receipt. Keep stderr
