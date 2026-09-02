@@ -21,7 +21,14 @@ export type ProviderContinuationHandle =
     }>
   | Readonly<{
       transport: 'OPENAI_ENCRYPTED_REPLAY'
-      encrypted_reasoning_item_refs: readonly string[]
+      /**
+       * Opaque references to the complete stateless Responses context window,
+       * in provider replay order. This includes prior user input and every
+       * provider output item required for continuation (reasoning, messages,
+       * tool items, compaction items, etc.). Tier 2 stores references/digests
+       * only; payloads are resolved ephemerally at request construction.
+       */
+      stateless_context_item_refs: readonly string[]
       provider_compaction_item_refs?: readonly string[]
       opaque_payload_digest: SHA256Hex
     }>
