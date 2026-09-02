@@ -229,7 +229,7 @@ Lemma corn_ir_G_fast_cauchy_lim_prop2_v1 :
   forall x : IR,
     CoRN.reals.R_morphism.Cauchy_Lim_prop2
       CRasCReals
-      (fun n : nat => IRasCR (inj_Q IR (G x n)))
+      (fun n : nat => IRasCR (inj_Q IR (G IR x n)))
       (IRasCR x).
 Proof.
   intro x.
@@ -246,15 +246,15 @@ Qed.
 Lemma corn_ir_G_fast_cv_v1 :
   forall x : IR,
     CR_cv FastRealsConstructive
-      (fun n : nat => CR_of_Q FastRealsConstructive (G x n))
+      (fun n : nat => CR_of_Q FastRealsConstructive (G IR x n))
       (IRasCR x).
 Proof.
   intro x.
   eapply CR_cv_extens
-    with (xn := fun n : nat => IRasCR (inj_Q IR (G x n))).
+    with (xn := fun n : nat => IRasCR (inj_Q IR (G IR x n))).
   - intro n.
     apply corn_fast_eq_to_stdlib_eq_a1c_v1.
-    exact (IR_inj_Q_as_CR (G x n)).
+    exact (IR_inj_Q_as_CR (G IR x n)).
   - apply corn_fast_cauchy_lim_prop2_to_cv_a1c_v1.
     apply corn_ir_G_fast_cauchy_lim_prop2_v1.
 Qed.
@@ -265,7 +265,7 @@ Qed.
 Lemma corn_ir_to_o0_reference_cv_v1 :
   forall x : IR,
     CR_cv O0RealsV1
-      (fun n : nat => CR_of_Q O0RealsV1 (G x n))
+      (fun n : nat => CR_of_Q O0RealsV1 (G IR x n))
       (corn_ir_to_o0_carrier_v1 x).
 Proof.
   intro x.
@@ -274,7 +274,7 @@ Proof.
     with
       (xn := fun n : nat =>
         CRmorph corn_fast_to_o0_morphism_a1c_v1
-          (CR_of_Q FastRealsConstructive (G x n))).
+          (CR_of_Q FastRealsConstructive (G IR x n))).
   - intro n.
     apply CRmorph_rat.
   - apply CRmorph_cv.
@@ -286,19 +286,19 @@ Qed.
 Lemma corn_o0_G_seq_is_cauchy_v1 :
   forall x : IR,
     CR_cauchy O0RealsV1
-      (fun n : nat => CR_of_Q O0RealsV1 (G x n)).
+      (fun n : nat => CR_of_Q O0RealsV1 (G IR x n)).
 Proof.
   intro x.
   apply
     (Rcv_cauchy_mod
-       (fun n : nat => CR_of_Q O0RealsV1 (G x n))
+       (fun n : nat => CR_of_Q O0RealsV1 (G IR x n))
        (corn_ir_to_o0_carrier_v1 x)).
   apply corn_ir_to_o0_reference_cv_v1.
 Qed.
 
 Definition corn_ir_to_o0_complete_sigma_v1 (x : IR) :=
   CR_complete O0RealsV1
-    (fun n : nat => CR_of_Q O0RealsV1 (G x n))
+    (fun n : nat => CR_of_Q O0RealsV1 (G IR x n))
     (corn_o0_G_seq_is_cauchy_v1 x).
 
 Definition corn_ir_to_o0_complete_v1 (x : IR) : O0RealV1 :=
@@ -307,7 +307,7 @@ Definition corn_ir_to_o0_complete_v1 (x : IR) : O0RealV1 :=
 Lemma corn_ir_to_o0_complete_cv_v1 :
   forall x : IR,
     CR_cv O0RealsV1
-      (fun n : nat => CR_of_Q O0RealsV1 (G x n))
+      (fun n : nat => CR_of_Q O0RealsV1 (G IR x n))
       (corn_ir_to_o0_complete_v1 x).
 Proof.
   intro x.
@@ -326,7 +326,7 @@ Proof.
   unfold O0EqV1.
   apply
     (CR_cv_unique
-       (fun n : nat => CR_of_Q O0RealsV1 (G x n))
+       (fun n : nat => CR_of_Q O0RealsV1 (G IR x n))
        (corn_ir_to_o0_complete_v1 x)
        (corn_ir_to_o0_carrier_v1 x)).
   - apply corn_ir_to_o0_complete_cv_v1.
