@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/aedr-falsification-surface-ingestion-v1",
-    "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
+    "source_ref": "feat/avd00-frozen-comparative-benchmark-v1",
+    "parent_state_hash": "1a68e9a42751f99b3935ba562ef2dda146b4d40e750ec3080210d12391888066",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "fce15f151091f66c7bc30eecca2550293c17898057c216c671919e7105cb217f"
+  "state_hash": "b15a453cdb46866f24f280007cd6dad0c3da8b6be9220b8d6414e53d0a6cb26b"
 }
