@@ -15,13 +15,20 @@ from .acquisition_types import (
     RawWorkflowReceipt,
     WorkflowRunConclusion,
 )
+from .surface_ingestor import FalsificationSurfaceIngestor, RawArtifactMetadata
 
 
 _SHA40 = re.compile(r"^[0-9a-fA-F]{40}$")
+_REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
 
 
 class GitHubLiveOracleError(Exception):
     pass
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[override]
+        return None
 
 
 class GitHubLiveOracle:
@@ -202,3 +209,109 @@ class GitHubLiveOracle:
             receipts,
             key=lambda receipt: (receipt.workflow_name, receipt.run_number, receipt.run_id),
         )
+
+    def list_run_artifacts(self, run_id: int) -> List[RawArtifactMetadata]:
+        if type(run_id) is not int or run_id <= 0:
+            raise GitHubLiveOracleError("INVALID_WORKFLOW_RUN_ID")
+
+        artifacts: list[RawArtifactMetadata] = []
+        page = 1
+        while True:
+            data = self._get(
+                f"/actions/runs/{run_id}/artifacts",
+                {"per_page": "100", "page": str(page)},
+            )
+            raw_items = data.get("artifacts", [])
+            if not isinstance(raw_items, list):
+                raise GitHubLiveOracleError("INVALID_ARTIFACT_RESPONSE")
+
+            for item in raw_items:
+                if not isinstance(item, Mapping):
+                    raise GitHubLiveOracleError("INVALID_ARTIFACT_RECORD")
+                if bool(item.get("expired", False)):
+                    continue
+                binding = item.get("workflow_run")
+                if not isinstance(binding, Mapping):
+                    raise GitHubLiveOracleError("ARTIFACT_MISSING_WORKFLOW_BINDING")
+                try:
+                    bound_run_id = int(binding["id"])
+                    bound_head = self._validate_sha(str(binding["head_sha"]))
+                    artifact_id = int(item["id"])
+                    size_in_bytes = int(item["size_in_bytes"])
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise GitHubLiveOracleError("INVALID_ARTIFACT_BINDING") from exc
+                if artifact_id <= 0 or size_in_bytes < 0:
+                    raise GitHubLiveOracleError("INVALID_ARTIFACT_METADATA")
+
+                artifacts.append(
+                    RawArtifactMetadata(
+                        artifact_id=artifact_id,
+                        name=str(item.get("name") or ""),
+                        size_in_bytes=size_in_bytes,
+                        archive_download_url=str(item.get("archive_download_url") or ""),
+                        workflow_run_id=bound_run_id,
+                        workflow_run_head_sha=bound_head,
+                    )
+                )
+
+            if len(raw_items) < 100:
+                break
+            page += 1
+
+        return sorted(artifacts, key=lambda artifact: (artifact.artifact_id, artifact.name))
+
+    def _artifact_download_headers(self, url: str) -> dict[str, str]:
+        parsed = urllib.parse.urlsplit(url)
+        if parsed.scheme.lower() != "https" or not parsed.hostname or parsed.username or parsed.password:
+            raise GitHubLiveOracleError("UNSAFE_ARTIFACT_DOWNLOAD_URL")
+
+        headers = dict(self.headers)
+        if parsed.hostname.lower() != "api.github.com":
+            headers.pop("Authorization", None)
+            headers.pop("X-GitHub-Api-Version", None)
+            headers["Accept"] = "application/octet-stream"
+        return headers
+
+    def download_artifact_zip(self, artifact_id: int) -> bytes:
+        if type(artifact_id) is not int or artifact_id <= 0:
+            raise GitHubLiveOracleError("INVALID_ARTIFACT_ID")
+
+        current_url = f"{self.base_url}/actions/artifacts/{artifact_id}/zip"
+        opener = urllib.request.build_opener(_NoRedirect())
+        max_redirects = 5
+
+        for redirect_count in range(max_redirects + 1):
+            request = urllib.request.Request(
+                current_url,
+                headers=self._artifact_download_headers(current_url),
+                method="GET",
+            )
+            try:
+                with opener.open(request, timeout=self.timeout_seconds) as response:
+                    if urllib.parse.urlsplit(current_url).hostname == "api.github.com":
+                        self._capture_rate_limit(response.headers)
+                    raw = response.read(FalsificationSurfaceIngestor.MAX_ARCHIVE_BYTES + 1)
+                    if len(raw) > FalsificationSurfaceIngestor.MAX_ARCHIVE_BYTES:
+                        raise GitHubLiveOracleError("ARTIFACT_DOWNLOAD_EXCEEDS_SIZE_LIMIT")
+                    return raw
+            except urllib.error.HTTPError as exc:
+                if urllib.parse.urlsplit(current_url).hostname == "api.github.com":
+                    self._capture_rate_limit(exc.headers)
+                if exc.code in _REDIRECT_CODES:
+                    location = exc.headers.get("Location")
+                    if not location:
+                        raise GitHubLiveOracleError("ARTIFACT_REDIRECT_MISSING_LOCATION") from exc
+                    if redirect_count >= max_redirects:
+                        raise GitHubLiveOracleError("ARTIFACT_REDIRECT_LIMIT_EXCEEDED") from exc
+                    current_url = urllib.parse.urljoin(current_url, location)
+                    self._artifact_download_headers(current_url)
+                    continue
+                raise GitHubLiveOracleError(
+                    f"HTTP {exc.code} downloading artifact {artifact_id}: {exc.reason}"
+                ) from exc
+            except (urllib.error.URLError, TimeoutError, OSError) as exc:
+                raise GitHubLiveOracleError(
+                    f"ARTIFACT_DOWNLOAD_FAILURE {artifact_id}: {exc}"
+                ) from exc
+
+        raise GitHubLiveOracleError("ARTIFACT_REDIRECT_LIMIT_EXCEEDED")
