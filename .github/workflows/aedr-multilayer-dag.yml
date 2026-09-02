@@ -29,6 +29,12 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
 
+      - name: Install exact test dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check pytest==8.4.1
+
       - name: Run AEDR fail-closed contract
         shell: bash
         run: |
