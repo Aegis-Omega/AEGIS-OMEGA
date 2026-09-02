@@ -1,0 +1,127 @@
+import math
+
+import pytest
+
+from aegis_omega.cudaq_self_witness import (
+    AUTHORITY_CLASS,
+    OBSERVABLE_NAMES,
+    BackendSpec,
+    BackendUnavailableException,
+    DifferentialGateTolerance,
+    ProtocolViolation,
+    SelfWitnessEngine,
+    map_hash_to_angles,
+)
+
+
+DUMMY_SELF_HASH = "8fa6cc600d75cd78a518a8b5b08cfb9f4e665c3016769820d37616d319cdee8a"
+SOURCE_SHA = "98e7ec038cb1e8a8722b5dcc3346a56d9da9801a"
+
+
+def _observables(z0: float = 0.5) -> dict[str, float]:
+    return {
+        "Z0": z0,
+        "Z1": 0.5,
+        "Z2": 0.5,
+        "Z3": 0.5,
+        "Z0Z1": 0.25,
+        "Z2Z3": 0.25,
+        "X0X1X2X3": 0.1,
+    }
+
+
+def test_deterministic_angle_mapping_is_half_open() -> None:
+    first = map_hash_to_angles(DUMMY_SELF_HASH)
+    second = map_hash_to_angles(DUMMY_SELF_HASH)
+
+    assert first == second
+    assert len(first.words_u32) == 8
+    assert len(first.angles_rad) == 8
+    assert all(0 <= word <= 0xFFFFFFFF for word in first.words_u32)
+    assert all(0.0 <= theta < 2.0 * math.pi for theta in first.angles_rad)
+
+
+def test_max_u32_chunk_never_maps_to_two_pi() -> None:
+    encoding = map_hash_to_angles("ff" * 32)
+    assert all(theta < 2.0 * math.pi for theta in encoding.angles_rad)
+
+
+def test_invalid_or_noncanonical_hash_is_rejected() -> None:
+    with pytest.raises(ValueError):
+        map_hash_to_angles("00" * 31)
+    with pytest.raises(ValueError):
+        map_hash_to_angles(DUMMY_SELF_HASH.upper())
+
+
+def test_differential_gate_passes_within_tolerance_and_has_no_authority() -> None:
+    def executor(backend: BackendSpec, _thetas: tuple[float, ...]) -> dict[str, float]:
+        assert backend.execution_mode == "ANALYTIC_STATEVECTOR"
+        if backend.target == "qpp-cpu":
+            return _observables(0.5)
+        return _observables(0.50000001)
+
+    engine = SelfWitnessEngine(
+        tolerance=DifferentialGateTolerance(epsilon_max_abs_diff=1e-5),
+        executor=executor,
+    )
+    result = engine.run_witness_cycle(DUMMY_SELF_HASH, source_sha=SOURCE_SHA)
+    receipt = result["receipt"]
+
+    assert receipt["differential_gate_status"] == "PASS"
+    assert receipt["authority_class"] == AUTHORITY_CLASS == "NONE"
+    assert receipt["authority_effect"] == "NONE"
+    assert receipt["quantum_physical_advantage"] == "NOT_ESTABLISHED"
+    assert receipt["rh_status"] == "NOT_PROVEN"
+    assert set(receipt["observables_a"]) == set(OBSERVABLE_NAMES)
+    assert len(result["receipt_digest"]) == 64
+
+
+def test_differential_gate_fails_above_tolerance() -> None:
+    def executor(backend: BackendSpec, _thetas: tuple[float, ...]) -> dict[str, float]:
+        return _observables(0.5 if backend.target == "qpp-cpu" else 0.51)
+
+    engine = SelfWitnessEngine(
+        tolerance=DifferentialGateTolerance(epsilon_max_abs_diff=1e-4),
+        executor=executor,
+    )
+    receipt = engine.run_witness_cycle(DUMMY_SELF_HASH, source_sha=SOURCE_SHA)["receipt"]
+
+    assert receipt["differential_gate_status"] == "FAIL"
+    assert receipt["max_discrepancy"] >= 0.01 - 1e-15
+    assert receipt["authority_class"] == "NONE"
+
+
+def test_backend_unavailable_raises_and_never_fabricates_receipt() -> None:
+    def unavailable(_backend: BackendSpec, _thetas: tuple[float, ...]) -> dict[str, float]:
+        raise BackendUnavailableException("BACKEND_UNAVAILABLE")
+
+    engine = SelfWitnessEngine(executor=unavailable)
+    with pytest.raises(BackendUnavailableException, match="BACKEND_UNAVAILABLE"):
+        engine.run_witness_cycle(DUMMY_SELF_HASH, source_sha=SOURCE_SHA)
+
+
+def test_non_finite_observable_is_protocol_violation() -> None:
+    def executor(_backend: BackendSpec, _thetas: tuple[float, ...]) -> dict[str, float]:
+        values = _observables()
+        values["Z2"] = math.nan
+        return values
+
+    engine = SelfWitnessEngine(executor=executor)
+    with pytest.raises(ProtocolViolation, match="non-finite"):
+        engine.run_witness_cycle(DUMMY_SELF_HASH, source_sha=SOURCE_SHA)
+
+
+def test_v1_rejects_physical_qpu_target_instead_of_reusing_statevector_gate() -> None:
+    engine = SelfWitnessEngine(executor=lambda _backend, _thetas: _observables())
+    with pytest.raises(ProtocolViolation, match="simulator-only"):
+        engine.run_witness_cycle(
+            DUMMY_SELF_HASH,
+            source_sha=SOURCE_SHA,
+            backend_b=BackendSpec(target="quantinuum", execution_mode="SHOT_BASED_QPU"),
+        )
+
+
+def test_source_sha_must_be_exact_lowercase_commit() -> None:
+    engine = SelfWitnessEngine(executor=lambda _backend, _thetas: _observables())
+    with pytest.raises(ValueError, match="source_sha"):
+        engine.run_witness_cycle(DUMMY_SELF_HASH, source_sha="98e7ec03")
