@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-from typing import Dict, Optional, Tuple
+from typing import Callable, Dict, Optional, Tuple
 
 from .acquisition_types import MultilayerDAGSnapshot
 from .dag_evaluator import MultilayerDAGEvaluator
@@ -13,6 +13,10 @@ from .dag_model import (
     GitAncestryRelation,
     PRNode,
 )
+
+
+SurfaceOracle = Callable[[int], Optional[FalsificationSurface]]
+SurfaceOracleFactory = Callable[[Dict[int, PRNode]], SurfaceOracle]
 
 
 def label_to_authority_domains(labels: list[str]) -> frozenset[AuthorityDomain]:
@@ -38,7 +42,11 @@ def _body_head_reference(cited: str | None, actual_head: str) -> str | None:
     return actual if len(normalized) >= 7 and actual.startswith(normalized) else normalized
 
 
-def snapshot_to_evaluator(snapshot: MultilayerDAGSnapshot) -> MultilayerDAGEvaluator:
+def snapshot_to_evaluator(
+    snapshot: MultilayerDAGSnapshot,
+    *,
+    surface_oracle_factory: SurfaceOracleFactory | None = None,
+) -> MultilayerDAGEvaluator:
     nodes: Dict[int, PRNode] = {}
     ancestry_lookup: Dict[Tuple[str, str], GitAncestryRelation] = {}
 
@@ -113,10 +121,18 @@ def snapshot_to_evaluator(snapshot: MultilayerDAGSnapshot) -> MultilayerDAGEvalu
             status=AncestryStatus.UNKNOWN,
         )
 
-    def snapshot_surface_oracle(pr: int) -> Optional[FalsificationSurface]:
-        # A workflow SUCCESS bit is evidence about a run, not a complete
-        # falsification surface. Surface admission requires a separate
-        # authenticated acquisition slice.
-        return None
+    if surface_oracle_factory is None:
+        def snapshot_surface_oracle(pr: int) -> Optional[FalsificationSurface]:
+            # A workflow SUCCESS bit is evidence about a run, not a complete
+            # falsification surface. Default adapter behavior stays fail closed.
+            return None
 
-    return MultilayerDAGEvaluator(nodes, snapshot_ancestry_oracle, snapshot_surface_oracle)
+        surface_oracle = snapshot_surface_oracle
+    else:
+        # A factory receives only the exact nodes reconstructed from this immutable
+        # snapshot. It may resolve stronger evidence but cannot mutate node authority.
+        surface_oracle = surface_oracle_factory(dict(nodes))
+        if not callable(surface_oracle):
+            raise TypeError("surface_oracle_factory must return a callable")
+
+    return MultilayerDAGEvaluator(nodes, snapshot_ancestry_oracle, surface_oracle)
