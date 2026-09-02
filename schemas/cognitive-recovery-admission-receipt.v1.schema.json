@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/cognitive-recovery-admission-receipt.v1.schema.json",
+  "title": "AEGIS Cognitive Recovery Admission Receipt V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_kind",
+    "schema_version",
+    "request_digest",
+    "repository_id",
+    "candidate_sha",
+    "denied_base_sha",
+    "trusted_control_plane_sha",
+    "recovery_parent_sha",
+    "recovery_receipt_hash",
+    "writer_workflow_blob",
+    "platform_governance_observation_digest",
+    "platform_governance_state",
+    "operator_approval_digest",
+    "verified_gates",
+    "violations",
+    "outcome",
+    "scope",
+    "authority",
+    "mutation_authority",
+    "verifier_identity",
+    "verifier_code_digest",
+    "receipt_hash"
+  ],
+  "properties": {
+    "receipt_kind": {"const": "AEGIS_COGNITIVE_RECOVERY_ADMISSION_RECEIPT_V1"},
+    "schema_version": {"const": "1.0.0"},
+    "request_digest": {"$ref": "#/$defs/sha256"},
+    "repository_id": {"const": "Aegis-Omega/AEGIS-OMEGA"},
+    "candidate_sha": {"$ref": "#/$defs/sha1"},
+    "denied_base_sha": {"$ref": "#/$defs/sha1"},
+    "trusted_control_plane_sha": {"$ref": "#/$defs/sha1"},
+    "recovery_parent_sha": {"$ref": "#/$defs/sha1"},
+    "recovery_receipt_hash": {"$ref": "#/$defs/sha256"},
+    "writer_workflow_blob": {"$ref": "#/$defs/sha1"},
+    "platform_governance_observation_digest": {"$ref": "#/$defs/sha256"},
+    "platform_governance_state": {"enum": ["ENFORCED", "DISABLED", "UNKNOWN"]},
+    "operator_approval_digest": {"$ref": "#/$defs/sha256"},
+    "verified_gates": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7"]}
+    },
+    "violations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "outcome": {"enum": ["RECOVERY_ADMISSION_GRANTED", "DENIED"]},
+    "scope": {"const": "ONE_EXACT_CANONICAL_RECOVERY_TRANSITION"},
+    "authority": {"enum": ["RECOVERY_ADMISSION_ONLY", "NONE"]},
+    "mutation_authority": {"const": "NONE"},
+    "verifier_identity": {"type": "string", "minLength": 1},
+    "verifier_code_digest": {"$ref": "#/$defs/sha256"},
+    "receipt_hash": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
