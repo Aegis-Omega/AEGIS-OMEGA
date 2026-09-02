@@ -295,8 +295,10 @@ class SelfWitnessEngine:
             raise ProtocolViolation("Self-Witness-0 V1 reference target must be qpp-cpu")
         if backend_b.target != "nvidia":
             raise ProtocolViolation("Self-Witness-0 V1 comparison target must be nvidia; physical QPUs require V2")
-        if backend_b.option_dict().get("option") != "fp64":
-            raise ProtocolViolation("Self-Witness-0 V1 nvidia target must use fp64")
+        if backend_a.option_dict() != {}:
+            raise ProtocolViolation("Self-Witness-0 V1 qpp-cpu options must be empty")
+        if backend_b.option_dict() != {"option": "fp64"}:
+            raise ProtocolViolation("Self-Witness-0 V1 nvidia options must equal {'option': 'fp64'}")
 
     def run_witness_cycle(
         self,
