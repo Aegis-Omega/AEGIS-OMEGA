@@ -1,0 +1,50 @@
+name: AVD-00 Frozen Benchmark
+
+on:
+  pull_request:
+    paths:
+      - "scripts/avd/**"
+      - "tests/avd/**"
+      - ".github/workflows/avd00-frozen-benchmark.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: avd00-frozen-benchmark-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  contract:
+    name: frozen benchmark contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Install exact test dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check pytest==8.4.1
+
+      - name: Run AVD-00 frozen contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q tests/avd/test_avd00_freeze_contract.py
