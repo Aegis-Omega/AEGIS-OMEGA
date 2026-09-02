@@ -135,5 +135,47 @@ class RecoveryAdmissionDigestTests(TestCase):
             validator.canonical_bytes({"x": float("nan")})
 
 
+class RecoveryAdmissionReceiptDigestTests(TestCase):
+    def test_build_receipt_is_deterministic_and_domain_separated(self) -> None:
+        validator = load_module("recovery_admission_receipt", VALIDATOR_PATH)
+        request = valid_request()
+        kwargs = {
+            "request": request,
+            "platform_governance_state": "ENFORCED",
+            "verified_gates": ["R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7"],
+            "violations": [],
+            "outcome": "RECOVERY_ADMISSION_GRANTED",
+            "verifier_code_digest": SHA256_6,
+        }
+        first = validator.build_receipt(**kwargs)
+        second = validator.build_receipt(**kwargs)
+        self.assertEqual(first, second)
+        self.assertNotIn("timestamp", first)
+        self.assertEqual(first["mutation_authority"], "NONE")
+        self.assertEqual(first["authority"], "RECOVERY_ADMISSION_ONLY")
+
+        body = dict(first)
+        observed_hash = body.pop("receipt_hash")
+        expected_hash = validator.sha256_hex(
+            validator.canonical_bytes({"domain": validator.RECEIPT_DOMAIN, "receipt": body})
+        )
+        self.assertEqual(observed_hash, expected_hash)
+        Draft202012Validator(load_schema(RECEIPT_SCHEMA_PATH)).validate(first)
+
+    def test_denied_receipt_is_schema_valid_and_has_no_authority(self) -> None:
+        validator = load_module("recovery_admission_denied_receipt", VALIDATOR_PATH)
+        receipt = validator.build_receipt(
+            request=valid_request(),
+            platform_governance_state="UNKNOWN",
+            verified_gates=["R0"],
+            violations=["R6_PLATFORM_GOVERNANCE_NOT_ENFORCED"],
+            outcome="DENIED",
+            verifier_code_digest=SHA256_6,
+        )
+        self.assertEqual(receipt["authority"], "NONE")
+        self.assertEqual(receipt["mutation_authority"], "NONE")
+        Draft202012Validator(load_schema(RECEIPT_SCHEMA_PATH)).validate(receipt)
+
+
 if __name__ == "__main__":
     main()
