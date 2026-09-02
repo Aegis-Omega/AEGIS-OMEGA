@@ -16,13 +16,16 @@ RUN pip install --no-cache-dir \
     anyio==4.6.2
 
 # serve.py at /app, agents package at /app/agents, harness data at /app/harness.
-# evolution.py computes _REPO_ROOT = dirname(agents) = /app, so it finds
-# /app/harness/skill_tree.json. serve.py's path setup adds /app to sys.path.
+# runtime.py installs a standard-library outer authority membrane before FastAPI
+# can observe any paid or webhook request.  Missing security configuration is
+# therefore a fail-closed 503, never an implicit public capability.
 COPY vertex/serve.py /app/serve.py
+COPY vertex/authority_boundary.py /app/authority_boundary.py
+COPY vertex/runtime.py /app/runtime.py
 COPY agents /app/agents
 COPY harness /app/harness
 
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["python", "serve.py"]
+CMD ["python", "runtime.py"]
