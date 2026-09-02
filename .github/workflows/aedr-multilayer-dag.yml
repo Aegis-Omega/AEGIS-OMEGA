@@ -40,3 +40,30 @@ jobs:
         run: |
           set -euo pipefail
           python -m pytest -q tests/aedr
+
+      - name: Produce exact-run AEDR falsification surface
+        if: ${{ github.event_name == 'pull_request' }}
+        shell: bash
+        env:
+          AEDR_PR_NUMBER: ${{ github.event.pull_request.number }}
+          AEDR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          AEDR_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          python scripts/aedr/surface_producer.py \
+            --manifest scripts/aedr/falsification_manifest_v1.json \
+            --pr-number "$AEDR_PR_NUMBER" \
+            --head-sha "$AEDR_HEAD_SHA" \
+            --run-id "$AEDR_RUN_ID" \
+            --output "$RUNNER_TEMP/aedr-surface.json"
+
+      - name: Upload exact-run AEDR falsification surface
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1 / Node 24
+        with:
+          name: aedr-surface-${{ github.run_id }}-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/aedr-surface.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+          overwrite: false
