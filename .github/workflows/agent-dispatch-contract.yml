@@ -35,4 +35,5 @@ jobs:
       - name: Run dispatch wiring contract
         run: python3 scripts/test_agent_dispatch_contract.py -v
       - name: Run platform authority-boundary behavior
+        if: always()
         run: python3 scripts/test_platform_authority_boundary.py -v
