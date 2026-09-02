@@ -8,12 +8,12 @@
     "RH": "NOT_PROVEN"
   },
   "files_blake3": {
-    "clients/python/aegis_omega/tourbillon.py": "554620f483e4122ae224e86d96cdd35e86285a34bfed15040337bd53d4335def",
+    "clients/python/aegis_omega/tourbillon.py": "6858f2ecba56d69466c1ad7013f8b1c403099641034a5a27180f86b9e5994905",
     "clients/python/setup.py": "3c8468134d470dc5ff1bb9cd38f6f31939c1a622bffb0a81d6caa3b4d4ec6b57",
     "clients/python/tests/conftest.py": "d6b4501aa4444b3a9b08f9f7b0944bf57c988840090b507b6a6d7ee488e51c1d",
-    "clients/python/tests/test_quantum_tourbillon.py": "d3fda80bed59b8508614b555f5ee7cefb286876300de92d2f90f8f3380c00a11"
+    "clients/python/tests/test_quantum_tourbillon.py": "ca133f93c19224bc9c2cc69c36aff86af1291cebbae56ed2bd0e969109fe76c0"
   },
-  "green_commit": "e10a633cfac71eb032dc878c7523f9ebf02ef199",
+  "green_commit": "edd33495024cb2bab93725ea878120d803f9f73f",
   "grover_probabilities_by_marked_index": {
     "0": [
       1.0,
@@ -42,14 +42,15 @@
   },
   "main_untouched_at": "a34d664d",
   "pytest": [
-    "tests/test_quantum_tourbillon.py::test_unauthorized_quantum_admission PASSED [ 20%]",
-    "tests/test_quantum_tourbillon.py::test_deterministic_blake3_receipt_hashing PASSED [ 40%]",
-    "tests/test_quantum_tourbillon.py::test_unavailable_blocks_implicit_pass PASSED [ 60%]",
-    "tests/test_quantum_tourbillon.py::test_grover_amplification_locates_marked_failing_perspective PASSED [ 80%]",
-    "tests/test_quantum_tourbillon.py::test_diagnostic_oracle_registry_marks_first_failing_invariant PASSED [100%]",
-    "============================== 5 passed in 0.52s ==============================="
+    "tests/test_quantum_tourbillon.py::test_unauthorized_quantum_admission PASSED [ 16%]",
+    "tests/test_quantum_tourbillon.py::test_deterministic_blake3_receipt_hashing PASSED [ 33%]",
+    "tests/test_quantum_tourbillon.py::test_unavailable_blocks_implicit_pass PASSED [ 50%]",
+    "tests/test_quantum_tourbillon.py::test_grover_amplification_locates_marked_failing_perspective PASSED [ 66%]",
+    "tests/test_quantum_tourbillon.py::test_diagnostic_oracle_registry_marks_first_failing_invariant PASSED [ 83%]",
+    "tests/test_quantum_tourbillon.py::test_p4_bounded_falsification_is_a_mandatory_gate PASSED [100%]",
+    "============================== 6 passed in 0.68s ==============================="
   ],
-  "receipt_blake3": "f28726a23b4714c00c12d32a6d1f6284371faa235d341787879b3b822730884a",
+  "receipt_blake3": "a1da9125446776e70d6629e92f8057b9c6bf91c487585c2baa4d150992556c45",
   "receipt_kind": "AEGIS_QUANTUM_TOURBILLON_MPVC_RECEIPT_V1",
   "regenerate": "cd clients/python && python3 -m pytest tests/test_quantum_tourbillon.py -v; recompute files_blake3 with blake3 over each file",
   "toolchain": {
