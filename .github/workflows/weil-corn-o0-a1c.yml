@@ -25,7 +25,7 @@ env:
 
 jobs:
   attest:
-    name: coqc / A1-RAT + A1-STRICT
+    name: coqc / A1 reference + completion identity
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -71,7 +71,7 @@ jobs:
             sovereign-omega-v2/formal/tests/Weil \
             sovereign-omega-v2/weil-corn-o0-a1c-attestation
 
-      - name: Compile RED or GREEN A1c contract
+      - name: Compile A1 reference and completion contract
         uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
         with:
           coq_version: '8.20'
@@ -92,23 +92,13 @@ jobs:
               | tee "$OUT/corn-package-metadata.txt"
 
             if ! test -f "$SOURCE"; then
-              echo 'RED checkpoint: CornO0MorphismBridge.v intentionally absent.' \
-                | tee "$OUT/red-checkpoint.txt"
-              set +e
-              (cd "$TESTDIR" && coqc -Q "$THEORY" "" CornO0MorphismBridgeSpec.v) 2>&1 \
-                | tee "$OUT/a1c-spec.log"
-              status=${PIPESTATUS[0]}
-              set -e
-              test "$status" -ne 0
-              grep -q 'CornO0MorphismBridge' "$OUT/a1c-spec.log"
-              echo 'EXPECTED_RED_MISSING_PRODUCTION_MODULE' \
-                | tee -a "$OUT/red-checkpoint.txt"
+              echo 'Production source missing: CornO0MorphismBridge.v' >&2
               exit 1
             fi
 
-            # Match the canonical global attestation compile model.  The
-            # inventory records AnalyticDefinitions as A1c's sole local
-            # prerequisite, so build it first and then the authority source.
+            # Match the canonical global attestation compile model. The
+            # inventory records AnalyticDefinitions as this module's sole
+            # intra-repository prerequisite.
             (cd "$THEORY" && coqc AnalyticDefinitions.v) 2>&1 \
               | tee "$OUT/analytic-definitions.log"
             (cd "$THEORY" && coqc CornO0MorphismBridge.v) 2>&1 \
@@ -117,13 +107,23 @@ jobs:
               | tee "$OUT/a1c-spec.log"
 
             for theorem in \
+              corn_ir_to_o0_proper_v1 \
               corn_ir_to_o0_preserves_rat_v1 \
               corn_ir_to_o0_strict_v1 \
               corn_ir_to_o0_preserves_zero_v1 \
               corn_ir_to_o0_preserves_one_v1 \
               corn_ir_to_o0_preserves_plus_v1 \
               corn_ir_to_o0_preserves_mult_v1 \
-              corn_ir_to_o0_preserves_le_v1
+              corn_ir_to_o0_preserves_le_v1 \
+              corn_fast_cauchy_lim_prop2_to_cv_a1c_v1 \
+              corn_ir_G_fast_cauchy_lim_prop2_v1 \
+              corn_ir_G_fast_cv_v1 \
+              corn_ir_to_o0_reference_cv_v1 \
+              corn_o0_G_seq_is_cauchy_v1 \
+              corn_ir_to_o0_complete_cv_v1 \
+              corn_ir_to_o0_completion_equivalence_v1 \
+              corn_ir_to_o0_complete_preserves_rat_v1 \
+              corn_ir_to_o0_complete_strict_v1
             do
               query="$OUT/${theorem}.v"
               log="$OUT/${theorem}.assumptions.txt"
@@ -156,6 +156,7 @@ jobs:
           out = Path('weil-corn-o0-a1c-attestation')
           source = Path('formal/theories/Weil/CornO0MorphismBridge.v')
           names = [
+              'corn_ir_to_o0_proper_v1',
               'corn_ir_to_o0_preserves_rat_v1',
               'corn_ir_to_o0_strict_v1',
               'corn_ir_to_o0_preserves_zero_v1',
@@ -163,6 +164,15 @@ jobs:
               'corn_ir_to_o0_preserves_plus_v1',
               'corn_ir_to_o0_preserves_mult_v1',
               'corn_ir_to_o0_preserves_le_v1',
+              'corn_fast_cauchy_lim_prop2_to_cv_a1c_v1',
+              'corn_ir_G_fast_cauchy_lim_prop2_v1',
+              'corn_ir_G_fast_cv_v1',
+              'corn_ir_to_o0_reference_cv_v1',
+              'corn_o0_G_seq_is_cauchy_v1',
+              'corn_ir_to_o0_complete_cv_v1',
+              'corn_ir_to_o0_completion_equivalence_v1',
+              'corn_ir_to_o0_complete_preserves_rat_v1',
+              'corn_ir_to_o0_complete_strict_v1',
           ]
 
           def sha(path: Path) -> str:
@@ -188,17 +198,19 @@ jobs:
               'declared_assumptions': 0,
               'a1_rat_machine_bound': True,
               'a1_strict_machine_bound': True,
+              'a1_complete_rat_machine_bound': True,
+              'a1_complete_strict_machine_bound': True,
               'corn_ir_to_o0_ring_order_corollaries_machine_bound': True,
+              'corn_fast_seq_limit_cr_cv_compatibility_machine_bound': True,
+              'corn_g_sequence_to_o0_limit_machine_bound': True,
+              'corn_o0_completion_equivalence_machine_bound': True,
               'transport_route': 'CORN_IR_ISOMORPHISM_TO_FAST_CR_THEN_STDLIB_SLOW_CONSTRUCTIVE_REALS_MORPHISM',
-              'corn_o0_completion_equivalence_machine_bound': False,
-              'corn_g_sequence_to_o0_limit_machine_bound': False,
+              'completion_route': 'CORN_G_SEQLIMIT_TO_FAST_CR_CV_TO_CRMORPH_CV_TO_O0_CR_COMPLETE_TO_CR_CV_UNIQUE',
               'corn_o0_trig_transport_machine_bound': False,
               'guinand_weil_explicit_formula_machine_bound': False,
               'global_weil_positivity_proven': False,
               'rh_proven': False,
               'open_obligations': [
-                  'CORN_G_SEQUENCE_TO_O0_LIMIT_NOT_MACHINE_BOUND',
-                  'CORN_COMPLETION_DEFINED_CARRIER_EQ_MORPHISM_NOT_MACHINE_BOUND',
                   'CORN_O0_TRIG_TRANSPORT_NOT_MACHINE_BOUND',
               ],
           }
@@ -211,8 +223,14 @@ jobs:
           assert version == '9.0.0'
           assert payload['a1_rat_machine_bound'] is True
           assert payload['a1_strict_machine_bound'] is True
-          assert payload['corn_o0_completion_equivalence_machine_bound'] is False
+          assert payload['a1_complete_rat_machine_bound'] is True
+          assert payload['a1_complete_strict_machine_bound'] is True
+          assert payload['corn_fast_seq_limit_cr_cv_compatibility_machine_bound'] is True
+          assert payload['corn_g_sequence_to_o0_limit_machine_bound'] is True
+          assert payload['corn_o0_completion_equivalence_machine_bound'] is True
           assert payload['corn_o0_trig_transport_machine_bound'] is False
+          assert payload['guinand_weil_explicit_formula_machine_bound'] is False
+          assert payload['global_weil_positivity_proven'] is False
           assert payload['rh_proven'] is False
           PY
 
