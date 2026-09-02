@@ -57,8 +57,18 @@ def sha256_hex(data: bytes) -> str:
 
 
 def request_digest(request: dict[str, Any]) -> str:
-    """Bind every request field except the self-identifying request_id."""
-    body = {key: value for key, value in request.items() if key != "request_id"}
+    """Hash the pre-approval request core.
+
+    ``request_id`` is self-identifying and ``operator_approval_digest`` is a
+    post-identity evidence attachment. Excluding the latter breaks the otherwise
+    circular dependency where approval must bind the request ID that would in
+    turn depend on the approval digest. R7 validates that attachment separately.
+    """
+    body = {
+        key: value
+        for key, value in request.items()
+        if key not in {"request_id", "operator_approval_digest"}
+    }
     return sha256_hex(canonical_bytes({"domain": REQUEST_DOMAIN, "request": body}))
 
 
