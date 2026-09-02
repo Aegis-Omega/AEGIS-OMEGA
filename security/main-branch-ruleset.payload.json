@@ -54,6 +54,14 @@
             "integration_id": 15368
           },
           {
+            "context": "aegis / automaton-2",
+            "integration_id": 15368
+          },
+          {
+            "context": "aegis / automaton-3",
+            "integration_id": 15368
+          },
+          {
             "context": "Main branch enforcement",
             "integration_id": 15368
           }
