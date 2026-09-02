@@ -1,6 +1,6 @@
 # Provider-Native Cognitive Fabric v1
 
-Status: RATIFIED DESIGN
+Status: RATIFIED DESIGN / IMPLEMENTATION IN PROGRESS
 
 ## Goal
 
@@ -14,18 +14,35 @@ All model outputs remain candidate evidence until the existing AEGIS verificatio
 
 ## Architecture
 
-Introduce a pure provider-cognition policy module in `sovereign-omega-v2/src/agents/coordination/provider-cognition.ts`. It maps a provider plus work class into a deterministic `ProviderCognitiveProfile`. The profile records provider-native reasoning controls, tool policy, state policy, and the maximum authority class that any raw model output may claim.
+`sovereign-omega-v2/src/agents/coordination/provider-cognition.ts` maps provider + work class into a deterministic `ProviderCognitiveProfile`. The profile records effective model, provider-native reasoning controls, tool policy, state policy, and the only authority available to raw output: `NONE`.
 
-The first version supports OpenAI, Anthropic, DashScope/Qwen, Gemini, and local providers. Models are configuration defaults rather than constitutional identities: environment/runtime policy may override the model slug, but the exact selected model and reasoning configuration must be recorded in execution provenance.
+The first version supports OpenAI, Anthropic, DashScope/Qwen, Gemini, and local providers. Model slugs are refreshable capability defaults rather than constitutional identities. The exact selected model and reasoning configuration are bound into execution provenance.
 
-OpenAI quality-first work defaults to the current flagship reasoning family through the Responses API with maximum reasoning effort; Anthropic uses adaptive thinking with high effort; Gemini uses high thinking level; Qwen/local profiles use their strongest configured reasoning mode without pretending to provide a vendor feature that is unavailable.
+Current quality-first defaults, verified against provider documentation on 2026-09-02:
+
+- OpenAI: `gpt-5.6-sol`; frontier/formal work uses Responses API with `reasoning.effort=max` and pro mode.
+- Anthropic: `claude-opus-5`; frontier/formal work uses adaptive thinking with `output_config.effort=max`; implementation uses `xhigh`.
+- Gemini: `gemini-3.1-pro-preview`; non-routine work uses Interactions API with `thinking_level=high`.
+- DashScope/Qwen: `qwen3.8-max`; non-routine work uses Responses API with `reasoning.effort=xhigh` (maximum-intensity Qwen3.8 reasoning).
+- Local: strongest configured local reasoner; non-routine work uses deep mode.
 
 ## Work classes
 
-- `frontier-research`: hardest mathematical/scientific/architectural work; quality-first.
-- `formal-review`: theorem/proof/security/adversarial verification; quality-first and tool-constrained.
-- `implementation`: code generation/refactoring/debugging; deep reasoning with workspace tools behind AEGIS capability policy.
-- `routine`: lower-cost/latency work; still provider-native but not forced to maximum compute.
+- `frontier-research`: hardest mathematical/scientific/architectural work; maximum quality.
+- `formal-review`: theorem/proof/security/adversarial verification; maximum quality and tool-constrained.
+- `implementation`: code generation/refactoring/debugging; extended deep reasoning with workspace tools behind AEGIS capability policy.
+- `routine`: lower-cost/latency work; still provider-native, with explicit lower reasoning controls where supported.
+
+## Provider-native execution contracts
+
+Pure request builders make provider depth mechanically inspectable before any network call:
+
+- `openai-responses.ts`: OpenAI Responses API, `store=false`, encrypted reasoning continuity, exact reasoning effort/mode, optional privacy-preserving `safety_identifier`.
+- `anthropic-messages.ts`: Anthropic Messages API, adaptive thinking, hidden/omitted thinking display, explicit effort and work-class output cap.
+- `gemini-interactions.ts`: Gemini Interactions API, `store=false`, explicit thinking level and no thought-summary disclosure.
+- `qwen-responses.ts`: Alibaba Model Studio Responses API, `store=false`, explicit Qwen reasoning effort.
+
+Every builder receives only an already-authorized tool list. Provider-native tool availability does not create AEGIS capability authority.
 
 ## Authority
 
@@ -33,9 +50,9 @@ Every profile has `raw_output_authority = "NONE"`. Provider responses, hidden re
 
 ## OpenAI execution boundary
 
-The existing product-chat compatibility endpoint may remain, but AEGIS cognitive execution must target the Responses API rather than legacy Chat Completions. OpenAI request provenance must include the effective model, reasoning effort/mode, state/storage policy, allowed tool classes, response identifier when present, and a privacy-preserving `safety_identifier` when an end-user identity is relevant.
+The existing product-chat compatibility endpoint may remain, but AEGIS cognitive execution targets the Responses API rather than legacy Chat Completions. OpenAI request provenance includes the effective model, reasoning effort/mode, state/storage policy, allowed tool classes, response identifier when present, and a privacy-preserving `safety_identifier` when an end-user identity is relevant.
 
-For zero-retention/stateless operation, the adapter must not assume server-side conversation persistence. Returned reasoning/state items may be replayed only according to the configured data-retention policy.
+For zero-retention/stateless operation, adapters never assume server-side conversation persistence. Returned state/reasoning items may be replayed only under configured retention policy.
 
 ## Tools and sandbox
 
@@ -45,20 +62,22 @@ Quantum simulation is diagnostic. Physical quantum hardware execution is a disti
 
 ## Provenance
 
-A `ProviderExecutionReceiptV1` must be constructible from the chosen profile and observed execution metadata. At minimum it binds provider, exact model, work class, reasoning configuration, tool-policy digest/input, task digest, output digest, and `authority_class = "NONE"`.
+`ProviderExecutionReceiptV1` binds provider, exact model, work class, reasoning configuration, storage/tool policy, task digest, output digest, tool-policy digest and `authority_class = "NONE"`. Changing any bound execution property changes receipt identity.
 
 ## Non-goals
 
-- Replacing AEGIS governance with OpenAI Agents SDK, Anthropic tools, Gemini agents, or any provider framework.
+- Replacing AEGIS governance with OpenAI Agents SDK, Anthropic tools, Gemini agents, Alibaba Model Studio, or any provider framework.
 - Hard-coding one provider as permanent coordinator or authority source.
-- Treating stronger reasoning, multi-agent agreement, or quantum diagnostics as proof.
+- Treating stronger reasoning, multi-agent agreement, hidden chain-of-thought, or quantum diagnostics as proof.
 - Claiming physical quantum teleportation. Physical teleportation remains `NOT_ESTABLISHED` until hardware-bound evidence exists.
 
 ## Acceptance criteria
 
-1. A pure deterministic provider-profile selector exists and covers all supported providers/work classes.
-2. Frontier/formal work selects the deepest configured provider-native reasoning controls.
+1. A deterministic provider-profile selector covers all supported providers/work classes.
+2. Frontier/formal work selects the deepest supported provider-native reasoning controls.
 3. Routine work can choose a lower-cost profile without weakening provenance.
 4. Every profile enforces raw output authority `NONE`.
-5. Tests fail if a provider profile can mint authority or if frontier OpenAI/Anthropic/Gemini profiles are downgraded below their configured deep-reasoning mode.
-6. Existing provider-neutral swarm/admission code remains semantically unchanged in this slice.
+5. Pure request builders exist for OpenAI, Anthropic, Gemini and Qwen and reject mismatched provider profiles.
+6. Provider request builders default to stateless execution where the provider API supports it.
+7. Tests fail if a provider profile can mint authority or if a frontier provider is downgraded below its configured deep-reasoning mode.
+8. Existing provider-neutral quorum/admission/effect-verification semantics remain unchanged in this slice.
