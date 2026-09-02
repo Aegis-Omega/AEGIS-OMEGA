@@ -150,6 +150,19 @@ describe('check 3 — K-bound (capability is not proportionality)', () => {
     expect(d.failures).toContain('k_bound_exceeded')
   })
 
+  it('refuses a non-finite budget instead of admitting it as within bound', () => {
+    // NaN is not greater than anything, so the bare `>` comparison would have
+    // fallen through to within_k_bound. Same fail-open shape as an unparsable
+    // not_after, and it has to fail closed for the same reason.
+    for (const bad of [NaN, Infinity]) {
+      const d = checkAuthorizationInversion(request({ claim: claim({ k_contribution: bad }) }))
+      expect(d.checks.within_k_bound).toBe(false)
+      expect(d.failures).toContain('k_bound_unparsable')
+      expect(d.failures).not.toContain('k_bound_exceeded')
+      expect(d.verdict).toBe('reject')
+    }
+  })
+
   it('does not report an exceeded bound when there was no bound to compare', () => {
     const d = checkAuthorizationInversion(request({ claim: null }))
     expect(d.verdict).toBe('reject')
@@ -174,7 +187,7 @@ describe('check 4 — claim log', () => {
 })
 
 describe('check 5 — independent verification', () => {
-  it('escalates when a verifier has simply not run yet', () => {
+  it('escalates when a verifier has not run yet', () => {
     const d = checkAuthorizationInversion(request({ verification: null }))
     expect(d.verdict).toBe('escalate')
     expect(d.failures).toEqual(['verification_absent'])
