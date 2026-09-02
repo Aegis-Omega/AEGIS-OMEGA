@@ -14,6 +14,8 @@ one.
 | `chain.py` | The domain-agnostic envelope — `canon()` (RFC 8785 → bytes, rejects float), `sha256_hex()`, `StageRecord`, `LineageChain` (append / `terminal_hash` / `certify`). The genomics proof inlines this for zero-dependency portability; here it is shared infra. |
 | `compliance_pipeline.py` | A **regulated decision-audit** pipeline (`INTAKE → EXTRACT → SCORE → DECISION`) — AEGIS's stated market: EU AI Act Article 12 tamper-evident decision records. Integer scorecard, adverse-action reason codes, integer threshold. |
 | `test_generality.py` | The proof. Exit 0 = all four claims hold. |
+| `ecd.py` | Deterministic reference estimator for Evidence–Claim Divergence / Hallucination Distance over claims and evidence nodes. |
+| `test_ecd.py` | Estimator checks for alignment, unsupported claims, contradiction, deterministic witness hashing, tamper evidence, and Hallucination Delta. |
 
 ## What is proven
 
