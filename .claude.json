@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "experimental/quantum-tourbillon-mpvc-v1-hardening",
+    "source_ref": "research/quantum-cudaq-witness",
     "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "98492cc5452a393c43076a37b06b8422168acaf34298ac6a1ddd7858b7483959"
+  "state_hash": "9ffd95dbac3ca2995552808342b3d5dfb24cbc48696d59adaee8ef708ed23d84"
 }
