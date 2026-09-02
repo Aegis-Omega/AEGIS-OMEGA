@@ -50,9 +50,11 @@ jobs:
           set -euo pipefail
           python -m pip install -e './clients/python[quantum]' 'pytest==8.3.5'
           python - <<'PY'
-          import blake3, qiskit
+          from importlib.metadata import version
+          import qiskit
           assert qiskit.__version__ == "2.5.2", qiskit.__version__
-          assert blake3.__version__ == "1.0.9", blake3.__version__
+          assert version("blake3") == "1.0.9", version("blake3")
+          assert version("pytest") == "8.3.5", version("pytest")
           PY
 
       - name: Compile Python surface
@@ -78,6 +80,7 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           import json, os
+          from importlib.metadata import version
           from pathlib import Path
           import blake3, qiskit
 
@@ -101,7 +104,8 @@ jobs:
               'toolchain': {
                   'python': os.sys.version.split()[0],
                   'qiskit': qiskit.__version__,
-                  'blake3': blake3.__version__,
+                  'blake3': version('blake3'),
+                  'pytest': version('pytest'),
                   'backend': 'qiskit.quantum_info.Statevector',
                   'cloud': 'NONE',
               },
