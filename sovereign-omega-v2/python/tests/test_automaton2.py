@@ -100,6 +100,16 @@ class Automaton2Tests(TestCase):
         self.assertEqual(receipt["outcome"], "DENIED")
         self.assertTrue(any("parent_state_hash mismatch" in item for item in receipt["violations"]))
 
+    def test_zero_parent_is_denied_without_explicit_genesis(self) -> None:
+        self.parent_hash = "0" * 64
+        self.write_manifest()
+        receipt = self.evaluate()
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertIn(
+            "zero parent state requires explicit genesis mode",
+            receipt["violations"],
+        )
+
     def test_skill_digest_mismatch_is_denied(self) -> None:
         skill = self.root / ".claude" / "skills" / "test" / "SKILL.md"
         skill.write_text(skill.read_text(encoding="utf-8") + "tampered\n", encoding="utf-8")
