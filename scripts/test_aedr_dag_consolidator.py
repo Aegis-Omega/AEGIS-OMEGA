@@ -10,14 +10,7 @@ import unittest
 import aedr_dag_consolidator as aedr
 
 
-def node(
-    number: int,
-    head: str,
-    base: str,
-    *,
-    domain: str = "",
-    receipts: tuple[str, ...] = ("receipt",),
-) -> aedr.PRNode:
+def node(number: int, head: str, base: str, *, domain: str = "") -> aedr.PRNode:
     return aedr.PRNode(
         number=number,
         head_sha=head,
@@ -26,7 +19,6 @@ def node(
         draft=True,
         mergeable="UNKNOWN",
         authority_domains=frozenset({domain}) if domain else frozenset(),
-        evidence_receipts=receipts if domain else (),
     )
 
 
@@ -39,22 +31,17 @@ class AEDRDAGFalsifierTests(unittest.TestCase):
             repository="Aegis-Omega/AEGIS-OMEGA",
             main_sha="a" * 40,
             nodes=(hardened, amps),
-            ancestry=(aedr.PairAncestry(
-                363,
-                364,
-                aedr.AncestryRelation(
-                    base_sha=hardened.head_sha,
-                    head_sha=amps.head_sha,
-                    merge_base_sha=common,
-                    ahead_by=3,
-                    behind_by=7,
-                    status="diverged",
-                ),
-            ),),
-            semantic_edges=((364, 363),),
+            git_edges=(aedr.GitEdge(363, 364, aedr.AncestryRelation(
+                base_sha=hardened.head_sha,
+                head_sha=amps.head_sha,
+                merge_base_sha=common,
+                ahead_by=3,
+                behind_by=7,
+                status="diverged",
+            )),),
+            semantic_edges=(aedr.SemanticEdge(364, 363, "GOVERNS_HARDENED_MPVC", True),),
         )
-        anomalies = aedr.analyze_snapshot(snapshot)
-        self.assertIn("MISSING_SEMANTIC_JOIN", {item.code for item in anomalies})
+        self.assertIn("MISSING_SEMANTIC_JOIN", {x.code for x in aedr.analyze_snapshot(snapshot)})
 
     def test_stale_parent_requires_non_ancestral_current_parent(self) -> None:
         parent = node(354, "f481f189019f5ff130331dcabc1eded504f834e2", "x" * 40, domain="MHP")
@@ -66,104 +53,104 @@ class AEDRDAGFalsifierTests(unittest.TestCase):
             draft=True,
             mergeable="UNKNOWN",
             authority_domains=frozenset({"MHP"}),
-            evidence_receipts=("red-first",),
         )
-        relation = aedr.AncestryRelation(
-            base_sha=parent.head_sha,
-            head_sha=child.head_sha,
-            merge_base_sha=child.base_sha,
-            ahead_by=7,
-            behind_by=5,
-            status="diverged",
-        )
+        bad = aedr.AncestryRelation(parent.head_sha, child.head_sha, child.base_sha, 7, 5, "diverged")
         snapshot = aedr.RepositorySnapshot(
             repository="Aegis-Omega/AEGIS-OMEGA",
             main_sha="a" * 40,
             nodes=(parent, child),
-            ancestry=(aedr.PairAncestry(354, 356, relation),),
+            git_edges=(aedr.GitEdge(354, 356, bad),),
             stack_edges=((356, 354),),
         )
-        anomalies = aedr.analyze_snapshot(snapshot)
-        self.assertIn("STALE_PARENT", {item.code for item in anomalies})
+        self.assertIn("STALE_PARENT", {x.code for x in aedr.analyze_snapshot(snapshot)})
 
-        # A base SHA mismatch alone is insufficient if current parent is already
-        # an ancestor of the child.
-        good_relation = aedr.AncestryRelation(
-            base_sha=parent.head_sha,
-            head_sha=child.head_sha,
-            merge_base_sha=parent.head_sha,
-            ahead_by=2,
-            behind_by=0,
-            status="ahead",
-        )
-        good_snapshot = aedr.RepositorySnapshot(
+        good = aedr.AncestryRelation(parent.head_sha, child.head_sha, parent.head_sha, 2, 0, "ahead")
+        snapshot = aedr.RepositorySnapshot(
             repository=snapshot.repository,
             main_sha=snapshot.main_sha,
             nodes=snapshot.nodes,
-            ancestry=(aedr.PairAncestry(354, 356, good_relation),),
+            git_edges=(aedr.GitEdge(354, 356, good),),
             stack_edges=snapshot.stack_edges,
         )
-        self.assertNotIn(
-            "STALE_PARENT",
-            {item.code for item in aedr.analyze_snapshot(good_snapshot)},
-        )
+        self.assertNotIn("STALE_PARENT", {x.code for x in aedr.analyze_snapshot(snapshot)})
 
     def test_309_334_divergence_never_auto_supersedes(self) -> None:
-        old = node(309, "1406aacca95fef02a942621a7060e0b6b14a5809", "a" * 40, domain="RUNTIME")
-        new = node(334, "65f97558615c848c46239706a019c3478bea5a87", "a" * 40, domain="RUNTIME")
+        old = node(309, "1" * 40, "a" * 40, domain="RUNTIME")
+        new = node(334, "2" * 40, "a" * 40, domain="RUNTIME")
         snapshot = aedr.RepositorySnapshot(
             repository="Aegis-Omega/AEGIS-OMEGA",
             main_sha="a" * 40,
             nodes=(old, new),
-            ancestry=(aedr.PairAncestry(
-                309, 334,
-                aedr.AncestryRelation(
-                    base_sha=old.head_sha,
-                    head_sha=new.head_sha,
-                    merge_base_sha="a" * 40,
-                    ahead_by=71,
-                    behind_by=69,
-                    status="diverged",
-                ),
-            ),),
-            overlap_pairs=((309, 334),),
+            git_edges=(aedr.GitEdge(309, 334, aedr.AncestryRelation(
+                old.head_sha, new.head_sha, "a" * 40, 71, 69, "diverged"
+            )),),
+            conflict_edges=(aedr.ConflictEdge(309, 334, "OVERLAP"),),
         )
-        anomalies = aedr.analyze_snapshot(snapshot)
-        matching = [item for item in anomalies if item.code == "DIVERGENT_OVERLAP"]
+        matching = [x for x in aedr.analyze_snapshot(snapshot) if x.code == "DIVERGENT_OVERLAP"]
         self.assertEqual(len(matching), 1)
         self.assertEqual(matching[0].proposed_action, "PROPOSE_SUPERSESSION_REVIEW")
 
-    def test_supersession_contract_is_conjunctive(self) -> None:
+    def _sufficient_supersession(self):
         replaced = node(1, "1" * 40, "0" * 40, domain="RUNTIME")
         candidate = node(2, "2" * 40, "0" * 40, domain="RUNTIME")
-        insufficient = aedr.SupersessionEvidence(
+        evidence = aedr.SupersessionEvidence(
             candidate_pr=2,
             replaced_pr=1,
             required_behavior_replaced=frozenset({"effect-chain"}),
-            verified_behavior_candidate=frozenset({"effect-chain"}),
+            verified_behavior_candidate=frozenset({"effect-chain", "replay"}),
             required_falsifiers_replaced=frozenset({"anti-splice"}),
             verified_falsifiers_candidate=frozenset({"anti-splice"}),
-            unique_files_disposition_complete=True,
-            assumptions_candidate=frozenset({"A"}),
-            assumptions_replaced=frozenset(),
+            unique_files_replaced=frozenset({"legacy_test.py", "plan.md"}),
+            file_dispositions=(
+                aedr.FileDisposition("legacy_test.py", "BYTE_EQUIVALENT"),
+                aedr.FileDisposition("plan.md", "OPEN_OBLIGATION"),
+            ),
+            assumptions_candidate=frozenset(),
+            assumptions_replaced=frozenset({"A"}),
             security_exposure_candidate=0,
-            security_exposure_replaced=0,
+            security_exposure_replaced=1,
             no_authority_widening=True,
-            exact_head_green_dominance_receipt="run:green",
+            dominance_receipt=aedr.DominanceReceipt(
+                "run:green", candidate.head_sha, replaced.head_sha, "SUCCESS"
+            ),
         )
-        decision = aedr.evaluate_supersession(candidate, replaced, insufficient)
+        return candidate, replaced, evidence
+
+    def test_supersession_contract_is_conjunctive(self) -> None:
+        candidate, replaced, sufficient = self._sufficient_supersession()
+        self.assertTrue(aedr.evaluate_supersession(candidate, replaced, sufficient).established)
+        regressed = aedr.SupersessionEvidence(**{
+            **sufficient.__dict__,
+            "assumptions_candidate": frozenset({"A", "B"}),
+        })
+        decision = aedr.evaluate_supersession(candidate, replaced, regressed)
         self.assertFalse(decision.established)
         self.assertIn("assumption_regression", decision.failed_conditions)
 
-        sufficient = aedr.SupersessionEvidence(
-            **{
-                **insufficient.__dict__,
-                "assumptions_candidate": frozenset(),
-            }
-        )
-        self.assertTrue(
-            aedr.evaluate_supersession(candidate, replaced, sufficient).established
-        )
+    def test_stale_dominance_receipt_cannot_establish_supersession(self) -> None:
+        candidate, replaced, sufficient = self._sufficient_supersession()
+        stale = aedr.SupersessionEvidence(**{
+            **sufficient.__dict__,
+            "dominance_receipt": aedr.DominanceReceipt(
+                "run:old", "f" * 40, replaced.head_sha, "SUCCESS"
+            ),
+        })
+        decision = aedr.evaluate_supersession(candidate, replaced, stale)
+        self.assertFalse(decision.established)
+        self.assertIn("dominance_receipt_candidate_head_mismatch", decision.failed_conditions)
+
+    def test_semantic_replacement_requires_receipt(self) -> None:
+        candidate, replaced, sufficient = self._sufficient_supersession()
+        broken = aedr.SupersessionEvidence(**{
+            **sufficient.__dict__,
+            "file_dispositions": (
+                aedr.FileDisposition("legacy_test.py", "SEMANTIC_REPLACEMENT"),
+                aedr.FileDisposition("plan.md", "OPEN_OBLIGATION"),
+            ),
+        })
+        decision = aedr.evaluate_supersession(candidate, replaced, broken)
+        self.assertFalse(decision.established)
+        self.assertIn("semantic_replacement_without_receipt:legacy_test.py", decision.failed_conditions)
 
     def test_generated_only_head_drift_invalidates_binding_without_semantic_claim(self) -> None:
         pr = node(365, "b" * 40, "a" * 40, domain="MODEL")
@@ -174,18 +161,35 @@ class AEDRDAGFalsifierTests(unittest.TestCase):
             head_deltas=(aedr.HeadDelta(365, "c" * 40, pr.head_sha, (".claude.json",)),),
             generated_paths=frozenset({".claude.json"}),
         )
-        anomalies = aedr.analyze_snapshot(snapshot)
-        codes = {item.code for item in anomalies}
-        self.assertIn("GENERATED_ONLY_HEAD_DRIFT", codes)
+        self.assertIn("GENERATED_ONLY_HEAD_DRIFT", {x.code for x in aedr.analyze_snapshot(snapshot)})
+
+    def test_stale_evidence_binding_is_not_current_green(self) -> None:
+        pr = node(10, "b" * 40, "a" * 40, domain="FORMAL")
+        snapshot = aedr.RepositorySnapshot(
+            repository="Aegis-Omega/AEGIS-OMEGA",
+            main_sha="a" * 40,
+            nodes=(pr,),
+            evidence_edges=(aedr.EvidenceEdge(10, "c" * 40, "run:1", "SUCCESS"),),
+        )
+        codes = {x.code for x in aedr.analyze_snapshot(snapshot)}
+        self.assertIn("STALE_EVIDENCE_BINDING", codes)
+        self.assertIn("MISSING_CURRENT_HEAD_GREEN_RECEIPT", codes)
+
+    def test_unbound_allowed_authority_transfer_is_rejected(self) -> None:
+        snapshot = aedr.RepositorySnapshot(
+            repository="Aegis-Omega/AEGIS-OMEGA",
+            main_sha="a" * 40,
+            nodes=(node(1, "1" * 40, "0" * 40), node(2, "2" * 40, "0" * 40)),
+            authority_edges=(aedr.AuthorityEdge(1, 2, "FORMAL", True, ""),),
+        )
+        self.assertIn("UNBOUND_AUTHORITY_TRANSFER", {x.code for x in aedr.analyze_snapshot(snapshot)})
 
     def test_receipt_is_deterministic_authority_none_and_propose_only(self) -> None:
         snapshot = aedr.RepositorySnapshot(
             repository="Aegis-Omega/AEGIS-OMEGA",
             main_sha="a" * 40,
             nodes=(),
-            open_pr_count=0,
-            draft_pr_count=0,
-            nondraft_pr_count=0,
+            census_scope="REGRESSION_SUBGRAPH",
         )
         first = aedr.build_receipt(snapshot, ())
         second = aedr.build_receipt(snapshot, ())
@@ -193,6 +197,7 @@ class AEDRDAGFalsifierTests(unittest.TestCase):
         self.assertEqual(first["authority"], "NONE")
         self.assertEqual(first["mutation_authority"], "NONE")
         self.assertEqual(first["signature"]["state"], "NOT_ESTABLISHED")
+        self.assertEqual(first["snapshot"]["census"]["scope"], "REGRESSION_SUBGRAPH")
         aedr.validate_receipt(first)
 
     def test_validate_receipt_rejects_non_propose_action(self) -> None:
@@ -209,51 +214,49 @@ class AEDRDAGFalsifierTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "only PROPOSE"):
             aedr.validate_receipt(receipt)
 
-    def test_snapshot_roundtrip_keeps_relation_types_separate(self) -> None:
+    def test_snapshot_roundtrip_keeps_five_edge_namespaces_separate(self) -> None:
         original = aedr.RepositorySnapshot(
             repository="Aegis-Omega/AEGIS-OMEGA",
             main_sha="a" * 40,
-            nodes=(aedr.PRNode(
-                number=7,
-                head_sha="b" * 40,
-                base_sha="a" * 40,
-                base_ref="main",
-                draft=False,
-                mergeable="UNKNOWN",
-                authority_domains=frozenset({"FORMAL"}),
-                git_parents=("a" * 40,),
-                semantic_dependencies=(3,),
-                evidence_receipts=("run:1",),
-            ),),
-            semantic_edges=((7, 3),),
-            open_pr_count=1,
+            nodes=(
+                aedr.PRNode(7, "b" * 40, "a" * 40, "main", False, "UNKNOWN", frozenset({"FORMAL"}), ("a" * 40,), (3,), ("run:1",)),
+                node(3, "c" * 40, "a" * 40),
+            ),
+            git_edges=(aedr.GitEdge(3, 7, aedr.AncestryRelation("c" * 40, "b" * 40, "a" * 40, 1, 1, "diverged")),),
+            semantic_edges=(aedr.SemanticEdge(7, 3),),
+            authority_edges=(aedr.AuthorityEdge(3, 7, "FORMAL", False),),
+            evidence_edges=(aedr.EvidenceEdge(7, "b" * 40, "run:1", "SUCCESS"),),
+            conflict_edges=(aedr.ConflictEdge(3, 7, "OVERLAP"),),
+            census_scope="REGRESSION_SUBGRAPH",
+            open_pr_count=2,
+            draft_pr_count=1,
             nondraft_pr_count=1,
         )
-        payload = aedr.snapshot_payload(original)
-        rebuilt = aedr.snapshot_from_json(payload)
-        self.assertEqual(rebuilt.nodes[0].git_parents, ("a" * 40,))
-        self.assertEqual(rebuilt.nodes[0].semantic_dependencies, (3,))
-        self.assertFalse(hasattr(rebuilt.nodes[0], "lineage_tag"))
+        rebuilt = aedr.snapshot_from_json(aedr.snapshot_payload(original))
+        rebuilt_nodes = {item.number: item for item in rebuilt.nodes}
+        self.assertEqual(rebuilt_nodes[7].git_parents, ("a" * 40,))
+        self.assertEqual(rebuilt_nodes[7].semantic_dependencies, (3,))
+        self.assertEqual(len(rebuilt.git_edges), 1)
+        self.assertEqual(len(rebuilt.semantic_edges), 1)
+        self.assertEqual(len(rebuilt.authority_edges), 1)
+        self.assertEqual(len(rebuilt.evidence_edges), 1)
+        self.assertEqual(len(rebuilt.conflict_edges), 1)
+        self.assertFalse(hasattr(rebuilt_nodes[7], "lineage_tag"))
 
     def test_cli_fixture_writes_valid_content_addressed_receipt(self) -> None:
         payload = {
             "repository": "Aegis-Omega/AEGIS-OMEGA",
             "main_sha": "a" * 40,
             "nodes": [],
-            "ancestry": [],
-            "census": {"open": 0, "draft": 0, "non_draft": 0},
+            "edges": {"E_git": [], "E_sem": [], "E_auth": [], "E_evidence": [], "E_conflict": []},
+            "census": {"scope": "REGRESSION_SUBGRAPH", "open": 0, "draft": 0, "non_draft": 0},
         }
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            source = root / "snapshot.json"
-            output = root / "receipt.json"
+            source, output = root / "snapshot.json", root / "receipt.json"
             source.write_text(json.dumps(payload), encoding="utf-8")
-            self.assertEqual(
-                aedr.main(["--snapshot", str(source), "--output", str(output)]),
-                0,
-            )
-            receipt = json.loads(output.read_text(encoding="utf-8"))
-            aedr.validate_receipt(receipt)
+            self.assertEqual(aedr.main(["--snapshot", str(source), "--output", str(output)]), 0)
+            aedr.validate_receipt(json.loads(output.read_text(encoding="utf-8")))
 
 
 if __name__ == "__main__":
