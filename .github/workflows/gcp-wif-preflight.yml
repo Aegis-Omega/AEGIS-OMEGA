@@ -5,11 +5,17 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/gcp-wif-preflight.yml'
+      - 'scripts/gcp-wif-repair-plan.sh'
+      - 'docs/GCP_WIF_KEYLESS_RECOVERY.md'
+      - '.claude/skills/gcp-wif/SKILL.md'
   push:
     branches:
       - 'ops/gcp-wif-preflight-v1'
     paths:
       - '.github/workflows/gcp-wif-preflight.yml'
+      - 'scripts/gcp-wif-repair-plan.sh'
+      - 'docs/GCP_WIF_KEYLESS_RECOVERY.md'
+      - '.claude/skills/gcp-wif/SKILL.md'
   workflow_dispatch:
 
 permissions:
@@ -27,6 +33,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate WIF recovery tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/gcp-wif-repair-plan.sh
+          bash scripts/gcp-wif-repair-plan.sh --help >/dev/null
 
       - name: Verify WIF identifiers are configured
         id: config
