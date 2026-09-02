@@ -1,155 +1,56 @@
 steps:
-  - id: 'read-only-gcp-ngs-census'
-    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: bash
+  - name: 'gcr.io/cloud-builders/docker'
     args:
-      - -ceu
-      - |
-        cat > /workspace/gcp_ngs_census.py <<'PY'
-        import json
-        import os
-        import re
-        import subprocess
-        import urllib.request
+      - build
+      - -t
+      - us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:$COMMIT_SHA
+      - -t
+      - us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:latest
+      # Build context = repo root so the agents package + harness data are in the
+      # image. Without this the /platform/* and /agents/* routes return 503.
+      - -f
+      - vertex/Dockerfile
+      - .
+    id: build-proxy
 
-        PROJECT = "$PROJECT_ID"
-        SOURCE_REPO = "Aegis-Omega/AEGIS-OMEGA"
-        SOURCE_REF = "$BRANCH_NAME"
-        SOURCE_COMMIT = "$COMMIT_SHA"
-        BUILD_ID = "$BUILD_ID"
-        TRIGGER_ID = "$TRIGGER_ID"
-        SUPABASE_FUNCTION = "https://rwehltdwpsncnwxzkwik.supabase.co/functions/v1/gcp-census-receipt"
-        SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInJlZiI6InJ3ZWhsdGR3cHNuY253eHprd2lrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4ODAxMzIsImV4cCI6MjA5NTQ1NjEzMn0.TRPorur3ZbaVn_H9yLJJp2Hoi3BXlxeP1qOQRu7pJJg"
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:$COMMIT_SHA
+    waitFor: [build-proxy]
 
-        def run_json(argv):
-            p = subprocess.run(argv, text=True, capture_output=True)
-            if p.returncode != 0:
-                return [], {"command": argv[:3], "returncode": p.returncode, "stderr": p.stderr[-2000:]}
-            try:
-                return json.loads(p.stdout or "[]"), None
-            except json.JSONDecodeError as exc:
-                return [], {"command": argv[:3], "returncode": p.returncode, "stderr": f"invalid json: {exc}"}
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:latest
+    waitFor: [build-proxy]
 
-        buckets_raw, buckets_error = run_json([
-            "gcloud", "storage", "buckets", "list", f"--project={PROJECT}", "--format=json"
-        ])
-        buckets = []
-        for row in buckets_raw:
-            name = str(row.get("name") or row.get("url") or "")
-            name = name.removeprefix("gs://").rstrip("/")
-            if not name:
-                continue
-            buckets.append({
-                "name": name,
-                "location": row.get("location"),
-                "storage_class": row.get("storageClass") or row.get("storage_class"),
-            })
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - aegis-platform
+      - --image=us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:$COMMIT_SHA
+      - --region=us-central1
+      - --platform=managed
+      # ANTHROPIC_API_KEY powers live agent runs; PLATFORM_API_KEY gates the
+      # cost-incurring routes (collaborate / agents.run / messages). Create the
+      # platform-api-key secret before first deploy, or the in-app gate stays
+      # open (PLATFORM_API_KEY unset → catalog/health public, no key required).
+      - --set-secrets=ANTHROPIC_API_KEY=anthropic-api-key:latest,PLATFORM_API_KEY=platform-api-key:latest
+      - --set-env-vars=AEGIS_DEFAULT_MODEL=claude-opus-4-8,RATE_LIMIT_PER_MIN=60
+      - --allow-unauthenticated
+      - --port=8080
+      - --memory=512Mi
+      - --cpu=1
+      - --min-instances=0
+      - --max-instances=10
+    waitFor: [build-proxy]
 
-        ngs_re = re.compile(
-            r"(?i)(?:\.(?:fastq|fq|bam|cram|vcf|bcf|sam|fasta|fa|fna)(?:\.gz)?$|(?:SRR|ERR|DRR|PRJNA|PRJEB|GSE)\d+)"
-        )
-        matches = []
-        scans = []
-        for bucket in buckets:
-            name = bucket["name"]
-            seen = 0
-            capped = False
-            stderr_tail = ""
-            proc = subprocess.Popen(
-                ["timeout", "120", "gcloud", "storage", "ls", "--recursive", f"gs://{name}/**"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            assert proc.stdout is not None
-            for raw in proc.stdout:
-                obj = raw.strip()
-                if not obj:
-                    continue
-                seen += 1
-                if ngs_re.search(obj) and len(matches) < 2000:
-                    matches.append(obj)
-                if seen >= 200000:
-                    capped = True
-                    proc.terminate()
-                    break
-            if proc.stderr is not None:
-                stderr_tail = proc.stderr.read()[-2000:]
-            try:
-                rc = proc.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                rc = proc.wait()
-            scans.append({
-                "bucket": name,
-                "objects_seen": seen,
-                "capped": capped,
-                "returncode": rc,
-                "stderr": stderr_tail,
-            })
-
-        sql_raw, sql_error = run_json([
-            "gcloud", "sql", "instances", "list", f"--project={PROJECT}", "--format=json"
-        ])
-        sql_instances = []
-        for row in sql_raw:
-            sql_instances.append({
-                "name": row.get("name"),
-                "database_version": row.get("databaseVersion"),
-                "region": row.get("region"),
-                "state": row.get("state"),
-                "connection_name": row.get("connectionName"),
-            })
-
-        payload = {
-            "schema": "aegis.gcp.ngs_census.v1",
-            "authority": "DISCOVERY_ONLY",
-            "content_read": False,
-            "project": PROJECT,
-            "buckets": buckets,
-            "bucket_error": buckets_error,
-            "object_scans": scans,
-            "ngs_object_matches": matches,
-            "ngs_match_count": len(matches),
-            "sql_instances": sql_instances,
-            "sql_error": sql_error,
-            "scan_complete": buckets_error is None and all(not s["capped"] and s["returncode"] == 0 for s in scans),
-        }
-        receipt = {
-            "source_repo": SOURCE_REPO,
-            "source_ref": SOURCE_REF,
-            "source_commit": SOURCE_COMMIT,
-            "build_id": BUILD_ID,
-            "trigger_id": TRIGGER_ID,
-            "project_id": PROJECT,
-            "payload": payload,
-        }
-        body = json.dumps(receipt, separators=(",", ":")).encode("utf-8")
-        req = urllib.request.Request(
-            SUPABASE_FUNCTION,
-            data=body,
-            method="POST",
-            headers={
-                "content-type": "application/json",
-                "apikey": SUPABASE_ANON_KEY,
-                "authorization": f"Bearer {SUPABASE_ANON_KEY}",
-            },
-        )
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            response_body = resp.read().decode("utf-8", "replace")
-            if resp.status // 100 != 2:
-                raise SystemExit(f"receipt post failed: {resp.status} {response_body}")
-        print(json.dumps({
-            "status": "CENSUS_RECEIPT_POSTED",
-            "bucket_count": len(buckets),
-            "ngs_match_count": len(matches),
-            "sql_instance_count": len(sql_instances),
-            "scan_complete": payload["scan_complete"],
-        }, sort_keys=True))
-        PY
-        python3 /workspace/gcp_ngs_census.py
+images:
+  - us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:$COMMIT_SHA
+  - us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:latest
 
 options:
   logging: CLOUD_LOGGING_ONLY
-
-timeout: '900s'
