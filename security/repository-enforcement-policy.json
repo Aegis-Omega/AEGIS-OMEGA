@@ -3,6 +3,7 @@
   "repository": "Aegis-Omega/AEGIS-OMEGA",
   "default_branch": "main",
   "mechanism": "repository_ruleset",
+  "ruleset_name": "AEGIS Main Enforcement",
   "epistemic_status": "DEPLOYABLE_REPOSITORY_ENFORCEMENT_CONTRACT",
   "policy": {
     "require_protected_default_branch": true,
@@ -14,6 +15,7 @@
     "require_conversation_resolution": true,
     "require_status_checks": true,
     "require_branches_up_to_date": true,
+    "required_status_check_integration_id": 15368,
     "required_status_check_contexts": [
       "Body cites current head",
       "aegis / kernel-one",
@@ -31,12 +33,14 @@
     "FORCE_PUSH_TO_MAIN_IS_FORBIDDEN",
     "STALE_HEAD_EVIDENCE_CANNOT_AUTHORIZE_CURRENT_HEAD",
     "SECURITY_GATES_MUST_BE_REPOSITORY_ENFORCED",
+    "REQUIRED_CHECK_NAME_WITHOUT_PUBLISHER_BINDING_IS_INSUFFICIENT",
     "HASH_INTEGRITY_IS_NOT_SIGNER_AUTHENTICITY",
     "SIGNED_RECEIPT_IS_NOT_TRANSPARENCY_OR_NON_EQUIVOCATION"
   ],
   "rationale": {
     "human_approval_count": "Zero is deliberate for the current single-operator repository. GitHub does not allow a pull-request author to approve their own pull request; requiring one approval without an established independent write-level reviewer would create an availability deadlock or force a bypass. Review authority is therefore carried by mandatory machine gates and resolved review threads until an independent reviewer principal is established.",
-    "ruleset_preference": "A repository ruleset exposes effective branch rules through GitHub's branch-rules API, allowing the read-only CI verifier to prove the active enforcement surface without privileged Administration reads."
+    "ruleset_preference": "A repository ruleset exposes effective branch rules through GitHub's branch-rules API, allowing the read-only CI verifier to prove the active enforcement surface without privileged Administration reads.",
+    "check_publisher_binding": "The four frozen check contexts were observed as GitHub Actions check runs from integration/app id 15368. The ruleset pins both context and integration id to prevent same-name status spoofing by another publisher."
   },
   "notes": [
     "This file is declarative; GitHub repository settings remain the enforcement authority.",
