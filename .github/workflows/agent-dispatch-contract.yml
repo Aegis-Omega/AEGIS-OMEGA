@@ -1,0 +1,39 @@
+name: Agent Dispatch Contract
+
+on:
+  push:
+    branches:
+      - hardening/agent-dispatch-observability-v1
+    paths:
+      - '.github/workflows/agent-dispatch.yml'
+      - '.github/workflows/agent-dispatch-contract.yml'
+      - 'scripts/test_agent_dispatch_workflow.py'
+  pull_request:
+    paths:
+      - '.github/workflows/agent-dispatch.yml'
+      - '.github/workflows/agent-dispatch-contract.yml'
+      - 'scripts/test_agent_dispatch_workflow.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Run dispatch workflow contract
+        run: python3 scripts/test_agent_dispatch_workflow.py
