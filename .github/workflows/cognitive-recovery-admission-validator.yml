@@ -54,6 +54,7 @@ jobs:
           set -euo pipefail
           python sovereign-omega-v2/python/tests/test_cognitive_recovery_admission.py
           python sovereign-omega-v2/python/tests/test_cognitive_recovery_admission_hardening.py
+          python sovereign-omega-v2/python/tests/test_cognitive_recovery_admission_r6_r7.py
 
       - name: Classify contract result
         shell: bash
