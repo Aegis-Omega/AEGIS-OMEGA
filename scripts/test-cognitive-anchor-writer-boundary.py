@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Regression tests for exclusive ownership of cognitive-anchor writes."""
+"""Regression tests for the cognitive-anchor mutation boundary.
+
+Candidate branches must have zero autonomous workflow writers. Expected cognitive
+anchors are generated as read-only artifacts; applying them is an explicit normal
+candidate commit so the resulting exact head receives the same CI/admission checks
+as every other repository mutation.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -24,23 +30,39 @@ def workflow_contents_permission(path: Path) -> str | None:
 
 
 def writes_cognitive_anchors(path: Path) -> bool:
-    """Identify a workflow that stages both governed anchors and pushes them."""
+    """Identify any workflow that stages governed anchors and advances a ref."""
     source = path.read_text(encoding="utf-8")
     stages_anchors = (
         "git add .claude.json skill-hashes.sha256" in source
         or "git add skill-hashes.sha256 .claude.json" in source
     )
-    return stages_anchors and "git push" in source
+    advances_ref = "git push" in source or "git update-ref" in source
+    return stages_anchors and advances_ref
 
 
-class CognitiveAnchorWriterBoundaryTests(TestCase):
-    def test_exactly_one_workflow_writes_cognitive_anchors(self) -> None:
+class CognitiveAnchorMutationBoundaryTests(TestCase):
+    def test_no_workflow_autonomously_writes_cognitive_anchors(self) -> None:
         workflows = sorted(
             set(WORKFLOW_ROOT.glob("*.yml")) | set(WORKFLOW_ROOT.glob("*.yaml"))
         )
         writers = [path.name for path in workflows if writes_cognitive_anchors(path)]
 
-        self.assertEqual(writers, ["cognitive-manifest-refresh.yml"])
+        self.assertEqual(writers, [])
+
+    def test_manifest_preview_is_read_only_exact_head_evidence(self) -> None:
+        preview = WORKFLOW_ROOT / "cognitive-manifest-refresh.yml"
+        source = preview.read_text(encoding="utf-8")
+
+        self.assertEqual(workflow_contents_permission(preview), "read")
+        self.assertFalse(writes_cognitive_anchors(preview))
+        self.assertNotIn("contents: write", source)
+        self.assertNotIn("git commit", source)
+        self.assertNotIn("git push", source)
+        self.assertIn("ref: ${{ github.sha }}", source)
+        self.assertIn("persist-credentials: false", source)
+        self.assertIn('--output-dir "$RUNNER_TEMP/cognitive-anchors"', source)
+        self.assertIn("actions/upload-artifact@", source)
+        self.assertIn("aegis-cognitive-anchor-preview-${{ github.sha }}", source)
 
     def test_automaton2_is_a_read_only_verifier(self) -> None:
         automaton2 = WORKFLOW_ROOT / "automaton-2.yml"
