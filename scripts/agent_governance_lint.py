@@ -13,6 +13,7 @@ returns a non-zero exit status.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import re
 from pathlib import Path
 from typing import NamedTuple, Sequence
@@ -21,10 +22,16 @@ from typing import NamedTuple, Sequence
 LEGACY_RUNTIME_PATH = Path("clients/gemma-holon/quantum/server.py")
 QUARANTINE_PATH = Path("quarantine/legacy-quantum-demonstrator/server.py")
 SOVEREIGN_RUNTIME_ROOT = Path("sovereign-omega-v2/src")
+ORIGINAL_LEGACY_GIT_BLOB_SHA = "fb3e98a02630b5ca399bcbb8c388743494292e14"
 
 QUARANTINE_MARKERS = (
     "LEGACY DIAGNOSTIC PROTOTYPE ONLY - ZERO RUNTIME OR VERIFICATION AUTHORITY",
     "CONTAINS MOCK/RNG FALLBACKS - PROHIBITED FROM AEGIS KERNEL & ADMISSION PIPELINES",
+)
+_QUARANTINE_HEADER_LINES = (
+    "#!/usr/bin/env python3\n",
+    f"# {QUARANTINE_MARKERS[0]}\n",
+    f"# {QUARANTINE_MARKERS[1]}\n",
 )
 
 RUNTIME_SUFFIXES = {
@@ -41,6 +48,7 @@ RUNTIME_SUFFIXES = {
 
 _TARGET_TOKEN = re.compile(r"clients(?:[/\\]gemma-holon|\.gemma_holon)")
 _IMPORT_TOKEN = re.compile(r"\b(?:import|export|from|require)\b")
+_GIT_BLOB_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
 class Violation(NamedTuple):
@@ -71,6 +79,27 @@ def _contains_forbidden_import(line: str) -> bool:
     if _is_comment_only(line):
         return False
     return bool(_TARGET_TOKEN.search(line) and _IMPORT_TOKEN.search(line))
+
+
+def _git_blob_sha(data: bytes) -> str:
+    header = f"blob {len(data)}\0".encode("ascii")
+    return hashlib.sha1(header + data).hexdigest()
+
+
+def _restore_historical_bytes(quarantine_text: str) -> bytes | None:
+    """Remove only the two mandated quarantine marker lines.
+
+    The shebang is part of the historical blob. Requiring the exact first three
+    lines prevents a quarantine artifact from moving markers elsewhere and
+    still passing the provenance check.
+    """
+    lines = quarantine_text.splitlines(keepends=True)
+    if len(lines) < len(_QUARANTINE_HEADER_LINES):
+        return None
+    if tuple(lines[:3]) != _QUARANTINE_HEADER_LINES:
+        return None
+    restored = lines[0] + "".join(lines[3:])
+    return restored.encode("utf-8")
 
 
 def _scan_runtime_imports(repo_root: Path) -> list[Violation]:
@@ -109,9 +138,16 @@ def _scan_runtime_imports(repo_root: Path) -> list[Violation]:
     return violations
 
 
-def collect_violations(repo_root: Path) -> list[Violation]:
+def collect_violations(
+    repo_root: Path,
+    *,
+    expected_legacy_blob_sha: str | None = None,
+) -> list[Violation]:
     root = repo_root.resolve()
     violations: list[Violation] = []
+
+    if expected_legacy_blob_sha is not None and _GIT_BLOB_SHA.fullmatch(expected_legacy_blob_sha) is None:
+        raise ValueError("expected_legacy_blob_sha must be canonical lowercase Git SHA-1")
 
     live_legacy = root / LEGACY_RUNTIME_PATH
     if live_legacy.exists():
@@ -158,6 +194,30 @@ def collect_violations(repo_root: Path) -> list[Violation]:
                     )
                 )
 
+            if expected_legacy_blob_sha is not None:
+                historical_bytes = _restore_historical_bytes(quarantine_text)
+                if historical_bytes is None:
+                    violations.append(
+                        Violation(
+                            "QUARANTINE_CONTENT_DRIFT",
+                            QUARANTINE_PATH.as_posix(),
+                            0,
+                            "quarantine header layout cannot reconstruct the historical Git blob",
+                        )
+                    )
+                else:
+                    actual_blob_sha = _git_blob_sha(historical_bytes)
+                    if actual_blob_sha != expected_legacy_blob_sha:
+                        violations.append(
+                            Violation(
+                                "QUARANTINE_CONTENT_DRIFT",
+                                QUARANTINE_PATH.as_posix(),
+                                0,
+                                "quarantine body differs from original Git blob "
+                                f"{expected_legacy_blob_sha}; reconstructed={actual_blob_sha}",
+                            )
+                        )
+
     violations.extend(_scan_runtime_imports(root))
     return sorted(violations, key=lambda v: (v.path, v.line, v.code))
 
@@ -175,7 +235,10 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
-    violations = collect_violations(args.repo_root)
+    violations = collect_violations(
+        args.repo_root,
+        expected_legacy_blob_sha=ORIGINAL_LEGACY_GIT_BLOB_SHA,
+    )
     if not violations:
         print("agent_governance_lint: PASS")
         return 0
