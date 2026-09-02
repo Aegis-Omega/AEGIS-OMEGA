@@ -48,12 +48,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install -e ./clients/python 'pytest==8.3.5' 'rfc8785==0.1.4'
+          python -m pip install -e ./clients/python \
+            'pytest==8.3.5' \
+            'rfc8785==0.1.4' \
+            'jsonschema==4.26.0'
 
       - name: Compile and test Self-Witness-0
         shell: bash
         run: |
           set -euo pipefail
-          python -m py_compile clients/python/tests/test_cudaq_self_witness.py
+          python -m py_compile \
+            clients/python/aegis_omega/cudaq_self_witness.py \
+            clients/python/tests/test_cudaq_self_witness.py
           cd clients/python
           python -m pytest tests/test_cudaq_self_witness.py -v
