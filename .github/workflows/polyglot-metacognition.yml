@@ -1,6 +1,13 @@
 name: Polyglot Metacognition
 
 on:
+  push:
+    branches:
+      - 'research/polyglot-metacognition-v1'
+    paths:
+      - 'sovereign-omega-v2/src/polyglot/**'
+      - 'sovereign-omega-v2/test/unit/polyglot-*.test.ts'
+      - '.github/workflows/polyglot-metacognition.yml'
   pull_request:
     paths:
       - 'sovereign-omega-v2/src/polyglot/**'
