@@ -1,0 +1,59 @@
+name: Quantum Self-Witness-0
+
+on:
+  pull_request:
+    paths:
+      - "clients/python/aegis_omega/cudaq_self_witness.py"
+      - "clients/python/tests/test_cudaq_self_witness.py"
+      - "clients/python/setup.py"
+      - "schemas/quantum-self-digest-receipt.v1.schema.json"
+      - ".github/workflows/quantum-self-witness.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quantum-self-witness-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  contract:
+    name: L6 / Self-Witness-0 contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Install contract dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e ./clients/python 'pytest==8.3.5' 'rfc8785==0.1.4'
+
+      - name: Compile and test Self-Witness-0
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile clients/python/tests/test_cudaq_self_witness.py
+          cd clients/python
+          python -m pytest tests/test_cudaq_self_witness.py -v
