@@ -182,6 +182,8 @@ class GitHubLiveOracle:
                 raise GitHubLiveOracleError("INVALID_WORKFLOW_RESPONSE")
             for run in runs:
                 run_head = self._validate_sha(str(run["head_sha"]))
+                if run_head != expected_head:
+                    continue
                 receipts.append(
                     RawWorkflowReceipt(
                         run_id=int(run["id"]),
