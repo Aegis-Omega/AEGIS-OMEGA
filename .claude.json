@@ -10,7 +10,7 @@
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
     "source_ref": "chore/coq-inventory-generator-v1",
-    "parent_state_hash": "1a68e9a42751f99b3935ba562ef2dda146b4d40e750ec3080210d12391888066",
+    "parent_state_hash": "7f376dbf8f74387f85dad5d091819925b94bd64cf04079368021869a19536b4f",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "c1b6f5e40332d27e2e736fa241ef37ddb6c0a536d15e72aedff7983ff65b7a6b"
+  "state_hash": "c0782387cb294fdecc7122e5c2f5e02a9aa7ada6ceaea8ce0ecc27c35a6c5689"
 }
