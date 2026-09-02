@@ -28,6 +28,10 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Run enforcement verifier regressions
+        working-directory: scripts
+        run: python3 -m unittest test_check_repository_enforcement.py -v
+
       - name: Verify GitHub enforcement boundary
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -45,5 +49,5 @@ jobs:
         with:
           name: repository-enforcement-${{ github.sha }}
           path: ${{ runner.temp }}/repository-enforcement
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
