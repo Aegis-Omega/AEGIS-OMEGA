@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/gcp-wif-preflight.yml'
       - 'scripts/gcp-wif-repair-plan.sh'
+      - 'scripts/test_gcp_wif_repair_plan.py'
       - 'docs/GCP_WIF_KEYLESS_RECOVERY.md'
       - '.claude/skills/gcp-wif/SKILL.md'
   push:
@@ -14,6 +15,7 @@ on:
     paths:
       - '.github/workflows/gcp-wif-preflight.yml'
       - 'scripts/gcp-wif-repair-plan.sh'
+      - 'scripts/test_gcp_wif_repair_plan.py'
       - 'docs/GCP_WIF_KEYLESS_RECOVERY.md'
       - '.claude/skills/gcp-wif/SKILL.md'
   workflow_dispatch:
@@ -40,6 +42,7 @@ jobs:
           set -euo pipefail
           bash -n scripts/gcp-wif-repair-plan.sh
           bash scripts/gcp-wif-repair-plan.sh --help >/dev/null
+          python3 scripts/test_gcp_wif_repair_plan.py
 
       - name: Verify WIF identifiers are configured
         id: config
