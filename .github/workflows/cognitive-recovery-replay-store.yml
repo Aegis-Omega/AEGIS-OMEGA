@@ -58,11 +58,14 @@ jobs:
           fi
           psql --version
 
-      - name: Run atomic replay store contract
+      - name: Run atomic replay store and executor contracts
         id: atomic_contract
         continue-on-error: true
         shell: bash
-        run: bash scripts/test-cognitive-recovery-replay-store.sh
+        run: |
+          set -euo pipefail
+          bash scripts/test-cognitive-recovery-replay-store.sh
+          python sovereign-omega-v2/python/tests/test_cognitive_recovery_executor.py
 
       - name: Classify atomic store contract
         shell: bash
