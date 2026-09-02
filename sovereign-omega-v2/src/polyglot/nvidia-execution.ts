@@ -40,7 +40,7 @@ export const BIOIR_MIN_DRIVER_MAJOR = 580 as const
 const SHA256_RE = /^[0-9a-f]{64}$/
 
 export class NvidiaExecutionError extends Error {
-  override readonly name = 'NvidiaExecutionError'
+  override readonly name: string = 'NvidiaExecutionError'
 
   constructor(message: string) {
     super(message)
@@ -75,10 +75,11 @@ function assertAuthorityNeutral(
 
 function parseLeadingMajor(version: string, subject: string): number {
   const match = version.trim().match(/^(\d+)/)
-  if (!match) {
+  const majorText = match?.[1]
+  if (majorText === undefined) {
     throw new NvidiaExecutionError(`INVALID_VERSION:${subject}`)
   }
-  const major = Number.parseInt(match[1], 10)
+  const major = Number.parseInt(majorText, 10)
   if (!Number.isSafeInteger(major) || major < 0) {
     throw new NvidiaExecutionError(`INVALID_VERSION:${subject}`)
   }
