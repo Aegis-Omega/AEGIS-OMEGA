@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "security/main-ruleset-contract-v2",
-    "parent_state_hash": "2a53523bea9aad7ec6088fd258d64674417bb6f2ee83888dbd85b503e3999c6a",
+    "source_ref": "main",
+    "parent_state_hash": "7f376dbf8f74387f85dad5d091819925b94bd64cf04079368021869a19536b4f",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "7f376dbf8f74387f85dad5d091819925b94bd64cf04079368021869a19536b4f"
+  "state_hash": "85b068c0c454c711afc347f98cfc1d55e5ef319b0908f3a253ccb32a91e3a92a"
 }
