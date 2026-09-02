@@ -33,9 +33,8 @@ export const TASKS: readonly CapabilityTask[] = [
     id: 'holonomy-orientation',
     prompt: [
       'Define U as the 4x4 complex identity matrix with its top-left 2x2 block replaced by',
-      '[[cos(t), sin(t)], [-sin(t), cos(t))]] for t = pi/4.',
-      'Let LOOP = U @ U_adjoint_inverse @ U @ U, where the second factor is the matrix inverse',
-      'of U\'s conjugate transpose.',
+      '[[cos(t), sin(t)], [-sin(t), cos(t)]] for t = pi/4.',
+      'Let LOOP = U @ U_adj @ U @ U, where U_adj is the conjugate transpose of U.',
       '',
       'State the resulting top-left 2x2 block of LOOP as an explicit numeric matrix.',
       'Then state whether the rotation it represents is clockwise or counter-clockwise.',
@@ -84,7 +83,9 @@ export const TASKS: readonly CapabilityTask[] = [
       'Output the canonical string on its own line, exactly, with no surrounding',
       'code fence, commentary, or whitespace.',
     ].join('\n'),
-    must: [new RegExp(JCS_EXPECTED.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))],
+    // Anchored to a whole line: the prompt forbids a code fence or surrounding
+    // commentary, so an answer that merely embeds the string does not pass.
+    must: [new RegExp(`^\\s*${JCS_EXPECTED.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'm')],
     mustNot: [],
   },
   {
