@@ -17,34 +17,15 @@ export type OpenAIReasoningProfile = Readonly<{
   mode: 'standard' | 'pro'
   context: 'current_turn' | 'all_turns'
 }>
-
 export type AnthropicReasoningProfile = Readonly<{
   kind: 'anthropic'
   thinking: 'adaptive'
   effort: 'medium' | 'high' | 'xhigh' | 'max'
 }>
-
-export type GeminiReasoningProfile = Readonly<{
-  kind: 'gemini'
-  thinking_level: 'medium' | 'high'
-}>
-
-export type DashScopeReasoningProfile = Readonly<{
-  kind: 'dashscope'
-  effort: 'medium' | 'xhigh'
-}>
-
-export type LocalReasoningProfile = Readonly<{
-  kind: 'local'
-  mode: 'standard' | 'deep'
-}>
-
-export type ProviderReasoningProfile =
-  | OpenAIReasoningProfile
-  | AnthropicReasoningProfile
-  | GeminiReasoningProfile
-  | DashScopeReasoningProfile
-  | LocalReasoningProfile
+export type GeminiReasoningProfile = Readonly<{ kind: 'gemini'; thinking_level: 'medium' | 'high' }>
+export type DashScopeReasoningProfile = Readonly<{ kind: 'dashscope'; effort: 'medium' | 'xhigh' }>
+export type LocalReasoningProfile = Readonly<{ kind: 'local'; mode: 'standard' | 'deep' }>
+export type ProviderReasoningProfile = OpenAIReasoningProfile | AnthropicReasoningProfile | GeminiReasoningProfile | DashScopeReasoningProfile | LocalReasoningProfile
 
 export interface ProviderCognitiveProfile {
   readonly provider: ProviderName
@@ -58,6 +39,11 @@ export interface ProviderCognitiveProfile {
 }
 
 export interface ProviderCognitiveOverrides { readonly model?: string }
+export type ProviderModelOverrides = Readonly<Partial<Record<ProviderName, string>>>
+
+const PROVIDER_ORDER: readonly ProviderName[] = Object.freeze([
+  'anthropic', 'dashscope', 'gemini', 'local', 'openai',
+])
 
 const DEFAULT_MODELS: Readonly<Record<ProviderName, string>> = Object.freeze({
   openai: 'gpt-5.6-sol',
@@ -90,11 +76,9 @@ function anthropicReasoning(workClass: CognitiveWorkClass): AnthropicReasoningPr
 function geminiReasoning(workClass: CognitiveWorkClass): GeminiReasoningProfile {
   return Object.freeze({ kind: 'gemini', thinking_level: workClass === 'routine' ? 'medium' : 'high' })
 }
-
 function dashScopeReasoning(workClass: CognitiveWorkClass): DashScopeReasoningProfile {
   return Object.freeze({ kind: 'dashscope', effort: workClass === 'routine' ? 'medium' : 'xhigh' })
 }
-
 function localReasoning(workClass: CognitiveWorkClass): LocalReasoningProfile {
   return Object.freeze({ kind: 'local', mode: workClass === 'routine' ? 'standard' : 'deep' })
 }
@@ -125,6 +109,21 @@ export function selectProviderCognitiveProfile(
     raw_output_authority: 'NONE',
     schema_version: '1.0.0',
   })
+}
+
+/**
+ * Information-amplifying, authority-neutral council. Every configured provider
+ * may attack the same task from its deepest appropriate cognitive profile.
+ * The returned profiles are candidates only; this function never changes
+ * constitutional quorum topology or admission authority.
+ */
+export function buildProviderCognitiveCouncil(
+  workClass: CognitiveWorkClass,
+  modelOverrides: ProviderModelOverrides = {},
+): readonly ProviderCognitiveProfile[] {
+  return Object.freeze(PROVIDER_ORDER.map(provider =>
+    selectProviderCognitiveProfile(provider, workClass, { model: modelOverrides[provider] }),
+  ))
 }
 
 export function selectAllianceProviderProfile(role: AllianceRole): ProviderCognitiveProfile {
