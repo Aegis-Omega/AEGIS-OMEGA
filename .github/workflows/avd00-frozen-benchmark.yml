@@ -44,6 +44,12 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check pytest==8.4.1
 
+      - name: Verify Python dependency-closure sub-contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q tests/avd/test_python_dependency_closure.py
+
       - name: Run AVD-00 frozen contract
         shell: bash
         run: |
