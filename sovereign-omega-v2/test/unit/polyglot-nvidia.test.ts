@@ -36,9 +36,11 @@ function evidence(connector_id: NvidiaConnectorId): NvidiaConnectorEvidence {
 }
 
 describe('NVIDIA scientific substrate extension', () => {
-  it('catalogues Agent Toolkit, BioNeMo, CUDA-Q and cuQuantum without granting authority', () => {
+  it('catalogues Agent Toolkit, NeMo Platform/Fabric, BioNeMo, CUDA-Q and cuQuantum without granting authority', () => {
     expect(NVIDIA_CONNECTOR_CATALOG.map(x => x.connector_id)).toEqual([
       'nvidia-agent-toolkit',
+      'nemo-platform',
+      'nemo-fabric',
       'bionemo-ir',
       'cudaq',
       'cuquantum',
