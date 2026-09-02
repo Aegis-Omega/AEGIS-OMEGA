@@ -1,0 +1,226 @@
+name: Weil CoRN to O0 A1c Morphism
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/formal/theories/Weil/AnalyticDefinitions.v"
+      - "sovereign-omega-v2/formal/theories/Weil/CornO0MorphismBridge.v"
+      - "sovereign-omega-v2/formal/tests/Weil/CornO0MorphismBridgeSpec.v"
+      - "sovereign-omega-v2/formal/coq-inventory.json"
+      - "sovereign-omega-v2/formal/coq-inventory-policy.json"
+      - "sovereign-omega-v2/scripts/coq_inventory.py"
+      - ".github/workflows/weil-corn-o0-a1c.yml"
+      - ".github/workflows/coq-formal-attestation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-corn-o0-a1c-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  attest:
+    name: coqc / A1-RAT + A1-STRICT
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Check generated Coq inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd sovereign-omega-v2
+          python3 scripts/coq_inventory.py --check
+
+      - name: Reject declared assumptions in authority source when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=sovereign-omega-v2/formal/theories/Weil/CornO0MorphismBridge.v
+          if test -f "$src"; then
+            if grep -En '^[[:space:]]*(Axiom|Axioms|Parameter|Parameters|Admitted)[[:space:].]' "$src"; then
+              echo "Declared assumption/admission forbidden: $src" >&2
+              exit 1
+            fi
+          fi
+
+      - name: Prepare evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/weil-corn-o0-a1c-attestation
+          chmod -R a+rwX \
+            sovereign-omega-v2/formal/theories/Weil \
+            sovereign-omega-v2/formal/tests/Weil \
+            sovereign-omega-v2/weil-corn-o0-a1c-attestation
+
+      - name: Compile RED or GREEN A1c contract
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            THEORY="$ROOT/formal/theories/Weil"
+            TESTDIR="$ROOT/formal/tests/Weil"
+            SOURCE="$THEORY/CornO0MorphismBridge.v"
+            OUT="$ROOT/weil-corn-o0-a1c-attestation"
+
+            coqc --version | tee "$OUT/coq-version.txt"
+            opam install -y coq-corn.9.0.0
+            opam var coq-corn:version | tee "$OUT/corn-version.txt"
+            test "$(tr -d '[:space:]' < "$OUT/corn-version.txt")" = "9.0.0"
+            opam show coq-corn.9.0.0 --field=version,license,depends \
+              | tee "$OUT/corn-package-metadata.txt"
+
+            if ! test -f "$SOURCE"; then
+              echo 'RED checkpoint: CornO0MorphismBridge.v intentionally absent.' \
+                | tee "$OUT/red-checkpoint.txt"
+              set +e
+              (cd "$TESTDIR" && coqc -Q "$THEORY" "" CornO0MorphismBridgeSpec.v) 2>&1 \
+                | tee "$OUT/a1c-spec.log"
+              status=${PIPESTATUS[0]}
+              set -e
+              test "$status" -ne 0
+              grep -q 'CornO0MorphismBridge' "$OUT/a1c-spec.log"
+              echo 'EXPECTED_RED_MISSING_PRODUCTION_MODULE' \
+                | tee -a "$OUT/red-checkpoint.txt"
+              exit 1
+            fi
+
+            # Match the canonical global attestation compile model.  The
+            # inventory records AnalyticDefinitions as A1c's sole local
+            # prerequisite, so build it first and then the authority source.
+            (cd "$THEORY" && coqc AnalyticDefinitions.v) 2>&1 \
+              | tee "$OUT/analytic-definitions.log"
+            (cd "$THEORY" && coqc CornO0MorphismBridge.v) 2>&1 \
+              | tee "$OUT/a1c-source.log"
+            (cd "$TESTDIR" && coqc -Q "$THEORY" "" CornO0MorphismBridgeSpec.v) 2>&1 \
+              | tee "$OUT/a1c-spec.log"
+
+            for theorem in \
+              corn_ir_to_o0_preserves_rat_v1 \
+              corn_ir_to_o0_strict_v1 \
+              corn_ir_to_o0_preserves_zero_v1 \
+              corn_ir_to_o0_preserves_one_v1 \
+              corn_ir_to_o0_preserves_plus_v1 \
+              corn_ir_to_o0_preserves_mult_v1 \
+              corn_ir_to_o0_preserves_le_v1
+            do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.assumptions.txt"
+              cat > "$query" <<EOF
+            Set Coqtop Exit On Error.
+            Require Import CornO0MorphismBridge.
+            Print Assumptions ${theorem}.
+            EOF
+              (cd "$THEORY" && coqtop -quiet -batch -l "$query") > "$log" 2>&1
+              rm -f "$query"
+              cat "$log"
+              grep -q 'Closed under the global context' "$log"
+              if grep -q '^Axioms:' "$log"; then
+                echo "Unexpected assumptions for $theorem" >&2
+                exit 1
+              fi
+            done
+
+      - name: Emit content-addressed A1c receipt
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          out = Path('weil-corn-o0-a1c-attestation')
+          source = Path('formal/theories/Weil/CornO0MorphismBridge.v')
+          names = [
+              'corn_ir_to_o0_preserves_rat_v1',
+              'corn_ir_to_o0_strict_v1',
+              'corn_ir_to_o0_preserves_zero_v1',
+              'corn_ir_to_o0_preserves_one_v1',
+              'corn_ir_to_o0_preserves_plus_v1',
+              'corn_ir_to_o0_preserves_mult_v1',
+              'corn_ir_to_o0_preserves_le_v1',
+          ]
+
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          version = (out / 'corn-version.txt').read_text(encoding='utf-8').strip()
+          payload = {
+              'receipt_kind': 'AEGIS_CORN_O0_A1C_MORPHISM_RECEIPT_V1',
+              'authority': 'FORMAL_MATH_EVIDENCE_ONLY',
+              'source_commit': os.environ['SOURCE_SHA'],
+              'source_sha256': sha(source),
+              'coq_version_sha256': sha(out / 'coq-version.txt'),
+              'corn_requested_version': '9.0.0',
+              'corn_installed_version': version,
+              'corn_package_metadata_sha256': sha(out / 'corn-package-metadata.txt'),
+              'analytic_definitions_log_sha256': sha(out / 'analytic-definitions.log'),
+              'compile_log_sha256': sha(out / 'a1c-source.log'),
+              'spec_log_sha256': sha(out / 'a1c-spec.log'),
+              'theorem_names': names,
+              'theorem_assumption_log_sha256': {
+                  name: sha(out / f'{name}.assumptions.txt') for name in names
+              },
+              'declared_assumptions': 0,
+              'a1_rat_machine_bound': True,
+              'a1_strict_machine_bound': True,
+              'corn_ir_to_o0_ring_order_corollaries_machine_bound': True,
+              'transport_route': 'CORN_IR_ISOMORPHISM_TO_FAST_CR_THEN_STDLIB_SLOW_CONSTRUCTIVE_REALS_MORPHISM',
+              'corn_o0_completion_equivalence_machine_bound': False,
+              'corn_g_sequence_to_o0_limit_machine_bound': False,
+              'corn_o0_trig_transport_machine_bound': False,
+              'guinand_weil_explicit_formula_machine_bound': False,
+              'global_weil_positivity_proven': False,
+              'rh_proven': False,
+              'open_obligations': [
+                  'CORN_G_SEQUENCE_TO_O0_LIMIT_NOT_MACHINE_BOUND',
+                  'CORN_COMPLETION_DEFINED_CARRIER_EQ_MORPHISM_NOT_MACHINE_BOUND',
+                  'CORN_O0_TRIG_TRANSPORT_NOT_MACHINE_BOUND',
+              ],
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          target = out / 'corn-o0-a1c-receipt.json'
+          target.write_text(json.dumps(payload, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+
+          assert version == '9.0.0'
+          assert payload['a1_rat_machine_bound'] is True
+          assert payload['a1_strict_machine_bound'] is True
+          assert payload['corn_o0_completion_equivalence_machine_bound'] is False
+          assert payload['corn_o0_trig_transport_machine_bound'] is False
+          assert payload['rh_proven'] is False
+          PY
+
+      - name: Upload A1c evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: weil-corn-o0-a1c-${{ env.SOURCE_SHA }}
+          path: sovereign-omega-v2/weil-corn-o0-a1c-attestation/
+          if-no-files-found: warn
+          retention-days: 30
