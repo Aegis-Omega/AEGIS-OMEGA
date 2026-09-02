@@ -1,6 +1,18 @@
 name: Weil CoRN to O0 A1c Morphism
 
 on:
+  push:
+    branches:
+      - proof/corn-o0-completion-equivalence-v1
+    paths:
+      - "sovereign-omega-v2/formal/theories/Weil/AnalyticDefinitions.v"
+      - "sovereign-omega-v2/formal/theories/Weil/CornO0MorphismBridge.v"
+      - "sovereign-omega-v2/formal/tests/Weil/CornO0MorphismBridgeSpec.v"
+      - "sovereign-omega-v2/formal/coq-inventory.json"
+      - "sovereign-omega-v2/formal/coq-inventory-policy.json"
+      - "sovereign-omega-v2/scripts/coq_inventory.py"
+      - ".github/workflows/weil-corn-o0-a1c.yml"
+      - ".github/workflows/coq-formal-attestation.yml"
   pull_request:
     paths:
       - "sovereign-omega-v2/formal/theories/Weil/AnalyticDefinitions.v"
