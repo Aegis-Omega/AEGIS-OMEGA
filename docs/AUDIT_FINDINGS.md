@@ -163,14 +163,19 @@ anytime-valid confidence sequences per Waudby-Smith & Ramdas 2024).
 discrepancy, the Bernstein/Waudby-Smith rationale, and the legacy constraint.
 **Status:** ✅ RESOLVED — annotation confirmed present
 
-### H-04 · swarm_os and sovereign-omega-v2 are parallel, not integrated
-Both are Kaggle competitors (Tarik Skalić, operator) but on different tracks:
-- sovereign-omega-v2: VCG/PGCS governance proof track
-- swarm_os: Hallucination Delta (HD) metacognition track
+### H-04 · Historical `swarm_os` claims are not evidenced in this checkout
+**Reconciliation:** The current checkout has no `swarm_os/` directory or any of its
+claimed subdirectories. It also has no checked-in Kaggle submission, HD benchmark,
+dataset, model output, or reproducible result associated with it. The former statement
+that both systems were Kaggle competitors is therefore unsupported here and must not be
+used as a factual claim.
 
-Zero code coupling. Epistemic tiers correctly separated (T0 vs T4/T5).
-The CLAUDE.md non-equivalence table applies to their relationship:
+`sovereign-omega-v2` does contain governance and metacognition code, but that does not
+establish an HD benchmark result or truthfulness claim. The applicable invariant remains:
 *Calibration is not Truthfulness. Governance is not Alignment.*
+
+**Status:** OPEN — retain the historical material only if its source artifacts are restored
+and independently reproduced; otherwise keep it out of capability and benchmark claims.
 
 ### H-05 · No canonical ontology — semantic overload risk
 **Source:** ChatGPT adversarial audit (CONFIDENCE 0.95) — 2026-05-19

@@ -52,9 +52,13 @@ def workflow_text() -> str:
 
 def external_refs(d: str) -> int:
     """Count files OUTSIDE directory d that reference the path `d/`."""
-    out = sh(["grep", "-rIl",
-              "--exclude-dir=node_modules", "--exclude-dir=.git",
-              "--exclude-dir=target", "--exclude-dir=__pycache__",
+    # ``rg`` observes .gitignore and does not descend through ignored dependency
+    # trees. Excluding prose prevents a stale audit or README from turning an
+    # otherwise disconnected area into a false integration.
+    out = sh(["rg", "-l", "-F",
+              "-g", "!.git/**", "-g", "!node_modules/**",
+              "-g", "!target/**", "-g", "!__pycache__/**",
+              "-g", "!*.md",
               f"{d}/", "."]).splitlines()
     return sum(1 for f in out if not f.startswith(f"./{d}/") and f"/{d}/" not in f)
 
@@ -94,7 +98,7 @@ def render_md(rows) -> str:
     c = Counter(s for s, _, _ in rows)
     sha = head_sha()
     header = (
-        f"**Generated from code at commit `{sha}`** by `scripts/integration_ledger.py`. "
+        f"**Generated from the working tree based on commit `{sha}`** by `scripts/integration_ledger.py`. "
         + "Do not hand-edit — regenerate with `python3 scripts/integration_ledger.py --write`. "
         + "This file is the authority on what is connected; a prose claim of \"done\" that "
         + "this contradicts is wrong."
