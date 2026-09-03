@@ -60,7 +60,7 @@ class TerritoryOverlap(unittest.TestCase):
             existing=EXISTING,
         )
         self.assertEqual(len(found), 1)
-        self.assertEqual(found[0].shared_territory, ("production-cookbook",))
+        self.assertEqual(found[0].shared_territory, ("production-cookbook/src",))
         self.assertIn("both create", found[0].reason())
 
     def test_adding_files_under_an_existing_directory_is_not_territory(self):
@@ -86,6 +86,18 @@ class TerritoryOverlap(unittest.TestCase):
 
     def test_a_new_top_level_file_claims_no_territory(self):
         self.assertEqual(guard.territory(added("NOTES.md"), EXISTING), set())
+
+    def test_a_generic_bucket_shared_at_depth_one_is_not_territory(self):
+        # 28 of the 61 pairs the first sweep reported came from unrelated PRs
+        # each introducing a `research/` folder. Proofs and security scanners
+        # are not duplicates for sharing a bucket name; depth 2 separates them.
+        proofs = added("research/rh/weil.py")
+        scanner = added("research/falsifiers/glasswing.md")
+        self.assertEqual(guard.territory(proofs, EXISTING) & guard.territory(scanner, EXISTING), set())
+        self.assertEqual(
+            guard.collide(proofs, [(1, "other", scanner)], min_shared=2, min_jaccard=0.34, existing=EXISTING),
+            [],
+        )
 
     def test_base_directories_reads_the_real_tree(self):
         found = guard.base_directories(".")
@@ -127,8 +139,8 @@ class Reporting(unittest.TestCase):
 
     def test_collision_report_names_the_other_pr_and_the_escape_hatch(self):
         found = guard.collide(
-            added("x/one.py", "x/two.py"),
-            [(243, "cookbook", added("x/three.py"))],
+            added("x/sub/one.py", "x/sub/two.py"),
+            [(243, "cookbook", added("x/sub/three.py"))],
             min_shared=2,
             min_jaccard=0.34,
             existing=EXISTING,
@@ -140,10 +152,10 @@ class Reporting(unittest.TestCase):
 
     def test_territory_collisions_are_reported_before_weaker_file_overlaps(self):
         found = guard.collide(
-            added("newdir/a.py", "docs/b.py", "docs/c.py"),
+            added("newdir/sub/a.py", "docs/b.py", "docs/c.py"),
             [
                 (10, "file overlap only", modified("docs/b.py", "docs/c.py")),
-                (11, "territory", added("newdir/z.py")),
+                (11, "territory", added("newdir/sub/z.py")),
             ],
             min_shared=2,
             min_jaccard=0.34,

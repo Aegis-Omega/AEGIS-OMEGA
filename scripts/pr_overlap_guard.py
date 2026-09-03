@@ -15,7 +15,7 @@ that opens a PR overlapping an open one is told so at once, by name and number.
 TWO SIGNALS, because exact-filename overlap alone misses the worst case.
 
   file overlap       the same paths edited in two open PRs
-  territory overlap  the same top-level directory *created* by two open PRs
+  territory overlap  the same new directory *created* by two open PRs
 
 The dashboard pair is why the second signal is needed. One PR added
 `production-cookbook/src/App.tsx`, the other `production-cookbook/src/main.jsx`.
@@ -70,27 +70,33 @@ def significant(paths: set[str]) -> set[str]:
 
 
 def territory(files: list[dict], existing: frozenset[str]) -> set[str]:
-    """Top-level directories this PR brings into existence.
+    """Two-segment directory prefixes this PR brings into existence.
 
-    `existing` is the set of top-level directories already on the base branch,
-    and excluding them is the whole point. A first version of this counted every
-    top-level directory of an added file, and firing it against the live
-    repository reported that 67 of 119 open PRs collided because they all
-    "create `.github`" and "create `scripts`". Those directories have existed
-    for months; adding a file inside one is ordinary work.
+    Two corrections are baked in here, both found by running the check against
+    the live repository rather than by reasoning about it.
 
-    What is not ordinary is two open PRs both inventing `production-cookbook/`.
-    That is the case this signal exists for, and it is only visible against the
-    base tree.
+    First, `existing` — the top-level directories already on the base branch —
+    is excluded. Counting every top-level directory of an added file reported 67
+    of 119 open PRs as colliding, because they all add a file under `.github/`
+    or `scripts/`. Those have existed for months.
+
+    Second, the prefix is two segments deep, not one. At one segment the sweep
+    still produced 61 colliding pairs, 28 of them from unrelated PRs that each
+    happened to introduce a generic `research/` bucket — proofs, security
+    scanners and shard-closure measurements are not duplicates of one another
+    merely for sharing a folder name. `research/falsifiers` and `research/rh`
+    separate cleanly; `production-cookbook/src`, claimed twice by two rival
+    implementations of one dashboard, does not.
     """
     out: set[str] = set()
     for entry in files:
         if entry.get("status") != "added":
             continue
         path = entry.get("filename", "")
-        head, sep, _ = path.partition("/")
-        if sep and head not in existing and not is_generated(path):
-            out.add(head)
+        parts = path.split("/")
+        if len(parts) < 3 or parts[0] in existing or is_generated(path):
+            continue
+        out.add(f"{parts[0]}/{parts[1]}")
     return out
 
 
@@ -136,7 +142,7 @@ def collide(
     """Pure decision function. `others` is (number, title, files) per open PR.
 
     A territory collision reports on its own: two PRs inventing the same new
-    top-level directory is decisive even when no single path matches.
+    directory is decisive even when no single path matches.
     """
     mine = significant({e.get("filename", "") for e in candidate_files})
     my_land = territory(candidate_files, existing)
