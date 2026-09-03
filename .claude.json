@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "main",
-    "parent_state_hash": "ea083bfdff01818f6ca7ee238167f3bb58ba9cbe55a7179026ed4b4418afaa4d",
+    "source_ref": "chore/agent-skills-sync-clean",
+    "parent_state_hash": "f56de83c22d4457aaae0d310358c7ec7f3d545201ce6a5e971798751de185b03",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -20,19 +20,19 @@
     "skills_root_scope": "canonical ordered array of path, sha256, and size_bytes",
     "state_hash_scope": "canonical manifest with state_hash omitted"
   },
-  "skills_root_hash": "7ea79f4d61c44c9f916121f33f00b329c8cd750d73914b39c9c7fee347c2531b",
+  "skills_root_hash": "d301c055cf132bc2b84620ae927acef2287075dda8f3dec354d7bce69624afdd",
   "rotational_axis": {
     "axis_3": {
       "focus": "kinetic_entropy",
-      "manifest_hash": "eb364c1cdcbb56cf884b3d6b86872f9c2493b18a19bce52c5739550cb13426bc"
+      "manifest_hash": "8126451f38c058bfeb9fd7a9893a3367eed9d6f7fd589328c3eb1c0f72c83d2e"
     },
     "axis_6": {
       "focus": "dynamic_mutation",
-      "manifest_hash": "67d00baf99122748a462cb1282a018d659fd6ec6fa6d44a20dde29eaf437279b"
+      "manifest_hash": "e322ad2f265df6405e3cdf8c946f11a8e75f6e4eee370a4ce81326c46f15e9f1"
     },
     "axis_9": {
       "focus": "immutable_truth",
-      "manifest_hash": "b5d1b45f50444d7234a93c9f3e5360f182f1b4df8c4461e29bbe12af80b11862"
+      "manifest_hash": "827dd748d3cc6166b5d8e6dbc0264d1365a95a3434aafa2a9835b13dd5ea7240"
     }
   },
   "cognitive_state": {
@@ -70,14 +70,692 @@
       }
     },
     "skills": {
-      "count": 62,
-      "root_hash": "7ea79f4d61c44c9f916121f33f00b329c8cd750d73914b39c9c7fee347c2531b",
+      "count": 175,
+      "root_hash": "d301c055cf132bc2b84620ae927acef2287075dda8f3dec354d7bce69624afdd",
       "entries": [
+        {
+          "name": "accidental-data-loss-prevention",
+          "path": ".agents/skills/accidental-data-loss-prevention/SKILL.md",
+          "sha256": "82769e3c99fbbae081420ea62d6e3318eaf80b9c97da12a62c1cf97049826878",
+          "size_bytes": 1316
+        },
+        {
+          "name": "alloydb-omni-access-control",
+          "path": ".agents/skills/alloydb-omni-access-control/SKILL.md",
+          "sha256": "bef0e4b0b4739f98478443d39199a2773552177e9a3c8b1496c13bee6d091f84",
+          "size_bytes": 3320
+        },
+        {
+          "name": "alloydb-omni-container",
+          "path": ".agents/skills/alloydb-omni-container/SKILL.md",
+          "sha256": "65220d7e85345b4bf9ca66f55c827f304f5cb220a35d7d9a1e6326c9da10fb82",
+          "size_bytes": 4954
+        },
+        {
+          "name": "alloydb-omni-data",
+          "path": ".agents/skills/alloydb-omni-data/SKILL.md",
+          "sha256": "f5afe793f5e0341b00813cfe8001e565b6e4a0d3e25baf03db7df347d8abcf7e",
+          "size_bytes": 10283
+        },
+        {
+          "name": "alloydb-omni-health",
+          "path": ".agents/skills/alloydb-omni-health/SKILL.md",
+          "sha256": "c81c80f8bea217afe111e6128fac27ce485d42266f93c51a4babfae4273af39b",
+          "size_bytes": 4613
+        },
+        {
+          "name": "alloydb-omni-kubernetes",
+          "path": ".agents/skills/alloydb-omni-kubernetes/SKILL.md",
+          "sha256": "c6e90cbd6e8b8446ced91ef4e046a8590c1a05f5dad9f0ca46e0c1eb989db1f0",
+          "size_bytes": 18169
+        },
+        {
+          "name": "alloydb-omni-monitor",
+          "path": ".agents/skills/alloydb-omni-monitor/SKILL.md",
+          "sha256": "261086585eecd1e6274d2ec2efb7f5aa8fdbe444db078655a27a4c05c18ea7eb",
+          "size_bytes": 9389
+        },
+        {
+          "name": "alloydb-omni-optimize",
+          "path": ".agents/skills/alloydb-omni-optimize/SKILL.md",
+          "sha256": "6995f7d3fa46291ab62f51c1e64a879ce14540ad9e86e69e2252d57571475b13",
+          "size_bytes": 3101
+        },
+        {
+          "name": "alloydb-omni-performance",
+          "path": ".agents/skills/alloydb-omni-performance/SKILL.md",
+          "sha256": "5528911b64d7d343127f61b177a8bf4ec0e6dfea33a266c80ed652c7fa24ada2",
+          "size_bytes": 11725
+        },
+        {
+          "name": "alloydb-omni-replication",
+          "path": ".agents/skills/alloydb-omni-replication/SKILL.md",
+          "sha256": "f085740285a495f32b99c6556b297c3e6069d66bf2fe410ba06008cfe1f97af3",
+          "size_bytes": 3620
+        },
+        {
+          "name": "alloydb-postgres-access-management",
+          "path": ".agents/skills/alloydb-postgres-access-management/SKILL.md",
+          "sha256": "45de297fb7fae0eff3fba2d5d4200183371358e4e52a66580cc0217c3f80b83c",
+          "size_bytes": 4463
+        },
+        {
+          "name": "alloydb-postgres-admin",
+          "path": ".agents/skills/alloydb-postgres-admin/SKILL.md",
+          "sha256": "77eb785c5a2df993b38903baba3a0ca2a97a635a95054f62f970ac0da4dd405a",
+          "size_bytes": 5967
+        },
+        {
+          "name": "alloydb-postgres-data",
+          "path": ".agents/skills/alloydb-postgres-data/SKILL.md",
+          "sha256": "9e1f924b18c73847e3ffbdfcc97638b8d62449ab562cbf4ed9ed6ab93ec2e18a",
+          "size_bytes": 6315
+        },
+        {
+          "name": "alloydb-postgres-health",
+          "path": ".agents/skills/alloydb-postgres-health/SKILL.md",
+          "sha256": "5cd3830ba4697d27847382b29330f888eee68dfcbdd7462bf44b4cb314506d50",
+          "size_bytes": 4849
+        },
+        {
+          "name": "alloydb-postgres-monitor",
+          "path": ".agents/skills/alloydb-postgres-monitor/SKILL.md",
+          "sha256": "3e4a7181eec46d14bed97c4a57c2218495db4723082ca4389b11d4792e9b37f7",
+          "size_bytes": 22833
+        },
+        {
+          "name": "alloydb-postgres-optimize",
+          "path": ".agents/skills/alloydb-postgres-optimize/SKILL.md",
+          "sha256": "2a650cab9af181d117bf1f13f3d4b116e7e66711067553e2e53db02b7dd07915",
+          "size_bytes": 2302
+        },
+        {
+          "name": "alloydb-postgres-replication",
+          "path": ".agents/skills/alloydb-postgres-replication/SKILL.md",
+          "sha256": "2f266a3a5300cddfa6932860d6ebf9269501ac1ccf934eed27b6c992df40bb7c",
+          "size_bytes": 3425
+        },
+        {
+          "name": "bigquery-data-transfer-service",
+          "path": ".agents/skills/bigquery-data-transfer-service/SKILL.md",
+          "sha256": "8b34bf814948ecbc1bc4fa4cd3aa1da829339efbf95347cbe75985665e78bb27",
+          "size_bytes": 7139
+        },
+        {
+          "name": "bigquery",
+          "path": ".agents/skills/bigquery/SKILL.md",
+          "sha256": "d2ad795a25ac88b0fde926bbc785e7a3e8e3a8615e8610a8e6d11956ebb76d79",
+          "size_bytes": 3851
+        },
+        {
+          "name": "building-data-apps",
+          "path": ".agents/skills/building-data-apps/SKILL.md",
+          "sha256": "a9153d270f9d50b3d265be48b778255f9b955fa0f1609c269220038d5880732f",
+          "size_bytes": 6317
+        },
+        {
+          "name": "cloud-sql-mysql-admin",
+          "path": ".agents/skills/cloud-sql-mysql-admin/SKILL.md",
+          "sha256": "091fbfa7088f3ade68a2458821dc7bdc51376bfe34f62b1b69ad9d0bddac0b46",
+          "size_bytes": 10073
+        },
+        {
+          "name": "cloud-sql-mysql-data",
+          "path": ".agents/skills/cloud-sql-mysql-data/SKILL.md",
+          "sha256": "b866a1679c2431c4f57cb3f2dcc00ec6894f86e1bf81d81d4f410e45cf9d3bf5",
+          "size_bytes": 4157
+        },
+        {
+          "name": "cloud-sql-mysql-lifecycle",
+          "path": ".agents/skills/cloud-sql-mysql-lifecycle/SKILL.md",
+          "sha256": "b7708e3db9107db39cfbb95c8a5842438173306dfa9a7964f9a865441139d2f8",
+          "size_bytes": 11110
+        },
+        {
+          "name": "cloud-sql-mysql-monitor",
+          "path": ".agents/skills/cloud-sql-mysql-monitor/SKILL.md",
+          "sha256": "65ad7fa5a8f21ae4698cd583275661f2d76811cf18cd72075ad852140dd7b4ad",
+          "size_bytes": 24466
+        },
+        {
+          "name": "cloud-sql-postgres-admin",
+          "path": ".agents/skills/cloud-sql-postgres-admin/SKILL.md",
+          "sha256": "473a4828e412eec7a93e3b6b240f8cf84a143f7c32eaea903c62e4a222bca267",
+          "size_bytes": 13049
+        },
+        {
+          "name": "cloud-sql-postgres-data",
+          "path": ".agents/skills/cloud-sql-postgres-data/SKILL.md",
+          "sha256": "6d14fdec1c2ea0763a6ec2d404877e8648a59d873d0b84e9bafa2a59aedcbb3c",
+          "size_bytes": 10303
+        },
+        {
+          "name": "cloud-sql-postgres-health",
+          "path": ".agents/skills/cloud-sql-postgres-health/SKILL.md",
+          "sha256": "fae447b0057ee6bb5debbebbda5c54de1322ebf0db3df65cd3ac021b4fafa20c",
+          "size_bytes": 27696
+        },
+        {
+          "name": "cloud-sql-postgres-lifecycle",
+          "path": ".agents/skills/cloud-sql-postgres-lifecycle/SKILL.md",
+          "sha256": "db5c516e6a0f5feda9683e72ca7aebde56237927e4fe980a4442b5e17a94a2d4",
+          "size_bytes": 10677
+        },
+        {
+          "name": "cloud-sql-postgres-monitor",
+          "path": ".agents/skills/cloud-sql-postgres-monitor/SKILL.md",
+          "sha256": "3488186173cd966a329d75048b6107ba6400a6a4d1afaf41053ab330b90cc5e0",
+          "size_bytes": 27692
+        },
+        {
+          "name": "cloud-sql-postgres-replication",
+          "path": ".agents/skills/cloud-sql-postgres-replication/SKILL.md",
+          "sha256": "9e0b9779ae4cb82581a22d4ae275e924af4b3cc3443635e22e29196d5298332d",
+          "size_bytes": 5863
+        },
+        {
+          "name": "cloud-sql-postgres-vectorassist",
+          "path": ".agents/skills/cloud-sql-postgres-vectorassist/SKILL.md",
+          "sha256": "fa0d7e8ea1b9eee58cb982e609b46a0aed282ee1d1dd8125ebf6421be29d5372",
+          "size_bytes": 27416
+        },
+        {
+          "name": "cloud-sql-postgres-view-config",
+          "path": ".agents/skills/cloud-sql-postgres-view-config/SKILL.md",
+          "sha256": "1f7b59f766ba7b64cf33af24bbdc5f67831aac151c10b1615dc2a265bf47f96a",
+          "size_bytes": 3637
+        },
+        {
+          "name": "cloud-sql-sqlserver-admin",
+          "path": ".agents/skills/cloud-sql-sqlserver-admin/SKILL.md",
+          "sha256": "5d5a9ade2840e8fac41b341e4b74b8953ee04c7e3422af64b8b2f82bc5bee556",
+          "size_bytes": 8823
+        },
+        {
+          "name": "cloud-sql-sqlserver-data",
+          "path": ".agents/skills/cloud-sql-sqlserver-data/SKILL.md",
+          "sha256": "d2914ef7a7f0b4f752613a0500da3e1aa0018ebc42371dfe829f7f322ca90297",
+          "size_bytes": 2446
+        },
+        {
+          "name": "cloud-sql-sqlserver-lifecycle",
+          "path": ".agents/skills/cloud-sql-sqlserver-lifecycle/SKILL.md",
+          "sha256": "ac64205dc8f28a3151ba7126254fe6c71f5de345b333fd1e6fdb285fe3a55ce4",
+          "size_bytes": 11126
+        },
+        {
+          "name": "cloud-sql-sqlserver-monitor",
+          "path": ".agents/skills/cloud-sql-sqlserver-monitor/SKILL.md",
+          "sha256": "34e24553f60f28a24f1314177caef28e16dc6a43b27f66d85a6f45c8737cb251",
+          "size_bytes": 10171
+        },
+        {
+          "name": "data-autocleaning",
+          "path": ".agents/skills/data-autocleaning/SKILL.md",
+          "sha256": "2d4339a699687f70e8ee87420fcb8a892b510aef1f5def97fa3f75dc8a33219e",
+          "size_bytes": 12134
+        },
+        {
+          "name": "dataform-bigquery",
+          "path": ".agents/skills/dataform-bigquery/SKILL.md",
+          "sha256": "2e3cc4fc22a803cdd61cd80654bc0f96e7707d6425c7b390b33c740bef3c6e87",
+          "size_bytes": 12286
+        },
+        {
+          "name": "dbt-bigquery",
+          "path": ".agents/skills/dbt-bigquery/SKILL.md",
+          "sha256": "f43daa682f33d60f9d10459da27ba3c33127ce74f1b70578bc8aa63edba77328",
+          "size_bytes": 11761
+        },
+        {
+          "name": "discovering-gcp-data-assets",
+          "path": ".agents/skills/discovering-gcp-data-assets/SKILL.md",
+          "sha256": "558a0e0738a9d9448463193371400a3a82c6e17d24b6915cd35477f5329d3bd4",
+          "size_bytes": 9919
+        },
+        {
+          "name": "federate-lakehouse-catalog",
+          "path": ".agents/skills/federate-lakehouse-catalog/SKILL.md",
+          "sha256": "5b3e2480a91c8fe92c92b26c14447d1415cc31794272160e4bcf90882baf58cf",
+          "size_bytes": 10330
+        },
+        {
+          "name": "firestore-data",
+          "path": ".agents/skills/firestore-data/SKILL.md",
+          "sha256": "16841ed9ef081e63bb81ca10038beba6665021fc45ce2b31991439eebb73736d",
+          "size_bytes": 8310
+        },
+        {
+          "name": "gcloud-auth-verification",
+          "path": ".agents/skills/gcloud-auth-verification/SKILL.md",
+          "sha256": "fcdd8ae4407ebc1cea71d06853decc9cebc356d4498b8b17347ecb6e9cce78b3",
+          "size_bytes": 1982
+        },
+        {
+          "name": "gcp-composer-troubleshooting",
+          "path": ".agents/skills/gcp-composer-troubleshooting/SKILL.md",
+          "sha256": "5d9490d56980b30f29451a0e342b4a52420532c145e67dd1fa5488adf0e7e822",
+          "size_bytes": 9089
+        },
+        {
+          "name": "gcp-data-pipelines",
+          "path": ".agents/skills/gcp-data-pipelines/SKILL.md",
+          "sha256": "9320eb3940628c68265fce533c8cc57a62626595cebf894e5c0855de5248fa9b",
+          "size_bytes": 9494
+        },
+        {
+          "name": "gcp-dataflow",
+          "path": ".agents/skills/gcp-dataflow/SKILL.md",
+          "sha256": "9abf6cb8d9aaec574b8576bd41efe27a3c8d3b5079ff3a3328cd65298a1998ff",
+          "size_bytes": 21343
+        },
+        {
+          "name": "gcp-managed-airflow-migrations",
+          "path": ".agents/skills/gcp-managed-airflow-migrations/SKILL.md",
+          "sha256": "f092d155b4de596bd64ab560f97a182476f4f4251f7a7aefd329e7cdff3a691f",
+          "size_bytes": 11695
+        },
+        {
+          "name": "gcp-pipeline-orchestration",
+          "path": ".agents/skills/gcp-pipeline-orchestration/SKILL.md",
+          "sha256": "197afdeb6d5a0767c44aac04eba6e3eeae15ec3b0b80c42eb9197509a1e87498",
+          "size_bytes": 17134
+        },
+        {
+          "name": "gcp-pipeline-resource-provisioning",
+          "path": ".agents/skills/gcp-pipeline-resource-provisioning/SKILL.md",
+          "sha256": "375d3a13d9fa91ee42b55ea5af7e57569c9ea702d46158573eec8f0055955ac9",
+          "size_bytes": 6528
+        },
+        {
+          "name": "gcp-spark",
+          "path": ".agents/skills/gcp-spark/SKILL.md",
+          "sha256": "fd9cc357a764832ca64570201ee45941e6a2b6be32073db66089ca02b6f6604e",
+          "size_bytes": 3892
+        },
+        {
+          "name": "gcs-security-assessment",
+          "path": ".agents/skills/gcs-security-assessment/SKILL.md",
+          "sha256": "43ac89783dd532b20485a53339c829f1db974609c5b6b2e057c6bbfab53ed8c0",
+          "size_bytes": 6817
+        },
+        {
+          "name": "managing-python-dependencies",
+          "path": ".agents/skills/managing-python-dependencies/SKILL.md",
+          "sha256": "7ad459a5a8188fa0f2b8cf3e5e479825e7d7e93e1724750cd1707d896cbd7a05",
+          "size_bytes": 2757
+        },
+        {
+          "name": "ml-best-practices",
+          "path": ".agents/skills/ml-best-practices/SKILL.md",
+          "sha256": "ae010fd52e6b29f9c18302c4bdb36ce444bfc5581a52a0e036ae1f0b6ab44473",
+          "size_bytes": 9805
+        },
+        {
+          "name": "notebook-guidance",
+          "path": ".agents/skills/notebook-guidance/SKILL.md",
+          "sha256": "bddf53b2c3ab71eee53e83ef5c357adbe2f216ff324585f719da04e315a9862e",
+          "size_bytes": 15100
+        },
+        {
+          "name": "run-aegis",
+          "path": ".agents/skills/run-aegis/SKILL.md",
+          "sha256": "476b793dacea6f5dcd98e9c94fb512809f111da95a449e1c329d3e3c0a02eafa",
+          "size_bytes": 4966
+        },
+        {
+          "name": "skill-repair",
+          "path": ".agents/skills/skill-repair/SKILL.md",
+          "sha256": "7ed4b7eb5d82d14686967967159aa472869313bd9804ced44b16eab4884b7f00",
+          "size_bytes": 1777
+        },
+        {
+          "name": "spanner-data",
+          "path": ".agents/skills/spanner-data/SKILL.md",
+          "sha256": "f54a0fa8818fa50f6db1b7fcd33c6cc14a60c78588a128f63b9ebc35b91cab13",
+          "size_bytes": 2808
+        },
         {
           "name": "run-aegis",
           "path": ".claude/skills/run-aegis/SKILL.md",
           "sha256": "86ee2f2f1018b3262f8547f088caa400b35183e376bcceef28767c901f34fae2",
           "size_bytes": 4970
+        },
+        {
+          "name": "accidental-data-loss-prevention",
+          "path": ".gemini/skills/accidental-data-loss-prevention/SKILL.md",
+          "sha256": "82769e3c99fbbae081420ea62d6e3318eaf80b9c97da12a62c1cf97049826878",
+          "size_bytes": 1316
+        },
+        {
+          "name": "alloydb-omni-access-control",
+          "path": ".gemini/skills/alloydb-omni-access-control/SKILL.md",
+          "sha256": "bef0e4b0b4739f98478443d39199a2773552177e9a3c8b1496c13bee6d091f84",
+          "size_bytes": 3320
+        },
+        {
+          "name": "alloydb-omni-container",
+          "path": ".gemini/skills/alloydb-omni-container/SKILL.md",
+          "sha256": "65220d7e85345b4bf9ca66f55c827f304f5cb220a35d7d9a1e6326c9da10fb82",
+          "size_bytes": 4954
+        },
+        {
+          "name": "alloydb-omni-data",
+          "path": ".gemini/skills/alloydb-omni-data/SKILL.md",
+          "sha256": "f5afe793f5e0341b00813cfe8001e565b6e4a0d3e25baf03db7df347d8abcf7e",
+          "size_bytes": 10283
+        },
+        {
+          "name": "alloydb-omni-health",
+          "path": ".gemini/skills/alloydb-omni-health/SKILL.md",
+          "sha256": "c81c80f8bea217afe111e6128fac27ce485d42266f93c51a4babfae4273af39b",
+          "size_bytes": 4613
+        },
+        {
+          "name": "alloydb-omni-kubernetes",
+          "path": ".gemini/skills/alloydb-omni-kubernetes/SKILL.md",
+          "sha256": "c6e90cbd6e8b8446ced91ef4e046a8590c1a05f5dad9f0ca46e0c1eb989db1f0",
+          "size_bytes": 18169
+        },
+        {
+          "name": "alloydb-omni-monitor",
+          "path": ".gemini/skills/alloydb-omni-monitor/SKILL.md",
+          "sha256": "261086585eecd1e6274d2ec2efb7f5aa8fdbe444db078655a27a4c05c18ea7eb",
+          "size_bytes": 9389
+        },
+        {
+          "name": "alloydb-omni-optimize",
+          "path": ".gemini/skills/alloydb-omni-optimize/SKILL.md",
+          "sha256": "6995f7d3fa46291ab62f51c1e64a879ce14540ad9e86e69e2252d57571475b13",
+          "size_bytes": 3101
+        },
+        {
+          "name": "alloydb-omni-performance",
+          "path": ".gemini/skills/alloydb-omni-performance/SKILL.md",
+          "sha256": "5528911b64d7d343127f61b177a8bf4ec0e6dfea33a266c80ed652c7fa24ada2",
+          "size_bytes": 11725
+        },
+        {
+          "name": "alloydb-omni-replication",
+          "path": ".gemini/skills/alloydb-omni-replication/SKILL.md",
+          "sha256": "f085740285a495f32b99c6556b297c3e6069d66bf2fe410ba06008cfe1f97af3",
+          "size_bytes": 3620
+        },
+        {
+          "name": "alloydb-postgres-access-management",
+          "path": ".gemini/skills/alloydb-postgres-access-management/SKILL.md",
+          "sha256": "45de297fb7fae0eff3fba2d5d4200183371358e4e52a66580cc0217c3f80b83c",
+          "size_bytes": 4463
+        },
+        {
+          "name": "alloydb-postgres-admin",
+          "path": ".gemini/skills/alloydb-postgres-admin/SKILL.md",
+          "sha256": "77eb785c5a2df993b38903baba3a0ca2a97a635a95054f62f970ac0da4dd405a",
+          "size_bytes": 5967
+        },
+        {
+          "name": "alloydb-postgres-data",
+          "path": ".gemini/skills/alloydb-postgres-data/SKILL.md",
+          "sha256": "9e1f924b18c73847e3ffbdfcc97638b8d62449ab562cbf4ed9ed6ab93ec2e18a",
+          "size_bytes": 6315
+        },
+        {
+          "name": "alloydb-postgres-health",
+          "path": ".gemini/skills/alloydb-postgres-health/SKILL.md",
+          "sha256": "5cd3830ba4697d27847382b29330f888eee68dfcbdd7462bf44b4cb314506d50",
+          "size_bytes": 4849
+        },
+        {
+          "name": "alloydb-postgres-monitor",
+          "path": ".gemini/skills/alloydb-postgres-monitor/SKILL.md",
+          "sha256": "3e4a7181eec46d14bed97c4a57c2218495db4723082ca4389b11d4792e9b37f7",
+          "size_bytes": 22833
+        },
+        {
+          "name": "alloydb-postgres-optimize",
+          "path": ".gemini/skills/alloydb-postgres-optimize/SKILL.md",
+          "sha256": "2a650cab9af181d117bf1f13f3d4b116e7e66711067553e2e53db02b7dd07915",
+          "size_bytes": 2302
+        },
+        {
+          "name": "alloydb-postgres-replication",
+          "path": ".gemini/skills/alloydb-postgres-replication/SKILL.md",
+          "sha256": "2f266a3a5300cddfa6932860d6ebf9269501ac1ccf934eed27b6c992df40bb7c",
+          "size_bytes": 3425
+        },
+        {
+          "name": "bigquery-data-transfer-service",
+          "path": ".gemini/skills/bigquery-data-transfer-service/SKILL.md",
+          "sha256": "8b34bf814948ecbc1bc4fa4cd3aa1da829339efbf95347cbe75985665e78bb27",
+          "size_bytes": 7139
+        },
+        {
+          "name": "bigquery",
+          "path": ".gemini/skills/bigquery/SKILL.md",
+          "sha256": "d2ad795a25ac88b0fde926bbc785e7a3e8e3a8615e8610a8e6d11956ebb76d79",
+          "size_bytes": 3851
+        },
+        {
+          "name": "building-data-apps",
+          "path": ".gemini/skills/building-data-apps/SKILL.md",
+          "sha256": "a9153d270f9d50b3d265be48b778255f9b955fa0f1609c269220038d5880732f",
+          "size_bytes": 6317
+        },
+        {
+          "name": "cloud-sql-mysql-admin",
+          "path": ".gemini/skills/cloud-sql-mysql-admin/SKILL.md",
+          "sha256": "091fbfa7088f3ade68a2458821dc7bdc51376bfe34f62b1b69ad9d0bddac0b46",
+          "size_bytes": 10073
+        },
+        {
+          "name": "cloud-sql-mysql-data",
+          "path": ".gemini/skills/cloud-sql-mysql-data/SKILL.md",
+          "sha256": "b866a1679c2431c4f57cb3f2dcc00ec6894f86e1bf81d81d4f410e45cf9d3bf5",
+          "size_bytes": 4157
+        },
+        {
+          "name": "cloud-sql-mysql-lifecycle",
+          "path": ".gemini/skills/cloud-sql-mysql-lifecycle/SKILL.md",
+          "sha256": "b7708e3db9107db39cfbb95c8a5842438173306dfa9a7964f9a865441139d2f8",
+          "size_bytes": 11110
+        },
+        {
+          "name": "cloud-sql-mysql-monitor",
+          "path": ".gemini/skills/cloud-sql-mysql-monitor/SKILL.md",
+          "sha256": "65ad7fa5a8f21ae4698cd583275661f2d76811cf18cd72075ad852140dd7b4ad",
+          "size_bytes": 24466
+        },
+        {
+          "name": "cloud-sql-postgres-admin",
+          "path": ".gemini/skills/cloud-sql-postgres-admin/SKILL.md",
+          "sha256": "473a4828e412eec7a93e3b6b240f8cf84a143f7c32eaea903c62e4a222bca267",
+          "size_bytes": 13049
+        },
+        {
+          "name": "cloud-sql-postgres-data",
+          "path": ".gemini/skills/cloud-sql-postgres-data/SKILL.md",
+          "sha256": "6d14fdec1c2ea0763a6ec2d404877e8648a59d873d0b84e9bafa2a59aedcbb3c",
+          "size_bytes": 10303
+        },
+        {
+          "name": "cloud-sql-postgres-health",
+          "path": ".gemini/skills/cloud-sql-postgres-health/SKILL.md",
+          "sha256": "fae447b0057ee6bb5debbebbda5c54de1322ebf0db3df65cd3ac021b4fafa20c",
+          "size_bytes": 27696
+        },
+        {
+          "name": "cloud-sql-postgres-lifecycle",
+          "path": ".gemini/skills/cloud-sql-postgres-lifecycle/SKILL.md",
+          "sha256": "db5c516e6a0f5feda9683e72ca7aebde56237927e4fe980a4442b5e17a94a2d4",
+          "size_bytes": 10677
+        },
+        {
+          "name": "cloud-sql-postgres-monitor",
+          "path": ".gemini/skills/cloud-sql-postgres-monitor/SKILL.md",
+          "sha256": "3488186173cd966a329d75048b6107ba6400a6a4d1afaf41053ab330b90cc5e0",
+          "size_bytes": 27692
+        },
+        {
+          "name": "cloud-sql-postgres-replication",
+          "path": ".gemini/skills/cloud-sql-postgres-replication/SKILL.md",
+          "sha256": "9e0b9779ae4cb82581a22d4ae275e924af4b3cc3443635e22e29196d5298332d",
+          "size_bytes": 5863
+        },
+        {
+          "name": "cloud-sql-postgres-vectorassist",
+          "path": ".gemini/skills/cloud-sql-postgres-vectorassist/SKILL.md",
+          "sha256": "fa0d7e8ea1b9eee58cb982e609b46a0aed282ee1d1dd8125ebf6421be29d5372",
+          "size_bytes": 27416
+        },
+        {
+          "name": "cloud-sql-postgres-view-config",
+          "path": ".gemini/skills/cloud-sql-postgres-view-config/SKILL.md",
+          "sha256": "1f7b59f766ba7b64cf33af24bbdc5f67831aac151c10b1615dc2a265bf47f96a",
+          "size_bytes": 3637
+        },
+        {
+          "name": "cloud-sql-sqlserver-admin",
+          "path": ".gemini/skills/cloud-sql-sqlserver-admin/SKILL.md",
+          "sha256": "5d5a9ade2840e8fac41b341e4b74b8953ee04c7e3422af64b8b2f82bc5bee556",
+          "size_bytes": 8823
+        },
+        {
+          "name": "cloud-sql-sqlserver-data",
+          "path": ".gemini/skills/cloud-sql-sqlserver-data/SKILL.md",
+          "sha256": "d2914ef7a7f0b4f752613a0500da3e1aa0018ebc42371dfe829f7f322ca90297",
+          "size_bytes": 2446
+        },
+        {
+          "name": "cloud-sql-sqlserver-lifecycle",
+          "path": ".gemini/skills/cloud-sql-sqlserver-lifecycle/SKILL.md",
+          "sha256": "ac64205dc8f28a3151ba7126254fe6c71f5de345b333fd1e6fdb285fe3a55ce4",
+          "size_bytes": 11126
+        },
+        {
+          "name": "cloud-sql-sqlserver-monitor",
+          "path": ".gemini/skills/cloud-sql-sqlserver-monitor/SKILL.md",
+          "sha256": "34e24553f60f28a24f1314177caef28e16dc6a43b27f66d85a6f45c8737cb251",
+          "size_bytes": 10171
+        },
+        {
+          "name": "data-autocleaning",
+          "path": ".gemini/skills/data-autocleaning/SKILL.md",
+          "sha256": "2d4339a699687f70e8ee87420fcb8a892b510aef1f5def97fa3f75dc8a33219e",
+          "size_bytes": 12134
+        },
+        {
+          "name": "dataform-bigquery",
+          "path": ".gemini/skills/dataform-bigquery/SKILL.md",
+          "sha256": "2e3cc4fc22a803cdd61cd80654bc0f96e7707d6425c7b390b33c740bef3c6e87",
+          "size_bytes": 12286
+        },
+        {
+          "name": "dbt-bigquery",
+          "path": ".gemini/skills/dbt-bigquery/SKILL.md",
+          "sha256": "f43daa682f33d60f9d10459da27ba3c33127ce74f1b70578bc8aa63edba77328",
+          "size_bytes": 11761
+        },
+        {
+          "name": "discovering-gcp-data-assets",
+          "path": ".gemini/skills/discovering-gcp-data-assets/SKILL.md",
+          "sha256": "558a0e0738a9d9448463193371400a3a82c6e17d24b6915cd35477f5329d3bd4",
+          "size_bytes": 9919
+        },
+        {
+          "name": "federate-lakehouse-catalog",
+          "path": ".gemini/skills/federate-lakehouse-catalog/SKILL.md",
+          "sha256": "5b3e2480a91c8fe92c92b26c14447d1415cc31794272160e4bcf90882baf58cf",
+          "size_bytes": 10330
+        },
+        {
+          "name": "firestore-data",
+          "path": ".gemini/skills/firestore-data/SKILL.md",
+          "sha256": "16841ed9ef081e63bb81ca10038beba6665021fc45ce2b31991439eebb73736d",
+          "size_bytes": 8310
+        },
+        {
+          "name": "gcloud-auth-verification",
+          "path": ".gemini/skills/gcloud-auth-verification/SKILL.md",
+          "sha256": "fcdd8ae4407ebc1cea71d06853decc9cebc356d4498b8b17347ecb6e9cce78b3",
+          "size_bytes": 1982
+        },
+        {
+          "name": "gcp-composer-troubleshooting",
+          "path": ".gemini/skills/gcp-composer-troubleshooting/SKILL.md",
+          "sha256": "5d9490d56980b30f29451a0e342b4a52420532c145e67dd1fa5488adf0e7e822",
+          "size_bytes": 9089
+        },
+        {
+          "name": "gcp-data-pipelines",
+          "path": ".gemini/skills/gcp-data-pipelines/SKILL.md",
+          "sha256": "9320eb3940628c68265fce533c8cc57a62626595cebf894e5c0855de5248fa9b",
+          "size_bytes": 9494
+        },
+        {
+          "name": "gcp-dataflow",
+          "path": ".gemini/skills/gcp-dataflow/SKILL.md",
+          "sha256": "9abf6cb8d9aaec574b8576bd41efe27a3c8d3b5079ff3a3328cd65298a1998ff",
+          "size_bytes": 21343
+        },
+        {
+          "name": "gcp-managed-airflow-migrations",
+          "path": ".gemini/skills/gcp-managed-airflow-migrations/SKILL.md",
+          "sha256": "f092d155b4de596bd64ab560f97a182476f4f4251f7a7aefd329e7cdff3a691f",
+          "size_bytes": 11695
+        },
+        {
+          "name": "gcp-pipeline-orchestration",
+          "path": ".gemini/skills/gcp-pipeline-orchestration/SKILL.md",
+          "sha256": "197afdeb6d5a0767c44aac04eba6e3eeae15ec3b0b80c42eb9197509a1e87498",
+          "size_bytes": 17134
+        },
+        {
+          "name": "gcp-pipeline-resource-provisioning",
+          "path": ".gemini/skills/gcp-pipeline-resource-provisioning/SKILL.md",
+          "sha256": "375d3a13d9fa91ee42b55ea5af7e57569c9ea702d46158573eec8f0055955ac9",
+          "size_bytes": 6528
+        },
+        {
+          "name": "gcp-spark",
+          "path": ".gemini/skills/gcp-spark/SKILL.md",
+          "sha256": "fd9cc357a764832ca64570201ee45941e6a2b6be32073db66089ca02b6f6604e",
+          "size_bytes": 3892
+        },
+        {
+          "name": "gcs-security-assessment",
+          "path": ".gemini/skills/gcs-security-assessment/SKILL.md",
+          "sha256": "43ac89783dd532b20485a53339c829f1db974609c5b6b2e057c6bbfab53ed8c0",
+          "size_bytes": 6817
+        },
+        {
+          "name": "managing-python-dependencies",
+          "path": ".gemini/skills/managing-python-dependencies/SKILL.md",
+          "sha256": "7ad459a5a8188fa0f2b8cf3e5e479825e7d7e93e1724750cd1707d896cbd7a05",
+          "size_bytes": 2757
+        },
+        {
+          "name": "ml-best-practices",
+          "path": ".gemini/skills/ml-best-practices/SKILL.md",
+          "sha256": "ae010fd52e6b29f9c18302c4bdb36ce444bfc5581a52a0e036ae1f0b6ab44473",
+          "size_bytes": 9805
+        },
+        {
+          "name": "notebook-guidance",
+          "path": ".gemini/skills/notebook-guidance/SKILL.md",
+          "sha256": "bddf53b2c3ab71eee53e83ef5c357adbe2f216ff324585f719da04e315a9862e",
+          "size_bytes": 15100
+        },
+        {
+          "name": "skill-repair",
+          "path": ".gemini/skills/skill-repair/SKILL.md",
+          "sha256": "7ed4b7eb5d82d14686967967159aa472869313bd9804ced44b16eab4884b7f00",
+          "size_bytes": 1777
+        },
+        {
+          "name": "spanner-data",
+          "path": ".gemini/skills/spanner-data/SKILL.md",
+          "sha256": "f54a0fa8818fa50f6db1b7fcd33c6cc14a60c78588a128f63b9ebc35b91cab13",
+          "size_bytes": 2808
         },
         {
           "name": "aegis-architecture",
@@ -488,5 +1166,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "f56de83c22d4457aaae0d310358c7ec7f3d545201ce6a5e971798751de185b03"
+  "state_hash": "ac89241a2674c3638204ae9f8c65207791bb17377374eab5275f70bfe1d18107"
 }
