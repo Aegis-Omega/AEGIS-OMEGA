@@ -1,0 +1,44 @@
+name: AEGIS PR Overlap Guard
+
+# Stops a pull request that duplicates an already-open one, at the moment it is
+# opened rather than 119 pull requests later. See scripts/pr_overlap_guard.py
+# for why the check reads territory as well as file paths.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-overlap-guard-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  overlap:
+    name: aegis / pr-overlap-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Self-test the guard before trusting its verdict
+        run: python -m unittest discover -s scripts -p 'test_pr_overlap_guard.py' -v
+
+      - name: Report overlap with open pull requests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          python scripts/pr_overlap_guard.py --pr "${{ github.event.pull_request.number }}" \
+            | tee "$GITHUB_STEP_SUMMARY"
