@@ -1,0 +1,130 @@
+name: Trusted Cognitive Admission
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  trusted-cognitive-admission:
+    name: aegis / trusted-cognitive-admission
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted workflow source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: ${{ job.workflow_repository || github.repository }}
+          ref: ${{ job.workflow_sha || github.workflow_sha }}
+          path: trusted-source
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Checkout exact base as data
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: ${{ github.event.pull_request.base.repo.full_name }}
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base-data
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Checkout exact candidate as untrusted data
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: candidate-data
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Preflight untrusted cognitive data
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          import stat
+          from pathlib import Path
+
+          MAX_SKILL_FILES = 4096
+          MAX_COGNITIVE_BYTES = 16 * 1024 * 1024
+          MAX_SINGLE_FILE_BYTES = 2 * 1024 * 1024
+
+          root = Path("candidate-data")
+          skill_files = 0
+          cognitive_bytes = 0
+          for current, dirnames, filenames in os.walk(root, topdown=True, followlinks=False):
+              current_path = Path(current)
+              for name in list(dirnames) + list(filenames):
+                  path = current_path / name
+                  if os.path.islink(path):
+                      raise SystemExit(f"symlink forbidden in candidate data: {path}")
+                  info = path.lstat()
+                  if not (stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode)):
+                      raise SystemExit(f"special file forbidden in candidate data: {path}")
+
+              for name in filenames:
+                  path = current_path / name
+                  info = path.lstat()
+                  if not stat.S_ISREG(info.st_mode):
+                      continue
+                  relative = path.relative_to(root).as_posix()
+                  is_cognitive = (
+                      name == "SKILL.md"
+                      or relative in {".claude.json", "skill-hashes.sha256"}
+                  )
+                  if not is_cognitive:
+                      continue
+                  if info.st_size > MAX_SINGLE_FILE_BYTES:
+                      raise SystemExit(f"cognitive file exceeds parser bound: {path}")
+                  cognitive_bytes += info.st_size
+                  if name == "SKILL.md":
+                      skill_files += 1
+
+          if skill_files > MAX_SKILL_FILES:
+              raise SystemExit(
+                  f"candidate skill count exceeds bound: {skill_files}>{MAX_SKILL_FILES}"
+              )
+          if cognitive_bytes > MAX_COGNITIVE_BYTES:
+              raise SystemExit(
+                  f"candidate cognitive bytes exceed bound: {cognitive_bytes}>{MAX_COGNITIVE_BYTES}"
+              )
+          print(
+              f"UNTRUSTED_DATA_PREFLIGHT_OK skills={skill_files} bytes={cognitive_bytes}"
+          )
+          PY
+
+      - name: Evaluate candidate with trusted source only
+        shell: bash
+        env:
+          GITHUB_WORKFLOW_SHA: ${{ job.workflow_sha || github.workflow_sha }}
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          SOURCE_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          python trusted-source/scripts/trusted-cognitive-admission-v2.py \
+            --candidate-root candidate-data \
+            --base-root base-data \
+            --source-ref "$SOURCE_REF" \
+            --candidate-sha "$CANDIDATE_SHA" \
+            --base-sha "$BASE_SHA" \
+            --workflow-sha "$GITHUB_WORKFLOW_SHA" \
+            --output "$RUNNER_TEMP/trusted-cognitive-admission-receipt.json"
+
+      - name: Upload trusted admission receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: trusted-cognitive-admission-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/trusted-cognitive-admission-receipt.json
+          if-no-files-found: warn
+          retention-days: 90
