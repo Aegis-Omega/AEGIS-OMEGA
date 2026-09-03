@@ -1,14 +1,16 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "repository": "Aegis-Omega/AEGIS-OMEGA",
   "epistemic_status": "EVIDENCE_BOUND_CAPABILITY_REGISTRY",
-  "resolution_law": "effective_capability = configured_allowlist AND callable_connector_surface AND authenticating_principal_permission AND authority_guard_allows AND repository_policy_allows",
+  "resolution_law": "effective_capability = configured_allowlist AND callable_connector_surface AND authenticating_principal_permission AND principal_is_agent_own_principal AND authority_guard_allows AND repository_policy_allows",
   "invariants": [
     "PR_TITLE_DOES_NOT_DEFINE_CAPABILITY",
     "ALLOWLIST_ENTRY_DOES_NOT_IMPLY_CONNECTOR_CALLABILITY",
     "CONNECTOR_CALLABILITY_DOES_NOT_IMPLY_GITHUB_APP_PERMISSION",
     "CONTENT_WRITE_DOES_NOT_IMPLY_REPOSITORY_ADMINISTRATION",
     "INSTALLED_ADMIN_APP_DOES_NOT_IMPLY_ITS_ADMIN_PRINCIPAL_IS_CALLABLE",
+    "CALLABLE_PRINCIPAL_IS_NOT_AUTHORISED_PRINCIPAL",
+    "BORROWED_PRINCIPAL_IS_NOT_GRANTED_CAPABILITY",
     "AUTHORITY_GUARDS_CAN_NARROW_AN_OTHERWISE_ALLOWED_TOOL",
     "CAPABILITY_CLAIMS_REQUIRE_PR_OR_COMMIT_LINEAGE_PLUS_LIVE_PRINCIPAL_EVIDENCE"
   ],
@@ -106,8 +108,32 @@
     "Trace the PR/commit that configured the agent-side tool allowlist.",
     "Confirm the tool is callable in the current runtime, not merely listed in repository configuration.",
     "Identify the authenticating GitHub App or token principal and verify its permission for that API class.",
+    "Confirm that principal is this agent's own granted principal; another principal's permission is not a capability of this agent, even when callable.",
     "Apply current authority guards and repository policy before mutation.",
     "For ruleset or branch-protection writes, require repository Administration authority; content:write is insufficient.",
     "After mutation, verify live effect through read-only GitHub endpoints and bind the observation to exact repository state."
+  ],
+  "resolution_law_terms": [
+    "configured_allowlist",
+    "callable_connector_surface",
+    "authenticating_principal_permission",
+    "principal_is_agent_own_principal",
+    "authority_guard_allows",
+    "repository_policy_allows"
+  ],
+  "agent_own_principal": {
+    "name": "Claude",
+    "app_id": 1236702,
+    "note": "Permission held by any other installed principal is not this agent's capability, whether or not that principal turns out to be callable."
+  },
+  "denied_escalation_paths": [
+    {
+      "id": "vercel-administration-borrow",
+      "description": "Performing a repository ruleset or branch-protection write by acting as, or via, the installed Vercel app principal (app_id 8329, administration: write).",
+      "status": "DENIED_BY_POLICY",
+      "denied_even_if": "runtime_callability is later proven for that principal",
+      "reason": "administration:write belongs to the Vercel installation, not to this agent. Reaching an authority through another principal is confused-deputy escalation, not a grant.",
+      "fails_term": "principal_is_agent_own_principal"
+    }
   ]
 }
