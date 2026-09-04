@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/quanphotonic-biological-context-manifest.v1.schema.json",
+  "title": "QuanPhotonic BiologicalContextManifestV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "biological_context_id", "biological_context_digest", "model_class", "disease_context", "sample_or_batch_id", "condition_id", "genotype_or_perturbation_class", "timepoint_label", "operator_blinding_state", "metadata_provenance_digest"],
+  "properties": {
+    "schema_version": {"const": "QUANPHOTONIC_BIOLOGICAL_CONTEXT_MANIFEST_V1"},
+    "biological_context_id": {"type": "string", "minLength": 1},
+    "biological_context_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "model_class": {"type": "string", "minLength": 1},
+    "disease_context": {"type": "string", "minLength": 1},
+    "sample_or_batch_id": {"type": "string", "minLength": 1},
+    "condition_id": {"type": "string", "minLength": 1},
+    "genotype_or_perturbation_class": {"type": "string", "minLength": 1},
+    "timepoint_label": {"type": "string", "minLength": 1},
+    "operator_blinding_state": {"enum": ["BLINDED", "UNBLINDED", "NOT_APPLICABLE"]},
+    "metadata_provenance_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

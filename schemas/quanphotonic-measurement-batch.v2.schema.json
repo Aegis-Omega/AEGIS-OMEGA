@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://aegisomega.com/schemas/quanphotonic-measurement-batch.v2.schema.json","title":"QuanPhotonic MeasurementBatchEnvelopeV2","type":"object","additionalProperties":false,
+  "required":["schema_version","measurement_batch_id","measurement_batch_digest","calibration_receipt_digest","calibration_epoch_id","detector_id","detector_configuration_digest","biological_context_digest","sequence"],
+  "properties":{"schema_version":{"const":"QUANPHOTONIC_MEASUREMENT_BATCH_V2"},"measurement_batch_id":{"type":"string","minLength":1},"measurement_batch_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"},"calibration_receipt_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"},"calibration_epoch_id":{"type":"string","minLength":1},"detector_id":{"type":"string","minLength":1},"detector_configuration_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"},"biological_context_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"},"sequence":{"type":"string","pattern":"^(0|[1-9][0-9]*)$"}}
+}

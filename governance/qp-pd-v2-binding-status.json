@@ -1,0 +1,36 @@
+{
+  "schema": "AEGIS_QP_PD_V2_BINDING_STATUS_V1",
+  "project_id": "AEGIS-QP-PD-001",
+  "status": "MACHINE_VERIFIED_IMPLEMENTATION_AND_FAIL_CLOSED_PRECHECK",
+  "base_head_sha": "d09310717319352771b204e98f3eb09886c9f121",
+  "last_verified_source_head_sha": "754844a52ecdcffd7e20bc3e95902bf349027b2e",
+  "verification": {
+    "workflow": "QP-PD V2 Biological Binding",
+    "run_id": 33846248478,
+    "run_number": 36,
+    "conclusion": "success",
+    "falsification_suite": "PASS",
+    "schema_meta_validation": "PASS"
+  },
+  "verified_capabilities": [
+    "BIOLOGICAL_CONTEXT_SELF_DIGEST_BINDING",
+    "MEASUREMENT_BATCH_V2_CONTEXT_BINDING",
+    "V1_DOWNGRADE_REJECTION",
+    "STALE_CONTEXT_REPLAY_REJECTION",
+    "CROSS_SAMPLE_SPLICING_REJECTION",
+    "CLASSICAL_COVARIATE_PAYLOAD_BINDING",
+    "V2_RECEIPT_FAMILY_CONTEXT_PROPAGATION",
+    "EVIDENCE_JOIN_V2_CONTENT_ADDRESSING"
+  ],
+  "open_empirical_requirements": [
+    "PREREGISTRATION_PARAMETER_LOCK",
+    "GENUINE_CALIBRATION_RECEIPT",
+    "GENUINE_RAW_DETECTOR_PAYLOAD",
+    "CALIBRATION_SIGNATURE_AND_TRUST_ROOT",
+    "GENUINE_CLASSICAL_FEATURE_PAYLOAD",
+    "DETERMINISTIC_ANALYSIS_ENVIRONMENT_AND_FALSIFICATION_CONTRACT",
+    "LEDGER_ADMISSION_POLICY"
+  ],
+  "epistemic_promotion": "NONE",
+  "empirical_run": "NOT_PERFORMED"
+}
