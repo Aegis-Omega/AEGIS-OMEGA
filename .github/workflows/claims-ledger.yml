@@ -10,13 +10,29 @@ on:
       - docs/claims.json
       - docs/CLAIMS_LEDGER.md
       - docs/claims.schema.json
+      - docs/claim-promotions/**
+      - docs/claim-admission-policy.v1.json
+      - docs/research-control-baseline.v0.4.json
+      - docs/claim-promotion.schema.json
       - scripts/validate-claims.mjs
+      - scripts/lib/claim-promotion.mjs
+      - scripts/validate-claim-promotion.mjs
+      - test/claim-promotion-admission.test.mjs
+      - .github/workflows/claims-ledger.yml
   push:
     paths:
       - docs/claims.json
       - docs/CLAIMS_LEDGER.md
       - docs/claims.schema.json
+      - docs/claim-promotions/**
+      - docs/claim-admission-policy.v1.json
+      - docs/research-control-baseline.v0.4.json
+      - docs/claim-promotion.schema.json
       - scripts/validate-claims.mjs
+      - scripts/lib/claim-promotion.mjs
+      - scripts/validate-claim-promotion.mjs
+      - test/claim-promotion-admission.test.mjs
+      - .github/workflows/claims-ledger.yml
 
 permissions:
   contents: read
@@ -33,3 +49,11 @@ jobs:
           node-version: '20'
       - name: Validate claims ledger
         run: node scripts/validate-claims.mjs
+      - name: Run claim promotion contract
+        run: node --test test/claim-promotion-admission.test.mjs
+      - name: Enforce fail-closed Verified-claim promotion
+        if: github.event_name == 'pull_request'
+        run: node scripts/validate-claim-promotion.mjs --base-sha "${{ github.event.pull_request.base.sha }}"
+      - name: Validate bound promotion manifests on push
+        if: github.event_name == 'push'
+        run: node scripts/validate-claim-promotion.mjs

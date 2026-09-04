@@ -32,3 +32,6 @@ jobs:
       - name: Validate pull-request claim promotions
         if: github.event_name == 'pull_request'
         run: node scripts/validate-claim-promotion.mjs --base-sha "${{ github.event.pull_request.base.sha }}"
+      - name: Validate bound manifests on manual run
+        if: github.event_name == 'workflow_dispatch'
+        run: node scripts/validate-claim-promotion.mjs

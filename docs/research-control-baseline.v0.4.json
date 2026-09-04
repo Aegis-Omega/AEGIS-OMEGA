@@ -1,0 +1,18 @@
+{
+  "schema": "AEGIS_RESEARCH_CONTROL_BASELINE_V0_4",
+  "artifact": "AEGIS_Master_Notebook.md",
+  "baseline_digest_sha256": "457f4566cb932d3f91e2265632fad9931c709645e520471095c23000a85c6404",
+  "byte_length": 30294,
+  "status": "VERIFIED_RESEARCH_CONTROL_BASELINE",
+  "authority_model": [
+    "MACHINE_BOUND",
+    "EXTERNAL_ESTABLISHED",
+    "TARGET_OPEN",
+    "NOT_ESTABLISHED",
+    "ADMITTED"
+  ],
+  "global_rh_status": "NOT_PROVEN_AT_CURRENT_CLOSURE",
+  "enforcement_status": "POLICY_LOCKED / BASELINE_BYTE_VERIFIED / ENFORCEMENT_PARTIALLY_IMPLEMENTED",
+  "authority_invariant": "No claim may possess greater epistemic authority than the weakest verified transition required to establish it.",
+  "note": "This repository descriptor binds the byte-verified Library baseline by digest. It does not claim that the notebook bytes themselves are stored in this repository."
+}
