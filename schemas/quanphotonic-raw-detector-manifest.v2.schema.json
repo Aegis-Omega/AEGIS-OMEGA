@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://aegisomega.com/schemas/quanphotonic-raw-detector-manifest.v2.schema.json","title":"QuanPhotonic RawDetectorManifestV2","type":"object","additionalProperties":false,
+  "required":["schema_version","measurement_batch_id","measurement_batch_digest","biological_context_digest","raw_payload_digest","raw_payload_media_type","byte_length","detector_id","calibration_receipt_digest","sequence"],
+  "properties":{"schema_version":{"const":"QUANPHOTONIC_RAW_DETECTOR_MANIFEST_V2"},"measurement_batch_id":{"type":"string","minLength":1},"measurement_batch_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"},"biological_context_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"},"raw_payload_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"},"raw_payload_media_type":{"type":"string","minLength":1},"byte_length":{"type":"integer","minimum":0},"detector_id":{"type":"string","minLength":1},"calibration_receipt_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"},"sequence":{"type":"string","pattern":"^(0|[1-9][0-9]*)$"}}
+}
