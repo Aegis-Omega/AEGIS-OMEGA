@@ -1,0 +1,7 @@
+{
+  "schema": "AEGIS_QP_PD_V2_BINDING_STATUS_V1",
+  "project_id": "AEGIS-QP-PD-001",
+  "status": "RED_CONTRACT_COMMITTED_IMPLEMENTATION_NOT_PRESENT",
+  "base_head_sha": "d09310717319352771b204e98f3eb09886c9f121",
+  "epistemic_promotion": "NONE"
+}
