@@ -1,0 +1,34 @@
+name: claim-promotion-admission
+
+on:
+  pull_request:
+    paths:
+      - docs/claims.json
+      - docs/claim-promotions/**
+      - docs/claim-admission-policy.v1.json
+      - docs/research-control-baseline.v0.4.json
+      - docs/claim-promotion.schema.json
+      - scripts/lib/claim-promotion.mjs
+      - scripts/validate-claim-promotion.mjs
+      - test/claim-promotion-admission.test.mjs
+      - .github/workflows/claim-promotion-admission.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  claim-promotion-admission:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run claim promotion RED/GREEN contract
+        run: node --test test/claim-promotion-admission.test.mjs
+      - name: Validate pull-request claim promotions
+        if: github.event_name == 'pull_request'
+        run: node scripts/validate-claim-promotion.mjs --base-sha "${{ github.event.pull_request.base.sha }}"
