@@ -52,7 +52,7 @@ This plan preserves spec §15 exactly:
 
 | RED ID | Canonical meaning | Phase |
 |---|---|---:|
-| QM-RED-001 | production module absent | 1 |
+| QM-RED-001 | production module absent / expected import failure before implementation | 1 |
 | QM-RED-002 | baseline digest mismatch | 1 |
 | QM-RED-003 | invalid/non-ancestor exact-head coordinate | 1 |
 | QM-RED-004 | reality snapshot digest mismatch | 1 |
@@ -90,7 +90,7 @@ Target branch/PR: `feat/qm-scheduler-phase1-core-kernel` -> `feat/qm-scheduler-v
 **Files:**
 - Create: `configs/scheduler_policy_v1.json`
 - Create: `sovereign-omega-v2/python/tests/test_quantummanifold_red_contract.py`
-- Create later in Task 4: `agents/quantummanifold/`
+- Create later in Task 3: `agents/quantummanifold/`
 
 **Interfaces:**
 - Produces canonical policy fields `ppm_scale`, `max_safe_canonical_int`, `alpha_ppm`, `beta_ppm`, `gamma_ppm`, `mu_ppm`, `eta_ppm`, `epsilon_ppm`, and `baseline_digest`.
@@ -115,17 +115,16 @@ Use this initial policy document:
 
 The coefficients are neutral v0.1 scheduling weights, not scientific probabilities or authority.
 
-- [ ] **Step 1: Write `QM-RED-001` as an import-failure anchor**
+- [ ] **Step 1: Write `QM-RED-001` as a test that must fail before production code exists**
 
 ```python
 # sovereign-omega-v2/python/tests/test_quantummanifold_red_contract.py
 import importlib
-import pytest
 
 
-def test_qm_red_001_production_module_is_initially_absent():
-    with pytest.raises(ModuleNotFoundError):
-        importlib.import_module("agents.quantummanifold.scheduler")
+def test_qm_red_001_scheduler_production_module_exists():
+    module = importlib.import_module("agents.quantummanifold.scheduler")
+    assert module is not None
 ```
 
 - [ ] **Step 2: Run the single RED anchor before creating production code**
@@ -133,17 +132,19 @@ def test_qm_red_001_production_module_is_initially_absent():
 Run:
 
 ```bash
-pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_red_contract.py::test_qm_red_001_production_module_is_initially_absent
+pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_red_contract.py::test_qm_red_001_scheduler_production_module_exists
 ```
 
-Expected: PASS as a falsifier asserting the production module is absent. Record exact head and CI run ID in the PR body. The downstream GREEN phase later replaces this absence assertion with behavior tests; do not retain a test that requires production code to remain absent.
+Expected: **FAIL** with `ModuleNotFoundError: agents.quantummanifold.scheduler`. This failure is the RED evidence. Record exact head and CI run ID in the PR body.
 
-- [ ] **Step 3: Commit only the RED contract + policy document**
+- [ ] **Step 3: Commit only the failing RED contract + policy document**
 
 ```bash
 git add configs/scheduler_policy_v1.json sovereign-omega-v2/python/tests/test_quantummanifold_red_contract.py
 git commit -m "test(qm): establish RED scheduler absence contract"
 ```
+
+The test is retained. It becomes GREEN only after the scheduler production module exists.
 
 ## Task 2: Harden the repository RFC 8785 path before hashing scheduler state
 
@@ -173,7 +174,7 @@ it('JCS-RED-UNDEFINED: rejects undefined object members instead of silently drop
   expect(() => canonicalizeJCSString({ a: 1, b: undefined })).toThrow(TypeError)
 })
 
-it('JCS-RED-BIGINT: rejects bigint because it is not an I-JSON number/string input by implicit coercion', () => {
+it('JCS-RED-BIGINT: rejects bigint because it is not valid I-JSON input', () => {
   expect(() => canonicalizeJCSString({ a: 1n })).toThrow(TypeError)
 })
 ```
@@ -228,11 +229,12 @@ git add sovereign-omega-v2/src/core/canonicalize.ts sovereign-omega-v2/test/unit
 git commit -m "fix(jcs): enforce RFC8785 scheduler canonicalization semantics"
 ```
 
-## Task 3: Implement exact fixed-point arithmetic
+## Task 3: Implement exact fixed-point arithmetic and create the scheduler module boundary
 
 **Files:**
 - Create: `agents/quantummanifold/__init__.py`
 - Create: `agents/quantummanifold/fixed_point.py`
+- Create: `agents/quantummanifold/scheduler.py` as a minimal importable module with no ranking implementation beyond a fail-closed stub until Phase 2
 - Create: `sovereign-omega-v2/python/tests/test_quantummanifold_fixed_point.py`
 - Create: `sovereign-omega-v2/src/quantummanifold/fixed-point.ts`
 - Create: `sovereign-omega-v2/test/unit/quantummanifold-fixed-point.test.ts`
@@ -265,28 +267,28 @@ Test negative, boolean-as-int, float, serialization overflow, and `epsilon_ppm <
 - [ ] **Step 2: Run Python tests and verify RED**
 
 ```bash
-pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_fixed_point.py
+pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_fixed_point.py sovereign-omega-v2/python/tests/test_quantummanifold_red_contract.py
 ```
 
-Expected: FAIL because the fixed-point module is absent/incomplete.
+Expected: fixed-point behavior tests fail before implementation; `QM-RED-001` remains RED until the minimal `scheduler.py` boundary is created in the GREEN step.
 
-- [ ] **Step 3: Implement Python exact integer kernel; no `/` operator in canonical arithmetic**
+- [ ] **Step 3: Implement Python exact integer kernel and minimal importable `scheduler.py`; no `/` operator in canonical arithmetic**
 
-Use `//` on non-negative integers only and explicit range checks at serialization boundaries.
+Use `//` on non-negative integers only and explicit range checks at serialization boundaries. The minimal scheduler module may expose only a typed `NotImplementedError` path for ranking until Phase 2; it MUST NOT fabricate a scheduling receipt.
 
-- [ ] **Step 4: Port only the normative arithmetic to TypeScript `bigint` and Rust `u128`/checked arithmetic for conformance**
+- [ ] **Step 4: Port only the normative arithmetic to TypeScript `bigint` and Rust checked integer arithmetic for conformance**
 
 TypeScript and Rust ports are conformance implementations; they MUST consume the same committed vectors and may not define different rounding semantics.
 
 - [ ] **Step 5: Run all three runtimes**
 
 ```bash
-pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_fixed_point.py
+pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_red_contract.py sovereign-omega-v2/python/tests/test_quantummanifold_fixed_point.py
 cd sovereign-omega-v2 && npm test -- --run test/unit/quantummanifold-fixed-point.test.ts
 cd ../aegis-cl-psi && cargo test --test quantummanifold_fixed_point
 ```
 
-Expected: PASS with identical vector outputs.
+Expected: PASS, including `QM-RED-001` now GREEN because the production module boundary exists.
 
 - [ ] **Step 6: Commit**
 
@@ -339,7 +341,7 @@ pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_graph.py
 
 - [ ] **Step 3: Implement exact graph validation and topological cycle detection**
 
-Node IDs must bind canonical node content. Duplicate IDs with byte-identical canonical content may be rejected as duplicates or deduplicated only if the policy explicitly chooses one behavior; v0.1 chooses **reject duplicates** for simplicity and unambiguous provenance.
+Node IDs bind canonical node content. v0.1 rejects duplicate node IDs even when content is byte-identical; this avoids ambiguous provenance and keeps the graph representation unique.
 
 - [ ] **Step 4: Implement `SOURCE_HEAD_INVALID` as repository-bound validation**
 
@@ -353,7 +355,7 @@ cd sovereign-omega-v2 && npm test -- --run test/unit/jcs.test.ts test/unit/quant
 cd ../aegis-cl-psi && cargo test --test quantummanifold_fixed_point
 ```
 
-Expected: all behavior tests PASS. Remove/replace the initial module-absence assertion once production modules exist; preserve its exact RED commit/run receipt in the PR body.
+Expected: all behavior tests PASS. Preserve the exact pre-GREEN `QM-RED-001` failing commit/run receipt in the PR body.
 
 - [ ] **Step 6: Add Phase-1 CI lane**
 
@@ -414,13 +416,13 @@ def action_score_ppm(graph: dict, action: dict, policy: dict) -> dict[str, int]:
 - [ ] Write hand-computable fixtures with exact integer expected values.
 - [ ] Verify tests fail before implementation.
 - [ ] Implement using only fixed-point primitives from Phase 1.
-- [ ] Add static source scan test that rejects float literals/operators in `agents/quantummanifold/{fixed_point,metrics,scheduler}.py` except comments/type annotations.
+- [ ] Add a source-level guard test that rejects use of runtime floating arithmetic in the canonical fixed-point/scoring modules.
 - [ ] Run and commit.
 
 ## Task 7: Implement deterministic candidate ranking and `QM-RED-013` / `QM-RED-014`
 
 **Files:**
-- Create: `agents/quantummanifold/scheduler.py`
+- Modify: `agents/quantummanifold/scheduler.py`
 - Create: `agents/quantummanifold/canonical.py`
 - Create: `sovereign-omega-v2/python/tests/test_quantummanifold_scheduler.py`
 - Create: `sovereign-omega-v2/src/quantummanifold/conformance.ts`
@@ -440,7 +442,7 @@ Tie-break key is exactly:
 (-ranking_score_ppm, -closure_leverage_ppm, -falsification_value_ppm, cost_ppm, candidate_action_digest)
 ```
 
-- [ ] **Write `QM-RED-013`: equal-score actions choose the same lexicographically final winner according to all four tie-break levels.**
+- [ ] **Write `QM-RED-013`: equal-score actions choose the same winner according to all four tie-break levels.**
 - [ ] **Write `QM-RED-014`: run the identical canonical input at least three times and assert byte-identical receipt bytes and identical SHA-256.**
 - [ ] Run and verify RED.
 - [ ] Implement minimum ranking and canonical receipt construction.
@@ -598,7 +600,7 @@ pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_authority_boundar
 Expected: all PASS.
 
 - [ ] Run the complete QuantumManifold suite and all cross-runtime conformance lanes.
-- [ ] Run `git diff`/code search to confirm no changes to branch protection, rulesets, or workflow settings that could masquerade as repository merge enforcement.
+- [ ] Inspect `git diff`/repository metadata and confirm no changes to branch protection, rulesets, or workflow settings that could masquerade as repository merge enforcement.
 - [ ] Commit and open Phase-4 PR to the integration branch.
 
 ---
@@ -651,6 +653,7 @@ Do not promote the status to `ACTIVE_FAIL_CLOSED`, `PRODUCTION`, or repository-w
 
 - **Spec coverage:** All spec v0.1 surfaces are assigned to a task: M1/M2 projection, typed DAG, exact coordinates, fixed-point arithmetic, metrics, deterministic ranking, scheduling receipt, claim/role boundaries, stale semantics, replay, recovery boundary, Automaton-3 integration, and all 24 RED falsifiers.
 - **RED-ID consistency:** Corrected. The user's draft had reassigned several RED identifiers; this plan preserves the exact approved §15 mapping.
+- **TDD RED semantics:** Corrected. `QM-RED-001` is now a genuinely failing import test before production code exists, then becomes GREEN when the module boundary is introduced.
 - **Lineage consistency:** Corrected. The implementation integration branch is rooted at approved spec commit `8764d401...`, which itself descends from design-base `main`; therefore the normative spec travels in implementation ancestry.
 - **Canonicalization consistency:** Corrected. No incompatible second serialization policy is introduced; the declared RFC 8785 path is hardened and cross-runtime ports are tested against common vectors.
 - **Role isolation:** Uses construction-time allowlists, not post-hoc prose regex stripping.
