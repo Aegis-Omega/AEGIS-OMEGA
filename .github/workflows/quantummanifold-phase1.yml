@@ -12,6 +12,7 @@ on:
       - "sovereign-omega-v2/test/unit/jcs.test.ts"
       - "sovereign-omega-v2/src/quantummanifold/**"
       - "sovereign-omega-v2/test/unit/quantummanifold-*.test.ts"
+      - "tests/fixtures/quantummanifold/**"
       - "aegis-cl-psi/tests/quantummanifold_*.rs"
       - ".github/workflows/quantummanifold-phase1.yml"
   workflow_dispatch:
@@ -42,3 +43,26 @@ jobs:
 
       - name: Run QM-RED-001 anchor
         run: PYTHONPATH=. pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_red_contract.py::test_qm_red_001_scheduler_production_module_exists
+
+  jcs-red:
+    name: aegis / jcs-red
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+
+      - name: Install exact lockfile dependencies
+        run: npm ci
+        working-directory: sovereign-omega-v2
+
+      - name: Run JCS conformance falsifiers
+        run: npm test -- test/unit/jcs.test.ts
+        working-directory: sovereign-omega-v2
