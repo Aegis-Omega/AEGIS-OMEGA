@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://aegisomega.com/schemas/quanphotonic-classical-covariate-manifest.v1.schema.json","title":"QuanPhotonic ClassicalCovariateManifestV1","type":"object","additionalProperties":false,
+  "required":["schema_version","classical_covariate_manifest_id","classical_covariate_manifest_digest","biological_context_digest","classical_feature_payload_digest","classical_feature_payload_media_type","feature_schema_digest"],
+  "properties":{"schema_version":{"const":"QUANPHOTONIC_CLASSICAL_COVARIATE_MANIFEST_V1"},"classical_covariate_manifest_id":{"type":"string","minLength":1},"classical_covariate_manifest_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"},"biological_context_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"},"classical_feature_payload_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"},"classical_feature_payload_media_type":{"type":"string","minLength":1},"feature_schema_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"}}
+}
