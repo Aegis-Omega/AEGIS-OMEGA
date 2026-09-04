@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/claim-promotion.v1.schema.json",
+  "title": "AEGIS Claim Promotion V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "claim_id",
+    "baseline_digest",
+    "source_head_sha",
+    "claim_statement",
+    "claim_statement_digest",
+    "red_contract_digest",
+    "implementation_digest",
+    "negative_control_receipt_digest",
+    "ci_run_identity",
+    "verification_receipt_digest",
+    "admission_policy_digest",
+    "final_epistemic_status",
+    "admission_decision",
+    "bindings",
+    "required_transitions"
+  ],
+  "properties": {
+    "schema": { "const": "AEGIS_CLAIM_PROMOTION_V1" },
+    "claim_id": { "type": "string", "pattern": "^CLM-[0-9]{3}$" },
+    "baseline_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "source_head_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "claim_statement": { "type": "string", "minLength": 1 },
+    "claim_statement_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "red_contract_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "implementation_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "negative_control_receipt_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "ci_run_identity": { "type": "string", "minLength": 1 },
+    "verification_receipt_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "admission_policy_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "final_epistemic_status": {
+      "enum": [
+        "MACHINE_BOUND",
+        "EMPIRICAL",
+        "EXTERNAL_ESTABLISHED",
+        "TARGET_OPEN",
+        "NOT_ESTABLISHED"
+      ]
+    },
+    "admission_decision": { "enum": ["ADMIT", "DEFER", "DENY"] },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "red_contract_paths",
+        "implementation_paths",
+        "negative_control_receipt_path",
+        "verification_receipt_path",
+        "admission_policy_path"
+      ],
+      "properties": {
+        "red_contract_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "implementation_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "negative_control_receipt_path": { "type": "string", "minLength": 1 },
+        "verification_receipt_path": { "type": "string", "minLength": 1 },
+        "admission_policy_path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "required_transitions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["transition_id", "status"],
+        "properties": {
+          "transition_id": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["VERIFIED", "OPEN", "NOT_ESTABLISHED"] }
+        }
+      }
+    }
+  }
+}

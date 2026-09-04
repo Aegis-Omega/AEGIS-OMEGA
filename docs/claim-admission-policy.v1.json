@@ -1,0 +1,21 @@
+{
+  "schema": "AEGIS_CLAIM_ADMISSION_POLICY_V1",
+  "baseline_digest": "457f4566cb932d3f91e2265632fad9931c709645e520471095c23000a85c6404",
+  "required_transition_ids": [
+    "RED_CONTRACT",
+    "IMPLEMENTATION",
+    "NEGATIVE_CONTROLS",
+    "EXACT_HEAD_CI",
+    "ATTESTED_RECEIPT"
+  ],
+  "admittable_statuses": [
+    "MACHINE_BOUND",
+    "EMPIRICAL",
+    "EXTERNAL_ESTABLISHED"
+  ],
+  "deferred_statuses": [
+    "TARGET_OPEN",
+    "NOT_ESTABLISHED"
+  ],
+  "ci_run_identity_pattern": "^https://github\\.com/Aegis-Omega/AEGIS-OMEGA/actions/runs/[0-9]+$"
+}
