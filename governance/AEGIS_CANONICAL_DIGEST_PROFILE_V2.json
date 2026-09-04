@@ -15,6 +15,7 @@
     "QUANPHOTONIC_MEASUREMENT_BATCH_V2": "measurement_batch_digest",
     "QUANPHOTONIC_CLASSICAL_COVARIATE_MANIFEST_V1": "classical_covariate_manifest_digest",
     "QUANPHOTONIC_ANALYSIS_RECEIPT_V2": "analysis_receipt_digest",
+    "AEGIS_EVIDENCE_JOIN_V2": "packet_digest_sha256",
     "QUANPHOTONIC_ADMISSION_RECEIPT_V2": "admission_receipt_digest"
   },
   "supersedes": "AEGIS_CANONICAL_DIGEST_PROFILE_V1"
