@@ -66,6 +66,7 @@ jobs:
               + [
                   Path('schemas/writer-lease.v1.schema.json'),
                   Path('schemas/claim-promotion-request.v1.schema.json'),
+                  Path('schemas/claim-promotion-policy.v1.schema.json'),
               ]
           )
           for path in paths:
@@ -110,10 +111,13 @@ jobs:
           test -f .github/workflows/integration-ledger.yml
           test -f .github/workflows/osv-scanner.yml
           test -f .github/workflows/ci.yml
+          test -f .github/workflows/claim-promotion-trusted-v04.yml
           test -f scripts/validate-claim-promotions-v04.mjs
           test -f governance/aegis-master-notebook-v0.4.lock.json
+          test -f governance/claim-promotion-policy.v1.json
           grep -F 'aegis / automaton-2' .github/workflows/automaton-2.yml
           grep -F 'aegis / automaton-3' .github/workflows/automaton-3.yml
+          grep -F 'aegis / claim-promotion-trusted-v0.4' .github/workflows/claim-promotion-trusted-v04.yml
           grep -F 'merge_group:' .github/workflows/automaton-2.yml
           grep -F 'merge_group:' .github/workflows/automaton-3.yml
 
@@ -142,6 +146,11 @@ jobs:
           cp "$RUNNER_TEMP/AUTOMATON3_TEST.log" "$replay/"
           cp "$RUNNER_TEMP/AUTOMATON3_MCP.log" "$replay/"
           cp "$RUNNER_TEMP/CLAIM_PROMOTION_RECEIPT.json" "$replay/"
+          cp governance/aegis-master-notebook-v0.4.lock.json "$replay/"
+          cp governance/claim-promotion-policy.v1.json "$replay/"
+          cp schemas/claim-promotion-request.v1.schema.json "$replay/"
+          cp schemas/claim-promotion-receipt.v1.schema.json "$replay/"
+          cp schemas/claim-promotion-policy.v1.schema.json "$replay/"
           cp harness/policies/consequence-policy.v1.json "$replay/"
           cp harness/policies/capability-map.v1.json "$replay/"
           git diff --name-only "$EXPECTED_PARENT_SHA...$CANDIDATE_SHA" | LC_ALL=C sort > "$replay/CHANGED_FILES.txt"
@@ -170,9 +179,12 @@ jobs:
             ${{ runner.temp }}/AUTOMATON3_CANDIDATE_MANIFEST.json
             ${{ runner.temp }}/AUTOMATON3_TEST_SUMMARY.json
             ${{ runner.temp }}/CLAIM_PROMOTION_RECEIPT.json
+            governance/aegis-master-notebook-v0.4.lock.json
+            governance/claim-promotion-policy.v1.json
             harness/policies/consequence-policy.v1.json
             harness/policies/capability-map.v1.json
             schemas/execution-identity-envelope.v1.schema.json
             schemas/mutation-receipt.v1.schema.json
             schemas/claim-promotion-receipt.v1.schema.json
             schemas/claim-promotion-request.v1.schema.json
+            schemas/claim-promotion-policy.v1.schema.json
