@@ -35,14 +35,11 @@ function request(id, finalStatus = 'TARGET_OPEN', overrides = {}) {
     red_contract: {
       contract_id: `RED-${id}`,
       falsifiers: ['reject on missing evidence'],
+      mandatory_transitions: [],
     },
     implementation_files: [],
     negative_control_receipts: [],
     verification_receipts: [],
-    admission_policy: {
-      policy_id: 'aegis-v0.4-fail-closed-admission',
-      open_transition_blocks_promotion: true,
-    },
     required_transitions: [],
     ...overrides,
   };
@@ -53,6 +50,7 @@ function fixture({
   headClaims = [],
   requests = [],
   baselineDigest = BASELINE,
+  policyBaselineDigest = BASELINE,
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'aegis-v04-'));
   writeFileSync(join(root, 'impl.ts'), 'export const x = 1\n');
@@ -61,6 +59,13 @@ function fixture({
     baseline_digest: baselineDigest,
     global_rh_status: 'NOT_PROVEN_AT_CURRENT_CLOSURE',
   });
+  const policy = writeJson(root, 'governance/claim-promotion-policy.v1.json', {
+    policy_id: 'AEGIS_CLAIM_PROMOTION_ENFORCEMENT_V1',
+    policy_version: 1,
+    baseline_digest: policyBaselineDigest,
+    open_transition_statuses: ['TARGET_OPEN', 'NOT_ESTABLISHED'],
+    machine_bound_forbidden_if_any: ['EXTERNAL_ESTABLISHED', 'TARGET_OPEN', 'NOT_ESTABLISHED'],
+  });
   const base = writeJson(root, 'base-claims.json', { claims: baseClaims });
   const head = writeJson(root, 'head-claims.json', { claims: headClaims });
   const requestFile = writeJson(root, 'governance/claim-promotion-requests-v0.4.json', {
@@ -68,7 +73,7 @@ function fixture({
     baseline_digest: baselineDigest,
     requests,
   });
-  return { root, baseline, base, head, requestFile, receipt: join(root, 'receipt.json') };
+  return { root, baseline, policy, base, head, requestFile, receipt: join(root, 'receipt.json') };
 }
 
 function run(fx) {
@@ -76,6 +81,7 @@ function run(fx) {
     'scripts/validate-claim-promotions-v04.mjs',
     '--repo-root', fx.root,
     '--baseline', fx.baseline,
+    '--policy', fx.policy,
     '--base-claims', fx.base,
     '--head-claims', fx.head,
     '--requests', fx.requestFile,
@@ -129,18 +135,29 @@ test('fails closed when a request is not bound to the canonical v0.4 baseline di
   assert.match(`${r.stdout}\n${r.stderr}`, /BASELINE_DIGEST_MISMATCH/);
 });
 
-test('fails closed on authority leakage across an OPEN required transition', () => {
-  const c = claim('CLM-903', 'Verified');
+test('fails closed if the canonical admission policy is not baseline-bound', () => {
+  const c = claim('CLM-903', 'Proposed');
+  const fx = fixture({ headClaims: [c], requests: [request(c.id)], policyBaselineDigest: 'f'.repeat(64) });
+  const r = run(fx);
+  assert.notEqual(r.status, 0);
+  assert.match(`${r.stdout}\n${r.stderr}`, /ADMISSION_POLICY_BASELINE_MISMATCH/);
+});
+
+test('fails closed on authority leakage across an OPEN mandatory transition', () => {
+  const c = claim('CLM-904', 'Verified');
+  const transitionId = 'GLOBAL_ANALYTIC_BRIDGES';
   const fx = fixture({
     headClaims: [c],
     requests: [request(c.id, 'MACHINE_BOUND', {
+      red_contract: {
+        contract_id: `RED-${c.id}`,
+        falsifiers: ['global analytic bridge must close'],
+        mandatory_transitions: [transitionId],
+      },
       implementation_files: ['impl.ts'],
       negative_control_receipts: [{ status: 'PASS', control: 'negative' }],
       verification_receipts: [{ status: 'PASS', check: 'green' }],
-      required_transitions: [{
-        transition_id: 'GLOBAL_ANALYTIC_BRIDGES',
-        status: 'TARGET_OPEN',
-      }],
+      required_transitions: [{ transition_id: transitionId, status: 'TARGET_OPEN' }],
     })],
   });
   const r = run(fx);
@@ -149,17 +166,20 @@ test('fails closed on authority leakage across an OPEN required transition', () 
 });
 
 test('fails closed if EXTERNAL_ESTABLISHED evidence is promoted as MACHINE_BOUND', () => {
-  const c = claim('CLM-904', 'Verified');
+  const c = claim('CLM-905', 'Verified');
+  const transitionId = 'LIFE_SCIENCES_DATABASE_EVIDENCE';
   const fx = fixture({
     headClaims: [c],
     requests: [request(c.id, 'MACHINE_BOUND', {
+      red_contract: {
+        contract_id: `RED-${c.id}`,
+        falsifiers: ['external evidence cannot self-upgrade'],
+        mandatory_transitions: [transitionId],
+      },
       implementation_files: ['impl.ts'],
       negative_control_receipts: [{ status: 'PASS', control: 'negative' }],
       verification_receipts: [{ status: 'PASS', check: 'green' }],
-      required_transitions: [{
-        transition_id: 'LIFE_SCIENCES_DATABASE_EVIDENCE',
-        status: 'EXTERNAL_ESTABLISHED',
-      }],
+      required_transitions: [{ transition_id: transitionId, status: 'EXTERNAL_ESTABLISHED' }],
     })],
   });
   const r = run(fx);
@@ -167,11 +187,37 @@ test('fails closed if EXTERNAL_ESTABLISHED evidence is promoted as MACHINE_BOUND
   assert.match(`${r.stdout}\n${r.stderr}`, /AUTHORITY_LEAKAGE/);
 });
 
-test('requires evidence-bearing artifacts before EMPIRICAL or MACHINE_BOUND admission', () => {
-  const c = claim('CLM-905', 'Verified');
+test('fails closed when a mandatory transition has no status binding', () => {
+  const c = claim('CLM-906', 'Verified');
   const fx = fixture({
     headClaims: [c],
     requests: [request(c.id, 'EMPIRICAL', {
+      red_contract: {
+        contract_id: `RED-${c.id}`,
+        falsifiers: ['measurement must be bound'],
+        mandatory_transitions: ['MEASUREMENT'],
+      },
+      implementation_files: ['impl.ts'],
+      negative_control_receipts: [{ status: 'PASS', control: 'negative' }],
+      verification_receipts: [{ status: 'PASS', check: 'green' }],
+      required_transitions: [],
+    })],
+  });
+  const r = run(fx);
+  assert.notEqual(r.status, 0);
+  assert.match(`${r.stdout}\n${r.stderr}`, /MANDATORY_TRANSITION_STATUS_MISSING/);
+});
+
+test('requires evidence-bearing artifacts before EMPIRICAL or MACHINE_BOUND admission', () => {
+  const c = claim('CLM-907', 'Verified');
+  const fx = fixture({
+    headClaims: [c],
+    requests: [request(c.id, 'EMPIRICAL', {
+      red_contract: {
+        contract_id: `RED-${c.id}`,
+        falsifiers: ['measurement must be present'],
+        mandatory_transitions: ['MEASUREMENT'],
+      },
       required_transitions: [{ transition_id: 'MEASUREMENT', status: 'MACHINE_BOUND' }],
     })],
   });
