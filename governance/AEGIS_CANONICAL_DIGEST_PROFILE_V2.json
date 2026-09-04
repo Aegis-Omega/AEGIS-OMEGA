@@ -1,0 +1,21 @@
+{
+  "schema": "AEGIS_CANONICAL_DIGEST_PROFILE_V2",
+  "canonicalization": "RFC8785_JSON_CANONICALIZATION_SCHEME",
+  "hash": "SHA-256",
+  "self_digest_rule": "For an artifact containing its own digest field, remove exactly that field, RFC8785-canonicalize the remaining JSON object, then SHA-256 the canonical UTF-8 bytes.",
+  "payload_digest_rule": "Raw detector payload digests are SHA-256 over the exact payload bytes without JSON transformation.",
+  "supported_receipt_numeric_profile": "I-JSON safe integers only; floating-point JSON numbers are rejected fail-closed by the reference runner.",
+  "self_digest_fields": {
+    "QUANPHOTONIC_CALIBRATION_RECEIPT_V1": "calibration_receipt_digest",
+    "QUANPHOTONIC_MEASUREMENT_BATCH_V1": "measurement_batch_digest",
+    "QUANPHOTONIC_ANALYSIS_RECEIPT_V1": "analysis_receipt_digest",
+    "AEGIS_EVIDENCE_JOIN_V1": "packet_digest_sha256",
+    "QUANPHOTONIC_ADMISSION_RECEIPT_V1": "admission_receipt_digest",
+    "QUANPHOTONIC_BIOLOGICAL_CONTEXT_MANIFEST_V1": "biological_context_digest",
+    "QUANPHOTONIC_MEASUREMENT_BATCH_V2": "measurement_batch_digest",
+    "QUANPHOTONIC_CLASSICAL_COVARIATE_MANIFEST_V1": "classical_covariate_manifest_digest",
+    "QUANPHOTONIC_ANALYSIS_RECEIPT_V2": "analysis_receipt_digest",
+    "QUANPHOTONIC_ADMISSION_RECEIPT_V2": "admission_receipt_digest"
+  },
+  "supersedes": "AEGIS_CANONICAL_DIGEST_PROFILE_V1"
+}
