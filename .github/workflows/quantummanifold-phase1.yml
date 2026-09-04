@@ -35,8 +35,8 @@ jobs:
       - name: Run QM-RED-001 anchor
         run: PYTHONPATH=. pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_red_contract.py::test_qm_red_001_scheduler_production_module_exists
 
-  fixed-point-component:
-    name: aegis / qm-fixed-point-component
+  fixed-point-contract:
+    name: aegis / qm-fixed-point-contract
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -48,5 +48,5 @@ jobs:
           python-version: "3.12"
       - name: Install exact test dependency
         run: python -m pip install --disable-pip-version-check pytest==8.4.1
-      - name: Run fixed-point component contract
-        run: PYTHONPATH=. pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_fixed_point.py::test_fixed_point_component_exists_before_behavior_contracts
+      - name: Run QM-RED-011/012 and fixed-point arithmetic contracts
+        run: PYTHONPATH=. pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_fixed_point.py
