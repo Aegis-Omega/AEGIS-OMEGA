@@ -114,3 +114,19 @@ jobs:
         run: python -m pip install --disable-pip-version-check pytest==8.4.1
       - name: Run QM-RED-018..021 stale replay and restart contracts
         run: PYTHONPATH=. pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_stale_replay.py
+
+  authority-contract:
+    name: aegis / qm-authority-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install exact test dependency
+        run: python -m pip install --disable-pip-version-check pytest==8.4.1
+      - name: Run QM-RED-022..024 authority and epistemic contracts
+        run: PYTHONPATH=. pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_authority.py
