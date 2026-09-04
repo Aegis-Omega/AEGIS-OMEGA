@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import subprocess
 import sys
@@ -7,6 +8,7 @@ from hashlib import sha256
 from pathlib import Path
 
 SCRIPT = Path('scripts/quanphotonic_v2_binding.py')
+PIPELINE = Path('scripts/aegis_empirical_pipeline_v2.py')
 PROFILE = Path('governance/AEGIS_CANONICAL_DIGEST_PROFILE_V2.json')
 SCHEMA_DIR = Path('schemas')
 
@@ -69,6 +71,13 @@ class V2BindingTests(unittest.TestCase):
             if extra:
                 args += extra
             return subprocess.run(args, text=True, capture_output=True)
+
+    def load_pipeline(self):
+        self.assertTrue(PIPELINE.is_file(), 'V2 empirical runner is not implemented')
+        spec = importlib.util.spec_from_file_location('aegis_empirical_pipeline_v2', PIPELINE)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
 
     def test_accepts_v2_exact_context_binding(self):
         ctx = context()
@@ -136,6 +145,53 @@ class V2BindingTests(unittest.TestCase):
         self.assertIn('classical_covariate_manifest_digest', required)
         self.assertIn('biological_context_digest', required)
         self.assertIn('classical_feature_payload_digest', required)
+
+    def test_empirical_runner_v2_builds_context_bound_measurement_and_raw_manifest(self):
+        m = self.load_pipeline()
+        ctx = context()
+        calibration = {
+            'calibration_receipt_digest': 'b' * 64,
+            'calibration_epoch_id': 'epoch-1',
+            'detector_id': 'detector-1',
+            'detector_configuration_digest': 'c' * 64,
+        }
+        with tempfile.TemporaryDirectory() as td:
+            payload = Path(td) / 'raw.bin'; payload.write_bytes(b'unit-test-fixture-not-empirical')
+            batch, raw = m.build_measurement_and_manifest(calibration, ctx['biological_context_digest'], payload, 'batch-1', '1')
+        self.assertEqual(batch['schema_version'], 'QUANPHOTONIC_MEASUREMENT_BATCH_V2')
+        self.assertEqual(raw['schema_version'], 'QUANPHOTONIC_RAW_DETECTOR_MANIFEST_V2')
+        self.assertEqual(batch['biological_context_digest'], ctx['biological_context_digest'])
+        self.assertEqual(raw['biological_context_digest'], ctx['biological_context_digest'])
+
+    def test_empirical_runner_v2_rejects_classical_covariate_payload_splicing(self):
+        m = self.load_pipeline()
+        ctx = context()
+        with tempfile.TemporaryDirectory() as td:
+            payload = Path(td) / 'classical.json'; payload.write_bytes(b'{"x":1}')
+            manifest = {
+                'schema_version': 'QUANPHOTONIC_CLASSICAL_COVARIATE_MANIFEST_V1',
+                'classical_covariate_manifest_id': 'cov-1',
+                'classical_covariate_manifest_digest': '0' * 64,
+                'biological_context_digest': ctx['biological_context_digest'],
+                'classical_feature_payload_digest': 'd' * 64,
+                'classical_feature_payload_media_type': 'application/json',
+                'feature_schema_digest': 'e' * 64,
+            }
+            manifest['classical_covariate_manifest_digest'] = m.canonical_self_digest(manifest, 'classical_covariate_manifest_digest')
+            with self.assertRaisesRegex(m.FailClosed, 'CLASSICAL_COVARIATE_PAYLOAD_MISMATCH'):
+                m.verify_classical_covariate_binding(manifest, ctx['biological_context_digest'], payload)
+
+    def test_empirical_runner_v2_admission_carries_context_and_covariate_binding(self):
+        m = self.load_pipeline()
+        admission = m.build_admission(
+            batch_id='batch-1', evidence_join_digest='1' * 64,
+            analysis_receipt_digest='2' * 64, policy_digest='3' * 64,
+            biological_context_digest='4' * 64, classical_covariate_manifest_digest='5' * 64,
+        )
+        self.assertEqual(admission['schema_version'], 'QUANPHOTONIC_ADMISSION_RECEIPT_V2')
+        self.assertEqual(admission['biological_context_digest'], '4' * 64)
+        self.assertEqual(admission['classical_covariate_manifest_digest'], '5' * 64)
+        self.assertEqual(admission['admission_receipt_digest'], m.canonical_self_digest(admission, 'admission_receipt_digest'))
 
 
 if __name__ == '__main__':
