@@ -225,3 +225,14 @@ test('requires evidence-bearing artifacts before EMPIRICAL or MACHINE_BOUND admi
   assert.notEqual(r.status, 0);
   assert.match(`${r.stdout}\n${r.stderr}`, /EVIDENCE_BINDING_INCOMPLETE/);
 });
+
+test('fails closed if canonical policy semantics are weakened', () => {
+  const c = claim('CLM-908', 'Proposed');
+  const fx = fixture({ headClaims: [c], requests: [request(c.id)] });
+  const policy = JSON.parse(readFileSync(fx.policy, 'utf8'));
+  policy.machine_bound_forbidden_if_any = ['TARGET_OPEN', 'NOT_ESTABLISHED'];
+  writeFileSync(fx.policy, JSON.stringify(policy, null, 2) + '\n');
+  const r = run(fx);
+  assert.notEqual(r.status, 0);
+  assert.match(`${r.stdout}\n${r.stderr}`, /ADMISSION_POLICY_SEMANTICS_MISMATCH/);
+});
