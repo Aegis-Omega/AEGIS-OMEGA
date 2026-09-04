@@ -7,6 +7,13 @@ import { execFileSync } from 'node:child_process';
 
 const CANONICAL_BASELINE_DIGEST = '457f4566cb932d3f91e2265632fad9931c709645e520471095c23000a85c6404';
 const CANONICAL_POLICY_ID = 'AEGIS_CLAIM_PROMOTION_ENFORCEMENT_V1';
+const CANONICAL_POLICY = Object.freeze({
+  policy_id: CANONICAL_POLICY_ID,
+  policy_version: 1,
+  baseline_digest: CANONICAL_BASELINE_DIGEST,
+  open_transition_statuses: ['TARGET_OPEN', 'NOT_ESTABLISHED'],
+  machine_bound_forbidden_if_any: ['EXTERNAL_ESTABLISHED', 'TARGET_OPEN', 'NOT_ESTABLISHED'],
+});
 const HEX64 = /^[0-9a-f]{64}$/;
 const SHA40 = /^[0-9a-f]{40}$/;
 const FINAL_STATUSES = new Set(['MACHINE_BOUND', 'EMPIRICAL', 'TARGET_OPEN']);
@@ -145,6 +152,9 @@ function validatePolicy(policy, errors) {
   if (!Array.isArray(policy.machine_bound_forbidden_if_any) ||
       policy.machine_bound_forbidden_if_any.some((s) => !TRANSITION_STATUSES.has(s))) {
     errors.push('ADMISSION_POLICY_MACHINE_BOUND_FORBIDDEN_INVALID');
+  }
+  if (canonicalizeJCS(policy) !== canonicalizeJCS(CANONICAL_POLICY)) {
+    errors.push('ADMISSION_POLICY_SEMANTICS_MISMATCH');
   }
 }
 
