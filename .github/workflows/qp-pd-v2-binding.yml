@@ -21,7 +21,10 @@ jobs:
       - name: Install exact schema validator
         run: pip install jsonschema==4.23.0
       - name: Run V2 biological-context falsification suite
-        run: python -m unittest -v tests/test_quanphotonic_v2_binding.py
+        run: |
+          python -m unittest -v \
+            tests/test_quanphotonic_v2_binding.py \
+            tests/test_quanphotonic_v2_join.py
       - name: Meta-validate V2 and biological binding schemas
         shell: bash
         run: |
@@ -37,6 +40,7 @@ jobs:
               'quanphotonic-classical-covariate-manifest.v1.schema.json',
               'quanphotonic-analysis-receipt.v2.schema.json',
               'quanphotonic-admission-receipt.v2.schema.json',
+              'aegis-evidence-join.v2.biological.schema.json',
           ]
           for name in names:
               path = Path('schemas') / name
