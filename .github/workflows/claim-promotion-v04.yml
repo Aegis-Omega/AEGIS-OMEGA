@@ -3,23 +3,103 @@ name: claim-promotion-v0.4
 on:
   pull_request:
     branches: [main]
+  merge_group:
+    branches: [main]
   push:
-    branches:
-      - openai/aegis-v04-fail-closed-admission
+    branches: [main]
 
 permissions:
   contents: read
+  id-token: write
+  attestations: write
 
 jobs:
-  red-green:
+  promotion-gate:
     name: aegis / claim-promotion-v0.4
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+      CI_RUN_IDENTITY: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
         with:
+          ref: ${{ env.CANDIDATE_SHA }}
           fetch-depth: 0
+
+      - name: Resolve deterministic base
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
+            echo "BASE_SHA=$(git rev-parse "${CANDIDATE_SHA}^")" >> "$GITHUB_ENV"
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact schema validator
+        run: pip install jsonschema==4.23.0
+
       - name: Run v0.4 falsification suite
         run: node --test tests/claim-promotion-v04.test.mjs
+
+      - name: Validate request schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+          schema = json.loads(Path('schemas/claim-promotion-request.v1.schema.json').read_text())
+          doc = json.loads(Path('governance/claim-promotion-requests-v0.4.json').read_text())
+          Draft202012Validator.check_schema(schema)
+          Draft202012Validator(schema).validate(doc)
+          print('PROMOTION_REQUEST_SCHEMA_OK')
+          PY
+
+      - name: Enforce fail-closed promotion policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/validate-claim-promotions-v04.mjs \
+            --base-sha "$BASE_SHA" \
+            --candidate-sha "$CANDIDATE_SHA" \
+            --ci-run-identity "$CI_RUN_IDENTITY" \
+            --receipt-output "$RUNNER_TEMP/CLAIM_PROMOTION_RECEIPT.json"
+
+      - name: Validate generated receipt schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+          schema = json.loads(Path('schemas/claim-promotion-receipt.v1.schema.json').read_text())
+          receipt = json.loads(Path(os.environ['RUNNER_TEMP'], 'CLAIM_PROMOTION_RECEIPT.json').read_text())
+          Draft202012Validator.check_schema(schema)
+          Draft202012Validator(schema).validate(receipt)
+          print('PROMOTION_RECEIPT_SCHEMA_OK')
+          PY
+
+      - name: Upload exact-head promotion receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-claim-promotion-${{ env.CANDIDATE_SHA }}
+          path: ${{ runner.temp }}/CLAIM_PROMOTION_RECEIPT.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Attest exact-head promotion receipt
+        uses: actions/attest@v4
+        with:
+          subject-path: ${{ runner.temp }}/CLAIM_PROMOTION_RECEIPT.json
