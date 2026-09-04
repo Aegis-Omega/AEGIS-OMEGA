@@ -1,0 +1,15 @@
+{
+  "schema": "AEGIS_QP_PD_V2_BINDING_RED_CONTRACT_V1",
+  "project_id": "AEGIS-QP-PD-001",
+  "epistemic_status": "FALSIFICATION_CONTRACT_ONLY_NO_EMPIRICAL_PROMOTION",
+  "required_measurement_schema": "QUANPHOTONIC_MEASUREMENT_BATCH_V2",
+  "required_context_schema": "QUANPHOTONIC_BIOLOGICAL_CONTEXT_MANIFEST_V1",
+  "mandatory_fail_closed_codes": [
+    "BIOLOGICAL_CONTEXT_MISSING",
+    "BIOLOGICAL_CONTEXT_MISMATCH",
+    "V1_DOWNGRADE_FORBIDDEN",
+    "STALE_CONTEXT_REPLAY"
+  ],
+  "cross_sample_splicing": "REJECT",
+  "authority_ceiling": "IMPLEMENTATION_AND_PRECHECK_ONLY_UNTIL_GENUINE_INPUTS_AND_PREREGISTRATION_LOCK"
+}
