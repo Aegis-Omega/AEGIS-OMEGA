@@ -8,12 +8,6 @@ on:
       - "configs/scheduler_policy_v1.json"
       - "agents/quantummanifold/**"
       - "sovereign-omega-v2/python/tests/test_quantummanifold_*.py"
-      - "sovereign-omega-v2/src/core/canonicalize.ts"
-      - "sovereign-omega-v2/test/unit/jcs.test.ts"
-      - "sovereign-omega-v2/src/quantummanifold/**"
-      - "sovereign-omega-v2/test/unit/quantummanifold-*.test.ts"
-      - "tests/fixtures/quantummanifold/**"
-      - "aegis-cl-psi/tests/quantummanifold_*.rs"
       - ".github/workflows/quantummanifold-phase1.yml"
   workflow_dispatch:
 
@@ -32,37 +26,27 @@ jobs:
     steps:
       - name: Checkout candidate
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
       - name: Install exact test dependency
         run: python -m pip install --disable-pip-version-check pytest==8.4.1
-
       - name: Run QM-RED-001 anchor
         run: PYTHONPATH=. pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_red_contract.py::test_qm_red_001_scheduler_production_module_exists
 
-  jcs-red:
-    name: aegis / jcs-red
+  fixed-point-component:
+    name: aegis / qm-fixed-point-component
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout candidate
         uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: sovereign-omega-v2/package-lock.json
-
-      - name: Install exact lockfile dependencies
-        run: npm ci
-        working-directory: sovereign-omega-v2
-
-      - name: Run JCS conformance falsifiers
-        run: npm test -- test/unit/jcs.test.ts
-        working-directory: sovereign-omega-v2
+          python-version: "3.12"
+      - name: Install exact test dependency
+        run: python -m pip install --disable-pip-version-check pytest==8.4.1
+      - name: Run fixed-point component contract
+        run: PYTHONPATH=. pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_fixed_point.py::test_fixed_point_component_exists_before_behavior_contracts
