@@ -1,0 +1,43 @@
+name: QuantumManifold JCS Conformance
+
+on:
+  pull_request:
+    branches:
+      - feat/qm-scheduler-v0.1-impl
+    paths:
+      - "sovereign-omega-v2/src/core/canonicalize.ts"
+      - "sovereign-omega-v2/test/unit/jcs.test.ts"
+      - "tests/fixtures/quantummanifold/jcs_conformance_v1.json"
+      - ".github/workflows/quantummanifold-jcs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quantummanifold-jcs-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  jcs-conformance:
+    name: aegis / qm-jcs-conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+      - name: Install exact lockfile dependencies
+        run: npm ci
+        working-directory: sovereign-omega-v2
+      - name: Run JCS conformance contract
+        run: npm test -- test/unit/jcs.test.ts
+        working-directory: sovereign-omega-v2
+      - name: Typecheck canonicalizer consumers
+        run: npm run typecheck
+        working-directory: sovereign-omega-v2
