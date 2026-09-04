@@ -7,6 +7,8 @@ from hashlib import sha256
 from pathlib import Path
 
 SCRIPT = Path('scripts/quanphotonic_v2_binding.py')
+PROFILE = Path('governance/AEGIS_CANONICAL_DIGEST_PROFILE_V2.json')
+SCHEMA_DIR = Path('schemas')
 
 
 def canonical_json(obj):
@@ -108,6 +110,32 @@ class V2BindingTests(unittest.TestCase):
             r = self.run_gate(ctx_new, measurement(ctx_new['biological_context_digest']), ['--context-registry', str(reg)])
         self.assertNotEqual(r.returncode, 0)
         self.assertIn('STALE_CONTEXT_REPLAY', r.stderr)
+
+    def test_digest_profile_v2_covers_context_measurement_and_covariates(self):
+        profile = json.loads(PROFILE.read_text())
+        fields = profile['self_digest_fields']
+        self.assertEqual(fields['QUANPHOTONIC_BIOLOGICAL_CONTEXT_MANIFEST_V1'], 'biological_context_digest')
+        self.assertEqual(fields['QUANPHOTONIC_MEASUREMENT_BATCH_V2'], 'measurement_batch_digest')
+        self.assertEqual(fields['QUANPHOTONIC_CLASSICAL_COVARIATE_MANIFEST_V1'], 'classical_covariate_manifest_digest')
+
+    def test_v2_receipt_family_propagates_biological_context_digest(self):
+        paths = [
+            'quanphotonic-measurement-batch.v2.schema.json',
+            'quanphotonic-raw-detector-manifest.v2.schema.json',
+            'quanphotonic-analysis-receipt.v2.schema.json',
+            'quanphotonic-admission-receipt.v2.schema.json',
+        ]
+        for name in paths:
+            schema = json.loads((SCHEMA_DIR / name).read_text())
+            self.assertIn('biological_context_digest', schema['required'], name)
+            self.assertEqual(schema['properties']['biological_context_digest']['pattern'], '^[0-9a-f]{64}$', name)
+
+    def test_classical_covariate_manifest_binds_context_and_payload(self):
+        schema = json.loads((SCHEMA_DIR / 'quanphotonic-classical-covariate-manifest.v1.schema.json').read_text())
+        required = set(schema['required'])
+        self.assertIn('classical_covariate_manifest_digest', required)
+        self.assertIn('biological_context_digest', required)
+        self.assertIn('classical_feature_payload_digest', required)
 
 
 if __name__ == '__main__':
