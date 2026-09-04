@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 
 const CANONICAL_BASELINE_DIGEST = '457f4566cb932d3f91e2265632fad9931c709645e520471095c23000a85c6404';
+const CANONICAL_POLICY_ID = 'AEGIS_CLAIM_PROMOTION_ENFORCEMENT_V1';
 const HEX64 = /^[0-9a-f]{64}$/;
 const SHA40 = /^[0-9a-f]{40}$/;
 const FINAL_STATUSES = new Set(['MACHINE_BOUND', 'EMPIRICAL', 'TARGET_OPEN']);
@@ -31,6 +32,9 @@ function parseArgs(argv) {
   return out;
 }
 
+// RFC 8785 JCS for the JSON domain used by this gate. JSON.stringify supplies
+// ECMAScript number/string serialization; Object.keys().sort() supplies the
+// required UTF-16 code-unit property ordering.
 function canonicalizeJCS(value) {
   if (value === null) return 'null';
   switch (typeof value) {
@@ -120,7 +124,81 @@ function nonEmptyObject(v) {
   return v && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0;
 }
 
-function validateAuthority(req, claim, errors) {
+function validatePolicy(policy, errors) {
+  if (!nonEmptyObject(policy)) {
+    errors.push('ADMISSION_POLICY_INVALID');
+    return;
+  }
+  if (policy.policy_id !== CANONICAL_POLICY_ID) {
+    errors.push(`ADMISSION_POLICY_ID_MISMATCH:${policy.policy_id ?? 'missing'}`);
+  }
+  if (policy.policy_version !== 1) {
+    errors.push(`ADMISSION_POLICY_VERSION_MISMATCH:${policy.policy_version ?? 'missing'}`);
+  }
+  if (policy.baseline_digest !== CANONICAL_BASELINE_DIGEST) {
+    errors.push(`ADMISSION_POLICY_BASELINE_MISMATCH:${policy.baseline_digest ?? 'missing'}`);
+  }
+  if (!Array.isArray(policy.open_transition_statuses) ||
+      policy.open_transition_statuses.some((s) => !TRANSITION_STATUSES.has(s))) {
+    errors.push('ADMISSION_POLICY_OPEN_STATUSES_INVALID');
+  }
+  if (!Array.isArray(policy.machine_bound_forbidden_if_any) ||
+      policy.machine_bound_forbidden_if_any.some((s) => !TRANSITION_STATUSES.has(s))) {
+    errors.push('ADMISSION_POLICY_MACHINE_BOUND_FORBIDDEN_INVALID');
+  }
+}
+
+function mandatoryTransitionIds(req, errors) {
+  const red = req.red_contract;
+  if (!nonEmptyObject(red)) {
+    errors.push(`RED_CONTRACT_MISSING:${req.claim_id}`);
+    return [];
+  }
+  if (!Array.isArray(red.mandatory_transitions)) {
+    errors.push(`MANDATORY_TRANSITIONS_INVALID:${req.claim_id}`);
+    return [];
+  }
+  const ids = [];
+  const seen = new Set();
+  for (const id of red.mandatory_transitions) {
+    if (typeof id !== 'string' || !id) {
+      errors.push(`MANDATORY_TRANSITION_ID_INVALID:${req.claim_id}:${String(id)}`);
+      continue;
+    }
+    if (seen.has(id)) {
+      errors.push(`MANDATORY_TRANSITION_DUPLICATE:${req.claim_id}:${id}`);
+      continue;
+    }
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
+}
+
+function transitionMap(req, errors) {
+  if (!Array.isArray(req.required_transitions)) {
+    errors.push(`REQUIRED_TRANSITIONS_INVALID:${req.claim_id}`);
+    return new Map();
+  }
+  const map = new Map();
+  for (const t of req.required_transitions) {
+    if (!t || typeof t.transition_id !== 'string' || !t.transition_id) {
+      errors.push(`TRANSITION_ID_INVALID:${req.claim_id}`);
+      continue;
+    }
+    if (map.has(t.transition_id)) {
+      errors.push(`TRANSITION_DUPLICATE:${req.claim_id}:${t.transition_id}`);
+      continue;
+    }
+    if (!TRANSITION_STATUSES.has(t.status)) {
+      errors.push(`TRANSITION_STATUS_INVALID:${req.claim_id}:${t.transition_id}:${t.status}`);
+    }
+    map.set(t.transition_id, t.status);
+  }
+  return map;
+}
+
+function validateAuthority(req, claim, policy, errors) {
   const status = req.final_epistemic_status;
   if (!FINAL_STATUSES.has(status)) {
     errors.push(`FINAL_STATUS_INVALID:${req.claim_id}:${status}`);
@@ -134,28 +212,29 @@ function validateAuthority(req, claim, errors) {
     errors.push(`STATUS_TIER_MISMATCH:${req.claim_id}:Verified=>TARGET_OPEN`);
   }
 
-  const transitions = Array.isArray(req.required_transitions) ? req.required_transitions : [];
-  for (const t of transitions) {
-    if (!t || typeof t.transition_id !== 'string' || !t.transition_id) {
-      errors.push(`TRANSITION_ID_INVALID:${req.claim_id}`);
-      continue;
-    }
-    if (!TRANSITION_STATUSES.has(t.status)) {
-      errors.push(`TRANSITION_STATUS_INVALID:${req.claim_id}:${t.transition_id}:${t.status}`);
-    }
+  const mandatory = mandatoryTransitionIds(req, errors);
+  const bound = transitionMap(req, errors);
+
+  for (const id of mandatory) {
+    if (!bound.has(id)) errors.push(`MANDATORY_TRANSITION_STATUS_MISSING:${req.claim_id}:${id}`);
+  }
+  for (const id of bound.keys()) {
+    if (!mandatory.includes(id)) errors.push(`UNDECLARED_TRANSITION_BINDING:${req.claim_id}:${id}`);
   }
 
-  const hasOpen = transitions.some((t) => t?.status === 'TARGET_OPEN' || t?.status === 'NOT_ESTABLISHED');
-  const hasExternal = transitions.some((t) => t?.status === 'EXTERNAL_ESTABLISHED');
-  if (hasOpen && status !== 'TARGET_OPEN') {
+  const statuses = [...bound.values()];
+  const open = new Set(policy.open_transition_statuses);
+  if (statuses.some((s) => open.has(s)) && status !== 'TARGET_OPEN') {
     errors.push(`AUTHORITY_LEAKAGE:${req.claim_id}:OPEN_TRANSITION=>${status}`);
   }
-  if (hasExternal && status === 'MACHINE_BOUND') {
-    errors.push(`AUTHORITY_LEAKAGE:${req.claim_id}:EXTERNAL_ESTABLISHED=>MACHINE_BOUND`);
+  const machineForbidden = new Set(policy.machine_bound_forbidden_if_any);
+  if (status === 'MACHINE_BOUND' && statuses.some((s) => machineForbidden.has(s))) {
+    errors.push(`AUTHORITY_LEAKAGE:${req.claim_id}:FORBIDDEN_TRANSITION=>MACHINE_BOUND`);
   }
 
   if (status !== 'TARGET_OPEN') {
-    if (!transitions.length || !Array.isArray(req.implementation_files) || req.implementation_files.length === 0 ||
+    if (mandatory.length === 0 ||
+        !Array.isArray(req.implementation_files) || req.implementation_files.length === 0 ||
         !Array.isArray(req.negative_control_receipts) || req.negative_control_receipts.length === 0 ||
         !Array.isArray(req.verification_receipts) || req.verification_receipts.length === 0) {
       errors.push(`EVIDENCE_BINDING_INCOMPLETE:${req.claim_id}`);
@@ -184,20 +263,18 @@ function implementationManifest(root, files, claimId, errors) {
     }
     out.push({ path: rel, sha256: sha256Hex(fs.readFileSync(abs)) });
   }
-  out.sort((a, b) => Buffer.from(a.path, 'utf8').compare(Buffer.from(b.path, 'utf8')));
+  out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   return out;
 }
 
-function buildTuple({ claim, req, baselineDigest, candidateSha, ciRunIdentity, root, errors }) {
+function buildTuple({ claim, req, policy, baselineDigest, candidateSha, ciRunIdentity, root, errors }) {
   if (req.baseline_digest !== baselineDigest) {
     errors.push(`BASELINE_DIGEST_MISMATCH:${req.claim_id}`);
   }
-  if (!nonEmptyObject(req.red_contract)) errors.push(`RED_CONTRACT_MISSING:${req.claim_id}`);
-  if (!nonEmptyObject(req.admission_policy)) errors.push(`ADMISSION_POLICY_MISSING:${req.claim_id}`);
   if (!Array.isArray(req.negative_control_receipts)) errors.push(`NEGATIVE_CONTROL_RECEIPTS_INVALID:${req.claim_id}`);
   if (!Array.isArray(req.verification_receipts)) errors.push(`VERIFICATION_RECEIPTS_INVALID:${req.claim_id}`);
 
-  validateAuthority(req, claim, errors);
+  validateAuthority(req, claim, policy, errors);
   const implManifest = implementationManifest(root, req.implementation_files, req.claim_id, errors);
 
   const tuple = {
@@ -210,7 +287,7 @@ function buildTuple({ claim, req, baselineDigest, candidateSha, ciRunIdentity, r
     negative_control_receipt_digest: digestJCS(req.negative_control_receipts ?? null),
     ci_run_identity: ciRunIdentity,
     verification_receipt_digest: digestJCS(req.verification_receipts ?? null),
-    admission_policy_digest: digestJCS(req.admission_policy ?? null),
+    admission_policy_digest: digestJCS(policy),
     final_epistemic_status: req.final_epistemic_status,
   };
   for (const [k, v] of Object.entries(tuple)) {
@@ -235,6 +312,7 @@ function main() {
 
   const root = path.resolve(args['repo-root'] ?? process.cwd());
   const baselinePath = resolveFrom(root, args.baseline ?? 'governance/aegis-master-notebook-v0.4.lock.json');
+  const policyPath = resolveFrom(root, args.policy ?? 'governance/claim-promotion-policy.v1.json');
   const headPath = resolveFrom(root, args['head-claims'] ?? 'docs/claims.json');
   const requestsPath = resolveFrom(root, args.requests ?? 'governance/claim-promotion-requests-v0.4.json');
   const receiptOutput = args['receipt-output'] ? resolveFrom(root, args['receipt-output']) : null;
@@ -248,8 +326,9 @@ function main() {
   if (!SHA40.test(candidateSha)) errors.push(`CANDIDATE_SHA_INVALID:${candidateSha}`);
   if (!ciRunIdentity) errors.push('CI_RUN_IDENTITY_MISSING');
 
-  let baselineDoc, headDoc, baseDoc, requestDoc;
+  let baselineDoc, policyDoc, headDoc, baseDoc, requestDoc;
   try { baselineDoc = readJSON(baselinePath); } catch (e) { errors.push(e.message); }
+  try { policyDoc = readJSON(policyPath); } catch (e) { errors.push(e.message); }
   try { headDoc = readJSON(headPath); } catch (e) { errors.push(e.message); }
   try { requestDoc = readJSON(requestsPath); } catch (e) { errors.push(e.message); }
   try {
@@ -261,6 +340,7 @@ function main() {
   if (baselineDoc?.baseline_digest !== CANONICAL_BASELINE_DIGEST) {
     errors.push(`BASELINE_LOCK_MISMATCH:${baselineDoc?.baseline_digest ?? 'missing'}`);
   }
+  validatePolicy(policyDoc, errors);
   if (requestDoc?.baseline_digest !== CANONICAL_BASELINE_DIGEST) {
     errors.push(`REQUEST_LEDGER_BASELINE_MISMATCH:${requestDoc?.baseline_digest ?? 'missing'}`);
   }
@@ -306,6 +386,7 @@ function main() {
     tuples.push(buildTuple({
       claim: headMap.get(id),
       req,
+      policy: policyDoc,
       baselineDigest: CANONICAL_BASELINE_DIGEST,
       candidateSha,
       ciRunIdentity,
