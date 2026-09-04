@@ -1,0 +1,22 @@
+name: QP-PD V2 Biological Binding
+
+on:
+  pull_request:
+  push:
+    branches:
+      - openai/qp-pd-v2-biological-binding
+
+permissions:
+  contents: read
+
+jobs:
+  v2-binding:
+    name: aegis / qp-pd-v2-binding
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run V2 biological-context falsification suite
+        run: python -m unittest -v tests/test_quanphotonic_v2_binding.py
