@@ -1,0 +1,188 @@
+name: MHP-1 Derivation Composition
+
+on:
+  push:
+    branches: [feat/mhp1-derivation-composition-v1]
+    paths:
+      - 'harness/sdk/heritage_composition.py'
+      - 'harness/sdk/heritage_composition_base.py'
+      - 'harness/sdk/meaning_heritage.py'
+      - 'harness/tests/test_heritage_derivation_composition.py'
+      - 'harness/tests/test_heritage_transitive_composition.py'
+      - 'harness/tests/test_meaning_heritage_morphisms.py'
+      - 'docs/.mhp1-derivation-composition-red'
+      - 'docs/MHP1_DERIVATION_COMPOSITION_RED_RECEIPT.md'
+      - 'harness/tests/.derivation-composition-red-anchor'
+      - '.github/workflows/mhp1-derivation-composition.yml'
+  pull_request:
+    paths:
+      - 'harness/sdk/heritage_composition.py'
+      - 'harness/sdk/heritage_composition_base.py'
+      - 'harness/sdk/meaning_heritage.py'
+      - 'harness/tests/test_heritage_derivation_composition.py'
+      - 'harness/tests/test_heritage_transitive_composition.py'
+      - 'harness/tests/test_meaning_heritage_morphisms.py'
+      - 'docs/.mhp1-derivation-composition-red'
+      - 'docs/MHP1_DERIVATION_COMPOSITION_RED_RECEIPT.md'
+      - 'harness/tests/.derivation-composition-red-anchor'
+      - '.github/workflows/mhp1-derivation-composition.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mhp1-derivation-composition-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  EXPECTED_PARENT_SHA: f481f189019f5ff130331dcabc1eded504f834e2
+
+jobs:
+  verify:
+    name: aegis / mhp1-derivation-composition
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Assert exact checkout and parent ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          git cat-file -e "$EXPECTED_PARENT_SHA^{commit}"
+          git merge-base --is-ancestor "$EXPECTED_PARENT_SHA" "$CANDIDATE_SHA"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install focused test dependency
+        run: python -m pip install --disable-pip-version-check pytest==8.3.5
+
+      - name: Prepare evidence workspace
+        run: mkdir -p mhp1-derivation-composition-attestation
+
+      - name: Compile derivation composition contract and parent kernels
+        run: |
+          python -m py_compile \
+            harness/sdk/meaning_heritage.py \
+            harness/sdk/heritage_composition_base.py \
+            harness/sdk/heritage_composition.py \
+            harness/tests/test_heritage_derivation_composition.py \
+            harness/tests/test_heritage_transitive_composition.py \
+            harness/tests/test_meaning_heritage_morphisms.py
+
+      - name: Run RED or GREEN derivation composition suite
+        id: tests
+        shell: bash
+        run: |
+          set +e
+          python -m pytest -q \
+            harness/tests/test_heritage_derivation_composition.py \
+            harness/tests/test_heritage_transitive_composition.py \
+            harness/tests/test_meaning_heritage_morphisms.py \
+            2>&1 | tee mhp1-derivation-composition-attestation/pytest.log
+          rc=${PIPESTATUS[0]}
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Emit content-addressed derivation-composition receipt
+        shell: bash
+        env:
+          PYTEST_EXIT_CODE: ${{ steps.tests.outputs.exit_code }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          out = Path('mhp1-derivation-composition-attestation')
+          kernel = Path('harness/sdk/heritage_composition.py')
+          base_kernel = Path('harness/sdk/heritage_composition_base.py')
+          contract = Path('harness/tests/test_heritage_derivation_composition.py')
+          parent_contract = Path('harness/tests/test_meaning_heritage_morphisms.py')
+          log = out / 'pytest.log'
+
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          assert kernel.is_file()
+          assert base_kernel.is_file()
+          text = log.read_text(encoding='utf-8')
+          passed_match = re.search(r'(\d+) passed', text)
+          failed_match = re.search(r'(\d+) failed', text)
+          passed = int(passed_match.group(1)) if passed_match else 0
+          failed = int(failed_match.group(1)) if failed_match else 0
+          exit_code = int(os.environ['PYTEST_EXIT_CODE'])
+
+          if exit_code == 0:
+              status = 'GREEN_PASS'
+          else:
+              status = 'RED_FAILURE_OBSERVED'
+              assert failed > 0
+
+          payload = {
+              'receipt_kind': 'AEGIS_MHP1_DERIVATION_COMPOSITION_RECEIPT_V1',
+              'source_commit': os.environ['CANDIDATE_SHA'],
+              'expected_parent_commit': os.environ['EXPECTED_PARENT_SHA'],
+              'authority_class': 'NONE',
+              'ledger_authority_classification': 'NONE_BY_CONSTRUCTION',
+              'kernel_path': str(kernel),
+              'kernel_sha256': sha(kernel),
+              'base_kernel_path': str(base_kernel),
+              'base_kernel_sha256': sha(base_kernel),
+              'contract_path': str(contract),
+              'contract_sha256': sha(contract),
+              'parent_contract_path': str(parent_contract),
+              'parent_contract_sha256': sha(parent_contract),
+              'pytest_log_sha256': sha(log),
+              'pytest_exit_code': exit_code,
+              'tests_passed': passed,
+              'tests_failed': failed,
+              'parent_ancestry_asserted': True,
+              'status': status,
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          target = out / 'mhp1-derivation-composition-receipt.json'
+          target.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+
+          assert payload['authority_class'] == 'NONE'
+          assert payload['ledger_authority_classification'] == 'NONE_BY_CONSTRUCTION'
+          assert payload['source_commit'] == os.environ['CANDIDATE_SHA']
+          assert payload['expected_parent_commit'] == os.environ['EXPECTED_PARENT_SHA']
+          assert len(payload['kernel_sha256']) == 64
+          assert len(payload['base_kernel_sha256']) == 64
+          assert len(payload['receipt_sha256']) == 64
+          PY
+
+      - name: Upload derivation-composition evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mhp1-derivation-composition-${{ env.CANDIDATE_SHA }}
+          path: mhp1-derivation-composition-attestation/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Preserve RED/GREEN job conclusion
+        if: always()
+        shell: bash
+        env:
+          PYTEST_EXIT_CODE: ${{ steps.tests.outputs.exit_code }}
+        run: |
+          set -euo pipefail
+          test -n "$PYTEST_EXIT_CODE"
+          exit "$PYTEST_EXIT_CODE"
