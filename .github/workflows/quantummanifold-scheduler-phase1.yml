@@ -1,0 +1,220 @@
+name: QuantumManifold Scheduler Phase 1
+
+on:
+  push:
+    branches: [feat/qm-scheduler-v0.1-impl]
+    paths:
+      - 'harness/policies/quantummanifold-scheduler.v1.json'
+      - 'harness/sdk/quantummanifold_scheduler.py'
+      - 'harness/tests/test_quantummanifold_scheduler_phase1.py'
+      - 'harness/sdk/meaning_heritage.py'
+      - 'harness/sdk/morphisms.py'
+      - 'harness/sdk/heritage_composition_base.py'
+      - 'harness/sdk/heritage_composition.py'
+      - '.github/workflows/quantummanifold-scheduler-phase1.yml'
+      - 'docs/superpowers/specs/QUANTUMMANIFOLD_SCHEDULER_PHASE1_DELTA_V1.md'
+      - 'docs/superpowers/specs/QUANTUMMANIFOLD_SCHEDULER_PHASE1_API_CORRECTION_V1.md'
+  pull_request:
+    paths:
+      - 'harness/policies/quantummanifold-scheduler.v1.json'
+      - 'harness/sdk/quantummanifold_scheduler.py'
+      - 'harness/tests/test_quantummanifold_scheduler_phase1.py'
+      - 'harness/sdk/meaning_heritage.py'
+      - 'harness/sdk/morphisms.py'
+      - 'harness/sdk/heritage_composition_base.py'
+      - 'harness/sdk/heritage_composition.py'
+      - '.github/workflows/quantummanifold-scheduler-phase1.yml'
+      - 'docs/superpowers/specs/QUANTUMMANIFOLD_SCHEDULER_PHASE1_DELTA_V1.md'
+      - 'docs/superpowers/specs/QUANTUMMANIFOLD_SCHEDULER_PHASE1_API_CORRECTION_V1.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quantummanifold-scheduler-phase1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  SCHEDULER_DESIGN_PARENT: 8764d401379fd66f3295b0a51c51807eb0613481
+  MHP_SUBSTRATE_PARENT: b40163d19a1967db9ecafe8bd172556c21e8ef75
+
+jobs:
+  verify:
+    name: aegis / quantummanifold-scheduler-phase1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Assert exact checkout and audited ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          git cat-file -e "$SCHEDULER_DESIGN_PARENT^{commit}"
+          git cat-file -e "$MHP_SUBSTRATE_PARENT^{commit}"
+          git merge-base --is-ancestor "$SCHEDULER_DESIGN_PARENT" "$CANDIDATE_SHA"
+          git merge-base --is-ancestor "$MHP_SUBSTRATE_PARENT" "$CANDIDATE_SHA"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install focused test dependency
+        run: python -m pip install --disable-pip-version-check pytest==8.3.5
+
+      - name: Prepare evidence workspace
+        run: mkdir -p quantummanifold-phase1-attestation
+
+      - name: Compile contracts and inherited MHP kernels
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            harness/tests/test_quantummanifold_scheduler_phase1.py \
+            harness/sdk/meaning_heritage.py \
+            harness/sdk/morphisms.py \
+            harness/sdk/heritage_composition_base.py \
+            harness/sdk/heritage_composition.py
+          if test -f harness/sdk/quantummanifold_scheduler.py; then
+            python -m py_compile harness/sdk/quantummanifold_scheduler.py
+          fi
+
+      - name: Run focused QuantumManifold RED or GREEN contract
+        id: qm
+        shell: bash
+        run: |
+          set +e
+          python -m pytest -q harness/tests/test_quantummanifold_scheduler_phase1.py \
+            2>&1 | tee quantummanifold-phase1-attestation/qm-pytest.log
+          rc=${PIPESTATUS[0]}
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Run inherited MHP regression on same head
+        id: mhp
+        shell: bash
+        run: |
+          set +e
+          python -m pytest -q \
+            harness/tests/test_meaning_heritage_morphisms.py \
+            harness/tests/test_morphism_hardening.py \
+            harness/tests/test_heritage_fingerprint_hardening.py \
+            harness/tests/test_heritage_transitive_composition.py \
+            harness/tests/test_heritage_derivation_composition.py \
+            2>&1 | tee quantummanifold-phase1-attestation/mhp-pytest.log
+          rc=${PIPESTATUS[0]}
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Emit content-addressed Phase-1 attestation
+        shell: bash
+        env:
+          QM_EXIT_CODE: ${{ steps.qm.outputs.exit_code }}
+          MHP_EXIT_CODE: ${{ steps.mhp.outputs.exit_code }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          out = Path('quantummanifold-phase1-attestation')
+          policy = Path('harness/policies/quantummanifold-scheduler.v1.json')
+          contract = Path('harness/tests/test_quantummanifold_scheduler_phase1.py')
+          kernel = Path('harness/sdk/quantummanifold_scheduler.py')
+          qm_log = out / 'qm-pytest.log'
+          mhp_log = out / 'mhp-pytest.log'
+          mhp_paths = [
+              Path('harness/sdk/meaning_heritage.py'),
+              Path('harness/sdk/morphisms.py'),
+              Path('harness/sdk/heritage_composition_base.py'),
+              Path('harness/sdk/heritage_composition.py'),
+          ]
+
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          def counts(path: Path) -> dict[str, int]:
+              text = path.read_text(encoding='utf-8')
+              def one(pattern: str) -> int:
+                  m = re.search(pattern, text)
+                  return int(m.group(1)) if m else 0
+              return {
+                  'passed': one(r'(\d+) passed'),
+                  'failed': one(r'(\d+) failed'),
+                  'errors': one(r'(\d+) errors?'),
+              }
+
+          qm_rc = int(os.environ['QM_EXIT_CODE'])
+          mhp_rc = int(os.environ['MHP_EXIT_CODE'])
+          status = 'GREEN_PASS' if qm_rc == 0 and mhp_rc == 0 else 'RED_FAILURE_OBSERVED'
+          payload = {
+              'receipt_kind': 'AEGIS_QUANTUMMANIFOLD_PHASE1_ATTESTATION_V1',
+              'source_commit': os.environ['CANDIDATE_SHA'],
+              'scheduler_design_parent': os.environ['SCHEDULER_DESIGN_PARENT'],
+              'mhp_substrate_parent': os.environ['MHP_SUBSTRATE_PARENT'],
+              'parent_ancestry_asserted': True,
+              'authority_class': 'NONE',
+              'ledger_authority_classification': 'NONE_BY_CONSTRUCTION',
+              'policy_path': str(policy),
+              'policy_sha256': sha(policy),
+              'qm_contract_path': str(contract),
+              'qm_contract_sha256': sha(contract),
+              'qm_kernel_present': kernel.is_file(),
+              'qm_kernel_sha256': sha(kernel) if kernel.is_file() else None,
+              'mhp_kernel_sha256': {str(path): sha(path) for path in mhp_paths},
+              'qm_pytest_log_sha256': sha(qm_log),
+              'mhp_pytest_log_sha256': sha(mhp_log),
+              'qm_pytest_exit_code': qm_rc,
+              'mhp_pytest_exit_code': mhp_rc,
+              'qm_counts': counts(qm_log),
+              'mhp_counts': counts(mhp_log),
+              'status': status,
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode('utf-8')
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          target = out / 'quantummanifold-phase1-attestation.json'
+          target.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+
+          assert payload['authority_class'] == 'NONE'
+          assert payload['ledger_authority_classification'] == 'NONE_BY_CONSTRUCTION'
+          assert payload['source_commit'] == os.environ['CANDIDATE_SHA']
+          assert len(payload['policy_sha256']) == 64
+          assert len(payload['qm_contract_sha256']) == 64
+          assert len(payload['receipt_sha256']) == 64
+          PY
+
+      - name: Upload Phase-1 evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: quantummanifold-phase1-${{ env.CANDIDATE_SHA }}
+          path: quantummanifold-phase1-attestation/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Preserve focused and inherited RED or GREEN conclusion
+        if: always()
+        shell: bash
+        env:
+          QM_EXIT_CODE: ${{ steps.qm.outputs.exit_code }}
+          MHP_EXIT_CODE: ${{ steps.mhp.outputs.exit_code }}
+        run: |
+          set -euo pipefail
+          test -n "$QM_EXIT_CODE"
+          test -n "$MHP_EXIT_CODE"
+          if test "$QM_EXIT_CODE" -ne 0; then
+            exit "$QM_EXIT_CODE"
+          fi
+          exit "$MHP_EXIT_CODE"
