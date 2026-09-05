@@ -294,6 +294,66 @@ def test_predecessors_require_trusted_store():
     assert "TRUST_STORE_REQUIRED" in result.error_codes
 
 
+def test_v13_verifier_cannot_accept_caller_authored_composite_envelope():
+    payload = b"same"
+    a = claim("A")
+    _, rec = issue_claimset(payload, (a,), "legacy-compose")
+    proof_store = SemanticProofStore()
+    proof = PreservationProofReceiptV1(
+        source_claim_digest=a.claim_digest,
+        derived_claim_digest=a.claim_digest,
+        relation=PreservationRelation.SAME_CLAIM_ROOT,
+        source_semantic_fingerprint=a.semantic_fingerprint,
+        derived_semantic_fingerprint=a.semantic_fingerprint,
+        verifier_root=h("SEMVER", "legacy-compose"),
+        policy_root=h("SEMPOL", "legacy-compose"),
+    )
+    proof_store.preservation[proof.root] = proof
+    claimsets = ClaimSetStore(rec)
+    heritage = HeritageStore()
+    verifier = HeritageVerifierV13(
+        verifier_root=h("HV", "legacy-compose"),
+        policy_root=h("HP", "legacy-compose"),
+        proof_store=proof_store,
+        claimset_store=claimsets,
+        heritage_store=heritage,
+    )
+
+    def identity_envelope(salt: str) -> SemanticLineageEnvelopeV1:
+        return SemanticLineageEnvelopeV1(
+            lineage_id=f"identity:{salt}",
+            source_root=rec.payload_root,
+            source_claimset_receipt_root=rec.root,
+            derived_root=rec.payload_root,
+            derived_claimset_receipt_root=rec.root,
+            transform_root=h("IDENTITY", salt),
+            transform_relation=TransformRelation.IDENTITY,
+            loss_type=LossType.EXACT_LOSSLESS,
+            preservation_edges=(
+                PreservationEdge(
+                    a.claim_digest,
+                    a.claim_digest,
+                    PreservationRelation.SAME_CLAIM_ROOT,
+                    proof.root,
+                ),
+            ),
+            declared_omission_digests=(),
+            declared_additions=(),
+            uncertainty_bps=0,
+        )
+
+    _, h1 = verifier.verify(identity_envelope("h1"), rec, rec)
+    _, h2 = verifier.verify(identity_envelope("h2"), rec, rec)
+    assert h1 is not None
+    assert h2 is not None
+    heritage.data[h1.root] = h1
+    heritage.data[h2.root] = h2
+
+    caller_authored = identity_envelope("caller-authored-composite")
+    with pytest.raises(AttributeError, match="compose"):
+        verifier.compose(h1, h2, caller_authored, rec, rec)
+
+
 def make_registry(proof_store: ProofStore, heritage_store: HeritageStore):
     common = dict(
         verifier_root=h("VERIFIER", 1),
