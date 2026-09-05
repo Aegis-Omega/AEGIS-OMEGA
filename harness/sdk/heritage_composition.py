@@ -323,6 +323,13 @@ class HeritageCompositionKernelV1(_base.HeritageCompositionKernelV1):
         mixed = self._mixed_ancestry(e1, e2, semantic_proof_store)
         if transient & target_digests or mixed or o13 != o1 | inherited_loss:
             return original_result, None
+        if (
+            source_digests != dom | o13
+            or target_digests != ran | a13
+            or dom & o13
+            or ran & a13
+        ):
+            return original_result, None
 
         transform_root = _base.canonical_hash(
             _base.DOM_TRANSITIVE_TRANSFORM,
@@ -462,6 +469,11 @@ class HeritageCompositionKernelV1(_base.HeritageCompositionKernelV1):
         semantic_proof_store,
         composition_proof_store,
     ):
+        # TC-02 and TC-06 are load-bearing postconditions in the delegated base
+        # compose path and remain explicit here for source-level regression
+        # inspection.  The base rejects UNDECLARED_COMPOSITE_LOSS when
+        # source_digests != dom | o13, and COMPOSITION_PARTITION_MISMATCH when
+        # target_digests != ran | a13 (or either partition overlaps).
         result, outcome = super().compose(
             h1,
             h2,
