@@ -8,10 +8,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Mapping, Protocol
 
 from harness.sdk.sovereign_execution import canonical_hash
+
+_GIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+_DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
+_ROLES = frozenset({"BUILDER", "FALSIFIER", "REVIEWER"})
 
 
 @dataclass(frozen=True)
@@ -110,6 +115,18 @@ def _exact_non_negative_int(value: object, *, upper: int | None = None) -> int:
     return value
 
 
+def _validate_git_sha(value: str) -> str:
+    if not isinstance(value, str) or _GIT_SHA_RE.fullmatch(value) is None:
+        raise QuantumManifoldError("SOURCE_HEAD_INVALID")
+    return value
+
+
+def _validate_digest(value: str) -> str:
+    if not isinstance(value, str) or _DIGEST_RE.fullmatch(value) is None:
+        raise QuantumManifoldError("DIGEST_BINDING_INVALID")
+    return value
+
+
 def _lineage_class(thread: RealityThreadV1) -> str:
     if not thread.verified_lineage_root:
         raise QuantumManifoldError("UNVERIFIED_LINEAGE_ROOT")
@@ -142,9 +159,9 @@ def _closure_prior_root(prior: ClosurePriorV1) -> str:
 class QuantumManifoldSchedulerV1:
     """Authority-zero Phase-1 scheduler.
 
-    The currently implemented surface closes only the preregistered centrality
-    anti-Sybil and closure-prior provenance contracts.  Stale-head and proposal
-    construction remain deliberately RED until their own GREEN step.
+    The focused Phase-1 safety surface is implemented here.  Exact ranking and
+    deterministic candidate selection are added only in the subsequent TDD
+    step; this class still has no positive-authority method.
     """
 
     def __init__(
@@ -160,6 +177,9 @@ class QuantumManifoldSchedulerV1:
         self._ppm = _exact_non_negative_int(self._policy.get("ppm"))
         if self._ppm <= 0:
             raise QuantumManifoldError("FIXED_POINT_DOMAIN_ERROR")
+        self._max_safe_canonical_int = _exact_non_negative_int(
+            self._policy.get("max_safe_canonical_int")
+        )
         self._policy_digest = _canonical_json_sha256(self._policy)
 
     def centrality_ppm(
@@ -219,7 +239,10 @@ class QuantumManifoldSchedulerV1:
         return (p_close_ppm * centrality) // self._ppm
 
     def assert_current_head(self, bound_head_sha: str, current_head_sha: str) -> None:
-        raise NotImplementedError
+        bound = _validate_git_sha(bound_head_sha)
+        current = _validate_git_sha(current_head_sha)
+        if bound != current:
+            raise QuantumManifoldError("STALE_RESULT_REQUIRES_REBASE")
 
     def build_proposal(
         self,
@@ -239,4 +262,47 @@ class QuantumManifoldSchedulerV1:
         ranking_score_ppm: int,
         recommended_role: str,
     ) -> DispatchProposalV1:
-        raise NotImplementedError
+        self.assert_current_head(source_head_sha, current_head_sha)
+        _validate_digest(baseline_digest)
+        _validate_digest(reality_snapshot_digest)
+        _validate_digest(obligation_set_digest)
+        _validate_digest(candidate_set_digest)
+        _validate_digest(scheduler_policy_digest)
+        _validate_digest(selected_action_digest)
+        if scheduler_policy_digest != self._policy_digest:
+            raise QuantumManifoldError("SCHEDULER_POLICY_MISMATCH")
+        if recommended_role not in _ROLES:
+            raise QuantumManifoldError("ROLE_ISOLATION_VIOLATION")
+
+        information_gain_ppm = _exact_non_negative_int(
+            information_gain_ppm, upper=self._max_safe_canonical_int
+        )
+        closure_leverage_ppm = _exact_non_negative_int(
+            closure_leverage_ppm, upper=self._max_safe_canonical_int
+        )
+        falsification_value_ppm = _exact_non_negative_int(
+            falsification_value_ppm, upper=self._max_safe_canonical_int
+        )
+        cost_ppm = _exact_non_negative_int(
+            cost_ppm, upper=self._max_safe_canonical_int
+        )
+        ranking_score_ppm = _exact_non_negative_int(
+            ranking_score_ppm, upper=self._max_safe_canonical_int
+        )
+
+        return DispatchProposalV1(
+            receipt_kind="AEGIS_QUANTUMMANIFOLD_SCHEDULING_RECEIPT_V1",
+            baseline_digest=baseline_digest,
+            source_head_sha=source_head_sha,
+            reality_snapshot_digest=reality_snapshot_digest,
+            obligation_set_digest=obligation_set_digest,
+            candidate_set_digest=candidate_set_digest,
+            scheduler_policy_digest=scheduler_policy_digest,
+            selected_action_digest=selected_action_digest,
+            information_gain_ppm=information_gain_ppm,
+            closure_leverage_ppm=closure_leverage_ppm,
+            falsification_value_ppm=falsification_value_ppm,
+            cost_ppm=cost_ppm,
+            ranking_score_ppm=ranking_score_ppm,
+            recommended_role=recommended_role,
+        )
