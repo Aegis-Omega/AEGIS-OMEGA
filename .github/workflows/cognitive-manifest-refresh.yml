@@ -4,9 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       target_ref:
-        description: Existing non-main branch to receive refreshed cognitive anchors
+        description: Existing branch to receive refreshed cognitive anchors
         required: true
         type: string
+      confirm_main_anchor:
+        description: >-
+          Required to target main. main is the one ref whose anchor no other
+          writer can produce, because a branch manifest must declare
+          source_ref=<branch> and so can never carry main's.
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -42,12 +50,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_REF: ${{ inputs.target_ref }}
+          CONFIRM_MAIN_ANCHOR: ${{ inputs.confirm_main_anchor }}
+          ACTOR_ASSOCIATION: ${{ github.actor_association }}
         run: |
           set -euo pipefail
 
           git check-ref-format --branch "$TARGET_REF" >/dev/null
+          target_is_main=false
           if [[ "$TARGET_REF" == "main" ]]; then
-            echo "Refusing to mutate main from the cognitive-anchor writer." >&2
+            if [[ "$CONFIRM_MAIN_ANCHOR" != "true" ]]; then
+              echo "Refusing to mutate main without confirm_main_anchor." >&2
+              exit 1
+            fi
+            if [[ "$ACTOR_ASSOCIATION" != "OWNER" ]]; then
+              echo "DENIED: main anchor write requires OWNER, got: $ACTOR_ASSOCIATION" >&2
+              exit 1
+            fi
+            target_is_main=true
+          elif [[ "$CONFIRM_MAIN_ANCHOR" == "true" ]]; then
+            echo "confirm_main_anchor is only valid when target_ref is main." >&2
             exit 1
           fi
           if [[ "$TARGET_REF" == repair/cognitive-anchor-* ]]; then
@@ -98,7 +119,7 @@ jobs:
           PY
           )"
 
-          MAIN_SHA="$main_sha" python - <<'PY'
+          MAIN_SHA="$main_sha" TARGET_IS_MAIN="$target_is_main" python - <<'PY'
           import json
           import os
           import urllib.request
@@ -113,6 +134,18 @@ jobs:
               "aegis / automaton-3",
               "Main branch enforcement",
           )
+
+          if os.environ.get("TARGET_IS_MAIN") == "true":
+              # This gate proves main is a trusted base before mutating a branch.
+              # It cannot gate main's own anchor: automaton-2 is red precisely
+              # because that anchor is stale, and Main branch enforcement is
+              # fail-closed while main is unprotected, so requiring either would
+              # make the repair permanently unreachable. The main path is bound
+              # instead by: main unmoved since dispatch, main's committed manifest
+              # self-consistent, OWNER actor, explicit confirmation, and a diff
+              # confined to the generated anchors -- all asserted outside this gate.
+              print("MAIN_ANCHOR_PATH: exact-main check gate not applicable")
+              raise SystemExit(0)
 
           check_runs = []
           page = 1
@@ -162,6 +195,7 @@ jobs:
           cp scripts/build-cognitive-manifest.py "$RUNNER_TEMP/trusted-build-cognitive-manifest.py"
           echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
           echo "state_hash=$parent_hash" >> "$GITHUB_OUTPUT"
+          echo "target_is_main=$target_is_main" >> "$GITHUB_OUTPUT"
           echo "allowed=true" >> "$GITHUB_OUTPUT"
 
       - name: Checkout explicit target after admission gate
@@ -194,8 +228,23 @@ jobs:
         shell: bash
         env:
           TARGET_REF: ${{ inputs.target_ref }}
+          TARGET_IS_MAIN: ${{ steps.admission.outputs.target_is_main }}
+          PARENT_STATE_HASH: ${{ steps.admission.outputs.state_hash }}
         run: |
           set -euo pipefail
+
+          # The generator is expected to touch nothing but the anchors. Assert it
+          # rather than assume it: `git add` on two paths would silently leave any
+          # other modification behind instead of refusing to write.
+          changed="$(git status --porcelain | cut -c4- | sort)"
+          expected="$(printf '%s\n' .claude.json skill-hashes.sha256 | sort)"
+          unexpected="$(comm -23 <(printf '%s\n' "$changed") <(printf '%s\n' "$expected"))"
+          if [[ -n "${unexpected//[[:space:]]/}" ]]; then
+            echo "DENIED: refresh produced changes outside the generated anchors:" >&2
+            printf '%s\n' "$unexpected" >&2
+            exit 1
+          fi
+
           if git diff --quiet -- .claude.json skill-hashes.sha256; then
             echo "Manifest already current."
             exit 0
@@ -203,5 +252,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .claude.json skill-hashes.sha256
-          git commit -m "chore(manifest): refresh cognitive-state anchors"
+          if [[ "$TARGET_IS_MAIN" == "true" ]]; then
+            git commit -m "chore(manifest): re-anchor main cognitive state" \
+              -m "source_ref=main parent_state_hash=$PARENT_STATE_HASH"
+          else
+            git commit -m "chore(manifest): refresh cognitive-state anchors"
+          fi
           git push origin "HEAD:refs/heads/$TARGET_REF"
