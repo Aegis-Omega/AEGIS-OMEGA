@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
+import textwrap
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase, main
@@ -52,6 +54,26 @@ def load_module(name: str, path: Path):
     return module
 
 
+GATE_START = "target_is_main=false"
+GATE_END = 'only valid when target_ref is main." >&2\n            exit 1\n          fi\n'
+
+
+def extract_main_gate() -> str:
+    """Return the writer's target_ref gate verbatim, so it can be executed.
+
+    Raises rather than returning a partial slice: a gate test that silently
+    ran an empty script would report the guard as present and working.
+    """
+    source = (WORKFLOW_ROOT / "cognitive-manifest-refresh.yml").read_text(encoding="utf-8")
+    if GATE_START not in source or GATE_END not in source:
+        raise AssertionError("main-anchor gate markers moved; update GATE_START/GATE_END")
+    start = source.index(GATE_START)
+    end = source.index(GATE_END) + len(GATE_END)
+    if end <= start:
+        raise AssertionError("main-anchor gate markers are out of order")
+    return textwrap.dedent(source[start:end])
+
+
 class CognitiveAnchorWriterBoundaryTests(TestCase):
     def test_exactly_one_writer_and_automaton2_is_read_only(self) -> None:
         workflows = sorted(set(WORKFLOW_ROOT.glob("*.yml")) | set(WORKFLOW_ROOT.glob("*.yaml")))
@@ -61,7 +83,7 @@ class CognitiveAnchorWriterBoundaryTests(TestCase):
         self.assertEqual(workflow_contents_permission(automaton2), "read")
         self.assertFalse(writes_cognitive_anchors(automaton2))
 
-    def test_writer_is_manual_exact_main_gated_and_never_targets_main(self) -> None:
+    def test_writer_is_manual_exact_main_gated_and_stays_dispatch_only(self) -> None:
         source = (WORKFLOW_ROOT / "cognitive-manifest-refresh.yml").read_text(encoding="utf-8")
         self.assertNotIn("\n  push:\n", source)
         self.assertIn("workflow_dispatch:", source)
@@ -74,6 +96,57 @@ class CognitiveAnchorWriterBoundaryTests(TestCase):
         self.assertIn("steps.admission.outputs.allowed == 'true'", source)
         self.assertIn('git push origin "HEAD:refs/heads/$TARGET_REF"', source)
         self.assertNotIn('git push origin "HEAD:${{ inputs.target_ref }}"', source)
+
+    def test_writer_targets_main_only_behind_confirmation_and_owner(self) -> None:
+        # main used to be refused outright. It is now reachable, because main is
+        # the one ref whose anchor no other writer can produce: a branch manifest
+        # must declare source_ref=<branch>, so it can never carry main's, and the
+        # chain therefore stalls after every merge until something writes main.
+        # Reachable is not casual -- these are the conditions that keep it costly.
+        source = (WORKFLOW_ROOT / "cognitive-manifest-refresh.yml").read_text(encoding="utf-8")
+        self.assertIn("confirm_main_anchor:", source)
+        self.assertIn("default: false", source)
+        self.assertIn('if [[ "$CONFIRM_MAIN_ANCHOR" != "true" ]]', source)
+        self.assertIn('if [[ "$ACTOR_ASSOCIATION" != "OWNER" ]]', source)
+        # The confirmation must not survive onto a branch target.
+        self.assertIn('elif [[ "$CONFIRM_MAIN_ANCHOR" == "true" ]]', source)
+        # A main write must refuse anything the generator did not produce.
+        self.assertIn("changes outside the generated anchors", source)
+
+    def test_main_gate_denies_every_scenario_but_confirmed_owner(self) -> None:
+        # The assertions above are substring checks, and a substring check cannot
+        # tell a guard from its own wording: `if [[ "$TARGET_REF" == "main" ]]`
+        # still reads the same after its body is emptied. So run the shipped text.
+        gate = extract_main_gate()
+        script = gate + '\necho "target_is_main=$target_is_main"\n'
+        cases = (
+            ("main", "true", "OWNER", True),
+            ("main", "false", "OWNER", False),
+            ("main", "", "OWNER", False),
+            ("main", "true", "MEMBER", False),
+            ("main", "true", "COLLABORATOR", False),
+            ("main", "true", "CONTRIBUTOR", False),
+            ("main", "true", "", False),
+            ("feature/x", "true", "OWNER", False),
+            ("feature/x", "false", "OWNER", True),
+        )
+        for target_ref, confirm, association, expected in cases:
+            with self.subTest(target_ref=target_ref, confirm=confirm, association=association):
+                result = subprocess.run(
+                    ["bash", "-c", script],
+                    capture_output=True,
+                    text=True,
+                    env={
+                        "TARGET_REF": target_ref,
+                        "CONFIRM_MAIN_ANCHOR": confirm,
+                        "ACTOR_ASSOCIATION": association,
+                        "PATH": "/usr/bin:/bin",
+                    },
+                )
+                self.assertEqual(result.returncode == 0, expected, result.stderr)
+                if expected:
+                    is_main = "true" if target_ref == "main" else "false"
+                    self.assertIn(f"target_is_main={is_main}", result.stdout)
 
     def test_writer_requires_verified_nonzero_exact_main_and_pinned_actions(self) -> None:
         source = (WORKFLOW_ROOT / "cognitive-manifest-refresh.yml").read_text(encoding="utf-8")
