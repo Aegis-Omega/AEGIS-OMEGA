@@ -5,6 +5,7 @@ on:
     branches: [feat/mhp1-derivation-composition-v1]
     paths:
       - 'harness/sdk/heritage_composition.py'
+      - 'harness/sdk/heritage_composition_base.py'
       - 'harness/sdk/meaning_heritage.py'
       - 'harness/tests/test_heritage_derivation_composition.py'
       - 'harness/tests/test_heritage_transitive_composition.py'
@@ -16,6 +17,7 @@ on:
   pull_request:
     paths:
       - 'harness/sdk/heritage_composition.py'
+      - 'harness/sdk/heritage_composition_base.py'
       - 'harness/sdk/meaning_heritage.py'
       - 'harness/tests/test_heritage_derivation_composition.py'
       - 'harness/tests/test_heritage_transitive_composition.py'
@@ -72,6 +74,7 @@ jobs:
         run: |
           python -m py_compile \
             harness/sdk/meaning_heritage.py \
+            harness/sdk/heritage_composition_base.py \
             harness/sdk/heritage_composition.py \
             harness/tests/test_heritage_derivation_composition.py \
             harness/tests/test_heritage_transitive_composition.py \
@@ -106,6 +109,7 @@ jobs:
 
           out = Path('mhp1-derivation-composition-attestation')
           kernel = Path('harness/sdk/heritage_composition.py')
+          base_kernel = Path('harness/sdk/heritage_composition_base.py')
           contract = Path('harness/tests/test_heritage_derivation_composition.py')
           parent_contract = Path('harness/tests/test_meaning_heritage_morphisms.py')
           log = out / 'pytest.log'
@@ -113,6 +117,8 @@ jobs:
           def sha(path: Path) -> str:
               return hashlib.sha256(path.read_bytes()).hexdigest()
 
+          assert kernel.is_file()
+          assert base_kernel.is_file()
           text = log.read_text(encoding='utf-8')
           passed_match = re.search(r'(\d+) passed', text)
           failed_match = re.search(r'(\d+) failed', text)
@@ -134,6 +140,8 @@ jobs:
               'ledger_authority_classification': 'NONE_BY_CONSTRUCTION',
               'kernel_path': str(kernel),
               'kernel_sha256': sha(kernel),
+              'base_kernel_path': str(base_kernel),
+              'base_kernel_sha256': sha(base_kernel),
               'contract_path': str(contract),
               'contract_sha256': sha(contract),
               'parent_contract_path': str(parent_contract),
@@ -155,6 +163,8 @@ jobs:
           assert payload['ledger_authority_classification'] == 'NONE_BY_CONSTRUCTION'
           assert payload['source_commit'] == os.environ['CANDIDATE_SHA']
           assert payload['expected_parent_commit'] == os.environ['EXPECTED_PARENT_SHA']
+          assert len(payload['kernel_sha256']) == 64
+          assert len(payload['base_kernel_sha256']) == 64
           assert len(payload['receipt_sha256']) == 64
           PY
 
