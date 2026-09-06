@@ -1,6 +1,16 @@
 name: Coq Formal Attestation
 
 on:
+  push:
+    branches:
+      - proof/corn-o0-completion-equivalence-v1
+    paths:
+      - "sovereign-omega-v2/formal/**"
+      - "sovereign-omega-v2/python/coq_attestation.py"
+      - "sovereign-omega-v2/python/tests/test_coq_attestation.py"
+      - "sovereign-omega-v2/scripts/coq_inventory.py"
+      - "sovereign-omega-v2/scripts/coq_theorem_discovery.py"
+      - ".github/workflows/coq-formal-attestation.yml"
   pull_request:
   workflow_dispatch:
 
