@@ -1,65 +1,101 @@
-name: Cognitive Manifest Refresh
+name: Cognitive Manifest Verification
 
 on:
-  push:
-    branches-ignore: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+    inputs:
+      parent_sha:
+        description: Exact parent commit whose cognitive state is inherited
+        required: true
+        type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: cognitive-manifest-refresh-${{ github.ref }}
+  group: cognitive-manifest-verify-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  BASE_SHA: ${{ github.event.pull_request.base.sha || inputs.parent_sha }}
+  SOURCE_REF: ${{ github.event.pull_request.head.ref || github.ref_name }}
+
 jobs:
-  refresh:
-    name: aegis / cognitive-manifest-refresh
+  verify:
+    name: aegis / cognitive-manifest-verify
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout branch
+      - name: Checkout exact candidate without write credentials
         uses: actions/checkout@v4
         with:
+          ref: ${{ env.CANDIDATE_SHA }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Resolve current main parent state
+      - name: Enforce read-only writer policy
+        working-directory: sovereign-omega-v2
+        run: >-
+          python3 -m unittest
+          python.tests.test_cognitive_manifest_refresh_policy
+          -v
+
+      - name: Resolve exact parent cognitive state
         id: parent
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin main --no-tags
-          parent_hash="$(git show origin/main:.claude.json 2>/dev/null | python -c 'import json,sys; print(json.load(sys.stdin)["state_hash"])' 2>/dev/null || true)"
-          if [[ ! "$parent_hash" =~ ^[0-9a-f]{64}$ ]]; then
-            parent_hash="$(printf '0%.0s' {1..64})"
-          fi
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          git fetch origin "$BASE_SHA" --no-tags
+          parent_manifest="$RUNNER_TEMP/PARENT_CLAUDE.json"
+          git show "$BASE_SHA:.claude.json" > "$parent_manifest"
+          test -s "$parent_manifest"
+          parent_hash="$(python3 - "$parent_manifest" <<'PY'
+          import json
+          import sys
+
+          with open(sys.argv[1], encoding='utf-8') as handle:
+              print(json.load(handle)['state_hash'])
+          PY
+          )"
+          [[ "$parent_hash" =~ ^[0-9a-f]{64}$ ]]
+          test "$parent_hash" != "0000000000000000000000000000000000000000000000000000000000000000"
           echo "state_hash=$parent_hash" >> "$GITHUB_OUTPUT"
 
-      - name: Generate deterministic anchors
-        run: |
-          python scripts/build-cognitive-manifest.py \
-            --ref "$GITHUB_REF_NAME" \
-            --parent-state-hash "${{ steps.parent.outputs.state_hash }}"
-          python scripts/build-cognitive-manifest.py \
-            --check \
-            --ref "$GITHUB_REF_NAME" \
-            --parent-state-hash "${{ steps.parent.outputs.state_hash }}"
-
-      - name: Commit refreshed anchors
+      - name: Generate expected anchors outside candidate tree
         shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet -- .claude.json skill-hashes.sha256; then
-            echo "Manifest already current."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .claude.json skill-hashes.sha256
-          git commit -m "chore(manifest): refresh cognitive-state anchors"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          python scripts/build-cognitive-manifest.py \
+            --ref "$SOURCE_REF" \
+            --parent-state-hash "${{ steps.parent.outputs.state_hash }}" \
+            --output-dir "$RUNNER_TEMP/cognitive-anchors"
+          python scripts/build-cognitive-manifest.py \
+            --check \
+            --ref "$SOURCE_REF" \
+            --parent-state-hash "${{ steps.parent.outputs.state_hash }}" \
+            --output-dir "$RUNNER_TEMP/cognitive-anchors"
+
+      - name: Upload deterministic expected anchors
+        uses: actions/upload-artifact@v4
+        with:
+          name: expected-cognitive-anchors-${{ env.CANDIDATE_SHA }}
+          path: ${{ runner.temp }}/cognitive-anchors/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Verify committed anchors match exact parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp -s "$RUNNER_TEMP/cognitive-anchors/.claude.json" .claude.json
+          cmp -s "$RUNNER_TEMP/cognitive-anchors/skill-hashes.sha256" skill-hashes.sha256
