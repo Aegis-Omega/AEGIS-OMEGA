@@ -11,6 +11,7 @@ from unittest.mock import patch
 from coq_attestation import build_receipt
 from coq_build_binding import (
     check,
+    declaration_query,
     digest,
     freeze,
     sealed,
@@ -32,7 +33,7 @@ class CoqBuildBindingTests(unittest.TestCase):
             "Theorem value_positive : value = 1. Proof. reflexivity. Qed.\n",
             encoding="utf-8",
         )
-        self.targets = self.root / "targets.json"
+        self.targets = self.root / "coq-targets.json"
         self.manifest = {
             "kind": "COQ_TARGET_MANIFEST_V1",
             "files": {
@@ -312,6 +313,38 @@ class CoqBuildBindingTests(unittest.TestCase):
         binding["files"] = {}
         with self.assertRaisesRegex(ValueError, "file inventory mismatch"):
             verify_receipt_binding(sealed(binding), self.formal, self.commit)
+
+    def test_resealed_target_omission_cannot_override_reviewed_manifest(self) -> None:
+        binding = self.checked_binding()
+        names = ["value"]
+        binding["contract"]["targets"]["files"]["Fixture.v"]["declarations"] = names
+        binding["files"]["Fixture.v"]["declarations"] = names
+        binding["files"]["Fixture.v"]["query_sha256"] = digest(
+            declaration_query("Fixture.v", names).encode("utf-8"))
+        binding["contract"] = sealed(binding["contract"])
+        binding = sealed(binding)
+        with self.assertRaisesRegex(ValueError, "target manifest"):
+            verify_receipt_binding(binding, self.formal, self.commit)
+        with patch("coq_build_binding.subprocess.run") as query:
+            with self.assertRaisesRegex(ValueError, "target manifest"):
+                check(self.formal, self.targets, binding["contract"], self.evidence)
+            query.assert_not_called()
+
+    def test_receipt_join_rejects_resealed_target_digest(self) -> None:
+        binding = self.checked_binding()
+        binding["contract"]["targets_sha256"] = "d" * 64
+        binding["contract"] = sealed(binding["contract"])
+        with self.assertRaisesRegex(ValueError, "target manifest"):
+            verify_receipt_binding(sealed(binding), self.formal, self.commit)
+
+    def test_receipt_join_requires_unchanged_reviewed_manifest_file(self) -> None:
+        binding = self.checked_binding()
+        self.targets.write_text("{}", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "target manifest"):
+            verify_receipt_binding(binding, self.formal, self.commit)
+        self.targets.unlink()
+        with self.assertRaises(FileNotFoundError):
+            verify_receipt_binding(binding, self.formal, self.commit)
 
     def test_receipt_join_requires_recorded_verifier_identity(self) -> None:
         binding = self.checked_binding()

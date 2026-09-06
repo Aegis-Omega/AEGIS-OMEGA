@@ -139,11 +139,18 @@ def declaration_query(relative: str, names: list[str]) -> str:
             + "".join(f"Check {module}.{name}.\n" for name in names))
 
 
+def verify_target_manifest(target_path: Path, contract: dict) -> None:
+    raw = target_path.read_bytes()
+    if digest(raw) != contract["targets_sha256"]:
+        raise ValueError("reviewed target manifest changed after freeze")
+    if json.loads(raw) != contract["targets"]:
+        raise ValueError("embedded target manifest differs from reviewed file")
+
+
 def check(formal_root: Path, target_path: Path, contract: dict,
           evidence_root: Path) -> dict:
     validate_contract(contract)
-    if digest(target_path.read_bytes()) != contract["targets_sha256"]:
-        raise ValueError("reviewed target manifest changed after freeze")
+    verify_target_manifest(target_path, contract)
     files = validate_targets(formal_root, contract["targets"])
     if verifier_identity() != contract["verifier_identity"]:
         raise ValueError("verifier or compiled dependencies changed after freeze")
@@ -195,6 +202,8 @@ def verify_receipt_binding(binding: dict, formal_root: Path, source_commit: str)
 
     This validates the local content-addressed join, not the honesty of the host
     that generated it. The producer workflow remains part of the trust boundary.
+    The reviewed manifest is the repository's canonical sibling of theories/:
+    formal_root.parent / "coq-targets.json"; embedded targets cannot replace it.
     """
     if (sealed(binding) != binding or binding.get("kind") != "COQ_BUILD_BINDING_V1"
             or binding.get("status") != "VERIFIED"):
@@ -203,6 +212,7 @@ def verify_receipt_binding(binding: dict, formal_root: Path, source_commit: str)
     validate_contract(contract)
     if contract["source_commit"] != source_commit:
         raise ValueError("contract/receipt source commit mismatch")
+    verify_target_manifest(formal_root.parent / "coq-targets.json", contract)
     targets = validate_targets(formal_root, contract["targets"])
     if set(binding["files"]) != set(targets):
         raise ValueError("declaration evidence file inventory mismatch")
