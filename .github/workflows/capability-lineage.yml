@@ -1,0 +1,51 @@
+name: AEGIS Capability Lineage
+
+# The capability registry and its resolution law had no CI lane. Every "12/12
+# pass" reported for them so far was attested by a local run and by nothing
+# else: `repository-enforcement.yml` is the only job that touches this area,
+# it fires on `pull_request: branches: [main]`, and #405 targets
+# `security/activate-main-enforcement-v1` — so the registry tests have never
+# executed on a runner anywhere. This is that lane.
+#
+# It stays on the stack that owns the files. Once the stack reaches `main`,
+# the job runs for every pull request; registering it as a *required* context
+# in security/main-branch-ruleset.payload.json is a separate decision, because
+# that payload is what #395 asserts against the live repository.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: capability-lineage-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lineage:
+    name: aegis / capability-lineage
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Registry is well-formed JSON before anything reads it
+        run: python3 -c "import json; json.load(open('security/agent-capability-lineage.json'))"
+
+      - name: Run capability lineage regressions
+        run: python3 scripts/test_agent_capability_lineage.py -v
