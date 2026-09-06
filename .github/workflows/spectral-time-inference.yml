@@ -1,0 +1,49 @@
+name: Spectral Time Inference
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "harness/sdk/spectral_time_inference.py"
+      - "sovereign-omega-v2/python/tests/test_spectral_time_inference.py"
+      - ".github/workflows/spectral-time-inference.yml"
+  push:
+    branches: [main]
+    paths:
+      - "harness/sdk/spectral_time_inference.py"
+      - "sovereign-omega-v2/python/tests/test_spectral_time_inference.py"
+      - ".github/workflows/spectral-time-inference.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spectral-time-inference-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  focused-verification:
+    name: spectral-time-inference / focused
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install pytest
+        run: python -m pip install --disable-pip-version-check pytest==9.0.2
+
+      - name: Compile spectral time inference
+        run: |
+          python -m py_compile \
+            harness/sdk/spectral_time_inference.py \
+            sovereign-omega-v2/python/tests/test_spectral_time_inference.py
+
+      - name: Run focused spectral time inference tests
+        run: pytest -q sovereign-omega-v2/python/tests/test_spectral_time_inference.py
