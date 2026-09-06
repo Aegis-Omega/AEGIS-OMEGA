@@ -7,6 +7,10 @@ on:
     paths:
       - "sovereign-omega-v2/formal/**"
       - "sovereign-omega-v2/python/coq_attestation.py"
+      - "sovereign-omega-v2/python/coq_build_binding.py"
+      - "sovereign-omega-v2/python/tests/test_coq_build_binding.py"
+      - "sovereign-omega-v2/python/tests/test_coq_assumption_output_integrity.py"
+      - "sovereign-omega-v2/python/tests/test_coq_projection_scope.py"
       - "sovereign-omega-v2/python/tests/test_coq_attestation.py"
       - "sovereign-omega-v2/scripts/coq_inventory.py"
       - "sovereign-omega-v2/scripts/coq_theorem_discovery.py"
@@ -59,6 +63,9 @@ jobs:
           python.tests.test_coq_attestation
           python.tests.test_coq_attestation_regressions
           python.tests.test_coq_attestation_diagnostics
+          python.tests.test_coq_build_binding
+          python.tests.test_coq_assumption_output_integrity
+          python.tests.test_coq_projection_scope
           -v
 
       - name: Verify frozen assumption baseline
@@ -109,7 +116,6 @@ jobs:
             LOGS="$OUT/compile-logs"
             STATUS="$OUT/compile-status.json"
 
-            coqc --version | tee "$OUT/coq-version.txt"
             printf '{\n' > "$STATUS"
             first=1
 
@@ -140,8 +146,11 @@ jobs:
               safe="$(printf '%s' "$rel" | sed 's#/#__#g; s#\.v$##')"
               log="$LOGS/${safe}.log"
 
-              if (cd "$FORMAL/$dir" && coqc "$file") >"$log" 2>&1; then
+              if (cd "$FORMAL/$dir" && coqc -q -async-proofs off "$file") >"$log" 2>&1; then
                 record_status "$rel" 'COMPILED' "$log"
+                # Check the substitution's exit code in the parent shell.
+                # Failure in the old here-document substitution could be lost.
+                names="$(theorem_names "$source")" || exit 1
                 while IFS= read -r theorem; do
                   [ -n "$theorem" ] || continue
                   assumption_log="$ASSUMPTIONS/${safe}__${theorem}.txt"
@@ -150,11 +159,11 @@ jobs:
                     "$module" "$theorem" > "$query"
                   (
                     cd "$FORMAL/$dir" || exit 1
-                    coqtop -quiet -batch -l "$query"
-                  ) >"$assumption_log" 2>&1 || true
+                    coqtop -q -quiet -batch -l "$query"
+                  ) >"$assumption_log" 2>&1 || exit 1
                   rm -f "$query"
                 done <<EOF
-            $(theorem_names "$source")
+            $names
             EOF
               else
                 record_status "$rel" 'COMPILE_FAILED' "$log"
@@ -164,6 +173,16 @@ jobs:
             # Exact dependencies required by the complete formal inventory.
             opam install -y coq-coquelicot.3.4.2 coq-corn.9.0.0 || exit 1
             test "$(opam var coq-corn:version | tr -d '[:space:]')" = '9.0.0' || exit 1
+            coqc --version > "$OUT/coq-version.txt" || exit 1
+            cat "$OUT/coq-version.txt"
+
+            # Freeze reviewed inputs and actual executable/library bytes before
+            # compilation. Existing compiled artifacts are rejected, never reused.
+            git diff --exit-code HEAD -- "$ROOT/formal" "$ROOT/python/coq_build_binding.py" || exit 1
+            python3 "$ROOT/python/coq_build_binding.py" freeze \
+              --formal-root "$FORMAL" --targets "$ROOT/formal/coq-targets.json" \
+              --source-commit "$(git rev-parse HEAD)" \
+              --contract "$OUT/build-contract.json" || exit 1
 
             # Compile order is generated, never hand-maintained: see
             # scripts/coq_inventory.py and formal/coq-inventory.json.  The
@@ -182,6 +201,12 @@ jobs:
 
             printf '\n}\n' >> "$STATUS"
             cat "$STATUS"
+
+            python3 "$ROOT/python/coq_build_binding.py" check \
+              --formal-root "$FORMAL" --targets "$ROOT/formal/coq-targets.json" \
+              --contract "$OUT/build-contract.json" \
+              --out "$OUT/build-binding.json" || exit 1
+            git diff --exit-code HEAD -- "$ROOT/formal" "$ROOT/python/coq_build_binding.py" || exit 1
 
       - name: Generate content-addressed Coq attestation receipt
         if: always()
@@ -202,6 +227,7 @@ jobs:
             --source-commit "$SOURCE_SHA" \
             --coq-version "$COQ_VERSION" \
             --baseline formal/assumption-baseline-v1.json \
+            --build-binding coq-attestation/build-binding.json \
             --out coq-attestation/coq-formal-attestation-receipt.json
           cat coq-attestation/coq-formal-attestation-receipt.json
 
@@ -222,7 +248,11 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           import json
+          import sys
           from pathlib import Path
+          sys.path.insert(0, 'python')
+          from coq_attestation import _canonical_sha256
+          from coq_build_binding import verify_receipt_binding
 
           INVENTORY = json.loads(
               Path('formal/coq-inventory.json').read_text(encoding='utf-8')
@@ -252,7 +282,12 @@ jobs:
           }
           files_by_path = {entry['path']: entry for entry in receipt['files']}
 
-          assert receipt['schema_version'] == '1.1.0'
+          assert receipt['schema_version'] == '1.2.0'
+          assert receipt['build_binding_status'] == 'VERIFIED'
+          verify_receipt_binding(receipt['build_binding'], formal_root, receipt['source_commit'])
+          unsigned = dict(receipt)
+          del unsigned['receipt_sha256']
+          assert _canonical_sha256(unsigned) == receipt['receipt_sha256']
           assert receipt['receipt_kind'] == 'COQ_FORMAL_ATTESTATION_RECEIPT_V1'
           assert receipt['authority'] == 'FORMAL_MATH_EVIDENCE_ONLY'
           assert receipt['correspondence'] == 'NOT_ESTABLISHED'
