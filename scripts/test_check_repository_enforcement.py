@@ -14,6 +14,8 @@ CONTEXTS = (
     "Body cites current head",
     "aegis / kernel-one",
     "scan-pr / osv-scan",
+    "aegis / automaton-2",
+    "aegis / automaton-3",
     "Main branch enforcement",
 )
 POLICY = enforcement.Policy(
