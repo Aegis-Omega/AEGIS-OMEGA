@@ -109,6 +109,9 @@ jobs:
           ocaml_version: 'default'
           custom_script: |
             set -u
+            # The Docker action enables xtrace; keep shell commands out of
+            # redirected compiler and Print Assumptions evidence.
+            set +x
             REPO="$PWD"
             ROOT="$REPO/sovereign-omega-v2"
             FORMAL="$ROOT/formal/theories"

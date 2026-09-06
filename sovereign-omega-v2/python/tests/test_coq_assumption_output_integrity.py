@@ -1,11 +1,50 @@
 import hashlib
 import itertools
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+import textwrap
 import unittest
 
 from coq_attestation import parse_print_assumptions
 
 
 class PrintAssumptionsOutputIntegrityTests(unittest.TestCase):
+    def test_workflow_capture_is_clean_under_inherited_shell_tracing(self) -> None:
+        workflow = (Path(__file__).resolve().parents[3] /
+                    ".github/workflows/coq-formal-attestation.yml").read_text()
+        script = workflow.split("          custom_script: |\n", 1)[1]
+        prefix = textwrap.dedent(script.split('            REPO=', 1)[0])
+        capture = script.split("                  (\n", 1)[1]
+        capture = "(\n" + textwrap.dedent(capture.split(
+            '                  rm -f "$query"', 1)[0])
+        # Exercise the actual workflow redirection with a synthetic producer;
+        # this checks shell transport, not Coq proof correctness.
+        producer = 'coqtop() { printf "%s\\n" "$PAYLOAD"; return "$RESULT"; }\n'
+        with tempfile.TemporaryDirectory() as directory:
+            log = Path(directory) / "assumptions.txt"
+            for payload, result, expected in (
+                ("Closed under the global context", "0", "CLOSED"),
+                ("Axioms:\nHash.sha256 : nat", "0", "ASSUMPTIONS_PRESENT"),
+                ("Error: rejected declaration", "1", "UNRECOGNIZED"),
+            ):
+                with self.subTest(result=result, payload=payload):
+                    env = dict(os.environ, FORMAL=directory, dir=".", query="unused.v",
+                               assumption_log=str(log), PAYLOAD=payload, RESULT=result)
+                    run = subprocess.run(["bash", "-x", "-c", prefix + producer + capture],
+                                         env=env, capture_output=True, text=True)
+                    self.assertEqual(run.returncode, int(result))
+                    self.assertEqual(log.read_text(), payload + "\n")
+                    parsed = parse_print_assumptions(log.read_text())
+                    self.assertEqual(parsed["parse_status"], expected)
+            env.update(PAYLOAD="Closed under the global context", RESULT="0")
+            old_prefix = prefix.replace("set +x", ":")
+            subprocess.run(["bash", "-x", "-c", old_prefix + producer + capture],
+                           env=env, capture_output=True, check=True)
+            self.assertEqual(parse_print_assumptions(log.read_text())["parse_status"],
+                             "UNRECOGNIZED")
+
     def assert_unrecognized(self, output: str) -> None:
         parsed = parse_print_assumptions(output)
         self.assertEqual(parsed["parse_status"], "UNRECOGNIZED")
