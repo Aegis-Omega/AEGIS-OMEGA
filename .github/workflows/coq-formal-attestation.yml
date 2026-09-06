@@ -109,7 +109,8 @@ jobs:
           ocaml_version: 'default'
           custom_script: |
             set -u
-            ROOT="$PWD/sovereign-omega-v2"
+            REPO="$PWD"
+            ROOT="$REPO/sovereign-omega-v2"
             FORMAL="$ROOT/formal/theories"
             OUT="$ROOT/coq-attestation"
             ASSUMPTIONS="$OUT/assumptions"
@@ -178,10 +179,10 @@ jobs:
 
             # Freeze reviewed inputs and actual executable/library bytes before
             # compilation. Existing compiled artifacts are rejected, never reused.
-            git diff --exit-code HEAD -- "$ROOT/formal" "$ROOT/python/coq_build_binding.py" || exit 1
+            git -c safe.directory="$REPO" -C "$REPO" diff --exit-code HEAD -- "$ROOT/formal" "$ROOT/python/coq_build_binding.py" || exit 1
             python3 "$ROOT/python/coq_build_binding.py" freeze \
               --formal-root "$FORMAL" --targets "$ROOT/formal/coq-targets.json" \
-              --source-commit "$(git rev-parse HEAD)" \
+              --source-commit "$(git -c safe.directory="$REPO" -C "$REPO" rev-parse HEAD)" \
               --contract "$OUT/build-contract.json" || exit 1
 
             # Compile order is generated, never hand-maintained: see
@@ -206,7 +207,7 @@ jobs:
               --formal-root "$FORMAL" --targets "$ROOT/formal/coq-targets.json" \
               --contract "$OUT/build-contract.json" \
               --out "$OUT/build-binding.json" || exit 1
-            git diff --exit-code HEAD -- "$ROOT/formal" "$ROOT/python/coq_build_binding.py" || exit 1
+            git -c safe.directory="$REPO" -C "$REPO" diff --exit-code HEAD -- "$ROOT/formal" "$ROOT/python/coq_build_binding.py" || exit 1
 
       - name: Generate content-addressed Coq attestation receipt
         if: always()
