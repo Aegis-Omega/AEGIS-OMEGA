@@ -1,0 +1,37 @@
+name: Coq O0 Dependency Scope RED
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/python/coq_attestation.py'
+      - 'sovereign-omega-v2/python/tests/test_coq_attestation_o0_dependency_scope.py'
+      - '.github/workflows/coq-o0-dependency-scope-red.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  scope-contract:
+    name: O0DependencyProbe diagnostic-scope contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+      - name: Bind exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+      - name: Run O0DependencyProbe scope contract
+        working-directory: sovereign-omega-v2
+        env:
+          PYTHONPATH: python
+        run: python3 -m unittest python.tests.test_coq_attestation_o0_dependency_scope -v

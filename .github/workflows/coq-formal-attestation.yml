@@ -42,6 +42,7 @@ jobs:
           python.tests.test_coq_attestation
           python.tests.test_coq_attestation_regressions
           python.tests.test_coq_attestation_diagnostics
+          python.tests.test_coq_attestation_o0_dependency_scope
           -v
 
       - name: Verify frozen assumption baseline
@@ -230,6 +231,7 @@ jobs:
               'Weil/O0TrustProbeFunction.v',
               'Weil/O0TrustProbeCompact.v',
               'Weil/O0TrustProbeContinuity.v',
+              'Weil/O0DependencyProbe.v',
           }
           REQUIRE_AXIOM_FREE = {
               'Core/LatticeConvergence.v',
@@ -320,11 +322,18 @@ jobs:
               assert entry['evidence_scope'] == 'DIAGNOSTIC_ONLY', entry
               assert entry['compile_status'] == 'COMPILED', entry
               assert entry['admitted_count'] == 0, entry
-              assert entry['theorem_count'] > 0, entry
+              if diagnostic_path != 'Weil/O0DependencyProbe.v':
+                  assert entry['theorem_count'] > 0, entry
               assert all(
                   theorem['parse_status'] not in {'MISSING', 'UNRECOGNIZED'}
                   for theorem in entry['theorems']
               ), entry
+
+          dependency_probe = files_by_path['Weil/O0DependencyProbe.v']
+          assert dependency_probe['evidence_scope'] == 'DIAGNOSTIC_ONLY', dependency_probe
+          assert dependency_probe['attestation'] == 'COMPILED_NO_THEOREMS', dependency_probe
+          assert dependency_probe['declaration_status'] == 'NO_DECLARED_ASSUMPTIONS', dependency_probe
+          assert dependency_probe['theorem_count'] == 0, dependency_probe
 
           threeway = files_by_path['Bisimulation/ThreeWay.v']
           assert threeway['evidence_scope'] == 'AUTHORITY_ELIGIBLE', threeway

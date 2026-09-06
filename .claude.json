@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/weil-canonical-prime-source-sum-v1",
-    "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
+    "source_ref": "fix/coq-o0-dependency-diagnostic-v1",
+    "parent_state_hash": "dc242b740b441d3ac9d0a6c227310f85f3d837b013c38261e22b6369072ca9f4",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "a1c2d450dd3af5f0c4efeeabe0003dcae87f5041b13708ccb9fbf8e499bfbc35"
+  "state_hash": "1f0c067eda1f3f1319aeac31e8e439ac07aaf47a926abdc38d5c4efe5b882045"
 }

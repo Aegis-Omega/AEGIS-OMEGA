@@ -34,6 +34,7 @@ DIAGNOSTIC_ONLY_PATHS = frozenset(
         "Weil/O0TrustProbeFunction.v",
         "Weil/O0TrustProbeCompact.v",
         "Weil/O0TrustProbeContinuity.v",
+        "Weil/O0DependencyProbe.v",
     }
 )
 
