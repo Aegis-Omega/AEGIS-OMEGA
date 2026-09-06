@@ -80,7 +80,20 @@ class BindingResolutionTests(TestCase):
             with self.subTest(symbol=row["symbol"]):
                 self.assertEqual(row["status"], tmc.DERIVED_FORMALIZATION)
                 self.assertFalse(row["found_in_source"])
-        for needle in ("\U0001d514", "|Ψ⟩", "Ġ_P"):
+        # The name is source-bound; the geometry is not. Asserting the presence
+        # of one is what keeps the absence of the others from passing against an
+        # empty or unread corpus.
+        self.assertIn("QuantumManifold", corpus)
+        for needle in (
+            "\U0001d514",
+            "|Ψ⟩",
+            "g_P",
+            "g_A",
+            "Ê_k",
+            "P̂",
+            "Hilbert",
+            "superposition",
+        ):
             with self.subTest(needle=needle):
                 self.assertNotIn(needle, corpus)
 
