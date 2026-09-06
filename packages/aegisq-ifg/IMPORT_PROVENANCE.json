@@ -1,0 +1,37 @@
+{
+  "base_commit": "414b04ea2969ae56208949e7923f0ec1e094be24",
+  "imported_calibration_files": [
+    {
+      "path": "sovereign-omega-v2/src/calibration/quanphotonic.ts",
+      "source_commit": "7874bd4743d164a28632b90653c73b9449a85755",
+      "sha256": "100840288b03c0fbacd983fce72a22c69f6d84c5b73d6e279f5e0b04b982b61f"
+    },
+    {
+      "path": "sovereign-omega-v2/src/calibration/quanphotonic-replay-store.ts",
+      "source_commit": "7874bd4743d164a28632b90653c73b9449a85755",
+      "sha256": "b9ba1f624d33b88b8d509f51aba3657759faf91152249af786bc8f73b4940ed6"
+    },
+    {
+      "path": "sovereign-omega-v2/schemas/quanphotonic-calibration-receipt.v1.schema.json",
+      "source_commit": "7874bd4743d164a28632b90653c73b9449a85755",
+      "sha256": "d75fe30e905ff98e3ca9a6e8fcc950534017c1cce958d18ab4f94f22bcb9cc20"
+    },
+    {
+      "path": "sovereign-omega-v2/schemas/quanphotonic-measurement-batch.v1.schema.json",
+      "source_commit": "7874bd4743d164a28632b90653c73b9449a85755",
+      "sha256": "8b90bbd14dcd977116e0ddeae252a8341ee6f614ba4aecef95528fd9cc8eaf82"
+    },
+    {
+      "path": "sovereign-omega-v2/test/unit/quanphotonic-calibration.test.ts",
+      "source_commit": "7874bd4743d164a28632b90653c73b9449a85755",
+      "sha256": "9b4e9c22f09c84718560cf3208686e8bd1961072213993f94e213d68063b60d7"
+    },
+    {
+      "path": "sovereign-omega-v2/test/unit/quanphotonic-persistent-replay.test.ts",
+      "source_commit": "7874bd4743d164a28632b90653c73b9449a85755",
+      "sha256": "fbfec279038bcb0abc5e368d0e3f6a2ed5d08d85913677f028b311aca15b5663"
+    }
+  ],
+  "ifg_source_archive_sha256": "a2e59110551f4b089e1db881664bccb6f3dd73cd9a14664a61a5893eef74036f",
+  "scope": "BYTE_PRESERVING_IMPORT_NEW_INTEGRATION_VALIDATION_REQUIRED"
+}

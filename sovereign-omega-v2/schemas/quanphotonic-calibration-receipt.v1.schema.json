@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/quanphotonic-calibration-receipt.v1.schema.json",
+  "title": "QuanPhotonic CalibrationReceiptV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "payload",
+    "payload_digest",
+    "signature_algorithm",
+    "signer_key_id",
+    "signature",
+    "verification_status"
+  ],
+  "properties": {
+    "payload": { "$ref": "#/$defs/payload" },
+    "payload_digest": { "$ref": "#/$defs/sha256" },
+    "signature_algorithm": { "const": "Ed25519" },
+    "signer_key_id": { "type": "string", "minLength": 1 },
+    "signature": { "type": "string", "pattern": "^[0-9a-f]{128}$" },
+    "verification_status": { "const": "UNVERIFIED" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sequence": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "calibration_epoch_id",
+        "detector_id",
+        "detector_configuration_digest",
+        "sequence",
+        "valid_from_sequence",
+        "valid_until_sequence",
+        "previous_receipt_digest",
+        "raw_calibration_digest",
+        "calibration_code_commit",
+        "reference_source_ids",
+        "parameters",
+        "calibration_status"
+      ],
+      "properties": {
+        "schema_version": { "const": "QUANPHOTONIC_CALIBRATION_RECEIPT_V1" },
+        "calibration_epoch_id": { "type": "string", "minLength": 1 },
+        "detector_id": { "type": "string", "minLength": 1 },
+        "detector_configuration_digest": { "$ref": "#/$defs/sha256" },
+        "sequence": { "$ref": "#/$defs/sequence" },
+        "valid_from_sequence": { "$ref": "#/$defs/sequence" },
+        "valid_until_sequence": { "$ref": "#/$defs/sequence" },
+        "previous_receipt_digest": {
+          "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }]
+        },
+        "raw_calibration_digest": { "$ref": "#/$defs/sha256" },
+        "calibration_code_commit": { "$ref": "#/$defs/commit" },
+        "reference_source_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "background_rate_hz",
+            "spectral_efficiency_model_digest",
+            "afterpulse_kernel_digest",
+            "dead_time_ps",
+            "jitter_ps_rms",
+            "gain",
+            "pileup_model_digest"
+          ],
+          "properties": {
+            "background_rate_hz": { "type": "string", "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]*[1-9])?$" },
+            "spectral_efficiency_model_digest": { "$ref": "#/$defs/sha256" },
+            "afterpulse_kernel_digest": { "$ref": "#/$defs/sha256" },
+            "dead_time_ps": { "type": "string", "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]*[1-9])?$" },
+            "jitter_ps_rms": { "type": "string", "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]*[1-9])?$" },
+            "gain": { "type": "string", "pattern": "^(?:0\\.[0-9]*[1-9]|[1-9][0-9]*(?:\\.[0-9]*[1-9])?)$" },
+            "pileup_model_digest": { "$ref": "#/$defs/sha256" }
+          }
+        },
+        "calibration_status": { "enum": ["PASS", "INVALID_CALIBRATION"] }
+      }
+    }
+  }
+}
