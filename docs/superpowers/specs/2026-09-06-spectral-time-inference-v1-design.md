@@ -2,7 +2,7 @@
 
 ## Status
 
-APPROVED_DESIGN / IMPLEMENTATION_PENDING
+IMPLEMENTED_CANDIDATE / EXACT_SOURCE_REPLAYED / CI_PENDING / NOT_ADMITTED
 
 Base authority: `main@6eb2ac201bbe60ebaa9cebad714b8696683772e8`.
 
@@ -67,6 +67,16 @@ The implementation is not GREEN until all of the following pass:
 6. spectral/autocorrelation consistency;
 7. context-length anti-baseline: repeating the same periodic record must not double the inferred horizon;
 8. `authority_effect == "NONE"`.
+
+## Current verification snapshot
+
+- RED contract commit: `044483564ce81326c793a2c0344096ed65cf6d3e`.
+- Tested production source head: `6d8793961c3fbbe1d21022e34b96c4e756f0b5f2`.
+- Focused exact-byte replay: 12 passed, 0 failed.
+- Adversarial synthetic sweep: 432 passed, 0 failed.
+- Verification receipt: `docs/evidence/SPECTRAL_TIME_INFERENCE_V1_RECEIPT.json`.
+- GitHub Actions authority remains pending for the current PR head.
+- Claims Ledger effect remains `NONE`.
 
 ## Epistemic boundary
 
