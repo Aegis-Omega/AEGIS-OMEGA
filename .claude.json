@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "main",
-    "parent_state_hash": "ea083bfdff01818f6ca7ee238167f3bb58ba9cbe55a7179026ed4b4418afaa4d",
+    "source_ref": "fix/cognitive-writer-merge-gate-v1",
+    "parent_state_hash": "f56de83c22d4457aaae0d310358c7ec7f3d545201ce6a5e971798751de185b03",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "f56de83c22d4457aaae0d310358c7ec7f3d545201ce6a5e971798751de185b03"
+  "state_hash": "dc242b740b441d3ac9d0a6c227310f85f3d837b013c38261e22b6369072ca9f4"
 }

@@ -7,6 +7,57 @@ permissions:
   contents: read
 
 jobs:
+  cognitive-writer-merge:
+    name: aegis / cognitive-writer-merge
+    if: github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout trusted writer evaluator
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: ${{ job.workflow_repository || github.repository }}
+          ref: ${{ job.workflow_sha || github.workflow_sha }}
+          path: trusted-source
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Checkout exact PR merge as data
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.sha }}
+          path: merge-data
+          fetch-depth: 2
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Test trusted merge evaluator
+        run: python trusted-source/scripts/test-cognitive-writer-merge-gate.py
+
+      - name: Check writer in the bound merge commit
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          MERGE_SHA: ${{ github.sha }}
+        run: |
+          python trusted-source/scripts/check-cognitive-writer-merge.py \
+            --repo merge-data \
+            --base-sha "$BASE_SHA" \
+            --head-sha "$HEAD_SHA" \
+            --merge-sha "$MERGE_SHA" \
+            --output "$RUNNER_TEMP/COGNITIVE_WRITER_MERGE_CHECK.json"
+
+      - name: Upload writer merge check
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cognitive-writer-merge-${{ github.sha }}
+          path: ${{ runner.temp }}/COGNITIVE_WRITER_MERGE_CHECK.json
+          if-no-files-found: error
+
   trusted-cognitive-admission:
     name: aegis / trusted-cognitive-admission
     runs-on: ubuntu-latest
