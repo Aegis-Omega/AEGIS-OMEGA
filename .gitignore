@@ -88,3 +88,10 @@ worker-configuration.d.ts
 
 # Sovereign-mesh pipeline run artifacts (architect/artisan/auditor) — regenerated per sprint, not source
 state/
+
+
+# Service-account / service-principal credential payloads written by
+# vendored skill workflows (e.g. federate-lakehouse-catalog). Plaintext
+# secrets must never be committable.
+credentials.json
+**/credentials.json
