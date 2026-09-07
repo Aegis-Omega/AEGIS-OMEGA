@@ -7,6 +7,8 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -16,6 +18,7 @@ from jsonschema import Draft202012Validator
 RECEIPT_KIND = "AEGIS_AUTOMATON2_RECEIPT_V1"
 SCHEMA_VERSION = "1.0.0"
 ZERO_HASH = "0" * 64
+COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -100,6 +103,35 @@ def validate_signature_contract(manifest: dict[str, Any], require_oidc: bool) ->
             errors.append("unsigned transition: GITHUB_ACTIONS is not true")
         if missing:
             errors.append("unsigned transition: missing OIDC environment: " + ",".join(missing))
+    return errors
+
+
+def validate_exact_candidate(root: Path, candidate_sha: str) -> list[str]:
+    if COMMIT_SHA_RE.fullmatch(candidate_sha) is None:
+        return ["candidate_sha is not a full lowercase Git commit SHA"]
+    try:
+        head_sha = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return ["candidate git state unavailable"]
+
+    errors = []
+    if head_sha != candidate_sha:
+        errors.append(f"candidate_sha mismatch: expected checked-out HEAD {head_sha}")
+    if dirty:
+        errors.append("candidate content differs from checked-out HEAD")
     return errors
 
 
@@ -212,6 +244,7 @@ def evaluate(
     violations: list[str] = []
     manifest: dict[str, Any] | None = None
     try:
+        violations.extend(validate_exact_candidate(root, candidate_sha))
         manifest_value = load_json(manifest_path)
         if not isinstance(manifest_value, dict):
             raise ValueError("manifest root is not an object")

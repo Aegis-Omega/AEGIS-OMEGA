@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase, main
@@ -66,9 +67,34 @@ class Automaton2Tests(TestCase):
             encoding="utf-8",
         )
         (self.root / "skill-hashes.sha256").write_text(hashes, encoding="utf-8")
+        subprocess.run(["git", "init", "-q"], cwd=self.root, check=True)
+        subprocess.run(["git", "add", "."], cwd=self.root, check=True)
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "user.name=Automaton Test",
+                "-c",
+                "user.email=automaton@example.invalid",
+                "commit",
+                "-qm",
+                "fixture",
+            ],
+            cwd=self.root,
+            check=True,
+        )
+        self.candidate_sha = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=self.root,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
         return manifest
 
-    def evaluate(self, *, require_oidc: bool = False) -> dict:
+    def evaluate(
+        self, *, require_oidc: bool = False, candidate_sha: str | None = None
+    ) -> dict:
         return VALIDATOR.evaluate(
             root=self.root,
             manifest_path=self.root / ".claude.json",
@@ -76,7 +102,7 @@ class Automaton2Tests(TestCase):
             generator_path=self.root / "scripts" / "build-cognitive-manifest.py",
             hashes_path=self.root / "skill-hashes.sha256",
             expected_parent_state_hash=self.parent_hash,
-            candidate_sha="a" * 40,
+            candidate_sha=candidate_sha or self.candidate_sha,
             require_oidc=require_oidc,
         )
 
@@ -99,6 +125,27 @@ class Automaton2Tests(TestCase):
         receipt = self.evaluate()
         self.assertEqual(receipt["outcome"], "DENIED")
         self.assertTrue(any("parent_state_hash mismatch" in item for item in receipt["violations"]))
+
+    def test_candidate_sha_mismatch_is_denied(self) -> None:
+        receipt = self.evaluate(candidate_sha="a" * 40)
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertTrue(any("candidate_sha mismatch" in item for item in receipt["violations"]))
+
+    def test_abbreviated_candidate_sha_is_denied(self) -> None:
+        receipt = self.evaluate(candidate_sha=self.candidate_sha[:12])
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertIn(
+            "candidate_sha is not a full lowercase Git commit SHA", receipt["violations"]
+        )
+
+    def test_dirty_tracked_candidate_is_denied(self) -> None:
+        schema = self.root / "schemas" / "cognitive-state.v1.schema.json"
+        schema.write_text(schema.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+        receipt = self.evaluate()
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertIn(
+            "candidate content differs from checked-out HEAD", receipt["violations"]
+        )
 
     def test_skill_digest_mismatch_is_denied(self) -> None:
         skill = self.root / ".claude" / "skills" / "test" / "SKILL.md"
