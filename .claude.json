@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/mhp1-transitive-composition-v1",
-    "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
+    "source_ref": "feat/mhp1-morphism-engine-v1",
+    "parent_state_hash": "dc242b740b441d3ac9d0a6c227310f85f3d837b013c38261e22b6369072ca9f4",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "b908d2f48bbb0a5ef9199f13665c7be4defdf9e5fd270f496f1f00289e2625bb"
+  "state_hash": "b2b251204f2dc75a75ff3e5d5366ff3510492338c1f9d912d3d8979346a9d5b1"
 }
