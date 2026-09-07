@@ -116,7 +116,8 @@ Section AuthorityPoset.
         apply fail_closed_equality.
         assert (Hresolved : resolve_authority (lookup id) = bot).
         { rewrite Hmissing. reflexivity. }
-        rewrite <- Hresolved. apply in_map. exact Hin.
+        rewrite <- Hresolved.
+        exact (@in_map Id A (fun key => resolve_authority (lookup key)) (h :: t) id Hin).
     Qed.
   End RequiredPremises.
 
@@ -139,9 +140,8 @@ Section AuthorityPoset.
       intros u v [cap Hin]. rewrite (node_equation v).
       apply le_trans with (y := meet (authority u) cap).
       - apply authority_non_escalation.
-        change (In ((fun pc : Node * A => meet (authority (fst pc)) (snd pc)) (u, cap))
-          (map (fun pc => meet (authority (fst pc)) (snd pc)) (required v))).
-        apply in_map. exact Hin.
+        exact (@in_map (Node * A) A
+          (fun pc => meet (authority (fst pc)) (snd pc)) (required v) (u, cap) Hin).
       - apply meet_lb1.
     Qed.
 
