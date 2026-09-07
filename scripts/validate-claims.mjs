@@ -269,6 +269,17 @@ function main() {
   if (missingInJson.length) err(`ids in CLAIMS_LEDGER.md but not claims.json: ${missingInJson.join(', ')}`);
   if (missingInMd.length) err(`ids in claims.json but not CLAIMS_LEDGER.md: ${missingInMd.join(', ')}`);
 
+  // Domain witness integrity includes semantics and source bindings, not hashes alone.
+  // This repository gate does not confer constitutional or runtime authority.
+  try {
+    const result = execFileSync('python3', ['genomics/quantum_dna/claims_gate.py'], {
+      cwd: REPO_ROOT, encoding: 'utf8', timeout: 30000,
+    });
+    console.log(result.trim());
+  } catch (e) {
+    err(`QuantumDNA witness gate rejected: ${e.stderr?.toString().trim() || e.message}`);
+  }
+
   return finish({ claims, byId, staleCount, staleClaims, jsonIds });
 }
 

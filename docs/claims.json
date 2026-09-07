@@ -548,6 +548,198 @@
       ],
       "fails_if": "The stable check omits pull_request, merge_group, or main push; artifacts are not candidate-bound; replay checksums are absent; OIDC is not required; or any negative-test bypass is accepted.",
       "verified_against": "f514dcecabeaa7b6d55c308de6349dfcd3f36df6"
+    },
+    {
+      "id": "CLM-451",
+      "claim": "The QuantumDNA witness ledger binds source bytes, complete claim semantics and ordered previous-entry hashes; verified integrity alone grants no runtime or biological authority.",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Code: genomics/quantum_dna/claims_gate.py",
+        "Test: genomics/quantum_dna/test_claims_gate.py"
+      ],
+      "fails_if": "A source byte, model scope, claim wording, status, limitation, ordering or parent hash changes without the gate rejecting it; or an unsupported authority promotion passes.",
+      "verified_against": "91893ce42a676a004e25a3d147b70204a568ec7b"
+    },
+    {
+      "id": "CLM-452",
+      "claim": "In the archived six-site one-hole GTG simulation, site-basis C_l1 at 25 fs is 0.21646991105146732 for gamma=0.1 eV and 0.1438771953946045 for gamma=0.5 eV; neither condition meets all preregistered classical-approximation criteria.",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Code: genomics/quantum_dna/claims_gate.py",
+        "Test: genomics/quantum_dna/test_claims_gate.py"
+      ],
+      "fails_if": "A source byte, model scope, claim wording, status, limitation, ordering or parent hash changes without the gate rejecting it; or an unsupported authority promotion passes.",
+      "verified_against": "91893ce42a676a004e25a3d147b70204a568ec7b"
+    },
+    {
+      "id": "CLM-453",
+      "claim": "The archived 37-state ELM reference runs record sampled ground-population 1-1/e crossings at 541.0821643286573 fs (shipped 1BNA parameters) and 775.5511022044088 fs (Hawke2010); these are distinct parameter replays, not an original-publication trajectory match.",
+      "tier": "Verified",
+      "eq": "EQ-A",
+      "dependencies": [],
+      "evidence": [
+        "Code: genomics/quantum_dna/claims_gate.py",
+        "Test: genomics/quantum_dna/test_claims_gate.py"
+      ],
+      "fails_if": "A source byte, model scope, claim wording, status, limitation, ordering or parent hash changes without the gate rejecting it; or an unsupported authority promotion passes.",
+      "verified_against": "91893ce42a676a004e25a3d147b70204a568ec7b"
+    },
+    {
+      "id": "CLM-454",
+      "claim": "1BNA published trajectory reproduced by matching Hawke scalar",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Code: genomics/quantum_dna/claims_gate.py",
+        "Test: genomics/quantum_dna/test_claims_gate.py"
+      ],
+      "removal_reason": "Separate shipped 1BNA parameter replay from documented Hawke scalar match; external trajectory match remains not established. This is a bounded witness audit; the second mathematical document was not provided."
+    },
+    {
+      "id": "CLM-455",
+      "claim": "GTG C_l1 < 0.2 within 25 fs at gamma=0.1 eV",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Code: genomics/quantum_dna/claims_gate.py",
+        "Test: genomics/quantum_dna/test_claims_gate.py"
+      ],
+      "removal_reason": "C_l1(25 fs)=0.21646991105146732; later maximum after25fs=0.22214389871835982. This is a bounded witness audit; the second mathematical document was not provided."
+    },
+    {
+      "id": "CLM-456",
+      "claim": "gamma>=0.1 eV destroys coherence and establishes classical hopping",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Code: genomics/quantum_dna/claims_gate.py",
+        "Test: genomics/quantum_dna/test_claims_gate.py"
+      ],
+      "removal_reason": "Suppression is measured, not complete destruction; 0.1 and0.5eV fail preregistered asymptotic coupling criterion. This is a bounded witness audit; the second mathematical document was not provided."
+    },
+    {
+      "id": "CLM-457",
+      "claim": "The simulated environment is calibrated thermal noise",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Code: genomics/quantum_dna/claims_gate.py",
+        "Test: genomics/quantum_dna/test_claims_gate.py"
+      ],
+      "removal_reason": "Pure dephasing is phenomenological; no temperature calibration or thermalizing bath in sweep. This is a bounded witness audit; the second mathematical document was not provided."
+    },
+    {
+      "id": "CLM-458",
+      "claim": "GGG is a trapping state",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Code: genomics/quantum_dna/claims_gate.py",
+        "Test: genomics/quantum_dna/test_claims_gate.py"
+      ],
+      "removal_reason": "Closed one-hole system has no absorbing trap; G3 population is a finite-time transport diagnostic. This is a bounded witness audit; the second mathematical document was not provided."
+    },
+    {
+      "id": "CLM-459",
+      "claim": "Central base barrier alone explains sequence ranking",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Code: genomics/quantum_dna/claims_gate.py",
+        "Test: genomics/quantum_dna/test_claims_gate.py"
+      ],
+      "removal_reason": "Both detuning and coupling matrices change, with lower-strand paths; causal attribution needs controlled ablations. This is a bounded witness audit; the second mathematical document was not provided."
+    },
+    {
+      "id": "CLM-460",
+      "claim": "Complex Hermitian rho alone fixes real positive commutator margin",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Code: genomics/quantum_dna/claims_gate.py",
+        "Test: genomics/quantum_dna/test_claims_gate.py"
+      ],
+      "removal_reason": "[A,B] is anti-Hermitian; -i[A,B] is Hermitian but not uniformly positive over all states in finite dimension. This is a bounded witness audit; the second mathematical document was not provided."
+    },
+    {
+      "id": "CLM-461",
+      "claim": "Riemann-Lebesgue decay annihilates the spectrum",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Code: genomics/quantum_dna/claims_gate.py",
+        "Test: genomics/quantum_dna/test_claims_gate.py"
+      ],
+      "removal_reason": "For an L1 Fourier kernel, fixed-parameter transform tends to zero; spectral and uniform-in-parameter conclusions need further assumptions. This is a bounded witness audit; the second mathematical document was not provided."
+    },
+    {
+      "id": "CLM-462",
+      "claim": "Nonzero g_D squared establishes zero exclusion",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Code: genomics/quantum_dna/claims_gate.py",
+        "Test: genomics/quantum_dna/test_claims_gate.py"
+      ],
+      "removal_reason": "If g_D is the directional derivative, a nonzero derivative at a zero establishes a transverse zero; notation is undefined without source document. This is a bounded witness audit; the second mathematical document was not provided."
+    },
+    {
+      "id": "CLM-463",
+      "claim": "Every traceless Hermitian commutator observable -i[A,B], including the zero operator, has eigenvalues of both signs.",
+      "tier": "Removed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Code: genomics/quantum_dna/claims_gate.py",
+        "Test: genomics/quantum_dna/test_claims_gate.py"
+      ],
+      "removal_reason": "Both signs follow only when the finite-dimensional traceless Hermitian operator is nonzero. The zero commutator has only zero eigenvalues. Neither case supports uniform strict positivity over all states."
+    },
+    {
+      "id": "CLM-464",
+      "claim": "Single-parameter Hamiltonian ablations can distinguish coupling and detuning contributions to the GTG/GCG difference.",
+      "tier": "Proposed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Code: genomics/quantum_dna/claims_gate.py"
+      ],
+      "fails_if": "The next-run contract checks allowed matrix changes; no causal ablation has been executed by this integration."
+    },
+    {
+      "id": "CLM-465",
+      "claim": "The simulated sequence/dephasing differences have a verified biological consequence in cells.",
+      "tier": "Proposed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Code: genomics/quantum_dna/claims_gate.py"
+      ],
+      "fails_if": "Hypothesis only; no cellular measurement, calibrated bath, mutation-rate or trapping experiment is supplied."
+    },
+    {
+      "id": "CLM-466",
+      "claim": "The complete second mathematical document can be audited for its commutator, Fourier-decay and zero-exclusion arguments.",
+      "tier": "Proposed",
+      "eq": "EQ-D",
+      "dependencies": [],
+      "evidence": [
+        "Code: genomics/quantum_dna/claims_gate.py"
+      ],
+      "fails_if": "Blocked pending the source document and definitions; only the quoted formulas have been examined."
     }
   ]
 }
