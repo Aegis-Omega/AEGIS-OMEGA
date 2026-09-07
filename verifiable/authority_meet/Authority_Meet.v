@@ -48,30 +48,21 @@ Section AuthorityPoset.
         * apply IH. apply Htail.
   Qed.
 
-  (* Definisanje minimalne karike autoriteta čvora:
-     a_s(v) = g_s(v) ⊓ q_s(v) ⊓ fold_meet(obavezne_ivice) *)
+  (* Explicit parentheses retain the supplied left-associated definition. *)
   Definition compute_node_authority (g_v q_v : A) (edge_authorities : list A) : A :=
-    g_v ⊓ q_v ⊓ (fold_meet edge_authorities).
+    (g_v ⊓ q_v) ⊓ (fold_meet edge_authorities).
 
-  (* TEOREM 1: Bilo koja izvedena vrijednost autoriteta čvora ne može nadmašiti
-     autoritet bilo koje obavezne ulazne ivice (Dokaz Neeskalacije) *)
   Theorem authority_non_escalation : forall (g_v q_v e_i : A) (edges : list A),
     In e_i edges ->
     (compute_node_authority g_v q_v edges) <= e_i.
   Proof.
     intros g_v q_v e_i edges Hin.
     unfold compute_node_authority.
-    (* Step 1: (g_v ⊓ q_v ⊓ fold_meet) <= (fold_meet) *)
     apply le_trans with (y := fold_meet edges).
-    - apply le_trans with (y := q_v ⊓ fold_meet edges).
-      + apply meet_lb2.
-      + apply meet_lb2.
-    - (* Step 2: fold_meet edges <= e_i *)
-      apply fold_meet_in_le. apply Hin.
+    - apply meet_lb2.
+    - apply fold_meet_in_le. exact Hin.
   Qed.
 
-  (* TEOREM 2: Ako je bar jedna obavezna ivica otkazala ili fali (nivo Bot = Fail-Closed),
-     rezultujući autoritet čvora se neizbježno spušta na taj nivo *)
   Variable bot : A.
   Hypothesis bot_min : forall x, bot <= x.
   Hypothesis meet_bot_l : forall x, bot ⊓ x = bot.
@@ -83,7 +74,7 @@ Section AuthorityPoset.
   Proof.
     intros g_v q_v edges Hin.
     apply authority_non_escalation with (g_v := g_v) (q_v := q_v).
-    apply Hin.
+    exact Hin.
   Qed.
 
 End AuthorityPoset.
