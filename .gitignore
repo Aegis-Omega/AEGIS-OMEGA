@@ -11,6 +11,7 @@
 *.out
 dist/
 build/
+.build/
 
 # Dependencies
 node_modules/
