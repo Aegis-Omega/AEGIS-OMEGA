@@ -118,7 +118,7 @@ def validate_exact_candidate(root: Path, candidate_sha: str) -> list[str]:
             text=True,
         ).stdout.strip()
         dirty = subprocess.run(
-            ["git", "status", "--porcelain", "--untracked-files=no"],
+            ["git", "status", "--porcelain", "--untracked-files=normal"],
             cwd=root,
             check=True,
             capture_output=True,
@@ -131,7 +131,7 @@ def validate_exact_candidate(root: Path, candidate_sha: str) -> list[str]:
     if head_sha != candidate_sha:
         errors.append(f"candidate_sha mismatch: expected checked-out HEAD {head_sha}")
     if dirty:
-        errors.append("candidate content differs from checked-out HEAD")
+        errors.append("candidate worktree contains content outside checked-out HEAD")
     return errors
 
 

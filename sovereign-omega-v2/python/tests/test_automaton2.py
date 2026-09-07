@@ -53,6 +53,7 @@ class Automaton2Tests(TestCase):
             (REPO_ROOT / "schemas" / "cognitive-state.v1.schema.json").read_text(encoding="utf-8"),
             encoding="utf-8",
         )
+        (self.root / ".gitignore").write_text("__pycache__/\n", encoding="utf-8")
         self.parent_hash = "1" * 64
         self.write_manifest()
 
@@ -144,7 +145,19 @@ class Automaton2Tests(TestCase):
         receipt = self.evaluate()
         self.assertEqual(receipt["outcome"], "DENIED")
         self.assertIn(
-            "candidate content differs from checked-out HEAD", receipt["violations"]
+            "candidate worktree contains content outside checked-out HEAD",
+            receipt["violations"],
+        )
+
+    def test_untracked_skill_evidence_is_denied(self) -> None:
+        skill = self.root / ".claude" / "skills" / "untracked" / "SKILL.md"
+        skill.parent.mkdir()
+        skill.write_text("---\nname: untracked\n---\n", encoding="utf-8")
+        receipt = self.evaluate()
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertIn(
+            "candidate worktree contains content outside checked-out HEAD",
+            receipt["violations"],
         )
 
     def test_skill_digest_mismatch_is_denied(self) -> None:
