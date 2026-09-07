@@ -11,7 +11,6 @@ from enum import Enum
 from typing import Any, Protocol, TypeAlias
 
 from harness.sdk.meaning_heritage import (
-    HeritageReceiptV1,
     TrustedHeritageReceiptStore,
     canonical_hash,
     require_hash,
