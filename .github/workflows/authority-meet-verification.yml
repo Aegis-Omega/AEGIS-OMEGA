@@ -1,0 +1,138 @@
+name: Authority Meet Verification
+
+on:
+  push:
+    branches: ['proof/authority-meet-v1-20260907']
+  pull_request:
+    paths:
+      - 'verifiable/authority_meet/**'
+      - '.github/workflows/authority-meet-verification.yml'
+      - '.claude.json'
+      - 'skill-hashes.sha256'
+
+permissions:
+  contents: read
+
+jobs:
+  authority-meet:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      COQ_IMAGE: coqorg/coq@sha256:18ebf3da56e60e3ddfd7d4e51f4c53d10241a129f34e93dacbc71562dd43c57a
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Bind exact head and isolated workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain --untracked-files=all)"
+          WORK="$RUNNER_TEMP/authority-meet-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          mkdir -p "$WORK"
+          cp verifiable/authority_meet/Authority_Meet.v "$WORK/"
+          cp verifiable/authority_meet/Authority_Tests.v "$WORK/"
+          chmod 777 "$WORK"
+          echo "WORK=$WORK" >> "$GITHUB_ENV"
+          printf '%s\n' "$EXPECTED_HEAD" > "$WORK/source_head.txt"
+          (cd "$WORK" && sha256sum Authority_Meet.v Authority_Tests.v > sources.sha256)
+          docker pull "$COQ_IMAGE"
+          docker image inspect "$COQ_IMAGE" > "$WORK/container-image.json"
+          IMAGE_ID=$(docker image inspect --format '{{.Id}}' "$COQ_IMAGE")
+          echo "IMAGE_ID=$IMAGE_ID" >> "$GITHUB_ENV"
+      - name: Compile source and regression contracts with Coq 8.20.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network=none -v "$WORK:/work" -w /work "$IMAGE_ID" bash -c '
+            set -euo pipefail
+            coqc --version | tee prover-version.txt
+            test "$(coqc -print-version | cut -d " " -f 1)" = 8.20.1
+            sha256sum "$(readlink -f "$(command -v coqc)")" "$(readlink -f "$(command -v coqchk)")" | tee verifier-binaries.sha256
+            coqc -q -time Authority_Meet.v
+            coqc -q -time Authority_Tests.v
+          ' 2>&1 | tee "$WORK/coqc.log"
+      - name: Separate coqchk kernel replay with dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network=none -v "$WORK:/work" -w /work "$IMAGE_ID" coqchk -silent -o Authority_Meet Authority_Tests 2>&1 | tee "$WORK/coqchk.log"
+      - name: Capture generalized statements and assumptions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          p = pathlib.Path(os.environ['WORK'])
+          names = []
+          for module in ['Authority_Meet', 'Authority_Tests']:
+              source = (p / (module + '.v')).read_text()
+              found = re.findall(r'^\s*(?:Lemma|Theorem|Example)\s+([A-Za-z_][A-Za-z_0-9]*)\s*:', source, re.M)
+              if not found:
+                  raise SystemExit('Empty theorem inventory: ' + module)
+              names.extend(module + '.' + name for name in found)
+          if len(names) != len(set(names)):
+              raise SystemExit('Duplicate theorem identifier')
+          (p/'declarations.json').write_text(json.dumps(names, indent=2)+'\n')
+          text = 'Require Import Authority_Meet Authority_Tests.\n'
+          for name in names:
+              text += f'Print {name}.\nPrint Assumptions {name}.\n'
+          (p/'Authority_Audit.v').write_text(text)
+          PY
+          docker run --rm --network=none -v "$WORK:/work" -w /work "$IMAGE_ID" coqc -q Authority_Audit.v 2>&1 | tee "$WORK/assumptions.log"
+          python3 - <<'PY'
+          import json, os, pathlib
+          p = pathlib.Path(os.environ['WORK'])
+          names = json.loads((p/'declarations.json').read_text())
+          text = (p/'assumptions.log').read_text()
+          if 'Axioms:' in text or text.count('Closed under the global context') != len(names):
+              raise SystemExit('Assumption inventory not globally closed')
+          print(f'GLOBAL_CONTEXT_CLOSED: {len(names)}/{len(names)}. Generalized hypotheses remain in theorem types.')
+          PY
+      - name: Recheck identity and emit scoped receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain --untracked-files=all)"
+          (cd "$WORK" && sha256sum --check sources.sha256)
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib
+          p = pathlib.Path(os.environ['WORK'])
+          names = json.loads((p/'declarations.json').read_text())
+          files = {f.name: hashlib.sha256(f.read_bytes()).hexdigest() for f in sorted(p.iterdir()) if f.is_file()}
+          payload = {
+              'schema': 'AEGIS_AUTHORITY_MEET_HOSTED_RECEIPT_V1',
+              'repository': os.environ['GITHUB_REPOSITORY'],
+              'source_head': os.environ['EXPECTED_HEAD'],
+              'run_id': os.environ['GITHUB_RUN_ID'],
+              'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'container_reference': os.environ['COQ_IMAGE'],
+              'container_image_id': os.environ['IMAGE_ID'],
+              'compile': 'PASS', 'kernel_replay': 'PASS',
+              'global_context_closed_count': len(names),
+              'theorem_inventory': names, 'file_sha256': files,
+              'scope': 'Generalized conditional algebra, explicit model contracts and concrete regression examples. Same hosted runner and pinned toolchain; not an independent external review.',
+              'generalized_hypotheses_remain': True,
+              'repository_admission': 'NOT_GRANTED',
+              'production_authority': 'NONE',
+              'cryptographic_signature': None}
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+          receipt = {'payload': payload, 'payload_sha256': hashlib.sha256(canonical).hexdigest(), 'encoding': 'Sorted compact Python JSON UTF-8; not claimed RFC8785 JCS'}
+          (p/'receipt.json').write_text(json.dumps(receipt, sort_keys=True, indent=2, ensure_ascii=False)+'\n')
+          print('BEGIN_AUTHORITY_MEET_RECEIPT')
+          print(json.dumps(receipt, sort_keys=True, ensure_ascii=False))
+          print('END_AUTHORITY_MEET_RECEIPT')
+          PY
+      - name: Preserve proof evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: authority-meet-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_attempt }}
+          path: ${{ env.WORK }}
+          if-no-files-found: error
+          retention-days: 30
+          include-hidden-files: true
