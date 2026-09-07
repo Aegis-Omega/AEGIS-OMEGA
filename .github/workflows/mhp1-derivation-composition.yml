@@ -36,7 +36,7 @@ concurrency:
 
 env:
   CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  EXPECTED_PARENT_SHA: f481f189019f5ff130331dcabc1eded504f834e2
+  EXPECTED_PARENT_SHA: 495bfd85d79abcb2b4f6898fe9c156488492426a
 
 jobs:
   verify:

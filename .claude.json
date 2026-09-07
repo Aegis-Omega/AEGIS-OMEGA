@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/mhp1-derivation-composition-v1",
-    "parent_state_hash": "f56de83c22d4457aaae0d310358c7ec7f3d545201ce6a5e971798751de185b03",
+    "source_ref": "feat/mhp1-transitive-composition-v1",
+    "parent_state_hash": "b2b251204f2dc75a75ff3e5d5366ff3510492338c1f9d912d3d8979346a9d5b1",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "a0958f2ed0286be3358813393abbe5375a399874e7ccd6db1ad50684005586ab"
+  "state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb"
 }
