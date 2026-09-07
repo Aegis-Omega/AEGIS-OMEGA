@@ -16,7 +16,6 @@ Examples:
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 import hashlib
 import json
 import os
@@ -28,7 +27,7 @@ from collections import Counter
 from typing import Iterable, Sequence
 
 SCHEMA_VERSION = "1.0.0"
-GENERATOR_VERSION = "2.0.0"
+GENERATOR_VERSION = "2.1.0"
 STATUS_ORDER = ("WIRED", "LINKED", "DORMANT", "ORPHAN")
 SKIP = {
     ".git",
@@ -61,15 +60,28 @@ def sh(args: Sequence[str], *, timeout: int = 90) -> str:
 
 
 def git_value(*args: str) -> str:
-    return sh(["git", *args]).strip()
+    return sh(["git", "--no-replace-objects", *args]).strip()
+
+
+def git_bytes(*args: str) -> bytes:
+    """Read real Git objects and propagate failures instead of emitting evidence."""
+    return subprocess.run(
+        ["git", "--no-replace-objects", *args],
+        check=True,
+        capture_output=True,
+        timeout=90,
+    ).stdout
+
+
+def validate_commit(commit: str) -> None:
+    if not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", commit):
+        raise ValueError("source must be a full lowercase commit object ID")
+    if git_bytes("cat-file", "-t", commit).strip() != b"commit":
+        raise ValueError("source object is not a commit")
 
 
 def head_sha() -> str:
     return git_value("rev-parse", "HEAD") or "unknown"
-
-
-def tree_sha() -> str:
-    return git_value("rev-parse", "HEAD^{tree}") or "unknown"
 
 
 def repository_name() -> str:
@@ -87,101 +99,70 @@ def repository_name() -> str:
     return remote.strip("/") or "unknown"
 
 
-def source_timestamp() -> str:
-    """Return a deterministic timestamp derived from the admitted source commit."""
-    epoch = os.environ.get("SOURCE_DATE_EPOCH", "").strip()
-    if epoch:
-        try:
-            value = dt.datetime.fromtimestamp(int(epoch), tz=dt.timezone.utc)
-            return value.isoformat().replace("+00:00", "Z")
-        except (ValueError, OverflowError):
-            pass
-    commit_time = git_value("show", "-s", "--format=%cI", "HEAD")
-    return commit_time or "unknown"
-
-
 def generator_digest() -> str:
+    """Identify the executed generator bytes, including local development edits."""
     data = Path(__file__).resolve().read_bytes()
     return hashlib.sha256(data).hexdigest()
 
 
-def workflow_text() -> str:
-    directory = Path(".github/workflows")
-    if not directory.is_dir():
-        return ""
-    output: list[str] = []
-    for path in sorted(p for p in directory.iterdir() if p.is_file()):
-        try:
-            output.append(path.read_text(encoding="utf-8", errors="ignore"))
-        except OSError as exc:
-            print(f"integration_ledger: skipping {path.name}: {exc}", file=sys.stderr)
-    return "\n".join(output)
+def committed_rows(commit: str) -> list[tuple[str, str, str]]:
+    """Classify committed blobs only; configuration is not execution evidence."""
+    validate_commit(commit)
+    entries = git_bytes("ls-tree", "--full-tree", "-r", "-z", commit).split(b"\0")
+    files: dict[str, str] = {}
+    directories: set[str] = set()
+    for entry in entries:
+        if not entry:
+            continue
+        header, raw_path = entry.split(b"\t", 1)
+        mode, kind, oid = header.split()
+        path = raw_path.decode("utf-8", errors="strict")
+        top = path.split("/", 1)[0]
+        if "/" in path and top not in SKIP and not top.startswith("."):
+            directories.add(top)
+        if (
+            kind != b"blob"
+            or mode not in (b"100644", b"100755")
+            or any(part in SKIP - {".github"} for part in path.split("/")[:-1])
+            or path.lower().endswith(".md")
+        ):
+            continue
+        data = git_bytes("cat-file", "blob", oid.decode("ascii"))
+        if b"\0" not in data:
+            files[path] = data.decode("utf-8", errors="replace")
 
-
-def external_refs(directory: str) -> int:
-    """Count files outside directory that contain a reference to `directory/`."""
-    output = sh(
-        [
-            "grep",
-            "-rIl",
-            "--exclude-dir=node_modules",
-            "--exclude-dir=.git",
-            "--exclude-dir=target",
-            "--exclude-dir=__pycache__",
-            f"{directory}/",
-            ".",
-        ]
-    ).splitlines()
-    return sum(
-        1
-        for filename in output
-        if not filename.startswith(f"./{directory}/") and f"/{directory}/" not in filename
-    )
-
-
-def classify(directory: str, workflows: str) -> tuple[str, str]:
-    in_ci = f"{directory}/" in workflows or (f" {directory}" in workflows and len(directory) > 3)
-    has_vercel = Path(directory, "vercel.json").exists()
-    references = external_refs(directory)
-    evidence: list[str] = []
-    if in_ci:
-        evidence.append("CI")
-    if has_vercel:
-        evidence.append("vercel")
-    if references:
-        evidence.append(f"{references} ext-ref")
-    if in_ci or has_vercel:
-        return "WIRED", ", ".join(evidence)
-    if references >= 3:
-        return "LINKED", ", ".join(evidence)
-    if references >= 1:
-        return "DORMANT", ", ".join(evidence)
-    return "ORPHAN", "no external reference"
+    rows = []
+    for directory in sorted(directories):
+        # References are lexical observations, never proof a command ran.
+        refs = sum(
+            directory + "/" in text
+            for path, text in files.items()
+            if not path.startswith(directory + "/")
+        )
+        configured = directory + "/vercel.json" in files
+        status = "LINKED" if configured or refs >= 3 else "DORMANT" if refs else "ORPHAN"
+        evidence = []
+        if configured:
+            evidence.append("committed deployment configuration; execution unverified")
+        if refs:
+            evidence.append(f"{refs} committed lexical references; execution unverified")
+        rows.append((status, directory, ", ".join(evidence) or "no reference found in scanned committed text"))
+    return sorted(rows, key=lambda row: (STATUS_ORDER.index(row[0]), row[1]))
 
 
 def build_rows() -> list[tuple[str, str, str]]:
-    workflows = workflow_text()
-    directories = sorted(
-        entry.name
-        for entry in Path(".").iterdir()
-        if entry.is_dir() and entry.name not in SKIP and not entry.name.startswith(".")
-    )
-    ranked = [
-        (STATUS_ORDER.index(status), directory, status, evidence)
-        for directory in directories
-        for status, evidence in [classify(directory, workflows)]
-    ]
-    ranked.sort(key=lambda row: (row[0], row[1]))
-    return [(status, directory, evidence) for _, directory, status, evidence in ranked]
+    return committed_rows(head_sha())
 
 
 def metadata() -> dict[str, object]:
+    commit = head_sha()
+    validate_commit(commit)
     return {
         "schema_version": SCHEMA_VERSION,
         "repository": repository_name(),
-        "commit_sha": head_sha(),
-        "tree_sha": tree_sha(),
-        "source_timestamp": source_timestamp(),
+        "commit_sha": commit,
+        "tree_sha": git_bytes("rev-parse", commit + "^{tree}").decode("ascii").strip(),
+        "source_timestamp": git_bytes("show", "-s", "--format=%cI", commit).decode("ascii").strip(),
         "generator": {
             "path": "scripts/integration_ledger.py",
             "version": GENERATOR_VERSION,
@@ -249,12 +230,12 @@ def render_md(document: dict[str, object]) -> str:
         "",
         "## What the statuses mean",
         "",
-        "- **WIRED** — a live entrypoint runs it through CI or a configured deployment surface.",
-        "- **LINKED** — referenced by at least three external files but not independently exercised.",
+        "- **WIRED** — reserved for separately verified execution; this static generator never emits it.",
+        "- **LINKED** — committed deployment configuration or at least three lexical references; execution unverified.",
         "- **DORMANT** — referenced by one or two external files.",
-        "- **ORPHAN** — no reference exists outside the directory.",
+        "- **ORPHAN** — no reference found in the scanned committed text.",
         "",
-        "> Classification is at top-level-area grain. A WIRED directory may still contain unreachable files.",
+        "> Static, top-level observations only: regular committed text blobs, excluding Markdown and dependency/build trees. Symlinks, submodule contents and NUL-containing binary blobs are not scanned. Execution and reachability remain unverified.",
         "",
     ]
     return "\n".join(lines)
@@ -272,9 +253,9 @@ def validate_document(document: dict[str, object]) -> None:
     commit = str(document.get("commit_sha", ""))
     tree = str(document.get("tree_sha", ""))
     digest = str(document.get("generator", {}).get("sha256", "")) if isinstance(document.get("generator"), dict) else ""
-    if not re.fullmatch(r"[0-9a-f]{40,64}", commit):
+    if not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", commit):
         raise ValueError(f"invalid commit_sha: {commit!r}")
-    if not re.fullmatch(r"[0-9a-f]{40,64}", tree):
+    if not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", tree):
         raise ValueError(f"invalid tree_sha: {tree!r}")
     if not re.fullmatch(r"[0-9a-f]{64}", digest):
         raise ValueError("invalid generator sha256")
@@ -312,10 +293,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = parse_args(argv or sys.argv[1:])
-    document = build_document(build_rows())
+    args = parse_args(sys.argv[1:] if argv is None else argv)
+    meta = metadata()
+    validate_expected_sha(str(meta["commit_sha"]), args.expected_sha)
+    document = build_document(committed_rows(str(meta["commit_sha"])), meta)
     validate_document(document)
-    validate_expected_sha(str(document["commit_sha"]), args.expected_sha)
 
     if args.json:
         print(render_json(document), end="")
