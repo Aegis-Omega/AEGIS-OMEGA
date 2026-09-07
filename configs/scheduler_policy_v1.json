@@ -1,0 +1,12 @@
+{
+  "schema_version": "AEGIS_QUANTUMMANIFOLD_SCHEDULER_POLICY_V1",
+  "ppm_scale": 1000000,
+  "max_safe_canonical_int": 9007199254740991,
+  "alpha_ppm": 1000000,
+  "beta_ppm": 1000000,
+  "gamma_ppm": 1000000,
+  "mu_ppm": 1000000,
+  "eta_ppm": 1000000,
+  "epsilon_ppm": 1,
+  "baseline_digest": "457f4566cb932d3f91e2265632fad9931c709645e520471095c23000a85c6404"
+}

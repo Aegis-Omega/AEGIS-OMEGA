@@ -1,0 +1,20 @@
+{
+  "schema_version": "AEGIS_QM_JCS_CONFORMANCE_V1",
+  "vectors": [
+    {
+      "id": "JCS-RED-UTF16",
+      "input_keys": ["", "😀"],
+      "expected_canonical": "{\"😀\":2,\"\":1}"
+    },
+    {
+      "id": "JCS-RED-UNDEFINED",
+      "input_class": "OBJECT_MEMBER_UNDEFINED",
+      "expected": "TYPE_ERROR"
+    },
+    {
+      "id": "JCS-RED-BIGINT",
+      "input_class": "BIGINT",
+      "expected": "TYPE_ERROR"
+    }
+  ]
+}

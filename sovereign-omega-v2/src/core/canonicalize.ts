@@ -35,7 +35,7 @@ function serializeValue(value: unknown): string {
 
   if (type === 'number') return serializeNumber(value as number)
   if (type === 'string') return serializeString(value as string)
-  if (type === 'bigint') return serializeString((value as bigint).toString())
+  if (type === 'bigint') throw new TypeError('bigint is not JSON-serialisable')
 
   if (Array.isArray(value)) {
     const items = value.map(serializeValue)
@@ -44,19 +44,19 @@ function serializeValue(value: unknown): string {
 
   if (type === 'object') {
     const obj = value as Record<string, unknown>
-    // RFC 8785: sort object keys by Unicode code point order
+    // RFC 8785: sort object property names by UTF-16 code units.
     const sortedKeys = Object.keys(obj).sort((a, b) => {
-      // Compare by Unicode code point sequence (not locale-sensitive)
-      for (let i = 0; i < Math.min(a.length, b.length); i++) {
-        /* c8 ignore next -- noUncheckedIndexedAccess artifact; i < min(a.length, b.length) guarantees valid indices */
-        const diff = (a.codePointAt(i) ?? 0) - (b.codePointAt(i) ?? 0)
+      const n = Math.min(a.length, b.length)
+      for (let i = 0; i < n; i++) {
+        const diff = a.charCodeAt(i) - b.charCodeAt(i)
         if (diff !== 0) return diff
       }
       return a.length - b.length
     })
-    const pairs = sortedKeys
-      .filter(k => obj[k] !== undefined)
-      .map(k => serializeString(k) + ':' + serializeValue(obj[k]))
+    const pairs = sortedKeys.map(k => {
+      if (obj[k] === undefined) throw new TypeError('undefined is not JSON-serialisable')
+      return serializeString(k) + ':' + serializeValue(obj[k])
+    })
     return '{' + pairs.join(',') + '}'
   }
 

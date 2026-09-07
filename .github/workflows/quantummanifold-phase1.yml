@@ -1,0 +1,133 @@
+name: QuantumManifold Phase 1
+
+on:
+  pull_request:
+    branches:
+      - feat/qm-scheduler-v0.1-impl
+    paths:
+      - "configs/scheduler_policy_v1.json"
+      - "agents/quantummanifold/**"
+      - "sovereign-omega-v2/python/tests/test_quantummanifold_*.py"
+      - ".github/workflows/quantummanifold-phase1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quantummanifold-phase1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qm-red-anchor:
+    name: aegis / qm-red-anchor
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install exact test dependency
+        run: python -m pip install --disable-pip-version-check pytest==8.4.1
+      - name: Run QM-RED-001 anchor
+        run: PYTHONPATH=. pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_red_contract.py::test_qm_red_001_scheduler_production_module_exists
+
+  fixed-point-contract:
+    name: aegis / qm-fixed-point-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install exact test dependency
+        run: python -m pip install --disable-pip-version-check pytest==8.4.1
+      - name: Run QM-RED-011/012 and fixed-point arithmetic contracts
+        run: PYTHONPATH=. pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_fixed_point.py
+
+  graph-contract:
+    name: aegis / qm-graph-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install exact test dependency
+        run: python -m pip install --disable-pip-version-check pytest==8.4.1
+      - name: Run QM-RED-005..009 typed-DAG contracts
+        run: PYTHONPATH=. pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_graph.py
+
+  binding-contract:
+    name: aegis / qm-binding-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install exact test dependency
+        run: python -m pip install --disable-pip-version-check pytest==8.4.1
+      - name: Run QM-RED-002..004/010 coordinate binding contracts
+        run: PYTHONPATH=. pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_bindings.py
+
+  determinism-role-contract:
+    name: aegis / qm-determinism-role-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install exact test dependency
+        run: python -m pip install --disable-pip-version-check pytest==8.4.1
+      - name: Run QM-RED-013..017 deterministic receipt and role-isolation contracts
+        run: PYTHONPATH=. pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_scheduler_receipts_roles.py
+
+  stale-replay-contract:
+    name: aegis / qm-stale-replay-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install exact test dependency
+        run: python -m pip install --disable-pip-version-check pytest==8.4.1
+      - name: Run QM-RED-018..021 stale replay and restart contracts
+        run: PYTHONPATH=. pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_stale_replay.py
+
+  authority-contract:
+    name: aegis / qm-authority-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install exact coordinator test dependencies
+        run: python -m pip install --disable-pip-version-check pytest==8.4.1 httpx==0.28.1 redis==6.2.0 PyYAML==6.0.2
+      - name: Run QM-RED-022..024 authority and epistemic contracts
+        run: PYTHONPATH=. pytest -q sovereign-omega-v2/python/tests/test_quantummanifold_authority.py
