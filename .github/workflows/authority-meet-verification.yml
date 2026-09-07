@@ -1,0 +1,107 @@
+name: Authority Meet Verification
+
+on:
+  push:
+    branches: ['proof/authority-meet-v1-20260907']
+    paths:
+      - 'verifiable/authority_meet/**'
+      - '.github/workflows/authority-meet-verification.yml'
+  pull_request:
+    paths:
+      - 'verifiable/authority_meet/**'
+      - '.github/workflows/authority-meet-verification.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  authority-meet:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      COQ_IMAGE: coqorg/coq:8.20.1
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Bind exact head and isolated workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain --untracked-files=all)"
+          WORK="$RUNNER_TEMP/authority-meet-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          mkdir -p "$WORK"
+          cp verifiable/authority_meet/*.v "$WORK/"
+          chmod 777 "$WORK"
+          echo "WORK=$WORK" >> "$GITHUB_ENV"
+          printf '%s\n' "$EXPECTED_HEAD" > "$WORK/source_head.txt"
+          (cd "$WORK" && sha256sum *.v > sources.sha256)
+          docker pull "$COQ_IMAGE"
+          docker image inspect "$COQ_IMAGE" > "$WORK/container-image.json"
+          IMAGE_ID=$(docker image inspect --format '{{.Id}}' "$COQ_IMAGE")
+          echo "IMAGE_ID=$IMAGE_ID" >> "$GITHUB_ENV"
+      - name: Compile source with Coq 8.20.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$WORK:/work" -w /work "$IMAGE_ID" bash -c '
+            set -euo pipefail
+            coqc --version
+            test "$(coqc -print-version | cut -d " " -f 1)" = 8.20.1
+            sha256sum "$(readlink -f "$(command -v coqc)")" "$(readlink -f "$(command -v coqchk)")"
+            coqc -q -time Authority_Meet.v
+            if test -f Authority_Tests.v; then coqc -q -time Authority_Tests.v; fi
+          ' 2>&1 | tee "$WORK/coqc.log"
+      - name: Independent coqchk invocation
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm -v "$WORK:/work" -w /work "$IMAGE_ID" bash -c '
+            set -euo pipefail
+            coqchk Authority_Meet
+            if test -f Authority_Tests.vo; then coqchk Authority_Tests; fi
+          ' 2>&1 | tee "$WORK/coqchk.log"
+      - name: Capture generalized statements and assumptions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          p = pathlib.Path(os.environ['WORK'])
+          names = re.findall(r'^\s*(?:Lemma|Theorem|Example)\s+([A-Za-z_][A-Za-z_0-9]*)\s*:', (p/'Authority_Meet.v').read_text(), re.M)
+          if not names:
+              raise SystemExit('No theorem inventory')
+          (p/'declarations.json').write_text(json.dumps(names, indent=2)+'\n')
+          text = 'Require Import Authority_Meet.\n'
+          for name in names:
+              text += f'Print {name}.\nPrint Assumptions {name}.\n'
+          (p/'Authority_Audit.v').write_text(text)
+          PY
+          docker run --rm -v "$WORK:/work" -w /work "$IMAGE_ID" coqc -q Authority_Audit.v 2>&1 | tee "$WORK/assumptions.log"
+          python3 - <<'PY'
+          import json, os, pathlib
+          p = pathlib.Path(os.environ['WORK'])
+          names = json.loads((p/'declarations.json').read_text())
+          text = (p/'assumptions.log').read_text()
+          if 'Axioms:' in text or text.count('Closed under the global context') != len(names):
+              raise SystemExit('Assumption inventory not globally closed')
+          print(f'GLOBAL_CONTEXT_CLOSED: {len(names)}/{len(names)}. Generalized hypotheses remain in theorem types.')
+          PY
+      - name: Recheck source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain --untracked-files=all)"
+          (cd "$WORK" && sha256sum --check sources.sha256)
+      - name: Preserve proof evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: authority-meet-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_attempt }}
+          path: ${{ env.WORK }}
+          if-no-files-found: error
+          retention-days: 30
