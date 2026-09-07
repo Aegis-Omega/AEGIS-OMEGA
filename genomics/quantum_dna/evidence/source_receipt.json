@@ -1,0 +1,412 @@
+{
+  "all_numerical_gates_pass": true,
+  "biological_effect": "HYPOTHESIS_NOT_EXPERIMENTALLY_TESTED",
+  "code_git_commit": "b0a840015f92f39ddae65beb7393bf2c91aa816e",
+  "code_tree_clean_at_start": true,
+  "environment": {
+    "matplotlib": "3.10.8",
+    "numpy": "2.3.5",
+    "python": "3.12.13",
+    "qDNA": "1.0.1",
+    "qutip": "5.3.1",
+    "scipy": "1.17.0"
+  },
+  "external_software": "qDNA 1.0.1; PyPI wheel SHA256 bound",
+  "general_quantum_advantage": "NOT_ESTABLISHED; deterministic diagnostics only; no p-values",
+  "input_sha256": {
+    "1BNA.pdb": "df42f1506792f191b957227b061360652adcf6f813eb69d9ec553067ea584670",
+    "1BNA_ELM.json": "9194a969c0021c5ab9b256201c215de638b64c7475d8a91a546f1e71e1845f8b",
+    "Hawke2010_ELM.json": "bb32b01dcaf87a122bcce4ac0daa1bd6f2a14f0efd24f216e237b943fbf81bcc",
+    "MSF.json": "9eda0dcfa6bffef7ed51e5531f9aa6d7915260750377c3a33031c6dc23a2c6f6",
+    "qdna-1.0.1-py3-none-any.whl": "3d35c337c5569af508b691b7a0ce37bfe23ffaf8b62f8172f4948dfa1767ff9e"
+  },
+  "operational_crossover": {
+    "GAG": {
+      "interpretation": "grid-defined operational crossover; not a phase transition or universal critical gamma",
+      "previous_sample_eV": 1.0,
+      "smallest_persistent_passing_sample_eV": 3.0
+    },
+    "GCG": {
+      "interpretation": "grid-defined operational crossover; not a phase transition or universal critical gamma",
+      "previous_sample_eV": 0.5,
+      "smallest_persistent_passing_sample_eV": 1.0
+    },
+    "GGG": {
+      "interpretation": "grid-defined operational crossover; not a phase transition or universal critical gamma",
+      "previous_sample_eV": 0.5,
+      "smallest_persistent_passing_sample_eV": 1.0
+    },
+    "GTG": {
+      "interpretation": "grid-defined operational crossover; not a phase transition or universal critical gamma",
+      "previous_sample_eV": 0.5,
+      "smallest_persistent_passing_sample_eV": 1.0
+    }
+  },
+  "output_sha256": {
+    "GAG_gamma_0.001.csv": "c2d5450fc112d1651aff3a8f645d283e14d805167e51ad88e64960f8fae570c7",
+    "GAG_gamma_0.001_states.npz": "1c566c6226f6e13081a9ee2fba831c9a09b255752a8ebefd74f9d7c7497b7e6f",
+    "GAG_gamma_0.01.csv": "4a4b814406a85a0970f0b3e70d683b9e62b6ad947fe72cb3d65fa17dcd408cf6",
+    "GAG_gamma_0.01_states.npz": "3a4654e7d2943b1b4ca1e735013ab15df25894cc0cfef16d98be3f7d57013341",
+    "GAG_gamma_0.03.csv": "adeaa5ffcf6b2d37b04548cea76ee0f1e8b84bd715fea508362b786c3705f437",
+    "GAG_gamma_0.03_states.npz": "6880ff92b8b275b627ec2ab15bc54da3016811b8e75749f9d60423d51846cc82",
+    "GAG_gamma_0.1.csv": "4520914c2640e40b59e22aa9041932ddf6e3259517368a9e40a740bc994e50bb",
+    "GAG_gamma_0.1_states.npz": "a260b73fe6073794cfb2bf6a6110dd537787a5162d213953bbb93ed7fcf80e58",
+    "GAG_gamma_0.3.csv": "1451e280fc3c24654b417c7a65e1df03fb4163cae9aad08327d71724ff32cb63",
+    "GAG_gamma_0.3_states.npz": "c5a4cc71b94a77103d92f8deaad135ef46f26191677a571499d7f6c39117a967",
+    "GAG_gamma_0.5.csv": "29dfecc934822e2640106602af6282782ba3932fecc9554d9f3044436e15f12a",
+    "GAG_gamma_0.5_states.npz": "3ff8baaa12a9753b8609fe10db3f70ed42b9c198d11fa163c68c4cc9f8a161f2",
+    "GAG_gamma_0.csv": "2f80930f0d2fb2a326b56ade4348a0ddedeae0d69f50f30892677882379a57ff",
+    "GAG_gamma_0_states.npz": "a2a334282a4acbc065cc23cf0da40c290b60ca3ccb41c966ae293d8aa92348e6",
+    "GAG_gamma_1.csv": "a1095625d36cdcdc3a256bab8978afce6a5aba327e4faa6c1011622ef96a6d2c",
+    "GAG_gamma_1_states.npz": "146879dd9eaa43154cdbcdfb30bad333429233bbdb3dddec73fe6c5d31b0d921",
+    "GAG_gamma_3.csv": "e1497b330073d1ddb743c5bfe898eafad049ca56a13c6272478be3fbc01a25af",
+    "GAG_gamma_3_states.npz": "ea42058aeb4e69d2a1474de46266dc0eb466eaa4063bc1ea50ef83f182005adc",
+    "GCG_gamma_0.001.csv": "9e682bb2992755398a049119bcc73d8e764e723346fedbc6215a7a46e147f90e",
+    "GCG_gamma_0.001_states.npz": "1fa75cfbb3f2a00e8c3e476b08a15e65d19aaa27f310330fe49a868c0dedc402",
+    "GCG_gamma_0.01.csv": "81333a02bae94929382d4c8e46e9ae97465eed6352184911237fb904fa59200d",
+    "GCG_gamma_0.01_states.npz": "7bb8ad27d1c2860f3e35d409eeb7c1ee44ce2604ab9183ffb7d7ddc897c8d41c",
+    "GCG_gamma_0.03.csv": "d33eecc8fdd615122ae9f6d68c6eb8e14539427f677c664e0f867703a0cfd982",
+    "GCG_gamma_0.03_states.npz": "68d51c8f6bece9aef0b3214230ce811be0a95ada2141eb4e62550e0b406c5bfd",
+    "GCG_gamma_0.1.csv": "a351a7eb832fa24c12c91481f9db338a825c441fc7646c865461cf2284aae51d",
+    "GCG_gamma_0.1_states.npz": "aabe944bd084211015c24c25b9ca5c02c754ab6d93f712559f91d5f95936dc42",
+    "GCG_gamma_0.3.csv": "861eab23c9273bd03d04ebdd76374f38026869235166622da9daa2700bc956d1",
+    "GCG_gamma_0.3_states.npz": "9f5e5a1186c92eaea1c481411914a811c1d6c1463bf4111e63c3a7e539d8836e",
+    "GCG_gamma_0.5.csv": "65cacda131955ce030d36c245b78f44f2fa0409f2b93be7084353cd089200b56",
+    "GCG_gamma_0.5_states.npz": "fd0a19fd1aa041a6d388572308ebe2708d851ce55c317582c7a1a3195a3334c2",
+    "GCG_gamma_0.csv": "1debdd043e3291a24d5c78062da166b0c87ebf66d0d0c311202e09aba839cc4b",
+    "GCG_gamma_0_states.npz": "774aec2cc99e8b11f55f5a895e89753183cfb7f9f9500f7904550b258aeb3503",
+    "GCG_gamma_1.csv": "673c696934e392b3f6f5eca40eddea5377a9bf04b9eb58fb05a98c67f4a93385",
+    "GCG_gamma_1_states.npz": "1adfbbb412fc8f85cdd9b6c1402722e3029d674ec86ec4998ea3746428c79807",
+    "GCG_gamma_3.csv": "39180ad5cc77b14601f6ffc7227c3d25e7be36f08436506aad671984df2e7512",
+    "GCG_gamma_3_states.npz": "f8bbeb53e308a8b92ef8adb6f62b0171d39a6993cc523255aab5e29b75a8bd61",
+    "GGG_gamma_0.001.csv": "439717deef511c88e9820f797106eb1627cd9e99e40668dab226ad3553ad7d5a",
+    "GGG_gamma_0.001_states.npz": "f0cddf0becbc9524bae7cdd42d29ba831a73bca9f7e2429478a0b7e5b8fa27b4",
+    "GGG_gamma_0.01.csv": "5fa40cbb2f7263be284da6f29e4f1bf7ccd1cf56fc8de22254b294525c5153d0",
+    "GGG_gamma_0.01_states.npz": "ff62106df4c975a58e2720c6c01c78114ace97dc18507669c144815c805a5c76",
+    "GGG_gamma_0.03.csv": "8723c33c8b181ab040460a61ea4426a3fc71782c5e6ea77a925ba344e4894e7f",
+    "GGG_gamma_0.03_states.npz": "2279d292a1dd3e5c89ccd8724d518d65959a00a555f267462c5e0e65e42c4b72",
+    "GGG_gamma_0.1.csv": "b512a60a6fa1e88c0d6665235369b5712dfa660cde3032d8f355e4b9a8faae9e",
+    "GGG_gamma_0.1_states.npz": "61f7301b28ffc3e06694eeeb388301741b846ee2f02413570fa42e83434c83f0",
+    "GGG_gamma_0.3.csv": "530a7588202ddc469b6ba5013479eb2b1278ae106caeb67480821546c65da84c",
+    "GGG_gamma_0.3_states.npz": "332d456daba3324d042b96a0451eaea0b0785845130d83553cdb693c91fd871c",
+    "GGG_gamma_0.5.csv": "222dd0c7423305d6b84b5485edfcd9a1ee068c6b0038e53bb2660129b55cea49",
+    "GGG_gamma_0.5_states.npz": "c6e34c71ec4d80e273882a89029f8e1d7df37d225ee07e0c53f3db4d431d07bf",
+    "GGG_gamma_0.csv": "2f7fc5446ab08abdabdaf9ca6b2e46f7dc545a3e6716311ec3072e97fb587baa",
+    "GGG_gamma_0_states.npz": "2cc186e45ecf7f6e1d2bb6525eb41287358b08d830a03583e958e843aa75d843",
+    "GGG_gamma_1.csv": "b858486da3e6d7272710e1da2534a728b0799a7c83981a58faed68eb25744733",
+    "GGG_gamma_1_states.npz": "a7466a0b455860609a381cd079c0bc0dae23524e573fc2b2574fffae9f6bb502",
+    "GGG_gamma_3.csv": "c71920b97285708b4241dc80a488f812598f1098260d9f788b105d9a7925a1ef",
+    "GGG_gamma_3_states.npz": "c327e059c7460238cca17dce48c15db868f8d020bef64d51dc6b83dc60ef680e",
+    "GTG_gamma_0.001.csv": "198c376bcdf878d7ea01cae6982ef2a78f54bb66ceed2111dd80b4f4186d4dc9",
+    "GTG_gamma_0.001_states.npz": "e16850b551067573f51afd476c567040f707ae3ebf4ba76a708758cf5e44a741",
+    "GTG_gamma_0.01.csv": "73c289028ccd14c5830ccf322fb759835db2b830a7a42c7dcfdee162d34dab5d",
+    "GTG_gamma_0.01_states.npz": "2eee4047e664d2dfdbd77727625ade876c03063ed4a36ba4d81806f4d7bdee4c",
+    "GTG_gamma_0.03.csv": "7bed998eb1aca2bd7a74b82d480325573a2fa411af418d0efaf165bf0fcf95ec",
+    "GTG_gamma_0.03_states.npz": "1abc86f7b859425642a90da5ae597a4b1efeca9692ff814a9348928921102f49",
+    "GTG_gamma_0.1.csv": "63200a2ed03c78c961e934456b630cd6e88a2d9e075cc0962db76969d0a9c007",
+    "GTG_gamma_0.1_states.npz": "fa8655632b5431750dc08e28109c4e1eeb1a263467a08a0ff73bf0ec42e30a1b",
+    "GTG_gamma_0.3.csv": "65423343b1dec93cbdda1d3a296948a4cce7975bd7ad2adc618d4a6ec830b14c",
+    "GTG_gamma_0.3_states.npz": "5afcbe91f1ecac149f52c6195e8a303e7596e5ee754cbf367f497661ff240dd4",
+    "GTG_gamma_0.5.csv": "3d0803d2bb5101f950019313b620011e05ea2e91787d801b6d6d9c4e1af84b59",
+    "GTG_gamma_0.5_states.npz": "20c64bafad777f316968d82d97a523fe8cb1a06d2ce68705414910311da29386",
+    "GTG_gamma_0.csv": "79f53494f56a873a83658a456951b06ef1f73237fb876d11b9c35aa716f4cc77",
+    "GTG_gamma_0_states.npz": "6eaec3147e98d748a025e66613f629b1b621c35f546dbd63f0dfcbcaefcb9e23",
+    "GTG_gamma_1.csv": "1c5ebe0726f54a768f4f66ab63a3aacbb3c1bfcc3c83ef486aed192f5e9fcdc3",
+    "GTG_gamma_1_states.npz": "83dfab6bf458c2f7b30db11e8b8757fbc416b471e78f21a9c0520128f2e960e0",
+    "GTG_gamma_3.csv": "2a5f955869869fd5142ea85f1b8119b9b0e33978f077abf74ca0d79bbdf8905e",
+    "GTG_gamma_3_states.npz": "cae42ceefa01c4f385d4e069ed10308c3064ad450f4b229dd19e65056303878a",
+    "qdna_package_manifest.json": "67e6b1f01aec33b430fd34688e93849281ff8efa392eae5580d32b74ca6b11b5",
+    "reference_1BNA.csv": "7e7f47cf96ee999d6df15a125662f473d033d7dc0a512de7aa7b48075f59b07a",
+    "reference_1BNA_states.npz": "9eb1143f7d180ebfe4a549a10c87223737eb4d5af2fd1e7f79d9e3e5007b6930",
+    "reference_Hawke2010.csv": "0300b162175de9399ddb6a1d0ab7bc2e600ad4c4ecb1084c583c3399c4a8da39",
+    "reference_Hawke2010_states.npz": "5d58a17d5faf782de97dceb1f099bf1e05bd71af1ab0f4860c049598a93aebd0",
+    "structure/1BNA_GCG_bases.pdb": "3a03f85396a4899379a120ea8a8785f31293704bf15994ae1fabe00ede1c7028",
+    "structure/1BNA_GCG_structure_manifest.json": "a51510d726906c0375cd48a24feb4fc25d164888108abb5855da6364eafbfb7f",
+    "sweep_metrics.json": "7d647bc484302b11a28547cad392b213ca91bae4094021b2b26e47da98afca3e",
+    "sweep_summary.csv": "d2e1477baef0bd5f731aeb7e64c25cba521bc9acd8b6fc97c982794388131259"
+  },
+  "parameter_regeneration_from_raw_pdb": "NOT_ESTABLISHED; replay uses shipped 1BNA parameters",
+  "randomness": "none; deterministic differential equations; no sampling seeds",
+  "reference_replays": [
+    {
+      "dimension": 37,
+      "external_published_trajectory_match": "NOT_ESTABLISHED_REFERENCE_ARRAY_UNAVAILABLE",
+      "independent_invariants": {
+        "hermiticity_error": 0.0,
+        "max_population": 1.0,
+        "min_eigenvalue": -4.0651036543109065e-16,
+        "min_population": 0.0,
+        "trace_error": 4.440892098500626e-16
+      },
+      "max_abs_density_discrepancy": 2.2115395681322186e-11,
+      "model": "ELM 2P + ground",
+      "n_output": 500,
+      "numerical_gate": "PASS",
+      "qdna_invariants": {
+        "hermiticity_error": 1.0173916563429387e-15,
+        "max_population": 1.0,
+        "min_eigenvalue": -4.015180700528346e-11,
+        "min_population": 0.0,
+        "trace_error": 7.773259654914668e-15
+      },
+      "relaxation_rate_ps_inverse": 3.0,
+      "sampled_lifetime_fs": 541.0821643286573,
+      "sites": [
+        [
+          "02G",
+          "03C",
+          "04G"
+        ],
+        [
+          "23C",
+          "22G",
+          "21C"
+        ]
+      ],
+      "source": "1BNA",
+      "t_end_fs": 3000
+    },
+    {
+      "dimension": 37,
+      "documented_sampled_lifetime_fs": 775.5511022044088,
+      "external_published_trajectory_match": "NOT_ESTABLISHED_REFERENCE_ARRAY_UNAVAILABLE",
+      "independent_invariants": {
+        "hermiticity_error": 0.0,
+        "max_population": 1.0000000000000004,
+        "min_eigenvalue": -4.715289318310309e-16,
+        "min_population": -4.440892098500626e-16,
+        "trace_error": 3.3306690738754696e-16
+      },
+      "max_abs_density_discrepancy": 9.264603944534024e-11,
+      "model": "ELM 2P + ground",
+      "n_output": 500,
+      "numerical_gate": "PASS",
+      "qdna_invariants": {
+        "hermiticity_error": 1.0422367615969942e-15,
+        "max_population": 1.0,
+        "min_eigenvalue": -9.109416779243085e-11,
+        "min_population": 0.0,
+        "trace_error": 5.9967795514735256e-15
+      },
+      "relaxation_rate_ps_inverse": 3.0,
+      "sampled_lifetime_fs": 775.5511022044088,
+      "scalar_reference_gate": "PASS",
+      "sites": [
+        [
+          "G",
+          "C",
+          "G"
+        ],
+        [
+          "C",
+          "G",
+          "C"
+        ]
+      ],
+      "source": "Hawke2010",
+      "t_end_fs": 3000
+    }
+  ],
+  "repository_admission": "NOT_PERFORMED; standalone experiment; no AEGIS remote commit or CI",
+  "schema": "AEGIS_QUANTUM_DNA_RECEIPT_V1",
+  "spec_sha256": "e2e703e208659eb468a92b336fa5f8a0c41fc2a2ff768ea649fbf84ba044ce61",
+  "status": "MACHINE_BOUND_EXACT_LOCAL_HEAD_ONLY",
+  "structure_provenance": {
+    "added_atom_count": 0,
+    "coordinate_unit": "angstrom",
+    "geometry_boundary": [
+      "This is a heavy-atom extraction with unchanged source coordinates.",
+      "The authors' exact edited geometry, hydrogen placement and glycosidic capping protocol are not bound by the shipped parameter metadata.",
+      "QuantumDNA MSF uses explicit valence orbitals and atom-count-derived electron filling; missing hydrogens can change the HOMO/LUMO assignment.",
+      "Replaying shipped 1BNA_ELM parameters is a distinct operation from regenerating those parameters from this file."
+    ],
+    "input_path": "/workspace/scratch/cf6964a00732/aegis_quantum_dna/inputs/1BNA.pdb",
+    "lower_strand_3prime_to_5prime": [
+      "23C",
+      "22G",
+      "21C"
+    ],
+    "manifest_path": "/workspace/scratch/cf6964a00732/aegis_quantum_dna/results/structure/1BNA_GCG_structure_manifest.json",
+    "residues": [
+      {
+        "atom_names": [
+          "N9",
+          "C8",
+          "N7",
+          "C5",
+          "C6",
+          "O6",
+          "N1",
+          "C2",
+          "N2",
+          "N3",
+          "C4"
+        ],
+        "chain": "A",
+        "heavy_atom_count": 11,
+        "paired_with": "23C",
+        "paper_label": "02G",
+        "residue_name": "DG",
+        "residue_number": 2,
+        "source_atom_records_sha256": "d80b56044a567f35c4699d1038c73f6ff0dd14c201b9811785b09ac5f8ff780e",
+        "strand": "upper",
+        "tb_site": [
+          0,
+          0
+        ]
+      },
+      {
+        "atom_names": [
+          "N1",
+          "C2",
+          "O2",
+          "N3",
+          "C4",
+          "N4",
+          "C5",
+          "C6"
+        ],
+        "chain": "A",
+        "heavy_atom_count": 8,
+        "paired_with": "22G",
+        "paper_label": "03C",
+        "residue_name": "DC",
+        "residue_number": 3,
+        "source_atom_records_sha256": "754b162d4453c32e1c0d62328dd3d9ff793839a6c3817623a9ff0389234247e3",
+        "strand": "upper",
+        "tb_site": [
+          0,
+          1
+        ]
+      },
+      {
+        "atom_names": [
+          "N9",
+          "C8",
+          "N7",
+          "C5",
+          "C6",
+          "O6",
+          "N1",
+          "C2",
+          "N2",
+          "N3",
+          "C4"
+        ],
+        "chain": "A",
+        "heavy_atom_count": 11,
+        "paired_with": "21C",
+        "paper_label": "04G",
+        "residue_name": "DG",
+        "residue_number": 4,
+        "source_atom_records_sha256": "8ae861943c86cdc6c3d1fdf1ed3ee725efb154c6eb7fcab9776bddac05911570",
+        "strand": "upper",
+        "tb_site": [
+          0,
+          2
+        ]
+      },
+      {
+        "atom_names": [
+          "N1",
+          "C2",
+          "O2",
+          "N3",
+          "C4",
+          "N4",
+          "C5",
+          "C6"
+        ],
+        "chain": "B",
+        "heavy_atom_count": 8,
+        "paired_with": "02G",
+        "paper_label": "23C",
+        "residue_name": "DC",
+        "residue_number": 23,
+        "source_atom_records_sha256": "777bd3ba292be900f26aeeb95ea805dae3a3b0c8277d7430a104083c1ead06f3",
+        "strand": "lower",
+        "tb_site": [
+          1,
+          0
+        ]
+      },
+      {
+        "atom_names": [
+          "N9",
+          "C8",
+          "N7",
+          "C5",
+          "C6",
+          "O6",
+          "N1",
+          "C2",
+          "N2",
+          "N3",
+          "C4"
+        ],
+        "chain": "B",
+        "heavy_atom_count": 11,
+        "paired_with": "03C",
+        "paper_label": "22G",
+        "residue_name": "DG",
+        "residue_number": 22,
+        "source_atom_records_sha256": "2f8d8a6c8fa45d24d9aef2c4040c09651d20197d2b47fdc1857f456bb5dadb82",
+        "strand": "lower",
+        "tb_site": [
+          1,
+          1
+        ]
+      },
+      {
+        "atom_names": [
+          "N1",
+          "C2",
+          "O2",
+          "N3",
+          "C4",
+          "N4",
+          "C5",
+          "C6"
+        ],
+        "chain": "B",
+        "heavy_atom_count": 8,
+        "paired_with": "04G",
+        "paper_label": "21C",
+        "residue_name": "DC",
+        "residue_number": 21,
+        "source_atom_records_sha256": "90642fb531f442c90c352d7d4092cc75f066b659e79ee0a0dbc5ff0088374a65",
+        "strand": "lower",
+        "tb_site": [
+          1,
+          2
+        ]
+      }
+    ],
+    "retained_heavy_atom_count": 57,
+    "retained_hydrogen_atom_count": 0,
+    "schema_version": "AEGIS_QDNA_STRUCTURE_PREPARATION_V1",
+    "selection": "A2/A3/A4 paired with B23/B22/B21",
+    "source_atom_record_count": 566,
+    "source_byte_length": 76464,
+    "source_element_counts": {
+      "C": 232,
+      "N": 92,
+      "O": 220,
+      "P": 22
+    },
+    "source_hydrogen_or_deuterium_atom_count": 0,
+    "source_sha256": "df42f1506792f191b957227b061360652adcf6f813eb69d9ec553067ea584670",
+    "source_url": "https://files.rcsb.org/download/1BNA.pdb",
+    "status": "STRUCTURE_EXTRACTED_ONLY",
+    "trimmed_pdb_path": "/workspace/scratch/cf6964a00732/aegis_quantum_dna/results/structure/1BNA_GCG_bases.pdb",
+    "trimmed_pdb_sha256": "3a03f85396a4899379a120ea8a8785f31293704bf15994ae1fabe00ede1c7028",
+    "upper_strand_5prime_to_3prime": [
+      "02G",
+      "03C",
+      "04G"
+    ],
+    "upstream_parameter_regeneration_verified": false
+  },
+  "sweep_run_count": 36,
+  "thermal_noise_robustness": "NOT_ESTABLISHED; pure dephasing does not calibrate a temperature"
+}
