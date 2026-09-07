@@ -135,3 +135,4 @@ jobs:
           path: ${{ env.WORK }}
           if-no-files-found: error
           retention-days: 30
+          include-hidden-files: true
