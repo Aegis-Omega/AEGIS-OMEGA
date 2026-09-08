@@ -1,0 +1,76 @@
+{
+  "schema_version": "1.0.0",
+  "receipt_type": "SPECTRAL_TIME_INFERENCE_V1_VERIFICATION",
+  "status": "EXACT_SOURCE_BYTES_LOCALLY_REPLAYED",
+  "base_main": "6eb2ac201bbe60ebaa9cebad714b8696683772e8",
+  "red_contract_commit": "044483564ce81326c793a2c0344096ed65cf6d3e",
+  "tested_source_head": "6d8793961c3fbbe1d21022e34b96c4e756f0b5f2",
+  "tested_tree_sha": "81ac021e9d0ee20185a471ca059e1dbd952b0d6c",
+  "red_observation": {
+    "module_present_at_red_contract_commit": false,
+    "expected_failure": "ModuleNotFoundError: No module named 'harness.sdk.spectral_time_inference'",
+    "github_file_lookup_at_red_contract_commit": "404_NOT_FOUND"
+  },
+  "tested_files": [
+    {
+      "path": "harness/sdk/spectral_time_inference.py",
+      "git_blob_sha1": "1d5f73716e022dc0d1b4d4e8dbe153b92b1095b3",
+      "sha256": "f00b7b63d3727bafc24bdb150dc83eb9f119c8d030244c1726263dcf3b289aa8",
+      "byte_length": 5264
+    },
+    {
+      "path": "sovereign-omega-v2/python/tests/test_spectral_time_inference.py",
+      "git_blob_sha1": "b11022ff37498061831590a6c0b8a89d4a3d43ee",
+      "sha256": "5aebdd60440e4500d0778bf6202dc0a273b4b96500f4afda5dca4f488faf978b",
+      "byte_length": 4012
+    }
+  ],
+  "focused_replay": {
+    "command": "pytest -q sovereign-omega-v2/python/tests/test_spectral_time_inference.py",
+    "python": "3.13.5",
+    "pytest": "9.0.2",
+    "passed": 12,
+    "failed": 0,
+    "result": "PASS"
+  },
+  "adversarial_sweep": {
+    "status": "PASS",
+    "cases": 432,
+    "failures": 0,
+    "dimensions": {
+      "sample_counts": [32, 48, 64, 96],
+      "period_samples": [4, 6, 8, 12, 16],
+      "phases": [0.0, 0.37, 1.1],
+      "amplitudes": [0.25, 1.0, 3.0],
+      "dc_offsets": [-2.0, 0.0, 7.0]
+    },
+    "note": "Only combinations with integer repeated periods and at least two cycles were evaluated."
+  },
+  "algorithm_contract": {
+    "method": "DFT_AUTOCORRELATION_V1",
+    "minimum_samples": 8,
+    "minimum_spectral_bin": 2,
+    "maximum_spectral_bin": "floor(n/2)",
+    "tie_break": "SMALLEST_BIN_WITHIN_ISCLOSE_TOLERANCE",
+    "minimum_autocorrelation_support": 0.5,
+    "integration_horizon": "dominant_period"
+  },
+  "authority": {
+    "authority_effect": "NONE",
+    "claims_ledger_effect": "NONE",
+    "ci_authority": "NOT_ESTABLISHED",
+    "production_admission": "NOT_ESTABLISHED",
+    "github_commit_signature_at_tested_source_head": "UNSIGNED",
+    "branch_protection_at_tested_source_head": false
+  },
+  "receipt_binding_note": "This receipt was committed after tested_source_head. Therefore the receipt container commit is not the tested source head and this file does not self-attest its own commit.",
+  "limitations": [
+    "No absolute-time inference.",
+    "No physical clock calibration.",
+    "No causal-direction inference.",
+    "No theorem or mathematical-truth authority.",
+    "No biological or physical mechanism is established.",
+    "Local exact-byte replay is not GitHub Actions CI authority.",
+    "No AEGIS Claims Ledger admission is performed by this change."
+  ]
+}
