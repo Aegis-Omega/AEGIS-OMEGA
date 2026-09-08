@@ -1,0 +1,21 @@
+{
+  "version": "0.4",
+  "baseline_digest": "457f4566cb932d3f91e2265632fad9931c709645e520471095c23000a85c6404",
+  "status": "VERIFIED_RESEARCH_CONTROL_BASELINE",
+  "authority_model": [
+    "MACHINE_BOUND",
+    "EXTERNAL_ESTABLISHED",
+    "TARGET_OPEN",
+    "NOT_ESTABLISHED",
+    "ADMITTED"
+  ],
+  "global_rh_status": "NOT_PROVEN_AT_CURRENT_CLOSURE",
+  "current_implementation_status": "POLICY_LOCKED / BASELINE_BYTE_VERIFIED / ENFORCEMENT_PARTIALLY_IMPLEMENTED",
+  "target_implementation_status": "POLICY_LOCKED / MACHINE_ENFORCED / FAIL_CLOSED_ADMISSION",
+  "promotion_invariant": "If any mandatory transition is TARGET_OPEN or NOT_ESTABLISHED, the promoted claim cannot inherit a stronger final epistemic status.",
+  "repository_binding": {
+    "notebook_bytes_present": false,
+    "digest_binding_mode": "OPERATOR_SUPPLIED_CANONICAL_DIGEST",
+    "scope_note": "This repository lock binds enforcement to the supplied canonical digest. It does not independently re-hash AEGIS_Master_Notebook.md because the notebook bytes are not present on this branch."
+  }
+}

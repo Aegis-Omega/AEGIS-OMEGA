@@ -1,0 +1,6 @@
+{
+  "$schema": "../schemas/claim-promotion-request.v1.schema.json",
+  "version": "0.4",
+  "baseline_digest": "457f4566cb932d3f91e2265632fad9931c709645e520471095c23000a85c6404",
+  "requests": []
+}

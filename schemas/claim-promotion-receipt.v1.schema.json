@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/claim-promotion-receipt.v1.schema.json",
+  "title": "AEGIS Claim Promotion Receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "baseline_version",
+    "baseline_digest",
+    "candidate_sha",
+    "ci_run_identity",
+    "tuples"
+  ],
+  "properties": {
+    "schema_version": { "const": "claim-promotion-receipt.v1" },
+    "baseline_version": { "const": "0.4" },
+    "baseline_digest": { "$ref": "#/$defs/digest" },
+    "candidate_sha": { "$ref": "#/$defs/sha" },
+    "ci_run_identity": { "type": "string", "minLength": 1 },
+    "tuples": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/receiptEntry" }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transition_id", "status"],
+      "properties": {
+        "transition_id": { "type": "string", "minLength": 1 },
+        "status": {
+          "type": "string",
+          "enum": [
+            "MACHINE_BOUND",
+            "EXTERNAL_ESTABLISHED",
+            "TARGET_OPEN",
+            "NOT_ESTABLISHED",
+            "ADMITTED"
+          ]
+        }
+      }
+    },
+    "tuple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "claim_id",
+        "baseline_digest",
+        "source_head_sha",
+        "claim_statement_digest",
+        "red_contract_digest",
+        "implementation_digest",
+        "negative_control_receipt_digest",
+        "ci_run_identity",
+        "verification_receipt_digest",
+        "admission_policy_digest",
+        "final_epistemic_status"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "pattern": "^CLM-\\d{3}$"
+        },
+        "baseline_digest": { "$ref": "#/$defs/digest" },
+        "source_head_sha": { "$ref": "#/$defs/sha" },
+        "claim_statement_digest": { "$ref": "#/$defs/digest" },
+        "red_contract_digest": { "$ref": "#/$defs/digest" },
+        "implementation_digest": { "$ref": "#/$defs/digest" },
+        "negative_control_receipt_digest": { "$ref": "#/$defs/digest" },
+        "ci_run_identity": { "type": "string", "minLength": 1 },
+        "verification_receipt_digest": { "$ref": "#/$defs/digest" },
+        "admission_policy_digest": { "$ref": "#/$defs/digest" },
+        "final_epistemic_status": {
+          "type": "string",
+          "enum": ["MACHINE_BOUND", "EMPIRICAL", "TARGET_OPEN"]
+        }
+      }
+    },
+    "implementationEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "receiptEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tuple",
+        "tuple_digest",
+        "required_transitions",
+        "implementation_manifest"
+      ],
+      "properties": {
+        "tuple": { "$ref": "#/$defs/tuple" },
+        "tuple_digest": { "$ref": "#/$defs/digest" },
+        "required_transitions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/transition" }
+        },
+        "implementation_manifest": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/implementationEntry" }
+        }
+      }
+    }
+  }
+}

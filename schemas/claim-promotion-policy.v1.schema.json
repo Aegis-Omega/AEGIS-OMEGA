@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/claim-promotion-policy.v1.schema.json",
+  "title": "AEGIS Claim Promotion Enforcement Policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "policy_id",
+    "policy_version",
+    "baseline_digest",
+    "open_transition_statuses",
+    "machine_bound_forbidden_if_any"
+  ],
+  "properties": {
+    "policy_id": { "const": "AEGIS_CLAIM_PROMOTION_ENFORCEMENT_V1" },
+    "policy_version": { "const": 1 },
+    "baseline_digest": {
+      "const": "457f4566cb932d3f91e2265632fad9931c709645e520471095c23000a85c6404"
+    },
+    "open_transition_statuses": {
+      "const": ["TARGET_OPEN", "NOT_ESTABLISHED"]
+    },
+    "machine_bound_forbidden_if_any": {
+      "const": ["EXTERNAL_ESTABLISHED", "TARGET_OPEN", "NOT_ESTABLISHED"]
+    }
+  }
+}

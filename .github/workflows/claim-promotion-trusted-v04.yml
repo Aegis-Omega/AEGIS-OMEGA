@@ -1,0 +1,122 @@
+name: AEGIS Trusted Claim Promotion v0.4
+
+on:
+  pull_request_target:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  trusted-promotion-gate:
+    name: aegis / claim-promotion-trusted-v0.4
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+      CI_RUN_IDENTITY: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Checkout trusted base control plane
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_SHA }}
+          fetch-depth: 0
+          path: verifier
+
+      - name: Checkout untrusted candidate as data only
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 0
+          path: candidate
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact schema validator
+        run: pip install jsonschema==4.23.0
+
+      - name: Reject v0.4 control-plane drift
+        shell: bash
+        run: |
+          set -euo pipefail
+          critical=(
+            scripts/validate-claim-promotions-v04.mjs
+            governance/aegis-master-notebook-v0.4.lock.json
+            governance/claim-promotion-policy.v1.json
+            schemas/claim-promotion-request.v1.schema.json
+            schemas/claim-promotion-receipt.v1.schema.json
+            schemas/claim-promotion-policy.v1.schema.json
+            .github/workflows/claim-promotion-trusted-v04.yml
+          )
+          for rel in "${critical[@]}"; do
+            test -f "verifier/$rel"
+            test -f "candidate/$rel"
+            cmp --silent "verifier/$rel" "candidate/$rel" || {
+              echo "TRUSTED_CONTROL_PLANE_DRIFT:$rel" >&2
+              exit 1
+            }
+          done
+
+      - name: Validate candidate request against trusted schemas
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+
+          pairs = [
+              ('verifier/schemas/claim-promotion-request.v1.schema.json',
+               'candidate/governance/claim-promotion-requests-v0.4.json'),
+              ('verifier/schemas/claim-promotion-policy.v1.schema.json',
+               'candidate/governance/claim-promotion-policy.v1.json'),
+          ]
+          for schema_path, doc_path in pairs:
+              schema = json.loads(Path(schema_path).read_text(encoding='utf-8'))
+              doc = json.loads(Path(doc_path).read_text(encoding='utf-8'))
+              Draft202012Validator.check_schema(schema)
+              Draft202012Validator(schema).validate(doc)
+              print(f'TRUSTED_SCHEMA_OK {doc_path}')
+          PY
+
+      - name: Enforce candidate with trusted base verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          node verifier/scripts/validate-claim-promotions-v04.mjs \
+            --repo-root "$GITHUB_WORKSPACE/candidate" \
+            --base-sha "$BASE_SHA" \
+            --candidate-sha "$CANDIDATE_SHA" \
+            --ci-run-identity "$CI_RUN_IDENTITY" \
+            --receipt-output "$RUNNER_TEMP/TRUSTED_CLAIM_PROMOTION_RECEIPT.json"
+
+      - name: Validate generated receipt against trusted schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+          schema = json.loads(Path('verifier/schemas/claim-promotion-receipt.v1.schema.json').read_text(encoding='utf-8'))
+          receipt = json.loads(Path(os.environ['RUNNER_TEMP'], 'TRUSTED_CLAIM_PROMOTION_RECEIPT.json').read_text(encoding='utf-8'))
+          Draft202012Validator.check_schema(schema)
+          Draft202012Validator(schema).validate(receipt)
+          print('TRUSTED_PROMOTION_RECEIPT_SCHEMA_OK')
+          PY
+
+      - name: Upload trusted exact-head receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-trusted-claim-promotion-${{ env.CANDIDATE_SHA }}
+          path: ${{ runner.temp }}/TRUSTED_CLAIM_PROMOTION_RECEIPT.json
+          if-no-files-found: error
+          retention-days: 90

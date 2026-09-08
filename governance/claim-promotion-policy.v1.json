@@ -1,0 +1,14 @@
+{
+  "policy_id": "AEGIS_CLAIM_PROMOTION_ENFORCEMENT_V1",
+  "policy_version": 1,
+  "baseline_digest": "457f4566cb932d3f91e2265632fad9931c709645e520471095c23000a85c6404",
+  "open_transition_statuses": [
+    "TARGET_OPEN",
+    "NOT_ESTABLISHED"
+  ],
+  "machine_bound_forbidden_if_any": [
+    "EXTERNAL_ESTABLISHED",
+    "TARGET_OPEN",
+    "NOT_ESTABLISHED"
+  ]
+}
