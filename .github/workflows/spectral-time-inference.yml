@@ -27,9 +27,61 @@ jobs:
     name: spectral-time-inference / focused
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
+      - name: Validate candidate binding
+        shell: bash
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ ! "$CANDIDATE_SHA" =~ ^0+$ ]]
+          case "$GITHUB_EVENT_NAME" in
+            pull_request)
+              [[ -n "$PR_HEAD_SHA" ]]
+              [[ "$CANDIDATE_SHA" == "$PR_HEAD_SHA" ]]
+              ;;
+            push|workflow_dispatch)
+              [[ "$CANDIDATE_SHA" == "$GITHUB_SHA" ]]
+              ;;
+            *)
+              echo "::error::Unsupported event"
+              exit 1
+              ;;
+          esac
+
       - name: Checkout exact candidate
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify checkout and record source identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          observed_sha="$(git rev-parse --verify HEAD)"
+          [[ "$observed_sha" == "$CANDIDATE_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
+          printf 'candidate_sha=%s\ncheckout_sha=%s\nevent_sha=%s\nworkflow_sha=%s\nworkflow_ref=%s\n' \
+            "$CANDIDATE_SHA" "$observed_sha" "$GITHUB_SHA" \
+            "$GITHUB_WORKFLOW_SHA" "$GITHUB_WORKFLOW_REF"
+          printf 'checkout_tree=%s\n' "$(git rev-parse 'HEAD^{tree}')"
+          for path in \
+            harness/sdk/spectral_time_inference.py \
+            sovereign-omega-v2/python/tests/test_spectral_time_inference.py \
+            .github/workflows/spectral-time-inference.yml
+          do
+            committed_blob="$(git rev-parse "$CANDIDATE_SHA:$path")"
+            materialized_blob="$(git hash-object --no-filters -- "$path")"
+            [[ "$materialized_blob" == "$committed_blob" ]]
+            printf 'checked_out_blob=%s path=%s\n' "$committed_blob" "$path"
+            sha256sum -- "$path"
+          done
+          printf 'authority_effect=NONE\n'
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v5
@@ -47,3 +99,10 @@ jobs:
 
       - name: Run focused spectral time inference tests
         run: pytest -q sovereign-omega-v2/python/tests/test_spectral_time_inference.py
+
+      - name: Verify candidate remained unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse --verify HEAD)" == "$CANDIDATE_SHA" ]]
+          [[ -z "$(git status --porcelain --untracked-files=all)" ]]
