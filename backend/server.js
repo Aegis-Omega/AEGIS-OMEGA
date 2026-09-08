@@ -10,9 +10,48 @@ import { GoogleAuth } from 'google-auth-library';
 import fetch from 'node-fetch';
 import rateLimit from 'express-rate-limit';
 import { WebSocketServer, WebSocket } from 'ws';
+import { ProductService } from './product-service.js';
 
 const app = express();
 app.use(express.json({limit: process?.env?.API_PAYLOAD_MAX_SIZE || "7mb"}));
+const products = new ProductService();
+
+function quotaError(res, quota, dimension) {
+  res.set(products.headers(quota));
+  return res.status(429).json({
+    error: { code: 'quota_exceeded', message: `The ${dimension} quota has been exhausted for this billing period.`, dimension, retry_after: quota.period.end, limit: quota.limits[dimension], remaining: quota.remaining[dimension] },
+  });
+}
+
+async function productAuth(req, res, next) {
+  const value = req.get('x-api-key') || req.get('authorization')?.replace(/^Bearer\s+/i, '');
+  const identity = await products.authenticate(value);
+  if (!identity) return res.status(401).json({ error: { code: 'invalid_api_key', message: 'Provide an active API key.' } });
+  req.productIdentity = identity;
+  next();
+}
+
+app.post('/v1/accounts', async (req, res, next) => { try { const account = await products.account(req.body?.id || `acct_${Date.now()}`); const created = await products.createApiKey(account.id, req.body?.keyName); await products.track(account, 'signup'); await products.track(account, 'api_key_created'); res.status(201).json({ accountId: account.id, apiKey: created.secret, key: created.key, plan: account.plan }); } catch (error) { next(error); } });
+app.get('/v1/dashboard', productAuth, async (req, res, next) => { try { res.json(await products.overview(req.productIdentity.account)); } catch (error) { next(error); } });
+app.get('/v1/usage', productAuth, async (req, res, next) => { try { const overview = await products.overview(req.productIdentity.account); res.set(products.headers(overview.quota)).json({ quota: overview.quota, history: overview.usageHistory, projectedPeriodEnd: overview.projectedPeriodEnd }); } catch (error) { next(error); } });
+app.post('/v1/api-keys', productAuth, async (req, res, next) => { try { const created = await products.createApiKey(req.productIdentity.account.id, req.body?.name); await products.track(req.productIdentity.account, 'api_key_created'); res.status(201).json({ apiKey: created.secret, key: created.key }); } catch (error) { next(error); } });
+app.delete('/v1/api-keys/:id', productAuth, async (req, res, next) => { try { if (!await products.revokeKey(req.productIdentity.account, req.params.id)) return res.status(404).json({ error: { code: 'api_key_not_found' } }); res.status(204).end(); } catch (error) { next(error); } });
+app.put('/v1/notifications', productAuth, async (req, res, next) => { try { res.json({ thresholds: await products.configureNotifications(req.productIdentity.account, req.body?.thresholds) }); } catch (error) { next(error); } });
+app.post('/v1/billing/checkout', productAuth, async (req, res, next) => { try { res.status(201).json(await products.checkout(req.productIdentity.account, req.body?.plan)); } catch (error) { next(error); } });
+app.get('/v1/invoices', productAuth, async (req, res, next) => { try { res.json({ invoices: (await products.overview(req.productIdentity.account)).invoices }); } catch (error) { next(error); } });
+app.post('/v1/billing/webhook', async (req, res, next) => { try { if (process.env.BILLING_WEBHOOK_SECRET && req.get('x-billing-signature') !== process.env.BILLING_WEBHOOK_SECRET) return res.status(401).json({ error: { code: 'invalid_webhook_signature' } }); res.json(await products.applyWebhook(req.body)); } catch (error) { next(error); } });
+
+// Product inference gateway. Quotas are reserved before forwarding; a transient
+// metering failure can use the explicitly marked grace path, never a silent bypass.
+app.post('/v1/inference', productAuth, async (req, res, next) => { try {
+  const usage = { requests: 1, tokens: Number(req.body?.estimatedTokens || 0), spendCents: Number(req.body?.estimatedSpendCents || 0) };
+  const result = await products.recordUsage(req.productIdentity.account, usage, { meteringFailed: req.get('x-metering-failure') === 'transient' });
+  if (!result.allowed) return quotaError(res, result.quota, result.dimension);
+  res.set(products.headers(result.quota));
+  if (result.grace) res.set('X-Quota-Grace', 'metering-transient');
+  await products.track(req.productIdentity.account, 'first_successful_request');
+  res.status(202).json({ status: 'accepted', usage, quota: result.quota, promptStored: false });
+} catch (error) { next(error); } });
 
 const PORT = process?.env?.API_BACKEND_PORT || 5000;
 const API_BACKEND_HOST = process?.env?.API_BACKEND_HOST || "127.0.0.1";
@@ -323,6 +362,11 @@ app.post('/api-proxy', async (req, res) => {
   }
 });
 
+app.use((error, _req, res, _next) => {
+  console.error('[Product API]', error);
+  res.status(400).json({ error: { code: 'invalid_request', message: error instanceof Error ? error.message : 'Invalid request' } });
+});
+
 const server = app.listen(PORT, API_BACKEND_HOST, () => {
   console.log(`Vertex AI Backend listening at http://localhost:${PORT}`);
 });
@@ -464,5 +508,3 @@ server.on('upgrade', async (request, socket, head) => {
     socket.destroy();
   }
 });
-
-
