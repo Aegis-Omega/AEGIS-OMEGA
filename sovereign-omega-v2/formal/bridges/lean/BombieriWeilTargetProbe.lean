@@ -56,3 +56,10 @@ theorem pinned_mathlib_riemann_hypothesis_unfold_v1 :
 theorem pinned_completed_zeta_symmetry_v1 (s : ℂ) :
     completedRiemannZeta₀ (1 - s) = completedRiemannZeta₀ s :=
   completedRiemannZeta₀_one_sub s
+
+#print axioms bombieri_test_contDiff_v1
+#print axioms bombieri_test_hasCompactSupport_v1
+#print axioms bombieri_test_tsupport_positive_v1
+#print axioms bombieri_mellin_eq_mathlib_mellin_v1
+#print axioms pinned_mathlib_riemann_hypothesis_unfold_v1
+#print axioms pinned_completed_zeta_symmetry_v1
