@@ -24,6 +24,15 @@ class BombieriWeilTargetProbeTests(unittest.TestCase):
         self.assertIn("MellinConvergent f.1 s", text)
         self.assertIn("integrable_of_hasCompactSupport", text)
 
+    def test_bombieri_moments_are_exact_mellin_endpoints(self):
+        text = SOURCE.read_text(encoding="utf-8")
+        self.assertIn("def BombieriMomentConditionsV1", text)
+        self.assertIn("BombieriMellinV1 g 0 = 0", text)
+        self.assertIn("BombieriMellinV1 g 1 = 0", text)
+        self.assertIn("theorem bombieri_mellin_one_eq_integral_v1", text)
+        self.assertIn("theorem bombieri_mellin_zero_eq_inverse_weighted_integral_v1", text)
+        self.assertIn("cpow_neg_one", text)
+
     def test_probe_has_no_proof_escape_holes(self):
         text = SOURCE.read_text(encoding="utf-8")
         for forbidden in ("sorry", "axiom ", "opaque "):
