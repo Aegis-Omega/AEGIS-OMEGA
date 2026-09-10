@@ -256,10 +256,10 @@ Proof.
       (CRle_trans
         _
         ((ea * b + a * eb) * (CR_of_Q O0RealsV1 (1%Q)))).
-    - exact HbudgetToUnit.
-    - apply CRmult_le_compat_l.
-      + exact HbudgetNonneg.
-      + assert (Hinv_unit :
+    + exact HbudgetToUnit.
+    + apply CRmult_le_compat_l.
+      * exact HbudgetNonneg.
+      * assert (Hinv_unit :
           CReq O0RealsV1
             (CR_of_Q O0RealsV1 (1%Q))
             (CRinv O0RealsV1 (m * m)
@@ -273,8 +273,8 @@ Proof.
         }
         setoid_rewrite Hinv_unit.
         apply CRmult_le_compat_l.
-        * apply CRlt_asym.
+        { apply CRlt_asym.
           apply CRinv_0_lt_compat.
-          exact Hm2.
-        * exact Hm2leDen.
+          exact Hm2. }
+        { exact Hm2leDen. }
 Qed.
