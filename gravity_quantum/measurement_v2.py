@@ -76,7 +76,7 @@ def build_measurement_receipt() -> dict:
         "acquisition": {
             "experimental_cycles": 633,
             "cycle_duration_s": 30,
-            "reported_acquisition_minutes": 318,
+            "reported_acquisition_minutes_approx": 318,
         },
         "epistemic_boundary": {
             "direct_point_level_dataset_bound": False,
@@ -93,15 +93,17 @@ def _fraction_payload(value: Fraction) -> dict:
 
 
 def cubic_prefactor_identity() -> dict:
-    """Show the published-model degeneracy under levitation + mass equivalence."""
+    """Compare only the linked cubic prefactors, not entire physical models."""
     qgi = Fraction(-1, 3)
     comment_under_link = Fraction(-1, 3)
     return {
         "normalization": "m*g^2*T^3/hbar",
+        "comparison_scope": "CUBIC_PREFACTOR_ONLY",
         "assumptions": ["LEVITATION_F_MAG_EQUALS_MG_G", "MASS_EQUIVALENCE_MI_EQUALS_MG"],
         "qgi_normalized_prefactor": _fraction_payload(qgi),
         "comment_normalized_prefactor": _fraction_payload(comment_under_link),
         "degenerate_under_levitation_and_mass_equivalence": qgi == comment_under_link,
+        "non_claim": "FULL_PHYSICAL_MODELS_ARE_NOT_DECLARED_EQUIVALENT",
         "authority_effect": "NONE",
     }
 
@@ -109,13 +111,13 @@ def cubic_prefactor_identity() -> dict:
 def discriminate_published_models(receipt: dict) -> dict:
     validate_scaled_measurement(receipt)
     point_level = receipt["epistemic_boundary"]["direct_point_level_dataset_bound"]
-    degenerate = cubic_prefactor_identity()["degenerate_under_levitation_and_mass_equivalence"]
+    prefactor_degenerate = cubic_prefactor_identity()["degenerate_under_levitation_and_mass_equivalence"]
 
     reasons = []
     if not point_level:
         reasons.append("NO_POINT_LEVEL_PHASE_DATA")
-    if degenerate:
-        reasons.append("PUBLISHED_MODEL_DEGENERACY")
+    if prefactor_degenerate:
+        reasons.append("CUBIC_PREFACTOR_DEGENERACY_UNDER_LEVITATION")
     reasons.append("APPARATUS_SYSTEMATICS_MATERIAL")
 
     return {
