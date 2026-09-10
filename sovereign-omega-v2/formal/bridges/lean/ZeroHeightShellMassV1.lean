@@ -74,7 +74,7 @@ theorem zero_height_shell_finite_v1 (n : ℕ) :
     intro a b hab
     apply Subtype.ext
     apply Subtype.ext
-    exact congrArg Subtype.val hab)
+    exact congrArg (fun z : K => z.1) hab)
 
 /-- Finite norm-mass of the `n`-th canonical height shell. The expression is a
 `tsum` over a finite subtype; finiteness is proved above. -/
