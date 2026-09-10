@@ -52,7 +52,7 @@ private def height_attach_to_nontrivial_index_v1 (T : ℝ) :
   inj' := by
     intro a b hab
     apply Subtype.ext
-    exact congrArg Subtype.val hab
+    exact congrArg (fun rho : RiemannNontrivialZeroIndexV2 => rho.1) hab
 
 /-- Canonical finite-height carrier, now indexed directly by the subtype of
 nontrivial zeros. It is obtained without enumerating the zero set. -/
