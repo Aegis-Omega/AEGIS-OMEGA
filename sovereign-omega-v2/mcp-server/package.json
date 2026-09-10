@@ -9,8 +9,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
-    "test:resources": "npm run build && node test/dlss5.mjs && node test/resources.mjs",
-    "test:dlss5": "npm run build && node test/dlss5.mjs",
+    "test:resources": "npm run build && node test/dlss5.mjs && node test/dlss5-runtime.mjs && node test/resources.mjs",
+    "test:dlss5": "npm run build && node test/dlss5.mjs && node test/dlss5-runtime.mjs",
+    "test:dlss5-runtime": "npm run build && node test/dlss5-runtime.mjs",
     "test:automaton3": "npm run build && node test/automaton3-authority.mjs"
   },
   "dependencies": {
