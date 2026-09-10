@@ -10,11 +10,10 @@ import copy
 import os
 from pathlib import Path
 import subprocess
-import sys
 import tempfile
 import unittest
+import unittest.mock
 from urllib.parse import parse_qs, urlsplit
-from unittest import mock
 
 import pr_overlap_guard as guard
 
@@ -25,7 +24,7 @@ class PaginationRegression(unittest.TestCase):
         page2 = [{"number": 100}]
         responses = [page1, page2]
 
-        with mock.patch.object(guard, "_get", side_effect=responses) as get:
+        with unittest.mock.patch.object(guard, "_get", side_effect=responses) as get:
             found = guard._get_all("https://api.github.com/repos/o/r/pulls?state=open", "token")
 
         self.assertEqual(len(found), 101)
@@ -35,7 +34,7 @@ class PaginationRegression(unittest.TestCase):
         self.assertIn("page=2", get.call_args_list[1].args[0])
 
     def test_get_all_stops_after_one_short_page(self):
-        with mock.patch.object(guard, "_get", return_value=[{"number": 1}]) as get:
+        with unittest.mock.patch.object(guard, "_get", return_value=[{"number": 1}]) as get:
             found = guard._get_all("https://api.github.com/repos/o/r/pulls/1/files", "token")
 
         self.assertEqual(found, [{"number": 1}])
@@ -56,9 +55,9 @@ class PaginationRegression(unittest.TestCase):
                 return candidate_files
             if url.endswith("/pulls/2/files"):
                 return other_files
-            self.fail(f"unexpected URL: {url}")
+            raise AssertionError(f"unexpected URL: {url}")
 
-        with mock.patch.object(guard, "_get_all", side_effect=get_all) as paged:
+        with unittest.mock.patch.object(guard, "_get_all", side_effect=get_all) as paged:
             mine, others = guard.fetch("o/r", "token", 1)
 
         self.assertEqual(len(mine), 101)
@@ -108,35 +107,35 @@ class API:
 class CollectionSafety(unittest.TestCase):
     def test_repeated_page_is_not_a_complete_census(self):
         page = [{"number": i} for i in range(100)]
-        with mock.patch.object(guard, "_get", side_effect=[page, page, []]):
+        with unittest.mock.patch.object(guard, "_get", side_effect=[page, page, []]):
             with self.assertRaises(ValueError):
                 guard._get_all("https://api.github.com/repos/o/r/pulls", "token")
 
     def test_malformed_collection_does_not_become_empty_evidence(self):
-        with mock.patch.object(guard, "_get", return_value={"message": "unavailable"}):
+        with unittest.mock.patch.object(guard, "_get", return_value={"message": "unavailable"}):
             with self.assertRaises(ValueError):
                 guard._get_all("https://api.github.com/repos/o/r/pulls", "token")
 
     def test_malformed_row_is_rejected(self):
-        with mock.patch.object(guard, "_get", return_value=["not an object"]):
+        with unittest.mock.patch.object(guard, "_get", return_value=["not an object"]):
             with self.assertRaises(ValueError):
                 guard._get_all("https://api.github.com/repos/o/r/pulls", "token")
 
     def test_github_3000_file_cap_is_not_claimed_complete(self):
         pages = [[{"filename": f"src/{i}.py", "status": "modified"}
                   for i in range(n, n + 100)] for n in range(0, 3000, 100)] + [[]]
-        with mock.patch.object(guard, "_get", side_effect=pages):
+        with unittest.mock.patch.object(guard, "_get", side_effect=pages):
             with self.assertRaises(ValueError):
                 guard._get_all("https://api.github.com/repos/o/r/pulls/1/files", "token")
 
     def test_exact_multiple_of_100_requires_terminal_empty_page(self):
         page = [{"number": i} for i in range(100)]
-        with mock.patch.object(guard, "_get", side_effect=[page, []]) as get:
+        with unittest.mock.patch.object(guard, "_get", side_effect=[page, []]) as get:
             self.assertEqual(len(guard._get_all("https://api.github.com/repos/o/r/pulls", "token")), 100)
         self.assertEqual(get.call_count, 2)
 
     def test_late_page_failure_propagates(self):
-        with mock.patch.object(guard, "_get", side_effect=[
+        with unittest.mock.patch.object(guard, "_get", side_effect=[
             [{"number": i} for i in range(100)], ValueError("page two failed")]):
             with self.assertRaisesRegex(ValueError, "page two"):
                 guard._get_all("https://api.github.com/repos/o/r/pulls", "token")
@@ -144,7 +143,7 @@ class CollectionSafety(unittest.TestCase):
 
 class SnapshotAndStack(unittest.TestCase):
     def run_fetch(self, api):
-        with mock.patch.object(guard, "_get", side_effect=api.get):
+        with unittest.mock.patch.object(guard, "_get", side_effect=api.get):
             return guard.fetch("o/r", "test-token", 1)
 
     def test_label_cannot_hide_unrelated_pr(self):
@@ -239,7 +238,7 @@ class ExecutedWorkflowBoundary(unittest.TestCase):
             Path(tmp, "production-cookbook", "candidate.py").write_text("# candidate\n")
             git("add", ".")
             git("commit", "-qm", "synthetic candidate")
-            with mock.patch.dict(os.environ, {"GITHUB_BASE_SHA": base}):
+            with unittest.mock.patch.dict(os.environ, {"GITHUB_BASE_SHA": base}):
                 observed = guard.base_directories(tmp)
             self.assertEqual(observed, frozenset({"scripts"}))
 

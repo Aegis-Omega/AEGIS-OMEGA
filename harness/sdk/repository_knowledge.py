@@ -172,6 +172,7 @@ def _read_objects(repo: Path, shas: Iterable[str]) -> dict[str, bytes]:
                 if not stream.closed:
                     stream.close()
             except OSError:
+                # Teardown is best-effort; process termination below is authoritative cleanup.
                 pass
         if proc.poll() is None:
             proc.kill()
