@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0.0",
+  "operator_approval_id": "operator-issued-approval-id",
+  "path_dispositions": {
+    "path/to/duplicate-artifact": "DELETE_BYTE_DUPLICATE_ONLY",
+    "path/to/renamed-artifact": "SUPERSEDE_REPRESENTATION"
+  },
+  "notes": "Physical deletion is permitted only for DELETE_BYTE_DUPLICATE_ONLY. Other dispositions preserve bytes or require a non-delete transformation."
+}
