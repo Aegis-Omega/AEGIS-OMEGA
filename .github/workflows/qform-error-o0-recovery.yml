@@ -1,0 +1,169 @@
+name: QForm Error O0 Recovery
+
+on:
+  push:
+    branches: [proof/qform-error-o0-recovery-v1]
+    paths:
+      - 'sovereign-omega-v2/formal/tests/Weil/QFormErrorO0Spec.v'
+      - 'sovereign-omega-v2/formal/theories/Weil/QFormErrorO0.v'
+      - '.github/workflows/qform-error-o0-recovery.yml'
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/tests/Weil/QFormErrorO0Spec.v'
+      - 'sovereign-omega-v2/formal/theories/Weil/QFormErrorO0.v'
+      - '.github/workflows/qform-error-o0-recovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  attest:
+    name: coqc / O0 quotient stability recovery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Reject declared assumptions in authority source when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=sovereign-omega-v2/formal/theories/Weil/QFormErrorO0.v
+          if test -f "$src" && grep -En '^[[:space:]]*(Axiom|Axioms|Parameter|Parameters|Admitted)[[:space:].]' "$src"; then
+            echo "Declared assumption/admission forbidden: $src" >&2
+            exit 1
+          fi
+
+      - name: Prepare writable evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/qform-error-o0-recovery-attestation
+          chmod -R a+rwX \
+            sovereign-omega-v2/formal/theories/Weil \
+            sovereign-omega-v2/formal/tests/Weil \
+            sovereign-omega-v2/qform-error-o0-recovery-attestation
+
+      - name: Compile RED or GREEN O0 quotient contract
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            THEORY="$ROOT/formal/theories/Weil"
+            TESTDIR="$ROOT/formal/tests/Weil"
+            SOURCE="$THEORY/QFormErrorO0.v"
+            OUT="$ROOT/qform-error-o0-recovery-attestation"
+
+            coqc --version | tee "$OUT/coq-version.txt"
+            (cd "$THEORY" && coqc AnalyticDefinitions.v) 2>&1 | tee "$OUT/analytic-definitions.log"
+
+            if ! test -f "$SOURCE"; then
+              set +e
+              (cd "$TESTDIR" && coqc -Q "$THEORY" "" QFormErrorO0Spec.v) > "$OUT/red-spec.log" 2>&1
+              status=$?
+              set -e
+              cat "$OUT/red-spec.log"
+              test "$status" -ne 0
+              grep -q 'QFormErrorO0' "$OUT/red-spec.log"
+              echo 'RED checkpoint confirmed: contract fails because production QFormErrorO0 is absent.' >&2
+              exit 1
+            fi
+
+            (cd "$THEORY" && coqc QFormErrorO0.v) 2>&1 | tee "$OUT/qform-error-o0-source.log"
+            (cd "$TESTDIR" && coqc -Q "$THEORY" "" QFormErrorO0Spec.v) 2>&1 | tee "$OUT/qform-error-o0-spec.log"
+
+            for theorem in \
+              o0_normalized_quotient_cross_error_sound_v1 \
+              o0_normalized_quotient_stability_sound_v1
+            do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.assumptions.txt"
+              printf 'Set Coqtop Exit On Error.\nRequire Import QFormErrorO0.\nPrint Assumptions %s.\n' "$theorem" > "$query"
+              (cd "$THEORY" && coqtop -quiet -batch -l "$query") > "$log" 2>&1
+              rm -f "$query"
+              cat "$log"
+              grep -q 'Closed under the global context' "$log"
+              if grep -q '^Axioms:' "$log"; then
+                echo "Unexpected assumptions for $theorem" >&2
+                exit 1
+              fi
+            done
+
+      - name: Emit fail-closed O0 quotient receipt
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          out = Path('qform-error-o0-recovery-attestation')
+          source = Path('formal/theories/Weil/QFormErrorO0.v')
+          spec = Path('formal/tests/Weil/QFormErrorO0Spec.v')
+          names = [
+              'o0_normalized_quotient_cross_error_sound_v1',
+              'o0_normalized_quotient_stability_sound_v1',
+          ]
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+          payload = {
+              'receipt_kind': 'AEGIS_QFORM_ERROR_O0_RECOVERY_RECEIPT_V1',
+              'authority': 'FORMAL_MATH_EVIDENCE_ONLY',
+              'source_commit': os.environ['SOURCE_SHA'],
+              'source_sha256': sha(source),
+              'preregistered_spec_sha256': sha(spec),
+              'theorem_assumption_log_sha256': {
+                  n: sha(out / f'{n}.assumptions.txt') for n in names
+              },
+              'declared_assumptions': 0,
+              'o0_cross_error_kernel_machine_bound': True,
+              'o0_normalized_quotient_stability_machine_bound': True,
+              'rational_to_o0_transport_used_as_authority': False,
+              'gaussian_tail_inequality_machine_bound': False,
+              'composite_trapezoid_theorem_machine_bound': False,
+              'qform_analytic_error_application_machine_bound': False,
+              'formula_to_weil_operator_identity_proven': False,
+              'global_weil_positivity_proven': False,
+              'weil_criterion_machine_bound': False,
+              'rh_proven': False,
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          target = out / 'qform-error-o0-recovery-receipt.json'
+          target.write_text(json.dumps(payload, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+          assert payload['rational_to_o0_transport_used_as_authority'] is False
+          assert payload['gaussian_tail_inequality_machine_bound'] is False
+          assert payload['composite_trapezoid_theorem_machine_bound'] is False
+          assert payload['qform_analytic_error_application_machine_bound'] is False
+          assert payload['global_weil_positivity_proven'] is False
+          assert payload['weil_criterion_machine_bound'] is False
+          assert payload['rh_proven'] is False
+          PY
+
+      - name: Upload O0 quotient recovery evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: qform-error-o0-recovery-${{ env.SOURCE_SHA }}
+          path: sovereign-omega-v2/qform-error-o0-recovery-attestation/
+          if-no-files-found: warn
+          retention-days: 30

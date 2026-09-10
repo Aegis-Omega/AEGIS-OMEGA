@@ -20,6 +20,7 @@
     "Weil/PrimePowerWeightBridge.v",
     "Weil/PrimeSourceDerivativeConstructive.v",
     "Weil/PrimeTrigConstructive.v",
+    "Weil/QFormErrorO0.v",
     "Weil/VonMangoldtCanonicalBridge.v"
   ],
   "DIAGNOSTIC_ONLY": [
