@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/rh-zero-nonpositive-integer-v1",
+    "source_ref": "proof/rh-zero-negative-integer-classification-v1",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "a0b93f3c13b0d3d9b24740228fe0bbb82c217e842a0c1365e3e839791f1154ac"
+  "state_hash": "2d014cf6e61a6490569beaabfa45d29b690390538e66d7ac42d646fb39aa7b65"
 }
