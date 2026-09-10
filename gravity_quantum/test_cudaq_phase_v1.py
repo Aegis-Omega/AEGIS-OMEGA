@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import copy
+import math
 import unittest
 
 from gravity_quantum.cudaq_phase_v1 import (
@@ -15,6 +16,11 @@ class TestCudaQPhaseV1(unittest.TestCase):
     def test_classical_oracle_zero_phase_is_plus_x(self):
         self.assertEqual(classical_x_expectation_scaled(0), EXPECTATION_SCALE)
 
+    def test_classical_oracle_matches_independent_cosine_reference(self):
+        for angle in DEFAULT_ANGLE_MICRORAD:
+            expected = round(math.cos(angle / 1_000_000.0) * EXPECTATION_SCALE)
+            self.assertEqual(classical_x_expectation_scaled(angle), expected)
+
     def test_invalid_float_angle_is_rejected(self):
         with self.assertRaises(ValueError):
             classical_x_expectation_scaled(0.5)
@@ -22,6 +28,8 @@ class TestCudaQPhaseV1(unittest.TestCase):
     def test_qpp_cpu_matches_classical_oracle(self):
         for angle in DEFAULT_ANGLE_MICRORAD:
             point = run_phase_probe(angle)
+            expected = round(math.cos(angle / 1_000_000.0) * EXPECTATION_SCALE)
+            self.assertEqual(point["classical_x_scaled"], expected)
             self.assertLessEqual(point["abs_error_scaled"], point["tolerance_scaled"])
 
     def test_qpp_cpu_observe_is_deterministic(self):
@@ -50,6 +58,8 @@ class TestCudaQPhaseV1(unittest.TestCase):
         self.assertEqual(receipt["physics_claim_effect"], "NONE")
         self.assertEqual(receipt["authority_effect"], "NONE")
         self.assertEqual(receipt["quantum_gravity_status"], "NOT_TESTED")
+        self.assertEqual(receipt["hamiltonian"], "H=Z/2")
+        self.assertEqual(receipt["unitary"], "U(theta)=exp(-i*theta*Z/2)=RZ(theta)")
 
     def test_tamper_changes_receipt_content(self):
         receipt = build_phase_receipt()
