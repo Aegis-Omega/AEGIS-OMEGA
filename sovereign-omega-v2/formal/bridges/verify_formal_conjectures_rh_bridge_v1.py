@@ -2,8 +2,9 @@
 """Fail-closed validator for the AEGIS ↔ Formal Conjectures RH target bridge v1.
 
 This validator intentionally cannot promote the Riemann Hypothesis. It pins the
-external open conjecture and the existing conditional AEGIS Weil theorem and emits
-only HOLD or DENY_PROMOTION while the semantic bridge remains unverified.
+external open conjecture, the existing conditional AEGIS Weil theorem, and the
+machine-checkable obstruction showing that an arbitrary abstract QW is not a
+semantic identification with the classical Weil functional.
 """
 
 from __future__ import annotations
@@ -31,6 +32,19 @@ EXPECTED_AEGIS = {
     "coordinate": "sovereign-omega-v2/formal/theories/Weil/Globalization.v::globalization_ready_implies_global_weil_positivity_v1",
     "source_statement_sha256": "52c43c47ecc64f6ca03635ca6cc9231f144e15417e4fecdbdeb31649639837c1",
     "claim_scope": "CONDITIONAL_GLOBAL_WEIL_POSITIVITY_ONLY",
+}
+EXPECTED_OBSTRUCTION = {
+    "status": "PROOF_SOURCE_PINNED",
+    "source_path": "sovereign-omega-v2/formal/bridges/coq/SemanticBridgeObstruction.v",
+    "source_sha256": "7e293e1ecf5de8af4c5e05ae9c760a74b7e035bdc7d74705e267b5286e028d12",
+    "coq_toolchain": "8.20",
+    "theorems": [
+        "zero_quadratic_form_global_weil_positivity_v1",
+        "universal_global_weil_bridge_iff_target_v1",
+    ],
+    "claim_scope": "ABSTRACT_QW_INSUFFICIENCY_ONLY",
+    "result": "ABSTRACT_QW_REQUIRES_CONCRETE_WEIL_IDENTIFICATION",
+    "rh_effect": "NONE",
 }
 REQUIRED_GATES = (
     "external_source_digest_verified",
@@ -79,11 +93,13 @@ def evaluate(manifest: dict[str, Any]) -> dict[str, Any]:
 
     external = _mapping(manifest.get("external_source"), "external_source")
     aegis = _mapping(manifest.get("aegis_source"), "aegis_source")
+    obstruction = _mapping(manifest.get("semantic_obstruction"), "semantic_obstruction")
     bridge = _mapping(manifest.get("bridge"), "bridge")
     declared = _mapping(manifest.get("declared_disposition"), "declared_disposition")
 
     _require_exact(external, EXPECTED_EXTERNAL, "external_source")
     _require_exact(aegis, EXPECTED_AEGIS, "aegis_source")
+    _require_exact(obstruction, EXPECTED_OBSTRUCTION, "semantic_obstruction")
     _require_exact(declared, EXPECTED_DISPOSITION, "declared_disposition")
 
     external_statement = external.get("source_statement")
@@ -115,6 +131,7 @@ def evaluate(manifest: dict[str, Any]) -> dict[str, Any]:
     reason_codes = [
         "UPSTREAM_RH_OPEN_WITH_SORRY",
         "AEGIS_SOURCE_SCOPE_CONDITIONAL_GLOBAL_WEIL_POSITIVITY_ONLY",
+        "ABSTRACT_QW_TRIVIAL_POSITIVE_MODEL_PROOF_SOURCE_PINNED",
         "AEGIS_TO_MATHLIB_RH_SEMANTIC_BRIDGE_OPEN",
     ]
     if open_gates:
@@ -128,6 +145,8 @@ def evaluate(manifest: dict[str, Any]) -> dict[str, Any]:
         "target_id": manifest.get("target_id"),
         "external_revision": external["revision"],
         "aegis_revision": aegis["revision"],
+        "semantic_obstruction": obstruction["result"],
+        "semantic_obstruction_source_sha256": obstruction["source_sha256"],
         "decision": decision,
         "promotion_requested": promotion_requested,
         "open_gates": open_gates,
