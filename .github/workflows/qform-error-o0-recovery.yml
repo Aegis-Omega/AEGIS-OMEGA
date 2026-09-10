@@ -96,11 +96,7 @@ jobs:
             do
               query="$OUT/${theorem}.v"
               log="$OUT/${theorem}.assumptions.txt"
-              cat > "$query" <<EOF
-Set Coqtop Exit On Error.
-Require Import QFormErrorO0.
-Print Assumptions ${theorem}.
-EOF
+              printf 'Set Coqtop Exit On Error.\nRequire Import QFormErrorO0.\nPrint Assumptions %s.\n' "$theorem" > "$query"
               (cd "$THEORY" && coqtop -quiet -batch -l "$query") > "$log" 2>&1
               rm -f "$query"
               cat "$log"
