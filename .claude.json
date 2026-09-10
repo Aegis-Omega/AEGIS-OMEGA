@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/rh-zero-height-summability-bridge-v1",
+    "source_ref": "proof/rh-zero-majorant-summability-v1",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "de8b2a58ebd77e4d05ceb5b378ca16518948c055ace18441878608442733a0fa"
+  "state_hash": "e876911d1bc1f1041e795053864a07820eccaa1ff17c8de145ea1438e711e21a"
 }
