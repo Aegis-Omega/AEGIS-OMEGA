@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AEGIS Navier OpenAI Candidate V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "candidate_id",
+    "lane_id",
+    "claim",
+    "claim_scope",
+    "assumptions",
+    "source_coordinates",
+    "dependencies",
+    "open_obligations",
+    "known_failure_modes",
+    "falsification_attempts",
+    "status",
+    "authority_effect"
+  ],
+  "properties": {
+    "candidate_id": {"type": "string", "minLength": 1},
+    "lane_id": {"type": "string", "minLength": 1},
+    "claim": {"type": "string", "minLength": 1},
+    "claim_scope": {
+      "type": "string",
+      "enum": ["TARGET", "SURROGATE_ONLY", "ATTACK", "COUNTEREXAMPLE"]
+    },
+    "assumptions": {"type": "array", "items": {"type": "string"}},
+    "source_coordinates": {"type": "array", "items": {"type": "string"}},
+    "dependencies": {"type": "array", "items": {"type": "string"}},
+    "open_obligations": {"type": "array", "items": {"type": "string"}},
+    "known_failure_modes": {"type": "array", "items": {"type": "string"}},
+    "falsification_attempts": {"type": "array", "items": {"type": "string"}},
+    "status": {"const": "CANDIDATE_ONLY"},
+    "authority_effect": {"const": "NONE"}
+  }
+}
