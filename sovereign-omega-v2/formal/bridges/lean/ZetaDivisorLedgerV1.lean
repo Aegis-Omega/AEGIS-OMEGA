@@ -85,3 +85,8 @@ noncomputable def ZetaNontrivialWeightedLedgerSumV1
 #check zeta_divisor_apply_eq_analytic_order_v1
 #check ZetaNontrivialDivisorSupportFinsetV1
 #check ZetaNontrivialWeightedLedgerSumV1
+
+#print axioms zeta_analytic_on_admissible_compact_v1
+#print axioms zeta_meromorphic_on_admissible_compact_v1
+#print axioms zeta_divisor_support_finite_v1
+#print axioms zeta_divisor_apply_eq_analytic_order_v1
