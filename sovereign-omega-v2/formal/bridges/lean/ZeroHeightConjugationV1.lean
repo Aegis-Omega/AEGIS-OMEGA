@@ -45,8 +45,16 @@ theorem nontrivial_zero_height_conj_mem_v1
   · rintro ⟨n, hn⟩
     apply hnontrivial
     refine ⟨n, ?_⟩
-    have hc := congrArg conj hn
-    simpa using hc
+    have hn' : conj rho = -((2 * (n + 1) : ℕ) : ℂ) := by
+      calc
+        conj rho = -(2 : ℂ) * (n + 1) := hn
+        _ = -((2 * (n + 1) : ℕ) : ℂ) := by push_cast; ring
+    have hc := congrArg conj hn'
+    calc
+      rho = conj (conj rho) := by simp
+      _ = conj (-((2 * (n + 1) : ℕ) : ℂ)) := hc
+      _ = -((2 * (n + 1) : ℕ) : ℂ) := by simp [Complex.conj_natCast]
+      _ = -(2 : ℂ) * (n + 1) := by push_cast; ring
   · simpa using him
 
 /-- Membership in the finite-height carrier is exactly invariant under conjugation. -/
