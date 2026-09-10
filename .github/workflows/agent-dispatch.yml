@@ -4,154 +4,241 @@ on:
   workflow_run:
     workflows: ["⊕ AEGIS-Ω Constitutional Automaton"]
     types: [completed]
-  pull_request:
-    types: [opened, synchronize, review_requested]
+  pull_request_target:
+    types: [opened, synchronize, review_requested, labeled]
   issues:
-    types: [opened, labeled]
+    types: [labeled]
   issue_comment:
     types: [created]
 
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  id-token: write
+
 jobs:
   dispatch:
-    name: Dispatch to AEGIS Agent Ecosystem
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-      issues: read
-      id-token: write
-    # Fail-closed: only dispatch if PROXY_URL is explicitly configured
-    if: vars.PROXY_URL != ''
+    name: Agent Dispatch Admission
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout trusted default-branch control plane
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
 
-      - name: Determine event type and validate actor
+      - name: Classify bounded event envelope
         id: classify
-        # All untrusted external inputs bound to env vars — never interpolated inline.
         env:
           EVENT_NAME: ${{ github.event_name }}
-          WF_EVENT: ${{ github.event.workflow_run.conclusion }}
-          WF_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
-          WF_BRANCH: ${{ github.event.workflow_run.head_branch }}
-          WF_RUN_ID: ${{ github.event.workflow_run.id }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_NUMBER: ${{ github.event.number }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
-          COMMENT_ISSUE_NUMBER: ${{ github.event.issue.number }}
-          ACTOR: ${{ github.actor }}
-          ACTOR_TYPE: ${{ github.actor_association }}
+          EVENT_PATH: ${{ github.event_path }}
+          REQUEST_PATH: ${{ runner.temp }}/agent-dispatch-request.json
+          AUDIENCE_PATH: ${{ runner.temp }}/agent-dispatch-audience.txt
+          DECISION_PATH: ${{ runner.temp }}/agent-dispatch-classification.json
+        shell: bash
+        run: |
+          set +e
+          python3 scripts/agent_dispatch_payload.py \
+            --event-name "$EVENT_NAME" \
+            --event-path "$EVENT_PATH" \
+            --output "$REQUEST_PATH" \
+            --audience-output "$AUDIENCE_PATH" \
+            --decision-output "$DECISION_PATH"
+          status=$?
+          set -e
+
+          if [ "$status" -eq 0 ]; then
+            echo "actionable=true" >> "$GITHUB_OUTPUT"
+          elif [ "$status" -eq 2 ]; then
+            echo "actionable=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Event classification failed closed (exit $status)." >&2
+            exit "$status"
+          fi
+          echo "reason=$(jq -r '.reason' "$DECISION_PATH")" >> "$GITHUB_OUTPUT"
+
+      - name: Decide whether an external effect is admissible
+        id: admission
+        env:
+          ACTIONABLE: ${{ steps.classify.outputs.actionable }}
+          CLASSIFICATION_REASON: ${{ steps.classify.outputs.reason }}
+          EVENT_NAME: ${{ github.event_name }}
+          AUTOMATION_ENABLED: ${{ vars.AGENT_DISPATCH_AUTOMATION_ENABLED }}
+          GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+          WIF_PROVIDER: ${{ vars.WIF_PROVIDER }}
+          WIF_SERVICE_ACCOUNT: ${{ vars.WIF_SERVICE_ACCOUNT }}
+        shell: bash
         run: |
           set -euo pipefail
+          decision=DEFER
+          reason="$CLASSIFICATION_REASON"
 
-          # Fail-closed: require trusted actor for external events
-          validate_actor() {
-            local association="$1"
-            case "$association" in
-              OWNER|MEMBER|COLLABORATOR) return 0 ;;
-              *) echo "DENIED: untrusted actor association: $association" >&2; return 1 ;;
-            esac
-          }
-
-          # External events require trusted actor
-          if [[ "$EVENT_NAME" != "workflow_run" ]]; then
-            validate_actor "$ACTOR_TYPE" || exit 1
+          if [ "$ACTIONABLE" != "true" ]; then
+            reason="${CLASSIFICATION_REASON:-EVENT_NOT_DISPATCHABLE}"
+          elif [ "$EVENT_NAME" = "workflow_run" ] && [ "$AUTOMATION_ENABLED" != "true" ]; then
+            reason=AUTOMATION_NOT_ENABLED
+          elif [ -z "$GCP_PROJECT" ] || [ -z "$WIF_PROVIDER" ] || [ -z "$WIF_SERVICE_ACCOUNT" ]; then
+            reason=TOOLCHAIN_UNAVAILABLE
+          else
+            decision=EXECUTE
+            reason=READY
           fi
 
-          EVENT_TYPE=""
-          PAYLOAD="{}"
-
-          if [ "$EVENT_NAME" = "workflow_run" ]; then
-            if [ "$WF_CONCLUSION" = "failure" ]; then
-              EVENT_TYPE="github_ci_failure"
-              PAYLOAD=$(jq -n \
-                --arg branch "$WF_BRANCH" \
-                --arg run_id "$WF_RUN_ID" \
-                --arg conclusion "$WF_CONCLUSION" \
-                '{"branch": $branch, "run_id": $run_id, "failures": $conclusion}')
-            elif [ "$WF_CONCLUSION" = "success" ]; then
-              EVENT_TYPE="github_ci_success"
-              PAYLOAD=$(jq -n \
-                --arg branch "$WF_BRANCH" \
-                '{"branch": $branch}')
+          printf 'decision=%s\nreason=%s\n' "$decision" "$reason" >> "$GITHUB_OUTPUT"
+          {
+            echo '### AEGIS Agent Dispatch Admission'
+            echo
+            echo "- classification: \`${CLASSIFICATION_REASON:-UNKNOWN}\`"
+            echo "- decision: \`$decision\`"
+            echo "- reason: \`$reason\`"
+            if [ "$decision" != EXECUTE ]; then
+              echo '- effect: no external agent/model spend was attempted.'
             fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
-          elif [ "$EVENT_NAME" = "pull_request" ]; then
-            EVENT_TYPE="github_pr_opened"
-            PAYLOAD=$(jq -n \
-              --arg title "$PR_TITLE" \
-              --arg number "$PR_NUMBER" \
-              --arg url "$PR_URL" \
-              '{"title": $title, "number": $number, "url": $url}')
-
-          elif [ "$EVENT_NAME" = "issues" ]; then
-            EVENT_TYPE="github_issue_opened"
-            PAYLOAD=$(jq -n \
-              --arg title "$ISSUE_TITLE" \
-              --arg number "$ISSUE_NUMBER" \
-              --arg body "$ISSUE_BODY" \
-              '{"title": $title, "number": $number, "body": $body}')
-
-          elif [ "$EVENT_NAME" = "issue_comment" ]; then
-            # Only dispatch if comment mentions @aegis-agent
-            if echo "$COMMENT_BODY" | grep -q "@aegis-agent"; then
-              EVENT_TYPE="github_pr_comment"
-              PAYLOAD=$(jq -n \
-                --arg body "$COMMENT_BODY" \
-                --arg number "$COMMENT_ISSUE_NUMBER" \
-                '{"body": $body, "number": $number}')
-            fi
-          fi
-
-          echo "event_type=$EVENT_TYPE" >> $GITHUB_OUTPUT
-          echo "payload=$PAYLOAD" >> $GITHUB_OUTPUT
-
-      - name: Authenticate to Google Cloud (Keyless WIF)
-        if: steps.classify.outputs.event_type != ''
-        uses: google-github-actions/auth@v2
+      - name: Authenticate to Google Cloud with keyless WIF
+        id: auth
+        if: steps.admission.outputs.decision == 'EXECUTE'
+        continue-on-error: true
+        uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed
         with:
-          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
 
-      - name: Broker platform key at execution time
-        if: steps.classify.outputs.event_type != ''
-        id: platform_key
-        run: |
-          # Platform key is brokered at execution time, not stored
-          PLATFORM_KEY=$(gcloud secrets versions access latest --secret="platform-dispatch-key")
-          echo "::add-mask::$PLATFORM_KEY"
-          echo "key=$PLATFORM_KEY" >> $GITHUB_OUTPUT
-
-      - name: Dispatch to AEGIS constitutional proxy (fail-closed)
-        if: steps.classify.outputs.event_type != ''
+      - name: Discover canonical proxy and broker execution key
+        id: broker
+        if: steps.admission.outputs.decision == 'EXECUTE' && steps.auth.outcome == 'success'
         env:
-          PROXY_URL: ${{ vars.PROXY_URL }}
-          DISPATCH_EVENT_TYPE: ${{ steps.classify.outputs.event_type }}
-          DISPATCH_PAYLOAD: ${{ steps.classify.outputs.payload }}
-          PLATFORM_KEY: ${{ steps.platform_key.outputs.key }}
+          GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+          KEY_PATH: ${{ runner.temp }}/agent-dispatch-platform-key
+        shell: bash
         run: |
-          # Fail-closed: validate response and error on any unexpected status
-          response=$(curl -s -w "\n%{http_code}" -X POST "$PROXY_URL/agents/dispatch" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $PLATFORM_KEY" \
-            --fail-with-body \
-            -d "$(jq -n \
-              --arg event_type "$DISPATCH_EVENT_TYPE" \
-              --argjson payload "$DISPATCH_PAYLOAD" \
-              '{"event_type": $event_type, "payload": $payload}')")
-          
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | head -n-1)
-          
-          if [ "$http_code" != "200" ]; then
-            echo "Dispatch failed with HTTP $http_code" >&2
-            echo "$body" >&2
-            exit 1
+          set -euo pipefail
+          proxy_url="$(gcloud run services describe aegis-platform \
+            --region us-central1 \
+            --project "$GCP_PROJECT" \
+            --format='value(status.url)')"
+          test -n "$proxy_url"
+          case "$proxy_url" in https://*) ;; *) echo 'Canonical proxy URL is not HTTPS.' >&2; exit 2 ;; esac
+
+          platform_key="$(gcloud secrets versions access latest \
+            --secret=platform-api-key \
+            --project "$GCP_PROJECT")"
+          test -n "$platform_key"
+          echo "::add-mask::$platform_key"
+          printf '%s' "$platform_key" > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          echo "proxy_url=$proxy_url" >> "$GITHUB_OUTPUT"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch through authenticated constitutional proxy
+        id: effect
+        if: steps.broker.outputs.ready == 'true'
+        env:
+          PROXY_URL: ${{ steps.broker.outputs.proxy_url }}
+          REQUEST_PATH: ${{ runner.temp }}/agent-dispatch-request.json
+          RESPONSE_PATH: ${{ runner.temp }}/agent-dispatch-response.json
+          KEY_PATH: ${{ runner.temp }}/agent-dispatch-platform-key
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(wc -c < "$REQUEST_PATH")" -le 8192
+          platform_key="$(cat "$KEY_PATH")"
+          echo "::add-mask::$platform_key"
+
+          echo "attempted=true" >> "$GITHUB_OUTPUT"
+          echo "result=FAIL" >> "$GITHUB_OUTPUT"
+
+          curl --fail-with-body --silent --show-error \
+            --retry 3 \
+            --retry-all-errors \
+            --connect-timeout 5 \
+            --max-time 30 \
+            --max-filesize 65536 \
+            --request POST "${PROXY_URL%/}/agents/dispatch" \
+            --header 'Content-Type: application/json' \
+            --header "x-api-key: $platform_key" \
+            --data-binary "@$REQUEST_PATH" \
+            --output "$RESPONSE_PATH"
+
+          jq -e '
+            (.results | type == "array") and
+            all(.results[]; (.role | type == "string") and (.is_valid | type == "boolean"))
+          ' "$RESPONSE_PATH" >/dev/null
+
+          echo "result=SUCCESS" >> "$GITHUB_OUTPUT"
+          echo "response_sha256=$(sha256sum "$RESPONSE_PATH" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "result_count=$(jq '.results | length' "$RESPONSE_PATH")" >> "$GITHUB_OUTPUT"
+
+      - name: Emit decision and effect receipt
+        if: always()
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha || github.sha }}
+          CLASSIFICATION_REASON: ${{ steps.classify.outputs.reason }}
+          ADMISSION_DECISION: ${{ steps.admission.outputs.decision }}
+          ADMISSION_REASON: ${{ steps.admission.outputs.reason }}
+          AUTH_OUTCOME: ${{ steps.auth.outcome }}
+          BROKER_OUTCOME: ${{ steps.broker.outcome }}
+          EFFECT_STEP_OUTCOME: ${{ steps.effect.outcome }}
+          EFFECT_ATTEMPTED: ${{ steps.effect.outputs.attempted }}
+          EFFECT_RESULT: ${{ steps.effect.outputs.result }}
+          RESPONSE_SHA256: ${{ steps.effect.outputs.response_sha256 }}
+          RESULT_COUNT: ${{ steps.effect.outputs.result_count }}
+          RECEIPT_PATH: ${{ runner.temp }}/AGENT_DISPATCH_RECEIPT.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          receipt = {
+              "schema": "aegis.agent-dispatch-receipt.v1",
+              "candidate_sha": os.environ.get("CANDIDATE_SHA", ""),
+              "event_name": os.environ.get("EVENT_NAME", ""),
+              "classification_reason": os.environ.get("CLASSIFICATION_REASON") or "CLASSIFICATION_FAILED",
+              "decision": os.environ.get("ADMISSION_DECISION") or "DENY",
+              "reason": os.environ.get("ADMISSION_REASON") or "WORKFLOW_FAILED_BEFORE_ADMISSION",
+              "auth_outcome": os.environ.get("AUTH_OUTCOME") or "not_run",
+              "broker_outcome": os.environ.get("BROKER_OUTCOME") or "not_run",
+              "effect": {
+                  "attempted": os.environ.get("EFFECT_ATTEMPTED") == "true",
+                  "result": os.environ.get("EFFECT_RESULT") or "NOT_ATTEMPTED",
+                  "step_outcome": os.environ.get("EFFECT_STEP_OUTCOME") or "not_run",
+                  "response_sha256": os.environ.get("RESPONSE_SHA256") or None,
+                  "result_count": int(os.environ["RESULT_COUNT"]) if os.environ.get("RESULT_COUNT") else None,
+              },
+              "semantic_truth_proven": False,
+          }
+          with open(os.environ["RECEIPT_PATH"], "w", encoding="utf-8") as handle:
+              json.dump(receipt, handle, sort_keys=True, separators=(",", ":"))
+              handle.write("\n")
+          print(json.dumps(receipt, sort_keys=True))
+          PY
+
+      - name: Upload dispatch receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: agent-dispatch-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/AGENT_DISPATCH_RECEIPT.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce configured-path failures
+        if: always()
+        env:
+          DECISION: ${{ steps.admission.outputs.decision }}
+          AUTH_OUTCOME: ${{ steps.auth.outcome }}
+          BROKER_OUTCOME: ${{ steps.broker.outcome }}
+          EFFECT_OUTCOME: ${{ steps.effect.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$DECISION" = EXECUTE ]; then
+            test "$AUTH_OUTCOME" = success
+            test "$BROKER_OUTCOME" = success
+            test "$EFFECT_OUTCOME" = success
           fi
-          
-          echo "$body" | jq '.results[] | {role, ralph_cycles, is_valid, output: (.output | .[0:500])}'
