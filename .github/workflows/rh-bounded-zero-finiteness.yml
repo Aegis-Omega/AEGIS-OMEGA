@@ -1,0 +1,232 @@
+name: RH Bounded Zero Finiteness
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/BoundedZeroFinitenessV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/bounded_zero_finiteness_v1.json'
+      - 'sovereign-omega-v2/formal/tests/test_bounded_zero_finiteness_v1.py'
+      - '.github/workflows/rh-bounded-zero-finiteness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PARENT_ZERO_SIDE_SHA: 88397ad9d8422151cf7059a2f2462797179941ae
+  PARENT_ZERO_SIDE_RECEIPT_SHA256: 964e43496ad3912d448f261a0e1b848015d89a098084fbc62934c0a83ceb6932
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  UPSTREAM_ZETA_ZEROS_BLOB_SHA: 0b8046e67ae5d1e613366e86fdf6b205eea3a6b1
+  SOURCE_SHA256: 48ae25c6f464c53c6da695c62f0e2374dee42f59334b26c85ec3fedb80e90d89
+
+jobs:
+  bounded-zero:
+    name: pinned upstream compact zero finiteness bridge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate and source digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          printf '%s  %s\n' \
+            "$SOURCE_SHA256" \
+            'sovereign-omega-v2/formal/bridges/lean/BoundedZeroFinitenessV1.lean' \
+            | sha256sum -c -
+          python3 -m unittest \
+            sovereign-omega-v2/formal/tests/test_bounded_zero_finiteness_v1.py \
+            -v
+
+      - name: Verify fail-closed bridge manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          m = json.loads(Path(
+              'sovereign-omega-v2/formal/bridges/bounded_zero_finiteness_v1.json'
+          ).read_text(encoding='utf-8'))
+          assert m['schema_version'] == 'AEGIS_BOUNDED_ZERO_FINITENESS_V1'
+          assert m['namespace'] == 'mathematics.rh.zero_finiteness'
+          assert m['evidence_class'] == 'FORMAL_UPSTREAM_THEOREM_BRIDGE'
+          p = m['parent_zero_side']
+          assert p['aegis_revision'] == os.environ['PARENT_ZERO_SIDE_SHA']
+          assert p['zero_side_receipt_sha256'] == os.environ['PARENT_ZERO_SIDE_RECEIPT_SHA256']
+          assert p['formal_conjectures_revision'] == os.environ['FORMAL_CONJECTURES_SHA']
+          assert p['mathlib_revision'] == os.environ['MATHLIB_SHA']
+          assert p['lean_toolchain'] == os.environ['LEAN_TOOLCHAIN']
+          u = m['upstream_mathlib']
+          assert u['revision'] == os.environ['MATHLIB_SHA']
+          assert u['path'] == 'Mathlib/NumberTheory/LSeries/ZetaZeros.lean'
+          assert u['git_blob_sha'] == os.environ['UPSTREAM_ZETA_ZEROS_BLOB_SHA']
+          assert 'IsCompact.inter_riemannZetaZeros_finite' in u['objects']
+          assert m['formal_source']['sha256'] == os.environ['SOURCE_SHA256']
+          s = m['scope']
+          assert s['upstream_zero_set_discrete'] == 'PINNED_UPSTREAM_THEOREM'
+          assert s['upstream_zero_set_finite_on_compact'] == 'PINNED_UPSTREAM_THEOREM'
+          assert s['aegis_zero_set_equivalence'] == 'CANDIDATE'
+          assert s['aegis_zero_set_finite_on_compact_bridge'] == 'CANDIDATE'
+          assert s['global_zero_enumeration'] == 'OPEN'
+          assert s['global_zero_sum'] == 'OPEN'
+          assert s['global_zero_sum_convergence'] == 'OPEN'
+          assert s['explicit_formula_theorem'] == 'OPEN'
+          assert s['rh_equivalence'] == 'OPEN'
+          assert m['promotion_requested'] is False
+          assert m['declared_disposition'] == {
+              'decision': 'HOLD_RESEARCH_ONLY',
+              'rh_proved': False,
+              'rh_disproved': False,
+              'claim_promotion': 'BLOCKED',
+              'merge': 'NOT_PERFORMED',
+              'authority_effect': 'NONE',
+          }
+          PY
+
+      - name: Checkout pinned Formal Conjectures project
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: google-deepmind/formal-conjectures
+          ref: ${{ env.FORMAL_CONJECTURES_SHA }}
+          path: .external/formal-conjectures
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify external project, Mathlib and Lean pins
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FORMAL_CONJECTURES_SHA"
+          test "$(tr -d '\r\n' < lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          manifest = json.loads(Path('lake-manifest.json').read_text(encoding='utf-8'))
+          mathlib = next(
+              (p for p in manifest.get('packages', []) if p.get('name') == 'mathlib'),
+              None,
+          )
+          assert mathlib is not None
+          assert (mathlib.get('rev') or mathlib.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL \
+            https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz \
+            | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Get pinned Mathlib cache
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lake exe cache get
+
+      - name: Bind pinned upstream ZetaZeros source
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .lake/packages/mathlib rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(git -C .lake/packages/mathlib hash-object Mathlib/NumberTheory/LSeries/ZetaZeros.lean)" = "$UPSTREAM_ZETA_ZEROS_BLOB_SHA"
+          grep -F 'lemma IsCompact.inter_riemannZetaZeros_finite' \
+            .lake/packages/mathlib/Mathlib/NumberTheory/LSeries/ZetaZeros.lean
+
+      - name: Compile bounded-zero bridge
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version | tee "$GITHUB_WORKSPACE/bounded-zero-lean-version.txt"
+          lake env lean \
+            "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/BoundedZeroFinitenessV1.lean" \
+            2>&1 | tee "$GITHUB_WORKSPACE/bounded-zero-lean.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/bounded-zero-lean.log"
+
+      - name: Emit fail-closed bounded-zero receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          source = Path('sovereign-omega-v2/formal/bridges/lean/BoundedZeroFinitenessV1.lean')
+          manifest_path = Path('sovereign-omega-v2/formal/bridges/bounded_zero_finiteness_v1.json')
+          log = Path('bounded-zero-lean.log').read_text(encoding='utf-8')
+          version = Path('bounded-zero-lean-version.txt').read_text(encoding='utf-8').strip()
+          digest = hashlib.sha256(source.read_bytes()).hexdigest()
+          assert digest == os.environ['SOURCE_SHA256']
+          assert 'sorryAx' not in log
+
+          receipt = {
+              'schema_version': 'AEGIS_BOUNDED_ZERO_FINITENESS_RECEIPT_V1',
+              'source_commit': os.environ['SOURCE_SHA'],
+              'formal_source_sha256': digest,
+              'manifest_sha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+              'parent_zero_side_revision': os.environ['PARENT_ZERO_SIDE_SHA'],
+              'parent_zero_side_receipt_sha256': os.environ['PARENT_ZERO_SIDE_RECEIPT_SHA256'],
+              'formal_conjectures_revision': os.environ['FORMAL_CONJECTURES_SHA'],
+              'mathlib_revision': os.environ['MATHLIB_SHA'],
+              'upstream_zeta_zeros_blob_sha': os.environ['UPSTREAM_ZETA_ZEROS_BLOB_SHA'],
+              'lean_toolchain': os.environ['LEAN_TOOLCHAIN'],
+              'lean_version_output': version,
+              'formal_bridge_compiled': True,
+              'verified_scope': [
+                  'PINNED_MATHLIB_RIEMANN_ZETA_ZERO_SET_DISCRETE',
+                  'PINNED_MATHLIB_COMPACT_ZERO_FINITENESS',
+                  'AEGIS_ZERO_SET_EQUIVALENCE_COMPILED',
+                  'AEGIS_COMPACT_ZERO_FINITENESS_BRIDGE_COMPILED',
+                  'NO_SORRYAX_IN_BOUNDED_ZERO_AXIOM_OUTPUT',
+              ],
+              'global_zero_enumeration': 'OPEN',
+              'global_zero_sum': 'OPEN',
+              'global_zero_sum_convergence': 'OPEN',
+              'explicit_formula_theorem': 'OPEN',
+              'rh_equivalence': 'OPEN',
+              'rh_proved': False,
+              'rh_disproved': False,
+              'claim_promotion': 'BLOCKED',
+              'decision': 'HOLD_RESEARCH_ONLY',
+              'merge': 'NOT_PERFORMED',
+              'authority_effect': 'NONE',
+          }
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
+          receipt['receipt_sha256'] = hashlib.sha256(canonical.encode('utf-8')).hexdigest()
+          out = Path('bounded-zero-finiteness-receipt.json')
+          out.write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          print(out.read_text(encoding='utf-8'))
+          PY
+
+      - name: Upload bounded-zero evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: rh-bounded-zero-finiteness-${{ env.SOURCE_SHA }}
+          path: |
+            bounded-zero-lean-version.txt
+            bounded-zero-lean.log
+            bounded-zero-finiteness-receipt.json
+          if-no-files-found: error
+          retention-days: 30
