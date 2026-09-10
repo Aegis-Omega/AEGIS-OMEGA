@@ -19,11 +19,12 @@ env:
   FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
   MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
   LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
-  SOURCE_SHA256: 317cc185f0ddec0836068b810ad673e9520a34ad8fb09bd48e95370bcef52b8b
+  UPSTREAM_ZETA_ZEROS_BLOB_SHA: 0b8046e67ae5d1e613366e86fdf6b205eea3a6b1
+  SOURCE_SHA256: 48ae25c6f464c53c6da695c62f0e2374dee42f59334b26c85ec3fedb80e90d89
 
 jobs:
   bounded-zero:
-    name: pinned compact-away-pole zero finiteness
+    name: pinned upstream compact zero finiteness bridge
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -46,7 +47,7 @@ jobs:
             sovereign-omega-v2/formal/tests/test_bounded_zero_finiteness_v1.py \
             -v
 
-      - name: Verify fail-closed theorem manifest
+      - name: Verify fail-closed bridge manifest
         shell: bash
         run: |
           set -euo pipefail
@@ -60,17 +61,24 @@ jobs:
           ).read_text(encoding='utf-8'))
           assert m['schema_version'] == 'AEGIS_BOUNDED_ZERO_FINITENESS_V1'
           assert m['namespace'] == 'mathematics.rh.zero_finiteness'
-          assert m['evidence_class'] == 'FORMAL_THEOREM_CANDIDATE'
+          assert m['evidence_class'] == 'FORMAL_UPSTREAM_THEOREM_BRIDGE'
           p = m['parent_zero_side']
           assert p['aegis_revision'] == os.environ['PARENT_ZERO_SIDE_SHA']
           assert p['zero_side_receipt_sha256'] == os.environ['PARENT_ZERO_SIDE_RECEIPT_SHA256']
           assert p['formal_conjectures_revision'] == os.environ['FORMAL_CONJECTURES_SHA']
           assert p['mathlib_revision'] == os.environ['MATHLIB_SHA']
           assert p['lean_toolchain'] == os.environ['LEAN_TOOLCHAIN']
+          u = m['upstream_mathlib']
+          assert u['revision'] == os.environ['MATHLIB_SHA']
+          assert u['path'] == 'Mathlib/NumberTheory/LSeries/ZetaZeros.lean'
+          assert u['git_blob_sha'] == os.environ['UPSTREAM_ZETA_ZEROS_BLOB_SHA']
+          assert 'IsCompact.inter_riemannZetaZeros_finite' in u['objects']
           assert m['formal_source']['sha256'] == os.environ['SOURCE_SHA256']
           s = m['scope']
-          assert s['riemann_zeta_analytic_order_finite_away_one'] == 'CANDIDATE'
-          assert s['zero_set_finite_on_compact_away_one'] == 'CANDIDATE'
+          assert s['upstream_zero_set_discrete'] == 'PINNED_UPSTREAM_THEOREM'
+          assert s['upstream_zero_set_finite_on_compact'] == 'PINNED_UPSTREAM_THEOREM'
+          assert s['aegis_zero_set_equivalence'] == 'CANDIDATE'
+          assert s['aegis_zero_set_finite_on_compact_bridge'] == 'CANDIDATE'
           assert s['global_zero_enumeration'] == 'OPEN'
           assert s['global_zero_sum'] == 'OPEN'
           assert s['global_zero_sum_convergence'] == 'OPEN'
@@ -134,7 +142,17 @@ jobs:
           set -euo pipefail
           lake exe cache get
 
-      - name: Compile bounded-zero theorem
+      - name: Bind pinned upstream ZetaZeros source
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .lake/packages/mathlib rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(git -C .lake/packages/mathlib hash-object Mathlib/NumberTheory/LSeries/ZetaZeros.lean)" = "$UPSTREAM_ZETA_ZEROS_BLOB_SHA"
+          grep -F 'lemma IsCompact.inter_riemannZetaZeros_finite' \
+            .lake/packages/mathlib/Mathlib/NumberTheory/LSeries/ZetaZeros.lean
+
+      - name: Compile bounded-zero bridge
         working-directory: .external/formal-conjectures
         shell: bash
         run: |
@@ -172,12 +190,15 @@ jobs:
               'parent_zero_side_receipt_sha256': os.environ['PARENT_ZERO_SIDE_RECEIPT_SHA256'],
               'formal_conjectures_revision': os.environ['FORMAL_CONJECTURES_SHA'],
               'mathlib_revision': os.environ['MATHLIB_SHA'],
+              'upstream_zeta_zeros_blob_sha': os.environ['UPSTREAM_ZETA_ZEROS_BLOB_SHA'],
               'lean_toolchain': os.environ['LEAN_TOOLCHAIN'],
               'lean_version_output': version,
-              'formal_theorem_compiled': True,
+              'formal_bridge_compiled': True,
               'verified_scope': [
-                  'RIEMANN_ZETA_ANALYTIC_ORDER_FINITE_AWAY_FROM_ONE',
-                  'ZERO_SET_FINITE_ON_COMPACT_SUBSET_AWAY_FROM_ONE',
+                  'PINNED_MATHLIB_RIEMANN_ZETA_ZERO_SET_DISCRETE',
+                  'PINNED_MATHLIB_COMPACT_ZERO_FINITENESS',
+                  'AEGIS_ZERO_SET_EQUIVALENCE_COMPILED',
+                  'AEGIS_COMPACT_ZERO_FINITENESS_BRIDGE_COMPILED',
                   'NO_SORRYAX_IN_BOUNDED_ZERO_AXIOM_OUTPUT',
               ],
               'global_zero_enumeration': 'OPEN',
