@@ -50,6 +50,14 @@ jobs:
       - name: Test deterministic skill factory
         run: python sovereign-omega-v2/python/tests/test_skill_factory.py -v
 
+      - name: Verify dormant source corpora remain non-authoritative
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/test_verify_dormant_source_corpus.py -v
+          python scripts/verify_dormant_source_corpus.py \
+            knowledge/source-corpora/google-datacloud-skills-v1
+
       - name: Build 2048-candidate provider-neutral skill registry
         shell: bash
         run: |
