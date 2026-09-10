@@ -115,7 +115,7 @@ Proof.
     CReq O0RealsV1
       (ahat * b - a * bhat)
       ((ahat - a) * b + a * (b - bhat))).
-  { ring. }
+  { unfold CRminus. ring. }
   setoid_rewrite Hcross_alg.
 
   eapply CRle_trans.
