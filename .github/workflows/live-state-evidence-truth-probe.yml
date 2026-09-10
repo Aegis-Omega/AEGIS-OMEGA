@@ -1,5 +1,6 @@
 name: Live State Evidence Truth Probe
 
+# Temporary branch-only exact-head verifier; removed before signed consolidation.
 on:
   push:
     branches:
