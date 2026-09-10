@@ -33,6 +33,9 @@ jobs:
       - name: Test provider-neutral exact-head verifier
         run: python sovereign-omega-v2/python/tests/test_exact_head.py -v
 
+      - name: Test provider-neutral workspace admission
+        run: python sovereign-omega-v2/python/tests/test_provider_neutral_execution.py -v
+
       - name: Validate exact candidate and emit receipt
         shell: bash
         run: |
