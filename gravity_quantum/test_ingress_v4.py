@@ -2,6 +2,7 @@
 import copy
 import unittest
 
+from verifiable.chain import canon, sha256_hex
 from gravity_quantum.ingress_v4 import (
     CONTRACT_FIXTURE_BYTES,
     build_calibration_binding,
@@ -12,6 +13,12 @@ from gravity_quantum.ingress_v4 import (
     fit_release_gate,
     validate_ingress,
 )
+
+
+def rehash_batch(batch):
+    payload = {k: copy.deepcopy(v) for k, v in batch.items() if k != "batch_sha256"}
+    batch["batch_sha256"] = sha256_hex(canon(payload))
+    return batch
 
 
 class TestPointLevelIngressV4(unittest.TestCase):
@@ -103,6 +110,20 @@ class TestPointLevelIngressV4(unittest.TestCase):
         self.assertEqual(validation["decision"], "CONTRACT_VALID")
         self.assertEqual(validation["evidence_origin"], "TEST_FIXTURE")
         self.assertEqual(validation["authority_effect"], "NONE")
+
+    def test_caller_asserted_verified_flags_cannot_unlock_fit(self):
+        fixture = build_contract_fixture()
+        forged = copy.deepcopy(fixture["batch"])
+        forged["source_binding"]["evidence_origin"] = "EXTERNAL_EXPERIMENTAL_SOURCE"
+        forged["source_binding"]["independent_source_verification"] = "VERIFIED"
+        forged["calibration_binding"]["independent_calibration_verification"] = "VERIFIED"
+        rehash_batch(forged)
+
+        gate = fit_release_gate(forged, CONTRACT_FIXTURE_BYTES)
+        self.assertEqual(gate["decision"], "BLOCKED")
+        self.assertEqual(gate["empirical_fit_release"], "BLOCKED")
+        self.assertIn("TRUSTED_VERIFICATION_RECEIPT_MISSING", gate["reason_codes"])
+        self.assertEqual(gate["authority_effect"], "NONE")
 
 
 if __name__ == "__main__":
