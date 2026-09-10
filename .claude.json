@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/rh-formal-conjectures-bridge-v1",
+    "source_ref": "proof/rh-weil-criterion-domain-v1",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "ab1ce2b1dbceb00d24f022488d8bc9261ed1903a3b2ed02a5e79cf27f671dc98"
+  "state_hash": "227c8ae9bb3cd1791f2ffc456dcab8f4177c85190770e98bc3d106f2d3d6288d"
 }

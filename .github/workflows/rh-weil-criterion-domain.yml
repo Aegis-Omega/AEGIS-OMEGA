@@ -1,0 +1,210 @@
+name: RH Weil Criterion Domain
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilCriterionCompactSmoothV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/weil_criterion_domain_v1.json'
+      - 'sovereign-omega-v2/formal/tests/test_weil_criterion_compact_smooth_v1.py'
+      - '.github/workflows/rh-weil-criterion-domain.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PARENT_CAPABILITY_SHA: 11dbd712a835dc6b9d073e243ab9de6a5bde4474
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  SPEC_SHA256: cde3befd425dde8eedd28f95b12469279d356ea14f2fd10c8ba9398f8482be53
+
+jobs:
+  domain:
+    name: pinned compact-smooth Weil domain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate and formal source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          printf '%s  %s\n' \
+            "$SPEC_SHA256" \
+            'sovereign-omega-v2/formal/bridges/lean/WeilCriterionCompactSmoothV1.lean' \
+            | sha256sum -c -
+          python3 -m unittest \
+            sovereign-omega-v2/formal/tests/test_weil_criterion_compact_smooth_v1.py \
+            -v
+
+      - name: Verify fail-closed evidence manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          m = json.loads(Path(
+              'sovereign-omega-v2/formal/bridges/weil_criterion_domain_v1.json'
+          ).read_text(encoding='utf-8'))
+          assert m['schema_version'] == 'AEGIS_WEIL_CRITERION_DOMAIN_V1'
+          assert m['namespace'] == 'mathematics.rh.weil_criterion_domain'
+          assert m['evidence_class'] == 'FORMAL_SPECIFICATION'
+          assert m['source']['source_coordinate_status'] == 'VERIFIED'
+          assert m['source']['source_digest_status'] == 'NOT_CAPTURED'
+          p = m['parent_capability']
+          assert p['aegis_revision'] == os.environ['PARENT_CAPABILITY_SHA']
+          assert p['formal_conjectures_revision'] == os.environ['FORMAL_CONJECTURES_SHA']
+          assert p['mathlib_revision'] == os.environ['MATHLIB_SHA']
+          assert p['lean_toolchain'] == os.environ['LEAN_TOOLCHAIN']
+          f = m['formal_source']
+          assert f['sha256'] == os.environ['SPEC_SHA256']
+          s = m['scope']
+          assert s['domain'] == 'COMPACT_SMOOTH_POSITIVE_HALF_LINE_SUBDOMAIN_ONLY'
+          assert s['full_weil_class_coverage'] == 'OPEN'
+          assert s['explicit_formula_theorem'] == 'OPEN'
+          assert s['rh_equivalence'] == 'OPEN'
+          assert m['promotion_requested'] is False
+          d = m['declared_disposition']
+          assert d == {
+              'decision': 'HOLD_RESEARCH_ONLY',
+              'rh_proved': False,
+              'rh_disproved': False,
+              'claim_promotion': 'BLOCKED',
+              'merge': 'NOT_PERFORMED',
+              'authority_effect': 'NONE',
+          }
+          PY
+
+      - name: Checkout pinned Formal Conjectures project
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: google-deepmind/formal-conjectures
+          ref: ${{ env.FORMAL_CONJECTURES_SHA }}
+          path: .external/formal-conjectures
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify external project, Mathlib and Lean pins
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FORMAL_CONJECTURES_SHA"
+          test "$(tr -d '\r\n' < lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          manifest = json.loads(Path('lake-manifest.json').read_text(encoding='utf-8'))
+          mathlib = next(
+              (p for p in manifest.get('packages', []) if p.get('name') == 'mathlib'),
+              None,
+          )
+          assert mathlib is not None
+          assert (mathlib.get('rev') or mathlib.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL \
+            https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz \
+            | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Get pinned Mathlib cache
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lake exe cache get
+
+      - name: Compile bounded Weil criterion domain
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version | tee "$GITHUB_WORKSPACE/weil-domain-lean-version.txt"
+          lake env lean \
+            "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/WeilCriterionCompactSmoothV1.lean" \
+            2>&1 | tee "$GITHUB_WORKSPACE/weil-domain-lean.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/weil-domain-lean.log"
+
+      - name: Emit fail-closed domain receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          source = Path('sovereign-omega-v2/formal/bridges/lean/WeilCriterionCompactSmoothV1.lean')
+          manifest_path = Path('sovereign-omega-v2/formal/bridges/weil_criterion_domain_v1.json')
+          version = Path('weil-domain-lean-version.txt').read_text(encoding='utf-8').strip()
+          log = Path('weil-domain-lean.log').read_text(encoding='utf-8')
+          source_digest = hashlib.sha256(source.read_bytes()).hexdigest()
+          assert source_digest == os.environ['SPEC_SHA256']
+          assert 'sorryAx' not in log
+
+          receipt = {
+              'schema_version': 'AEGIS_WEIL_CRITERION_DOMAIN_RECEIPT_V1',
+              'source_commit': os.environ['SOURCE_SHA'],
+              'formal_source_sha256': source_digest,
+              'manifest_sha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+              'parent_capability_revision': os.environ['PARENT_CAPABILITY_SHA'],
+              'formal_conjectures_revision': os.environ['FORMAL_CONJECTURES_SHA'],
+              'mathlib_revision': os.environ['MATHLIB_SHA'],
+              'lean_toolchain': os.environ['LEAN_TOOLCHAIN'],
+              'lean_version_output': version,
+              'formal_spec_compiled': True,
+              'encoded_scope': [
+                  'TWO_ZERO_MOMENT_CONDITIONS',
+                  'MULTIPLICATIVE_AUTOCORRELATION_SHAPE',
+                  'VON_MANGOLDT_PRIME_SIDE_SHAPE',
+                  'ARCHIMEDEAN_RIGHT_SIDE_SHAPE',
+                  'EXPLICIT_CONVERGENCE_OBLIGATIONS',
+              ],
+              'source_digest_status': 'NOT_CAPTURED',
+              'full_weil_class_coverage': 'OPEN',
+              'explicit_formula_theorem': 'OPEN',
+              'rh_equivalence': 'OPEN',
+              'rh_proved': False,
+              'rh_disproved': False,
+              'claim_promotion': 'BLOCKED',
+              'decision': 'HOLD_RESEARCH_ONLY',
+              'merge': 'NOT_PERFORMED',
+              'authority_effect': 'NONE',
+          }
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
+          receipt['receipt_sha256'] = hashlib.sha256(canonical.encode('utf-8')).hexdigest()
+          out = Path('weil-criterion-domain-receipt.json')
+          out.write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          print(out.read_text(encoding='utf-8'))
+          PY
+
+      - name: Upload bounded domain evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: rh-weil-criterion-domain-${{ env.SOURCE_SHA }}
+          path: |
+            weil-domain-lean-version.txt
+            weil-domain-lean.log
+            weil-criterion-domain-receipt.json
+          if-no-files-found: error
+          retention-days: 30
