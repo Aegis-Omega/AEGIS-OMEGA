@@ -7,7 +7,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from harness.sdk.sovereign_execution import (
+from harness.sdk.provider_neutral_execution import (
     ADMITTED, ApprovalGrant, AuthorityEvaluator, AuthorityRequest,
     ExecutionIdentityEnvelope, ZERO_HASH, canonical_hash,
     load_capability_registry, load_policy, make_mutation_receipt,
