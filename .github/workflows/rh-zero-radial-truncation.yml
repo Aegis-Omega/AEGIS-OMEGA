@@ -1,0 +1,231 @@
+name: RH Zero Radial Truncation
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroMultiplicityV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroRadialTruncationV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/zero_radial_truncation_v1.json'
+      - 'sovereign-omega-v2/formal/tests/test_zero_radial_truncation_v1.py'
+      - '.github/workflows/rh-zero-radial-truncation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PARENT_MULTIPLICITY_SHA: 20f030aa3e69bc95c7e247010096fbbe2a4c2dd9
+  PARENT_MULTIPLICITY_SOURCE_SHA256: c4f8aa0e3b691abb99969b853cba94d6ef47a0794338418eb7bb7f8b7a99973f
+  PARENT_MULTIPLICITY_RECEIPT_SHA256: 29fc8be9b217a132a81130a3f3909f7ce5c1b27adac27ec83955c4ed632904e9
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  CHILD_GIT_BLOB_SHA: 35b31dca57d1ed41789cfe7bc1e3c1e8ca3e3d97
+  CHILD_SOURCE_SHA256: d7b7a0e08315f64f597d92061a75f8cf1aed7d6fa2983318785f7fe01de8259d
+
+jobs:
+  radial-truncation:
+    name: pinned finite radial zero sum
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate and parent/child sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          printf '%s  %s\n' \
+            "$PARENT_MULTIPLICITY_SOURCE_SHA256" \
+            'sovereign-omega-v2/formal/bridges/lean/ZeroMultiplicityV1.lean' \
+            | sha256sum -c -
+          printf '%s  %s\n' \
+            "$CHILD_SOURCE_SHA256" \
+            'sovereign-omega-v2/formal/bridges/lean/ZeroRadialTruncationV1.lean' \
+            | sha256sum -c -
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroRadialTruncationV1.lean)" = "$CHILD_GIT_BLOB_SHA"
+          python3 -m unittest \
+            sovereign-omega-v2/formal/tests/test_zero_radial_truncation_v1.py \
+            -v
+
+      - name: Verify fail-closed truncation manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          m = json.loads(Path(
+              'sovereign-omega-v2/formal/bridges/zero_radial_truncation_v1.json'
+          ).read_text(encoding='utf-8'))
+          assert m['schema_version'] == 'AEGIS_ZERO_RADIAL_TRUNCATION_V1'
+          assert m['namespace'] == 'mathematics.rh.zero_radial_truncation'
+          assert m['evidence_class'] == 'FORMAL_THEOREM_CANDIDATE'
+          p = m['parent_multiplicity']
+          assert p['aegis_revision'] == os.environ['PARENT_MULTIPLICITY_SHA']
+          assert p['source_sha256'] == os.environ['PARENT_MULTIPLICITY_SOURCE_SHA256']
+          assert p['multiplicity_receipt_sha256'] == os.environ['PARENT_MULTIPLICITY_RECEIPT_SHA256']
+          assert p['formal_conjectures_revision'] == os.environ['FORMAL_CONJECTURES_SHA']
+          assert p['mathlib_revision'] == os.environ['MATHLIB_SHA']
+          assert p['lean_toolchain'] == os.environ['LEAN_TOOLCHAIN']
+          f = m['formal_source']
+          assert f['git_blob_sha'] == os.environ['CHILD_GIT_BLOB_SHA']
+          assert f['sha256'] == os.environ['CHILD_SOURCE_SHA256']
+          assert m['verification_mode'] == 'COMPILE_EXACT_PARENT_SOURCE_THEN_CHILD_FRAGMENT'
+          s = m['scope']
+          assert s['radial_zero_set_finite'] == 'CANDIDATE'
+          assert s['radial_zero_finset'] == 'CANDIDATE'
+          assert s['radial_exhaustion_membership'] == 'CANDIDATE'
+          assert s['radial_index_monotonicity'] == 'CANDIDATE'
+          assert s['finite_multiplicity_weighted_mellin_sum'] == 'ENCODED'
+          assert s['summation_convention_eq_bombieri'] == 'OPEN'
+          assert s['truncated_limit_convergence'] == 'OPEN'
+          assert s['explicit_formula_theorem'] == 'OPEN'
+          assert s['rh_equivalence'] == 'OPEN'
+          assert m['promotion_requested'] is False
+          assert m['declared_disposition'] == {
+              'decision': 'HOLD_RESEARCH_ONLY',
+              'rh_proved': False,
+              'rh_disproved': False,
+              'claim_promotion': 'BLOCKED',
+              'merge': 'NOT_PERFORMED',
+              'authority_effect': 'NONE',
+          }
+          PY
+
+      - name: Checkout pinned Formal Conjectures project
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: google-deepmind/formal-conjectures
+          ref: ${{ env.FORMAL_CONJECTURES_SHA }}
+          path: .external/formal-conjectures
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify external project, Mathlib and Lean pins
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FORMAL_CONJECTURES_SHA"
+          test "$(tr -d '\r\n' < lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          manifest = json.loads(Path('lake-manifest.json').read_text(encoding='utf-8'))
+          mathlib = next((p for p in manifest.get('packages', []) if p.get('name') == 'mathlib'), None)
+          assert mathlib is not None
+          assert (mathlib.get('rev') or mathlib.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL \
+            https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz \
+            | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Get pinned Mathlib cache
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lake exe cache get
+
+      - name: Compile exact parent plus radial fragment
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version | tee "$GITHUB_WORKSPACE/radial-zero-lean-version.txt"
+          cat \
+            "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/ZeroMultiplicityV1.lean" \
+            "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/ZeroRadialTruncationV1.lean" \
+            > "$GITHUB_WORKSPACE/radial-zero-combined.lean"
+          lake env lean "$GITHUB_WORKSPACE/radial-zero-combined.lean" \
+            2>&1 | tee "$GITHUB_WORKSPACE/radial-zero-lean.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/radial-zero-lean.log"
+
+      - name: Emit fail-closed radial truncation receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          parent = Path('sovereign-omega-v2/formal/bridges/lean/ZeroMultiplicityV1.lean')
+          child = Path('sovereign-omega-v2/formal/bridges/lean/ZeroRadialTruncationV1.lean')
+          manifest_path = Path('sovereign-omega-v2/formal/bridges/zero_radial_truncation_v1.json')
+          log = Path('radial-zero-lean.log').read_text(encoding='utf-8')
+          version = Path('radial-zero-lean-version.txt').read_text(encoding='utf-8').strip()
+          parent_digest = hashlib.sha256(parent.read_bytes()).hexdigest()
+          child_digest = hashlib.sha256(child.read_bytes()).hexdigest()
+          assert parent_digest == os.environ['PARENT_MULTIPLICITY_SOURCE_SHA256']
+          assert child_digest == os.environ['CHILD_SOURCE_SHA256']
+          assert 'sorryAx' not in log
+
+          receipt = {
+              'schema_version': 'AEGIS_ZERO_RADIAL_TRUNCATION_RECEIPT_V1',
+              'source_commit': os.environ['SOURCE_SHA'],
+              'parent_multiplicity_revision': os.environ['PARENT_MULTIPLICITY_SHA'],
+              'parent_source_sha256': parent_digest,
+              'parent_multiplicity_receipt_sha256': os.environ['PARENT_MULTIPLICITY_RECEIPT_SHA256'],
+              'child_source_sha256': child_digest,
+              'child_git_blob_sha': os.environ['CHILD_GIT_BLOB_SHA'],
+              'manifest_sha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+              'formal_conjectures_revision': os.environ['FORMAL_CONJECTURES_SHA'],
+              'mathlib_revision': os.environ['MATHLIB_SHA'],
+              'lean_toolchain': os.environ['LEAN_TOOLCHAIN'],
+              'lean_version_output': version,
+              'formal_truncation_compiled': True,
+              'verified_scope': [
+                  'RADIAL_NONTRIVIAL_ZERO_SET_FINITE',
+                  'RADIAL_ZERO_FINSET_BOUND',
+                  'EVERY_NONTRIVIAL_ZERO_ENTERS_RADIAL_EXHAUSTION',
+                  'RADIAL_INDEX_MONOTONE_IN_RADIUS',
+                  'FINITE_MULTIPLICITY_WEIGHTED_MELLIN_ZERO_SUM',
+                  'NO_SORRYAX_IN_RADIAL_AXIOM_OUTPUT',
+              ],
+              'summation_convention_eq_bombieri': 'OPEN',
+              'truncated_limit_convergence': 'OPEN',
+              'explicit_formula_theorem': 'OPEN',
+              'rh_equivalence': 'OPEN',
+              'rh_proved': False,
+              'rh_disproved': False,
+              'claim_promotion': 'BLOCKED',
+              'decision': 'HOLD_RESEARCH_ONLY',
+              'merge': 'NOT_PERFORMED',
+              'authority_effect': 'NONE',
+          }
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
+          receipt['receipt_sha256'] = hashlib.sha256(canonical.encode('utf-8')).hexdigest()
+          out = Path('zero-radial-truncation-receipt.json')
+          out.write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          print(out.read_text(encoding='utf-8'))
+          PY
+
+      - name: Upload radial truncation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: rh-zero-radial-truncation-${{ env.SOURCE_SHA }}
+          path: |
+            radial-zero-lean-version.txt
+            radial-zero-lean.log
+            zero-radial-truncation-receipt.json
+          if-no-files-found: error
+          retention-days: 30
