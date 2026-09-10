@@ -252,7 +252,10 @@ Proof.
     destruct
       (CRmult_1_r (R := O0RealsV1) (ea * b + a * eb))
       as [HbudgetToUnit HunitToBudget].
-    eapply CRle_trans.
+    apply
+      (CRle_trans
+        _
+        ((ea * b + a * eb) * (CR_of_Q O0RealsV1 (1%Q)))).
     - exact HbudgetToUnit.
     - apply CRmult_le_compat_l.
       + exact HbudgetNonneg.
