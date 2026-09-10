@@ -35,9 +35,11 @@ assert.match(workflow, /github\.event\.pull_request\.head\.sha/, 'PR smoke lane 
 assert.match(workflow, /shell:\s*powershell/, 'smoke lane must exercise Windows PowerShell 5.1 compatibility')
 assert.match(workflow, /powershell\.exe[\s\S]*aegis_dlss5_windows_host_bootstrap\.ps1/, 'smoke lane must execute the real bootstrap script')
 assert.match(workflow, /HOST_UNSUPPORTED/, 'non-RTX50 hosted runner must be accepted only as an explicit fail-closed smoke outcome')
+assert.match(workflow, /\$probeExit\s+-notin\s+@\(21\s*,\s*22\s*,\s*23\)/, 'smoke wrapper must accept only the three bounded unsupported-host exit codes')
 assert.match(workflow, /support_query_executed[\s\S]*false/, 'smoke verification must require support_query_executed=false')
 assert.match(workflow, /evaluation_executed[\s\S]*false/, 'smoke verification must require evaluation_executed=false')
+assert.match(workflow, /Write-Host[\s\S]*DLSS5_WINDOWS_BOOTSTRAP_SMOKE_PASS[\s\S]*exit\s+0/, 'successful deny verification must normalize the wrapper exit code to zero')
 assert.match(workflow, /upload-artifact/, 'smoke lane must retain its bounded receipt')
 assert.doesNotMatch(workflow, /slEvaluateFeature|aegis_dlss5_windows_preflight\.exe/, 'smoke workflow must not execute DLSS-NR support/evaluation binaries')
 
-console.log('DLSS5_WINDOWS_BOOTSTRAP_SOURCE_PASS gpu_identity=1 sdk_digest=1 ps51=1 smoke=1 support_query=0 evaluate=0 authority=NONE')
+console.log('DLSS5_WINDOWS_BOOTSTRAP_SOURCE_PASS gpu_identity=1 sdk_digest=1 ps51=1 smoke=1 wrapper_exit=1 support_query=0 evaluate=0 authority=NONE')
