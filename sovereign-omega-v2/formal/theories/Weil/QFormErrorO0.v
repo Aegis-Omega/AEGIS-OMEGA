@@ -13,12 +13,21 @@
 Require Import AnalyticDefinitions.
 From Coq Require Import Reals.Abstract.ConstructiveReals.
 From Coq Require Import Reals.Abstract.ConstructiveAbs.
-From Coq Require Import Classes.SetoidTactics.
+From Coq Require Import Setoids.Setoid.
 From Coq Require Import Ring.
 
 Local Open Scope ConstructiveReals.
 
-Add Ring O0Ring : (CRisRing O0RealsV1).
+Definition O0CReqSetoid : Setoid_Theory O0RealV1 (CReq O0RealsV1).
+Proof.
+  constructor.
+  - exact CReq_refl.
+  - exact CReq_sym.
+  - exact CReq_trans.
+Qed.
+
+Add Ring O0Ring : (CRisRing O0RealsV1)
+  (setoid O0CReqSetoid (CRisRingExt O0RealsV1)).
 
 Definition o0_error_hypotheses_v1
     (a ahat b bhat ea eb m : O0RealV1) : Prop :=
