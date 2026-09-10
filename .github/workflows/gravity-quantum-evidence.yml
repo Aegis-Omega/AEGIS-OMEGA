@@ -1,0 +1,56 @@
+name: Gravity Quantum Evidence
+
+on:
+  push:
+    branches:
+      - research/gravity-quantum-interface-v1
+    paths:
+      - 'gravity_quantum/**'
+      - 'verifiable/chain.py'
+      - '.github/workflows/gravity-quantum-evidence.yml'
+  pull_request:
+    paths:
+      - 'gravity_quantum/**'
+      - 'verifiable/chain.py'
+      - '.github/workflows/gravity-quantum-evidence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gravity-quantum-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile bounded evidence lane
+        run: |
+          python3 -m py_compile \
+            gravity_quantum/__init__.py \
+            gravity_quantum/evidence_pipeline.py \
+            gravity_quantum/test_evidence_pipeline.py \
+            verifiable/chain.py
+
+      - name: Run fail-closed falsifiers
+        run: python3 -m gravity_quantum.test_evidence_pipeline
+
+      - name: Emit replay-verifiable receipt
+        run: |
+          mkdir -p artifacts/gravity-quantum
+          python3 -m gravity_quantum.evidence_pipeline > artifacts/gravity-quantum/receipt.json
+          sha256sum artifacts/gravity-quantum/receipt.json > artifacts/gravity-quantum/receipt.json.sha256
+          cat artifacts/gravity-quantum/receipt.json.sha256
+
+      - name: Upload exact-head evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: gravity-quantum-evidence-${{ github.sha }}
+          path: artifacts/gravity-quantum/
+          if-no-files-found: error
