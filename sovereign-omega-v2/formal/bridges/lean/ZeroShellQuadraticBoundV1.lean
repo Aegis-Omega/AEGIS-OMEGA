@@ -54,7 +54,7 @@ private theorem quadratic_shell_reference_summable_v1 (C : ℝ) :
   unfold QuadraticShellReferenceV1
   apply Summable.mul_left C
   have hp0 : Summable (fun n : ℕ => 1 / ((n : ℝ) ^ 2)) :=
-    (summable_one_div_nat_pow (p := 2)).mpr (by norm_num)
+    (Real.summable_one_div_nat_pow (p := 2)).mpr (by norm_num)
   have hshift :=
     (summable_nat_add_iff (f := fun n : ℕ => 1 / ((n : ℝ) ^ 2)) 1).mpr hp0
   simpa [Nat.cast_add, Nat.cast_one] using hshift
