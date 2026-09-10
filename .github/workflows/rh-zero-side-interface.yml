@@ -1,0 +1,213 @@
+name: RH Zero Side Interface
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilZeroSideInterfaceV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/weil_zero_side_interface_v1.json'
+      - 'sovereign-omega-v2/formal/tests/test_weil_zero_side_interface_v1.py'
+      - '.github/workflows/rh-zero-side-interface.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PARENT_CRITERION_SHA: db428f818c63efcbe16db3e6cca7bd00c5371ead
+  PARENT_CRITERION_RECEIPT_SHA256: 978c106ba945d4582594d3ab423e598fc1c062e9152fc90197734d5270f71bd5
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  SOURCE_SHA256: f90cdd44d6e11b81ddc15f3b1769310eb29047e2649caf5a2eb75621a51e95af
+
+jobs:
+  zero-side:
+    name: pinned nontrivial-zero Mellin interface
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate and source digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          printf '%s  %s\n' \
+            "$SOURCE_SHA256" \
+            'sovereign-omega-v2/formal/bridges/lean/WeilZeroSideInterfaceV1.lean' \
+            | sha256sum -c -
+          python3 -m unittest \
+            sovereign-omega-v2/formal/tests/test_weil_zero_side_interface_v1.py \
+            -v
+
+      - name: Verify fail-closed zero-side manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          m = json.loads(Path(
+              'sovereign-omega-v2/formal/bridges/weil_zero_side_interface_v1.json'
+          ).read_text(encoding='utf-8'))
+          assert m['schema_version'] == 'AEGIS_WEIL_ZERO_SIDE_INTERFACE_V1'
+          assert m['namespace'] == 'mathematics.rh.weil_zero_side'
+          assert m['evidence_class'] == 'FORMAL_INTERFACE'
+          p = m['parent_criterion_domain']
+          assert p['aegis_revision'] == os.environ['PARENT_CRITERION_SHA']
+          assert p['criterion_receipt_sha256'] == os.environ['PARENT_CRITERION_RECEIPT_SHA256']
+          assert p['formal_conjectures_revision'] == os.environ['FORMAL_CONJECTURES_SHA']
+          assert p['mathlib_revision'] == os.environ['MATHLIB_SHA']
+          assert p['lean_toolchain'] == os.environ['LEAN_TOOLCHAIN']
+          assert m['formal_source']['sha256'] == os.environ['SOURCE_SHA256']
+          s = m['scope']
+          assert s['nontrivial_zero_domain'] == 'ENCODED'
+          assert s['mellin_point_evaluation'] == 'ENCODED'
+          assert s['rh_to_single_zero_critical_line'] == 'PROVED_CONDITIONALLY_ON_RH'
+          assert s['zero_multiplicity_enumeration'] == 'OPEN'
+          assert s['zero_side_global_sum'] == 'OPEN'
+          assert s['zero_side_convergence'] == 'OPEN'
+          assert s['explicit_formula_theorem'] == 'OPEN'
+          assert s['rh_equivalence'] == 'OPEN'
+          assert m['promotion_requested'] is False
+          assert m['declared_disposition'] == {
+              'decision': 'HOLD_RESEARCH_ONLY',
+              'rh_proved': False,
+              'rh_disproved': False,
+              'claim_promotion': 'BLOCKED',
+              'merge': 'NOT_PERFORMED',
+              'authority_effect': 'NONE',
+          }
+          PY
+
+      - name: Checkout pinned Formal Conjectures project
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: google-deepmind/formal-conjectures
+          ref: ${{ env.FORMAL_CONJECTURES_SHA }}
+          path: .external/formal-conjectures
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify external project, Mathlib and Lean pins
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FORMAL_CONJECTURES_SHA"
+          test "$(tr -d '\r\n' < lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          manifest = json.loads(Path('lake-manifest.json').read_text(encoding='utf-8'))
+          mathlib = next(
+              (p for p in manifest.get('packages', []) if p.get('name') == 'mathlib'),
+              None,
+          )
+          assert mathlib is not None
+          assert (mathlib.get('rev') or mathlib.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL \
+            https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz \
+            | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Get pinned Mathlib cache
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lake exe cache get
+
+      - name: Compile zero-side interface
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version | tee "$GITHUB_WORKSPACE/zero-side-lean-version.txt"
+          lake env lean \
+            "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/WeilZeroSideInterfaceV1.lean" \
+            2>&1 | tee "$GITHUB_WORKSPACE/zero-side-lean.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/zero-side-lean.log"
+
+      - name: Emit fail-closed zero-side receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          source = Path('sovereign-omega-v2/formal/bridges/lean/WeilZeroSideInterfaceV1.lean')
+          manifest_path = Path('sovereign-omega-v2/formal/bridges/weil_zero_side_interface_v1.json')
+          log = Path('zero-side-lean.log').read_text(encoding='utf-8')
+          version = Path('zero-side-lean-version.txt').read_text(encoding='utf-8').strip()
+          digest = hashlib.sha256(source.read_bytes()).hexdigest()
+          assert digest == os.environ['SOURCE_SHA256']
+          assert 'sorryAx' not in log
+
+          receipt = {
+              'schema_version': 'AEGIS_WEIL_ZERO_SIDE_INTERFACE_RECEIPT_V1',
+              'source_commit': os.environ['SOURCE_SHA'],
+              'formal_source_sha256': digest,
+              'manifest_sha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+              'parent_criterion_revision': os.environ['PARENT_CRITERION_SHA'],
+              'parent_criterion_receipt_sha256': os.environ['PARENT_CRITERION_RECEIPT_SHA256'],
+              'formal_conjectures_revision': os.environ['FORMAL_CONJECTURES_SHA'],
+              'mathlib_revision': os.environ['MATHLIB_SHA'],
+              'lean_toolchain': os.environ['LEAN_TOOLCHAIN'],
+              'lean_version_output': version,
+              'formal_interface_compiled': True,
+              'verified_scope': [
+                  'NONTRIVIAL_RIEMANN_ZERO_SUBTYPE',
+                  'MELLIN_EVALUATION_AT_SINGLE_ZERO',
+                  'RH_IMPLIES_SINGLE_NONTRIVIAL_ZERO_ON_CRITICAL_LINE',
+                  'NO_SORRYAX_IN_ZERO_SIDE_AXIOM_OUTPUT',
+              ],
+              'zero_multiplicity_enumeration': 'OPEN',
+              'zero_side_global_sum': 'OPEN',
+              'zero_side_convergence': 'OPEN',
+              'explicit_formula_theorem': 'OPEN',
+              'rh_equivalence': 'OPEN',
+              'rh_proved': False,
+              'rh_disproved': False,
+              'claim_promotion': 'BLOCKED',
+              'decision': 'HOLD_RESEARCH_ONLY',
+              'merge': 'NOT_PERFORMED',
+              'authority_effect': 'NONE',
+          }
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
+          receipt['receipt_sha256'] = hashlib.sha256(canonical.encode('utf-8')).hexdigest()
+          out = Path('weil-zero-side-interface-receipt.json')
+          out.write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          print(out.read_text(encoding='utf-8'))
+          PY
+
+      - name: Upload zero-side evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: rh-zero-side-interface-${{ env.SOURCE_SHA }}
+          path: |
+            zero-side-lean-version.txt
+            zero-side-lean.log
+            weil-zero-side-interface-receipt.json
+          if-no-files-found: error
+          retention-days: 30
