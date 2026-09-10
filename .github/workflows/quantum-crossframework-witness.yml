@@ -1,0 +1,56 @@
+name: Quantum Cross-Framework Witness
+
+on:
+  push:
+    branches:
+      - research/gravity-quantum-crossframework-v1
+    paths:
+      - 'gravity_quantum/crossframework_v1.py'
+      - 'gravity_quantum/test_crossframework_v1.py'
+      - '.github/workflows/quantum-crossframework-witness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  crossframework-witness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned quantum frameworks
+        run: |
+          python -m pip install --disable-pip-version-check 'cudaq==0.15.1' 'pennylane==0.45.1'
+
+      - name: Run parent and cross-framework falsifiers
+        run: |
+          python -m unittest \
+            gravity_quantum.test_cudaq_twoqubit_v1 \
+            gravity_quantum.test_crossframework_v1 -v
+
+      - name: Emit exact-head cross-framework receipt
+        run: |
+          mkdir -p artifacts/quantum-crossframework
+          printf '%s\n' "${GITHUB_SHA}" > artifacts/quantum-crossframework/head-sha.txt
+          python -m gravity_quantum.crossframework_v1 > artifacts/quantum-crossframework/receipt.json
+          (
+            cd artifacts/quantum-crossframework
+            sha256sum head-sha.txt receipt.json > SHA256SUMS
+            sha256sum -c SHA256SUMS
+            cat SHA256SUMS
+          )
+
+      - name: Upload exact-head cross-framework evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: quantum-crossframework-witness-${{ github.sha }}
+          path: artifacts/quantum-crossframework/
+          if-no-files-found: error
