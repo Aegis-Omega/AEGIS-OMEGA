@@ -1,0 +1,27 @@
+name: CUDA-Q Reproducibility Contract Probe
+
+on:
+  push:
+    branches:
+      - hardening/cudaq-reproducibility-v2
+
+permissions:
+  contents: read
+
+jobs:
+  reproducibility-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact pushed head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Assert exact head and clean worktree
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git diff --exit-code
+          git diff --cached --exit-code
+      - name: Run CUDA-Q reproducibility contract
+        run: python gravity_quantum/test_cudaq_reproducibility_contract.py -v
