@@ -33,6 +33,15 @@ class BombieriWeilTargetProbeTests(unittest.TestCase):
         self.assertIn("theorem bombieri_mellin_zero_eq_inverse_weighted_integral_v1", text)
         self.assertIn("cpow_neg_one", text)
 
+    def test_bombieri_correlation_is_exact_and_integrable(self):
+        text = SOURCE.read_text(encoding="utf-8")
+        self.assertIn("def BombieriCorrelationV1", text)
+        self.assertIn("g.1 (x * y) * conj (g.1 y)", text)
+        self.assertIn("theorem bombieri_correlation_integrable_v1", text)
+        self.assertIn("IntegrableOn", text)
+        self.assertIn("continuous_conj", text)
+        self.assertIn("comp_left", text)
+
     def test_probe_has_no_proof_escape_holes(self):
         text = SOURCE.read_text(encoding="utf-8")
         for forbidden in ("sorry", "axiom ", "opaque "):
