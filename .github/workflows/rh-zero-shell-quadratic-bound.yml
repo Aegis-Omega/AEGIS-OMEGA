@@ -1,0 +1,215 @@
+name: RH Zero Shell Quadratic Bound
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroShellQuadraticBoundV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/zero_shell_quadratic_bound_v1.json'
+      - 'sovereign-omega-v2/formal/tests/test_zero_shell_quadratic_bound_v1.py'
+      - '.github/workflows/rh-zero-shell-quadratic-bound.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  SOURCE_BLOB_SHA: 098de05ca929d0284ee9eb4c662ac21226ecdfc6
+  SHELL_PARENT_SHA: d21e4e816138dd5a667c54efead726563769c271
+  SHELL_PARENT_RECEIPT: 332f26c655506f9b0d9faa8a58654b5538303971d1b3cb7e1af87ec01ddf3968
+  SHELL_PARENT_ARTIFACT: 1fe6855c31119367801c9521e76a01e4171006de43ea80bf705eb042e1851cef
+  SHELL_PARENT_SOURCE_BLOB: e7af2be4e5f0b1bbb1f605bbee19e919b92e5bd0
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  FORMAL_CONJECTURES_RH_BLOB_SHA: c8d38bef385eb15661c3daf7449625b66b019b2a
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  PSERIES_BLOB_SHA: 6499506f39f848904fbf7c0aca08bc303c19dca4
+  REAL_INFINITE_SUM_BLOB_SHA: 32b87fa4ac3121786c310fa7b31ef263de567d13
+
+jobs:
+  quadratic-shell-bound:
+    name: pinned quadratic shell bound reduction
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate and parent source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroShellQuadraticBoundV1.lean)" = "$SOURCE_BLOB_SHA"
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroHeightShellMassV1.lean)" = "$SHELL_PARENT_SOURCE_BLOB"
+          python3 -m unittest sovereign-omega-v2/formal/tests/test_zero_shell_quadratic_bound_v1.py -v
+
+      - name: Verify parent evidence and fail-closed manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('sovereign-omega-v2/formal/bridges/zero_shell_quadratic_bound_v1.json').read_text())
+          assert m['schema_version'] == 'AEGIS_ZERO_SHELL_QUADRATIC_BOUND_V1'
+          assert m['candidate']['formal_source_git_blob_sha'] == os.environ['SOURCE_BLOB_SHA']
+          p = m['verified_parent_evidence']['height_shell_mass_reduction']
+          assert (p['aegis_revision'], p['receipt_sha256'], p['artifact_sha256'], p['formal_source_git_blob_sha']) == (
+              os.environ['SHELL_PARENT_SHA'], os.environ['SHELL_PARENT_RECEIPT'],
+              os.environ['SHELL_PARENT_ARTIFACT'], os.environ['SHELL_PARENT_SOURCE_BLOB'])
+          e = m['external_environment']
+          assert e['formal_conjectures_revision'] == os.environ['FORMAL_CONJECTURES_SHA']
+          assert e['formal_conjectures_rh_blob_sha'] == os.environ['FORMAL_CONJECTURES_RH_BLOB_SHA']
+          assert e['mathlib_revision'] == os.environ['MATHLIB_SHA']
+          assert e['lean_toolchain'] == os.environ['LEAN_TOOLCHAIN']
+          blobs = {x['path']: x['git_blob_sha'] for x in m['upstream_mathlib']}
+          assert blobs['Mathlib/Analysis/PSeries.lean'] == os.environ['PSERIES_BLOB_SHA']
+          assert blobs['Mathlib/Topology/Algebra/InfiniteSum/Real.lean'] == os.environ['REAL_INFINITE_SUM_BLOB_SHA']
+          s = m['scope']
+          for key in ('quadratic_shell_certificate_definition','quadratic_reference_summability','quadratic_bound_implies_shell_summability','quadratic_bound_implies_zero_summability','quadratic_bound_implies_height_limit'):
+              assert s[key] == 'CANDIDATE'
+          for key in ('actual_quadratic_shell_bound','mellin_decay_estimate','zero_counting_bound','weil_class_shell_mass_summability','conditional_symmetric_convergence','height_radial_equivalence','explicit_formula_theorem','critical_line_re_half','weil_criterion_bridge','rh_equivalence'):
+              assert s[key] == 'OPEN'
+          assert m['promotion_requested'] is False
+          assert m['declared_disposition']['claim_promotion'] == 'BLOCKED'
+          assert m['declared_disposition']['merge'] == 'NOT_PERFORMED'
+          assert m['declared_disposition']['authority_effect'] == 'NONE'
+          PY
+
+      - name: Checkout pinned Formal Conjectures project
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: google-deepmind/formal-conjectures
+          ref: ${{ env.FORMAL_CONJECTURES_SHA }}
+          path: .external/formal-conjectures
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify external pins
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FORMAL_CONJECTURES_SHA"
+          test "$(git hash-object FormalConjectures/Millenium/RiemannHypothesis.lean)" = "$FORMAL_CONJECTURES_RH_BLOB_SHA"
+          test "$(tr -d '\r\n' < lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('lake-manifest.json').read_text())
+          p = next(x for x in m['packages'] if x['name'] == 'mathlib')
+          assert (p.get('rev') or p.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Get pinned Mathlib cache
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: lake exe cache get
+
+      - name: Bind pinned p-series sources
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .lake/packages/mathlib rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(git -C .lake/packages/mathlib hash-object Mathlib/Analysis/PSeries.lean)" = "$PSERIES_BLOB_SHA"
+          test "$(git -C .lake/packages/mathlib hash-object Mathlib/Topology/Algebra/InfiniteSum/Real.lean)" = "$REAL_INFINITE_SUM_BLOB_SHA"
+          grep -F 'theorem summable_one_div_nat_pow' .lake/packages/mathlib/Mathlib/Analysis/PSeries.lean
+
+      - name: Compile dependency chain and quadratic shell reduction
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version | tee "$GITHUB_WORKSPACE/zero-shell-quadratic-lean-version.txt"
+          for f in ZeroCriticalStripV1 ZeroHeightFiniteSumV1 ZeroHeightLimitContractV1 ZeroHeightSummabilityBridgeV1 ZeroMajorantSummabilityV1 ZeroHeightShellMassV1 ZeroShellQuadraticBoundV1; do
+            cp "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/$f.lean" "./$f.lean"
+          done
+          mkdir -p .lake/build/lib/lean
+          lake env lean -o .lake/build/lib/lean/ZeroCriticalStripV1.olean ZeroCriticalStripV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-shell-quadratic-critical-strip.log"
+          lake env lean -o .lake/build/lib/lean/ZeroHeightFiniteSumV1.olean ZeroHeightFiniteSumV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-shell-quadratic-finite-sum.log"
+          lake env lean -o .lake/build/lib/lean/ZeroHeightLimitContractV1.olean ZeroHeightLimitContractV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-shell-quadratic-limit-contract.log"
+          lake env lean -o .lake/build/lib/lean/ZeroHeightSummabilityBridgeV1.olean ZeroHeightSummabilityBridgeV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-shell-quadratic-summability.log"
+          lake env lean -o .lake/build/lib/lean/ZeroMajorantSummabilityV1.olean ZeroMajorantSummabilityV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-shell-quadratic-majorant.log"
+          lake env lean -o .lake/build/lib/lean/ZeroHeightShellMassV1.olean ZeroHeightShellMassV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-shell-quadratic-shell.log"
+          lake env lean ZeroShellQuadraticBoundV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-shell-quadratic.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/zero-shell-quadratic.log"
+
+      - name: Emit fail-closed quadratic-shell receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          source = Path('sovereign-omega-v2/formal/bridges/lean/ZeroShellQuadraticBoundV1.lean')
+          manifest = Path('sovereign-omega-v2/formal/bridges/zero_shell_quadratic_bound_v1.json')
+          log = Path('zero-shell-quadratic.log').read_text()
+          assert 'sorryAx' not in log
+          receipt = {
+            'schema_version':'AEGIS_ZERO_SHELL_QUADRATIC_BOUND_RECEIPT_V1',
+            'source_commit':os.environ['SOURCE_SHA'],
+            'formal_source_git_blob_sha':os.environ['SOURCE_BLOB_SHA'],
+            'formal_source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),
+            'manifest_sha256':hashlib.sha256(manifest.read_bytes()).hexdigest(),
+            'shell_parent_revision':os.environ['SHELL_PARENT_SHA'],
+            'shell_parent_receipt_sha256':os.environ['SHELL_PARENT_RECEIPT'],
+            'formal_conjectures_revision':os.environ['FORMAL_CONJECTURES_SHA'],
+            'mathlib_revision':os.environ['MATHLIB_SHA'],
+            'lean_toolchain':os.environ['LEAN_TOOLCHAIN'],
+            'quadratic_shell_certificate_definition':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'quadratic_reference_summability':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'quadratic_bound_implies_shell_summability':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'quadratic_bound_implies_zero_summability':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'quadratic_bound_implies_height_limit':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'actual_quadratic_shell_bound':'OPEN',
+            'mellin_decay_estimate':'OPEN',
+            'zero_counting_bound':'OPEN',
+            'weil_class_shell_mass_summability':'OPEN',
+            'conditional_symmetric_convergence':'OPEN',
+            'height_radial_equivalence':'OPEN',
+            'explicit_formula_theorem':'OPEN',
+            'critical_line_re_half':'OPEN',
+            'weil_criterion_bridge':'OPEN',
+            'rh_equivalence':'OPEN',
+            'rh_proved':False,
+            'rh_disproved':False,
+            'claim_promotion':'BLOCKED',
+            'decision':'HOLD_RESEARCH_ONLY',
+            'merge':'NOT_PERFORMED',
+            'authority_effect':'NONE'
+          }
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
+          receipt['receipt_sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          Path('zero-shell-quadratic-receipt.json').write_text(json.dumps(receipt, sort_keys=True, indent=2)+'\n')
+          print(Path('zero-shell-quadratic-receipt.json').read_text())
+          PY
+
+      - name: Upload quadratic-shell evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: rh-zero-shell-quadratic-bound-${{ env.SOURCE_SHA }}
+          path: |
+            zero-shell-quadratic-lean-version.txt
+            zero-shell-quadratic-critical-strip.log
+            zero-shell-quadratic-finite-sum.log
+            zero-shell-quadratic-limit-contract.log
+            zero-shell-quadratic-summability.log
+            zero-shell-quadratic-majorant.log
+            zero-shell-quadratic-shell.log
+            zero-shell-quadratic.log
+            zero-shell-quadratic-receipt.json
+          if-no-files-found: error
+          retention-days: 30
