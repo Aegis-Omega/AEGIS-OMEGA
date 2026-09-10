@@ -1,0 +1,27 @@
+{
+  "schema": "AEGIS_CSTAR_V0_6_VERIFIER_SCOPE_V1",
+  "mode": "PREBINDING_COMPILE_ONLY",
+  "source_repo": "Aegis-Omega/AegisOmega",
+  "source_pr": 10,
+  "source_candidate_head": null,
+  "coq_version": "8.20.x",
+  "mathcomp_version": "2.4.0",
+  "coefficient_scope": "arbitrary MathComp zmodType (additive abelian group); no coefficient multiplication or ring unit assumed",
+  "action_scope": "G -> {additive A -> A} with identity and composition laws",
+  "source_sha256": {
+    "verification/cstar-v06/CStarZmodGroupCohomology.v": "4c4cadc8f075444a01930544722964feebcee7fdb5ee575262aafb324d73d163"
+  },
+  "required_theorems": [
+    "delta3_delta2_zero_zmod_action",
+    "delta2_preserves_normalization_zmod_action",
+    "gauge_preserves_three_cocycle_zmod_action",
+    "pentagon_iff_three_cocycle_zmod_action"
+  ],
+  "aac_role": "proof automation for associative/commutative reordering only; no coefficient algebraic axiom beyond zmodType",
+  "historical_trace_phase_proxy": "NOT_IDENTIFIED_WITH_POSTNIKOV_INVARIANT",
+  "normalized_vs_full_complex_equivalence": "NOT_ESTABLISHED",
+  "infinity_cstar_sheaf_equivalence": "NOT_ESTABLISHED",
+  "physical_quantum_claim": "NOT_ESTABLISHED",
+  "claim_promotion": "BLOCKED_PENDING_COMPILE_AND_EXACT_SOURCE_PR_BINDING",
+  "authority_effect": "NONE"
+}
