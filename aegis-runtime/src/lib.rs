@@ -17,6 +17,7 @@
 //! 10. `validation_dfa`   — Syntactic validation DFA (compile-time state table)
 //! 11. `gossip_emitter`   — Zero-copy UDP scatter-gather gossip protocol
 //! 12. `hysteresis`       — Non-linear hysteresis peer reputation filter
+//! 13. `jetson_execution` — Fail-closed NNDAL/TensorRT/RAGC/SGM admission contract
 //!
 //! # Constitutional Invariants
 //! - BTreeMap throughout — no HashMap; deterministic iteration order enforced
@@ -36,6 +37,7 @@ pub mod hysteresis;
 pub mod semantic_graph;
 pub mod state_anchor;
 pub mod validation_dfa;
+pub mod jetson_execution;
 // Full External and Internal Autonode — T0 verdict gate + all 7 pillars + GossipEmitter beacon
 pub mod autonode;
 

@@ -1,0 +1,46 @@
+name: NVIDIA Jetson Execution Contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'aegis-runtime/src/jetson_execution.rs'
+      - 'aegis-runtime/src/lib.rs'
+      - 'deploy/jetson/**'
+      - '.github/workflows/jetson-contract.yml'
+  push:
+    branches: [main, 'agent/jetson-*']
+    paths:
+      - 'aegis-runtime/src/jetson_execution.rs'
+      - 'aegis-runtime/src/lib.rs'
+      - 'deploy/jetson/**'
+      - '.github/workflows/jetson-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Jetson contract · fail-closed unit gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: aegis-runtime -> target
+
+      - name: Rust contract tests
+        run: cd aegis-runtime && cargo test jetson_execution
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Evidence collector tests
+        run: python -m unittest discover -s deploy/jetson/tests -p 'test_*.py' -v
+
+      - name: Python syntax gate
+        run: python -m py_compile deploy/jetson/collect_execution_evidence.py
