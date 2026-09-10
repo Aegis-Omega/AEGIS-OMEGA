@@ -46,6 +46,7 @@ jobs:
           mkdir -p "$ROOT/artifacts"
           docker pull coqorg/coq:8.20.1
           docker run --rm \
+            --user="$(id -u):$(id -g)" \
             -v "$ROOT:/work" -w /work \
             coqorg/coq:8.20.1 \
             bash -lc 'set -euo pipefail; coqc CStarGroupCohomology.v 2>&1 | tee artifacts/CStarGroupCohomology.log; coqc CStarZ2Postnikov.v 2>&1 | tee artifacts/CStarZ2Postnikov.log; coqc --version | tee artifacts/coq_version.txt'
