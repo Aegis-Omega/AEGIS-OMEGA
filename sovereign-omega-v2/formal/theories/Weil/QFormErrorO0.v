@@ -195,9 +195,9 @@ Proof.
       CReq O0RealsV1
         (CRabs O0RealsV1
           (ahat * CRinv O0RealsV1 bhat
-                    (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) bhat HbhatProp))
+                    (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 (0%Q)) bhat HbhatProp))
            - a * CRinv O0RealsV1 b
-                    (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) b HbProp)))
+                    (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 (0%Q)) b HbProp)))
          * (b * bhat))
         (CRabs O0RealsV1 (ahat * b - a * bhat))).
     {
@@ -207,23 +207,23 @@ Proof.
       assert (Hcancel_alg :
         CReq O0RealsV1
           ((ahat * CRinv O0RealsV1 bhat
-                      (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) bhat HbhatProp))
+                      (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 (0%Q)) bhat HbhatProp))
             - a * CRinv O0RealsV1 b
-                      (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) b HbProp)))
+                      (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 (0%Q)) b HbProp)))
            * (b * bhat))
           (ahat * b *
              (CRinv O0RealsV1 bhat
-               (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) bhat HbhatProp)) * bhat)
+               (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 (0%Q)) bhat HbhatProp)) * bhat)
            - a * bhat *
              (CRinv O0RealsV1 b
-               (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) b HbProp)) * b))).
+               (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 (0%Q)) b HbProp)) * b))).
       { ring. }
       setoid_rewrite Hcancel_alg.
       rewrite
         (CRinv_l bhat
-          (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) bhat HbhatProp))),
+          (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 (0%Q)) bhat HbhatProp))),
         (CRinv_l b
-          (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) b HbProp))).
+          (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 (0%Q)) b HbProp))).
       ring.
     }
     setoid_rewrite Hleft.
@@ -236,13 +236,13 @@ Proof.
         ((ea * b + a * eb) *
            CRinv O0RealsV1 (m * m)
              (inr
-               (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) (m * m)
+               (o0_lt_set_v1 (CR_of_Q O0RealsV1 (0%Q)) (m * m)
                  (o0_square_positive_prop_v1 m HmProp)))
          * (b * bhat))
         ((ea * b + a * eb) *
           (CRinv O0RealsV1 (m * m)
             (inr
-              (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) (m * m)
+              (o0_lt_set_v1 (CR_of_Q O0RealsV1 (0%Q)) (m * m)
                 (o0_square_positive_prop_v1 m HmProp)))
            * (b * bhat)))).
     { ring. }
@@ -253,10 +253,10 @@ Proof.
     + exact HbudgetNonneg.
     + assert (Hinv_unit :
         CReq O0RealsV1
-          (CR_of_Q O0RealsV1 1)
+          (CR_of_Q O0RealsV1 (1%Q))
           (CRinv O0RealsV1 (m * m)
             (inr
-              (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) (m * m)
+              (o0_lt_set_v1 (CR_of_Q O0RealsV1 (0%Q)) (m * m)
                 (o0_square_positive_prop_v1 m HmProp)))
            * (m * m))).
       {
