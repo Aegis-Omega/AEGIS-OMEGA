@@ -20,8 +20,14 @@ $Schema = 'AEGIS_DLSS5_WINDOWS_HOST_BOOTSTRAP_RECEIPT_V1'
 function Get-Sha256Text {
     param([Parameter(Mandatory = $true)][string]$Text)
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
-    $hash = [System.Security.Cryptography.SHA256]::HashData($bytes)
-    return ([System.Convert]::ToHexString($hash)).ToLowerInvariant()
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $hash = $sha256.ComputeHash($bytes)
+    }
+    finally {
+        $sha256.Dispose()
+    }
+    return ([System.BitConverter]::ToString($hash)).Replace('-', '').ToLowerInvariant()
 }
 
 function Write-BoundedReceipt {
@@ -70,7 +76,8 @@ function Write-BoundedReceipt {
     if ($outputDirectory) {
         New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
     }
-    [System.IO.File]::WriteAllText($outputFullPath, $json, [System.Text.UTF8Encoding]::new($false))
+    $utf8NoBom = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false
+    [System.IO.File]::WriteAllText($outputFullPath, $json, $utf8NoBom)
     Write-Output $json
 }
 
@@ -119,7 +126,20 @@ if (Test-Path -LiteralPath $archivePath) {
     Remove-Item -LiteralPath $archivePath -Force
 }
 
-Invoke-WebRequest -Uri $StreamlineReleaseUrl -OutFile $archivePath
+try {
+    Invoke-WebRequest -UseBasicParsing -Uri $StreamlineReleaseUrl -OutFile $archivePath
+}
+catch {
+    Write-BoundedReceipt `
+        -Status 'SDK_DENIED' `
+        -GpuName $eligibleGpu.Name `
+        -DriverVersion $eligibleGpu.Driver `
+        -ReasonCode 'SDK_DOWNLOAD_FAILED' `
+        -SdkDigestVerified $false `
+        -SdkArchivePath ([System.IO.Path]::GetFullPath($archivePath))
+    exit 25
+}
+
 $actualArchiveSha = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actualArchiveSha -ne $StreamlineReleaseSha256) {
     Write-BoundedReceipt `
