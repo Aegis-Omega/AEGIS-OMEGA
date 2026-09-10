@@ -1,0 +1,41 @@
+name: aegis-cstar-kernel
+
+on:
+  push:
+    paths:
+      - "packages/aegis-cstar-kernel/**"
+      - ".github/workflows/aegis-cstar-kernel.yml"
+  pull_request:
+    paths:
+      - "packages/aegis-cstar-kernel/**"
+      - ".github/workflows/aegis-cstar-kernel.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  finite-dimensional-contract:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    defaults:
+      run:
+        working-directory: packages/aegis-cstar-kernel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install package and test dependency
+        run: python -m pip install -e . pytest
+      - name: Unit and adversarial tests
+        run: python -m pytest -q
+      - name: Deterministic property fuzz stress
+        run: python tools/fuzz_stress_v1.py
+      - name: Bytecode compile gate
+        run: python -m compileall -q src tests tools
+      - name: Clean import gate
+        run: python -c "from aegis_cstar import CStarAlgebra, InfinityCStarSheaf, SpectralPhantomSolver; from aegis_cstar.receipts import canonical_sha256; print('CSTAR_IMPORT_OK')"
