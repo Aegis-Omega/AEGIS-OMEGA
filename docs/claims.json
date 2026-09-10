@@ -560,7 +560,7 @@
         "Test: genomics/quantum_dna/test_claims_gate.py"
       ],
       "fails_if": "A source byte, model scope, claim wording, status, limitation, ordering or parent hash changes without the gate rejecting it; or an unsupported authority promotion passes.",
-      "verified_against": "91893ce42a676a004e25a3d147b70204a568ec7b"
+      "verified_against": "bb6c7607805f0f0e0a584f83c3205a8434ff22e6"
     },
     {
       "id": "CLM-452",
@@ -573,7 +573,7 @@
         "Test: genomics/quantum_dna/test_claims_gate.py"
       ],
       "fails_if": "A source byte, model scope, claim wording, status, limitation, ordering or parent hash changes without the gate rejecting it; or an unsupported authority promotion passes.",
-      "verified_against": "91893ce42a676a004e25a3d147b70204a568ec7b"
+      "verified_against": "bb6c7607805f0f0e0a584f83c3205a8434ff22e6"
     },
     {
       "id": "CLM-453",
@@ -586,7 +586,7 @@
         "Test: genomics/quantum_dna/test_claims_gate.py"
       ],
       "fails_if": "A source byte, model scope, claim wording, status, limitation, ordering or parent hash changes without the gate rejecting it; or an unsupported authority promotion passes.",
-      "verified_against": "91893ce42a676a004e25a3d147b70204a568ec7b"
+      "verified_against": "bb6c7607805f0f0e0a584f83c3205a8434ff22e6"
     },
     {
       "id": "CLM-454",
