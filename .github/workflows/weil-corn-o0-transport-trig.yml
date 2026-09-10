@@ -107,8 +107,11 @@ jobs:
             (cd "$TESTDIR" && coqc -Q "$THEORY" "" CornO0TransportTrigSpec.v) 2>&1 | tee "$OUT/transport-trig-spec.log"
 
             for theorem in \
+              o0_to_corn_ir_proper_v1 \
               corn_o0_roundtrip_ir_v1 \
               corn_o0_roundtrip_o0_v1 \
+              o0_sin_transport_proper_v1 \
+              o0_cos_transport_proper_v1 \
               corn_o0_sin_transport_commutes_v1 \
               corn_o0_cos_transport_commutes_v1
             do
@@ -143,8 +146,11 @@ jobs:
           out = Path('weil-corn-o0-transport-trig-attestation')
           source = Path('formal/theories/Weil/CornO0TransportTrig.v')
           names = [
+              'o0_to_corn_ir_proper_v1',
               'corn_o0_roundtrip_ir_v1',
               'corn_o0_roundtrip_o0_v1',
+              'o0_sin_transport_proper_v1',
+              'o0_cos_transport_proper_v1',
               'corn_o0_sin_transport_commutes_v1',
               'corn_o0_cos_transport_commutes_v1',
           ]
@@ -166,6 +172,7 @@ jobs:
               },
               'declared_assumptions': 0,
               'corn_o0_roundtrip_machine_bound': True,
+              'o0_transport_trig_setoid_proper_machine_bound': True,
               'transport_defined_o0_trig_commutation_machine_bound': True,
               'independent_native_o0_trig_implementation_agreement_machine_bound': False,
               'derivative_transport_to_o0_machine_bound': False,
@@ -188,6 +195,7 @@ jobs:
           print(target.read_text(encoding='utf-8'))
 
           assert payload['corn_o0_roundtrip_machine_bound'] is True
+          assert payload['o0_transport_trig_setoid_proper_machine_bound'] is True
           assert payload['transport_defined_o0_trig_commutation_machine_bound'] is True
           assert payload['independent_native_o0_trig_implementation_agreement_machine_bound'] is False
           assert payload['derivative_transport_to_o0_machine_bound'] is False
