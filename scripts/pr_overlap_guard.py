@@ -198,14 +198,36 @@ def _get(url: str, token: str) -> list[dict]:
         },
     )
     with urllib.request.urlopen(request, timeout=30) as response:
-        return json.load(response)
+        payload = json.load(response)
+    if not isinstance(payload, list):
+        raise ValueError(f"GitHub collection endpoint returned {type(payload).__name__}, expected list")
+    return payload
+
+
+def _get_all(url: str, token: str) -> list[dict]:
+    """Read a complete GitHub collection instead of silently truncating at 100.
+
+    GitHub REST collection endpoints return at most 100 rows per page. Continue
+    until the first short page. Any request error propagates to the caller, which
+    keeps the guard fail-closed rather than treating an incomplete census as
+    evidence that no collision exists.
+    """
+    found: list[dict] = []
+    page = 1
+    separator = "&" if "?" in url else "?"
+    while True:
+        batch = _get(f"{url}{separator}per_page=100&page={page}", token)
+        found.extend(batch)
+        if len(batch) < 100:
+            return found
+        page += 1
 
 
 def fetch(repo: str, token: str, candidate: int) -> tuple[list[dict], list[tuple[int, str, list[dict]]]]:
-    open_prs = _get(f"{API}/repos/{repo}/pulls?state=open&per_page=100", token)
-    candidate_files = _get(f"{API}/repos/{repo}/pulls/{candidate}/files?per_page=100", token)
+    open_prs = _get_all(f"{API}/repos/{repo}/pulls?state=open", token)
+    candidate_files = _get_all(f"{API}/repos/{repo}/pulls/{candidate}/files", token)
     others = [
-        (pr["number"], pr["title"], _get(f"{API}/repos/{repo}/pulls/{pr['number']}/files?per_page=100", token))
+        (pr["number"], pr["title"], _get_all(f"{API}/repos/{repo}/pulls/{pr['number']}/files", token))
         for pr in open_prs
         if pr["number"] != candidate
         and not any(label["name"] == OVERRIDE_LABEL for label in pr.get("labels", []))
@@ -233,10 +255,10 @@ def main() -> int:
 
     try:
         candidate_files, others = fetch(args.repo, token, args.pr)
-    except (urllib.error.URLError, urllib.error.HTTPError) as exc:
-        # Fail loudly rather than silently passing: an unreachable API is not
-        # evidence that the PR is unique.
-        print(f"GitHub API unreachable: {exc}", file=sys.stderr)
+    except (urllib.error.URLError, urllib.error.HTTPError, ValueError) as exc:
+        # Fail loudly rather than silently passing: an unreachable or malformed
+        # API response is not evidence that the PR is unique.
+        print(f"GitHub API census failed: {exc}", file=sys.stderr)
         return 2
 
     collisions = collide(
