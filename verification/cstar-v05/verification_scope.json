@@ -1,15 +1,19 @@
 {
-  "schema": "AEGIS_CSTAR_V0_5_VERIFIER_SCOPE_V3",
-  "mode": "PREBINDING_COMPILE_ONLY",
+  "schema": "AEGIS_CSTAR_V0_5_VERIFIER_SCOPE_V4",
+  "mode": "SOURCE_PR_EXACT_HEAD_BOUND",
   "source_repo": "Aegis-Omega/AegisOmega",
   "source_pr": 10,
-  "source_candidate_head": null,
+  "source_candidate_head": "fc1c53195a76361435afb5ca5dc6e9a5029c9905",
   "coq_version": "8.20.1",
   "general_scope": "arbitrary group carrier; integer coefficients Z; arbitrary G-action on Z preserving zero, addition, subtraction, identity and composition",
   "reference_scope": "G=Z/2 acting nontrivially on A=Z by sign; cubic normalized 3-cocycle",
   "source_sha256": {
     "verification/cstar-v05/CStarTwistedGroupCohomology.v": "58f7233c8146b32551e1619557fd82c45694e74c3c4adfd67b966d8544e7dee4",
     "verification/cstar-v05/CStarZ2SignPostnikov.v": "34481498db56a9b93a75297f67877feef5e28db57ab50bd49f0007a7d6de1286"
+  },
+  "source_repo_paths_sha256": {
+    "research/cstar/v05/formal/coq/CStarTwistedGroupCohomology.v": "58f7233c8146b32551e1619557fd82c45694e74c3c4adfd67b966d8544e7dee4",
+    "research/cstar/v05/formal/coq/CStarZ2SignPostnikov.v": "34481498db56a9b93a75297f67877feef5e28db57ab50bd49f0007a7d6de1286"
   },
   "required_theorems": [
     "delta3_delta2_zero_Z_action",
@@ -24,6 +28,6 @@
   "arbitrary_abelian_group_coefficients": "OPEN_V0_6",
   "infinity_cstar_sheaf_equivalence": "NOT_ESTABLISHED",
   "physical_quantum_claim": "NOT_ESTABLISHED",
-  "claim_promotion": "BLOCKED_PENDING_EXACT_SOURCE_PR_BINDING",
+  "claim_promotion": "BLOCKED_UNTIL_THIS_EXACT_HEAD_BOUND_RUN_SUCCEEDS",
   "authority_effect": "NONE"
 }
