@@ -17,47 +17,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify local theorem-byte binding
+      - name: Verify exact source binding by Git blob identity and SHA-256
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import hashlib, json
+          import hashlib, json, subprocess
           from pathlib import Path
-          root=Path('verification/cstar-v05')
-          scope=json.loads((root/'verification_scope.json').read_text())
-          for rel, expected in scope['source_sha256'].items():
-              actual=hashlib.sha256(Path(rel).read_bytes()).hexdigest()
-              if actual != expected:
-                  raise SystemExit(f'FAIL_LOCAL_SOURCE_HASH {rel} expected={expected} actual={actual}')
-          if scope['mode'] != 'SOURCE_PR_EXACT_HEAD_BOUND':
+          scope=json.loads(Path('verification/cstar-v05/verification_scope.json').read_text())
+          if scope['mode'] != 'SOURCE_PR_EXACT_HEAD_GIT_BLOB_BOUND':
               raise SystemExit('FAIL_VERIFIER_MODE')
           if not scope['source_candidate_head']:
               raise SystemExit('FAIL_SOURCE_HEAD_MISSING')
           if scope['authority_effect'] != 'NONE':
               raise SystemExit('FAIL_AUTHORITY_EFFECT')
-          print('CSTAR_V05_LOCAL_THEOREM_BYTES_PASS')
-          PY
-
-      - name: Verify exact source PR head bytes
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import hashlib, json, urllib.request
-          from pathlib import Path
-          scope=json.loads(Path('verification/cstar-v05/verification_scope.json').read_text())
-          repo=scope['source_repo']
-          head=scope['source_candidate_head']
-          for rel, expected in scope['source_repo_paths_sha256'].items():
-              url=f'https://raw.githubusercontent.com/{repo}/{head}/{rel}'
-              with urllib.request.urlopen(url, timeout=30) as response:
-                  data=response.read()
-              actual=hashlib.sha256(data).hexdigest()
-              if actual != expected:
-                  raise SystemExit(f'FAIL_EXACT_SOURCE_PR_HASH {rel} expected={expected} actual={actual}')
-              print(f'PASS_EXACT_SOURCE_PR_HASH {rel} {actual}')
-          print(f'CSTAR_V05_EXACT_SOURCE_HEAD_PASS {head}')
+          for binding in scope['bindings']:
+              path=Path(binding['verifier_path'])
+              actual_sha256=hashlib.sha256(path.read_bytes()).hexdigest()
+              if actual_sha256 != binding['sha256']:
+                  raise SystemExit(f"FAIL_SHA256 {path} expected={binding['sha256']} actual={actual_sha256}")
+              actual_blob=subprocess.check_output(['git','hash-object',str(path)],text=True).strip()
+              if actual_blob != binding['source_git_blob_sha']:
+                  raise SystemExit(f"FAIL_GIT_BLOB {path} expected={binding['source_git_blob_sha']} actual={actual_blob}")
+              print(f"PASS_SOURCE_CONTENT_ID {binding['source_path']} sha256={actual_sha256} git_blob={actual_blob}")
+          print(f"CSTAR_V05_SOURCE_HEAD_CONTENT_BOUND {scope['source_repo']}@{scope['source_candidate_head']}")
           PY
 
       - name: Compile Coq 8.20.1 theorem candidates
@@ -84,7 +67,7 @@ jobs:
           root=Path('verification/cstar-v05')
           scope=json.loads((root/'verification_scope.json').read_text())
           receipt={
-            'schema':'AEGIS_CSTAR_V0_5_SOURCE_BOUND_COQ_RECEIPT_V1',
+            'schema':'AEGIS_CSTAR_V0_5_SOURCE_BOUND_COQ_RECEIPT_V2',
             'verifier_repository':'Aegis-Omega/AEGIS-OMEGA',
             'verifier_github_sha':os.environ['GITHUB_SHA'],
             'mode':scope['mode'],
@@ -92,7 +75,8 @@ jobs:
             'source_pr':scope['source_pr'],
             'source_candidate_head':scope['source_candidate_head'],
             'coq_version_requested':'8.20.1',
-            'formal_source_sha256':scope['source_repo_paths_sha256'],
+            'formal_source_sha256':{b['source_path']:b['sha256'] for b in scope['bindings']},
+            'formal_source_git_blob_sha':{b['source_path']:b['source_git_blob_sha'] for b in scope['bindings']},
             'required_theorems':scope['required_theorems'],
             'decision':'FORMAL_TWISTED_INTEGER_ACTION_CORE_VERIFIED_SOURCE_HEAD_BOUND',
             'claim_promotion':'BOUNDED_TO_DECLARED_FORMAL_THEOREMS_ONLY',
