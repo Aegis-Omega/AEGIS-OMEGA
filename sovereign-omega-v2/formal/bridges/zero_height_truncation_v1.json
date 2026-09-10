@@ -1,0 +1,70 @@
+{
+  "schema_version": "AEGIS_ZERO_HEIGHT_TRUNCATION_V1",
+  "namespace": "mathematics.rh.zero_truncation.height_finite_carrier",
+  "evidence_class": "FORMAL_HEIGHT_TRUNCATION_FINITE_CANDIDATE",
+  "verified_parent_evidence": {
+    "critical_strip": {
+      "aegis_revision": "fb49502c3ec558e47fe62218288a3f86d5288a6e",
+      "receipt_sha256": "7431124210ac182204612e4edf5af46e11b1c30bc876fd39377ebd3251e2fd4a",
+      "artifact_sha256": "5c3f0f25c110eb93fc14373b339cd21db95d4a5595043d38a491dbd69e0d9fe9"
+    }
+  },
+  "external_environment": {
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "formal_conjectures_rh_blob_sha": "c8d38bef385eb15661c3daf7449625b66b019b2a",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/NumberTheory/LSeries/ZetaZeros.lean",
+      "git_blob_sha": "0b8046e67ae5d1e613366e86fdf6b205eea3a6b1",
+      "bound_declaration": "IsCompact.inter_riemannZetaZeros_finite"
+    },
+    {
+      "path": "Mathlib/Analysis/Complex/Norm.lean",
+      "git_blob_sha": "0898fb3ad035a87ee89ce2093780486e857cc5ff",
+      "bound_declaration": "Complex.norm_le_abs_re_add_abs_im"
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/HurwitzZetaValues.lean",
+      "git_blob_sha": "4bdfedf2cf474a721e0687852a5782f304781eb7"
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/Nonvanishing.lean",
+      "git_blob_sha": "610bd56365d49c5ffa9ebeb29e0a383c768248e2"
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/RiemannZeta.lean",
+      "git_blob_sha": "3c92195fce20df7fda41cfd823b3266f83cf3070"
+    }
+  ],
+  "formal_source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightTruncationV1.lean",
+    "git_blob_sha": "0da2436be4602a9b9423a77f115ad36726f0489b",
+    "declarations": [
+      "NontrivialZeroHeightSetV1",
+      "nontrivial_zero_height_set_finite_v1"
+    ]
+  },
+  "scope": {
+    "critical_strip_parent": "VERIFIED",
+    "finite_height_truncation_carrier": "CANDIDATE",
+    "height_limit_existence": "OPEN",
+    "height_radial_equivalence": "OPEN",
+    "zero_sum_convergence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "critical_line_re_half": "OPEN",
+    "weil_criterion_bridge": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "decision": "HOLD_RESEARCH_ONLY",
+    "rh_proved": false,
+    "rh_disproved": false,
+    "claim_promotion": "BLOCKED",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}
