@@ -36,6 +36,9 @@ jobs:
       - name: Test provider-neutral workspace admission
         run: python sovereign-omega-v2/python/tests/test_provider_neutral_execution.py -v
 
+      - name: Test provider-neutral capability resolution
+        run: python sovereign-omega-v2/python/tests/test_capability_resolution.py -v
+
       - name: Validate exact candidate and emit receipt
         shell: bash
         run: |
