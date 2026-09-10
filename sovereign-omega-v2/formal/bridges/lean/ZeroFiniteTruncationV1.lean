@@ -18,6 +18,7 @@ RH_EQUIVALENCE_OPEN
 
 open Set Filter Topology
 open Complex
+open scoped BigOperators
 
 noncomputable section
 
@@ -47,8 +48,13 @@ theorem zero_radial_set_finite_v1 (R : ℝ) :
     (isCompact_closedBall (0 : ℂ) R).inter_riemannZetaZeros_finite
   refine hAll.subset ?_
   intro z hz
-  simp [ZeroRadialSetV1, ZeroRadialRegionV1, RiemannNontrivialZeroSetV1] at hz ⊢
-  exact ⟨hz.1, hz.2.1⟩
+  change z ∈ Metric.closedBall (0 : ℂ) R ∧ z ∈ RiemannNontrivialZeroSetV1 at hz
+  rcases hz with ⟨hzBall, hzNontrivial⟩
+  change
+    z ∈ riemannZetaZeros ∧
+      (¬ ∃ n : ℕ, z = -2 * (n + 1)) ∧
+      z ≠ 1 at hzNontrivial
+  exact ⟨hzBall, hzNontrivial.1⟩
 
 /-- Canonical finite carrier for one radial truncation. -/
 def ZeroRadialFinsetV1 (R : ℝ) : Finset ℂ :=
