@@ -35,6 +35,24 @@ class TestGravityQuantumV4Pipeline(unittest.TestCase):
         self.assertEqual(disposition["claim_promotion"], "BLOCKED")
         self.assertEqual(disposition["authority_effect"], "NONE")
 
+    def test_v4_policy_requires_repository_enrolled_exact_receipts(self):
+        r = receipt()
+        policy = r["stages"][1]["output"]
+        self.assertIn(
+            "REPOSITORY_ENROLLED_EXACT_SOURCE_VERIFICATION_RECEIPT_DIGEST",
+            policy["fit_release_requires"],
+        )
+        self.assertIn(
+            "REPOSITORY_ENROLLED_EXACT_CALIBRATION_VERIFICATION_RECEIPT_DIGEST",
+            policy["fit_release_requires"],
+        )
+        self.assertEqual(policy["caller_authored_verified_flags"], "NO_AUTHORITY")
+        disposition = r["stages"][-1]["output"]
+        self.assertIn(
+            "NO_TRUSTED_VERIFICATION_RECEIPT_ENROLLED",
+            disposition["reason_codes"],
+        )
+
     def test_v4_tamper_is_localized(self):
         chain = build_chain()
         forged = copy.deepcopy(chain)
