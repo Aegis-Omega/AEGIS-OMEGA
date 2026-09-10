@@ -105,7 +105,7 @@ Proof.
   setoid_replace
     (ahat * b - a * bhat)
     with ((ahat - a) * b + a * (b - bhat)).
-  2: ring.
+  1: ring.
 
   eapply CRle_trans.
   - apply CRabs_triang.
@@ -179,7 +179,7 @@ Proof.
                   (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) b HbProp)))
        * (b * bhat))
       with (CRabs O0RealsV1 (ahat * b - a * bhat)).
-    2: {
+    1: {
       rewrite <- (CRabs_right (b * bhat) HdenNonneg).
       rewrite <- CRabs_mult.
       apply CRabs_morph.
@@ -196,7 +196,7 @@ Proof.
          - a * bhat *
            (CRinv O0RealsV1 b
              (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) b HbProp)) * b)).
-      2: ring.
+      1: ring.
       rewrite
         (CRinv_l bhat
           (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) bhat HbhatProp))),
@@ -222,7 +222,7 @@ Proof.
             (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) (m * m)
               (o0_square_positive_prop_v1 m HmProp)))
          * (b * bhat))).
-    2: ring.
+    1: ring.
 
     rewrite <- (CRmult_1_r (ea * b + a * eb)).
     apply CRmult_le_compat_l.
@@ -235,7 +235,7 @@ Proof.
             (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) (m * m)
               (o0_square_positive_prop_v1 m HmProp)))
          * (m * m)).
-      2: {
+      1: {
         symmetry.
         apply CRinv_l.
       }
