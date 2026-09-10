@@ -1,0 +1,41 @@
+{
+  "schema": "AEGIS_CANONICAL_CLAIM_ADMISSION_RECEIPT_V1",
+  "canonical_claim_id": "c2c0a2b92064bb05c3e28035fefb0f26cdb1d117dbc4f672fde4d0831e899587",
+  "legacy_claim_id": "AEGIS-QSIM-CP-CG-SECULAR-001",
+  "gate_result": "ALLOW_WITHIN_DECLARED_SCOPE_ONLY",
+  "authority_effect": "WITHIN_DECLARED_SCOPE_ONLY",
+  "evidence_class": "E_simulation",
+  "source_digest": "sha256:c6483c1f41684404789d7c68edde10d2300e761e83c2dd05de5b200e9d644478",
+  "source_coordinate": "artifact:cp_coarse_grained_secularization_benchmark.py@sha256:88347a27ae5b6a8b0d58fe270139818c191472a929205e9769117b46451302a7#bohr_components+c_matrix+dissipator+superoperator+channel_metrics",
+  "benchmark_script_sha256": "88347a27ae5b6a8b0d58fe270139818c191472a929205e9769117b46451302a7",
+  "benchmark_receipt_sha256": "53e4cf5017e54f73ce4579a97ce352ebcc7536dead062361e6c58ad2f4f26c0c",
+  "maxima": {
+    "kossakowski_min_eigenvalue": 1.9355129592080552e-09,
+    "cg_density_min_eigenvalue": -4.599542813904008e-16,
+    "cg_trace_residual": 2.4425055613222034e-15,
+    "cg_hermiticity_residual": 1.7249191214028913e-14,
+    "cg_channel_trace_preservation_residual": 2.710613835076685e-15,
+    "cg_channel_choi_min_eigenvalue": 2.4978517939895354e-06,
+    "large_tau_max_normalized_cross_coefficient": 3.056143888882521e-05,
+    "large_tau_max_relative_generator_distance_to_full_secular": 1.3763790867865705e-06,
+    "short_tau_max_state_trace_distance_cg_vs_secular": 0.3246924210863086,
+    "short_tau_max_observable_difference_cg_vs_secular": 0.647270937542664
+  },
+  "sensitivity": {
+    "near_degenerate_delta_omega": 0.025438224187544822,
+    "near_degenerate_short_tau_cross_coefficient": 0.9973978670818215,
+    "near_degenerate_short_tau_trace_distance": 0.3246924210863086,
+    "near_degenerate_large_tau_cross_coefficient": 3.056143888882521e-05,
+    "near_degenerate_large_tau_trace_distance": 5.580096142034489e-06
+  },
+  "limitations": [
+    "That the phenomenological Gamma(omega) profile is the spectral density of any physical bath.",
+    "That this simplified C_ww' formula is a complete microscopic derivation for an arbitrary reservoir.",
+    "That finite-time coarse graining is universally more accurate than full secularization.",
+    "A Redfield solution or Redfield truth reference.",
+    "Physical hardware, biological, gravity, or clinical validity.",
+    "Correctness outside the tested system/operator/rate/tau grid."
+  ],
+  "repository_mutation": false,
+  "receipt_sha256": "9c4b23fa9267897b18f53d86373533775f7937aaac1487550ba634f03632f363"
+}
