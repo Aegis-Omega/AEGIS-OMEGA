@@ -18,6 +18,7 @@ RH_EQUIVALENCE_OPEN
 -/
 
 open Set
+open scoped BigOperators
 
 /-- Nontrivial zeta-zero indices whose complex norm is at most `R`. -/
 def RiemannRadialZeroSetV1 (R : ℝ) : Set RiemannNontrivialZeroIndexV1 :=
