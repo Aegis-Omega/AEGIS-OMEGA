@@ -25,12 +25,14 @@ Bernoulli nonvanishing as an unverified side assumption. -/
 theorem bernoulli_two_mul_ne_zero_v1 (k : ℕ) (hk : k ≠ 0) :
     bernoulli (2 * k) ≠ 0 := by
   intro hB
-  have hzeta0 : riemannZeta (((2 * k : ℕ) : ℂ)) = 0 := by
+  have hzeta0 : riemannZeta (2 * (k : ℂ)) = 0 := by
     rw [riemannZeta_two_mul_nat hk, hB]
     simp
-  have hge : (1 : ℝ) ≤ (((2 * k : ℕ) : ℂ)).re := by
+  have hk1 : (1 : ℝ) ≤ (k : ℝ) := by
+    exact_mod_cast Nat.one_le_iff_ne_zero.mpr hk
+  have hge : (1 : ℝ) ≤ (2 * (k : ℂ)).re := by
     norm_num
-    omega
+    linarith
   exact (riemannZeta_ne_zero_of_one_le_re hge) hzeta0
 
 /-- Riemann zeta does not vanish at a negative odd integer. -/
