@@ -1,0 +1,40 @@
+{
+  "schema_version": "AEGIS_ZERO_RADIAL_TRUNCATION_V1",
+  "namespace": "mathematics.rh.zero_radial_truncation",
+  "evidence_class": "FORMAL_THEOREM_CANDIDATE",
+  "parent_multiplicity": {
+    "aegis_revision": "20f030aa3e69bc95c7e247010096fbbe2a4c2dd9",
+    "source_sha256": "c4f8aa0e3b691abb99969b853cba94d6ef47a0794338418eb7bb7f8b7a99973f",
+    "multiplicity_receipt_sha256": "29fc8be9b217a132a81130a3f3909f7ce5c1b27adac27ec83955c4ed632904e9",
+    "multiplicity_artifact_sha256": "2c7750c9000a28a0bd006681d423921e1238ee260653db04b52afc6e0b571645",
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "formal_source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/ZeroRadialTruncationV1.lean",
+    "git_blob_sha": "f7840beca30557fdcf8842fa95e0a551afa80913",
+    "sha256": "9a0698465a985d783292d04635d8ba92dcd3fcce5eb01a00a0a37d9ece57023f"
+  },
+  "verification_mode": "COMPILE_EXACT_PARENT_SOURCE_THEN_CHILD_FRAGMENT",
+  "scope": {
+    "radial_zero_set_finite": "CANDIDATE",
+    "radial_zero_finset": "CANDIDATE",
+    "radial_exhaustion_membership": "CANDIDATE",
+    "radial_index_monotonicity": "CANDIDATE",
+    "finite_multiplicity_weighted_mellin_sum": "ENCODED",
+    "summation_convention_eq_bombieri": "OPEN",
+    "truncated_limit_convergence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "decision": "HOLD_RESEARCH_ONLY",
+    "rh_proved": false,
+    "rh_disproved": false,
+    "claim_promotion": "BLOCKED",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}
