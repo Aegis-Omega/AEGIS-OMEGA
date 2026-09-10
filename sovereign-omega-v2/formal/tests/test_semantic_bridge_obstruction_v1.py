@@ -2,7 +2,7 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "theories" / "Weil" / "SemanticBridgeObstruction.v"
+SOURCE = ROOT / "bridges" / "coq" / "SemanticBridgeObstruction.v"
 
 
 class SemanticBridgeObstructionTests(unittest.TestCase):
