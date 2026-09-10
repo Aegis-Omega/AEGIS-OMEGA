@@ -2,6 +2,13 @@
 ## Premortem Analysis — 2026-05-17
 ## Method: Assume failure. Find the kill vector. Reassemble better.
 
+> **Historical record — consolidation 2026-09-10:** Statuses, test counts and
+> production-readiness statements below belong to the original audit; they are
+> not current admission evidence. The H-04 correction from PR #404 is retained
+> with an explicit preservation boundary. Absence from one checkout is not
+> absence from Git history, another repository, Drive or the operator's Library.
+> No historical source is to be deleted merely because its claims remain unverified.
+
 Findings ranked by epistemic tier. T0 = must resolve before any deployment.
 T1 = must resolve before production. T2 = resolve before Gumroad listing.
 
@@ -163,14 +170,28 @@ anytime-valid confidence sequences per Waudby-Smith & Ramdas 2024).
 discrepancy, the Bernstein/Waudby-Smith rationale, and the legacy constraint.
 **Status:** ✅ RESOLVED — annotation confirmed present
 
-### H-04 · swarm_os and sovereign-omega-v2 are parallel, not integrated
-Both are Kaggle competitors (Tarik Skalić, operator) but on different tracks:
-- sovereign-omega-v2: VCG/PGCS governance proof track
-- swarm_os: Hallucination Delta (HD) metacognition track
+### H-04 · Separate checkout evidence from historical source preservation
+**Reconciliation:** PR #404 recorded an earlier checkout without `swarm_os/` and
+without the benchmark/submission artifacts attributed to those paths. That is a
+bounded checkout observation, not evidence that the operator's historical work
+never existed or that it is absent from other repositories, Drive or the Library.
 
-Zero code coupling. Epistemic tiers correctly separated (T0 vs T4/T5).
-The CLAUDE.md non-equivalence table applies to their relationship:
+Related historical project and benchmark descriptions were located in the
+operator's external corpus during the 2026-09-10 reconciliation. Their presence
+establishes available source material, not a freshly executed benchmark, a verified
+Kaggle submission, a performance result, or runtime integration. Private source
+contents and credentials are not published by this correction.
+
+`sovereign-omega-v2` governance/metacognition code does not independently establish
+an HD benchmark result or truthfulness claim. The applicable invariant remains:
 *Calibration is not Truthfulness. Governance is not Alignment.*
+
+**Status:** OPEN — preserve historical artifacts and provenance regardless of their
+current verification status. Promote benchmark/capability claims only after binding
+original source bytes, execution conditions and results to appropriate verification.
+Missing evidence restricts claim promotion; it does not authorize deletion of work.
+The original #404 wording remains available at commit
+`630a6fe96f0242c097e4b213452a7f8fcb069bde` for comparison.
 
 ### H-05 · No canonical ontology — semantic overload risk
 **Source:** ChatGPT adversarial audit (CONFIDENCE 0.95) — 2026-05-19
