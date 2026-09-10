@@ -1,0 +1,52 @@
+name: CUDA-Q Phase Hamiltonian Cross-Check
+
+on:
+  push:
+    branches:
+      - research/gravity-quantum-cudaq-phase-v1
+    paths:
+      - 'gravity_quantum/cudaq_phase_v1.py'
+      - 'gravity_quantum/test_cudaq_phase_v1.py'
+      - '.github/workflows/cudaq-phase-hamiltonian.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cudaq-phase-hamiltonian:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned CUDA-Q
+        run: python -m pip install --disable-pip-version-check 'cudaq==0.15.1'
+
+      - name: Run preregistered Hamiltonian phase falsifiers
+        run: python -m unittest gravity_quantum.test_cudaq_phase_v1 -v
+
+      - name: Emit exact-head computational receipt
+        run: |
+          mkdir -p artifacts/cudaq-phase
+          printf '%s\n' "${GITHUB_SHA}" > artifacts/cudaq-phase/head-sha.txt
+          python -m gravity_quantum.cudaq_phase_v1 > artifacts/cudaq-phase/receipt.json
+          (
+            cd artifacts/cudaq-phase
+            sha256sum head-sha.txt receipt.json > SHA256SUMS
+            sha256sum -c SHA256SUMS
+            cat SHA256SUMS
+          )
+
+      - name: Upload exact-head computational evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cudaq-phase-hamiltonian-${{ github.sha }}
+          path: artifacts/cudaq-phase/
+          if-no-files-found: error
