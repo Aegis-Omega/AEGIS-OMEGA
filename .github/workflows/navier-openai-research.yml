@@ -1,0 +1,70 @@
+name: AEGIS Navier OpenAI Research
+
+on:
+  workflow_dispatch:
+    inputs:
+      research_lane:
+        description: "Bounded Navier–Stokes research lane"
+        required: true
+        type: choice
+        options:
+          - target-positive
+          - counterexample-attack
+          - surrogate-euler
+          - apriori-estimates
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    name: Read-only candidate generation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact head without persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install deterministic test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+
+      - name: Verify governed Navier primitives before model execution
+        run: python -m pytest navier_workflow -q
+
+      # Keep Codex last in this job. The action is constrained both by a
+      # read-only permission profile and by privilege dropping.
+      - name: Generate one bounded OpenAI/Codex research candidate
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":read-only"
+          safety-strategy: drop-sudo
+          effort: high
+          output-schema-file: navier_workflow/openai_candidate_schema.json
+          prompt: |
+            You are a research worker inside the AEGIS Ω Navier–Stokes workflow.
+
+            Exact repository head: ${{ github.sha }}
+            Assigned lane: ${{ inputs.research_lane }}
+
+            Produce exactly one structured candidate that conforms to
+            navier_workflow/openai_candidate_schema.json.
+
+            Hard boundaries:
+            - status must be CANDIDATE_ONLY.
+            - authority_effect=NONE.
+            - Do not claim that the Navier–Stokes Millennium problem is proved.
+            - Preserve every assumption, dependency, open obligation, known
+              failure mode, falsification attempt, and source coordinate.
+            - A surrogate result must remain surrogate-only.
+            - Numerical or symbolic evidence cannot close a theorem.
+            - Do not modify repository files, Git state, releases, deployments,
+              pull requests, issues, or constitutional state.
+            - Prefer an explicit unresolved obligation over an unsupported bridge.
