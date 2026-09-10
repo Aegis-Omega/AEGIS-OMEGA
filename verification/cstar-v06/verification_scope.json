@@ -1,5 +1,5 @@
 {
-  "schema": "AEGIS_CSTAR_V0_6_VERIFIER_SCOPE_V1",
+  "schema": "AEGIS_CSTAR_V0_6_VERIFIER_SCOPE_V2",
   "mode": "PREBINDING_COMPILE_ONLY",
   "source_repo": "Aegis-Omega/AegisOmega",
   "source_pr": 10,
@@ -9,7 +9,7 @@
   "coefficient_scope": "arbitrary MathComp zmodType (additive abelian group); no coefficient multiplication or ring unit assumed",
   "action_scope": "G -> {additive A -> A} with identity and composition laws",
   "source_sha256": {
-    "verification/cstar-v06/CStarZmodGroupCohomology.v": "4c4cadc8f075444a01930544722964feebcee7fdb5ee575262aafb324d73d163"
+    "verification/cstar-v06/CStarZmodGroupCohomology.v": "6c4e376a0801a83f1daffefa5773c954865ebb8efdf0e7d6179921b5f76eea55"
   },
   "required_theorems": [
     "delta3_delta2_zero_zmod_action",
