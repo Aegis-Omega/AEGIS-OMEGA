@@ -68,6 +68,7 @@ try {
     'aegis://health',
     'aegis://node',
     'aegis://nvidia/dlss5',
+    'aegis://nvidia/dlss5/acquisition-contract',
     'aegis://nvidia/dlss5/runtime-contract',
     'aegis://telemetry',
   ])
@@ -91,6 +92,18 @@ try {
   assert.equal(dlss5Value.streamline.plugin, 'sl.dlss_nr')
   assert.equal(dlss5Value.authority_effect, 'NONE')
 
+  const acquisitionContract = await client.readResource({ uri: 'aegis://nvidia/dlss5/acquisition-contract' })
+  const acquisitionContractValue = JSON.parse(acquisitionContract.contents[0].text)
+  assert.equal(acquisitionContractValue.schema, 'AEGIS_DLSS5_ACQUISITION_CONTRACT_V1')
+  assert.equal(acquisitionContractValue.nvidia_smi.command, 'nvidia-smi')
+  assert.deepEqual(acquisitionContractValue.nvidia_smi.args, [
+    '--query-gpu=name,driver_version,pci.bus_id',
+    '--format=csv,noheader,nounits',
+  ])
+  assert.equal(acquisitionContractValue.network_access, false)
+  assert.equal(acquisitionContractValue.runtime_execution, false)
+  assert.equal(acquisitionContractValue.authority_effect, 'NONE')
+
   const runtimeContract = await client.readResource({ uri: 'aegis://nvidia/dlss5/runtime-contract' })
   const runtimeContractValue = JSON.parse(runtimeContract.contents[0].text)
   assert.equal(runtimeContractValue.required_plugin, 'sl.dlss_nr')
@@ -103,6 +116,7 @@ try {
   assert(toolNames.includes('aegis_dlss5_reference'))
   assert(toolNames.includes('aegis_dlss5_capability'))
   assert(toolNames.includes('aegis_dlss5_runtime_verify'))
+  assert(!toolNames.includes('aegis_dlss5_acquire'), 'native acquisition must not be exposed as an ungated MCP execution tool')
 
   const capability = await client.callTool({ name: 'aegis_dlss5_capability', arguments: {} })
   const capabilityText = capability.content.find((entry) => entry.type === 'text')
@@ -136,7 +150,7 @@ try {
   const repoMap = await client.readResource({ uri: 'aegis://authority/repo-map' })
   assert.match(repoMap.contents[0].text, /WIRED|DORMANT|BROKEN|DEAD/i)
 
-  console.log('MCP_RESOURCES_PASS 7 read-only key-free resources + DLSS5 capability/runtime fail-closed tool surface')
+  console.log('MCP_RESOURCES_PASS 8 read-only key-free resources + DLSS5 capability/runtime/acquisition fail-closed surfaces')
 } finally {
   await client.close().catch(() => {})
   await new Promise((resolve) => bridge.close(resolve))
