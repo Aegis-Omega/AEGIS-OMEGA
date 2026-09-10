@@ -83,8 +83,7 @@ Theorem delta3_delta2_zero_Z_action :
 Proof.
   intros b g h k l.
   unfold delta3_Z_action, delta2_Z_action.
-  repeat rewrite act_add.
-  repeat rewrite act_sub.
+  repeat (rewrite act_add || rewrite act_sub).
   repeat rewrite <- act_comp.
   repeat rewrite mul_assoc.
   ring.
