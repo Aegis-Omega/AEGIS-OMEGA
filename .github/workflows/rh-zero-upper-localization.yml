@@ -1,0 +1,192 @@
+name: RH Zero Upper Localization
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroUpperLocalizationV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/zero_upper_localization_v1.json'
+      - 'sovereign-omega-v2/formal/tests/test_zero_upper_localization_v1.py'
+      - '.github/workflows/rh-zero-upper-localization.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PARENT_ZERO_TRUNCATION_SHA: 7f37b1bc1489623522368c9de93c28a563cc869f
+  PARENT_ZERO_TRUNCATION_RECEIPT_SHA256: b11d7c22417c325235c8a82831b6c6883311d73afd723ab94e9da8f3d8a3c7a6
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  ZETA_ZEROS_BLOB_SHA: 0b8046e67ae5d1e613366e86fdf6b205eea3a6b1
+  NONVANISHING_BLOB_SHA: 610bd56365d49c5ffa9ebeb29e0a383c768248e2
+  SOURCE_SHA256: 14e1a500fbed63591aa18bd0436bbb2e3e845e1cee74fff2acfea230c78f3628
+
+jobs:
+  upper-localization:
+    name: pinned upper real-part localization
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate and source digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          printf '%s  %s\n' "$SOURCE_SHA256" \
+            'sovereign-omega-v2/formal/bridges/lean/ZeroUpperLocalizationV1.lean' \
+            | sha256sum -c -
+          python3 -m unittest \
+            sovereign-omega-v2/formal/tests/test_zero_upper_localization_v1.py -v
+
+      - name: Verify fail-closed localization manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('sovereign-omega-v2/formal/bridges/zero_upper_localization_v1.json').read_text())
+          assert m['schema_version'] == 'AEGIS_ZERO_UPPER_LOCALIZATION_V1'
+          assert m['namespace'] == 'mathematics.rh.zero_localization.upper'
+          p = m['parent_zero_truncation']
+          assert p['aegis_revision'] == os.environ['PARENT_ZERO_TRUNCATION_SHA']
+          assert p['zero_truncation_receipt_sha256'] == os.environ['PARENT_ZERO_TRUNCATION_RECEIPT_SHA256']
+          assert p['formal_conjectures_revision'] == os.environ['FORMAL_CONJECTURES_SHA']
+          assert p['mathlib_revision'] == os.environ['MATHLIB_SHA']
+          assert p['lean_toolchain'] == os.environ['LEAN_TOOLCHAIN']
+          assert m['upstream_mathlib'][0]['git_blob_sha'] == os.environ['ZETA_ZEROS_BLOB_SHA']
+          assert m['upstream_mathlib'][1]['git_blob_sha'] == os.environ['NONVANISHING_BLOB_SHA']
+          assert m['formal_source']['sha256'] == os.environ['SOURCE_SHA256']
+          s = m['scope']
+          assert s['zeta_zero_upper_real_bound_lt_one'] == 'CANDIDATE'
+          for key in ('lower_zero_localization','full_critical_strip_localization','height_truncation_equivalence','radial_limit_existence','explicit_formula_theorem','rh_equivalence'):
+              assert s[key] == 'OPEN'
+          assert m['promotion_requested'] is False
+          assert m['declared_disposition']['authority_effect'] == 'NONE'
+          assert m['declared_disposition']['merge'] == 'NOT_PERFORMED'
+          assert m['declared_disposition']['claim_promotion'] == 'BLOCKED'
+          PY
+
+      - name: Checkout pinned Formal Conjectures project
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: google-deepmind/formal-conjectures
+          ref: ${{ env.FORMAL_CONJECTURES_SHA }}
+          path: .external/formal-conjectures
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify external pins
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FORMAL_CONJECTURES_SHA"
+          test "$(tr -d '\r\n' < lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('lake-manifest.json').read_text())
+          p = next(x for x in m['packages'] if x['name'] == 'mathlib')
+          assert (p.get('rev') or p.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Get pinned Mathlib cache
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lake exe cache get
+
+      - name: Bind pinned Mathlib localization sources
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .lake/packages/mathlib rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(git -C .lake/packages/mathlib hash-object Mathlib/NumberTheory/LSeries/ZetaZeros.lean)" = "$ZETA_ZEROS_BLOB_SHA"
+          test "$(git -C .lake/packages/mathlib hash-object Mathlib/NumberTheory/LSeries/Nonvanishing.lean)" = "$NONVANISHING_BLOB_SHA"
+          grep -F 'lemma _root_.riemannZeta_ne_zero_of_one_le_re' \
+            .lake/packages/mathlib/Mathlib/NumberTheory/LSeries/Nonvanishing.lean
+          grep -F 'lemma mem_riemannZetaZeros' \
+            .lake/packages/mathlib/Mathlib/NumberTheory/LSeries/ZetaZeros.lean
+
+      - name: Compile upper localization theorem
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version | tee "$GITHUB_WORKSPACE/zero-upper-localization-lean-version.txt"
+          lake env lean "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/ZeroUpperLocalizationV1.lean" \
+            2>&1 | tee "$GITHUB_WORKSPACE/zero-upper-localization-lean.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/zero-upper-localization-lean.log"
+
+      - name: Emit fail-closed localization receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          source = Path('sovereign-omega-v2/formal/bridges/lean/ZeroUpperLocalizationV1.lean')
+          manifest = Path('sovereign-omega-v2/formal/bridges/zero_upper_localization_v1.json')
+          log = Path('zero-upper-localization-lean.log').read_text()
+          digest = hashlib.sha256(source.read_bytes()).hexdigest()
+          assert digest == os.environ['SOURCE_SHA256']
+          assert 'sorryAx' not in log
+          receipt = {
+            'schema_version':'AEGIS_ZERO_UPPER_LOCALIZATION_RECEIPT_V1',
+            'source_commit':os.environ['SOURCE_SHA'],
+            'formal_source_sha256':digest,
+            'manifest_sha256':hashlib.sha256(manifest.read_bytes()).hexdigest(),
+            'parent_zero_truncation_revision':os.environ['PARENT_ZERO_TRUNCATION_SHA'],
+            'parent_zero_truncation_receipt_sha256':os.environ['PARENT_ZERO_TRUNCATION_RECEIPT_SHA256'],
+            'formal_conjectures_revision':os.environ['FORMAL_CONJECTURES_SHA'],
+            'mathlib_revision':os.environ['MATHLIB_SHA'],
+            'lean_toolchain':os.environ['LEAN_TOOLCHAIN'],
+            'upper_real_bound_lt_one':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'lower_zero_localization':'OPEN',
+            'full_critical_strip_localization':'OPEN',
+            'height_truncation_equivalence':'OPEN',
+            'radial_limit_existence':'OPEN',
+            'explicit_formula_theorem':'OPEN',
+            'rh_equivalence':'OPEN',
+            'rh_proved':False,
+            'rh_disproved':False,
+            'claim_promotion':'BLOCKED',
+            'decision':'HOLD_RESEARCH_ONLY',
+            'merge':'NOT_PERFORMED',
+            'authority_effect':'NONE'
+          }
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
+          receipt['receipt_sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          Path('zero-upper-localization-receipt.json').write_text(json.dumps(receipt, sort_keys=True, indent=2)+'\n')
+          print(Path('zero-upper-localization-receipt.json').read_text())
+          PY
+
+      - name: Upload localization evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: rh-zero-upper-localization-${{ env.SOURCE_SHA }}
+          path: |
+            zero-upper-localization-lean-version.txt
+            zero-upper-localization-lean.log
+            zero-upper-localization-receipt.json
+          if-no-files-found: error
+          retention-days: 30
