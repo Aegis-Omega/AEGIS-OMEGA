@@ -1,6 +1,6 @@
 {
-  "schema": "AEGIS_CSTAR_V0_6_VERIFIER_SCOPE_DIAGNOSTIC_V1",
-  "mode": "DIAGNOSTIC_COMPILE_ONLY",
+  "schema": "AEGIS_CSTAR_V0_6_VERIFIER_SCOPE_V5",
+  "mode": "PREBINDING_COMPILE_ONLY",
   "source_repo": "Aegis-Omega/AegisOmega",
   "source_pr": 10,
   "source_candidate_head": null,
@@ -9,7 +9,7 @@
   "coefficient_scope": "arbitrary MathComp zmodType (additive abelian group); no coefficient multiplication or ring unit assumed",
   "action_scope": "G -> {additive A -> A} with identity and composition laws",
   "source_sha256": {
-    "verification/cstar-v06/CStarZmodGroupCohomology.v": "06f4ea8b5cdde74ff75d557a1a8dcbf8ca4701e733ec53a4d94ef2594dfd8a90"
+    "verification/cstar-v06/CStarZmodGroupCohomology.v": "09e906741c17f529988ad04bca44d8fc33f73c4e9bb8d68852c2e14b1df30e4b"
   },
   "required_theorems": [
     "delta3_delta2_zero_zmod_action",
@@ -17,11 +17,11 @@
     "gauge_preserves_three_cocycle_zmod_action",
     "pentagon_iff_three_cocycle_zmod_action"
   ],
-  "diagnostic_intent": "Print the exact residual goal after AAC inverse-pair rewriting; this candidate is intentionally non-admissible and expected to stop.",
+  "aac_role": "AC reordering only; inverse cancellation and additive identity simplification use MathComp zmodType laws directly",
   "historical_trace_phase_proxy": "NOT_IDENTIFIED_WITH_POSTNIKOV_INVARIANT",
   "normalized_vs_full_complex_equivalence": "NOT_ESTABLISHED",
   "infinity_cstar_sheaf_equivalence": "NOT_ESTABLISHED",
   "physical_quantum_claim": "NOT_ESTABLISHED",
-  "claim_promotion": "BLOCKED_DIAGNOSTIC_ONLY",
+  "claim_promotion": "BLOCKED_PENDING_COMPILE_AND_EXACT_SOURCE_PR_BINDING",
   "authority_effect": "NONE"
 }
