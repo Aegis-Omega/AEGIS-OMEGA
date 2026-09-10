@@ -6,6 +6,13 @@ on:
       - research/gravity-quantum-interface-v1
     paths:
       - '.github/workflows/cudaq-reproducibility-spike.yml'
+      - 'gravity_quantum/test_cudaq_reproducibility_contract.py'
+  pull_request:
+    branches:
+      - research/gravity-quantum-interface-v1
+    paths:
+      - '.github/workflows/cudaq-reproducibility-spike.yml'
+      - 'gravity_quantum/test_cudaq_reproducibility_contract.py'
   workflow_dispatch:
 
 permissions:
@@ -15,17 +22,32 @@ jobs:
   cudaq-cpu-spike:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - name: Checkout exact head
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.12'
 
-      - name: Install CUDA-Q
-        run: python -m pip install --disable-pip-version-check cudaq
+      - name: Verify reproducibility contract
+        run: python gravity_quantum/test_cudaq_reproducibility_contract.py -v
+
+      - name: Install pinned CUDA-Q
+        run: python -m pip install --disable-pip-version-check 'cudaq==0.15.1'
+
+      - name: Capture resolved environment lock
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/cudaq-spike
+          python -m pip freeze --all | LC_ALL=C sort > artifacts/cudaq-spike/environment.lock.txt
+          test -s artifacts/cudaq-spike/environment.lock.txt
 
       - name: Run qpp-cpu Bell reproducibility probe
         env:
@@ -37,6 +59,7 @@ jobs:
           import importlib.metadata
           import json
           import os
+          import platform
           from pathlib import Path
 
           import cudaq
@@ -72,11 +95,16 @@ jobs:
               'both_expected_states_present': counts_a.get('00', 0) > 0 and counts_a.get('11', 0) > 0,
           }
 
+          environment_lock = Path('artifacts/cudaq-spike/environment.lock.txt').read_bytes()
           receipt = {
-              'schema': 'AEGIS_CUDAQ_REPRODUCIBILITY_SPIKE_V1',
+              'schema': 'AEGIS_CUDAQ_REPRODUCIBILITY_SPIKE_V2',
               'scope': 'THROWAWAY_FEASIBILITY_SPIKE',
-              'head_sha': os.environ['GITHUB_SHA'],
+              'head_sha': os.environ['CANDIDATE_SHA'],
               'cudaq_version': importlib.metadata.version('cudaq'),
+              'python_version': platform.python_version(),
+              'runner_os': os.environ.get('RUNNER_OS', 'UNKNOWN'),
+              'runner_arch': os.environ.get('RUNNER_ARCH', 'UNKNOWN'),
+              'environment_lock_sha256': hashlib.sha256(environment_lock).hexdigest(),
               'target': 'qpp-cpu',
               'seed': seed,
               'shots': shots,
@@ -89,11 +117,9 @@ jobs:
               'authority_effect': 'NONE',
           }
 
-          Path('artifacts/cudaq-spike').mkdir(parents=True, exist_ok=True)
           payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
           Path('artifacts/cudaq-spike/receipt.json').write_text(payload, encoding='utf-8')
           digest = hashlib.sha256(payload.encode()).hexdigest()
-          Path('artifacts/cudaq-spike/SHA256SUMS').write_text(f'{digest}  receipt.json\n', encoding='utf-8')
           print(payload)
           print('receipt_sha256=' + digest)
 
@@ -102,14 +128,16 @@ jobs:
           PY
           python /tmp/aegis_cudaq_spike.py
 
-      - name: Verify spike receipt
+      - name: Verify spike receipt and environment lock
         run: |
+          set -euo pipefail
           cd artifacts/cudaq-spike
+          sha256sum receipt.json environment.lock.txt > SHA256SUMS
           sha256sum -c SHA256SUMS
 
       - name: Upload spike evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: cudaq-reproducibility-spike-${{ github.sha }}
+          name: cudaq-reproducibility-spike-${{ env.CANDIDATE_SHA }}
           path: artifacts/cudaq-spike/
           if-no-files-found: error
