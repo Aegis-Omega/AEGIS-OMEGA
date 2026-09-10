@@ -249,25 +249,29 @@ Proof.
     { ring. }
     setoid_rewrite Hbudget_assoc.
 
-    setoid_rewrite <- (CRmult_1_r (ea * b + a * eb)).
-    apply CRmult_le_compat_l.
-    + exact HbudgetNonneg.
-    + assert (Hinv_unit :
-        CReq O0RealsV1
-          (CR_of_Q O0RealsV1 (1%Q))
-          (CRinv O0RealsV1 (m * m)
-            (inr
-              (o0_lt_set_v1 (CR_of_Q O0RealsV1 (0%Q)) (m * m)
-                (o0_square_positive_prop_v1 m HmProp)))
-           * (m * m))).
-      {
-        symmetry.
-        apply CRinv_l.
-      }
-      setoid_rewrite Hinv_unit.
-      apply CRmult_le_compat_l.
-      * apply CRlt_asym.
-        apply CRinv_0_lt_compat.
-        exact Hm2.
-      * exact Hm2leDen.
+    destruct
+      (CRmult_1_r (R := O0RealsV1) (ea * b + a * eb))
+      as [HbudgetToUnit HunitToBudget].
+    eapply CRle_trans.
+    - exact HbudgetToUnit.
+    - apply CRmult_le_compat_l.
+      + exact HbudgetNonneg.
+      + assert (Hinv_unit :
+          CReq O0RealsV1
+            (CR_of_Q O0RealsV1 (1%Q))
+            (CRinv O0RealsV1 (m * m)
+              (inr
+                (o0_lt_set_v1 (CR_of_Q O0RealsV1 (0%Q)) (m * m)
+                  (o0_square_positive_prop_v1 m HmProp)))
+             * (m * m))).
+        {
+          symmetry.
+          apply CRinv_l.
+        }
+        setoid_rewrite Hinv_unit.
+        apply CRmult_le_compat_l.
+        * apply CRlt_asym.
+          apply CRinv_0_lt_compat.
+          exact Hm2.
+        * exact Hm2leDen.
 Qed.
