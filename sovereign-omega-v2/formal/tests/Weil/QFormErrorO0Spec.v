@@ -11,7 +11,6 @@ Require Import QFormErrorO0.
 From Coq Require Import QArith.
 From Coq Require Import Reals.Abstract.ConstructiveReals.
 From Coq Require Import Reals.Abstract.ConstructiveAbs.
-From Coq Require Import Lra.
 
 Check o0_normalized_quotient_cross_error_sound_v1.
 Check o0_normalized_quotient_stability_sound_v1.
@@ -34,15 +33,15 @@ Example o0_quotient_fixture_v1 :
 Proof.
   apply o0_normalized_quotient_stability_sound_v1.
   repeat split.
-  - apply CR_of_Q_le. lra.
-  - apply CR_of_Q_le. lra.
-  - apply CR_of_Q_le. lra.
-  - apply CR_of_Q_le. lra.
-  - apply CR_of_Q_le. lra.
-  - apply CR_of_Q_le. lra.
-  - apply CRltForget, CR_of_Q_pos. lra.
-  - apply CR_of_Q_le. lra.
-  - apply CR_of_Q_le. lra.
+  - apply CR_of_Q_le. apply Qle_bool_imp_le. reflexivity.
+  - apply CR_of_Q_le. apply Qle_bool_imp_le. reflexivity.
+  - apply CR_of_Q_le. apply Qle_bool_imp_le. reflexivity.
+  - apply CR_of_Q_le. apply Qle_bool_imp_le. reflexivity.
+  - apply CR_of_Q_le. apply Qle_bool_imp_le. reflexivity.
+  - apply CR_of_Q_le. apply Qle_bool_imp_le. reflexivity.
+  - apply CRltForget, CR_of_Q_pos. rewrite Qlt_alt. reflexivity.
+  - apply CR_of_Q_le. apply Qle_bool_imp_le. reflexivity.
+  - apply CR_of_Q_le. apply Qle_bool_imp_le. reflexivity.
   - rewrite (o0_embedded_self_difference_zero_v1 2).
     rewrite CRabs_right.
     + apply CRle_refl.
