@@ -1,0 +1,34 @@
+name: Skill Corpus Quarantine Probe
+
+on:
+  push:
+    branches:
+      - salvage/provider-neutral-skill-corpus-v1
+
+permissions:
+  contents: read
+
+jobs:
+  skill-corpus-quarantine:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact pushed head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Assert exact head and clean worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          git diff --exit-code
+          git diff --cached --exit-code
+
+      - name: Run source-corpus quarantine contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python sovereign-omega-v2/python/tests/test_skill_corpus_quarantine.py -v
