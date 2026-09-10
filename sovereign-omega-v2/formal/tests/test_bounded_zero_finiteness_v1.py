@@ -6,18 +6,17 @@ SOURCE = ROOT / "bridges" / "lean" / "BoundedZeroFinitenessV1.lean"
 
 
 class BoundedZeroFinitenessV1Tests(unittest.TestCase):
-    def test_required_objects_and_theorems_exist(self):
+    def test_required_upstream_bridge_objects_exist(self):
         text = SOURCE.read_text(encoding="utf-8")
         for required in (
+            "import Mathlib.NumberTheory.LSeries.ZetaZeros",
             "def RiemannZeroSetOnV1",
-            "theorem riemannZeta_analyticOrderAt_ne_top_v1",
-            "theorem riemann_zero_set_finite_on_compact_away_one_v1",
-            "analyticOn_riemannZeta",
-            "analyticOrderAt_eq_top",
-            "eqOn_of_preconnected_of_eventuallyEq",
-            "divisor_support_finite_of_subset",
-            "riemannZeta_zero",
-            "BOUNDED_ZERO_FINITE_SUPPORT_ONLY",
+            "theorem riemann_zero_set_eq_mathlib_inter_v1",
+            "theorem riemann_zero_set_finite_on_compact_v1",
+            "riemannZetaZeros",
+            "mem_riemannZetaZeros",
+            "IsCompact.inter_riemannZetaZeros_finite",
+            "UPSTREAM_BOUNDED_ZERO_FINITE_SUPPORT",
             "GLOBAL_ZERO_ENUMERATION_OPEN",
             "GLOBAL_ZERO_SUM_OPEN",
         ):
@@ -31,6 +30,7 @@ class BoundedZeroFinitenessV1Tests(unittest.TestCase):
         self.assertNotIn("def GlobalZeroEnumeration", text)
         self.assertNotIn("∑' rho", text)
         self.assertNotIn("RiemannHypothesis :=", text)
+        self.assertNotIn("riemannZeta_analyticOrderAt_ne_top_v1", text)
 
 
 if __name__ == "__main__":
