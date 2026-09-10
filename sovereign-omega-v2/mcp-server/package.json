@@ -9,11 +9,12 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
-    "test:resources": "npm run build && node test/dlss5.mjs && node test/dlss5-runtime.mjs && node test/dlss5-acquisition.mjs && node test/dlss5-acquisition-cli.mjs && node test/dlss5-execution-witness.mjs && node test/dlss5-execution-witness-cli.mjs && node test/resources.mjs",
-    "test:dlss5": "npm run build && node test/dlss5.mjs && node test/dlss5-runtime.mjs && node test/dlss5-acquisition.mjs && node test/dlss5-acquisition-cli.mjs && node test/dlss5-execution-witness.mjs && node test/dlss5-execution-witness-cli.mjs",
-    "test:dlss5-runtime": "npm run build && node test/dlss5-runtime.mjs && node test/dlss5-execution-witness.mjs && node test/dlss5-execution-witness-cli.mjs",
+    "test:resources": "npm run build && node test/dlss5.mjs && node test/dlss5-runtime.mjs && node test/dlss5-acquisition.mjs && node test/dlss5-acquisition-cli.mjs && node test/dlss5-execution-witness.mjs && node test/dlss5-execution-witness-cli.mjs && node test/dlss5-host-shim-source.mjs && node test/resources.mjs",
+    "test:dlss5": "npm run build && node test/dlss5.mjs && node test/dlss5-runtime.mjs && node test/dlss5-acquisition.mjs && node test/dlss5-acquisition-cli.mjs && node test/dlss5-execution-witness.mjs && node test/dlss5-execution-witness-cli.mjs && node test/dlss5-host-shim-source.mjs",
+    "test:dlss5-runtime": "npm run build && node test/dlss5-runtime.mjs && node test/dlss5-execution-witness.mjs && node test/dlss5-execution-witness-cli.mjs && node test/dlss5-host-shim-source.mjs",
     "test:dlss5-acquisition": "npm run build && node test/dlss5-acquisition.mjs && node test/dlss5-acquisition-cli.mjs",
     "test:dlss5-execution-witness": "npm run build && node test/dlss5-execution-witness.mjs && node test/dlss5-execution-witness-cli.mjs",
+    "test:dlss5-host-shim-source": "npm run build && node test/dlss5-host-shim-source.mjs",
     "test:automaton3": "npm run build && node test/automaton3-authority.mjs"
   },
   "dependencies": {
