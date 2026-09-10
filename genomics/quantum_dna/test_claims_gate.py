@@ -1,6 +1,5 @@
 """Adversarial controls for semantic forgery despite recomputed chain hashes."""
 import copy
-import json
 import os
 from pathlib import Path
 import shutil
