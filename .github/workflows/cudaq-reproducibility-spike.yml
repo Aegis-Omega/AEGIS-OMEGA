@@ -1,0 +1,114 @@
+name: CUDA-Q Reproducibility Spike
+
+on:
+  push:
+    branches:
+      - research/gravity-quantum-interface-v1
+    paths:
+      - '.github/workflows/cudaq-reproducibility-spike.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cudaq-cpu-spike:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install CUDA-Q
+        run: python -m pip install --disable-pip-version-check cudaq
+
+      - name: Run qpp-cpu Bell reproducibility probe
+        env:
+          SPIKE_SEED: '230911'
+          SPIKE_SHOTS: '1000'
+        run: |
+          python - <<'PY'
+          import hashlib
+          import importlib.metadata
+          import json
+          import os
+          from pathlib import Path
+
+          import cudaq
+
+          seed = int(os.environ['SPIKE_SEED'])
+          shots = int(os.environ['SPIKE_SHOTS'])
+          cudaq.set_target('qpp-cpu')
+
+          @cudaq.kernel
+          def bell():
+              q = cudaq.qvector(2)
+              h(q[0])
+              x.ctrl(q[0], q[1])
+              mz(q)
+
+          def run_once():
+              cudaq.set_random_seed(seed)
+              result = cudaq.sample(bell, shots_count=shots)
+              return {str(k): int(v) for k, v in result.items()}
+
+          counts_a = run_once()
+          counts_b = run_once()
+          allowed = {'00', '11'}
+          other_a = {k: v for k, v in counts_a.items() if k not in allowed and v}
+          other_b = {k: v for k, v in counts_b.items() if k not in allowed and v}
+
+          checks = {
+              'repeat_equal_same_seed': counts_a == counts_b,
+              'only_bell_states_a': not other_a,
+              'only_bell_states_b': not other_b,
+              'shot_count_a': sum(counts_a.values()) == shots,
+              'shot_count_b': sum(counts_b.values()) == shots,
+              'both_expected_states_present': counts_a.get('00', 0) > 0 and counts_a.get('11', 0) > 0,
+          }
+
+          receipt = {
+              'schema': 'AEGIS_CUDAQ_REPRODUCIBILITY_SPIKE_V1',
+              'scope': 'THROWAWAY_FEASIBILITY_SPIKE',
+              'head_sha': os.environ['GITHUB_SHA'],
+              'cudaq_version': importlib.metadata.version('cudaq'),
+              'target': 'qpp-cpu',
+              'seed': seed,
+              'shots': shots,
+              'counts_run_a': dict(sorted(counts_a.items())),
+              'counts_run_b': dict(sorted(counts_b.items())),
+              'checks': checks,
+              'gpu_acceleration_tested': False,
+              'qpu_hardware_tested': False,
+              'physics_claim_effect': 'NONE',
+              'authority_effect': 'NONE',
+          }
+
+          Path('artifacts/cudaq-spike').mkdir(parents=True, exist_ok=True)
+          payload = json.dumps(receipt, indent=2, sort_keys=True) + '\n'
+          Path('artifacts/cudaq-spike/receipt.json').write_text(payload, encoding='utf-8')
+          digest = hashlib.sha256(payload.encode()).hexdigest()
+          Path('artifacts/cudaq-spike/SHA256SUMS').write_text(f'{digest}  receipt.json\n', encoding='utf-8')
+          print(payload)
+          print('receipt_sha256=' + digest)
+
+          if not all(checks.values()):
+              raise SystemExit('CUDA-Q reproducibility spike failed: ' + json.dumps(checks, sort_keys=True))
+          PY
+
+      - name: Verify spike receipt
+        run: |
+          cd artifacts/cudaq-spike
+          sha256sum -c SHA256SUMS
+
+      - name: Upload spike evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cudaq-reproducibility-spike-${{ github.sha }}
+          path: artifacts/cudaq-spike/
+          if-no-files-found: error
