@@ -7,7 +7,7 @@ AEGIS Ω — zero-side explicit-formula interface v1.
 This file binds the individual nontrivial-zero domain of Mathlib's Riemann zeta
 function to Mellin evaluation. It deliberately does not define a global sum over
 all zeros: multiplicities, indexing/enumeration, summation convention and
-convergence must be established independently before such an object is admitted.
+convergence must be established independently before such an object is accepted.
 
 ZERO_MULTIPLICITY_ENUMERATION_OPEN
 ZERO_SIDE_GLOBAL_SUM_OPEN
