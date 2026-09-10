@@ -20,7 +20,7 @@ env:
   FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
   MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
   LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
-  PROBE_SHA256: 2643f4087d3e64edb3a598f5c31d4ca8cf0e19cdc0756d0bc1e6977a2e2d4c15
+  PROBE_SHA256: 4c1bdd681bbdb05c7b8753f4eb27ed8e68f087716445777deec55620fa25e8d5
 
 jobs:
   probe:
@@ -113,7 +113,6 @@ jobs:
           import hashlib
           import json
           import os
-          import re
           from pathlib import Path
 
           source = Path('sovereign-omega-v2/formal/bridges/lean/BombieriWeilTargetProbe.lean')
