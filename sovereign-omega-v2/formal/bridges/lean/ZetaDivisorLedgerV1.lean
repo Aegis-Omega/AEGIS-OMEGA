@@ -62,7 +62,8 @@ theorem zeta_divisor_apply_eq_analytic_order_v1
     {s : ℂ} (hs : s ∈ K) :
     ZetaDivisorV1 K s = ((analyticOrderAt riemannZeta s).map (↑)).untop₀ := by
   simpa [ZetaDivisorV1] using
-    (zeta_analytic_on_admissible_compact_v1 hK).divisor_apply hs
+    MeromorphicOn.AnalyticOnNhd.divisor_apply
+      (zeta_analytic_on_admissible_compact_v1 hK) hs
 
 /-- Finite support of the zeta divisor, filtered to standard nontrivial zeros. -/
 noncomputable def ZetaNontrivialDivisorSupportFinsetV1
@@ -76,7 +77,7 @@ noncomputable def ZetaNontrivialWeightedLedgerSumV1
     (K : Set ℂ) (hK : ZetaAdmissibleCompactV1 K)
     (weight : ℂ → ℂ) : ℂ := by
   classical
-  exact ∑ s in ZetaNontrivialDivisorSupportFinsetV1 K hK,
+  exact Finset.sum (ZetaNontrivialDivisorSupportFinsetV1 K hK) fun s =>
     ((ZetaDivisorV1 K s : ℤ) : ℂ) * weight s
 
 #check analyticOn_riemannZeta
