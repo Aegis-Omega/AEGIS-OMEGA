@@ -41,7 +41,7 @@ def WeilMomentConditionsV1 (g : WeilCompactSmoothGV1) : Prop :=
 
 /-- Multiplicative autocorrelation shape used in Bombieri's statement. -/
 def WeilAutocorrelationV1 (g : WeilCompactSmoothGV1) (x : ℝ) : ℂ :=
-  ∫ y in Set.Ioi (0 : ℝ), g.1 (x * y) * Complex.conj (g.1 y)
+  ∫ y in Set.Ioi (0 : ℝ), g.1 (x * y) * conj (g.1 y)
 
 /-- One positive-integer prime-power term of the explicit-formula right side.
     Index `n` represents the positive integer `n + 1`. -/
