@@ -95,7 +95,8 @@ Lemma cancel_twisted_boundary_zmod
   + x4 - x7 + x8 - x10 = 0.
 Proof.
   repeat aac_rewrite addrN.
-  aac_reflexivity.
+  Show.
+  fail 1 "STOP_AFTER_AAC".
 Qed.
 
 Theorem delta3_delta2_zero_zmod_action :
