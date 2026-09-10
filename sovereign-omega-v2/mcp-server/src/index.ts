@@ -12,6 +12,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { DLSS5_REFERENCE, buildDlss5Receipt } from './dlss5.js'
 
 const BRIDGE = (process.env['AEGIS_BRIDGE_URL'] ?? 'http://localhost:7890').replace(/\/$/, '')
 const API_KEY = process.env['AEGIS_API_KEY'] ?? ''
@@ -39,6 +40,13 @@ async function bridgePost(path: string, body: unknown, apiKey = false): Promise<
 
 function text(content: unknown): { content: Array<{ type: 'text'; text: string }> } {
   return { content: [{ type: 'text', text: JSON.stringify(content, null, 2) }] }
+}
+
+function dlss5EnvironmentManifest(): unknown {
+  const raw = process.env['AEGIS_ENVIRONMENT_MANIFEST_JSON']
+  if (!raw) return undefined
+  try { return JSON.parse(raw) }
+  catch { return { schema: 'INVALID_AEGIS_ENVIRONMENT_MANIFEST' } }
 }
 
 function repoRoot(): string {
@@ -129,6 +137,10 @@ server.tool('aegis_health', 'Check AEGIS constitutional health: t0_verdict, corr
 
 server.tool('aegis_telemetry', 'Get live AEGIS telemetry: PGCS passes, epoch count, VCG metrics, martingale state.', {}, async () => text(await bridgeGet('/telemetry')))
 
+server.tool('aegis_dlss5_reference', 'Read the evidence-bounded NVIDIA DLSS 5 / Streamline reference snapshot. No execution authority is granted.', {}, async () => text(DLSS5_REFERENCE))
+
+server.tool('aegis_dlss5_capability', 'Evaluate the launch-bound AEGIS environment manifest for DLSS 5 eligibility and emit a deterministic fail-closed receipt. Never releases execution.', {}, async () => text(buildDlss5Receipt(dlss5EnvironmentManifest())))
+
 server.tool('aegis_platform_status', 'Get AEGIS platform status through a D0 authority decision.', {}, async () => {
   const authority = authorizeAction({ actionClass: 'D0', authorityDomain: 'mcp:read', requestedCapability: 'mcp.platform.status', tool: 'aegis_platform_status', target: '/platform/status', action: { operation: 'read', endpoint: '/platform/status' } })
   const denial = denied(authority); if (denial) return denial
@@ -196,6 +208,7 @@ function fileResource(uri: URL, relPath: string): { contents: Array<{ uri: strin
 server.resource('aegis-node', 'aegis://node', { description: 'Live constitutional node state. Fuel-free.', mimeType: 'application/json' }, async (uri) => bridgeResource(uri, '/node'))
 server.resource('aegis-telemetry', 'aegis://telemetry', { description: 'Live AEGIS telemetry. Fuel-free.', mimeType: 'application/json' }, async (uri) => bridgeResource(uri, '/telemetry'))
 server.resource('aegis-health', 'aegis://health', { description: 'Bridge liveness. Fuel-free.', mimeType: 'application/json' }, async (uri) => bridgeResource(uri, '/health'))
+server.resource('aegis-nvidia-dlss5', 'aegis://nvidia/dlss5', { description: 'Evidence-bounded NVIDIA DLSS 5 reference snapshot. Fuel-free; authority effect NONE.', mimeType: 'application/json' }, async (uri) => jsonResource(uri, DLSS5_REFERENCE))
 server.resource('aegis-authority-index', 'aegis://authority/index', { description: 'Repository authority graph. Fuel-free.', mimeType: 'text/markdown' }, async (uri) => fileResource(uri, 'INDEX.md'))
 server.resource('aegis-authority-repo-map', 'aegis://authority/repo-map', { description: 'Repository wiring map. Fuel-free.', mimeType: 'text/markdown' }, async (uri) => fileResource(uri, 'REPO_MAP.md'))
 
