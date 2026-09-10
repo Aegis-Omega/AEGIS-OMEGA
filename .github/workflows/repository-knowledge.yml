@@ -42,6 +42,10 @@ jobs:
         shell: bash
         run: python scripts/test-repository-cartographer.py
 
+      - name: Run artifact evidence contract
+        shell: bash
+        run: python scripts/test-artifact-evidence.py
+
       - name: Assert authority neutrality
         shell: bash
         run: |
