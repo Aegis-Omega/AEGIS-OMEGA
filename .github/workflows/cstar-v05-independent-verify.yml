@@ -1,0 +1,95 @@
+name: CSTAR v0.5 Independent Coq Verification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'verification/cstar-v05/**'
+      - '.github/workflows/cstar-v05-independent-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-cstar-v05:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify theorem-byte binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root=Path('verification/cstar-v05')
+          scope=json.loads((root/'verification_scope.json').read_text())
+          for rel, expected in scope['source_sha256'].items():
+              actual=hashlib.sha256(Path(rel).read_bytes()).hexdigest()
+              if actual != expected:
+                  raise SystemExit(f'FAIL_SOURCE_HASH {rel} expected={expected} actual={actual}')
+          if scope['authority_effect'] != 'NONE':
+              raise SystemExit('FAIL_AUTHORITY_EFFECT')
+          print('CSTAR_V05_SOURCE_BYTES_PASS')
+          PY
+
+      - name: Compile Coq 8.20.1 theorem candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$PWD/verification/cstar-v05"
+          mkdir -p "$ROOT/artifacts"
+          docker pull coqorg/coq:8.20.1
+          docker run --rm \
+            -v "$ROOT:/work:ro" \
+            coqorg/coq:8.20.1 \
+            bash -lc 'set -euo pipefail; mkdir -p /tmp/cstar-v05; cp /work/CStarTwistedGroupCohomology.v /work/CStarZ2SignPostnikov.v /tmp/cstar-v05/; cd /tmp/cstar-v05; coqc CStarTwistedGroupCohomology.v; coqc CStarZ2SignPostnikov.v; coqc --version' \
+            2>&1 | tee "$ROOT/artifacts/coq_compile.log"
+
+      - name: Emit bounded compile receipt
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root=Path('verification/cstar-v05')
+          scope=json.loads((root/'verification_scope.json').read_text())
+          receipt={
+            'schema':'AEGIS_CSTAR_V0_5_PREBINDING_COQ_RECEIPT_V1',
+            'verifier_repository':'Aegis-Omega/AEGIS-OMEGA',
+            'verifier_github_sha':os.environ['GITHUB_SHA'],
+            'mode':scope['mode'],
+            'source_repo':scope['source_repo'],
+            'source_pr':scope['source_pr'],
+            'source_candidate_head':scope['source_candidate_head'],
+            'coq_version_requested':'8.20.1',
+            'formal_source_sha256':scope['source_sha256'],
+            'required_theorems':scope['required_theorems'],
+            'decision':'THEOREM_BYTES_COMPILE_PREBINDING_ONLY',
+            'claim_promotion':'BLOCKED_PENDING_EXACT_SOURCE_PR_BINDING',
+            'historical_trace_phase_proxy':'NOT_IDENTIFIED_WITH_POSTNIKOV_INVARIANT',
+            'infinity_cstar_sheaf_equivalence':'NOT_ESTABLISHED',
+            'physical_quantum_claim':'NOT_ESTABLISHED',
+            'merge_authority':'NONE',
+            'authority_effect':'NONE'
+          }
+          out=root/'artifacts'/'prebinding_compile_receipt.json'
+          out.write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
+          digest=hashlib.sha256(out.read_bytes()).hexdigest()
+          (root/'artifacts'/'prebinding_compile_receipt.json.sha256').write_text(digest+'  prebinding_compile_receipt.json\n')
+          print(json.dumps(receipt,indent=2,sort_keys=True))
+          print('receipt_sha256='+digest)
+          PY
+
+      - name: Upload prebinding evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cstar-v05-prebinding-${{ github.event.pull_request.head.sha }}
+          path: verification/cstar-v05/artifacts/
+          if-no-files-found: warn
+          retention-days: 14
