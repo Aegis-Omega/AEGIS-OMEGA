@@ -16,6 +16,7 @@ concrete Mathlib primitives required for the next semantic bridge:
 
 open Set
 open Complex
+open scoped ContDiff
 
 noncomputable section
 
