@@ -53,7 +53,7 @@ theorem nontrivial_zero_height_conj_mem_v1
     calc
       rho = conj (conj rho) := by simp
       _ = conj (-((2 * (n + 1) : ℕ) : ℂ)) := hc
-      _ = -((2 * (n + 1) : ℕ) : ℂ) := by simp [Complex.conj_natCast]
+      _ = -((2 * (n + 1) : ℕ) : ℂ) := by rw [map_neg, map_natCast]
       _ = -(2 : ℂ) * (n + 1) := by push_cast; ring
   · simpa using him
 
