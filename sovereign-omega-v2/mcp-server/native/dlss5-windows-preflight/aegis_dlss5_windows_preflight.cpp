@@ -55,10 +55,13 @@ std::string jsonEscape(const std::string& input)
 std::string wideToUtf8(const wchar_t* value)
 {
     if (!value || !*value) return {};
-    const int size = WideCharToMultiByte(CP_UTF8, 0, value, -1, nullptr, 0, nullptr, nullptr);
-    if (size <= 1) return {};
-    std::string out(static_cast<size_t>(size - 1), '\0');
-    WideCharToMultiByte(CP_UTF8, 0, value, -1, out.data(), size, nullptr, nullptr);
+    const int sizeWithNull = WideCharToMultiByte(CP_UTF8, 0, value, -1, nullptr, 0, nullptr, nullptr);
+    if (sizeWithNull <= 1) return {};
+
+    std::string out(static_cast<size_t>(sizeWithNull), '\0');
+    const int written = WideCharToMultiByte(CP_UTF8, 0, value, -1, out.data(), sizeWithNull, nullptr, nullptr);
+    if (written <= 1) return {};
+    out.resize(static_cast<size_t>(written - 1));
     return out;
 }
 
@@ -71,20 +74,20 @@ void emitReceipt(
 {
     std::ostringstream out;
     out << '{'
-        << "\"schema\":\"AEGIS_DLSS5_WINDOWS_PREFLIGHT_RECEIPT_V1\"," 
-        << "\"status\":\"" << status << "\"," 
-        << "\"streamline_source_sha\":\"2122257e0fce486f91b385aa63b9a09b0a34b363\"," 
-        << "\"streamline_release_sha256\":\"92c4d954631a1710da86ca3fa8d5034f2b9503838c95fc4ae977ae149319781b\"," 
-        << "\"feature_symbol\":\"sl::kFeatureDLSS_NR\"," 
-        << "\"feature_id\":1004," 
+        << "\"schema\":\"AEGIS_DLSS5_WINDOWS_PREFLIGHT_RECEIPT_V1\","
+        << "\"status\":\"" << status << "\","
+        << "\"streamline_source_sha\":\"2122257e0fce486f91b385aa63b9a09b0a34b363\","
+        << "\"streamline_release_sha256\":\"92c4d954631a1710da86ca3fa8d5034f2b9503838c95fc4ae977ae149319781b\","
+        << "\"feature_symbol\":\"sl::kFeatureDLSS_NR\","
+        << "\"feature_id\":1004,"
         << "\"sl_init_result\":" << static_cast<int>(initResult) << ','
         << "\"support_query_executed\":" << (supportQueryExecuted ? "true" : "false") << ','
         << "\"support_result\":" << static_cast<int>(supportResult) << ','
-        << "\"evaluation_executed\":false," 
-        << "\"runtime_claim\":\"SUPPORT_QUERY_ONLY\"," 
-        << "\"rendering_claim\":\"NOT_ESTABLISHED\"," 
-        << "\"quality_claim\":\"NOT_ESTABLISHED\"," 
-        << "\"claim_promotion\":\"BLOCKED\"," 
+        << "\"evaluation_executed\":false,"
+        << "\"runtime_claim\":\"SUPPORT_QUERY_ONLY\","
+        << "\"rendering_claim\":\"NOT_ESTABLISHED\","
+        << "\"quality_claim\":\"NOT_ESTABLISHED\","
+        << "\"claim_promotion\":\"BLOCKED\","
         << "\"authority_effect\":\"NONE\"";
 
     if (desc)
