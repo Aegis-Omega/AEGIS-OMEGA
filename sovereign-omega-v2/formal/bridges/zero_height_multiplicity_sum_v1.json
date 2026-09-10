@@ -1,0 +1,91 @@
+{
+  "schema_version": "AEGIS_ZERO_HEIGHT_MULTIPLICITY_SUM_V1",
+  "namespace": "mathematics.rh.zero_sum",
+  "evidence_class": "FORMAL_FINITE_ZERO_SUM_CANDIDATE",
+  "verified_parent_evidence": {
+    "height_truncation": {
+      "aegis_revision": "cef68b5fd8d98b4ad2144ae32ab1f5bfde742505",
+      "receipt_sha256": "c742236ca9b5337affb02849489a50e540e2e2d4e3dcf201cc9d4d4f4bd35d36",
+      "artifact_sha256": "e59dacc4ba735d6c4b933c2fb8faf9526519379dce8599047a36437f7e4d0171",
+      "formal_source_path": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightTruncationV1.lean",
+      "formal_source_git_blob_sha": "d276682f56e9638e99609ba57667904bd40b0007",
+      "admitted_scope": "finite_height_truncation_carrier"
+    },
+    "pointwise_multiplicity": {
+      "aegis_revision": "20f030aa3e69bc95c7e247010096fbbe2a4c2dd9",
+      "receipt_sha256": "29fc8be9b217a132a81130a3f3909f7ce5c1b27adac27ec83955c4ed632904e9",
+      "artifact_sha256": "2c7750c9000a28a0bd006681d423921e1238ee260653db04b52afc6e0b571645",
+      "formal_source_path": "sovereign-omega-v2/formal/bridges/lean/ZeroMultiplicityV1.lean",
+      "formal_source_git_blob_sha": "d6ae78f4f359bde8841ab254838ed4fedfbfcc29",
+      "admitted_scope": "pointwise_zero_multiplicity_and_mellin_summand"
+    }
+  },
+  "external_environment": {
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "formal_conjectures_rh_blob_sha": "c8d38bef385eb15661c3daf7449625b66b019b2a",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/NumberTheory/LSeries/ZetaZeros.lean",
+      "git_blob_sha": "0b8046e67ae5d1e613366e86fdf6b205eea3a6b1"
+    },
+    {
+      "path": "Mathlib/Analysis/Complex/Norm.lean",
+      "git_blob_sha": "0898fb3ad035a87ee89ce2093780486e857cc5ff"
+    },
+    {
+      "path": "Mathlib/Analysis/Analytic/Order.lean",
+      "git_blob_sha": "43cc6d88cb0ecba9560d4c29a410b271d9432628"
+    },
+    {
+      "path": "Mathlib/Analysis/MellinTransform.lean",
+      "git_blob_sha": "665d618fa526c81b3606cb8fbadf27b5a7913d32"
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/HurwitzZetaValues.lean",
+      "git_blob_sha": "4bdfedf2cf474a721e0687852a5782f304781eb7"
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/Nonvanishing.lean",
+      "git_blob_sha": "610bd56365d49c5ffa9ebeb29e0a383c768248e2"
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/RiemannZeta.lean",
+      "git_blob_sha": "3c92195fce20df7fda41cfd823b3266f83cf3070"
+    }
+  ],
+  "formal_source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightMultiplicitySumV1.lean",
+    "git_blob_sha": "e9cda472f207aa0137922519b6bbefe9955c44c8",
+    "declarations": [
+      "NontrivialZeroHeightSetV1",
+      "nontrivial_zero_height_set_finite_v1",
+      "RiemannZeroMultiplicityAtHeightV1",
+      "zero_height_multiplicity_pos_v1",
+      "NontrivialZeroHeightFinsetV1",
+      "WeilZeroHeightSumV1",
+      "weil_zero_height_sum_eq_finset_v1"
+    ]
+  },
+  "scope": {
+    "finite_height_truncation_carrier": "VERIFIED_PARENT",
+    "pointwise_zero_multiplicity": "VERIFIED_PARENT",
+    "finite_height_multiplicity_sum": "CANDIDATE",
+    "height_limit_existence": "OPEN",
+    "height_radial_equivalence": "OPEN",
+    "zero_sum_convergence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "critical_line_re_half": "OPEN",
+    "weil_criterion_bridge": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "claim_promotion": "BLOCKED",
+    "decision": "HOLD_RESEARCH_ONLY",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}
