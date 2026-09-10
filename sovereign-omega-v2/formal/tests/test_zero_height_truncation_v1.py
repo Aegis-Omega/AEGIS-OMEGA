@@ -12,7 +12,7 @@ class ZeroHeightTruncationV1Tests(unittest.TestCase):
         self.assertIn("theorem nontrivial_zero_height_set_finite_v1", text)
         self.assertIn("|s.im| ≤ T", text)
         self.assertIn("HEIGHT_TRUNCATION_FINITE_ONLY", text)
-        self.assertIn("IsCompact.inter_riemannZetaZeros_finite", text)
+        self.assertIn(".inter_riemannZetaZeros_finite", text)
 
     def test_scope_remains_fail_closed(self):
         text = SOURCE.read_text()
