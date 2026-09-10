@@ -1,0 +1,56 @@
+{
+  "schema_version": "AEGIS_ZERO_LOWER_LOCALIZATION_V1",
+  "namespace": "mathematics.rh.zero_localization.lower_bound",
+  "evidence_class": "FORMAL_LOWER_ZERO_LOCALIZATION_CANDIDATE",
+  "verified_parent_evidence": {
+    "nonpositive_zero_trivial_composition": {
+      "aegis_revision": "59c946ecb6076b1f2673b6c52525eca3664ede2d",
+      "receipt_sha256": "74012ef117431df6e700f9d3375c6a872c2b83b22070beda050961dd6ee8aa87",
+      "artifact_sha256": "0ec4cee6e7ca829aef5505ae6b10c1932354c3a581b894dae54562a704d94a7e"
+    }
+  },
+  "external_environment": {
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "formal_conjectures_rh_path": "FormalConjectures/Millenium/RiemannHypothesis.lean",
+    "formal_conjectures_rh_blob_sha": "c8d38bef385eb15661c3daf7449625b66b019b2a",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/NumberTheory/LSeries/HurwitzZetaValues.lean",
+      "git_blob_sha": "4bdfedf2cf474a721e0687852a5782f304781eb7"
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/Nonvanishing.lean",
+      "git_blob_sha": "610bd56365d49c5ffa9ebeb29e0a383c768248e2"
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/RiemannZeta.lean",
+      "git_blob_sha": "3c92195fce20df7fda41cfd823b3266f83cf3070"
+    }
+  ],
+  "formal_source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/ZeroLowerLocalizationV1.lean",
+    "git_blob_sha": "16e974aeb1dd830a0edaf6cdc75f5e45c7d1cd04",
+    "declaration": "riemann_zeta_nontrivial_zero_re_pos_v1"
+  },
+  "scope": {
+    "lower_zero_localization": "CANDIDATE",
+    "upper_zero_localization_parent": "VERIFIED_EXTERNAL_PARENT_PRESERVED",
+    "full_critical_strip_localization": "OPEN",
+    "height_truncation_equivalence": "OPEN",
+    "radial_limit_existence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "decision": "HOLD_RESEARCH_ONLY",
+    "rh_proved": false,
+    "rh_disproved": false,
+    "claim_promotion": "BLOCKED",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}
