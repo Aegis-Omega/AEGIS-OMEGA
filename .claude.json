@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/rh-zero-upper-localization-v1",
+    "source_ref": "proof/rh-zero-nonpositive-integer-v1",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "b4653040fe13d7e9f7811f2d386851411211fb54406a6c827b868867fd63bd92"
+  "state_hash": "a0b93f3c13b0d3d9b24740228fe0bbb82c217e842a0c1365e3e839791f1154ac"
 }
