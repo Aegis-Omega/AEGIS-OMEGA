@@ -1,0 +1,35 @@
+{
+  "schema_version": "AEGIS_BOUNDED_ZERO_FINITENESS_V1",
+  "namespace": "mathematics.rh.zero_finiteness",
+  "evidence_class": "FORMAL_THEOREM_CANDIDATE",
+  "parent_zero_side": {
+    "aegis_revision": "88397ad9d8422151cf7059a2f2462797179941ae",
+    "zero_side_receipt_sha256": "964e43496ad3912d448f261a0e1b848015d89a098084fbc62934c0a83ceb6932",
+    "zero_side_artifact_sha256": "ef210fb8b6ba44ae14837fc6c90f4b4e1ee676cb7b8c0e7ee54b2d83dbac7b4c",
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "formal_source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/BoundedZeroFinitenessV1.lean",
+    "sha256": "317cc185f0ddec0836068b810ad673e9520a34ad8fb09bd48e95370bcef52b8b"
+  },
+  "scope": {
+    "riemann_zeta_analytic_order_finite_away_one": "CANDIDATE",
+    "zero_set_finite_on_compact_away_one": "CANDIDATE",
+    "global_zero_enumeration": "OPEN",
+    "global_zero_sum": "OPEN",
+    "global_zero_sum_convergence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "decision": "HOLD_RESEARCH_ONLY",
+    "rh_proved": false,
+    "rh_disproved": false,
+    "claim_promotion": "BLOCKED",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}
