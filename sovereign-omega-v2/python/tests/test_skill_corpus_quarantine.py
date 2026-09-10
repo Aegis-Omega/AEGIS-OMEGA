@@ -1,53 +1,65 @@
-"""Fail-closed contract for salvaged external skill source corpora.
+"""Fail-closed contract for a salvaged external skill source corpus.
 
-A source corpus is repository evidence only. It must live outside provider auto-discovery
-paths, remain content-addressed to its historical source tree, and carry no admission
-or execution authority merely because the bytes are present in Git.
+Presence of source bytes in Git is repository evidence only. The corpus must stay
+outside provider auto-discovery paths, remain bound to its historical source, and
+must not acquire execution or admission authority merely because it is present.
 """
 from __future__ import annotations
 
 import json
-import subprocess
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-CORPUS = ROOT / "knowledge" / "skill-corpus" / "datacloud-v1"
-META = ROOT / "knowledge" / "skill-corpus" / "datacloud-v1.source.json"
-EXPECTED_TREE = "fe7f9600f673727a50175533b60cc0fde07a6ca1"
+CORPUS_ROOT = ROOT / "knowledge" / "source-corpora" / "google-datacloud-skills-v1"
+SKILLS = CORPUS_ROOT / "skills"
+PROVENANCE = CORPUS_ROOT / "provenance.json"
+SOURCE_MANIFEST = CORPUS_ROOT / "evidence" / "source-manifest.json"
+
 EXPECTED_SOURCE_HEAD = "8606c90014dc59d234ddc9de9d38a787a2d32d8e"
+EXPECTED_SOURCE_PREFIX = ".agents/skills"
+EXPECTED_CORPUS_ROOT_SHA256 = "af5595d2254e4a7d2d337aa2910368e7a87cbc2d6a1807be6abf484093ef0285"
+EXPECTED_BUNDLE_CHECKSUM = "de6fab4170eb7786ed7e405889312448e8c982302fb3651f1aaff30f577c2591"
+EXPECTED_SOURCE_MANIFEST_SHA256 = "3126675fb90fe6d7cecb07006338c76f5c5bc41f5714d7bcd88e55d9e6f2dfc7"
+EXPECTED_PACKAGES = 56
+EXPECTED_FILES = 325
+
+
+def _provenance(test: unittest.TestCase) -> dict:
+    test.assertTrue(PROVENANCE.is_file(), "source-corpus provenance metadata is missing")
+    return json.loads(PROVENANCE.read_text(encoding="utf-8"))
 
 
 class SkillCorpusQuarantine(unittest.TestCase):
-    def test_source_corpus_is_exactly_content_addressed_and_quarantined(self) -> None:
-        self.assertTrue(CORPUS.is_dir(), "provider-neutral source corpus is missing")
-        tree = subprocess.check_output(
-            ["git", "rev-parse", "HEAD:knowledge/skill-corpus/datacloud-v1"],
-            cwd=ROOT,
-            text=True,
-        ).strip()
-        self.assertEqual(tree, EXPECTED_TREE)
+    def test_source_corpus_is_content_addressed_and_dormant(self) -> None:
+        self.assertTrue(SKILLS.is_dir(), "provider-neutral source corpus is missing")
+        self.assertTrue(SOURCE_MANIFEST.is_file(), "source manifest evidence is missing")
+        p = _provenance(self)
 
-        metadata = json.loads(META.read_text(encoding="utf-8"))
-        self.assertEqual(metadata["schema"], "AEGIS_SKILL_SOURCE_CORPUS_V1")
-        self.assertEqual(metadata["source_pr"], 240)
-        self.assertEqual(metadata["source_head_sha"], EXPECTED_SOURCE_HEAD)
-        self.assertEqual(metadata["source_tree_sha"], EXPECTED_TREE)
-        self.assertEqual(metadata["corpus_path"], "knowledge/skill-corpus/datacloud-v1")
-        self.assertEqual(metadata["status"], "UNVERIFIED_SOURCE_CORPUS")
-        self.assertEqual(metadata["activation"], "DISABLED")
-        self.assertEqual(metadata["validated_runs"], 0)
-        self.assertEqual(metadata["authority_effect"], "NONE")
+        self.assertEqual(p["schema"], "AEGIS_DORMANT_SOURCE_CORPUS_V1")
+        self.assertEqual(p["source_pr"], 240)
+        self.assertEqual(p["source_sha"], EXPECTED_SOURCE_HEAD)
+        self.assertEqual(p["source_prefix"], EXPECTED_SOURCE_PREFIX)
+        self.assertEqual(p["source_bundle_checksum"], EXPECTED_BUNDLE_CHECKSUM)
+        self.assertEqual(p["source_manifest_sha256"], EXPECTED_SOURCE_MANIFEST_SHA256)
+        self.assertEqual(p["corpus_root_sha256"], EXPECTED_CORPUS_ROOT_SHA256)
+        self.assertEqual(p["package_count"], EXPECTED_PACKAGES)
+        self.assertEqual(p["file_count"], EXPECTED_FILES)
+        self.assertEqual(p["epistemic_status"], "UNVERIFIED_SOURCE_CORPUS")
+        self.assertEqual(p["activation_status"], "DORMANT_NOT_DISCOVERABLE_BY_ACTIVE_SKILL_PATH")
+        self.assertEqual(p["execution_status"], "SOURCE_BYTES_NOT_EXECUTED")
+        self.assertEqual(p["authority_effect"], "NONE")
 
-    def test_provider_mirror_paths_are_not_reintroduced(self) -> None:
+    def test_provider_mirror_and_internal_execution_paths_are_not_reintroduced(self) -> None:
         self.assertFalse((ROOT / ".agents" / "skills").exists())
         self.assertFalse((ROOT / ".gemini" / "skills").exists())
+        self.assertFalse((SKILLS / "run-aegis").exists())
 
     def test_corpus_presence_does_not_mean_skill_admission(self) -> None:
-        metadata = json.loads(META.read_text(encoding="utf-8"))
-        self.assertNotEqual(metadata["status"], "ADMITTED")
-        self.assertEqual(metadata["authority_effect"], "NONE")
-        self.assertFalse(metadata.get("execution_enabled", False))
+        p = _provenance(self)
+        self.assertNotEqual(p["epistemic_status"], "ADMITTED")
+        self.assertEqual(p["authority_effect"], "NONE")
+        self.assertNotEqual(p["execution_status"], "EXECUTION_ENABLED")
 
 
 if __name__ == "__main__":
