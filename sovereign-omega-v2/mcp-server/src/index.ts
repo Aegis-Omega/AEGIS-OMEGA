@@ -14,6 +14,7 @@ import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { DLSS5_REFERENCE, buildDlss5Receipt } from './dlss5.js'
 import { DLSS5_RUNTIME_CONTRACT, verifyDlss5RuntimeProbe } from './dlss5-runtime.js'
+import { DLSS5_ACQUISITION_CONTRACT } from './dlss5-acquisition.js'
 
 const BRIDGE = (process.env['AEGIS_BRIDGE_URL'] ?? 'http://localhost:7890').replace(/\/$/, '')
 const API_KEY = process.env['AEGIS_API_KEY'] ?? ''
@@ -231,6 +232,7 @@ server.resource('aegis-node', 'aegis://node', { description: 'Live constitutiona
 server.resource('aegis-telemetry', 'aegis://telemetry', { description: 'Live AEGIS telemetry. Fuel-free.', mimeType: 'application/json' }, async (uri) => bridgeResource(uri, '/telemetry'))
 server.resource('aegis-health', 'aegis://health', { description: 'Bridge liveness. Fuel-free.', mimeType: 'application/json' }, async (uri) => bridgeResource(uri, '/health'))
 server.resource('aegis-nvidia-dlss5', 'aegis://nvidia/dlss5', { description: 'Evidence-bounded NVIDIA DLSS 5 reference snapshot. Fuel-free; authority effect NONE.', mimeType: 'application/json' }, async (uri) => jsonResource(uri, DLSS5_REFERENCE))
+server.resource('aegis-nvidia-dlss5-acquisition-contract', 'aegis://nvidia/dlss5/acquisition-contract', { description: 'Read-only contract for native DLSS 5 environment/plugin acquisition. MCP does not launch the acquisition process.', mimeType: 'application/json' }, async (uri) => jsonResource(uri, DLSS5_ACQUISITION_CONTRACT))
 server.resource('aegis-nvidia-dlss5-runtime-contract', 'aegis://nvidia/dlss5/runtime-contract', { description: 'Fail-closed DLSS 5 runtime evidence contract. Fuel-free; does not launch GPU work.', mimeType: 'application/json' }, async (uri) => jsonResource(uri, DLSS5_RUNTIME_CONTRACT))
 server.resource('aegis-authority-index', 'aegis://authority/index', { description: 'Repository authority graph. Fuel-free.', mimeType: 'text/markdown' }, async (uri) => fileResource(uri, 'INDEX.md'))
 server.resource('aegis-authority-repo-map', 'aegis://authority/repo-map', { description: 'Repository wiring map. Fuel-free.', mimeType: 'text/markdown' }, async (uri) => fileResource(uri, 'REPO_MAP.md'))
