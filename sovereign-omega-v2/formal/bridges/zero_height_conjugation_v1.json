@@ -1,0 +1,55 @@
+{
+  "schema_version": "AEGIS_ZERO_HEIGHT_CONJUGATION_V1",
+  "namespace": "mathematics.rh.zero_symmetry",
+  "evidence_class": "FORMAL_HEIGHT_CARRIER_SYMMETRY_CANDIDATE",
+  "verified_parent_evidence": {
+    "finite_height_multiplicity_sum": {
+      "aegis_revision": "e65825da04be3faac34fceae56455062e5ba3c86",
+      "receipt_sha256": "181640c4c88eeaa31d9434a23a0b98363289b5d4d831b6bc800501760d15bd49",
+      "artifact_sha256": "769dbee3c193a3439c361b1374c310234dc116eb06fa425fac51f31b82bb9aa6",
+      "formal_source_path": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightMultiplicitySumV1.lean",
+      "formal_source_git_blob_sha": "e9cda472f207aa0137922519b6bbefe9955c44c8",
+      "admitted_scope": "finite_height_multiplicity_sum"
+    }
+  },
+  "external_environment": {
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "formal_conjectures_rh_blob_sha": "c8d38bef385eb15661c3daf7449625b66b019b2a",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/NumberTheory/Harmonic/ZetaAsymp.lean",
+      "git_blob_sha": "6846dc699ecd29cc8a1754c1680176210969ffd1",
+      "declaration": "riemannZeta_conj"
+    }
+  ],
+  "formal_source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightConjugationV1.lean",
+    "git_blob_sha": "2156206e6cf72ec53309eb2195a726947602426e",
+    "declarations": [
+      "NontrivialZeroHeightSetV1",
+      "nontrivial_zero_height_conj_mem_v1",
+      "nontrivial_zero_height_conj_iff_v1"
+    ]
+  },
+  "scope": {
+    "height_carrier_conjugation_symmetry": "CANDIDATE",
+    "multiplicity_conjugation_invariance": "OPEN",
+    "finite_sum_conjugation_pairing": "OPEN",
+    "height_limit_existence": "OPEN",
+    "zero_sum_convergence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "critical_line_re_half": "OPEN",
+    "weil_criterion_bridge": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "claim_promotion": "BLOCKED",
+    "decision": "HOLD_RESEARCH_ONLY",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}
