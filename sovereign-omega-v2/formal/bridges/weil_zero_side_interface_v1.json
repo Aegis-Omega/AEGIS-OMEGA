@@ -19,7 +19,7 @@
   },
   "formal_source": {
     "path": "sovereign-omega-v2/formal/bridges/lean/WeilZeroSideInterfaceV1.lean",
-    "sha256": "f90cdd44d6e11b81ddc15f3b1769310eb29047e2649caf5a2eb75621a51e95af"
+    "sha256": "58ce265a21393329f4d0c10a51172a74b801e7530d984f81889fb8c9b28c2b53"
   },
   "scope": {
     "nontrivial_zero_domain": "ENCODED",
