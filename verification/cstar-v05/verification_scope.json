@@ -1,5 +1,5 @@
 {
-  "schema": "AEGIS_CSTAR_V0_5_VERIFIER_SCOPE_V2",
+  "schema": "AEGIS_CSTAR_V0_5_VERIFIER_SCOPE_V3",
   "mode": "PREBINDING_COMPILE_ONLY",
   "source_repo": "Aegis-Omega/AegisOmega",
   "source_pr": 10,
@@ -8,7 +8,7 @@
   "general_scope": "arbitrary group carrier; integer coefficients Z; arbitrary G-action on Z preserving zero, addition, subtraction, identity and composition",
   "reference_scope": "G=Z/2 acting nontrivially on A=Z by sign; cubic normalized 3-cocycle",
   "source_sha256": {
-    "verification/cstar-v05/CStarTwistedGroupCohomology.v": "3c0c2f2728da8d3493d70055e61c918e37929ab99f34e0ad7642f8503962215e",
+    "verification/cstar-v05/CStarTwistedGroupCohomology.v": "58f7233c8146b32551e1619557fd82c45694e74c3c4adfd67b966d8544e7dee4",
     "verification/cstar-v05/CStarZ2SignPostnikov.v": "34481498db56a9b93a75297f67877feef5e28db57ab50bd49f0007a7d6de1286"
   },
   "required_theorems": [
