@@ -171,10 +171,19 @@ Proof.
   assert (HbudgetNonneg :
     O0LeV1 O0ZeroV1 (o0_cross_budget_v1 a b ea eb)).
   {
-    unfold o0_cross_budget_v1, O0LeV1, O0ZeroV1 in *.
-    apply CRplus_le_compat.
-    - apply CRmult_le_0_compat; assumption.
-    - apply CRmult_le_0_compat; assumption.
+    unfold o0_cross_budget_v1.
+    pose proof
+      (CRmult_le_0_compat
+        (R := O0RealsV1) ea b Hea Hb) as HeabNonneg.
+    pose proof
+      (CRmult_le_0_compat
+        (R := O0RealsV1) a eb Ha Heb) as HaebNonneg.
+    destruct
+      (CRplus_0_l (R := O0RealsV1) O0ZeroV1)
+      as [HzeroToZeroPlus _].
+    eapply CRle_trans.
+    - exact HzeroToZeroPlus.
+    - apply CRplus_le_compat; assumption.
   }
 
   unfold o0_div_by_positive_v1.
