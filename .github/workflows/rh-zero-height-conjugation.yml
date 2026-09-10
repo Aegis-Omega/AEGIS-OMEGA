@@ -1,0 +1,198 @@
+name: RH Zero Height Conjugation
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroHeightConjugationV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/zero_height_conjugation_v1.json'
+      - 'sovereign-omega-v2/formal/tests/test_zero_height_conjugation_v1.py'
+      - '.github/workflows/rh-zero-height-conjugation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  SOURCE_BLOB_SHA: 2156206e6cf72ec53309eb2195a726947602426e
+  PARENT_SUM_SHA: e65825da04be3faac34fceae56455062e5ba3c86
+  PARENT_SUM_RECEIPT: 181640c4c88eeaa31d9434a23a0b98363289b5d4d831b6bc800501760d15bd49
+  PARENT_SUM_ARTIFACT: 769dbee3c193a3439c361b1374c310234dc116eb06fa425fac51f31b82bb9aa6
+  PARENT_SUM_SOURCE_BLOB: e9cda472f207aa0137922519b6bbefe9955c44c8
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  FORMAL_CONJECTURES_RH_BLOB_SHA: c8d38bef385eb15661c3daf7449625b66b019b2a
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  ZETA_ASYMP_BLOB_SHA: 6846dc699ecd29cc8a1754c1680176210969ffd1
+
+jobs:
+  height-conjugation:
+    name: pinned height-carrier conjugation symmetry
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate and source blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroHeightConjugationV1.lean)" = "$SOURCE_BLOB_SHA"
+          python3 -m unittest sovereign-omega-v2/formal/tests/test_zero_height_conjugation_v1.py -v
+
+      - name: Bind exact parent source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$PARENT_SUM_SHA"
+          git cat-file -e "$PARENT_SUM_SHA^{commit}"
+          test "$(git show "$PARENT_SUM_SHA:sovereign-omega-v2/formal/bridges/lean/ZeroHeightMultiplicitySumV1.lean" | git hash-object --stdin)" = "$PARENT_SUM_SOURCE_BLOB"
+
+      - name: Verify parent evidence and fail-closed manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('sovereign-omega-v2/formal/bridges/zero_height_conjugation_v1.json').read_text())
+          assert m['schema_version'] == 'AEGIS_ZERO_HEIGHT_CONJUGATION_V1'
+          p = m['verified_parent_evidence']['finite_height_multiplicity_sum']
+          assert (p['aegis_revision'], p['receipt_sha256'], p['artifact_sha256'], p['formal_source_git_blob_sha']) == (
+              os.environ['PARENT_SUM_SHA'], os.environ['PARENT_SUM_RECEIPT'], os.environ['PARENT_SUM_ARTIFACT'], os.environ['PARENT_SUM_SOURCE_BLOB'])
+          e = m['external_environment']
+          assert e['formal_conjectures_revision'] == os.environ['FORMAL_CONJECTURES_SHA']
+          assert e['formal_conjectures_rh_blob_sha'] == os.environ['FORMAL_CONJECTURES_RH_BLOB_SHA']
+          assert e['mathlib_revision'] == os.environ['MATHLIB_SHA']
+          assert e['lean_toolchain'] == os.environ['LEAN_TOOLCHAIN']
+          up = m['upstream_mathlib'][0]
+          assert up['path'] == 'Mathlib/NumberTheory/Harmonic/ZetaAsymp.lean'
+          assert up['git_blob_sha'] == os.environ['ZETA_ASYMP_BLOB_SHA']
+          assert up['declaration'] == 'riemannZeta_conj'
+          assert m['formal_source']['git_blob_sha'] == os.environ['SOURCE_BLOB_SHA']
+          s = m['scope']
+          assert s['height_carrier_conjugation_symmetry'] == 'CANDIDATE'
+          for key in ('multiplicity_conjugation_invariance','finite_sum_conjugation_pairing','height_limit_existence','zero_sum_convergence','explicit_formula_theorem','critical_line_re_half','weil_criterion_bridge','rh_equivalence'):
+              assert s[key] == 'OPEN'
+          assert m['promotion_requested'] is False
+          assert m['declared_disposition']['claim_promotion'] == 'BLOCKED'
+          assert m['declared_disposition']['merge'] == 'NOT_PERFORMED'
+          assert m['declared_disposition']['authority_effect'] == 'NONE'
+          PY
+
+      - name: Checkout pinned Formal Conjectures project
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: google-deepmind/formal-conjectures
+          ref: ${{ env.FORMAL_CONJECTURES_SHA }}
+          path: .external/formal-conjectures
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify external pins
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FORMAL_CONJECTURES_SHA"
+          test "$(git hash-object FormalConjectures/Millenium/RiemannHypothesis.lean)" = "$FORMAL_CONJECTURES_RH_BLOB_SHA"
+          test "$(tr -d '\r\n' < lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('lake-manifest.json').read_text())
+          p = next(x for x in m['packages'] if x['name'] == 'mathlib')
+          assert (p.get('rev') or p.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Get pinned Mathlib cache
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: lake exe cache get
+
+      - name: Bind pinned conjugation theorem source
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .lake/packages/mathlib rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(git -C .lake/packages/mathlib hash-object Mathlib/NumberTheory/Harmonic/ZetaAsymp.lean)" = "$ZETA_ASYMP_BLOB_SHA"
+          grep -F 'theorem riemannZeta_conj (s : ℂ)' .lake/packages/mathlib/Mathlib/NumberTheory/Harmonic/ZetaAsymp.lean
+
+      - name: Compile height-carrier conjugation symmetry
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version | tee "$GITHUB_WORKSPACE/zero-height-conjugation-lean-version.txt"
+          lake env lean "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/ZeroHeightConjugationV1.lean" 2>&1 | tee "$GITHUB_WORKSPACE/zero-height-conjugation-lean.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/zero-height-conjugation-lean.log"
+
+      - name: Emit fail-closed conjugation receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          source = Path('sovereign-omega-v2/formal/bridges/lean/ZeroHeightConjugationV1.lean')
+          manifest = Path('sovereign-omega-v2/formal/bridges/zero_height_conjugation_v1.json')
+          log = Path('zero-height-conjugation-lean.log').read_text()
+          assert 'sorryAx' not in log
+          receipt = {
+            'schema_version':'AEGIS_ZERO_HEIGHT_CONJUGATION_RECEIPT_V1',
+            'source_commit':os.environ['SOURCE_SHA'],
+            'formal_source_git_blob_sha':os.environ['SOURCE_BLOB_SHA'],
+            'formal_source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),
+            'manifest_sha256':hashlib.sha256(manifest.read_bytes()).hexdigest(),
+            'parent_sum_revision':os.environ['PARENT_SUM_SHA'],
+            'parent_sum_receipt_sha256':os.environ['PARENT_SUM_RECEIPT'],
+            'formal_conjectures_revision':os.environ['FORMAL_CONJECTURES_SHA'],
+            'mathlib_revision':os.environ['MATHLIB_SHA'],
+            'zeta_asymp_blob_sha':os.environ['ZETA_ASYMP_BLOB_SHA'],
+            'lean_toolchain':os.environ['LEAN_TOOLCHAIN'],
+            'height_carrier_conjugation_symmetry':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'multiplicity_conjugation_invariance':'OPEN',
+            'finite_sum_conjugation_pairing':'OPEN',
+            'height_limit_existence':'OPEN',
+            'zero_sum_convergence':'OPEN',
+            'explicit_formula_theorem':'OPEN',
+            'critical_line_re_half':'OPEN',
+            'weil_criterion_bridge':'OPEN',
+            'rh_equivalence':'OPEN',
+            'rh_proved':False,
+            'rh_disproved':False,
+            'claim_promotion':'BLOCKED',
+            'decision':'HOLD_RESEARCH_ONLY',
+            'merge':'NOT_PERFORMED',
+            'authority_effect':'NONE'
+          }
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
+          receipt['receipt_sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          Path('zero-height-conjugation-receipt.json').write_text(json.dumps(receipt, sort_keys=True, indent=2)+'\n')
+          print(Path('zero-height-conjugation-receipt.json').read_text())
+          PY
+
+      - name: Upload conjugation evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rh-zero-height-conjugation-${{ env.SOURCE_SHA }}
+          path: |
+            zero-height-conjugation-lean-version.txt
+            zero-height-conjugation-lean.log
+            zero-height-conjugation-receipt.json
+          if-no-files-found: error
+          retention-days: 30
