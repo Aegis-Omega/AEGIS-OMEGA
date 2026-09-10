@@ -45,15 +45,23 @@ jobs:
             gravity_quantum.test_v2_pipeline \
             -v
 
+      - name: Run V3 counterfactual falsifiers
+        run: |
+          python3 -m unittest \
+            gravity_quantum.test_counterfactual_v3 \
+            gravity_quantum.test_v3_pipeline \
+            -v
+
       - name: Emit replay-verifiable receipts
         run: |
           mkdir -p artifacts/gravity-quantum
           printf '%s\n' "${GITHUB_SHA}" > artifacts/gravity-quantum/head-sha.txt
           python3 -m gravity_quantum.evidence_pipeline > artifacts/gravity-quantum/receipt-v1.json
           python3 -m gravity_quantum.v2_pipeline > artifacts/gravity-quantum/receipt-v2.json
+          python3 -m gravity_quantum.v3_pipeline > artifacts/gravity-quantum/receipt-v3.json
           (
             cd artifacts/gravity-quantum
-            sha256sum head-sha.txt receipt-v1.json receipt-v2.json > SHA256SUMS
+            sha256sum head-sha.txt receipt-v1.json receipt-v2.json receipt-v3.json > SHA256SUMS
             sha256sum -c SHA256SUMS
             cat SHA256SUMS
           )
