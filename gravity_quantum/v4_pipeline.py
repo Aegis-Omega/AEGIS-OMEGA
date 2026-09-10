@@ -20,6 +20,7 @@ from verifiable.chain import LineageChain
 from gravity_quantum.v3_pipeline import receipt as v3_receipt
 from gravity_quantum.ingress_v4 import (
     CONTRACT_FIXTURE_BYTES,
+    TRUSTED_VERIFICATION_RECEIPT_DIGESTS,
     V4_INGRESS_SCHEMA,
     build_contract_fixture,
     fit_release_gate,
@@ -72,9 +73,14 @@ def ingress_policy() -> dict:
         "fit_release_requires": [
             "CONTRACT_VALID",
             "EXTERNAL_EXPERIMENTAL_SOURCE",
-            "INDEPENDENT_SOURCE_VERIFICATION",
-            "INDEPENDENT_CALIBRATION_VERIFICATION",
+            "REPOSITORY_ENROLLED_EXACT_SOURCE_VERIFICATION_RECEIPT_DIGEST",
+            "REPOSITORY_ENROLLED_EXACT_CALIBRATION_VERIFICATION_RECEIPT_DIGEST",
         ],
+        "trusted_receipt_digest_enrollment_count": len(
+            TRUSTED_VERIFICATION_RECEIPT_DIGESTS
+        ),
+        "caller_authored_verified_flags": "NO_AUTHORITY",
+        "sha256_receipt_without_enrollment": "INTEGRITY_ONLY_NO_TRUST",
         "claim_promotion_from_structural_validation": "FORBIDDEN",
         "authority_effect": "NONE",
     }
@@ -96,15 +102,17 @@ def v4_disposition(validation: dict, gate: dict) -> dict:
         "reason_codes": [
             "TEST_FIXTURE_ONLY",
             "NO_EXTERNAL_POINT_LEVEL_SOURCE_BOUND",
-            "INDEPENDENT_SOURCE_VERIFICATION_MISSING",
-            "INDEPENDENT_CALIBRATION_VERIFICATION_MISSING",
+            "NO_TRUSTED_VERIFICATION_RECEIPT_ENROLLED",
+            "TRUSTED_VERIFICATION_RECEIPT_MISSING",
         ],
+        "release_gate_reason_codes": list(gate.get("reason_codes", [])),
         "next_required_evidence": [
             "EXTERNAL_POINT_LEVEL_SOURCE_BYTES",
             "SOURCE_RETRIEVAL_RECEIPT_OR_EQUIVALENT_PROVENANCE",
             "EXPERIMENT_CALIBRATION_EPOCH_BINDING",
             "PER_POINT_PHASE_UNCERTAINTY",
-            "INDEPENDENT_SOURCE_AND_CALIBRATION_VERIFICATION",
+            "INDEPENDENT_SOURCE_AND_CALIBRATION_VERIFICATION_RECEIPTS",
+            "REPOSITORY_ENROLLMENT_OF_EXACT_VERIFICATION_RECEIPT_DIGESTS",
         ],
         "authority_effect": "NONE",
     }
