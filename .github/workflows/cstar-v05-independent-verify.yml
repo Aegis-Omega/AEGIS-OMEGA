@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify theorem-byte binding
+      - name: Verify local theorem-byte binding
         shell: bash
         run: |
           set -euo pipefail
@@ -29,10 +29,35 @@ jobs:
           for rel, expected in scope['source_sha256'].items():
               actual=hashlib.sha256(Path(rel).read_bytes()).hexdigest()
               if actual != expected:
-                  raise SystemExit(f'FAIL_SOURCE_HASH {rel} expected={expected} actual={actual}')
+                  raise SystemExit(f'FAIL_LOCAL_SOURCE_HASH {rel} expected={expected} actual={actual}')
+          if scope['mode'] != 'SOURCE_PR_EXACT_HEAD_BOUND':
+              raise SystemExit('FAIL_VERIFIER_MODE')
+          if not scope['source_candidate_head']:
+              raise SystemExit('FAIL_SOURCE_HEAD_MISSING')
           if scope['authority_effect'] != 'NONE':
               raise SystemExit('FAIL_AUTHORITY_EFFECT')
-          print('CSTAR_V05_SOURCE_BYTES_PASS')
+          print('CSTAR_V05_LOCAL_THEOREM_BYTES_PASS')
+          PY
+
+      - name: Verify exact source PR head bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, urllib.request
+          from pathlib import Path
+          scope=json.loads(Path('verification/cstar-v05/verification_scope.json').read_text())
+          repo=scope['source_repo']
+          head=scope['source_candidate_head']
+          for rel, expected in scope['source_repo_paths_sha256'].items():
+              url=f'https://raw.githubusercontent.com/{repo}/{head}/{rel}'
+              with urllib.request.urlopen(url, timeout=30) as response:
+                  data=response.read()
+              actual=hashlib.sha256(data).hexdigest()
+              if actual != expected:
+                  raise SystemExit(f'FAIL_EXACT_SOURCE_PR_HASH {rel} expected={expected} actual={actual}')
+              print(f'PASS_EXACT_SOURCE_PR_HASH {rel} {actual}')
+          print(f'CSTAR_V05_EXACT_SOURCE_HEAD_PASS {head}')
           PY
 
       - name: Compile Coq 8.20.1 theorem candidates
@@ -48,7 +73,7 @@ jobs:
             bash -lc 'set -euo pipefail; mkdir -p /tmp/cstar-v05; cp /work/CStarTwistedGroupCohomology.v /work/CStarZ2SignPostnikov.v /tmp/cstar-v05/; cd /tmp/cstar-v05; coqc CStarTwistedGroupCohomology.v; coqc CStarZ2SignPostnikov.v; coqc --version' \
             2>&1 | tee "$ROOT/artifacts/coq_compile.log"
 
-      - name: Emit bounded compile receipt
+      - name: Emit exact-head bounded verification receipt
         if: success()
         shell: bash
         run: |
@@ -59,37 +84,38 @@ jobs:
           root=Path('verification/cstar-v05')
           scope=json.loads((root/'verification_scope.json').read_text())
           receipt={
-            'schema':'AEGIS_CSTAR_V0_5_PREBINDING_COQ_RECEIPT_V1',
+            'schema':'AEGIS_CSTAR_V0_5_SOURCE_BOUND_COQ_RECEIPT_V1',
             'verifier_repository':'Aegis-Omega/AEGIS-OMEGA',
             'verifier_github_sha':os.environ['GITHUB_SHA'],
             'mode':scope['mode'],
-            'source_repo':scope['source_repo'],
+            'source_repository':scope['source_repo'],
             'source_pr':scope['source_pr'],
             'source_candidate_head':scope['source_candidate_head'],
             'coq_version_requested':'8.20.1',
-            'formal_source_sha256':scope['source_sha256'],
+            'formal_source_sha256':scope['source_repo_paths_sha256'],
             'required_theorems':scope['required_theorems'],
-            'decision':'THEOREM_BYTES_COMPILE_PREBINDING_ONLY',
-            'claim_promotion':'BLOCKED_PENDING_EXACT_SOURCE_PR_BINDING',
+            'decision':'FORMAL_TWISTED_INTEGER_ACTION_CORE_VERIFIED_SOURCE_HEAD_BOUND',
+            'claim_promotion':'BOUNDED_TO_DECLARED_FORMAL_THEOREMS_ONLY',
+            'arbitrary_abelian_group_coefficients':'OPEN_V0_6',
             'historical_trace_phase_proxy':'NOT_IDENTIFIED_WITH_POSTNIKOV_INVARIANT',
             'infinity_cstar_sheaf_equivalence':'NOT_ESTABLISHED',
             'physical_quantum_claim':'NOT_ESTABLISHED',
             'merge_authority':'NONE',
             'authority_effect':'NONE'
           }
-          out=root/'artifacts'/'prebinding_compile_receipt.json'
+          out=root/'artifacts'/'source_bound_formal_verification_receipt.json'
           out.write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
           digest=hashlib.sha256(out.read_bytes()).hexdigest()
-          (root/'artifacts'/'prebinding_compile_receipt.json.sha256').write_text(digest+'  prebinding_compile_receipt.json\n')
+          (root/'artifacts'/'source_bound_formal_verification_receipt.json.sha256').write_text(digest+'  source_bound_formal_verification_receipt.json\n')
           print(json.dumps(receipt,indent=2,sort_keys=True))
           print('receipt_sha256='+digest)
           PY
 
-      - name: Upload prebinding evidence
+      - name: Upload source-bound evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cstar-v05-prebinding-${{ github.event.pull_request.head.sha }}
+          name: cstar-v05-source-bound-${{ github.event.pull_request.head.sha }}
           path: verification/cstar-v05/artifacts/
           if-no-files-found: warn
           retention-days: 14
