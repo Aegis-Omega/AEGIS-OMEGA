@@ -1,0 +1,218 @@
+name: RH Zero Height Summability Bridge
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroHeightSummabilityBridgeV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroHeightLimitContractV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroHeightFiniteSumV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/zero_height_summability_bridge_v1.json'
+      - 'sovereign-omega-v2/formal/tests/test_zero_height_summability_bridge_v1.py'
+      - '.github/workflows/rh-zero-height-summability-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  SOURCE_BLOB_SHA: f72516a9ee50f8b5457f4a99c55ddc296d15d8dd
+  CONTRACT_PARENT_SHA: 7ca60ad9c6c5297e2a4ebf1c1870840357d5e19b
+  CONTRACT_PARENT_RECEIPT: 827d55c96a6c9a9edc89366d447303ca688022f504607aeaa30a75555087216f
+  CONTRACT_PARENT_ARTIFACT: 80a2d9e527c0277f5c43bc6f13b4a1813f4b270891b2ac61843d693ae263c0ce
+  CONTRACT_PARENT_SOURCE_BLOB: 5d0d065113d9076db4eab6cf4be7a9868eec56a4
+  SUM_PARENT_SHA: 88e404935984aeb676ca1e0168572b79a389c556
+  SUM_PARENT_RECEIPT: bbc83343feed887a646d81da50e7000f3f50faa34959450f348acb1d97be4b2a
+  SUM_PARENT_SOURCE_BLOB: 94415f65ae85e1e9993916a22891ca2248d65d4d
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  FORMAL_CONJECTURES_RH_BLOB_SHA: c8d38bef385eb15661c3daf7449625b66b019b2a
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  INFINITE_SUM_DEFS_BLOB_SHA: e53ce4e397d95c44ea06b46e2f790d7dc1553723
+  FINSET_ATTOP_BLOB_SHA: a750c1afea43ba2e02e20b9d8c7c8754f927e6bf
+
+jobs:
+  summability-bridge:
+    name: pinned unconditional-summability sufficient bridge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate and local dependency sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroHeightSummabilityBridgeV1.lean)" = "$SOURCE_BLOB_SHA"
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroHeightLimitContractV1.lean)" = "$CONTRACT_PARENT_SOURCE_BLOB"
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroHeightFiniteSumV1.lean)" = "$SUM_PARENT_SOURCE_BLOB"
+          python3 -m unittest sovereign-omega-v2/formal/tests/test_zero_height_summability_bridge_v1.py -v
+
+      - name: Verify parent evidence and fail-closed manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('sovereign-omega-v2/formal/bridges/zero_height_summability_bridge_v1.json').read_text())
+          assert m['schema_version'] == 'AEGIS_ZERO_HEIGHT_SUMMABILITY_BRIDGE_V1'
+          assert m['candidate']['formal_source_git_blob_sha'] == os.environ['SOURCE_BLOB_SHA']
+          p = m['verified_parent_evidence']
+          c = p['height_limit_contract']
+          s = p['finite_height_multiplicity_sum_source']
+          assert (c['aegis_revision'], c['receipt_sha256'], c['artifact_sha256'], c['formal_source_git_blob_sha']) == (
+              os.environ['CONTRACT_PARENT_SHA'], os.environ['CONTRACT_PARENT_RECEIPT'],
+              os.environ['CONTRACT_PARENT_ARTIFACT'], os.environ['CONTRACT_PARENT_SOURCE_BLOB'])
+          assert (s['aegis_revision'], s['receipt_sha256'], s['formal_source_git_blob_sha']) == (
+              os.environ['SUM_PARENT_SHA'], os.environ['SUM_PARENT_RECEIPT'], os.environ['SUM_PARENT_SOURCE_BLOB'])
+          e = m['external_environment']
+          assert e['formal_conjectures_revision'] == os.environ['FORMAL_CONJECTURES_SHA']
+          assert e['formal_conjectures_rh_blob_sha'] == os.environ['FORMAL_CONJECTURES_RH_BLOB_SHA']
+          assert e['mathlib_revision'] == os.environ['MATHLIB_SHA']
+          assert e['lean_toolchain'] == os.environ['LEAN_TOOLCHAIN']
+          blobs = {x['path']: x['git_blob_sha'] for x in m['upstream_mathlib']}
+          assert blobs['Mathlib/Topology/Algebra/InfiniteSum/Defs.lean'] == os.environ['INFINITE_SUM_DEFS_BLOB_SHA']
+          assert blobs['Mathlib/Order/Filter/AtTopBot/Finset.lean'] == os.environ['FINSET_ATTOP_BLOB_SHA']
+          scope = m['scope']
+          assert scope['height_limit_contract_parent'] == 'VERIFIED'
+          assert scope['height_finset_cofinality'] == 'CANDIDATE'
+          assert scope['unconditional_hasSum_sufficient_bridge'] == 'CANDIDATE'
+          for key in ('actual_zero_sum_summability','height_limit_existence_unconditional','conditional_symmetric_convergence','height_radial_equivalence','explicit_formula_theorem','critical_line_re_half','weil_criterion_bridge','rh_equivalence'):
+              assert scope[key] == 'OPEN'
+          assert m['promotion_requested'] is False
+          assert m['declared_disposition']['claim_promotion'] == 'BLOCKED'
+          assert m['declared_disposition']['merge'] == 'NOT_PERFORMED'
+          assert m['declared_disposition']['authority_effect'] == 'NONE'
+          PY
+
+      - name: Checkout pinned Formal Conjectures project
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: google-deepmind/formal-conjectures
+          ref: ${{ env.FORMAL_CONJECTURES_SHA }}
+          path: .external/formal-conjectures
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify external pins
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FORMAL_CONJECTURES_SHA"
+          test "$(git hash-object FormalConjectures/Millenium/RiemannHypothesis.lean)" = "$FORMAL_CONJECTURES_RH_BLOB_SHA"
+          test "$(tr -d '\r\n' < lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('lake-manifest.json').read_text())
+          p = next(x for x in m['packages'] if x['name'] == 'mathlib')
+          assert (p.get('rev') or p.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Get pinned Mathlib cache
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: lake exe cache get
+
+      - name: Bind pinned infinite-sum and finset-filter sources
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .lake/packages/mathlib rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(git -C .lake/packages/mathlib hash-object Mathlib/Topology/Algebra/InfiniteSum/Defs.lean)" = "$INFINITE_SUM_DEFS_BLOB_SHA"
+          test "$(git -C .lake/packages/mathlib hash-object Mathlib/Order/Filter/AtTopBot/Finset.lean)" = "$FINSET_ATTOP_BLOB_SHA"
+          grep -F 'theorem tendsto_finset_range' .lake/packages/mathlib/Mathlib/Order/Filter/AtTopBot/Finset.lean
+          grep -F 'Summable.hasSum' .lake/packages/mathlib/Mathlib/Topology/Algebra/InfiniteSum/Defs.lean
+
+      - name: Compile finite sum, limit contract, and summability bridge
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version | tee "$GITHUB_WORKSPACE/zero-height-summability-bridge-lean-version.txt"
+          cp "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/ZeroHeightFiniteSumV1.lean" ./ZeroHeightFiniteSumV1.lean
+          cp "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/ZeroHeightLimitContractV1.lean" ./ZeroHeightLimitContractV1.lean
+          cp "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/ZeroHeightSummabilityBridgeV1.lean" ./ZeroHeightSummabilityBridgeV1.lean
+          mkdir -p .lake/build/lib/lean
+          lake env lean -o .lake/build/lib/lean/ZeroHeightFiniteSumV1.olean ZeroHeightFiniteSumV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-height-summability-parent-sum.log"
+          lake env lean -o .lake/build/lib/lean/ZeroHeightLimitContractV1.olean ZeroHeightLimitContractV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-height-summability-parent-contract.log"
+          lake env lean ZeroHeightSummabilityBridgeV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-height-summability-bridge-lean.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/zero-height-summability-parent-sum.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/zero-height-summability-parent-contract.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/zero-height-summability-bridge-lean.log"
+
+      - name: Emit fail-closed summability-bridge receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          source = Path('sovereign-omega-v2/formal/bridges/lean/ZeroHeightSummabilityBridgeV1.lean')
+          manifest = Path('sovereign-omega-v2/formal/bridges/zero_height_summability_bridge_v1.json')
+          log = Path('zero-height-summability-bridge-lean.log').read_text()
+          assert 'sorryAx' not in log
+          receipt = {
+            'schema_version':'AEGIS_ZERO_HEIGHT_SUMMABILITY_BRIDGE_RECEIPT_V1',
+            'source_commit':os.environ['SOURCE_SHA'],
+            'formal_source_git_blob_sha':os.environ['SOURCE_BLOB_SHA'],
+            'formal_source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),
+            'manifest_sha256':hashlib.sha256(manifest.read_bytes()).hexdigest(),
+            'contract_parent_revision':os.environ['CONTRACT_PARENT_SHA'],
+            'contract_parent_receipt_sha256':os.environ['CONTRACT_PARENT_RECEIPT'],
+            'sum_parent_revision':os.environ['SUM_PARENT_SHA'],
+            'sum_parent_receipt_sha256':os.environ['SUM_PARENT_RECEIPT'],
+            'formal_conjectures_revision':os.environ['FORMAL_CONJECTURES_SHA'],
+            'mathlib_revision':os.environ['MATHLIB_SHA'],
+            'lean_toolchain':os.environ['LEAN_TOOLCHAIN'],
+            'height_finset_cofinality':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'unconditional_hasSum_sufficient_bridge':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'actual_zero_sum_summability':'OPEN',
+            'height_limit_existence_unconditional':'OPEN',
+            'conditional_symmetric_convergence':'OPEN',
+            'height_radial_equivalence':'OPEN',
+            'explicit_formula_theorem':'OPEN',
+            'critical_line_re_half':'OPEN',
+            'weil_criterion_bridge':'OPEN',
+            'rh_equivalence':'OPEN',
+            'rh_proved':False,
+            'rh_disproved':False,
+            'claim_promotion':'BLOCKED',
+            'decision':'HOLD_RESEARCH_ONLY',
+            'merge':'NOT_PERFORMED',
+            'authority_effect':'NONE'
+          }
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
+          receipt['receipt_sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          Path('zero-height-summability-bridge-receipt.json').write_text(json.dumps(receipt, sort_keys=True, indent=2)+'\n')
+          print(Path('zero-height-summability-bridge-receipt.json').read_text())
+          PY
+
+      - name: Upload summability-bridge evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: rh-zero-height-summability-bridge-${{ env.SOURCE_SHA }}
+          path: |
+            zero-height-summability-bridge-lean-version.txt
+            zero-height-summability-parent-sum.log
+            zero-height-summability-parent-contract.log
+            zero-height-summability-bridge-lean.log
+            zero-height-summability-bridge-receipt.json
+          if-no-files-found: error
+          retention-days: 30
