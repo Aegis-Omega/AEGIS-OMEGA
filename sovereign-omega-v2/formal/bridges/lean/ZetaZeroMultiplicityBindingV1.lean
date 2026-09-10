@@ -26,6 +26,7 @@ RH_EQUIVALENCE_OPEN
 -/
 
 open Complex Set Filter
+open scoped Topology
 
 noncomputable section
 
@@ -45,11 +46,11 @@ private theorem riemann_zeta_zero_order_ne_top_v1
   have ha : AnalyticAt ℂ riemannZeta s :=
     analyticOn_riemannZeta s hs_mem
   intro htop
-  have hev : riemannZeta =ᶠ[𝓝 s] (fun _ : ℂ => 0) := by
+  have hev : riemannZeta =ᶠ[𝓝 s] (fun _ : ℂ => (0 : ℂ)) := by
     simpa using (analyticOrderAt_eq_top.mp htop)
-  have hzero_an : AnalyticOnNhd ℂ (fun _ : ℂ => 0) ({1}ᶜ : Set ℂ) := by
-    fun_prop
-  have heq : EqOn riemannZeta (fun _ : ℂ => 0) ({1}ᶜ : Set ℂ) :=
+  have hzero_an : AnalyticOnNhd ℂ (fun _ : ℂ => (0 : ℂ)) ({1}ᶜ : Set ℂ) :=
+    analyticOnNhd_const
+  have heq : EqOn riemannZeta (fun _ : ℂ => (0 : ℂ)) ({1}ᶜ : Set ℂ) :=
     analyticOn_riemannZeta.eqOn_of_preconnected_of_eventuallyEq
       hzero_an
       (isConnected_compl_singleton_of_one_lt_rank (by simp) 1).isPreconnected
