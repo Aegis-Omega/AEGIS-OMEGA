@@ -31,7 +31,7 @@
   ],
   "formal_source": {
     "path": "sovereign-omega-v2/formal/bridges/lean/ZeroFiniteTruncationV1.lean",
-    "sha256": "2f24015582b6e0b261a02572646485928b2290937432562c8e7a5dabedbfef76"
+    "sha256": "be3ebec9ffc11a047cb03b36091e5029860c67df8e6e7bb06f2fd93bbde0fdf9"
   },
   "scope": {
     "compact_radial_region": "ENCODED",
