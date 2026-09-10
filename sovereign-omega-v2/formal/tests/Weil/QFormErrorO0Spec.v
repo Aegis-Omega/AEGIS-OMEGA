@@ -43,10 +43,12 @@ Proof.
   - apply CR_of_Q_le. apply Qle_bool_imp_le. reflexivity.
   - apply CR_of_Q_le. apply Qle_bool_imp_le. reflexivity.
   - rewrite (o0_embedded_self_difference_zero_v1 2).
+    unfold O0LeV1, O0AbsV1, O0ZeroV1, o0_q.
     rewrite CRabs_right.
     + apply CRle_refl.
     + apply CRle_refl.
   - rewrite (o0_embedded_self_difference_zero_v1 3).
+    unfold O0LeV1, O0AbsV1, O0ZeroV1, o0_q.
     rewrite CRabs_right.
     + apply CRle_refl.
     + apply CRle_refl.
