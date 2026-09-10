@@ -1,7 +1,7 @@
 """AEGIS MHP-1 derivation-aware semantic-lineage composition kernel v1.
 
-The pre-existing transitive composition kernel is frozen byte-for-byte in
-``heritage_composition_base.py``.  This module extends that verified surface with
+The transitive composition kernel is maintained separately in
+``heritage_composition_base.py``. This module extends that surface with
 one deliberately narrow GREEN path: a final claim introduced by the right
 predecessor may survive composition only when its right-step derivation receipt
 is trusted and every derivation source is transported from C1 to C2 through an
@@ -18,7 +18,45 @@ from dataclasses import asdict, dataclass, field
 from typing import Protocol
 
 from harness.sdk import heritage_composition_base as _base
-from harness.sdk.heritage_composition_base import *  # noqa: F401,F403
+# Preserve the public transitive-kernel API without wildcard imports.
+from harness.sdk.heritage_composition_base import (
+    ClaimSetReceiptV1 as ClaimSetReceiptV1,
+    CompositionErrorCode as CompositionErrorCode,
+    DENIED as DENIED,
+    DOM_COMPOSED_ADDITION_SET as DOM_COMPOSED_ADDITION_SET,
+    DOM_COMPOSED_OMISSION_SET as DOM_COMPOSED_OMISSION_SET,
+    DOM_COMPOSED_PRESERVATION_SET as DOM_COMPOSED_PRESERVATION_SET,
+    DOM_HERITAGE_COMPOSITION_RECEIPT as DOM_HERITAGE_COMPOSITION_RECEIPT,
+    DOM_INTERMEDIATE_INHERITED_LOSS_SET as DOM_INTERMEDIATE_INHERITED_LOSS_SET,
+    DOM_MIXED_ANCESTRY_SET as DOM_MIXED_ANCESTRY_SET,
+    DOM_PRESERVATION_COMPOSITION_PROOF as DOM_PRESERVATION_COMPOSITION_PROOF,
+    DOM_TRANSIENT_ELIMINATED_SET as DOM_TRANSIENT_ELIMINATED_SET,
+    DOM_TRANSITIVE_TRANSFORM as DOM_TRANSITIVE_TRANSFORM,
+    Enum as Enum,
+    HeritageCompositionOutcomeV1 as HeritageCompositionOutcomeV1,
+    HeritageCompositionReceiptV1 as HeritageCompositionReceiptV1,
+    HeritageReceiptV1 as HeritageReceiptV1,
+    HeritageVerificationResultV1 as HeritageVerificationResultV1,
+    HeritageVerifierV13 as HeritageVerifierV13,
+    LossType as LossType,
+    NO_AUTHORITY as NO_AUTHORITY,
+    PASS as PASS,
+    PreservationCompositionProofReceiptV1 as PreservationCompositionProofReceiptV1,
+    PreservationEdge as PreservationEdge,
+    PreservationProofReceiptV1 as PreservationProofReceiptV1,
+    PreservationRelation as PreservationRelation,
+    SemanticLineageEnvelopeV1 as SemanticLineageEnvelopeV1,
+    TransformRelation as TransformRelation,
+    TrustedClaimSetReceiptStore as TrustedClaimSetReceiptStore,
+    TrustedHeritageReceiptStore as TrustedHeritageReceiptStore,
+    TrustedPreservationCompositionProofStore as TrustedPreservationCompositionProofStore,
+    TrustedSemanticLineageEnvelopeStore as TrustedSemanticLineageEnvelopeStore,
+    TrustedSemanticProofStore as TrustedSemanticProofStore,
+    VerificationErrorCode as VerificationErrorCode,
+    canonical_hash as canonical_hash,
+    require_hash as require_hash,
+    require_id as require_id,
+)
 from harness.sdk.meaning_heritage import DeclaredAdditionEdge
 
 DOM_DERIVATION_COMPOSITION_PROOF = "AEGIS_MHP1_DERIVATION_COMPOSITION_PROOF_V1"
@@ -104,7 +142,8 @@ class DerivationCompositionProofReceiptV1:
 class TrustedDerivationCompositionProofStore(Protocol):
     def fetch_derivation_verified(
         self, root: str
-    ) -> DerivationCompositionProofReceiptV1 | None: ...
+    ) -> DerivationCompositionProofReceiptV1 | None:
+        pass
 
     def fetch_derivation_verified_for(
         self,
@@ -112,7 +151,8 @@ class TrustedDerivationCompositionProofStore(Protocol):
         right_derivation_proof_root: str,
         derived_claim_digest: str,
         composed_transform_root: str,
-    ) -> DerivationCompositionProofReceiptV1 | None: ...
+    ) -> DerivationCompositionProofReceiptV1 | None:
+        pass
 
 
 class TrustedHeritageCompositionProofStore(

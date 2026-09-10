@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import runpy
-from dataclasses import fields, replace
-
-import pytest
+from dataclasses import fields
 
 from harness.sdk import heritage_composition as hc
 from harness.sdk.meaning_heritage import PreservationRelation

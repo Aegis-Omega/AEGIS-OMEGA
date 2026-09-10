@@ -62,7 +62,8 @@ class CompositionErrorCode(str, Enum):
 
 
 class TrustedSemanticLineageEnvelopeStore(Protocol):
-    def fetch_verified(self, root: str) -> SemanticLineageEnvelopeV1 | None: ...
+    def fetch_verified(self, root: str) -> SemanticLineageEnvelopeV1 | None:
+        pass
 
 
 @dataclass(frozen=True)
@@ -110,7 +111,8 @@ class PreservationCompositionProofReceiptV1:
 
 
 class TrustedPreservationCompositionProofStore(Protocol):
-    def fetch_verified(self, root: str) -> PreservationCompositionProofReceiptV1 | None: ...
+    def fetch_verified(self, root: str) -> PreservationCompositionProofReceiptV1 | None:
+        pass
 
     def fetch_verified_for(
         self,
@@ -120,7 +122,8 @@ class TrustedPreservationCompositionProofStore(Protocol):
         source_claim_digest: str,
         midpoint_claim_digest: str,
         derived_claim_digest: str,
-    ) -> PreservationCompositionProofReceiptV1 | None: ...
+    ) -> PreservationCompositionProofReceiptV1 | None:
+        pass
 
 
 @dataclass(frozen=True)
