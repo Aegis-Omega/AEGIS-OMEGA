@@ -1,0 +1,60 @@
+@startuml
+skinparam sequenceArrowThickness 1.2
+skinparam sequenceParticipant underline
+actor "Simulation Runner" as Runner
+participant "InfinityCStarSheaf" as Sheaf
+participant "Associator Map\n(UnitaryIntertwiner)" as Assoc
+participant "SpectralPhantomSolver" as Solver
+participant "StarHomomorphism\n(Restriction Maps)" as Hom
+participant "NumPy / CMath" as Math
+== Postnikov k3 evaluation ==
+Runner -> Sheaf: evaluate_postnikov_k3(v0,v1,v2,v3)
+Sheaf -> Sheaf: lookup associator (v0,v1,v2) -> a_012
+Sheaf -> Sheaf: lookup associator (v0,v2,v3) -> a_023
+Sheaf -> Sheaf: lookup associator (v1,v2,v3) -> a_123
+Sheaf -> Sheaf: lookup associator (v0,v1,v3) -> a_013
+alt any associator missing
+Sheaf --> Runner: return k3 = 0.0
+else
+Sheaf -> Assoc: extract unitary U_012, U_023, U_123, U_013
+Sheaf -> Math: loop = U_123 * U_013^* * U_023 * U_012
+Math --> Sheaf: loop matrix
+Sheaf -> Math: trace_val = trace(loop) / dim
+Math --> Sheaf: complex scalar
+Sheaf -> Math: phase = cmath.phase(trace_val)
+Math --> Sheaf: real number (radians)
+Sheaf --> Runner: return k3 = phase
+end
+note right of Runner
+k3 != 0 indicates a pentagon coherence defect
+end note
+== Spectral phantom detection ==
+Runner -> Solver: identify_phantoms(sheaf)
+loop for each face (v0,v1,v2)
+Solver -> Sheaf: lookup restriction (v0)->(v0,v1) -> hom_01
+Solver -> Sheaf: lookup restriction (v1)->(v1,v2) -> hom_12
+Solver -> Sheaf: lookup restriction (v0)->(v0,v2) -> hom_02
+alt missing restriction
+Solver --> Runner: skip face
+else
+Solver -> Solver: init local test state |ψ0⟩ at v0
+Solver -> Hom: state_direct = hom_02.embedding_matrix * |ψ0⟩
+Solver -> Hom: state_factor = hom_12.embedding_matrix * (hom_01.embedding_matrix * |ψ0⟩)
+Solver -> Math: normalize states; inner_prod = ⟨direct|factor⟩
+Math --> Solver: overlap, phase_twist
+alt overlap ≈ 1 and phase_twist != 0
+Solver --> Runner: record phantom(face, phase_twist)
+else
+Solver --> Runner: no phantom on face
+end
+end
+end
+Solver --> Runner: return list of spectral phantoms
+== Combined interpretation ==
+note over Sheaf, Solver
+Both flows use homotopy data stored in the sheaf:
+ * k3 uses associators (2‑morphisms) to compute pentagon holonomy.
+ * phantom detection uses restriction embeddings to compare path holonomies.
+   A nonzero k3 signals higher coherence obstruction; phantom detection finds locally trivial but globally twisted spectral sections.
+   end note
+@enduml

@@ -1,0 +1,52 @@
+@startuml
+skinparam classAttributeIconSize 0
+class CStarAlgebra {
++ dim: int
++ identity(): np.ndarray
++ verify_relation(a: np.ndarray): bool
++ adjoint(a: np.ndarray): np.ndarray
+}
+class StarHomomorphism {
++ source: CStarAlgebra
++ target: CStarAlgebra
++ embedding_matrix: np.ndarray
++ apply(a: np.ndarray): np.ndarray
+}
+class UnitaryIntertwiner {
++ source_hom: StarHomomorphism
++ target_hom: StarHomomorphism
++ unitary: np.ndarray
++ verify_intertwining(test_matrix): bool
+}
+CStarAlgebra "1" <-- "1" StarHomomorphism : source
+CStarAlgebra "1" <-- "1" StarHomomorphism : target
+StarHomomorphism "1" <-- "1" UnitaryIntertwiner : source_hom
+StarHomomorphism "1" <-- "1" UnitaryIntertwiner : target_hom
+class SimplicialTwoComplex {
++ vertices: List[int]
++ edges: List[(int,int)]
++ faces: List[(int,int,int)]
++ add_simplex(*nodes)
+}
+class InfinityCStarSheaf {
++ space: SimplicialTwoComplex
++ algebras: Dict[Any, CStarAlgebra]
++ restrictions: Dict[(Any,Any), StarHomomorphism]
++ associators: Dict[(Any,Any,Any), UnitaryIntertwiner]
++ assign_algebra(simplex, algebra)
++ assign_restriction(parent, child, hom)
++ assign_associator(s1, s2, s3, intertwiner)
++ evaluate_postnikov_k3(v0,v1,v2,v3): float
+}
+InfinityCStarSheaf "1" --> "1" SimplicialTwoComplex
+InfinityCStarSheaf "1" --> "*" CStarAlgebra : algebras
+InfinityCStarSheaf "1" --> "*" StarHomomorphism : restrictions
+InfinityCStarSheaf "1" --> "*" UnitaryIntertwiner : associators
+class SpectralSection {
++ values: Dict[Any, np.ndarray]
+}
+class SpectralPhantomSolver {
++ identify_phantoms(sheaf): List[(Any, float)]
+}
+SpectralPhantomSolver --> InfinityCStarSheaf : analyzes
+@enduml
