@@ -1,0 +1,52 @@
+name: RH Formal Conjectures Bridge
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/**'
+      - 'sovereign-omega-v2/formal/tests/test_formal_conjectures_rh_bridge_v1.py'
+      - '.github/workflows/rh-formal-conjectures-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rh-formal-conjectures-bridge-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  boundary:
+    name: exact-source fail-closed RH boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Run RH bridge regression tests
+        working-directory: sovereign-omega-v2
+        run: >-
+          python3 -m unittest
+          formal.tests.test_formal_conjectures_rh_bridge_v1
+          -v
+
+      - name: Emit fail-closed bridge receipt
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 formal/bridges/verify_formal_conjectures_rh_bridge_v1.py \
+            formal/bridges/formal_conjectures_rh_target_v1.json
