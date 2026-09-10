@@ -1,0 +1,61 @@
+{
+  "schema_version": "AEGIS_ZERO_NONPOSITIVE_TRIVIAL_V1",
+  "namespace": "mathematics.rh.zero_localization.nonpositive_trivial_composition",
+  "evidence_class": "FORMAL_NONPOSITIVE_TRIVIAL_COMPOSITION_CANDIDATE",
+  "verified_parent_evidence": {
+    "nonpositive_integer_reduction": {
+      "aegis_revision": "0f7aaa340df3fa086ae1ef32cd960f5083c25fc4",
+      "receipt_sha256": "bb9159054d57c600812a3402eaa73e6038ea9b2f5e0ca0d1d8ccea48b28ef96e",
+      "artifact_sha256": "f68353a3b2e5cede60b00d77ec7dac493116549b0f97de2bafe3184dd0ae566e"
+    },
+    "trivial_zero_classification": {
+      "aegis_revision": "701649c136849114153a4797986a4efee05cea1c",
+      "receipt_sha256": "96bbc0a9aae626182d139dd099fc0fab001c7b2ead311f5e28d26d5ac3d0308e",
+      "artifact_sha256": "586a9a6db03e5395ebc903cfa4491eb475f974dfa8b6599ae2d62eb254a4a73b"
+    }
+  },
+  "external_environment": {
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/NumberTheory/LSeries/HurwitzZetaValues.lean",
+      "git_blob_sha": "4bdfedf2cf474a721e0687852a5782f304781eb7"
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/Nonvanishing.lean",
+      "git_blob_sha": "610bd56365d49c5ffa9ebeb29e0a383c768248e2"
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/RiemannZeta.lean",
+      "git_blob_sha": "3c92195fce20df7fda41cfd823b3266f83cf3070"
+    }
+  ],
+  "formal_source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/ZeroNonpositiveTrivialV1.lean",
+    "sha256": "356bfe70ec0918f38d50e8e5327a8b5f40c7df1d783459b0a6f12f7ce91d4bb3",
+    "public_declarations": [
+      "riemann_zeta_zero_nonpos_is_trivial_v1"
+    ]
+  },
+  "scope": {
+    "nonpositive_zero_is_trivial": "CANDIDATE",
+    "lower_zero_localization": "OPEN",
+    "full_critical_strip_localization": "OPEN",
+    "height_truncation_equivalence": "OPEN",
+    "radial_limit_existence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "decision": "HOLD_RESEARCH_ONLY",
+    "rh_proved": false,
+    "rh_disproved": false,
+    "claim_promotion": "BLOCKED",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}
