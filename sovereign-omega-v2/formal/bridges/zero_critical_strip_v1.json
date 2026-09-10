@@ -32,7 +32,7 @@
   ],
   "formal_source": {
     "path": "sovereign-omega-v2/formal/bridges/lean/ZeroCriticalStripV1.lean",
-    "sha256": "90f242e0667f5f536382b4045e2bdace07066bf2a971d44a9b5c09a254381ad4"
+    "sha256": "df4b8524c597f9873f6a8cafbaff9991791c3c80bad4fb35e13c0b39493ea8ef"
   },
   "scope": {
     "positive_even_bernoulli_nonzero": "CANDIDATE",
