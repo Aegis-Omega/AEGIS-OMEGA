@@ -1,0 +1,197 @@
+name: AEGIS DLSS5 Windows RTX50 Preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact AEGIS candidate SHA to test
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: aegis / dlss5-windows-rtx50-preflight
+    runs-on: [self-hosted, windows, x64, nvidia, rtx50, aegis-dlss5]
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact candidate SHA
+        id: bind
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ('${{ inputs.candidate_sha }}' -notmatch '^[0-9a-fA-F]{40}$') {
+            throw 'candidate_sha must be an exact 40-hex Git commit id'
+          }
+          $actual = (git rev-parse HEAD).Trim().ToLowerInvariant()
+          $expected = '${{ inputs.candidate_sha }}'.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Exact-head mismatch: expected=$expected actual=$actual" }
+          "candidate_sha=$actual" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Fail closed unless this is a single RTX-50 NVIDIA host
+        id: gpu
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Get-Command nvidia-smi -ErrorAction SilentlyContinue)) {
+            throw 'nvidia-smi is not available on this runner'
+          }
+          $rows = @(nvidia-smi --query-gpu=name,driver_version,pci.bus_id --format=csv,noheader,nounits)
+          if ($LASTEXITCODE -ne 0) { throw "nvidia-smi failed with exit code $LASTEXITCODE" }
+          if ($rows.Count -ne 1) { throw "Expected exactly one GPU for unambiguous receipt binding; observed $($rows.Count)" }
+          $parts = $rows[0].Split(',') | ForEach-Object { $_.Trim() }
+          if ($parts.Count -ne 3) { throw 'Unexpected nvidia-smi output shape' }
+          $name = $parts[0]
+          $driver = $parts[1]
+          $bus = $parts[2]
+          if ($name -notmatch '(?i)NVIDIA\s+GeForce\s+RTX\s+50\d{2}') {
+            throw "GPU is not an allowed GeForce RTX 50-series adapter: $name"
+          }
+          "gpu_name=$name" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "driver=$driver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "pci_bus_id=$bus" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Download and verify official Streamline SDK 2.14.1
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $expected = '92c4d954631a1710da86ca3fa8d5034f2b9503838c95fc4ae977ae149319781b'
+          $zip = Join-Path $env:RUNNER_TEMP 'streamline-sdk-v2.14.1.zip'
+          $root = Join-Path $env:RUNNER_TEMP 'streamline-sdk-v2.14.1'
+          Invoke-WebRequest -Uri 'https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.14.1/streamline-sdk-v2.14.1.zip' -OutFile $zip
+          $actual = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Streamline release digest mismatch: $actual" }
+          Expand-Archive -Path $zip -DestinationPath $root -Force
+          "STREAMLINE_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "STREAMLINE_RELEASE_SHA256=$actual" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Locate signed runtime surface and compile exact preflight
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $include = (Get-ChildItem -Path $env:STREAMLINE_ROOT -Recurse -Filter 'sl.h' | Select-Object -First 1).Directory.FullName
+          $lib = Get-ChildItem -Path $env:STREAMLINE_ROOT -Recurse -Filter 'sl.interposer.lib' |
+            Where-Object { $_.FullName -match '(?i)x64' } |
+            Select-Object -First 1
+          $interposer = Get-ChildItem -Path $env:STREAMLINE_ROOT -Recurse -Filter 'sl.interposer.dll' |
+            Where-Object { $_.FullName -match '(?i)x64' } |
+            Select-Object -First 1
+          $nrPlugin = Get-ChildItem -Path $env:STREAMLINE_ROOT -Recurse -Filter 'sl.dlss_nr.dll' |
+            Where-Object { $_.FullName -match '(?i)x64' } |
+            Select-Object -First 1
+
+          if (-not $include) { throw 'Streamline include directory not found' }
+          if (-not $lib) { throw 'x64 sl.interposer.lib not found' }
+          if (-not $interposer) { throw 'x64 sl.interposer.dll not found' }
+          if (-not $nrPlugin) { throw 'x64 sl.dlss_nr.dll not found; DLSS5 runtime preflight cannot proceed' }
+
+          $source = Join-Path $env:GITHUB_WORKSPACE 'sovereign-omega-v2\mcp-server\native\dlss5-windows-preflight\aegis_dlss5_windows_preflight.cpp'
+          $outDir = Join-Path $env:RUNNER_TEMP 'dlss5-preflight-runtime'
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          $exe = Join-Path $outDir 'aegis-dlss5-windows-preflight.exe'
+
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vsRoot = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vsRoot) { throw 'MSVC toolchain not found on self-hosted runner' }
+          $devcmd = Join-Path $vsRoot 'Common7\Tools\VsDevCmd.bat'
+          $cmdFile = Join-Path $env:RUNNER_TEMP 'compile-dlss5-runtime-preflight.cmd'
+          @"
+          @echo off
+          call "$devcmd" -arch=x64 -host_arch=x64
+          if errorlevel 1 exit /b %errorlevel%
+          cl /nologo /std:c++20 /EHsc /W4 /I"$include" "$source" /Fe:"$exe" /link /LIBPATH:"$($lib.Directory.FullName)" sl.interposer.lib dxgi.lib
+          exit /b %errorlevel%
+          "@ | Set-Content -Path $cmdFile -Encoding ascii
+          & cmd.exe /d /c $cmdFile
+          if ($LASTEXITCODE -ne 0) { throw "MSVC compile/link failed with exit code $LASTEXITCODE" }
+
+          $exeSha = (Get-FileHash -Path $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "DLSS5_PREFLIGHT_EXE=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "DLSS5_PREFLIGHT_EXE_SHA256=$exeSha" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "DLSS5_PLUGIN_DIR=$($nrPlugin.Directory.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "DLSS5_INTERPOSER_DIR=$($interposer.Directory.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Execute Streamline support query only
+        id: probe
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $env:PATH = "$env:DLSS5_INTERPOSER_DIR;$env:DLSS5_PLUGIN_DIR;$env:PATH"
+          $raw = & $env:DLSS5_PREFLIGHT_EXE $env:DLSS5_PLUGIN_DIR 2>&1
+          $exitCode = $LASTEXITCODE
+          $raw | Set-Content -Path "$env:RUNNER_TEMP\dlss5-windows-preflight-raw.txt"
+          $jsonLine = @($raw | Where-Object { $_ -is [string] -and $_.Trim().StartsWith('{') }) | Select-Object -Last 1
+          if (-not $jsonLine) {
+            $jsonLine = '{"schema":"AEGIS_DLSS5_WINDOWS_PREFLIGHT_RECEIPT_V1","status":"NO_JSON_RECEIPT","evaluation_executed":false,"rendering_claim":"NOT_ESTABLISHED","claim_promotion":"BLOCKED","authority_effect":"NONE"}'
+          }
+          $jsonLine | Set-Content -Path "$env:RUNNER_TEMP\dlss5-windows-preflight.json"
+          "exit_code=$exitCode" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "receipt_path=$env:RUNNER_TEMP\dlss5-windows-preflight.json" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Build exact-head cloud receipt
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $probe = $null
+          $probePath = Join-Path $env:RUNNER_TEMP 'dlss5-windows-preflight.json'
+          if (Test-Path $probePath) {
+            try { $probe = Get-Content $probePath -Raw | ConvertFrom-Json } catch { $probe = $null }
+          }
+          $receipt = [ordered]@{
+            schema = 'AEGIS_DLSS5_WINDOWS_RTX50_PREFLIGHT_CLOUD_RECEIPT_V1'
+            candidate_sha = '${{ steps.bind.outputs.candidate_sha }}'
+            streamline_source_sha = '2122257e0fce486f91b385aa63b9a09b0a34b363'
+            streamline_release_sha256 = $env:STREAMLINE_RELEASE_SHA256
+            preflight_exe_sha256 = $env:DLSS5_PREFLIGHT_EXE_SHA256
+            gpu_name = '${{ steps.gpu.outputs.gpu_name }}'
+            driver_version = '${{ steps.gpu.outputs.driver }}'
+            pci_bus_id = '${{ steps.gpu.outputs.pci_bus_id }}'
+            preflight_exit_code = '${{ steps.probe.outputs.exit_code }}'
+            support_query_receipt = $probe
+            evaluation_executed = $false
+            runtime_claim = 'SUPPORT_QUERY_ONLY'
+            rendering_claim = 'NOT_ESTABLISHED'
+            quality_claim = 'NOT_ESTABLISHED'
+            independent_replay = 'NOT_PERFORMED'
+            claim_promotion = 'BLOCKED'
+            authority_effect = 'NONE'
+          }
+          $out = Join-Path $env:RUNNER_TEMP 'dlss5-windows-rtx50-cloud-receipt.json'
+          $receipt | ConvertTo-Json -Depth 10 | Set-Content -Path $out
+          Get-Content $out
+
+      - name: Upload cloud preflight evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: aegis-dlss5-windows-rtx50-preflight-${{ inputs.candidate_sha }}
+          path: |
+            ${{ runner.temp }}\dlss5-windows-preflight-raw.txt
+            ${{ runner.temp }}\dlss5-windows-preflight.json
+            ${{ runner.temp }}\dlss5-windows-rtx50-cloud-receipt.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Enforce fail-closed support disposition
+        if: always()
+        shell: pwsh
+        run: |
+          $exitCodeText = '${{ steps.probe.outputs.exit_code }}'
+          if (-not $exitCodeText) { throw 'Preflight did not produce an exit code' }
+          $exitCode = [int]$exitCodeText
+          if ($exitCode -ne 0) { throw "DLSS5 support preflight denied with exit code $exitCode" }
+          $probe = Get-Content "$env:RUNNER_TEMP\dlss5-windows-preflight.json" -Raw | ConvertFrom-Json
+          if ($probe.status -ne 'DLSS5_SUPPORT_OBSERVED') { throw "Unexpected positive disposition: $($probe.status)" }
+          if ($probe.evaluation_executed -ne $false) { throw 'Support-only lane must never execute evaluation' }
+          Write-Host 'DLSS5_WINDOWS_RTX50_PREFLIGHT_PASS support_query=OBSERVED evaluation=0 rendering_claim=NOT_ESTABLISHED authority=NONE'
