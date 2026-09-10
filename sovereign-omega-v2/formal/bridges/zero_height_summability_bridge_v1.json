@@ -1,0 +1,71 @@
+{
+  "schema_version": "AEGIS_ZERO_HEIGHT_SUMMABILITY_BRIDGE_V1",
+  "candidate": {
+    "branch": "proof/rh-zero-height-summability-bridge-v1",
+    "formal_source_path": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightSummabilityBridgeV1.lean",
+    "formal_source_git_blob_sha": "045c9e6709ede68f79e74167b88a3023f2bcf5db",
+    "declarations": [
+      "RiemannNontrivialZeroIndexV2",
+      "NontrivialZeroHeightIndexFinsetV1",
+      "tendsto_nontrivial_zero_height_index_finset_atTop_v1",
+      "WeilZeroIndexSummandV1",
+      "nontrivial_zero_height_index_sum_eq_truncated_v1",
+      "hasSum_implies_height_limit_v1"
+    ]
+  },
+  "verified_parent_evidence": {
+    "height_limit_contract": {
+      "pr": 468,
+      "aegis_revision": "7ca60ad9c6c5297e2a4ebf1c1870840357d5e19b",
+      "receipt_sha256": "827d55c96a6c9a9edc89366d447303ca688022f504607aeaa30a75555087216f",
+      "artifact_sha256": "80a2d9e527c0277f5c43bc6f13b4a1813f4b270891b2ac61843d693ae263c0ce",
+      "formal_source_git_blob_sha": "5d0d065113d9076db4eab6cf4be7a9868eec56a4",
+      "formal_source_path": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightLimitContractV1.lean"
+    },
+    "finite_height_multiplicity_sum_source": {
+      "pr": 465,
+      "aegis_revision": "88e404935984aeb676ca1e0168572b79a389c556",
+      "receipt_sha256": "bbc83343feed887a646d81da50e7000f3f50faa34959450f348acb1d97be4b2a",
+      "formal_source_git_blob_sha": "94415f65ae85e1e9993916a22891ca2248d65d4d",
+      "formal_source_path": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightFiniteSumV1.lean"
+    }
+  },
+  "external_environment": {
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "formal_conjectures_rh_blob_sha": "c8d38bef385eb15661c3daf7449625b66b019b2a",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/Topology/Algebra/InfiniteSum/Defs.lean",
+      "git_blob_sha": "e53ce4e397d95c44ea06b46e2f790d7dc1553723",
+      "required_declaration": "HasSum"
+    },
+    {
+      "path": "Mathlib/Order/Filter/AtTopBot/Finset.lean",
+      "git_blob_sha": "a750c1afea43ba2e02e20b9d8c7c8754f927e6bf",
+      "required_declaration": "tendsto_finset_range"
+    }
+  ],
+  "scope": {
+    "height_limit_contract_parent": "VERIFIED",
+    "height_finset_cofinality": "CANDIDATE",
+    "unconditional_hasSum_sufficient_bridge": "CANDIDATE",
+    "actual_zero_sum_summability": "OPEN",
+    "height_limit_existence_unconditional": "OPEN",
+    "conditional_symmetric_convergence": "OPEN",
+    "height_radial_equivalence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "critical_line_re_half": "OPEN",
+    "weil_criterion_bridge": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "claim_promotion": "BLOCKED",
+    "decision": "HOLD_RESEARCH_ONLY",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}
