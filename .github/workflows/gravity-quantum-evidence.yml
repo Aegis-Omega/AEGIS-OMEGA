@@ -59,6 +59,13 @@ jobs:
             gravity_quantum.test_v4_pipeline \
             -v
 
+      - name: Run V5 external dataset adapter falsifiers
+        run: |
+          python3 -m unittest \
+            gravity_quantum.test_external_adapter_v5 \
+            gravity_quantum.test_v5_pipeline \
+            -v
+
       - name: Emit replay-verifiable receipts
         run: |
           mkdir -p artifacts/gravity-quantum
@@ -67,9 +74,10 @@ jobs:
           python3 -m gravity_quantum.v2_pipeline > artifacts/gravity-quantum/receipt-v2.json
           python3 -m gravity_quantum.v3_pipeline > artifacts/gravity-quantum/receipt-v3.json
           python3 -m gravity_quantum.v4_pipeline > artifacts/gravity-quantum/receipt-v4.json
+          python3 -m gravity_quantum.v5_pipeline > artifacts/gravity-quantum/receipt-v5.json
           (
             cd artifacts/gravity-quantum
-            sha256sum head-sha.txt receipt-v1.json receipt-v2.json receipt-v3.json receipt-v4.json > SHA256SUMS
+            sha256sum head-sha.txt receipt-v1.json receipt-v2.json receipt-v3.json receipt-v4.json receipt-v5.json > SHA256SUMS
             sha256sum -c SHA256SUMS
             cat SHA256SUMS
           )
