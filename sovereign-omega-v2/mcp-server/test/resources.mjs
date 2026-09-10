@@ -51,6 +51,7 @@ const transport = new StdioClientTransport({
     ...process.env,
     AEGIS_BRIDGE_URL: bridgeUrl,
     AEGIS_API_KEY: '',
+    AEGIS_ENVIRONMENT_MANIFEST_JSON: '',
   },
   stderr: 'pipe',
 })
@@ -66,6 +67,7 @@ try {
     'aegis://authority/repo-map',
     'aegis://health',
     'aegis://node',
+    'aegis://nvidia/dlss5',
     'aegis://telemetry',
   ])
 
@@ -81,13 +83,34 @@ try {
   const health = await client.readResource({ uri: 'aegis://health' })
   assert.equal(JSON.parse(health.contents[0].text).ok, true)
 
+  const dlss5 = await client.readResource({ uri: 'aegis://nvidia/dlss5' })
+  const dlss5Value = JSON.parse(dlss5.contents[0].text)
+  assert.equal(dlss5Value.technology, 'NVIDIA DLSS 5')
+  assert.equal(dlss5Value.feature, '3D-Guided Neural Rendering')
+  assert.equal(dlss5Value.streamline.plugin, 'sl.dlss_nr')
+  assert.equal(dlss5Value.authority_effect, 'NONE')
+
+  const tools = await client.listTools()
+  const toolNames = tools.tools.map((tool) => tool.name)
+  assert(toolNames.includes('aegis_dlss5_reference'))
+  assert(toolNames.includes('aegis_dlss5_capability'))
+
+  const capability = await client.callTool({ name: 'aegis_dlss5_capability', arguments: {} })
+  const capabilityText = capability.content.find((entry) => entry.type === 'text')
+  assert(capabilityText && 'text' in capabilityText)
+  const capabilityValue = JSON.parse(capabilityText.text)
+  assert.equal(capabilityValue.capability.status, 'NOT_VERIFIED')
+  assert.deepEqual(capabilityValue.capability.reason_codes, ['ENVIRONMENT_MANIFEST_MISSING'])
+  assert.equal(capabilityValue.capability.execution_release, 'BLOCKED')
+  assert.equal(capabilityValue.authority_effect, 'NONE')
+
   const authorityIndex = await client.readResource({ uri: 'aegis://authority/index' })
   assert.match(authorityIndex.contents[0].text, /AEGIS/i)
 
   const repoMap = await client.readResource({ uri: 'aegis://authority/repo-map' })
   assert.match(repoMap.contents[0].text, /WIRED|DORMANT|BROKEN|DEAD/i)
 
-  console.log('MCP_RESOURCES_PASS 5 read-only key-free resources')
+  console.log('MCP_RESOURCES_PASS 6 read-only key-free resources + DLSS5 fail-closed tool surface')
 } finally {
   await client.close().catch(() => {})
   await new Promise((resolve) => bridge.close(resolve))
