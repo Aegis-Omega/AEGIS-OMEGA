@@ -2,7 +2,9 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const scriptPath = 'native/dlss5-windows-preflight/aegis_dlss5_windows_host_bootstrap.ps1'
+const workflowPath = '../../.github/workflows/dlss5-windows-bootstrap-smoke.yml'
 const script = readFileSync(scriptPath, 'utf8')
+const workflow = readFileSync(workflowPath, 'utf8')
 
 const STREAMLINE_SHA256 = '92c4d954631a1710da86ca3fa8d5034f2b9503838c95fc4ae977ae149319781b'
 const STREAMLINE_SOURCE_SHA = '2122257e0fce486f91b385aa63b9a09b0a34b363'
@@ -28,4 +30,14 @@ assert.match(script, /claim_promotion[^\r\n]*BLOCKED/i, 'claim promotion must re
 assert.match(script, /authority_effect[^\r\n]*NONE/i, 'bootstrap must grant no authority')
 assert.doesNotMatch(script, /slEvaluateFeature|Start-Process\s+.*aegis-dlss5-windows-preflight/i, 'bootstrap contract must not execute the DLSS feature or preflight binary')
 
-console.log('DLSS5_WINDOWS_BOOTSTRAP_SOURCE_PASS gpu_identity=1 sdk_digest=1 ps51=1 support_query=0 evaluate=0 authority=NONE')
+assert.match(workflow, /runs-on:\s*windows-latest/, 'smoke lane must execute on a GitHub-hosted Windows runner')
+assert.match(workflow, /github\.event\.pull_request\.head\.sha/, 'PR smoke lane must checkout the exact PR head')
+assert.match(workflow, /shell:\s*powershell/, 'smoke lane must exercise Windows PowerShell 5.1 compatibility')
+assert.match(workflow, /powershell\.exe[\s\S]*aegis_dlss5_windows_host_bootstrap\.ps1/, 'smoke lane must execute the real bootstrap script')
+assert.match(workflow, /HOST_UNSUPPORTED/, 'non-RTX50 hosted runner must be accepted only as an explicit fail-closed smoke outcome')
+assert.match(workflow, /support_query_executed[\s\S]*false/, 'smoke verification must require support_query_executed=false')
+assert.match(workflow, /evaluation_executed[\s\S]*false/, 'smoke verification must require evaluation_executed=false')
+assert.match(workflow, /upload-artifact/, 'smoke lane must retain its bounded receipt')
+assert.doesNotMatch(workflow, /slEvaluateFeature|aegis_dlss5_windows_preflight\.exe/, 'smoke workflow must not execute DLSS-NR support/evaluation binaries')
+
+console.log('DLSS5_WINDOWS_BOOTSTRAP_SOURCE_PASS gpu_identity=1 sdk_digest=1 ps51=1 smoke=1 support_query=0 evaluate=0 authority=NONE')
