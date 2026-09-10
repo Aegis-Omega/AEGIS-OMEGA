@@ -1,0 +1,147 @@
+name: RH Semantic Bridge Obstruction
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/coq/SemanticBridgeObstruction.v'
+      - 'sovereign-omega-v2/formal/tests/test_semantic_bridge_obstruction_v1.py'
+      - 'sovereign-omega-v2/formal/bridges/formal_conjectures_rh_target_v1.json'
+      - 'sovereign-omega-v2/formal/bridges/verify_formal_conjectures_rh_bridge_v1.py'
+      - '.github/workflows/rh-semantic-bridge-obstruction.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rh-semantic-bridge-obstruction-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  OBSTRUCTION_SOURCE_SHA256: 7e293e1ecf5de8af4c5e05ae9c760a74b7e035bdc7d74705e267b5286e028d12
+
+jobs:
+  attest:
+    name: coqc + obstruction receipt
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate and bridge source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          printf '%s  %s\n' \
+            "$OBSTRUCTION_SOURCE_SHA256" \
+            'sovereign-omega-v2/formal/bridges/coq/SemanticBridgeObstruction.v' \
+            | sha256sum -c -
+
+      - name: Run structural regression tests
+        working-directory: sovereign-omega-v2
+        run: >-
+          python3 -m unittest
+          formal.tests.test_semantic_bridge_obstruction_v1
+          -v
+
+      - name: Compile obstruction theorem and capture assumptions
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -eu
+            ROOT="$PWD/sovereign-omega-v2"
+            WEIL="$ROOT/formal/theories/Weil"
+            BRIDGE="$ROOT/formal/bridges/coq"
+            OUT="$ROOT/rh-semantic-obstruction"
+            mkdir -p "$OUT"
+
+            coqc --version | tee "$OUT/coq-version.txt"
+            cp "$BRIDGE/SemanticBridgeObstruction.v" "$WEIL/SemanticBridgeObstruction.v"
+
+            cd "$WEIL"
+            coqc AnalyticDefinitions.v > "$OUT/AnalyticDefinitions.compile.log" 2>&1
+            coqc SemanticBridgeObstruction.v > "$OUT/SemanticBridgeObstruction.compile.log" 2>&1
+
+            for theorem in \
+              zero_quadratic_form_global_weil_positivity_v1 \
+              universal_global_weil_bridge_iff_target_v1
+            do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.assumptions.txt"
+              printf 'Set Coqtop Exit On Error.\nRequire Import SemanticBridgeObstruction.\nPrint Assumptions %s.\n' \
+                "$theorem" > "$query"
+              coqtop -quiet -batch -l "$query" > "$log" 2>&1
+              grep -F 'Closed under the global context' "$log"
+            done
+
+      - name: Emit exact-head obstruction receipt
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          source = Path('formal/bridges/coq/SemanticBridgeObstruction.v')
+          out = Path('rh-semantic-obstruction')
+          digest = hashlib.sha256(source.read_bytes()).hexdigest()
+          expected = os.environ['OBSTRUCTION_SOURCE_SHA256']
+          assert digest == expected, (digest, expected)
+
+          version_text = (out / 'coq-version.txt').read_text(encoding='utf-8')
+          match = re.search(r'\b8\.20(?:\.\d+)?\b', version_text)
+          assert match, version_text
+
+          theorem_names = [
+              'zero_quadratic_form_global_weil_positivity_v1',
+              'universal_global_weil_bridge_iff_target_v1',
+          ]
+          theorem_receipts = []
+          for theorem in theorem_names:
+              log = (out / f'{theorem}.assumptions.txt').read_text(encoding='utf-8')
+              assert 'Closed under the global context' in log, log
+              theorem_receipts.append({
+                  'theorem': theorem,
+                  'assumption_status': 'CLOSED_UNDER_GLOBAL_CONTEXT',
+                  'assumption_log_sha256': hashlib.sha256(log.encode('utf-8')).hexdigest(),
+              })
+
+          receipt = {
+              'schema_version': 'AEGIS_RH_SEMANTIC_OBSTRUCTION_RECEIPT_V1',
+              'source_commit': os.environ['SOURCE_SHA'],
+              'source_path': source.as_posix(),
+              'source_sha256': digest,
+              'coq_version': match.group(0),
+              'result': 'ABSTRACT_QW_INSUFFICIENT_FOR_EXTERNAL_TARGET_WITHOUT_CONCRETE_IDENTIFICATION',
+              'rh_proved': False,
+              'rh_disproved': False,
+              'authority_effect': 'NONE',
+              'theorems': theorem_receipts,
+          }
+          receipt_text = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
+          receipt['receipt_sha256'] = hashlib.sha256(receipt_text.encode('utf-8')).hexdigest()
+          path = out / 'rh-semantic-obstruction-receipt.json'
+          path.write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          print(path.read_text(encoding='utf-8'))
+          PY
+
+      - name: Upload obstruction evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: rh-semantic-obstruction-${{ env.SOURCE_SHA }}
+          path: sovereign-omega-v2/rh-semantic-obstruction/
+          if-no-files-found: error
+          retention-days: 30
