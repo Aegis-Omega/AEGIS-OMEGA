@@ -1,0 +1,33 @@
+name: Live State Evidence Truth Probe
+
+on:
+  push:
+    branches:
+      - fix/live-state-evidence-truth-v1
+
+permissions:
+  contents: read
+
+jobs:
+  live-state-evidence-truth:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact pushed head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact head and clean worktree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          git diff --exit-code
+          git diff --cached --exit-code
+
+      - name: Run live-state evidence truth falsifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          python sovereign-omega-v2/python/tests/test_live_state_is_measured.py -v
