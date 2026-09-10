@@ -4,7 +4,8 @@
 This module validates provenance structure for point-level phase data without pretending
 that a test fixture is empirical evidence. All numeric values admitted to hashed state are
 integers with explicit units. Source bytes and calibration configuration are content-bound
-by SHA-256. Fit release is fail-closed for TEST_FIXTURE origin.
+by SHA-256. Empirical analysis release is fail-closed and cannot be opened by caller-authored
+status strings: it requires content-bound receipts from repository-enrolled verifier roots.
 """
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ from verifiable.chain import canon, sha256_hex
 V4_INGRESS_SCHEMA = "AEGIS_QGI_POINT_LEVEL_INGRESS_V4"
 SOURCE_BINDING_SCHEMA = "AEGIS_QGI_SOURCE_BINDING_V4"
 CALIBRATION_BINDING_SCHEMA = "AEGIS_QGI_CALIBRATION_BINDING_V4"
+VERIFICATION_RECEIPT_SCHEMA = "AEGIS_QGI_INDEPENDENT_VERIFICATION_RECEIPT_V4"
 CONTRACT_FIXTURE_BYTES = b"AEGIS_QGI_V4_CONTRACT_FIXTURE_NOT_EMPIRICAL\n"
 CONTRACT_FIXTURE_CALIBRATION_BYTES = b"QGI_V4_TEST_CALIBRATION_CONFIG\n"
 
@@ -23,6 +25,10 @@ ALLOWED_EVIDENCE_ORIGINS = {
     "TEST_FIXTURE",
     "EXTERNAL_EXPERIMENTAL_SOURCE",
 }
+
+# Repository-governed trust anchor. Intentionally empty in V4: enrollment requires an
+# explicit source change and fresh exact-head evidence. Callers cannot supply/override it.
+TRUSTED_VERIFIER_ROOTS: dict[str, str] = {}
 
 
 def _require_nonempty_string(name: str, value: Any) -> str:
@@ -82,6 +88,7 @@ def build_source_binding(
             if evidence_origin == "TEST_FIXTURE"
             else "CALLER_BOUND_BYTES_REQUIRES_INDEPENDENT_VERIFICATION"
         ),
+        # Metadata only. This field is deliberately ignored by fit_release_gate().
         "independent_source_verification": "NOT_ESTABLISHED",
         "authority_effect": "NONE",
     }
@@ -109,6 +116,7 @@ def build_calibration_binding(
         "valid_from": valid_from,
         "valid_until": valid_until,
         "calibration_origin": calibration_origin,
+        # Metadata only. This field is deliberately ignored by fit_release_gate().
         "independent_calibration_verification": "NOT_ESTABLISHED",
         "authority_effect": "NONE",
     }
@@ -274,26 +282,99 @@ def validate_ingress(batch: dict, source_bytes: bytes) -> dict:
     }
 
 
-def fit_release_gate(batch: dict, source_bytes: bytes) -> dict:
+def _verification_payload(receipt: dict) -> dict:
+    return {k: copy.deepcopy(v) for k, v in receipt.items() if k != "receipt_sha256"}
+
+
+def _valid_trusted_verification_receipt(
+    receipt: dict,
+    *,
+    subject_kind: str,
+    subject_sha256: str,
+) -> bool:
+    """Verify one content-bound receipt against repository-enrolled trust roots."""
+    if not isinstance(receipt, dict) or receipt.get("schema") != VERIFICATION_RECEIPT_SCHEMA:
+        return False
+    verifier_id = receipt.get("verifier_id")
+    verifier_root = receipt.get("verifier_root")
+    trusted_root = TRUSTED_VERIFIER_ROOTS.get(verifier_id)
+    if trusted_root is None or verifier_root != trusted_root:
+        return False
+    if receipt.get("subject_kind") != subject_kind:
+        return False
+    if receipt.get("subject_sha256") != subject_sha256:
+        return False
+    if receipt.get("result") != "VERIFIED":
+        return False
+    if receipt.get("authority_effect") != "NONE":
+        return False
+    claimed = receipt.get("receipt_sha256")
+    try:
+        _require_sha256("receipt_sha256", claimed)
+    except ValueError:
+        return False
+    return claimed == sha256_hex(canon(_verification_payload(receipt)))
+
+
+def _trusted_verification_state(batch: dict, verification_receipts: Iterable[dict] | None) -> dict:
+    receipts = list(verification_receipts or [])
+    source = batch.get("source_binding", {})
+    calibration = batch.get("calibration_binding", {})
+    source_sha = source.get("source_sha256")
+    calibration_sha = calibration.get("config_sha256")
+
+    source_verified = any(
+        _valid_trusted_verification_receipt(
+            receipt,
+            subject_kind="SOURCE_BYTES",
+            subject_sha256=source_sha,
+        )
+        for receipt in receipts
+    )
+    calibration_verified = any(
+        _valid_trusted_verification_receipt(
+            receipt,
+            subject_kind="CALIBRATION_CONFIG",
+            subject_sha256=calibration_sha,
+        )
+        for receipt in receipts
+    )
+    return {
+        "trusted_verifier_enrolled": bool(TRUSTED_VERIFIER_ROOTS),
+        "source_verified": source_verified,
+        "calibration_verified": calibration_verified,
+        "receipt_count": len(receipts),
+    }
+
+
+def fit_release_gate(
+    batch: dict,
+    source_bytes: bytes,
+    verification_receipts: Iterable[dict] | None = None,
+) -> dict:
     validation = validate_ingress(batch, source_bytes)
     reasons = list(validation.get("reason_codes", []))
     source = batch.get("source_binding", {}) if isinstance(batch, dict) else {}
-    calibration = batch.get("calibration_binding", {}) if isinstance(batch, dict) else {}
 
     if validation.get("decision") != "CONTRACT_VALID":
         reasons.append("INGRESS_CONTRACT_NOT_VALID")
     if source.get("evidence_origin") == "TEST_FIXTURE":
         reasons.append("TEST_FIXTURE_NOT_EMPIRICAL_SOURCE")
-    if source.get("independent_source_verification") != "VERIFIED":
-        reasons.append("INDEPENDENT_SOURCE_VERIFICATION_MISSING")
-    if calibration.get("independent_calibration_verification") != "VERIFIED":
-        reasons.append("INDEPENDENT_CALIBRATION_VERIFICATION_MISSING")
+
+    # Crucial trust boundary: caller-authored verification strings in source/calibration
+    # bindings have zero authority. Only receipts chained to repository-enrolled roots count.
+    trust = _trusted_verification_state(batch if isinstance(batch, dict) else {}, verification_receipts)
+    if not trust["trusted_verifier_enrolled"]:
+        reasons.append("NO_TRUSTED_VERIFIER_ENROLLED")
+    if not trust["source_verified"] or not trust["calibration_verified"]:
+        reasons.append("TRUSTED_VERIFICATION_RECEIPT_MISSING")
 
     reasons = sorted(set(reasons))
     if reasons:
         return {
             "decision": "BLOCKED",
             "empirical_fit_release": "BLOCKED",
+            "trusted_verification": trust,
             "reason_codes": reasons,
             "authority_effect": "NONE",
         }
@@ -301,6 +382,7 @@ def fit_release_gate(batch: dict, source_bytes: bytes) -> dict:
         "decision": "ELIGIBLE_FOR_ANALYSIS_ONLY",
         "empirical_fit_release": "ELIGIBLE_FOR_ANALYSIS_ONLY",
         "claim_promotion": "BLOCKED_PENDING_MODEL_VALIDATION",
+        "trusted_verification": trust,
         "reason_codes": [],
         "authority_effect": "NONE",
     }
