@@ -104,8 +104,8 @@ Proof.
 
   setoid_replace
     (ahat * b - a * bhat)
-    with ((ahat - a) * b + a * (b - bhat))
-    by ring.
+    with ((ahat - a) * b + a * (b - bhat)).
+  2: ring.
 
   eapply CRle_trans.
   - apply CRabs_triang.
@@ -178,31 +178,32 @@ Proof.
          - a * CRinv O0RealsV1 b
                   (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) b HbProp)))
        * (b * bhat))
-      with (CRabs O0RealsV1 (ahat * b - a * bhat))
-      by (
-        rewrite <- (CRabs_right (b * bhat) HdenNonneg);
-        rewrite <- CRabs_mult;
-        apply CRabs_morph;
-        setoid_replace
-          ((ahat * CRinv O0RealsV1 bhat
-                      (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) bhat HbhatProp))
-            - a * CRinv O0RealsV1 b
-                      (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) b HbProp)))
-           * (b * bhat))
-          with
-          (ahat * b *
-             (CRinv O0RealsV1 bhat
-               (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) bhat HbhatProp)) * bhat)
-           - a * bhat *
-             (CRinv O0RealsV1 b
-               (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) b HbProp)) * b))
-          by ring;
-        rewrite
-          (CRinv_l bhat
-            (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) bhat HbhatProp))),
-          (CRinv_l b
-            (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) b HbProp)));
-        ring).
+      with (CRabs O0RealsV1 (ahat * b - a * bhat)).
+    2: {
+      rewrite <- (CRabs_right (b * bhat) HdenNonneg).
+      rewrite <- CRabs_mult.
+      apply CRabs_morph.
+      setoid_replace
+        ((ahat * CRinv O0RealsV1 bhat
+                    (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) bhat HbhatProp))
+          - a * CRinv O0RealsV1 b
+                    (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) b HbProp)))
+         * (b * bhat))
+        with
+        (ahat * b *
+           (CRinv O0RealsV1 bhat
+             (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) bhat HbhatProp)) * bhat)
+         - a * bhat *
+           (CRinv O0RealsV1 b
+             (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) b HbProp)) * b)).
+      2: ring.
+      rewrite
+        (CRinv_l bhat
+          (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) bhat HbhatProp))),
+        (CRinv_l b
+          (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) b HbProp))).
+      ring.
+    }
 
     eapply CRle_trans; [exact Hcross|].
 
@@ -220,8 +221,8 @@ Proof.
           (inr
             (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) (m * m)
               (o0_square_positive_prop_v1 m HmProp)))
-         * (b * bhat)))
-      by ring.
+         * (b * bhat))).
+    2: ring.
 
     rewrite <- (CRmult_1_r (ea * b + a * eb)).
     apply CRmult_le_compat_l.
@@ -233,8 +234,11 @@ Proof.
           (inr
             (o0_lt_set_v1 (CR_of_Q O0RealsV1 0) (m * m)
               (o0_square_positive_prop_v1 m HmProp)))
-         * (m * m))
-        by (symmetry; apply CRinv_l).
+         * (m * m)).
+      2: {
+        symmetry.
+        apply CRinv_l.
+      }
       apply CRmult_le_compat_l.
       * apply CRlt_asym.
         apply CRinv_0_lt_compat.
