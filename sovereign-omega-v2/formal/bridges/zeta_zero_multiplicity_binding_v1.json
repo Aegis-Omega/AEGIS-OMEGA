@@ -47,7 +47,7 @@
   ],
   "formal_source": {
     "path": "sovereign-omega-v2/formal/bridges/lean/ZetaZeroMultiplicityBindingV1.lean",
-    "git_blob_sha": "7f8ce7224615258a5aab52ac73ae18bcdc94bc36",
+    "git_blob_sha": "f0493cfe500a88b16f9c6ecabdf7f5463ef4638e",
     "declarations": [
       "ZetaZeroMultiplicityV1",
       "riemann_zeta_zero_multiplicity_pos_v1"
