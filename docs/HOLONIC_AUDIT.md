@@ -1,6 +1,14 @@
 # AEGIS Holonic Audit
-## Branch: claude/aegis-setup-Lx7Ji · Date: 2026-05-17
+## Historical branch: claude/aegis-setup-Lx7Ji · Original date: 2026-05-17
 ## Method: Premortem — assume failure, find the kill vector, reassemble better
+
+> **Current-checkout reconciliation (2026-07-17):** This is a historical audit, not
+> a current inventory. The current checkout contains no `swarm_os/`,
+> `swarm_os/free-claude-code/`, `swarm_os/arc/`, `godot_client/`, `ai_prompts/`, or
+> `game/` directories. It therefore supplies no repository evidence for an HD
+> benchmark, a Kaggle submission, model runs, or the narrative claims attributed to
+> those absent paths. Those claims must be treated as **unverified**, not as evidence
+> for AEGIS or `sovereign-omega-v2`.
 
 A **holon** is simultaneously a whole and a part. This document maps each file as
 a holon: coherent in itself (interior), defined by its role in larger structures (exterior).
@@ -148,33 +156,32 @@ The audit proceeds bottom-up through five holonic levels.
 ### What belongs to AEGIS (active build targets)
 `sovereign-omega-v2/` · `cockpit/` · `platform-picker/` · `hook-generator/` · `content-calendar/` · `hub/` · `packages/shared/`
 
-### What is archived / parallel / isolated
+### What was described as archived / parallel / isolated
 | Directory | Relationship | Status |
 |-----------|-------------|--------|
-| `sovereign-omega/` | v1 — killed by localeCompare determinism bug and mutable runtime services | **Archive** — do not modify |
-| `swarm_os/` | T4/T5 speculative AGI consciousness lab (SWARM protocol, Hallucination Delta probe) | **Parallel** — zero coupling to v2 |
-| `swarm_os/free-claude-code/` | Claude Code provider proxy (NVIDIA NIM, OpenRouter, LM Studio) | **Separate utility** — T1 |
-| `swarm_os/arc/` | ARC-AGI curriculum learning (Kaggle) | **Parallel research** — T2 |
-| `godot_client/` | SYSTEM_REBUILD — 2D narrative game, standalone GDScript, no HTTP calls | **Creative** — T5, zero governance coupling |
-| `ai_prompts/` | Game dev orchestration prompts (Architect, Builder, Art Director, Narrator for Godot) | **Leftover** from game project — not part of AEGIS |
-| `game/` | Raw game assets | **Creative** — T5 |
+| `sovereign-omega/` | Referenced by this historical audit | **Absent from current checkout** |
+| `swarm_os/` | Claimed T4/T5 HD/metacognition lab | **Absent; claims unverified** |
+| `swarm_os/free-claude-code/` | Claimed provider proxy | **Absent; claims unverified** |
+| `swarm_os/arc/` | Claimed ARC-AGI/Kaggle research | **Absent; claims unverified** |
+| `godot_client/` | Claimed standalone narrative game | **Absent; claims unverified** |
+| `ai_prompts/` | Claimed game-development prompts | **Absent; claims unverified** |
+| `game/` | Claimed game assets | **Absent; claims unverified** |
 
-### Constitutional Files — DOCUMENTATION GAP
-`gate.py`, `dna.py`, `router.py` are declared FROZEN with SHA256 hashes in CLAUDE.md,
-but **do not exist** in `sovereign-omega-v2/python/`. The `verify-hashes.mjs` script
-silently SKIPs them. These appear to be planned future files or references to the
-legacy v1 Python layer. **No action taken** — creating them requires /guardian APPROVED.
+### Constitutional Files — Reconciled
+`gate.py`, `dna.py`, and `router.py` are present in `sovereign-omega-v2/python/` and
+are protected by the hash verifier. The historical documentation-gap finding is no
+longer current; run `node scripts/verify-hashes.mjs` from `sovereign-omega-v2/` to
+verify their pinned contents.
 
 ---
 
 ## L5 — Vision
 
-swarm_os is the T4/T5 vision layer — a consciousness architecture with 10 cognitive
-layers (geometric core, photonic memory, quantum manifold, mirror ego, Russell cosmology,
-dream state, forager, equilibrium server, consciousness probe). It runs separately,
-competes in Kaggle's AGI metacognition track via Hallucination Delta (HD) measurement,
-and has zero code dependency on the T0 governance layer. The non-equivalence invariant
-holds: **speculation does not ground proof**.
+The historical `swarm_os` vision description is not supported by material in this
+checkout. In particular, there are no checked-in benchmark definitions, datasets,
+submission records, model-output artifacts, or reproducible HD measurements. Do not
+represent its alleged Kaggle participation or Hallucination Delta results as AEGIS
+evidence. The non-equivalence invariant holds: **speculation does not ground proof**.
 
 ---
 
