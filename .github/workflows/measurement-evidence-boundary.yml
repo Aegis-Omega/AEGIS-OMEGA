@@ -1,0 +1,42 @@
+name: AEGIS Measurement Evidence Boundary
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  measurement-evidence-boundary:
+    name: aegis / measurement-evidence-boundary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Assert exact candidate
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+      - name: Run measured-state epistemic contract
+        run: |
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+
+          path = Path('sovereign-omega-v2/python/tests/test_live_state_is_measured.py')
+          spec = importlib.util.spec_from_file_location('measurement_boundary_test', path)
+          module = importlib.util.module_from_spec(spec)
+          assert spec.loader is not None
+          spec.loader.exec_module(module)
+          module.test_no_hardcoded_counts_in_the_live_state_block()
+          module.test_no_unconditionally_asserted_status_words()
+          module.test_the_measurement_sentence_is_still_there()
+          PY
