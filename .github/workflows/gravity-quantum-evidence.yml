@@ -35,15 +35,28 @@ jobs:
           python3 -m compileall -q gravity_quantum
           python3 -m py_compile verifiable/chain.py
 
-      - name: Run fail-closed falsifiers
-        run: python3 -m unittest discover -s gravity_quantum -p 'test_*.py' -v
+      - name: Run V1 fail-closed falsifiers
+        run: python3 -m gravity_quantum.test_evidence_pipeline
 
-      - name: Emit replay-verifiable receipt
+      - name: Run V2 fail-closed falsifiers
+        run: |
+          python3 -m unittest \
+            gravity_quantum.test_measurement_v2 \
+            gravity_quantum.test_v2_pipeline \
+            -v
+
+      - name: Emit replay-verifiable receipts
         run: |
           mkdir -p artifacts/gravity-quantum
-          python3 -m gravity_quantum.evidence_pipeline > artifacts/gravity-quantum/receipt.json
-          sha256sum artifacts/gravity-quantum/receipt.json > artifacts/gravity-quantum/receipt.json.sha256
-          cat artifacts/gravity-quantum/receipt.json.sha256
+          printf '%s\n' "${GITHUB_SHA}" > artifacts/gravity-quantum/head-sha.txt
+          python3 -m gravity_quantum.evidence_pipeline > artifacts/gravity-quantum/receipt-v1.json
+          python3 -m gravity_quantum.v2_pipeline > artifacts/gravity-quantum/receipt-v2.json
+          sha256sum \
+            artifacts/gravity-quantum/head-sha.txt \
+            artifacts/gravity-quantum/receipt-v1.json \
+            artifacts/gravity-quantum/receipt-v2.json \
+            > artifacts/gravity-quantum/SHA256SUMS
+          cat artifacts/gravity-quantum/SHA256SUMS
 
       - name: Upload exact-head evidence
         uses: actions/upload-artifact@v4
