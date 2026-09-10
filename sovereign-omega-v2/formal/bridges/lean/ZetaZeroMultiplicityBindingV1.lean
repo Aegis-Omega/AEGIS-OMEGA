@@ -43,11 +43,10 @@ private theorem riemann_zeta_zero_order_ne_top_v1
     exact (riemannZeta_ne_zero_of_one_le_re (s := (1 : ℂ)) (by norm_num)) hz
   have hs_mem : s ∈ ({1}ᶜ : Set ℂ) := by
     simpa using hs1
-  have ha : AnalyticAt ℂ riemannZeta s :=
-    analyticOn_riemannZeta s hs_mem
   intro htop
-  have hev : riemannZeta =ᶠ[𝓝 s] (fun _ : ℂ => (0 : ℂ)) := by
-    simpa using (analyticOrderAt_eq_top.mp htop)
+  have hev : riemannZeta =ᶠ[𝓝 s] (fun _ : ℂ => (0 : ℂ)) :=
+    (analyticOrderAt_eq_top.mp htop).mono fun z hz0 => by
+      simpa using hz0
   have hzero_an : AnalyticOnNhd ℂ (fun _ : ℂ => (0 : ℂ)) ({1}ᶜ : Set ℂ) :=
     analyticOnNhd_const
   have heq : EqOn riemannZeta (fun _ : ℂ => (0 : ℂ)) ({1}ᶜ : Set ℂ) :=
