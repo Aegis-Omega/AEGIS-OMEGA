@@ -15,6 +15,7 @@ import { createHash } from 'node:crypto'
 import { DLSS5_REFERENCE, buildDlss5Receipt } from './dlss5.js'
 import { DLSS5_RUNTIME_CONTRACT, verifyDlss5RuntimeProbe } from './dlss5-runtime.js'
 import { DLSS5_ACQUISITION_CONTRACT } from './dlss5-acquisition.js'
+import { DLSS5_EXECUTION_WITNESS_CONTRACT, verifyDlss5ExecutionWitness } from './dlss5-execution-witness.js'
 
 const BRIDGE = (process.env['AEGIS_BRIDGE_URL'] ?? 'http://localhost:7890').replace(/\/$/, '')
 const API_KEY = process.env['AEGIS_API_KEY'] ?? ''
@@ -164,6 +165,29 @@ server.tool(
   },
 )
 
+server.tool(
+  'aegis_dlss5_execution_witness_verify',
+  'Validate host-produced DLSS 5 execution-witness evidence. Read-only verification only: never launches GPU work and never establishes rendering or quality claims.',
+  { evidence_json: z.string().min(2) },
+  async ({ evidence_json }) => {
+    let evidence: unknown
+    try { evidence = JSON.parse(evidence_json) }
+    catch {
+      return text({
+        status: 'EXECUTION_WITNESS_NOT_VERIFIED',
+        execution_release: 'BLOCKED',
+        runtime_execution: 'NOT_ESTABLISHED',
+        rendering_claim: 'NOT_ESTABLISHED',
+        quality_claim: 'NOT_ESTABLISHED',
+        claim_promotion: 'BLOCKED',
+        authority_effect: 'NONE',
+        reason_codes: ['EXECUTION_WITNESS_JSON_INVALID'],
+      })
+    }
+    return text(verifyDlss5ExecutionWitness(evidence))
+  },
+)
+
 server.tool('aegis_platform_status', 'Get AEGIS platform status through a D0 authority decision.', {}, async () => {
   const authority = authorizeAction({ actionClass: 'D0', authorityDomain: 'mcp:read', requestedCapability: 'mcp.platform.status', tool: 'aegis_platform_status', target: '/platform/status', action: { operation: 'read', endpoint: '/platform/status' } })
   const denial = denied(authority); if (denial) return denial
@@ -233,6 +257,7 @@ server.resource('aegis-telemetry', 'aegis://telemetry', { description: 'Live AEG
 server.resource('aegis-health', 'aegis://health', { description: 'Bridge liveness. Fuel-free.', mimeType: 'application/json' }, async (uri) => bridgeResource(uri, '/health'))
 server.resource('aegis-nvidia-dlss5', 'aegis://nvidia/dlss5', { description: 'Evidence-bounded NVIDIA DLSS 5 reference snapshot. Fuel-free; authority effect NONE.', mimeType: 'application/json' }, async (uri) => jsonResource(uri, DLSS5_REFERENCE))
 server.resource('aegis-nvidia-dlss5-acquisition-contract', 'aegis://nvidia/dlss5/acquisition-contract', { description: 'Read-only contract for native DLSS 5 environment/plugin acquisition. MCP does not launch the acquisition process.', mimeType: 'application/json' }, async (uri) => jsonResource(uri, DLSS5_ACQUISITION_CONTRACT))
+server.resource('aegis-nvidia-dlss5-execution-witness-contract', 'aegis://nvidia/dlss5/execution-witness-contract', { description: 'Read-only contract for host-produced DLSS 5 execution-witness evidence. MCP does not launch GPU work.', mimeType: 'application/json' }, async (uri) => jsonResource(uri, DLSS5_EXECUTION_WITNESS_CONTRACT))
 server.resource('aegis-nvidia-dlss5-runtime-contract', 'aegis://nvidia/dlss5/runtime-contract', { description: 'Fail-closed DLSS 5 runtime evidence contract. Fuel-free; does not launch GPU work.', mimeType: 'application/json' }, async (uri) => jsonResource(uri, DLSS5_RUNTIME_CONTRACT))
 server.resource('aegis-authority-index', 'aegis://authority/index', { description: 'Repository authority graph. Fuel-free.', mimeType: 'text/markdown' }, async (uri) => fileResource(uri, 'INDEX.md'))
 server.resource('aegis-authority-repo-map', 'aegis://authority/repo-map', { description: 'Repository wiring map. Fuel-free.', mimeType: 'text/markdown' }, async (uri) => fileResource(uri, 'REPO_MAP.md'))
