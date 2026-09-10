@@ -28,13 +28,14 @@ theorem bernoulli_two_mul_succ_ne_zero_v1 (m : ℕ) :
     bernoulli (2 * (m + 1)) ≠ 0 := by
   intro hB
   have hk : m + 1 ≠ 0 := by omega
-  have hzeta_ne : riemannZeta (2 * (m + 1)) ≠ 0 := by
+  have hzeta_ne :
+      riemannZeta (2 * ((m + 1 : ℕ) : ℂ)) ≠ 0 := by
     apply riemannZeta_ne_zero_of_one_le_re
     norm_num
-    omega
+    positivity
   apply hzeta_ne
-  rw [riemannZeta_two_mul_nat (k := m + 1) hk, hB]
-  simp
+  rw [riemannZeta_two_mul_nat (k := m + 1) hk]
+  simp [hB]
 
 /-- The only zeros among the points `-n`, `n : ℕ`, are at strictly negative
 even integers. The forward implication is all that is needed to eliminate the
@@ -48,15 +49,19 @@ theorem riemann_zeta_neg_nat_zero_is_trivial_index_v1
       norm_num [riemannZeta_zero] at hz
     · obtain ⟨j, rfl⟩ := Nat.exists_eq_succ_of_ne_zero hm
       exact ⟨j, rfl⟩
-  · have hBq : bernoulli ((2 * m + 1) + 1) ≠ 0 := by
-      convert bernoulli_two_mul_succ_ne_zero_v1 m using 1 <;> omega
-    have hzeta_ne : riemannZeta (-(2 * m + 1)) ≠ 0 := by
-      rw [riemannZeta_neg_nat_eq_bernoulli]
+  · have hindex : (2 * m + 1) + 1 = 2 * (m + 1) := by omega
+    have hBq : bernoulli ((2 * m + 1) + 1) ≠ 0 := by
+      rw [hindex]
+      exact bernoulli_two_mul_succ_ne_zero_v1 m
+    have hzeta_ne :
+        riemannZeta (-((2 * m + 1 : ℕ) : ℂ)) ≠ 0 := by
+      rw [riemannZeta_neg_nat_eq_bernoulli (2 * m + 1)]
       apply div_ne_zero
       · apply mul_ne_zero
         · exact pow_ne_zero _ (by norm_num)
         · exact_mod_cast hBq
       · norm_num
+        positivity
     exact (hzeta_ne hz).elim
 
 #check bernoulli_two_mul_succ_ne_zero_v1
