@@ -14,7 +14,7 @@ permissions:
 
 env:
   SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  SOURCE_BLOB_SHA: 2354e7b7eb81eb2a2d9bb5fd2c16f978033e3807
+  SOURCE_BLOB_SHA: 7f8ce7224615258a5aab52ac73ae18bcdc94bc36
   PARENT_HEIGHT_SHA: cef68b5fd8d98b4ad2144ae32ab1f5bfde742505
   PARENT_HEIGHT_RECEIPT: c742236ca9b5337affb02849489a50e540e2e2d4e3dcf201cc9d4d4f4bd35d36
   PARENT_HEIGHT_ARTIFACT: e59dacc4ba735d6c4b933c2fb8faf9526519379dce8599047a36437f7e4d0171
@@ -22,6 +22,7 @@ env:
   LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
   ANALYTIC_ORDER_BLOB_SHA: 43cc6d88cb0ecba9560d4c29a410b271d9432628
   ANALYTIC_UNIQUENESS_BLOB_SHA: 20fe97cfe84c8c26280250418f78ab8f317207e2
+  ANALYTIC_CONSTRUCTIONS_BLOB_SHA: a4823d7cdda8e314158bb4b5aff320cf02499038
   RIEMANN_ZETA_BLOB_SHA: 3c92195fce20df7fda41cfd823b3266f83cf3070
   NONVANISHING_BLOB_SHA: 610bd56365d49c5ffa9ebeb29e0a383c768248e2
 
@@ -63,6 +64,7 @@ jobs:
           blobs = {x['path']: x['git_blob_sha'] for x in m['upstream_mathlib']}
           assert blobs['Mathlib/Analysis/Analytic/Order.lean'] == os.environ['ANALYTIC_ORDER_BLOB_SHA']
           assert blobs['Mathlib/Analysis/Analytic/Uniqueness.lean'] == os.environ['ANALYTIC_UNIQUENESS_BLOB_SHA']
+          assert blobs['Mathlib/Analysis/Analytic/Constructions.lean'] == os.environ['ANALYTIC_CONSTRUCTIONS_BLOB_SHA']
           assert blobs['Mathlib/NumberTheory/LSeries/RiemannZeta.lean'] == os.environ['RIEMANN_ZETA_BLOB_SHA']
           assert blobs['Mathlib/NumberTheory/LSeries/Nonvanishing.lean'] == os.environ['NONVANISHING_BLOB_SHA']
           assert m['formal_source']['git_blob_sha'] == os.environ['SOURCE_BLOB_SHA']
@@ -94,11 +96,13 @@ jobs:
           test "$(tr -d '\r\n' < lean-toolchain)" = "$LEAN_TOOLCHAIN"
           test "$(git hash-object Mathlib/Analysis/Analytic/Order.lean)" = "$ANALYTIC_ORDER_BLOB_SHA"
           test "$(git hash-object Mathlib/Analysis/Analytic/Uniqueness.lean)" = "$ANALYTIC_UNIQUENESS_BLOB_SHA"
+          test "$(git hash-object Mathlib/Analysis/Analytic/Constructions.lean)" = "$ANALYTIC_CONSTRUCTIONS_BLOB_SHA"
           test "$(git hash-object Mathlib/NumberTheory/LSeries/RiemannZeta.lean)" = "$RIEMANN_ZETA_BLOB_SHA"
           test "$(git hash-object Mathlib/NumberTheory/LSeries/Nonvanishing.lean)" = "$NONVANISHING_BLOB_SHA"
           grep -F 'noncomputable def analyticOrderNatAt' Mathlib/Analysis/Analytic/Order.lean
           grep -F 'lemma analyticOrderAt_eq_top' Mathlib/Analysis/Analytic/Order.lean
           grep -F 'theorem eqOn_of_preconnected_of_eventuallyEq' Mathlib/Analysis/Analytic/Uniqueness.lean
+          grep -F 'theorem analyticOnNhd_const' Mathlib/Analysis/Analytic/Constructions.lean
           grep -F 'lemma analyticOn_riemannZeta' Mathlib/NumberTheory/LSeries/RiemannZeta.lean
           grep -F 'riemannZeta_ne_zero_of_one_le_re' Mathlib/NumberTheory/LSeries/Nonvanishing.lean
 
