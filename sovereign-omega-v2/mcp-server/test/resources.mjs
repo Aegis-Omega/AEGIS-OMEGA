@@ -69,6 +69,7 @@ try {
     'aegis://node',
     'aegis://nvidia/dlss5',
     'aegis://nvidia/dlss5/acquisition-contract',
+    'aegis://nvidia/dlss5/execution-witness-contract',
     'aegis://nvidia/dlss5/runtime-contract',
     'aegis://telemetry',
   ])
@@ -104,6 +105,15 @@ try {
   assert.equal(acquisitionContractValue.runtime_execution, false)
   assert.equal(acquisitionContractValue.authority_effect, 'NONE')
 
+  const executionWitnessContract = await client.readResource({ uri: 'aegis://nvidia/dlss5/execution-witness-contract' })
+  const executionWitnessContractValue = JSON.parse(executionWitnessContract.contents[0].text)
+  assert.equal(executionWitnessContractValue.schema, 'AEGIS_DLSS5_EXECUTION_WITNESS_CONTRACT_V1')
+  assert.equal(executionWitnessContractValue.required_plugin, 'sl.dlss_nr')
+  assert.equal(executionWitnessContractValue.positive_runtime_scope, 'OBSERVED_FOR_DECLARED_PROBE_ONLY')
+  assert.equal(executionWitnessContractValue.rendering_claim_on_observation, 'NOT_ESTABLISHED')
+  assert.equal(executionWitnessContractValue.quality_claim_on_observation, 'NOT_ESTABLISHED')
+  assert.equal(executionWitnessContractValue.authority_effect, 'NONE')
+
   const runtimeContract = await client.readResource({ uri: 'aegis://nvidia/dlss5/runtime-contract' })
   const runtimeContractValue = JSON.parse(runtimeContract.contents[0].text)
   assert.equal(runtimeContractValue.required_plugin, 'sl.dlss_nr')
@@ -116,7 +126,9 @@ try {
   assert(toolNames.includes('aegis_dlss5_reference'))
   assert(toolNames.includes('aegis_dlss5_capability'))
   assert(toolNames.includes('aegis_dlss5_runtime_verify'))
+  assert(toolNames.includes('aegis_dlss5_execution_witness_verify'))
   assert(!toolNames.includes('aegis_dlss5_acquire'), 'native acquisition must not be exposed as an ungated MCP execution tool')
+  assert(!toolNames.includes('aegis_dlss5_execute'), 'DLSS execution must not be exposed as an ungated MCP execution tool')
 
   const capability = await client.callTool({ name: 'aegis_dlss5_capability', arguments: {} })
   const capabilityText = capability.content.find((entry) => entry.type === 'text')
@@ -144,13 +156,32 @@ try {
   assert.deepEqual(runtimeBadJsonValue.reason_codes, ['RUNTIME_EVIDENCE_JSON_INVALID'])
   assert.equal(runtimeBadJsonValue.execution_release, 'BLOCKED')
 
+  const witnessInvalid = await client.callTool({ name: 'aegis_dlss5_execution_witness_verify', arguments: { evidence_json: '{}' } })
+  const witnessInvalidText = witnessInvalid.content.find((entry) => entry.type === 'text')
+  assert(witnessInvalidText && 'text' in witnessInvalidText)
+  const witnessInvalidValue = JSON.parse(witnessInvalidText.text)
+  assert.equal(witnessInvalidValue.status, 'EXECUTION_WITNESS_NOT_VERIFIED')
+  assert.deepEqual(witnessInvalidValue.reason_codes, ['EXECUTION_WITNESS_EVIDENCE_INVALID'])
+  assert.equal(witnessInvalidValue.runtime_execution, 'NOT_ESTABLISHED')
+  assert.equal(witnessInvalidValue.rendering_claim, 'NOT_ESTABLISHED')
+  assert.equal(witnessInvalidValue.quality_claim, 'NOT_ESTABLISHED')
+  assert.equal(witnessInvalidValue.authority_effect, 'NONE')
+
+  const witnessBadJson = await client.callTool({ name: 'aegis_dlss5_execution_witness_verify', arguments: { evidence_json: '{x' } })
+  const witnessBadJsonText = witnessBadJson.content.find((entry) => entry.type === 'text')
+  assert(witnessBadJsonText && 'text' in witnessBadJsonText)
+  const witnessBadJsonValue = JSON.parse(witnessBadJsonText.text)
+  assert.equal(witnessBadJsonValue.status, 'EXECUTION_WITNESS_NOT_VERIFIED')
+  assert.deepEqual(witnessBadJsonValue.reason_codes, ['EXECUTION_WITNESS_JSON_INVALID'])
+  assert.equal(witnessBadJsonValue.execution_release, 'BLOCKED')
+
   const authorityIndex = await client.readResource({ uri: 'aegis://authority/index' })
   assert.match(authorityIndex.contents[0].text, /AEGIS/i)
 
   const repoMap = await client.readResource({ uri: 'aegis://authority/repo-map' })
   assert.match(repoMap.contents[0].text, /WIRED|DORMANT|BROKEN|DEAD/i)
 
-  console.log('MCP_RESOURCES_PASS 8 read-only key-free resources + DLSS5 capability/runtime/acquisition fail-closed surfaces')
+  console.log('MCP_RESOURCES_PASS 9 read-only key-free resources + DLSS5 capability/runtime/acquisition/execution-witness fail-closed surfaces')
 } finally {
   await client.close().catch(() => {})
   await new Promise((resolve) => bridge.close(resolve))
