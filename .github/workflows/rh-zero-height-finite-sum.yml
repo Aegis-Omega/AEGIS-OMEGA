@@ -145,7 +145,7 @@ jobs:
           test "$(git -C .lake/packages/mathlib hash-object Mathlib/NumberTheory/LSeries/HurwitzZetaValues.lean)" = "$HURWITZ_VALUES_BLOB_SHA"
           test "$(git -C .lake/packages/mathlib hash-object Mathlib/NumberTheory/LSeries/Nonvanishing.lean)" = "$NONVANISHING_BLOB_SHA"
           test "$(git -C .lake/packages/mathlib hash-object Mathlib/NumberTheory/LSeries/RiemannZeta.lean)" = "$RIEMANN_ZETA_BLOB_SHA"
-          grep -F 'theorem Nat.cast_analyticOrderNatAt' .lake/packages/mathlib/Mathlib/Analysis/Analytic/Order.lean
+          grep -F 'lemma Nat.cast_analyticOrderNatAt' .lake/packages/mathlib/Mathlib/Analysis/Analytic/Order.lean
           grep -F 'def mellin' .lake/packages/mathlib/Mathlib/Analysis/MellinTransform.lean
           grep -F 'lemma IsCompact.inter_riemannZetaZeros_finite' .lake/packages/mathlib/Mathlib/NumberTheory/LSeries/ZetaZeros.lean
 
