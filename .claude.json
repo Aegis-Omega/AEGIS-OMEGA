@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/rh-zero-critical-strip-composition-v1",
+    "source_ref": "proof/rh-zero-height-truncation-v1",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "aaa13e89cca45edd533bfa7e1509087f7648660f5bbd32db1293d4c4d614a3cc"
+  "state_hash": "a5c1c78790a0d1369d8941f7381c93a2fe847f87405b23b7d068aaab90d57dbf"
 }
