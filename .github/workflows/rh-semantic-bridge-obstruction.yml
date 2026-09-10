@@ -51,6 +51,15 @@ jobs:
           formal.tests.test_semantic_bridge_obstruction_v1
           -v
 
+      - name: Prepare writable Coq bridge workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/rh-semantic-obstruction
+          chmod -R a+rwX \
+            sovereign-omega-v2/formal/theories/Weil \
+            sovereign-omega-v2/rh-semantic-obstruction
+
       - name: Compile obstruction theorem and capture assumptions
         uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
         with:
@@ -62,7 +71,6 @@ jobs:
             WEIL="$ROOT/formal/theories/Weil"
             BRIDGE="$ROOT/formal/bridges/coq"
             OUT="$ROOT/rh-semantic-obstruction"
-            mkdir -p "$OUT"
 
             coqc --version | tee "$OUT/coq-version.txt"
             cp "$BRIDGE/SemanticBridgeObstruction.v" "$WEIL/SemanticBridgeObstruction.v"
