@@ -21,6 +21,7 @@ RH_EQUIVALENCE_OPEN
 -/
 
 open Complex
+open scoped ComplexConjugate
 
 /-- Nontrivial Riemann-zeta zeros with imaginary height at most `T`. -/
 def NontrivialZeroHeightSetV1 (T : ℝ) : Set ℂ :=
