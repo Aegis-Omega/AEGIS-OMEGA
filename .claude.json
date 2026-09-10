@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/rh-zero-height-multiplicity-sum-v1",
+    "source_ref": "proof/rh-zero-height-conjugation-v1",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "631defd89d73a878566ab6c91bcc8484de0347e1510a082e11750acc73b9ab81"
+  "state_hash": "04b298cf5dc11ec7d583f7e5adfd90f7b4ec0ef191e46b0c53a1aba351289bfd"
 }
