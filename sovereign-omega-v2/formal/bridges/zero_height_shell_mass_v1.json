@@ -2,7 +2,7 @@
   "schema_version": "AEGIS_ZERO_HEIGHT_SHELL_MASS_V1",
   "candidate": {
     "formal_source": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightShellMassV1.lean",
-    "formal_source_git_blob_sha": "f26f0e0bda5c15fd7dfb6d6714aa0654b6894468"
+    "formal_source_git_blob_sha": "e7af2be4e5f0b1bbb1f605bbee19e919b92e5bd0"
   },
   "verified_parent_evidence": {
     "majorant_summability_bridge": {
