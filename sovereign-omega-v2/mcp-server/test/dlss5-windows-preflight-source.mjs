@@ -24,6 +24,9 @@ assert.doesNotMatch(source, /eBypassOSVersionCheck|NVSDK_NGX|nvngx_dlssnr/, 'pre
 
 assert.match(compileWorkflow, /windows-latest/, 'compile lane must use a Windows hosted runner')
 assert.match(compileWorkflow, new RegExp(RELEASE_SHA256), 'compile lane must verify the exact official release digest')
+assert.match(compileWorkflow, /github\.event\.pull_request\.head\.sha/, 'PR compile lane must checkout the exact PR head rather than the synthetic merge commit')
+assert.match(compileWorkflow, /git\s+rev-parse\s+HEAD/, 'compile lane must bind its receipt to the checked-out commit')
+assert.match(compileWorkflow, /AEGIS_CANDIDATE_SHA/, 'compile receipt must use the checked-out exact candidate SHA')
 assert.match(compileWorkflow, /gpu_execution=false/, 'compile receipt must state that no GPU execution occurred')
 
 assert.match(runtimeWorkflow, /workflow_dispatch:/, 'runtime lane must be manual-only')
@@ -31,6 +34,7 @@ assert.match(runtimeWorkflow, /self-hosted/, 'runtime lane must require a self-h
 assert.match(runtimeWorkflow, /windows/, 'runtime lane must require Windows')
 assert.match(runtimeWorkflow, /rtx50/, 'runtime lane must require RTX-50 capability labeling')
 assert.match(runtimeWorkflow, /timeout-minutes:/, 'runtime lane must have a hard timeout')
+assert.match(runtimeWorkflow, /git\s+rev-parse\s+HEAD/, 'runtime lane must bind the requested SHA to the actual checkout')
 assert.doesNotMatch(runtimeWorkflow, /pull_request:|push:/, 'paid/runtime lane must never auto-run on code changes')
 
-console.log('DLSS5_WINDOWS_PREFLIGHT_SOURCE_PASS support_only=1 evaluate=0 manual_runtime=1 authority=NONE')
+console.log('DLSS5_WINDOWS_PREFLIGHT_SOURCE_PASS support_only=1 evaluate=0 exact_head=1 manual_runtime=1 authority=NONE')
