@@ -27,7 +27,7 @@
   ],
   "formal_source": {
     "path": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightConjugationV1.lean",
-    "git_blob_sha": "2156206e6cf72ec53309eb2195a726947602426e",
+    "git_blob_sha": "872a402b537fe3fae6cd0b48eacbe70616a62b43",
     "declarations": [
       "NontrivialZeroHeightSetV1",
       "nontrivial_zero_height_conj_mem_v1",
