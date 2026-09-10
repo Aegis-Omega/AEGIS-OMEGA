@@ -4,8 +4,12 @@
 This module validates provenance structure for point-level phase data without pretending
 that a test fixture is empirical evidence. All numeric values admitted to hashed state are
 integers with explicit units. Source bytes and calibration configuration are content-bound
-by SHA-256. Empirical analysis release is fail-closed and cannot be opened by caller-authored
-status strings: it requires content-bound receipts from repository-enrolled verifier roots.
+by SHA-256.
+
+Trust boundary: caller-authored status strings and merely self-consistent SHA-256 receipts
+have zero authority. Empirical analysis release requires exact verification-receipt digests
+that were enrolled in repository source before execution. V4 intentionally enrolls none,
+so the research lane has no positive empirical release path yet.
 """
 from __future__ import annotations
 
@@ -26,9 +30,11 @@ ALLOWED_EVIDENCE_ORIGINS = {
     "EXTERNAL_EXPERIMENTAL_SOURCE",
 }
 
-# Repository-governed trust anchor. Intentionally empty in V4: enrollment requires an
-# explicit source change and fresh exact-head evidence. Callers cannot supply/override it.
-TRUSTED_VERIFIER_ROOTS: dict[str, str] = {}
+# Repository-governed exact receipt allowlist. Intentionally empty in V4. An accepted
+# receipt must be content-bound to its subject AND its exact digest must already be present
+# here at the evaluated repository head. The immutable container prevents in-place runtime
+# enrollment; changing enrollment requires changing repository source and rebinding evidence.
+TRUSTED_VERIFICATION_RECEIPT_DIGESTS: frozenset[str] = frozenset()
 
 
 def _require_nonempty_string(name: str, value: Any) -> str:
@@ -88,7 +94,7 @@ def build_source_binding(
             if evidence_origin == "TEST_FIXTURE"
             else "CALLER_BOUND_BYTES_REQUIRES_INDEPENDENT_VERIFICATION"
         ),
-        # Metadata only. This field is deliberately ignored by fit_release_gate().
+        # Metadata only. Deliberately ignored by fit_release_gate().
         "independent_source_verification": "NOT_ESTABLISHED",
         "authority_effect": "NONE",
     }
@@ -116,7 +122,7 @@ def build_calibration_binding(
         "valid_from": valid_from,
         "valid_until": valid_until,
         "calibration_origin": calibration_origin,
-        # Metadata only. This field is deliberately ignored by fit_release_gate().
+        # Metadata only. Deliberately ignored by fit_release_gate().
         "independent_calibration_verification": "NOT_ESTABLISHED",
         "authority_effect": "NONE",
     }
@@ -184,6 +190,8 @@ def build_point_batch(
     _require_sha256("config_sha256", calibration.get("config_sha256"))
     if source.get("schema") != SOURCE_BINDING_SCHEMA:
         raise ValueError("SOURCE_BINDING_SCHEMA_MISMATCH")
+    if source.get("evidence_origin") not in ALLOWED_EVIDENCE_ORIGINS:
+        raise ValueError("UNREGISTERED_EVIDENCE_ORIGIN")
     if calibration.get("schema") != CALIBRATION_BINDING_SCHEMA:
         raise ValueError("CALIBRATION_BINDING_SCHEMA_MISMATCH")
 
@@ -236,9 +244,15 @@ def validate_ingress(batch: dict, source_bytes: bytes) -> dict:
     try:
         if batch.get("schema") != V4_INGRESS_SCHEMA:
             reasons.append("INGRESS_SCHEMA_MISMATCH")
+        if source.get("schema") != SOURCE_BINDING_SCHEMA:
+            reasons.append("SOURCE_BINDING_SCHEMA_MISMATCH")
+        if evidence_origin not in ALLOWED_EVIDENCE_ORIGINS:
+            reasons.append("UNREGISTERED_EVIDENCE_ORIGIN")
         source_sha = _require_sha256("source_sha256", source.get("source_sha256"))
         if not isinstance(source_bytes, bytes) or sha256_hex(source_bytes) != source_sha:
             reasons.append("SOURCE_DIGEST_MISMATCH")
+        if calibration.get("schema") != CALIBRATION_BINDING_SCHEMA:
+            reasons.append("CALIBRATION_BINDING_SCHEMA_MISMATCH")
         expected_epoch = _require_nonempty_string(
             "calibration_epoch_id", calibration.get("calibration_epoch_id")
         )
@@ -286,19 +300,25 @@ def _verification_payload(receipt: dict) -> dict:
     return {k: copy.deepcopy(v) for k, v in receipt.items() if k != "receipt_sha256"}
 
 
+def _receipt_self_digest_valid(receipt: dict) -> bool:
+    if not isinstance(receipt, dict):
+        return False
+    claimed = receipt.get("receipt_sha256")
+    try:
+        _require_sha256("receipt_sha256", claimed)
+    except ValueError:
+        return False
+    return claimed == sha256_hex(canon(_verification_payload(receipt)))
+
+
 def _valid_trusted_verification_receipt(
     receipt: dict,
     *,
     subject_kind: str,
     subject_sha256: str,
 ) -> bool:
-    """Verify one content-bound receipt against repository-enrolled trust roots."""
+    """Accept only a subject-bound receipt whose exact digest is repository-enrolled."""
     if not isinstance(receipt, dict) or receipt.get("schema") != VERIFICATION_RECEIPT_SCHEMA:
-        return False
-    verifier_id = receipt.get("verifier_id")
-    verifier_root = receipt.get("verifier_root")
-    trusted_root = TRUSTED_VERIFIER_ROOTS.get(verifier_id)
-    if trusted_root is None or verifier_root != trusted_root:
         return False
     if receipt.get("subject_kind") != subject_kind:
         return False
@@ -308,12 +328,9 @@ def _valid_trusted_verification_receipt(
         return False
     if receipt.get("authority_effect") != "NONE":
         return False
-    claimed = receipt.get("receipt_sha256")
-    try:
-        _require_sha256("receipt_sha256", claimed)
-    except ValueError:
+    if not _receipt_self_digest_valid(receipt):
         return False
-    return claimed == sha256_hex(canon(_verification_payload(receipt)))
+    return receipt["receipt_sha256"] in TRUSTED_VERIFICATION_RECEIPT_DIGESTS
 
 
 def _trusted_verification_state(batch: dict, verification_receipts: Iterable[dict] | None) -> dict:
@@ -339,11 +356,18 @@ def _trusted_verification_state(batch: dict, verification_receipts: Iterable[dic
         )
         for receipt in receipts
     )
+    self_consistent_unenrolled = sum(
+        1
+        for receipt in receipts
+        if _receipt_self_digest_valid(receipt)
+        and receipt.get("receipt_sha256") not in TRUSTED_VERIFICATION_RECEIPT_DIGESTS
+    )
     return {
-        "trusted_verifier_enrolled": bool(TRUSTED_VERIFIER_ROOTS),
+        "trusted_receipt_digest_enrollment_count": len(TRUSTED_VERIFICATION_RECEIPT_DIGESTS),
         "source_verified": source_verified,
         "calibration_verified": calibration_verified,
         "receipt_count": len(receipts),
+        "self_consistent_unenrolled_receipt_count": self_consistent_unenrolled,
     }
 
 
@@ -355,17 +379,21 @@ def fit_release_gate(
     validation = validate_ingress(batch, source_bytes)
     reasons = list(validation.get("reason_codes", []))
     source = batch.get("source_binding", {}) if isinstance(batch, dict) else {}
+    receipts = list(verification_receipts or [])
 
     if validation.get("decision") != "CONTRACT_VALID":
         reasons.append("INGRESS_CONTRACT_NOT_VALID")
     if source.get("evidence_origin") == "TEST_FIXTURE":
         reasons.append("TEST_FIXTURE_NOT_EMPIRICAL_SOURCE")
 
-    # Crucial trust boundary: caller-authored verification strings in source/calibration
-    # bindings have zero authority. Only receipts chained to repository-enrolled roots count.
-    trust = _trusted_verification_state(batch if isinstance(batch, dict) else {}, verification_receipts)
-    if not trust["trusted_verifier_enrolled"]:
-        reasons.append("NO_TRUSTED_VERIFIER_ENROLLED")
+    # Caller-authored verification status strings have no authority. A SHA-256 receipt is
+    # also only an integrity object; it becomes trusted only if its exact digest was already
+    # enrolled in repository source at the exact evaluated head.
+    trust = _trusted_verification_state(batch if isinstance(batch, dict) else {}, receipts)
+    if not TRUSTED_VERIFICATION_RECEIPT_DIGESTS:
+        reasons.append("NO_TRUSTED_VERIFICATION_RECEIPT_ENROLLED")
+    if receipts and trust["self_consistent_unenrolled_receipt_count"]:
+        reasons.append("UNTRUSTED_VERIFICATION_RECEIPT")
     if not trust["source_verified"] or not trust["calibration_verified"]:
         reasons.append("TRUSTED_VERIFICATION_RECEIPT_MISSING")
 
