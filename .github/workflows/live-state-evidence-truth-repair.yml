@@ -1,0 +1,61 @@
+name: Live State Evidence Truth Repair
+
+on:
+  push:
+    branches:
+      - fix/live-state-evidence-truth-v1
+
+permissions:
+  contents: write
+
+jobs:
+  repair-live-state-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact pushed head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Apply exact narrow repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('sovereign-omega-v2/python/bridge.py')
+          text = path.read_text(encoding='utf-8')
+          old = (
+              "            f'  Gates operational: 605 | Rust tests verified: 6,862 | TypeScript tests verified: 3,176\\n'\n"
+              "            f'  PGCS (hardware inference): {pgcs_str} | Chain: INTACT | Replay: SOVEREIGN\\n\\n'\n"
+          )
+          new = "            f'  PGCS (hardware inference): {pgcs_str}\\n\\n'\n"
+
+          if old in text:
+              if text.count(old) != 1:
+                  raise SystemExit('DENY: expected repair target must occur exactly once')
+              path.write_text(text.replace(old, new), encoding='utf-8')
+          elif new not in text:
+              raise SystemExit('DENY: neither exact old nor exact repaired form found')
+          PY
+
+      - name: Verify falsifier GREEN before commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python sovereign-omega-v2/python/tests/test_live_state_is_measured.py -v
+
+      - name: Commit only bridge repair when needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- sovereign-omega-v2/python/bridge.py
+          if git diff --cached --quiet; then
+            echo 'No bridge mutation required.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(epistemic): remove unmeasured live-state claims'
+          git push origin HEAD:fix/live-state-evidence-truth-v1
