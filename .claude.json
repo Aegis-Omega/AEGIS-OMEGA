@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/rh-zeta-divisor-exhaustion-v1",
+    "source_ref": "proof/rh-zeta-divisor-support-bridge-v1",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "3ccb4514e4acacab3e0c91acdcb477a2a33ad3876c01891acb5bebda712007d0"
+  "state_hash": "4b04707b0b2209021f13e51689d84036b6eb9a290c44b2f93551020e58f8cf1a"
 }
