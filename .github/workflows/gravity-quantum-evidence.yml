@@ -32,14 +32,11 @@ jobs:
 
       - name: Compile bounded evidence lane
         run: |
-          python3 -m py_compile \
-            gravity_quantum/__init__.py \
-            gravity_quantum/evidence_pipeline.py \
-            gravity_quantum/test_evidence_pipeline.py \
-            verifiable/chain.py
+          python3 -m compileall -q gravity_quantum
+          python3 -m py_compile verifiable/chain.py
 
       - name: Run fail-closed falsifiers
-        run: python3 -m gravity_quantum.test_evidence_pipeline
+        run: python3 -m unittest discover -s gravity_quantum -p 'test_*.py' -v
 
       - name: Emit replay-verifiable receipt
         run: |
