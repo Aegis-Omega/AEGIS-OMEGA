@@ -52,7 +52,8 @@ class TestScaledMeasurementV2(unittest.TestCase):
         self.assertEqual(d["decision"], "NO_UNIQUE_MODEL_SELECTION")
         self.assertEqual(d["authority_effect"], "NONE")
         self.assertIn("NO_POINT_LEVEL_PHASE_DATA", d["reason_codes"])
-        self.assertIn("PUBLISHED_MODEL_DEGENERACY", d["reason_codes"])
+        self.assertIn("CUBIC_PREFACTOR_DEGENERACY_UNDER_LEVITATION", d["reason_codes"])
+        self.assertNotIn("PUBLISHED_MODEL_DEGENERACY", d["reason_codes"])
         self.assertEqual(d["models"]["QGI_GRAVITY_EP"]["status"], "REQUIRES_POINT_LEVEL_REPLAY")
         self.assertEqual(d["models"]["MAGNETIC_RECOIL"]["status"], "REQUIRES_POINT_LEVEL_REPLAY")
 
