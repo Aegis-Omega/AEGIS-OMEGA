@@ -1,0 +1,228 @@
+name: Google Skill Corpus Dormant Salvage
+
+on:
+  push:
+    branches:
+      - salvage/provider-neutral-google-skill-corpus-v1
+
+permissions:
+  contents: write
+
+jobs:
+  salvage:
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_SHA: 8606c90014dc59d234ddc9de9d38a787a2d32d8e
+      SOURCE_PREFIX: .agents/skills
+      DEST_ROOT: knowledge/source-corpora/google-datacloud-skills-v1
+      EXPECTED_PACKAGE_COUNT: '56'
+      EXPECTED_LICENSE: Apache-2.0
+      EXPECTED_PUBLISHER: google
+      EXPECTED_BUNDLE_CHECKSUM: de6fab4170eb7786ed7e405889312448e8c982302fb3651f1aaff30f577c2591
+    steps:
+      - name: Checkout exact salvage head with history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Assert exact source and dormant destination
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "${SOURCE_SHA}^{commit}"
+          test "$(git rev-parse "${SOURCE_SHA}^{commit}")" = "$SOURCE_SHA"
+          test ! -e .agents/skills
+          test ! -e .gemini/skills
+
+      - name: Materialize source bytes without executing them
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$DEST_ROOT"
+          mkdir -p "$DEST_ROOT/skills" "$DEST_ROOT/evidence"
+
+          # Read exact Git objects from #240. No source script is executed.
+          while IFS= read -r -d '' record; do
+            meta="${record%%$'\t'*}"
+            path="${record#*$'\t'}"
+            mode="${meta%% *}"
+            rest="${meta#* }"
+            type="${rest%% *}"
+            object="${rest##* }"
+
+            case "$mode" in
+              100644|100755) ;;
+              *) echo "DENY: unsupported source mode $mode at $path" >&2; exit 1 ;;
+            esac
+            test "$type" = blob
+
+            rel="${path#${SOURCE_PREFIX}/}"
+            case "$rel" in
+              run-aegis/*) continue ;;
+              .datacloud_skills_manifest)
+                git cat-file blob "$object" > "$DEST_ROOT/evidence/source-manifest.json"
+                continue
+                ;;
+            esac
+
+            mkdir -p "$DEST_ROOT/skills/$(dirname "$rel")"
+            git cat-file blob "$object" > "$DEST_ROOT/skills/$rel"
+          done < <(git ls-tree -r -z "$SOURCE_SHA" -- "$SOURCE_PREFIX")
+
+      - name: Validate licenses, provenance, mirror exclusion and exact bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+          import hashlib
+          import json
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          source = os.environ['SOURCE_SHA']
+          source_prefix = os.environ['SOURCE_PREFIX'].rstrip('/')
+          dest = Path(os.environ['DEST_ROOT'])
+          skills = dest / 'skills'
+          source_manifest_path = dest / 'evidence' / 'source-manifest.json'
+
+          if not skills.is_dir():
+              raise SystemExit('DENY: dormant skill destination missing')
+          if Path('.agents/skills').exists() or Path('.gemini/skills').exists():
+              raise SystemExit('DENY: active vendor/discovery skill path appeared')
+          if (skills / 'run-aegis').exists():
+              raise SystemExit('DENY: internal run-aegis package crossed third-party boundary')
+
+          source_manifest_bytes = source_manifest_path.read_bytes()
+          source_manifest = json.loads(source_manifest_bytes)
+          if source_manifest.get('bundleChecksum') != os.environ['EXPECTED_BUNDLE_CHECKSUM']:
+              raise SystemExit('DENY: source bundle checksum mismatch')
+          manifest_skills = source_manifest.get('skills')
+          if not isinstance(manifest_skills, dict) or len(manifest_skills) != int(os.environ['EXPECTED_PACKAGE_COUNT']):
+              raise SystemExit('DENY: source manifest package count mismatch')
+
+          front_field = re.compile(r'^([A-Za-z0-9_-]+):\s*(.*?)\s*$')
+          records = []
+          package_rows = []
+          for path in sorted(p for p in skills.rglob('*') if p.is_file()):
+              rel = path.relative_to(skills).as_posix()
+              data = path.read_bytes()
+              try:
+                  src = subprocess.check_output(
+                      ['git', '--no-replace-objects', 'show', f'{source}:{source_prefix}/{rel}']
+                  )
+              except subprocess.CalledProcessError as exc:
+                  raise SystemExit(f'DENY: destination file lacks exact source binding: {rel}') from exc
+              if data != src:
+                  raise SystemExit(f'DENY: byte drift from exact source: {rel}')
+              records.append({
+                  'path': rel,
+                  'sha256': hashlib.sha256(data).hexdigest(),
+                  'size_bytes': len(data),
+              })
+
+              if rel.endswith('/SKILL.md'):
+                  text = data.decode('utf-8', errors='strict')
+                  lines = text.splitlines()
+                  fields = {}
+                  if not lines or lines[0].strip() != '---':
+                      raise SystemExit(f'DENY: missing frontmatter: {rel}')
+                  for line in lines[1:]:
+                      if line.strip() == '---':
+                          break
+                      m = front_field.match(line)
+                      if m:
+                          fields[m.group(1)] = m.group(2).strip().strip('"\'')
+                  license_id = fields.get('license')
+                  publisher = fields.get('publisher')
+                  if not publisher:
+                      for i, line in enumerate(lines[:80]):
+                          if line.strip() == 'metadata:':
+                              for nested in lines[i + 1:i + 12]:
+                                  if nested and not nested.startswith((' ', '\t')):
+                                      break
+                                  mm = re.match(r'^\s+publisher:\s*(.*?)\s*$', nested)
+                                  if mm:
+                                      publisher = mm.group(1).strip().strip('"\'')
+                                      break
+                              break
+                  if license_id != os.environ['EXPECTED_LICENSE']:
+                      raise SystemExit(f'DENY: unexpected license {license_id!r}: {rel}')
+                  if publisher != os.environ['EXPECTED_PUBLISHER']:
+                      raise SystemExit(f'DENY: unexpected publisher {publisher!r}: {rel}')
+                  package_rows.append({
+                      'name': rel.rsplit('/', 1)[0],
+                      'skill_path': rel,
+                      'license': license_id,
+                      'publisher': publisher,
+                  })
+
+          if len(package_rows) != int(os.environ['EXPECTED_PACKAGE_COUNT']):
+              raise SystemExit(f'DENY: imported package count={len(package_rows)}')
+
+          imported_names = sorted(r['name'] for r in package_rows)
+          if imported_names != sorted(manifest_skills):
+              missing = sorted(set(manifest_skills) - set(imported_names))
+              extra = sorted(set(imported_names) - set(manifest_skills))
+              raise SystemExit(f'DENY: manifest/import package mismatch missing={missing} extra={extra}')
+
+          root_payload = json.dumps(
+              records, ensure_ascii=False, sort_keys=True, separators=(',', ':')
+          ).encode('utf-8')
+          corpus_root = hashlib.sha256(root_payload).hexdigest()
+          source_manifest_sha256 = hashlib.sha256(source_manifest_bytes).hexdigest()
+
+          provenance = {
+              'schema': 'AEGIS_DORMANT_SOURCE_CORPUS_V1',
+              'corpus_id': 'google-datacloud-skills-v1',
+              'repository': 'Aegis-Omega/AEGIS-OMEGA',
+              'source_pr': 240,
+              'source_sha': source,
+              'source_prefix': source_prefix,
+              'source_bundle_checksum': os.environ['EXPECTED_BUNDLE_CHECKSUM'],
+              'source_manifest_sha256': source_manifest_sha256,
+              'source_census_run_id': 34498785173,
+              'source_census_probe_head': '1734b54023dc4f183b7753c6c9f761700c2823d2',
+              'destination_prefix': f"{os.environ['DEST_ROOT']}/skills",
+              'file_count': len(records),
+              'package_count': len(package_rows),
+              'corpus_root_sha256': corpus_root,
+              'licenses': {'Apache-2.0': len(package_rows)},
+              'publishers': {'google': len(package_rows)},
+              'excluded_source_paths': [
+                  '.agents/skills/run-aegis/SKILL.md',
+                  '.agents/skills/run-aegis/driver.cjs',
+                  '.gemini/skills/**',
+                  '.codex/hooks/**',
+                  '.codex/hooks.json',
+                  '.claude.json',
+                  'skill-hashes.sha256',
+              ],
+              'epistemic_status': 'UNVERIFIED_SOURCE_CORPUS',
+              'activation_status': 'DORMANT_NOT_DISCOVERABLE_BY_ACTIVE_SKILL_PATH',
+              'execution_status': 'SOURCE_BYTES_NOT_EXECUTED',
+              'redistribution_status': 'PACKAGE_LICENSE_DECLARATIONS_VERIFIED_COMPLIANCE_REVIEW_STILL_REQUIRED',
+              'authority_effect': 'NONE',
+          }
+          (dest / 'provenance.json').write_text(
+              json.dumps(provenance, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+          )
+          print(json.dumps(provenance, indent=2, sort_keys=True))
+          PY
+
+      - name: Commit dormant corpus only when exact validation passes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -- "$DEST_ROOT"
+          if git diff --cached --quiet; then
+            echo 'Dormant corpus already exact; no commit required.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'salvage(skills): quarantine exact Google Apache-2.0 source corpus'
+          git push origin HEAD:salvage/provider-neutral-google-skill-corpus-v1
