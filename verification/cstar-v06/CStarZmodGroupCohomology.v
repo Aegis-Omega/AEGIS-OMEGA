@@ -83,9 +83,6 @@ Proof. exact: addrA. Qed.
 #[local] Instance zmod_add_comm : Commutative eq (+%R : A -> A -> A).
 Proof. exact: addrC. Qed.
 
-#[local] Instance zmod_add_unit : Unit eq (+%R : A -> A -> A) 0.
-Proof. constructor; [exact: add0r | exact: addr0]. Qed.
-
 Lemma cancel_twisted_boundary_zmod
     (x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 : A) :
   x1 - x2 + x3 - x4
@@ -94,9 +91,18 @@ Lemma cancel_twisted_boundary_zmod
   - x3 + x6 - x9 + x10
   + x4 - x7 + x8 - x10 = 0.
 Proof.
-  repeat aac_rewrite addrN.
-  Show.
-  fail 1 "STOP_AFTER_AAC".
+  have Hreorder :
+    x1 - x2 + x3 - x4
+    - x1 + x5 - x6 + x7
+    + x2 - x5 + x9 - x8
+    - x3 + x6 - x9 + x10
+    + x4 - x7 + x8 - x10 =
+    (x1 + - x1) + (x2 + - x2) + (x3 + - x3) + (x4 + - x4) +
+    (x5 + - x5) + (x6 + - x6) + (x7 + - x7) + (x8 + - x8) +
+    (x9 + - x9) + (x10 + - x10) := by
+      aac_reflexivity.
+  rewrite Hreorder.
+  by rewrite !addrN !add0r.
 Qed.
 
 Theorem delta3_delta2_zero_zmod_action :
