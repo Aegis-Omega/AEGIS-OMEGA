@@ -26,7 +26,7 @@
   ],
   "formal_source": {
     "path": "sovereign-omega-v2/formal/bridges/lean/ZeroNegativeIntegerClassificationV1.lean",
-    "sha256": "b62cefe46b7cb16c5a436357c06ef24861e11d7cda4a878c39e426d5460ad787"
+    "sha256": "d0ecd9cd2534d4f835a72a983cb72af72f3411f52a509384b88ddd9288db7602"
   },
   "scope": {
     "positive_even_bernoulli_nonzero": "CANDIDATE",
