@@ -5,6 +5,9 @@
   It does NOT assert native O₀ sine/cosine commutation, derivative transport,
   the Guinand–Weil explicit formula, global Weil positivity, or RH.
 *)
+From Coq Require Import ZArith.
+Require Import CoRN.transc.Pi.
+Require Import AnalyticDefinitions CornO0MorphismBridge PrimeTrigConstructive.
 Require Import CornO0TrigImageBridge.
 
 Definition corn_o0_cos_phase_image_Z_contract_v1 :
