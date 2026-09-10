@@ -20,7 +20,7 @@
   },
   "formal_source": {
     "path": "sovereign-omega-v2/formal/bridges/lean/WeilCriterionCompactSmoothV1.lean",
-    "sha256": "21b5aa1bbf907e619dafecb4cf966d44bf1bf8fcca5efe69d1248cb7002f9aea"
+    "sha256": "1c1740fb54b0c4b5320342301fb3db25bfb41aa69d7e531d286f914b3b17f87f"
   },
   "scope": {
     "domain": "COMPACT_SMOOTH_POSITIVE_HALF_LINE_SUBDOMAIN_ONLY",
