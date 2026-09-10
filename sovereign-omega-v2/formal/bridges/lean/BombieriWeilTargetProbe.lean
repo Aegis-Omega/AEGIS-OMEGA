@@ -29,6 +29,11 @@ def BombieriTestFunctionV1 :=
 def BombieriMellinV1 (f : BombieriTestFunctionV1) : ℂ → ℂ :=
   mellin f.1
 
+/-- Bombieri's two additional vanishing moments, expressed in Mathlib's
+    Mellin convention. Their integral forms are proved below. -/
+def BombieriMomentConditionsV1 (g : BombieriTestFunctionV1) : Prop :=
+  BombieriMellinV1 g 0 = 0 ∧ BombieriMellinV1 g 1 = 0
+
 theorem bombieri_test_contDiff_v1 (f : BombieriTestFunctionV1) :
     ContDiff ℝ ∞ f.1 :=
   f.2.1
@@ -69,6 +74,28 @@ theorem bombieri_mellin_convergent_v1 (f : BombieriTestFunctionV1) (s : ℂ) :
   simpa only [g, smul_eq_mul] using
     (hg_cont.integrable_of_hasCompactSupport hg_compact).integrableOn
 
+/-- The Mellin endpoint `s = 1` is the ordinary positive-half-line integral. -/
+theorem bombieri_mellin_one_eq_integral_v1 (g : BombieriTestFunctionV1) :
+    BombieriMellinV1 g 1 = ∫ x : ℝ in Set.Ioi 0, g.1 x := by
+  simp [BombieriMellinV1, mellin]
+
+/-- The Mellin endpoint `s = 0` is the `dx/x` moment. -/
+theorem bombieri_mellin_zero_eq_inverse_weighted_integral_v1
+    (g : BombieriTestFunctionV1) :
+    BombieriMellinV1 g 0 =
+      ∫ x : ℝ in Set.Ioi 0, (x : ℂ)⁻¹ * g.1 x := by
+  simp [BombieriMellinV1, mellin, cpow_neg_one, smul_eq_mul]
+
+/-- The two Mellin endpoint equations are exactly the two integral moment
+    equations used in Bombieri's statement of Weil's criterion. -/
+theorem bombieri_moment_conditions_integral_iff_v1 (g : BombieriTestFunctionV1) :
+    BombieriMomentConditionsV1 g ↔
+      (∫ x : ℝ in Set.Ioi 0, (x : ℂ)⁻¹ * g.1 x) = 0 ∧
+      (∫ x : ℝ in Set.Ioi 0, g.1 x) = 0 := by
+  rw [BombieriMomentConditionsV1,
+    bombieri_mellin_zero_eq_inverse_weighted_integral_v1,
+    bombieri_mellin_one_eq_integral_v1]
+
 /-- Exact unfolding of the pinned Mathlib RH target. -/
 theorem pinned_mathlib_riemann_hypothesis_unfold_v1 :
     RiemannHypothesis ↔
@@ -86,5 +113,8 @@ theorem pinned_completed_zeta_symmetry_v1 (s : ℂ) :
 #print axioms bombieri_test_tsupport_positive_v1
 #print axioms bombieri_mellin_eq_mathlib_mellin_v1
 #print axioms bombieri_mellin_convergent_v1
+#print axioms bombieri_mellin_one_eq_integral_v1
+#print axioms bombieri_mellin_zero_eq_inverse_weighted_integral_v1
+#print axioms bombieri_moment_conditions_integral_iff_v1
 #print axioms pinned_mathlib_riemann_hypothesis_unfold_v1
 #print axioms pinned_completed_zeta_symmetry_v1
