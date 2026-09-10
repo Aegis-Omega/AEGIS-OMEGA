@@ -30,7 +30,7 @@ jobs:
 
       - name: Run enforcement verifier regressions
         working-directory: scripts
-        run: python3 -m unittest test_check_repository_enforcement.py -v
+        run: python3 -m unittest test_check_repository_enforcement.py test_repository_enforcement_contract.py -v
 
       - name: Verify GitHub enforcement boundary
         env:

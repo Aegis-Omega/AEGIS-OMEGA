@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0.0",
+  "domains": [
+    "software_engineering", "mathematics", "physics", "biology",
+    "genomics", "chemistry", "pharmacology", "data_science",
+    "cybersecurity", "distributed_systems", "databases", "cloud_infrastructure",
+    "ai_ml", "formal_verification", "product_engineering", "operations"
+  ],
+  "capabilities": [
+    "discover", "retrieve", "normalize", "validate",
+    "analyze", "model", "simulate", "compare",
+    "falsify", "optimize", "plan", "implement",
+    "test", "verify", "document", "monitor"
+  ],
+  "modalities": [
+    "text", "code", "table", "graph",
+    "time_series", "sequence", "image", "api"
+  ],
+  "promotion_policy": {
+    "minimum_validated_runs": 3,
+    "minimum_evidence_refs": 1,
+    "candidate_authority_effect": "NONE"
+  }
+}
