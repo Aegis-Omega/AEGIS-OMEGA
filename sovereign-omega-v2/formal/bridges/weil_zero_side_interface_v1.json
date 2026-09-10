@@ -1,0 +1,43 @@
+{
+  "schema_version": "AEGIS_WEIL_ZERO_SIDE_INTERFACE_V1",
+  "namespace": "mathematics.rh.weil_zero_side",
+  "evidence_class": "FORMAL_INTERFACE",
+  "parent_criterion_domain": {
+    "aegis_revision": "db428f818c63efcbe16db3e6cca7bd00c5371ead",
+    "criterion_receipt_sha256": "978c106ba945d4582594d3ab423e598fc1c062e9152fc90197734d5270f71bd5",
+    "criterion_artifact_sha256": "703623d5bae1e88190f3ad705709d638b66d8bd7654ac4b86a4ad802808e1bf4",
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "mathlib_target": {
+    "path": "Mathlib/NumberTheory/LSeries/RiemannZeta.lean",
+    "objects": [
+      "riemannZeta",
+      "RiemannHypothesis"
+    ]
+  },
+  "formal_source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/WeilZeroSideInterfaceV1.lean",
+    "sha256": "f90cdd44d6e11b81ddc15f3b1769310eb29047e2649caf5a2eb75621a51e95af"
+  },
+  "scope": {
+    "nontrivial_zero_domain": "ENCODED",
+    "mellin_point_evaluation": "ENCODED",
+    "rh_to_single_zero_critical_line": "PROVED_CONDITIONALLY_ON_RH",
+    "zero_multiplicity_enumeration": "OPEN",
+    "zero_side_global_sum": "OPEN",
+    "zero_side_convergence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "decision": "HOLD_RESEARCH_ONLY",
+    "rh_proved": false,
+    "rh_disproved": false,
+    "claim_promotion": "BLOCKED",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}
