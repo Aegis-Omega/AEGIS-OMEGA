@@ -49,7 +49,7 @@ private def height_attach_to_nontrivial_index_v1 (T : ℝ) :
       have hsSet : s.1 ∈ NontrivialZeroHeightSetV1 T :=
         parent_height_finset_mem_iff_v1.mp s.2
       exact ⟨hsSet.1, hsSet.2.1⟩⟩
-  injective' := by
+  inj' := by
     intro a b hab
     apply Subtype.ext
     exact congrArg Subtype.val hab
@@ -118,10 +118,13 @@ theorem nontrivial_zero_height_index_sum_eq_truncated_v1
   classical
   rw [NontrivialZeroHeightIndexFinsetV1, Finset.sum_map]
   unfold WeilZeroHeightTruncatedSumV1
-  rw [← Finset.sum_attach]
-  apply Finset.sum_congr rfl
-  intro x hx
-  rfl
+  change
+    (∑ x ∈ (NontrivialZeroHeightFinsetV1 T).attach,
+      (analyticOrderNatAt riemannZeta x.1 : ℂ) * mellin f x.1) =
+    ∑ s ∈ NontrivialZeroHeightFinsetV1 T,
+      (analyticOrderNatAt riemannZeta s : ℂ) * mellin f s
+  exact Finset.sum_attach (NontrivialZeroHeightFinsetV1 T)
+    (fun s : ℂ => (analyticOrderNatAt riemannZeta s : ℂ) * mellin f s)
 
 /-- A genuine unconditional `HasSum` proof for the multiplicity-weighted
 nontrivial-zero summand is sufficient to produce the verified symmetric-height
