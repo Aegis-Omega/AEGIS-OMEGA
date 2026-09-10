@@ -1,0 +1,174 @@
+{
+  "schema": "AEGIS_CANONICAL_CLAIM_V2",
+  "canonical_claim_id": "c2c0a2b92064bb05c3e28035fefb0f26cdb1d117dbc4f672fde4d0831e899587",
+  "legacy_claim_id": "AEGIS-QSIM-CP-CG-SECULAR-001",
+  "namespace": "quantum_simulation.two_qubit.cp_coarse_grained_secularization",
+  "statement": "For the declared two-qubit Hamiltonian H = J Z0 Z1 + h (X0 + X1), system-bath coupling S = Z0 + 0.73 Z1, positive phenomenological rate profile Gamma(omega)=0.06 exp(-|omega|/3), and centered-window coarse-grained Kossakowski coefficients C_ww' = sqrt(Gamma(w)Gamma(w')) sinc((w-w') tau_c / 2), every tested finite-tau C matrix is positive semidefinite within numerical tolerance and the resulting channels pass trace-preservation and Choi-positive-semidefinite numerical checks. In the near-degenerate model, finite-tau cross-frequency terms produce a nonzero dynamical difference relative to the full-secular comparison generator, while at the declared very-large delta_omega*tau_c endpoint the coarse-grained generator approaches the full-secular generator within the declared tolerance.",
+  "evidence_class": "E_simulation",
+  "source_digest": "sha256:c6483c1f41684404789d7c68edde10d2300e761e83c2dd05de5b200e9d644478",
+  "source_coordinate": "artifact:cp_coarse_grained_secularization_benchmark.py@sha256:88347a27ae5b6a8b0d58fe270139818c191472a929205e9769117b46451302a7#bohr_components+c_matrix+dissipator+superoperator+channel_metrics",
+  "revision": "1",
+  "dependencies": [
+    "script_digest_bound",
+    "execution_receipt_digest_bound",
+    "bohr_frequency_decomposition_executed",
+    "finite_tau_kossakowski_psd_checked",
+    "cg_density_trace_hermiticity_psd_checked",
+    "cg_channel_tp_choi_psd_checked",
+    "near_degenerate_cross_terms_retained",
+    "near_degenerate_dynamical_sensitivity_observed",
+    "large_tau_cross_terms_suppressed",
+    "large_tau_generator_approaches_full_secular",
+    "redfield_not_used_as_truth_reference",
+    "davies_label_not_granted_without_microscopic_kms_binding",
+    "scope_boundary_declared"
+  ],
+  "promotion_requested": true,
+  "status": "Verified",
+  "verification_result": "PASS",
+  "exact_head_or_commit": "",
+  "required_gates": [
+    "script_digest_bound",
+    "execution_receipt_digest_bound",
+    "bohr_frequency_decomposition_executed",
+    "finite_tau_kossakowski_psd_checked",
+    "cg_density_trace_hermiticity_psd_checked",
+    "cg_channel_tp_choi_psd_checked",
+    "near_degenerate_cross_terms_retained",
+    "near_degenerate_dynamical_sensitivity_observed",
+    "large_tau_cross_terms_suppressed",
+    "large_tau_generator_approaches_full_secular",
+    "redfield_not_used_as_truth_reference",
+    "davies_label_not_granted_without_microscopic_kms_binding",
+    "scope_boundary_declared"
+  ],
+  "satisfied_gates": [
+    "script_digest_bound",
+    "execution_receipt_digest_bound",
+    "bohr_frequency_decomposition_executed",
+    "finite_tau_kossakowski_psd_checked",
+    "cg_density_trace_hermiticity_psd_checked",
+    "cg_channel_tp_choi_psd_checked",
+    "near_degenerate_cross_terms_retained",
+    "near_degenerate_dynamical_sensitivity_observed",
+    "large_tau_cross_terms_suppressed",
+    "large_tau_generator_approaches_full_secular",
+    "redfield_not_used_as_truth_reference",
+    "davies_label_not_granted_without_microscopic_kms_binding",
+    "scope_boundary_declared"
+  ],
+  "scope": {
+    "establishes": [
+      "For the declared operator/rate model and tested parameter/tau grid, every finite-time coarse-grained Kossakowski matrix is positive semidefinite within numerical tolerance.",
+      "The resulting coarse-grained channels satisfy numerical trace-preservation and Choi-positive-semidefinite checks within tolerance.",
+      "Near-degenerate Bohr-frequency cross terms can create measurable finite-tau dynamics relative to the full-secular model on the tested grid.",
+      "At the declared very large delta_omega*tau_c endpoint, the coarse-grained generator approaches the full-secular generator within the declared tolerance."
+    ],
+    "does_not_establish": [
+      "That the phenomenological Gamma(omega) profile is the spectral density of any physical bath.",
+      "That this simplified C_ww' formula is a complete microscopic derivation for an arbitrary reservoir.",
+      "That finite-time coarse graining is universally more accurate than full secularization.",
+      "A Redfield solution or Redfield truth reference.",
+      "Physical hardware, biological, gravity, or clinical validity.",
+      "Correctness outside the tested system/operator/rate/tau grid."
+    ]
+  },
+  "source_binding_manifest": {
+    "schema": "AEGIS_SIMULATION_SOURCE_BINDING_MANIFEST_V1",
+    "script": {
+      "file": "cp_coarse_grained_secularization_benchmark.py",
+      "sha256": "88347a27ae5b6a8b0d58fe270139818c191472a929205e9769117b46451302a7"
+    },
+    "execution_receipt": {
+      "file": "cp_coarse_grained_secularization_receipt.json",
+      "sha256": "53e4cf5017e54f73ce4579a97ce352ebcc7536dead062361e6c58ad2f4f26c0c",
+      "schema": "AEGIS_CP_COARSE_GRAINED_SECULARIZATION_STRESS_TEST_V1",
+      "decision": "PASS",
+      "maxima": {
+        "kossakowski_min_eigenvalue": 1.9355129592080552e-09,
+        "cg_density_min_eigenvalue": -4.599542813904008e-16,
+        "cg_trace_residual": 2.4425055613222034e-15,
+        "cg_hermiticity_residual": 1.7249191214028913e-14,
+        "cg_channel_trace_preservation_residual": 2.710613835076685e-15,
+        "cg_channel_choi_min_eigenvalue": 2.4978517939895354e-06,
+        "large_tau_max_normalized_cross_coefficient": 3.056143888882521e-05,
+        "large_tau_max_relative_generator_distance_to_full_secular": 1.3763790867865705e-06,
+        "short_tau_max_state_trace_distance_cg_vs_secular": 0.3246924210863086,
+        "short_tau_max_observable_difference_cg_vs_secular": 0.647270937542664
+      },
+      "sensitivity": {
+        "near_degenerate_delta_omega": 0.025438224187544822,
+        "near_degenerate_short_tau_cross_coefficient": 0.9973978670818215,
+        "near_degenerate_short_tau_trace_distance": 0.3246924210863086,
+        "near_degenerate_large_tau_cross_coefficient": 3.056143888882521e-05,
+        "near_degenerate_large_tau_trace_distance": 5.580096142034489e-06
+      }
+    },
+    "model": {
+      "hamiltonian": "H = J Z0 Z1 + h (X0 + X1)",
+      "system_bath_coupling": "S = Z0 + 0.73 Z1",
+      "kossakowski": {
+        "formula": "C_ww' = sqrt(Gamma(w) Gamma(w')) sinc((w-w') tau_c / 2)",
+        "sinc_convention": "sinc(x)=sin(x)/x; centered finite-time window",
+        "Gamma": "0.06 exp(-|omega|/3), positive phenomenological profile",
+        "cp_reason": "The sinc frequency kernel is a centered-window Gram kernel; numerical PSD is independently checked for every constructed C matrix."
+      },
+      "full_secular_reference": "C_ww' = Gamma(w) delta_ww'"
+    },
+    "parameter_models": [
+      {
+        "label": "near_degenerate",
+        "J": 1.0,
+        "h": 0.08
+      },
+      {
+        "label": "intermediate",
+        "J": 1.0,
+        "h": 0.2
+      },
+      {
+        "label": "well_separated",
+        "J": 0.7,
+        "h": 0.4
+      }
+    ],
+    "tau_scaling": "tau_c = factor / delta_omega, where delta_omega is the minimum separation among active Bohr frequencies",
+    "tau_factors": [
+      0.25,
+      1.0,
+      4.0,
+      20.0,
+      20000.0
+    ],
+    "evaluation_times": [
+      0.0,
+      0.5,
+      2.0,
+      6.0
+    ],
+    "interpretation_boundary": {
+      "redfield_reference_used": false,
+      "coarse_grained_model_role": "CP stress-test model for secularization sensitivity",
+      "full_secular_role": "large-frequency-separation / large-coarse-graining comparison model",
+      "microscopic_bath_fidelity": "NOT_ESTABLISHED",
+      "davies_label": "NOT_GRANTED: the full-secular comparison generator is not called a Davies generator because this benchmark does not bind Gamma(omega) to a microscopic weak-coupling/KMS bath derivation."
+    },
+    "scope_boundary": {
+      "establishes": [
+        "For the declared operator/rate model and tested parameter/tau grid, every finite-time coarse-grained Kossakowski matrix is positive semidefinite within numerical tolerance.",
+        "The resulting coarse-grained channels satisfy numerical trace-preservation and Choi-positive-semidefinite checks within tolerance.",
+        "Near-degenerate Bohr-frequency cross terms can create measurable finite-tau dynamics relative to the full-secular model on the tested grid.",
+        "At the declared very large delta_omega*tau_c endpoint, the coarse-grained generator approaches the full-secular generator within the declared tolerance."
+      ],
+      "does_not_establish": [
+        "That the phenomenological Gamma(omega) profile is the spectral density of any physical bath.",
+        "That this simplified C_ww' formula is a complete microscopic derivation for an arbitrary reservoir.",
+        "That finite-time coarse graining is universally more accurate than full secularization.",
+        "A Redfield solution or Redfield truth reference.",
+        "Physical hardware, biological, gravity, or clinical validity.",
+        "Correctness outside the tested system/operator/rate/tau grid."
+      ]
+    }
+  },
+  "authority_effect": "WITHIN_DECLARED_SCOPE_ONLY"
+}
