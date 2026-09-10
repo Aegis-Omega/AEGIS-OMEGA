@@ -9,6 +9,7 @@ class ZeroRadialTruncationV1Tests(unittest.TestCase):
     def test_required_finite_truncation_objects_exist(self):
         text = SOURCE.read_text(encoding="utf-8")
         for required in (
+            "open scoped BigOperators",
             "def RiemannRadialZeroSetV1",
             "theorem riemann_radial_zero_set_finite_v1",
             "def RiemannRadialZeroFinsetV1",
