@@ -1,0 +1,67 @@
+{
+  "schema_version": "AEGIS_ZERO_TRIVIAL_CLASSIFICATION_V1",
+  "namespace": "mathematics.rh.zero_localization.trivial_classification",
+  "evidence_class": "FORMAL_TRIVIAL_ZERO_CLASSIFICATION_CANDIDATE",
+  "parent_nonpositive_integer_reduction": {
+    "aegis_revision": "0f7aaa340df3fa086ae1ef32cd960f5083c25fc4",
+    "nonpositive_integer_receipt_sha256": "bb9159054d57c600812a3402eaa73e6038ea9b2f5e0ca0d1d8ccea48b28ef96e",
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/NumberTheory/LSeries/HurwitzZetaValues.lean",
+      "git_blob_sha": "4bdfedf2cf474a721e0687852a5782f304781eb7",
+      "bound_declarations": [
+        "riemannZeta_two_mul_nat",
+        "riemannZeta_neg_nat_eq_bernoulli"
+      ]
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/Nonvanishing.lean",
+      "git_blob_sha": "610bd56365d49c5ffa9ebeb29e0a383c768248e2",
+      "bound_declarations": [
+        "riemannZeta_ne_zero_of_one_le_re"
+      ]
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/RiemannZeta.lean",
+      "git_blob_sha": "3c92195fce20df7fda41cfd823b3266f83cf3070",
+      "bound_declarations": [
+        "riemannZeta_zero",
+        "riemannZeta_neg_two_mul_nat_add_one"
+      ]
+    }
+  ],
+  "formal_source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/ZeroTrivialClassificationV1.lean",
+    "sha256": "7d949d0be92d582e49f39eebd3a60b6dbf91e4172fea99ef3cafa5b0019ac33e",
+    "declarations": [
+      "bernoulli_two_mul_ne_zero_v1",
+      "riemann_zeta_neg_odd_ne_zero_v1",
+      "riemann_zeta_neg_nat_zero_iff_trivial_v1"
+    ]
+  },
+  "scope": {
+    "positive_even_bernoulli_nonzero": "CANDIDATE",
+    "negative_odd_integer_zeta_nonzero": "CANDIDATE",
+    "negative_integer_trivial_zero_classification": "CANDIDATE",
+    "nonpositive_zero_is_trivial": "OPEN",
+    "lower_zero_localization": "OPEN",
+    "full_critical_strip_localization": "OPEN",
+    "height_truncation_equivalence": "OPEN",
+    "radial_limit_existence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "decision": "HOLD_RESEARCH_ONLY",
+    "rh_proved": false,
+    "rh_disproved": false,
+    "claim_promotion": "BLOCKED",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}
