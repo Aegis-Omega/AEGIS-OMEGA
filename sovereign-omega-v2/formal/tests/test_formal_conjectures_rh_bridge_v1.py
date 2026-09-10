@@ -25,6 +25,19 @@ class RHBridgeGateTests(unittest.TestCase):
         self.assertEqual(receipt["merge"], "NOT_PERFORMED")
         self.assertEqual(receipt["authority_effect"], "NONE")
 
+    def test_semantic_obstruction_is_bound_without_promoting_rh(self):
+        receipt = mod.evaluate(self.manifest)
+        self.assertEqual(
+            receipt["semantic_obstruction"],
+            "ABSTRACT_QW_REQUIRES_CONCRETE_WEIL_IDENTIFICATION",
+        )
+        self.assertIn(
+            "ABSTRACT_QW_TRIVIAL_POSITIVE_MODEL_PROOF_SOURCE_PINNED",
+            receipt["reason_codes"],
+        )
+        self.assertIn("aegis_weil_semantics_mapped_to_mathlib", receipt["open_gates"])
+        self.assertFalse(receipt["rh_proved"])
+
     def test_promotion_request_with_open_gates_is_denied(self):
         candidate = copy.deepcopy(self.manifest)
         candidate["bridge"]["promotion_requested"] = True
@@ -35,6 +48,18 @@ class RHBridgeGateTests(unittest.TestCase):
     def test_source_statement_tamper_is_schema_failure(self):
         candidate = copy.deepcopy(self.manifest)
         candidate["external_source"]["source_statement"] += "-- tampered"
+        with self.assertRaises(mod.ManifestError):
+            mod.evaluate(candidate)
+
+    def test_semantic_obstruction_digest_tamper_is_schema_failure(self):
+        candidate = copy.deepcopy(self.manifest)
+        candidate["semantic_obstruction"]["source_sha256"] = "0" * 64
+        with self.assertRaises(mod.ManifestError):
+            mod.evaluate(candidate)
+
+    def test_semantic_obstruction_scope_cannot_claim_rh(self):
+        candidate = copy.deepcopy(self.manifest)
+        candidate["semantic_obstruction"]["claim_scope"] = "RIEMANN_HYPOTHESIS_PROVED"
         with self.assertRaises(mod.ManifestError):
             mod.evaluate(candidate)
 
