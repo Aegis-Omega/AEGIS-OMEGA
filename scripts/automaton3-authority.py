@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from harness.sdk.sovereign_execution import (  # noqa: E402
+from harness.sdk.provider_neutral_execution import (  # noqa: E402
     ADMITTED,
     ApprovalGrant,
     AuthorityEvaluator,
