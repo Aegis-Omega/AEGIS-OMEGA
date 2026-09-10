@@ -58,7 +58,10 @@ theorem bombieri_mellin_convergent_v1 (f : BombieriTestFunctionV1) (s : ℂ) :
       (continuousAt_ofReal_cpow_const _ _ (Or.inr <| ne_of_gt ht)).continuousWithinAt.mul
         (bombieri_test_contDiff_v1 f).continuous.continuousAt.continuousWithinAt
   have hg_tsupport : tsupport g ⊆ Set.Ioi 0 := by
-    exact (tsupport_mul_subset_right _ _).trans (bombieri_test_tsupport_positive_v1 f)
+    exact
+      (tsupport_mul_subset_right
+        (f := fun t : ℝ => (t : ℂ) ^ (s - 1)) (g := f.1)).trans
+        (bombieri_test_tsupport_positive_v1 f)
   have hg_cont : Continuous g :=
     hg_cont_on.continuous_of_tsupport_subset isOpen_Ioi hg_tsupport
   have hg_compact : HasCompactSupport g := by
