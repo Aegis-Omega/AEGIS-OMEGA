@@ -1,0 +1,63 @@
+{
+  "schema_version": "AEGIS_ZERO_CRITICAL_STRIP_V1",
+  "namespace": "mathematics.rh.zero_localization.critical_strip",
+  "evidence_class": "FORMAL_CRITICAL_STRIP_LOCALIZATION_CANDIDATE",
+  "verified_parent_evidence": {
+    "lower_localization": {
+      "aegis_revision": "4032b37cd7865b9dc545ff7797cb54290a7611b2",
+      "receipt_sha256": "33e3e7bc12499798dfc94c177ff8b41cb2a63993d80b8f18419d0e5544406669",
+      "artifact_sha256": "510c575849a99ffe499e0e03332e5fede67d55357188b7241caede8108b9fc1f"
+    },
+    "upper_localization": {
+      "aegis_revision": "7364684165501a271ecf5a0fdbc4158b13e6f557",
+      "receipt_sha256": "48648fae3fa78759acabf8473c08d618d99ff62a9239d23722dd72244a29daf7",
+      "artifact_sha256": "bcbcc1ff968e43e048eac31dc35bd0f4a2c831750ec014819de8af8a02c67ab0"
+    }
+  },
+  "external_environment": {
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "formal_conjectures_rh_path": "FormalConjectures/Millenium/RiemannHypothesis.lean",
+    "formal_conjectures_rh_blob_sha": "c8d38bef385eb15661c3daf7449625b66b019b2a",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/NumberTheory/LSeries/HurwitzZetaValues.lean",
+      "git_blob_sha": "4bdfedf2cf474a721e0687852a5782f304781eb7"
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/Nonvanishing.lean",
+      "git_blob_sha": "610bd56365d49c5ffa9ebeb29e0a383c768248e2"
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/RiemannZeta.lean",
+      "git_blob_sha": "3c92195fce20df7fda41cfd823b3266f83cf3070"
+    }
+  ],
+  "formal_source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/ZeroCriticalStripV1.lean",
+    "git_blob_sha": "8dd25b1e5bf55d902fe5b57e8572e8e564d4c983",
+    "declaration": "riemann_zeta_nontrivial_zero_critical_strip_v1"
+  },
+  "scope": {
+    "lower_zero_localization_parent": "VERIFIED",
+    "upper_zero_localization_parent": "VERIFIED",
+    "full_critical_strip_localization": "CANDIDATE",
+    "critical_line_re_half": "OPEN",
+    "height_truncation_equivalence": "OPEN",
+    "radial_limit_existence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "weil_criterion_bridge": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "decision": "HOLD_RESEARCH_ONLY",
+    "rh_proved": false,
+    "rh_disproved": false,
+    "claim_promotion": "BLOCKED",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}
