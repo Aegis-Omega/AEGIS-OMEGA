@@ -46,10 +46,10 @@ jobs:
           mkdir -p "$ROOT/artifacts"
           docker pull coqorg/coq:8.20.1
           docker run --rm \
-            --user="$(id -u):$(id -g)" \
-            -v "$ROOT:/work" -w /work \
+            -v "$ROOT:/work:ro" \
             coqorg/coq:8.20.1 \
-            bash -lc 'set -euo pipefail; coqc CStarGroupCohomology.v 2>&1 | tee artifacts/CStarGroupCohomology.log; coqc CStarZ2Postnikov.v 2>&1 | tee artifacts/CStarZ2Postnikov.log; coqc --version | tee artifacts/coq_version.txt'
+            bash -lc 'set -euo pipefail; mkdir -p /tmp/cstar-v04; cp /work/CStarGroupCohomology.v /work/CStarZ2Postnikov.v /tmp/cstar-v04/; cd /tmp/cstar-v04; coqc CStarGroupCohomology.v; coqc CStarZ2Postnikov.v; coqc --version' \
+            2>&1 | tee "$ROOT/artifacts/coq_compile.log"
 
       - name: Emit bounded independent verification receipt
         shell: bash
