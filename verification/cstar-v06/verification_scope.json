@@ -1,5 +1,5 @@
 {
-  "schema": "AEGIS_CSTAR_V0_6_VERIFIER_SCOPE_V3",
+  "schema": "AEGIS_CSTAR_V0_6_VERIFIER_SCOPE_V4",
   "mode": "PREBINDING_COMPILE_ONLY",
   "source_repo": "Aegis-Omega/AegisOmega",
   "source_pr": 10,
@@ -9,7 +9,7 @@
   "coefficient_scope": "arbitrary MathComp zmodType (additive abelian group); no coefficient multiplication or ring unit assumed",
   "action_scope": "G -> {additive A -> A} with identity and composition laws",
   "source_sha256": {
-    "verification/cstar-v06/CStarZmodGroupCohomology.v": "95d11eae27d5dc10c8bd87f7cd0f10ed6a7f8c9eebf6a17d0c3f8a1e44a61efd"
+    "verification/cstar-v06/CStarZmodGroupCohomology.v": "3bf0056e34012b71b9872024ad07d0f4e0d774c14f1610222a5e7f9ace845016"
   },
   "required_theorems": [
     "delta3_delta2_zero_zmod_action",
@@ -17,7 +17,7 @@
     "gauge_preserves_three_cocycle_zmod_action",
     "pentagon_iff_three_cocycle_zmod_action"
   ],
-  "aac_role": "proof automation for associative/commutative reordering only; no coefficient algebraic axiom beyond zmodType",
+  "aac_role": "proof automation for associative/commutative/unit reordering only; the registered unit is the existing zmodType additive identity and adds no coefficient algebraic axiom",
   "historical_trace_phase_proxy": "NOT_IDENTIFIED_WITH_POSTNIKOV_INVARIANT",
   "normalized_vs_full_complex_equivalence": "NOT_ESTABLISHED",
   "infinity_cstar_sheaf_equivalence": "NOT_ESTABLISHED",
