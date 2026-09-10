@@ -1,0 +1,15 @@
+{
+  "authority_effect": "NONE",
+  "source_repo": "Aegis-Omega/AegisOmega",
+  "source_pr": 10,
+  "source_candidate_head": "f63481928723fe1a0cc824ade2a1eb8b9a3b1dc0",
+  "coq_version": "8.20.1",
+  "source_sha256": {
+    "verification/cstar-v04/CStarGroupCohomology.v": "e731d3c8bc642aff1001d21cda00dae2edac93de6ebce5aed9c27bdcd64149f2",
+    "verification/cstar-v04/CStarZ2Postnikov.v": "8e2e038189f9041538a93098798495466c1e9e018cd39e6635dff6a05a4e8cc3"
+  },
+  "claim_scope": "independent hosted compilation of CSTAR v0.4 bounded group-cohomology theorem candidates only",
+  "historical_trace_phase_proxy": "NOT_IDENTIFIED_WITH_POSTNIKOV_INVARIANT",
+  "physical_quantum_claim": "NOT_ESTABLISHED",
+  "authority_effect": "NONE"
+}

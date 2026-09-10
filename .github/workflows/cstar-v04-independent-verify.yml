@@ -1,0 +1,94 @@
+name: CSTAR v0.4 Independent Coq Verification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'verification/cstar-v04/**'
+      - '.github/workflows/cstar-v04-independent-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-cstar-v04:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify source binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root=Path('verification/cstar-v04')
+          scope=json.loads((root/'verification_scope.json').read_text())
+          for rel, expected in scope['source_sha256'].items():
+              p=Path(rel)
+              actual=hashlib.sha256(p.read_bytes()).hexdigest()
+              if actual != expected:
+                  raise SystemExit(f'FAIL_SOURCE_HASH {rel} expected={expected} actual={actual}')
+          if scope['source_candidate_head'] != 'f63481928723fe1a0cc824ade2a1eb8b9a3b1dc0':
+              raise SystemExit('FAIL_SOURCE_HEAD_BINDING')
+          if scope['authority_effect'] != 'NONE':
+              raise SystemExit('FAIL_AUTHORITY_EFFECT')
+          print('CSTAR_V04_SOURCE_BINDING_PASS')
+          PY
+
+      - name: Compile exact Coq 8.20.1 theorem sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$PWD/verification/cstar-v04"
+          mkdir -p "$ROOT/artifacts"
+          docker pull coqorg/coq:8.20.1
+          docker run --rm \
+            -v "$ROOT:/work" -w /work \
+            coqorg/coq:8.20.1 \
+            bash -lc 'set -euo pipefail; coqc CStarGroupCohomology.v 2>&1 | tee artifacts/CStarGroupCohomology.log; coqc CStarZ2Postnikov.v 2>&1 | tee artifacts/CStarZ2Postnikov.log; coqc --version | tee artifacts/coq_version.txt'
+
+      - name: Emit bounded independent verification receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root=Path('verification/cstar-v04')
+          scope=json.loads((root/'verification_scope.json').read_text())
+          receipt={
+            'schema':'AEGIS_CSTAR_V0_4_INDEPENDENT_COQ_RECEIPT_V1',
+            'verifier_repository':'Aegis-Omega/AEGIS-OMEGA',
+            'verifier_head_sha':os.environ['GITHUB_SHA'],
+            'source_repository':scope['source_repo'],
+            'source_pr':scope['source_pr'],
+            'source_candidate_head':scope['source_candidate_head'],
+            'coq_version_requested':'8.20.1',
+            'formal_source_sha256':scope['source_sha256'],
+            'compiled_files':['verification/cstar-v04/CStarGroupCohomology.v','verification/cstar-v04/CStarZ2Postnikov.v'],
+            'decision':'FORMAL_GROUP_COHOMOLOGY_CORE_VERIFIED_IN_INDEPENDENT_HOSTED_LANE',
+            'historical_trace_phase_proxy':'NOT_IDENTIFIED_WITH_POSTNIKOV_INVARIANT',
+            'infinity_cstar_sheaf_equivalence':'NOT_ESTABLISHED',
+            'physical_quantum_claim':'NOT_ESTABLISHED',
+            'claim_promotion':'BOUNDED_TO_DECLARED_FORMAL_THEOREMS_ONLY',
+            'merge_authority':'NONE',
+            'authority_effect':'NONE'
+          }
+          out=root/'artifacts'/'formal_verification_receipt.json'
+          out.write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
+          digest=hashlib.sha256(out.read_bytes()).hexdigest()
+          (root/'artifacts'/'formal_verification_receipt.json.sha256').write_text(digest+'  formal_verification_receipt.json\n')
+          print(json.dumps(receipt,indent=2,sort_keys=True))
+          print('receipt_sha256='+digest)
+          PY
+
+      - name: Upload formal verification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cstar-v04-independent-coq-${{ github.event.pull_request.head.sha }}
+          path: verification/cstar-v04/artifacts/
+          if-no-files-found: error
+          retention-days: 14
