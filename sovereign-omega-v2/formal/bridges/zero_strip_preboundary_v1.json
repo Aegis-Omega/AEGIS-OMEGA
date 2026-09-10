@@ -1,0 +1,50 @@
+{
+  "schema_version": "AEGIS_ZERO_STRIP_PREBOUNDARY_V1",
+  "namespace": "mathematics.rh.zero_localization",
+  "evidence_class": "FORMAL_LOCALIZATION_CANDIDATE",
+  "parent_finite_truncation": {
+    "aegis_revision": "7f37b1bc1489623522368c9de93c28a563cc869f",
+    "finite_truncation_receipt_sha256": "b11d7c22417c325235c8a82831b6c6883311d73afd723ab94e9da8f3d8a3c7a6",
+    "finite_truncation_artifact_sha256": "7f4e68762258a208f3136a43e5896017d5428152766958326580ea8f3c2c0819",
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/NumberTheory/LSeries/RiemannZeta.lean",
+      "revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+      "git_blob_sha": "3c92195fce20df7fda41cfd823b3266f83cf3070",
+      "objects": ["riemannZeta_one_sub"]
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/Nonvanishing.lean",
+      "revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+      "git_blob_sha": "610bd56365d49c5ffa9ebeb29e0a383c768248e2",
+      "objects": ["riemannZeta_ne_zero_of_one_le_re"]
+    }
+  ],
+  "formal_source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/ZeroStripPreboundaryV1.lean",
+    "sha256": "68928e5d6925ac9c24a6a87b32f8850bd5992552a3397f2e0e3869d942224a7e"
+  },
+  "scope": {
+    "zero_re_lt_one": "CANDIDATE",
+    "left_halfplane_excluded_away_negative_integers": "CANDIDATE",
+    "zero_re_positive_away_negative_integers": "CANDIDATE",
+    "negative_integer_zero_classification": "OPEN",
+    "full_nontrivial_zero_critical_strip": "OPEN",
+    "height_truncation_equivalence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "decision": "HOLD_RESEARCH_ONLY",
+    "rh_proved": false,
+    "rh_disproved": false,
+    "claim_promotion": "BLOCKED",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}
