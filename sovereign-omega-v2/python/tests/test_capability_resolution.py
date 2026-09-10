@@ -69,6 +69,17 @@ class ProviderNeutralCapabilityResolutionTests(unittest.TestCase):
         self.assertIn("MISSING_RESOLUTION_TERM_DENIES", invariants)
         self.assertEqual(self.registry["authority_effect"], "NONE")
 
+    def test_salvaged_lineage_invariants_remain_provider_neutral(self) -> None:
+        invariants = set(self.registry["invariants"])
+        for invariant in (
+            "PR_TITLE_DOES_NOT_DEFINE_CAPABILITY",
+            "CONFIGURED_ALLOWLIST_DOES_NOT_IMPLY_EXECUTION_CALLABILITY",
+            "EXECUTION_CALLABILITY_DOES_NOT_IMPLY_AUTHENTICATING_PRINCIPAL_PERMISSION",
+            "AUTHORITY_GUARDS_CAN_NARROW_AN_OTHERWISE_ALLOWED_TOOL",
+            "CAPABILITY_CLAIMS_REQUIRE_EXACT_SOURCE_LINEAGE_AND_LIVE_PRINCIPAL_EVIDENCE",
+        ):
+            self.assertIn(invariant, invariants)
+
 
 if __name__ == "__main__":
     unittest.main()
