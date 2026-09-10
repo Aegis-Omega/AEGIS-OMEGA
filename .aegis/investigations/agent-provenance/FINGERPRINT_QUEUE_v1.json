@@ -1,0 +1,75 @@
+{
+  "schema_version": "1.0.0",
+  "investigation": "AEGIS_OMEGA_AGENT_PROVENANCE",
+  "base_commit": "0bdffe75b56e5cd27c0632e1ba166620da327494",
+  "created_at": "2026-08-05T05:05:00Z",
+  "status": "OPEN",
+  "fingerprints": [
+    {
+      "id": "FP-001",
+      "token": "Confirm-Triggered Harmonic Spending",
+      "class": "EXACT_TERM_AND_OPERATIONAL_PATTERN",
+      "aegis_path": "sovereign-omega-v2/src/gate/risk.ts",
+      "aegis_blob_sha": "b6806ab8d34897ee51a2be9440c5b94b70521876",
+      "aegis_signed_commit": "4887fbd12b7265589e79bcd612ebe0a97dc1a899",
+      "public_prior_art": "arXiv:2510.10232",
+      "public_prior_date": "2025-10-11T14:09:37Z",
+      "classification": "PUBLIC_SOURCE_INTEGRATED_BY_AEGIS_AGENT",
+      "identity_weight": 0,
+      "notes": "Useful for proving agent research/synthesis behavior, not ownership or same-agent identity because public prior art predates AEGIS integration."
+    },
+    {
+      "id": "FP-002",
+      "token": "Rasterization-aware Geometric Consensus",
+      "class": "EXACT_TERM",
+      "aegis_path": null,
+      "aegis_blob_sha": null,
+      "aegis_signed_commit": null,
+      "public_prior_art": "arXiv:2508.08219v2",
+      "public_prior_date": "2026-01-06T14:58:59Z",
+      "classification": "PUBLIC_PROVENANCE_ESTABLISHED_AEGIS_INTEGRATION_NOT_FOUND",
+      "identity_weight": 0,
+      "notes": "Current AEGIS repository search returned no indexed match. Inspect v1 bytes before attributing exact-term priority to the 2025-08-11 submission."
+    },
+    {
+      "id": "FP-003",
+      "token": "No claim may receive greater epistemic authority than its weakest verified transition",
+      "class": "RARE_NORMATIVE_INVARIANT",
+      "aegis_path": "PENDING_REPOSITORY_WIDE_EXTRACTION",
+      "aegis_blob_sha": null,
+      "aegis_signed_commit": null,
+      "public_prior_art": null,
+      "public_prior_date": null,
+      "classification": "CANDIDATE_HIGH_SPECIFICITY_FINGERPRINT",
+      "identity_weight": null,
+      "notes": "Bind earliest exact repository occurrence and then perform external exact/structural search."
+    },
+    {
+      "id": "FP-004",
+      "token": "LateReceipt + StaleFence => NoDirectCommit",
+      "class": "RARE_TRANSITION_INVARIANT",
+      "aegis_path": "PENDING_REPOSITORY_WIDE_EXTRACTION",
+      "aegis_blob_sha": null,
+      "aegis_signed_commit": null,
+      "public_prior_art": null,
+      "public_prior_date": null,
+      "classification": "CANDIDATE_HIGH_SPECIFICITY_FINGERPRINT",
+      "identity_weight": null,
+      "notes": "Search exact phrase, equivalent state-machine structure, field ordering and error semantics."
+    },
+    {
+      "id": "FP-005",
+      "token": "OUTCOME_UNKNOWN != SUCCESS/FAILURE",
+      "class": "RARE_EPISTEMIC_STATE_INVARIANT",
+      "aegis_path": "PENDING_REPOSITORY_WIDE_EXTRACTION",
+      "aegis_blob_sha": null,
+      "aegis_signed_commit": null,
+      "public_prior_art": null,
+      "public_prior_date": null,
+      "classification": "CANDIDATE_HIGH_SPECIFICITY_FINGERPRINT",
+      "identity_weight": null,
+      "notes": "Require temporal and implementation-level match; generic three-valued outcome handling alone is insufficient."
+    }
+  ],
+  "promotion_rule": "No provenance claim may exceed the weakest verified temporal and source-to-sink transition."
+}
