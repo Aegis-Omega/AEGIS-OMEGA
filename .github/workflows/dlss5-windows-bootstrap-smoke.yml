@@ -1,0 +1,80 @@
+name: AEGIS DLSS5 Windows Bootstrap Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/mcp-server/native/dlss5-windows-preflight/aegis_dlss5_windows_host_bootstrap.ps1'
+      - 'sovereign-omega-v2/mcp-server/test/dlss5-windows-bootstrap-source.mjs'
+      - '.github/workflows/dlss5-windows-bootstrap-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: aegis / dlss5-windows-bootstrap-smoke
+    runs-on: windows-latest
+    timeout-minutes: 10
+    env:
+      AEGIS_CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Exercise fail-closed bootstrap under Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $script = Join-Path $env:GITHUB_WORKSPACE 'sovereign-omega-v2\mcp-server\native\dlss5-windows-preflight\aegis_dlss5_windows_host_bootstrap.ps1'
+          $receipt = Join-Path $env:RUNNER_TEMP 'aegis-dlss5-windows-bootstrap-smoke.json'
+
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -CandidateSha $env:AEGIS_CANDIDATE_SHA -OutputPath $receipt
+          $probeExit = $LASTEXITCODE
+
+          if (-not (Test-Path -LiteralPath $receipt)) {
+            throw 'Bootstrap failed to emit a bounded receipt'
+          }
+
+          $data = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
+          if ($data.schema -ne 'AEGIS_DLSS5_WINDOWS_HOST_BOOTSTRAP_RECEIPT_V1') {
+            throw "Unexpected receipt schema: $($data.schema)"
+          }
+          if ($data.candidate_sha -ne $env:AEGIS_CANDIDATE_SHA.ToLowerInvariant()) {
+            throw "Candidate binding mismatch: $($data.candidate_sha)"
+          }
+          if ($data.status -ne 'HOST_UNSUPPORTED') {
+            throw "GitHub-hosted smoke runner must remain HOST_UNSUPPORTED, got $($data.status)"
+          }
+          if ($data.reason_code -notin @('NVIDIA_SMI_MISSING', 'NVIDIA_SMI_QUERY_FAILED', 'GEFORCE_RTX50_REQUIRED')) {
+            throw "Unexpected fail-closed reason: $($data.reason_code)"
+          }
+          if ($data.support_query_executed -ne $false) {
+            throw 'support_query_executed must remain false in bootstrap smoke'
+          }
+          if ($data.evaluation_executed -ne $false) {
+            throw 'evaluation_executed must remain false in bootstrap smoke'
+          }
+          if ($data.rendering_claim -ne 'NOT_ESTABLISHED' -or $data.quality_claim -ne 'NOT_ESTABLISHED') {
+            throw 'Rendering/quality claims must remain NOT_ESTABLISHED'
+          }
+          if ($data.claim_promotion -ne 'BLOCKED' -or $data.authority_effect -ne 'NONE') {
+            throw 'Bootstrap smoke must grant no claim promotion or authority'
+          }
+          if ($probeExit -eq 0) {
+            throw 'Non-RTX50 smoke runner unexpectedly returned an eligible exit code'
+          }
+
+          Write-Host "DLSS5_WINDOWS_BOOTSTRAP_SMOKE_PASS status=$($data.status) reason=$($data.reason_code) support_query_executed=false evaluation_executed=false authority=NONE"
+
+      - name: Upload bounded smoke receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: aegis-dlss5-windows-bootstrap-smoke-${{ github.run_id }}
+          path: ${{ runner.temp }}\aegis-dlss5-windows-bootstrap-smoke.json
+          if-no-files-found: error
+          retention-days: 30
