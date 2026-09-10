@@ -3,6 +3,7 @@ import copy
 import unittest
 
 from verifiable.chain import canon, sha256_hex
+from gravity_quantum import ingress_v4
 from gravity_quantum.ingress_v4 import (
     CONTRACT_FIXTURE_BYTES,
     build_calibration_binding,
@@ -19,6 +20,20 @@ def rehash_batch(batch):
     payload = {k: copy.deepcopy(v) for k, v in batch.items() if k != "batch_sha256"}
     batch["batch_sha256"] = sha256_hex(canon(payload))
     return batch
+
+
+def self_consistent_receipt(subject_kind, subject_sha256):
+    receipt = {
+        "schema": ingress_v4.VERIFICATION_RECEIPT_SCHEMA,
+        "verifier_id": "CALLER_AUTHORED_FAKE",
+        "subject_kind": subject_kind,
+        "subject_sha256": subject_sha256,
+        "result": "VERIFIED",
+        "method": "CALLER_ASSERTION_ONLY",
+        "authority_effect": "NONE",
+    }
+    receipt["receipt_sha256"] = sha256_hex(canon(receipt))
+    return receipt
 
 
 class TestPointLevelIngressV4(unittest.TestCase):
@@ -123,6 +138,31 @@ class TestPointLevelIngressV4(unittest.TestCase):
         self.assertEqual(gate["decision"], "BLOCKED")
         self.assertEqual(gate["empirical_fit_release"], "BLOCKED")
         self.assertIn("TRUSTED_VERIFICATION_RECEIPT_MISSING", gate["reason_codes"])
+        self.assertEqual(gate["authority_effect"], "NONE")
+
+    def test_repository_enrolled_receipt_digest_registry_is_immutable_and_empty(self):
+        registry = ingress_v4.TRUSTED_VERIFICATION_RECEIPT_DIGESTS
+        self.assertIsInstance(registry, frozenset)
+        self.assertEqual(registry, frozenset())
+
+    def test_self_consistent_unenrolled_receipts_cannot_unlock_fit(self):
+        fixture = build_contract_fixture()
+        forged = copy.deepcopy(fixture["batch"])
+        forged["source_binding"]["evidence_origin"] = "EXTERNAL_EXPERIMENTAL_SOURCE"
+        rehash_batch(forged)
+        receipts = [
+            self_consistent_receipt(
+                "SOURCE_BYTES", forged["source_binding"]["source_sha256"]
+            ),
+            self_consistent_receipt(
+                "CALIBRATION_CONFIG", forged["calibration_binding"]["config_sha256"]
+            ),
+        ]
+
+        gate = fit_release_gate(forged, CONTRACT_FIXTURE_BYTES, receipts)
+        self.assertEqual(gate["decision"], "BLOCKED")
+        self.assertEqual(gate["empirical_fit_release"], "BLOCKED")
+        self.assertIn("UNTRUSTED_VERIFICATION_RECEIPT", gate["reason_codes"])
         self.assertEqual(gate["authority_effect"], "NONE")
 
 
