@@ -130,6 +130,11 @@ jobs:
       ts_tests: ${{ steps.suite.outputs.ts_tests }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install AegisQ numerical verifier dependencies
+        run: python -m pip install -r ../packages/aegisq-ifg/requirements.txt
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -213,6 +218,11 @@ jobs:
         working-directory: sovereign-omega-v2
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install AegisQ numerical verifier dependencies
+        run: python -m pip install -r ../packages/aegisq-ifg/requirements.txt
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
