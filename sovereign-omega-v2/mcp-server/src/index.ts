@@ -12,6 +12,10 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
+import { DLSS5_REFERENCE, buildDlss5Receipt } from './dlss5.js'
+import { DLSS5_RUNTIME_CONTRACT, verifyDlss5RuntimeProbe } from './dlss5-runtime.js'
+import { DLSS5_ACQUISITION_CONTRACT } from './dlss5-acquisition.js'
+import { DLSS5_EXECUTION_WITNESS_CONTRACT, verifyDlss5ExecutionWitness } from './dlss5-execution-witness.js'
 
 const BRIDGE = (process.env['AEGIS_BRIDGE_URL'] ?? 'http://localhost:7890').replace(/\/$/, '')
 const API_KEY = process.env['AEGIS_API_KEY'] ?? ''
@@ -39,6 +43,13 @@ async function bridgePost(path: string, body: unknown, apiKey = false): Promise<
 
 function text(content: unknown): { content: Array<{ type: 'text'; text: string }> } {
   return { content: [{ type: 'text', text: JSON.stringify(content, null, 2) }] }
+}
+
+function dlss5EnvironmentManifest(): unknown {
+  const raw = process.env['AEGIS_ENVIRONMENT_MANIFEST_JSON']
+  if (!raw) return undefined
+  try { return JSON.parse(raw) }
+  catch { return { schema: 'INVALID_AEGIS_ENVIRONMENT_MANIFEST' } }
 }
 
 function repoRoot(): string {
@@ -129,6 +140,54 @@ server.tool('aegis_health', 'Check AEGIS constitutional health: t0_verdict, corr
 
 server.tool('aegis_telemetry', 'Get live AEGIS telemetry: PGCS passes, epoch count, VCG metrics, martingale state.', {}, async () => text(await bridgeGet('/telemetry')))
 
+server.tool('aegis_dlss5_reference', 'Read the evidence-bounded NVIDIA DLSS 5 / Streamline reference snapshot. No execution authority is granted.', {}, async () => text(DLSS5_REFERENCE))
+
+server.tool('aegis_dlss5_capability', 'Evaluate the launch-bound AEGIS environment manifest for DLSS 5 eligibility and emit a deterministic fail-closed receipt. Never releases execution.', {}, async () => text(buildDlss5Receipt(dlss5EnvironmentManifest())))
+
+server.tool(
+  'aegis_dlss5_runtime_verify',
+  'Validate content-addressed DLSS 5 runtime-probe evidence. This is read-only verification: it never launches a GPU workload and never establishes a rendering-truth claim.',
+  { evidence_json: z.string().min(2) },
+  async ({ evidence_json }) => {
+    let evidence: unknown
+    try { evidence = JSON.parse(evidence_json) }
+    catch {
+      return text({
+        status: 'RUNTIME_PROBE_NOT_VERIFIED',
+        execution_release: 'BLOCKED',
+        rendering_claim: 'NOT_ESTABLISHED',
+        claim_promotion: 'BLOCKED',
+        authority_effect: 'NONE',
+        reason_codes: ['RUNTIME_EVIDENCE_JSON_INVALID'],
+      })
+    }
+    return text(verifyDlss5RuntimeProbe(evidence))
+  },
+)
+
+server.tool(
+  'aegis_dlss5_execution_witness_verify',
+  'Validate host-produced DLSS 5 execution-witness evidence. Read-only verification only: never launches GPU work and never establishes rendering or quality claims.',
+  { evidence_json: z.string().min(2) },
+  async ({ evidence_json }) => {
+    let evidence: unknown
+    try { evidence = JSON.parse(evidence_json) }
+    catch {
+      return text({
+        status: 'EXECUTION_WITNESS_NOT_VERIFIED',
+        execution_release: 'BLOCKED',
+        runtime_execution: 'NOT_ESTABLISHED',
+        rendering_claim: 'NOT_ESTABLISHED',
+        quality_claim: 'NOT_ESTABLISHED',
+        claim_promotion: 'BLOCKED',
+        authority_effect: 'NONE',
+        reason_codes: ['EXECUTION_WITNESS_JSON_INVALID'],
+      })
+    }
+    return text(verifyDlss5ExecutionWitness(evidence))
+  },
+)
+
 server.tool('aegis_platform_status', 'Get AEGIS platform status through a D0 authority decision.', {}, async () => {
   const authority = authorizeAction({ actionClass: 'D0', authorityDomain: 'mcp:read', requestedCapability: 'mcp.platform.status', tool: 'aegis_platform_status', target: '/platform/status', action: { operation: 'read', endpoint: '/platform/status' } })
   const denial = denied(authority); if (denial) return denial
@@ -196,6 +255,10 @@ function fileResource(uri: URL, relPath: string): { contents: Array<{ uri: strin
 server.resource('aegis-node', 'aegis://node', { description: 'Live constitutional node state. Fuel-free.', mimeType: 'application/json' }, async (uri) => bridgeResource(uri, '/node'))
 server.resource('aegis-telemetry', 'aegis://telemetry', { description: 'Live AEGIS telemetry. Fuel-free.', mimeType: 'application/json' }, async (uri) => bridgeResource(uri, '/telemetry'))
 server.resource('aegis-health', 'aegis://health', { description: 'Bridge liveness. Fuel-free.', mimeType: 'application/json' }, async (uri) => bridgeResource(uri, '/health'))
+server.resource('aegis-nvidia-dlss5', 'aegis://nvidia/dlss5', { description: 'Evidence-bounded NVIDIA DLSS 5 reference snapshot. Fuel-free; authority effect NONE.', mimeType: 'application/json' }, async (uri) => jsonResource(uri, DLSS5_REFERENCE))
+server.resource('aegis-nvidia-dlss5-acquisition-contract', 'aegis://nvidia/dlss5/acquisition-contract', { description: 'Read-only contract for native DLSS 5 environment/plugin acquisition. MCP does not launch the acquisition process.', mimeType: 'application/json' }, async (uri) => jsonResource(uri, DLSS5_ACQUISITION_CONTRACT))
+server.resource('aegis-nvidia-dlss5-execution-witness-contract', 'aegis://nvidia/dlss5/execution-witness-contract', { description: 'Read-only contract for host-produced DLSS 5 execution-witness evidence. MCP does not launch GPU work.', mimeType: 'application/json' }, async (uri) => jsonResource(uri, DLSS5_EXECUTION_WITNESS_CONTRACT))
+server.resource('aegis-nvidia-dlss5-runtime-contract', 'aegis://nvidia/dlss5/runtime-contract', { description: 'Fail-closed DLSS 5 runtime evidence contract. Fuel-free; does not launch GPU work.', mimeType: 'application/json' }, async (uri) => jsonResource(uri, DLSS5_RUNTIME_CONTRACT))
 server.resource('aegis-authority-index', 'aegis://authority/index', { description: 'Repository authority graph. Fuel-free.', mimeType: 'text/markdown' }, async (uri) => fileResource(uri, 'INDEX.md'))
 server.resource('aegis-authority-repo-map', 'aegis://authority/repo-map', { description: 'Repository wiring map. Fuel-free.', mimeType: 'text/markdown' }, async (uri) => fileResource(uri, 'REPO_MAP.md'))
 

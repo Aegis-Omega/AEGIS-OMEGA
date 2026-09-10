@@ -1,0 +1,127 @@
+name: AEGIS DLSS5 Windows Preflight Compile
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/mcp-server/native/dlss5-windows-preflight/**'
+      - 'sovereign-omega-v2/mcp-server/test/dlss5-windows-preflight-source.mjs'
+      - 'sovereign-omega-v2/mcp-server/test/dlss5-precompiled-bundle-source.mjs'
+      - '.github/workflows/dlss5-windows-preflight-compile.yml'
+      - '.github/workflows/dlss5-windows-rtx50-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    name: aegis / dlss5-windows-preflight-compile
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact checked-out candidate
+        shell: pwsh
+        env:
+          EXPECTED_PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $candidate = (git rev-parse HEAD).Trim().ToLowerInvariant()
+          if ($candidate -notmatch '^[0-9a-f]{40}$') {
+            throw "Checked-out candidate is not an exact 40-hex commit: $candidate"
+          }
+          if ($env:EXPECTED_PR_HEAD) {
+            $expected = $env:EXPECTED_PR_HEAD.Trim().ToLowerInvariant()
+            if ($candidate -ne $expected) {
+              throw "Exact PR-head mismatch: expected=$expected actual=$candidate"
+            }
+          }
+          "AEGIS_CANDIDATE_SHA=$candidate" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "AEGIS_EXACT_HEAD_BOUND $candidate"
+
+      - name: Download and verify pinned Streamline SDK
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $expected = '92c4d954631a1710da86ca3fa8d5034f2b9503838c95fc4ae977ae149319781b'
+          $zip = Join-Path $env:RUNNER_TEMP 'streamline-sdk-v2.14.1.zip'
+          $root = Join-Path $env:RUNNER_TEMP 'streamline-sdk-v2.14.1'
+          Invoke-WebRequest -Uri 'https://github.com/NVIDIA-RTX/Streamline/releases/download/v2.14.1/streamline-sdk-v2.14.1.zip' -OutFile $zip
+          $actual = (Get-FileHash -Path $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Streamline release digest mismatch: $actual" }
+          Expand-Archive -Path $zip -DestinationPath $root -Force
+          "STREAMLINE_ROOT=$root" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "STREAMLINE_RELEASE_SHA256=$actual" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Compile support-only preflight with MSVC
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $include = (Get-ChildItem -Path $env:STREAMLINE_ROOT -Recurse -Filter 'sl.h' | Select-Object -First 1).Directory.FullName
+          $lib = Get-ChildItem -Path $env:STREAMLINE_ROOT -Recurse -Filter 'sl.interposer.lib' |
+            Where-Object { $_.FullName -match '(?i)x64' } |
+            Select-Object -First 1
+          if (-not $include) { throw 'Streamline include directory not found' }
+          if (-not $lib) { throw 'x64 sl.interposer.lib not found in verified release' }
+
+          $source = Join-Path $env:GITHUB_WORKSPACE 'sovereign-omega-v2\mcp-server\native\dlss5-windows-preflight\aegis_dlss5_windows_preflight.cpp'
+          $outDir = Join-Path $env:RUNNER_TEMP 'dlss5-preflight-build'
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          $exe = Join-Path $outDir 'aegis-dlss5-windows-preflight.exe'
+
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          $vsRoot = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vsRoot) { throw 'MSVC toolchain not found' }
+          $devcmd = Join-Path $vsRoot 'Common7\Tools\VsDevCmd.bat'
+          $cmdFile = Join-Path $env:RUNNER_TEMP 'compile-dlss5-preflight.cmd'
+          @"
+          @echo off
+          call "$devcmd" -arch=x64 -host_arch=x64
+          if errorlevel 1 exit /b %errorlevel%
+          cl /nologo /std:c++20 /EHsc /W4 /I"$include" "$source" /Fe:"$exe" /link /LIBPATH:"$($lib.Directory.FullName)" sl.interposer.lib dxgi.lib
+          exit /b %errorlevel%
+          "@ | Set-Content -Path $cmdFile -Encoding ascii
+          & cmd.exe /d /c $cmdFile
+          if ($LASTEXITCODE -ne 0) { throw "MSVC compile/link failed with exit code $LASTEXITCODE" }
+
+          $exeSha = (Get-FileHash -Path $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "DLSS5_PREFLIGHT_EXE=$exe" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "DLSS5_PREFLIGHT_EXE_SHA256=$exeSha" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Emit compile receipt
+        shell: pwsh
+        run: |
+          @(
+            'DLSS5_WINDOWS_PREFLIGHT_COMPILE_PASS',
+            "candidate_sha=$env:AEGIS_CANDIDATE_SHA",
+            'streamline_source_sha=2122257e0fce486f91b385aa63b9a09b0a34b363',
+            "streamline_release_sha256=$env:STREAMLINE_RELEASE_SHA256",
+            'feature_symbol=sl::kFeatureDLSS_NR',
+            'feature_id=1004',
+            'support_api=slIsFeatureSupported',
+            'evaluate_api=NOT_CALLED',
+            'windows_compile=true',
+            'gpu_execution=false',
+            'runtime_claim=NOT_ESTABLISHED',
+            'rendering_claim=NOT_ESTABLISHED',
+            'quality_claim=NOT_ESTABLISHED',
+            'authority_effect=NONE',
+            "preflight_exe_sha256=$env:DLSS5_PREFLIGHT_EXE_SHA256"
+          ) | Set-Content -Path "$env:RUNNER_TEMP\dlss5-windows-preflight-compile.txt"
+          Get-Content "$env:RUNNER_TEMP\dlss5-windows-preflight-compile.txt"
+
+      - name: Upload exact-run preflight bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: aegis-dlss5-windows-preflight-bundle-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}\dlss5-windows-preflight-compile.txt
+            ${{ env.DLSS5_PREFLIGHT_EXE }}
+          if-no-files-found: error
+          retention-days: 30
