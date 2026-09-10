@@ -137,7 +137,8 @@ jobs:
           lean --version | tee "$GITHUB_WORKSPACE/zero-height-limit-contract-lean-version.txt"
           cp "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/ZeroHeightFiniteSumV1.lean" ./ZeroHeightFiniteSumV1.lean
           cp "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/ZeroHeightLimitContractV1.lean" ./ZeroHeightLimitContractV1.lean
-          lake env lean -o ZeroHeightFiniteSumV1.olean ZeroHeightFiniteSumV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-height-limit-parent-lean.log"
+          mkdir -p .lake/build/lib/lean
+          lake env lean -o .lake/build/lib/lean/ZeroHeightFiniteSumV1.olean ZeroHeightFiniteSumV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-height-limit-parent-lean.log"
           lake env lean ZeroHeightLimitContractV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-height-limit-contract-lean.log"
           ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/zero-height-limit-parent-lean.log"
           ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/zero-height-limit-contract-lean.log"
