@@ -1,0 +1,31 @@
+name: AEGIS Navier Workflow Tests
+
+on:
+  push:
+    branches:
+      - research/openai-navier-workflow-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  navier-tests:
+    name: Navier workflow falsification suite
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pytest
+        run: python -m pip install --disable-pip-version-check pytest
+
+      - name: Run Navier workflow tests
+        run: python -m pytest navier_workflow -q
