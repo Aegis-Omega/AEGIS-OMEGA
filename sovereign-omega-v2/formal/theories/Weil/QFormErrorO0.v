@@ -221,9 +221,9 @@ Proof.
       { unfold CRminus. ring. }
       setoid_rewrite Hcancel_alg.
       rewrite
-        (CRinv_l bhat
+        (CRinv_l O0RealsV1 bhat
           (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 (0%Q)) bhat HbhatProp))),
-        (CRinv_l b
+        (CRinv_l O0RealsV1 b
           (inr (o0_lt_set_v1 (CR_of_Q O0RealsV1 (0%Q)) b HbProp))).
       ring.
     }
