@@ -30,6 +30,11 @@
       "bound_declaration": "AnalyticOnNhd.eqOn_of_preconnected_of_eventuallyEq"
     },
     {
+      "path": "Mathlib/Analysis/Analytic/Constructions.lean",
+      "git_blob_sha": "a4823d7cdda8e314158bb4b5aff320cf02499038",
+      "bound_declaration": "analyticOnNhd_const"
+    },
+    {
       "path": "Mathlib/NumberTheory/LSeries/RiemannZeta.lean",
       "git_blob_sha": "3c92195fce20df7fda41cfd823b3266f83cf3070",
       "bound_declaration": "analyticOn_riemannZeta"
@@ -42,7 +47,7 @@
   ],
   "formal_source": {
     "path": "sovereign-omega-v2/formal/bridges/lean/ZetaZeroMultiplicityBindingV1.lean",
-    "git_blob_sha": "2354e7b7eb81eb2a2d9bb5fd2c16f978033e3807",
+    "git_blob_sha": "7f8ce7224615258a5aab52ac73ae18bcdc94bc36",
     "declarations": [
       "ZetaZeroMultiplicityV1",
       "riemann_zeta_zero_multiplicity_pos_v1"
