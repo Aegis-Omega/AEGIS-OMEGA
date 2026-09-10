@@ -68,6 +68,7 @@ try {
     'aegis://health',
     'aegis://node',
     'aegis://nvidia/dlss5',
+    'aegis://nvidia/dlss5/runtime-contract',
     'aegis://telemetry',
   ])
 
@@ -90,10 +91,18 @@ try {
   assert.equal(dlss5Value.streamline.plugin, 'sl.dlss_nr')
   assert.equal(dlss5Value.authority_effect, 'NONE')
 
+  const runtimeContract = await client.readResource({ uri: 'aegis://nvidia/dlss5/runtime-contract' })
+  const runtimeContractValue = JSON.parse(runtimeContract.contents[0].text)
+  assert.equal(runtimeContractValue.required_plugin, 'sl.dlss_nr')
+  assert.equal(runtimeContractValue.minimum_streamline_version, '2.14.0')
+  assert.equal(runtimeContractValue.rendering_claim_on_observation, 'NOT_ESTABLISHED')
+  assert.equal(runtimeContractValue.authority_effect, 'NONE')
+
   const tools = await client.listTools()
   const toolNames = tools.tools.map((tool) => tool.name)
   assert(toolNames.includes('aegis_dlss5_reference'))
   assert(toolNames.includes('aegis_dlss5_capability'))
+  assert(toolNames.includes('aegis_dlss5_runtime_verify'))
 
   const capability = await client.callTool({ name: 'aegis_dlss5_capability', arguments: {} })
   const capabilityText = capability.content.find((entry) => entry.type === 'text')
@@ -104,13 +113,30 @@ try {
   assert.equal(capabilityValue.capability.execution_release, 'BLOCKED')
   assert.equal(capabilityValue.authority_effect, 'NONE')
 
+  const runtimeMissing = await client.callTool({ name: 'aegis_dlss5_runtime_verify', arguments: { evidence_json: '{}' } })
+  const runtimeMissingText = runtimeMissing.content.find((entry) => entry.type === 'text')
+  assert(runtimeMissingText && 'text' in runtimeMissingText)
+  const runtimeMissingValue = JSON.parse(runtimeMissingText.text)
+  assert.equal(runtimeMissingValue.status, 'RUNTIME_PROBE_NOT_VERIFIED')
+  assert.deepEqual(runtimeMissingValue.reason_codes, ['RUNTIME_EVIDENCE_INVALID'])
+  assert.equal(runtimeMissingValue.rendering_claim, 'NOT_ESTABLISHED')
+  assert.equal(runtimeMissingValue.authority_effect, 'NONE')
+
+  const runtimeBadJson = await client.callTool({ name: 'aegis_dlss5_runtime_verify', arguments: { evidence_json: '{x' } })
+  const runtimeBadJsonText = runtimeBadJson.content.find((entry) => entry.type === 'text')
+  assert(runtimeBadJsonText && 'text' in runtimeBadJsonText)
+  const runtimeBadJsonValue = JSON.parse(runtimeBadJsonText.text)
+  assert.equal(runtimeBadJsonValue.status, 'RUNTIME_PROBE_NOT_VERIFIED')
+  assert.deepEqual(runtimeBadJsonValue.reason_codes, ['RUNTIME_EVIDENCE_JSON_INVALID'])
+  assert.equal(runtimeBadJsonValue.execution_release, 'BLOCKED')
+
   const authorityIndex = await client.readResource({ uri: 'aegis://authority/index' })
   assert.match(authorityIndex.contents[0].text, /AEGIS/i)
 
   const repoMap = await client.readResource({ uri: 'aegis://authority/repo-map' })
   assert.match(repoMap.contents[0].text, /WIRED|DORMANT|BROKEN|DEAD/i)
 
-  console.log('MCP_RESOURCES_PASS 6 read-only key-free resources + DLSS5 fail-closed tool surface')
+  console.log('MCP_RESOURCES_PASS 7 read-only key-free resources + DLSS5 capability/runtime fail-closed tool surface')
 } finally {
   await client.close().catch(() => {})
   await new Promise((resolve) => bridge.close(resolve))
