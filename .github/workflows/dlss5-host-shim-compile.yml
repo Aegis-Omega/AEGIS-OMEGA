@@ -1,0 +1,98 @@
+name: AEGIS DLSS5 Host Shim Compile
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/mcp-server/native/dlss5-host-shim/**'
+      - '.github/workflows/dlss5-host-shim-compile.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile-host-shim:
+    name: aegis / dlss5-host-shim-compile
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Checkout pinned NVIDIA Streamline SDK
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: NVIDIA-RTX/Streamline
+          ref: 2122257e0fce486f91b385aa63b9a09b0a34b363
+          path: _vendor/streamline
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify pinned public API facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'constexpr Feature kFeatureDLSS_NR = 1004;' _vendor/streamline/include/sl_core_types.h
+          grep -F 'using PFun_slIsFeatureSupported = sl::Result(sl::Feature feature, const sl::AdapterInfo& adapterInfo);' _vendor/streamline/include/sl_core_api.h
+          grep -F 'using PFun_slEvaluateFeature = sl::Result(sl::Feature feature, const sl::FrameToken& frame, const sl::BaseStructure** inputs, uint32_t numInputs, sl::CommandBuffer* cmdBuffer);' _vendor/streamline/include/sl_core_api.h
+
+      - name: Syntax-check bounded host shim
+        shell: bash
+        run: |
+          set -euo pipefail
+          g++ --version | head -n 1
+          g++ -std=c++20 -fsyntax-only \
+            -I _vendor/streamline/include \
+            -I sovereign-omega-v2/mcp-server/native/dlss5-host-shim \
+            sovereign-omega-v2/mcp-server/native/dlss5-host-shim/aegis_dlss5_host_shim.cpp
+
+      - name: Enforce no bypass or standalone execution surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            sovereign-omega-v2/mcp-server/native/dlss5-host-shim/aegis_dlss5_host_shim.hpp
+            sovereign-omega-v2/mcp-server/native/dlss5-host-shim/aegis_dlss5_host_shim.cpp
+          )
+          if grep -En 'NVSDK_NGX|nvngx_dlssnr|GetModuleHandle|LoadLibrary|dlopen|CreateProcess|ShellExecute|\bsystem\s*\(|\bpopen\s*\(' "${files[@]}"; then
+            echo 'FAIL: forbidden bypass/process surface detected' >&2
+            exit 1
+          fi
+          if grep -En '\bint\s+main\s*\(' "${files[@]}"; then
+            echo 'FAIL: standalone executable entry point is forbidden in host shim' >&2
+            exit 1
+          fi
+
+      - name: Emit compile receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/dlss5-host-shim-compile.txt"
+          {
+            echo 'DLSS5_HOST_SHIM_COMPILE_PASS'
+            echo "candidate_sha=${{ github.event.pull_request.head.sha || github.sha }}"
+            echo 'streamline_sha=2122257e0fce486f91b385aa63b9a09b0a34b363'
+            echo 'feature_symbol=sl::kFeatureDLSS_NR'
+            echo 'feature_id=1004'
+            echo 'support_api=slIsFeatureSupported'
+            echo 'evaluate_api=slEvaluateFeature'
+            echo 'syntax_only=true'
+            echo 'gpu_execution=false'
+            echo 'runtime_claim=NOT_ESTABLISHED'
+            echo 'rendering_claim=NOT_ESTABLISHED'
+            echo 'quality_claim=NOT_ESTABLISHED'
+            echo 'authority_effect=NONE'
+            sha256sum \
+              sovereign-omega-v2/mcp-server/native/dlss5-host-shim/aegis_dlss5_host_shim.hpp \
+              sovereign-omega-v2/mcp-server/native/dlss5-host-shim/aegis_dlss5_host_shim.cpp
+          } | tee "$out"
+
+      - name: Upload compile receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: aegis-dlss5-host-shim-compile-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/dlss5-host-shim-compile.txt
+          if-no-files-found: error
+          retention-days: 30
