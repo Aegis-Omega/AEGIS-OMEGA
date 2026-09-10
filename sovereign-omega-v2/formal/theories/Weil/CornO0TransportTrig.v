@@ -34,6 +34,25 @@ Definition o0_to_corn_fast_morphism_v1
 Definition o0_to_corn_ir_carrier_v1 (y : O0RealV1) : IR :=
   CRasIR (CRmorph o0_to_corn_fast_morphism_v1 y).
 
+(* FastRealsConstructive uses CoRN's CR carrier but exposes equality through
+   Rocq's ConstructiveReals CReq.  CRasIR_wd expects CoRN's metric-setoid
+   equality.  Make that representation conversion explicit rather than relying
+   on unification through the two notation layers. *)
+Lemma corn_fast_stdlib_eq_to_corn_eq_transport_v1 :
+  forall x y : CR,
+    CReq FastRealsConstructive x y ->
+    (x == y)%CR.
+Proof.
+  intros x y Hxy.
+  apply (proj2 (CReq_nlt x y)).
+  destruct Hxy as [Hxy Hyx].
+  split.
+  - change ((x < y)%CR -> False) in Hxy.
+    exact Hxy.
+  - change ((y < x)%CR -> False) in Hyx.
+    exact Hyx.
+Qed.
+
 Theorem o0_to_corn_ir_proper_v1 :
   forall y z : O0RealV1,
     O0EqV1 y z ->
@@ -42,7 +61,7 @@ Proof.
   intros y z Hyz.
   unfold o0_to_corn_ir_carrier_v1.
   apply CRasIR_wd.
-  apply (proj2 (CReq_nlt _ _)).
+  apply corn_fast_stdlib_eq_to_corn_eq_transport_v1.
   apply CRmorph_proper.
   exact Hyz.
 Qed.
@@ -55,7 +74,7 @@ Proof.
   unfold o0_to_corn_ir_carrier_v1, corn_ir_to_o0_carrier_v1.
   eapply eq_transitive_unfolded.
   - apply CRasIR_wd.
-    apply (proj2 (CReq_nlt _ _)).
+    apply corn_fast_stdlib_eq_to_corn_eq_transport_v1.
     exact
       (Endomorph_id
          (CRmorph_compose
