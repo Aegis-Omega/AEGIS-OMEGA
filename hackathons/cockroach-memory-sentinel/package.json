@@ -1,0 +1,21 @@
+{
+  "name": "aegis-memory-sentinel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "demo": "node src/demo.mjs",
+    "verify:cockroach": "node scripts/verify-cockroach-runtime.mjs",
+    "verify:aws": "node scripts/verify-aws-runtime.mjs"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@openai/agents": "0.16.0",
+    "openai": "^7.2.0",
+    "pg": "^8.22.0",
+    "zod": "^4.4.3"
+  }
+}

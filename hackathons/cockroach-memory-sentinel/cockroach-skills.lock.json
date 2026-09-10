@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "upstream": {
+    "repository": "cockroachlabs/cockroachdb-skills",
+    "commit": "e14e86d23ce8ee2e7e40a34ce2944c2502b6eadd",
+    "license": "Apache-2.0"
+  },
+  "skills": [
+    {
+      "name": "cockroachdb-sql",
+      "path": "skills/cockroachdb-query-and-schema-design/cockroachdb-sql/SKILL.md",
+      "blob_sha": "2690e972a99fe632818f0fc1a434080bc7acd917",
+      "applied_contracts": [
+        "CockroachDB-specific schema rules",
+        "connection detection before DB execution",
+        "SHOW CREATE TABLE context inspection",
+        "EXPLAIN validation for connected generated queries",
+        "distributed-database anti-pattern review"
+      ]
+    }
+  ],
+  "runtime_status": "BOUND_NOT_YET_CLOUD_EXECUTED"
+}

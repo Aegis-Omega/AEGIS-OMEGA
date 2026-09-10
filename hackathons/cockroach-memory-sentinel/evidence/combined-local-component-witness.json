@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "receipt_type": "AEGIS_MEMORY_SENTINEL_COMBINED_LOCAL_COMPONENT_WITNESS",
+  "branch": "feat/cockroach-memory-sentinel-v1-final",
+  "branch_head_observed_before_execution_receipt": "2098135c521413a726e517483eceef766d976c31",
+  "execution_observed_at_utc": "2026-08-16T08:14:49Z",
+  "environment": {
+    "os": "Linux x86_64",
+    "node": "v22.16.0",
+    "declared_lambda_runtime": "nodejs24.x",
+    "runtime_parity_with_declared_node24": "NOT_ESTABLISHED"
+  },
+  "binding": {
+    "method": "git hash-object reconstructed bytes compared with GitHub blob SHA",
+    "source_blobs": {
+      "src/agent-contract.mjs": "b178fec6d2328857d22a88735f56045d96eabba6",
+      "src/agent-tools.mjs": "a0d354141334e96f3927097f72886106066e7e5c",
+      "src/cockroach-store.mjs": "f7af1a150ebf0d846c4c9aad987e0c99f87979a0",
+      "src/deployment-verifier.mjs": "975cae84827fcf84aabc63fefcbb96e85f608e0e",
+      "src/lambda-core.mjs": "6dccccaa6e264fdd1f51e310dab97fadd7dee322",
+      "src/mcm.mjs": "02fb76a4fea279845cb89945bb1c1cdfee0e0e71",
+      "src/memory-authority-gate.mjs": "17a1e1b53b71a0664c768c6009f3b58bf422f501",
+      "src/run-evidence.mjs": "1557f1ea6c8ae9f5f20df30c473b707eaecb5dbf"
+    },
+    "test_blobs": {
+      "test/agent-contract.test.mjs": "ce8353df13eb6497b3edff03a3d56447af18a563",
+      "test/agent-tools.test.mjs": "11e8c04f42749f4c83357b31dccdaa6305916523",
+      "test/cockroach-store.test.mjs": "5c1ebd6b6e4f7964475f99d00a4a9979cdcd83a6",
+      "test/deployment-verifier.test.mjs": "c8c0862853fd6349eb14d97b056467a45b8686b1",
+      "test/lambda-core.test.mjs": "89070fc34fcd78b199f3f22f7e5042c00be4cad9",
+      "test/mcm.test.mjs": "6078c3cefef032bd186c8d5fd24997e04fa71dda",
+      "test/memory-authority-gate.test.mjs": "f96c42ee7d7ae56c481c3ff2c1d68259b2438362",
+      "test/run-evidence.test.mjs": "6ae5566e176fd9fdef2a44b37b5760ac16594dc7"
+    }
+  },
+  "command": "node --test test/*.test.mjs",
+  "result": {
+    "tap_version": 13,
+    "tests": 30,
+    "pass": 30,
+    "fail": 0,
+    "skipped": 0,
+    "cancelled": 0,
+    "todo": 0,
+    "tap_output_sha256": "46d59cc8feeee097da72fa55fc4d8d8c6ca8be70616246e431a95b368c390d60"
+  },
+  "claims": {
+    "exact_tested_blob_binding": "ESTABLISHED_FOR_LISTED_16_BLOBS",
+    "combined_local_component_test_pass": "ESTABLISHED_30_OF_30",
+    "exact_head_full_subtree_test_pass": "NOT_ESTABLISHED",
+    "dependency_bearing_openai_runtime_pass": "NOT_ESTABLISHED",
+    "cockroach_real_engine_execution": "NOT_ESTABLISHED",
+    "aws_lambda_live_deployment": "NOT_ESTABLISHED",
+    "production_admission": "NOT_ESTABLISHED"
+  },
+  "witness_sha256": "084b6997ac5365a428b4b59e99be05c7fd03b7b8f0151deef3b130a59983435c"
+}
