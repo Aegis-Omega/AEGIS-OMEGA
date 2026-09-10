@@ -1,0 +1,2 @@
+# Preserve historical bytes: source receipts bind CRLF as well as LF artifacts.
+* -text
