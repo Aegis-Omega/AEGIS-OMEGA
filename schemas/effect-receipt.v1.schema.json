@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/effect-receipt.v1.schema.json",
+  "title": "AEGIS Effect Receipt V1",
+  "$comment": "PR-1 target schema only. No generic or adapter-backed valid producer exists in PR-1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_kind",
+    "transition_id",
+    "execution_instance_id",
+    "effect_witness_digest",
+    "pre_state_commitment",
+    "post_state_commitment",
+    "observation_provenance",
+    "adapter_identity",
+    "adapter_version"
+  ],
+  "properties": {
+    "receipt_kind": {"const": "EFFECT_RECEIPT_V1"},
+    "transition_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "execution_instance_id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+    "effect_witness_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "pre_state_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "post_state_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "observation_provenance": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "adapter_identity": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+    "adapter_version": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"}
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/decision-receipt.v1.schema.json",
+  "title": "AEGIS Decision Receipt V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["receipt_kind", "transition_id", "decision_outcome", "policy_decision_root"],
+  "properties": {
+    "receipt_kind": {"const": "DECISION_RECEIPT_V1"},
+    "transition_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "decision_outcome": {"enum": ["PERMIT", "DENY", "DEFER"]},
+    "policy_decision_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
