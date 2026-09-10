@@ -1,0 +1,168 @@
+name: Skill Corpus Exact-Source Census Probe
+
+on:
+  push:
+    branches:
+      - probe/skill-corpus-census-v1
+
+permissions:
+  contents: read
+
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_SHA: 8606c90014dc59d234ddc9de9d38a787a2d32d8e
+    steps:
+      - name: Checkout probe head with repository history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind exact source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "${SOURCE_SHA}^{commit}"
+          test "$(git rev-parse "${SOURCE_SHA}^{commit}")" = "$SOURCE_SHA"
+          echo "SOURCE_SHA=$SOURCE_SHA"
+
+      - name: Census canonical corpus without executing source bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          import subprocess
+
+          source = os.environ['SOURCE_SHA']
+
+          def git(*args, text=False):
+              out = subprocess.check_output(['git', '--no-replace-objects', *args])
+              return out.decode('utf-8') if text else out
+
+          def tree(prefix):
+              raw = git('ls-tree', '-r', '-z', source, '--', prefix)
+              rows = {}
+              for rec in raw.split(b'\0'):
+                  if not rec:
+                      continue
+                  meta, path_b = rec.split(b'\t', 1)
+                  mode, typ, obj = meta.decode().split()
+                  if typ != 'blob':
+                      continue
+                  path = path_b.decode('utf-8')
+                  data = git('cat-file', 'blob', obj)
+                  rows[path] = {
+                      'git_blob': obj,
+                      'sha256': hashlib.sha256(data).hexdigest(),
+                      'size_bytes': len(data),
+                      'bytes': data,
+                  }
+              return rows
+
+          canonical = tree('.agents/skills')
+          mirror = tree('.gemini/skills')
+          if not canonical:
+              raise SystemExit('DENY: canonical .agents/skills corpus is empty at exact source')
+
+          def normalized(rows, prefix):
+              root = prefix.rstrip('/') + '/'
+              return {p[len(root):]: v for p, v in rows.items() if p.startswith(root)}
+
+          c = normalized(canonical, '.agents/skills')
+          m = normalized(mirror, '.gemini/skills')
+
+          skill_docs = sorted(p for p in c if p.endswith('/SKILL.md'))
+          package_names = sorted(p.rsplit('/', 1)[0] for p in skill_docs)
+          license_counts = {}
+          publisher_counts = {}
+          missing_license = []
+          missing_publisher = []
+          metadata_rows = []
+
+          field_re = re.compile(r'^([A-Za-z0-9_-]+):\s*(.*?)\s*$')
+          for rel in skill_docs:
+              text = c[rel]['bytes'].decode('utf-8', errors='strict')
+              front = {}
+              lines = text.splitlines()
+              if lines and lines[0].strip() == '---':
+                  for line in lines[1:]:
+                      if line.strip() == '---':
+                          break
+                      match = field_re.match(line)
+                      if match:
+                          front[match.group(1)] = match.group(2).strip().strip('"\'')
+              lic = front.get('license', '')
+              publisher = front.get('publisher', '')
+              if not publisher:
+                  # Some skills place publisher under a metadata mapping.
+                  for i, line in enumerate(lines[:80]):
+                      if line.strip() == 'metadata:':
+                          for nested in lines[i + 1:i + 12]:
+                              if nested and not nested.startswith((' ', '\t')):
+                                  break
+                              mm = re.match(r'^\s+publisher:\s*(.*?)\s*$', nested)
+                              if mm:
+                                  publisher = mm.group(1).strip().strip('"\'')
+                                  break
+                          break
+              if lic:
+                  license_counts[lic] = license_counts.get(lic, 0) + 1
+              else:
+                  missing_license.append(rel)
+              if publisher:
+                  publisher_counts[publisher] = publisher_counts.get(publisher, 0) + 1
+              else:
+                  missing_publisher.append(rel)
+              metadata_rows.append({'path': rel, 'license': lic or None, 'publisher': publisher or None})
+
+          shared = sorted(set(c) & set(m))
+          differing = [p for p in shared if c[p]['sha256'] != m[p]['sha256']]
+          only_canonical = sorted(set(c) - set(m))
+          only_mirror = sorted(set(m) - set(c))
+
+          root_records = [
+              {'path': p, 'sha256': c[p]['sha256'], 'size_bytes': c[p]['size_bytes']}
+              for p in sorted(c)
+          ]
+          root_payload = json.dumps(root_records, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
+          root_sha256 = hashlib.sha256(root_payload).hexdigest()
+
+          result = {
+              'schema': 'AEGIS_SKILL_SOURCE_CENSUS_V1',
+              'source_sha': source,
+              'canonical_prefix': '.agents/skills',
+              'canonical_file_count': len(c),
+              'skill_package_count': len(package_names),
+              'skill_doc_count': len(skill_docs),
+              'canonical_root_sha256': root_sha256,
+              'license_counts': dict(sorted(license_counts.items())),
+              'publisher_counts': dict(sorted(publisher_counts.items())),
+              'missing_license_count': len(missing_license),
+              'missing_publisher_count': len(missing_publisher),
+              'mirror_prefix': '.gemini/skills',
+              'mirror_file_count': len(m),
+              'shared_relative_paths': len(shared),
+              'byte_different_shared_paths': len(differing),
+              'only_canonical_count': len(only_canonical),
+              'only_mirror_count': len(only_mirror),
+              'only_canonical_sample': only_canonical[:25],
+              'only_mirror_sample': only_mirror[:25],
+              'different_sample': differing[:25],
+              'missing_license_sample': missing_license[:25],
+              'missing_publisher_sample': missing_publisher[:25],
+              'authority_effect': 'NONE',
+              'execution_status': 'SOURCE_BYTES_NOT_EXECUTED',
+          }
+
+          rendered = json.dumps(result, indent=2, sort_keys=True)
+          print(rendered)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as fh:
+              fh.write('```json\n' + rendered + '\n```\n')
+          PY
