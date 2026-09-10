@@ -26,12 +26,13 @@ theorem bernoulli_two_mul_succ_ne_zero_v1 (m : ℕ) :
   intro hb
   have hk : m + 1 ≠ 0 := by omega
   have hformula := riemannZeta_two_mul_nat (k := m + 1) hk
-  have hz0 : riemannZeta (2 * (m + 1)) = 0 := by
+  have hz0 : riemannZeta (2 * (↑(m + 1) : ℂ)) = 0 := by
     rw [hformula]
     simp [hb]
-  have hzne : riemannZeta (2 * (m + 1)) ≠ 0 := by
+  have hzne : riemannZeta (2 * (↑(m + 1) : ℂ)) ≠ 0 := by
     apply riemannZeta_ne_zero_of_one_le_re
     norm_num
+    exact_mod_cast (show 1 ≤ 2 * (m + 1) by omega)
   exact hzne hz0
 
 /-- Riemann zeta does not vanish at negative odd integers. -/
@@ -46,7 +47,7 @@ theorem riemannZeta_neg_odd_ne_zero_v1 (m : ℕ) :
   · apply mul_ne_zero
     · simp
     · exact_mod_cast hb
-  · norm_num
+  · exact_mod_cast (show 2 * m + 1 + 1 ≠ 0 by omega)
 
 /-- Every zero of zeta at a negative natural integer is one of the classical
 negative even zeros `-2(m+1)`. -/
@@ -58,7 +59,7 @@ theorem riemannZeta_neg_nat_zero_is_trivial_v1
     | zero =>
         norm_num [riemannZeta_zero] at hz
     | succ m =>
-        exact ⟨m, by simp [Nat.succ_eq_add_one]⟩
+        exact ⟨m, by simp⟩
   · exact (riemannZeta_neg_odd_ne_zero_v1 m hz).elim
 
 /-- Every nontrivial Riemann-zeta zero lies in the classical open critical strip.
