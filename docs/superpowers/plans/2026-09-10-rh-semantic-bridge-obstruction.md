@@ -56,7 +56,14 @@ Theorem universal_global_weil_bridge_iff_target_v1 :
 - [x] **Step 2: Run the structural regression test.**
 - [x] **Step 3: Compile `AnalyticDefinitions.v` and a byte-identical build copy of the bridge theorem with Coq 8.20.**
 - [x] **Step 4: Require `Closed under the global context` for both obstruction theorems.**
-- [ ] **Step 5: Confirm the hosted workflow succeeds at the final exact head.**
+- [x] **Step 5: Confirm hosted workflow succeeds at exact head `9ef75cb9fc7dc3d86044ee5123db499cf518e812`.**
+
+Verified hosted evidence at that head:
+- `RH Semantic Bridge Obstruction` run `34504409345`: SUCCESS.
+- Coq `8.20.1`.
+- both theorem assumption probes: `Closed under the global context`.
+- receipt SHA-256: `a027b7be848abd39e9d99889f4dff49fa694f26896313ec8d834af6337a3a082`.
+- artifact digest: `sha256:2929dcd407d31a00ea8166d42442fe936456a75edef0ebbed5df67f03b756b14`.
 
 ### Task 3: Bind the obstruction into the RH external-target receipt
 
@@ -72,5 +79,7 @@ Theorem universal_global_weil_bridge_iff_target_v1 :
 - [x] **Step 1: Extend tests so altered obstruction evidence is rejected.**
 - [x] **Step 2: Pin the obstruction source digest and bounded scope in the manifest.**
 - [x] **Step 3: Validate the pin and expose the obstruction in the receipt without changing any RH promotion gate to true.**
-- [ ] **Step 4: Confirm hosted RH bridge tests succeed at the final exact head.**
-- [ ] **Step 5: Confirm final disposition remains `HOLD_RESEARCH_ONLY`, `RH_proved=false`, `claim_promotion=BLOCKED`, and `authority_effect=NONE`.**
+- [x] **Step 4: Confirm hosted RH bridge tests succeed at exact head `9ef75cb9fc7dc3d86044ee5123db499cf518e812`: 7/7 PASS.**
+- [x] **Step 5: Confirm final disposition remains `HOLD_RESEARCH_ONLY`, `RH_proved=false`, `claim_promotion=BLOCKED`, and `authority_effect=NONE`.**
+
+At the same exact head, `Coq Formal Attestation`, `Kernel One`, and `Dependency Review` also completed SUCCESS. This does not close the missing classical Weil/Mathlib semantic identification.
