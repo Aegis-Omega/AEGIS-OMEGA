@@ -20,7 +20,7 @@ class WeilCriterionCompactSmoothV1Tests(unittest.TestCase):
             "def WeilCompactSmoothNegativityV1",
             "ArithmeticFunction.vonMangoldt",
             "Real.eulerMascheroniConstant",
-            "Complex.conj",
+            "conj (g.1 y)",
         ):
             self.assertIn(required, text)
 
