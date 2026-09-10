@@ -1,0 +1,183 @@
+name: RH Zero Critical Strip
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroCriticalStripV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/zero_critical_strip_v1.json'
+      - 'sovereign-omega-v2/formal/tests/test_zero_critical_strip_v1.py'
+      - '.github/workflows/rh-zero-critical-strip.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PARENT_PREBOUNDARY_SHA: da5838a173b5e6d3b9d782e780795df2f37e6ce6
+  PARENT_PREBOUNDARY_RECEIPT_SHA256: 75516b599b431f57dec9a7c78bc93fc39ed9797433f11f2936b13192de1c92c6
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  HURWITZ_VALUES_BLOB_SHA: 4bdfedf2cf474a721e0687852a5782f304781eb7
+  NONVANISHING_BLOB_SHA: 610bd56365d49c5ffa9ebeb29e0a383c768248e2
+  RIEMANN_ZETA_BLOB_SHA: 3c92195fce20df7fda41cfd823b3266f83cf3070
+  SOURCE_SHA256: 90f242e0667f5f536382b4045e2bdace07066bf2a971d44a9b5c09a254381ad4
+
+jobs:
+  critical-strip:
+    name: pinned negative-integer classification and critical strip
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate and source digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          printf '%s  %s\n' "$SOURCE_SHA256" \
+            'sovereign-omega-v2/formal/bridges/lean/ZeroCriticalStripV1.lean' | sha256sum -c -
+          python3 -m unittest sovereign-omega-v2/formal/tests/test_zero_critical_strip_v1.py -v
+
+      - name: Verify fail-closed critical-strip manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m=json.loads(Path('sovereign-omega-v2/formal/bridges/zero_critical_strip_v1.json').read_text())
+          assert m['schema_version']=='AEGIS_ZERO_CRITICAL_STRIP_V1'
+          assert m['namespace']=='mathematics.rh.zero_localization'
+          p=m['parent_preboundary']
+          assert p['aegis_revision']==os.environ['PARENT_PREBOUNDARY_SHA']
+          assert p['preboundary_receipt_sha256']==os.environ['PARENT_PREBOUNDARY_RECEIPT_SHA256']
+          assert p['formal_conjectures_revision']==os.environ['FORMAL_CONJECTURES_SHA']
+          assert p['mathlib_revision']==os.environ['MATHLIB_SHA']
+          assert m['upstream_mathlib'][0]['git_blob_sha']==os.environ['HURWITZ_VALUES_BLOB_SHA']
+          assert m['upstream_mathlib'][1]['git_blob_sha']==os.environ['NONVANISHING_BLOB_SHA']
+          assert m['upstream_mathlib'][2]['git_blob_sha']==os.environ['RIEMANN_ZETA_BLOB_SHA']
+          assert m['formal_source']['sha256']==os.environ['SOURCE_SHA256']
+          s=m['scope']
+          for key in ['positive_even_bernoulli_nonzero','negative_odd_zeta_nonzero','negative_integer_zero_classification','full_nontrivial_zero_critical_strip']:
+              assert s[key]=='CANDIDATE'
+          assert s['critical_line']=='OPEN'
+          assert s['height_truncation_equivalence']=='OPEN'
+          assert s['explicit_formula_theorem']=='OPEN'
+          assert s['rh_equivalence']=='OPEN'
+          assert m['promotion_requested'] is False
+          assert m['declared_disposition']['merge']=='NOT_PERFORMED'
+          assert m['declared_disposition']['authority_effect']=='NONE'
+          PY
+
+      - name: Checkout pinned Formal Conjectures project
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: google-deepmind/formal-conjectures
+          ref: ${{ env.FORMAL_CONJECTURES_SHA }}
+          path: .external/formal-conjectures
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify external project, Mathlib and Lean pins
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FORMAL_CONJECTURES_SHA"
+          test "$(tr -d '\r\n' < lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          manifest=json.loads(Path('lake-manifest.json').read_text())
+          mathlib=next(p for p in manifest['packages'] if p.get('name')=='mathlib')
+          assert (mathlib.get('rev') or mathlib.get('inputRev'))==os.environ['MATHLIB_SHA']
+          PY
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Get pinned Mathlib cache
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: lake exe cache get
+
+      - name: Bind pinned critical-strip sources
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .lake/packages/mathlib rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(git -C .lake/packages/mathlib hash-object Mathlib/NumberTheory/LSeries/HurwitzZetaValues.lean)" = "$HURWITZ_VALUES_BLOB_SHA"
+          test "$(git -C .lake/packages/mathlib hash-object Mathlib/NumberTheory/LSeries/Nonvanishing.lean)" = "$NONVANISHING_BLOB_SHA"
+          test "$(git -C .lake/packages/mathlib hash-object Mathlib/NumberTheory/LSeries/RiemannZeta.lean)" = "$RIEMANN_ZETA_BLOB_SHA"
+          grep -F 'theorem riemannZeta_two_mul_nat' .lake/packages/mathlib/Mathlib/NumberTheory/LSeries/HurwitzZetaValues.lean
+          grep -F 'theorem riemannZeta_neg_nat_eq_bernoulli' .lake/packages/mathlib/Mathlib/NumberTheory/LSeries/HurwitzZetaValues.lean
+          grep -F 'riemannZeta_ne_zero_of_one_le_re' .lake/packages/mathlib/Mathlib/NumberTheory/LSeries/Nonvanishing.lean
+          grep -F 'theorem riemannZeta_one_sub' .lake/packages/mathlib/Mathlib/NumberTheory/LSeries/RiemannZeta.lean
+
+      - name: Compile critical-strip theorem
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version | tee "$GITHUB_WORKSPACE/zero-critical-strip-lean-version.txt"
+          lake env lean "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/ZeroCriticalStripV1.lean" \
+            2>&1 | tee "$GITHUB_WORKSPACE/zero-critical-strip-lean.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/zero-critical-strip-lean.log"
+
+      - name: Emit fail-closed critical-strip receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          source=Path('sovereign-omega-v2/formal/bridges/lean/ZeroCriticalStripV1.lean')
+          manifest_path=Path('sovereign-omega-v2/formal/bridges/zero_critical_strip_v1.json')
+          log=Path('zero-critical-strip-lean.log').read_text()
+          digest=hashlib.sha256(source.read_bytes()).hexdigest()
+          assert digest==os.environ['SOURCE_SHA256']
+          assert 'sorryAx' not in log
+          receipt={
+            'schema_version':'AEGIS_ZERO_CRITICAL_STRIP_RECEIPT_V1',
+            'source_commit':os.environ['SOURCE_SHA'],
+            'formal_source_sha256':digest,
+            'manifest_sha256':hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+            'parent_preboundary_revision':os.environ['PARENT_PREBOUNDARY_SHA'],
+            'parent_preboundary_receipt_sha256':os.environ['PARENT_PREBOUNDARY_RECEIPT_SHA256'],
+            'formal_conjectures_revision':os.environ['FORMAL_CONJECTURES_SHA'],
+            'mathlib_revision':os.environ['MATHLIB_SHA'],
+            'lean_toolchain':os.environ['LEAN_TOOLCHAIN'],
+            'formal_critical_strip_compiled':True,
+            'verified_scope':['POSITIVE_EVEN_BERNOULLI_NONZERO','NEGATIVE_ODD_ZETA_NONZERO','NEGATIVE_INTEGER_ZETA_ZERO_CLASSIFICATION','NONTRIVIAL_ZERO_OPEN_CRITICAL_STRIP','NO_SORRYAX_IN_CRITICAL_STRIP_AXIOM_OUTPUT'],
+            'critical_line':'OPEN','height_truncation_equivalence':'OPEN','explicit_formula_theorem':'OPEN','rh_equivalence':'OPEN',
+            'rh_proved':False,'rh_disproved':False,'claim_promotion':'BLOCKED','decision':'HOLD_RESEARCH_ONLY','merge':'NOT_PERFORMED','authority_effect':'NONE'
+          }
+          canonical=json.dumps(receipt,sort_keys=True,separators=(',',':'))
+          receipt['receipt_sha256']=hashlib.sha256(canonical.encode()).hexdigest()
+          Path('zero-critical-strip-receipt.json').write_text(json.dumps(receipt,sort_keys=True,indent=2)+'\n')
+          print(json.dumps(receipt,sort_keys=True,indent=2))
+          PY
+
+      - name: Upload critical-strip evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: rh-zero-critical-strip-${{ env.SOURCE_SHA }}
+          path: |
+            zero-critical-strip-lean-version.txt
+            zero-critical-strip-lean.log
+            zero-critical-strip-receipt.json
+          if-no-files-found: error
+          retention-days: 30
