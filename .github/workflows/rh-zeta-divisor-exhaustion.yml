@@ -1,0 +1,143 @@
+name: RH Zeta Divisor Exhaustion
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/ZetaDivisorExhaustionV1.lean'
+      - 'sovereign-omega-v2/formal/tests/test_zeta_divisor_exhaustion_v1.py'
+      - '.github/workflows/rh-zeta-divisor-exhaustion.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PARENT_LEDGER_SHA: b45571a51e10121fc9bed3ee9e15572f365d5f02
+  EXHAUSTION_BLOB_SHA: 1ac5c6cb8f1f0df103ba81e1f0872d2a62a9e4e0
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+
+jobs:
+  exhaustion:
+    name: pinned zeta exhaustion geometry
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+
+      - name: Bind exact candidate and source blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git rev-parse HEAD:sovereign-omega-v2/formal/bridges/lean/ZetaDivisorExhaustionV1.lean)" = "$EXHAUSTION_BLOB_SHA"
+          python3 -m unittest \
+            sovereign-omega-v2/formal/tests/test_zeta_divisor_exhaustion_v1.py \
+            -v
+
+      - name: Checkout pinned Formal Conjectures project
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: google-deepmind/formal-conjectures
+          ref: ${{ env.FORMAL_CONJECTURES_SHA }}
+          path: .external/formal-conjectures
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify external pins
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FORMAL_CONJECTURES_SHA"
+          test "$(tr -d '\r\n' < lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          manifest = json.loads(Path('lake-manifest.json').read_text(encoding='utf-8'))
+          mathlib = next(p for p in manifest['packages'] if p.get('name') == 'mathlib')
+          assert (mathlib.get('rev') or mathlib.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL \
+            https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz \
+            | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Get pinned Mathlib cache
+        working-directory: .external/formal-conjectures
+        run: lake exe cache get
+
+      - name: Compile exhaustion geometry
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version | tee "$GITHUB_WORKSPACE/zeta-exhaustion-lean-version.txt"
+          lake env lean \
+            "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/ZetaDivisorExhaustionV1.lean" \
+            2>&1 | tee "$GITHUB_WORKSPACE/zeta-exhaustion-lean.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/zeta-exhaustion-lean.log"
+
+      - name: Emit fail-closed exhaustion receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          source = Path('sovereign-omega-v2/formal/bridges/lean/ZetaDivisorExhaustionV1.lean')
+          log = Path('zeta-exhaustion-lean.log').read_text(encoding='utf-8')
+          digest = hashlib.sha256(source.read_bytes()).hexdigest()
+          assert 'sorryAx' not in log
+          receipt = {
+              'schema_version': 'AEGIS_RH_ZETA_DIVISOR_EXHAUSTION_RECEIPT_V1',
+              'source_commit': os.environ['SOURCE_SHA'],
+              'source_blob_sha': os.environ['EXHAUSTION_BLOB_SHA'],
+              'source_sha256': digest,
+              'parent_ledger_revision': os.environ['PARENT_LEDGER_SHA'],
+              'formal_conjectures_revision': os.environ['FORMAL_CONJECTURES_SHA'],
+              'mathlib_revision': os.environ['MATHLIB_SHA'],
+              'lean_toolchain': os.environ['LEAN_TOOLCHAIN'],
+              'compact_grid': 'PROVED_IN_LEAN',
+              'pole_exclusion': 'PROVED_IN_LEAN',
+              'covers_every_point_ne_one': 'PROVED_IN_LEAN',
+              'covers_every_nontrivial_zero_geometrically': 'PROVED_IN_LEAN',
+              'divisor_support_membership_bridge': 'OPEN',
+              'global_zero_sum_convergence': 'OPEN',
+              'explicit_formula_identity': 'OPEN',
+              'rh_proved': False,
+              'rh_disproved': False,
+              'claim_promotion': 'BLOCKED',
+              'decision': 'HOLD_RESEARCH_ONLY',
+              'merge': 'NOT_PERFORMED',
+              'authority_effect': 'NONE',
+          }
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
+          receipt['receipt_sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          out = Path('zeta-divisor-exhaustion-receipt.json')
+          out.write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          print(out.read_text(encoding='utf-8'))
+          PY
+
+      - name: Upload exhaustion evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: rh-zeta-divisor-exhaustion-${{ env.SOURCE_SHA }}
+          path: |
+            zeta-exhaustion-lean-version.txt
+            zeta-exhaustion-lean.log
+            zeta-divisor-exhaustion-receipt.json
+          if-no-files-found: error
+          retention-days: 30
