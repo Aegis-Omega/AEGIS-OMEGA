@@ -51,12 +51,12 @@ jobs:
           printf '%s\n' "${GITHUB_SHA}" > artifacts/gravity-quantum/head-sha.txt
           python3 -m gravity_quantum.evidence_pipeline > artifacts/gravity-quantum/receipt-v1.json
           python3 -m gravity_quantum.v2_pipeline > artifacts/gravity-quantum/receipt-v2.json
-          sha256sum \
-            artifacts/gravity-quantum/head-sha.txt \
-            artifacts/gravity-quantum/receipt-v1.json \
-            artifacts/gravity-quantum/receipt-v2.json \
-            > artifacts/gravity-quantum/SHA256SUMS
-          cat artifacts/gravity-quantum/SHA256SUMS
+          (
+            cd artifacts/gravity-quantum
+            sha256sum head-sha.txt receipt-v1.json receipt-v2.json > SHA256SUMS
+            sha256sum -c SHA256SUMS
+            cat SHA256SUMS
+          )
 
       - name: Upload exact-head evidence
         uses: actions/upload-artifact@v4
