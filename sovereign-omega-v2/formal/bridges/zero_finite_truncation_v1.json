@@ -1,0 +1,56 @@
+{
+  "schema_version": "AEGIS_ZERO_FINITE_TRUNCATION_V1",
+  "namespace": "mathematics.rh.zero_truncation",
+  "evidence_class": "FORMAL_FINITE_TRUNCATION_CANDIDATE",
+  "parent_zero_multiplicity": {
+    "aegis_revision": "20f030aa3e69bc95c7e247010096fbbe2a4c2dd9",
+    "zero_multiplicity_receipt_sha256": "29fc8be9b217a132a81130a3f3909f7ce5c1b27adac27ec83955c4ed632904e9",
+    "zero_multiplicity_artifact_sha256": "2c7750c9000a28a0bd006681d423921e1238ee260653db04b52afc6e0b571645",
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/NumberTheory/LSeries/ZetaZeros.lean",
+      "revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+      "git_blob_sha": "0b8046e67ae5d1e613366e86fdf6b205eea3a6b1",
+      "objects": [
+        "riemannZetaZeros",
+        "IsCompact.inter_riemannZetaZeros_finite"
+      ]
+    },
+    {
+      "path": "Mathlib/Analysis/Analytic/Order.lean",
+      "revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+      "git_blob_sha": "43cc6d88cb0ecba9560d4c29a410b271d9432628",
+      "objects": [
+        "analyticOrderNatAt"
+      ]
+    }
+  ],
+  "formal_source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/ZeroFiniteTruncationV1.lean",
+    "sha256": "1d04f560bef52b13e1971670b15e3512388fdfeba495d53529e306700a26a7d1"
+  },
+  "scope": {
+    "compact_radial_region": "ENCODED",
+    "radial_zero_set_finite": "CANDIDATE",
+    "finite_zero_carrier": "ENCODED",
+    "finite_multiplicity_weighted_sum": "ENCODED",
+    "radial_limit_convention": "ENCODED_ONLY",
+    "radial_limit_existence": "OPEN",
+    "height_truncation_equivalence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "decision": "HOLD_RESEARCH_ONLY",
+    "rh_proved": false,
+    "rh_disproved": false,
+    "claim_promotion": "BLOCKED",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}

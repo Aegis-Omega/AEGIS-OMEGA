@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/rh-zero-multiplicity-v1",
+    "source_ref": "proof/rh-zero-finite-truncation-v1",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "38ad9d91d101c26014f8f7d59675d01e1949cc0ee0a0c84387f23904e31a18e9"
+  "state_hash": "65ecf6c184199c1f552b5cbdacc2d045d9f594bf49248e4c725ae3121791c925"
 }
