@@ -25,6 +25,7 @@ Live (guarded):          AEGIS_BATCH_LIVE=1 AEGIS_BATCH_MAX_USD=0.50 python3 -m 
 from __future__ import annotations
 
 import json
+import math
 import os
 import pathlib
 from dataclasses import dataclass, field
@@ -79,7 +80,11 @@ class BatchPlan:
 
 
 def _tok(text: str) -> int:
-    return max(1, len(text) // 4)  # ~4 chars/token, worst-case-friendly
+    # A byte can always be represented by a token, whereas the common
+    # four-characters-per-token heuristic underestimates non-ASCII and dense
+    # inputs.  This deliberately pessimistic upper bound keeps the spend guard
+    # conservative for arbitrary caller-provided prompts.
+    return max(1, len(text.encode("utf-8")))
 
 
 def estimate(tasks: list[AgentTask], model: str) -> float:
@@ -93,6 +98,13 @@ def estimate(tasks: list[AgentTask], model: str) -> float:
 
 
 def plan(tasks: list[AgentTask], model: str = MODEL, cap: float = MAX_USD) -> BatchPlan:
+    # ``NaN`` is especially dangerous here: every comparison with it is false,
+    # so ``estimate > cap`` would otherwise be false and a live request could
+    # bypass the supposed hard spending limit.  Infinite and negative caps are
+    # equally not meaningful budget limits.
+    if not math.isfinite(cap) or cap < 0:
+        raise ValueError("cap must be a finite, non-negative USD amount")
+
     est = estimate(tasks, model)
     requests = [{
         "custom_id": t.custom_id,
