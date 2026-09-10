@@ -85,17 +85,24 @@ cd ../aegis-cl-psi   && cargo test                        # Rust gate suite
 cd ../aegis-runtime  && cargo test                        # Seven-Pillar runtime
 ```
 
-### Cognitive-anchor authority boundary
+### Provider-neutral exact-head and skill-factory boundary
 
-The two committed cognitive anchors, `.claude.json` and `skill-hashes.sha256`, are
-mutated by exactly one workflow: `cognitive-manifest-refresh.yml`. Automaton-2 has
-`contents: read`; it may regenerate, compare, upload, validate, receipt, and attest,
-but it cannot commit or push anchor changes. The executable regression fails if a
-second workflow acquires the same write path or if Automaton-2 regains write access:
+Automaton-2 no longer depends on root Claude cognitive anchors. The required
+`aegis / automaton-2` status check verifies that the checked-out worktree is exactly
+the claimed Git head and emits a deterministic receipt with `authority_effect=NONE`.
+The provider-neutral Skill Factory then expands a deterministic taxonomy into 2,048
+candidate competency records. Candidate generation is not competency proof: all records
+start as `UNVERIFIED_CANDIDATE`, `validated_runs=0`, and `authority_effect=NONE`.
 
 ```bash
-python scripts/test-cognitive-anchor-writer-boundary.py
+python sovereign-omega-v2/python/tests/test_exact_head.py -v
+python sovereign-omega-v2/python/tests/test_skill_factory.py -v
+python sovereign-omega-v2/python/tests/test_provider_neutral_execution.py -v
+python scripts/build-skill-factory.py --expect-count 2048
 ```
+
+Promotion of an individual competency requires independent runtime evidence; catalog
+cardinality alone carries no epistemic or execution authority.
 
 ---
 
@@ -110,5 +117,6 @@ No part of the system can do more than it can prove it did. φ-convergence:
 
 ---
 
-*Measured 2026-06-30 from the tracked tree. Re-run the commands above to verify
-any figure independently.*
+*Scale figures were measured 2026-06-30 from the tracked tree. Re-run the commands above
+to verify current values independently; provider-neutral admission changes were added in
+the 2026-09-10 decommission branch and require hosted exact-head verification before merge.*

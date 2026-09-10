@@ -1,0 +1,36 @@
+{
+  "activation_status": "DORMANT_NOT_DISCOVERABLE_BY_ACTIVE_SKILL_PATH",
+  "authority_effect": "NONE",
+  "corpus_id": "google-datacloud-skills-v1",
+  "corpus_root_sha256": "af5595d2254e4a7d2d337aa2910368e7a87cbc2d6a1807be6abf484093ef0285",
+  "destination_prefix": "knowledge/source-corpora/google-datacloud-skills-v1/skills",
+  "epistemic_status": "UNVERIFIED_SOURCE_CORPUS",
+  "excluded_source_paths": [
+    ".agents/skills/run-aegis/SKILL.md",
+    ".agents/skills/run-aegis/driver.cjs",
+    ".gemini/skills/**",
+    ".codex/hooks/**",
+    ".codex/hooks.json",
+    ".claude.json",
+    "skill-hashes.sha256"
+  ],
+  "execution_status": "SOURCE_BYTES_NOT_EXECUTED",
+  "file_count": 325,
+  "licenses": {
+    "Apache-2.0": 56
+  },
+  "package_count": 56,
+  "publishers": {
+    "google": 56
+  },
+  "redistribution_status": "PACKAGE_LICENSE_DECLARATIONS_VERIFIED_COMPLIANCE_REVIEW_STILL_REQUIRED",
+  "repository": "Aegis-Omega/AEGIS-OMEGA",
+  "schema": "AEGIS_DORMANT_SOURCE_CORPUS_V1",
+  "source_bundle_checksum": "de6fab4170eb7786ed7e405889312448e8c982302fb3651f1aaff30f577c2591",
+  "source_census_probe_head": "1734b54023dc4f183b7753c6c9f761700c2823d2",
+  "source_census_run_id": 34498785173,
+  "source_manifest_sha256": "3126675fb90fe6d7cecb07006338c76f5c5bc41f5714d7bcd88e55d9e6f2dfc7",
+  "source_pr": 240,
+  "source_prefix": ".agents/skills",
+  "source_sha": "8606c90014dc59d234ddc9de9d38a787a2d32d8e"
+}

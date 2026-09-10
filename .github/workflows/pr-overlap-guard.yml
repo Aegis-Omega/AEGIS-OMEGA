@@ -1,0 +1,69 @@
+name: AEGIS PR Overlap Guard
+
+# Stops a pull request that duplicates an already-open one, at the moment it is
+# opened rather than 119 pull requests later. See scripts/pr_overlap_guard.py
+# for why the check reads territory as well as file paths.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited, labeled, unlabeled]
+  push:
+    branches: [fix/pr-overlap-guard-v1]
+    paths:
+      - scripts/pr_overlap_guard.py
+      - scripts/test_pr_overlap_guard*.py
+      - .github/workflows/pr-overlap-guard.yml
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-overlap-guard-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  overlap:
+    name: aegis / pr-overlap-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Self-test the guard before trusting its verdict
+        shell: bash
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git diff --exit-code
+          git diff --cached --exit-code
+          python -m unittest discover -s scripts -p 'test_pr_overlap_guard*.py' -v
+          git diff --exit-code
+          git diff --cached --exit-code
+          sha256sum scripts/pr_overlap_guard.py scripts/test_pr_overlap_guard*.py
+          echo "SELF_TEST_ONLY candidate=$EXPECTED_HEAD; repository admission not granted" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report overlap with open pull requests
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          python scripts/pr_overlap_guard.py --pr "${{ github.event.pull_request.number }}" \
+            | tee "$GITHUB_STEP_SUMMARY"

@@ -114,6 +114,33 @@ class RepositoryCartographerContract(unittest.TestCase):
         self.assertEqual(verification["reason_codes"], [])
 
     @unittest.skipUnless(MODULE_PATH.exists(), "RED: cartographer module absent")
+    def test_complete_corpus_coverage_and_bounded_content_hints(self) -> None:
+        mod = load_module()
+        snapshot = mod.build_snapshot(self.repo, repository_id=123)
+        tracked = [line for line in git(self.repo, "ls-tree", "-r", "--name-only", "HEAD").splitlines() if line]
+
+        self.assertEqual(snapshot["coverage_scope"], "all_git_tracked_head_entries")
+        self.assertEqual(snapshot["tracked_file_count"], len(tracked))
+        self.assertEqual(snapshot["eligible_file_count"], len(tracked))
+        self.assertEqual(snapshot["indexed_file_count"], len(tracked))
+        self.assertEqual(snapshot["coverage"], 1.0)
+
+        by_path = {item["path"]: item for item in snapshot["artifacts"]}
+        for path in tracked:
+            item = by_path[path]
+            self.assertRegex(item["content_sha256"], r"^[0-9a-f]{64}$")
+            self.assertGreaterEqual(item["size_bytes"], 0)
+            self.assertIn("symbol_hints", item)
+            self.assertIn("heading_hint", item)
+
+        self.assertIn("foo", by_path["formal/theories/Foo.v"]["symbol_hints"])
+        self.assertEqual(by_path["docs/spec.md"]["heading_hint"], "Spec")
+        self.assertEqual(
+            snapshot["absence_claim_boundary"],
+            "exact_head_tracked_content_only; semantic_or_external_absence_not_established",
+        )
+
+    @unittest.skipUnless(MODULE_PATH.exists(), "RED: cartographer module absent")
     def test_old_snapshot_is_denied_after_head_moves(self) -> None:
         mod = load_module()
         snapshot = mod.build_snapshot(self.repo, repository_id=123)

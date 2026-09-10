@@ -1,0 +1,55 @@
+name: Dormant Source Corpus Integrity
+
+on:
+  pull_request:
+    paths:
+      - 'knowledge/source-corpora/**'
+      - 'scripts/verify_dormant_source_corpus.py'
+      - 'scripts/test_verify_dormant_source_corpus.py'
+      - '.github/workflows/dormant-source-corpus-integrity.yml'
+      - '.github/workflows/automaton-2.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'knowledge/source-corpora/**'
+      - 'scripts/verify_dormant_source_corpus.py'
+      - 'scripts/test_verify_dormant_source_corpus.py'
+      - '.github/workflows/dormant-source-corpus-integrity.yml'
+      - '.github/workflows/automaton-2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  dormant-source-corpus-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact head and clean worktree
+        shell: bash
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git diff --exit-code
+          git diff --cached --exit-code
+
+      - name: Run adversarial verifier tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/test_verify_dormant_source_corpus.py -v
+
+      - name: Verify Google Data Cloud dormant corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/verify_dormant_source_corpus.py \
+            knowledge/source-corpora/google-datacloud-skills-v1

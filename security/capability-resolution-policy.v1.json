@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "epistemic_status": "PROVIDER_NEUTRAL_CAPABILITY_ADMISSION_POLICY",
+  "resolution_law": "effective_capability = configured_allowlist AND callable_execution_surface AND authenticating_principal_permission AND principal_is_workload_bound AND authority_guard_allows AND repository_policy_allows",
+  "resolution_law_terms": [
+    "configured_allowlist",
+    "callable_execution_surface",
+    "authenticating_principal_permission",
+    "principal_is_workload_bound",
+    "authority_guard_allows",
+    "repository_policy_allows"
+  ],
+  "invariants": [
+    "PR_TITLE_DOES_NOT_DEFINE_CAPABILITY",
+    "CONFIGURED_ALLOWLIST_DOES_NOT_IMPLY_EXECUTION_CALLABILITY",
+    "EXECUTION_CALLABILITY_DOES_NOT_IMPLY_AUTHENTICATING_PRINCIPAL_PERMISSION",
+    "INSTALLED_OR_CALLABLE_PRINCIPAL_IS_NOT_A_GRANTED_PRINCIPAL",
+    "BORROWED_PRINCIPAL_PERMISSION_IS_NOT_WORKLOAD_AUTHORITY",
+    "AUTHORITY_GUARDS_CAN_NARROW_AN_OTHERWISE_ALLOWED_TOOL",
+    "CONTENT_WRITE_DOES_NOT_IMPLY_REPOSITORY_ADMINISTRATION",
+    "CAPABILITY_CLAIMS_REQUIRE_EXACT_SOURCE_LINEAGE_AND_LIVE_PRINCIPAL_EVIDENCE",
+    "MISSING_RESOLUTION_TERM_DENIES"
+  ],
+  "decision_semantics": {
+    "all_terms_true": "PERMIT_WITHIN_EXISTING_AUTHORITY",
+    "any_term_false_or_missing": "DENY"
+  },
+  "authority_effect": "NONE"
+}
