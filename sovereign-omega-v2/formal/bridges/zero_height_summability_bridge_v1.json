@@ -3,7 +3,7 @@
   "candidate": {
     "branch": "proof/rh-zero-height-summability-bridge-v1",
     "formal_source_path": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightSummabilityBridgeV1.lean",
-    "formal_source_git_blob_sha": "045c9e6709ede68f79e74167b88a3023f2bcf5db",
+    "formal_source_git_blob_sha": "57c1fb34f18e80cd170455848c2f2bc192c1f85d",
     "declarations": [
       "RiemannNontrivialZeroIndexV2",
       "NontrivialZeroHeightIndexFinsetV1",
