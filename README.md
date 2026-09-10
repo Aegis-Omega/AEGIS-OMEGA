@@ -145,16 +145,20 @@ cd packages/aegis-interface && python -m pytest
 
 **CI:** the CEREMONY gate is a BFT quorum of 6 jobs at threshold 1/φ ≈ 0.618 — fewer than 4/6 passing blocks merge.
 
-### Cognitive-anchor ownership
+### Provider-neutral exact-head and skill registry
 
-`.claude.json` and `skill-hashes.sha256` have one CI writer:
-`cognitive-manifest-refresh.yml`. Automaton-2 is deliberately read-only: it regenerates
-expected anchors, uploads them as evidence, validates the committed candidate, and emits
-an attested receipt without pushing to the PR branch. This prevents two workflows from
-racing to move the same branch head.
+The root Claude cognitive anchors (`.claude.json` and `skill-hashes.sha256`) are not part
+of the active execution admission path. The required `aegis / automaton-2` check binds
+to the exact checked-out Git head and emits a deterministic receipt without granting
+authority. The provider-neutral Skill Factory derives a deterministic 2,048-candidate
+registry from `knowledge/skill-taxonomy.v1.json`; every generated record starts as
+`UNVERIFIED_CANDIDATE` with `authority_effect=NONE` and requires independent execution
+evidence before any competency promotion.
 
 ```bash
-python scripts/test-cognitive-anchor-writer-boundary.py
+python sovereign-omega-v2/python/tests/test_exact_head.py -v
+python sovereign-omega-v2/python/tests/test_skill_factory.py -v
+python scripts/build-skill-factory.py --expect-count 2048
 ```
 
 ---
