@@ -1,20 +1,26 @@
 {
-  "schema": "AEGIS_CSTAR_V0_5_VERIFIER_SCOPE_V4",
-  "mode": "SOURCE_PR_EXACT_HEAD_BOUND",
+  "schema": "AEGIS_CSTAR_V0_5_VERIFIER_SCOPE_V5",
+  "mode": "SOURCE_PR_EXACT_HEAD_GIT_BLOB_BOUND",
   "source_repo": "Aegis-Omega/AegisOmega",
   "source_pr": 10,
   "source_candidate_head": "fc1c53195a76361435afb5ca5dc6e9a5029c9905",
   "coq_version": "8.20.1",
   "general_scope": "arbitrary group carrier; integer coefficients Z; arbitrary G-action on Z preserving zero, addition, subtraction, identity and composition",
   "reference_scope": "G=Z/2 acting nontrivially on A=Z by sign; cubic normalized 3-cocycle",
-  "source_sha256": {
-    "verification/cstar-v05/CStarTwistedGroupCohomology.v": "58f7233c8146b32551e1619557fd82c45694e74c3c4adfd67b966d8544e7dee4",
-    "verification/cstar-v05/CStarZ2SignPostnikov.v": "34481498db56a9b93a75297f67877feef5e28db57ab50bd49f0007a7d6de1286"
-  },
-  "source_repo_paths_sha256": {
-    "research/cstar/v05/formal/coq/CStarTwistedGroupCohomology.v": "58f7233c8146b32551e1619557fd82c45694e74c3c4adfd67b966d8544e7dee4",
-    "research/cstar/v05/formal/coq/CStarZ2SignPostnikov.v": "34481498db56a9b93a75297f67877feef5e28db57ab50bd49f0007a7d6de1286"
-  },
+  "bindings": [
+    {
+      "verifier_path": "verification/cstar-v05/CStarTwistedGroupCohomology.v",
+      "source_path": "research/cstar/v05/formal/coq/CStarTwistedGroupCohomology.v",
+      "sha256": "58f7233c8146b32551e1619557fd82c45694e74c3c4adfd67b966d8544e7dee4",
+      "source_git_blob_sha": "9ca29940f24a8c6e47a5ca4b4e13f841196890df"
+    },
+    {
+      "verifier_path": "verification/cstar-v05/CStarZ2SignPostnikov.v",
+      "source_path": "research/cstar/v05/formal/coq/CStarZ2SignPostnikov.v",
+      "sha256": "34481498db56a9b93a75297f67877feef5e28db57ab50bd49f0007a7d6de1286",
+      "source_git_blob_sha": "f3d13d0c638cbe0b0dba88565559ae58009690b1"
+    }
+  ],
   "required_theorems": [
     "delta3_delta2_zero_Z_action",
     "delta2_preserves_normalization_Z_action",
@@ -24,10 +30,11 @@
     "z2_sign_cubic_three_cocycle",
     "z2_sign_cubic_not_normalized_coboundary"
   ],
+  "binding_note": "Source-repository blob SHAs were read from the exact AegisOmega source commit through the connected GitHub API. Git blob IDs are content-addressed, so equality of blob SHA plus SHA-256 establishes byte identity without cross-repository runner credentials.",
   "historical_trace_phase_proxy": "NOT_IDENTIFIED_WITH_POSTNIKOV_INVARIANT",
   "arbitrary_abelian_group_coefficients": "OPEN_V0_6",
   "infinity_cstar_sheaf_equivalence": "NOT_ESTABLISHED",
   "physical_quantum_claim": "NOT_ESTABLISHED",
-  "claim_promotion": "BLOCKED_UNTIL_THIS_EXACT_HEAD_BOUND_RUN_SUCCEEDS",
+  "claim_promotion": "BLOCKED_UNTIL_THIS_SOURCE_BOUND_RUN_SUCCEEDS",
   "authority_effect": "NONE"
 }
