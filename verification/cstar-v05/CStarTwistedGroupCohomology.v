@@ -1,168 +1,156 @@
-From Coq Require Import Ring.
+From Coq Require Import ZArith Ring.
+
+Open Scope Z_scope.
 
 (**
-  CSTAR v0.5 twisted-coefficient formal theorem lane.
+  CSTAR v0.5 twisted-integer formal theorem lane.
 
   Scope:
   - arbitrary group carrier with associative multiplication and two-sided identity;
-  - arbitrary commutative-ring coefficient carrier A;
-  - a G-action on A preserving 0, +, -, and composition;
+  - integer coefficients Z;
+  - an arbitrary G-action on Z preserving 0, +, -, identity and composition;
   - low-dimensional inhomogeneous group-cohomology differentials.
 
-  The multiplicative ring structure on A is used only to register the additive
-  commutative-group laws with Coq's ring normalization tactic.  The cochain
-  definitions below use only the additive operations and the G-action.
-
-  This file does NOT identify the historical normalized-trace phase proxy with
-  a Postnikov invariant, and it grants no physical quantum authority.
+  This strictly generalizes the v0.4 trivial-action theorem lane while keeping
+  coefficient algebra inside Coq's native integer ring.  Arbitrary abelian
+  coefficient groups remain an explicit later theorem obligation.
 *)
 
-Section TwistedCommutativeRingCoefficients.
+Section TwistedIntegerCoefficients.
 
-Context {G A : Type}.
-
+Context {G : Type}.
 Variable e : G.
-Variable gmul : G -> G -> G.
+Variable mul : G -> G -> G.
 
-Hypothesis gmul_assoc : forall g h k : G,
-  gmul (gmul g h) k = gmul g (gmul h k).
-Hypothesis gmul_left_id : forall g : G, gmul e g = g.
-Hypothesis gmul_right_id : forall g : G, gmul g e = g.
+Hypothesis mul_assoc : forall g h k : G,
+  mul (mul g h) k = mul g (mul h k).
+Hypothesis mul_left_id : forall g : G, mul e g = g.
+Hypothesis mul_right_id : forall g : G, mul g e = g.
 
-Variable Azero Aone : A.
-Variable Aadd Amul Asub : A -> A -> A.
-Variable Aopp : A -> A.
-
-Hypothesis A_ring : ring_theory Azero Aone Aadd Amul Asub Aopp eq.
-Add Ring ARing : A_ring.
-
-Local Infix "+" := Aadd.
-Local Infix "-" := Asub.
-
-Variable act : G -> A -> A.
-Hypothesis act_zero : forall g : G, act g Azero = Azero.
-Hypothesis act_add : forall (g : G) (x y : A),
+Variable act : G -> Z -> Z.
+Hypothesis act_zero : forall g : G, act g 0 = 0.
+Hypothesis act_add : forall (g : G) (x y : Z),
   act g (x + y) = act g x + act g y.
-Hypothesis act_sub : forall (g : G) (x y : A),
+Hypothesis act_sub : forall (g : G) (x y : Z),
   act g (x - y) = act g x - act g y.
-Hypothesis act_comp : forall (g h : G) (x : A),
-  act (gmul g h) x = act g (act h x).
-Hypothesis act_id : forall x : A, act e x = x.
+Hypothesis act_comp : forall (g h : G) (x : Z),
+  act (mul g h) x = act g (act h x).
+Hypothesis act_id : forall x : Z, act e x = x.
 
-Definition C2_A := G -> G -> A.
-Definition C3_A := G -> G -> G -> A.
-Definition C4_A := G -> G -> G -> G -> A.
+Definition C2_Z_action := G -> G -> Z.
+Definition C3_Z_action := G -> G -> G -> Z.
+Definition C4_Z_action := G -> G -> G -> G -> Z.
 
-Definition delta2_A (b : C2_A) : C3_A :=
+Definition delta2_Z_action (b : C2_Z_action) : C3_Z_action :=
   fun g h k =>
     act g (b h k)
-    - b (gmul g h) k
-    + b g (gmul h k)
+    - b (mul g h) k
+    + b g (mul h k)
     - b g h.
 
-Definition delta3_A (a : C3_A) : C4_A :=
+Definition delta3_Z_action (a : C3_Z_action) : C4_Z_action :=
   fun g h k l =>
     act g (a h k l)
-    - a (gmul g h) k l
-    + a g (gmul h k) l
-    - a g h (gmul k l)
+    - a (mul g h) k l
+    + a g (mul h k) l
+    - a g h (mul k l)
     + a g h k.
 
-Definition normalized2_A (b : C2_A) : Prop :=
-  (forall g : G, b e g = Azero) /\
-  (forall g : G, b g e = Azero).
+Definition normalized2_Z_action (b : C2_Z_action) : Prop :=
+  (forall g : G, b e g = 0) /\
+  (forall g : G, b g e = 0).
 
-Definition normalized3_A (a : C3_A) : Prop :=
-  (forall g h : G, a e g h = Azero) /\
-  (forall g h : G, a g e h = Azero) /\
-  (forall g h : G, a g h e = Azero).
+Definition normalized3_Z_action (a : C3_Z_action) : Prop :=
+  (forall g h : G, a e g h = 0) /\
+  (forall g h : G, a g e h = 0) /\
+  (forall g h : G, a g h e = 0).
 
-Definition three_cocycle_A (a : C3_A) : Prop :=
-  forall g h k l : G, delta3_A a g h k l = Azero.
+Definition three_cocycle_Z_action (a : C3_Z_action) : Prop :=
+  forall g h k l : G, delta3_Z_action a g h k l = 0.
 
-Definition pentagon_holds_A (a : C3_A) : Prop :=
-  forall g h k l : G, delta3_A a g h k l = Azero.
+Definition pentagon_holds_Z_action (a : C3_Z_action) : Prop :=
+  forall g h k l : G, delta3_Z_action a g h k l = 0.
 
-Definition add3_A (a c : C3_A) : C3_A :=
+Definition add3_Z_action (a c : C3_Z_action) : C3_Z_action :=
   fun g h k => a g h k + c g h k.
 
-Definition gauge_transform_A (a : C3_A) (b : C2_A) : C3_A :=
-  add3_A a (delta2_A b).
+Definition gauge_transform_Z_action (a : C3_Z_action) (b : C2_Z_action) : C3_Z_action :=
+  add3_Z_action a (delta2_Z_action b).
 
-Theorem delta3_delta2_zero_A_action :
-  forall (b : C2_A) (g h k l : G),
-    delta3_A (delta2_A b) g h k l = Azero.
+Theorem delta3_delta2_zero_Z_action :
+  forall (b : C2_Z_action) (g h k l : G),
+    delta3_Z_action (delta2_Z_action b) g h k l = 0.
 Proof.
   intros b g h k l.
-  unfold delta3_A, delta2_A.
+  unfold delta3_Z_action, delta2_Z_action.
   repeat rewrite act_add.
   repeat rewrite act_sub.
   repeat rewrite <- act_comp.
-  repeat rewrite gmul_assoc.
+  repeat rewrite mul_assoc.
   ring.
 Qed.
 
-Theorem delta2_preserves_normalization_A_action :
-  forall b : C2_A,
-    normalized2_A b -> normalized3_A (delta2_A b).
+Theorem delta2_preserves_normalization_Z_action :
+  forall b : C2_Z_action,
+    normalized2_Z_action b -> normalized3_Z_action (delta2_Z_action b).
 Proof.
   intros b [Hleft Hright].
-  unfold normalized3_A.
+  unfold normalized3_Z_action.
   split.
   - intros g h.
-    unfold delta2_A.
+    unfold delta2_Z_action.
     rewrite act_id.
-    rewrite gmul_left_id.
+    rewrite mul_left_id.
     rewrite Hleft.
     rewrite Hleft.
     ring.
   - split.
     + intros g h.
-      unfold delta2_A.
+      unfold delta2_Z_action.
       rewrite Hleft.
       rewrite act_zero.
-      rewrite gmul_right_id.
-      rewrite gmul_left_id.
+      rewrite mul_right_id.
+      rewrite mul_left_id.
       rewrite Hright.
       ring.
     + intros g h.
-      unfold delta2_A.
+      unfold delta2_Z_action.
       rewrite Hright.
       rewrite act_zero.
       rewrite Hright.
-      rewrite gmul_right_id.
+      rewrite mul_right_id.
       ring.
 Qed.
 
-Lemma delta3_additive_A_action :
-  forall (a c : C3_A) (g h k l : G),
-    delta3_A (add3_A a c) g h k l =
-    delta3_A a g h k l + delta3_A c g h k l.
+Lemma delta3_additive_Z_action :
+  forall (a c : C3_Z_action) (g h k l : G),
+    delta3_Z_action (add3_Z_action a c) g h k l =
+    delta3_Z_action a g h k l + delta3_Z_action c g h k l.
 Proof.
   intros a c g h k l.
-  unfold delta3_A, add3_A.
+  unfold delta3_Z_action, add3_Z_action.
   repeat rewrite act_add.
   ring.
 Qed.
 
-Theorem gauge_preserves_three_cocycle_A_action :
-  forall (a : C3_A) (b : C2_A),
-    three_cocycle_A a -> three_cocycle_A (gauge_transform_A a b).
+Theorem gauge_preserves_three_cocycle_Z_action :
+  forall (a : C3_Z_action) (b : C2_Z_action),
+    three_cocycle_Z_action a -> three_cocycle_Z_action (gauge_transform_Z_action a b).
 Proof.
   intros a b Ha g h k l.
-  unfold gauge_transform_A.
-  rewrite delta3_additive_A_action.
+  unfold gauge_transform_Z_action.
+  rewrite delta3_additive_Z_action.
   rewrite (Ha g h k l).
-  rewrite delta3_delta2_zero_A_action.
+  rewrite delta3_delta2_zero_Z_action.
   ring.
 Qed.
 
-Theorem pentagon_iff_three_cocycle_A_action :
-  forall a : C3_A,
-    pentagon_holds_A a <-> three_cocycle_A a.
+Theorem pentagon_iff_three_cocycle_Z_action :
+  forall a : C3_Z_action,
+    pentagon_holds_Z_action a <-> three_cocycle_Z_action a.
 Proof.
   intro a.
   split; intro H; exact H.
 Qed.
 
-End TwistedCommutativeRingCoefficients.
+End TwistedIntegerCoefficients.
