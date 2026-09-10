@@ -65,11 +65,16 @@ async function captureOrder(token: string, orderId: string): Promise<CaptureResu
   })
   const data = await resp.json()
   if (!resp.ok) throw new Error(`PayPal capture: ${JSON.stringify(data)}`)
-  // Extract captured amount from the first purchase unit → first capture
-  const capturedUSD = parseFloat(
-    // deno-lint-ignore no-explicit-any
-    (data as any)?.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value ?? '0'
-  )
+  // A completed order alone does not certify a settled USD capture.
+  const capture = data?.purchase_units?.[0]?.payments?.captures?.[0]
+  const amount = capture?.amount
+  if (capture?.status !== 'COMPLETED' || amount?.currency_code !== 'USD')
+    throw new Error('A completed USD capture is required')
+  if (typeof amount.value !== 'string' || !/^\d+(\.\d{1,2})?$/.test(amount.value))
+    throw new Error('Invalid USD capture amount')
+  const capturedUSD = Number(amount.value)
+  if (!Number.isFinite(capturedUSD) || capturedUSD <= 0)
+    throw new Error('Invalid USD capture amount')
   return { status: data.status as string, capturedUSD }
 }
 
