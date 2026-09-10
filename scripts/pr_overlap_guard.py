@@ -29,13 +29,15 @@ ignored within a day. A guard nobody reads is worse than no guard.
 WHAT THIS DOES NOT DO. It does not decide which PR is right, and it does not
 close anything. It reports the collision and fails, so a person looks. A
 deliberate stack of related PRs is legitimate and is meant to be waved through
-with the documented label.
+only for a labeled, exact-base, ancestry-verified parent/child pair.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -100,16 +102,39 @@ def territory(files: list[dict], existing: frozenset[str]) -> set[str]:
     return out
 
 
+def _git(root: str, *args: str) -> str:
+    return subprocess.check_output(
+        ["git", "--no-replace-objects", "-C", root, *args],
+        stderr=subprocess.PIPE, timeout=30,
+    ).decode("utf-8", errors="strict")
+
+
+def _sha(value: str) -> str:
+    if not isinstance(value, str) or re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", value) is None:
+        raise ValueError("A full lowercase commit SHA is required")
+    return value
+
+
 def base_directories(root: str = ".") -> frozenset[str]:
-    """Top-level directories of the checked-out base tree."""
-    try:
+    """Read the pinned base commit, never the candidate's new directories.
+
+    Without a pin this helper is a filesystem diagnostic only. The CLI requires
+    both event-bound SHAs before producing an overlap verdict.
+    """
+    base = os.environ.get("GITHUB_BASE_SHA")
+    if base:
+        _sha(base)
+        if _git(root, "cat-file", "-t", base).strip() != "commit":
+            raise ValueError("Base object is not a commit")
+        entries = _git(root, "ls-tree", "-z", base).split("\0")
         return frozenset(
-            name
-            for name in os.listdir(root)
-            if os.path.isdir(os.path.join(root, name)) and name != ".git"
+            entry.split("\t", 1)[1] for entry in entries
+            if entry and entry.split("\t", 1)[0].split()[1] == "tree"
         )
-    except OSError:
-        return frozenset()
+    return frozenset(
+        name for name in os.listdir(root)
+        if os.path.isdir(os.path.join(root, name)) and name != ".git"
+    )
 
 
 @dataclass(frozen=True)
@@ -163,7 +188,7 @@ def collide(
                     jaccard=score,
                 )
             )
-    return sorted(found, key=lambda c: (-len(c.shared_territory), -c.jaccard))
+    return sorted(found, key=lambda c: (-len(c.shared_territory), -c.jaccard, c.number))
 
 
 def render(candidate: int, collisions: list[Collision]) -> str:
@@ -182,13 +207,13 @@ def render(candidate: int, collisions: list[Collision]) -> str:
             lines.append(f"      - ... and {len(c.shared_files) - 8} more")
         lines.append("")
     lines.append(
-        f"Close the duplicate, fold the work into the existing PR, or apply the "
-        f"`{OVERRIDE_LABEL}` label if this is a deliberate continuation."
+        f"Reconcile unique work before closing a duplicate. `{OVERRIDE_LABEL}` only "
+        f"exempts an exact-base, ancestry-verified parent/child pair; never unrelated PRs."
     )
     return "\n".join(lines)
 
 
-def _get(url: str, token: str) -> list[dict]:
+def _get(url: str, token: str) -> list[dict] | dict:
     request = urllib.request.Request(
         url,
         headers={
@@ -199,39 +224,101 @@ def _get(url: str, token: str) -> list[dict]:
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         payload = json.load(response)
-    if not isinstance(payload, list):
-        raise ValueError(f"GitHub collection endpoint returned {type(payload).__name__}, expected list")
+    if not isinstance(payload, (list, dict)):
+        raise ValueError("GitHub returned an invalid JSON payload")
     return payload
 
 
 def _get_all(url: str, token: str) -> list[dict]:
-    """Read a complete GitHub collection instead of silently truncating at 100.
-
-    GitHub REST collection endpoints return at most 100 rows per page. Continue
-    until the first short page. Any request error propagates to the caller, which
-    keeps the guard fail-closed rather than treating an incomplete census as
-    evidence that no collision exists.
-    """
+    """Paginate fully, rejecting repeated pages and the REST file-list cap."""
     found: list[dict] = []
-    page = 1
+    seen: set[tuple[type, object]] = set()
     separator = "&" if "?" in url else "?"
-    while True:
+    for page in range(1, 1001):
         batch = _get(f"{url}{separator}per_page=100&page={page}", token)
-        found.extend(batch)
+        if not isinstance(batch, list) or len(batch) > 100:
+            raise ValueError("Invalid GitHub collection page")
+        for entry in batch:
+            if not isinstance(entry, dict):
+                raise ValueError("Invalid GitHub collection row")
+            key = entry.get("number", entry.get("filename"))
+            if type(key) not in (int, str) or key == "" or (type(key), key) in seen:
+                raise ValueError("Missing or repeated collection identity; census is incomplete")
+            seen.add((type(key), key))
+            found.append(entry)
+        if url.split("?", 1)[0].endswith("/files") and len(found) >= 3000:
+            raise ValueError("GitHub 3000-file cap reached; full Git comparison required")
         if len(batch) < 100:
             return found
-        page += 1
+    raise ValueError("Census resource limit reached; no completeness claim")
+
+
+def _binding(ref: dict) -> tuple[str, str, str]:
+    try:
+        repo, branch, sha = ref["repo"]["full_name"], ref["ref"], ref["sha"]
+        if not isinstance(repo, str) or not repo or not isinstance(branch, str) or not branch:
+            raise ValueError("Missing ref identity")
+        return repo, branch, _sha(sha)
+    except (KeyError, TypeError) as exc:
+        raise ValueError("Incomplete PR ref identity") from exc
+
+
+def _snapshot(prs: list[dict]) -> tuple:
+    rows = []
+    for pr in prs:
+        try:
+            number, title = pr["number"], pr["title"]
+            if type(number) is not int or number < 1 or not isinstance(title, str):
+                raise ValueError("Invalid PR identity")
+            labels = tuple(sorted(label["name"] for label in pr.get("labels", [])))
+            if not all(isinstance(label, str) for label in labels):
+                raise ValueError("Invalid PR label")
+            rows.append((number, title, _binding(pr["base"]), _binding(pr["head"]), labels))
+        except (KeyError, TypeError) as exc:
+            raise ValueError("Incomplete PR snapshot") from exc
+    if len({row[0] for row in rows}) != len(rows):
+        raise ValueError("Duplicate PR identity")
+    return tuple(sorted(rows))
+
+
+def _stack_pair(repo: str, token: str, child: dict, parent: dict) -> bool:
+    if not any(label["name"] == OVERRIDE_LABEL for label in child.get("labels", [])):
+        return False
+    base, parent_head, child_head = _binding(child["base"]), _binding(parent["head"]), _binding(child["head"])
+    if base != parent_head or parent_head[0] != repo or child_head[0] != repo:
+        return False
+    result = _get(f"{API}/repos/{repo}/compare/{parent_head[2]}...{child_head[2]}?per_page=1", token)
+    if not isinstance(result, dict):
+        raise ValueError("Invalid ancestry comparison")
+    return (result.get("status") in ("ahead", "identical")
+            and type(result.get("behind_by")) is int and result["behind_by"] == 0
+            and isinstance(result.get("merge_base_commit"), dict)
+            and result["merge_base_commit"].get("sha") == parent_head[2])
 
 
 def fetch(repo: str, token: str, candidate: int) -> tuple[list[dict], list[tuple[int, str, list[dict]]]]:
-    open_prs = _get_all(f"{API}/repos/{repo}/pulls?state=open", token)
+    url = f"{API}/repos/{repo}/pulls?state=open"
+    open_prs = _get_all(url, token)
+    before = _snapshot(open_prs)
+    matches = [pr for pr in open_prs if pr["number"] == candidate]
+    if len(matches) != 1:
+        raise ValueError("Candidate absent from open-PR census")
+    current = matches[0]
+    for env, field in (("GITHUB_HEAD_SHA", "head"), ("GITHUB_BASE_SHA", "base")):
+        expected = os.environ.get(env)
+        if expected and _binding(current[field])[2] != _sha(expected):
+            raise ValueError(f"Stale event identity: {env}")
     candidate_files = _get_all(f"{API}/repos/{repo}/pulls/{candidate}/files", token)
-    others = [
-        (pr["number"], pr["title"], _get_all(f"{API}/repos/{repo}/pulls/{pr['number']}/files", token))
-        for pr in open_prs
-        if pr["number"] != candidate
-        and not any(label["name"] == OVERRIDE_LABEL for label in pr.get("labels", []))
-    ]
+    others = []
+    for pr in sorted(open_prs, key=lambda row: row["number"]):
+        if pr["number"] == candidate:
+            continue
+        if _stack_pair(repo, token, pr, current) or _stack_pair(repo, token, current, pr):
+            continue
+        files = _get_all(f"{API}/repos/{repo}/pulls/{pr['number']}/files", token)
+        others.append((pr["number"], pr["title"], files))
+    if _snapshot(_get_all(url, token)) != before:
+        raise ValueError("Open PRs, refs or labels changed during census; retry from fresh state")
     return candidate_files, others
 
 
@@ -244,7 +331,7 @@ def main() -> int:
     parser.add_argument(
         "--root",
         default=".",
-        help="Checked-out base tree, read to learn which top-level directories already exist.",
+        help="Candidate checkout; GITHUB_BASE_SHA selects the committed base tree.",
     )
     args = parser.parse_args()
 
@@ -254,8 +341,15 @@ def main() -> int:
         return 2
 
     try:
+        head = _sha(os.environ.get("GITHUB_HEAD_SHA", ""))
+        _sha(os.environ.get("GITHUB_BASE_SHA", ""))
+        if _git(args.root, "rev-parse", "HEAD").strip() != head:
+            raise ValueError("Candidate checkout differs from event head")
+        if _git(args.root, "status", "--porcelain", "--untracked-files=no").strip():
+            raise ValueError("Candidate checkout has modified tracked files")
+        existing = base_directories(args.root)
         candidate_files, others = fetch(args.repo, token, args.pr)
-    except (urllib.error.URLError, urllib.error.HTTPError, ValueError) as exc:
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
         # Fail loudly rather than silently passing: an unreachable or malformed
         # API response is not evidence that the PR is unique.
         print(f"GitHub API census failed: {exc}", file=sys.stderr)
@@ -266,7 +360,7 @@ def main() -> int:
         others,
         min_shared=args.min_shared,
         min_jaccard=args.min_jaccard,
-        existing=base_directories(args.root),
+        existing=existing,
     )
     print(render(args.pr, collisions))
     return 1 if collisions else 0
