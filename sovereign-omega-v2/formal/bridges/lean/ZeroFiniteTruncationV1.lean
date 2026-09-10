@@ -71,7 +71,7 @@ theorem mem_zero_radial_finset_v1 (R : ℝ) (rho : ℂ) :
 Because the carrier is a `Finset`, this object requires no infinite-summation
 convention and makes no convergence assertion. -/
 def WeilZeroRadialTruncatedSumV1 (f : ℝ → ℂ) (R : ℝ) : ℂ :=
-  ∑ rho in ZeroRadialFinsetV1 R,
+  (ZeroRadialFinsetV1 R).sum fun rho =>
     (analyticOrderNatAt riemannZeta rho : ℂ) * mellin f rho
 
 /-- The selected radial-limit convention, stated only as a proposition.
