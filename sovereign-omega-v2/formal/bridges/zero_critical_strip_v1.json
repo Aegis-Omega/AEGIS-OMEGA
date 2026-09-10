@@ -1,0 +1,56 @@
+{
+  "schema_version": "AEGIS_ZERO_CRITICAL_STRIP_V1",
+  "namespace": "mathematics.rh.zero_localization",
+  "evidence_class": "FORMAL_CRITICAL_STRIP_CANDIDATE",
+  "parent_preboundary": {
+    "aegis_revision": "da5838a173b5e6d3b9d782e780795df2f37e6ce6",
+    "preboundary_receipt_sha256": "75516b599b431f57dec9a7c78bc93fc39ed9797433f11f2936b13192de1c92c6",
+    "preboundary_artifact_sha256": "cf944f5a9cc137891d43b47c141d044b63ed274d0bd988a454d44a2c39e57e48",
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/NumberTheory/LSeries/HurwitzZetaValues.lean",
+      "revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+      "git_blob_sha": "4bdfedf2cf474a721e0687852a5782f304781eb7",
+      "objects": ["riemannZeta_two_mul_nat", "riemannZeta_neg_nat_eq_bernoulli"]
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/Nonvanishing.lean",
+      "revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+      "git_blob_sha": "610bd56365d49c5ffa9ebeb29e0a383c768248e2",
+      "objects": ["riemannZeta_ne_zero_of_one_le_re"]
+    },
+    {
+      "path": "Mathlib/NumberTheory/LSeries/RiemannZeta.lean",
+      "revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+      "git_blob_sha": "3c92195fce20df7fda41cfd823b3266f83cf3070",
+      "objects": ["riemannZeta_one_sub", "riemannZeta_zero"]
+    }
+  ],
+  "formal_source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/ZeroCriticalStripV1.lean",
+    "sha256": "df4b8524c597f9873f6a8cafbaff9991791c3c80bad4fb35e13c0b39493ea8ef"
+  },
+  "scope": {
+    "positive_even_bernoulli_nonzero": "CANDIDATE",
+    "negative_odd_zeta_nonzero": "CANDIDATE",
+    "negative_integer_zero_classification": "CANDIDATE",
+    "full_nontrivial_zero_critical_strip": "CANDIDATE",
+    "critical_line": "OPEN",
+    "height_truncation_equivalence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "decision": "HOLD_RESEARCH_ONLY",
+    "rh_proved": false,
+    "rh_disproved": false,
+    "claim_promotion": "BLOCKED",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}

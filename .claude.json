@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/rh-zero-strip-preboundary-v1",
+    "source_ref": "proof/rh-zero-critical-strip-v1",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "1bd5cdd766ea3d82066cb9fa0a8482c1864e0b6035cd7d4bd04a257959dc3509"
+  "state_hash": "06cd335b818fccd27cd1cba3eb2fa4c779c6d1edd7ced58b57f33f2df3e2fbe0"
 }
