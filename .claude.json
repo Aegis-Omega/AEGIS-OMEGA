@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/rh-zero-trivial-classification-v1",
+    "source_ref": "proof/rh-zero-nonpositive-trivial-v1",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "e8a7b2843953b3ba03fe392a146a4aba862259f23befd690af2b67e1c489bf43"
+  "state_hash": "b9e9599e0a38c117e342366e369ed8ae379ab9e960bed0974b5d2a487ca6dada"
 }
