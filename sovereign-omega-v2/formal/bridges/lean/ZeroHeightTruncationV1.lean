@@ -127,7 +127,7 @@ theorem nontrivial_zero_height_set_finite_v1 (T : ℝ) :
     (NontrivialZeroHeightSetV1 T).Finite := by
   have hfinite :
       (Metric.closedBall (0 : ℂ) (T + 1) ∩ riemannZetaZeros).Finite :=
-    (isCompact_closedBall (0 : ℂ) (T + 1)).inter_riemannZetaZeros_finite
+    IsCompact.inter_riemannZetaZeros_finite (isCompact_closedBall (0 : ℂ) (T + 1))
   refine hfinite.subset ?_
   intro s hs
   change riemannZeta s = 0 ∧
