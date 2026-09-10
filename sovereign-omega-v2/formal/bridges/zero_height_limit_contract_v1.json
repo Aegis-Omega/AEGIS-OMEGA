@@ -1,0 +1,55 @@
+{
+  "schema_version": "AEGIS_ZERO_HEIGHT_LIMIT_CONTRACT_V1",
+  "candidate": {
+    "branch": "proof/rh-zero-height-limit-contract-v1",
+    "formal_source_path": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightLimitContractV1.lean",
+    "formal_source_git_blob_sha": "5d0d065113d9076db4eab6cf4be7a9868eec56a4",
+    "declarations": [
+      "HasWeilZeroHeightLimitV1",
+      "WeilZeroHeightLimitExistsV1",
+      "weil_zero_height_limit_unique_v1"
+    ]
+  },
+  "verified_parent_evidence": {
+    "finite_height_multiplicity_sum": {
+      "pr": 465,
+      "aegis_revision": "88e404935984aeb676ca1e0168572b79a389c556",
+      "receipt_sha256": "bbc83343feed887a646d81da50e7000f3f50faa34959450f348acb1d97be4b2a",
+      "artifact_sha256": "8359ca273d79a751af956e46f23c60d49369c7474e4b7ca17ed3189815baa73f",
+      "formal_source_git_blob_sha": "94415f65ae85e1e9993916a22891ca2248d65d4d",
+      "formal_source_path": "sovereign-omega-v2/formal/bridges/lean/ZeroHeightFiniteSumV1.lean"
+    }
+  },
+  "external_environment": {
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "formal_conjectures_rh_blob_sha": "c8d38bef385eb15661c3daf7449625b66b019b2a",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "upstream_mathlib": [
+    {
+      "path": "Mathlib/Topology/Separation/Hausdorff.lean",
+      "git_blob_sha": "035464532dbc48a094702ce5046ec3a46ed23824",
+      "required_declaration": "tendsto_nhds_unique"
+    }
+  ],
+  "scope": {
+    "finite_height_multiplicity_sum_parent": "VERIFIED",
+    "height_limit_contract": "CANDIDATE",
+    "height_limit_uniqueness": "CANDIDATE",
+    "height_limit_existence": "OPEN",
+    "zero_sum_convergence": "OPEN",
+    "height_radial_equivalence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "critical_line_re_half": "OPEN",
+    "weil_criterion_bridge": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "claim_promotion": "BLOCKED",
+    "decision": "HOLD_RESEARCH_ONLY",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}
