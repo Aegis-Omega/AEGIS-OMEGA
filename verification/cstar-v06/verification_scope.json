@@ -1,6 +1,6 @@
 {
-  "schema": "AEGIS_CSTAR_V0_6_VERIFIER_SCOPE_V4",
-  "mode": "PREBINDING_COMPILE_ONLY",
+  "schema": "AEGIS_CSTAR_V0_6_VERIFIER_SCOPE_DIAGNOSTIC_V1",
+  "mode": "DIAGNOSTIC_COMPILE_ONLY",
   "source_repo": "Aegis-Omega/AegisOmega",
   "source_pr": 10,
   "source_candidate_head": null,
@@ -9,7 +9,7 @@
   "coefficient_scope": "arbitrary MathComp zmodType (additive abelian group); no coefficient multiplication or ring unit assumed",
   "action_scope": "G -> {additive A -> A} with identity and composition laws",
   "source_sha256": {
-    "verification/cstar-v06/CStarZmodGroupCohomology.v": "3bf0056e34012b71b9872024ad07d0f4e0d774c14f1610222a5e7f9ace845016"
+    "verification/cstar-v06/CStarZmodGroupCohomology.v": "06f4ea8b5cdde74ff75d557a1a8dcbf8ca4701e733ec53a4d94ef2594dfd8a90"
   },
   "required_theorems": [
     "delta3_delta2_zero_zmod_action",
@@ -17,11 +17,11 @@
     "gauge_preserves_three_cocycle_zmod_action",
     "pentagon_iff_three_cocycle_zmod_action"
   ],
-  "aac_role": "proof automation for associative/commutative/unit reordering only; the registered unit is the existing zmodType additive identity and adds no coefficient algebraic axiom",
+  "diagnostic_intent": "Print the exact residual goal after AAC inverse-pair rewriting; this candidate is intentionally non-admissible and expected to stop.",
   "historical_trace_phase_proxy": "NOT_IDENTIFIED_WITH_POSTNIKOV_INVARIANT",
   "normalized_vs_full_complex_equivalence": "NOT_ESTABLISHED",
   "infinity_cstar_sheaf_equivalence": "NOT_ESTABLISHED",
   "physical_quantum_claim": "NOT_ESTABLISHED",
-  "claim_promotion": "BLOCKED_PENDING_COMPILE_AND_EXACT_SOURCE_PR_BINDING",
+  "claim_promotion": "BLOCKED_DIAGNOSTIC_ONLY",
   "authority_effect": "NONE"
 }
