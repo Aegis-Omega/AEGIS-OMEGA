@@ -22,6 +22,19 @@
     "source_statement_sha256": "52c43c47ecc64f6ca03635ca6cc9231f144e15417e4fecdbdeb31649639837c1",
     "claim_scope": "CONDITIONAL_GLOBAL_WEIL_POSITIVITY_ONLY"
   },
+  "semantic_obstruction": {
+    "status": "PROOF_SOURCE_PINNED",
+    "source_path": "sovereign-omega-v2/formal/bridges/coq/SemanticBridgeObstruction.v",
+    "source_sha256": "7e293e1ecf5de8af4c5e05ae9c760a74b7e035bdc7d74705e267b5286e028d12",
+    "coq_toolchain": "8.20",
+    "theorems": [
+      "zero_quadratic_form_global_weil_positivity_v1",
+      "universal_global_weil_bridge_iff_target_v1"
+    ],
+    "claim_scope": "ABSTRACT_QW_INSUFFICIENCY_ONLY",
+    "result": "ABSTRACT_QW_REQUIRES_CONCRETE_WEIL_IDENTIFICATION",
+    "rh_effect": "NONE"
+  },
   "bridge": {
     "status": "OPEN",
     "promotion_requested": false,
