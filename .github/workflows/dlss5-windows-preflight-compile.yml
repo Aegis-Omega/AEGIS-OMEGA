@@ -5,6 +5,7 @@ on:
     paths:
       - 'sovereign-omega-v2/mcp-server/native/dlss5-windows-preflight/**'
       - 'sovereign-omega-v2/mcp-server/test/dlss5-windows-preflight-source.mjs'
+      - 'sovereign-omega-v2/mcp-server/test/dlss5-precompiled-bundle-source.mjs'
       - '.github/workflows/dlss5-windows-preflight-compile.yml'
       - '.github/workflows/dlss5-windows-rtx50-preflight.yml'
   workflow_dispatch:
@@ -115,10 +116,12 @@ jobs:
           ) | Set-Content -Path "$env:RUNNER_TEMP\dlss5-windows-preflight-compile.txt"
           Get-Content "$env:RUNNER_TEMP\dlss5-windows-preflight-compile.txt"
 
-      - name: Upload compile receipt
+      - name: Upload exact-run preflight bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: aegis-dlss5-windows-preflight-compile-${{ github.run_id }}
-          path: ${{ runner.temp }}\dlss5-windows-preflight-compile.txt
+          name: aegis-dlss5-windows-preflight-bundle-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}\dlss5-windows-preflight-compile.txt
+            ${{ env.DLSS5_PREFLIGHT_EXE }}
           if-no-files-found: error
           retention-days: 30
