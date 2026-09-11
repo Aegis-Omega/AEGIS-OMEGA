@@ -17,6 +17,8 @@ env:
   FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
   MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
   LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  LI_CRITERION_SHA: 35df682f3b709ffe5fbcfdd452dfa964bd622b87
+  LI_CRITERION_ORIGINAL_MATHLIB_SHA: de5ce8a9a66a4aa68a9bdbb35b63a06d34d9ca11
 
 jobs:
   preregistration:
@@ -37,3 +39,63 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           python3 -m unittest sovereign-omega-v2/formal/tests/test_zero_counting_bound_v1.py -v
+
+  compatibility-probe:
+    name: probe multiplicity Jensen on AEGIS pin
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact external proof source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: nicholasbulka/li-criterion-rh-equivalence-lean
+          ref: ${{ env.LI_CRITERION_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Rebind external source to AEGIS Lean and Mathlib pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$LI_CRITERION_SHA"
+          printf '%s\n' "$LEAN_TOOLCHAIN" > lean-toolchain
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path('lakefile.lean')
+          text = p.read_text()
+          old = os.environ['LI_CRITERION_ORIGINAL_MATHLIB_SHA']
+          new = os.environ['MATHLIB_SHA']
+          assert old in text
+          p.write_text(text.replace(old, new))
+          PY
+          rm -f lake-manifest.json
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve AEGIS-pinned Mathlib and cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          lake update mathlib
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('lake-manifest.json').read_text())
+          p = next(x for x in m['packages'] if x['name'] == 'mathlib')
+          assert (p.get('rev') or p.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+          lake exe cache get
+
+      - name: Compile multiplicity zero-count and xi-growth providers
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version
+          lake build Hadamard.OrderOne.TailEstimates Lc.LiCriterion.XiGrowth
