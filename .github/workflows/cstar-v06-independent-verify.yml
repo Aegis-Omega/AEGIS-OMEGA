@@ -1,0 +1,92 @@
+name: CSTAR v0.6 Arbitrary Abelian Coefficients
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'verification/cstar-v06/**'
+      - '.github/workflows/cstar-v06-independent-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-cstar-v06:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify theorem-byte binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          scope=json.loads(Path('verification/cstar-v06/verification_scope.json').read_text())
+          for rel, expected in scope['source_sha256'].items():
+              actual=hashlib.sha256(Path(rel).read_bytes()).hexdigest()
+              if actual != expected:
+                  raise SystemExit(f'FAIL_SOURCE_HASH {rel} expected={expected} actual={actual}')
+          if scope['authority_effect'] != 'NONE':
+              raise SystemExit('FAIL_AUTHORITY_EFFECT')
+          print('CSTAR_V06_SOURCE_BYTES_PASS')
+          PY
+
+      - name: Compile MathComp zmodType theorem candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$PWD/verification/cstar-v06"
+          mkdir -p "$ROOT/artifacts"
+          docker pull mathcomp/mathcomp:2.4.0-coq-8.20
+          docker run --rm \
+            -v "$ROOT:/work:ro" \
+            mathcomp/mathcomp:2.4.0-coq-8.20 \
+            bash -lc 'set -euo pipefail; eval "$(opam env)"; opam install -y coq-aac-tactics.8.20.0 >/tmp/aac-install.log 2>&1; cat /tmp/aac-install.log; mkdir -p /tmp/cstar-v06; cp /work/CStarZmodGroupCohomology.v /tmp/cstar-v06/; cd /tmp/cstar-v06; coqc CStarZmodGroupCohomology.v; coqc --version; opam list --installed --short | grep -E "^(coq-mathcomp|coq-aac-tactics)" | sort' \
+            2>&1 | tee "$ROOT/artifacts/coq_mathcomp_compile.log"
+
+      - name: Emit prebinding receipt
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root=Path('verification/cstar-v06')
+          scope=json.loads((root/'verification_scope.json').read_text())
+          receipt={
+            'schema':'AEGIS_CSTAR_V0_6_PREBINDING_RECEIPT_V1',
+            'verifier_repository':'Aegis-Omega/AEGIS-OMEGA',
+            'verifier_github_sha':os.environ['GITHUB_SHA'],
+            'mode':scope['mode'],
+            'coefficient_scope':scope['coefficient_scope'],
+            'action_scope':scope['action_scope'],
+            'formal_source_sha256':scope['source_sha256'],
+            'required_theorems':scope['required_theorems'],
+            'decision':'ARBITRARY_ABELIAN_ZMOD_THEOREM_BYTES_COMPILE_PREBINDING_ONLY',
+            'claim_promotion':'BLOCKED_PENDING_EXACT_SOURCE_PR_BINDING',
+            'historical_trace_phase_proxy':'NOT_IDENTIFIED_WITH_POSTNIKOV_INVARIANT',
+            'infinity_cstar_sheaf_equivalence':'NOT_ESTABLISHED',
+            'physical_quantum_claim':'NOT_ESTABLISHED',
+            'merge_authority':'NONE',
+            'authority_effect':'NONE'
+          }
+          out=root/'artifacts'/'prebinding_receipt.json'
+          out.write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
+          digest=hashlib.sha256(out.read_bytes()).hexdigest()
+          (root/'artifacts'/'prebinding_receipt.json.sha256').write_text(digest+'  prebinding_receipt.json\n')
+          print(json.dumps(receipt,indent=2,sort_keys=True))
+          print('receipt_sha256='+digest)
+          PY
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cstar-v06-prebinding-${{ github.event.pull_request.head.sha }}
+          path: verification/cstar-v06/artifacts/
+          if-no-files-found: warn
+          retention-days: 14
