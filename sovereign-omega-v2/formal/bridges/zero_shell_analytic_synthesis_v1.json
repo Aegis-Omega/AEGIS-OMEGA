@@ -1,0 +1,53 @@
+{
+  "schema_version": "AEGIS_ZERO_SHELL_ANALYTIC_SYNTHESIS_V1",
+  "candidate": {
+    "formal_source": "sovereign-omega-v2/formal/bridges/lean/ZeroShellAnalyticSynthesisV1.lean",
+    "formal_source_git_blob_sha": "257ef4b003206b816555acb0f72ff702e0daac65"
+  },
+  "verified_parent_evidence": {
+    "quadratic_shell_bound_reduction": {
+      "aegis_revision": "aae3384ce570b76405e0d2b352dae4c12ceef83d",
+      "receipt_sha256": "12847f749a4b558114a18f8435ede31623e2764ec1d19c619b76cf927376887b",
+      "artifact_sha256": "754b2d77d64ee940420fa22a862ceffbd667bc578b8259a4d9d8f9294eda8775",
+      "formal_source_git_blob_sha": "45e7f91166b32832c54e6538041d1a5d12171b12"
+    }
+  },
+  "local_dependency_sources": {
+    "height_shell_mass_git_blob_sha": "e7af2be4e5f0b1bbb1f605bbee19e919b92e5bd0",
+    "height_summability_bridge_git_blob_sha": "f72516a9ee50f8b5457f4a99c55ddc296d15d8dd",
+    "height_limit_contract_git_blob_sha": "5d0d065113d9076db4eab6cf4be7a9868eec56a4",
+    "finite_height_sum_git_blob_sha": "94415f65ae85e1e9993916a22891ca2248d65d4d",
+    "critical_strip_git_blob_sha": "8dd25b1e5bf55d902fe5b57e8572e8e564d4c983"
+  },
+  "external_environment": {
+    "formal_conjectures_revision": "74b736b53ce688f57bad186b5dd862daaeeb708e",
+    "formal_conjectures_rh_blob_sha": "c8d38bef385eb15661c3daf7449625b66b019b2a",
+    "mathlib_revision": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "lean_toolchain": "leanprover/lean4:v4.33.1"
+  },
+  "scope": {
+    "shell_multiplicity_mass_definition": "CANDIDATE",
+    "linear_shell_multiplicity_interface": "CANDIDATE",
+    "cubic_shell_mellin_decay_interface": "CANDIDATE",
+    "shell_count_and_mellin_decay_imply_quadratic_bound": "CANDIDATE",
+    "actual_linear_shell_multiplicity_bound": "OPEN",
+    "actual_cubic_shell_mellin_decay": "OPEN",
+    "zero_counting_bound": "OPEN",
+    "mellin_decay_estimate": "OPEN",
+    "actual_quadratic_shell_bound": "OPEN",
+    "weil_class_shell_mass_summability": "OPEN",
+    "conditional_symmetric_convergence": "OPEN",
+    "height_radial_equivalence": "OPEN",
+    "explicit_formula_theorem": "OPEN",
+    "critical_line_re_half": "OPEN",
+    "weil_criterion_bridge": "OPEN",
+    "rh_equivalence": "OPEN"
+  },
+  "promotion_requested": false,
+  "declared_disposition": {
+    "claim_promotion": "BLOCKED",
+    "decision": "HOLD_RESEARCH_ONLY",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
+}

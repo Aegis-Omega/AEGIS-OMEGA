@@ -1,0 +1,208 @@
+name: RH Zero Shell Analytic Synthesis
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroShellAnalyticSynthesisV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/zero_shell_analytic_synthesis_v1.json'
+      - 'sovereign-omega-v2/formal/tests/test_zero_shell_analytic_synthesis_v1.py'
+      - '.github/workflows/rh-zero-shell-analytic-synthesis.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  SOURCE_BLOB_SHA: 257ef4b003206b816555acb0f72ff702e0daac65
+  QUADRATIC_PARENT_SHA: aae3384ce570b76405e0d2b352dae4c12ceef83d
+  QUADRATIC_PARENT_RECEIPT: 12847f749a4b558114a18f8435ede31623e2764ec1d19c619b76cf927376887b
+  QUADRATIC_PARENT_ARTIFACT: 754b2d77d64ee940420fa22a862ceffbd667bc578b8259a4d9d8f9294eda8775
+  QUADRATIC_PARENT_SOURCE_BLOB: 45e7f91166b32832c54e6538041d1a5d12171b12
+  SHELL_MASS_SOURCE_BLOB: e7af2be4e5f0b1bbb1f605bbee19e919b92e5bd0
+  HEIGHT_SUMMABILITY_SOURCE_BLOB: f72516a9ee50f8b5457f4a99c55ddc296d15d8dd
+  LIMIT_CONTRACT_SOURCE_BLOB: 5d0d065113d9076db4eab6cf4be7a9868eec56a4
+  FINITE_SUM_SOURCE_BLOB: 94415f65ae85e1e9993916a22891ca2248d65d4d
+  CRITICAL_STRIP_SOURCE_BLOB: 8dd25b1e5bf55d902fe5b57e8572e8e564d4c983
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  FORMAL_CONJECTURES_RH_BLOB_SHA: c8d38bef385eb15661c3daf7449625b66b019b2a
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+
+jobs:
+  analytic-synthesis:
+    name: pinned zero-shell analytic synthesis
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact candidate and local evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroShellAnalyticSynthesisV1.lean)" = "$SOURCE_BLOB_SHA"
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroShellQuadraticBoundV1.lean)" = "$QUADRATIC_PARENT_SOURCE_BLOB"
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroHeightShellMassV1.lean)" = "$SHELL_MASS_SOURCE_BLOB"
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroHeightSummabilityBridgeV1.lean)" = "$HEIGHT_SUMMABILITY_SOURCE_BLOB"
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroHeightLimitContractV1.lean)" = "$LIMIT_CONTRACT_SOURCE_BLOB"
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroHeightFiniteSumV1.lean)" = "$FINITE_SUM_SOURCE_BLOB"
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroCriticalStripV1.lean)" = "$CRITICAL_STRIP_SOURCE_BLOB"
+          python3 -m unittest sovereign-omega-v2/formal/tests/test_zero_shell_analytic_synthesis_v1.py -v
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('sovereign-omega-v2/formal/bridges/zero_shell_analytic_synthesis_v1.json').read_text())
+          assert m['schema_version'] == 'AEGIS_ZERO_SHELL_ANALYTIC_SYNTHESIS_V1'
+          assert m['candidate']['formal_source_git_blob_sha'] == os.environ['SOURCE_BLOB_SHA']
+          p = m['verified_parent_evidence']['quadratic_shell_bound_reduction']
+          assert (p['aegis_revision'], p['receipt_sha256'], p['artifact_sha256'], p['formal_source_git_blob_sha']) == (
+              os.environ['QUADRATIC_PARENT_SHA'], os.environ['QUADRATIC_PARENT_RECEIPT'],
+              os.environ['QUADRATIC_PARENT_ARTIFACT'], os.environ['QUADRATIC_PARENT_SOURCE_BLOB'])
+          d = m['local_dependency_sources']
+          assert d['height_shell_mass_git_blob_sha'] == os.environ['SHELL_MASS_SOURCE_BLOB']
+          assert d['height_summability_bridge_git_blob_sha'] == os.environ['HEIGHT_SUMMABILITY_SOURCE_BLOB']
+          assert d['height_limit_contract_git_blob_sha'] == os.environ['LIMIT_CONTRACT_SOURCE_BLOB']
+          assert d['finite_height_sum_git_blob_sha'] == os.environ['FINITE_SUM_SOURCE_BLOB']
+          assert d['critical_strip_git_blob_sha'] == os.environ['CRITICAL_STRIP_SOURCE_BLOB']
+          e = m['external_environment']
+          assert e['formal_conjectures_revision'] == os.environ['FORMAL_CONJECTURES_SHA']
+          assert e['formal_conjectures_rh_blob_sha'] == os.environ['FORMAL_CONJECTURES_RH_BLOB_SHA']
+          assert e['mathlib_revision'] == os.environ['MATHLIB_SHA']
+          assert e['lean_toolchain'] == os.environ['LEAN_TOOLCHAIN']
+          s = m['scope']
+          for k in ('shell_multiplicity_mass_definition','linear_shell_multiplicity_interface','cubic_shell_mellin_decay_interface','shell_count_and_mellin_decay_imply_quadratic_bound'):
+              assert s[k] == 'CANDIDATE'
+          for k in ('actual_linear_shell_multiplicity_bound','actual_cubic_shell_mellin_decay','zero_counting_bound','mellin_decay_estimate','actual_quadratic_shell_bound','weil_class_shell_mass_summability','conditional_symmetric_convergence','height_radial_equivalence','explicit_formula_theorem','critical_line_re_half','weil_criterion_bridge','rh_equivalence'):
+              assert s[k] == 'OPEN'
+          assert m['promotion_requested'] is False
+          assert m['declared_disposition'] == {
+              'claim_promotion':'BLOCKED','decision':'HOLD_RESEARCH_ONLY',
+              'merge':'NOT_PERFORMED','authority_effect':'NONE'}
+          PY
+
+      - name: Checkout pinned Formal Conjectures
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: google-deepmind/formal-conjectures
+          ref: ${{ env.FORMAL_CONJECTURES_SHA }}
+          path: .external/formal-conjectures
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify external pins
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FORMAL_CONJECTURES_SHA"
+          test "$(git hash-object FormalConjectures/Millenium/RiemannHypothesis.lean)" = "$FORMAL_CONJECTURES_RH_BLOB_SHA"
+          test "$(tr -d '\r\n' < lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('lake-manifest.json').read_text())
+          p = next(x for x in m['packages'] if x['name'] == 'mathlib')
+          assert (p.get('rev') or p.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Get pinned Mathlib cache
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: lake exe cache get
+
+      - name: Compile dependency chain and synthesis
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version | tee "$GITHUB_WORKSPACE/zero-shell-analytic-synthesis-lean-version.txt"
+          for f in ZeroCriticalStripV1 ZeroHeightFiniteSumV1 ZeroHeightLimitContractV1 ZeroHeightSummabilityBridgeV1 ZeroMajorantSummabilityV1 ZeroHeightShellMassV1 ZeroShellQuadraticBoundV1 ZeroShellAnalyticSynthesisV1; do
+            cp "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/$f.lean" "./$f.lean"
+          done
+          mkdir -p .lake/build/lib/lean
+          for f in ZeroCriticalStripV1 ZeroHeightFiniteSumV1 ZeroHeightLimitContractV1 ZeroHeightSummabilityBridgeV1 ZeroMajorantSummabilityV1 ZeroHeightShellMassV1 ZeroShellQuadraticBoundV1; do
+            lake env lean -o ".lake/build/lib/lean/$f.olean" "$f.lean" 2>&1 | tee "$GITHUB_WORKSPACE/$f.log"
+          done
+          lake env lean ZeroShellAnalyticSynthesisV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-shell-analytic-synthesis.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/zero-shell-analytic-synthesis.log"
+          grep -F 'shell_count_and_mellin_decay_imply_quadratic_bound_v1' "$GITHUB_WORKSPACE/zero-shell-analytic-synthesis.log"
+
+      - name: Emit fail-closed synthesis receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          source = Path('sovereign-omega-v2/formal/bridges/lean/ZeroShellAnalyticSynthesisV1.lean')
+          manifest = Path('sovereign-omega-v2/formal/bridges/zero_shell_analytic_synthesis_v1.json')
+          log = Path('zero-shell-analytic-synthesis.log').read_text()
+          assert 'sorryAx' not in log
+          receipt = {
+            'schema_version':'AEGIS_ZERO_SHELL_ANALYTIC_SYNTHESIS_RECEIPT_V1',
+            'source_commit':os.environ['SOURCE_SHA'],
+            'formal_source_git_blob_sha':os.environ['SOURCE_BLOB_SHA'],
+            'formal_source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),
+            'manifest_sha256':hashlib.sha256(manifest.read_bytes()).hexdigest(),
+            'quadratic_parent_revision':os.environ['QUADRATIC_PARENT_SHA'],
+            'quadratic_parent_receipt_sha256':os.environ['QUADRATIC_PARENT_RECEIPT'],
+            'formal_conjectures_revision':os.environ['FORMAL_CONJECTURES_SHA'],
+            'mathlib_revision':os.environ['MATHLIB_SHA'],
+            'lean_toolchain':os.environ['LEAN_TOOLCHAIN'],
+            'shell_multiplicity_mass_definition':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'linear_shell_multiplicity_interface':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'cubic_shell_mellin_decay_interface':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'shell_count_and_mellin_decay_imply_quadratic_bound':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'actual_linear_shell_multiplicity_bound':'OPEN',
+            'actual_cubic_shell_mellin_decay':'OPEN',
+            'zero_counting_bound':'OPEN',
+            'mellin_decay_estimate':'OPEN',
+            'actual_quadratic_shell_bound':'OPEN',
+            'weil_class_shell_mass_summability':'OPEN',
+            'conditional_symmetric_convergence':'OPEN',
+            'height_radial_equivalence':'OPEN',
+            'explicit_formula_theorem':'OPEN',
+            'critical_line_re_half':'OPEN',
+            'weil_criterion_bridge':'OPEN',
+            'rh_equivalence':'OPEN',
+            'rh_proved':False,'rh_disproved':False,
+            'claim_promotion':'BLOCKED','decision':'HOLD_RESEARCH_ONLY',
+            'merge':'NOT_PERFORMED','authority_effect':'NONE'}
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
+          receipt['receipt_sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          Path('zero-shell-analytic-synthesis-receipt.json').write_text(json.dumps(receipt, sort_keys=True, indent=2)+'\n')
+          print(Path('zero-shell-analytic-synthesis-receipt.json').read_text())
+          PY
+
+      - name: Upload synthesis evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rh-zero-shell-analytic-synthesis-${{ env.SOURCE_SHA }}
+          path: |
+            zero-shell-analytic-synthesis-lean-version.txt
+            ZeroCriticalStripV1.log
+            ZeroHeightFiniteSumV1.log
+            ZeroHeightLimitContractV1.log
+            ZeroHeightSummabilityBridgeV1.log
+            ZeroMajorantSummabilityV1.log
+            ZeroHeightShellMassV1.log
+            ZeroShellQuadraticBoundV1.log
+            zero-shell-analytic-synthesis.log
+            zero-shell-analytic-synthesis-receipt.json
+          if-no-files-found: error
+          retention-days: 30
