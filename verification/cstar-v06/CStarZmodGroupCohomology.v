@@ -112,8 +112,30 @@ Proof.
   move=> b g h k l.
   rewrite /delta3_zmod /delta2_zmod !raddfB !raddfD !raddfN.
   rewrite -!act_comp !mul_assoc !opprK.
-  Show.
-  fail "STOP_AFTER_NORMALIZATION".
+  transitivity (
+    act (mul g h) (b k l)
+    - act g (b (mul h k) l)
+    + act g (b h (mul k l))
+    - act g (b h k)
+    - act (mul g h) (b k l)
+    + b (mul g (mul h k)) l
+    - b (mul g h) (mul k l)
+    + b (mul g h) k
+    + act g (b (mul h k) l)
+    - b (mul g (mul h k)) l
+    + b g (mul h (mul k l))
+    - b g (mul h k)
+    - act g (b h (mul k l))
+    + b (mul g h) (mul k l)
+    - b g (mul h (mul k l))
+    + b g h
+    + act g (b h k)
+    - b (mul g h) k
+    + b g (mul h k)
+    - b g h
+  ).
+  - aac_reflexivity.
+  - exact: cancel_twisted_boundary_zmod.
 Qed.
 
 Theorem delta2_preserves_normalization_zmod_action :
