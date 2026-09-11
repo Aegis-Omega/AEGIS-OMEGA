@@ -9,14 +9,15 @@ use sha2::{Digest, Sha256};
 use std::process::exit;
 
 const GENESIS: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+const CANONICAL_PROFILE: &str = "aegis-integer-json-v2";
 
 // Reject float in hashed state, exactly as Python canon() does — floats are a
 // cross-platform non-determinism source.
 fn reject_float(v: &Value) {
     match v {
         Value::Number(n) => {
-            if n.is_f64() {
-                eprintln!("float in hashed state is forbidden (non-deterministic)");
+            if n.as_i64().map_or(true, |i| !(-9007199254740991..=9007199254740991).contains(&i)) {
+                eprintln!("fixture number must be an integer in the JavaScript safe range");
                 exit(2);
             }
         }
@@ -29,7 +30,7 @@ fn reject_float(v: &Value) {
 // Canonical bytes: serde_json compact form. Objects are BTreeMap-backed (default
 // features), so keys emit in sorted order; numbers are integers; non-ASCII is raw
 // UTF-8 — matching Python json.dumps(sort_keys=True, separators=(",",":"),
-// ensure_ascii=False). The fixture is ASCII, so NFC normalization is the identity.
+// ensure_ascii=False). Exact Unicode is preserved without normalization.
 fn canon(v: &Value) -> Vec<u8> {
     reject_float(v);
     serde_json::to_string(v).expect("serialize").into_bytes()
@@ -45,6 +46,13 @@ fn main() {
     let path = std::env::args().nth(1).unwrap_or_else(|| "../stages.json".to_string());
     let raw = std::fs::read_to_string(&path).expect("read stages.json");
     let fixture: Value = serde_json::from_str(&raw).expect("parse stages.json");
+    reject_float(&fixture);
+    assert_eq!(fixture["canonicalization"].as_str(), Some(CANONICAL_PROFILE), "unsupported canonicalization profile");
+    let vectors = fixture["canonical_vectors"].as_array().expect("canonical vectors");
+    assert!(!vectors.is_empty(), "missing canonical vectors");
+    for vector in vectors {
+        assert_eq!(sha256hex(&canon(&vector["value"])), vector["sha256"].as_str().expect("vector hash"), "canonical vector mismatch");
+    }
     let stages = fixture["stages"].as_array().expect("stages array");
     let expected = &fixture["expected"];
 
@@ -52,6 +60,7 @@ fn main() {
     let mut stage_hashes: Vec<String> = Vec::new();
     for (i, rec) in stages.iter().enumerate() {
         let payload = json!({
+            "canonicalization": CANONICAL_PROFILE,
             "stage": rec["stage"],
             "sequence": i,
             "previous_hash": prev,

@@ -11,7 +11,7 @@ result from T1 toward T0 (byte-identical cross-platform demo).
 
 ```
 bash verify.sh
-── 1/3  Python (reference producer)      terminal f8cb0093b9b7447c…
+── 1/3  Python (reference producer)      terminal ab4c952b476a9d74…
 ── 2/3  Node.js (independent re-chainer)  MATCH
 ── 3/3  Rust (independent re-chainer)     MATCH
 RESULT: identical terminal hash across Python, Node.js, and Rust.
@@ -25,31 +25,42 @@ RESULT: identical terminal hash across Python, Node.js, and Rust.
   They do not read the expected hashes until the final compare — so matching is a real
   independent replay, not re-hashing given values.
 
-Each of the three lands on `f8cb0093b9b7447cc44d7386f1305f427dc7eb887a23407f9b67522b8f5db8f1`.
+Each of the three lands on `ab4c952b476a9d743f8b307ed9f360ba5006254d9e1d0e10e0b06ef5d3d6b987`.
 
 ## Why the three canonicalizers agree (the hard part)
 
 Byte-identical hashing across languages is not free — it is exactly where naive
-pipelines diverge. The agreement holds because all three obey the same RFC 8785
-discipline:
+pipelines diverge. The agreement holds because all three obey the explicit `aegis-integer-json-v2` fixture subset (not full RFC 8785):
 
 | Concern | Python | Node.js | Rust |
 |---|---|---|---|
-| key order | `sort_keys=True` | `Object.keys().sort()` | `serde_json` default = `BTreeMap` (sorted) |
+| key order | `sort_keys=True` | code-point key sort | `serde_json` default = `BTreeMap` (sorted) |
 | whitespace | `separators=(",",":")` | manual compact serialize | `to_string` compact |
 | non-ASCII | `ensure_ascii=False` | raw (`JSON.stringify`) | raw UTF-8 |
-| unicode form | NFC normalize | `.normalize("NFC")` | identity (fixture is ASCII) |
-| float | rejected | rejected (`Number.isInteger`) | rejected (`Number::is_f64`) |
-| integers | native | integer-valued only | `serde_json` integer |
+| unicode form | exact text | exact text | exact text |
+| float | rejected | rejected before numeric parsing | rejected (`Number::is_f64`) |
+| fixture integers | JavaScript safe range | same range, checked before parsing | same range, checked after parsing |
 
-The fixture is pure ASCII + integers, so NFC is the identity and cannot introduce
-cross-language drift; float is structurally impossible because every canonicalizer
-rejects it. Change one base in the input and all three terminal hashes move together.
+The genomics stages use ASCII and small integers. Four additional canonical vectors
+cover composed/decomposed Unicode, BMP/non-BMP key ordering, controls, booleans, null
+and safe-integer boundaries. Python's general-purpose profile permits larger integers;
+these replayers reject values outside their explicitly narrower shared range. Node
+validates numeric literals before JSON.parse can round them. Both replayers require
+the exact v2 profile identifier and bind it into each stage preimage.
+
+`test_replay_profiles.py` runs after successful positive replay. All sixteen negative
+checks must reject: missing/wrong profile, changed stage data, normalized Unicode,
+an unsafe integer, a fractional literal that JavaScript would round to the original integer, and
+unpaired surrogate keys/values (each tested in Node and Rust). Surrogate cases use
+the digest an unchecked Node serializer would compute, so rejection cannot be
+explained by an incidental hash mismatch. The build uses Cargo.lock; the fixture is regenerated
+from the running Python implementation, not manually edited hashes.
 
 ## Honest scope
 
 This proves the **envelope** (canonicalization + hashing + chaining) is runtime-invariant
-on this fixture, across three languages on one platform (x86-64 Linux). Full T0 for the
-constitution's cross-*platform* claim additionally needs ARM / WASM / macOS runs and a
-non-ASCII stress fixture with normalization on all three — a CI matrix, not new logic.
-The Rust and Node re-chainers are the reusable core for that matrix.
+on these fixtures, across three languages. The v2 update was locally verified on
+Windows x86-64, including both negative replay checks and two complete session runs.
+Ubuntu/macOS checks are defined in CI and must pass on the migrated revision; this
+local result is not evidence of ARM or WASM behavior. Arbitrary Unicode/number
+conformance and biological correctness are outside this bounded fixture proof.

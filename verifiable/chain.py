@@ -15,34 +15,41 @@ decision-audit, materials screening, financial model runs — folds into this ch
 gets: reproducible terminal hash, tamper-evidence with stage localization, and
 cross-stage lineage binding. The stages are the only domain-specific part.
 
-Dependency-free: stdlib only (hashlib, json, unicodedata).
+Dependency-free: Python standard library only. Canonical profile: aegis-integer-json-v2.
 """
 from __future__ import annotations
 
 import hashlib
 import json
-import unicodedata
+import copy
 from dataclasses import dataclass, field
 
 GENESIS = "0" * 64
+CANONICAL_PROFILE = "aegis-integer-json-v2"
 
 
+# ── Explicit integer-only canonical profile; not a full RFC 8785 implementation ──
 def canon(value) -> bytes:
-    """RFC 8785-style canonical bytes: sorted keys, NFC strings, no whitespace,
-    UTF-8. Rejects float — integers and strings only in hashed state, exactly as
-    the runtime forbids float in hash inputs (a non-determinism source)."""
+    """Sorted string keys, exact strings, compact UTF-8 and no floats.
+
+    Unicode is not normalized: changing the recorded text must change its hash.
+    This local profile does not claim full cross-language RFC 8785 conformance.
+    """
     def check(v):
-        if isinstance(v, float):
-            raise TypeError("float in hashed state is forbidden (non-deterministic)")
-        if isinstance(v, dict):
-            for k in v:
-                check(v[k])
-        elif isinstance(v, (list, tuple)):
+        if v is None or type(v) in (bool, int, str):
+            return
+        if type(v) is dict:
+            for k, item in v.items():
+                if type(k) is not str:
+                    raise TypeError("hashed object keys must be strings")
+                check(item)
+        elif type(v) in (list, tuple):
             for x in v:
                 check(x)
+        else:
+            raise TypeError("unsupported type in hashed state")
     check(value)
     s = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    s = unicodedata.normalize("NFC", s)
     return s.encode("utf-8")
 
 
@@ -59,7 +66,9 @@ class StageRecord:
     stage_hash: str = ""
 
     def compute(self) -> str:
+        # The chain: this stage's hash binds its output AND the prior hash.
         payload = {
+            "canonicalization": CANONICAL_PROFILE,
             "stage": self.stage,
             "sequence": self.sequence,
             "previous_hash": self.previous_hash,
@@ -74,8 +83,10 @@ class LineageChain:
     records: list = field(default_factory=list)
 
     def append(self, stage: str, output: dict) -> str:
+        if not isinstance(stage, str) or not stage or not isinstance(output, dict):
+            raise ValueError("a stage requires a name and an output object")
         prev = self.records[-1].stage_hash if self.records else GENESIS
-        rec = StageRecord(stage=stage, output=output,
+        rec = StageRecord(stage=stage, output=copy.deepcopy(output),
                           previous_hash=prev, sequence=len(self.records))
         rec.compute()
         self.records.append(rec)
@@ -88,9 +99,16 @@ class LineageChain:
         """Re-walk the chain; any tamper flips is_valid False and localizes it."""
         prev = GENESIS
         for i, rec in enumerate(self.records):
-            recomputed = StageRecord(rec.stage, rec.output, prev, rec.sequence)
-            recomputed.compute()
-            if recomputed.stage_hash != rec.stage_hash or rec.previous_hash != prev:
+            if not isinstance(rec, StageRecord):
+                return {"is_valid": False, "broken_at": "INVALID_RECORD", "sequence": i}
+            expect_prev = prev
+            recomputed = StageRecord(rec.stage, rec.output, expect_prev, rec.sequence)
+            try:
+                recomputed.compute()
+            except (TypeError, ValueError, RecursionError):
+                return {"is_valid": False, "broken_at": rec.stage, "sequence": i}
+            if (type(rec.sequence) is not int or rec.sequence != i or
+                    recomputed.stage_hash != rec.stage_hash or rec.previous_hash != expect_prev):
                 return {"is_valid": False, "broken_at": rec.stage, "sequence": i}
             prev = rec.stage_hash
         return {"is_valid": True, "broken_at": None, "terminal_hash": self.terminal_hash()}

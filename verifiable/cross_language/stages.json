@@ -1,13 +1,51 @@
 {
+  "canonical_vectors": [
+    {
+      "sha256": "42d3cbf59fdccced04e5dff14433fb52d34d58e385e9770ffd896ff517d63b92",
+      "value": {
+        "text": "\u00e9"
+      }
+    },
+    {
+      "sha256": "9b53287cd41955684903378d2b1b4a3ddea9d80d67dcd026319a7c5a9a8a8b42",
+      "value": {
+        "text": "e\u0301"
+      }
+    },
+    {
+      "sha256": "c2459b705df997a88a0be0e4341bedd91090ccac8d1b4ab01915dd25fd09a0dd",
+      "value": {
+        "controls": "\b\t\n\f\r\u0000",
+        "\ue000": "BMP",
+        "\ud83d\ude00": "non-BMP"
+      }
+    },
+    {
+      "sha256": "5b194ee06848947ccaee78d8a4cdffa9b1863c211a81dd1c603eefee7b1fb2fd",
+      "value": {
+        "flags": [
+          true,
+          false,
+          null
+        ],
+        "integers": [
+          -9007199254740991,
+          0,
+          9007199254740991
+        ]
+      }
+    }
+  ],
+  "canonicalization": "aegis-integer-json-v2",
   "expected": {
     "stage_hashes": [
-      "7ac5f184131e0bb09c8d29ea38951ecbdff563f4afd26f337646f99294f47195",
-      "f75f544dbaca43713030d4e59ef077c7cccec3af9eea9f3faead6532cb2e014e",
-      "88de9a257f1c957182d3bf5656d7319a918666a2188886489e13b606b1709e46",
-      "c2ac43faa6896b490175d69c65d8f4c824a9d338a0b864c6933d978db91c1de0",
-      "f8cb0093b9b7447cc44d7386f1305f427dc7eb887a23407f9b67522b8f5db8f1"
+      "d50dcdf44a9ad7f33f5317aa508859fa45004e898f4678d29685a08ec6c2e7b7",
+      "125cb6bc87401f7b19bb6e8433294497896aea4ead34189c39155027cfba0abe",
+      "9187404352e5e9d676512a7e9be322458fa89b69274cabb9b1117fd6204d2abc",
+      "f9b745a032e42dfd7c0ffdd50511611e4632fc6f0fee019d6bdc8ac69b1ba038",
+      "ab4c952b476a9d743f8b307ed9f360ba5006254d9e1d0e10e0b06ef5d3d6b987"
     ],
-    "terminal": "f8cb0093b9b7447cc44d7386f1305f427dc7eb887a23407f9b67522b8f5db8f1"
+    "terminal": "ab4c952b476a9d743f8b307ed9f360ba5006254d9e1d0e10e0b06ef5d3d6b987"
   },
   "stages": [
     {
@@ -232,7 +270,12 @@
             2,
             "uncertain_significance"
           ]
-        ]
+        ],
+        "annotation_source": {
+          "id": "AEGIS_CLINVAR_TOY",
+          "sha256": "39ff0c2bfec7b4c00112b3cf1b443d2d853ea965000f8c0a398d410671d3ede9",
+          "version": "1"
+        }
       },
       "stage": "ANNOTATE"
     }
