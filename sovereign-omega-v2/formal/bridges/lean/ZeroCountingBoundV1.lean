@@ -301,7 +301,14 @@ private theorem shell_multiplicity_mass_le_li_cumulative_v1 (n : ℕ) :
         split_ifs <;> positivity)
       (fun rho => by
         have hnorm := shell_norm_le_succ_v1 n rho
-        simp [f, g, e, shell_to_li_nontrivial_zero_v1, hnorm])
+        change (analyticOrderNatAt riemannZeta rho.1.1 : ℝ) ≤
+          if ‖(e rho).1‖ ≤ (n : ℝ) + 1 then
+            (analyticOrderNatAt riemannZeta (e rho).1 : ℝ)
+          else 0
+        have heval : (e rho).1 = rho.1.1 := by rfl
+        have hball : ‖(e rho).1‖ ≤ (n : ℝ) + 1 := by
+          simpa [heval] using hnorm
+        rw [if_pos hball, heval])
       hg
   rw [tsum_eq_finsum hgfinite] at hle
   simpa [ZeroHeightShellMultiplicityMassV1, f, g] using hle
@@ -318,8 +325,7 @@ theorem riemann_zeta_has_quadratic_shell_multiplicity_bound_v1 :
   obtain ⟨R0, C, hC, hcum⟩ :=
     li_zeta_cumulative_quadratic_multiplicity_bound_v1
   let N : ℕ := Nat.ceil (max R0 1)
-  let S : ℝ :=
-    ∑ k in Finset.range N, ZeroHeightShellMultiplicityMassV1 k
+  let S : ℝ := (Finset.range N).sum ZeroHeightShellMultiplicityMassV1
   let A : ℝ := max C S
   have hS : 0 ≤ S := by
     dsimp [S]
