@@ -1,0 +1,163 @@
+name: RH Zero Counting Bound
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroCountingBoundV1.lean'
+      - 'sovereign-omega-v2/formal/tests/test_zero_counting_bound_v1.py'
+      - '.github/workflows/rh-zero-counting-bound.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  MELLIN_PARENT_SHA: 6ec8bb0ee39c462a5b544620b5ad2648c52ecb1e
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  LI_CRITERION_SHA: 35df682f3b709ffe5fbcfdd452dfa964bd622b87
+  LI_CRITERION_ORIGINAL_MATHLIB_SHA: de5ce8a9a66a4aa68a9bdbb35b63a06d34d9ca11
+
+jobs:
+  preregistration:
+    name: preregister quantitative zero-counting theorem
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact candidate and run preregistered RED contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          python3 -m unittest sovereign-omega-v2/formal/tests/test_zero_counting_bound_v1.py -v
+
+  compatibility-probe:
+    name: compile multiplicity zero-count helpers on AEGIS pin
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact external proof source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: nicholasbulka/li-criterion-rh-equivalence-lean
+          ref: ${{ env.LI_CRITERION_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact AEGIS candidate as evidence source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.SOURCE_SHA }}
+          path: .aegis
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Rebind external source to AEGIS Lean and Mathlib pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$LI_CRITERION_SHA"
+          test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
+          printf '%s\n' "$LEAN_TOOLCHAIN" > lean-toolchain
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path('lakefile.lean')
+          text = p.read_text()
+          old = os.environ['LI_CRITERION_ORIGINAL_MATHLIB_SHA']
+          new = os.environ['MATHLIB_SHA']
+          assert old in text
+          p.write_text(text.replace(old, new))
+          PY
+          rm -f lake-manifest.json
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve AEGIS-pinned Mathlib and cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          lake update mathlib
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('lake-manifest.json').read_text())
+          p = next(x for x in m['packages'] if x['name'] == 'mathlib')
+          assert (p.get('rev') or p.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+          lake exe cache get
+
+      - name: Compile multiplicity zero-count and xi-growth providers
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version
+          lake build Hadamard.OrderOne.TailEstimates Lc.LiCriterion.XiGrowth Lc.LiCriterion.HadamardSummabilityBridge
+
+      - name: Audit exact provider theorem dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > AegisZeroCountProviderAudit.lean <<'EOF'
+          import Hadamard.OrderOne.TailEstimates
+          import Lc.LiCriterion.HadamardSummabilityBridge
+          import Lc.LiCriterion.XiGrowth
+          #print axioms Hadamard.ZeroCounting.sum_zeros_multiplicity_le_of_max_one_maxModulus
+          #print axioms Hadamard.OrderOne.sum_multiplicity_zeros_le_rpow_of_order_le
+          #print axioms LiCriterion.XiGrowth.riemannXi_hasFiniteOrder
+          #print axioms LiCriterion.XiGrowth.riemannXi_order_le_one
+          #print axioms LiCriterion.xi_entire
+          #print axioms LiCriterion.xi_zeros_are_nontrivial_zeros
+          EOF
+          lake env lean AegisZeroCountProviderAudit.lean 2>&1 | tee provider-axioms.log
+          ! grep -F 'sorryAx' provider-axioms.log
+
+      - name: Compile AEGIS parent chain and zero-count helpers
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in \
+            ZeroCriticalStripV1 \
+            ZeroHeightFiniteSumV1 \
+            ZeroHeightLimitContractV1 \
+            ZeroHeightSummabilityBridgeV1 \
+            ZeroMajorantSummabilityV1 \
+            ZeroHeightShellMassV1 \
+            ZeroShellQuadraticBoundV1 \
+            ZeroShellAnalyticSynthesisV1 \
+            ZeroCountingBoundV1; do
+            cp ".aegis/sovereign-omega-v2/formal/bridges/lean/$f.lean" "./$f.lean"
+          done
+          mkdir -p .lake/build/lib/lean
+          for f in \
+            ZeroCriticalStripV1 \
+            ZeroHeightFiniteSumV1 \
+            ZeroHeightLimitContractV1 \
+            ZeroHeightSummabilityBridgeV1 \
+            ZeroMajorantSummabilityV1 \
+            ZeroHeightShellMassV1 \
+            ZeroShellQuadraticBoundV1 \
+            ZeroShellAnalyticSynthesisV1; do
+            lake env lean -o ".lake/build/lib/lean/$f.olean" "$f.lean" \
+              2>&1 | tee "$f-zero-count-parent.log"
+          done
+          lake env lean ZeroCountingBoundV1.lean 2>&1 | tee zero-counting-bound.log
+          ! grep -F 'sorryAx' zero-counting-bound.log
+          grep -F 'li_xi_zeta_multiplicity_eq_v1' zero-counting-bound.log
+          grep -F 'li_zeta_cumulative_quadratic_multiplicity_bound_v1' zero-counting-bound.log
