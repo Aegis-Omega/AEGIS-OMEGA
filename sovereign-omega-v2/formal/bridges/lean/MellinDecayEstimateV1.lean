@@ -67,7 +67,8 @@ private theorem mellin_log_profile_hasCompactSupport_v1
     HasCompactSupport (MellinLogProfileV1 g.1) := by
   let K : Set ℝ := (fun x : ℝ => -Real.log x) '' tsupport g.1
   have hts : IsCompact (tsupport g.1) := by
-    simpa [hasCompactSupport_def] using g.2.2.1
+    change IsCompact (closure (Function.support g.1))
+    exact g.2.2.1
   have hlog : ContinuousOn (fun x : ℝ => -Real.log x) (tsupport g.1) := by
     intro x hx
     have hxpos : 0 < x := g.2.2.2 hx
@@ -153,7 +154,8 @@ private theorem mellin_weighted_log_profile_uniform_l1_v1
   have hhcont : ContDiff ℝ ∞ h := mellin_log_profile_contDiff_v1 g
   have hhcomp : HasCompactSupport h := mellin_log_profile_hasCompactSupport_v1 g
   have htscomp : IsCompact (tsupport h) := by
-    simpa [hasCompactSupport_def] using hhcomp
+    change IsCompact (closure (Function.support h))
+    exact hhcomp
   obtain ⟨r, hr⟩ :=
     (Metric.isBounded_iff_subset_closedBall (0 : ℝ)).mp htscomp.isBounded
   let R : ℝ := max r 0
