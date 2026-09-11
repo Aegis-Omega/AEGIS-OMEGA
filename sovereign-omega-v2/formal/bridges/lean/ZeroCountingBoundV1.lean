@@ -7,19 +7,9 @@ import Mathlib.Analysis.SpecialFunctions.Pow.Real
 /-!
 AEGIS Ω — multiplicity-aware quantitative zero counting v1.
 
-This lane is RH-independent.  It reuses the canonical AEGIS nontrivial-zero
+This lane is RH-independent. It reuses the canonical AEGIS nontrivial-zero
 carrier and analytic-order multiplicity, while pinning an independently
 compiled Jensen/Hadamard provider for the entire Riemann xi function.
-
-The first production checkpoint proves two provider-facing facts:
-
-* the analytic multiplicity of `LiCriterion.riemannXi` equals the analytic
-  multiplicity of `riemannZeta` at every nontrivial zero;
-* the cumulative multiplicity of nontrivial zeros in centered norm balls is
-  `O(r^2)`, obtained from the provider's order-`≤ 1` theorem with `ε = 1`.
-
-The final AEGIS shell theorem is added only after these helpers compile under
-the exact AEGIS Lean/Mathlib pins.
 
 ZERO_COUNTING_QUADRATIC_BOUND_V1
 RH_INDEPENDENT_ZERO_COUNTING
@@ -33,7 +23,7 @@ open Complex
 
 noncomputable section
 
-/-- A deliberately coarse but sufficient shell-counting certificate.  The
+/-- A deliberately coarse but sufficient shell-counting certificate. The
 quadratic exponent is paired downstream with quartic Mellin decay to recover
 the existing quadratic shell-mass certificate. -/
 def HasQuadraticShellMultiplicityBoundV1 : Prop :=
@@ -146,8 +136,7 @@ theorem li_xi_zeta_multiplicity_eq_v1
   simp only [analyticOrderNatAt, horder]
 
 /-- Cumulative multiplicity of nontrivial zeta zeros in centered norm balls
-is bounded quadratically for all sufficiently large radii.  This is the exact
-provider output needed before converting to AEGIS height shells. -/
+is bounded quadratically for all sufficiently large radii. -/
 theorem li_zeta_cumulative_quadratic_multiplicity_bound_v1 :
     ∃ R0 C : ℝ, 0 ≤ C ∧
       ∀ r : ℝ, R0 ≤ r →
@@ -198,7 +187,13 @@ theorem li_zeta_cumulative_quadratic_multiplicity_bound_v1 :
     intro rho
     split_ifs <;> simp [li_xi_zeta_multiplicity_eq_v1]
   rw [hmult]
-  simpa [Real.rpow_two] using hb
+  calc
+    (∑ᶠ rho : LiCriterion.NontrivialZero,
+      if ‖rho.1‖ ≤ r then
+        (analyticOrderNatAt LiCriterion.riemannXi rho.1 : ℝ)
+      else 0) ≤ C * r ^ ((1 : ℝ) + 1) := hb
+    _ = C * r ^ 2 := by
+      rw [show (1 : ℝ) + 1 = 2 by norm_num, Real.rpow_two]
 
 #check HasQuadraticShellMultiplicityBoundV1
 #check li_xi_zeta_multiplicity_eq_v1
