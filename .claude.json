@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "infra/astra-rh-millennium-env-v1",
+    "source_ref": "codex/add-rh-assumption-census-v1-documentation",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "890594f8b386437a8c2293d4a9c0e5af421cdb552d52b2044c8fb79820588e50"
+  "state_hash": "2ea7c2ce757d162eb4b55c786b7e58a1ce50696e680f80eec33b7c8d1fc19a40"
 }
