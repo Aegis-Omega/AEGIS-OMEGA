@@ -1,6 +1,6 @@
 {
-  "schema": "AEGIS_CSTAR_V0_6_VERIFIER_SCOPE_V9",
-  "mode": "PREBINDING_COMPILE_ONLY",
+  "schema": "AEGIS_CSTAR_V0_6_VERIFIER_SCOPE_V10_DIAGNOSTIC",
+  "mode": "DIAGNOSTIC_COMPILE_ONLY",
   "source_repo": "Aegis-Omega/AegisOmega",
   "source_pr": 10,
   "source_candidate_head": null,
@@ -9,7 +9,7 @@
   "coefficient_scope": "arbitrary MathComp zmodType (additive abelian group); no coefficient multiplication or ring unit assumed",
   "action_scope": "G -> {additive A -> A} with identity and composition laws",
   "source_sha256": {
-    "verification/cstar-v06/CStarZmodGroupCohomology.v": "2678a46bfe89cbe48de78ef70202169ac0201f169df2f1f4c3c467b6230f64d1"
+    "verification/cstar-v06/CStarZmodGroupCohomology.v": "f655726140356eec43b9be6883d7ad0b6eba0714fd86b41e6e1ce0932f11da67"
   },
   "required_theorems": [
     "delta3_delta2_zero_zmod_action",
@@ -22,6 +22,6 @@
   "normalized_vs_full_complex_equivalence": "NOT_ESTABLISHED",
   "infinity_cstar_sheaf_equivalence": "NOT_ESTABLISHED",
   "physical_quantum_claim": "NOT_ESTABLISHED",
-  "claim_promotion": "BLOCKED_PENDING_COMPILE_AND_EXACT_SOURCE_PR_BINDING",
+  "claim_promotion": "BLOCKED_DIAGNOSTIC_RUN",
   "authority_effect": "NONE"
 }
