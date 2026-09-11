@@ -110,10 +110,9 @@ Theorem delta3_delta2_zero_zmod_action :
     delta3_zmod (delta2_zmod b) g h k l = 0.
 Proof.
   move=> b g h k l.
-  rewrite /delta3_zmod /delta2_zmod !raddfB !raddfD.
-  rewrite -!act_comp !mul_assoc.
-  Show.
-  fail "STOP_AFTER_MAIN_REWRITE".
+  rewrite /delta3_zmod /delta2_zmod !raddfB !raddfD !raddfN.
+  rewrite -!act_comp !mul_assoc !opprK.
+  exact: cancel_twisted_boundary_zmod.
 Qed.
 
 Theorem delta2_preserves_normalization_zmod_action :
