@@ -162,8 +162,7 @@ Lemma delta3_additive_zmod_action :
     delta3_zmod a g h k l + delta3_zmod c g h k l.
 Proof.
   move=> a c g h k l.
-  rewrite /delta3_zmod /add3_zmod !raddfD.
-  repeat aac_rewrite addrN.
+  rewrite /delta3_zmod /add3_zmod !raddfD !opprD.
   aac_reflexivity.
 Qed.
 
