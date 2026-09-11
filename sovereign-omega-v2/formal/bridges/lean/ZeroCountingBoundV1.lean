@@ -3,6 +3,7 @@ import Lc.LiCriterion.HadamardSummabilityBridge
 import Lc.LiCriterion.XiGrowth
 import Hadamard.OrderOne.TailEstimates
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
+import Mathlib.Topology.Algebra.InfiniteSum.Order
 
 /-!
 AEGIS Ω — multiplicity-aware quantitative zero counting v1.
@@ -10,6 +11,19 @@ AEGIS Ω — multiplicity-aware quantitative zero counting v1.
 This lane is RH-independent. It reuses the canonical AEGIS nontrivial-zero
 carrier and analytic-order multiplicity, while pinning an independently
 compiled Jensen/Hadamard provider for the entire Riemann xi function.
+
+The quantitative route is deliberately coarse but sufficient downstream:
+
+* xi and zeta analytic multiplicities agree at every nontrivial zero;
+* the provider's order-`≤ 1` Jensen/Hadamard theorem gives cumulative
+  multiplicity `O(r^2)` by choosing `ε = 1`;
+* every AEGIS height shell `ceil |Im ρ| = n` lies in the centered norm ball
+  of radius `n + 1`;
+* finitely many radii below the provider threshold are absorbed into one
+  explicit finite-prefix constant.
+
+Thus the canonical AEGIS shell multiplicity mass is bounded by
+`A * (n + 1)^2` without assuming the Riemann Hypothesis.
 
 ZERO_COUNTING_QUADRATIC_BOUND_V1
 RH_INDEPENDENT_ZERO_COUNTING
@@ -195,8 +209,169 @@ theorem li_zeta_cumulative_quadratic_multiplicity_bound_v1 :
     _ = C * r ^ 2 := by
       rw [show (1 : ℝ) + 1 = 2 by norm_num, Real.rpow_two]
 
+/-- Canonical injection from one AEGIS height shell into the provider's
+nontrivial-zero carrier. -/
+private def shell_to_li_nontrivial_zero_v1 (n : ℕ) :
+    ZeroHeightShellSetV1 n ↪ LiCriterion.NontrivialZero where
+  toFun rho := by
+    have hstrip :=
+      riemann_zeta_nontrivial_zero_critical_strip_v1 rho.1.2.1 rho.1.2.2
+    exact ⟨rho.1.1, rho.1.2.1, hstrip.1, hstrip.2⟩
+  inj' := by
+    intro a b hab
+    apply Subtype.ext
+    apply Subtype.ext
+    exact congrArg (fun rho : LiCriterion.NontrivialZero => rho.1) hab
+
+/-- Every member of the canonical shell `n` lies in the centered norm ball of
+radius `n + 1`. -/
+private theorem shell_norm_le_succ_v1
+    (n : ℕ) (rho : ZeroHeightShellSetV1 n) :
+    ‖rho.1.1‖ ≤ (n : ℝ) + 1 := by
+  have hstrip :=
+    riemann_zeta_nontrivial_zero_critical_strip_v1 rho.1.2.1 rho.1.2.2
+  have hre_nonneg : 0 ≤ rho.1.1.re := hstrip.1.le
+  have hre_le : rho.1.1.re ≤ 1 := hstrip.2.le
+  have hshell : ZeroHeightShellIndexV1 rho.1 = n := rho.2
+  have hceil : |rho.1.1.im| ≤ (Nat.ceil |rho.1.1.im| : ℝ) :=
+    Nat.le_ceil |rho.1.1.im|
+  have him_le : |rho.1.1.im| ≤ (n : ℝ) := by
+    rw [show Nat.ceil |rho.1.1.im| = n by
+      simpa [ZeroHeightShellIndexV1] using hshell] at hceil
+    exact hceil
+  calc
+    ‖rho.1.1‖ ≤ |rho.1.1.re| + |rho.1.1.im| :=
+      Complex.norm_le_abs_re_add_abs_im rho.1.1
+    _ = rho.1.1.re + |rho.1.1.im| := by
+      rw [abs_of_nonneg hre_nonneg]
+    _ ≤ 1 + (n : ℝ) := add_le_add hre_le him_le
+    _ = (n : ℝ) + 1 := by ring
+
+/-- Provider nontrivial zeros in a centered norm ball form a finite set. -/
+private theorem li_norm_ball_finite_v1 (r : ℝ) :
+    {rho : LiCriterion.NontrivialZero | ‖rho.1‖ ≤ r}.Finite := by
+  rw [← Set.finite_coe_iff]
+  let K : Set ℂ := Metric.closedBall (0 : ℂ) |r| ∩ riemannZetaZeros
+  have hK : K.Finite :=
+    IsCompact.inter_riemannZetaZeros_finite
+      (isCompact_closedBall (0 : ℂ) |r|)
+  letI : Fintype K := hK.fintype
+  let embed : {rho : LiCriterion.NontrivialZero // ‖rho.1‖ ≤ r} → K := fun rho =>
+    ⟨rho.1.1, by
+      constructor
+      · simp only [Metric.mem_closedBall, dist_zero_right]
+        exact rho.2.trans (le_abs_self r)
+      · exact mem_riemannZetaZeros.mpr rho.1.2.1⟩
+  exact Finite.of_injective embed (by
+    intro a b hab
+    apply Subtype.ext
+    apply Subtype.ext
+    exact congrArg (fun z : K => z.1) hab)
+
+/-- The finite mass of one AEGIS height shell is dominated by the provider's
+cumulative multiplicity count in the centered norm ball of radius `n + 1`. -/
+private theorem shell_multiplicity_mass_le_li_cumulative_v1 (n : ℕ) :
+    ZeroHeightShellMultiplicityMassV1 n ≤
+      ∑ᶠ rho : LiCriterion.NontrivialZero,
+        if ‖rho.1‖ ≤ (n : ℝ) + 1 then
+          (analyticOrderNatAt riemannZeta rho.1 : ℝ)
+        else 0 := by
+  letI : Fintype (ZeroHeightShellSetV1 n) :=
+    (zero_height_shell_finite_v1 n).fintype
+  let e := shell_to_li_nontrivial_zero_v1 n
+  let f : ZeroHeightShellSetV1 n → ℝ := fun rho =>
+    (analyticOrderNatAt riemannZeta rho.1.1 : ℝ)
+  let g : LiCriterion.NontrivialZero → ℝ := fun rho =>
+    if ‖rho.1‖ ≤ (n : ℝ) + 1 then
+      (analyticOrderNatAt riemannZeta rho.1 : ℝ)
+    else 0
+  have hgfinite : (Function.support g).Finite := by
+    apply (li_norm_ball_finite_v1 ((n : ℝ) + 1)).subset
+    intro rho hrho
+    by_cases hle : ‖rho.1‖ ≤ (n : ℝ) + 1
+    · exact hle
+    · exfalso
+      exact hrho (by simp [g, hle])
+  have hf : Summable f := Summable.of_finite
+  have hg : Summable g := summable_of_hasFiniteSupport hgfinite
+  have hle : (∑' rho, f rho) ≤ ∑' rho, g rho :=
+    hf.tsum_le_tsum_of_inj e e.injective
+      (fun rho _ => by
+        dsimp [g]
+        split_ifs <;> positivity)
+      (fun rho => by
+        have hnorm := shell_norm_le_succ_v1 n rho
+        simp [f, g, e, shell_to_li_nontrivial_zero_v1, hnorm])
+      hg
+  rw [tsum_eq_finsum hgfinite] at hle
+  simpa [ZeroHeightShellMultiplicityMassV1, f, g] using hle
+
+private theorem zero_height_shell_multiplicity_mass_nonneg_v1 (n : ℕ) :
+    0 ≤ ZeroHeightShellMultiplicityMassV1 n := by
+  unfold ZeroHeightShellMultiplicityMassV1
+  exact tsum_nonneg fun _ => by positivity
+
+/-- Actual multiplicity-safe quantitative shell bound used by the next analytic
+synthesis lane. No critical-line hypothesis is used. -/
+theorem riemann_zeta_has_quadratic_shell_multiplicity_bound_v1 :
+    HasQuadraticShellMultiplicityBoundV1 := by
+  obtain ⟨R0, C, hC, hcum⟩ :=
+    li_zeta_cumulative_quadratic_multiplicity_bound_v1
+  let N : ℕ := Nat.ceil (max R0 1)
+  let S : ℝ :=
+    ∑ k in Finset.range N, ZeroHeightShellMultiplicityMassV1 k
+  let A : ℝ := max C S
+  have hS : 0 ≤ S := by
+    dsimp [S]
+    exact Finset.sum_nonneg fun k _ =>
+      zero_height_shell_multiplicity_mass_nonneg_v1 k
+  have hA : 0 ≤ A :=
+    hC.trans (le_max_left C S)
+  have hCA : C ≤ A := le_max_left C S
+  have hSA : S ≤ A := le_max_right C S
+  refine ⟨A, hA, ?_⟩
+  intro n
+  by_cases hn : n < N
+  · have hsmall : ZeroHeightShellMultiplicityMassV1 n ≤ S := by
+      dsimp [S]
+      exact Finset.single_le_sum
+        (fun k _ => zero_height_shell_multiplicity_mass_nonneg_v1 k)
+        (Finset.mem_range.mpr hn)
+    have hr1 : 1 ≤ (((n : ℝ) + 1) ^ 2) := by
+      have hn0 : 0 ≤ (n : ℝ) := by positivity
+      nlinarith
+    calc
+      ZeroHeightShellMultiplicityMassV1 n ≤ S := hsmall
+      _ ≤ A := hSA
+      _ ≤ A * (((n : ℝ) + 1) ^ 2) :=
+        le_mul_of_one_le_right hA hr1
+  · have hNn : N ≤ n := Nat.le_of_not_gt hn
+    have hR0N : R0 ≤ (N : ℝ) := by
+      calc
+        R0 ≤ max R0 1 := le_max_left R0 1
+        _ ≤ (Nat.ceil (max R0 1) : ℝ) := Nat.le_ceil (max R0 1)
+        _ = (N : ℝ) := by rfl
+    have hNnR : (N : ℝ) ≤ (n : ℝ) := by
+      exact_mod_cast hNn
+    have hR0r : R0 ≤ (n : ℝ) + 1 := by
+      linarith
+    have hshell := shell_multiplicity_mass_le_li_cumulative_v1 n
+    have hlarge := hcum ((n : ℝ) + 1) hR0r
+    have hr2 : 0 ≤ (((n : ℝ) + 1) ^ 2) := sq_nonneg _
+    calc
+      ZeroHeightShellMultiplicityMassV1 n ≤
+          ∑ᶠ rho : LiCriterion.NontrivialZero,
+            if ‖rho.1‖ ≤ (n : ℝ) + 1 then
+              (analyticOrderNatAt riemannZeta rho.1 : ℝ)
+            else 0 := hshell
+      _ ≤ C * (((n : ℝ) + 1) ^ 2) := hlarge
+      _ ≤ A * (((n : ℝ) + 1) ^ 2) :=
+        mul_le_mul_of_nonneg_right hCA hr2
+
 #check HasQuadraticShellMultiplicityBoundV1
 #check li_xi_zeta_multiplicity_eq_v1
 #check li_zeta_cumulative_quadratic_multiplicity_bound_v1
+#check riemann_zeta_has_quadratic_shell_multiplicity_bound_v1
 #print axioms li_xi_zeta_multiplicity_eq_v1
 #print axioms li_zeta_cumulative_quadratic_multiplicity_bound_v1
+#print axioms riemann_zeta_has_quadratic_shell_multiplicity_bound_v1
