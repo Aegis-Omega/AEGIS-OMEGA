@@ -3,6 +3,11 @@ name: Coq Formal Attestation
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact candidate commit SHA to attest
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -12,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  SOURCE_SHA: ${{ inputs.source_sha || github.event.pull_request.head.sha || github.sha }}
 
 jobs:
   attest:
@@ -33,7 +38,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
 
-      - name: Unit-test attestation generator
+      - name: Unit-test attestation generator and build binding
         working-directory: sovereign-omega-v2
         env:
           PYTHONPATH: python
@@ -42,7 +47,33 @@ jobs:
           python.tests.test_coq_attestation
           python.tests.test_coq_attestation_regressions
           python.tests.test_coq_attestation_diagnostics
+          python.tests.test_coq_build_binding
+          python.tests.test_coq_assumption_output_integrity
+          python.tests.test_coq_projection_scope
+          python.tests.test_coq_target_census
           -v
+
+      - name: Verify deterministic reviewed target census
+        working-directory: sovereign-omega-v2
+        env:
+          PYTHONPATH: python
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 python/coq_target_census.py \
+            --formal-root formal/theories \
+            --out formal/coq-targets.json \
+            --check
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path('formal/coq-targets.json').read_text(encoding='utf-8'))
+          assert manifest['kind'] == 'COQ_TARGET_MANIFEST_V1'
+          assert manifest['binding_scope'] == 'SOURCE_BYTES_AND_EXPLICIT_DECLARATIONS'
+          assert len(manifest['files']) == 19, len(manifest['files'])
+          assert sum(len(entry['declarations']) for entry in manifest['files'].values()) == 89
+          PY
 
       - name: Verify frozen assumption baseline
         working-directory: sovereign-omega-v2
@@ -78,13 +109,13 @@ jobs:
           mkdir -p sovereign-omega-v2/coq-attestation/{assumptions,compile-logs}
           chmod -R a+rwX sovereign-omega-v2/formal sovereign-omega-v2/coq-attestation
 
-      - name: Compile Coq sources and capture theorem assumptions
+      - name: Compile Coq sources, bind build, and capture theorem assumptions
         uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
         with:
           coq_version: '8.20'
           ocaml_version: 'default'
           custom_script: |
-            set -u
+            set -eu
             ROOT="$PWD/sovereign-omega-v2"
             FORMAL="$ROOT/formal/theories"
             OUT="$ROOT/coq-attestation"
@@ -92,7 +123,6 @@ jobs:
             LOGS="$OUT/compile-logs"
             STATUS="$OUT/compile-status.json"
 
-            coqc --version | tee "$OUT/coq-version.txt"
             printf '{\n' > "$STATUS"
             first=1
 
@@ -122,8 +152,9 @@ jobs:
               safe="$(printf '%s' "$rel" | sed 's#/#__#g; s#\.v$##')"
               log="$LOGS/${safe}.log"
 
-              if (cd "$FORMAL/$dir" && coqc "$file") >"$log" 2>&1; then
+              if (cd "$FORMAL/$dir" && coqc -q -async-proofs off "$file") >"$log" 2>&1; then
                 record_status "$rel" 'COMPILED' "$log"
+                names="$(theorem_names "$source")" || exit 1
                 while IFS= read -r theorem; do
                   [ -n "$theorem" ] || continue
                   assumption_log="$ASSUMPTIONS/${safe}__${theorem}.txt"
@@ -132,20 +163,31 @@ jobs:
                     "$module" "$theorem" > "$query"
                   (
                     cd "$FORMAL/$dir" || exit 1
-                    coqtop -quiet -batch -l "$query"
-                  ) >"$assumption_log" 2>&1 || true
+                    coqtop -q -quiet -batch -l "$query"
+                  ) >"$assumption_log" 2>&1 || exit 1
                   rm -f "$query"
                 done <<EOF
-            $(theorem_names "$source")
+            $names
             EOF
               else
                 record_status "$rel" 'COMPILE_FAILED' "$log"
               fi
             }
 
-            # O0DependencyProbe imports Coquelicot; install the exact dependency
-            # before compiling the complete formal inventory.
+            # O0DependencyProbe imports Coquelicot; keep the exact 41ad dependency.
             opam install -y coq-coquelicot.3.4.2 || exit 1
+            coqc --version > "$OUT/coq-version.txt" || exit 1
+            cat "$OUT/coq-version.txt"
+
+            # Freeze exact reviewed source bytes, declarations, verifier binaries,
+            # and compiled Coq dependencies before any source compilation.
+            git diff --exit-code HEAD -- "$ROOT/formal" "$ROOT/python/coq_build_binding.py" "$ROOT/python/coq_target_census.py" || exit 1
+            PYTHONPATH="$ROOT/python" python3 "$ROOT/python/coq_target_census.py" \
+              --formal-root "$FORMAL" --out "$ROOT/formal/coq-targets.json" --check || exit 1
+            PYTHONPATH="$ROOT/python" python3 "$ROOT/python/coq_build_binding.py" freeze \
+              --formal-root "$FORMAL" --targets "$ROOT/formal/coq-targets.json" \
+              --source-commit "$(git rev-parse HEAD)" \
+              --contract "$OUT/build-contract.json" || exit 1
 
             for rel in \
               'Core/Event.v' \
@@ -174,6 +216,12 @@ jobs:
             printf '\n}\n' >> "$STATUS"
             cat "$STATUS"
 
+            PYTHONPATH="$ROOT/python" python3 "$ROOT/python/coq_build_binding.py" check \
+              --formal-root "$FORMAL" --targets "$ROOT/formal/coq-targets.json" \
+              --contract "$OUT/build-contract.json" \
+              --out "$OUT/build-binding.json" || exit 1
+            git diff --exit-code HEAD -- "$ROOT/formal" "$ROOT/python/coq_build_binding.py" "$ROOT/python/coq_target_census.py" || exit 1
+
       - name: Generate content-addressed Coq attestation receipt
         if: always()
         working-directory: sovereign-omega-v2
@@ -184,6 +232,7 @@ jobs:
           set -euo pipefail
           test -f coq-attestation/compile-status.json
           test -f coq-attestation/coq-version.txt
+          test -f coq-attestation/build-binding.json
           COQ_VERSION="$(grep -Eo '[0-9]+\.[0-9]+(\.[0-9]+)?' coq-attestation/coq-version.txt | head -n1)"
           test -n "$COQ_VERSION"
           python3 python/coq_attestation.py \
@@ -193,6 +242,7 @@ jobs:
             --source-commit "$SOURCE_SHA" \
             --coq-version "$COQ_VERSION" \
             --baseline formal/assumption-baseline-v1.json \
+            --build-binding coq-attestation/build-binding.json \
             --out coq-attestation/coq-formal-attestation-receipt.json
           cat coq-attestation/coq-formal-attestation-receipt.json
 
@@ -213,7 +263,12 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           import json
+          import sys
           from pathlib import Path
+
+          sys.path.insert(0, 'python')
+          from coq_attestation import _canonical_sha256
+          from coq_build_binding import verify_receipt_binding
 
           DIAGNOSTIC_ONLY = {
               'Weil/O0TrustProbeReals.v',
@@ -243,7 +298,12 @@ jobs:
           }
           files_by_path = {entry['path']: entry for entry in receipt['files']}
 
-          assert receipt['schema_version'] == '1.1.0'
+          assert receipt['schema_version'] == '1.2.0'
+          assert receipt['build_binding_status'] == 'VERIFIED'
+          verify_receipt_binding(receipt['build_binding'], formal_root, receipt['source_commit'])
+          unsigned = dict(receipt)
+          del unsigned['receipt_sha256']
+          assert _canonical_sha256(unsigned) == receipt['receipt_sha256']
           assert receipt['receipt_kind'] == 'COQ_FORMAL_ATTESTATION_RECEIPT_V1'
           assert receipt['authority'] == 'FORMAL_MATH_EVIDENCE_ONLY'
           assert receipt['correspondence'] == 'NOT_ESTABLISHED'
@@ -253,6 +313,7 @@ jobs:
               'receipt_paths': sorted(files_by_path),
               'formal_paths': sorted(formal_paths),
           }
+          assert len(formal_paths) == 19, sorted(formal_paths)
           assert summary['file_count'] == len(formal_paths), summary
           assert summary['compiled_files'] == len(formal_paths), summary
           assert summary['compile_failures'] == 0, summary
@@ -263,17 +324,23 @@ jobs:
           assert summary['diagnostic_unrecognized_assumption_outputs'] == 0, summary
           assert summary['source_axiom_symbols'] == 1, summary
           assert summary['source_parameter_symbols'] == 7, summary
-          # The single production assumption-bearing theorem remains the known
-          # Reducer -> Hash.sha256 dependency. Classical trust probes are
-          # diagnostic evidence and are not proof authority.
           assert summary['authority_assumption_bearing_theorems'] == 1, summary
           assert len(receipt['receipt_sha256']) == 64
 
           assert baseline['baseline_kind'] == 'COQ_ASSUMPTION_BASELINE_V1'
+          assert baseline['comparison_scope'] == 'SYMBOL_NAMES_AND_ADMITTED_COUNTS'
+          assert baseline['statement_equivalence'] == 'NOT_EVALUATED'
           assert baseline['baseline_source_commit'] == '203c11cdb36f82e3d4f4d22993a118b4b870e691'
           assert baseline['baseline_sha256'] == EXPECTED_BASELINE_SHA256
           assert baseline['regression'] is False, baseline
           assert baseline['regression_count'] == 0, baseline
+
+          binding = receipt['build_binding']
+          assert binding['independence'] == 'SAME_JOB', binding
+          assert binding['kernel_replay'] == 'NOT_PERFORMED', binding
+          assert binding['production'] == 'NOT_ADMITTED', binding
+          assert len(binding['files']) == 19, binding['files'].keys()
+          assert sum(len(entry['declarations']) for entry in binding['files'].values()) == 89
 
           assert REQUIRE_AXIOM_FREE <= files_by_path.keys(), files_by_path.keys()
 

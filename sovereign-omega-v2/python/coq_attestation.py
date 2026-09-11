@@ -129,8 +129,53 @@ def _extract_assumption_symbols(lines: list[str]) -> list[str]:
 
 
 def parse_print_assumptions(output: str) -> dict[str, Any]:
-    lines = [line.strip() for line in output.splitlines() if line.strip()]
-    if any(line == "Closed under the global context" for line in lines):
+    # Validate one captured result, not Coq syntax or the correctness of its proof.
+    unrecognized = {
+        "parse_status": "UNRECOGNIZED",
+        "closed_under_global_context": False,
+        "assumption_lines": [],
+        "assumption_symbols": [],
+        "raw_sha256": _sha256_bytes(output.encode("utf-8")),
+    }
+    lines = []
+    for line in output.splitlines():
+        line = line.strip()
+        if line == "Coq <":
+            continue
+        if line.startswith("Coq < "):
+            line = line[len("Coq < "):].strip()
+        if line:
+            lines.append(line)
+    headers = {"Closed under the global context", "Axioms:", "Assumptions:"}
+    header_indices = [index for index, line in enumerate(lines) if line in headers]
+    if len(header_indices) != 1 or any(
+        re.match(
+            r"(?:(?:Error|Anomaly|Fatal error)\s*:|Uncaught exception\b)", line, re.I
+        )
+        for line in lines
+    ):
+        return unrecognized
+
+    # Exact informational forms observed in captured Coq 8.20.1/coqtop logs.
+    # Only the preamble may contain them; arbitrary warnings are not discarded.
+    informational_prefix = re.compile(
+        r"(?:\[WARNING\] Running as root is not recommended"
+        r"|Welcome to Coq 8\.20\.1"
+        r"|Fetching opaque proofs from disk for "
+        r"[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*"
+        r"|\[Loading ML file [A-Za-z_][A-Za-z0-9_]*\.cmxs "
+        r"\(using legacy method\) \.\.\. done\])"
+    )
+    header_index = header_indices[0]
+    if any(not informational_prefix.fullmatch(line) for line in lines[:header_index]):
+        return unrecognized
+    lines = lines[header_index:]
+    if any(informational_prefix.fullmatch(line) for line in lines[1:]):
+        return unrecognized
+
+    if lines[0] == "Closed under the global context":
+        if len(lines) != 1:
+            return unrecognized
         return {
             "parse_status": "CLOSED",
             "closed_under_global_context": True,
@@ -139,25 +184,24 @@ def parse_print_assumptions(output: str) -> dict[str, Any]:
             "raw_sha256": _sha256_bytes(output.encode("utf-8")),
         }
 
-    header_index = next(
-        (index for index, line in enumerate(lines) if line in {"Axioms:", "Assumptions:"}),
-        None,
+    assumption_lines = lines[1:]
+    if not assumption_lines:
+        return unrecognized
+    # Pretty-printing may wrap the colon onto the line after a long name.
+    symbol_output = re.sub(
+        r"(?m)^([A-Za-z_][A-Za-z0-9_'.]*)\n(?=:)",
+        r"\1 ",
+        "\n".join(assumption_lines),
     )
-    if header_index is not None:
-        assumption_lines = lines[header_index + 1 :]
-        return {
-            "parse_status": "ASSUMPTIONS_PRESENT",
-            "closed_under_global_context": False,
-            "assumption_lines": assumption_lines,
-            "assumption_symbols": _extract_assumption_symbols(assumption_lines),
-            "raw_sha256": _sha256_bytes(output.encode("utf-8")),
-        }
+    first_symbol = ASSUMPTION_SYMBOL_RE.match(symbol_output)
+    if first_symbol is None or not symbol_output[first_symbol.end():].strip():
+        return unrecognized
 
     return {
-        "parse_status": "UNRECOGNIZED",
+        "parse_status": "ASSUMPTIONS_PRESENT",
         "closed_under_global_context": False,
-        "assumption_lines": [],
-        "assumption_symbols": [],
+        "assumption_lines": assumption_lines,
+        "assumption_symbols": _extract_assumption_symbols(symbol_output.splitlines()),
         "raw_sha256": _sha256_bytes(output.encode("utf-8")),
     }
 
@@ -277,6 +321,8 @@ def compare_assumption_baseline(
     regression_count = len(new_declared) + len(new_theorem) + len(new_admitted)
     return {
         "baseline_kind": baseline["baseline_kind"],
+        "comparison_scope": "SYMBOL_NAMES_AND_ADMITTED_COUNTS",
+        "statement_equivalence": "NOT_EVALUATED",
         "baseline_source_commit": baseline.get("baseline_source_commit"),
         "baseline_sha256": baseline_sha256,
         "regression": regression_count > 0,
@@ -298,7 +344,19 @@ def build_receipt(
     source_commit: str,
     coq_version: str,
     baseline_path: Path | None = None,
+    build_binding_path: Path | None = None,
 ) -> dict[str, Any]:
+    build_binding = None
+    if build_binding_path is not None:
+        from coq_build_binding import read_sealed, verify_receipt_binding
+
+        build_binding = read_sealed(build_binding_path)
+        verify_receipt_binding(build_binding, formal_root, source_commit)
+        reported_version = build_binding["contract"]["verifier_identity"]["executables"]["coqc"]["version"].strip()
+        version_match = re.search(r"\bversion\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)\b", reported_version)
+        expected_version = version_match.group(1) if version_match else reported_version
+        if coq_version != expected_version:
+            raise ValueError("receipt Coq version does not match the bound executable")
     compile_status = _load_compile_status(compile_status_path)
     files: list[dict[str, Any]] = []
 
@@ -449,19 +507,22 @@ def build_receipt(
         summary["baseline_regression_count"] = baseline_diff["regression_count"]
 
     receipt_without_hash = {
-        "schema_version": "1.1.0",
+        "schema_version": "1.2.0" if build_binding is not None else "1.1.0",
         "receipt_kind": RECEIPT_KIND,
         "source_commit": source_commit,
         "coq_version": coq_version,
         "lean_runtime_status": "NOT_PRESENT_IN_REPO",
         "authority": AUTHORITY,
         "correspondence": "NOT_ESTABLISHED",
+        "build_binding_status": "VERIFIED" if build_binding is not None else "NOT_BOUND",
         "diagnostic_only_paths": sorted(DIAGNOSTIC_ONLY_PATHS),
         "files": files,
         "summary": summary,
     }
     if baseline_diff is not None:
         receipt_without_hash["baseline_diff"] = baseline_diff
+    if build_binding is not None:
+        receipt_without_hash["build_binding"] = build_binding
 
     return {
         **receipt_without_hash,
@@ -477,6 +538,7 @@ def main() -> int:
     parser.add_argument("--source-commit", required=True)
     parser.add_argument("--coq-version", required=True)
     parser.add_argument("--baseline", type=Path)
+    parser.add_argument("--build-binding", type=Path)
     parser.add_argument("--out", required=True, type=Path)
     args = parser.parse_args()
 
@@ -487,6 +549,7 @@ def main() -> int:
         source_commit=args.source_commit,
         coq_version=args.coq_version,
         baseline_path=args.baseline,
+        build_binding_path=args.build_binding,
     )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(

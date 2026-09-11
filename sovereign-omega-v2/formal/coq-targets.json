@@ -1,0 +1,188 @@
+{
+  "binding_scope": "SOURCE_BYTES_AND_EXPLICIT_DECLARATIONS",
+  "files": {
+    "Bisimulation/ThreeWay.v": {
+      "declarations": [
+        "cross_runtime_bisimulation",
+        "encode_JS",
+        "encode_PY",
+        "encode_WASM",
+        "step_JS",
+        "step_PY",
+        "step_WASM"
+      ],
+      "source_sha256": "1e21fdab7fc223248e72800fd2dc0abd5f4a60aafcde4ad00c0f9d9327746a27"
+    },
+    "Core/Event.v": {
+      "declarations": [
+        "Event"
+      ],
+      "source_sha256": "c231e646357e6193819254ee91036ad4c4a0f9cd5a689a6e96d7da5898f1eca3"
+    },
+    "Core/Hash.v": {
+      "declarations": [
+        "event_hash",
+        "sha256"
+      ],
+      "source_sha256": "576c7134c7c94a5960b77ef01c7b748a1c7fb86f436dfd58aa8a5ee1fd80bb3f"
+    },
+    "Core/LatticeConvergence.v": {
+      "declarations": [
+        "SITRState",
+        "compromised_is_top",
+        "from_ordinal",
+        "join",
+        "join_absorbs_lower",
+        "join_associative",
+        "join_commutative",
+        "join_idempotent",
+        "join_monotone",
+        "join_monotone_r",
+        "ordinal",
+        "ordinal_injective",
+        "stable_is_bottom"
+      ],
+      "source_sha256": "4e6eea3207a821a6502b5e1b7373e930aab79cfee2d7690549adca64d63c195a"
+    },
+    "Core/LockIrreversibility.v": {
+      "declarations": [
+        "Frame",
+        "Phase",
+        "aoie_not_pre_lock",
+        "assess_is_pre_lock",
+        "frame_wf",
+        "harmonize_is_post_lock",
+        "is_post_lock",
+        "is_pre_lock",
+        "lock_is_boundary",
+        "propagate_is_post_lock",
+        "read_is_pre_lock",
+        "sitr_aoie_separation",
+        "wf_disjoint"
+      ],
+      "source_sha256": "491f6d1d316e2785886d70ecb336b5b6c43052c291b4ea889feb4959b89fe292"
+    },
+    "Core/Reducer.v": {
+      "declarations": [
+        "State",
+        "step",
+        "step_deterministic"
+      ],
+      "source_sha256": "dbf088775243e1b9d49bfdf4d80a662453b33d55bab7eeb7cd864550bc5ab81d"
+    },
+    "Weil/AnalyticDefinitions.v": {
+      "declarations": [
+        "AdmissibleTestFunctionV1",
+        "FiniteQuadraticFamilyV1",
+        "GlobalWeilPositivityV1",
+        "O0AbsV1",
+        "O0ContinuousAtV1",
+        "O0ContinuousV1",
+        "O0EqV1",
+        "O0LeV1",
+        "O0LtPropV1",
+        "O0LtV1",
+        "O0MinusV1",
+        "O0OppV1",
+        "O0RealV1",
+        "O0RealsV1",
+        "O0ZeroV1",
+        "QuadraticFormV1",
+        "global_weil_positivity_v1_pointwise",
+        "o0_real_order_refl_v1",
+        "pointwise_converges_v1",
+        "vanishing_nonnegative_error_v1"
+      ],
+      "source_sha256": "d8356f65b5c8a757ae71d6837a9a495e03141ec2aa623cebba2046c7e4bdf541"
+    },
+    "Weil/FiniteBridge.v": {
+      "declarations": [
+        "bounded_positive_tail_certifies_negative",
+        "bounded_positive_tail_preserves_nonnegative",
+        "divided_difference",
+        "divided_difference_offdiag_symmetric",
+        "gray_zone_can_change_sign",
+        "offdiag_entry",
+        "offdiag_entry_symmetric",
+        "pole_kernel",
+        "pole_kernel_symmetric"
+      ],
+      "source_sha256": "b71498ea6a96721ed368f2f7ab6d3bc8c4f1a302207c29e062f142508a417b0c"
+    },
+    "Weil/Globalization.v": {
+      "declarations": [
+        "FiniteLowerBoundV1",
+        "GlobalizationReadyV1",
+        "GlobalizationTargetV1",
+        "finite_lower_bound_v1_specialize",
+        "globalization_ready_implies_global_weil_positivity_v1",
+        "o0_plus_minus_cancel_v1",
+        "o0_rational_half_balance_v1"
+      ],
+      "source_sha256": "abfbaa4f4194bd3fc24e00c9a1dc044287e76966f93fea45d174f025ddeb2764"
+    },
+    "Weil/O0.v": {
+      "declarations": [
+        "O0StatusV1",
+        "o0_status"
+      ],
+      "source_sha256": "e8296d33d24d0d8c02ee90361dbccddf2e64ea34fe7edef5f0f1f73b6fdac54b"
+    },
+    "Weil/O0ClosureProbe.v": {
+      "declarations": [],
+      "source_sha256": "875d418d9c5b753b304f6b5d2922cadb09e6bb00ed767e0c73fb10153c5d1e82"
+    },
+    "Weil/O0DependencyProbe.v": {
+      "declarations": [],
+      "source_sha256": "0a967821e5a08a91e3847a822a56d1dc05c32603d43a93948b7cda76bfaefc38"
+    },
+    "Weil/O0ProductionConstructiveProbe.v": {
+      "declarations": [
+        "o0_production_real_order_reflexive"
+      ],
+      "source_sha256": "6fe70ebcdb5f97da3705e8d052fda0ca923285d7d623f354a34b102970cd2270"
+    },
+    "Weil/O0TrustProbeCompact.v": {
+      "declarations": [
+        "O0CompactCarrierV1",
+        "o0_trust_probe_compact_reflexive"
+      ],
+      "source_sha256": "cb7ca53c711bdbb6d08bd5d675525a3dc9952247e23203859462d69fcf636c0e"
+    },
+    "Weil/O0TrustProbeConstructive.v": {
+      "declarations": [
+        "O0ConstructiveRealV1",
+        "o0_trust_probe_constructive_order_refl"
+      ],
+      "source_sha256": "1dbbb3a8485c272221bc984b961bd25c5c8012884ecce2ff7ae6d18412dd8e88"
+    },
+    "Weil/O0TrustProbeContinuity.v": {
+      "declarations": [
+        "O0ContinuousCarrierV1",
+        "o0_trust_probe_continuity_reflexive"
+      ],
+      "source_sha256": "07d7403625c89a064e4b3c1054b061fe4796a9c19a9be88c3e693b24d889f857"
+    },
+    "Weil/O0TrustProbeFunction.v": {
+      "declarations": [
+        "O0FunctionCarrierV1",
+        "o0_trust_probe_function_reflexive"
+      ],
+      "source_sha256": "a94a0e9da05b40c35a5b31e60d9d372fe5918cb986676c5c72b7e94298b4d714"
+    },
+    "Weil/O0TrustProbeReals.v": {
+      "declarations": [
+        "o0_trust_probe_reals_reflexive"
+      ],
+      "source_sha256": "bb67802b250b99f3df59a95a1690e1e2ff1cbb641eb8240758f2dfa6144a547c"
+    },
+    "Weil/WeilCriterion.v": {
+      "declarations": [
+        "WeilCriterionStatusV1",
+        "weil_criterion_status"
+      ],
+      "source_sha256": "d31af250b55a92fef24c03f0e4b0566f4274b84d5d1a7129a2d06ea622d3fe9e"
+    }
+  },
+  "kind": "COQ_TARGET_MANIFEST_V1"
+}
