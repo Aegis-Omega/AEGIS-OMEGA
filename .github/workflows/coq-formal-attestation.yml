@@ -107,6 +107,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p sovereign-omega-v2/coq-attestation/{assumptions,compile-logs}
+          printf '%s\n' "$SOURCE_SHA" > sovereign-omega-v2/coq-attestation/source-sha.txt
           chmod -R a+rwX sovereign-omega-v2/formal sovereign-omega-v2/coq-attestation
 
       - name: Compile Coq sources, bind build, and capture theorem assumptions
@@ -122,6 +123,7 @@ jobs:
             ASSUMPTIONS="$OUT/assumptions"
             LOGS="$OUT/compile-logs"
             STATUS="$OUT/compile-status.json"
+            SOURCE_COMMIT="$(cat "$OUT/source-sha.txt")"
 
             printf '{\n' > "$STATUS"
             first=1
@@ -179,14 +181,14 @@ jobs:
             coqc --version > "$OUT/coq-version.txt" || exit 1
             cat "$OUT/coq-version.txt"
 
-            # Freeze exact reviewed source bytes, declarations, verifier binaries,
-            # and compiled Coq dependencies before any source compilation.
-            git diff --exit-code HEAD -- "$ROOT/formal" "$ROOT/python/coq_build_binding.py" "$ROOT/python/coq_target_census.py" || exit 1
+            # The outer job has already established HEAD == SOURCE_SHA. The
+            # nested Coq container intentionally does not rely on Git metadata;
+            # it re-verifies the committed source bytes and reviewed census.
             PYTHONPATH="$ROOT/python" python3 "$ROOT/python/coq_target_census.py" \
               --formal-root "$FORMAL" --out "$ROOT/formal/coq-targets.json" --check || exit 1
             PYTHONPATH="$ROOT/python" python3 "$ROOT/python/coq_build_binding.py" freeze \
               --formal-root "$FORMAL" --targets "$ROOT/formal/coq-targets.json" \
-              --source-commit "$(git rev-parse HEAD)" \
+              --source-commit "$SOURCE_COMMIT" \
               --contract "$OUT/build-contract.json" || exit 1
 
             for rel in \
@@ -220,7 +222,8 @@ jobs:
               --formal-root "$FORMAL" --targets "$ROOT/formal/coq-targets.json" \
               --contract "$OUT/build-contract.json" \
               --out "$OUT/build-binding.json" || exit 1
-            git diff --exit-code HEAD -- "$ROOT/formal" "$ROOT/python/coq_build_binding.py" "$ROOT/python/coq_target_census.py" || exit 1
+            PYTHONPATH="$ROOT/python" python3 "$ROOT/python/coq_target_census.py" \
+              --formal-root "$FORMAL" --out "$ROOT/formal/coq-targets.json" --check || exit 1
 
       - name: Generate content-addressed Coq attestation receipt
         if: always()
