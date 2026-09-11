@@ -15,6 +15,9 @@ env:
   SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   SOURCE_BLOB_SHA: 948204a796d85cd9ff3a65dd558218211006f6ef
   SYNTHESIS_PARENT_SHA: 59c26b825fa248d070e42fae04ccf7a15b285084
+  SYNTHESIS_PARENT_RECEIPT: 1c535b950eeab600c3660c7ef2e97d596e6f9f6120e57e97e0b9d2333b9356c9
+  SYNTHESIS_PARENT_SOURCE_BLOB: 257ef4b003206b816555acb0f72ff702e0daac65
+  SYNTHESIS_PARENT_ARTIFACT_SHA256: 1989b5565e77bd7e826beb96963570266bfde16d6406ec5c3fd7dceee3dc3ab9
   FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
   MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
   LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
@@ -117,14 +120,80 @@ jobs:
           grep -F 'uniform_mellin_vertical_cubic_decay_implies_shell_decay_v1' "$GITHUB_WORKSPACE/mellin-decay.log"
           grep -F 'weil_compact_smooth_has_cubic_shell_mellin_decay_v1' "$GITHUB_WORKSPACE/mellin-decay.log"
 
-      - name: Upload compile diagnostics
+      - name: Emit fail-closed Mellin decay receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+
+          source = Path('sovereign-omega-v2/formal/bridges/lean/MellinDecayEstimateV1.lean')
+          log = Path('mellin-decay.log').read_text()
+          assert 'sorryAx' not in log
+          for theorem in (
+              'weil_compact_smooth_mellin_vertical_cubic_decay_v1',
+              'uniform_mellin_vertical_cubic_decay_implies_shell_decay_v1',
+              'weil_compact_smooth_has_cubic_shell_mellin_decay_v1'):
+              assert theorem in log
+          expected_axioms = '[propext, Classical.choice, Quot.sound]'
+          for theorem in (
+              'weil_compact_smooth_mellin_vertical_cubic_decay_v1',
+              'uniform_mellin_vertical_cubic_decay_implies_shell_decay_v1',
+              'weil_compact_smooth_has_cubic_shell_mellin_decay_v1'):
+              assert f"'{theorem}' depends on axioms: {expected_axioms}" in log
+
+          receipt = {
+            'schema_version':'AEGIS_MELLIN_DECAY_ESTIMATE_RECEIPT_V1',
+            'source_commit':os.environ['SOURCE_SHA'],
+            'formal_source_git_blob_sha':os.environ['SOURCE_BLOB_SHA'],
+            'formal_source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),
+            'synthesis_parent_revision':os.environ['SYNTHESIS_PARENT_SHA'],
+            'synthesis_parent_receipt_sha256':os.environ['SYNTHESIS_PARENT_RECEIPT'],
+            'synthesis_parent_source_blob_sha':os.environ['SYNTHESIS_PARENT_SOURCE_BLOB'],
+            'synthesis_parent_artifact_sha256':os.environ['SYNTHESIS_PARENT_ARTIFACT_SHA256'],
+            'formal_conjectures_revision':os.environ['FORMAL_CONJECTURES_SHA'],
+            'mathlib_revision':os.environ['MATHLIB_SHA'],
+            'lean_toolchain':os.environ['LEAN_TOOLCHAIN'],
+            'uniform_mellin_vertical_cubic_decay_for_weil_compact_smooth_g':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'vertical_decay_implies_canonical_shell_decay':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'cubic_shell_mellin_decay_for_weil_compact_smooth_g':'VERIFIED_WITHIN_DECLARED_SCOPE',
+            'axiom_surface':['propext','Classical.choice','Quot.sound'],
+            'sorryAx_present':False,
+            'autocorrelation_compact_smooth_bridge':'OPEN',
+            'cubic_shell_mellin_decay_for_weil_autocorrelation':'OPEN',
+            'zero_counting_bound':'OPEN',
+            'actual_linear_shell_multiplicity_bound':'OPEN',
+            'actual_quadratic_shell_bound':'OPEN',
+            'weil_class_shell_mass_summability':'OPEN',
+            'conditional_symmetric_convergence':'OPEN',
+            'height_radial_equivalence':'OPEN',
+            'explicit_formula_theorem':'OPEN',
+            'critical_line_re_half':'OPEN',
+            'weil_criterion_bridge':'OPEN',
+            'rh_equivalence':'OPEN',
+            'rh_proved':False,
+            'rh_disproved':False,
+            'claim_promotion':'BLOCKED',
+            'decision':'HOLD_RESEARCH_ONLY',
+            'merge':'NOT_PERFORMED',
+            'authority_effect':'NONE'}
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
+          receipt['receipt_sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
+          out = Path('mellin-decay-receipt.json')
+          out.write_text(json.dumps(receipt, sort_keys=True, indent=2)+'\n')
+          print(out.read_text())
+          PY
+
+      - name: Upload Mellin decay evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: rh-mellin-decay-compile-${{ env.SOURCE_SHA }}
+          name: rh-mellin-decay-${{ env.SOURCE_SHA }}
           path: |
             mellin-decay-lean-version.txt
             *-mellin-parent.log
             mellin-decay.log
+            mellin-decay-receipt.json
           if-no-files-found: warn
           retention-days: 30
