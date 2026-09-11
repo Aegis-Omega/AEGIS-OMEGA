@@ -1,0 +1,50 @@
+specification: AEGIS_RH_TOOLCHAIN_LOCK_V1
+frontier:
+  repository: Aegis-Omega/AEGIS-OMEGA
+  branch: proof/rh-zero-counting-bound-v1
+  sha: c85a58ca753e5d99fc9f117e0dc481e1f2cf0bde
+  parent_branch: proof/rh-mellin-decay-estimate-v1
+  parent_sha: 6ec8bb0ee39c462a5b544620b5ad2648c52ecb1e
+  hosted_run_id: 34626508680
+  hosted_status: SUCCESS
+  verification_class: HOSTED_EXACT_HEAD_COMPILE_VERIFIED
+  dedicated_artifact: NONE
+  commit_signature: UNSIGNED
+lean:
+  toolchain: leanprover/lean4:v4.33.1
+  elan_release: v1.4.2
+  mathlib_sha: 0df444a360eaa60ab8c11dca51a86af692955474
+  formal_conjectures_repo: google-deepmind/formal-conjectures
+  formal_conjectures_sha: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  formal_conjectures_rh_coordinate: FormalConjectures/Millenium/RiemannHypothesis.lean::RiemannHypothesis.riemannHypothesis
+  formal_conjectures_rh_status: STATEMENT_PIN_ONLY_UPSTREAM_SORRY
+external_formal_provider:
+  repository: nicholasbulka/li-criterion-rh-equivalence-lean
+  sha: 35df682f3b709ffe5fbcfdd452dfa964bd622b87
+  original_mathlib_sha: de5ce8a9a66a4aa68a9bdbb35b63a06d34d9ca11
+  rebound_mathlib_sha: 0df444a360eaa60ab8c11dca51a86af692955474
+  audited_modules:
+    - Hadamard.OrderOne.TailEstimates
+    - Lc.LiCriterion.XiGrowth
+    - Lc.LiCriterion.HadamardSummabilityBridge
+coq_secondary_stack:
+  role: SUPPORTING_CONSTRUCTIVE_WEIL_EVIDENCE_ONLY
+  coq: 8.20.1
+  corn: 9.0.0
+  coquelicot: 3.4.2
+  transport_trig_head: f461ddf0af67ec8c5c9a958b244ad753223cf9d2
+  normalized_quotient_head: a0aa9a33de497b0ed46e39cdea2eb622d515e7a9
+python:
+  preferred: '3.12'
+  validator_dependencies:
+    pytest: 8.3.5
+    jsonschema: 4.23.0
+    pyyaml: 6.0.2
+  discovery_dependencies:
+    mpmath: 1.3.0
+    sympy: 1.13.3
+authority:
+  rh_status: NOT_PROVEN
+  claim_promotion: BLOCKED
+  execution_release: BLOCKED
+  authority_effect: NONE

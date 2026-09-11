@@ -1,0 +1,32 @@
+specification: AEGIS_RH_ASSUMPTION_CENSUS_V1
+frontier_sha: c85a58ca753e5d99fc9f117e0dc481e1f2cf0bde
+rh_status: NOT_PROVEN
+entries:
+  - id: LEAN_FRONTIER_THEOREMS
+    scope: ZeroCountingBoundV1 public theorem outputs at c85a58ca
+    observed_axioms: [propext, Classical.choice, Quot.sound]
+    sorryAx: absent_in_hosted_output
+    status: BOUNDED_TRUST_SURFACE
+  - id: LI_CRITERION_EXTERNAL_PROVIDER
+    repository: nicholasbulka/li-criterion-rh-equivalence-lean
+    sha: 35df682f3b709ffe5fbcfdd452dfa964bd622b87
+    rebound_mathlib_sha: 0df444a360eaa60ab8c11dca51a86af692955474
+    observed_provider_axioms: [propext, Classical.choice, Quot.sound]
+    sorryAx: absent_in_audited_provider_outputs
+    status: EXACT_PINNED_EXTERNAL_FORMAL_DEPENDENCY
+  - id: FORMAL_CONJECTURES_RH_TARGET
+    repository: google-deepmind/formal-conjectures
+    sha: 74b736b53ce688f57bad186b5dd862daaeeb708e
+    coordinate: FormalConjectures/Millenium/RiemannHypothesis.lean::RiemannHypothesis.riemannHypothesis
+    upstream_body: sorry
+    status: STATEMENT_PIN_ONLY
+    authority: NONE_AS_PROOF
+  - id: COQ_SUPPORTING_LANE
+    scope: supporting CoRN/O0 and quotient-stability proofs
+    status: SUPPORTING_FORMAL_MATH_EVIDENCE_ONLY
+    note: Does not transfer authority into the current Lean RH closure path without a proved semantic correspondence.
+forbidden_promotions:
+  - external_statement_pin_implies_proof
+  - hosted_ci_success_implies_rh
+  - finite_numeric_evidence_implies_universal_theorem
+  - supporting_coq_theorem_implies_lean_semantic_bridge

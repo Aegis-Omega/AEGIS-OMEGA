@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/rh-zero-counting-bound-v1",
+    "source_ref": "infra/astra-rh-millennium-env-v1",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "f2c7d40f51aac63c1e200d45c6cc905670280ffe16714b04938bd4f4f30933f7"
+  "state_hash": "890594f8b386437a8c2293d4a9c0e5af421cdb552d52b2044c8fb79820588e50"
 }

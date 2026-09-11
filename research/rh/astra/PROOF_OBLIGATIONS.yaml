@@ -1,0 +1,201 @@
+specification: AEGIS_RH_PROOF_OBLIGATION_DAG_V1
+frontier:
+  repository: Aegis-Omega/AEGIS-OMEGA
+  branch: proof/rh-zero-counting-bound-v1
+  sha: c85a58ca753e5d99fc9f117e0dc481e1f2cf0bde
+  verification_class: HOSTED_EXACT_HEAD_COMPILE_VERIFIED
+  hosted_run_id: 34626508680
+  commit_signature: UNSIGNED
+rh_status: NOT_PROVEN
+claim_promotion: BLOCKED
+execution_release: BLOCKED
+authority_effect: NONE
+normalization:
+  status: PARTIALLY_FROZEN
+  required_fields:
+    fourier_transform: UNFROZEN_FOR_FINAL_EXPLICIT_FORMULA
+    mellin_transform: BOUND_BY_CURRENT_LEAN_IMPLEMENTATION_NOT_YET_EXTRACTED_TO_CANONICAL_SPEC
+    test_function_class: 'PARTIALLY_BOUND: WeilCompactSmoothGV1 / WeilAutocorrelationV1 distinction preserved'
+    zero_summation_convention: HEIGHT_TRUNCATION_CONTRACT_MACHINE_BOUND; EXPLICIT_FORMULA_USE_OPEN
+    gamma_factor: UNFROZEN_FOR_FINAL_EXPLICIT_FORMULA
+    prime_power_weights: UNFROZEN_FOR_FINAL_EXPLICIT_FORMULA
+candidate_next_obligation:
+  id: QUARTIC_SHELL_MELLIN_DECAY
+  disposition: AUDIT_FIRST
+  alternatives:
+  - prove a sufficiently strong decay bound compatible with quadratic zero count
+  - strengthen quadratic zero count to a linear shell bound
+  - derive a different summability majorant without forcing either exponent
+nodes:
+- id: CRITICAL_STRIP_LOCALIZATION
+  statement: Every declared nontrivial Riemann-zeta zero lies in 0 < Re(s) < 1.
+  status: HOSTED_EXACT_HEAD_COMPILE_VERIFIED
+  dependencies: []
+  proof_binding:
+    path: sovereign-omega-v2/formal/bridges/lean/ZeroCriticalStripV1.lean
+    theorem: riemann_zeta_nontrivial_zero_critical_strip_v1
+    exact_head: c85a58ca753e5d99fc9f117e0dc481e1f2cf0bde
+    run_id: 34626508680
+    receipt_sha256: null
+  authority_ceiling: FORMAL_MATH_EVIDENCE_ONLY
+  source_basis: 'Exact #481 hosted run compiled/audited this inherited theorem surface at the current frontier; no dedicated receipt artifact emitted.'
+- id: FINITE_HEIGHT_MULTIPLICITY_SUM
+  statement: Finite height-truncated multiplicity-weighted Mellin zero sums are defined and machine checked.
+  status: HOSTED_EXACT_HEAD_COMPILE_VERIFIED
+  dependencies: [CRITICAL_STRIP_LOCALIZATION]
+  proof_binding:
+    path: sovereign-omega-v2/formal/bridges/lean/ZeroHeightFiniteSumV1.lean
+    theorem: height_zero_multiplicity_cast_eq_order_v1
+    exact_head: c85a58ca753e5d99fc9f117e0dc481e1f2cf0bde
+    run_id: 34626508680
+    receipt_sha256: null
+  authority_ceiling: FORMAL_MATH_EVIDENCE_ONLY
+  source_basis: 'Exact #481 hosted run compiled/audited this inherited theorem surface at the current frontier; no dedicated receipt artifact emitted.'
+- id: HEIGHT_LIMIT_CONTRACT
+  statement: Uniqueness contract for a symmetric height limit of the finite zero sums.
+  status: HOSTED_EXACT_HEAD_COMPILE_VERIFIED
+  dependencies: [FINITE_HEIGHT_MULTIPLICITY_SUM]
+  proof_binding:
+    path: sovereign-omega-v2/formal/bridges/lean/ZeroHeightLimitContractV1.lean
+    theorem: weil_zero_height_limit_unique_v1
+    exact_head: c85a58ca753e5d99fc9f117e0dc481e1f2cf0bde
+    run_id: 34626508680
+    receipt_sha256: null
+  authority_ceiling: FORMAL_MATH_EVIDENCE_ONLY
+  source_basis: 'Exact #481 hosted run compiled/audited this inherited theorem surface at the current frontier; no dedicated receipt artifact emitted.'
+- id: HEIGHT_SUMMABILITY_BRIDGE
+  statement: Unconditional HasSum of the multiplicity-weighted zero summand implies the declared height-limit contract.
+  status: HOSTED_EXACT_HEAD_COMPILE_VERIFIED
+  dependencies: [HEIGHT_LIMIT_CONTRACT]
+  proof_binding:
+    path: sovereign-omega-v2/formal/bridges/lean/ZeroHeightSummabilityBridgeV1.lean
+    theorem: hasSum_implies_height_limit_v1
+    exact_head: c85a58ca753e5d99fc9f117e0dc481e1f2cf0bde
+    run_id: 34626508680
+    receipt_sha256: null
+  authority_ceiling: FORMAL_MATH_EVIDENCE_ONLY
+  source_basis: 'Exact #481 hosted run compiled/audited this inherited theorem surface at the current frontier; no dedicated receipt artifact emitted.'
+- id: ZERO_HEIGHT_SHELL_MASS_REDUCTION
+  statement: Global norm-summability is reduced to summability of finite natural-number height-shell masses.
+  status: HOSTED_EXACT_HEAD_COMPILE_VERIFIED
+  dependencies: [HEIGHT_SUMMABILITY_BRIDGE]
+  proof_binding:
+    path: sovereign-omega-v2/formal/bridges/lean/ZeroHeightShellMassV1.lean
+    theorem: zero_norm_summable_iff_shell_mass_v1
+    exact_head: c85a58ca753e5d99fc9f117e0dc481e1f2cf0bde
+    run_id: 34626508680
+    receipt_sha256: null
+  authority_ceiling: FORMAL_MATH_EVIDENCE_ONLY
+  source_basis: 'Exact #481 hosted run compiled/audited this inherited theorem surface at the current frontier; no dedicated receipt artifact emitted.'
+- id: LINEAR_COUNT_CUBIC_DECAY_SYNTHESIS
+  statement: 'A machine-checked conditional theorem: linear shell multiplicity plus cubic shell Mellin decay implies a quadratic shell-mass bound.'
+  status: HOSTED_EXACT_HEAD_COMPILE_VERIFIED
+  dependencies: []
+  application_requires: [ACTUAL_LINEAR_SHELL_MULTIPLICITY_BOUND, COMPACT_SMOOTH_CUBIC_MELLIN_DECAY]
+  proof_binding:
+    path: sovereign-omega-v2/formal/bridges/lean/ZeroShellAnalyticSynthesisV1.lean
+    theorem: shell_count_and_mellin_decay_imply_quadratic_bound_v1
+    exact_head: c85a58ca753e5d99fc9f117e0dc481e1f2cf0bde
+    run_id: 34626508680
+    receipt_sha256: null
+  authority_ceiling: FORMAL_MATH_EVIDENCE_ONLY
+  source_basis: 'Exact #481 hosted run compiled/audited this inherited theorem surface at the current frontier; no dedicated receipt artifact emitted.'
+- id: COMPACT_SMOOTH_CUBIC_MELLIN_DECAY
+  statement: Uniform cubic vertical Mellin decay is machine checked for the existing compact-smooth positive-support function class.
+  status: PROVED_MACHINE_CHECKED
+  dependencies: []
+  proof_binding:
+    path: sovereign-omega-v2/formal/bridges/lean/MellinDecayEstimateV1.lean
+    theorem: weil_compact_smooth_has_cubic_shell_mellin_decay_v1
+    exact_head: 6ec8bb0ee39c462a5b544620b5ad2648c52ecb1e
+    run_id: null
+    receipt_sha256: 26a4bcd2299e4010dea422254604820c447fec5ee80b26ae75d60ed2def9584b
+  authority_ceiling: FORMAL_MATH_EVIDENCE_ONLY
+  source_basis: 'PR #480 receipt-grade exact-head Mellin checkpoint; retained as a separate exact evidence object.'
+- id: ACTUAL_LINEAR_SHELL_MULTIPLICITY_BOUND
+  statement: A linear O(n+1) multiplicity bound for the canonical AEGIS height shells.
+  status: OPEN
+  dependencies: [CRITICAL_STRIP_LOCALIZATION]
+  proof_binding: null
+  authority_ceiling: NONE
+  source_basis: 'Not established; current #481 closes a coarser quadratic bound instead.'
+- id: QUADRATIC_SHELL_MULTIPLICITY_BOUND
+  statement: Canonical AEGIS shell multiplicity mass is bounded by A*(n+1)^2 without assuming RH.
+  status: HOSTED_EXACT_HEAD_COMPILE_VERIFIED
+  dependencies: [CRITICAL_STRIP_LOCALIZATION]
+  proof_binding:
+    path: sovereign-omega-v2/formal/bridges/lean/ZeroCountingBoundV1.lean
+    theorem: riemann_zeta_has_quadratic_shell_multiplicity_bound_v1
+    exact_head: c85a58ca753e5d99fc9f117e0dc481e1f2cf0bde
+    run_id: 34626508680
+    receipt_sha256: null
+  external_dependencies:
+  - repository: nicholasbulka/li-criterion-rh-equivalence-lean
+    sha: 35df682f3b709ffe5fbcfdd452dfa964bd622b87
+  - repository: leanprover-community/mathlib4
+    sha: 0df444a360eaa60ab8c11dca51a86af692955474
+  authority_ceiling: FORMAL_MATH_EVIDENCE_ONLY
+  source_basis: 'Exact #481 hosted run compiled/audited this inherited theorem surface at the current frontier; no dedicated receipt artifact emitted.'
+- id: AUTOCORRELATION_COMPACT_SMOOTH_BRIDGE
+  statement: Transport the verified compact-smooth Mellin decay to the actual Weil autocorrelation object without changing semantics.
+  status: OPEN
+  dependencies: [COMPACT_SMOOTH_CUBIC_MELLIN_DECAY]
+  proof_binding: null
+  authority_ceiling: NONE
+  source_basis: 'Explicitly OPEN in PR #480.'
+- id: QUARTIC_SHELL_MELLIN_DECAY
+  statement: Establish a shell-local Mellin decay strong enough to pair with the quadratic multiplicity count, candidate exponent 4 subject to proof audit.
+  status: OPEN
+  dependencies: [AUTOCORRELATION_COMPACT_SMOOTH_BRIDGE]
+  proof_binding: null
+  authority_ceiling: NONE
+  source_basis: 'Candidate next obligation inferred from the exact #481 source comment; must be independently justified.'
+- id: QUADRATIC_COUNT_QUARTIC_DECAY_SYNTHESIS
+  statement: Prove the exact summability synthesis required to combine the actual quadratic shell multiplicity bound with sufficient Mellin decay.
+  status: OPEN
+  dependencies: [QUADRATIC_SHELL_MULTIPLICITY_BOUND, QUARTIC_SHELL_MELLIN_DECAY]
+  proof_binding: null
+  authority_ceiling: NONE
+  source_basis: Not yet machine-bound; exact exponent and constants must be derived, not assumed.
+- id: ACTUAL_QUADRATIC_SHELL_MASS_BOUND
+  statement: Establish the actual HasQuadraticShellMassBoundV1 certificate for the declared Weil-class object.
+  status: OPEN
+  dependencies: [ZERO_HEIGHT_SHELL_MASS_REDUCTION, QUADRATIC_COUNT_QUARTIC_DECAY_SYNTHESIS]
+  proof_binding: null
+  authority_ceiling: NONE
+  source_basis: Load-bearing analytic frontier.
+- id: WEIL_CLASS_SHELL_SUMMABILITY
+  statement: Establish summability/height-limit existence for the actual declared Weil-class zero-side summand.
+  status: OPEN
+  dependencies: [ACTUAL_QUADRATIC_SHELL_MASS_BOUND]
+  proof_binding: null
+  authority_ceiling: NONE
+  source_basis: Not established.
+- id: EXPLICIT_FORMULA_THEOREM
+  statement: Machine-bind the full explicit formula with exact normalization, zero-side summation convention, prime and Archimedean terms.
+  status: OPEN
+  dependencies: [WEIL_CLASS_SHELL_SUMMABILITY]
+  proof_binding: null
+  authority_ceiling: NONE
+  source_basis: Not established.
+- id: WEIL_CRITERION_BRIDGE
+  statement: Machine-bind the exact Weil/Bombieri positivity criterion and its equivalence under the same function class and normalization.
+  status: OPEN
+  dependencies: [EXPLICIT_FORMULA_THEOREM]
+  proof_binding: null
+  authority_ceiling: NONE
+  source_basis: Not established.
+- id: RH_EQUIVALENCE
+  statement: Close the semantic bridge from the machine-bound criterion to the exact Riemann Hypothesis statement without circularity.
+  status: OPEN
+  dependencies: [WEIL_CRITERION_BRIDGE]
+  proof_binding: null
+  authority_ceiling: NONE
+  source_basis: Formal Conjectures target is a statement pin only; upstream target body contains sorry.
+- id: RH
+  statement: Every nontrivial zero of the Riemann zeta function has real part 1/2.
+  status: OPEN
+  dependencies: [RH_EQUIVALENCE]
+  proof_binding: null
+  authority_ceiling: NONE
+  source_basis: Millennium target; NOT_PROVEN.

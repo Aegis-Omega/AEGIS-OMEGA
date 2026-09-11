@@ -1,0 +1,7 @@
+.venv/
+.formal-provider/
+.pytest_cache/
+__pycache__/
+*.pyc
+AEGIS_AxiomAudit.lean
+provider-axioms.log

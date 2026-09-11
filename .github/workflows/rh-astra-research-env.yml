@@ -1,0 +1,108 @@
+name: RH Astra Research Environment
+
+on:
+  pull_request:
+    paths:
+      - "research/rh/astra/**"
+      - ".github/workflows/rh-astra-research-env.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fail-closed-environment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      FRONTIER_SHA: c85a58ca753e5d99fc9f117e0dc481e1f2cf0bde
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Assert candidate descends from pinned RH frontier
+        run: |
+          set -euo pipefail
+          git cat-file -e "$FRONTIER_SHA^{commit}"
+          git merge-base --is-ancestor "$FRONTIER_SHA" HEAD
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install exact validator dependencies
+        run: python -m pip install --disable-pip-version-check -r research/rh/astra/requirements-validator.txt
+      - name: Compile infrastructure Python
+        run: python -m compileall -q research/rh/astra/scripts research/rh/astra/tests
+      - name: Verify pins, registry and falsifiers
+        working-directory: research/rh/astra
+        run: make verify
+      - name: Enforce blocked global disposition
+        working-directory: research/rh/astra
+        run: |
+          set -euo pipefail
+          grep -F '"rh_status": "NOT_PROVEN"' ASTRA_ENV_RECEIPT.json
+          grep -F '"claim_promotion": "BLOCKED"' ASTRA_ENV_RECEIPT.json
+          grep -F '"execution_release": "BLOCKED"' ASTRA_ENV_RECEIPT.json
+          grep -F '"authority_effect": "NONE"' ASTRA_ENV_RECEIPT.json
+
+  formal-pin-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      LI_CRITERION_SHA: 35df682f3b709ffe5fbcfdd452dfa964bd622b87
+      MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+      ORIGINAL_MATHLIB_SHA: de5ce8a9a66a4aa68a9bdbb35b63a06d34d9ca11
+      LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+    steps:
+      - name: Checkout exact external formal provider
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: nicholasbulka/li-criterion-rh-equivalence-lean
+          ref: ${{ env.LI_CRITERION_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Rebind provider to exact AEGIS Mathlib pin
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$LEAN_TOOLCHAIN" > lean-toolchain
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p=Path('lakefile.lean'); t=p.read_text(); old=os.environ['ORIGINAL_MATHLIB_SHA']; new=os.environ['MATHLIB_SHA']
+          assert old in t
+          p.write_text(t.replace(old,new))
+          PY
+          rm -f lake-manifest.json
+      - name: Install pinned elan release
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Resolve exact Mathlib and compile audited provider surface
+        run: |
+          set -euo pipefail
+          lake update mathlib
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          m=json.loads(Path('lake-manifest.json').read_text())
+          p=next(x for x in m['packages'] if x['name']=='mathlib')
+          assert (p.get('rev') or p.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+          lake exe cache get
+          lake build Hadamard.OrderOne.TailEstimates Lc.LiCriterion.XiGrowth Lc.LiCriterion.HadamardSummabilityBridge
+      - name: Audit provider axioms
+        run: |
+          cat > AstraProviderAudit.lean <<'EOF2'
+          import Hadamard.OrderOne.TailEstimates
+          import Lc.LiCriterion.HadamardSummabilityBridge
+          import Lc.LiCriterion.XiGrowth
+          #print axioms Hadamard.OrderOne.sum_multiplicity_zeros_le_rpow_of_order_le
+          #print axioms LiCriterion.XiGrowth.riemannXi_order_le_one
+          #print axioms LiCriterion.xi_entire
+          #print axioms LiCriterion.xi_zeros_are_nontrivial_zeros
+          EOF2
+          lake env lean AstraProviderAudit.lean 2>&1 | tee provider-axioms.log
+          ! grep -F 'sorryAx' provider-axioms.log
