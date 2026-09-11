@@ -1,4 +1,4 @@
-name: RH Mellin Decay Estimate RED
+name: RH Mellin Decay Estimate
 
 on:
   pull_request:
@@ -13,23 +13,118 @@ permissions:
 
 env:
   SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  SOURCE_BLOB_SHA: 6c13f5d13a8aa172e362cb4ca19ee992b6e4c34e
+  SYNTHESIS_PARENT_SHA: 59c26b825fa248d070e42fae04ccf7a15b285084
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
 
 jobs:
-  preregistration-red:
-    name: preregister actual Mellin decay theorem surface
+  mellin-decay:
+    name: pinned compact-smooth Mellin cubic decay
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 35
     steps:
-      - name: Checkout exact candidate
+      - name: Checkout exact AEGIS candidate
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ env.SOURCE_SHA }}
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Bind exact candidate and run preregistered contract
+      - name: Bind exact candidate and preregistered contract
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/MellinDecayEstimateV1.lean)" = "$SOURCE_BLOB_SHA"
           python3 -m unittest sovereign-omega-v2/formal/tests/test_mellin_decay_estimate_v1.py -v
+
+      - name: Checkout pinned Formal Conjectures
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: google-deepmind/formal-conjectures
+          ref: ${{ env.FORMAL_CONJECTURES_SHA }}
+          path: .external/formal-conjectures
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify pinned Lean and Mathlib
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FORMAL_CONJECTURES_SHA"
+          test "$(tr -d '\r\n' < lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('lake-manifest.json').read_text())
+          p = next(x for x in m['packages'] if x['name'] == 'mathlib')
+          assert (p.get('rev') or p.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Get pinned Mathlib cache
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: lake exe cache get
+
+      - name: Compile parent chain and Mellin decay candidate
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version | tee "$GITHUB_WORKSPACE/mellin-decay-lean-version.txt"
+          for f in \
+            WeilCriterionCompactSmoothV1 \
+            ZeroCriticalStripV1 \
+            ZeroHeightFiniteSumV1 \
+            ZeroHeightLimitContractV1 \
+            ZeroHeightSummabilityBridgeV1 \
+            ZeroMajorantSummabilityV1 \
+            ZeroHeightShellMassV1 \
+            ZeroShellQuadraticBoundV1 \
+            ZeroShellAnalyticSynthesisV1 \
+            MellinDecayEstimateV1; do
+            cp "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/$f.lean" "./$f.lean"
+          done
+          mkdir -p .lake/build/lib/lean
+          for f in \
+            WeilCriterionCompactSmoothV1 \
+            ZeroCriticalStripV1 \
+            ZeroHeightFiniteSumV1 \
+            ZeroHeightLimitContractV1 \
+            ZeroHeightSummabilityBridgeV1 \
+            ZeroMajorantSummabilityV1 \
+            ZeroHeightShellMassV1 \
+            ZeroShellQuadraticBoundV1 \
+            ZeroShellAnalyticSynthesisV1; do
+            lake env lean -o ".lake/build/lib/lean/$f.olean" "$f.lean" \
+              2>&1 | tee "$GITHUB_WORKSPACE/$f-mellin-parent.log"
+          done
+          lake env lean MellinDecayEstimateV1.lean \
+            2>&1 | tee "$GITHUB_WORKSPACE/mellin-decay.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/mellin-decay.log"
+          grep -F 'weil_compact_smooth_mellin_vertical_cubic_decay_v1' "$GITHUB_WORKSPACE/mellin-decay.log"
+          grep -F 'uniform_mellin_vertical_cubic_decay_implies_shell_decay_v1' "$GITHUB_WORKSPACE/mellin-decay.log"
+          grep -F 'weil_compact_smooth_has_cubic_shell_mellin_decay_v1' "$GITHUB_WORKSPACE/mellin-decay.log"
+
+      - name: Upload compile diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rh-mellin-decay-compile-${{ env.SOURCE_SHA }}
+          path: |
+            mellin-decay-lean-version.txt
+            *-mellin-parent.log
+            mellin-decay.log
+          if-no-files-found: warn
+          retention-days: 30
