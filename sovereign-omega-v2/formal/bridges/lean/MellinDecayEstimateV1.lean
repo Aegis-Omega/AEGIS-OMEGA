@@ -42,7 +42,7 @@ def MellinWeightV1 (σ u : ℝ) : ℝ :=
 
 /-- Complex-valued view of the real exponential weight. -/
 def MellinComplexWeightV1 (σ u : ℝ) : ℂ :=
-  (MellinWeightV1 σ u : ℂ)
+  MellinWeightV1 σ u • (1 : ℂ)
 
 /-- Fourier-side profile whose transform equals the Mellin transform. -/
 def MellinWeightedLogProfileV1 (f : ℝ → ℂ) (σ u : ℝ) : ℂ :=
@@ -89,7 +89,7 @@ private theorem mellin_weight_contDiff_v1 (σ : ℝ) :
 private theorem mellin_complex_weight_contDiff_v1 (σ : ℝ) :
     ContDiff ℝ ∞ (MellinComplexWeightV1 σ) := by
   unfold MellinComplexWeightV1
-  exact Complex.ofRealCLM.contDiff.comp (mellin_weight_contDiff_v1 σ)
+  exact (mellin_weight_contDiff_v1 σ).smul_const (1 : ℂ)
 
 private theorem mellin_weight_iteratedDeriv_v1 (σ : ℝ) (n : ℕ) :
     iteratedDeriv n (MellinWeightV1 σ) =
@@ -105,12 +105,12 @@ private theorem mellin_complex_weight_iteratedDeriv_v1
   have hwTop : ContDiffAt ℝ ∞ (MellinWeightV1 σ) u :=
     (mellin_weight_contDiff_v1 σ).contDiffAt
   have hw : ContDiffAt ℝ (n : ℕ∞ω) (MellinWeightV1 σ) u :=
-    hwTop.of_le (by simp)
+    hwTop.of_le le_top
   have hsmul :=
     iteratedDeriv_smul_const (n := n) (x := u)
       (f := MellinWeightV1 σ) hw (1 : ℂ)
   have hr := congrFun (mellin_weight_iteratedDeriv_v1 σ n) u
-  simpa [MellinComplexWeightV1, Complex.real_smul, hr] using hsmul
+  simpa [MellinComplexWeightV1, hr, Complex.real_smul] using hsmul
 
 private theorem mellin_weighted_log_profile_contDiff_v1
     (g : WeilCompactSmoothGV1) (σ : ℝ) :
@@ -124,21 +124,19 @@ private theorem mellin_weighted_log_profile_hasCompactSupport_v1
   have hh : HasCompactSupport (MellinLogProfileV1 g.1) :=
     mellin_log_profile_hasCompactSupport_v1 g
   apply hh.of_isClosed_subset (isClosed_tsupport _)
-  simpa [MellinWeightedLogProfileV1] using
-    (tsupport_mul_subset_right :
-      tsupport (fun u : ℝ =>
-        MellinComplexWeightV1 σ u * MellinLogProfileV1 g.1 u) ⊆
-      tsupport (MellinLogProfileV1 g.1))
+  change tsupport (fun u : ℝ =>
+      MellinComplexWeightV1 σ u * MellinLogProfileV1 g.1 u) ⊆
+    tsupport (MellinLogProfileV1 g.1)
+  exact tsupport_mul_subset_right
 
 private theorem mellin_weighted_log_profile_tsupport_subset_v1
     (g : WeilCompactSmoothGV1) (σ : ℝ) :
     tsupport (MellinWeightedLogProfileV1 g.1 σ) ⊆
       tsupport (MellinLogProfileV1 g.1) := by
-  simpa [MellinWeightedLogProfileV1] using
-    (tsupport_mul_subset_right :
-      tsupport (fun u : ℝ =>
-        MellinComplexWeightV1 σ u * MellinLogProfileV1 g.1 u) ⊆
-      tsupport (MellinLogProfileV1 g.1))
+  change tsupport (fun u : ℝ =>
+      MellinComplexWeightV1 σ u * MellinLogProfileV1 g.1 u) ⊆
+    tsupport (MellinLogProfileV1 g.1)
+  exact tsupport_mul_subset_right
 
 private theorem mellin_iteratedDeriv_hasCompactSupport_v1
     {f : ℝ → ℂ} (hf : HasCompactSupport f) (n : ℕ) :
@@ -155,7 +153,7 @@ private theorem mellin_weighted_log_profile_deriv_integrable_v1
   have hpcomp : HasCompactSupport p :=
     mellin_weighted_log_profile_hasCompactSupport_v1 g σ
   have hpderivcont : Continuous (iteratedDeriv n p) :=
-    hpcont.continuous_iteratedDeriv n (by simp)
+    hpcont.continuous_iteratedDeriv n le_top
   exact hpderivcont.integrable_of_hasCompactSupport
     (mellin_iteratedDeriv_hasCompactSupport_v1 hpcomp n)
 
@@ -166,7 +164,7 @@ private theorem mellin_log_profile_deriv_bound_v1
   have hhcont : ContDiff ℝ ∞ h := mellin_log_profile_contDiff_v1 g
   have hhcomp : HasCompactSupport h := mellin_log_profile_hasCompactSupport_v1 g
   have hc : Continuous (iteratedDeriv i h) :=
-    hhcont.continuous_iteratedDeriv i (by simp)
+    hhcont.continuous_iteratedDeriv i le_top
   exact hc.bounded_above_of_compact_support
     (mellin_iteratedDeriv_hasCompactSupport_v1 hhcomp i)
 
@@ -223,7 +221,7 @@ private theorem mellin_weighted_log_profile_uniform_l1_v1
     positivity
   let K : Set ℝ := Metric.closedBall (0 : ℝ) R
   have hKmeas : MeasurableSet K := measurableSet_closedBall
-  have hKfinite : volume K < (⊤ : ℝ≥0∞) := measure_closedBall_lt_top
+  have hKfinite : volume K ≠ ⊤ := ne_of_lt measure_closedBall_lt_top
   let L : ℝ := ∫ _u : ℝ in K, M
   have hL : 0 ≤ L := by
     dsimp [L]
@@ -273,9 +271,9 @@ private theorem mellin_weighted_log_profile_uniform_l1_v1
     change ‖iteratedDeriv n
       (fun x : ℝ => MellinComplexWeightV1 σ x * h x) u‖ ≤ M
     have hw_n : ContDiffAt ℝ (n : ℕ∞ω) (MellinComplexWeightV1 σ) u :=
-      (mellin_complex_weight_contDiff_v1 σ).contDiffAt.of_le (by simp)
+      (mellin_complex_weight_contDiff_v1 σ).contDiffAt.of_le le_top
     have hh_n : ContDiffAt ℝ (n : ℕ∞ω) h u :=
-      hhcont.contDiffAt.of_le (by simp)
+      hhcont.contDiffAt.of_le le_top
     rw [iteratedDeriv_fun_mul hw_n hh_n]
     calc
       ‖∑ i ∈ Finset.range (n + 1),
@@ -337,7 +335,7 @@ private theorem mellin_weighted_log_profile_uniform_l1_v1
   rw [hinter_eq]
   dsimp [L]
   apply setIntegral_mono hpint.norm.integrableOn
-  · simpa using (integrableOn_const (μ := volume) (c := M) hKfinite.ne)
+  · simpa using (integrableOn_const (μ := volume) (c := M) hKfinite)
   · intro u hu
     exact hpoint u hu
 
@@ -352,7 +350,7 @@ theorem weil_compact_smooth_mellin_vertical_cubic_decay_v1
   let p := MellinWeightedLogProfileV1 g.1 σ
   let ξ : ℝ := γ / (2 * Real.pi)
   have hpcont : ContDiff ℝ ∞ p := mellin_weighted_log_profile_contDiff_v1 g σ
-  have hpcontFourier : ContDiff ℝ (⊤ : ℕ∞) p := hpcont.of_le (by simp)
+  have hpcontFourier : ContDiff ℝ (⊤ : ℕ∞) p := hpcont.of_le le_top
   have hpint : ∀ n : ℕ, Integrable (iteratedDeriv n p) :=
     fun n => mellin_weighted_log_profile_deriv_integrable_v1 g σ n
   have hL0 := hLbound σ hσ 0 (by omega)
@@ -361,10 +359,8 @@ theorem weil_compact_smooth_mellin_vertical_cubic_decay_v1
   have hmellin :
       mellin g.1 ((σ : ℂ) + (γ : ℂ) * Complex.I) = 𝓕 p ξ := by
     rw [mellin_eq_fourier]
-    apply congrArg (fun q : ℝ → ℂ => 𝓕 q ξ)
-    funext u
     simp [p, ξ, MellinWeightedLogProfileV1, MellinComplexWeightV1,
-      MellinWeightV1, MellinLogProfileV1, Complex.ofReal_exp]
+      MellinWeightV1, MellinLogProfileV1, Complex.real_smul]
 
   have hfourier0 : ‖𝓕 p ξ‖ ≤ L := by
     calc
@@ -401,7 +397,7 @@ theorem weil_compact_smooth_mellin_vertical_cubic_decay_v1
     congrFun
       (Real.fourier_iteratedDeriv
         (N := (⊤ : ℕ∞)) (n := 3) hpcontFourier
-        (fun n _ => hpint n) (by simp)) ξ
+        (fun n _ => hpint n) le_top) ξ
 
   have hfreq :
       |γ| ^ 3 * ‖𝓕 p ξ‖ ≤ L := by
