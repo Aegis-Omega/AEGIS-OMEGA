@@ -2,7 +2,7 @@
   "schema_version": "AEGIS_ZERO_SHELL_ANALYTIC_SYNTHESIS_V1",
   "candidate": {
     "formal_source": "sovereign-omega-v2/formal/bridges/lean/ZeroShellAnalyticSynthesisV1.lean",
-    "formal_source_git_blob_sha": "279305250164a78eabb6edc8776267d91ba72b02"
+    "formal_source_git_blob_sha": "257ef4b003206b816555acb0f72ff702e0daac65"
   },
   "verified_parent_evidence": {
     "quadratic_shell_bound_reduction": {

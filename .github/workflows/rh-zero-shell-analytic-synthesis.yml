@@ -14,7 +14,7 @@ permissions:
 
 env:
   SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  SOURCE_BLOB_SHA: 279305250164a78eabb6edc8776267d91ba72b02
+  SOURCE_BLOB_SHA: 257ef4b003206b816555acb0f72ff702e0daac65
   QUADRATIC_PARENT_SHA: aae3384ce570b76405e0d2b352dae4c12ceef83d
   QUADRATIC_PARENT_RECEIPT: 12847f749a4b558114a18f8435ede31623e2764ec1d19c619b76cf927376887b
   QUADRATIC_PARENT_ARTIFACT: 754b2d77d64ee940420fa22a862ceffbd667bc578b8259a4d9d8f9294eda8775
@@ -42,7 +42,7 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Bind exact candidate and local formal sources
+      - name: Bind exact candidate and local evidence
         shell: bash
         run: |
           set -euo pipefail
@@ -55,11 +55,6 @@ jobs:
           test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroHeightFiniteSumV1.lean)" = "$FINITE_SUM_SOURCE_BLOB"
           test "$(git hash-object sovereign-omega-v2/formal/bridges/lean/ZeroCriticalStripV1.lean)" = "$CRITICAL_STRIP_SOURCE_BLOB"
           python3 -m unittest sovereign-omega-v2/formal/tests/test_zero_shell_analytic_synthesis_v1.py -v
-
-      - name: Verify parent evidence and fail-closed manifest
-        shell: bash
-        run: |
-          set -euo pipefail
           python3 - <<'PY'
           import json, os
           from pathlib import Path
@@ -82,17 +77,17 @@ jobs:
           assert e['mathlib_revision'] == os.environ['MATHLIB_SHA']
           assert e['lean_toolchain'] == os.environ['LEAN_TOOLCHAIN']
           s = m['scope']
-          for key in ('shell_multiplicity_mass_definition','linear_shell_multiplicity_interface','cubic_shell_mellin_decay_interface','shell_count_and_mellin_decay_imply_quadratic_bound'):
-              assert s[key] == 'CANDIDATE'
-          for key in ('actual_linear_shell_multiplicity_bound','actual_cubic_shell_mellin_decay','zero_counting_bound','mellin_decay_estimate','actual_quadratic_shell_bound','weil_class_shell_mass_summability','conditional_symmetric_convergence','height_radial_equivalence','explicit_formula_theorem','critical_line_re_half','weil_criterion_bridge','rh_equivalence'):
-              assert s[key] == 'OPEN'
+          for k in ('shell_multiplicity_mass_definition','linear_shell_multiplicity_interface','cubic_shell_mellin_decay_interface','shell_count_and_mellin_decay_imply_quadratic_bound'):
+              assert s[k] == 'CANDIDATE'
+          for k in ('actual_linear_shell_multiplicity_bound','actual_cubic_shell_mellin_decay','zero_counting_bound','mellin_decay_estimate','actual_quadratic_shell_bound','weil_class_shell_mass_summability','conditional_symmetric_convergence','height_radial_equivalence','explicit_formula_theorem','critical_line_re_half','weil_criterion_bridge','rh_equivalence'):
+              assert s[k] == 'OPEN'
           assert m['promotion_requested'] is False
-          assert m['declared_disposition']['claim_promotion'] == 'BLOCKED'
-          assert m['declared_disposition']['merge'] == 'NOT_PERFORMED'
-          assert m['declared_disposition']['authority_effect'] == 'NONE'
+          assert m['declared_disposition'] == {
+              'claim_promotion':'BLOCKED','decision':'HOLD_RESEARCH_ONLY',
+              'merge':'NOT_PERFORMED','authority_effect':'NONE'}
           PY
 
-      - name: Checkout pinned Formal Conjectures project
+      - name: Checkout pinned Formal Conjectures
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           repository: google-deepmind/formal-conjectures
@@ -130,7 +125,7 @@ jobs:
         shell: bash
         run: lake exe cache get
 
-      - name: Compile dependency chain and analytic synthesis
+      - name: Compile dependency chain and synthesis
         working-directory: .external/formal-conjectures
         shell: bash
         run: |
@@ -140,18 +135,14 @@ jobs:
             cp "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/$f.lean" "./$f.lean"
           done
           mkdir -p .lake/build/lib/lean
-          lake env lean -o .lake/build/lib/lean/ZeroCriticalStripV1.olean ZeroCriticalStripV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-shell-synthesis-critical-strip.log"
-          lake env lean -o .lake/build/lib/lean/ZeroHeightFiniteSumV1.olean ZeroHeightFiniteSumV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-shell-synthesis-finite-sum.log"
-          lake env lean -o .lake/build/lib/lean/ZeroHeightLimitContractV1.olean ZeroHeightLimitContractV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-shell-synthesis-limit-contract.log"
-          lake env lean -o .lake/build/lib/lean/ZeroHeightSummabilityBridgeV1.olean ZeroHeightSummabilityBridgeV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-shell-synthesis-summability.log"
-          lake env lean -o .lake/build/lib/lean/ZeroMajorantSummabilityV1.olean ZeroMajorantSummabilityV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-shell-synthesis-majorant.log"
-          lake env lean -o .lake/build/lib/lean/ZeroHeightShellMassV1.olean ZeroHeightShellMassV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-shell-synthesis-shell.log"
-          lake env lean -o .lake/build/lib/lean/ZeroShellQuadraticBoundV1.olean ZeroShellQuadraticBoundV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-shell-synthesis-quadratic.log"
+          for f in ZeroCriticalStripV1 ZeroHeightFiniteSumV1 ZeroHeightLimitContractV1 ZeroHeightSummabilityBridgeV1 ZeroMajorantSummabilityV1 ZeroHeightShellMassV1 ZeroShellQuadraticBoundV1; do
+            lake env lean -o ".lake/build/lib/lean/$f.olean" "$f.lean" 2>&1 | tee "$GITHUB_WORKSPACE/$f.log"
+          done
           lake env lean ZeroShellAnalyticSynthesisV1.lean 2>&1 | tee "$GITHUB_WORKSPACE/zero-shell-analytic-synthesis.log"
           ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/zero-shell-analytic-synthesis.log"
           grep -F 'shell_count_and_mellin_decay_imply_quadratic_bound_v1' "$GITHUB_WORKSPACE/zero-shell-analytic-synthesis.log"
 
-      - name: Emit fail-closed analytic-synthesis receipt
+      - name: Emit fail-closed synthesis receipt
         shell: bash
         run: |
           set -euo pipefail
@@ -189,32 +180,28 @@ jobs:
             'critical_line_re_half':'OPEN',
             'weil_criterion_bridge':'OPEN',
             'rh_equivalence':'OPEN',
-            'rh_proved':False,
-            'rh_disproved':False,
-            'claim_promotion':'BLOCKED',
-            'decision':'HOLD_RESEARCH_ONLY',
-            'merge':'NOT_PERFORMED',
-            'authority_effect':'NONE'
-          }
+            'rh_proved':False,'rh_disproved':False,
+            'claim_promotion':'BLOCKED','decision':'HOLD_RESEARCH_ONLY',
+            'merge':'NOT_PERFORMED','authority_effect':'NONE'}
           canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':'))
           receipt['receipt_sha256'] = hashlib.sha256(canonical.encode()).hexdigest()
           Path('zero-shell-analytic-synthesis-receipt.json').write_text(json.dumps(receipt, sort_keys=True, indent=2)+'\n')
           print(Path('zero-shell-analytic-synthesis-receipt.json').read_text())
           PY
 
-      - name: Upload analytic-synthesis evidence
-        uses: actions/upload-artifact@v4
+      - name: Upload synthesis evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: rh-zero-shell-analytic-synthesis-${{ env.SOURCE_SHA }}
           path: |
             zero-shell-analytic-synthesis-lean-version.txt
-            zero-shell-synthesis-critical-strip.log
-            zero-shell-synthesis-finite-sum.log
-            zero-shell-synthesis-limit-contract.log
-            zero-shell-synthesis-summability.log
-            zero-shell-synthesis-majorant.log
-            zero-shell-synthesis-shell.log
-            zero-shell-synthesis-quadratic.log
+            ZeroCriticalStripV1.log
+            ZeroHeightFiniteSumV1.log
+            ZeroHeightLimitContractV1.log
+            ZeroHeightSummabilityBridgeV1.log
+            ZeroMajorantSummabilityV1.log
+            ZeroHeightShellMassV1.log
+            ZeroShellQuadraticBoundV1.log
             zero-shell-analytic-synthesis.log
             zero-shell-analytic-synthesis-receipt.json
           if-no-files-found: error

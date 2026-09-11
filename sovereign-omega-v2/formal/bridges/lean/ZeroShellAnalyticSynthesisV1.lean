@@ -131,7 +131,6 @@ theorem shell_count_and_mellin_decay_imply_quadratic_bound_v1
         (A * t) * (B / t ^ 3) =
           (A * B) * (1 / t ^ 2)
       field_simp [ne_of_gt ht]
-      ring
 
 #check ZeroHeightShellMultiplicityMassV1
 #check HasLinearShellMultiplicityBoundV1
