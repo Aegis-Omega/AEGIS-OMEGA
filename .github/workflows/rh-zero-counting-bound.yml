@@ -1,0 +1,39 @@
+name: RH Zero Counting Bound
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroCountingBoundV1.lean'
+      - 'sovereign-omega-v2/formal/tests/test_zero_counting_bound_v1.py'
+      - '.github/workflows/rh-zero-counting-bound.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  MELLIN_PARENT_SHA: 6ec8bb0ee39c462a5b544620b5ad2648c52ecb1e
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+
+jobs:
+  preregistration:
+    name: preregister quantitative zero-counting theorem
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact candidate and run preregistered RED contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          python3 -m unittest sovereign-omega-v2/formal/tests/test_zero_counting_bound_v1.py -v
