@@ -41,9 +41,9 @@ jobs:
           python3 -m unittest sovereign-omega-v2/formal/tests/test_zero_counting_bound_v1.py -v
 
   compatibility-probe:
-    name: probe multiplicity Jensen on AEGIS pin
+    name: compile multiplicity zero-count helpers on AEGIS pin
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - name: Checkout exact external proof source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -53,11 +53,21 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Checkout exact AEGIS candidate as evidence source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.SOURCE_SHA }}
+          path: .aegis
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Rebind external source to AEGIS Lean and Mathlib pins
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$LI_CRITERION_SHA"
+          test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
           printf '%s\n' "$LEAN_TOOLCHAIN" > lean-toolchain
           python3 - <<'PY'
           import os
@@ -98,20 +108,56 @@ jobs:
         run: |
           set -euo pipefail
           lean --version
-          lake build Hadamard.OrderOne.TailEstimates Lc.LiCriterion.XiGrowth
+          lake build Hadamard.OrderOne.TailEstimates Lc.LiCriterion.XiGrowth Lc.LiCriterion.HadamardSummabilityBridge
 
       - name: Audit exact provider theorem dependencies
         shell: bash
         run: |
           set -euo pipefail
           cat > AegisZeroCountProviderAudit.lean <<'EOF'
-          import Hadamard.ZeroCounting
+          import Hadamard.OrderOne.TailEstimates
+          import Lc.LiCriterion.HadamardSummabilityBridge
           import Lc.LiCriterion.XiGrowth
           #print axioms Hadamard.ZeroCounting.sum_zeros_multiplicity_le_of_max_one_maxModulus
-          #print axioms LiCriterion.XiGrowth.exists_xi_bound
+          #print axioms Hadamard.OrderOne.sum_multiplicity_zeros_le_rpow_of_order_le
+          #print axioms LiCriterion.XiGrowth.riemannXi_hasFiniteOrder
+          #print axioms LiCriterion.XiGrowth.riemannXi_order_le_one
           #print axioms LiCriterion.xi_entire
           #print axioms LiCriterion.xi_zeros_are_nontrivial_zeros
           EOF
           lake env lean AegisZeroCountProviderAudit.lean 2>&1 | tee provider-axioms.log
           ! grep -F 'sorryAx' provider-axioms.log
-          ! grep -F 'Classical.choice' provider-axioms.log || true
+
+      - name: Compile AEGIS parent chain and zero-count helpers
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in \
+            ZeroCriticalStripV1 \
+            ZeroHeightFiniteSumV1 \
+            ZeroHeightLimitContractV1 \
+            ZeroHeightSummabilityBridgeV1 \
+            ZeroMajorantSummabilityV1 \
+            ZeroHeightShellMassV1 \
+            ZeroShellQuadraticBoundV1 \
+            ZeroShellAnalyticSynthesisV1 \
+            ZeroCountingBoundV1; do
+            cp ".aegis/sovereign-omega-v2/formal/bridges/lean/$f.lean" "./$f.lean"
+          done
+          mkdir -p .lake/build/lib/lean
+          for f in \
+            ZeroCriticalStripV1 \
+            ZeroHeightFiniteSumV1 \
+            ZeroHeightLimitContractV1 \
+            ZeroHeightSummabilityBridgeV1 \
+            ZeroMajorantSummabilityV1 \
+            ZeroHeightShellMassV1 \
+            ZeroShellQuadraticBoundV1 \
+            ZeroShellAnalyticSynthesisV1; do
+            lake env lean -o ".lake/build/lib/lean/$f.olean" "$f.lean" \
+              2>&1 | tee "$f-zero-count-parent.log"
+          done
+          lake env lean ZeroCountingBoundV1.lean 2>&1 | tee zero-counting-bound.log
+          ! grep -F 'sorryAx' zero-counting-bound.log
+          grep -F 'li_xi_zeta_multiplicity_eq_v1' zero-counting-bound.log
+          grep -F 'li_zeta_cumulative_quadratic_multiplicity_bound_v1' zero-counting-bound.log
