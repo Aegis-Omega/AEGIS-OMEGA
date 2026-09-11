@@ -1,0 +1,35 @@
+name: RH Mellin Decay Estimate RED
+
+on:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/MellinDecayEstimateV1.lean'
+      - 'sovereign-omega-v2/formal/tests/test_mellin_decay_estimate_v1.py'
+      - '.github/workflows/rh-mellin-decay-estimate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  preregistration-red:
+    name: preregister actual Mellin decay theorem surface
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact candidate and run preregistered contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          python3 -m unittest sovereign-omega-v2/formal/tests/test_mellin_decay_estimate_v1.py -v
