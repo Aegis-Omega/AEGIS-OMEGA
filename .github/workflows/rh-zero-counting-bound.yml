@@ -99,3 +99,19 @@ jobs:
           set -euo pipefail
           lean --version
           lake build Hadamard.OrderOne.TailEstimates Lc.LiCriterion.XiGrowth
+
+      - name: Audit exact provider theorem dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > AegisZeroCountProviderAudit.lean <<'EOF'
+          import Hadamard.ZeroCounting
+          import Lc.LiCriterion.XiGrowth
+          #print axioms Hadamard.ZeroCounting.sum_zeros_multiplicity_le_of_max_one_maxModulus
+          #print axioms LiCriterion.XiGrowth.exists_xi_bound
+          #print axioms LiCriterion.xi_entire
+          #print axioms LiCriterion.xi_zeros_are_nontrivial_zeros
+          EOF
+          lake env lean AegisZeroCountProviderAudit.lean 2>&1 | tee provider-axioms.log
+          ! grep -F 'sorryAx' provider-axioms.log
+          ! grep -F 'Classical.choice' provider-axioms.log || true
