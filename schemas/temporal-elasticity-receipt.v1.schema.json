@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/temporal-elasticity-receipt.v1.schema.json",
+  "title": "AEGIS Temporal Elasticity Receipt V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_type", "receipt_version", "specification", "epistemic_class",
+    "physical_time_deformation", "retrocausality", "macroscopic_time_reversal",
+    "authority_effect", "claim_promotion", "primary_witness", "scalar_score_authority",
+    "receipt_id", "created_at", "source", "uncertainty",
+    "blp", "spectral", "coherence", "tau_adaptation", "integrity"
+  ],
+  "properties": {
+    "receipt_type": {"const": "TEMPORAL_ELASTICITY_RECEIPT_V1"},
+    "receipt_version": {"const": "1.0.0"},
+    "specification": {"const": "AEGIS_OMEGA_TEMPORAL_ELASTICITY_V1"},
+    "epistemic_class": {"const": "MATHEMATICALLY_BOUNDED_SPECIFICATION"},
+    "physical_time_deformation": {"const": "NOT_CLAIMED"},
+    "retrocausality": {"const": "NOT_ESTABLISHED"},
+    "macroscopic_time_reversal": {"const": "NOT_ESTABLISHED"},
+    "authority_effect": {"const": "NONE"},
+    "claim_promotion": {"const": "FAIL_CLOSED_OUTSIDE_DECLARED_COMPONENT_BOUNDARIES"},
+    "primary_witness": {"const": "VECTOR_VALUED"},
+    "scalar_score_authority": {"const": "ANALYTICS_ONLY"},
+    "receipt_id": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "dataset_digest_sha256"],
+      "properties": {
+        "class": {"enum": ["SYNTHETIC", "SIMULATION", "EMPIRICAL"]},
+        "dataset_digest_sha256": {"$ref": "#/$defs/hash"},
+        "provenance_uri": {"type": "string", "minLength": 1},
+        "external_admission_receipt_sha256": {"$ref": "#/$defs/hash"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"class": {"const": "EMPIRICAL"}}, "required": ["class"]},
+          "then": {"required": ["provenance_uri", "external_admission_receipt_sha256"]}
+        }
+      ]
+    },
+    "uncertainty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["confidence_level", "method"],
+      "properties": {
+        "confidence_level": {"$ref": "#/$defs/decimal"},
+        "method": {"type": "string", "minLength": 1}
+      }
+    },
+    "blp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state_pair_id", "times_s", "trace_distances", "uncertainties", "epsilon"],
+      "properties": {
+        "state_pair_id": {"type": "string", "minLength": 1},
+        "times_s": {"$ref": "#/$defs/decimalVector"},
+        "trace_distances": {"$ref": "#/$defs/decimalVector"},
+        "uncertainties": {"$ref": "#/$defs/decimalVector"},
+        "epsilon": {"$ref": "#/$defs/decimal"}
+      }
+    },
+    "spectral": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["concentration_model", "convention_id", "statistic_id", "dimensionless_c", "observed", "uncertainty", "admissible_min", "admissible_max", "s_c"],
+      "properties": {
+        "concentration_model": {"const": "SLEPIAN_LANDAU_POLLACK"},
+        "convention_id": {"type": "string", "minLength": 1},
+        "statistic_id": {"type": "string", "minLength": 1},
+        "dimensionless_c": {"$ref": "#/$defs/decimal"},
+        "observed": {"$ref": "#/$defs/decimal"},
+        "uncertainty": {"$ref": "#/$defs/decimal"},
+        "admissible_min": {"$ref": "#/$defs/decimal"},
+        "admissible_max": {"$ref": "#/$defs/decimal"},
+        "s_c": {"$ref": "#/$defs/decimal"}
+      }
+    },
+    "coherence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["coherence_measure", "basis", "state_estimator", "uncertainty_model", "times_s", "values", "uncertainties", "value_min", "value_max", "epsilon"],
+      "properties": {
+        "coherence_measure": {"type": "string", "minLength": 1},
+        "basis": {"type": "string", "minLength": 1},
+        "state_estimator": {"type": "string", "minLength": 1},
+        "uncertainty_model": {"type": "string", "minLength": 1},
+        "times_s": {"$ref": "#/$defs/decimalVector"},
+        "values": {"$ref": "#/$defs/decimalVector"},
+        "uncertainties": {"$ref": "#/$defs/decimalVector"},
+        "value_min": {"$ref": "#/$defs/decimal"},
+        "value_max": {"$ref": "#/$defs/decimal"},
+        "epsilon": {"$ref": "#/$defs/decimal"}
+      }
+    },
+    "tau_adaptation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["times_s", "tau_values_s", "epsilon"],
+      "properties": {
+        "times_s": {"$ref": "#/$defs/decimalVector"},
+        "tau_values_s": {"$ref": "#/$defs/decimalVector"},
+        "epsilon": {"$ref": "#/$defs/decimal"}
+      }
+    },
+    "scalar_score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "status"],
+      "properties": {
+        "value": {"$ref": "#/$defs/decimal"},
+        "status": {"const": "ANALYTICS_ONLY"}
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonicalization", "digest_algorithm", "payload_sha256", "signature"],
+      "properties": {
+        "canonicalization": {"const": "AEGIS_JSON_CANONICAL_V1"},
+        "digest_algorithm": {"const": "SHA-256"},
+        "payload_sha256": {"$ref": "#/$defs/hash"},
+        "signature": {"$ref": "#/$defs/pqSignature"}
+      }
+    }
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "decimal": {"type": "string", "pattern": "^-?(0|[1-9][0-9]*)(\\.[0-9]+)?([eE][+-]?[0-9]+)?$"},
+    "decimalVector": {
+      "type": "array",
+      "minItems": 2,
+      "items": {"$ref": "#/$defs/decimal"}
+    },
+    "pqSignature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["standard", "algorithm", "parameter_set", "key_id", "signature_b64"],
+      "properties": {
+        "standard": {"enum": ["FIPS_204", "FIPS_205"]},
+        "algorithm": {"enum": ["ML-DSA", "SLH-DSA"]},
+        "parameter_set": {
+          "enum": [
+            "ML-DSA-44", "ML-DSA-65", "ML-DSA-87",
+            "SLH-DSA-SHA2-128s", "SLH-DSA-SHA2-128f", "SLH-DSA-SHAKE-128s", "SLH-DSA-SHAKE-128f",
+            "SLH-DSA-SHA2-192s", "SLH-DSA-SHA2-192f", "SLH-DSA-SHAKE-192s", "SLH-DSA-SHAKE-192f",
+            "SLH-DSA-SHA2-256s", "SLH-DSA-SHA2-256f", "SLH-DSA-SHAKE-256s", "SLH-DSA-SHAKE-256f"
+          ]
+        },
+        "key_id": {"type": "string", "minLength": 1},
+        "signature_b64": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"standard": {"const": "FIPS_204"}}, "required": ["standard"]},
+          "then": {
+            "properties": {
+              "algorithm": {"const": "ML-DSA"},
+              "parameter_set": {"enum": ["ML-DSA-44", "ML-DSA-65", "ML-DSA-87"]}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"standard": {"const": "FIPS_205"}}, "required": ["standard"]},
+          "then": {
+            "properties": {
+              "algorithm": {"const": "SLH-DSA"},
+              "parameter_set": {
+                "enum": [
+                  "SLH-DSA-SHA2-128s", "SLH-DSA-SHA2-128f", "SLH-DSA-SHAKE-128s", "SLH-DSA-SHAKE-128f",
+                  "SLH-DSA-SHA2-192s", "SLH-DSA-SHA2-192f", "SLH-DSA-SHAKE-192s", "SLH-DSA-SHAKE-192f",
+                  "SLH-DSA-SHA2-256s", "SLH-DSA-SHA2-256f", "SLH-DSA-SHAKE-256s", "SLH-DSA-SHAKE-256f"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
