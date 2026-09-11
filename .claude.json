@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/rh-zero-shell-quadratic-bound-v1",
+    "source_ref": "proof/rh-zero-shell-analytic-synthesis-v1",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "8cc270d71be56f99aee4eab88a54aa38e2517a3ebfcdd020b85b179a788907a5"
+  "state_hash": "1323fa3299774bad4c10656bdf4572def7641207b0e6086df8b6980f4998fdc6"
 }
