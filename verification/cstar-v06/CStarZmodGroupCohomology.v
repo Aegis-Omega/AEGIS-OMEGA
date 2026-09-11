@@ -112,7 +112,8 @@ Proof.
   move=> b g h k l.
   rewrite /delta3_zmod /delta2_zmod !raddfB !raddfD.
   rewrite -!act_comp !mul_assoc.
-  exact: cancel_twisted_boundary_zmod.
+  Show.
+  fail "STOP_AFTER_MAIN_REWRITE".
 Qed.
 
 Theorem delta2_preserves_normalization_zmod_action :
