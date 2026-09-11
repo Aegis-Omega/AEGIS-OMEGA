@@ -358,10 +358,15 @@ theorem weil_compact_smooth_mellin_vertical_cubic_decay_v1
   have hmellin :
       mellin g.1 ((σ : ℂ) + (γ : ℂ) * Complex.I) = 𝓕 p ξ := by
     rw [mellin_eq_fourier]
-    change 𝓕 (fun u : ℝ => Real.exp (-σ * u) • g.1 (Real.exp (-u))) ξ = 𝓕 p ξ
+    have hre : (((σ : ℂ) + (γ : ℂ) * Complex.I).re) = σ := by simp
+    have him : (((σ : ℂ) + (γ : ℂ) * Complex.I).im) = γ := by simp
+    rw [hre, him]
+    change 𝓕 (fun u : ℝ => Real.exp (-σ * u) • g.1 (Real.exp (-u)))
+        (γ / (2 * Real.pi)) =
+      𝓕 (MellinWeightedLogProfileV1 g.1 σ) (γ / (2 * Real.pi))
     congr 1
     funext u
-    simp [p, MellinWeightedLogProfileV1, MellinComplexWeightV1,
+    simp [MellinWeightedLogProfileV1, MellinComplexWeightV1,
       MellinWeightV1, MellinLogProfileV1, Complex.real_smul]
 
   have hfourier0 : ‖𝓕 p ξ‖ ≤ L := by
