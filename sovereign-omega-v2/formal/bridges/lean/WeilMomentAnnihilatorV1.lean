@@ -85,8 +85,10 @@ theorem weil_moment_annihilator_mellin_v1 (f : WeilCompactSmoothGV1) (s : ℂ) :
     mellin_const_mul_dilation_v1 f.1 s 3 (by norm_num),
     mellin_const_mul_dilation_v1 f.1 s 2 (by norm_num)]
   have hfour : (4 : ℂ) ^ (-s) = (2 : ℂ) ^ (-s) * (2 : ℂ) ^ (-s) := by
-    simpa using Complex.mul_cpow_ofReal_nonneg
-      (show (0 : ℝ) ≤ 2 by norm_num) (show (0 : ℝ) ≤ 2 by norm_num) (-s)
+    convert Complex.mul_cpow_ofReal_nonneg
+      (show (0 : ℝ) ≤ 2 by norm_num) (show (0 : ℝ) ≤ 2 by norm_num) (-s) using 1 <;>
+      norm_num
+  norm_num only [Complex.ofReal_ofNat]
   rw [hfour]
   unfold WeilMomentAnnihilatorMultiplierV1
   ring
