@@ -94,7 +94,7 @@ theorem weil_frame_localization_identity_v1 {ι : Type*}
   have hd := weil_weighted_difference_normsq_v1 1 1 z w
   norm_num at hd
   rw [hs, weil_frame_defect_eq_v1 s a b ha hb, hd]
-  ring
+  simp [Complex.mul_re] <;> ring
 
 #print axioms weil_weighted_difference_normsq_v1
 #print axioms weil_frame_defect_eq_v1
