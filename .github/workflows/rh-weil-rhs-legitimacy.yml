@@ -64,11 +64,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .lake/build/lib/lean
+          proof_compile_failed=0
           for f in WeilCriterionCompactSmoothV1 WeilPrimeSummabilityV1 WeilArchimedeanConvergenceV1 WeilAutocorrelationRealityV1; do
             cp ".aegis/sovereign-omega-v2/formal/bridges/lean/$f.lean" "$f.lean"
             sha256sum "$f.lean" >> exact-source.log
-            lake env lean -o ".lake/build/lib/lean/$f.olean" "$f.lean" 2>&1 | tee "$f.log"
+            if ! lake env lean -o ".lake/build/lib/lean/$f.olean" "$f.lean" 2>&1 | tee "$f.log"; then
+              proof_compile_failed=1
+            fi
           done
+          test "$proof_compile_failed" = 0
 
       - name: Audit every public theorem dependency closure
         shell: bash

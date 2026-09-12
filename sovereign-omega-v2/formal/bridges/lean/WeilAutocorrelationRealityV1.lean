@@ -60,9 +60,10 @@ theorem weil_prime_term_conj_of_reciprocal_v1 (f : ℝ → ℂ)
     (hf : ∀ x : ℝ, 0 < x → f x⁻¹ = (x : ℂ) * conj (f x)) (n : ℕ) :
     conj (WeilPrimeTermV1 f n) = WeilPrimeTermV1 f n := by
   have hn : (0 : ℝ) < (n + 1 : ℕ) := by positivity
-  have href := reflected_term_eq_conj_v1 f hf hn
-  simp only [Nat.cast_add, Nat.cast_one] at href
-  simp only [WeilPrimeTermV1, Nat.cast_add, Nat.cast_one]
+  have href : (1 / ((n + 1 : ℕ) : ℂ)) * f (((n + 1 : ℕ) : ℝ)⁻¹) =
+      conj (f ((n + 1 : ℕ) : ℝ)) := by
+    simpa only [Complex.ofReal_natCast] using reflected_term_eq_conj_v1 f hf hn
+  simp only [WeilPrimeTermV1]
   rw [href]
   simp [add_comm]
 

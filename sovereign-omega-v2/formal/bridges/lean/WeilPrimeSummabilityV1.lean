@@ -70,7 +70,7 @@ theorem weil_compact_smooth_prime_term_cutoff_v1
     apply le_trans hN.le
     exact_mod_cast hn.trans (Nat.le_succ n)
   obtain ⟨hlarge, hsmall⟩ := hR ((n + 1 : ℕ) : ℝ) hnR
-  simp [WeilPrimeTermV1, hlarge, hsmall]
+  simp only [WeilPrimeTermV1, hlarge, hsmall, mul_zero, add_zero]
 
 /-- There are only finitely many nonzero prime-power terms. -/
 theorem weil_compact_smooth_prime_term_hasFiniteSupport_v1
