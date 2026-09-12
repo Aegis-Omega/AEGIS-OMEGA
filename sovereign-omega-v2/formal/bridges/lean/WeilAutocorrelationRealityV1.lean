@@ -18,6 +18,9 @@ RH_EQUIVALENCE_OPEN
 -/
 
 open Set MeasureTheory Complex
+open scoped ComplexConjugate
+
+set_option autoImplicit false
 
 noncomputable section
 

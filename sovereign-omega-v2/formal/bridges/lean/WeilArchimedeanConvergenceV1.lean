@@ -16,6 +16,8 @@ inequality is assumed or established here.
 open Set Complex MeasureTheory
 open scoped ContDiff
 
+set_option autoImplicit false
+
 noncomputable section
 
 /-- Multiplying numerator and denominator by `x` exposes the quadratic tail. -/
@@ -76,6 +78,7 @@ theorem weil_compact_smooth_archimedean_integrableOn_Ioc_v1
   have hc : ContinuousOn (fun x : ℝ => dslope n 1 x / ((x : ℂ) + 1)) (Icc 1 R) := by
     apply hs.div (Complex.continuous_ofReal.continuousOn.add continuousOn_const)
     intro x hx
+    change (x : ℂ) + 1 ≠ 0
     exact_mod_cast (show x + 1 ≠ 0 by linarith [hx.1])
   refine (hc.integrableOn_Icc.mono_set Ioc_subset_Icc_self).congr_fun ?_
     measurableSet_Ioc
@@ -115,6 +118,7 @@ theorem weil_compact_smooth_archimedean_integrable_v1 (f : WeilCompactSmoothGV1)
         (fun x : ℝ => ((x : ℂ) * f.1 x + f.1 x⁻¹ - 2 * f.1 1) /
           ((x : ℂ) ^ 2 - 1)) (Ioi R) := by
       intro x hx
+      change R < x at hx
       have hxp : 1 < x := by linarith [hx]
       have hn := (weil_archimedean_aux_differentiable_v1 f
         (show x ≠ 0 by linarith)).continuousAt
@@ -125,7 +129,8 @@ theorem weil_compact_smooth_archimedean_integrable_v1 (f : WeilCompactSmoothGV1)
         hd).continuousWithinAt
     apply hcq.congr
     intro x hx
-    exact (weil_archimedean_integrand_rational_v1 f.1 (by linarith [hx])).symm
+    change R < x at hx
+    exact weil_archimedean_integrand_rational_v1 f.1 (x := x) (by linarith)
   have hp : IntegrableOn (fun x : ℝ => x ^ (-2 : ℝ)) (Ioi R) :=
     integrableOn_Ioi_rpow_of_lt (by norm_num) hRp
   have ht : IntegrableOn (WeilArchimedeanIntegrandV1 f.1) (Ioi R) := by

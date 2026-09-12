@@ -17,6 +17,8 @@ RH_EQUIVALENCE_OPEN
 
 open Set Function
 
+set_option autoImplicit false
+
 noncomputable section
 
 /-- Positive compact support supplies a common real cutoff for a function and
