@@ -105,8 +105,8 @@ private theorem lseries_mellin_term_inversion_v1
         rw [LSeries.term_def₀ ha0]
         ring
       rw [hk, integral_const_mul]
-      simp only [mellinInv, Complex.ofReal_natCast, Complex.real_smul]
-      ring
+      simp only [mellinInv, Complex.ofReal_natCast, Complex.real_smul, smul_eq_mul]
+      simp only [mul_comm, mul_left_comm, mul_assoc]
     _ = _ := by rw [hinv]
 
 /-- Dirichlet-series/Mellin inversion with the absolute exchange established,
