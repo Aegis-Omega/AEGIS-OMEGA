@@ -1,7 +1,7 @@
 # Perron decomposition of the finite prime-power multiplier
 
 ```
-EPISTEMIC_STATUS : EXACT_DERIVATION + VERIFIED_NUMERICAL
+EPISTEMIC_STATUS : NUMERICAL_EVIDENCE + UNPROVED_ASYMPTOTIC_SKETCH
 SCOPE            : P ≤ 2·10⁶, six zero ordinates, six non-zero controls
 NORMALIZATION    : λ_P(γ) = 2 Re Σ_{n≤P} Λ(n) n^{−1/2+iγ}
                    (the finite trigonometric symbol of T_P)
@@ -27,8 +27,8 @@ NORMALIZATION    : λ_P(γ) = 2 Re Σ_{n≤P} Λ(n) n^{−1/2+iγ}
 
 ## The decomposition
 
-Write `w = ½ − iγ` so that `n^{−w} = n^{−1/2+iγ}`. Partial summation against
-`ψ(x) = Σ_{n≤x} Λ(n)` with the explicit formula `ψ(x) = x − Σ_ρ x^ρ/ρ − …` gives
+Write `w = ½ − iγ` so that `n^{−w} = n^{−1/2+iγ}`. The historical sketch proposed the following asymptotic by partial summation
+against `ψ(x) = Σ_{n≤x} Λ(n)`. It is not established by the argument below:
 
 ```
 λ_P(γ) = 2 Re[ P^{½+iγ} / (½+iγ) ]  −  2·m(γ)·ln P  +  O_γ(1)          (*)
@@ -37,20 +37,29 @@ Write `w = ½ − iγ` so that `n^{−w} = n^{−1/2+iγ}`. Partial summation ag
 where `m(γ)` is the multiplicity of `½+iγ` as a zero of ζ, and `m = 0` when γ is
 not a zero ordinate.
 
-The `x` term contributes `P^{1−w}/(1−w) = P^{½+iγ}/(½+iγ)`. Each zero ρ enters with
-exponent `ρ − 1 − w`. For `ρ = ½+ig′` that is `−1 + i(γ+g′)`, which equals `−1`
-**exactly when `g′ = −γ`** — that is, for the *conjugate* zero `ρ̄ = ½−iγ`. Then
-`∫₁^P x^{−1}dx = ln P`, real, and `2 Re` gives `−2 ln P`. Every other zero
-contributes `P^{i(γ+g′)}/(i(γ+g′))`, a bounded oscillation.
+The smooth `x` term gives `P^{1-w}/(1-w)`. The resonant zero
+`rho = w = 1/2 - i gamma`, if present, produces the logarithmic term.
+However, the previous derivation wrote **every other zero** as
+`rho = 1/2 + i gamma'`. That is not available without RH. A general
+zero has a contribution of the shape
 
-> **Caveat, stated rather than buried.** The step above uses the heuristic
-> differentiated explicit formula. The rigorous route is Perron plus a contour
-> shift, where `ln P` appears as the residue of `−ζ′/ζ(s+w)` at the pole
-> `s+w = ρ̄`. The mechanism is textbook analytic number theory; what is written
-> here is a derivation sketch, **not machine-bound**, and sits at the same tier
-> as the other hand-derived exact layers — not at the Coq tier.
+```
+-m_rho P^{rho-w}/(rho-w),   rho != w,
+```
 
-`(*)` is **asserted** by the instrument, not assumed.
+in a properly truncated Perron residue calculation. Its magnitude involves
+`P^{Re rho - 1/2}`. Thus an off-line zero to the right cannot be discarded
+as a bounded oscillation. Even assuming RH, boundedness of each individual
+oscillation does not prove a uniform bound for their infinite sum. A valid
+contour calculation must retain its zero cutoff, boundary terms and error
+estimates before any limiting claim is made.
+
+**[OPEN]** The unconditional `O_gamma(1)` remainder in `(*)` is not proved
+here. This identifies a failure of the supplied derivation; it does not
+prove that `(*)` itself is false. The finite numerical slope checks below
+remain **[NUMERICAL-EVIDENCE]**. A passing assertion over the chosen ladder
+cannot establish this asymptotic or determine an analytic multiplicity.
+
 
 ---
 
@@ -61,7 +70,7 @@ Two statements were previously compressed into one reading of `λ_P` at a zero:
 | term | character |
 |---|---|
 | `2 Re[P^{½+iγ}/(½+iγ)]` | **truncation artifact**, present at *every* γ, zero or not |
-| `−2 m(γ) ln P` | the **only** arithmetic content at a zero |
+| `−2 m(γ) ln P` | resonant term in the proposed sketch; remainder unproved |
 
 Measured, `P ≤ 2·10⁶`, 149 235 prime powers:
 
@@ -83,8 +92,9 @@ Measured, `P ≤ 2·10⁶`, 149 235 prime powers:
   slope separation (min|zero| − max|control|): 1.496
 ```
 
-The two populations do not overlap. The residual `λ_P − main` is the clean
-discriminant; its slope reads `−2m`.
+The two populations do not overlap on this finite grid. The observed residual
+slopes are consistent with the proposed resonant coefficient; they do not
+prove an asymptotic or an analytic multiplicity.
 
 ---
 
@@ -121,11 +131,55 @@ Q_P drift = 0.000e+00        (bit-identical)
 λ_P over the same range: −31.69 → +0.62 → −185.75
 ```
 
-The mechanism needs no qualitative language: `Σ Λ(n)n^{−1/2}` diverges like
-`2√P`, while `Σ Λ(n)n^{−1/2}f(ln n)` converges absolutely for any `f` with
-super-polynomial decay in `ln n`. For compactly supported ψ — the standard Weil
-setup — the sum is **finite**, so truncation at `P > e^{sup supp f}` is exact
-rather than approximate.
+For the Gaussian packet used here, the prime sum converges absolutely.
+For compactly supported log-coordinate `f`, it is finite: truncation above
+`exp(sup supp f)` is exact. Both statements have elementary sufficient
+bounds and do not require the unproved pointwise asymptotic `(*)`.
+
+**[REFUTED] Historical decay shortcut.** The previous statement that
+super-polynomial decay in `log n` suffices for
+
+```
+Sum_n Lambda(n) n^(-1/2) |f(log n)| < infinity
+```
+
+is false, even for a nonnegative Schwartz function. Set
+
+```
+f(u) = exp(-(1+u^2)^(1/4)).
+```
+
+This is smooth; each derivative is its exponential factor times a function
+of at most polynomial growth. Since the factor decays like
+`exp(-sqrt(|u|))`, every derivative decays faster than every inverse power,
+so `f` is Schwartz. For `u >= 8`, `(1+u^2)^(1/4) <= u/2`, and therefore
+`f(log p) >= p^(-1/2)` for sufficiently large primes. Consequently
+
+```
+Lambda(p) p^(-1/2) f(log p) >= log(p)/p >= log(2)/p.
+```
+
+The sum of prime reciprocals diverges, so the displayed prime subseries
+and hence the nonnegative full series diverge. This last dependency is
+Euler's prime-reciprocal theorem; a formal version is
+`not_summable_one_div_on_primes` in pinned Mathlib
+`0df444a360eaa60ab8c11dca51a86af692955474`,
+`Mathlib/NumberTheory/SumPrimeReciprocals.lean`. The counterexample itself
+is a mathematical derivation, not a newly compiled AEGIS theorem.
+
+A correct convenient sufficient condition is
+
+```
+|f(u)| <= C exp(-(1/2 + epsilon) u) for large u, epsilon > 0.
+```
+
+It bounds the series by a finite exception plus
+`C Sum_n log(n)/n^(1+epsilon)`, which converges by the integral test.
+Gaussian decay satisfies this condition for every fixed positive epsilon.
+The condition is sufficient; no necessity claim is made for individual
+functions. Super-polynomial decay in log height must not be confused with
+power decay in the integer variable or with Mellin decay on a vertical line.
+
 
 ### One correction worth recording
 
@@ -133,13 +187,33 @@ The main term does **not** vanish under integration against the packet. It
 converges to a constant, in closed form:
 
 ```
-∫ λ_main(γ) |ψ̂(γ)|² dγ / 2π  =  4π σ² e^{σ²/4}                        (**)
+lim_{P -> infinity} ∫ λ_main,P(γ) |ψ̂(γ)|² dγ / 2π
+    = 4π σ² e^{σ²/4}.                                                (**)
 ```
 
-`(**)` is asserted against quadrature, matching to `5.5·10⁻¹⁵` at `σ = 0.4` and
+For the stated Fourier convention
+`psi_hat(gamma) = sqrt(2 pi) sigma exp(-sigma^2 gamma^2/2)`, the finite-cutoff
+expression is instead
+
+```
+2 pi sigma^2 exp(sigma^2/4)
+  * (1 + erf((log P - sigma^2)/(2 sigma))),   sigma > 0.
+```
+
+Indeed write `(1/2+i gamma)^(-1)` as
+`integral_0^infinity exp(-(1/2+i gamma)t) dt`. The Gaussian factor makes the
+two-variable integrand absolutely integrable for fixed `P`. Fubini and the
+Gaussian Fourier integral reduce the expression to
+`2 sigma sqrt(pi) integral_{-infinity}^{log P} exp(u/2-u^2/(4 sigma^2)) du`.
+Completing the square yields the formula and then `(**)`. This elementary
+derivation is not a compiled repository theorem.
+
+The historical limiting-value comparison against quadrature reported agreement to `5.5·10⁻¹⁵` at `σ = 0.4` and
 `4.1·10⁻¹⁵` at `σ = 0.8`. At `σ = 0.8` its value is `+9.4379`, **larger than
 `Q_∞ = 4.9413` itself**. What the packet removes is the term's `P`-dependence,
-not the term — which then plays the role of the archimedean constant.
+not the term. This smooth-density contribution originates from the zeta
+pole. Identifying it with an archimedean gamma-factor constant requires
+a separate normalized explicit-formula identity and is not justified here.
 
 ### The price, measured
 
@@ -152,10 +226,11 @@ not the term — which then plays the role of the archimedean constant.
 fit:  P_needed ~ exp(10.0 · σ)
 ```
 
-Pointwise evaluation `λ_P(γ)` is the `σ → ∞` limit of this same dial, where
-`P_needed` is infinite. Pointwise non-convergence and quadratic-form convergence
-are not two objects — they are the two ends of one dial, and the dial is
-exponential. Resolving zeros individually costs exponentially many primes.
+The fitted exponential describes this finite width grid. It is not an
+asymptotic lower bound for resolving zeros and does not justify exchanging
+`P -> infinity` with `sigma -> infinity`. Pointwise evaluation also requires
+normalizing the Fourier packet to an approximate identity before taking a
+concentration limit. No such two-limit theorem is proved here.
 
 ---
 
@@ -169,3 +244,13 @@ Deterministic: no RNG, no wall-clock. Receipt frozen at
 `research/rh/receipts/multiplier_decomposition_p2e6.json`.
 
 Not wired into blocking CI.
+
+## Bounded correction — 2026-09-12
+
+The correction was prepared against repository head
+`11355fc6816d9e767b33888205b0ad4fc26b5df1`, source blob
+`198ff4d19bd389effdb768285f7fb3762054bc33`. It changes the mathematical
+interpretation of this note. Numerical scripts, inputs and receipts were
+not changed or rerun; their historical hashes and execution dates remain
+historical evidence. No new formal proof, sign theorem, merge or authority
+is granted. `RH = NOT_PROVEN`; `authority_effect = NONE`.

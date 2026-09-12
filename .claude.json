@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "research/rh-conditioning",
-    "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
+    "source_ref": "research/rh-finite-prime-phase-independent-v1",
+    "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "b9d1279bc32016fb33a5dbd5c46b0c1ff970cb3a295d4eeaf03ec4a5d4809b38"
+  "state_hash": "cfb808c53d6da9b2a6b5e35889c15af8bde661afb2b8d941368596c459e213d9"
 }
