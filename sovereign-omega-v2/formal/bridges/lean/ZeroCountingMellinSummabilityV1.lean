@@ -37,7 +37,7 @@ theorem weighted_summable_of_inverse_square_and_height_decay_v1
   have hn : 0 < ‖z i‖ := norm_pos_iff.mpr (hzero i)
   have hgeom : ‖z i‖ ≤ 1 + |(z i).im| :=
     (Complex.norm_le_abs_re_add_abs_im (z i)).trans
-      (add_le_add_right (hstrip i) _)
+      (add_le_add (hstrip i) le_rfl)
   have hscaled : ‖z i‖ ^ 2 * ‖F i‖ ≤ D := by
     calc
       ‖z i‖ ^ 2 * ‖F i‖ ≤ (1 + |(z i).im|) ^ 2 * ‖F i‖ := by
@@ -60,7 +60,7 @@ private def nontrivial_index_to_li_v1 :
     exact ⟨rho.1, rho.2.1, hstrip.1, hstrip.2⟩
   inj' := by
     intro rho sigma h
-    exact Subtype.ext (congrArg Subtype.val h)
+    exact Subtype.ext (congrArg (fun z : LiCriterion.NontrivialZero => z.1) h)
 
 /-- Multiplicity-weighted inverse-square summability transferred from xi to
 the existing AEGIS nontrivial-zeta-zero carrier. -/
