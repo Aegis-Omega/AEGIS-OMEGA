@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/rh-prime-line-identity-v1",
+    "source_ref": "proof/rh-restricted-weil-criterion-v1",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "a93ab681f0f135bfe76a1ed580f0dc664597582d07352521d0f7804eb8ccc862"
+  "state_hash": "537e384c0f45fb04a4c5d5dea94ab59d1449bc2473714855b3d6bfb767b751e1"
 }
