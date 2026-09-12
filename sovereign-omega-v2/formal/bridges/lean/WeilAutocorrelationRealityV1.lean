@@ -78,7 +78,7 @@ theorem weil_archimedean_integrand_conj_of_reciprocal_v1 (f : ℝ → ℂ)
   have h1 : conj (f 1) = f 1 := by simpa using (hf 1 zero_lt_one).symm
   unfold WeilArchimedeanIntegrandV1
   rw [reflected_term_eq_conj_v1 f hf (lt_trans zero_lt_one hx)]
-  simp [h1, add_comm]
+  simp [h1, add_comm, Complex.conj_ofNat]
 
 /-- Reality is an algebraic consequence of the reciprocal identity. This does
 not discharge the separately defined convergence obligations. -/
