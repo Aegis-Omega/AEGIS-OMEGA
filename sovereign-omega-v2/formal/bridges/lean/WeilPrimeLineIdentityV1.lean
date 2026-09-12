@@ -1,7 +1,7 @@
 import Mathlib.Analysis.MellinInversion
 import Mathlib.MeasureTheory.Integral.DominatedConvergence
 import Mathlib.NumberTheory.LSeries.Dirichlet
-import MellinDecayEstimateV1
+import WeilMellinInversionV1
 
 /-!
 AEGIS Ω — prime-side Mellin inversion with explicit analytic hypotheses.
@@ -70,12 +70,16 @@ theorem lseries_vertical_product_hasSum_integral_v1
   have h := hasSum_integral_of_summable_integral_norm
     (lseries_vertical_product_integrable_v1 a F c hF)
     (lseries_vertical_product_integral_norm_summable_v1 a F c ha)
-  convert h using 1
-  apply integral_congr_ae
-  exact Filter.Eventually.of_forall fun t => by
-    have ht : LSeriesSummable a ((c : ℂ) + t * I) :=
-      LSeriesSummable.of_re_le_re (by simp) ha
-    exact (ht.hasSum.mul_right (F ((c : ℂ) + t * I))).tsum_eq.symm
+  have heq : (∫ t : ℝ, ∑' n : ℕ,
+      LSeries.term a ((c : ℂ) + t * I) n * F ((c : ℂ) + t * I)) =
+      (∫ t : ℝ, LSeries a ((c : ℂ) + t * I) * F ((c : ℂ) + t * I)) := by
+    apply integral_congr_ae
+    exact Filter.Eventually.of_forall fun t => by
+      have ht : LSeriesSummable a ((c : ℂ) + t * I) :=
+        LSeriesSummable.of_re_le_re (by simp) ha
+      exact (ht.hasSum.mul_right (F ((c : ℂ) + t * I))).tsum_eq
+  rw [heq] at h
+  exact h
 
 private theorem lseries_mellin_term_inversion_v1
     (a : ℕ → ℂ) (ha0 : a 0 = 0) (f : ℝ → ℂ) (c : ℝ)
@@ -101,8 +105,8 @@ private theorem lseries_mellin_term_inversion_v1
         rw [LSeries.term_def₀ ha0]
         ring
       rw [hk, integral_const_mul]
-      simp only [mellinInv, Complex.ofReal_natCast, smul_eq_mul]
-      exact smul_comm _ _ _
+      simp only [mellinInv, Complex.ofReal_natCast, Complex.real_smul]
+      ring
     _ = _ := by rw [hinv]
 
 /-- Dirichlet-series/Mellin inversion with the absolute exchange established,
@@ -117,7 +121,7 @@ theorem lseries_mellin_prime_line_identity_v1
         (∫ t : ℝ, LSeries a ((c : ℂ) + t * I) *
           mellin f ((c : ℂ) + t * I)) =
       ∑' n : ℕ, a n * f (n : ℝ) := by
-  have h := (lseries_vertical_product_hasSum_integral_v1 a (mellin f) c ha hF).smul
+  have h := (lseries_vertical_product_hasSum_integral_v1 a (mellin f) c ha hF).const_smul
     (1 / (2 * Real.pi) : ℝ)
   have heq : (fun n : ℕ => (1 / (2 * Real.pi) : ℝ) •
       (∫ t : ℝ, LSeries.term a ((c : ℂ) + t * I) n *
@@ -146,6 +150,7 @@ theorem vonMangoldt_mellin_prime_line_identity_v1
   congr 1
   apply integral_congr_ae
   exact Filter.Eventually.of_forall fun t => by
+    dsimp only
     rw [ArithmeticFunction.LSeries_vonMangoldt_eq_deriv_riemannZeta_div
       (show 1 < (((c : ℂ) + t * I) : ℂ).re by simpa using hc)]
 

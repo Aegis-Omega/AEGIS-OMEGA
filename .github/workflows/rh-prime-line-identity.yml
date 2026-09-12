@@ -66,7 +66,7 @@ jobs:
           set -euo pipefail
           mkdir -p .lake/build/lib/lean
           proof_compile_failed=0
-          for f in WeilCriterionCompactSmoothV1 ZeroCriticalStripV1 ZeroHeightFiniteSumV1 ZeroHeightLimitContractV1 ZeroHeightSummabilityBridgeV1 ZeroMajorantSummabilityV1 ZeroHeightShellMassV1 ZeroShellQuadraticBoundV1 ZeroShellAnalyticSynthesisV1 MellinDecayEstimateV1 WeilPrimeLineIdentityV1; do
+          for f in WeilCriterionCompactSmoothV1 ZeroCriticalStripV1 ZeroHeightFiniteSumV1 ZeroHeightLimitContractV1 ZeroHeightSummabilityBridgeV1 ZeroMajorantSummabilityV1 ZeroHeightShellMassV1 ZeroShellQuadraticBoundV1 ZeroShellAnalyticSynthesisV1 MellinDecayEstimateV1 WeilMellinInversionV1 WeilPrimeLineIdentityV1; do
             cp ".aegis/sovereign-omega-v2/formal/bridges/lean/$f.lean" "$f.lean"
             sha256sum "$f.lean" >> exact-source.log
             if ! lake env lean -o ".lake/build/lib/lean/$f.olean" "$f.lean" 2>&1 | tee "$f.log"; then
@@ -82,7 +82,7 @@ jobs:
           python3 - <<'PY_AUDIT_SOURCE'
           from pathlib import Path
           import json, re
-          modules = ['MellinDecayEstimateV1', 'WeilPrimeLineIdentityV1']
+          modules = ['WeilMellinInversionV1', 'WeilPrimeLineIdentityV1']
           names = [
               'weil_compact_smooth_mellin_convergent_all_v1',
               'weil_compact_smooth_mellin_vertical_integrable_all_v1',
