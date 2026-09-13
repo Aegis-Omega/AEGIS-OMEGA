@@ -37,7 +37,8 @@ jobs:
           lake exe cache get
           test "$(git -C .lake/packages/mathlib rev-parse HEAD)" = a3a10db0e9d66acbebf76c5e6a135066525ac900
           cp "$GITHUB_WORKSPACE/research/formal-conjectures-pilot/ExpTranscendence.lean" ExpTranscendence.lean
-          lake env lean -o ExpTranscendence.olean ExpTranscendence.lean 2>&1 | tee "$GITHUB_WORKSPACE/exp-axioms.log"
+          mkdir -p .lake/build/lib/lean
+          lake env lean -o .lake/build/lib/lean/ExpTranscendence.olean ExpTranscendence.lean 2>&1 | tee "$GITHUB_WORKSPACE/exp-axioms.log"
           lake build FormalConjectures/Wikipedia/Transcendental.lean
           cat > ExpBenchmark.lean <<'LEAN'
           import ExpTranscendence
@@ -48,7 +49,7 @@ jobs:
           #print axioms AegisExp.exact_benchmark
           LEAN
           cp ExpBenchmark.lean "$GITHUB_WORKSPACE/ExpBenchmark.lean"
-          LEAN_PATH=".:$(lake env printenv LEAN_PATH)" lean ExpBenchmark.lean 2>&1 | tee "$GITHUB_WORKSPACE/benchmark-axioms.log"
+          lake env lean ExpBenchmark.lean 2>&1 | tee "$GITHUB_WORKSPACE/benchmark-axioms.log"
           python - <<'PY'
           import hashlib,json,os,pathlib,re
           w=pathlib.Path(os.environ['GITHUB_WORKSPACE'])
