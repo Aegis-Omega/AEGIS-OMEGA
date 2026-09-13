@@ -6,7 +6,7 @@
   | one =>
     norm_num only [pellNumber, Nat.cast_one, pow_one]
     field_simp [hn]
-    <;> ring
+    ring
   | more n ih₀ ih₁ =>
     rw [pellNumber, Nat.cast_add, Nat.cast_mul, Nat.cast_ofNat, ih₀, ih₁]
     simp only [pow_succ]

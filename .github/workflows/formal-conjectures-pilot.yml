@@ -26,6 +26,7 @@ jobs:
           tar --zstd -xf /tmp/lean.tar.zst -C /tmp
           echo '/tmp/lean-4.27.0-linux/bin' >> "$GITHUB_PATH"
       - name: Restore compiled dependencies
+        id: deps
         uses: actions/cache@v4
         with:
           path: |
@@ -38,9 +39,17 @@ jobs:
           cd /tmp/benchmark
           lean --version
           lake exe cache get
-          lake build FormalConjectures.Wikipedia.Pell FormalConjectures.GreensOpenProblems.72
+          lake build FormalConjectures/Wikipedia/Pell.lean FormalConjectures/GreensOpenProblems/72.lean
           lake env lean AegisAudit.lean 2>&1 | tee "$GITHUB_WORKSPACE/axioms.log"
-          python "$GITHUB_WORKSPACE/research/formal-conjectures-pilot/verify.py" "$GITHUB_WORKSPACE/axioms.log" | tee "$GITHUB_WORKSPACE/proof-receipt.json"
+          python "$GITHUB_WORKSPACE/research/formal-conjectures-pilot/verify.py" "$GITHUB_WORKSPACE/axioms.log" /tmp/benchmark | tee "$GITHUB_WORKSPACE/proof-receipt.json"
+      - name: Preserve compiled dependencies for proof iterations
+        uses: actions/cache/save@v4
+        if: always() && steps.deps.outputs.cache-hit != 'true'
+        with:
+          path: |
+            /tmp/benchmark/.lake
+            ~/.cache/mathlib
+          key: aegis-formal-bench-7a41db3d-lean427-v1
       - uses: actions/upload-artifact@v4
         if: always()
         with:

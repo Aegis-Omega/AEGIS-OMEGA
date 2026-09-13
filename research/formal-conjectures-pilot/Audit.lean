@@ -27,7 +27,7 @@ theorem green72_singleton_allowed : Green72.AllowedSet 1 1 {(0, 0)} := by
 @[category test, AMS 5 52]
 theorem green72_bound_counterexample :
     ¬ (Green72.AllowedSetSize 1 1 ≤ (1 - 1) * 1) := by
-  have hb : BddAbove {r | ∃ s, r = s.card ∧ Green72.AllowedSet 1 1 s} := by
+  have hb : BddAbove {r | ∃ s : Finset (ℕ × ℕ), r = s.card ∧ Green72.AllowedSet 1 1 s} := by
     refine ⟨1, ?_⟩
     rintro r ⟨s, rfl, hs⟩
     have hsub : s ⊆ {(0, 0)} := by
@@ -38,7 +38,7 @@ theorem green72_bound_counterexample :
       have hy : y = 0 := by omega
       simp [hx, hy]
     simpa using Finset.card_le_card hsub
-  have hm : 1 ∈ {r | ∃ s, r = s.card ∧ Green72.AllowedSet 1 1 s} :=
+  have hm : 1 ∈ {r | ∃ s : Finset (ℕ × ℕ), r = s.card ∧ Green72.AllowedSet 1 1 s} :=
     ⟨{(0, 0)}, by simp, green72_singleton_allowed⟩
   have hp : 1 ≤ Green72.AllowedSetSize 1 1 := le_csSup hb hm
   omega

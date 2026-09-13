@@ -13,7 +13,7 @@
           2 * pellNumber (2 * (m + 1) + 1) + pellNumber (2 * m + 2) := by
         conv_lhs => rw [show 2 * (m + 1) + 2 = (2 * m + 2) + 1 + 1 by omega]
         rw [pellNumber]
-        congr 2 <;> omega
+        congr 2
       have step : pellNumber (m + 1 + 1) =
           2 * pellNumber (m + 1) + pellNumber m := rfl
       constructor
