@@ -61,3 +61,23 @@ These selected tasks do not define a representative benchmark score.
 
 RH remains NOT_PROVEN. External ASTRA evidence is untouched. No merge, release,
 claim promotion or expansion of authority is part of this pilot.
+
+## Vega argument counterexamples
+
+These are supporting audit results, not additional Formal Conjectures benchmark solutions.
+`AegisBench.Vega.bfs_false_positive` transcribes the state transitions and acceptance
+condition from Theorem 2, page 4, of Frank Vega's *Note for the P versus NP Problem*,
+version 10, DOI 10.20944/preprints201908.0037.v10:
+https://www.preprints.org/manuscript/201908.0037/v10/download
+The printed f/g definitions use OR notation despite the XOR problem definition;
+we interpret them as the intended counts of incident XOR clauses. On edges
+(1,2), (1,3), (1,4), (2,3), assignment (0,1,1,0) reaches (4,2,0,0).
+The formula itself is unsatisfiable. This checks the mathematical recurrence,
+not execution of the unavailable ALMA implementation. No state merging is needed.
+
+`missing_margin_counterexample` refutes the abstract inference from A>0, E>1,
+and A<EA to 1+A<EA using A=1 and E=3/2. It addresses the inference on pages
+8–9 of *Note for the Millennium Prize Problems*, version 6, DOI
+10.33774/coe-2024-xjsk1-v6. It does not refute the prime-specific inequality
+or RH. Version 6 no longer contains the BFS algorithm and uses K-CLOSURE,
+so the earlier Dominating Set counterexample must not be attributed to its Lemma 3.

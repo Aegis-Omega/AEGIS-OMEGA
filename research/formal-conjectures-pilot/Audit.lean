@@ -81,3 +81,69 @@ end AegisBench
 
 #print axioms AegisBench.transcendental_sum_or_product
 #print axioms AegisBench.pi_exp_sum_or_product_of_transcendental_pi
+
+namespace AegisBench.Vega
+
+/-- Edge order follows the variable indices in the published recurrence. -/
+def edges : List (Fin 4 × Fin 4) := [(0, 1), (0, 2), (0, 3), (1, 2)]
+
+def satisfies (a : Fin 4 → Bool) : Prop :=
+  ∀ e ∈ edges, a e.1 ≠ a e.2
+
+def forward (v : Fin 4) : ℤ := (edges.filter (fun e => e.1 == v)).length
+
+def backward (v : Fin 4) : ℤ := (edges.filter (fun e => e.2 == v)).length
+
+structure State where
+  i : ℕ
+  s : ℕ
+  r : ℤ
+  t : ℤ
+  deriving DecidableEq
+
+/-- Transcription of the two transitions in P versus NP note v10, Theorem 2. -/
+def step (st : State) (v : Fin 4) (b : Bool) : State :=
+  if b then
+    ⟨st.i + 1, st.s + 1, st.r + forward v, st.t - backward v⟩
+  else
+    ⟨st.i + 1, st.s, st.r - backward v, st.t + forward v⟩
+
+def run (a : Fin 4 → Bool) : State :=
+  (List.finRange 4).foldl (fun st v => step st v (a v)) ⟨0, 0, 0, 0⟩
+
+def accepts (st : State) (k : ℕ) : Prop :=
+  st.i = 4 ∧ 0 < st.s ∧ st.s ≤ k ∧ st.r = 0 ∧ st.t = 0
+
+instance (st : State) (k : ℕ) : Decidable (accepts st k) :=
+  by unfold accepts; infer_instance
+
+def witness (v : Fin 4) : Bool := v == 1 || v == 2
+
+/-- Exhaustive finite kernel computation: the XOR triangle has no solution. -/
+theorem formula_unsatisfiable : ¬ ∃ a : Fin 4 → Bool, satisfies a := by
+  unfold satisfies edges
+  decide
+
+/-- An actual path through the published recurrence reaches its accepting state. -/
+theorem recurrence_accepts : run witness = ⟨4, 2, 0, 0⟩ := by
+  decide
+
+/-- The formalized recurrence accepts a genuinely unsatisfiable instance at k = 2. -/
+theorem bfs_false_positive :
+    accepts (run witness) 2 ∧ ¬ ∃ a : Fin 4 → Bool, satisfies a := by
+  constructor
+  · rw [recurrence_accepts]
+    decide
+  · exact formula_unsatisfiable
+
+/-- A positive multiplicative increase does not supply an additive margin of one.
+This refutes the abstract inference, not the prime-specific RH inequality. -/
+theorem missing_margin_counterexample :
+    ∃ A E : ℝ, 0 < A ∧ 1 < E ∧ A < E * A ∧ ¬ (1 + A < E * A) := by
+  refine ⟨1, 3 / 2, ?_⟩
+  norm_num
+
+end AegisBench.Vega
+
+#print axioms AegisBench.Vega.bfs_false_positive
+#print axioms AegisBench.Vega.missing_margin_counterexample

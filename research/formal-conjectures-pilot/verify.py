@@ -11,7 +11,9 @@ log = Path(sys.argv[1]).read_text()
 names = ['PellNumbers.pellNumber_sq_add_pellNumber_succ_sq',
          'PellNumbers.coe_pellNumber_eq', 'AegisBench.green72_bound_counterexample',
          'AegisBench.transcendental_sum_or_product',
-         'AegisBench.pi_exp_sum_or_product_of_transcendental_pi']
+         'AegisBench.pi_exp_sum_or_product_of_transcendental_pi',
+         'AegisBench.Vega.bfs_false_positive',
+         'AegisBench.Vega.missing_margin_counterexample']
 allowed = {'propext', 'Classical.choice', 'Quot.sound'}
 results = {}
 for name in names:
