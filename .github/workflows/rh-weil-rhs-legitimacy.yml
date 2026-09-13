@@ -59,13 +59,13 @@ jobs:
           lake exe cache get
           lean --version >> exact-source.log
 
-      - name: Compile exact definitions and all three proof modules
+      - name: Compile exact definitions, RHS proofs and autocorrelation closure
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p .lake/build/lib/lean
           proof_compile_failed=0
-          for f in WeilCriterionCompactSmoothV1 WeilPrimeSummabilityV1 WeilArchimedeanConvergenceV1 WeilAutocorrelationRealityV1; do
+          for f in WeilCriterionCompactSmoothV1 WeilPrimeSummabilityV1 WeilArchimedeanConvergenceV1 WeilAutocorrelationRealityV1 WeilAutocorrelationClosureV1; do
             cp ".aegis/sovereign-omega-v2/formal/bridges/lean/$f.lean" "$f.lean"
             sha256sum "$f.lean" >> exact-source.log
             if ! lake env lean -o ".lake/build/lib/lean/$f.olean" "$f.lean" 2>&1 | tee "$f.log"; then
@@ -81,9 +81,9 @@ jobs:
           python3 - <<'PY_AUDIT_SOURCE'
           from pathlib import Path
           import json, re
-          modules = ['WeilPrimeSummabilityV1', 'WeilArchimedeanConvergenceV1', 'WeilAutocorrelationRealityV1']
+          modules = ['WeilPrimeSummabilityV1', 'WeilArchimedeanConvergenceV1', 'WeilAutocorrelationRealityV1', 'WeilAutocorrelationClosureV1']
           names = [name for mod in modules for name in re.findall(r'^theorem ([a-zA-Z0-9_]+)', Path(mod + '.lean').read_text(), re.M)]
-          assert len(names) == 19, names
+          assert len(names) == 29, names
           Path('expected-theorems.json').write_text(json.dumps(names, indent=2) + '\n')
           Path('WeilRHSAudit.lean').write_text('\n'.join(['import ' + mod for mod in modules] + ['#print axioms ' + name for name in names]) + '\n')
           PY_AUDIT_SOURCE
@@ -96,10 +96,13 @@ jobs:
           assert 'sorryAx' not in log
           for name in names:
               match = re.search(re.escape("'" + name + "' depends on axioms: ") + r"\[([^\]]*)\]", log, re.S)
+              if "'" + name + "' does not depend on any axioms" in log:
+                  assert match is None, name
+                  continue
               assert match, name
               axioms = {x.strip() for x in match[1].split(',') if x.strip()}
               assert axioms <= {'propext', 'Classical.choice', 'Quot.sound'}, (name, axioms)
-          print('PASS: 19 theorem closures audited; authority_effect=NONE; RH=NOT_PROVEN')
+          print('PASS: 29 theorem closures audited; authority_effect=NONE; RH=NOT_PROVEN')
           PY_AUDIT_LOG
 
       - name: Upload exact-head proof evidence
