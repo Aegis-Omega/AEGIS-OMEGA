@@ -73,17 +73,17 @@ Let kappa = log(4*pi) + EulerMascheroniConstant, and Lambda be von Mangoldt.
 The repository indexes n+1; below the identical sum is indexed by m>=2,
 since Lambda(1)=0. Direct substitution in its RHS gives
 
-$
+$$
 B_{\mathrm{prime}}(a,b)=\sum_{m\ge2}\frac{\Lambda(m)}{\sqrt m}
 \bigl(R_{ab}(\log m)+R_{ab}(-\log m)\bigr).
-$
+$$
 
-$
+$$
 B_\infty(a,b)=\kappa R_{ab}(0)+
 \int_0^\infty
 \frac{e^{u/2}\bigl(R_{ab}(u)+R_{ab}(-u)\bigr)-2R_{ab}(0)}
 {e^u-e^{-u}}\,du.
-$
+$$
 
 B(a,b) = B_infinity(a,b) + B_prime(a,b).
 
@@ -113,10 +113,10 @@ k(v)=exp(-v/2)/(1-exp(-2v)), v>0.
 
 The exact double-integral form is
 
-$
+$$
 B_\infty(a,b)=\int_{I_a}\int_{I_b}
 h_a(s)\overline{h_b(t)}k(s-t)\,dt\,ds.
-$
+$$
 
 Without moments this gives
 |B_infinity| <= k(delta) ||h_a||_1 ||h_b||_1.
@@ -125,22 +125,22 @@ More sharply, k(v)=sum_(r>=0) exp(-(2r+1/2)v), uniformly on v>=delta.
 Absolute domination by k(delta)|h_a(s)||h_b(t)| justifies interchange.
 Writing alpha_r=2r+1/2 gives the exact factorization
 
-$
+$$
 B_\infty(a,b)=\sum_{r\ge0}
 \left(\int_{\mathbb R}e^{-\alpha_rs}h_a(s)\,ds\right)
 \overline{\left(\int_{\mathbb R}e^{\alpha_rt}h_b(t)\,dt\right)},
 \qquad \alpha_r=2r+\tfrac12.
-$
+$$
 
 If the existing moment conditions hold, the r=0 term vanishes. Therefore
 
-$
+$$
 |B_\infty(a,b)|\le
 \frac{e^{-5\delta/2}}{1-e^{-2\delta}}\|h_a\|_1\|h_b\|_1
 \le
 \sqrt{|I_a||I_b|}\,
 \frac{e^{-5\delta/2}}{1-e^{-2\delta}}\|h_a\|_2\|h_b\|_2.
-$
+$$
 
 Reverse interval order follows by Hermitian symmetry.
 This is a written proof, not yet a kernel-certified declaration.
@@ -163,9 +163,9 @@ terms vanish because w<log 2. The mixed correlation has support in
 [d-w,d+w]. This contains only log 2 among log m for integers m>=2 and
 contains no negative log m. At its center R_ab(d)=||h_0||_2^2. Thus EXACTLY
 
-$
+$$
 B_{\mathrm{prime}}(a,b)=\frac{\log 2}{\sqrt2}\|h_0\|_2^2>0.
-$
+$$
 
 The strict inequality holds because h_0 is nonzero: a compactly supported
 solution of phi''=phi/4 is zero. This is an explicit prime resonance between
@@ -173,12 +173,12 @@ disjoint moment-zero blocks, even though both diagonal prime sums are zero.
 
 The archimedean part is also explicit:
 
-$
+$$
 B_\infty(a,b)=\sum_{r\ge1}e^{-\alpha_rd}(\alpha_r^2-\tfrac14)^2
 \left(\int_{\mathbb R}e^{-\alpha_rt}\phi(t)\,dt\right)
 \left(\int_{\mathbb R}e^{\alpha_rt}\phi(t)\,dt\right),
 \quad \alpha_r=2r+\tfrac12.
-$
+$$
 
 Every displayed term is positive. This does NOT prove Q(a+b)>0:
 the diagonal negative budget has not been compared with this cross term.
@@ -236,7 +236,7 @@ A strict operator norm bound is stronger still.
 For symmetric a_ij>=0 with maximum row sum rho<1, put r_i=||h_i||_2.
 The elementary proof needs no spectral theorem:
 
-$
+$$
 \begin{aligned}
 2\Re\sum_{i<j}B_{ij}
 &\le 2c\sum_{i<j}a_{ij}r_ir_j\\
@@ -244,7 +244,7 @@ $
 &=c\sum_i r_i^2\sum_{j\ne i}a_{ij}
 \le c\rho\sum_i r_i^2.
 \end{aligned}
-$
+$$
 
 Hence Q(sum_j g_j)<=-c(1-rho) sum_j r_j^2.
 For a nonzero sum the final sum of squared norms is positive.
