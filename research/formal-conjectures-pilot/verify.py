@@ -15,7 +15,10 @@ names = ['PellNumbers.pellNumber_sq_add_pellNumber_succ_sq',
          'AegisBench.Vega.bfs_false_positive',
          'AegisBench.Vega.missing_margin_counterexample',
          'AegisBench.Vega.balance_counts', 'AegisBench.Vega.run_balance_binding',
-         'AegisBench.Vega.checkClauses_correct', 'AegisBench.Vega.reciprocal_margin_iff']
+         'AegisBench.Vega.checkClauses_correct', 'AegisBench.Vega.reciprocal_margin_iff',
+         'AegisBench.Vega.solve_correct', 'AegisBench.Vega.solve_rejects_vega',
+         'AegisBench.Vega.solve_boundary_examples',
+         'AegisBench.Vega.degree_balance_counts']
 allowed = {'propext', 'Classical.choice', 'Quot.sound'}
 results = {}
 for name in names:
@@ -48,3 +51,4 @@ print(json.dumps({'schema': 'AEGIS_FORMAL_CONJECTURES_PILOT_V1',
     'results': results,
     'unconditional_pi_exp_benchmark_status': 'NOT_PROVEN',
     'external_astra_receipt_status': 'UNVERIFIED', 'rh_status': 'NOT_PROVEN', 'authority_effect': 'NONE'}, indent=2))
+

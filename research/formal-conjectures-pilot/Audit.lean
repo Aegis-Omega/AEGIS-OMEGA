@@ -193,3 +193,104 @@ end AegisBench.Vega
 #print axioms AegisBench.Vega.run_balance_binding
 #print axioms AegisBench.Vega.checkClauses_correct
 #print axioms AegisBench.Vega.reciprocal_margin_iff
+
+
+namespace AegisBench.Vega
+
+/-- Number of true variables, including variables not incident to any clause. -/
+def trueCount {n : ℕ} (a : Fin n → Bool) : ℕ :=
+  (Finset.univ.filter (fun v => a v = true)).card
+
+/-- Full witness validation: each XOR clause and the at-most-k bound. -/
+def checkAssignment {n : ℕ} (es : List (Fin n × Fin n))
+    (k : ℕ) (a : Fin n → Bool) : Bool :=
+  es.all (fun e => decide (a e.1 ≠ a e.2)) && decide (trueCount a ≤ k)
+
+def ValidAssignment {n : ℕ} (es : List (Fin n × Fin n))
+    (k : ℕ) (a : Fin n → Bool) : Prop :=
+  (∀ e ∈ es, a e.1 ≠ a e.2) ∧ trueCount a ≤ k
+
+theorem checkAssignment_correct {n : ℕ} (es : List (Fin n × Fin n))
+    (k : ℕ) (a : Fin n → Bool) :
+    checkAssignment es k a = true ↔ ValidAssignment es k a := by
+  simp [checkAssignment, ValidAssignment, List.all_eq_true]
+
+/-- Reference decision procedure enumerating all 2^n assignments.
+This is deliberately an exhaustive baseline, with no polynomial-time claim. -/
+def solve {n : ℕ} (es : List (Fin n × Fin n)) (k : ℕ) : Bool :=
+  decide ((Finset.univ.filter (fun a : Fin n → Bool =>
+    checkAssignment es k a = true)).Nonempty)
+
+/-- Soundness and completeness for any variable count, clause list and bound. -/
+theorem solve_correct {n : ℕ} (es : List (Fin n × Fin n)) (k : ℕ) :
+    solve es k = true ↔ ∃ a : Fin n → Bool, ValidAssignment es k a := by
+  simp [solve, Finset.filter_nonempty_iff, checkAssignment_correct]
+
+/-- The complete reference solver rejects the input accepted by Vega's recurrence. -/
+theorem solve_rejects_vega : solve edges 2 = false := by
+  decide
+
+/-- Empty instances, zero budgets and ordinary satisfiable instances are covered. -/
+theorem solve_boundary_examples :
+    solve ([] : List (Fin 0 × Fin 0)) 0 = true ∧
+    solve ([(0, 1)] : List (Fin 2 × Fin 2)) 0 = false ∧
+    solve ([(0, 1)] : List (Fin 2 × Fin 2)) 1 = true := by
+  decide
+
+end AegisBench.Vega
+
+#print axioms AegisBench.Vega.solve_correct
+#print axioms AegisBench.Vega.solve_rejects_vega
+#print axioms AegisBench.Vega.solve_boundary_examples
+
+namespace AegisBench.Vega
+
+/-- Incidence contribution of one edge to one vertex's terminal r increment. -/
+def incidenceR {n : ℕ} (a : Fin n → Bool) (v : Fin n) (e : Fin n × Fin n) : ℤ :=
+  (if e.1 = v then (if a v then 1 else 0) else 0) -
+    (if e.2 = v then (if a v then 0 else 1) else 0)
+
+/-- Algebraic terminal sum; this definition is independent of an operational fold. -/
+def vertexSumR {n : ℕ} (es : List (Fin n × Fin n)) (a : Fin n → Bool) : ℤ :=
+  ∑ v : Fin n, (es.map (incidenceR a v)).sum
+
+theorem incidenceR_sum {n : ℕ} (a : Fin n → Bool) (e : Fin n × Fin n) :
+    (∑ v : Fin n, incidenceR a v e) = edgeR (a e.1, a e.2) := by
+  simp [incidenceR, Finset.sum_sub_distrib, edgeR]
+
+/-- Every edge's two endpoint increments contribute exactly its clause balance. -/
+theorem vertexSumR_balance {n : ℕ} (es : List (Fin n × Fin n)) (a : Fin n → Bool) :
+    vertexSumR es a = balance (es.map (fun e => (a e.1, a e.2))) := by
+  induction es with
+  | nil => simp [vertexSumR, balance]
+  | cons e es ih =>
+    simp only [vertexSumR, List.map_cons, List.sum_cons, Finset.sum_add_distrib] at *
+    rw [incidenceR_sum, ih]
+    simp [balance]
+
+/-- The incidence sum agrees with the manuscript's forward/backward degree increments. -/
+theorem vertexSumR_degrees {n : ℕ} (es : List (Fin n × Fin n)) (a : Fin n → Bool) :
+    vertexSumR es a = ∑ v : Fin n,
+      if a v then ((es.filter (fun e => e.1 == v)).length : ℤ)
+      else -((es.filter (fun e => e.2 == v)).length : ℤ) := by
+  unfold vertexSumR
+  apply Finset.sum_congr rfl
+  intro v hv
+  induction es with
+  | nil => simp
+  | cons e es ih =>
+    by_cases h₁ : e.1 = v <;> by_cases h₂ : e.2 = v <;>
+      cases ha : a v <;> simp_all [incidenceR] <;> omega
+
+/-- For every finite graph, zero terminal balance can hide equal counts of 11 and 00. -/
+theorem degree_balance_counts {n : ℕ} (es : List (Fin n × Fin n)) (a : Fin n → Bool) :
+    (∑ v : Fin n,
+      if a v then ((es.filter (fun e => e.1 == v)).length : ℤ)
+      else -((es.filter (fun e => e.2 == v)).length : ℤ)) =
+    ((es.map (fun e => (a e.1, a e.2))).countP (fun e => e.1 && e.2) : ℤ) -
+      ((es.map (fun e => (a e.1, a e.2))).countP (fun e => !e.1 && !e.2) : ℤ) := by
+  rw [← vertexSumR_degrees, vertexSumR_balance, balance_counts]
+
+end AegisBench.Vega
+
+#print axioms AegisBench.Vega.degree_balance_counts

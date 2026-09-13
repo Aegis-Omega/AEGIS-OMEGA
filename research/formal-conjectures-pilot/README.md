@@ -96,3 +96,26 @@ completeness proof for a modified search or a P-versus-NP result.
 `reciprocal_margin_iff` proves the exact equivalence, for real E>1,
 1/(E-1)<A iff 1+A<E*A. Establishing this inequality for the manuscript's
 prime-dependent quantities remains a separate obligation.
+
+
+## Complete reference solver
+
+`solve` enumerates all Boolean assignments to `Fin n` and uses `checkAssignment`
+to check every XOR clause and the at-most-k count. `solve_correct` proves for
+arbitrary n, clause list and k that the result is true if and only if a valid
+assignment exists. This closes soundness and completeness for the reference
+solver, including empty instances, isolated variables, repeated edges and loops.
+It is an exhaustive 2^n-assignment baseline; no polynomial-time complexity is
+claimed. It is intended for small instance cross-checks, not large inputs.
+The executable examples reject the Vega false-positive graph and check empty
+instances and budgets of zero and one. The theorem does not certify any external
+solver implementation or resolve P versus NP.
+
+`degree_balance_counts` now proves the forward/backward endpoint-count sum equals
+count(11)-count(00) for any finite indexed vertex set and edge list. The proof
+passes through `vertexSumR`, an algebraic sum of per-vertex increments, and proves
+its equality to the per-edge sum. This generalizes the earlier four-variable
+algebraic binding. A theorem equating an arbitrary operational fold with that
+terminal sum has not been added; the existing concrete fold binding is retained.
+Edge lists are counted with multiplicity in this identity; the manuscript's
+simple graph convention is included when each ordered edge occurs once.
