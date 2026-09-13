@@ -147,3 +147,49 @@ end AegisBench.Vega
 
 #print axioms AegisBench.Vega.bfs_false_positive
 #print axioms AegisBench.Vega.missing_margin_counterexample
+
+namespace AegisBench.Vega
+
+/-- Per-clause contribution after both endpoints have been processed. -/
+def edgeR (e : Bool × Bool) : ℤ :=
+  (if e.1 then 1 else 0) - (if e.2 then 0 else 1)
+
+def balance (es : List (Bool × Bool)) : ℤ := (es.map edgeR).sum
+
+/-- Global balance only equates the counts of the two kinds of violated clause. -/
+theorem balance_counts (es : List (Bool × Bool)) :
+    balance es = (es.countP (fun e => e.1 && e.2) : ℤ) -
+      (es.countP (fun e => !e.1 && !e.2) : ℤ) := by
+  induction es with
+  | nil => simp [balance]
+  | cons e es ih =>
+    rcases e with ⟨u, v⟩
+    cases u <;> cases v <;>
+      simp_all [balance, edgeR, List.countP_cons] <;> omega
+
+/-- Explicit binding to the already audited four-variable state machine. -/
+theorem run_balance_binding : ∀ a : Fin 4 → Bool,
+    (run a).r = balance (edges.map (fun e => (a e.1, a e.2))) ∧
+    (run a).t = -balance (edges.map (fun e => (a e.1, a e.2))) := by
+  decide
+
+/-- Clause-by-clause validation prevents cancellation of different violations. -/
+def checkClauses (es : List (Bool × Bool)) : Bool :=
+  es.all (fun e => decide (e.1 ≠ e.2))
+
+theorem checkClauses_correct (es : List (Bool × Bool)) :
+    checkClauses es = true ↔ ∀ e ∈ es, e.1 ≠ e.2 := by
+  simp [checkClauses, List.all_eq_true]
+
+/-- Exact replacement for the invalid missing-margin inference. -/
+theorem reciprocal_margin_iff {A E : ℝ} (hE : 1 < E) :
+    1 / (E - 1) < A ↔ 1 + A < E * A := by
+  rw [div_lt_iff₀ (by linarith : 0 < E - 1)]
+  constructor <;> intro h <;> nlinarith
+
+end AegisBench.Vega
+
+#print axioms AegisBench.Vega.balance_counts
+#print axioms AegisBench.Vega.run_balance_binding
+#print axioms AegisBench.Vega.checkClauses_correct
+#print axioms AegisBench.Vega.reciprocal_margin_iff

@@ -81,3 +81,18 @@ and A<EA to 1+A<EA using A=1 and E=3/2. It addresses the inference on pages
 10.33774/coe-2024-xjsk1-v6. It does not refute the prime-specific inequality
 or RH. Version 6 no longer contains the BFS algorithm and uses K-CLOSURE,
 so the earlier Dominating Set counterexample must not be attributed to its Lemma 3.
+
+### Structural explanation and valid replacement checks
+
+`balance_counts` proves for every list of Boolean endpoint pairs that the summed
+per-edge r contribution equals count(11) minus count(00). Thus zero total balance
+allows equally many violations of opposite kinds. `run_balance_binding` binds this
+edge sum (and its negative for t) to the four-variable recurrence for all 16
+assignments. This binding is specific to that graph; the arbitrary-graph
+vertex-sum/edge-sum equivalence is not claimed as a Lean theorem here.
+`checkClauses_correct` proves an executable clause-by-clause checker accepts
+exactly when every endpoint pair differs. This is a certificate checker, not a
+completeness proof for a modified search or a P-versus-NP result.
+`reciprocal_margin_iff` proves the exact equivalence, for real E>1,
+1/(E-1)<A iff 1+A<E*A. Establishing this inequality for the manuscript's
+prime-dependent quantities remains a separate obligation.

@@ -13,7 +13,9 @@ names = ['PellNumbers.pellNumber_sq_add_pellNumber_succ_sq',
          'AegisBench.transcendental_sum_or_product',
          'AegisBench.pi_exp_sum_or_product_of_transcendental_pi',
          'AegisBench.Vega.bfs_false_positive',
-         'AegisBench.Vega.missing_margin_counterexample']
+         'AegisBench.Vega.missing_margin_counterexample',
+         'AegisBench.Vega.balance_counts', 'AegisBench.Vega.run_balance_binding',
+         'AegisBench.Vega.checkClauses_correct', 'AegisBench.Vega.reciprocal_margin_iff']
 allowed = {'propext', 'Classical.choice', 'Quot.sound'}
 results = {}
 for name in names:
