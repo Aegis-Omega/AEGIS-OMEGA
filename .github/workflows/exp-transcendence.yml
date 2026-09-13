@@ -1,0 +1,80 @@
+name: Exp Transcendence Proof
+on:
+  push:
+    branches: ['codex/exp-transcendence-20260913']
+    paths:
+      - 'research/formal-conjectures-pilot/ExpTranscendence.lean'
+      - '.github/workflows/exp-transcendence.yml'
+permissions:
+  contents: read
+jobs:
+  lean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install pinned sources and Lean
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch bench-v1-lean4.27.0 https://github.com/google-deepmind/formal-conjectures.git /tmp/benchmark
+          test "$(git -C /tmp/benchmark rev-parse HEAD)" = 7a41db3d761324599812d6ca6cb6a9f311046dc7
+          curl -fLsS https://github.com/leanprover/lean4/releases/download/v4.27.0/lean-4.27.0-linux.tar.zst -o /tmp/lean.tar.zst
+          tar --zstd -xf /tmp/lean.tar.zst -C /tmp
+          echo '/tmp/lean-4.27.0-linux/bin' >> "$GITHUB_PATH"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            /tmp/benchmark/.lake
+            ~/.cache/mathlib
+          key: aegis-exp-7a41db3d-lean427-v1
+      - name: Compile proof and bind exact benchmark type
+        run: |
+          set -euo pipefail
+          cd /tmp/benchmark
+          lean --version | tee "$GITHUB_WORKSPACE/lean-version.log"
+          lake exe cache get
+          test "$(git -C .lake/packages/mathlib rev-parse HEAD)" = a3a10db0e9d66acbebf76c5e6a135066525ac900
+          cp "$GITHUB_WORKSPACE/research/formal-conjectures-pilot/ExpTranscendence.lean" ExpTranscendence.lean
+          lake env lean -o ExpTranscendence.olean ExpTranscendence.lean 2>&1 | tee "$GITHUB_WORKSPACE/exp-axioms.log"
+          lake build FormalConjectures/Wikipedia/Transcendental.lean
+          cat > ExpBenchmark.lean <<'LEAN'
+          import ExpTranscendence
+          import FormalConjectures.Wikipedia.Transcendental
+          theorem AegisExp.exact_benchmark :
+              type_of% Transcendental.exp_add_pi_or_exp_add_mul_transcendental :=
+            AegisExp.pi_exp_sum_or_product
+          #print axioms AegisExp.exact_benchmark
+          LEAN
+          LEAN_PATH=".:$(lake env printenv LEAN_PATH)" lean ExpBenchmark.lean 2>&1 | tee "$GITHUB_WORKSPACE/benchmark-axioms.log"
+          python - <<'PY'
+          import hashlib,json,os,pathlib,re
+          w=pathlib.Path(os.environ['GITHUB_WORKSPACE'])
+          targets={
+            'exp-axioms.log':['AegisExp.transcendental_exp_one_complex','AegisExp.transcendental_exp_one_real','AegisExp.pi_exp_sum_or_product'],
+            'benchmark-axioms.log':['AegisExp.exact_benchmark']}
+          results={}
+          for log,names in targets.items():
+            text=(w/log).read_text()
+            for name in names:
+              matches=re.findall(re.escape("'"+name+"' depends on axioms:")+r'\s*\[([^\]]*)\]',text)
+              if len(matches)!=1: raise SystemExit('Missing or duplicate axiom report: '+name)
+              axioms=sorted(a.strip() for a in matches[0].split(',') if a.strip())
+              if not set(axioms)<={'propext','Classical.choice','Quot.sound'}: raise SystemExit('Unexpected axioms: '+name)
+              results[name]={'status':'KERNEL_CHECKED','axioms':axioms}
+          paths=['ExpTranscendence.lean','ExpBenchmark.lean','lean-toolchain','lake-manifest.json']
+          receipt={'schema':'AEGIS_EXP_TRANSCENDENCE_V1','candidate_sha':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],'benchmark_sha':'7a41db3d761324599812d6ca6cb6a9f311046dc7','mathlib_sha':'a3a10db0e9d66acbebf76c5e6a135066525ac900','results':results,'source_sha256':{p:hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest() for p in paths},'log_sha256':{p:hashlib.sha256((w/p).read_bytes()).hexdigest() for p in targets},'rh_status':'NOT_PROVEN','external_astra_receipt_status':'UNVERIFIED','authority_effect':'NONE'}
+          (w/'exp-receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          print(json.dumps(receipt,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: exp-transcendence-evidence
+          path: |
+            lean-version.log
+            exp-axioms.log
+            benchmark-axioms.log
+            exp-receipt.json
+          if-no-files-found: error
