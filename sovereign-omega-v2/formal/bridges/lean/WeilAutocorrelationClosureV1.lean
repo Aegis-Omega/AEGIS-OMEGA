@@ -38,7 +38,9 @@ theorem weil_autocorrelation_support_envelope_compact_v1 (g : WeilCompactSmoothG
 theorem weil_autocorrelation_support_envelope_positive_v1 (g : WeilCompactSmoothGV1) :
     WeilAutocorrelationSupportEnvelopeV1 g ⊆ Ioi 0 := by
   rintro x ⟨p, hp, rfl⟩
-  exact div_pos (g.2.2.2 hp.1) (g.2.2.2 hp.2)
+  change 0 < p.1 / p.2
+  exact div_pos (show 0 < p.1 from g.2.2.2 hp.1)
+    (show 0 < p.2 from g.2.2.2 hp.2)
 
 /-- The integrand vanishes unless both arguments lie in the original support. -/
 theorem weil_autocorrelation_tsupport_subset_v1 (g : WeilCompactSmoothGV1) :
@@ -74,9 +76,8 @@ of the convention that Lean assigns values to nonintegrable integrals. -/
 theorem weil_autocorrelation_integrand_integrable_v1 (g : WeilCompactSmoothGV1) (x : ℝ) :
     IntegrableOn (fun y : ℝ => g.1 (x * y) * star (g.1 y)) (Ioi 0) := by
   have hc : Continuous (fun y : ℝ => g.1 (x * y) * star (g.1 y)) := by
-    simpa only [Complex.star_def] using
-      (g.2.1.continuous.comp (continuous_const.mul continuous_id)).mul
-        (Complex.conjCLE.continuous.comp g.2.1.continuous)
+    exact (g.2.1.continuous.comp (continuous_const.mul continuous_id)).mul
+      (continuous_star.comp g.2.1.continuous)
   have hk : HasCompactSupport (fun y : ℝ => g.1 (x * y) * star (g.1 y)) := by
     apply HasCompactSupport.intro g.2.2.1
     intro y hy
@@ -107,8 +108,10 @@ theorem weil_autocorrelation_contDiff_v1 (g : WeilCompactSmoothGV1) :
     (locallyIntegrable_const (μ := volume.restrict (Ioi (0 : ℝ))) (1 : ℝ))
     hF.contDiffOn
   rw [← contDiffOn_univ]
+  change ContDiffOn ℝ ∞
+    (fun x : ℝ => ∫ y in Ioi (0 : ℝ), g.1 (x * y) * star (g.1 y)) univ
   simpa only [convolution, F, zero_sub, neg_neg,
-    ContinuousLinearMap.lsmul_apply, one_smul, WeilAutocorrelationV1,
+    ContinuousLinearMap.lsmul_apply, one_smul,
     Complex.star_def] using H
 
 /-- Repackage the original function with proved class membership. -/
