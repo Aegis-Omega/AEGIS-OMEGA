@@ -21,7 +21,14 @@ The third result concerns the benchmark's formalization. Its field named
 the selected subset `t`. The counterexample does not refute the intended geometric
 no-three-in-line conjecture, and does not claim this issue was previously unknown.
 
-An initial candidate was
+The pilot also includes `AegisBench.transcendental_sum_or_product`: for real
+numbers `a,b`, transcendence of `a` implies transcendence of `a+b` or `a*b`.
+The proof uses `(a-b)^2 = (a+b)^2 - 4ab` and closure of algebraic numbers.
+`pi_exp_sum_or_product_of_transcendental_pi` specializes this bridge with the
+explicit hypothesis `Transcendental ℚ Real.pi`. A checked implication is not a
+proof of that hypothesis and is not counted as another solved benchmark task.
+
+The original candidate was
 `Transcendental.exp_add_pi_or_exp_add_mul_transcendental`. This pilot does not
 provide a checked proof of it. No unresolved premise is introduced as an axiom.
 

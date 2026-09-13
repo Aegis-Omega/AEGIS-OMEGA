@@ -1,4 +1,4 @@
-"""Fail closed on unexpected dependencies in the three target proof terms."""
+"""Fail closed on unexpected dependencies in the selected target proof terms."""
 import hashlib
 import json
 import os
@@ -9,7 +9,9 @@ import sys
 
 log = Path(sys.argv[1]).read_text()
 names = ['PellNumbers.pellNumber_sq_add_pellNumber_succ_sq',
-         'PellNumbers.coe_pellNumber_eq', 'AegisBench.green72_bound_counterexample']
+         'PellNumbers.coe_pellNumber_eq', 'AegisBench.green72_bound_counterexample',
+         'AegisBench.transcendental_sum_or_product',
+         'AegisBench.pi_exp_sum_or_product_of_transcendental_pi']
 allowed = {'propext', 'Classical.choice', 'Quot.sound'}
 results = {}
 for name in names:
@@ -39,4 +41,6 @@ print(json.dumps({'schema': 'AEGIS_FORMAL_CONJECTURES_PILOT_V1',
     'benchmark_sha': benchmark_sha, 'mathlib_sha': mathlib_sha,
     'source_sha256': {p: hashlib.sha256((root / p).read_bytes()).hexdigest() for p in paths},
     'axiom_log_sha256': hashlib.sha256(Path(sys.argv[1]).read_bytes()).hexdigest(),
-    'results': results, 'rh_status': 'NOT_PROVEN', 'authority_effect': 'NONE'}, indent=2))
+    'results': results,
+    'unconditional_pi_exp_benchmark_status': 'NOT_PROVEN',
+    'external_astra_receipt_status': 'UNVERIFIED', 'rh_status': 'NOT_PROVEN', 'authority_effect': 'NONE'}, indent=2))
