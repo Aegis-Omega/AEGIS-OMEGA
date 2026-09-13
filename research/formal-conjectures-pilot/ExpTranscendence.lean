@@ -77,28 +77,23 @@ theorem no_exponential_relation (s : Finset ℕ) (hs : ∀ j ∈ s, j ≠ 0)
     exact_mod_cast hle
   have hident : (J : ℂ) = -(∑ j ∈ s, (a j : ℂ) *
       (n * Complex.exp (j : ℂ) - p * aeval (j : ℂ) g)) := by
-    have hv (j : ℕ) : aeval (j : ℂ) g = (g.eval (j : ℤ) : ℂ) := by
+    have hv (j : ℕ) : aeval (j : ℂ) g = (↑(g.eval (j : ℤ)) : ℂ) := by
       simpa using (aeval_algebraMap_apply_eq_algebraMap_eval (A := ℂ) (j : ℤ) g)
+    have factor_sum (k : ℂ) (u : ℕ → ℂ) :
+        (∑ j ∈ s, (a j : ℂ) * (k * u j)) =
+          k * ∑ j ∈ s, (a j : ℂ) * u j := by
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl
+      intro j hj
+      ring
+    have hcast : (J : ℂ) = (n : ℂ) * (a 0 : ℂ) +
+        (p : ℂ) * ∑ j ∈ s, (a j : ℂ) * (↑(g.eval (j : ℤ)) : ℂ) := by
+      simp only [J, Int.cast_add, Int.cast_mul, Int.cast_sum, Int.cast_natCast]
+    rw [hcast]
     simp_rw [hv, mul_sub, Finset.sum_sub_distrib]
+    rw [factor_sum, factor_sum]
     have hmul := congrArg (fun z : ℂ => (n : ℂ) * z) hrel
-    simp only [mul_add, Finset.mul_sum, mul_zero] at hmul
-    push_cast
-    dsimp [J]
-    push_cast
-    calc
-      _ = (n : ℂ) * a 0 + (p : ℂ) * ∑ j ∈ s, (a j : ℂ) * (g.eval (j : ℤ) : ℂ) := by push_cast; ring
-      _ = -(∑ j ∈ s, (a j : ℂ) * ((n : ℂ) * Complex.exp (j : ℂ))) +
-          ∑ j ∈ s, (a j : ℂ) * ((p : ℂ) * (g.eval (j : ℤ) : ℂ)) := by
-        rw [Finset.mul_sum]
-        have hn : (n : ℂ) * a 0 = -(∑ j ∈ s, (a j : ℂ) * ((n : ℂ) * Complex.exp (j : ℂ))) := by
-          apply eq_neg_of_add_eq_zero_left
-          simpa only [mul_left_comm (n : ℂ)] using hmul
-        rw [hn]
-        congr 1
-        apply Finset.sum_congr rfl
-        intro j hj
-        ring
-      _ = _ := by ring
+    linear_combination hmul
   have hbound : ‖(J : ℂ)‖ ≤ A * c ^ p / (p - 1).factorial := by
     rw [hident, norm_neg]
     calc
