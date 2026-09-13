@@ -55,8 +55,8 @@ def prove_score_binding_flips_terminal():
 
 def prove_same_envelope_across_domains():
     """The shared and genomics-inline envelopes must be the SAME primitive."""
-    from chain import canon as canon_shared, sha256_hex as sha_shared
-    from replay_pipeline import canon as canon_genomics, sha256_hex as sha_genomics
+    from chain import canon as canon_shared, sha256_hex as sha_shared, LineageChain as SharedChain
+    from replay_pipeline import canon as canon_genomics, sha256_hex as sha_genomics, LineageChain as GenomicsChain
 
     # A payload exercising sorted keys, nesting, unicode, ints — never a float.
     sample = {"z": 1, "a": [3, 2, 1], "nested": {"k": "café", "n": 7}, "list": [["b", 2], ["a", 1]]}
@@ -64,13 +64,27 @@ def prove_same_envelope_across_domains():
     assert sha_shared(canon_shared(sample)) == sha_genomics(canon_genomics(sample)), \
         "hash diverges across envelopes"
 
-    # Both must reject float in hashed state, identically.
+    # Exact Unicode, including decomposed text, must be preserved in both profiles.
+    sample["unicode"] = {"\ue000": "é", "\U0001f600": "e\u0301"}
+    assert canon_shared(sample) == canon_genomics(sample), "Unicode profile diverges"
+    assert canon_shared("é") != canon_shared("e\u0301"), "exact text was normalized"
+
+    # Comparing only canon() misses changes to the stage hash preimage/profile.
+    shared, genomics = SharedChain(), GenomicsChain()
+    for stage, output in [("EXAMPLE", sample), ("NEXT", {"ok": True})]:
+        shared_stage_hash = shared.append(stage, output)
+        genomics_stage_hash = genomics.append(stage, output)
+        assert shared_stage_hash == genomics_stage_hash, "stage envelope diverges"
+    assert shared.certify()["is_valid"] and genomics.certify()["is_valid"]
+
+    # Both must reject unsupported values in hashed state, identically.
     for canon_fn in (canon_shared, canon_genomics):
-        try:
-            canon_fn({"bad": 1.5})
-            raise AssertionError("float was not rejected")
-        except TypeError:
-            pass
+        for invalid in [{"bad": 1.5}, {1: "non-string key"}, {"bad": {1, 2}}]:
+            try:
+                canon_fn(invalid)
+                raise AssertionError("unsupported hashed state was not rejected")
+            except TypeError:
+                pass
     return sha_shared(canon_shared(sample))
 
 

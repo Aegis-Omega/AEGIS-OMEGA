@@ -11,7 +11,7 @@ one.
 
 | File | What it is |
 |------|-----------|
-| `chain.py` | The domain-agnostic envelope — `canon()` (RFC 8785 → bytes, rejects float), `sha256_hex()`, `StageRecord`, `LineageChain` (append / `terminal_hash` / `certify`). The genomics proof inlines this for zero-dependency portability; here it is shared infra. |
+| `chain.py` | The domain-agnostic envelope — `canon()` (`aegis-integer-json-v2` → bytes, rejects float), `sha256_hex()`, `StageRecord`, `LineageChain` (append / `terminal_hash` / `certify`). The genomics proof inlines this for zero-dependency portability; here it is shared infra. |
 | `compliance_pipeline.py` | A **regulated decision-audit** pipeline (`INTAKE → EXTRACT → SCORE → DECISION`) — AEGIS's stated market: EU AI Act Article 12 tamper-evident decision records. Integer scorecard, adverse-action reason codes, integer threshold. |
 | `test_generality.py` | The proof. Exit 0 = all four claims hold. |
 
@@ -19,7 +19,7 @@ one.
 
 ```
 python3 verifiable/test_generality.py
-[1] DECISION DETERMINISM   3 runs -> one terminal hash c67e7e8efd367644…
+[1] DECISION DETERMINISM   3 runs -> one terminal hash fd53645d33e5b097…
 [2] DECISION TAMPER-EVIDENT forged outcome -> certify invalid, broken_at="DECISION"
 [3] SCORE BINDING          an applicant crossing the threshold flips the terminal hash
 [4] SAME ENVELOPE          genomics-inline canon+hash == shared canon+hash (byte-identical)
@@ -27,8 +27,8 @@ python3 verifiable/test_generality.py
 
 Claim [4] is the load-bearing one: it runs the **genomics** `canon`/`sha256_hex` and the
 **shared** `canon`/`sha256_hex` on the same payload and asserts identical output, and
-asserts both reject `float` in hashed state. So this is genuinely one primitive across two
-categories — not two lookalikes.
+checks exact composed/decomposed Unicode, rejects unsupported values, and compares
+whole stage hashes including the profile identifier across a two-stage chain.
 
 ## Why a loan/benefit decision, of all things
 
@@ -49,19 +49,21 @@ deterministic.
 
 ```
 python3 certify_all.py --twice
-  anchors  genomics=f8cb0093b9b7447c… compliance=c67e7e8efd367644…
+  anchors  genomics=ab4c952b476a9d74… compliance=fd53645d33e5b097…
   PASS   genomics.determinism
+  PASS   genomics.semantic_integrity
   PASS   genomics.governed_interpretation
   PASS   verifiable.generality
   PASS   verifiable.cross_runtime
 chain certifies : True
-session cert    : 9b360cad56518c8a5a8c42ac2c97fe4bb17948bf1778b513f7c7db041ad6d142
+session cert    : 0749d65b0642c0f1dcba2982bed797cf8635faf7a1ecf24ee83fda475927537b
 reproducible    : True
 ```
 
 The CI gate (`.github/workflows/verifiable-proofs.yml`) pins this session certificate and
 asserts it is identical on Ubuntu x86-64 and macOS arm64 — so the whole proof substrate,
-not just one hash, is confirmed cross-platform reproducible on every change.
+not just one hash, is checked for cross-platform reproducibility on every change.
+Local v2 validation ran on Windows x86-64; the new Ubuntu/macOS matrix run must still pass.
 
 ## Honest scope
 
@@ -79,10 +81,30 @@ decision — with byte-identical guarantees. That is the generality behind "take
 trending wishlist; if its intermediate state can be canonicalized, this certifies it."
 ```
         ┌─────────────────────────────┐
-        │  verifiable/chain.py          │  ← one primitive (RFC 8785 → SHA-256 chain)
+        │  verifiable/chain.py          │  ← one primitive (v2 profile → SHA-256 chain)
         └───────────────┬──────────────┘
         ┌───────────────┴──────────────┐
    genomics variant caller      regulated decision-audit
    (REFERENCE…ANNOTATE)         (INTAKE…DECISION)
    + governed cached AI          + adverse-action codes
 ```
+
+## v2 receipt migration
+
+The shared and genomics-inline envelopes now use `aegis-integer-json-v2`, which
+preserves exact Unicode and binds the profile identifier into every stage. This is
+not full RFC 8785. All old unversioned stage, compliance and session hashes change;
+historical receipts must not be relabelled as v2. The regenerated fixture and CI pins
+come from successful Python/Node/Rust replay and two complete session runs.
+The session now includes the 20 semantic integrity regression tests.
+
+Cross-runtime replay deliberately supports only integers in JavaScript's safe range;
+Python's general-purpose envelope accepts arbitrary integers. Replayers reject
+missing/unknown profiles and the negative harness exercises profile, tamper, exact
+Unicode and numeric rejection. Hashes bind recorded fields, not provider identity
+or scientific/clinical authority, and require an independently trusted digest to
+detect wholesale replacement.
+
+On Windows, put Git Bash before WSL Bash on PATH when running `certify_all.py`.
+It resolves that Bash executable and passes the current Python interpreter to the
+replay script; direct `verify.sh` also accepts a `PYTHON` executable override.

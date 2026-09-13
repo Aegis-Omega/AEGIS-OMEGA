@@ -18,6 +18,7 @@ Exit 0 iff every proof passed AND the chain certifies.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 
@@ -39,11 +40,12 @@ COMPLIANCE_ANCHOR = run_decision(SAMPLE_APPLICANT).terminal_hash()
 
 # (label, cwd, argv). Each is an independent proof harness with a boolean verdict.
 PROOFS = [
-    ("genomics.determinism", GENOMICS, ["python3", "test_replay_proof.py"]),
-    ("genomics.governed_interpretation", GENOMICS, ["python3", "interpret_demo.py"]),
-    ("verifiable.generality", HERE, ["python3", "test_generality.py"]),
+    ("genomics.determinism", GENOMICS, [sys.executable, "test_replay_proof.py"]),
+    ("genomics.semantic_integrity", GENOMICS, [sys.executable, "-m", "unittest", "test_semantic_integrity"]),
+    ("genomics.governed_interpretation", GENOMICS, [sys.executable, "interpret_demo.py"]),
+    ("verifiable.generality", HERE, [sys.executable, "test_generality.py"]),
     ("verifiable.cross_runtime", os.path.join(HERE, "cross_language"),
-        ["bash", "verify.sh"]),
+        [shutil.which("bash") or "bash", "verify.sh"]),
 ]
 
 
@@ -57,6 +59,7 @@ def run_proof(cwd: str, argv: list) -> int:
     break the reproducibility guarantee this module asserts."""
     env = os.environ.copy()
     env["AEGIS_LIVE"] = "0"
+    env["PYTHON"] = sys.executable.replace("\\", "/")
     env.pop("ANTHROPIC_API_KEY", None)
     r = subprocess.run(argv, cwd=cwd, env=env,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

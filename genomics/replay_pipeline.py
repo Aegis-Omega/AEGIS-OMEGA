@@ -11,7 +11,7 @@ reproducible only "in spirit" — thread races, hash-map iteration order, and
 float non-determinism perturb outputs across runs and machines.
 
 This pipeline applies the SAME primitive the AEGIS runtime uses for governance
-(RFC 8785 canonical JSON -> SHA-256, hash-chained lineage) to a genomics
+(versioned canonical JSON -> SHA-256, hash-chained lineage) to a genomics
 workflow: reference load -> align -> pileup -> variant-call -> annotate.
 Every stage output is canonicalized and folded into a tamper-evident chain.
 
@@ -23,40 +23,46 @@ Proven invariants (asserted in tests):
      not independent digests) — mirrors src/frame/adaptive-lineage.ts.
 
 Determinism discipline (why this reproduces where others don't):
-  - No dict/set iteration in hashed state — sorted keys via RFC 8785.
+  - No dict/set iteration in hashed state — sorted string keys.
   - Integer/fixed arithmetic only in the call decision (no float thresholds).
   - Deterministic tie-breaking by (position, ref, alt) lexicographic order.
   - No wall-clock, no RNG, no thread-order dependence.
 
-Dependency-free: Python stdlib only (hashlib, json, unicodedata).
+Dependency-free: Python stdlib only.
 """
 from __future__ import annotations
 
 import hashlib
 import json
-import unicodedata
+import copy
 from dataclasses import dataclass, field
 
 GENESIS = "0" * 64
+CANONICAL_PROFILE = "aegis-integer-json-v2"
 
 
-# ── RFC 8785-style canonical serialization (mirrors src/core/canonicalize.ts) ──
+# ── Explicit integer-only canonical profile; not a full RFC 8785 implementation ──
 def canon(value) -> bytes:
-    """Deterministic bytes: sorted keys, NFC strings, no whitespace, UTF-8.
-    Rejects float (non-determinism source) — integers and strings only in
-    hashed state, exactly as the runtime forbids float in hash inputs."""
+    """Sorted string keys, exact strings, compact UTF-8 and no floats.
+
+    Unicode is not normalized: changing the recorded text must change its hash.
+    This local profile does not claim full cross-language RFC 8785 conformance.
+    """
     def check(v):
-        if isinstance(v, float):
-            raise TypeError("float in hashed state is forbidden (non-deterministic)")
-        if isinstance(v, dict):
-            for k in v:
-                check(v[k])
-        elif isinstance(v, (list, tuple)):
+        if v is None or type(v) in (bool, int, str):
+            return
+        if type(v) is dict:
+            for k, item in v.items():
+                if type(k) is not str:
+                    raise TypeError("hashed object keys must be strings")
+                check(item)
+        elif type(v) in (list, tuple):
             for x in v:
                 check(x)
+        else:
+            raise TypeError("unsupported type in hashed state")
     check(value)
     s = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    s = unicodedata.normalize("NFC", s)
     return s.encode("utf-8")
 
 
@@ -75,6 +81,7 @@ class StageRecord:
     def compute(self) -> str:
         # The chain: this stage's hash binds its output AND the prior hash.
         payload = {
+            "canonicalization": CANONICAL_PROFILE,
             "stage": self.stage,
             "sequence": self.sequence,
             "previous_hash": self.previous_hash,
@@ -89,8 +96,10 @@ class LineageChain:
     records: list = field(default_factory=list)
 
     def append(self, stage: str, output: dict) -> str:
+        if not isinstance(stage, str) or not stage or not isinstance(output, dict):
+            raise ValueError("a stage requires a name and an output object")
         prev = self.records[-1].stage_hash if self.records else GENESIS
-        rec = StageRecord(stage=stage, output=output,
+        rec = StageRecord(stage=stage, output=copy.deepcopy(output),
                           previous_hash=prev, sequence=len(self.records))
         rec.compute()
         self.records.append(rec)
@@ -103,10 +112,16 @@ class LineageChain:
         """Re-walk the chain; any tamper flips is_valid False and localizes it."""
         prev = GENESIS
         for i, rec in enumerate(self.records):
+            if not isinstance(rec, StageRecord):
+                return {"is_valid": False, "broken_at": "INVALID_RECORD", "sequence": i}
             expect_prev = prev
             recomputed = StageRecord(rec.stage, rec.output, expect_prev, rec.sequence)
-            recomputed.compute()
-            if recomputed.stage_hash != rec.stage_hash or rec.previous_hash != expect_prev:
+            try:
+                recomputed.compute()
+            except (TypeError, ValueError, RecursionError):
+                return {"is_valid": False, "broken_at": rec.stage, "sequence": i}
+            if (type(rec.sequence) is not int or rec.sequence != i or
+                    recomputed.stage_hash != rec.stage_hash or rec.previous_hash != expect_prev):
                 return {"is_valid": False, "broken_at": rec.stage, "sequence": i}
             prev = rec.stage_hash
         return {"is_valid": True, "broken_at": None, "terminal_hash": self.terminal_hash()}
@@ -118,13 +133,50 @@ class LineageChain:
 # decided by integer counts only (no float allele-frequency threshold).
 
 CALL_MIN_ALT = 2  # integer support threshold — deterministic, no float AF
+SIGNIFICANCES = frozenset({"pathogenic", "benign", "uncertain_significance"})
+
+
+def _validate_bases(bases: str) -> None:
+    if not isinstance(bases, str) or not bases or any(base not in "ACGT" for base in bases):
+        raise ValueError("toy pipeline sequences must be non-empty uppercase A/C/G/T strings")
+
+
+def validate_variants(variants: list, annotated: bool = True) -> None:
+    """Validate the toy caller's explicit SNP schema before hashing or rendering."""
+    if not isinstance(variants, list):
+        raise TypeError("variants must be a list")
+    seen = set()
+    for variant in variants:
+        if not isinstance(variant, (list, tuple)) or len(variant) != (5 if annotated else 4):
+            raise ValueError("invalid variant record shape")
+        pos, ref_b, alt_b, support = variant[:4]
+        if type(pos) is not int or pos < 0 or type(support) is not int or support < CALL_MIN_ALT:
+            raise ValueError("variant positions and read support must be valid integers")
+        if (not isinstance(ref_b, str) or len(ref_b) != 1 or ref_b not in "ACGT" or
+                not isinstance(alt_b, str) or len(alt_b) != 1 or alt_b not in "ACGT" or ref_b == alt_b):
+            raise ValueError("invalid variant alleles")
+        if annotated and (not isinstance(variant[4], str) or variant[4] not in SIGNIFICANCES):
+            raise ValueError("unknown annotation significance")
+        key = (pos, ref_b, alt_b)
+        if key in seen:
+            raise ValueError("duplicate variant")
+        seen.add(key)
 
 
 def load_reference(ref: str) -> dict:
+    _validate_bases(ref)
     return {"reference": ref, "length": len(ref)}
 
 
 def align(reads: list) -> dict:
+    if not isinstance(reads, list):
+        raise TypeError("reads must be a list")
+    for read in reads:
+        if not isinstance(read, dict) or set(read) != {"pos", "bases"}:
+            raise ValueError("a read requires exactly pos and bases")
+        if type(read["pos"]) is not int or read["pos"] < 0:
+            raise ValueError("read positions must be non-negative integers")
+        _validate_bases(read["bases"])
     # Deterministic sort: by (pos, bases). No hashmap order, no thread race.
     aligned = sorted(([r["pos"], r["bases"]] for r in reads),
                      key=lambda x: (x[0], x[1]))
@@ -135,11 +187,13 @@ def pileup(ref: str, aligned: list) -> dict:
     # Per-position base counts as SORTED lists of [base, count] — never a dict
     # in hashed state (dict iteration order is not guaranteed cross-impl).
     columns = {}
+    _validate_bases(ref)
     for pos, bases in aligned:
+        _validate_bases(bases)
+        if type(pos) is not int or pos < 0 or pos + len(bases) > len(ref):
+            raise ValueError("read extends outside the reference")
         for i, b in enumerate(bases):
             p = pos + i
-            if p >= len(ref):
-                continue
             columns.setdefault(p, {}).setdefault(b, 0)
             columns[p][b] += 1
     piled = []
@@ -167,12 +221,21 @@ CLINVAR_TOY = {  # (pos, ref, alt) -> significance. Sorted-key canon handles it.
 
 
 def annotate(variants: list) -> dict:
+    validate_variants(variants, annotated=False)
+    if any(not isinstance(sig, str) or sig not in SIGNIFICANCES for sig in CLINVAR_TOY.values()):
+        raise ValueError("unknown significance in annotation source")
     annotated = []
     for pos, ref_b, alt_b, support in variants:
         key = f"{pos}|{ref_b}|{alt_b}"
         annotated.append([pos, ref_b, alt_b, support,
                           CLINVAR_TOY.get(key, "uncertain_significance")])
-    return {"annotated_variants": annotated}
+    return {
+        "annotated_variants": annotated,
+        "annotation_source": {
+            "id": "AEGIS_CLINVAR_TOY", "version": "1",
+            "sha256": sha256_hex(canon(CLINVAR_TOY)),
+        },
+    }
 
 
 def run_pipeline(reference: str, reads: list) -> LineageChain:
@@ -201,7 +264,7 @@ SAMPLE_READS = [
     {"pos": 3, "bases": "TACGT"},
     {"pos": 0, "bases": "ACGTT"},
     {"pos": 5, "bases": "CGTAC"},
-    {"pos": 5, "bases": "TGTAC"},   # supports a T at pos 5 (ref A)
+    {"pos": 5, "bases": "TGTAC"},   # supports a T at pos 5 (ref C)
     {"pos": 4, "bases": "ATGTA"},   # supports a T at pos 5 again -> >=2
     {"pos": 9, "bases": "CGTAC"},
     {"pos": 2, "bases": "GTACG"},

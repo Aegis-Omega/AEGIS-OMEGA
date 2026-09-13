@@ -38,8 +38,9 @@ def canon(value) -> bytes:
     not normalize, so applying NFC here would make decomposed input digest
     differently across the two languages. Byte parity with the TS path is
     asserted by python/tests/test_canon_equivalence.py (via the shared
-    test/vectors/canon-vectors.json digests). This intentionally diverges
-    from verifiable/chain.py::canon, which still applies NFC."""
+    test/vectors/canon-vectors.json digests). The verifiable/chain.py v2
+    canonicalizer now agrees on these shared vectors, including decomposed
+    Unicode. The two envelope schemas and their version identifiers remain distinct."""
     def check(v):
         if isinstance(v, float):
             raise TypeError("float in hashed state is forbidden (non-deterministic)")

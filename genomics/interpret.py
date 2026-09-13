@@ -20,15 +20,15 @@ Composes three real AEGIS layers on top of the deterministic variant caller
 
 Why this is the thesis, stated honestly (the non-equivalence that matters):
   The chain does NOT claim the model will reproduce this text — LLM generation is
-  stochastic; re-running is not byte-identical. What the certificate proves is
-  INTEGRITY and PROVENANCE: *this exact interpretation was produced for this exact
-  variant set by this exact model, and nothing was edited afterward.* Determinism
+  stochastic; re-running is not byte-identical. The chain binds the recorded
+  interpretation, input variants and caller-supplied model identifier. It does
+  not authenticate the provider or prove which model produced the text. Determinism
   lives in the governance envelope, not in the generation. That is precisely the
   line between "the AI made it up and we can't tell" and "the AI's output is
   auditable evidence." (Non-equivalence: replayability ≠ correctness;
   governance ≠ alignment.)
 
-Offline by default: with no client, a fixed fixture interpretation is used so the
+Offline by default: with no client, an input-derived fixture interpretation is used so the
 composition and chain-binding are demonstrable/testable without spending credits.
 Pass a live client (or set AEGIS_LIVE=1 in interpret_demo) to make the real call.
 """
@@ -37,7 +37,7 @@ from __future__ import annotations
 import os
 import sys
 
-from replay_pipeline import canon, sha256_hex, LineageChain
+from replay_pipeline import canon, sha256_hex, LineageChain, validate_variants
 
 # The stable, per-call-invariant framing. This is the CACHED block: it must be
 # byte-identical across calls to hit the cache, so nothing patient-specific may
@@ -118,34 +118,41 @@ def _render_variants(variants: list) -> str:
     return "Called variants for this sample (integer read support, deterministic caller):\n" + "\n".join(lines)
 
 
-# A deterministic stand-in used when no live client is supplied. It is clearly
-# labeled as a fixture so it can never be mistaken for a real model interpretation.
-FIXTURE_INTERPRETATION = (
-    "SUMMARY: One low-support variant was called; evidence is weak and the artifact is advisory only.\n"
-    "PER-VARIANT:\n- pos 5: A>T, read_support=2, annotation=pathogenic. Two reads is weak support; the "
-    "annotation is provided, not independently established here.\nUNCERTAINTY: Orthogonal confirmation of "
-    "the pos-5 call is required before any clinical use; population context and phasing are unknown.\n"
-    "NOT-ESTABLISHED: This artifact does not diagnose, does not confirm pathogenicity, and does not assert "
-    "any variant beyond those listed. [FIXTURE — offline deterministic stand-in, not a model output]"
-)
+def _fixture_interpretation(variants: list) -> str:
+    """Render the supplied evidence verbatim; never substitute a fixed clinical call."""
+    summary = (f"{len(variants)} variant(s) passed the toy caller's support threshold."
+               if variants else "No variants were called above the support threshold.")
+    return (
+        f"SUMMARY: {summary}\nPER-VARIANT:\n{_render_variants(variants)}\n"
+        "UNCERTAINTY: Read counts and toy annotations are not independent clinical validation. "
+        "Coverage, population context, phasing and orthogonal confirmation remain unestablished.\n"
+        "NOT-ESTABLISHED: This artifact does not diagnose, establish pathogenicity, or establish a "
+        "negative clinical finding. [FIXTURE — input-derived offline stand-in, not a model output]"
+    )
 
 
 def interpret_variants(variants: list, client=None, model: str = "claude-opus-4-8",
                        ttl: str = "") -> dict:
     """Produce a governed clinical interpretation of the called variants.
 
-    If `client` is None, returns the deterministic FIXTURE (no credits spent).
+    If `client` is None, renders a deterministic fixture from the input (no credits spent).
     If a live Anthropic/AnthropicVertex client is passed, makes a prompt-cached
     Messages call and returns the real text plus cache-usage numbers.
 
     Returns: {text, model, cache_read_tokens, cache_creation_tokens, input_tokens,
-              output_tokens, live}.
+              output_tokens, live, input_variant_fingerprint, frame_fingerprint}.
     """
+    validate_variants(variants)
     dynamic = _render_variants(variants)
+    provenance = {
+        "input_variant_fingerprint": _variant_fingerprint(variants),
+        "frame_fingerprint": sha256_hex(STABLE_CLINICAL_FRAME.encode("utf-8")),
+    }
 
     if client is None:
         return {
-            "text": FIXTURE_INTERPRETATION, "model": "fixture", "live": False,
+            "text": _fixture_interpretation(variants), "model": "fixture", "live": False,
+            **provenance,
             "cache_read_tokens": 0, "cache_creation_tokens": 0,
             "input_tokens": 0, "output_tokens": 0,
         }
@@ -162,9 +169,12 @@ def interpret_variants(variants: list, client=None, model: str = "claude-opus-4-
         messages=[{"role": "user", "content": dynamic}],
     )
     text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
+    if not text.strip():
+        raise ValueError("model returned no interpretation text")
     u = resp.usage
     return {
         "text": text, "model": model, "live": True,
+        **provenance,
         "cache_read_tokens": getattr(u, "cache_read_input_tokens", 0) or 0,
         "cache_creation_tokens": getattr(u, "cache_creation_input_tokens", 0) or 0,
         "input_tokens": getattr(u, "input_tokens", 0) or 0,
@@ -175,15 +185,41 @@ def interpret_variants(variants: list, client=None, model: str = "claude-opus-4-
 def fold_interpretation(chain: LineageChain, variants: list, interp: dict) -> str:
     """Append the interpretation to the SAME lineage as an INTERPRET stage.
 
-    The payload binds: the model id, the input-variant fingerprint, and the exact
-    interpretation text. Editing the text OR the variants after the fact makes
-    chain.certify() fail and localize INTERPRET. Note the cache-usage numbers are
+    The payload binds model id, live/fixture mode, prompt frame, input fingerprint
+    and exact text. Input variants must match the chain's terminal ANNOTATE stage.
+    Editing stored text makes chain.certify() fail and localize INTERPRET.
+    Caller-supplied live dictionaries are not authenticated provider receipts;
+    fingerprints bind fields, but do not prove which provider produced the text.
+    Cache-usage numbers are
     metadata ABOUT the call, not part of the integrity payload — token counts are
     an operational fact, not part of what the certificate attests.
     """
+    validate_variants(variants)
+    if not chain.certify()["is_valid"]:
+        raise ValueError("cannot interpret a corrupt lineage")
+    if not chain.records or chain.records[-1].stage != "ANNOTATE":
+        raise ValueError("interpretation requires a terminal ANNOTATE stage")
+    if canon(chain.records[-1].output.get("annotated_variants")) != canon(variants):
+        raise ValueError("variants do not match the lineage's annotation output")
+    fingerprint = _variant_fingerprint(variants)
+    frame_fingerprint = sha256_hex(STABLE_CLINICAL_FRAME.encode("utf-8"))
+    if (not isinstance(interp, dict) or interp.get("input_variant_fingerprint") != fingerprint or
+            interp.get("frame_fingerprint") != frame_fingerprint):
+        raise ValueError("interpretation provenance does not match the input or frame")
+    if (not isinstance(interp.get("text"), str) or not interp["text"].strip() or
+            not isinstance(interp.get("model"), str) or not interp["model"].strip() or
+            type(interp.get("live")) is not bool):
+        raise ValueError("invalid interpretation payload")
+    if ((interp["live"] and interp["model"] == "fixture") or
+            (not interp["live"] and interp["model"] != "fixture")):
+        raise ValueError("interpretation mode and model are inconsistent")
+    if not interp["live"] and interp["text"] != _fixture_interpretation(variants):
+        raise ValueError("offline interpretation does not preserve the supplied evidence")
     payload = {
         "model": interp["model"],
-        "input_variant_fingerprint": _variant_fingerprint(variants),
+        "live": interp["live"],
+        "frame_fingerprint": frame_fingerprint,
+        "input_variant_fingerprint": fingerprint,
         "interpretation": interp["text"],
     }
     return chain.append("INTERPRET", payload)

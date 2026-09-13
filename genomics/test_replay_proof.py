@@ -65,5 +65,5 @@ if __name__ == "__main__":
     prove_chain_binding()
     print(f"[3] CHAIN-BOUND    PROVEN  each stage hash binds prior_hash")
     print("=" * 52)
-    print("RESULT: all three invariants proven. Terminal hash is a")
-    print("        medical-grade, reproducible, tamper-evident certificate.")
+    print("RESULT: all three toy-pipeline invariants passed. The hash")
+    print("        demonstrates integrity; it does not establish clinical validity.")

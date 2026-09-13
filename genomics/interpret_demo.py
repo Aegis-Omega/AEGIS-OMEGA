@@ -52,6 +52,8 @@ def main() -> int:
     # B + C. Governed interpretation with prompt caching. Two calls with an
     # identical stable prefix; the second should hit the cache.
     interp = interpret_variants(variants, client=client, model=model)
+    print(f"[B] input variant evidence: {variants}")
+    print(interp["text"])
     if live:
         interp2 = interpret_variants(variants, client=client, model=model)
         print(f"[C] call 1  cache_creation={interp['cache_creation_tokens']:>5}  "
@@ -76,6 +78,16 @@ def main() -> int:
     assert tampered["is_valid"] is False and tampered["broken_at"] == "INTERPRET", tampered
     print(f"[D] edited stored interpretation → certify is_valid={tampered['is_valid']}, "
           f"broken_at={tampered['broken_at']}")
+
+    # E. Evidence from another variant set cannot be admitted to this lineage.
+    fresh_chain = run_pipeline(SAMPLE_REFERENCE, SAMPLE_READS)
+    mismatched = [[5, "C", "G", 2, "benign"]]
+    try:
+        fold_interpretation(fresh_chain, mismatched, interp)
+    except ValueError as error:
+        print(f"[E] mismatched variant evidence rejected: {error}")
+    else:
+        raise AssertionError("mismatched variants must be rejected")
 
     print("=" * 72)
     print("RESULT: the AI interpretation is now auditable evidence — provenance and")

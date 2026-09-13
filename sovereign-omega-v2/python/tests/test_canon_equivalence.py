@@ -5,7 +5,7 @@ EPISTEMIC TIER: T0 (digest vectors) / T2 (envelope schema)
 Covers canonical_envelope.py (Provenance Phase 1):
   - Shared digest vectors (test/vectors/canon-vectors.json) — same digests the
     TypeScript T0 path produces (test/unit/canon-equivalence.test.ts)
-  - Byte parity with the canonicalization source of truth, verifiable/chain.py
+  - Byte parity with verifiable/chain.py v2 for the shared vector subset
   - encode_floats() transform (ADR 0001)
   - ExecutionEnvelope chain: seq monotonic, prev_hash linkage, genesis,
     float rejection without the transform
@@ -66,27 +66,21 @@ for vec in _VECTORS[:3]:
     runs = {ce.canon(vec['input']) for _ in range(3)}
     check(len(runs) == 1, f'canon deterministic x3: {vec["name"]}')
 
-# ─── Byte parity with verifiable/chain.py (source of truth) ───────────────────
+# ─── Byte parity with verifiable/chain.py v2 on shared vectors ────────────────
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 sys.path.insert(0, _REPO_ROOT)
 try:
-    from verifiable.chain import canon as chain_canon
+    from verifiable.chain import CANONICAL_PROFILE as CHAIN_CANONICAL_PROFILE, canon as chain_canon
 except ImportError:
     chain_canon = None
 
 if chain_canon is None:
     fail('verifiable/chain.py importable for parity check')
 else:
+    check(CHAIN_CANONICAL_PROFILE == 'aegis-integer-json-v2', 'shared chain profile is explicitly v2')
     for vec in _VECTORS:
-        if vec.get('nfc_divergent'):
-            # chain.py still applies NFC; ce.canon intentionally does not, so the
-            # two must DIVERGE on decomposed input (that is the point of the vector).
-            check(
-                ce.canon(vec['input']) != chain_canon(vec['input']),
-                f'canon diverges from verifiable/chain.py on NFC-divergent input: {vec["name"]}',
-            )
-            continue
+        # V2 preserves exact Unicode, so decomposed input must now agree too.
         check(
             ce.canon(vec['input']) == chain_canon(vec['input']),
             f'canon byte parity with verifiable/chain.py: {vec["name"]}',
