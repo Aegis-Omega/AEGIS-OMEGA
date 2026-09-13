@@ -72,7 +72,9 @@ def prove_same_envelope_across_domains():
     # Comparing only canon() misses changes to the stage hash preimage/profile.
     shared, genomics = SharedChain(), GenomicsChain()
     for stage, output in [("EXAMPLE", sample), ("NEXT", {"ok": True})]:
-        assert shared.append(stage, output) == genomics.append(stage, output), "stage envelope diverges"
+        shared_stage_hash = shared.append(stage, output)
+        genomics_stage_hash = genomics.append(stage, output)
+        assert shared_stage_hash == genomics_stage_hash, "stage envelope diverges"
     assert shared.certify()["is_valid"] and genomics.certify()["is_valid"]
 
     # Both must reject unsupported values in hashed state, identically.
