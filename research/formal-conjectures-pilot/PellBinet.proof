@@ -1,0 +1,16 @@
+  have hs : (√(2 : ℝ)) ^ 2 = 2 := Real.sq_sqrt (by norm_num)
+  have hn : (√(2 : ℝ)) ≠ 0 := ne_of_gt (Real.sqrt_pos.2 (by norm_num))
+  intro n
+  induction n using Nat.twoStepInduction with
+  | zero => norm_num [pellNumber]
+  | one =>
+    norm_num only [pellNumber, Nat.cast_one, pow_one]
+    field_simp [hn]
+    <;> ring
+  | more n ih₀ ih₁ =>
+    rw [pellNumber, Nat.cast_add, Nat.cast_mul, Nat.cast_ofNat, ih₀, ih₁]
+    simp only [pow_succ]
+    have hmul := congrArg (fun x : ℝ =>
+      ((1 + √(2 : ℝ)) ^ n - (1 - √(2 : ℝ)) ^ n) * x) hs
+    field_simp [hn]
+    nlinarith [hmul]

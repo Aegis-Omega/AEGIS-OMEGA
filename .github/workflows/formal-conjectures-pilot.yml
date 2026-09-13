@@ -1,0 +1,51 @@
+name: Formal Conjectures Pilot
+on:
+  push:
+    branches: ['codex/formal-benchmark-pilot-20260913']
+    paths:
+      - 'research/formal-conjectures-pilot/**'
+      - '.github/workflows/formal-conjectures-pilot.yml'
+permissions:
+  contents: read
+jobs:
+  lean-proof-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Fetch exact benchmark
+        run: |
+          git clone --depth 1 --branch bench-v1-lean4.27.0 https://github.com/google-deepmind/formal-conjectures.git /tmp/benchmark
+          test "$(git -C /tmp/benchmark rev-parse HEAD)" = 7a41db3d761324599812d6ca6cb6a9f311046dc7
+          python research/formal-conjectures-pilot/prepare.py /tmp/benchmark
+      - name: Install pinned Lean
+        run: |
+          curl -fLsS https://github.com/leanprover/lean4/releases/download/v4.27.0/lean-4.27.0-linux.tar.zst -o /tmp/lean.tar.zst
+          tar --zstd -xf /tmp/lean.tar.zst -C /tmp
+          echo '/tmp/lean-4.27.0-linux/bin' >> "$GITHUB_PATH"
+      - name: Restore compiled dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            /tmp/benchmark/.lake
+            ~/.cache/mathlib
+          key: aegis-formal-bench-7a41db3d-lean427-v1
+      - name: Compile exact target modules and audit proof assumptions
+        run: |
+          set -euo pipefail
+          cd /tmp/benchmark
+          lean --version
+          lake exe cache get
+          lake build FormalConjectures.Wikipedia.Pell FormalConjectures.GreensOpenProblems.72
+          lake env lean AegisAudit.lean 2>&1 | tee "$GITHUB_WORKSPACE/axioms.log"
+          python "$GITHUB_WORKSPACE/research/formal-conjectures-pilot/verify.py" "$GITHUB_WORKSPACE/axioms.log" | tee "$GITHUB_WORKSPACE/proof-receipt.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: formal-conjectures-pilot-evidence
+          path: |
+            axioms.log
+            proof-receipt.json
+          if-no-files-found: ignore
