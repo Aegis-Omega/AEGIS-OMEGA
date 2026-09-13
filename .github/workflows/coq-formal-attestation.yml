@@ -49,6 +49,7 @@ jobs:
           python.tests.test_coq_attestation_diagnostics
           python.tests.test_coq_build_binding
           python.tests.test_coq_assumption_output_integrity
+          python.tests.test_coq_assumption_capture
           python.tests.test_coq_projection_scope
           python.tests.test_coq_target_census
           -v
@@ -163,10 +164,9 @@ jobs:
                   query="$ASSUMPTIONS/${safe}__${theorem}.v"
                   printf 'Set Coqtop Exit On Error.\nRequire Import %s.\nPrint Assumptions %s.\n' \
                     "$module" "$theorem" > "$query"
-                  (
-                    cd "$FORMAL/$dir" || exit 1
-                    coqtop -q -quiet -batch -l "$query"
-                  ) >"$assumption_log" 2>&1 || exit 1
+                  python3 "$ROOT/python/coq_assumption_capture.py" \
+                    --directory "$FORMAL/$dir" --query "$query" \
+                    --output "$assumption_log" || exit 1
                   rm -f "$query"
                 done <<EOF
             $names
