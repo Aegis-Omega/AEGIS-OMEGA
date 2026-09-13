@@ -36,6 +36,31 @@ permissions:
 
 # ── SUBATOMIC — Constitutional membrane ──────────────────────────────────────
 jobs:
+  rh-audit:
+    name: RH Audit (structural)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate RH audit and run regressions
+        run: |
+          python scripts/validate-rh-audit.py
+          python -m unittest discover -s tests -p test_validate_rh_audit.py -v
+
+      - name: Validate RH audit and run regressions with optimization
+        env:
+          PYTHONOPTIMIZE: '1'
+        run: |
+          python -O scripts/validate-rh-audit.py
+          python -O -m unittest discover -s tests -p test_validate_rh_audit.py -v
+
   membrane:
     name: ⊕ SUBATOMIC · Constitutional Membrane [T0]
     runs-on: ubuntu-latest
