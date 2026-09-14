@@ -1,0 +1,35 @@
+{
+  "name": "AEGIS main trusted cognitive admission",
+  "target": "branch",
+  "enforcement": "evaluate",
+  "bypass_actors": [],
+  "conditions": {
+    "repository_id": {
+      "repository_ids": [
+        1095915905
+      ]
+    },
+    "ref_name": {
+      "include": [
+        "~DEFAULT_BRANCH"
+      ],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {
+      "type": "workflows",
+      "parameters": {
+        "do_not_enforce_on_create": false,
+        "workflows": [
+          {
+            "path": ".github/workflows/trusted-cognitive-admission.yml",
+            "ref": "refs/heads/repair/trusted-admission-v2",
+            "repository_id": 1095915905,
+            "sha": "6e175394d672ad04eb1f4d30bf688c1b0c5d9f6f"
+          }
+        ]
+      }
+    }
+  ]
+}
