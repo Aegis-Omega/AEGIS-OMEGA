@@ -1,0 +1,12 @@
+# EGRAPH-0 — equality saturation spike (AEGIS Polyglot Frontier Watchlist).
+# Standalone crate: the repository root Cargo.toml is a standalone [package]
+# with no [workspace], so this manifest is independent of every other crate.
+[package]
+name = "aegis-egraph-0"
+version = "0.1.0"
+edition = "2021"
+description = "EGRAPH-0 spike: equality saturation over the von Mangoldt shared-scale slice"
+publish = false
+
+[dependencies]
+egg = "0.9"
