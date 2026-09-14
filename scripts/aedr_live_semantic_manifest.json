@@ -1,0 +1,20 @@
+{
+  "semantic_edges": [
+    {
+      "consumer_pr": 364,
+      "provider_pr": 363,
+      "dependency_kind": "AMPS_GOVERNS_HARDENED_MPVC",
+      "requires_ancestry_binding": true
+    }
+  ],
+  "conflict_edges": [
+    {
+      "left_pr": 309,
+      "right_pr": 334,
+      "kind": "OVERLAP"
+    }
+  ],
+  "generated_paths": [
+    ".claude.json"
+  ]
+}
