@@ -4,8 +4,8 @@ on:
   push:
     branches: [feat/mhp1-derivation-composition-v1]
     paths:
+      - 'harness/sdk/heritage_composition_derivation.py'
       - 'harness/sdk/heritage_composition.py'
-      - 'harness/sdk/heritage_composition_base.py'
       - 'harness/sdk/meaning_heritage.py'
       - 'harness/tests/test_heritage_derivation_composition.py'
       - 'harness/tests/test_heritage_transitive_composition.py'
@@ -16,8 +16,8 @@ on:
       - '.github/workflows/mhp1-derivation-composition.yml'
   pull_request:
     paths:
+      - 'harness/sdk/heritage_composition_derivation.py'
       - 'harness/sdk/heritage_composition.py'
-      - 'harness/sdk/heritage_composition_base.py'
       - 'harness/sdk/meaning_heritage.py'
       - 'harness/tests/test_heritage_derivation_composition.py'
       - 'harness/tests/test_heritage_transitive_composition.py'
@@ -74,8 +74,8 @@ jobs:
         run: |
           python -m py_compile \
             harness/sdk/meaning_heritage.py \
-            harness/sdk/heritage_composition_base.py \
             harness/sdk/heritage_composition.py \
+            harness/sdk/heritage_composition_derivation.py \
             harness/tests/test_heritage_derivation_composition.py \
             harness/tests/test_heritage_transitive_composition.py \
             harness/tests/test_meaning_heritage_morphisms.py
@@ -108,8 +108,8 @@ jobs:
           from pathlib import Path
 
           out = Path('mhp1-derivation-composition-attestation')
-          kernel = Path('harness/sdk/heritage_composition.py')
-          base_kernel = Path('harness/sdk/heritage_composition_base.py')
+          kernel = Path('harness/sdk/heritage_composition_derivation.py')
+          base_kernel = Path('harness/sdk/heritage_composition.py')
           contract = Path('harness/tests/test_heritage_derivation_composition.py')
           parent_contract = Path('harness/tests/test_meaning_heritage_morphisms.py')
           log = out / 'pytest.log'

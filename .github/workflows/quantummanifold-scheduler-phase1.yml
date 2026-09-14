@@ -9,8 +9,8 @@ on:
       - 'harness/tests/test_quantummanifold_scheduler_phase1.py'
       - 'harness/sdk/meaning_heritage.py'
       - 'harness/sdk/morphisms.py'
-      - 'harness/sdk/heritage_composition_base.py'
       - 'harness/sdk/heritage_composition.py'
+      - 'harness/sdk/heritage_composition_derivation.py'
       - '.github/workflows/quantummanifold-scheduler-phase1.yml'
       - 'docs/superpowers/specs/QUANTUMMANIFOLD_SCHEDULER_PHASE1_DELTA_V1.md'
       - 'docs/superpowers/specs/QUANTUMMANIFOLD_SCHEDULER_PHASE1_API_CORRECTION_V1.md'
@@ -21,8 +21,8 @@ on:
       - 'harness/tests/test_quantummanifold_scheduler_phase1.py'
       - 'harness/sdk/meaning_heritage.py'
       - 'harness/sdk/morphisms.py'
-      - 'harness/sdk/heritage_composition_base.py'
       - 'harness/sdk/heritage_composition.py'
+      - 'harness/sdk/heritage_composition_derivation.py'
       - '.github/workflows/quantummanifold-scheduler-phase1.yml'
       - 'docs/superpowers/specs/QUANTUMMANIFOLD_SCHEDULER_PHASE1_DELTA_V1.md'
       - 'docs/superpowers/specs/QUANTUMMANIFOLD_SCHEDULER_PHASE1_API_CORRECTION_V1.md'
@@ -81,8 +81,8 @@ jobs:
             harness/tests/test_quantummanifold_scheduler_phase1.py \
             harness/sdk/meaning_heritage.py \
             harness/sdk/morphisms.py \
-            harness/sdk/heritage_composition_base.py \
-            harness/sdk/heritage_composition.py
+            harness/sdk/heritage_composition.py \
+            harness/sdk/heritage_composition_derivation.py
           if test -f harness/sdk/quantummanifold_scheduler.py; then
             python -m py_compile harness/sdk/quantummanifold_scheduler.py
           fi
@@ -137,8 +137,8 @@ jobs:
           mhp_paths = [
               Path('harness/sdk/meaning_heritage.py'),
               Path('harness/sdk/morphisms.py'),
-              Path('harness/sdk/heritage_composition_base.py'),
               Path('harness/sdk/heritage_composition.py'),
+              Path('harness/sdk/heritage_composition_derivation.py'),
           ]
 
           def sha(path: Path) -> str:
