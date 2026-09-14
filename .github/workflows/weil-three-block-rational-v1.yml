@@ -1,0 +1,144 @@
+name: Weil Three-Block Rational Certificate
+
+on:
+  push:
+    branches:
+      - 'proof/weil-three-block-rational-v1-cf660498'
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockRationalV1.lean'
+      - '.github/workflows/weil-three-block-rational-v1.yml'
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockRationalV1.lean'
+      - '.github/workflows/weil-three-block-rational-v1.yml'
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  PROOF_SHA256: f6076a2cb13107151c352675a8f460b18981c48c6158802b31b08b1e6b0f5eb6
+
+jobs:
+  finite-certificate:
+    name: finite arithmetic and conditional budget only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout pinned Mathlib
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: leanprover-community/mathlib4
+          ref: ${{ env.MATHLIB_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.SOURCE_SHA }}
+          path: .aegis
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact source and dependency pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(cat lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockRationalV1.lean .
+          printf '%s  %s\n' "$PROOF_SHA256" WeilThreeBlockRationalV1.lean | sha256sum -c -
+          printf 'SOURCE_SHA=%s\nMATHLIB_SHA=%s\nLEAN_TOOLCHAIN=%s\n' "$SOURCE_SHA" "$MATHLIB_SHA" "$LEAN_TOOLCHAIN" > exact-source.log
+          sha256sum WeilThreeBlockRationalV1.lean lake-manifest.json >> exact-source.log
+          sha256sum .aegis/.github/workflows/weil-three-block-rational-v1.yml >> exact-source.log
+
+      - name: Install pinned toolchain and obtain targeted Mathlib cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          export PATH="$HOME/.elan/bin:$PATH"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          lake exe cache get Mathlib/Data/Real/Basic.lean Mathlib/Tactic/NormNum.lean Mathlib/Tactic/Ring.lean Mathlib/Tactic/Positivity.lean Mathlib/Tactic/Linarith.lean
+          lean --version >> exact-source.log
+
+      - name: Compile finite certificate and audit all theorem closures
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .lake/build/lib/lean
+          lake env lean -o .lake/build/lib/lean/WeilThreeBlockRationalV1.olean WeilThreeBlockRationalV1.lean 2>&1 | tee lean-proof.log
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re
+          source = Path('WeilThreeBlockRationalV1.lean').read_text()
+          names = re.findall(r'^theorem ([A-Za-z0-9_]+)', source, re.M)
+          if len(names) != 12 or len(set(names)) != 12:
+              raise SystemExit('FAIL: missing, duplicate or unexpected theorem declarations')
+          expected = {'propext', 'Classical.choice', 'Quot.sound'}
+          log = Path('lean-proof.log').read_text()
+          closures = {}
+          for short in names:
+              name = 'AEGIS.WeilThreeBlockRationalV1.' + short
+              zero = "'" + name + "' does not depend on any axioms"
+              pattern = re.escape("'" + name + "' depends on axioms: ") + r'\[([^\]]*)\]'
+              matches = re.findall(pattern, log, re.S)
+              if zero in log and not matches:
+                  axioms = set()
+              elif len(matches) == 1 and zero not in log:
+                  axioms = {a.strip() for a in matches[0].split(',') if a.strip()}
+              else:
+                  raise SystemExit('FAIL: incomplete or ambiguous axiom audit for ' + name)
+              if not axioms <= expected:
+                  raise SystemExit('FAIL: forbidden axiom closure for ' + name + ': ' + repr(axioms))
+              closures[name] = sorted(axioms)
+          Path('axiom-audit.json').write_text(json.dumps(closures, indent=2) + '\n')
+          print('PASS: all 12 finite-scope theorem closures audited')
+          print('ANALYTIC_BINDING=OPEN; OPERATOR_NORM_BINDING=OPEN; GLOBAL_WEIL_SIGN=OPEN; RH=NOT_PROVEN; authority_effect=NONE')
+          PY
+          sha256sum .lake/build/lib/lean/WeilThreeBlockRationalV1.olean >> exact-source.log
+
+      - name: Require rejection of a false stronger bound
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > NegativeControl.lean <<'LEAN'
+          import WeilThreeBlockRationalV1
+          open AEGIS.WeilThreeBlockRationalV1
+          example : offdiagMajorant 10 11 10 ≤ (9 / 10 : ℝ) * energy 10 11 10 := by
+            norm_num [energy, offdiagMajorant]
+          LEAN
+          if lake env lean NegativeControl.lean > negative-control.log 2>&1; then
+            echo 'FAIL: false stronger bound was accepted'
+            exit 1
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          log = Path('negative-control.log').read_text()
+          if 'error:' not in log or 'False' not in log:
+              raise SystemExit('FAIL: negative control failed for an unexpected reason')
+          print('PASS: false 9/10 bound rejected on the exact vector (10,11,10)')
+          PY
+
+      - name: Upload bounded exact-head evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: weil-three-block-${{ env.SOURCE_SHA }}
+          path: |
+            WeilThreeBlockRationalV1.lean
+            .lake/build/lib/lean/WeilThreeBlockRationalV1.olean
+            NegativeControl.lean
+            exact-source.log
+            lean-proof.log
+            axiom-audit.json
+            negative-control.log
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 30
