@@ -35,7 +35,7 @@ import anthropic
 from agents.tools import TOOL_SCHEMAS, execute_tool, tools_for_role
 
 MAX_TOOL_ROUNDS = int(os.environ.get("AEGIS_MAX_TOOL_ROUNDS", "8"))
-DEFAULT_MODEL = os.environ.get("AEGIS_DEFAULT_MODEL", "claude-opus-4-8")
+DEFAULT_MODEL = os.environ.get("AEGIS_DEFAULT_MODEL", "claude-opus-5")
 
 
 @dataclass

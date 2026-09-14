@@ -15,7 +15,7 @@ const client = GCP_PROJECT
   ? new AnthropicVertex({ projectId: GCP_PROJECT, region: GCP_REGION })
   : new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY ?? '' })
 
-const MODEL      = process.env.CLAUDE_MODEL      ?? 'claude-sonnet-4-6'
+const MODEL      = process.env.CLAUDE_MODEL      ?? 'claude-opus-5'
 const MAX_TOKENS = parseInt(process.env.CLAUDE_MAX_TOKENS ?? '2048')
 
 // Optional per-IP rate limiting (requests per minute, 0 = off)

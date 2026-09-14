@@ -88,7 +88,7 @@ export async function* streamClaude(opts: StreamOptions): AsyncGenerator<string>
   // Routes through the AEGIS bridge (/claude/stream) which applies the constitutional
   // system prompt and keeps the API key server-side. Bridge must be running on port 7890.
   const bridgeUrl = import.meta.env.VITE_BRIDGE_URL ?? 'http://localhost:7890'
-  const model = import.meta.env.VITE_CLAUDE_MODEL ?? 'claude-sonnet-4-6'
+  const model = import.meta.env.VITE_CLAUDE_MODEL ?? 'claude-opus-5'
   const maxTokens = Number(import.meta.env.VITE_CLAUDE_MAX_TOKENS ?? '2048')
 
   const res = await fetch(`${bridgeUrl}/claude/stream`, {

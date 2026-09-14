@@ -30,7 +30,7 @@ import pathlib
 from dataclasses import dataclass, field
 
 # ── Config (env, explicit) ──────────────────────────────────────────────────
-MODEL = os.environ.get("AEGIS_SWARM_MODEL", "claude-opus-4-8")
+MODEL = os.environ.get("AEGIS_SWARM_MODEL", "claude-opus-5")
 MAX_TOKENS = int(os.environ.get("AEGIS_BATCH_MAX_TOKENS", "2048"))
 MAX_USD = float(os.environ.get("AEGIS_BATCH_MAX_USD", "1.00"))
 LIVE = os.environ.get("AEGIS_BATCH_LIVE") == "1"
@@ -38,7 +38,8 @@ STORE_DIR = pathlib.Path(os.environ.get(
     "AEGIS_BATCH_STORE", str(pathlib.Path(__file__).parent / ".batch_state")))
 
 # Per-1M-token USD (Opus 4.8); Batches API applies a 50% discount to both.
-_PRICE = {"claude-opus-4-8": (5.0, 25.0), "claude-sonnet-4-6": (3.0, 15.0),
+_PRICE = {"claude-opus-5": (5.0, 25.0), "claude-opus-4-8": (5.0, 25.0),
+          "claude-sonnet-4-6": (3.0, 15.0),
           "claude-haiku-4-5": (1.0, 5.0)}
 _BATCH_DISCOUNT = 0.5
 
@@ -84,7 +85,7 @@ def _tok(text: str) -> int:
 
 def estimate(tasks: list[AgentTask], model: str) -> float:
     """Worst-case USD: every task emits its full max_tokens. Batch = 50% off."""
-    in_price, out_price = _PRICE.get(model, _PRICE["claude-opus-4-8"])
+    in_price, out_price = _PRICE.get(model, _PRICE["claude-opus-5"])
     total = 0.0
     for t in tasks:
         tin = _tok(t.system) + _tok(t.prompt)

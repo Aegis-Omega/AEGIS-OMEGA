@@ -23,7 +23,7 @@ const BETA_HEADER = 'managed-agents-2026-04-01'
 
 export const AEGIS_AGENT_DEFINITION = {
   name: 'AEGIS-Ω Constitutional Agent',
-  model: 'claude-sonnet-4-6',
+  model: 'claude-opus-5',
   system_prompt: `${AEGIS_CONSTITUTIONAL_SYSTEM_PROMPT}
 
 TOOLS AVAILABLE:
@@ -89,7 +89,7 @@ export class ManagedAgentClient {
         tools: [
           { type: 'bash_20250124', name: 'bash' },
           { type: 'text_editor_20250429', name: 'str_replace_based_edit_tool' },
-          { type: 'web_search_20250305', name: 'web_search' },
+          { type: 'web_search_20260209', name: 'web_search' },
         ],
       })
       this._agentId = agent.id

@@ -48,7 +48,7 @@ for _p in (_SELF_DIR, os.path.join(_SELF_DIR, "..")):
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
-DEFAULT_MODEL = os.environ.get("AEGIS_DEFAULT_MODEL", "claude-opus-4-8")
+DEFAULT_MODEL = os.environ.get("AEGIS_DEFAULT_MODEL", "claude-opus-5")
 CHAIN_KEY = "aegis:chain"
 GENESIS_HASH = "0" * 64
 MAX_CHAIN_ENTRIES = 50_000  # Redis list cap

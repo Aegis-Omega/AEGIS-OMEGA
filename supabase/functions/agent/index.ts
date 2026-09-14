@@ -92,7 +92,7 @@ async function runAgent(task: string, context?: string): Promise<{ result: strin
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5',
+        model: 'claude-opus-5',
         max_tokens: 1024,
         system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
         tools: TOOLS,

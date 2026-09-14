@@ -92,7 +92,7 @@ async function runSwarm(objective: string, mode: string, apiKey: string): Promis
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-opus-4-8',
+      model: 'claude-opus-5',
       max_tokens: 4096,
       system: `You are the AEGIS constitutional swarm coordinator.
 Mode: ${mode}. Constitutional law: AdaptivePower(T) ≤ ReplayVerifiability(T). φ = ${PHI}.

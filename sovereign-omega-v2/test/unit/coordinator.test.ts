@@ -60,7 +60,7 @@ describe('CoordinatorRecord — Abjad identity constants (T0)', () => {
 describe('CoordinatorRecord — factory and verification', () => {
   it('buildCoordinatorRecord returns a valid frozen record', async () => {
     const record = await buildCoordinatorRecord()
-    expect(record.model_id).toBe('claude-sonnet-4-6')
+    expect(record.model_id).toBe('claude-opus-5')
     expect(record.role).toBe('coordinator')
     expect(record.is_replay_reconstructable).toBe(true)
     expect(record.schema_version).toBe(COORDINATOR_SCHEMA_VERSION)
@@ -175,8 +175,8 @@ describe('OrchestrationAlliance — three-member swarm', () => {
 })
 
 describe('ModelEndpoints — individual endpoint constants', () => {
-  it('CLAUDE_ENDPOINT model_id = claude-sonnet-4-6', () => {
-    expect(CLAUDE_ENDPOINT.model_id).toBe('claude-sonnet-4-6')
+  it('CLAUDE_ENDPOINT model_id = claude-opus-5', () => {
+    expect(CLAUDE_ENDPOINT.model_id).toBe('claude-opus-5')
     expect(CLAUDE_ENDPOINT.provider).toBe('anthropic')
   })
 

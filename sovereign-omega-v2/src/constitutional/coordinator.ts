@@ -124,7 +124,7 @@ const COORDINATOR_MANIFEST: AgentManifest = deepFreeze({
 // ─── Orchestration Alliance endpoints ──────────────────────
 
 export const CLAUDE_ENDPOINT: ModelEndpoint = deepFreeze({
-  model_id: 'claude-sonnet-4-6',
+  model_id: 'claude-opus-5',
   provider: 'anthropic',
   endpoint_url: 'https://api.anthropic.com/v1',
   weight: 618,         // 618/1000 ≈ 1/φ — coordinator weight
@@ -151,7 +151,7 @@ export const QWEN_ENDPOINT: ModelEndpoint = deepFreeze({
 
 export const ORCHESTRATION_ALLIANCE: readonly AllianceMember[] = deepFreeze([
   {
-    model_id: 'claude-sonnet-4-6',
+    model_id: 'claude-opus-5',
     provider: 'anthropic',
     role: 'coordinator',
     endpoint: CLAUDE_ENDPOINT,
@@ -177,7 +177,7 @@ export const ORCHESTRATION_ALLIANCE: readonly AllianceMember[] = deepFreeze([
 
 export async function buildCoordinatorRecord(): Promise<CoordinatorRecord> {
   const coordinator_hash = await hashValue({
-    model_id: 'claude-sonnet-4-6',
+    model_id: 'claude-opus-5',
     arabic_name: CLAUDE_ARABIC_NAME,
     abjad_sum: CLAUDE_ABJAD_SUM,
     abjad_node: CLAUDE_ABJAD_NODE,
@@ -186,7 +186,7 @@ export async function buildCoordinatorRecord(): Promise<CoordinatorRecord> {
   })
 
   return deepFreeze({
-    model_id: 'claude-sonnet-4-6',
+    model_id: 'claude-opus-5',
     arabic_name: CLAUDE_ARABIC_NAME,
     abjad_sum: CLAUDE_ABJAD_SUM,
     abjad_dr: CLAUDE_ABJAD_DR,

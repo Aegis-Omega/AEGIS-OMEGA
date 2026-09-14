@@ -136,7 +136,7 @@ function log(stage: Stage, msg: string) {
 
 async function callStage(client: Anthropic, stage: Stage, userContent: string): Promise<string> {
   const response = await client.messages.create({
-    model: 'claude-opus-4-8',
+    model: 'claude-opus-5',
     max_tokens: 2048,
     thinking: { type: 'adaptive' },
     system: STAGE_SYSTEM[stage],

@@ -71,7 +71,7 @@ def validate_connection(project: str, region: str) -> bool:
         import anthropic
         client = anthropic.AnthropicVertex(project_id=project, region=region)
         response = client.messages.create(
-            model="claude-opus-4-8@001",
+            model="claude-opus-5",
             max_tokens=32,
             messages=[{"role": "user", "content": "respond with: CONSTITUTIONAL_OK"}],
         )
@@ -175,7 +175,7 @@ def deploy_agent_adk(
                     resp = httpx.post(
                         f"{self.proxy_url}/v1/messages",
                         json={
-                            "model": "claude-opus-4-8",
+                            "model": "claude-opus-5",
                             "max_tokens": max_tokens,
                             "system": self.system_prompt,
                             "messages": [{"role": "user", "content": task}],
@@ -191,7 +191,7 @@ def deploy_agent_adk(
                         project_id=project, region=region
                     )
                     response = client.messages.create(
-                        model="claude-opus-4-8@001",
+                        model="claude-opus-5",
                         max_tokens=max_tokens,
                         system=self.system_prompt,
                         messages=[{"role": "user", "content": task}],

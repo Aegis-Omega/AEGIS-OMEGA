@@ -7,7 +7,7 @@ Composes three real AEGIS layers on top of the deterministic variant caller
 
   1. GOVERNED INFERENCE  — the AI interpretation is produced by a Claude call
      routed through the same client factory the runtime uses
-     (sovereign-omega-v2/python/anth_client.py), default model claude-opus-4-8
+     (sovereign-omega-v2/python/anth_client.py), default model claude-opus-5
      (AEGIS_SWARM_MODEL).
   2. PROMPT CACHING      — the stable constitutional/clinical framing is sent as
      a cache_control=ephemeral block (make_cached_system). Identical bytes across
@@ -130,7 +130,7 @@ FIXTURE_INTERPRETATION = (
 )
 
 
-def interpret_variants(variants: list, client=None, model: str = "claude-opus-4-8",
+def interpret_variants(variants: list, client=None, model: str = "claude-opus-5",
                        ttl: str = "") -> dict:
     """Produce a governed clinical interpretation of the called variants.
 

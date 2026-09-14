@@ -51,7 +51,6 @@ export interface ConstitutionalRequest {
   readonly model: string
   readonly max_tokens: number
   readonly system?: string
-  readonly temperature?: number
   readonly use_constitutional_prompt?: boolean
 }
 
@@ -112,7 +111,6 @@ export class ConstitutionalClaudeClient {
         role: m.role as 'user' | 'assistant',
         content: m.content,
       })),
-      ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
     })
 
     const response_text = response.content
@@ -181,10 +179,10 @@ export class ConstitutionalClaudeClient {
     }
   }
 
-  /** Quick one-shot call for simple queries. Uses Haiku for speed. */
+  /** Quick one-shot call for simple queries. */
   async quickAsk(
     question: string,
-    model = 'claude-haiku-4-5-20251001',
+    model = 'claude-opus-5',
     maxTokens = 1024,
   ): Promise<ConstitutionalResponse> {
     return this.send({
@@ -194,11 +192,17 @@ export class ConstitutionalClaudeClient {
     })
   }
 
-  /** Send with extended thinking enabled (Sonnet/Opus only). */
+  /**
+   * Send with adaptive thinking enabled.
+   *
+   * `effort` replaces the former fixed `thinkingBudget`: Claude decides how
+   * much to think, bounded by the effort level.  Note that `max_tokens` caps
+   * thinking *plus* response text, so a tight cap can truncate the answer.
+   */
   async think(
     messages: readonly ConstitutionalMessage[],
-    model = 'claude-sonnet-4-6',
-    thinkingBudget = 8000,
+    model = 'claude-opus-5',
+    effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' = 'high',
     maxTokens = 16000,
   ): Promise<ConstitutionalResponse> {
     const systemPrompt = AEGIS_CONSTITUTIONAL_SYSTEM_PROMPT
@@ -213,10 +217,8 @@ export class ConstitutionalClaudeClient {
       model,
       max_tokens: maxTokens,
       system: systemPrompt,
-      thinking: {
-        type: 'enabled',
-        budget_tokens: thinkingBudget,
-      },
+      thinking: { type: 'adaptive' },
+      output_config: { effort },
       messages: messages.map(m => ({
         role: m.role as 'user' | 'assistant',
         content: m.content,

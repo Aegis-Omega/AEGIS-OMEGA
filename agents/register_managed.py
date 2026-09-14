@@ -80,7 +80,7 @@ def register_agents(force: bool = False, only: str | None = None) -> None:
     departments = config.get("departments", {})
     default_model = (
         config.get("backends", {}).get("anthropic", {}).get("default_model")
-        or os.environ.get("AEGIS_DEFAULT_MODEL", "claude-opus-4-8")
+        or os.environ.get("AEGIS_DEFAULT_MODEL", "claude-opus-5")
     )
 
     created = 0
