@@ -5,7 +5,7 @@ from dataclasses import fields, replace
 
 import pytest
 
-from harness.sdk import heritage_composition as hc
+from harness.sdk import heritage_composition_derivation as hc
 from harness.sdk.meaning_heritage import PreservationRelation
 
 
@@ -22,7 +22,23 @@ preservation_edge = PARENT["preservation_edge"]
 derivation_addition = PARENT["derivation_addition"]
 lineage = PARENT["lineage"]
 issue_heritage = PARENT["issue_heritage"]
-kernel = PARENT["kernel"]
+
+
+def kernel() -> hc.HeritageCompositionKernelV1:
+    """Derivation-aware kernel.
+
+    The parent module's factory builds the kernel that ``harness.sdk``
+    exports as ``heritage_composition``, which is the base transitive
+    kernel.  This suite exercises the derivation extension, so it binds the
+    class explicitly instead of inheriting whichever class the parent
+    module happened to import.
+    """
+    return hc.HeritageCompositionKernelV1(
+        verifier_root=h("TC_COMPOSITION_VERIFIER", 1),
+        policy_root=h("TC_COMPOSITION_POLICY", 1),
+    )
+
+
 TransformRelation = PARENT["TransformRelation"]
 
 
