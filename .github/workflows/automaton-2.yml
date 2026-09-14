@@ -79,6 +79,7 @@ jobs:
       - name: Run Automaton-2 negative and determinism tests
         run: |
           python scripts/test-cognitive-anchor-writer-boundary.py
+          python scripts/test-claude-authority-boundary.py
           python sovereign-omega-v2/python/tests/test_automaton2.py
 
       - name: Validate candidate and emit receipt
