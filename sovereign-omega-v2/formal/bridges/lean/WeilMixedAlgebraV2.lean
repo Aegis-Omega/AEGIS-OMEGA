@@ -189,7 +189,7 @@ theorem rhs_paired_conjugate (f g : ℝ → ℂ)
       exact_mod_cast hx0.ne'
     rw [hgx, hfx, h1]
     simp [Complex.star_def, div_eq_mul_inv, hxC, Complex.conj_ofNat]
-    <;> ring
+    <;> simp
   simp only [WeilExplicitRightSideV1, hp, ha, h1, map_add, map_mul,
     WeilArchimedeanConstantV1, Complex.conj_ofReal]
 
