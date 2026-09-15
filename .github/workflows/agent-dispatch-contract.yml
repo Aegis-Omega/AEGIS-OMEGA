@@ -1,0 +1,60 @@
+name: Agent Dispatch Contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/agent-dispatch.yml'
+      - '.github/workflows/agent-dispatch-contract.yml'
+      - 'scripts/agent_dispatch_payload.py'
+      - 'scripts/test_agent_dispatch_payload.py'
+      - 'scripts/test_agent_dispatch_contract.py'
+      - 'scripts/test_platform_authority_boundary.py'
+      - 'vertex/authority_boundary.py'
+      - 'vertex/runtime.py'
+      - 'vertex/Dockerfile'
+  push:
+    branches: [repair/agent-dispatch-current-main-v1]
+    paths:
+      - '.github/workflows/agent-dispatch.yml'
+      - '.github/workflows/agent-dispatch-contract.yml'
+      - 'scripts/agent_dispatch_payload.py'
+      - 'scripts/test_agent_dispatch_payload.py'
+      - 'scripts/test_agent_dispatch_contract.py'
+      - 'scripts/test_platform_authority_boundary.py'
+      - 'vertex/authority_boundary.py'
+      - 'vertex/runtime.py'
+      - 'vertex/Dockerfile'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Agent dispatch authority contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+      - name: Run dispatch event classifier tests
+        run: python3 scripts/test_agent_dispatch_payload.py -v
+
+      - name: Run dispatch authority contract
+        run: python3 scripts/test_agent_dispatch_contract.py -v
+
+      - name: Run platform authority-boundary behavior
+        run: python3 scripts/test_platform_authority_boundary.py -v

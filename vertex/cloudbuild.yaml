@@ -34,10 +34,9 @@ steps:
       - --image=us-central1-docker.pkg.dev/$PROJECT_ID/aegis-registry/constitutional-proxy:$COMMIT_SHA
       - --region=us-central1
       - --platform=managed
-      # ANTHROPIC_API_KEY powers live agent runs; PLATFORM_API_KEY gates the
-      # cost-incurring routes (collaborate / agents.run / messages). Create the
-      # platform-api-key secret before first deploy, or the in-app gate stays
-      # open (PLATFORM_API_KEY unset → catalog/health public, no key required).
+      # ANTHROPIC_API_KEY powers live agent runs. PLATFORM_API_KEY is mandatory
+      # authority for paid routes: the outer ASGI membrane returns 503 if the
+      # secret is absent, so missing deployment configuration cannot fail open.
       - --set-secrets=ANTHROPIC_API_KEY=anthropic-api-key:latest,PLATFORM_API_KEY=platform-api-key:latest
       - --set-env-vars=AEGIS_DEFAULT_MODEL=claude-opus-4-8,RATE_LIMIT_PER_MIN=60
       - --allow-unauthenticated
