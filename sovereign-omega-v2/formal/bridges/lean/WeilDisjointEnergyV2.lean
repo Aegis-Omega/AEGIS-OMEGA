@@ -1,5 +1,6 @@
 import WeilThreeBlockComplexV2
 import Mathlib.MeasureTheory.Integral.Bochner.Basic
+import Mathlib.MeasureTheory.Measure.Lebesgue.Basic
 
 /-! Exact L2-energy decomposition on three pointwise disjoint supports.
 Integrability hypotheses are retained, not replaced by totalized integrals.
@@ -9,7 +10,7 @@ set_option autoImplicit false
 noncomputable section
 namespace AEGIS.WeilDisjointEnergyV2
 
-def energy (f : ℝ → ℂ) : ℝ := ∫ t : ℝ, ‖f t‖ ^ 2
+def energy (f : ℝ → ℂ) : ℝ := ∫ t : ℝ, ‖f t‖ ^ 2 ∂volume
 
 def l2 (f : ℝ → ℂ) : ℝ := Real.sqrt (energy f)
 
@@ -28,9 +29,9 @@ theorem disjoint_pointwise (z0 z1 z2 a b c : ℂ)
   · rcases hac with rfl | rfl <;> simp [norm_mul, mul_pow]
 
 theorem disjoint_integral (z0 z1 z2 : ℂ) (f0 f1 f2 : ℝ → ℂ)
-    (h0 : Integrable (fun t => ‖f0 t‖ ^ 2))
-    (h1 : Integrable (fun t => ‖f1 t‖ ^ 2))
-    (h2 : Integrable (fun t => ‖f2 t‖ ^ 2))
+    (h0 : Integrable (fun t => ‖f0 t‖ ^ 2) volume)
+    (h1 : Integrable (fun t => ‖f1 t‖ ^ 2) volume)
+    (h2 : Integrable (fun t => ‖f2 t‖ ^ 2) volume)
     (h01 : ∀ t, f0 t = 0 ∨ f1 t = 0)
     (h02 : ∀ t, f0 t = 0 ∨ f2 t = 0)
     (h12 : ∀ t, f1 t = 0 ∨ f2 t = 0) :
@@ -43,9 +44,9 @@ theorem disjoint_integral (z0 z1 z2 : ℂ) (f0 f1 f2 : ℝ → ℂ)
   simp only [integral_const_mul]
 
 theorem quotient_free_norm_identity (z0 z1 z2 : ℂ) (f0 f1 f2 : ℝ → ℂ)
-    (h0 : Integrable (fun t => ‖f0 t‖ ^ 2))
-    (h1 : Integrable (fun t => ‖f1 t‖ ^ 2))
-    (h2 : Integrable (fun t => ‖f2 t‖ ^ 2))
+    (h0 : Integrable (fun t => ‖f0 t‖ ^ 2) volume)
+    (h1 : Integrable (fun t => ‖f1 t‖ ^ 2) volume)
+    (h2 : Integrable (fun t => ‖f2 t‖ ^ 2) volume)
     (h01 : ∀ t, f0 t = 0 ∨ f1 t = 0)
     (h02 : ∀ t, f0 t = 0 ∨ f2 t = 0)
     (h12 : ∀ t, f1 t = 0 ∨ f2 t = 0) :

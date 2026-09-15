@@ -28,7 +28,10 @@ theorem sum_support (a b : WeilCompactSmoothGV1) :
 def addPacket (a b : WeilCompactSmoothGV1) : WeilCompactSmoothGV1 :=
   ⟨fun t => a.1 t + b.1 t, a.2.1.add b.2.1,
     (a.2.2.1.union b.2.2.1).of_isClosed_subset (isClosed_tsupport _) (sum_support a b),
-    fun _ ht => (sum_support a b ht).elim a.2.2.2 b.2.2.2⟩
+    fun x hx =>
+      (sum_support a b hx).elim
+        (fun ha => a.2.2.2 ha)
+        (fun hb => b.2.2.2 hb)⟩
 
 theorem scale_support (z : ℂ) (a : WeilCompactSmoothGV1) :
     tsupport (fun t => z * a.1 t) ⊆ tsupport a.1 := by
@@ -177,9 +180,13 @@ theorem rhs_paired_conjugate (f g : ℝ → ℂ)
     apply setIntegral_congr_fun measurableSet_Ioi
     intro x hx
     unfold WeilArchimedeanIntegrandV1
-    rw [reflected f g hfg (lt_trans zero_lt_one hx),
-      reflected g f hgf (lt_trans zero_lt_one hx)]
-    simp [h1, add_comm, Complex.conj_ofNat]
+    have hx0 : 0 < x := lt_trans zero_lt_one hx
+    have hfx := hfg x hx0
+    have hgx := hgf x hx0
+    rw [hfx, hgx, h1]
+    have hxC : (x : ℂ) ≠ 0 := by
+      exact_mod_cast hx0.ne'
+    simp [div_eq_mul_inv, hxC, add_comm, Complex.conj_ofNat]
   simp only [WeilExplicitRightSideV1, hp, ha, h1, map_add, map_mul,
     WeilArchimedeanConstantV1, Complex.conj_ofReal]
 
@@ -196,13 +203,15 @@ def combo (z0 z1 z2 : ℂ) (g0 g1 g2 : WeilCompactSmoothGV1) : WeilCompactSmooth
 /-- The exact complex coefficient expansion, with the correct conjugation and factor 2. -/
 theorem actual_expansion (z0 z1 z2 : ℂ) (g0 g1 g2 : WeilCompactSmoothGV1) :
     (WeilExplicitRightSideV1 (WeilAutocorrelationV1 (combo z0 z1 z2 g0 g1 g2))).re =
-      -diagonal z0 z1 z2 (-(B g0 g0).re) (-(B g1 g1).re) (-(B g2 g2).re) +
-        cross z0 z1 z2 (B g0 g1) (B g0 g2) (B g1 g2) := by
+      -AEGIS.WeilThreeBlockComplexV2.diagonal z0 z1 z2
+          (-(B g0 g0).re) (-(B g1 g1).re) (-(B g2 g2).re) +
+        AEGIS.WeilThreeBlockComplexV2.cross z0 z1 z2
+          (B g0 g1) (B g0 g2) (B g1 g2) := by
   change (B (combo z0 z1 z2 g0 g1 g2) (combo z0 z1 z2 g0 g1 g2)).re = _
   unfold combo
   simp only [B_add_left, B_add_right, B_scale_left, B_scale_right]
   rw [B_hermitian g0 g1, B_hermitian g0 g2, B_hermitian g1 g2]
-  unfold diagonal cross
+  unfold AEGIS.WeilThreeBlockComplexV2.diagonal AEGIS.WeilThreeBlockComplexV2.cross
   simp only [Complex.star_def, Complex.add_re, Complex.mul_re, Complex.mul_im,
     Complex.conj_re, Complex.conj_im, Complex.sq_norm, Complex.normSq_apply]
   ring
