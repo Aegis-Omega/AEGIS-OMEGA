@@ -1,0 +1,174 @@
+name: Weil Diagonal Kernel Reduction V2.1
+
+on:
+  push:
+    branches:
+      - proof/weil-diagonal-kernel-reduction-v21
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilDiagonalKernelReductionV21.lean'
+      - '.github/workflows/weil-diagonal-kernel-reduction-v21.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.sha }}
+  PARENT_V21_SHA: f86af1f59c3095ee13877dae7f91b3c5a8b637f4
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+
+jobs:
+  verify:
+    name: structural diagonal reduction; analytic kernel still open
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact Mathlib
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: leanprover-community/mathlib4
+          ref: ${{ env.MATHLIB_SHA }}
+          persist-credentials: false
+
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.SOURCE_SHA }}
+          path: .aegis
+          persist-credentials: false
+
+      - name: Bind exact candidate and parent ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(cat lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          git -C .aegis merge-base --is-ancestor "$PARENT_V21_SHA" "$SOURCE_SHA"
+
+          ROOT=.aegis/sovereign-omega-v2/formal/bridges/lean
+          mkdir -p evidence .lake/build/lib/lean
+          modules=(
+            WeilCriterionCompactSmoothV1
+            WeilPrimeSummabilityV1
+            WeilArchimedeanConvergenceV1
+            WeilAutocorrelationRealityV1
+            WeilAutocorrelationClosureV1
+            WeilThreeBlockRationalV1
+            WeilMixedClosureV2
+            WeilThreeBlockComplexV2
+            WeilMixedAlgebraV2
+            WeilDisjointEnergyV2
+            WeilThreeBlockAnalyticConstantsV21
+            WeilLogCoordinateIsometryV21
+            WeilDiagonalKernelReductionV21
+          )
+          printf '%s\n' "${modules[@]}" > evidence/modules.txt
+          printf 'SOURCE_SHA=%s\nPARENT_V21_SHA=%s\nMATHLIB_SHA=%s\nLEAN_TOOLCHAIN=%s\n' \
+            "$SOURCE_SHA" "$PARENT_V21_SHA" "$MATHLIB_SHA" "$LEAN_TOOLCHAIN" \
+            > evidence/exact-source.log
+          for m in "${modules[@]}"; do
+            cp "$ROOT/$m.lean" "$m.lean"
+            cp "$m.lean" evidence/
+            sha256sum "$m.lean" >> evidence/exact-source.log
+          done
+          sha256sum lake-manifest.json .aegis/.github/workflows/weil-diagonal-kernel-reduction-v21.yml \
+            >> evidence/exact-source.log
+
+      - name: Obtain exact Lean and dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          export PATH="$HOME/.elan/bin:$PATH"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          lake exe cache get
+          lean --version | tee evidence/lean-version.log
+
+      - name: Compile parent chain and exact reduction
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r m; do
+            /usr/bin/time -v lake env lean -o ".lake/build/lib/lean/$m.olean" "$m.lean" \
+              > "evidence/$m.log" 2> "evidence/$m.resource.log"
+            sha256sum ".lake/build/lib/lean/$m.olean" >> evidence/exact-source.log
+          done < evidence/modules.txt
+
+      - name: Audit four new theorem closures
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > AuditDiagonalV21.lean <<'LEAN'
+          import WeilDiagonalKernelReductionV21
+          #print axioms AEGIS.WeilDiagonalKernelReductionV21.autocorrelation_one_re_eq_energy
+          #print axioms AEGIS.WeilDiagonalKernelReductionV21.actual_diagonal_rhs_decomposition
+          #print axioms AEGIS.WeilDiagonalKernelReductionV21.actual_diagonal_from_arch_budget
+          #print axioms AEGIS.WeilDiagonalKernelReductionV21.actual_diagonal_103_over_100
+          LEAN
+          cp AuditDiagonalV21.lean evidence/
+          lake env lean AuditDiagonalV21.lean 2>&1 | tee evidence/axioms.log
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re
+          names = [
+            'AEGIS.WeilDiagonalKernelReductionV21.autocorrelation_one_re_eq_energy',
+            'AEGIS.WeilDiagonalKernelReductionV21.actual_diagonal_rhs_decomposition',
+            'AEGIS.WeilDiagonalKernelReductionV21.actual_diagonal_from_arch_budget',
+            'AEGIS.WeilDiagonalKernelReductionV21.actual_diagonal_103_over_100',
+          ]
+          log = Path('evidence/axioms.log').read_text()
+          allowed = {'propext', 'Classical.choice', 'Quot.sound'}
+          result = {}
+          for name in names:
+              none = "'" + name + "' does not depend on any axioms"
+              found = re.findall(re.escape("'" + name + "' depends on axioms: ") + r'\[([^\]]*)\]', log, re.S)
+              if none in log and not found:
+                  axioms = set()
+              elif none not in log and len(found) == 1:
+                  axioms = {x.strip() for x in found[0].split(',') if x.strip()}
+              else:
+                  raise SystemExit('FAIL: incomplete axiom output: ' + name)
+              if 'sorryAx' in axioms or not axioms <= allowed:
+                  raise SystemExit('FAIL: unexpected axioms: ' + name + ' ' + repr(axioms))
+              result[name] = sorted(axioms)
+          Path('evidence/axiom-audit.json').write_text(json.dumps(result, indent=2) + '\n')
+          PY
+
+      - name: Emit fail-closed disposition
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > evidence/DISPOSITION.txt <<EOF
+          PARENT_V21_EXACT_HEAD=$PARENT_V21_SHA
+          CANDIDATE_HEAD=$SOURCE_SHA
+          CENTER_ENERGY_IDENTITY=KERNEL_VERIFIED
+          ACTUAL_DIAGONAL_RHS_DECOMPOSITION=KERNEL_VERIFIED_UNDER_PRIME_ZERO
+          QUOTIENT_FREE_ARCH_BUDGET_REDUCTION=KERNEL_VERIFIED_UNDER_EXPLICIT_ARCH_PREMISE
+          DIAGONAL_103_OVER_100_COROLLARY=KERNEL_VERIFIED_UNDER_PRIME_ZERO_TAIL_ARCH_PREMISES
+          LOG_AUTOCORRELATION_CAUCHY_SCHWARZ=OPEN
+          LOG_AUTOCORRELATION_WIDTH_SUPPORT=OPEN
+          DIAGONAL_PRIME_ZERO_WIDTH_1_32=OPEN
+          ARCHIMEDEAN_KERNEL_INEQUALITY=OPEN
+          COTH_TAIL_LOWER_BOUND=OPEN
+          ANALYTIC_DIAGONAL_LOWER_V1=OPEN
+          SIX_ACTUAL_B_BOUNDS=OPEN
+          GLOBAL_WEIL_POSITIVITY=OPEN
+          RH=NOT_PROVEN
+          repository_admission=NOT_GRANTED
+          merge=NONE
+          authority_effect=NONE
+          EOF
+
+      - name: Upload exact-head evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: weil-diagonal-kernel-reduction-${{ env.SOURCE_SHA }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 30
