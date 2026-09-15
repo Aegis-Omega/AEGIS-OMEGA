@@ -37,15 +37,12 @@ open AEGIS.WeilLogCoordinateIsometryV21
 open AEGIS.WeilDisjointEnergyV2
 open AEGIS.WeilThreeBlockAnalyticConstantsV21
 
-/-- Logarithmic support interval of the already-verified V2.1 half-density lift. -/
 def LogSupportIn (g : WeilCompactSmoothGV1) (lo hi : ℝ) : Prop :=
   tsupport (logLift g.1) ⊆ Icc lo hi
 
-/-- The special width-1/32 base packet, centered at an arbitrary additive coordinate `a`. -/
 def WidthOneThirtyTwoAt (g : WeilCompactSmoothGV1) (a : ℝ) : Prop :=
   LogSupportIn g (a - (1 / 64 : ℝ)) (a + (1 / 64 : ℝ))
 
-/-- Normalized multiplicative realization of additive log translation. -/
 def translateFn (g : WeilCompactSmoothGV1) (d x : ℝ) : ℂ :=
   (Real.exp (-d / 2) : ℂ) * g.1 (Real.exp (-d) * x)
 
@@ -103,7 +100,6 @@ def translatePacket (g : WeilCompactSmoothGV1) (d : ℝ) : WeilCompactSmoothGV1 
     (translatePacket g d).1 x =
       (Real.exp (-d / 2) : ℂ) * g.1 (Real.exp (-d) * x) := rfl
 
-/-- Exact V2.1 half-density translation law. -/
 theorem logLift_translate (g : WeilCompactSmoothGV1) (d t : ℝ) :
     logLift (translatePacket g d).1 t = logLift g.1 (t - d) := by
   unfold logLift translatePacket translateFn
@@ -121,7 +117,6 @@ theorem logLift_translate (g : WeilCompactSmoothGV1) (d t : ℝ) :
     ring
   rw [← mul_assoc, hscalar]
 
-/-- A nonzero packet value at a positive x forces `log x` into the declared log support. -/
 theorem log_mem_of_ne_zero
     (g : WeilCompactSmoothGV1) {lo hi x : ℝ}
     (hI : LogSupportIn g lo hi) (hx : 0 < x) (hg : g.1 x ≠ 0) :
@@ -132,14 +127,12 @@ theorem log_mem_of_ne_zero
     exact mul_ne_zero (by simp) hg
   exact hI (subset_tsupport _ hLift)
 
-/-- Repository packets vanish on the nonpositive half-line. -/
 theorem packet_eq_zero_of_nonpos
     (g : WeilCompactSmoothGV1) {x : ℝ} (hx : x ≤ 0) : g.1 x = 0 := by
   apply image_eq_zero_of_notMem_tsupport
   intro hmem
   exact (not_lt_of_ge hx) (g.2.2.2 hmem)
 
-/-- Log support interval translates literally by d. -/
 theorem translate_logSupportIn
     (g : WeilCompactSmoothGV1) (d lo hi : ℝ)
     (hI : LogSupportIn g lo hi) :
@@ -153,7 +146,6 @@ theorem translate_logSupportIn
   have h := hI hm
   exact ⟨by linarith [h.1], by linarith [h.2]⟩
 
-/-- Generic pointwise disjointness from separated logarithmic support intervals. -/
 theorem pointwise_disjoint_of_log_intervals
     (p q : WeilCompactSmoothGV1)
     {plo phi qlo qhi : ℝ}
@@ -175,7 +167,6 @@ theorem pointwise_disjoint_of_log_intervals
   · left
     exact packet_eq_zero_of_nonpos p (le_of_not_gt hx)
 
-/-- Complex-valued exponential change of variables, used only to transport the two repository moments. -/
 theorem integral_exp_substitution_complex (f : ℝ → ℂ) :
     (∫ x in Ioi (0 : ℝ), f x) =
       ∫ t : ℝ, (Real.exp t) • f (Real.exp t) := by
@@ -204,12 +195,15 @@ theorem logMomentMinus_eq_repository (g : WeilCompactSmoothGV1) :
   rw [Complex.real_smul]
   have he : (Real.exp t : ℂ) ≠ 0 := by simp
   field_simp
-  have hreal : Real.exp (-t / 2) * Real.exp (t / 2) = 1 := by
+  have hreal : Real.exp (-(t / 2)) * Real.exp (t / 2) = 1 := by
     rw [← Real.exp_add]
-    convert Real.exp_zero using 1 <;> ring
+    have hz : -(t / 2) + t / 2 = 0 := by ring
+    rw [hz, Real.exp_zero]
   have hcomplex :
-      (Real.exp (-t / 2) : ℂ) * (Real.exp (t / 2) : ℂ) = 1 := by
+      (Real.exp (-(t / 2)) : ℂ) * (Real.exp (t / 2) : ℂ) = 1 := by
     exact_mod_cast hreal
+  change ((Real.exp (-(t / 2)) : ℂ) * (Real.exp (t / 2) : ℂ)) *
+      g.1 (Real.exp t) = g.1 (Real.exp t)
   rw [hcomplex, one_mul]
 
 theorem logMomentPlus_eq_repository (g : WeilCompactSmoothGV1) :
@@ -228,7 +222,6 @@ theorem logMomentPlus_eq_repository (g : WeilCompactSmoothGV1) :
     ring
   rw [← mul_assoc, h]
 
-/-- The two repository moments are preserved under every normalized log translation. -/
 theorem translate_preserves_moments
     (g : WeilCompactSmoothGV1) (d : ℝ)
     (hm : WeilMomentConditionsV1 g) :
@@ -299,7 +292,6 @@ theorem translate_preserves_moments
   · rw [← logMomentMinus_eq_repository, hMinus, hmMinus, mul_zero]
   · rw [← logMomentPlus_eq_repository, hPlus, hmPlus, mul_zero]
 
-/-- Energy preservation is inherited from the already kernel-verified V2.1 isometry. -/
 theorem translate_energy (g : WeilCompactSmoothGV1) (d : ℝ) :
     energy (translatePacket g d).1 = energy g.1 := by
   rw [← logLift_energy_eq_packet_energy (translatePacket g d)]
@@ -309,7 +301,6 @@ theorem translate_energy (g : WeilCompactSmoothGV1) (d : ℝ) :
     (integral_add_right_eq_self
       (fun s : ℝ => ‖logLift g.1 s‖ ^ 2) (-d))
 
-/-- Three concrete shifts used by the special certificate. -/
 def gMinus (g : WeilCompactSmoothGV1) : WeilCompactSmoothGV1 :=
   translatePacket g (-Real.log 2)
 
@@ -322,7 +313,6 @@ def gPlus (g : WeilCompactSmoothGV1) : WeilCompactSmoothGV1 :=
 theorem log_two_gt_one_thirty_two : (1 / 32 : ℝ) < Real.log 2 := by
   exact (show (1 / 32 : ℝ) < 693 / 1000 by norm_num).trans log_two_lower
 
-/-- All three shifted packets retain the two repository moments. -/
 theorem three_blocks_preserve_moments
     (g : WeilCompactSmoothGV1) (hm : WeilMomentConditionsV1 g) :
     WeilMomentConditionsV1 (gMinus g) ∧
@@ -332,7 +322,6 @@ theorem three_blocks_preserve_moments
     translate_preserves_moments g 0 hm,
     translate_preserves_moments g (Real.log 2) hm⟩
 
-/-- All three blocks have the same actual repository L2 energy. -/
 theorem three_blocks_energy
     (g : WeilCompactSmoothGV1) :
     energy (gMinus g).1 = energy g.1 ∧
@@ -341,7 +330,6 @@ theorem three_blocks_energy
   exact ⟨translate_energy g (-Real.log 2), translate_energy g 0,
     translate_energy g (Real.log 2)⟩
 
-/-- The three concrete translated supports are pairwise pointwise disjoint. -/
 theorem three_blocks_pairwise_disjoint
     (g : WeilCompactSmoothGV1) (a : ℝ)
     (hw : WidthOneThirtyTwoAt g a) :
