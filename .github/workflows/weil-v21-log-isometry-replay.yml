@@ -20,7 +20,7 @@ env:
   SOURCE_SHA: ${{ github.sha }}
   MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
   LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
-  SOURCE_SHA256: 4c97071b431c6dabce5dbf81bb2b4998f8368157c6c73cd30a1348ecfeb43eb9
+  SOURCE_SHA256: 48a9e07fc888a0a62bad7d36f9666773792e987b0ed09c8ea76af5d56d768cf8
 
 jobs:
   verify:
