@@ -1,0 +1,118 @@
+name: FC Upstream Transcendental 4.33.1
+
+on:
+  push:
+    branches: ['ci/fc-upstream-4331-62f56e8-20260915']
+    paths:
+      - '.github/workflows/fc-upstream-transcendental.yml'
+      - 'research/formal-conjectures-upstream-62f56e8/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fc-upstream-transcendental-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  upstream-module:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      FC_PAYLOAD: research/formal-conjectures-upstream-62f56e8
+    steps:
+      - name: Checkout exact workflow commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify unchanged runner and patch; bind hosted context
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          printf '%s  %s\n' \
+            '4a93d82410d4b7a403196acc8f6efcb4cf0b72723a2a0cc73083718a7050b289' "$FC_PAYLOAD/run_upstream_build.py" \
+            '94b4c4453b5e642c0dfebf799669169d195fc643621a478417d206722c924f66' "$FC_PAYLOAD/formal-proof-link.patch" \
+            | sha256sum --check
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          files = [Path(os.environ['FC_PAYLOAD']) / n for n in ('run_upstream_build.py', 'formal-proof-link.patch')]
+          files.append(Path('.github/workflows/fc-upstream-transcendental.yml'))
+          record = {
+              'schema': 'AEGIS_FC_HOSTED_CONTEXT_V1',
+              'repository': os.environ['GITHUB_REPOSITORY'],
+              'workflow_commit': os.environ['GITHUB_SHA'],
+              'ref': os.environ['GITHUB_REF'],
+              'run_id': os.environ['GITHUB_RUN_ID'],
+              'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'input_sha256': {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in files},
+              'lean_archive_sha256': '890afd185370f85666025b883914ab4f4b339136f8c96167b69cfb62aecaf235',
+              'scope': 'Pinned metadata-only upstream module build; not external proof replay.',
+              'dependency_audit_scope': 'Pinned toolchain/manifest bytes and tracked Mathlib sources only; not all materialized packages.',
+              'authority_effect': 'NONE',
+          }
+          (Path(os.environ['RUNNER_TEMP']) / 'fc-hosted-context.json').write_text(json.dumps(record, indent=2) + '\n')
+          PY
+
+      - name: Install checksum-pinned Lean 4.33.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/lean-4.33.1-linux.tar.zst"
+          curl --fail --location --retry 2 --connect-timeout 20 --max-time 300 \
+            'https://github.com/leanprover/lean4/releases/download/v4.33.1/lean-4.33.1-linux.tar.zst' \
+            --output "$archive"
+          printf '%s  %s\n' '890afd185370f85666025b883914ab4f4b339136f8c96167b69cfb62aecaf235' "$archive" | sha256sum --check
+          tar --zstd -xf "$archive" -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/lean-4.33.1-linux/bin/lean" --version
+          echo "$RUNNER_TEMP/lean-4.33.1-linux/bin" >> "$GITHUB_PATH"
+          rm -- "$archive"
+
+      - name: Run original exact-base module build
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$FC_PAYLOAD/run_upstream_build.py" \
+            --out "$RUNNER_TEMP/fc-upstream-build" --timeout 1200 \
+            2>&1 | tee "$RUNNER_TEMP/fc-upstream-console.log"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          r = json.loads((Path(os.environ['RUNNER_TEMP']) / 'fc-upstream-build/receipt.json').read_text())
+          expected = {
+              'status': 'PASS', 'upstream_module_build': 'PASS',
+              'base_sha': '62f56e8e4dab933a720f649721875c478b0ecf1c',
+              'toolchain': 'leanprover/lean4:v4.33.1',
+              'runner_sha256': '4a93d82410d4b7a403196acc8f6efcb4cf0b72723a2a0cc73083718a7050b289',
+              'patch_sha256': '94b4c4453b5e642c0dfebf799669169d195fc643621a478417d206722c924f66',
+              'external_proof_replay': 'NOT_RUN', 'authority_effect': 'NONE',
+          }
+          for key, value in expected.items():
+              if r.get(key) != value:
+                  raise SystemExit('Receipt mismatch: ' + key)
+          print('Verified metadata-only module build receipt; external proof replay NOT_RUN.')
+          PY
+
+      - name: Upload exact-run evidence, including failures
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fc-upstream-4331-${{ github.sha }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 14
+          include-hidden-files: true
+          path: |
+            ${{ runner.temp }}/fc-hosted-context.json
+            ${{ runner.temp }}/fc-upstream-console.log
+            ${{ runner.temp }}/fc-upstream-build/receipt.json
+            ${{ runner.temp }}/fc-upstream-build/logs/
+            ${{ runner.temp }}/fc-upstream-build/checkout/FormalConjectures/Wikipedia/Transcendental.lean
+            ${{ runner.temp }}/fc-upstream-build/checkout/lean-toolchain
+            ${{ runner.temp }}/fc-upstream-build/checkout/lake-manifest.json
+            ${{ runner.temp }}/fc-upstream-build/checkout/.lake/build/lib/lean/FormalConjectures/Wikipedia/Transcendental.olean
+            research/formal-conjectures-upstream-62f56e8/run_upstream_build.py
+            research/formal-conjectures-upstream-62f56e8/formal-proof-link.patch
+            .github/workflows/fc-upstream-transcendental.yml
