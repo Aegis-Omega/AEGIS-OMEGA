@@ -1,0 +1,81 @@
+name: Lean Local Runtime Transfer V1
+on:
+  push:
+    branches: ['proof/weil-three-block-rational-v1-cf660498']
+    paths: ['.github/workflows/lean-local-transfer-v1.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  transfer:
+    name: transfer verified local Lean packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Fetch the two already exported runtime artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p input/lean input/mathlib parts
+          gh run download 34915752379 --repo Aegis-Omega/AEGIS-OMEGA --name lean-linux-4.33.1-offline --dir input/lean
+          gh run download 34915752379 --repo Aegis-Omega/AEGIS-OMEGA --name mathlib-0df444a-offline --dir input/mathlib
+          (cd input/lean && sha256sum -c SHA256SUMS)
+          (cd input/mathlib && sha256sum -c SHA256SUMS)
+          echo '890afd185370f85666025b883914ab4f4b339136f8c96167b69cfb62aecaf235  input/lean/lean-4.33.1-linux.tar.zst' | sha256sum -c -
+          split --bytes=500000000 input/lean/lean-4.33.1-linux.tar.zst parts/lean.part.
+          split --bytes=500000000 input/mathlib/mathlib-offline.tar.zst parts/mathlib.part.
+          test "$(find parts -name 'lean.part.*' | wc -l)" = 2
+          test "$(find parts -name 'mathlib.part.*' | wc -l)" = 2
+          (cd parts && sha256sum *.part.* > PARTS_SHA256SUMS)
+          cp input/lean/SHA256SUMS parts/LEAN_SHA256SUMS
+          cp input/mathlib/SHA256SUMS parts/MATHLIB_SHA256SUMS
+          cp input/mathlib/BUILD_BINDING.txt parts/
+          cp input/mathlib/dependency-hashes.txt parts/
+          cp input/lean/*-version.log parts/
+          cat parts/PARTS_SHA256SUMS parts/MATHLIB_SHA256SUMS
+      - name: Upload Lean first part
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lean-local-part-aa
+          path: parts/lean.part.aa
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload Lean second part
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lean-local-part-ab
+          path: parts/lean.part.ab
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload Mathlib first part
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mathlib-local-part-aa
+          path: parts/mathlib.part.aa
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload Mathlib second part
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mathlib-local-part-ab
+          path: parts/mathlib.part.ab
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload transfer hashes and runtime provenance
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lean-local-transfer-manifest
+          path: |
+            parts/*SHA256SUMS
+            parts/BUILD_BINDING.txt
+            parts/dependency-hashes.txt
+            parts/*-version.log
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
