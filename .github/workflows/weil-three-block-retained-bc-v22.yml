@@ -1,0 +1,201 @@
+name: Weil Three-Block Retained B-C V2.2
+
+on:
+  push:
+    branches:
+      - 'research/weil-retained-bc-v22-20260915'
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockTranslatedPacketsV22.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockPrimeWindowsV22.lean'
+      - '.github/workflows/weil-three-block-retained-bc-v22.yml'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockTranslatedPacketsV22.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockPrimeWindowsV22.lean'
+      - '.github/workflows/weil-three-block-retained-bc-v22.yml'
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PARENT_V21_SHA: f86af1f59c3095ee13877dae7f91b3c5a8b637f4
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  TRANSLATED_SHA256: 975ea63efbc5f32d987d4ef3d177d286fc1cf08e3cedd75c774905a748098c25
+  PRIME_WINDOWS_SHA256: b0aa99aa200fe941a6b0c2f7726f178cc23d888c58baacaa16c4e65148e3bd71
+
+jobs:
+  retained-bc:
+    name: translated packets and exact prime windows only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout pinned Mathlib
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: leanprover-community/mathlib4
+          ref: ${{ env.MATHLIB_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact verified V2.1 parent
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.PARENT_V21_SHA }}
+          path: .parent
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact V2.2 candidate overlay
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.SOURCE_SHA }}
+          path: .aegis
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact parent, toolchain and retained sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(cat lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          test "$(git -C .parent rev-parse HEAD)" = "$PARENT_V21_SHA"
+          test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
+          PARENT_SRC=.parent/sovereign-omega-v2/formal/bridges/lean
+          CANDIDATE_SRC=.aegis/sovereign-omega-v2/formal/bridges/lean
+          for f in \
+            WeilCriterionCompactSmoothV1 \
+            WeilPrimeSummabilityV1 \
+            WeilArchimedeanConvergenceV1 \
+            WeilAutocorrelationClosureV1 \
+            WeilThreeBlockRationalV1 \
+            WeilThreeBlockComplexV2 \
+            WeilDisjointEnergyV2 \
+            WeilMixedClosureV2 \
+            WeilMixedAlgebraV2 \
+            WeilThreeBlockAnalyticConstantsV21 \
+            WeilLogCoordinateIsometryV21 \
+            WeilThreeBlockNormBridgeV21; do
+            cp "$PARENT_SRC/$f.lean" "$f.lean"
+          done
+          cp "$CANDIDATE_SRC/WeilThreeBlockTranslatedPacketsV22.lean" .
+          cp "$CANDIDATE_SRC/WeilThreeBlockPrimeWindowsV22.lean" .
+          printf '%s  %s\n' "$TRANSLATED_SHA256" WeilThreeBlockTranslatedPacketsV22.lean | sha256sum -c -
+          printf '%s  %s\n' "$PRIME_WINDOWS_SHA256" WeilThreeBlockPrimeWindowsV22.lean | sha256sum -c -
+          {
+            echo "SOURCE_SHA=$SOURCE_SHA"
+            echo "PARENT_V21_SHA=$PARENT_V21_SHA"
+            echo "MATHLIB_SHA=$MATHLIB_SHA"
+            echo "LEAN_TOOLCHAIN=$LEAN_TOOLCHAIN"
+            sha256sum WeilThreeBlockTranslatedPacketsV22.lean WeilThreeBlockPrimeWindowsV22.lean lake-manifest.json
+          } > exact-source.log
+
+      - name: Install pinned Lean and Mathlib cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          export PATH="$HOME/.elan/bin:$PATH"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          lake exe cache get
+          lean --version >> exact-source.log
+
+      - name: Compile dependency chain and retained B-C modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .lake/build/lib/lean
+          failed=0
+          for f in \
+            WeilCriterionCompactSmoothV1 \
+            WeilPrimeSummabilityV1 \
+            WeilArchimedeanConvergenceV1 \
+            WeilAutocorrelationClosureV1 \
+            WeilThreeBlockRationalV1 \
+            WeilThreeBlockComplexV2 \
+            WeilDisjointEnergyV2 \
+            WeilMixedClosureV2 \
+            WeilMixedAlgebraV2 \
+            WeilThreeBlockAnalyticConstantsV21 \
+            WeilLogCoordinateIsometryV21 \
+            WeilThreeBlockNormBridgeV21 \
+            WeilThreeBlockTranslatedPacketsV22 \
+            WeilThreeBlockPrimeWindowsV22; do
+            if ! lake env lean -o ".lake/build/lib/lean/$f.olean" "$f.lean" 2>&1 | tee "$f.log"; then
+              failed=1
+            fi
+          done
+          test "$failed" = 0
+          sha256sum .lake/build/lib/lean/WeilThreeBlockTranslatedPacketsV22.olean \
+            .lake/build/lib/lean/WeilThreeBlockPrimeWindowsV22.olean >> exact-source.log
+
+      - name: Audit all retained public theorem closures
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_AUDIT'
+          from pathlib import Path
+          import json, re
+          mods=['WeilThreeBlockTranslatedPacketsV22','WeilThreeBlockPrimeWindowsV22']
+          names=[]
+          for mod in mods:
+              src=Path(mod+'.lean').read_text()
+              if re.search(r'\bsorry\b|\badmit\b|\bAdmitted\b', src):
+                  raise SystemExit('FAIL: forbidden source marker in '+mod)
+              names += re.findall(r'^theorem ([A-Za-z0-9_]+)', src, re.M)
+          Path('retained-theorems.json').write_text(json.dumps(names,indent=2)+'\n')
+          Path('RetainedBCAudit.lean').write_text('\n'.join(
+              ['import '+m for m in mods] + ['#print axioms '+n for n in names])+'\n')
+          PY_AUDIT
+          lake env lean RetainedBCAudit.lean 2>&1 | tee retained-bc-axioms.log
+          python3 - <<'PY_PARSE'
+          from pathlib import Path
+          import json, re
+          names=json.loads(Path('retained-theorems.json').read_text())
+          log=Path('retained-bc-axioms.log').read_text()
+          if 'sorryAx' in log:
+              raise SystemExit('FAIL: sorryAx present')
+          allowed={'propext','Classical.choice','Quot.sound'}
+          closures={}
+          for name in names:
+              zero="'"+name+"' does not depend on any axioms"
+              pat=re.escape("'"+name+"' depends on axioms: ")+r'\[([^\]]*)\]'
+              ms=re.findall(pat,log,re.S)
+              if zero in log and not ms:
+                  ax=set()
+              elif len(ms)==1 and zero not in log:
+                  ax={x.strip() for x in ms[0].split(',') if x.strip()}
+              else:
+                  raise SystemExit('FAIL: ambiguous axiom report for '+name)
+              if not ax <= allowed:
+                  raise SystemExit('FAIL: forbidden axioms for '+name+': '+repr(ax))
+              closures[name]=sorted(ax)
+          Path('retained-bc-axioms.json').write_text(json.dumps(closures,indent=2)+'\n')
+          print('PASS: retained B/C theorem closures audited')
+          print('ARCH_DIAGONAL=OPEN; ARCH_CROSS=OPEN; SIX_B_BOUNDS=OPEN_SYNTHESIS; RH=NOT_PROVEN; authority_effect=NONE')
+          PY_PARSE
+
+      - name: Upload exact-head retained B-C evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: weil-retained-bc-v22-${{ env.SOURCE_SHA }}
+          path: |
+            WeilThreeBlockTranslatedPacketsV22.lean
+            WeilThreeBlockPrimeWindowsV22.lean
+            .lake/build/lib/lean/WeilThreeBlockTranslatedPacketsV22.olean
+            .lake/build/lib/lean/WeilThreeBlockPrimeWindowsV22.olean
+            WeilThreeBlockTranslatedPacketsV22.log
+            WeilThreeBlockPrimeWindowsV22.log
+            exact-source.log
+            retained-theorems.json
+            retained-bc-axioms.log
+            retained-bc-axioms.json
+          if-no-files-found: warn
+          retention-days: 30
