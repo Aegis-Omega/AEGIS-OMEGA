@@ -1,7 +1,8 @@
+import WeilAutocorrelationClosureV1
 import WeilDisjointEnergyV2
 import Mathlib.MeasureTheory.Function.JacobianOneDim
 import Mathlib.MeasureTheory.Integral.Bochner.Set
-import Mathlib.Analysis.SpecialFunctions.Exp
+import Mathlib.Analysis.SpecialFunctions.ExpDeriv
 
 /-!
 AEGIS Ω — logarithmic-coordinate L2 isometry bridge V2.1
@@ -30,7 +31,7 @@ namespace AEGIS.WeilLogCoordinateIsometryV21
 open AEGIS.WeilDisjointEnergyV2
 
 def logLift (g : ℝ → ℂ) (t : ℝ) : ℂ :=
-  (Real.exp (t / 2) : ℂ) * g (Real.exp t)
+  Complex.ofReal (Real.exp (t / 2)) * g (Real.exp t)
 
 /-- Whole-line exponential substitution, derived directly from Mathlib's
 one-dimensional Jacobian theorem. -/
@@ -42,7 +43,7 @@ theorem integral_exp_substitution (f : ℝ → ℝ) :
       (f := Real.exp)
       (f' := Real.exp)
       (s := Set.univ)
-      Set.measurableSet_univ
+      MeasurableSet.univ
       (fun x _ => (Real.hasDerivAt_exp x).hasDerivWithinAt)
       (Set.injOn_of_injective Real.exp_injective)
       f
@@ -59,7 +60,7 @@ theorem logLift_norm_sq (g : ℝ → ℂ) (t : ℝ) :
     rw [pow_two, ← Real.exp_add]
     congr 1
     ring
-  simp [logLift, norm_mul, abs_of_pos (Real.exp_pos _), hexp]
+  simp [logLift, Complex.norm_real, Real.norm_of_nonneg (Real.exp_pos _).le, mul_pow, hexp]
 
 /-- The certificate's additive-coordinate energy is exactly the positive-axis
 energy of the multiplicative packet. -/
@@ -85,7 +86,7 @@ theorem packet_energy_eq_positive_energy (g : WeilCompactSmoothGV1) :
       (f := fun x : ℝ => ‖g.1 x‖ ^ 2)
       (s := Ioi (0 : ℝ))
       (t := Set.univ)
-      Set.measurableSet_univ
+      MeasurableSet.univ
       (Set.subset_univ _)
       (by
         intro x hx
