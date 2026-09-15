@@ -188,7 +188,7 @@ theorem rhs_paired_conjugate (f g : ℝ → ℂ)
     have hxC : (x : ℂ) ≠ 0 := by
       exact_mod_cast hx0.ne'
     rw [hgx, hfx, h1]
-    simp [div_eq_mul_inv, Complex.conj_ofNat]
+    simp [div_eq_mul_inv, add_comm, Complex.conj_ofNat]
   simp only [WeilExplicitRightSideV1, hp, ha, h1, map_add, map_mul,
     WeilArchimedeanConstantV1, Complex.conj_ofReal]
 
