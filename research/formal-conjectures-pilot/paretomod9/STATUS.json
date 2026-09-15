@@ -1,0 +1,12 @@
+{
+  "schema": "AEGIS_PARETOMOD9_LEAN_HOSTED_REPLAY_STATUS_V1",
+  "source_status": "SOURCE_PREPARED_NOT_KERNEL_CHECKED",
+  "candidate_sha256": "3929bb27074d2c44a32366fa809bac288e19d86e07d3c86b2a4cc139d4ffaaf4",
+  "formal_conjectures_sha": "62f56e8e4dab933a720f649721875c478b0ecf1c",
+  "lean_toolchain": "leanprover/lean4:v4.33.1",
+  "mathlib_sha": "0df444a360eaa60ab8c11dca51a86af692955474",
+  "analytic_weil_formalization": "OPEN",
+  "riemann_hypothesis": "NOT_PROVEN",
+  "repository_admission": "NOT_GRANTED",
+  "authority_effect": "NONE"
+}

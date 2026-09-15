@@ -1,0 +1,34 @@
+{
+  "schema": "AEGIS_PARETOMOD9_LEAN_REPLAY_PINS_V1",
+  "candidate_file": "AEGIS_PARETOMOD9_ModeA_v01.lean",
+  "candidate_sha256": "3929bb27074d2c44a32366fa809bac288e19d86e07d3c86b2a4cc139d4ffaaf4",
+  "aegis_source_anchor": "438079c877342a842dadeae686c515f44ba4ce59",
+  "formal_conjectures_repository": "google-deepmind/formal-conjectures",
+  "formal_conjectures_sha": "62f56e8e4dab933a720f649721875c478b0ecf1c",
+  "lean_toolchain": "leanprover/lean4:v4.33.1",
+  "lean_release_commit": "819816b2e0a3bf405af45ae5c7af2491d8f5bee6",
+  "lean_linux_asset": "lean-4.33.1-linux.tar.zst",
+  "lean_linux_asset_sha256": "890afd185370f85666025b883914ab4f4b339136f8c96167b69cfb62aecaf235",
+  "mathlib_sha": "0df444a360eaa60ab8c11dca51a86af692955474",
+  "checkout_action_sha": "11d5960a326750d5838078e36cf38b85af677262",
+  "upload_artifact_action_sha": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+  "allowed_axioms": [
+    "Classical.choice",
+    "Quot.sound",
+    "propext"
+  ],
+  "theorems": [
+    "Aegis.ParetoMod9.modeA_delta",
+    "Aegis.ParetoMod9.o6_dominates_o1",
+    "Aegis.ParetoMod9.not_o1_dominates_o6",
+    "Aegis.ParetoMod9.not_o6_dominates_o6",
+    "Aegis.ParetoMod9.o2_undefined",
+    "Aegis.ParetoMod9.finite_matrix_sign_checks"
+  ],
+  "nonclaims": {
+    "analytic_weil_formalization": "OPEN",
+    "riemann_hypothesis": "NOT_PROVEN",
+    "repository_admission": "NOT_GRANTED",
+    "authority_effect": "NONE"
+  }
+}
