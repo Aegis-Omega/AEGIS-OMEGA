@@ -101,7 +101,8 @@ theorem euler_mascheroni_upper :
   have hseq :
       Real.eulerMascheroniSeq' 256 =
         ((harmonic 256 : ℚ) : ℝ) - Real.log (256 : ℝ) := by
-    simp [Real.eulerMascheroniSeq']
+    set_option maxRecDepth 100000 in
+      simp [Real.eulerMascheroniSeq']
   rw [hseq] at hγ
   have hlog256 : Real.log (256 : ℝ) = 8 * Real.log 2 := by
     calc
