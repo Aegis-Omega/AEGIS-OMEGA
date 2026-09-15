@@ -68,6 +68,8 @@ class CognitiveAnchorWriterBoundaryTests(TestCase):
         self.assertIn("github.ref == 'refs/heads/main'", source)
         self.assertIn("target_ref:", source)
         self.assertIn("git check-ref-format --branch", source)
+        self.assertIn("TARGET_REF: ${{ inputs.target_ref }}", source)
+        self.assertIn("ref: refs/heads/${{ inputs.target_ref }}", source)
         self.assertIn('if [[ "$TARGET_REF" == "main" ]]', source)
         self.assertIn("repair/cognitive-anchor-*", source)
         self.assertIn('git ls-remote --exit-code --heads origin "refs/heads/$TARGET_REF"', source)
