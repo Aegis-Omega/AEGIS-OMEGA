@@ -1,0 +1,229 @@
+{
+  "GTG_coherence_observations": [
+    {
+      "C_l1_at_200_fs": 1.0394298997674365,
+      "C_l1_at_25_fs": 0.2946133623770909,
+      "classical_coupling_ratio": null,
+      "classical_population_error_after_5_over_Gamma": null,
+      "gamma_eV": 0.0,
+      "max_C_l1_after_25_fs": 1.391493158244145,
+      "operational_classical_criteria_pass": false
+    },
+    {
+      "C_l1_at_200_fs": 0.165689174763742,
+      "C_l1_at_25_fs": 0.21646991105146732,
+      "classical_coupling_ratio": 0.7300000000000002,
+      "classical_population_error_after_5_over_Gamma": 0.01943736490326116,
+      "gamma_eV": 0.1,
+      "max_C_l1_after_25_fs": 0.22214389871835982,
+      "operational_classical_criteria_pass": false
+    },
+    {
+      "C_l1_at_200_fs": 0.06789836383034377,
+      "C_l1_at_25_fs": 0.1438771953946045,
+      "classical_coupling_ratio": 0.14600000000000005,
+      "classical_population_error_after_5_over_Gamma": 0.004288804638708829,
+      "gamma_eV": 0.5,
+      "max_C_l1_after_25_fs": 0.1438771953946045,
+      "operational_classical_criteria_pass": false
+    }
+  ],
+  "Hamiltonian_observations": [
+    {
+      "H12_eV": 0.08000000000000003,
+      "H23_eV": -0.0010000000000000005,
+      "absolute_central_detuning_eV": 0.8000000000000007,
+      "max_interstrand_coupling_eV": 0.04400000000000002,
+      "min_purity_at_gamma_zero": 0.9999999999999996,
+      "sequence": "GCG",
+      "upper_onsite_eV": [
+        -8.000000000000002,
+        -8.800000000000002,
+        -8.000000000000002
+      ]
+    },
+    {
+      "H12_eV": 0.07300000000000002,
+      "H23_eV": 0.028000000000000014,
+      "absolute_central_detuning_eV": 1.0000000000000018,
+      "max_interstrand_coupling_eV": 0.012000000000000004,
+      "min_purity_at_gamma_zero": 0.9999999999999933,
+      "sequence": "GTG",
+      "upper_onsite_eV": [
+        -8.000000000000002,
+        -9.000000000000004,
+        -8.000000000000002
+      ]
+    },
+    {
+      "H12_eV": -0.07900000000000003,
+      "H23_eV": -0.005000000000000002,
+      "absolute_central_detuning_eV": 0.3000000000000007,
+      "max_interstrand_coupling_eV": 0.012000000000000004,
+      "min_purity_at_gamma_zero": 0.9999999999999981,
+      "sequence": "GAG",
+      "upper_onsite_eV": [
+        -8.000000000000002,
+        -8.300000000000002,
+        -8.000000000000002
+      ]
+    },
+    {
+      "H12_eV": -0.06200000000000003,
+      "H23_eV": -0.06200000000000003,
+      "absolute_central_detuning_eV": 0.0,
+      "max_interstrand_coupling_eV": 0.012000000000000004,
+      "min_purity_at_gamma_zero": 0.9999999999999973,
+      "sequence": "GGG",
+      "upper_onsite_eV": [
+        -8.000000000000002,
+        -8.000000000000002,
+        -8.000000000000002
+      ]
+    }
+  ],
+  "audit_generator_sha256": "2bf9a2675e47c946d57b2845d413e87233968392f587935c9fa7b8b9382bc0fc",
+  "authority_promotion": false,
+  "biological_effect": "HYPOTHESIS_NOT_EXPERIMENTALLY_TESTED",
+  "claim_decisions": [
+    {
+      "claim": "1BNA published trajectory reproduced by matching Hawke scalar",
+      "correction": "Separate shipped 1BNA parameter replay from documented Hawke scalar match; external trajectory match remains not established.",
+      "status": "OVERSTATED"
+    },
+    {
+      "claim": "GTG C_l1 < 0.2 within 25 fs at gamma=0.1 eV",
+      "correction": "C_l1(25 fs)=0.21646991105146732; later maximum after25fs=0.22214389871835982.",
+      "status": "CONTRADICTED_AT_25_FS"
+    },
+    {
+      "claim": "gamma>=0.1 eV destroys coherence and establishes classical hopping",
+      "correction": "Suppression is measured, not complete destruction; 0.1 and0.5eV fail preregistered asymptotic coupling criterion.",
+      "status": "NOT_ESTABLISHED"
+    },
+    {
+      "claim": "The simulated environment is calibrated thermal noise",
+      "correction": "Pure dephasing is phenomenological; no temperature calibration or thermalizing bath in sweep.",
+      "status": "NOT_ESTABLISHED"
+    },
+    {
+      "claim": "GGG is a trapping state",
+      "correction": "Closed one-hole system has no absorbing trap; G3 population is a finite-time transport diagnostic.",
+      "status": "NOT_ESTABLISHED"
+    },
+    {
+      "claim": "Central base barrier alone explains sequence ranking",
+      "correction": "Both detuning and coupling matrices change, with lower-strand paths; causal attribution needs controlled ablations.",
+      "status": "UNDERDETERMINED"
+    },
+    {
+      "claim": "Complex Hermitian rho alone fixes real positive commutator margin",
+      "correction": "[A,B] is anti-Hermitian; -i[A,B] is Hermitian but not uniformly positive over all states in finite dimension.",
+      "status": "MATHEMATICALLY_INSUFFICIENT"
+    },
+    {
+      "claim": "Riemann-Lebesgue decay annihilates the spectrum",
+      "correction": "For an L1 Fourier kernel, fixed-parameter transform tends to zero; spectral and uniform-in-parameter conclusions need further assumptions.",
+      "status": "NOT_IMPLIED"
+    },
+    {
+      "claim": "Nonzero g_D squared establishes zero exclusion",
+      "correction": "If g_D is the directional derivative, a nonzero derivative at a zero establishes a transverse zero; notation is undefined without source document.",
+      "status": "NOT_IMPLIED"
+    }
+  ],
+  "commutator_counterexample": {
+    "commutator_expectation_plus_imaginary": -2.0,
+    "minus_i_commutator_expectation_minus": 2.0,
+    "minus_i_commutator_expectation_plus": -2.0,
+    "real_quadratic_form": -5.329070518200751e-17,
+    "trace_minus_i_commutator": 0.0
+  },
+  "control_plane_registration": "NOT_PERFORMED",
+  "mathematical_document_audit": "NOT_PERFORMED_SECOND_DOCUMENT_NOT_PROVIDED; formula-level reasoning only",
+  "reference_replays": [
+    {
+      "dimension": 37,
+      "external_published_trajectory_match": "NOT_ESTABLISHED_REFERENCE_ARRAY_UNAVAILABLE",
+      "independent_invariants": {
+        "hermiticity_error": 0.0,
+        "max_population": 1.0,
+        "min_eigenvalue": -4.0651036543109065e-16,
+        "min_population": 0.0,
+        "trace_error": 4.440892098500626e-16
+      },
+      "max_abs_density_discrepancy": 2.2115395681322186e-11,
+      "model": "ELM 2P + ground",
+      "n_output": 500,
+      "numerical_gate": "PASS",
+      "qdna_invariants": {
+        "hermiticity_error": 1.0173916563429387e-15,
+        "max_population": 1.0,
+        "min_eigenvalue": -4.015180700528346e-11,
+        "min_population": 0.0,
+        "trace_error": 7.773259654914668e-15
+      },
+      "relaxation_rate_ps_inverse": 3.0,
+      "sampled_lifetime_fs": 541.0821643286573,
+      "sites": [
+        [
+          "02G",
+          "03C",
+          "04G"
+        ],
+        [
+          "23C",
+          "22G",
+          "21C"
+        ]
+      ],
+      "source": "1BNA",
+      "t_end_fs": 3000
+    },
+    {
+      "dimension": 37,
+      "documented_sampled_lifetime_fs": 775.5511022044088,
+      "external_published_trajectory_match": "NOT_ESTABLISHED_REFERENCE_ARRAY_UNAVAILABLE",
+      "independent_invariants": {
+        "hermiticity_error": 0.0,
+        "max_population": 1.0000000000000004,
+        "min_eigenvalue": -4.715289318310309e-16,
+        "min_population": -4.440892098500626e-16,
+        "trace_error": 3.3306690738754696e-16
+      },
+      "max_abs_density_discrepancy": 9.264603944534024e-11,
+      "model": "ELM 2P + ground",
+      "n_output": 500,
+      "numerical_gate": "PASS",
+      "qdna_invariants": {
+        "hermiticity_error": 1.0422367615969942e-15,
+        "max_population": 1.0,
+        "min_eigenvalue": -9.109416779243085e-11,
+        "min_population": 0.0,
+        "trace_error": 5.9967795514735256e-15
+      },
+      "relaxation_rate_ps_inverse": 3.0,
+      "sampled_lifetime_fs": 775.5511022044088,
+      "scalar_reference_gate": "PASS",
+      "sites": [
+        [
+          "G",
+          "C",
+          "G"
+        ],
+        [
+          "C",
+          "G",
+          "C"
+        ]
+      ],
+      "source": "Hawke2010",
+      "t_end_fs": 3000
+    }
+  ],
+  "schema_version": "AEGIS_QUANTUM_DNA_INTERPRETATION_AUDIT_V1",
+  "source_code_commit": "b0a840015f92f39ddae65beb7393bf2c91aa816e",
+  "source_receipt_sha256": "a04849923bfd9876b9a5aa7aeedd367af81b2ea1ff21d04b4fbd402ebc2f047d",
+  "status": "ARTIFACT_BOUND_INTERPRETATION_AUDIT_ONLY",
+  "verified_artifact_digest_count": 86
+}

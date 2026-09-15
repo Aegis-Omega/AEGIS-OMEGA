@@ -11,12 +11,18 @@ on:
       - docs/CLAIMS_LEDGER.md
       - docs/claims.schema.json
       - scripts/validate-claims.mjs
+      - docs/quantum-dna-witness-ledger.json
+      - genomics/quantum_dna/**
+      - .github/workflows/claims-ledger.yml
   push:
     paths:
       - docs/claims.json
       - docs/CLAIMS_LEDGER.md
       - docs/claims.schema.json
       - scripts/validate-claims.mjs
+      - docs/quantum-dna-witness-ledger.json
+      - genomics/quantum_dna/**
+      - .github/workflows/claims-ledger.yml
 
 permissions:
   contents: read
@@ -31,5 +37,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test QuantumDNA witness and run-contract rejection controls
+        run: python -m unittest discover -s genomics/quantum_dna -p 'test_*.py' -v
       - name: Validate claims ledger
         run: node scripts/validate-claims.mjs

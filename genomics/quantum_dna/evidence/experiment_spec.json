@@ -1,0 +1,21 @@
+{
+  "schema": "AEGIS_QUANTUM_DNA_SPEC_V1",
+  "sequence_scope": "Watson-Crick duplex, ELM six sites; one-hole perturbation separate from 2P reference",
+  "sequences": ["GCG", "GTG", "GAG", "GGG"],
+  "dephasing_energies_eV": [0.0, 0.001, 0.01, 0.03, 0.1, 0.3, 0.5, 1.0, 3.0],
+  "sweep_end_fs": 200.0,
+  "sweep_output_count": 2001,
+  "output_spacing_fs": 0.1,
+  "internal_integrator": "adaptive dop853; output spacing is not fixed integration step",
+  "cross_solver_tolerance": 1e-7,
+  "classical_max_coupling_ratio": 0.1,
+  "classical_population_tolerance": 0.05,
+  "normalized_coherence_tolerance": 0.05,
+  "classical_comparison_transient": "5 / Gamma; requires a nonempty observation window",
+  "coherence_normalization": "C_l1/(6-1); site basis",
+  "threshold_status": "operational sampled crossover only",
+  "high_dephasing_scope": "1 and 3 eV are numerical asymptotic controls, not calibrated cellular conditions",
+  "reference": "1BNA packaged ELM parameters; 2P plus vacuum; 3 ps / 500 output points; recombination 3 ps^-1",
+  "external_array_match": "No original numeric trajectory located; do not claim figure reproduction",
+  "hypothesis_policy": "Classical hopping is asymptotic comparator; no p-values for deterministic traces"
+}
