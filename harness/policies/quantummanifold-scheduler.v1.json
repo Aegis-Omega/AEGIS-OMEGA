@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "policy_kind": "AEGIS_QUANTUMMANIFOLD_SCHEDULER_POLICY_V1",
+  "authority_effect": "NONE",
+  "ppm": 1000000,
+  "max_safe_canonical_int": 9007199254740991,
+  "alpha_ppm": 1000000,
+  "beta_ppm": 1000000,
+  "gamma_ppm": 1000000,
+  "mu_ppm": 1000000,
+  "eta_ppm": 1000000,
+  "epsilon_ppm": 1
+}
