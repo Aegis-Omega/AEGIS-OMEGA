@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/weil-three-block-rational-v1-cf660498",
+    "source_ref": "research/weil-v21-analytic-constants-replay-20260915",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "6fc679d6a12f2199fef6cd8c939558a94fe86284e2fdb25de6a670ee98d40a59"
+  "state_hash": "4cfb67bd669752ce1a2fbbdac4ce6f1db9b8bfcd0f747a4a02fe5d54923b60e0"
 }
