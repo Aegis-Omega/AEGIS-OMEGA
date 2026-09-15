@@ -1,0 +1,73 @@
+name: Lean Local Runtime Export V1
+on:
+  push:
+    branches: ['proof/weil-three-block-rational-v1-cf660498']
+    paths: ['.github/workflows/lean-local-runtime-v1.yml']
+permissions:
+  contents: read
+env:
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_VERSION: 4.33.1
+  LEAN_ARCHIVE_SHA256: 890afd185370f85666025b883914ab4f4b339136f8c96167b69cfb62aecaf235
+jobs:
+  export:
+    name: export official Lean and offline Mathlib
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout pinned Mathlib without retained credentials
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: leanprover-community/mathlib4
+          ref: ${{ env.MATHLIB_SHA }}
+          path: mathlib
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Obtain and verify official Lean distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/lean dist/mathlib
+          curl --fail --location --retry 2 --max-time 180 "https://github.com/leanprover/lean4/releases/download/v${LEAN_VERSION}/lean-${LEAN_VERSION}-linux.tar.zst" -o "dist/lean/lean-${LEAN_VERSION}-linux.tar.zst"
+          printf '%s  %s\n' "$LEAN_ARCHIVE_SHA256" "lean-${LEAN_VERSION}-linux.tar.zst" > dist/lean/SHA256SUMS
+          (cd dist/lean && sha256sum -c SHA256SUMS)
+          tar --zstd -xf "dist/lean/lean-${LEAN_VERSION}-linux.tar.zst"
+          export PATH="$PWD/lean-${LEAN_VERSION}-linux/bin:$PATH"
+          echo "$PWD/lean-${LEAN_VERSION}-linux/bin" >> "$GITHUB_PATH"
+          lean --version | tee dist/lean/lean-version.log
+          lake --version | tee dist/lean/lake-version.log
+          test "$(git -C mathlib rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(cat mathlib/lean-toolchain)" = "leanprover/lean4:v${LEAN_VERSION}"
+      - name: Upload verified official installation archive
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lean-linux-4.33.1-offline
+          path: dist/lean/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
+      - name: Obtain Mathlib cache for actual proof imports
+        working-directory: mathlib
+        shell: bash
+        run: |
+          set -euo pipefail
+          lake exe cache get Mathlib/Analysis/MellinTransform.lean Mathlib/NumberTheory/ArithmeticFunction/VonMangoldt.lean Mathlib/NumberTheory/Harmonic/EulerMascheroni.lean Mathlib/NumberTheory/LSeries/RiemannZeta.lean Mathlib/Analysis/Calculus/ContDiff/Convolution.lean Mathlib/MeasureTheory/Integral/IntegralEqImproper.lean Mathlib/MeasureTheory/Integral/Bochner/ContinuousLinearMap.lean Mathlib/Topology/Algebra/InfiniteSum/Constructions.lean Mathlib/Analysis/Complex/Basic.lean Mathlib/MeasureTheory/Integral/Bochner/Basic.lean Mathlib/Tactic.lean
+          printf 'import Mathlib.Tactic\nimport Mathlib.Analysis.MellinTransform\nexample (x : ℝ) : 0 ≤ x^2 := sq_nonneg x\n' > OfflineSmoke.lean
+          lake env lean OfflineSmoke.lean
+          printf 'MATHLIB_SHA=%s\nSOURCE_SHA=%s\n' "$MATHLIB_SHA" "$GITHUB_SHA" > ../dist/mathlib/BUILD_BINDING.txt
+          sha256sum lake-manifest.json lean-toolchain > ../dist/mathlib/dependency-hashes.txt
+      - name: Package offline Mathlib tree without Git databases or credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar --exclude='.git' -I 'zstd -T2 -3' -cf dist/mathlib/mathlib-offline.tar.zst mathlib
+          (cd dist/mathlib && sha256sum mathlib-offline.tar.zst > SHA256SUMS)
+          du -sh dist/lean dist/mathlib
+      - name: Upload offline Mathlib environment
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mathlib-0df444a-offline
+          path: dist/mathlib/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 7
