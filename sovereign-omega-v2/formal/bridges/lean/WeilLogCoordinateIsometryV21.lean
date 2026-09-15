@@ -43,7 +43,7 @@ theorem integral_exp_substitution (f : ℝ → ℝ) :
       (f := Real.exp)
       (f' := Real.exp)
       (s := Set.univ)
-      Set.measurableSet_univ
+      MeasurableSet.univ
       (fun x _ => (Real.hasDerivAt_exp x).hasDerivWithinAt)
       (Set.injOn_of_injective Real.exp_injective)
       f
@@ -60,7 +60,8 @@ theorem logLift_norm_sq (g : ℝ → ℂ) (t : ℝ) :
     rw [pow_two, ← Real.exp_add]
     congr 1
     ring
-  simp [logLift, norm_mul, abs_of_pos (Real.exp_pos _), hexp]
+  simp only [logLift, norm_mul, Complex.norm_exp, Complex.ofReal_re]
+  rw [mul_pow, hexp]
 
 /-- The certificate's additive-coordinate energy is exactly the positive-axis
 energy of the multiplicative packet. -/
@@ -86,7 +87,7 @@ theorem packet_energy_eq_positive_energy (g : WeilCompactSmoothGV1) :
       (f := fun x : ℝ => ‖g.1 x‖ ^ 2)
       (s := Ioi (0 : ℝ))
       (t := Set.univ)
-      Set.measurableSet_univ
+      MeasurableSet.univ
       (Set.subset_univ _)
       (by
         intro x hx
