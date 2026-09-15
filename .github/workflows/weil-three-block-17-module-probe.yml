@@ -1,0 +1,283 @@
+name: Weil three-block 17-module exact-pin probe
+
+on:
+  push:
+    branches:
+      - proof/weil-three-block-17-module-probe
+    paths:
+      - 'docs/evidence/weil-three-block-formalization-workpack-20260915/**'
+      - '.github/workflows/weil-three-block-17-module-probe.yml'
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.sha }}
+  SOURCE_ANCHOR: cf660498847634a5a45fc6c19644132be3ec8417
+  SOURCE_ANCHOR_TREE: 7aa1c8040c4af6d6c4f215d3a9b49476041fcaee
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  WORKPACK_ZIP_SHA256: 2b55f03cd0c9854c2061a46c2639062adb47ddf95f481e5d72e57664aee0427b
+  WORKPACK_PART_DIR: docs/evidence/weil-three-block-formalization-workpack-20260915
+
+jobs:
+  verify:
+    name: 17-module exact-pin kernel replay
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact Mathlib
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: leanprover-community/mathlib4
+          ref: ${{ env.MATHLIB_SHA }}
+          persist-credentials: false
+
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.SOURCE_SHA }}
+          path: .aegis
+          persist-credentials: false
+          fetch-depth: 40
+
+      - name: Reconstruct and bind exact workpack
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(cat lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          git -C .aegis merge-base --is-ancestor "$SOURCE_ANCHOR" "$SOURCE_SHA"
+          test "$(git -C .aegis rev-parse "$SOURCE_ANCHOR^{tree}")" = "$SOURCE_ANCHOR_TREE"
+
+          mkdir -p evidence workpack .lake/build/lib/lean
+          ZIP="$RUNNER_TEMP/AEGIS_WEIL_THREE_BLOCK_FORMALIZATION_WORKPACK_20260915.zip"
+          cat \
+            ".aegis/$WORKPACK_PART_DIR/workpack.part-00.bin" \
+            ".aegis/$WORKPACK_PART_DIR/workpack.part-01.bin" \
+            ".aegis/$WORKPACK_PART_DIR/workpack.part-02.bin" \
+            ".aegis/$WORKPACK_PART_DIR/workpack.part-03.bin" > "$ZIP"
+          echo "$WORKPACK_ZIP_SHA256  $ZIP" | sha256sum -c -
+          unzip -q "$ZIP" -d workpack
+          sha256sum "$ZIP" > evidence/workpack-zip-sha256.log
+          cp workpack/AEGIS_WEIL_THREE_BLOCK_FORMALIZATION_WORKPACK_V1.json evidence/
+          cp workpack/AEGIS_WEIL_THREE_BLOCK_FORMALIZATION_SHA256SUMS.txt evidence/
+
+          cat > evidence/exact-source.log <<EOF
+          SOURCE_SHA=$SOURCE_SHA
+          SOURCE_ANCHOR=$SOURCE_ANCHOR
+          SOURCE_ANCHOR_TREE=$SOURCE_ANCHOR_TREE
+          MATHLIB_SHA=$MATHLIB_SHA
+          LEAN_TOOLCHAIN=$LEAN_TOOLCHAIN
+          WORKPACK_ZIP_SHA256=$WORKPACK_ZIP_SHA256
+          EOF
+
+          for m in \
+            WeilCriterionCompactSmoothV1 \
+            WeilPrimeSummabilityV1 \
+            WeilArchimedeanConvergenceV1 \
+            WeilAutocorrelationRealityV1 \
+            WeilAutocorrelationClosureV1; do
+            cp ".aegis/sovereign-omega-v2/formal/bridges/lean/$m.lean" .
+            sha256sum "$m.lean" >> evidence/exact-source.log
+          done
+
+          cat > evidence/draft-modules.txt <<'EOF'
+          WeilMixedCorrelationClosureV1
+          WeilThreeBlockAnalyticConstantsV1
+          WeilCompactSmoothLinearV1
+          WeilMixedLogChangeV1
+          WeilThreeBlockWindowConstantsV1
+          WeilMixedLogNormalizationV1
+          WeilLogMomentTransportV1
+          WeilLogSupportGeometryV1
+          WeilMixedReciprocalV1
+          WeilDiagonalPrimeZeroV1
+          WeilLogTranslateV1
+          WeilMixedRHSHermitianV1
+          WeilLogTranslateMomentsV1
+          WeilLogTranslateKernelV1
+          WeilLogEnergyV1
+          WeilThreeBlockPrimeResonanceV1
+          WeilThreeBlockPrimeSumV1
+          EOF
+
+          while IFS= read -r m; do
+            m="$(echo "$m" | xargs)"
+            test -n "$m" || continue
+            cp "workpack/$m.lean" .
+            cp "$m.lean" evidence/
+            sha256sum "$m.lean" >> evidence/exact-source.log
+          done < evidence/draft-modules.txt
+
+          echo '37db4fe8faceeaaf2219f37ed8f885c6062e6d8143f8a7cee41ed5f850a2a0c8  WeilMixedCorrelationClosureV1.lean' | sha256sum -c -
+          echo 'a1a9d6ce73dcb96c7a04c46cb7fe206d586bbae279e7ddf4576f99c38f64e605  WeilThreeBlockAnalyticConstantsV1.lean' | sha256sum -c -
+          echo 'ba9bcc0212fadb65116532cd5e7a833250674639620b689eb7c3193cacb217cf  WeilCompactSmoothLinearV1.lean' | sha256sum -c -
+          echo '8dcacb518c715b10f8ab7eb2e6bf6dafca74ead6dae54204d9ae9adbfd5c542d  WeilMixedLogChangeV1.lean' | sha256sum -c -
+          echo 'e8108822a6c810064a4fc20d7f5b2e14cc98328f6dafac9363a24fd3148904e3  WeilThreeBlockWindowConstantsV1.lean' | sha256sum -c -
+          echo 'aa91b6d0fad58c30e43b266f8fbd481570f9fc42bf8630d5670759039ba7c90f  WeilMixedLogNormalizationV1.lean' | sha256sum -c -
+          echo 'b6eb599f8022ec9c99d3ac30768397280bf888185d91d40840fc7336d2ce246b  WeilLogMomentTransportV1.lean' | sha256sum -c -
+          echo '96a8a9565aaf699a408d3bec05ff95f9580d91dd9edfba80e5b8af6eed679288  WeilLogSupportGeometryV1.lean' | sha256sum -c -
+          echo '0d6509c8228968ba8fd1e8902287b703676da53e48b7fe5fb6a041b57a28c40f  WeilMixedReciprocalV1.lean' | sha256sum -c -
+          echo '74a32755d26f3053311daba42a6cb6cdd8c0528ddf6a81d7ce2117f56539cd2a  WeilDiagonalPrimeZeroV1.lean' | sha256sum -c -
+          echo 'f3e5390a2b953e727545cb8d5c20c8cb14d697133961b0a96702502cb32363de  WeilLogTranslateV1.lean' | sha256sum -c -
+          echo '43354bd7b6631f3dd358fb9312075fd7a5f654aba22b74fc3fab878e76efeb11  WeilMixedRHSHermitianV1.lean' | sha256sum -c -
+          echo 'e4b872eb45cede7b217489d75c6f0e4b331e7c203499e97f1a517259b955abb9  WeilLogTranslateMomentsV1.lean' | sha256sum -c -
+          echo '3f3fec804cd484f87f4d083dd0a832d1b237f4536961b13b66c0cac82f250703  WeilLogTranslateKernelV1.lean' | sha256sum -c -
+          echo 'bcb8707ac0827a3523b4619eb291938e68cb489a3e956ab897f7d23d16cf6528  WeilLogEnergyV1.lean' | sha256sum -c -
+          echo '84d83e6c67976144272716e143e45a6511f188f92159f018eaeb36e5ce2f3652  WeilThreeBlockPrimeResonanceV1.lean' | sha256sum -c -
+          echo 'b276c2503902ba61f11fa8c44ab7d09f3cd208c15aaa725266aa1c5e8688af6a  WeilThreeBlockPrimeSumV1.lean' | sha256sum -c -
+
+          cat > evidence/modules.txt <<'EOF'
+          WeilCriterionCompactSmoothV1
+          WeilPrimeSummabilityV1
+          WeilArchimedeanConvergenceV1
+          WeilAutocorrelationRealityV1
+          WeilAutocorrelationClosureV1
+          WeilMixedCorrelationClosureV1
+          WeilThreeBlockAnalyticConstantsV1
+          WeilCompactSmoothLinearV1
+          WeilMixedLogChangeV1
+          WeilThreeBlockWindowConstantsV1
+          WeilMixedLogNormalizationV1
+          WeilLogMomentTransportV1
+          WeilLogSupportGeometryV1
+          WeilMixedReciprocalV1
+          WeilDiagonalPrimeZeroV1
+          WeilLogTranslateV1
+          WeilMixedRHSHermitianV1
+          WeilLogTranslateMomentsV1
+          WeilLogTranslateKernelV1
+          WeilLogEnergyV1
+          WeilThreeBlockPrimeResonanceV1
+          WeilThreeBlockPrimeSumV1
+          EOF
+
+          python3 - <<'PY'
+          from pathlib import Path
+          imports = set()
+          for mod in Path('evidence/modules.txt').read_text().splitlines():
+              mod = mod.strip()
+              if not mod:
+                  continue
+              for line in Path(mod + '.lean').read_text().splitlines():
+                  if line.startswith('import '):
+                      for name in line[7:].split():
+                          if name.startswith('Mathlib.'):
+                              imports.add(name.replace('.', '/') + '.lean')
+          Path('imports.txt').write_text('\n'.join(sorted(imports)) + '\n')
+          PY
+
+      - name: Obtain exact Lean and targeted dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          export PATH="$HOME/.elan/bin:$PATH"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          mapfile -t imports < imports.txt
+          lake exe cache get "${imports[@]}"
+          lean --version | tee -a evidence/exact-source.log
+          lake --version | tee -a evidence/exact-source.log
+
+      - name: Compile base chain and all 17 draft modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          failed=0
+          while IFS= read -r m; do
+            m="$(echo "$m" | xargs)"
+            test -n "$m" || continue
+            echo "=== COMPILE $m ==="
+            if lake env lean -o ".lake/build/lib/lean/$m.olean" "$m.lean" > "evidence/$m.log" 2>&1; then
+              echo "$m=PASS" | tee -a evidence/compile-summary.log
+              sha256sum ".lake/build/lib/lean/$m.olean" >> evidence/olean-sha256.log
+            else
+              echo "$m=FAIL" | tee -a evidence/compile-summary.log
+              cat "evidence/$m.log"
+              failed=1
+            fi
+          done < evidence/modules.txt
+          test "$failed" = 0
+
+      - name: Audit all 125 theorem and lemma closures
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re
+          modules = [m.strip() for m in Path('evidence/draft-modules.txt').read_text().splitlines() if m.strip()]
+          names = []
+          for m in modules:
+              s = Path(m + '.lean').read_text()
+              if re.search(r'^\s*axiom\s+', s, re.M):
+                  raise SystemExit('FAIL: new axiom declaration in ' + m)
+              names += re.findall(r'^(?:theorem|lemma)\s+([A-Za-z0-9_]+)', s, re.M)
+          if len(names) != 125 or len(set(names)) != 125:
+              raise SystemExit(f'FAIL: theorem/lemma census {len(names)} != 125')
+          Path('evidence/expected-theorems.json').write_text(json.dumps(names, indent=2) + '\n')
+          Path('Audit17.lean').write_text('\n'.join(['import ' + m for m in modules] + ['#print axioms ' + n for n in names]) + '\n')
+          PY
+          lake env lean Audit17.lean 2>&1 | tee evidence/axioms.log
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re
+          names = json.loads(Path('evidence/expected-theorems.json').read_text())
+          log = Path('evidence/axioms.log').read_text()
+          result = {}
+          for name in names:
+              none = "'" + name + "' does not depend on any axioms"
+              found = re.findall(re.escape("'" + name + "' depends on axioms: ") + r'\[([^\]]*)\]', log, re.S)
+              if none in log and not found:
+                  axioms = set()
+              elif none not in log and len(found) == 1:
+                  axioms = {a.strip() for a in found[0].split(',') if a.strip()}
+              else:
+                  raise SystemExit('FAIL: incomplete axiom output ' + name)
+              if not axioms <= {'propext', 'Classical.choice', 'Quot.sound'}:
+                  raise SystemExit('FAIL: unexpected axioms ' + name + ' ' + repr(axioms))
+              result[name] = sorted(axioms)
+          Path('evidence/axiom-audit.json').write_text(json.dumps(result, indent=2) + '\n')
+          print('PASS: 125 theorem/lemma closures; sorryAx absent; authority_effect=NONE')
+          PY
+          cp Audit17.lean evidence/
+
+      - name: Export exact-pin evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r m; do
+            m="$(echo "$m" | xargs)"
+            test -n "$m" || continue
+            if test -f ".lake/build/lib/lean/$m.olean"; then
+              cp ".lake/build/lib/lean/$m.olean" evidence/
+            fi
+          done < evidence/draft-modules.txt
+          cat > evidence/DISPOSITION.txt <<EOF
+          SOURCE_ANCHOR=$SOURCE_ANCHOR
+          CANDIDATE_HEAD=$SOURCE_SHA
+          WORKPACK_ZIP_SHA256=$WORKPACK_ZIP_SHA256
+          MATHLIB_PIN=$MATHLIB_SHA
+          LEAN_TOOLCHAIN=$LEAN_TOOLCHAIN
+          PRIME_WINDOW_17_MODULES=HOSTED_REPLAY_ATTEMPTED
+          ARCHIMEDEAN_DIAGONAL_BINDING=OPEN
+          ARCHIMEDEAN_OFFDIAGONAL_BINDING=OPEN
+          GLOBAL_WEIL_SIGN=OPEN
+          RH=NOT_PROVEN
+          MERGE=NONE
+          authority_effect=NONE
+          EOF
+
+      - name: Upload exact-pin evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: weil-three-block-17-module-${{ env.SOURCE_SHA }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 30
