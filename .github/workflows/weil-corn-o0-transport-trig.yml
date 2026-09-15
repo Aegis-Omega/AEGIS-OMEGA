@@ -1,0 +1,213 @@
+name: Weil CoRN to O0 Transport Trig
+
+on:
+  push:
+    branches:
+      - proof/corn-o0-transport-trig-commutation-v1
+    paths:
+      - "sovereign-omega-v2/formal/theories/Weil/**"
+      - "sovereign-omega-v2/formal/tests/Weil/CornO0TransportTrigSpec.v"
+      - ".github/workflows/weil-corn-o0-transport-trig.yml"
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/formal/theories/Weil/**"
+      - "sovereign-omega-v2/formal/tests/Weil/CornO0TransportTrigSpec.v"
+      - ".github/workflows/weil-corn-o0-transport-trig.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-corn-o0-transport-trig-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  prove:
+    name: coqc / O0 transport-defined trig roundtrip
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Reject declared assumptions in authority source when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=sovereign-omega-v2/formal/theories/Weil/CornO0TransportTrig.v
+          if test -f "$src"; then
+            if grep -En '^[[:space:]]*(Axiom|Axioms|Parameter|Parameters|Admitted)[[:space:].]' "$src"; then
+              echo "Declared assumption/admission forbidden: $src" >&2
+              exit 1
+            fi
+          fi
+
+      - name: Prepare writable evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/weil-corn-o0-transport-trig-attestation
+          chmod -R a+rwX \
+            sovereign-omega-v2/formal/theories/Weil \
+            sovereign-omega-v2/formal/tests/Weil \
+            sovereign-omega-v2/weil-corn-o0-transport-trig-attestation
+
+      - name: Compile RED or GREEN transport-trig contract
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: 'default'
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            THEORY="$ROOT/formal/theories/Weil"
+            TESTDIR="$ROOT/formal/tests/Weil"
+            SOURCE="$THEORY/CornO0TransportTrig.v"
+            OUT="$ROOT/weil-corn-o0-transport-trig-attestation"
+
+            coqc --version | tee "$OUT/coq-version.txt"
+            opam install -y coq-corn.9.0.0
+            opam var coq-corn:version | tee "$OUT/corn-version.txt"
+            test "$(tr -d '[:space:]' < "$OUT/corn-version.txt")" = "9.0.0"
+
+            (cd "$THEORY" && coqc AnalyticDefinitions.v) 2>&1 | tee "$OUT/analytic-definitions.log"
+            (cd "$THEORY" && coqc CornO0MorphismBridge.v) 2>&1 | tee "$OUT/corn-o0-morphism.log"
+            (cd "$THEORY" && coqc PrimeTrigConstructive.v) 2>&1 | tee "$OUT/prime-trig.log"
+            (cd "$THEORY" && coqc CornO0TrigImageBridge.v) 2>&1 | tee "$OUT/trig-image.log"
+
+            if ! test -f "$SOURCE"; then
+              set +e
+              (cd "$TESTDIR" && coqc -Q "$THEORY" "" CornO0TransportTrigSpec.v) \
+                > "$OUT/red-spec.log" 2>&1
+              status=$?
+              set -e
+              cat "$OUT/red-spec.log"
+              test "$status" -ne 0
+              grep -q 'CornO0TransportTrig' "$OUT/red-spec.log"
+              echo 'RED checkpoint confirmed: contract fails because production transport-trig bridge is absent.' >&2
+              exit 1
+            fi
+
+            (cd "$THEORY" && coqc CornO0TransportTrig.v) 2>&1 | tee "$OUT/transport-trig-source.log"
+            (cd "$TESTDIR" && coqc -Q "$THEORY" "" CornO0TransportTrigSpec.v) 2>&1 | tee "$OUT/transport-trig-spec.log"
+
+            for theorem in \
+              o0_to_corn_ir_proper_v1 \
+              corn_o0_roundtrip_ir_v1 \
+              corn_o0_roundtrip_o0_v1 \
+              o0_sin_transport_proper_v1 \
+              o0_cos_transport_proper_v1 \
+              corn_o0_sin_transport_commutes_v1 \
+              corn_o0_cos_transport_commutes_v1
+            do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.assumptions.txt"
+              cat > "$query" <<EOF
+            Set Coqtop Exit On Error.
+            Require Import CornO0TransportTrig.
+            Print Assumptions ${theorem}.
+            EOF
+              (cd "$THEORY" && coqtop -quiet -batch -l "$query") > "$log" 2>&1
+              rm -f "$query"
+              cat "$log"
+              grep -q 'Closed under the global context' "$log"
+              if grep -q '^Axioms:' "$log"; then
+                echo "Unexpected assumptions for $theorem" >&2
+                exit 1
+              fi
+            done
+
+      - name: Emit fail-closed transport-trig receipt
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          out = Path('weil-corn-o0-transport-trig-attestation')
+          source = Path('formal/theories/Weil/CornO0TransportTrig.v')
+          names = [
+              'o0_to_corn_ir_proper_v1',
+              'corn_o0_roundtrip_ir_v1',
+              'corn_o0_roundtrip_o0_v1',
+              'o0_sin_transport_proper_v1',
+              'o0_cos_transport_proper_v1',
+              'corn_o0_sin_transport_commutes_v1',
+              'corn_o0_cos_transport_commutes_v1',
+          ]
+
+          def sha(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          payload = {
+              'receipt_kind': 'AEGIS_CORN_O0_TRANSPORT_TRIG_RECEIPT_V1',
+              'authority': 'FORMAL_MATH_EVIDENCE_ONLY',
+              'source_commit': os.environ['SOURCE_SHA'],
+              'source_sha256': sha(source),
+              'coq_version_sha256': sha(out / 'coq-version.txt'),
+              'corn_requested_version': '9.0.0',
+              'corn_installed_version': (out / 'corn-version.txt').read_text(encoding='utf-8').strip(),
+              'theorem_names': names,
+              'theorem_assumption_log_sha256': {
+                  name: sha(out / f'{name}.assumptions.txt') for name in names
+              },
+              'declared_assumptions': 0,
+              'corn_o0_roundtrip_machine_bound': True,
+              'o0_transport_trig_setoid_proper_machine_bound': True,
+              'transport_defined_o0_trig_commutation_machine_bound': True,
+              'independent_native_o0_trig_implementation_agreement_machine_bound': False,
+              'derivative_transport_to_o0_machine_bound': False,
+              'guinand_weil_explicit_formula_machine_bound': False,
+              'globalization_ready_concrete_weil_discharged': False,
+              'global_weil_positivity_proven': False,
+              'weil_criterion_machine_bound': False,
+              'rh_proven': False,
+              'open_obligations': [
+                  'INDEPENDENT_NATIVE_O0_TRIG_IMPLEMENTATION_AGREEMENT_NOT_MACHINE_BOUND',
+                  'DERIVATIVE_TRANSPORT_TO_O0_NOT_MACHINE_BOUND',
+                  'GUINAND_WEIL_EXPLICIT_FORMULA_NOT_MACHINE_BOUND',
+                  'CONCRETE_GLOBALIZATION_PREMISES_NOT_DISCHARGED',
+              ],
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          target = out / 'corn-o0-transport-trig-receipt.json'
+          target.write_text(json.dumps(payload, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          print(target.read_text(encoding='utf-8'))
+
+          assert payload['corn_o0_roundtrip_machine_bound'] is True
+          assert payload['o0_transport_trig_setoid_proper_machine_bound'] is True
+          assert payload['transport_defined_o0_trig_commutation_machine_bound'] is True
+          assert payload['independent_native_o0_trig_implementation_agreement_machine_bound'] is False
+          assert payload['derivative_transport_to_o0_machine_bound'] is False
+          assert payload['global_weil_positivity_proven'] is False
+          assert payload['rh_proven'] is False
+          PY
+
+      - name: Upload transport-trig evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: weil-corn-o0-transport-trig-${{ env.SOURCE_SHA }}
+          path: sovereign-omega-v2/weil-corn-o0-transport-trig-attestation/
+          if-no-files-found: warn
+          retention-days: 30

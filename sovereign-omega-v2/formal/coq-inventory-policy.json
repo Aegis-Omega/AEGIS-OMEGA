@@ -6,6 +6,7 @@
     "Weil/AnalyticDefinitions.v",
     "Weil/CanonicalPrimeSourceSum.v",
     "Weil/CornO0MorphismBridge.v",
+    "Weil/CornO0TransportTrig.v",
     "Weil/CornO0TrigImageBridge.v",
     "Weil/FiniteBridge.v",
     "Weil/FiniteEntryDictionary.v",
