@@ -25,7 +25,9 @@ theorem mellin_differentiableAt_of_hasCompactSupport [NormedSpace ℂ E] {f : �
 
   have hzero : (0 : ℝ) ∉ tsupport f := by
     intro h
-    exact (lt_irrefl 0) (hf0 h)
+    have h' : (0 : ℝ) < 0 := by
+      simpa only [mem_Ioi] using hf0 h
+    exact (lt_irrefl 0) h'
   have hbot0 : f =ᶠ[𝓝[>] 0] 0 :=
     (notMem_tsupport_iff_eventuallyEq.mp hzero).filter_mono nhdsWithin_le_nhds
   have hbot : f =O[𝓝[>] 0] (fun t : ℝ => t ^ (-(s.re - 1))) :=
