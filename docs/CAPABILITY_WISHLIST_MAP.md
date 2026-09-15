@@ -26,7 +26,7 @@
 
 **EU AI Act compliance** -> 422 EU-AI-Act-oriented inference gate modules plus Article 12 replay-verifiable audit trails filling the downstream-provider documentation gap [`aegis-cl-psi/` Rust CL-Ψ engine, 7,178 tests, REAL; `docs/` EU AI Act Article 12 orientation, REAL].
 
-**Deterministic / reproducible agent runs** -> RFC 8785 canonical hashing + replay kernel proven byte-identical across four runtimes [`sovereign-omega-v2/src` (4,076 tests, REAL); CCIL v5 equivalence gate + INT4 LUT-KAN parity test, REAL].
+**Deterministic / reproducible agent runs** -> RFC 8785 canonical hashing + replay kernel proven byte-identical across four runtimes [`sovereign-omega-v2/src` (4,130 tests passed on PR #334 exact-head Gate 8); CCIL v5 equivalence gate + INT4 LUT-KAN parity test, REAL].
 
 **On-device + cloud trust** -> fail-closed Swift edge verifier (KhattLoopValidation) gating a cloud pipeline; CI runs `Analyze (swift)` [`clients/gemma-edge-ios/`, REAL; holon veto path LIVE (partly)].
 

@@ -1,9 +1,10 @@
 # AEGIS Repo Map — what's real, what's dead, what lies
 
-**Why this exists:** the repo has ~40 top-level dirs and CLAUDE.md documents ~14. Holding
+**Why this exists:** the repo has many top-level systems and no single README can establish liveness. Holding
 "where is what" in your head is what caused the burnout. This is the index. It was produced
-by a full four-way inspection of all 1,649 real files (2026-06-13) and is the source of truth
-when a doc and the code disagree — **the code wins; the docs are stale.**
+from repository inspection and is maintained as an orientation map, not a census. The generated
+repository-cognition manifest owns tracked-file census; when documentation and executable state
+disagree, **exact code, workflow, and receipt evidence wins.**
 
 Status key: **WIRED** = runs in prod / built / deployed / imported · **TESTED-ONLY** = real code,
 only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does not compile ·
@@ -15,11 +16,13 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
 
 | Area | What it is | Deploy |
 |------|-----------|--------|
-| `python/bridge.py` (+ 11 modules) | The governance/swarm/inference HTTP service — `/telemetry`, `/platform/*`, `/claude`, `/node` | Cloud Run `aegis-vertex`, europe-west3 (`sovereign-omega-v2/Dockerfile` ships **only** `python/`) |
-| `vertex/serve.py` | FastAPI "constitutional-proxy" / `aegis-platform`; bundles `agents/` + `harness/` | `vertex/cloudbuild.yaml` |
+| `sovereign-omega-v2/python/bridge.py` | The governance/swarm/inference HTTP service — `/telemetry`, `/platform/*`, `/claude`, `/node`; `/platform/resident/*` invokes the evidence-bound repository loop | Cloud Run `aegis-vertex`, europe-west3; the Dockerfile now packages `python/` plus the invoked `harness/`, `config/`, and `models/` runtime inputs |
+| `harness/sdk/resident_runtime.py` + receipt/admission SDK | Typed repository event → isolated experiment → independent falsifier → effect verification → fail-closed knowledge decision → SelfModel projection/replay | **WIRED** through the production `bridge.py` handler; docker-compose persists `/app/data`, while Render free storage remains ephemeral |
+| `harness/sdk/proof_carrying_platform_execution.py` + `platform_effect_adapter.py` | `aegis_start_execution` authority decision → bridge POST → independent revision-bound GET observations → EffectReceipt → CompleteVerification | **WIRED in PR #334 candidate** through MCP and Python bridge; exact-head CI verified, production deployment not established |
+| `vertex/serve.py` | FastAPI "constitutional-proxy" / `aegis-platform`; owns bounded `/agents/dispatch`, verifies request-bound GitHub OIDC, and bundles the authority runtime plus constitutional workspace anchors | Exact-candidate Docker build/runtime import is CI-gated; separate manual deploy via `vertex/cloudbuild.yaml`; not the `aegis-vertex` bridge; production deployment remains unestablished |
 | `aegis-cl-psi/` | Rust CL-Ψ engine — ~7,198 tests, CI-gated ≥6800 | `aegis-cl-psi/deploy/Dockerfile`; CI `ci.yml` |
 | `aegis-runtime/` | Rust Seven-Pillar runtime | CI build+test |
-| `harness/` (`skill_tree.json`) | Python skill harness; `agents/coordinator.py` reads/writes it; baked into vertex image | via vertex |
+| `harness/skill_tree.json` | Authority-bearing Python skill registry; coordinator reads it, while runtime observations remain non-authoritative proposals and cannot rewrite it | baked into vertex image |
 | `hub/` | **The storefront.** PayPal checkout → `supabase/functions/verify-paypal` → mints API key | Vercel + Cloud Run |
 | `platform-picker/`, `hook-generator/`, `content-calendar/` | The 3 commercial tools; share `packages/shared` (`@shared`); `AccessGate` → hub PayPal | Cloud Run via `deploy.yml` |
 | `packages/shared/` | Shared lib (access, constitutional-ai, inference-router, dashscope, AccessGate) | imported by the 3 tools |
@@ -27,15 +30,18 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
 | `cockpit/`, `studio/` | Internal telemetry / observability dashboards | deployable, not monetized |
 | `supabase/functions/` | Live: `verify-paypal` (payment), `agent`+`slack-events`+`notify` (ops), `chat` (Qwen) | Supabase edge |
 | `.claude/` hooks + `metacog/` | The live governance loop (session-start, per-prompt chain, pre-commit Gate 8, seal) | local to Claude Code |
-| CI | `ci.yml` (7-scale quorum), `frozen-files`, `osv-scanner`, `hadolint`; `deploy.yml` → Cloud Run | GitHub Actions |
+| CI | `ci.yml` (7-scale quorum), `frozen-files`, `osv-scanner`, `hadolint`; `deploy.yml` → Cloud Run; `agent-dispatch.yml` always classifies/preflights and calls the constitutional proxy only when its URL and credential are configured | GitHub Actions |
 
 **The one true money path:** `hub` PricingPage → PayPal → `verify-paypal` → API key. Tiers are
-**$48 operator / $498 sovereign + free Explorer** — *not* "$19".
+displayed as **$49 operator / $499 sovereign + free Explorer**. The PayPal verifier accepts
+minimums of $48/$498 solely as its documented $1 currency-rounding tolerance — those are not
+the advertised prices.
 
 ---
 
 ## 2. Built but not wired — the "97%" (TESTED-ONLY / DORMANT)
 
+- **Most of `harness/sdk/` remains selectively wired, not globally authoritative.** Only the resident runtime's explicitly imported receipt, effect-verification, atomic-admission, epistemic-admission, ProofTrace, and model-registry components are on the bridge path. Tests or file presence alone do not make the rest live.
 - **`sovereign-omega-v2/src/`: ~184 of 189 TS files never reach the running app.** `main.tsx` transitively uses only `components/` + `lib/telemetry.ts` (~5 files). Everything else — `core/`, `constitutional/`, `agents/`, `verifier/`, `consensus/`, `pipeline/`, `memory/`, `api/`, `compliance/`, `corpus-engine/`, etc. — is exercised only by the 250-file test suite.
 - **`src/skill-harness/` (the SHA-256 skill transfer)** — tested-only. The bridge's `/catalog` serves a **hardcoded 3-item literal**, not this code.
 - **`packages/kernel/`** (Rust) — orphaned workspace member; nothing depends on it.
@@ -66,7 +72,18 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
 - ~~Lemon Squeezy subsystem~~ = **removed** from repo: `ls-webhook`/`issue-token`/`restore-access` + `gen-grant-keypair.mjs`. NOTE: the edge functions may still be **deployed on Supabase** — delete there separately if desired.
 - **`.github/workflows/deploy-cloud-run.yml`** — **NOT a no-op duplicate — keep.** It's the WIF keyless
   Cloud Run deploy, deliberately `workflow_dispatch`-only (auto-deploy disabled *to stop GCP billing* —
-  that safety decision is encoded in its trigger). `agent-dispatch.yml` = no-op unless a repo var is set.
+  that safety decision is encoded in its trigger).
+- **`.github/workflows/agent-dispatch.yml`** — optional external integration. It listens to the
+  actual Constitutional Automaton workflow name and is an observable fail-closed integration.
+  Classification/preflight runs without credentials; the network step defers until both
+  `PROXY_URL` and `AGENT_DISPATCH_API_KEY` exist. Direct PR execution is excluded from this
+  secret-bearing workflow; GitHub loads the post-CI `workflow_run` trigger from the default
+  branch, so that path remains candidate-state until merged. See
+  `docs/operations/AGENT_DISPATCH.md`. Responses require non-empty central routing receipts;
+  results without a matching `ADMITTED` receipt fail closed, while zero results are reported as
+  `DENIED`, not execution. The current candidate adds a request-digest OIDC audience, RS256/JWKS
+  verification, immutable repository/workflow/ref checks, per-action context and image/source-SHA
+  binding. It deliberately does not promote the still-unobserved routing capability.
 - ~~`enterprise/dist/`~~ = **removed** (committed build artifact; `.gitignore` already excludes `dist/`).
 - **root `package.json`** named `aegis-tactical-dashboard` — frontend workspace entry removed; now `backend`-only (still an orphaned identity).
 - ~~`studio/dist/`~~ = **untracked** (committed build artifact removed from git).

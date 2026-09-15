@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisomega.com/schemas/transition-identity-envelope.v1.schema.json",
+  "title": "AEGIS Transition Identity Envelope V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source_commit",
+    "pre_state_commitment",
+    "identity_root",
+    "delegation_commitment",
+    "capability_commitment",
+    "action_digest",
+    "deterministic_nonce",
+    "fence_commitment",
+    "verifier_policy_commitment",
+    "admission_policy_commitment"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+    "pre_state_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity_root": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "delegation_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "capability_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "action_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "deterministic_nonce": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._:/@+#=-]+$"},
+    "fence_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "verifier_policy_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "admission_policy_commitment": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

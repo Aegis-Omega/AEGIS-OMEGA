@@ -28,6 +28,7 @@ import time
 import uuid
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 import anthropic
@@ -42,6 +43,11 @@ _SELF_DIR = os.path.dirname(os.path.abspath(__file__))
 for _p in (_SELF_DIR, os.path.join(_SELF_DIR, "..")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
+_RUNTIME_ROOT = (
+    Path(_SELF_DIR)
+    if (Path(_SELF_DIR) / "harness").is_dir()
+    else Path(_SELF_DIR).parent
+)
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -208,6 +214,13 @@ RATE_LIMIT_PER_MIN = int(os.environ.get("RATE_LIMIT_PER_MIN", "60"))
 
 # Routes that spend compute/money — require the API key when one is configured.
 _GATED_PREFIXES = ("/platform/collaborate", "/agents/run", "/agents/dispatch", "/v1/messages", "/predict")
+MAX_AGENT_DISPATCH_REQUEST_BYTES = 8_192
+MAX_GITHUB_OIDC_TOKEN_BYTES = 16_384
+MAX_GITHUB_OIDC_JWKS_BYTES = 65_536
+GITHUB_OIDC_JWKS_URL = "https://token.actions.githubusercontent.com/.well-known/jwks"
+GITHUB_OIDC_JWKS_TTL_SECONDS = 300
+_github_oidc_jwks_cache: dict[str, Any] = {"loaded_at": 0.0, "value": None}
+_github_oidc_jwks_lock = asyncio.Lock()
 
 # In-memory metrics (per-process; Cloud Run logs aggregate across instances).
 METRICS: dict[str, Any] = {
@@ -232,6 +245,29 @@ def _rate_limited(client: str) -> bool:
         return True
     win.append(now)
     return False
+
+
+async def _get_github_oidc_jwks() -> dict[str, Any]:
+    now = time.monotonic()
+    cached = _github_oidc_jwks_cache["value"]
+    if cached is not None and now - _github_oidc_jwks_cache["loaded_at"] < GITHUB_OIDC_JWKS_TTL_SECONDS:
+        return cached
+    async with _github_oidc_jwks_lock:
+        now = time.monotonic()
+        cached = _github_oidc_jwks_cache["value"]
+        if cached is not None and now - _github_oidc_jwks_cache["loaded_at"] < GITHUB_OIDC_JWKS_TTL_SECONDS:
+            return cached
+        async with httpx.AsyncClient(timeout=5.0, follow_redirects=False) as client:
+            response = await client.get(GITHUB_OIDC_JWKS_URL)
+        response.raise_for_status()
+        if len(response.content) > MAX_GITHUB_OIDC_JWKS_BYTES:
+            raise ValueError("GitHub OIDC JWKS exceeds size ceiling")
+        value = response.json()
+        if not isinstance(value, dict) or not isinstance(value.get("keys"), list):
+            raise ValueError("GitHub OIDC JWKS is malformed")
+        _github_oidc_jwks_cache["loaded_at"] = now
+        _github_oidc_jwks_cache["value"] = value
+        return value
 
 
 @app.middleware("http")
@@ -514,23 +550,96 @@ async def agent_dispatch(request: Request):
     """Dispatch an external event to the appropriate agents.
 
     Request:  {"event_type": "github_ci_failure", "payload": {...}}
-    Response: {"results": [{...}, ...]}
+    Response: {"results": [{...}, ...], "routing_receipts": [{...}, ...]}
     """
-    body = await request.json()
+    body_chunks: list[bytes] = []
+    body_size = 0
+    async for chunk in request.stream():
+        body_size += len(chunk)
+        if body_size > MAX_AGENT_DISPATCH_REQUEST_BYTES:
+            raise HTTPException(413, "dispatch request exceeds 8192-byte ceiling")
+        body_chunks.append(chunk)
+    raw_body = b"".join(body_chunks)
+    try:
+        body = json.loads(raw_body)
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise HTTPException(400, "dispatch request must be valid JSON") from exc
+    if not isinstance(body, dict):
+        raise HTTPException(400, "dispatch request root must be an object")
     event_type = body.get("event_type", "")
     payload = body.get("payload", {})
 
-    if not event_type:
+    if not isinstance(event_type, str) or not event_type:
         raise HTTPException(400, "event_type is required")
+    if not isinstance(payload, dict):
+        raise HTTPException(400, "payload must be an object")
 
     try:
         import sys, os
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-        from agents.coordinator import dispatch_event
+        from agents.coordinator import EVENT_ROUTING, dispatch_event, last_dispatch_receipts
+        from harness.sdk.github_dispatch_identity import (
+            build_dispatch_authority_context,
+            dispatch_replay_key,
+            verify_github_oidc_token,
+        )
     except ImportError as exc:
         raise HTTPException(503, f"Agent coordinator not available: {exc}")
 
-    results = await dispatch_event(event_type, payload)
+    if event_type not in EVENT_ROUTING:
+        raise HTTPException(400, "event_type has no admitted route")
+
+    oidc_token = request.headers.get("x-aegis-github-oidc", "")
+    if not oidc_token or len(oidc_token.encode("utf-8")) > MAX_GITHUB_OIDC_TOKEN_BYTES:
+        raise HTTPException(401, "dispatch OIDC identity is required")
+    image_source_commit = os.environ.get("AEGIS_IMAGE_SOURCE_COMMIT", "")
+    if not image_source_commit:
+        raise HTTPException(503, "image source identity is unavailable")
+    try:
+        jwks = await _get_github_oidc_jwks()
+    except (httpx.HTTPError, ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(503, "GitHub OIDC verifier is unavailable") from exc
+    try:
+        verified_claims = verify_github_oidc_token(
+            token=oidc_token,
+            request_body=body,
+            jwks=jwks,
+        )
+    except ValueError as exc:
+        raise HTTPException(401, "dispatch OIDC identity denied") from exc
+
+    if state.redis is None:
+        raise HTTPException(503, "dispatch replay authority is unavailable")
+    replay_key = dispatch_replay_key(
+        token_id=verified_claims.token_id,
+        request_body=body,
+    )
+    try:
+        replay_claimed = await state.redis.set(
+            replay_key,
+            image_source_commit,
+            ex=600,
+            nx=True,
+        )
+    except Exception as exc:  # Redis failure must never become execution authority.
+        raise HTTPException(503, "dispatch replay authority is unavailable") from exc
+    if not replay_claimed:
+        raise HTTPException(409, "dispatch OIDC identity was already consumed")
+
+    def authority_context_factory(action: dict[str, Any]):
+        return build_dispatch_authority_context(
+            claims=verified_claims,
+            request_body=body,
+            action=action,
+            repository_root=_RUNTIME_ROOT,
+            expected_source_commit=image_source_commit,
+        )
+
+    results = await dispatch_event(
+        event_type,
+        payload,
+        authority_context_factory=authority_context_factory,
+    )
     return {
         "results": [
             {
@@ -543,7 +652,8 @@ async def agent_dispatch(request: Request):
                 "is_valid": r.is_valid,
             }
             for r in results
-        ]
+        ],
+        "routing_receipts": last_dispatch_receipts(),
     }
 
 

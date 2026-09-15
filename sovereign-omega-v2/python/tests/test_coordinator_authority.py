@@ -254,3 +254,20 @@ def test_dispatch_binds_established_repository_knowledge_into_authority_and_task
     }
     assert len(executed) == 1
     assert executed[0].context["repository_knowledge"] == calls[0]["action"]["repository_knowledge"]
+
+
+def test_learning_observation_cannot_mutate_authority_registry_without_admission(tmp_path: Path) -> None:
+    source = REPO_ROOT / "harness" / "skill_tree.json"
+    registry = tmp_path / "skill_tree.json"
+    registry.write_bytes(source.read_bytes())
+    before = registry.read_bytes()
+    instance = coordinator.SkillRouter(
+        skill_tree_path=registry,
+        repo_root=REPO_ROOT,
+        capability_map={"route": "orchestration_routing"},
+    )
+
+    instance.emit_skill_event("route", success=True)
+
+    assert registry.read_bytes() == before
+    assert instance._last_mutation_error == "SKILL_OBSERVATION_ADMISSION_UNAVAILABLE"

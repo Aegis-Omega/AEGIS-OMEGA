@@ -130,6 +130,7 @@ It exposes the 39 Mythos agents as a callable plane:
 | `GET /platform/catalog` | public | all 39 agents + pricing tiers (discovery) |
 | `POST /platform/collaborate` | **gated** | swarm collaboration (revenue / cognitive) |
 | `POST /agents/run` | **gated** | single governed agent run |
+| `POST /agents/dispatch` | **gated** | route an external event; returns agent results and authority routing receipts |
 | `POST /v1/messages` | **gated** | Anthropic-compatible governed gateway |
 | `GET /v1/audit/certify` | public | chain integrity |
 
@@ -145,6 +146,11 @@ JSON access logs (→ Cloud Logging) are on by every request.
 so the `agents/` package and `harness/skill_tree.json` land in the image. Without
 this the `/platform/*` and `/agents/*` routes return 503. A root `.dockerignore`
 keeps the upload small (excludes `node_modules`, rust `target/`, other frontends).
+PR CI uses the same root-context Docker build and runs the resulting image before
+admission. The gate verifies the four constitutional workspace anchors plus the
+OIDC verifier/service imports and emits `AGENT_DISPATCH_IMAGE_PASS`. Keep
+`.dockerignore`'s `!docs/claims.json` exception: removing it makes the production
+Dockerfile unbuildable.
 
 ### One-time secret (so the gate is live)
 
@@ -191,6 +197,36 @@ curl -s -X POST "$URL/platform/collaborate" \
   -d '{"mode":"revenue","objective":"Sell constitutional governance to AI labs"}' \
   | jq '{departments_collaborated, projection: .projection.tier, chain_valid}'
 ```
+
+### Connect GitHub Agent Dispatch
+
+The GitHub integration targets this separate `aegis-platform` service, not the
+`aegis-vertex` bridge described in Path 5. Configure both repository values:
+
+- Actions variable `PROXY_URL` = the exact `aegis-platform` `status.url` returned by Cloud Run;
+- Actions secret `AGENT_DISPATCH_API_KEY` = the same value stored in GCP Secret Manager as
+  `platform-api-key` / exposed to the service as `PLATFORM_API_KEY`.
+
+The workflow sends `AGENT_DISPATCH_API_KEY` as `x-api-key` and a short-lived GitHub OIDC
+token as `x-aegis-github-oidc`. The token audience is
+`aegis-agent-dispatch:<canonical-request-digest>`. Incomplete transport
+configuration is `DEFERRED_NOT_CONFIGURED`; a completed request is `DENIED` when central
+routing receipts admit zero agents or `EXECUTED` when every returned agent has a matching
+`ADMITTED` receipt.
+
+The service verifies the token's RS256 signature against GitHub JWKS, issuer, immutable
+repository ID, trusted workflow/ref, allowed event, request audience, and the
+`AEGIS_IMAGE_SOURCE_COMMIT` baked into the Cloud Run revision. It then derives a separate
+action-bound identity for every candidate role without changing process environment. The image
+also contains the four constitutional files required by workspace verification. A shared Redis
+`SET NX` fence consumes each `jti + request digest` once; missing Redis or a replay denies before
+agent execution.
+
+This still does **not** complete the authority path. `orchestration_routing` remains
+`UNOBSERVED` with zero validated runs, and the OIDC revision is only candidate code until an
+exact-head workflow receipt and deployment receipt exist. Therefore the expected response is
+`DENIED` with zero agent results. Never install a static identity or edit the registry merely to
+bypass that boundary.
 
 ---
 

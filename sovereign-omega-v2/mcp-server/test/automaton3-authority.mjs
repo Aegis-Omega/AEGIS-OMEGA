@@ -31,6 +31,17 @@ try {
   const readParsed = JSON.parse(read.content[0].text)
   assert.equal(readParsed.authority.outcome, 'DENIED')
   assert.equal(bridgeRequests, 0)
+
+  const start = await client.callTool({
+    name: 'aegis_start_execution',
+    arguments: { objective: 'Create one proof-carrying durable execution', mode: 'analysis' },
+  })
+  const startParsed = JSON.parse(start.content[0].text)
+  assert.equal(startParsed.verification_boundary, 'PROOF_CARRYING_PLATFORM_EXECUTION_V1')
+  assert.equal(startParsed.external_effect, 'NOT_EXECUTED')
+  assert.equal(startParsed.authority.outcome, 'DENIED')
+  assert.deepEqual(startParsed.authority.denial_codes, ['IDENTITY_UNAVAILABLE'])
+  assert.equal(bridgeRequests, 0)
   console.log('AUTOMATON3_MCP_PASS fail-closed before bridge side effects')
 } finally {
   await client.close().catch(() => {})

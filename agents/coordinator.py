@@ -10,17 +10,19 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import subprocess
-import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from agents import coordinator_legacy as _legacy
-from harness.sdk.authority_client import authorize_from_environment
+from harness.sdk.authority_client import (
+    AuthorityContext,
+    authorize_from_environment,
+    authorize_with_context,
+)
 from harness.sdk.repository_knowledge import build_snapshot, verify_snapshot
-from harness.sdk.skill_routing import ADMITTED, DENIED, SkillRoutingReceipt, record_skill_observation
+from harness.sdk.skill_routing import ADMITTED, DENIED, SkillRoutingReceipt
 
 for _name in dir(_legacy):
     if not _name.startswith("__") and _name not in globals():
@@ -136,6 +138,7 @@ class SkillRouter(_legacy.SkillRouter):
         self._repo_root = Path(repo_root).resolve()
         self._capability_map = dict(capability_map or _legacy.CAPABILITY_SKILL_MAP)
         self._last_mutation_error: str | None = None
+        self._last_observation_proposal: dict[str, Any] | None = None
 
     def _central_decision(
         self,
@@ -143,6 +146,7 @@ class SkillRouter(_legacy.SkillRouter):
         role: str,
         task_instruction: str,
         repository_knowledge: dict[str, Any] | None = None,
+        authority_context_factory: Callable[[dict[str, Any]], AuthorityContext] | None = None,
     ) -> dict[str, Any]:
         action: dict[str, Any] = {
             "operation": "agent-dispatch",
@@ -151,7 +155,7 @@ class SkillRouter(_legacy.SkillRouter):
         }
         if repository_knowledge is not None:
             action["repository_knowledge"] = _repository_knowledge_binding(repository_knowledge)
-        return authorize_from_environment(
+        common = dict(
             action_class="D1",
             authority_domain="agent:dispatch",
             requested_capability="coordinator.dispatch",
@@ -159,6 +163,12 @@ class SkillRouter(_legacy.SkillRouter):
             target=role,
             action=action,
         )
+        if authority_context_factory is not None:
+            return authorize_with_context(
+                **common,
+                context=authority_context_factory(action),
+            )
+        return authorize_from_environment(**common)
 
     def competency_decision(self, skill_id: str, *, capability: str | None = None) -> SkillRoutingReceipt:
         decision = self._central_decision(role=skill_id, task_instruction=capability or skill_id)
@@ -189,11 +199,13 @@ class SkillRouter(_legacy.SkillRouter):
         agent_defs: dict[str, Any],
         *,
         repository_knowledge: dict[str, Any] | None = None,
+        authority_context_factory: Callable[[dict[str, Any]], AuthorityContext] | None = None,
     ) -> RoleRoutingReceipt:
         decision = self._central_decision(
             role=role.value,
             task_instruction=task_instruction,
             repository_knowledge=repository_knowledge,
+            authority_context_factory=authority_context_factory,
         )
         outcome = decision.get("outcome", DENIED)
         score = float(decision.get("authority_score", "0")) if outcome == ADMITTED else 0.0
@@ -211,20 +223,17 @@ class SkillRouter(_legacy.SkillRouter):
         return self.role_routing_receipt(role, task_instruction, agent_defs).authority_score
 
     def emit_skill_event(self, capability: str, success: bool) -> None:
-        """Record telemetry only; an observation never grants authority by itself."""
+        """Retain a non-authoritative proposal; registry admission is unavailable."""
         skill_id = self._capability_map.get(capability)
-        try:
-            tree = json.loads(self._skill_tree_path.read_text(encoding="utf-8"))
-            if skill_id is None:
-                raise ValueError("unmapped capability")
-            observed_at = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime())
-            updated = record_skill_observation(tree, skill_id=skill_id, success=success, observed_at=observed_at, repo_root=self._repo_root)
-            temporary = self._skill_tree_path.with_suffix(".json.tmp")
-            temporary.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-            os.replace(temporary, self._skill_tree_path)
-            self._last_mutation_error = None
-        except (OSError, TypeError, ValueError) as exc:
-            self._last_mutation_error = type(exc).__name__
+        self._last_observation_proposal = {
+            "capability": capability,
+            "skill_id": skill_id,
+            "success": bool(success),
+            "epistemic_status": "OBSERVED_CANDIDATE",
+            "authority_effect": "NONE",
+            "admission": "UNAVAILABLE",
+        }
+        self._last_mutation_error = "SKILL_OBSERVATION_ADMISSION_UNAVAILABLE"
 
 
 _legacy.SkillRouter = SkillRouter
@@ -254,7 +263,12 @@ def _knowledge_denial_receipts(
     )
 
 
-async def dispatch_event(event_type: str, payload: dict) -> list["AgentResult"]:
+async def dispatch_event(
+    event_type: str,
+    payload: dict,
+    *,
+    authority_context_factory: Callable[[dict[str, Any]], AuthorityContext] | None = None,
+) -> list["AgentResult"]:
     global _last_dispatch_receipts
     candidate_roles = _legacy.EVENT_ROUTING.get(event_type, [_legacy.AgentRole.ENGINEERING])
 
@@ -285,6 +299,7 @@ async def dispatch_event(event_type: str, payload: dict) -> list["AgentResult"]:
                 instruction_sample,
                 agent_defs,
                 repository_knowledge=knowledge,
+                authority_context_factory=authority_context_factory,
             ),
         )
         for index, role in enumerate(candidate_roles)

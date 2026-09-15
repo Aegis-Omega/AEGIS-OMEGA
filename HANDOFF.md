@@ -1,8 +1,136 @@
-# AEGIS-Ω — Handoff (ground truth as of 2026-07-19)
+# AEGIS-Ω — Handoff
 
 A no-spin snapshot. Hand it to any engineer or AI and they're productive in 30 minutes.
 Everything here was verified by probing live systems and running the tests, not read from docs.
 Where a doc disagrees with the live system, the live system wins.
+
+---
+
+## LATEST — 2026-08-29 (PR #334 OIDC + deployable-image boundary)
+
+This section supersedes older branch/PR snapshots below. Mutable GitHub state must still be
+revalidated before consequential actions.
+
+### Latest hosted evidence anchor
+
+- PR **#334** — `feat/autopoietic-runtime-v1` → `main`, OPEN, DRAFT, mergeable at inspection.
+- Hosted baseline before the redirect-security follow-up:
+  `aec7f236140ae3b3bd87e6bd52757f7b1da25e18`.
+- Source tree: `02d8f355c72596dc0272fa1ba470f1f691f36cdc`.
+- Authorization Effect Chain run `33277765961`: SUCCESS — exact-head checkout, 99/99 tests,
+  Docker image build, constitutional-anchor inspection, OIDC/service imports, and
+  `AGENT_DISPATCH_IMAGE_PASS`.
+- Automaton-2/3, Coordinator Authority, Scale OS, Experiment Admission, MCP Resources,
+  Kernel One, Integration Ledger, OSV, Hadolint, and four Vercel contexts: SUCCESS.
+- Constitutional Automaton completed SUCCESS with all 15 jobs on that baseline.
+
+These receipts predate this documentation commit. Re-run exact-head
+checks after publication; do not transfer GREEN status between commits.
+
+### Live verified transition
+
+`aegis_start_execution` now follows:
+
+```text
+Intent → DecisionReceipt → ExecutionReceipt → EffectObservation
+       → VerifyEffect → EffectReceipt → CompleteVerification
+```
+
+The platform adapter takes an independent pre-observation and two independent post-observations.
+The POST response cannot self-certify an effect. Revision, contract, execution identity, policy,
+and transition bindings prevent receipt splicing. Read-only observation authentication does not
+consume execution quota. Failures before execution remain `NOT_EXECUTED`; uncertainty after an
+attempt remains `UNKNOWN` rather than being mislabeled as an authority denial.
+
+The security follow-up raises the targeted regression suite to 105 tests. Platform observation closes
+and explicitly rejects every `3xx` before parsing; a real local HTTP target proves that no
+redirect request occurs and the platform API key is not forwarded. This candidate still requires
+fresh hosted exact-head CI before the baseline status can be promoted.
+
+Four additional falsifiers close a receipt-lineage regression discovered while comparing PR #309
+with #334: observation handles are now object-identity and snapshot bound to the issuing adapter,
+`allowed_root` cannot be retargeted after construction, and two independently issued equal
+witnesses remain independently valid. The adapter also pins the root directory's device/inode
+identity, so replacement at the same path cannot splice pre- and post-observations.
+
+### Agent Dispatch correction in this follow-up
+
+The workflow had two independent reasons it never represented live dispatch:
+
+1. job-level `if: vars.PROXY_URL != ''` caused the entire PR check to be SKIPPED when the
+   repository variable was absent;
+2. its `workflow_run` trigger listened for a nonexistent workflow named `CI`, while the actual
+   workflow is `⊕ AEGIS-Ω Constitutional Automaton`.
+
+The follow-up changes the trigger to the canonical workflow name and makes the disabled state an
+explicit successful receipt stating that no network request or agent execution occurred. Actual
+external dispatch remains fail-closed until an operator configures `PROXY_URL` and the target
+proxy is independently verified.
+
+Hosted evidence on follow-up head `5924122ae86b55ea03e88d0ac1de5b4d7ab20fbe`:
+Agent Dispatch run `33088017673` completed SUCCESS; its disabled-status step ran, while classify
+and network-dispatch steps were SKIPPED. The post-Constitutional `workflow_run` event did not run
+on the PR branch because GitHub loads that trigger from the default branch. It can only be
+verified after the corrected workflow is admitted to `main`.
+
+The hardened follow-up goes further: the secret-bearing workflow no longer has a direct
+`pull_request` trigger, checks out only the trusted default branch, requires the exact
+`aegis-agent` label for issues or `@aegis-agent` for comments, and requires both HTTPS
+`PROXY_URL` and `AGENT_DISPATCH_API_KEY`. Missing configuration becomes the visible preflight
+state `DEFERRED_NOT_CONFIGURED`; no external side effect is attempted. See
+`docs/operations/AGENT_DISPATCH.md`.
+
+The route belongs to the separate `vertex/serve.py` / `aegis-platform` image; `aegis-vertex`
+does not package it. The follow-up now validates non-empty central routing receipts, requires
+each result to match an `ADMITTED` receipt, records `EXECUTED` versus `DENIED`, and commits the
+response hash without uploading model output. The current candidate replaces the missing static
+identity with a request-local GitHub OIDC projection: the custom audience binds the canonical
+request digest, the service verifies RS256/JWKS plus immutable repository ID, trusted workflow/ref,
+event and image/source SHA, and every role receives its own action-bound identity without mutating
+process environment. This implementation is not production evidence until admitted and deployed;
+`orchestration_routing` remains `UNOBSERVED` with `validated_runs=0`, so the expected result is
+still `DENIED` and zero agents executed.
+
+The exact-candidate image is now a CI-tested artifact boundary. The first real build falsified the
+old packaging assumption because `.dockerignore` excluded `docs/claims.json`; the corrected build
+context retains only that required file from `docs/`. The runner then built and executed the image
+successfully. This closes image buildability, not Cloud Run deployment or live dispatch.
+
+### Resident runtime and memory synthesis
+
+- The production Python `BridgeHandler` exposes authenticated, owner-bound resident event,
+  run/replay, status, and cross-provider memory synthesis/replay routes.
+- Provider/model memories remain T2 evidence candidates. Common roots are collapsed;
+  contradictions, missing provenance, and provenance cycles quarantine rather than promote.
+- Replay proves integrity and lineage, never semantic truth. Consensus cannot mint T1 knowledge.
+- Docker Compose persists `/app/data`; free Render storage is ephemeral. Missing sensor
+  initialization leaves the pre-existing bridge alive while resident capability returns
+  unavailable/`UNKNOWN`.
+- Exact route, identity, persistence, and epistemic contracts are in
+  `docs/operations/RESIDENT_RUNTIME.md`.
+
+### Verification snapshot for dispatch/resident documentation unit
+
+- TypeScript Gate 8 on the preceding hosted resident head: 254 files / 4,130 tests, typecheck,
+  and production build passed.
+- Python platform contract: 565/565 passed locally.
+- Resident live HTTP: 20/20; bootstrap: 5/5; dispatch classifier/workflow: 8/8.
+- Frozen constitutional files: 3/3 present and hash-verified.
+
+Counts bind only to the commit on which they ran. The new exact remote head requires fresh CI.
+
+### Remaining security admission boundary
+
+Aggregate CodeQL still presents two reviewed `py/weak-sensitive-data-hashing` alerts for a keyed
+HMAC-SHA256 identity pseudonym and a SHA-256 database lookup digest for a random bearer token
+(`usedforsecurity=False`). Do not disable the query globally. An operator/security admin must
+dismiss exactly those alerts as false positives or admit a supported sanitizer model.
+
+### Authority ceiling
+
+PR #334 exact-head GREEN establishes the candidate implementation and replayable verification
+path. It does **not** establish production deployment, live external Agent Dispatch, merge
+admission, or branch-protection enforcement. The PR remains DRAFT pending separate authority.
 
 ---
 

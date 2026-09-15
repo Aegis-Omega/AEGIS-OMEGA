@@ -24,7 +24,7 @@ services:
     repo: https://github.com/Aegis-Omega/AEGIS-OMEGA
     branch: main
     dockerfilePath: ./sovereign-omega-v2/Dockerfile
-    dockerContext: ./sovereign-omega-v2
+    dockerContext: .
     region: frankfurt        # EU — closest to Bosnia / data residency
     plan: free               # spins down when idle; bump to "starter" ($7/mo) for always-on
     healthCheckPath: /health
@@ -41,6 +41,19 @@ services:
       # CoreMatrix isn't needed for the swarm — shrink it so it fits the free 512MB box
       - key: AEGIS_ARRAY_BYTES
         value: "4096"
+      # Resident Intelligence uses an owned sensor clone and evidence store.
+      # /app/data is persistent under docker-compose; Render free instances are
+      # still ephemeral until a persistent disk or external store is admitted.
+      - key: AEGIS_RESIDENT_REPOSITORY_URL
+        value: https://github.com/Aegis-Omega/AEGIS-OMEGA.git
+      - key: AEGIS_RESIDENT_REPOSITORY_BRANCH
+        value: main
+      - key: AEGIS_RESIDENT_REPOSITORY_ROOT
+        value: /app/data/repository
+      - key: AEGIS_RESIDENT_STATE_ROOT
+        value: /app/data/resident
+      - key: AEGIS_RESIDENT_IDENTITY_HMAC_KEY
+        sync: false          # SECRET — minimum 32 bytes
       # --- Supabase (key store + swarm memory) ---
       - key: SUPABASE_URL
         sync: false          # SECRET
