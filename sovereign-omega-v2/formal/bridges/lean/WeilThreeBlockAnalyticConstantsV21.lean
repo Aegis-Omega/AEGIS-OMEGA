@@ -88,12 +88,12 @@ theorem log_four_pi_upper :
 
 /-- Exact rational value used only to make the γ bound a small trusted-kernel
 specialization of Mathlib's monotone Euler-Mascheroni upper sequence. -/
-set_option maxRecDepth 100000 in
 theorem harmonic_256_exact :
     harmonic 256 =
       (102120333780755602922415011407986918913493325085710168750386125102325162741298648605491283438121466698312402217 : ℚ) /
       (16674490806895842671659008751776385350270324508909651849955453691538889375930032935391666564679008085339616000 : ℚ) := by
-  norm_num [harmonic]
+  set_option maxRecDepth 100000 in
+    norm_num [harmonic]
 
 theorem euler_mascheroni_upper :
     Real.eulerMascheroniConstant < (29 : ℝ) / 50 := by
