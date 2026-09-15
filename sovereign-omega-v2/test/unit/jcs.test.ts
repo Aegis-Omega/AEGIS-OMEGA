@@ -83,4 +83,17 @@ describe('RFC 8785 Conformance — Gate 1', () => {
       expect(canonicalizeJCSString(vec.input)).toBe(vec.expected)
     }
   })
+
+  it('JCS-RED-UTF16: sorts property names by UTF-16 code units', () => {
+    const value = { '\uE000': 1, '😀': 2 }
+    expect(canonicalizeJCSString(value)).toBe('{"😀":2,"":1}')
+  })
+
+  it('JCS-RED-UNDEFINED: rejects undefined object members', () => {
+    expect(() => canonicalizeJCSString({ a: 1, b: undefined })).toThrow(TypeError)
+  })
+
+  it('JCS-RED-BIGINT: rejects bigint because it is outside I-JSON', () => {
+    expect(() => canonicalizeJCSString({ a: 1n })).toThrow(TypeError)
+  })
 })
