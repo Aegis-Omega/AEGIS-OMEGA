@@ -1,4 +1,5 @@
 import WeilDisjointEnergyV2
+import WeilCriterionCompactSmoothV1
 import Mathlib.MeasureTheory.Function.JacobianOneDim
 import Mathlib.MeasureTheory.Integral.Bochner.Set
 import Mathlib.Analysis.SpecialFunctions.Exp
