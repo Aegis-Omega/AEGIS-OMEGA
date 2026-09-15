@@ -38,19 +38,20 @@ jobs:
           repository: Aegis-Omega/AEGIS-OMEGA
           ref: ${{ env.SOURCE_SHA }}
           path: .aegis
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Bind exact candidate and parent ancestry
         shell: bash
         run: |
           set -euo pipefail
+          mkdir -p evidence .lake/build/lib/lean
           test "$(git rev-parse HEAD)" = "$MATHLIB_SHA"
           test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
           test "$(cat lean-toolchain)" = "$LEAN_TOOLCHAIN"
           git -C .aegis merge-base --is-ancestor "$PARENT_V21_SHA" "$SOURCE_SHA"
 
           ROOT=.aegis/sovereign-omega-v2/formal/bridges/lean
-          mkdir -p evidence .lake/build/lib/lean
           modules=(
             WeilCriterionCompactSmoothV1
             WeilPrimeSummabilityV1
