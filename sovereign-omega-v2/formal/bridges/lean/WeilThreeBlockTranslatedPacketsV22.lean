@@ -210,7 +210,7 @@ theorem logMomentMinus_eq_repository (g : WeilCompactSmoothGV1) :
   have hcomplex :
       (Real.exp (-t / 2) : ℂ) * (Real.exp (t / 2) : ℂ) = 1 := by
     exact_mod_cast hreal
-  rw [← mul_assoc, hcomplex, one_mul]
+  rw [hcomplex, one_mul]
 
 theorem logMomentPlus_eq_repository (g : WeilCompactSmoothGV1) :
     logMomentPlus g = ∫ x in Ioi (0 : ℝ), g.1 x := by
