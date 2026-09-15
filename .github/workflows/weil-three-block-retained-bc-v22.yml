@@ -24,7 +24,7 @@ env:
   MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
   LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
   TRANSLATED_SHA256: 9025089dc945d329559d13a3c0f952ccd514da37279b194e12e7562a770759b3
-  PRIME_WINDOWS_SHA256: 82f4d204979a49de4cf78f4921911d27b1a38e52456aaa824ab169cf19004e1e
+  PRIME_WINDOWS_BLOB_SHA: 60b35d3586f59ccca6610e6176b3ad2e1c11c70b
 
 jobs:
   retained-bc:
@@ -87,12 +87,13 @@ jobs:
           cp "$CANDIDATE_SRC/WeilThreeBlockTranslatedPacketsV22.lean" .
           cp "$CANDIDATE_SRC/WeilThreeBlockPrimeWindowsV22.lean" .
           printf '%s  %s\n' "$TRANSLATED_SHA256" WeilThreeBlockTranslatedPacketsV22.lean | sha256sum -c -
-          printf '%s  %s\n' "$PRIME_WINDOWS_SHA256" WeilThreeBlockPrimeWindowsV22.lean | sha256sum -c -
+          test "$(git hash-object WeilThreeBlockPrimeWindowsV22.lean)" = "$PRIME_WINDOWS_BLOB_SHA"
           {
             echo "SOURCE_SHA=$SOURCE_SHA"
             echo "PARENT_V21_SHA=$PARENT_V21_SHA"
             echo "MATHLIB_SHA=$MATHLIB_SHA"
             echo "LEAN_TOOLCHAIN=$LEAN_TOOLCHAIN"
+            echo "PRIME_WINDOWS_BLOB_SHA=$PRIME_WINDOWS_BLOB_SHA"
             sha256sum WeilThreeBlockTranslatedPacketsV22.lean WeilThreeBlockPrimeWindowsV22.lean lake-manifest.json
           } > exact-source.log
 
