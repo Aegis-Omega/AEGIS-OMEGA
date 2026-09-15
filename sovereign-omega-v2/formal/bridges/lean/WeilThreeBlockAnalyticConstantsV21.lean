@@ -97,11 +97,8 @@ theorem harmonic_256_exact :
 theorem euler_mascheroni_upper :
     Real.eulerMascheroniConstant < (29 : ℝ) / 50 := by
   have hγ := Real.eulerMascheroniConstant_lt_eulerMascheroniSeq' 256
-  have hseq :
-      Real.eulerMascheroniSeq' 256 =
-        ((harmonic 256 : ℚ) : ℝ) - Real.log (256 : ℝ) := by
-    simp [Real.eulerMascheroniSeq']
-  rw [hseq] at hγ
+  change Real.eulerMascheroniConstant <
+    ((harmonic 256 : ℚ) : ℝ) - Real.log (256 : ℝ) at hγ
   have hlog256 : Real.log (256 : ℝ) = 8 * Real.log 2 := by
     calc
       Real.log (256 : ℝ) = Real.log ((2 : ℝ) ^ 8) := by norm_num
