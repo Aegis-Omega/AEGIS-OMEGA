@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/weil-analytic-v21-probe",
+    "source_ref": "proof/weil-diagonal-kernel-reduction-v21",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "1c6ad2df3cd11f24e8f008c0fd37801e2c9daaa99054b856fd79d35e34ed77f5"
+  "state_hash": "2223b71d66cf2eabbc69f891d3dff5b8e91704bec2518e7455ec41bd12090e50"
 }
