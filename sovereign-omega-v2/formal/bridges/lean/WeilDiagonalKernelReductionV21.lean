@@ -43,20 +43,19 @@ its ordinary Lebesgue L2 energy. -/
 theorem autocorrelation_one_re_eq_energy
     (g : WeilCompactSmoothGV1) :
     (WeilAutocorrelationV1 g 1).re = energy g.1 := by
-  have hint := weil_autocorrelation_integrand_integrable_v1 g 1
-  calc
-    (WeilAutocorrelationV1 g 1).re
-        = ∫ y in Ioi (0 : ℝ),
-            (g.1 y * star (g.1 y)).re := by
-              unfold WeilAutocorrelationV1
-              simpa only [one_mul] using
-                (integral_re (μ := volume.restrict (Ioi (0 : ℝ))) hint).symm
-    _ = ∫ y in Ioi (0 : ℝ), ‖g.1 y‖ ^ 2 := by
-          apply setIntegral_congr_fun measurableSet_Ioi
-          intro y hy
-          rw [Complex.star_def, Complex.mul_conj]
-          simp [Complex.normSq_eq_norm_sq]
-    _ = energy g.1 := (packet_energy_eq_positive_energy g).symm
+  have hint :
+      IntegrableOn (fun y : ℝ => g.1 y * star (g.1 y)) (Ioi 0) := by
+    simpa only [one_mul] using
+      (weil_autocorrelation_integrand_integrable_v1 g 1)
+  rw [packet_energy_eq_positive_energy g]
+  unfold WeilAutocorrelationV1
+  simp only [one_mul]
+  rw [← RCLike.re_eq_complex_re]
+  rw [← integral_re hint]
+  apply setIntegral_congr_fun measurableSet_Ioi
+  intro y hy
+  have hmul := congrArg Complex.re (Complex.mul_conj (g.1 y))
+  simpa [Complex.star_def, Complex.normSq_eq_norm_sq] using hmul
 
 /-- If the diagonal prime part vanishes, the real part of the ACTUAL repository
 mixed form is kappa times the actual packet energy plus the real Archimedean
@@ -71,11 +70,11 @@ theorem actual_diagonal_rhs_decomposition
   rw [diagonal_eq]
   unfold WeilExplicitRightSideV1
   rw [hprime]
+  have hcenter := autocorrelation_one_re_eq_energy g
   simp only [zero_add, Complex.add_re]
-  rw [autocorrelation_one_re_eq_energy]
   unfold WeilArchimedeanConstantV1 diagonalKappaV21
-  simp
-  ring
+  simp only [Complex.mul_re, Complex.ofReal_re, Complex.ofReal_im, zero_mul, sub_zero]
+  rw [hcenter]
 
 /-- Pure quotient-free reduction.  The difficult continuous estimate is kept
 as one explicit Archimedean premise. -/
@@ -107,7 +106,7 @@ theorem actual_diagonal_103_over_100
       (103 / 100 : ℝ) <
         6 * Real.log 2 - diagonalKappaV21 - diagonalSmallV21 := by
     unfold diagonalKappaV21 diagonalSmallV21
-    exact certificate_diagonal_threshold.trans diagonal_constant_floor
+    nlinarith [certificate_diagonal_threshold, diagonal_constant_floor]
   have hshift :
       6 * Real.log 2 - diagonalKappaV21 - diagonalSmallV21 ≤
         tail - diagonalKappaV21 - diagonalSmallV21 := by
