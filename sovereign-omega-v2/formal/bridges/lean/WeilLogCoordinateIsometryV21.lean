@@ -60,7 +60,8 @@ theorem logLift_norm_sq (g : ℝ → ℂ) (t : ℝ) :
     rw [pow_two, ← Real.exp_add]
     congr 1
     ring
-  simp [logLift, Complex.norm_real, Real.norm_of_nonneg (Real.exp_pos _).le, mul_pow, hexp]
+  rw [logLift, norm_mul, Complex.norm_real]
+  rw [Real.norm_of_nonneg (Real.exp_pos _).le, mul_pow, hexp]
 
 /-- The certificate's additive-coordinate energy is exactly the positive-axis
 energy of the multiplicative packet. -/
