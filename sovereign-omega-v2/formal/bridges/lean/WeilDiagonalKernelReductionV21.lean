@@ -54,8 +54,11 @@ theorem autocorrelation_one_re_eq_energy
   rw [← integral_re hint]
   apply setIntegral_congr_fun measurableSet_Ioi
   intro y hy
-  have hmul := congrArg Complex.re (Complex.mul_conj (g.1 y))
-  simpa [Complex.star_def, Complex.normSq_eq_norm_sq, Complex.ofReal_re] using hmul
+  calc
+    (g.1 y * star (g.1 y)).re = Complex.normSq (g.1 y) := by
+      have hmul := congrArg Complex.re (Complex.mul_conj (g.1 y))
+      simpa only [Complex.star_def, Complex.ofReal_re] using hmul
+    _ = ‖g.1 y‖ ^ 2 := Complex.normSq_eq_norm_sq (g.1 y)
 
 /-- If the diagonal prime part vanishes, the real part of the ACTUAL repository
 mixed form is kappa times the actual packet energy plus the real Archimedean
