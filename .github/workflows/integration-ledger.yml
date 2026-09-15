@@ -30,13 +30,14 @@ jobs:
           python-version: '3.12'
 
       - name: Run generator regression tests
-        run: python3 scripts/test_integration_ledger.py
+        run: |
+          python3 scripts/test_integration_ledger.py
+          python3 -m unittest discover -s scripts/tests -p 'test_integration_ledger*.py' -v
 
       - name: Generate commit-bound Markdown and JSON
         shell: bash
         run: |
           set -euo pipefail
-          export SOURCE_DATE_EPOCH="$(git show -s --format=%ct "$CANDIDATE_SHA")"
           python3 scripts/integration_ledger.py \
             --write \
             --output-dir "$RUNNER_TEMP/integration-ledger" \
