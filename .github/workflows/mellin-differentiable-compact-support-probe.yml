@@ -1,0 +1,119 @@
+name: Mellin compact-support differentiability probe
+
+on:
+  push:
+    branches:
+      - proof/mellin-differentiable-compact-support-v1
+    paths:
+      - 'docs/evidence/mellin-differentiable-compact-support-v1/**'
+      - '.github/workflows/mellin-differentiable-compact-support-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: mellin / compact-support differentiability
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      MATHLIB_REV: 78f7ceb75eb8545d8f24744941f3629c16eb7040
+      MELLIN_TARGET_SHA256: 81851086004a6e5424da555061a4b2f9d2e7cece148d9d49c3537a05adba73ff
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Fetch pinned Mathlib and Lean toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          MATHLIB="$RUNNER_TEMP/mathlib4"
+          EVIDENCE="$RUNNER_TEMP/mellin-differentiable-compact-support"
+          mkdir -p "$MATHLIB" "$EVIDENCE"
+
+          git -C "$MATHLIB" init
+          git -C "$MATHLIB" remote add origin https://github.com/leanprover-community/mathlib4.git
+          git -C "$MATHLIB" fetch --depth=1 origin "$MATHLIB_REV"
+          git -C "$MATHLIB" checkout --detach FETCH_HEAD
+          test "$(git -C "$MATHLIB" rev-parse HEAD)" = "$MATHLIB_REV"
+
+          curl -fsSL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          source "$HOME/.elan/env"
+          TOOLCHAIN="$(cat "$MATHLIB/lean-toolchain")"
+          elan toolchain install "$TOOLCHAIN"
+          elan default "$TOOLCHAIN"
+
+          lean --version | tee "$EVIDENCE/lean-version.log"
+          lake --version | tee "$EVIDENCE/lake-version.log"
+          git -C "$MATHLIB" rev-parse HEAD | tee "$EVIDENCE/mathlib-revision.log"
+
+          actual_sha="$(sha256sum "$MATHLIB/Mathlib/Analysis/MellinTransform.lean" | awk '{print $1}')"
+          printf '%s\n' "$actual_sha" | tee "$EVIDENCE/mellin-target-sha256.log"
+          test "$actual_sha" = "$MELLIN_TARGET_SHA256"
+
+          cd "$MATHLIB"
+          lake exe cache get Mathlib.Analysis.MellinTransform 2>&1 | tee "$EVIDENCE/mathlib-cache.log"
+
+      - name: Kernel compile and axiom audit
+        shell: bash
+        run: |
+          set -uo pipefail
+          source "$HOME/.elan/env"
+          MATHLIB="$RUNNER_TEMP/mathlib4"
+          EVIDENCE="$RUNNER_TEMP/mellin-differentiable-compact-support"
+          mkdir -p "$MATHLIB/scratch" "$EVIDENCE"
+
+          cp "$GITHUB_WORKSPACE/docs/evidence/mellin-differentiable-compact-support-v1/MellinDifferentiableCompactSupport.lean" \
+             "$MATHLIB/scratch/MellinDifferentiableCompactSupport.lean"
+          cp "$GITHUB_WORKSPACE/docs/evidence/mellin-differentiable-compact-support-v1/MellinDifferentiableCompactSupport_AxiomCheck.lean" \
+             "$MATHLIB/scratch/MellinDifferentiableCompactSupport_AxiomCheck.lean"
+
+          cd "$MATHLIB"
+
+          set +e
+          lake env lean scratch/MellinDifferentiableCompactSupport.lean >"$EVIDENCE/01-kernel-compile.log" 2>&1
+          compile_rc=$?
+          lake env lean scratch/MellinDifferentiableCompactSupport_AxiomCheck.lean >"$EVIDENCE/02-axiom-audit.log" 2>&1
+          axiom_rc=$?
+          set -e
+
+          cat "$EVIDENCE/01-kernel-compile.log"
+          cat "$EVIDENCE/02-axiom-audit.log"
+
+          COMPILE_RC="$compile_rc" AXIOM_RC="$axiom_rc" python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['RUNNER_TEMP']) / 'mellin-differentiable-compact-support'
+          source = Path(os.environ['GITHUB_WORKSPACE']) / 'docs/evidence/mellin-differentiable-compact-support-v1/MellinDifferentiableCompactSupport.lean'
+          axiom = Path(os.environ['GITHUB_WORKSPACE']) / 'docs/evidence/mellin-differentiable-compact-support-v1/MellinDifferentiableCompactSupport_AxiomCheck.lean'
+          digest = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+          receipt = {
+              'schema': 'AEGIS_MELLIN_DIFFERENTIABLE_COMPACT_SUPPORT_PROBE_V1',
+              'candidate_sha': os.environ['GITHUB_SHA'],
+              'mathlib_revision': os.environ['MATHLIB_REV'],
+              'mathlib_target_sha256': os.environ['MELLIN_TARGET_SHA256'],
+              'source_sha256': digest(source),
+              'axiom_check_sha256': digest(axiom),
+              'kernel_compile': 'PASS' if int(os.environ['COMPILE_RC']) == 0 else 'FAIL',
+              'axiom_audit': 'PASS' if int(os.environ['AXIOM_RC']) == 0 else 'FAIL',
+              'authority_effect': 'NONE',
+              'rh_status': 'NOT_PROVEN',
+          }
+          (root / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps(receipt, indent=2))
+          PY
+
+          if (( compile_rc != 0 || axiom_rc != 0 )); then
+            exit 1
+          fi
+
+      - name: Upload exact-head proof evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mellin-differentiable-compact-support-${{ github.sha }}
+          path: ${{ runner.temp }}/mellin-differentiable-compact-support
+          if-no-files-found: error
