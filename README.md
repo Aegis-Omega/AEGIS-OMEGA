@@ -205,6 +205,18 @@ classified as `PLATFORM_REDIRECT_REJECTED` before response parsing, so the platf
 cannot be forwarded to a redirect target. The live HTTP regression proves both zero target
 requests and zero credential disclosure.
 
+### Cognitive-anchor ownership
+
+`.claude.json` and `skill-hashes.sha256` have one CI writer:
+`cognitive-manifest-refresh.yml`. Automaton-2 is deliberately read-only: it regenerates
+expected anchors, uploads them as evidence, validates the committed candidate, and emits
+an attested receipt without pushing to the PR branch. This prevents two workflows from
+racing to move the same branch head.
+
+```bash
+python scripts/test-cognitive-anchor-writer-boundary.py
+```
+
 ---
 
 ## Determinism invariants
