@@ -1,0 +1,210 @@
+name: RH Autocorrelation Prime Windows V1
+
+on:
+  push:
+    branches:
+      - proof/rh-autocorr-prime-windows-v1
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilAutocorrelationPrimeWindowsV1.lean'
+      - '.github/workflows/rh-autocorrelation-prime-windows-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.sha }}
+  SOURCE_SHA256: 25de690b1a4c4853b0baf43dd9662c8f0c750034cde7f7aa0d309f775d702c02
+  PARENT_SHA: f10d066152dd07fcbe6497566213d91f29e68c5a
+  PARENT_CRITERION_BLOB: 48039592aa281da1aa514586e09aab09720dd679
+  PARENT_PRIME_BLOB: 5952cac81f515a5ac784cd51e9b3c187d1727d8a
+  PARENT_ARCH_BLOB: 8c04ac6f254abb5a19c25f600e25ffb8af0c7f6d
+  PARENT_REALITY_BLOB: 84d389c16b46427d1432f16a3f76baf031fba67c
+  PARENT_CLOSURE_BLOB: 8a578da0d379d2a643c2ce436a97a4ff5e3531eb
+  FORMAL_CONJECTURES_SHA: 74b736b53ce688f57bad186b5dd862daaeeb708e
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+
+jobs:
+  prime-windows:
+    name: exact pointwise log-window kernel replay
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact candidate and parent bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(sha256sum sovereign-omega-v2/formal/bridges/lean/WeilAutocorrelationPrimeWindowsV1.lean | awk '{print $1}')" = "$SOURCE_SHA256"
+          git fetch --no-tags --depth=1 origin "$PARENT_SHA"
+          git merge-base --is-ancestor "$PARENT_SHA" "$SOURCE_SHA"
+          test "$(git rev-parse "$PARENT_SHA:sovereign-omega-v2/formal/bridges/lean/WeilCriterionCompactSmoothV1.lean")" = "$PARENT_CRITERION_BLOB"
+          test "$(git rev-parse "$PARENT_SHA:sovereign-omega-v2/formal/bridges/lean/WeilPrimeSummabilityV1.lean")" = "$PARENT_PRIME_BLOB"
+          test "$(git rev-parse "$PARENT_SHA:sovereign-omega-v2/formal/bridges/lean/WeilArchimedeanConvergenceV1.lean")" = "$PARENT_ARCH_BLOB"
+          test "$(git rev-parse "$PARENT_SHA:sovereign-omega-v2/formal/bridges/lean/WeilAutocorrelationRealityV1.lean")" = "$PARENT_REALITY_BLOB"
+          test "$(git rev-parse "$PARENT_SHA:sovereign-omega-v2/formal/bridges/lean/WeilAutocorrelationClosureV1.lean")" = "$PARENT_CLOSURE_BLOB"
+          src=sovereign-omega-v2/formal/bridges/lean/WeilAutocorrelationPrimeWindowsV1.lean
+          ! grep -En '^[[:space:]]*(axiom|opaque|sorry|admit)\b' "$src"
+
+      - name: Checkout pinned Formal Conjectures
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: google-deepmind/formal-conjectures
+          ref: ${{ env.FORMAL_CONJECTURES_SHA }}
+          path: .external/formal-conjectures
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify Lean and Mathlib pins
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$FORMAL_CONJECTURES_SHA"
+          test "$(tr -d '\r\n' < lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('lake-manifest.json').read_text())
+          p = next(x for x in m['packages'] if x['name'] == 'mathlib')
+          assert (p.get('rev') or p.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Get pinned Mathlib cache
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: lake exe cache get
+
+      - name: Compile exact parent chain and prime-window candidate
+        working-directory: .external/formal-conjectures
+        shell: bash
+        run: |
+          set -euo pipefail
+          lean --version | tee "$GITHUB_WORKSPACE/prime-windows-lean-version.txt"
+          for f in \
+            WeilCriterionCompactSmoothV1 \
+            WeilPrimeSummabilityV1 \
+            WeilArchimedeanConvergenceV1 \
+            WeilAutocorrelationRealityV1 \
+            WeilAutocorrelationClosureV1 \
+            WeilAutocorrelationPrimeWindowsV1; do
+            cp "$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/$f.lean" "./$f.lean"
+          done
+          mkdir -p .lake/build/lib/lean
+          for f in \
+            WeilCriterionCompactSmoothV1 \
+            WeilPrimeSummabilityV1 \
+            WeilArchimedeanConvergenceV1 \
+            WeilAutocorrelationRealityV1 \
+            WeilAutocorrelationClosureV1; do
+            lake env lean -o ".lake/build/lib/lean/$f.olean" "$f.lean" \
+              2>&1 | tee "$GITHUB_WORKSPACE/$f-prime-window-parent.log"
+          done
+          lake env lean WeilAutocorrelationPrimeWindowsV1.lean \
+            2>&1 | tee "$GITHUB_WORKSPACE/prime-windows.log"
+          ! grep -F 'sorryAx' "$GITHUB_WORKSPACE/prime-windows.log"
+          for theorem in \
+            log_mem_difference_window_of_integrand_ne_zero \
+            weil_narrow_log_window_integrand_zero_v1 \
+            weil_autocorrelation_zero_of_narrow_log_window_v1 \
+            weil_autocorrelation_inv_zero_of_narrow_log_window_v1 \
+            weil_prime_term_zero_of_narrow_log_window_v1 \
+            weil_prime_sum_zero_of_narrow_log_window_v1 \
+            nat_eq_two_of_log_mem_two_window_v1 \
+            nat_eq_four_of_log_mem_four_window_v1 \
+            nat_eq_two_of_integrand_ne_zero_v1 \
+            nat_eq_four_of_integrand_ne_zero_v1; do
+            grep -F "$theorem" "$GITHUB_WORKSPACE/prime-windows.log"
+          done
+
+      - name: Verify axiom surface and emit receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, re
+          from pathlib import Path
+          source = Path('sovereign-omega-v2/formal/bridges/lean/WeilAutocorrelationPrimeWindowsV1.lean')
+          log = Path('prime-windows.log').read_text()
+          assert 'sorryAx' not in log
+          names = [
+            'log_mem_difference_window_of_integrand_ne_zero',
+            'weil_prime_window_width_lt_log_two_v1',
+            'weil_narrow_log_window_integrand_zero_v1',
+            'weil_autocorrelation_zero_of_narrow_log_window_v1',
+            'weil_autocorrelation_inv_zero_of_narrow_log_window_v1',
+            'weil_prime_term_zero_of_narrow_log_window_v1',
+            'weil_prime_sum_zero_of_narrow_log_window_v1',
+            'nat_eq_two_of_log_mem_two_window_v1',
+            'nat_eq_four_of_log_mem_four_window_v1',
+            'nat_eq_two_of_integrand_ne_zero_v1',
+            'nat_eq_four_of_integrand_ne_zero_v1',
+          ]
+          allowed = {'propext', 'Classical.choice', 'Quot.sound'}
+          axiom_map = {}
+          for name in names:
+              pat = "'" + re.escape(name) + r"' depends on axioms: \[([^\]]*)\]"
+              m = re.search(pat, log)
+              if m:
+                  got = {x.strip() for x in m.group(1).split(',') if x.strip()}
+                  assert got <= allowed, (name, got)
+                  axiom_map[name] = sorted(got)
+                  continue
+              pat0 = "'" + re.escape(name) + "' does not depend on any axioms"
+              assert re.search(pat0, log), name
+              axiom_map[name] = []
+          receipt = {
+            'schema_version':'AEGIS_RH_AUTOCORR_PRIME_WINDOWS_RECEIPT_V1',
+            'source_commit':os.environ['SOURCE_SHA'],
+            'source_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),
+            'parent_revision':os.environ['PARENT_SHA'],
+            'formal_conjectures_revision':os.environ['FORMAL_CONJECTURES_SHA'],
+            'mathlib_revision':os.environ['MATHLIB_SHA'],
+            'lean_toolchain':os.environ['LEAN_TOOLCHAIN'],
+            'axiom_surface':axiom_map,
+            'pointwise_support_difference':'KERNEL_VERIFIED',
+            'diagonal_x_ge_2_integrand_vanishing':'KERNEL_VERIFIED',
+            'diagonal_autocorrelation_x_ge_2_vanishing':'KERNEL_VERIFIED',
+            'repository_prime_term_vanishing':'KERNEL_VERIFIED',
+            'repository_prime_sum_vanishing':'KERNEL_VERIFIED',
+            'integer_window_m2_uniqueness':'KERNEL_VERIFIED',
+            'integer_window_m4_uniqueness':'KERNEL_VERIFIED',
+            'global_weil_sign':'OPEN',
+            'rh_proven':False,
+            'merge':'NOT_PERFORMED',
+            'authority_effect':'NONE',
+          }
+          canonical = json.dumps(receipt, sort_keys=True, separators=(',', ':')).encode()
+          receipt['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          Path('prime-windows-receipt.json').write_text(json.dumps(receipt, sort_keys=True, indent=2) + '\n')
+          print(json.dumps(receipt, sort_keys=True, indent=2))
+          PY
+
+      - name: Upload prime-window evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rh-autocorr-prime-windows-${{ env.SOURCE_SHA }}
+          path: |
+            prime-windows-lean-version.txt
+            *-prime-window-parent.log
+            prime-windows.log
+            prime-windows-receipt.json
+          if-no-files-found: warn
+          retention-days: 30
