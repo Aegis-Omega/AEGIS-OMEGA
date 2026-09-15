@@ -47,8 +47,8 @@ jobs:
           echo 'f6076a2cb13107151c352675a8f460b18981c48c6158802b31b08b1e6b0f5eb6  WeilThreeBlockRationalV1.lean' | sha256sum -c -
           echo 'def6148deca54152e9f6c8a4c0c3c489c4933a1dcca7b379db8e05cbac14eea5  WeilMixedClosureV2.lean' | sha256sum -c -
           echo '8d07d516aea197a4a0b122d273724bba895e441f5417dcb84135dd9d21a285cb  WeilThreeBlockComplexV2.lean' | sha256sum -c -
-          echo '4a3a19f662c791589de37cff3a54122e67817d796841d92af556237a23177227  WeilMixedAlgebraV2.lean' | sha256sum -c -
-          echo '9b54676144f374c64cbbf809f03c67531b9be6094e811c86e6059cc898a6f2ce  WeilDisjointEnergyV2.lean' | sha256sum -c -
+          echo '327f241d778382871f0d3317ba787e506d5b2c8160e6947332f4c6ba4be64d54  WeilMixedAlgebraV2.lean' | sha256sum -c -
+          echo '81d76f6be2fcd89939dcbd3e7b93505026b74e4deb00a70af35d3112c801845d  WeilDisjointEnergyV2.lean' | sha256sum -c -
           sha256sum lake-manifest.json .aegis/.github/workflows/weil-mixed-closure-v2.yml >> evidence/exact-source.log
           python3 - <<'PY'
           from pathlib import Path
