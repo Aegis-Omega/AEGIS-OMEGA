@@ -188,4 +188,54 @@ describe('computeAbjadRouting', () => {
     expect(result.sum).toBe(18)
     expect(result.dr).toBe(9)
   })
+
+  it('preserves the canonical Tariq routing fixture', () => {
+    expect(computeAbjadRouting('طارق')).toEqual({
+      sum: 310,
+      node: 10,
+      dr: 4,
+      isTriadic: false,
+    })
+  })
+
+  it('normalizes common alif orthographic variants to alif', () => {
+    for (const variant of ['أ', 'إ', 'آ', 'ٱ']) {
+      expect(computeAbjadRouting(variant)).toEqual({
+        sum: 1,
+        node: 1,
+        dr: 1,
+        isTriadic: false,
+      })
+    }
+  })
+
+  it('normalizes ta marbuta to ha for Abjad routing', () => {
+    expect(computeAbjadRouting('ة')).toEqual(computeAbjadRouting('ه'))
+    expect(computeAbjadRouting('ة').sum).toBe(5)
+  })
+
+  it('normalizes alif maqsura to ya for Abjad routing', () => {
+    expect(computeAbjadRouting('ى')).toEqual(computeAbjadRouting('ي'))
+    expect(computeAbjadRouting('ى').sum).toBe(10)
+  })
+
+  it('routes common orthographic names through their canonical Abjad forms', () => {
+    const cases = [
+      ['أحمد', { sum: 53, node: 5, dr: 8, isTriadic: false }],
+      ['فاطمة', { sum: 135, node: 3, dr: 9, isTriadic: true }],
+      ['عيسى', { sum: 150, node: 6, dr: 6, isTriadic: true }],
+      ['إبراهيم', { sum: 259, node: 7, dr: 7, isTriadic: false }],
+    ] as const
+
+    for (const [name, expected] of cases) {
+      expect(computeAbjadRouting(name)).toEqual(expected)
+    }
+  })
+
+  it('keeps the triadic flag equivalent to the mod-12 triadic nodes', () => {
+    for (const text of ['', 'ا', 'ج', 'ط', 'أحمد', 'فاطمة', 'عيسى', 'إبراهيم', 'طارق']) {
+      const result = computeAbjadRouting(text)
+      expect(result.isTriadic).toBe([0, 3, 6, 9].includes(result.node))
+    }
+  })
 })
