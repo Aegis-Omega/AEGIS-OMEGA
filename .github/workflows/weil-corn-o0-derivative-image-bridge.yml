@@ -80,7 +80,7 @@ jobs:
             OUT="$ROOT/weil-corn-o0-derivative-image-attestation"
 
             coqc --version | tee "$OUT/coq-version.txt"
-            opam install -y coq-corn.9.0.0
+            opam install -y coq-coquelicot.3.4.2 coq-corn.9.0.0
             opam var coq-corn:version | tee "$OUT/corn-version.txt"
             test "$(tr -d '[:space:]' < "$OUT/corn-version.txt")" = "9.0.0"
 
