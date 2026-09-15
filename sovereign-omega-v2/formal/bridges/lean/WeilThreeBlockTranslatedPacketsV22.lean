@@ -203,11 +203,11 @@ theorem logMomentMinus_eq_repository (g : WeilCompactSmoothGV1) :
   rw [Complex.real_smul]
   have he : (Real.exp t : ℂ) ≠ 0 := by simp
   field_simp
-  have hreal : Real.exp (-t / 2) * Real.exp (t / 2) = 1 := by
+  have hreal : Real.exp (-(t / 2)) * Real.exp (t / 2) = 1 := by
     rw [← Real.exp_add]
     convert Real.exp_zero using 1 <;> ring
   have hcomplex :
-      (Real.exp (-t / 2) : ℂ) * (Real.exp (t / 2) : ℂ) = 1 := by
+      (Real.exp (-(t / 2)) : ℂ) * (Real.exp (t / 2) : ℂ) = 1 := by
     exact_mod_cast hreal
   rw [hcomplex, one_mul]
 
