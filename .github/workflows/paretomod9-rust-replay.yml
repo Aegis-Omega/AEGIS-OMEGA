@@ -1,0 +1,40 @@
+name: ParetoMod9 Rust Fresh Replay
+
+on:
+  push:
+    branches:
+      - research/paretomod9-rust-replay-20260915
+    paths:
+      - 'research/formal-conjectures-pilot/paretomod9-rust/**'
+      - '.github/workflows/paretomod9-rust-replay.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rust-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout replay harness
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Replay exact historical Rust source
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash research/formal-conjectures-pilot/paretomod9-rust/tools/run_hosted_rust_replay.sh
+
+      - name: Upload focused Rust replay evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: paretomod9-rust-replay-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            research/formal-conjectures-pilot/paretomod9-rust/PINS.json
+            research/formal-conjectures-pilot/paretomod9-rust/paretomod9_o2_profile_probe.rs
+            research/formal-conjectures-pilot/paretomod9-rust/evidence/
+          if-no-files-found: error

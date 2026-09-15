@@ -1,0 +1,33 @@
+{
+  "schema": "AEGIS_PARETOMOD9_RUST_REPLAY_PINS_V1",
+  "historical_source_head": "438079c877342a842dadeae686c515f44ba4ce59",
+  "historical_workflow_run_id": 32939178377,
+  "historical_cl_psi_job_id": 98086619184,
+  "historical_workflow_blob": "b87b8a5e3a5d60b8d7c1fc166c064c56aa4ee417",
+  "historical_toolchain_binding": "MUTABLE_STABLE_CHANNEL",
+  "historical_toolchain_source": "dtolnay/rust-toolchain@stable",
+  "source_blobs": {
+    "aegis-cl-psi/src/abjad_encoder/v01.rs": "d8d10717c5ea49aaaf7c3e235a708ba718a1050d",
+    "aegis-cl-psi/tests/abjad_encoder_v01_freeze.rs": "3c2b69922eeb0d25633081cd4c84779922b957d1",
+    "aegis-cl-psi/Cargo.toml": "2cff20e94cd76617517e868a98f44d09d9ae21b4",
+    "aegis-cl-psi/Cargo.lock": "6b8a292916e340f4fb3e9bc5d9ab46c0a0bcf690",
+    "docs/specs/abjad-encoder-v0.1-canonical-freeze.md": "c51ad71ae108b9d35239c6d6371727e06ba43274"
+  },
+  "fresh_toolchain": {
+    "rust_version": "1.98.1",
+    "rustc_commit_hash": "48a229ceaefd4985c50990b14116b6d856af0985"
+  },
+  "integration_target": "abjad_encoder_v01_freeze",
+  "expected_integration_tests": 8,
+  "expected_probe_tests": 1,
+  "integration_command": "cargo +1.98.1 test --locked --jobs 1 --manifest-path aegis-cl-psi/Cargo.toml --test abjad_encoder_v01_freeze -- --test-threads 1",
+  "probe_command": "cargo +1.98.1 test --locked --jobs 1 --manifest-path aegis-cl-psi/Cargo.toml --test paretomod9_o2_profile_probe -- --test-threads 1",
+  "scope": "focused exact-source Rust replay, not full 6800+ CL-PSI suite replay",
+  "nonclaims": {
+    "full_cl_psi_suite_replayed": false,
+    "analytic_weil_proof": false,
+    "riemann_hypothesis_proof": false,
+    "repository_admission": "NOT_GRANTED",
+    "authority_effect": "NONE"
+  }
+}
