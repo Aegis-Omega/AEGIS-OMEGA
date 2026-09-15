@@ -119,6 +119,12 @@ const ABJAD_VALUES: Record<string, number> = {
   'ذ': 700, 'ض': 800, 'ظ': 900, 'غ': 1000,
 }
 
+const ABJAD_NORMALIZATION: Record<string, string> = {
+  'أ': 'ا', 'إ': 'ا', 'آ': 'ا', 'ٱ': 'ا',
+  'ة': 'ه',
+  'ى': 'ي',
+}
+
 function digitalRoot(n: number): number {
   if (n === 0) return 9
   const r = n % 9
@@ -133,7 +139,8 @@ export function computeAbjadRouting(text: string): {
 } {
   let sum = 0
   for (const char of text) {
-    sum += ABJAD_VALUES[char] ?? 0
+    const normalized = ABJAD_NORMALIZATION[char] ?? char
+    sum += ABJAD_VALUES[normalized] ?? 0
   }
   const node = sum % 12
   const dr = digitalRoot(sum)
