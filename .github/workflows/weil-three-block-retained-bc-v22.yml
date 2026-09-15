@@ -24,7 +24,7 @@ env:
   MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
   LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
   TRANSLATED_SHA256: 9025089dc945d329559d13a3c0f952ccd514da37279b194e12e7562a770759b3
-  PRIME_WINDOWS_SHA256: b0aa99aa200fe941a6b0c2f7726f178cc23d888c58baacaa16c4e65148e3bd71
+  PRIME_WINDOWS_SHA256: 3adf44b4f5949cfeccb9d4f021e179555b59e8d5ef5438282edf215a596f8b51
 
 jobs:
   retained-bc:
@@ -144,13 +144,18 @@ jobs:
           python3 - <<'PY_AUDIT'
           from pathlib import Path
           import json, re
-          mods=['WeilThreeBlockTranslatedPacketsV22','WeilThreeBlockPrimeWindowsV22']
+          module_namespaces={
+              'WeilThreeBlockTranslatedPacketsV22':'AEGIS.WeilThreeBlockTranslatedPacketsV22',
+              'WeilThreeBlockPrimeWindowsV22':'AEGIS.WeilThreeBlockPrimeWindowsV22',
+          }
+          mods=list(module_namespaces)
           names=[]
           for mod in mods:
               src=Path(mod+'.lean').read_text()
               if re.search(r'\bsorry\b|\badmit\b|\bAdmitted\b', src):
                   raise SystemExit('FAIL: forbidden source marker in '+mod)
-              names += re.findall(r'^theorem ([A-Za-z0-9_]+)', src, re.M)
+              short=re.findall(r'^theorem ([A-Za-z0-9_]+)', src, re.M)
+              names += [module_namespaces[mod]+'.'+name for name in short]
           Path('retained-theorems.json').write_text(json.dumps(names,indent=2)+'\n')
           Path('RetainedBCAudit.lean').write_text('\n'.join(
               ['import '+m for m in mods] + ['#print axioms '+n for n in names])+'\n')
