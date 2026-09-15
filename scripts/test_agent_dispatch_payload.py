@@ -158,11 +158,21 @@ class AgentDispatchPayloadTests(unittest.TestCase):
 
     def test_network_dispatch_is_authenticated_bounded_and_checked(self) -> None:
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        self.assertIn("secrets.AGENT_DISPATCH_API_KEY", workflow)
+        # Auth is keyless Workload Identity Federation: no long-lived key is
+        # stored in the repository, id-token: write mints the OIDC assertion
+        # that google-github-actions/auth exchanges, and the platform key is
+        # brokered from Secret Manager at execution time and masked in logs.
         self.assertIn("id-token: write", workflow)
-        self.assertIn("--audience-output", workflow)
-        self.assertIn('x-api-key: $DISPATCH_API_KEY', workflow)
-        self.assertIn('x-aegis-github-oidc: $oidc_token', workflow)
+        self.assertIn("uses: google-github-actions/auth@v2", workflow)
+        self.assertIn("secrets.GCP_WIF_PROVIDER", workflow)
+        self.assertIn("secrets.GCP_SERVICE_ACCOUNT", workflow)
+        self.assertIn(
+            'gcloud secrets versions access latest --secret="platform-dispatch-key"',
+            workflow,
+        )
+        self.assertIn("::add-mask::$PLATFORM_KEY", workflow)
+        self.assertIn("Authorization: Bearer $PLATFORM_KEY", workflow)
+        self.assertNotIn("AGENT_DISPATCH_API_KEY", workflow)
         self.assertIn("--max-time 30", workflow)
         self.assertIn("--max-filesize 65536", workflow)
         self.assertIn("--fail-with-body", workflow)
