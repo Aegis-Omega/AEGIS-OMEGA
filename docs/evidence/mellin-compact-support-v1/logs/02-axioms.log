@@ -1,0 +1,4 @@
+# PHASE A — pristine Mathlib @ 78f7ceb75eb8545d8f24744941f3629c16eb7040
+$ lake env lean scratch/AxiomCheck.lean   (= MellinCompactSupport.lean + '#print axioms mellinConvergent_of_hasCompactSupport')
+'mellinConvergent_of_hasCompactSupport' depends on axioms: [propext, Classical.choice, Quot.sound]
+EXIT=0

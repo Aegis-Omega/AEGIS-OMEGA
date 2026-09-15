@@ -1,0 +1,36 @@
+diff --git a/Mathlib/Analysis/MellinTransform.lean b/Mathlib/Analysis/MellinTransform.lean
+index 665d618..cca8de1 100644
+--- a/Mathlib/Analysis/MellinTransform.lean
++++ b/Mathlib/Analysis/MellinTransform.lean
+@@ -197,6 +197,31 @@ theorem mellin_convergent_iff_norm [NormedSpace ℂ E] {f : ℝ → E} {T : Set
+   refine integrableOn_congr_fun (fun t ht => ?_) hT'
+   simp_rw [norm_smul, norm_cpow_eq_rpow_re_of_pos (hT ht), sub_re, one_re]
+ 
++/-- If `f` is continuous with compact support contained in the open half-line `Ioi 0`, then its
++Mellin transform converges for every `s : ℂ`. -/
++theorem mellinConvergent_of_hasCompactSupport [NormedSpace ℂ E] {f : ℝ → E}
++    (hfc : Continuous f) (hfs : HasCompactSupport f)
++    (hf0 : tsupport f ⊆ Ioi 0) (s : ℂ) :
++    MellinConvergent f s := by
++  have hts :
++      tsupport (fun t : ℝ => (t : ℂ) ^ (s - 1) • f t) ⊆ Ioi 0 :=
++    (tsupport_smul_subset_right
++      (fun t : ℝ => (t : ℂ) ^ (s - 1)) f).trans hf0
++  have hcontOn :
++      ContinuousOn (fun t : ℝ => (t : ℂ) ^ (s - 1) • f t) (Ioi 0) := by
++    intro t ht
++    exact
++      ((continuousAt_ofReal_cpow_const t (s - 1)
++        (Or.inr (ne_of_gt ht))).smul hfc.continuousAt).continuousWithinAt
++  have hcont :
++      Continuous (fun t : ℝ => (t : ℂ) ^ (s - 1) • f t) :=
++    hcontOn.continuous_of_tsupport_subset isOpen_Ioi hts
++  have hcompact :
++      HasCompactSupport (fun t : ℝ => (t : ℂ) ^ (s - 1) • f t) :=
++    hfs.smul_left
++  rw [MellinConvergent]
++  exact (hcont.integrable_of_hasCompactSupport hcompact).integrableOn
++
+ /-- If `f` is a locally integrable real-valued function which is `O(x ^ (-a))` at `∞`, then for any
+ `s < a`, its Mellin transform converges on some neighbourhood of `+∞`. -/
+ theorem mellin_convergent_top_of_isBigO {f : ℝ → ℝ}

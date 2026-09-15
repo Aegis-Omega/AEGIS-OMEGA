@@ -1,0 +1,2 @@
+$ lake env lean scratch/NonVacuity.lean
+EXIT=0

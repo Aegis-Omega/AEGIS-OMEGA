@@ -1,0 +1,105 @@
+{
+  "schema_version": "1.0",
+  "evidence_type": "lean4_mathlib_upstream_candidate_kernel_verification",
+  "evidence_id": "mellin-compact-support-v1",
+  "lemma": {
+    "name": "mellinConvergent_of_hasCompactSupport",
+    "target_file": "Mathlib/Analysis/MellinTransform.lean",
+    "target_section": "MellinConvergent",
+    "insert_after": "mellin_convergent_iff_norm",
+    "conclusion": "MellinConvergent f s",
+    "hypotheses": ["Continuous f", "HasCompactSupport f", "tsupport f ⊆ Ioi 0"],
+    "quantified_over": "s : ℂ; E : Type* [NormedAddCommGroup E] [NormedSpace ℂ E]"
+  },
+  "mathlib": {
+    "repository": "leanprover-community/mathlib4",
+    "revision": "78f7ceb75eb8545d8f24744941f3629c16eb7040",
+    "target_file_sha256_pristine": "81851086004a6e5424da555061a4b2f9d2e7cece148d9d49c3537a05adba73ff",
+    "target_file_sha256_patched": "216d04d4eba956b298f8106e4114b61e5e0b08cf57da13b95f4009f76b517fb0",
+    "lean_toolchain": "leanprover/lean4:v4.34.0"
+  },
+  "toolchain": {
+    "lean_version": "4.34.0",
+    "lean_commit": "293d5d0c0c3f3dded4688b3ccd6a33939ac5102b",
+    "platform": "x86_64-unknown-linux-gnu",
+    "source": "official release tarball (elan self-update endpoint unreachable in this environment)"
+  },
+  "artifacts": {
+    "patch": {
+      "path": "mellinConvergent_of_hasCompactSupport.patch",
+      "sha256": "c1da13bba9c7e0c91c0906a3a0a11128edca6f597032f1e9357fd6fe7e022e69",
+      "files_changed": 1,
+      "insertions": 25,
+      "deletions": 0
+    },
+    "standalone_source": {
+      "path": "MellinCompactSupport.lean",
+      "sha256": "05569f883117e90e75c2ecc842761876daa70b214b43e9f015aa0514bb0d48d1"
+    },
+    "axiom_check_source": {
+      "path": "MellinCompactSupport_AxiomCheck.lean",
+      "sha256": "ef74d7fa94b4cf08f029544664594bd4d85ea29e143bd4762396750476965498"
+    },
+    "non_vacuity_source": {
+      "path": "MellinCompactSupport_NonVacuity.lean",
+      "sha256": "6946437b9662aa78ac55a1e092fdbf40fa7d6a5042e9a86d0071983257c4ff69"
+    }
+  },
+  "lanes": {
+    "mathlib_kernel_compile": {
+      "status": "PASS",
+      "phase": "A_pristine_mathlib",
+      "log": "logs/01-standalone-compile.log",
+      "exit_code": 0,
+      "warnings": 0
+    },
+    "axiom_audit": {
+      "status": "PASS",
+      "phase": "A_pristine_mathlib",
+      "log": "logs/02-axioms.log",
+      "axioms": ["propext", "Classical.choice", "Quot.sound"],
+      "sorryAx": false
+    },
+    "mathlib_module_build_with_lemma_inserted": {
+      "status": "PASS",
+      "phase": "B_patch_applied",
+      "log": "logs/03-lake-build-inserted.log",
+      "jobs": "2794/2794",
+      "linters_active": "linter.mathlibStandardSet (via lakefile leanOptions)"
+    },
+    "mathlib_env_linter": {
+      "status": "PASS",
+      "phase": "B_patch_applied",
+      "log": "logs/04-runLinter.log",
+      "linters": 15,
+      "declarations_checked": 141917
+    },
+    "mathlib_env_linter_negative_control": {
+      "status": "PASS",
+      "meaning": "deliberately defective declaration was rejected (synTaut, unusedArguments; exit 1), so the env-linter lane is demonstrably non-vacuous",
+      "phase": "B_patch_applied",
+      "log": "logs/05-runLinter-negative-control.log"
+    },
+    "non_vacuity_witness": {
+      "status": "PASS",
+      "phase": "B_patch_applied",
+      "log": "logs/06-nonvacuity-witness.log",
+      "witness": "fun t : ℝ => ((max 0 (1 - |t - 2|) : ℝ) : ℂ)",
+      "witness_support": "Icc 1 3",
+      "witness_nonzero_at": 2
+    },
+    "mathlib_text_style_linter": {
+      "status": "UNVERIFIED",
+      "reason": "lake exe lint-style exited 0 but no negative control could be made to fail; exit 0 is therefore not evidence"
+    }
+  },
+  "disposition": {
+    "verification_status": "KERNEL_VERIFIED",
+    "previous_status": "SOURCE_VERIFIED / COMPILE_PENDING",
+    "upstream_submission": "NOT_SUBMITTED",
+    "authority_effect": "NONE",
+    "rh_status": "NOT_PROVEN",
+    "ci_lane_in_this_repository": false,
+    "reverification_requires": "mathlib4 @ 78f7ceb7 + lake exe cache get Mathlib.Analysis.MellinTransform + Lean 4.34.0"
+  }
+}
