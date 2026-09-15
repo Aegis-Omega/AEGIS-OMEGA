@@ -142,6 +142,9 @@ theorem mixed_self_one_eq_energy (g : WeilCompactSmoothGV1) :
           simp [Complex.star_def, Complex.mul_conj, Complex.sq_norm]
     _ = ((∫ y in Ioi (0 : ℝ), ‖g.1 y‖ ^ 2) : ℂ) := by
           exact integral_ofReal
+            (𝕜 := ℂ)
+            (μ := volume.restrict (Ioi (0 : ℝ)))
+            (f := fun y : ℝ => ‖g.1 y‖ ^ 2)
 
 /-- Elementary 1/32 window constants not already needed by V2.1. -/
 theorem exp_one_thirty_two_lt_thirty_two_over_thirty_one :
@@ -284,17 +287,21 @@ theorem adjacent_sample_zero_of_ne_two
   by_cases hm1 : m = 1
   · subst m
     left
-    have hlog2 := log_two_gt_one_thirty_two
-    norm_num
-    linarith
-  · have hm3 : 3 ≤ m := by omega
+    simp only [Nat.cast_one, Real.log_one]
+    nlinarith [log_two_gt_one_thirty_two]
+  · have hm2 : 2 ≤ m := by omega
+    have hlog2m : Real.log 2 ≤ Real.log (m : ℝ) := by
+      apply Real.log_le_log (by norm_num)
+      exact_mod_cast hm2
+    have hm3 : 3 ≤ m := by omega
+    have hlog3m : Real.log 3 ≤ Real.log (m : ℝ) := by
+      apply Real.log_le_log (by norm_num)
+      exact_mod_cast hm3
     right
-    have hlog3 : Real.log 3 - Real.log 2 > (1 / 32 : ℝ) := by
+    have hgap : (1 / 32 : ℝ) < Real.log 3 - Real.log 2 := by
       rw [← Real.log_div (by norm_num : (3 : ℝ) ≠ 0) (by norm_num : (2 : ℝ) ≠ 0)]
       norm_num
       exact log_three_halves_gt_one_thirty_two
-    have hmon : Real.log 3 ≤ Real.log (m : ℝ) :=
-      Real.log_le_log (by norm_num) (by exact_mod_cast hm3)
     linarith
 
 theorem adjacent_inv_sample_zero
@@ -310,81 +317,84 @@ theorem adjacent_inv_sample_zero
   apply mixed_eq_zero_of_log_outside (gPlus g) (gZero g) hp hq (inv_pos.mpr hmpos)
   left
   rw [Real.log_inv]
-  have hlog2 := log_two_gt_one_thirty_two
-  have hmon : Real.log 2 ≤ Real.log (m : ℝ) :=
-    Real.log_le_log (by norm_num) (by exact_mod_cast hm)
-  linarith
+  have h2m : (2 : ℝ) ≤ (m : ℝ) := by exact_mod_cast hm
+  have hlogm : Real.log 2 ≤ Real.log (m : ℝ) := Real.log_le_log (by norm_num) h2m
+  nlinarith [log_two_gt_one_thirty_two]
+
+theorem adjacent_prime_term_two
+    (g : WeilCompactSmoothGV1) (a : ℝ) (hw : WidthOneThirtyTwoAt g a) :
+    WeilPrimeTermV1 (adjacent g) 1 =
+      (Real.log 2 : ℂ) * ((1 / Real.sqrt 2 : ℝ) * (energy g.1 : ℂ)) := by
+  have hi := adjacent_inv_sample_zero g a hw (show 2 ≤ 2 by norm_num)
+  rw [show WeilPrimeTermV1 (adjacent g) 1 =
+      ((ArithmeticFunction.vonMangoldt 2 : ℝ) : ℂ) *
+        (adjacent g 2 + (1 / (2 : ℂ)) * adjacent g ((2 : ℝ)⁻¹)) by rfl]
+  rw [vonMangoldt_two, adjacent_two_eq, hi]
+  ring
+
+theorem adjacent_prime_term_zero_of_ne_one
+    (g : WeilCompactSmoothGV1) (a : ℝ) (hw : WidthOneThirtyTwoAt g a)
+    {n : ℕ} (hne : n ≠ 1) : WeilPrimeTermV1 (adjacent g) n = 0 := by
+  by_cases hn0 : n = 0
+  · subst n
+    simp [WeilPrimeTermV1]
+  · have hm : 2 ≤ n + 1 := by omega
+    have hpos : adjacent g ((n + 1 : ℕ) : ℝ) = 0 :=
+      adjacent_sample_zero_of_ne_two g a hw (by omega) (by omega)
+    have hinv : adjacent g (((n + 1 : ℕ) : ℝ)⁻¹) = 0 :=
+      adjacent_inv_sample_zero g a hw hm
+    unfold WeilPrimeTermV1
+    change ((ArithmeticFunction.vonMangoldt (n + 1) : ℝ) : ℂ) *
+      (adjacent g ((n + 1 : ℕ) : ℝ) +
+        (1 / ((n + 1 : ℕ) : ℂ)) * adjacent g (((n + 1 : ℕ) : ℝ)⁻¹)) = 0
+    rw [hpos, hinv]
+    ring
 
 theorem adjacent_prime_sum
     (g : WeilCompactSmoothGV1) (a : ℝ) (hw : WidthOneThirtyTwoAt g a) :
     WeilPrimeSumV1 (adjacent g) =
-      ((Real.log 2 / Real.sqrt 2 : ℝ) : ℂ) * (energy g.1 : ℂ) := by
+      (Real.log 2 : ℂ) * ((1 / Real.sqrt 2 : ℝ) * (energy g.1 : ℂ)) := by
   unfold WeilPrimeSumV1
   rw [tsum_eq_single 1]
-  · change ((ArithmeticFunction.vonMangoldt 2 : ℝ) : ℂ) *
-      (adjacent g 2 + (1 / (2 : ℂ)) * adjacent g ((2 : ℝ)⁻¹)) =
-        ((Real.log 2 / Real.sqrt 2 : ℝ) : ℂ) * (energy g.1 : ℂ)
-    rw [vonMangoldt_two, adjacent_two_eq]
-    have hi : adjacent g ((2 : ℝ)⁻¹) = 0 :=
-      adjacent_inv_sample_zero g a hw (by norm_num)
-    rw [hi]
-    norm_num
-    ring
+  · exact adjacent_prime_term_two g a hw
   · intro n hn
-    unfold WeilPrimeTermV1
-    by_cases hn0 : n = 0
-    · subst n
-      simp
-    · have hm : 2 ≤ n + 1 := by omega
-      have hpos : adjacent g ((n + 1 : ℕ) : ℝ) = 0 := by
-        apply adjacent_sample_zero_of_ne_two g a hw (by omega)
-        omega
-      have hinv : adjacent g (((n + 1 : ℕ) : ℝ)⁻¹) = 0 :=
-        adjacent_inv_sample_zero g a hw hm
-      change ((ArithmeticFunction.vonMangoldt (n + 1) : ℝ) : ℂ) *
-        (adjacent g ((n + 1 : ℕ) : ℝ) +
-          (1 / ((n + 1 : ℕ) : ℂ)) *
-            adjacent g (((n + 1 : ℕ) : ℝ)⁻¹)) = 0
-      rw [hpos, hinv]
-      ring
+    exact adjacent_prime_term_zero_of_ne_one g a hw hn
 
-/-- All non-resonant outer positive samples vanish; all reciprocal m>=2 samples vanish. -/
+/-- All non-resonant outer positive samples vanish. -/
 theorem outer_sample_zero_of_ne_four
     (g : WeilCompactSmoothGV1) (a : ℝ) (hw : WidthOneThirtyTwoAt g a)
-    {m : ℕ} (hm : 2 ≤ m) (hne : m ≠ 4) :
+    {m : ℕ} (hm : 1 ≤ m) (hne : m ≠ 4) :
     outer g (m : ℝ) = 0 := by
   unfold outer
   have hp := translate_logSupportIn g (Real.log 2)
     (a - (1 / 64 : ℝ)) (a + (1 / 64 : ℝ)) hw
   have hq := translate_logSupportIn g (-Real.log 2)
     (a - (1 / 64 : ℝ)) (a + (1 / 64 : ℝ)) hw
-  have hmpos : (0 : ℝ) < (m : ℝ) := by positivity
+  have hmpos : (0 : ℝ) < (m : ℝ) := by exact_mod_cast (show 0 < m by omega)
   apply mixed_eq_zero_of_log_outside (gPlus g) (gMinus g) hp hq hmpos
-  by_cases hle : m ≤ 3
+  by_cases hle3 : m ≤ 3
   · left
-    have hmon : Real.log (m : ℝ) ≤ Real.log 3 :=
-      Real.log_le_log (by positivity) (by exact_mod_cast hle)
+    have hlogm : Real.log (m : ℝ) ≤ Real.log 3 := by
+      apply Real.log_le_log (by exact_mod_cast (show 0 < m by omega))
+      exact_mod_cast hle3
     have hgap : (1 / 32 : ℝ) < Real.log 4 - Real.log 3 := by
       rw [← Real.log_div (by norm_num : (4 : ℝ) ≠ 0) (by norm_num : (3 : ℝ) ≠ 0)]
       norm_num
       exact log_four_thirds_gt_one_thirty_two
     have hlog4 : Real.log 4 = 2 * Real.log 2 := by
-      calc
-        Real.log 4 = Real.log ((2 : ℝ)^2) := by norm_num
-        _ = 2 * Real.log 2 := by rw [Real.log_pow]; norm_num
+      rw [show (4 : ℝ) = 2 * 2 by norm_num, Real.log_mul (by norm_num) (by norm_num)]
     linarith
   · right
     have hm5 : 5 ≤ m := by omega
-    have hmon : Real.log 5 ≤ Real.log (m : ℝ) :=
-      Real.log_le_log (by norm_num) (by exact_mod_cast hm5)
+    have hlogm : Real.log 5 ≤ Real.log (m : ℝ) := by
+      apply Real.log_le_log (by norm_num)
+      exact_mod_cast hm5
     have hgap : (1 / 32 : ℝ) < Real.log 5 - Real.log 4 := by
       rw [← Real.log_div (by norm_num : (5 : ℝ) ≠ 0) (by norm_num : (4 : ℝ) ≠ 0)]
       norm_num
       exact log_five_fourths_gt_one_thirty_two
     have hlog4 : Real.log 4 = 2 * Real.log 2 := by
-      calc
-        Real.log 4 = Real.log ((2 : ℝ)^2) := by norm_num
-        _ = 2 * Real.log 2 := by rw [Real.log_pow]; norm_num
+      rw [show (4 : ℝ) = 2 * 2 by norm_num, Real.log_mul (by norm_num) (by norm_num)]
     linarith
 
 theorem outer_inv_sample_zero
@@ -400,43 +410,48 @@ theorem outer_inv_sample_zero
   apply mixed_eq_zero_of_log_outside (gPlus g) (gMinus g) hp hq (inv_pos.mpr hmpos)
   left
   rw [Real.log_inv]
-  have hlog2 := log_two_gt_one_thirty_two
-  have hmon : Real.log 2 ≤ Real.log (m : ℝ) :=
-    Real.log_le_log (by norm_num) (by exact_mod_cast hm)
-  linarith
+  have h2m : (2 : ℝ) ≤ (m : ℝ) := by exact_mod_cast hm
+  have hlogm : Real.log 2 ≤ Real.log (m : ℝ) := Real.log_le_log (by norm_num) h2m
+  nlinarith [log_two_gt_one_thirty_two]
+
+theorem outer_prime_term_four
+    (g : WeilCompactSmoothGV1) (a : ℝ) (hw : WidthOneThirtyTwoAt g a) :
+    WeilPrimeTermV1 (outer g) 3 =
+      (Real.log 2 : ℂ) * ((1 / 2 : ℝ) * (energy g.1 : ℂ)) := by
+  have hi := outer_inv_sample_zero g a hw (show 2 ≤ 4 by norm_num)
+  rw [show WeilPrimeTermV1 (outer g) 3 =
+      ((ArithmeticFunction.vonMangoldt 4 : ℝ) : ℂ) *
+        (outer g 4 + (1 / (4 : ℂ)) * outer g ((4 : ℝ)⁻¹)) by rfl]
+  rw [vonMangoldt_four, outer_four_eq, hi]
+  ring
+
+theorem outer_prime_term_zero_of_ne_three
+    (g : WeilCompactSmoothGV1) (a : ℝ) (hw : WidthOneThirtyTwoAt g a)
+    {n : ℕ} (hne : n ≠ 3) : WeilPrimeTermV1 (outer g) n = 0 := by
+  by_cases hn0 : n = 0
+  · subst n
+    simp [WeilPrimeTermV1]
+  · have hm : 2 ≤ n + 1 := by omega
+    have hpos : outer g ((n + 1 : ℕ) : ℝ) = 0 :=
+      outer_sample_zero_of_ne_four g a hw (by omega) (by omega)
+    have hinv : outer g (((n + 1 : ℕ) : ℝ)⁻¹) = 0 :=
+      outer_inv_sample_zero g a hw hm
+    unfold WeilPrimeTermV1
+    change ((ArithmeticFunction.vonMangoldt (n + 1) : ℝ) : ℂ) *
+      (outer g ((n + 1 : ℕ) : ℝ) +
+        (1 / ((n + 1 : ℕ) : ℂ)) * outer g (((n + 1 : ℕ) : ℝ)⁻¹)) = 0
+    rw [hpos, hinv]
+    ring
 
 theorem outer_prime_sum
     (g : WeilCompactSmoothGV1) (a : ℝ) (hw : WidthOneThirtyTwoAt g a) :
     WeilPrimeSumV1 (outer g) =
-      (((Real.log 2) / 2 : ℝ) : ℂ) * (energy g.1 : ℂ) := by
+      (Real.log 2 : ℂ) * ((1 / 2 : ℝ) * (energy g.1 : ℂ)) := by
   unfold WeilPrimeSumV1
   rw [tsum_eq_single 3]
-  · change ((ArithmeticFunction.vonMangoldt 4 : ℝ) : ℂ) *
-      (outer g 4 + (1 / (4 : ℂ)) * outer g ((4 : ℝ)⁻¹)) =
-        (((Real.log 2) / 2 : ℝ) : ℂ) * (energy g.1 : ℂ)
-    rw [vonMangoldt_four, outer_four_eq]
-    have hi : outer g ((4 : ℝ)⁻¹) = 0 :=
-      outer_inv_sample_zero g a hw (by norm_num)
-    rw [hi]
-    norm_num
-    ring
+  · exact outer_prime_term_four g a hw
   · intro n hn
-    unfold WeilPrimeTermV1
-    by_cases hn0 : n = 0
-    · subst n
-      simp
-    · have hm : 2 ≤ n + 1 := by omega
-      have hpos : outer g ((n + 1 : ℕ) : ℝ) = 0 := by
-        apply outer_sample_zero_of_ne_four g a hw hm
-        omega
-      have hinv : outer g (((n + 1 : ℕ) : ℝ)⁻¹) = 0 :=
-        outer_inv_sample_zero g a hw hm
-      change ((ArithmeticFunction.vonMangoldt (n + 1) : ℝ) : ℂ) *
-        (outer g ((n + 1 : ℕ) : ℝ) +
-          (1 / ((n + 1 : ℕ) : ℂ)) *
-            outer g (((n + 1 : ℕ) : ℝ)⁻¹)) = 0
-      rw [hpos, hinv]
-      ring
+    exact outer_prime_term_zero_of_ne_three g a hw hn
 
 #print axioms mixed_translate_scale
 #print axioms diagonal_prime_sum_zero
