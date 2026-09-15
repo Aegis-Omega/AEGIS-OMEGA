@@ -61,7 +61,7 @@ jobs:
           set -euo pipefail
           mkdir -p sovereign-omega-v2/weil-corn-o0-derivative-image-attestation
           chmod -R a+rwX \
-            sovereign-omega-v2/formal/theories/Weil \
+            sovereign-omega-v2/formal/theories \
             sovereign-omega-v2/formal/tests/Weil \
             sovereign-omega-v2/weil-corn-o0-derivative-image-attestation
 
