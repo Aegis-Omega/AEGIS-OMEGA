@@ -70,7 +70,8 @@ class ClosurePriorV1:
 
 
 class TrustedClosurePriorStore(Protocol):
-    def fetch_verified(self, prior_root: str) -> ClosurePriorV1: ...
+    def fetch_verified(self, prior_root: str) -> ClosurePriorV1:
+        pass
 
 
 @dataclass(frozen=True)
