@@ -150,7 +150,7 @@ theorem translate_logSupportIn
   rw [logLift_translate] at hne
   have hm : t - d ∈ tsupport (logLift g.1) := subset_tsupport _ hne
   have h := hI hm
-  constructor <;> linarith
+  exact ⟨by linarith [h.1], by linarith [h.2]⟩
 
 /-- Generic pointwise disjointness from separated logarithmic support intervals. -/
 theorem pointwise_disjoint_of_log_intervals
@@ -182,7 +182,7 @@ theorem integral_exp_substitution_complex (f : ℝ → ℂ) :
     MeasureTheory.integral_image_eq_integral_abs_deriv_smul
       (s := (Set.univ : Set ℝ))
       (f := Real.exp) (f' := Real.exp)
-      measurableSet_univ
+      MeasurableSet.univ
       (fun x _ => (Real.hasDerivAt_exp x).hasDerivWithinAt)
       Real.exp_injective.injOn f
   simpa [Set.image_univ, Real.range_exp, abs_of_pos (Real.exp_pos _)] using h
@@ -203,7 +203,13 @@ theorem logMomentMinus_eq_repository (g : WeilCompactSmoothGV1) :
   rw [Complex.real_smul]
   have he : (Real.exp t : ℂ) ≠ 0 := by simp
   field_simp
-  ring
+  have hreal : Real.exp (-t / 2) * Real.exp (t / 2) = 1 := by
+    rw [← Real.exp_add]
+    convert Real.exp_zero using 1 <;> ring
+  have hcomplex :
+      (Real.exp (-t / 2) : ℂ) * (Real.exp (t / 2) : ℂ) = 1 := by
+    exact_mod_cast hreal
+  rw [← mul_assoc, hcomplex, one_mul]
 
 theorem logMomentPlus_eq_repository (g : WeilCompactSmoothGV1) :
     logMomentPlus g = ∫ x in Ioi (0 : ℝ), g.1 x := by
@@ -350,15 +356,12 @@ theorem three_blocks_pairwise_disjoint
   have hgap := log_two_gt_one_thirty_two
   constructor
   · apply pointwise_disjoint_of_log_intervals (gMinus g) (gZero g) hminus hzero
-    dsimp [gMinus, gZero] at *
-    linarith
+    linarith [hgap]
   constructor
   · apply pointwise_disjoint_of_log_intervals (gMinus g) (gPlus g) hminus hplus
-    dsimp [gMinus, gPlus] at *
-    linarith
+    linarith [hgap]
   · apply pointwise_disjoint_of_log_intervals (gZero g) (gPlus g) hzero hplus
-    dsimp [gZero, gPlus] at *
-    linarith
+    linarith [hgap]
 
 #print axioms logLift_translate
 #print axioms translate_preserves_moments
