@@ -179,14 +179,17 @@ theorem rhs_paired_conjugate (f g : ℝ → ℂ)
     rw [← integral_conj]
     apply setIntegral_congr_fun measurableSet_Ioi
     intro x hx
+    change WeilArchimedeanIntegrandV1 g x =
+      conj (WeilArchimedeanIntegrandV1 f x)
     unfold WeilArchimedeanIntegrandV1
     have hx0 : 0 < x := lt_trans zero_lt_one hx
-    have hfx := hfg x hx0
-    have hgx := hgf x hx0
-    rw [hfx, hgx, h1]
+    have hfx := reflected f g hfg hx0
+    have hgx := reflected g f hgf hx0
     have hxC : (x : ℂ) ≠ 0 := by
       exact_mod_cast hx0.ne'
-    simp [div_eq_mul_inv, hxC, add_comm, Complex.conj_ofNat]
+    rw [hgx, hfx, h1]
+    simp [Complex.star_def, div_eq_mul_inv, hxC]
+    <;> ring
   simp only [WeilExplicitRightSideV1, hp, ha, h1, map_add, map_mul,
     WeilArchimedeanConstantV1, Complex.conj_ofReal]
 
@@ -211,9 +214,22 @@ theorem actual_expansion (z0 z1 z2 : ℂ) (g0 g1 g2 : WeilCompactSmoothGV1) :
   unfold combo
   simp only [B_add_left, B_add_right, B_scale_left, B_scale_right]
   rw [B_hermitian g0 g1, B_hermitian g0 g2, B_hermitian g1 g2]
+  have h00im : (B g0 g0).im = 0 := by
+    have h := congrArg Complex.im (B_hermitian g0 g0)
+    simp only [Complex.conj_im] at h
+    linarith
+  have h11im : (B g1 g1).im = 0 := by
+    have h := congrArg Complex.im (B_hermitian g1 g1)
+    simp only [Complex.conj_im] at h
+    linarith
+  have h22im : (B g2 g2).im = 0 := by
+    have h := congrArg Complex.im (B_hermitian g2 g2)
+    simp only [Complex.conj_im] at h
+    linarith
   unfold AEGIS.WeilThreeBlockComplexV2.diagonal AEGIS.WeilThreeBlockComplexV2.cross
-  simp only [Complex.star_def, Complex.add_re, Complex.mul_re, Complex.mul_im,
-    Complex.conj_re, Complex.conj_im, Complex.sq_norm, Complex.normSq_apply]
+  simp only [Complex.star_def, Complex.add_re, Complex.add_im, Complex.mul_re, Complex.mul_im,
+    Complex.conj_re, Complex.conj_im, Complex.sq_norm, Complex.normSq_apply,
+    h00im, h11im, h22im]
   ring
 
 theorem actual_three_block_bound (z0 z1 z2 : ℂ) (g0 g1 g2 : WeilCompactSmoothGV1)

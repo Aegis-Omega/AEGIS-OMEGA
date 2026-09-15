@@ -39,8 +39,24 @@ theorem disjoint_integral (z0 z1 z2 : ℂ) (f0 f1 f2 : ℝ → ℂ)
       ‖z0‖ ^ 2 * energy f0 + ‖z1‖ ^ 2 * energy f1 + ‖z2‖ ^ 2 * energy f2 := by
   unfold energy
   simp_rw [disjoint_pointwise z0 z1 z2 _ _ _ (h01 _) (h02 _) (h12 _)]
-  rw [integral_add ((h0.const_mul _).add (h1.const_mul _)) (h2.const_mul _),
-    integral_add (h0.const_mul _) (h1.const_mul _)]
+  have h0' : Integrable (fun t => ‖z0‖ ^ 2 * ‖f0 t‖ ^ 2) volume :=
+    h0.const_mul _
+  have h1' : Integrable (fun t => ‖z1‖ ^ 2 * ‖f1 t‖ ^ 2) volume :=
+    h1.const_mul _
+  have h2' : Integrable (fun t => ‖z2‖ ^ 2 * ‖f2 t‖ ^ 2) volume :=
+    h2.const_mul _
+  have hab :
+      (∫ t : ℝ, ‖z0‖ ^ 2 * ‖f0 t‖ ^ 2 + ‖z1‖ ^ 2 * ‖f1 t‖ ^ 2 ∂volume) =
+        (∫ t : ℝ, ‖z0‖ ^ 2 * ‖f0 t‖ ^ 2 ∂volume) +
+          ∫ t : ℝ, ‖z1‖ ^ 2 * ‖f1 t‖ ^ 2 ∂volume := by
+    simpa only [Pi.add_apply] using integral_add h0' h1'
+  have habc :
+      (∫ t : ℝ, (‖z0‖ ^ 2 * ‖f0 t‖ ^ 2 + ‖z1‖ ^ 2 * ‖f1 t‖ ^ 2) +
+          ‖z2‖ ^ 2 * ‖f2 t‖ ^ 2 ∂volume) =
+        (∫ t : ℝ, ‖z0‖ ^ 2 * ‖f0 t‖ ^ 2 + ‖z1‖ ^ 2 * ‖f1 t‖ ^ 2 ∂volume) +
+          ∫ t : ℝ, ‖z2‖ ^ 2 * ‖f2 t‖ ^ 2 ∂volume := by
+    simpa only [Pi.add_apply] using integral_add (h0'.add h1') h2'
+  rw [habc, hab]
   simp only [integral_const_mul]
 
 theorem quotient_free_norm_identity (z0 z1 z2 : ℂ) (f0 f1 f2 : ℝ → ℂ)
