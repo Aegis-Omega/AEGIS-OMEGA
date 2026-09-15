@@ -1,0 +1,162 @@
+{
+  "schema_version": "1.0.0",
+  "contract_kind": "AEGIS_THREAD_MANIFOLD_CONTRACT_V1",
+  "authority_effect": "NONE",
+  "purpose": "Bind the Thread-as-QuantumManifold geometric notation to the Phase-1 primitives that actually exist in harness/sdk/quantummanifold_scheduler.py, and record which parts of that notation are source-bound and which are derived. The contract grants nothing; it is a naming map plus a separation invariant.",
+  "epistemic_statuses": [
+    "SOURCE_BOUND",
+    "DERIVED_FORMALIZATION"
+  ],
+  "planes": {
+    "plausibility": "Everything the scheduler may optimize: information gain, falsification value, closure prior, cost, ranking score.",
+    "authority": "Everything that admits a claim or advances lineage. Pinned to zero in Phase-1 and unreachable from the plausibility plane."
+  },
+  "separation_invariant": "PLAUSIBILITY_IS_NOT_AUTHORITY",
+  "separation_statement": "No function of the plausibility plane may change any field of the authority plane. A proposal whose authority plane is not zero is refused with AUTHORITY_TUNNELING_ATTEMPT rather than ranked.",
+  "authority_plane": {
+    "module": "harness.sdk.quantummanifold_scheduler",
+    "type": "DispatchProposalV1",
+    "fields": {
+      "authority_effect": "NONE",
+      "can_admit_claim": false,
+      "can_advance_authority": false
+    },
+    "construction": "init=False",
+    "construction_note": "The three fields are not constructor parameters, so no caller can set them. Forcing them past the frozen dataclass is what the RED test does, and the canonical path must still refuse.",
+    "refusal_reason_code": "AUTHORITY_TUNNELING_ATTEMPT"
+  },
+  "bindings": [
+    {
+      "symbol": "gamma",
+      "notation": "γ",
+      "reads_as": "a single reality thread",
+      "status": "SOURCE_BOUND",
+      "module": "harness.sdk.quantummanifold_scheduler",
+      "type": "RealityThreadV1",
+      "plane": "plausibility"
+    },
+    {
+      "symbol": "gamma_active",
+      "notation": "Γ_active",
+      "reads_as": "the active thread universe",
+      "status": "SOURCE_BOUND",
+      "module": "harness.sdk.quantummanifold_scheduler",
+      "type": "RealityThreadV1",
+      "field": "active",
+      "plane": "plausibility"
+    },
+    {
+      "symbol": "alpha",
+      "notation": "α_i",
+      "reads_as": "the weight a thread carries in the ranking",
+      "status": "SOURCE_BOUND",
+      "policy_key": "alpha_ppm",
+      "policy_file": "harness/policies/quantummanifold-scheduler.v1.json",
+      "plane": "plausibility"
+    },
+    {
+      "symbol": "plausibility",
+      "notation": "g_P",
+      "reads_as": "how likely an action is to close its obligation",
+      "status": "SOURCE_BOUND",
+      "module": "harness.sdk.quantummanifold_scheduler",
+      "type": "ClosurePriorV1",
+      "field": "p_close_ppm",
+      "plane": "plausibility",
+      "note": "Bound to the verified closure prior, not to a free estimate: an unverified prior is refused with UNVERIFIED_CLOSURE_PRIOR."
+    },
+    {
+      "symbol": "falsification",
+      "notation": "Ê_k",
+      "reads_as": "the value of trying to falsify a claim",
+      "status": "SOURCE_BOUND",
+      "module": "harness.sdk.quantummanifold_scheduler",
+      "type": "CandidateActionV1",
+      "field": "falsification_value_ppm",
+      "plane": "plausibility",
+      "note": "A scalar term in the ranking. The spec's M3 projector reading is DERIVED, recorded separately below."
+    },
+    {
+      "symbol": "information_gain",
+      "notation": "IG",
+      "reads_as": "expected information from taking an action",
+      "status": "SOURCE_BOUND",
+      "module": "harness.sdk.quantummanifold_scheduler",
+      "type": "CandidateActionV1",
+      "field": "information_gain_ppm",
+      "plane": "plausibility"
+    },
+    {
+      "symbol": "authority",
+      "notation": "g_A",
+      "reads_as": "whether a thing may admit a claim or advance lineage",
+      "status": "SOURCE_BOUND",
+      "module": "harness.sdk.quantummanifold_scheduler",
+      "type": "DispatchProposalV1",
+      "field": "authority_effect",
+      "plane": "authority"
+    },
+    {
+      "symbol": "lineage",
+      "notation": "Λ",
+      "reads_as": "the verified ancestry a thread is anchored to",
+      "status": "SOURCE_BOUND",
+      "module": "harness.sdk.quantummanifold_scheduler",
+      "type": "RealityThreadV1",
+      "field": "verified_lineage_root",
+      "plane": "authority"
+    },
+    {
+      "symbol": "exact_head",
+      "notation": "x_0",
+      "reads_as": "the exact commit a statement is bound to",
+      "status": "SOURCE_BOUND",
+      "module": "harness.sdk.quantummanifold_scheduler",
+      "type": "RealityThreadV1",
+      "field": "source_head_sha",
+      "plane": "authority"
+    }
+  ],
+  "derived_formalizations": [
+    {
+      "symbol": "manifold_tuple",
+      "notation": "𝔔(ℳ,ℋ,g,Ω,ℰ,𝒜,𝒯)",
+      "status": "DERIVED_FORMALIZATION",
+      "found_in_source": false,
+      "searched": [
+        "docs/specs/QUANTUMMANIFOLD_SCHEDULER_SPEC_V1.md",
+        "docs/specs/QUANTUMMANIFOLD_SCHEDULER_PHASE1_DELTA_V1.md",
+        "harness/sdk/quantummanifold_scheduler.py"
+      ],
+      "reason": "The seven-tuple is a consistent reading of the M1-M4 planes, not a string that appears in any source of record."
+    },
+    {
+      "symbol": "superposition",
+      "notation": "|Ψ⟩ = Σ α_i |γ_i⟩",
+      "status": "DERIVED_FORMALIZATION",
+      "found_in_source": false,
+      "reason": "alpha_ppm and the active thread set are real; writing their combination as a Hilbert-space vector is interpretation. No inner product, normalisation or unitary evolution exists in the kernel."
+    },
+    {
+      "symbol": "metric_pair",
+      "notation": "g_P, g_A as literal metrics",
+      "status": "DERIVED_FORMALIZATION",
+      "found_in_source": false,
+      "reason": "Both planes exist and are separated. Calling them metric tensors adds geometric structure the kernel does not implement."
+    },
+    {
+      "symbol": "falsification_projector",
+      "notation": "Ê_k as an operator, P̂_¬C",
+      "status": "DERIVED_FORMALIZATION",
+      "found_in_source": false,
+      "reason": "falsification_value_ppm is a scalar in the ranking sum. The projector reading is the spec's M3 language, not executed code."
+    }
+  ],
+  "non_claims": [
+    "This contract admits no claim.",
+    "This contract proves no theorem.",
+    "This contract asserts no physical or quantum-mechanical result; the notation is descriptive.",
+    "A DERIVED_FORMALIZATION row is not evidence that the notation is implemented.",
+    "Naming a symbol does not move it between planes."
+  ]
+}
