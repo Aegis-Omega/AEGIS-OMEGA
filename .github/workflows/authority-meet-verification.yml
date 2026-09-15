@@ -2,7 +2,7 @@ name: Authority Meet Verification
 
 on:
   push:
-    branches: ['proof/authority-meet-v1-20260907']
+    branches: ['main', 'proof/authority-meet-v1-20260907']
   pull_request:
     paths:
       - 'verifiable/authority_meet/**'
