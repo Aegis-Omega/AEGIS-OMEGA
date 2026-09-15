@@ -116,8 +116,14 @@ theorem mixed_translate_scale
           (Real.exp ((dj - di) / 2) : ℂ) / (Real.exp dj : ℂ) := by
       apply (eq_div_iff hneC).2
       simpa [mul_comm, mul_left_comm, mul_assoc] using hcoef
-    rw [hcoef']
-    ring
+    calc
+      (Real.exp (-di / 2) : ℂ) * g.1 ((Real.exp (dj - di) * x) * y) *
+          ((Real.exp (-dj / 2) : ℂ) * star (g.1 y)) =
+        ((Real.exp (-di / 2) : ℂ) * (Real.exp (-dj / 2) : ℂ)) *
+          (g.1 ((Real.exp (dj - di) * x) * y) * star (g.1 y)) := by ring
+      _ = (Real.exp ((dj - di) / 2) : ℂ) / (Real.exp dj : ℂ) *
+          (g.1 ((Real.exp (dj - di) * x) * y) * star (g.1 y)) := by
+            rw [hcoef']
   rw [hfun, integral_const_mul]
   have hne : (Real.exp dj : ℂ) ≠ 0 := by simp
   field_simp [hne]
@@ -128,10 +134,14 @@ theorem mixed_self_one_eq_energy (g : WeilCompactSmoothGV1) :
   unfold mixed
   simp only [one_mul]
   rw [AEGIS.WeilLogCoordinateIsometryV21.packet_energy_eq_positive_energy g]
-  rw [← integral_ofReal]
-  apply setIntegral_congr_fun measurableSet_Ioi
-  intro y hy
-  simp [Complex.star_def, Complex.mul_conj, Complex.sq_norm]
+  calc
+    (∫ y in Ioi (0 : ℝ), g.1 y * star (g.1 y)) =
+        ∫ y in Ioi (0 : ℝ), ((‖g.1 y‖ ^ 2 : ℝ) : ℂ) := by
+          apply setIntegral_congr_fun measurableSet_Ioi
+          intro y hy
+          simp [Complex.star_def, Complex.mul_conj, Complex.sq_norm]
+    _ = ((∫ y in Ioi (0 : ℝ), ‖g.1 y‖ ^ 2) : ℂ) := by
+          exact integral_ofReal
 
 /-- Elementary 1/32 window constants not already needed by V2.1. -/
 theorem exp_one_thirty_two_lt_thirty_two_over_thirty_one :
@@ -238,7 +248,6 @@ theorem adjacent_two_eq
   rw [mixed_self_one_eq_energy]
   rw [show (0 - Real.log 2) / 2 = -Real.log 2 / 2 by ring]
   rw [exp_neg_half_log_two_eq_inv_sqrt_two]
-  norm_num
 
 theorem outer_four_eq
     (g : WeilCompactSmoothGV1) :
@@ -247,8 +256,7 @@ theorem outer_four_eq
   rw [mixed_translate_scale]
   have hexp4 : Real.exp (2 * Real.log 2) = (4 : ℝ) := by
     rw [show 2 * Real.log 2 = Real.log 2 + Real.log 2 by ring,
-      Real.exp_add, Real.exp_log (by norm_num : (0 : ℝ) < 2),
-      Real.exp_log (by norm_num : (0 : ℝ) < 2)]
+      Real.exp_add, Real.exp_log (by norm_num : (0 : ℝ) < 2)]
     norm_num
   have harg : Real.exp (-Real.log 2 - Real.log 2) * 4 = (1 : ℝ) := by
     rw [show -Real.log 2 - Real.log 2 = -(2 * Real.log 2) by ring,
