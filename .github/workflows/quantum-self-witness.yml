@@ -1,0 +1,121 @@
+name: Quantum Self-Witness-0
+
+on:
+  pull_request:
+    paths:
+      - "clients/python/aegis_omega/cudaq_self_witness.py"
+      - "clients/python/tests/test_cudaq_self_witness.py"
+      - "clients/python/setup.py"
+      - "schemas/quantum-self-digest-receipt.v1.schema.json"
+      - ".github/workflows/quantum-self-witness.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quantum-self-witness-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  contract:
+    name: L6 / Self-Witness-0 contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Install contract dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e ./clients/python \
+            'pytest==8.3.5' \
+            'rfc8785==0.1.4' \
+            'jsonschema==4.26.0'
+
+      - name: Compile and test Self-Witness-0
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            clients/python/aegis_omega/cudaq_self_witness.py \
+            clients/python/tests/test_cudaq_self_witness.py
+          cd clients/python
+          python -m pytest tests/test_cudaq_self_witness.py -v
+
+  cudaq-cpu-smoke:
+    name: L6 / CUDA-Q qpp-cpu real execution
+    needs: contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.11"
+
+      - name: Install pinned CUDA-Q witness runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e './clients/python[cudaq-witness]'
+          python - <<'PY'
+          from importlib.metadata import version
+          assert version('cudaq') == '0.15.1', version('cudaq')
+          assert version('rfc8785') == '0.1.4', version('rfc8785')
+          PY
+
+      - name: Execute real qpp-cpu kernel and observables
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import math
+          from aegis_omega.cudaq_self_witness import (
+              OBSERVABLE_NAMES,
+              BackendSpec,
+              execute_observable_set,
+              map_hash_to_angles,
+          )
+
+          self_hash = '8fa6cc600d75cd78a518a8b5b08cfb9f4e665c3016769820d37616d319cdee8a'
+          encoding = map_hash_to_angles(self_hash)
+          values = execute_observable_set(BackendSpec.qpp_cpu(), encoding.angles_rad)
+          assert tuple(values) == OBSERVABLE_NAMES, values
+          assert all(math.isfinite(value) for value in values.values()), values
+          assert all(abs(value) <= 1.000000001 for value in values.values()), values
+          print(values)
+          PY
