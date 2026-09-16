@@ -21,6 +21,7 @@
 
 From Coq Require Import Arith.PeanoNat Lia.
 Require Import CoRN.reals.NRootIR.
+Require Import VonMangoldtCanonicalBridge.
 Require Import CanonicalPrimeSourceSum.
 
 (** Canonical prime-term integer coordinate matching the Lean-side `m=n+1`
