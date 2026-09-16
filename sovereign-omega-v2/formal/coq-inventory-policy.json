@@ -5,6 +5,7 @@
     "Core/LockIrreversibility.v",
     "Weil/AnalyticDefinitions.v",
     "Weil/CanonicalPrimeSourceSum.v",
+    "Weil/ConcreteFiniteGuinandWeilSemanticsV1.v",
     "Weil/CornO0MorphismBridge.v",
     "Weil/CornO0TransportTrig.v",
     "Weil/CornO0TrigImageBridge.v",
