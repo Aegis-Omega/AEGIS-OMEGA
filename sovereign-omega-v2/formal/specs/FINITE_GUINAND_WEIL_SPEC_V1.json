@@ -1,0 +1,651 @@
+{
+  "spec_schema": "FINITE_GUINAND_WEIL_SPEC_V1",
+  "digest_profile": "WEIL_CANONICAL_AST_V1",
+  "semantic_ast": {
+    "index": {
+      "lean_positive_integer_coordinate": {
+        "binder": "n",
+        "binder_domain": "NAT",
+        "m": {
+          "op": "add",
+          "args": [
+            {
+              "var": "n"
+            },
+            1
+          ]
+        }
+      },
+      "coq_finite_tail": {
+        "binder": "i",
+        "binder_domain": "NAT",
+        "q": {
+          "op": "add",
+          "args": [
+            {
+              "var": "i"
+            },
+            2
+          ]
+        }
+      },
+      "leading_m1": {
+        "m": 1,
+        "von_mangoldt_value": 0,
+        "role": "SEMANTICALLY_INERT"
+      }
+    },
+    "von_mangoldt": {
+      "input": {
+        "var": "m",
+        "domain": "NAT_POSITIVE"
+      },
+      "prime_power_case": {
+        "binders": {
+          "p": "NAT",
+          "k": "NAT"
+        },
+        "constraints": [
+          {
+            "op": "prime",
+            "arg": {
+              "var": "p"
+            }
+          },
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "k"
+              },
+              1
+            ]
+          },
+          {
+            "op": "eq",
+            "args": [
+              {
+                "var": "m"
+              },
+              {
+                "op": "pow",
+                "base": {
+                  "var": "p"
+                },
+                "exponent": {
+                  "var": "k"
+                }
+              }
+            ]
+          }
+        ],
+        "value": {
+          "op": "log",
+          "arg": {
+            "var": "p"
+          }
+        }
+      },
+      "otherwise": 0
+    },
+    "prime_term": {
+      "binder": "m",
+      "binder_domain": "NAT_POSITIVE",
+      "formula": {
+        "op": "mul",
+        "args": [
+          {
+            "op": "von_mangoldt",
+            "arg": {
+              "var": "m"
+            }
+          },
+          {
+            "op": "add",
+            "args": [
+              {
+                "op": "eval",
+                "function": "f",
+                "arg": {
+                  "var": "m"
+                }
+              },
+              {
+                "op": "mul",
+                "args": [
+                  {
+                    "op": "inv",
+                    "arg": {
+                      "var": "m"
+                    }
+                  },
+                  {
+                    "op": "eval",
+                    "function": "f",
+                    "arg": {
+                      "op": "inv",
+                      "arg": {
+                        "var": "m"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "pole_term": {
+      "formula": {
+        "op": "add",
+        "args": [
+          {
+            "op": "mellin",
+            "function": "f",
+            "at": 0
+          },
+          {
+            "op": "mellin",
+            "function": "f",
+            "at": 1
+          }
+        ]
+      }
+    },
+    "archimedean_normalization": {
+      "constant_term": {
+        "op": "mul",
+        "args": [
+          {
+            "op": "add",
+            "args": [
+              {
+                "op": "log",
+                "arg": {
+                  "op": "mul",
+                  "args": [
+                    4,
+                    "pi"
+                  ]
+                }
+              },
+              "euler_gamma"
+            ]
+          },
+          {
+            "op": "eval",
+            "function": "f",
+            "arg": 1
+          }
+        ]
+      },
+      "integral": {
+        "op": "integral",
+        "binder": "x",
+        "domain": {
+          "kind": "RAY",
+          "lower": 1,
+          "lower_open": true
+        },
+        "measure": "LEBESGUE_DX",
+        "integrand": {
+          "op": "div",
+          "numerator": {
+            "op": "sub",
+            "args": [
+              {
+                "op": "add",
+                "args": [
+                  {
+                    "op": "mul",
+                    "args": [
+                      {
+                        "var": "x"
+                      },
+                      {
+                        "op": "eval",
+                        "function": "f",
+                        "arg": {
+                          "var": "x"
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "op": "eval",
+                    "function": "f",
+                    "arg": {
+                      "op": "inv",
+                      "arg": {
+                        "var": "x"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "op": "mul",
+                "args": [
+                  2,
+                  {
+                    "op": "eval",
+                    "function": "f",
+                    "arg": 1
+                  }
+                ]
+              }
+            ]
+          },
+          "denominator": {
+            "op": "sub",
+            "args": [
+              {
+                "op": "pow",
+                "base": {
+                  "var": "x"
+                },
+                "exponent": 2
+              },
+              1
+            ]
+          }
+        }
+      }
+    },
+    "cutoff": {
+      "parameter": {
+        "var": "count",
+        "domain": "NAT"
+      },
+      "coq_tail": {
+        "binder": "i",
+        "domain_constraints": [
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "i"
+              },
+              0
+            ]
+          },
+          {
+            "op": "lt",
+            "args": [
+              {
+                "var": "i"
+              },
+              {
+                "var": "count"
+              }
+            ]
+          }
+        ],
+        "q": {
+          "op": "add",
+          "args": [
+            {
+              "var": "i"
+            },
+            2
+          ]
+        }
+      },
+      "positive_integer_prefix": {
+        "binder": "m",
+        "domain_constraints": [
+          {
+            "op": "ge",
+            "args": [
+              {
+                "var": "m"
+              },
+              1
+            ]
+          },
+          {
+            "op": "le",
+            "args": [
+              {
+                "var": "m"
+              },
+              {
+                "op": "add",
+                "args": [
+                  {
+                    "var": "count"
+                  },
+                  1
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "equivalence_obligation": {
+        "kind": "LEADING_TERM_ZERO",
+        "term": {
+          "op": "von_mangoldt",
+          "arg": 1
+        },
+        "required_value": 0
+      },
+      "positivity_implication": "FORBIDDEN"
+    },
+    "measure": {
+      "autocorrelation_measure": "LEBESGUE_DY",
+      "domain": {
+        "kind": "RAY",
+        "lower": 0,
+        "lower_open": true
+      },
+      "excluded_measure": "DY_OVER_Y"
+    },
+    "autocorrelation": {
+      "formula": {
+        "op": "integral",
+        "binder": "y",
+        "domain": {
+          "kind": "RAY",
+          "lower": 0,
+          "lower_open": true
+        },
+        "measure": "LEBESGUE_DY",
+        "integrand": {
+          "op": "mul",
+          "args": [
+            {
+              "op": "eval",
+              "function": "g",
+              "arg": {
+                "op": "mul",
+                "args": [
+                  {
+                    "var": "x"
+                  },
+                  {
+                    "var": "y"
+                  }
+                ]
+              }
+            },
+            {
+              "op": "conj",
+              "arg": {
+                "op": "eval",
+                "function": "g",
+                "arg": {
+                  "var": "y"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "fourier_mellin_normalization": {
+      "fourier_forward": {
+        "op": "integral",
+        "binder": "x",
+        "domain": {
+          "kind": "ALL_REAL"
+        },
+        "measure": "LEBESGUE_DX",
+        "integrand": {
+          "op": "mul",
+          "args": [
+            {
+              "op": "eval",
+              "function": "f",
+              "arg": {
+                "var": "x"
+              }
+            },
+            {
+              "op": "exp",
+              "arg": {
+                "op": "mul",
+                "args": [
+                  -1,
+                  "i",
+                  {
+                    "var": "t"
+                  },
+                  {
+                    "var": "x"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "fourier_inverse": {
+        "op": "mul",
+        "args": [
+          {
+            "op": "div",
+            "numerator": 1,
+            "denominator": {
+              "op": "mul",
+              "args": [
+                2,
+                "pi"
+              ]
+            }
+          },
+          {
+            "op": "integral",
+            "binder": "t",
+            "domain": {
+              "kind": "ALL_REAL"
+            },
+            "measure": "LEBESGUE_DT",
+            "integrand": {
+              "op": "mul",
+              "args": [
+                {
+                  "op": "eval",
+                  "function": "fourier_f",
+                  "arg": {
+                    "var": "t"
+                  }
+                },
+                {
+                  "op": "exp",
+                  "arg": {
+                    "op": "mul",
+                    "args": [
+                      "i",
+                      {
+                        "var": "t"
+                      },
+                      {
+                        "var": "x"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "mellin": {
+        "op": "integral",
+        "binder": "x",
+        "domain": {
+          "kind": "RAY",
+          "lower": 0,
+          "lower_open": true
+        },
+        "measure": "LEBESGUE_DX",
+        "integrand": {
+          "op": "mul",
+          "args": [
+            {
+              "op": "eval",
+              "function": "f",
+              "arg": {
+                "var": "x"
+              }
+            },
+            {
+              "op": "pow",
+              "base": {
+                "var": "x"
+              },
+              "exponent": {
+                "op": "sub",
+                "args": [
+                  {
+                    "var": "s"
+                  },
+                  1
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "complex_real_projection": {
+      "pointwise_reality_of_autocorrelation": false,
+      "reciprocal_involution": {
+        "op": "eq",
+        "args": [
+          {
+            "op": "eval",
+            "function": "A_g",
+            "arg": {
+              "op": "inv",
+              "arg": {
+                "var": "x"
+              }
+            }
+          },
+          {
+            "op": "mul",
+            "args": [
+              {
+                "var": "x"
+              },
+              {
+                "op": "conj",
+                "arg": {
+                  "op": "eval",
+                  "function": "A_g",
+                  "arg": {
+                    "var": "x"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "domain_constraint": {
+        "op": "gt",
+        "args": [
+          {
+            "var": "x"
+          },
+          0
+        ]
+      },
+      "projection_rule": "MUST_BE_PROVED_AT_TERM_OR_FUNCTIONAL_LEVEL",
+      "silent_replace_Ag_by_ReAg": "FORBIDDEN"
+    },
+    "sign_orientation": {
+      "explicit_identity": {
+        "op": "eq",
+        "args": [
+          {
+            "var": "Z_f"
+          },
+          {
+            "op": "sub",
+            "args": [
+              {
+                "op": "add",
+                "args": [
+                  {
+                    "op": "mellin",
+                    "function": "f",
+                    "at": 0
+                  },
+                  {
+                    "op": "mellin",
+                    "function": "f",
+                    "at": 1
+                  }
+                ]
+              },
+              {
+                "var": "WeilExplicitRightSideV1_f"
+              }
+            ]
+          }
+        ]
+      },
+      "moment_zero_autocorrelation_identity": {
+        "op": "eq",
+        "args": [
+          {
+            "var": "WeilExplicitRightSideV1_A_g"
+          },
+          {
+            "op": "neg",
+            "arg": {
+              "op": "sum",
+              "binder": "rho",
+              "domain": {
+                "kind": "NONTRIVIAL_ZETA_ZEROS"
+              },
+              "summand": {
+                "op": "mul",
+                "args": [
+                  {
+                    "op": "eval",
+                    "function": "G",
+                    "arg": {
+                      "var": "rho"
+                    }
+                  },
+                  {
+                    "op": "conj",
+                    "arg": {
+                      "op": "eval",
+                      "function": "G",
+                      "arg": {
+                        "op": "sub",
+                        "args": [
+                          1,
+                          {
+                            "op": "conj",
+                            "arg": {
+                              "var": "rho"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              "multiplicity": {
+                "op": "analytic_multiplicity",
+                "arg": {
+                  "var": "rho"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "sign_inequality_from_identity": "NOT_IMPLIED"
+    }
+  },
+  "canonical_spec_digest": "b9f7a8d7b37799fd6e493c1d764ceba549d294fdf8200bdbcff593484dc826b2"
+}

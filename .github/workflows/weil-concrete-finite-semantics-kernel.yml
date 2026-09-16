@@ -3,6 +3,8 @@ name: Weil Concrete Finite Semantics Kernel
 on:
   pull_request:
     paths:
+      - "tests/test_weil_canonical_ast_v1.py"
+      - "sovereign-omega-v2/formal/specs/FINITE_GUINAND_WEIL_SPEC_V1.json"
       - "sovereign-omega-v2/formal/theories/Weil/ConcreteFiniteGuinandWeilSemanticsV1.v"
       - ".github/workflows/weil-concrete-finite-semantics-kernel.yml"
   workflow_dispatch:
@@ -33,6 +35,10 @@ jobs:
       - name: Assert exact candidate
         shell: bash
         run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Validate canonical semantic AST
+        shell: bash
+        run: python3 -m unittest -v tests/test_weil_canonical_ast_v1.py
 
       - name: Prepare evidence workspace
         shell: bash

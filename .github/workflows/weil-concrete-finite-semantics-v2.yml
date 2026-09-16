@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "tests/test_weil_concrete_finite_semantics_v2_contract.py"
+      - "tests/test_weil_canonical_ast_v1.py"
+      - "sovereign-omega-v2/formal/specs/FINITE_GUINAND_WEIL_SPEC_V1.json"
       - "sovereign-omega-v2/formal/theories/Weil/ConcreteFiniteGuinandWeilSemanticsV1.v"
       - "sovereign-omega-v2/formal/theories/Weil/AnalyticDefinitions.v"
       - ".github/workflows/weil-concrete-finite-semantics-v2.yml"
@@ -36,6 +38,9 @@ jobs:
         shell: bash
         run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
 
-      - name: Execute preregistered PR1 contract
+      - name: Execute preregistered PR1 contracts
         shell: bash
-        run: python3 -m unittest -v tests/test_weil_concrete_finite_semantics_v2_contract.py
+        run: >-
+          python3 -m unittest -v
+          tests/test_weil_concrete_finite_semantics_v2_contract.py
+          tests/test_weil_canonical_ast_v1.py
