@@ -14,17 +14,19 @@
   - the existing Coq canonical finite source uses q = i + 2, omitting m = 1;
   - the omitted leading term is semantically inert because Lambda(1) = 0.
 
-  Later constituent theorems in this same module must bind the remaining
-  canonical specification surfaces before the aggregate finite-semantics
-  theorem may be declared closed.
+  The complex scalar support below formalizes the canonical prime-term formula
+  over a supplied function [f : IR -> CC].  It deliberately does NOT identify
+  that supplied function with the Lean or O0 carrier.  That carrier binding is
+  a separate load-bearing obligation for [concrete_prime_term_semantics_v1].
 *)
 
 From Coq Require Import Arith.PeanoNat Lia.
 Require Import CoRN.reals.NRootIR.
+Require Import CoRN.complex.CComplex.
 Require Import VonMangoldtCanonicalBridge.
 Require Import CanonicalPrimeSourceSum.
 
-(** Canonical prime-term integer coordinate matching the Lean-side `m=n+1`
+(** Canonical prime-term integer coordinate matching the Lean-side [m=n+1]
     convention.  This is a semantic coordinate only, not a matrix index. *)
 Definition finite_guinand_weil_prime_index_v1 (n : nat) : nat := S n.
 
@@ -66,4 +68,99 @@ Proof.
   - exact concrete_von_mangoldt_one_zero_v1.
   - intro i.
     apply eq_reflexive.
+Qed.
+
+(* -------------------------------------------------------------------- *)
+(* Formula-level complex prime-term support.                            *)
+(* -------------------------------------------------------------------- *)
+
+(** Positive integer coordinate m=n+1 embedded in CoRN IR. *)
+Definition finite_prime_positive_integer_ir_v1 (n : nat) : IR :=
+  nring (S n).
+
+Lemma finite_prime_positive_integer_ir_positive_v1 :
+  forall n : nat, [0] [<] finite_prime_positive_integer_ir_v1 n.
+Proof.
+  intro n.
+  unfold finite_prime_positive_integer_ir_v1.
+  apply nring_pos.
+  lia.
+Qed.
+
+(** The exact reciprocal 1/(n+1) on the same constructive-real carrier. *)
+Definition finite_prime_reciprocal_ir_v1 (n : nat) : IR :=
+  [1] [/] finite_prime_positive_integer_ir_v1 n
+    [//] pos_ap_zero _ _ (finite_prime_positive_integer_ir_positive_v1 n).
+
+(** Canonical complex scalar term
+
+      Lambda(m) * (f(m) + m^-1 * f(m^-1)),  m=n+1.
+
+    The supplied [f] is intentionally abstract.  This theorem surface binds
+    the formula and index convention only; it grants no Lean/O0 carrier
+    correspondence. *)
+Definition finite_prime_scalar_term_cc_v1
+    (f : IR -> CC) (n : nat) : CC :=
+  cc_IR (von_mangoldt_v1 (finite_guinand_weil_prime_index_v1 n))
+    [*]
+  (f (finite_prime_positive_integer_ir_v1 n)
+    [+]
+   cc_IR (finite_prime_reciprocal_ir_v1 n)
+    [*] f (finite_prime_reciprocal_ir_v1 n)).
+
+(** q=i+2 reciprocal using the existing canonical q-native arithmetic lane. *)
+Definition canonical_q_reciprocal_ir_v1 (i : nat) : IR :=
+  [1] [/] canonical_integer_q_ir_v1 i
+    [//] pos_ap_zero _ _ (canonical_integer_q_ir_positive_v1 i).
+
+(** The same scalar formula written directly in the existing q=i+2
+    coordinate.  This is independent of the basis/trigonometric source
+    representation used elsewhere in the proof DAG. *)
+Definition canonical_q_prime_scalar_term_cc_v1
+    (f : IR -> CC) (i : nat) : CC :=
+  cc_IR (von_mangoldt_v1 (canonical_integer_q_v1 i))
+    [*]
+  (f (canonical_integer_q_ir_v1 i)
+    [+]
+   cc_IR (canonical_q_reciprocal_ir_v1 i)
+    [*] f (canonical_q_reciprocal_ir_v1 i)).
+
+(** The leading n=0 / m=1 scalar term vanishes for every supplied complex
+    function because Lambda(1)=0. *)
+Theorem finite_prime_scalar_term_leading_zero_v1 :
+  forall f : IR -> CC,
+    finite_prime_scalar_term_cc_v1 f 0 [=] ([0] : CC).
+Proof.
+  intro f.
+  unfold finite_prime_scalar_term_cc_v1,
+    finite_guinand_weil_prime_index_v1.
+  astepl
+    (cc_IR [0]
+      [*]
+     (f (finite_prime_positive_integer_ir_v1 0)
+       [+]
+      cc_IR (finite_prime_reciprocal_ir_v1 0)
+       [*] f (finite_prime_reciprocal_ir_v1 0))).
+  - Step_final ([0] : CC).
+  - apply cc_IR_wd.
+    exact concrete_von_mangoldt_one_zero_v1.
+Qed.
+
+(** After removing the inert m=1 term, the n=S i scalar formula is exactly
+    the q=i+2 scalar formula. *)
+Theorem finite_prime_scalar_term_tail_index_v1 :
+  forall (f : IR -> CC) (i : nat),
+    finite_prime_scalar_term_cc_v1 f (S i)
+      [=] canonical_q_prime_scalar_term_cc_v1 f i.
+Proof.
+  intros f i.
+  unfold finite_prime_scalar_term_cc_v1,
+    canonical_q_prime_scalar_term_cc_v1,
+    finite_guinand_weil_prime_index_v1,
+    finite_prime_positive_integer_ir_v1,
+    finite_prime_reciprocal_ir_v1,
+    canonical_q_reciprocal_ir_v1,
+    canonical_integer_q_ir_v1,
+    canonical_integer_q_v1.
+  apply eq_reflexive.
 Qed.
