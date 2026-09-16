@@ -65,6 +65,5 @@ Proof.
   split.
   - exact concrete_von_mangoldt_one_zero_v1.
   - intro i.
-    unfold finite_guinand_weil_prime_index_v1, canonical_integer_q_v1.
     apply eq_reflexive.
 Qed.
