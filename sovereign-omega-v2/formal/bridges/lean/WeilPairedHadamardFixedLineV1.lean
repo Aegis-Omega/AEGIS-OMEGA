@@ -53,23 +53,33 @@ theorem riemannXi_hadamard_logDeriv_with_multiplicity_v1 :
     LiCriterion.xi_weighted_genus_one_of_hadamard_order_one
       LiCriterion.XiGrowth.riemannXi_hasFiniteOrder
       LiCriterion.XiGrowth.riemannXi_order_le_one
-  have hPfun : P = LiCriterion.xiE1ProdWithMultiplicity := by
+  have hP_explicit :
+      P = fun w : ℂ =>
+        ∏' j : Hadamard.OrderOne.WithMultiplicity
+            LiCriterion.NontrivialZero
+            (fun ρ => analyticOrderNatAt LiCriterion.riemannXi ρ.val),
+          Hadamard.weierstrass_E 1 (w / j.1.val) := by
     funext w
-    exact LiCriterion.xiMultiplicityE1Prod_eq_xiE1ProdWithMultiplicity w
+    calc
+      P w = LiCriterion.xiMultiplicityE1Prod w := rfl
+      _ = LiCriterion.xiE1ProdWithMultiplicity w :=
+        LiCriterion.xiMultiplicityE1Prod_eq_xiE1ProdWithMultiplicity w
+      _ = (∏' j : Hadamard.OrderOne.WithMultiplicity
+              LiCriterion.NontrivialZero
+              (fun ρ => analyticOrderNatAt LiCriterion.riemannXi ρ.val),
+            Hadamard.weierstrass_E 1 (w / j.1.val)) := rfl
   have hlogP :
       _root_.logDeriv P s =
         ∑' ρ : LiCriterion.NontrivialZero,
           (analyticOrderNatAt LiCriterion.riemannXi ρ.val : ℂ) *
             (s / (ρ.val * (s - ρ.val))) := by
-    rw [hPfun]
-    simpa [LiCriterion.xiE1ProdWithMultiplicity,
-      LiCriterion.XiZeroWithMultiplicity,
-      Hadamard.OrderOne.WithMultiplicity] using
-      (Hadamard.OrderOne.logDeriv_tprod_weierstrass_E_one_eq_tsum_of_summable_mul_inv_norm_sq
+    rw [hP_explicit]
+    exact
+      Hadamard.OrderOne.logDeriv_tprod_weierstrass_E_one_eq_tsum_of_summable_mul_inv_norm_sq
         (z := fun ρ : LiCriterion.NontrivialZero => ρ.val)
         (m := fun ρ : LiCriterion.NontrivialZero =>
           analyticOrderNatAt LiCriterion.riemannXi ρ.val)
-        (fun ρ => ρ.ne_zero) hsum s hs)
+        (fun ρ => ρ.ne_zero) hsum s hs
   have hxi_ne : LiCriterion.riemannXi s ≠ 0 :=
     riemannXi_ne_zero_of_avoids_nontrivial_zeros_v1 s hs
   have hP_ne : P s ≠ 0 := by
