@@ -36,11 +36,20 @@ def workflow_contents_permission(path: Path) -> str | None:
 
 def writes_cognitive_anchors(path: Path) -> bool:
     source = path.read_text(encoding="utf-8")
-    stages_anchors = (
-        "git add .claude.json skill-hashes.sha256" in source
-        or "git add skill-hashes.sha256 .claude.json" in source
+    legacy_writer = (
+        (
+            "git add .claude.json skill-hashes.sha256" in source
+            or "git add skill-hashes.sha256 .claude.json" in source
+        )
+        and "git push" in source
     )
-    return stages_anchors and "git push" in source
+    signed_writer = (
+        "createCommitOnBranch" in source
+        and "expectedHeadOid" in source
+        and ".claude.json" in source
+        and "skill-hashes.sha256" in source
+    )
+    return legacy_writer or signed_writer
 
 
 def load_module(name: str, path: Path):
@@ -72,7 +81,9 @@ class CognitiveAnchorWriterBoundaryTests(TestCase):
         self.assertIn("repair/cognitive-anchor-*", source)
         self.assertIn('git ls-remote --exit-code --heads origin "refs/heads/$TARGET_REF"', source)
         self.assertIn("steps.admission.outputs.allowed == 'true'", source)
-        self.assertIn('git push origin "HEAD:refs/heads/$TARGET_REF"', source)
+        self.assertIn("createCommitOnBranch", source)
+        self.assertIn("expectedHeadOid", source)
+        self.assertNotIn('git push origin "HEAD:refs/heads/$TARGET_REF"', source)
         self.assertNotIn('git push origin "HEAD:${{ inputs.target_ref }}"', source)
 
     def test_writer_requires_verified_nonzero_exact_main_and_pinned_actions(self) -> None:

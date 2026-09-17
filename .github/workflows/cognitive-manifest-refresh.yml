@@ -189,10 +189,11 @@ jobs:
             --ref "$TARGET_REF" \
             --parent-state-hash "$PARENT_STATE_HASH"
 
-      - name: Commit refreshed anchors
+      - name: Commit refreshed anchors through GitHub-signed API
         if: steps.admission.outputs.allowed == 'true'
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
           TARGET_REF: ${{ inputs.target_ref }}
         run: |
           set -euo pipefail
@@ -200,8 +201,68 @@ jobs:
             echo "Manifest already current."
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .claude.json skill-hashes.sha256
-          git commit -m "chore(manifest): refresh cognitive-state anchors"
-          git push origin "HEAD:refs/heads/$TARGET_REF"
+
+          SOURCE_SHA="$(git rev-parse HEAD)" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+
+          const token = process.env.GH_TOKEN;
+          const branch = process.env.TARGET_REF;
+          const sourceSha = process.env.SOURCE_SHA;
+          const repo = process.env.GITHUB_REPOSITORY;
+          const refResponse = await fetch(
+            `https://api.github.com/repos/${repo}/branches/${encodeURIComponent(branch)}`,
+            {
+              headers: {
+                authorization: `bearer ${token}`,
+                accept: 'application/vnd.github+json',
+                'user-agent': 'aegis-cognitive-manifest-refresh-v1',
+              },
+            }
+          );
+          const refBody = await refResponse.json();
+          if (!refResponse.ok || !refBody?.commit?.sha) {
+            console.error(JSON.stringify(refBody));
+            process.exit(1);
+          }
+          if (refBody.commit.sha !== sourceSha) {
+            console.error(`STALE_HEAD expected=${sourceSha} live=${refBody.commit.sha}`);
+            process.exit(1);
+          }
+
+          const additions = ['.claude.json', 'skill-hashes.sha256'].map(path => ({
+            path,
+            contents: fs.readFileSync(path).toString('base64'),
+          }));
+          const query = `mutation($input: CreateCommitOnBranchInput!) {
+            createCommitOnBranch(input: $input) {
+              commit { oid url }
+            }
+          }`;
+          const variables = {
+            input: {
+              branch: {
+                repositoryNameWithOwner: repo,
+                branchName: branch,
+              },
+              expectedHeadOid: sourceSha,
+              message: { headline: 'chore(manifest): refresh cognitive-state anchors' },
+              fileChanges: { additions },
+            },
+          };
+          const response = await fetch('https://api.github.com/graphql', {
+            method: 'POST',
+            headers: {
+              authorization: `bearer ${token}`,
+              'content-type': 'application/json',
+              'user-agent': 'aegis-cognitive-manifest-refresh-v1',
+            },
+            body: JSON.stringify({ query, variables }),
+          });
+          const body = await response.json();
+          if (!response.ok || body.errors) {
+            console.error(JSON.stringify(body));
+            process.exit(1);
+          }
+          console.log(`SIGNED_MANIFEST_COMMIT=${body.data.createCommitOnBranch.commit.oid}`);
+          console.log(`SIGNED_MANIFEST_URL=${body.data.createCommitOnBranch.commit.url}`);
+          NODE
