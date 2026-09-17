@@ -60,7 +60,7 @@ Proof.
   intros x y H.
   rewrite <- (add_zero_r y).
   rewrite <- (add_opp_r x).
-  rewrite <- add_assoc.
+  rewrite add_assoc.
   rewrite H.
   apply add_zero_l.
 Qed.
