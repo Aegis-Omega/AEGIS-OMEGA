@@ -1,4 +1,4 @@
-import WeilFiniteSourceCalculusV1
+import WeilCauchyRankTwoV1
 
 set_option autoImplicit false
 
@@ -42,5 +42,7 @@ Archimedean source with this core or import PSD.
 #check weil_finite_source_measure_extension_v1
 #check weil_finite_source_full_entry_identification_v1
 #check weil_prime_atom_entry_matches_evaluator_v1
+#check WeilCauchyCoreV1
+#check WeilCauchyRankTwoKernelV1
 #check weil_cauchy_divided_difference_rank_two_v1
 #check weil_cauchy_diagonal_rank_two_v1
