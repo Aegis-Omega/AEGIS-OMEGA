@@ -1,0 +1,168 @@
+name: RH Gauss Series Integral Reduction V1
+
+on:
+  push:
+    branches:
+      - 'proof/rh-gauss-series-integral-reduction-v1'
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/GaussSeriesIntegralReductionV1.lean'
+      - 'sovereign-omega-v2/formal/tests/lean/GaussSeriesIntegralReductionV1Spec.lean'
+      - '.github/workflows/rh-gauss-series-integral-reduction-v1.yml'
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/GaussSeriesIntegralReductionV1.lean'
+      - 'sovereign-omega-v2/formal/tests/lean/GaussSeriesIntegralReductionV1Spec.lean'
+      - '.github/workflows/rh-gauss-series-integral-reduction-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  BUILD_HOST_SHA: 35df682f3b709ffe5fbcfdd452dfa964bd622b87
+  BUILD_HOST_ORIGINAL_MATHLIB_SHA: de5ce8a9a66a4aa68a9bdbb35b63a06d34d9ca11
+
+jobs:
+  gauss-reduction:
+    name: verify Gauss series-integral reduction at exact head
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout pinned Lean build host
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: nicholasbulka/li-criterion-rh-equivalence-lean
+          ref: ${{ env.BUILD_HOST_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.SOURCE_SHA }}
+          path: .aegis
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact source and Mathlib pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$BUILD_HOST_SHA"
+          test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
+          printf '%s\n' "$LEAN_TOOLCHAIN" > lean-toolchain
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path('lakefile.lean')
+          text = p.read_text()
+          old = os.environ['BUILD_HOST_ORIGINAL_MATHLIB_SHA']
+          new = os.environ['MATHLIB_SHA']
+          assert text.count(old) == 1
+          p.write_text(text.replace(old, new))
+          PY
+          rm -f lake-manifest.json
+          git -C .aegis rev-parse HEAD > exact-source.log
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve pinned Mathlib and cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          lake update mathlib
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('lake-manifest.json').read_text())
+          p = next(x for x in m['packages'] if x['name'] == 'mathlib')
+          assert (p.get('rev') or p.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+          lake exe cache get
+          lean --version >> exact-source.log
+
+      - name: RED or GREEN reduction contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .lake/build/lib/lean evidence
+          SPEC=.aegis/sovereign-omega-v2/formal/tests/lean/GaussSeriesIntegralReductionV1Spec.lean
+          TARGET=.aegis/sovereign-omega-v2/formal/bridges/lean/GaussSeriesIntegralReductionV1.lean
+          cp "$SPEC" .
+          if ! test -f "$TARGET"; then
+            set +e
+            lake env lean GaussSeriesIntegralReductionV1Spec.lean > evidence/red-spec.log 2>&1
+            rc=$?
+            set -e
+            cat evidence/red-spec.log
+            test "$rc" -ne 0
+            grep -F 'GaussSeriesIntegralReductionV1' evidence/red-spec.log
+            echo 'RED checkpoint confirmed: production Gauss reduction module is absent.' >&2
+            exit 1
+          fi
+          cp "$TARGET" .
+          lake env lean -o .lake/build/lib/lean/GaussSeriesIntegralReductionV1.olean GaussSeriesIntegralReductionV1.lean 2>&1 | tee evidence/target.log
+          lake env lean GaussSeriesIntegralReductionV1Spec.lean 2>&1 | tee evidence/spec.log
+
+      - name: Audit theorem closures
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > GaussReductionAudit.lean <<'EOF'
+          import GaussSeriesIntegralReductionV1
+          #print axioms GaussSeriesIntegralReductionV1.gauss_kernel_series_summable_v1
+          #print axioms GaussSeriesIntegralReductionV1.gauss_kernel_integrable_v1
+          #print axioms GaussSeriesIntegralReductionV1.gauss_series_integral_reduction_v1
+          EOF
+          lake env lean GaussReductionAudit.lean 2>&1 | tee evidence/axioms.log
+          ! grep -F 'sorryAx' evidence/axioms.log
+          grep -F 'gauss_series_integral_reduction_v1' evidence/axioms.log
+
+      - name: Emit bounded receipt
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          src = Path('GaussSeriesIntegralReductionV1.lean')
+          payload = {
+            'receipt_kind': 'AEGIS_RH_GAUSS_SERIES_INTEGRAL_REDUCTION_V1',
+            'source_commit': os.environ['SOURCE_SHA'],
+            'mathlib_commit': os.environ['MATHLIB_SHA'],
+            'source_sha256': hashlib.sha256(src.read_bytes()).hexdigest(),
+            'series_to_integral_reduction_proven': True,
+            'digamma_series_representation_proven': False,
+            'gauss_digamma_integral_proven': False,
+            'paired_hadamard_identity_kernel_proven': False,
+            'rh_proven': False,
+            'authority_effect': 'NONE',
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          Path('evidence/receipt.json').write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n')
+          print(Path('evidence/receipt.json').read_text())
+          PY
+
+      - name: Upload exact-head evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rh-gauss-series-integral-reduction-${{ env.SOURCE_SHA }}
+          path: |
+            exact-source.log
+            evidence/
+          if-no-files-found: warn
+          retention-days: 30
