@@ -72,6 +72,11 @@ jobs:
           node-version-file: '.node-version'
           package-manager-cache: false
 
+      - name: Install shared source dependencies when needed
+        if: ${{ matrix.app != 'packages/shared' }}
+        working-directory: packages/shared
+        run: npm ci
+
       - name: Install exact lockfile graph
         working-directory: ${{ matrix.app }}
         run: npm ci
