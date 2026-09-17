@@ -1,0 +1,8 @@
+import WeilAbjadGramPositivityV1
+
+set_option autoImplicit false
+
+#check weil_gram_strong_norm_bound_v1
+#check weil_gram_component_box_v1
+#check weil_abjad_gram_four_phase_nonnegative_v1
+#check weil_abjad_isometric_orbit_nonnegative_v1
