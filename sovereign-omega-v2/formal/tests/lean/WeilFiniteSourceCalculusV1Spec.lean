@@ -65,3 +65,4 @@ slice.
 #check weil_arch_sine_kernel_hasDerivAt_v1
 #check weil_arch_sine_kernel_integer_v1
 #check weil_arch_sine_kernel_dx_integer_v1
+#check weil_arch_sine_entry_cauchy_rank_two_v1
