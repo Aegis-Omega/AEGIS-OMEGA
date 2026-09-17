@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "1db1b99e8ba9d971ce1ae91819261d2b427510054e2b4256381fbfca26165fe2",
+  "corpus_root": "43c2d62fe9f63be763eedbcbfc9e565ca9bec78933f820cce695e7957bcd4a61",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1957,
@@ -37,17 +37,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "81dd3cc5085a2e2ef4f4afd423718c4b51d4f84b33346835164f69e4f7688db7",
+      "content_sha256": "817c6ed1f3c83acac99519108a0770fbfb72feee514713738261c76f4ccf05de",
       "dependency_hints": [],
-      "git_blob_sha": "18f4da0c341162f9581c1ea2beaf6cc214e00b18",
+      "git_blob_sha": "4e582abc81b619681a38a258f80c7ea9dd88e301",
       "heading_hint": null,
       "kind": "config-or-data",
       "language": "json",
-      "line_count": 397,
+      "line_count": 1019,
       "mode": "100644",
       "object_type": "blob",
       "path": ".aegis/cross-domain/fixtures/qbp-cross-boundary-v1.json",
-      "size_bytes": 14557,
+      "size_bytes": 39673,
       "symbol_hints": []
     },
     {
@@ -28709,17 +28709,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "2bdff17c4e6064d1121b06a766dda8695e14141fef3deac3d8e420be6a4cc30d",
+      "content_sha256": "a26cbab1be38b2c7856bc22b00bad533a1165b6221b62783a8112d3aedfef921",
       "dependency_hints": [],
-      "git_blob_sha": "b173824dafcdc5c79c55dc9e8dd64691a0ff0311",
+      "git_blob_sha": "6e8bb4486047248dbe1864a05de6865826bafea6",
       "heading_hint": "Cross-Boundary Authority V1",
       "kind": "documentation",
       "language": "markdown",
-      "line_count": 213,
+      "line_count": 254,
       "mode": "100644",
       "object_type": "blob",
       "path": "docs/research/cross-boundary-authority-v1.md",
-      "size_bytes": 7201,
+      "size_bytes": 9990,
       "symbol_hints": []
     },
     {
