@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/sol-cross-platform-control-plane",
-    "parent_state_hash": "e9f0ec153b0b320a1e791092f73209442ec43a982e503203d9c101ec40949cba",
+    "source_ref": "rebind/mycorrhizal-1bna-registry-secure-signed-v1",
+    "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "1726a5ac63348cbb6e5175588cd98de01ecaa2867556aa8f5086bb77cc6675fe"
+  "state_hash": "a0fa9d085f88950620361a6f991c7ceeb8af2366655fee0e0243970ee80174ea"
 }
