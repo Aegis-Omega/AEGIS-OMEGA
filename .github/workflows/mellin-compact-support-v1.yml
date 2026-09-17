@@ -89,6 +89,44 @@ jobs:
           lake build Mathlib.Analysis.MellinTransform 2>&1 | tee mellin-module-build.log
           lake exe runLinter Mathlib.Analysis.MellinTransform 2>&1 | tee mellin-runLinter.log
 
+      - name: Verify target-bound Mathlib text-style linter
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGET="Mathlib/Analysis/MellinTransform.lean"
+          PROBE="Mathlib/AegisMellinLintProbe.lean"
+          BACKUP="${TARGET}.aegis-lint-backup"
+          PATCHED_SHA="216d04d4eba956b298f8106e4114b61e5e0b08cf57da13b95f4009f76b517fb0"
+
+          test "$(sha256sum "$TARGET" | awk '{print $1}')" = "$PATCHED_SHA"
+          printf 'import Mathlib.Analysis.MellinTransform\n' > "$PROBE"
+
+          lake exe lint-style Mathlib.AegisMellinLintProbe \
+            2>&1 | tee mellin-lint-style.log
+
+          cp "$TARGET" "$BACKUP"
+          cleanup() {
+            mv -f "$BACKUP" "$TARGET" 2>/dev/null || true
+            rm -f "$PROBE"
+          }
+          trap cleanup EXIT
+
+          printf '\n-- Adaptation note: AEGIS lint-style negative control\n' >> "$TARGET"
+
+          set +e
+          lake exe lint-style Mathlib.AegisMellinLintProbe \
+            2>&1 | tee mellin-lint-style-negative.log
+          rc=${PIPESTATUS[0]}
+          set -e
+
+          test "$rc" -ne 0
+          grep -F "$TARGET" mellin-lint-style-negative.log
+          grep -F 'Found the string "Adaptation note:"' mellin-lint-style-negative.log
+
+          cleanup
+          trap - EXIT
+          test "$(sha256sum "$TARGET" | awk '{print $1}')" = "$PATCHED_SHA"
+
       - name: Compile non-vacuity witness against patched module
         shell: bash
         run: |
@@ -104,7 +142,8 @@ jobs:
           mkdir -p mellin-hosted-evidence
           cp .aegis/mellin-exact-source.log mellin-hosted-evidence/ 2>/dev/null || true
           cp mellin-standalone.log mellin-axioms.log mellin-module-build.log \
-             mellin-runLinter.log mellin-nonvacuity.log mellin-hosted-evidence/ 2>/dev/null || true
+             mellin-runLinter.log mellin-lint-style.log mellin-lint-style-negative.log \
+             mellin-nonvacuity.log mellin-hosted-evidence/ 2>/dev/null || true
           cp ".aegis/$EVIDENCE_DIR/manifest.json" mellin-hosted-evidence/
           cp ".aegis/$EVIDENCE_DIR/SHA256SUMS" mellin-hosted-evidence/original-SHA256SUMS
           {
