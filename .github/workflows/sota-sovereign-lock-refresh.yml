@@ -1,0 +1,47 @@
+name: SOTA Sovereign Lock Refresh
+
+on:
+  push:
+    branches:
+      - refactor/sota-foundation-v1
+    paths:
+      - 'sovereign-omega-v2/package.json'
+      - 'sovereign-omega-v2/eslint.config.js'
+      - '.github/workflows/sota-sovereign-lock-refresh.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up pinned Node LTS
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: '.node-version'
+          package-manager-cache: false
+
+      - name: Regenerate canonical npm lock
+        working-directory: sovereign-omega-v2
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Verify regenerated graph installs and lints
+        working-directory: sovereign-omega-v2
+        run: |
+          npm ci --ignore-scripts
+          npm run lint
+
+      - name: Upload regenerated lock only
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sovereign-npm11-lock-${{ github.sha }}
+          path: sovereign-omega-v2/package-lock.json
+          if-no-files-found: error
