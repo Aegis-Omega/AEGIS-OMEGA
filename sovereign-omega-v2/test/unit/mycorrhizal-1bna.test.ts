@@ -64,7 +64,7 @@ describe('1BNA -> Mycorrhizal evidence synchronization', () => {
     const input = create1BnaMcmObservationInput(base)
     const observation = await createMcmNodeObservation(input)
     const state = await reduceMycorrhizalCollectiveState([observation])
-    const requests = deriveMcmVerificationRequests(state, [observation])
+    const requests = await deriveMcmVerificationRequests(state, [observation])
     expect(requests).toHaveLength(1)
     expect(requests[0]!.reasonCodes).toEqual(['EXPLICIT_VERIFICATION_DEMAND', 'LOW_CALIBRATION'])
     expect(observation.authorityEffect).toBe('OBSERVATION_ONLY')
