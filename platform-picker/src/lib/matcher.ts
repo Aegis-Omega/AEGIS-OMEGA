@@ -1,9 +1,7 @@
 import { callConstitutional } from '@shared/lib/constitutional-ai'
 export type { ConstitutionalResult } from '@shared/lib/constitutional-ai'
 
-const PLATFORMS = ['TikTok', 'YouTube Shorts', 'Instagram Reels', 'Snapchat Spotlight'] as const
-
-export type Platform = (typeof PLATFORMS)[number]
+export type Platform = 'TikTok' | 'YouTube Shorts' | 'Instagram Reels' | 'Snapchat Spotlight'
 
 export interface PlatformRanking {
   platform: Platform

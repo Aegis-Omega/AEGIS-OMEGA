@@ -38,19 +38,24 @@ export function useTokenCounter() {
     }
   })
 
-  // Reset daily counter at midnight UTC
+  // Reset the daily counter when the current reset boundary is reached.
   useEffect(() => {
-    const now = Date.now()
-    if (now > tier.resetAt) {
-      const updated: UserTier = {
-        ...tier,
-        currentDailyUsage: 0,
-        resetAt: now + 86400000,
-      }
-      setTier(updated)
-      localStorage.setItem('aegis_tier', JSON.stringify(updated))
-    }
-  }, [tier])
+    const delay = Math.max(0, tier.resetAt - Date.now())
+    const timer = window.setTimeout(() => {
+      const now = Date.now()
+      setTier(current => {
+        if (now <= current.resetAt) return current
+        const updated: UserTier = {
+          ...current,
+          currentDailyUsage: 0,
+          resetAt: now + 86400000,
+        }
+        localStorage.setItem('aegis_tier', JSON.stringify(updated))
+        return updated
+      })
+    }, delay)
+    return () => window.clearTimeout(timer)
+  }, [tier.resetAt])
 
   const canSendMessage = (): boolean => {
     if (tier.currentDailyUsage >= tier.dailyLimit) return false
