@@ -132,14 +132,17 @@ theorem weil_single_frequency_source_offdiag_v1
   rw [hmarg, hnarg]
   unfold WeilSingleFrequencySourceV1
   field_simp [Real.pi_ne_zero, hd]
-  ring
 
 /-- On the diagonal, the same pair integral is the derivative entry. -/
 theorem weil_single_frequency_source_diagonal_v1
     (α ω : ℝ) (m : ℤ) :
     WeilSingleFrequencyEntryV1 α ω m m =
       α * WeilChordPairV1 ω m m := by
-  simp [WeilSingleFrequencyEntryV1, WeilChordPairV1]
+  have harg :
+      2 * Real.pi * ω * (m : ℝ) =
+        2 * Real.pi * ((m : ℝ) * ω) := by
+    ring
+  simp [WeilSingleFrequencyEntryV1, WeilChordPairV1, harg] <;> ring
 
 private theorem weil_single_frequency_entry_eq_chord_pair_v1
     (α ω : ℝ) (m n : ℤ) :
