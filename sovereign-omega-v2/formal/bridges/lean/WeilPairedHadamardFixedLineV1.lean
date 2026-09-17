@@ -53,16 +53,17 @@ theorem riemannXi_hadamard_logDeriv_with_multiplicity_v1 :
     LiCriterion.xi_weighted_genus_one_of_hadamard_order_one
       LiCriterion.XiGrowth.riemannXi_hasFiniteOrder
       LiCriterion.XiGrowth.riemannXi_order_le_one
+  have hPfun : P = LiCriterion.xiE1ProdWithMultiplicity := by
+    funext w
+    exact LiCriterion.xiMultiplicityE1Prod_eq_xiE1ProdWithMultiplicity w
   have hlogP :
       _root_.logDeriv P s =
         ∑' ρ : LiCriterion.NontrivialZero,
           (analyticOrderNatAt LiCriterion.riemannXi ρ.val : ℂ) *
             (s / (ρ.val * (s - ρ.val))) := by
-    simpa [P, LiCriterion.xiMultiplicityE1Prod,
-      LiCriterion.xiZeroSetMultiplicity,
-      Hadamard.ZeroSetMultiplicity.canonicalProductZeroSetMultiplicity,
-      Hadamard.ZeroSetMultiplicity.ZeroWithMultiplicity,
-      Hadamard.ZeroSetMultiplicity.zWithMultiplicity,
+    rw [hPfun]
+    simpa [LiCriterion.xiE1ProdWithMultiplicity,
+      LiCriterion.XiZeroWithMultiplicity,
       Hadamard.OrderOne.WithMultiplicity] using
       (Hadamard.OrderOne.logDeriv_tprod_weierstrass_E_one_eq_tsum_of_summable_mul_inv_norm_sq
         (z := fun ρ : LiCriterion.NontrivialZero => ρ.val)
@@ -74,8 +75,10 @@ theorem riemannXi_hadamard_logDeriv_with_multiplicity_v1 :
   have hP_ne : P s ≠ 0 := by
     intro hP
     apply hxi_ne
-    rw [hfac s]
-    simp [P, hP]
+    calc
+      LiCriterion.riemannXi s = Complex.exp (A * s + B) * P s := by
+        simpa [P] using hfac s
+      _ = 0 := by rw [hP, mul_zero]
   have hP_eq :
       P = fun w : ℂ => LiCriterion.riemannXi w / Complex.exp (A * w + B) := by
     funext w
@@ -84,21 +87,33 @@ theorem riemannXi_hadamard_logDeriv_with_multiplicity_v1 :
     ring
   have hP_diff : Differentiable ℂ P := by
     rw [hP_eq]
-    fun_prop
+    exact LiCriterion.xi_entire.div (by fun_prop)
+      (fun w => Complex.exp_ne_zero (A * w + B))
   have hexp_log :
       _root_.logDeriv (fun w : ℂ => Complex.exp (A * w + B)) s = A := by
-    rw [_root_.logDeriv_apply]
+    rw [_root_.logDeriv_apply, deriv_cexp (by fun_prop)]
     simp
   have hfun :
       LiCriterion.riemannXi =
         fun w : ℂ => Complex.exp (A * w + B) * P w := by
     funext w
     simpa [P] using hfac w
-  rw [hfun]
-  rw [_root_.logDeriv_mul s
-    (Complex.exp_ne_zero (A * s + B)) hP_ne
-    (by fun_prop) hP_diff.differentiableAt]
-  rw [hexp_log, hlogP]
+  have hmul :
+      _root_.logDeriv LiCriterion.riemannXi s =
+        _root_.logDeriv (fun w : ℂ => Complex.exp (A * w + B)) s +
+          _root_.logDeriv P s := by
+    rw [hfun]
+    exact _root_.logDeriv_mul s
+      (Complex.exp_ne_zero (A * s + B)) hP_ne
+      (by fun_prop) hP_diff.differentiableAt
+  calc
+    _root_.logDeriv LiCriterion.riemannXi s
+        = _root_.logDeriv (fun w : ℂ => Complex.exp (A * w + B)) s +
+            _root_.logDeriv P s := hmul
+    _ = A + ∑' ρ : LiCriterion.NontrivialZero,
+          (analyticOrderNatAt LiCriterion.riemannXi ρ.val : ℂ) *
+            (s / (ρ.val * (s - ρ.val))) := by
+          rw [hexp_log, hlogP]
 
 /-- The functional equation `ξ(s)=ξ(1-s)` makes the logarithmic derivative
 antisymmetric under `s ↦ 1-s`.  Nonvanishing hypotheses keep the statement on
@@ -112,7 +127,7 @@ theorem riemannXi_logDeriv_one_sub_v1 (s : ℂ)
     (f := LiCriterion.riemannXi)
     (g := fun z : ℂ => 1 - z)
     (x := s)
-    (LiCriterion.xi_entire.differentiableAt (1 - s))
+    LiCriterion.xi_entire.differentiableAt
     (by fun_prop)
   have hfun :
       (LiCriterion.riemannXi ∘ fun z : ℂ => 1 - z) =
@@ -121,7 +136,10 @@ theorem riemannXi_logDeriv_one_sub_v1 (s : ℂ)
     exact (LiCriterion.xi_functional_equation z).symm
   rw [hfun] at hcomp
   simp at hcomp
-  linear_combination -hcomp
+  calc
+    _root_.logDeriv LiCriterion.riemannXi (1 - s)
+        = -(- _root_.logDeriv LiCriterion.riemannXi (1 - s)) := by ring
+    _ = - _root_.logDeriv LiCriterion.riemannXi s := by rw [hcomp]
 
 /-- Algebraic cancellation of the genus-one correction terms when the two
 Hadamard logarithmic derivatives at `s` and `1-s` are subtracted. -/
