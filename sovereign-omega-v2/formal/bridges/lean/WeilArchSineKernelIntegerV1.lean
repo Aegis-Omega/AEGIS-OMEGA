@@ -62,15 +62,16 @@ private theorem integral_weighted_cos_linear_v1
     (∫ y in (0 : ℝ)..L, (1 - y / L) * Real.cos (k * y)) =
       (1 - Real.cos (k * L)) / (L * k ^ 2) := by
   let u : ℝ → ℝ := fun y => 1 - y / L
-  let u' : ℝ → ℝ := fun _ => -1 / L
+  let u' : ℝ → ℝ := fun _ => -(1 / L)
   let v : ℝ → ℝ := fun y => Real.sin (k * y) / k
   let v' : ℝ → ℝ := fun y => Real.cos (k * y)
   have hu : ∀ y ∈ Set.uIcc (0 : ℝ) L, HasDerivAt u (u' y) y := by
     intro y hy
     dsimp [u, u']
-    have h : HasDerivAt (fun z : ℝ => 1 - z / L) (0 - 1 / L) y :=
-      (hasDerivAt_const y (1 : ℝ)).sub ((hasDerivAt_id y).div_const L)
-    simpa only [zero_sub] using h
+    have h : HasDerivAt (fun z : ℝ => 1 - z / L) (-(1 / L)) y := by
+      simpa only [zero_sub] using
+        (hasDerivAt_const y (1 : ℝ)).sub ((hasDerivAt_id y).div_const L)
+    exact h
   have hv : ∀ y ∈ Set.uIcc (0 : ℝ) L, HasDerivAt v (v' y) y := by
     intro y hy
     dsimp [v, v']
