@@ -28,12 +28,8 @@ Require Import CoRN.complex.CComplex.
 Require Import VonMangoldtCanonicalBridge.
 Require Import CanonicalPrimeSourceSum.
 
-(** Canonical prime-term integer coordinate matching the Lean-side [m=n+1]
-    convention.  This is a semantic coordinate only, not a matrix index. *)
 Definition finite_guinand_weil_prime_index_v1 (n : nat) : nat := S n.
 
-(** The Coq q-native finite index is exactly the tail of the canonical
-    positive-integer coordinate after the leading m=1 term. *)
 Theorem concrete_index_semantics_v1 :
   finite_guinand_weil_prime_index_v1 0 = 1 /\
   forall i : nat,
@@ -44,8 +40,6 @@ Proof.
   - intro i. reflexivity.
 Qed.
 
-(** The leading positive integer m=1 is not a positive power of a prime, so
-    the already verified total Coq von-Mangoldt function evaluates to zero. *)
 Lemma concrete_von_mangoldt_one_zero_v1 :
   von_mangoldt_v1 1 [=] [0].
 Proof.
@@ -57,9 +51,6 @@ Proof.
   lia.
 Qed.
 
-(** Von-Mangoldt semantics are therefore preserved by dropping the inert
-    leading m=1 term and shifting the remaining positive-integer coordinate
-    onto the existing Coq q=i+2 coordinate. *)
 Theorem concrete_von_mangoldt_semantics_v1 :
   von_mangoldt_v1 (finite_guinand_weil_prime_index_v1 0) [=] [0] /\
   forall i : nat,
@@ -72,11 +63,6 @@ Proof.
     apply eq_reflexive.
 Qed.
 
-(* -------------------------------------------------------------------- *)
-(* Formula-level complex prime-term support.                            *)
-(* -------------------------------------------------------------------- *)
-
-(** Positive integer coordinate m=n+1 embedded in CoRN IR. *)
 Definition finite_prime_positive_integer_ir_v1 (n : nat) : IR :=
   nring (S n).
 
@@ -89,18 +75,10 @@ Proof.
   lia.
 Qed.
 
-(** The exact reciprocal 1/(n+1) on the same constructive-real carrier. *)
 Definition finite_prime_reciprocal_ir_v1 (n : nat) : IR :=
   [1] [/] finite_prime_positive_integer_ir_v1 n
     [//] pos_ap_zero _ _ (finite_prime_positive_integer_ir_positive_v1 n).
 
-(** Canonical complex scalar term
-
-      Lambda(m) * (f(m) + m^-1 * f(m^-1)),  m=n+1.
-
-    The supplied [f] is intentionally abstract.  This theorem surface binds
-    the formula and index convention only; it grants no Lean/O0 carrier
-    correspondence. *)
 Definition finite_prime_scalar_term_cc_v1
     (f : IR -> CC) (n : nat) : CC :=
   cc_IR (von_mangoldt_v1 (finite_guinand_weil_prime_index_v1 n))
@@ -110,15 +88,9 @@ Definition finite_prime_scalar_term_cc_v1
    cc_IR (finite_prime_reciprocal_ir_v1 n)
     [*] f (finite_prime_reciprocal_ir_v1 n)).
 
-(** The q=i+2 reciprocal is the same constructive term as the m=n+1 lane
-    at n=S i.  Reusing that definition preserves the exact reciprocal while
-    avoiding a second proof witness for the same positive denominator. *)
 Definition canonical_q_reciprocal_ir_v1 (i : nat) : IR :=
   finite_prime_reciprocal_ir_v1 (S i).
 
-(** The same scalar formula written directly in the existing q=i+2
-    coordinate.  This is independent of the basis/trigonometric source
-    representation used elsewhere in the proof DAG. *)
 Definition canonical_q_prime_scalar_term_cc_v1
     (f : IR -> CC) (i : nat) : CC :=
   cc_IR (von_mangoldt_v1 (canonical_integer_q_v1 i))
@@ -128,8 +100,6 @@ Definition canonical_q_prime_scalar_term_cc_v1
    cc_IR (canonical_q_reciprocal_ir_v1 i)
     [*] f (canonical_q_reciprocal_ir_v1 i)).
 
-(** The leading n=0 / m=1 scalar term vanishes for every supplied complex
-    function because Lambda(1)=0. *)
 Theorem finite_prime_scalar_term_leading_zero_v1 :
   forall f : IR -> CC,
     finite_prime_scalar_term_cc_v1 f 0 [=] ([0] : CC).
@@ -147,8 +117,6 @@ Proof.
   - Step_final ([0] : CC).
 Qed.
 
-(** After removing the inert m=1 term, the n=S i scalar formula is exactly
-    the q=i+2 scalar formula. *)
 Theorem finite_prime_scalar_term_tail_index_v1 :
   forall (f : IR -> CC) (i : nat),
     finite_prime_scalar_term_cc_v1 f (S i)
@@ -166,12 +134,6 @@ Proof.
   apply eq_reflexive.
 Qed.
 
-(** Prime-term constituent closure on the CoRN carrier.
-
-    This theorem packages exactly the two load-bearing facts required by the
-    frozen index/prime-term semantics: the leading m=1 term is zero, and the
-    remaining n=S i sequence is exactly the canonical q=i+2 tail.  It does not
-    assert equality of complete Lean, CoRN, or O0 function carriers. *)
 Theorem concrete_prime_term_semantics_v1 :
   (forall f : IR -> CC,
       finite_prime_scalar_term_cc_v1 f 0 [=] ([0] : CC)) /\
@@ -184,24 +146,9 @@ Proof.
   - exact finite_prime_scalar_term_tail_index_v1.
 Qed.
 
-(* -------------------------------------------------------------------- *)
-(* Canonical pole-term endpoint constructor.                            *)
-(* -------------------------------------------------------------------- *)
-
-(** Canonical pole term over two already-evaluated Mellin endpoints.
-
-    This CoRN-side constructor intentionally does not define a second Mellin
-    integral implementation.  The actual analytic endpoint factorization is
-    kernel-checked in the pinned Lean pole-aggregation lane and bound to this
-    constructor separately through the frozen canonical AST. *)
 Definition finite_pole_term_cc_v1 (mellin_zero mellin_one : CC) : CC :=
   mellin_zero [+] mellin_one.
 
-(** Pole-term constituent closure on the CoRN complex carrier.
-
-    The theorem fixes exactly the frozen semantic operation M(f,0)+M(f,1).
-    It does not claim whole-carrier equivalence with Lean or O0, and it does
-    not imply a sign inequality. *)
 Theorem concrete_pole_term_semantics_v1 :
   forall mellin_zero mellin_one : CC,
     finite_pole_term_cc_v1 mellin_zero mellin_one
@@ -212,28 +159,10 @@ Proof.
   apply eq_reflexive.
 Qed.
 
-(* -------------------------------------------------------------------- *)
-(* Canonical archimedean normalization constructor.                    *)
-(* -------------------------------------------------------------------- *)
-
-(** Canonical outer constructor for the normalized archimedean contribution.
-
-    [constant_at_one] denotes the already normalized
-      (log(4*pi) + EulerGamma) * f(1)
-    component, while [integral_value] denotes the rationalized integral on
-    (1,infinity).  Exact Lean-source binding supplies those inner component
-    semantics and the integrability theorem.  This CoRN-side constructor does
-    not reimplement real logarithm, Euler's constant, improper integration, or
-    the completed-zeta gamma-line derivation. *)
 Definition finite_archimedean_normalization_cc_v1
     (constant_at_one integral_value : CC) : CC :=
   constant_at_one [+] integral_value.
 
-(** Archimedean normalization constituent closure.
-
-    This theorem fixes only the canonical composition of the two normalized
-    archimedean components.  It does not promote the mathematical provenance
-    proof of the gamma-line constant to Coq or Lean kernel status. *)
 Theorem concrete_archimedean_normalization_v1 :
   forall constant_at_one integral_value : CC,
     finite_archimedean_normalization_cc_v1 constant_at_one integral_value
@@ -244,22 +173,14 @@ Proof.
   apply eq_reflexive.
 Qed.
 
-(* -------------------------------------------------------------------- *)
-(* Finite-cutoff index semantics.                                      *)
-(* -------------------------------------------------------------------- *)
-
-(** Positive-integer prefix selected by cutoff [count]. *)
 Definition finite_positive_prefix_member_v1
     (count m : nat) : Prop :=
   (1 <= m <= S count)%nat.
 
-(** Existing Coq tail selected by the same cutoff [count]. *)
 Definition finite_coq_tail_member_v1
     (count i : nat) : Prop :=
   (i < count)%nat.
 
-(** The positive prefix is exactly one inert leading coordinate m=1 followed
-    by the q=i+2 Coq tail.  No positivity implication is encoded here. *)
 Theorem concrete_cutoff_semantics_v1 :
   von_mangoldt_v1 (finite_guinand_weil_prime_index_v1 0) [=] [0] /\
   (forall count i : nat,
@@ -291,4 +212,33 @@ Proof.
         lia.
       * unfold canonical_integer_q_v1.
         lia.
+Qed.
+
+(* -------------------------------------------------------------------- *)
+(* Measure convention semantics.                                      *)
+(* -------------------------------------------------------------------- *)
+
+Inductive FiniteWeilMeasureConventionV1 : Type :=
+| OrdinaryLebesgueV1
+| MultiplicativeHaarV1.
+
+Definition finite_explicit_integral_measure_v1 : FiniteWeilMeasureConventionV1 :=
+  OrdinaryLebesgueV1.
+
+Definition finite_autocorrelation_inner_measure_v1 : FiniteWeilMeasureConventionV1 :=
+  OrdinaryLebesgueV1.
+
+(** Both frozen integrals use ordinary Lebesgue measure.  The final conjunct
+    makes the forbidden dx/x (multiplicative-Haar) drift discriminable in the
+    kernel rather than leaving it as prose. *)
+Theorem concrete_measure_semantics_v1 :
+  finite_explicit_integral_measure_v1 = OrdinaryLebesgueV1 /\
+  finite_autocorrelation_inner_measure_v1 = OrdinaryLebesgueV1 /\
+  OrdinaryLebesgueV1 <> MultiplicativeHaarV1.
+Proof.
+  split.
+  - reflexivity.
+  - split.
+    + reflexivity.
+    + discriminate.
 Qed.
