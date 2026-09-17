@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/mycorrhizal-structural-witness-registry-v1",
+    "source_ref": "hardening/mycorrhizal-structural-witness-security-v1",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "e4cf231139762b7f2a19a6429009ed45be1c9bad7e8ff05e7722e8d3de07069b"
+  "state_hash": "932c94c75a51593f5195ad6695b29779ef5cca5fc888e980d3aa5705ead18b03"
 }
