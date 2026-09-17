@@ -5,17 +5,28 @@ on:
     branches:
       - feat/mycorrhizal-1bna-sync-v1
       - feat/mycorrhizal-structural-witness-registry-v1
+      - hardening/mycorrhizal-structural-witness-security-v1
     paths:
       - 'sovereign-omega-v2/src/metacognition/mycorrhizal-*.ts'
       - 'sovereign-omega-v2/test/unit/mycorrhizal-*.test.ts'
       - 'docs/superpowers/specs/2026-09-17-mycorrhizal-1bna-sync-design.md'
       - 'docs/superpowers/plans/2026-09-17-mycorrhizal-1bna-sync.md'
       - '.github/workflows/mycorrhizal-1bna-sync.yml'
+      - 'sovereign-omega-v2/package.json'
+      - 'sovereign-omega-v2/package-lock.json'
+      - '.github/workflows/cognitive-manifest-refresh.yml'
+      - '.claude.json'
+      - 'skill-hashes.sha256'
   pull_request:
     paths:
       - 'sovereign-omega-v2/src/metacognition/mycorrhizal-*.ts'
       - 'sovereign-omega-v2/test/unit/mycorrhizal-*.test.ts'
       - '.github/workflows/mycorrhizal-1bna-sync.yml'
+      - 'sovereign-omega-v2/package.json'
+      - 'sovereign-omega-v2/package-lock.json'
+      - '.github/workflows/cognitive-manifest-refresh.yml'
+      - '.claude.json'
+      - 'skill-hashes.sha256'
   workflow_dispatch:
 
 permissions:
@@ -55,6 +66,10 @@ jobs:
       - name: Install dependencies
         working-directory: sovereign-omega-v2
         run: npm ci
+
+      - name: Verify npm audit is clean
+        working-directory: sovereign-omega-v2
+        run: npm audit --audit-level=low
 
       - name: Verify frozen hashes
         working-directory: sovereign-omega-v2
