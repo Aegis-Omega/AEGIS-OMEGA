@@ -139,6 +139,7 @@
     "scale-os-controls.yml",
     "sota-ci-supply-chain.yml",
     "sota-foundation.yml",
+    "sota-rust-compat.yml",
     "sota-web-compat.yml",
     "sovereignty-contracts.yml",
     "summary.yml",

@@ -1,0 +1,97 @@
+name: SOTA Rust Compatibility
+
+on:
+  push:
+    branches:
+      - refactor/sota-foundation-v1
+    paths:
+      - 'rust-toolchain.toml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - '**/*.rs'
+      - '.github/workflows/sota-rust-compat.yml'
+  pull_request:
+    paths:
+      - 'rust-toolchain.toml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - '**/*.rs'
+      - '.github/workflows/sota-rust-compat.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: rust / ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: hypervisor
+            dir: .
+            locked: 'false'
+          - name: cl-psi
+            dir: aegis-cl-psi
+            locked: 'true'
+          - name: runtime
+            dir: aegis-runtime
+            locked: 'true'
+          - name: constitutional-substrate
+            dir: crates/constitutional-substrate
+            locked: 'true'
+          - name: sovereign-workspace
+            dir: sovereign-omega-v2
+            locked: 'true'
+          - name: cross-language-rechain
+            dir: verifiable/cross_language/rust_rechain
+            locked: 'true'
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
+        with:
+          toolchain: 1.98.1
+          components: clippy,rustfmt
+
+      - name: Check formatting
+        working-directory: ${{ matrix.dir }}
+        run: cargo fmt --all -- --check
+
+      - name: Compile all targets
+        working-directory: ${{ matrix.dir }}
+        run: |
+          if [ "${{ matrix.locked }}" = "true" ]; then
+            cargo check --all-targets --locked
+          else
+            cargo check --all-targets
+          fi
+
+      - name: Run tests
+        working-directory: ${{ matrix.dir }}
+        run: |
+          if [ "${{ matrix.locked }}" = "true" ]; then
+            cargo test --all-targets --locked
+          else
+            cargo test --all-targets
+          fi
+
+      - name: Run clippy as errors
+        working-directory: ${{ matrix.dir }}
+        run: |
+          if [ "${{ matrix.locked }}" = "true" ]; then
+            cargo clippy --all-targets --locked -- -D warnings
+          else
+            cargo clippy --all-targets -- -D warnings
+          fi
