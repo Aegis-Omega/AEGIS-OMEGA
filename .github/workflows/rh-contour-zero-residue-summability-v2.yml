@@ -68,13 +68,18 @@ jobs:
           rm -f lake-manifest.json
           git -C .aegis rev-parse HEAD > exact-source.log
 
-      - name: Install pinned elan and Mathlib cache
+      - name: Install pinned elan
         shell: bash
         run: |
           set -euo pipefail
           curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
           ./elan-init -y --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve pinned Mathlib and cache
+        shell: bash
+        run: |
+          set -euo pipefail
           lake update mathlib
           python3 - <<'PY'
           import json, os
@@ -92,7 +97,7 @@ jobs:
           set -euo pipefail
           lake build Hadamard.OrderOne.TailEstimates Lc.LiCriterion.XiGrowth Lc.LiCriterion.HadamardSummabilityBridge
 
-      - name: Compile inherited AEGIS zero-summability chain and RED or GREEN target
+      - name: Compile inherited zero-summability chain and RED or GREEN target
         shell: bash
         run: |
           set -euo pipefail
