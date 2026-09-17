@@ -164,6 +164,45 @@ theorem weil_single_frequency_source_calculus_v1
   simp_rw [weil_single_frequency_entry_eq_chord_pair_v1]
   simp [Finset.mul_sum, mul_left_comm, mul_comm]
 
+/-- A finite atomic real source, represented by finitely many masses `α i`
+at frequencies `ω i`.  No positivity or support restriction is required. -/
+def WeilFiniteSourceV1
+    {ι : Type*} (I : Finset ι) (α ω : ι → ℝ) (x : ℝ) : ℝ :=
+  ∑ i ∈ I, WeilSingleFrequencySourceV1 (α i) (ω i) x
+
+/-- Entrywise finite-source superposition.  The later full-entry bridge may use
+this surface; the theorem below does not yet identify its contraction with a
+separately defined production Galerkin matrix. -/
+def WeilFiniteSourceEntryV1
+    {ι : Type*} (I : Finset ι) (α ω : ι → ℝ) (m n : ℤ) : ℝ :=
+  ∑ i ∈ I, WeilSingleFrequencyEntryV1 (α i) (ω i) m n
+
+/-- Quadratic value of a finite atomic source, deliberately represented as the
+finite sum of the already-proved single-frequency quadratic values. -/
+def WeilFiniteSourceQuadraticByAtomsV1
+    {ι : Type*} (I : Finset ι) (N : ℕ) (u : ℤ → ℝ)
+    (α ω : ι → ℝ) : ℝ :=
+  ∑ i ∈ I, WeilSingleFrequencyQuadraticV1 N u (α i) (ω i)
+
+/-- Finite atomic source evaluated through the expanded chord kernel. -/
+def WeilFiniteSourceChordV1
+    {ι : Type*} (I : Finset ι) (N : ℕ) (u : ℤ → ℝ)
+    (α ω : ι → ℝ) : ℝ :=
+  ∑ i ∈ I, α i * WeilChordKernelV1 N u (ω i)
+
+/-- Finite-source-measure extension of the single-frequency calculus.
+This is exactly finite linear superposition of the already proved atomic
+identity.  It does not yet assert the separate `full_entry_identification`
+that contracts `WeilFiniteSourceEntryV1` as one matrix object. -/
+theorem weil_finite_source_measure_extension_v1
+    {ι : Type*} (I : Finset ι) (N : ℕ) (u : ℤ → ℝ)
+    (α ω : ι → ℝ) :
+    WeilFiniteSourceQuadraticByAtomsV1 I N u α ω =
+      WeilFiniteSourceChordV1 I N u α ω := by
+  simp [WeilFiniteSourceQuadraticByAtomsV1, WeilFiniteSourceChordV1,
+    weil_single_frequency_source_calculus_v1]
+
 #print axioms weil_single_frequency_source_offdiag_v1
 #print axioms weil_single_frequency_source_diagonal_v1
 #print axioms weil_single_frequency_source_calculus_v1
+#print axioms weil_finite_source_measure_extension_v1
