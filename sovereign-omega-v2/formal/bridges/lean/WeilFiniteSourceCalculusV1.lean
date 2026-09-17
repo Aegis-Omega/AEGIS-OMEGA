@@ -236,8 +236,67 @@ theorem weil_finite_source_full_entry_identification_v1
             u m * u n * WeilSingleFrequencyEntryV1 (α i) (ω i) m n := by
       rw [Finset.sum_comm]
 
+/-- Prime-entry kernel used by the production Arb evaluator before the outer
+prime weight is subtracted from the assembled matrix.  The parameter `r`
+corresponds to `log(q) / L`; the canonical source frequency is `1-r`. -/
+def WeilPrimeEvaluatorKernelV1 (r : ℝ) (m n : ℤ) : ℝ :=
+  if m = n then
+    2 * (1 - r) * Real.cos (2 * Real.pi * r * (m : ℝ))
+  else
+    (Real.sin (2 * Real.pi * r * (m : ℝ)) -
+      Real.sin (2 * Real.pi * r * (n : ℝ))) /
+      (Real.pi * ((n : ℝ) - (m : ℝ)))
+
+private theorem weil_sin_one_sub_at_int_v1 (r : ℝ) (m : ℤ) :
+    Real.sin (2 * Real.pi * (1 - r) * (m : ℝ)) =
+      -Real.sin (2 * Real.pi * r * (m : ℝ)) := by
+  have harg :
+      2 * Real.pi * (1 - r) * (m : ℝ) =
+        (m : ℝ) * (2 * Real.pi) - 2 * Real.pi * r * (m : ℝ) := by
+    ring
+  rw [harg]
+  simpa [mul_assoc, mul_comm, mul_left_comm] using
+    Real.sin_int_mul_two_pi_sub (2 * Real.pi * r * (m : ℝ)) m
+
+private theorem weil_cos_one_sub_at_int_v1 (r : ℝ) (m : ℤ) :
+    Real.cos (2 * Real.pi * (1 - r) * (m : ℝ)) =
+      Real.cos (2 * Real.pi * r * (m : ℝ)) := by
+  have harg :
+      2 * Real.pi * (1 - r) * (m : ℝ) =
+        (m : ℝ) * (2 * Real.pi) - 2 * Real.pi * r * (m : ℝ) := by
+    ring
+  rw [harg]
+  simpa [mul_assoc, mul_comm, mul_left_comm] using
+    Real.cos_int_mul_two_pi_sub (2 * Real.pi * r * (m : ℝ)) m
+
+/-- Canonical prime-source atom to production-evaluator entry identity.
+For `beta = Lambda(q)/sqrt(q)` and `r = log(q)/L`, the source atom has
+`alpha = -beta` and `omega = 1-r`; its integer Galerkin entry is exactly the
+negative weighted evaluator kernel. -/
+theorem weil_prime_atom_entry_matches_evaluator_v1
+    (β r : ℝ) (m n : ℤ) :
+    WeilSingleFrequencyEntryV1 (-β) (1 - r) m n =
+      -β * WeilPrimeEvaluatorKernelV1 r m n := by
+  by_cases hmn : m = n
+  · subst n
+    rw [WeilSingleFrequencyEntryV1, if_pos rfl]
+    rw [WeilPrimeEvaluatorKernelV1, if_pos rfl]
+    rw [weil_cos_one_sub_at_int_v1]
+    ring
+  · have hmnR : (m : ℝ) ≠ (n : ℝ) := by exact_mod_cast hmn
+    have hnmR : (n : ℝ) ≠ (m : ℝ) := Ne.symm hmnR
+    have hmn0 : (m : ℝ) - (n : ℝ) ≠ 0 := sub_ne_zero.mpr hmnR
+    have hnm0 : (n : ℝ) - (m : ℝ) ≠ 0 := sub_ne_zero.mpr hnmR
+    rw [WeilSingleFrequencyEntryV1, if_neg hmn]
+    rw [WeilPrimeEvaluatorKernelV1, if_neg hmn]
+    unfold WeilSingleFrequencySourceV1
+    rw [weil_sin_one_sub_at_int_v1, weil_sin_one_sub_at_int_v1]
+    field_simp [Real.pi_ne_zero, hmn0, hnm0]
+    ring
+
 #print axioms weil_single_frequency_source_offdiag_v1
 #print axioms weil_single_frequency_source_diagonal_v1
 #print axioms weil_single_frequency_source_calculus_v1
 #print axioms weil_finite_source_measure_extension_v1
 #print axioms weil_finite_source_full_entry_identification_v1
+#print axioms weil_prime_atom_entry_matches_evaluator_v1
