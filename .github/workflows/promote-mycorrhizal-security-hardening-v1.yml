@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 10
     env:
       TARGET_BRANCH: hardening/mycorrhizal-structural-witness-security-v1
-      EXPECTED_TARGET_HEAD: 55e9e0a68067a892f3e0194d277f56595e22611c
+      EXPECTED_TARGET_HEAD: 1266985587836f0bdf9f17e15a8873008df90151
       ARTIFACT_ID: '10481952340'
       ARTIFACT_SHA256: e3d0d338a09c7875674c517f98a83dde10147b7c09e1cce18cf31ea534cd87be
     steps:
@@ -103,6 +103,17 @@ jobs:
             "      - 'skill-hashes.sha256'\n" +
             "  workflow_dispatch:\n",
           );
+
+          const auditNeedle = "      - name: Verify frozen hashes\n";
+          if (!gate.includes(auditNeedle)) throw new Error('Gate-8 audit insertion anchor missing');
+          gate = gate.replace(
+            auditNeedle,
+            "      - name: Verify npm audit is clean\n" +
+            "        working-directory: sovereign-omega-v2\n" +
+            "        run: npm audit --audit-level=low\n\n" +
+            auditNeedle,
+          );
+
           fs.writeFileSync('candidate/mycorrhizal-1bna-sync.yml', gate);
           NODE
 
