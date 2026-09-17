@@ -8,8 +8,11 @@ import re
 import subprocess
 
 WORKFLOW = ".github/workflows/cognitive-manifest-refresh.yml"
-# Reviewed gated dispatch writer at 0b656256813a23f07a280ca0e1f8358bb4eb9979.
-APPROVED_SHA256 = "99f4c39ad780a77511347f7ac039557f428a0983f990f3304953dd2f636dd356"
+# Transitional allowlist: current main writer plus reviewed GitHub-signed writer candidate.
+APPROVED_SHA256S = (
+    "99f4c39ad780a77511347f7ac039557f428a0983f990f3304953dd2f636dd356",
+    "269551bbfa3889577d7b856b200a24faef176951b8592d06933d152fca037295",
+)
 
 
 def evaluate(repo, base_sha, head_sha, merge_sha):
@@ -17,7 +20,7 @@ def evaluate(repo, base_sha, head_sha, merge_sha):
         "kind": "COGNITIVE_WRITER_MERGE_CHECK_V1",
         "outcome": "DENIED", "reason": "INVALID_COMMIT_ID",
         "base_sha": base_sha, "head_sha": head_sha, "merge_sha": merge_sha,
-        "workflow_path": WORKFLOW, "approved_writer_sha256": APPROVED_SHA256,
+        "workflow_path": WORKFLOW, "approved_writer_sha256s": list(APPROVED_SHA256S),
         "evaluator_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "scope": "EXACT_PR_MERGE_WRITER_BYTES_ONLY",
     }
@@ -55,9 +58,13 @@ def evaluate(repo, base_sha, head_sha, merge_sha):
             return receipt
         source = git("cat-file", "blob", blob)
         receipt["writer_sha256"] = hashlib.sha256(source).hexdigest()
-        if receipt["writer_sha256"] != APPROVED_SHA256:
+        if receipt["writer_sha256"] not in APPROVED_SHA256S:
             return receipt
-        receipt.update(outcome="PASS", reason="APPROVED_WRITER_PRESERVED")
+        receipt.update(
+            outcome="PASS",
+            reason="APPROVED_WRITER_PRESERVED",
+            matched_approved_writer_sha256=receipt["writer_sha256"],
+        )
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError, ValueError):
         receipt["reason"] = "GIT_OBJECT_UNAVAILABLE"
     return receipt

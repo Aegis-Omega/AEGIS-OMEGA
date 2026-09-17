@@ -11,6 +11,9 @@ ROOT = Path(__file__).resolve().parents[1]
 GATE = ROOT / "scripts/check-cognitive-writer-merge.py"
 WORKFLOW = ".github/workflows/cognitive-manifest-refresh.yml"
 APPROVED = (ROOT / WORKFLOW).read_bytes()
+CURRENT_SHA256 = "99f4c39ad780a77511347f7ac039557f428a0983f990f3304953dd2f636dd356"
+SIGNED_WRITER_SHA256 = "269551bbfa3889577d7b856b200a24faef176951b8592d06933d152fca037295"
+APPROVED_SHA256S = [CURRENT_SHA256, SIGNED_WRITER_SHA256]
 OLD = b"on: [push]\npermissions:\n  contents: write\n"
 
 
@@ -62,8 +65,16 @@ class MergeGateTests(TestCase):
         self.assertEqual(receipt["outcome"], "PASS")
         self.assertEqual(receipt["merge_sha"], self.merge)
         self.assertEqual(receipt["parents"], [self.base, self.head])
-        self.assertEqual(receipt["writer_sha256"],
-                         "99f4c39ad780a77511347f7ac039557f428a0983f990f3304953dd2f636dd356")
+        self.assertEqual(receipt["writer_sha256"], CURRENT_SHA256)
+        self.assertEqual(receipt["approved_writer_sha256s"], APPROVED_SHA256S)
+        self.assertEqual(receipt["matched_approved_writer_sha256"], CURRENT_SHA256)
+
+    def test_transition_allowlist_is_exactly_current_and_signed_writer(self):
+        code, receipt = self.check()
+        self.assertEqual(code, 0)
+        self.assertEqual(receipt["approved_writer_sha256s"], APPROVED_SHA256S)
+        self.assertEqual(len(receipt["approved_writer_sha256s"]), 2)
+        self.assertNotEqual(CURRENT_SHA256, SIGNED_WRITER_SHA256)
 
     def test_resolved_merge_restoring_old_writer_is_denied(self):
         self.writer.write_bytes(OLD)
