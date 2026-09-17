@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/weil-arch-tail-order-v1",
-    "parent_state_hash": "c3b7f84ff8a28b318573484b69468676d56e35aca1410870661389f4134597d6",
+    "source_ref": "proof/weil-arch-tail-order-lean-v1",
+    "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "3e27a4933084215c437ffef8d019e80edbae804b738aebfe12ef45f378107873"
+  "state_hash": "3c34683ef6a5ad17da6065ae9b73e1ec9c17c3074a874bc57283861f36c6f316"
 }
