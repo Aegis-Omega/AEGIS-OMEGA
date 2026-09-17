@@ -49,7 +49,7 @@ theorem weil_endpoint_pole_aggregate_eq_two_re_v1 (a b : ℂ) :
     WeilEndpointPoleAggregateV1 a b =
       (((2 : ℝ) * (WeilEndpointCrossTermV1 a b).re : ℝ) : ℂ) := by
   rw [WeilEndpointPoleAggregateV1, weil_endpoint_cross_swap_eq_conj_v1]
-  apply Complex.ext <;> simp
+  apply Complex.ext <;> simp <;> ring
 
 /-- If both endpoint profiles vanish, then their pole aggregate vanishes. -/
 theorem weil_endpoint_pole_aggregate_zero_of_endpoints_zero_v1
