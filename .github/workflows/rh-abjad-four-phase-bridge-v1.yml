@@ -18,7 +18,7 @@ env:
 
 jobs:
   abjad-four-phase:
-    name: verify Abjad triadic carrier and four-phase transfer at exact head
+    name: verify Abjad triadic carrier and exact positivity characterization
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -92,6 +92,9 @@ jobs:
           #print axioms abjad_classical_witness_phases_v1
           #print axioms weil_abjad_triadic_nonnegative_components_v1
           #print axioms weil_abjad_triadic_negative_witness_v1
+          #print axioms weil_four_phase_nonnegative_iff_components_v1
+          #print axioms weil_abjad_triadic_nonnegative_iff_components_v1
+          #print axioms weil_abjad_phase_reconstruction_v1
           EOF
           lake env lean WeilAbjadFourPhaseAudit.lean 2>&1 | tee WeilAbjadFourPhaseAudit.log
           python3 - <<'PY'
@@ -105,6 +108,9 @@ jobs:
               'abjad_classical_witness_phases_v1',
               'weil_abjad_triadic_nonnegative_components_v1',
               'weil_abjad_triadic_negative_witness_v1',
+              'weil_four_phase_nonnegative_iff_components_v1',
+              'weil_abjad_triadic_nonnegative_iff_components_v1',
+              'weil_abjad_phase_reconstruction_v1',
           ]
           log = Path('WeilAbjadFourPhaseAudit.log').read_text()
           assert 'sorryAx' not in log
@@ -113,7 +119,7 @@ jobs:
               assert m, name
               axioms = {x.strip() for x in m.group(1).split(',') if x.strip()}
               assert axioms <= {'propext', 'Classical.choice', 'Quot.sound'}, (name, axioms)
-          print('PASS: Abjad phase carrier is exactly the existing four-phase carrier; global Weil sign remains OPEN; RH=NOT_PROVEN; authority_effect=NONE')
+          print('PASS: exact Abjad four-node positivity is the component-box criterion; universal zeta/Weil sign remains OPEN; RH=NOT_PROVEN; authority_effect=NONE')
           PY
 
       - name: Upload exact-head proof evidence
