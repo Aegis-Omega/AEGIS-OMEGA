@@ -1,12 +1,10 @@
 """
-AEGIS M1 record contract v2 — diagnostic/reference regression.
+AEGIS M1 record contract v2 — live/reference regression.
 
-This test intentionally separates two claims:
-1. the current production M1 implementation is not a transitive hash chain;
-2. the inert reference contract must provide fixed 40-byte entries with
-   zero-genesis, previous-chain recurrence, and slot-indexed wrap semantics.
-
-The reference module is not imported by production code.
+On the diagnostic base lane this test captured the pre-v2 adjacent-payload
+failure. On the live-cutover stack it becomes the inverse falsifier: production
+M1 must match the inert fixed-record transitive-chain reference and must no
+longer match the old adjacent-payload formulas.
 """
 
 import ast
@@ -36,11 +34,24 @@ def _check(name: str, condition: bool, detail: str = '') -> None:
 
 def _load_current_m1():
     tree = ast.parse(CORE_MATRIX.read_text())
-    fn = next(
-        node for node in tree.body
-        if isinstance(node, ast.FunctionDef) and node.name == 'M1'
-    )
-    module = ast.Module(body=[fn], type_ignores=[])
+    constant_names = {
+        'M1_SEQUENCE_BYTES',
+        'M1_HASH_BYTES',
+        'M1_ENTRY_BYTES',
+        'M1_GENESIS_HASH',
+    }
+    body = []
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets = {
+                target.id for target in node.targets
+                if isinstance(target, ast.Name)
+            }
+            if targets & constant_names:
+                body.append(node)
+        elif isinstance(node, ast.FunctionDef) and node.name == 'M1':
+            body.append(node)
+    module = ast.Module(body=body, type_ignores=[])
     ast.fix_missing_locations(module)
     ns = {'hashlib': hashlib, 'Tuple': Tuple}
     exec(compile(module, str(CORE_MATRIX), 'exec'), ns)
@@ -62,10 +73,14 @@ def _sha(data: bytes) -> bytes:
     return hashlib.sha256(data).digest()
 
 
-def test_current_m1_non_transitive_witness():
+def test_production_m1_matches_transitive_reference():
     m1 = _load_current_m1()
-    state = memoryview(bytearray(400))
+    ref = _load_reference()
+    _check('reference module exists for production comparison', ref is not None)
+    if ref is None:
+        return
 
+    state = memoryview(bytearray(400))
     _, h0 = m1(state, b'a', 0)
     _, h1 = m1(state, b'b', 1)
     _, h2 = m1(state, b'c', 2)
@@ -73,18 +88,25 @@ def test_current_m1_non_transitive_witness():
     p0 = _sha(b'a')
     p1 = _sha(b'b')
     p2 = _sha(b'c')
-    zero = b'\x00' * 32
 
-    expected_h0 = _sha(zero + p0)
-    expected_h1 = _sha(expected_h0 + p1)
-    expected_h2 = _sha(expected_h1 + p2)
+    expected_h0 = ref.next_chain_hash(ref.M1_GENESIS_HASH, b'a')
+    expected_h1 = ref.next_chain_hash(expected_h0, b'b')
+    expected_h2 = ref.next_chain_hash(expected_h1, b'c')
 
-    _check('current genesis differs from zero-genesis chain', h0 != expected_h0)
-    _check('current second hash differs from transitive recurrence', h1 != expected_h1)
-    _check('current third hash differs from transitive recurrence', h2 != expected_h2)
-    _check('current genesis is self-pair hash', h0 == _sha(p0 + p0))
-    _check('current second hash is adjacent payload-hash pair', h1 == _sha(p0 + p1))
-    _check('current third hash is adjacent payload-hash pair', h2 == _sha(p1 + p2))
+    _check('production genesis matches zero-genesis chain', h0 == expected_h0)
+    _check('production second hash matches transitive recurrence', h1 == expected_h1)
+    _check('production third hash matches transitive recurrence', h2 == expected_h2)
+    _check('production genesis no longer uses self-pair hash', h0 != _sha(p0 + p0))
+    _check('production second hash no longer uses adjacent payload pair', h1 != _sha(p0 + p1))
+    _check('production third hash no longer uses adjacent payload pair', h2 != _sha(p1 + p2))
+
+    for sequence, chain_hash in enumerate((h0, h1, h2)):
+        offset = ref.slot_offset(sequence, len(state) // ref.M1_ENTRY_BYTES)
+        entry = bytes(state[offset:offset + ref.M1_ENTRY_BYTES])
+        _check(
+            f'production slot {sequence} stores canonical fixed entry',
+            entry == ref.encode_entry(sequence, chain_hash),
+        )
 
 
 def test_reference_contract_exists_and_is_fixed_width():
@@ -165,8 +187,8 @@ def test_reference_payload_length_does_not_change_record_width():
 
 
 if __name__ == '__main__':
-    print('AEGIS M1 record contract v2')
-    test_current_m1_non_transitive_witness()
+    print('AEGIS M1 live/reference contract v2')
+    test_production_m1_matches_transitive_reference()
     test_reference_contract_exists_and_is_fixed_width()
     test_reference_contract_transitive_chain()
     test_reference_slot_wrap_is_record_indexed()
