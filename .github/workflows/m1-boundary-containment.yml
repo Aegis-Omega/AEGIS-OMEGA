@@ -4,12 +4,16 @@ on:
   push:
     branches:
       - fix/m1-wrap-fail-closed-v1
+      - fix/m1-fixed-slot-contract-v1
   pull_request:
     branches:
       - main
+      - fix/m1-wrap-fail-closed-v1
     paths:
       - sovereign-omega-v2/python/core_matrix.py
+      - sovereign-omega-v2/python/ledger_persist.py
       - sovereign-omega-v2/python/tests/test_m1_boundary_containment.py
+      - sovereign-omega-v2/python/tests/test_m1_fixed_slot_contract.py
       - .github/workflows/m1-boundary-containment.yml
   workflow_dispatch:
 
@@ -18,12 +22,14 @@ permissions:
 
 jobs:
   m1-boundary-containment:
-    name: M1 boundary containment regression
+    name: M1 boundary + fixed-slot regression
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Run focused regression
+      - name: Run control-flow regression
         run: python sovereign-omega-v2/python/tests/test_m1_boundary_containment.py
+      - name: Run fixed-slot persistence regression
+        run: python sovereign-omega-v2/python/tests/test_m1_fixed_slot_contract.py
