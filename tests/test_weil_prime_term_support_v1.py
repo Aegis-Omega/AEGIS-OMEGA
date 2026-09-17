@@ -1,9 +1,10 @@
-"""RED contract for the formula-level complex prime-term support layer.
+"""Contract for the formula-level complex prime-term support layer.
 
-This support layer is intentionally weaker than concrete_prime_term_semantics_v1.
-It may prove the canonical complex scalar formula and the n+1 -> q=i+2 tail
-reindexing, but it must not claim an O0/Lean carrier correspondence, matrix
-semantics, PSD, or the final constituent theorem.
+The support layer remains intentionally weaker than whole-carrier equivalence.
+It proves the canonical complex scalar formula and the n+1 -> q=i+2 tail
+reindexing.  A later constituent theorem may package those two support facts,
+but must not smuggle in Lean/O0 carrier equality, matrix semantics, PSD, or
+other downstream claims.
 """
 from __future__ import annotations
 
@@ -121,13 +122,26 @@ class PrimeTermComplexSupportV1Contract(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, body)
 
-    def test_support_does_not_fake_final_carrier_binding(self) -> None:
-        # The final constituent remains a separate theorem obligation. Merely
-        # adding formula-level CC support must not auto-promote it.
-        self.assertNotRegex(
+    def test_final_constituent_only_packages_support_facts(self) -> None:
+        match = re.search(
+            r"(?ms)^\s*Theorem\s+concrete_prime_term_semantics_v1\b(.*?)Qed\.",
             self.clean,
-            r"(?m)^\s*(?:Theorem|Lemma)\s+concrete_prime_term_semantics_v1\b",
         )
+        self.assertIsNotNone(match)
+        body = match.group(1)
+        self.assertIn("finite_prime_scalar_term_leading_zero_v1", body)
+        self.assertIn("finite_prime_scalar_term_tail_index_v1", body)
+        self.assertIn("finite_prime_scalar_term_cc_v1", body)
+        self.assertIn("canonical_q_prime_scalar_term_cc_v1", body)
+        for forbidden in (
+            "O0",
+            "Lean",
+            "FiniteBridge",
+            "FiniteEntryDictionary",
+            "matrix",
+            "psd",
+        ):
+            self.assertNotIn(forbidden, body)
 
 
 if __name__ == "__main__":
