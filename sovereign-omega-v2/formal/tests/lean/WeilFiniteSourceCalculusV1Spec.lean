@@ -17,9 +17,14 @@ the entry, quadratic-contraction, and chord-kernel levels.  This remains a
 finite identity only and does not import finite PSD, global Weil positivity,
 or RH.
 
-After that extension, the next isolated boundary is full entry identification:
-the single matrix obtained by summing the atomic entries must have exactly the
-same finite quadratic contraction as the sum of the atomic quadratic values.
+After that extension, full entry identification requires the single matrix
+obtained by summing the atomic entries to have exactly the same finite
+quadratic contraction as the sum of the atomic quadratic values.
+
+The next isolated evaluator bridge then specializes one atom to the canonical
+prime-source coordinates `alpha = -beta`, `omega = 1-r`, and proves that its
+integer Galerkin entry is exactly `-beta` times the prime kernel evaluated by
+`guinand_weil_arb.py`.  This is still an entry identity only.
 -/
 
 #check WeilSingleFrequencySourceV1
@@ -31,3 +36,4 @@ same finite quadratic contraction as the sum of the atomic quadratic values.
 #check weil_single_frequency_source_calculus_v1
 #check weil_finite_source_measure_extension_v1
 #check weil_finite_source_full_entry_identification_v1
+#check weil_prime_atom_entry_matches_evaluator_v1
