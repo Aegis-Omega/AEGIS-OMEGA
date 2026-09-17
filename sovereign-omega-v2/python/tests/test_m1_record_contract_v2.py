@@ -34,11 +34,24 @@ def _check(name: str, condition: bool, detail: str = '') -> None:
 
 def _load_current_m1():
     tree = ast.parse(CORE_MATRIX.read_text())
-    fn = next(
-        node for node in tree.body
-        if isinstance(node, ast.FunctionDef) and node.name == 'M1'
-    )
-    module = ast.Module(body=[fn], type_ignores=[])
+    constant_names = {
+        'M1_SEQUENCE_BYTES',
+        'M1_HASH_BYTES',
+        'M1_ENTRY_BYTES',
+        'M1_GENESIS_HASH',
+    }
+    body = []
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets = {
+                target.id for target in node.targets
+                if isinstance(target, ast.Name)
+            }
+            if targets & constant_names:
+                body.append(node)
+        elif isinstance(node, ast.FunctionDef) and node.name == 'M1':
+            body.append(node)
+    module = ast.Module(body=body, type_ignores=[])
     ast.fix_missing_locations(module)
     ns = {'hashlib': hashlib, 'Tuple': Tuple}
     exec(compile(module, str(CORE_MATRIX), 'exec'), ns)
