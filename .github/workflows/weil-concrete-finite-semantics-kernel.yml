@@ -89,7 +89,8 @@ jobs:
               concrete_measure_semantics_v1 \
               concrete_autocorrelation_semantics_v1 \
               concrete_fourier_mellin_normalization_v1 \
-              concrete_complex_real_projection_v1
+              concrete_complex_real_projection_v1 \
+              concrete_sign_orientation_v1
             do
               query="$OUT/${theorem}.v"
               log="$OUT/${theorem}.assumptions.txt"
@@ -120,6 +121,9 @@ jobs:
             concrete_autocorrelation_semantics_v1=CLOSED
             concrete_fourier_mellin_normalization_v1=CLOSED
             concrete_complex_real_projection_v1=CLOSED
+            concrete_sign_orientation_v1=CLOSED_PROVENANCE_SCOPE
+            explicit_identity_full_lean_kernel=OPEN
+            sign_inequality_from_identity=NOT_IMPLIED
             aggregate_target=OPEN
             matrix_entries_binding=NOT_YET_CLAIMED
             quadratic_form_matrix_binding=NOT_YET_CLAIMED
