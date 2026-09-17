@@ -1,9 +1,9 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "af3f7e629dc47475c13d8fc7d983b5f962ce85b85cdcc788fb83517ed6d1df48",
+  "corpus_root": "e72b2fe378b5bc0837d611725a52243475bf2020e2098a861560f5a3541630b0",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
-  "eligible_file_count": 1952,
+  "eligible_file_count": 1957,
   "excluded_generated_paths": [
     ".aegis/repo-cognition-v1.json"
   ],
@@ -34,6 +34,20 @@
       "object_type": "blob",
       "path": ".aegis/cross-domain/fixtures/65010-v1.json",
       "size_bytes": 3285,
+      "symbol_hints": []
+    },
+    {
+      "content_sha256": "a23b6519dc9041406d492dc8e33e8926b352fcdde3d6c3bba3ef49f3201f8e18",
+      "dependency_hints": [],
+      "git_blob_sha": "036ecd5d39441d25a9851dd9fe319b661bd1cb57",
+      "heading_hint": null,
+      "kind": "config-or-data",
+      "language": "json",
+      "line_count": 181,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": ".aegis/cross-domain/fixtures/qbp-cross-boundary-v1.json",
+      "size_bytes": 10211,
       "symbol_hints": []
     },
     {
@@ -919,6 +933,20 @@
       "object_type": "blob",
       "path": ".github/workflows/coordinator-authority.yml",
       "size_bytes": 1172,
+      "symbol_hints": []
+    },
+    {
+      "content_sha256": "40fc30d8ac0a651651515c10e69527712a0f2e928eda317709a4b2a41a27cb9f",
+      "dependency_hints": [],
+      "git_blob_sha": "3779b30ecb8d73f0a9ff43caab8453c09cfe38ee",
+      "heading_hint": null,
+      "kind": "workflow",
+      "language": "yaml",
+      "line_count": 41,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": ".github/workflows/cross-boundary-authority.yml",
+      "size_bytes": 1591,
       "symbol_hints": []
     },
     {
@@ -28681,6 +28709,20 @@
       "symbol_hints": []
     },
     {
+      "content_sha256": "57a4a9e8097944fb13bd387060af25f646e3fd1d140c59f3c73b524cb73f9517",
+      "dependency_hints": [],
+      "git_blob_sha": "89c70509322f24433b056f57c9578e3f5bb120ae",
+      "heading_hint": "Cross-Boundary Authority V1",
+      "kind": "documentation",
+      "language": "markdown",
+      "line_count": 182,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "docs/research/cross-boundary-authority-v1.md",
+      "size_bytes": 5773,
+      "symbol_hints": []
+    },
+    {
       "content_sha256": "c487b1a37a6424cd65ae1787d5358e0690fb0bab7df75697ff8afaf2037c9818",
       "dependency_hints": [],
       "git_blob_sha": "17a2e9d469292d8d9a28d96ee735eadc9404970d",
@@ -38026,6 +38068,39 @@
       ]
     },
     {
+      "content_sha256": "c25ffa99ae418e53e9c318c5e49d423b657e35d6ac8d8e056098bd59c18e4b81",
+      "dependency_hints": [
+        "__future__",
+        "dataclasses",
+        "enum",
+        "typing",
+        "research_invariants"
+      ],
+      "git_blob_sha": "819b38a785fc16b697029dd347360f65ae3926a4",
+      "heading_hint": null,
+      "kind": "source",
+      "language": "python",
+      "line_count": 339,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "sovereign-omega-v2/python/cross_boundary_authority.py",
+      "size_bytes": 11459,
+      "symbol_hints": [
+        "BridgeDecision",
+        "ClaimCoordinateV1",
+        "__post_init__",
+        "BoundClaimV1",
+        "BridgeCriterionV1",
+        "CrossBoundaryAuthorityReceiptV1",
+        "changed_axes",
+        "bind_bridge_relation",
+        "_receipt_integrity",
+        "evaluate_cross_boundary_authority",
+        "add_reason",
+        "verify_cross_boundary_authority_receipt"
+      ]
+    },
+    {
       "content_sha256": "3c82a4807baf95d7effc7a2438c66a4d57731762ef45f386c265d074a34b29ac",
       "dependency_hints": [
         "__future__",
@@ -39332,6 +39407,38 @@
         "forbidden_run_agent",
         "test_dispatch_executes_only_after_central_admission",
         "admitted_run_agent"
+      ]
+    },
+    {
+      "content_sha256": "f7354edfefe282cfd1956aaf025d5bd50861f549782172c4b305367be5a4d57c",
+      "dependency_hints": [
+        "__future__",
+        "dataclasses",
+        "pathlib",
+        "cross_boundary_authority",
+        "json",
+        "unittest",
+        "research_invariants"
+      ],
+      "git_blob_sha": "343fbc9d96fab5424d0b9c17294e1c33012ebf54",
+      "heading_hint": null,
+      "kind": "test",
+      "language": "python",
+      "line_count": 219,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": "sovereign-omega-v2/python/tests/test_cross_boundary_authority.py",
+      "size_bytes": 7334,
+      "symbol_hints": [
+        "claim",
+        "criterion",
+        "CrossBoundaryAuthorityTests",
+        "test_positive_synthetic_requires_all_relation_bound_passes",
+        "test_missing_gate_fails_closed",
+        "test_spliced_relation_receipt_fails",
+        "test_tampered_witness_fails",
+        "test_no_boundary_and_bad_status_fail",
+        "test_qbp_and_repo_boundary_fixture_stays_denied"
       ]
     },
     {
@@ -54173,8 +54280,8 @@
   ],
   "generator": "scripts/repo_cognition.py",
   "generator_version": "1.0.1",
-  "indexed_file_count": 1952,
+  "indexed_file_count": 1957,
   "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
   "schema": "AEGIS_REPO_COGNITION_V1",
-  "tracked_file_count": 1953
+  "tracked_file_count": 1958
 }
