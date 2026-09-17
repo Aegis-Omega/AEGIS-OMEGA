@@ -35,7 +35,7 @@ function sourceBoundFixture(
   sourceDigest: string,
   benchmarkDigest: string,
   crossRuntimeDigest: string,
-  metricSchema = STRUCTURAL_METRIC_SCHEMA_DNA_GEOMETRY_V1,
+  metricSchema: string = STRUCTURAL_METRIC_SCHEMA_DNA_GEOMETRY_V1,
 ): StructuralWitnessInputV1 {
   return {
     structureIdentity,
