@@ -183,3 +183,31 @@ Proof.
   - exact finite_prime_scalar_term_leading_zero_v1.
   - exact finite_prime_scalar_term_tail_index_v1.
 Qed.
+
+(* -------------------------------------------------------------------- *)
+(* Canonical pole-term endpoint constructor.                            *)
+(* -------------------------------------------------------------------- *)
+
+(** Canonical pole term over two already-evaluated Mellin endpoints.
+
+    This CoRN-side constructor intentionally does not define a second Mellin
+    integral implementation.  The actual analytic endpoint factorization is
+    kernel-checked in the pinned Lean pole-aggregation lane and bound to this
+    constructor separately through the frozen canonical AST. *)
+Definition finite_pole_term_cc_v1 (mellin_zero mellin_one : CC) : CC :=
+  mellin_zero [+] mellin_one.
+
+(** Pole-term constituent closure on the CoRN complex carrier.
+
+    The theorem fixes exactly the frozen semantic operation M(f,0)+M(f,1).
+    It does not claim whole-carrier equivalence with Lean or O0, and it does
+    not imply a sign inequality. *)
+Theorem concrete_pole_term_semantics_v1 :
+  forall mellin_zero mellin_one : CC,
+    finite_pole_term_cc_v1 mellin_zero mellin_one
+      [=] mellin_zero [+] mellin_one.
+Proof.
+  intros mellin_zero mellin_one.
+  unfold finite_pole_term_cc_v1.
+  apply eq_reflexive.
+Qed.
