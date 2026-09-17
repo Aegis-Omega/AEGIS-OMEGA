@@ -34,7 +34,7 @@ requireInvariant(lockRoot.devDependencies?.concurrently === pkg.devDependencies.
   "package-lock root concurrently range must equal package.json");
 requireInvariant(lockRoot.engines?.node === pkg.engines.node && lockRoot.engines?.npm === pkg.engines.npm,
   "package-lock root engines must equal package.json");
-requireInvariant(!lock.packages?.frontend, "package-lock must not retain removed frontend workspace metadata");
+requireInvariant(!lock.packages?.frontend, "package-lock must not retain removed frontend workspace metadata");\nrequireInvariant(!lock.packages?.["node_modules/aegis-tactical-dashboard-frontend"],\n  "package-lock must not retain a link to the removed frontend workspace");
 
 requireInvariant(devcontainer.name === "AEGIS Omega", "devcontainer must declare canonical name");
 requireInvariant(typeof devcontainer.image === "string" && devcontainer.image.length > 0,
