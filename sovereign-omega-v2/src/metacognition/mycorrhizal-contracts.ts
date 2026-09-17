@@ -100,35 +100,7 @@ export function canonicalMcmEvidenceReferences(references: readonly string[]): r
   return Object.freeze(sorted)
 }
 
-export function assertMcmObservation(observation: McmNodeObservationV1): void {
-  if (observation.schemaVersion !== MCM_SCHEMA_VERSION ||
-      observation.authorityEffect !== MCM_AUTHORITY_EFFECT ||
-      observation.observationTier !== MCM_OBSERVATION_TIER ||
-      observation.authorityWeight !== MCM_AUTHORITY_WEIGHT ||
-      observation.mayGroundStateTransition !== MCM_MAY_GROUND_STATE_TRANSITION) {
-    throw new McmContractError('MCM constitutional constants mismatch')
-  }
-  assertMcmDigest('nodeIdentityDigest', observation.nodeIdentityDigest)
-  assertMcmDigest('sensoriumObservationDigest', observation.sensoriumObservationDigest)
-  assertMcmDigest('expectedParentStateRoot', observation.expectedParentStateRoot)
-  assertMcmDigest('topologyDigest', observation.topologyDigest)
-  assertMcmDigest('observationDigest', observation.observationDigest)
-  if (!Number.isSafeInteger(observation.observationSequence) || observation.observationSequence < 0) {
-    throw new McmContractError('observationSequence must be a non-negative safe integer')
-  }
-  assertMcmBps('calibrationBps', observation.calibrationBps)
-  assertMcmBps('evidenceSupportBps', observation.evidenceSupportBps)
-  assertMcmBps('evidenceFreshnessBps', observation.evidenceFreshnessBps)
-  assertMcmBps('resourcePressureBps', observation.resourcePressureBps)
-  assertMcmBps('contradictionPressureBps', observation.contradictionPressureBps)
-  assertMcmBps('verificationDemandBps', observation.verificationDemandBps)
-  canonicalMcmEvidenceReferences(observation.evidenceReferences)
-}
-
-export async function createMcmNodeObservation(
-  input: McmNodeObservationInputV1,
-): Promise<McmNodeObservationV1> {
-  rejectAuthorityOverrides(input)
+function validateObservationCore(input: McmNodeObservationInputV1): readonly string[] {
   assertMcmDigest('nodeIdentityDigest', input.nodeIdentityDigest)
   assertMcmDigest('sensoriumObservationDigest', input.sensoriumObservationDigest)
   assertMcmDigest('expectedParentStateRoot', input.expectedParentStateRoot)
@@ -142,9 +114,14 @@ export async function createMcmNodeObservation(
   assertMcmBps('resourcePressureBps', input.resourcePressureBps)
   assertMcmBps('contradictionPressureBps', input.contradictionPressureBps)
   assertMcmBps('verificationDemandBps', input.verificationDemandBps)
-  const evidenceReferences = canonicalMcmEvidenceReferences(input.evidenceReferences)
+  return canonicalMcmEvidenceReferences(input.evidenceReferences)
+}
 
-  const payload = Object.freeze({
+function observationHashPayload(
+  input: McmNodeObservationInputV1,
+  evidenceReferences: readonly string[],
+) {
+  return Object.freeze({
     schemaVersion: MCM_SCHEMA_VERSION,
     authorityEffect: MCM_AUTHORITY_EFFECT,
     observationTier: MCM_OBSERVATION_TIER,
@@ -163,7 +140,35 @@ export async function createMcmNodeObservation(
     verificationDemandBps: input.verificationDemandBps,
     evidenceReferences,
   })
+}
 
+export function assertMcmObservation(observation: McmNodeObservationV1): void {
+  if (observation.schemaVersion !== MCM_SCHEMA_VERSION ||
+      observation.authorityEffect !== MCM_AUTHORITY_EFFECT ||
+      observation.observationTier !== MCM_OBSERVATION_TIER ||
+      observation.authorityWeight !== MCM_AUTHORITY_WEIGHT ||
+      observation.mayGroundStateTransition !== MCM_MAY_GROUND_STATE_TRANSITION) {
+    throw new McmContractError('MCM constitutional constants mismatch')
+  }
+  assertMcmDigest('observationDigest', observation.observationDigest)
+  validateObservationCore(observation)
+}
+
+export async function verifyMcmNodeObservation(observation: McmNodeObservationV1): Promise<void> {
+  assertMcmObservation(observation)
+  const evidenceReferences = canonicalMcmEvidenceReferences(observation.evidenceReferences)
+  const expectedDigest = await hashValue(observationHashPayload(observation, evidenceReferences))
+  if (expectedDigest !== observation.observationDigest) {
+    throw new McmContractError('MCM observation digest does not match canonical payload')
+  }
+}
+
+export async function createMcmNodeObservation(
+  input: McmNodeObservationInputV1,
+): Promise<McmNodeObservationV1> {
+  rejectAuthorityOverrides(input)
+  const evidenceReferences = validateObservationCore(input)
+  const payload = observationHashPayload(input, evidenceReferences)
   const observationDigest = await hashValue(payload)
   return Object.freeze({ ...payload, observationDigest })
 }
