@@ -1,0 +1,201 @@
+name: Publish Phase2 Cognitive Anchor V1
+
+on:
+  push:
+    branches:
+      - control/publish-phase2-cognitive-anchor-v1
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  validate-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TRUSTED_MAIN_SHA: 495bfd85d79abcb2b4f6898fe9c156488492426a
+      BASE_SHA: 083dceb535226c7dead4e74ce1d7791e076205b3
+      BASE_STATE_HASH: 80e91cfeda2bc8a5aec2b6e087623e3139d49676b227ca5437dc15e83c265cb7
+      TARGET_BRANCH: integration/cognitive-writer-phase2-pr508-v1
+      EXPECTED_TARGET_HEAD: 8edf12f29c36675bf08e50fc7f4bebca4ba6d98e
+    steps:
+      - name: Checkout trusted main source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: 495bfd85d79abcb2b4f6898fe9c156488492426a
+          path: trusted-source
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Checkout exact Phase1 base
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: 083dceb535226c7dead4e74ce1d7791e076205b3
+          path: base-data
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Checkout exact Phase2 pre-anchor candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: 8edf12f29c36675bf08e50fc7f4bebca4ba6d98e
+          path: target
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Assert immutable identities and trusted validator bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C trusted-source rev-parse HEAD)" = "$TRUSTED_MAIN_SHA"
+          test "$(git -C base-data rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git -C target rev-parse HEAD)" = "$EXPECTED_TARGET_HEAD"
+          for path in \
+            scripts/validate-automaton2.py \
+            scripts/build-cognitive-manifest.py \
+            scripts/trusted-cognitive-admission-v2.py \
+            schemas/cognitive-state.v1.schema.json; do
+            cmp --silent "trusted-source/$path" "target/$path"
+          done
+          test "$(python3 - <<'PY'
+          import json
+          print(json.load(open('base-data/.claude.json', encoding='utf-8'))['state_hash'])
+          PY
+          )" = "$BASE_STATE_HASH"
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install exact validator dependency
+        run: pip install jsonschema==4.23.0
+
+      - name: Verify reviewed writer bytes before anchor generation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 target/scripts/test-cognitive-anchor-writer-boundary.py
+          python3 target/scripts/test-cognitive-anchor-signed-writer-v1.py
+
+      - name: Generate deterministic Phase2 anchors with trusted main generator
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 trusted-source/scripts/build-cognitive-manifest.py \
+            --root target \
+            --ref "$TARGET_BRANCH" \
+            --parent-state-hash "$BASE_STATE_HASH"
+          python3 trusted-source/scripts/build-cognitive-manifest.py \
+            --check \
+            --root target \
+            --ref "$TARGET_BRANCH" \
+            --parent-state-hash "$BASE_STATE_HASH"
+          sha256sum target/.claude.json target/skill-hashes.sha256
+
+      - name: Require Automaton-2 admission on generated working copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 trusted-source/scripts/validate-automaton2.py \
+            --root target \
+            --schema ../trusted-source/schemas/cognitive-state.v1.schema.json \
+            --generator ../trusted-source/scripts/build-cognitive-manifest.py \
+            --skill-hashes skill-hashes.sha256 \
+            --parent-manifest base-data/.claude.json \
+            --candidate-sha "$EXPECTED_TARGET_HEAD" \
+            --require-oidc \
+            --output "$RUNNER_TEMP/AUTOMATON2_PHASE2_PREP.json"
+
+      - name: Require Trusted Cognitive Admission on generated working copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 trusted-source/scripts/trusted-cognitive-admission-v2.py \
+            --candidate-root target \
+            --base-root base-data \
+            --source-ref "$TARGET_BRANCH" \
+            --candidate-sha "$EXPECTED_TARGET_HEAD" \
+            --base-sha "$BASE_SHA" \
+            --workflow-sha "$TRUSTED_MAIN_SHA" \
+            --output "$RUNNER_TEMP/TRUSTED_PHASE2_PREP.json"
+
+      - name: Recheck live target and create GitHub-signed anchor child
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const token = process.env.GH_TOKEN;
+          const repo = process.env.GITHUB_REPOSITORY;
+          const branch = process.env.TARGET_BRANCH;
+          const expectedHead = process.env.EXPECTED_TARGET_HEAD;
+          const ref = await fetch(`https://api.github.com/repos/${repo}/branches/${encodeURIComponent(branch)}`, {
+            headers: {
+              authorization: `bearer ${token}`,
+              accept: 'application/vnd.github+json',
+              'user-agent': 'aegis-phase2-anchor-publisher-v1',
+            },
+          });
+          const refBody = await ref.json();
+          if (!ref.ok || refBody?.commit?.sha !== expectedHead) {
+            console.error(`STALE_TARGET expected=${expectedHead} live=${refBody?.commit?.sha}`);
+            process.exit(1);
+          }
+          const additions = ['.claude.json', 'skill-hashes.sha256'].map(path => ({
+            path,
+            contents: fs.readFileSync(`target/${path}`).toString('base64'),
+          }));
+          const query = `mutation($input: CreateCommitOnBranchInput!) {
+            createCommitOnBranch(input: $input) { commit { oid url } }
+          }`;
+          const variables = {
+            input: {
+              branch: { repositoryNameWithOwner: repo, branchName: branch },
+              expectedHeadOid: expectedHead,
+              message: { headline: 'chore(manifest): signed Phase2 cognitive anchor rebind' },
+              fileChanges: { additions },
+            },
+          };
+          const response = await fetch('https://api.github.com/graphql', {
+            method: 'POST',
+            headers: {
+              authorization: `bearer ${token}`,
+              'content-type': 'application/json',
+              'user-agent': 'aegis-phase2-anchor-publisher-v1',
+            },
+            body: JSON.stringify({ query, variables }),
+          });
+          const body = await response.json();
+          if (!response.ok || body.errors) {
+            console.error(JSON.stringify(body));
+            process.exit(1);
+          }
+          console.log(`SIGNED_PHASE2_ANCHOR_COMMIT=${body.data.createCommitOnBranch.commit.oid}`);
+          console.log(`SIGNED_PHASE2_ANCHOR_URL=${body.data.createCommitOnBranch.commit.url}`);
+          NODE
+
+      - name: Show bounded validation receipts
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in "$RUNNER_TEMP/AUTOMATON2_PHASE2_PREP.json" "$RUNNER_TEMP/TRUSTED_PHASE2_PREP.json"; do
+            if [[ -f "$f" ]]; then
+              echo "===== $f ====="
+              cat "$f"
+              echo
+            fi
+          done
