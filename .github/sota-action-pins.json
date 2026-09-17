@@ -28,6 +28,76 @@
       "allowed_shas": [
         "1e69f48acb82d1966a394da916b4c1698aa569d6"
       ]
+    },
+    "google-github-actions/auth": {
+      "allowed_shas": [
+        "c200f3691d83b41bf9bbd8638997a462592937ed"
+      ]
+    },
+    "google-github-actions/setup-gcloud": {
+      "allowed_shas": [
+        "e427ad8a34f8676edf47cf7d7925499adf3eb74f"
+      ]
+    },
+    "actions/first-interaction": {
+      "allowed_shas": [
+        "3c71ce730280171fd1cfb57c00c774f8998586f7"
+      ]
+    },
+    "github/codeql-action/upload-sarif": {
+      "allowed_shas": [
+        "b96794f015dfd88f77b49b1c93e0fa7110f94c63"
+      ]
+    },
+    "actions/configure-pages": {
+      "allowed_shas": [
+        "983d7736d9b0ae728b81ab479565c72886d7745b"
+      ]
+    },
+    "actions/jekyll-build-pages": {
+      "allowed_shas": [
+        "44a6e6beabd48582f863aeeb6cb2151cc1716697"
+      ]
+    },
+    "actions/upload-pages-artifact": {
+      "allowed_shas": [
+        "56afc609e74202658d3ffba0e8f6dda462b719fa"
+      ]
+    },
+    "actions/deploy-pages": {
+      "allowed_shas": [
+        "368f82528645a54fb793d4d04e342629a3f51346"
+      ]
+    },
+    "actions/ai-inference": {
+      "allowed_shas": [
+        "b81b2afb8390ee6839b494a404766bef6493c7d9"
+      ]
+    },
+    "Swatinem/rust-cache": {
+      "allowed_shas": [
+        "6323deb102c322ba6fcbdcafc7e3dddab59af2b6"
+      ]
+    },
+    "dtolnay/rust-toolchain": {
+      "allowed_shas": [
+        "6bed0761d98439e5a578e2877258200ad565ba87"
+      ]
+    },
+    "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml": {
+      "allowed_shas": [
+        "9a498708959aeaef5ef730655706c5a1df1edbc2"
+      ]
+    },
+    "google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml": {
+      "allowed_shas": [
+        "9a498708959aeaef5ef730655706c5a1df1edbc2"
+      ]
+    },
+    "hadolint/hadolint-action": {
+      "allowed_shas": [
+        "f988afea3da57ee48710a9795b6bb677cc901183"
+      ]
     }
   },
   "frozen_exclusions": [
@@ -43,18 +113,25 @@
   },
   "managed_workflows": [
     "aegis-interface.yml",
+    "agent-dispatch.yml",
     "apple-oss-watch.yml",
     "body-head-binding.yml",
     "branch-cleanup.yml",
+    "ci.yml",
     "claims-ledger.yml",
     "coordinator-authority.yml",
+    "deploy-cloud-run.yml",
+    "deploy.yml",
     "frozen-files.yml",
+    "greetings.yml",
     "hadolint.yml",
     "integration-ledger.yml",
+    "jekyll-gh-pages.yml",
     "kernel-one.yml",
     "mcp-resources.yml",
     "mhp1-morphism-engine.yml",
     "mhp1-transitive-composition.yml",
+    "osv-scanner.yml",
     "repository-enforcement.yml",
     "scale-os-controls.yml",
     "sota-ci-supply-chain.yml",
