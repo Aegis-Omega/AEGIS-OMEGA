@@ -1,0 +1,59 @@
+name: Probe Cross-Branch Signed Data V1
+
+on:
+  push:
+    branches:
+      - probe/cross-branch-signed-data-control-v1
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_BRANCH: probe/cross-branch-signed-data-target-v1
+      EXPECTED_HEAD: 495bfd85d79abcb2b4f6898fe9c156488492426a
+    steps:
+      - name: Create GitHub-signed data-only commit on target branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const token = process.env.GH_TOKEN;
+          const branch = process.env.TARGET_BRANCH;
+          const expected = process.env.EXPECTED_HEAD;
+          const repo = process.env.GITHUB_REPOSITORY;
+          const query = `mutation($input: CreateCommitOnBranchInput!) {
+            createCommitOnBranch(input: $input) {
+              commit { oid url }
+            }
+          }`;
+          const payload = Buffer.from('cross-branch signed data probe\n', 'utf8').toString('base64');
+          const variables = {
+            input: {
+              branch: { repositoryNameWithOwner: repo, branchName: branch },
+              expectedHeadOid: expected,
+              message: { headline: 'test(ci): cross-branch signed data probe' },
+              fileChanges: { additions: [{ path: 'probe/signed-data-v1.txt', contents: payload }] },
+            },
+          };
+          const response = await fetch('https://api.github.com/graphql', {
+            method: 'POST',
+            headers: {
+              authorization: `bearer ${token}`,
+              'content-type': 'application/json',
+              'user-agent': 'aegis-cross-branch-signed-data-probe-v1',
+            },
+            body: JSON.stringify({ query, variables }),
+          });
+          const body = await response.json();
+          if (!response.ok || body.errors) {
+            console.error(JSON.stringify(body));
+            process.exit(1);
+          }
+          console.log(`PROBE_COMMIT=${body.data.createCommitOnBranch.commit.oid}`);
+          console.log(`PROBE_URL=${body.data.createCommitOnBranch.commit.url}`);
+          NODE
