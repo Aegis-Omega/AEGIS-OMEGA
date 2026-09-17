@@ -26,10 +26,15 @@ const pinned = rows.filter((row) => row.pinned);
 const floatingWorkflows = new Set(floating.map((row) => row.workflow));
 const violations = [];
 
+const managed = new Set(registry.managed_workflows);
 for (const row of rows) {
-  const expected = registry.pins[row.action]?.sha;
-  if (expected && row.revision !== expected) {
-    violations.push(`${row.workflow}: ${row.ref} expected ${row.action}@${expected}`);
+  if (!managed.has(row.workflow)) continue;
+  const allowed = registry.pins[row.action]?.allowed_shas;
+  if (!allowed) continue;
+  if (!allowed.includes(row.revision)) {
+    violations.push(
+      `${row.workflow}: ${row.ref} is not an allowed immutable pin for ${row.action}`,
+    );
   }
 }
 if (floating.length > registry.baseline.floating_action_refs) {
