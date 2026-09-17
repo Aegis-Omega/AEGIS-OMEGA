@@ -5,33 +5,16 @@ import {
   MCM_OBSERVATION_TIER,
   MCM_SCHEMA_VERSION,
   McmContractError,
-  assertMcmDigest,
-  assertMcmObservation,
   canonicalMcmEvidenceReferences,
   type McmNodeObservationV1,
   type McmVerificationReason,
   type McmVerificationRequestV1,
 } from './mycorrhizal-contracts.js'
-import type { MycorrhizalCollectiveStateV1 } from './mycorrhizal-state.js'
-
-function assertStateBoundary(state: MycorrhizalCollectiveStateV1): void {
-  if (state.schemaVersion !== MCM_SCHEMA_VERSION ||
-      state.authorityEffect !== MCM_AUTHORITY_EFFECT ||
-      state.observationTier !== MCM_OBSERVATION_TIER ||
-      state.authorityWeight !== MCM_AUTHORITY_WEIGHT ||
-      state.mayGroundStateTransition !== MCM_MAY_GROUND_STATE_TRANSITION) {
-    throw new McmContractError('MCM collective-state constitutional boundary mismatch')
-  }
-  assertMcmDigest('stateRoot', state.stateRoot)
-  assertMcmDigest('parentStateRoot', state.parentStateRoot)
-  assertMcmDigest('topologyDigest', state.topologyDigest)
-  if (!Number.isSafeInteger(state.nodeCount) || state.nodeCount < 1) {
-    throw new McmContractError('MCM state nodeCount must be a positive safe integer')
-  }
-  if (!Number.isSafeInteger(state.observationCount) || state.observationCount < 1) {
-    throw new McmContractError('MCM state observationCount must be a positive safe integer')
-  }
-}
+import {
+  reduceMycorrhizalCollectiveState,
+  verifyMycorrhizalCollectiveState,
+  type MycorrhizalCollectiveStateV1,
+} from './mycorrhizal-state.js'
 
 function compareObservations(a: McmNodeObservationV1, b: McmNodeObservationV1): number {
   const node = a.nodeIdentityDigest.localeCompare(b.nodeIdentityDigest)
@@ -42,27 +25,22 @@ function compareObservations(a: McmNodeObservationV1, b: McmNodeObservationV1): 
   return a.observationDigest.localeCompare(b.observationDigest)
 }
 
-function assertStateObservationBinding(
+async function verifiedStateObservationBinding(
   state: MycorrhizalCollectiveStateV1,
   observations: readonly McmNodeObservationV1[],
-): readonly McmNodeObservationV1[] {
-  assertStateBoundary(state)
+): Promise<readonly McmNodeObservationV1[]> {
+  await verifyMycorrhizalCollectiveState(state)
   if (observations.length !== state.observationCount) {
     throw new McmContractError('MCM routing observation count does not match collective state')
   }
 
-  const canonical = [...observations]
-  for (const observation of canonical) {
-    assertMcmObservation(observation)
-    if (observation.expectedParentStateRoot !== state.parentStateRoot) {
-      throw new McmContractError('MCM routing observation parent root mismatch')
-    }
-    if (observation.topologyDigest !== state.topologyDigest) {
-      throw new McmContractError('MCM routing observation topology mismatch')
-    }
+  const recomputed = await reduceMycorrhizalCollectiveState(observations)
+  if (recomputed.stateRoot !== state.stateRoot) {
+    throw new McmContractError('MCM routing collective state root does not match bound observations')
   }
-  canonical.sort(compareObservations)
 
+  const canonical = [...observations]
+  canonical.sort(compareObservations)
   if (canonical.length !== state.nodeObservationDigests.length) {
     throw new McmContractError('MCM routing digest cardinality mismatch')
   }
@@ -97,11 +75,11 @@ function priorityBps(observation: McmNodeObservationV1): number {
   )
 }
 
-export function deriveMcmVerificationRequests(
+export async function deriveMcmVerificationRequests(
   state: MycorrhizalCollectiveStateV1,
   observations: readonly McmNodeObservationV1[],
-): readonly McmVerificationRequestV1[] {
-  const canonical = assertStateObservationBinding(state, observations)
+): Promise<readonly McmVerificationRequestV1[]> {
+  const canonical = await verifiedStateObservationBinding(state, observations)
   const requests: McmVerificationRequestV1[] = []
 
   for (const observation of canonical) {
