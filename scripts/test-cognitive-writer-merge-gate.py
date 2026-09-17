@@ -11,7 +11,6 @@ ROOT = Path(__file__).resolve().parents[1]
 GATE = ROOT / "scripts/check-cognitive-writer-merge.py"
 WORKFLOW = ".github/workflows/cognitive-manifest-refresh.yml"
 APPROVED = (ROOT / WORKFLOW).read_bytes()
-APPROVED_SHA256 = "269551bbfa3889577d7b856b200a24faef176951b8592d06933d152fca037295"
 OLD = b"on: [push]\npermissions:\n  contents: write\n"
 
 
@@ -63,7 +62,8 @@ class MergeGateTests(TestCase):
         self.assertEqual(receipt["outcome"], "PASS")
         self.assertEqual(receipt["merge_sha"], self.merge)
         self.assertEqual(receipt["parents"], [self.base, self.head])
-        self.assertEqual(receipt["writer_sha256"], APPROVED_SHA256)
+        self.assertEqual(receipt["writer_sha256"],
+                         "99f4c39ad780a77511347f7ac039557f428a0983f990f3304953dd2f636dd356")
 
     def test_resolved_merge_restoring_old_writer_is_denied(self):
         self.writer.write_bytes(OLD)
