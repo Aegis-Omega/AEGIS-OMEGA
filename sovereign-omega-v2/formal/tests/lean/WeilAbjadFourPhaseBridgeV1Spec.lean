@@ -1,0 +1,11 @@
+import WeilAbjadFourPhaseBridgeV1
+
+set_option autoImplicit false
+
+#check abjad_triadic_sum_iff_node_v1
+#check abjad_phase_four_phase_v1
+#check four_phase_has_abjad_node_v1
+#check abjad_phase_forall_iff_four_phase_v1
+#check abjad_classical_witness_phases_v1
+#check weil_abjad_triadic_nonnegative_components_v1
+#check weil_abjad_triadic_negative_witness_v1
