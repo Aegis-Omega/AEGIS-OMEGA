@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Fail-closed regression contract for GitHub-signed cognitive-anchor mutation."""
+import hashlib
 from pathlib import Path
 from unittest import TestCase, main
 
@@ -11,6 +12,8 @@ class CognitiveAnchorSignedWriterV1Tests(TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.source = WORKFLOW.read_text(encoding="utf-8")
+        cls.writer_sha256 = hashlib.sha256(WORKFLOW.read_bytes()).hexdigest()
+        print(f"WRITER_SHA256={cls.writer_sha256}")
 
     def test_existing_admission_boundary_is_preserved(self) -> None:
         required = (
