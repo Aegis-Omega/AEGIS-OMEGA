@@ -16,13 +16,21 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - name: Compile v0.6 core and print generalized signatures
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Compile v0.6 core and verify H3 normalization
         shell: bash
         run: |
           set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          printf 'PR_HEAD=%s\n' "${{ github.event.pull_request.head.sha }}"
           ROOT="$PWD/verification/cstar-v07"
+          sha256sum \
+            "$ROOT/CStarAbelianGroupCohomology.v" \
+            "$ROOT/CStarV07H3Normalization.v" \
+            "$ROOT/CStarV07SignatureProbe.v"
           docker pull coqorg/coq:8.20.1
           docker run --rm \
             -v "$ROOT:/work:ro" \
             coqorg/coq:8.20.1 \
-            bash -lc 'set -euo pipefail; mkdir -p /tmp/cstar-v07; cp /work/*.v /tmp/cstar-v07/; cd /tmp/cstar-v07; coqc CStarAbelianGroupCohomology.v; coqc CStarV07SignatureProbe.v; coqc --version'
+            bash -lc 'set -euo pipefail; mkdir -p /tmp/cstar-v07; cp /work/*.v /tmp/cstar-v07/; cd /tmp/cstar-v07; coqc CStarAbelianGroupCohomology.v; coqc CStarV07H3Normalization.v; coqchk CStarV07H3Normalization; coqc CStarV07SignatureProbe.v; coqc --version'
