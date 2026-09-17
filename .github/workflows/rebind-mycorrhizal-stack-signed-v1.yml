@@ -1,0 +1,317 @@
+name: Rebind Mycorrhizal Stack Signed V1
+
+on:
+  push:
+    branches:
+      - hardening/mycorrhizal-structural-witness-v1
+    paths:
+      - .github/workflows/rebind-mycorrhizal-stack-signed-v1.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  rebind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TARGET_BRANCH: rebind/mycorrhizal-1bna-registry-secure-signed-v1
+      BASE_SHA: db311cfc900f594dc24aa5cc842586495a43ce61
+      SOURCE_SHA: 55e9e0a68067a892f3e0194d277f56595e22611c
+      ARTIFACT_ID: '10481952340'
+      ARTIFACT_SHA256: e3d0d338a09c7875674c517f98a83dde10147b7c09e1cce18cf31ea534cd87be
+    steps:
+      - name: Checkout orchestrator
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact legacy parent
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_SHA }}
+          path: target-tree
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout exact semantic source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          path: source-tree
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Download exact zero-vulnerability dependency candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/Aegis-Omega/AEGIS-OMEGA/actions/artifacts/${ARTIFACT_ID}/zip" \
+            -o candidate.zip
+          printf '%s  %s\n' "$ARTIFACT_SHA256" candidate.zip | sha256sum -c -
+          mkdir candidate
+          unzip -q candidate.zip -d candidate
+          test -s candidate/package.json
+          test -s candidate/package-lock.json
+          test -s candidate/audit-fresh-lock.json
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const audit = JSON.parse(fs.readFileSync('candidate/audit-fresh-lock.json','utf8'));
+          if ((audit.metadata?.vulnerabilities?.total ?? -1) !== 0) throw new Error('artifact audit is not zero');
+          NODE
+
+      - name: Materialize exact MCM and registry semantic delta
+        run: |
+          set -euo pipefail
+          files=(
+            docs/superpowers/plans/2026-09-17-mycorrhizal-1bna-sync.md
+            docs/superpowers/specs/2026-09-17-mycorrhizal-1bna-sync-design.md
+            sovereign-omega-v2/src/metacognition/mycorrhizal-contracts.ts
+            sovereign-omega-v2/src/metacognition/mycorrhizal-state.ts
+            sovereign-omega-v2/src/metacognition/mycorrhizal-routing.ts
+            sovereign-omega-v2/src/metacognition/mycorrhizal-1bna.ts
+            sovereign-omega-v2/src/metacognition/mycorrhizal-structural-witness-registry.ts
+            sovereign-omega-v2/test/unit/mycorrhizal-contracts.test.ts
+            sovereign-omega-v2/test/unit/mycorrhizal-state.test.ts
+            sovereign-omega-v2/test/unit/mycorrhizal-routing.test.ts
+            sovereign-omega-v2/test/unit/mycorrhizal-1bna.test.ts
+            sovereign-omega-v2/test/unit/mycorrhizal-structural-witness-registry.test.ts
+          )
+          for path in "${files[@]}"; do
+            test -s "source-tree/$path"
+            mkdir -p "target-tree/$(dirname "$path")"
+            cp "source-tree/$path" "target-tree/$path"
+            cmp "source-tree/$path" "target-tree/$path"
+          done
+          cp candidate/package.json target-tree/sovereign-omega-v2/package.json
+          cp candidate/package-lock.json target-tree/sovereign-omega-v2/package-lock.json
+
+      - name: Precompute target-specific cognitive anchors
+        working-directory: target-tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          parent_hash="$(git show origin/main:.claude.json 2>/dev/null | python -c 'import json,sys; print(json.load(sys.stdin)["state_hash"])' 2>/dev/null || true)"
+          if [[ ! "$parent_hash" =~ ^[0-9a-f]{64}$ ]]; then
+            parent_hash="$(printf '0%.0s' {1..64})"
+          fi
+          python scripts/build-cognitive-manifest.py \
+            --ref "$TARGET_BRANCH" \
+            --parent-state-hash "$parent_hash"
+          python scripts/build-cognitive-manifest.py \
+            --check \
+            --ref "$TARGET_BRANCH" \
+            --parent-state-hash "$parent_hash"
+          test -s .claude.json
+          test -s skill-hashes.sha256
+
+      - name: Atomically create branch and one GitHub-signed consolidated commit
+        id: rebind
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const token = process.env.GH_TOKEN;
+          const branch = process.env.TARGET_BRANCH;
+          const baseSha = process.env.BASE_SHA;
+          const headers = {
+            authorization: `bearer ${token}`,
+            accept: 'application/vnd.github+json',
+            'content-type': 'application/json',
+            'user-agent': 'aegis-mycorrhizal-signed-rebind-v1',
+          };
+
+          const createRef = await fetch('https://api.github.com/repos/Aegis-Omega/AEGIS-OMEGA/git/refs', {
+            method: 'POST', headers,
+            body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: baseSha }),
+          });
+          const refBody = await createRef.json();
+          if (!createRef.ok || refBody.object?.sha !== baseSha) {
+            console.error(JSON.stringify(refBody));
+            process.exit(1);
+          }
+
+          const paths = [
+            'docs/superpowers/plans/2026-09-17-mycorrhizal-1bna-sync.md',
+            'docs/superpowers/specs/2026-09-17-mycorrhizal-1bna-sync-design.md',
+            'sovereign-omega-v2/src/metacognition/mycorrhizal-contracts.ts',
+            'sovereign-omega-v2/src/metacognition/mycorrhizal-state.ts',
+            'sovereign-omega-v2/src/metacognition/mycorrhizal-routing.ts',
+            'sovereign-omega-v2/src/metacognition/mycorrhizal-1bna.ts',
+            'sovereign-omega-v2/src/metacognition/mycorrhizal-structural-witness-registry.ts',
+            'sovereign-omega-v2/test/unit/mycorrhizal-contracts.test.ts',
+            'sovereign-omega-v2/test/unit/mycorrhizal-state.test.ts',
+            'sovereign-omega-v2/test/unit/mycorrhizal-routing.test.ts',
+            'sovereign-omega-v2/test/unit/mycorrhizal-1bna.test.ts',
+            'sovereign-omega-v2/test/unit/mycorrhizal-structural-witness-registry.test.ts',
+            'sovereign-omega-v2/package.json',
+            'sovereign-omega-v2/package-lock.json',
+            '.claude.json',
+            'skill-hashes.sha256',
+          ];
+          const additions = paths.map(path => ({
+            path,
+            contents: fs.readFileSync(`target-tree/${path}`).toString('base64'),
+          }));
+          const query = `mutation($input: CreateCommitOnBranchInput!) {
+            createCommitOnBranch(input: $input) { commit { oid url } }
+          }`;
+          const variables = { input: {
+            branch: { repositoryNameWithOwner: 'Aegis-Omega/AEGIS-OMEGA', branchName: branch },
+            expectedHeadOid: baseSha,
+            message: { headline: 'feat(mcm): signed 1BNA registry security rebind' },
+            fileChanges: { additions },
+          }};
+          const response = await fetch('https://api.github.com/graphql', {
+            method: 'POST', headers,
+            body: JSON.stringify({ query, variables }),
+          });
+          const body = await response.json();
+          if (!response.ok || body.errors || !body.data?.createCommitOnBranch?.commit?.oid) {
+            console.error(JSON.stringify(body));
+            process.exit(1);
+          }
+          const oid = body.data.createCommitOnBranch.commit.oid;
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `signed_sha=${oid}\n`);
+          console.log(`SIGNED_REBIND_COMMIT=${oid}`);
+          console.log(`SIGNED_REBIND_URL=${body.data.createCommitOnBranch.commit.url}`);
+          NODE
+
+      - name: Verify exact parent and GitHub signature
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNED_SHA: ${{ steps.rebind.outputs.signed_sha }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const response = await fetch(`https://api.github.com/repos/Aegis-Omega/AEGIS-OMEGA/commits/${process.env.SIGNED_SHA}`, {
+            headers: {
+              authorization: `bearer ${process.env.GH_TOKEN}`,
+              accept: 'application/vnd.github+json',
+              'user-agent': 'aegis-mycorrhizal-signed-rebind-v1',
+            },
+          });
+          const body = await response.json();
+          if (!response.ok) throw new Error(JSON.stringify(body));
+          if (body.commit?.verification?.verified !== true) throw new Error(`UNVERIFIED_SIGNATURE:${body.commit?.verification?.reason}`);
+          if (body.parents?.length !== 1 || body.parents[0]?.sha !== process.env.BASE_SHA) {
+            throw new Error(`PARENT_MISMATCH:${JSON.stringify(body.parents)}`);
+          }
+          console.log(`SIGNED_PARENT_BINDING=${body.sha}->${body.parents[0].sha}`);
+          NODE
+
+      - name: Allow manifest workflows to settle
+        run: sleep 20
+
+      - name: Fail closed on branch drift before Gate 8
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNED_SHA: ${{ steps.rebind.outputs.signed_sha }}
+        run: |
+          set -euo pipefail
+          live="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/Aegis-Omega/AEGIS-OMEGA/branches/${TARGET_BRANCH}" | python -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])')"
+          test "$live" = "$SIGNED_SHA"
+
+      - name: Checkout exact signed rebind
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.rebind.outputs.signed_sha }}
+          path: verification
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact signed rebind
+        working-directory: verification
+        env:
+          SIGNED_SHA: ${{ steps.rebind.outputs.signed_sha }}
+        run: test "$(git rev-parse HEAD)" = "$SIGNED_SHA"
+
+      - name: Verify byte binding to #502 semantics and security artifact
+        run: |
+          set -euo pipefail
+          files=(
+            docs/superpowers/plans/2026-09-17-mycorrhizal-1bna-sync.md
+            docs/superpowers/specs/2026-09-17-mycorrhizal-1bna-sync-design.md
+            sovereign-omega-v2/src/metacognition/mycorrhizal-contracts.ts
+            sovereign-omega-v2/src/metacognition/mycorrhizal-state.ts
+            sovereign-omega-v2/src/metacognition/mycorrhizal-routing.ts
+            sovereign-omega-v2/src/metacognition/mycorrhizal-1bna.ts
+            sovereign-omega-v2/src/metacognition/mycorrhizal-structural-witness-registry.ts
+            sovereign-omega-v2/test/unit/mycorrhizal-contracts.test.ts
+            sovereign-omega-v2/test/unit/mycorrhizal-state.test.ts
+            sovereign-omega-v2/test/unit/mycorrhizal-routing.test.ts
+            sovereign-omega-v2/test/unit/mycorrhizal-1bna.test.ts
+            sovereign-omega-v2/test/unit/mycorrhizal-structural-witness-registry.test.ts
+          )
+          for path in "${files[@]}"; do
+            cmp "source-tree/$path" "verification/$path"
+          done
+          cmp candidate/package.json verification/sovereign-omega-v2/package.json
+          cmp candidate/package-lock.json verification/sovereign-omega-v2/package-lock.json
+
+      - name: Install exact dependencies
+        working-directory: verification/sovereign-omega-v2
+        run: npm ci
+
+      - name: Verify npm audit is clean
+        working-directory: verification/sovereign-omega-v2
+        run: npm audit --audit-level=low
+
+      - name: Verify frozen hashes
+        working-directory: verification/sovereign-omega-v2
+        run: node scripts/verify-hashes.mjs
+
+      - name: Run focused Mycorrhizal tests
+        working-directory: verification/sovereign-omega-v2
+        run: >-
+          npx vitest run
+          test/unit/mycorrhizal-contracts.test.ts
+          test/unit/mycorrhizal-state.test.ts
+          test/unit/mycorrhizal-routing.test.ts
+          test/unit/mycorrhizal-1bna.test.ts
+          test/unit/mycorrhizal-structural-witness-registry.test.ts
+
+      - name: Run full test corpus
+        working-directory: verification/sovereign-omega-v2
+        run: npm run test
+
+      - name: TypeScript strict check
+        working-directory: verification/sovereign-omega-v2
+        run: npm run typecheck
+
+      - name: Production build
+        working-directory: verification/sovereign-omega-v2
+        run: npm run build
+
+      - name: Fail closed on final branch drift
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNED_SHA: ${{ steps.rebind.outputs.signed_sha }}
+        run: |
+          set -euo pipefail
+          live="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/Aegis-Omega/AEGIS-OMEGA/branches/${TARGET_BRANCH}" | python -c 'import json,sys; print(json.load(sys.stdin)["commit"]["sha"])')"
+          test "$live" = "$SIGNED_SHA"
+          echo "FINAL_SIGNED_REBIND_HEAD=$live"
