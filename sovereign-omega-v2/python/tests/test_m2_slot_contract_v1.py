@@ -1,9 +1,10 @@
 """
-AEGIS M2 Slot Contract V1 — diagnostic/reference regression.
+AEGIS M2 Slot Contract V1 — live/reference regression.
 
-Separates the shipped M2 addressing behavior from the smallest coherent
-fixed-width slot contract. The reference module is inert and is not imported by
-production code.
+On the diagnostic base lane this test captured the shipped unit-mismatch bug.
+On the live-cutover stack it becomes the inverse falsifier: production M2 must
+match the inert aligned-slot reference and must no longer depend on verifier
+length for storage addressing.
 """
 
 import ast
@@ -59,54 +60,69 @@ def _load_reference():
     return module
 
 
-def _record_bytes(vcg_error_fixed: int, gate_lcb_fixed: int) -> bytes:
-    return (
-        vcg_error_fixed.to_bytes(4, 'little', signed=False)
-        + gate_lcb_fixed.to_bytes(4, 'little', signed=False)
-    )
-
-
-def test_current_m2_writes_unaligned_byte_offsets():
+def test_production_m2_matches_aligned_reference_slots():
     m2 = _load_current_m2()
-    state = bytearray(80)  # 10 logical 8-byte records
-    vcg, gate = m2(state, b'\x00', 0x1234, sequence=0)
-    expected = _record_bytes(vcg, gate)
-    current_offset = (0 * 8 + 1) % (len(state) // 8)
+    ref = _load_reference()
+    _check('reference M2 slot module exists for production comparison', ref is not None)
+    if ref is None:
+        return
 
-    _check('current sequence 0 starts at byte 1', current_offset == 1)
-    _check('current sequence 0 start is not 8-byte aligned', current_offset % 8 != 0)
-    _check('current M2 actually writes at byte 1', bytes(state[1:9]) == expected)
-    _check('canonical slot-zero bytes do not contain the full record', bytes(state[0:8]) != expected)
+    state = bytearray(80)
+    capacity = ref.slot_capacity(len(state))
+    for sequence in range(capacity):
+        verifier = bytes([sequence % 2])
+        confidence = 0x1234 + sequence
+        values = m2(state, verifier, confidence, sequence)
+        offset = ref.slot_offset(sequence, capacity)
+        _check(
+            f'seq={sequence}: production record matches reference slot',
+            bytes(state[offset:offset + 8]) == ref.encode_entry(*values),
+        )
+        _check(f'seq={sequence}: production slot is aligned', offset % 8 == 0)
+
+    offsets = [ref.slot_offset(sequence, capacity) for sequence in range(capacity)]
+    _check('production first cycle uses ten distinct reference slots', len(set(offsets)) == capacity)
+    _check('production wrap address is byte zero', ref.slot_offset(capacity, capacity) == 0)
 
 
-def test_current_m2_same_sequence_moves_with_verifier_length():
+def test_production_address_no_longer_depends_on_verifier_length():
     m2 = _load_current_m2()
-    sequence = 2
-    state_one = bytearray(80)
-    state_two = bytearray(80)
+    ref = _load_reference()
+    if ref is None:
+        _check('reference verifier-length comparison available', False, 'reference module missing')
+        return
 
-    result_one = m2(state_one, b'\x00', 0x1234, sequence=sequence)
-    result_two = m2(state_two, b'\x00\x99', 0x1234, sequence=sequence)
-    record_one = _record_bytes(*result_one)
-    record_two = _record_bytes(*result_two)
-    offset_one = (sequence * 8 + 1) % (len(state_one) // 8)
-    offset_two = (sequence * 8 + 2) % (len(state_two) // 8)
+    sequence = 7
+    one = bytearray(80)
+    two = bytearray(80)
+    result_one = m2(one, b'\x00', 0x1234, sequence)
+    result_two = m2(two, b'\x00\x99', 0x1234, sequence)
+    offset = ref.slot_offset(sequence, ref.slot_capacity(len(one)))
 
-    _check('same first verifier byte yields same M2 values', result_one == result_two)
-    _check('verifier length changes current byte location', offset_one != offset_two)
-    _check('len=1 record appears at current offset', bytes(state_one[offset_one:offset_one + 8]) == record_one)
-    _check('len=2 record appears at different current offset', bytes(state_two[offset_two:offset_two + 8]) == record_two)
+    _check('same first verifier byte preserves returned values', result_one == result_two)
+    _check('verifier length no longer changes M2 state bytes', bytes(one) == bytes(two))
+    _check('same-sequence record is in reference slot', bytes(one[offset:offset + 8]) == ref.encode_entry(*result_one))
+
+    old_offset_one = (sequence * 8 + 1) % (len(one) // 8)
+    old_offset_two = (sequence * 8 + 2) % (len(two) // 8)
+    _check('old formula would still choose different byte offsets', old_offset_one != old_offset_two)
+    _check('production record is not located at old len=1 offset', old_offset_one == offset or bytes(one[old_offset_one:old_offset_one + 8]) != ref.encode_entry(*result_one))
+    _check('production record is not located at old len=2 offset', old_offset_two == offset or bytes(two[old_offset_two:old_offset_two + 8]) != ref.encode_entry(*result_two))
 
 
-def test_current_m2_small_ring_collision_witness():
-    # For L=80, q=L/8=10 and verifier length 1:
-    #   start(n) = (8*n + 1) mod 10
-    # so n=0 and n=5 both map to byte 1.
-    starts = [((n * 8 + 1) % 10) for n in range(10)]
-    _check('current small-ring starts repeat before 10 logical slots', len(set(starts)) < 10)
-    _check('sequence 0 and 5 collide exactly', starts[0] == starts[5] == 1)
-    _check('all observed starts remain inside first ten bytes', max(starts) < 10)
-    _check('all len=1 starts are unaligned', all(offset % 8 != 0 for offset in starts))
+def test_old_small_ring_collision_is_eliminated():
+    ref = _load_reference()
+    if ref is None:
+        _check('reference collision comparison available', False, 'reference module missing')
+        return
+
+    capacity = 10
+    old_starts = [((n * 8 + 1) % capacity) for n in range(capacity)]
+    new_starts = [ref.slot_offset(n, capacity) for n in range(capacity)]
+
+    _check('old formula still demonstrates sequence 0/5 collision', old_starts[0] == old_starts[5] == 1)
+    _check('reference/live first cycle has no collision', len(set(new_starts)) == capacity)
+    _check('reference/live starts are all aligned', all(offset % 8 == 0 for offset in new_starts))
 
 
 def test_live_m2_geometry_has_four_tail_bytes():
@@ -132,24 +148,6 @@ def test_reference_contract_exists_and_is_fixed_width():
     _check('M2 entry round-trip preserves gate field', gate == 0x90ABCDEF)
 
 
-def test_reference_slot_address_is_sequence_only():
-    ref = _load_reference()
-    if ref is None:
-        _check('reference slot addressing available', False, 'reference module missing')
-        return
-
-    capacity = 10
-    offsets = [ref.slot_offset(n, capacity) for n in range(capacity)]
-    _check('reference first cycle covers ten distinct slots', len(set(offsets)) == capacity)
-    _check('reference offsets are exactly 8-byte aligned', all(offset % 8 == 0 for offset in offsets))
-    _check('reference first slot starts at byte zero', offsets[0] == 0)
-    _check('reference last slot starts at byte 72', offsets[-1] == 72)
-    _check('reference wrap returns to byte zero', ref.slot_offset(capacity, capacity) == 0)
-
-    # Verifier bytes determine the record values, never its address.
-    _check('reference address accepts sequence only', ref.slot_offset(7, capacity) == 56)
-
-
 def test_reference_live_geometry_uses_all_complete_slots():
     ref = _load_reference()
     if ref is None:
@@ -169,13 +167,12 @@ def test_reference_live_geometry_uses_all_complete_slots():
 
 
 if __name__ == '__main__':
-    print('AEGIS M2 slot contract v1')
-    test_current_m2_writes_unaligned_byte_offsets()
-    test_current_m2_same_sequence_moves_with_verifier_length()
-    test_current_m2_small_ring_collision_witness()
+    print('AEGIS M2 live/reference slot contract v1')
+    test_production_m2_matches_aligned_reference_slots()
+    test_production_address_no_longer_depends_on_verifier_length()
+    test_old_small_ring_collision_is_eliminated()
     test_live_m2_geometry_has_four_tail_bytes()
     test_reference_contract_exists_and_is_fixed_width()
-    test_reference_slot_address_is_sequence_only()
     test_reference_live_geometry_uses_all_complete_slots()
     print(f'\nRESULT: {PASS} passed, {FAIL} failed')
     raise SystemExit(0 if FAIL == 0 else 1)
