@@ -1,0 +1,7 @@
+import WeilAutocorrelationPrimeNormalFormV1
+
+set_option autoImplicit false
+
+#check canonical_weil_autocorrelation_prime_term_real_v1
+#check weil_autocorrelation_prime_sum_eq_canonical_finite_sum_v1
+#check weil_autocorrelation_prime_sum_eq_finite_real_sum_v1
