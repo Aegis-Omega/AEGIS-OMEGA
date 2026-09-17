@@ -1,0 +1,89 @@
+name: SOTA Web Compatibility
+
+on:
+  push:
+    branches:
+      - refactor/sota-foundation-v1
+    paths:
+      - '.node-version'
+      - 'hub/**'
+      - 'cockpit/**'
+      - 'platform-picker/**'
+      - 'hook-generator/**'
+      - 'content-calendar/**'
+      - 'studio/**'
+      - 'tactical/**'
+      - 'enterprise/**'
+      - 'aegisomega-webgpu/**'
+      - 'sovereign-omega-v2/**'
+      - 'packages/shared/**'
+      - '.github/workflows/sota-web-compat.yml'
+      - '.github/sota-action-pins.json'
+  pull_request:
+    paths:
+      - '.node-version'
+      - 'hub/**'
+      - 'cockpit/**'
+      - 'platform-picker/**'
+      - 'hook-generator/**'
+      - 'content-calendar/**'
+      - 'studio/**'
+      - 'tactical/**'
+      - 'enterprise/**'
+      - 'aegisomega-webgpu/**'
+      - 'sovereign-omega-v2/**'
+      - 'packages/shared/**'
+      - '.github/workflows/sota-web-compat.yml'
+      - '.github/sota-action-pins.json'
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: web / ${{ matrix.app }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - hub
+          - cockpit
+          - platform-picker
+          - hook-generator
+          - content-calendar
+          - studio
+          - tactical
+          - enterprise
+          - aegisomega-webgpu
+          - sovereign-omega-v2
+          - packages/shared
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up pinned Node LTS
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: '.node-version'
+          package-manager-cache: false
+
+      - name: Install exact lockfile graph
+        working-directory: ${{ matrix.app }}
+        run: npm ci
+
+      - name: Lint when declared
+        working-directory: ${{ matrix.app }}
+        run: npm run lint --if-present
+
+      - name: Typecheck when declared
+        working-directory: ${{ matrix.app }}
+        run: npm run typecheck --if-present
+
+      - name: Build when declared
+        working-directory: ${{ matrix.app }}
+        run: npm run build --if-present
