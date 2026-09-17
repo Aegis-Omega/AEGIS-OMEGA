@@ -243,3 +243,52 @@ Proof.
   unfold finite_archimedean_normalization_cc_v1.
   apply eq_reflexive.
 Qed.
+
+(* -------------------------------------------------------------------- *)
+(* Finite-cutoff index semantics.                                      *)
+(* -------------------------------------------------------------------- *)
+
+(** Positive-integer prefix selected by cutoff [count]. *)
+Definition finite_positive_prefix_member_v1
+    (count m : nat) : Prop :=
+  (1 <= m <= S count)%nat.
+
+(** Existing Coq tail selected by the same cutoff [count]. *)
+Definition finite_coq_tail_member_v1
+    (count i : nat) : Prop :=
+  (i < count)%nat.
+
+(** The positive prefix is exactly one inert leading coordinate m=1 followed
+    by the q=i+2 Coq tail.  No positivity implication is encoded here. *)
+Theorem concrete_cutoff_semantics_v1 :
+  von_mangoldt_v1 (finite_guinand_weil_prime_index_v1 0) [=] [0] /\
+  (forall count i : nat,
+      finite_coq_tail_member_v1 count i ->
+      finite_positive_prefix_member_v1 count
+        (finite_guinand_weil_prime_index_v1 (S i)) /\
+      finite_guinand_weil_prime_index_v1 (S i) =
+        canonical_integer_q_v1 i) /\
+  (forall count m : nat,
+      (2 <= m <= S count)%nat ->
+      exists i : nat,
+        finite_coq_tail_member_v1 count i /\
+        m = canonical_integer_q_v1 i).
+Proof.
+  split.
+  - exact concrete_von_mangoldt_one_zero_v1.
+  - split.
+    + intros count i Hi.
+      split.
+      * unfold finite_coq_tail_member_v1 in Hi.
+        unfold finite_positive_prefix_member_v1,
+          finite_guinand_weil_prime_index_v1.
+        lia.
+      * reflexivity.
+    + intros count m Hm.
+      exists (m - 2)%nat.
+      split.
+      * unfold finite_coq_tail_member_v1.
+        lia.
+      * unfold canonical_integer_q_v1.
+        lia.
+Qed.
