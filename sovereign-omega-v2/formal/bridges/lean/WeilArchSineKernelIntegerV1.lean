@@ -1,4 +1,5 @@
 import WeilArchSineKernelV1
+import Mathlib.MeasureTheory.Integral.IntervalIntegral.IntegrationByParts
 import Mathlib.Tactic
 
 /-!
@@ -60,50 +61,56 @@ private theorem integral_weighted_cos_linear_v1
     (L k : ℝ) (hL : L ≠ 0) (hk : k ≠ 0) :
     (∫ y in (0 : ℝ)..L, (1 - y / L) * Real.cos (k * y)) =
       (1 - Real.cos (k * L)) / (L * k ^ 2) := by
-  let F : ℝ → ℝ := fun y =>
-    (1 - y / L) * Real.sin (k * y) / k -
-      Real.cos (k * y) / (L * k ^ 2)
-  have hF : ∀ y : ℝ,
-      HasDerivAt F ((1 - y / L) * Real.cos (k * y)) y := by
-    intro y
-    have hone0 := (hasDerivAt_const y (1 : ℝ)).sub ((hasDerivAt_id y).div_const L)
-    have hone : HasDerivAt (fun z : ℝ => 1 - z / L) (-1 / L) y := by
-      simpa [div_eq_mul_inv] using hone0
+  let u : ℝ → ℝ := fun y => 1 - y / L
+  let u' : ℝ → ℝ := fun _ => -1 / L
+  let v : ℝ → ℝ := fun y => Real.sin (k * y) / k
+  let v' : ℝ → ℝ := fun y => Real.cos (k * y)
+  have hu : ∀ y ∈ [[(0 : ℝ), L]], HasDerivAt u (u' y) y := by
+    intro y hy
+    dsimp [u, u']
+    have h := (hasDerivAt_const y (1 : ℝ)).sub ((hasDerivAt_id y).div_const L)
+    simpa only [Pi.sub_apply, zero_sub] using h
+  have hv : ∀ y ∈ [[(0 : ℝ), L]], HasDerivAt v (v' y) y := by
+    intro y hy
+    dsimp [v, v']
     have hlin : HasDerivAt (fun z : ℝ => k * z) k y := by
       simpa using (hasDerivAt_id y).const_mul k
-    have hsin0 := (Real.hasDerivAt_sin (k * y)).comp y hlin
-    have hsin' := hsin0.div_const k
-    have hsin :
-        HasDerivAt (fun z : ℝ => Real.sin (k * z) / k)
-          (Real.cos (k * y)) y := by
-      convert hsin' using 1
-      field_simp [hk]
-    have hprod := hone.mul hsin
-    have hcos0 := (Real.hasDerivAt_cos (k * y)).comp y hlin
-    have hcos' := hcos0.div_const (L * k ^ 2)
-    have hcos :
-        HasDerivAt (fun z : ℝ => Real.cos (k * z) / (L * k ^ 2))
-          (-Real.sin (k * y) / (L * k)) y := by
-      convert hcos' using 1
-      field_simp [hL, hk]
-      ring
-    have htot := hprod.sub hcos
-    dsimp [F]
-    convert htot using 1
+    have hsin := (Real.hasDerivAt_sin (k * y)).comp y hlin
+    convert hsin.div_const k using 1
+    field_simp [hk]
+  have hu_int : IntervalIntegrable u' MeasureTheory.volume 0 L := by
+    apply Continuous.intervalIntegrable
+    fun_prop
+  have hv_int : IntervalIntegrable v' MeasureTheory.volume 0 L := by
+    apply Continuous.intervalIntegrable
+    fun_prop
+  have hibp := intervalIntegral.integral_mul_deriv_eq_deriv_mul hu hv hu_int hv_int
+  have huL : u L = 0 := by
+    dsimp [u]
+    field_simp [hL]
+  have hu0 : u 0 = 1 := by simp [u]
+  have hv0 : v 0 = 0 := by simp [v]
+  have hconst :
+      (fun y : ℝ => u' y * v y) =
+        fun y : ℝ => (-1 / (L * k)) * Real.sin (k * y) := by
+    funext y
+    dsimp [u', v]
     field_simp [hL, hk]
     ring
   calc
-    (∫ y in (0 : ℝ)..L, (1 - y / L) * Real.cos (k * y)) = F L - F 0 := by
-      apply integral_eq_sub_of_hasDerivAt
-      · intro y hy
-        exact hF y
-      · apply Continuous.intervalIntegrable
-        fun_prop
+    (∫ y in (0 : ℝ)..L, (1 - y / L) * Real.cos (k * y)) =
+        u L * v L - u 0 * v 0 - ∫ y in (0 : ℝ)..L, u' y * v y := by
+          simpa [u, v'] using hibp
+    _ = - ∫ y in (0 : ℝ)..L, (-1 / (L * k)) * Real.sin (k * y) := by
+          rw [huL, hu0, hv0, hconst]
+          simp
+    _ = (1 / (L * k)) * (∫ y in (0 : ℝ)..L, Real.sin (k * y)) := by
+          rw [intervalIntegral.integral_const_mul]
+          ring
     _ = (1 - Real.cos (k * L)) / (L * k ^ 2) := by
-      dsimp [F]
-      simp
-      field_simp [hL, hk]
-      ring
+          rw [integral_sin_linear_v1 k L hk]
+          field_simp [hL, hk]
+          ring
 
 private theorem integral_weighted_cos_mul_cos_linear_v1
     (L A T : ℝ) (hL : L ≠ 0)
@@ -329,16 +336,16 @@ theorem weil_arch_sine_kernel_dx_integer_v1
           (2 * Real.sin (L * T / 2) ^ 2) / (L * (A + T) ^ 2))) =
         (2 * Real.pi / L) * Real.sin (L * T / 2) ^ 2 *
           (1 / (A - T) ^ 2 + 1 / (A + T) ^ 2) := by
-      simp only [div_eq_mul_inv]
+      field_simp [hL, hsub, hadd]
       ring
     _ = (2 * Real.pi / L) * Real.sin (L * T / 2) ^ 2 *
         (2 * (T ^ 2 + A ^ 2) / (T ^ 2 - A ^ 2) ^ 2) := by rw [hinv2]
     _ = 2 * WeilArchRhoV1 L * Real.sin (L * T / 2) ^ 2 *
         (T ^ 2 + (WeilArchRhoV1 L * (n : ℝ)) ^ 2) /
         (T ^ 2 - (WeilArchRhoV1 L * (n : ℝ)) ^ 2) ^ 2 := by
-      simp only [WeilArchRhoV1]
-      dsimp [A]
-      simp only [div_eq_mul_inv]
+      have hAeq : WeilArchRhoV1 L * (n : ℝ) = A := rfl
+      rw [hAeq]
+      simp only [WeilArchRhoV1, div_eq_mul_inv]
       ring
 
 #print axioms weil_arch_sine_kernel_integer_v1
