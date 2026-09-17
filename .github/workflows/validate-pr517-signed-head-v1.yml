@@ -48,7 +48,7 @@ jobs:
           repository: Aegis-Omega/AEGIS-OMEGA
           ref: fe00d040803feb2741fb989b18d1ac4dc1fa11a3
           path: candidate
-          fetch-depth: 1
+          fetch-depth: 2
           persist-credentials: false
           submodules: false
           lfs: false
