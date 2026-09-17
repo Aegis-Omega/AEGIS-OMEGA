@@ -140,9 +140,6 @@ Theorem concrete_measure_semantics_v1 :
   OrdinaryLebesgueV1 <> MultiplicativeHaarV1.
 Proof. split; [reflexivity|split; [reflexivity|discriminate]]. Qed.
 
-(* The Coq layer binds the autocorrelation kernel and measure convention; the
-   actual Lebesgue integral and reciprocity theorem are exact-source bound to
-   the pinned Lean lane. *)
 Definition finite_autocorrelation_integrand_cc_v1
     (g_xy conj_g_y : CC) : CC := g_xy [*] conj_g_y.
 
@@ -157,9 +154,6 @@ Proof.
   - reflexivity.
 Qed.
 
-(* Fourier/Mellin convention registry.  The actual transform identity and the
-   2*pi frequency conversion are kernel-proved in pinned Mathlib; this Coq
-   surface makes the frozen convention and bridge scale explicit. *)
 Inductive FiniteFourierFrequencyConventionV1 : Type :=
 | AngularFrequencyV1
 | CyclesFrequencyV1.
@@ -191,6 +185,35 @@ Theorem concrete_fourier_mellin_normalization_v1 :
   finite_mellin_measure_v1 = OrdinaryLebesgueV1 /\
   AngularFrequencyV1 <> CyclesFrequencyV1 /\
   DivideByTwoPiV1 <> IdentityFrequencyScaleV1.
+Proof.
+  repeat split; try reflexivity; discriminate.
+Qed.
+
+(* Complex/real projection policy.  Exact-source Lean supplies the actual
+   reciprocal-conjugation identity and the endpoint collision/non-recovery
+   theorems; this Coq layer prevents silent carrier replacement. *)
+Inductive FiniteAutocorrelationProjectionModeV1 : Type :=
+| ComplexAutocorrelationCarrierV1
+| RealProjectedAutocorrelationCarrierV1.
+
+Inductive FiniteAutocorrelationSymmetryV1 : Type :=
+| ReciprocalConjugateJacobianV1.
+
+Definition finite_autocorrelation_projection_mode_v1 :
+    FiniteAutocorrelationProjectionModeV1 :=
+  ComplexAutocorrelationCarrierV1.
+
+Definition finite_autocorrelation_symmetry_v1 :
+    FiniteAutocorrelationSymmetryV1 :=
+  ReciprocalConjugateJacobianV1.
+
+Definition finite_autocorrelation_pointwise_real_v1 : bool := false.
+
+Theorem concrete_complex_real_projection_v1 :
+  finite_autocorrelation_projection_mode_v1 = ComplexAutocorrelationCarrierV1 /\
+  finite_autocorrelation_symmetry_v1 = ReciprocalConjugateJacobianV1 /\
+  finite_autocorrelation_pointwise_real_v1 = false /\
+  ComplexAutocorrelationCarrierV1 <> RealProjectedAutocorrelationCarrierV1.
 Proof.
   repeat split; try reflexivity; discriminate.
 Qed.
