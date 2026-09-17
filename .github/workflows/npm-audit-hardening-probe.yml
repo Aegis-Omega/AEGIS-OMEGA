@@ -1,0 +1,104 @@
+name: NPM Audit Hardening Probe
+
+on:
+  push:
+    branches:
+      - hardening/mycorrhizal-structural-witness-v1
+    paths:
+      - .github/workflows/npm-audit-hardening-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit-hardening-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+
+      - name: Install exact lockfile
+        working-directory: sovereign-omega-v2
+        run: npm ci
+
+      - name: Capture audit before
+        working-directory: sovereign-omega-v2
+        run: |
+          npm audit --json > audit-before.json || true
+          node <<'NODE'
+          const a = JSON.parse(require('fs').readFileSync('audit-before.json','utf8'));
+          console.log('AUDIT_BEFORE_METADATA=' + JSON.stringify(a.metadata?.vulnerabilities ?? {}));
+          for (const [name,v] of Object.entries(a.vulnerabilities ?? {})) {
+            console.log('AUDIT_BEFORE_VULN=' + JSON.stringify({
+              name,
+              severity:v.severity,
+              isDirect:v.isDirect,
+              range:v.range,
+              fixAvailable:v.fixAvailable,
+              via:(v.via ?? []).map(x => typeof x === 'string' ? x : ({name:x.name,severity:x.severity,url:x.url,range:x.range}))
+            }));
+          }
+          NODE
+
+      - name: Simulate non-force audit fix
+        working-directory: sovereign-omega-v2
+        run: npm audit fix --package-lock-only --ignore-scripts || true
+
+      - name: Capture dependency delta
+        run: git diff -- sovereign-omega-v2/package.json sovereign-omega-v2/package-lock.json
+
+      - name: Capture audit after
+        working-directory: sovereign-omega-v2
+        run: |
+          npm audit --json > audit-after.json || true
+          node <<'NODE'
+          const a = JSON.parse(require('fs').readFileSync('audit-after.json','utf8'));
+          console.log('AUDIT_AFTER_METADATA=' + JSON.stringify(a.metadata?.vulnerabilities ?? {}));
+          for (const [name,v] of Object.entries(a.vulnerabilities ?? {})) {
+            console.log('AUDIT_AFTER_VULN=' + JSON.stringify({
+              name,
+              severity:v.severity,
+              isDirect:v.isDirect,
+              range:v.range,
+              fixAvailable:v.fixAvailable,
+              via:(v.via ?? []).map(x => typeof x === 'string' ? x : ({name:x.name,severity:x.severity,url:x.url,range:x.range}))
+            }));
+          }
+          NODE
+
+      - name: Reinstall patched lockfile
+        working-directory: sovereign-omega-v2
+        run: npm ci
+
+      - name: Run full tests
+        working-directory: sovereign-omega-v2
+        run: npm run test
+
+      - name: TypeScript strict check
+        working-directory: sovereign-omega-v2
+        run: npm run typecheck
+
+      - name: Production build
+        working-directory: sovereign-omega-v2
+        run: npm run build
+
+      - name: Upload proposed lockfile and audit receipts
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-hardening-probe
+          path: |
+            sovereign-omega-v2/package-lock.json
+            sovereign-omega-v2/audit-before.json
+            sovereign-omega-v2/audit-after.json
