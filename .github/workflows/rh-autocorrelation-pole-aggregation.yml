@@ -62,13 +62,13 @@ jobs:
           lake exe cache get
           lean --version >> exact-source.log
 
-      - name: Compile inherited analytic/closure modules and pole aggregation
+      - name: Compile proven Mellin DAG, autocorrelation closure and pole aggregation
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p .lake/build/lib/lean
           proof_compile_failed=0
-          for f in WeilCriterionCompactSmoothV1 MellinDecayEstimateV1 WeilMellinInversionV1 WeilPrimeSummabilityV1 WeilArchimedeanConvergenceV1 WeilAutocorrelationRealityV1 WeilAutocorrelationClosureV1 WeilAutocorrelationPoleAggregationV1; do
+          for f in WeilCriterionCompactSmoothV1 ZeroCriticalStripV1 ZeroHeightFiniteSumV1 ZeroHeightLimitContractV1 ZeroHeightSummabilityBridgeV1 ZeroMajorantSummabilityV1 ZeroHeightShellMassV1 ZeroShellQuadraticBoundV1 ZeroShellAnalyticSynthesisV1 MellinDecayEstimateV1 WeilMellinInversionV1 WeilPrimeSummabilityV1 WeilArchimedeanConvergenceV1 WeilAutocorrelationRealityV1 WeilAutocorrelationClosureV1 WeilAutocorrelationPoleAggregationV1; do
             cp ".aegis/sovereign-omega-v2/formal/bridges/lean/$f.lean" "$f.lean"
             sha256sum "$f.lean" >> exact-source.log
             if ! lake env lean -o ".lake/build/lib/lean/$f.olean" "$f.lean" 2>&1 | tee "$f.log"; then
