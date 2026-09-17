@@ -1,4 +1,4 @@
-import WeilFiniteSourceCalculusV1
+import WeilArchSineKernelV1
 
 set_option autoImplicit false
 
