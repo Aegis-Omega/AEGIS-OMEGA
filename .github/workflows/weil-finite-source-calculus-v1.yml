@@ -85,6 +85,7 @@ jobs:
           #print axioms weil_single_frequency_source_diagonal_v1
           #print axioms weil_single_frequency_source_calculus_v1
           #print axioms weil_finite_source_measure_extension_v1
+          #print axioms weil_finite_source_full_entry_identification_v1
           EOF
           lake env lean WeilFiniteSourceCalculusAudit.lean 2>&1 | tee WeilFiniteSourceCalculusAudit.log
           ! grep -q sorryAx WeilFiniteSourceCalculusAudit.log
