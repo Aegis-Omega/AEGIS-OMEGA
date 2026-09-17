@@ -87,6 +87,8 @@ jobs:
           #print axioms weil_finite_source_measure_extension_v1
           #print axioms weil_finite_source_full_entry_identification_v1
           #print axioms weil_prime_atom_entry_matches_evaluator_v1
+          #print axioms weil_cauchy_divided_difference_rank_two_v1
+          #print axioms weil_cauchy_diagonal_rank_two_v1
           EOF
           lake env lean WeilFiniteSourceCalculusAudit.lean 2>&1 | tee WeilFiniteSourceCalculusAudit.log
           ! grep -q sorryAx WeilFiniteSourceCalculusAudit.log
