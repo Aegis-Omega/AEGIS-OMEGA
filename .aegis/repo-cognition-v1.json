@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "e72b2fe378b5bc0837d611725a52243475bf2020e2098a861560f5a3541630b0",
+  "corpus_root": "1db1b99e8ba9d971ce1ae91819261d2b427510054e2b4256381fbfca26165fe2",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1957,
@@ -37,17 +37,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "a23b6519dc9041406d492dc8e33e8926b352fcdde3d6c3bba3ef49f3201f8e18",
+      "content_sha256": "81dd3cc5085a2e2ef4f4afd423718c4b51d4f84b33346835164f69e4f7688db7",
       "dependency_hints": [],
-      "git_blob_sha": "036ecd5d39441d25a9851dd9fe319b661bd1cb57",
+      "git_blob_sha": "18f4da0c341162f9581c1ea2beaf6cc214e00b18",
       "heading_hint": null,
       "kind": "config-or-data",
       "language": "json",
-      "line_count": 181,
+      "line_count": 397,
       "mode": "100644",
       "object_type": "blob",
       "path": ".aegis/cross-domain/fixtures/qbp-cross-boundary-v1.json",
-      "size_bytes": 10211,
+      "size_bytes": 14557,
       "symbol_hints": []
     },
     {
@@ -28709,17 +28709,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "57a4a9e8097944fb13bd387060af25f646e3fd1d140c59f3c73b524cb73f9517",
+      "content_sha256": "2bdff17c4e6064d1121b06a766dda8695e14141fef3deac3d8e420be6a4cc30d",
       "dependency_hints": [],
-      "git_blob_sha": "89c70509322f24433b056f57c9578e3f5bb120ae",
+      "git_blob_sha": "b173824dafcdc5c79c55dc9e8dd64691a0ff0311",
       "heading_hint": "Cross-Boundary Authority V1",
       "kind": "documentation",
       "language": "markdown",
-      "line_count": 182,
+      "line_count": 213,
       "mode": "100644",
       "object_type": "blob",
       "path": "docs/research/cross-boundary-authority-v1.md",
-      "size_bytes": 5773,
+      "size_bytes": 7201,
       "symbol_hints": []
     },
     {
@@ -38068,7 +38068,7 @@
       ]
     },
     {
-      "content_sha256": "c25ffa99ae418e53e9c318c5e49d423b657e35d6ac8d8e056098bd59c18e4b81",
+      "content_sha256": "f80b9312b7c321057a014a15e3617b91d52cc0484a1f4d9e730e63db62eb25d8",
       "dependency_hints": [
         "__future__",
         "dataclasses",
@@ -38076,25 +38076,32 @@
         "typing",
         "research_invariants"
       ],
-      "git_blob_sha": "819b38a785fc16b697029dd347360f65ae3926a4",
+      "git_blob_sha": "45d1b7188e1e6f1e11173ab5c2c2aba17016a160",
       "heading_hint": null,
       "kind": "source",
       "language": "python",
-      "line_count": 339,
+      "line_count": 494,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/cross_boundary_authority.py",
-      "size_bytes": 11459,
+      "size_bytes": 17066,
       "symbol_hints": [
         "BridgeDecision",
         "ClaimCoordinateV1",
         "__post_init__",
         "BoundClaimV1",
+        "BridgeGateRequirementV1",
         "BridgeCriterionV1",
+        "required_gate_ids",
+        "VerifiedBridgeGateV1",
         "CrossBoundaryAuthorityReceiptV1",
         "changed_axes",
         "bind_bridge_relation",
         "_receipt_integrity",
+        "_receipt_semantically_equal",
+        "_synthetic_literal_bool_verifier",
+        "mint_synthetic_verified_bridge_gate",
+        "verify_verified_bridge_gate",
         "evaluate_cross_boundary_authority",
         "add_reason",
         "verify_cross_boundary_authority_receipt"
@@ -39410,7 +39417,7 @@
       ]
     },
     {
-      "content_sha256": "f7354edfefe282cfd1956aaf025d5bd50861f549782172c4b305367be5a4d57c",
+      "content_sha256": "221a6b71e293bc5ef4879edd34737f29a7cceab99d34fd38c6ea1543c7242825",
       "dependency_hints": [
         "__future__",
         "dataclasses",
@@ -39420,23 +39427,24 @@
         "unittest",
         "research_invariants"
       ],
-      "git_blob_sha": "343fbc9d96fab5424d0b9c17294e1c33012ebf54",
+      "git_blob_sha": "bf4895774eafc3ba0bcb17c7573cf3a67a9d8541",
       "heading_hint": null,
       "kind": "test",
       "language": "python",
-      "line_count": 219,
+      "line_count": 256,
       "mode": "100644",
       "object_type": "blob",
       "path": "sovereign-omega-v2/python/tests/test_cross_boundary_authority.py",
-      "size_bytes": 7334,
+      "size_bytes": 8707,
       "symbol_hints": [
         "claim",
         "criterion",
         "CrossBoundaryAuthorityTests",
-        "test_positive_synthetic_requires_all_relation_bound_passes",
+        "test_positive_synthetic_requires_replayable_verified_bundles",
+        "test_raw_hash_valid_pass_receipts_are_not_authority",
         "test_missing_gate_fails_closed",
-        "test_spliced_relation_receipt_fails",
-        "test_tampered_witness_fails",
+        "test_spliced_relation_bundle_fails_replay",
+        "test_tampered_verified_bundle_fails_replay",
         "test_no_boundary_and_bad_status_fail",
         "test_qbp_and_repo_boundary_fixture_stays_denied"
       ]
