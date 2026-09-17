@@ -1,0 +1,53 @@
+name: SOTA Foundation Contract
+
+on:
+  push:
+    branches:
+      - refactor/sota-foundation-v1
+    paths:
+      - '.node-version'
+      - '.editorconfig'
+      - '.devcontainer/devcontainer.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/verify-sota-foundation.mjs'
+      - '.github/workflows/sota-foundation.yml'
+  pull_request:
+    paths:
+      - '.node-version'
+      - '.editorconfig'
+      - '.devcontainer/devcontainer.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/verify-sota-foundation.mjs'
+      - '.github/workflows/sota-foundation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  foundation:
+    name: aegis / sota-foundation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up pinned Node LTS
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: '.node-version'
+          package-manager-cache: false
+
+      - name: Verify SOTA foundation contract
+        run: node scripts/verify-sota-foundation.mjs
+
+      - name: Verify root lock install
+        run: npm ci --ignore-scripts
+
+      - name: Verify resolved root dependency surface
+        run: npm ls --depth=0
