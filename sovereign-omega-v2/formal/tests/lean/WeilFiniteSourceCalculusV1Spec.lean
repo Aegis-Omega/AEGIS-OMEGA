@@ -25,16 +25,20 @@ For
 
   S(L,T,x) = ∫_0^L sin(2π x (1-y/L)) cos(T y) dy,
 
-freeze the exact integer-node value and x-derivative formulas with
-`rho = 2π/L`:
+freeze the true x-derivative bridge and the exact integer-node value and
+x-derivative formulas with `rho = 2π/L`:
+
+  d/dx S(L,T,x) = Sx(L,T,x),
 
   S(L,T,n)
     = 2 rho n sin(LT/2)^2 / (T^2 - (rho n)^2),
 
-  dS/dx(L,T,n)
+  Sx(L,T,n)
     = 2 rho sin(LT/2)^2 (T^2 + (rho n)^2)
         / (T^2 - (rho n)^2)^2.
 
+The derivative bridge is mandatory: the diagonal divided-difference entry is
+the derivative of the true source, not of an integer-node surrogate.
 Only these source-to-rational-core identities are targeted. The subsequent
 continuous Cauchy--Stieltjes integration, finite PSD import, operator order,
 global Weil positivity, formula-to-Weil identity, and RH remain outside this
@@ -58,5 +62,6 @@ slice.
 #check weil_cauchy_diagonal_rank_two_v1
 #check WeilArchSineKernelV1
 #check WeilArchSineKernelDxV1
+#check weil_arch_sine_kernel_hasDerivAt_v1
 #check weil_arch_sine_kernel_integer_v1
 #check weil_arch_sine_kernel_dx_integer_v1
