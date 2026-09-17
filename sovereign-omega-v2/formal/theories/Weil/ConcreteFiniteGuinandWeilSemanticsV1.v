@@ -142,8 +142,6 @@ Proof.
       cc_IR (finite_prime_reciprocal_ir_v1 0)
        [*] f (finite_prime_reciprocal_ir_v1 0))).
   - Step_final ([0] : CC).
-  - apply cc_IR_wd.
-    exact concrete_von_mangoldt_one_zero_v1.
 Qed.
 
 (** After removing the inert m=1 term, the n=S i scalar formula is exactly
