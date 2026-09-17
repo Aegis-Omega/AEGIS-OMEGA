@@ -30,6 +30,15 @@ jobs:
         with:
           python-version: '3.11'
       - name: Run control-flow regression
+        id: control
+        continue-on-error: true
         run: python sovereign-omega-v2/python/tests/test_m1_boundary_containment.py
       - name: Run fixed-slot persistence regression
+        id: persistence
+        continue-on-error: true
         run: python sovereign-omega-v2/python/tests/test_m1_fixed_slot_contract.py
+      - name: Require both focused regressions
+        shell: bash
+        run: |
+          test "${{ steps.control.outcome }}" = success
+          test "${{ steps.persistence.outcome }}" = success
