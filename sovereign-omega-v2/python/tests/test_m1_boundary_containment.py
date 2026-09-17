@@ -1,10 +1,10 @@
 """
-AEGIS M1 boundary-containment regression.
+AEGIS M1 boundary-containment regression after fixed-record cutover.
 
-Reads the production core_matrix.py source and executes only the
-CoreMatrix.process_event method through AST extraction. This binds the test to
-the production control flow without importing core_matrix.py (which would pull
-in hardware dependencies) or allocating its default 4 GB bytearray.
+Reads the production CoreMatrix.process_event method through AST extraction.
+The v2 contract stores exactly one 40-byte record per event, so payload length
+must not affect M1 slot fit. Fail-closed containment remains for regions that
+cannot hold even one complete M1 record.
 """
 
 import ast
@@ -120,41 +120,58 @@ def _matrix(region, sequence: int, capacity: int):
     return process_event, matrix, calls
 
 
-def test_small_nondivisible_wrap():
+def test_subrecord_region_fails_closed():
+    process_event, matrix, calls = _matrix(bytearray(39), 0, 1)
+    result = process_event(matrix, b'x' * 100_000, b'\x01', b'')
+
+    _check('region smaller than one record blocks', result['status'] == 'M1_BOUNDARY_BLOCKED')
+    _check('subrecord block leaves sequence unchanged', matrix._sequence == 0)
+    _check('subrecord block leaves era unchanged', matrix._era == 4)
+    _check('subrecord block has no downstream calls', calls == [])
+
+
+def test_nondivisible_region_wrap_uses_logical_slots():
     process_event, matrix, calls = _matrix(bytearray(128), 3, 3)
-    before = bytes(matrix._m1_region)
-    result = process_event(matrix, b'', b'\x01', b'')
+    result = process_event(matrix, b'x' * 100_000, b'\x01', b'ctx')
 
-    _check('nondivisible wrap blocks', result['status'] == 'M1_BOUNDARY_BLOCKED')
-    _check('blocked sequence unchanged', matrix._sequence == 3)
-    _check('blocked era unchanged', matrix._era == 4)
-    _check('blocked M1 bytes unchanged', bytes(matrix._m1_region) == before)
-    _check('blocked path has no downstream calls', calls == [])
+    _check('nondivisible logical wrap succeeds', result['status'] == 'OK')
+    _check('nondivisible wrap advances sequence', matrix._sequence == 4)
+    _check('nondivisible wrap increments era once', matrix._era == 5)
+    _check(
+        'nondivisible wrap reaches event plus M1/M2/M3',
+        [call[0] for call in calls] == ['EVENT', 'M1', 'M2', 'M3'],
+    )
 
 
-def test_alignment_alone_is_insufficient():
-    # 40 divides 120, but sequence=2 starts at byte 80 and a one-byte payload
-    # requires 121 bytes. The payload span still crosses the region boundary.
+def test_payload_length_does_not_change_slot_fit():
     process_event, matrix, calls = _matrix(bytearray(120), 2, 3)
-    result = process_event(matrix, b'x', b'\x01', b'')
+    result = process_event(matrix, b'x' * 100_000, b'\x01', b'ctx')
 
-    _check('aligned ring payload overrun blocks', result['status'] == 'M1_BOUNDARY_BLOCKED')
-    _check('aligned ring era unchanged', matrix._era == 4)
-    _check('aligned ring has no downstream calls', calls == [])
+    _check('large payload digest fits fixed 40-byte record', result['status'] == 'OK')
+    _check('large payload path advances sequence', matrix._sequence == 3)
+    _check('large payload path leaves era unchanged before wrap', matrix._era == 4)
+    _check(
+        'large payload path reaches M1/M2/M3',
+        [call[0] for call in calls] == ['M1', 'M2', 'M3'],
+    )
 
 
 def test_cloud_profile_exact_wrap():
-    cloud_m1 = 134_217_728  # 256 MiB arena * 0.50
+    cloud_m1 = 134_217_728
     capacity = cloud_m1 // 40
     process_event, matrix, calls = _matrix(_SizedRegion(cloud_m1), capacity, capacity)
-    result = process_event(matrix, b'', b'\x01', b'')
+    result = process_event(matrix, b'x' * 100_000, b'\x01', b'ctx')
 
-    _check('Cloud Run modulo drift blocks', result['status'] == 'M1_BOUNDARY_BLOCKED')
-    _check('Cloud Run drift sequence stable', matrix._sequence == 3_355_443)
-    _check('Cloud Run drift has no downstream calls', calls == [])
+    _check('Cloud Run exact logical wrap succeeds', result['status'] == 'OK')
+    _check('Cloud Run wrap advances sequence', matrix._sequence == capacity + 1)
+    _check('Cloud Run wrap increments era once', matrix._era == 5)
+    _check(
+        'Cloud Run wrap reaches event plus M1/M2/M3',
+        [call[0] for call in calls] == ['EVENT', 'M1', 'M2', 'M3'],
+    )
 
 
-def test_cloud_profile_payload_blocks_one_slot_earlier():
+def test_cloud_profile_last_slot_large_payload():
     cloud_m1 = 134_217_728
     capacity = cloud_m1 // 40
     process_event, matrix, calls = _matrix(
@@ -162,11 +179,15 @@ def test_cloud_profile_payload_blocks_one_slot_earlier():
         capacity - 1,
         capacity,
     )
-    result = process_event(matrix, b'event_3355442', b'\x01', b'')
+    result = process_event(matrix, b'x' * 100_000, b'\x01', b'ctx')
 
-    _check('Cloud Run payload pre-wrap blocks', result['status'] == 'M1_BOUNDARY_BLOCKED')
-    _check('Cloud Run payload sequence stable', matrix._sequence == 3_355_442)
-    _check('Cloud Run payload has no downstream calls', calls == [])
+    _check('Cloud Run last logical slot accepts large payload digest', result['status'] == 'OK')
+    _check('Cloud Run last slot advances to wrap sequence', matrix._sequence == capacity)
+    _check('Cloud Run last slot leaves era unchanged', matrix._era == 4)
+    _check(
+        'Cloud Run last slot reaches M1/M2/M3',
+        [call[0] for call in calls] == ['M1', 'M2', 'M3'],
+    )
 
 
 def test_normal_path_still_executes():
@@ -182,11 +203,12 @@ def test_normal_path_still_executes():
 
 
 if __name__ == '__main__':
-    print('AEGIS M1 boundary containment regression')
-    test_small_nondivisible_wrap()
-    test_alignment_alone_is_insufficient()
+    print('AEGIS M1 fixed-record boundary regression')
+    test_subrecord_region_fails_closed()
+    test_nondivisible_region_wrap_uses_logical_slots()
+    test_payload_length_does_not_change_slot_fit()
     test_cloud_profile_exact_wrap()
-    test_cloud_profile_payload_blocks_one_slot_earlier()
+    test_cloud_profile_last_slot_large_payload()
     test_normal_path_still_executes()
     print(f'\nRESULT: {PASS} passed, {FAIL} failed')
     raise SystemExit(0 if FAIL == 0 else 1)
