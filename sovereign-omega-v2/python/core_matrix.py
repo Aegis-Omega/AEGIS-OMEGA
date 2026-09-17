@@ -115,7 +115,7 @@ def M2(state: memoryview, verifier_result: bytes, confidence_fixed: int, sequenc
 
     INVARIANT: confidence_fixed must be in [0, INT_SCALE] (representing [0.0, 1.0]).
     INVARIANT: Pure function — no side effects.
-    INVARIANT: sequence must be included in offset to prevent same-length collision.
+    INVARIANT: sequence maps to one aligned 8-byte record slot.
     """
     # Clamp confidence to valid range
     confidence_fixed = fixed_clamp(confidence_fixed, 0, INT_SCALE)
@@ -134,12 +134,14 @@ def M2(state: memoryview, verifier_result: bytes, confidence_fixed: int, sequenc
     lcb_adjustment = (2 * vcg_error_fixed) >> 1
     gate_lcb_fixed = max(0, confidence_fixed - lcb_adjustment)
 
-    # Write to M2 region — offset incorporates sequence to prevent collision when
-    # different events produce verifier_result bytes of equal length.
-    offset = (sequence * 8 + len(verifier_result)) % (len(state) // 8)
-    if offset + 8 <= len(state):
-        state[offset:offset + 4] = vcg_error_fixed.to_bytes(4, 'little', signed=False)
-        state[offset + 4:offset + 8] = gate_lcb_fixed.to_bytes(4, 'little', signed=False)
+    # Write one fixed 8-byte record to the logical sequence slot. Verifier bytes
+    # determine the values above but never the record address.
+    slot_capacity = len(state) // 8
+    if slot_capacity <= 0:
+        raise ValueError('M2 region must hold at least one complete 8-byte record')
+    offset = 8 * (sequence % slot_capacity)
+    state[offset:offset + 4] = vcg_error_fixed.to_bytes(4, 'little', signed=False)
+    state[offset + 4:offset + 8] = gate_lcb_fixed.to_bytes(4, 'little', signed=False)
 
     return vcg_error_fixed, gate_lcb_fixed
 
