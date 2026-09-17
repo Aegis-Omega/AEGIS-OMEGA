@@ -28,9 +28,11 @@ import tempfile
 
 CHECKPOINT_VERSION = '2.0.0'
 M1_RECORD_CONTRACT = 'M1_FIXED_CHAIN_V2'
+_MODULE_DIR = os.path.dirname(__file__)
+LEGACY_CHECKPOINT_PATH = os.path.join(_MODULE_DIR, 'aegis_checkpoint.json')
 DEFAULT_CHECKPOINT_PATH = os.environ.get(
     'AEGIS_CHECKPOINT_PATH',
-    os.path.join(os.path.dirname(__file__), 'aegis_checkpoint.json'),
+    os.path.join(_MODULE_DIR, 'aegis_checkpoint_v2.json'),
 )
 
 # M1 layout constants (mirror core_matrix.py — not imported to avoid circular deps)
@@ -256,5 +258,27 @@ def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
     }
 
 
-def checkpoint_exists(path: str = DEFAULT_CHECKPOINT_PATH) -> bool:
+def checkpoint_exists(path: str | None = None) -> bool:
+    """
+    Return whether the requested checkpoint exists.
+
+    On the default v2 namespace, a legacy v1 checkpoint with no v2 successor is
+    a migration boundary, not an empty state. Raise CheckpointError so bridge
+    startup stops before BRIDGE_READY instead of silently starting a new chain.
+    Explicit caller-supplied paths retain ordinary existence semantics.
+    """
+    use_default = path is None
+    if path is None:
+        path = DEFAULT_CHECKPOINT_PATH
+
+    if (
+        use_default
+        and os.path.basename(path) == 'aegis_checkpoint_v2.json'
+        and not os.path.exists(path)
+        and os.path.exists(LEGACY_CHECKPOINT_PATH)
+    ):
+        raise CheckpointError(
+            f'Legacy M1 checkpoint detected at {LEGACY_CHECKPOINT_PATH}; '
+            'v1 cannot be promoted to M1_FIXED_CHAIN_V2 automatically'
+        )
     return os.path.exists(path)
