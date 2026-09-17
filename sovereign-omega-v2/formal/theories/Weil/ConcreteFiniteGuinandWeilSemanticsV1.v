@@ -211,3 +211,35 @@ Proof.
   unfold finite_pole_term_cc_v1.
   apply eq_reflexive.
 Qed.
+
+(* -------------------------------------------------------------------- *)
+(* Canonical archimedean normalization constructor.                    *)
+(* -------------------------------------------------------------------- *)
+
+(** Canonical outer constructor for the normalized archimedean contribution.
+
+    [constant_at_one] denotes the already normalized
+      (log(4*pi) + EulerGamma) * f(1)
+    component, while [integral_value] denotes the rationalized integral on
+    (1,infinity).  Exact Lean-source binding supplies those inner component
+    semantics and the integrability theorem.  This CoRN-side constructor does
+    not reimplement real logarithm, Euler's constant, improper integration, or
+    the completed-zeta gamma-line derivation. *)
+Definition finite_archimedean_normalization_cc_v1
+    (constant_at_one integral_value : CC) : CC :=
+  constant_at_one [+] integral_value.
+
+(** Archimedean normalization constituent closure.
+
+    This theorem fixes only the canonical composition of the two normalized
+    archimedean components.  It does not promote the mathematical provenance
+    proof of the gamma-line constant to Coq or Lean kernel status. *)
+Theorem concrete_archimedean_normalization_v1 :
+  forall constant_at_one integral_value : CC,
+    finite_archimedean_normalization_cc_v1 constant_at_one integral_value
+      [=] constant_at_one [+] integral_value.
+Proof.
+  intros constant_at_one integral_value.
+  unfold finite_archimedean_normalization_cc_v1.
+  apply eq_reflexive.
+Qed.
