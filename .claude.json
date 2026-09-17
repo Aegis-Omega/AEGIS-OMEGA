@@ -10,7 +10,7 @@
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
     "source_ref": "main",
-    "parent_state_hash": "7f376dbf8f74387f85dad5d091819925b94bd64cf04079368021869a19536b4f",
+    "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "85b068c0c454c711afc347f98cfc1d55e5ef319b0908f3a253ccb32a91e3a92a"
+  "state_hash": "e989e01601ce317c94c45889ae1e99fa6ee2b554875e213bad3944f3b0a3f8ed"
 }
