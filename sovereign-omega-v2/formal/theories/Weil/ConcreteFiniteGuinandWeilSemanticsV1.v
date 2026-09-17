@@ -16,8 +16,10 @@
 
   The complex scalar support below formalizes the canonical prime-term formula
   over a supplied function [f : IR -> CC].  It deliberately does NOT identify
-  that supplied function with the Lean or O0 carrier.  That carrier binding is
-  a separate load-bearing obligation for [concrete_prime_term_semantics_v1].
+  that supplied function with the Lean or O0 carrier.  Cross-prover binding is
+  discharged separately by exact-source normalization to the frozen canonical
+  prime-term AST; this Coq constituent packages only the kernel-checked formula
+  and index semantics on the CoRN carrier.
 *)
 
 From Coq Require Import Arith.PeanoNat Lia.
@@ -162,4 +164,22 @@ Proof.
     canonical_integer_q_ir_v1,
     canonical_integer_q_v1.
   apply eq_reflexive.
+Qed.
+
+(** Prime-term constituent closure on the CoRN carrier.
+
+    This theorem packages exactly the two load-bearing facts required by the
+    frozen index/prime-term semantics: the leading m=1 term is zero, and the
+    remaining n=S i sequence is exactly the canonical q=i+2 tail.  It does not
+    assert equality of complete Lean, CoRN, or O0 function carriers. *)
+Theorem concrete_prime_term_semantics_v1 :
+  (forall f : IR -> CC,
+      finite_prime_scalar_term_cc_v1 f 0 [=] ([0] : CC)) /\
+  (forall (f : IR -> CC) (i : nat),
+      finite_prime_scalar_term_cc_v1 f (S i)
+        [=] canonical_q_prime_scalar_term_cc_v1 f i).
+Proof.
+  split.
+  - exact finite_prime_scalar_term_leading_zero_v1.
+  - exact finite_prime_scalar_term_tail_index_v1.
 Qed.
