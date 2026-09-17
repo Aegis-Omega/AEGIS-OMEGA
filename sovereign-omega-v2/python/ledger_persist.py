@@ -29,10 +29,41 @@ import tempfile
 CHECKPOINT_VERSION = '2.0.0'
 M1_RECORD_CONTRACT = 'M1_FIXED_CHAIN_V2'
 _MODULE_DIR = os.path.dirname(__file__)
-LEGACY_CHECKPOINT_PATH = os.path.join(_MODULE_DIR, 'aegis_checkpoint.json')
-DEFAULT_CHECKPOINT_PATH = os.environ.get(
-    'AEGIS_CHECKPOINT_PATH',
-    os.path.join(_MODULE_DIR, 'aegis_checkpoint_v2.json'),
+
+
+def _resolve_checkpoint_paths(configured_path: str | None) -> tuple[str, str]:
+    """
+    Resolve active-v2 and legacy-v1 checkpoint namespaces.
+
+    Existing deployment manifests still set AEGIS_CHECKPOINT_PATH to the
+    historical basename `aegis_checkpoint.json`. Treat that exact basename as
+    the legacy namespace and derive `aegis_checkpoint_v2.json` beside it so an
+    existing v1 file can never be silently interpreted as v2 state.
+
+    Any other explicit path is treated as the active v2 path; its legacy
+    sibling remains `aegis_checkpoint.json` in the same directory.
+    """
+    if configured_path:
+        directory = os.path.dirname(configured_path)
+        basename = os.path.basename(configured_path)
+        if basename == 'aegis_checkpoint.json':
+            return (
+                os.path.join(directory, 'aegis_checkpoint_v2.json'),
+                configured_path,
+            )
+        return (
+            configured_path,
+            os.path.join(directory, 'aegis_checkpoint.json'),
+        )
+
+    return (
+        os.path.join(_MODULE_DIR, 'aegis_checkpoint_v2.json'),
+        os.path.join(_MODULE_DIR, 'aegis_checkpoint.json'),
+    )
+
+
+DEFAULT_CHECKPOINT_PATH, LEGACY_CHECKPOINT_PATH = _resolve_checkpoint_paths(
+    os.environ.get('AEGIS_CHECKPOINT_PATH')
 )
 
 # M1 layout constants (mirror core_matrix.py — not imported to avoid circular deps)
@@ -262,10 +293,11 @@ def checkpoint_exists(path: str | None = None) -> bool:
     """
     Return whether the requested checkpoint exists.
 
-    On the default v2 namespace, a legacy v1 checkpoint with no v2 successor is
-    a migration boundary, not an empty state. Raise CheckpointError so bridge
-    startup stops before BRIDGE_READY instead of silently starting a new chain.
-    Explicit caller-supplied paths retain ordinary existence semantics.
+    On the active default namespace, a legacy v1 checkpoint with no v2
+    successor is a migration boundary, not an empty state. Raise
+    CheckpointError so bridge startup stops before BRIDGE_READY instead of
+    silently starting a new chain. Explicit caller-supplied paths retain
+    ordinary existence semantics.
     """
     use_default = path is None
     if path is None:
@@ -273,7 +305,6 @@ def checkpoint_exists(path: str | None = None) -> bool:
 
     if (
         use_default
-        and os.path.basename(path) == 'aegis_checkpoint_v2.json'
         and not os.path.exists(path)
         and os.path.exists(LEGACY_CHECKPOINT_PATH)
     ):
