@@ -43,14 +43,24 @@
   },
   "managed_workflows": [
     "aegis-interface.yml",
+    "apple-oss-watch.yml",
     "body-head-binding.yml",
     "branch-cleanup.yml",
     "claims-ledger.yml",
     "coordinator-authority.yml",
     "frozen-files.yml",
+    "hadolint.yml",
+    "integration-ledger.yml",
     "kernel-one.yml",
+    "mcp-resources.yml",
     "mhp1-morphism-engine.yml",
+    "mhp1-transitive-composition.yml",
+    "repository-enforcement.yml",
+    "scale-os-controls.yml",
     "sota-ci-supply-chain.yml",
-    "sota-foundation.yml"
+    "sota-foundation.yml",
+    "sovereignty-contracts.yml",
+    "summary.yml",
+    "verifiable-proofs.yml"
   ]
 }
