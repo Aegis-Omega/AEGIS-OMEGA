@@ -1,0 +1,76 @@
+name: Validate Signed Zero-Vulnerability Candidate
+
+on:
+  push:
+    branches:
+      - validation/signed-zero-vuln-bfefa-v1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: aegis / signed-zero-vuln exact-head validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact signed candidate
+        uses: actions/checkout@v4
+        with:
+          ref: bfefa9a9b5f9714f5c711596a8763e00724844f0
+          fetch-depth: 0
+
+      - name: Assert exact candidate SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "bfefa9a9b5f9714f5c711596a8763e00724844f0"
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+
+      - name: Install exact lockfile
+        working-directory: sovereign-omega-v2
+        run: npm ci
+
+      - name: Assert zero npm vulnerabilities
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm audit --json > /tmp/audit.json || true
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const audit = JSON.parse(fs.readFileSync('/tmp/audit.json', 'utf8'));
+          const v = audit.metadata?.vulnerabilities ?? {};
+          console.log(JSON.stringify(v));
+          if ((v.total ?? -1) !== 0) {
+            console.error('Expected zero vulnerabilities, got', v);
+            process.exit(1);
+          }
+          NODE
+
+      - name: Verify frozen hashes
+        working-directory: sovereign-omega-v2
+        run: npm run verify-hashes
+
+      - name: Run focused Mycorrhizal and structural-witness tests
+        working-directory: sovereign-omega-v2
+        run: npx vitest run test/unit/mycorrhizal-contracts.test.ts test/unit/mycorrhizal-state.test.ts test/unit/mycorrhizal-routing.test.ts test/unit/mycorrhizal-1bna.test.ts test/unit/mycorrhizal-structural-witness-registry.test.ts
+
+      - name: Run full test corpus
+        working-directory: sovereign-omega-v2
+        run: npm test
+
+      - name: TypeScript strict check
+        working-directory: sovereign-omega-v2
+        run: npm run typecheck
+
+      - name: Production build
+        working-directory: sovereign-omega-v2
+        run: npm run build
