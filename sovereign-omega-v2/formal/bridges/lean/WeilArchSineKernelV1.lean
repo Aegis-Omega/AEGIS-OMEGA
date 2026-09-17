@@ -10,8 +10,8 @@ Archimedean source and the rational Cauchy core already isolated in
 `WeilFiniteSourceCalculusV1`.
 
 It proves differentiation of the true parameter-dependent source integral with
-respect to the Galerkin coordinate.  The integer-node closed forms are the next
-bounded obligations.  No Cauchy--Stieltjes integration, PSD import, operator
+respect to the Galerkin coordinate. The integer-node closed forms are the next
+bounded obligations. No Cauchy--Stieltjes integration, PSD import, operator
 order, global Weil positivity, formula-to-Weil identity, or RH claim is made.
 -/
 
@@ -65,19 +65,22 @@ theorem weil_arch_sine_kernel_hasDerivAt_v1
     fun_prop
   · filter_upwards with y hy z hz
     dsimp [F', bound]
-    simp only [Set.mem_univ] at hz
-    simp only [Real.norm_eq_abs, abs_mul]
-    have h₁ : |Real.cos (2 * Real.pi * z * (1 - y / L))| ≤ 1 :=
-      abs_cos_le_one _
-    have h₂ : |Real.cos (T * y)| ≤ 1 := abs_cos_le_one _
-    have hnonneg : 0 ≤ |2 * Real.pi * (1 - y / L)| := abs_nonneg _
+    change
+      ‖(2 * Real.pi * (1 - y / L) *
+          Real.cos (2 * Real.pi * z * (1 - y / L))) * Real.cos (T * y)‖ ≤
+        ‖2 * Real.pi * (1 - y / L)‖
     calc
-      |2 * Real.pi * (1 - y / L)| *
-          |Real.cos (2 * Real.pi * z * (1 - y / L))| *
-          |Real.cos (T * y)|
-          ≤ |2 * Real.pi * (1 - y / L)| * 1 * 1 := by
-            gcongr
-      _ = |2 * Real.pi * (1 - y / L)| := by ring
+      ‖(2 * Real.pi * (1 - y / L) *
+          Real.cos (2 * Real.pi * z * (1 - y / L))) * Real.cos (T * y)‖ =
+          ‖2 * Real.pi * (1 - y / L)‖ *
+            ‖Real.cos (2 * Real.pi * z * (1 - y / L))‖ * ‖Real.cos (T * y)‖ := by
+              rw [norm_mul, norm_mul]
+      _ ≤ ‖2 * Real.pi * (1 - y / L)‖ * 1 * 1 := by
+        gcongr
+        · simpa [Real.norm_eq_abs] using Real.abs_cos_le_one
+            (2 * Real.pi * z * (1 - y / L))
+        · simpa [Real.norm_eq_abs] using Real.abs_cos_le_one (T * y)
+      _ = ‖2 * Real.pi * (1 - y / L)‖ := by ring
   · dsimp [bound]
     exact (by fun_prop : Continuous (fun y : ℝ =>
       |2 * Real.pi * (1 - y / L)|)).intervalIntegrable 0 L
@@ -86,8 +89,8 @@ theorem weil_arch_sine_kernel_hasDerivAt_v1
     have harg : HasDerivAt
         (fun w : ℝ => 2 * Real.pi * w * (1 - y / L))
         (2 * Real.pi * (1 - y / L)) z := by
-      convert (((hasDerivAt_id z).const_mul (2 * Real.pi)).mul_const
-        (1 - y / L)) using 1 <;> ring
+      simpa [mul_assoc] using
+        (((hasDerivAt_id z).const_mul (2 * Real.pi)).mul_const (1 - y / L))
     have hsin := (Real.hasDerivAt_sin
       (2 * Real.pi * z * (1 - y / L))).comp z harg
     simpa [mul_assoc, mul_comm, mul_left_comm] using
