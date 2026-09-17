@@ -1,0 +1,52 @@
+name: CSTAR v0.6 Dev Coq Verification
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'verification/cstar-v06-dev/**'
+      - '.github/workflows/cstar-v06-dev.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-cstar-v06-dev:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Hash candidate theorem sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256sum verification/cstar-v06-dev/CStarAbelianGroupCohomology.v
+          sha256sum verification/cstar-v06-dev/CStarZ2AbelianPostnikov.v
+
+      - name: Compile Coq 8.20.1 + AAC tactics 8.20.0 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$PWD/verification/cstar-v06-dev"
+          mkdir -p "$ROOT/artifacts"
+          docker pull coqorg/coq:8.20.1
+          set +e
+          docker run --rm \
+            -v "$ROOT:/work:ro" \
+            coqorg/coq:8.20.1 \
+            bash -lc 'set -euo pipefail; opam install -y coq-aac-tactics.8.20.0 >/tmp/aac-install.log 2>&1; mkdir -p /tmp/cstar-v06; cp /work/CStarAbelianGroupCohomology.v /work/CStarZ2AbelianPostnikov.v /tmp/cstar-v06/; cd /tmp/cstar-v06; coqc CStarAbelianGroupCohomology.v; coqc CStarZ2AbelianPostnikov.v; coqc --version' \
+            >"$ROOT/artifacts/coq_compile.log" 2>&1
+          status=$?
+          set -e
+          cat "$ROOT/artifacts/coq_compile.log"
+          exit "$status"
+
+      - name: Upload development compiler evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cstar-v06-dev-${{ github.event.pull_request.head.sha }}
+          path: verification/cstar-v06-dev/artifacts/
+          if-no-files-found: warn
+          retention-days: 7
