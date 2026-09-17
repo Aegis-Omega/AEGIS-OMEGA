@@ -35,7 +35,7 @@ jobs:
               actual=subprocess.check_output(['git','hash-object',rel],text=True).strip()
               if actual != expected:
                   raise SystemExit(f'FAIL_GIT_BLOB {rel} expected={expected} actual={actual}')
-          if scope['source_head_sha'] != '047482422a665ffc221d3356fa1361ad1793d080':
+          if scope['source_head_sha'] != '3c857cff355cfcce59d4e3e3cc8d2ade9cd0fe5a':
               raise SystemExit('FAIL_SOURCE_HEAD_BINDING')
           if scope['authority_effect'] != 'NONE':
               raise SystemExit('FAIL_AUTHORITY_EFFECT')

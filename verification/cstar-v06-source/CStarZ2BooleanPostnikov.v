@@ -71,5 +71,5 @@ Proof.
   simpl in Hcob.
   rewrite (Hleft true) in Hcob.
   rewrite (Hright true) in Hcob.
-  discriminate.
+  destruct (b true true); discriminate.
 Qed.
