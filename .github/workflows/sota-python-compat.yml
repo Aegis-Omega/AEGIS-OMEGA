@@ -1,0 +1,121 @@
+name: SOTA Python Compatibility
+
+on:
+  push:
+    branches:
+      - refactor/sota-foundation-v1
+    paths:
+      - 'agents/**'
+      - 'packages/aegis-interface/**'
+      - 'packages/aegis-py/**'
+      - 'sovereign-omega-v2/python/**'
+      - 'sovereign-omega-v2/requirements.txt'
+      - '.github/workflows/sota-python-compat.yml'
+      - '.github/sota-action-pins.json'
+  pull_request:
+    paths:
+      - 'agents/**'
+      - 'packages/aegis-interface/**'
+      - 'packages/aegis-py/**'
+      - 'sovereign-omega-v2/python/**'
+      - 'sovereign-omega-v2/requirements.txt'
+      - '.github/workflows/sota-python-compat.yml'
+      - '.github/sota-action-pins.json'
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: python / ${{ matrix.boundary }} / ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.12', '3.14']
+        boundary:
+          - agents
+          - aegis-interface
+          - aegis-py
+          - sovereign-python
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: ${{ matrix.python }}
+          check-latest: false
+
+      - name: Assert selected runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          import sys
+          expected = tuple(int(part) for part in os.environ["EXPECTED_PYTHON"].split("."))
+          if sys.version_info[:2] != expected:
+              raise SystemExit(f"python mismatch: expected={expected} actual={sys.version_info[:2]}")
+          print(sys.version)
+          PY
+        env:
+          EXPECTED_PYTHON: ${{ matrix.python }}
+
+      - name: Install test harness
+        run: python -m pip install --disable-pip-version-check 'pytest==8.4.1'
+
+      - name: Install agents boundary
+        if: ${{ matrix.boundary == 'agents' }}
+        run: python -m pip install --disable-pip-version-check -r agents/requirements.txt
+
+      - name: Install aegis-interface boundary
+        if: ${{ matrix.boundary == 'aegis-interface' }}
+        run: python -m pip install --disable-pip-version-check -e packages/aegis-interface
+
+      - name: Install aegis-py boundary
+        if: ${{ matrix.boundary == 'aegis-py' }}
+        run: python -m pip install --disable-pip-version-check -e 'packages/aegis-py[dev]'
+
+      - name: Install sovereign Python boundary
+        if: ${{ matrix.boundary == 'sovereign-python' }}
+        run: |
+          python -m pip install --disable-pip-version-check -r sovereign-omega-v2/requirements.txt
+          python -m pip install --disable-pip-version-check -r sovereign-omega-v2/python/requirements.txt
+
+      - name: Compile agents boundary
+        if: ${{ matrix.boundary == 'agents' }}
+        run: python -m compileall -q agents
+
+      - name: Compile aegis-interface boundary
+        if: ${{ matrix.boundary == 'aegis-interface' }}
+        run: python -m compileall -q packages/aegis-interface/aegis_interface
+
+      - name: Compile aegis-py boundary
+        if: ${{ matrix.boundary == 'aegis-py' }}
+        run: python -m compileall -q packages/aegis-py/aegis
+
+      - name: Compile sovereign Python boundary
+        if: ${{ matrix.boundary == 'sovereign-python' }}
+        run: python -m compileall -q sovereign-omega-v2/python
+
+      - name: Test agents boundary
+        if: ${{ matrix.boundary == 'agents' }}
+        run: python -m pytest -q agents/tests
+
+      - name: Test aegis-interface boundary
+        if: ${{ matrix.boundary == 'aegis-interface' }}
+        run: python -m pytest -q packages/aegis-interface/tests
+
+      - name: Test aegis-py boundary
+        if: ${{ matrix.boundary == 'aegis-py' }}
+        run: python -m pytest -q packages/aegis-py/tests
+
+      - name: Test sovereign Python boundary
+        if: ${{ matrix.boundary == 'sovereign-python' }}
+        run: python -m pytest -q sovereign-omega-v2/python/tests
