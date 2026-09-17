@@ -95,6 +95,9 @@ jobs:
           #print axioms weil_prime_atom_entry_matches_evaluator_v1
           #print axioms weil_cauchy_divided_difference_rank_two_v1
           #print axioms weil_cauchy_diagonal_rank_two_v1
+          #print axioms weil_cauchy_finite_quadratic_sum_squares_v1
+          #print axioms weil_cauchy_finite_quadratic_nonnegative_v1
+          #print axioms weil_cauchy_rank_two_quadratic_nonnegative_v1
           #print axioms weil_arch_sine_kernel_hasDerivAt_v1
           #print axioms weil_arch_sine_kernel_integer_v1
           #print axioms weil_arch_sine_kernel_dx_integer_v1
