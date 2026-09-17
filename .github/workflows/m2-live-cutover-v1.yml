@@ -28,3 +28,5 @@ jobs:
           python-version: '3.11'
       - name: Run live M2 acceptance
         run: python sovereign-omega-v2/python/tests/test_m2_live_cutover_v1.py
+      - name: Run live/reference slot regression
+        run: python sovereign-omega-v2/python/tests/test_m2_slot_contract_v1.py
