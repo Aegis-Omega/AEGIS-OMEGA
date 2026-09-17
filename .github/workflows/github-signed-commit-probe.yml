@@ -1,0 +1,66 @@
+name: GitHub Signed Commit Probe
+
+on:
+  push:
+    branches:
+      - hardening/mycorrhizal-structural-witness-v1
+    paths:
+      - .github/workflows/github-signed-commit-probe.yml
+
+permissions:
+  contents: write
+
+jobs:
+  signed-commit-probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub-signed probe commit via GraphQL
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH: probe/github-signed-commit-v1
+          EXPECTED_HEAD: 55e9e0a68067a892f3e0194d277f56595e22611c
+        run: |
+          node <<'NODE'
+          const token = process.env.GH_TOKEN;
+          const query = `mutation($input: CreateCommitOnBranchInput!) {
+            createCommitOnBranch(input: $input) {
+              commit { oid url }
+            }
+          }`;
+          const contents = Buffer.from(
+            'AEGIS_GITHUB_SIGNED_COMMIT_PROBE_V1\nsource_head=55e9e0a68067a892f3e0194d277f56595e22611c\nauthority_effect=NONE\n',
+            'utf8'
+          ).toString('base64');
+          const variables = {
+            input: {
+              branch: {
+                repositoryNameWithOwner: 'Aegis-Omega/AEGIS-OMEGA',
+                branchName: process.env.TARGET_BRANCH,
+              },
+              expectedHeadOid: process.env.EXPECTED_HEAD,
+              message: { headline: 'chore: verify GitHub-signed commit path' },
+              fileChanges: {
+                additions: [{
+                  path: '.github/evidence/SIGNED_COMMIT_PROBE_V1.txt',
+                  contents,
+                }],
+              },
+            },
+          };
+          const response = await fetch('https://api.github.com/graphql', {
+            method: 'POST',
+            headers: {
+              'authorization': `bearer ${token}`,
+              'content-type': 'application/json',
+              'user-agent': 'aegis-signed-commit-probe-v1',
+            },
+            body: JSON.stringify({ query, variables }),
+          });
+          const body = await response.json();
+          if (!response.ok || body.errors) {
+            console.error(JSON.stringify(body));
+            process.exit(1);
+          }
+          console.log(`SIGNED_PROBE_COMMIT=${body.data.createCommitOnBranch.commit.oid}`);
+          console.log(`SIGNED_PROBE_URL=${body.data.createCommitOnBranch.commit.url}`);
+          NODE
