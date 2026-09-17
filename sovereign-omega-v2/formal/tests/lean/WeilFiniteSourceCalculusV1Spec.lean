@@ -44,6 +44,7 @@ repository admission, merge, and authority effects remain outside this slice.
 #check WeilCauchyDiagonalV1
 #check weil_cauchy_divided_difference_rank_two_v1
 #check weil_cauchy_diagonal_rank_two_v1
+#check weil_cauchy_rank_two_quadratic_nonnegative_v1
 #check WeilArchSineKernelV1
 #check WeilArchSineKernelDxV1
 #check weil_arch_sine_kernel_hasDerivAt_v1
