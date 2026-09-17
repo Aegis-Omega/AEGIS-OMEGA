@@ -81,7 +81,9 @@ jobs:
             for theorem in \
               concrete_index_semantics_v1 \
               concrete_von_mangoldt_one_zero_v1 \
-              concrete_von_mangoldt_semantics_v1
+              concrete_von_mangoldt_semantics_v1 \
+              concrete_prime_term_semantics_v1 \
+              concrete_pole_term_semantics_v1
             do
               query="$OUT/${theorem}.v"
               log="$OUT/${theorem}.assumptions.txt"
@@ -104,6 +106,8 @@ jobs:
             receipt_kind=AEGIS_CONCRETE_FINITE_GUINAND_WEIL_SEMANTICS_STAGE1_V1
             concrete_index_semantics_v1=CLOSED
             concrete_von_mangoldt_semantics_v1=CLOSED
+            concrete_prime_term_semantics_v1=CLOSED
+            concrete_pole_term_semantics_v1=CLOSED
             aggregate_target=OPEN
             matrix_entries_binding=NOT_YET_CLAIMED
             quadratic_form_matrix_binding=NOT_YET_CLAIMED
