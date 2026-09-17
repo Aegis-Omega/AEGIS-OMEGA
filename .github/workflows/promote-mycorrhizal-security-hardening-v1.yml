@@ -17,11 +17,11 @@ jobs:
     timeout-minutes: 10
     env:
       TARGET_BRANCH: hardening/mycorrhizal-structural-witness-security-v1
-      EXPECTED_TARGET_HEAD: 1266985587836f0bdf9f17e15a8873008df90151
+      EXPECTED_TARGET_HEAD: 7d9eda95862c04b532a4e09868feee7912304c12
       ARTIFACT_ID: '10481952340'
       ARTIFACT_SHA256: e3d0d338a09c7875674c517f98a83dde10147b7c09e1cce18cf31ea534cd87be
     steps:
-      - name: Checkout signed-workflow source
+      - name: Checkout promotion source
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
@@ -46,17 +46,15 @@ jobs:
           test -s candidate/package-lock.json
           test -s candidate/audit-fresh-lock.json
 
-      - name: Validate candidate and build final Gate-8 workflow binding
+      - name: Validate zero-vulnerability candidate
         run: |
           set -euo pipefail
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
-
           const audit = JSON.parse(fs.readFileSync('candidate/audit-fresh-lock.json', 'utf8'));
           if ((audit.metadata?.vulnerabilities?.total ?? -1) !== 0) {
             throw new Error('candidate audit is not zero');
           }
-
           const pkg = JSON.parse(fs.readFileSync('candidate/package.json', 'utf8'));
           const expected = {
             ajv: '^8.20.0',
@@ -69,55 +67,9 @@ jobs:
               throw new Error(`unexpected ${name} version: ${pkg.devDependencies?.[name]}`);
             }
           }
-
-          let gate = fs.readFileSync('.github/workflows/mycorrhizal-1bna-sync.yml', 'utf8');
-          const branchNeedle = "      - feat/mycorrhizal-structural-witness-registry-v1\n";
-          if (!gate.includes(branchNeedle)) throw new Error('Gate-8 branch anchor missing');
-          gate = gate.replace(
-            branchNeedle,
-            branchNeedle + "      - hardening/mycorrhizal-structural-witness-security-v1\n",
-          );
-
-          const pushNeedle = "      - '.github/workflows/mycorrhizal-1bna-sync.yml'\n  pull_request:\n";
-          if (!gate.includes(pushNeedle)) throw new Error('Gate-8 push path anchor missing');
-          gate = gate.replace(
-            pushNeedle,
-            "      - '.github/workflows/mycorrhizal-1bna-sync.yml'\n" +
-            "      - 'sovereign-omega-v2/package.json'\n" +
-            "      - 'sovereign-omega-v2/package-lock.json'\n" +
-            "      - '.github/workflows/cognitive-manifest-refresh.yml'\n" +
-            "      - '.claude.json'\n" +
-            "      - 'skill-hashes.sha256'\n" +
-            "  pull_request:\n",
-          );
-
-          const prNeedle = "      - '.github/workflows/mycorrhizal-1bna-sync.yml'\n  workflow_dispatch:\n";
-          if (!gate.includes(prNeedle)) throw new Error('Gate-8 PR path anchor missing');
-          gate = gate.replace(
-            prNeedle,
-            "      - '.github/workflows/mycorrhizal-1bna-sync.yml'\n" +
-            "      - 'sovereign-omega-v2/package.json'\n" +
-            "      - 'sovereign-omega-v2/package-lock.json'\n" +
-            "      - '.github/workflows/cognitive-manifest-refresh.yml'\n" +
-            "      - '.claude.json'\n" +
-            "      - 'skill-hashes.sha256'\n" +
-            "  workflow_dispatch:\n",
-          );
-
-          const auditNeedle = "      - name: Verify frozen hashes\n";
-          if (!gate.includes(auditNeedle)) throw new Error('Gate-8 audit insertion anchor missing');
-          gate = gate.replace(
-            auditNeedle,
-            "      - name: Verify npm audit is clean\n" +
-            "        working-directory: sovereign-omega-v2\n" +
-            "        run: npm audit --audit-level=low\n\n" +
-            auditNeedle,
-          );
-
-          fs.writeFileSync('candidate/mycorrhizal-1bna-sync.yml', gate);
           NODE
 
-      - name: Create one GitHub-signed hardening commit on clean child branch
+      - name: Create GitHub-signed dependency hardening commit
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -128,13 +80,12 @@ jobs:
           const token = process.env.GH_TOKEN;
           const branch = process.env.TARGET_BRANCH;
           const expectedTargetHead = process.env.EXPECTED_TARGET_HEAD;
-
           const refResponse = await fetch(
             `https://api.github.com/repos/Aegis-Omega/AEGIS-OMEGA/branches/${branch}`,
             { headers: {
               authorization: `bearer ${token}`,
               accept: 'application/vnd.github+json',
-              'user-agent': 'aegis-security-hardening-promoter-v1',
+              'user-agent': 'aegis-security-hardening-promoter-v2',
             } },
           );
           const refBody = await refResponse.json();
@@ -146,13 +97,10 @@ jobs:
             throw new Error(`STALE_TARGET expected=${expectedTargetHead} live=${refBody.commit.sha}`);
           }
 
-          const sources = [
-            ['.github/workflows/cognitive-manifest-refresh.yml', '.github/workflows/cognitive-manifest-refresh.yml'],
-            ['candidate/mycorrhizal-1bna-sync.yml', '.github/workflows/mycorrhizal-1bna-sync.yml'],
+          const additions = [
             ['candidate/package.json', 'sovereign-omega-v2/package.json'],
             ['candidate/package-lock.json', 'sovereign-omega-v2/package-lock.json'],
-          ];
-          const additions = sources.map(([source, path]) => ({
+          ].map(([source, path]) => ({
             path,
             contents: fs.readFileSync(source).toString('base64'),
           }));
@@ -167,7 +115,7 @@ jobs:
                 branchName: branch,
               },
               expectedHeadOid: expectedTargetHead,
-              message: { headline: 'fix(security): signed manifest refresh and zero-vulnerability lock' },
+              message: { headline: 'fix(security): zero-vulnerability dependency lock' },
               fileChanges: { additions },
             },
           };
@@ -176,7 +124,7 @@ jobs:
             headers: {
               authorization: `bearer ${token}`,
               'content-type': 'application/json',
-              'user-agent': 'aegis-security-hardening-promoter-v1',
+              'user-agent': 'aegis-security-hardening-promoter-v2',
             },
             body: JSON.stringify({ query, variables }),
           });
