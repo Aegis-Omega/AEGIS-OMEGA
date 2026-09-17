@@ -1,0 +1,53 @@
+name: NPM Security Resolution Map Probe
+
+on:
+  push:
+    branches:
+      - hardening/mycorrhizal-structural-witness-v1
+    paths:
+      - .github/workflows/npm-resolution-map-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  resolution-map:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install baseline
+        working-directory: sovereign-omega-v2
+        run: npm ci
+      - name: Print vulnerable dependency paths
+        working-directory: sovereign-omega-v2
+        run: |
+          for p in baseline-browser-mapping brace-expansion browserslist fast-uri js-yaml postcss-selector-parser undici; do
+            echo "===== EXPLAIN:$p ====="
+            npm explain "$p" || true
+          done
+      - name: Test atomic Vitest peer upgrade
+        working-directory: sovereign-omega-v2
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const p = JSON.parse(fs.readFileSync('package.json','utf8'));
+          p.devDependencies.vitest = '^4.1.11';
+          p.devDependencies['@vitest/coverage-v8'] = '^4.1.11';
+          fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
+          NODE
+          npm install --package-lock-only --ignore-scripts
+          npm audit --json > audit-vitest-pair.json || true
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const a = JSON.parse(fs.readFileSync('audit-vitest-pair.json','utf8'));
+          console.log('VITEST_PAIR_AUDIT=' + JSON.stringify(a.metadata?.vulnerabilities ?? {}));
+          console.log('VITEST_PAIR_RESIDUAL=' + JSON.stringify(Object.fromEntries(Object.entries(a.vulnerabilities ?? {}).map(([k,v]) => [k,{severity:v.severity,isDirect:v.isDirect,range:v.range,fixAvailable:v.fixAvailable}]))));
+          NODE
