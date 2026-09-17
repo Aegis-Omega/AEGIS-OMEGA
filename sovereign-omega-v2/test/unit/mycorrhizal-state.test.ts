@@ -60,4 +60,16 @@ describe('Mycorrhizal collective state', () => {
     const b = await createMcmNodeObservation({ ...input('1', 7, 8500), sensoriumObservationDigest: d('9') })
     await expect(reduceMycorrhizalCollectiveState([a, b])).rejects.toThrow()
   })
+
+  it('rejects metric tampering that preserves the old observation digest', async () => {
+    const valid = await observation('1', 1, 9000)
+    const tampered = Object.freeze({ ...valid, calibrationBps: 8999 })
+    await expect(reduceMycorrhizalCollectiveState([tampered])).rejects.toThrow(/digest/i)
+  })
+
+  it('rejects a substituted valid-looking observation digest', async () => {
+    const valid = await observation('1', 1, 9000)
+    const tampered = Object.freeze({ ...valid, observationDigest: d('f') })
+    await expect(reduceMycorrhizalCollectiveState([tampered])).rejects.toThrow(/digest/i)
+  })
 })
