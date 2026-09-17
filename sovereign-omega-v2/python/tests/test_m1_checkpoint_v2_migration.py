@@ -158,12 +158,14 @@ def test_versioned_default_namespace_detects_legacy_checkpoint():
                 legacy_detected = True
             _check('legacy-only default state fails closed', legacy_detected)
 
-            pathlib.Path(v2_path).write_text('{}')
+            matrix = Matrix(region_bytes=400, sequence=1, epoch=0, era=0)
+            matrix._m1_region[0:40] = (0).to_bytes(8, 'little') + b'\x33' * 32
+            ledger.save_checkpoint(matrix, v2_path)
             try:
                 v2_exists = ledger.checkpoint_exists()
             except ledger.CheckpointError:
                 v2_exists = False
-            _check('v2 checkpoint takes precedence when present', v2_exists)
+            _check('valid v2 checkpoint takes precedence when present', v2_exists)
         finally:
             ledger.DEFAULT_CHECKPOINT_PATH = original_default
             ledger.LEGACY_CHECKPOINT_PATH = original_legacy
