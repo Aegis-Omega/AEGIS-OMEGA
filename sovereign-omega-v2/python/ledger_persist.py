@@ -3,17 +3,19 @@ SOVEREIGN OMEGA — Ledger Persistence
 EPISTEMIC TIER: T1
 Gate 170: Crash-safe checkpoint for CoreMatrix state.
 
-Persistence strategy: the full 4GB CoreMatrix array need not be saved.
-M1 is a hash-chain log — only the most recent 40-byte entry (sequence
-counter + chain hash) is required to resume the chain correctly after
-restart. M2/M3 regions are calibration state that re-warms within one
-epoch (100 events).
+Persistence strategy: the full CoreMatrix array need not be saved for M1
+forward continuation. M1 uses fixed 40-byte circular slots containing the
+sequence counter plus SHA-256(payload). The most recent slot is sufficient to
+reproduce the next M1 returned digest because that digest depends on the
+previous slot's stored payload hash and the next payload hash.
+
+This is narrower than historical event replay or a recursively persisted hash
+chain. The v1 checkpoint schema retains `is_replay_reconstructable` for
+compatibility; this module does not widen that legacy field into a stronger
+claim.
 
 Checkpoint is written atomically: temp file → fsync → rename. A torn
 write therefore leaves the previous checkpoint intact.
-
-is_replay_reconstructable: True — sequence is deterministic, chain hash
-resumes the hash chain from the exact commit boundary.
 """
 
 import hashlib
@@ -27,8 +29,12 @@ DEFAULT_CHECKPOINT_PATH = os.environ.get(
     os.path.join(os.path.dirname(__file__), 'aegis_checkpoint.json'),
 )
 
-# M1 layout constants (mirror core_matrix.py — not imported to avoid circular deps)
-_M1_ENTRY_BYTES = 40   # 8 seq (little-endian) + 32 chain_hash
+# M1 layout constants. Runtime addressing derives from len(matrix._m1_region)
+# so reduced-memory deployments use the same slot geometry as core_matrix.py.
+_M1_ENTRY_BYTES = 40   # 8 seq (little-endian) + 32 SHA-256(payload)
+
+# Legacy/default-profile constants retained for compatibility with existing
+# diagnostics and tests. Persistence addressing no longer uses _M1_SIZE.
 _M1_REGION_FRACTION = 0.50
 _ARRAY_TOTAL_BYTES = 4 * 1024 ** 3
 _M1_SIZE = int(_ARRAY_TOTAL_BYTES * _M1_REGION_FRACTION)
@@ -38,14 +44,31 @@ class CheckpointError(Exception):
     pass
 
 
+def _m1_write_head(matrix, sequence: int) -> int:
+    """Return the fixed-slot byte offset for sequence in this runtime M1 region."""
+    region_len = len(matrix._m1_region)
+    slot_count = region_len // _M1_ENTRY_BYTES
+    if slot_count <= 0:
+        raise CheckpointError(
+            f'M1 region must contain at least one {_M1_ENTRY_BYTES}-byte slot, '
+            f'got {region_len} bytes'
+        )
+    return _M1_ENTRY_BYTES * (sequence % slot_count)
+
+
 def _last_m1_entry(matrix) -> bytes:
-    """Extract the 40-byte M1 entry for the most recent sequence."""
+    """Extract the most recent 40-byte M1 fixed slot."""
     seq = matrix._sequence
     if seq == 0:
         return b'\x00' * _M1_ENTRY_BYTES
-    prev_seq = seq - 1
-    write_head = (prev_seq * _M1_ENTRY_BYTES) % _M1_SIZE
-    return bytes(matrix._m1_region[write_head: write_head + _M1_ENTRY_BYTES])
+
+    write_head = _m1_write_head(matrix, seq - 1)
+    entry = bytes(matrix._m1_region[write_head: write_head + _M1_ENTRY_BYTES])
+    if len(entry) != _M1_ENTRY_BYTES:
+        raise CheckpointError(
+            f'M1 entry must be {_M1_ENTRY_BYTES} bytes, got {len(entry)}'
+        )
+    return entry
 
 
 def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
@@ -72,6 +95,8 @@ def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
         'era': era,
         'last_m1_entry_hex': entry_hex,
         'integrity_hash': integrity_hash,
+        # Legacy v1 schema field. Kept byte-for-byte for compatibility; see
+        # module header for the narrower continuation guarantee implemented here.
         'is_replay_reconstructable': True,
     }
 
@@ -101,8 +126,8 @@ def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
 
 def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
     """
-    Restore CoreMatrix counters and last M1 entry from a checkpoint file.
-    Verifies integrity hash before applying any state.
+    Restore CoreMatrix counters and the most recent M1 fixed slot.
+    Verifies integrity hash and target slot geometry before applying any state.
     Raises CheckpointError on validation failure — matrix is left untouched.
     Returns restored metadata.
     """
@@ -131,7 +156,7 @@ def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
     ).hexdigest()
     if expected != cp.get('integrity_hash'):
         raise CheckpointError(
-            f'Integrity violation: checkpoint may be tampered'
+            'Integrity violation: checkpoint may be tampered'
         )
 
     entry_bytes = bytes.fromhex(entry_hex)
@@ -141,12 +166,15 @@ def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
             f'got {len(entry_bytes)}'
         )
 
-    # Restore: write last M1 entry back to correct position, set counters
+    # Validate runtime geometry before mutating the target matrix. This keeps
+    # load fail-closed if the active M1 region cannot hold a complete slot.
+    write_head = _m1_write_head(matrix, sequence - 1) if sequence > 0 else None
+
     with matrix._lock:
-        if sequence > 0:
-            prev_seq = sequence - 1
-            write_head = (prev_seq * _M1_ENTRY_BYTES) % _M1_SIZE
-            matrix._m1_region[write_head: write_head + _M1_ENTRY_BYTES] = entry_bytes
+        if write_head is not None:
+            matrix._m1_region[
+                write_head: write_head + _M1_ENTRY_BYTES
+            ] = entry_bytes
         matrix._sequence = sequence
         matrix._epoch = epoch
         matrix._era = era
