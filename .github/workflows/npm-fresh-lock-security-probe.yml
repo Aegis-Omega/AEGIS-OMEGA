@@ -1,0 +1,95 @@
+name: NPM Fresh Lock Security Probe
+
+on:
+  push:
+    branches:
+      - hardening/mycorrhizal-structural-witness-v1
+    paths:
+      - .github/workflows/npm-fresh-lock-security-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  fresh-lock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Rewrite direct vulnerable ranges
+        working-directory: sovereign-omega-v2
+        run: |
+          rm package-lock.json
+          test ! -d node_modules
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const p = JSON.parse(fs.readFileSync('package.json','utf8'));
+          p.dependencies.ajv = '^8.20.0';
+          p.devDependencies.postcss = '^8.5.28';
+          p.devDependencies.vitest = '^4.1.11';
+          p.devDependencies['@vitest/coverage-v8'] = '^4.1.11';
+          fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
+          NODE
+
+      - name: Generate a fresh lockfile with npm 11
+        working-directory: sovereign-omega-v2
+        run: npx --yes npm@11.19.1 install --package-lock-only --ignore-scripts
+
+      - name: Audit fresh dependency graph
+        working-directory: sovereign-omega-v2
+        run: |
+          npx --yes npm@11.19.1 audit --json > audit-fresh-lock.json || true
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const a = JSON.parse(fs.readFileSync('audit-fresh-lock.json','utf8'));
+          console.log('FRESH_LOCK_AUDIT=' + JSON.stringify(a.metadata?.vulnerabilities ?? {}));
+          console.log('FRESH_LOCK_RESIDUAL=' + JSON.stringify(Object.fromEntries(Object.entries(a.vulnerabilities ?? {}).map(([k,v]) => [k,{severity:v.severity,isDirect:v.isDirect,range:v.range,fixAvailable:v.fixAvailable}]))));
+          if ((a.metadata?.vulnerabilities?.total ?? 0) !== 0) process.exit(2);
+          NODE
+
+      - name: Show package and lock delta
+        run: git diff --stat -- sovereign-omega-v2/package.json sovereign-omega-v2/package-lock.json && git diff -- sovereign-omega-v2/package.json
+
+      - name: Compatibility install using repository npm 10.9.8
+        working-directory: sovereign-omega-v2
+        run: |
+          npm --version
+          test "$(npm --version)" = "10.9.8"
+          npm ci
+
+      - name: Verify frozen hashes
+        working-directory: sovereign-omega-v2
+        run: node scripts/verify-hashes.mjs
+
+      - name: Focused MCM tests
+        working-directory: sovereign-omega-v2
+        run: npx vitest run test/unit/mycorrhizal-contracts.test.ts test/unit/mycorrhizal-state.test.ts test/unit/mycorrhizal-routing.test.ts test/unit/mycorrhizal-1bna.test.ts test/unit/mycorrhizal-structural-witness-registry.test.ts
+
+      - name: Full tests
+        working-directory: sovereign-omega-v2
+        run: npm run test
+
+      - name: TypeScript strict check
+        working-directory: sovereign-omega-v2
+        run: npm run typecheck
+
+      - name: Production build
+        working-directory: sovereign-omega-v2
+        run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-fresh-lock-zero-vulnerability-candidate
+          path: |
+            sovereign-omega-v2/package.json
+            sovereign-omega-v2/package-lock.json
+            sovereign-omega-v2/audit-fresh-lock.json
