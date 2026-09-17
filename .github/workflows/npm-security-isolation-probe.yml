@@ -1,0 +1,87 @@
+name: NPM Security Isolation Probe
+
+on:
+  push:
+    branches:
+      - hardening/mycorrhizal-structural-witness-v1
+    paths:
+      - .github/workflows/npm-security-isolation-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  isolate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: ajv
+            spec: ajv@8.20.0
+            dev: false
+          - id: vitest
+            spec: vitest@4.1.11
+            dev: true
+          - id: coverage
+            spec: '@vitest/coverage-v8@4.1.11'
+            dev: true
+          - id: postcss
+            spec: postcss@8.5.28
+            dev: true
+          - id: jsdom
+            spec: jsdom@29.1.1
+            dev: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+      - name: Install baseline
+        working-directory: sovereign-omega-v2
+        run: npm ci
+      - name: Apply one upgrade
+        working-directory: sovereign-omega-v2
+        env:
+          SPEC: ${{ matrix.spec }}
+          DEV: ${{ matrix.dev }}
+        run: |
+          set -euo pipefail
+          if [[ "$DEV" == "true" ]]; then
+            npm install --package-lock-only --ignore-scripts --save-dev "$SPEC"
+          else
+            npm install --package-lock-only --ignore-scripts "$SPEC"
+          fi
+      - name: Audit candidate
+        working-directory: sovereign-omega-v2
+        run: |
+          npm audit --json > "audit-${{ matrix.id }}.json" || true
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const a = JSON.parse(fs.readFileSync('audit-${{ matrix.id }}.json','utf8'));
+          console.log('CANDIDATE=${{ matrix.id }}');
+          console.log('AUDIT=' + JSON.stringify(a.metadata?.vulnerabilities ?? {}));
+          console.log('RESIDUAL=' + JSON.stringify(Object.fromEntries(Object.entries(a.vulnerabilities ?? {}).map(([k,v]) => [k,{severity:v.severity,isDirect:v.isDirect,range:v.range,fixAvailable:v.fixAvailable}]))));
+          NODE
+      - name: Reinstall candidate
+        working-directory: sovereign-omega-v2
+        run: npm ci
+      - name: Focused smoke
+        working-directory: sovereign-omega-v2
+        run: npx vitest run test/unit/mycorrhizal-contracts.test.ts test/unit/mycorrhizal-state.test.ts test/unit/mycorrhizal-routing.test.ts test/unit/mycorrhizal-1bna.test.ts test/unit/mycorrhizal-structural-witness-registry.test.ts
+      - name: Typecheck
+        working-directory: sovereign-omega-v2
+        run: npm run typecheck
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-security-isolation-${{ matrix.id }}
+          path: |
+            sovereign-omega-v2/package.json
+            sovereign-omega-v2/package-lock.json
+            sovereign-omega-v2/audit-${{ matrix.id }}.json
