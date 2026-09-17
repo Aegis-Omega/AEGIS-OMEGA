@@ -32,8 +32,8 @@ with analytic multiplicity retained exactly. -/
 theorem weil_compact_smooth_contour_zero_residue_summable_v2
     (g : WeilCompactSmoothGV1) :
     Summable (WeilContourZeroResidueSummandV2 (mellin g.1)) := by
-  simpa [WeilContourZeroResidueSummandV2, WeilZeroIndexSummandV1] using
-    weil_compact_smooth_zero_summable_v1 g
+  change Summable (WeilZeroIndexSummandV1 g.1)
+  exact weil_compact_smooth_zero_summable_v1 g
 
 /-- Norm summability of the same multiplicity-safe residue series. -/
 theorem weil_compact_smooth_contour_zero_residue_norm_summable_v2
@@ -46,20 +46,17 @@ theorem weil_compact_smooth_contour_zero_residue_norm_summable_v2
 
 The horizontal terms are left abstract on purpose: a raw-zeta contour still
 requires explicit gamma/trivial-zero bookkeeping (or a switch to completed
-`ξ`).  The structure records the mathematically correct good-height topology
+`ξ`).  The obligation records the mathematically correct good-height topology
 and the multiplicity-safe zero-side requirement without pretending those
 remaining analytic ingredients are already proved. -/
-structure WeilGoodHeightContourShiftObligationV2
+def WeilGoodHeightContourShiftObligationV2
     (F : ℂ → ℂ)
-    (horizontalTop horizontalBottom : ℝ → ℂ) : Prop where
-  heights : ℕ → ℝ
-  heights_pos : ∀ n, 0 < heights n
-  heights_tendsto : Tendsto heights atTop atTop
-  horizontal_top_vanishes :
-    Tendsto (fun n => horizontalTop (heights n)) atTop (𝓝 0)
-  horizontal_bottom_vanishes :
-    Tendsto (fun n => horizontalBottom (heights n)) atTop (𝓝 0)
-  zero_side_summable :
+    (horizontalTop horizontalBottom : ℝ → ℂ) : Prop :=
+  ∃ heights : ℕ → ℝ,
+    (∀ n, 0 < heights n) ∧
+    Tendsto heights atTop atTop ∧
+    Tendsto (fun n => horizontalTop (heights n)) atTop (𝓝 0) ∧
+    Tendsto (fun n => horizontalBottom (heights n)) atTop (𝓝 0) ∧
     Summable (WeilContourZeroResidueSummandV2 F)
 
 #print axioms weil_compact_smooth_contour_zero_residue_summable_v2
