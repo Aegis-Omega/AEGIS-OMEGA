@@ -83,12 +83,14 @@ private theorem integral_cos_affine_v1
       (Real.sin (A * b + B) - Real.sin (A * a + B)) / A := by
   rw [sub_div]
   apply integral_eq_sub_of_hasDerivAt
-  · intro x _
-    have hlin : HasDerivAt (fun y : ℝ => A * y + B) A x := by
-      convert ((hasDerivAt_id x).const_mul A).add_const B using 1 <;> ring
-    have hsin := (Real.hasDerivAt_sin (A * x + B)).comp x hlin
-    convert hsin.div_const A using 1 <;> field_simp [hA]
-  · exact Continuous.intervalIntegrable (by fun_prop)
+  swap
+  · exact (Real.continuous_cos.comp
+      ((continuous_const.mul continuous_id).add continuous_const)).intervalIntegrable a b
+  intro x _
+  have hlin : HasDerivAt (fun y : ℝ => A * y + B) A x := by
+    simpa using ((hasDerivAt_id x).const_mul A).add_const B
+  have hsin := (Real.hasDerivAt_sin (A * x + B)).comp x hlin
+  simpa [hA] using hsin.div_const A
 
 /-- Off the diagonal, the real Volterra pair integral is exactly the source
 divided difference. -/
@@ -138,7 +140,6 @@ theorem weil_single_frequency_source_diagonal_v1
     WeilSingleFrequencyEntryV1 α ω m m =
       α * WeilChordPairV1 ω m m := by
   simp [WeilSingleFrequencyEntryV1, WeilChordPairV1]
-  ring
 
 private theorem weil_single_frequency_entry_eq_chord_pair_v1
     (α ω : ℝ) (m n : ℤ) :
@@ -158,7 +159,7 @@ theorem weil_single_frequency_source_calculus_v1
       α * WeilChordKernelV1 N u ω := by
   simp only [WeilSingleFrequencyQuadraticV1, WeilChordKernelV1]
   simp_rw [weil_single_frequency_entry_eq_chord_pair_v1]
-  simp [Finset.mul_sum, Finset.sum_mul, mul_assoc, mul_left_comm, mul_comm]
+  simp [Finset.mul_sum, mul_left_comm, mul_comm]
 
 #print axioms weil_single_frequency_source_offdiag_v1
 #print axioms weil_single_frequency_source_diagonal_v1
