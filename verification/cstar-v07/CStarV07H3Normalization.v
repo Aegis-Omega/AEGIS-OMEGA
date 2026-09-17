@@ -100,8 +100,8 @@ Proof.
     exact H.
   }
 
-  set (b : @C2_A_action G A :=
-    fun g h => add (a g h e) (opp (a e g h))).
+  set (b := (fun g h => add (a g h e) (opp (a e g h))) :
+    @C2_A_action G A).
   exists b.
 
   unfold normalized3_A_action.
