@@ -1,0 +1,30 @@
+name: Dispatch Mycorrhizal Security Gate V1
+
+on:
+  push:
+    branches:
+      - hardening/mycorrhizal-structural-witness-v1
+    paths:
+      - .github/workflows/dispatch-mycorrhizal-security-gate-v1.yml
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch Gate-8 on signed security target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REF: hardening/mycorrhizal-structural-witness-security-v1
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/Aegis-Omega/AEGIS-OMEGA/actions/workflows/mycorrhizal-1bna-sync.yml/dispatches \
+            -d "{\"ref\":\"${TARGET_REF}\"}"
+          echo "DISPATCHED_REF=${TARGET_REF}"
