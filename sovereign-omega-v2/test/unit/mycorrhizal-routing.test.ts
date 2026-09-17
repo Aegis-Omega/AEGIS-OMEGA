@@ -65,6 +65,23 @@ describe('MCM verification routing', () => {
     const a = await createMcmNodeObservation(input())
     const b = await createMcmNodeObservation(input({ nodeIdentityDigest: d('5'), observationSequence: 2 }))
     const state = await reduceMycorrhizalCollectiveState([a])
-    expect(() => deriveMcmVerificationRequests(state, [b])).toThrow()
+    await expect(Promise.resolve().then(() => deriveMcmVerificationRequests(state, [b]))).rejects.toThrow()
+  })
+
+  it('rejects a forged valid-looking collective state root', async () => {
+    const observation = await createMcmNodeObservation(input())
+    const state = await reduceMycorrhizalCollectiveState([observation])
+    const forged = Object.freeze({ ...state, stateRoot: d('f') })
+    await expect(Promise.resolve().then(() => deriveMcmVerificationRequests(forged, [observation]))).rejects.toThrow(/state root/i)
+  })
+
+  it('rejects collective metrics changed without rebinding the state root', async () => {
+    const observation = await createMcmNodeObservation(input())
+    const state = await reduceMycorrhizalCollectiveState([observation])
+    const forged = Object.freeze({
+      ...state,
+      collectiveCalibrationBps: state.collectiveCalibrationBps - 1,
+    })
+    await expect(Promise.resolve().then(() => deriveMcmVerificationRequests(forged, [observation]))).rejects.toThrow(/state root/i)
   })
 })
