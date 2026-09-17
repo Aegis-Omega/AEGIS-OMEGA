@@ -125,11 +125,13 @@ private theorem weil_autocorrelation_joint_tsupport_subset_v1
   have hy : g.1 p.2 ≠ 0 := by
     intro h
     apply hp
-    simp [WeilAutocorrelationJointV1, h]
+    change g.1 (p.1 * p.2) * conj (g.1 p.2) = 0
+    rw [h, map_zero, mul_zero]
   have hxy : g.1 (p.1 * p.2) ≠ 0 := by
     intro h
     apply hp
-    simp [WeilAutocorrelationJointV1, h]
+    change g.1 (p.1 * p.2) * conj (g.1 p.2) = 0
+    rw [h, zero_mul]
   have hyK : p.2 ∈ tsupport g.1 := subset_tsupport g.1 hy
   have hxyK : p.1 * p.2 ∈ tsupport g.1 := subset_tsupport g.1 hxy
   refine ⟨?_, hyK⟩
@@ -168,13 +170,20 @@ theorem weil_autocorrelation_mellin_one_factor_v1 (g : WeilCompactSmoothGV1) :
           (∫ x in Ioi (0 : ℝ), g.1 (x * y)) * conj (g.1 y) := by
             apply setIntegral_congr_fun measurableSet_Ioi
             intro y hy
+            change (∫ x in Ioi (0 : ℝ), g.1 (x * y) * conj (g.1 y)) =
+              (∫ x in Ioi (0 : ℝ), g.1 (x * y)) * conj (g.1 y)
             rw [integral_mul_const]
     _ = ∫ y in Ioi (0 : ℝ),
           (((y : ℂ)⁻¹ * mellin g.1 1) * conj (g.1 y)) := by
             apply setIntegral_congr_fun measurableSet_Ioi
             intro y hy
-            have hscale := mellin_comp_mul_right g.1 (1 : ℂ) hy
-            simp [mellin, Complex.cpow_neg_one] at hscale
+            have hscale :
+                (∫ x in Ioi (0 : ℝ), g.1 (x * y)) =
+                  (y : ℂ)⁻¹ * mellin g.1 1 := by
+              have h := mellin_comp_mul_right g.1 (1 : ℂ) hy
+              simpa [mellin, Complex.cpow_neg_one] using h
+            change (∫ x in Ioi (0 : ℝ), g.1 (x * y)) * conj (g.1 y) =
+              ((y : ℂ)⁻¹ * mellin g.1 1) * conj (g.1 y)
             rw [hscale]
     _ = mellin g.1 1 *
           (∫ y in Ioi (0 : ℝ), (y : ℂ)⁻¹ * conj (g.1 y)) := by
@@ -199,13 +208,14 @@ theorem weil_autocorrelation_mellin_zero_eq_conj_one_v1
   simp only [neg_zero] at hinv
   rw [← hinv]
   unfold mellin
-  simp only [zero_sub, one_sub, cpow_zero, one_smul]
   rw [← integral_conj]
   apply setIntegral_congr_fun measurableSet_Ioi
   intro x hx
+  simp only [zero_sub, sub_self, cpow_zero, one_smul,
+    Complex.cpow_neg_one, smul_eq_mul]
   rw [weil_autocorrelation_reciprocal_v1 g hx]
   have hxC : (x : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr (ne_of_gt hx)
-  simp [Complex.cpow_neg_one, hxC]
+  simp [hxC]
 
 /-- The `s = 0` endpoint is the conjugate orientation of the same cross term. -/
 theorem weil_autocorrelation_mellin_zero_factor_v1 (g : WeilCompactSmoothGV1) :
