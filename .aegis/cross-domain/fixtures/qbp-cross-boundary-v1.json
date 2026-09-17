@@ -30,6 +30,87 @@
       "head_sha": "72b53365bf7268978cd3a92436dde8d026162900",
       "head_binding_sha256": "e9ee29bb1265f0ee169c455dff499431662805f2be53e31d02f0d1fb6d96c909",
       "status": "INTEGRITY_REPLAY_BOUND_CLINICAL_VALIDITY_NOT_ESTABLISHED"
+    },
+    "uploaded_boundary_corpus_20260918": {
+      "binding_method": "READ_ONLY_LOCAL_SHA256_PLUS_INTERNAL_MANIFEST_REPLAY_WHERE_PRESENT",
+      "authority_effect": "NONE",
+      "amil_sdk_integration": {
+        "archive_sha256": "6d043557add5d57b3ecd92b1326d0b8331648809662dac2d06ab9b7723a03b99",
+        "integration_sha256s": "134/134 PASS",
+        "inherited_sha256s": "62/62 PASS",
+        "integration_verification_sha256": "3c24ce909dc2c84a503bbc0f75d8e346b1d43e4b58587c2abee717a78aeb9fa7",
+        "authentication_boundary_sha256": "81ae7601f0603acc40082c13b2e13aed7875964fdef8adadd28c0b7c21544e16",
+        "reference_commit": "495bfd85d79abcb2b4f6898fe9c156488492426a",
+        "status": "COMPLETE_PINNED_SDK_LOCAL_INTEGRATION_PASS_AUTHENTICATION_NOT_ESTABLISHED_ACTIVATION_NOT_IMPLEMENTED"
+      },
+      "qbp01_public_null_precursor": {
+        "archive_sha256": "6fd67bd5260ae2bb1c79844229ac8a2d03232abf089c0d7181f4f16737d51999",
+        "package_manifest_sha256": "27e0b12ca87886ced4fece4a04c7a02c701cf833f8f7fc90d24d71f28a68f7f5",
+        "manifest_members": "10/10 PASS",
+        "verification_receipt_sha256": "123742bed54b702837c9632517b519183ba86c5d7616943a999242b688140036",
+        "result_sha256": "5fa4c9429adb5dcf2c958fd363cd7c0a639ee0c2bb885222deba8f1f268642aa",
+        "preregistration_sha256": "405b5ee0f57fc834f5361bbe108a20fc3839498ecca23c9b1c89692d023284e9",
+        "status": "DETERMINISTIC_CLASSICAL_NULL_PRECURSOR_REPLAY_VERIFIED_FULL_QBP01_BRIDGE_NOT_ESTABLISHED"
+      },
+      "exp02_r1_bsubtilis": {
+        "archive_sha256": "32b699bb8e520cd350cea2e73cf933548d272d1a266c163fac286e4ae370ff4a",
+        "package_manifest_sha256": "f81d210370e70a23821e8c77354a8092631b1ed90475607b3fcc3405b3e3562d",
+        "manifest_members": "12/12 PASS",
+        "verification_receipt_sha256": "cb9220d416d4ec28371fa0043f60d625ac82f681496011c12c4888c20e17c49c",
+        "cross_species_synthesis_sha256": "a6f5b86fe626631a5a4c0f477867eda34d78e754e4a8725a9742adc647d9eca1",
+        "preregistration_sha256": "9adfa8311bbd8741d3cac9101ab6ed8b5e6ed579bf0a978896e7f7952b5d6de8",
+        "status": "VERIFIED_EXACT_SOURCE_REPRODUCED_COMPUTATIONAL_CROSS_SPECIES_PIPELINE_VALIDATION_ONLY"
+      },
+      "asb1_pilot1_sealed_evaluator": {
+        "archive_sha256": "bec164b0ce2d67ce6ebddecdd7acf748dcde16541ca4755a4c7e353ce58da063",
+        "freeze_root_sha256": "2a0ef2fc5545150eec5c4b9d322edf032ff825b89a393a69789a4452ccde7a13",
+        "frozen_members": "4/4 PASS",
+        "gold_sha256": "e287f25c1f93b8ec1d4b2075d53024aa879f101254354e5d9052c11b1f4cc7ef",
+        "gold_count": 72,
+        "gold_distribution": {
+          "VALID": 30,
+          "INVALID": 30,
+          "UNRESOLVED": 12
+        },
+        "status": "SEALED_EVALUATOR_BYTES_BOUND_NO_CONTROL_OR_AEGIS_ARM_RESULTS_IN_THIS_PACKAGE"
+      },
+      "abjad_cross_profile_candidate": {
+        "archive_sha256": "b210868e6893165f4bde5678a29d7739b3759b107d8037cc11b2c826cea1eb2a",
+        "candidate_sha256": "f2bc234a45b3438d27fa948042602af069f40bba4a1dc207dd02921692345a03",
+        "pins_sha256": "17b7ef7770fec1cf02e151161c1b7f31c0c8656cfc534b714a39a76630034d5e",
+        "status_sha256": "8ef5a77c05d6586945e8a58d4c65aaaace6852011fe74cc03965f4b52ab34caf",
+        "declared_status": "SOURCE_PREPARED_NOT_KERNEL_CHECKED"
+      },
+      "nerve_et_source_bundle": {
+        "archive_sha256": "5025e725dddee64c122eccb5180769cd1f5caca66715cda765df02f6c3c57adc",
+        "nerve_et_sha256": "331626ca80df9d6e126144fdc30f8d8ab8c575461a0257fc179dee450f4456bf",
+        "cert_v2_sha256": "37b993f09fec79c1fbd318d450b67caee132906678379b5bf5375ad381381f5c",
+        "shared_cert_sha256": "d3471859dc42e6c1a429efe26c89a93e91cfe698a8761420e530ebd94be8faac",
+        "status": "SOURCE_INSPECTED_NOT_EXECUTED_NO_LIVE_RECEIPT_SET_INCLUDED"
+      },
+      "cover_obstruction_source_bundle": {
+        "archive_sha256": "9f05b825c82bf6b63f728bcf44aba7a24cf660e9f6269b2fa9df04a30bc2c28f",
+        "agent_cover_sha256": "023cceb05967b341886846a80f41593969e06b803458f7751a40dfb52dc16eaf",
+        "certificate_sha256": "28e9f5a641f85fadac3ab10a39009091c674dd9e0c576d8716f7b09459e8615f",
+        "shared_cert_sha256": "d3471859dc42e6c1a429efe26c89a93e91cfe698a8761420e530ebd94be8faac",
+        "status": "SOURCE_INSPECTED_NOT_EXECUTED"
+      },
+      "evidence_constitution_preprint": {
+        "file_sha256": "3f96f012589759451b1cefcea8215bec4f3461f3dc5f84af011a4dc44add49f9",
+        "release_class": "RESEARCH_ARCHITECTURE_PREPRINT",
+        "clinical_validation": "NOT_ESTABLISHED",
+        "rh": "NOT_PROVEN",
+        "authority_effect": "NONE"
+      },
+      "data_analytics_validation_report": {
+        "file_sha256": "1c83c537de82ded80116c68f128ce1ecc5564c742b9c6a6396920710af2a739d",
+        "snapshot": "2026-09-10",
+        "status": "SNAPSHOT_AUDIT_NOT_CURRENT_STATE_AUTHORITY"
+      },
+      "quantum_overview": {
+        "file_sha256": "1472c293c2aa9ff9ab24ea789dc88561f5c46e9e6d2c4929ec5cbc2056ce972b",
+        "status": "DESCRIPTIVE_TYPED_SUPER_DAG_NO_AUTOMATIC_ADMIT"
+      }
     }
   },
   "cases": [
@@ -46,14 +127,14 @@
         "evidence_sha256": "740bdeecd9f0f36a9555be77696b92027cebedcea1f1aedf3d90641d499ca521"
       },
       "target": {
-        "claim_id": "QBP01-BRIDGE-001",
+        "claim_id": "QBP01-GBA1-SPNS1-OPTICAL-BRIDGE",
         "coordinate": {
           "domain_id": "bio/qbp01",
           "carrier_id": "classical-optical-empirical",
           "scope_id": "GBA1-SPNS1-optical-phenotype"
         },
-        "status": "OPEN_EMPIRICAL_BRIDGE",
-        "evidence_sha256": "d81d92ebe14cf618fd0bef7d380d7bec8a5ea288f52c9bfcef715a4d90d65fc2"
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "123742bed54b702837c9632517b519183ba86c5d7616943a999242b688140036"
       },
       "criterion": {
         "bridge_id": "CSTAR_FORMAL_TO_QBP01_EMPIRICAL_V1",
@@ -61,7 +142,7 @@
           "MACHINE_VERIFIED_THEOREM"
         ],
         "allowed_target_statuses": [
-          "OPEN_EMPIRICAL_BRIDGE"
+          "NOT_ESTABLISHED"
         ],
         "required_gates": [
           {
@@ -107,17 +188,17 @@
           "scope_id": "period-3-coding-enrichment"
         },
         "status": "CROSS_SPECIES_PIPELINE_REPLICATION_SUPPORTED",
-        "evidence_sha256": "987a10914aa1fe12cfb14d7025b2224ac4588a1363ffb6c030ebecc3378b3cf2"
+        "evidence_sha256": "cb9220d416d4ec28371fa0043f60d625ac82f681496011c12c4888c20e17c49c"
       },
       "target": {
-        "claim_id": "QBP01-BRIDGE-001",
+        "claim_id": "QBP01-GBA1-SPNS1-OPTICAL-BRIDGE",
         "coordinate": {
           "domain_id": "bio/qbp01",
           "carrier_id": "classical-optical-empirical",
           "scope_id": "GBA1-SPNS1-optical-phenotype"
         },
-        "status": "OPEN_EMPIRICAL_BRIDGE",
-        "evidence_sha256": "d81d92ebe14cf618fd0bef7d380d7bec8a5ea288f52c9bfcef715a4d90d65fc2"
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "123742bed54b702837c9632517b519183ba86c5d7616943a999242b688140036"
       },
       "criterion": {
         "bridge_id": "GENOMIC_SPECTRUM_TO_CLASSICAL_OPTICAL_V1",
@@ -125,7 +206,7 @@
           "CROSS_SPECIES_PIPELINE_REPLICATION_SUPPORTED"
         ],
         "allowed_target_statuses": [
-          "OPEN_EMPIRICAL_BRIDGE"
+          "NOT_ESTABLISHED"
         ],
         "required_gates": [
           {
@@ -386,6 +467,547 @@
           }
         ],
         "criterion_text": "Integrity and replay evidence bind what was recorded; they do not establish biological correctness or clinical validity without separate clinical validation receipts."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "QBP01_PUBLIC_NULL_TO_FULL_QBP01_BRIDGE",
+      "source": {
+        "claim_id": "QBP01-PUBLIC-CLASSICAL-NULL-PRECURSOR",
+        "coordinate": {
+          "domain_id": "bio/qbp01-public-null",
+          "carrier_id": "public-classical-null-analysis",
+          "scope_id": "classical-oxidative-upe-null-precursor"
+        },
+        "status": "PUBLIC_NULL_PRECURSOR_REPLAY_VERIFIED",
+        "evidence_sha256": "123742bed54b702837c9632517b519183ba86c5d7616943a999242b688140036"
+      },
+      "target": {
+        "claim_id": "QBP01-GBA1-SPNS1-OPTICAL-BRIDGE",
+        "coordinate": {
+          "domain_id": "bio/qbp01",
+          "carrier_id": "classical-optical-empirical",
+          "scope_id": "GBA1-SPNS1-optical-phenotype"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "123742bed54b702837c9632517b519183ba86c5d7616943a999242b688140036"
+      },
+      "criterion": {
+        "bridge_id": "QBP01_PUBLIC_NULL_TO_FULL_EMPIRICAL_BRIDGE_V1",
+        "allowed_source_statuses": [
+          "PUBLIC_NULL_PRECURSOR_REPLAY_VERIFIED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "direct-classical-covariate-panel",
+            "verifier_id": "QBP01_DIRECT_CLASSICAL_COVARIATE_PANEL_V1"
+          },
+          {
+            "gate_id": "gba1-spns1-cohort-binding",
+            "verifier_id": "QBP01_GBA1_SPNS1_COHORT_BINDING_V1"
+          },
+          {
+            "gate_id": "instrument-calibration",
+            "verifier_id": "QBP01_DETECTOR_CALIBRATION_V1"
+          },
+          {
+            "gate_id": "optical-endpoint-analysis",
+            "verifier_id": "QBP01_OPTICAL_ENDPOINT_ANALYSIS_V1"
+          },
+          {
+            "gate_id": "independent-replication",
+            "verifier_id": "QBP01_INDEPENDENT_REPLICATION_V1"
+          }
+        ],
+        "criterion_text": "A deterministic public yeast null-precursor analysis does not establish the GBA1/SPNS1 optical bridge, Parkinson biomarker status, or a quantum claim; the full biological optical bridge requires its own direct measurements and replication."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "AMIL_ENCODING_BRIDGE_TO_AUTHENTICATED_INPUT",
+      "source": {
+        "claim_id": "AMIL-COMPLETE-PINNED-SDK-INTEGRATION",
+        "coordinate": {
+          "domain_id": "governance/amil",
+          "carrier_id": "canonical-encoding-bridge",
+          "scope_id": "sdk-byte-and-digest-binding"
+        },
+        "status": "PINNED_SDK_LOCAL_INTEGRATION_PASS",
+        "evidence_sha256": "3c24ce909dc2c84a503bbc0f75d8e346b1d43e4b58587c2abee717a78aeb9fa7"
+      },
+      "target": {
+        "claim_id": "AMIL-AUTHENTICATED-SUBJECT",
+        "coordinate": {
+          "domain_id": "governance/amil",
+          "carrier_id": "trusted-authenticated-input",
+          "scope_id": "snapshot-agent-permission-authentication"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "81ae7601f0603acc40082c13b2e13aed7875964fdef8adadd28c0b7c21544e16"
+      },
+      "criterion": {
+        "bridge_id": "AMIL_ENCODING_TO_AUTHENTICATION_V1",
+        "allowed_source_statuses": [
+          "PINNED_SDK_LOCAL_INTEGRATION_PASS"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "trusted-read-source",
+            "verifier_id": "AMIL_TRUSTED_READ_SOURCE_V1"
+          },
+          {
+            "gate_id": "issuer-signature-authentication",
+            "verifier_id": "AMIL_ISSUER_SIGNATURE_AUTH_V1"
+          },
+          {
+            "gate_id": "capability-map-binding",
+            "verifier_id": "AMIL_CAPABILITY_MAP_BINDING_V1"
+          },
+          {
+            "gate_id": "joint-subject-binding",
+            "verifier_id": "AMIL_JOINT_SUBJECT_BINDING_V1"
+          },
+          {
+            "gate_id": "freshness-revocation-generation",
+            "verifier_id": "AMIL_FRESHNESS_REVOCATION_GENERATION_V1"
+          }
+        ],
+        "criterion_text": "Encoding equality and deterministic SDK replay do not authenticate caller-supplied snapshots, approvals, capability maps, policy, generation, or revocation state."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "AMIL_AUTHENTICATION_TO_ACTIVATION",
+      "source": {
+        "claim_id": "AMIL-AUTHENTICATED-SUBJECT",
+        "coordinate": {
+          "domain_id": "governance/amil",
+          "carrier_id": "trusted-authenticated-input",
+          "scope_id": "snapshot-agent-permission-authentication"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "81ae7601f0603acc40082c13b2e13aed7875964fdef8adadd28c0b7c21544e16"
+      },
+      "target": {
+        "claim_id": "AMIL-ACTIVATION-AUTHORITY",
+        "coordinate": {
+          "domain_id": "governance/amil",
+          "carrier_id": "operator-authorized-activation",
+          "scope_id": "live-execution-admission"
+        },
+        "status": "NOT_GRANTED",
+        "evidence_sha256": "81ae7601f0603acc40082c13b2e13aed7875964fdef8adadd28c0b7c21544e16"
+      },
+      "criterion": {
+        "bridge_id": "AMIL_AUTHENTICATION_TO_ACTIVATION_V1",
+        "allowed_source_statuses": [
+          "AUTHENTICATED_INPUTS_VERIFIED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_GRANTED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "single-authority-path",
+            "verifier_id": "AMIL_SINGLE_AUTHORITY_PATH_V1"
+          },
+          {
+            "gate_id": "operator-approval",
+            "verifier_id": "AMIL_OPERATOR_APPROVAL_V1"
+          },
+          {
+            "gate_id": "fresh-generation-cas",
+            "verifier_id": "AMIL_GENERATION_CAS_V1"
+          },
+          {
+            "gate_id": "capability-recheck",
+            "verifier_id": "AMIL_CAPABILITY_RECHECK_V1"
+          },
+          {
+            "gate_id": "dispatch-receipt",
+            "verifier_id": "AMIL_DISPATCH_RECEIPT_V1"
+          }
+        ],
+        "criterion_text": "Authentication may permit planning over authenticated data, but activation still requires the live single-authority transaction, freshness/capability rechecks, operator authorization, and a dispatch receipt."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_SOURCE_STATUS",
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "NERVE_HISTORICAL_UNION_TO_CURRENT_GLOBALIZABILITY",
+      "source": {
+        "claim_id": "NERVE-HISTORICAL-UNION",
+        "coordinate": {
+          "domain_id": "governance/reconciliation",
+          "carrier_id": "historical-provenance-union",
+          "scope_id": "multi-epoch-lineage"
+        },
+        "status": "PROVENANCE_ONLY_SOURCE_INSPECTED",
+        "evidence_sha256": "5025e725dddee64c122eccb5180769cd1f5caca66715cda765df02f6c3c57adc"
+      },
+      "target": {
+        "claim_id": "NERVE-CURRENT-GLOBALIZABILITY",
+        "coordinate": {
+          "domain_id": "governance/reconciliation",
+          "carrier_id": "epoch-filtered-active-nerve",
+          "scope_id": "current-globalizability"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "5025e725dddee64c122eccb5180769cd1f5caca66715cda765df02f6c3c57adc"
+      },
+      "criterion": {
+        "bridge_id": "HISTORICAL_UNION_TO_CURRENT_NERVE_V1",
+        "allowed_source_statuses": [
+          "PROVENANCE_ONLY_SOURCE_INSPECTED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "exact-epoch-time",
+            "verifier_id": "NERVE_EXACT_EPOCH_TIME_V1"
+          },
+          {
+            "gate_id": "namespace-modulus-policy",
+            "verifier_id": "NERVE_CONTEXT_BINDING_V1"
+          },
+          {
+            "gate_id": "verified-unsuperseded-pairs",
+            "verifier_id": "NERVE_ACTIVE_PAIR_RECEIPTS_V1"
+          },
+          {
+            "gate_id": "joint-three-party-receipts",
+            "verifier_id": "NERVE_JOINT_TRIPLE_RECEIPTS_V1"
+          },
+          {
+            "gate_id": "global-witness-or-obstruction",
+            "verifier_id": "NERVE_GLOBALIZATION_WITNESS_V1"
+          }
+        ],
+        "criterion_text": "The historical union of individually legitimate reconciliation receipts is provenance only and cannot decide current globalizability; the current epoch/time/context and active receipt nerve must be rebuilt and verified."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "COVER_PAIRWISE_TO_JOINT_GLOBALIZATION",
+      "source": {
+        "claim_id": "COVER-DEGREE1-PAIRWISE-OBSTRUCTION-ALGORITHM",
+        "coordinate": {
+          "domain_id": "governance/topology",
+          "carrier_id": "pairwise-cover-source-algorithm",
+          "scope_id": "degree1-local-reconciliation"
+        },
+        "status": "SOURCE_BYTES_BOUND_NOT_EXECUTED",
+        "evidence_sha256": "9f05b825c82bf6b63f728bcf44aba7a24cf660e9f6269b2fa9df04a30bc2c28f"
+      },
+      "target": {
+        "claim_id": "JOINT-GLOBAL-RECONCILIATION",
+        "coordinate": {
+          "domain_id": "governance/topology",
+          "carrier_id": "joint-reconciliation-witness",
+          "scope_id": "global-section-existence"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "9f05b825c82bf6b63f728bcf44aba7a24cf660e9f6269b2fa9df04a30bc2c28f"
+      },
+      "criterion": {
+        "bridge_id": "PAIRWISE_COVER_TO_JOINT_GLOBALIZATION_V1",
+        "allowed_source_statuses": [
+          "SOURCE_BYTES_BOUND_NOT_EXECUTED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "actual-pairwise-receipts",
+            "verifier_id": "COVER_PAIRWISE_RECEIPTS_V1"
+          },
+          {
+            "gate_id": "joint-intersection-receipts",
+            "verifier_id": "COVER_JOINT_INTERSECTION_RECEIPTS_V1"
+          },
+          {
+            "gate_id": "cycle-space-coverage",
+            "verifier_id": "COVER_CYCLE_SPACE_COVERAGE_V1"
+          },
+          {
+            "gate_id": "global-section-witness",
+            "verifier_id": "COVER_GLOBAL_SECTION_WITNESS_V1"
+          }
+        ],
+        "criterion_text": "Pairwise edges do not create a joint three-party receipt, and local cocycle consistency does not by itself establish a global section; joint topology and a global witness must be carried explicitly."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "ABJAD_SOURCE_CANDIDATE_TO_KERNEL_THEOREM",
+      "source": {
+        "claim_id": "ABJAD-CROSS-PROFILE-LEAN-CANDIDATE",
+        "coordinate": {
+          "domain_id": "formal/abjad",
+          "carrier_id": "lean-source-candidate",
+          "scope_id": "mashriqi-maghribi-finite-arithmetic"
+        },
+        "status": "SOURCE_PREPARED_NOT_KERNEL_CHECKED",
+        "evidence_sha256": "f2bc234a45b3438d27fa948042602af069f40bba4a1dc207dd02921692345a03"
+      },
+      "target": {
+        "claim_id": "ABJAD-CROSS-PROFILE-KERNEL-THEOREM",
+        "coordinate": {
+          "domain_id": "formal/abjad",
+          "carrier_id": "lean-kernel-proof",
+          "scope_id": "cross-profile-theorem-closure"
+        },
+        "status": "KERNEL_REPLAY_NOT_RUN",
+        "evidence_sha256": "8ef5a77c05d6586945e8a58d4c65aaaace6852011fe74cc03965f4b52ab34caf"
+      },
+      "criterion": {
+        "bridge_id": "ABJAD_SOURCE_TO_KERNEL_VERIFICATION_V1",
+        "allowed_source_statuses": [
+          "SOURCE_PREPARED_NOT_KERNEL_CHECKED"
+        ],
+        "allowed_target_statuses": [
+          "KERNEL_REPLAY_NOT_RUN"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "exact-candidate-bytes",
+            "verifier_id": "ABJAD_EXACT_CANDIDATE_BYTES_V1"
+          },
+          {
+            "gate_id": "lean-version-binding",
+            "verifier_id": "ABJAD_LEAN_4_33_1_BINDING_V1"
+          },
+          {
+            "gate_id": "kernel-compilation",
+            "verifier_id": "ABJAD_KERNEL_COMPILATION_V1"
+          },
+          {
+            "gate_id": "axiom-audit",
+            "verifier_id": "ABJAD_AXIOM_AUDIT_V1"
+          },
+          {
+            "gate_id": "sorry-free-check",
+            "verifier_id": "ABJAD_SORRY_FREE_V1"
+          }
+        ],
+        "criterion_text": "Prepared Lean source is not a kernel theorem until the pinned candidate bytes are compiled under the declared toolchain and the theorem/axiom surface is audited."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "ASB1_SEALED_EVALUATOR_TO_AEGIS_EFFICACY",
+      "source": {
+        "claim_id": "ASB1-PILOT1-SEALED-EVALUATOR",
+        "coordinate": {
+          "domain_id": "evaluation/asb1",
+          "carrier_id": "sealed-gold-evaluator",
+          "scope_id": "pilot1-scoring-infrastructure"
+        },
+        "status": "SEALED_EVALUATOR_BYTES_BOUND",
+        "evidence_sha256": "2a0ef2fc5545150eec5c4b9d322edf032ff825b89a393a69789a4452ccde7a13"
+      },
+      "target": {
+        "claim_id": "AEGIS-REDUCES-FALSE-CLAIM-PROMOTION",
+        "coordinate": {
+          "domain_id": "evaluation/asb1",
+          "carrier_id": "matched-benchmark-outcome",
+          "scope_id": "pilot1-efficacy"
+        },
+        "status": "NO_ARM_RUN_RESULTS_IN_PACKAGE",
+        "evidence_sha256": "2a0ef2fc5545150eec5c4b9d322edf032ff825b89a393a69789a4452ccde7a13"
+      },
+      "criterion": {
+        "bridge_id": "SEALED_EVALUATOR_TO_BENCHMARK_EFFICACY_V1",
+        "allowed_source_statuses": [
+          "SEALED_EVALUATOR_BYTES_BOUND"
+        ],
+        "allowed_target_statuses": [
+          "NO_ARM_RUN_RESULTS_IN_PACKAGE"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "control-arm-run",
+            "verifier_id": "ASB1_CONTROL_ARM_RUN_V1"
+          },
+          {
+            "gate_id": "aegis-arm-run",
+            "verifier_id": "ASB1_AEGIS_ARM_RUN_V1"
+          },
+          {
+            "gate_id": "matched-provenance",
+            "verifier_id": "ASB1_MATCHED_PROVENANCE_V1"
+          },
+          {
+            "gate_id": "sealed-scoring-replay",
+            "verifier_id": "ASB1_SEALED_SCORING_REPLAY_V1"
+          },
+          {
+            "gate_id": "independent-benchmark-replay",
+            "verifier_id": "ASB1_INDEPENDENT_REPLAY_V1"
+          }
+        ],
+        "criterion_text": "A sealed gold set and scorer establish evaluation infrastructure, not system efficacy; matched control/AEGIS runs, provenance checks, scoring and independent replay are required before a false-promotion reduction claim."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "JCS_AUDIT_SNAPSHOT_TO_CURRENT_CONFORMANCE",
+      "source": {
+        "claim_id": "JCS-SNAPSHOT-DEFECT-AUDIT",
+        "coordinate": {
+          "domain_id": "crypto/canonicalization",
+          "carrier_id": "snapshot-audit-report",
+          "scope_id": "main-495bfd85-rfc8785-inspection"
+        },
+        "status": "SNAPSHOT_DEFECT_REPORTED",
+        "evidence_sha256": "1c83c537de82ded80116c68f128ce1ecc5564c742b9c6a6396920710af2a739d"
+      },
+      "target": {
+        "claim_id": "CURRENT-STRICT-RFC8785-CONFORMANCE",
+        "coordinate": {
+          "domain_id": "crypto/canonicalization",
+          "carrier_id": "current-implementation",
+          "scope_id": "current-strict-rfc8785"
+        },
+        "status": "CURRENT_CONFORMANCE_NOT_ESTABLISHED_BY_SNAPSHOT",
+        "evidence_sha256": "1c83c537de82ded80116c68f128ce1ecc5564c742b9c6a6396920710af2a739d"
+      },
+      "criterion": {
+        "bridge_id": "HISTORICAL_JCS_AUDIT_TO_CURRENT_CONFORMANCE_V1",
+        "allowed_source_statuses": [
+          "SNAPSHOT_DEFECT_REPORTED"
+        ],
+        "allowed_target_statuses": [
+          "CURRENT_CONFORMANCE_NOT_ESTABLISHED_BY_SNAPSHOT"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "current-exact-source",
+            "verifier_id": "JCS_CURRENT_EXACT_SOURCE_V1"
+          },
+          {
+            "gate_id": "utf16-property-order-vector",
+            "verifier_id": "JCS_UTF16_PROPERTY_ORDER_V1"
+          },
+          {
+            "gate_id": "lone-surrogate-rejection",
+            "verifier_id": "JCS_LONE_SURROGATE_REJECTION_V1"
+          },
+          {
+            "gate_id": "strict-json-input-domain",
+            "verifier_id": "JCS_STRICT_INPUT_DOMAIN_V1"
+          },
+          {
+            "gate_id": "cross-runtime-replay",
+            "verifier_id": "JCS_CROSS_RUNTIME_REPLAY_V1"
+          },
+          {
+            "gate_id": "dependent-digest-supersession",
+            "verifier_id": "JCS_DEPENDENT_DIGEST_SUPERSESSION_V1"
+          }
+        ],
+        "criterion_text": "A defect finding at one pinned main snapshot cannot establish the current implementation state; current strict RFC 8785 conformance requires a fresh exact-source replay of the normative boundary and dependent identity transition."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "QUANTUM_SUPER_DAG_TO_ACTION_AUTHORITY",
+      "source": {
+        "claim_id": "AEGIS-QUANTUM-TYPED-SUPER-DAG",
+        "coordinate": {
+          "domain_id": "architecture/quantum",
+          "carrier_id": "typed-architecture-diagram",
+          "scope_id": "proposed-evidence-flows"
+        },
+        "status": "DESCRIPTIVE_ARCHITECTURE",
+        "evidence_sha256": "1472c293c2aa9ff9ab24ea789dc88561f5c46e9e6d2c4929ec5cbc2056ce972b"
+      },
+      "target": {
+        "claim_id": "AEGIS-QUANTUM-ACTION-AUTHORITY",
+        "coordinate": {
+          "domain_id": "governance/action",
+          "carrier_id": "operator-authorized-action",
+          "scope_id": "external-action-admission"
+        },
+        "status": "NOT_GRANTED",
+        "evidence_sha256": "1472c293c2aa9ff9ab24ea789dc88561f5c46e9e6d2c4929ec5cbc2056ce972b"
+      },
+      "criterion": {
+        "bridge_id": "QUANTUM_DAG_WITNESS_TO_ACTION_AUTHORITY_V1",
+        "allowed_source_statuses": [
+          "DESCRIPTIVE_ARCHITECTURE"
+        ],
+        "allowed_target_statuses": [
+          "NOT_GRANTED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "source-bound-witness",
+            "verifier_id": "QUANTUM_SOURCE_BOUND_WITNESS_V1"
+          },
+          {
+            "gate_id": "bridge-obligation-verification",
+            "verifier_id": "QUANTUM_BRIDGE_OBLIGATION_V1"
+          },
+          {
+            "gate_id": "current-admission-policy",
+            "verifier_id": "QUANTUM_CURRENT_ADMISSION_POLICY_V1"
+          },
+          {
+            "gate_id": "operator-authorization",
+            "verifier_id": "QUANTUM_OPERATOR_AUTHORIZATION_V1"
+          },
+          {
+            "gate_id": "action-receipt",
+            "verifier_id": "QUANTUM_ACTION_RECEIPT_V1"
+          }
+        ],
+        "criterion_text": "A typed architecture DAG and verified witnesses produce candidates only; action authority remains a separate operator-governed admission transition and is never automatic."
       },
       "expected_decision": "DENY",
       "expected_reason_codes": [

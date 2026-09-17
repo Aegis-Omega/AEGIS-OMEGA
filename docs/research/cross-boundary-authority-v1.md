@@ -211,3 +211,44 @@ It supplies only a fail-closed authority-transfer boundary.
 - no merge or deployment intent;
 - no external effects;
 - authority_effect = NONE.
+
+## Corpus expansion: uploaded boundary evidence (2026-09-18)
+
+The V1.1 coordinate `(domain_id, carrier_id, scope_id)` is sufficient for the newly
+inspected corpus without adding a schema axis. Temporal currentness, trust/authentication,
+jointness/topology, and execution freshness belong in criterion-pinned verifier obligations;
+they must not be inferred from a coarse coordinate label.
+
+New frozen boundary families:
+
+- **classical null precursor -> full empirical bridge**: the QBP-01 public-null package
+  deterministically replays a classical yeast precursor and explicitly keeps the
+  GBA1/SPNS1 optical bridge, full QBP-01 bridge, and quantum claim NOT_ESTABLISHED.
+- **encoding -> authentication -> activation**: AMIL's complete pinned-SDK integration
+  verifies canonical bridge bytes/digests locally, while its own diagnostic records
+  input authentication as NOT_ESTABLISHED and activation as NOT_IMPLEMENTED.
+- **historical union -> current state**: the Nerve-ET source states that the historical
+  union is a provenance layer and cannot decide current globalizability; epoch, time,
+  namespace, modulus, policy, supersession and joint receipts must be rebuilt.
+- **pairwise -> joint/global**: the cover-obstruction source distinguishes pairwise
+  reconciliation from a genuine joint intersection and from existence of a global section.
+- **prepared source -> kernel theorem**: the uploaded Abjad candidate is pinned but
+  declares SOURCE_PREPARED_NOT_KERNEL_CHECKED; source text does not become formal authority.
+- **sealed evaluator -> benchmark efficacy**: the ASB-1 package freezes 72 gold records
+  (30 VALID, 30 INVALID, 12 UNRESOLVED) and scoring infrastructure, but contains no
+  matched CONTROL/AEGIS arm run results; evaluator integrity is not efficacy evidence.
+- **historical audit -> current conformance**: the 10 September JCS audit is a pinned
+  snapshot finding and cannot establish the current implementation state without a fresh
+  exact-source conformance transition.
+- **architecture DAG -> action authority**: the Quantum overview explicitly labels bridge
+  obligations and says the witness-to-authority edge is candidate-only, with no automatic ADMIT.
+
+The uploaded corpus is bound by SHA-256 metadata only. Archive inspection in this
+transition is read-only; unexecuted source bundles are explicitly marked as such.
+The new cases are negative-control fixtures for authority transfer, not promotion receipts.
+
+The existing EXP02 fixture was also rebound from an ungrounded placeholder digest to the
+actual uploaded `verification_receipt.json` SHA-256
+`cb9220d416d4ec28371fa0043f60d625ac82f681496011c12c4888c20e17c49c`.
+Its target now uses the QBP public-null verification receipt that explicitly records the
+GBA1/SPNS1 optical bridge as NOT_ESTABLISHED.
