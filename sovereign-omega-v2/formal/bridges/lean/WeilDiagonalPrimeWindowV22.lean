@@ -76,12 +76,10 @@ theorem weil_prime_sum_zero_of_tsupport_exp_window
         Ioo (Real.exp (-(1 : ℝ) / 32)) (Real.exp ((1 : ℝ) / 32))) :
     WeilPrimeSumV1 f = 0 := by
   unfold WeilPrimeSumV1
-  apply tsum_eq_zero_of_not_summable
-  by_cases hsum : Summable (WeilPrimeTermV1 f)
-  · exfalso
-    apply hsum
-    simpa only [weil_prime_term_zero_of_tsupport_exp_window f hsupp] using summable_zero
-  · exact hsum
+  have hzero : WeilPrimeTermV1 f = fun _ : ℕ => (0 : ℂ) :=
+    funext (weil_prime_term_zero_of_tsupport_exp_window f hsupp)
+  rw [hzero]
+  exact tsum_zero
 
 /-- Specialized actual repository statement for an autocorrelation. -/
 theorem diagonal_autocorrelation_prime_sum_zero
