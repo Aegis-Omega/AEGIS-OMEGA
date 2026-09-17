@@ -86,17 +86,34 @@ def _load_ledger():
     return module
 
 
-def _extract_m1():
+def _load_production_m1_namespace():
     tree = ast.parse(CORE_MATRIX.read_text())
-    fn = next(
-        node for node in tree.body
-        if isinstance(node, ast.FunctionDef) and node.name == 'M1'
-    )
-    module = ast.Module(body=[fn], type_ignores=[])
+    constant_names = {
+        'M1_SEQUENCE_BYTES',
+        'M1_HASH_BYTES',
+        'M1_ENTRY_BYTES',
+        'M1_GENESIS_HASH',
+    }
+    body = []
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets = {
+                target.id for target in node.targets
+                if isinstance(target, ast.Name)
+            }
+            if targets & constant_names:
+                body.append(node)
+        elif isinstance(node, ast.FunctionDef) and node.name == 'M1':
+            body.append(node)
+    module = ast.Module(body=body, type_ignores=[])
     ast.fix_missing_locations(module)
     ns = {'hashlib': hashlib, 'Tuple': Tuple}
     exec(compile(module, str(CORE_MATRIX), 'exec'), ns)
-    return ns['M1']
+    return ns
+
+
+def _extract_m1():
+    return _load_production_m1_namespace()['M1']
 
 
 def _extract_process_event(m1):
@@ -130,12 +147,14 @@ def _extract_process_event(m1):
         calls.append(('M3', len(context)))
         return context, 0
 
+    production_ns = _load_production_m1_namespace()
     ns = {
         'Dict': Dict,
         'EpochState': epoch_state,
         'M1': traced_m1,
         'M2': m2,
         'M3': m3,
+        'M1_ENTRY_BYTES': production_ns['M1_ENTRY_BYTES'],
         'INT_SCALE': 65536,
         'from_fixed': lambda value: value / 65536,
     }
