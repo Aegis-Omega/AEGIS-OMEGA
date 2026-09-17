@@ -117,6 +117,57 @@ theorem weil_abjad_triadic_negative_witness_v1 (a : ℝ) (z : ℂ)
   rw [hphase]
   exact hneg
 
+/-- The four phase tests are not merely sufficient: they are exactly the box
+condition on the real and imaginary parts of the cross term. -/
+theorem weil_four_phase_nonnegative_iff_components_v1 (a : ℝ) (z : ℂ) :
+    (∀ c : ℂ, WeilFourPhaseV1 c → 0 ≤ WeilTwoPointValueV1 a z c) ↔
+      (|z.re| ≤ a ∧ |z.im| ≤ a) := by
+  constructor
+  · exact weil_four_phase_nonnegative_components_v1 a z
+  · rintro ⟨hr, hi⟩ c hc
+    rcases abs_le.mp hr with ⟨hrlo, hrhi⟩
+    rcases abs_le.mp hi with ⟨hilo, hihi⟩
+    rcases hc with rfl | rfl | rfl | rfl <;>
+      simp [WeilTwoPointValueV1, Complex.normSq_apply, Complex.mul_re] <;>
+      linarith
+
+/-- Therefore Abjad-triadic nonnegativity is exactly the same component-box
+condition. This isolates the precise scalar inequality that any later global
+zeta/Weil positivity proof must establish. -/
+theorem weil_abjad_triadic_nonnegative_iff_components_v1 (a : ℝ) (z : ℂ) :
+    (∀ r : ℕ, AbjadTriadicNodeV1 r →
+      0 ≤ WeilTwoPointValueV1 a z (AbjadPhaseV1 r)) ↔
+      (|z.re| ≤ a ∧ |z.im| ≤ a) := by
+  constructor
+  · exact weil_abjad_triadic_nonnegative_components_v1 a z
+  · intro h r hr
+    have hall := (weil_four_phase_nonnegative_iff_components_v1 a z).2 h
+    exact hall (AbjadPhaseV1 r) (abjad_phase_four_phase_v1 r hr)
+
+/-- Discrete Fourier reconstruction on the four triadic dodecagon nodes.
+The opposite-node sums recover the diagonal term, while their differences
+recover the two real coordinates of the cross term. -/
+theorem weil_abjad_phase_reconstruction_v1 (a : ℝ) (z : ℂ) :
+    WeilTwoPointValueV1 a z (AbjadPhaseV1 0) +
+        WeilTwoPointValueV1 a z (AbjadPhaseV1 6) = 4 * a ∧
+    WeilTwoPointValueV1 a z (AbjadPhaseV1 3) +
+        WeilTwoPointValueV1 a z (AbjadPhaseV1 9) = 4 * a ∧
+    WeilTwoPointValueV1 a z (AbjadPhaseV1 0) -
+        WeilTwoPointValueV1 a z (AbjadPhaseV1 6) = 4 * z.re ∧
+    WeilTwoPointValueV1 a z (AbjadPhaseV1 9) -
+        WeilTwoPointValueV1 a z (AbjadPhaseV1 3) = 4 * z.im := by
+  constructor
+  · simp [AbjadPhaseV1, WeilTwoPointValueV1, Complex.normSq_apply, Complex.mul_re]
+    ring
+  · constructor
+    · simp [AbjadPhaseV1, WeilTwoPointValueV1, Complex.normSq_apply, Complex.mul_re]
+      ring
+    · constructor
+      · simp [AbjadPhaseV1, WeilTwoPointValueV1, Complex.normSq_apply, Complex.mul_re]
+        ring
+      · simp [AbjadPhaseV1, WeilTwoPointValueV1, Complex.normSq_apply, Complex.mul_re]
+        ring
+
 #print axioms abjad_triadic_sum_iff_node_v1
 #print axioms abjad_phase_four_phase_v1
 #print axioms four_phase_has_abjad_node_v1
@@ -124,3 +175,6 @@ theorem weil_abjad_triadic_negative_witness_v1 (a : ℝ) (z : ℂ)
 #print axioms abjad_classical_witness_phases_v1
 #print axioms weil_abjad_triadic_nonnegative_components_v1
 #print axioms weil_abjad_triadic_negative_witness_v1
+#print axioms weil_four_phase_nonnegative_iff_components_v1
+#print axioms weil_abjad_triadic_nonnegative_iff_components_v1
+#print axioms weil_abjad_phase_reconstruction_v1
