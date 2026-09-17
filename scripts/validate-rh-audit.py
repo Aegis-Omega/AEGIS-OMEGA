@@ -74,10 +74,22 @@ def validate_dag() -> tuple[int, str]:
     require(status != "PROVEN", "PROVEN requires bound proof verification; not implemented")
     require(data["authority_effect"] == "NONE", "DAG authority_effect must be NONE")
     require(data["claim_promotion"] == "BLOCKED", "DAG claim_promotion must be BLOCKED")
+    require("audit_base" in data, "missing audit_base")
+    audit_base = data["audit_base"]
+    require(
+        isinstance(audit_base, str) and bool(SHA1.fullmatch(audit_base)),
+        "invalid audit_base",
+    )
     nodes = data["nodes"]
     require(isinstance(nodes, list) and bool(nodes), "empty or invalid DAG nodes")
     ids = {node["id"] for node in nodes}
     require(len(ids) == len(nodes), "duplicate node id")
+    require("frontier_obligation" in data, "missing frontier_obligation")
+    frontier_obligation = data["frontier_obligation"]
+    require(
+        isinstance(frontier_obligation, str) and frontier_obligation in ids,
+        "frontier_obligation must identify a DAG node",
+    )
     for node in nodes:
         missing = REQUIRED - node.keys()
         require(not missing, f"{node.get('id')}: missing {sorted(missing)}")
@@ -85,6 +97,10 @@ def validate_dag() -> tuple[int, str]:
         require(node["authority_ceiling"] in ALLOWED, f"{node['id']}: unknown authority ceiling")
         require(set(node["dependencies"]) <= ids, f"{node['id']}: unknown dependency")
         require(bool(SHA1.fullmatch(node["exact_head"])), f"{node['id']}: invalid exact_head")
+        require(
+            node["exact_head"] == audit_base,
+            f"{node['id']}: exact_head does not match audit_base",
+        )
         if node["status"] != "PROVED_MACHINE_CHECKED":
             require(
                 node["authority_ceiling"] != "PROVED_MACHINE_CHECKED",
