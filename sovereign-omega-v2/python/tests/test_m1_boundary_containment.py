@@ -38,15 +38,18 @@ def _load_process_event():
         node for node in cls.body
         if isinstance(node, ast.FunctionDef) and node.name == 'process_event'
     )
-    m1_entry_assignment = next(
-        node for node in tree.body
-        if isinstance(node, ast.Assign)
-        and any(
-            isinstance(target, ast.Name) and target.id == 'M1_ENTRY_BYTES'
-            for target in node.targets
-        )
-    )
-    constants_module = ast.Module(body=[m1_entry_assignment], type_ignores=[])
+    constant_names = {'M1_SEQUENCE_BYTES', 'M1_HASH_BYTES', 'M1_ENTRY_BYTES'}
+    constant_assignments = []
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        targets = {
+            target.id for target in node.targets
+            if isinstance(target, ast.Name)
+        }
+        if targets & constant_names:
+            constant_assignments.append(node)
+    constants_module = ast.Module(body=constant_assignments, type_ignores=[])
     ast.fix_missing_locations(constants_module)
     constants = {}
     exec(compile(constants_module, str(CORE_MATRIX), 'exec'), constants)
