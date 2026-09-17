@@ -1,0 +1,112 @@
+name: Publish Cognitive Writer Digest Transition V1
+
+on:
+  push:
+    branches:
+      - control/publish-cognitive-writer-digest-transition-v1
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TARGET_BRANCH: transition/cognitive-writer-digest-allowlist-signed-v1
+      EXPECTED_TARGET_HEAD: 495bfd85d79abcb2b4f6898fe9c156488492426a
+      SOURCE_HEAD: f08859aaa1a5f8197a92f645f21cba998a0426b1
+      GATE_BLOB: 96235440631fb7206674e134da263a90a2df2c7c
+      TEST_BLOB: 2005da3bd44e029532b3bcd6f59e5193626f328a
+    steps:
+      - name: Checkout exact validated prep source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_HEAD }}
+          path: source
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Verify exact source and byte identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C source rev-parse HEAD)" = "$SOURCE_HEAD"
+          test "$(git -C source hash-object scripts/check-cognitive-writer-merge.py)" = "$GATE_BLOB"
+          test "$(git -C source hash-object scripts/test-cognitive-writer-merge-gate.py)" = "$TEST_BLOB"
+          python3 source/scripts/test-cognitive-writer-merge-gate.py
+
+      - name: Create one GitHub-signed scripts-only transition commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+
+          const token = process.env.GH_TOKEN;
+          const repo = process.env.GITHUB_REPOSITORY;
+          const branch = process.env.TARGET_BRANCH;
+          const expectedHead = process.env.EXPECTED_TARGET_HEAD;
+
+          const refResponse = await fetch(
+            `https://api.github.com/repos/${repo}/branches/${encodeURIComponent(branch)}`,
+            {
+              headers: {
+                authorization: `bearer ${token}`,
+                accept: 'application/vnd.github+json',
+                'user-agent': 'aegis-cognitive-writer-transition-publisher-v1',
+              },
+            }
+          );
+          const refBody = await refResponse.json();
+          if (!refResponse.ok || !refBody?.commit?.sha) {
+            console.error(JSON.stringify(refBody));
+            process.exit(1);
+          }
+          if (refBody.commit.sha !== expectedHead) {
+            console.error(`STALE_TARGET expected=${expectedHead} live=${refBody.commit.sha}`);
+            process.exit(1);
+          }
+
+          const paths = [
+            'scripts/check-cognitive-writer-merge.py',
+            'scripts/test-cognitive-writer-merge-gate.py',
+          ];
+          const additions = paths.map(path => ({
+            path,
+            contents: fs.readFileSync(`source/${path}`).toString('base64'),
+          }));
+          const query = `mutation($input: CreateCommitOnBranchInput!) {
+            createCommitOnBranch(input: $input) {
+              commit { oid url }
+            }
+          }`;
+          const variables = {
+            input: {
+              branch: { repositoryNameWithOwner: repo, branchName: branch },
+              expectedHeadOid: expectedHead,
+              message: { headline: 'fix(cognitive): preauthorize signed writer digest transition' },
+              fileChanges: { additions },
+            },
+          };
+          const response = await fetch('https://api.github.com/graphql', {
+            method: 'POST',
+            headers: {
+              authorization: `bearer ${token}`,
+              'content-type': 'application/json',
+              'user-agent': 'aegis-cognitive-writer-transition-publisher-v1',
+            },
+            body: JSON.stringify({ query, variables }),
+          });
+          const body = await response.json();
+          if (!response.ok || body.errors) {
+            console.error(JSON.stringify(body));
+            process.exit(1);
+          }
+          console.log(`SIGNED_TRANSITION_COMMIT=${body.data.createCommitOnBranch.commit.oid}`);
+          console.log(`SIGNED_TRANSITION_URL=${body.data.createCommitOnBranch.commit.url}`);
+          NODE
