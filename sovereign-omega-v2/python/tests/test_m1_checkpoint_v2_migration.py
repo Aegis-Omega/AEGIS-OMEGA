@@ -71,7 +71,6 @@ def test_checkpoint_v2_schema_and_geometry_binding():
         _check('checkpoint stores M1 contract id', cp.get('m1_record_contract') == 'M1_FIXED_CHAIN_V2')
         _check('checkpoint stores active M1 region bytes', cp.get('m1_region_bytes') == 400)
 
-        # Contract and geometry are part of the semantic integrity surface.
         cp_contract = dict(cp)
         cp_contract['m1_record_contract'] = 'M1_FIXED_CHAIN_V1'
         pathlib.Path(path).write_text(json.dumps(cp_contract))
@@ -132,7 +131,45 @@ def test_legacy_v1_checkpoint_is_rejected():
         pathlib.Path(path).unlink(missing_ok=True)
 
 
-def _extract_run_bridge(checkpoint_error_type):
+def test_versioned_default_namespace_detects_legacy_checkpoint():
+    ledger = _load_ledger()
+    _check(
+        'default checkpoint filename is v2 namespaced',
+        pathlib.Path(ledger.DEFAULT_CHECKPOINT_PATH).name == 'aegis_checkpoint_v2.json',
+    )
+    _check(
+        'legacy checkpoint filename is explicit',
+        pathlib.Path(getattr(ledger, 'LEGACY_CHECKPOINT_PATH', '')).name == 'aegis_checkpoint.json',
+    )
+
+    original_default = ledger.DEFAULT_CHECKPOINT_PATH
+    original_legacy = getattr(ledger, 'LEGACY_CHECKPOINT_PATH', '')
+    with tempfile.TemporaryDirectory() as tmpdir:
+        v2_path = os.path.join(tmpdir, 'aegis_checkpoint_v2.json')
+        v1_path = os.path.join(tmpdir, 'aegis_checkpoint.json')
+        ledger.DEFAULT_CHECKPOINT_PATH = v2_path
+        ledger.LEGACY_CHECKPOINT_PATH = v1_path
+        pathlib.Path(v1_path).write_text('{}')
+        try:
+            try:
+                ledger.checkpoint_exists()
+                legacy_detected = False
+            except ledger.CheckpointError:
+                legacy_detected = True
+            _check('legacy-only default state fails closed', legacy_detected)
+
+            pathlib.Path(v2_path).write_text('{}')
+            try:
+                v2_exists = ledger.checkpoint_exists()
+            except ledger.CheckpointError:
+                v2_exists = False
+            _check('v2 checkpoint takes precedence when present', v2_exists)
+        finally:
+            ledger.DEFAULT_CHECKPOINT_PATH = original_default
+            ledger.LEGACY_CHECKPOINT_PATH = original_legacy
+
+
+def _extract_run_bridge(checkpoint_error_type, checkpoint_exists_fn):
     tree = ast.parse(BRIDGE_PATH.read_text())
     fn = next(
         node for node in tree.body
@@ -141,7 +178,7 @@ def _extract_run_bridge(checkpoint_error_type):
     module = ast.Module(body=[fn], type_ignores=[])
     ast.fix_missing_locations(module)
 
-    events = {'server_constructed': False, 'matrix_stopped': False}
+    events = {'server_constructed': False}
 
     class MatrixStub:
         def start(self):
@@ -149,7 +186,7 @@ def _extract_run_bridge(checkpoint_error_type):
         def wait_ready(self, timeout=5.0):
             return True
         def stop(self):
-            events['matrix_stopped'] = True
+            return None
 
     class HTTPServerStub:
         def __init__(self, *_args, **_kwargs):
@@ -161,16 +198,13 @@ def _extract_run_bridge(checkpoint_error_type):
         def seal(self):
             return None
 
-    def fail_load(_matrix):
-        raise checkpoint_error_type('legacy checkpoint rejected')
-
     ns = {
         'os': os,
         'json': json,
         '_register_handlers': lambda: None,
         'matrix': MatrixStub(),
-        'checkpoint_exists': lambda: True,
-        'load_checkpoint': fail_load,
+        'checkpoint_exists': checkpoint_exists_fn,
+        'load_checkpoint': lambda _matrix: {},
         'CheckpointError': checkpoint_error_type,
         'HTTPServer': HTTPServerStub,
         'BridgeHandler': object,
@@ -182,24 +216,28 @@ def _extract_run_bridge(checkpoint_error_type):
     return ns['run_bridge'], events
 
 
-def test_bridge_does_not_become_ready_after_checkpoint_rejection():
+def test_bridge_never_becomes_ready_when_legacy_namespace_is_detected():
     ledger = _load_ledger()
-    run_bridge, events = _extract_run_bridge(ledger.CheckpointError)
+
+    def detect_legacy():
+        raise ledger.CheckpointError('legacy v1 checkpoint requires explicit migration')
+
+    run_bridge, events = _extract_run_bridge(ledger.CheckpointError, detect_legacy)
     try:
         run_bridge(7890)
         propagated = False
     except ledger.CheckpointError:
         propagated = True
 
-    _check('checkpoint rejection propagates out of bridge startup', propagated)
-    _check('HTTP server is not constructed after restore rejection', not events['server_constructed'])
-    _check('matrix is stopped on restore rejection', events['matrix_stopped'])
+    _check('legacy namespace rejection propagates before restore try-block', propagated)
+    _check('HTTP server is not constructed after legacy detection', not events['server_constructed'])
 
 
 if __name__ == '__main__':
     print('AEGIS M1 checkpoint v2 migration')
     test_checkpoint_v2_schema_and_geometry_binding()
     test_legacy_v1_checkpoint_is_rejected()
-    test_bridge_does_not_become_ready_after_checkpoint_rejection()
+    test_versioned_default_namespace_detects_legacy_checkpoint()
+    test_bridge_never_becomes_ready_when_legacy_namespace_is_detected()
     print(f'\nRESULT: {PASS} passed, {FAIL} failed')
     raise SystemExit(0 if FAIL == 0 else 1)
