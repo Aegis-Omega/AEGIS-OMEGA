@@ -353,3 +353,99 @@ theorem weil_cauchy_diagonal_rank_two_v1
 #print axioms weil_prime_atom_entry_matches_evaluator_v1
 #print axioms weil_cauchy_divided_difference_rank_two_v1
 #print axioms weil_cauchy_diagonal_rank_two_v1
+
+/-- Finite real quadratic contraction of the rank-two Cauchy entry kernel. -/
+def WeilCauchyFiniteQuadraticV1
+    {ι : Type*} (I : Finset ι) (a : ℝ) (x u : ι → ℝ) : ℝ :=
+  ∑ i ∈ I, ∑ j ∈ I,
+    u i * u j * WeilCauchyRankTwoEntryV1 a (x i) (x j)
+
+/-- Left Cauchy feature moment. -/
+def WeilCauchyMinusMomentV1
+    {ι : Type*} (I : Finset ι) (a : ℝ) (x u : ι → ℝ) : ℝ :=
+  ∑ i ∈ I, u i * (1 / (a - x i))
+
+/-- Right Cauchy feature moment. -/
+def WeilCauchyPlusMomentV1
+    {ι : Type*} (I : Finset ι) (a : ℝ) (x u : ι → ℝ) : ℝ :=
+  ∑ i ∈ I, u i * (1 / (a + x i))
+
+private theorem finset_double_sum_mul_eq_sq_v1
+    {ι : Type*} (I : Finset ι) (v : ι → ℝ) :
+    (∑ i ∈ I, ∑ j ∈ I, v i * v j) =
+      (∑ i ∈ I, v i) ^ 2 := by
+  rw [pow_two, Finset.sum_mul]
+  apply Finset.sum_congr rfl
+  intro i hi
+  rw [Finset.mul_sum]
+
+/-- The finite rank-two Cauchy quadratic is exactly one half of the sum of the
+squares of its two feature moments.  This is the real-carrier analogue of the
+finite Gram core used by #322; it imports no positivity claim from that Coq
+lane and needs no nonresonance hypothesis because real division is total. -/
+theorem weil_cauchy_finite_quadratic_sum_squares_v1
+    {ι : Type*} (I : Finset ι) (a : ℝ) (x u : ι → ℝ) :
+    WeilCauchyFiniteQuadraticV1 I a x u =
+      (1 / 2 : ℝ) *
+        (WeilCauchyMinusMomentV1 I a x u ^ 2 +
+          WeilCauchyPlusMomentV1 I a x u ^ 2) := by
+  classical
+  have hsplit :
+      WeilCauchyFiniteQuadraticV1 I a x u =
+        (1 / 2 : ℝ) *
+          ((∑ i ∈ I, ∑ j ∈ I,
+              (u i * (1 / (a - x i))) *
+                (u j * (1 / (a - x j)))) +
+            (∑ i ∈ I, ∑ j ∈ I,
+              (u i * (1 / (a + x i))) *
+                (u j * (1 / (a + x j))))) := by
+    unfold WeilCauchyFiniteQuadraticV1
+    calc
+      (∑ i ∈ I, ∑ j ∈ I,
+        u i * u j * WeilCauchyRankTwoEntryV1 a (x i) (x j)) =
+          ∑ i ∈ I, ∑ j ∈ I,
+            ((1 / 2 : ℝ) *
+              ((u i * (1 / (a - x i))) *
+                (u j * (1 / (a - x j)))) +
+             (1 / 2 : ℝ) *
+              ((u i * (1 / (a + x i))) *
+                (u j * (1 / (a + x j))))) := by
+            apply Finset.sum_congr rfl
+            intro i hi
+            apply Finset.sum_congr rfl
+            intro j hj
+            unfold WeilCauchyRankTwoEntryV1
+            ring
+      _ = (1 / 2 : ℝ) *
+          ((∑ i ∈ I, ∑ j ∈ I,
+              (u i * (1 / (a - x i))) *
+                (u j * (1 / (a - x j)))) +
+            (∑ i ∈ I, ∑ j ∈ I,
+              (u i * (1 / (a + x i))) *
+                (u j * (1 / (a + x j))))) := by
+            simp_rw [Finset.sum_add_distrib, ← Finset.mul_sum]
+            ring
+  rw [hsplit]
+  have hminus := finset_double_sum_mul_eq_sq_v1 I
+    (fun i => u i * (1 / (a - x i)))
+  have hplus := finset_double_sum_mul_eq_sq_v1 I
+    (fun i => u i * (1 / (a + x i)))
+  rw [hminus, hplus]
+  rfl
+
+/-- Real-carrier finite rank-two Cauchy PSD theorem. -/
+theorem weil_cauchy_finite_quadratic_nonnegative_v1
+    {ι : Type*} (I : Finset ι) (a : ℝ) (x u : ι → ℝ) :
+    0 ≤ WeilCauchyFiniteQuadraticV1 I a x u := by
+  rw [weil_cauchy_finite_quadratic_sum_squares_v1]
+  positivity
+
+/-- Compatibility name for the rank-two quadratic nonnegativity boundary. -/
+theorem weil_cauchy_rank_two_quadratic_nonnegative_v1
+    {ι : Type*} (I : Finset ι) (a : ℝ) (x u : ι → ℝ) :
+    0 ≤ WeilCauchyFiniteQuadraticV1 I a x u :=
+  weil_cauchy_finite_quadratic_nonnegative_v1 I a x u
+
+#print axioms weil_cauchy_finite_quadratic_sum_squares_v1
+#print axioms weil_cauchy_finite_quadratic_nonnegative_v1
+#print axioms weil_cauchy_rank_two_quadratic_nonnegative_v1
