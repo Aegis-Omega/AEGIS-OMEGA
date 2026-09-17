@@ -14,12 +14,12 @@ example (c t : ℝ) (ρ : LiCriterion.NontrivialZero) :
       1 / (((c : ℂ) + (t : ℂ) * I) - (1 - ρ.val)) := rfl
 
 /-- Freeze the exact rational cancellation used for the central-height O(h^-2) bound. -/
-example (c t : ℝ) (ρ : LiCriterion.NontrivialZero) :
+example (c t : ℝ) (ρ : LiCriterion.NontrivialZero) (hc : 1 < c) :
     WeilPairedZeroKernelV3 c t ρ =
       (2 * ((c : ℂ) + (t : ℂ) * I) - 1) /
         ((((c : ℂ) + (t : ℂ) * I) - ρ.val) *
           (((c : ℂ) + (t : ℂ) * I) - (1 - ρ.val))) :=
-  weil_paired_zero_kernel_eq_quotient_v3 c t ρ
+  weil_paired_zero_kernel_eq_quotient_v3 c t ρ hc
 
 /-- Freeze the FZ core: second weighted L1 moment of H is enough for the
 multiplicity-weighted paired-kernel product integrals to be summable. -/
