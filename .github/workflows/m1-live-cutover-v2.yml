@@ -10,8 +10,11 @@ on:
     paths:
       - sovereign-omega-v2/python/core_matrix.py
       - sovereign-omega-v2/python/ledger_persist.py
+      - sovereign-omega-v2/python/bridge.py
       - sovereign-omega-v2/python/tests/test_m1_live_cutover_v2.py
+      - sovereign-omega-v2/python/tests/test_m1_checkpoint_v2_migration.py
       - sovereign-omega-v2/python/tests/test_m1_boundary_containment.py
+      - sovereign-omega-v2/python/tests/test_ledger_persist_v2.py
       - .github/workflows/m1-live-cutover-v2.yml
   workflow_dispatch:
 
@@ -29,7 +32,11 @@ jobs:
           python-version: '3.11'
       - name: Run reference contract
         run: python sovereign-omega-v2/python/tests/test_m1_record_contract_v2.py
+      - name: Run checkpoint migration contract
+        run: python sovereign-omega-v2/python/tests/test_m1_checkpoint_v2_migration.py
       - name: Run live cutover acceptance
         run: python sovereign-omega-v2/python/tests/test_m1_live_cutover_v2.py
       - name: Run containment regression
         run: python sovereign-omega-v2/python/tests/test_m1_boundary_containment.py
+      - name: Run ledger persistence regression
+        run: python sovereign-omega-v2/python/tests/test_ledger_persist_v2.py
