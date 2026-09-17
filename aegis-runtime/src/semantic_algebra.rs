@@ -461,7 +461,7 @@ mod tests {
             .add_root(*b"ROT")
             .build();
         let node = arena.get_node(0).unwrap();
-        assert!(matches!(node.node_type, NodeType::Root(*b"ROT")));
+        assert!(matches!(node.node_type, NodeType::Root([b'R', b'O', b'T'])));
     }
 
     // 12. bfs_traverse on single-node arena returns [0]
