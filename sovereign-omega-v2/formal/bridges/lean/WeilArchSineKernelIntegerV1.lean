@@ -68,10 +68,15 @@ private theorem integral_weighted_cos_linear_v1
   have hu : ∀ y ∈ Set.uIcc (0 : ℝ) L, HasDerivAt u (u' y) y := by
     intro y hy
     dsimp [u, u']
-    have h : HasDerivAt (fun z : ℝ => 1 - z / L) (-(1 / L)) y := by
-      simpa only [zero_sub] using
-        (hasDerivAt_const y (1 : ℝ)).sub ((hasDerivAt_id y).div_const L)
-    exact h
+    have hbase :=
+      (hasDerivAt_const y (1 : ℝ)).sub ((hasDerivAt_id y).div_const L)
+    have hfun :
+        ((fun _ : ℝ => (1 : ℝ)) - fun z : ℝ => z / L) =
+          (fun z : ℝ => 1 - z / L) := by
+      funext z
+      rfl
+    rw [hfun] at hbase
+    simpa only [zero_sub] using hbase
   have hv : ∀ y ∈ Set.uIcc (0 : ℝ) L, HasDerivAt v (v' y) y := by
     intro y hy
     dsimp [v, v']
