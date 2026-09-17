@@ -1,0 +1,35 @@
+name: Validate Cognitive Writer Digest Transition V1
+
+on:
+  push:
+    branches:
+      - prep/cognitive-writer-digest-transition-v1
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact prep head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Assert exact checkout
+        run: test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+      - name: Run merge-gate regression suite
+        run: python3 scripts/test-cognitive-writer-merge-gate.py
+      - name: Verify only the intended gate files differ from main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --no-tags
+          mapfile -t changed < <(git diff --name-only origin/main...HEAD | grep -v '^.github/workflows/validate-cognitive-writer-digest-transition-v1.yml$')
+          printf '%s\n' "${changed[@]}"
+          test "${#changed[@]}" -eq 2
+          test "${changed[0]}" = "scripts/check-cognitive-writer-merge.py"
+          test "${changed[1]}" = "scripts/test-cognitive-writer-merge-gate.py"
