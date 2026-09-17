@@ -108,10 +108,11 @@ Definition finite_prime_scalar_term_cc_v1
    cc_IR (finite_prime_reciprocal_ir_v1 n)
     [*] f (finite_prime_reciprocal_ir_v1 n)).
 
-(** q=i+2 reciprocal using the existing canonical q-native arithmetic lane. *)
+(** The q=i+2 reciprocal is the same constructive term as the m=n+1 lane
+    at n=S i.  Reusing that definition preserves the exact reciprocal while
+    avoiding a second proof witness for the same positive denominator. *)
 Definition canonical_q_reciprocal_ir_v1 (i : nat) : IR :=
-  [1] [/] canonical_integer_q_ir_v1 i
-    [//] pos_ap_zero _ _ (canonical_integer_q_ir_positive_v1 i).
+  finite_prime_reciprocal_ir_v1 (S i).
 
 (** The same scalar formula written directly in the existing q=i+2
     coordinate.  This is independent of the basis/trigonometric source
