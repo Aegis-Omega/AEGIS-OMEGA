@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/rh-paired-hadamard-fixed-line-v1-17924a89",
+    "source_ref": "proof/rh-paired-hadamard-tsum-fusion-v1-53bc21de",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "599bd15493dc89fe7b7012e7133aef413690da2c1d243e376d08f11653c7db8d"
+  "state_hash": "767a5adb800a105fa5d5a6740b620e79557c08c2e277e5ef24e753c0dc9e26ed"
 }
