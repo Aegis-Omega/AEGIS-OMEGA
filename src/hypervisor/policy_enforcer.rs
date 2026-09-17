@@ -7,6 +7,12 @@ pub struct PolicyEnforcer {
     registry: ConstraintRegistry,
 }
 
+impl Default for PolicyEnforcer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PolicyEnforcer {
     pub fn new() -> Self {
         Self {
@@ -25,10 +31,10 @@ impl PolicyEnforcer {
         context: &std::collections::HashMap<String, serde_json::Value>,
     ) -> Result<(), HypervisorError> {
         // Check bypass mode
-        if self.registry.get_bool("disableBypassPermissionsMode") == Some(true) {
-            if context.contains_key("bypass_attempt") {
-                return Err(HypervisorError::BypassAttempt);
-            }
+        if self.registry.get_bool("disableBypassPermissionsMode") == Some(true)
+            && context.contains_key("bypass_attempt")
+        {
+            return Err(HypervisorError::BypassAttempt);
         }
 
         // Check effort level
@@ -51,21 +57,21 @@ impl PolicyEnforcer {
         }
 
         // Check truth over flow
-        if self.registry.get_bool("truthOverFlow") == Some(true) {
-            if context.get("prioritize_flow").and_then(|v| v.as_bool()) == Some(true) {
-                return Err(HypervisorError::ConstraintViolation(
-                    "Truth over flow violated".to_string(),
-                ));
-            }
+        if self.registry.get_bool("truthOverFlow") == Some(true)
+            && context.get("prioritize_flow").and_then(|v| v.as_bool()) == Some(true)
+        {
+            return Err(HypervisorError::ConstraintViolation(
+                "Truth over flow violated".to_string(),
+            ));
         }
 
         // Check mechanism over metaphor
-        if self.registry.get_bool("mechanismOverMetaphor") == Some(true) {
-            if context.get("use_metaphor").and_then(|v| v.as_bool()) == Some(true) {
-                return Err(HypervisorError::ConstraintViolation(
-                    "Mechanism over metaphor violated".to_string(),
-                ));
-            }
+        if self.registry.get_bool("mechanismOverMetaphor") == Some(true)
+            && context.get("use_metaphor").and_then(|v| v.as_bool()) == Some(true)
+        {
+            return Err(HypervisorError::ConstraintViolation(
+                "Mechanism over metaphor violated".to_string(),
+            ));
         }
 
         Ok(())

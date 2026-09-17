@@ -43,6 +43,10 @@ pub extern "C" fn get_output_ptr() -> i32 {
 /// input_ptr/input_len: source data in WASM linear memory.
 /// out_ptr: destination for 32-byte digest.
 /// Matches TypeScript sha256Bytes (src/core/hashing.ts) byte-for-byte.
+///
+/// # Safety
+/// `input_ptr..input_ptr + input_len` must be readable linear memory and
+/// `out_ptr..out_ptr + 32` must be writable for the duration of the call.
 #[no_mangle]
 pub unsafe extern "C" fn sha256(input_ptr: i32, input_len: i32, out_ptr: i32) {
     let input = core::slice::from_raw_parts(input_ptr as *const u8, input_len as usize);
@@ -59,6 +63,10 @@ pub unsafe extern "C" fn sha256(input_ptr: i32, input_len: i32, out_ptr: i32) {
 /// Each leaf is SHA-256 hashed before tree construction.
 /// Odd counts: last leaf is duplicated (matches TypeScript).
 /// Writes 32-byte root digest to out_ptr.
+///
+/// # Safety
+/// `leaves_ptr` must reference a valid sequence of `leaf_count`
+/// length-prefixed leaves and `out_ptr..out_ptr + 32` must be writable.
 #[no_mangle]
 pub unsafe extern "C" fn merkle_root(leaves_ptr: i32, leaf_count: i32, out_ptr: i32) {
     let root = merkle::compute_merkle_root(leaves_ptr as *const u8, leaf_count as usize);
@@ -88,6 +96,10 @@ pub extern "C" fn bernstein_lcb(
 /// writes canonical UTF-8 bytes to out_ptr.
 /// Returns output byte length.
 /// Ports canonicalizeJCS from src/core/canonicalize.ts.
+///
+/// # Safety
+/// `input_ptr..input_ptr + input_len` must be readable and `out_ptr` must
+/// reference enough writable linear memory for the canonicalized JSON bytes.
 #[no_mangle]
 pub unsafe extern "C" fn canonicalize(
     input_ptr: i32,
@@ -104,6 +116,10 @@ pub unsafe extern "C" fn canonicalize(
 /// Pure deterministic state reduction: SHA-256(state_bytes || event_bytes).
 /// Provides a replay-verifiable hash of the combined state+event boundary.
 /// Returns 32 (output length); writes digest to out_ptr.
+///
+/// # Safety
+/// Both input pointer/length pairs must be readable and
+/// `out_ptr..out_ptr + 32` must be writable for the duration of the call.
 #[no_mangle]
 pub unsafe extern "C" fn reduce_state(
     state_ptr: i32,

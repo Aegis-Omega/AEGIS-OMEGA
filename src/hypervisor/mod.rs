@@ -17,6 +17,12 @@ pub struct ConstitutionalHypervisor {
     auditor: AuditLogger,
 }
 
+impl Default for ConstitutionalHypervisor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConstitutionalHypervisor {
     pub fn new() -> Self {
         Self {

@@ -9,6 +9,12 @@ pub struct AuditLogger {
     entries: Arc<Mutex<Vec<AuditEntry>>>,
 }
 
+impl Default for AuditLogger {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AuditLogger {
     pub fn new() -> Self {
         Self {

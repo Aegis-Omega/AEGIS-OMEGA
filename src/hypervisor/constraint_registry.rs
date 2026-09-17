@@ -15,6 +15,12 @@ pub struct ConstraintRegistry {
     constraints: HashMap<String, Constraint>,
 }
 
+impl Default for ConstraintRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConstraintRegistry {
     pub fn new() -> Self {
         Self {

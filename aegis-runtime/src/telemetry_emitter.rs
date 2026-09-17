@@ -202,6 +202,9 @@ pub fn stop_emitter(_atomics: &Arc<TelemetryAtomics>) {
 /// Utility to construct a telemetry packet manually.
 /// 
 /// Useful for one-off telemetry sends without spawning an emitter.
+///
+/// The positional field list intentionally mirrors the fixed binary wire layout.
+#[allow(clippy::too_many_arguments)]
 pub fn construct_packet(
     node_id: u16,
     t0: u64,
@@ -231,12 +234,17 @@ pub fn construct_packet(
     buf
 }
 
+/// Parsed telemetry fields in wire order:
+/// node id, T0, semantic, clear, concealed, merged, prolonged, vibrating,
+/// harmony, tension.
+pub type TelemetryPacketFields = (u16, u64, u64, u64, u64, u64, u64, u64, u16, u16);
+
 /// Parses a telemetry packet from raw bytes.
-/// 
+///
 /// # Returns
 /// * `Some(packet_data)` if magic number matches
 /// * `None` if packet is invalid
-pub fn parse_packet(buf: &[u8]) -> Option<(u16, u64, u64, u64, u64, u64, u64, u64, u16, u16)> {
+pub fn parse_packet(buf: &[u8]) -> Option<TelemetryPacketFields> {
     if buf.len() < TOTAL_PACKET_SIZE {
         return None;
     }

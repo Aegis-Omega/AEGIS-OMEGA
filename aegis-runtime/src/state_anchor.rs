@@ -59,7 +59,7 @@ impl StateAnchor {
     /// Re-verify the full chain. Sets corruption_count on any mismatch.
     pub fn verify_chain(&mut self) -> bool {
         let mut running = GENESIS_HASH;
-        for (_, entry) in &self.entries {
+        for entry in self.entries.values() {
             let expected = Self::compute_hash(running, entry.key, &entry.payload);
             if expected != entry.entry_hash {
                 self.corruption_count += 1;

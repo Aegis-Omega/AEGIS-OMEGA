@@ -114,10 +114,12 @@ impl ReplayLedger {
     }
 
     /// Structural chain verification using the provided hasher.
+    ///
     /// Checks:
-    ///   1. Sequence numbers are contiguous (0, 1, 2, …)
-    ///   2. Genesis event has GENESIS_HASH prev_hash
-    ///   3. Each event's prev_hash equals the chain result of the previous event
+    /// 1. Sequence numbers are contiguous (0, 1, 2, …)
+    /// 2. Genesis event has GENESIS_HASH prev_hash
+    /// 3. Each event's prev_hash equals the chain result of the previous event
+    ///
     /// Returns false on any structural violation — the ledger may not be replayed.
     /// REPLAY CONSTITUTION LAW-06: invariant violations during replay must halt admissibility.
     pub fn verify_structural<H: ChainHasher>(&self, hasher: &H) -> bool {
