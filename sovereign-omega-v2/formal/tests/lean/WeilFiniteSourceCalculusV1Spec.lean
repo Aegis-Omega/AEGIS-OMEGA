@@ -16,6 +16,10 @@ finite real family of single-frequency source atoms must compose linearly at
 the entry, quadratic-contraction, and chord-kernel levels.  This remains a
 finite identity only and does not import finite PSD, global Weil positivity,
 or RH.
+
+After that extension, the next isolated boundary is full entry identification:
+the single matrix obtained by summing the atomic entries must have exactly the
+same finite quadratic contraction as the sum of the atomic quadratic values.
 -/
 
 #check WeilSingleFrequencySourceV1
@@ -26,3 +30,4 @@ or RH.
 #check weil_single_frequency_source_diagonal_v1
 #check weil_single_frequency_source_calculus_v1
 #check weil_finite_source_measure_extension_v1
+#check weil_finite_source_full_entry_identification_v1
