@@ -6,6 +6,7 @@ from unittest import TestCase, main
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "cognitive-manifest-refresh.yml"
+APPROVED_SHA256 = "269551bbfa3889577d7b856b200a24faef176951b8592d06933d152fca037295"
 
 
 class CognitiveAnchorSignedWriterV1Tests(TestCase):
@@ -13,7 +14,9 @@ class CognitiveAnchorSignedWriterV1Tests(TestCase):
     def setUpClass(cls) -> None:
         cls.source = WORKFLOW.read_text(encoding="utf-8")
         cls.writer_sha256 = hashlib.sha256(WORKFLOW.read_bytes()).hexdigest()
-        print(f"WRITER_SHA256={cls.writer_sha256}")
+
+    def test_writer_bytes_match_approved_digest(self) -> None:
+        self.assertEqual(self.writer_sha256, APPROVED_SHA256)
 
     def test_existing_admission_boundary_is_preserved(self) -> None:
         required = (
