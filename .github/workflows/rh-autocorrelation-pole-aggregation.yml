@@ -86,7 +86,7 @@ jobs:
           import json, re
           src = Path('WeilAutocorrelationPoleAggregationV1.lean').read_text()
           names = re.findall(r'^theorem ([a-zA-Z0-9_]+)', src, re.M)
-          assert len(names) == 8, names
+          assert len(names) == 14, names
           Path('expected-theorems.json').write_text(json.dumps(names, indent=2) + '\n')
           Path('PoleAggregationAudit.lean').write_text(
               'import WeilAutocorrelationPoleAggregationV1\n' +
@@ -106,7 +106,7 @@ jobs:
               assert m, name
               axioms = {x.strip() for x in m[1].split(',') if x.strip()}
               assert axioms <= {'propext', 'Classical.choice', 'Quot.sound'}, (name, axioms)
-          print('PASS: 8 theorem closures audited; endpoint factorization binding remains separate; RH=NOT_PROVEN; authority_effect=NONE')
+          print('PASS: 14 theorem closures audited; actual autocorrelation endpoint factorization included; RH=NOT_PROVEN; authority_effect=NONE')
           PY_AUDIT_LOG
 
       - name: Upload exact-head evidence
