@@ -68,15 +68,17 @@ private theorem integral_weighted_cos_linear_v1
   have hu : ∀ y ∈ Set.uIcc (0 : ℝ) L, HasDerivAt u (u' y) y := by
     intro y hy
     dsimp [u, u']
-    have h := (hasDerivAt_const y (1 : ℝ)).sub ((hasDerivAt_id y).div_const L)
-    simpa only [Pi.sub_apply, zero_sub] using h
+    have h : HasDerivAt (fun z : ℝ => 1 - z / L) (0 - 1 / L) y :=
+      (hasDerivAt_const y (1 : ℝ)).sub ((hasDerivAt_id y).div_const L)
+    simpa only [zero_sub] using h
   have hv : ∀ y ∈ Set.uIcc (0 : ℝ) L, HasDerivAt v (v' y) y := by
     intro y hy
     dsimp [v, v']
     have hlin : HasDerivAt (fun z : ℝ => k * z) k y := by
       simpa using (hasDerivAt_id y).const_mul k
     have hsin := (Real.hasDerivAt_sin (k * y)).comp y hlin
-    convert hsin.div_const k using 1
+    have hdiv := hsin.div_const k
+    refine hdiv.congr_deriv ?_
     field_simp [hk]
   have hu_int : IntervalIntegrable u' MeasureTheory.volume 0 L := by
     apply Continuous.intervalIntegrable
@@ -86,8 +88,7 @@ private theorem integral_weighted_cos_linear_v1
     fun_prop
   have hibp := intervalIntegral.integral_mul_deriv_eq_deriv_mul hu hv hu_int hv_int
   have huL : u L = 0 := by
-    dsimp [u]
-    field_simp [hL]
+    simp [u, hL]
   have hu0 : u 0 = 1 := by simp [u]
   have hv0 : v 0 = 0 := by simp [v]
   have hconst :
