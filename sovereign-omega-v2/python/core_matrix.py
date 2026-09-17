@@ -67,6 +67,11 @@ M2_SIZE   = int(ARRAY_TOTAL_BYTES * M2_REGION_FRACTION)
 M3_OFFSET = M2_OFFSET + M2_SIZE
 M3_SIZE   = int(ARRAY_TOTAL_BYTES * M3_REGION_FRACTION)
 
+M1_SEQUENCE_BYTES = 8
+M1_HASH_BYTES = 32
+M1_ENTRY_BYTES = M1_SEQUENCE_BYTES + M1_HASH_BYTES
+M1_GENESIS_HASH = b'\x00' * M1_HASH_BYTES
+
 
 # ── Functional Definitions ────────────────────────────────────────────────────
 
@@ -77,31 +82,40 @@ def M1(state: memoryview, payload: bytes, sequence: int) -> Tuple[int, bytes]:
     Receives: current M1 region view, event payload bytes, sequence number.
     Returns: (new_sequence, state_hash_bytes).
 
+    Record contract:
+      entry_n = u64le(sequence_n) || chain_hash_n
+      chain_0 = SHA256(ZERO32 || SHA256(payload_0))
+      chain_n = SHA256(chain_(n-1) || SHA256(payload_n))
+      offset_n = 40 * (sequence_n mod slot_capacity)
+
+    Raw payload bytes are hashed but are not stored in M1. Every committed M1
+    record is exactly 40 bytes, independent of payload length.
+
     INVARIANT: Pure function — no external state, no I/O.
     INVARIANT: Sequence is always greater than any previously processed sequence.
     INVARIANT: Output is deterministic for identical inputs.
     """
-    # Compute payload hash using SHA-256 (byte-level, not string)
+    slot_capacity = len(state) // M1_ENTRY_BYTES
+    if slot_capacity <= 0:
+        raise ValueError('M1 region must hold at least one complete 40-byte record')
+
     payload_hash = hashlib.sha256(payload).digest()
 
-    # Write sequence and hash into M1 region at the current write head
-    # Format: 8 bytes sequence + 32 bytes payload hash + payload
-    write_head = (sequence * 40) % len(state)
-    seq_bytes = sequence.to_bytes(8, 'little')
+    # Read the predecessor before mutating the current circular slot. At genesis
+    # there is no predecessor, so the chain is anchored to an explicit ZERO32.
+    if sequence == 0:
+        previous_chain_hash = M1_GENESIS_HASH
+    else:
+        prev_offset = M1_ENTRY_BYTES * ((sequence - 1) % slot_capacity)
+        previous_chain_hash = bytes(
+            state[prev_offset + M1_SEQUENCE_BYTES:prev_offset + M1_ENTRY_BYTES]
+        )
 
-    end_pos = write_head + 40 + len(payload)
-    if end_pos <= len(state):
-        state[write_head:write_head + 8] = seq_bytes
-        state[write_head + 8:write_head + 40] = payload_hash
-        if len(payload) > 0:
-            payload_end = min(write_head + 40 + len(payload), len(state))
-            state[write_head + 40:payload_end] = payload[:payload_end - write_head - 40]
+    chain_hash = hashlib.sha256(previous_chain_hash + payload_hash).digest()
 
-    # Chain hash: SHA-256(previous_state_hash || payload_hash)
-    # This implements the same hash-chaining as the TypeScript E3 substrate
-    prev_offset = ((sequence - 1) * 40) % len(state) if sequence > 0 else 0
-    prev_hash = bytes(state[prev_offset + 8:prev_offset + 40])
-    chain_hash = hashlib.sha256(prev_hash + payload_hash).digest()
+    write_head = M1_ENTRY_BYTES * (sequence % slot_capacity)
+    seq_bytes = sequence.to_bytes(M1_SEQUENCE_BYTES, 'little')
+    state[write_head:write_head + M1_ENTRY_BYTES] = seq_bytes + chain_hash
 
     return sequence + 1, chain_hash
 
@@ -115,7 +129,7 @@ def M2(state: memoryview, verifier_result: bytes, confidence_fixed: int, sequenc
 
     INVARIANT: confidence_fixed must be in [0, INT_SCALE] (representing [0.0, 1.0]).
     INVARIANT: Pure function — no side effects.
-    INVARIANT: sequence must be included in offset to prevent same-length collision.
+    INVARIANT: sequence maps to one aligned 8-byte record slot.
     """
     # Clamp confidence to valid range
     confidence_fixed = fixed_clamp(confidence_fixed, 0, INT_SCALE)
@@ -134,12 +148,14 @@ def M2(state: memoryview, verifier_result: bytes, confidence_fixed: int, sequenc
     lcb_adjustment = (2 * vcg_error_fixed) >> 1
     gate_lcb_fixed = max(0, confidence_fixed - lcb_adjustment)
 
-    # Write to M2 region — offset incorporates sequence to prevent collision when
-    # different events produce verifier_result bytes of equal length.
-    offset = (sequence * 8 + len(verifier_result)) % (len(state) // 8)
-    if offset + 8 <= len(state):
-        state[offset:offset + 4] = vcg_error_fixed.to_bytes(4, 'little', signed=False)
-        state[offset + 4:offset + 8] = gate_lcb_fixed.to_bytes(4, 'little', signed=False)
+    # Write one fixed 8-byte record to the logical sequence slot. Verifier bytes
+    # determine the values above but never the record address.
+    slot_capacity = len(state) // 8
+    if slot_capacity <= 0:
+        raise ValueError('M2 region must hold at least one complete 8-byte record')
+    offset = 8 * (sequence % slot_capacity)
+    state[offset:offset + 4] = vcg_error_fixed.to_bytes(4, 'little', signed=False)
+    state[offset + 4:offset + 8] = gate_lcb_fixed.to_bytes(4, 'little', signed=False)
 
     return vcg_error_fixed, gate_lcb_fixed
 
@@ -224,7 +240,7 @@ class CoreMatrix:
         self._ready = threading.Event()
 
         # Capacity at which M1 write head wraps (events per era)
-        self._m1_era_capacity: int = M1_SIZE // 40
+        self._m1_era_capacity: int = len(self._m1_region) // M1_ENTRY_BYTES
 
         # Performance metrics (fixed-point for determinism)
         self._total_vcg_error_fixed: int = 0
@@ -274,6 +290,17 @@ class CoreMatrix:
             failsafe_state = self._failsafe.state
             if failsafe_state in (EpochState.FROZEN, EpochState.RECOVERING):
                 return {'status': failsafe_state.value.upper(), 'sequence': self._sequence}
+
+            # M1 fixed-record containment: payload length cannot change the record
+            # footprint. Fail closed only when the region cannot hold one record.
+            m1_region_len = len(self._m1_region)
+            m1_capacity = m1_region_len // M1_ENTRY_BYTES
+            if m1_capacity <= 0:
+                return {
+                    'status': 'M1_BOUNDARY_BLOCKED',
+                    'sequence': self._sequence,
+                    'epoch': self._epoch,
+                }
 
             # Detect M1 circular wrap and log an era-boundary event (F-07)
             if self._sequence > 0 and self._sequence % self._m1_era_capacity == 0:

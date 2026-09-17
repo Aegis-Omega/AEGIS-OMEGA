@@ -1,0 +1,29 @@
+name: M1 Boundary Containment
+
+on:
+  push:
+    branches:
+      - fix/m1-wrap-fail-closed-v1
+  pull_request:
+    branches:
+      - main
+    paths:
+      - sovereign-omega-v2/python/core_matrix.py
+      - sovereign-omega-v2/python/tests/test_m1_boundary_containment.py
+      - .github/workflows/m1-boundary-containment.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  m1-boundary-containment:
+    name: M1 boundary containment regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run focused regression
+        run: python sovereign-omega-v2/python/tests/test_m1_boundary_containment.py

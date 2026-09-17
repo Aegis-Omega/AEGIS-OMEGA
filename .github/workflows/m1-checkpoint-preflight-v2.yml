@@ -1,0 +1,35 @@
+name: M1 Checkpoint Preflight V2
+
+on:
+  push:
+    branches:
+      - fix/m1-checkpoint-preflight-v2
+  pull_request:
+    branches:
+      - fix/m1-record-live-cutover-v2
+    paths:
+      - sovereign-omega-v2/python/ledger_persist.py
+      - sovereign-omega-v2/python/tests/test_m1_checkpoint_preflight_v2.py
+      - sovereign-omega-v2/python/tests/test_m1_checkpoint_v2_migration.py
+      - sovereign-omega-v2/python/tests/test_ledger_persist_v2.py
+      - .github/workflows/m1-checkpoint-preflight-v2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  m1-checkpoint-preflight-v2:
+    name: M1 corrupt-v2 startup preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run corrupt-v2 preflight falsifiers
+        run: python sovereign-omega-v2/python/tests/test_m1_checkpoint_preflight_v2.py
+      - name: Run checkpoint migration regression
+        run: python sovereign-omega-v2/python/tests/test_m1_checkpoint_v2_migration.py
+      - name: Run ledger persistence regression
+        run: python sovereign-omega-v2/python/tests/test_ledger_persist_v2.py

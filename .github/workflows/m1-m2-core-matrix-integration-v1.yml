@@ -1,0 +1,58 @@
+name: M1 M2 CoreMatrix Integration V1
+
+on:
+  push:
+    branches:
+      - integration/m1-m2-core-matrix-v1
+  pull_request:
+    branches:
+      - fix/m1-checkpoint-preflight-v2
+    paths:
+      - sovereign-omega-v2/python/core_matrix.py
+      - sovereign-omega-v2/python/ledger_persist.py
+      - sovereign-omega-v2/python/m1_record_contract_v2.py
+      - sovereign-omega-v2/python/m2_slot_contract_v1.py
+      - sovereign-omega-v2/python/tests/test_m1_record_contract_v2.py
+      - sovereign-omega-v2/python/tests/test_m1_live_cutover_v2.py
+      - sovereign-omega-v2/python/tests/test_m1_boundary_containment.py
+      - sovereign-omega-v2/python/tests/test_m1_checkpoint_v2_migration.py
+      - sovereign-omega-v2/python/tests/test_m1_checkpoint_env_compat_v2.py
+      - sovereign-omega-v2/python/tests/test_m1_checkpoint_preflight_v2.py
+      - sovereign-omega-v2/python/tests/test_ledger_persist_v2.py
+      - sovereign-omega-v2/python/tests/test_m2_live_cutover_v1.py
+      - sovereign-omega-v2/python/tests/test_m2_slot_contract_v1.py
+      - .github/workflows/m1-m2-core-matrix-integration-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  m1-m2-integration:
+    name: Joint M1 + M2 CoreMatrix replay
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: M1 reference/live contract
+        run: python sovereign-omega-v2/python/tests/test_m1_record_contract_v2.py
+      - name: M1 live restart equivalence
+        run: python sovereign-omega-v2/python/tests/test_m1_live_cutover_v2.py
+      - name: M1 fixed-record containment
+        run: python sovereign-omega-v2/python/tests/test_m1_boundary_containment.py
+      - name: M1 checkpoint migration
+        run: python sovereign-omega-v2/python/tests/test_m1_checkpoint_v2_migration.py
+      - name: M1 deployed checkpoint-path compatibility
+        run: python sovereign-omega-v2/python/tests/test_m1_checkpoint_env_compat_v2.py
+      - name: M1 corrupt-v2 startup preflight
+        run: python sovereign-omega-v2/python/tests/test_m1_checkpoint_preflight_v2.py
+      - name: Ledger persistence v2
+        run: python sovereign-omega-v2/python/tests/test_ledger_persist_v2.py
+
+      - name: M2 live aligned-slot acceptance
+        run: python sovereign-omega-v2/python/tests/test_m2_live_cutover_v1.py
+      - name: M2 live/reference slot regression
+        run: python sovereign-omega-v2/python/tests/test_m2_slot_contract_v1.py
