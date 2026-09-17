@@ -96,7 +96,7 @@ jobs:
             --schema ../trusted-source/schemas/cognitive-state.v1.schema.json \
             --generator ../trusted-source/scripts/build-cognitive-manifest.py \
             --skill-hashes skill-hashes.sha256 \
-            --parent-manifest ../base-data/.claude.json \
+            --parent-manifest base-data/.claude.json \
             --candidate-sha "$CANDIDATE_SHA" \
             --require-oidc \
             --output "$RUNNER_TEMP/AUTOMATON2_PR508_REPLAY.json"
