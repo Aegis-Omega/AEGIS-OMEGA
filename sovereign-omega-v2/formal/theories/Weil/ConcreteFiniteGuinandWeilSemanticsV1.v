@@ -156,3 +156,41 @@ Proof.
   - intros; unfold finite_autocorrelation_integrand_cc_v1; apply eq_reflexive.
   - reflexivity.
 Qed.
+
+(* Fourier/Mellin convention registry.  The actual transform identity and the
+   2*pi frequency conversion are kernel-proved in pinned Mathlib; this Coq
+   surface makes the frozen convention and bridge scale explicit. *)
+Inductive FiniteFourierFrequencyConventionV1 : Type :=
+| AngularFrequencyV1
+| CyclesFrequencyV1.
+
+Inductive FiniteFourierBridgeScaleV1 : Type :=
+| DivideByTwoPiV1
+| IdentityFrequencyScaleV1.
+
+Inductive FiniteFourierInversePrefactorV1 : Type :=
+| OneOverTwoPiV1
+| UnitInversePrefactorV1.
+
+Definition finite_frozen_fourier_frequency_v1 : FiniteFourierFrequencyConventionV1 :=
+  AngularFrequencyV1.
+Definition finite_mathlib_fourier_frequency_v1 : FiniteFourierFrequencyConventionV1 :=
+  CyclesFrequencyV1.
+Definition finite_mellin_to_mathlib_scale_v1 : FiniteFourierBridgeScaleV1 :=
+  DivideByTwoPiV1.
+Definition finite_frozen_fourier_inverse_prefactor_v1 : FiniteFourierInversePrefactorV1 :=
+  OneOverTwoPiV1.
+Definition finite_mellin_measure_v1 : FiniteWeilMeasureConventionV1 :=
+  OrdinaryLebesgueV1.
+
+Theorem concrete_fourier_mellin_normalization_v1 :
+  finite_frozen_fourier_frequency_v1 = AngularFrequencyV1 /\
+  finite_mathlib_fourier_frequency_v1 = CyclesFrequencyV1 /\
+  finite_mellin_to_mathlib_scale_v1 = DivideByTwoPiV1 /\
+  finite_frozen_fourier_inverse_prefactor_v1 = OneOverTwoPiV1 /\
+  finite_mellin_measure_v1 = OrdinaryLebesgueV1 /\
+  AngularFrequencyV1 <> CyclesFrequencyV1 /\
+  DivideByTwoPiV1 <> IdentityFrequencyScaleV1.
+Proof.
+  repeat split; try reflexivity; discriminate.
+Qed.
