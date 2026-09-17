@@ -103,7 +103,8 @@ jobs:
 
             for theorem in \
               finite_prime_scalar_term_leading_zero_v1 \
-              finite_prime_scalar_term_tail_index_v1
+              finite_prime_scalar_term_tail_index_v1 \
+              concrete_prime_term_semantics_v1
             do
               query="$OUT/${theorem}.v"
               log="$OUT/${theorem}.assumptions.txt"
@@ -125,8 +126,9 @@ jobs:
             cat > "$OUT/support-status.txt" <<'EOF'
             receipt_kind=AEGIS_CONCRETE_PRIME_TERM_COMPLEX_SUPPORT_V1
             formula_level_complex_support=CLOSED
-            concrete_prime_term_semantics_v1=OPEN
-            carrier_correspondence=OPEN
+            concrete_prime_term_semantics_v1=COQ_KERNEL_CLOSED
+            cross_prover_semantic_equivalence=SEPARATE_CANONICAL_AST_BINDING_REQUIRED
+            carrier_correspondence=NOT_CLAIMED
             matrix_entries_binding=NOT_YET_CLAIMED
             finite_psd=NOT_YET_IMPORTED
             global_weil_positivity=NOT_PROVEN
