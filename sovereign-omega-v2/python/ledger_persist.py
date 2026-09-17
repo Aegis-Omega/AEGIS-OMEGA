@@ -112,6 +112,98 @@ def _integrity_hash(
     return hashlib.sha256(material).hexdigest()
 
 
+def _read_checkpoint(path: str) -> dict:
+    if not os.path.exists(path):
+        raise CheckpointError(f'Checkpoint not found: {path}')
+    try:
+        with open(path, 'r') as f:
+            cp = json.load(f)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise CheckpointError(f'Checkpoint unreadable: {exc}') from exc
+    if not isinstance(cp, dict):
+        raise CheckpointError('Checkpoint root must be a JSON object')
+    return cp
+
+
+def _validate_checkpoint_envelope(cp: dict) -> dict:
+    """
+    Validate the self-contained v2 checkpoint envelope without consulting a
+    live CoreMatrix geometry. This is safe for startup preflight and shared by
+    load_checkpoint(). Matrix/profile compatibility remains a separate check.
+    """
+    if cp.get('checkpoint_version') != CHECKPOINT_VERSION:
+        raise CheckpointError(
+            f'Version mismatch: expected {CHECKPOINT_VERSION}, '
+            f'got {cp.get("checkpoint_version")}'
+        )
+    if cp.get('m1_record_contract') != M1_RECORD_CONTRACT:
+        raise CheckpointError(
+            f'M1 record contract mismatch: expected {M1_RECORD_CONTRACT}, '
+            f'got {cp.get("m1_record_contract")}'
+        )
+    if cp.get('is_replay_reconstructable') is not True:
+        raise CheckpointError('is_replay_reconstructable must be true')
+
+    try:
+        checkpoint_region_bytes = int(cp['m1_region_bytes'])
+        sequence = int(cp['sequence'])
+        epoch = int(cp['epoch'])
+        era = int(cp['era'])
+        entry_hex = str(cp['last_m1_entry_hex'])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise CheckpointError(f'Malformed checkpoint fields: {exc}') from exc
+
+    if checkpoint_region_bytes < _M1_ENTRY_BYTES:
+        raise CheckpointError(
+            f'm1_region_bytes must hold at least one {_M1_ENTRY_BYTES}-byte record'
+        )
+    if sequence < 0 or epoch < 0 or era < 0:
+        raise CheckpointError('sequence, epoch and era must be non-negative')
+
+    expected = _integrity_hash(
+        CHECKPOINT_VERSION,
+        M1_RECORD_CONTRACT,
+        checkpoint_region_bytes,
+        sequence,
+        epoch,
+        era,
+        entry_hex,
+    )
+    if expected != cp.get('integrity_hash'):
+        raise CheckpointError('Integrity violation: checkpoint may be tampered')
+
+    try:
+        entry_bytes = bytes.fromhex(entry_hex)
+    except ValueError as exc:
+        raise CheckpointError('last_m1_entry_hex is not valid hex') from exc
+    if len(entry_bytes) != _M1_ENTRY_BYTES:
+        raise CheckpointError(
+            f'last_m1_entry_hex must decode to {_M1_ENTRY_BYTES} bytes, '
+            f'got {len(entry_bytes)}'
+        )
+
+    if sequence == 0:
+        if entry_bytes != b'\x00' * _M1_ENTRY_BYTES:
+            raise CheckpointError('sequence=0 checkpoint must carry a zero M1 entry')
+    else:
+        embedded_sequence = int.from_bytes(entry_bytes[:8], 'little')
+        if embedded_sequence != sequence - 1:
+            raise CheckpointError(
+                f'M1 entry sequence mismatch: expected {sequence - 1}, '
+                f'got {embedded_sequence}'
+            )
+
+    return {
+        'checkpoint': cp,
+        'm1_region_bytes': checkpoint_region_bytes,
+        'sequence': sequence,
+        'epoch': epoch,
+        'era': era,
+        'entry_hex': entry_hex,
+        'entry_bytes': entry_bytes,
+    }
+
+
 def _last_m1_entry(matrix) -> bytes:
     """Extract the 40-byte M1 entry for the most recent sequence."""
     seq = matrix._sequence
@@ -189,83 +281,25 @@ def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
 def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
     """
     Restore CoreMatrix counters and last M1 entry from a v2 checkpoint file.
-    Verifies contract, geometry and integrity before applying any state.
+    Verifies the shared v2 envelope, then live geometry, before applying state.
     Raises CheckpointError on validation failure — matrix is left untouched.
     Returns restored metadata.
     """
-    if not os.path.exists(path):
-        raise CheckpointError(f'Checkpoint not found: {path}')
-
-    try:
-        with open(path, 'r') as f:
-            cp = json.load(f)
-    except (OSError, json.JSONDecodeError) as exc:
-        raise CheckpointError(f'Checkpoint unreadable: {exc}') from exc
-
-    if cp.get('checkpoint_version') != CHECKPOINT_VERSION:
-        raise CheckpointError(
-            f'Version mismatch: expected {CHECKPOINT_VERSION}, '
-            f'got {cp.get("checkpoint_version")}'
-        )
-    if cp.get('m1_record_contract') != M1_RECORD_CONTRACT:
-        raise CheckpointError(
-            f'M1 record contract mismatch: expected {M1_RECORD_CONTRACT}, '
-            f'got {cp.get("m1_record_contract")}'
-        )
-    if cp.get('is_replay_reconstructable') is not True:
-        raise CheckpointError('is_replay_reconstructable must be true')
+    validated = _validate_checkpoint_envelope(_read_checkpoint(path))
 
     active_region_bytes, slot_capacity = _m1_geometry(matrix)
-
-    try:
-        checkpoint_region_bytes = int(cp['m1_region_bytes'])
-        sequence = int(cp['sequence'])
-        epoch = int(cp['epoch'])
-        era = int(cp['era'])
-        entry_hex = str(cp['last_m1_entry_hex'])
-    except (KeyError, TypeError, ValueError) as exc:
-        raise CheckpointError(f'Malformed checkpoint fields: {exc}') from exc
-
+    checkpoint_region_bytes = validated['m1_region_bytes']
     if checkpoint_region_bytes != active_region_bytes:
         raise CheckpointError(
             f'M1 region geometry mismatch: checkpoint={checkpoint_region_bytes}, '
             f'active={active_region_bytes}'
         )
-    if sequence < 0 or epoch < 0 or era < 0:
-        raise CheckpointError('sequence, epoch and era must be non-negative')
 
-    expected = _integrity_hash(
-        CHECKPOINT_VERSION,
-        M1_RECORD_CONTRACT,
-        checkpoint_region_bytes,
-        sequence,
-        epoch,
-        era,
-        entry_hex,
-    )
-    if expected != cp.get('integrity_hash'):
-        raise CheckpointError('Integrity violation: checkpoint may be tampered')
-
-    try:
-        entry_bytes = bytes.fromhex(entry_hex)
-    except ValueError as exc:
-        raise CheckpointError('last_m1_entry_hex is not valid hex') from exc
-    if len(entry_bytes) != _M1_ENTRY_BYTES:
-        raise CheckpointError(
-            f'last_m1_entry_hex must decode to {_M1_ENTRY_BYTES} bytes, '
-            f'got {len(entry_bytes)}'
-        )
-
-    if sequence == 0:
-        if entry_bytes != b'\x00' * _M1_ENTRY_BYTES:
-            raise CheckpointError('sequence=0 checkpoint must carry a zero M1 entry')
-    else:
-        embedded_sequence = int.from_bytes(entry_bytes[:8], 'little')
-        if embedded_sequence != sequence - 1:
-            raise CheckpointError(
-                f'M1 entry sequence mismatch: expected {sequence - 1}, '
-                f'got {embedded_sequence}'
-            )
+    sequence = validated['sequence']
+    epoch = validated['epoch']
+    era = validated['era']
+    entry_bytes = validated['entry_bytes']
+    cp = validated['checkpoint']
 
     # All validation is complete before the first mutation.
     with matrix._lock:
@@ -294,10 +328,11 @@ def checkpoint_exists(path: str | None = None) -> bool:
     Return whether the requested checkpoint exists.
 
     On the active default namespace, a legacy v1 checkpoint with no v2
-    successor is a migration boundary, not an empty state. Raise
-    CheckpointError so bridge startup stops before BRIDGE_READY instead of
-    silently starting a new chain. Explicit caller-supplied paths retain
-    ordinary existence semantics.
+    successor is a migration boundary, not an empty state. A present default v2
+    file is envelope-validated here so corrupt state fails before bridge.py
+    enters its restore try/except. Explicit caller-supplied paths retain ordinary
+    existence semantics; load_checkpoint() remains authoritative for full
+    matrix/profile compatibility.
     """
     use_default = path is None
     if path is None:
@@ -312,4 +347,11 @@ def checkpoint_exists(path: str | None = None) -> bool:
             f'Legacy M1 checkpoint detected at {LEGACY_CHECKPOINT_PATH}; '
             'v1 cannot be promoted to M1_FIXED_CHAIN_V2 automatically'
         )
-    return os.path.exists(path)
+
+    if not os.path.exists(path):
+        return False
+
+    if use_default:
+        _validate_checkpoint_envelope(_read_checkpoint(path))
+
+    return True
