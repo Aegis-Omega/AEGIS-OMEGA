@@ -8,8 +8,8 @@ import re
 import subprocess
 
 WORKFLOW = ".github/workflows/cognitive-manifest-refresh.yml"
-# Reviewed gated dispatch writer at 0b656256813a23f07a280ca0e1f8358bb4eb9979.
-APPROVED_SHA256 = "99f4c39ad780a77511347f7ac039557f428a0983f990f3304953dd2f636dd356"
+# Reviewed GitHub-signed mutation writer in PR #506.
+APPROVED_SHA256 = "269551bbfa3889577d7b856b200a24faef176951b8592d06933d152fca037295"
 
 
 def evaluate(repo, base_sha, head_sha, merge_sha):
