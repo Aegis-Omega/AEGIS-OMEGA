@@ -1,0 +1,29 @@
+name: M2 Slot Contract V1
+
+on:
+  push:
+    branches:
+      - diagnostic/m2-slot-address-v1
+  pull_request:
+    branches:
+      - main
+    paths:
+      - sovereign-omega-v2/python/m2_slot_contract_v1.py
+      - sovereign-omega-v2/python/tests/test_m2_slot_contract_v1.py
+      - .github/workflows/m2-slot-contract-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  m2-slot-contract-v1:
+    name: M2 slot-address diagnostic
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run M2 slot diagnostic/reference contract
+        run: python sovereign-omega-v2/python/tests/test_m2_slot_contract_v1.py
