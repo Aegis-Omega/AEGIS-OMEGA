@@ -35,7 +35,7 @@ jobs:
               actual=subprocess.check_output(['git','hash-object',rel], text=True).strip()
               if actual != expected:
                   raise SystemExit(f'FAIL_SOURCE_GIT_BLOB {rel} expected={expected} actual={actual}')
-          if scope['source_candidate_head'] != '80326003662e068f0d7a677d71e345203dd44706':
+          if scope['source_candidate_head'] != '3c857cff355cfcce59d4e3e3cc8d2ade9cd0fe5a':
               raise SystemExit('FAIL_SOURCE_HEAD_BINDING')
           if scope['authority_effect'] != 'NONE' or scope['merge_authority'] != 'NONE':
               raise SystemExit('FAIL_AUTHORITY_BOUNDARY')
@@ -65,7 +65,7 @@ jobs:
           root=Path('verification/cstar-v06')
           scope=json.loads((root/'verification_scope.json').read_text())
           receipt={
-            'schema':'AEGIS_CSTAR_V0_6_INDEPENDENT_COQ_RECEIPT_V1',
+            'schema':'AEGIS_CSTAR_V0_6_INDEPENDENT_COQ_RECEIPT_V2',
             'verifier_repository':'Aegis-Omega/AEGIS-OMEGA',
             'verifier_head_sha':os.environ['GITHUB_SHA'],
             'source_repository':scope['source_repo'],
@@ -75,6 +75,7 @@ jobs:
             'formal_source_sha256':scope['source_sha256'],
             'formal_source_git_blob_sha':scope['source_git_blob_sha'],
             'required_theorems':scope['required_theorems'],
+            'red_predecessor':scope['red_predecessor'],
             'decision':'FORMAL_ABSTRACT_ABELIAN_GROUP_COHOMOLOGY_CORE_VERIFIED_IN_INDEPENDENT_HOSTED_LANE',
             'historical_trace_phase_proxy':'NOT_IDENTIFIED_WITH_POSTNIKOV_INVARIANT',
             'infinity_cstar_sheaf_equivalence':'NOT_ESTABLISHED',

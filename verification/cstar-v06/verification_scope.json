@@ -1,16 +1,16 @@
 {
-  "schema": "AEGIS_CSTAR_V0_6_INDEPENDENT_SCOPE_V1",
+  "schema": "AEGIS_CSTAR_V0_6_INDEPENDENT_SCOPE_V2",
   "source_repo": "Aegis-Omega/AegisOmega",
   "source_pr": 10,
-  "source_candidate_head": "80326003662e068f0d7a677d71e345203dd44706",
+  "source_candidate_head": "3c857cff355cfcce59d4e3e3cc8d2ade9cd0fe5a",
   "coq_version": "8.20.1",
   "source_sha256": {
     "verification/cstar-v06/CStarAbelianGroupCohomology.v": "15f16b9480a3d46cace272d409ac8886f141773ed8b1b873087799ad83c30660",
-    "verification/cstar-v06/CStarZ2BooleanPostnikov.v": "fedabc0b26c48f695a96533bf37c9a33aecb140aebd7bfc547d65cdadf878b20"
+    "verification/cstar-v06/CStarZ2BooleanPostnikov.v": "37df077a2728ecc883d2d74aef03eece53335c77a06438bb5b2e900ddf42c7c5"
   },
   "source_git_blob_sha": {
     "verification/cstar-v06/CStarAbelianGroupCohomology.v": "f56427c3b3252abe14535509b6b84e388c440d30",
-    "verification/cstar-v06/CStarZ2BooleanPostnikov.v": "949fbeef96a979b98679488cc936875ffb33f47f"
+    "verification/cstar-v06/CStarZ2BooleanPostnikov.v": "18865614f7486e6372072d053f79a0727912f112"
   },
   "required_theorems": [
     "delta3_delta2_zero_abelian_action",
@@ -22,6 +22,11 @@
     "z2_bool_cubic_three_cocycle",
     "z2_bool_cubic_not_normalized_coboundary"
   ],
+  "red_predecessor": {
+    "source_candidate_head": "80326003662e068f0d7a677d71e345203dd44706",
+    "workflow_run": 35228790804,
+    "failure": "CStarZ2BooleanPostnikov.v:74 No primitive equality found"
+  },
   "historical_trace_phase_proxy": "NOT_IDENTIFIED_WITH_POSTNIKOV_INVARIANT",
   "infinity_cstar_sheaf_equivalence": "NOT_ESTABLISHED",
   "physical_quantum_claim": "NOT_ESTABLISHED",
