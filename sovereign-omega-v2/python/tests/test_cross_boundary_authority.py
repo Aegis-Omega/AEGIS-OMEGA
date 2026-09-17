@@ -10,9 +10,12 @@ from cross_boundary_authority import (
     BoundClaimV1,
     BridgeCriterionV1,
     BridgeDecision,
+    BridgeGateRequirementV1,
     ClaimCoordinateV1,
+    SYNTHETIC_LITERAL_BOOL_VERIFIER_ID,
     bind_bridge_relation,
     evaluate_cross_boundary_authority,
+    mint_synthetic_verified_bridge_gate,
     verify_cross_boundary_authority_receipt,
 )
 
@@ -41,37 +44,65 @@ def criterion(
         target.coordinate,
         source_status,
         target_status,
-        gates,
+        tuple(
+            BridgeGateRequirementV1(
+                gate_id,
+                SYNTHETIC_LITERAL_BOOL_VERIFIER_ID,
+            )
+            for gate_id in gates
+        ),
         "frozen bridge criterion",
     )
 
 
 class CrossBoundaryAuthorityTests(unittest.TestCase):
-    def test_positive_synthetic_requires_all_relation_bound_passes(self):
+    def test_positive_synthetic_requires_replayable_verified_bundles(self):
         source = claim("s", "d1", "formal", "finite", "VERIFIED")
         target = claim("t", "d2", "empirical", "local", "OPEN")
         bridge = criterion(source, target)
         relation = bind_bridge_relation(source, target, bridge)
-        receipts = [
-            ri.relation_gate_receipt(
-                gate_id=gate_id,
+        bundles = [
+            mint_synthetic_verified_bridge_gate(
+                gate_id=requirement.gate_id,
                 relation=relation,
-                verdict=ri.GateVerdict.PASS,
-                observation={"ok": True},
+                established=True,
             )
-            for gate_id in bridge.required_gate_ids
+            for requirement in bridge.required_gates
         ]
 
         result = evaluate_cross_boundary_authority(
-            source, target, bridge, receipts
+            source, target, bridge, bundles
         )
         self.assertIs(result.decision, BridgeDecision.ELIGIBLE)
         self.assertEqual(result.changed_axes, ("DOMAIN", "CARRIER", "SCOPE"))
         self.assertEqual(result.authority_effect, "NONE")
         self.assertTrue(
             verify_cross_boundary_authority_receipt(
-                result, source, target, bridge, receipts
+                result, source, target, bridge, bundles
             )
+        )
+
+    def test_raw_hash_valid_pass_receipts_are_not_authority(self):
+        source = claim("s", "d1", "formal", "finite", "VERIFIED")
+        target = claim("t", "d2", "empirical", "local", "OPEN")
+        bridge = criterion(source, target)
+        relation = bind_bridge_relation(source, target, bridge)
+        raw = [
+            ri.relation_gate_receipt(
+                gate_id=requirement.gate_id,
+                relation=relation,
+                verdict=ri.GateVerdict.PASS,
+                observation={"caller_minted": True},
+            )
+            for requirement in bridge.required_gates
+        ]
+        result = evaluate_cross_boundary_authority(
+            source, target, bridge, raw
+        )
+        self.assertIs(result.decision, BridgeDecision.DENY)
+        self.assertIn(
+            "FAIL_RAW_OR_UNVERIFIED_GATE_BUNDLE",
+            result.reason_codes,
         )
 
     def test_missing_gate_fails_closed(self):
@@ -79,69 +110,64 @@ class CrossBoundaryAuthorityTests(unittest.TestCase):
         target = claim("t", "d2", "empirical", "local", "OPEN")
         bridge = criterion(source, target)
         relation = bind_bridge_relation(source, target, bridge)
-        receipt = ri.relation_gate_receipt(
+        bundle = mint_synthetic_verified_bridge_gate(
             gate_id="g1",
             relation=relation,
-            verdict=ri.GateVerdict.PASS,
-            observation={},
+            established=True,
         )
 
         result = evaluate_cross_boundary_authority(
-            source, target, bridge, [receipt]
+            source, target, bridge, [bundle]
         )
         self.assertIs(result.decision, BridgeDecision.DENY)
         self.assertEqual(result.missing_gate_ids, ("g2",))
 
-    def test_spliced_relation_receipt_fails(self):
+    def test_spliced_relation_bundle_fails_replay(self):
         source = claim("s", "d1", "formal", "finite", "VERIFIED")
         target = claim("t", "d2", "empirical", "local", "OPEN")
         other = claim("u", "d2", "empirical", "local", "OPEN")
         bridge = criterion(source, target)
-        other_bridge = BridgeCriterionV1(
-            "B",
-            source.coordinate,
-            other.coordinate,
-            ("VERIFIED",),
-            ("OPEN",),
-            ("g1", "g2"),
-            "frozen bridge criterion",
-        )
+        other_bridge = criterion(source, other)
         wrong_relation = bind_bridge_relation(source, other, other_bridge)
-        receipts = [
-            ri.relation_gate_receipt(
-                gate_id=gate_id,
+        bundles = [
+            mint_synthetic_verified_bridge_gate(
+                gate_id=requirement.gate_id,
                 relation=wrong_relation,
-                verdict=ri.GateVerdict.PASS,
-                observation={},
+                established=True,
             )
-            for gate_id in ("g1", "g2")
+            for requirement in bridge.required_gates
         ]
 
         result = evaluate_cross_boundary_authority(
-            source, target, bridge, receipts
+            source, target, bridge, bundles
         )
-        self.assertIn("FAIL_GATE_RECEIPT_BINDING", result.reason_codes)
+        self.assertIn("FAIL_GATE_BUNDLE_REPLAY", result.reason_codes)
 
-    def test_tampered_witness_fails(self):
+    def test_tampered_verified_bundle_fails_replay(self):
         source = claim("s", "d1", "formal", "finite", "VERIFIED")
         target = claim("t", "d2", "empirical", "local", "OPEN")
         bridge = criterion(source, target)
         relation = bind_bridge_relation(source, target, bridge)
-        receipts = [
-            ri.relation_gate_receipt(
-                gate_id=gate_id,
+        bundles = [
+            mint_synthetic_verified_bridge_gate(
+                gate_id=requirement.gate_id,
                 relation=relation,
-                verdict=ri.GateVerdict.PASS,
-                observation={},
+                established=True,
             )
-            for gate_id in bridge.required_gate_ids
+            for requirement in bridge.required_gates
         ]
-        receipts[0] = replace(receipts[0], witness_sha256="0" * 64)
+        bundles[0] = replace(
+            bundles[0],
+            receipt=replace(
+                bundles[0].receipt,
+                witness_sha256="0" * 64,
+            ),
+        )
 
         result = evaluate_cross_boundary_authority(
-            source, target, bridge, receipts
+            source, target, bridge, bundles
         )
-        self.assertIn("FAIL_GATE_RECEIPT_BINDING", result.reason_codes)
+        self.assertIn("FAIL_GATE_BUNDLE_REPLAY", result.reason_codes)
 
     def test_no_boundary_and_bad_status_fail(self):
         source = claim("s", "d", "formal", "finite", "OPEN")
@@ -198,7 +224,13 @@ class CrossBoundaryAuthorityTests(unittest.TestCase):
                 target.coordinate,
                 tuple(raw["allowed_source_statuses"]),
                 tuple(raw["allowed_target_statuses"]),
-                tuple(raw["required_gate_ids"]),
+                tuple(
+                    BridgeGateRequirementV1(
+                        item["gate_id"],
+                        item["verifier_id"],
+                    )
+                    for item in raw["required_gates"]
+                ),
                 raw["criterion_text"],
             )
             result = evaluate_cross_boundary_authority(
@@ -212,6 +244,11 @@ class CrossBoundaryAuthorityTests(unittest.TestCase):
             )
             for reason in case["expected_reason_codes"]:
                 self.assertIn(reason, result.reason_codes, case["id"])
+            self.assertIn(
+                "FAIL_UNREGISTERED_VERIFIER",
+                result.reason_codes,
+                case["id"],
+            )
             self.assertEqual(result.authority_effect, "NONE", case["id"])
 
 

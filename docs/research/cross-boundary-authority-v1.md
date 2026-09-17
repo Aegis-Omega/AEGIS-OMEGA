@@ -29,9 +29,10 @@ A boundary crossing is denied unless all of the following are exact-bound:
 2. target claim identity and current target status;
 3. source and target coordinates;
 4. literal bridge criterion epoch;
-5. complete required gate set;
-6. PASS gate receipts bound to the exact source-target-criterion relation;
-7. receipt integrity.
+5. complete required gate/verifier set;
+6. proof-carrying bridge bundles bound to the exact source-target-criterion relation;
+7. exact-head registered verifier replay reproduces each carried receipt;
+8. every replayed verifier verdict is PASS.
 
 The executable result is either:
 
@@ -45,17 +46,58 @@ This implements the standing rule:
 
 `admitted_authority <= weakest_verified_transition`.
 
-If one required transition is missing, failed, malformed, stale, or spliced,
-the cross-boundary result is denied.
+If one required transition is missing, failed, malformed, stale, unregistered,
+not replayable, or spliced, the cross-boundary result is denied.
 
-## Relation binding
+## Raw receipts are not authority
 
-The lane reuses #324/#320 primitives instead of defining a parallel receipt system:
+The first V1 candidate accepted relation-bound, hash-valid `GateReceipt` objects
+directly. Adversarial review rejected that surface because
+`relation_gate_receipt(..., verdict=PASS, ...)` is a generic receipt constructor.
+
+That would allow a caller-minted PASS object to satisfy a bridge criterion without
+showing that the domain-specific verifier actually ran.
+
+The corrected V1 therefore rejects raw `GateReceipt` objects with
+`FAIL_RAW_OR_UNVERIFIED_GATE_BUNDLE`.
+
+The evaluator accepts only `VerifiedBridgeGateV1` bundles. Each requirement pins
+both a `gate_id` and a `verifier_id`. The bundle carries the exact relation,
+evidence and receipt. Verification looks up the verifier in the exact-head
+registry, re-executes it on the carried evidence, and requires semantic receipt
+reproduction.
+
+An unknown verifier id produces `FAIL_UNREGISTERED_VERIFIER`.
+
+This deliberately follows the #324 principle that a raw hash-valid receipt is
+not promotion authority by itself.
+
+## Exact-head verifier registry
+
+This first implementation registers only one verifier:
+
+`SYNTHETIC_LITERAL_BOOL_BRIDGE_V1`.
+
+It exists solely as a positive control proving that the gate is capable of an
+eligible result when all proof-carrying obligations are present.
+
+No QBP, clinical, formal-to-empirical, or finite-to-global scientific verifier is
+registered by this lane. Therefore the real frozen cases remain DENY even if a
+caller attempts to inject a raw PASS receipt.
+
+Future bridge work must add its domain verifier implementation and change the
+criterion epoch to pin that verifier identity.
+
+## Reused substrate
+
+No parallel receipt system is introduced. The implementation reuses the #324/#320
+primitives:
 
 - `RelationBindingV1`;
+- `bind_relation`;
 - `GateReceipt`;
 - `relation_gate_receipt`;
-- deterministic SHA-256 material.
+- deterministic canonical SHA-256 material.
 
 The bridge relation binds:
 
@@ -63,8 +105,7 @@ The bridge relation binds:
 - target claim digest;
 - bridge criterion digest.
 
-A PASS receipt for a different source, target, or criterion is invalid even if
-its gate id is otherwise expected.
+A bundle for a different source, target, criterion, gate, or verifier is rejected.
 
 ## Boundary axes
 
@@ -119,7 +160,7 @@ promote any claim.
 ## Frozen fail-closed examples
 
 The fixture asserts that all of the following remain DENY in the absence of
-their dedicated bridge receipts:
+their dedicated registered/replayable bridge verifiers:
 
 1. CSTAR #522 machine-verified H3 normalization -> QBP-01 empirical optical phenotype;
 2. EXP02 cross-species period-3 pipeline replication -> QBP-01 optical phenotype;
@@ -131,31 +172,21 @@ their dedicated bridge receipts:
 These are not statements that the target claims are false. They are statements
 that source evidence does not carry target authority across an unverified boundary.
 
-## QBP-specific correspondence
-
-The QBP package already contains the same principle locally:
-
-- `QBP-01` forbids quantum fields in its classical intake;
-- `spectrum_to_quantum_bridge = NOT_ESTABLISHED`;
-- QBP-02 says Q4 does not imply a quantum biological information channel;
-- Q6 is necessary but not sufficient for that channel claim.
-
-Cross-Boundary Authority V1 lifts that pattern into a reusable repository-level
-gate without weakening the QBP-specific preregistrations.
-
-## Positive control
+## Positive and negative controls
 
 The regression suite includes a synthetic source/target pair with three changed
-axes and two relation-bound PASS receipts. That case becomes
+axes and two proof-carrying, replayable PASS bundles. That case becomes
 `ELIGIBLE_FOR_SEPARATE_TARGET_TRANSITION_ONLY`.
 
 Negative controls cover:
 
-- missing required gate;
+- raw caller-minted hash-valid PASS receipts;
+- missing required proof bundle;
 - source/target/criterion relation splicing;
 - tampered receipt witness;
 - no actual boundary change;
 - invalid source status;
+- unregistered real-domain verifiers;
 - all frozen QBP/repository examples.
 
 ## Explicit non-claims

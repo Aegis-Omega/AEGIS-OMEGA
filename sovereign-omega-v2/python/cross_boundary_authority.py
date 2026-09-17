@@ -1,7 +1,14 @@
 """AEGIS Ω — Cross-Boundary Authority V1.
 
 An evidence result may cross a domain, carrier, or scope boundary only through an
-explicit relation-bound bridge criterion whose required receipts all verify.
+explicit relation-bound bridge criterion whose required proof-carrying verifier
+bundles all replay successfully.
+
+A raw GateReceipt is never sufficient: Cross-Domain Collision V1 already
+establishes that hash-valid receipts are evidence objects, not promotion
+authority. This module therefore accepts only VerifiedBridgeGateV1 bundles whose
+verifier identity is criterion-pinned and whose evidence is replayed by an
+exact-head registered verifier.
 
 The gate never mutates a target claim, never changes repository state, and never
 grants runtime or production authority. A passing result means only that a
@@ -11,12 +18,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import research_invariants as ri
 
 SCHEMA = "AEGIS_CROSS_BOUNDARY_AUTHORITY_V1"
 RELATION_ID = "CROSS_BOUNDARY_AUTHORITY_BRIDGE_V1"
+SYNTHETIC_LITERAL_BOOL_VERIFIER_ID = "SYNTHETIC_LITERAL_BOOL_BRIDGE_V1"
 
 
 class BridgeDecision(str, Enum):
@@ -81,13 +89,23 @@ class BoundClaimV1:
 
 
 @dataclass(frozen=True)
+class BridgeGateRequirementV1:
+    gate_id: str
+    verifier_id: str
+
+    def __post_init__(self) -> None:
+        if not self.gate_id or not self.verifier_id:
+            raise ValueError("gate_id and verifier_id must be non-empty")
+
+
+@dataclass(frozen=True)
 class BridgeCriterionV1:
     bridge_id: str
     source_coordinate: ClaimCoordinateV1
     target_coordinate: ClaimCoordinateV1
     allowed_source_statuses: tuple[str, ...]
     allowed_target_statuses: tuple[str, ...]
-    required_gate_ids: tuple[str, ...]
+    required_gates: tuple[BridgeGateRequirementV1, ...]
     criterion_text: str
     criterion_sha256: str = field(init=False)
 
@@ -96,19 +114,19 @@ class BridgeCriterionV1:
             raise ValueError("bridge_id and criterion_text must be non-empty")
         if not self.allowed_source_statuses or not self.allowed_target_statuses:
             raise ValueError("status allowlists must be non-empty")
-        if not self.required_gate_ids:
-            raise ValueError("required_gate_ids must be non-empty")
-        if len(set(self.required_gate_ids)) != len(self.required_gate_ids):
-            raise ValueError("required_gate_ids must be unique")
+        if not self.required_gates:
+            raise ValueError("required_gates must be non-empty")
+        gate_ids = tuple(gate.gate_id for gate in self.required_gates)
+        if len(set(gate_ids)) != len(gate_ids):
+            raise ValueError("required gate ids must be unique")
         if any(
             not value
             for value in (
                 *self.allowed_source_statuses,
                 *self.allowed_target_statuses,
-                *self.required_gate_ids,
             )
         ):
-            raise ValueError("criterion identifiers must be non-empty")
+            raise ValueError("status identifiers must be non-empty")
 
         criterion_text_sha256 = ri.literal_sha256(self.criterion_text)
         object.__setattr__(
@@ -122,11 +140,32 @@ class BridgeCriterionV1:
                     "target_coordinate_sha256": self.target_coordinate.coordinate_sha256,
                     "allowed_source_statuses": self.allowed_source_statuses,
                     "allowed_target_statuses": self.allowed_target_statuses,
-                    "required_gate_ids": self.required_gate_ids,
+                    "required_gates": tuple(
+                        (gate.gate_id, gate.verifier_id)
+                        for gate in self.required_gates
+                    ),
                     "criterion_text_sha256": criterion_text_sha256,
                 }
             ),
         )
+
+    @property
+    def required_gate_ids(self) -> tuple[str, ...]:
+        return tuple(gate.gate_id for gate in self.required_gates)
+
+
+@dataclass(frozen=True)
+class VerifiedBridgeGateV1:
+    gate_id: str
+    verifier_id: str
+    relation: ri.RelationBindingV1
+    evidence: Mapping[str, Any]
+    receipt: ri.GateReceipt
+
+    def __post_init__(self) -> None:
+        if not self.gate_id or not self.verifier_id:
+            raise ValueError("gate_id and verifier_id must be non-empty")
+        object.__setattr__(self, "evidence", ri.freeze_hash_material(self.evidence))
 
 
 @dataclass(frozen=True)
@@ -136,12 +175,14 @@ class CrossBoundaryAuthorityReceiptV1:
     target_claim_sha256: str
     criterion_sha256: str
     changed_axes: tuple[str, ...]
-    required_gate_ids: tuple[str, ...]
+    required_gate_bindings: tuple[tuple[str, str], ...]
     supplied_gate_receipt_digests: tuple[str, ...]
     missing_gate_ids: tuple[str, ...]
     failing_gate_ids: tuple[str, ...]
     malformed_gate_ids: tuple[str, ...]
     extra_gate_ids: tuple[str, ...]
+    unregistered_verifier_ids: tuple[str, ...]
+    unverified_bundle_count: int
     reason_codes: tuple[str, ...]
     weakest_verified_transition: str
     decision: BridgeDecision
@@ -157,6 +198,8 @@ class CrossBoundaryAuthorityReceiptV1:
             ("criterion_sha256", self.criterion_sha256),
         ):
             ri._check_digest(digest, name)
+        if self.unverified_bundle_count < 0:
+            raise ValueError("unverified_bundle_count must be non-negative")
         material = {
             "schema": SCHEMA,
             "relation_digest": self.relation_digest,
@@ -164,12 +207,14 @@ class CrossBoundaryAuthorityReceiptV1:
             "target_claim_sha256": self.target_claim_sha256,
             "criterion_sha256": self.criterion_sha256,
             "changed_axes": self.changed_axes,
-            "required_gate_ids": self.required_gate_ids,
+            "required_gate_bindings": self.required_gate_bindings,
             "supplied_gate_receipt_digests": self.supplied_gate_receipt_digests,
             "missing_gate_ids": self.missing_gate_ids,
             "failing_gate_ids": self.failing_gate_ids,
             "malformed_gate_ids": self.malformed_gate_ids,
             "extra_gate_ids": self.extra_gate_ids,
+            "unregistered_verifier_ids": self.unregistered_verifier_ids,
+            "unverified_bundle_count": self.unverified_bundle_count,
             "reason_codes": self.reason_codes,
             "weakest_verified_transition": self.weakest_verified_transition,
             "decision": self.decision.value,
@@ -217,11 +262,101 @@ def _receipt_integrity(receipt: ri.GateReceipt) -> bool:
         return False
 
 
+def _receipt_semantically_equal(
+    left: ri.GateReceipt, right: ri.GateReceipt
+) -> bool:
+    return (
+        left.deterministic_material() == right.deterministic_material()
+        and left.witness_sha256 == right.witness_sha256
+    )
+
+
+BridgeVerifier = Callable[
+    [str, ri.RelationBindingV1, Mapping[str, Any]],
+    ri.GateReceipt,
+]
+
+
+def _synthetic_literal_bool_verifier(
+    gate_id: str,
+    relation: ri.RelationBindingV1,
+    evidence: Mapping[str, Any],
+) -> ri.GateReceipt:
+    established = evidence.get("established")
+    if set(evidence) != {"established"} or type(established) is not bool:
+        verdict = ri.GateVerdict.ERROR
+        observation = {
+            "verifier_id": SYNTHETIC_LITERAL_BOOL_VERIFIER_ID,
+            "reason": "expected-literal-bool-established",
+        }
+    else:
+        verdict = (
+            ri.GateVerdict.PASS if established else ri.GateVerdict.FAIL
+        )
+        observation = {
+            "verifier_id": SYNTHETIC_LITERAL_BOOL_VERIFIER_ID,
+            "established": established,
+        }
+    return ri.relation_gate_receipt(
+        gate_id=gate_id,
+        relation=relation,
+        verdict=verdict,
+        observation=observation,
+        gate_version="1",
+    )
+
+
+_REGISTERED_BRIDGE_VERIFIERS: Mapping[str, BridgeVerifier] = {
+    SYNTHETIC_LITERAL_BOOL_VERIFIER_ID: _synthetic_literal_bool_verifier,
+}
+
+
+def mint_synthetic_verified_bridge_gate(
+    *,
+    gate_id: str,
+    relation: ri.RelationBindingV1,
+    established: bool,
+) -> VerifiedBridgeGateV1:
+    evidence = {"established": established}
+    receipt = _synthetic_literal_bool_verifier(gate_id, relation, evidence)
+    return VerifiedBridgeGateV1(
+        gate_id=gate_id,
+        verifier_id=SYNTHETIC_LITERAL_BOOL_VERIFIER_ID,
+        relation=relation,
+        evidence=evidence,
+        receipt=receipt,
+    )
+
+
+def verify_verified_bridge_gate(
+    bundle: VerifiedBridgeGateV1,
+    requirement: BridgeGateRequirementV1,
+    expected_relation: ri.RelationBindingV1,
+) -> ri.GateReceipt:
+    if not isinstance(bundle, VerifiedBridgeGateV1):
+        raise TypeError("expected VerifiedBridgeGateV1")
+    if bundle.gate_id != requirement.gate_id:
+        raise ValueError("bridge bundle gate id mismatch")
+    if bundle.verifier_id != requirement.verifier_id:
+        raise ValueError("bridge bundle verifier id mismatch")
+    if bundle.relation.relation_digest != expected_relation.relation_digest:
+        raise ValueError("bridge bundle relation mismatch")
+    verifier = _REGISTERED_BRIDGE_VERIFIERS.get(requirement.verifier_id)
+    if verifier is None:
+        raise ValueError("bridge verifier is not exact-head registered")
+    if not _receipt_integrity(bundle.receipt):
+        raise ValueError("bridge receipt integrity failure")
+    replayed = verifier(bundle.gate_id, expected_relation, bundle.evidence)
+    if not _receipt_semantically_equal(replayed, bundle.receipt):
+        raise ValueError("verified bridge replay does not reproduce receipt")
+    return replayed
+
+
 def evaluate_cross_boundary_authority(
     source: BoundClaimV1,
     target: BoundClaimV1,
     criterion: BridgeCriterionV1,
-    gate_receipts: Sequence[ri.GateReceipt],
+    bridge_gate_bundles: Sequence[VerifiedBridgeGateV1 | ri.GateReceipt],
 ) -> CrossBoundaryAuthorityReceiptV1:
     reasons: list[str] = []
 
@@ -248,52 +383,67 @@ def evaluate_cross_boundary_authority(
 
     relation = bind_bridge_relation(source, target, criterion)
 
-    by_id: dict[str, ri.GateReceipt] = {}
+    by_id: dict[str, VerifiedBridgeGateV1] = {}
     duplicates: set[str] = set()
-    for receipt in gate_receipts:
-        if receipt.gate_id in by_id:
-            duplicates.add(receipt.gate_id)
+    unverified_bundle_count = 0
+    for candidate in bridge_gate_bundles:
+        if not isinstance(candidate, VerifiedBridgeGateV1):
+            unverified_bundle_count += 1
+            continue
+        if candidate.gate_id in by_id:
+            duplicates.add(candidate.gate_id)
         else:
-            by_id[receipt.gate_id] = receipt
+            by_id[candidate.gate_id] = candidate
+
+    if unverified_bundle_count:
+        add_reason("FAIL_RAW_OR_UNVERIFIED_GATE_BUNDLE")
     if duplicates:
         add_reason("FAIL_DUPLICATE_GATE")
 
-    required = set(criterion.required_gate_ids)
-    supplied = set(by_id)
-    missing = tuple(sorted(required - supplied))
-    extra = tuple(sorted(supplied - required))
+    required_ids = set(criterion.required_gate_ids)
+    supplied_ids = set(by_id)
+    missing = tuple(sorted(required_ids - supplied_ids))
+    extra = tuple(sorted(supplied_ids - required_ids))
     if missing:
         add_reason("FAIL_REQUIRED_GATE")
     if extra:
         add_reason("FAIL_EXTRA_GATE")
 
+    unregistered = tuple(
+        sorted(
+            {
+                requirement.verifier_id
+                for requirement in criterion.required_gates
+                if requirement.verifier_id
+                not in _REGISTERED_BRIDGE_VERIFIERS
+            }
+        )
+    )
+    if unregistered:
+        add_reason("FAIL_UNREGISTERED_VERIFIER")
+
     failing: list[str] = []
     malformed: list[str] = []
-    for gate_id in criterion.required_gate_ids:
-        receipt = by_id.get(gate_id)
-        if receipt is None:
+    verified_digests: list[str] = []
+    for requirement in criterion.required_gates:
+        bundle = by_id.get(requirement.gate_id)
+        if bundle is None:
             continue
-        malformed_receipt = (
-            not _receipt_integrity(receipt)
-            or receipt.type_signature != "RelationBindingV1"
-            or receipt.object_digest != relation.relation_digest
-        )
-        if malformed_receipt:
-            malformed.append(gate_id)
+        try:
+            receipt = verify_verified_bridge_gate(
+                bundle, requirement, relation
+            )
+        except (TypeError, ValueError):
+            malformed.append(requirement.gate_id)
             continue
+        verified_digests.append(receipt.witness_sha256)
         if receipt.verdict is not ri.GateVerdict.PASS:
-            failing.append(gate_id)
+            failing.append(requirement.gate_id)
 
     if malformed:
-        add_reason("FAIL_GATE_RECEIPT_BINDING")
+        add_reason("FAIL_GATE_BUNDLE_REPLAY")
     if failing:
         add_reason("FAIL_GATE_VERDICT")
-
-    supplied_digests = tuple(
-        by_id[gate_id].witness_sha256
-        for gate_id in sorted(by_id)
-        if _receipt_integrity(by_id[gate_id])
-    )
 
     if reasons:
         decision = BridgeDecision.DENY
@@ -310,12 +460,17 @@ def evaluate_cross_boundary_authority(
         target_claim_sha256=target.claim_sha256,
         criterion_sha256=criterion.criterion_sha256,
         changed_axes=axes,
-        required_gate_ids=criterion.required_gate_ids,
-        supplied_gate_receipt_digests=supplied_digests,
+        required_gate_bindings=tuple(
+            (gate.gate_id, gate.verifier_id)
+            for gate in criterion.required_gates
+        ),
+        supplied_gate_receipt_digests=tuple(verified_digests),
         missing_gate_ids=missing,
         failing_gate_ids=tuple(sorted(failing)),
         malformed_gate_ids=tuple(sorted(malformed)),
         extra_gate_ids=extra,
+        unregistered_verifier_ids=unregistered,
+        unverified_bundle_count=unverified_bundle_count,
         reason_codes=tuple(reasons),
         weakest_verified_transition=weakest,
         decision=decision,
@@ -329,11 +484,11 @@ def verify_cross_boundary_authority_receipt(
     source: BoundClaimV1,
     target: BoundClaimV1,
     criterion: BridgeCriterionV1,
-    gate_receipts: Sequence[ri.GateReceipt],
+    bridge_gate_bundles: Sequence[VerifiedBridgeGateV1 | ri.GateReceipt],
 ) -> bool:
     try:
         return receipt == evaluate_cross_boundary_authority(
-            source, target, criterion, gate_receipts
+            source, target, criterion, bridge_gate_bundles
         )
     except Exception:
         return False

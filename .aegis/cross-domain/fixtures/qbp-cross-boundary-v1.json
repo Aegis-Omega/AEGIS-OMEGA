@@ -37,145 +37,361 @@
       "id": "CSTAR_TO_QBP01_EMPIRICAL",
       "source": {
         "claim_id": "CSTAR-H3-NORMALIZATION-SURJECTIVE",
-        "coordinate": {"domain_id": "formal/cstar", "carrier_id": "coq-theorem", "scope_id": "degree-3-normalization"},
+        "coordinate": {
+          "domain_id": "formal/cstar",
+          "carrier_id": "coq-theorem",
+          "scope_id": "degree-3-normalization"
+        },
         "status": "MACHINE_VERIFIED_THEOREM",
         "evidence_sha256": "740bdeecd9f0f36a9555be77696b92027cebedcea1f1aedf3d90641d499ca521"
       },
       "target": {
         "claim_id": "QBP01-BRIDGE-001",
-        "coordinate": {"domain_id": "bio/qbp01", "carrier_id": "classical-optical-empirical", "scope_id": "GBA1-SPNS1-optical-phenotype"},
+        "coordinate": {
+          "domain_id": "bio/qbp01",
+          "carrier_id": "classical-optical-empirical",
+          "scope_id": "GBA1-SPNS1-optical-phenotype"
+        },
         "status": "OPEN_EMPIRICAL_BRIDGE",
         "evidence_sha256": "d81d92ebe14cf618fd0bef7d380d7bec8a5ea288f52c9bfcef715a4d90d65fc2"
       },
       "criterion": {
         "bridge_id": "CSTAR_FORMAL_TO_QBP01_EMPIRICAL_V1",
-        "allowed_source_statuses": ["MACHINE_VERIFIED_THEOREM"],
-        "allowed_target_statuses": ["OPEN_EMPIRICAL_BRIDGE"],
-        "required_gate_ids": ["formal-to-empirical-correspondence", "instrument-calibration", "biological-perturbation", "classical-covariate-clearance", "blinded-analysis", "independent-replication"],
+        "allowed_source_statuses": [
+          "MACHINE_VERIFIED_THEOREM"
+        ],
+        "allowed_target_statuses": [
+          "OPEN_EMPIRICAL_BRIDGE"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "formal-to-empirical-correspondence",
+            "verifier_id": "CSTAR_QBP_FORMAL_EMPIRICAL_CORRESPONDENCE_V1"
+          },
+          {
+            "gate_id": "instrument-calibration",
+            "verifier_id": "QBP01_INSTRUMENT_CALIBRATION_V1"
+          },
+          {
+            "gate_id": "biological-perturbation",
+            "verifier_id": "QBP01_BIOLOGICAL_PERTURBATION_V1"
+          },
+          {
+            "gate_id": "classical-covariate-clearance",
+            "verifier_id": "QBP01_CLASSICAL_COVARIATE_CLEARANCE_V1"
+          },
+          {
+            "gate_id": "blinded-analysis",
+            "verifier_id": "QBP01_BLINDED_ANALYSIS_V1"
+          },
+          {
+            "gate_id": "independent-replication",
+            "verifier_id": "QBP01_INDEPENDENT_REPLICATION_V1"
+          }
+        ],
         "criterion_text": "A formal theorem has no empirical QBP-01 authority without an independently verified formal-to-empirical correspondence and the preregistered measurement receipts."
       },
       "expected_decision": "DENY",
-      "expected_reason_codes": ["FAIL_REQUIRED_GATE"]
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
     },
     {
       "id": "EXP02_TO_QBP01_OPTICAL",
       "source": {
         "claim_id": "EXP02-R1-BSUBTILIS",
-        "coordinate": {"domain_id": "bio/genomic-spectrum", "carrier_id": "computational-replication", "scope_id": "period-3-coding-enrichment"},
+        "coordinate": {
+          "domain_id": "bio/genomic-spectrum",
+          "carrier_id": "computational-replication",
+          "scope_id": "period-3-coding-enrichment"
+        },
         "status": "CROSS_SPECIES_PIPELINE_REPLICATION_SUPPORTED",
         "evidence_sha256": "987a10914aa1fe12cfb14d7025b2224ac4588a1363ffb6c030ebecc3378b3cf2"
       },
       "target": {
         "claim_id": "QBP01-BRIDGE-001",
-        "coordinate": {"domain_id": "bio/qbp01", "carrier_id": "classical-optical-empirical", "scope_id": "GBA1-SPNS1-optical-phenotype"},
+        "coordinate": {
+          "domain_id": "bio/qbp01",
+          "carrier_id": "classical-optical-empirical",
+          "scope_id": "GBA1-SPNS1-optical-phenotype"
+        },
         "status": "OPEN_EMPIRICAL_BRIDGE",
         "evidence_sha256": "d81d92ebe14cf618fd0bef7d380d7bec8a5ea288f52c9bfcef715a4d90d65fc2"
       },
       "criterion": {
         "bridge_id": "GENOMIC_SPECTRUM_TO_CLASSICAL_OPTICAL_V1",
-        "allowed_source_statuses": ["CROSS_SPECIES_PIPELINE_REPLICATION_SUPPORTED"],
-        "allowed_target_statuses": ["OPEN_EMPIRICAL_BRIDGE"],
-        "required_gate_ids": ["spectrum-to-classical-optical-correspondence", "instrument-calibration", "biological-perturbation", "classical-covariate-clearance", "blinded-analysis", "independent-replication"],
+        "allowed_source_statuses": [
+          "CROSS_SPECIES_PIPELINE_REPLICATION_SUPPORTED"
+        ],
+        "allowed_target_statuses": [
+          "OPEN_EMPIRICAL_BRIDGE"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "spectrum-to-classical-optical-correspondence",
+            "verifier_id": "QBP01_SPECTRUM_OPTICAL_CORRESPONDENCE_V1"
+          },
+          {
+            "gate_id": "instrument-calibration",
+            "verifier_id": "QBP01_INSTRUMENT_CALIBRATION_V1"
+          },
+          {
+            "gate_id": "biological-perturbation",
+            "verifier_id": "QBP01_BIOLOGICAL_PERTURBATION_V1"
+          },
+          {
+            "gate_id": "classical-covariate-clearance",
+            "verifier_id": "QBP01_CLASSICAL_COVARIATE_CLEARANCE_V1"
+          },
+          {
+            "gate_id": "blinded-analysis",
+            "verifier_id": "QBP01_BLINDED_ANALYSIS_V1"
+          },
+          {
+            "gate_id": "independent-replication",
+            "verifier_id": "QBP01_INDEPENDENT_REPLICATION_V1"
+          }
+        ],
         "criterion_text": "Computational spectrum replication does not establish a classical optical phenotype; the spectrum-to-optical correspondence and all QBP-01 empirical receipts must be independently verified."
       },
       "expected_decision": "DENY",
-      "expected_reason_codes": ["FAIL_REQUIRED_GATE"]
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
     },
     {
       "id": "QBP01_TO_QBP02_QUANTUM",
       "source": {
         "claim_id": "QBP01-PROGRAM",
-        "coordinate": {"domain_id": "bio/qbp01", "carrier_id": "classical-optical-empirical", "scope_id": "GBA1-SPNS1-optical-phenotype"},
+        "coordinate": {
+          "domain_id": "bio/qbp01",
+          "carrier_id": "classical-optical-empirical",
+          "scope_id": "GBA1-SPNS1-optical-phenotype"
+        },
         "status": "PREREGISTERED_NOT_EXECUTED",
         "evidence_sha256": "59966b0c4fc1cf56dbf1184da26100b2a266ed290fd5295310ba6c437ad64900"
       },
       "target": {
         "claim_id": "QBP02-Q4-ANTIBUNCHING",
-        "coordinate": {"domain_id": "bio/qbp02", "carrier_id": "quantum-optical-witness", "scope_id": "antibunching-g2"},
+        "coordinate": {
+          "domain_id": "bio/qbp02",
+          "carrier_id": "quantum-optical-witness",
+          "scope_id": "antibunching-g2"
+        },
         "status": "PREREGISTERED_NOT_EXECUTED",
         "evidence_sha256": "fb32d808a85d79eee222c897dbc01b0af62a81cbf5f85122dea904dabc1353ab"
       },
       "criterion": {
         "bridge_id": "QBP01_CLASSICAL_TO_QBP02_QUANTUM_V1",
-        "allowed_source_statuses": ["EMPIRICAL_BRIDGE_VERIFIED"],
-        "allowed_target_statuses": ["PREREGISTERED_NOT_EXECUTED", "OPEN_QUANTUM_WITNESS"],
-        "required_gate_ids": ["qbp01-empirical-bridge", "detector-calibration-timing", "background-null", "g2-analysis", "independent-apparatus"],
+        "allowed_source_statuses": [
+          "EMPIRICAL_BRIDGE_VERIFIED"
+        ],
+        "allowed_target_statuses": [
+          "PREREGISTERED_NOT_EXECUTED",
+          "OPEN_QUANTUM_WITNESS"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "qbp01-empirical-bridge",
+            "verifier_id": "QBP01_EMPIRICAL_BRIDGE_V1"
+          },
+          {
+            "gate_id": "detector-calibration-timing",
+            "verifier_id": "QBP02_DETECTOR_CALIBRATION_TIMING_V1"
+          },
+          {
+            "gate_id": "background-null",
+            "verifier_id": "QBP02_BACKGROUND_NULL_V1"
+          },
+          {
+            "gate_id": "g2-analysis",
+            "verifier_id": "QBP02_G2_ANALYSIS_V1"
+          },
+          {
+            "gate_id": "independent-apparatus",
+            "verifier_id": "QBP02_INDEPENDENT_APPARATUS_V1"
+          }
+        ],
         "criterion_text": "Classical optical responsiveness does not establish nonclassical photon statistics; QBP-02 requires its own calibrated quantum-optical witness chain."
       },
       "expected_decision": "DENY",
-      "expected_reason_codes": ["FAIL_SOURCE_STATUS", "FAIL_REQUIRED_GATE"]
+      "expected_reason_codes": [
+        "FAIL_SOURCE_STATUS",
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
     },
     {
       "id": "QBP02_TO_QUANTUM_BIOLOGICAL_CHANNEL",
       "source": {
         "claim_id": "QBP02-Q6-HIGHER-ORDER",
-        "coordinate": {"domain_id": "bio/qbp02", "carrier_id": "quantum-optical-witness", "scope_id": "higher-order-nongaussianity"},
+        "coordinate": {
+          "domain_id": "bio/qbp02",
+          "carrier_id": "quantum-optical-witness",
+          "scope_id": "higher-order-nongaussianity"
+        },
         "status": "PREREGISTERED_NOT_EXECUTED",
         "evidence_sha256": "fb32d808a85d79eee222c897dbc01b0af62a81cbf5f85122dea904dabc1353ab"
       },
       "target": {
         "claim_id": "QBP-QUANTUM-BIOLOGICAL-INFORMATION-CHANNEL",
-        "coordinate": {"domain_id": "bio/qbp-channel", "carrier_id": "biological-information-channel", "scope_id": "mechanistic-channel-claim"},
+        "coordinate": {
+          "domain_id": "bio/qbp-channel",
+          "carrier_id": "biological-information-channel",
+          "scope_id": "mechanistic-channel-claim"
+        },
         "status": "NOT_ESTABLISHED",
         "evidence_sha256": "78b7d66a0bd0d1c33db1507df29db0fa0d7b5e06b00392779e426d609050279e"
       },
       "criterion": {
         "bridge_id": "QBP02_WITNESS_TO_BIOLOGICAL_CHANNEL_V1",
-        "allowed_source_statuses": ["Q6_VERIFIED"],
-        "allowed_target_statuses": ["NOT_ESTABLISHED", "OPEN_CHANNEL_CLAIM"],
-        "required_gate_ids": ["biological-conditional-information", "channel-specific-correspondence", "classical-confound-exclusion", "independent-replication"],
+        "allowed_source_statuses": [
+          "Q6_VERIFIED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED",
+          "OPEN_CHANNEL_CLAIM"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "biological-conditional-information",
+            "verifier_id": "QBP_CHANNEL_CONDITIONAL_INFORMATION_V1"
+          },
+          {
+            "gate_id": "channel-specific-correspondence",
+            "verifier_id": "QBP_CHANNEL_SPECIFIC_CORRESPONDENCE_V1"
+          },
+          {
+            "gate_id": "classical-confound-exclusion",
+            "verifier_id": "QBP_CHANNEL_CLASSICAL_CONFOUND_EXCLUSION_V1"
+          },
+          {
+            "gate_id": "independent-replication",
+            "verifier_id": "QBP_CHANNEL_INDEPENDENT_REPLICATION_V1"
+          }
+        ],
         "criterion_text": "Q6 is necessary but not sufficient for a quantum biological information channel; channel-specific biological linkage must be independently established."
       },
       "expected_decision": "DENY",
-      "expected_reason_codes": ["FAIL_SOURCE_STATUS", "FAIL_REQUIRED_GATE"]
+      "expected_reason_codes": [
+        "FAIL_SOURCE_STATUS",
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
     },
     {
       "id": "PR523_FINITE_TO_GLOBAL_WEIL",
       "source": {
         "claim_id": "PR523-FINITE-SOURCE-CALCULUS",
-        "coordinate": {"domain_id": "math/weil", "carrier_id": "lean-theorem", "scope_id": "finite-source-calculus"},
+        "coordinate": {
+          "domain_id": "math/weil",
+          "carrier_id": "lean-theorem",
+          "scope_id": "finite-source-calculus"
+        },
         "status": "MACHINE_VERIFIED_FINITE_SOURCE_CALCULUS",
         "evidence_sha256": "37dba9e00fd933ac53696b8dfb1a1e51b0259ef794777bb9b63e04744b1d1837"
       },
       "target": {
         "claim_id": "GLOBAL-WEIL-POSITIVITY",
-        "coordinate": {"domain_id": "math/weil", "carrier_id": "lean-theorem", "scope_id": "global-weil-positivity"},
+        "coordinate": {
+          "domain_id": "math/weil",
+          "carrier_id": "lean-theorem",
+          "scope_id": "global-weil-positivity"
+        },
         "status": "NOT_PROVEN",
         "evidence_sha256": "37dba9e00fd933ac53696b8dfb1a1e51b0259ef794777bb9b63e04744b1d1837"
       },
       "criterion": {
         "bridge_id": "FINITE_TO_GLOBAL_WEIL_V1",
-        "allowed_source_statuses": ["MACHINE_VERIFIED_FINITE_SOURCE_CALCULUS"],
-        "allowed_target_statuses": ["NOT_PROVEN"],
-        "required_gate_ids": ["formula-to-weil-operator-identity", "finite-to-global-limit-control", "global-sign-transfer"],
+        "allowed_source_statuses": [
+          "MACHINE_VERIFIED_FINITE_SOURCE_CALCULUS"
+        ],
+        "allowed_target_statuses": [
+          "NOT_PROVEN"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "formula-to-weil-operator-identity",
+            "verifier_id": "WEIL_FORMULA_OPERATOR_IDENTITY_V1"
+          },
+          {
+            "gate_id": "finite-to-global-limit-control",
+            "verifier_id": "WEIL_FINITE_GLOBAL_LIMIT_CONTROL_V1"
+          },
+          {
+            "gate_id": "global-sign-transfer",
+            "verifier_id": "WEIL_GLOBAL_SIGN_TRANSFER_V1"
+          }
+        ],
         "criterion_text": "Finite source calculus cannot promote to global Weil positivity without an explicit operator identity, justified finite-to-global passage, and global sign transfer."
       },
       "expected_decision": "DENY",
-      "expected_reason_codes": ["FAIL_REQUIRED_GATE"]
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
     },
     {
       "id": "PR486_INTEGRITY_TO_CLINICAL_VALIDITY",
       "source": {
         "claim_id": "PR486-REPLAY-INTEGRITY",
-        "coordinate": {"domain_id": "bio/genomics", "carrier_id": "integrity-replay", "scope_id": "artifact-lineage"},
+        "coordinate": {
+          "domain_id": "bio/genomics",
+          "carrier_id": "integrity-replay",
+          "scope_id": "artifact-lineage"
+        },
         "status": "REPLAY_INTEGRITY_VERIFIED",
         "evidence_sha256": "e9ee29bb1265f0ee169c455dff499431662805f2be53e31d02f0d1fb6d96c909"
       },
       "target": {
         "claim_id": "GENOMICS-CLINICAL-VALIDITY",
-        "coordinate": {"domain_id": "bio/genomics", "carrier_id": "clinical-validity", "scope_id": "patient-level-interpretation"},
+        "coordinate": {
+          "domain_id": "bio/genomics",
+          "carrier_id": "clinical-validity",
+          "scope_id": "patient-level-interpretation"
+        },
         "status": "NOT_ESTABLISHED",
         "evidence_sha256": "e9ee29bb1265f0ee169c455dff499431662805f2be53e31d02f0d1fb6d96c909"
       },
       "criterion": {
         "bridge_id": "INTEGRITY_TO_CLINICAL_VALIDITY_V1",
-        "allowed_source_statuses": ["REPLAY_INTEGRITY_VERIFIED"],
-        "allowed_target_statuses": ["NOT_ESTABLISHED"],
-        "required_gate_ids": ["assay-validation", "annotation-source-validation", "clinical-performance-validation", "qualified-review", "independent-replication"],
+        "allowed_source_statuses": [
+          "REPLAY_INTEGRITY_VERIFIED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "assay-validation",
+            "verifier_id": "GENOMICS_ASSAY_VALIDATION_V1"
+          },
+          {
+            "gate_id": "annotation-source-validation",
+            "verifier_id": "GENOMICS_ANNOTATION_SOURCE_VALIDATION_V1"
+          },
+          {
+            "gate_id": "clinical-performance-validation",
+            "verifier_id": "GENOMICS_CLINICAL_PERFORMANCE_VALIDATION_V1"
+          },
+          {
+            "gate_id": "qualified-review",
+            "verifier_id": "GENOMICS_QUALIFIED_REVIEW_V1"
+          },
+          {
+            "gate_id": "independent-replication",
+            "verifier_id": "GENOMICS_INDEPENDENT_REPLICATION_V1"
+          }
+        ],
         "criterion_text": "Integrity and replay evidence bind what was recorded; they do not establish biological correctness or clinical validity without separate clinical validation receipts."
       },
       "expected_decision": "DENY",
-      "expected_reason_codes": ["FAIL_REQUIRED_GATE"]
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
     }
   ]
 }
