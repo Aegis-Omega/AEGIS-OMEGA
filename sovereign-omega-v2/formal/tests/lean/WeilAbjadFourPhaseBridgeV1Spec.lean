@@ -9,3 +9,8 @@ set_option autoImplicit false
 #check abjad_classical_witness_phases_v1
 #check weil_abjad_triadic_nonnegative_components_v1
 #check weil_abjad_triadic_negative_witness_v1
+
+-- Exact finite characterization needed before any global-sign claim.
+#check weil_four_phase_nonnegative_iff_components_v1
+#check weil_abjad_triadic_nonnegative_iff_components_v1
+#check weil_abjad_phase_reconstruction_v1
