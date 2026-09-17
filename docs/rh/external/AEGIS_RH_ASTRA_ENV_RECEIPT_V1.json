@@ -1,0 +1,23 @@
+{
+  "schema": "AEGIS_RH_ASTRA_ENV_RECEIPT_V1",
+  "authority_effect": "NONE",
+  "claim_promotion": "BLOCKED",
+  "execution_release": "BLOCKED",
+  "files": {
+    "ASSUMPTION_CENSUS.yaml": "a1baae6df82232dfaf26d4b0d44dd837557b8add913dfd5249051da1120ab6f9",
+    "ASTRA_MASTER_PROMPT.md": "b0acd97ef32711def3237f6457e16cc43f26cd81ab790291ba662552406f0cd8",
+    "NORMALIZATION_FREEZE.md": "5f26385234574d926b5f7f78d935202f59e8215725388ba7827d9cbdeacad338",
+    "PROOF_OBLIGATIONS.yaml": "18bb74514dc134921edb9b6f96e48003e9581d85a139b2bc860f65376f7c2cb4",
+    "TOOLCHAIN.lock": "ebec793074fa4121e1d183be6220b4a21c564182fac2fcc5d61fae416a520787"
+  },
+  "frontier_sha": "c85a58ca753e5d99fc9f117e0dc481e1f2cf0bde",
+  "receipt_sha256": "ecfd5677a4c3e4d1e0e6f7411406e387543f9f69d0c483e0d240c39e60eafc05",
+  "rh_status": "NOT_PROVEN",
+  "provenance": {
+    "source": "operator-supplied message",
+    "source_url": "https://1drv.ms/u/c/66a231140939b803/IQCUOitmFNynSJWPezBIN48dAX8kLuajQ0HOA3WpXk3WHug",
+    "retrieval_status": "UNAVAILABLE",
+    "verification_status": "UNVERIFIED_EXTERNAL_CLAIM",
+    "note": "The five named payload files and frontier Git object are absent locally. This record preserves the operator claim but confers no mathematical or execution authority."
+  }
+}
