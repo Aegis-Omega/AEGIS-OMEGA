@@ -38,6 +38,19 @@ def _load_process_event():
         node for node in cls.body
         if isinstance(node, ast.FunctionDef) and node.name == 'process_event'
     )
+    m1_entry_assignment = next(
+        node for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(
+            isinstance(target, ast.Name) and target.id == 'M1_ENTRY_BYTES'
+            for target in node.targets
+        )
+    )
+    constants_module = ast.Module(body=[m1_entry_assignment], type_ignores=[])
+    ast.fix_missing_locations(constants_module)
+    constants = {}
+    exec(compile(constants_module, str(CORE_MATRIX), 'exec'), constants)
+
     module = ast.Module(body=[fn], type_ignores=[])
     ast.fix_missing_locations(module)
 
@@ -69,6 +82,7 @@ def _load_process_event():
         'M1': m1,
         'M2': m2,
         'M3': m3,
+        'M1_ENTRY_BYTES': constants['M1_ENTRY_BYTES'],
         'INT_SCALE': 65536,
         'from_fixed': lambda value: value / 65536,
     }
