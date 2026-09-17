@@ -1,0 +1,199 @@
+name: RH Zero Counting One Plus Epsilon V2
+
+on:
+  push:
+    branches:
+      - 'proof/rh-zero-counting-one-plus-epsilon-v2'
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroCountingOnePlusEpsilonV2.lean'
+      - 'sovereign-omega-v2/formal/tests/lean/ZeroCountingOnePlusEpsilonV2Spec.lean'
+      - '.github/workflows/rh-zero-counting-one-plus-epsilon-v2.yml'
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/ZeroCountingOnePlusEpsilonV2.lean'
+      - 'sovereign-omega-v2/formal/tests/lean/ZeroCountingOnePlusEpsilonV2Spec.lean'
+      - '.github/workflows/rh-zero-counting-one-plus-epsilon-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  LI_CRITERION_SHA: 35df682f3b709ffe5fbcfdd452dfa964bd622b87
+  LI_CRITERION_ORIGINAL_MATHLIB_SHA: de5ce8a9a66a4aa68a9bdbb35b63a06d34d9ca11
+
+jobs:
+  zero-count-epsilon:
+    name: verify unspecialized order-one zero count at exact head
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact external provider
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: nicholasbulka/li-criterion-rh-equivalence-lean
+          ref: ${{ env.LI_CRITERION_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.SOURCE_SHA }}
+          path: .aegis
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Rebind provider to AEGIS pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$LI_CRITERION_SHA"
+          test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
+          printf '%s\n' "$LEAN_TOOLCHAIN" > lean-toolchain
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path('lakefile.lean')
+          text = p.read_text()
+          old = os.environ['LI_CRITERION_ORIGINAL_MATHLIB_SHA']
+          new = os.environ['MATHLIB_SHA']
+          assert text.count(old) == 1
+          p.write_text(text.replace(old, new))
+          PY
+          rm -f lake-manifest.json
+          git -C .aegis rev-parse HEAD > exact-source.log
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve pinned Mathlib and cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          lake update mathlib
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('lake-manifest.json').read_text())
+          p = next(x for x in m['packages'] if x['name'] == 'mathlib')
+          assert (p.get('rev') or p.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+          lake exe cache get
+          lean --version >> exact-source.log
+
+      - name: Compile exact provider surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          lake build Hadamard.OrderOne.TailEstimates Lc.LiCriterion.XiGrowth Lc.LiCriterion.HadamardSummabilityBridge
+
+      - name: Compile inherited AEGIS counting chain and RED or GREEN target
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .lake/build/lib/lean evidence
+          for f in \
+            WeilCriterionCompactSmoothV1 \
+            ZeroCriticalStripV1 \
+            ZeroHeightFiniteSumV1 \
+            ZeroHeightLimitContractV1 \
+            ZeroHeightSummabilityBridgeV1 \
+            ZeroMajorantSummabilityV1 \
+            ZeroHeightShellMassV1 \
+            ZeroShellQuadraticBoundV1 \
+            ZeroShellAnalyticSynthesisV1 \
+            ZeroCountingBoundV1; do
+            cp ".aegis/sovereign-omega-v2/formal/bridges/lean/$f.lean" "$f.lean"
+          done
+          for f in \
+            WeilCriterionCompactSmoothV1 \
+            ZeroCriticalStripV1 \
+            ZeroHeightFiniteSumV1 \
+            ZeroHeightLimitContractV1 \
+            ZeroHeightSummabilityBridgeV1 \
+            ZeroMajorantSummabilityV1 \
+            ZeroHeightShellMassV1 \
+            ZeroShellQuadraticBoundV1 \
+            ZeroShellAnalyticSynthesisV1; do
+            lake env lean -o ".lake/build/lib/lean/$f.olean" "$f.lean" 2>&1 | tee "evidence/$f.log"
+          done
+          lake env lean -o .lake/build/lib/lean/ZeroCountingBoundV1.olean ZeroCountingBoundV1.lean 2>&1 | tee evidence/ZeroCountingBoundV1.log
+
+          TARGET=.aegis/sovereign-omega-v2/formal/bridges/lean/ZeroCountingOnePlusEpsilonV2.lean
+          cp .aegis/sovereign-omega-v2/formal/tests/lean/ZeroCountingOnePlusEpsilonV2Spec.lean .
+          if ! test -f "$TARGET"; then
+            set +e
+            lake env lean ZeroCountingOnePlusEpsilonV2Spec.lean > evidence/red-spec.log 2>&1
+            rc=$?
+            set -e
+            cat evidence/red-spec.log
+            test "$rc" -ne 0
+            grep -F 'ZeroCountingOnePlusEpsilonV2' evidence/red-spec.log
+            echo 'RED checkpoint confirmed: unspecialized epsilon production module is absent.' >&2
+            exit 1
+          fi
+
+          cp "$TARGET" .
+          lake env lean -o .lake/build/lib/lean/ZeroCountingOnePlusEpsilonV2.olean ZeroCountingOnePlusEpsilonV2.lean 2>&1 | tee evidence/target.log
+          lake env lean ZeroCountingOnePlusEpsilonV2Spec.lean 2>&1 | tee evidence/spec.log
+
+      - name: Audit theorem closure
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > ZeroCountingEpsilonAudit.lean <<'EOF'
+          import ZeroCountingOnePlusEpsilonV2
+          #print axioms li_zeta_cumulative_one_plus_epsilon_multiplicity_bound_v2
+          EOF
+          lake env lean ZeroCountingEpsilonAudit.lean 2>&1 | tee evidence/axioms.log
+          ! grep -F 'sorryAx' evidence/axioms.log
+          grep -F 'li_zeta_cumulative_one_plus_epsilon_multiplicity_bound_v2' evidence/axioms.log
+
+      - name: Emit bounded receipt
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          src = Path('ZeroCountingOnePlusEpsilonV2.lean')
+          payload = {
+            'receipt_kind': 'AEGIS_RH_ZERO_COUNTING_ONE_PLUS_EPSILON_V2',
+            'source_commit': os.environ['SOURCE_SHA'],
+            'source_sha256': hashlib.sha256(src.read_bytes()).hexdigest(),
+            'provider_commit': os.environ['LI_CRITERION_SHA'],
+            'mathlib_commit': os.environ['MATHLIB_SHA'],
+            'one_plus_epsilon_multiplicity_count_bound': True,
+            'good_height_sequence_constructed': False,
+            'horizontal_contour_vanishing_proven': False,
+            'rh_proven': False,
+            'authority_effect': 'NONE',
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          Path('evidence/receipt.json').write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n')
+          print(Path('evidence/receipt.json').read_text())
+          PY
+
+      - name: Upload exact-head evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rh-zero-count-one-plus-epsilon-${{ env.SOURCE_SHA }}
+          path: |
+            exact-source.log
+            evidence/
+          if-no-files-found: warn
+          retention-days: 30
