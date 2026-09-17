@@ -77,33 +77,37 @@ def M1(state: memoryview, payload: bytes, sequence: int) -> Tuple[int, bytes]:
     Receives: current M1 region view, event payload bytes, sequence number.
     Returns: (new_sequence, state_hash_bytes).
 
+    M1 uses fixed 40-byte circular slots:
+      8 bytes sequence + 32 bytes SHA-256(payload).
+    Raw payload bytes are not stored in M1; they contribute through payload_hash.
+
     INVARIANT: Pure function — no external state, no I/O.
     INVARIANT: Sequence is always greater than any previously processed sequence.
     INVARIANT: Output is deterministic for identical inputs.
     """
-    # Compute payload hash using SHA-256 (byte-level, not string)
-    payload_hash = hashlib.sha256(payload).digest()
+    slot_count = len(state) // 40
+    if slot_count <= 0:
+        raise ValueError('M1 state must contain at least one 40-byte slot')
 
-    # Write sequence and hash into M1 region at the current write head
-    # Format: 8 bytes sequence + 32 bytes payload hash + payload
-    write_head = (sequence * 40) % len(state)
+    payload_hash = hashlib.sha256(payload).digest()
+    write_head = 40 * (sequence % slot_count)
     seq_bytes = sequence.to_bytes(8, 'little')
 
-    end_pos = write_head + 40 + len(payload)
-    if end_pos <= len(state):
-        state[write_head:write_head + 8] = seq_bytes
-        state[write_head + 8:write_head + 40] = payload_hash
-        if len(payload) > 0:
-            payload_end = min(write_head + 40 + len(payload), len(state))
-            state[write_head + 40:payload_end] = payload[:payload_end - write_head - 40]
+    state[write_head:write_head + 8] = seq_bytes
+    state[write_head + 8:write_head + 40] = payload_hash
 
-    # Chain hash: SHA-256(previous_state_hash || payload_hash)
-    # This implements the same hash-chaining as the TypeScript E3 substrate
-    prev_offset = ((sequence - 1) * 40) % len(state) if sequence > 0 else 0
+    # Preserve the existing returned digest semantics: SHA-256 of the previous
+    # slot's stored payload hash and the current payload hash. This lane fixes
+    # slot geometry only; it does not promote this digest to a recursive ledger
+    # chain or claim equivalence with the TypeScript E3 event chain.
+    prev_offset = (
+        40 * ((sequence - 1) % slot_count)
+        if sequence > 0 else write_head
+    )
     prev_hash = bytes(state[prev_offset + 8:prev_offset + 40])
-    chain_hash = hashlib.sha256(prev_hash + payload_hash).digest()
+    state_hash = hashlib.sha256(prev_hash + payload_hash).digest()
 
-    return sequence + 1, chain_hash
+    return sequence + 1, state_hash
 
 
 def M2(state: memoryview, verifier_result: bytes, confidence_fixed: int, sequence: int = 0) -> Tuple[int, int]:
@@ -275,18 +279,11 @@ class CoreMatrix:
             if failsafe_state in (EpochState.FROZEN, EpochState.RECOVERING):
                 return {'status': failsafe_state.value.upper(), 'sequence': self._sequence}
 
-            # M1 boundary containment. M1 addresses a 40-byte grid but attempts
-            # to write 40 + len(payload) bytes. If the span crosses the region
-            # boundary, fail closed before M1_ERA_WRAP or any M1/M2/M3 mutation.
+            # M1 uses fixed 40-byte slots. A region smaller than one complete
+            # entry cannot accept any M1 event; otherwise slot modulo guarantees
+            # the complete entry remains in-bounds independently of payload size.
             m1_region_len = len(self._m1_region)
             if m1_region_len < 40:
-                return {
-                    'status': 'M1_BOUNDARY_BLOCKED',
-                    'sequence': self._sequence,
-                    'epoch': self._epoch,
-                }
-            m1_write_head = (self._sequence * 40) % m1_region_len
-            if m1_write_head + 40 + len(payload) > m1_region_len:
                 return {
                     'status': 'M1_BOUNDARY_BLOCKED',
                     'sequence': self._sequence,
