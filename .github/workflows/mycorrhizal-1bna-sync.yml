@@ -1,9 +1,10 @@
-name: Mycorrhizal 1BNA Sync
+name: Mycorrhizal Structural Witness Registry
 
 on:
   push:
     branches:
       - feat/mycorrhizal-1bna-sync-v1
+      - feat/mycorrhizal-structural-witness-registry-v1
     paths:
       - 'sovereign-omega-v2/src/metacognition/mycorrhizal-*.ts'
       - 'sovereign-omega-v2/test/unit/mycorrhizal-*.test.ts'
@@ -29,7 +30,7 @@ env:
 
 jobs:
   focused:
-    name: MCM + 1BNA exact-head Gate 8
+    name: MCM + structural witness exact-head Gate 8
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -67,6 +68,7 @@ jobs:
           test/unit/mycorrhizal-state.test.ts
           test/unit/mycorrhizal-routing.test.ts
           test/unit/mycorrhizal-1bna.test.ts
+          test/unit/mycorrhizal-structural-witness-registry.test.ts
 
       - name: Run full test corpus
         working-directory: sovereign-omega-v2
