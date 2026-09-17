@@ -18,26 +18,44 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_BRANCH: probe/github-signed-commit-v1
-          EXPECTED_HEAD: 55e9e0a68067a892f3e0194d277f56595e22611c
         run: |
           node <<'NODE'
           const token = process.env.GH_TOKEN;
+          const target = process.env.TARGET_BRANCH;
+          const refResponse = await fetch(
+            `https://api.github.com/repos/Aegis-Omega/AEGIS-OMEGA/branches/${target}`,
+            {
+              headers: {
+                'authorization': `bearer ${token}`,
+                'accept': 'application/vnd.github+json',
+                'user-agent': 'aegis-signed-commit-probe-v1',
+              },
+            }
+          );
+          const refBody = await refResponse.json();
+          if (!refResponse.ok || !refBody?.commit?.sha) {
+            console.error(JSON.stringify(refBody));
+            process.exit(1);
+          }
+          const expectedHeadOid = refBody.commit.sha;
+          console.log(`TARGET_EXPECTED_HEAD=${expectedHeadOid}`);
+
           const query = `mutation($input: CreateCommitOnBranchInput!) {
             createCommitOnBranch(input: $input) {
               commit { oid url }
             }
           }`;
           const contents = Buffer.from(
-            'AEGIS_GITHUB_SIGNED_COMMIT_PROBE_V1\nsource_head=55e9e0a68067a892f3e0194d277f56595e22611c\nauthority_effect=NONE\n',
+            `AEGIS_GITHUB_SIGNED_COMMIT_PROBE_V1\nsource_head=${expectedHeadOid}\nauthority_effect=NONE\n`,
             'utf8'
           ).toString('base64');
           const variables = {
             input: {
               branch: {
                 repositoryNameWithOwner: 'Aegis-Omega/AEGIS-OMEGA',
-                branchName: process.env.TARGET_BRANCH,
+                branchName: target,
               },
-              expectedHeadOid: process.env.EXPECTED_HEAD,
+              expectedHeadOid,
               message: { headline: 'chore: verify GitHub-signed commit path' },
               fileChanges: {
                 additions: [{
