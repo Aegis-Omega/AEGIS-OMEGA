@@ -1,0 +1,55 @@
+name: Weil Autocorrelation Cross-Prover Binding V1
+
+on:
+  pull_request:
+    paths:
+      - 'tests/test_weil_autocorrelation_cross_prover_binding_v1.py'
+      - 'sovereign-omega-v2/formal/theories/Weil/ConcreteFiniteGuinandWeilSemanticsV1.v'
+      - 'sovereign-omega-v2/formal/specs/FINITE_GUINAND_WEIL_SPEC_V1.json'
+      - '.github/workflows/weil-autocorrelation-cross-prover-binding-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  LEAN_SOURCE_SHA: d88587788630a5bafa12fdeb0619f3806f89d035
+
+jobs:
+  canonical-binding:
+    name: bind Lean and Coq autocorrelation to frozen AST
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact Coq candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout pinned Lean autocorrelation source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.LEAN_SOURCE_SHA }}
+          path: .lean-aegis
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert both exact source heads
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git -C .lean-aegis rev-parse HEAD)" = "$LEAN_SOURCE_SHA"
+
+      - name: Execute autocorrelation binding contract
+        shell: bash
+        env:
+          AEGIS_LEAN_WEIL_BASE_SOURCE: ${{ github.workspace }}/.lean-aegis/sovereign-omega-v2/formal/bridges/lean/WeilCriterionCompactSmoothV1.lean
+          AEGIS_LEAN_AUTOCORR_REALITY_SOURCE: ${{ github.workspace }}/.lean-aegis/sovereign-omega-v2/formal/bridges/lean/WeilAutocorrelationRealityV1.lean
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v tests/test_weil_autocorrelation_cross_prover_binding_v1.py

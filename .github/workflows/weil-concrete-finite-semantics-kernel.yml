@@ -1,0 +1,147 @@
+name: Weil Concrete Finite Semantics Kernel
+
+on:
+  pull_request:
+    paths:
+      - "tests/test_weil_canonical_ast_v1.py"
+      - "sovereign-omega-v2/formal/specs/FINITE_GUINAND_WEIL_SPEC_V1.json"
+      - "sovereign-omega-v2/formal/theories/Weil/ConcreteFiniteGuinandWeilSemanticsV1.v"
+      - ".github/workflows/weil-concrete-finite-semantics-kernel.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-concrete-finite-semantics-kernel-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  stage1:
+    name: coqc / finite semantics stage 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Validate canonical semantic AST
+        shell: bash
+        run: python3 -m unittest -v tests/test_weil_canonical_ast_v1.py
+
+      - name: Prepare evidence workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sovereign-omega-v2/weil-concrete-finite-stage1
+          chmod -R a+rwX \
+            sovereign-omega-v2/formal/theories/Weil \
+            sovereign-omega-v2/weil-concrete-finite-stage1
+
+      - name: Compile semantic substrate and current constituents
+        uses: rocq-prover/docker-opam-action@126d4ac196f8133729a1cb0d2aa1ee7106efec58
+        with:
+          coq_version: '8.20'
+          ocaml_version: default
+          custom_script: |
+            set -euo pipefail
+            ROOT="$PWD/sovereign-omega-v2"
+            THEORY="$ROOT/formal/theories/Weil"
+            OUT="$ROOT/weil-concrete-finite-stage1"
+
+            coqc --version | tee "$OUT/coq-version.txt"
+            opam install -y coq-corn.9.0.0
+            opam var coq-corn:version | tee "$OUT/corn-version.txt"
+            test "$(tr -d '[:space:]' < "$OUT/corn-version.txt")" = "9.0.0"
+
+            for f in \
+              PrimeSourceDerivativeConstructive \
+              PrimePowerWeightBridge \
+              FinitePrimeSourceSum \
+              PrimePowerArithmeticBridge \
+              PrimalityStdlibBridge \
+              VonMangoldtCanonicalBridge \
+              CanonicalPrimeSourceSum \
+              ConcreteFiniteGuinandWeilSemanticsV1
+            do
+              coqc -Q "$THEORY" "" "$THEORY/$f.v" 2>&1 | tee "$OUT/$f.log"
+            done
+
+            for theorem in \
+              concrete_index_semantics_v1 \
+              concrete_von_mangoldt_one_zero_v1 \
+              concrete_von_mangoldt_semantics_v1 \
+              concrete_prime_term_semantics_v1 \
+              concrete_pole_term_semantics_v1 \
+              concrete_archimedean_normalization_v1 \
+              concrete_cutoff_semantics_v1 \
+              concrete_measure_semantics_v1 \
+              concrete_autocorrelation_semantics_v1 \
+              concrete_fourier_mellin_normalization_v1 \
+              concrete_complex_real_projection_v1 \
+              concrete_sign_orientation_v1 \
+              concrete_finite_guinand_weil_semantics_v1
+            do
+              query="$OUT/${theorem}.v"
+              log="$OUT/${theorem}.assumptions.txt"
+              cat > "$query" <<EOF
+            Set Coqtop Exit On Error.
+            Require Import ConcreteFiniteGuinandWeilSemanticsV1.
+            Print Assumptions ${theorem}.
+            EOF
+              coqtop -quiet -batch -Q "$THEORY" "" -l "$query" > "$log" 2>&1
+              rm -f "$query"
+              cat "$log"
+              grep -q 'Closed under the global context' "$log"
+              if grep -q '^Axioms:' "$log"; then
+                echo "Unexpected assumptions for ${theorem}" >&2
+                exit 1
+              fi
+            done
+
+            cat > "$OUT/stage1-status.txt" <<'EOF'
+            receipt_kind=AEGIS_CONCRETE_FINITE_GUINAND_WEIL_SEMANTICS_STAGE1_V1
+            concrete_index_semantics_v1=CLOSED
+            concrete_von_mangoldt_semantics_v1=CLOSED
+            concrete_prime_term_semantics_v1=CLOSED
+            concrete_pole_term_semantics_v1=CLOSED
+            concrete_archimedean_normalization_v1=CLOSED
+            concrete_cutoff_semantics_v1=CLOSED
+            concrete_measure_semantics_v1=CLOSED
+            concrete_autocorrelation_semantics_v1=CLOSED
+            concrete_fourier_mellin_normalization_v1=CLOSED
+            concrete_complex_real_projection_v1=CLOSED
+            concrete_sign_orientation_v1=CLOSED_PROVENANCE_SCOPE
+            concrete_finite_guinand_weil_semantics_v1=CLOSED_SEMANTIC_BUNDLE
+            explicit_identity_full_lean_kernel=OPEN
+            sign_inequality_from_identity=NOT_IMPLIED
+            matrix_entries_binding=NOT_YET_CLAIMED
+            quadratic_form_matrix_binding=NOT_YET_CLAIMED
+            finite_psd=NOT_YET_IMPORTED
+            finite_lower_bound=NOT_YET_PROVEN
+            pointwise_convergence=NOT_YET_PROVEN
+            vanishing_error=NOT_YET_PROVEN
+            global_weil_positivity=NOT_PROVEN
+            rh=NOT_PROVEN
+            authority_effect=NONE
+            EOF
+
+      - name: Upload stage evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: concrete-finite-semantics-stage1-${{ env.SOURCE_SHA }}
+          path: sovereign-omega-v2/weil-concrete-finite-stage1
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
