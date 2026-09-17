@@ -115,6 +115,8 @@
     "aegis-interface.yml",
     "agent-dispatch.yml",
     "apple-oss-watch.yml",
+    "automaton-2.yml",
+    "automaton-3.yml",
     "body-head-binding.yml",
     "branch-cleanup.yml",
     "ci.yml",
@@ -122,6 +124,7 @@
     "coordinator-authority.yml",
     "deploy-cloud-run.yml",
     "deploy.yml",
+    "experiment-admission.yml",
     "frozen-files.yml",
     "greetings.yml",
     "hadolint.yml",
@@ -139,5 +142,9 @@
     "sovereignty-contracts.yml",
     "summary.yml",
     "verifiable-proofs.yml"
-  ]
+  ],
+  "target": {
+    "floating_action_refs": 0,
+    "floating_workflows": 0
+  }
 }
