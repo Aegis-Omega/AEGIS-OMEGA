@@ -11,6 +11,7 @@ import importlib.util
 import os
 import pathlib
 import tempfile
+import threading
 
 LEDGER_PATH = pathlib.Path(__file__).resolve().parents[1] / 'ledger_persist.py'
 PASS = 0
@@ -47,6 +48,16 @@ def _load_with_checkpoint_env(path: str):
             os.environ['AEGIS_CHECKPOINT_PATH'] = previous
 
 
+class _Matrix:
+    def __init__(self):
+        self._m1_region = bytearray(400)
+        self._sequence = 1
+        self._epoch = 0
+        self._era = 0
+        self._lock = threading.RLock()
+        self._m1_region[0:40] = (0).to_bytes(8, 'little') + b'\x33' * 32
+
+
 def test_checked_in_legacy_env_is_mapped_to_v2_namespace():
     ledger = _load_with_checkpoint_env('/app/data/aegis_checkpoint.json')
     _check(
@@ -77,12 +88,15 @@ def test_legacy_file_under_deployed_env_fails_closed():
             blocked = True
         _check('legacy-only deployed state raises CheckpointError', blocked)
 
-        pathlib.Path(v2_path).write_text('{}')
+        # A migrated successor must be an actual valid v2 envelope. A bare `{}`
+        # is now correctly rejected by the startup preflight introduced above
+        # this integration lane.
+        ledger.save_checkpoint(_Matrix(), v2_path)
         try:
             v2_present = ledger.checkpoint_exists()
         except ledger.CheckpointError:
             v2_present = False
-        _check('v2 checkpoint takes precedence after explicit migration', v2_present)
+        _check('valid v2 checkpoint takes precedence after explicit migration', v2_present)
 
 
 def test_explicit_v2_env_keeps_path_and_derives_legacy_sibling():
