@@ -33,10 +33,11 @@ jobs:
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           const p = JSON.parse(fs.readFileSync('package.json','utf8'));
-          p.dependencies.ajv = '^8.20.0';
+          p.devDependencies.ajv = '^8.20.0';
           p.devDependencies.postcss = '^8.5.28';
           p.devDependencies.vitest = '^4.1.11';
           p.devDependencies['@vitest/coverage-v8'] = '^4.1.11';
+          delete p.dependencies.ajv;
           fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
           NODE
 
