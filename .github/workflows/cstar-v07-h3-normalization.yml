@@ -1,0 +1,36 @@
+name: CSTAR v0.7 H3 Normalization Probe
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'verification/cstar-v07/**'
+      - '.github/workflows/cstar-v07-h3-normalization.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe-signatures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Compile v0.6 core and verify H3 normalization
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          printf 'PR_HEAD=%s\n' "${{ github.event.pull_request.head.sha }}"
+          ROOT="$PWD/verification/cstar-v07"
+          sha256sum \
+            "$ROOT/CStarAbelianGroupCohomology.v" \
+            "$ROOT/CStarV07H3Normalization.v" \
+            "$ROOT/CStarV07SignatureProbe.v"
+          docker pull coqorg/coq:8.20.1
+          docker run --rm \
+            -v "$ROOT:/work:ro" \
+            coqorg/coq:8.20.1 \
+            bash -lc 'set -euo pipefail; mkdir -p /tmp/cstar-v07; cp /work/*.v /tmp/cstar-v07/; cd /tmp/cstar-v07; coqc CStarAbelianGroupCohomology.v; coqc CStarV07H3Normalization.v; coqchk CStarV07H3Normalization; coqc CStarV07SignatureProbe.v; coqc --version'
