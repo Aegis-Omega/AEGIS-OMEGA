@@ -6,43 +6,27 @@ set_option autoImplicit false
 Preregistered contract for the exact finite source-calculus bridge used in the
 Guinand--Weil dictionary.
 
-The production theorem must identify the quadratic contraction of the
-single-frequency divided-difference matrix with the Volterra sine-chord kernel
-for a finite real even coefficient family. This is a finite basis-evaluation
-identity only. It does not assert global Weil positivity or RH.
+The production theorem identifies the single-frequency divided-difference
+quadratic contraction with the Volterra sine-chord kernel, then extends by
+finite source superposition, full entry contraction, and the canonical prime
+evaluator specialization.
 
-The finite-source extension and full entry identification compose finitely many
-single-frequency atoms without importing finite PSD. The canonical-prime bridge
-then identifies the integer entry for `alpha = -beta`, `omega = 1-r` with the
-prime kernel evaluated by `guinand_weil_arb.py`.
+The Archimedean lane now machine-binds the true source derivative, the exact
+nonresonant integer-node source/derivative formulas, and the exact pointwise
+entry identity
 
-The rank-two Cauchy algebra boundary identifies the divided difference of
-`x/(a^2-x^2)` and its diagonal value with the two Cauchy feature products used
-by the #322 Gram infrastructure. These are algebraic identities only.
+  true Arch source entry = scale(L,T) * rank-two Cauchy entry.
 
-The next Archimedean analytic boundary is narrower than the full tail theorem.
-For
+The next bounded target is finite real Cauchy Gram algebra only. For the finite
+Galerkin band, the quadratic contraction of `WeilCauchyRankTwoEntryV1` must be
+exactly one half of the sum of the squares of the two finite Cauchy feature
+moments, and hence nonnegative. This is the real-carrier analogue of the
+abstract #322 rank-two Gram core; it is NOT yet the actual Archimedean tail
+integral and does not promote finite Galerkin PSD.
 
-  S(L,T,x) = ∫_0^L sin(2π x (1-y/L)) cos(T y) dy,
-
-freeze the true x-derivative bridge and the exact integer-node value and
-x-derivative formulas with `rho = 2π/L`:
-
-  d/dx S(L,T,x) = Sx(L,T,x),
-
-  S(L,T,n)
-    = 2 rho n sin(LT/2)^2 / (T^2 - (rho n)^2),
-
-  Sx(L,T,n)
-    = 2 rho sin(LT/2)^2 (T^2 + (rho n)^2)
-        / (T^2 - (rho n)^2)^2.
-
-The derivative bridge is mandatory: the diagonal divided-difference entry is
-the derivative of the true source, not of an integer-node surrogate.
-Only these source-to-rational-core identities are targeted. The subsequent
-continuous Cauchy--Stieltjes integration, finite PSD import, operator order,
-global Weil positivity, formula-to-Weil identity, and RH remain outside this
-slice.
+Continuous T-integration, positivity of the full Archimedean weight, tail
+operator order, formula-to-Weil operator identity, global Weil positivity, RH,
+repository admission, merge, and authority effects remain outside this slice.
 -/
 
 #check WeilSingleFrequencySourceV1
@@ -66,3 +50,8 @@ slice.
 #check weil_arch_sine_kernel_integer_v1
 #check weil_arch_sine_kernel_dx_integer_v1
 #check weil_arch_sine_entry_cauchy_rank_two_v1
+#check WeilCauchyFiniteQuadraticV1
+#check WeilCauchyMinusMomentV1
+#check WeilCauchyPlusMomentV1
+#check weil_cauchy_finite_quadratic_sum_squares_v1
+#check weil_cauchy_finite_quadratic_nonnegative_v1
