@@ -1,0 +1,39 @@
+name: Cognitive Anchor Signed Writer V1
+
+on:
+  push:
+    branches:
+      - fix/cognitive-manifest-github-signed-writer-v1
+  pull_request:
+    paths:
+      - '.github/workflows/cognitive-manifest-refresh.yml'
+      - 'scripts/test-cognitive-anchor-writer-boundary.py'
+      - 'scripts/test-cognitive-anchor-signed-writer-v1.py'
+      - '.github/workflows/cognitive-anchor-signed-writer-v1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  signed-writer-contract:
+    name: aegis / cognitive-anchor-signed-writer-v1
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Assert exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.sha }}"
+
+      - name: Run existing writer authority boundary
+        run: python3 scripts/test-cognitive-anchor-writer-boundary.py
+
+      - name: Run signed writer boundary
+        run: python3 scripts/test-cognitive-anchor-signed-writer-v1.py
