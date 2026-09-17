@@ -1,0 +1,171 @@
+const token = process.env.GH_TOKEN;
+const branch = process.env.TARGET_BRANCH;
+const expectedParent = process.env.EXPECTED_PARENT;
+const repo = 'Aegis-Omega/AEGIS-OMEGA';
+const filePath = '.github/workflows/cognitive-manifest-refresh.yml';
+
+if (!token || !branch || !expectedParent) {
+  console.error('missing GH_TOKEN, TARGET_BRANCH, or EXPECTED_PARENT');
+  process.exit(1);
+}
+
+const headers = {
+  authorization: `bearer ${token}`,
+  accept: 'application/vnd.github+json',
+  'user-agent': 'aegis-manifest-signer-promoter-v1',
+};
+
+const branchResponse = await fetch(`https://api.github.com/repos/${repo}/branches/${branch}`, { headers });
+const branchBody = await branchResponse.json();
+if (!branchResponse.ok || !branchBody?.commit?.sha) {
+  console.error(JSON.stringify(branchBody));
+  process.exit(1);
+}
+if (branchBody.commit.sha !== expectedParent) {
+  console.error(`STALE_TARGET expected=${expectedParent} live=${branchBody.commit.sha}`);
+  process.exit(1);
+}
+
+const fileResponse = await fetch(
+  `https://api.github.com/repos/${repo}/contents/${filePath}?ref=${encodeURIComponent(branch)}`,
+  { headers }
+);
+const fileBody = await fileResponse.json();
+if (!fileResponse.ok || typeof fileBody?.content !== 'string') {
+  console.error(JSON.stringify(fileBody));
+  process.exit(1);
+}
+
+const source = Buffer.from(fileBody.content.replace(/\n/g, ''), 'base64').toString('utf8');
+const marker = '      - name: Commit refreshed anchors\n';
+const index = source.lastIndexOf(marker);
+if (index < 0) {
+  console.error('legacy manifest commit marker not found');
+  process.exit(1);
+}
+const suffix = source.slice(index);
+if (!suffix.includes('git commit -m "chore(manifest): refresh cognitive-state anchors"')) {
+  console.error('legacy local git commit not present in final step');
+  process.exit(1);
+}
+
+const ghTokenExpr = '$' + '{{ github.token }}';
+const targetRefExpr = '$' + '{{ inputs.target_ref }}';
+const replacement = `      - name: Commit refreshed anchors through GitHub-signed API
+        if: steps.admission.outputs.allowed == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${ghTokenExpr}
+          TARGET_REF: ${targetRefExpr}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- .claude.json skill-hashes.sha256; then
+            echo "Manifest already current."
+            exit 0
+          fi
+
+          SOURCE_SHA="$(git rev-parse HEAD)" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+
+          const token = process.env.GH_TOKEN;
+          const branch = process.env.TARGET_REF;
+          const sourceSha = process.env.SOURCE_SHA;
+          const refResponse = await fetch(
+            \`https://api.github.com/repos/Aegis-Omega/AEGIS-OMEGA/branches/\${branch}\`,
+            {
+              headers: {
+                authorization: \`bearer \${token}\`,
+                accept: 'application/vnd.github+json',
+                'user-agent': 'aegis-main-governed-cognitive-manifest-refresh-v1',
+              },
+            }
+          );
+          const refBody = await refResponse.json();
+          if (!refResponse.ok || !refBody?.commit?.sha) {
+            console.error(JSON.stringify(refBody));
+            process.exit(1);
+          }
+          if (refBody.commit.sha !== sourceSha) {
+            console.error(\`STALE_HEAD expected=\${sourceSha} live=\${refBody.commit.sha}\`);
+            process.exit(1);
+          }
+
+          const additions = ['.claude.json', 'skill-hashes.sha256'].map(path => ({
+            path,
+            contents: fs.readFileSync(path).toString('base64'),
+          }));
+          const query = \`mutation($input: CreateCommitOnBranchInput!) {
+            createCommitOnBranch(input: $input) {
+              commit { oid url }
+            }
+          }\`;
+          const variables = {
+            input: {
+              branch: {
+                repositoryNameWithOwner: 'Aegis-Omega/AEGIS-OMEGA',
+                branchName: branch,
+              },
+              expectedHeadOid: sourceSha,
+              message: { headline: 'chore(manifest): refresh cognitive-state anchors' },
+              fileChanges: { additions },
+            },
+          };
+          const response = await fetch('https://api.github.com/graphql', {
+            method: 'POST',
+            headers: {
+              authorization: \`bearer \${token}\`,
+              'content-type': 'application/json',
+              'user-agent': 'aegis-main-governed-cognitive-manifest-refresh-v1',
+            },
+            body: JSON.stringify({ query, variables }),
+          });
+          const body = await response.json();
+          if (!response.ok || body.errors) {
+            console.error(JSON.stringify(body));
+            process.exit(1);
+          }
+          console.log(\`SIGNED_MANIFEST_COMMIT=\${body.data.createCommitOnBranch.commit.oid}\`);
+          console.log(\`SIGNED_MANIFEST_URL=\${body.data.createCommitOnBranch.commit.url}\`);
+          NODE
+`;
+
+const rewritten = source.slice(0, index) + replacement;
+if (!rewritten.includes('createCommitOnBranch')) {
+  console.error('rewrite invariant failed: signed mutation absent');
+  process.exit(1);
+}
+if (rewritten.includes('git commit -m "chore(manifest): refresh cognitive-state anchors"')) {
+  console.error('rewrite invariant failed: legacy local commit retained');
+  process.exit(1);
+}
+
+const mutation = `mutation($input: CreateCommitOnBranchInput!) {
+  createCommitOnBranch(input: $input) {
+    commit { oid url }
+  }
+}`;
+const variables = {
+  input: {
+    branch: { repositoryNameWithOwner: repo, branchName: branch },
+    expectedHeadOid: expectedParent,
+    message: { headline: 'fix(ci): preserve main gates with GitHub-signed manifest commits' },
+    fileChanges: {
+      additions: [{
+        path: filePath,
+        contents: Buffer.from(rewritten, 'utf8').toString('base64'),
+      }],
+    },
+  },
+};
+const response = await fetch('https://api.github.com/graphql', {
+  method: 'POST',
+  headers: { ...headers, 'content-type': 'application/json' },
+  body: JSON.stringify({ query: mutation, variables }),
+});
+const body = await response.json();
+if (!response.ok || body.errors) {
+  console.error(JSON.stringify(body));
+  process.exit(1);
+}
+console.log(`SIGNED_WORKFLOW_FIX_COMMIT=${body.data.createCommitOnBranch.commit.oid}`);
+console.log(`SIGNED_WORKFLOW_FIX_URL=${body.data.createCommitOnBranch.commit.url}`);
