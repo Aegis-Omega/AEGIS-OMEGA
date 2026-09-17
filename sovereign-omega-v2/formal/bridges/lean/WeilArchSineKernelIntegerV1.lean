@@ -65,12 +65,12 @@ private theorem integral_weighted_cos_linear_v1
   let u' : ℝ → ℝ := fun _ => -1 / L
   let v : ℝ → ℝ := fun y => Real.sin (k * y) / k
   let v' : ℝ → ℝ := fun y => Real.cos (k * y)
-  have hu : ∀ y ∈ [[(0 : ℝ), L]], HasDerivAt u (u' y) y := by
+  have hu : ∀ y ∈ Set.uIcc (0 : ℝ) L, HasDerivAt u (u' y) y := by
     intro y hy
     dsimp [u, u']
     have h := (hasDerivAt_const y (1 : ℝ)).sub ((hasDerivAt_id y).div_const L)
     simpa only [Pi.sub_apply, zero_sub] using h
-  have hv : ∀ y ∈ [[(0 : ℝ), L]], HasDerivAt v (v' y) y := by
+  have hv : ∀ y ∈ Set.uIcc (0 : ℝ) L, HasDerivAt v (v' y) y := by
     intro y hy
     dsimp [v, v']
     have hlin : HasDerivAt (fun z : ℝ => k * z) k y := by
@@ -95,8 +95,7 @@ private theorem integral_weighted_cos_linear_v1
         fun y : ℝ => (-1 / (L * k)) * Real.sin (k * y) := by
     funext y
     dsimp [u', v]
-    field_simp [hL, hk]
-    ring
+    field_simp [hL, hk] <;> ring
   calc
     (∫ y in (0 : ℝ)..L, (1 - y / L) * Real.cos (k * y)) =
         u L * v L - u 0 * v 0 - ∫ y in (0 : ℝ)..L, u' y * v y := by
@@ -109,8 +108,7 @@ private theorem integral_weighted_cos_linear_v1
           ring
     _ = (1 - Real.cos (k * L)) / (L * k ^ 2) := by
           rw [integral_sin_linear_v1 k L hk]
-          field_simp [hL, hk]
-          ring
+          field_simp [hL, hk] <;> ring
 
 private theorem integral_weighted_cos_mul_cos_linear_v1
     (L A T : ℝ) (hL : L ≠ 0)
@@ -337,7 +335,6 @@ theorem weil_arch_sine_kernel_dx_integer_v1
         (2 * Real.pi / L) * Real.sin (L * T / 2) ^ 2 *
           (1 / (A - T) ^ 2 + 1 / (A + T) ^ 2) := by
       field_simp [hL, hsub, hadd]
-      ring
     _ = (2 * Real.pi / L) * Real.sin (L * T / 2) ^ 2 *
         (2 * (T ^ 2 + A ^ 2) / (T ^ 2 - A ^ 2) ^ 2) := by rw [hinv2]
     _ = 2 * WeilArchRhoV1 L * Real.sin (L * T / 2) ^ 2 *
