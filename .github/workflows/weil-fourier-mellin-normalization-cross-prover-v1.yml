@@ -1,0 +1,69 @@
+name: Weil Fourier Mellin Normalization Cross-Prover V1
+
+on:
+  pull_request:
+    paths:
+      - 'tests/test_weil_fourier_mellin_normalization_cross_prover_v1.py'
+      - 'sovereign-omega-v2/formal/theories/Weil/ConcreteFiniteGuinandWeilSemanticsV1.v'
+      - 'sovereign-omega-v2/formal/specs/FINITE_GUINAND_WEIL_SPEC_V1.json'
+      - '.github/workflows/weil-fourier-mellin-normalization-cross-prover-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  LEAN_SOURCE_SHA: d88587788630a5bafa12fdeb0619f3806f89d035
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+
+jobs:
+  canonical-binding:
+    name: bind Fourier and Mellin conventions to frozen AST
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact Coq candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout pinned AEGIS Lean source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.LEAN_SOURCE_SHA }}
+          path: .lean-aegis
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout pinned Mathlib normalization source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: leanprover-community/mathlib4
+          ref: ${{ env.MATHLIB_SHA }}
+          path: .mathlib
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert all exact source heads
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git -C .lean-aegis rev-parse HEAD)" = "$LEAN_SOURCE_SHA"
+          test "$(git -C .mathlib rev-parse HEAD)" = "$MATHLIB_SHA"
+
+      - name: Execute Fourier/Mellin normalization contract
+        shell: bash
+        env:
+          AEGIS_MELLIN_DECAY_SOURCE: ${{ github.workspace }}/.lean-aegis/sovereign-omega-v2/formal/bridges/lean/MellinDecayEstimateV1.lean
+          AEGIS_MELLIN_INVERSION_SOURCE: ${{ github.workspace }}/.lean-aegis/sovereign-omega-v2/formal/bridges/lean/WeilMellinInversionV1.lean
+          MATHLIB_MELLIN_INVERSION_SOURCE: ${{ github.workspace }}/.mathlib/Mathlib/Analysis/MellinInversion.lean
+          MATHLIB_MELLIN_TRANSFORM_SOURCE: ${{ github.workspace }}/.mathlib/Mathlib/Analysis/MellinTransform.lean
+          MATHLIB_FOURIER_SOURCE: ${{ github.workspace }}/.mathlib/Mathlib/Analysis/Fourier/FourierTransform.lean
+        run: |
+          set -euo pipefail
+          python3 -m unittest -v tests/test_weil_fourier_mellin_normalization_cross_prover_v1.py
