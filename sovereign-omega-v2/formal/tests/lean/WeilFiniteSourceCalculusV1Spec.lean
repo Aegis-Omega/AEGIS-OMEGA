@@ -1,4 +1,4 @@
-import WeilArchSineKernelV1
+import WeilArchSineKernelIntegerV1
 
 set_option autoImplicit false
 
