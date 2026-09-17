@@ -1,0 +1,35 @@
+name: M1 Live Cutover V2
+
+on:
+  push:
+    branches:
+      - fix/m1-record-live-cutover-v2
+  pull_request:
+    branches:
+      - diagnostic/m1-record-contract-v2
+    paths:
+      - sovereign-omega-v2/python/core_matrix.py
+      - sovereign-omega-v2/python/ledger_persist.py
+      - sovereign-omega-v2/python/tests/test_m1_live_cutover_v2.py
+      - sovereign-omega-v2/python/tests/test_m1_boundary_containment.py
+      - .github/workflows/m1-live-cutover-v2.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  m1-live-cutover-v2:
+    name: M1 live record + restart equivalence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run reference contract
+        run: python sovereign-omega-v2/python/tests/test_m1_record_contract_v2.py
+      - name: Run live cutover acceptance
+        run: python sovereign-omega-v2/python/tests/test_m1_live_cutover_v2.py
+      - name: Run containment regression
+        run: python sovereign-omega-v2/python/tests/test_m1_boundary_containment.py
