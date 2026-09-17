@@ -72,6 +72,13 @@ jobs:
           node-version-file: '.node-version'
           package-manager-cache: false
 
+      - name: Assert exact Node and npm runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = "v24.21.0"
+          test "$(npm --version)" = "11.19.0"
+
       - name: Install shared source dependencies when needed
         if: ${{ matrix.app != 'packages/shared' }}
         working-directory: packages/shared
