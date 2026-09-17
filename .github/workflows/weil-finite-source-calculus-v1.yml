@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'sovereign-omega-v2/formal/bridges/lean/WeilFiniteSourceCalculusV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilCauchyRankTwoV1.lean'
       - 'sovereign-omega-v2/formal/tests/lean/WeilFiniteSourceCalculusV1Spec.lean'
       - '.github/workflows/weil-finite-source-calculus-v1.yml'
   workflow_dispatch:
@@ -65,11 +66,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .lake/build/lib/lean
-          if test -f .aegis/sovereign-omega-v2/formal/bridges/lean/WeilFiniteSourceCalculusV1.lean; then
-            cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilFiniteSourceCalculusV1.lean .
-            sha256sum WeilFiniteSourceCalculusV1.lean >> exact-source.log
-            lake env lean -o .lake/build/lib/lean/WeilFiniteSourceCalculusV1.olean WeilFiniteSourceCalculusV1.lean 2>&1 | tee WeilFiniteSourceCalculusV1.log
-          fi
+          cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilFiniteSourceCalculusV1.lean .
+          sha256sum WeilFiniteSourceCalculusV1.lean >> exact-source.log
+          lake env lean -o .lake/build/lib/lean/WeilFiniteSourceCalculusV1.olean WeilFiniteSourceCalculusV1.lean 2>&1 | tee WeilFiniteSourceCalculusV1.log
+          cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilCauchyRankTwoV1.lean .
+          sha256sum WeilCauchyRankTwoV1.lean >> exact-source.log
+          lake env lean -o .lake/build/lib/lean/WeilCauchyRankTwoV1.olean WeilCauchyRankTwoV1.lean 2>&1 | tee WeilCauchyRankTwoV1.log
           cp .aegis/sovereign-omega-v2/formal/tests/lean/WeilFiniteSourceCalculusV1Spec.lean .
           sha256sum WeilFiniteSourceCalculusV1Spec.lean >> exact-source.log
           lake env lean WeilFiniteSourceCalculusV1Spec.lean 2>&1 | tee WeilFiniteSourceCalculusV1Spec.log
@@ -80,7 +82,7 @@ jobs:
         run: |
           set -euo pipefail
           cat > WeilFiniteSourceCalculusAudit.lean <<'EOF'
-          import WeilFiniteSourceCalculusV1
+          import WeilCauchyRankTwoV1
           #print axioms weil_single_frequency_source_offdiag_v1
           #print axioms weil_single_frequency_source_diagonal_v1
           #print axioms weil_single_frequency_source_calculus_v1
