@@ -1,0 +1,37 @@
+{
+  "schema": "AEGIS_ACTION_PIN_REGISTRY_V1",
+  "authority_effect": "NONE",
+  "pins": {
+    "actions/checkout": {
+      "major": "v4",
+      "sha": "11d5960a326750d5838078e36cf38b85af677262"
+    },
+    "actions/setup-node": {
+      "major": "v4",
+      "sha": "49933ea5288caeca8642d1e84afbd3f7d6820020"
+    },
+    "actions/setup-python": {
+      "major": "v5",
+      "sha": "a26af69be951a213d495a4c3e4e4022e16d87065"
+    },
+    "actions/upload-artifact": {
+      "major": "v4",
+      "sha": "ea165f8d65b6e75b540449e92b4886f43607fa02"
+    },
+    "actions/attest": {
+      "major": "v4",
+      "sha": "1e69f48acb82d1966a394da916b4c1698aa569d6"
+    }
+  },
+  "frozen_exclusions": [
+    ".github/workflows/cognitive-manifest-refresh.yml",
+    ".github/workflows/trusted-cognitive-admission.yml"
+  ],
+  "baseline": {
+    "main_sha": "495bfd85d79abcb2b4f6898fe9c156488492426a",
+    "total_action_refs": 122,
+    "pinned_action_refs": 15,
+    "floating_action_refs": 107,
+    "floating_workflows": 28
+  }
+}

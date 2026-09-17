@@ -1,0 +1,39 @@
+name: SOTA CI Supply Chain Audit
+
+on:
+  push:
+    branches:
+      - refactor/sota-foundation-v1
+    paths:
+      - '.github/workflows/**'
+      - '.github/sota-action-pins.json'
+      - 'scripts/audit-ci-supply-chain.mjs'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - '.github/sota-action-pins.json'
+      - 'scripts/audit-ci-supply-chain.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: aegis / sota-ci-supply-chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Set up pinned Node LTS
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version-file: '.node-version'
+          package-manager-cache: false
+
+      - name: Audit immutable action references
+        run: node scripts/audit-ci-supply-chain.mjs
