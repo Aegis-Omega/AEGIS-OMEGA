@@ -45,3 +45,4 @@ jobs:
           name: cognitive-signed-writer-green
           path: ${{ runner.temp }}/signed-writer-artifact
           if-no-files-found: error
+          include-hidden-files: true
