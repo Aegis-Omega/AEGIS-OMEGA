@@ -1,0 +1,102 @@
+name: NPM Targeted Hardening Probe
+
+on:
+  push:
+    branches:
+      - hardening/mycorrhizal-structural-witness-v1
+    paths:
+      - .github/workflows/npm-targeted-hardening-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  targeted-hardening:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+
+      - name: Install exact baseline
+        working-directory: sovereign-omega-v2
+        run: npm ci
+
+      - name: Capture audit before
+        working-directory: sovereign-omega-v2
+        run: |
+          npm audit --json > audit-before.json || true
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const a = JSON.parse(fs.readFileSync('audit-before.json','utf8'));
+          console.log('AUDIT_BEFORE=' + JSON.stringify(a.metadata?.vulnerabilities ?? {}));
+          NODE
+
+      - name: Apply same-major direct security upgrades
+        working-directory: sovereign-omega-v2
+        run: |
+          npm install --package-lock-only --ignore-scripts ajv@8.20.0
+          npm install --package-lock-only --ignore-scripts --save-dev \
+            vitest@4.1.11 \
+            @vitest/coverage-v8@4.1.11 \
+            postcss@8.5.28 \
+            jsdom@29.1.1
+
+      - name: Capture proposed dependency delta
+        run: git diff -- sovereign-omega-v2/package.json sovereign-omega-v2/package-lock.json
+
+      - name: Capture audit after direct upgrades
+        working-directory: sovereign-omega-v2
+        run: |
+          npm audit --json > audit-after-direct.json || true
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const a = JSON.parse(fs.readFileSync('audit-after-direct.json','utf8'));
+          console.log('AUDIT_AFTER_DIRECT=' + JSON.stringify(a.metadata?.vulnerabilities ?? {}));
+          for (const [name,v] of Object.entries(a.vulnerabilities ?? {})) {
+            console.log('RESIDUAL_VULN=' + JSON.stringify({
+              name,
+              severity:v.severity,
+              isDirect:v.isDirect,
+              range:v.range,
+              fixAvailable:v.fixAvailable,
+            }));
+          }
+          NODE
+
+      - name: Reinstall proposed lockfile
+        working-directory: sovereign-omega-v2
+        run: npm ci
+
+      - name: Run full tests
+        working-directory: sovereign-omega-v2
+        run: npm run test
+
+      - name: TypeScript strict check
+        working-directory: sovereign-omega-v2
+        run: npm run typecheck
+
+      - name: Production build
+        working-directory: sovereign-omega-v2
+        run: npm run build
+
+      - name: Upload proposed dependency repair
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-targeted-hardening-probe
+          path: |
+            sovereign-omega-v2/package.json
+            sovereign-omega-v2/package-lock.json
+            sovereign-omega-v2/audit-before.json
+            sovereign-omega-v2/audit-after-direct.json
