@@ -275,6 +275,24 @@ class CoreMatrix:
             if failsafe_state in (EpochState.FROZEN, EpochState.RECOVERING):
                 return {'status': failsafe_state.value.upper(), 'sequence': self._sequence}
 
+            # M1 boundary containment. M1 addresses a 40-byte grid but attempts
+            # to write 40 + len(payload) bytes. If the span crosses the region
+            # boundary, fail closed before M1_ERA_WRAP or any M1/M2/M3 mutation.
+            m1_region_len = len(self._m1_region)
+            if m1_region_len < 40:
+                return {
+                    'status': 'M1_BOUNDARY_BLOCKED',
+                    'sequence': self._sequence,
+                    'epoch': self._epoch,
+                }
+            m1_write_head = (self._sequence * 40) % m1_region_len
+            if m1_write_head + 40 + len(payload) > m1_region_len:
+                return {
+                    'status': 'M1_BOUNDARY_BLOCKED',
+                    'sequence': self._sequence,
+                    'epoch': self._epoch,
+                }
+
             # Detect M1 circular wrap and log an era-boundary event (F-07)
             if self._sequence > 0 and self._sequence % self._m1_era_capacity == 0:
                 self._era += 1
