@@ -178,7 +178,7 @@ function FieldCanvas({ sigmaRef, lambdaRef }: { sigmaRef: MutableRefObject<numbe
       window.removeEventListener('resize', resize)
       cancelAnimationFrame(rafId)
     }
-  }, [])
+  }, [lambdaRef, sigmaRef])
 
   return <canvas ref={canvasRef} className="rt-field"/>
 }

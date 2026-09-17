@@ -255,14 +255,16 @@ const FAQS = [
 ]
 
 export function ToolsPage() {
-  const trialStartRef = useRef(Date.now())
+  const trialStartRef = useRef<number | null>(null)
 
   useEffect(() => {
+    trialStartRef.current = Date.now()
     captureEvent('tools_page_viewed', { source: document.referrer || 'direct' })
   }, [])
 
   const handlePurchaseClick = (product: string) => {
-    const ttv = Math.round((Date.now() - trialStartRef.current) / 1000)
+    const startedAt = trialStartRef.current
+    const ttv = startedAt === null ? 0 : Math.round((Date.now() - startedAt) / 1000)
     captureEvent('conversion', { product, ttv_seconds: ttv })
   }
 

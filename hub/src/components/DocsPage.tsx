@@ -233,7 +233,7 @@ aegis collaborate "Enter EU fintech market Q4 2026" --mode gtm`} />
     "mode": "gtm",
     "departments_collaborated": 39,
     "artifacts": [
-      { "role": "Strategy", "output": "GTM for \"Enter EU fintech...\" — 4-phase launch..." },
+      { "role": "Strategy", "output": "GTM for "Enter EU fintech..." — 4-phase launch..." },
       // ... 38 more department outputs
     ],
     "projection": {

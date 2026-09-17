@@ -116,7 +116,6 @@ function useTamperChain({ seed = 6, win = 8, tickMs = 2600 } = {}) {
   const chainRef = useRef<ChainEntry[]>([])
   const seqRef = useRef(seed)
 
-  chainRef.current = chain
 
   const recompute = useCallback(async (c: ChainEntry[]) => {
     const v = await validateChain(c)
@@ -127,11 +126,13 @@ function useTamperChain({ seed = 6, win = 8, tickMs = 2600 } = {}) {
     let alive = true
     seedChain(seed).then(c => {
       if (!alive) return
+      chainRef.current = c
+      seqRef.current = seed
       setChain(c)
       void recompute(c)
     })
     return () => { alive = false }
-  }, []) // eslint-disable-line
+  }, [seed, recompute])
 
   useEffect(() => {
     const id = setInterval(async () => {
@@ -142,16 +143,18 @@ function useTamperChain({ seed = 6, win = 8, tickMs = 2600 } = {}) {
       const pick = SIGNALS[(seq * 7) % SIGNALS.length]
       const e = await mkEntry(seq, prev, pick)
       const next = [...c, { ...e, fresh: true }]
+      chainRef.current = next
       setChain(next)
       setStatus(s => ({ ...s, valid: s.corruption === 0, t0: s.corruption === 0 }))
     }, tickMs)
     return () => clearInterval(id)
-  }, [tickMs]) // eslint-disable-line
+  }, [tickMs])
 
   const tamper = useCallback(async (seq: number) => {
     const c = chainRef.current.map(e =>
       e.seq === seq ? { ...e, signal: '⚠ injected: force-approve unproven write', tampered: true } : e
     )
+    chainRef.current = c
     setChain(c)
     await recompute(c)
   }, [recompute])
@@ -160,6 +163,7 @@ function useTamperChain({ seed = 6, win = 8, tickMs = 2600 } = {}) {
     const c = chainRef.current.map(e =>
       e.seq === seq ? { ...e, signal: e.origSignal, tampered: false } : e
     )
+    chainRef.current = c
     setChain(c)
     await recompute(c)
   }, [recompute])
@@ -918,12 +922,16 @@ function Footer() {
 // ── Page root ──────────────────────────────────────────────────────────────────
 
 export function HomepageLanding() {
-  const trialStartRef = useRef(Date.now())
-  const ttv = () => Math.round((Date.now() - trialStartRef.current) / 1000)
+  const trialStartRef = useRef<number | null>(null)
+  const ttv = () => {
+    const startedAt = trialStartRef.current
+    return startedAt === null ? 0 : Math.round((Date.now() - startedAt) / 1000)
+  }
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const { visible, status, total, tamper, reseal } = useTamperChain({ seed: 6, win: 8, tickMs: 2600 })
 
   useEffect(() => {
+    trialStartRef.current = Date.now()
     captureEvent('homepage_viewed')
   }, [])
 

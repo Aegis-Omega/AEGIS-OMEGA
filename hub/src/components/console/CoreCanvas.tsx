@@ -145,7 +145,7 @@ export function CoreCanvas({ contained = false }: { contained?: boolean } = {}) 
       window.removeEventListener('resize', resize)
       window.removeEventListener('pointermove', onMove)
     }
-  }, [])
+  }, [contained])
 
   return (
     <canvas ref={ref} aria-hidden="true" style={{

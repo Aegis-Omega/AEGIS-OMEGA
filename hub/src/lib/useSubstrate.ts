@@ -29,8 +29,8 @@ export function useSubstrate(): SubstrateState {
   const [certificate, setCertificate] = useState<MetacognitiveCertificate>({ is_valid: true, entry_count: 0, terminal_hash: null })
   const [activeLayer, setActiveLayer] = useState<MetacognitiveLayer | null>(null)
   const [bridge, setBridge] = useState<BridgeSnapshot>({ reachable: false })
+  const [totalObserved, setTotalObserved] = useState(0)
   const fullChain = useRef<MetacognitiveEntry[]>([])
-  const total = useRef(0)
 
   useEffect(() => {
     let cancelled = false
@@ -39,7 +39,7 @@ export function useSubstrate(): SubstrateState {
       const entry = await appendObservation(fullChain.current)
       if (cancelled) return
       fullChain.current = [...fullChain.current, entry]
-      total.current += 1
+      setTotalObserved(current => current + 1)
       const cert = await certify(fullChain.current)
       if (cancelled) return
       setCertificate(cert)
@@ -65,5 +65,5 @@ export function useSubstrate(): SubstrateState {
     return () => { cancelled = true; clearInterval(id) }
   }, [])
 
-  return { chain, certificate, activeLayer, totalObserved: total.current, bridge }
+  return { chain, certificate, activeLayer, totalObserved, bridge }
 }

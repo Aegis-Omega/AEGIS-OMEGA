@@ -1,5 +1,5 @@
 // Live scrolling cascade of self-observations — the system watching itself watch itself.
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useSubstrate, certify, type Layer, type Tier, type MetacognitiveEntry } from '../lib/substrate.js'
 
 const LAYER_LABEL: Record<Layer, string> = {
@@ -41,18 +41,13 @@ export function ConsciousnessStream() {
 
   const [tamperPhase, setTamperPhase] = useState<TamperPhase>('idle')
   const [corruptedIdx, setCorruptedIdx] = useState<number | null>(null)
-
-  useEffect(() => {
-    if (tamperPhase !== 'idle') {
-      setTamperPhase('idle')
-      setCorruptedIdx(null)
-    }
-  // reset demo when chain grows (new tick resets visual state cleanly)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.chain.length])
+  const [tamperChainLength, setTamperChainLength] = useState(state.chain.length)
+  const visibleTamperPhase = tamperChainLength === state.chain.length ? tamperPhase : 'idle'
+  const visibleCorruptedIdx = tamperChainLength === state.chain.length ? corruptedIdx : null
 
   const corruptAndVerify = async () => {
     if (state.chain.length < 3) return
+    setTamperChainLength(state.chain.length)
     setTamperPhase('checking')
     const idx = Math.floor(state.chain.length / 2)
     const entry = state.chain[idx]
@@ -66,6 +61,7 @@ export function ConsciousnessStream() {
   }
 
   const restore = () => {
+    setTamperChainLength(state.chain.length)
     setTamperPhase('idle')
     setCorruptedIdx(null)
   }
@@ -174,31 +170,31 @@ export function ConsciousnessStream() {
       {/* ── Tamper demo ────────────────────────────────────────── */}
       <div
         className="mt-4 rounded-xl px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-3"
-        style={{ background: '#0A0B0F', border: `1px solid ${tamperPhase === 'detected' ? 'rgba(248,113,113,0.30)' : '#1A1D27'}` }}
+        style={{ background: '#0A0B0F', border: `1px solid ${visibleTamperPhase === 'detected' ? 'rgba(248,113,113,0.30)' : '#1A1D27'}` }}
       >
         <div className="flex-1 min-w-0">
           <p className="text-xs font-mono mb-0.5" style={{ color: '#4B5563' }}>
             Tamper-evident verification
           </p>
-          {tamperPhase === 'idle' && (
+          {visibleTamperPhase === 'idle' && (
             <p className="text-xs font-mono" style={{ color: '#374151' }}>
               Corrupt any entry in the chain → <code style={{ color: '#A78BFA' }}>certify()</code> detects it instantly.
             </p>
           )}
-          {tamperPhase === 'checking' && (
+          {visibleTamperPhase === 'checking' && (
             <p className="text-xs font-mono" style={{ color: '#C8A96E' }}>
               verifying chain integrity…
             </p>
           )}
-          {tamperPhase === 'detected' && corruptedIdx !== null && (
+          {visibleTamperPhase === 'detected' && visibleCorruptedIdx !== null && (
             <p className="text-xs font-mono" style={{ color: '#F87171' }}>
-              is_valid: <strong>false</strong> — entry #{corruptedIdx} corrupted.{' '}
-              <span style={{ color: '#4B5563' }}>Hash mismatch detected at sequence {state.chain[corruptedIdx]?.sequence ?? corruptedIdx}.</span>
+              is_valid: <strong>false</strong> — entry #{visibleCorruptedIdx} corrupted.{' '}
+              <span style={{ color: '#4B5563' }}>Hash mismatch detected at sequence {state.chain[visibleCorruptedIdx]?.sequence ?? visibleCorruptedIdx}.</span>
             </p>
           )}
         </div>
 
-        {tamperPhase === 'idle' && (
+        {visibleTamperPhase === 'idle' && (
           <button
             onClick={() => { void corruptAndVerify() }}
             disabled={state.chain.length < 3}
@@ -208,7 +204,7 @@ export function ConsciousnessStream() {
             Corrupt one entry →
           </button>
         )}
-        {tamperPhase === 'checking' && (
+        {visibleTamperPhase === 'checking' && (
           <span
             className="flex-shrink-0 text-xs font-mono px-4 py-2 rounded-lg animate-mint-pulse"
             style={{ background: 'rgba(200,169,110,0.08)', color: '#C8A96E', border: '1px solid rgba(200,169,110,0.15)' }}
@@ -216,7 +212,7 @@ export function ConsciousnessStream() {
             certify()…
           </span>
         )}
-        {tamperPhase === 'detected' && (
+        {visibleTamperPhase === 'detected' && (
           <button
             onClick={restore}
             className="flex-shrink-0 text-xs font-semibold font-mono px-4 py-2 rounded-lg transition-opacity hover:opacity-80"

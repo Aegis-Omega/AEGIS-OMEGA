@@ -28,6 +28,44 @@ const TOOL_LABELS: Record<string, { name: string; tagline: string }> = {
 
 type Tier = 'explorer' | 'operator' | 'sovereign'
 
+interface PayPalOrderInput {
+  intent: 'CAPTURE'
+  purchase_units: Array<{
+    amount: { value: string; currency_code: 'USD' }
+    description: string
+  }>
+}
+
+interface PayPalActions {
+  reject(): Promise<void> | void
+  resolve(): Promise<void> | void
+  order: {
+    create(input: PayPalOrderInput): Promise<string>
+  }
+}
+
+interface PayPalButtonsInstance {
+  isEligible?(): boolean
+  render(container: HTMLElement): Promise<void>
+  close(): void
+}
+
+interface PayPalNamespace {
+  Buttons(config: {
+    style: { layout: 'vertical'; color: 'gold'; shape: 'pill'; label: 'pay' }
+    onClick(data: unknown, actions: PayPalActions): Promise<void> | void
+    createOrder(data: unknown, actions: PayPalActions): Promise<string>
+    onApprove(data: { orderID: string }): Promise<void>
+    onError(error: unknown): void
+  }): PayPalButtonsInstance
+}
+
+declare global {
+  interface Window {
+    paypal?: PayPalNamespace
+  }
+}
+
 interface TierDef {
   label: string; price: string; priceNote: string; runs: string
   accent: string; pill: string; desc: string
@@ -318,17 +356,21 @@ export function PricingPage() {
   const [toolToken, setToolToken] = useState<string | null>(null)
   const [error,    setError]    = useState<string | null>(null)
   const [loading,  setLoading]  = useState(false)
-  const [sdkReady, setSdkReady] = useState(false)
+  const [sdkReady, setSdkReady] = useState(
+    () => typeof window !== 'undefined' && Boolean(window.paypal),
+  )
   const ppRef    = useRef<HTMLDivElement | null>(null)
   const emailRef = useRef(email)
 
-  useEffect(() => { setError(null) }, [email, tier])
   useEffect(() => { emailRef.current = email }, [email])
 
   // Load the PayPal JS SDK once. PayPal is the payment processor — no Stripe.
   useEffect(() => {
     if (!PAYPAL_CLIENT_ID) return
-    if ((window as any).paypal) { setSdkReady(true); return }
+    if (window.paypal) {
+      queueMicrotask(() => setSdkReady(true))
+      return
+    }
     const s = document.createElement('script')
     s.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(PAYPAL_CLIENT_ID)}&currency=USD&intent=capture`
     s.onload = () => setSdkReady(true)
@@ -359,18 +401,18 @@ export function PricingPage() {
   // verify-paypal (so we never capture in the browser).
   useEffect(() => {
     if (tier === 'explorer' || !sdkReady || !ppRef.current) return
-    const paypal = (window as any).paypal
+    const paypal = window.paypal
     if (!paypal) return
     const container = ppRef.current
     container.innerHTML = ''
     const buttons = paypal.Buttons({
       style: { layout: 'vertical', color: 'gold', shape: 'pill', label: 'pay' },
-      onClick: (_d: unknown, actions: any) => {
+      onClick: (_d: unknown, actions: PayPalActions) => {
         const em = emailRef.current.trim()
         if (!em || !em.includes('@')) { setError('Enter a valid email first.'); return actions.reject() }
         return actions.resolve()
       },
-      createOrder: (_d: unknown, actions: any) => actions.order.create({
+      createOrder: (_d: unknown, actions: PayPalActions) => actions.order.create({
         intent: 'CAPTURE',
         purchase_units: [{
           amount: { value: TIER_PRICE[tier as 'operator' | 'sovereign'], currency_code: 'USD' },
@@ -396,7 +438,9 @@ export function PricingPage() {
     })
     try {
       if (buttons.isEligible && !buttons.isEligible()) {
-        setError('PayPal is unavailable in this browser. Contact api@aegisomega.com')
+        queueMicrotask(() => {
+          setError('PayPal is unavailable in this browser. Contact api@aegisomega.com')
+        })
         return
       }
       buttons.render(container).catch(() => {})
@@ -456,7 +500,10 @@ export function PricingPage() {
             Your email — key delivered here
           </label>
           <input
-            type="email" value={email} onChange={e => setEmail(e.target.value)}
+            type="email" value={email} onChange={e => {
+              setEmail(e.target.value)
+              setError(null)
+            }}
             placeholder="you@company.com"
             style={{
               width: '100%', boxSizing: 'border-box',
@@ -471,7 +518,10 @@ export function PricingPage() {
         {/* Tier cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
           {(['explorer', 'operator', 'sovereign'] as Tier[]).map(t => (
-            <TierCard key={t} tier={t} selected={tier === t} onSelect={() => setTier(t)} />
+            <TierCard key={t} tier={t} selected={tier === t} onSelect={() => {
+              setTier(t)
+              setError(null)
+            }} />
           ))}
         </div>
 

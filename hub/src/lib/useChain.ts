@@ -91,7 +91,6 @@ export function useChain({ seed = 6, window: win = 8, tickMs = 2600 } = {}) {
   const chainRef = useRef<ChainEntry[]>([])
   const seqRef = useRef(seed)
 
-  chainRef.current = chain
 
   const recompute = useCallback(async (c: ChainEntry[]) => {
     const v = await validateChain(c)
@@ -102,11 +101,13 @@ export function useChain({ seed = 6, window: win = 8, tickMs = 2600 } = {}) {
     let alive = true
     void seedChain(seed).then(c => {
       if (!alive) return
+      chainRef.current = c
+      seqRef.current = seed
       setChain(c)
       void recompute(c)
     })
     return () => { alive = false }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [seed, recompute])
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -118,6 +119,7 @@ export function useChain({ seed = 6, window: win = 8, tickMs = 2600 } = {}) {
       void mkEntry(seq, prev, pick).then(e => {
         const withFresh: ChainEntry = { ...e, fresh: true }
         const next = [...c, withFresh]
+        chainRef.current = next
         setChain(next)
         setStatus(s => ({ ...s, valid: s.corruption === 0, t0: s.corruption === 0 }))
       })
@@ -131,6 +133,7 @@ export function useChain({ seed = 6, window: win = 8, tickMs = 2600 } = {}) {
         ? { ...e, signal: '⚠ injected: force-approve unproven write', tampered: true }
         : e
     )
+    chainRef.current = c
     setChain(c)
     await recompute(c)
   }, [recompute])
@@ -139,6 +142,7 @@ export function useChain({ seed = 6, window: win = 8, tickMs = 2600 } = {}) {
     const c = chainRef.current.map(e =>
       e.seq === seq ? { ...e, signal: e.origSignal, tampered: false } : e
     )
+    chainRef.current = c
     setChain(c)
     await recompute(c)
   }, [recompute])
