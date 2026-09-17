@@ -217,3 +217,54 @@ Theorem concrete_complex_real_projection_v1 :
 Proof.
   repeat split; try reflexivity; discriminate.
 Qed.
+
+(* Sign-orientation provenance policy.  The normalized identity is proved in
+   the pinned mathematical proof note with listed external dependencies; the
+   whole assembled identity is not silently promoted to a Lean kernel theorem.
+   The moment-zero pole cancellation is separately kernel-checked in Lean. *)
+Inductive FiniteExplicitIdentityOrientationV1 : Type :=
+| ZeroSideEqualsPoleMinusRhsV1.
+
+Inductive FiniteMomentZeroOrientationV1 : Type :=
+| RhsEqualsNegativeZeroSumV1.
+
+Inductive FiniteSignInferenceStatusV1 : Type :=
+| SignInequalityNotImpliedV1
+| SignInequalityProvedV1.
+
+Inductive FiniteExplicitIdentityProofStatusV1 : Type :=
+| MathProvedExternalDependenciesV1
+| WholeIdentityLeanKernelOpenV1
+| WholeIdentityLeanKernelProvedV1.
+
+Definition finite_explicit_identity_orientation_v1 :
+    FiniteExplicitIdentityOrientationV1 :=
+  ZeroSideEqualsPoleMinusRhsV1.
+
+Definition finite_moment_zero_orientation_v1 :
+    FiniteMomentZeroOrientationV1 :=
+  RhsEqualsNegativeZeroSumV1.
+
+Definition finite_sign_inference_status_v1 :
+    FiniteSignInferenceStatusV1 :=
+  SignInequalityNotImpliedV1.
+
+Definition finite_explicit_identity_proof_status_v1 :
+    FiniteExplicitIdentityProofStatusV1 :=
+  MathProvedExternalDependenciesV1.
+
+Definition finite_whole_identity_lean_status_v1 :
+    FiniteExplicitIdentityProofStatusV1 :=
+  WholeIdentityLeanKernelOpenV1.
+
+Theorem concrete_sign_orientation_v1 :
+  finite_explicit_identity_orientation_v1 = ZeroSideEqualsPoleMinusRhsV1 /\
+  finite_moment_zero_orientation_v1 = RhsEqualsNegativeZeroSumV1 /\
+  finite_sign_inference_status_v1 = SignInequalityNotImpliedV1 /\
+  finite_explicit_identity_proof_status_v1 = MathProvedExternalDependenciesV1 /\
+  finite_whole_identity_lean_status_v1 = WholeIdentityLeanKernelOpenV1 /\
+  SignInequalityNotImpliedV1 <> SignInequalityProvedV1 /\
+  WholeIdentityLeanKernelOpenV1 <> WholeIdentityLeanKernelProvedV1.
+Proof.
+  repeat split; try reflexivity; discriminate.
+Qed.
