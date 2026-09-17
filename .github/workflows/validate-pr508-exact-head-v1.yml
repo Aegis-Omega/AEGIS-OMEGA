@@ -1,0 +1,141 @@
+name: Validate PR 508 Exact Head V1
+
+on:
+  push:
+    branches:
+      - control/validate-pr508-exact-head-v1
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_SHA: 495bfd85d79abcb2b4f6898fe9c156488492426a
+      CANDIDATE_SHA: 083dceb535226c7dead4e74ce1d7791e076205b3
+      CANDIDATE_REF: transition/cognitive-writer-digest-allowlist-signed-v1
+      PR_MERGE_SHA: 8ba07ab2f4210edf276b3bddbc5aecbf86667b2e
+    steps:
+      - name: Checkout trusted main source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: 495bfd85d79abcb2b4f6898fe9c156488492426a
+          path: trusted-source
+          fetch-depth: 2
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Checkout exact base data
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: 495bfd85d79abcb2b4f6898fe9c156488492426a
+          path: base-data
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Checkout exact candidate data
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: 083dceb535226c7dead4e74ce1d7791e076205b3
+          path: candidate-data
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Checkout exact PR merge data
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: 8ba07ab2f4210edf276b3bddbc5aecbf86667b2e
+          path: merge-data
+          fetch-depth: 2
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Assert immutable identities and trusted code equality
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C trusted-source rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git -C base-data rev-parse HEAD)" = "$BASE_SHA"
+          test "$(git -C candidate-data rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git -C merge-data rev-parse HEAD)" = "$PR_MERGE_SHA"
+          git --no-pager diff --exit-code "$BASE_SHA" "$CANDIDATE_SHA" -- \
+            scripts/validate-automaton2.py \
+            scripts/build-cognitive-manifest.py \
+            scripts/trusted-cognitive-admission-v2.py \
+            schemas/cognitive-state.v1.schema.json
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Install exact validator dependency
+        run: pip install jsonschema==4.23.0
+
+      - name: Replay Automaton-2 from trusted source against exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python trusted-source/scripts/validate-automaton2.py \
+            --root candidate-data \
+            --schema ../trusted-source/schemas/cognitive-state.v1.schema.json \
+            --generator ../trusted-source/scripts/build-cognitive-manifest.py \
+            --skill-hashes skill-hashes.sha256 \
+            --parent-manifest ../base-data/.claude.json \
+            --candidate-sha "$CANDIDATE_SHA" \
+            --require-oidc \
+            --output "$RUNNER_TEMP/AUTOMATON2_PR508_REPLAY.json"
+
+      - name: Replay Trusted Cognitive Admission from trusted main source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python trusted-source/scripts/trusted-cognitive-admission-v2.py \
+            --candidate-root candidate-data \
+            --base-root base-data \
+            --source-ref "$CANDIDATE_REF" \
+            --candidate-sha "$CANDIDATE_SHA" \
+            --base-sha "$BASE_SHA" \
+            --workflow-sha "$BASE_SHA" \
+            --output "$RUNNER_TEMP/TRUSTED_COGNITIVE_PR508_REPLAY.json"
+
+      - name: Replay base-owned writer merge gate on exact PR merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          python trusted-source/scripts/test-cognitive-writer-merge-gate.py
+          python trusted-source/scripts/check-cognitive-writer-merge.py \
+            --repo merge-data \
+            --base-sha "$BASE_SHA" \
+            --head-sha "$CANDIDATE_SHA" \
+            --merge-sha "$PR_MERGE_SHA" \
+            --output "$RUNNER_TEMP/WRITER_MERGE_PR508_REPLAY.json"
+
+      - name: Show bounded receipts
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in \
+            "$RUNNER_TEMP/AUTOMATON2_PR508_REPLAY.json" \
+            "$RUNNER_TEMP/TRUSTED_COGNITIVE_PR508_REPLAY.json" \
+            "$RUNNER_TEMP/WRITER_MERGE_PR508_REPLAY.json"; do
+            if [[ -f "$f" ]]; then
+              echo "===== $f ====="
+              cat "$f"
+              echo
+            fi
+          done
