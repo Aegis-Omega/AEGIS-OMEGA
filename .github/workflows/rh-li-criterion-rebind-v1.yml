@@ -1,0 +1,264 @@
+name: RH Li Criterion Rebind V1
+
+on:
+  push:
+    branches:
+      - 'proof/rh-li-criterion-rebind-v1'
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/AegisLiCriterionRebindV1.lean'
+      - 'sovereign-omega-v2/formal/tests/lean/AegisLiCriterionRebindV1Spec.lean'
+      - '.github/workflows/rh-li-criterion-rebind-v1.yml'
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/AegisLiCriterionRebindV1.lean'
+      - 'sovereign-omega-v2/formal/tests/lean/AegisLiCriterionRebindV1Spec.lean'
+      - '.github/workflows/rh-li-criterion-rebind-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PROVIDER_SHA: 35df682f3b709ffe5fbcfdd452dfa964bd622b87
+  PROVIDER_ORIGINAL_MATHLIB_SHA: de5ce8a9a66a4aa68a9bdbb35b63a06d34d9ca11
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  FACTORIZATION_BLOB: 10d38a54580ff72d698a30be64fe1c3c44f862a2
+
+jobs:
+  li-criterion-rebind:
+    name: verify provider Li iff RH at exact AEGIS rebind
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact provider
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: nicholasbulka/li-criterion-rh-equivalence-lean
+          ref: ${{ env.PROVIDER_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.SOURCE_SHA }}
+          path: .aegis
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Bind exact source and rebind Mathlib pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$PROVIDER_SHA"
+          test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git hash-object Hadamard/General/Factorization.lean)" = "$FACTORIZATION_BLOB"
+          printf '%s\n' "$LEAN_TOOLCHAIN" > lean-toolchain
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path('lakefile.lean')
+          text = p.read_text()
+          old = os.environ['PROVIDER_ORIGINAL_MATHLIB_SHA']
+          new = os.environ['MATHLIB_SHA']
+          assert text.count(old) == 1, text.count(old)
+          p.write_text(text.replace(old, new))
+          PY
+          rm -f lake-manifest.json
+          git -C .aegis rev-parse HEAD > exact-source.log
+          git rev-parse HEAD > provider-source.log
+          git hash-object Hadamard/General/Factorization.lean >> provider-source.log
+
+      - name: Install pinned elan
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Resolve pinned Mathlib and cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          lake update mathlib
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          m = json.loads(Path('lake-manifest.json').read_text())
+          p = next(x for x in m['packages'] if x['name'] == 'mathlib')
+          assert (p.get('rev') or p.get('inputRev')) == os.environ['MATHLIB_SHA']
+          PY
+          lake exe cache get
+          lean --version >> exact-source.log
+
+      - name: Negative control — unpatched rebound provider must fail
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          lake build Lc.LiCriterion.XiOrderBridge > provider-unpatched-negative.log 2>&1
+          rc=$?
+          set -e
+          cat provider-unpatched-negative.log
+          test "$rc" -ne 0
+          grep -E "Unknown identifier.*ite_eq_(right|left)" provider-unpatched-negative.log
+          echo 'PASS: negative control reproduced Mathlib API drift before patch.'
+
+      - name: Apply exact three-token compatibility patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('Hadamard/General/Factorization.lean')
+          text = p.read_text()
+          assert text.count('ite_eq_right') == 2, text.count('ite_eq_right')
+          assert text.count('ite_eq_left') == 1, text.count('ite_eq_left')
+          patched = text.replace('ite_eq_right', 'if_neg').replace('ite_eq_left', 'if_pos')
+          assert patched.count('ite_eq_right') == 0
+          assert patched.count('ite_eq_left') == 0
+          assert patched.count('if_neg') >= text.count('if_neg') + 2
+          assert patched.count('if_pos') >= text.count('if_pos') + 1
+          p.write_text(patched)
+          PY
+          git diff --check
+          git diff -- Hadamard/General/Factorization.lean | tee provider-rebind.patch
+          sha256sum Hadamard/General/Factorization.lean >> provider-source.log
+
+      - name: Build full Li criterion bridge surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          lake build Lc.LiCriterion.XiOrderBridge
+
+      - name: Audit provider theorem and Mathlib RH binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > ProviderLiCriterionAudit.lean <<'EOF'
+          import Lc.LiCriterion.XiOrderBridge
+          #print RiemannHypothesis
+          #print LiCriterion.riemannXi
+          #print axioms LiCriterion.xi_hasFiniteOrder
+          #print axioms LiCriterion.xi_order_le_one
+          #print axioms LiCriterion.li_criterion_rh_iff
+          EOF
+          lake env lean ProviderLiCriterionAudit.lean 2>&1 | tee provider-li-criterion-axioms.log
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          log = Path('provider-li-criterion-axioms.log').read_text()
+          assert 'sorryAx' not in log
+          for name in [
+              'LiCriterion.xi_hasFiniteOrder',
+              'LiCriterion.xi_order_le_one',
+              'LiCriterion.li_criterion_rh_iff',
+          ]:
+              if f"'{name}' does not depend on any axioms" in log:
+                  continue
+              m = re.search(re.escape("'" + name + "' depends on axioms: ") + r"\[([^\]]*)\]", log, re.S)
+              assert m, name
+              actual = {x.strip() for x in m[1].split(',') if x.strip()}
+              assert actual <= {'propext', 'Classical.choice', 'Quot.sound'}, (name, actual)
+          assert 'def RiemannHypothesis' in log
+          assert 'LiCriterion.riemannXi' in log
+          print('PASS: provider Li criterion is kernel-checked at rebound pins; RH itself is not proved.')
+          PY
+
+      - name: RED or GREEN AEGIS bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .lake/build/lib/lean evidence
+          SPEC=.aegis/sovereign-omega-v2/formal/tests/lean/AegisLiCriterionRebindV1Spec.lean
+          TARGET=.aegis/sovereign-omega-v2/formal/bridges/lean/AegisLiCriterionRebindV1.lean
+          cp "$SPEC" .
+          if ! test -f "$TARGET"; then
+            set +e
+            lake env lean AegisLiCriterionRebindV1Spec.lean > evidence/red-spec.log 2>&1
+            rc=$?
+            set -e
+            cat evidence/red-spec.log
+            test "$rc" -ne 0
+            grep -F 'AegisLiCriterionRebindV1' evidence/red-spec.log
+            echo 'RED checkpoint confirmed: AEGIS production bridge is absent.' >&2
+            exit 1
+          fi
+          cp "$TARGET" .
+          lake env lean -o .lake/build/lib/lean/AegisLiCriterionRebindV1.olean AegisLiCriterionRebindV1.lean 2>&1 | tee evidence/bridge.log
+          lake env lean AegisLiCriterionRebindV1Spec.lean 2>&1 | tee evidence/spec.log
+
+      - name: Audit AEGIS theorem closure
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > AegisLiCriterionAudit.lean <<'EOF'
+          import AegisLiCriterionRebindV1
+          #print axioms AegisRhLiBridge.aegis_li_criterion_rh_iff_v1
+          EOF
+          lake env lean AegisLiCriterionAudit.lean 2>&1 | tee evidence/aegis-li-criterion-axioms.log
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          log = Path('evidence/aegis-li-criterion-axioms.log').read_text()
+          assert 'sorryAx' not in log
+          name = 'AegisRhLiBridge.aegis_li_criterion_rh_iff_v1'
+          m = re.search(re.escape("'" + name + "' depends on axioms: ") + r"\[([^\]]*)\]", log, re.S)
+          assert m, log
+          actual = {x.strip() for x in m[1].split(',') if x.strip()}
+          assert actual <= {'propext', 'Classical.choice', 'Quot.sound'}, actual
+          print('PASS: AEGIS Li↔RH bridge closure audited; no RH truth-value promotion.')
+          PY
+
+      - name: Emit bounded receipt
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          src = Path('AegisLiCriterionRebindV1.lean')
+          patch = Path('provider-rebind.patch')
+          payload = {
+            'receipt_kind': 'AEGIS_RH_LI_CRITERION_REBIND_V1',
+            'source_commit': os.environ['SOURCE_SHA'],
+            'provider_commit': os.environ['PROVIDER_SHA'],
+            'mathlib_commit': os.environ['MATHLIB_SHA'],
+            'lean_toolchain': os.environ['LEAN_TOOLCHAIN'],
+            'source_sha256': hashlib.sha256(src.read_bytes()).hexdigest(),
+            'provider_patch_sha256': hashlib.sha256(patch.read_bytes()).hexdigest(),
+            'provider_patch_token_replacements': 3,
+            'provider_li_criterion_rh_iff_kernel_verified': True,
+            'aegis_li_criterion_bridge_kernel_verified': True,
+            'li_coefficient_nonnegativity_proven': False,
+            'rh_proven': False,
+            'merge': 'NOT_PERFORMED',
+            'repository_admission': 'NOT_GRANTED',
+            'authority_effect': 'NONE',
+          }
+          canonical = json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()
+          payload['receipt_sha256'] = hashlib.sha256(canonical).hexdigest()
+          Path('evidence/receipt.json').write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n')
+          print(Path('evidence/receipt.json').read_text())
+          PY
+
+      - name: Upload exact-head evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rh-li-criterion-rebind-${{ env.SOURCE_SHA }}
+          path: |
+            exact-source.log
+            provider-source.log
+            provider-unpatched-negative.log
+            provider-rebind.patch
+            provider-li-criterion-axioms.log
+            evidence/
+          if-no-files-found: warn
+          retention-days: 30
