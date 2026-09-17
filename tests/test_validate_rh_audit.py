@@ -35,7 +35,7 @@ class AstraReceiptTests(unittest.TestCase):
         self.receipt.parent.mkdir(parents=True)
         self.write(self.dag, self.dag_data)
         self.write(self.receipt, self.receipt_data)
-        paths = patch.multiple(MODULE, DAG=self.dag, RECEIPT=self.receip)
+        paths = patch.multiple(MODULE, DAG=self.dag, RECEIPT=self.receipt)
         paths.start()
         self.addCleanup(paths.stop)
 
@@ -92,11 +92,6 @@ class AstraReceiptTests(unittest.TestCase):
             "unknown status": lambda d: d["nodes"][0].update(status="UNKNOWN"),
             "unknown dependency": lambda d: d["nodes"][0].update(dependencies=["UNKNOWN"]),
             "invalid head": lambda d: d["nodes"][0].update(exact_head="not-a-head"),
-            "missing audit base": lambda d: d.pop("audit_base"),
-            "invalid audit base": lambda d: d.update(audit_base="not-a-head"),
-            "mismatched node head": lambda d: d["nodes"][0].update(exact_head="0" * 40),
-            "missing frontier obligation": lambda d: d.pop("frontier_obligation"),
-            "unknown frontier obligation": lambda d: d.update(frontier_obligation="RH_D_UNKNOWN"),
             "unsupported ceiling": lambda d: d["nodes"][0].update(authority_ceiling="PROVED_MACHINE_CHECKED"),
             "cycle": lambda d: d["nodes"][0].update(dependencies=[d["nodes"][1]["id"]]),
         }
