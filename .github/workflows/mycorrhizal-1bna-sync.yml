@@ -1,0 +1,81 @@
+name: Mycorrhizal 1BNA Sync
+
+on:
+  push:
+    branches:
+      - feat/mycorrhizal-1bna-sync-v1
+    paths:
+      - 'sovereign-omega-v2/src/metacognition/mycorrhizal-*.ts'
+      - 'sovereign-omega-v2/test/unit/mycorrhizal-*.test.ts'
+      - 'docs/superpowers/specs/2026-09-17-mycorrhizal-1bna-sync-design.md'
+      - 'docs/superpowers/plans/2026-09-17-mycorrhizal-1bna-sync.md'
+      - '.github/workflows/mycorrhizal-1bna-sync.yml'
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/src/metacognition/mycorrhizal-*.ts'
+      - 'sovereign-omega-v2/test/unit/mycorrhizal-*.test.ts'
+      - '.github/workflows/mycorrhizal-1bna-sync.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mycorrhizal-1bna-sync-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  focused:
+    name: MCM + 1BNA exact-head Gate 8
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact candidate
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+
+      - name: Install dependencies
+        working-directory: sovereign-omega-v2
+        run: npm ci
+
+      - name: Verify frozen hashes
+        working-directory: sovereign-omega-v2
+        run: node scripts/verify-hashes.mjs
+
+      - name: Run focused Mycorrhizal tests
+        working-directory: sovereign-omega-v2
+        run: >-
+          npx vitest run
+          test/unit/mycorrhizal-contracts.test.ts
+          test/unit/mycorrhizal-state.test.ts
+          test/unit/mycorrhizal-routing.test.ts
+          test/unit/mycorrhizal-1bna.test.ts
+
+      - name: Run full test corpus
+        working-directory: sovereign-omega-v2
+        run: npm run test
+
+      - name: TypeScript strict check
+        working-directory: sovereign-omega-v2
+        run: npm run typecheck
+
+      - name: Production build
+        working-directory: sovereign-omega-v2
+        run: npm run build
