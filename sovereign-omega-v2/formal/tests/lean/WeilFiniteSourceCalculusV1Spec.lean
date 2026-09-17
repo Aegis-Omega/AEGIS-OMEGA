@@ -16,11 +16,29 @@ single-frequency atoms without importing finite PSD. The canonical-prime bridge
 then identifies the integer entry for `alpha = -beta`, `omega = 1-r` with the
 prime kernel evaluated by `guinand_weil_arb.py`.
 
-The current Archimedean algebra boundary is the rank-two Cauchy factorization:
-the divided difference of `x/(a^2-x^2)` and its diagonal value equal the two
-Cauchy feature products used by the #322 Gram infrastructure. These are
-algebraic identities only; the actual Archimedean source-to-core identity and
-operator-order theorem remain separate.
+The rank-two Cauchy algebra boundary identifies the divided difference of
+`x/(a^2-x^2)` and its diagonal value with the two Cauchy feature products used
+by the #322 Gram infrastructure. These are algebraic identities only.
+
+The next Archimedean analytic boundary is narrower than the full tail theorem.
+For
+
+  S(L,T,x) = ∫_0^L sin(2π x (1-y/L)) cos(T y) dy,
+
+freeze the exact integer-node value and x-derivative formulas with
+`rho = 2π/L`:
+
+  S(L,T,n)
+    = 2 rho n sin(LT/2)^2 / (T^2 - (rho n)^2),
+
+  dS/dx(L,T,n)
+    = 2 rho sin(LT/2)^2 (T^2 + (rho n)^2)
+        / (T^2 - (rho n)^2)^2.
+
+Only these source-to-rational-core identities are targeted. The subsequent
+continuous Cauchy--Stieltjes integration, finite PSD import, operator order,
+global Weil positivity, formula-to-Weil identity, and RH remain outside this
+slice.
 -/
 
 #check WeilSingleFrequencySourceV1
@@ -38,3 +56,7 @@ operator-order theorem remain separate.
 #check WeilCauchyDiagonalV1
 #check weil_cauchy_divided_difference_rank_two_v1
 #check weil_cauchy_diagonal_rank_two_v1
+#check WeilArchSineKernelV1
+#check WeilArchSineKernelDxV1
+#check weil_arch_sine_kernel_integer_v1
+#check weil_arch_sine_kernel_dx_integer_v1
