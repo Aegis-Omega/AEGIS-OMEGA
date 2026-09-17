@@ -1,0 +1,134 @@
+name: Probe Mycorrhizal Main Transplant V1
+
+on:
+  push:
+    branches:
+      - hardening/mycorrhizal-structural-witness-v1
+    paths:
+      - .github/workflows/probe-mycorrhizal-main-transplant-v1.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MAIN_SHA: 495bfd85d79abcb2b4f6898fe9c156488492426a
+      SOURCE_SHA: 64a6edfc8f4fe46d30867d37416236e79489d0c0
+      ARTIFACT_ID: '10481952340'
+      ARTIFACT_SHA256: e3d0d338a09c7875674c517f98a83dde10147b7c09e1cce18cf31ea534cd87be
+    steps:
+      - name: Checkout exact signed main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MAIN_SHA }}
+          path: candidate
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout exact signed MCM source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          path: source
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact source identities
+        run: |
+          set -euo pipefail
+          test "$(git -C candidate rev-parse HEAD)" = "$MAIN_SHA"
+          test "$(git -C source rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Download exact zero-vulnerability dependency graph
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -fL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/Aegis-Omega/AEGIS-OMEGA/actions/artifacts/${ARTIFACT_ID}/zip" \
+            -o package-candidate.zip
+          printf '%s  %s\n' "$ARTIFACT_SHA256" package-candidate.zip | sha256sum -c -
+          mkdir package-candidate
+          unzip -q package-candidate.zip -d package-candidate
+          test -s package-candidate/package.json
+          test -s package-candidate/package-lock.json
+          test -s package-candidate/audit-fresh-lock.json
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const audit = JSON.parse(fs.readFileSync('package-candidate/audit-fresh-lock.json','utf8'));
+          if ((audit.metadata?.vulnerabilities?.total ?? -1) !== 0) throw new Error('artifact audit is not zero');
+          NODE
+
+      - name: Transplant only bounded semantic/test surface onto main
+        run: |
+          set -euo pipefail
+          files=(
+            docs/superpowers/plans/2026-09-17-mycorrhizal-1bna-sync.md
+            docs/superpowers/specs/2026-09-17-mycorrhizal-1bna-sync-design.md
+            sovereign-omega-v2/src/metacognition/mycorrhizal-contracts.ts
+            sovereign-omega-v2/src/metacognition/mycorrhizal-state.ts
+            sovereign-omega-v2/src/metacognition/mycorrhizal-routing.ts
+            sovereign-omega-v2/src/metacognition/mycorrhizal-1bna.ts
+            sovereign-omega-v2/src/metacognition/mycorrhizal-structural-witness-registry.ts
+            sovereign-omega-v2/test/unit/mycorrhizal-contracts.test.ts
+            sovereign-omega-v2/test/unit/mycorrhizal-state.test.ts
+            sovereign-omega-v2/test/unit/mycorrhizal-routing.test.ts
+            sovereign-omega-v2/test/unit/mycorrhizal-1bna.test.ts
+            sovereign-omega-v2/test/unit/mycorrhizal-structural-witness-registry.test.ts
+          )
+          for path in "${files[@]}"; do
+            test -s "source/$path"
+            mkdir -p "candidate/$(dirname "$path")"
+            cp "source/$path" "candidate/$path"
+            cmp "source/$path" "candidate/$path"
+          done
+          cp package-candidate/package.json candidate/sovereign-omega-v2/package.json
+          cp package-candidate/package-lock.json candidate/sovereign-omega-v2/package-lock.json
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: candidate/sovereign-omega-v2/package-lock.json
+
+      - name: Install exact synthesized graph
+        working-directory: candidate/sovereign-omega-v2
+        run: npm ci
+
+      - name: Verify zero vulnerabilities on main transplant
+        working-directory: candidate/sovereign-omega-v2
+        run: npm audit --audit-level=low
+
+      - name: Verify frozen hashes
+        working-directory: candidate/sovereign-omega-v2
+        run: node scripts/verify-hashes.mjs
+
+      - name: Focused MCM / 1BNA / registry tests
+        working-directory: candidate/sovereign-omega-v2
+        run: >-
+          npx vitest run
+          test/unit/mycorrhizal-contracts.test.ts
+          test/unit/mycorrhizal-state.test.ts
+          test/unit/mycorrhizal-routing.test.ts
+          test/unit/mycorrhizal-1bna.test.ts
+          test/unit/mycorrhizal-structural-witness-registry.test.ts
+
+      - name: Full test corpus
+        working-directory: candidate/sovereign-omega-v2
+        run: npm run test
+
+      - name: TypeScript strict check
+        working-directory: candidate/sovereign-omega-v2
+        run: npm run typecheck
+
+      - name: Production build
+        working-directory: candidate/sovereign-omega-v2
+        run: npm run build
