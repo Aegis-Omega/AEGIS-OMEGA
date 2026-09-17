@@ -18,6 +18,7 @@ env:
   LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
   LI_CRITERION_SHA: 35df682f3b709ffe5fbcfdd452dfa964bd622b87
   LI_CRITERION_ORIGINAL_MATHLIB_SHA: de5ce8a9a66a4aa68a9bdbb35b63a06d34d9ca11
+  FACTORIZATION_SOURCE_BLOB: 10d38a54580ff72d698a30be64fe1c3c44f862a2
 
 jobs:
   paired-hadamard:
@@ -84,7 +85,35 @@ jobs:
           lake exe cache get
           lean --version
 
-      - name: Build exact multiplicity Hadamard providers
+      - name: Apply audited three-line old-pin factorization compatibility overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object Hadamard/General/Factorization.lean)" = "$FACTORIZATION_SOURCE_BLOB"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('Hadamard/General/Factorization.lean')
+          text = p.read_text()
+          replacements = [
+              ('eventually_nhdsWithin_of_forall fun w hw => ite_eq_right hw',
+               'eventually_nhdsWithin_of_forall fun w hw => if_neg hw'),
+              ('have hgz : g z = Q z := ite_eq_left rfl',
+               'have hgz : g z = Q z := by simp [g]'),
+              ('rw [ite_eq_right heq, hQ_eq_div z (hz heq)]',
+               'rw [if_neg heq, hQ_eq_div z (hz heq)]'),
+          ]
+          for old, new in replacements:
+              count = text.count(old)
+              assert count == 1, (old, count)
+              text = text.replace(old, new)
+          p.write_text(text)
+          PY
+          git diff --check -- Hadamard/General/Factorization.lean
+          git diff -- Hadamard/General/Factorization.lean > hadamard-factorization-old-pin-compat.patch
+          test "$(grep -c '^[-+].*ite_eq_' hadamard-factorization-old-pin-compat.patch)" = 3
+          sha256sum hadamard-factorization-old-pin-compat.patch | tee factorization-compat-sha256.log
+
+      - name: Build exact providers plus declared compatibility derivative
         shell: bash
         run: |
           set -euo pipefail
@@ -166,5 +195,6 @@ jobs:
           name: rh-paired-hadamard-fixed-line-${{ env.SOURCE_SHA }}
           path: |
             *.log
+            hadamard-factorization-old-pin-compat.patch
           if-no-files-found: warn
           retention-days: 30
