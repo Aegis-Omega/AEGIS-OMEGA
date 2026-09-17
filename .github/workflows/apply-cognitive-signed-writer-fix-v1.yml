@@ -1,0 +1,150 @@
+name: Apply Cognitive Signed Writer Fix V1
+
+on:
+  push:
+    branches:
+      - fix/cognitive-manifest-github-signed-writer-v1
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Transform writer and legacy boundary test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          workflow = Path('.github/workflows/cognitive-manifest-refresh.yml')
+          source = workflow.read_text(encoding='utf-8')
+          marker = '      - name: Commit refreshed anchors\n'
+          index = source.rfind(marker)
+          if index < 0:
+              raise SystemExit('legacy manifest commit marker not found')
+          suffix = source[index:]
+          if 'git commit -m "chore(manifest): refresh cognitive-state anchors"' not in suffix:
+              raise SystemExit('legacy local git commit missing from final step')
+
+          replacement = r'''      - name: Commit refreshed anchors through GitHub-signed API
+        if: steps.admission.outputs.allowed == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REF: ${{ inputs.target_ref }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- .claude.json skill-hashes.sha256; then
+            echo "Manifest already current."
+            exit 0
+          fi
+
+          SOURCE_SHA="$(git rev-parse HEAD)" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+
+          const token = process.env.GH_TOKEN;
+          const branch = process.env.TARGET_REF;
+          const sourceSha = process.env.SOURCE_SHA;
+          const repo = process.env.GITHUB_REPOSITORY;
+          const refResponse = await fetch(
+            `https://api.github.com/repos/${repo}/branches/${encodeURIComponent(branch)}`,
+            {
+              headers: {
+                authorization: `bearer ${token}`,
+                accept: 'application/vnd.github+json',
+                'user-agent': 'aegis-cognitive-manifest-refresh-v1',
+              },
+            }
+          );
+          const refBody = await refResponse.json();
+          if (!refResponse.ok || !refBody?.commit?.sha) {
+            console.error(JSON.stringify(refBody));
+            process.exit(1);
+          }
+          if (refBody.commit.sha !== sourceSha) {
+            console.error(`STALE_HEAD expected=${sourceSha} live=${refBody.commit.sha}`);
+            process.exit(1);
+          }
+
+          const additions = ['.claude.json', 'skill-hashes.sha256'].map(path => ({
+            path,
+            contents: fs.readFileSync(path).toString('base64'),
+          }));
+          const query = `mutation($input: CreateCommitOnBranchInput!) {
+            createCommitOnBranch(input: $input) {
+              commit { oid url }
+            }
+          }`;
+          const variables = {
+            input: {
+              branch: {
+                repositoryNameWithOwner: repo,
+                branchName: branch,
+              },
+              expectedHeadOid: sourceSha,
+              message: { headline: 'chore(manifest): refresh cognitive-state anchors' },
+              fileChanges: { additions },
+            },
+          };
+          const response = await fetch('https://api.github.com/graphql', {
+            method: 'POST',
+            headers: {
+              authorization: `bearer ${token}`,
+              'content-type': 'application/json',
+              'user-agent': 'aegis-cognitive-manifest-refresh-v1',
+            },
+            body: JSON.stringify({ query, variables }),
+          });
+          const body = await response.json();
+          if (!response.ok || body.errors) {
+            console.error(JSON.stringify(body));
+            process.exit(1);
+          }
+          console.log(`SIGNED_MANIFEST_COMMIT=${body.data.createCommitOnBranch.commit.oid}`);
+          console.log(`SIGNED_MANIFEST_URL=${body.data.createCommitOnBranch.commit.url}`);
+          NODE
+'''
+          workflow.write_text(source[:index] + replacement, encoding='utf-8')
+
+          boundary = Path('scripts/test-cognitive-anchor-writer-boundary.py')
+          tests = boundary.read_text(encoding='utf-8')
+          old_helper = '''def writes_cognitive_anchors(path: Path) -> bool:\n    source = path.read_text(encoding="utf-8")\n    stages_anchors = (\n        "git add .claude.json skill-hashes.sha256" in source\n        or "git add skill-hashes.sha256 .claude.json" in source\n    )\n    return stages_anchors and "git push" in source\n'''
+          new_helper = '''def writes_cognitive_anchors(path: Path) -> bool:\n    source = path.read_text(encoding="utf-8")\n    legacy_writer = (\n        (\n            "git add .claude.json skill-hashes.sha256" in source\n            or "git add skill-hashes.sha256 .claude.json" in source\n        )\n        and "git push" in source\n    )\n    signed_writer = (\n        "createCommitOnBranch" in source\n        and "expectedHeadOid" in source\n        and ".claude.json" in source\n        and "skill-hashes.sha256" in source\n    )\n    return legacy_writer or signed_writer\n'''
+          if tests.count(old_helper) != 1:
+              raise SystemExit('legacy writes_cognitive_anchors helper changed unexpectedly')
+          tests = tests.replace(old_helper, new_helper)
+
+          old_assert = '''        self.assertIn('git push origin "HEAD:refs/heads/$TARGET_REF"', source)\n        self.assertNotIn('git push origin "HEAD:${{ inputs.target_ref }}"', source)\n'''
+          new_assert = '''        self.assertIn("createCommitOnBranch", source)\n        self.assertIn("expectedHeadOid", source)\n        self.assertNotIn('git push origin "HEAD:refs/heads/$TARGET_REF"', source)\n        self.assertNotIn('git push origin "HEAD:${{ inputs.target_ref }}"', source)\n'''
+          if tests.count(old_assert) != 1:
+              raise SystemExit('legacy push assertion changed unexpectedly')
+          boundary.write_text(tests.replace(old_assert, new_assert), encoding='utf-8')
+          PY
+
+          rm .github/workflows/apply-cognitive-signed-writer-fix-v1.yml
+          git diff --check
+          python3 scripts/test-cognitive-anchor-writer-boundary.py
+          python3 scripts/test-cognitive-anchor-signed-writer-v1.py
+
+      - name: Commit transformed candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/cognitive-manifest-refresh.yml \
+                  scripts/test-cognitive-anchor-writer-boundary.py \
+                  scripts/test-cognitive-anchor-signed-writer-v1.py \
+                  .github/workflows/cognitive-anchor-signed-writer-v1.yml
+          git rm --ignore-unmatch .github/workflows/apply-cognitive-signed-writer-fix-v1.yml
+          git commit -m "fix(cognitive): use GitHub-signed manifest writer"
+          git push origin HEAD:refs/heads/fix/cognitive-manifest-github-signed-writer-v1
