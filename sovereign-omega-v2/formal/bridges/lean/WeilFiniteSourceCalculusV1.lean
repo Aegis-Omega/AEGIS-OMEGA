@@ -170,19 +170,25 @@ def WeilFiniteSourceV1
     {ι : Type*} (I : Finset ι) (α ω : ι → ℝ) (x : ℝ) : ℝ :=
   ∑ i ∈ I, WeilSingleFrequencySourceV1 (α i) (ω i) x
 
-/-- Entrywise finite-source superposition.  The later full-entry bridge may use
-this surface; the theorem below does not yet identify its contraction with a
-separately defined production Galerkin matrix. -/
+/-- Entrywise finite-source superposition. -/
 def WeilFiniteSourceEntryV1
     {ι : Type*} (I : Finset ι) (α ω : ι → ℝ) (m n : ℤ) : ℝ :=
   ∑ i ∈ I, WeilSingleFrequencyEntryV1 (α i) (ω i) m n
 
-/-- Quadratic value of a finite atomic source, deliberately represented as the
-finite sum of the already-proved single-frequency quadratic values. -/
+/-- Quadratic value of a finite atomic source, represented as the finite sum of
+the already-proved single-frequency quadratic values. -/
 def WeilFiniteSourceQuadraticByAtomsV1
     {ι : Type*} (I : Finset ι) (N : ℕ) (u : ℤ → ℝ)
     (α ω : ι → ℝ) : ℝ :=
   ∑ i ∈ I, WeilSingleFrequencyQuadraticV1 N u (α i) (ω i)
+
+/-- The same finite source contracted as one summed entry matrix. -/
+def WeilFiniteSourceQuadraticFromEntryV1
+    {ι : Type*} (I : Finset ι) (N : ℕ) (u : ℤ → ℝ)
+    (α ω : ι → ℝ) : ℝ :=
+  ∑ m ∈ Finset.Icc (-(N : ℤ)) (N : ℤ),
+    ∑ n ∈ Finset.Icc (-(N : ℤ)) (N : ℤ),
+      u m * u n * WeilFiniteSourceEntryV1 I α ω m n
 
 /-- Finite atomic source evaluated through the expanded chord kernel. -/
 def WeilFiniteSourceChordV1
@@ -190,10 +196,7 @@ def WeilFiniteSourceChordV1
     (α ω : ι → ℝ) : ℝ :=
   ∑ i ∈ I, α i * WeilChordKernelV1 N u (ω i)
 
-/-- Finite-source-measure extension of the single-frequency calculus.
-This is exactly finite linear superposition of the already proved atomic
-identity.  It does not yet assert the separate `full_entry_identification`
-that contracts `WeilFiniteSourceEntryV1` as one matrix object. -/
+/-- Finite-source-measure extension of the single-frequency calculus. -/
 theorem weil_finite_source_measure_extension_v1
     {ι : Type*} (I : Finset ι) (N : ℕ) (u : ℤ → ℝ)
     (α ω : ι → ℝ) :
@@ -202,7 +205,39 @@ theorem weil_finite_source_measure_extension_v1
   simp [WeilFiniteSourceQuadraticByAtomsV1, WeilFiniteSourceChordV1,
     weil_single_frequency_source_calculus_v1]
 
+/-- Full finite-source entry identification: contracting the one matrix obtained
+by summing all atomic entries equals the sum of the already-proved atomic
+quadratic contractions.  This is finite linear algebra only. -/
+theorem weil_finite_source_full_entry_identification_v1
+    {ι : Type*} (I : Finset ι) (N : ℕ) (u : ℤ → ℝ)
+    (α ω : ι → ℝ) :
+    WeilFiniteSourceQuadraticFromEntryV1 I N u α ω =
+      WeilFiniteSourceQuadraticByAtomsV1 I N u α ω := by
+  classical
+  simp only [WeilFiniteSourceQuadraticFromEntryV1, WeilFiniteSourceEntryV1,
+    WeilFiniteSourceQuadraticByAtomsV1, WeilSingleFrequencyQuadraticV1]
+  simp_rw [Finset.mul_sum]
+  calc
+    (∑ m ∈ Finset.Icc (-(N : ℤ)) (N : ℤ),
+      ∑ n ∈ Finset.Icc (-(N : ℤ)) (N : ℤ),
+        ∑ i ∈ I,
+          u m * u n * WeilSingleFrequencyEntryV1 (α i) (ω i) m n) =
+      ∑ m ∈ Finset.Icc (-(N : ℤ)) (N : ℤ),
+        ∑ i ∈ I,
+          ∑ n ∈ Finset.Icc (-(N : ℤ)) (N : ℤ),
+            u m * u n * WeilSingleFrequencyEntryV1 (α i) (ω i) m n := by
+      apply Finset.sum_congr rfl
+      intro m hm
+      rw [Finset.sum_comm]
+    _ =
+      ∑ i ∈ I,
+        ∑ m ∈ Finset.Icc (-(N : ℤ)) (N : ℤ),
+          ∑ n ∈ Finset.Icc (-(N : ℤ)) (N : ℤ),
+            u m * u n * WeilSingleFrequencyEntryV1 (α i) (ω i) m n := by
+      rw [Finset.sum_comm]
+
 #print axioms weil_single_frequency_source_offdiag_v1
 #print axioms weil_single_frequency_source_diagonal_v1
 #print axioms weil_single_frequency_source_calculus_v1
 #print axioms weil_finite_source_measure_extension_v1
+#print axioms weil_finite_source_full_entry_identification_v1
