@@ -6,7 +6,7 @@ on:
       - fix/cognitive-manifest-github-signed-writer-v1
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   apply:
@@ -17,11 +17,12 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Transform writer and legacy boundary test
         run: python3 .github/scripts/apply-cognitive-signed-writer-fix-v1.py
 
-      - name: Verify transformed source before commit
+      - name: Verify transformed source
         shell: bash
         run: |
           set -euo pipefail
@@ -29,17 +30,18 @@ jobs:
           python3 scripts/test-cognitive-anchor-writer-boundary.py
           python3 scripts/test-cognitive-anchor-signed-writer-v1.py
 
-      - name: Commit transformed candidate
+      - name: Stage transformed files for artifact
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/workflows/cognitive-manifest-refresh.yml \
-                  scripts/test-cognitive-anchor-writer-boundary.py \
-                  scripts/test-cognitive-anchor-signed-writer-v1.py \
-                  .github/workflows/cognitive-anchor-signed-writer-v1.yml
-          git rm --ignore-unmatch .github/workflows/apply-cognitive-signed-writer-fix-v1.yml \
-                                 .github/scripts/apply-cognitive-signed-writer-fix-v1.py
-          git commit -m "fix(cognitive): use GitHub-signed manifest writer"
-          git push origin HEAD:refs/heads/fix/cognitive-manifest-github-signed-writer-v1
+          mkdir -p "$RUNNER_TEMP/signed-writer-artifact/.github/workflows" "$RUNNER_TEMP/signed-writer-artifact/scripts"
+          cp .github/workflows/cognitive-manifest-refresh.yml "$RUNNER_TEMP/signed-writer-artifact/.github/workflows/"
+          cp scripts/test-cognitive-anchor-writer-boundary.py "$RUNNER_TEMP/signed-writer-artifact/scripts/"
+          cp scripts/test-cognitive-anchor-signed-writer-v1.py "$RUNNER_TEMP/signed-writer-artifact/scripts/"
+
+      - name: Upload transformed candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cognitive-signed-writer-green
+          path: ${{ runner.temp }}/signed-writer-artifact
+          if-no-files-found: error
