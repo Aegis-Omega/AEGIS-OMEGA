@@ -98,6 +98,7 @@ jobs:
           #print axioms weil_arch_sine_kernel_hasDerivAt_v1
           #print axioms weil_arch_sine_kernel_integer_v1
           #print axioms weil_arch_sine_kernel_dx_integer_v1
+          #print axioms weil_arch_sine_entry_cauchy_rank_two_v1
           EOF
           lake env lean WeilFiniteSourceCalculusAudit.lean 2>&1 | tee WeilFiniteSourceCalculusAudit.log
           ! grep -q sorryAx WeilFiniteSourceCalculusAudit.log
