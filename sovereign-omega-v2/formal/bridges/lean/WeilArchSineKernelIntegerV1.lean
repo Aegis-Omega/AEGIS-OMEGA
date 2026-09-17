@@ -71,7 +71,7 @@ private theorem integral_weighted_cos_linear_v1
     have hbase :=
       (hasDerivAt_const y (1 : ℝ)).sub ((hasDerivAt_id y).div_const L)
     have hfun :
-        ((fun _ : ℝ => (1 : ℝ)) - fun z : ℝ => z / L) =
+        ((fun _ : ℝ => (1 : ℝ)) - fun z : ℝ => id z / L) =
           (fun z : ℝ => 1 - z / L) := by
       funext z
       rfl
