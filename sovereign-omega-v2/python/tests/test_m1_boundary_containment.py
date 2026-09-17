@@ -1,5 +1,5 @@
 """
-AEGIS M1 boundary-containment regression.
+AEGIS M1 boundary/fixed-slot control-flow regression.
 
 Reads the production core_matrix.py source and executes only the
 CoreMatrix.process_event method through AST extraction. This binds the test to
@@ -120,41 +120,59 @@ def _matrix(region, sequence: int, capacity: int):
     return process_event, matrix, calls
 
 
-def test_small_nondivisible_wrap():
-    process_event, matrix, calls = _matrix(bytearray(128), 3, 3)
-    before = bytes(matrix._m1_region)
+def test_region_smaller_than_one_entry_still_blocks():
+    process_event, matrix, calls = _matrix(bytearray(39), 0, 0)
     result = process_event(matrix, b'', b'\x01', b'')
 
-    _check('nondivisible wrap blocks', result['status'] == 'M1_BOUNDARY_BLOCKED')
-    _check('blocked sequence unchanged', matrix._sequence == 3)
-    _check('blocked era unchanged', matrix._era == 4)
-    _check('blocked M1 bytes unchanged', bytes(matrix._m1_region) == before)
-    _check('blocked path has no downstream calls', calls == [])
+    _check('sub-entry M1 region blocks', result['status'] == 'M1_BOUNDARY_BLOCKED')
+    _check('sub-entry sequence unchanged', matrix._sequence == 0)
+    _check('sub-entry era unchanged', matrix._era == 4)
+    _check('sub-entry path has no downstream calls', calls == [])
 
 
-def test_alignment_alone_is_insufficient():
-    # 40 divides 120, but sequence=2 starts at byte 80 and a one-byte payload
-    # requires 121 bytes. The payload span still crosses the region boundary.
+def test_small_nondivisible_wrap_executes_fixed_slot():
+    process_event, matrix, calls = _matrix(bytearray(128), 3, 3)
+    result = process_event(matrix, b'', b'\x01', b'')
+
+    _check('nondivisible wrap returns OK', result['status'] == 'OK')
+    _check('wrap increments sequence', matrix._sequence == 4)
+    _check('wrap increments era exactly once', matrix._era == 5)
+    _check(
+        'wrap reaches era event then M1/M2/M3',
+        [call[0] for call in calls] == ['EVENT', 'M1', 'M2', 'M3'],
+    )
+
+
+def test_payload_length_does_not_change_fixed_entry_span():
+    # 40 divides 120. Under the fixed-slot contract the raw payload is hashed,
+    # not appended after the 40-byte entry, so a one-byte payload remains valid.
     process_event, matrix, calls = _matrix(bytearray(120), 2, 3)
     result = process_event(matrix, b'x', b'\x01', b'')
 
-    _check('aligned ring payload overrun blocks', result['status'] == 'M1_BOUNDARY_BLOCKED')
-    _check('aligned ring era unchanged', matrix._era == 4)
-    _check('aligned ring has no downstream calls', calls == [])
+    _check('aligned final slot with payload returns OK', result['status'] == 'OK')
+    _check('aligned final slot advances sequence', matrix._sequence == 3)
+    _check(
+        'aligned final slot reaches M1/M2/M3',
+        [call[0] for call in calls] == ['M1', 'M2', 'M3'],
+    )
 
 
-def test_cloud_profile_exact_wrap():
+def test_cloud_profile_exact_wrap_executes():
     cloud_m1 = 134_217_728  # 256 MiB arena * 0.50
     capacity = cloud_m1 // 40
     process_event, matrix, calls = _matrix(_SizedRegion(cloud_m1), capacity, capacity)
     result = process_event(matrix, b'', b'\x01', b'')
 
-    _check('Cloud Run modulo drift blocks', result['status'] == 'M1_BOUNDARY_BLOCKED')
-    _check('Cloud Run drift sequence stable', matrix._sequence == 3_355_443)
-    _check('Cloud Run drift has no downstream calls', calls == [])
+    _check('Cloud Run exact wrap returns OK', result['status'] == 'OK')
+    _check('Cloud Run wrap advances sequence', matrix._sequence == 3_355_444)
+    _check('Cloud Run wrap increments era', matrix._era == 5)
+    _check(
+        'Cloud Run wrap reaches era event then M1/M2/M3',
+        [call[0] for call in calls] == ['EVENT', 'M1', 'M2', 'M3'],
+    )
 
 
-def test_cloud_profile_payload_blocks_one_slot_earlier():
+def test_cloud_profile_payload_no_longer_blocks_pre_wrap():
     cloud_m1 = 134_217_728
     capacity = cloud_m1 // 40
     process_event, matrix, calls = _matrix(
@@ -164,9 +182,12 @@ def test_cloud_profile_payload_blocks_one_slot_earlier():
     )
     result = process_event(matrix, b'event_3355442', b'\x01', b'')
 
-    _check('Cloud Run payload pre-wrap blocks', result['status'] == 'M1_BOUNDARY_BLOCKED')
-    _check('Cloud Run payload sequence stable', matrix._sequence == 3_355_442)
-    _check('Cloud Run payload has no downstream calls', calls == [])
+    _check('Cloud Run payload pre-wrap returns OK', result['status'] == 'OK')
+    _check('Cloud Run payload advances sequence', matrix._sequence == 3_355_443)
+    _check(
+        'Cloud Run payload reaches M1/M2/M3',
+        [call[0] for call in calls] == ['M1', 'M2', 'M3'],
+    )
 
 
 def test_normal_path_still_executes():
@@ -182,11 +203,12 @@ def test_normal_path_still_executes():
 
 
 if __name__ == '__main__':
-    print('AEGIS M1 boundary containment regression')
-    test_small_nondivisible_wrap()
-    test_alignment_alone_is_insufficient()
-    test_cloud_profile_exact_wrap()
-    test_cloud_profile_payload_blocks_one_slot_earlier()
+    print('AEGIS M1 fixed-slot control-flow regression')
+    test_region_smaller_than_one_entry_still_blocks()
+    test_small_nondivisible_wrap_executes_fixed_slot()
+    test_payload_length_does_not_change_fixed_entry_span()
+    test_cloud_profile_exact_wrap_executes()
+    test_cloud_profile_payload_no_longer_blocks_pre_wrap()
     test_normal_path_still_executes()
     print(f'\nRESULT: {PASS} passed, {FAIL} failed')
     raise SystemExit(0 if FAIL == 0 else 1)
