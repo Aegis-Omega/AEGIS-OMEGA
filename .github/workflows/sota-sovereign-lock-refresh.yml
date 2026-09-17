@@ -40,6 +40,7 @@ jobs:
           npm run lint
 
       - name: Upload regenerated lock only
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: sovereign-npm11-lock-${{ github.sha }}

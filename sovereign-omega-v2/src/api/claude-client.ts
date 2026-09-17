@@ -169,11 +169,15 @@ export class ConstitutionalClaudeClient {
       } else if (event.type === 'message_stop') {
         yield { delta: '', is_final: true }
       } else if (event.type === 'message_delta' && event.usage) {
+        const inputTokens =
+          'input_tokens' in event.usage && typeof event.usage.input_tokens === 'number'
+            ? event.usage.input_tokens
+            : 0
         yield {
           delta: '',
           is_final: false,
           usage: {
-            input_tokens: (event as any).usage?.input_tokens ?? 0,
+            input_tokens: inputTokens,
             output_tokens: event.usage.output_tokens,
           },
         }
