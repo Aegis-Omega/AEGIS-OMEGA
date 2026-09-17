@@ -88,11 +88,15 @@ private theorem mellin_fixed_line_eq_fourier_v2
   have hre : (((σ : ℂ) + (γ : ℂ) * Complex.I).re) = σ := by simp
   have him : (((σ : ℂ) + (γ : ℂ) * Complex.I).im) = γ := by simp
   rw [hre, him]
-  congr 1
-  funext u
-  simp [MellinFixedLineSchwartzV2, MellinWeightedLogProfileV1,
-    MellinComplexWeightV1, MellinWeightV1, MellinLogProfileV1,
-    Complex.real_smul]
+  have hprofile :
+      (fun u : ℝ => Real.exp (-σ * u) • f.1 (Real.exp (-u))) =
+        (MellinFixedLineSchwartzV2 f σ : ℝ → ℂ) := by
+    funext u
+    simp [MellinFixedLineSchwartzV2, MellinWeightedLogProfileV1,
+      MellinComplexWeightV1, MellinWeightV1, MellinLogProfileV1,
+      Complex.real_smul]
+  rw [hprofile]
+  rfl
 
 /-- The first absolute height moment of the Mellin transform is integrable on
 every real vertical line.  This is the A1 input used in the fixed-line Fubini
@@ -110,11 +114,23 @@ theorem weil_compact_smooth_mellin_vertical_abs_moment_one_v2
   have hscaled :=
     hweighted.comp_mul_right' (inv_ne_zero hpi0)
   have hconst := hscaled.const_mul (2 * Real.pi)
-  convert hconst using 1 with γ
-  rw [mellin_fixed_line_eq_fourier_v2]
-  simp only [P, pow_one, div_eq_mul_inv, Real.norm_eq_abs, abs_mul, abs_inv,
-    abs_of_pos hpi]
-  field_simp [hpi0]
+  have hpoint : ∀ γ : ℝ,
+      |γ| * ‖mellin f.1 ((σ : ℂ) + (γ : ℂ) * Complex.I)‖ =
+        2 * Real.pi *
+          (‖γ * (2 * Real.pi)⁻¹‖ ^ (1 : ℕ) *
+            ‖(𝓕 P) (γ * (2 * Real.pi)⁻¹)‖) := by
+    intro γ
+    rw [mellin_fixed_line_eq_fourier_v2]
+    change |γ| * ‖(𝓕 P) (γ / (2 * Real.pi))‖ =
+      2 * Real.pi *
+        (‖γ * (2 * Real.pi)⁻¹‖ ^ (1 : ℕ) *
+          ‖(𝓕 P) (γ * (2 * Real.pi)⁻¹)‖)
+    rw [div_eq_mul_inv]
+    simp only [pow_one, Real.norm_eq_abs, abs_mul, abs_inv,
+      abs_of_pos hpi]
+    field_simp [hpi0]
+  exact hconst.congr
+    (Filter.Eventually.of_forall fun γ => (hpoint γ).symm)
 
 end
 
