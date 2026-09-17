@@ -1,0 +1,4 @@
+$ lake exe runLinter Mathlib.Analysis.MellinTransform
+Running linter on specified modules: [Mathlib.Analysis.MellinTransform]
+-- Linting passed for Mathlib.Analysis.MellinTransform.
+EXIT=0

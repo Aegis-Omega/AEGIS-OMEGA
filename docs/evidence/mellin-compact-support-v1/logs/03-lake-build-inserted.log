@@ -1,0 +1,3 @@
+$ lake build Mathlib.Analysis.MellinTransform  (lemma inserted; mathlibStandardSet linters active)
+Build completed successfully (2794 jobs).
+EXIT=0

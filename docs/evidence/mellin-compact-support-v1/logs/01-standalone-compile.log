@@ -1,0 +1,3 @@
+# PHASE A — pristine Mathlib @ 78f7ceb75eb8545d8f24744941f3629c16eb7040, MellinTransform.lean sha256=81851086004a6e5424da555061a4b2f9d2e7cece148d9d49c3537a05adba73ff
+$ lake env lean scratch/MellinCompactSupport.lean
+EXIT=0
