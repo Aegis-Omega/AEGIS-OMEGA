@@ -1,0 +1,30 @@
+name: M2 Live Cutover V1
+
+on:
+  push:
+    branches:
+      - fix/m2-slot-address-v1
+  pull_request:
+    branches:
+      - diagnostic/m2-slot-address-v1
+    paths:
+      - sovereign-omega-v2/python/core_matrix.py
+      - sovereign-omega-v2/python/tests/test_m2_live_cutover_v1.py
+      - sovereign-omega-v2/python/tests/test_m2_slot_contract_v1.py
+      - .github/workflows/m2-live-cutover-v1.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  m2-live-cutover-v1:
+    name: M2 aligned-slot live cutover
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run live M2 acceptance
+        run: python sovereign-omega-v2/python/tests/test_m2_live_cutover_v1.py
