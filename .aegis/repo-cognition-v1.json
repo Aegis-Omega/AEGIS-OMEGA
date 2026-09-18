@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "5f5adedf980aa70cef504a90bf05280db1bc4af926b5dda3cabbc1083c297242",
+  "corpus_root": "5a2cbdd5a3c8ea8be841a7231ffdf24c949a784d3b009d21c25cde9ad7c36004",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1957,
@@ -37,17 +37,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "641298aaa250b8584f517f54cee800393150e1e72c5c76610a641ad0f5a3bbb1",
+      "content_sha256": "b08fa4f682af9f29e198b170d0bd20db11d605e9d5d23ab71b977a17db3c6c9a",
       "dependency_hints": [],
-      "git_blob_sha": "0bb10638de30029a6599b177319bd6797f1aa478",
+      "git_blob_sha": "40b66d77cecfe3d6003313d308f607bd6406bac0",
       "heading_hint": null,
       "kind": "config-or-data",
       "language": "json",
-      "line_count": 1491,
+      "line_count": 1943,
       "mode": "100644",
       "object_type": "blob",
       "path": ".aegis/cross-domain/fixtures/qbp-cross-boundary-v1.json",
-      "size_bytes": 60267,
+      "size_bytes": 78041,
       "symbol_hints": []
     },
     {
@@ -28709,17 +28709,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "96ff535f17231386a6af26386f78fd1b155abf8654fbedade05bfce473ccbae1",
+      "content_sha256": "db0be2ad6fd27a5cda57d31a163939e97ed94b17051f04891d08bc8b5b8618de",
       "dependency_hints": [],
-      "git_blob_sha": "99a6b49d44f0a62653c8b060f05b37cfccbcf9f8",
+      "git_blob_sha": "8bded7237127b644e95a9be594bad1b69a17e2b7",
       "heading_hint": "Cross-Boundary Authority V1",
       "kind": "documentation",
       "language": "markdown",
-      "line_count": 322,
+      "line_count": 391,
       "mode": "100644",
       "object_type": "blob",
       "path": "docs/research/cross-boundary-authority-v1.md",
-      "size_bytes": 13898,
+      "size_bytes": 17191,
       "symbol_hints": []
     },
     {
