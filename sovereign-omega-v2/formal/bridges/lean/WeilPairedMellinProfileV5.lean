@@ -89,7 +89,8 @@ theorem weil_paired_mellin_profile_has_vertical_norm_moments_two_v5
     dsimp [F₂]
     exact paired_mellin_line_neg_integrable_v5 f (1 - c)
   have h0 : Integrable (WeilPairedMellinProfileV5 f c) := by
-    simpa [WeilPairedMellinProfileV5, F₁, F₂] using h0₁.add h0₂
+    simpa only [WeilPairedMellinProfileV5, F₁, F₂, Pi.add_apply] using
+      h0₁.add h0₂
 
   have h1₁ : Integrable (fun t : ℝ => |t| * ‖F₁ t‖) := by
     dsimp [F₁]
