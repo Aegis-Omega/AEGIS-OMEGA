@@ -307,7 +307,10 @@ class WitnessFabricV1Tests(TestCase):
         self.assertIn("_witness_observe('gate_signal'", bridge)
         self.assertIn("_witness_observe('event'", bridge)
         self.assertIn("_witness_observe('claude_response'", bridge)
+        self.assertIn("_witness_observe('claude_stream_response'", bridge)
         self.assertIn("_witness_observe('platform_collaboration'", bridge)
+        self.assertIn("elif self.path.startswith('/witness'):", bridge)
+        self.assertIn("'history_replay_verified': status['history_replay_verified']", bridge)
         self.assertIn("'witness': _witness_public_status()", bridge)
 
 
