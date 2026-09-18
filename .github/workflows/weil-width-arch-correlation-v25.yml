@@ -103,7 +103,9 @@ jobs:
         run: |
           set -euo pipefail
           while IFS= read -r m; do
-            /usr/bin/time -v lake env lean -o ".lake/build/lib/lean/$m.olean" "$m.lean"               > "evidence/$m.log" 2> "evidence/$m.resources.log"
+            echo "=== COMPILE $m ==="
+            lake env lean -o ".lake/build/lib/lean/$m.olean" "$m.lean" 2>&1 |
+              tee "evidence/$m.log"
           done < evidence/modules.txt
           lake env lean WeilWidthArchCorrelationV25Spec.lean \
             2>&1 | tee evidence/arch-correlation-v25-spec.log
