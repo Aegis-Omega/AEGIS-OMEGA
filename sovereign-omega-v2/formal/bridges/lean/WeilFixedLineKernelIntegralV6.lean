@@ -143,8 +143,7 @@ theorem weil_fixed_line_laplace_mellin_product_integrable_v6
     (Filter.Eventually.of_forall fun p => ?_)
   unfold WeilFixedLineLaplaceKernelV6
   rw [norm_mul, weil_fixed_line_laplace_factor_norm_v6]
-  rw [show
-      -((c - a.re) * p.2) = (a.re - c) * p.2 by ring]
+  dsimp [F, δ]
   exact le_of_eq (mul_comm _ _)
 
 /-- Fubini exchange for the fixed-line Laplace/Mellin kernel. -/
