@@ -82,9 +82,10 @@ jobs:
             sha256sum "$m.lean" >> evidence/exact-source.log
             echo "$m" >> evidence/modules.txt
           done
-          cp .aegis/sovereign-omega-v2/formal/tests/lean/WeilWidthDiagonalArchFrontierV24Spec.lean .
-          sha256sum WeilWidthDiagonalArchFrontierV24Spec.lean >> evidence/exact-source.log
-          printf 'SOURCE_SHA=%s\nBASE_V23_SHA=%s\nMATHLIB_SHA=%s\nLEAN_TOOLCHAIN=%s\n'             "$SOURCE_SHA" "$BASE_V23_SHA" "$MATHLIB_SHA" "$LEAN_TOOLCHAIN" >> evidence/exact-source.log
+          cp .aegis/sovereign-omega-v2/formal/tests/lean/WeilWidthArchCorrelationV25Spec.lean .
+          sha256sum WeilWidthArchCorrelationV25Spec.lean >> evidence/exact-source.log
+          printf 'SOURCE_SHA=%s\nBASE_V24_SHA=%s\nMATHLIB_SHA=%s\nLEAN_TOOLCHAIN=%s\n' \
+            "$SOURCE_SHA" "$BASE_V24_SHA" "$MATHLIB_SHA" "$LEAN_TOOLCHAIN" >> evidence/exact-source.log
 
       - name: Obtain exact Lean and dependencies
         shell: bash
