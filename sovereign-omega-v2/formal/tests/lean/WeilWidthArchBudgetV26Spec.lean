@@ -10,8 +10,6 @@ noncomputable section
 open AEGIS.WeilDisjointEnergyV2
 open AEGIS.WeilMixedAlgebraV2
 open AEGIS.WeilDiagonalKernelReductionV21
-open AEGIS.WeilMixedAlgebraV2
-open AEGIS.WeilDiagonalKernelReductionV21
 open AEGIS.WeilThreeBlockTranslatedPacketsV22
 open AEGIS.WeilWidthDiagonalArchFrontierV24
 open AEGIS.WeilWidthArchBudgetV26

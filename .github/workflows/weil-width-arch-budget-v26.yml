@@ -154,20 +154,30 @@ jobs:
               raise SystemExit('FAIL unexpected axioms '+name+' '+repr(axioms))
           print('PASS: width Arch budget V2.6 theorem surface')
           PY
+          touch evidence/V2_6_AUDIT_PASS
 
       - name: Emit bounded disposition
         if: always()
         shell: bash
         run: |
+          if [[ -f evidence/V2_6_AUDIT_PASS ]]; then
+            ACTUAL_ARCH_STATUS=KERNEL_CLOSED
+            WIDTH_DIAGONAL_STATUS=KERNEL_CLOSED
+          else
+            ACTUAL_ARCH_STATUS=UNVERIFIED_AT_THIS_HEAD
+            WIDTH_DIAGONAL_STATUS=UNVERIFIED_AT_THIS_HEAD
+          fi
           cat > evidence/DISPOSITION.txt <<EOF
           BASE_V24_SHA=$BASE_V24_SHA
+          BASE_V25_SHA=$BASE_V25_SHA
           CANDIDATE_SHA=$SOURCE_SHA
-          LOG_CORRELATION_IDENTITY=INHERITED
-          LOG_CORRELATION_ENERGY_BOUND=INHERITED
-          WIDTH_CORRELATION_TAIL_VANISHING=INHERITED
-          ACTUAL_ARCHIMEDEAN_INTEGRAL_BUDGET=TARGETED
-          WIDTH_DIAGONAL_103_OVER_100=TARGETED
+          LOG_CORRELATION_IDENTITY=KERNEL_CLOSED_INHERITED
+          LOG_CORRELATION_ENERGY_BOUND=KERNEL_CLOSED_INHERITED
+          WIDTH_CORRELATION_TAIL_VANISHING=KERNEL_CLOSED_INHERITED
+          ACTUAL_ARCHIMEDEAN_INTEGRAL_BUDGET=$ACTUAL_ARCH_STATUS
+          WIDTH_DIAGONAL_103_OVER_100=$WIDTH_DIAGONAL_STATUS
           ANALYTIC_CROSS_TERM_MAJORANT_V1=OPEN
+          CONCRETE_THREE_BLOCK_WEIL_COERCIVITY=NOT_YET_ESTABLISHED
           GLOBAL_WEIL_POSITIVITY=OPEN
           RH=NOT_PROVEN
           authority_effect=NONE
