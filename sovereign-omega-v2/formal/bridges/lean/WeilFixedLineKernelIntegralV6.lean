@@ -75,10 +75,8 @@ theorem weil_fixed_line_laplace_kernel_integral_v6
     simp at hre
     linarith
   rw [integral_exp_mul_complex_Ioi hb 0]
-  rw [show
-      a - ((c : ℂ) + (t : ℂ) * I) =
-        -(((c : ℂ) + (t : ℂ) * I) - a) by ring]
-  simp [hden]
+  simp only [ofReal_zero, mul_zero, Complex.exp_zero]
+  field_simp [hden]
 
 private theorem weil_fixed_line_laplace_kernel_integrable_v6
     (c t : ℝ) (a : ℂ) (ha : a.re < c) :
@@ -145,10 +143,9 @@ theorem weil_fixed_line_laplace_mellin_product_integrable_v6
     (Filter.Eventually.of_forall fun p => ?_)
   unfold WeilFixedLineLaplaceKernelV6
   rw [norm_mul, weil_fixed_line_laplace_factor_norm_v6]
-  have hexp :
-      -(p.2 * (c - a.re)) = p.2 * (a.re - c) := by
-    ring
-  simpa [F, δ, hexp]
+  rw [show
+      -((c - a.re) * p.2) = (a.re - c) * p.2 by ring]
+  exact le_of_eq (mul_comm _ _)
 
 /-- Fubini exchange for the fixed-line Laplace/Mellin kernel. -/
 theorem weil_fixed_line_laplace_mellin_fubini_v6
