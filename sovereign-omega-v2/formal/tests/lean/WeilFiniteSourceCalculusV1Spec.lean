@@ -1,4 +1,4 @@
-import WeilArchFiniteQuadraticV1
+import WeilArchTailIntegralV1
 
 set_option autoImplicit false
 
@@ -66,3 +66,6 @@ outside this slice.
 #check weil_arch_scale_nonnegative_v1
 #check weil_arch_finite_quadratic_nonnegative_v1
 #check weil_arch_sine_finite_quadratic_nonnegative_v1
+
+#check WeilArchWeightedTailQuadraticV1
+#check weil_arch_weighted_tail_quadratic_nonnegative_v1
