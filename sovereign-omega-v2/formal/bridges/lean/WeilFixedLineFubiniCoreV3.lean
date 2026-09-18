@@ -186,7 +186,7 @@ private theorem riemannXi_paired_kernel_product_integral_eventually_bound_v3
   let δ : ℝ := c - 1
   have hδ : 0 < δ := by dsimp [δ]; linarith
   let C : ℝ → ℝ := fun t =>
-    4 * ((2 * c + 1) * ‖H t‖) +
+    4 * (2 * c + 1) * ‖H t‖ +
     8 * (|t| * ‖H t‖) +
     (8 / δ) * (|t| ^ 2 * ‖H t‖)
   have hCint : Integrable C := by
