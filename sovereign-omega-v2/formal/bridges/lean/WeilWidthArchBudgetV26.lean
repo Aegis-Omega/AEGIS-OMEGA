@@ -56,7 +56,7 @@ theorem autocorrelation_exp_norm_le_v26
       Real.exp (u / 2) *
           ‖WeilAutocorrelationV1 g (Real.exp u)‖ ≤
         energy g.1 := by
-    simpa [norm_mul, Complex.norm_real, Real.norm_of_nonneg hepos.le] using h
+    simpa [norm_mul, Complex.norm_exp] using h
   have hdiv :
       ‖WeilAutocorrelationV1 g (Real.exp u)‖ ≤
         energy g.1 / Real.exp (u / 2) := by
@@ -88,9 +88,14 @@ theorem autocorrelation_exp_re_le_v26
         ≤ Real.exp u *
           (Real.exp (-u / 2) * energy g.1) := h1
     _ = Real.exp (u / 2) * energy g.1 := by
-      rw [← Real.exp_add]
-      congr 1
-      ring
+      calc
+        Real.exp u * (Real.exp (-u / 2) * energy g.1)
+            = (Real.exp u * Real.exp (-u / 2)) * energy g.1 := by ring
+        _ = Real.exp (u + (-u / 2)) * energy g.1 := by
+          rw [Real.exp_add]
+        _ = Real.exp (u / 2) * energy g.1 := by
+          congr 2
+          ring
 
 /-- Exact pointwise logarithmic form of the repository Archimedean diagonal
 integrand. -/
@@ -151,7 +156,6 @@ theorem exp_mul_archimedean_re_eq_log_v26
   dsimp [x, A, E]
   rw [hdenR]
   field_simp [hsinh.ne']
-  ring
 
 private theorem exp_sub_one_le_self_mul_exp_v26
     {v : ℝ} (hv : 0 ≤ v) :
@@ -159,7 +163,7 @@ private theorem exp_sub_one_le_self_mul_exp_v26
   have h := Real.add_one_le_exp (-v)
   have hm :=
     mul_le_mul_of_nonneg_left h (Real.exp_pos v).le
-  have hexp : Real.exp (-v) * Real.exp v = 1 := by
+  have hexp : Real.exp v * Real.exp (-v) = 1 := by
     rw [← Real.exp_add]
     simp
   rw [hexp] at hm
