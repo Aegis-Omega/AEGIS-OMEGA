@@ -1,30 +1,30 @@
-name: Weil Width Arch Budget V2.6
+name: Weil Width Arch Integral V2.7
 
 on:
   push:
-    branches: ['proof/weil-width-arch-budget-v26-b872e6af']
+    branches: ['proof/weil-width-arch-integral-v27-be5935e2']
     paths:
-      - 'sovereign-omega-v2/formal/bridges/lean/WeilWidthArchBudgetV26.lean'
-      - 'sovereign-omega-v2/formal/tests/lean/WeilWidthArchBudgetV26Spec.lean'
-      - '.github/workflows/weil-width-arch-budget-v26.yml'
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilWidthArchIntegralV27.lean'
+      - 'sovereign-omega-v2/formal/tests/lean/WeilWidthArchIntegralV27Spec.lean'
+      - '.github/workflows/weil-width-arch-integral-v27.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: weil-width-arch-budget-v26-${{ github.ref }}
+  group: weil-width-arch-integral-v27-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   SOURCE_SHA: ${{ github.sha }}
-  BASE_V25_SOURCE_SHA: 40c08df2daf6bf5e808e2d22a93dc4611f7df82d
+  BASE_V26_SOURCE_SHA: 79c92eff2f7252e921b5634dac960e2f7c547dec
   MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
   LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
 
 jobs:
   verify:
-    name: exact width Arch budget replay
+    name: exact width Arch integral replay
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -44,14 +44,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Bind exact source and V2.5 source ancestry
+      - name: Bind exact source and V2.6 source ancestry
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$MATHLIB_SHA"
           test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
           test "$(cat lean-toolchain)" = "$LEAN_TOOLCHAIN"
-          git -C .aegis merge-base --is-ancestor "$BASE_V25_SOURCE_SHA" "$SOURCE_SHA"
+          git -C .aegis merge-base --is-ancestor "$BASE_V26_SOURCE_SHA" "$SOURCE_SHA"
           ROOT=.aegis/sovereign-omega-v2/formal/bridges/lean
           mkdir -p evidence .lake/build/lib/lean
           modules=(
@@ -75,6 +75,7 @@ jobs:
             WeilWidthDiagonalArchFrontierV24
             WeilWidthArchCorrelationV25
             WeilWidthArchBudgetV26
+            WeilWidthArchIntegralV27
           )
           : > evidence/modules.txt
           : > evidence/exact-source.log
@@ -83,10 +84,10 @@ jobs:
             sha256sum "$m.lean" >> evidence/exact-source.log
             echo "$m" >> evidence/modules.txt
           done
-          cp .aegis/sovereign-omega-v2/formal/tests/lean/WeilWidthArchBudgetV26Spec.lean .
-          sha256sum WeilWidthArchBudgetV26Spec.lean >> evidence/exact-source.log
-          printf 'SOURCE_SHA=%s\nBASE_V25_SOURCE_SHA=%s\nMATHLIB_SHA=%s\nLEAN_TOOLCHAIN=%s\n' \
-            "$SOURCE_SHA" "$BASE_V25_SOURCE_SHA" "$MATHLIB_SHA" "$LEAN_TOOLCHAIN" >> evidence/exact-source.log
+          cp .aegis/sovereign-omega-v2/formal/tests/lean/WeilWidthArchIntegralV27Spec.lean .
+          sha256sum WeilWidthArchIntegralV27Spec.lean >> evidence/exact-source.log
+          printf 'SOURCE_SHA=%s\nBASE_V26_SOURCE_SHA=%s\nMATHLIB_SHA=%s\nLEAN_TOOLCHAIN=%s\n' \
+            "$SOURCE_SHA" "$BASE_V26_SOURCE_SHA" "$MATHLIB_SHA" "$LEAN_TOOLCHAIN" >> evidence/exact-source.log
 
       - name: Obtain exact Lean and dependencies
         shell: bash
@@ -96,7 +97,7 @@ jobs:
           ./elan-init -y --default-toolchain none
           export PATH="$HOME/.elan/bin:$PATH"
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-          lake exe cache get             Mathlib/Analysis/MellinTransform.lean             Mathlib/NumberTheory/ArithmeticFunction/VonMangoldt.lean             Mathlib/NumberTheory/Harmonic/EulerMascheroni.lean             Mathlib/NumberTheory/LSeries/RiemannZeta.lean             Mathlib/Analysis/Complex/ExponentialBounds.lean             Mathlib/Analysis/Real/Pi/Bounds.lean             Mathlib/MeasureTheory/Function/JacobianOneDim.lean             Mathlib/MeasureTheory/Measure/Haar/Basic.lean             Mathlib/Analysis/SpecialFunctions/ImproperIntegrals.lean             Mathlib/Analysis/SpecialFunctions/Trigonometric/Basic.lean             Mathlib/Tactic.lean
+          lake exe cache get             Mathlib/Analysis/MellinTransform.lean             Mathlib/NumberTheory/ArithmeticFunction/VonMangoldt.lean             Mathlib/NumberTheory/Harmonic/EulerMascheroni.lean             Mathlib/NumberTheory/LSeries/RiemannZeta.lean             Mathlib/Analysis/Complex/ExponentialBounds.lean             Mathlib/Analysis/Real/Pi/Bounds.lean             Mathlib/MeasureTheory/Function/JacobianOneDim.lean             Mathlib/MeasureTheory/Measure/Haar/Basic.lean             Mathlib/Analysis/SpecialFunctions/ImproperIntegrals.lean             Mathlib/Analysis/SpecialFunctions/Trigonometric/Basic.lean             Mathlib/Analysis/SpecialFunctions/Trigonometric/DerivHyp.lean             Mathlib/MeasureTheory/Integral/IntegralEqImproper.lean             Mathlib/MeasureTheory/Integral/Bochner/ContinuousLinearMap.lean             Mathlib/MeasureTheory/Measure/Lebesgue/Basic.lean             Mathlib/Tactic.lean
           lean --version | tee evidence/lean-version.log
 
       - name: Compile exact module chain
@@ -108,33 +109,37 @@ jobs:
             lake env lean -o ".lake/build/lib/lean/$m.olean" "$m.lean" 2>&1 |
               tee "evidence/$m.log"
           done < evidence/modules.txt
-          lake env lean WeilWidthArchBudgetV26Spec.lean \
-            2>&1 | tee evidence/arch-budget-v26-spec.log
+          lake env lean WeilWidthArchIntegralV27Spec.lean \
+            2>&1 | tee evidence/arch-integral-v27-spec.log
 
-      - name: Audit V2.6 theorem surface
+      - name: Audit V2.7 theorem surface
         shell: bash
         run: |
           set -euo pipefail
-          cat > AuditArchBudgetV26.lean <<'EOF'
-          import WeilWidthArchBudgetV26
-          #print axioms AEGIS.WeilWidthArchBudgetV26.autocorrelation_exp_norm_le_v26
-          #print axioms AEGIS.WeilWidthArchBudgetV26.exp_mul_archimedean_re_eq_log_v26
-          #print axioms AEGIS.WeilWidthArchBudgetV26.width_arch_log_inner_pointwise_v26
-          #print axioms AEGIS.WeilWidthArchBudgetV26.width_arch_log_tail_eq_v26
+          cat > AuditArchIntegralV27.lean <<'EOF'
+          import WeilWidthArchIntegralV27
+          #print axioms AEGIS.WeilWidthArchIntegralV27.arch_log_complex_integrableOn_v27
+          #print axioms AEGIS.WeilWidthArchIntegralV27.archimedean_real_eq_log_integral_v27
+          #print axioms AEGIS.WeilWidthArchIntegralV27.width_arch_inner_integral_le_v27
+          #print axioms AEGIS.WeilWidthArchIntegralV27.width_arch_tail_integral_eq_v27
+          #print axioms AEGIS.WeilWidthArchIntegralV27.width_archimedean_budget_v27
+          #print axioms AEGIS.WeilWidthArchIntegralV27.width_diagonal_103_over_100_v27
           EOF
-          sed -i 's/^          //' AuditArchBudgetV26.lean
-          lake env lean AuditArchBudgetV26.lean 2>&1 | tee evidence/axioms-arch-budget-v26.log
-          ! grep -F 'sorryAx' evidence/axioms-arch-budget-v26.log
+          sed -i 's/^          //' AuditArchIntegralV27.lean
+          lake env lean AuditArchIntegralV27.lean 2>&1 | tee evidence/axioms-arch-integral-v27.log
+          ! grep -F 'sorryAx' evidence/axioms-arch-integral-v27.log
           python3 - <<'PY'
           from pathlib import Path
           import re
           names = [
-            'AEGIS.WeilWidthArchBudgetV26.autocorrelation_exp_norm_le_v26',
-            'AEGIS.WeilWidthArchBudgetV26.exp_mul_archimedean_re_eq_log_v26',
-            'AEGIS.WeilWidthArchBudgetV26.width_arch_log_inner_pointwise_v26',
-            'AEGIS.WeilWidthArchBudgetV26.width_arch_log_tail_eq_v26',
+            'AEGIS.WeilWidthArchIntegralV27.arch_log_complex_integrableOn_v27',
+            'AEGIS.WeilWidthArchIntegralV27.archimedean_real_eq_log_integral_v27',
+            'AEGIS.WeilWidthArchIntegralV27.width_arch_inner_integral_le_v27',
+            'AEGIS.WeilWidthArchIntegralV27.width_arch_tail_integral_eq_v27',
+            'AEGIS.WeilWidthArchIntegralV27.width_archimedean_budget_v27',
+            'AEGIS.WeilWidthArchIntegralV27.width_diagonal_103_over_100_v27',
           ]
-          log = Path('evidence/axioms-arch-budget-v26.log').read_text()
+          log = Path('evidence/axioms-arch-integral-v27.log').read_text()
           allowed = {'propext','Classical.choice','Quot.sound'}
           for name in names:
             none = f"'{name}' does not depend on any axioms"
@@ -147,7 +152,7 @@ jobs:
               raise SystemExit('FAIL incomplete axiom output '+name)
             if not axioms <= allowed:
               raise SystemExit('FAIL unexpected axioms '+name+' '+repr(axioms))
-          print('PASS: width Arch budget V2.6 theorem surface')
+          print('PASS: width Arch integral V2.7 theorem surface')
           PY
 
       - name: Emit bounded disposition
@@ -155,12 +160,13 @@ jobs:
         shell: bash
         run: |
           cat > evidence/DISPOSITION.txt <<EOF
-          BASE_V25_SOURCE_SHA=$BASE_V25_SOURCE_SHA
+          BASE_V26_SOURCE_SHA=$BASE_V26_SOURCE_SHA
           CANDIDATE_SHA=$SOURCE_SHA
-          ACTUAL_ARCH_LOG_IDENTITY=TARGETED
-          ACTUAL_ARCH_INNER_POINTWISE_BOUND=TARGETED
-          ACTUAL_ARCH_TAIL_IDENTITY=TARGETED
-          ACTUAL_ARCHIMEDEAN_INTEGRAL_BUDGET=OPEN
+          ACTUAL_ARCH_CHANGE_OF_VARIABLES=TARGETED
+          ACTUAL_ARCH_INNER_INTEGRAL_BOUND=TARGETED
+          ACTUAL_ARCH_TAIL_INTEGRAL_IDENTITY=TARGETED
+          ACTUAL_ARCHIMEDEAN_INTEGRAL_BUDGET=TARGETED
+          RETAINED_WIDTH_DIAGONAL_103_OVER_100=TARGETED
           ANALYTIC_CROSS_TERM_MAJORANT_V1=OPEN
           GLOBAL_WEIL_POSITIVITY=OPEN
           RH=NOT_PROVEN
@@ -173,7 +179,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: weil-width-arch-budget-v26-${{ env.SOURCE_SHA }}
+          name: weil-width-arch-integral-v27-${{ env.SOURCE_SHA }}
           path: evidence/
           if-no-files-found: warn
           retention-days: 30
