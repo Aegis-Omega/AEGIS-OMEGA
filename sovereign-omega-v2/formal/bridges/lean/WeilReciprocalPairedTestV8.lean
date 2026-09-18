@@ -47,6 +47,7 @@ theorem weil_reciprocal_support_envelope_positive_v8
     (f : WeilCompactSmoothGV1) :
     WeilReciprocalSupportEnvelopeV8 f ⊆ Ioi 0 := by
   rintro x ⟨y, hy, rfl⟩
+  change 0 < y⁻¹
   exact inv_pos.mpr (f.2.2.2 hy)
 
 theorem weil_reciprocal_tsupport_subset_v8
