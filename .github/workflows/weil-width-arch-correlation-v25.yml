@@ -1,0 +1,174 @@
+name: Weil Width Arch Correlation V2.5
+
+on:
+  push:
+    branches: ['proof/weil-width-arch-budget-v25-efb65a76']
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilWidthArchCorrelationV25.lean'
+      - 'sovereign-omega-v2/formal/tests/lean/WeilWidthArchCorrelationV25Spec.lean'
+      - '.github/workflows/weil-width-arch-correlation-v25.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weil-width-arch-correlation-v25-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SOURCE_SHA: ${{ github.sha }}
+  BASE_V24_SHA: efb65a7602fefa47c38ec53e4db533dc6653a152
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+
+jobs:
+  verify:
+    name: exact width Arch correlation replay
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact Mathlib
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: leanprover-community/mathlib4
+          ref: ${{ env.MATHLIB_SHA }}
+          persist-credentials: false
+
+      - name: Checkout exact AEGIS candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: Aegis-Omega/AEGIS-OMEGA
+          ref: ${{ env.SOURCE_SHA }}
+          path: .aegis
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Bind exact source and V2.4 ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$MATHLIB_SHA"
+          test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(cat lean-toolchain)" = "$LEAN_TOOLCHAIN"
+          git -C .aegis merge-base --is-ancestor "$BASE_V24_SHA" "$SOURCE_SHA"
+          ROOT=.aegis/sovereign-omega-v2/formal/bridges/lean
+          mkdir -p evidence .lake/build/lib/lean
+          modules=(
+            WeilCriterionCompactSmoothV1
+            WeilPrimeSummabilityV1
+            WeilArchimedeanConvergenceV1
+            WeilAutocorrelationRealityV1
+            WeilAutocorrelationClosureV1
+            WeilThreeBlockRationalV1
+            WeilMixedClosureV2
+            WeilThreeBlockComplexV2
+            WeilMixedAlgebraV2
+            WeilDisjointEnergyV2
+            WeilThreeBlockAnalyticConstantsV21
+            WeilLogCoordinateIsometryV21
+            WeilThreeBlockNormBridgeV21
+            WeilThreeBlockTranslatedPacketsV22
+            WeilWidthPrimeVanishingV23
+            WeilDiagonalKernelReductionV21
+            WeilArchimedeanCothTailV1
+            WeilWidthDiagonalArchFrontierV24
+            WeilWidthArchCorrelationV25
+          )
+          : > evidence/modules.txt
+          : > evidence/exact-source.log
+          for m in "${modules[@]}"; do
+            cp "$ROOT/$m.lean" "$m.lean"
+            sha256sum "$m.lean" >> evidence/exact-source.log
+            echo "$m" >> evidence/modules.txt
+          done
+          cp .aegis/sovereign-omega-v2/formal/tests/lean/WeilWidthDiagonalArchFrontierV24Spec.lean .
+          sha256sum WeilWidthDiagonalArchFrontierV24Spec.lean >> evidence/exact-source.log
+          printf 'SOURCE_SHA=%s\nBASE_V23_SHA=%s\nMATHLIB_SHA=%s\nLEAN_TOOLCHAIN=%s\n'             "$SOURCE_SHA" "$BASE_V23_SHA" "$MATHLIB_SHA" "$LEAN_TOOLCHAIN" >> evidence/exact-source.log
+
+      - name: Obtain exact Lean and dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/leanprover/elan/releases/download/v1.4.2/elan-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          ./elan-init -y --default-toolchain none
+          export PATH="$HOME/.elan/bin:$PATH"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          lake exe cache get             Mathlib/Analysis/MellinTransform.lean             Mathlib/NumberTheory/ArithmeticFunction/VonMangoldt.lean             Mathlib/NumberTheory/Harmonic/EulerMascheroni.lean             Mathlib/NumberTheory/LSeries/RiemannZeta.lean             Mathlib/Analysis/Complex/ExponentialBounds.lean             Mathlib/Analysis/Real/Pi/Bounds.lean             Mathlib/MeasureTheory/Function/JacobianOneDim.lean             Mathlib/MeasureTheory/Measure/Haar/Basic.lean             Mathlib/Analysis/SpecialFunctions/ImproperIntegrals.lean             Mathlib/Analysis/SpecialFunctions/Trigonometric/Basic.lean             Mathlib/Tactic.lean
+          lean --version | tee evidence/lean-version.log
+
+      - name: Compile exact module chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r m; do
+            /usr/bin/time -v lake env lean -o ".lake/build/lib/lean/$m.olean" "$m.lean"               > "evidence/$m.log" 2> "evidence/$m.resources.log"
+          done < evidence/modules.txt
+          lake env lean WeilWidthDiagonalArchFrontierV24Spec.lean             2>&1 | tee evidence/frontier-v24-spec.log
+
+      - name: Audit V2.5 theorem surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > AuditArchCorrelationV25.lean <<'EOF'
+          import WeilWidthArchCorrelationV25
+          #print axioms AEGIS.WeilWidthArchCorrelationV25.logLift_sq_integrable_v25
+          #print axioms AEGIS.WeilWidthArchCorrelationV25.logCorrelation_eq_autocorrelation_v25
+          #print axioms AEGIS.WeilWidthArchCorrelationV25.norm_logCorrelation_le_energy_v25
+          #print axioms AEGIS.WeilWidthArchCorrelationV25.logCorrelation_zero_of_width_v25
+          EOF
+          sed -i 's/^          //' AuditArchCorrelationV25.lean
+          lake env lean AuditArchCorrelationV25.lean 2>&1 | tee evidence/axioms-arch-correlation-v25.log
+          ! grep -F 'sorryAx' evidence/axioms-arch-correlation-v25.log
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          names = [
+            'AEGIS.WeilWidthArchCorrelationV25.logLift_sq_integrable_v25',
+            'AEGIS.WeilWidthArchCorrelationV25.logCorrelation_eq_autocorrelation_v25',
+            'AEGIS.WeilWidthArchCorrelationV25.norm_logCorrelation_le_energy_v25',
+            'AEGIS.WeilWidthArchCorrelationV25.logCorrelation_zero_of_width_v25',
+          ]
+          log = Path('evidence/axioms-arch-correlation-v25.log').read_text()
+          allowed = {'propext','Classical.choice','Quot.sound'}
+          for name in names:
+            none = f"'{name}' does not depend on any axioms"
+            found = re.findall(re.escape(f"'{name}' depends on axioms: ") + r'\[([^\]]*)\]', log, re.S)
+            if none in log and not found:
+              axioms=set()
+            elif none not in log and len(found)==1:
+              axioms={a.strip() for a in found[0].split(',') if a.strip()}
+            else:
+              raise SystemExit('FAIL incomplete axiom output '+name)
+            if not axioms <= allowed:
+              raise SystemExit('FAIL unexpected axioms '+name+' '+repr(axioms))
+          print('PASS: width Arch correlation V2.5 theorem surface')
+          PY
+
+      - name: Emit bounded disposition
+        if: always()
+        shell: bash
+        run: |
+          cat > evidence/DISPOSITION.txt <<EOF
+          BASE_V24_SHA=$BASE_V24_SHA
+          CANDIDATE_SHA=$SOURCE_SHA
+          LOG_CORRELATION_IDENTITY=TARGETED
+          LOG_CORRELATION_ENERGY_BOUND=TARGETED
+          WIDTH_CORRELATION_TAIL_VANISHING=TARGETED
+          ACTUAL_ARCHIMEDEAN_INTEGRAL_BUDGET=OPEN
+          ANALYTIC_CROSS_TERM_MAJORANT_V1=OPEN
+          GLOBAL_WEIL_POSITIVITY=OPEN
+          RH=NOT_PROVEN
+          authority_effect=NONE
+          merge=NONE
+          EOF
+          sed -i 's/^          //' evidence/DISPOSITION.txt
+
+      - name: Upload exact-head evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: weil-width-arch-correlation-v25-${{ env.SOURCE_SHA }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 30
