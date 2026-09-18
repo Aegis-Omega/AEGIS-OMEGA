@@ -29,11 +29,11 @@ set_option autoImplicit false
 
 noncomputable section
 
-private def WeilFixedLineMellinV6
+def WeilFixedLineMellinV6
     (f : WeilCompactSmoothGV1) (c t : ℝ) : ℂ :=
   mellin f.1 ((c : ℂ) + (t : ℂ) * I)
 
-private def WeilFixedLineLaplaceKernelV6
+def WeilFixedLineLaplaceKernelV6
     (f : WeilCompactSmoothGV1) (c : ℝ) (a : ℂ) (p : ℝ × ℝ) : ℂ :=
   Complex.exp
       (-((((c : ℂ) + (p.1 : ℂ) * I) - a) * (p.2 : ℂ))) *
