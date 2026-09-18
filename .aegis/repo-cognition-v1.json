@@ -1,6 +1,6 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "43c2d62fe9f63be763eedbcbfc9e565ca9bec78933f820cce695e7957bcd4a61",
+  "corpus_root": "5f5adedf980aa70cef504a90bf05280db1bc4af926b5dda3cabbc1083c297242",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
   "eligible_file_count": 1957,
@@ -37,17 +37,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "817c6ed1f3c83acac99519108a0770fbfb72feee514713738261c76f4ccf05de",
+      "content_sha256": "641298aaa250b8584f517f54cee800393150e1e72c5c76610a641ad0f5a3bbb1",
       "dependency_hints": [],
-      "git_blob_sha": "4e582abc81b619681a38a258f80c7ea9dd88e301",
+      "git_blob_sha": "0bb10638de30029a6599b177319bd6797f1aa478",
       "heading_hint": null,
       "kind": "config-or-data",
       "language": "json",
-      "line_count": 1019,
+      "line_count": 1491,
       "mode": "100644",
       "object_type": "blob",
       "path": ".aegis/cross-domain/fixtures/qbp-cross-boundary-v1.json",
-      "size_bytes": 39673,
+      "size_bytes": 60267,
       "symbol_hints": []
     },
     {
@@ -28709,17 +28709,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "a26cbab1be38b2c7856bc22b00bad533a1165b6221b62783a8112d3aedfef921",
+      "content_sha256": "96ff535f17231386a6af26386f78fd1b155abf8654fbedade05bfce473ccbae1",
       "dependency_hints": [],
-      "git_blob_sha": "6e8bb4486047248dbe1864a05de6865826bafea6",
+      "git_blob_sha": "99a6b49d44f0a62653c8b060f05b37cfccbcf9f8",
       "heading_hint": "Cross-Boundary Authority V1",
       "kind": "documentation",
       "language": "markdown",
-      "line_count": 254,
+      "line_count": 322,
       "mode": "100644",
       "object_type": "blob",
       "path": "docs/research/cross-boundary-authority-v1.md",
-      "size_bytes": 9990,
+      "size_bytes": 13898,
       "symbol_hints": []
     },
     {
