@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/weil-three-block-prime-windows-v23",
+    "source_ref": "proof/weil-width-diagonal-arch-frontier-v24-f98c2620",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "431935a0bd48d42f657d4ca04db1f7e1998f245dca788a573f893f67213da52b"
+  "state_hash": "5ed62f8ddad06771ac65ef3c2d29d6ab0652045d425ac74c34b1e199c7ce4c5f"
 }
