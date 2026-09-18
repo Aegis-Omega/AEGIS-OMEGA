@@ -22,6 +22,7 @@ from constitutional_identity import CONSTITUTIONAL_SYSTEM_FULL, CONSTITUTIONAL_S
 from tgcs_afse import TGCSController, AFSEController
 from ledger_persist import save_checkpoint, load_checkpoint, checkpoint_exists, CheckpointError
 from source_attribution import SourceAttributor, TelemetrySample
+from witness_fabric import WitnessFabric
 import canonical_envelope as _canon_env  # Provenance Phase 1 — float-free hash-chained envelope (ADR 0001)
 
 matrix = CoreMatrix()
@@ -32,6 +33,40 @@ _attributor = SourceAttributor()
 last_ack_sequence = -1
 _lock = threading.Lock()
 _last_autosave_epoch = -1
+
+# ─── Always-on witness representation fabric ────────────────────────────────
+# Observational only. The worker has no gate/router/write authority. Every
+# accepted observation becomes a hash-chained receipt carrying cryptographic,
+# F_101 sequence, structural, and declared-meaning commitments.
+_witness = WitnessFabric()
+
+
+def _witness_observe(kind: str, payload, *, meaning=None, provenance=None) -> bool:
+    """Queue one bounded witness observation without blocking the request path."""
+    return _witness.submit(
+        kind,
+        payload,
+        meaning=meaning,
+        provenance=provenance,
+    )
+
+
+def _witness_public_status() -> dict:
+    """Public, non-sensitive witness health surface."""
+    status = _witness.status()
+    return {
+        'running': status['running'],
+        'continuity_intact': status['continuity_intact'],
+        'processed': status['processed'],
+        'dropped': status['dropped'],
+        'queue_depth': status['queue_depth'],
+        'next_sequence': status['next_sequence'],
+        'terminal_hash': status['terminal_hash'],
+        'blocked_reason': status['blocked_reason'],
+        'tail_recovered': status['tail_recovered'],
+        'authority_effect': status['authority_effect'],
+    }
+
 
 # ─── /platform/* contract constants ──────────────────────────────────────────
 import queue as _queue_mod
@@ -125,7 +160,23 @@ def _mc_observe(layer: str, signal: str, tier: str) -> str:
             'ts': _time.time(),
             'sequence': len(_metacognitive_chain),
         })
-        return entry_hash
+    _witness_observe(
+        'metacognitive_observation',
+        {
+            'layer': layer,
+            'signal': signal,
+            'tier': tier,
+            'prev_hash': prev,
+            'entry_hash': entry_hash,
+        },
+        meaning={
+            'ontology': 'AEGIS_METACOGNITIVE_OBSERVATION_V1',
+            'claim': signal,
+            'context_refs': [prev],
+        },
+        provenance={'source': 'bridge._mc_observe'},
+    )
+    return entry_hash
 
 
 def _mc_recent_context(n: int = 3) -> str:
@@ -375,6 +426,20 @@ def _platform_run_collaboration(
             provider='anthropic' if live else 'demo',
         )
 
+        _witness_observe('platform_collaboration', result,
+            meaning={
+                'ontology': 'AEGIS_PLATFORM_COLLABORATION_V1',
+                'claim': f'39-department collaboration verdict={verdict}',
+                'context_refs': [audit_hash],
+            },
+            provenance={
+                'source': 'bridge:/platform/collaborate',
+                'execution_id': execution_id,
+                'mode': mode,
+                'live': live,
+            },
+        )
+
         with _executions_lock:
             # Update in place so the 'email' ownership tag set at init survives —
             # replacing the dict here would drop it and defeat ownership scoping.
@@ -489,6 +554,19 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 lcb=lcb,
             ))
             matrix.receive_gate_signal(proposal_id, accepted, seq)
+            _witness_observe('gate_signal', {
+                'proposal_id': proposal_id,
+                'sequence': seq,
+                'accepted': accepted,
+                'lcb': lcb,
+            },
+                meaning={
+                    'ontology': 'AEGIS_GATE_SIGNAL_V1',
+                    'claim': f'gate decision accepted={accepted}',
+                    'context_refs': [proposal_id],
+                },
+                provenance={'source': 'bridge:/gate_signal'},
+            )
             self._respond(200, {'status': 'ACK', 'sequence': seq})
 
         elif self.path == '/event':
@@ -496,6 +574,18 @@ class BridgeHandler(BaseHTTPRequestHandler):
             verifier = bytes.fromhex(data.get('verifier_hex', '01'))
             context  = bytes.fromhex(data.get('context_hex', ''))
             result = router.route(payload, verifier, context)
+            _witness_observe('event', {
+                'payload_hex': payload.hex(),
+                'verifier_hex': verifier.hex(),
+                'context_hex': context.hex(),
+                'result': result,
+            },
+                meaning={
+                    'ontology': 'AEGIS_ROUTED_EVENT_V1',
+                    'claim': 'router event transition',
+                },
+                provenance={'source': 'bridge:/event'},
+            )
             self._respond(200, result)
 
         elif self.path == '/checkpoint':
@@ -590,6 +680,25 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     f'Conversation processed: "{last_user}" → {len(response_text)} chars, '
                     f'chain={chain_hash[:16]}, tokens={resp.usage.input_tokens}+{resp.usage.output_tokens}',
                     'T1',
+                )
+                _witness_observe('claude_response', {
+                    'messages': messages,
+                    'model': model,
+                    'response_text': response_text,
+                    'request_hash': req_hash,
+                    'response_hash': resp_hash,
+                    'chain_hash': chain_hash,
+                    'envelope': envelope,
+                },
+                    meaning={
+                        'ontology': 'AEGIS_MODEL_RESPONSE_V1',
+                        'claim': response_text,
+                        'context_refs': [req_hash],
+                    },
+                    provenance={
+                        'source': 'bridge:/claude',
+                        'model': model,
+                    },
                 )
                 self._respond(200, {
                     'response_text': response_text,
@@ -908,12 +1017,29 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'is_chain_initialized': chain_length > 0,
             })
 
+        elif self.path.startswith('/witness'):
+            import urllib.parse as _up_witness
+            parsed = _up_witness.urlparse(self.path)
+            if parsed.path != '/witness':
+                self._respond(404, {'error': 'NOT_FOUND'})
+                return
+            params = dict(_up_witness.parse_qsl(parsed.query))
+            body = {
+                'status': _witness_public_status(),
+                'recent_receipts': _witness.recent(5),
+            }
+            carrier = params.get('carrier')
+            if carrier:
+                body['carrier_resolution'] = _witness.resolve_carrier(carrier)
+            self._respond(200, body)
+
         elif self.path == '/health':
             self._respond(200, {
                 'status': 'OK',
                 'last_ack_sequence': last_ack_sequence,
                 'gate_sealed': gate.is_sealed,
                 'router_sealed': router.is_sealed,
+                'witness': _witness_public_status(),
             })
 
         elif self.path == '/metrics':
@@ -1818,6 +1944,16 @@ def run_bridge(port=None):
     # Cloud Run injects PORT; fall back to SOVEREIGN_BRIDGE_PORT for local dev
     port = port or int(os.environ.get('PORT', os.environ.get('SOVEREIGN_BRIDGE_PORT', '7890')))
     _register_handlers()
+    _witness.start()
+    _witness_observe(
+        'bridge_lifecycle',
+        {'event': 'start', 'port': port},
+        meaning={
+            'ontology': 'AEGIS_BRIDGE_LIFECYCLE_V1',
+            'claim': 'bridge witness fabric started',
+        },
+        provenance={'source': 'bridge.run_bridge'},
+    )
     matrix.start()
     if not matrix.wait_ready(timeout=5.0):
         print(json.dumps({'event_type': 'BRIDGE_START_TIMEOUT', 'port': port}), flush=True)
@@ -1846,6 +1982,17 @@ def run_bridge(port=None):
             print(json.dumps({'event_type': 'CHECKPOINT_SAVED_ON_SHUTDOWN'}), flush=True)
         except Exception as e:
             print(json.dumps({'event_type': 'CHECKPOINT_SAVE_FAILED', 'reason': str(e)}), flush=True)
+        _witness_observe(
+            'bridge_lifecycle',
+            {'event': 'stop', 'port': port},
+            meaning={
+                'ontology': 'AEGIS_BRIDGE_LIFECYCLE_V1',
+                'claim': 'bridge witness fabric stopping',
+            },
+            provenance={'source': 'bridge.run_bridge'},
+        )
+        _witness.wait_idle(timeout=2.0)
+        _witness.stop(timeout=2.0)
         matrix.stop()
 
 
