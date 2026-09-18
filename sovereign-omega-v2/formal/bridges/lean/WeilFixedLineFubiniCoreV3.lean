@@ -128,7 +128,7 @@ private theorem weil_paired_zero_kernel_central_norm_bound_v3
         h = |(t - ρ.val.im) + (-t)| := by
           dsimp [h]
           rw [show (t - ρ.val.im) + (-t) = -ρ.val.im by ring, abs_neg]
-        _ ≤ |t - ρ.val.im| + |-t| := abs_add _ _
+        _ ≤ |t - ρ.val.im| + |-t| := abs_add_le _ _
         _ = |t - ρ.val.im| + |t| := by rw [abs_neg]
     linarith
   have him₂ : h / 2 ≤ |t + ρ.val.im| := by
@@ -171,12 +171,9 @@ private theorem weil_paired_zero_kernel_central_norm_bound_v3
       field_simp [ne_of_gt hpos]
       ring
     exact h0.trans_eq heq
-  rw [weil_paired_zero_kernel_eq_quotient_v3 c t ρ hc]
-  change ‖2 * z - 1‖ / (‖d₁‖ * ‖d₂‖) ≤
-    4 * (2 * c + 1 + 2 * |t|) / h ^ 2
-  rw [div_eq_mul_inv, div_eq_mul_inv]
+  rw [weil_paired_zero_kernel_eq_quotient_v3 c t ρ hc, norm_div, norm_mul]
   have hm := mul_le_mul hnum hinv (by positivity) (norm_nonneg (2 * z - 1))
-  nlinarith
+  simpa [z, d₁, d₂, h, div_eq_mul_inv, mul_assoc, mul_left_comm, mul_comm] using hm
 
 private theorem riemannXi_paired_kernel_product_integral_eventually_bound_v3
     (H : ℝ → ℂ) (c : ℝ) (hc : 1 < c)
@@ -193,11 +190,11 @@ private theorem riemannXi_paired_kernel_product_integral_eventually_bound_v3
     8 * |t| * ‖H t‖ +
     (8 / δ) * |t| ^ 2 * ‖H t‖
   have hCint : Integrable C := by
-    dsimp [C]
-    exact
+    have hsum :=
       ((hH.1.norm.const_mul (4 * (2 * c + 1))).add
         (hH.2.1.const_mul 8)).add
         (hH.2.2.const_mul (8 / δ))
+    simpa [C, Pi.add_apply, mul_assoc] using hsum
   have hCnonneg : ∀ t : ℝ, 0 ≤ C t := by
     intro t
     dsimp [C]
@@ -284,7 +281,10 @@ private theorem riemannXi_paired_kernel_product_integral_eventually_bound_v3
             ((8 / δ) * |t| ^ 2 * ‖H t‖) / h ^ 2 := by
         apply (le_div_iff₀ (sq_pos_of_pos hpos)).2
         have hm := mul_le_mul_of_nonneg_left hsq hcoef
-        nlinarith
+        calc
+          (2 / δ) * ‖H t‖ * h ^ 2
+              ≤ (2 / δ) * ‖H t‖ * (4 * |t| ^ 2) := hm
+          _ = (8 / δ) * |t| ^ 2 * ‖H t‖ := by ring
       have htailC : (8 / δ) * |t| ^ 2 * ‖H t‖ ≤ C t := by
         have h₀ : 0 ≤ 4 * (2 * c + 1) * ‖H t‖ := by positivity
         have h₁ : 0 ≤ 8 * |t| * ‖H t‖ := by positivity
