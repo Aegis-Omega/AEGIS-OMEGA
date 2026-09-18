@@ -244,11 +244,12 @@ def structure_commitment(
             for child in item:
                 walk(child, depth + 1)
         elif isinstance(item, dict):
-            keys = sorted(str(k) for k in item.keys())
-            token(f"dict:{len(keys)}")
-            for key in keys:
-                token("key:" + key)
-                walk(item[key], depth + 1)
+            entries = sorted(item.items(), key=lambda kv: (type(kv[0]).__name__, str(kv[0])))
+            token(f"dict:{len(entries)}")
+            for raw_key, child in entries:
+                token("key_type:" + type(raw_key).__name__)
+                token("key:" + str(raw_key))
+                walk(child, depth + 1)
         else:
             token("type:" + type(item).__name__)
 
@@ -400,33 +401,56 @@ class WitnessFabric:
         self._blocked_reason: str | None = None
         self._last_error: str | None = None
         self._tail_recovered = False
+        self._history_replay_verified = False
+        self._recovered_receipts = 0
 
     def _recover_tail(self) -> None:
+        """Replay and verify the complete persisted chain before accepting new work."""
         if not self.path.exists() or self.path.stat().st_size == 0:
+            self._history_replay_verified = True
             return
+
+        expected_sequence = 0
+        expected_prev = ZERO_HASH
+        recovered_recent: deque[dict[str, Any]] = deque(maxlen=self._recent_limit)
         try:
-            with self.path.open("rb") as fh:
-                fh.seek(0, os.SEEK_END)
-                size = fh.tell()
-                start = max(0, size - 1024 * 1024)
-                fh.seek(start)
-                if start:
-                    fh.readline()
-                lines = [line for line in fh.read().splitlines() if line.strip()]
-            if not lines:
-                return
-            last = json.loads(lines[-1].decode("utf-8"))
-            if last.get("schema") != SCHEMA or not _validate_receipt_hash(last):
-                raise ValueError("invalid witness tail receipt")
-            seq = int(last["sequence"])
-            if seq < 0:
-                raise ValueError("invalid witness tail sequence")
-            self._next_sequence = seq + 1
-            self._terminal_hash = str(last["receipt_sha256"])
-            self._tail_recovered = True
+            with self.path.open("r", encoding="utf-8") as fh:
+                for line_number, raw_line in enumerate(fh, start=1):
+                    if not raw_line.strip():
+                        continue
+                    receipt = json.loads(raw_line)
+                    if receipt.get("schema") != SCHEMA:
+                        raise ValueError(f"line {line_number}: unexpected schema")
+                    if not _validate_receipt_hash(receipt):
+                        raise ValueError(f"line {line_number}: receipt hash mismatch")
+
+                    sequence = int(receipt.get("sequence", -1))
+                    if sequence != expected_sequence:
+                        raise ValueError(
+                            f"line {line_number}: sequence {sequence} != {expected_sequence}"
+                        )
+                    if receipt.get("prev_receipt_hash") != expected_prev:
+                        raise ValueError(
+                            f"line {line_number}: prev_receipt_hash mismatch"
+                        )
+
+                    expected_prev = str(receipt["receipt_sha256"])
+                    expected_sequence += 1
+                    recovered_recent.append(receipt)
+
+            self._next_sequence = expected_sequence
+            self._terminal_hash = expected_prev
+            self._tail_recovered = expected_sequence > 0
+            self._history_replay_verified = True
+            self._recovered_receipts = expected_sequence
+
+            for receipt in recovered_recent:
+                self._recent.append(receipt)
+                self._index(receipt)
         except Exception as exc:
             self._continuity_intact = False
-            self._blocked_reason = "PERSISTED_TAIL_INVALID"
+            self._history_replay_verified = False
+            self._blocked_reason = "PERSISTED_CHAIN_INVALID"
             self._last_error = f"{type(exc).__name__}: {exc}"
 
     def start(self) -> None:
@@ -590,5 +614,7 @@ class WitnessFabric:
                 "blocked_reason": self._blocked_reason,
                 "last_error": self._last_error,
                 "tail_recovered": self._tail_recovered,
+                "history_replay_verified": self._history_replay_verified,
+                "recovered_receipts": self._recovered_receipts,
                 "authority_effect": AUTHORITY_EFFECT,
             }
