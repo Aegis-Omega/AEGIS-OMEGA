@@ -33,6 +33,7 @@ noncomputable section
 namespace AEGIS.WeilWidthArchBudgetV26
 
 open AEGIS.WeilDisjointEnergyV2
+open AEGIS.WeilMixedAlgebraV2
 open AEGIS.WeilDiagonalKernelReductionV21
 open AEGIS.WeilWidthDiagonalArchFrontierV24
 open AEGIS.WeilWidthArchCorrelationV25
@@ -53,8 +54,9 @@ private theorem correlation_re_v26
     (g : WeilCompactSmoothGV1) (u : ℝ) :
     (logCorrelationV25 g u).re =
       Real.exp (u / 2) * (WeilAutocorrelationV1 g (Real.exp u)).re := by
-  have h := congrArg Complex.re (logCorrelation_eq_autocorrelation_v25 g u)
-  simpa [Complex.mul_re] using h
+  rw [logCorrelation_eq_autocorrelation_v25]
+  simp only [Complex.mul_re, Complex.ofReal_re, Complex.ofReal_im,
+    zero_mul, sub_zero]
 
 private theorem arch_log_kernel_pointwise_v26
     (g : WeilCompactSmoothGV1) {u : ℝ} (hu : 0 < u) :
@@ -79,6 +81,12 @@ private theorem arch_log_kernel_pointwise_v26
     rw [← Real.exp_add]
     congr 1
     ring
+  have hhalfC :
+      Complex.exp (u : ℂ) =
+        Complex.exp ((u : ℂ) * (1 / 2 : ℂ)) ^ 2 := by
+    rw [pow_two, ← Complex.exp_add]
+    congr 1
+    ring
   have hdenR :
       Real.exp u - (Real.exp u)⁻¹ = 2 * Real.sinh u := by
     rw [Real.sinh_eq, Real.exp_neg]
@@ -97,6 +105,7 @@ private theorem arch_log_kernel_pointwise_v26
     simp only [Complex.ofReal_inv, Complex.ofReal_mul, Complex.ofReal_ofNat]
     simp [hxC, Complex.add_conj, hCre, hhalf, div_eq_mul_inv]
     field_simp [hxC, hsinhC]
+    rw [hhalfC]
     ring
   have hre := congrArg Complex.re hcomplex
   simpa [Complex.real_smul] using hre
@@ -316,7 +325,8 @@ theorem actual_archimedean_integral_budget_v26
           (-energy g.1) * diagonalTailV24
         ≤ energy g.1 * diagonalSmallV21 +
           (-energy g.1) * diagonalTailV24 := by
-            exact add_le_add_right (hsmall.trans_eq hconst) _
+            have hs := hsmall.trans_eq hconst
+            linarith
     _ = energy g.1 * (diagonalSmallV21 - diagonalTailV24) := by
       ring
 
