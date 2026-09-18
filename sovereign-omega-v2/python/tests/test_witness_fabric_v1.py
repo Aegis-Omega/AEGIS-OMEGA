@@ -189,6 +189,48 @@ class WitnessFabricV1Tests(TestCase):
             self.assertEqual(resolution["status"], "AMBIGUOUS")
             self.assertEqual(len(resolution["receipt_hashes"]), 2)
 
+    def test_background_worker_recovers_persisted_tail_across_restart(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "witness.jsonl"
+            first = WitnessFabric(path=path, max_queue=8, recent_limit=8)
+            first.start()
+            try:
+                self.assertTrue(first.submit("one", {"n": 1}))
+                self.assertTrue(first.submit("two", {"n": 2}))
+                self.assertTrue(first.wait_idle(timeout=2.0))
+            finally:
+                first.stop(timeout=2.0)
+
+            before = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines()]
+            second = WitnessFabric(path=path, max_queue=8, recent_limit=8)
+            second.start()
+            try:
+                status = second.status()
+                self.assertTrue(status["tail_recovered"])
+                self.assertEqual(status["next_sequence"], 2)
+                self.assertEqual(status["terminal_hash"], before[-1]["receipt_sha256"])
+                self.assertTrue(second.submit("three", {"n": 3}))
+                self.assertTrue(second.wait_idle(timeout=2.0))
+            finally:
+                second.stop(timeout=2.0)
+
+            after = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual(len(after), 3)
+            self.assertEqual(after[2]["sequence"], 2)
+            self.assertEqual(after[2]["prev_receipt_hash"], before[-1]["receipt_sha256"])
+
+    def test_bridge_wires_witness_as_default_background_lifecycle(self) -> None:
+        bridge = (PYTHON_ROOT / "bridge.py").read_text(encoding="utf-8")
+        self.assertIn("from witness_fabric import WitnessFabric", bridge)
+        self.assertIn("_witness = WitnessFabric()", bridge)
+        self.assertIn("_witness.start()", bridge)
+        self.assertIn("_witness.stop(", bridge)
+        self.assertIn("_witness_observe('gate_signal'", bridge)
+        self.assertIn("_witness_observe('event'", bridge)
+        self.assertIn("_witness_observe('claude_response'", bridge)
+        self.assertIn("_witness_observe('platform_collaboration'", bridge)
+        self.assertIn("'witness': _witness_public_status()", bridge)
+
 
 if __name__ == "__main__":
     main()
