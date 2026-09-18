@@ -137,7 +137,7 @@ private theorem weil_paired_zero_kernel_central_norm_bound_v3
         h = |(t + ρ.val.im) + (-t)| := by
           dsimp [h]
           rw [show (t + ρ.val.im) + (-t) = ρ.val.im by ring]
-        _ ≤ |t + ρ.val.im| + |-t| := abs_add _ _
+        _ ≤ |t + ρ.val.im| + |-t| := abs_add_le _ _
         _ = |t + ρ.val.im| + |t| := by rw [abs_neg]
     linarith
   have hd₁ : h / 2 ≤ ‖d₁‖ := by
@@ -172,7 +172,7 @@ private theorem weil_paired_zero_kernel_central_norm_bound_v3
       ring
     exact h0.trans_eq heq
   rw [weil_paired_zero_kernel_eq_quotient_v3 c t ρ hc, norm_div, norm_mul]
-  have hm := mul_le_mul hnum hinv (by positivity) (norm_nonneg (2 * z - 1))
+  have hm := mul_le_mul hnum hinv (by positivity) (by positivity)
   simpa [z, d₁, d₂, h, div_eq_mul_inv, mul_assoc, mul_left_comm, mul_comm] using hm
 
 private theorem riemannXi_paired_kernel_product_integral_eventually_bound_v3
@@ -186,15 +186,15 @@ private theorem riemannXi_paired_kernel_product_integral_eventually_bound_v3
   let δ : ℝ := c - 1
   have hδ : 0 < δ := by dsimp [δ]; linarith
   let C : ℝ → ℝ := fun t =>
-    4 * (2 * c + 1) * ‖H t‖ +
-    8 * |t| * ‖H t‖ +
-    (8 / δ) * |t| ^ 2 * ‖H t‖
+    4 * ((2 * c + 1) * ‖H t‖) +
+    8 * (|t| * ‖H t‖) +
+    (8 / δ) * (|t| ^ 2 * ‖H t‖)
   have hCint : Integrable C := by
     have hsum :=
       ((hH.1.norm.const_mul (4 * (2 * c + 1))).add
         (hH.2.1.const_mul 8)).add
         (hH.2.2.const_mul (8 / δ))
-    simpa [C, Pi.add_apply, mul_assoc] using hsum
+    simpa only [C, Pi.add_apply] using hsum
   have hCnonneg : ∀ t : ℝ, 0 ≤ C t := by
     intro t
     dsimp [C]
