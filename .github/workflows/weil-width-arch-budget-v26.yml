@@ -1,30 +1,30 @@
-name: Weil Width Arch Correlation V2.5
+name: Weil Width Arch Budget V2.6
 
 on:
   push:
-    branches: ['proof/weil-width-arch-budget-v25-efb65a76']
+    branches: ['proof/weil-width-arch-budget-v26-b872e6af']
     paths:
-      - 'sovereign-omega-v2/formal/bridges/lean/WeilWidthArchCorrelationV25.lean'
-      - 'sovereign-omega-v2/formal/tests/lean/WeilWidthArchCorrelationV25Spec.lean'
-      - '.github/workflows/weil-width-arch-correlation-v25.yml'
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilWidthArchBudgetV26.lean'
+      - 'sovereign-omega-v2/formal/tests/lean/WeilWidthArchBudgetV26Spec.lean'
+      - '.github/workflows/weil-width-arch-budget-v26.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: weil-width-arch-correlation-v25-${{ github.ref }}
+  group: weil-width-arch-budget-v26-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   SOURCE_SHA: ${{ github.sha }}
-  BASE_V24_SHA: efb65a7602fefa47c38ec53e4db533dc6653a152
+  BASE_V25_SOURCE_SHA: 40c08df2daf6bf5e808e2d22a93dc4611f7df82d
   MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
   LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
 
 jobs:
   verify:
-    name: exact width Arch correlation replay
+    name: exact width Arch budget replay
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -44,14 +44,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Bind exact source and V2.4 ancestry
+      - name: Bind exact source and V2.5 source ancestry
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$MATHLIB_SHA"
           test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
           test "$(cat lean-toolchain)" = "$LEAN_TOOLCHAIN"
-          git -C .aegis merge-base --is-ancestor "$BASE_V24_SHA" "$SOURCE_SHA"
+          git -C .aegis merge-base --is-ancestor "$BASE_V25_SOURCE_SHA" "$SOURCE_SHA"
           ROOT=.aegis/sovereign-omega-v2/formal/bridges/lean
           mkdir -p evidence .lake/build/lib/lean
           modules=(
@@ -74,6 +74,7 @@ jobs:
             WeilArchimedeanCothTailV1
             WeilWidthDiagonalArchFrontierV24
             WeilWidthArchCorrelationV25
+            WeilWidthArchBudgetV26
           )
           : > evidence/modules.txt
           : > evidence/exact-source.log
@@ -82,10 +83,10 @@ jobs:
             sha256sum "$m.lean" >> evidence/exact-source.log
             echo "$m" >> evidence/modules.txt
           done
-          cp .aegis/sovereign-omega-v2/formal/tests/lean/WeilWidthArchCorrelationV25Spec.lean .
-          sha256sum WeilWidthArchCorrelationV25Spec.lean >> evidence/exact-source.log
-          printf 'SOURCE_SHA=%s\nBASE_V24_SHA=%s\nMATHLIB_SHA=%s\nLEAN_TOOLCHAIN=%s\n' \
-            "$SOURCE_SHA" "$BASE_V24_SHA" "$MATHLIB_SHA" "$LEAN_TOOLCHAIN" >> evidence/exact-source.log
+          cp .aegis/sovereign-omega-v2/formal/tests/lean/WeilWidthArchBudgetV26Spec.lean .
+          sha256sum WeilWidthArchBudgetV26Spec.lean >> evidence/exact-source.log
+          printf 'SOURCE_SHA=%s\nBASE_V25_SOURCE_SHA=%s\nMATHLIB_SHA=%s\nLEAN_TOOLCHAIN=%s\n' \
+            "$SOURCE_SHA" "$BASE_V25_SOURCE_SHA" "$MATHLIB_SHA" "$LEAN_TOOLCHAIN" >> evidence/exact-source.log
 
       - name: Obtain exact Lean and dependencies
         shell: bash
@@ -103,35 +104,37 @@ jobs:
         run: |
           set -euo pipefail
           while IFS= read -r m; do
-            /usr/bin/time -v lake env lean -o ".lake/build/lib/lean/$m.olean" "$m.lean"               > "evidence/$m.log" 2> "evidence/$m.resources.log"
+            echo "=== COMPILE $m ==="
+            lake env lean -o ".lake/build/lib/lean/$m.olean" "$m.lean" 2>&1 |
+              tee "evidence/$m.log"
           done < evidence/modules.txt
-          lake env lean WeilWidthArchCorrelationV25Spec.lean \
-            2>&1 | tee evidence/arch-correlation-v25-spec.log
+          lake env lean WeilWidthArchBudgetV26Spec.lean \
+            2>&1 | tee evidence/arch-budget-v26-spec.log
 
-      - name: Audit V2.5 theorem surface
+      - name: Audit V2.6 theorem surface
         shell: bash
         run: |
           set -euo pipefail
-          cat > AuditArchCorrelationV25.lean <<'EOF'
-          import WeilWidthArchCorrelationV25
-          #print axioms AEGIS.WeilWidthArchCorrelationV25.logLift_sq_integrable_v25
-          #print axioms AEGIS.WeilWidthArchCorrelationV25.logCorrelation_eq_autocorrelation_v25
-          #print axioms AEGIS.WeilWidthArchCorrelationV25.norm_logCorrelation_le_energy_v25
-          #print axioms AEGIS.WeilWidthArchCorrelationV25.logCorrelation_zero_of_width_v25
+          cat > AuditArchBudgetV26.lean <<'EOF'
+          import WeilWidthArchBudgetV26
+          #print axioms AEGIS.WeilWidthArchBudgetV26.autocorrelation_exp_norm_le_v26
+          #print axioms AEGIS.WeilWidthArchBudgetV26.exp_mul_archimedean_re_eq_log_v26
+          #print axioms AEGIS.WeilWidthArchBudgetV26.width_arch_log_inner_pointwise_v26
+          #print axioms AEGIS.WeilWidthArchBudgetV26.width_arch_log_tail_eq_v26
           EOF
-          sed -i 's/^          //' AuditArchCorrelationV25.lean
-          lake env lean AuditArchCorrelationV25.lean 2>&1 | tee evidence/axioms-arch-correlation-v25.log
-          ! grep -F 'sorryAx' evidence/axioms-arch-correlation-v25.log
+          sed -i 's/^          //' AuditArchBudgetV26.lean
+          lake env lean AuditArchBudgetV26.lean 2>&1 | tee evidence/axioms-arch-budget-v26.log
+          ! grep -F 'sorryAx' evidence/axioms-arch-budget-v26.log
           python3 - <<'PY'
           from pathlib import Path
           import re
           names = [
-            'AEGIS.WeilWidthArchCorrelationV25.logLift_sq_integrable_v25',
-            'AEGIS.WeilWidthArchCorrelationV25.logCorrelation_eq_autocorrelation_v25',
-            'AEGIS.WeilWidthArchCorrelationV25.norm_logCorrelation_le_energy_v25',
-            'AEGIS.WeilWidthArchCorrelationV25.logCorrelation_zero_of_width_v25',
+            'AEGIS.WeilWidthArchBudgetV26.autocorrelation_exp_norm_le_v26',
+            'AEGIS.WeilWidthArchBudgetV26.exp_mul_archimedean_re_eq_log_v26',
+            'AEGIS.WeilWidthArchBudgetV26.width_arch_log_inner_pointwise_v26',
+            'AEGIS.WeilWidthArchBudgetV26.width_arch_log_tail_eq_v26',
           ]
-          log = Path('evidence/axioms-arch-correlation-v25.log').read_text()
+          log = Path('evidence/axioms-arch-budget-v26.log').read_text()
           allowed = {'propext','Classical.choice','Quot.sound'}
           for name in names:
             none = f"'{name}' does not depend on any axioms"
@@ -144,7 +147,7 @@ jobs:
               raise SystemExit('FAIL incomplete axiom output '+name)
             if not axioms <= allowed:
               raise SystemExit('FAIL unexpected axioms '+name+' '+repr(axioms))
-          print('PASS: width Arch correlation V2.5 theorem surface')
+          print('PASS: width Arch budget V2.6 theorem surface')
           PY
 
       - name: Emit bounded disposition
@@ -152,11 +155,11 @@ jobs:
         shell: bash
         run: |
           cat > evidence/DISPOSITION.txt <<EOF
-          BASE_V24_SHA=$BASE_V24_SHA
+          BASE_V25_SOURCE_SHA=$BASE_V25_SOURCE_SHA
           CANDIDATE_SHA=$SOURCE_SHA
-          LOG_CORRELATION_IDENTITY=TARGETED
-          LOG_CORRELATION_ENERGY_BOUND=TARGETED
-          WIDTH_CORRELATION_TAIL_VANISHING=TARGETED
+          ACTUAL_ARCH_LOG_IDENTITY=TARGETED
+          ACTUAL_ARCH_INNER_POINTWISE_BOUND=TARGETED
+          ACTUAL_ARCH_TAIL_IDENTITY=TARGETED
           ACTUAL_ARCHIMEDEAN_INTEGRAL_BUDGET=OPEN
           ANALYTIC_CROSS_TERM_MAJORANT_V1=OPEN
           GLOBAL_WEIL_POSITIVITY=OPEN
@@ -170,7 +173,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: weil-width-arch-correlation-v25-${{ env.SOURCE_SHA }}
+          name: weil-width-arch-budget-v26-${{ env.SOURCE_SHA }}
           path: evidence/
           if-no-files-found: warn
           retention-days: 30
