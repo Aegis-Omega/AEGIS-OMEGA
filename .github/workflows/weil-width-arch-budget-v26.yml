@@ -96,7 +96,7 @@ jobs:
           ./elan-init -y --default-toolchain none
           export PATH="$HOME/.elan/bin:$PATH"
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-          lake exe cache get             Mathlib/Analysis/MellinTransform.lean             Mathlib/NumberTheory/ArithmeticFunction/VonMangoldt.lean             Mathlib/NumberTheory/Harmonic/EulerMascheroni.lean             Mathlib/NumberTheory/LSeries/RiemannZeta.lean             Mathlib/Analysis/Complex/ExponentialBounds.lean             Mathlib/Analysis/Real/Pi/Bounds.lean             Mathlib/MeasureTheory/Function/JacobianOneDim.lean             Mathlib/MeasureTheory/Measure/Haar/Basic.lean             Mathlib/Analysis/SpecialFunctions/ImproperIntegrals.lean             Mathlib/Analysis/SpecialFunctions/Trigonometric/Basic.lean             Mathlib/Tactic.lean
+          lake exe cache get             Mathlib/Analysis/MellinTransform.lean             Mathlib/NumberTheory/ArithmeticFunction/VonMangoldt.lean             Mathlib/NumberTheory/Harmonic/EulerMascheroni.lean             Mathlib/NumberTheory/LSeries/RiemannZeta.lean             Mathlib/Analysis/Complex/ExponentialBounds.lean             Mathlib/Analysis/Real/Pi/Bounds.lean             Mathlib/MeasureTheory/Function/JacobianOneDim.lean             Mathlib/MeasureTheory/Measure/Haar/Basic.lean             Mathlib/Analysis/SpecialFunctions/ImproperIntegrals.lean             Mathlib/Analysis/SpecialFunctions/Trigonometric/Basic.lean             Mathlib/Analysis/SpecialFunctions/Trigonometric/DerivHyp.lean             Mathlib/Tactic.lean
           lean --version | tee evidence/lean-version.log
 
       - name: Compile exact module chain
