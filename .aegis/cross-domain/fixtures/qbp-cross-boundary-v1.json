@@ -223,6 +223,74 @@
         "current_pr423_head": "2d6289a9522cfafe0788a6a9d949c46d05fbd99a",
         "currentness": "HISTORICAL_EXACT_HEAD_ONLY"
       }
+    },
+    "quantum_aegisq_self_witness_20260918": {
+      "authority_effect": "NONE",
+      "quantum_dag": {
+        "sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054",
+        "status": "TYPED_EVIDENCE_GRAPH_SOURCE",
+        "self_qpp": {
+          "exact_execution_head": "6965e93bf892df556e86a07e12fddb540639125a",
+          "source_blob_sha": "815ddcd0a8f53926414ea400be2d428e53beab69",
+          "workflow": "Quantum Self-Witness-0",
+          "workflow_run": 33589633679,
+          "conclusion": "success",
+          "evidence_class": "SIMULATION"
+        },
+        "self_gpu": {
+          "status": "NOT_RUN",
+          "evidence_class": "SIMULATION"
+        },
+        "self_qpu": {
+          "status": "OUT_OF_SCOPE_FOR_V1",
+          "evidence_class": "EMPIRICAL"
+        },
+        "current_pr373_head": "7853f4e63029b24c987f9bdd2f58df8fcffa92d6",
+        "current_source_blob_matches_verified_head": true,
+        "current_head_delta_from_verified_execution_head": ".claude.json only",
+        "current_exact_head_execution_rebind": "NOT_PERFORMED"
+      },
+      "qpp_source_current_blob": {
+        "current_pr373_head": "7853f4e63029b24c987f9bdd2f58df8fcffa92d6",
+        "cudaq_self_witness_blob_sha": "815ddcd0a8f53926414ea400be2d428e53beab69",
+        "byte_preserved_from_6965_verified_head": true
+      },
+      "qp_pd_v2": {
+        "disposition_sha256": "6f8949bf327a80497948f0233587a38559169ed67a2cddd384754288ce71845a",
+        "experiment_spec_sha256": "26dc56aa43d9fca3054ab1c2c775b818e78bc3c1ee54f6be253495af0322bcd8",
+        "exact_head": "4626389c7866bc5faa2a21bb0f60fbd72329938a",
+        "workflow": "QP-PD V2 Biological Binding",
+        "workflow_run": 33846517090,
+        "conclusion": "success",
+        "empirical_run": "NOT_PERFORMED",
+        "nonclassical_photon_statistics": "NOT_ESTABLISHED",
+        "biological_predictive_value": "NOT_ESTABLISHED",
+        "authority_effect": "NONE"
+      },
+      "aegisq_ifg": {
+        "quantum_dag_sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054",
+        "exact_head": "6987c08e843af03a644114413ea3da9331c460f2",
+        "workflow": "AegisQ IFG Research Binding",
+        "workflow_run": 34059021835,
+        "conclusion": "success",
+        "result_scope": "PASS_RESEARCH_ONLY",
+        "clinical_admissible": false,
+        "causal_claim": "NOT_ESTABLISHED",
+        "predictive_validity": "NOT_ESTABLISHED_BY_NUMERICAL_CONSISTENCY",
+        "temporal_0_1ms_bound": "NOT_ESTABLISHED"
+      },
+      "aegisq_architecture": {
+        "exact_head_evidence_brief_sha256": "7f96ae3506fd8088409d4fb188d6b937913ecac9b0bf756829981e788f5a23e1",
+        "classification": "PROPOSED_ARCHITECTURE",
+        "predictive_gain_edge": "OPEN_EMPIRICAL_FLOW",
+        "required_evidence": "holdout calibration, -Q/classical-only ablations, OOS validation"
+      },
+      "quantumdna_gtg": {
+        "replay_sha256": "11178c3d7c792a3254a38599ae39011dc52068167bbdd20a96c049c6969c863e",
+        "evidence_class": "SIMULATION",
+        "physical_measurement": "NOT_ESTABLISHED",
+        "hbt_nonclassicality": "NOT_ESTABLISHED"
+      }
     }
   },
   "cases": [
@@ -1480,6 +1548,390 @@
           }
         ],
         "criterion_text": "Automaton-2 and Trusted Cognitive Admission at historical exact head dcbd6a31 establish the governed manifest transition only. The same package's Integration Ledger reports 0 WIRED and explicitly leaves execution unverified; cognitive admission is not runtime integration or production authority."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "QUANTUMDNA_GTG_REPLAY_TO_HBT_NONCLASSICAL_WITNESS",
+      "source": {
+        "claim_id": "GTG-GAMMA-0.1-NUMERICAL-REPLAY",
+        "coordinate": {
+          "domain_id": "bio/quantumdna",
+          "carrier_id": "numerical-simulation",
+          "scope_id": "GTG-gamma-0.1-6D-trajectory"
+        },
+        "status": "NUMERICAL_REPLAY_PASS",
+        "evidence_sha256": "11178c3d7c792a3254a38599ae39011dc52068167bbdd20a96c049c6969c863e"
+      },
+      "target": {
+        "claim_id": "BIO-SPONTANEOUS-NONCLASSICAL-HBT-WITNESS",
+        "coordinate": {
+          "domain_id": "bio/quantum-optics",
+          "carrier_id": "empirical-hbt-witness",
+          "scope_id": "corrected-g2-zero-less-than-one"
+        },
+        "status": "OPEN_EMPIRICAL_QUANTUM_WITNESS",
+        "evidence_sha256": "26dc56aa43d9fca3054ab1c2c775b818e78bc3c1ee54f6be253495af0322bcd8"
+      },
+      "criterion": {
+        "bridge_id": "QUANTUMDNA_SIMULATION_TO_EMPIRICAL_HBT_V1",
+        "allowed_source_statuses": [
+          "NUMERICAL_REPLAY_PASS"
+        ],
+        "allowed_target_statuses": [
+          "OPEN_EMPIRICAL_QUANTUM_WITNESS"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "genuine-raw-photon-acquisition",
+            "verifier_id": "HBT_RAW_PHOTON_ACQUISITION_V1"
+          },
+          {
+            "gate_id": "detector-calibration",
+            "verifier_id": "HBT_DETECTOR_CALIBRATION_V1"
+          },
+          {
+            "gate_id": "dark-deadtime-afterpulse-correction",
+            "verifier_id": "HBT_INSTRUMENT_CORRECTION_V1"
+          },
+          {
+            "gate_id": "predeclared-g2-estimator",
+            "verifier_id": "HBT_G2_ESTIMATOR_V1"
+          },
+          {
+            "gate_id": "confidence-bound-below-classical-threshold",
+            "verifier_id": "HBT_NONCLASSICAL_CONFIDENCE_BOUND_V1"
+          },
+          {
+            "gate_id": "independent-biological-replication",
+            "verifier_id": "HBT_INDEPENDENT_BIOLOGICAL_REPLICATION_V1"
+          }
+        ],
+        "criterion_text": "QuantumDNA/GTG simulation replay is simulation evidence only. A nonclassical biological photon claim requires genuine HBT acquisition, calibrated detector corrections, a preregistered g2 estimator, uncertainty bound, and independent biological replication."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "SELF_WITNESS_QPP_TO_NVIDIA_FP64_DIFFERENTIAL",
+      "source": {
+        "claim_id": "SELF-WITNESS-0-QPP-CPU",
+        "coordinate": {
+          "domain_id": "quantum/self-witness",
+          "carrier_id": "cudaq-qpp-cpu-analytic",
+          "scope_id": "seven-pauli-expectations"
+        },
+        "status": "MACHINE_VERIFIED_AT_6965_SOURCE_BYTES_PRESERVED",
+        "evidence_sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054"
+      },
+      "target": {
+        "claim_id": "SELF-WITNESS-0-NVIDIA-FP64-DIFFERENTIAL",
+        "coordinate": {
+          "domain_id": "quantum/self-witness",
+          "carrier_id": "cudaq-nvidia-fp64-statevector",
+          "scope_id": "qpp-vs-nvidia-differential"
+        },
+        "status": "NOT_RUN",
+        "evidence_sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054"
+      },
+      "criterion": {
+        "bridge_id": "SELF_WITNESS_QPP_TO_NVIDIA_FP64_V1",
+        "allowed_source_statuses": [
+          "MACHINE_VERIFIED_AT_6965_SOURCE_BYTES_PRESERVED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_RUN"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "nvidia-capable-runner",
+            "verifier_id": "SELF_WITNESS_NVIDIA_RUNNER_V1"
+          },
+          {
+            "gate_id": "exact-backend-fp64",
+            "verifier_id": "SELF_WITNESS_NVIDIA_FP64_BINDING_V1"
+          },
+          {
+            "gate_id": "same-kernel-and-theta-preimage",
+            "verifier_id": "SELF_WITNESS_CROSS_BACKEND_PREIMAGE_V1"
+          },
+          {
+            "gate_id": "differential-tolerance-check",
+            "verifier_id": "SELF_WITNESS_DIFFERENTIAL_TOLERANCE_V1"
+          },
+          {
+            "gate_id": "fresh-exact-head-rebind",
+            "verifier_id": "SELF_WITNESS_CURRENT_HEAD_REBIND_V1"
+          }
+        ],
+        "criterion_text": "Real qpp-cpu execution does not establish the NVIDIA fp64 differential. The verified execution is bound to historical head 6965..., current source bytes are preserved at PR #373 head 7853..., but no real NVIDIA-capable exact-head run has been performed."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "SELF_WITNESS_QPP_TO_PHYSICAL_QPU_STATISTICAL_WITNESS",
+      "source": {
+        "claim_id": "SELF-WITNESS-0-QPP-CPU",
+        "coordinate": {
+          "domain_id": "quantum/self-witness",
+          "carrier_id": "analytic-statevector",
+          "scope_id": "shots-minus-one-expectations"
+        },
+        "status": "ANALYTIC_QPP_EXECUTION_VERIFIED",
+        "evidence_sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054"
+      },
+      "target": {
+        "claim_id": "SELF-WITNESS-PHYSICAL-QPU",
+        "coordinate": {
+          "domain_id": "quantum/self-witness",
+          "carrier_id": "physical-qpu-statistical",
+          "scope_id": "shot-based-empirical-witness"
+        },
+        "status": "OUT_OF_SCOPE_FOR_V1",
+        "evidence_sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054"
+      },
+      "criterion": {
+        "bridge_id": "SELF_WITNESS_ANALYTIC_TO_PHYSICAL_QPU_V2",
+        "allowed_source_statuses": [
+          "ANALYTIC_QPP_EXECUTION_VERIFIED"
+        ],
+        "allowed_target_statuses": [
+          "OUT_OF_SCOPE_FOR_V1"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "physical-qpu-identity",
+            "verifier_id": "SELF_WITNESS_QPU_IDENTITY_V2"
+          },
+          {
+            "gate_id": "shot-count-lock",
+            "verifier_id": "SELF_WITNESS_SHOT_COUNT_V2"
+          },
+          {
+            "gate_id": "estimator-variance",
+            "verifier_id": "SELF_WITNESS_ESTIMATOR_VARIANCE_V2"
+          },
+          {
+            "gate_id": "confidence-interval",
+            "verifier_id": "SELF_WITNESS_CONFIDENCE_INTERVAL_V2"
+          },
+          {
+            "gate_id": "distributional-acceptance-test",
+            "verifier_id": "SELF_WITNESS_DISTRIBUTIONAL_ACCEPTANCE_V2"
+          },
+          {
+            "gate_id": "hardware-calibration-context",
+            "verifier_id": "SELF_WITNESS_HARDWARE_CALIBRATION_V2"
+          }
+        ],
+        "criterion_text": "Analytic statevector expectations with shots_count=-1 are not a physical-QPU witness. The PR explicitly requires a separate V2 statistical contract with shot count, estimator uncertainty, confidence intervals, and a distributional acceptance test."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "QP_PD_V2_BINDING_TO_BIOLOGICAL_NONCLASSICALITY",
+      "source": {
+        "claim_id": "QP-PD-V2-BIOLOGICAL-BINDING",
+        "coordinate": {
+          "domain_id": "bio/quanphotonic",
+          "carrier_id": "software-binding-and-schema",
+          "scope_id": "context-anti-splicing-v2"
+        },
+        "status": "RUNTIME_BINDING_MACHINE_VERIFIED",
+        "evidence_sha256": "6f8949bf327a80497948f0233587a38559169ed67a2cddd384754288ce71845a"
+      },
+      "target": {
+        "claim_id": "BIO-SPONTANEOUS-NONCLASSICAL-HBT-WITNESS",
+        "coordinate": {
+          "domain_id": "bio/quantum-optics",
+          "carrier_id": "empirical-hbt-witness",
+          "scope_id": "corrected-g2-zero-less-than-one"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "26dc56aa43d9fca3054ab1c2c775b818e78bc3c1ee54f6be253495af0322bcd8"
+      },
+      "criterion": {
+        "bridge_id": "QP_PD_SOFTWARE_BINDING_TO_NONCLASSICALITY_V1",
+        "allowed_source_statuses": [
+          "RUNTIME_BINDING_MACHINE_VERIFIED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "preregistration-lock",
+            "verifier_id": "QP_PD_PREREGISTRATION_LOCK_V1"
+          },
+          {
+            "gate_id": "genuine-calibration-receipt",
+            "verifier_id": "QP_PD_GENUINE_CALIBRATION_V1"
+          },
+          {
+            "gate_id": "genuine-detector-payload",
+            "verifier_id": "QP_PD_GENUINE_DETECTOR_PAYLOAD_V1"
+          },
+          {
+            "gate_id": "calibration-trust-root",
+            "verifier_id": "QP_PD_CALIBRATION_TRUST_ROOT_V1"
+          },
+          {
+            "gate_id": "hbt-correction-analysis",
+            "verifier_id": "QP_PD_HBT_CORRECTION_ANALYSIS_V1"
+          },
+          {
+            "gate_id": "independent-replication",
+            "verifier_id": "QP_PD_INDEPENDENT_REPLICATION_V1"
+          }
+        ],
+        "criterion_text": "QP-PD V2 proves fail-closed software binding and anti-splicing behavior. It does not establish a physical measurement, nonclassical biological photon statistics, Parkinson-specific UPE, or empirical observability gain."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "AEGISQ_RESEARCH_BINDING_TO_CLINICAL_CAUSAL_VALIDITY",
+      "source": {
+        "claim_id": "AEGISQ-IFG-RESEARCH-BINDING",
+        "coordinate": {
+          "domain_id": "aegisq",
+          "carrier_id": "signed-calibration-numerical-ifg",
+          "scope_id": "research-only-admission"
+        },
+        "status": "PASS_RESEARCH_ONLY",
+        "evidence_sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054"
+      },
+      "target": {
+        "claim_id": "AEGISQ-CLINICAL-CAUSAL-VALIDITY",
+        "coordinate": {
+          "domain_id": "aegisq",
+          "carrier_id": "clinical-causal-validation",
+          "scope_id": "patient-or-disease-level-claim"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "7f96ae3506fd8088409d4fb188d6b937913ecac9b0bf756829981e788f5a23e1"
+      },
+      "criterion": {
+        "bridge_id": "AEGISQ_RESEARCH_ONLY_TO_CLINICAL_CAUSAL_V1",
+        "allowed_source_statuses": [
+          "PASS_RESEARCH_ONLY"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "empirical-data-lineage",
+            "verifier_id": "AEGISQ_EMPIRICAL_DATA_LINEAGE_V1"
+          },
+          {
+            "gate_id": "out-of-sample-validation",
+            "verifier_id": "AEGISQ_OOS_VALIDATION_V1"
+          },
+          {
+            "gate_id": "classical-only-ablation",
+            "verifier_id": "AEGISQ_CLASSICAL_ONLY_ABLATION_V1"
+          },
+          {
+            "gate_id": "quantum-coordinate-ablation",
+            "verifier_id": "AEGISQ_Q_ABLATION_V1"
+          },
+          {
+            "gate_id": "causal-perturbation",
+            "verifier_id": "AEGISQ_CAUSAL_PERTURBATION_V1"
+          },
+          {
+            "gate_id": "independent-replication",
+            "verifier_id": "AEGISQ_INDEPENDENT_REPLICATION_V1"
+          },
+          {
+            "gate_id": "clinical-validation-design",
+            "verifier_id": "AEGISQ_CLINICAL_VALIDATION_V1"
+          }
+        ],
+        "criterion_text": "AegisQ exact-head research binding and numerical consistency are research-only. The PR explicitly keeps clinical_admissible=false and does not establish clinical accuracy, causality, predictive validity, or the proposed 0.1 ms bound."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "AEGISQ_ARCHITECTURE_TO_OOS_PREDICTIVE_GAIN",
+      "source": {
+        "claim_id": "AEGISQ-PHYSICS-CONSTRAINED-NETWORK",
+        "coordinate": {
+          "domain_id": "aegisq",
+          "carrier_id": "physics-constrained-architecture",
+          "scope_id": "multimodal-state-estimate"
+        },
+        "status": "PROPOSED_ARCHITECTURE",
+        "evidence_sha256": "7f96ae3506fd8088409d4fb188d6b937913ecac9b0bf756829981e788f5a23e1"
+      },
+      "target": {
+        "claim_id": "AEGISQ-OOS-PREDICTIVE-GAIN",
+        "coordinate": {
+          "domain_id": "aegisq",
+          "carrier_id": "empirical-predictive-performance",
+          "scope_id": "held-out-conditional-information"
+        },
+        "status": "OPEN_EMPIRICAL_FLOW",
+        "evidence_sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054"
+      },
+      "criterion": {
+        "bridge_id": "AEGISQ_ARCHITECTURE_TO_PREDICTIVE_GAIN_V1",
+        "allowed_source_statuses": [
+          "PROPOSED_ARCHITECTURE"
+        ],
+        "allowed_target_statuses": [
+          "OPEN_EMPIRICAL_FLOW"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "implemented-inference-path",
+            "verifier_id": "AEGISQ_IMPLEMENTED_INFERENCE_PATH_V1"
+          },
+          {
+            "gate_id": "holdout-calibration",
+            "verifier_id": "AEGISQ_HOLDOUT_CALIBRATION_V1"
+          },
+          {
+            "gate_id": "classical-only-ablation",
+            "verifier_id": "AEGISQ_CLASSICAL_ONLY_ABLATION_V1"
+          },
+          {
+            "gate_id": "minus-q-ablation",
+            "verifier_id": "AEGISQ_MINUS_Q_ABLATION_V1"
+          },
+          {
+            "gate_id": "oos-conditional-information",
+            "verifier_id": "AEGISQ_OOS_CONDITIONAL_INFORMATION_V1"
+          },
+          {
+            "gate_id": "independent-dataset-replication",
+            "verifier_id": "AEGISQ_INDEPENDENT_DATASET_REPLICATION_V1"
+          }
+        ],
+        "criterion_text": "The AegisQ network is a proposed physics-constrained architecture. Constraint satisfaction or an architecture diagram does not establish predictive validity; the typed DAG itself leaves the calibration-to-predictive-gain edge OPEN and requires holdout calibration, -Q/classical-only ablations, and OOS validation."
       },
       "expected_decision": "DENY",
       "expected_reason_codes": [

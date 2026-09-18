@@ -320,3 +320,72 @@ leaving the V1.1 gate schema and verifier registry unchanged.
 
 No user-supplied executable from this round was run. Archive and checksum validation,
 JSON/CSV comparison, and source inspection were read-only.
+
+## Quantum / AegisQ / Self-Witness expansion — 2026-09-18
+
+This expansion corrects an earlier omission: the quantum program is not represented by
+one generic simulation boundary. The corpus contains distinct Self-Witness, QuanPhotonic/
+QP-PD, AegisQ, and QuantumDNA surfaces with different evidence classes and independent
+promotion obligations.
+
+### Self-Witness-0
+
+PR #373's actual qpp-cpu implementation bytes are preserved at the current live head
+`7853f4e63029b24c987f9bdd2f58df8fcffa92d6`; the module blob remains
+`815ddcd0a8f53926414ea400be2d428e53beab69`, identical to the execution-bound
+head `6965e93bf892df556e86a07e12fddb540639125a`.
+
+The real Self-Witness workflow at 6965 succeeded, including qpp-cpu CUDA-Q execution.
+However:
+- NVIDIA fp64 differential execution is NOT_RUN;
+- physical QPU is OUT_OF_SCOPE_FOR_V1;
+- physical-QPU promotion requires a shot-based V2 statistical contract;
+- the current PR head has not received a fresh exact-head execution rebind.
+
+Therefore qpp-cpu analytic execution is retained as SIMULATION evidence and cannot
+promote either GPU differential closure or an EMPIRICAL physical-QPU witness.
+
+### QP-PD / QuanPhotonic
+
+PR #409 exact head `4626389c7866bc5faa2a21bb0f60fbd72329938a` has successful
+`QP-PD V2 Biological Binding` evidence for software-level context binding,
+anti-splicing, V2 receipt propagation, and schema/content-addressing behavior.
+
+Its own bounded disposition keeps:
+- empirical run NOT_PERFORMED;
+- genuine CalibrationReceipt/raw detector payload still required;
+- nonclassical biological photon statistics NOT_ESTABLISHED;
+- Parkinson-specific UPE NOT_ESTABLISHED;
+- biological predictive value and observability gain NOT_ESTABLISHED.
+
+Thus software binding -> HBT/nonclassicality is a separate empirical bridge.
+
+### AegisQ
+
+PR #420 exact head `6987c08e843af03a644114413ea3da9331c460f2` has a successful
+`AegisQ IFG Research Binding` run. Its own output is explicitly
+`PASS_RESEARCH_ONLY` with `clinical_admissible=false`; numerical consistency does
+not establish clinical accuracy, causality, predictive validity, or the proposed 0.1 ms bound.
+
+The independent typed quantum DAG also leaves
+`AQ_CALIBRATE -> AQ_PREDICTIVE_GAIN` OPEN and requires empirical holdout calibration,
+-Q/classical-only ablations, and out-of-sample validation. The exact-head evidence brief
+classifies the AegisQ network as PROPOSED ARCHITECTURE and states that architecture
+diagram != deployed system and constraint satisfaction != predictive validity.
+
+### QuantumDNA / GTG
+
+The existing GTG replay remains a 6D numerical simulation result, not physical measurement
+authority. This expansion adds the explicit missing bridge from a successful numerical
+trajectory replay to a genuine corrected HBT nonclassicality witness.
+
+New frozen cases:
+1. QuantumDNA/GTG replay -> empirical HBT nonclassicality;
+2. Self-Witness qpp-cpu -> NVIDIA fp64 differential;
+3. Self-Witness analytic execution -> physical QPU statistical witness;
+4. QP-PD V2 software binding -> biological nonclassicality;
+5. AegisQ research-only IFG binding -> clinical/causal validity;
+6. AegisQ architecture -> OOS predictive gain.
+
+No new domain verifier is registered by this transition. All six real cases must remain
+DENY until their criterion-pinned proof bundles exist.
