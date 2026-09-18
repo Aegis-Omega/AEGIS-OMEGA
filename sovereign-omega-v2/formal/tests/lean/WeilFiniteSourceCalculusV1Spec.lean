@@ -56,6 +56,7 @@ outside this slice.
 #check weil_arch_sine_kernel_integer_v1
 #check weil_arch_sine_kernel_dx_integer_v1
 #check weil_arch_sine_entry_cauchy_rank_two_v1
+#check weil_arch_sine_finite_quadratic_nonnegative_v1
 #check WeilCauchyFiniteQuadraticV1
 #check WeilCauchyMinusMomentV1
 #check WeilCauchyPlusMomentV1
