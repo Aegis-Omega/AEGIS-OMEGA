@@ -174,12 +174,29 @@ class WitnessFabricV1Tests(TestCase):
                 self.assertEqual(len(lines), 2)
                 self.assertEqual(lines[1]["prev_receipt_hash"], lines[0]["receipt_sha256"])
 
-                carrier = lines[0]["coding"]["field101"]["short_carrier"]
+                carrier = lines[0]["coding"]["short_carrier"]
+                self.assertGreaterEqual(len(carrier), 12)
+                self.assertIn("compact_fingerprint", lines[0]["coding"]["field101"])
                 resolution = fabric.resolve_carrier(carrier)
                 self.assertEqual(resolution["status"], "RESOLVED")
                 self.assertEqual(resolution["receipt_hashes"], [lines[0]["receipt_sha256"]])
             finally:
                 fabric.stop(timeout=2.0)
+
+    def test_short_carrier_is_cryptographic_locator_not_field101_fingerprint(self) -> None:
+        receipt = build_receipt(
+            kind="carrier_probe",
+            payload={"x": 1, "y": [2, 3]},
+            sequence=0,
+            prev_receipt_hash="0" * 64,
+            timestamp_ns=1,
+        )
+        carrier = receipt["coding"]["short_carrier"]
+        fingerprint = receipt["coding"]["field101"]["compact_fingerprint"]
+        self.assertGreaterEqual(len(carrier), 12)
+        self.assertNotEqual(carrier, fingerprint)
+        self.assertEqual(receipt["coding"]["carrier_role"], "LOOKUP_ONLY_NOT_PROOF")
+        self.assertEqual(receipt["coding"]["collision_policy"], "AMBIGUOUS_FAIL_CLOSED")
 
     def test_short_carrier_collision_is_ambiguous_not_silently_resolved(self) -> None:
         with tempfile.TemporaryDirectory() as td:
