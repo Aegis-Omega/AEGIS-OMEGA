@@ -11,6 +11,7 @@ open AEGIS.WeilWidthArchBudgetV26
 open AEGIS.WeilDiagonalKernelReductionV21
 open AEGIS.WeilWidthDiagonalArchFrontierV24
 open AEGIS.WeilWidthArchIntegralV27
+open AEGIS.WeilMixedAlgebraV2
 
 example (g : WeilCompactSmoothGV1) :
     (WeilArchimedeanIntegralV1 (WeilAutocorrelationV1 g)).re =
