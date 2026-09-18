@@ -6,6 +6,8 @@ on:
     paths:
       - 'sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockCrossPrimeV28.lean'
       - 'sovereign-omega-v2/formal/tests/lean/WeilThreeBlockCrossPrimeV28Spec.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockCrossPrimeWindowV29.lean'
+      - 'sovereign-omega-v2/formal/tests/lean/WeilThreeBlockCrossPrimeWindowV29Spec.lean'
       - '.github/workflows/weil-three-block-cross-prime-v28.yml'
   workflow_dispatch:
 
@@ -77,6 +79,7 @@ jobs:
             WeilWidthArchBudgetV26
             WeilWidthArchIntegralV27
             WeilThreeBlockCrossPrimeV28
+            WeilThreeBlockCrossPrimeWindowV29
           )
           : > evidence/modules.txt
           : > evidence/exact-source.log
@@ -87,6 +90,8 @@ jobs:
           done
           cp .aegis/sovereign-omega-v2/formal/tests/lean/WeilThreeBlockCrossPrimeV28Spec.lean .
           sha256sum WeilThreeBlockCrossPrimeV28Spec.lean >> evidence/exact-source.log
+          cp .aegis/sovereign-omega-v2/formal/tests/lean/WeilThreeBlockCrossPrimeWindowV29Spec.lean .
+          sha256sum WeilThreeBlockCrossPrimeWindowV29Spec.lean >> evidence/exact-source.log
           printf 'SOURCE_SHA=%s\nBASE_V27_SOURCE_SHA=%s\nMATHLIB_SHA=%s\nLEAN_TOOLCHAIN=%s\n' \
             "$SOURCE_SHA" "$BASE_V27_SOURCE_SHA" "$MATHLIB_SHA" "$LEAN_TOOLCHAIN" >> evidence/exact-source.log
 
@@ -112,19 +117,25 @@ jobs:
           done < evidence/modules.txt
           lake env lean WeilThreeBlockCrossPrimeV28Spec.lean \
             2>&1 | tee evidence/cross-prime-v28-spec.log
+          lake env lean WeilThreeBlockCrossPrimeWindowV29Spec.lean \
+            2>&1 | tee evidence/cross-prime-window-v29-spec.log
 
       - name: Audit V2.8 theorem surface
         shell: bash
         run: |
           set -euo pipefail
           cat > AuditCrossPrimeV28.lean <<'EOF'
-          import WeilThreeBlockCrossPrimeV28
+          import WeilThreeBlockCrossPrimeWindowV29
           #print axioms AEGIS.WeilThreeBlockCrossPrimeV28.logCross_eq_mixed_v28
           #print axioms AEGIS.WeilThreeBlockCrossPrimeV28.logCross_translate_eq_logCorrelation_v28
           #print axioms AEGIS.WeilThreeBlockCrossPrimeV28.exp_half_mul_mixed_translate_v28
           #print axioms AEGIS.WeilThreeBlockCrossPrimeV28.logCorrelation_zero_of_width_abs_v28
           #print axioms AEGIS.WeilThreeBlockCrossPrimeV28.mixed_translate_zero_of_width_v28
           #print axioms AEGIS.WeilThreeBlockCrossPrimeV28.mixed_translate_center_v28
+          #print axioms AEGIS.WeilThreeBlockCrossPrimeWindowV29.adjacent_mixed_nat_zero_v29
+          #print axioms AEGIS.WeilThreeBlockCrossPrimeWindowV29.adjacent_mixed_inv_nat_zero_v29
+          #print axioms AEGIS.WeilThreeBlockCrossPrimeWindowV29.outer_mixed_nat_zero_v29
+          #print axioms AEGIS.WeilThreeBlockCrossPrimeWindowV29.outer_mixed_inv_nat_zero_v29
           EOF
           sed -i 's/^          //' AuditCrossPrimeV28.lean
           lake env lean AuditCrossPrimeV28.lean 2>&1 | tee evidence/axioms-cross-prime-v28.log
@@ -139,6 +150,10 @@ jobs:
             'AEGIS.WeilThreeBlockCrossPrimeV28.logCorrelation_zero_of_width_abs_v28',
             'AEGIS.WeilThreeBlockCrossPrimeV28.mixed_translate_zero_of_width_v28',
             'AEGIS.WeilThreeBlockCrossPrimeV28.mixed_translate_center_v28',
+            'AEGIS.WeilThreeBlockCrossPrimeWindowV29.adjacent_mixed_nat_zero_v29',
+            'AEGIS.WeilThreeBlockCrossPrimeWindowV29.adjacent_mixed_inv_nat_zero_v29',
+            'AEGIS.WeilThreeBlockCrossPrimeWindowV29.outer_mixed_nat_zero_v29',
+            'AEGIS.WeilThreeBlockCrossPrimeWindowV29.outer_mixed_inv_nat_zero_v29',
           ]
           log = Path('evidence/axioms-cross-prime-v28.log').read_text()
           allowed = {'propext','Classical.choice','Quot.sound'}
@@ -153,7 +168,7 @@ jobs:
               raise SystemExit('FAIL incomplete axiom output '+name)
             if not axioms <= allowed:
               raise SystemExit('FAIL unexpected axioms '+name+' '+repr(axioms))
-          print('PASS: translated mixed cross V2.8 theorem surface')
+          print('PASS: translated mixed cross V2.8 + prime window V2.9 theorem surface')
           PY
 
       - name: Emit bounded disposition
@@ -166,6 +181,8 @@ jobs:
           TRANSLATED_MIXED_LOG_TRANSPORT=TARGETED
           TWO_SIDED_WIDTH_VANISHING=TARGETED
           TRANSLATED_MIXED_CENTER_VALUE=TARGETED
+          ADJACENT_PRIME_WINDOW=TARGETED
+          OUTER_PRIME_WINDOW=TARGETED
           ADJACENT_PRIME_SUM=OPEN
           OUTER_PRIME_SUM=OPEN
           CROSS_ARCHIMEDEAN_MAJORANT=OPEN
