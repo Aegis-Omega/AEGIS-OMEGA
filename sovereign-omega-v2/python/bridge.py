@@ -64,6 +64,8 @@ def _witness_public_status() -> dict:
         'terminal_hash': status['terminal_hash'],
         'blocked_reason': status['blocked_reason'],
         'tail_recovered': status['tail_recovered'],
+        'history_replay_verified': status['history_replay_verified'],
+        'recovered_receipts': status['recovered_receipts'],
         'authority_effect': status['authority_effect'],
     }
 
@@ -720,11 +722,15 @@ class BridgeHandler(BaseHTTPRequestHandler):
         elif self.path == '/claude/stream':
             # SSE streaming Claude endpoint.
             # Body: { "messages": [{role, content}], "model"?, "max_tokens"? }
+            import hashlib as _hl_stream
             import anth_client as _ac
 
             messages = data.get('messages', [])
             model = data.get('model', 'claude-opus-4-8')
             max_tokens = int(data.get('max_tokens', 2048))
+            witness_capture_limit = int(
+                os.environ.get('AEGIS_WITNESS_STREAM_CAPTURE_MAX_CHARS', '262144')
+            )
             live_state = _build_live_state_context()
             mc_context = _mc_recent_context(3)
             # Cache the stable constitutional prefix; keep per-request state in the
@@ -741,6 +747,10 @@ class BridgeHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
             try:
+                stream_parts: list[str] = []
+                stream_chars = 0
+                stream_capture_complete = True
+                stream_digest = _hl_stream.sha256()
                 _client = _ac.get_client()
                 with _client.messages.stream(
                     model=model,
@@ -752,6 +762,16 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     messages=messages,
                 ) as stream:
                     for text in stream.text_stream:
+                        encoded_text = text.encode('utf-8')
+                        stream_digest.update(encoded_text)
+                        next_chars = stream_chars + len(text)
+                        if stream_capture_complete and next_chars <= witness_capture_limit:
+                            stream_parts.append(text)
+                        elif stream_capture_complete:
+                            stream_capture_complete = False
+                            stream_parts.clear()
+                        stream_chars = next_chars
+
                         event = f'data: {json.dumps({"delta": text})}\n\n'
                         self.wfile.write(event.encode())
                         self.wfile.flush()
@@ -763,6 +783,46 @@ class BridgeHandler(BaseHTTPRequestHandler):
                         'CONSCIOUSNESS',
                         f'Stream conversation: "{last_user}" tokens={final.usage.input_tokens}+{final.usage.output_tokens}',
                         'T1',
+                    )
+                    stream_request_hash = _hl_stream.sha256(json.dumps(
+                        {'messages': messages, 'model': model}, sort_keys=True
+                    ).encode()).hexdigest()
+                    stream_response_utf8_sha256 = stream_digest.hexdigest()
+                    if stream_capture_complete:
+                        captured_response = ''.join(stream_parts)
+                        stream_witness_payload = {
+                            'messages': messages,
+                            'model': model,
+                            'response_text': captured_response,
+                            'request_hash': stream_request_hash,
+                            'response_utf8_sha256': stream_response_utf8_sha256,
+                            'response_chars': stream_chars,
+                            'capture_complete': True,
+                        }
+                        stream_meaning_claim = captured_response
+                    else:
+                        stream_witness_payload = {
+                            'request_hash': stream_request_hash,
+                            'model': model,
+                            'response_utf8_sha256': stream_response_utf8_sha256,
+                            'response_chars': stream_chars,
+                            'capture_complete': False,
+                            'capture_limit_chars': witness_capture_limit,
+                        }
+                        stream_meaning_claim = (
+                            f'stream response digest {stream_response_utf8_sha256}'
+                        )
+
+                    _witness_observe('claude_stream_response', stream_witness_payload,
+                        meaning={
+                            'ontology': 'AEGIS_MODEL_RESPONSE_V1',
+                            'claim': stream_meaning_claim,
+                            'context_refs': [stream_request_hash],
+                        },
+                        provenance={
+                            'source': 'bridge:/claude/stream',
+                            'model': model,
+                        },
                     )
                     done_event = f'data: {json.dumps({"done": True, "input_tokens": final.usage.input_tokens, "output_tokens": final.usage.output_tokens, "mc_chain_length": len(_metacognitive_chain), "mc_terminal_hash": mc_hash[-16:]})}\n\n'
                     self.wfile.write(done_event.encode())
