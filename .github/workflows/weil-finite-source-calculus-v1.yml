@@ -7,6 +7,7 @@ on:
       - 'sovereign-omega-v2/formal/bridges/lean/WeilArchSineKernelV1.lean'
       - 'sovereign-omega-v2/formal/bridges/lean/WeilArchSineKernelIntegerV1.lean'
       - 'sovereign-omega-v2/formal/bridges/lean/WeilArchFiniteQuadraticV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilArchTailIntegralV1.lean'
       - 'sovereign-omega-v2/formal/tests/lean/WeilFiniteSourceCalculusV1Spec.lean'
       - '.github/workflows/weil-finite-source-calculus-v1.yml'
   workflow_dispatch:
@@ -80,6 +81,9 @@ jobs:
           cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilArchFiniteQuadraticV1.lean .
           sha256sum WeilArchFiniteQuadraticV1.lean >> exact-source.log
           lake env lean -o .lake/build/lib/lean/WeilArchFiniteQuadraticV1.olean WeilArchFiniteQuadraticV1.lean 2>&1 | tee WeilArchFiniteQuadraticV1.log
+          cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilArchTailIntegralV1.lean .
+          sha256sum WeilArchTailIntegralV1.lean >> exact-source.log
+          lake env lean -o .lake/build/lib/lean/WeilArchTailIntegralV1.olean WeilArchTailIntegralV1.lean 2>&1 | tee WeilArchTailIntegralV1.log
           cp .aegis/sovereign-omega-v2/formal/tests/lean/WeilFiniteSourceCalculusV1Spec.lean .
           sha256sum WeilFiniteSourceCalculusV1Spec.lean >> exact-source.log
           lake env lean WeilFiniteSourceCalculusV1Spec.lean 2>&1 | tee WeilFiniteSourceCalculusV1Spec.log
@@ -90,7 +94,7 @@ jobs:
         run: |
           set -euo pipefail
           cat > WeilFiniteSourceCalculusAudit.lean <<'EOF'
-          import WeilArchFiniteQuadraticV1
+          import WeilArchTailIntegralV1
           #print axioms weil_single_frequency_source_offdiag_v1
           #print axioms weil_single_frequency_source_diagonal_v1
           #print axioms weil_single_frequency_source_calculus_v1
@@ -110,6 +114,7 @@ jobs:
           #print axioms weil_arch_scale_nonnegative_v1
           #print axioms weil_arch_finite_quadratic_nonnegative_v1
           #print axioms weil_arch_sine_finite_quadratic_nonnegative_v1
+          #print axioms weil_arch_weighted_tail_quadratic_nonnegative_v1
           EOF
           lake env lean WeilFiniteSourceCalculusAudit.lean 2>&1 | tee WeilFiniteSourceCalculusAudit.log
           ! grep -q sorryAx WeilFiniteSourceCalculusAudit.log
