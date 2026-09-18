@@ -144,6 +144,7 @@ theorem weil_fixed_line_laplace_mellin_product_integrable_v6
   unfold WeilFixedLineLaplaceKernelV6
   rw [norm_mul, weil_fixed_line_laplace_factor_norm_v6]
   dsimp [F, δ]
+  rw [neg_mul]
   exact le_of_eq (mul_comm _ _)
 
 /-- Fubini exchange for the fixed-line Laplace/Mellin kernel. -/
