@@ -33,6 +33,7 @@ open AEGIS.WeilThreeBlockTranslatedPacketsV22
 open AEGIS.WeilWidthArchBudgetV26
 open AEGIS.WeilDiagonalKernelReductionV21
 open AEGIS.WeilWidthDiagonalArchFrontierV24
+open AEGIS.WeilMixedAlgebraV2
 
 private def archLogComplexV27
     (g : WeilCompactSmoothGV1) (u : ℝ) : ℂ :=
@@ -56,19 +57,35 @@ theorem arch_log_complex_integrableOn_v27
     (integrableOn_comp_exp_Ioi
       (WeilArchimedeanIntegrandV1 (WeilAutocorrelationV1 g)) 0).2
       (by simpa using hbase)
-  simpa [archLogComplexV27] using hpull
+  change IntegrableOn
+    (fun u : ℝ => Real.exp u •
+      WeilArchimedeanIntegrandV1
+        (WeilAutocorrelationV1 g) (Real.exp u))
+    (Ioi (0 : ℝ))
+  exact hpull
 
 /-- The real transformed integrand from V2.6 is integrable on (0,∞). -/
 theorem width_arch_log_integrableOn_v27
     (g : WeilCompactSmoothGV1) :
     IntegrableOn (widthArchLogIntegrandV26 g) (Ioi (0 : ℝ)) := by
   have hcomplex := arch_log_complex_integrableOn_v27 g
-  have hreal := hcomplex.re
-  refine hreal.congr_fun ?_ measurableSet_Ioi
-  intro u hu
+  have hreal :
+      IntegrableOn (fun u : ℝ => (archLogComplexV27 g u).re)
+        (Ioi (0 : ℝ)) := hcomplex.re
+  refine hreal.congr ?_
+  filter_upwards [self_mem_ae_restrict measurableSet_Ioi] with u hu
   unfold archLogComplexV27
-  simpa [Complex.real_smul] using
-    (exp_mul_archimedean_re_eq_log_v26 g hu)
+  have hre :
+      (Real.exp u •
+        WeilArchimedeanIntegrandV1
+          (WeilAutocorrelationV1 g) (Real.exp u)).re =
+        Real.exp u *
+          (WeilArchimedeanIntegrandV1
+            (WeilAutocorrelationV1 g) (Real.exp u)).re := by
+    simp only [Complex.real_smul, Complex.mul_re,
+      Complex.ofReal_re, Complex.ofReal_im, zero_mul, sub_zero]
+  rw [hre]
+  exact exp_mul_archimedean_re_eq_log_v26 g hu
 
 /-- Exact x=exp(u) conversion for the real part of the actual repository
 Archimedean integral. -/
@@ -78,11 +95,10 @@ theorem archimedean_real_eq_log_integral_v27
       ∫ u in Ioi (0 : ℝ), widthArchLogIntegrandV26 g u := by
   let G : ℝ → ℂ :=
     WeilArchimedeanIntegrandV1 (WeilAutocorrelationV1 g)
-  have hcomplex : IntegrableOn
-      (fun u : ℝ => Real.exp u • G (Real.exp u))
-      (Ioi (0 : ℝ)) := by
-    simpa [G, archLogComplexV27] using
-      (arch_log_complex_integrableOn_v27 g)
+  have hcomplex := arch_log_complex_integrableOn_v27 g
+  change IntegrableOn
+    (fun u : ℝ => Real.exp u • G (Real.exp u))
+    (Ioi (0 : ℝ)) at hcomplex
   have hchange :
       (∫ u in Ioi (0 : ℝ), Real.exp u • G (Real.exp u)) =
         ∫ x in Ioi (1 : ℝ), G x := by
@@ -101,8 +117,17 @@ theorem archimedean_real_eq_log_integral_v27
           apply setIntegral_congr_fun measurableSet_Ioi
           intro u hu
           dsimp [G]
-          simpa [Complex.real_smul] using
-            (exp_mul_archimedean_re_eq_log_v26 g hu)
+          have hre :
+              (Real.exp u •
+                WeilArchimedeanIntegrandV1
+                  (WeilAutocorrelationV1 g) (Real.exp u)).re =
+                Real.exp u *
+                  (WeilArchimedeanIntegrandV1
+                    (WeilAutocorrelationV1 g) (Real.exp u)).re := by
+            simp only [Complex.real_smul, Complex.mul_re,
+              Complex.ofReal_re, Complex.ofReal_im, zero_mul, sub_zero]
+          rw [hre]
+          exact exp_mul_archimedean_re_eq_log_v26 g hu
 
 /-- Exact split of the transformed integral at the retained width 1/32. -/
 theorem width_arch_log_split_v27
@@ -123,6 +148,8 @@ theorem width_arch_log_split_v27
         (Ioi (1 / 32 : ℝ)) :=
     hfull.mono_set (by
       intro u hu
+      change (1 / 32 : ℝ) < u at hu
+      change (0 : ℝ) < u
       linarith)
   rw [← Set.Ioc_union_Ioi_eq_Ioi (by norm_num : (0 : ℝ) ≤ 1 / 32),
     setIntegral_union Set.Ioc_disjoint_Ioi_same measurableSet_Ioi hinner htail]
