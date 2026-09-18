@@ -520,3 +520,98 @@ theorem weil_arch_sine_entry_cauchy_rank_two_v1
           hmm hpm hmn' hpn hmnR]
 
 #print axioms weil_arch_sine_entry_cauchy_rank_two_v1
+
+
+/-- Finite quadratic contraction of the true Archimedean sine-source entry at
+one fixed spectral parameter T. -/
+def WeilArchFiniteQuadraticV1
+    (I : Finset ℤ) (L T : ℝ) (u : ℤ → ℝ) : ℝ :=
+  ∑ m ∈ I, ∑ n ∈ I,
+    u m * u n * WeilArchSineEntryV1 L T m n
+
+/-- At a fixed nonresonant T, the finite Archimedean quadratic is exactly the
+common scalar factor times the real rank-two Cauchy Gram quadratic. -/
+theorem weil_arch_finite_quadratic_scaled_cauchy_v1
+    (I : Finset ℤ) (L T : ℝ) (u : ℤ → ℝ)
+    (hL : L ≠ 0)
+    (hden : ∀ n ∈ I,
+      T ^ 2 - (WeilArchRhoV1 L * (n : ℝ)) ^ 2 ≠ 0) :
+    WeilArchFiniteQuadraticV1 I L T u =
+      WeilArchScaleV1 L T *
+        WeilCauchyFiniteQuadraticV1 I (WeilArchNodeV1 L T)
+          (fun n : ℤ => (n : ℝ)) u := by
+  unfold WeilArchFiniteQuadraticV1 WeilCauchyFiniteQuadraticV1
+  calc
+    (∑ m ∈ I, ∑ n ∈ I,
+      u m * u n * WeilArchSineEntryV1 L T m n) =
+        ∑ m ∈ I, ∑ n ∈ I,
+          u m * u n *
+            (WeilArchScaleV1 L T *
+              WeilCauchyRankTwoEntryV1
+                (WeilArchNodeV1 L T) (m : ℝ) (n : ℝ)) := by
+          apply Finset.sum_congr rfl
+          intro m hmI
+          apply Finset.sum_congr rfl
+          intro n hnI
+          rw [weil_arch_sine_entry_cauchy_rank_two_v1
+            L T m n hL (hden m hmI) (hden n hnI)]
+    _ = ∑ m ∈ I, ∑ n ∈ I,
+          WeilArchScaleV1 L T *
+            (u m * u n *
+              WeilCauchyRankTwoEntryV1
+                (WeilArchNodeV1 L T) (m : ℝ) (n : ℝ)) := by
+          apply Finset.sum_congr rfl
+          intro m hmI
+          apply Finset.sum_congr rfl
+          intro n hnI
+          ring
+    _ = WeilArchScaleV1 L T *
+          (∑ m ∈ I, ∑ n ∈ I,
+            u m * u n *
+              WeilCauchyRankTwoEntryV1
+                (WeilArchNodeV1 L T) (m : ℝ) (n : ℝ)) := by
+          simp_rw [← Finset.mul_sum]
+
+/-- For positive L, the scalar multiplying the Cauchy Gram kernel is
+nonnegative. -/
+theorem weil_arch_scale_nonnegative_v1
+    (L T : ℝ) (hL : 0 < L) :
+    0 ≤ WeilArchScaleV1 L T := by
+  have hrho : 0 < WeilArchRhoV1 L := by
+    unfold WeilArchRhoV1
+    positivity
+  unfold WeilArchScaleV1
+  exact div_nonneg
+    (mul_nonneg (by norm_num) (sq_nonneg (Real.sin (L * T / 2))))
+    (le_of_lt hrho)
+
+/-- Fixed-T finite-band Archimedean Gram positivity.  This is pointwise in T;
+it does not establish the subsequent continuous T-integral/operator-order
+statement. -/
+theorem weil_arch_finite_quadratic_nonnegative_v1
+    (I : Finset ℤ) (L T : ℝ) (u : ℤ → ℝ)
+    (hL : 0 < L)
+    (hden : ∀ n ∈ I,
+      T ^ 2 - (WeilArchRhoV1 L * (n : ℝ)) ^ 2 ≠ 0) :
+    0 ≤ WeilArchFiniteQuadraticV1 I L T u := by
+  rw [weil_arch_finite_quadratic_scaled_cauchy_v1
+    I L T u (ne_of_gt hL) hden]
+  exact mul_nonneg
+    (weil_arch_scale_nonnegative_v1 L T hL)
+    (weil_cauchy_finite_quadratic_nonnegative_v1
+      I (WeilArchNodeV1 L T) (fun n : ℤ => (n : ℝ)) u)
+
+/-- Compatibility name emphasizing the sine-source origin of the fixed-T
+quadratic. -/
+theorem weil_arch_sine_finite_quadratic_nonnegative_v1
+    (I : Finset ℤ) (L T : ℝ) (u : ℤ → ℝ)
+    (hL : 0 < L)
+    (hden : ∀ n ∈ I,
+      T ^ 2 - (WeilArchRhoV1 L * (n : ℝ)) ^ 2 ≠ 0) :
+    0 ≤ WeilArchFiniteQuadraticV1 I L T u :=
+  weil_arch_finite_quadratic_nonnegative_v1 I L T u hL hden
+
+#print axioms weil_arch_finite_quadratic_scaled_cauchy_v1
+#print axioms weil_arch_scale_nonnegative_v1
+#print axioms weil_arch_finite_quadratic_nonnegative_v1
+#print axioms weil_arch_sine_finite_quadratic_nonnegative_v1
