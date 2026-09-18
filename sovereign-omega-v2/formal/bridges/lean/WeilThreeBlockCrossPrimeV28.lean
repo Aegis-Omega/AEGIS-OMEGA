@@ -106,10 +106,8 @@ theorem logCross_translate_eq_logCorrelation_v28
         filter_upwards [] with v
         dsimp [F]
         congr 2
-        · congr 1
-          ring
-        · congr 2
-          ring
+        congr 1
+        ring
     _ = ∫ w : ℝ, F w := integral_add_right_eq_self F (-d2)
     _ = ∫ w : ℝ,
       logLift g.1 (w + (u + d2 - d1)) * conj (logLift g.1 w) := by
