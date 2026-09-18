@@ -105,7 +105,8 @@ jobs:
           while IFS= read -r m; do
             /usr/bin/time -v lake env lean -o ".lake/build/lib/lean/$m.olean" "$m.lean"               > "evidence/$m.log" 2> "evidence/$m.resources.log"
           done < evidence/modules.txt
-          lake env lean WeilWidthDiagonalArchFrontierV24Spec.lean             2>&1 | tee evidence/frontier-v24-spec.log
+          lake env lean WeilWidthArchCorrelationV25Spec.lean \
+            2>&1 | tee evidence/arch-correlation-v25-spec.log
 
       - name: Audit V2.5 theorem surface
         shell: bash
