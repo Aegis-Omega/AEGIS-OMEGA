@@ -238,6 +238,10 @@ theorem weil_fixed_line_laplace_mellin_right_v6
   rw [← integral_const_mul]
   apply setIntegral_congr_fun measurableSet_Ioi
   intro v hv
+  change
+    (1 / (2 * Real.pi) : ℂ) *
+        (∫ t : ℝ, WeilFixedLineLaplaceKernelV6 f c a (t, v)) =
+      Complex.exp (a * (v : ℂ)) * f.1 (Real.exp v)
   have hinter :
       (∫ t : ℝ,
         WeilFixedLineLaplaceKernelV6 f c a (t, v)) =
