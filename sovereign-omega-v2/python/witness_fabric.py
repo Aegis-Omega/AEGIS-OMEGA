@@ -110,12 +110,19 @@ def affine_combine(
     return ((le + lu * re) % FIELD_MODULUS, (lu * ru) % FIELD_MODULUS, ln + rn)
 
 
-def _short_carrier(coeffs: list[int]) -> str:
+def _field101_compact_fingerprint(coeffs: list[int]) -> str:
+    """Small algebraic fingerprint. Diagnostic only; collisions are expected."""
     e1 = field101_eval(coeffs, 1)
     e35 = field101_eval(coeffs, 35)
     e100 = field101_eval(coeffs, 100)
     n = len(coeffs) % FIELD_MODULUS
     return base64.urlsafe_b64encode(bytes((e1, e35, e100, n))).decode("ascii").rstrip("=")
+
+
+def _cryptographic_short_carrier(payload_sha256: str) -> str:
+    """72-bit locator derived from the payload digest; still not an authority proof."""
+    digest = bytes.fromhex(payload_sha256)
+    return base64.urlsafe_b64encode(digest[:9]).decode("ascii").rstrip("=")
 
 
 def _field101_projection(data: bytes) -> dict[str, Any]:
@@ -131,9 +138,8 @@ def _field101_projection(data: bytes) -> dict[str, Any]:
         "receipt_projection_reconstructs_source": False,
         "coefficient_count": len(coeffs),
         "affine_points": affine,
-        "short_carrier": _short_carrier(coeffs),
-        "carrier_role": "LOOKUP_ONLY_NOT_PROOF",
-        "collision_policy": "AMBIGUOUS_FAIL_CLOSED",
+        "compact_fingerprint": _field101_compact_fingerprint(coeffs),
+        "fingerprint_role": "ALGEBRAIC_DIAGNOSTIC_NOT_LOCATOR",
     }
 
 
@@ -328,6 +334,9 @@ def build_receipt(
             "sha256": payload_sha,
         },
         "coding": {
+            "short_carrier": _cryptographic_short_carrier(payload_sha),
+            "carrier_role": "LOOKUP_ONLY_NOT_PROOF",
+            "collision_policy": "AMBIGUOUS_FAIL_CLOSED",
             "field101": field,
             "abjad": abjad,
         },
@@ -486,7 +495,7 @@ class WitnessFabric:
             fh.flush()
 
     def _index(self, receipt: dict[str, Any]) -> None:
-        carrier = receipt["coding"]["field101"]["short_carrier"]
+        carrier = receipt["coding"]["short_carrier"]
         digest = receipt["receipt_sha256"]
         bucket = self._carrier_index.setdefault(carrier, [])
         if digest not in bucket:
