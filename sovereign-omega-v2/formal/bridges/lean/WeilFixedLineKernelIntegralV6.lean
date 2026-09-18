@@ -47,7 +47,6 @@ private theorem weil_fixed_line_laplace_factor_norm_v6
   rw [Complex.norm_exp]
   congr 1
   simp
-  ring
 
 /-- The fixed-line Cauchy kernel is a convergent Laplace integral. -/
 theorem weil_fixed_line_laplace_kernel_integral_v6
@@ -56,15 +55,23 @@ theorem weil_fixed_line_laplace_kernel_integral_v6
       Complex.exp
         (-((((c : ℂ) + (t : ℂ) * I) - a) * (v : ℂ)))) =
       1 / (((c : ℂ) + (t : ℂ) * I) - a) := by
-  let b : ℂ := -(((c : ℂ) + (t : ℂ) * I) - a)
-  have hb : b.re < 0 := by
-    dsimp [b]
+  have hb :
+      (-(((c : ℂ) + (t : ℂ) * I) - a)).re < 0 := by
     simp
     linarith
-  change (∫ v : ℝ in Ioi (0 : ℝ), Complex.exp (b * v)) =
-    1 / (((c : ℂ) + (t : ℂ) * I) - a)
+  rw [show
+      (fun v : ℝ =>
+        Complex.exp (-((((c : ℂ) + (t : ℂ) * I) - a) * (v : ℂ)))) =
+      (fun v : ℝ =>
+        Complex.exp
+          ((-(((c : ℂ) + (t : ℂ) * I) - a)) * (v : ℂ))) by
+        funext v
+        congr 1
+        ring]
   rw [integral_exp_mul_complex_Ioi hb 0]
-  simp [b]
+  simp
+  field_simp
+  ring
 
 private theorem weil_fixed_line_laplace_kernel_integrable_v6
     (c t : ℝ) (a : ℂ) (ha : a.re < c) :
@@ -73,12 +80,19 @@ private theorem weil_fixed_line_laplace_kernel_integrable_v6
         Complex.exp
           (-((((c : ℂ) + (t : ℂ) * I) - a) * (v : ℂ))))
       (Ioi (0 : ℝ)) := by
-  let b : ℂ := -(((c : ℂ) + (t : ℂ) * I) - a)
-  have hb : b.re < 0 := by
-    dsimp [b]
+  have hb :
+      (-(((c : ℂ) + (t : ℂ) * I) - a)).re < 0 := by
     simp
     linarith
-  change IntegrableOn (fun v : ℝ => Complex.exp (b * v)) (Ioi (0 : ℝ))
+  rw [show
+      (fun v : ℝ =>
+        Complex.exp (-((((c : ℂ) + (t : ℂ) * I) - a) * (v : ℂ)))) =
+      (fun v : ℝ =>
+        Complex.exp
+          ((-(((c : ℂ) + (t : ℂ) * I) - a)) * (v : ℂ))) by
+        funext v
+        congr 1
+        ring]
   exact integrableOn_exp_mul_complex_Ioi hb 0
 
 /-- Absolute product-integrability needed for the actual t/v Fubini swap. -/
@@ -125,7 +139,7 @@ theorem weil_fixed_line_laplace_mellin_product_integrable_v6
   unfold WeilFixedLineLaplaceKernelV6
   rw [norm_mul, weil_fixed_line_laplace_factor_norm_v6]
   dsimp [F, δ, WeilFixedLineMellinV6]
-  exact le_of_eq (mul_comm _ _)
+  simp [mul_comm]
 
 /-- Fubini exchange for the fixed-line Laplace/Mellin kernel. -/
 theorem weil_fixed_line_laplace_mellin_fubini_v6
@@ -156,7 +170,13 @@ theorem weil_fixed_line_laplace_mellin_left_v6
           WeilFixedLineMellinV6 f c t := by
   apply integral_congr_ae
   filter_upwards [] with t
-  unfold WeilFixedLineLaplaceKernelV6
+  change
+    (∫ v : ℝ in Ioi (0 : ℝ),
+      Complex.exp
+        (-((((c : ℂ) + (t : ℂ) * I) - a) * (v : ℂ))) *
+        WeilFixedLineMellinV6 f c t) =
+      (1 / (((c : ℂ) + (t : ℂ) * I) - a)) *
+        WeilFixedLineMellinV6 f c t
   rw [integral_mul_const]
   rw [weil_fixed_line_laplace_kernel_integral_v6 c t a ha]
 
@@ -232,6 +252,10 @@ theorem weil_fixed_line_laplace_mellin_right_v6
     unfold WeilFixedLineLaplaceKernelV6
     rw [weil_fixed_line_laplace_factor_split_v6]
     ring
+  change
+    (1 / (2 * Real.pi) : ℂ) *
+        (∫ t : ℝ, WeilFixedLineLaplaceKernelV6 f c a (t, v)) =
+      Complex.exp (a * (v : ℂ)) * f.1 (Real.exp v)
   rw [hinter]
   have hinv :=
     weil_compact_smooth_mellin_inversion_exp_line_v6 f c v
