@@ -117,17 +117,9 @@ theorem archimedean_real_eq_log_integral_v27
           apply setIntegral_congr_fun measurableSet_Ioi
           intro u hu
           dsimp [G]
-          have hre :
-              (Real.exp u •
-                WeilArchimedeanIntegrandV1
-                  (WeilAutocorrelationV1 g) (Real.exp u)).re =
-                Real.exp u *
-                  (WeilArchimedeanIntegrandV1
-                    (WeilAutocorrelationV1 g) (Real.exp u)).re := by
-            simp only [Complex.real_smul, Complex.mul_re,
-              Complex.ofReal_re, Complex.ofReal_im, zero_mul, sub_zero]
-          rw [hre]
-          exact exp_mul_archimedean_re_eq_log_v26 g hu
+          simpa only [Complex.mul_re, Complex.ofReal_re,
+            Complex.ofReal_im, zero_mul, sub_zero] using
+            (exp_mul_archimedean_re_eq_log_v26 g hu)
 
 /-- Exact split of the transformed integral at the retained width 1/32. -/
 theorem width_arch_log_split_v27
