@@ -36,7 +36,13 @@ def logCorrelationV25 (g : WeilCompactSmoothGV1) (u : ℝ) : ℂ :=
 private theorem logLift_continuous_v25 (g : WeilCompactSmoothGV1) :
     Continuous (logLift g.1) := by
   unfold logLift
-  fun_prop
+  have hscalar : Continuous (fun t : ℝ =>
+      (Real.exp (t / 2) : ℂ)) := by
+    fun_prop
+  have hpacket : Continuous (fun t : ℝ =>
+      g.1 (Real.exp t)) :=
+    g.2.1.continuous.comp Real.continuous_exp
+  exact hscalar.mul hpacket
 
 private theorem logLift_hasCompactSupport_v25 (g : WeilCompactSmoothGV1) :
     HasCompactSupport (logLift g.1) := by
@@ -72,7 +78,7 @@ theorem shifted_logLift_sq_integrable_v25
     (g : WeilCompactSmoothGV1) (u : ℝ) :
     Integrable (fun v : ℝ => ‖logLift g.1 (v + u)‖ ^ 2) := by
   have hc : Continuous (fun v : ℝ => ‖logLift g.1 (v + u)‖ ^ 2) := by
-    fun_prop
+    exact ((logLift_continuous_v25 g).comp (by fun_prop)).norm.pow 2
   let K : Set ℝ := (fun t : ℝ => t - u) '' tsupport (logLift g.1)
   have hK : IsCompact K :=
     (logLift_hasCompactSupport_v25 g).image (by fun_prop)
@@ -153,8 +159,21 @@ theorem logCorrelation_eq_autocorrelation_v25
     rw [← Real.exp_add, ← Real.exp_add]
     congr 1
     ring
-  rw [hscalar]
-  ring
+  calc
+    (Real.exp ((v + u) / 2) : ℂ) * g.1 (Real.exp (v + u)) *
+        ((Real.exp (v / 2) : ℂ) * conj (g.1 (Real.exp v)))
+        =
+      ((Real.exp ((v + u) / 2) : ℂ) *
+          (Real.exp (v / 2) : ℂ)) *
+        (g.1 (Real.exp (v + u)) * conj (g.1 (Real.exp v))) := by ring
+    _ =
+      ((Real.exp (u / 2) : ℂ) * (Real.exp v : ℂ)) *
+        (g.1 (Real.exp (v + u)) * conj (g.1 (Real.exp v))) := by
+          rw [← hscalar]
+    _ =
+      (Real.exp (u / 2) : ℂ) *
+        ((Real.exp v : ℂ) *
+          (g.1 (Real.exp (v + u)) * conj (g.1 (Real.exp v)))) := by ring
 
 /-- The L2 autocorrelation is bounded by the packet energy.  This uses only
 2ab <= a^2+b^2, avoiding any additional Hilbert-space API. -/
