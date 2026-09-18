@@ -2,6 +2,7 @@
 """AEGIS always-on witness fabric v1 contract tests."""
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import tempfile
@@ -224,8 +225,15 @@ class WitnessFabricV1Tests(TestCase):
             try:
                 status = second.status()
                 self.assertTrue(status["tail_recovered"])
+                self.assertTrue(status["history_replay_verified"])
+                self.assertEqual(status["recovered_receipts"], 2)
                 self.assertEqual(status["next_sequence"], 2)
                 self.assertEqual(status["terminal_hash"], before[-1]["receipt_sha256"])
+                old_carrier = before[0]["coding"]["short_carrier"]
+                self.assertEqual(
+                    second.resolve_carrier(old_carrier)["receipt_hashes"],
+                    [before[0]["receipt_sha256"]],
+                )
                 self.assertTrue(second.submit("three", {"n": 3}))
                 self.assertTrue(second.wait_idle(timeout=2.0))
             finally:
@@ -235,6 +243,60 @@ class WitnessFabricV1Tests(TestCase):
             self.assertEqual(len(after), 3)
             self.assertEqual(after[2]["sequence"], 2)
             self.assertEqual(after[2]["prev_receipt_hash"], before[-1]["receipt_sha256"])
+
+    def test_restart_replay_rejects_rehashed_but_broken_prev_link(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "witness.jsonl"
+            fabric = WitnessFabric(path=path, max_queue=8, recent_limit=8)
+            fabric.start()
+            try:
+                for n in range(3):
+                    self.assertTrue(fabric.submit("chain", {"n": n}))
+                self.assertTrue(fabric.wait_idle(timeout=2.0))
+            finally:
+                fabric.stop(timeout=2.0)
+
+            lines = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines()]
+            lines[1]["prev_receipt_hash"] = "f" * 64
+            body = dict(lines[1])
+            body.pop("receipt_sha256")
+            canonical = json.dumps(
+                body,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode("utf-8")
+            lines[1]["receipt_sha256"] = hashlib.sha256(canonical).hexdigest()
+            path.write_text(
+                "\n".join(
+                    json.dumps(x, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+                    for x in lines
+                ) + "\n",
+                encoding="utf-8",
+            )
+
+            replay = WitnessFabric(path=path, max_queue=8, recent_limit=8)
+            replay.start()
+            try:
+                status = replay.status()
+                self.assertFalse(status["continuity_intact"])
+                self.assertFalse(status["history_replay_verified"])
+                self.assertEqual(status["blocked_reason"], "PERSISTED_CHAIN_INVALID")
+                self.assertFalse(replay.submit("must-not-append", {"x": 1}))
+            finally:
+                replay.stop(timeout=2.0)
+
+    def test_structure_commitment_supports_non_string_python_keys(self) -> None:
+        receipt = build_receipt(
+            kind="python_mapping",
+            payload={1: {"nested": True}},
+            sequence=0,
+            prev_receipt_hash="0" * 64,
+            timestamp_ns=1,
+        )
+        self.assertTrue(receipt["structure"]["complete"])
+        self.assertEqual(receipt["structure"]["node_count"], 3)
 
     def test_bridge_wires_witness_as_default_background_lifecycle(self) -> None:
         bridge = (PYTHON_ROOT / "bridge.py").read_text(encoding="utf-8")
