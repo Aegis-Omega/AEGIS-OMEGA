@@ -47,6 +47,7 @@ private theorem nat_eq_two_of_log_window_v29
     Real.exp_log (by norm_num)
   rw [Real.exp_add, hlog2] at hup
   rw [sub_eq_add_neg, Real.exp_add, hlog2] at hlo
+  rw [Real.exp_log hmpos] at hup hlo
   have hlt3r : (m : ℝ) < 3 := by
     nlinarith [exp_one_div_32_lt]
   have hgt1r : (1 : ℝ) < (m : ℝ) := by
@@ -74,6 +75,7 @@ private theorem nat_eq_four_of_log_window_v29
     Real.exp_log (by norm_num)
   rw [Real.exp_add, hlog4] at hup
   rw [sub_eq_add_neg, Real.exp_add, hlog4] at hlo
+  rw [Real.exp_log hmpos] at hup hlo
   have hlt5r : (m : ℝ) < 5 := by
     nlinarith [exp_one_div_32_lt]
   have hgt3r : (3 : ℝ) < (m : ℝ) := by
