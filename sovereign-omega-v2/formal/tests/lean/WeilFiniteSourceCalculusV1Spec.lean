@@ -11,22 +11,27 @@ quadratic contraction with the Volterra sine-chord kernel, then extends by
 finite source superposition, full entry contraction, and the canonical prime
 evaluator specialization.
 
-The Archimedean lane now machine-binds the true source derivative, the exact
-nonresonant integer-node source/derivative formulas, and the exact pointwise
-entry identity
+The Archimedean lane now machine-binds the true source derivative, exact
+nonresonant integer-node source/derivative formulas, the exact pointwise entry
+identity
 
-  true Arch source entry = scale(L,T) * rank-two Cauchy entry.
+  true Arch source entry = scale(L,T) * rank-two Cauchy entry,
 
-The next bounded target is finite real Cauchy Gram algebra only. For the finite
-Galerkin band, the quadratic contraction of `WeilCauchyRankTwoEntryV1` must be
-exactly one half of the sum of the squares of the two finite Cauchy feature
-moments, and hence nonnegative. This is the real-carrier analogue of the
-abstract #322 rank-two Gram core; it is NOT yet the actual Archimedean tail
-integral and does not promote finite Galerkin PSD.
+and the finite real Cauchy Gram identity
 
-Continuous T-integration, positivity of the full Archimedean weight, tail
-operator order, formula-to-Weil operator identity, global Weil positivity, RH,
-repository admission, merge, and authority effects remain outside this slice.
+  Cauchy quadratic = 1/2 * (minusMoment^2 + plusMoment^2) >= 0.
+
+The next bounded target composes only those already-closed results.  On a
+finite Galerkin band with `0 < L` and nonresonance at every band index, the true
+Arch sine-source quadratic must equal `WeilArchScaleV1 L T` times the finite
+Cauchy quadratic, the scale must be nonnegative, and hence that pointwise
+source quadratic must be nonnegative.
+
+This is still pointwise in T and only for the true sine-source kernel.
+Continuous T-integration, the full Archimedean weight, tail operator order,
+finite Galerkin PSD promotion, formula-to-Weil operator identity, global Weil
+positivity, RH, repository admission, merge, and authority effects remain
+outside this slice.
 -/
 
 #check WeilSingleFrequencySourceV1
@@ -56,3 +61,7 @@ repository admission, merge, and authority effects remain outside this slice.
 #check WeilCauchyPlusMomentV1
 #check weil_cauchy_finite_quadratic_sum_squares_v1
 #check weil_cauchy_finite_quadratic_nonnegative_v1
+#check WeilArchFiniteQuadraticV1
+#check weil_arch_finite_quadratic_scaled_cauchy_v1
+#check weil_arch_scale_nonnegative_v1
+#check weil_arch_finite_quadratic_nonnegative_v1
