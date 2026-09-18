@@ -194,7 +194,7 @@ private theorem riemannXi_paired_kernel_product_integral_eventually_bound_v3
       ((hH.1.norm.const_mul (4 * (2 * c + 1))).fun_add
         (hH.2.1.const_mul 8)).fun_add
         (hH.2.2.const_mul (8 / δ))
-    simpa only [C] using hsum
+    simpa only [C, Pi.add_apply] using hsum
   have hCnonneg : ∀ t : ℝ, 0 ≤ C t := by
     intro t
     dsimp [C]
