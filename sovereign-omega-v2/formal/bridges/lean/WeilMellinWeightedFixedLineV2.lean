@@ -1,4 +1,4 @@
-import WeilPairedHadamardKernelTsumV2
+import WeilFixedLineFubiniCoreV3
 import Mathlib.Analysis.Distribution.SchwartzSpace.Fourier
 
 /-!
