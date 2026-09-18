@@ -252,3 +252,71 @@ actual uploaded `verification_receipt.json` SHA-256
 `cb9220d416d4ec28371fa0043f60d625ac82f681496011c12c4888c20e17c49c`.
 Its target now uses the QBP public-null verification receipt that explicitly records the
 GBA1/SPNS1 optical bridge as NOT_ESTABLISHED.
+
+## Uploaded corpus expansion round 2 — 2026-09-18
+
+The second uploaded bundle adds six non-redundant negative-control transitions while
+leaving the V1.1 gate schema and verifier registry unchanged.
+
+### New load-bearing boundaries
+
+1. **1BNA coordinates -> GTG model parameterization.**
+   The geometry benchmark is numerically bound to the supplied 1BNA coordinates,
+   but labels helical quantities as coordinate proxies, leaves hydrogen-bond
+   orientation unevaluated, and claims no biological mechanism. The GTG replay,
+   independently, verifies population/coherence agreement for a 6-site model but
+   explicitly excludes parameter regeneration and physical validation. A structure
+   -> Hamiltonian/dephasing bridge therefore remains open.
+
+2. **Numerical replay -> current source provenance.**
+   The GTG replay is internally consistent to its stated tolerance, but its declared
+   source commit `b0a840015f92f39ddae65beb7393bf2c91aa816e` still returns HTTP 422
+   on a fresh connected GitHub commit read. Reproducible arrays cannot manufacture
+   a currently addressable source commit.
+
+3. **Package replay -> scientific admission.**
+   `AEGIS_Claim_Validation_V3_package_check` covers its archive and passes packaged
+   tests plus optimized replay, while its fresh receipt explicitly records
+   `formal_kernel_executed=false`, `experimental_gate_evaluation_executed=false`,
+   `repository_requests_executed=false`, admission not established, and
+   `authority_effect=NONE`.
+
+4. **Unrelated upstream build -> uploaded Lean theorem.**
+   The supplied upstream build log ends with `Build completed successfully (8907 jobs)`
+   and names `FormalConjectures.Wikipedia.Transcendental` as its final target.
+   It does not bind the separately uploaded `AbjadFactorizationV1` or
+   `AegisModuloRingV1` bytes into that build graph. Both files are lexically
+   sorry-free and request `#print axioms`, but that is source evidence, not a
+   kernel replay.
+
+5. **Local source-slice replay -> deployed dispatch effect.**
+   PR #342's independent package is internally coherent: outer SHA256SUMS 29/29,
+   nested capsule manifest 33/33, candidate tests 40/40 under normal/-O/-OO,
+   original-source negative control fails 27/40 as expected, and 5/5 mutations are
+   detected. Its own receipt nevertheless states local source-slice scope,
+   `live_dispatch=false`, `remote_writes=0`, and `authority_effect=NONE`.
+   The live PR still points at the package source commit, but deployed effects remain
+   a distinct transition.
+
+6. **Cognitive admission -> runtime wiring.**
+   The historical PR #423 package for `dcbd6a31...` verifies Automaton-2 and
+   Trusted Cognitive Admission as ADMITTED. The same exact-candidate Integration
+   Ledger reports `0 WIRED · 22 LINKED · 6 DORMANT · 8 ORPHAN` and says execution
+   remains unverified. The current PR #423 head has since advanced to
+   `2d6289a9522cfafe0788a6a9d949c46d05fbd99a`, so the uploaded package is retained
+   only as historical exact-head evidence.
+
+### Supporting evidence retained without a new boundary class
+
+- The 1BNA residue hotspot map is structurally consistent with the geometry package
+  for the two directly comparable columns: 24/24 pair-contact values and 24/24
+  water-polar-contact counts match. Its diagnostic score remains a derived heuristic,
+  not biological validation.
+- The Coq census contains 36 rows: 33 marked closed under the global context, 3 not
+  closed; 32 rows are tagged AUTHORITY_ELIGIBLE and 4 DIAGNOSTIC_ONLY. Census status
+  does not discharge the already-frozen finite-to-global Weil/RH bridge.
+- `AegisModuloRingV1` is retained as a separately hashed Lean source candidate; the
+  existing source-to-kernel boundary class already covers its missing execution step.
+
+No user-supplied executable from this round was run. Archive and checksum validation,
+JSON/CSV comparison, and source inspection were read-only.

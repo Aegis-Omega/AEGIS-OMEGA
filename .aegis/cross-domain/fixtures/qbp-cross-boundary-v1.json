@@ -111,6 +111,118 @@
         "file_sha256": "1472c293c2aa9ff9ab24ea789dc88561f5c46e9e6d2c4929ec5cbc2056ce972b",
         "status": "DESCRIPTIVE_TYPED_SUPER_DAG_NO_AUTOMATIC_ADMIT"
       }
+    },
+    "uploaded_boundary_corpus_20260918_round2": {
+      "binding_method": "READ_ONLY_LOCAL_SHA256_MANIFEST_REPLAY_PLUS_LIVE_GITHUB_READS_WHERE_NOTED",
+      "authority_effect": "NONE",
+      "onebna_geometry_benchmark": {
+        "archive_sha256": "b5ee1f483082efcf933aafc53a95515e968f77d15a11c8fac7be48237e28aabb",
+        "benchmark_json_sha256": "57e349fd64494a6c7f575e82fcbdac148859ff73f3af34e51e34afb9e857fb90",
+        "source_pdb_sha256": "df42f1506792f191b957227b061360652adcf6f813eb69d9ec553067ea584670",
+        "pdb_id": "1BNA",
+        "method": "X-RAY DIFFRACTION",
+        "resolution_A": 1.9,
+        "coordinate_analysis": "VERIFIED_NUMERICALLY_FROM_ATTACHED_PDB",
+        "helical_parameters": "COORDINATE_PROXY_ONLY_NOT_3DNA_OR_CURVES_PLUS",
+        "hydrogen_bond_orientation": "NOT_EVALUATED",
+        "biological_mechanism": "NOT_CLAIMED",
+        "hotspot_map_sha256": "e20893c37cd00a293e0da2af74ebe743eebf232128b0c09819d0481e17c2ab48",
+        "hotspot_map_crosscheck": {
+          "pair_mean_contact_matches": "24/24",
+          "water_polar_contact_count_matches": "24/24",
+          "interpretation": "DERIVED_STRUCTURAL_HEURISTIC_ONLY_NOT_BIOLOGICAL_VALIDATION"
+        }
+      },
+      "gtg_gamma_0_1_replay": {
+        "replay_file_sha256": "11178c3d7c792a3254a38599ae39011dc52068167bbdd20a96c049c6969c863e",
+        "declared_archive_sha256": "9fab66d25ef7effa4756aca47903fb5eeb86833a50b529c5e6badb58640edd71",
+        "source_commit": "b0a840015f92f39ddae65beb7393bf2c91aa816e",
+        "source_npz_sha256": "fa8655632b5431750dc08e28109c4e1eeb1a263467a08a0ff73bf0ec42e30a1b",
+        "source_csv_sha256": "63200a2ed03c78c961e934456b630cd6e88a2d9e075cc0962db76969d0a9c007",
+        "model": "6-site one-hole ELM, local pure dephasing, no relaxation",
+        "dimension": 6,
+        "gamma": 0.1,
+        "replay_method": "Independent RK4 dt=0.005 fs 40000 steps",
+        "replay_pass": true,
+        "max_population_error": 1.1573693392552542e-12,
+        "max_coherence_error": 1.7168766408559577e-11,
+        "max_trace_error": 1.1435297153639112e-14,
+        "max_hermiticity_error": 0,
+        "tolerance": 1e-7,
+        "scope": "POPULATION_COHERENCE_AND_STATED_INVARIANTS_ONLY_NOT_PARAMETER_REGENERATION_OR_PHYSICAL_VALIDATION",
+        "model_boundary": "6D_ONE_HOLE_NOT_SEPARATE_37D_REFERENCE_MODEL",
+        "source_commit_live_recheck_20260918": "HTTP_422_NO_COMMIT_FOUND"
+      },
+      "claim_validation_v3_package_check": {
+        "file_sha256": "8e36a6cca29358cd5157e9dc453215d77922174149df0431b2d4f71f15f0b952",
+        "checked_archive_sha256": "074a936f23ac208019785aa7ccaa5c89c8e621ecf3e673b2d98179c8a696ae1b",
+        "manifest_members_verified": 56,
+        "manifest_covers_entire_archive": true,
+        "packaged_tests": "15/15 PASS",
+        "optimized_replay": "PASS",
+        "fresh_checks": 63,
+        "state": "PASS_PACKAGE_INTEGRITY_AND_REPLAY",
+        "formal_kernel_executed": false,
+        "experimental_gate_evaluation_executed": false,
+        "repository_requests_executed": false,
+        "admission": "NOT_ESTABLISHED_BY_THIS_REVIEW",
+        "authority_effect": "NONE"
+      },
+      "upstream_formal_conjectures_build": {
+        "log_sha256": "08169180cc2d1fb15554f8bddece73555609df7e180057eeb680937cfd60f198",
+        "terminal_result": "Build completed successfully (8907 jobs).",
+        "last_named_target": "FormalConjectures.Wikipedia.Transcendental",
+        "abjad_factorization_candidate_sha256": "db893663ba81e2741aebf2680f4562307900c893c46ee89f9092a27af2e374e3",
+        "aegis_modulo_ring_candidate_sha256": "0d45197842534307f2092ef17970c167df8fdd998d40b58819cf3331a8d6cb7d",
+        "candidates_lexically_sorry_free": true,
+        "candidates_emit_print_axioms_commands": true,
+        "candidate_in_build_graph": "NOT_ESTABLISHED_BY_LOG",
+        "candidate_kernel_replay": "NOT_ESTABLISHED_BY_LOG"
+      },
+      "coq_theorem_census": {
+        "file_sha256": "220f343bfbb17b72c10abd9345c81f5261563190c0d8f95b5a7e044c97597350",
+        "theorem_rows": 36,
+        "closed_under_global_context_true": 33,
+        "closed_under_global_context_false": 3,
+        "authority_eligible_rows": 32,
+        "diagnostic_only_rows": 4,
+        "interpretation": "CENSUS_METADATA_DOES_NOT_PROMOTE_CONDITIONAL_THEOREMS_OR_GLOBAL_RH_CLAIMS"
+      },
+      "pr342_independent_replay": {
+        "package_sha256": "640eca3da2b589609beafca48b13e46abc0d5963d330843be9315bc94267e79b",
+        "package_sha256s_verified": "29/29 PASS",
+        "replay_receipt_sha256": "dff13f84acb95e228ad7a8228f02d5180d8d2c5dc1fa26017b2c09315eebcf31",
+        "nested_capsule_sha256": "99482663305f0b66ceeab20d7dbbd9525dd99202ebc6678438a81eda8b27bb31",
+        "nested_manifest_verified": "33/33 PASS",
+        "patch_sha256": "0a8dfd8585487fbdbccc8d4bf097319b6ec86a1b4562c1427d0cc03161b56136",
+        "source_commit": "abb5aa9ea5410da8937c5ff6b605a4c259f5ed0d",
+        "current_pr342_head_matches_source_commit": true,
+        "candidate_tests_normal_O_OO": "40/40 PASS EACH",
+        "original_source_negative_control": "40 RUN 27 FAILURES EXPECTED",
+        "mutations_detected": "5/5",
+        "replay_scope": "LOCAL_SOURCE_SLICE_NOT_FULL_CHECKOUT_OR_DEPLOYED_SERVICE",
+        "live_dispatch": false,
+        "remote_writes": 0,
+        "authority_effect": "NONE"
+      },
+      "pr423_exact_head_historical_package": {
+        "package_sha256": "c093157323fea895831b6ee73689b182a60223eab518a92c1a1781515b56222c",
+        "package_sha256s_verified": "11/11 PASS",
+        "evidence_json_sha256": "4e61868cd55bd91bf1b17b68031281f77d960b702a2e77433cc83a7941a5d0d1",
+        "candidate_sha": "dcbd6a31980697c229874ecdee2be19e429019a1",
+        "candidate_tree_sha": "f5ce14b45adcc2124834fa3263a601453654e561",
+        "trusted_admission_receipt_sha256": "a7c89b29956db76dc2d0360df2e2a17017929efab4f00dee474f6a99f65985cc",
+        "automaton2_receipt_sha256": "64e7870fde2262f927449b8cafa27a1348b8f1de7ae85e88fc5a12f09f478185",
+        "integration_ledger_sha256": "638c236a07b8c49b303ae56bf9eb265461d371d011dd9b5f4271f852913fc044",
+        "trusted_cognitive_admission": "ADMITTED",
+        "automaton_2": "ADMITTED",
+        "integration_ledger": "0 WIRED 22 LINKED 6 DORMANT 8 ORPHAN",
+        "production_admission": "NOT_CLAIMED",
+        "deployment": "NOT_AUTHORIZED",
+        "authority_effect": "NONE",
+        "current_pr423_head": "2d6289a9522cfafe0788a6a9d949c46d05fbd99a",
+        "currentness": "HISTORICAL_EXACT_HEAD_ONLY"
+      }
     }
   },
   "cases": [
@@ -1008,6 +1120,366 @@
           }
         ],
         "criterion_text": "A typed architecture DAG and verified witnesses produce candidates only; action authority remains a separate operator-governed admission transition and is never automatic."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "ONEBNA_GEOMETRY_TO_GTG_PARAMETERIZATION",
+      "source": {
+        "claim_id": "1BNA-GEOMETRY-BENCHMARK",
+        "coordinate": {
+          "domain_id": "bio/1bna-geometry",
+          "carrier_id": "xray-coordinate-analysis",
+          "scope_id": "1BNA-coordinate-proxies"
+        },
+        "status": "COORDINATE_ANALYSIS_VERIFIED_NUMERICALLY",
+        "evidence_sha256": "57e349fd64494a6c7f575e82fcbdac148859ff73f3af34e51e34afb9e857fb90"
+      },
+      "target": {
+        "claim_id": "GTG-ELM-PARAMETERIZATION-FROM-1BNA",
+        "coordinate": {
+          "domain_id": "bio/quantumdna",
+          "carrier_id": "open-system-simulation",
+          "scope_id": "GTG-gamma-0.1-6D-parameterization"
+        },
+        "status": "PARAMETERIZATION_CORRESPONDENCE_NOT_ESTABLISHED",
+        "evidence_sha256": "11178c3d7c792a3254a38599ae39011dc52068167bbdd20a96c049c6969c863e"
+      },
+      "criterion": {
+        "bridge_id": "ONEBNA_GEOMETRY_TO_GTG_MODEL_PARAMETERIZATION_V1",
+        "allowed_source_statuses": [
+          "COORDINATE_ANALYSIS_VERIFIED_NUMERICALLY"
+        ],
+        "allowed_target_statuses": [
+          "PARAMETERIZATION_CORRESPONDENCE_NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "residue-to-site-mapping",
+            "verifier_id": "ONEBNA_GTG_RESIDUE_SITE_MAPPING_V1"
+          },
+          {
+            "gate_id": "hamiltonian-parameter-derivation",
+            "verifier_id": "ONEBNA_GTG_HAMILTONIAN_DERIVATION_V1"
+          },
+          {
+            "gate_id": "dephasing-parameter-calibration",
+            "verifier_id": "ONEBNA_GTG_DEPHASING_CALIBRATION_V1"
+          },
+          {
+            "gate_id": "structure-to-model-uncertainty",
+            "verifier_id": "ONEBNA_GTG_MODEL_UNCERTAINTY_V1"
+          },
+          {
+            "gate_id": "parameter-regeneration-replay",
+            "verifier_id": "ONEBNA_GTG_PARAMETER_REGENERATION_V1"
+          },
+          {
+            "gate_id": "independent-cross-model-validation",
+            "verifier_id": "ONEBNA_GTG_INDEPENDENT_VALIDATION_V1"
+          }
+        ],
+        "criterion_text": "Numerically verified 1BNA coordinate proxies do not establish how the 6-site GTG Hamiltonian or gamma=0.1 parameters were derived. The uploaded GTG replay explicitly excludes parameter regeneration and physical validation."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "GTG_REPLAY_TO_CURRENT_SOURCE_PROVENANCE",
+      "source": {
+        "claim_id": "GTG-GAMMA-0.1-NUMERICAL-REPLAY",
+        "coordinate": {
+          "domain_id": "bio/quantumdna",
+          "carrier_id": "numerical-replay",
+          "scope_id": "GTG-gamma-0.1-population-coherence"
+        },
+        "status": "NUMERICAL_REPLAY_PASS",
+        "evidence_sha256": "11178c3d7c792a3254a38599ae39011dc52068167bbdd20a96c049c6969c863e"
+      },
+      "target": {
+        "claim_id": "GTG-SOURCE-COMMIT-CURRENT-PROVENANCE",
+        "coordinate": {
+          "domain_id": "provenance/github",
+          "carrier_id": "commit-addressability",
+          "scope_id": "b0a840-source-binding"
+        },
+        "status": "SOURCE_COMMIT_UNRESOLVED_CURRENTLY",
+        "evidence_sha256": "8e36a6cca29358cd5157e9dc453215d77922174149df0431b2d4f71f15f0b952"
+      },
+      "criterion": {
+        "bridge_id": "NUMERICAL_REPLAY_TO_CURRENT_SOURCE_PROVENANCE_V1",
+        "allowed_source_statuses": [
+          "NUMERICAL_REPLAY_PASS"
+        ],
+        "allowed_target_statuses": [
+          "SOURCE_COMMIT_UNRESOLVED_CURRENTLY"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "current-commit-addressability",
+            "verifier_id": "GTG_CURRENT_COMMIT_ADDRESSABILITY_V1"
+          },
+          {
+            "gate_id": "source-blob-binding",
+            "verifier_id": "GTG_SOURCE_BLOB_BINDING_V1"
+          },
+          {
+            "gate_id": "artifact-path-binding",
+            "verifier_id": "GTG_ARTIFACT_PATH_BINDING_V1"
+          },
+          {
+            "gate_id": "source-to-artifact-regeneration",
+            "verifier_id": "GTG_SOURCE_ARTIFACT_REGENERATION_V1"
+          }
+        ],
+        "criterion_text": "A numerically accurate replay of archived arrays does not establish current repository provenance. The declared source commit b0a840... still returns no commit on a fresh GitHub read, so source identity must remain separate from replay correctness."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "CLAIM_VALIDATION_REPLAY_TO_SCIENTIFIC_ADMISSION",
+      "source": {
+        "claim_id": "AEGIS-CLAIM-VALIDATION-V3-REPLAY",
+        "coordinate": {
+          "domain_id": "validation/claims",
+          "carrier_id": "package-integrity-replay",
+          "scope_id": "v3-heterogeneous-claim-corpus"
+        },
+        "status": "PASS_PACKAGE_INTEGRITY_AND_REPLAY",
+        "evidence_sha256": "8e36a6cca29358cd5157e9dc453215d77922174149df0431b2d4f71f15f0b952"
+      },
+      "target": {
+        "claim_id": "AEGIS-CLAIM-VALIDATION-V3-ADMISSION",
+        "coordinate": {
+          "domain_id": "validation/claims",
+          "carrier_id": "scientific-admission",
+          "scope_id": "v3-claim-authority"
+        },
+        "status": "ADMISSION_NOT_ESTABLISHED",
+        "evidence_sha256": "8e36a6cca29358cd5157e9dc453215d77922174149df0431b2d4f71f15f0b952"
+      },
+      "criterion": {
+        "bridge_id": "PACKAGE_REPLAY_TO_SCIENTIFIC_ADMISSION_V1",
+        "allowed_source_statuses": [
+          "PASS_PACKAGE_INTEGRITY_AND_REPLAY"
+        ],
+        "allowed_target_statuses": [
+          "ADMISSION_NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "formal-kernel-execution",
+            "verifier_id": "CLAIM_V3_FORMAL_KERNEL_EXECUTION_V1"
+          },
+          {
+            "gate_id": "experimental-gate-execution",
+            "verifier_id": "CLAIM_V3_EXPERIMENTAL_GATE_EXECUTION_V1"
+          },
+          {
+            "gate_id": "repository-currentness",
+            "verifier_id": "CLAIM_V3_REPOSITORY_CURRENTNESS_V1"
+          },
+          {
+            "gate_id": "evidence-class-specific-admission",
+            "verifier_id": "CLAIM_V3_EVIDENCE_CLASS_ADMISSION_V1"
+          }
+        ],
+        "criterion_text": "Package integrity, optimized replay and 63 internal checks establish replay behavior only. The receipt itself records formal kernel execution=false, experimental gate evaluation=false, repository requests=false, admission not established, and authority_effect=NONE."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "UPSTREAM_BUILD_TO_ABJAD_FACTORIZATION_KERNEL",
+      "source": {
+        "claim_id": "FORMAL-CONJECTURES-UPSTREAM-BUILD",
+        "coordinate": {
+          "domain_id": "formal/formal-conjectures",
+          "carrier_id": "upstream-build-log",
+          "scope_id": "8907-job-build"
+        },
+        "status": "UPSTREAM_BUILD_SUCCESS",
+        "evidence_sha256": "08169180cc2d1fb15554f8bddece73555609df7e180057eeb680937cfd60f198"
+      },
+      "target": {
+        "claim_id": "ABJAD-FACTORIZATION-V1-KERNEL-STATUS",
+        "coordinate": {
+          "domain_id": "formal/abjad",
+          "carrier_id": "lean-kernel-proof",
+          "scope_id": "vonMangoldt-factorization-obstruction"
+        },
+        "status": "KERNEL_REPLAY_NOT_BOUND_TO_LOG",
+        "evidence_sha256": "db893663ba81e2741aebf2680f4562307900c893c46ee89f9092a27af2e374e3"
+      },
+      "criterion": {
+        "bridge_id": "UPSTREAM_BUILD_TO_UPLOADED_LEAN_CANDIDATE_V1",
+        "allowed_source_statuses": [
+          "UPSTREAM_BUILD_SUCCESS"
+        ],
+        "allowed_target_statuses": [
+          "KERNEL_REPLAY_NOT_BOUND_TO_LOG"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "candidate-in-build-graph",
+            "verifier_id": "ABJAD_FACTORIZATION_BUILD_GRAPH_BINDING_V1"
+          },
+          {
+            "gate_id": "lean-toolchain-binding",
+            "verifier_id": "ABJAD_FACTORIZATION_LEAN_TOOLCHAIN_V1"
+          },
+          {
+            "gate_id": "candidate-kernel-compilation",
+            "verifier_id": "ABJAD_FACTORIZATION_KERNEL_COMPILE_V1"
+          },
+          {
+            "gate_id": "axiom-output-capture",
+            "verifier_id": "ABJAD_FACTORIZATION_AXIOM_CAPTURE_V1"
+          },
+          {
+            "gate_id": "sorry-free-kernel-check",
+            "verifier_id": "ABJAD_FACTORIZATION_SORRY_FREE_KERNEL_V1"
+          }
+        ],
+        "criterion_text": "A successful 8907-job upstream FormalConjectures build cannot verify a separately uploaded Lean file unless that exact candidate is in the build graph and its own kernel/axiom evidence is captured."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "PR342_LOCAL_REPLAY_TO_DEPLOYED_DISPATCH_EFFECT",
+      "source": {
+        "claim_id": "PR342-INDEPENDENT-LOCAL-REPLAY",
+        "coordinate": {
+          "domain_id": "runtime/dispatch",
+          "carrier_id": "local-source-slice-replay",
+          "scope_id": "pr342-request-isolation-fix"
+        },
+        "status": "LOCAL_CORRECTION_REPLAY_VERIFIED",
+        "evidence_sha256": "dff13f84acb95e228ad7a8228f02d5180d8d2c5dc1fa26017b2c09315eebcf31"
+      },
+      "target": {
+        "claim_id": "PR342-DEPLOYED-DISPATCH-EXTERNAL-EFFECT",
+        "coordinate": {
+          "domain_id": "runtime/dispatch",
+          "carrier_id": "deployed-external-effect",
+          "scope_id": "live-agent-dispatch"
+        },
+        "status": "DEPLOYED_EXTERNAL_EFFECT_NOT_ESTABLISHED",
+        "evidence_sha256": "640eca3da2b589609beafca48b13e46abc0d5963d330843be9315bc94267e79b"
+      },
+      "criterion": {
+        "bridge_id": "LOCAL_SLICE_REPLAY_TO_DEPLOYED_DISPATCH_EFFECT_V1",
+        "allowed_source_statuses": [
+          "LOCAL_CORRECTION_REPLAY_VERIFIED"
+        ],
+        "allowed_target_statuses": [
+          "DEPLOYED_EXTERNAL_EFFECT_NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "complete-integrated-candidate",
+            "verifier_id": "PR342_COMPLETE_INTEGRATED_CANDIDATE_V1"
+          },
+          {
+            "gate_id": "deployed-service-import",
+            "verifier_id": "PR342_DEPLOYED_SERVICE_IMPORT_V1"
+          },
+          {
+            "gate_id": "live-dispatch-receipt",
+            "verifier_id": "PR342_LIVE_DISPATCH_RECEIPT_V1"
+          },
+          {
+            "gate_id": "external-effect-verification",
+            "verifier_id": "PR342_EXTERNAL_EFFECT_VERIFICATION_V1"
+          },
+          {
+            "gate_id": "failure-journaling",
+            "verifier_id": "PR342_FAILURE_JOURNALING_V1"
+          },
+          {
+            "gate_id": "single-writer-exclusion",
+            "verifier_id": "PR342_SINGLE_WRITER_EXCLUSION_V1"
+          }
+        ],
+        "criterion_text": "40/40 local tests under normal/-O/-OO, a source-slice apply replay, and 5/5 detected mutations do not establish deployed-service behavior or any external dispatch effect. The independent receipt records live_dispatch=false, remote_writes=0 and authority_effect=NONE."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "PR423_COGNITIVE_ADMISSION_TO_RUNTIME_WIRING",
+      "source": {
+        "claim_id": "PR423-COGNITIVE-ADMISSION-DCBD6A31",
+        "coordinate": {
+          "domain_id": "governance/cognition",
+          "carrier_id": "exact-head-admission",
+          "scope_id": "dcbd6a31-manifest-transition"
+        },
+        "status": "HISTORICAL_EXACT_HEAD_COGNITIVE_ADMITTED",
+        "evidence_sha256": "a7c89b29956db76dc2d0360df2e2a17017929efab4f00dee474f6a99f65985cc"
+      },
+      "target": {
+        "claim_id": "PR423-RUNTIME-INTEGRATION-WIRING-DCBD6A31",
+        "coordinate": {
+          "domain_id": "governance/integration",
+          "carrier_id": "runtime-wiring",
+          "scope_id": "dcbd6a31-top-level-areas"
+        },
+        "status": "WIRED_0_EXECUTION_UNVERIFIED",
+        "evidence_sha256": "638c236a07b8c49b303ae56bf9eb265461d371d011dd9b5f4271f852913fc044"
+      },
+      "criterion": {
+        "bridge_id": "COGNITIVE_ADMISSION_TO_RUNTIME_WIRING_V1",
+        "allowed_source_statuses": [
+          "HISTORICAL_EXACT_HEAD_COGNITIVE_ADMITTED"
+        ],
+        "allowed_target_statuses": [
+          "WIRED_0_EXECUTION_UNVERIFIED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "runtime-reachability",
+            "verifier_id": "PR423_RUNTIME_REACHABILITY_V1"
+          },
+          {
+            "gate_id": "executable-integration-test",
+            "verifier_id": "PR423_EXECUTABLE_INTEGRATION_V1"
+          },
+          {
+            "gate_id": "live-dependency-resolution",
+            "verifier_id": "PR423_LIVE_DEPENDENCY_RESOLUTION_V1"
+          },
+          {
+            "gate_id": "production-admission",
+            "verifier_id": "PR423_PRODUCTION_ADMISSION_V1"
+          },
+          {
+            "gate_id": "operator-activation",
+            "verifier_id": "PR423_OPERATOR_ACTIVATION_V1"
+          }
+        ],
+        "criterion_text": "Automaton-2 and Trusted Cognitive Admission at historical exact head dcbd6a31 establish the governed manifest transition only. The same package's Integration Ledger reports 0 WIRED and explicitly leaves execution unverified; cognitive admission is not runtime integration or production authority."
       },
       "expected_decision": "DENY",
       "expected_reason_codes": [
