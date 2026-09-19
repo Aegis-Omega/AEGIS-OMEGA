@@ -1,0 +1,53 @@
+{
+  "acceptance_margin": {
+    "contract_tolerance_divided_by_largest_observed_internal_delta": 11258999068.42624,
+    "order_of_magnitude": 10.05149978319906
+  },
+  "analytic_sensitivity_bound": {
+    "X0X1X2X3": "|delta observable| <= sum_{k=0..7} |delta theta_k|",
+    "Z_i": "|delta observable| <= |delta theta_i|",
+    "Z_iZ_j": "|delta observable| <= |delta theta_i| + |delta theta_j|",
+    "worst_fixed_hash_observable_error_from_angle_rounding_bound": 1.134674230072848e-15
+  },
+  "angle_mapping": {
+    "max_abs_float_vs_high_precision_angle_error": 4.731231590832291e-16,
+    "self_hash": "8fa6cc600d75cd78a518a8b5b08cfb9f4e665c3016769820d37616d319cdee8a",
+    "sum_abs_float_vs_high_precision_angle_error": 1.134674230072848e-15,
+    "words_u32": [
+      2410073184,
+      225824120,
+      2769856693,
+      2962029471,
+      1315331120,
+      376870944,
+      3547731667,
+      432926346
+    ]
+  },
+  "authority": "DIAGNOSTIC_ONLY",
+  "authority_effect": "NONE",
+  "bounded_disposition": "NUMERICAL_READINESS_ESTABLISHED; NVIDIA_BACKEND_EXECUTION_STILL_REQUIRED",
+  "contract_tolerance_epsilon": 1e-05,
+  "future_nvidia_execution_contract": {
+    "current_status": "NOT_RUN",
+    "finite_values_required": true,
+    "pass_condition": "max_abs(qpp_cpu - nvidia_fp64) <= 1e-5",
+    "pauli_range_required": true,
+    "required_observable_count": 7,
+    "required_option": {
+      "option": "fp64"
+    },
+    "same_frozen_self_hash": true,
+    "target": "nvidia"
+  },
+  "independent_numerical_evidence": {
+    "512_case_closed_form_vs_statevector_max_abs_delta": 8.881784197001252e-16,
+    "hosted_qpp_vs_closed_form_max_abs_delta": 3.3306690738754696e-16,
+    "hosted_qpp_vs_numpy_statevector_max_abs_delta": 2.220446049250313e-16,
+    "largest_observed_internal_delta": 8.881784197001252e-16
+  },
+  "nvidia_fp64_backend_execution": "NOT_RUN",
+  "payload_sha256": "b22633275bcd9b5da0e9c34d531ee13e686371935c33d918d1749974e6cb429c",
+  "physical_qpu_execution": "NOT_RUN",
+  "schema": "AEGIS_SELF_WITNESS_DIFFERENTIAL_READINESS_V1"
+}

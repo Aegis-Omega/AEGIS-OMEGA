@@ -1,0 +1,72 @@
+{
+  "authority": "DIAGNOSTIC_ONLY",
+  "authority_effect": "NONE",
+  "bounded_disposition": "ANALYTIC_OBSERVABLE_ORACLE_VERIFIED_NUMERICALLY; GPU_BACKEND_DIFFERENTIAL_STILL_NOT_RUN",
+  "closed_form": {
+    "X0X1X2X3": "prod_{i=0..3} sin(theta_i) * prod_{j=4..7} cos(theta_j)",
+    "Z0Z1": "cos(theta_0)*cos(theta_1)",
+    "Z2Z3": "cos(theta_2)*cos(theta_3)",
+    "Z_i": "cos(theta_i), i=0..3"
+  },
+  "derivation_scope": {
+    "global_x": "for the 4-cycle CZ ring, CZ phase parity is invariant under bitwise complement; complement-paired amplitudes cancel CZ phases and Rz phases factor into cosine terms",
+    "z_observables": "CZ ring and Rz layer are diagonal in computational basis, so Z-basis probabilities are unchanged"
+  },
+  "deterministic_stress_test": {
+    "cases": 512,
+    "comparison": "closed_form_vs_independent_numpy_complex128_statevector",
+    "corpus": "SHA256(AEGIS_SELF_WITNESS_ANALYTIC_ORACLE_V1:<counter>)",
+    "max_abs_delta": 8.881784197001252e-16,
+    "max_delta_case": 3,
+    "max_delta_observable": "Z1",
+    "pass_threshold": 1e-12,
+    "status": "PASS"
+  },
+  "fixed_self_hash": {
+    "absolute_deltas": {
+      "X0X1X2X3": 2.949029909160572e-17,
+      "Z0": 2.220446049250313e-16,
+      "Z0Z1": 3.3306690738754696e-16,
+      "Z1": 2.220446049250313e-16,
+      "Z2": 1.1102230246251565e-16,
+      "Z2Z3": 2.220446049250313e-16,
+      "Z3": 2.7755575615628914e-16
+    },
+    "closed_form_values": {
+      "X0X1X2X3": 0.009744240090707264,
+      "Z0": -0.9271184550345569,
+      "Z0Z1": -0.8769844476478336,
+      "Z1": 0.9459249170216824,
+      "Z2": -0.6133661012944477,
+      "Z2Z3": 0.2270443179983172,
+      "Z3": -0.370161177018363
+    },
+    "hosted_cudaq_qpp_cpu_values": {
+      "X0X1X2X3": 0.009744240090707235,
+      "Z0": -0.9271184550345567,
+      "Z0Z1": -0.8769844476478332,
+      "Z1": 0.9459249170216821,
+      "Z2": -0.6133661012944476,
+      "Z2Z3": 0.22704431799831698,
+      "Z3": -0.3701611770183627
+    },
+    "max_abs_delta": 3.3306690738754696e-16,
+    "self_hash": "8fa6cc600d75cd78a518a8b5b08cfb9f4e665c3016769820d37616d319cdee8a",
+    "status": "PASS",
+    "theta_words_u32": [
+      2410073184,
+      225824120,
+      2769856693,
+      2962029471,
+      1315331120,
+      376870944,
+      3547731667,
+      432926346
+    ]
+  },
+  "kernel": "RY4_CZ_RING_RZ4",
+  "nvidia_fp64_backend_execution": "NOT_RUN",
+  "payload_sha256": "a0006166dac7b2caeaf2a5553fa2d0e38b6b6895de7108449a3d6669ed5d3212",
+  "physical_qpu_execution": "NOT_RUN",
+  "schema": "AEGIS_SELF_WITNESS_ANALYTIC_ORACLE_V1"
+}

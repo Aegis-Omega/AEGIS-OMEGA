@@ -1,0 +1,91 @@
+{
+  "schema": "AEGIS_QUANTUM_BIO_ORTHOGONAL_EVIDENCE_V1",
+  "retrieval_date": "2026-09-19",
+  "authority_effect": "NONE",
+  "scientific_promotion": "NONE",
+  "source_class": "PUBLIC_LITERATURE_AND_CLINICALTRIALS_METADATA_PLUS_PLUGIN_GUIDED_RUNTIME_PREFLIGHT",
+  "literature": [
+    {
+      "title": "Ultra weak photon emission—a brief review",
+      "year": 2024,
+      "doi": "10.3389/fphys.2024.1348915",
+      "pmid": "38420619",
+      "pmcid": "PMC10899412",
+      "canonical_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10899412/",
+      "bounded_read": "UPE is described as an ultra-low-intensity metabolic photon-emission phenomenon, with ROS/oxidative processes as a major accepted mechanism; Parkinson disease is discussed as an oxidative-stress condition, but this source does not establish a Parkinson-specific endogenous UPE biomarker or nonclassical photon statistics."
+    },
+    {
+      "title": "Human Ultraweak Photon Emission: Key Analytical Aspects, Results and Future Trends - A Review",
+      "year": 2019,
+      "doi": "10.1080/10408347.2018.1534199",
+      "pmid": "30582823",
+      "canonical_url": "https://pubmed.ncbi.nlm.nih.gov/30582823/",
+      "bounded_read": "Human UPE measurement is methodologically feasible but depends on many internal/external factors; the review calls for larger populations, spectra plus intensity, and stronger statistical designs."
+    },
+    {
+      "title": "Photoencephalography as a non-electrical modality for investigating brain function: methodological and ethical considerations",
+      "year": 2026,
+      "pmid": "41675850",
+      "pmcid": "PMC12889313",
+      "canonical_url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12889313/",
+      "bounded_read": "The retrieved 2026 commentary cautions that brain-UPE evidence remains patchy, can be exaggerated, and has repeatability/methodology problems; it does not support premature neurodiagnostic promotion."
+    }
+  ],
+  "clinicaltrials_retrieval": [
+    {
+      "id": "NCT03811613",
+      "title": "Photobiomodulation and Parkinson",
+      "canonical_url": "https://clinicaltrials.gov/study/NCT03811613",
+      "interpretation": "EXOGENOUS_PHOTOBIOMODULATION_NOT_ENDOGENOUS_UPE_MEASUREMENT"
+    }
+  ],
+  "bounded_literature_disposition": {
+    "metabolic_upe_and_ros": "SUPPORTED_AS_BACKGROUND_MECHANISM",
+    "parkinson_specific_endogenous_upe_biomarker": "NOT_ESTABLISHED_BY_RETRIEVED_SOURCES",
+    "endogenous_hbt_antibunching_or_g2_below_1": "NOT_ESTABLISHED_BY_RETRIEVED_SOURCES",
+    "clinical_validity": "NOT_ESTABLISHED",
+    "caution": "NON_EXHAUSTIVE_RETRIEVAL_DOES_NOT_PROVE_ABSENCE"
+  },
+  "ngs_orthogonal_lane": {
+    "purpose": "Measure transcriptomic oxidative-stress / mitochondrial / inflammatory context in a declared Parkinson model or cohort without using RNA-seq as optical or quantum evidence.",
+    "evidence_class": "ORTHOGONAL_BIOLOGICAL_CONTEXT_ONLY",
+    "input_status": "NO_FASTQ_BAM_COUNT_MATRIX_OR_SAMPLE_METADATA_SUPPLIED",
+    "public_default": "nf-core/rnaseq or plugin-owned bulk RNA-seq counts/QC -> differential-expression path after explicit sample/design inputs",
+    "optional_gpu_acceleration": "NVIDIA Parabricks pbrun rna_fq2bam may replace the STAR-alignment stage only after version, reference, STAR genome library, sample structure, GPU runtime, and output parity are bound.",
+    "forbidden_promotions": [
+      "RNA-seq -> endogenous UPE phenotype",
+      "RNA-seq -> HBT nonclassicality",
+      "RNA-seq -> g2(0)<1",
+      "RNA-seq -> clinical validity"
+    ],
+    "local_runtime_preflight_20260919": {
+      "nvidia_smi": false,
+      "docker": false,
+      "cudaq_python": false,
+      "qiskit_python": false,
+      "rfc8785_python": false,
+      "nextflow": false,
+      "snakemake": false,
+      "fastqc": false,
+      "multiqc": false,
+      "samtools": false,
+      "bcftools": false,
+      "bwa": false,
+      "minimap2": false,
+      "numpy_python": true,
+      "status": "NOT_RUNNABLE_FOR_GPU_OR_NGS_EXECUTION_IN_CURRENT_CONTAINER"
+    }
+  },
+  "nvidia_cudaq_lane": {
+    "live_catalog_match": "cudaq-guide",
+    "catalog_source": "https://github.com/NVIDIA/skills",
+    "current_self_witness_boundary": "CUDAQ_NVIDIA_FP64_DIFFERENTIAL_NOT_RUN",
+    "diagnostic_only_closure_already_established": [
+      "QPP_CPU_EXECUTED",
+      "FP64_STATEVECTOR_CROSSCHECK_PASS",
+      "ANALYTIC_OBSERVABLE_ORACLE_PASS",
+      "DIFFERENTIAL_NUMERICAL_READINESS_ESTABLISHED"
+    ],
+    "physical_qpu": "NOT_RUN_OUT_OF_SCOPE_FOR_V1"
+  }
+}

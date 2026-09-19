@@ -1,0 +1,2016 @@
+{
+  "schema": "AEGIS_CROSS_BOUNDARY_FIXTURE_V1",
+  "authority_effect": "NONE",
+  "source_bindings": {
+    "qbp_package": {
+      "package_sha256": "adebaba877f27b9938b613ee840f9df971f5856cbd9d0b7f164e8177e335756d",
+      "package_manifest_sha256": "32b2e077e0b6d2c4d5cfcc447db7e09beffad7a18cd84a96768d5ba5d7f543c5",
+      "source_tar_sha256": "ff6f6e7829ad504fda1673f710e844cd45b627726bd9e4544822a10addc5bd4c",
+      "control_plane_receipt_sha256": "e4aa3570d97171485ce842aa5cb44c6135ceb5b29d248895ca8449ea78b87665",
+      "fresh_local_replay": "45 passed",
+      "compileall": "PASS",
+      "stale_documentation_observation": {
+        "file": "REPLAY.md",
+        "documented_expected_pytest_cases": 35,
+        "fresh_replay_pytest_cases": 45,
+        "disposition": "STALE_DOCUMENTATION_ONLY_MACHINE_RECEIPT_REMAINS_PRIMARY"
+      }
+    },
+    "pr522": {
+      "head_sha": "a800fee016a96224c70b93b2165b68d7deaed1d6",
+      "theorem_source_sha256": "740bdeecd9f0f36a9555be77696b92027cebedcea1f1aedf3d90641d499ca521",
+      "status": "MACHINE_VERIFIED_SURJECTIVE_NORMALIZATION_ONLY"
+    },
+    "pr523": {
+      "head_sha": "406bc40132630a20410252f50a6f24d073b93fda",
+      "head_binding_sha256": "37dba9e00fd933ac53696b8dfb1a1e51b0259ef794777bb9b63e04744b1d1837",
+      "status": "FINITE_SOURCE_CALCULUS_MACHINE_BOUND_GLOBAL_WEIL_NOT_PROVEN"
+    },
+    "pr486": {
+      "head_sha": "72b53365bf7268978cd3a92436dde8d026162900",
+      "head_binding_sha256": "e9ee29bb1265f0ee169c455dff499431662805f2be53e31d02f0d1fb6d96c909",
+      "status": "INTEGRITY_REPLAY_BOUND_CLINICAL_VALIDITY_NOT_ESTABLISHED"
+    },
+    "uploaded_boundary_corpus_20260918": {
+      "binding_method": "READ_ONLY_LOCAL_SHA256_PLUS_INTERNAL_MANIFEST_REPLAY_WHERE_PRESENT",
+      "authority_effect": "NONE",
+      "amil_sdk_integration": {
+        "archive_sha256": "6d043557add5d57b3ecd92b1326d0b8331648809662dac2d06ab9b7723a03b99",
+        "integration_sha256s": "134/134 PASS",
+        "inherited_sha256s": "62/62 PASS",
+        "integration_verification_sha256": "3c24ce909dc2c84a503bbc0f75d8e346b1d43e4b58587c2abee717a78aeb9fa7",
+        "authentication_boundary_sha256": "81ae7601f0603acc40082c13b2e13aed7875964fdef8adadd28c0b7c21544e16",
+        "reference_commit": "495bfd85d79abcb2b4f6898fe9c156488492426a",
+        "status": "COMPLETE_PINNED_SDK_LOCAL_INTEGRATION_PASS_AUTHENTICATION_NOT_ESTABLISHED_ACTIVATION_NOT_IMPLEMENTED"
+      },
+      "qbp01_public_null_precursor": {
+        "archive_sha256": "6fd67bd5260ae2bb1c79844229ac8a2d03232abf089c0d7181f4f16737d51999",
+        "package_manifest_sha256": "27e0b12ca87886ced4fece4a04c7a02c701cf833f8f7fc90d24d71f28a68f7f5",
+        "manifest_members": "10/10 PASS",
+        "verification_receipt_sha256": "123742bed54b702837c9632517b519183ba86c5d7616943a999242b688140036",
+        "result_sha256": "5fa4c9429adb5dcf2c958fd363cd7c0a639ee0c2bb885222deba8f1f268642aa",
+        "preregistration_sha256": "405b5ee0f57fc834f5361bbe108a20fc3839498ecca23c9b1c89692d023284e9",
+        "status": "DETERMINISTIC_CLASSICAL_NULL_PRECURSOR_REPLAY_VERIFIED_FULL_QBP01_BRIDGE_NOT_ESTABLISHED"
+      },
+      "exp02_r1_bsubtilis": {
+        "archive_sha256": "32b699bb8e520cd350cea2e73cf933548d272d1a266c163fac286e4ae370ff4a",
+        "package_manifest_sha256": "f81d210370e70a23821e8c77354a8092631b1ed90475607b3fcc3405b3e3562d",
+        "manifest_members": "12/12 PASS",
+        "verification_receipt_sha256": "cb9220d416d4ec28371fa0043f60d625ac82f681496011c12c4888c20e17c49c",
+        "cross_species_synthesis_sha256": "a6f5b86fe626631a5a4c0f477867eda34d78e754e4a8725a9742adc647d9eca1",
+        "preregistration_sha256": "9adfa8311bbd8741d3cac9101ab6ed8b5e6ed579bf0a978896e7f7952b5d6de8",
+        "status": "VERIFIED_EXACT_SOURCE_REPRODUCED_COMPUTATIONAL_CROSS_SPECIES_PIPELINE_VALIDATION_ONLY"
+      },
+      "asb1_pilot1_sealed_evaluator": {
+        "archive_sha256": "bec164b0ce2d67ce6ebddecdd7acf748dcde16541ca4755a4c7e353ce58da063",
+        "freeze_root_sha256": "2a0ef2fc5545150eec5c4b9d322edf032ff825b89a393a69789a4452ccde7a13",
+        "frozen_members": "4/4 PASS",
+        "gold_sha256": "e287f25c1f93b8ec1d4b2075d53024aa879f101254354e5d9052c11b1f4cc7ef",
+        "gold_count": 72,
+        "gold_distribution": {
+          "VALID": 30,
+          "INVALID": 30,
+          "UNRESOLVED": 12
+        },
+        "status": "SEALED_EVALUATOR_BYTES_BOUND_NO_CONTROL_OR_AEGIS_ARM_RESULTS_IN_THIS_PACKAGE"
+      },
+      "abjad_cross_profile_candidate": {
+        "archive_sha256": "b210868e6893165f4bde5678a29d7739b3759b107d8037cc11b2c826cea1eb2a",
+        "candidate_sha256": "f2bc234a45b3438d27fa948042602af069f40bba4a1dc207dd02921692345a03",
+        "pins_sha256": "17b7ef7770fec1cf02e151161c1b7f31c0c8656cfc534b714a39a76630034d5e",
+        "status_sha256": "8ef5a77c05d6586945e8a58d4c65aaaace6852011fe74cc03965f4b52ab34caf",
+        "declared_status": "SOURCE_PREPARED_NOT_KERNEL_CHECKED"
+      },
+      "nerve_et_source_bundle": {
+        "archive_sha256": "5025e725dddee64c122eccb5180769cd1f5caca66715cda765df02f6c3c57adc",
+        "nerve_et_sha256": "331626ca80df9d6e126144fdc30f8d8ab8c575461a0257fc179dee450f4456bf",
+        "cert_v2_sha256": "37b993f09fec79c1fbd318d450b67caee132906678379b5bf5375ad381381f5c",
+        "shared_cert_sha256": "d3471859dc42e6c1a429efe26c89a93e91cfe698a8761420e530ebd94be8faac",
+        "status": "SOURCE_INSPECTED_NOT_EXECUTED_NO_LIVE_RECEIPT_SET_INCLUDED"
+      },
+      "cover_obstruction_source_bundle": {
+        "archive_sha256": "9f05b825c82bf6b63f728bcf44aba7a24cf660e9f6269b2fa9df04a30bc2c28f",
+        "agent_cover_sha256": "023cceb05967b341886846a80f41593969e06b803458f7751a40dfb52dc16eaf",
+        "certificate_sha256": "28e9f5a641f85fadac3ab10a39009091c674dd9e0c576d8716f7b09459e8615f",
+        "shared_cert_sha256": "d3471859dc42e6c1a429efe26c89a93e91cfe698a8761420e530ebd94be8faac",
+        "status": "SOURCE_INSPECTED_NOT_EXECUTED"
+      },
+      "evidence_constitution_preprint": {
+        "file_sha256": "3f96f012589759451b1cefcea8215bec4f3461f3dc5f84af011a4dc44add49f9",
+        "release_class": "RESEARCH_ARCHITECTURE_PREPRINT",
+        "clinical_validation": "NOT_ESTABLISHED",
+        "rh": "NOT_PROVEN",
+        "authority_effect": "NONE"
+      },
+      "data_analytics_validation_report": {
+        "file_sha256": "1c83c537de82ded80116c68f128ce1ecc5564c742b9c6a6396920710af2a739d",
+        "snapshot": "2026-09-10",
+        "status": "SNAPSHOT_AUDIT_NOT_CURRENT_STATE_AUTHORITY"
+      },
+      "quantum_overview": {
+        "file_sha256": "1472c293c2aa9ff9ab24ea789dc88561f5c46e9e6d2c4929ec5cbc2056ce972b",
+        "status": "DESCRIPTIVE_TYPED_SUPER_DAG_NO_AUTOMATIC_ADMIT"
+      }
+    },
+    "uploaded_boundary_corpus_20260918_round2": {
+      "binding_method": "READ_ONLY_LOCAL_SHA256_MANIFEST_REPLAY_PLUS_LIVE_GITHUB_READS_WHERE_NOTED",
+      "authority_effect": "NONE",
+      "onebna_geometry_benchmark": {
+        "archive_sha256": "b5ee1f483082efcf933aafc53a95515e968f77d15a11c8fac7be48237e28aabb",
+        "benchmark_json_sha256": "57e349fd64494a6c7f575e82fcbdac148859ff73f3af34e51e34afb9e857fb90",
+        "source_pdb_sha256": "df42f1506792f191b957227b061360652adcf6f813eb69d9ec553067ea584670",
+        "pdb_id": "1BNA",
+        "method": "X-RAY DIFFRACTION",
+        "resolution_A": 1.9,
+        "coordinate_analysis": "VERIFIED_NUMERICALLY_FROM_ATTACHED_PDB",
+        "helical_parameters": "COORDINATE_PROXY_ONLY_NOT_3DNA_OR_CURVES_PLUS",
+        "hydrogen_bond_orientation": "NOT_EVALUATED",
+        "biological_mechanism": "NOT_CLAIMED",
+        "hotspot_map_sha256": "e20893c37cd00a293e0da2af74ebe743eebf232128b0c09819d0481e17c2ab48",
+        "hotspot_map_crosscheck": {
+          "pair_mean_contact_matches": "24/24",
+          "water_polar_contact_count_matches": "24/24",
+          "interpretation": "DERIVED_STRUCTURAL_HEURISTIC_ONLY_NOT_BIOLOGICAL_VALIDATION"
+        }
+      },
+      "gtg_gamma_0_1_replay": {
+        "replay_file_sha256": "11178c3d7c792a3254a38599ae39011dc52068167bbdd20a96c049c6969c863e",
+        "declared_archive_sha256": "9fab66d25ef7effa4756aca47903fb5eeb86833a50b529c5e6badb58640edd71",
+        "source_commit": "b0a840015f92f39ddae65beb7393bf2c91aa816e",
+        "source_npz_sha256": "fa8655632b5431750dc08e28109c4e1eeb1a263467a08a0ff73bf0ec42e30a1b",
+        "source_csv_sha256": "63200a2ed03c78c961e934456b630cd6e88a2d9e075cc0962db76969d0a9c007",
+        "model": "6-site one-hole ELM, local pure dephasing, no relaxation",
+        "dimension": 6,
+        "gamma": 0.1,
+        "replay_method": "Independent RK4 dt=0.005 fs 40000 steps",
+        "replay_pass": true,
+        "max_population_error": 1.1573693392552542e-12,
+        "max_coherence_error": 1.7168766408559577e-11,
+        "max_trace_error": 1.1435297153639112e-14,
+        "max_hermiticity_error": 0,
+        "tolerance": 1e-7,
+        "scope": "POPULATION_COHERENCE_AND_STATED_INVARIANTS_ONLY_NOT_PARAMETER_REGENERATION_OR_PHYSICAL_VALIDATION",
+        "model_boundary": "6D_ONE_HOLE_NOT_SEPARATE_37D_REFERENCE_MODEL",
+        "source_commit_live_recheck_20260918": "HTTP_422_NO_COMMIT_FOUND"
+      },
+      "claim_validation_v3_package_check": {
+        "file_sha256": "8e36a6cca29358cd5157e9dc453215d77922174149df0431b2d4f71f15f0b952",
+        "checked_archive_sha256": "074a936f23ac208019785aa7ccaa5c89c8e621ecf3e673b2d98179c8a696ae1b",
+        "manifest_members_verified": 56,
+        "manifest_covers_entire_archive": true,
+        "packaged_tests": "15/15 PASS",
+        "optimized_replay": "PASS",
+        "fresh_checks": 63,
+        "state": "PASS_PACKAGE_INTEGRITY_AND_REPLAY",
+        "formal_kernel_executed": false,
+        "experimental_gate_evaluation_executed": false,
+        "repository_requests_executed": false,
+        "admission": "NOT_ESTABLISHED_BY_THIS_REVIEW",
+        "authority_effect": "NONE"
+      },
+      "upstream_formal_conjectures_build": {
+        "log_sha256": "08169180cc2d1fb15554f8bddece73555609df7e180057eeb680937cfd60f198",
+        "terminal_result": "Build completed successfully (8907 jobs).",
+        "last_named_target": "FormalConjectures.Wikipedia.Transcendental",
+        "abjad_factorization_candidate_sha256": "db893663ba81e2741aebf2680f4562307900c893c46ee89f9092a27af2e374e3",
+        "aegis_modulo_ring_candidate_sha256": "0d45197842534307f2092ef17970c167df8fdd998d40b58819cf3331a8d6cb7d",
+        "candidates_lexically_sorry_free": true,
+        "candidates_emit_print_axioms_commands": true,
+        "candidate_in_build_graph": "NOT_ESTABLISHED_BY_LOG",
+        "candidate_kernel_replay": "NOT_ESTABLISHED_BY_LOG"
+      },
+      "coq_theorem_census": {
+        "file_sha256": "220f343bfbb17b72c10abd9345c81f5261563190c0d8f95b5a7e044c97597350",
+        "theorem_rows": 36,
+        "closed_under_global_context_true": 33,
+        "closed_under_global_context_false": 3,
+        "authority_eligible_rows": 32,
+        "diagnostic_only_rows": 4,
+        "interpretation": "CENSUS_METADATA_DOES_NOT_PROMOTE_CONDITIONAL_THEOREMS_OR_GLOBAL_RH_CLAIMS"
+      },
+      "pr342_independent_replay": {
+        "package_sha256": "640eca3da2b589609beafca48b13e46abc0d5963d330843be9315bc94267e79b",
+        "package_sha256s_verified": "29/29 PASS",
+        "replay_receipt_sha256": "dff13f84acb95e228ad7a8228f02d5180d8d2c5dc1fa26017b2c09315eebcf31",
+        "nested_capsule_sha256": "99482663305f0b66ceeab20d7dbbd9525dd99202ebc6678438a81eda8b27bb31",
+        "nested_manifest_verified": "33/33 PASS",
+        "patch_sha256": "0a8dfd8585487fbdbccc8d4bf097319b6ec86a1b4562c1427d0cc03161b56136",
+        "source_commit": "abb5aa9ea5410da8937c5ff6b605a4c259f5ed0d",
+        "current_pr342_head_matches_source_commit": true,
+        "candidate_tests_normal_O_OO": "40/40 PASS EACH",
+        "original_source_negative_control": "40 RUN 27 FAILURES EXPECTED",
+        "mutations_detected": "5/5",
+        "replay_scope": "LOCAL_SOURCE_SLICE_NOT_FULL_CHECKOUT_OR_DEPLOYED_SERVICE",
+        "live_dispatch": false,
+        "remote_writes": 0,
+        "authority_effect": "NONE"
+      },
+      "pr423_exact_head_historical_package": {
+        "package_sha256": "c093157323fea895831b6ee73689b182a60223eab518a92c1a1781515b56222c",
+        "package_sha256s_verified": "11/11 PASS",
+        "evidence_json_sha256": "4e61868cd55bd91bf1b17b68031281f77d960b702a2e77433cc83a7941a5d0d1",
+        "candidate_sha": "dcbd6a31980697c229874ecdee2be19e429019a1",
+        "candidate_tree_sha": "f5ce14b45adcc2124834fa3263a601453654e561",
+        "trusted_admission_receipt_sha256": "a7c89b29956db76dc2d0360df2e2a17017929efab4f00dee474f6a99f65985cc",
+        "automaton2_receipt_sha256": "64e7870fde2262f927449b8cafa27a1348b8f1de7ae85e88fc5a12f09f478185",
+        "integration_ledger_sha256": "638c236a07b8c49b303ae56bf9eb265461d371d011dd9b5f4271f852913fc044",
+        "trusted_cognitive_admission": "ADMITTED",
+        "automaton_2": "ADMITTED",
+        "integration_ledger": "0 WIRED 22 LINKED 6 DORMANT 8 ORPHAN",
+        "production_admission": "NOT_CLAIMED",
+        "deployment": "NOT_AUTHORIZED",
+        "authority_effect": "NONE",
+        "current_pr423_head": "2d6289a9522cfafe0788a6a9d949c46d05fbd99a",
+        "currentness": "HISTORICAL_EXACT_HEAD_ONLY"
+      }
+    },
+    "quantum_aegisq_self_witness_20260918": {
+      "authority_effect": "NONE",
+      "quantum_dag": {
+        "sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054",
+        "status": "TYPED_EVIDENCE_GRAPH_SOURCE",
+        "self_qpp": {
+          "exact_execution_head": "0c1a55c4d569058099b02aedb17cde193ee7b494",
+          "source_blob_sha": "815ddcd0a8f53926414ea400be2d428e53beab69",
+          "workflow": "Quantum Self-Witness-0",
+          "workflow_run": 34917045771,
+          "contract_job": 104216838768,
+          "qpp_cpu_job": 104216884885,
+          "conclusion": "success",
+          "evidence_class": "SIMULATION"
+        },
+        "self_gpu": {
+          "status": "NOT_RUN",
+          "evidence_class": "SIMULATION"
+        },
+        "self_qpu": {
+          "status": "NOT_RUN",
+          "scope": "OUT_OF_SCOPE_FOR_V1",
+          "evidence_class": "EMPIRICAL"
+        },
+        "current_pr373_head": "7853f4e63029b24c987f9bdd2f58df8fcffa92d6",
+        "current_source_blob_matches_verified_head": true,
+        "current_head_delta_from_verified_execution_head": "one commit; .claude.json only",
+        "current_exact_head_execution_rebind": "NEAREST_EXECUTED_ANCESTOR_PLUS_BYTE_IDENTITY",
+        "self_tourbillon": {
+          "authority": "T1_DIAGNOSTIC",
+          "authority_effect": "NONE",
+          "admission_authority": "NONE",
+          "hosted_execution_head": "0c1a55c4d569058099b02aedb17cde193ee7b494",
+          "workflow": "Quantum Tourbillon MPVC",
+          "workflow_run": 34917045849,
+          "job": 104216838791,
+          "qiskit_version": "2.5.2",
+          "backend": "qiskit.quantum_info.Statevector",
+          "pytest": "9 passed",
+          "current_pr373_head": "7853f4e63029b24c987f9bdd2f58df8fcffa92d6",
+          "current_surface_byte_identical": true,
+          "fresh_live_head_qiskit_execution": "NOT_PERFORMED",
+          "live_head_rebind": "NEAREST_EXECUTED_ANCESTOR_PLUS_BYTE_IDENTITY",
+          "diagnostic_receipt_path": ".aegis/cross-domain/fixtures/self-witness-tourbillon-diagnostic-v1.json",
+          "diagnostic_payload_sha256": "8f762c1713916e647213a3da76e86b5c2d4b6b2adacad2e2c79263c418d02014",
+          "diagnostic_file_sha256": "1081e8045feb84c8f31db8c18cee434a9beaef0bfc838ad853a4e4b02778a77f",
+          "first_failing_index": 2,
+          "marked_name": "nvidia_fp64_differential_executed",
+          "located_index": 2,
+          "probability": 0.9999999999999991
+        },
+        "self_fp64_statevector_crosscheck": {
+          "authority": "DIAGNOSTIC_ONLY",
+          "authority_effect": "NONE",
+          "artifact_path": ".aegis/cross-domain/fixtures/self-witness-fp64-statevector-crosscheck-v1.json",
+          "artifact_file_sha256": "1ef31e75ded9fcd0778ea2819aee9b4c116c41df5808a8d8ff523cbe99f46dab",
+          "payload_sha256": "1c8618ac23a02b8dc898ffed854c58e09d357bdd5cd3465385d5a5fd1109282e",
+          "method": "INDEPENDENT_NUMPY_COMPLEX128_STATEVECTOR_REPLAY_OF_REPOSITORY_SELF_WITNESS_KERNEL",
+          "hosted_qpp_execution_head": "0c1a55c4d569058099b02aedb17cde193ee7b494",
+          "hosted_qpp_workflow_run": 34917045771,
+          "hosted_qpp_job": 104216884885,
+          "max_abs_delta": 2.220446049250313e-16,
+          "state_norm_error": 2.220446049250313e-16,
+          "status": "NUMERICAL_KERNEL_CROSSCHECK_PASS",
+          "nvidia_fp64_backend_execution": "NOT_RUN",
+          "physical_qpu_execution": "NOT_RUN"
+        },
+        "self_analytic_oracle": {
+          "authority": "DIAGNOSTIC_ONLY",
+          "authority_effect": "NONE",
+          "artifact_path": ".aegis/cross-domain/fixtures/self-witness-analytic-oracle-v1.json",
+          "artifact_file_sha256": "16d500da14e7c651db7ff50f34b2aaba8965962ebe8ba6434b5cf1f6af1ef883",
+          "payload_sha256": "a0006166dac7b2caeaf2a5553fa2d0e38b6b6895de7108449a3d6669ed5d3212",
+          "kernel": "RY4_CZ_RING_RZ4",
+          "closed_form_status": "PASS",
+          "stress_cases": 512,
+          "max_closed_form_vs_statevector_delta": 8.881784197001252e-16,
+          "fixed_hash_max_delta_vs_hosted_qpp": 3.3306690738754696e-16,
+          "nvidia_fp64_backend_execution": "NOT_RUN",
+          "physical_qpu_execution": "NOT_RUN"
+        },
+        "self_differential_readiness": {
+          "authority": "DIAGNOSTIC_ONLY",
+          "authority_effect": "NONE",
+          "artifact_path": ".aegis/cross-domain/fixtures/self-witness-differential-readiness-v1.json",
+          "artifact_file_sha256": "8e3f61b350041fe1718f3baaa4e611da4e0afdba13ed6e6ad03b80c3bf9923dd",
+          "payload_sha256": "b22633275bcd9b5da0e9c34d531ee13e686371935c33d918d1749974e6cb429c",
+          "contract_tolerance_epsilon": 1e-5,
+          "largest_observed_internal_delta": 8.881784197001252e-16,
+          "acceptance_margin_factor": 11258999068.42624,
+          "max_angle_mapping_error": 4.731231590832291e-16,
+          "worst_fixed_hash_observable_rounding_bound": 1.134674230072848e-15,
+          "nvidia_target": "nvidia",
+          "nvidia_required_option": "fp64",
+          "nvidia_fp64_backend_execution": "NOT_RUN",
+          "physical_qpu_execution": "NOT_RUN",
+          "status": "NUMERICAL_READINESS_ESTABLISHED_NVIDIA_BACKEND_EXECUTION_STILL_REQUIRED"
+        }
+      },
+      "qpp_source_current_blob": {
+        "current_pr373_head": "7853f4e63029b24c987f9bdd2f58df8fcffa92d6",
+        "cudaq_self_witness_blob_sha": "815ddcd0a8f53926414ea400be2d428e53beab69",
+        "byte_preserved_from_nearest_executed_ancestor": true
+      },
+      "qp_pd_v2": {
+        "disposition_sha256": "6f8949bf327a80497948f0233587a38559169ed67a2cddd384754288ce71845a",
+        "experiment_spec_sha256": "26dc56aa43d9fca3054ab1c2c775b818e78bc3c1ee54f6be253495af0322bcd8",
+        "exact_head": "4626389c7866bc5faa2a21bb0f60fbd72329938a",
+        "workflow": "QP-PD V2 Biological Binding",
+        "workflow_run": 33846517090,
+        "conclusion": "success",
+        "empirical_run": "NOT_PERFORMED",
+        "nonclassical_photon_statistics": "NOT_ESTABLISHED",
+        "biological_predictive_value": "NOT_ESTABLISHED",
+        "authority_effect": "NONE"
+      },
+      "aegisq_ifg": {
+        "quantum_dag_sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054",
+        "exact_head": "6987c08e843af03a644114413ea3da9331c460f2",
+        "workflow": "AegisQ IFG Research Binding",
+        "workflow_run": 34059021835,
+        "conclusion": "success",
+        "result_scope": "PASS_RESEARCH_ONLY",
+        "clinical_admissible": false,
+        "causal_claim": "NOT_ESTABLISHED",
+        "predictive_validity": "NOT_ESTABLISHED_BY_NUMERICAL_CONSISTENCY",
+        "temporal_0_1ms_bound": "NOT_ESTABLISHED"
+      },
+      "aegisq_architecture": {
+        "exact_head_evidence_brief_sha256": "7f96ae3506fd8088409d4fb188d6b937913ecac9b0bf756829981e788f5a23e1",
+        "classification": "PROPOSED_ARCHITECTURE",
+        "predictive_gain_edge": "OPEN_EMPIRICAL_FLOW",
+        "required_evidence": "holdout calibration, -Q/classical-only ablations, OOS validation"
+      },
+      "quantumdna_gtg": {
+        "replay_sha256": "11178c3d7c792a3254a38599ae39011dc52068167bbdd20a96c049c6969c863e",
+        "evidence_class": "SIMULATION",
+        "physical_measurement": "NOT_ESTABLISHED",
+        "hbt_nonclassicality": "NOT_ESTABLISHED"
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "CSTAR_TO_QBP01_EMPIRICAL",
+      "source": {
+        "claim_id": "CSTAR-H3-NORMALIZATION-SURJECTIVE",
+        "coordinate": {
+          "domain_id": "formal/cstar",
+          "carrier_id": "coq-theorem",
+          "scope_id": "degree-3-normalization"
+        },
+        "status": "MACHINE_VERIFIED_THEOREM",
+        "evidence_sha256": "740bdeecd9f0f36a9555be77696b92027cebedcea1f1aedf3d90641d499ca521"
+      },
+      "target": {
+        "claim_id": "QBP01-GBA1-SPNS1-OPTICAL-BRIDGE",
+        "coordinate": {
+          "domain_id": "bio/qbp01",
+          "carrier_id": "classical-optical-empirical",
+          "scope_id": "GBA1-SPNS1-optical-phenotype"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "123742bed54b702837c9632517b519183ba86c5d7616943a999242b688140036"
+      },
+      "criterion": {
+        "bridge_id": "CSTAR_FORMAL_TO_QBP01_EMPIRICAL_V1",
+        "allowed_source_statuses": [
+          "MACHINE_VERIFIED_THEOREM"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "formal-to-empirical-correspondence",
+            "verifier_id": "CSTAR_QBP_FORMAL_EMPIRICAL_CORRESPONDENCE_V1"
+          },
+          {
+            "gate_id": "instrument-calibration",
+            "verifier_id": "QBP01_INSTRUMENT_CALIBRATION_V1"
+          },
+          {
+            "gate_id": "biological-perturbation",
+            "verifier_id": "QBP01_BIOLOGICAL_PERTURBATION_V1"
+          },
+          {
+            "gate_id": "classical-covariate-clearance",
+            "verifier_id": "QBP01_CLASSICAL_COVARIATE_CLEARANCE_V1"
+          },
+          {
+            "gate_id": "blinded-analysis",
+            "verifier_id": "QBP01_BLINDED_ANALYSIS_V1"
+          },
+          {
+            "gate_id": "independent-replication",
+            "verifier_id": "QBP01_INDEPENDENT_REPLICATION_V1"
+          }
+        ],
+        "criterion_text": "A formal theorem has no empirical QBP-01 authority without an independently verified formal-to-empirical correspondence and the preregistered measurement receipts."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "EXP02_TO_QBP01_OPTICAL",
+      "source": {
+        "claim_id": "EXP02-R1-BSUBTILIS",
+        "coordinate": {
+          "domain_id": "bio/genomic-spectrum",
+          "carrier_id": "computational-replication",
+          "scope_id": "period-3-coding-enrichment"
+        },
+        "status": "CROSS_SPECIES_PIPELINE_REPLICATION_SUPPORTED",
+        "evidence_sha256": "cb9220d416d4ec28371fa0043f60d625ac82f681496011c12c4888c20e17c49c"
+      },
+      "target": {
+        "claim_id": "QBP01-GBA1-SPNS1-OPTICAL-BRIDGE",
+        "coordinate": {
+          "domain_id": "bio/qbp01",
+          "carrier_id": "classical-optical-empirical",
+          "scope_id": "GBA1-SPNS1-optical-phenotype"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "123742bed54b702837c9632517b519183ba86c5d7616943a999242b688140036"
+      },
+      "criterion": {
+        "bridge_id": "GENOMIC_SPECTRUM_TO_CLASSICAL_OPTICAL_V1",
+        "allowed_source_statuses": [
+          "CROSS_SPECIES_PIPELINE_REPLICATION_SUPPORTED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "spectrum-to-classical-optical-correspondence",
+            "verifier_id": "QBP01_SPECTRUM_OPTICAL_CORRESPONDENCE_V1"
+          },
+          {
+            "gate_id": "instrument-calibration",
+            "verifier_id": "QBP01_INSTRUMENT_CALIBRATION_V1"
+          },
+          {
+            "gate_id": "biological-perturbation",
+            "verifier_id": "QBP01_BIOLOGICAL_PERTURBATION_V1"
+          },
+          {
+            "gate_id": "classical-covariate-clearance",
+            "verifier_id": "QBP01_CLASSICAL_COVARIATE_CLEARANCE_V1"
+          },
+          {
+            "gate_id": "blinded-analysis",
+            "verifier_id": "QBP01_BLINDED_ANALYSIS_V1"
+          },
+          {
+            "gate_id": "independent-replication",
+            "verifier_id": "QBP01_INDEPENDENT_REPLICATION_V1"
+          }
+        ],
+        "criterion_text": "Computational spectrum replication does not establish a classical optical phenotype; the spectrum-to-optical correspondence and all QBP-01 empirical receipts must be independently verified."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "QBP01_TO_QBP02_QUANTUM",
+      "source": {
+        "claim_id": "QBP01-PROGRAM",
+        "coordinate": {
+          "domain_id": "bio/qbp01",
+          "carrier_id": "classical-optical-empirical",
+          "scope_id": "GBA1-SPNS1-optical-phenotype"
+        },
+        "status": "PREREGISTERED_NOT_EXECUTED",
+        "evidence_sha256": "59966b0c4fc1cf56dbf1184da26100b2a266ed290fd5295310ba6c437ad64900"
+      },
+      "target": {
+        "claim_id": "QBP02-Q4-ANTIBUNCHING",
+        "coordinate": {
+          "domain_id": "bio/qbp02",
+          "carrier_id": "quantum-optical-witness",
+          "scope_id": "antibunching-g2"
+        },
+        "status": "PREREGISTERED_NOT_EXECUTED",
+        "evidence_sha256": "fb32d808a85d79eee222c897dbc01b0af62a81cbf5f85122dea904dabc1353ab"
+      },
+      "criterion": {
+        "bridge_id": "QBP01_CLASSICAL_TO_QBP02_QUANTUM_V1",
+        "allowed_source_statuses": [
+          "EMPIRICAL_BRIDGE_VERIFIED"
+        ],
+        "allowed_target_statuses": [
+          "PREREGISTERED_NOT_EXECUTED",
+          "OPEN_QUANTUM_WITNESS"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "qbp01-empirical-bridge",
+            "verifier_id": "QBP01_EMPIRICAL_BRIDGE_V1"
+          },
+          {
+            "gate_id": "detector-calibration-timing",
+            "verifier_id": "QBP02_DETECTOR_CALIBRATION_TIMING_V1"
+          },
+          {
+            "gate_id": "background-null",
+            "verifier_id": "QBP02_BACKGROUND_NULL_V1"
+          },
+          {
+            "gate_id": "g2-analysis",
+            "verifier_id": "QBP02_G2_ANALYSIS_V1"
+          },
+          {
+            "gate_id": "independent-apparatus",
+            "verifier_id": "QBP02_INDEPENDENT_APPARATUS_V1"
+          }
+        ],
+        "criterion_text": "Classical optical responsiveness does not establish nonclassical photon statistics; QBP-02 requires its own calibrated quantum-optical witness chain."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_SOURCE_STATUS",
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "QBP02_TO_QUANTUM_BIOLOGICAL_CHANNEL",
+      "source": {
+        "claim_id": "QBP02-Q6-HIGHER-ORDER",
+        "coordinate": {
+          "domain_id": "bio/qbp02",
+          "carrier_id": "quantum-optical-witness",
+          "scope_id": "higher-order-nongaussianity"
+        },
+        "status": "PREREGISTERED_NOT_EXECUTED",
+        "evidence_sha256": "fb32d808a85d79eee222c897dbc01b0af62a81cbf5f85122dea904dabc1353ab"
+      },
+      "target": {
+        "claim_id": "QBP-QUANTUM-BIOLOGICAL-INFORMATION-CHANNEL",
+        "coordinate": {
+          "domain_id": "bio/qbp-channel",
+          "carrier_id": "biological-information-channel",
+          "scope_id": "mechanistic-channel-claim"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "78b7d66a0bd0d1c33db1507df29db0fa0d7b5e06b00392779e426d609050279e"
+      },
+      "criterion": {
+        "bridge_id": "QBP02_WITNESS_TO_BIOLOGICAL_CHANNEL_V1",
+        "allowed_source_statuses": [
+          "Q6_VERIFIED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED",
+          "OPEN_CHANNEL_CLAIM"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "biological-conditional-information",
+            "verifier_id": "QBP_CHANNEL_CONDITIONAL_INFORMATION_V1"
+          },
+          {
+            "gate_id": "channel-specific-correspondence",
+            "verifier_id": "QBP_CHANNEL_SPECIFIC_CORRESPONDENCE_V1"
+          },
+          {
+            "gate_id": "classical-confound-exclusion",
+            "verifier_id": "QBP_CHANNEL_CLASSICAL_CONFOUND_EXCLUSION_V1"
+          },
+          {
+            "gate_id": "independent-replication",
+            "verifier_id": "QBP_CHANNEL_INDEPENDENT_REPLICATION_V1"
+          }
+        ],
+        "criterion_text": "Q6 is necessary but not sufficient for a quantum biological information channel; channel-specific biological linkage must be independently established."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_SOURCE_STATUS",
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "PR523_FINITE_TO_GLOBAL_WEIL",
+      "source": {
+        "claim_id": "PR523-FINITE-SOURCE-CALCULUS",
+        "coordinate": {
+          "domain_id": "math/weil",
+          "carrier_id": "lean-theorem",
+          "scope_id": "finite-source-calculus"
+        },
+        "status": "MACHINE_VERIFIED_FINITE_SOURCE_CALCULUS",
+        "evidence_sha256": "37dba9e00fd933ac53696b8dfb1a1e51b0259ef794777bb9b63e04744b1d1837"
+      },
+      "target": {
+        "claim_id": "GLOBAL-WEIL-POSITIVITY",
+        "coordinate": {
+          "domain_id": "math/weil",
+          "carrier_id": "lean-theorem",
+          "scope_id": "global-weil-positivity"
+        },
+        "status": "NOT_PROVEN",
+        "evidence_sha256": "37dba9e00fd933ac53696b8dfb1a1e51b0259ef794777bb9b63e04744b1d1837"
+      },
+      "criterion": {
+        "bridge_id": "FINITE_TO_GLOBAL_WEIL_V1",
+        "allowed_source_statuses": [
+          "MACHINE_VERIFIED_FINITE_SOURCE_CALCULUS"
+        ],
+        "allowed_target_statuses": [
+          "NOT_PROVEN"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "formula-to-weil-operator-identity",
+            "verifier_id": "WEIL_FORMULA_OPERATOR_IDENTITY_V1"
+          },
+          {
+            "gate_id": "finite-to-global-limit-control",
+            "verifier_id": "WEIL_FINITE_GLOBAL_LIMIT_CONTROL_V1"
+          },
+          {
+            "gate_id": "global-sign-transfer",
+            "verifier_id": "WEIL_GLOBAL_SIGN_TRANSFER_V1"
+          }
+        ],
+        "criterion_text": "Finite source calculus cannot promote to global Weil positivity without an explicit operator identity, justified finite-to-global passage, and global sign transfer."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "PR486_INTEGRITY_TO_CLINICAL_VALIDITY",
+      "source": {
+        "claim_id": "PR486-REPLAY-INTEGRITY",
+        "coordinate": {
+          "domain_id": "bio/genomics",
+          "carrier_id": "integrity-replay",
+          "scope_id": "artifact-lineage"
+        },
+        "status": "REPLAY_INTEGRITY_VERIFIED",
+        "evidence_sha256": "e9ee29bb1265f0ee169c455dff499431662805f2be53e31d02f0d1fb6d96c909"
+      },
+      "target": {
+        "claim_id": "GENOMICS-CLINICAL-VALIDITY",
+        "coordinate": {
+          "domain_id": "bio/genomics",
+          "carrier_id": "clinical-validity",
+          "scope_id": "patient-level-interpretation"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "e9ee29bb1265f0ee169c455dff499431662805f2be53e31d02f0d1fb6d96c909"
+      },
+      "criterion": {
+        "bridge_id": "INTEGRITY_TO_CLINICAL_VALIDITY_V1",
+        "allowed_source_statuses": [
+          "REPLAY_INTEGRITY_VERIFIED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "assay-validation",
+            "verifier_id": "GENOMICS_ASSAY_VALIDATION_V1"
+          },
+          {
+            "gate_id": "annotation-source-validation",
+            "verifier_id": "GENOMICS_ANNOTATION_SOURCE_VALIDATION_V1"
+          },
+          {
+            "gate_id": "clinical-performance-validation",
+            "verifier_id": "GENOMICS_CLINICAL_PERFORMANCE_VALIDATION_V1"
+          },
+          {
+            "gate_id": "qualified-review",
+            "verifier_id": "GENOMICS_QUALIFIED_REVIEW_V1"
+          },
+          {
+            "gate_id": "independent-replication",
+            "verifier_id": "GENOMICS_INDEPENDENT_REPLICATION_V1"
+          }
+        ],
+        "criterion_text": "Integrity and replay evidence bind what was recorded; they do not establish biological correctness or clinical validity without separate clinical validation receipts."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "QBP01_PUBLIC_NULL_TO_FULL_QBP01_BRIDGE",
+      "source": {
+        "claim_id": "QBP01-PUBLIC-CLASSICAL-NULL-PRECURSOR",
+        "coordinate": {
+          "domain_id": "bio/qbp01-public-null",
+          "carrier_id": "public-classical-null-analysis",
+          "scope_id": "classical-oxidative-upe-null-precursor"
+        },
+        "status": "PUBLIC_NULL_PRECURSOR_REPLAY_VERIFIED",
+        "evidence_sha256": "123742bed54b702837c9632517b519183ba86c5d7616943a999242b688140036"
+      },
+      "target": {
+        "claim_id": "QBP01-GBA1-SPNS1-OPTICAL-BRIDGE",
+        "coordinate": {
+          "domain_id": "bio/qbp01",
+          "carrier_id": "classical-optical-empirical",
+          "scope_id": "GBA1-SPNS1-optical-phenotype"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "123742bed54b702837c9632517b519183ba86c5d7616943a999242b688140036"
+      },
+      "criterion": {
+        "bridge_id": "QBP01_PUBLIC_NULL_TO_FULL_EMPIRICAL_BRIDGE_V1",
+        "allowed_source_statuses": [
+          "PUBLIC_NULL_PRECURSOR_REPLAY_VERIFIED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "direct-classical-covariate-panel",
+            "verifier_id": "QBP01_DIRECT_CLASSICAL_COVARIATE_PANEL_V1"
+          },
+          {
+            "gate_id": "gba1-spns1-cohort-binding",
+            "verifier_id": "QBP01_GBA1_SPNS1_COHORT_BINDING_V1"
+          },
+          {
+            "gate_id": "instrument-calibration",
+            "verifier_id": "QBP01_DETECTOR_CALIBRATION_V1"
+          },
+          {
+            "gate_id": "optical-endpoint-analysis",
+            "verifier_id": "QBP01_OPTICAL_ENDPOINT_ANALYSIS_V1"
+          },
+          {
+            "gate_id": "independent-replication",
+            "verifier_id": "QBP01_INDEPENDENT_REPLICATION_V1"
+          }
+        ],
+        "criterion_text": "A deterministic public yeast null-precursor analysis does not establish the GBA1/SPNS1 optical bridge, Parkinson biomarker status, or a quantum claim; the full biological optical bridge requires its own direct measurements and replication."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "AMIL_ENCODING_BRIDGE_TO_AUTHENTICATED_INPUT",
+      "source": {
+        "claim_id": "AMIL-COMPLETE-PINNED-SDK-INTEGRATION",
+        "coordinate": {
+          "domain_id": "governance/amil",
+          "carrier_id": "canonical-encoding-bridge",
+          "scope_id": "sdk-byte-and-digest-binding"
+        },
+        "status": "PINNED_SDK_LOCAL_INTEGRATION_PASS",
+        "evidence_sha256": "3c24ce909dc2c84a503bbc0f75d8e346b1d43e4b58587c2abee717a78aeb9fa7"
+      },
+      "target": {
+        "claim_id": "AMIL-AUTHENTICATED-SUBJECT",
+        "coordinate": {
+          "domain_id": "governance/amil",
+          "carrier_id": "trusted-authenticated-input",
+          "scope_id": "snapshot-agent-permission-authentication"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "81ae7601f0603acc40082c13b2e13aed7875964fdef8adadd28c0b7c21544e16"
+      },
+      "criterion": {
+        "bridge_id": "AMIL_ENCODING_TO_AUTHENTICATION_V1",
+        "allowed_source_statuses": [
+          "PINNED_SDK_LOCAL_INTEGRATION_PASS"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "trusted-read-source",
+            "verifier_id": "AMIL_TRUSTED_READ_SOURCE_V1"
+          },
+          {
+            "gate_id": "issuer-signature-authentication",
+            "verifier_id": "AMIL_ISSUER_SIGNATURE_AUTH_V1"
+          },
+          {
+            "gate_id": "capability-map-binding",
+            "verifier_id": "AMIL_CAPABILITY_MAP_BINDING_V1"
+          },
+          {
+            "gate_id": "joint-subject-binding",
+            "verifier_id": "AMIL_JOINT_SUBJECT_BINDING_V1"
+          },
+          {
+            "gate_id": "freshness-revocation-generation",
+            "verifier_id": "AMIL_FRESHNESS_REVOCATION_GENERATION_V1"
+          }
+        ],
+        "criterion_text": "Encoding equality and deterministic SDK replay do not authenticate caller-supplied snapshots, approvals, capability maps, policy, generation, or revocation state."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "AMIL_AUTHENTICATION_TO_ACTIVATION",
+      "source": {
+        "claim_id": "AMIL-AUTHENTICATED-SUBJECT",
+        "coordinate": {
+          "domain_id": "governance/amil",
+          "carrier_id": "trusted-authenticated-input",
+          "scope_id": "snapshot-agent-permission-authentication"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "81ae7601f0603acc40082c13b2e13aed7875964fdef8adadd28c0b7c21544e16"
+      },
+      "target": {
+        "claim_id": "AMIL-ACTIVATION-AUTHORITY",
+        "coordinate": {
+          "domain_id": "governance/amil",
+          "carrier_id": "operator-authorized-activation",
+          "scope_id": "live-execution-admission"
+        },
+        "status": "NOT_GRANTED",
+        "evidence_sha256": "81ae7601f0603acc40082c13b2e13aed7875964fdef8adadd28c0b7c21544e16"
+      },
+      "criterion": {
+        "bridge_id": "AMIL_AUTHENTICATION_TO_ACTIVATION_V1",
+        "allowed_source_statuses": [
+          "AUTHENTICATED_INPUTS_VERIFIED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_GRANTED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "single-authority-path",
+            "verifier_id": "AMIL_SINGLE_AUTHORITY_PATH_V1"
+          },
+          {
+            "gate_id": "operator-approval",
+            "verifier_id": "AMIL_OPERATOR_APPROVAL_V1"
+          },
+          {
+            "gate_id": "fresh-generation-cas",
+            "verifier_id": "AMIL_GENERATION_CAS_V1"
+          },
+          {
+            "gate_id": "capability-recheck",
+            "verifier_id": "AMIL_CAPABILITY_RECHECK_V1"
+          },
+          {
+            "gate_id": "dispatch-receipt",
+            "verifier_id": "AMIL_DISPATCH_RECEIPT_V1"
+          }
+        ],
+        "criterion_text": "Authentication may permit planning over authenticated data, but activation still requires the live single-authority transaction, freshness/capability rechecks, operator authorization, and a dispatch receipt."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_SOURCE_STATUS",
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "NERVE_HISTORICAL_UNION_TO_CURRENT_GLOBALIZABILITY",
+      "source": {
+        "claim_id": "NERVE-HISTORICAL-UNION",
+        "coordinate": {
+          "domain_id": "governance/reconciliation",
+          "carrier_id": "historical-provenance-union",
+          "scope_id": "multi-epoch-lineage"
+        },
+        "status": "PROVENANCE_ONLY_SOURCE_INSPECTED",
+        "evidence_sha256": "5025e725dddee64c122eccb5180769cd1f5caca66715cda765df02f6c3c57adc"
+      },
+      "target": {
+        "claim_id": "NERVE-CURRENT-GLOBALIZABILITY",
+        "coordinate": {
+          "domain_id": "governance/reconciliation",
+          "carrier_id": "epoch-filtered-active-nerve",
+          "scope_id": "current-globalizability"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "5025e725dddee64c122eccb5180769cd1f5caca66715cda765df02f6c3c57adc"
+      },
+      "criterion": {
+        "bridge_id": "HISTORICAL_UNION_TO_CURRENT_NERVE_V1",
+        "allowed_source_statuses": [
+          "PROVENANCE_ONLY_SOURCE_INSPECTED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "exact-epoch-time",
+            "verifier_id": "NERVE_EXACT_EPOCH_TIME_V1"
+          },
+          {
+            "gate_id": "namespace-modulus-policy",
+            "verifier_id": "NERVE_CONTEXT_BINDING_V1"
+          },
+          {
+            "gate_id": "verified-unsuperseded-pairs",
+            "verifier_id": "NERVE_ACTIVE_PAIR_RECEIPTS_V1"
+          },
+          {
+            "gate_id": "joint-three-party-receipts",
+            "verifier_id": "NERVE_JOINT_TRIPLE_RECEIPTS_V1"
+          },
+          {
+            "gate_id": "global-witness-or-obstruction",
+            "verifier_id": "NERVE_GLOBALIZATION_WITNESS_V1"
+          }
+        ],
+        "criterion_text": "The historical union of individually legitimate reconciliation receipts is provenance only and cannot decide current globalizability; the current epoch/time/context and active receipt nerve must be rebuilt and verified."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "COVER_PAIRWISE_TO_JOINT_GLOBALIZATION",
+      "source": {
+        "claim_id": "COVER-DEGREE1-PAIRWISE-OBSTRUCTION-ALGORITHM",
+        "coordinate": {
+          "domain_id": "governance/topology",
+          "carrier_id": "pairwise-cover-source-algorithm",
+          "scope_id": "degree1-local-reconciliation"
+        },
+        "status": "SOURCE_BYTES_BOUND_NOT_EXECUTED",
+        "evidence_sha256": "9f05b825c82bf6b63f728bcf44aba7a24cf660e9f6269b2fa9df04a30bc2c28f"
+      },
+      "target": {
+        "claim_id": "JOINT-GLOBAL-RECONCILIATION",
+        "coordinate": {
+          "domain_id": "governance/topology",
+          "carrier_id": "joint-reconciliation-witness",
+          "scope_id": "global-section-existence"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "9f05b825c82bf6b63f728bcf44aba7a24cf660e9f6269b2fa9df04a30bc2c28f"
+      },
+      "criterion": {
+        "bridge_id": "PAIRWISE_COVER_TO_JOINT_GLOBALIZATION_V1",
+        "allowed_source_statuses": [
+          "SOURCE_BYTES_BOUND_NOT_EXECUTED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "actual-pairwise-receipts",
+            "verifier_id": "COVER_PAIRWISE_RECEIPTS_V1"
+          },
+          {
+            "gate_id": "joint-intersection-receipts",
+            "verifier_id": "COVER_JOINT_INTERSECTION_RECEIPTS_V1"
+          },
+          {
+            "gate_id": "cycle-space-coverage",
+            "verifier_id": "COVER_CYCLE_SPACE_COVERAGE_V1"
+          },
+          {
+            "gate_id": "global-section-witness",
+            "verifier_id": "COVER_GLOBAL_SECTION_WITNESS_V1"
+          }
+        ],
+        "criterion_text": "Pairwise edges do not create a joint three-party receipt, and local cocycle consistency does not by itself establish a global section; joint topology and a global witness must be carried explicitly."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "ABJAD_SOURCE_CANDIDATE_TO_KERNEL_THEOREM",
+      "source": {
+        "claim_id": "ABJAD-CROSS-PROFILE-LEAN-CANDIDATE",
+        "coordinate": {
+          "domain_id": "formal/abjad",
+          "carrier_id": "lean-source-candidate",
+          "scope_id": "mashriqi-maghribi-finite-arithmetic"
+        },
+        "status": "SOURCE_PREPARED_NOT_KERNEL_CHECKED",
+        "evidence_sha256": "f2bc234a45b3438d27fa948042602af069f40bba4a1dc207dd02921692345a03"
+      },
+      "target": {
+        "claim_id": "ABJAD-CROSS-PROFILE-KERNEL-THEOREM",
+        "coordinate": {
+          "domain_id": "formal/abjad",
+          "carrier_id": "lean-kernel-proof",
+          "scope_id": "cross-profile-theorem-closure"
+        },
+        "status": "KERNEL_REPLAY_NOT_RUN",
+        "evidence_sha256": "8ef5a77c05d6586945e8a58d4c65aaaace6852011fe74cc03965f4b52ab34caf"
+      },
+      "criterion": {
+        "bridge_id": "ABJAD_SOURCE_TO_KERNEL_VERIFICATION_V1",
+        "allowed_source_statuses": [
+          "SOURCE_PREPARED_NOT_KERNEL_CHECKED"
+        ],
+        "allowed_target_statuses": [
+          "KERNEL_REPLAY_NOT_RUN"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "exact-candidate-bytes",
+            "verifier_id": "ABJAD_EXACT_CANDIDATE_BYTES_V1"
+          },
+          {
+            "gate_id": "lean-version-binding",
+            "verifier_id": "ABJAD_LEAN_4_33_1_BINDING_V1"
+          },
+          {
+            "gate_id": "kernel-compilation",
+            "verifier_id": "ABJAD_KERNEL_COMPILATION_V1"
+          },
+          {
+            "gate_id": "axiom-audit",
+            "verifier_id": "ABJAD_AXIOM_AUDIT_V1"
+          },
+          {
+            "gate_id": "sorry-free-check",
+            "verifier_id": "ABJAD_SORRY_FREE_V1"
+          }
+        ],
+        "criterion_text": "Prepared Lean source is not a kernel theorem until the pinned candidate bytes are compiled under the declared toolchain and the theorem/axiom surface is audited."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "ASB1_SEALED_EVALUATOR_TO_AEGIS_EFFICACY",
+      "source": {
+        "claim_id": "ASB1-PILOT1-SEALED-EVALUATOR",
+        "coordinate": {
+          "domain_id": "evaluation/asb1",
+          "carrier_id": "sealed-gold-evaluator",
+          "scope_id": "pilot1-scoring-infrastructure"
+        },
+        "status": "SEALED_EVALUATOR_BYTES_BOUND",
+        "evidence_sha256": "2a0ef2fc5545150eec5c4b9d322edf032ff825b89a393a69789a4452ccde7a13"
+      },
+      "target": {
+        "claim_id": "AEGIS-REDUCES-FALSE-CLAIM-PROMOTION",
+        "coordinate": {
+          "domain_id": "evaluation/asb1",
+          "carrier_id": "matched-benchmark-outcome",
+          "scope_id": "pilot1-efficacy"
+        },
+        "status": "NO_ARM_RUN_RESULTS_IN_PACKAGE",
+        "evidence_sha256": "2a0ef2fc5545150eec5c4b9d322edf032ff825b89a393a69789a4452ccde7a13"
+      },
+      "criterion": {
+        "bridge_id": "SEALED_EVALUATOR_TO_BENCHMARK_EFFICACY_V1",
+        "allowed_source_statuses": [
+          "SEALED_EVALUATOR_BYTES_BOUND"
+        ],
+        "allowed_target_statuses": [
+          "NO_ARM_RUN_RESULTS_IN_PACKAGE"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "control-arm-run",
+            "verifier_id": "ASB1_CONTROL_ARM_RUN_V1"
+          },
+          {
+            "gate_id": "aegis-arm-run",
+            "verifier_id": "ASB1_AEGIS_ARM_RUN_V1"
+          },
+          {
+            "gate_id": "matched-provenance",
+            "verifier_id": "ASB1_MATCHED_PROVENANCE_V1"
+          },
+          {
+            "gate_id": "sealed-scoring-replay",
+            "verifier_id": "ASB1_SEALED_SCORING_REPLAY_V1"
+          },
+          {
+            "gate_id": "independent-benchmark-replay",
+            "verifier_id": "ASB1_INDEPENDENT_REPLAY_V1"
+          }
+        ],
+        "criterion_text": "A sealed gold set and scorer establish evaluation infrastructure, not system efficacy; matched control/AEGIS runs, provenance checks, scoring and independent replay are required before a false-promotion reduction claim."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "JCS_AUDIT_SNAPSHOT_TO_CURRENT_CONFORMANCE",
+      "source": {
+        "claim_id": "JCS-SNAPSHOT-DEFECT-AUDIT",
+        "coordinate": {
+          "domain_id": "crypto/canonicalization",
+          "carrier_id": "snapshot-audit-report",
+          "scope_id": "main-495bfd85-rfc8785-inspection"
+        },
+        "status": "SNAPSHOT_DEFECT_REPORTED",
+        "evidence_sha256": "1c83c537de82ded80116c68f128ce1ecc5564c742b9c6a6396920710af2a739d"
+      },
+      "target": {
+        "claim_id": "CURRENT-STRICT-RFC8785-CONFORMANCE",
+        "coordinate": {
+          "domain_id": "crypto/canonicalization",
+          "carrier_id": "current-implementation",
+          "scope_id": "current-strict-rfc8785"
+        },
+        "status": "CURRENT_CONFORMANCE_NOT_ESTABLISHED_BY_SNAPSHOT",
+        "evidence_sha256": "1c83c537de82ded80116c68f128ce1ecc5564c742b9c6a6396920710af2a739d"
+      },
+      "criterion": {
+        "bridge_id": "HISTORICAL_JCS_AUDIT_TO_CURRENT_CONFORMANCE_V1",
+        "allowed_source_statuses": [
+          "SNAPSHOT_DEFECT_REPORTED"
+        ],
+        "allowed_target_statuses": [
+          "CURRENT_CONFORMANCE_NOT_ESTABLISHED_BY_SNAPSHOT"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "current-exact-source",
+            "verifier_id": "JCS_CURRENT_EXACT_SOURCE_V1"
+          },
+          {
+            "gate_id": "utf16-property-order-vector",
+            "verifier_id": "JCS_UTF16_PROPERTY_ORDER_V1"
+          },
+          {
+            "gate_id": "lone-surrogate-rejection",
+            "verifier_id": "JCS_LONE_SURROGATE_REJECTION_V1"
+          },
+          {
+            "gate_id": "strict-json-input-domain",
+            "verifier_id": "JCS_STRICT_INPUT_DOMAIN_V1"
+          },
+          {
+            "gate_id": "cross-runtime-replay",
+            "verifier_id": "JCS_CROSS_RUNTIME_REPLAY_V1"
+          },
+          {
+            "gate_id": "dependent-digest-supersession",
+            "verifier_id": "JCS_DEPENDENT_DIGEST_SUPERSESSION_V1"
+          }
+        ],
+        "criterion_text": "A defect finding at one pinned main snapshot cannot establish the current implementation state; current strict RFC 8785 conformance requires a fresh exact-source replay of the normative boundary and dependent identity transition."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "QUANTUM_SUPER_DAG_TO_ACTION_AUTHORITY",
+      "source": {
+        "claim_id": "AEGIS-QUANTUM-TYPED-SUPER-DAG",
+        "coordinate": {
+          "domain_id": "architecture/quantum",
+          "carrier_id": "typed-architecture-diagram",
+          "scope_id": "proposed-evidence-flows"
+        },
+        "status": "DESCRIPTIVE_ARCHITECTURE",
+        "evidence_sha256": "1472c293c2aa9ff9ab24ea789dc88561f5c46e9e6d2c4929ec5cbc2056ce972b"
+      },
+      "target": {
+        "claim_id": "AEGIS-QUANTUM-ACTION-AUTHORITY",
+        "coordinate": {
+          "domain_id": "governance/action",
+          "carrier_id": "operator-authorized-action",
+          "scope_id": "external-action-admission"
+        },
+        "status": "NOT_GRANTED",
+        "evidence_sha256": "1472c293c2aa9ff9ab24ea789dc88561f5c46e9e6d2c4929ec5cbc2056ce972b"
+      },
+      "criterion": {
+        "bridge_id": "QUANTUM_DAG_WITNESS_TO_ACTION_AUTHORITY_V1",
+        "allowed_source_statuses": [
+          "DESCRIPTIVE_ARCHITECTURE"
+        ],
+        "allowed_target_statuses": [
+          "NOT_GRANTED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "source-bound-witness",
+            "verifier_id": "QUANTUM_SOURCE_BOUND_WITNESS_V1"
+          },
+          {
+            "gate_id": "bridge-obligation-verification",
+            "verifier_id": "QUANTUM_BRIDGE_OBLIGATION_V1"
+          },
+          {
+            "gate_id": "current-admission-policy",
+            "verifier_id": "QUANTUM_CURRENT_ADMISSION_POLICY_V1"
+          },
+          {
+            "gate_id": "operator-authorization",
+            "verifier_id": "QUANTUM_OPERATOR_AUTHORIZATION_V1"
+          },
+          {
+            "gate_id": "action-receipt",
+            "verifier_id": "QUANTUM_ACTION_RECEIPT_V1"
+          }
+        ],
+        "criterion_text": "A typed architecture DAG and verified witnesses produce candidates only; action authority remains a separate operator-governed admission transition and is never automatic."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "ONEBNA_GEOMETRY_TO_GTG_PARAMETERIZATION",
+      "source": {
+        "claim_id": "1BNA-GEOMETRY-BENCHMARK",
+        "coordinate": {
+          "domain_id": "bio/1bna-geometry",
+          "carrier_id": "xray-coordinate-analysis",
+          "scope_id": "1BNA-coordinate-proxies"
+        },
+        "status": "COORDINATE_ANALYSIS_VERIFIED_NUMERICALLY",
+        "evidence_sha256": "57e349fd64494a6c7f575e82fcbdac148859ff73f3af34e51e34afb9e857fb90"
+      },
+      "target": {
+        "claim_id": "GTG-ELM-PARAMETERIZATION-FROM-1BNA",
+        "coordinate": {
+          "domain_id": "bio/quantumdna",
+          "carrier_id": "open-system-simulation",
+          "scope_id": "GTG-gamma-0.1-6D-parameterization"
+        },
+        "status": "PARAMETERIZATION_CORRESPONDENCE_NOT_ESTABLISHED",
+        "evidence_sha256": "11178c3d7c792a3254a38599ae39011dc52068167bbdd20a96c049c6969c863e"
+      },
+      "criterion": {
+        "bridge_id": "ONEBNA_GEOMETRY_TO_GTG_MODEL_PARAMETERIZATION_V1",
+        "allowed_source_statuses": [
+          "COORDINATE_ANALYSIS_VERIFIED_NUMERICALLY"
+        ],
+        "allowed_target_statuses": [
+          "PARAMETERIZATION_CORRESPONDENCE_NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "residue-to-site-mapping",
+            "verifier_id": "ONEBNA_GTG_RESIDUE_SITE_MAPPING_V1"
+          },
+          {
+            "gate_id": "hamiltonian-parameter-derivation",
+            "verifier_id": "ONEBNA_GTG_HAMILTONIAN_DERIVATION_V1"
+          },
+          {
+            "gate_id": "dephasing-parameter-calibration",
+            "verifier_id": "ONEBNA_GTG_DEPHASING_CALIBRATION_V1"
+          },
+          {
+            "gate_id": "structure-to-model-uncertainty",
+            "verifier_id": "ONEBNA_GTG_MODEL_UNCERTAINTY_V1"
+          },
+          {
+            "gate_id": "parameter-regeneration-replay",
+            "verifier_id": "ONEBNA_GTG_PARAMETER_REGENERATION_V1"
+          },
+          {
+            "gate_id": "independent-cross-model-validation",
+            "verifier_id": "ONEBNA_GTG_INDEPENDENT_VALIDATION_V1"
+          }
+        ],
+        "criterion_text": "Numerically verified 1BNA coordinate proxies do not establish how the 6-site GTG Hamiltonian or gamma=0.1 parameters were derived. The uploaded GTG replay explicitly excludes parameter regeneration and physical validation."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "GTG_REPLAY_TO_CURRENT_SOURCE_PROVENANCE",
+      "source": {
+        "claim_id": "GTG-GAMMA-0.1-NUMERICAL-REPLAY",
+        "coordinate": {
+          "domain_id": "bio/quantumdna",
+          "carrier_id": "numerical-replay",
+          "scope_id": "GTG-gamma-0.1-population-coherence"
+        },
+        "status": "NUMERICAL_REPLAY_PASS",
+        "evidence_sha256": "11178c3d7c792a3254a38599ae39011dc52068167bbdd20a96c049c6969c863e"
+      },
+      "target": {
+        "claim_id": "GTG-SOURCE-COMMIT-CURRENT-PROVENANCE",
+        "coordinate": {
+          "domain_id": "provenance/github",
+          "carrier_id": "commit-addressability",
+          "scope_id": "b0a840-source-binding"
+        },
+        "status": "SOURCE_COMMIT_UNRESOLVED_CURRENTLY",
+        "evidence_sha256": "8e36a6cca29358cd5157e9dc453215d77922174149df0431b2d4f71f15f0b952"
+      },
+      "criterion": {
+        "bridge_id": "NUMERICAL_REPLAY_TO_CURRENT_SOURCE_PROVENANCE_V1",
+        "allowed_source_statuses": [
+          "NUMERICAL_REPLAY_PASS"
+        ],
+        "allowed_target_statuses": [
+          "SOURCE_COMMIT_UNRESOLVED_CURRENTLY"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "current-commit-addressability",
+            "verifier_id": "GTG_CURRENT_COMMIT_ADDRESSABILITY_V1"
+          },
+          {
+            "gate_id": "source-blob-binding",
+            "verifier_id": "GTG_SOURCE_BLOB_BINDING_V1"
+          },
+          {
+            "gate_id": "artifact-path-binding",
+            "verifier_id": "GTG_ARTIFACT_PATH_BINDING_V1"
+          },
+          {
+            "gate_id": "source-to-artifact-regeneration",
+            "verifier_id": "GTG_SOURCE_ARTIFACT_REGENERATION_V1"
+          }
+        ],
+        "criterion_text": "A numerically accurate replay of archived arrays does not establish current repository provenance. The declared source commit b0a840... still returns no commit on a fresh GitHub read, so source identity must remain separate from replay correctness."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "CLAIM_VALIDATION_REPLAY_TO_SCIENTIFIC_ADMISSION",
+      "source": {
+        "claim_id": "AEGIS-CLAIM-VALIDATION-V3-REPLAY",
+        "coordinate": {
+          "domain_id": "validation/claims",
+          "carrier_id": "package-integrity-replay",
+          "scope_id": "v3-heterogeneous-claim-corpus"
+        },
+        "status": "PASS_PACKAGE_INTEGRITY_AND_REPLAY",
+        "evidence_sha256": "8e36a6cca29358cd5157e9dc453215d77922174149df0431b2d4f71f15f0b952"
+      },
+      "target": {
+        "claim_id": "AEGIS-CLAIM-VALIDATION-V3-ADMISSION",
+        "coordinate": {
+          "domain_id": "validation/claims",
+          "carrier_id": "scientific-admission",
+          "scope_id": "v3-claim-authority"
+        },
+        "status": "ADMISSION_NOT_ESTABLISHED",
+        "evidence_sha256": "8e36a6cca29358cd5157e9dc453215d77922174149df0431b2d4f71f15f0b952"
+      },
+      "criterion": {
+        "bridge_id": "PACKAGE_REPLAY_TO_SCIENTIFIC_ADMISSION_V1",
+        "allowed_source_statuses": [
+          "PASS_PACKAGE_INTEGRITY_AND_REPLAY"
+        ],
+        "allowed_target_statuses": [
+          "ADMISSION_NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "formal-kernel-execution",
+            "verifier_id": "CLAIM_V3_FORMAL_KERNEL_EXECUTION_V1"
+          },
+          {
+            "gate_id": "experimental-gate-execution",
+            "verifier_id": "CLAIM_V3_EXPERIMENTAL_GATE_EXECUTION_V1"
+          },
+          {
+            "gate_id": "repository-currentness",
+            "verifier_id": "CLAIM_V3_REPOSITORY_CURRENTNESS_V1"
+          },
+          {
+            "gate_id": "evidence-class-specific-admission",
+            "verifier_id": "CLAIM_V3_EVIDENCE_CLASS_ADMISSION_V1"
+          }
+        ],
+        "criterion_text": "Package integrity, optimized replay and 63 internal checks establish replay behavior only. The receipt itself records formal kernel execution=false, experimental gate evaluation=false, repository requests=false, admission not established, and authority_effect=NONE."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "UPSTREAM_BUILD_TO_ABJAD_FACTORIZATION_KERNEL",
+      "source": {
+        "claim_id": "FORMAL-CONJECTURES-UPSTREAM-BUILD",
+        "coordinate": {
+          "domain_id": "formal/formal-conjectures",
+          "carrier_id": "upstream-build-log",
+          "scope_id": "8907-job-build"
+        },
+        "status": "UPSTREAM_BUILD_SUCCESS",
+        "evidence_sha256": "08169180cc2d1fb15554f8bddece73555609df7e180057eeb680937cfd60f198"
+      },
+      "target": {
+        "claim_id": "ABJAD-FACTORIZATION-V1-KERNEL-STATUS",
+        "coordinate": {
+          "domain_id": "formal/abjad",
+          "carrier_id": "lean-kernel-proof",
+          "scope_id": "vonMangoldt-factorization-obstruction"
+        },
+        "status": "KERNEL_REPLAY_NOT_BOUND_TO_LOG",
+        "evidence_sha256": "db893663ba81e2741aebf2680f4562307900c893c46ee89f9092a27af2e374e3"
+      },
+      "criterion": {
+        "bridge_id": "UPSTREAM_BUILD_TO_UPLOADED_LEAN_CANDIDATE_V1",
+        "allowed_source_statuses": [
+          "UPSTREAM_BUILD_SUCCESS"
+        ],
+        "allowed_target_statuses": [
+          "KERNEL_REPLAY_NOT_BOUND_TO_LOG"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "candidate-in-build-graph",
+            "verifier_id": "ABJAD_FACTORIZATION_BUILD_GRAPH_BINDING_V1"
+          },
+          {
+            "gate_id": "lean-toolchain-binding",
+            "verifier_id": "ABJAD_FACTORIZATION_LEAN_TOOLCHAIN_V1"
+          },
+          {
+            "gate_id": "candidate-kernel-compilation",
+            "verifier_id": "ABJAD_FACTORIZATION_KERNEL_COMPILE_V1"
+          },
+          {
+            "gate_id": "axiom-output-capture",
+            "verifier_id": "ABJAD_FACTORIZATION_AXIOM_CAPTURE_V1"
+          },
+          {
+            "gate_id": "sorry-free-kernel-check",
+            "verifier_id": "ABJAD_FACTORIZATION_SORRY_FREE_KERNEL_V1"
+          }
+        ],
+        "criterion_text": "A successful 8907-job upstream FormalConjectures build cannot verify a separately uploaded Lean file unless that exact candidate is in the build graph and its own kernel/axiom evidence is captured."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "PR342_LOCAL_REPLAY_TO_DEPLOYED_DISPATCH_EFFECT",
+      "source": {
+        "claim_id": "PR342-INDEPENDENT-LOCAL-REPLAY",
+        "coordinate": {
+          "domain_id": "runtime/dispatch",
+          "carrier_id": "local-source-slice-replay",
+          "scope_id": "pr342-request-isolation-fix"
+        },
+        "status": "LOCAL_CORRECTION_REPLAY_VERIFIED",
+        "evidence_sha256": "dff13f84acb95e228ad7a8228f02d5180d8d2c5dc1fa26017b2c09315eebcf31"
+      },
+      "target": {
+        "claim_id": "PR342-DEPLOYED-DISPATCH-EXTERNAL-EFFECT",
+        "coordinate": {
+          "domain_id": "runtime/dispatch",
+          "carrier_id": "deployed-external-effect",
+          "scope_id": "live-agent-dispatch"
+        },
+        "status": "DEPLOYED_EXTERNAL_EFFECT_NOT_ESTABLISHED",
+        "evidence_sha256": "640eca3da2b589609beafca48b13e46abc0d5963d330843be9315bc94267e79b"
+      },
+      "criterion": {
+        "bridge_id": "LOCAL_SLICE_REPLAY_TO_DEPLOYED_DISPATCH_EFFECT_V1",
+        "allowed_source_statuses": [
+          "LOCAL_CORRECTION_REPLAY_VERIFIED"
+        ],
+        "allowed_target_statuses": [
+          "DEPLOYED_EXTERNAL_EFFECT_NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "complete-integrated-candidate",
+            "verifier_id": "PR342_COMPLETE_INTEGRATED_CANDIDATE_V1"
+          },
+          {
+            "gate_id": "deployed-service-import",
+            "verifier_id": "PR342_DEPLOYED_SERVICE_IMPORT_V1"
+          },
+          {
+            "gate_id": "live-dispatch-receipt",
+            "verifier_id": "PR342_LIVE_DISPATCH_RECEIPT_V1"
+          },
+          {
+            "gate_id": "external-effect-verification",
+            "verifier_id": "PR342_EXTERNAL_EFFECT_VERIFICATION_V1"
+          },
+          {
+            "gate_id": "failure-journaling",
+            "verifier_id": "PR342_FAILURE_JOURNALING_V1"
+          },
+          {
+            "gate_id": "single-writer-exclusion",
+            "verifier_id": "PR342_SINGLE_WRITER_EXCLUSION_V1"
+          }
+        ],
+        "criterion_text": "40/40 local tests under normal/-O/-OO, a source-slice apply replay, and 5/5 detected mutations do not establish deployed-service behavior or any external dispatch effect. The independent receipt records live_dispatch=false, remote_writes=0 and authority_effect=NONE."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "PR423_COGNITIVE_ADMISSION_TO_RUNTIME_WIRING",
+      "source": {
+        "claim_id": "PR423-COGNITIVE-ADMISSION-DCBD6A31",
+        "coordinate": {
+          "domain_id": "governance/cognition",
+          "carrier_id": "exact-head-admission",
+          "scope_id": "dcbd6a31-manifest-transition"
+        },
+        "status": "HISTORICAL_EXACT_HEAD_COGNITIVE_ADMITTED",
+        "evidence_sha256": "a7c89b29956db76dc2d0360df2e2a17017929efab4f00dee474f6a99f65985cc"
+      },
+      "target": {
+        "claim_id": "PR423-RUNTIME-INTEGRATION-WIRING-DCBD6A31",
+        "coordinate": {
+          "domain_id": "governance/integration",
+          "carrier_id": "runtime-wiring",
+          "scope_id": "dcbd6a31-top-level-areas"
+        },
+        "status": "WIRED_0_EXECUTION_UNVERIFIED",
+        "evidence_sha256": "638c236a07b8c49b303ae56bf9eb265461d371d011dd9b5f4271f852913fc044"
+      },
+      "criterion": {
+        "bridge_id": "COGNITIVE_ADMISSION_TO_RUNTIME_WIRING_V1",
+        "allowed_source_statuses": [
+          "HISTORICAL_EXACT_HEAD_COGNITIVE_ADMITTED"
+        ],
+        "allowed_target_statuses": [
+          "WIRED_0_EXECUTION_UNVERIFIED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "runtime-reachability",
+            "verifier_id": "PR423_RUNTIME_REACHABILITY_V1"
+          },
+          {
+            "gate_id": "executable-integration-test",
+            "verifier_id": "PR423_EXECUTABLE_INTEGRATION_V1"
+          },
+          {
+            "gate_id": "live-dependency-resolution",
+            "verifier_id": "PR423_LIVE_DEPENDENCY_RESOLUTION_V1"
+          },
+          {
+            "gate_id": "production-admission",
+            "verifier_id": "PR423_PRODUCTION_ADMISSION_V1"
+          },
+          {
+            "gate_id": "operator-activation",
+            "verifier_id": "PR423_OPERATOR_ACTIVATION_V1"
+          }
+        ],
+        "criterion_text": "Automaton-2 and Trusted Cognitive Admission at historical exact head dcbd6a31 establish the governed manifest transition only. The same package's Integration Ledger reports 0 WIRED and explicitly leaves execution unverified; cognitive admission is not runtime integration or production authority."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "QUANTUMDNA_GTG_REPLAY_TO_HBT_NONCLASSICAL_WITNESS",
+      "source": {
+        "claim_id": "GTG-GAMMA-0.1-NUMERICAL-REPLAY",
+        "coordinate": {
+          "domain_id": "bio/quantumdna",
+          "carrier_id": "numerical-simulation",
+          "scope_id": "GTG-gamma-0.1-6D-trajectory"
+        },
+        "status": "NUMERICAL_REPLAY_PASS",
+        "evidence_sha256": "11178c3d7c792a3254a38599ae39011dc52068167bbdd20a96c049c6969c863e"
+      },
+      "target": {
+        "claim_id": "BIO-SPONTANEOUS-NONCLASSICAL-HBT-WITNESS",
+        "coordinate": {
+          "domain_id": "bio/quantum-optics",
+          "carrier_id": "empirical-hbt-witness",
+          "scope_id": "corrected-g2-zero-less-than-one"
+        },
+        "status": "OPEN_EMPIRICAL_QUANTUM_WITNESS",
+        "evidence_sha256": "26dc56aa43d9fca3054ab1c2c775b818e78bc3c1ee54f6be253495af0322bcd8"
+      },
+      "criterion": {
+        "bridge_id": "QUANTUMDNA_SIMULATION_TO_EMPIRICAL_HBT_V1",
+        "allowed_source_statuses": [
+          "NUMERICAL_REPLAY_PASS"
+        ],
+        "allowed_target_statuses": [
+          "OPEN_EMPIRICAL_QUANTUM_WITNESS"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "genuine-raw-photon-acquisition",
+            "verifier_id": "HBT_RAW_PHOTON_ACQUISITION_V1"
+          },
+          {
+            "gate_id": "detector-calibration",
+            "verifier_id": "HBT_DETECTOR_CALIBRATION_V1"
+          },
+          {
+            "gate_id": "dark-deadtime-afterpulse-correction",
+            "verifier_id": "HBT_INSTRUMENT_CORRECTION_V1"
+          },
+          {
+            "gate_id": "predeclared-g2-estimator",
+            "verifier_id": "HBT_G2_ESTIMATOR_V1"
+          },
+          {
+            "gate_id": "confidence-bound-below-classical-threshold",
+            "verifier_id": "HBT_NONCLASSICAL_CONFIDENCE_BOUND_V1"
+          },
+          {
+            "gate_id": "independent-biological-replication",
+            "verifier_id": "HBT_INDEPENDENT_BIOLOGICAL_REPLICATION_V1"
+          }
+        ],
+        "criterion_text": "QuantumDNA/GTG simulation replay is simulation evidence only. A nonclassical biological photon claim requires genuine HBT acquisition, calibrated detector corrections, a preregistered g2 estimator, uncertainty bound, and independent biological replication."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "SELF_WITNESS_QPP_TO_NVIDIA_FP64_DIFFERENTIAL",
+      "source": {
+        "claim_id": "SELF-WITNESS-0-QPP-CPU",
+        "coordinate": {
+          "domain_id": "quantum/self-witness",
+          "carrier_id": "cudaq-qpp-cpu-analytic",
+          "scope_id": "seven-pauli-expectations"
+        },
+        "status": "MACHINE_VERIFIED_AT_6965_SOURCE_BYTES_PRESERVED",
+        "evidence_sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054"
+      },
+      "target": {
+        "claim_id": "SELF-WITNESS-0-NVIDIA-FP64-DIFFERENTIAL",
+        "coordinate": {
+          "domain_id": "quantum/self-witness",
+          "carrier_id": "cudaq-nvidia-fp64-statevector",
+          "scope_id": "qpp-vs-nvidia-differential"
+        },
+        "status": "NOT_RUN",
+        "evidence_sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054"
+      },
+      "criterion": {
+        "bridge_id": "SELF_WITNESS_QPP_TO_NVIDIA_FP64_V1",
+        "allowed_source_statuses": [
+          "MACHINE_VERIFIED_AT_6965_SOURCE_BYTES_PRESERVED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_RUN"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "nvidia-capable-runner",
+            "verifier_id": "SELF_WITNESS_NVIDIA_RUNNER_V1"
+          },
+          {
+            "gate_id": "exact-backend-fp64",
+            "verifier_id": "SELF_WITNESS_NVIDIA_FP64_BINDING_V1"
+          },
+          {
+            "gate_id": "same-kernel-and-theta-preimage",
+            "verifier_id": "SELF_WITNESS_CROSS_BACKEND_PREIMAGE_V1"
+          },
+          {
+            "gate_id": "differential-tolerance-check",
+            "verifier_id": "SELF_WITNESS_DIFFERENTIAL_TOLERANCE_V1"
+          },
+          {
+            "gate_id": "fresh-exact-head-rebind",
+            "verifier_id": "SELF_WITNESS_CURRENT_HEAD_REBIND_V1"
+          }
+        ],
+        "criterion_text": "Real qpp-cpu execution does not establish the NVIDIA fp64 differential. The verified execution is bound to historical head 6965..., current source bytes are preserved at PR #373 head 7853..., but no real NVIDIA-capable exact-head run has been performed."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "SELF_WITNESS_QPP_TO_PHYSICAL_QPU_STATISTICAL_WITNESS",
+      "source": {
+        "claim_id": "SELF-WITNESS-0-QPP-CPU",
+        "coordinate": {
+          "domain_id": "quantum/self-witness",
+          "carrier_id": "analytic-statevector",
+          "scope_id": "shots-minus-one-expectations"
+        },
+        "status": "ANALYTIC_QPP_EXECUTION_VERIFIED",
+        "evidence_sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054"
+      },
+      "target": {
+        "claim_id": "SELF-WITNESS-PHYSICAL-QPU",
+        "coordinate": {
+          "domain_id": "quantum/self-witness",
+          "carrier_id": "physical-qpu-statistical",
+          "scope_id": "shot-based-empirical-witness"
+        },
+        "status": "OUT_OF_SCOPE_FOR_V1",
+        "evidence_sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054"
+      },
+      "criterion": {
+        "bridge_id": "SELF_WITNESS_ANALYTIC_TO_PHYSICAL_QPU_V2",
+        "allowed_source_statuses": [
+          "ANALYTIC_QPP_EXECUTION_VERIFIED"
+        ],
+        "allowed_target_statuses": [
+          "OUT_OF_SCOPE_FOR_V1"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "physical-qpu-identity",
+            "verifier_id": "SELF_WITNESS_QPU_IDENTITY_V2"
+          },
+          {
+            "gate_id": "shot-count-lock",
+            "verifier_id": "SELF_WITNESS_SHOT_COUNT_V2"
+          },
+          {
+            "gate_id": "estimator-variance",
+            "verifier_id": "SELF_WITNESS_ESTIMATOR_VARIANCE_V2"
+          },
+          {
+            "gate_id": "confidence-interval",
+            "verifier_id": "SELF_WITNESS_CONFIDENCE_INTERVAL_V2"
+          },
+          {
+            "gate_id": "distributional-acceptance-test",
+            "verifier_id": "SELF_WITNESS_DISTRIBUTIONAL_ACCEPTANCE_V2"
+          },
+          {
+            "gate_id": "hardware-calibration-context",
+            "verifier_id": "SELF_WITNESS_HARDWARE_CALIBRATION_V2"
+          }
+        ],
+        "criterion_text": "Analytic statevector expectations with shots_count=-1 are not a physical-QPU witness. The PR explicitly requires a separate V2 statistical contract with shot count, estimator uncertainty, confidence intervals, and a distributional acceptance test."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "QP_PD_V2_BINDING_TO_BIOLOGICAL_NONCLASSICALITY",
+      "source": {
+        "claim_id": "QP-PD-V2-BIOLOGICAL-BINDING",
+        "coordinate": {
+          "domain_id": "bio/quanphotonic",
+          "carrier_id": "software-binding-and-schema",
+          "scope_id": "context-anti-splicing-v2"
+        },
+        "status": "RUNTIME_BINDING_MACHINE_VERIFIED",
+        "evidence_sha256": "6f8949bf327a80497948f0233587a38559169ed67a2cddd384754288ce71845a"
+      },
+      "target": {
+        "claim_id": "BIO-SPONTANEOUS-NONCLASSICAL-HBT-WITNESS",
+        "coordinate": {
+          "domain_id": "bio/quantum-optics",
+          "carrier_id": "empirical-hbt-witness",
+          "scope_id": "corrected-g2-zero-less-than-one"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "26dc56aa43d9fca3054ab1c2c775b818e78bc3c1ee54f6be253495af0322bcd8"
+      },
+      "criterion": {
+        "bridge_id": "QP_PD_SOFTWARE_BINDING_TO_NONCLASSICALITY_V1",
+        "allowed_source_statuses": [
+          "RUNTIME_BINDING_MACHINE_VERIFIED"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "preregistration-lock",
+            "verifier_id": "QP_PD_PREREGISTRATION_LOCK_V1"
+          },
+          {
+            "gate_id": "genuine-calibration-receipt",
+            "verifier_id": "QP_PD_GENUINE_CALIBRATION_V1"
+          },
+          {
+            "gate_id": "genuine-detector-payload",
+            "verifier_id": "QP_PD_GENUINE_DETECTOR_PAYLOAD_V1"
+          },
+          {
+            "gate_id": "calibration-trust-root",
+            "verifier_id": "QP_PD_CALIBRATION_TRUST_ROOT_V1"
+          },
+          {
+            "gate_id": "hbt-correction-analysis",
+            "verifier_id": "QP_PD_HBT_CORRECTION_ANALYSIS_V1"
+          },
+          {
+            "gate_id": "independent-replication",
+            "verifier_id": "QP_PD_INDEPENDENT_REPLICATION_V1"
+          }
+        ],
+        "criterion_text": "QP-PD V2 proves fail-closed software binding and anti-splicing behavior. It does not establish a physical measurement, nonclassical biological photon statistics, Parkinson-specific UPE, or empirical observability gain."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "AEGISQ_RESEARCH_BINDING_TO_CLINICAL_CAUSAL_VALIDITY",
+      "source": {
+        "claim_id": "AEGISQ-IFG-RESEARCH-BINDING",
+        "coordinate": {
+          "domain_id": "aegisq",
+          "carrier_id": "signed-calibration-numerical-ifg",
+          "scope_id": "research-only-admission"
+        },
+        "status": "PASS_RESEARCH_ONLY",
+        "evidence_sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054"
+      },
+      "target": {
+        "claim_id": "AEGISQ-CLINICAL-CAUSAL-VALIDITY",
+        "coordinate": {
+          "domain_id": "aegisq",
+          "carrier_id": "clinical-causal-validation",
+          "scope_id": "patient-or-disease-level-claim"
+        },
+        "status": "NOT_ESTABLISHED",
+        "evidence_sha256": "7f96ae3506fd8088409d4fb188d6b937913ecac9b0bf756829981e788f5a23e1"
+      },
+      "criterion": {
+        "bridge_id": "AEGISQ_RESEARCH_ONLY_TO_CLINICAL_CAUSAL_V1",
+        "allowed_source_statuses": [
+          "PASS_RESEARCH_ONLY"
+        ],
+        "allowed_target_statuses": [
+          "NOT_ESTABLISHED"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "empirical-data-lineage",
+            "verifier_id": "AEGISQ_EMPIRICAL_DATA_LINEAGE_V1"
+          },
+          {
+            "gate_id": "out-of-sample-validation",
+            "verifier_id": "AEGISQ_OOS_VALIDATION_V1"
+          },
+          {
+            "gate_id": "classical-only-ablation",
+            "verifier_id": "AEGISQ_CLASSICAL_ONLY_ABLATION_V1"
+          },
+          {
+            "gate_id": "quantum-coordinate-ablation",
+            "verifier_id": "AEGISQ_Q_ABLATION_V1"
+          },
+          {
+            "gate_id": "causal-perturbation",
+            "verifier_id": "AEGISQ_CAUSAL_PERTURBATION_V1"
+          },
+          {
+            "gate_id": "independent-replication",
+            "verifier_id": "AEGISQ_INDEPENDENT_REPLICATION_V1"
+          },
+          {
+            "gate_id": "clinical-validation-design",
+            "verifier_id": "AEGISQ_CLINICAL_VALIDATION_V1"
+          }
+        ],
+        "criterion_text": "AegisQ exact-head research binding and numerical consistency are research-only. The PR explicitly keeps clinical_admissible=false and does not establish clinical accuracy, causality, predictive validity, or the proposed 0.1 ms bound."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    },
+    {
+      "id": "AEGISQ_ARCHITECTURE_TO_OOS_PREDICTIVE_GAIN",
+      "source": {
+        "claim_id": "AEGISQ-PHYSICS-CONSTRAINED-NETWORK",
+        "coordinate": {
+          "domain_id": "aegisq",
+          "carrier_id": "physics-constrained-architecture",
+          "scope_id": "multimodal-state-estimate"
+        },
+        "status": "PROPOSED_ARCHITECTURE",
+        "evidence_sha256": "7f96ae3506fd8088409d4fb188d6b937913ecac9b0bf756829981e788f5a23e1"
+      },
+      "target": {
+        "claim_id": "AEGISQ-OOS-PREDICTIVE-GAIN",
+        "coordinate": {
+          "domain_id": "aegisq",
+          "carrier_id": "empirical-predictive-performance",
+          "scope_id": "held-out-conditional-information"
+        },
+        "status": "OPEN_EMPIRICAL_FLOW",
+        "evidence_sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054"
+      },
+      "criterion": {
+        "bridge_id": "AEGISQ_ARCHITECTURE_TO_PREDICTIVE_GAIN_V1",
+        "allowed_source_statuses": [
+          "PROPOSED_ARCHITECTURE"
+        ],
+        "allowed_target_statuses": [
+          "OPEN_EMPIRICAL_FLOW"
+        ],
+        "required_gates": [
+          {
+            "gate_id": "implemented-inference-path",
+            "verifier_id": "AEGISQ_IMPLEMENTED_INFERENCE_PATH_V1"
+          },
+          {
+            "gate_id": "holdout-calibration",
+            "verifier_id": "AEGISQ_HOLDOUT_CALIBRATION_V1"
+          },
+          {
+            "gate_id": "classical-only-ablation",
+            "verifier_id": "AEGISQ_CLASSICAL_ONLY_ABLATION_V1"
+          },
+          {
+            "gate_id": "minus-q-ablation",
+            "verifier_id": "AEGISQ_MINUS_Q_ABLATION_V1"
+          },
+          {
+            "gate_id": "oos-conditional-information",
+            "verifier_id": "AEGISQ_OOS_CONDITIONAL_INFORMATION_V1"
+          },
+          {
+            "gate_id": "independent-dataset-replication",
+            "verifier_id": "AEGISQ_INDEPENDENT_DATASET_REPLICATION_V1"
+          }
+        ],
+        "criterion_text": "The AegisQ network is a proposed physics-constrained architecture. Constraint satisfaction or an architecture diagram does not establish predictive validity; the typed DAG itself leaves the calibration-to-predictive-gain edge OPEN and requires holdout calibration, -Q/classical-only ablations, and OOS validation."
+      },
+      "expected_decision": "DENY",
+      "expected_reason_codes": [
+        "FAIL_REQUIRED_GATE",
+        "FAIL_UNREGISTERED_VERIFIER"
+      ]
+    }
+  ]
+}
