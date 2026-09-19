@@ -9,7 +9,7 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "proof/weil-three-block-cross-v28-49c36e5a",
+    "source_ref": "proof/weil-prime-evaluation-v30-20260919",
     "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
@@ -488,5 +488,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "055b1cacea37a26326003e55f5b0cef7261d8976e32597b79afb0348ad063c83"
+  "state_hash": "a4890c769e463e78afb11fbed319a467551c490b83f19af84000b19bb4e6abf0"
 }
