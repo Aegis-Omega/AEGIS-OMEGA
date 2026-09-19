@@ -1,0 +1,50 @@
+name: CSTAR v0.10 H3 Gauge Equivalence Relations Probe
+
+on:
+  pull_request:
+    paths:
+      - 'verification/cstar-v07/**'
+      - 'verification/cstar-v08/**'
+      - 'verification/cstar-v09/**'
+      - 'verification/cstar-v10/**'
+      - '.github/workflows/cstar-v10-h3-gauge-equivalence-relations.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-h3-gauge-relations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify exact head and compile CSTAR v0.10 gauge relation laws
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          printf 'PR_HEAD=%s\n' "${{ github.event.pull_request.head.sha }}"
+
+          sha256sum             "$PWD/verification/cstar-v07/CStarAbelianGroupCohomology.v"             "$PWD/verification/cstar-v07/CStarV07H3Normalization.v"             "$PWD/verification/cstar-v08/CStarV08H3NormalizationInjective.v"             "$PWD/verification/cstar-v09/CStarV09H3ClassEquivalence.v"             "$PWD/verification/cstar-v10/CStarV10H3GaugeEquivalenceRelations.v"
+
+          docker pull coqorg/coq:8.20.1
+          docker run --rm             -v "$PWD/verification:/verification:ro"             coqorg/coq:8.20.1             bash -lc '
+              set -euo pipefail
+              mkdir -p /tmp/cstar-v10
+              cp /verification/cstar-v07/CStarAbelianGroupCohomology.v /tmp/cstar-v10/
+              cp /verification/cstar-v07/CStarV07H3Normalization.v /tmp/cstar-v10/
+              cp /verification/cstar-v08/CStarV08H3NormalizationInjective.v /tmp/cstar-v10/
+              cp /verification/cstar-v09/CStarV09H3ClassEquivalence.v /tmp/cstar-v10/
+              cp /verification/cstar-v10/CStarV10H3GaugeEquivalenceRelations.v /tmp/cstar-v10/
+              cd /tmp/cstar-v10
+              coqc CStarAbelianGroupCohomology.v
+              coqc CStarV07H3Normalization.v
+              coqc CStarV08H3NormalizationInjective.v
+              coqc CStarV09H3ClassEquivalence.v
+              coqc CStarV10H3GaugeEquivalenceRelations.v
+              coqchk CStarV10H3GaugeEquivalenceRelations
+              coqc --version
+            '
