@@ -85,8 +85,14 @@ Proof.
       @normalized3_A_action G A e zero
         (@gauge_transform_A_action G A mul add opp act a b)).
   {
-    eapply h3_normalization_surjective_abelian_action.
-    exact Ha.
+    exact
+      (@h3_normalization_surjective_abelian_action
+        G A e mul
+        mul_left_id mul_right_id
+        zero add opp
+        add_assoc add_comm add_zero_l add_opp_l
+        act act_opp act_id
+        a Ha).
   }
 
   destruct Hex as [b Hnorm].
@@ -95,8 +101,13 @@ Proof.
 
   - split.
     + exact Hnorm.
-    + eapply gauge_preserves_three_cocycle_abelian_action.
-      exact Ha.
+    + exact
+        (@gauge_preserves_three_cocycle_abelian_action
+          G A mul mul_assoc
+          zero add opp
+          add_assoc add_comm add_zero_l add_opp_l
+          act act_add act_opp act_comp
+          a b Ha).
 
   - exists b.
     intros g h k.
@@ -142,9 +153,14 @@ Proof.
           @gauge_transform_A_action G A mul add opp act a bn g h k =
           @gauge_transform_A_action G A mul add opp act a b g h k).
     {
-      eapply normalized_gauge_equivalence_has_normalized_witness_abelian_action.
-      - exact Ha.
-      - exact Hg.
+      exact
+        (@normalized_gauge_equivalence_has_normalized_witness_abelian_action
+          G A e mul
+          mul_left_id mul_right_id
+          zero add opp
+          add_assoc add_comm add_zero_l add_opp_l
+          act act_add act_opp act_comp act_id
+          a b Ha Hg).
     }
 
     destruct Hex as [bn [Hbn Hsame]].
@@ -176,12 +192,11 @@ Theorem h3_normalization_class_equivalence_boundary :
 Proof.
   split.
 
-  - exact h3_normalization_surjective_on_class_candidates.
+  - intros a Ha.
+    eapply h3_normalization_surjective_on_class_candidates; eauto.
 
   - intros a a' [Ha_norm Ha_coc] [Ha'_norm Ha'_coc].
-    apply full_iff_normalized_gauge_on_normalized3.
-    + exact Ha_norm.
-    + exact Ha'_norm.
+    eapply full_iff_normalized_gauge_on_normalized3; eauto.
 Qed.
 
 End H3NormalizationClassEquivalence.
