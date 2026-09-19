@@ -84,18 +84,24 @@ theorem outer_mixed_reciprocal_center (g : WeilCompactSmoothGV1) :
   change (Real.exp ((-Real.log 2 - Real.log 2) / 2) : ℂ) *
     mixed (gMinus g) (gPlus g) (Real.exp (-Real.log 2 - Real.log 2)) = _ at h
   rw [he, hx] at h
-  norm_num at h
-  linear_combination (2 : ℂ) * h
+  simp only [Complex.ofReal_inv, Complex.ofReal_ofNat] at h
+  calc
+    mixed (gMinus g) (gPlus g) ((4 : ℝ)⁻¹) =
+        (2 : ℂ) * ((2 : ℂ)⁻¹ * mixed (gMinus g) (gPlus g) ((4 : ℝ)⁻¹)) := by ring
+    _ = 2 * (energy g.1 : ℂ) := by rw [h]
 
 theorem adjacent_prime_sum_exact
     (g : WeilCompactSmoothGV1) (a : ℝ) (hw : WidthOneThirtyTwoAt g a) :
     WeilPrimeSumV1 (mixed (gMinus g) (gZero g)) =
       ((Real.log 2 / Real.sqrt 2 * energy g.1 : ℝ) : ℂ) := by
   rw [adjacent_prime_sum_single g a hw]
-  have hp := adjacent_mixed_nat_zero_v29 g a hw 2 (by norm_num)
+  have hp : mixed (gMinus g) (gZero g) (2 : ℝ) = 0 := by
+    simpa only [Nat.cast_ofNat] using adjacent_mixed_nat_zero_v29 g a hw 2 (by norm_num)
   have hv : ArithmeticFunction.vonMangoldt 2 = Real.log 2 :=
     ArithmeticFunction.vonMangoldt_apply_prime (by norm_num)
-  norm_num only [WeilPrimeTermV1, Nat.reduceAdd, Nat.cast_ofNat]
+  change (ArithmeticFunction.vonMangoldt 2 : ℂ) *
+    (mixed (gMinus g) (gZero g) (2 : ℝ) + (1 / (2 : ℂ)) *
+      mixed (gMinus g) (gZero g) ((2 : ℝ)⁻¹)) = _
   rw [hp, adjacent_mixed_reciprocal_center, hv]
   push_cast
   have hs : (Real.sqrt 2 : ℂ) ^ 2 = 2 := by
@@ -118,12 +124,15 @@ theorem outer_prime_sum_exact
     WeilPrimeSumV1 (mixed (gMinus g) (gPlus g)) =
       ((Real.log 2 / 2 * energy g.1 : ℝ) : ℂ) := by
   rw [outer_prime_sum_single g a hw]
-  have hp := outer_mixed_nat_zero_v29 g a hw 4 (by norm_num)
+  have hp : mixed (gMinus g) (gPlus g) (4 : ℝ) = 0 := by
+    simpa only [Nat.cast_ofNat] using outer_mixed_nat_zero_v29 g a hw 4 (by norm_num)
   have hv : ArithmeticFunction.vonMangoldt 4 = Real.log 2 := by
     rw [show (4 : ℕ) = 2 ^ 2 by norm_num,
       ArithmeticFunction.vonMangoldt_apply_pow (by norm_num)]
     exact ArithmeticFunction.vonMangoldt_apply_prime (by norm_num)
-  norm_num only [WeilPrimeTermV1, Nat.reduceAdd, Nat.cast_ofNat]
+  change (ArithmeticFunction.vonMangoldt 4 : ℂ) *
+    (mixed (gMinus g) (gPlus g) (4 : ℝ) + (1 / (4 : ℂ)) *
+      mixed (gMinus g) (gPlus g) ((4 : ℝ)⁻¹)) = _
   rw [hp, outer_mixed_reciprocal_center, hv]
   push_cast
   ring
