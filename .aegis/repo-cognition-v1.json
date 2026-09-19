@@ -1,9 +1,9 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "c012b3960912891601b93a6569a039a459ee43c1a7cad47bda9f068cd17bed4b",
+  "corpus_root": "38816ce3aaae171cffd87e1ca56dfa4fa29e86b0def4b9b0efffa2f8a3709c8e",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
-  "eligible_file_count": 1960,
+  "eligible_file_count": 1961,
   "excluded_generated_paths": [
     ".aegis/repo-cognition-v1.json"
   ],
@@ -37,17 +37,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "9f60e2f88777090a422dfb60a127bdbe7878409d2e0f548606a10a005e45b94e",
+      "content_sha256": "216606f02670d4b00d37e6e9b3fbfe64207a1a13d9fef2353b1eb0ba53a7aa10",
       "dependency_hints": [],
-      "git_blob_sha": "f4ece79c8eaab60a962677051adf9b5acb9c80b4",
+      "git_blob_sha": "716744feaa658edd519d7ada566d986d7035136c",
       "heading_hint": null,
       "kind": "config-or-data",
       "language": "json",
-      "line_count": 1999,
+      "line_count": 2016,
       "mode": "100644",
       "object_type": "blob",
       "path": ".aegis/cross-domain/fixtures/qbp-cross-boundary-v1.json",
-      "size_bytes": 81200,
+      "size_bytes": 82219,
       "symbol_hints": []
     },
     {
@@ -62,6 +62,20 @@
       "object_type": "blob",
       "path": ".aegis/cross-domain/fixtures/self-witness-analytic-oracle-v1.json",
       "size_bytes": 2544,
+      "symbol_hints": []
+    },
+    {
+      "content_sha256": "8e3f61b350041fe1718f3baaa4e611da4e0afdba13ed6e6ad03b80c3bf9923dd",
+      "dependency_hints": [],
+      "git_blob_sha": "62438f957fe3f5f5e458899959b11cf05c1dc680",
+      "heading_hint": null,
+      "kind": "config-or-data",
+      "language": "json",
+      "line_count": 53,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": ".aegis/cross-domain/fixtures/self-witness-differential-readiness-v1.json",
+      "size_bytes": 2041,
       "symbol_hints": []
     },
     {
@@ -28751,17 +28765,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "e23cc12161ab24064efc65b5f75233e6c19c8ee228a4fa6375238e7374c0ba7b",
+      "content_sha256": "9ec6e63f3461956fcf1aa05b10d9267f3616f92b17631b37bce52236206eb21b",
       "dependency_hints": [],
-      "git_blob_sha": "a83ed4b53c0670cf9f38c4afd36baea534d8fa07",
+      "git_blob_sha": "c9b1d88282407102f5adf3a1b5ba27880f670a30",
       "heading_hint": "Cross-Boundary Authority V1",
       "kind": "documentation",
       "language": "markdown",
-      "line_count": 445,
+      "line_count": 464,
       "mode": "100644",
       "object_type": "blob",
       "path": "docs/research/cross-boundary-authority-v1.md",
-      "size_bytes": 20311,
+      "size_bytes": 21358,
       "symbol_hints": []
     },
     {
@@ -54330,8 +54344,8 @@
   ],
   "generator": "scripts/repo_cognition.py",
   "generator_version": "1.0.1",
-  "indexed_file_count": 1960,
+  "indexed_file_count": 1961,
   "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
   "schema": "AEGIS_REPO_COGNITION_V1",
-  "tracked_file_count": 1961
+  "tracked_file_count": 1962
 }
