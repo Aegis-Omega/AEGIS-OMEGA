@@ -113,6 +113,24 @@ function trustedClientIp(req: Request): string | undefined {
   return forwarded || undefined
 }
 
+
+function runBackground(task: Promise<void>, label: string): void {
+  const runtime = (globalThis as typeof globalThis & {
+    EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void }
+  }).EdgeRuntime
+
+  if (runtime?.waitUntil) {
+    runtime.waitUntil(task.catch(e => {
+      console.error(`${label} failed (non-fatal):`, e instanceof Error ? e.message : String(e))
+    }))
+    return
+  }
+
+  task.catch(e => {
+    console.error(`${label} failed (non-fatal):`, e instanceof Error ? e.message : String(e))
+  })
+}
+
 async function sendOpenAIAdsOrderCreated(
   req: Request,
   orderId: string,
@@ -283,13 +301,16 @@ Deno.serve(async (req) => {
   // OpenAI Ads CAPI is best-effort only: conversion reporting may never block
   // payment capture, key provisioning, or response delivery.
   if (paidCapture && body.order_id) {
-    sendOpenAIAdsOrderCreated(
-      req,
-      body.order_id.trim(),
-      tierNorm,
-      paidCapture.capturedUSD,
-      body.openai_ads,
-    ).catch(e => console.error('OpenAI Ads CAPI failed (non-fatal):', e instanceof Error ? e.message : String(e)))
+    runBackground(
+      sendOpenAIAdsOrderCreated(
+        req,
+        body.order_id.trim(),
+        tierNorm,
+        paidCapture.capturedUSD,
+        body.openai_ads,
+      ),
+      'OpenAI Ads CAPI',
+    )
   }
 
   // Notify owner — fire and forget
