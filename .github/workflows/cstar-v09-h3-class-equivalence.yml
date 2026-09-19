@@ -1,0 +1,52 @@
+name: CSTAR v0.9 H3 Class Equivalence Probe
+
+on:
+  pull_request:
+    paths:
+      - 'verification/cstar-v07/**'
+      - 'verification/cstar-v08/**'
+      - 'verification/cstar-v09/**'
+      - '.github/workflows/cstar-v09-h3-class-equivalence.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-h3-class-equivalence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify exact head and compile CSTAR v0.9 H3 class equivalence
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          printf 'PR_HEAD=%s\n' "${{ github.event.pull_request.head.sha }}"
+
+          CORE="$PWD/verification/cstar-v07/CStarAbelianGroupCohomology.v"
+          SURJ="$PWD/verification/cstar-v07/CStarV07H3Normalization.v"
+          INJ="$PWD/verification/cstar-v08/CStarV08H3NormalizationInjective.v"
+          TARGET="$PWD/verification/cstar-v09/CStarV09H3ClassEquivalence.v"
+
+          sha256sum "$CORE" "$SURJ" "$INJ" "$TARGET"
+
+          docker pull coqorg/coq:8.20.1
+          docker run --rm             -v "$PWD/verification:/verification:ro"             coqorg/coq:8.20.1             bash -lc '
+              set -euo pipefail
+              mkdir -p /tmp/cstar-v09
+              cp /verification/cstar-v07/CStarAbelianGroupCohomology.v /tmp/cstar-v09/
+              cp /verification/cstar-v07/CStarV07H3Normalization.v /tmp/cstar-v09/
+              cp /verification/cstar-v08/CStarV08H3NormalizationInjective.v /tmp/cstar-v09/
+              cp /verification/cstar-v09/CStarV09H3ClassEquivalence.v /tmp/cstar-v09/
+              cd /tmp/cstar-v09
+              coqc CStarAbelianGroupCohomology.v
+              coqc CStarV07H3Normalization.v
+              coqc CStarV08H3NormalizationInjective.v
+              coqc CStarV09H3ClassEquivalence.v
+              coqchk CStarV09H3ClassEquivalence
+              coqc --version
+            '
