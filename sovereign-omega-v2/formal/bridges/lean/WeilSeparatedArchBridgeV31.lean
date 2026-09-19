@@ -119,6 +119,7 @@ theorem weighted_logCross_moment_zero
       have hshift := integral_add_right_eq_self (μ := volume)
         (fun s : ℝ => (Real.exp (lam * s) : ℂ) * logLift p.1 s) v
       erw [hinner, hshift, hm, mul_zero, zero_mul]
+      rfl
 
 theorem logCross_plus_moment_zero
     (p q : WeilCompactSmoothGV1) (plo phi qlo qhi : ℝ)
