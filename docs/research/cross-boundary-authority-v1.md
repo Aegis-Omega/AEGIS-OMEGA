@@ -462,3 +462,45 @@ New frozen cases:
 
 No new domain verifier is registered by this transition. All six real cases must remain
 DENY until their criterion-pinned proof bundles exist.
+
+
+## Quantum-bio orthogonal evidence audit — 2026-09-19
+
+A public-source audit was added to prevent cross-domain promotion from transcriptomic or
+oxidative-stress context into optical or quantum claims.
+
+The 2024 UPE review (PMID 38420619; DOI 10.3389/fphys.2024.1348915) supports UPE as an
+ultra-low-intensity metabolic photon-emission phenomenon strongly associated with ROS and
+oxidative chemistry. It discusses Parkinson disease as an oxidative-stress condition, but
+it does **not** establish a Parkinson-specific endogenous UPE biomarker or nonclassical
+photon statistics. The 2019 human-UPE review (PMID 30582823) emphasizes measurement
+confounders and stronger population/statistical designs. A 2026 brain-UPE commentary
+(PMID 41675850) explicitly cautions about patchy evidence, repeatability, and premature
+neurodiagnostic use.
+
+The retrieved ClinicalTrials.gov Parkinson photon-related result NCT03811613 is
+photobiomodulation — an exogenous-light intervention — and is not evidence of endogenous
+UPE measurement. Retrieval is non-exhaustive and therefore does not prove absence.
+
+The resulting boundary is:
+
+- metabolic UPE / ROS mechanism: background-supported;
+- Parkinson-specific endogenous UPE biomarker: NOT_ESTABLISHED_BY_RETRIEVED_SOURCES;
+- endogenous HBT antibunching / g2(0)<1: NOT_ESTABLISHED_BY_RETRIEVED_SOURCES;
+- clinical validity: NOT_ESTABLISHED.
+
+### Orthogonal NGS lane
+
+The NGS/BioNeMo routing surface was evaluated as an **orthogonal biological-context lane**.
+Bulk RNA-seq can test transcriptomic oxidative-stress, mitochondrial, and inflammatory
+context in a declared Parkinson model/cohort. FASTQ-to-count processing routes through the
+public bulk-RNA-seq lane, with NVIDIA Parabricks `pbrun rna_fq2bam` as an optional GPU
+STAR-alignment replacement only after version, reference, STAR genome library, sample
+structure, GPU runtime, and output parity are bound.
+
+No FASTQ/BAM/count matrix/sample metadata were supplied here, and the current execution
+container has no NVIDIA runtime, Docker, Nextflow/Snakemake, or standard NGS tools.
+Therefore no NGS execution occurred.
+
+RNA-seq evidence must never be promoted to endogenous UPE, HBT nonclassicality,
+`g2(0)<1`, or clinical validity. `authority_effect = NONE`.
