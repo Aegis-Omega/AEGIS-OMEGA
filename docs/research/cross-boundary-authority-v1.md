@@ -399,6 +399,25 @@ Disposition: `ANALYTIC_OBSERVABLE_ORACLE_VERIFIED_NUMERICALLY`. This removes sim
 implementation details from the observable-value check, but still does not constitute a
 CUDA-Q `nvidia/fp64` execution. NVIDIA fp64 and physical QPU remain NOT_RUN.
 
+The differential gate is also frozen as a numerical-readiness contract. The production
+Self-Witness tolerance is `epsilon_max_abs_diff = 1e-5`. For the frozen hash, converting
+the eight exact u32 words to binary64 angles differs from a high-precision pi reference by
+at most `4.731231590832291e-16` per angle, with summed absolute angle error
+`1.134674230072848e-15`.
+
+The closed-form observables have direct global sensitivity bounds:
+`|delta Z_i| <= |delta theta_i|`,
+`|delta Z_i Z_j| <= |delta theta_i| + |delta theta_j|`, and
+`|delta X0X1X2X3| <= sum |delta theta_k|`.
+The largest already observed internal numerical discrepancy is
+`8.881784197001252e-16`, so the configured differential acceptance threshold is
+approximately `1.1258999068e10` times larger.
+
+Disposition: `NUMERICAL_READINESS_ESTABLISHED`. A future NVIDIA execution is now
+pre-bound to target `nvidia`, option `fp64`, seven finite Pauli-range observables, the
+same frozen self-hash, and `max_abs(qpp_cpu - nvidia_fp64) <= 1e-5`.
+The backend execution itself remains NOT_RUN.
+
 ### QP-PD / QuanPhotonic
 
 PR #409 exact head `4626389c7866bc5faa2a21bb0f60fbd72329938a` has successful

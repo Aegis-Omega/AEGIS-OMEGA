@@ -304,6 +304,23 @@
           "fixed_hash_max_delta_vs_hosted_qpp": 3.3306690738754696e-16,
           "nvidia_fp64_backend_execution": "NOT_RUN",
           "physical_qpu_execution": "NOT_RUN"
+        },
+        "self_differential_readiness": {
+          "authority": "DIAGNOSTIC_ONLY",
+          "authority_effect": "NONE",
+          "artifact_path": ".aegis/cross-domain/fixtures/self-witness-differential-readiness-v1.json",
+          "artifact_file_sha256": "8e3f61b350041fe1718f3baaa4e611da4e0afdba13ed6e6ad03b80c3bf9923dd",
+          "payload_sha256": "b22633275bcd9b5da0e9c34d531ee13e686371935c33d918d1749974e6cb429c",
+          "contract_tolerance_epsilon": 1e-5,
+          "largest_observed_internal_delta": 8.881784197001252e-16,
+          "acceptance_margin_factor": 11258999068.42624,
+          "max_angle_mapping_error": 4.731231590832291e-16,
+          "worst_fixed_hash_observable_rounding_bound": 1.134674230072848e-15,
+          "nvidia_target": "nvidia",
+          "nvidia_required_option": "fp64",
+          "nvidia_fp64_backend_execution": "NOT_RUN",
+          "physical_qpu_execution": "NOT_RUN",
+          "status": "NUMERICAL_READINESS_ESTABLISHED_NVIDIA_BACKEND_EXECUTION_STILL_REQUIRED"
         }
       },
       "qpp_source_current_blob": {
