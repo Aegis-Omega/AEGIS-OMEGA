@@ -116,7 +116,7 @@ theorem weighted_logCross_moment_zero
         unfold weightedCrossIntegrand
         rw [he u, Complex.ofReal_mul, add_comm v u]
         ring
-      have hshift := integral_add_right_eq_self
+      have hshift := integral_add_right_eq_self (μ := volume)
         (fun s : ℝ => (Real.exp (lam * s) : ℂ) * logLift p.1 s) v
       erw [hinner, hshift, hm, mul_zero, zero_mul]
 
@@ -298,7 +298,7 @@ theorem separated_arch_norm_bound
       (fun u : ℝ => (Real.exp (u / 2) : ℂ) * logCrossV28 p q u) volume
     exact ht.trans (logCross_plus_moment_zero p q plo phi qlo qhi hp hq hm)
   have hMzero : (∫ u in Icc lo hi, M u) = 0 := by
-    rw [setIntegral_eq_integral_of_forall_compl_eq_zero
+    rw [setIntegral_eq_integral_of_forall_compl_eq_zero (f := M) (s := Icc lo hi)
       (fun u hu => by simp [M, hzero u hu])]
     exact hMfull
   have hMc : Continuous M := by
