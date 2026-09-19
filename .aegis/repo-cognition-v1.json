@@ -1,9 +1,9 @@
 {
   "authority_boundary": "repository cognition proves content identity/existence only; INDEX.md and admitted policies govern mutation authority",
-  "corpus_root": "38816ce3aaae171cffd87e1ca56dfa4fa29e86b0def4b9b0efffa2f8a3709c8e",
+  "corpus_root": "8252aa7bfb7286cfc39950cc62d360e1830a65a399f5404c739ed34524d8435e",
   "coverage": 1.0,
   "coverage_scope": "all git-tracked HEAD entries except explicit generated self-reference paths",
-  "eligible_file_count": 1961,
+  "eligible_file_count": 1962,
   "excluded_generated_paths": [
     ".aegis/repo-cognition-v1.json"
   ],
@@ -48,6 +48,20 @@
       "object_type": "blob",
       "path": ".aegis/cross-domain/fixtures/qbp-cross-boundary-v1.json",
       "size_bytes": 82219,
+      "symbol_hints": []
+    },
+    {
+      "content_sha256": "e2fc780371241184deaa5d32174ff2f94b1ec99a1819ccfe5a02e6cabe4bcd66",
+      "dependency_hints": [],
+      "git_blob_sha": "5a39822c3d25ed20f38647297cd3698785788a91",
+      "heading_hint": null,
+      "kind": "config-or-data",
+      "language": "json",
+      "line_count": 91,
+      "mode": "100644",
+      "object_type": "blob",
+      "path": ".aegis/cross-domain/fixtures/quantum-bio-orthogonal-evidence-v1.json",
+      "size_bytes": 4502,
       "symbol_hints": []
     },
     {
@@ -28765,17 +28779,17 @@
       "symbol_hints": []
     },
     {
-      "content_sha256": "9ec6e63f3461956fcf1aa05b10d9267f3616f92b17631b37bce52236206eb21b",
+      "content_sha256": "881883125e699928ee45542bc20feb8079d9a0fa8e41a019813a697ace844d01",
       "dependency_hints": [],
-      "git_blob_sha": "c9b1d88282407102f5adf3a1b5ba27880f670a30",
+      "git_blob_sha": "24743fbdaf9a7e34d819683da1af823635b8f0b1",
       "heading_hint": "Cross-Boundary Authority V1",
       "kind": "documentation",
       "language": "markdown",
-      "line_count": 464,
+      "line_count": 506,
       "mode": "100644",
       "object_type": "blob",
       "path": "docs/research/cross-boundary-authority-v1.md",
-      "size_bytes": 21358,
+      "size_bytes": 23613,
       "symbol_hints": []
     },
     {
@@ -54344,8 +54358,8 @@
   ],
   "generator": "scripts/repo_cognition.py",
   "generator_version": "1.0.1",
-  "indexed_file_count": 1961,
+  "indexed_file_count": 1962,
   "root_scope": "canonical ordered array of path, mode, object_type, git_blob_sha, content_sha256, size_bytes",
   "schema": "AEGIS_REPO_COGNITION_V1",
-  "tracked_file_count": 1962
+  "tracked_file_count": 1963
 }
