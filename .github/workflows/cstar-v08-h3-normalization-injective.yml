@@ -1,0 +1,45 @@
+name: CSTAR v0.8 H3 Normalization Injectivity Probe
+
+on:
+  pull_request:
+    paths:
+      - 'verification/cstar-v07/CStarAbelianGroupCohomology.v'
+      - 'verification/cstar-v08/**'
+      - '.github/workflows/cstar-v08-h3-normalization-injective.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-injective-witness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify exact head and compile CSTAR v0.8 injectivity witness
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          printf 'PR_HEAD=%s\n' "${{ github.event.pull_request.head.sha }}"
+
+          CORE="$PWD/verification/cstar-v07/CStarAbelianGroupCohomology.v"
+          TARGET="$PWD/verification/cstar-v08/CStarV08H3NormalizationInjective.v"
+
+          sha256sum "$CORE" "$TARGET"
+
+          docker pull coqorg/coq:8.20.1
+          docker run --rm             -v "$PWD/verification:/verification:ro"             coqorg/coq:8.20.1             bash -lc '
+              set -euo pipefail
+              mkdir -p /tmp/cstar-v08
+              cp /verification/cstar-v07/CStarAbelianGroupCohomology.v /tmp/cstar-v08/
+              cp /verification/cstar-v08/CStarV08H3NormalizationInjective.v /tmp/cstar-v08/
+              cd /tmp/cstar-v08
+              coqc CStarAbelianGroupCohomology.v
+              coqc CStarV08H3NormalizationInjective.v
+              coqchk CStarV08H3NormalizationInjective
+              coqc --version
+            '
