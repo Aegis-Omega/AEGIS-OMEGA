@@ -176,7 +176,8 @@ theorem arch_kernel_sub_rank_one (v : ℝ) (hv : 0 < v) :
     rw [← Real.exp_add]
     congr 1
     ring
-  field_simp [hd]
+  apply (eq_div_iff hd).mpr
+  rw [sub_mul, div_mul_cancel₀ _ hd]
   nlinarith [hm]
 
 /-- The separated leading exponential term vanishes by the repository's
@@ -194,6 +195,43 @@ theorem arch_rank_one_moment_zero
   change logMomentMinus p * _ = 0
   rw [logMomentMinus_eq_repository, hm.1, zero_mul]
 
+/-- The rank-one cancellation in the actual difference-kernel normalization. -/
+theorem arch_exp_difference_moment_zero
+    (p q : WeilCompactSmoothGV1) (hm : WeilMomentConditionsV1 p) :
+    (∫ s : ℝ, ∫ t : ℝ,
+      (Real.exp (-(s - t) / 2) : ℂ) *
+        AEGIS.WeilLogCoordinateIsometryV21.logLift p.1 s *
+        conj (AEGIS.WeilLogCoordinateIsometryV21.logLift q.1 t)) = 0 := by
+  rw [← arch_rank_one_moment_zero p q hm]
+  apply integral_congr_ae
+  filter_upwards [] with s
+  apply integral_congr_ae
+  filter_upwards [] with t
+  have he : Real.exp (-(s - t) / 2) = Real.exp (-s / 2) * Real.exp (t / 2) := by
+    rw [← Real.exp_add]
+    congr 1
+    ring
+  rw [he, Complex.ofReal_mul]
+  ring
+
+/-- On a separated support, the remainder kernel is bounded by its value at
+the minimal positive separation. -/
+theorem arch_remainder_le_at_gap (δ v : ℝ) (hδ : 0 < δ) (hv : δ ≤ v) :
+    Real.exp (-5 * v / 2) / (1 - Real.exp (-2 * v)) ≤
+      Real.exp (-5 * δ / 2) / (1 - Real.exp (-2 * δ)) := by
+  have hn : Real.exp (-5 * v / 2) ≤ Real.exp (-5 * δ / 2) :=
+    Real.exp_le_exp.mpr (by linarith)
+  have he : Real.exp (-2 * v) ≤ Real.exp (-2 * δ) :=
+    Real.exp_le_exp.mpr (by linarith)
+  have hp : 0 < 1 - Real.exp (-2 * δ) := by
+    apply sub_pos.mpr
+    rw [Real.exp_lt_one_iff]
+    linarith
+  have hpv : 0 < 1 - Real.exp (-2 * v) := lt_of_lt_of_le hp (by linarith)
+  apply (div_le_div_iff₀ hpv hp).mpr
+  exact (mul_le_mul_of_nonneg_right hn hp.le).trans
+    (mul_le_mul_of_nonneg_left (by linarith) (Real.exp_pos (-5 * δ / 2)).le)
+
 end AEGIS.WeilThreeBlockCrossAssemblyV30
 
 #print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.three_cross_bounds_of_arch
@@ -203,3 +241,5 @@ end AEGIS.WeilThreeBlockCrossAssemblyV30
 #print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.three_block_bound_of_two_arch
 #print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.arch_kernel_sub_rank_one
 #print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.arch_rank_one_moment_zero
+#print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.arch_exp_difference_moment_zero
+#print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.arch_remainder_le_at_gap
