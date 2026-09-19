@@ -1,3 +1,4 @@
+Require Import CStarAbelianGroupCohomology.
 Require Import CStarV09H3ClassEquivalence.
 
 (**
