@@ -1,0 +1,78 @@
+# MUSTALAH-ANANA-REPLAY-001 — preregistration DRAFT (not frozen)
+# PILOT_SPEC_FROZEN may not be emitted while any REQUIRED field is null
+# (amendment §8, §18). Operator-supplied fields are marked OPERATOR.
+
+pilot_id: MUSTALAH-ANANA-REPLAY-001
+title: Replayed treatment of a mudallis's an'ana
+mode: feasibility-first empirical replay
+status: preregistration-draft          # -> frozen only when nulls are filled
+architecture: docs/epistemic-audit/EPISTEMIC_AUDIT_AMENDMENT_v1.1.md
+architecture_sha256: f1a3e251b88deedc18359f56b93424b9111b3059075cbfa9c3d734252ea4649e
+primary_critics:
+  - Yahya ibn Ma'in
+  - Ahmad ibn Hanbal
+
+metric_declaration:
+  # Open executable field from the frozen precision note: declare which
+  # merging notion Q_E(t) instantiates before any analysis event.
+  q_e_horizon: null                    # OPERATOR: FULL_FUTURE | FINITE_K
+  k: null                              # OPERATOR: required if FINITE_K
+
+rule:
+  rule_id: MUSTALAH-RULE-001
+  arabic_text: null                    # OPERATOR: exact quotation, REQUIRED
+  translation: null                    # OPERATOR
+  classical_source: null               # OPERATOR: named work, REQUIRED
+  source_locator: null                 # OPERATOR: edition + page/entry, REQUIRED
+  applicability_conditions: []
+  expected_disposition: null           # OPERATOR
+  declared_exceptions: []
+  non_applicable_conditions: []
+  ambiguity_policy: EXCLUDE_PRIMARY_INCLUDE_SENSITIVITY
+
+corpora:
+  # Two entries required (one per critic source tradition). No corpus may be
+  # replaced after sample generation; corrections require a new pilot_id.
+  - corpus_id: null                    # OPERATOR
+    title: null
+    version: null
+    publisher_or_editor: null
+    retrieval_date: null
+    license: null
+    source_location: null
+    file_sha256: null                  # computed here once the file lands in-repo
+    record_count: null
+    encoding: null
+    normalization_version: null
+    included_sections: []
+    excluded_sections: []
+    known_ocr_defects: []
+    known_editorial_interventions: []
+  - corpus_id: null                    # OPERATOR
+    title: null
+    version: null
+    publisher_or_editor: null
+    retrieval_date: null
+    license: null
+    source_location: null
+    file_sha256: null
+    record_count: null
+    encoding: null
+    normalization_version: null
+    included_sections: []
+    excluded_sections: []
+    known_ocr_defects: []
+    known_editorial_interventions: []
+
+sampling:
+  algorithm: docs/epistemic-audit/sample_select.py
+  rule: SHA256(spec_hash || case_id), 100 smallest; census for 30<=N<=100;
+        feasibility failure for N<30
+
+outcome_vocabulary: [ACCEPT, REJECT, CONDITIONAL, UNRESOLVED, NO_JUDGMENT]
+normalization_table: null              # frozen before sample draw
+
+research_questions:
+  RQ1: inter-critic agreement on co-observed eligible cases
+  RQ2: per-critic conformity to MUSTALAH-RULE-001
+  RQ3: symmetric valence treatment under the same declared rule
