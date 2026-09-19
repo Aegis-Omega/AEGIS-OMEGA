@@ -212,8 +212,65 @@ Proof.
     apply Hadd_zero_r.
 Qed.
 
+
+Theorem normalized_gauge_equivalence_has_normalized_witness_abelian_action :
+  forall (a : @C3_A_action G A) (b : @C2_A_action G A),
+    @normalized3_A_action G A e zero a ->
+    @normalized3_A_action G A e zero
+      (@gauge_transform_A_action G A mul add opp act a b) ->
+    exists bn : @C2_A_action G A,
+      @normalized2_A_action G A e zero bn /\
+      forall g h k : G,
+        @gauge_transform_A_action G A mul add opp act a bn g h k =
+        @gauge_transform_A_action G A mul add opp act a b g h k.
+Proof.
+  intros a b Ha Hg.
+  destruct Ha as [HaL [HaM HaR]].
+  destruct Hg as [HgL [HgM HgR]].
+
+  assert (Hdbnorm :
+    @normalized3_A_action G A e zero
+      (@delta2_A_action G A mul add opp act b)).
+  {
+    unfold normalized3_A_action.
+    split.
+    - intros g h.
+      pose proof (HgL g h) as H.
+      unfold gauge_transform_A_action, add3_A_action in H.
+      rewrite (HaL g h) in H.
+      rewrite add_zero_l in H.
+      exact H.
+    - split.
+      + intros g h.
+        pose proof (HgM g h) as H.
+        unfold gauge_transform_A_action, add3_A_action in H.
+        rewrite (HaM g h) in H.
+        rewrite add_zero_l in H.
+        exact H.
+      + intros g h.
+        pose proof (HgR g h) as H.
+        unfold gauge_transform_A_action, add3_A_action in H.
+        rewrite (HaR g h) in H.
+        rewrite add_zero_l in H.
+        exact H.
+  }
+
+  destruct
+    (normalized_delta2_has_normalized_witness_abelian_action b Hdbnorm)
+    as [bn [Hbn Hdelta]].
+  exists bn.
+  split.
+  - exact Hbn.
+  - intros g h k.
+    unfold gauge_transform_A_action, add3_A_action.
+    rewrite (Hdelta g h k).
+    reflexivity.
+Qed.
+
 End H3NormalizationInjective.
 
 Set Printing Implicit.
 Check @normalized_delta2_has_normalized_witness_abelian_action.
 Print Assumptions normalized_delta2_has_normalized_witness_abelian_action.
+Check @normalized_gauge_equivalence_has_normalized_witness_abelian_action.
+Print Assumptions normalized_gauge_equivalence_has_normalized_witness_abelian_action.
