@@ -140,6 +140,20 @@ jobs:
           #print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.three_cross_bounds_of_arch
           #print AEGIS.WeilThreeBlockCrossAssemblyV30.three_block_bound_of_arch
           #print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.three_block_bound_of_arch
+          #print AEGIS.WeilThreeBlockCrossAssemblyV30.adjacent_arch_integral_eq
+          #print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.adjacent_arch_integral_eq
+          #print AEGIS.WeilThreeBlockCrossAssemblyV30.three_cross_bounds_of_two_arch
+          #print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.three_cross_bounds_of_two_arch
+          #print AEGIS.WeilThreeBlockCrossAssemblyV30.three_block_bound_of_two_arch
+          #print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.three_block_bound_of_two_arch
+          #print AEGIS.WeilThreeBlockCrossAssemblyV30.arch_kernel_sub_rank_one
+          #print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.arch_kernel_sub_rank_one
+          #print AEGIS.WeilThreeBlockCrossAssemblyV30.arch_rank_one_moment_zero
+          #print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.arch_rank_one_moment_zero
+          #print AEGIS.WeilThreeBlockCrossAssemblyV30.arch_exp_difference_moment_zero
+          #print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.arch_exp_difference_moment_zero
+          #print AEGIS.WeilThreeBlockCrossAssemblyV30.arch_remainder_le_at_gap
+          #print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.arch_remainder_le_at_gap
           #print axioms AEGIS.WeilThreeBlockCrossPrimeV28.logCross_eq_mixed_v28
           #print axioms AEGIS.WeilThreeBlockCrossPrimeV28.logCross_translate_eq_logCorrelation_v28
           #print axioms AEGIS.WeilThreeBlockCrossPrimeV28.exp_half_mul_mixed_translate_v28
@@ -163,6 +177,13 @@ jobs:
             'AEGIS.WeilThreeBlockPrimeEvaluationV30.right_adjacent_prime_sum_exact',
             'AEGIS.WeilThreeBlockCrossAssemblyV30.three_cross_bounds_of_arch',
             'AEGIS.WeilThreeBlockCrossAssemblyV30.three_block_bound_of_arch',
+            'AEGIS.WeilThreeBlockCrossAssemblyV30.adjacent_arch_integral_eq',
+            'AEGIS.WeilThreeBlockCrossAssemblyV30.three_cross_bounds_of_two_arch',
+            'AEGIS.WeilThreeBlockCrossAssemblyV30.three_block_bound_of_two_arch',
+            'AEGIS.WeilThreeBlockCrossAssemblyV30.arch_kernel_sub_rank_one',
+            'AEGIS.WeilThreeBlockCrossAssemblyV30.arch_rank_one_moment_zero',
+            'AEGIS.WeilThreeBlockCrossAssemblyV30.arch_exp_difference_moment_zero',
+            'AEGIS.WeilThreeBlockCrossAssemblyV30.arch_remainder_le_at_gap',
             'AEGIS.WeilThreeBlockCrossPrimeV28.logCross_eq_mixed_v28',
             'AEGIS.WeilThreeBlockCrossPrimeV28.logCross_translate_eq_logCorrelation_v28',
             'AEGIS.WeilThreeBlockCrossPrimeV28.exp_half_mul_mixed_translate_v28',
