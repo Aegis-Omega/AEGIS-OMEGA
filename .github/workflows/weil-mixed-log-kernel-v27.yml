@@ -6,6 +6,9 @@ on:
       - 'sovereign-omega-v2/formal/bridges/lean/WeilMixedLogKernelV27.lean'
       - 'sovereign-omega-v2/formal/tests/lean/WeilMixedLogKernelV27Spec.lean'
       - '.github/workflows/weil-mixed-log-kernel-v27.yml'
+      - 'scripts/verify_lean_axiom_surface.py'
+      - 'scripts/test_verify_lean_axiom_surface.py'
+      - 'scripts/proof_receipts_v1/**'
   workflow_dispatch:
 
 permissions:
@@ -44,6 +47,18 @@ jobs:
           path: .aegis
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Test exact-target receipt and axiom validators
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .aegis rev-parse HEAD)" = "$SOURCE_SHA"
+          mkdir -p evidence
+          (
+            cd .aegis
+            python3 -m unittest discover -s scripts/proof_receipts_v1 -p 'test_*.py' -v
+            python3 -m unittest discover -s scripts -p 'test_verify_lean_axiom_surface.py' -v
+          ) 2>&1 | tee evidence/proof-receipt-validator-tests.log
 
       - name: Bind exact source and V2.4 ancestry
         shell: bash
@@ -136,7 +151,12 @@ jobs:
           EOF
           sed -i 's/^          //' AuditMixedLogKernelV27.lean
           lake env lean AuditMixedLogKernelV27.lean 2>&1 | tee evidence/axioms-mixed-log-kernel-v27.log
-          ! grep -F 'sorryAx' evidence/axioms-mixed-log-kernel-v27.log
+          python3 .aegis/scripts/verify_lean_axiom_surface.py \
+            --log evidence/axioms-mixed-log-kernel-v27.log \
+            --theorem AEGIS.WeilMixedLogKernelV27.mixedLogCorrelation_integrable_v27 \
+            --theorem AEGIS.WeilMixedLogKernelV27.mixedLogCorrelation_eq_mixed_v27 \
+            --theorem AEGIS.WeilMixedLogKernelV27.norm_mixedLogCorrelation_le_mean_energy_v27 \
+            --theorem AEGIS.WeilMixedLogKernelV27.mixedLogCorrelation_zero_outside_v27
 
       - name: Audit V2.6 theorem surface
         shell: bash
