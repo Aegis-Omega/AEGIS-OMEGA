@@ -230,10 +230,12 @@
         "sha256": "e12d693956478b3289696080cea1f6e7ecb84fd908f3d972bfb7719751777054",
         "status": "TYPED_EVIDENCE_GRAPH_SOURCE",
         "self_qpp": {
-          "exact_execution_head": "6965e93bf892df556e86a07e12fddb540639125a",
+          "exact_execution_head": "0c1a55c4d569058099b02aedb17cde193ee7b494",
           "source_blob_sha": "815ddcd0a8f53926414ea400be2d428e53beab69",
           "workflow": "Quantum Self-Witness-0",
-          "workflow_run": 33589633679,
+          "workflow_run": 34917045771,
+          "contract_job": 104216838768,
+          "qpp_cpu_job": 104216884885,
           "conclusion": "success",
           "evidence_class": "SIMULATION"
         },
@@ -242,18 +244,19 @@
           "evidence_class": "SIMULATION"
         },
         "self_qpu": {
-          "status": "OUT_OF_SCOPE_FOR_V1",
+          "status": "NOT_RUN",
+          "scope": "OUT_OF_SCOPE_FOR_V1",
           "evidence_class": "EMPIRICAL"
         },
         "current_pr373_head": "7853f4e63029b24c987f9bdd2f58df8fcffa92d6",
         "current_source_blob_matches_verified_head": true,
-        "current_head_delta_from_verified_execution_head": ".claude.json only",
-        "current_exact_head_execution_rebind": "NOT_PERFORMED"
+        "current_head_delta_from_verified_execution_head": "one commit; .claude.json only",
+        "current_exact_head_execution_rebind": "NEAREST_EXECUTED_ANCESTOR_PLUS_BYTE_IDENTITY"
       },
       "qpp_source_current_blob": {
         "current_pr373_head": "7853f4e63029b24c987f9bdd2f58df8fcffa92d6",
         "cudaq_self_witness_blob_sha": "815ddcd0a8f53926414ea400be2d428e53beab69",
-        "byte_preserved_from_6965_verified_head": true
+        "byte_preserved_from_nearest_executed_ancestor": true
       },
       "qp_pd_v2": {
         "disposition_sha256": "6f8949bf327a80497948f0233587a38559169ed67a2cddd384754288ce71845a",

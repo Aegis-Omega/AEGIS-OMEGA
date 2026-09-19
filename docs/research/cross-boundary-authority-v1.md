@@ -333,14 +333,25 @@ promotion obligations.
 PR #373's actual qpp-cpu implementation bytes are preserved at the current live head
 `7853f4e63029b24c987f9bdd2f58df8fcffa92d6`; the module blob remains
 `815ddcd0a8f53926414ea400be2d428e53beab69`, identical to the execution-bound
-head `6965e93bf892df556e86a07e12fddb540639125a`.
+nearest executed ancestor `0c1a55c4d569058099b02aedb17cde193ee7b494`.
 
-The real Self-Witness workflow at 6965 succeeded, including qpp-cpu CUDA-Q execution.
+The real Self-Witness workflow at `0c1a55c4...` succeeded:
+- workflow run `34917045771`;
+- exact candidate checkout and exact-head assertion PASS;
+- contract job `104216838768`: SUCCESS, 13/13 tests passed;
+- real qpp-cpu job `104216884885`: SUCCESS with pinned `cudaq==0.15.1`
+  and `rfc8785==0.1.4`.
+
+The current head is exactly one commit ahead of that executed ancestor and the
+only changed path is `.claude.json`; the Self-Witness workflow, runtime, setup,
+tests, and schema blobs are unchanged.
+
 However:
 - NVIDIA fp64 differential execution is NOT_RUN;
-- physical QPU is OUT_OF_SCOPE_FOR_V1;
+- physical QPU execution is NOT_RUN and OUT_OF_SCOPE_FOR_V1;
 - physical-QPU promotion requires a shot-based V2 statistical contract;
-- the current PR head has not received a fresh exact-head execution rebind.
+- no fresh execution was performed at `7853f4e6...`; the live-head rebind is
+  `NEAREST_EXECUTED_ANCESTOR_PLUS_BYTE_IDENTITY`.
 
 Therefore qpp-cpu analytic execution is retained as SIMULATION evidence and cannot
 promote either GPU differential closure or an EMPIRICAL physical-QPU witness.
