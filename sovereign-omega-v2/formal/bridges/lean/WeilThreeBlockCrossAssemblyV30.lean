@@ -41,7 +41,7 @@ private theorem mixed_bound_of_prime_and_arch
   calc
     ‖WeilPrimeSumV1 (mixed p q) + WeilArchimedeanIntegralV1 (mixed p q)‖
         ≤ ‖WeilPrimeSumV1 (mixed p q)‖ + ‖WeilArchimedeanIntegralV1 (mixed p q)‖ := norm_add_le _ _
-    _ ≤ c * E + (1 / 100 : ℝ) * E := by rw [hp]; exact add_le_add_left harch _
+    _ ≤ c * E + (1 / 100 : ℝ) * E := by rw [hp]; exact add_le_add (le_refl _) harch
     _ ≤ (k + 1 / 100) * E := by nlinarith [mul_le_mul_of_nonneg_right hck hE]
 
 theorem three_cross_bounds_of_arch
