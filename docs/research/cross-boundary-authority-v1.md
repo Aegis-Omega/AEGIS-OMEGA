@@ -372,6 +372,17 @@ This is `T1_DIAGNOSTIC` only. It identifies the first unresolved boundary; it do
 not execute the NVIDIA backend, does not execute a physical QPU, and grants no
 admission or authority.
 
+A second independent Python check reconstructs the actual 4-qubit Self-Witness kernel
+from the repository mapping and gate sequence in NumPy `complex128`: eight big-endian
+u32 hash chunks -> eight angles -> `Ry^4 -> CZ ring -> Rz^4` -> the seven frozen Pauli
+observables. Against the hosted CUDA-Q qpp-cpu values from job `104216884885`, all seven
+observables agree with maximum absolute difference `2.220446049250313e-16`; the
+statevector norm error is also `2.220446049250313e-16`.
+
+Disposition: `NUMERICAL_KERNEL_CROSSCHECK_PASS`. This independently corroborates the
+kernel numerics at binary64 precision, but it is not a CUDA-Q `nvidia` backend run and
+therefore leaves `NVIDIA_FP64_DIFFERENTIAL = NOT_RUN`. Physical QPU remains NOT_RUN.
+
 ### QP-PD / QuanPhotonic
 
 PR #409 exact head `4626389c7866bc5faa2a21bb0f60fbd72329938a` has successful

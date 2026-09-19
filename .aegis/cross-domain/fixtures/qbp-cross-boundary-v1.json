@@ -274,6 +274,22 @@
           "marked_name": "nvidia_fp64_differential_executed",
           "located_index": 2,
           "probability": 0.9999999999999991
+        },
+        "self_fp64_statevector_crosscheck": {
+          "authority": "DIAGNOSTIC_ONLY",
+          "authority_effect": "NONE",
+          "artifact_path": ".aegis/cross-domain/fixtures/self-witness-fp64-statevector-crosscheck-v1.json",
+          "artifact_file_sha256": "1ef31e75ded9fcd0778ea2819aee9b4c116c41df5808a8d8ff523cbe99f46dab",
+          "payload_sha256": "1c8618ac23a02b8dc898ffed854c58e09d357bdd5cd3465385d5a5fd1109282e",
+          "method": "INDEPENDENT_NUMPY_COMPLEX128_STATEVECTOR_REPLAY_OF_REPOSITORY_SELF_WITNESS_KERNEL",
+          "hosted_qpp_execution_head": "0c1a55c4d569058099b02aedb17cde193ee7b494",
+          "hosted_qpp_workflow_run": 34917045771,
+          "hosted_qpp_job": 104216884885,
+          "max_abs_delta": 2.220446049250313e-16,
+          "state_norm_error": 2.220446049250313e-16,
+          "status": "NUMERICAL_KERNEL_CROSSCHECK_PASS",
+          "nvidia_fp64_backend_execution": "NOT_RUN",
+          "physical_qpu_execution": "NOT_RUN"
         }
       },
       "qpp_source_current_blob": {
