@@ -26,6 +26,7 @@ theorem logLift_continuous (p : WeilCompactSmoothGV1) :
 
 theorem logCross_continuous (p q : WeilCompactSmoothGV1) :
     Continuous (logCrossV28 p q) := by
+  change Continuous (fun u : ℝ => logCrossV28 p q u)
   simp_rw [logCross_eq_mixed_v28]
   exact (by fun_prop : Continuous (fun u : ℝ => (Real.exp (u / 2) : ℂ))).mul
     ((smooth p q).continuous.comp Real.continuous_exp)
@@ -47,20 +48,20 @@ theorem logCross_zero_outside
   rcases hu with hu | hu <;> linarith [hpI.1, hpI.2, hqI.1, hqI.2]
 
 def weightedCrossIntegrand
-    (p q : WeilCompactSmoothGV1) (λ : ℝ) (z : ℝ × ℝ) : ℂ :=
-  (Real.exp (λ * z.1) : ℂ) * logLift p.1 (z.2 + z.1) * conj (logLift q.1 z.2)
+    (p q : WeilCompactSmoothGV1) (lam : ℝ) (z : ℝ × ℝ) : ℂ :=
+  (Real.exp (lam * z.1) : ℂ) * logLift p.1 (z.2 + z.1) * conj (logLift q.1 z.2)
 
 theorem weightedCrossIntegrand_integrable
-    (p q : WeilCompactSmoothGV1) (λ plo phi qlo qhi : ℝ)
+    (p q : WeilCompactSmoothGV1) (lam plo phi qlo qhi : ℝ)
     (hp : LogSupportIn p plo phi) (hq : LogSupportIn q qlo qhi) :
-    Integrable (weightedCrossIntegrand p q λ) (volume.prod volume) := by
-  have hc : Continuous (weightedCrossIntegrand p q λ) := by
+    Integrable (weightedCrossIntegrand p q lam) (volume.prod volume) := by
+  have hc : Continuous (weightedCrossIntegrand p q lam) := by
     unfold weightedCrossIntegrand
     exact ((by fun_prop : Continuous (fun z : ℝ × ℝ =>
-      (Real.exp (λ * z.1) : ℂ))).mul
+      (Real.exp (lam * z.1) : ℂ))).mul
       ((logLift_continuous p).comp (continuous_snd.add continuous_fst))).mul
       (continuous_conj.comp ((logLift_continuous q).comp continuous_snd))
-  have hk : HasCompactSupport (weightedCrossIntegrand p q λ) := by
+  have hk : HasCompactSupport (weightedCrossIntegrand p q lam) := by
     apply HasCompactSupport.of_support_subset_isCompact
       ((isCompact_Icc : IsCompact (Icc (plo - qhi) (phi - qlo))).prod
         (isCompact_Icc : IsCompact (Icc qlo qhi)))
@@ -77,37 +78,37 @@ theorem weightedCrossIntegrand_integrable
   exact hc.integrable_of_hasCompactSupport hk
 
 theorem weighted_logCross_integrable
-    (p q : WeilCompactSmoothGV1) (λ plo phi qlo qhi : ℝ)
+    (p q : WeilCompactSmoothGV1) (lam plo phi qlo qhi : ℝ)
     (hp : LogSupportIn p plo phi) (hq : LogSupportIn q qlo qhi) :
-    Integrable (fun u : ℝ => (Real.exp (λ * u) : ℂ) * logCrossV28 p q u) := by
-  have hi := (weightedCrossIntegrand_integrable p q λ plo phi qlo qhi hp hq).integral_prod_left
+    Integrable (fun u : ℝ => (Real.exp (lam * u) : ℂ) * logCrossV28 p q u) := by
+  have hi := (weightedCrossIntegrand_integrable p q lam plo phi qlo qhi hp hq).integral_prod_left
   simpa only [weightedCrossIntegrand, logCrossV28, mul_assoc, integral_const_mul] using hi
 
 /-- Fubini and additive translation transport a zero weighted packet moment
 to a zero weighted mixed-correlation moment. -/
 theorem weighted_logCross_moment_zero
-    (p q : WeilCompactSmoothGV1) (λ plo phi qlo qhi : ℝ)
+    (p q : WeilCompactSmoothGV1) (lam plo phi qlo qhi : ℝ)
     (hp : LogSupportIn p plo phi) (hq : LogSupportIn q qlo qhi)
-    (hm : (∫ s : ℝ, (Real.exp (λ * s) : ℂ) * logLift p.1 s) = 0) :
-    (∫ u : ℝ, (Real.exp (λ * u) : ℂ) * logCrossV28 p q u) = 0 := by
-  have hi := weightedCrossIntegrand_integrable p q λ plo phi qlo qhi hp hq
+    (hm : (∫ s : ℝ, (Real.exp (lam * s) : ℂ) * logLift p.1 s) = 0) :
+    (∫ u : ℝ, (Real.exp (lam * u) : ℂ) * logCrossV28 p q u) = 0 := by
+  have hi := weightedCrossIntegrand_integrable p q lam plo phi qlo qhi hp hq
   calc
-    (∫ u : ℝ, (Real.exp (λ * u) : ℂ) * logCrossV28 p q u) =
-        ∫ u : ℝ, ∫ v : ℝ, weightedCrossIntegrand p q λ (u, v) := by
+    (∫ u : ℝ, (Real.exp (lam * u) : ℂ) * logCrossV28 p q u) =
+        ∫ u : ℝ, ∫ v : ℝ, weightedCrossIntegrand p q lam (u, v) := by
       simp only [weightedCrossIntegrand, logCrossV28, mul_assoc, integral_const_mul]
-    _ = ∫ v : ℝ, ∫ u : ℝ, weightedCrossIntegrand p q λ (u, v) :=
+    _ = ∫ v : ℝ, ∫ u : ℝ, weightedCrossIntegrand p q lam (u, v) :=
       integral_integral_swap hi
     _ = 0 := by
       apply integral_eq_zero_of_ae
       filter_upwards [] with v
-      have he (u : ℝ) : Real.exp (λ * u) =
-          Real.exp (-λ * v) * Real.exp (λ * (u + v)) := by
+      have he (u : ℝ) : Real.exp (lam * u) =
+          Real.exp (-lam * v) * Real.exp (lam * (u + v)) := by
         rw [← Real.exp_add]
         congr 1
         ring
-      have hinner : (∫ u : ℝ, weightedCrossIntegrand p q λ (u, v)) =
-          (Real.exp (-λ * v) : ℂ) *
-            (∫ u : ℝ, (Real.exp (λ * (u + v)) : ℂ) * logLift p.1 (u + v)) *
+      have hinner : (∫ u : ℝ, weightedCrossIntegrand p q lam (u, v)) =
+          (Real.exp (-lam * v) : ℂ) *
+            (∫ u : ℝ, (Real.exp (lam * (u + v)) : ℂ) * logLift p.1 (u + v)) *
               conj (logLift q.1 v) := by
         rw [← integral_mul_const, ← integral_const_mul]
         apply integral_congr_ae
@@ -123,7 +124,7 @@ theorem logCross_plus_moment_zero
     (hm : WeilMomentConditionsV1 p) :
     (∫ u : ℝ, (Real.exp (u / 2) : ℂ) * logCrossV28 p q u) = 0 := by
   have hz : (∫ s : ℝ, (Real.exp ((1 / 2 : ℝ) * s) : ℂ) * logLift p.1 s) = 0 := by
-    simpa only [one_div_mul_eq_div] using
+    simpa only [one_div_mul_eq_div, logMomentPlus] using
       (logMomentPlus_eq_repository p).trans hm.2
   simpa only [one_div_mul_eq_div] using
     weighted_logCross_moment_zero p q (1 / 2) plo phi qlo qhi hp hq hz
@@ -133,18 +134,10 @@ theorem logCross_minus_moment_zero
     (hp : LogSupportIn p plo phi) (hq : LogSupportIn q qlo qhi)
     (hm : WeilMomentConditionsV1 p) :
     (∫ u : ℝ, (Real.exp (-u / 2) : ℂ) * logCrossV28 p q u) = 0 := by
+  have hn (s : ℝ) : (-1 / 2 : ℝ) * s = -s / 2 := by ring
   have hz : (∫ s : ℝ, (Real.exp ((-1 / 2 : ℝ) * s) : ℂ) * logLift p.1 s) = 0 := by
-    convert (logMomentMinus_eq_repository p).trans hm.1 using 1
-    unfold logMomentMinus
-    congr 1
-    funext s
-    congr 2
-    ring
-  convert weighted_logCross_moment_zero p q (-1 / 2) plo phi qlo qhi hp hq hz using 1
-  congr 1
-  funext u
-  congr 2
-  ring
+    simpa only [hn, logMomentMinus] using (logMomentMinus_eq_repository p).trans hm.1
+  simpa only [hn] using weighted_logCross_moment_zero p q (-1 / 2) plo phi qlo qhi hp hq hz
 
 private theorem kernel_algebra (x y z w m : ℂ)
     (hx : x ≠ 0) (hd : 1 - w ≠ 0)
@@ -183,6 +176,7 @@ theorem separated_arch_eq_log_kernel
       by simpa using (integral_comp_exp_Ioi (WeilArchimedeanIntegrandV1 (mixed p q)) 0)]
   apply setIntegral_congr_fun measurableSet_Ioi
   intro u hu
+  change 0 < u at hu
   have heinv : (Real.exp u)⁻¹ = Real.exp (-u) := (Real.exp_neg u).symm
   simp only [WeilArchimedeanIntegrandV1, hzero u hu.le, hcenter,
     mul_zero, sub_zero, zero_add, Complex.real_smul, heinv,
@@ -204,6 +198,56 @@ theorem separated_arch_eq_log_kernel
     congr 1
     ring
 
+/-- A single centred exponential subtraction works for both retained gaps. -/
+theorem centered_arch_kernel_bound (u : ℝ)
+    (hu : Real.log 2 - 1 / 32 ≤ u) :
+    |Real.exp (-u / 2) / (1 - Real.exp (-2 * u)) -
+      (6 / 5 : ℝ) * Real.exp (-u / 2)| ≤ (4 / 25 : ℝ) := by
+  have hx : Real.exp (-2 * u) ≤ (4 / 15 : ℝ) := by
+    have he2 : Real.exp (2 * Real.log 2) = (4 : ℝ) := by
+      rw [two_mul, Real.exp_add, Real.exp_log (by norm_num : (0 : ℝ) < 2)]
+      norm_num
+    calc
+      Real.exp (-2 * u) ≤ Real.exp (1 / 16 - 2 * Real.log 2) :=
+        Real.exp_le_exp.mpr (by linarith)
+      _ = Real.exp (1 / 16) / 4 := by rw [Real.exp_sub, he2]
+      _ ≤ 4 / 15 := by
+        linarith [AEGIS.WeilThreeBlockAnalyticConstantsV21.exp_one_over_16_upper]
+  have hx0 := (Real.exp_pos (-2 * u)).le
+  have hy0 := (Real.exp_pos (-u / 2)).le
+  have hy4 : Real.exp (-u / 2) ^ 4 = Real.exp (-2 * u) := by
+    norm_num only [pow_succ, pow_zero, mul_one, ← Real.exp_add]
+    congr 1
+    ring
+  have hy : Real.exp (-u / 2) ≤ (4 / 5 : ℝ) := by
+    by_contra h
+    have hlt : (4 / 5 : ℝ) ≤ Real.exp (-u / 2) := (lt_of_not_ge h).le
+    have hh : (4 / 5 : ℝ) ^ 4 ≤ Real.exp (-u / 2) ^ 4 := by gcongr
+    rw [hy4] at hh
+    norm_num at hh
+    linarith
+  have hd : 0 < 1 - Real.exp (-2 * u) := by linarith
+  have hrlo : (1 : ℝ) ≤ 1 / (1 - Real.exp (-2 * u)) := by
+    apply (le_div_iff₀ hd).mpr
+    linarith
+  have hrhi : 1 / (1 - Real.exp (-2 * u)) ≤ (7 / 5 : ℝ) := by
+    apply (div_le_iff₀ hd).mpr
+    linarith
+  have hr : |1 / (1 - Real.exp (-2 * u)) - (6 / 5 : ℝ)| ≤ (1 / 5 : ℝ) := by
+    rw [abs_le]
+    constructor <;> linarith
+  calc
+    |Real.exp (-u / 2) / (1 - Real.exp (-2 * u)) -
+      (6 / 5 : ℝ) * Real.exp (-u / 2)| =
+        Real.exp (-u / 2) * |1 / (1 - Real.exp (-2 * u)) - (6 / 5 : ℝ)| := by
+      calc
+        _ = |Real.exp (-u / 2) * (1 / (1 - Real.exp (-2 * u)) - (6 / 5 : ℝ))| := by
+          congr 1
+          ring
+        _ = _ := by rw [abs_mul, abs_of_nonneg hy0]
+    _ ≤ (4 / 5 : ℝ) * (1 / 5 : ℝ) := mul_le_mul hy hr (abs_nonneg _) (by norm_num)
+    _ = 4 / 25 := by norm_num
+
 end AEGIS.WeilSeparatedArchBridgeV31
 
 #print axioms AEGIS.WeilSeparatedArchBridgeV31.weightedCrossIntegrand_integrable
@@ -212,3 +256,4 @@ end AEGIS.WeilSeparatedArchBridgeV31
 #print axioms AEGIS.WeilSeparatedArchBridgeV31.logCross_plus_moment_zero
 #print axioms AEGIS.WeilSeparatedArchBridgeV31.logCross_minus_moment_zero
 #print axioms AEGIS.WeilSeparatedArchBridgeV31.separated_arch_eq_log_kernel
+#print axioms AEGIS.WeilSeparatedArchBridgeV31.centered_arch_kernel_bound
