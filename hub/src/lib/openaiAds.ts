@@ -11,6 +11,7 @@ declare global {
 
 const PIXEL_ID = ((import.meta.env.VITE_OPENAI_ADS_PIXEL_ID as string | undefined) ?? '').trim()
 const SDK_SRC = 'https://bzrcdn.openai.com/sdk/oaiq.min.js'
+let initialized = false
 
 function ensureQueue(): Oaiq | null {
   if (typeof window === 'undefined' || !PIXEL_ID) return null
@@ -31,9 +32,11 @@ function ensureQueue(): Oaiq | null {
 
 export function initOpenAIAds(): boolean {
   try {
+    if (initialized) return true
     const q = ensureQueue()
     if (!q) return false
     q('init', { pixelId: PIXEL_ID })
+    initialized = true
     return true
   } catch {
     return false
@@ -46,6 +49,7 @@ export function measureOpenAIAds(
   options?: Record<string, unknown>,
 ): void {
   try {
+    if (!initOpenAIAds()) return
     const q = ensureQueue()
     if (!q) return
     if (options) q('measure', eventName, data, options)
