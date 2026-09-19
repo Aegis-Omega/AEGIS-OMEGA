@@ -383,6 +383,22 @@ Disposition: `NUMERICAL_KERNEL_CROSSCHECK_PASS`. This independently corroborates
 kernel numerics at binary64 precision, but it is not a CUDA-Q `nvidia` backend run and
 therefore leaves `NVIDIA_FP64_DIFFERENTIAL = NOT_RUN`. Physical QPU remains NOT_RUN.
 
+A third backend-independent check derives the seven frozen observables in closed form for
+the exact `Ry^4 -> CZ ring -> Rz^4` circuit. The diagonal CZ/Rz layers leave Z-basis
+probabilities unchanged, giving `Z_i = cos(theta_i)` and the two frozen ZZ products.
+For `X0X1X2X3`, complement-paired amplitudes preserve the 4-cycle CZ parity, so the CZ
+phases cancel and the Rz factors reduce to
+`prod sin(theta_0..theta_3) * prod cos(theta_4..theta_7)`.
+
+A deterministic 512-hash corpus compared this closed form against the independent NumPy
+complex128 statevector replay with maximum absolute difference
+`8.881784197001252e-16`. On the frozen Self-Witness hash, the closed form agrees with
+hosted CUDA-Q qpp-cpu values within `3.3306690738754696e-16`.
+
+Disposition: `ANALYTIC_OBSERVABLE_ORACLE_VERIFIED_NUMERICALLY`. This removes simulator
+implementation details from the observable-value check, but still does not constitute a
+CUDA-Q `nvidia/fp64` execution. NVIDIA fp64 and physical QPU remain NOT_RUN.
+
 ### QP-PD / QuanPhotonic
 
 PR #409 exact head `4626389c7866bc5faa2a21bb0f60fbd72329938a` has successful

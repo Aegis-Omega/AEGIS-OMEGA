@@ -290,6 +290,20 @@
           "status": "NUMERICAL_KERNEL_CROSSCHECK_PASS",
           "nvidia_fp64_backend_execution": "NOT_RUN",
           "physical_qpu_execution": "NOT_RUN"
+        },
+        "self_analytic_oracle": {
+          "authority": "DIAGNOSTIC_ONLY",
+          "authority_effect": "NONE",
+          "artifact_path": ".aegis/cross-domain/fixtures/self-witness-analytic-oracle-v1.json",
+          "artifact_file_sha256": "16d500da14e7c651db7ff50f34b2aaba8965962ebe8ba6434b5cf1f6af1ef883",
+          "payload_sha256": "a0006166dac7b2caeaf2a5553fa2d0e38b6b6895de7108449a3d6669ed5d3212",
+          "kernel": "RY4_CZ_RING_RZ4",
+          "closed_form_status": "PASS",
+          "stress_cases": 512,
+          "max_closed_form_vs_statevector_delta": 8.881784197001252e-16,
+          "fixed_hash_max_delta_vs_hosted_qpp": 3.3306690738754696e-16,
+          "nvidia_fp64_backend_execution": "NOT_RUN",
+          "physical_qpu_execution": "NOT_RUN"
         }
       },
       "qpp_source_current_blob": {
