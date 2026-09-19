@@ -144,6 +144,18 @@ jobs:
           #print axioms AEGIS.WeilSeparatedArchBridgeV31.logCross_minus_moment_zero
           #print AEGIS.WeilSeparatedArchBridgeV31.separated_arch_eq_log_kernel
           #print axioms AEGIS.WeilSeparatedArchBridgeV31.separated_arch_eq_log_kernel
+          #print AEGIS.WeilSeparatedArchBridgeV31.centered_arch_kernel_bound
+          #print axioms AEGIS.WeilSeparatedArchBridgeV31.centered_arch_kernel_bound
+          #print AEGIS.WeilSeparatedArchBridgeV31.separated_arch_norm_bound
+          #print axioms AEGIS.WeilSeparatedArchBridgeV31.separated_arch_norm_bound
+          #print AEGIS.WeilSeparatedArchBridgeV31.translated_arch_norm_bound
+          #print axioms AEGIS.WeilSeparatedArchBridgeV31.translated_arch_norm_bound
+          #print AEGIS.WeilSeparatedArchBridgeV31.three_arch_bounds_of_moments
+          #print axioms AEGIS.WeilSeparatedArchBridgeV31.three_arch_bounds_of_moments
+          #print AEGIS.WeilSeparatedArchBridgeV31.three_cross_bounds_of_moments
+          #print axioms AEGIS.WeilSeparatedArchBridgeV31.three_cross_bounds_of_moments
+          #print AEGIS.WeilSeparatedArchBridgeV31.three_block_bound_of_moments
+          #print axioms AEGIS.WeilSeparatedArchBridgeV31.three_block_bound_of_moments
           #print AEGIS.WeilThreeBlockPrimeEvaluationV30.adjacent_prime_sum_exact
           #print axioms AEGIS.WeilThreeBlockPrimeEvaluationV30.adjacent_prime_sum_exact
           #print AEGIS.WeilThreeBlockPrimeEvaluationV30.outer_prime_sum_exact
@@ -186,6 +198,12 @@ jobs:
           from pathlib import Path
           import re
           names = [
+            'AEGIS.WeilSeparatedArchBridgeV31.centered_arch_kernel_bound',
+            'AEGIS.WeilSeparatedArchBridgeV31.separated_arch_norm_bound',
+            'AEGIS.WeilSeparatedArchBridgeV31.translated_arch_norm_bound',
+            'AEGIS.WeilSeparatedArchBridgeV31.three_arch_bounds_of_moments',
+            'AEGIS.WeilSeparatedArchBridgeV31.three_cross_bounds_of_moments',
+            'AEGIS.WeilSeparatedArchBridgeV31.three_block_bound_of_moments',
             'AEGIS.WeilSeparatedArchBridgeV31.weightedCrossIntegrand_integrable',
             'AEGIS.WeilSeparatedArchBridgeV31.weighted_logCross_integrable',
             'AEGIS.WeilSeparatedArchBridgeV31.weighted_logCross_moment_zero',
@@ -228,7 +246,7 @@ jobs:
               raise SystemExit('FAIL incomplete axiom output '+name)
             if not axioms <= allowed:
               raise SystemExit('FAIL unexpected axioms '+name+' '+repr(axioms))
-          print('PASS: V3.0 prime evaluations and CONDITIONAL assembly; Arch hypotheses remain')
+          print('PASS: exact prime sums, moment-derived Arch bounds and retained three-block bound; global Weil sign is not checked')
           PY
 
       - name: Emit bounded disposition
@@ -246,11 +264,11 @@ jobs:
           ADJACENT_PRIME_SUM=TARGETED_BY_V30
           OUTER_PRIME_SUM=TARGETED_BY_V30
           CONDITIONAL_THREE_BLOCK_ASSEMBLY=TARGETED_BY_V30
-          ARCH_HYPOTHESES_DISCHARGED=NO
+          ARCH_HYPOTHESES_DISCHARGED=TARGETED_BY_V31
           EXACT_RH_TARGET_CHECKED=NO
-          CROSS_ARCHIMEDEAN_MAJORANT=OPEN
-          CROSS_B_51_OVER_100=OPEN
-          CROSS_B_9_OVER_25=OPEN
+          CROSS_ARCHIMEDEAN_MAJORANT=TARGETED_BY_V31
+          CROSS_B_51_OVER_100=TARGETED_BY_V31
+          CROSS_B_9_OVER_25=TARGETED_BY_V31
           GLOBAL_WEIL_POSITIVITY=OPEN
           RH=NOT_PROVEN
           authority_effect=NONE
