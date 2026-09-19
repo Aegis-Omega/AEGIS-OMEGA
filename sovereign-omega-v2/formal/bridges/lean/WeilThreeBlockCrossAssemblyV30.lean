@@ -2,9 +2,11 @@ import WeilThreeBlockPrimeEvaluationV30
 import WeilThreeBlockNormBridgeV21
 
 /-!
-Candidate conditional assembly, not yet kernel replayed.
-The three actual Archimedean integral norm bounds are EXPLICIT hypotheses.
-This file does not discharge them, assert universal positivity, or prove RH.
+Conditional assembly over the actual repository integrals.
+The original three-bound interface is retained. Translation invariance reduces
+the strengthened interface to two Archimedean bounds. Moment cancellation of
+the separated rank-one kernel is proved below; its connection to the complete
+Archimedean integral and the two quantitative bounds remain obligations.
 -/
 open Set Function MeasureTheory Complex
 open scoped ComplexConjugate BigOperators
@@ -122,7 +124,82 @@ theorem three_block_bound_of_arch
   · simpa only [mul_assoc, hl02] using hb02
   · simpa only [mul_assoc, hl12] using hb12
 
+/-- Both adjacent Archimedean integrals are exactly equal, without a width or
+moment hypothesis. -/
+theorem adjacent_arch_integral_eq (g : WeilCompactSmoothGV1) :
+    WeilArchimedeanIntegralV1 (mixed (gZero g) (gPlus g)) =
+      WeilArchimedeanIntegralV1 (mixed (gMinus g) (gZero g)) := by
+  unfold WeilArchimedeanIntegralV1
+  apply setIntegral_congr_fun measurableSet_Ioi
+  intro x hx
+  have hpos : 0 < x := lt_trans (by norm_num) hx
+  simp only [WeilArchimedeanIntegrandV1,
+    adjacent_mixed_shift_eq g x hpos,
+    adjacent_mixed_shift_eq g (x⁻¹) (inv_pos.mpr hpos),
+    adjacent_mixed_shift_eq g 1 (by norm_num)]
+
+/-- Only the adjacent and outer estimates are independent obligations. -/
+theorem three_cross_bounds_of_two_arch
+    (g : WeilCompactSmoothGV1) (a : ℝ) (hw : WidthOneThirtyTwoAt g a)
+    (harch01 : ‖WeilArchimedeanIntegralV1 (mixed (gMinus g) (gZero g))‖ ≤
+      (1 / 100 : ℝ) * energy g.1)
+    (harch02 : ‖WeilArchimedeanIntegralV1 (mixed (gMinus g) (gPlus g))‖ ≤
+      (1 / 100 : ℝ) * energy g.1) :
+    ‖B (gMinus g) (gZero g)‖ ≤ (51 / 100 : ℝ) * energy g.1 ∧
+    ‖B (gMinus g) (gPlus g)‖ ≤ (9 / 25 : ℝ) * energy g.1 ∧
+    ‖B (gZero g) (gPlus g)‖ ≤ (51 / 100 : ℝ) * energy g.1 := by
+  exact three_cross_bounds_of_arch g a hw harch01 harch02
+    (by simpa only [adjacent_arch_integral_eq] using harch01)
+
+theorem three_block_bound_of_two_arch
+    (g : WeilCompactSmoothGV1) (a : ℝ) (hw : WidthOneThirtyTwoAt g a)
+    (z0 z1 z2 : ℂ)
+    (harch01 : ‖WeilArchimedeanIntegralV1 (mixed (gMinus g) (gZero g))‖ ≤
+      (1 / 100 : ℝ) * energy g.1)
+    (harch02 : ‖WeilArchimedeanIntegralV1 (mixed (gMinus g) (gPlus g))‖ ≤
+      (1 / 100 : ℝ) * energy g.1) :
+    (WeilExplicitRightSideV1
+      (WeilAutocorrelationV1 (combo z0 z1 z2 (gMinus g) (gZero g) (gPlus g)))).re ≤
+      -(1 / 10 : ℝ) * energy (combo z0 z1 z2 (gMinus g) (gZero g) (gPlus g)).1 := by
+  exact three_block_bound_of_arch g a hw z0 z1 z2 harch01 harch02
+    (by simpa only [adjacent_arch_integral_eq] using harch01)
+
+/-- Subtract the moment-cancelled term directly; no infinite series is needed. -/
+theorem arch_kernel_sub_rank_one (v : ℝ) (hv : 0 < v) :
+    Real.exp (-v / 2) / (1 - Real.exp (-2 * v)) - Real.exp (-v / 2) =
+      Real.exp (-5 * v / 2) / (1 - Real.exp (-2 * v)) := by
+  have he : Real.exp (-2 * v) < 1 := by
+    rw [Real.exp_lt_one_iff]
+    linarith
+  have hd : 1 - Real.exp (-2 * v) ≠ 0 := ne_of_gt (sub_pos.mpr he)
+  have hm : Real.exp (-v / 2) * Real.exp (-2 * v) = Real.exp (-5 * v / 2) := by
+    rw [← Real.exp_add]
+    congr 1
+    ring
+  field_simp [hd]
+  nlinarith [hm]
+
+/-- The separated leading exponential term vanishes by the repository's
+minus moment. This is an iterated-integral identity, not yet the change of
+variables/Fubini identification with the actual Archimedean integral. -/
+theorem arch_rank_one_moment_zero
+    (p q : WeilCompactSmoothGV1) (hm : WeilMomentConditionsV1 p) :
+    (∫ s : ℝ, ∫ t : ℝ,
+      ((Real.exp (-s / 2) : ℂ) *
+        AEGIS.WeilLogCoordinateIsometryV21.logLift p.1 s) *
+      ((Real.exp (t / 2) : ℂ) *
+        conj (AEGIS.WeilLogCoordinateIsometryV21.logLift q.1 t))) = 0 := by
+  simp_rw [integral_const_mul]
+  rw [integral_mul_const]
+  change logMomentMinus p * _ = 0
+  rw [logMomentMinus_eq_repository, hm.1, zero_mul]
+
 end AEGIS.WeilThreeBlockCrossAssemblyV30
 
 #print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.three_cross_bounds_of_arch
 #print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.three_block_bound_of_arch
+#print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.adjacent_arch_integral_eq
+#print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.three_cross_bounds_of_two_arch
+#print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.three_block_bound_of_two_arch
+#print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.arch_kernel_sub_rank_one
+#print axioms AEGIS.WeilThreeBlockCrossAssemblyV30.arch_rank_one_moment_zero
