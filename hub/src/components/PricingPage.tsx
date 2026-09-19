@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { T, MONO, SANS } from './console/consoleTokens.js'
 import { CoreCanvas } from './console/CoreCanvas.js'
 import { NousButton, ArrowR, NousPill } from './console/NousUI.js'
+import { initOpenAIAds, measureOpenAIAds, openAIAdsWebContext } from '../lib/openaiAds.js'
 
 const SUPABASE_URL          = (import.meta.env.VITE_SUPABASE_URL as string | undefined)
   || 'https://rwehltdwpsncnwxzkwik.supabase.co'
@@ -325,6 +326,15 @@ export function PricingPage() {
   useEffect(() => { setError(null) }, [email, tier])
   useEffect(() => { emailRef.current = email }, [email])
 
+  // OpenAI Ads measurement is optional and non-blocking. No Pixel ID => no-op.
+  useEffect(() => {
+    if (!initOpenAIAds()) return
+    measureOpenAIAds('page_viewed', {
+      type: 'contents',
+      contents: [{ id: 'pricing', name: 'AEGIS Pricing', content_type: 'page' }],
+    })
+  }, [])
+
   // Load the PayPal JS SDK once. PayPal is the payment processor — no Stripe.
   useEffect(() => {
     if (!PAYPAL_CLIENT_ID) return
@@ -350,6 +360,7 @@ export function PricingPage() {
       if (!resp.ok) throw new Error(data.error ?? `HTTP ${resp.status}`)
       setApiKey(data.api_key!)
       setTier('explorer')
+      measureOpenAIAds('registration_completed', { type: 'customer_action' })
     } catch (e) { setError(String(e)) }
     finally { setLoading(false) }
   }
@@ -370,25 +381,57 @@ export function PricingPage() {
         if (!em || !em.includes('@')) { setError('Enter a valid email first.'); return actions.reject() }
         return actions.resolve()
       },
-      createOrder: (_d: unknown, actions: any) => actions.order.create({
-        intent: 'CAPTURE',
-        purchase_units: [{
-          amount: { value: TIER_PRICE[tier as 'operator' | 'sovereign'], currency_code: 'USD' },
-          description: `AEGIS ${tier} tier`,
-        }],
-      }),
+      createOrder: async (_d: unknown, actions: any) => {
+        const orderID = await actions.order.create({
+          intent: 'CAPTURE',
+          purchase_units: [{
+            amount: { value: TIER_PRICE[tier as 'operator' | 'sovereign'], currency_code: 'USD' },
+            description: `AEGIS ${tier} tier`,
+          }],
+        })
+        const amountCents = Math.round(Number(TIER_PRICE[tier as 'operator' | 'sovereign']) * 100)
+        measureOpenAIAds('checkout_started', {
+          type: 'contents',
+          amount: amountCents,
+          currency: 'USD',
+          contents: [{
+            id: `aegis_${tier}`,
+            name: `AEGIS ${tier} tier`,
+            content_type: 'product',
+            quantity: 1,
+          }],
+        }, { event_id: `paypal-checkout-${orderID}` })
+        return orderID
+      },
       onApprove: async (data: { orderID: string }) => {
         setError(null); setLoading(true)
         try {
           const resp = await fetch(PROVISION_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ order_id: data.orderID, tier, email: emailRef.current.trim() }),
+            body: JSON.stringify({
+              order_id: data.orderID,
+              tier,
+              email: emailRef.current.trim(),
+              openai_ads: openAIAdsWebContext(),
+            }),
           })
           const d = await resp.json() as { api_key?: string; tool_token?: string; error?: string }
           if (!resp.ok) throw new Error(d.error ?? `HTTP ${resp.status}`)
           setToolToken(d.tool_token ?? null)
           setApiKey(d.api_key!)
+          const amountCents = Math.round(Number(TIER_PRICE[tier as 'operator' | 'sovereign']) * 100)
+          measureOpenAIAds('order_created', {
+            type: 'contents',
+            amount: amountCents,
+            currency: 'USD',
+            contents: [{
+              id: `aegis_${tier}`,
+              name: `AEGIS ${tier} tier`,
+              content_type: 'product',
+              quantity: 1,
+            }],
+          }, { event_id: `paypal-order-${data.orderID}` })
         } catch (e) { setError(String(e)) }
         finally { setLoading(false) }
       },

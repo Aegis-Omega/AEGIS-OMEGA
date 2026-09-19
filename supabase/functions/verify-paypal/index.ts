@@ -4,6 +4,8 @@
 //   PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, PAYPAL_MODE (sandbox|live)
 //   SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY auto-injected by Supabase
 //   NOTIFY_SECRET (optional, for owner alerts)
+//   OPENAI_ADS_PIXEL_ID + OPENAI_ADS_CAPI_KEY (optional, server-only conversion reporting)
+//   OPENAI_ADS_SITE_ORIGIN (optional; defaults to https://aegisomega.com)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
 import { issueGrantToken } from '../_shared/jwt.ts'
@@ -12,6 +14,10 @@ const PAYPAL_CLIENT_ID     = Deno.env.get('PAYPAL_CLIENT_ID') ?? ''
 const PAYPAL_CLIENT_SECRET = Deno.env.get('PAYPAL_CLIENT_SECRET') ?? ''
 const PAYPAL_MODE          = Deno.env.get('PAYPAL_MODE') ?? 'sandbox'
 const RESEND_API_KEY       = Deno.env.get('RESEND_API_KEY') ?? ''
+const OPENAI_ADS_PIXEL_ID    = (Deno.env.get('OPENAI_ADS_PIXEL_ID') ?? '').trim()
+const OPENAI_ADS_CAPI_KEY    = (Deno.env.get('OPENAI_ADS_CAPI_KEY') ?? '').trim()
+const OPENAI_ADS_SITE_ORIGIN = (Deno.env.get('OPENAI_ADS_SITE_ORIGIN') ?? 'https://aegisomega.com').trim()
+const OPENAI_ADS_VALIDATE_ONLY = (Deno.env.get('OPENAI_ADS_VALIDATE_ONLY') ?? '').toLowerCase() === 'true'
 const PAYPAL_BASE          = PAYPAL_MODE === 'live'
   ? 'https://api-m.paypal.com'
   : 'https://api-m.sandbox.paypal.com'
@@ -73,11 +79,129 @@ async function captureOrder(token: string, orderId: string): Promise<CaptureResu
   return { status: data.status as string, capturedUSD }
 }
 
+interface OpenAIAdsContext {
+  oppref?: string
+  obref?: string
+  source_url?: string
+}
+
+function sameSiteHostname(a: string, b: string): boolean {
+  return a.replace(/^www\./, '') === b.replace(/^www\./, '')
+}
+
+function safeOpenAIAdsSourceUrl(raw: string | undefined): string {
+  let canonical: URL
+  try { canonical = new URL(OPENAI_ADS_SITE_ORIGIN) }
+  catch { canonical = new URL('https://aegisomega.com') }
+
+  if (!raw) return new URL('/pricing', canonical).toString()
+
+  try {
+    const candidate = new URL(raw)
+    if (!['http:', 'https:'].includes(candidate.protocol)) return new URL('/pricing', canonical).toString()
+    if (!sameSiteHostname(candidate.hostname, canonical.hostname)) return new URL('/pricing', canonical).toString()
+    return `${candidate.origin}${candidate.pathname}`
+  } catch {
+    return new URL('/pricing', canonical).toString()
+  }
+}
+
+function trustedClientIp(req: Request): string | undefined {
+  const direct = req.headers.get('cf-connecting-ip')?.trim()
+  if (direct) return direct
+  const forwarded = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+  return forwarded || undefined
+}
+
+
+function runBackground(task: Promise<void>, label: string): void {
+  const runtime = (globalThis as typeof globalThis & {
+    EdgeRuntime?: { waitUntil?: (promise: Promise<unknown>) => void }
+  }).EdgeRuntime
+
+  if (runtime?.waitUntil) {
+    runtime.waitUntil(task.catch(e => {
+      console.error(`${label} failed (non-fatal):`, e instanceof Error ? e.message : String(e))
+    }))
+    return
+  }
+
+  task.catch(e => {
+    console.error(`${label} failed (non-fatal):`, e instanceof Error ? e.message : String(e))
+  })
+}
+
+async function sendOpenAIAdsOrderCreated(
+  req: Request,
+  orderId: string,
+  tier: string,
+  capturedUSD: number,
+  context: OpenAIAdsContext | undefined,
+): Promise<void> {
+  if (!OPENAI_ADS_PIXEL_ID || !OPENAI_ADS_CAPI_KEY) return
+
+  const user: Record<string, unknown> = {}
+  if (context?.obref?.trim()) user.obref = context.obref.trim()
+
+  const userAgent = req.headers.get('user-agent')?.trim()
+  if (userAgent) user.user_agent = userAgent
+
+  const ipAddress = trustedClientIp(req)
+  if (ipAddress) user.ip_address = ipAddress
+
+  const event: Record<string, unknown> = {
+    id: `paypal-order-${orderId}`,
+    type: 'order_created',
+    timestamp_ms: Date.now(),
+    source_url: safeOpenAIAdsSourceUrl(context?.source_url),
+    action_source: 'web',
+    data: {
+      type: 'contents',
+      amount: Math.round(capturedUSD * 100),
+      currency: 'USD',
+      contents: [{
+        id: `aegis_${tier}`,
+        name: `AEGIS ${tier} tier`,
+        content_type: 'product',
+        quantity: 1,
+      }],
+    },
+  }
+
+  if (context?.oppref?.trim()) event.oppref = context.oppref.trim()
+  if (Object.keys(user).length > 0) event.user = user
+
+  const resp = await fetch(
+    `https://bzr.openai.com/v1/events?pid=${encodeURIComponent(OPENAI_ADS_PIXEL_ID)}`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${OPENAI_ADS_CAPI_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        validate_only: OPENAI_ADS_VALIDATE_ONLY,
+        integration_source: 'aegis_omega',
+        events: [event],
+      }),
+    },
+  )
+
+  if (!resp.ok) {
+    console.error('OpenAI Ads CAPI failed (non-fatal):', resp.status)
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
   if (req.method !== 'POST')    return new Response('Method Not Allowed', { status: 405 })
 
-  let body: { order_id?: string; tier?: string; email?: string }
+  let body: {
+    order_id?: string
+    tier?: string
+    email?: string
+    openai_ads?: OpenAIAdsContext
+  }
   try { body = await req.json() }
   catch { return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400, headers: CORS }) }
 
@@ -132,6 +256,7 @@ Deno.serve(async (req) => {
   }
 
   // Paid tiers: capture PayPal order + verify amount matches tier price
+  let paidCapture: CaptureResult | null = null
   if (tierNorm !== 'explorer') {
     const orderId = (body.order_id ?? '').trim()
     if (!orderId)
@@ -148,9 +273,10 @@ Deno.serve(async (req) => {
       const minUSD = TIER_MIN_USD[tierNorm] ?? 0
       if (capturedUSD < minUSD)
         return new Response(
-          JSON.stringify({ error: `Payment amount $${capturedUSD.toFixed(2)} below minimum $${minUSD.toFixed(2)} for ${tierNorm} tier` }),
+          JSON.stringify({ error: `Payment amount ${capturedUSD.toFixed(2)} below minimum ${minUSD.toFixed(2)} for ${tierNorm} tier` }),
           { status: 402, headers: CORS },
         )
+      paidCapture = { status, capturedUSD }
     } catch (e) {
       console.error('PayPal capture error:', e)
       return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: CORS })
@@ -171,6 +297,21 @@ Deno.serve(async (req) => {
 
   // Email key to customer — fire and forget (graceful if RESEND_API_KEY unset)
   sendApiKey(emailNorm, tierNorm, rawKey).catch(e => console.error('sendApiKey failed:', e))
+
+  // OpenAI Ads CAPI is best-effort only: conversion reporting may never block
+  // payment capture, key provisioning, or response delivery.
+  if (paidCapture && body.order_id) {
+    runBackground(
+      sendOpenAIAdsOrderCreated(
+        req,
+        body.order_id.trim(),
+        tierNorm,
+        paidCapture.capturedUSD,
+        body.openai_ads,
+      ),
+      'OpenAI Ads CAPI',
+    )
+  }
 
   // Notify owner — fire and forget
   const notifyUrl    = `${Deno.env.get('SUPABASE_URL')}/functions/v1/notify`
