@@ -110,13 +110,15 @@ theorem weighted_logCross_moment_zero
           (Real.exp (-lam * v) : ℂ) *
             (∫ u : ℝ, (Real.exp (lam * (u + v)) : ℂ) * logLift p.1 (u + v)) *
               conj (logLift q.1 v) := by
-        rw [← integral_mul_const, ← integral_const_mul]
+        erw [← integral_const_mul, ← integral_mul_const]
         apply integral_congr_ae
         filter_upwards [] with u
         unfold weightedCrossIntegrand
         rw [he u, Complex.ofReal_mul, add_comm v u]
         ring
-      rw [hinner, integral_add_right_eq_self, hm, mul_zero, zero_mul]
+      have hshift := integral_add_right_eq_self
+        (fun s : ℝ => (Real.exp (lam * s) : ℂ) * logLift p.1 s) v
+      erw [hinner, hshift, hm, mul_zero, zero_mul]
 
 theorem logCross_plus_moment_zero
     (p q : WeilCompactSmoothGV1) (plo phi qlo qhi : ℝ)
@@ -216,7 +218,10 @@ theorem centered_arch_kernel_bound (u : ℝ)
   have hx0 := (Real.exp_pos (-2 * u)).le
   have hy0 := (Real.exp_pos (-u / 2)).le
   have hy4 : Real.exp (-u / 2) ^ 4 = Real.exp (-2 * u) := by
-    norm_num only [pow_succ, pow_zero, mul_one, ← Real.exp_add]
+    rw [show Real.exp (-u / 2) ^ 4 =
+      (Real.exp (-u / 2) * Real.exp (-u / 2)) *
+      (Real.exp (-u / 2) * Real.exp (-u / 2)) by ring]
+    rw [← Real.exp_add, ← Real.exp_add]
     congr 1
     ring
   have hy : Real.exp (-u / 2) ≤ (4 / 5 : ℝ) := by
@@ -224,7 +229,7 @@ theorem centered_arch_kernel_bound (u : ℝ)
     have hlt : (4 / 5 : ℝ) ≤ Real.exp (-u / 2) := (lt_of_not_ge h).le
     have hh : (4 / 5 : ℝ) ^ 4 ≤ Real.exp (-u / 2) ^ 4 := by gcongr
     rw [hy4] at hh
-    norm_num at hh
+    norm_num only [show (4 / 5 : ℝ) ^ 4 = 256 / 625 by norm_num] at hh
     linarith
   have hd : 0 < 1 - Real.exp (-2 * u) := by linarith
   have hrlo : (1 : ℝ) ≤ 1 / (1 - Real.exp (-2 * u)) := by
@@ -248,6 +253,150 @@ theorem centered_arch_kernel_bound (u : ℝ)
     _ ≤ (4 / 5 : ℝ) * (1 / 5 : ℝ) := mul_le_mul hy hr (abs_nonneg _) (by norm_num)
     _ = 4 / 25 := by norm_num
 
+/-- Integrate the centred kernel using the support-difference interval and
+the actual weighted correlation moment. -/
+theorem separated_arch_norm_bound
+    (p q : WeilCompactSmoothGV1) (plo phi qlo qhi E : ℝ)
+    (hp : LogSupportIn p plo phi) (hq : LogSupportIn q qlo qhi)
+    (hgap : Real.log 2 - 1 / 32 ≤ qlo - phi)
+    (hwidth : (qhi - plo) - (qlo - phi) = 1 / 16)
+    (hm : WeilMomentConditionsV1 p) (hE : 0 ≤ E)
+    (hR : ∀ u : ℝ, ‖logCrossV28 p q u‖ ≤ E) :
+    ‖WeilArchimedeanIntegralV1 (mixed p q)‖ ≤ (1 / 100 : ℝ) * E := by
+  let lo := qlo - phi
+  let hi := qhi - plo
+  let K : ℝ → ℝ := fun u => Real.exp (-u / 2) / (1 - Real.exp (-2 * u))
+  let F : ℝ → ℂ := fun u => (K u : ℂ) * logCrossV28 p q (-u)
+  let M : ℝ → ℂ := fun u => (Real.exp (-u / 2) : ℂ) * logCrossV28 p q (-u)
+  have hlo : 0 < lo := by
+    dsimp [lo]
+    linarith [log_two_gt_one_thirty_two]
+  have hzero (u : ℝ) (hu : u ∉ Icc lo hi) : logCrossV28 p q (-u) = 0 := by
+    apply logCross_zero_outside p q plo phi qlo qhi (-u) hp hq
+    by_cases hlow : u < lo
+    · right
+      dsimp [lo] at hlow
+      linarith
+    · have hhigh : hi < u := lt_of_not_ge (fun h => hu ⟨le_of_not_gt hlow, h⟩)
+      left
+      dsimp [hi] at hhigh
+      linarith
+  have hFfull : (∫ u in Icc lo hi, F u) = ∫ u, F u :=
+    setIntegral_eq_integral_of_forall_compl_eq_zero (fun u hu => by simp [F, hzero u hu])
+  have hFpos : (∫ u in Ioi (0 : ℝ), F u) = ∫ u, F u := by
+    apply setIntegral_eq_integral_of_forall_compl_eq_zero
+    intro u hu
+    have hnot : u ∉ Icc lo hi := by
+      intro h
+      exact hu (lt_of_lt_of_le hlo h.1)
+    simp [F, hzero u hnot]
+  have harch : WeilArchimedeanIntegralV1 (mixed p q) = ∫ u in Icc lo hi, F u := by
+    rw [separated_arch_eq_log_kernel p q plo phi qlo qhi hp hq (by dsimp [lo] at hlo; linarith)]
+    exact hFpos.trans hFfull.symm
+  have hMfull : (∫ u, M u) = 0 := by
+    have ht := integral_neg_eq_self
+      (fun u : ℝ => (Real.exp (u / 2) : ℂ) * logCrossV28 p q u) volume
+    exact ht.trans (logCross_plus_moment_zero p q plo phi qlo qhi hp hq hm)
+  have hMzero : (∫ u in Icc lo hi, M u) = 0 := by
+    rw [setIntegral_eq_integral_of_forall_compl_eq_zero
+      (fun u hu => by simp [M, hzero u hu])]
+    exact hMfull
+  have hMc : Continuous M := by
+    dsimp [M]
+    exact (by fun_prop : Continuous (fun u : ℝ => (Real.exp (-u / 2) : ℂ))).mul
+      ((logCross_continuous p q).comp continuous_neg)
+  have hKc : ContinuousOn K (Icc lo hi) := by
+    apply ContinuousOn.div (by fun_prop) (by fun_prop)
+    intro u hu
+    have hup : 0 < u := lt_of_lt_of_le hlo hu.1
+    exact ne_of_gt (sub_pos.mpr (Real.exp_lt_one_iff.mpr (by linarith)))
+  have hFc : ContinuousOn F (Icc lo hi) :=
+    (Complex.continuous_ofReal.comp_continuousOn hKc).mul
+      (((logCross_continuous p q).comp continuous_neg).continuousOn)
+  have hcancel : (∫ u in Icc lo hi, F u) =
+      ∫ u in Icc lo hi, F u - (6 / 5 : ℂ) * M u := by
+    rw [integral_sub hFc.integrableOn_Icc (hMc.integrableOn_Icc.const_mul _),
+      integral_const_mul, hMzero, mul_zero, sub_zero]
+  have hpoint (u : ℝ) (hu : u ∈ Icc lo hi) :
+      ‖F u - (6 / 5 : ℂ) * M u‖ ≤ (4 / 25 : ℝ) * E := by
+    have hku := centered_arch_kernel_bound u (hgap.trans hu.1)
+    have heq : F u - (6 / 5 : ℂ) * M u =
+        (((K u - (6 / 5 : ℝ) * Real.exp (-u / 2)) : ℝ) : ℂ) * logCrossV28 p q (-u) := by
+      dsimp [F, M]
+      push_cast
+      ring
+    rw [heq, norm_mul, Complex.norm_real, Real.norm_eq_abs]
+    exact mul_le_mul hku (hR (-u)) (norm_nonneg _) (by norm_num)
+  rw [harch, hcancel]
+  calc
+    ‖∫ u in Icc lo hi, F u - (6 / 5 : ℂ) * M u‖ ≤
+        (4 / 25 : ℝ) * E * (volume.restrict (Icc lo hi)).real univ := by
+      apply norm_integral_le_of_norm_le_const
+      filter_upwards [self_mem_ae_restrict measurableSet_Icc] with u hu
+      exact hpoint u hu
+    _ = (1 / 100 : ℝ) * E := by
+      have hw : hi - lo = (1 / 16 : ℝ) := hwidth
+      simp [Measure.real, Real.volume_Icc, hw]
+      <;> ring
+
+theorem translated_arch_norm_bound
+    (g : WeilCompactSmoothGV1) (a d1 d2 : ℝ)
+    (hw : WidthOneThirtyTwoAt g a) (hm : WeilMomentConditionsV1 g)
+    (hd : Real.log 2 ≤ d2 - d1) :
+    ‖WeilArchimedeanIntegralV1 (mixed (translatePacket g d1) (translatePacket g d2))‖ ≤
+      (1 / 100 : ℝ) * AEGIS.WeilDisjointEnergyV2.energy g.1 := by
+  apply separated_arch_norm_bound (translatePacket g d1) (translatePacket g d2)
+    (a - 1 / 64 + d1) (a + 1 / 64 + d1)
+    (a - 1 / 64 + d2) (a + 1 / 64 + d2)
+    (AEGIS.WeilDisjointEnergyV2.energy g.1)
+  · exact translate_logSupportIn g d1 _ _ hw
+  · exact translate_logSupportIn g d2 _ _ hw
+  · linarith
+  · ring
+  · exact translate_preserves_moments g d1 hm
+  · exact AEGIS.WeilDisjointEnergyV2.energy_nonnegative g.1
+  · intro u
+    rw [logCross_translate_eq_logCorrelation_v28]
+    exact AEGIS.WeilWidthArchCorrelationV25.norm_logCorrelation_le_energy_v25 g _
+
+theorem three_arch_bounds_of_moments
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneThirtyTwoAt g a) (hm : WeilMomentConditionsV1 g) :
+    ‖WeilArchimedeanIntegralV1 (mixed (gMinus g) (gZero g))‖ ≤
+        (1 / 100 : ℝ) * AEGIS.WeilDisjointEnergyV2.energy g.1 ∧
+    ‖WeilArchimedeanIntegralV1 (mixed (gMinus g) (gPlus g))‖ ≤
+        (1 / 100 : ℝ) * AEGIS.WeilDisjointEnergyV2.energy g.1 ∧
+    ‖WeilArchimedeanIntegralV1 (mixed (gZero g) (gPlus g))‖ ≤
+        (1 / 100 : ℝ) * AEGIS.WeilDisjointEnergyV2.energy g.1 := by
+  refine ⟨translated_arch_norm_bound g a (-Real.log 2) 0 hw hm (by linarith), ?_, ?_⟩
+  · exact translated_arch_norm_bound g a (-Real.log 2) (Real.log 2) hw hm
+      (by linarith [Real.log_nonneg (by norm_num : (1 : ℝ) ≤ 2)])
+  · exact translated_arch_norm_bound g a 0 (Real.log 2) hw hm (by linarith)
+
+theorem three_cross_bounds_of_moments
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneThirtyTwoAt g a) (hm : WeilMomentConditionsV1 g) :
+    ‖AEGIS.WeilMixedAlgebraV2.B (gMinus g) (gZero g)‖ ≤
+        (51 / 100 : ℝ) * AEGIS.WeilDisjointEnergyV2.energy g.1 ∧
+    ‖AEGIS.WeilMixedAlgebraV2.B (gMinus g) (gPlus g)‖ ≤
+        (9 / 25 : ℝ) * AEGIS.WeilDisjointEnergyV2.energy g.1 ∧
+    ‖AEGIS.WeilMixedAlgebraV2.B (gZero g) (gPlus g)‖ ≤
+        (51 / 100 : ℝ) * AEGIS.WeilDisjointEnergyV2.energy g.1 := by
+  obtain ⟨h01, h02, h12⟩ := three_arch_bounds_of_moments g a hw hm
+  exact AEGIS.WeilThreeBlockCrossAssemblyV30.three_cross_bounds_of_arch g a hw h01 h02 h12
+
+theorem three_block_bound_of_moments
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneThirtyTwoAt g a) (hm : WeilMomentConditionsV1 g)
+    (z0 z1 z2 : ℂ) :
+    (WeilExplicitRightSideV1 (WeilAutocorrelationV1
+      (AEGIS.WeilMixedAlgebraV2.combo z0 z1 z2 (gMinus g) (gZero g) (gPlus g)))).re ≤
+      -(1 / 10 : ℝ) * AEGIS.WeilDisjointEnergyV2.energy
+        (AEGIS.WeilMixedAlgebraV2.combo z0 z1 z2 (gMinus g) (gZero g) (gPlus g)).1 := by
+  obtain ⟨h01, h02, h12⟩ := three_arch_bounds_of_moments g a hw hm
+  exact AEGIS.WeilThreeBlockCrossAssemblyV30.three_block_bound_of_arch
+    g a hw z0 z1 z2 h01 h02 h12
+
 end AEGIS.WeilSeparatedArchBridgeV31
 
 #print axioms AEGIS.WeilSeparatedArchBridgeV31.weightedCrossIntegrand_integrable
@@ -257,3 +406,8 @@ end AEGIS.WeilSeparatedArchBridgeV31
 #print axioms AEGIS.WeilSeparatedArchBridgeV31.logCross_minus_moment_zero
 #print axioms AEGIS.WeilSeparatedArchBridgeV31.separated_arch_eq_log_kernel
 #print axioms AEGIS.WeilSeparatedArchBridgeV31.centered_arch_kernel_bound
+#print axioms AEGIS.WeilSeparatedArchBridgeV31.separated_arch_norm_bound
+#print axioms AEGIS.WeilSeparatedArchBridgeV31.translated_arch_norm_bound
+#print axioms AEGIS.WeilSeparatedArchBridgeV31.three_arch_bounds_of_moments
+#print axioms AEGIS.WeilSeparatedArchBridgeV31.three_cross_bounds_of_moments
+#print axioms AEGIS.WeilSeparatedArchBridgeV31.three_block_bound_of_moments
