@@ -356,6 +356,22 @@ However:
 Therefore qpp-cpu analytic execution is retained as SIMULATION evidence and cannot
 promote either GPU differential closure or an EMPIRICAL physical-QPU witness.
 
+A separate QuantumTourbillon diagnostic lane is also source-bound here. Hosted run
+`34917045849` / job `104216838791` executed Qiskit `2.5.2` with
+`qiskit.quantum_info.Statevector` at the nearest executed ancestor
+`0c1a55c4...` and completed `9 passed`. The Tourbillon workflow, implementation,
+test and setup blobs are byte-identical at the live #373 head.
+
+Using the repository's four-slot diagnostic ordering over the bounded Self-Witness
+invariants, an independent NumPy statevector replay of the exact 2-qubit Grover gate
+sequence marks index `2` and localizes index `2` with probability
+`0.9999999999999991`. The marked invariant is
+`nvidia_fp64_differential_executed`.
+
+This is `T1_DIAGNOSTIC` only. It identifies the first unresolved boundary; it does
+not execute the NVIDIA backend, does not execute a physical QPU, and grants no
+admission or authority.
+
 ### QP-PD / QuanPhotonic
 
 PR #409 exact head `4626389c7866bc5faa2a21bb0f60fbd72329938a` has successful

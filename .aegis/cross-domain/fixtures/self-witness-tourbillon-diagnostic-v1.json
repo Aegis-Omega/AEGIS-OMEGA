@@ -1,0 +1,85 @@
+{
+  "schema": "AEGIS_SELF_WITNESS_TOURBILLON_DIAGNOSTIC_V1",
+  "authority": "T1_DIAGNOSTIC",
+  "authority_effect": "NONE",
+  "admission_authority": "NONE",
+  "quantum_physical_advantage": "NOT_ESTABLISHED",
+  "pr373_live_head": "7853f4e63029b24c987f9bdd2f58df8fcffa92d6",
+  "nearest_executed_ancestor": "0c1a55c4d569058099b02aedb17cde193ee7b494",
+  "hosted_quantum_tourbillon": {
+    "workflow_run": 34917045849,
+    "job": 104216838791,
+    "conclusion": "success",
+    "qiskit_version": "2.5.2",
+    "backend": "qiskit.quantum_info.Statevector",
+    "pytest": "9 passed",
+    "fresh_live_head_qiskit_execution": "NOT_PERFORMED",
+    "live_head_rebind": "NEAREST_EXECUTED_ANCESTOR_PLUS_BYTE_IDENTITY"
+  },
+  "execution_surface_blobs": {
+    "workflow": "bff8f2fd0f469ee1117da382f1a626de9db800d7",
+    "tourbillon_py": "31b18a683ef06693f34cc4b0e12245f807d5ad16",
+    "test_quantum_tourbillon_py": "461a835ae0feb52ca81c2c147e28fe041ae6c5dc",
+    "setup_py": "80955760fef96b9651d6cd71ee1f36eaab988952"
+  },
+  "self_witness_invariants": [
+    {
+      "index": 0,
+      "name": "qpp_cpu_hosted_execution_available",
+      "satisfied": true
+    },
+    {
+      "index": 1,
+      "name": "self_witness_execution_surface_byte_identical_to_live_head",
+      "satisfied": true
+    },
+    {
+      "index": 2,
+      "name": "nvidia_fp64_differential_executed",
+      "satisfied": false
+    },
+    {
+      "index": 3,
+      "name": "physical_qpu_executed",
+      "satisfied": false
+    }
+  ],
+  "first_failing_index": 2,
+  "marked_name": "nvidia_fp64_differential_executed",
+  "independent_replay": {
+    "method": "NUMPY_STATEVECTOR_REPLAY_OF_REPOSITORY_2Q_GROVER_GATE_SEQUENCE",
+    "located_index": 2,
+    "probability": 0.9999999999999991,
+    "probabilities": [
+      0,
+      0,
+      0.9999999999999991,
+      0
+    ],
+    "statevector_real_imag": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        0
+      ],
+      [
+        -0.9999999999999996,
+        0
+      ],
+      [
+        0,
+        0
+      ]
+    ]
+  },
+  "bounded_disposition": {
+    "qpp_cpu": "EXECUTED_ANCESTOR_PLUS_BYTE_IDENTITY",
+    "nvidia_fp64": "NOT_RUN",
+    "physical_qpu": "NOT_RUN_OUT_OF_SCOPE_FOR_V1"
+  },
+  "diagnostic_payload_hash_scope": "CANONICAL_JSON_EXCLUDING_DIAGNOSTIC_PAYLOAD_SHA256",
+  "diagnostic_payload_sha256": "8f762c1713916e647213a3da76e86b5c2d4b6b2adacad2e2c79263c418d02014"
+}

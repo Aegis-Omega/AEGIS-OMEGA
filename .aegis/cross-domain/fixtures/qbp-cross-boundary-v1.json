@@ -251,7 +251,30 @@
         "current_pr373_head": "7853f4e63029b24c987f9bdd2f58df8fcffa92d6",
         "current_source_blob_matches_verified_head": true,
         "current_head_delta_from_verified_execution_head": "one commit; .claude.json only",
-        "current_exact_head_execution_rebind": "NEAREST_EXECUTED_ANCESTOR_PLUS_BYTE_IDENTITY"
+        "current_exact_head_execution_rebind": "NEAREST_EXECUTED_ANCESTOR_PLUS_BYTE_IDENTITY",
+        "self_tourbillon": {
+          "authority": "T1_DIAGNOSTIC",
+          "authority_effect": "NONE",
+          "admission_authority": "NONE",
+          "hosted_execution_head": "0c1a55c4d569058099b02aedb17cde193ee7b494",
+          "workflow": "Quantum Tourbillon MPVC",
+          "workflow_run": 34917045849,
+          "job": 104216838791,
+          "qiskit_version": "2.5.2",
+          "backend": "qiskit.quantum_info.Statevector",
+          "pytest": "9 passed",
+          "current_pr373_head": "7853f4e63029b24c987f9bdd2f58df8fcffa92d6",
+          "current_surface_byte_identical": true,
+          "fresh_live_head_qiskit_execution": "NOT_PERFORMED",
+          "live_head_rebind": "NEAREST_EXECUTED_ANCESTOR_PLUS_BYTE_IDENTITY",
+          "diagnostic_receipt_path": ".aegis/cross-domain/fixtures/self-witness-tourbillon-diagnostic-v1.json",
+          "diagnostic_payload_sha256": "8f762c1713916e647213a3da76e86b5c2d4b6b2adacad2e2c79263c418d02014",
+          "diagnostic_file_sha256": "1081e8045feb84c8f31db8c18cee434a9beaef0bfc838ad853a4e4b02778a77f",
+          "first_failing_index": 2,
+          "marked_name": "nvidia_fp64_differential_executed",
+          "located_index": 2,
+          "probability": 0.9999999999999991
+        }
       },
       "qpp_source_current_blob": {
         "current_pr373_head": "7853f4e63029b24c987f9bdd2f58df8fcffa92d6",
