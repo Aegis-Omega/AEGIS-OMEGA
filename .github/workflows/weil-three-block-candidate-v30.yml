@@ -6,6 +6,7 @@ on:
     paths:
       - 'sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockPrimeEvaluationV30.lean'
       - 'sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockCrossAssemblyV30.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilSeparatedArchBridgeV31.lean'
       - 'sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockCrossPrimeV28.lean'
       - 'sovereign-omega-v2/formal/tests/lean/WeilThreeBlockCrossPrimeV28Spec.lean'
       - 'sovereign-omega-v2/formal/bridges/lean/WeilThreeBlockCrossPrimeWindowV29.lean'
@@ -84,6 +85,7 @@ jobs:
             WeilThreeBlockCrossPrimeWindowV29
             WeilThreeBlockPrimeEvaluationV30
             WeilThreeBlockCrossAssemblyV30
+            WeilSeparatedArchBridgeV31
           )
           : > evidence/modules.txt
           : > evidence/exact-source.log
@@ -107,7 +109,7 @@ jobs:
           ./elan-init -y --default-toolchain none
           export PATH="$HOME/.elan/bin:$PATH"
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
-          lake exe cache get             Mathlib/Analysis/MellinTransform.lean             Mathlib/NumberTheory/ArithmeticFunction/VonMangoldt.lean             Mathlib/NumberTheory/Harmonic/EulerMascheroni.lean             Mathlib/NumberTheory/LSeries/RiemannZeta.lean             Mathlib/Analysis/Complex/ExponentialBounds.lean             Mathlib/Analysis/Real/Pi/Bounds.lean             Mathlib/MeasureTheory/Function/JacobianOneDim.lean             Mathlib/MeasureTheory/Measure/Haar/Basic.lean             Mathlib/Analysis/SpecialFunctions/ImproperIntegrals.lean             Mathlib/Analysis/SpecialFunctions/Trigonometric/Basic.lean             Mathlib/Analysis/SpecialFunctions/Trigonometric/DerivHyp.lean             Mathlib/MeasureTheory/Integral/IntegralEqImproper.lean             Mathlib/MeasureTheory/Integral/Bochner/ContinuousLinearMap.lean             Mathlib/MeasureTheory/Measure/Lebesgue/Basic.lean             Mathlib/Tactic.lean
+          lake exe cache get             Mathlib/Analysis/MellinTransform.lean             Mathlib/NumberTheory/ArithmeticFunction/VonMangoldt.lean             Mathlib/NumberTheory/Harmonic/EulerMascheroni.lean             Mathlib/NumberTheory/LSeries/RiemannZeta.lean             Mathlib/Analysis/Complex/ExponentialBounds.lean             Mathlib/Analysis/Real/Pi/Bounds.lean             Mathlib/MeasureTheory/Function/JacobianOneDim.lean             Mathlib/MeasureTheory/Measure/Haar/Basic.lean             Mathlib/Analysis/SpecialFunctions/ImproperIntegrals.lean             Mathlib/Analysis/SpecialFunctions/Trigonometric/Basic.lean             Mathlib/Analysis/SpecialFunctions/Trigonometric/DerivHyp.lean             Mathlib/MeasureTheory/Integral/IntegralEqImproper.lean             Mathlib/MeasureTheory/Integral/Bochner/ContinuousLinearMap.lean             Mathlib/MeasureTheory/Measure/Lebesgue/Basic.lean             Mathlib/MeasureTheory/Integral/Prod.lean             Mathlib/Tactic.lean
           lean --version | tee evidence/lean-version.log
 
       - name: Compile exact module chain
@@ -129,7 +131,19 @@ jobs:
         run: |
           set -euo pipefail
           cat > AuditCrossPrimeV28.lean <<'EOF'
-          import WeilThreeBlockCrossAssemblyV30
+          import WeilSeparatedArchBridgeV31
+          #print AEGIS.WeilSeparatedArchBridgeV31.weightedCrossIntegrand_integrable
+          #print axioms AEGIS.WeilSeparatedArchBridgeV31.weightedCrossIntegrand_integrable
+          #print AEGIS.WeilSeparatedArchBridgeV31.weighted_logCross_integrable
+          #print axioms AEGIS.WeilSeparatedArchBridgeV31.weighted_logCross_integrable
+          #print AEGIS.WeilSeparatedArchBridgeV31.weighted_logCross_moment_zero
+          #print axioms AEGIS.WeilSeparatedArchBridgeV31.weighted_logCross_moment_zero
+          #print AEGIS.WeilSeparatedArchBridgeV31.logCross_plus_moment_zero
+          #print axioms AEGIS.WeilSeparatedArchBridgeV31.logCross_plus_moment_zero
+          #print AEGIS.WeilSeparatedArchBridgeV31.logCross_minus_moment_zero
+          #print axioms AEGIS.WeilSeparatedArchBridgeV31.logCross_minus_moment_zero
+          #print AEGIS.WeilSeparatedArchBridgeV31.separated_arch_eq_log_kernel
+          #print axioms AEGIS.WeilSeparatedArchBridgeV31.separated_arch_eq_log_kernel
           #print AEGIS.WeilThreeBlockPrimeEvaluationV30.adjacent_prime_sum_exact
           #print axioms AEGIS.WeilThreeBlockPrimeEvaluationV30.adjacent_prime_sum_exact
           #print AEGIS.WeilThreeBlockPrimeEvaluationV30.outer_prime_sum_exact
@@ -172,6 +186,12 @@ jobs:
           from pathlib import Path
           import re
           names = [
+            'AEGIS.WeilSeparatedArchBridgeV31.weightedCrossIntegrand_integrable',
+            'AEGIS.WeilSeparatedArchBridgeV31.weighted_logCross_integrable',
+            'AEGIS.WeilSeparatedArchBridgeV31.weighted_logCross_moment_zero',
+            'AEGIS.WeilSeparatedArchBridgeV31.logCross_plus_moment_zero',
+            'AEGIS.WeilSeparatedArchBridgeV31.logCross_minus_moment_zero',
+            'AEGIS.WeilSeparatedArchBridgeV31.separated_arch_eq_log_kernel',
             'AEGIS.WeilThreeBlockPrimeEvaluationV30.adjacent_prime_sum_exact',
             'AEGIS.WeilThreeBlockPrimeEvaluationV30.outer_prime_sum_exact',
             'AEGIS.WeilThreeBlockPrimeEvaluationV30.right_adjacent_prime_sum_exact',
