@@ -95,6 +95,19 @@ def build_projection(root: Path, coverage: dict[str, Any]) -> dict[str, Any]:
                 ),
             },
         ],
+        "findings": [
+            {
+                "id": item["id"],
+                "priority": item["priority"],
+                "component": item["component"],
+                "path_count": item["path_count"],
+                "individually_catalogued_paths": item["individually_catalogued_paths"],
+                "uncatalogued_paths": item["uncatalogued_paths"],
+                "authority_effect": item["authority_effect"],
+            }
+            for item in coverage["findings"]
+        ],
+        "unsurfaced_paths": list(coverage["new_uncatalogued_no_counterpart_paths"]),
         "warnings": [
             projected["warning"],
             "SEMANTIC_REPLACEMENT_COMPLETENESS_NOT_ESTABLISHED",
