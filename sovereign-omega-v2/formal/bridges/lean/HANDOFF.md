@@ -240,3 +240,92 @@ The Lean lane has (2) and (4) but not (1) — no result here is checked against 
 the repository. That is the single biggest weakness of this lane.
 
 Note it is also **local-head-only** — never admitted remotely. Same disease as the 443 branches.
+
+---
+
+## 10. Abjad profile transport — a settled contract (different domain, one shared principle)
+
+Not part of the Weil lane. Recorded here because it shares exactly one principle with §4
+and because the contract is closed on both sides, which is rare enough to write down.
+
+Domain: the archival Abjad encoder and its two letter-value profiles (Mashriqi, Maghribi),
+evaluated in F101 at t = 2. Source package: `aegis-archive-voynich-link` (local, not in this
+repository). Composition of adjacent letters is Horner:
+
+    single letter with value v   →   (v, t)
+    concatenation                →   e_AB = e_A + u_A · e_B ,   u_AB = u_A · u_B
+
+### The question
+
+Is the compressed state `(e, u)` enough to compute the other profile's evaluation?
+
+### Witness 1 — the pair `(e_M, u)` is NOT sufficient
+
+    ا س : [1,60] → e = 1 + 2·60 = 121 ≡ 20 (mod 101),  u = 4   →  (20, 4)
+    ب ط : [2,9]  → e = 2 + 2·9  = 20,                  u = 4   →  (20, 4)
+
+Same state, same length — but the required Maghribi evaluations are 96 and 20 respectively.
+So no function of `(e_M, u)` alone performs the profile change. This is an impossibility
+result and it stays true; nothing below overturns it.
+
+### Witness 2 — the triple `(e_M, e_G, u)` IS sufficient for both evaluations
+
+    S_A ⋆ S_B = ( e_{M,A} + u_A·e_{M,B} ,  e_{G,A} + u_A·e_{G,B} ,  u_A·u_B )   (mod 101)
+
+Associative — both bracketings give `e_A + u_A e_B + u_A u_B e_C` and `u_A u_B u_C`.
+Two-sided identity `(0, 0, 1)`.
+
+The fix does not defeat Witness 1, it **avoids** it: carry both evaluations through the same
+`u` and the profile change stops being a recovery problem. Reading a profile is still a
+function — the projection `π₂(e_M, e_G, u) = e_G`. The difference is that this one exists.
+
+Cost: **O(1) state, O(1) merge of two summaries, O(n) initial scan of the sequence.**
+The scan is unavoidable; only the state and the merge are constant.
+
+### Witness 3 — the triple is NOT sufficient to reconstruct the sequence
+
+    [1,2] → (5, 5, 4)
+    [3,1] → (5, 5, 4)
+
+Length 2, and exhaustive search over letter values 1–28 confirms **2 is the minimal collision
+length** — this pair is the first one found. (Values 1, 2, 3 coincide in both profiles, so the
+witness needs no profile asymmetry.)
+
+A separate, unbounded family: since `ord(2) mod 101 = 100`, for every letter `a` and every
+`k ≥ 0`,
+
+    S(a^{100k}) = (0, 0, 1)
+
+so the fibre over the identity is **infinite** — it contains the empty word and arbitrarily
+long repetitions of every letter. Note `n = 100` is minimal for reaching *the identity*
+(it needs `u = 2ⁿ = 1`, hence `100 | n`); it is **not** the minimal collision length, which is 2.
+
+### The contract
+
+- Carry the triple for computing through profiles and for composition.
+- Keep a separate record that preserves content when letters must be reconstructed.
+
+The triple preserves the required evaluations and their composition; content is preserved
+separately. Full Field101 retains coefficients (O(n)) and is what the existing reconstruction
+procedure needs — it is not made redundant by the triple, and the triple is not made redundant
+by it. They answer different questions.
+
+### Shared principle with §4
+
+A function factors through a projection **iff** it is constant on the projection's fibres.
+`no_abjad_function_gives_vonMangoldt` is a witness of non-constancy on one fibre of `n mod 36`
+(`5` and `41` are both prime, share every abjad output, `log 5 ≠ log 41`). Witness 1 and
+Witness 3 above are the same shape on different projections. This is a shared principle only —
+it does **not** identify the different Abjad definitions with each other, and the fibres are
+different objects (`n mod 36` there, the F101 summary here).
+
+### Separation of what is established
+
+| | |
+|---|---|
+| **Mathematical result** | Witnesses 1–3 and the associativity/identity of `⋆`. Elementary, checkable by hand. |
+| **Executed tests** | Re-derived independently in this session in Python: the three witnesses, associativity on 200k random triples plus the algebraic argument, the identity element, `ord(2) = 100`, exhaustive minimal-collision search over values 1–28, and the infinite fibre for `k = 1,2,3`. The source package's own `SHA256SUMS.txt` verifies 125/125. |
+| **Integration** | **None.** Nothing here is in this repository, nothing is on `main`, no Lean or Coq kernel attestation exists for any of it, and the source package states it made no remote changes or merges. |
+
+These three are separately verifiable and must not be conflated. The mathematics being closed
+says nothing about whether it is integrated, and it is not.
