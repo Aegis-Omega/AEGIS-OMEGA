@@ -1,7 +1,7 @@
 """
 SOVEREIGN OMEGA — T0 ↔ T3 Bridge
 EPISTEMIC TIER: T0/T3 BOUNDARY
-ONE-WAY TELEMETRY PIPE. ZERO WRITE-BACK. ZERO CONTROL AUTHORITY.
+T0→T3 TELEMETRY + T3→ADMISSION ADVISORY EVIDENCE. ZERO WRITE-BACK. ZERO CONTROL AUTHORITY.
 ChatGPT synthesis v2.1-Ω — adds sequence ACK guard + idempotency.
 
 Integration: gate.py (mutation authority) and router.py (execution router)
