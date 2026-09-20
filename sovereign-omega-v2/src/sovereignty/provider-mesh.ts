@@ -10,6 +10,7 @@
 // repository, cloud, model, billing, or data-movement authority.
 
 import type { SHA256Hex } from '../core/types.js'
+import type { DurableExecutionRecordV1 } from './contracts.js'
 import { canonicalizeJCS } from '../core/canonicalize.js'
 import { sha256Hex } from '../core/hashing.js'
 
@@ -86,6 +87,12 @@ export interface ProviderSelectionReceiptV1 {
   denial_codes: readonly ProviderSelectionDenialCodeV1[]
   authority_effect: 'NONE'
   receipt_root: SHA256Hex
+}
+
+export interface ProviderBoundExecutionV1 {
+  durable_execution: DurableExecutionRecordV1
+  provider_selection_receipt_root: SHA256Hex
+  authority_effect: 'NONE'
 }
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/
@@ -400,6 +407,38 @@ export async function selectProviderV1(
     denial_codes: [],
     authority_effect: 'NONE',
   })
+}
+
+export function bindProviderSelectionToDurableExecutionV1(
+  record: DurableExecutionRecordV1,
+  receipt: ProviderSelectionReceiptV1,
+  executor_id: string,
+): ProviderBoundExecutionV1 {
+  if (receipt.schema_version !== PROVIDER_MESH_SCHEMA_VERSION) {
+    throw new TypeError(`unsupported provider selection schema: ${receipt.schema_version}`)
+  }
+  if (receipt.outcome !== 'SELECTED' || receipt.provider_id === null) {
+    throw new TypeError('provider selection receipt is not selected')
+  }
+  if (receipt.authority_effect !== 'NONE') {
+    throw new TypeError('provider selection receipt authority_effect must be NONE')
+  }
+  if (receipt.denial_codes.length !== 0) {
+    throw new TypeError('selected provider receipt must not contain denial codes')
+  }
+  assertHash('provider_selection_receipt_root', receipt.receipt_root)
+  assertProviderId('selected_provider_id', receipt.provider_id)
+  assertProviderId('executor_id', executor_id)
+
+  return {
+    durable_execution: {
+      ...record,
+      provider: receipt.provider_id,
+      executor_id,
+    },
+    provider_selection_receipt_root: receipt.receipt_root,
+    authority_effect: 'NONE',
+  }
 }
 
 // This catalog describes product/service capability classes only.
