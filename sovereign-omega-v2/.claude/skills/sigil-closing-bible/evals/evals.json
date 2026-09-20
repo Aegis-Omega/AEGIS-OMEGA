@@ -1,0 +1,33 @@
+[
+  {
+    "prompt": "We signed yesterday. Please compile the closing bible from this folder, identify the final version of each agreement, tell me what still looks unsigned or undated, flag missing schedules, and give me an index and receipt. Do not change the originals.",
+    "assertions": [
+      "routes to sigil-closing-bible /closing-bible rather than sigpack",
+      "treats source documents as read-only",
+      "groups versions and duplicates into document families",
+      "uses a checklist when supplied and otherwise proposes an index for lawyer confirmation",
+      "reports apparent execution status without certifying due execution, authority, delivery, enforceability, or legal completion",
+      "produces or plans a closing index, execution overview, exceptions list, and balanced receipt",
+      "does not infer execution dates from filenames or filesystem timestamps"
+    ]
+  },
+  {
+    "prompt": "Prepare signature packs for each seller, identify every signature page, and insert the signed pages when they come back.",
+    "assertions": [
+      "routes the request to /sigpack",
+      "does not duplicate signature-page preparation or returned-page placement inside sigil-closing-bible",
+      "does not claim that /closing-bible owns signature-page classification"
+    ]
+  },
+  {
+    "prompt": "The folder contains '(Executed) SPA.pdf', 'SPA final v7.pdf', two identical disclosure letters and a sigpack ledger from an earlier version. Audit the set against our checklist and tell me what requires my decision.",
+    "assertions": [
+      "does not treat '(Executed)' or 'final' in filenames as proof of execution or finality",
+      "preserves identical duplicate files while grouping them",
+      "checks whether the sigpack ledger is current before citing it",
+      "does not use a stale or mismatched sigpack ledger as execution evidence",
+      "surfaces unresolved version conflicts and missing checklist items for lawyer decision",
+      "fails closed rather than silently selecting between plausible final versions"
+    ]
+  }
+]
