@@ -49,7 +49,7 @@ const TIER_DEFINITIONS: Record<EpistemicTier, TierMetadata> = {
     standard: 'Research conjecture',
     validation_requirement: 'Falsifiable prediction and experimental protocol',
     promotion_condition: 'Published result with peer review',
-    domain_ceiling: 'docs/research',
+    domain_ceiling: 'docs/research, research/omega_dynamics',
   },
   [EpistemicTier.T4]: {
     tier: EpistemicTier.T4,
@@ -79,7 +79,7 @@ export function classifyPathTier(filePath: string): EpistemicTier {
   if (filePath.startsWith('src/core/') || filePath.startsWith('src/event/') || filePath.startsWith('src/gate/')) return EpistemicTier.T0
   if (filePath.startsWith('src/verifier/') || filePath.startsWith('src/calibration/')) return EpistemicTier.T1
   if (filePath.startsWith('src/projection/') || filePath.startsWith('src/pipeline/') || filePath.startsWith('src/compliance/')) return EpistemicTier.T2
-  if (filePath.startsWith('docs/research/')) return EpistemicTier.T3
+  if (filePath.startsWith('docs/research/') || filePath.startsWith('research/omega_dynamics/')) return EpistemicTier.T3
   if (filePath.startsWith('docs/vision/')) return EpistemicTier.T4
   if (filePath.startsWith('docs/cycles/')) return EpistemicTier.T5
   // Fail closed: unrecognised paths get T0 ceiling
