@@ -22,6 +22,12 @@ PASS = "FACTORS_ON_OBSERVED_DOMAIN"
 OBSTRUCTION = "FACTORISATION_OBSTRUCTED"
 NO_AUTHORITY = "NONE"
 FINITE_SCOPE = "OBSERVED_FINITE_DOMAIN_ONLY"
+FORMAL_REFERENCE = {
+    "repository": "Aegis-Omega/AEGIS-OMEGA",
+    "commit": "828270626eb5581078c34ba8ae944a4bbd0a88d1",
+    "path": "sovereign-omega-v2/formal/bridges/lean/AbjadFactorizationV1.lean",
+    "theorem": "AbjadFactorization.factors_iff_constant_on_fibres",
+}
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -104,6 +110,7 @@ class EpistemicQuotientReceiptV1:
                 {**asdict(w), "witness_root": w.root}
                 for w in self.collision_witnesses
             ],
+            "formal_reference": FORMAL_REFERENCE,
             "authority_effect": self.authority_effect,
         }
         return canonical_hash(SCHEMA, body)
