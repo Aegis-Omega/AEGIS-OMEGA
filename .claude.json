@@ -9,8 +9,8 @@
   "provenance": {
     "generator": "scripts/build-cognitive-manifest.py",
     "repository": "Aegis-Omega/AEGIS-OMEGA",
-    "source_ref": "feat/mhp1-transitive-composition-v1",
-    "parent_state_hash": "b2b251204f2dc75a75ff3e5d5366ff3510492338c1f9d912d3d8979346a9d5b1",
+    "source_ref": "feat/sigil-closing-bible-v1",
+    "parent_state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb",
     "signature_mode": "GITHUB_OIDC_ATTESTATION"
   },
   "hashing": {
@@ -20,19 +20,19 @@
     "skills_root_scope": "canonical ordered array of path, sha256, and size_bytes",
     "state_hash_scope": "canonical manifest with state_hash omitted"
   },
-  "skills_root_hash": "7ea79f4d61c44c9f916121f33f00b329c8cd750d73914b39c9c7fee347c2531b",
+  "skills_root_hash": "02b406763ef70d299056973d9d85d922b1cafc21d7d711d4ed1a51e9d6dd43aa",
   "rotational_axis": {
     "axis_3": {
       "focus": "kinetic_entropy",
-      "manifest_hash": "eb364c1cdcbb56cf884b3d6b86872f9c2493b18a19bce52c5739550cb13426bc"
+      "manifest_hash": "a580f63575d0259f6be87e4b282835e6bb641badd2b7ae21cf1411d88d999e69"
     },
     "axis_6": {
       "focus": "dynamic_mutation",
-      "manifest_hash": "67d00baf99122748a462cb1282a018d659fd6ec6fa6d44a20dde29eaf437279b"
+      "manifest_hash": "69ddd068f4e13498af08fabcaf53aace2413f871353b657c94ea41b0c51f30f7"
     },
     "axis_9": {
       "focus": "immutable_truth",
-      "manifest_hash": "b5d1b45f50444d7234a93c9f3e5360f182f1b4df8c4461e29bbe12af80b11862"
+      "manifest_hash": "85543b2006d45f13ee024c399b360995564f5a1cc8343ba49559753e2307e006"
     }
   },
   "cognitive_state": {
@@ -70,8 +70,8 @@
       }
     },
     "skills": {
-      "count": 62,
-      "root_hash": "7ea79f4d61c44c9f916121f33f00b329c8cd750d73914b39c9c7fee347c2531b",
+      "count": 63,
+      "root_hash": "02b406763ef70d299056973d9d85d922b1cafc21d7d711d4ed1a51e9d6dd43aa",
       "entries": [
         {
           "name": "run-aegis",
@@ -368,6 +368,12 @@
           "size_bytes": 4788
         },
         {
+          "name": "sigil-closing-bible",
+          "path": "sovereign-omega-v2/.claude/skills/sigil-closing-bible/SKILL.md",
+          "sha256": "932b9e172e68e8cd89fb45ea58d4a2816a07855d03eb9edf57b7201ce5c270a5",
+          "size_bytes": 10391
+        },
+        {
           "name": "skill-creator",
           "path": "sovereign-omega-v2/.claude/skills/skill-creator/SKILL.md",
           "sha256": "f2cb20c9d02878a817f97642511dd272d153787958e508e1267f325784f6d862",
@@ -488,5 +494,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "8de11bf84d283cd248ae017c5914ef592a9d922d41cda91e59450369a72edcdb"
+  "state_hash": "d95d1fa84f6ab041ede1950874c54d8c27327c47d4dc76467e5fd8e4505ee587"
 }
