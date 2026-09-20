@@ -28,16 +28,13 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Assert exact checkout
+      - name: Assert exact checkout and Node runtime
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.14.0'
+          node --version
+          node -e 'const major=Number(process.versions.node.split(".")[0]); if (major < 20) process.exit(1)'
 
       - name: Run metacognitive evidence contract
         shell: bash
