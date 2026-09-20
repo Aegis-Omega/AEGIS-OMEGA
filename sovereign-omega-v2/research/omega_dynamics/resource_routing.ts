@@ -72,7 +72,7 @@ function requiredReliability(state: ResourceStateV1): number {
 }
 
 function normalizedPenalty(value: number, max: number): number {
-  const scaled = Math.floor((value * PPM) / max)
+  const scaled = Number((BigInt(value) * BigInt(PPM)) / BigInt(max))
   return Math.min(PPM, scaled)
 }
 
