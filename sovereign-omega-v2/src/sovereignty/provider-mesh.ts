@@ -28,6 +28,9 @@ export type ProviderCapabilityV1 =
   | 'REPOSITORY_AGENT'
   | 'REPOSITORY_WORKFLOW'
   | 'WEB_RESEARCH'
+  | 'SERVERLESS_FUNCTION'
+  | 'DATABASE'
+  | 'HTTP_EGRESS'
 
 export type ProviderObservationStateV1 =
   | 'UNKNOWN'
@@ -140,6 +143,9 @@ const ALL_CAPABILITIES = new Set<ProviderCapabilityV1>([
   'REPOSITORY_AGENT',
   'REPOSITORY_WORKFLOW',
   'WEB_RESEARCH',
+  'SERVERLESS_FUNCTION',
+  'DATABASE',
+  'HTTP_EGRESS',
 ])
 const ALL_STATES = new Set<ProviderObservationStateV1>([
   'UNKNOWN',
@@ -524,6 +530,13 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     provider_id: 'openai',
     planes: ['INTELLIGENCE'],
     declared_capabilities: ['AGENT_EXECUTION', 'MODEL_INFERENCE', 'REPOSITORY_AGENT'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'supabase-edge',
+    planes: ['EXECUTION'],
+    declared_capabilities: ['SERVERLESS_FUNCTION', 'DATABASE', 'HTTP_EGRESS'],
     authority_effect: 'NONE',
   },
   {
