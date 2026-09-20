@@ -27,6 +27,7 @@ export type ProviderCapabilityV1 =
   | 'MODEL_INFERENCE'
   | 'REPOSITORY_AGENT'
   | 'REPOSITORY_WORKFLOW'
+  | 'WEB_RESEARCH'
 
 export type ProviderObservationStateV1 =
   | 'UNKNOWN'
@@ -138,6 +139,7 @@ const ALL_CAPABILITIES = new Set<ProviderCapabilityV1>([
   'MODEL_INFERENCE',
   'REPOSITORY_AGENT',
   'REPOSITORY_WORKFLOW',
+  'WEB_RESEARCH',
 ])
 const ALL_STATES = new Set<ProviderObservationStateV1>([
   'UNKNOWN',
@@ -505,9 +507,23 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
   },
   {
     schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'nebius-token-factory',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['MODEL_INFERENCE'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
     provider_id: 'openai',
     planes: ['INTELLIGENCE'],
     declared_capabilities: ['AGENT_EXECUTION', 'MODEL_INFERENCE', 'REPOSITORY_AGENT'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'tavily',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['WEB_RESEARCH'],
     authority_effect: 'NONE',
   },
 ]
