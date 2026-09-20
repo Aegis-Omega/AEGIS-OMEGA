@@ -196,6 +196,66 @@ class SnapshotAndStack(unittest.TestCase):
         self.assertEqual([c.number for c in found], [129])
 
 
+class SnapshotDenialIsDiagnosable(unittest.TestCase):
+    """The denial must name what moved, or a real failure cannot be read.
+
+    Two consecutive denials on PR #558 could not be attributed from the log:
+    the message said only that something changed. Measuring the live open-PR
+    list over the same 105-second window showed no PR added, removed or
+    changed, and `main` had not moved — so whatever the guard compared, only
+    the guard could report it. These tests keep that reportable.
+    """
+
+    def run_fetch(self, api):
+        with unittest.mock.patch.object(guard, "_get", side_effect=api.get):
+            return guard.fetch("o/r", "test-token", 1)
+
+    def test_a_new_pr_is_named_in_the_denial(self):
+        with self.assertRaisesRegex(ValueError, r"opened #2"):
+            self.run_fetch(API([pr(1)], changed=[pr(1), pr(2)]))
+
+    def test_a_closed_pr_is_named_in_the_denial(self):
+        api = API([pr(1), pr(2)], changed=[pr(1)])
+        api.files = {1: [], 2: []}
+        with self.assertRaisesRegex(ValueError, r"closed #2"):
+            self.run_fetch(api)
+
+    def test_a_moved_head_names_the_pr_and_the_field(self):
+        before = [pr(1), pr(2)]
+        after = copy.deepcopy(before)
+        after[1]["head"]["sha"] = "b" * 40
+        with self.assertRaisesRegex(ValueError, r"#2 head"):
+            self.run_fetch(API(before, changed=after))
+
+    def test_a_retitled_pr_names_title_not_head(self):
+        before = [pr(1), pr(2)]
+        after = copy.deepcopy(before)
+        after[1]["title"] = "renamed"
+        with self.assertRaisesRegex(ValueError, r"#2 title"):
+            self.run_fetch(API(before, changed=after))
+
+    def test_a_relabelled_pr_names_labels(self):
+        before = [pr(1), pr(2)]
+        after = copy.deepcopy(before)
+        after[1]["labels"] = [{"name": "stacked-pr"}]
+        with self.assertRaisesRegex(ValueError, r"#2 labels"):
+            self.run_fetch(API(before, changed=after))
+
+    def test_delta_reports_every_changed_field_of_one_pr(self):
+        # A PR that was retitled and repushed must not report only the first
+        # difference; a partial report is how a second cause stays hidden.
+        base = (("t", ("o/r", "main", "a" * 40), ("o/r", "b1", "1" * 40), ()),)
+        before = ((2,) + base[0],)
+        after = ((2, "renamed", ("o/r", "main", "a" * 40), ("o/r", "b1", "2" * 40), ()),)
+        message = guard._snapshot_delta(before, after)
+        self.assertIn("title", message)
+        self.assertIn("head", message)
+
+    def test_identical_snapshots_produce_no_delta_text(self):
+        rows = ((2, "t", ("o/r", "main", "a" * 40), ("o/r", "b1", "1" * 40), ()),)
+        self.assertIn("no field differs", guard._snapshot_delta(rows, rows))
+
+
 class ExecutedWorkflowBoundary(unittest.TestCase):
     def test_python_failure_survives_summary_pipe(self):
         source = (Path(__file__).resolve().parents[1] / ".github/workflows/pr-overlap-guard.yml").read_text()

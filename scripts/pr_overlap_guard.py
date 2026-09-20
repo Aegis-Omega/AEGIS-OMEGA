@@ -281,6 +281,43 @@ def _snapshot(prs: list[dict]) -> tuple:
     return tuple(sorted(rows))
 
 
+#: Positions inside a `_snapshot` row, for naming what moved.
+_ROW_FIELDS = ("title", "base", "head", "labels")
+
+
+def _snapshot_delta(before: tuple, after: tuple) -> str:
+    """Name what changed between two snapshots, for the denial message.
+
+    The comparison itself is unchanged: any difference still denies. This
+    only reports which PRs and which fields moved, because "changed during
+    census" alone is undiagnosable. Two consecutive denials on PR #558 could
+    not be attributed from outside: measuring the open-PR list over the same
+    105-second window showed no added, removed or changed PR, and `main` had
+    not moved, so the cause has to come from the guard's own comparison and
+    only the guard can report it.
+    """
+    old = {row[0]: row[1:] for row in before}
+    new = {row[0]: row[1:] for row in after}
+    parts = []
+    if appeared := sorted(set(new) - set(old)):
+        parts.append("opened " + ", ".join(f"#{n}" for n in appeared[:10]))
+    if vanished := sorted(set(old) - set(new)):
+        parts.append("closed " + ", ".join(f"#{n}" for n in vanished[:10]))
+    for number in sorted(set(old) & set(new)):
+        if old[number] == new[number]:
+            continue
+        moved = [
+            f"{name} {old[number][i]!r}->{new[number][i]!r}"
+            for i, name in enumerate(_ROW_FIELDS)
+            if old[number][i] != new[number][i]
+        ]
+        parts.append(f"#{number} " + "; ".join(moved))
+        if len(parts) >= 12:
+            parts.append("...")
+            break
+    return " | ".join(parts) if parts else "no field differs (snapshot ordering only)"
+
+
 def _stack_pair(repo: str, token: str, child: dict, parent: dict) -> bool:
     if not any(label["name"] == OVERRIDE_LABEL for label in child.get("labels", [])):
         return False
@@ -317,8 +354,12 @@ def fetch(repo: str, token: str, candidate: int) -> tuple[list[dict], list[tuple
             continue
         files = _get_all(f"{API}/repos/{repo}/pulls/{pr['number']}/files", token)
         others.append((pr["number"], pr["title"], files))
-    if _snapshot(_get_all(url, token)) != before:
-        raise ValueError("Open PRs, refs or labels changed during census; retry from fresh state")
+    after = _snapshot(_get_all(url, token))
+    if after != before:
+        raise ValueError(
+            "Open PRs, refs or labels changed during census; retry from fresh state: "
+            + _snapshot_delta(before, after)
+        )
     return candidate_files, others
 
 
