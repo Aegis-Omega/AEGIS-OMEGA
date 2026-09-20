@@ -20,19 +20,19 @@
     "skills_root_scope": "canonical ordered array of path, sha256, and size_bytes",
     "state_hash_scope": "canonical manifest with state_hash omitted"
   },
-  "skills_root_hash": "02b406763ef70d299056973d9d85d922b1cafc21d7d711d4ed1a51e9d6dd43aa",
+  "skills_root_hash": "a38655dcd841df7fe7e019d8a02249f963a411849c5881f22bdb35b4fc9c2788",
   "rotational_axis": {
     "axis_3": {
       "focus": "kinetic_entropy",
-      "manifest_hash": "a580f63575d0259f6be87e4b282835e6bb641badd2b7ae21cf1411d88d999e69"
+      "manifest_hash": "ff4d01e6e203076071c2546e839c3a0a9fd6d1a5f7d2518c248f61e335f6d3c9"
     },
     "axis_6": {
       "focus": "dynamic_mutation",
-      "manifest_hash": "69ddd068f4e13498af08fabcaf53aace2413f871353b657c94ea41b0c51f30f7"
+      "manifest_hash": "9b1c951774ad5c6c883499320f3497da88362f70b14a2649a74a80979c09db98"
     },
     "axis_9": {
       "focus": "immutable_truth",
-      "manifest_hash": "85543b2006d45f13ee024c399b360995564f5a1cc8343ba49559753e2307e006"
+      "manifest_hash": "f6c7120f36c6e1e9744f959816ce8cf86812d2e99746ab1c9d86eb505e430532"
     }
   },
   "cognitive_state": {
@@ -71,7 +71,7 @@
     },
     "skills": {
       "count": 63,
-      "root_hash": "02b406763ef70d299056973d9d85d922b1cafc21d7d711d4ed1a51e9d6dd43aa",
+      "root_hash": "a38655dcd841df7fe7e019d8a02249f963a411849c5881f22bdb35b4fc9c2788",
       "entries": [
         {
           "name": "run-aegis",
@@ -376,8 +376,8 @@
         {
           "name": "skill-creator",
           "path": "sovereign-omega-v2/.claude/skills/skill-creator/SKILL.md",
-          "sha256": "f2cb20c9d02878a817f97642511dd272d153787958e508e1267f325784f6d862",
-          "size_bytes": 3152
+          "sha256": "8e10af8c77598bd3afd04d299a5bf1e96d2d8588a65af1007dc4afc6ae41d268",
+          "size_bytes": 4712
         },
         {
           "name": "spec-compliance",
@@ -494,5 +494,5 @@
       "on_success": "broadcast-attested-verified-event-stream"
     }
   },
-  "state_hash": "d95d1fa84f6ab041ede1950874c54d8c27327c47d4dc76467e5fd8e4505ee587"
+  "state_hash": "329bf6ceb0d30c8df4832c36e7d4d0b6fcd1e2da71ff2165c98775813b221325"
 }
