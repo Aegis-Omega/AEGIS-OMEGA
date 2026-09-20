@@ -7,6 +7,8 @@ on:
       - 'sovereign-omega-v2/python/bridge.py'
       - 'sovereign-omega-v2/python/t3_research_bridge.py'
       - 'sovereign-omega-v2/python/tests/test_t3_research_bridge.py'
+      - 'sovereign-omega-v2/research/omega_dynamics/**'
+      - 'sovereign-omega-v2/test/unit/t3-biological-experiments.test.ts'
       - '.github/workflows/t3-research-boundary.yml'
   push:
     branches: [main]
@@ -14,6 +16,8 @@ on:
       - 'sovereign-omega-v2/python/bridge.py'
       - 'sovereign-omega-v2/python/t3_research_bridge.py'
       - 'sovereign-omega-v2/python/tests/test_t3_research_bridge.py'
+      - 'sovereign-omega-v2/research/omega_dynamics/**'
+      - 'sovereign-omega-v2/test/unit/t3-biological-experiments.test.ts'
       - '.github/workflows/t3-research-boundary.yml'
 
 permissions:
@@ -23,15 +27,29 @@ jobs:
   boundary:
     name: aegis / t3-research-boundary
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: sovereign-omega-v2/package-lock.json
+      - name: Install exact TypeScript dependencies
+        working-directory: sovereign-omega-v2
+        run: npm ci
       - name: Compile bridge and boundary module
         working-directory: sovereign-omega-v2
         run: python -m py_compile python/bridge.py python/t3_research_bridge.py
       - name: Run deterministic and adversarial boundary tests
         working-directory: sovereign-omega-v2
         run: python python/tests/test_t3_research_bridge.py
+      - name: Typecheck T3 imports through repository test graph
+        working-directory: sovereign-omega-v2
+        run: npm run typecheck
+      - name: Run DSR and RAR falsifier tests
+        working-directory: sovereign-omega-v2
+        run: npx vitest run test/unit/t3-biological-experiments.test.ts
