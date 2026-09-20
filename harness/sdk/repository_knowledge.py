@@ -240,6 +240,14 @@ def verify_snapshot_document(
         if snapshot.get("artifacts_digest") != _digest(artifacts):
             _append_once(reasons, "ARTIFACTS_DIGEST_MISMATCH")
 
+    archive_coverage = snapshot.get("archive_coverage")
+    if not isinstance(archive_coverage, Mapping):
+        _append_once(reasons, "ARCHIVE_COVERAGE_INVALID")
+    elif archive_coverage.get("state") == "INVALID":
+        _append_once(reasons, "ARCHIVE_COVERAGE_INVALID")
+    elif archive_coverage.get("authority_effect") != "NONE":
+        _append_once(reasons, "ARCHIVE_COVERAGE_AUTHORITY_ESCALATION")
+
     supplied_snapshot_digest = snapshot.get("snapshot_digest")
     unsigned = dict(snapshot)
     unsigned.pop("snapshot_digest", None)
