@@ -31,10 +31,15 @@ export type ProviderCapabilityV1 =
   | 'SERVERLESS_FUNCTION'
   | 'DATABASE'
   | 'HTTP_EGRESS'
+  | 'SYMBOLIC_COMPUTE'
 
 export type ProviderObservationStateV1 =
   | 'UNKNOWN'
   | 'CONFIGURED'
+  | 'ACCOUNT_CONFIGURED'
+  | 'NETWORK_REACHABLE'
+  | 'CREDENTIAL_MISSING'
+  | 'BILLING_BLOCKED'
   | 'OBSERVED_AVAILABLE'
   | 'OBSERVED_UNAVAILABLE'
   | 'DISABLED'
@@ -146,10 +151,15 @@ const ALL_CAPABILITIES = new Set<ProviderCapabilityV1>([
   'SERVERLESS_FUNCTION',
   'DATABASE',
   'HTTP_EGRESS',
+  'SYMBOLIC_COMPUTE',
 ])
 const ALL_STATES = new Set<ProviderObservationStateV1>([
   'UNKNOWN',
   'CONFIGURED',
+  'ACCOUNT_CONFIGURED',
+  'NETWORK_REACHABLE',
+  'CREDENTIAL_MISSING',
+  'BILLING_BLOCKED',
   'OBSERVED_AVAILABLE',
   'OBSERVED_UNAVAILABLE',
   'DISABLED',
@@ -534,6 +544,13 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
   },
   {
     schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'railway',
+    planes: ['EXECUTION'],
+    declared_capabilities: ['CONTAINER_RUNTIME', 'DURABLE_RUNNER'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
     provider_id: 'supabase-edge',
     planes: ['EXECUTION'],
     declared_capabilities: ['SERVERLESS_FUNCTION', 'DATABASE', 'HTTP_EGRESS'],
@@ -544,6 +561,13 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     provider_id: 'tavily',
     planes: ['INTELLIGENCE'],
     declared_capabilities: ['WEB_RESEARCH'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'wolfram',
+    planes: ['EXECUTION'],
+    declared_capabilities: ['SYMBOLIC_COMPUTE'],
     authority_effect: 'NONE',
   },
 ]
