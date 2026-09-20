@@ -16,6 +16,7 @@ from jsonschema import Draft202012Validator
 RECEIPT_KIND = "AEGIS_AUTOMATON2_RECEIPT_V1"
 SCHEMA_VERSION = "1.0.0"
 ZERO_HASH = "0" * 64
+RUNTIME_STATE_SUFFIXES = (".log", ".tmp", ".jsonl")
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -133,6 +134,44 @@ def validate_skill_evidence(root: Path, manifest: dict[str, Any]) -> list[str]:
     return errors
 
 
+def discover_epistemic_substrate(root: Path) -> list[dict[str, Any]]:
+    """Independently rediscover the bounded repository epistemic substrate."""
+    candidates: list[Path] = []
+    settings = root / ".claude" / "settings.json"
+    if settings.is_file():
+        candidates.append(settings)
+
+    hooks_root = root / ".claude" / "hooks"
+    if hooks_root.is_dir():
+        candidates.extend(
+            path
+            for path in hooks_root.rglob("*")
+            if path.is_file()
+            and not path.name.endswith(RUNTIME_STATE_SUFFIXES)
+        )
+
+    metacog_root = root / ".claude" / "metacog"
+    if metacog_root.is_dir():
+        candidates.extend(path for path in metacog_root.glob("*.mjs") if path.is_file())
+
+    entries: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for path in sorted(candidates, key=lambda item: item.relative_to(root).as_posix()):
+        relative = path.relative_to(root).as_posix()
+        if relative in seen:
+            continue
+        seen.add(relative)
+        if path.is_symlink():
+            raise ValueError(f"epistemic substrate may not contain symlinks: {relative}")
+        data = path.read_bytes()
+        entries.append({
+            "path": relative,
+            "sha256": sha256_hex(data),
+            "size_bytes": len(data),
+        })
+    return entries
+
+
 def validate_epistemic_substrate(root: Path, manifest: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     substrate = (
@@ -140,9 +179,16 @@ def validate_epistemic_substrate(root: Path, manifest: dict[str, Any]) -> list[s
         .get("tools", {})
         .get("epistemic_substrate", {})
     )
-    entries = substrate.get("entries", []) if isinstance(substrate, dict) else []
+    if not isinstance(substrate, dict):
+        return ["epistemic substrate is missing"]
+    entries = substrate.get("entries", [])
     if not isinstance(entries, list):
         return ["epistemic substrate entries are not an array"]
+
+    if substrate.get("count") != len(entries):
+        errors.append("epistemic substrate count mismatch")
+
+    manifest_index: list[dict[str, Any]] = []
     for entry in entries:
         if not isinstance(entry, dict):
             errors.append("epistemic substrate entry is not an object")
@@ -165,6 +211,19 @@ def validate_epistemic_substrate(root: Path, manifest: dict[str, Any]) -> list[s
             errors.append(f"epistemic substrate digest mismatch: {relative}")
         if entry.get("size_bytes") != len(data):
             errors.append(f"epistemic substrate size mismatch: {relative}")
+        manifest_index.append({
+            "path": relative,
+            "sha256": entry.get("sha256"),
+            "size_bytes": entry.get("size_bytes"),
+        })
+
+    actual_index = discover_epistemic_substrate(root)
+    if manifest_index != actual_index:
+        errors.append("epistemic substrate entry set mismatch")
+
+    actual_root = sha256_hex(canonical_bytes(actual_index))
+    if substrate.get("root_hash") != actual_root:
+        errors.append("epistemic substrate root mismatch")
     return errors
 
 
