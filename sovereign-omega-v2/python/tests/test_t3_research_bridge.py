@@ -155,6 +155,13 @@ check(
     'candidate from a different exact head is rejected',
 )
 
+_unpinned = validate_t3_candidate(_BASE, current_exact_head='dev')
+check(
+    _unpinned['outcome'] == 'REJECTED'
+    and 'RUNTIME_HEAD_UNPINNED' in _unpinned['reason_codes'],
+    'unpinned runtime head fails closed',
+)
+
 _negative = copy.deepcopy(_BASE)
 _negative['falsifier_status'] = 'NOT_SUPPORTED'
 _negative_receipt = validate_t3_candidate(_negative, current_exact_head=_HEAD)
