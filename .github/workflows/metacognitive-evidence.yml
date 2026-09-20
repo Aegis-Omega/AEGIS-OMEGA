@@ -1,0 +1,46 @@
+name: Metacognitive Evidence State
+
+on:
+  pull_request:
+    paths:
+      - '.claude/metacog/evidence-state.mjs'
+      - '.claude/metacog/evidence-ledger.mjs'
+      - '.claude/metacog/evidence-cycle.mjs'
+      - '.claude/metacog/evidence-v2.test.mjs'
+      - '.github/workflows/metacognitive-evidence.yml'
+
+permissions:
+  contents: read
+
+env:
+  CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+
+jobs:
+  verify:
+    name: aegis / metacognitive-evidence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.14.0'
+
+      - name: Run metacognitive evidence contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test .claude/metacog/evidence-v2.test.mjs
