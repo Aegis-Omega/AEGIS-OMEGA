@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Build the deterministic AEGIS cognitive-state manifest.
 
-The manifest binds every SKILL.md file, the repository-controlled Claude
-epistemic substrate, an explicit parent state, and the Automaton-2 signature
+The manifest binds every SKILL.md file, the repository-controlled epistemic
+substrate, an explicit parent state, and the Automaton-2 signature
 requirement. Identical repository inputs and parent state produce byte-identical
 outputs.
 """
@@ -32,6 +32,14 @@ DIMENSIONS = (
     "behavior", "steps", "interactions", "actions",
 )
 RUNTIME_STATE_SUFFIXES = (".log", ".tmp", ".jsonl")
+GENOMICS_AUTHORITY_BOUNDARY = {
+    "integrity_and_provenance": "CONTENT_ADDRESSED",
+    "replay_determinism": "VERIFIER_EVIDENCE_REQUIRED",
+    "biological_correctness": "NOT_ESTABLISHED",
+    "clinical_validity": "NOT_ESTABLISHED",
+    "medical_admissibility": "NOT_ESTABLISHED",
+    "external_reference_dataset_bound": False,
+}
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -166,14 +174,7 @@ def discover_genomics_domain(root: Path) -> dict[str, Any]:
 
     source_root_hash = sha256_bytes(canonical_bytes(source_entries))
     verification_root_hash = sha256_bytes(canonical_bytes(verification_entries))
-    authority_boundary = {
-        "integrity_and_provenance": "CONTENT_ADDRESSED",
-        "replay_determinism": "VERIFIER_EVIDENCE_REQUIRED",
-        "biological_correctness": "NOT_ESTABLISHED",
-        "clinical_validity": "NOT_ESTABLISHED",
-        "medical_admissibility": "NOT_ESTABLISHED",
-        "external_reference_dataset_bound": False,
-    }
+    authority_boundary = dict(GENOMICS_AUTHORITY_BOUNDARY)
     domain_root_hash = sha256_bytes(
         canonical_bytes(
             {
@@ -480,6 +481,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
     authority_boundary = genomics.get("authority_boundary")
     if not isinstance(authority_boundary, dict):
         raise ValueError("genomics authority_boundary is invalid")
+    if authority_boundary != GENOMICS_AUTHORITY_BOUNDARY:
+        raise ValueError("genomics authority_boundary exceeds declared V1 authority")
     expected_genomics_root = sha256_bytes(
         canonical_bytes(
             {
