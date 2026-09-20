@@ -101,7 +101,7 @@ class ArchiveCoverageContract(unittest.TestCase):
         self.assertEqual(actual, expected)
         self.assertEqual(
             actual["projection_root"],
-            "48c40cb3c266ad2b1deb2a3ae037e83b608bf753ed02ffa0d04a5e0bc70a4941",
+            "4833e006bb21f3f925e74d73aed44fbe800ad1a0f0c2c7d7ac4c3c6ea79515e6",
         )
         self.assertEqual(len(actual["findings"]), 24)
         self.assertEqual(len(actual["unsurfaced_paths"]), 23)
@@ -112,6 +112,14 @@ class ArchiveCoverageContract(unittest.TestCase):
         self.assertEqual(actual["cards"][0]["label"], "Katalogizirani izvori")
         self.assertNotIn("arhiva + Git", UI_PROJECTION.read_text(encoding="utf-8"))
         self.assertEqual(actual["authority_effect"], "NONE")
+        self.assertEqual(
+            actual["consumer_contract"]["legacy_label_to_replace"],
+            "38 arhiva + Git",
+        )
+        self.assertEqual(
+            actual["consumer_contract"]["invalid_source_behavior"],
+            "SHOW_INVALID_OR_STALE; DO_NOT_FALL_BACK_TO_COMPLETE_INVENTORY_CLAIM",
+        )
 
     def test_repository_knowledge_surfaces_verified_projection(self) -> None:
         knowledge = load_module("repository_knowledge_with_archive", KNOWLEDGE_MODULE)
