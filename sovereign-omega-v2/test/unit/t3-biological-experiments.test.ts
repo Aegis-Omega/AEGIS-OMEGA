@@ -125,9 +125,13 @@ describe('T3 resource-aware routing', () => {
     expect(decision.reason).toBe('INSUFFICIENT_RELIABILITY')
   })
 
-  it('keeps the static admitted route as an explicit falsifier baseline', () => {
-    const staticDecision = selectStaticAdmittedRouteV1(state, candidates)
-    const adaptiveDecision = selectResourceAwareRouteV1(state, candidates)
+  it('escalates from the static cheap route only when criticality justifies it', () => {
+    const highCriticality: ResourceStateV1 = {
+      ...state,
+      criticality: 3,
+    }
+    const staticDecision = selectStaticAdmittedRouteV1(highCriticality, candidates)
+    const adaptiveDecision = selectResourceAwareRouteV1(highCriticality, candidates)
 
     expect(staticDecision.selected_candidate_id).toBe('cheap')
     expect(adaptiveDecision.selected_candidate_id).toBe('strong')
