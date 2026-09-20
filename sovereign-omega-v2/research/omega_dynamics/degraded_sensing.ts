@@ -161,7 +161,7 @@ export function evaluateDsrReconstructionV1(
     if (!reconstruction.inferred_mask[index]) continue
     const predicted = reconstruction.values_q16[index]
     const truth = groundTruthQ16[index]
-    if (predicted === null || truth === undefined) continue
+    if (predicted === null || predicted === undefined || truth === undefined) continue
 
     const error = Math.abs(predicted - truth)
     if (!Number.isSafeInteger(error) || !Number.isSafeInteger(errorSum + error)) {
