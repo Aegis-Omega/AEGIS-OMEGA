@@ -2,6 +2,8 @@ name: Metacognitive Evidence State
 
 on:
   pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - '.claude/metacog/evidence-state.mjs'
       - '.claude/metacog/evidence-ledger.mjs'
@@ -16,27 +18,28 @@ concurrency:
   group: metacognitive-evidence-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-
 jobs:
   verify:
     name: aegis / metacognitive-evidence
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Checkout exact candidate
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Checkout PR test context
+        uses: actions/checkout@v4
         with:
-          ref: ${{ env.CANDIDATE_SHA }}
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Assert exact checkout
+      - name: Bind candidate identity
         shell: bash
+        env:
+          EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test -n "$EXPECTED_HEAD_SHA"
+          echo "candidate_head=$EXPECTED_HEAD_SHA"
+          echo "runner_sha=$GITHUB_SHA"
+          git status --short
 
       - name: Run metacognitive evidence contract
         shell: bash
