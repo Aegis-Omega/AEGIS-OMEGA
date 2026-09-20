@@ -111,21 +111,21 @@ class Automaton2Tests(TestCase):
         self.assertEqual(receipt["outcome"], "DENIED")
         self.assertTrue(any("parent_state_hash mismatch" in item for item in receipt["violations"]))
 
-    def test_execution_substrate_digest_mismatch_is_denied(self) -> None:
+    def test_epistemic_substrate_digest_mismatch_is_denied(self) -> None:
         hook = self.root / ".claude" / "hooks" / "test-hook.sh"
         hook.write_text("#!/bin/bash\nexit 1\n", encoding="utf-8")
         receipt = self.evaluate()
         self.assertEqual(receipt["outcome"], "DENIED")
         self.assertTrue(
             any(
-                "execution substrate digest mismatch: .claude/hooks/test-hook.sh" in item
+                "epistemic substrate digest mismatch: .claude/hooks/test-hook.sh" in item
                 for item in receipt["violations"]
             )
         )
 
-    def test_execution_substrate_excludes_runtime_state(self) -> None:
+    def test_epistemic_substrate_excludes_runtime_state(self) -> None:
         manifest = self.write_manifest()
-        before = manifest["cognitive_state"]["tools"]["execution_substrate"]["root_hash"]
+        before = manifest["cognitive_state"]["tools"]["epistemic_substrate"]["root_hash"]
         (self.root / ".claude" / "metacog" / "evidence-transitions.log").write_text(
             "runtime\n", encoding="utf-8"
         )
@@ -137,7 +137,7 @@ class Automaton2Tests(TestCase):
             source_ref="test-source",
             parent_state_hash=self.parent_hash,
         )
-        after = regenerated["cognitive_state"]["tools"]["execution_substrate"]["root_hash"]
+        after = regenerated["cognitive_state"]["tools"]["epistemic_substrate"]["root_hash"]
         self.assertEqual(before, after)
 
     def test_skill_digest_mismatch_is_denied(self) -> None:
