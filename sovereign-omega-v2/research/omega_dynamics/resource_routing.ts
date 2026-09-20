@@ -80,6 +80,10 @@ function candidateReliability(candidate: RouteCandidateV1): number {
   return Math.max(0, candidate.predicted_correct_ppm - candidate.calibration_error_ppm)
 }
 
+function asciiCompare(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
 function candidateScore(candidate: RouteCandidateV1, state: ResourceStateV1): number {
   const reliability = candidateReliability(candidate)
   const latencyPenalty = normalizedPenalty(candidate.latency_ms, state.max_latency_ms)
@@ -160,7 +164,7 @@ export function selectResourceAwareRouteV1(
       b.score - a.score
       || a.candidate.cost_units - b.candidate.cost_units
       || a.candidate.latency_ms - b.candidate.latency_ms
-      || a.candidate.candidate_id.localeCompare(b.candidate.candidate_id)
+      || asciiCompare(a.candidate.candidate_id, b.candidate.candidate_id)
     )
 
   const selected = ranked[0]
