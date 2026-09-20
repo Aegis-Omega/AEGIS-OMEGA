@@ -102,3 +102,23 @@ description: <one sentence — what triggers auto-invocation>
 After writing a new skill: verify it appears in `ls sovereign-omega-v2/.claude/skills/` and commit it. No build step required — skills are static markdown.
 
 Constitutional constraint: skills are **read-only instructions**, not executable code. They cannot modify `python/gate.py`, `python/dna.py`, or `python/router.py`.
+
+
+## AEGIS Automatic Lifecycle
+
+The operator does not perform skill-lifecycle chores.
+
+For every new or modified AEGIS skill, the agent completing the work must carry the lifecycle through itself:
+
+1. Write or update `SKILL.md`.
+2. For a new skill, create `evals/evals.json` in the same package with realistic positive, negative-routing, and adversarial/edge-case prompts.
+3. Run the bundled deterministic package validator before treating the skill package as structurally complete.
+4. Never ask the operator to count skills, edit `.claude.json`, update `skill-hashes.sha256`, reload a manifest by hand, or manually start a ledger job.
+5. On a repository PR, let `.github/workflows/skill-lifecycle.yml` dispatch the trusted cognitive-manifest writer when the tip commit changes a `SKILL.md`.
+6. Verify the resulting exact-head cognitive manifest, skill hash ledger, Trusted Cognitive Admission, and Integration Ledger evidence before describing the skill as admitted.
+7. Keep the change fail-closed and draft while required evidence is unavailable or stale. Infrastructure failure is not skill failure and must be reported as such.
+8. Do not push operator work downstream as a workaround. Repair or retry the automated lane instead.
+
+Operator approval remains required for consequential authority transitions such as merge, deploy, publication, external data movement, or any other action whose authority boundary requires explicit approval.
+
+The lifecycle is complete only when the skill package and its evidence are bound to the same exact repository head.
