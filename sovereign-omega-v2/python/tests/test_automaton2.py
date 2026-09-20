@@ -205,6 +205,41 @@ class Automaton2Tests(TestCase):
             genomics["root_hash"],
         )
 
+    def test_genomics_authority_escalation_is_denied(self) -> None:
+        manifest = json.loads((self.root / ".claude.json").read_text(encoding="utf-8"))
+        genomics = (
+            manifest["cognitive_state"]["tools"]["epistemic_substrate"]
+            ["domains"]["genomics"]
+        )
+        genomics["authority_boundary"]["clinical_validity"] = "ESTABLISHED"
+        source_root = genomics["source"]["root_hash"]
+        verification_root = genomics["verification"]["root_hash"]
+        genomics["root_hash"] = VALIDATOR.sha256_hex(
+            VALIDATOR.canonical_bytes(
+                {
+                    "source_root_hash": source_root,
+                    "verification_root_hash": verification_root,
+                    "authority_boundary": genomics["authority_boundary"],
+                }
+            )
+        )
+        substrate = manifest["cognitive_state"]["tools"]["epistemic_substrate"]
+        substrate["root_hash"] = VALIDATOR.sha256_hex(
+            VALIDATOR.canonical_bytes(
+                {
+                    "control_plane_root_hash": substrate["control_plane_root_hash"],
+                    "domains": {"genomics": genomics["root_hash"]},
+                }
+            )
+        )
+        self.rewrite_manifest(manifest)
+        receipt = self.evaluate()
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertIn(
+            "genomics authority boundary exceeds declared V1 authority",
+            receipt["violations"],
+        )
+
     def test_skill_digest_mismatch_is_denied(self) -> None:
         skill = self.root / ".claude" / "skills" / "test" / "SKILL.md"
         skill.write_text(skill.read_text(encoding="utf-8") + "tampered\n", encoding="utf-8")
