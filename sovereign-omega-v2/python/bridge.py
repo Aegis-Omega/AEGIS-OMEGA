@@ -23,6 +23,7 @@ from tgcs_afse import TGCSController, AFSEController
 from ledger_persist import save_checkpoint, load_checkpoint, checkpoint_exists, CheckpointError
 from source_attribution import SourceAttributor, TelemetrySample
 import canonical_envelope as _canon_env  # Provenance Phase 1 — float-free hash-chained envelope (ADR 0001)
+from t3_research_bridge import build_t3_research_snapshot, validate_t3_candidate
 
 matrix = CoreMatrix()
 _hw = detect_hardware()
@@ -469,7 +470,24 @@ class BridgeHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get('Content-Length', 0))
         data = json.loads(self.rfile.read(length)) if length else {}
 
-        if self.path == '/gate_signal':
+        # ─── T3 CANDIDATE INTAKE BEGIN ───
+        # Research evidence crosses back into the bridge only as an advisory,
+        # hash-bound candidate. No mutation gate, CoreMatrix write, or execution
+        # router call is permitted in this block. Promotion remains the separate
+        # repository AEGIS Experiment Admission process.
+        if self.path == '/t3/candidate':
+            receipt = validate_t3_candidate(
+                data,
+                current_exact_head=_PLATFORM_GIT_SHA,
+            )
+            status_code = (
+                200 if receipt['outcome'] == 'STRUCTURALLY_VALID' else 400
+            )
+            self._respond(status_code, receipt)
+            return
+        # ─── T3 CANDIDATE INTAKE END ───
+
+        elif self.path == '/gate_signal':
             seq = data.get('sequence', -1)
             accepted = data.get('accepted', False)
             proposal_id = data.get('proposal_id', '')
@@ -800,7 +818,16 @@ class BridgeHandler(BaseHTTPRequestHandler):
             self._respond(404, {'error': 'NOT_FOUND'})
 
     def do_GET(self):
-        if self.path == '/telemetry':
+        if self.path == '/t3/research-snapshot':
+            snapshot = build_t3_research_snapshot(
+                telemetry=matrix.emit_vcg_telemetry(),
+                gate_telemetry=gate.telemetry(),
+                router_telemetry=router.telemetry(),
+                exact_head=_PLATFORM_GIT_SHA,
+            )
+            self._respond(200, snapshot)
+
+        elif self.path == '/telemetry':
             telemetry = matrix.emit_vcg_telemetry()
             telemetry.update(gate.telemetry())
             telemetry.update(router.telemetry())
