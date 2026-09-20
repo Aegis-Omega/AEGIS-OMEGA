@@ -329,3 +329,92 @@ different objects (`n mod 36` there, the F101 summary here).
 
 These three are separately verifiable and must not be conflated. The mathematics being closed
 says nothing about whether it is integrated, and it is not.
+
+---
+
+## 11. CORRECTION — this handoff was written from a 14-module view
+
+Added 2026-09-20, after the sections above. **Read this before trusting §0-§4.**
+
+Sections 0-4 were written while looking only at `proof/weil-arch-tail-order-lean-v1`.
+They report 14 modules and 138 theorems and present a status table for the whole
+chain. That framing is wrong. The repository actually carries:
+
+| | |
+|---|---:|
+| Lean modules under `formal/bridges/lean/` across all branches | **103** |
+| theorems + lemmas in them | **608** |
+| branches carrying them | **80** |
+| modules with explicit `*_OPEN` markers | **35** |
+| distinct declared-open obligations | **45** |
+
+Specifically, §3 said autocorrelation (step iii) was untouched. It is not.
+`WeilAutocorrelationRealityV1`, `WeilAutocorrelationClosureV1`,
+`WeilAutocorrelationPrimeWindowsV1`, `WeilAutocorrelationPoleAggregationV1` and
+`WeilAutocorrelationPrimeNormalFormV1` exist on other branches, and
+`WeilArchimedeanConvergenceV1` already proves the archimedean integral converges
+on the compact-smooth domain. §3's row for "autocorrelation vanishing outside the
+log-support" remains accurate as a statement, but the surrounding claim that the
+area was untouched was false.
+
+### What the repository itself declares open
+
+These are `*_OPEN` markers written into module headers by their authors, counted
+across all branches. This is the repository's own accounting, not mine:
+
+| obligation | modules declaring it |
+|---|---:|
+| `RH_EQUIVALENCE_OPEN` | 29 |
+| `EXPLICIT_FORMULA_OPEN` | 16 |
+| `CRITICAL_LINE_RE_HALF_OPEN` | 14 |
+| `EXPLICIT_FORMULA_THEOREM_OPEN` | 9 |
+| `HEIGHT_LIMIT_EXISTENCE_OPEN` | 6 |
+| `FULL_CRITICAL_STRIP_OPEN` | 5 |
+| `EXPLICIT_FORMULA_IDENTITY_OPEN` | 5 |
+| `LOWER_ZERO_LOCALIZATION_OPEN` | 4 |
+| `HEIGHT_TRUNCATION_EQUIVALENCE_OPEN` | 4 |
+| `GLOBAL_ZERO_SUM_CONVERGENCE_OPEN` | 4 |
+| `CONDITIONAL_SYMMETRIC_CONVERGENCE_OPEN` | 4 |
+| `ZERO_SUM_CONVERGENCE_OPEN` | 3 |
+| `ZERO_COUNTING_BOUND_OPEN` | 3 |
+| `WEIL_CLASS_SHELL_MASS_SUMMABILITY_OPEN` | 3 |
+| `MELLIN_DECAY_ESTIMATE_OPEN` | 2 |
+| `GLOBAL_ZERO_SUM_OPEN` | 2 |
+| `GLOBAL_WEIL_SIGN_OPEN` | 2 |
+| `FULL_WEIL_CLASS_COVERAGE_OPEN` | 2 |
+| `ARITHMETIC_NEGATIVITY_OPEN` | 2 |
+| `ACTUAL_QUADRATIC_SHELL_BOUND_OPEN` | 2 |
+
+`RH_EQUIVALENCE_OPEN` appears in 29 modules. The repository does not claim RH
+anywhere, and says so 29 separate times.
+
+### Module families
+
+- `Weil*` — 26
+- `Zero*` — 14
+- `WeilThreeBlock*` — 10
+- `WeilArch*` — 8
+- `ZeroHeight*` — 7
+- `WeilWidth*` — 5
+- `WeilFixedLine*` — 5
+- `WeilAutocorrelation*` — 5
+- `WeilDiagonal*` — 4
+- `ZetaDivisor*` — 3
+- `WeilPairedHadamard*` — 3
+- `Aegis*` — 3
+- `ZeroShell*` — 2
+- `Abjad*` — 2
+
+### What this correction does NOT establish
+
+- I have **not** read all 103 module headers, only the inventory metadata.
+- I have **not** compiled any module outside the 14 on this lane. Presence of a
+  file is not evidence that it builds, and the `*_OPEN` markers are author
+  declarations, not kernel facts.
+- The theorem count is `grep -cE '^(theorem|lemma) '`, so it counts declarations,
+  not distinct results; the same lemma restated on two branches counts twice.
+- Branch attribution picks one branch per module name; a module present on several
+  branches may differ between them and was **not** diffed.
+
+**Treat §0-§4 as a report on one lane, and this section as the only statement here
+about the repository as a whole.**
