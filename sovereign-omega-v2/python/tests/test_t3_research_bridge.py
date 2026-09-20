@@ -10,6 +10,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+import canonical_envelope as _canon_env
+
 from t3_research_bridge import (
     build_t3_research_snapshot,
     validate_t3_candidate,
@@ -92,14 +94,19 @@ check(
     'gate/router private fields are not exported',
 )
 
+_CONFIG = {'policy': 'bounded-v1', 'budget_units': 100}
+_RESULT = {'verified_correct': True, 'score_q16': 65536}
+
 _BASE = {
     'schema_version': '1.0.0',
     'mechanism_id': 'DSR',
     'experiment_id': 'dsr-001',
     'source_snapshot': _SNAPSHOT,
     'source_snapshot_digest': _SNAPSHOT['snapshot_digest'],
-    'config_digest': digest('cfg'),
-    'result_digest': digest('result'),
+    'config': _CONFIG,
+    'config_digest': _canon_env.payload_digest(_CONFIG),
+    'result': _RESULT,
+    'result_digest': _canon_env.payload_digest(_RESULT),
     'falsifier_status': 'SUPPORTED',
     'requested_target_tier': 'T2',
     'authority_effect': 'NONE',
@@ -146,6 +153,18 @@ check(
     _tampered_receipt['outcome'] == 'REJECTED'
     and 'SOURCE_SNAPSHOT_TAMPERED' in _tampered_receipt['reason_codes'],
     'tampered source snapshot is rejected',
+)
+
+_result_tampered = copy.deepcopy(_BASE)
+_result_tampered['result']['score_q16'] = 0
+_result_tampered_receipt = validate_t3_candidate(
+    _result_tampered,
+    current_exact_head=_HEAD,
+)
+check(
+    _result_tampered_receipt['outcome'] == 'REJECTED'
+    and 'RESULT_DIGEST_MISMATCH' in _result_tampered_receipt['reason_codes'],
+    'tampered result payload is rejected',
 )
 
 _wrong_head = validate_t3_candidate(_BASE, current_exact_head='b' * 40)
