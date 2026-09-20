@@ -117,6 +117,15 @@ def build_projection(root: Path, coverage: dict[str, Any]) -> dict[str, Any]:
             "show_exact_23_paths": True,
             "show_24_findings": True,
         },
+        "consumer_contract": {
+            "preferred_path": "reports/operations-center-sources-v1.json",
+            "legacy_label_to_replace": "38 arhiva + Git",
+            "primary_card_id": "catalogued_sources",
+            "invalid_source_behavior": (
+                "SHOW_INVALID_OR_STALE; "
+                "DO_NOT_FALL_BACK_TO_COMPLETE_INVENTORY_CLAIM"
+            ),
+        },
         "authority_effect": "NONE",
     }
     result["projection_root"] = sha256_hex(result)
