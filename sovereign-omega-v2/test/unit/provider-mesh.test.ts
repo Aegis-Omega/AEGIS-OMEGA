@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { SHA256Hex } from '../../src/core/types.js'
+import { SOVEREIGNTY_SCHEMA_VERSION, type DurableExecutionRecordV1 } from '../../src/sovereignty/contracts.js'
 import {
   DECLARED_PROVIDER_CATALOG_V1,
   PROVIDER_MESH_SCHEMA_VERSION,
+  bindProviderSelectionToDurableExecutionV1,
   buildProviderMeshSnapshotV1,
   selectProviderV1,
   type ProviderCapabilityV1,
@@ -216,6 +218,70 @@ describe('sovereign provider mesh v1', () => {
       current_generation: '10',
       max_observation_age_generations: '1',
     })).rejects.toThrow('snapshot_root verification failed')
+  })
+
+  it('binds a selected provider to durable execution without mutating the source record', async () => {
+    const snapshot = await buildProviderMeshSnapshotV1(DECLARED_PROVIDER_CATALOG_V1, [
+      observation('google-cloud', 'OBSERVED_AVAILABLE', ['DURABLE_RUNNER'], '10', '6'),
+    ])
+    const receipt = await selectProviderV1(snapshot, {
+      required_capabilities: ['DURABLE_RUNNER'],
+      current_generation: '10',
+      max_observation_age_generations: '1',
+    })
+
+    const record: DurableExecutionRecordV1 = {
+      schema_version: SOVEREIGNTY_SCHEMA_VERSION,
+      execution_id: 'exec-1',
+      provider: 'unbound',
+      executor_id: 'unbound',
+      workflow_identity_hash: hash('1'),
+      canonical_state_root: hash('2'),
+      status: 'REGISTERED',
+      held_authority_domains: [],
+      registration_time: '2026-09-20T00:00:00Z',
+      last_heartbeat_at: '2026-09-20T00:00:00Z',
+      heartbeat_expires_at: '2026-09-20T00:05:00Z',
+      cancellation_endpoint_hash: hash('3'),
+      terminal_receipt_hash: null,
+    }
+
+    const bound = bindProviderSelectionToDurableExecutionV1(record, receipt, 'google-runner-1')
+
+    expect(bound.durable_execution.provider).toBe('google-cloud')
+    expect(bound.durable_execution.executor_id).toBe('google-runner-1')
+    expect(bound.provider_selection_receipt_root).toBe(receipt.receipt_root)
+    expect(bound.authority_effect).toBe('NONE')
+    expect(record.provider).toBe('unbound')
+    expect(record.executor_id).toBe('unbound')
+  })
+
+  it('refuses to bind a denied provider selection to durable execution', async () => {
+    const snapshot = await buildProviderMeshSnapshotV1(DECLARED_PROVIDER_CATALOG_V1, [])
+    const receipt = await selectProviderV1(snapshot, {
+      required_capabilities: ['DURABLE_RUNNER'],
+      current_generation: '10',
+      max_observation_age_generations: '1',
+    })
+    const record: DurableExecutionRecordV1 = {
+      schema_version: SOVEREIGNTY_SCHEMA_VERSION,
+      execution_id: 'exec-2',
+      provider: 'unbound',
+      executor_id: 'unbound',
+      workflow_identity_hash: hash('4'),
+      canonical_state_root: hash('5'),
+      status: 'REGISTERED',
+      held_authority_domains: [],
+      registration_time: '2026-09-20T00:00:00Z',
+      last_heartbeat_at: '2026-09-20T00:00:00Z',
+      heartbeat_expires_at: '2026-09-20T00:05:00Z',
+      cancellation_endpoint_hash: hash('6'),
+      terminal_receipt_hash: null,
+    }
+
+    expect(() => bindProviderSelectionToDurableExecutionV1(record, receipt, 'runner-1')).toThrow(
+      'provider selection receipt is not selected',
+    )
   })
 
 })
