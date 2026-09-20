@@ -23,7 +23,7 @@ from tgcs_afse import TGCSController, AFSEController
 from ledger_persist import save_checkpoint, load_checkpoint, checkpoint_exists, CheckpointError
 from source_attribution import SourceAttributor, TelemetrySample
 import canonical_envelope as _canon_env  # Provenance Phase 1 — float-free hash-chained envelope (ADR 0001)
-from t3_research_bridge import build_t3_research_snapshot, validate_t3_candidate
+from t3_research_bridge import MAX_T3_CANDIDATE_BYTES, build_t3_research_snapshot, validate_t3_candidate
 
 matrix = CoreMatrix()
 _hw = detect_hardware()
@@ -468,6 +468,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         global last_ack_sequence
         length = int(self.headers.get('Content-Length', 0))
+        if self.path == '/t3/candidate' and length > MAX_T3_CANDIDATE_BYTES:
+            self._respond(413, {
+                'status': 'REJECTED',
+                'reason': 'T3_CANDIDATE_BODY_TOO_LARGE',
+                'max_bytes': MAX_T3_CANDIDATE_BYTES,
+            })
+            return
         data = json.loads(self.rfile.read(length)) if length else {}
 
         # ─── T3 CANDIDATE INTAKE BEGIN ───
