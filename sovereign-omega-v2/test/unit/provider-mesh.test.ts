@@ -5,6 +5,7 @@ import {
   DECLARED_PROVIDER_CATALOG_V1,
   PROVIDER_MESH_SCHEMA_VERSION,
   bindProviderSelectionToDurableExecutionV1,
+  observeProviderFromDurableExecutionV1,
   buildProviderMeshSnapshotV1,
   selectProviderV1,
   type ProviderCapabilityV1,
@@ -281,6 +282,95 @@ describe('sovereign provider mesh v1', () => {
 
     expect(() => bindProviderSelectionToDurableExecutionV1(record, receipt, 'runner-1')).toThrow(
       'provider selection receipt is not selected',
+    )
+  })
+
+  it('derives availability only from a successful terminal durable receipt', () => {
+    const record: DurableExecutionRecordV1 = {
+      schema_version: SOVEREIGNTY_SCHEMA_VERSION,
+      execution_id: 'exec-observed-1',
+      provider: 'nebius-ai-cloud',
+      executor_id: 'nebius-runner-1',
+      workflow_identity_hash: hash('7'),
+      canonical_state_root: hash('8'),
+      status: 'SUCCEEDED',
+      held_authority_domains: [],
+      registration_time: '2026-09-20T00:00:00Z',
+      last_heartbeat_at: '2026-09-20T00:01:00Z',
+      heartbeat_expires_at: '2026-09-20T00:06:00Z',
+      cancellation_endpoint_hash: hash('9'),
+      terminal_receipt_hash: hash('a'),
+    }
+
+    const observed = observeProviderFromDurableExecutionV1(record, ['DURABLE_RUNNER', 'GPU_COMPUTE'], '12')
+    expect(observed.state).toBe('OBSERVED_AVAILABLE')
+    expect(observed.provider_id).toBe('nebius-ai-cloud')
+    expect(observed.evidence_hash).toBe(hash('a'))
+    expect(observed.authority_effect).toBe('NONE')
+  })
+
+  it('derives unavailability from terminal failure without promoting capability', () => {
+    const record: DurableExecutionRecordV1 = {
+      schema_version: SOVEREIGNTY_SCHEMA_VERSION,
+      execution_id: 'exec-observed-2',
+      provider: 'google-cloud',
+      executor_id: 'google-runner-1',
+      workflow_identity_hash: hash('b'),
+      canonical_state_root: hash('c'),
+      status: 'FAILED',
+      held_authority_domains: [],
+      registration_time: '2026-09-20T00:00:00Z',
+      last_heartbeat_at: '2026-09-20T00:01:00Z',
+      heartbeat_expires_at: '2026-09-20T00:06:00Z',
+      cancellation_endpoint_hash: hash('d'),
+      terminal_receipt_hash: hash('e'),
+    }
+
+    const observed = observeProviderFromDurableExecutionV1(record, ['DURABLE_RUNNER'], '12')
+    expect(observed.state).toBe('OBSERVED_UNAVAILABLE')
+  })
+
+  it('refuses to derive provider availability from an in-flight durable execution', () => {
+    const record: DurableExecutionRecordV1 = {
+      schema_version: SOVEREIGNTY_SCHEMA_VERSION,
+      execution_id: 'exec-observed-3',
+      provider: 'github-actions',
+      executor_id: 'github-runner-1',
+      workflow_identity_hash: hash('1'),
+      canonical_state_root: hash('2'),
+      status: 'RUNNING',
+      held_authority_domains: [],
+      registration_time: '2026-09-20T00:00:00Z',
+      last_heartbeat_at: '2026-09-20T00:01:00Z',
+      heartbeat_expires_at: '2026-09-20T00:06:00Z',
+      cancellation_endpoint_hash: hash('3'),
+      terminal_receipt_hash: null,
+    }
+
+    expect(() => observeProviderFromDurableExecutionV1(record, ['DURABLE_RUNNER'], '12')).toThrow(
+      'durable execution must be terminal before provider observation',
+    )
+  })
+
+  it('refuses a terminal provider observation without a terminal receipt hash', () => {
+    const record: DurableExecutionRecordV1 = {
+      schema_version: SOVEREIGNTY_SCHEMA_VERSION,
+      execution_id: 'exec-observed-4',
+      provider: 'github-actions',
+      executor_id: 'github-runner-1',
+      workflow_identity_hash: hash('4'),
+      canonical_state_root: hash('5'),
+      status: 'SUCCEEDED',
+      held_authority_domains: [],
+      registration_time: '2026-09-20T00:00:00Z',
+      last_heartbeat_at: '2026-09-20T00:01:00Z',
+      heartbeat_expires_at: '2026-09-20T00:06:00Z',
+      cancellation_endpoint_hash: hash('6'),
+      terminal_receipt_hash: null,
+    }
+
+    expect(() => observeProviderFromDurableExecutionV1(record, ['DURABLE_RUNNER'], '12')).toThrow(
+      'terminal durable execution must carry terminal_receipt_hash',
     )
   })
 
