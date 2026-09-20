@@ -53,6 +53,18 @@ class Automaton2Tests(TestCase):
         (self.root / ".claude" / "metacog" / "test.mjs").write_text(
             "export const ok = true\n", encoding="utf-8"
         )
+        (self.root / "genomics").mkdir()
+        (self.root / "genomics" / "pipeline.py").write_text(
+            "GENOMICS_FIXTURE = True\n", encoding="utf-8"
+        )
+        (self.root / "verifiable").mkdir()
+        (self.root / "verifiable" / "chain.py").write_text(
+            "VERIFIER_FIXTURE = True\n", encoding="utf-8"
+        )
+        (self.root / ".github" / "workflows").mkdir(parents=True)
+        (self.root / ".github" / "workflows" / "verifiable-proofs.yml").write_text(
+            "name: fixture\n", encoding="utf-8"
+        )
         (self.root / "scripts").mkdir()
         (self.root / "schemas").mkdir()
         (self.root / "scripts" / "build-cognitive-manifest.py").write_text(
@@ -151,6 +163,47 @@ class Automaton2Tests(TestCase):
         self.assertEqual(receipt["outcome"], "DENIED")
         self.assertIn("epistemic substrate entry set mismatch", receipt["violations"])
         self.assertIn("epistemic substrate root mismatch", receipt["violations"])
+
+    def test_genomics_source_mutation_is_denied(self) -> None:
+        source = self.root / "genomics" / "pipeline.py"
+        source.write_text("GENOMICS_FIXTURE = False\n", encoding="utf-8")
+        receipt = self.evaluate()
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertIn("genomics source entry set mismatch", receipt["violations"])
+        self.assertIn("genomics source root mismatch", receipt["violations"])
+
+    def test_genomics_verifier_mutation_is_denied(self) -> None:
+        verifier = self.root / "verifiable" / "chain.py"
+        verifier.write_text("VERIFIER_FIXTURE = False\n", encoding="utf-8")
+        receipt = self.evaluate()
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertIn("genomics verification entry set mismatch", receipt["violations"])
+        self.assertIn("genomics verification root mismatch", receipt["violations"])
+
+    def test_genomics_domain_cannot_claim_biological_or_clinical_validity(self) -> None:
+        manifest = self.write_manifest()
+        genomics = (
+            manifest["cognitive_state"]["tools"]["epistemic_substrate"]
+            ["domains"]["genomics"]
+        )
+        self.assertEqual(genomics["epistemic_tier"], "T2")
+        self.assertEqual(
+            genomics["authority_boundary"]["biological_correctness"],
+            "NOT_ESTABLISHED",
+        )
+        self.assertEqual(
+            genomics["authority_boundary"]["clinical_validity"],
+            "NOT_ESTABLISHED",
+        )
+        self.assertEqual(
+            genomics["authority_boundary"]["medical_admissibility"],
+            "NOT_ESTABLISHED",
+        )
+        receipt = self.evaluate()
+        self.assertEqual(
+            receipt["genomics_epistemic_root_hash"],
+            genomics["root_hash"],
+        )
 
     def test_skill_digest_mismatch_is_denied(self) -> None:
         skill = self.root / ".claude" / "skills" / "test" / "SKILL.md"
