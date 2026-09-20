@@ -13,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 COVERAGE_MODULE = ROOT / "harness" / "sdk" / "archive_coverage.py"
 KNOWLEDGE_MODULE = ROOT / "harness" / "sdk" / "repository_knowledge.py"
 REPORT = ROOT / "reports" / "archive-coverage-v1.json"
+EXPORTER = ROOT / "scripts" / "export-operations-center-sources.py"
+UI_PROJECTION = ROOT / "reports" / "operations-center-sources-v1.json"
 
 
 def load_module(name: str, path: Path):
@@ -91,6 +93,25 @@ class ArchiveCoverageContract(unittest.TestCase):
         result = self.coverage.verify_document(tampered)
         self.assertEqual(result["status"], "DENIED")
         self.assertIn("ARCHIVE_COVERAGE_AUTHORITY_ESCALATION", result["reason_codes"])
+
+    def test_checked_in_ui_projection_is_exact_generator_output(self) -> None:
+        exporter = load_module("operations_center_sources_exporter", EXPORTER)
+        expected = exporter.build_projection(ROOT, self.document)
+        actual = json.loads(UI_PROJECTION.read_text(encoding="utf-8"))
+        self.assertEqual(actual, expected)
+        self.assertEqual(
+            actual["projection_root"],
+            "48c40cb3c266ad2b1deb2a3ae037e83b608bf753ed02ffa0d04a5e0bc70a4941",
+        )
+        self.assertEqual(len(actual["findings"]), 24)
+        self.assertEqual(len(actual["unsurfaced_paths"]), 23)
+        self.assertEqual(
+            [card["value"] for card in actual["cards"]],
+            [38, 1163, 24, 23],
+        )
+        self.assertEqual(actual["cards"][0]["label"], "Katalogizirani izvori")
+        self.assertNotIn("arhiva + Git", UI_PROJECTION.read_text(encoding="utf-8"))
+        self.assertEqual(actual["authority_effect"], "NONE")
 
     def test_repository_knowledge_surfaces_verified_projection(self) -> None:
         knowledge = load_module("repository_knowledge_with_archive", KNOWLEDGE_MODULE)
