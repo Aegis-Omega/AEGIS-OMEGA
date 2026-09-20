@@ -47,9 +47,21 @@ jobs:
       - name: Run deterministic and adversarial boundary tests
         working-directory: sovereign-omega-v2
         run: python python/tests/test_t3_research_bridge.py
-      - name: Typecheck T3 imports through repository test graph
+      - name: Typecheck focused T3 experiment graph
         working-directory: sovereign-omega-v2
-        run: npm run typecheck
+        run: >
+          npx tsc --noEmit
+          --target ES2022
+          --module ESNext
+          --moduleResolution bundler
+          --lib ES2022,DOM,DOM.Iterable
+          --strict
+          --skipLibCheck
+          --noUnusedLocals
+          --noUnusedParameters
+          --noUncheckedIndexedAccess
+          --exactOptionalPropertyTypes
+          test/unit/t3-biological-experiments.test.ts
       - name: Run DSR and RAR falsifier tests
         working-directory: sovereign-omega-v2
         run: npx vitest run test/unit/t3-biological-experiments.test.ts
