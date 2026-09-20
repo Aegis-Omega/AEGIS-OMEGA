@@ -75,6 +75,13 @@ describe('classifyPathTier — ceiling classification', () => {
     expect(classifyPathTier('src/pipeline/index.ts')).toBe(EpistemicTier.T2)
   })
 
+  it('binds only the executable omega_dynamics research lane to T3', () => {
+    expect(classifyPathTier('docs/research/protocol.md')).toBe(EpistemicTier.T3)
+    expect(classifyPathTier('research/omega_dynamics/harness.ts')).toBe(EpistemicTier.T3)
+    expect(classifyPathTier('research/omega_dynamics/degraded_sensing.ts')).toBe(EpistemicTier.T3)
+    expect(classifyPathTier('research/other/unreviewed.ts')).toBe(EpistemicTier.T0)
+  })
+
   it('docs/vision/* paths get T4 ceiling', () => {
     expect(classifyPathTier('docs/vision/swarm.md')).toBe(EpistemicTier.T4)
   })
@@ -151,6 +158,24 @@ describe('assertTierCompatibility — migration rule enforcement', () => {
     expect((caught as TierViolationError).name).toBe('TierViolationError')
     expect((caught as TierViolationError).message).toContain('T4')
     expect((caught as TierViolationError).message).toContain('Evidence review required')
+  })
+
+  it('allows T3 in omega_dynamics but keeps T4 above the lane ceiling', () => {
+    expect(() =>
+      assertTierCompatibility(
+        EpistemicTier.T3,
+        'research/omega_dynamics/degraded_sensing.ts',
+        'DSR'
+      )
+    ).not.toThrow()
+
+    expect(() =>
+      assertTierCompatibility(
+        EpistemicTier.T4,
+        'research/omega_dynamics/speculative.ts',
+        'speculative-controller'
+      )
+    ).toThrow(TierViolationError)
   })
 
   it('T2 construct in T2 path — allowed; T3 in T2 path — throws', () => {
