@@ -1,0 +1,96 @@
+name: Skill Lifecycle
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: skill-lifecycle-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  validate-and-sync:
+    name: aegis / skill-lifecycle
+    if: >-
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      TARGET_REF: ${{ github.event.pull_request.head.ref }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+
+      - name: Validate skill-creator package contract
+        run: |
+          set -euo pipefail
+          python sovereign-omega-v2/.claude/skills/skill-creator/bundled/scripts/validate_package.py \
+            --repo-root . \
+            --base-sha "$BASE_SHA" \
+            --head-sha "$HEAD_SHA" \
+            --output "$RUNNER_TEMP/skill-package-validation.json"
+
+      - name: Detect whether the tip commit changed a skill
+        id: changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff-tree --no-commit-id --name-only -r "$HEAD_SHA" \
+            | grep -Eq '(^|/)SKILL\.md$'; then
+            echo "sync_required=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "sync_required=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Dispatch trusted cognitive manifest writer
+        if: steps.changed.outputs.sync_required == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git check-ref-format --branch "$TARGET_REF" >/dev/null
+          if [[ "$TARGET_REF" == "main" ]]; then
+            echo "Refusing to target main." >&2
+            exit 1
+          fi
+          python - <<'PY' > "$RUNNER_TEMP/dispatch.json"
+          import json
+          import os
+          print(json.dumps({
+              "ref": "main",
+              "inputs": {"target_ref": os.environ["TARGET_REF"]},
+          }))
+          PY
+          gh api \
+            --method POST \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/cognitive-manifest-refresh.yml/dispatches" \
+            --input "$RUNNER_TEMP/dispatch.json"
+          echo "Trusted cognitive writer dispatched for $TARGET_REF"
+
+      - name: Upload skill validation receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: skill-package-validation-${{ env.HEAD_SHA }}
+          path: ${{ runner.temp }}/skill-package-validation.json
+          if-no-files-found: warn
+          retention-days: 90
