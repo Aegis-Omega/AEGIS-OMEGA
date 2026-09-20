@@ -172,6 +172,48 @@ def discover_epistemic_substrate(root: Path) -> list[dict[str, Any]]:
     return entries
 
 
+def _discover_domain_files(root: Path, relative_root: str) -> list[dict[str, Any]]:
+    base = root / relative_root
+    if not base.is_dir():
+        return []
+    entries: list[dict[str, Any]] = []
+    for path in sorted(base.rglob("*"), key=lambda item: item.as_posix()):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(root)
+        if "__pycache__" in relative.parts or path.suffix == ".pyc":
+            continue
+        if path.name.endswith(RUNTIME_STATE_SUFFIXES):
+            continue
+        if path.is_symlink():
+            raise ValueError(f"epistemic domain may not contain symlinks: {relative.as_posix()}")
+        data = path.read_bytes()
+        entries.append({
+            "path": relative.as_posix(),
+            "sha256": sha256_hex(data),
+            "size_bytes": len(data),
+        })
+    return entries
+
+
+def discover_genomics_domain(root: Path) -> dict[str, list[dict[str, Any]]]:
+    source_entries = _discover_domain_files(root, "genomics")
+    verification_entries = _discover_domain_files(root, "verifiable")
+    workflow = root / ".github" / "workflows" / "verifiable-proofs.yml"
+    if workflow.is_file():
+        data = workflow.read_bytes()
+        verification_entries.append({
+            "path": workflow.relative_to(root).as_posix(),
+            "sha256": sha256_hex(data),
+            "size_bytes": len(data),
+        })
+        verification_entries.sort(key=lambda entry: entry["path"])
+    return {
+        "source": source_entries,
+        "verification": verification_entries,
+    }
+
+
 def validate_epistemic_substrate(root: Path, manifest: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     substrate = (
@@ -221,8 +263,49 @@ def validate_epistemic_substrate(root: Path, manifest: dict[str, Any]) -> list[s
     if manifest_index != actual_index:
         errors.append("epistemic substrate entry set mismatch")
 
-    actual_root = sha256_hex(canonical_bytes(actual_index))
-    if substrate.get("root_hash") != actual_root:
+    actual_control_plane_root = sha256_hex(canonical_bytes(actual_index))
+    if substrate.get("control_plane_root_hash") != actual_control_plane_root:
+        errors.append("epistemic substrate control-plane root mismatch")
+
+    domains = substrate.get("domains", {})
+    genomics = domains.get("genomics", {}) if isinstance(domains, dict) else {}
+    if not isinstance(genomics, dict):
+        errors.append("epistemic genomics domain is missing")
+        genomics = {}
+
+    discovered = discover_genomics_domain(root)
+    for section_name in ("source", "verification"):
+        section = genomics.get(section_name, {}) if isinstance(genomics, dict) else {}
+        manifest_entries = section.get("entries", []) if isinstance(section, dict) else []
+        actual_entries = discovered[section_name]
+        if manifest_entries != actual_entries:
+            errors.append(f"genomics {section_name} entry set mismatch")
+        actual_section_root = sha256_hex(canonical_bytes(actual_entries))
+        if not isinstance(section, dict) or section.get("root_hash") != actual_section_root:
+            errors.append(f"genomics {section_name} root mismatch")
+
+    boundary = genomics.get("authority_boundary", {}) if isinstance(genomics, dict) else {}
+    source_root = (
+        genomics.get("source", {}).get("root_hash")
+        if isinstance(genomics.get("source", {}), dict) else None
+    )
+    verification_root = (
+        genomics.get("verification", {}).get("root_hash")
+        if isinstance(genomics.get("verification", {}), dict) else None
+    )
+    expected_genomics_root = sha256_hex(canonical_bytes({
+        "source_root_hash": source_root,
+        "verification_root_hash": verification_root,
+        "authority_boundary": boundary,
+    }))
+    if genomics.get("root_hash") != expected_genomics_root:
+        errors.append("genomics domain root mismatch")
+
+    expected_substrate_root = sha256_hex(canonical_bytes({
+        "control_plane_root_hash": actual_control_plane_root,
+        "domains": {"genomics": expected_genomics_root},
+    }))
+    if substrate.get("root_hash") != expected_substrate_root:
         errors.append("epistemic substrate root mismatch")
     return errors
 
@@ -284,6 +367,15 @@ def build_receipt(
             manifest.get("cognitive_state", {})
             .get("tools", {})
             .get("epistemic_substrate", {})
+            .get("root_hash")
+            if manifest else None
+        ),
+        "genomics_epistemic_root_hash": (
+            manifest.get("cognitive_state", {})
+            .get("tools", {})
+            .get("epistemic_substrate", {})
+            .get("domains", {})
+            .get("genomics", {})
             .get("root_hash")
             if manifest else None
         ),
