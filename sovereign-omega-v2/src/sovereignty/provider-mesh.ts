@@ -95,6 +95,36 @@ export interface ProviderBoundExecutionV1 {
   authority_effect: 'NONE'
 }
 
+export function observeProviderFromDurableExecutionV1(
+  record: DurableExecutionRecordV1,
+  observed_capabilities: readonly ProviderCapabilityV1[],
+  observation_generation: string,
+): ProviderObservationV1 {
+  assertProviderId('durable_execution.provider', record.provider)
+  assertDecimal('observation_generation', observation_generation)
+  if (record.status !== 'SUCCEEDED' && record.status !== 'FAILED' && record.status !== 'CANCELLED' && record.status !== 'EXPIRED') {
+    throw new TypeError('durable execution must be terminal before provider observation')
+  }
+  if (record.terminal_receipt_hash === null) {
+    throw new TypeError('terminal durable execution must carry terminal_receipt_hash')
+  }
+  assertHash('terminal_receipt_hash', record.terminal_receipt_hash)
+  observed_capabilities.forEach((capability) => {
+    if (!ALL_CAPABILITIES.has(capability)) throw new TypeError(`unknown observed capability: ${capability}`)
+  })
+  assertNoDuplicates('observed_capabilities', observed_capabilities)
+
+  return {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: record.provider,
+    state: record.status === 'SUCCEEDED' ? 'OBSERVED_AVAILABLE' : 'OBSERVED_UNAVAILABLE',
+    observed_capabilities: sortedUnique(observed_capabilities),
+    evidence_hash: record.terminal_receipt_hash,
+    observation_generation,
+    authority_effect: 'NONE',
+  }
+}
+
 const SHA256_PATTERN = /^[0-9a-f]{64}$/
 const DECIMAL_PATTERN = /^(0|[1-9][0-9]*)$/
 const PROVIDER_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{1,63}$/
