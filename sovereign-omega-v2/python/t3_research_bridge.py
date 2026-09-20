@@ -22,6 +22,7 @@ CANDIDATE_RECEIPT_KIND = 'AEGIS_T3_EXPERIMENT_CANDIDATE_RECEIPT_V1'
 T3_RESEARCH_ONLY = True
 WRITE_BACK_AUTHORITY = False
 AUTHORITY_EFFECT = 'NONE'
+MAX_T3_CANDIDATE_BYTES = 262_144
 
 _ALLOWED_MECHANISMS = frozenset({'DSR', 'RAR'})
 _ALLOWED_FALSIFIER_STATUS = frozenset({
@@ -35,7 +36,7 @@ _COMMIT_SHA_RE = re.compile(r'^[0-9a-f]{40}(?:[0-9a-f]{24})?$')
 # code change, never an accidental dump of the production runtime.
 _TELEMETRY_FIELDS = (
     'sequence', 'epoch', 'avg_vcg_error', 'drift_index', 'corruption_count',
-    'failsafe_state', 'pgcs_passes',
+    'failsafe_state', 'pgcs_passes', 'calibrator_passes_100k',
 )
 _GATE_FIELDS = (
     'gate_acceptance_rate', 'gate_window_size', 'gate_last_sequence',
@@ -158,11 +159,23 @@ def validate_t3_candidate(
         if source_snapshot.get('exact_head') != current_exact_head:
             reasons.append('EXACT_HEAD_MISMATCH')
 
-    for field in ('config_digest', 'result_digest'):
+    for payload_field, digest_field in (
+        ('config', 'config_digest'),
+        ('result', 'result_digest'),
+    ):
+        supplied_digest = candidate.get(digest_field)
         try:
-            _sha256(candidate.get(field), field)
+            _sha256(supplied_digest, digest_field)
         except ValueError:
-            reasons.append(f'INVALID_{field.upper()}')
+            reasons.append(f'INVALID_{digest_field.upper()}')
+
+        payload = candidate.get(payload_field)
+        if not isinstance(payload, Mapping):
+            reasons.append(f'{payload_field.upper()}_PAYLOAD_MISSING')
+            continue
+        recomputed_digest = _canon_env.payload_digest(payload)
+        if supplied_digest != recomputed_digest:
+            reasons.append(f'{payload_field.upper()}_DIGEST_MISMATCH')
 
     if candidate.get('falsifier_status') not in _ALLOWED_FALSIFIER_STATUS:
         reasons.append('INVALID_FALSIFIER_STATUS')
