@@ -1,0 +1,37 @@
+name: T3 Research Boundary
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'sovereign-omega-v2/python/bridge.py'
+      - 'sovereign-omega-v2/python/t3_research_bridge.py'
+      - 'sovereign-omega-v2/python/tests/test_t3_research_bridge.py'
+      - '.github/workflows/t3-research-boundary.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'sovereign-omega-v2/python/bridge.py'
+      - 'sovereign-omega-v2/python/t3_research_bridge.py'
+      - 'sovereign-omega-v2/python/tests/test_t3_research_bridge.py'
+      - '.github/workflows/t3-research-boundary.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  boundary:
+    name: aegis / t3-research-boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile boundary module
+        working-directory: sovereign-omega-v2
+        run: python -m py_compile python/t3_research_bridge.py
+      - name: Run deterministic and adversarial boundary tests
+        working-directory: sovereign-omega-v2
+        run: python python/tests/test_t3_research_bridge.py
