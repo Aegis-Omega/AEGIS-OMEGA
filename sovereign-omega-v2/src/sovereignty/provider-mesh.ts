@@ -500,6 +500,13 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
   },
   {
     schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'hugging-face-jobs',
+    planes: ['EXECUTION'],
+    declared_capabilities: ['CONTAINER_RUNTIME', 'DURABLE_RUNNER', 'GPU_COMPUTE'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
     provider_id: 'nebius-ai-cloud',
     planes: ['EXECUTION'],
     declared_capabilities: ['CONTAINER_RUNTIME', 'DURABLE_RUNNER', 'GPU_COMPUTE'],
