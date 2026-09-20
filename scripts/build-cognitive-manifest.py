@@ -2,7 +2,7 @@
 """Build the deterministic AEGIS cognitive-state manifest.
 
 The manifest binds every SKILL.md file, the repository-controlled Claude
-execution substrate, an explicit parent state, and the Automaton-2 signature
+epistemic substrate, an explicit parent state, and the Automaton-2 signature
 requirement. Identical repository inputs and parent state produce byte-identical
 outputs.
 """
@@ -81,7 +81,7 @@ def discover_skills(root: Path) -> list[dict[str, Any]]:
     return entries
 
 
-def discover_execution_substrate(root: Path) -> list[dict[str, Any]]:
+def discover_epistemic_substrate(root: Path) -> list[dict[str, Any]]:
     """Hash repository-controlled Claude execution inputs, excluding runtime state."""
     candidates: list[Path] = []
     settings = root / ".claude" / "settings.json"
@@ -104,7 +104,7 @@ def discover_execution_substrate(root: Path) -> list[dict[str, Any]]:
             continue
         seen.add(relative)
         if path.is_symlink():
-            raise RuntimeError(f"execution substrate may not contain symlinks: {relative}")
+            raise RuntimeError(f"epistemic substrate may not contain symlinks: {relative}")
         data = path.read_bytes()
         entries.append(
             {
@@ -150,7 +150,7 @@ def build_manifest(
     ]
     skills_root_hash = sha256_bytes(canonical_bytes(skills_index))
 
-    execution_entries = discover_execution_substrate(root)
+    execution_entries = discover_epistemic_substrate(root)
     execution_index = [
         {
             "path": entry["path"],
@@ -159,7 +159,7 @@ def build_manifest(
         }
         for entry in execution_entries
     ]
-    execution_substrate_root_hash = sha256_bytes(canonical_bytes(execution_index))
+    epistemic_substrate_root_hash = sha256_bytes(canonical_bytes(execution_index))
 
     manifest: dict[str, Any] = {
         "schema": {
@@ -231,15 +231,18 @@ def build_manifest(
                     "format": "cryptographic-event-stream",
                     "filtering": "verified-state-projection",
                 },
-                "execution_substrate": {
+                "epistemic_substrate": {
                     "scope": {
                         "settings": ".claude/settings.json",
                         "hooks": ".claude/hooks/**",
                         "metacognition": ".claude/metacog/*.mjs",
                         "runtime_state_excluded": True,
+                        "scope_version": "repository-control-plane-v1",
+                        "external_knowledge_corpus_bound": False,
+                        "claims_evidence_corpus_bound": False,
                     },
                     "count": len(execution_entries),
-                    "root_hash": execution_substrate_root_hash,
+                    "root_hash": epistemic_substrate_root_hash,
                     "entries": execution_entries,
                 },
             },
@@ -320,20 +323,20 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         if not HASH_RE.fullmatch(entry["sha256"]):
             raise ValueError(f"invalid skill hash: {entry['path']}")
 
-    substrate = manifest["cognitive_state"]["tools"].get("execution_substrate")
+    substrate = manifest["cognitive_state"]["tools"].get("epistemic_substrate")
     if not isinstance(substrate, dict):
-        raise ValueError("execution_substrate is missing")
+        raise ValueError("epistemic_substrate is missing")
     if not HASH_RE.fullmatch(substrate.get("root_hash", "")):
-        raise ValueError("execution_substrate root_hash is invalid")
+        raise ValueError("epistemic_substrate root_hash is invalid")
     substrate_entries = substrate.get("entries")
     if not isinstance(substrate_entries, list):
-        raise ValueError("execution_substrate entries are invalid")
+        raise ValueError("epistemic_substrate entries are invalid")
     expected_substrate_index: list[dict[str, Any]] = []
     for entry in substrate_entries:
         if not isinstance(entry, dict):
-            raise ValueError("execution_substrate entry is invalid")
+            raise ValueError("epistemic_substrate entry is invalid")
         if not HASH_RE.fullmatch(entry.get("sha256", "")):
-            raise ValueError(f"invalid execution substrate hash: {entry.get('path')}")
+            raise ValueError(f"invalid epistemic substrate hash: {entry.get('path')}")
         expected_substrate_index.append(
             {
                 "path": entry.get("path"),
@@ -343,7 +346,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         )
     expected_substrate_root = sha256_bytes(canonical_bytes(expected_substrate_index))
     if expected_substrate_root != substrate["root_hash"]:
-        raise ValueError("execution_substrate root_hash verification failed")
+        raise ValueError("epistemic_substrate root_hash verification failed")
 
     unhashed = dict(manifest)
     state_hash = unhashed.pop("state_hash")
@@ -407,8 +410,8 @@ def write_or_check(
     print(f"parent_state_hash={parent_state_hash}")
     print(f"skills_root_hash={manifest['skills_root_hash']}")
     print(
-        "execution_substrate_root_hash="
-        f"{manifest['cognitive_state']['tools']['execution_substrate']['root_hash']}"
+        "epistemic_substrate_root_hash="
+        f"{manifest['cognitive_state']['tools']['epistemic_substrate']['root_hash']}"
     )
     print(f"state_hash={manifest['state_hash']}")
     return 0
