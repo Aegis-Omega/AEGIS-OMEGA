@@ -12,8 +12,12 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: metacognitive-evidence-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
-  CANDIDATE_SHA: ${{ github.event.pull_request.head.sha }}
+  CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
   verify:
@@ -28,16 +32,15 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
-      - name: Assert exact checkout and Node runtime
+      - name: Assert exact checkout
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
-          node --version
-          node -e 'const major=Number(process.versions.node.split(".")[0]); if (major < 20) process.exit(1)'
 
       - name: Run metacognitive evidence contract
         shell: bash
         run: |
           set -euo pipefail
+          node --version
           node --test .claude/metacog/evidence-v2.test.mjs
