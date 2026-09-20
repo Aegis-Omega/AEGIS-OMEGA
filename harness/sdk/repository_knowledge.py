@@ -8,6 +8,7 @@ it does not mutate repository state or grant execution authority.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import subprocess
 from pathlib import Path
@@ -157,8 +158,13 @@ def _archive_coverage(repo: Path, source_head_sha: str) -> dict[str, Any]:
         }
 
     try:
-        from harness.sdk.archive_coverage import project_for_operations_center
-        projection = project_for_operations_center(payload)
+        validator_path = Path(__file__).with_name("archive_coverage.py")
+        spec = importlib.util.spec_from_file_location("aegis_archive_coverage", validator_path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError("cannot load archive coverage validator")
+        validator = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(validator)
+        projection = validator.project_for_operations_center(payload)
     except Exception as exc:
         return {
             "path": ARCHIVE_COVERAGE_PATH,
