@@ -8,11 +8,15 @@ const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 // an invalid/guessed model id would be rejected by the paid backend. If unset,
 // the OpenAI branch returns the friendly-unavailable response instead of calling out.
 const OPENAI_MODEL = Deno.env.get('OPENAI_MODEL') ?? ''
+const NEBIUS_API_KEY = Deno.env.get('NEBIUS_API_KEY') ?? ''
+const NEBIUS_URL = 'https://api.tokenfactory.nebius.com/v1/chat/completions'
+const NEBIUS_MODEL = Deno.env.get('NEBIUS_MODEL') ?? ''
 // Server-side provider gates. `provider` arrives in the public request body, so
 // the client-side VITE_ENABLE_* flags cannot actually gate the paid backends.
 // A requested provider is only honored when its server flag is explicitly 'true';
 // otherwise the request falls back to the default (dashscope).
 const CHAT_ENABLE_OPENAI = Deno.env.get('CHAT_ENABLE_OPENAI') === 'true'
+const CHAT_ENABLE_NEBIUS = Deno.env.get('CHAT_ENABLE_NEBIUS') === 'true'
 const CHAT_ENABLE_AZURE  = Deno.env.get('CHAT_ENABLE_AZURE') === 'true'
 const AZURE_OPENAI_ENDPOINT = Deno.env.get('AZURE_OPENAI_ENDPOINT') ?? ''
 const AZURE_OPENAI_API_KEY = Deno.env.get('AZURE_OPENAI_API_KEY') ?? ''
@@ -29,7 +33,7 @@ Deno.serve(async (req) => {
       message: string
       history?: { role: string; content: string }[]
       system?: string
-      provider?: 'dashscope' | 'openai' | 'azure'
+      provider?: 'dashscope' | 'openai' | 'nebius' | 'azure'
     }
 
     if (!message?.trim()) {
@@ -43,6 +47,7 @@ Deno.serve(async (req) => {
     ]
 
     let useOpenAI = provider === 'openai'
+    let useNebius = provider === 'nebius'
     let useAzure = provider === 'azure'
 
     // Server-side gate: a client cannot force a paid backend by setting `provider`.
@@ -51,14 +56,25 @@ Deno.serve(async (req) => {
       console.error('OpenAI provider requested but CHAT_ENABLE_OPENAI is not "true" — falling back to dashscope')
       useOpenAI = false
     }
+    if (useNebius && !CHAT_ENABLE_NEBIUS) {
+      console.error('Nebius provider requested but CHAT_ENABLE_NEBIUS is not "true" — falling back to dashscope')
+      useNebius = false
+    }
     if (useAzure && !CHAT_ENABLE_AZURE) {
       console.error('Azure provider requested but CHAT_ENABLE_AZURE is not "true" — falling back to dashscope')
       useAzure = false
     }
 
-    // OpenAI requires an explicit model — never send a guessed/invalid model id.
+    // OpenAI and Nebius require explicit models — never send guessed model ids.
     if (useOpenAI && !OPENAI_MODEL) {
       console.error('OpenAI error: OPENAI_MODEL must be set (no hardcoded default)')
+      return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
+        status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (useNebius && (!NEBIUS_MODEL || !NEBIUS_API_KEY)) {
+      console.error('Nebius error: NEBIUS_MODEL and NEBIUS_API_KEY must be set')
       return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
         status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
@@ -73,7 +89,9 @@ Deno.serve(async (req) => {
 
     const url = useAzure
       ? `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version=${AZURE_OPENAI_API_VERSION}`
-      : useOpenAI ? OPENAI_URL : DASHSCOPE_URL
+      : useOpenAI ? OPENAI_URL
+        : useNebius ? NEBIUS_URL
+          : DASHSCOPE_URL
 
     const resp = await fetch(url, {
       method: 'POST',
@@ -81,7 +99,13 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json',
         ...(useAzure
           ? { 'api-key': AZURE_OPENAI_API_KEY }
-          : { 'Authorization': `Bearer ${useOpenAI ? OPENAI_API_KEY : DASHSCOPE_API_KEY}` }),
+          : {
+              'Authorization': `Bearer ${useOpenAI
+                ? OPENAI_API_KEY
+                : useNebius
+                  ? NEBIUS_API_KEY
+                  : DASHSCOPE_API_KEY}`,
+            }),
       },
       body: JSON.stringify(useAzure ? {
         // model is implied by the Azure deployment; gpt-5-family deployments
@@ -92,6 +116,10 @@ Deno.serve(async (req) => {
         model: OPENAI_MODEL,
         messages,
         max_completion_tokens: 1024,
+      } : useNebius ? {
+        model: NEBIUS_MODEL,
+        messages,
+        max_tokens: 1024,
       } : {
         model: 'qwen-plus',
         messages,
@@ -102,7 +130,17 @@ Deno.serve(async (req) => {
 
     if (!resp.ok) {
       const err = await resp.text()
-      console.error(useAzure ? 'Azure OpenAI error:' : useOpenAI ? 'OpenAI error:' : 'DashScope error:', resp.status, err)
+      console.error(
+        useAzure
+          ? 'Azure OpenAI error:'
+          : useOpenAI
+            ? 'OpenAI error:'
+            : useNebius
+              ? 'Nebius Token Factory error:'
+              : 'DashScope error:',
+        resp.status,
+        err,
+      )
       return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
         status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
@@ -113,7 +151,7 @@ Deno.serve(async (req) => {
 
     // Report the model/deployment actually used so callers (inference-router)
     // record real provenance instead of a client-side guess.
-    const usedModel = useAzure ? AZURE_OPENAI_DEPLOYMENT : useOpenAI ? OPENAI_MODEL : 'qwen-plus'
+    const usedModel = useAzure ? AZURE_OPENAI_DEPLOYMENT : useOpenAI ? OPENAI_MODEL : useNebius ? NEBIUS_MODEL : 'qwen-plus'
 
     return new Response(JSON.stringify({ reply, model: usedModel }), {
       headers: { ...CORS, 'Content-Type': 'application/json' },
