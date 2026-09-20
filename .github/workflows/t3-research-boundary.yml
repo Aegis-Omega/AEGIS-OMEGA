@@ -29,9 +29,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Compile boundary module
+      - name: Compile bridge and boundary module
         working-directory: sovereign-omega-v2
-        run: python -m py_compile python/t3_research_bridge.py
+        run: python -m py_compile python/bridge.py python/t3_research_bridge.py
       - name: Run deterministic and adversarial boundary tests
         working-directory: sovereign-omega-v2
         run: python python/tests/test_t3_research_bridge.py
