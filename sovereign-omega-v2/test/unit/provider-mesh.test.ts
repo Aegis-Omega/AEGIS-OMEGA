@@ -192,4 +192,30 @@ describe('sovereign provider mesh v1', () => {
     expect(leftDecision.provider_id).toBe(rightDecision.provider_id)
     expect(leftDecision.receipt_root).toBe(rightDecision.receipt_root)
   })
+  it('returns a controlled denial for an empty provider mesh', async () => {
+    const snapshot = await buildProviderMeshSnapshotV1([], [])
+    const receipt = await selectProviderV1(snapshot, {
+      required_capabilities: ['DURABLE_RUNNER'],
+      current_generation: '10',
+      max_observation_age_generations: '1',
+    })
+
+    expect(receipt.outcome).toBe('DENIED')
+    expect(receipt.provider_id).toBeNull()
+    expect(receipt.denial_codes).toEqual(['NO_PROVIDER_DECLARED'])
+  })
+
+  it('rejects a tampered snapshot root before routing', async () => {
+    const snapshot = await buildProviderMeshSnapshotV1(DECLARED_PROVIDER_CATALOG_V1, [
+      observation('github-actions', 'OBSERVED_AVAILABLE', ['DURABLE_RUNNER'], '10', '5'),
+    ])
+    const tampered = { ...snapshot, snapshot_root: hash('f') }
+
+    await expect(selectProviderV1(tampered, {
+      required_capabilities: ['DURABLE_RUNNER'],
+      current_generation: '10',
+      max_observation_age_generations: '1',
+    })).rejects.toThrow('snapshot_root verification failed')
+  })
+
 })
