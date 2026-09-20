@@ -17,6 +17,14 @@ RECEIPT_KIND = "AEGIS_AUTOMATON2_RECEIPT_V1"
 SCHEMA_VERSION = "1.0.0"
 ZERO_HASH = "0" * 64
 RUNTIME_STATE_SUFFIXES = (".log", ".tmp", ".jsonl")
+GENOMICS_AUTHORITY_BOUNDARY = {
+    "integrity_and_provenance": "CONTENT_ADDRESSED",
+    "replay_determinism": "VERIFIER_EVIDENCE_REQUIRED",
+    "biological_correctness": "NOT_ESTABLISHED",
+    "clinical_validity": "NOT_ESTABLISHED",
+    "medical_admissibility": "NOT_ESTABLISHED",
+    "external_reference_dataset_bound": False,
+}
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -285,6 +293,8 @@ def validate_epistemic_substrate(root: Path, manifest: dict[str, Any]) -> list[s
             errors.append(f"genomics {section_name} root mismatch")
 
     boundary = genomics.get("authority_boundary", {}) if isinstance(genomics, dict) else {}
+    if boundary != GENOMICS_AUTHORITY_BOUNDARY:
+        errors.append("genomics authority boundary exceeds declared V1 authority")
     source_root = (
         genomics.get("source", {}).get("root_hash")
         if isinstance(genomics.get("source", {}), dict) else None
