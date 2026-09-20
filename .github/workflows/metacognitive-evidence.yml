@@ -27,9 +27,13 @@ jobs:
       - name: Checkout PR test context
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1
           persist-credentials: false
 
+      # GITHUB_SHA is the refs/pull/N/merge commit on a pull_request event, never
+      # the candidate head, so it cannot serve as the binding. The tree that was
+      # actually checked out can, and that is what this asserts.
       - name: Bind candidate identity
         shell: bash
         env:
@@ -37,9 +41,12 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$EXPECTED_HEAD_SHA"
+          checked_out="$(git rev-parse HEAD)"
           echo "candidate_head=$EXPECTED_HEAD_SHA"
-          echo "runner_sha=$GITHUB_SHA"
-          git status --short
+          echo "checked_out=$checked_out"
+          echo "merge_sha=$GITHUB_SHA"
+          test "$checked_out" = "$EXPECTED_HEAD_SHA"
+          test -z "$(git status --porcelain)"
 
       - name: Run metacognitive evidence contract
         shell: bash
