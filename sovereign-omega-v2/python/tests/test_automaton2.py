@@ -126,12 +126,16 @@ class Automaton2Tests(TestCase):
     def test_epistemic_substrate_excludes_runtime_state(self) -> None:
         manifest = self.write_manifest()
         before = manifest["cognitive_state"]["tools"]["epistemic_substrate"]["root_hash"]
-        (self.root / ".claude" / "metacog" / "evidence-transitions.log").write_text(
-            "runtime\n", encoding="utf-8"
+        runtime_paths = (
+            self.root / ".claude" / "metacog" / "evidence-transitions.log",
+            self.root / ".claude" / "metacog" / "evidence-receipt.tmp",
+            self.root / ".claude" / "metacog" / "trace.jsonl",
+            self.root / ".claude" / "hooks" / "hook-runtime.log",
+            self.root / ".claude" / "hooks" / "hook-runtime.tmp",
+            self.root / ".claude" / "hooks" / "hook-runtime.jsonl",
         )
-        (self.root / ".claude" / "metacog" / "evidence-receipt.tmp").write_text(
-            "runtime\n", encoding="utf-8"
-        )
+        for runtime_path in runtime_paths:
+            runtime_path.write_text("runtime\n", encoding="utf-8")
         regenerated, _ = GENERATOR.build_manifest(
             self.root,
             source_ref="test-source",
@@ -139,6 +143,14 @@ class Automaton2Tests(TestCase):
         )
         after = regenerated["cognitive_state"]["tools"]["epistemic_substrate"]["root_hash"]
         self.assertEqual(before, after)
+
+    def test_epistemic_substrate_new_unlisted_hook_is_denied_directly(self) -> None:
+        new_hook = self.root / ".claude" / "hooks" / "new-hook.sh"
+        new_hook.write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
+        receipt = self.evaluate()
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertIn("epistemic substrate entry set mismatch", receipt["violations"])
+        self.assertIn("epistemic substrate root mismatch", receipt["violations"])
 
     def test_skill_digest_mismatch_is_denied(self) -> None:
         skill = self.root / ".claude" / "skills" / "test" / "SKILL.md"
