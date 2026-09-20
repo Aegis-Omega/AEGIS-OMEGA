@@ -4,7 +4,6 @@ Run:
   python python/tests/test_t3_research_bridge.py
 """
 import copy
-import hashlib
 import os
 import sys
 
@@ -35,10 +34,6 @@ def fail(name: str, detail: str = '') -> None:
 
 def check(condition: bool, name: str, detail: str = '') -> None:
     ok(name) if condition else fail(name, detail)
-
-
-def digest(text: str) -> str:
-    return hashlib.sha256(text.encode()).hexdigest()
 
 
 _HEAD = 'a' * 40
@@ -200,6 +195,12 @@ _end = '# ─── T3 CANDIDATE INTAKE END ───'
 check(
     _bridge.count(_begin) == 1 and _bridge.count(_end) == 1,
     'bridge has exactly one source-pinned T3 candidate boundary',
+)
+
+check(
+    "length > MAX_T3_CANDIDATE_BYTES" in _bridge
+    and "T3_CANDIDATE_BODY_TOO_LARGE" in _bridge,
+    'bridge bounds T3 candidate request bodies before JSON parsing',
 )
 
 if _begin in _bridge and _end in _bridge:
