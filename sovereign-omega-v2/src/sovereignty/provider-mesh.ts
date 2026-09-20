@@ -212,8 +212,6 @@ export async function buildProviderMeshSnapshotV1(
     .map(normalizeDescriptor)
     .sort((left, right) => left.provider_id.localeCompare(right.provider_id))
 
-  if (normalizedDescriptors.length === 0) throw new TypeError('at least one provider descriptor is required')
-
   const descriptorIds = normalizedDescriptors.map((item) => item.provider_id)
   assertNoDuplicates('provider descriptors', descriptorIds)
   const descriptorMap = new Map(normalizedDescriptors.map((item) => [item.provider_id, item]))
@@ -300,15 +298,20 @@ export async function selectProviderV1(
   if (snapshot.authority_effect !== 'NONE') throw new TypeError('snapshot authority_effect must be NONE')
   assertHash('snapshot_root', snapshot.snapshot_root)
 
+  const verifiedSnapshot = await buildProviderMeshSnapshotV1(snapshot.descriptors, snapshot.observations)
+  if (verifiedSnapshot.snapshot_root !== snapshot.snapshot_root) {
+    throw new TypeError('snapshot_root verification failed')
+  }
+
   const normalized = validateSelectionRequest(request)
-  const observations = new Map(snapshot.observations.map((item) => [item.provider_id, item]))
+  const observations = new Map(verifiedSnapshot.observations.map((item) => [item.provider_id, item]))
   const allowedSet = normalized.allowed === null ? null : new Set(normalized.allowed)
 
-  const declared = snapshot.descriptors.filter((descriptor) => (
+  const declared = verifiedSnapshot.descriptors.filter((descriptor) => (
     allowedSet === null || allowedSet.has(descriptor.provider_id)
   ))
 
-  if (snapshot.descriptors.length === 0) {
+  if (verifiedSnapshot.descriptors.length === 0) {
     return makeReceipt({
       schema_version: PROVIDER_MESH_SCHEMA_VERSION,
       outcome: 'DENIED',
