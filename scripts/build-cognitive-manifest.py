@@ -31,6 +31,7 @@ DIMENSIONS = (
     "agents", "tools", "skills", "tasks",
     "behavior", "steps", "interactions", "actions",
 )
+RUNTIME_STATE_SUFFIXES = (".log", ".tmp", ".jsonl")
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -90,7 +91,12 @@ def discover_epistemic_substrate(root: Path) -> list[dict[str, Any]]:
 
     hooks_root = root / ".claude" / "hooks"
     if hooks_root.is_dir():
-        candidates.extend(path for path in hooks_root.rglob("*") if path.is_file())
+        candidates.extend(
+            path
+            for path in hooks_root.rglob("*")
+            if path.is_file()
+            and not path.name.endswith(RUNTIME_STATE_SUFFIXES)
+        )
 
     metacog_root = root / ".claude" / "metacog"
     if metacog_root.is_dir():
@@ -331,6 +337,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
     substrate_entries = substrate.get("entries")
     if not isinstance(substrate_entries, list):
         raise ValueError("epistemic_substrate entries are invalid")
+    if substrate.get("count") != len(substrate_entries):
+        raise ValueError("epistemic_substrate count does not match entries")
     expected_substrate_index: list[dict[str, Any]] = []
     for entry in substrate_entries:
         if not isinstance(entry, dict):
