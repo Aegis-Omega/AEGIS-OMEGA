@@ -1,0 +1,51 @@
+{
+  "schema": "AEGIS_OPERATIONS_CENTER_SOURCES_V1",
+  "source": {
+    "archive_coverage_path": "reports/archive-coverage-v1.json",
+    "archive_coverage_root": "2e87a797437ac07920f749ec77b88cf31e0c5d2495ad291e4844d75cd3376f19",
+    "evidence_package_sha256": "194c1b233a69104b055673f5fc7e33e5480e9043077a027180114b5b5ef0041a",
+    "observed_main_head": "495bfd85d79abcb2b4f6898fe9c156488492426a",
+    "observed_at_utc": "2026-09-20T05:46:43.696358+00:00"
+  },
+  "cards": [
+    {
+      "id": "catalogued_sources",
+      "label": "Katalogizirani izvori",
+      "value": 38,
+      "status": "INCOMPLETE_SELECTED_SAMPLE",
+      "note": "Odabrani katalog; nije potpuni inventar."
+    },
+    {
+      "id": "archive_project_files",
+      "label": "Arhivske projektne datoteke",
+      "value": 1163,
+      "status": "VERIFIED_ARCHIVE_COUNT",
+      "note": "Projektne datoteke u starom AEGIS arhivu."
+    },
+    {
+      "id": "coverage_groups",
+      "label": "Grupe za dopunu",
+      "value": 24,
+      "status": "VERIFIED_COVERAGE_FINDINGS",
+      "note": "Identificirane grupe koje nisu potpuno surfaced u produkcijskom katalogu."
+    },
+    {
+      "id": "unsurfaced_no_counterpart",
+      "label": "Novi kandidati bez parnjaka",
+      "value": 23,
+      "status": "NO_PATH_OR_IDENTICAL_BLOB_IN_OBSERVED_MAIN_OR_OPEN_PRS",
+      "note": "Bez iste putanje ili identičnog bloba u pregledanom main/PR snapshotu."
+    }
+  ],
+  "warnings": [
+    "CATALOGUE_IS_SELECTED_SAMPLE_NOT_COMPLETE_INVENTORY",
+    "SEMANTIC_REPLACEMENT_COMPLETENESS_NOT_ESTABLISHED"
+  ],
+  "navigation": {
+    "sources_tab_default_view": "coverage",
+    "show_exact_23_paths": true,
+    "show_24_findings": true
+  },
+  "authority_effect": "NONE",
+  "projection_root": "96221fe853b91ad77a2e23be7b3eba6feececa33552f5cc156533480d8ecc724"
+}
