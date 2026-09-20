@@ -15,6 +15,7 @@ from typing import Any, Iterable, Mapping
 
 SCHEMA_VERSION = "1"
 LEGACY_INVENTORY_PATH = "reports/inventory.json"
+ARCHIVE_COVERAGE_PATH = "reports/archive-coverage-v1.json"
 
 
 def _git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -136,6 +137,42 @@ def _legacy_inventory(repo: Path, source_head_sha: str) -> dict[str, Any]:
     }
 
 
+def _archive_coverage(repo: Path, source_head_sha: str) -> dict[str, Any]:
+    result = _git(repo, "show", f"{source_head_sha}:{ARCHIVE_COVERAGE_PATH}", check=False)
+    if result.returncode != 0:
+        return {
+            "path": ARCHIVE_COVERAGE_PATH,
+            "state": "ABSENT",
+            "authority_effect": "NONE",
+        }
+
+    try:
+        payload = json.loads(result.stdout)
+    except (json.JSONDecodeError, TypeError):
+        return {
+            "path": ARCHIVE_COVERAGE_PATH,
+            "state": "INVALID",
+            "reason_codes": ["ARCHIVE_COVERAGE_INVALID_JSON"],
+            "authority_effect": "NONE",
+        }
+
+    try:
+        from harness.sdk.archive_coverage import project_for_operations_center
+        projection = project_for_operations_center(payload)
+    except Exception as exc:
+        return {
+            "path": ARCHIVE_COVERAGE_PATH,
+            "state": "INVALID",
+            "reason_codes": [f"ARCHIVE_COVERAGE_VALIDATOR_EXCEPTION:{type(exc).__name__}"],
+            "authority_effect": "NONE",
+        }
+
+    return {
+        "path": ARCHIVE_COVERAGE_PATH,
+        **projection,
+    }
+
+
 def build_snapshot(
     repo: str | Path,
     *,
@@ -158,6 +195,7 @@ def build_snapshot(
         "artifacts": artifacts,
         "artifacts_digest": _digest(artifacts),
         "legacy_inventory": _legacy_inventory(root, source_head_sha),
+        "archive_coverage": _archive_coverage(root, source_head_sha),
     }
     snapshot["snapshot_digest"] = _digest(snapshot)
     return snapshot
