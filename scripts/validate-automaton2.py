@@ -133,38 +133,38 @@ def validate_skill_evidence(root: Path, manifest: dict[str, Any]) -> list[str]:
     return errors
 
 
-def validate_execution_substrate(root: Path, manifest: dict[str, Any]) -> list[str]:
+def validate_epistemic_substrate(root: Path, manifest: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     substrate = (
         manifest.get("cognitive_state", {})
         .get("tools", {})
-        .get("execution_substrate", {})
+        .get("epistemic_substrate", {})
     )
     entries = substrate.get("entries", []) if isinstance(substrate, dict) else []
     if not isinstance(entries, list):
-        return ["execution substrate entries are not an array"]
+        return ["epistemic substrate entries are not an array"]
     for entry in entries:
         if not isinstance(entry, dict):
-            errors.append("execution substrate entry is not an object")
+            errors.append("epistemic substrate entry is not an object")
             continue
         relative = entry.get("path")
         if not isinstance(relative, str) or not relative:
-            errors.append("execution substrate entry has invalid path")
+            errors.append("epistemic substrate entry has invalid path")
             continue
         candidate = (root / relative).resolve()
         try:
             candidate.relative_to(root.resolve())
         except ValueError:
-            errors.append(f"execution substrate path escapes repository: {relative}")
+            errors.append(f"epistemic substrate path escapes repository: {relative}")
             continue
         if not candidate.is_file():
-            errors.append(f"execution substrate evidence missing: {relative}")
+            errors.append(f"epistemic substrate evidence missing: {relative}")
             continue
         data = candidate.read_bytes()
         if entry.get("sha256") != sha256_hex(data):
-            errors.append(f"execution substrate digest mismatch: {relative}")
+            errors.append(f"epistemic substrate digest mismatch: {relative}")
         if entry.get("size_bytes") != len(data):
-            errors.append(f"execution substrate size mismatch: {relative}")
+            errors.append(f"epistemic substrate size mismatch: {relative}")
     return errors
 
 
@@ -221,10 +221,10 @@ def build_receipt(
         "expected_parent_state_hash": expected_parent_state_hash,
         "manifest_state_hash": manifest.get("state_hash") if manifest else None,
         "skills_root_hash": manifest.get("skills_root_hash") if manifest else None,
-        "execution_substrate_root_hash": (
+        "epistemic_substrate_root_hash": (
             manifest.get("cognitive_state", {})
             .get("tools", {})
-            .get("execution_substrate", {})
+            .get("epistemic_substrate", {})
             .get("root_hash")
             if manifest else None
         ),
@@ -266,7 +266,7 @@ def evaluate(
         violations.extend(validate_parent_state(manifest, expected_parent_state_hash))
         violations.extend(validate_signature_contract(manifest, require_oidc))
         violations.extend(validate_skill_evidence(root, manifest))
-        violations.extend(validate_execution_substrate(root, manifest))
+        violations.extend(validate_epistemic_substrate(root, manifest))
         violations.extend(validate_replay(root, manifest, generator_path, hashes_path))
     except Exception as exc:
         violations.append(f"validator exception: {type(exc).__name__}: {exc}")
