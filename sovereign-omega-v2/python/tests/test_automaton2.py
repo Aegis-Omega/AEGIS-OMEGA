@@ -42,6 +42,17 @@ class Automaton2Tests(TestCase):
             "---\nname: test-skill\n---\n# Test\n",
             encoding="utf-8",
         )
+        (self.root / ".claude" / "hooks").mkdir(parents=True)
+        (self.root / ".claude" / "metacog").mkdir(parents=True)
+        (self.root / ".claude" / "settings.json").write_text(
+            '{"hooks": {}}\n', encoding="utf-8"
+        )
+        (self.root / ".claude" / "hooks" / "test-hook.sh").write_text(
+            "#!/bin/bash\nexit 0\n", encoding="utf-8"
+        )
+        (self.root / ".claude" / "metacog" / "test.mjs").write_text(
+            "export const ok = true\n", encoding="utf-8"
+        )
         (self.root / "scripts").mkdir()
         (self.root / "schemas").mkdir()
         (self.root / "scripts" / "build-cognitive-manifest.py").write_text(
@@ -99,6 +110,35 @@ class Automaton2Tests(TestCase):
         receipt = self.evaluate()
         self.assertEqual(receipt["outcome"], "DENIED")
         self.assertTrue(any("parent_state_hash mismatch" in item for item in receipt["violations"]))
+
+    def test_execution_substrate_digest_mismatch_is_denied(self) -> None:
+        hook = self.root / ".claude" / "hooks" / "test-hook.sh"
+        hook.write_text("#!/bin/bash\nexit 1\n", encoding="utf-8")
+        receipt = self.evaluate()
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertTrue(
+            any(
+                "execution substrate digest mismatch: .claude/hooks/test-hook.sh" in item
+                for item in receipt["violations"]
+            )
+        )
+
+    def test_execution_substrate_excludes_runtime_state(self) -> None:
+        manifest = self.write_manifest()
+        before = manifest["cognitive_state"]["tools"]["execution_substrate"]["root_hash"]
+        (self.root / ".claude" / "metacog" / "evidence-transitions.log").write_text(
+            "runtime\n", encoding="utf-8"
+        )
+        (self.root / ".claude" / "metacog" / "evidence-receipt.tmp").write_text(
+            "runtime\n", encoding="utf-8"
+        )
+        regenerated, _ = GENERATOR.build_manifest(
+            self.root,
+            source_ref="test-source",
+            parent_state_hash=self.parent_hash,
+        )
+        after = regenerated["cognitive_state"]["tools"]["execution_substrate"]["root_hash"]
+        self.assertEqual(before, after)
 
     def test_skill_digest_mismatch_is_denied(self) -> None:
         skill = self.root / ".claude" / "skills" / "test" / "SKILL.md"
