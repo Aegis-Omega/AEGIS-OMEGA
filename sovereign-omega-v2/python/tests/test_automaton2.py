@@ -42,6 +42,29 @@ class Automaton2Tests(TestCase):
             "---\nname: test-skill\n---\n# Test\n",
             encoding="utf-8",
         )
+        (self.root / ".claude" / "hooks").mkdir(parents=True)
+        (self.root / ".claude" / "metacog").mkdir(parents=True)
+        (self.root / ".claude" / "settings.json").write_text(
+            '{"hooks": {}}\n', encoding="utf-8"
+        )
+        (self.root / ".claude" / "hooks" / "test-hook.sh").write_text(
+            "#!/bin/bash\nexit 0\n", encoding="utf-8"
+        )
+        (self.root / ".claude" / "metacog" / "test.mjs").write_text(
+            "export const ok = true\n", encoding="utf-8"
+        )
+        (self.root / "genomics").mkdir()
+        (self.root / "genomics" / "pipeline.py").write_text(
+            "GENOMICS_FIXTURE = True\n", encoding="utf-8"
+        )
+        (self.root / "verifiable").mkdir()
+        (self.root / "verifiable" / "chain.py").write_text(
+            "VERIFIER_FIXTURE = True\n", encoding="utf-8"
+        )
+        (self.root / ".github" / "workflows").mkdir(parents=True)
+        (self.root / ".github" / "workflows" / "verifiable-proofs.yml").write_text(
+            "name: fixture\n", encoding="utf-8"
+        )
         (self.root / "scripts").mkdir()
         (self.root / "schemas").mkdir()
         (self.root / "scripts" / "build-cognitive-manifest.py").write_text(
@@ -99,6 +122,123 @@ class Automaton2Tests(TestCase):
         receipt = self.evaluate()
         self.assertEqual(receipt["outcome"], "DENIED")
         self.assertTrue(any("parent_state_hash mismatch" in item for item in receipt["violations"]))
+
+    def test_epistemic_substrate_digest_mismatch_is_denied(self) -> None:
+        hook = self.root / ".claude" / "hooks" / "test-hook.sh"
+        hook.write_text("#!/bin/bash\nexit 1\n", encoding="utf-8")
+        receipt = self.evaluate()
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertTrue(
+            any(
+                "epistemic substrate digest mismatch: .claude/hooks/test-hook.sh" in item
+                for item in receipt["violations"]
+            )
+        )
+
+    def test_epistemic_substrate_excludes_runtime_state(self) -> None:
+        manifest = self.write_manifest()
+        before = manifest["cognitive_state"]["tools"]["epistemic_substrate"]["root_hash"]
+        runtime_paths = (
+            self.root / ".claude" / "metacog" / "evidence-transitions.log",
+            self.root / ".claude" / "metacog" / "evidence-receipt.tmp",
+            self.root / ".claude" / "metacog" / "trace.jsonl",
+            self.root / ".claude" / "hooks" / "hook-runtime.log",
+            self.root / ".claude" / "hooks" / "hook-runtime.tmp",
+            self.root / ".claude" / "hooks" / "hook-runtime.jsonl",
+        )
+        for runtime_path in runtime_paths:
+            runtime_path.write_text("runtime\n", encoding="utf-8")
+        regenerated, _ = GENERATOR.build_manifest(
+            self.root,
+            source_ref="test-source",
+            parent_state_hash=self.parent_hash,
+        )
+        after = regenerated["cognitive_state"]["tools"]["epistemic_substrate"]["root_hash"]
+        self.assertEqual(before, after)
+
+    def test_epistemic_substrate_new_unlisted_hook_is_denied_directly(self) -> None:
+        new_hook = self.root / ".claude" / "hooks" / "new-hook.sh"
+        new_hook.write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
+        receipt = self.evaluate()
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertIn("epistemic substrate entry set mismatch", receipt["violations"])
+        self.assertIn("epistemic substrate root mismatch", receipt["violations"])
+
+    def test_genomics_source_mutation_is_denied(self) -> None:
+        source = self.root / "genomics" / "pipeline.py"
+        source.write_text("GENOMICS_FIXTURE = False\n", encoding="utf-8")
+        receipt = self.evaluate()
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertIn("genomics source entry set mismatch", receipt["violations"])
+        self.assertIn("genomics source root mismatch", receipt["violations"])
+
+    def test_genomics_verifier_mutation_is_denied(self) -> None:
+        verifier = self.root / "verifiable" / "chain.py"
+        verifier.write_text("VERIFIER_FIXTURE = False\n", encoding="utf-8")
+        receipt = self.evaluate()
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertIn("genomics verification entry set mismatch", receipt["violations"])
+        self.assertIn("genomics verification root mismatch", receipt["violations"])
+
+    def test_genomics_domain_cannot_claim_biological_or_clinical_validity(self) -> None:
+        manifest = self.write_manifest()
+        genomics = (
+            manifest["cognitive_state"]["tools"]["epistemic_substrate"]
+            ["domains"]["genomics"]
+        )
+        self.assertEqual(genomics["epistemic_tier"], "T2")
+        self.assertEqual(
+            genomics["authority_boundary"]["biological_correctness"],
+            "NOT_ESTABLISHED",
+        )
+        self.assertEqual(
+            genomics["authority_boundary"]["clinical_validity"],
+            "NOT_ESTABLISHED",
+        )
+        self.assertEqual(
+            genomics["authority_boundary"]["medical_admissibility"],
+            "NOT_ESTABLISHED",
+        )
+        receipt = self.evaluate()
+        self.assertEqual(
+            receipt["genomics_epistemic_root_hash"],
+            genomics["root_hash"],
+        )
+
+    def test_genomics_authority_escalation_is_denied(self) -> None:
+        manifest = json.loads((self.root / ".claude.json").read_text(encoding="utf-8"))
+        genomics = (
+            manifest["cognitive_state"]["tools"]["epistemic_substrate"]
+            ["domains"]["genomics"]
+        )
+        genomics["authority_boundary"]["clinical_validity"] = "ESTABLISHED"
+        source_root = genomics["source"]["root_hash"]
+        verification_root = genomics["verification"]["root_hash"]
+        genomics["root_hash"] = VALIDATOR.sha256_hex(
+            VALIDATOR.canonical_bytes(
+                {
+                    "source_root_hash": source_root,
+                    "verification_root_hash": verification_root,
+                    "authority_boundary": genomics["authority_boundary"],
+                }
+            )
+        )
+        substrate = manifest["cognitive_state"]["tools"]["epistemic_substrate"]
+        substrate["root_hash"] = VALIDATOR.sha256_hex(
+            VALIDATOR.canonical_bytes(
+                {
+                    "control_plane_root_hash": substrate["control_plane_root_hash"],
+                    "domains": {"genomics": genomics["root_hash"]},
+                }
+            )
+        )
+        self.rewrite_manifest(manifest)
+        receipt = self.evaluate()
+        self.assertEqual(receipt["outcome"], "DENIED")
+        self.assertIn(
+            "genomics authority boundary exceeds declared V1 authority",
+            receipt["violations"],
+        )
 
     def test_skill_digest_mismatch_is_denied(self) -> None:
         skill = self.root / ".claude" / "skills" / "test" / "SKILL.md"

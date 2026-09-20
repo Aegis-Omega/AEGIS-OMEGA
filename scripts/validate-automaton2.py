@@ -16,6 +16,15 @@ from jsonschema import Draft202012Validator
 RECEIPT_KIND = "AEGIS_AUTOMATON2_RECEIPT_V1"
 SCHEMA_VERSION = "1.0.0"
 ZERO_HASH = "0" * 64
+RUNTIME_STATE_SUFFIXES = (".log", ".tmp", ".jsonl")
+GENOMICS_AUTHORITY_BOUNDARY = {
+    "integrity_and_provenance": "CONTENT_ADDRESSED",
+    "replay_determinism": "VERIFIER_EVIDENCE_REQUIRED",
+    "biological_correctness": "NOT_ESTABLISHED",
+    "clinical_validity": "NOT_ESTABLISHED",
+    "medical_admissibility": "NOT_ESTABLISHED",
+    "external_reference_dataset_bound": False,
+}
 
 
 def canonical_bytes(value: Any) -> bytes:
@@ -133,6 +142,184 @@ def validate_skill_evidence(root: Path, manifest: dict[str, Any]) -> list[str]:
     return errors
 
 
+def discover_epistemic_substrate(root: Path) -> list[dict[str, Any]]:
+    """Independently rediscover the bounded repository epistemic substrate."""
+    candidates: list[Path] = []
+    settings = root / ".claude" / "settings.json"
+    if settings.is_file():
+        candidates.append(settings)
+
+    hooks_root = root / ".claude" / "hooks"
+    if hooks_root.is_dir():
+        candidates.extend(
+            path
+            for path in hooks_root.rglob("*")
+            if path.is_file()
+            and not path.name.endswith(RUNTIME_STATE_SUFFIXES)
+        )
+
+    metacog_root = root / ".claude" / "metacog"
+    if metacog_root.is_dir():
+        candidates.extend(path for path in metacog_root.glob("*.mjs") if path.is_file())
+
+    entries: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for path in sorted(candidates, key=lambda item: item.relative_to(root).as_posix()):
+        relative = path.relative_to(root).as_posix()
+        if relative in seen:
+            continue
+        seen.add(relative)
+        if path.is_symlink():
+            raise ValueError(f"epistemic substrate may not contain symlinks: {relative}")
+        data = path.read_bytes()
+        entries.append({
+            "path": relative,
+            "sha256": sha256_hex(data),
+            "size_bytes": len(data),
+        })
+    return entries
+
+
+def _discover_domain_files(root: Path, relative_root: str) -> list[dict[str, Any]]:
+    base = root / relative_root
+    if not base.is_dir():
+        return []
+    entries: list[dict[str, Any]] = []
+    for path in sorted(base.rglob("*"), key=lambda item: item.as_posix()):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(root)
+        if "__pycache__" in relative.parts or path.suffix == ".pyc":
+            continue
+        if path.name.endswith(RUNTIME_STATE_SUFFIXES):
+            continue
+        if path.is_symlink():
+            raise ValueError(f"epistemic domain may not contain symlinks: {relative.as_posix()}")
+        data = path.read_bytes()
+        entries.append({
+            "path": relative.as_posix(),
+            "sha256": sha256_hex(data),
+            "size_bytes": len(data),
+        })
+    return entries
+
+
+def discover_genomics_domain(root: Path) -> dict[str, list[dict[str, Any]]]:
+    source_entries = _discover_domain_files(root, "genomics")
+    verification_entries = _discover_domain_files(root, "verifiable")
+    workflow = root / ".github" / "workflows" / "verifiable-proofs.yml"
+    if workflow.is_file():
+        data = workflow.read_bytes()
+        verification_entries.append({
+            "path": workflow.relative_to(root).as_posix(),
+            "sha256": sha256_hex(data),
+            "size_bytes": len(data),
+        })
+        verification_entries.sort(key=lambda entry: entry["path"])
+    return {
+        "source": source_entries,
+        "verification": verification_entries,
+    }
+
+
+def validate_epistemic_substrate(root: Path, manifest: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    substrate = (
+        manifest.get("cognitive_state", {})
+        .get("tools", {})
+        .get("epistemic_substrate", {})
+    )
+    if not isinstance(substrate, dict):
+        return ["epistemic substrate is missing"]
+    entries = substrate.get("entries", [])
+    if not isinstance(entries, list):
+        return ["epistemic substrate entries are not an array"]
+
+    if substrate.get("count") != len(entries):
+        errors.append("epistemic substrate count mismatch")
+
+    manifest_index: list[dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            errors.append("epistemic substrate entry is not an object")
+            continue
+        relative = entry.get("path")
+        if not isinstance(relative, str) or not relative:
+            errors.append("epistemic substrate entry has invalid path")
+            continue
+        candidate = (root / relative).resolve()
+        try:
+            candidate.relative_to(root.resolve())
+        except ValueError:
+            errors.append(f"epistemic substrate path escapes repository: {relative}")
+            continue
+        if not candidate.is_file():
+            errors.append(f"epistemic substrate evidence missing: {relative}")
+            continue
+        data = candidate.read_bytes()
+        if entry.get("sha256") != sha256_hex(data):
+            errors.append(f"epistemic substrate digest mismatch: {relative}")
+        if entry.get("size_bytes") != len(data):
+            errors.append(f"epistemic substrate size mismatch: {relative}")
+        manifest_index.append({
+            "path": relative,
+            "sha256": entry.get("sha256"),
+            "size_bytes": entry.get("size_bytes"),
+        })
+
+    actual_index = discover_epistemic_substrate(root)
+    if manifest_index != actual_index:
+        errors.append("epistemic substrate entry set mismatch")
+
+    actual_control_plane_root = sha256_hex(canonical_bytes(actual_index))
+    if substrate.get("control_plane_root_hash") != actual_control_plane_root:
+        errors.append("epistemic substrate control-plane root mismatch")
+
+    domains = substrate.get("domains", {})
+    genomics = domains.get("genomics", {}) if isinstance(domains, dict) else {}
+    if not isinstance(genomics, dict):
+        errors.append("epistemic genomics domain is missing")
+        genomics = {}
+
+    discovered = discover_genomics_domain(root)
+    for section_name in ("source", "verification"):
+        section = genomics.get(section_name, {}) if isinstance(genomics, dict) else {}
+        manifest_entries = section.get("entries", []) if isinstance(section, dict) else []
+        actual_entries = discovered[section_name]
+        if manifest_entries != actual_entries:
+            errors.append(f"genomics {section_name} entry set mismatch")
+        actual_section_root = sha256_hex(canonical_bytes(actual_entries))
+        if not isinstance(section, dict) or section.get("root_hash") != actual_section_root:
+            errors.append(f"genomics {section_name} root mismatch")
+
+    boundary = genomics.get("authority_boundary", {}) if isinstance(genomics, dict) else {}
+    if boundary != GENOMICS_AUTHORITY_BOUNDARY:
+        errors.append("genomics authority boundary exceeds declared V1 authority")
+    source_root = (
+        genomics.get("source", {}).get("root_hash")
+        if isinstance(genomics.get("source", {}), dict) else None
+    )
+    verification_root = (
+        genomics.get("verification", {}).get("root_hash")
+        if isinstance(genomics.get("verification", {}), dict) else None
+    )
+    expected_genomics_root = sha256_hex(canonical_bytes({
+        "source_root_hash": source_root,
+        "verification_root_hash": verification_root,
+        "authority_boundary": boundary,
+    }))
+    if genomics.get("root_hash") != expected_genomics_root:
+        errors.append("genomics domain root mismatch")
+
+    expected_substrate_root = sha256_hex(canonical_bytes({
+        "control_plane_root_hash": actual_control_plane_root,
+        "domains": {"genomics": expected_genomics_root},
+    }))
+    if substrate.get("root_hash") != expected_substrate_root:
+        errors.append("epistemic substrate root mismatch")
+    return errors
+
+
 def validate_replay(
     root: Path,
     manifest: dict[str, Any],
@@ -186,6 +373,22 @@ def build_receipt(
         "expected_parent_state_hash": expected_parent_state_hash,
         "manifest_state_hash": manifest.get("state_hash") if manifest else None,
         "skills_root_hash": manifest.get("skills_root_hash") if manifest else None,
+        "epistemic_substrate_root_hash": (
+            manifest.get("cognitive_state", {})
+            .get("tools", {})
+            .get("epistemic_substrate", {})
+            .get("root_hash")
+            if manifest else None
+        ),
+        "genomics_epistemic_root_hash": (
+            manifest.get("cognitive_state", {})
+            .get("tools", {})
+            .get("epistemic_substrate", {})
+            .get("domains", {})
+            .get("genomics", {})
+            .get("root_hash")
+            if manifest else None
+        ),
         "signature_mode": (
             manifest.get("provenance", {}).get("signature_mode") if manifest else None
         ),
@@ -224,6 +427,7 @@ def evaluate(
         violations.extend(validate_parent_state(manifest, expected_parent_state_hash))
         violations.extend(validate_signature_contract(manifest, require_oidc))
         violations.extend(validate_skill_evidence(root, manifest))
+        violations.extend(validate_epistemic_substrate(root, manifest))
         violations.extend(validate_replay(root, manifest, generator_path, hashes_path))
     except Exception as exc:
         violations.append(f"validator exception: {type(exc).__name__}: {exc}")

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Build the deterministic AEGIS cognitive-state manifest.
 
-The manifest binds every SKILL.md file, an explicit parent state, and the
-Automaton-2 signature requirement. Identical repository inputs and parent state
-produce byte-identical outputs.
+The manifest binds every SKILL.md file, the repository-controlled epistemic
+substrate, an explicit parent state, and the Automaton-2 signature
+requirement. Identical repository inputs and parent state produce byte-identical
+outputs.
 """
 from __future__ import annotations
 
@@ -30,6 +31,15 @@ DIMENSIONS = (
     "agents", "tools", "skills", "tasks",
     "behavior", "steps", "interactions", "actions",
 )
+RUNTIME_STATE_SUFFIXES = (".log", ".tmp", ".jsonl")
+GENOMICS_AUTHORITY_BOUNDARY = {
+    "integrity_and_provenance": "CONTENT_ADDRESSED",
+    "replay_determinism": "VERIFIER_EVIDENCE_REQUIRED",
+    "biological_correctness": "NOT_ESTABLISHED",
+    "clinical_validity": "NOT_ESTABLISHED",
+    "medical_admissibility": "NOT_ESTABLISHED",
+    "external_reference_dataset_bound": False,
+}
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -80,6 +90,117 @@ def discover_skills(root: Path) -> list[dict[str, Any]]:
     return entries
 
 
+def discover_epistemic_substrate(root: Path) -> list[dict[str, Any]]:
+    """Hash repository-controlled Claude execution inputs, excluding runtime state."""
+    candidates: list[Path] = []
+    settings = root / ".claude" / "settings.json"
+    if settings.is_file():
+        candidates.append(settings)
+
+    hooks_root = root / ".claude" / "hooks"
+    if hooks_root.is_dir():
+        candidates.extend(
+            path
+            for path in hooks_root.rglob("*")
+            if path.is_file()
+            and not path.name.endswith(RUNTIME_STATE_SUFFIXES)
+        )
+
+    metacog_root = root / ".claude" / "metacog"
+    if metacog_root.is_dir():
+        candidates.extend(path for path in metacog_root.glob("*.mjs") if path.is_file())
+
+    entries: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for path in sorted(candidates, key=lambda item: item.relative_to(root).as_posix()):
+        relative = path.relative_to(root).as_posix()
+        if relative in seen:
+            continue
+        seen.add(relative)
+        if path.is_symlink():
+            raise RuntimeError(f"epistemic substrate may not contain symlinks: {relative}")
+        data = path.read_bytes()
+        entries.append(
+            {
+                "path": relative,
+                "sha256": sha256_bytes(data),
+                "size_bytes": len(data),
+            }
+        )
+    return entries
+
+
+def _discover_regular_files(root: Path, relative_root: str) -> list[dict[str, Any]]:
+    base = root / relative_root
+    if not base.is_dir():
+        return []
+    entries: list[dict[str, Any]] = []
+    for path in sorted(base.rglob("*"), key=lambda item: item.as_posix()):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(root)
+        if any(part in SKIP_DIRS or part == "__pycache__" for part in relative.parts):
+            continue
+        if path.name.endswith(RUNTIME_STATE_SUFFIXES) or path.suffix == ".pyc":
+            continue
+        if path.is_symlink():
+            raise RuntimeError(f"epistemic domain may not contain symlinks: {relative.as_posix()}")
+        data = path.read_bytes()
+        entries.append(
+            {
+                "path": relative.as_posix(),
+                "sha256": sha256_bytes(data),
+                "size_bytes": len(data),
+            }
+        )
+    return entries
+
+
+def discover_genomics_domain(root: Path) -> dict[str, Any]:
+    source_entries = _discover_regular_files(root, "genomics")
+    verification_entries = _discover_regular_files(root, "verifiable")
+
+    workflow = root / ".github" / "workflows" / "verifiable-proofs.yml"
+    if workflow.is_file():
+        data = workflow.read_bytes()
+        verification_entries.append(
+            {
+                "path": workflow.relative_to(root).as_posix(),
+                "sha256": sha256_bytes(data),
+                "size_bytes": len(data),
+            }
+        )
+        verification_entries.sort(key=lambda entry: entry["path"])
+
+    source_root_hash = sha256_bytes(canonical_bytes(source_entries))
+    verification_root_hash = sha256_bytes(canonical_bytes(verification_entries))
+    authority_boundary = dict(GENOMICS_AUTHORITY_BOUNDARY)
+    domain_root_hash = sha256_bytes(
+        canonical_bytes(
+            {
+                "source_root_hash": source_root_hash,
+                "verification_root_hash": verification_root_hash,
+                "authority_boundary": authority_boundary,
+            }
+        )
+    )
+    return {
+        "epistemic_tier": "T2",
+        "source": {
+            "count": len(source_entries),
+            "root_hash": source_root_hash,
+            "entries": source_entries,
+        },
+        "verification": {
+            "count": len(verification_entries),
+            "root_hash": verification_root_hash,
+            "entries": verification_entries,
+        },
+        "authority_boundary": authority_boundary,
+        "root_hash": domain_root_hash,
+    }
+
+
 def axis_hash(axis: str, focus: str, skills_root_hash: str) -> str:
     return sha256_bytes(
         canonical_bytes(
@@ -113,6 +234,26 @@ def build_manifest(
         for entry in entries
     ]
     skills_root_hash = sha256_bytes(canonical_bytes(skills_index))
+
+    execution_entries = discover_epistemic_substrate(root)
+    execution_index = [
+        {
+            "path": entry["path"],
+            "sha256": entry["sha256"],
+            "size_bytes": entry["size_bytes"],
+        }
+        for entry in execution_entries
+    ]
+    epistemic_control_root_hash = sha256_bytes(canonical_bytes(execution_index))
+    genomics_domain = discover_genomics_domain(root)
+    epistemic_substrate_root_hash = sha256_bytes(
+        canonical_bytes(
+            {
+                "control_plane_root_hash": epistemic_control_root_hash,
+                "domains": {"genomics": genomics_domain["root_hash"]},
+            }
+        )
+    )
 
     manifest: dict[str, Any] = {
         "schema": {
@@ -183,6 +324,24 @@ def build_manifest(
                     "declared_endpoint": "/v1/open-hands/egress",
                     "format": "cryptographic-event-stream",
                     "filtering": "verified-state-projection",
+                },
+                "epistemic_substrate": {
+                    "scope": {
+                        "settings": ".claude/settings.json",
+                        "hooks": ".claude/hooks/**",
+                        "metacognition": ".claude/metacog/*.mjs",
+                        "runtime_state_excluded": True,
+                        "scope_version": "repository-control-plane-v1",
+                        "external_knowledge_corpus_bound": False,
+                        "claims_evidence_corpus_bound": False,
+                    },
+                    "count": len(execution_entries),
+                    "control_plane_root_hash": epistemic_control_root_hash,
+                    "root_hash": epistemic_substrate_root_hash,
+                    "entries": execution_entries,
+                    "domains": {
+                        "genomics": genomics_domain,
+                    },
                 },
             },
             "skills": {
@@ -262,6 +421,91 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         if not HASH_RE.fullmatch(entry["sha256"]):
             raise ValueError(f"invalid skill hash: {entry['path']}")
 
+    substrate = manifest["cognitive_state"]["tools"].get("epistemic_substrate")
+    if not isinstance(substrate, dict):
+        raise ValueError("epistemic_substrate is missing")
+    if not HASH_RE.fullmatch(substrate.get("root_hash", "")):
+        raise ValueError("epistemic_substrate root_hash is invalid")
+    if not HASH_RE.fullmatch(substrate.get("control_plane_root_hash", "")):
+        raise ValueError("epistemic_substrate control_plane_root_hash is invalid")
+    substrate_entries = substrate.get("entries")
+    if not isinstance(substrate_entries, list):
+        raise ValueError("epistemic_substrate entries are invalid")
+    if substrate.get("count") != len(substrate_entries):
+        raise ValueError("epistemic_substrate count does not match entries")
+    expected_substrate_index: list[dict[str, Any]] = []
+    for entry in substrate_entries:
+        if not isinstance(entry, dict):
+            raise ValueError("epistemic_substrate entry is invalid")
+        if not HASH_RE.fullmatch(entry.get("sha256", "")):
+            raise ValueError(f"invalid epistemic substrate hash: {entry.get('path')}")
+        expected_substrate_index.append(
+            {
+                "path": entry.get("path"),
+                "sha256": entry.get("sha256"),
+                "size_bytes": entry.get("size_bytes"),
+            }
+        )
+    expected_control_plane_root = sha256_bytes(canonical_bytes(expected_substrate_index))
+    if expected_control_plane_root != substrate["control_plane_root_hash"]:
+        raise ValueError("epistemic_substrate control_plane_root_hash verification failed")
+
+    domains = substrate.get("domains")
+    if not isinstance(domains, dict) or "genomics" not in domains:
+        raise ValueError("epistemic_substrate genomics domain is missing")
+    genomics = domains["genomics"]
+    if not isinstance(genomics, dict):
+        raise ValueError("epistemic_substrate genomics domain is invalid")
+    for section_name in ("source", "verification"):
+        section = genomics.get(section_name)
+        if not isinstance(section, dict):
+            raise ValueError(f"genomics {section_name} section is invalid")
+        section_entries = section.get("entries")
+        if not isinstance(section_entries, list):
+            raise ValueError(f"genomics {section_name} entries are invalid")
+        section_index = []
+        for entry in section_entries:
+            if not isinstance(entry, dict) or not HASH_RE.fullmatch(entry.get("sha256", "")):
+                raise ValueError(f"genomics {section_name} entry hash is invalid")
+            section_index.append(
+                {
+                    "path": entry.get("path"),
+                    "sha256": entry.get("sha256"),
+                    "size_bytes": entry.get("size_bytes"),
+                }
+            )
+        expected_section_root = sha256_bytes(canonical_bytes(section_index))
+        if expected_section_root != section.get("root_hash"):
+            raise ValueError(f"genomics {section_name} root_hash verification failed")
+
+    authority_boundary = genomics.get("authority_boundary")
+    if not isinstance(authority_boundary, dict):
+        raise ValueError("genomics authority_boundary is invalid")
+    if authority_boundary != GENOMICS_AUTHORITY_BOUNDARY:
+        raise ValueError("genomics authority_boundary exceeds declared V1 authority")
+    expected_genomics_root = sha256_bytes(
+        canonical_bytes(
+            {
+                "source_root_hash": genomics["source"]["root_hash"],
+                "verification_root_hash": genomics["verification"]["root_hash"],
+                "authority_boundary": authority_boundary,
+            }
+        )
+    )
+    if expected_genomics_root != genomics.get("root_hash"):
+        raise ValueError("genomics domain root_hash verification failed")
+
+    expected_substrate_root = sha256_bytes(
+        canonical_bytes(
+            {
+                "control_plane_root_hash": substrate["control_plane_root_hash"],
+                "domains": {"genomics": genomics["root_hash"]},
+            }
+        )
+    )
+    if expected_substrate_root != substrate["root_hash"]:
+        raise ValueError("epistemic_substrate root_hash verification failed")
+
     unhashed = dict(manifest)
     state_hash = unhashed.pop("state_hash")
     expected = sha256_bytes(canonical_bytes(unhashed))
@@ -323,6 +567,10 @@ def write_or_check(
     )
     print(f"parent_state_hash={parent_state_hash}")
     print(f"skills_root_hash={manifest['skills_root_hash']}")
+    print(
+        "epistemic_substrate_root_hash="
+        f"{manifest['cognitive_state']['tools']['epistemic_substrate']['root_hash']}"
+    )
     print(f"state_hash={manifest['state_hash']}")
     return 0
 
