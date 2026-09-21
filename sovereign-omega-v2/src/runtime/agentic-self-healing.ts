@@ -106,6 +106,12 @@ export interface VolatileRecoveryAdapter {
   }>
 }
 
+export interface HealingAuthorityPreflightEvidence {
+  readonly eligible: boolean
+  readonly reason_code: string
+  readonly evidence_hash: SHA256Hex
+}
+
 export interface HealingAuthorityPreflight {
   /**
    * Eligibility check only. This is NOT mutation approval.
@@ -117,11 +123,7 @@ export interface HealingAuthorityPreflight {
     readonly plan: HealingPlan
     readonly operator_id: string
     readonly delta_k: number
-  }): Promise<{
-    readonly eligible: boolean
-    readonly reason_code: string
-    readonly evidence_hash: SHA256Hex
-  }>
+  }): Promise<HealingAuthorityPreflightEvidence>
 }
 
 export interface HealingCycleAdapters {
@@ -139,10 +141,14 @@ export interface HealingCycleReceipt {
   readonly status: HealingStatus
   readonly reason_code: string
   readonly observation_hash: SHA256Hex
+  readonly plan: HealingPlan | null
   readonly plan_hash: SHA256Hex | null
+  readonly attempt_number: number
+  readonly attempt_budget: typeof MAX_HEALING_ATTEMPTS_PER_INCIDENT
   readonly effective_state_hash: SHA256Hex
   readonly verifier_results: readonly HealingVerifierReceipt[]
   readonly verifier_root: SHA256Hex
+  readonly authority_preflight: HealingAuthorityPreflightEvidence | null
   readonly authority_preflight_evidence_hash: SHA256Hex | null
   readonly quarantine_active: boolean
   readonly volatile_reversion_applied: boolean
@@ -357,7 +363,7 @@ interface EmitReceiptInput {
   readonly plan: HealingPlan | null
   readonly effective_state_hash: SHA256Hex
   readonly verifier_results: readonly HealingVerifierReceipt[]
-  readonly authority_preflight_evidence_hash?: SHA256Hex
+  readonly authority_preflight?: HealingAuthorityPreflightEvidence
   readonly quarantine_active: boolean
   readonly volatile_reversion_applied: boolean
 }
@@ -634,11 +640,7 @@ export class AgenticSelfHealingRuntime {
       throw new AgenticHealingError('validated durable plan lost operator metadata')
     }
 
-    let preflight: {
-      readonly eligible: boolean
-      readonly reason_code: string
-      readonly evidence_hash: SHA256Hex
-    }
+    let preflight: HealingAuthorityPreflightEvidence
     try {
       preflight = await authority.preflight({
         observation,
@@ -671,7 +673,7 @@ export class AgenticSelfHealingRuntime {
         plan,
         effective_state_hash: observation.state_hash,
         verifier_results: Object.freeze([]),
-        authority_preflight_evidence_hash: preflight.evidence_hash,
+        authority_preflight: preflight,
         quarantine_active: true,
         volatile_reversion_applied: false,
       })
@@ -693,7 +695,7 @@ export class AgenticSelfHealingRuntime {
         plan,
         effective_state_hash: observation.state_hash,
         verifier_results: verifierResults,
-        authority_preflight_evidence_hash: preflight.evidence_hash,
+        authority_preflight: preflight,
         quarantine_active: true,
         volatile_reversion_applied: false,
       })
@@ -708,7 +710,7 @@ export class AgenticSelfHealingRuntime {
         plan,
         effective_state_hash: observation.state_hash,
         verifier_results: verifierResults,
-        authority_preflight_evidence_hash: preflight.evidence_hash,
+        authority_preflight: preflight,
         quarantine_active: true,
         volatile_reversion_applied: false,
       })
@@ -724,7 +726,7 @@ export class AgenticSelfHealingRuntime {
       plan,
       effective_state_hash: observation.state_hash,
       verifier_results: verifierResults,
-      authority_preflight_evidence_hash: preflight.evidence_hash,
+      authority_preflight: preflight,
       quarantine_active: true,
       volatile_reversion_applied: false,
     })
@@ -736,6 +738,13 @@ export class AgenticSelfHealingRuntime {
   }> {
     const verifier_root = await verifierRoot(input.verifier_results)
     const previous_receipt_hash = this.terminalHash
+    const attempt_number = input.status === 'MONITORING'
+      ? 0
+      : this.receipts.filter(
+          receipt =>
+            receipt.incident_id === input.observation.incident_id &&
+            receipt.status !== 'MONITORING',
+        ).length + 1
 
     const body = {
       schema_version: AGENTIC_HEALING_SCHEMA_VERSION,
@@ -745,11 +754,15 @@ export class AgenticSelfHealingRuntime {
       status: input.status,
       reason_code: input.reason_code,
       observation_hash: input.observation_hash,
+      plan: input.plan,
       plan_hash: input.plan?.plan_hash ?? null,
+      attempt_number,
+      attempt_budget: MAX_HEALING_ATTEMPTS_PER_INCIDENT,
       effective_state_hash: input.effective_state_hash,
       verifier_results: input.verifier_results,
       verifier_root,
-      authority_preflight_evidence_hash: input.authority_preflight_evidence_hash ?? null,
+      authority_preflight: input.authority_preflight ?? null,
+      authority_preflight_evidence_hash: input.authority_preflight?.evidence_hash ?? null,
       quarantine_active: input.quarantine_active,
       volatile_reversion_applied: input.volatile_reversion_applied,
       durable_apply_performed: false,
@@ -781,14 +794,29 @@ export async function certifyHealingChain(
   let previousSequence: SequenceNumber | null = null
   let valid = true
 
+  const validStatuses: readonly HealingStatus[] = [
+    'MONITORING',
+    'QUARANTINED',
+    'RECOVERED',
+    'AWAITING_AUTHORITY',
+    'SUSPENDED',
+    'ESCALATED',
+  ]
+
   for (const receipt of receipts) {
     if (
       receipt.schema_version !== AGENTIC_HEALING_SCHEMA_VERSION ||
+      !validStatuses.includes(receipt.status) ||
       receipt.authority_effect !== 'NONE' ||
       receipt.durable_apply_performed !== false ||
       receipt.is_replay_reconstructable !== true ||
       receipt.previous_receipt_hash !== previous ||
       (previousSequence !== null && receipt.sequence <= previousSequence) ||
+      typeof receipt.sequence !== 'bigint' ||
+      receipt.sequence < 0n ||
+      !Number.isInteger(receipt.attempt_number) ||
+      receipt.attempt_number < 0 ||
+      receipt.attempt_budget !== MAX_HEALING_ATTEMPTS_PER_INCIDENT ||
       !isHex64(receipt.observation_hash) ||
       (receipt.plan_hash !== null && !isHex64(receipt.plan_hash)) ||
       !isHex64(receipt.effective_state_hash) ||
@@ -803,12 +831,119 @@ export async function certifyHealingChain(
       break
     }
 
+    if (receipt.status === 'MONITORING') {
+      if (
+        receipt.attempt_number !== 0 ||
+        receipt.plan !== null ||
+        receipt.plan_hash !== null ||
+        receipt.quarantine_active ||
+        receipt.volatile_reversion_applied ||
+        receipt.authority_preflight !== null ||
+        receipt.authority_preflight_evidence_hash !== null
+      ) {
+        valid = false
+        break
+      }
+    } else if (receipt.attempt_number < 1) {
+      valid = false
+      break
+    }
+
+    if (receipt.status === 'RECOVERED') {
+      if (
+        receipt.plan?.mode !== 'GRACE_REVERSION' ||
+        receipt.quarantine_active ||
+        !receipt.volatile_reversion_applied ||
+        receipt.authority_preflight !== null
+      ) {
+        valid = false
+        break
+      }
+    }
+
+    if (receipt.status === 'AWAITING_AUTHORITY') {
+      if (
+        receipt.plan?.mode !== 'PROPOSE_MUTATION' ||
+        !receipt.quarantine_active ||
+        receipt.volatile_reversion_applied ||
+        receipt.authority_preflight?.eligible !== true
+      ) {
+        valid = false
+        break
+      }
+    }
+
+    if (
+      ['QUARANTINED', 'SUSPENDED', 'ESCALATED'].includes(receipt.status) &&
+      !receipt.quarantine_active
+    ) {
+      valid = false
+      break
+    }
+
+    if (receipt.plan === null) {
+      if (receipt.plan_hash !== null) {
+        valid = false
+        break
+      }
+    } else {
+      if (
+        receipt.plan.authority_effect !== 'NONE' ||
+        receipt.plan.is_replay_reconstructable !== true ||
+        receipt.plan.observation_hash !== receipt.observation_hash ||
+        !['GRACE_REVERSION', 'PROPOSE_MUTATION'].includes(receipt.plan.mode) ||
+        !isHex64(receipt.plan.candidate_state_hash) ||
+        !isHex64(receipt.plan.plan_hash)
+      ) {
+        valid = false
+        break
+      }
+
+      const expectedPlanHash = await hashValue({
+        planner_id: receipt.plan.planner_id,
+        observation_hash: receipt.plan.observation_hash,
+        mode: receipt.plan.mode,
+        candidate_state_hash: receipt.plan.candidate_state_hash,
+        operator_id: receipt.plan.operator_id ?? null,
+        delta_k: receipt.plan.delta_k ?? null,
+        rationale_code: receipt.plan.rationale_code,
+      }) as SHA256Hex
+
+      if (
+        expectedPlanHash !== receipt.plan.plan_hash ||
+        receipt.plan_hash !== receipt.plan.plan_hash
+      ) {
+        valid = false
+        break
+      }
+    }
+
+    if (receipt.authority_preflight === null) {
+      if (receipt.authority_preflight_evidence_hash !== null) {
+        valid = false
+        break
+      }
+    } else {
+      if (
+        typeof receipt.authority_preflight.eligible !== 'boolean' ||
+        !receipt.authority_preflight.reason_code ||
+        !isHex64(receipt.authority_preflight.evidence_hash) ||
+        receipt.authority_preflight_evidence_hash !==
+          receipt.authority_preflight.evidence_hash
+      ) {
+        valid = false
+        break
+      }
+    }
+
     const expectedVerifierResults: HealingVerifierReceipt[] = []
     for (const result of receipt.verifier_results) {
       if (
         !result.verifier_id ||
+        typeof result.passed !== 'boolean' ||
         !isHex64(result.evidence_hash) ||
-        !isHex64(result.result_hash)
+        !isHex64(result.result_hash) ||
+        receipt.plan_hash === null
       ) {
         valid = false
         break
@@ -845,10 +980,14 @@ export async function certifyHealingChain(
       status: receipt.status,
       reason_code: receipt.reason_code,
       observation_hash: receipt.observation_hash,
+      plan: receipt.plan,
       plan_hash: receipt.plan_hash,
+      attempt_number: receipt.attempt_number,
+      attempt_budget: receipt.attempt_budget,
       effective_state_hash: receipt.effective_state_hash,
       verifier_results: receipt.verifier_results,
       verifier_root: receipt.verifier_root,
+      authority_preflight: receipt.authority_preflight,
       authority_preflight_evidence_hash: receipt.authority_preflight_evidence_hash,
       quarantine_active: receipt.quarantine_active,
       volatile_reversion_applied: receipt.volatile_reversion_applied,
@@ -868,7 +1007,6 @@ export async function certifyHealingChain(
     previousSequence = receipt.sequence
   }
 
-  // Terminal authority stops at the last independently validated receipt.
   const terminal_hash = previous
 
   const certificate_hash = await hashValue({
