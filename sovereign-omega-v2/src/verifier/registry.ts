@@ -43,7 +43,7 @@ class VerifierRegistry {
 
 export const verifierRegistry = new VerifierRegistry()
 
-class MutationOperatorRegistry {
+export class MutationOperatorRegistry {
   private readonly operators = new Map<string, MutationOperatorMetadata>()
   private sealed = false
 
@@ -72,15 +72,19 @@ class MutationOperatorRegistry {
 
 export const mutationOperatorRegistry = new MutationOperatorRegistry()
 
-class CapacityDeclarationRegistry {
+export class CapacityDeclarationRegistry {
   private readonly declarations = new Map<string, CapacityDeclaration>()
 
+  constructor(
+    private readonly operatorRegistry: MutationOperatorRegistry = mutationOperatorRegistry,
+  ) {}
+
   async register(declaration: CapacityDeclaration): Promise<void> {
-    mutationOperatorRegistry.validate(declaration.mutation_operators)
+    this.operatorRegistry.validate(declaration.mutation_operators)
     if (!Number.isFinite(declaration.k_bound) || declaration.k_bound < 0)
       throw new RegistrationError(`k_bound must be finite non-negative for ${declaration.component_id}`)
 
-    const computedK = mutationOperatorRegistry.computeKBound(declaration.mutation_operators)
+    const computedK = this.operatorRegistry.computeKBound(declaration.mutation_operators)
     if (computedK > declaration.k_bound)
       throw new RegistrationError(`Computed K (${computedK}) exceeds k_bound (${declaration.k_bound})`)
 
