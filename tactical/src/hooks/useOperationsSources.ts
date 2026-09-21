@@ -2,6 +2,16 @@ import { useEffect, useState } from 'react'
 
 const BRIDGE = (import.meta.env.VITE_BRIDGE_URL as string | undefined) ?? 'http://localhost:7890'
 
+export interface OperationsSourceFinding {
+  id: string
+  priority: 'P0' | 'P1' | 'P2'
+  component: string
+  path_count: number
+  individually_catalogued_paths: number
+  uncatalogued_paths: number
+  authority_effect: 'NONE'
+}
+
 export interface OperationsSourceCard {
   id: 'catalogued_sources' | 'archive_project_files' | 'coverage_groups' | 'unsurfaced_no_counterpart'
   label: string
@@ -20,7 +30,7 @@ export interface OperationsSourcesPayload {
     observed_at_utc: string
   }
   cards: OperationsSourceCard[]
-  findings: readonly Record<string, unknown>[]
+  findings: readonly OperationsSourceFinding[]
   unsurfaced_paths: readonly string[]
   warnings: readonly string[]
   consumer_contract: {
@@ -53,6 +63,21 @@ function validatePayload(value: unknown): OperationsSourcesPayload {
   }
   if (!Array.isArray(payload.findings) || !Array.isArray(payload.unsurfaced_paths)) {
     throw new Error('SOURCE_DETAILS_INVALID')
+  }
+  for (const finding of payload.findings) {
+    if (
+      typeof finding !== 'object' ||
+      finding === null ||
+      typeof finding.id !== 'string' ||
+      !['P0', 'P1', 'P2'].includes(finding.priority) ||
+      typeof finding.component !== 'string' ||
+      typeof finding.path_count !== 'number' ||
+      typeof finding.individually_catalogued_paths !== 'number' ||
+      typeof finding.uncatalogued_paths !== 'number' ||
+      finding.authority_effect !== 'NONE'
+    ) {
+      throw new Error('SOURCE_FINDING_INVALID')
+    }
   }
   if (payload.cards[2]?.value !== payload.findings.length) throw new Error('SOURCE_FINDING_COUNT_MISMATCH')
   if (payload.cards[3]?.value !== payload.unsurfaced_paths.length) throw new Error('SOURCE_PATH_COUNT_MISMATCH')
