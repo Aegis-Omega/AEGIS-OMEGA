@@ -6,6 +6,7 @@ on:
       - 'integration/rh-final-closure-v1'
     paths:
       - 'sovereign-omega-v2/formal/bridges/lean/RHFinalClosureSpineV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/RHTranslatedKernelDominanceV1.lean'
       - 'sovereign-omega-v2/formal/bridges/lean/Weil*.lean'
       - '.github/workflows/rh-final-closure-spine-v1.yml'
   pull_request:
@@ -91,7 +92,10 @@ jobs:
             WeilThreeBlockPrimeEvaluationV30
             WeilThreeBlockCrossAssemblyV30
             WeilSeparatedArchBridgeV31
+            WeilTwoPointPositivityV1
+            WeilAbjadFourPhaseBridgeV1
             RHFinalClosureSpineV1
+            RHTranslatedKernelDominanceV1
             RHFourBlockBoundObstructionV1
           )
           : > evidence/modules.txt
@@ -148,6 +152,9 @@ jobs:
           #print axioms AEGIS.WeilSeparatedArchBridgeV31.twice_packet_width_eq_correlation_width_v31
           #print axioms AEGIS.RHFinalClosureV1.final_sign_residual_iff_weil_negativity_v1
           #print axioms AEGIS.RHFinalClosureV1.retained_three_block_sign_v1
+          #print axioms AEGIS.RHTranslatedKernelDominanceV1.neg_actual_two_point_eq_weil_two_point_v1
+          #print axioms AEGIS.RHTranslatedKernelDominanceV1.component_bounds_imply_four_phase_rhs_nonpositive_v1
+          #print axioms AEGIS.RHTranslatedKernelDominanceV1.zero_shift_component_dominance_iff_final_sign_v1
           #print axioms AEGIS.RHFourBlockBoundObstructionV1.four_block_absolute_budget_fails_v1
           #print axioms AEGIS.RHFourBlockBoundObstructionV1.four_block_missing_margin_v1
           #print axioms AEGIS.WeilSeparatedArchBridgeV31.three_block_bound_of_moments
@@ -163,6 +170,7 @@ jobs:
           SOURCE_SHA=$SOURCE_SHA
           UNION_TREE=V8_FIXED_LINE_PLUS_RESTRICTED_CRITERION_PLUS_V31_SIGN_STACK
           FINAL_SIGN_RESIDUAL_EQ_WEIL_NEGATIVITY=TARGETED
+          RKHS_COMPONENT_BOX_EQ_FINAL_SIGN=TARGETED
           FINITE_RKHS_DOMINANCE_KERNEL=IMPORTED_EXISTING
           SAME_SPAN_CONGRUENCE_KERNEL=IMPORTED_EXISTING
           CONCRETE_FINITE_SEMANTICS_499=IMPORTED_EXISTING
