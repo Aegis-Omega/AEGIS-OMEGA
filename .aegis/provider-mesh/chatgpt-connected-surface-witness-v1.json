@@ -1,0 +1,52 @@
+{
+  "schema": "AEGIS_CHATGPT_CONNECTED_SURFACE_WITNESS_V1",
+  "source_surface": "CHATGPT_CONNECTED_APPS",
+  "authority_effect": "NONE",
+  "runtime_snapshot_root": "e7ed81df146f16bb97cff0488a9f4f1b30cb431eb3e54421b3d329f72c655469",
+  "observations": [
+    {
+      "provider_id": "chatgpt-github",
+      "capability": "REPOSITORY_READ",
+      "probe_operation": "get_repo",
+      "outcome": "READ_SUCCESS",
+      "result_count": 1,
+      "evidence_hash": "8ea83d5ef36bad8269c3f6f14177d57b7e0b93c9419ec4c810a51b0ad9612bea",
+      "selection_receipt_hash": "3ab4165d2aa11301b97670d3a383e411869a7de48a395c4589e8ab8bfca73a4c"
+    },
+    {
+      "provider_id": "chatgpt-google-drive",
+      "capability": "DOCUMENT_RETRIEVAL",
+      "probe_operation": "search",
+      "outcome": "READ_SUCCESS",
+      "result_count": 1,
+      "evidence_hash": "a06f155dd55f5d050ada423a70403277d1c31152146c8b85e5910c64c88fb56f",
+      "selection_receipt_hash": "ef10b2e6a8f98e38e8c101a26f6662671299e0b42992e6f926f51d70c71ea652"
+    },
+    {
+      "provider_id": "chatgpt-gmail",
+      "capability": "EMAIL_RETRIEVAL",
+      "probe_operation": "search_email_ids",
+      "outcome": "READ_SUCCESS",
+      "result_count": 1,
+      "evidence_hash": "83fdedda0412e1144d6e5ab5283151bbc36c600507f83a7b961fe175982bc9f8",
+      "selection_receipt_hash": "4617e0f8d4da105e15934c44d66170070d28bcf6fc576e1272fa514dc52e3c5b"
+    },
+    {
+      "provider_id": "chatgpt-google-calendar",
+      "capability": "CALENDAR_READ",
+      "probe_operation": "list_calendars",
+      "outcome": "READ_SUCCESS",
+      "result_count": 1,
+      "evidence_hash": "efeb81d3d58033c847484e2bfbb7c9d22263231edbf54b222f6394c68dad9a75",
+      "selection_receipt_hash": "fd27ae5b40090de13edebd5b96787b9b3f8680ad9dff520f779a0615493ea81b"
+    }
+  ],
+  "evidence_boundary": {
+    "account_identifiers_included": false,
+    "retrieved_content_included": false,
+    "credentials_included": false,
+    "write_authority_granted": false,
+    "merge_authority_granted": false,
+    "deploy_authority_granted": false
+  }
+}
