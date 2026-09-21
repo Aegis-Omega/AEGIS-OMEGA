@@ -36,6 +36,10 @@ export type ProviderCapabilityV1 =
   | 'DOCUMENT_RETRIEVAL'
   | 'EMAIL_RETRIEVAL'
   | 'CALENDAR_READ'
+  | 'COLLABORATION_READ'
+  | 'KNOWLEDGE_BASE_READ'
+  | 'WORK_TRACKING_READ'
+  | 'CRM_READ'
 
 export type ProviderObservationStateV1 =
   | 'UNKNOWN'
@@ -160,6 +164,10 @@ const ALL_CAPABILITIES = new Set<ProviderCapabilityV1>([
   'DOCUMENT_RETRIEVAL',
   'EMAIL_RETRIEVAL',
   'CALENDAR_READ',
+  'COLLABORATION_READ',
+  'KNOWLEDGE_BASE_READ',
+  'WORK_TRACKING_READ',
+  'CRM_READ',
 ])
 const ALL_STATES = new Set<ProviderObservationStateV1>([
   'UNKNOWN',
@@ -642,4 +650,32 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     declared_capabilities: ['CALENDAR_READ'],
     authority_effect: 'NONE',
   },
-]
+]  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-slack',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['COLLABORATION_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-notion',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['KNOWLEDGE_BASE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-linear',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['WORK_TRACKING_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-hubspot',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['CRM_READ'],
+    authority_effect: 'NONE',
+  },
+
