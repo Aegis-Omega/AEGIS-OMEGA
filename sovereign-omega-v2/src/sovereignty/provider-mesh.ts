@@ -502,6 +502,20 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
   },
   {
     schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'cloudflare-anthropic',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['AGENT_EXECUTION', 'MODEL_INFERENCE'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'cloudflare-worker',
+    planes: ['EXECUTION'],
+    declared_capabilities: ['SERVERLESS_FUNCTION', 'HTTP_EGRESS'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
     provider_id: 'dashscope',
     planes: ['INTELLIGENCE'],
     declared_capabilities: ['MODEL_INFERENCE'],
