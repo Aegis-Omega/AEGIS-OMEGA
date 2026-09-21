@@ -20,6 +20,7 @@ const PAYPAL_BASE          = PAYPAL_MODE === 'live'
 const TIER_MIN_USD: Record<string, number> = {
   operator:  48.00,  // allow $1 tolerance for currency rounding
   sovereign: 498.00,
+  audit:    2999.00, // $3,000 fixed-fee service; $1 tolerance
 }
 
 // Free tier: max 1 active key per email, max 100 new keys per day globally
@@ -38,7 +39,7 @@ async function getPayPalToken(): Promise<string> {
   return data.access_token as string
 }
 
-interface CaptureResult { status: string; capturedUSD: number }
+interface CaptureResult { status: string; capturedUSD: number; captureId: string }
 
 async function sendApiKey(email: string, tier: string, rawKey: string): Promise<void> {
   if (!RESEND_API_KEY) return
@@ -70,7 +71,11 @@ async function captureOrder(token: string, orderId: string): Promise<CaptureResu
     // deno-lint-ignore no-explicit-any
     (data as any)?.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value ?? '0'
   )
-  return { status: data.status as string, capturedUSD }
+  const captureId = String(
+    // deno-lint-ignore no-explicit-any
+    (data as any)?.purchase_units?.[0]?.payments?.captures?.[0]?.id ?? ''
+  )
+  return { status: data.status as string, capturedUSD, captureId }
 }
 
 Deno.serve(async (req) => {
@@ -84,7 +89,7 @@ Deno.serve(async (req) => {
   const tierNorm  = (body.tier  ?? '').toLowerCase().trim()
   const emailNorm = (body.email ?? '').toLowerCase().trim()
 
-  if (!['explorer', 'operator', 'sovereign'].includes(tierNorm))
+  if (!['explorer', 'operator', 'sovereign', 'audit'].includes(tierNorm))
     return new Response(JSON.stringify({ error: 'Invalid tier' }), { status: 400, headers: CORS })
   if (!emailNorm || !emailNorm.includes('@'))
     return new Response(JSON.stringify({ error: 'Valid email required' }), { status: 400, headers: CORS })
@@ -141,16 +146,55 @@ Deno.serve(async (req) => {
 
     try {
       const ppToken = await getPayPalToken()
-      const { status, capturedUSD } = await captureOrder(ppToken, orderId)
+      const { status, capturedUSD, captureId } = await captureOrder(ppToken, orderId)
       if (status !== 'COMPLETED')
         return new Response(JSON.stringify({ error: `Order not completed (status: ${status})` }), { status: 402, headers: CORS })
 
       const minUSD = TIER_MIN_USD[tierNorm] ?? 0
       if (capturedUSD < minUSD)
         return new Response(
-          JSON.stringify({ error: `Payment amount $${capturedUSD.toFixed(2)} below minimum $${minUSD.toFixed(2)} for ${tierNorm} tier` }),
+          JSON.stringify({ error: `Payment amount ${capturedUSD.toFixed(2)} below minimum ${minUSD.toFixed(2)} for ${tierNorm} tier` }),
           { status: 402, headers: CORS },
         )
+
+      if (tierNorm === 'audit') {
+        const notifyUrl    = `${Deno.env.get('SUPABASE_URL')}/functions/v1/notify`
+        const notifySecret = Deno.env.get('NOTIFY_SECRET') ?? ''
+        fetch(notifyUrl, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'x-notify-secret': notifySecret },
+          body: JSON.stringify({
+            channel: 'both',
+            subject: '💰 AEGIS Audit purchased — $3,000',
+            text: `Agent Action Boundary Audit purchased.\n\nCustomer: ${emailNorm}\nPayPal order: ${orderId}\nCapture: ${captureId || 'unavailable'}\nAmount: ${capturedUSD.toFixed(2)}\n\nManual scope confirmation required before kickoff.`,
+          }),
+        }).catch(e => console.error('Audit notify failed (non-fatal):', e))
+
+        if (RESEND_API_KEY) {
+          fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: 'AEGIS Omega <api@aegisomega.com>',
+              to: [emailNorm],
+              subject: 'AEGIS Agent Action Boundary Audit — payment received',
+              html: '<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;padding:24px"><h2>Payment received</h2><p>We received your payment for the <strong>AEGIS Agent Action Boundary Audit</strong>.</p><p>Scope: one tool-using workflow. We will confirm the representative workflow and kickoff details before work begins.</p><p>This purchase is a fixed-fee technical audit engagement; it is not a compliance certification or a platform-wide safety guarantee.</p><p>Reference: <code>' + orderId + '</code></p><p>AEGIS Omega Labs<br><a href="https://aegisomega.com">aegisomega.com</a></p></div>',
+            }),
+          }).catch(e => console.error('Audit confirmation failed (non-fatal):', e))
+        }
+
+        return new Response(
+          JSON.stringify({
+            paid: true,
+            product: 'agent_action_boundary_audit',
+            amount_usd: capturedUSD,
+            order_id: orderId,
+            capture_id: captureId || null,
+            fulfillment: 'manual_scope_confirmation',
+          }),
+          { headers: { ...CORS, 'Content-Type': 'application/json' } },
+        )
+      }
     } catch (e) {
       console.error('PayPal capture error:', e)
       return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: CORS })
