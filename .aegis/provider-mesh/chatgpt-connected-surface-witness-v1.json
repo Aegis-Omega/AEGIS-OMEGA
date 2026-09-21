@@ -5,7 +5,8 @@
   "runtime_snapshot_roots": [
     "e7ed81df146f16bb97cff0488a9f4f1b30cb431eb3e54421b3d329f72c655469",
     "6ea2d6d2d3e28219097803de40339027df20ef1640c2a7d2f71550b65e16a24d",
-    "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02"
+    "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
+    "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010"
   ],
   "observations": [
     {
@@ -165,6 +166,110 @@
       "runtime_snapshot_root": "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
       "selection_outcome": "SELECTED",
       "selection_receipt_hash": "f8d79373e75baafd41f038e169f8909296189400988c9a0cca45b59338fe02dd"
+    },
+    {
+      "provider_id": "chatgpt-dropbox",
+      "capability": "DOCUMENT_RETRIEVAL",
+      "probe_operation": "who_am_i",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "93ef7092b6970a9e527bf6b4719614059ea4648d7131f33faa62b0bf2d0f7cf4",
+      "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "650df2d33668c0cc2cb6075c47952e715053054813ea7c9e71961101c1398da3"
+    },
+    {
+      "provider_id": "chatgpt-sharepoint",
+      "capability": "DOCUMENT_RETRIEVAL",
+      "probe_operation": "get_profile",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "cbcd52517b84fe36e17e4f27df7fe4f37dbf0f88103ab75f901a6c44148b62bd",
+      "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+      "selection_outcome": "ELIGIBLE_NOT_SELECTED",
+      "selection_receipt_hash": null
+    },
+    {
+      "provider_id": "chatgpt-outlook-email",
+      "capability": "EMAIL_RETRIEVAL",
+      "probe_operation": "get_profile",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "344faed00555a4d4c5838f346e67867fb11c0ff57ce7d5b659cf74460e5ca974",
+      "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "20a9006109aa6ab736933b5b72e0fb8021f1a3d2034a2e5be3c1874a3685b412"
+    },
+    {
+      "provider_id": "chatgpt-outlook-calendar",
+      "capability": "CALENDAR_READ",
+      "probe_operation": "get_profile",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "1b1cca8765b51b3e66ae1cf9297a7bb3dcb7ef839bb6418152b47485803d40e1",
+      "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "abff17d1daa04ddf8ead5777ef4374fb4c8ecc53211afc88c3348c7446135175"
+    },
+    {
+      "provider_id": "chatgpt-scite",
+      "capability": "SCIENTIFIC_LITERATURE_READ",
+      "probe_operation": "search_literature",
+      "outcome": "QUOTA_EXHAUSTED",
+      "observation_state": "OBSERVED_UNAVAILABLE",
+      "blocker_code": "MCP_MONTHLY_LIMIT_REACHED",
+      "result_count": 0,
+      "evidence_hash": "1d35d8cb86dd306bbbdc83a437efcc096cb782868b32541f0757ace321af70e3",
+      "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+      "selection_outcome": "DENIED",
+      "selection_receipt_hash": "c6249659715ad246dbb4739fb78b063b0efb5818d26e87a4dfe3f416380cf248"
+    },
+    {
+      "provider_id": "chatgpt-hugging-face",
+      "capability": "MODEL_HUB_READ",
+      "probe_operation": "hf_whoami",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "b23d5f3c7d10bff92d67eaa2b296fc4ae1b7f9876dc157b7932c34ea0468e94f",
+      "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "0713c77b95298b63cccf6d674df91a447bc318ccb0e02c3f9ec3337da7cce1f4"
+    },
+    {
+      "provider_id": "chatgpt-gitlab",
+      "capability": "REPOSITORY_READ",
+      "probe_operation": "get_current_user",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "7eae5f7bedf2f8066ae09626dcc32d3ee11158e65d20f9a335dcea309653ac40",
+      "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "51a94bebe7995566cd7d5e652e76d12e7f95fa53b5b70ec8101a1a2bf570eef2"
+    },
+    {
+      "provider_id": "chatgpt-vercel",
+      "capability": "DEPLOYMENT_PLATFORM_READ",
+      "probe_operation": "list_teams",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "b00fc42d3e8ee52d62af3b2a919d567ca861f7dce69e339a69c69a118e313a77",
+      "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "65e08afffdd2bcba11e8fca916a5fa761baac1ac1236a976de18a289d3398e33"
     }
   ],
   "probe_diagnostics": [
@@ -181,6 +286,21 @@
     {
       "provider_id": "chatgpt-blockscout",
       "diagnostic": "Session initialization succeeded, but the required Blockscout analysis skill could not be fetched through the available resource/web surface; blockchain-data routing therefore remained denied.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-scite",
+      "diagnostic": "Live literature-search probe was blocked by the connector monthly MCP usage limit; scientific-literature routing remained denied.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-sharepoint",
+      "diagnostic": "Live profile probe succeeded. SharePoint is an eligible DOCUMENT_RETRIEVAL candidate but was not selected because deterministic routing selected another fresh provider.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-vercel",
+      "diagnostic": "Live list-teams probe completed successfully with zero returned teams; provider execution succeeded without asserting that a Vercel project exists.",
       "authority_effect": "NONE"
     }
   ],
@@ -210,6 +330,11 @@
     "provider_id": "chatgpt-sofa",
     "post_id": "094ea5ab-8f71-4580-a506-c9b8355db8d7",
     "applied_boundary": "LIVE_INVOCATION_SCHEMA_OVERRIDES_ADVERTISED_ARGUMENT_ASSUMPTIONS; TRANSPORT_METADATA_STAYS_SEPARATE_FROM_DECLARED_BUSINESS_INPUTS",
+    "authority_effect": "NONE"
+  },
+  "freshness": {
+    "latest_runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+    "note": "Entries from earlier snapshots are historical evidence unless refreshed; routing remains governed by provider_runtime_latest_v1 freshness and state.",
     "authority_effect": "NONE"
   }
 }
