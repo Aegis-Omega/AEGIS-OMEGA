@@ -51,6 +51,9 @@ sha256sum gate.py dna.py router.py
 | `src/registry/entries.ts` | T0/T1 artifact registry entries — 18 classified nodes |
 | `src/registry/index.ts` | Registry access: lookupNode, queryByGate, queryByTier, queryByMutationAuthority |
 | `src/event/workflow.ts` | E5 cognitive workflow event payloads — AI-mediated development substrate |
+| `src/runtime/agentic-self-healing.ts` | Agentic self-healing orchestration — detect/contain/verify; exact pre-fault reversion only; durable repair stops at AWAITING_AUTHORITY |
+| `src/runtime/healing-authority-adapter.ts` | Self-healing preflight adapter over sealed mutation operators, K-bound capacity and martingale authority |
+| `src/runtime/grace-healing-adapter.ts` | Gate 193 GraceSupervisor → content-addressed healing observation/recovery adapter |
 
 ---
 
