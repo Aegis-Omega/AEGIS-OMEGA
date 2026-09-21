@@ -61,7 +61,7 @@ class TacticalSourcesContract(unittest.TestCase):
         self.assertIn("envelope.data.stream_url", self.execution_hook)
         self.assertIn("PLATFORM_EXECUTION_ID_MISMATCH", self.execution_hook)
         self.assertIn("PLATFORM_STREAM_URL_MISSING", self.execution_hook)
-        self.assertNotIn("data.stream_url", self.execution_hook)
+        self.assertNotIn("streamUrl   = data.stream_url", self.execution_hook)
 
     def test_all_semantic_source_errors_fail_closed(self) -> None:
         self.assertIn("const semanticFailure = message.startsWith('SOURCE_')", self.hook)
