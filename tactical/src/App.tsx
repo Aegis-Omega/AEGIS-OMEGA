@@ -6,8 +6,10 @@ import { ControlPanel } from './components/ControlPanel.js'
 import { ExecutionTrace } from './components/ExecutionTrace.js'
 import { KeyEntry } from './components/KeyEntry.js'
 import { SwarmGrid } from './components/SwarmGrid.js'
+import { SourcesCoverage } from './components/SourcesCoverage.js'
 import { useBridgeStatus } from './hooks/useBridgeStatus.js'
 import { useExecution } from './hooks/useExecution.js'
+import { useOperationsSources } from './hooks/useOperationsSources.js'
 
 const ENV_KEY = (import.meta.env.VITE_AEGIS_API_KEY as string | undefined) ?? ''
 const LS_KEY  = 'aegis_tactical_api_key'
@@ -32,6 +34,7 @@ export default function App() {
 
 function Dashboard({ apiKey, onLogout }: { apiKey: string; onLogout: () => void }) {
   const health                            = useBridgeStatus()
+  const sources                           = useOperationsSources()
   const { status, agents, logs, result, execute, reset } = useExecution(apiKey)
 
   return (
@@ -75,6 +78,9 @@ function Dashboard({ apiKey, onLogout }: { apiKey: string; onLogout: () => void 
 
       {/* Infrastructure row */}
       <BridgeStatus health={health} />
+
+      {/* Evidence-bound source coverage */}
+      <SourcesCoverage sources={sources} />
 
       {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1">
