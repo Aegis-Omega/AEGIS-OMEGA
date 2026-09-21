@@ -8,7 +8,8 @@
     "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
     "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
     "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
-    "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7"
+    "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
+    "815326ec5d171179b3576c08075fdb2255d84969ea18e1c60bd7eab58af0408c"
   ],
   "observations": [
     {
@@ -441,6 +442,58 @@
       "runtime_snapshot_root": "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
       "selection_outcome": "SELECTED",
       "selection_receipt_hash": "f1323f866f412f0c7f6e2643af9373a8ba6675d5bcbb388796897f367232fe9b"
+    },
+    {
+      "provider_id": "chatgpt-digitalocean",
+      "capability": "CLOUD_INFRASTRUCTURE_READ",
+      "probe_operation": "account_get_information",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "58dbe212e9cd9dcc89297aca25c1a0a81bc0ea713e46539854abe270467d6780",
+      "runtime_snapshot_root": "815326ec5d171179b3576c08075fdb2255d84969ea18e1c60bd7eab58af0408c",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "bd1e6135b18f51f3ed83fe833ac480807776adc306579ba22cb2e480402d6a81"
+    },
+    {
+      "provider_id": "chatgpt-railway",
+      "capability": "CLOUD_INFRASTRUCTURE_READ",
+      "probe_operation": "whoami",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "b5dc3d1841f785352b7462828e81c63b4db8a95b2f7fd31ef3b2d1d5e7c4757a",
+      "runtime_snapshot_root": "815326ec5d171179b3576c08075fdb2255d84969ea18e1c60bd7eab58af0408c",
+      "selection_outcome": "ELIGIBLE_NOT_SELECTED",
+      "selection_receipt_hash": null
+    },
+    {
+      "provider_id": "chatgpt-clickhouse",
+      "capability": "DATABASE_PLATFORM_READ",
+      "probe_operation": "get_organizations",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "6d81e966b8d1a3ab34e5370dc9a8c5eddd417d28bb322094c0d8118de968a9e4",
+      "runtime_snapshot_root": "815326ec5d171179b3576c08075fdb2255d84969ea18e1c60bd7eab58af0408c",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "c4503d7373eb1c0e2ac3bcd3118411f5c877568e56c99385060999de6c6809f2"
+    },
+    {
+      "provider_id": "chatgpt-neon",
+      "capability": "DATABASE_PLATFORM_READ",
+      "probe_operation": "list_organizations",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "8365125b2ee2f663daf612eea06d1f0cab30e16b932d495e7d762067c6c6960b",
+      "runtime_snapshot_root": "815326ec5d171179b3576c08075fdb2255d84969ea18e1c60bd7eab58af0408c",
+      "selection_outcome": "ELIGIBLE_NOT_SELECTED",
+      "selection_receipt_hash": null
     }
   ],
   "probe_diagnostics": [
@@ -523,6 +576,26 @@
       "provider_id": "chatgpt-exa",
       "diagnostic": "Exa web-search execution succeeded; zero counted top-level results in the normalized probe does not negate successful provider execution.",
       "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-digitalocean",
+      "diagnostic": "DigitalOcean account-information read succeeded and was deterministically selected for CLOUD_INFRASTRUCTURE_READ.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-railway",
+      "diagnostic": "Railway identity read succeeded and remains a fresh CLOUD_INFRASTRUCTURE_READ fallback candidate.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-clickhouse",
+      "diagnostic": "ClickHouse organization listing executed successfully with zero returned organizations and was selected for DATABASE_PLATFORM_READ; zero rows do not imply connector failure.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-neon",
+      "diagnostic": "Neon organization listing executed successfully with zero returned organizations and remains a fresh DATABASE_PLATFORM_READ fallback candidate.",
+      "authority_effect": "NONE"
     }
   ],
   "evidence_boundary": {
@@ -554,7 +627,7 @@
     "authority_effect": "NONE"
   },
   "freshness": {
-    "latest_runtime_snapshot_root": "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
+    "latest_runtime_snapshot_root": "815326ec5d171179b3576c08075fdb2255d84969ea18e1c60bd7eab58af0408c",
     "note": "Entries from earlier snapshots are historical evidence unless refreshed; routing remains governed by provider_runtime_latest_v1 freshness and state.",
     "authority_effect": "NONE"
   }
