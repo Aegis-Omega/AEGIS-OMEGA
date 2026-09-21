@@ -57,6 +57,10 @@ export const CHATGPT_CONNECTED_APP_CAPABILITIES_V1 = {
   'chatgpt-digitalocean': ['CLOUD_INFRASTRUCTURE_READ'],
   'chatgpt-neon': ['DATABASE_PLATFORM_READ'],
   'chatgpt-clickhouse': ['DATABASE_PLATFORM_READ'],
+  'chatgpt-wolfram': ['SYMBOLIC_COMPUTE'],
+  'chatgpt-tavily': ['WEB_RESEARCH'],
+  'chatgpt-zoom': ['MEETING_KNOWLEDGE_READ'],
+  'chatgpt-granola': ['MEETING_KNOWLEDGE_READ'],
 } as const satisfies Readonly<Record<string, readonly ProviderCapabilityV1[]>>
 
 export type ChatGptConnectedAppIdV1 = keyof typeof CHATGPT_CONNECTED_APP_CAPABILITIES_V1
