@@ -87,6 +87,16 @@ def validate_projection(value: Any) -> dict[str, Any]:
     if values["unsurfaced_no_counterpart"] != len(paths):
         raise OperationsCenterSourcesError("SOURCES_UNSURFACED_PATH_COUNT_MISMATCH")
 
+    navigation = value.get("navigation")
+    if not isinstance(navigation, dict):
+        raise OperationsCenterSourcesError("SOURCES_NAVIGATION_INVALID")
+    if (
+        navigation.get("sources_tab_default_view") != "coverage"
+        or navigation.get("show_exact_paths") is not True
+        or navigation.get("show_findings") is not True
+    ):
+        raise OperationsCenterSourcesError("SOURCES_NAVIGATION_CONTRACT_MISMATCH")
+
     consumer = value.get("consumer_contract")
     if not isinstance(consumer, dict):
         raise OperationsCenterSourcesError("SOURCES_CONSUMER_CONTRACT_MISSING")
