@@ -868,9 +868,8 @@ export async function certifyHealingChain(
     previousSequence = receipt.sequence
   }
 
-  const terminal_hash = receipts.length === 0
-    ? HEALING_GENESIS_HASH
-    : receipts[receipts.length - 1]!.receipt_hash
+  // Terminal authority stops at the last independently validated receipt.
+  const terminal_hash = previous
 
   const certificate_hash = await hashValue({
     is_valid: valid,
