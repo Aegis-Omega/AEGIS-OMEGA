@@ -32,6 +32,10 @@ export type ProviderCapabilityV1 =
   | 'DATABASE'
   | 'HTTP_EGRESS'
   | 'SYMBOLIC_COMPUTE'
+  | 'REPOSITORY_READ'
+  | 'DOCUMENT_RETRIEVAL'
+  | 'EMAIL_RETRIEVAL'
+  | 'CALENDAR_READ'
 
 export type ProviderObservationStateV1 =
   | 'UNKNOWN'
@@ -152,6 +156,10 @@ const ALL_CAPABILITIES = new Set<ProviderCapabilityV1>([
   'DATABASE',
   'HTTP_EGRESS',
   'SYMBOLIC_COMPUTE',
+  'REPOSITORY_READ',
+  'DOCUMENT_RETRIEVAL',
+  'EMAIL_RETRIEVAL',
+  'CALENDAR_READ',
 ])
 const ALL_STATES = new Set<ProviderObservationStateV1>([
   'UNKNOWN',
@@ -604,6 +612,34 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     provider_id: 'wolfram',
     planes: ['EXECUTION'],
     declared_capabilities: ['SYMBOLIC_COMPUTE'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-github',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['REPOSITORY_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-google-drive',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['DOCUMENT_RETRIEVAL'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-gmail',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['EMAIL_RETRIEVAL'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-google-calendar',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['CALENDAR_READ'],
     authority_effect: 'NONE',
   },
 ]
