@@ -36,7 +36,7 @@ header, when a doc and the code disagree, the code wins). Summary:
 `agents/` + `harness/`), `aegis-cl-psi/` (~7,198 Rust tests, CI-gated), `aegis-runtime/`,
 `hub/` (the storefront; Vercel + Cloud Run), the 3 commercial tools
 (`platform-picker/`, `hook-generator/`, `content-calendar/`) + `packages/shared/`,
-`tactical/` (wired to the bridge, no deploy config), `cockpit/` + `studio/` (deployable
+`tactical/` (wired to the bridge; fail-closed Vercel deploy contract present, no Vercel project/deployment yet), `cockpit/` + `studio/` (deployable
 dashboards, CI-built), `supabase/functions/` (live edge functions), `worker-src/`
 (Cloudflare Worker `/platform/holon/validate`), `genomics/` + `verifiable/`
 (cross-platform proof CI), `.claude/` governance hooks, `.github/` CI.
