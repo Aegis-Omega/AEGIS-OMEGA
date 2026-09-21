@@ -36,6 +36,7 @@ class TacticalSourcesContract(unittest.TestCase):
             "SHOW_INVALID_OR_STALE; DO_NOT_FALL_BACK_TO_COMPLETE_INVENTORY_CLAIM",
             "SOURCE_FAIL_CLOSED_CONTRACT_MISMATCH",
             "SOURCE_PROJECTION_ROOT_INVALID",
+            "SOURCE_FINDING_INVALID",
         )
         for token in required:
             self.assertIn(token, self.hook)
@@ -60,6 +61,15 @@ class TacticalSourcesContract(unittest.TestCase):
         self.assertIn("LEGACY_COMPLETENESS_FALLBACK_DISABLED", self.component)
         self.assertNotIn("38 arhiva + Git", self.component)
         self.assertIn("payload.cards.map", self.component)
+
+    def test_component_surfaces_dynamic_findings_and_paths(self) -> None:
+        self.assertIn("COVERAGE_GROUPS ({payload.findings.length})", self.component)
+        self.assertIn("NO_COUNTERPART_PATHS ({payload.unsurfaced_paths.length})", self.component)
+        self.assertIn("findings.map", self.component)
+        self.assertIn("payload.unsurfaced_paths.map", self.component)
+        self.assertIn("finding.priority === 'P0'", self.component)
+        self.assertNotIn("ECCF", self.component)
+        self.assertNotIn("supabase/functions/grant-access/index.ts", self.component)
 
     def test_app_wires_sources_between_infrastructure_and_main_grid(self) -> None:
         self.assertIn("useOperationsSources()", self.app)
