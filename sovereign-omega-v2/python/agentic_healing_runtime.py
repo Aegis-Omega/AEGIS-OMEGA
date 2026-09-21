@@ -7,8 +7,8 @@ Authority boundary:
 - may observe faults and CoreMatrix failsafe telemetry;
 - may inspect and content-address an existing checkpoint without applying it;
 - may propose exact checkpoint restore;
-- never calls load_checkpoint() during runtime healing;
-- never calls EpochFailsafeController.reset_after_recovery();
+- never invokes the checkpoint state-application loader during runtime healing;
+- never invokes the human-supervised failsafe reset path;
 - never applies durable mutation.
 
 Startup crash recovery remains the existing bridge behavior.
