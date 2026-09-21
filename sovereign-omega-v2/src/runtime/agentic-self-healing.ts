@@ -22,6 +22,7 @@ import type { SHA256Hex, SequenceNumber } from '../core/types.js'
 
 export const AGENTIC_HEALING_SCHEMA_VERSION = '1.0.0' as const
 export const HEALING_GENESIS_HASH = '0'.repeat(64) as SHA256Hex
+export const MAX_HEALING_ATTEMPTS_PER_INCIDENT = 3 as const
 
 export type HealingSeverity = 'INFO' | 'DEGRADED' | 'FAULT' | 'CRITICAL'
 export type HealingPlanMode = 'GRACE_REVERSION' | 'PROPOSE_MUTATION'
@@ -259,21 +260,50 @@ async function runVerifiers(
   const ids = new Set<string>()
   const receipts: HealingVerifierReceipt[] = []
 
-  for (const verifier of verifiers) {
-    if (!verifier.verifier_id) throw new AgenticHealingError('verifier_id required')
-    if (ids.has(verifier.verifier_id)) {
-      throw new AgenticHealingError(`duplicate verifier_id: ${verifier.verifier_id}`)
+  for (let index = 0; index < verifiers.length; index++) {
+    const verifier = verifiers[index]!
+    const verifier_id = verifier.verifier_id
+
+    if (!verifier_id || ids.has(verifier_id)) {
+      const reason_code = !verifier_id
+        ? 'VERIFIER_ID_MISSING'
+        : `DUPLICATE_VERIFIER_ID:${verifier_id}`
+      const normalized_id = verifier_id || `__invalid_verifier_${index}`
+      const evidence_hash = await hashValue({
+        reason_code,
+        normalized_id,
+        index,
+        plan_hash: plan.plan_hash,
+        effective_state_hash,
+      }) as SHA256Hex
+      const result_hash = await hashValue({
+        verifier_id: normalized_id,
+        passed: false,
+        evidence_hash,
+        reason_code,
+        plan_hash: plan.plan_hash,
+        effective_state_hash,
+      }) as SHA256Hex
+      receipts.push(deepFreeze<HealingVerifierReceipt>({
+        verifier_id: normalized_id,
+        passed: false,
+        evidence_hash,
+        reason_code,
+        result_hash,
+      }))
+      continue
     }
-    ids.add(verifier.verifier_id)
+
+    ids.add(verifier_id)
 
     let evidence: HealingVerifierEvidence
     try {
       evidence = await verifier.verify({ observation, plan, effective_state_hash })
-      requireHex64(evidence.evidence_hash, `verifier ${verifier.verifier_id} evidence_hash`)
+      requireHex64(evidence.evidence_hash, `verifier ${verifier_id} evidence_hash`)
     } catch (error) {
       const error_name = error instanceof Error ? error.name : 'UnknownError'
       const evidence_hash = await hashValue({
-        verifier_id: verifier.verifier_id,
+        verifier_id: verifier_id,
         error_name,
         plan_hash: plan.plan_hash,
         effective_state_hash,
@@ -286,7 +316,7 @@ async function runVerifiers(
     }
 
     const result_hash = await hashValue({
-      verifier_id: verifier.verifier_id,
+      verifier_id: verifier_id,
       passed: evidence.passed,
       evidence_hash: evidence.evidence_hash,
       reason_code: evidence.reason_code ?? null,
@@ -295,7 +325,7 @@ async function runVerifiers(
     }) as SHA256Hex
 
     receipts.push(deepFreeze<HealingVerifierReceipt>({
-      verifier_id: verifier.verifier_id,
+      verifier_id: verifier_id,
       passed: evidence.passed,
       evidence_hash: evidence.evidence_hash,
       ...(evidence.reason_code !== undefined ? { reason_code: evidence.reason_code } : {}),
@@ -358,6 +388,12 @@ export class AgenticSelfHealingRuntime {
       )
     }
 
+    const priorAttempts = this.receipts.filter(
+      receipt =>
+        receipt.incident_id === observation.incident_id &&
+        receipt.status !== 'MONITORING',
+    ).length
+
     const obsHash = await observationHash(observation)
     const requiresContainment =
       observation.replay_diverged ||
@@ -374,6 +410,20 @@ export class AgenticSelfHealingRuntime {
         effective_state_hash: observation.state_hash,
         verifier_results: Object.freeze([]),
         quarantine_active: false,
+        volatile_reversion_applied: false,
+      })
+    }
+
+    if (priorAttempts >= MAX_HEALING_ATTEMPTS_PER_INCIDENT) {
+      return await this.emit({
+        observation,
+        observation_hash: obsHash,
+        status: 'ESCALATED',
+        reason_code: 'HEALING_ATTEMPT_BUDGET_EXHAUSTED',
+        plan: null,
+        effective_state_hash: observation.state_hash,
+        verifier_results: Object.freeze([]),
+        quarantine_active: true,
         volatile_reversion_applied: false,
       })
     }
