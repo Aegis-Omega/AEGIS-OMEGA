@@ -22,6 +22,10 @@ export const CHATGPT_CONNECTED_APP_CAPABILITIES_V1 = {
   'chatgpt-google-drive': ['DOCUMENT_RETRIEVAL'],
   'chatgpt-gmail': ['EMAIL_RETRIEVAL'],
   'chatgpt-google-calendar': ['CALENDAR_READ'],
+  'chatgpt-slack': ['COLLABORATION_READ'],
+  'chatgpt-notion': ['KNOWLEDGE_BASE_READ'],
+  'chatgpt-linear': ['WORK_TRACKING_READ'],
+  'chatgpt-hubspot': ['CRM_READ'],
 } as const satisfies Readonly<Record<string, readonly ProviderCapabilityV1[]>>
 
 export type ChatGptConnectedAppIdV1 = keyof typeof CHATGPT_CONNECTED_APP_CAPABILITIES_V1
