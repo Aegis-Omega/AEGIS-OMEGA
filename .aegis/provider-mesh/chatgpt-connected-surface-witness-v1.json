@@ -2,7 +2,10 @@
   "schema": "AEGIS_CHATGPT_CONNECTED_SURFACE_WITNESS_V1",
   "source_surface": "CHATGPT_CONNECTED_APPS",
   "authority_effect": "NONE",
-  "runtime_snapshot_root": "e7ed81df146f16bb97cff0488a9f4f1b30cb431eb3e54421b3d329f72c655469",
+  "runtime_snapshot_roots": [
+    "e7ed81df146f16bb97cff0488a9f4f1b30cb431eb3e54421b3d329f72c655469",
+    "6ea2d6d2d3e28219097803de40339027df20ef1640c2a7d2f71550b65e16a24d"
+  ],
   "observations": [
     {
       "provider_id": "chatgpt-github",
@@ -11,6 +14,7 @@
       "outcome": "READ_SUCCESS",
       "result_count": 1,
       "evidence_hash": "8ea83d5ef36bad8269c3f6f14177d57b7e0b93c9419ec4c810a51b0ad9612bea",
+      "runtime_snapshot_root": "e7ed81df146f16bb97cff0488a9f4f1b30cb431eb3e54421b3d329f72c655469",
       "selection_receipt_hash": "3ab4165d2aa11301b97670d3a383e411869a7de48a395c4589e8ab8bfca73a4c"
     },
     {
@@ -20,6 +24,7 @@
       "outcome": "READ_SUCCESS",
       "result_count": 1,
       "evidence_hash": "a06f155dd55f5d050ada423a70403277d1c31152146c8b85e5910c64c88fb56f",
+      "runtime_snapshot_root": "e7ed81df146f16bb97cff0488a9f4f1b30cb431eb3e54421b3d329f72c655469",
       "selection_receipt_hash": "ef10b2e6a8f98e38e8c101a26f6662671299e0b42992e6f926f51d70c71ea652"
     },
     {
@@ -29,6 +34,7 @@
       "outcome": "READ_SUCCESS",
       "result_count": 1,
       "evidence_hash": "83fdedda0412e1144d6e5ab5283151bbc36c600507f83a7b961fe175982bc9f8",
+      "runtime_snapshot_root": "e7ed81df146f16bb97cff0488a9f4f1b30cb431eb3e54421b3d329f72c655469",
       "selection_receipt_hash": "4617e0f8d4da105e15934c44d66170070d28bcf6fc576e1272fa514dc52e3c5b"
     },
     {
@@ -38,7 +44,55 @@
       "outcome": "READ_SUCCESS",
       "result_count": 1,
       "evidence_hash": "efeb81d3d58033c847484e2bfbb7c9d22263231edbf54b222f6394c68dad9a75",
+      "runtime_snapshot_root": "e7ed81df146f16bb97cff0488a9f4f1b30cb431eb3e54421b3d329f72c655469",
       "selection_receipt_hash": "fd27ae5b40090de13edebd5b96787b9b3f8680ad9dff520f779a0615493ea81b"
+    },
+    {
+      "provider_id": "chatgpt-slack",
+      "capability": "COLLABORATION_READ",
+      "probe_operation": "slack_read_user_profile",
+      "outcome": "READ_SUCCESS",
+      "result_count": 1,
+      "evidence_hash": "2d4e4864ce42fe06645ce72410bb9e6eb47659c20eff9fe7071d22eb031b1ff6",
+      "runtime_snapshot_root": "6ea2d6d2d3e28219097803de40339027df20ef1640c2a7d2f71550b65e16a24d",
+      "selection_receipt_hash": "67508a888954e515a9be331eea87fff7d16374fe1468f90acbbe47925d4775cd"
+    },
+    {
+      "provider_id": "chatgpt-notion",
+      "capability": "KNOWLEDGE_BASE_READ",
+      "probe_operation": "fetch_self",
+      "outcome": "READ_SUCCESS",
+      "result_count": 1,
+      "evidence_hash": "5e38e9f9cb014be7473eb8acee7f0041c7e5bd752fbc2517a25922181622887d",
+      "runtime_snapshot_root": "6ea2d6d2d3e28219097803de40339027df20ef1640c2a7d2f71550b65e16a24d",
+      "selection_receipt_hash": "fe97085489dd192b0bc0f6d8d05e330c91164e82f355729a8b06dc61c9810bc9"
+    },
+    {
+      "provider_id": "chatgpt-linear",
+      "capability": "WORK_TRACKING_READ",
+      "probe_operation": "list_documents",
+      "outcome": "READ_SUCCESS",
+      "result_count": 0,
+      "evidence_hash": "00ad50390344f50120b323b086f59cbd9daf1ecdd5463cb926b46d83a4163cfc",
+      "runtime_snapshot_root": "6ea2d6d2d3e28219097803de40339027df20ef1640c2a7d2f71550b65e16a24d",
+      "selection_receipt_hash": "ecfbe25577393f9c0e2a67f6d6adede5c8f7a4c4a056e35cb7e4b850722c95a6"
+    },
+    {
+      "provider_id": "chatgpt-hubspot",
+      "capability": "CRM_READ",
+      "probe_operation": "discover_hubspot_schema",
+      "outcome": "READ_SUCCESS",
+      "result_count": 1,
+      "evidence_hash": "9f6097ac5fadb4ee094e138656215a3db8386bdcc4718703431748b5747ccebe",
+      "runtime_snapshot_root": "6ea2d6d2d3e28219097803de40339027df20ef1640c2a7d2f71550b65e16a24d",
+      "selection_receipt_hash": "efc614cf651eddc168da5f94edf688ec23fccfe9772e64863c449bb9a34f7e45"
+    }
+  ],
+  "probe_diagnostics": [
+    {
+      "provider_id": "chatgpt-linear",
+      "diagnostic": "Initial invocation rejected advertised link_id as an unexpected property; retry without link_id succeeded.",
+      "authority_effect": "NONE"
     }
   ],
   "evidence_boundary": {
