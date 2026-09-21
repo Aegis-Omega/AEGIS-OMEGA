@@ -19,6 +19,10 @@ const ALLOWED = new Set([
   'DATABASE',
   'HTTP_EGRESS',
   'SYMBOLIC_COMPUTE',
+  'REPOSITORY_READ',
+  'DOCUMENT_RETRIEVAL',
+  'EMAIL_RETRIEVAL',
+  'CALENDAR_READ',
 ])
 
 Deno.serve(async (req: Request) => {
