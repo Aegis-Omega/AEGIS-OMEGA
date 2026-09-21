@@ -9,13 +9,18 @@ declare global {
 }
 
 const measurementId = (import.meta.env.VITE_GA4_MEASUREMENT_ID as string | undefined)?.trim()
-const GA4_ID = /^G-[A-Z0-9]+$/.test(measurementId ?? '') ? measurementId : undefined
+const GA4_ID =
+  measurementId &&
+  measurementId !== 'G-XXXXXXXXXX' &&
+  /^G-[A-Z0-9]+$/.test(measurementId)
+    ? measurementId
+    : undefined
 
 function ensureGtag(): void {
   window.dataLayer ??= []
-  window.gtag ??= (command: GtagCommand, ...args: unknown[]) => {
-    window.dataLayer!.push([command, ...args])
-  }
+  window.gtag ??= function gtag(..._args: unknown[]) {
+    window.dataLayer!.push(arguments)
+  } as Window['gtag']
 }
 
 export function initGa4(): boolean {
