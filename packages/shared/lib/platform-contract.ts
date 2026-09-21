@@ -227,6 +227,71 @@ export interface CalibrationStatus {
   readonly constitutional_factor_mean: number  // mean c_factor (APPROVED=1.0, FLAG=0.70, QUARANTINE=0.20)
 }
 
+// ── GET /platform/healing/status ───────────────────────────────────────────────
+// Read-only projection of the live Python agentic-healing control plane.
+
+export type PlatformHealingLiveState = 'MONITORING' | 'CONTAINED' | 'ESCALATED'
+export type PlatformHealingReceiptStatus =
+  | 'QUARANTINED'
+  | 'AWAITING_AUTHORITY'
+  | 'ESCALATED'
+
+export interface PlatformHealingCheckpointCandidate {
+  readonly checkpoint_version: string
+  readonly sequence: number
+  readonly epoch: number
+  readonly era: number
+  readonly integrity_hash: string
+  readonly is_replay_reconstructable: true
+  readonly verified: true
+  readonly candidate_hash: string
+}
+
+export interface PlatformHealingReceipt {
+  readonly schema: 'AEGIS_LIVE_AGENTIC_HEALING_V1'
+  readonly incident_id: string
+  readonly component_id: string
+  readonly sequence: number
+  readonly epoch: number
+  readonly status: PlatformHealingReceiptStatus
+  readonly reason_code: string
+  readonly observation_hash: string
+  readonly attempt_number: number
+  readonly attempt_budget: 3
+  readonly quarantine_scope: 'INCIDENT_ONLY' | 'CORE_MATRIX'
+  readonly checkpoint_candidate: PlatformHealingCheckpointCandidate | null
+  readonly checkpoint_apply_performed: false
+  readonly durable_apply_performed: false
+  readonly authority_effect: 'NONE'
+  readonly previous_receipt_hash: string
+  readonly is_replay_reconstructable: true
+  readonly receipt_hash: string
+}
+
+export interface PlatformHealingStatus {
+  readonly schema: 'AEGIS_LIVE_AGENTIC_HEALING_V1'
+  readonly live_state: PlatformHealingLiveState
+  readonly matrix: {
+    readonly sequence: number
+    readonly epoch: number
+    readonly failsafe_state: string
+    readonly corruption_count: number
+    readonly pgcs_passes: boolean
+    readonly drift_index: unknown
+  }
+  readonly checkpoint: {
+    readonly status: string
+    readonly candidate: PlatformHealingCheckpointCandidate | null
+  }
+  readonly receipt_count: number
+  readonly terminal_hash: string
+  readonly latest_receipt: PlatformHealingReceipt | null
+  readonly runtime_restore_authority: 'NONE'
+  readonly startup_verified_checkpoint_restore: 'EXISTING_BRIDGE_BEHAVIOR'
+  readonly human_supervised_recovery_reset: 'REQUIRED'
+  readonly authority_effect: 'NONE'
+}
+
 // ── GET /platform/tools — agent API contact list ──────────────────────────────
 // Read-only catalog of outbound API profiles available to the agent harness.
 // Raw credentials (key_hash, raw key) are NEVER returned.
