@@ -48,18 +48,30 @@ function validatePayload(value: unknown): OperationsSourcesPayload {
   const ids = payload.cards.map(card => card.id)
   const expected = ['catalogued_sources', 'archive_project_files', 'coverage_groups', 'unsurfaced_no_counterpart']
   if (ids.join('|') !== expected.join('|')) throw new Error('SOURCE_CARD_SET_MISMATCH')
+  if (payload.cards[0]?.status !== 'INCOMPLETE_SELECTED_SAMPLE') {
+    throw new Error('SOURCE_CATALOGUE_COMPLETENESS_INVALID')
+  }
   if (!Array.isArray(payload.findings) || !Array.isArray(payload.unsurfaced_paths)) {
     throw new Error('SOURCE_DETAILS_INVALID')
   }
   if (payload.cards[2]?.value !== payload.findings.length) throw new Error('SOURCE_FINDING_COUNT_MISMATCH')
   if (payload.cards[3]?.value !== payload.unsurfaced_paths.length) throw new Error('SOURCE_PATH_COUNT_MISMATCH')
+  if (payload.consumer_contract?.legacy_label_to_replace !== '38 arhiva + Git') {
+    throw new Error('SOURCE_LEGACY_LABEL_CONTRACT_MISMATCH')
+  }
+  if (payload.consumer_contract?.primary_card_id !== 'catalogued_sources') {
+    throw new Error('SOURCE_PRIMARY_CARD_CONTRACT_MISMATCH')
+  }
   if (
     payload.consumer_contract?.invalid_source_behavior !==
     'SHOW_INVALID_OR_STALE; DO_NOT_FALL_BACK_TO_COMPLETE_INVENTORY_CLAIM'
   ) {
     throw new Error('SOURCE_FAIL_CLOSED_CONTRACT_MISMATCH')
   }
-  if (typeof payload.projection_root !== 'string' || payload.projection_root.length !== 64) {
+  if (
+    typeof payload.projection_root !== 'string' ||
+    !/^[0-9a-f]{64}$/.test(payload.projection_root)
+  ) {
     throw new Error('SOURCE_PROJECTION_ROOT_INVALID')
   }
   return payload as OperationsSourcesPayload
@@ -96,8 +108,7 @@ export function useOperationsSources(): OperationsSourcesState {
       } catch (error) {
         if (controller.signal.aborted) return
         const message = error instanceof Error ? error.message : String(error)
-        const semanticFailure =
-          message.startsWith('SOURCE_') && !message.startsWith('SOURCE_PAYLOAD_NOT_OBJECT')
+        const semanticFailure = message.startsWith('SOURCE_')
         setSnapshot({
           state: semanticFailure ? 'INVALID_OR_STALE' : 'OFFLINE',
           payload: null,
