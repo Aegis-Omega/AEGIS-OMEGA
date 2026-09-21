@@ -81,14 +81,63 @@ Deno.serve(async (req: Request) => {
 
   const selected = Array.isArray(data) && data.length > 0 ? data[0] : null
   if (!selected) {
+    const { data: receiptHash, error: receiptError } = await supabase.rpc(
+      'record_provider_selection_v1',
+      {
+        p_capability: capability,
+        p_outcome: 'DENIED',
+        p_provider_id: null,
+        p_provider_evidence_hash: null,
+        p_denial_code: 'NO_OBSERVED_PROVIDER',
+      },
+    )
+    if (receiptError || typeof receiptHash !== 'string') {
+      console.error('provider-router receipt error', receiptError?.message ?? 'missing receipt hash')
+      return new Response(JSON.stringify({
+        schema: 'aegis.provider-router.v1',
+        outcome: 'DENIED',
+        provider_id: null,
+        denial_code: 'RECEIPT_WRITE_FAILED',
+        authority_effect: 'NONE',
+      }), {
+        status: 503,
+        headers: { ...CORS, 'content-type': 'application/json' },
+      })
+    }
+
     return new Response(JSON.stringify({
       schema: 'aegis.provider-router.v1',
       outcome: 'DENIED',
       provider_id: null,
       denial_code: 'NO_OBSERVED_PROVIDER',
+      selection_receipt_hash: receiptHash,
       authority_effect: 'NONE',
     }), {
       status: 200,
+      headers: { ...CORS, 'content-type': 'application/json' },
+    })
+  }
+
+  const { data: receiptHash, error: receiptError } = await supabase.rpc(
+    'record_provider_selection_v1',
+    {
+      p_capability: capability,
+      p_outcome: 'SELECTED',
+      p_provider_id: selected.provider_id,
+      p_provider_evidence_hash: selected.evidence_hash,
+      p_denial_code: null,
+    },
+  )
+  if (receiptError || typeof receiptHash !== 'string') {
+    console.error('provider-router receipt error', receiptError?.message ?? 'missing receipt hash')
+    return new Response(JSON.stringify({
+      schema: 'aegis.provider-router.v1',
+      outcome: 'DENIED',
+      provider_id: null,
+      denial_code: 'RECEIPT_WRITE_FAILED',
+      authority_effect: 'NONE',
+    }), {
+      status: 503,
       headers: { ...CORS, 'content-type': 'application/json' },
     })
   }
@@ -100,6 +149,7 @@ Deno.serve(async (req: Request) => {
     evidence_hash: selected.evidence_hash,
     observed_at: selected.observed_at,
     expires_at: selected.expires_at,
+    selection_receipt_hash: receiptHash,
     authority_effect: 'NONE',
   }), {
     status: 200,
