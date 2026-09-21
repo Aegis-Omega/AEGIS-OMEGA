@@ -40,6 +40,13 @@ export const CHATGPT_CONNECTED_APP_CAPABILITIES_V1 = {
   'chatgpt-hugging-face': ['MODEL_HUB_READ'],
   'chatgpt-gitlab': ['REPOSITORY_READ'],
   'chatgpt-vercel': ['DEPLOYMENT_PLATFORM_READ'],
+  'chatgpt-canva': ['DESIGN_WORKSPACE_READ'],
+  'chatgpt-figma': ['DESIGN_WORKSPACE_READ'],
+  'chatgpt-adobe': ['CREATIVE_ASSET_READ'],
+  'chatgpt-gamma': ['PRESENTATION_WORKSPACE_READ'],
+  'chatgpt-airtable': ['OPERATIONS_DATA_READ'],
+  'chatgpt-statsig': ['EXPERIMENTATION_PLATFORM_READ'],
+  'chatgpt-resend': ['EMAIL_DELIVERY_READ'],
 } as const satisfies Readonly<Record<string, readonly ProviderCapabilityV1[]>>
 
 export type ChatGptConnectedAppIdV1 = keyof typeof CHATGPT_CONNECTED_APP_CAPABILITIES_V1
