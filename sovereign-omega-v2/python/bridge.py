@@ -21,10 +21,12 @@ from hardware_config import detect_hardware
 from constitutional_identity import CONSTITUTIONAL_SYSTEM_FULL, CONSTITUTIONAL_SYSTEM_COMPACT
 from tgcs_afse import TGCSController, AFSEController
 from ledger_persist import save_checkpoint, load_checkpoint, checkpoint_exists, CheckpointError
+from agentic_healing_runtime import AgenticBridgeHealingRuntime
 from source_attribution import SourceAttributor, TelemetrySample
 import canonical_envelope as _canon_env  # Provenance Phase 1 — float-free hash-chained envelope (ADR 0001)
 
 matrix = CoreMatrix()
+_healing_runtime = AgenticBridgeHealingRuntime()
 _hw = detect_hardware()
 _tgcs = TGCSController(hw_profile=_hw)
 _afse = AFSEController()
@@ -390,6 +392,28 @@ def _platform_run_collaboration(
         })
 
     except Exception as exc:
+        # Live healing observation is authority-neutral: record the incident and
+        # only propose checkpoint recovery when CoreMatrix itself is non-nominal.
+        try:
+            _healing_runtime.observe_fault(
+                matrix,
+                incident_id=f'collaboration:{execution_id}',
+                component_id='platform-collaboration',
+                fault_code=type(exc).__name__,
+                evidence={
+                    'error_type': type(exc).__name__,
+                    'message_hash': _hl_col.sha256(
+                        str(exc)[:200].encode()
+                    ).hexdigest(),
+                },
+            )
+        except Exception as healing_exc:
+            print(json.dumps({
+                'event_type': 'AGENTIC_HEALING_OBSERVATION_FAILED',
+                'incident_id': f'collaboration:{execution_id}',
+                'reason': type(healing_exc).__name__,
+            }), flush=True)
+
         with _executions_lock:
             rec = _executions.get(execution_id, {})
             rec.update({'result': None, 'done': True, 'error': str(exc)})
@@ -496,6 +520,31 @@ class BridgeHandler(BaseHTTPRequestHandler):
             verifier = bytes.fromhex(data.get('verifier_hex', '01'))
             context  = bytes.fromhex(data.get('context_hex', ''))
             result = router.route(payload, verifier, context)
+
+            status = str(result.get('status', '')).upper() if isinstance(result, dict) else ''
+            if status in ('FROZEN', 'RECOVERING'):
+                seq = int(result.get('sequence', 0))
+                evidence_hash = _hl_mc.sha256(
+                    json.dumps(result, sort_keys=True, default=str).encode()
+                ).hexdigest()
+                try:
+                    _healing_runtime.observe_fault(
+                        matrix,
+                        incident_id=f'core-matrix:{status}:{seq}',
+                        component_id='core-matrix',
+                        fault_code=f'CORE_MATRIX_{status}',
+                        evidence={
+                            'router_result_hash': evidence_hash,
+                            'status': status,
+                        },
+                    )
+                except Exception as healing_exc:
+                    print(json.dumps({
+                        'event_type': 'AGENTIC_HEALING_OBSERVATION_FAILED',
+                        'incident_id': f'core-matrix:{status}:{seq}',
+                        'reason': type(healing_exc).__name__,
+                    }), flush=True)
+
             self._respond(200, result)
 
         elif self.path == '/checkpoint':
@@ -1553,6 +1602,14 @@ class BridgeHandler(BaseHTTPRequestHandler):
                     }
             self._platform_respond(200, _platform_envelope(eid, status_data))
 
+        elif self.path == '/platform/healing/status':
+            # Read-only live agentic-healing projection.
+            # Runtime repair never applies a checkpoint or resets the failsafe here.
+            import uuid as _uuid_heal
+            eid = str(_uuid_heal.uuid4())
+            healing = _healing_runtime.status(matrix)
+            self._platform_respond(200, _platform_envelope(eid, healing))
+
         elif self.path == '/platform/graces':
             # GET /platform/graces — public grace chain leaderboard.
             # Returns all 39 dept token balances sorted by lifetime_graces desc.
@@ -1834,6 +1891,23 @@ def run_bridge(port=None):
             }), flush=True)
         except CheckpointError as e:
             print(json.dumps({'event_type': 'CHECKPOINT_RESTORE_FAILED', 'reason': str(e)}), flush=True)
+            try:
+                _healing_runtime.observe_fault(
+                    matrix,
+                    incident_id='startup:checkpoint-restore',
+                    component_id='core-matrix-checkpoint',
+                    fault_code='CHECKPOINT_RESTORE_FAILED',
+                    evidence={
+                        'error_type': type(e).__name__,
+                        'message_hash': _hl_mc.sha256(str(e).encode()).hexdigest(),
+                    },
+                )
+            except Exception as healing_exc:
+                print(json.dumps({
+                    'event_type': 'AGENTIC_HEALING_OBSERVATION_FAILED',
+                    'incident_id': 'startup:checkpoint-restore',
+                    'reason': type(healing_exc).__name__,
+                }), flush=True)
 
     server = HTTPServer(('0.0.0.0', port), BridgeHandler)
     print(json.dumps({'event_type': 'BRIDGE_READY', 'port': port}), flush=True)
