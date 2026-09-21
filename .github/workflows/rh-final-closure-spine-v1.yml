@@ -126,6 +126,8 @@ jobs:
           cat > RHFinalClosureAudit.lean <<'EOF'
           import RHFinalClosureSpineV1
           #print AEGIS.RHFinalClosureV1.FinalSignResidualV1
+          #print AEGIS.WeilSeparatedArchBridgeV31.CorrelationSupportDifferenceWidthV31
+          #print axioms AEGIS.WeilSeparatedArchBridgeV31.twice_packet_width_eq_correlation_width_v31
           #print axioms AEGIS.RHFinalClosureV1.final_sign_residual_iff_weil_negativity_v1
           #print axioms AEGIS.RHFinalClosureV1.retained_three_block_sign_v1
           #print axioms AEGIS.WeilSeparatedArchBridgeV31.three_block_bound_of_moments
@@ -141,6 +143,8 @@ jobs:
           SOURCE_SHA=$SOURCE_SHA
           UNION_TREE=V8_FIXED_LINE_PLUS_RESTRICTED_CRITERION_PLUS_V31_SIGN_STACK
           FINAL_SIGN_RESIDUAL_EQ_WEIL_NEGATIVITY=TARGETED
+          PACKET_LOG_SUPPORT_WIDTH=1/32
+          CORRELATION_SUPPORT_DIFFERENCE_WIDTH=1/16
           RETAINED_THREE_BLOCK_SIGN=TARGETED
           UNIVERSAL_FINAL_SIGN=NOT_CLAIMED
           RIEMANN_HYPOTHESIS=NOT_CLAIMED
