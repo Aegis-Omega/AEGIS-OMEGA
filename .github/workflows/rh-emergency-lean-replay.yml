@@ -7,6 +7,10 @@ on:
     paths:
       - 'sovereign-omega-v2/formal/bridges/lean/**'
       - '.github/workflows/rh-emergency-lean-replay.yml'
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/**'
+      - '.github/workflows/rh-emergency-lean-replay.yml'
   workflow_dispatch:
 
 permissions:
