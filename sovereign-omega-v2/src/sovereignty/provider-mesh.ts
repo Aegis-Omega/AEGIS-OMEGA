@@ -662,7 +662,7 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     declared_capabilities: ['CALENDAR_READ'],
     authority_effect: 'NONE',
   },
-]  {
+  {
     schema_version: PROVIDER_MESH_SCHEMA_VERSION,
     provider_id: 'chatgpt-slack',
     planes: ['INTELLIGENCE'],
@@ -732,4 +732,4 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     declared_capabilities: ['AGENT_KNOWLEDGE_READ'],
     authority_effect: 'NONE',
   },
-
+]
