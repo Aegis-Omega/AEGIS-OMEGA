@@ -14,6 +14,15 @@ Deno.serve((_req: Request) => {
       anthropic: {
         api_key_present: present('ANTHROPIC_API_KEY'),
       },
+      fireworks: {
+        api_key_present: present('FIREWORKS_API_KEY'),
+      },
+      openrouter: {
+        api_key_present: present('OPENROUTER_API_KEY'),
+      },
+      google: {
+        api_key_present: present('GOOGLE_API_KEY') || present('GEMINI_API_KEY'),
+      },
       nebius: {
         api_key_present: present('NEBIUS_API_KEY'),
         model_present: present('NEBIUS_MODEL'),
