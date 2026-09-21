@@ -42,3 +42,30 @@ swift test        # or open in Xcode and run the GemmaEdgeTests target
 inference backend is implemented (the two `TODO`s). **Do not integrate this path into
 any Khatt loop, Gate 8, or production governance flow until `swift test` is green** —
 the fail-closed behavior must be proven by the tests first.
+
+
+## Apple Foundation Models runtime lane
+
+`AppleFoundationModelsRunner` is a second `EdgeInferenceRunning` backend that uses
+Apple's `FoundationModels` framework when it is actually available on the current
+device and OS.
+
+The runner is fail-closed:
+
+- only the exact model name `apple-foundation-models-default` is accepted;
+- `SystemLanguageModel.default.availability` must report `.available`;
+- prompt size is capped at 16,384 UTF-8 bytes;
+- response budget is capped at 1,024 tokens;
+- temperature must be within Apple's documented 0...1 range;
+- the generation result receives an `AppleInferenceReceipt` containing SHA-256
+  prompt/output commitments instead of raw prompt/output text;
+- `authority_effect` is always `NONE`.
+
+The package keeps its existing iOS 16/macOS 13 minimums because the implementation is
+guarded by `canImport(FoundationModels)` and runtime availability checks. Actual
+Foundation Models execution requires an OS/toolchain/device where Apple exposes the
+framework and the system language model is available.
+
+Current evidence boundary: source + deterministic receipt fixture are implemented.
+Xcode 26 build, `swift test`, and Apple Intelligence-capable device execution remain
+NOT_RUN until performed on suitable Apple hardware.
