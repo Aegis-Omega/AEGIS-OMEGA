@@ -95,6 +95,57 @@ Deno.serve(async (req) => {
       useAzure = false
     }
 
+    const providerId = useAzure
+      ? 'azure-openai'
+      : useOpenAI
+        ? 'openai'
+        : useNebius
+          ? 'nebius-token-factory'
+          : 'dashscope'
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error('Provider Mesh gate unavailable: Supabase runtime credentials missing')
+      return new Response(JSON.stringify({
+        error: 'AI unavailable',
+        reply: "I'm having trouble connecting right now. Try again in a moment.",
+        provider_status: 'mesh_unavailable',
+      }), {
+        status: 200,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const providerMesh = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false },
+    })
+    const { data: candidates, error: candidateError } = await providerMesh.rpc(
+      'get_provider_runtime_candidate_v1',
+      {
+        p_capability: 'MODEL_INFERENCE',
+        p_provider_id: providerId,
+      },
+    )
+    const candidate = Array.isArray(candidates) && candidates.length > 0
+      ? candidates[0]
+      : null
+
+    if (candidateError || !candidate) {
+      if (candidateError) {
+        console.error('Provider Mesh candidate lookup failed:', candidateError.message)
+      }
+      return new Response(JSON.stringify({
+        error: 'AI unavailable',
+        reply: "I'm having trouble connecting right now. Try again in a moment.",
+        provider_status: candidateError ? 'mesh_error' : 'not_observed_available',
+        provider: providerId,
+      }), {
+        status: 200,
+        headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
     // OpenAI and Nebius require explicit models — never send guessed model ids.
     if (useOpenAI && !OPENAI_MODEL) {
       console.error('OpenAI error: OPENAI_MODEL must be set (no hardcoded default)')
