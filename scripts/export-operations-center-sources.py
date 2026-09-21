@@ -146,25 +146,40 @@ def main() -> int:
         "--output",
         default="reports/operations-center-sources-v1.json",
     )
+    parser.add_argument(
+        "--runtime-output",
+        default="sovereign-omega-v2/python/operations_center_sources_v1.json",
+    )
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parents[1]
     coverage_path = (root / args.coverage).resolve()
     output_path = (root / args.output).resolve()
+    runtime_output_path = (root / args.runtime_output).resolve()
     coverage = json.loads(coverage_path.read_text(encoding="utf-8"))
     expected = render(build_projection(root, coverage))
 
     if args.check:
-        actual = output_path.read_text(encoding="utf-8") if output_path.is_file() else None
-        if actual != expected:
-            raise SystemExit("operations-center source projection is stale")
-        print("OPERATIONS_CENTER_SOURCES_V1 VERIFIED")
+        failures = []
+        for label, path in (
+            ("report", output_path),
+            ("runtime", runtime_output_path),
+        ):
+            actual = path.read_text(encoding="utf-8") if path.is_file() else None
+            if actual != expected:
+                failures.append(label)
+        if failures:
+            raise SystemExit(
+                "operations-center source projection is stale: " + ",".join(failures)
+            )
+        print("OPERATIONS_CENTER_SOURCES_V1 VERIFIED report+runtime")
         return 0
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(expected, encoding="utf-8", newline="\n")
-    print(output_path)
+    for path in (output_path, runtime_output_path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(expected, encoding="utf-8", newline="\n")
+        print(path)
     return 0
 
 

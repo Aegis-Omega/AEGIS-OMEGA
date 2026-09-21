@@ -1,0 +1,62 @@
+{
+  "schema": "AEGIS_OPERATIONS_CENTER_SOURCES_V1",
+  "source": {
+    "archive_coverage_path": "reports/archive-coverage-v1.json",
+    "archive_coverage_root": "2e87a797437ac07920f749ec77b88cf31e0c5d2495ad291e4844d75cd3376f19",
+    "evidence_package_sha256": "194c1b233a69104b055673f5fc7e33e5480e9043077a027180114b5b5ef0041a",
+    "observed_main_head": "495bfd85d79abcb2b4f6898fe9c156488492426a",
+    "observed_at_utc": "2026-09-20T05:46:43.696358+00:00"
+  },
+  "cards": [
+    {"id":"catalogued_sources","label":"Katalogizirani izvori","value":38,"status":"INCOMPLETE_SELECTED_SAMPLE","note":"Odabrani katalog; nije potpuni inventar."},
+    {"id":"archive_project_files","label":"Arhivske projektne datoteke","value":1163,"status":"VERIFIED_ARCHIVE_COUNT","note":"Projektne datoteke u starom AEGIS arhivu."},
+    {"id":"coverage_groups","label":"Grupe za dopunu","value":24,"status":"VERIFIED_COVERAGE_FINDINGS","note":"Identificirane grupe koje nisu potpuno surfaced u produkcijskom katalogu."},
+    {"id":"unsurfaced_no_counterpart","label":"Novi kandidati bez parnjaka","value":23,"status":"NO_PATH_OR_IDENTICAL_BLOB_IN_OBSERVED_MAIN_OR_OPEN_PRS","note":"Bez iste putanje ili identičnog bloba u pregledanom main/PR snapshotu."}
+  ],
+  "findings": [
+    {"id":"F01","priority":"P0","component":"ECCF","path_count":7,"individually_catalogued_paths":0,"uncatalogued_paths":7,"authority_effect":"NONE"},
+    {"id":"F02","priority":"P0","component":"GCCE / Khatt — nepotpun izvorni paket","path_count":7,"individually_catalogued_paths":2,"uncatalogued_paths":5,"authority_effect":"NONE"},
+    {"id":"F03","priority":"P0","component":"Coq + TLA+ arhivski formalni paket","path_count":12,"individually_catalogued_paths":0,"uncatalogued_paths":12,"authority_effect":"NONE"},
+    {"id":"F04","priority":"P0","component":"Constitutional substrate","path_count":9,"individually_catalogued_paths":0,"uncatalogued_paths":9,"authority_effect":"NONE"},
+    {"id":"F05","priority":"P1","component":"Deterministički WASM kernel","path_count":6,"individually_catalogued_paths":0,"uncatalogued_paths":6,"authority_effect":"NONE"},
+    {"id":"F06","priority":"P1","component":"SITR / AOIE / SHP / CRDT","path_count":24,"individually_catalogued_paths":0,"uncatalogued_paths":24,"authority_effect":"NONE"},
+    {"id":"F07","priority":"P1","component":"Frame kernel, invariants i Ralph loop","path_count":16,"individually_catalogued_paths":0,"uncatalogued_paths":16,"authority_effect":"NONE"},
+    {"id":"F08","priority":"P1","component":"TypeScript skill-harness","path_count":17,"individually_catalogued_paths":0,"uncatalogued_paths":17,"authority_effect":"NONE"},
+    {"id":"F09","priority":"P1","component":"Verifier registry i independence","path_count":4,"individually_catalogued_paths":0,"uncatalogued_paths":4,"authority_effect":"NONE"},
+    {"id":"F10","priority":"P1","component":"CL-Ψ izvan četiri Abjad izvora","path_count":334,"individually_catalogued_paths":4,"uncatalogued_paths":330,"authority_effect":"NONE"},
+    {"id":"F11","priority":"P1","component":"Studio — operaterske površine","path_count":29,"individually_catalogued_paths":0,"uncatalogued_paths":29,"authority_effect":"NONE"},
+    {"id":"F12","priority":"P2","component":"Enterprise UI","path_count":13,"individually_catalogued_paths":0,"uncatalogued_paths":13,"authority_effect":"NONE"},
+    {"id":"F13","priority":"P0","component":"Licenciranje i pristup — dodatni arhivski kod","path_count":7,"individually_catalogued_paths":0,"uncatalogued_paths":7,"authority_effect":"NONE"},
+    {"id":"F14","priority":"P1","component":"Glasswing i NLA","path_count":2,"individually_catalogued_paths":0,"uncatalogued_paths":2,"authority_effect":"NONE"},
+    {"id":"F15","priority":"P2","component":"Arhivski P/G/E state zapisi","path_count":4,"individually_catalogued_paths":0,"uncatalogued_paths":4,"authority_effect":"NONE"},
+    {"id":"F16","priority":"P0","component":"Sovereign_Brain — dodatne stranice","path_count":7,"individually_catalogued_paths":2,"uncatalogued_paths":5,"authority_effect":"NONE"},
+    {"id":"F17","priority":"P0","component":"SWARM runtime, metakognicija i HD benchmark","path_count":52,"individually_catalogued_paths":1,"uncatalogued_paths":51,"authority_effect":"NONE"},
+    {"id":"F18","priority":"P1","component":"ARC graph/model/search/data","path_count":836,"individually_catalogued_paths":1,"uncatalogued_paths":835,"authority_effect":"NONE"},
+    {"id":"F19","priority":"P1","component":"SYSTEM_REBUILD — Godot klijent","path_count":129,"individually_catalogued_paths":0,"uncatalogued_paths":129,"authority_effect":"NONE"},
+    {"id":"F20","priority":"P1","component":"AEGIS Digital Mushaf","path_count":12,"individually_catalogued_paths":0,"uncatalogued_paths":12,"authority_effect":"NONE"},
+    {"id":"F21","priority":"P1","component":"Stariji Sovereign Omega — lineage","path_count":114,"individually_catalogued_paths":0,"uncatalogued_paths":114,"authority_effect":"NONE"},
+    {"id":"F22","priority":"P2","component":"Uključeni provider proxy","path_count":133,"individually_catalogued_paths":0,"uncatalogued_paths":133,"authority_effect":"NONE"},
+    {"id":"F23","priority":"P1","component":"Hypervisor policy/audit","path_count":4,"individually_catalogued_paths":0,"uncatalogued_paths":4,"authority_effect":"NONE"},
+    {"id":"F24","priority":"P2","component":"PricingTable — sačuvana PR putanja","path_count":1,"individually_catalogued_paths":0,"uncatalogued_paths":1,"authority_effect":"NONE"}
+  ],
+  "unsurfaced_paths": [
+    "content-calendar/api/verify-license.ts","eccf/Cargo.toml","eccf/src/calligraphic_renderer.rs","eccf/src/keccak_hash.rs","eccf/src/lattice_stroke.rs","eccf/src/lib.rs","eccf/src/ntt_transform.rs","eccf/src/parametric_scaling.rs","gcce/Cargo.toml","gcce/src/alif.rs","gcce/src/nuqta.rs","gcce/src/tanasub.rs","gcce/src/tashkeel.rs","hook-generator/api/verify-license.ts","hub/src/components/ProductCard.tsx","hub/src/components/SuccessPage.tsx","platform-picker/api/verify-license.ts","state/architect/6e9bf77dd6c2.json","state/architect/7fd3ad63ddca.json","state/artisan/7fd3ad63ddca_result.json","state/auditor/7fd3ad63ddca_evaluation.json","supabase/functions/grant-access/index.ts","supabase/functions/verify-token/index.ts"
+  ],
+  "warnings": [
+    "CATALOGUE_IS_SELECTED_SAMPLE_NOT_COMPLETE_INVENTORY",
+    "SEMANTIC_REPLACEMENT_COMPLETENESS_NOT_ESTABLISHED"
+  ],
+  "navigation": {
+    "sources_tab_default_view": "coverage",
+    "show_exact_23_paths": true,
+    "show_24_findings": true
+  },
+  "consumer_contract": {
+    "preferred_path": "reports/operations-center-sources-v1.json",
+    "legacy_label_to_replace": "38 arhiva + Git",
+    "primary_card_id": "catalogued_sources",
+    "invalid_source_behavior": "SHOW_INVALID_OR_STALE; DO_NOT_FALL_BACK_TO_COMPLETE_INVENTORY_CLAIM"
+  },
+  "authority_effect": "NONE",
+  "projection_root": "4833e006bb21f3f925e74d73aed44fbe800ad1a0f0c2c7d7ac4c3c6ea79515e6"
+}
