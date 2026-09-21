@@ -49,6 +49,12 @@ export type ProviderCapabilityV1 =
   | 'SCIENTIFIC_LITERATURE_READ'
   | 'MODEL_HUB_READ'
   | 'DEPLOYMENT_PLATFORM_READ'
+  | 'DESIGN_WORKSPACE_READ'
+  | 'CREATIVE_ASSET_READ'
+  | 'PRESENTATION_WORKSPACE_READ'
+  | 'OPERATIONS_DATA_READ'
+  | 'EXPERIMENTATION_PLATFORM_READ'
+  | 'EMAIL_DELIVERY_READ'
 
 export type ProviderObservationStateV1 =
   | 'UNKNOWN'
@@ -186,6 +192,12 @@ const ALL_CAPABILITIES = new Set<ProviderCapabilityV1>([
   'SCIENTIFIC_LITERATURE_READ',
   'MODEL_HUB_READ',
   'DEPLOYMENT_PLATFORM_READ',
+  'DESIGN_WORKSPACE_READ',
+  'CREATIVE_ASSET_READ',
+  'PRESENTATION_WORKSPACE_READ',
+  'OPERATIONS_DATA_READ',
+  'EXPERIMENTATION_PLATFORM_READ',
+  'EMAIL_DELIVERY_READ',
 ])
 const ALL_STATES = new Set<ProviderObservationStateV1>([
   'UNKNOWN',
@@ -792,6 +804,56 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     provider_id: 'chatgpt-vercel',
     planes: ['INTELLIGENCE'],
     declared_capabilities: ['DEPLOYMENT_PLATFORM_READ'],
+    authority_effect: 'NONE',
+  },
+
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-canva',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['DESIGN_WORKSPACE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-figma',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['DESIGN_WORKSPACE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-adobe',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['CREATIVE_ASSET_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-gamma',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['PRESENTATION_WORKSPACE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-airtable',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['OPERATIONS_DATA_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-statsig',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['EXPERIMENTATION_PLATFORM_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-resend',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['EMAIL_DELIVERY_READ'],
     authority_effect: 'NONE',
   },
 
