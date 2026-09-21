@@ -26,6 +26,12 @@ export const CHATGPT_CONNECTED_APP_CAPABILITIES_V1 = {
   'chatgpt-notion': ['KNOWLEDGE_BASE_READ'],
   'chatgpt-linear': ['WORK_TRACKING_READ'],
   'chatgpt-hubspot': ['CRM_READ'],
+  'chatgpt-ads-manager': ['ADS_MANAGER_READ'],
+  'chatgpt-legalquants-transactional': ['LEGAL_TRANSACTIONAL_GUIDANCE'],
+  'chatgpt-semrush': ['SEO_INTELLIGENCE'],
+  'chatgpt-linkedin': ['PROFESSIONAL_PROFILE_SEARCH'],
+  'chatgpt-blockscout': ['BLOCKCHAIN_DATA_READ'],
+  'chatgpt-sofa': ['AGENT_KNOWLEDGE_READ'],
 } as const satisfies Readonly<Record<string, readonly ProviderCapabilityV1[]>>
 
 export type ChatGptConnectedAppIdV1 = keyof typeof CHATGPT_CONNECTED_APP_CAPABILITIES_V1
@@ -35,6 +41,9 @@ export type ChatGptConnectedAppOutcomeV1 =
   | 'READ_FAILURE'
   | 'CONNECTED_NOT_PROBED'
   | 'NOT_CONNECTED'
+  | 'ACCOUNT_UNAVAILABLE'
+  | 'BILLING_BLOCKED'
+  | 'NETWORK_REACHABLE'
 
 export interface ChatGptConnectedAppEvidenceV1 {
   connector_id: ChatGptConnectedAppIdV1
@@ -70,19 +79,26 @@ export async function observeChatGptConnectedAppV1(
   const successfulRead = evidence.outcome === 'READ_SUCCESS'
   const state = successfulRead
     ? 'OBSERVED_AVAILABLE'
-    : evidence.outcome === 'NOT_CONNECTED'
+    : evidence.outcome === 'ACCOUNT_UNAVAILABLE' || evidence.outcome === 'NOT_CONNECTED'
       ? 'OBSERVED_UNAVAILABLE'
-      : evidence.outcome === 'CONNECTED_NOT_PROBED'
-        ? 'ACCOUNT_CONFIGURED'
-        : 'UNKNOWN'
+      : evidence.outcome === 'BILLING_BLOCKED'
+        ? 'BILLING_BLOCKED'
+        : evidence.outcome === 'NETWORK_REACHABLE'
+          ? 'NETWORK_REACHABLE'
+          : evidence.outcome === 'CONNECTED_NOT_PROBED'
+            ? 'ACCOUNT_CONFIGURED'
+            : 'UNKNOWN'
+
+  const observed_capabilities =
+    successfulRead || evidence.outcome === 'BILLING_BLOCKED' || evidence.outcome === 'NETWORK_REACHABLE'
+      ? [...CHATGPT_CONNECTED_APP_CAPABILITIES_V1[evidence.connector_id]]
+      : []
 
   return {
     schema_version: PROVIDER_MESH_SCHEMA_VERSION,
     provider_id: evidence.connector_id,
     state,
-    observed_capabilities: successfulRead
-      ? [...CHATGPT_CONNECTED_APP_CAPABILITIES_V1[evidence.connector_id]]
-      : [],
+    observed_capabilities,
     evidence_hash,
     observation_generation,
     authority_effect: 'NONE',
