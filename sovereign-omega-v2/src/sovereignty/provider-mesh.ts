@@ -40,6 +40,12 @@ export type ProviderCapabilityV1 =
   | 'KNOWLEDGE_BASE_READ'
   | 'WORK_TRACKING_READ'
   | 'CRM_READ'
+  | 'ADS_MANAGER_READ'
+  | 'LEGAL_TRANSACTIONAL_GUIDANCE'
+  | 'SEO_INTELLIGENCE'
+  | 'PROFESSIONAL_PROFILE_SEARCH'
+  | 'BLOCKCHAIN_DATA_READ'
+  | 'AGENT_KNOWLEDGE_READ'
 
 export type ProviderObservationStateV1 =
   | 'UNKNOWN'
@@ -168,6 +174,12 @@ const ALL_CAPABILITIES = new Set<ProviderCapabilityV1>([
   'KNOWLEDGE_BASE_READ',
   'WORK_TRACKING_READ',
   'CRM_READ',
+  'ADS_MANAGER_READ',
+  'LEGAL_TRANSACTIONAL_GUIDANCE',
+  'SEO_INTELLIGENCE',
+  'PROFESSIONAL_PROFILE_SEARCH',
+  'BLOCKCHAIN_DATA_READ',
+  'AGENT_KNOWLEDGE_READ',
 ])
 const ALL_STATES = new Set<ProviderObservationStateV1>([
   'UNKNOWN',
@@ -676,6 +688,48 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     provider_id: 'chatgpt-hubspot',
     planes: ['INTELLIGENCE'],
     declared_capabilities: ['CRM_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-ads-manager',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['ADS_MANAGER_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-legalquants-transactional',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['LEGAL_TRANSACTIONAL_GUIDANCE'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-semrush',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['SEO_INTELLIGENCE'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-linkedin',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['PROFESSIONAL_PROFILE_SEARCH'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-blockscout',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['BLOCKCHAIN_DATA_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-sofa',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['AGENT_KNOWLEDGE_READ'],
     authority_effect: 'NONE',
   },
 
