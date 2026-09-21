@@ -44,6 +44,10 @@ export function SourcesCoverage({ sources }: Props) {
 
   const payload = sources.payload
   const observed = payload.source.observed_at_utc.replace('T', ' ').replace('+00:00', 'Z')
+  const findings = [...payload.findings].sort((left, right) => {
+    const rank = { P0: 0, P1: 1, P2: 2 } as const
+    return rank[left.priority] - rank[right.priority] || left.id.localeCompare(right.id)
+  })
 
   return (
     <section className="bg-aegis-panel border border-aegis-border rounded p-4">
@@ -70,6 +74,50 @@ export function SourcesCoverage({ sources }: Props) {
             </div>
           )
         })}
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-2">
+        <details className="bg-aegis-bg border border-aegis-border/50 rounded">
+          <summary className="cursor-pointer select-none px-3 py-2 text-[10px] font-mono text-aegis-text/70">
+            COVERAGE_GROUPS ({payload.findings.length})
+          </summary>
+          <div className="max-h-64 overflow-auto border-t border-aegis-border/50">
+            {findings.map(finding => (
+              <div
+                key={finding.id}
+                className="grid grid-cols-[42px_1fr_auto] gap-2 px-3 py-2 border-b border-aegis-border/30 last:border-b-0 text-[9px] font-mono"
+              >
+                <span className={
+                  finding.priority === 'P0' ? 'text-aegis-err' :
+                  finding.priority === 'P1' ? 'text-aegis-warn' :
+                  'text-aegis-text/45'
+                }>
+                  {finding.priority}
+                </span>
+                <span className="text-aegis-text/70 min-w-0">{finding.component}</span>
+                <span className="text-aegis-text/40">
+                  {finding.uncatalogued_paths}/{finding.path_count}
+                </span>
+              </div>
+            ))}
+          </div>
+        </details>
+
+        <details className="bg-aegis-bg border border-aegis-border/50 rounded">
+          <summary className="cursor-pointer select-none px-3 py-2 text-[10px] font-mono text-aegis-text/70">
+            NO_COUNTERPART_PATHS ({payload.unsurfaced_paths.length})
+          </summary>
+          <div className="max-h-64 overflow-auto border-t border-aegis-border/50">
+            {payload.unsurfaced_paths.map(path => (
+              <div
+                key={path}
+                className="px-3 py-2 border-b border-aegis-border/30 last:border-b-0 text-[9px] font-mono text-aegis-text/60 break-all"
+              >
+                {path}
+              </div>
+            ))}
+          </div>
+        </details>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[9px] font-mono text-aegis-text/45">
