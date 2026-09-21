@@ -1,0 +1,32 @@
+{
+  "schema": "AEGIS_APPLE_OFFICIAL_PLATFORM_WITNESS_V1",
+  "authority_effect": "NONE",
+  "source_surface": "OFFICIAL_PUBLIC_APPLE_DOCS",
+  "providers": [
+    {
+      "provider_id": "apple-developer-intelligence",
+      "capability": "APPLE_INTELLIGENCE_DEVELOPER_READ",
+      "official_url": "https://developer.apple.com/apple-intelligence/",
+      "evidence_hash": "2010dbf590170c87431428a77f88d0bed552451f0d6d7f90579bb2fd19946e9a",
+      "source_class": "OFFICIAL_DEVELOPER_DOCS",
+      "account_authority": false
+    },
+    {
+      "provider_id": "apple-business-ai",
+      "capability": "APPLE_BUSINESS_DEPLOYMENT_READ",
+      "official_url": "https://developer.apple.com/business/ai/",
+      "supporting_url": "https://support.apple.com/guide/deployment/welcome/web",
+      "evidence_hash": "ffed888d87ae9e5f78299035b0a8f4b0b07532e4b49f085df48232bdfd844d52",
+      "source_class": "OFFICIAL_BUSINESS_DOCS",
+      "account_authority": false
+    }
+  ],
+  "non_claims": {
+    "apple_developer_account_connected": false,
+    "app_store_connect_access": false,
+    "certificate_or_signing_access": false,
+    "apple_business_manager_tenant_access": false,
+    "device_management_authority": false,
+    "private_cloud_compute_entitlement_verified": false
+  }
+}
