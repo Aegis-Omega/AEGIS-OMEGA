@@ -178,6 +178,12 @@ function validateObservation(observation: HealingObservation): void {
   if (!observation.incident_id) throw new AgenticHealingError('incident_id required')
   if (!observation.component_id) throw new AgenticHealingError('component_id required')
   if (!observation.fault_code) throw new AgenticHealingError('fault_code required')
+  if (!['INFO', 'DEGRADED', 'FAULT', 'CRITICAL'].includes(observation.severity)) {
+    throw new AgenticHealingError('invalid healing severity')
+  }
+  if (typeof observation.sequence !== 'bigint' || observation.sequence < 0n) {
+    throw new AgenticHealingError('sequence must be non-negative bigint')
+  }
   requireHex64(observation.state_hash, 'state_hash')
   requireHex64(observation.evidence_hash, 'evidence_hash')
   if (observation.pre_fault_state_hash !== null) {
@@ -214,6 +220,9 @@ async function buildPlan(
 
   requireHex64(input.candidate_state_hash, 'candidate_state_hash')
   if (!input.rationale_code) throw new AgenticHealingError('rationale_code required')
+  if (!['GRACE_REVERSION', 'PROPOSE_MUTATION'].includes(input.mode)) {
+    throw new AgenticHealingError('invalid healing plan mode')
+  }
 
   if (input.mode === 'PROPOSE_MUTATION') {
     if (!input.operator_id) throw new AgenticHealingError('operator_id required for durable repair')
@@ -769,10 +778,61 @@ export async function certifyHealingChain(
   receipts: readonly HealingCycleReceipt[],
 ): Promise<HealingChainCertificate> {
   let previous = HEALING_GENESIS_HASH
+  let previousSequence: SequenceNumber | null = null
   let valid = true
 
   for (const receipt of receipts) {
-    if (receipt.previous_receipt_hash !== previous) {
+    if (
+      receipt.schema_version !== AGENTIC_HEALING_SCHEMA_VERSION ||
+      receipt.authority_effect !== 'NONE' ||
+      receipt.durable_apply_performed !== false ||
+      receipt.is_replay_reconstructable !== true ||
+      receipt.previous_receipt_hash !== previous ||
+      (previousSequence !== null && receipt.sequence <= previousSequence) ||
+      !isHex64(receipt.observation_hash) ||
+      (receipt.plan_hash !== null && !isHex64(receipt.plan_hash)) ||
+      !isHex64(receipt.effective_state_hash) ||
+      !isHex64(receipt.verifier_root) ||
+      (
+        receipt.authority_preflight_evidence_hash !== null &&
+        !isHex64(receipt.authority_preflight_evidence_hash)
+      ) ||
+      !isHex64(receipt.receipt_hash)
+    ) {
+      valid = false
+      break
+    }
+
+    const expectedVerifierResults: HealingVerifierReceipt[] = []
+    for (const result of receipt.verifier_results) {
+      if (
+        !result.verifier_id ||
+        !isHex64(result.evidence_hash) ||
+        !isHex64(result.result_hash)
+      ) {
+        valid = false
+        break
+      }
+
+      const expectedResultHash = await hashValue({
+        verifier_id: result.verifier_id,
+        passed: result.passed,
+        evidence_hash: result.evidence_hash,
+        reason_code: result.reason_code ?? null,
+        plan_hash: receipt.plan_hash,
+        effective_state_hash: receipt.effective_state_hash,
+      }) as SHA256Hex
+
+      if (expectedResultHash !== result.result_hash) {
+        valid = false
+        break
+      }
+      expectedVerifierResults.push(result)
+    }
+    if (!valid) break
+
+    const expectedVerifierRoot = await verifierRoot(expectedVerifierResults)
+    if (expectedVerifierRoot !== receipt.verifier_root) {
       valid = false
       break
     }
@@ -803,7 +863,9 @@ export async function certifyHealingChain(
       valid = false
       break
     }
+
     previous = receipt.receipt_hash
+    previousSequence = receipt.sequence
   }
 
   const terminal_hash = receipts.length === 0
