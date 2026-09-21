@@ -23,6 +23,7 @@ from tgcs_afse import TGCSController, AFSEController
 from ledger_persist import save_checkpoint, load_checkpoint, checkpoint_exists, CheckpointError
 from source_attribution import SourceAttributor, TelemetrySample
 import canonical_envelope as _canon_env  # Provenance Phase 1 — float-free hash-chained envelope (ADR 0001)
+from operations_center_sources import response_payload as _operations_sources_response
 
 matrix = CoreMatrix()
 _hw = detect_hardware()
@@ -1706,6 +1707,12 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 status_data = {'execution_id': execution_id, 'status': 'complete', 'result': rec['result']}
 
             self._platform_respond(200, _platform_envelope(execution_id, status_data))
+
+        elif self.path == '/platform/operations/sources':
+            # Read-only, authority-neutral Sources projection for the Operations Center.
+            # Never falls back to the legacy "38 arhiva + Git" completeness implication.
+            code, payload = _operations_sources_response()
+            self._platform_respond(code, payload)
 
         elif self.path == '/platform/calibration':
             # GET /platform/calibration — HPA axis homeostasis (no auth required).
