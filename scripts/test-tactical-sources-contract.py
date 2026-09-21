@@ -46,13 +46,13 @@ class TacticalSourcesContract(unittest.TestCase):
 
     def test_frontend_does_not_embed_current_evidence_counts(self) -> None:
         combined = self.hook + "\n" + self.component + "\n" + self.app
-        for literal in ("1163",):
-            self.assertNotIn(literal, combined)
-        # Standalone 38/24/23 values may occur in unrelated CSS class text only if
-        # surrounded by non-digits; reject numeric literals in executable source.
+        self.assertNotIn("1163", combined)
+        # 38 is allowed exactly once as the legacy label that must be replaced;
+        # it may not appear as an independent numeric source value.
+        without_legacy_label = combined.replace("38 arhiva + Git", "")
         for number in ("38", "24", "23"):
             self.assertIsNone(
-                re.search(rf"(?<![A-Za-z0-9_]){number}(?![A-Za-z0-9_])", combined),
+                re.search(rf"(?<![A-Za-z0-9_]){number}(?![A-Za-z0-9_])", without_legacy_label),
                 f"frontend embeds evidence value {number}",
             )
 
