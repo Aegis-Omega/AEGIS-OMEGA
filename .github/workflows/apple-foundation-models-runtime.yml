@@ -1,0 +1,46 @@
+name: Apple Foundation Models Runtime
+
+on:
+  pull_request:
+    paths:
+      - 'clients/gemma-edge-ios/**'
+      - '.github/workflows/apple-foundation-models-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apple-foundation-models-runtime-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  swift-foundation-models:
+    name: Apple Foundation Models / swift test
+    runs-on: macos-26
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Record Apple toolchain identity
+        run: |
+          set -euo pipefail
+          sw_vers
+          xcodebuild -version
+          xcrun swift --version
+          xcrun --sdk macosx --show-sdk-path
+
+      - name: Require FoundationModels SDK surface
+        run: |
+          set -euo pipefail
+          SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+          test -d "$SDKROOT/System/Library/Frameworks/FoundationModels.framework"
+          echo "FoundationModels.framework present at $SDKROOT"
+
+      - name: Run GemmaEdge Swift tests
+        working-directory: clients/gemma-edge-ios
+        run: |
+          set -euo pipefail
+          swift test --parallel
