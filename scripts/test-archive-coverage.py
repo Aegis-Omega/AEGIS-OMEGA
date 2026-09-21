@@ -15,6 +15,7 @@ KNOWLEDGE_MODULE = ROOT / "harness" / "sdk" / "repository_knowledge.py"
 REPORT = ROOT / "reports" / "archive-coverage-v1.json"
 EXPORTER = ROOT / "scripts" / "export-operations-center-sources.py"
 UI_PROJECTION = ROOT / "reports" / "operations-center-sources-v1.json"
+RUNTIME_UI_PROJECTION = ROOT / "sovereign-omega-v2" / "python" / "operations_center_sources_v1.json"
 
 
 def load_module(name: str, path: Path):
@@ -97,7 +98,10 @@ class ArchiveCoverageContract(unittest.TestCase):
     def test_checked_in_ui_projection_is_exact_generator_output(self) -> None:
         exporter = load_module("operations_center_sources_exporter", EXPORTER)
         expected = exporter.build_projection(ROOT, self.document)
-        actual = json.loads(UI_PROJECTION.read_text(encoding="utf-8"))
+        actual_text = UI_PROJECTION.read_text(encoding="utf-8")
+        runtime_text = RUNTIME_UI_PROJECTION.read_text(encoding="utf-8")
+        self.assertEqual(runtime_text, actual_text)
+        actual = json.loads(actual_text)
         self.assertEqual(actual, expected)
         self.assertEqual(
             actual["projection_root"],
