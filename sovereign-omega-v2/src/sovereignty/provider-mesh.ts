@@ -509,11 +509,19 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
   },
   {
     schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'fireworks',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['MODEL_INFERENCE'],
+    authority_effect: 'NONE',
+  },
+    {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
     provider_id: 'github-actions',
     planes: ['EXECUTION'],
     declared_capabilities: ['DURABLE_RUNNER', 'REPOSITORY_WORKFLOW'],
     authority_effect: 'NONE',
   },
+
   {
     schema_version: PROVIDER_MESH_SCHEMA_VERSION,
     provider_id: 'google-cloud',
@@ -547,6 +555,13 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     provider_id: 'openai',
     planes: ['INTELLIGENCE'],
     declared_capabilities: ['AGENT_EXECUTION', 'MODEL_INFERENCE', 'REPOSITORY_AGENT'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'openrouter',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['MODEL_INFERENCE'],
     authority_effect: 'NONE',
   },
   {
