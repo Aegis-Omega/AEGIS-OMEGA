@@ -51,24 +51,24 @@ theorem final_sign_residual_iff_weil_negativity_v1 :
 width-1/32 three-block family. -/
 theorem retained_three_block_sign_v1
     (g : WeilCompactSmoothGV1) (a : ℝ)
-    (hw : AEGIS.WeilSeparatedArchBridgeV31.WidthOneThirtyTwoAt g a)
+    (hw : AEGIS.WeilThreeBlockTranslatedPacketsV22.WidthOneThirtyTwoAt g a)
     (hm : WeilMomentConditionsV1 g)
     (z0 z1 z2 : ℂ) :
     (WeilExplicitRightSideV1
       (WeilAutocorrelationV1
         (AEGIS.WeilMixedAlgebraV2.combo z0 z1 z2
-          (AEGIS.WeilSeparatedArchBridgeV31.gMinus g)
-          (AEGIS.WeilSeparatedArchBridgeV31.gZero g)
-          (AEGIS.WeilSeparatedArchBridgeV31.gPlus g)))).re ≤ 0 := by
+          (AEGIS.WeilThreeBlockTranslatedPacketsV22.gMinus g)
+          (AEGIS.WeilThreeBlockTranslatedPacketsV22.gZero g)
+          (AEGIS.WeilThreeBlockTranslatedPacketsV22.gPlus g)))).re ≤ 0 := by
   have h :=
     AEGIS.WeilSeparatedArchBridgeV31.three_block_bound_of_moments
       g a hw hm z0 z1 z2
   have hE :
       0 ≤ AEGIS.WeilDisjointEnergyV2.energy
         (AEGIS.WeilMixedAlgebraV2.combo z0 z1 z2
-          (AEGIS.WeilSeparatedArchBridgeV31.gMinus g)
-          (AEGIS.WeilSeparatedArchBridgeV31.gZero g)
-          (AEGIS.WeilSeparatedArchBridgeV31.gPlus g)).1 :=
+          (AEGIS.WeilThreeBlockTranslatedPacketsV22.gMinus g)
+          (AEGIS.WeilThreeBlockTranslatedPacketsV22.gZero g)
+          (AEGIS.WeilThreeBlockTranslatedPacketsV22.gPlus g)).1 :=
     AEGIS.WeilDisjointEnergyV2.energy_nonnegative _
   nlinarith
 
