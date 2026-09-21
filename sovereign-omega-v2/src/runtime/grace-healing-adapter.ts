@@ -21,6 +21,7 @@ import {
 import type { MultiverseRegistry } from '../memory/multiverse.js'
 import type {
   HealingObservation,
+  HealingPlanner,
   VolatileRecoveryAdapter,
 } from './agentic-self-healing.js'
 
@@ -78,6 +79,21 @@ export function createGraceRetentionRecoveryAdapter(
       return {
         applied: observation.pre_fault_state_hash === retained_state_hash,
         state_hash: retained_state_hash,
+      }
+    },
+  }
+}
+
+
+export function createGraceHealingPlanner(): HealingPlanner {
+  return {
+    planner_id: 'grace-retention-planner-v1',
+    async propose(observation) {
+      if (observation.pre_fault_state_hash === null) return null
+      return {
+        mode: 'GRACE_REVERSION',
+        candidate_state_hash: observation.pre_fault_state_hash,
+        rationale_code: 'GRACE_RETAINED_PREFAULT_STATE',
       }
     },
   }
