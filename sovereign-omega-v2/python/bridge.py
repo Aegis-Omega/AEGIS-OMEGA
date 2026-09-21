@@ -1710,9 +1710,11 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
         elif self.path == '/platform/operations/sources':
             # Read-only, authority-neutral Sources projection for the Operations Center.
-            # Never falls back to the legacy "38 arhiva + Git" completeness implication.
+            # Canonical /platform/* envelope is preserved for both success and stale/error states.
+            import uuid as _uuid_ops_sources
+            eid = str(_uuid_ops_sources.uuid4())
             code, payload = _operations_sources_response()
-            self._platform_respond(code, payload)
+            self._platform_respond(code, _platform_envelope(eid, payload))
 
         elif self.path == '/platform/calibration':
             # GET /platform/calibration — HPA axis homeostasis (no auth required).

@@ -10,6 +10,9 @@ HOOK = ROOT / "tactical" / "src" / "hooks" / "useOperationsSources.ts"
 COMPONENT = ROOT / "tactical" / "src" / "components" / "SourcesCoverage.tsx"
 APP = ROOT / "tactical" / "src" / "App.tsx"
 BRIDGE = ROOT / "sovereign-omega-v2" / "python" / "bridge.py"
+EXECUTION_HOOK = ROOT / "tactical" / "src" / "hooks" / "useExecution.ts"
+ENVELOPE = ROOT / "tactical" / "src" / "lib" / "platformEnvelope.ts"
+PLATFORM_CONTRACT = ROOT / "packages" / "shared" / "lib" / "platform-contract.ts"
 
 
 class TacticalSourcesContract(unittest.TestCase):
@@ -18,6 +21,9 @@ class TacticalSourcesContract(unittest.TestCase):
         self.component = COMPONENT.read_text(encoding="utf-8")
         self.app = APP.read_text(encoding="utf-8")
         self.bridge = BRIDGE.read_text(encoding="utf-8")
+        self.execution_hook = EXECUTION_HOOK.read_text(encoding="utf-8")
+        self.envelope = ENVELOPE.read_text(encoding="utf-8")
+        self.platform_contract = PLATFORM_CONTRACT.read_text(encoding="utf-8")
 
     def test_hook_reads_exact_read_only_endpoint(self) -> None:
         self.assertIn("/platform/operations/sources", self.hook)
@@ -40,6 +46,22 @@ class TacticalSourcesContract(unittest.TestCase):
         )
         for token in required:
             self.assertIn(token, self.hook)
+
+    def test_sources_uses_canonical_platform_envelope(self) -> None:
+        self.assertIn("parsePlatformEnvelope<OperationsSourcesPayload>", self.hook)
+        self.assertIn("parsePlatformEnvelope<OperationsSourcesUnavailable>", self.hook)
+        self.assertIn("PLATFORM_CONTRACT_VERSION", self.envelope)
+        self.assertIn("OperationsSourcesPayload", self.platform_contract)
+        self.assertIn("OperationsSourcesUnavailable", self.platform_contract)
+        self.assertIn("_platform_envelope(eid, payload)", self.bridge)
+
+    def test_execution_init_reads_stream_url_from_envelope_data(self) -> None:
+        self.assertIn("parsePlatformEnvelope<ExecutionInitResult>", self.execution_hook)
+        self.assertIn("envelope.data.execution_id", self.execution_hook)
+        self.assertIn("envelope.data.stream_url", self.execution_hook)
+        self.assertIn("PLATFORM_EXECUTION_ID_MISMATCH", self.execution_hook)
+        self.assertIn("PLATFORM_STREAM_URL_MISSING", self.execution_hook)
+        self.assertNotIn("streamUrl   = data.stream_url", self.execution_hook)
 
     def test_all_semantic_source_errors_fail_closed(self) -> None:
         self.assertIn("const semanticFailure = message.startsWith('SOURCE_')", self.hook)
