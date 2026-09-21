@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[3]
 MODULE_PATH = ROOT / "python" / "operations_center_sources.py"
 DATA_PATH = ROOT / "python" / "operations_center_sources_v1.json"
 BRIDGE_PATH = ROOT / "python" / "bridge.py"
+DOCKERFILE_PATH = ROOT / "Dockerfile"
 
 
 def load_module():
@@ -89,3 +90,10 @@ def test_bridge_exposes_only_read_only_sources_route():
     route_index = source.index("elif self.path == '/platform/operations/sources':")
     calibration_index = source.index("elif self.path == '/platform/calibration':")
     assert get_index < route_index < calibration_index
+
+
+def test_cloud_run_image_includes_runtime_projection():
+    source = DOCKERFILE_PATH.read_text(encoding="utf-8")
+    assert "COPY python/ ./python/" in source
+    assert "WORKDIR /app/python" in source
+    assert 'CMD ["python", "bridge.py"]' in source
