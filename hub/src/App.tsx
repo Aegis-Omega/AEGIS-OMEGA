@@ -9,6 +9,7 @@
 // /compliance     → CompliancePage (EU AI Act · GDPR · constitutional law)
 // /tools          → ToolsPage (creator tools, included with Operator/Sovereign)
 import { AegisRuntime }      from './components/AegisRuntime.js'
+import { AuditCheckoutPage }  from './components/AuditCheckoutPage.js'
 import { ClaimSponsorPage }  from './components/ClaimSponsorPage.js'
 import { CompliancePage }    from './components/CompliancePage.js'
 import { ConsolePage }       from './components/console/ConsolePage.js'
@@ -22,6 +23,7 @@ const path = window.location.pathname
 
 export default function App() {
   if (path === '/pricing')        return <PricingPage />
+  if (path === '/audit')          return <AuditCheckoutPage />
   if (path === '/claim-sponsor')  return <ClaimSponsorPage />
   if (path === '/compliance')     return <CompliancePage />
   if (path === '/docs')           return <DocsPage />
