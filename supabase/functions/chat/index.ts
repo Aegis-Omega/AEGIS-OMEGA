@@ -1,6 +1,7 @@
+import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CORS } from '../_shared/cors.ts'
 
-const DASHSCOPE_API_KEY = Deno.env.get('DASHSCOPE_API_KEY') ?? ''
+const DASHSCOPE_API_KEY_ENV = Deno.env.get('DASHSCOPE_API_KEY') ?? ''
 const DASHSCOPE_URL = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions'
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY') ?? ''
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
@@ -23,6 +24,35 @@ const AZURE_OPENAI_API_KEY = Deno.env.get('AZURE_OPENAI_API_KEY') ?? ''
 const AZURE_OPENAI_DEPLOYMENT = Deno.env.get('AZURE_OPENAI_DEPLOYMENT') ?? ''
 const AZURE_OPENAI_API_VERSION = Deno.env.get('AZURE_OPENAI_API_VERSION') ?? '2024-10-21'
 const DEFAULT_SYSTEM = `You are the AEGIS Omega AI assistant helping content creators. Be concise, direct, and practical.`
+
+let dashScopeKeyCache: string | null | undefined
+
+async function loadDashScopeApiKey(): Promise<string> {
+  if (DASHSCOPE_API_KEY_ENV) return DASHSCOPE_API_KEY_ENV
+  if (dashScopeKeyCache !== undefined) return dashScopeKeyCache ?? ''
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  if (!supabaseUrl || !serviceRoleKey) {
+    dashScopeKeyCache = null
+    return ''
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false },
+  })
+  const { data, error } = await supabase.rpc('get_provider_secret_v1', {
+    p_name: 'aegis-dashscope-api-key',
+  })
+  if (error || typeof data !== 'string' || !data) {
+    if (error) console.error('DashScope Vault lookup failed:', error.message)
+    dashScopeKeyCache = null
+    return ''
+  }
+
+  dashScopeKeyCache = data
+  return data
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
@@ -87,6 +117,17 @@ Deno.serve(async (req) => {
       })
     }
 
+    const dashScopeApiKey = useOpenAI || useNebius || useAzure
+      ? ''
+      : await loadDashScopeApiKey()
+
+    if (!useOpenAI && !useNebius && !useAzure && !dashScopeApiKey) {
+      console.error('DashScope error: no environment or Vault credential is configured')
+      return new Response(JSON.stringify({ error: 'AI unavailable', reply: "I'm having trouble connecting right now. Try again in a moment." }), {
+        status: 200, headers: { ...CORS, 'Content-Type': 'application/json' },
+      })
+    }
+
     const url = useAzure
       ? `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version=${AZURE_OPENAI_API_VERSION}`
       : useOpenAI ? OPENAI_URL
@@ -104,7 +145,7 @@ Deno.serve(async (req) => {
                 ? OPENAI_API_KEY
                 : useNebius
                   ? NEBIUS_API_KEY
-                  : DASHSCOPE_API_KEY}`,
+                  : dashScopeApiKey}`,
             }),
       },
       body: JSON.stringify(useAzure ? {
