@@ -92,9 +92,13 @@ jobs:
             WeilThreeBlockPrimeEvaluationV30
             WeilThreeBlockCrossAssemblyV30
             WeilSeparatedArchBridgeV31
+            WeilMomentKillerConstructionV1
+            WeilLogTransportCanonicalV1
             WeilTwoPointPositivityV1
             WeilAbjadFourPhaseBridgeV1
+            RHNarrowMomentPacketV1
             RHFinalClosureSpineV1
+            RHNarrowRetainedSignV1
             RHTranslatedKernelDominanceV1
             RHFourBlockBoundObstructionV1
           )
@@ -151,6 +155,10 @@ jobs:
           #print AEGIS.WeilSeparatedArchBridgeV31.CorrelationSupportDifferenceWidthV31
           #print axioms AEGIS.WeilSeparatedArchBridgeV31.twice_packet_width_eq_correlation_width_v31
           #print axioms AEGIS.RHFinalClosureV1.final_sign_residual_iff_weil_negativity_v1
+          #print axioms AEGIS.RHNarrowMomentPacketV1.gNarrow_moments
+          #print axioms AEGIS.RHNarrowMomentPacketV1.gNarrow_width
+          #print axioms AEGIS.RHNarrowRetainedSignV1.narrow_three_block_coercive_v1
+          #print axioms AEGIS.RHNarrowRetainedSignV1.narrow_three_block_sign_v1
           #print axioms AEGIS.RHFinalClosureV1.retained_three_block_sign_v1
           #print axioms AEGIS.RHTranslatedKernelDominanceV1.neg_actual_two_point_eq_weil_two_point_v1
           #print axioms AEGIS.RHTranslatedKernelDominanceV1.component_bounds_imply_four_phase_rhs_nonpositive_v1
@@ -171,6 +179,8 @@ jobs:
           UNION_TREE=V8_FIXED_LINE_PLUS_RESTRICTED_CRITERION_PLUS_V31_SIGN_STACK
           FINAL_SIGN_RESIDUAL_EQ_WEIL_NEGATIVITY=TARGETED
           RKHS_COMPONENT_BOX_EQ_FINAL_SIGN=TARGETED
+          NARROW_CANONICAL_MOMENT_PACKET=TARGETED
+          NARROW_PACKET_V31_SIGN=TARGETED
           FINITE_RKHS_DOMINANCE_KERNEL=IMPORTED_EXISTING
           SAME_SPAN_CONGRUENCE_KERNEL=IMPORTED_EXISTING
           CONCRETE_FINITE_SEMANTICS_499=IMPORTED_EXISTING
