@@ -17,20 +17,24 @@ concurrency:
 jobs:
   swift-foundation-models:
     name: Apple Foundation Models / swift test
-    runs-on: macos-26
+    runs-on: macos-latest
     timeout-minutes: 15
 
     steps:
       - name: Checkout exact head
         uses: actions/checkout@v4
 
-      - name: Record Apple toolchain identity
+      - name: Record and enforce Apple toolchain identity
         run: |
           set -euo pipefail
           sw_vers
           xcodebuild -version
           xcrun swift --version
           xcrun --sdk macosx --show-sdk-path
+          OS_MAJOR="$(sw_vers -productVersion | cut -d. -f1)"
+          XCODE_MAJOR="$(xcodebuild -version | awk '/Xcode/{split($2,v,"."); print v[1]}')"
+          test "$OS_MAJOR" = "26"
+          test "$XCODE_MAJOR" = "26"
 
       - name: Require FoundationModels SDK surface
         run: |
