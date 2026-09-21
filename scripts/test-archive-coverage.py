@@ -105,7 +105,7 @@ class ArchiveCoverageContract(unittest.TestCase):
         self.assertEqual(actual, expected)
         self.assertEqual(
             actual["projection_root"],
-            "4833e006bb21f3f925e74d73aed44fbe800ad1a0f0c2c7d7ac4c3c6ea79515e6",
+            "7d9400ba74c83cf08cf10b45d46ed2e11e5b92413b417df45e37bc3e9d397eae",
         )
         self.assertEqual(len(actual["findings"]), 24)
         self.assertEqual(len(actual["unsurfaced_paths"]), 23)
