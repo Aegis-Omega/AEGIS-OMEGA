@@ -114,8 +114,8 @@ def build_projection(root: Path, coverage: dict[str, Any]) -> dict[str, Any]:
         ],
         "navigation": {
             "sources_tab_default_view": "coverage",
-            "show_exact_23_paths": True,
-            "show_24_findings": True,
+            "show_exact_paths": True,
+            "show_findings": True,
         },
         "consumer_contract": {
             "preferred_path": "reports/operations-center-sources-v1.json",
