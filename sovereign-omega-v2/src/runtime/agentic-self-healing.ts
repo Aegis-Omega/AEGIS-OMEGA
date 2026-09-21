@@ -142,6 +142,7 @@ export interface HealingCycleReceipt {
   readonly effective_state_hash: SHA256Hex
   readonly verifier_results: readonly HealingVerifierReceipt[]
   readonly verifier_root: SHA256Hex
+  readonly authority_preflight_evidence_hash: SHA256Hex | null
   readonly quarantine_active: boolean
   readonly volatile_reversion_applied: boolean
   readonly durable_apply_performed: false
@@ -317,6 +318,7 @@ interface EmitReceiptInput {
   readonly plan: HealingPlan | null
   readonly effective_state_hash: SHA256Hex
   readonly verifier_results: readonly HealingVerifierReceipt[]
+  readonly authority_preflight_evidence_hash?: SHA256Hex
   readonly quarantine_active: boolean
   readonly volatile_reversion_applied: boolean
 }
@@ -610,6 +612,7 @@ export class AgenticSelfHealingRuntime {
         plan,
         effective_state_hash: observation.state_hash,
         verifier_results: Object.freeze([]),
+        authority_preflight_evidence_hash: preflight.evidence_hash,
         quarantine_active: true,
         volatile_reversion_applied: false,
       })
@@ -631,6 +634,7 @@ export class AgenticSelfHealingRuntime {
         plan,
         effective_state_hash: observation.state_hash,
         verifier_results: verifierResults,
+        authority_preflight_evidence_hash: preflight.evidence_hash,
         quarantine_active: true,
         volatile_reversion_applied: false,
       })
@@ -645,6 +649,7 @@ export class AgenticSelfHealingRuntime {
         plan,
         effective_state_hash: observation.state_hash,
         verifier_results: verifierResults,
+        authority_preflight_evidence_hash: preflight.evidence_hash,
         quarantine_active: true,
         volatile_reversion_applied: false,
       })
@@ -660,6 +665,7 @@ export class AgenticSelfHealingRuntime {
       plan,
       effective_state_hash: observation.state_hash,
       verifier_results: verifierResults,
+      authority_preflight_evidence_hash: preflight.evidence_hash,
       quarantine_active: true,
       volatile_reversion_applied: false,
     })
@@ -684,6 +690,7 @@ export class AgenticSelfHealingRuntime {
       effective_state_hash: input.effective_state_hash,
       verifier_results: input.verifier_results,
       verifier_root,
+      authority_preflight_evidence_hash: input.authority_preflight_evidence_hash ?? null,
       quarantine_active: input.quarantine_active,
       volatile_reversion_applied: input.volatile_reversion_applied,
       durable_apply_performed: false,
@@ -732,6 +739,7 @@ export async function certifyHealingChain(
       effective_state_hash: receipt.effective_state_hash,
       verifier_results: receipt.verifier_results,
       verifier_root: receipt.verifier_root,
+      authority_preflight_evidence_hash: receipt.authority_preflight_evidence_hash,
       quarantine_active: receipt.quarantine_active,
       volatile_reversion_applied: receipt.volatile_reversion_applied,
       durable_apply_performed: receipt.durable_apply_performed,
