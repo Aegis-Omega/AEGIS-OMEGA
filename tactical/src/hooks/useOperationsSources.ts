@@ -1,47 +1,12 @@
 import { useEffect, useState } from 'react'
+import type {
+  OperationsSourcesPayload,
+  OperationsSourcesUnavailable,
+  PlatformEnvelope,
+} from '../../../packages/shared/lib/platform-contract.js'
+import { parsePlatformEnvelope } from '../lib/platformEnvelope.js'
 
 const BRIDGE = (import.meta.env.VITE_BRIDGE_URL as string | undefined) ?? 'http://localhost:7890'
-
-export interface OperationsSourceFinding {
-  id: string
-  priority: 'P0' | 'P1' | 'P2'
-  component: string
-  path_count: number
-  individually_catalogued_paths: number
-  uncatalogued_paths: number
-  authority_effect: 'NONE'
-}
-
-export interface OperationsSourceCard {
-  id: 'catalogued_sources' | 'archive_project_files' | 'coverage_groups' | 'unsurfaced_no_counterpart'
-  label: string
-  value: number
-  status: string
-  note: string
-}
-
-export interface OperationsSourcesPayload {
-  schema: 'AEGIS_OPERATIONS_CENTER_SOURCES_V1'
-  source: {
-    archive_coverage_path: string
-    archive_coverage_root: string
-    evidence_package_sha256: string
-    observed_main_head: string
-    observed_at_utc: string
-  }
-  cards: OperationsSourceCard[]
-  findings: readonly OperationsSourceFinding[]
-  unsurfaced_paths: readonly string[]
-  warnings: readonly string[]
-  consumer_contract: {
-    preferred_path: string
-    legacy_label_to_replace: string
-    primary_card_id: string
-    invalid_source_behavior: string
-  }
-  authority_effect: 'NONE'
-  projection_root: string
-}
 
 export type OperationsSourcesState =
   | { state: 'LOADING'; payload: null; error: null }
@@ -121,14 +86,20 @@ export function useOperationsSources(): OperationsSourcesState {
         })
         const body = await response.json().catch(() => null)
         if (!response.ok) {
-          const errorCode =
-            typeof body === 'object' && body !== null && 'error_code' in body
-              ? String((body as { error_code?: unknown }).error_code)
-              : `HTTP_${response.status}`
+          let errorCode = `HTTP_${response.status}`
+          try {
+            const envelope = parsePlatformEnvelope<OperationsSourcesUnavailable>(body)
+            errorCode = envelope.data.error_code || errorCode
+          } catch {
+            // Preserve transport status when the error envelope itself is malformed.
+          }
           setSnapshot({ state: 'INVALID_OR_STALE', payload: null, error: errorCode })
           return
         }
-        const payload = validatePayload(body)
+
+        const envelope: PlatformEnvelope<OperationsSourcesPayload> =
+          parsePlatformEnvelope<OperationsSourcesPayload>(body)
+        const payload = validatePayload(envelope.data)
         setSnapshot({ state: 'READY', payload, error: null })
       } catch (error) {
         if (controller.signal.aborted) return
