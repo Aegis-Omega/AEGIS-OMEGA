@@ -65,6 +65,11 @@ jobs:
             WeilArchimedeanConvergenceV1
             WeilAutocorrelationRealityV1
             WeilAutocorrelationClosureV1
+            WeilFiniteSourceCalculusV1
+            WeilArchSineKernelV1
+            WeilArchSineKernelIntegerV1
+            WeilArchFiniteQuadraticV1
+            WeilArchTailIntegralV1
             WeilThreeBlockRationalV1
             WeilMixedClosureV2
             WeilThreeBlockComplexV2
@@ -120,6 +125,18 @@ jobs:
               tee "evidence/$m.log"
           done < evidence/modules.txt
 
+      - name: Set up Python for inherited RKHS exact kernels
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.11'
+
+      - name: Replay inherited RKHS dominance and same-span congruence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install pytest==8.4.1
+          python -m pytest -q research/rh/test_rkhs_dominance_kernel.py
+
       - name: Audit final spine
         shell: bash
         run: |
@@ -146,6 +163,10 @@ jobs:
           SOURCE_SHA=$SOURCE_SHA
           UNION_TREE=V8_FIXED_LINE_PLUS_RESTRICTED_CRITERION_PLUS_V31_SIGN_STACK
           FINAL_SIGN_RESIDUAL_EQ_WEIL_NEGATIVITY=TARGETED
+          FINITE_RKHS_DOMINANCE_KERNEL=IMPORTED_EXISTING
+          SAME_SPAN_CONGRUENCE_KERNEL=IMPORTED_EXISTING
+          CONCRETE_FINITE_SEMANTICS_499=IMPORTED_EXISTING
+          FINITE_SOURCE_CALCULUS_523=IMPORTED_EXISTING
           PACKET_LOG_SUPPORT_WIDTH=1/32
           CORRELATION_SUPPORT_DIFFERENCE_WIDTH=1/16
           RETAINED_THREE_BLOCK_SIGN=TARGETED
