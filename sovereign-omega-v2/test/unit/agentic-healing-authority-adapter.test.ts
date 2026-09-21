@@ -6,8 +6,8 @@ import {
 } from '../../src/core/types.js'
 import { AdaptiveLineage } from '../../src/frame/adaptive-lineage.js'
 import {
-  capacityRegistry,
-  mutationOperatorRegistry,
+  CapacityDeclarationRegistry,
+  MutationOperatorRegistry,
 } from '../../src/verifier/registry.js'
 import {
   createHealingAuthorityPreflight,
@@ -23,8 +23,12 @@ const seq = (n: number): SequenceNumber => BigInt(n) as SequenceNumber
 describe('Agentic healing authority adapter', () => {
   it('enforces registry seal, operator identity, K-bound and martingale', async () => {
     const lineage = AdaptiveLineage.empty()
+    const mutationOperatorRegistry = new MutationOperatorRegistry()
+    const capacityRegistry = new CapacityDeclarationRegistry(mutationOperatorRegistry)
     const adapter = createHealingAuthorityPreflight({
       lineageEntries: () => lineage.getAll(),
+      operatorRegistry: mutationOperatorRegistry,
+      capacityRegistry,
     })
 
     // ADR-004: gate evaluation before MutationOperatorRegistry.seal() is forbidden.
