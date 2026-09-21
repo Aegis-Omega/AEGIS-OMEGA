@@ -450,7 +450,14 @@ describe('Agentic Self-Healing Runtime V1', () => {
     )
     expect(result.receipt.effective_state_hash).toBe(h('a'))
     expect(result.receipt.plan_hash).toMatch(/^[0-9a-f]{64}$/)
+    expect(result.receipt.plan?.plan_hash).toBe(result.receipt.plan_hash)
+    expect(result.receipt.plan?.candidate_state_hash).toBe(h('9'))
+    expect(result.receipt.plan?.operator_id).toBe('repair-operator-v1')
+    expect(result.receipt.authority_preflight?.eligible).toBe(true)
+    expect(result.receipt.authority_preflight?.evidence_hash).toBe(h('f'))
     expect(result.receipt.authority_preflight_evidence_hash).toBe(h('f'))
+    expect(result.receipt.attempt_number).toBe(1)
+    expect(result.receipt.attempt_budget).toBe(MAX_HEALING_ATTEMPTS_PER_INCIDENT)
     expect(result.receipt.durable_apply_performed).toBe(false)
     expect(result.receipt.authority_effect).toBe('NONE')
     expect(result.receipt.quarantine_active).toBe(true)
@@ -576,6 +583,8 @@ describe('Agentic Self-Healing Runtime V1', () => {
     expect(plannerCalled).toBe(false)
     expect(exhausted.receipt.status).toBe('ESCALATED')
     expect(exhausted.receipt.reason_code).toBe('HEALING_ATTEMPT_BUDGET_EXHAUSTED')
+    expect(exhausted.receipt.attempt_number).toBe(MAX_HEALING_ATTEMPTS_PER_INCIDENT + 1)
+    expect(exhausted.receipt.attempt_budget).toBe(MAX_HEALING_ATTEMPTS_PER_INCIDENT)
     expect(exhausted.receipt.quarantine_active).toBe(true)
     expect(exhausted.receipt.durable_apply_performed).toBe(false)
   })
@@ -697,6 +706,56 @@ describe('Agentic Self-Healing Runtime V1', () => {
     const cert = await certifyHealingChain([first.receipt, forgedSecond])
     expect(cert.is_valid).toBe(false)
     expect(cert.terminal_hash).toBe(first.receipt.receipt_hash)
+  })
+
+  it('certifier rejects forged self-contained plan body even when receipt object is otherwise intact', async () => {
+    const result = await AgenticSelfHealingRuntime.create().runCycle(
+      observation(),
+      {
+        planner: planner(mutationPlan),
+        verifiers: [verifier(true)],
+        authority_preflight: authority(),
+      },
+    )
+
+    const forged = {
+      ...result.receipt,
+      plan: result.receipt.plan === null
+        ? null
+        : {
+            ...result.receipt.plan,
+            candidate_state_hash: h('8'),
+          },
+    }
+
+    const cert = await certifyHealingChain([forged])
+    expect(cert.is_valid).toBe(false)
+    expect(cert.terminal_hash).toBe(HEALING_GENESIS_HASH)
+  })
+
+  it('certifier rejects authority preflight body/hash mismatch', async () => {
+    const result = await AgenticSelfHealingRuntime.create().runCycle(
+      observation(),
+      {
+        planner: planner(mutationPlan),
+        verifiers: [verifier(true)],
+        authority_preflight: authority(),
+      },
+    )
+
+    const forged = {
+      ...result.receipt,
+      authority_preflight: result.receipt.authority_preflight === null
+        ? null
+        : {
+            ...result.receipt.authority_preflight,
+            evidence_hash: h('8'),
+          },
+    }
+
+    const cert = await certifyHealingChain([forged])
+    expect(cert.is_valid).toBe(false)
+    expect(cert.terminal_hash).toBe(HEALING_GENESIS_HASH)
   })
 
   it('invalid observation hash fails before planner execution', async () => {
