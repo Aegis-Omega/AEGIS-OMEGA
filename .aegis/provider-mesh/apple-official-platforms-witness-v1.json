@@ -28,5 +28,25 @@
     "apple_business_manager_tenant_access": false,
     "device_management_authority": false,
     "private_cloud_compute_entitlement_verified": false
+  },
+  "runtime_binding": {
+    "snapshot_root": "d26b5c44579075855075687749243747db991401798591aafc0c1de1f65d0d32",
+    "authority_effect": "NONE",
+    "observations": [
+      {
+        "provider_id": "apple-developer-intelligence",
+        "capability": "APPLE_INTELLIGENCE_DEVELOPER_READ",
+        "evidence_hash": "2010dbf590170c87431428a77f88d0bed552451f0d6d7f90579bb2fd19946e9a",
+        "selection_outcome": "SELECTED",
+        "selection_receipt_hash": "36c55e7669fc0531191b0bdb7f49922761d99b2bde13a22bf61b61177e161a9c"
+      },
+      {
+        "provider_id": "apple-business-ai",
+        "capability": "APPLE_BUSINESS_DEPLOYMENT_READ",
+        "evidence_hash": "ffed888d87ae9e5f78299035b0a8f4b0b07532e4b49f085df48232bdfd844d52",
+        "selection_outcome": "SELECTED",
+        "selection_receipt_hash": "7ad0663559610d0a78a6ac2bb9ae407580550a57245dfc8a81aa46d9a8a5f134"
+      }
+    ]
   }
 }
