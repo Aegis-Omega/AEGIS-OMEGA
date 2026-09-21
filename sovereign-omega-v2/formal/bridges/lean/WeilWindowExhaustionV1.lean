@@ -121,6 +121,40 @@ theorem weil_compact_smooth_negativity_iff_all_windows_v1 :
   rw [weil_compact_smooth_negativity_iff_unconditional_real_inequality_v1]
   exact universal_arithmetic_nonpositive_iff_all_windows_v1
 
+/-- Larger windows imply all smaller-window sign obligations. -/
+theorem windowArithmeticNonpositive_mono_v1
+    {L₁ L₂ : ℝ} (hL : L₁ ≤ L₂)
+    (h : WindowArithmeticNonpositiveV1 L₂) :
+    WindowArithmeticNonpositiveV1 L₁ := by
+  intro g hm hwindow
+  apply h g hm
+  intro t ht
+  have hI := hwindow ht
+  exact ⟨by linarith [hI.1], by linarith [hI.2]⟩
+
+/-- The continuum of positive real windows is equivalent to the cofinal
+countable sequence of positive integer windows. -/
+theorem all_windows_iff_positive_nat_windows_v1 :
+    (∀ L : ℝ, 0 < L → WindowArithmeticNonpositiveV1 L) ↔
+      ∀ n : ℕ, 0 < n → WindowArithmeticNonpositiveV1 (n : ℝ) := by
+  constructor
+  · intro h n hn
+    exact h (n : ℝ) (by exact_mod_cast hn)
+  · intro h L hL
+    obtain ⟨n, hn⟩ := exists_nat_gt L
+    have hnR : (0 : ℝ) < (n : ℝ) := hL.trans hn
+    have hnNat : 0 < n := by exact_mod_cast hnR
+    exact windowArithmeticNonpositive_mono_v1 (le_of_lt hn) (h n hnNat)
+
+/-- Final countable exhaustion form of the existing repository negativity
+predicate. The remaining analytic target can therefore be indexed by positive
+natural window radii, with no loss of logical strength. -/
+theorem weil_compact_smooth_negativity_iff_positive_nat_windows_v1 :
+    WeilCompactSmoothNegativityV1 ↔
+      ∀ n : ℕ, 0 < n → WindowArithmeticNonpositiveV1 (n : ℝ) := by
+  rw [weil_compact_smooth_negativity_iff_all_windows_v1]
+  exact all_windows_iff_positive_nat_windows_v1
+
 end AEGIS.WeilWindowExhaustionV1
 
 #print axioms AEGIS.WeilWindowExhaustionV1.logSupportEnvelope_compact_v1
@@ -128,3 +162,6 @@ end AEGIS.WeilWindowExhaustionV1
 #print axioms AEGIS.WeilWindowExhaustionV1.logLift_has_finite_window_v1
 #print axioms AEGIS.WeilWindowExhaustionV1.universal_arithmetic_nonpositive_iff_all_windows_v1
 #print axioms AEGIS.WeilWindowExhaustionV1.weil_compact_smooth_negativity_iff_all_windows_v1
+#print axioms AEGIS.WeilWindowExhaustionV1.windowArithmeticNonpositive_mono_v1
+#print axioms AEGIS.WeilWindowExhaustionV1.all_windows_iff_positive_nat_windows_v1
+#print axioms AEGIS.WeilWindowExhaustionV1.weil_compact_smooth_negativity_iff_positive_nat_windows_v1
