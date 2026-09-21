@@ -4,7 +4,8 @@
   "authority_effect": "NONE",
   "runtime_snapshot_roots": [
     "e7ed81df146f16bb97cff0488a9f4f1b30cb431eb3e54421b3d329f72c655469",
-    "6ea2d6d2d3e28219097803de40339027df20ef1640c2a7d2f71550b65e16a24d"
+    "6ea2d6d2d3e28219097803de40339027df20ef1640c2a7d2f71550b65e16a24d",
+    "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02"
   ],
   "observations": [
     {
@@ -86,12 +87,100 @@
       "evidence_hash": "9f6097ac5fadb4ee094e138656215a3db8386bdcc4718703431748b5747ccebe",
       "runtime_snapshot_root": "6ea2d6d2d3e28219097803de40339027df20ef1640c2a7d2f71550b65e16a24d",
       "selection_receipt_hash": "efc614cf651eddc168da5f94edf688ec23fccfe9772e64863c449bb9a34f7e45"
+    },
+    {
+      "provider_id": "chatgpt-ads-manager",
+      "capability": "ADS_MANAGER_READ",
+      "probe_operation": "list_ad_accounts",
+      "outcome": "ACCOUNT_UNAVAILABLE",
+      "observation_state": "OBSERVED_UNAVAILABLE",
+      "blocker_code": "NO_ACCESSIBLE_AD_ACCOUNTS",
+      "result_count": 0,
+      "evidence_hash": "6254e17cf94dc9231547e344fb21f81069f6ba1d4808aca2153f469e6852ffcb",
+      "runtime_snapshot_root": "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
+      "selection_outcome": "DENIED",
+      "selection_receipt_hash": "2465a17d41c01e64eddd160a3ccf4f3b6972b0338b5849f69d3bbb406ce28da6"
+    },
+    {
+      "provider_id": "chatgpt-legalquants-transactional",
+      "capability": "LEGAL_TRANSACTIONAL_GUIDANCE",
+      "probe_operation": "skills_read_lq_start",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "b52067b55c2c50bd3313f300e1bef3ff220371471aeb7258737f442c2606f2fc",
+      "runtime_snapshot_root": "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "bf9d9344b379e834eb5d6a275ab969fffe89c90f533f74f7266a8dd2ef65ce75"
+    },
+    {
+      "provider_id": "chatgpt-semrush",
+      "capability": "SEO_INTELLIGENCE",
+      "probe_operation": "domain_overview",
+      "outcome": "BILLING_BLOCKED",
+      "observation_state": "BILLING_BLOCKED",
+      "blocker_code": "NO_API_UNITS",
+      "result_count": 0,
+      "evidence_hash": "faf37338f630fe71a9dfbb1ae01dd6a254302391e6ee4b8dc333659655f2d750",
+      "runtime_snapshot_root": "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
+      "selection_outcome": "DENIED",
+      "selection_receipt_hash": "64425a209832df208e109ea52efe06a9f96949171a36c8d26dd6a72d4cb67fe4"
+    },
+    {
+      "provider_id": "chatgpt-linkedin",
+      "capability": "PROFESSIONAL_PROFILE_SEARCH",
+      "probe_operation": "linkedin_search_people",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "1a8f1c739b9cc211677169170cef489accf0c6287deb559d13caf777abb3975f",
+      "runtime_snapshot_root": "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "0d4df66a04268b1a49fcfd3c748073bdc21505c243234006506b4bfccf2cbcba"
+    },
+    {
+      "provider_id": "chatgpt-blockscout",
+      "capability": "BLOCKCHAIN_DATA_READ",
+      "probe_operation": "unlock_blockchain_analysis",
+      "outcome": "NETWORK_REACHABLE",
+      "observation_state": "NETWORK_REACHABLE",
+      "blocker_code": "SKILL_FETCH_UNAVAILABLE",
+      "result_count": 1,
+      "evidence_hash": "76eb44c6502654c34ade8acb44264564674a506e301b878844ba2463b569be12",
+      "runtime_snapshot_root": "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
+      "selection_outcome": "DENIED",
+      "selection_receipt_hash": "b444bdec846b4813f43885fe1cff15e496de422d7c56014a24c5e44a884d4209"
+    },
+    {
+      "provider_id": "chatgpt-sofa",
+      "capability": "AGENT_KNOWLEDGE_READ",
+      "probe_operation": "sofa_search_and_get_post",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": "GUIDANCE_DECLARATION_UNKNOWN",
+      "result_count": 2,
+      "evidence_hash": "98c118bb7617e7c42a2f6c7d01a83b94a19529112473c2607a58bf2655a88b9b",
+      "runtime_snapshot_root": "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "f8d79373e75baafd41f038e169f8909296189400988c9a0cca45b59338fe02dd"
     }
   ],
   "probe_diagnostics": [
     {
       "provider_id": "chatgpt-linear",
       "diagnostic": "Initial invocation rejected advertised link_id as an unexpected property; retry without link_id succeeded.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-sofa",
+      "diagnostic": "Guidance declaration compatibility remained unknown, but read/search/get-post capability succeeded; compatibility status is advisory and did not grant write authority.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-blockscout",
+      "diagnostic": "Session initialization succeeded, but the required Blockscout analysis skill could not be fetched through the available resource/web surface; blockchain-data routing therefore remained denied.",
       "authority_effect": "NONE"
     }
   ],
@@ -102,5 +191,25 @@
     "write_authority_granted": false,
     "merge_authority_granted": false,
     "deploy_authority_granted": false
+  },
+  "superseded_runtime_receipts": [
+    {
+      "reason": "CANONICAL_PREIMAGE_MISMATCH",
+      "authority_effect": "NONE",
+      "receipts": [
+        "0545783f036d6800c4bfb25aa713a3e613261188e1b07143314ef319171845f2",
+        "c07aff8b90440aea9257554fdef60686b2d7888d04f76c0d9f558273d64eb4cb",
+        "16c6f87dac9525f737bf2b84b5faa7d5b86d7112f8b33138c1e0ef9b8ed2434f",
+        "2f96134e3dfb907cdcc7b946cb8a6edf30670a36632b86136b97c1d949a736d4",
+        "1e6cb5570f83e5baf9828648da7d48d1ba7c75a0ed6145c845198e0ac8473961",
+        "a3fde42132ff27f15d49384c316ae98ea266fd1420656106fa8e1f45d6b9a44f"
+      ]
+    }
+  ],
+  "knowledge_consultation": {
+    "provider_id": "chatgpt-sofa",
+    "post_id": "094ea5ab-8f71-4580-a506-c9b8355db8d7",
+    "applied_boundary": "LIVE_INVOCATION_SCHEMA_OVERRIDES_ADVERTISED_ARGUMENT_ASSUMPTIONS; TRANSPORT_METADATA_STAYS_SEPARATE_FROM_DECLARED_BUSINESS_INPUTS",
+    "authority_effect": "NONE"
   }
 }
