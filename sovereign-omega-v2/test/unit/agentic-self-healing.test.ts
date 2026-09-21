@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 import type { SHA256Hex, SequenceNumber } from '../../src/core/types.js'
 import {
   AGENTIC_HEALING_SCHEMA_VERSION,
+  MAX_HEALING_ATTEMPTS_PER_INCIDENT,
   AgenticHealingError,
   AgenticSelfHealingRuntime,
   HEALING_GENESIS_HASH,
@@ -542,6 +543,160 @@ describe('Agentic Self-Healing Runtime V1', () => {
 
     const cert = await certifyHealingChain([tampered])
     expect(cert.is_valid).toBe(false)
+  })
+
+  it('healing attempt budget stops repeated repair storms before planner re-entry', async () => {
+    let runtime = AgenticSelfHealingRuntime.create()
+
+    for (let i = 1; i <= MAX_HEALING_ATTEMPTS_PER_INCIDENT; i++) {
+      const result = await runtime.runCycle(
+        observation({ sequence: seq(i) }),
+        { planner: planner(null), verifiers: [] },
+      )
+      expect(result.receipt.status).toBe('ESCALATED')
+      expect(result.receipt.reason_code).toBe('NO_REPAIR_PLAN')
+      runtime = result.runtime
+    }
+
+    let plannerCalled = false
+    const exhausted = await runtime.runCycle(
+      observation({ sequence: seq(MAX_HEALING_ATTEMPTS_PER_INCIDENT + 1) }),
+      {
+        planner: {
+          planner_id: 'must-not-run',
+          async propose() {
+            plannerCalled = true
+            return reversionPlan
+          },
+        },
+        verifiers: [],
+      },
+    )
+
+    expect(plannerCalled).toBe(false)
+    expect(exhausted.receipt.status).toBe('ESCALATED')
+    expect(exhausted.receipt.reason_code).toBe('HEALING_ATTEMPT_BUDGET_EXHAUSTED')
+    expect(exhausted.receipt.quarantine_active).toBe(true)
+    expect(exhausted.receipt.durable_apply_performed).toBe(false)
+  })
+
+  it('duplicate verifier IDs become failing evidence instead of throwing', async () => {
+    const result = await AgenticSelfHealingRuntime.create().runCycle(
+      observation(),
+      {
+        planner: planner(reversionPlan),
+        volatile_recovery: recovery(),
+        verifiers: [
+          verifier(true, 'dup'),
+          verifier(true, 'dup'),
+        ],
+      },
+    )
+
+    expect(result.receipt.status).toBe('QUARANTINED')
+    expect(result.receipt.reason_code).toBe('POST_REVERSION_VERIFICATION_FAILED')
+    expect(result.receipt.verifier_results).toHaveLength(2)
+    expect(result.receipt.verifier_results[1]?.passed).toBe(false)
+    expect(result.receipt.verifier_results[1]?.reason_code).toBe('DUPLICATE_VERIFIER_ID:dup')
+  })
+
+  it('malformed runtime severity is rejected before planner execution', async () => {
+    let plannerCalled = false
+    const malformed = {
+      ...observation(),
+      severity: 'UNKNOWN' as HealingObservation['severity'],
+    }
+
+    await expect(
+      AgenticSelfHealingRuntime.create().runCycle(
+        malformed,
+        {
+          planner: {
+            planner_id: 'p',
+            async propose() {
+              plannerCalled = true
+              return reversionPlan
+            },
+          },
+          verifiers: [],
+        },
+      ),
+    ).rejects.toThrow('invalid healing severity')
+
+    expect(plannerCalled).toBe(false)
+  })
+
+  it('malformed plan mode is converted into planner rejection receipt', async () => {
+    const result = await AgenticSelfHealingRuntime.create().runCycle(
+      observation(),
+      {
+        planner: planner({
+          ...reversionPlan,
+          mode: 'UNKNOWN' as HealingPlanInput['mode'],
+        }),
+        verifiers: [],
+      },
+    )
+
+    expect(result.receipt.status).toBe('ESCALATED')
+    expect(result.receipt.reason_code).toBe('PLANNER_REJECTED:AgenticHealingError')
+  })
+
+  it('certifier rejects forged authority effect and trusts no forged terminal', async () => {
+    const result = await AgenticSelfHealingRuntime.create().runCycle(
+      observation({ severity: 'INFO' }),
+      { planner: planner(null), verifiers: [] },
+    )
+
+    const forged = {
+      ...result.receipt,
+      authority_effect: 'ADMIT' as never,
+    }
+
+    const cert = await certifyHealingChain([forged])
+    expect(cert.is_valid).toBe(false)
+    expect(cert.terminal_hash).toBe(HEALING_GENESIS_HASH)
+  })
+
+  it('certifier rejects forged durable apply state', async () => {
+    const result = await AgenticSelfHealingRuntime.create().runCycle(
+      observation({ severity: 'INFO' }),
+      { planner: planner(null), verifiers: [] },
+    )
+
+    const forged = {
+      ...result.receipt,
+      durable_apply_performed: true as never,
+    }
+
+    const cert = await certifyHealingChain([forged])
+    expect(cert.is_valid).toBe(false)
+    expect(cert.terminal_hash).toBe(HEALING_GENESIS_HASH)
+  })
+
+  it('certifier stops terminal at last valid receipt on later chain corruption', async () => {
+    const first = await AgenticSelfHealingRuntime.create().runCycle(
+      observation({ severity: 'INFO', sequence: seq(1) }),
+      { planner: planner(null), verifiers: [] },
+    )
+    const second = await first.runtime.runCycle(
+      observation({
+        incident_id: 'inc-2',
+        severity: 'INFO',
+        sequence: seq(2),
+        evidence_hash: h('4'),
+      }),
+      { planner: planner(null), verifiers: [] },
+    )
+
+    const forgedSecond = {
+      ...second.receipt,
+      sequence: seq(1),
+    }
+
+    const cert = await certifyHealingChain([first.receipt, forgedSecond])
+    expect(cert.is_valid).toBe(false)
+    expect(cert.terminal_hash).toBe(first.receipt.receipt_hash)
   })
 
   it('invalid observation hash fails before planner execution', async () => {
