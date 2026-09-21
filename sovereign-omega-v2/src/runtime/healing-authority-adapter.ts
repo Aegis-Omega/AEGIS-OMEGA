@@ -23,6 +23,8 @@ import {
 import {
   capacityRegistry,
   mutationOperatorRegistry,
+  type CapacityDeclarationRegistry,
+  type MutationOperatorRegistry,
 } from '../verifier/registry.js'
 import type {
   HealingAuthorityPreflight,
@@ -32,14 +34,19 @@ export const HEALING_AUTHORITY_ADAPTER_SCHEMA_VERSION = '1.0.0' as const
 
 export interface HealingAuthorityAdapterOptions {
   readonly lineageEntries: () => readonly AdaptiveLineageEntry[]
+  readonly operatorRegistry?: MutationOperatorRegistry
+  readonly capacityRegistry?: CapacityDeclarationRegistry
 }
 
 export function createHealingAuthorityPreflight(
   options: HealingAuthorityAdapterOptions,
 ): HealingAuthorityPreflight {
+  const operators = options.operatorRegistry ?? mutationOperatorRegistry
+  const capacities = options.capacityRegistry ?? capacityRegistry
+
   return {
     async mutationAuthorityActive(): Promise<boolean> {
-      if (!mutationOperatorRegistry.isSealed()) return false
+      if (!operators.isSealed()) return false
 
       const cert = await certifyMartingale(options.lineageEntries())
       try {
@@ -54,14 +61,14 @@ export function createHealingAuthorityPreflight(
       let eligible = true
       let reason_code = 'SEALED_REGISTRY_K_BOUND_AND_MARTINGALE_OK'
 
-      if (!mutationOperatorRegistry.isSealed()) {
+      if (!operators.isSealed()) {
         eligible = false
         reason_code = 'MUTATION_OPERATOR_REGISTRY_UNSEALED'
       }
 
       if (eligible) {
         try {
-          mutationOperatorRegistry.validate([input.operator_id])
+          operators.validate([input.operator_id])
         } catch {
           eligible = false
           reason_code = 'UNKNOWN_MUTATION_OPERATOR'
@@ -70,7 +77,7 @@ export function createHealingAuthorityPreflight(
 
       if (eligible) {
         try {
-          if (!capacityRegistry.checkKBound(
+          if (!capacities.checkKBound(
             input.observation.component_id,
             input.delta_k,
           )) {
@@ -95,7 +102,7 @@ export function createHealingAuthorityPreflight(
 
       const evidence_hash = await hashValue({
         schema_version: HEALING_AUTHORITY_ADAPTER_SCHEMA_VERSION,
-        operator_registry_sealed: mutationOperatorRegistry.isSealed(),
+        operator_registry_sealed: operators.isSealed(),
         operator_id: input.operator_id,
         component_id: input.observation.component_id,
         delta_k: input.delta_k,
