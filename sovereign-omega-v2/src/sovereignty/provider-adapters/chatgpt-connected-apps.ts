@@ -32,6 +32,14 @@ export const CHATGPT_CONNECTED_APP_CAPABILITIES_V1 = {
   'chatgpt-linkedin': ['PROFESSIONAL_PROFILE_SEARCH'],
   'chatgpt-blockscout': ['BLOCKCHAIN_DATA_READ'],
   'chatgpt-sofa': ['AGENT_KNOWLEDGE_READ'],
+  'chatgpt-dropbox': ['DOCUMENT_RETRIEVAL'],
+  'chatgpt-sharepoint': ['DOCUMENT_RETRIEVAL'],
+  'chatgpt-outlook-email': ['EMAIL_RETRIEVAL'],
+  'chatgpt-outlook-calendar': ['CALENDAR_READ'],
+  'chatgpt-scite': ['SCIENTIFIC_LITERATURE_READ'],
+  'chatgpt-hugging-face': ['MODEL_HUB_READ'],
+  'chatgpt-gitlab': ['REPOSITORY_READ'],
+  'chatgpt-vercel': ['DEPLOYMENT_PLATFORM_READ'],
 } as const satisfies Readonly<Record<string, readonly ProviderCapabilityV1[]>>
 
 export type ChatGptConnectedAppIdV1 = keyof typeof CHATGPT_CONNECTED_APP_CAPABILITIES_V1
@@ -44,6 +52,7 @@ export type ChatGptConnectedAppOutcomeV1 =
   | 'ACCOUNT_UNAVAILABLE'
   | 'BILLING_BLOCKED'
   | 'NETWORK_REACHABLE'
+  | 'QUOTA_EXHAUSTED'
 
 export interface ChatGptConnectedAppEvidenceV1 {
   connector_id: ChatGptConnectedAppIdV1
@@ -79,7 +88,7 @@ export async function observeChatGptConnectedAppV1(
   const successfulRead = evidence.outcome === 'READ_SUCCESS'
   const state = successfulRead
     ? 'OBSERVED_AVAILABLE'
-    : evidence.outcome === 'ACCOUNT_UNAVAILABLE' || evidence.outcome === 'NOT_CONNECTED'
+    : evidence.outcome === 'ACCOUNT_UNAVAILABLE' || evidence.outcome === 'NOT_CONNECTED' || evidence.outcome === 'QUOTA_EXHAUSTED'
       ? 'OBSERVED_UNAVAILABLE'
       : evidence.outcome === 'BILLING_BLOCKED'
         ? 'BILLING_BLOCKED'
@@ -90,7 +99,10 @@ export async function observeChatGptConnectedAppV1(
             : 'UNKNOWN'
 
   const observed_capabilities =
-    successfulRead || evidence.outcome === 'BILLING_BLOCKED' || evidence.outcome === 'NETWORK_REACHABLE'
+    successfulRead ||
+    evidence.outcome === 'BILLING_BLOCKED' ||
+    evidence.outcome === 'NETWORK_REACHABLE' ||
+    evidence.outcome === 'QUOTA_EXHAUSTED'
       ? [...CHATGPT_CONNECTED_APP_CAPABILITIES_V1[evidence.connector_id]]
       : []
 
