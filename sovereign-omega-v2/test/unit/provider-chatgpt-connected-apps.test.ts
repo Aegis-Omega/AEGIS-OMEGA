@@ -255,6 +255,37 @@ describe('ChatGPT connected-app provider observations v1', () => {
     expect(observed.authority_effect).toBe('NONE')
   })
 
+  it.each([
+    ['chatgpt-wolfram', 'wolfram_context', 'SYMBOLIC_COMPUTE', 1, '3f6791cae75c8fa7f83dca609c975eb2b52fe63d06b4fb03d131a8f2cd656e7b'],
+    ['chatgpt-tavily', 'tavily_search', 'WEB_RESEARCH', 1, '7d0eb83e957ccb37c31c6a2d65f17c5aa1ffdbbbe61c45790ef6b031e9c8a663'],
+    ['chatgpt-zoom', 'search_meetings', 'MEETING_KNOWLEDGE_READ', 0, '6a4763ab8c5333cb2fbc6631f86934fd12fcbe566e0c02045ad14f4f703dd276'],
+  ] as const)('binds %s compute/web/meeting read evidence into the provider mesh', async (connector_id, operation, capability, result_count, evidence_hash) => {
+    const observed = await observeChatGptConnectedAppV1({
+      connector_id,
+      operation,
+      outcome: 'READ_SUCCESS',
+      result_count,
+    }, '27')
+
+    expect(observed.state).toBe('OBSERVED_AVAILABLE')
+    expect(observed.observed_capabilities).toEqual([capability])
+    expect(observed.evidence_hash).toBe(evidence_hash)
+    expect(observed.authority_effect).toBe('NONE')
+  })
+
+  it('keeps Granola without an account non-routable', async () => {
+    const observed = await observeChatGptConnectedAppV1({
+      connector_id: 'chatgpt-granola',
+      operation: 'get_account_info',
+      outcome: 'ACCOUNT_UNAVAILABLE',
+      result_count: 0,
+    }, '27')
+
+    expect(observed.state).toBe('OBSERVED_UNAVAILABLE')
+    expect(observed.observed_capabilities).toEqual([])
+    expect(observed.evidence_hash).toBe('0c20d390ea46f898457a80210a914bda414b1f35f94b7294a90ad472a011d3d6')
+  })
+
   it('rejects an unknown connector instead of accepting caller-authored capability claims', async () => {
     await expect(observeChatGptConnectedAppV1({
       connector_id: 'chatgpt-unknown' as ChatGptConnectedAppIdV1,
