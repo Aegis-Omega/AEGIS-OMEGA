@@ -46,6 +46,7 @@ const ALLOWED = new Set([
   'INSTITUTIONAL_INTELLIGENCE_READ',
   'CLOUD_INFRASTRUCTURE_READ',
   'DATABASE_PLATFORM_READ',
+  'MEETING_KNOWLEDGE_READ',
 ])
 
 Deno.serve(async (req: Request) => {
