@@ -8,19 +8,20 @@
 // /runtime        → AegisRuntime (constitutional consciousness showcase)
 // /compliance     → CompliancePage (EU AI Act · GDPR · constitutional law)
 // /tools          → ToolsPage (creator tools, included with Operator/Sovereign)
-import { AegisRuntime }      from './components/AegisRuntime.js'
-import { ClaimSponsorPage }  from './components/ClaimSponsorPage.js'
-import { CompliancePage }    from './components/CompliancePage.js'
-import { ConsolePage }       from './components/console/ConsolePage.js'
-import { DocsPage }          from './components/DocsPage.js'
-import { HomepageLanding }   from './components/HomepageLanding.js'
-import { PlatformPage }      from './components/PlatformPage.js'
-import { PricingPage }       from './components/PricingPage.js'
-import { ToolsPage }         from './components/ToolsPage.js'
+import { AegisRuntime }            from './components/AegisRuntime.js'
+import { AnalyticsConsentBanner } from './components/AnalyticsConsentBanner.js'
+import { ClaimSponsorPage }        from './components/ClaimSponsorPage.js'
+import { CompliancePage }          from './components/CompliancePage.js'
+import { ConsolePage }             from './components/console/ConsolePage.js'
+import { DocsPage }                from './components/DocsPage.js'
+import { HomepageLanding }         from './components/HomepageLanding.js'
+import { PlatformPage }            from './components/PlatformPage.js'
+import { PricingPage }             from './components/PricingPage.js'
+import { ToolsPage }               from './components/ToolsPage.js'
 
 const path = window.location.pathname
 
-export default function App() {
+function RoutedPage() {
   if (path === '/pricing')        return <PricingPage />
   if (path === '/claim-sponsor')  return <ClaimSponsorPage />
   if (path === '/compliance')     return <CompliancePage />
@@ -30,4 +31,13 @@ export default function App() {
   if (path === '/runtime')        return <AegisRuntime />
   if (path === '/tools')          return <ToolsPage />
   return <HomepageLanding />
+}
+
+export default function App() {
+  return (
+    <>
+      <RoutedPage />
+      <AnalyticsConsentBanner />
+    </>
+  )
 }
