@@ -53,6 +53,10 @@ export const CHATGPT_CONNECTED_APP_CAPABILITIES_V1 = {
   'chatgpt-alphaxiv': ['SCIENTIFIC_LITERATURE_READ'],
   'chatgpt-genomic-intelligence': ['GENOMIC_INTELLIGENCE_READ'],
   'chatgpt-powers-index': ['INSTITUTIONAL_INTELLIGENCE_READ'],
+  'chatgpt-railway': ['CLOUD_INFRASTRUCTURE_READ'],
+  'chatgpt-digitalocean': ['CLOUD_INFRASTRUCTURE_READ'],
+  'chatgpt-neon': ['DATABASE_PLATFORM_READ'],
+  'chatgpt-clickhouse': ['DATABASE_PLATFORM_READ'],
 } as const satisfies Readonly<Record<string, readonly ProviderCapabilityV1[]>>
 
 export type ChatGptConnectedAppIdV1 = keyof typeof CHATGPT_CONNECTED_APP_CAPABILITIES_V1
