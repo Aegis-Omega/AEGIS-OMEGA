@@ -94,6 +94,7 @@ theorem phiNarrow_moments :
 
 theorem phiNarrow_ne_zero : phiNarrow ≠ 0 := by
   intro h
+  change momentKiller psiNarrow = 0 at h
   have hz :=
     eq_zero_of_momentKiller_eq_zero
       psiNarrow_contDiff psiNarrow_hasCompactSupport h 0
