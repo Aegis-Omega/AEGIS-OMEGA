@@ -279,8 +279,8 @@ export interface OperationsSourcesPayload {
   readonly warnings: readonly string[]
   readonly navigation: {
     readonly sources_tab_default_view: string
-    readonly show_exact_23_paths: boolean
-    readonly show_24_findings: boolean
+    readonly show_exact_paths: boolean
+    readonly show_findings: boolean
   }
   readonly consumer_contract: OperationsSourcesConsumerContract
   readonly authority_effect: 'NONE'
