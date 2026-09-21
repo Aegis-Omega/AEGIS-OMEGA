@@ -99,18 +99,21 @@ def save_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
     }
 
 
-def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
+def inspect_checkpoint(path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
     """
-    Restore CoreMatrix counters and last M1 entry from a checkpoint file.
-    Verifies integrity hash before applying any state.
-    Raises CheckpointError on validation failure — matrix is left untouched.
-    Returns restored metadata.
+    Read and verify a checkpoint without mutating CoreMatrix state.
+
+    Returns verified checkpoint metadata plus the decoded last M1 entry bytes.
+    Raises CheckpointError on any validation failure.
     """
     if not os.path.exists(path):
         raise CheckpointError(f'Checkpoint not found: {path}')
 
-    with open(path, 'r') as f:
-        cp = json.load(f)
+    try:
+        with open(path, 'r') as f:
+            cp = json.load(f)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise CheckpointError(f'Checkpoint unreadable: {exc}') from exc
 
     if cp.get('checkpoint_version') != CHECKPOINT_VERSION:
         raise CheckpointError(
@@ -120,28 +123,64 @@ def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
     if cp.get('is_replay_reconstructable') is not True:
         raise CheckpointError('is_replay_reconstructable must be true')
 
-    sequence = int(cp['sequence'])
-    epoch = int(cp['epoch'])
-    era = int(cp['era'])
-    entry_hex = str(cp['last_m1_entry_hex'])
+    try:
+        sequence = int(cp['sequence'])
+        epoch = int(cp['epoch'])
+        era = int(cp['era'])
+        entry_hex = str(cp['last_m1_entry_hex'])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise CheckpointError(f'Checkpoint fields invalid: {exc}') from exc
 
-    # Integrity check
+    if sequence < 0 or epoch < 0 or era < 0:
+        raise CheckpointError('Checkpoint counters must be non-negative')
+
     expected = hashlib.sha256(
         f'{sequence}:{epoch}:{era}:{entry_hex}'.encode()
     ).hexdigest()
-    if expected != cp.get('integrity_hash'):
-        raise CheckpointError(
-            f'Integrity violation: checkpoint may be tampered'
-        )
+    integrity_hash = cp.get('integrity_hash')
+    if expected != integrity_hash:
+        raise CheckpointError('Integrity violation: checkpoint may be tampered')
 
-    entry_bytes = bytes.fromhex(entry_hex)
+    try:
+        entry_bytes = bytes.fromhex(entry_hex)
+    except ValueError as exc:
+        raise CheckpointError('last_m1_entry_hex must be valid hex') from exc
+
     if len(entry_bytes) != _M1_ENTRY_BYTES:
         raise CheckpointError(
             f'last_m1_entry_hex must decode to {_M1_ENTRY_BYTES} bytes, '
             f'got {len(entry_bytes)}'
         )
 
-    # Restore: write last M1 entry back to correct position, set counters
+    return {
+        'checkpoint_version': CHECKPOINT_VERSION,
+        'sequence': sequence,
+        'epoch': epoch,
+        'era': era,
+        'last_m1_entry_hex': entry_hex,
+        'last_m1_entry_bytes': entry_bytes,
+        'integrity_hash': integrity_hash,
+        'is_replay_reconstructable': True,
+        'path': path,
+        'verified': True,
+    }
+
+
+def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
+    """
+    Restore CoreMatrix counters and last M1 entry from a verified checkpoint.
+
+    Validation is performed by inspect_checkpoint() before any matrix mutation.
+    Raises CheckpointError on validation failure — matrix is left untouched.
+    """
+    verified = inspect_checkpoint(path)
+
+    sequence = verified['sequence']
+    epoch = verified['epoch']
+    era = verified['era']
+    entry_bytes = verified['last_m1_entry_bytes']
+
+    # Restore only after the complete checkpoint has been verified.
     with matrix._lock:
         if sequence > 0:
             prev_seq = sequence - 1
@@ -155,7 +194,7 @@ def load_checkpoint(matrix, path: str = DEFAULT_CHECKPOINT_PATH) -> dict:
         'sequence': sequence,
         'epoch': epoch,
         'era': era,
-        'integrity_hash': cp['integrity_hash'],
+        'integrity_hash': verified['integrity_hash'],
         'path': path,
     }
 
