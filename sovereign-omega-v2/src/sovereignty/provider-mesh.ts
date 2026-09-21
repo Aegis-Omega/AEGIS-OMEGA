@@ -57,6 +57,8 @@ export type ProviderCapabilityV1 =
   | 'EMAIL_DELIVERY_READ'
   | 'GENOMIC_INTELLIGENCE_READ'
   | 'INSTITUTIONAL_INTELLIGENCE_READ'
+  | 'CLOUD_INFRASTRUCTURE_READ'
+  | 'DATABASE_PLATFORM_READ'
 
 export type ProviderObservationStateV1 =
   | 'UNKNOWN'
@@ -202,6 +204,8 @@ const ALL_CAPABILITIES = new Set<ProviderCapabilityV1>([
   'EMAIL_DELIVERY_READ',
   'GENOMIC_INTELLIGENCE_READ',
   'INSTITUTIONAL_INTELLIGENCE_READ',
+  'CLOUD_INFRASTRUCTURE_READ',
+  'DATABASE_PLATFORM_READ',
 ])
 const ALL_STATES = new Set<ProviderObservationStateV1>([
   'UNKNOWN',
@@ -901,6 +905,35 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     provider_id: 'chatgpt-powers-index',
     planes: ['INTELLIGENCE'],
     declared_capabilities: ['INSTITUTIONAL_INTELLIGENCE_READ'],
+    authority_effect: 'NONE',
+  },
+
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-railway',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['CLOUD_INFRASTRUCTURE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-digitalocean',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['CLOUD_INFRASTRUCTURE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-neon',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['DATABASE_PLATFORM_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-clickhouse',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['DATABASE_PLATFORM_READ'],
     authority_effect: 'NONE',
   },
 
