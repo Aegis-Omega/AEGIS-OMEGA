@@ -215,7 +215,11 @@ async function buildPlan(
 
   if (input.mode === 'PROPOSE_MUTATION') {
     if (!input.operator_id) throw new AgenticHealingError('operator_id required for durable repair')
-    if (!Number.isFinite(input.delta_k) || (input.delta_k ?? -1) < 0) {
+    if (
+      typeof input.delta_k !== 'number' ||
+      !Number.isFinite(input.delta_k) ||
+      input.delta_k < 0
+    ) {
       throw new AgenticHealingError('delta_k must be finite non-negative for durable repair')
     }
     if (input.candidate_state_hash === observation.state_hash) {
@@ -616,7 +620,7 @@ export class AgenticSelfHealingRuntime {
       authority_effect: 'NONE',
       previous_receipt_hash,
       is_replay_reconstructable: true,
-    }
+    } as const
 
     const receipt_hash = await hashValue(body) as SHA256Hex
     const receipt = deepFreeze<HealingCycleReceipt>({
