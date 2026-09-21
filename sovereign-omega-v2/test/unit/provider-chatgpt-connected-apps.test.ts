@@ -236,6 +236,25 @@ describe('ChatGPT connected-app provider observations v1', () => {
     expect(observed.authority_effect).toBe('NONE')
   })
 
+  it.each([
+    ['chatgpt-railway', 'whoami', 'CLOUD_INFRASTRUCTURE_READ', 1, 'b5dc3d1841f785352b7462828e81c63b4db8a95b2f7fd31ef3b2d1d5e7c4757a'],
+    ['chatgpt-digitalocean', 'account_get_information', 'CLOUD_INFRASTRUCTURE_READ', 1, '58dbe212e9cd9dcc89297aca25c1a0a81bc0ea713e46539854abe270467d6780'],
+    ['chatgpt-neon', 'list_organizations', 'DATABASE_PLATFORM_READ', 0, '8365125b2ee2f663daf612eea06d1f0cab30e16b932d495e7d762067c6c6960b'],
+    ['chatgpt-clickhouse', 'get_organizations', 'DATABASE_PLATFORM_READ', 0, '6d81e966b8d1a3ab34e5370dc9a8c5eddd417d28bb322094c0d8118de968a9e4'],
+  ] as const)('binds %s infrastructure read evidence into the provider mesh', async (connector_id, operation, capability, result_count, evidence_hash) => {
+    const observed = await observeChatGptConnectedAppV1({
+      connector_id,
+      operation,
+      outcome: 'READ_SUCCESS',
+      result_count,
+    }, '26')
+
+    expect(observed.state).toBe('OBSERVED_AVAILABLE')
+    expect(observed.observed_capabilities).toEqual([capability])
+    expect(observed.evidence_hash).toBe(evidence_hash)
+    expect(observed.authority_effect).toBe('NONE')
+  })
+
   it('rejects an unknown connector instead of accepting caller-authored capability claims', async () => {
     await expect(observeChatGptConnectedAppV1({
       connector_id: 'chatgpt-unknown' as ChatGptConnectedAppIdV1,
