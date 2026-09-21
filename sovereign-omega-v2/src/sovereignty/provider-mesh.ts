@@ -46,6 +46,9 @@ export type ProviderCapabilityV1 =
   | 'PROFESSIONAL_PROFILE_SEARCH'
   | 'BLOCKCHAIN_DATA_READ'
   | 'AGENT_KNOWLEDGE_READ'
+  | 'SCIENTIFIC_LITERATURE_READ'
+  | 'MODEL_HUB_READ'
+  | 'DEPLOYMENT_PLATFORM_READ'
 
 export type ProviderObservationStateV1 =
   | 'UNKNOWN'
@@ -180,6 +183,9 @@ const ALL_CAPABILITIES = new Set<ProviderCapabilityV1>([
   'PROFESSIONAL_PROFILE_SEARCH',
   'BLOCKCHAIN_DATA_READ',
   'AGENT_KNOWLEDGE_READ',
+  'SCIENTIFIC_LITERATURE_READ',
+  'MODEL_HUB_READ',
+  'DEPLOYMENT_PLATFORM_READ',
 ])
 const ALL_STATES = new Set<ProviderObservationStateV1>([
   'UNKNOWN',
@@ -732,4 +738,61 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     declared_capabilities: ['AGENT_KNOWLEDGE_READ'],
     authority_effect: 'NONE',
   },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-dropbox',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['DOCUMENT_RETRIEVAL'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-sharepoint',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['DOCUMENT_RETRIEVAL'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-outlook-email',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['EMAIL_RETRIEVAL'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-outlook-calendar',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['CALENDAR_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-scite',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['SCIENTIFIC_LITERATURE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-hugging-face',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['MODEL_HUB_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-gitlab',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['REPOSITORY_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-vercel',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['DEPLOYMENT_PLATFORM_READ'],
+    authority_effect: 'NONE',
+  },
+
 ]
