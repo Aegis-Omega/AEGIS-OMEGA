@@ -6,7 +6,8 @@
     "e7ed81df146f16bb97cff0488a9f4f1b30cb431eb3e54421b3d329f72c655469",
     "6ea2d6d2d3e28219097803de40339027df20ef1640c2a7d2f71550b65e16a24d",
     "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
-    "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010"
+    "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+    "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361"
   ],
   "observations": [
     {
@@ -270,6 +271,97 @@
       "runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
       "selection_outcome": "SELECTED",
       "selection_receipt_hash": "65e08afffdd2bcba11e8fca916a5fa761baac1ac1236a976de18a289d3398e33"
+    },
+    {
+      "provider_id": "chatgpt-canva",
+      "capability": "DESIGN_WORKSPACE_READ",
+      "probe_operation": "search",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "e0c301935999a5f94cf6a8353ed8c795cfd56ff0fe4e1562ed9570e383d192d5",
+      "runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "7fa730ab855cfe50fee530ecb6ac4f2f7a98b8c09239a91326188c52ff61ebed"
+    },
+    {
+      "provider_id": "chatgpt-figma",
+      "capability": "DESIGN_WORKSPACE_READ",
+      "probe_operation": "whoami",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "2543eb1234543c9ba18e7b035a7113960f1f425804dda863de88499356789e6d",
+      "runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+      "selection_outcome": "ELIGIBLE_NOT_SELECTED",
+      "selection_receipt_hash": null
+    },
+    {
+      "provider_id": "chatgpt-adobe",
+      "capability": "CREATIVE_ASSET_READ",
+      "probe_operation": "asset_search",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "39ee1b6bc03b5e41c52f3c55227acd89f73aa76908d0c572f9cfc94769cbf84b",
+      "runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "e8e59d36b754237cfd9201f7606ada27433e8a39c4dd74f061cdfe12ed34b139"
+    },
+    {
+      "provider_id": "chatgpt-gamma",
+      "capability": "PRESENTATION_WORKSPACE_READ",
+      "probe_operation": "get_gammas",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "0f380d7d1c6bef717c77db41e675ce42e85a7cc7a2ac870c0a71e0ee9fe1b6ad",
+      "runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "527e5f8a39a39626ae268d2e51296adcb731cb1640a94b4ae347b9e63c8b87a8"
+    },
+    {
+      "provider_id": "chatgpt-airtable",
+      "capability": "OPERATIONS_DATA_READ",
+      "probe_operation": "list_bases",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "e8fc330000d02382f3a3b4501e680db48b465453a40720d41d708aea0d6ac31b",
+      "runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "393d9ffc8170f5937dac83a9ccfcbbfd4abe961f6f94d122d93d5487ed2ac0ee"
+    },
+    {
+      "provider_id": "chatgpt-statsig",
+      "capability": "EXPERIMENTATION_PLATFORM_READ",
+      "probe_operation": "get_context",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "1576825b546c1ef716afb23978489a259e7ccf32b152cdc6ee43f29cba29bd73",
+      "runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "bd250a671606da432a0c695f68cdc37d9471611ab6c733ab7de80a1d2036b237"
+    },
+    {
+      "provider_id": "chatgpt-resend",
+      "capability": "EMAIL_DELIVERY_READ",
+      "probe_operation": "list_domains",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "988592ad34c81202d8fc04fd3c77325dcabbde79d5a5931b8cbc6d180686aabf",
+      "runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "fd5e067ee2f2e648d6357592d2f7e8ee40e7a1e3b54ca831ae4849f64db12094"
     }
   ],
   "probe_diagnostics": [
@@ -302,6 +394,26 @@
       "provider_id": "chatgpt-vercel",
       "diagnostic": "Live list-teams probe completed successfully with zero returned teams; provider execution succeeded without asserting that a Vercel project exists.",
       "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-canva",
+      "diagnostic": "Canva plugin connection was restored during this session. A subsequent live read probe succeeded with zero matching AEGIS designs, which is valid provider execution evidence without asserting content exists.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-figma",
+      "diagnostic": "Figma account-level identity read succeeded. Figma is a fresh DESIGN_WORKSPACE_READ candidate but deterministic routing selected another fresh provider.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-adobe",
+      "diagnostic": "Adobe mandatory initialization completed and a Creative Cloud asset search executed successfully with zero matching AEGIS assets.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-resend",
+      "diagnostic": "Resend domain listing executed successfully with zero returned domains; the provider is readable without asserting configured sending domains.",
+      "authority_effect": "NONE"
     }
   ],
   "evidence_boundary": {
@@ -333,7 +445,7 @@
     "authority_effect": "NONE"
   },
   "freshness": {
-    "latest_runtime_snapshot_root": "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
+    "latest_runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
     "note": "Entries from earlier snapshots are historical evidence unless refreshed; routing remains governed by provider_runtime_latest_v1 freshness and state.",
     "authority_effect": "NONE"
   }
