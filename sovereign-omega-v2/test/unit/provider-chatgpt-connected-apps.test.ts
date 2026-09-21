@@ -215,6 +215,27 @@ describe('ChatGPT connected-app provider observations v1', () => {
     expect(observed.authority_effect).toBe('NONE')
   })
 
+  it.each([
+    ['chatgpt-exa', 'web_search_exa', 'WEB_RESEARCH', 0, '66d739095a2061d4172e8921c447f38848a96ebffb4313a4b7d89847ac4c47d1'],
+    ['chatgpt-consensus', 'search', 'SCIENTIFIC_LITERATURE_READ', 0, '1e43d1e6d7fbba5b8f771a8874dfe4db6912268cc86492e9ef3172da8d21624a'],
+    ['chatgpt-scispace', 'search_papers', 'SCIENTIFIC_LITERATURE_READ', 10, 'e6d84ccc7c8eb82281d70e88a4c8ff9babcfdd4d0decd0c4513ca05812b8a474'],
+    ['chatgpt-alphaxiv', 'discover_papers', 'SCIENTIFIC_LITERATURE_READ', 0, 'd040d1b5be4cee431420319281dd00a266ec1f3bed7d5d7d8f9b7fbcf8b37b5f'],
+    ['chatgpt-genomic-intelligence', 'list_models', 'GENOMIC_INTELLIGENCE_READ', 7, '9b55bdad1bdcbc0873d31ada0b27dc3a331a112afaf998ffc28323c4c12d508d'],
+    ['chatgpt-powers-index', 'get_app_architecture_overview', 'INSTITUTIONAL_INTELLIGENCE_READ', 1, '4a56f92207fc8e7bf21694d153c4ce5d595de81b3850dd82c1425013848d899c'],
+  ] as const)('binds %s research/intelligence read evidence into the provider mesh', async (connector_id, operation, capability, result_count, evidence_hash) => {
+    const observed = await observeChatGptConnectedAppV1({
+      connector_id,
+      operation,
+      outcome: 'READ_SUCCESS',
+      result_count,
+    }, '25')
+
+    expect(observed.state).toBe('OBSERVED_AVAILABLE')
+    expect(observed.observed_capabilities).toEqual([capability])
+    expect(observed.evidence_hash).toBe(evidence_hash)
+    expect(observed.authority_effect).toBe('NONE')
+  })
+
   it('rejects an unknown connector instead of accepting caller-authored capability claims', async () => {
     await expect(observeChatGptConnectedAppV1({
       connector_id: 'chatgpt-unknown' as ChatGptConnectedAppIdV1,
