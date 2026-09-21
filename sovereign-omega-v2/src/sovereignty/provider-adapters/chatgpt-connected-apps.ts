@@ -47,6 +47,12 @@ export const CHATGPT_CONNECTED_APP_CAPABILITIES_V1 = {
   'chatgpt-airtable': ['OPERATIONS_DATA_READ'],
   'chatgpt-statsig': ['EXPERIMENTATION_PLATFORM_READ'],
   'chatgpt-resend': ['EMAIL_DELIVERY_READ'],
+  'chatgpt-exa': ['WEB_RESEARCH'],
+  'chatgpt-consensus': ['SCIENTIFIC_LITERATURE_READ'],
+  'chatgpt-scispace': ['SCIENTIFIC_LITERATURE_READ'],
+  'chatgpt-alphaxiv': ['SCIENTIFIC_LITERATURE_READ'],
+  'chatgpt-genomic-intelligence': ['GENOMIC_INTELLIGENCE_READ'],
+  'chatgpt-powers-index': ['INSTITUTIONAL_INTELLIGENCE_READ'],
 } as const satisfies Readonly<Record<string, readonly ProviderCapabilityV1[]>>
 
 export type ChatGptConnectedAppIdV1 = keyof typeof CHATGPT_CONNECTED_APP_CAPABILITIES_V1
