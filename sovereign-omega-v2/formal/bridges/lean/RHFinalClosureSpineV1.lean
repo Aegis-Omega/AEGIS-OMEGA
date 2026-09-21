@@ -1,7 +1,5 @@
 import WeilAutocorrelationClosureV1
 import WeilSeparatedArchBridgeV31
-import WeilMomentAnnihilatorV1
-import WeilTwoPointPositivityV1
 import Mathlib.Tactic
 
 /-!
