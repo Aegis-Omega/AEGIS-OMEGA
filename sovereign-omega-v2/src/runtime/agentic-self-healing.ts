@@ -265,8 +265,24 @@ async function runVerifiers(
     }
     ids.add(verifier.verifier_id)
 
-    const evidence = await verifier.verify({ observation, plan, effective_state_hash })
-    requireHex64(evidence.evidence_hash, `verifier ${verifier.verifier_id} evidence_hash`)
+    let evidence: HealingVerifierEvidence
+    try {
+      evidence = await verifier.verify({ observation, plan, effective_state_hash })
+      requireHex64(evidence.evidence_hash, `verifier ${verifier.verifier_id} evidence_hash`)
+    } catch (error) {
+      const error_name = error instanceof Error ? error.name : 'UnknownError'
+      const evidence_hash = await hashValue({
+        verifier_id: verifier.verifier_id,
+        error_name,
+        plan_hash: plan.plan_hash,
+        effective_state_hash,
+      }) as SHA256Hex
+      evidence = {
+        passed: false,
+        evidence_hash,
+        reason_code: `VERIFIER_EXCEPTION:${error_name}`,
+      }
+    }
 
     const result_hash = await hashValue({
       verifier_id: verifier.verifier_id,
@@ -423,8 +439,24 @@ export class AgenticSelfHealingRuntime {
         })
       }
 
-      const recovered = await adapters.volatile_recovery.revertToPreFault({ observation, plan })
-      requireHex64(recovered.state_hash, 'volatile recovery state_hash')
+      let recovered: { readonly applied: boolean; readonly state_hash: SHA256Hex }
+      try {
+        recovered = await adapters.volatile_recovery.revertToPreFault({ observation, plan })
+        requireHex64(recovered.state_hash, 'volatile recovery state_hash')
+      } catch (error) {
+        const error_name = error instanceof Error ? error.name : 'UnknownError'
+        return await this.emit({
+          observation,
+          observation_hash: obsHash,
+          status: 'QUARANTINED',
+          reason_code: `VOLATILE_RECOVERY_EXCEPTION:${error_name}`,
+          plan,
+          effective_state_hash: observation.state_hash,
+          verifier_results: Object.freeze([]),
+          quarantine_active: true,
+          volatile_reversion_applied: false,
+        })
+      }
 
       if (!recovered.applied || recovered.state_hash !== observation.pre_fault_state_hash) {
         return await this.emit({
@@ -503,7 +535,25 @@ export class AgenticSelfHealingRuntime {
       })
     }
 
-    if (!await authority.mutationAuthorityActive()) {
+    let authorityActive = false
+    try {
+      authorityActive = await authority.mutationAuthorityActive()
+    } catch (error) {
+      const error_name = error instanceof Error ? error.name : 'UnknownError'
+      return await this.emit({
+        observation,
+        observation_hash: obsHash,
+        status: 'SUSPENDED',
+        reason_code: `AUTHORITY_STATUS_EXCEPTION:${error_name}`,
+        plan,
+        effective_state_hash: observation.state_hash,
+        verifier_results: Object.freeze([]),
+        quarantine_active: true,
+        volatile_reversion_applied: false,
+      })
+    }
+
+    if (!authorityActive) {
       return await this.emit({
         observation,
         observation_hash: obsHash,
@@ -523,13 +573,33 @@ export class AgenticSelfHealingRuntime {
       throw new AgenticHealingError('validated durable plan lost operator metadata')
     }
 
-    const preflight = await authority.preflight({
-      observation,
-      plan,
-      operator_id: operatorId,
-      delta_k: deltaK,
-    })
-    requireHex64(preflight.evidence_hash, 'authority preflight evidence_hash')
+    let preflight: {
+      readonly eligible: boolean
+      readonly reason_code: string
+      readonly evidence_hash: SHA256Hex
+    }
+    try {
+      preflight = await authority.preflight({
+        observation,
+        plan,
+        operator_id: operatorId,
+        delta_k: deltaK,
+      })
+      requireHex64(preflight.evidence_hash, 'authority preflight evidence_hash')
+    } catch (error) {
+      const error_name = error instanceof Error ? error.name : 'UnknownError'
+      return await this.emit({
+        observation,
+        observation_hash: obsHash,
+        status: 'ESCALATED',
+        reason_code: `MUTATION_PREFLIGHT_EXCEPTION:${error_name}`,
+        plan,
+        effective_state_hash: observation.state_hash,
+        verifier_results: Object.freeze([]),
+        quarantine_active: true,
+        volatile_reversion_applied: false,
+      })
+    }
 
     if (!preflight.eligible) {
       return await this.emit({
