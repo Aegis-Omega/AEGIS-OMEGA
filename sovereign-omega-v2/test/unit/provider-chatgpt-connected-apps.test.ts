@@ -146,6 +146,53 @@ describe('ChatGPT connected-app provider observations v1', () => {
     expect(observed.evidence_hash).toBe('1a8f1c739b9cc211677169170cef489accf0c6287deb559d13caf777abb3975f')
   })
 
+  it.each([
+    ['chatgpt-dropbox', 'who_am_i', 'DOCUMENT_RETRIEVAL', 1, '93ef7092b6970a9e527bf6b4719614059ea4648d7131f33faa62b0bf2d0f7cf4'],
+    ['chatgpt-sharepoint', 'get_profile', 'DOCUMENT_RETRIEVAL', 1, 'cbcd52517b84fe36e17e4f27df7fe4f37dbf0f88103ab75f901a6c44148b62bd'],
+    ['chatgpt-outlook-email', 'get_profile', 'EMAIL_RETRIEVAL', 1, '344faed00555a4d4c5838f346e67867fb11c0ff57ce7d5b659cf74460e5ca974'],
+    ['chatgpt-outlook-calendar', 'get_profile', 'CALENDAR_READ', 1, '1b1cca8765b51b3e66ae1cf9297a7bb3dcb7ef839bb6418152b47485803d40e1'],
+    ['chatgpt-hugging-face', 'hf_whoami', 'MODEL_HUB_READ', 1, 'b23d5f3c7d10bff92d67eaa2b296fc4ae1b7f9876dc157b7932c34ea0468e94f'],
+    ['chatgpt-gitlab', 'get_current_user', 'REPOSITORY_READ', 1, '7eae5f7bedf2f8066ae09626dcc32d3ee11158e65d20f9a335dcea309653ac40'],
+    ['chatgpt-vercel', 'list_teams', 'DEPLOYMENT_PLATFORM_READ', 0, 'b00fc42d3e8ee52d62af3b2a919d567ca861f7dce69e339a69c69a118e313a77'],
+  ] as const)('binds %s live probe into the provider mesh', async (connector_id, operation, capability, result_count, evidence_hash) => {
+    const observed = await observeChatGptConnectedAppV1({
+      connector_id,
+      operation,
+      outcome: 'READ_SUCCESS',
+      result_count,
+    }, '23')
+
+    expect(observed.state).toBe('OBSERVED_AVAILABLE')
+    expect(observed.observed_capabilities).toEqual([capability])
+    expect(observed.evidence_hash).toBe(evidence_hash)
+    expect(observed.authority_effect).toBe('NONE')
+  })
+
+  it('keeps Scite monthly MCP quota exhaustion visible and non-routable', async () => {
+    const observed = await observeChatGptConnectedAppV1({
+      connector_id: 'chatgpt-scite',
+      operation: 'search_literature',
+      outcome: 'QUOTA_EXHAUSTED',
+      result_count: 0,
+    }, '23')
+
+    expect(observed.state).toBe('OBSERVED_UNAVAILABLE')
+    expect(observed.observed_capabilities).toEqual(['SCIENTIFIC_LITERATURE_READ'])
+    expect(observed.evidence_hash).toBe('1d35d8cb86dd306bbbdc83a437efcc096cb782868b32541f0757ace321af70e3')
+
+    const snapshot = await buildProviderMeshSnapshotV1(DECLARED_PROVIDER_CATALOG_V1, [observed])
+    const receipt = await selectProviderV1(snapshot, {
+      required_capabilities: ['SCIENTIFIC_LITERATURE_READ'],
+      allowed_providers: ['chatgpt-scite'],
+      current_generation: '23',
+      max_observation_age_generations: '1',
+    })
+
+    expect(receipt.outcome).toBe('DENIED')
+    expect(receipt.provider_id).toBeNull()
+    expect(receipt.denial_codes).toContain('PROVIDER_NOT_OBSERVED_AVAILABLE')
+  })
+
   it('rejects an unknown connector instead of accepting caller-authored capability claims', async () => {
     await expect(observeChatGptConnectedAppV1({
       connector_id: 'chatgpt-unknown' as ChatGptConnectedAppIdV1,
