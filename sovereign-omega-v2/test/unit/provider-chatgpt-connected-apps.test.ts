@@ -48,6 +48,25 @@ describe('ChatGPT connected-app provider observations v1', () => {
     expect(observed.observed_capabilities).toEqual([])
   })
 
+
+  it.each([
+    ['chatgpt-slack', 'slack_read_user_profile', 'COLLABORATION_READ'],
+    ['chatgpt-notion', 'fetch_self', 'KNOWLEDGE_BASE_READ'],
+    ['chatgpt-linear', 'list_documents', 'WORK_TRACKING_READ'],
+    ['chatgpt-hubspot', 'discover_hubspot_schema', 'CRM_READ'],
+  ] as const)('maps %s successful read evidence to %s capability', async (connector_id, operation, capability) => {
+    const observed = await observeChatGptConnectedAppV1({
+      connector_id,
+      operation,
+      outcome: 'READ_SUCCESS',
+      result_count: 1,
+    }, '21')
+
+    expect(observed.state).toBe('OBSERVED_AVAILABLE')
+    expect(observed.observed_capabilities).toEqual([capability])
+    expect(observed.authority_effect).toBe('NONE')
+  })
+
   it('rejects an unknown connector instead of accepting caller-authored capability claims', async () => {
     await expect(observeChatGptConnectedAppV1({
       connector_id: 'chatgpt-unknown' as ChatGptConnectedAppIdV1,
