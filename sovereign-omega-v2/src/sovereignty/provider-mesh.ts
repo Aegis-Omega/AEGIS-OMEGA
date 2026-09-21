@@ -502,6 +502,13 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
   },
   {
     schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'dashscope',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['MODEL_INFERENCE'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
     provider_id: 'github-actions',
     planes: ['EXECUTION'],
     declared_capabilities: ['DURABLE_RUNNER', 'REPOSITORY_WORKFLOW'],
