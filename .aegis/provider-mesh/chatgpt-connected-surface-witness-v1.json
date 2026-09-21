@@ -7,7 +7,8 @@
     "6ea2d6d2d3e28219097803de40339027df20ef1640c2a7d2f71550b65e16a24d",
     "e14be5a506eb64d218c5798e8ce7d68f34a2e76dfa9ff52591384c27bfd88a02",
     "e527bde05b6d47396889cbbd03035195939d1d49ba03723c808b6aa6a8471010",
-    "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361"
+    "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+    "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7"
   ],
   "observations": [
     {
@@ -362,6 +363,84 @@
       "runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
       "selection_outcome": "SELECTED",
       "selection_receipt_hash": "fd5e067ee2f2e648d6357592d2f7e8ee40e7a1e3b54ca831ae4849f64db12094"
+    },
+    {
+      "provider_id": "chatgpt-exa",
+      "capability": "WEB_RESEARCH",
+      "probe_operation": "web_search_exa",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "66d739095a2061d4172e8921c447f38848a96ebffb4313a4b7d89847ac4c47d1",
+      "runtime_snapshot_root": "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "b3db4fcc2d318aeea7ecec7cb37d6e15dc457fcb46bebeb12fe60a6a87f0b2fa"
+    },
+    {
+      "provider_id": "chatgpt-consensus",
+      "capability": "SCIENTIFIC_LITERATURE_READ",
+      "probe_operation": "search",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "1e43d1e6d7fbba5b8f771a8874dfe4db6912268cc86492e9ef3172da8d21624a",
+      "runtime_snapshot_root": "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
+      "selection_outcome": "ELIGIBLE_NOT_SELECTED",
+      "selection_receipt_hash": null
+    },
+    {
+      "provider_id": "chatgpt-scispace",
+      "capability": "SCIENTIFIC_LITERATURE_READ",
+      "probe_operation": "search_papers",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 10,
+      "evidence_hash": "e6d84ccc7c8eb82281d70e88a4c8ff9babcfdd4d0decd0c4513ca05812b8a474",
+      "runtime_snapshot_root": "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
+      "selection_outcome": "ELIGIBLE_NOT_SELECTED",
+      "selection_receipt_hash": null
+    },
+    {
+      "provider_id": "chatgpt-alphaxiv",
+      "capability": "SCIENTIFIC_LITERATURE_READ",
+      "probe_operation": "discover_papers",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 0,
+      "evidence_hash": "d040d1b5be4cee431420319281dd00a266ec1f3bed7d5d7d8f9b7fbcf8b37b5f",
+      "runtime_snapshot_root": "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "45572e5b20d18ee861647ab3f8ef329991abb405ce9892a79cbe938cf69f1a7c"
+    },
+    {
+      "provider_id": "chatgpt-genomic-intelligence",
+      "capability": "GENOMIC_INTELLIGENCE_READ",
+      "probe_operation": "list_models",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 7,
+      "evidence_hash": "9b55bdad1bdcbc0873d31ada0b27dc3a331a112afaf998ffc28323c4c12d508d",
+      "runtime_snapshot_root": "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "f74cdde081abf9fde2bc310f95ba8c1c7d2257a591bd0be5ee78e24cc19cdab0"
+    },
+    {
+      "provider_id": "chatgpt-powers-index",
+      "capability": "INSTITUTIONAL_INTELLIGENCE_READ",
+      "probe_operation": "get_app_architecture_overview",
+      "outcome": "READ_SUCCESS",
+      "observation_state": "OBSERVED_AVAILABLE",
+      "blocker_code": null,
+      "result_count": 1,
+      "evidence_hash": "4a56f92207fc8e7bf21694d153c4ce5d595de81b3850dd82c1425013848d899c",
+      "runtime_snapshot_root": "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
+      "selection_outcome": "SELECTED",
+      "selection_receipt_hash": "f1323f866f412f0c7f6e2643af9373a8ba6675d5bcbb388796897f367232fe9b"
     }
   ],
   "probe_diagnostics": [
@@ -414,6 +493,36 @@
       "provider_id": "chatgpt-resend",
       "diagnostic": "Resend domain listing executed successfully with zero returned domains; the provider is readable without asserting configured sending domains.",
       "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-consensus",
+      "diagnostic": "Consensus search executed successfully and remains a fresh SCIENTIFIC_LITERATURE_READ fallback candidate.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-scispace",
+      "diagnostic": "SciSpace search executed successfully and remains a fresh SCIENTIFIC_LITERATURE_READ fallback candidate.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-alphaxiv",
+      "diagnostic": "alphaXiv discovery executed successfully and was deterministically selected for SCIENTIFIC_LITERATURE_READ.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-genomic-intelligence",
+      "diagnostic": "Genomic Intelligence model-catalog read succeeded; no prediction or biological correctness claim is implied.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-powers-index",
+      "diagnostic": "Powers Index architecture overview read succeeded; capability is informational only and grants no institutional action authority.",
+      "authority_effect": "NONE"
+    },
+    {
+      "provider_id": "chatgpt-exa",
+      "diagnostic": "Exa web-search execution succeeded; zero counted top-level results in the normalized probe does not negate successful provider execution.",
+      "authority_effect": "NONE"
     }
   ],
   "evidence_boundary": {
@@ -445,7 +554,7 @@
     "authority_effect": "NONE"
   },
   "freshness": {
-    "latest_runtime_snapshot_root": "d77cb7ea05b17c69658da3ae28442592700b30cfae587aa00b4ad8d7c6045361",
+    "latest_runtime_snapshot_root": "77006c7aab77f507f10480c43fd25421fc4fef54e6a63837329978b9d1ba5ea7",
     "note": "Entries from earlier snapshots are historical evidence unless refreshed; routing remains governed by provider_runtime_latest_v1 freshness and state.",
     "authority_effect": "NONE"
   }
