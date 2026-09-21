@@ -81,7 +81,7 @@
 
 | Asset | Status | Notes |
 |-------|--------|-------|
-| `tactical/` 39-dept dashboard | REAL | Wired to bridge `/platform/*`; no deploy config |
+| `tactical/` 39-dept dashboard | REAL | Wired to bridge `/platform/*`; Sources coverage consumer + fail-closed Vercel build contract; no Vercel project/deployment yet |
 | `studio/`, `cockpit/` | REAL | Projection-only observability + telemetry chat UI |
 | `.claude/` skills (60+) + metacog hooks | LIVE | Session governance loop: gates, seals, drift-check, frozen-file guard |
 | `vertex/serve.py` + `harness/` | LIVE | FastAPI constitutional proxy + skill harness (Cloud Run) |
