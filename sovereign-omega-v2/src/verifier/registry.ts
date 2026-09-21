@@ -56,6 +56,8 @@ class MutationOperatorRegistry {
 
   seal(): void { this.sealed = true }
 
+  isSealed(): boolean { return this.sealed }
+
   validate(operatorIds: readonly string[]): void {
     for (const id of operatorIds) {
       if (!this.operators.has(id)) throw new RegistrationError(`Unknown mutation operator: ${id}`)
