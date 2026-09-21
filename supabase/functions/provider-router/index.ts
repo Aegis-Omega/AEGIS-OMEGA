@@ -23,6 +23,10 @@ const ALLOWED = new Set([
   'DOCUMENT_RETRIEVAL',
   'EMAIL_RETRIEVAL',
   'CALENDAR_READ',
+  'COLLABORATION_READ',
+  'KNOWLEDGE_BASE_READ',
+  'WORK_TRACKING_READ',
+  'CRM_READ',
 ])
 
 Deno.serve(async (req: Request) => {
