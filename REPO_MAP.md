@@ -23,7 +23,7 @@ only tests touch it · **DORMANT** = nothing references it · **BROKEN** = does 
 | `hub/` | **The storefront.** PayPal checkout → `supabase/functions/verify-paypal` → mints API key | Vercel + Cloud Run |
 | `platform-picker/`, `hook-generator/`, `content-calendar/` | The 3 commercial tools; share `packages/shared` (`@shared`); `AccessGate` → hub PayPal | Cloud Run via `deploy.yml` |
 | `packages/shared/` | Shared lib (access, constitutional-ai, inference-router, dashscope, AccessGate) | imported by the 3 tools |
-| `tactical/` | Real 39-dept dashboard wired to bridge `/platform/*` | **no deploy config** (runs vs bridge) |
+| `tactical/` | Real 39-dept dashboard wired to bridge `/platform/*`; Sources coverage consumer; fail-closed Vercel build contract | deploy-configured, **not deployed** (no Vercel project/domain bound) |
 | `cockpit/`, `studio/` | Internal telemetry / observability dashboards | deployable, not monetized |
 | `supabase/functions/` | Live: `verify-paypal` (payment), `agent`+`slack-events`+`notify` (ops), `chat` (Qwen) | Supabase edge |
 | `.claude/` hooks + `metacog/` | The live governance loop (session-start, per-prompt chain, pre-commit Gate 8, seal) | local to Claude Code |

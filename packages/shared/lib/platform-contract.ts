@@ -227,6 +227,73 @@ export interface CalibrationStatus {
   readonly constitutional_factor_mean: number  // mean c_factor (APPROVED=1.0, FLAG=0.70, QUARANTINE=0.20)
 }
 
+// ── GET /platform/operations/sources ───────────────────────────────────────────
+// Read-only Operations Center evidence projection. Authority-neutral by contract.
+
+export type OperationsSourceCardId =
+  | 'catalogued_sources'
+  | 'archive_project_files'
+  | 'coverage_groups'
+  | 'unsurfaced_no_counterpart'
+
+export type OperationsSourcePriority = 'P0' | 'P1' | 'P2'
+
+export interface OperationsSourceCard {
+  readonly id: OperationsSourceCardId
+  readonly label: string
+  readonly value: number
+  readonly status: string
+  readonly note: string
+}
+
+export interface OperationsSourceFinding {
+  readonly id: string
+  readonly priority: OperationsSourcePriority
+  readonly component: string
+  readonly path_count: number
+  readonly individually_catalogued_paths: number
+  readonly uncatalogued_paths: number
+  readonly authority_effect: 'NONE'
+}
+
+export interface OperationsSourcesConsumerContract {
+  readonly preferred_path: string
+  readonly legacy_label_to_replace: '38 arhiva + Git'
+  readonly primary_card_id: 'catalogued_sources'
+  readonly invalid_source_behavior:
+    'SHOW_INVALID_OR_STALE; DO_NOT_FALL_BACK_TO_COMPLETE_INVENTORY_CLAIM'
+}
+
+export interface OperationsSourcesPayload {
+  readonly schema: 'AEGIS_OPERATIONS_CENTER_SOURCES_V1'
+  readonly source: {
+    readonly archive_coverage_path: string
+    readonly archive_coverage_root: string
+    readonly evidence_package_sha256: string
+    readonly observed_main_head: string
+    readonly observed_at_utc: string
+  }
+  readonly cards: readonly OperationsSourceCard[]
+  readonly findings: readonly OperationsSourceFinding[]
+  readonly unsurfaced_paths: readonly string[]
+  readonly warnings: readonly string[]
+  readonly navigation: {
+    readonly sources_tab_default_view: string
+    readonly show_exact_paths: boolean
+    readonly show_findings: boolean
+  }
+  readonly consumer_contract: OperationsSourcesConsumerContract
+  readonly authority_effect: 'NONE'
+  readonly projection_root: string
+}
+
+export interface OperationsSourcesUnavailable {
+  readonly schema: 'AEGIS_OPERATIONS_CENTER_SOURCES_V1'
+  readonly state: 'INVALID_OR_STALE'
+  readonly error_code: string
+  readonly authority_effect: 'NONE'
+}
+
 // ── GET /platform/tools — agent API contact list ──────────────────────────────
 // Read-only catalog of outbound API profiles available to the agent harness.
 // Raw credentials (key_hash, raw key) are NEVER returned.

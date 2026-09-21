@@ -8,6 +8,7 @@ it does not mutate repository state or grant execution authority.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import subprocess
 from pathlib import Path
@@ -15,6 +16,7 @@ from typing import Any, Iterable, Mapping
 
 SCHEMA_VERSION = "1"
 LEGACY_INVENTORY_PATH = "reports/inventory.json"
+ARCHIVE_COVERAGE_PATH = "reports/archive-coverage-v1.json"
 
 
 def _git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -136,6 +138,47 @@ def _legacy_inventory(repo: Path, source_head_sha: str) -> dict[str, Any]:
     }
 
 
+def _archive_coverage(repo: Path, source_head_sha: str) -> dict[str, Any]:
+    result = _git(repo, "show", f"{source_head_sha}:{ARCHIVE_COVERAGE_PATH}", check=False)
+    if result.returncode != 0:
+        return {
+            "path": ARCHIVE_COVERAGE_PATH,
+            "state": "ABSENT",
+            "authority_effect": "NONE",
+        }
+
+    try:
+        payload = json.loads(result.stdout)
+    except (json.JSONDecodeError, TypeError):
+        return {
+            "path": ARCHIVE_COVERAGE_PATH,
+            "state": "INVALID",
+            "reason_codes": ["ARCHIVE_COVERAGE_INVALID_JSON"],
+            "authority_effect": "NONE",
+        }
+
+    try:
+        validator_path = Path(__file__).with_name("archive_coverage.py")
+        spec = importlib.util.spec_from_file_location("aegis_archive_coverage", validator_path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError("cannot load archive coverage validator")
+        validator = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(validator)
+        projection = validator.project_for_operations_center(payload)
+    except Exception as exc:
+        return {
+            "path": ARCHIVE_COVERAGE_PATH,
+            "state": "INVALID",
+            "reason_codes": [f"ARCHIVE_COVERAGE_VALIDATOR_EXCEPTION:{type(exc).__name__}"],
+            "authority_effect": "NONE",
+        }
+
+    return {
+        "path": ARCHIVE_COVERAGE_PATH,
+        **projection,
+    }
+
+
 def build_snapshot(
     repo: str | Path,
     *,
@@ -158,6 +201,7 @@ def build_snapshot(
         "artifacts": artifacts,
         "artifacts_digest": _digest(artifacts),
         "legacy_inventory": _legacy_inventory(root, source_head_sha),
+        "archive_coverage": _archive_coverage(root, source_head_sha),
     }
     snapshot["snapshot_digest"] = _digest(snapshot)
     return snapshot
@@ -195,6 +239,14 @@ def verify_snapshot_document(
 
         if snapshot.get("artifacts_digest") != _digest(artifacts):
             _append_once(reasons, "ARTIFACTS_DIGEST_MISMATCH")
+
+    archive_coverage = snapshot.get("archive_coverage")
+    if not isinstance(archive_coverage, Mapping):
+        _append_once(reasons, "ARCHIVE_COVERAGE_INVALID")
+    elif archive_coverage.get("state") == "INVALID":
+        _append_once(reasons, "ARCHIVE_COVERAGE_INVALID")
+    elif archive_coverage.get("authority_effect") != "NONE":
+        _append_once(reasons, "ARCHIVE_COVERAGE_AUTHORITY_ESCALATION")
 
     supplied_snapshot_digest = snapshot.get("snapshot_digest")
     unsigned = dict(snapshot)
