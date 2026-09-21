@@ -193,6 +193,28 @@ describe('ChatGPT connected-app provider observations v1', () => {
     expect(receipt.denial_codes).toContain('PROVIDER_NOT_OBSERVED_AVAILABLE')
   })
 
+  it.each([
+    ['chatgpt-canva', 'search', 'DESIGN_WORKSPACE_READ', 0, 'e0c301935999a5f94cf6a8353ed8c795cfd56ff0fe4e1562ed9570e383d192d5'],
+    ['chatgpt-figma', 'whoami', 'DESIGN_WORKSPACE_READ', 1, '2543eb1234543c9ba18e7b035a7113960f1f425804dda863de88499356789e6d'],
+    ['chatgpt-adobe', 'asset_search', 'CREATIVE_ASSET_READ', 0, '39ee1b6bc03b5e41c52f3c55227acd89f73aa76908d0c572f9cfc94769cbf84b'],
+    ['chatgpt-gamma', 'get_gammas', 'PRESENTATION_WORKSPACE_READ', 1, '0f380d7d1c6bef717c77db41e675ce42e85a7cc7a2ac870c0a71e0ee9fe1b6ad'],
+    ['chatgpt-airtable', 'list_bases', 'OPERATIONS_DATA_READ', 1, 'e8fc330000d02382f3a3b4501e680db48b465453a40720d41d708aea0d6ac31b'],
+    ['chatgpt-statsig', 'get_context', 'EXPERIMENTATION_PLATFORM_READ', 1, '1576825b546c1ef716afb23978489a259e7ccf32b152cdc6ee43f29cba29bd73'],
+    ['chatgpt-resend', 'list_domains', 'EMAIL_DELIVERY_READ', 0, '988592ad34c81202d8fc04fd3c77325dcabbde79d5a5931b8cbc6d180686aabf'],
+  ] as const)('binds %s design/ops read evidence into the provider mesh', async (connector_id, operation, capability, result_count, evidence_hash) => {
+    const observed = await observeChatGptConnectedAppV1({
+      connector_id,
+      operation,
+      outcome: 'READ_SUCCESS',
+      result_count,
+    }, '24')
+
+    expect(observed.state).toBe('OBSERVED_AVAILABLE')
+    expect(observed.observed_capabilities).toEqual([capability])
+    expect(observed.evidence_hash).toBe(evidence_hash)
+    expect(observed.authority_effect).toBe('NONE')
+  })
+
   it('rejects an unknown connector instead of accepting caller-authored capability claims', async () => {
     await expect(observeChatGptConnectedAppV1({
       connector_id: 'chatgpt-unknown' as ChatGptConnectedAppIdV1,
