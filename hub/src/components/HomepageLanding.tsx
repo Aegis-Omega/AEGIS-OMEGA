@@ -351,10 +351,10 @@ function TopBar({ status, total, ttv }: { status: ChainStatus; total: number; tt
         </div>
         <a
           className="ld-btn ld-btn-primary"
-          href="/pricing"
+          href="mailto:info@aegisomega.com?subject=AEGIS%20Agent%20Action%20Boundary%20Audit"
           onClick={() => captureEvent('nav_pricing_click', { ttv_seconds: ttv() })}
         >
-          Get API Access
+          Request Evidence Audit
         </a>
       </div>
     </header>
@@ -374,13 +374,13 @@ function Hero({ status, total, ttv }: { status: ChainStatus; total: number; ttv:
       <div className="ld-wrap ld-hero-inner">
         <div className="ld-law-label">Constitutional AI Runtime · AEGIS-Ω</div>
         <h1 className="ld-hero-h1">
-          One API call.<br/>
-          <span className="ld-hero-accent">39 AI departments analyze your business decision.</span>
+          Agentic AI needs an action boundary.<br/>
+          <span className="ld-hero-accent">Map what an agent can do — and what evidence exists before mutation.</span>
         </h1>
         <p className="ld-hero-sub">
-          POST an objective — Strategy, Pricing, Legal, Security and 35 other governed
-          agents return a cross-checked plan, with a SHA-256 audit chain on every
-          artifact. Free tier: 10 runs, no card.
+          AEGIS-Ω is a research and engineering runtime for deterministic authority
+          checks and replayable evidence. Start with a bounded Agent Action Boundary
+          Audit for one tool-using workflow, then inspect the runtime and API.
         </p>
 
         <div className="ld-proof-ledger" role="region" aria-label="Live constitutional proofs">
@@ -393,7 +393,7 @@ function Hero({ status, total, ttv }: { status: ChainStatus; total: number; ttv:
             <span className={`ld-badge ${status.valid ? 'ld-badge--live' : 'ld-badge--bad'}`}>
               {status.valid ? '● LIVE' : '⚠ BAD'}
             </span>
-            <span className="ld-proof-name">This page records its own decisions — tamper-evident · {total} entries</span>
+            <span className="ld-proof-name">This page maintains a live demo hash chain — tamper-evident · {total} entries</span>
             <code className="ld-proof-val ld-proof-val--hash">{terminalShort}</code>
           </div>
           <div className="ld-proof-row">
@@ -552,21 +552,21 @@ const LAYERS = [
     icon: IBrain, num: '1',
     ltag: 'Layer 1 · Substrate', title: 'Deterministic by construction',
     accent: 'var(--aegis-T0)', accentA12: 'rgba(52,211,153,0.06)',
-    desc: 'BTreeMap / BTreeSet only — never HashMap. Ordering is guaranteed, so the same inputs replay to the same cryptographic fingerprint, every time.',
+    desc: 'BTreeMap / BTreeSet provide deterministic ordering in the implemented substrate paths. Reproducibility claims remain bound to the tested encoders and replay scope.',
     mk: 'ordering', mv: 'total',
   },
   {
     icon: IReplay, num: '2',
     ltag: 'Layer 2 · Retrospection', title: 'It replays its own past',
     accent: 'var(--aegis-T1)', accentA12: 'rgba(96,165,250,0.06)',
-    desc: 'Retrospective thinking walks the chain backward from any frame to genesis. Nothing is trusted that cannot be re-derived from the record itself.',
+    desc: 'Retrospective paths walk covered records backward through their recorded lineage. Evidence authority is limited to transitions that can actually be replayed and verified.',
     mk: 'replay depth', mv: '0 → genesis',
   },
   {
     icon: IShield, num: '3',
     ltag: 'Layer 3 · Consensus', title: 'No claim outranks its proof',
     accent: 'var(--aegis-T2)', accentA12: 'rgba(167,139,250,0.06)',
-    desc: 'Every claim is tier-tagged T0–T3 and gated by BFT quorum across the model alliance. An unproven write can never reach the T0 layer.',
+    desc: 'Selected claim and transition paths use epistemic tiers and quorum checks. This is a bounded implementation claim, not a statement that every AEGIS action is production-gated end to end.',
     mk: 'quorum', mv: '3 / 4 weights',
   },
 ]
@@ -581,7 +581,7 @@ function Cognition() {
       <div className="ld-wrap">
         <div className="ld-section-head">
           <div className="ld-sec-num">02 · ARCHITECTURE</div>
-          <h2>Self-government is an architecture, not a promise.</h2>
+          <h2>Governance is strongest when it sits in the execution path.</h2>
         </div>
         <div className="ld-law-block">
           <div className="ld-law-caption">The law that enforces this at runtime:</div>
@@ -648,10 +648,10 @@ function Equation() {
             <span className="ld-eyebrow">The guardrail</span>
             <h2>The math is the rule, not the policy.</h2>
             <p>
-              Confidence is bounded by a martingale: the expected next state equals the
-              current state given everything known so far. The system cannot inflate its
-              own certainty between frames — drift is mathematically impossible, not
-              merely discouraged.
+              The martingale condition is an implemented mathematical boundary in the
+              relevant model and test scope. It constrains the governed state transition;
+              it should not be read as a universal guarantee that every model confidence
+              signal across the platform cannot drift.
             </p>
             <p>
               Alliance weights fall along successive powers of <code>1/φ</code>, so the
@@ -686,7 +686,7 @@ function Invariants() {
       <div className="ld-wrap">
         <div className="ld-section-head">
           <div className="ld-sec-num">04 · CONSTITUTIONAL</div>
-          <h2>Rules the runtime cannot break — including for itself.</h2>
+          <h2>Bounded invariants enforced in the runtime paths that implement them.</h2>
         </div>
         <div className="ld-inv-list">
           {INVARIANTS.map(iv => (
@@ -715,9 +715,9 @@ function PlatformAPI({ ttv }: { ttv: () => number }) {
           <div className="ld-sec-num">05 · PLATFORM API</div>
           <h2>39 governed agents. One API call.</h2>
           <p>
-            POST an objective. 39 constitutional agents collaborate, hash-chain every
-            artifact, run a constitutional audit, and return a replay-verifiable result.
-            No setup beyond an API key.
+            POST an objective. The platform coordinates 39 agent roles and returns
+            structured artifacts with audit and chain metadata on implemented paths.
+            Replay and authority claims remain scoped to the evidence actually produced.
           </p>
         </div>
 
@@ -821,8 +821,8 @@ function Limitations() {
           <div className="ld-ltitle">Known Limitations</div>
           <ul>
             <li><span><b>It is not a frontier model.</b> Reasoning quality is bounded by the alliance models it orchestrates — AEGIS-Ω governs them; it does not replace them.</span></li>
-            <li><span><b>Throughput is the cost of proof.</b> Hash-chaining and BFT quorum on every frame trade raw speed for tamper-evidence. This is deliberate.</span></li>
-            <li><span><b>Tamper-evident, not tamper-proof.</b> A breach is always detectable and attributable — it is not always preventable at the edge.</span></li>
+            <li><span><b>Evidence has a runtime cost.</b> Hash-chaining and quorum checks add overhead on the paths where they are enabled. This is deliberate.</span></li>
+            <li><span><b>Tamper-evident, not tamper-proof.</b> Covered records are designed to expose integrity breaks; this does not guarantee detection or attribution of every external or edge compromise.</span></li>
             <li><span><b>One author, one runtime.</b> There is no fleet, no peer cluster, no managed cloud. The geometry has no peers by design.</span></li>
           </ul>
         </div>
@@ -840,12 +840,13 @@ function FinalCTA({ ttv }: { ttv: () => number }) {
         <div className="ld-final">
           <Mark size={64} className="ld-mark-lg"/>
           <h2>
-            No part of the system can do<br/>
-            more than it can <span className="ld-gold">prove it did.</span>
+            No claim should receive more authority than<br/>
+            its <span className="ld-gold">weakest verified transition.</span>
           </h2>
           <p>
-            Open the runtime and watch the chain extend in real time.
-            It can be replayed from genesis and will produce the same fingerprint every time.
+            Founder pilot: one tool-using workflow, authority surface map, pre-mutation
+            control review, fail-open / fail-closed findings, receiptability assessment,
+            and prioritized remediation. Fixed fee: $3,000.
           </p>
           <div className="ld-cta-row">
             <a
@@ -853,10 +854,10 @@ function FinalCTA({ ttv }: { ttv: () => number }) {
               href="/pricing"
               onClick={() => captureEvent('final_cta_pricing', { ttv_seconds: ttv() })}
             >
-              Get API Access <IArrowR/>
+              Request the $3k Audit <IArrowR/>
             </a>
             <a className="ld-btn ld-btn-ghost ld-btn-xl" href="#substrate">
-              Observe the substrate
+              Inspect the evidence demo
             </a>
           </div>
         </div>
@@ -878,8 +879,8 @@ function Footer() {
               <span className="ld-wm">AEGIS-Ω</span>
             </a>
             <p>
-              A sovereign constitutional runtime. Metacognitive, hash-chained,
-              tamper-evident — and able to prove every claim it makes about itself.
+              A research and engineering runtime for deterministic authority checks,
+              tamper-evident records, replayable evidence, and bounded agent governance.
             </p>
             <div className="ld-attribution">
               Conceived, designed &amp; executed by <span className="v">Tarik Skalić</span><br/>
