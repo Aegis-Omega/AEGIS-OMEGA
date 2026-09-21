@@ -55,6 +55,8 @@ export type ProviderCapabilityV1 =
   | 'OPERATIONS_DATA_READ'
   | 'EXPERIMENTATION_PLATFORM_READ'
   | 'EMAIL_DELIVERY_READ'
+  | 'GENOMIC_INTELLIGENCE_READ'
+  | 'INSTITUTIONAL_INTELLIGENCE_READ'
 
 export type ProviderObservationStateV1 =
   | 'UNKNOWN'
@@ -198,6 +200,8 @@ const ALL_CAPABILITIES = new Set<ProviderCapabilityV1>([
   'OPERATIONS_DATA_READ',
   'EXPERIMENTATION_PLATFORM_READ',
   'EMAIL_DELIVERY_READ',
+  'GENOMIC_INTELLIGENCE_READ',
+  'INSTITUTIONAL_INTELLIGENCE_READ',
 ])
 const ALL_STATES = new Set<ProviderObservationStateV1>([
   'UNKNOWN',
@@ -854,6 +858,49 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     provider_id: 'chatgpt-resend',
     planes: ['INTELLIGENCE'],
     declared_capabilities: ['EMAIL_DELIVERY_READ'],
+    authority_effect: 'NONE',
+  },
+
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-exa',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['WEB_RESEARCH'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-consensus',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['SCIENTIFIC_LITERATURE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-scispace',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['SCIENTIFIC_LITERATURE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-alphaxiv',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['SCIENTIFIC_LITERATURE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-genomic-intelligence',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['GENOMIC_INTELLIGENCE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-powers-index',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['INSTITUTIONAL_INTELLIGENCE_READ'],
     authority_effect: 'NONE',
   },
 
