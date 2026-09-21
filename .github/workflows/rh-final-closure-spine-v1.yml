@@ -87,6 +87,7 @@ jobs:
             WeilThreeBlockCrossAssemblyV30
             WeilSeparatedArchBridgeV31
             RHFinalClosureSpineV1
+            RHFourBlockBoundObstructionV1
           )
           : > evidence/modules.txt
           : > evidence/exact-source.log
@@ -130,6 +131,8 @@ jobs:
           #print axioms AEGIS.WeilSeparatedArchBridgeV31.twice_packet_width_eq_correlation_width_v31
           #print axioms AEGIS.RHFinalClosureV1.final_sign_residual_iff_weil_negativity_v1
           #print axioms AEGIS.RHFinalClosureV1.retained_three_block_sign_v1
+          #print axioms AEGIS.RHFourBlockBoundObstructionV1.four_block_absolute_budget_fails_v1
+          #print axioms AEGIS.RHFourBlockBoundObstructionV1.four_block_missing_margin_v1
           #print axioms AEGIS.WeilSeparatedArchBridgeV31.three_block_bound_of_moments
           EOF
           lake env lean RHFinalClosureAudit.lean 2>&1 | tee evidence/final-spine-axioms.log
