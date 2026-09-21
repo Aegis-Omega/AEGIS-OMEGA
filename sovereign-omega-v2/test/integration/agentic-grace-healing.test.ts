@@ -4,9 +4,9 @@ import { GraceSupervisor } from '../../src/memory/grace-supervisor.js'
 import { MultiverseRegistry } from '../../src/memory/multiverse.js'
 import {
   AgenticSelfHealingRuntime,
-  type HealingPlanInput,
 } from '../../src/runtime/agentic-self-healing.js'
 import {
+  createGraceHealingPlanner,
   createGraceRetentionRecoveryAdapter,
   hashMultiverseRegistry,
   healingObservationFromGrace,
@@ -57,19 +57,10 @@ describe('GraceSupervisor → Agentic Self-Healing integration', () => {
     expect(observation.pre_fault_state_hash).toBe(preFaultHash)
     expect(observation.evidence_hash).toBe(graceEvent.grace_hash)
 
-    const plan: HealingPlanInput = {
-      mode: 'GRACE_REVERSION',
-      candidate_state_hash: preFaultHash,
-      rationale_code: 'GRACE_RETAINED_PREFAULT_STATE',
-    }
-
     const result = await AgenticSelfHealingRuntime.create().runCycle(
       observation,
       {
-        planner: {
-          planner_id: 'grace-planner-v1',
-          async propose() { return plan },
-        },
+        planner: createGraceHealingPlanner(),
         volatile_recovery: createGraceRetentionRecoveryAdapter(fault.supervisor),
         verifiers: [{
           verifier_id: 'retained-registry-hash-v1',
@@ -86,6 +77,10 @@ describe('GraceSupervisor → Agentic Self-Healing integration', () => {
 
     expect(result.receipt.status).toBe('RECOVERED')
     expect(result.receipt.reason_code).toBe('GRACE_REVERSION_VERIFIED')
+    expect(result.receipt.plan?.planner_id).toBe('grace-retention-planner-v1')
+    expect(result.receipt.plan?.candidate_state_hash).toBe(preFaultHash)
+    expect(result.receipt.attempt_number).toBe(1)
+    expect(result.receipt.attempt_budget).toBe(3)
     expect(result.receipt.effective_state_hash).toBe(preFaultHash)
     expect(result.receipt.volatile_reversion_applied).toBe(true)
     expect(result.receipt.durable_apply_performed).toBe(false)
