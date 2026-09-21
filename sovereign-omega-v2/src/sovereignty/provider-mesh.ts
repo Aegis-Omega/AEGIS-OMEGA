@@ -59,6 +59,7 @@ export type ProviderCapabilityV1 =
   | 'INSTITUTIONAL_INTELLIGENCE_READ'
   | 'CLOUD_INFRASTRUCTURE_READ'
   | 'DATABASE_PLATFORM_READ'
+  | 'MEETING_KNOWLEDGE_READ'
 
 export type ProviderObservationStateV1 =
   | 'UNKNOWN'
@@ -206,6 +207,7 @@ const ALL_CAPABILITIES = new Set<ProviderCapabilityV1>([
   'INSTITUTIONAL_INTELLIGENCE_READ',
   'CLOUD_INFRASTRUCTURE_READ',
   'DATABASE_PLATFORM_READ',
+  'MEETING_KNOWLEDGE_READ',
 ])
 const ALL_STATES = new Set<ProviderObservationStateV1>([
   'UNKNOWN',
@@ -934,6 +936,35 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     provider_id: 'chatgpt-clickhouse',
     planes: ['INTELLIGENCE'],
     declared_capabilities: ['DATABASE_PLATFORM_READ'],
+    authority_effect: 'NONE',
+  },
+
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-wolfram',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['SYMBOLIC_COMPUTE'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-tavily',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['WEB_RESEARCH'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-zoom',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['MEETING_KNOWLEDGE_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'chatgpt-granola',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['MEETING_KNOWLEDGE_READ'],
     authority_effect: 'NONE',
   },
 
