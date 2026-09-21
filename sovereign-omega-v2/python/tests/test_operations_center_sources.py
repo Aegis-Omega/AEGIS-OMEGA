@@ -82,7 +82,7 @@ def test_bridge_exposes_only_read_only_sources_route():
     source = BRIDGE_PATH.read_text(encoding="utf-8")
     assert "elif self.path == '/platform/operations/sources':" in source
     assert "code, payload = _operations_sources_response()" in source
-    assert "self._platform_respond(code, payload)" in source
+    assert "self._platform_respond(code, _platform_envelope(eid, payload))" in source
     assert "38 arhiva + Git" in source
     assert "do_POST" in source
     # The new route itself must be in do_GET, before the next GET branch.
