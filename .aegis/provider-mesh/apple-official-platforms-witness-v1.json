@@ -30,7 +30,7 @@
     "private_cloud_compute_entitlement_verified": false
   },
   "runtime_binding": {
-    "snapshot_root": "d26b5c44579075855075687749243747db991401798591aafc0c1de1f65d0d32",
+    "snapshot_root": "d402bd0e45c6b0aafc1ba7a616b2f8381d84f83c8c33a211c32d30cda89953a5",
     "authority_effect": "NONE",
     "observations": [
       {
@@ -38,14 +38,14 @@
         "capability": "APPLE_INTELLIGENCE_DEVELOPER_READ",
         "evidence_hash": "2010dbf590170c87431428a77f88d0bed552451f0d6d7f90579bb2fd19946e9a",
         "selection_outcome": "SELECTED",
-        "selection_receipt_hash": "36c55e7669fc0531191b0bdb7f49922761d99b2bde13a22bf61b61177e161a9c"
+        "selection_receipt_hash": "cf39b8e725ee0db6fde4598f0124f41c574134a2215155897ac6c3ae7ea29cc8"
       },
       {
         "provider_id": "apple-business-ai",
         "capability": "APPLE_BUSINESS_DEPLOYMENT_READ",
         "evidence_hash": "ffed888d87ae9e5f78299035b0a8f4b0b07532e4b49f085df48232bdfd844d52",
         "selection_outcome": "SELECTED",
-        "selection_receipt_hash": "7ad0663559610d0a78a6ac2bb9ae407580550a57245dfc8a81aa46d9a8a5f134"
+        "selection_receipt_hash": "4c7318a693fb3530722fda2062823dc2659dc97b2e291c20f8f75f732a1fdfe7"
       }
     ]
   }
