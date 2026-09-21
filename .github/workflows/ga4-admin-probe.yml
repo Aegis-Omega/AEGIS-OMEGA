@@ -1,0 +1,54 @@
+name: GA4 Admin Probe
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/ga4-admin-probe.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google (keyless WIF)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/analytics.readonly
+
+      - name: Probe GA4 Admin access for production property
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          set -euo pipefail
+          url="https://analyticsadmin.googleapis.com/v1beta/properties/540206403/dataStreams"
+          code="$(curl --silent --show-error --output response.json --write-out '%{http_code}'             --header "Authorization: Bearer ${ACCESS_TOKEN}"             --header "Accept: application/json"             "${url}")"
+
+          echo "HTTP_STATUS=${code}"
+          if [ "${code}" != "200" ]; then
+            cat response.json
+            exit 1
+          fi
+
+          python - <<'PY'
+          import json
+          data = json.load(open("response.json", encoding="utf-8"))
+          streams = data.get("dataStreams", [])
+          print("GA4_ADMIN_ACCESS=PASS")
+          print(f"DATA_STREAM_COUNT={len(streams)}")
+          for stream in streams:
+              web = stream.get("webStreamData", {})
+              print("STREAM_NAME=" + str(stream.get("name", "")))
+              print("DISPLAY_NAME=" + str(stream.get("displayName", "")))
+              print("DEFAULT_URI=" + str(web.get("defaultUri", "")))
+              print("MEASUREMENT_ID=" + str(web.get("measurementId", "")))
+          PY
