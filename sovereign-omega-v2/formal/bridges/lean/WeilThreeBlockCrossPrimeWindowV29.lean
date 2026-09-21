@@ -6,7 +6,7 @@ AEGIS Ω — translated three-block prime window isolation V2.9.
 
 Using the exact V2.8 transport and the already kernel-verified
   exp(1/32) < 65/63,
-this module proves that the width-1/32 translated mixed correlations can hit
+this module proves that the translated mixed correlations, whose total support-difference window has width 1/16 (radius 1/32), can hit
 reciprocal positive integers only at:
 * m = 2 for adjacent blocks;
 * m = 4 for the two-step outer blocks.
