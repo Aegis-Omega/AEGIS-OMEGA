@@ -49,13 +49,19 @@ private theorem paired_exp_profile_integrable_v10
         (fun t : ℝ =>
           C * ‖WeilPairedMellinProfileV5 f c t‖) :=
     hH.norm.const_mul C
+  have hExpCont :
+      Continuous
+        (fun t : ℝ =>
+          Complex.exp
+            (-(((c : ℂ) + (t : ℂ) * I) * ((u / 2 : ℝ) : ℂ)))) := by
+    fun_prop
   have hmeas :
       AEStronglyMeasurable
         (fun t : ℝ =>
           Complex.exp
             (-(((c : ℂ) + (t : ℂ) * I) * ((u / 2 : ℝ) : ℂ))) *
-            WeilPairedMellinProfileV5 f c t) := by
-    exact (by fun_prop).aestronglyMeasurable.mul hH.aestronglyMeasurable
+            WeilPairedMellinProfileV5 f c t) :=
+    hExpCont.aestronglyMeasurable.mul hH.aestronglyMeasurable
   refine hmajor.mono' hmeas (Filter.Eventually.of_forall fun t => ?_)
   rw [norm_mul, Complex.norm_exp]
   have hre :
