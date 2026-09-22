@@ -284,6 +284,60 @@ These decisions remain separate.
 
 Almost all work is autonomous. The external send remains a discrete authority event.
 
+## Enterprise opportunity state machine
+
+Commercial pipeline state is evidence-derived. A draft is not a sent message, a sent
+message is not a qualified reply, a scope is not a payment, and a payment is not an
+audit start.
+
+The V1 state machine is:
+
+    DISCOVERED
+      -> CONTACTED
+      -> QUALIFIED_REPLY
+      -> SCOPING_CALL_HELD
+      -> WRITTEN_SCOPE_AGREED
+      -> PAYMENT_RECEIVED
+      -> AUDIT_STARTED
+
+Any open stage may move to CLOSED_LOST only with an evidenced loss reason.
+
+Required evidence is stage-specific:
+- DISCOVERED -> discovery evidence;
+- CONTACTED -> direct observation of outbound actually sent;
+- QUALIFIED_REPLY -> qualifying reply evidence;
+- SCOPING_CALL_HELD -> held-call evidence;
+- WRITTEN_SCOPE_AGREED -> explicit written agreement evidence;
+- PAYMENT_RECEIVED -> direct payment-record evidence;
+- AUDIT_STARTED -> a separate direct audit-start timestamp/evidence reference.
+
+Provider attestation cannot establish outbound-sent, payment-received, or audit-start
+events. Stage skipping and evidence reuse fail closed.
+
+Commercial action classes remain separate from pipeline observation:
+- DRAFT_OUTREACH -> DRAFT;
+- SEND_OUTREACH -> EXTERNAL_MESSAGE;
+- DRAFT_SCOPE -> DRAFT;
+- SEND_SCOPE_WITH_TERMS -> LEGAL_COMMITMENT;
+- REQUEST_PAYMENT -> FINANCIAL;
+- START_AUDIT -> PROPOSE;
+- ANALYZE_PIPELINE -> ANALYZE.
+
+EXTERNAL_MESSAGE, LEGAL_COMMITMENT, and FINANCIAL require an exact operator grant.
+Pipeline state never grants those actions.
+
+Measurement rules:
+- landing-page visits remain NOT_MEASURED until production collection is verified;
+- outbound-contact denominator comes only from the actual sent log;
+- qualified replies come only from observed qualifying replies;
+- payment and audit-start remain separately evidenced events;
+- zero is valid only when the measurement path is actually observed, never as a
+  substitute for missing instrumentation.
+
+The implementation is
+`src/sovereignty/company-enterprise-opportunity.ts`, with falsifiers in
+`test/native-runtime/company-enterprise-opportunity.test.mjs`.
+
 ## Example autonomous cycle: GitHub failure
 
     observe failing exact-head check
