@@ -338,6 +338,21 @@ The implementation is
 `src/sovereignty/company-enterprise-opportunity.ts`, with falsifiers in
 `test/native-runtime/company-enterprise-opportunity.test.mjs`.
 
+Mail ingestion and follow-up policy are separate from send authority:
+- `company-enterprise-mail-ingest.ts` maps observed mail to evidence-only transition proposals;
+- `company-enterprise-followup-policy.ts` may produce only `DRAFT_ELIGIBLE`;
+- first follow-up draft eligibility requires at least 72 hours since the last outbound;
+- at most two follow-up drafts may become eligible;
+- any reply, bounce, unsubscribe, or CLOSED_LOST state stops the sequence;
+- no follow-up policy result grants EXTERNAL_MESSAGE authority.
+
+Enterprise resources are also evidence-derived:
+- OFFERED or CLAIMED credits/program access are not budget capacity;
+- ACTIVE capacity requires evidence plus reviewed/not-applicable terms and eligibility;
+- CLAIM_RESOURCE is a LEGAL_COMMITMENT-class action;
+- ADD_PAYMENT_METHOD and ACTIVATE_PAID_PLAN are FINANCIAL-class actions;
+- resource state never grants those actions.
+
 ## Example autonomous cycle: GitHub failure
 
     observe failing exact-head check
