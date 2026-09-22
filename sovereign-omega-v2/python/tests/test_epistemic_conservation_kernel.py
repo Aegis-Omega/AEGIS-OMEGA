@@ -123,6 +123,36 @@ class EpistemicConservationKernelTests(unittest.TestCase):
         self.assertEqual(receipt.decision, "DENY")
         self.assertFalse(receipt.semantic_accounting_pass)
 
+    def test_forged_pass_with_false_accounting_is_rejected_at_construction(self):
+        with self.assertRaises(ValueError):
+            from epistemic_conservation_kernel import EpistemicConservationReceiptV1
+            EpistemicConservationReceiptV1(
+                parent_state_sha256=H1,
+                semantic_lineage_receipt_sha256=H2,
+                authority_final="NONE",
+                authority_global_meet="NONE",
+                authority_non_amplifying=True,
+                semantic_accounting_pass=False,
+                uncertainty_accounting_pass=True,
+                reason_codes=(),
+                decision="PASS",
+            )
+
+    def test_forged_pass_with_authority_meet_mismatch_is_rejected(self):
+        with self.assertRaises(ValueError):
+            from epistemic_conservation_kernel import EpistemicConservationReceiptV1
+            EpistemicConservationReceiptV1(
+                parent_state_sha256=H1,
+                semantic_lineage_receipt_sha256=H2,
+                authority_final="EPISTEMIC",
+                authority_global_meet="NONE",
+                authority_non_amplifying=True,
+                semantic_accounting_pass=True,
+                uncertainty_accounting_pass=True,
+                reason_codes=(),
+                decision="PASS",
+            )
+
     def test_trusted_store_rejects_unknown_or_denied_receipt(self):
         good = evaluate_conservation(
             ConservationRequestV1(
