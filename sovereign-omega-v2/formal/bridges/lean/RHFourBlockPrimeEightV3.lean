@@ -170,7 +170,10 @@ theorem farthest_prime_sum_exact_v3 (g : WeilCompactSmoothGV1) (a : ℝ)
     WeilPrimeSumV1 (mixed (translatePacket g 0) (translatePacket g (3 * Real.log 2))) =
       ((Real.log 2 * Real.sqrt 2 / 4 * energy g.1 : ℝ) : ℂ) := by
   rw [farthest_prime_sum_single_v3 g a hw]
-  have hp := farthest_mixed_nat_zero_v3 g a hw 8 (by norm_num)
+  have hp8 :
+      mixed (translatePacket g 0) (translatePacket g (3 * Real.log 2)) (8 : ℝ) = 0 := by
+    simpa only [Nat.cast_ofNat] using
+      farthest_mixed_nat_zero_v3 g a hw 8 (by norm_num)
   have hv : ArithmeticFunction.vonMangoldt 8 = Real.log 2 := by
     rw [show (8 : ℕ) = 2 ^ 3 by norm_num,
         ArithmeticFunction.vonMangoldt_apply_pow (by norm_num)]
@@ -179,7 +182,7 @@ theorem farthest_prime_sum_exact_v3 (g : WeilCompactSmoothGV1) (a : ℝ)
     (mixed (translatePacket g 0) (translatePacket g (3 * Real.log 2)) (8 : ℝ) +
       (1 / (8 : ℂ)) * mixed (translatePacket g 0)
         (translatePacket g (3 * Real.log 2)) ((8 : ℝ)⁻¹)) = _
-  rw [hp, farthest_mixed_reciprocal_center_v3, hv]
+  rw [hp8, farthest_mixed_reciprocal_center_v3 g, hv]
   push_cast
   ring
 
