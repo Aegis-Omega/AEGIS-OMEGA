@@ -1,0 +1,48 @@
+{
+  "schema": "AEGIS_STATISTICAL_GODEL_MACHINE_V1",
+  "name": "Statistical Gödel Machine",
+  "prior_art_boundary": {
+    "classical_godel_machine": "Proof-search-driven self-rewrite after proving utility of rewrite under a formal axiomatic model.",
+    "aegis_variant": "Statistical proposal generation plus typed formal/statistical evidence gates under immutable authority boundaries.",
+    "global_optimality_claimed": false
+  },
+  "representation_principle": {
+    "canonical_encoding": "All machine-observed artifacts are reduced to canonical bytes/digests plus a semantic type.",
+    "pattern_space": "Statistical and structural relations may be proposed over typed representations.",
+    "proof_space": "Formal claims require kernel-verifiable proof receipts; statistical claims require bounded sequential evidence.",
+    "semantic_non_equivalence": "Equal or correlated numerical representations do not imply equal meaning, causality, or physical truth."
+  },
+  "rewrite_classes": [
+    "FORMAL",
+    "STATISTICAL"
+  ],
+  "protected_surfaces": [
+    "OPERATOR_ROOT",
+    "AUTHORITY_POLICY",
+    "TRUST_ROOTS",
+    "SIGNING_ROOTS",
+    "EVIDENCE_CLASSIFIER",
+    "CLAIM_PROMOTION_POLICY"
+  ],
+  "formal_gate": {
+    "kernel_verified_required": true,
+    "axiom_audit_required": true,
+    "sorryAx_forbidden": true,
+    "exact_source_binding_required": true
+  },
+  "statistical_gate": {
+    "minimum_samples": 100,
+    "lower_confidence_bound_microunits_must_exceed": 0,
+    "bounded_metric_required": true,
+    "independent_verifier_required": true,
+    "risk_budget_receipt_required": true
+  },
+  "rewrite_decision": {
+    "pass_result": "ELIGIBLE_FOR_OPERATOR_APPROVAL_ONLY",
+    "automatic_external_mutation": false,
+    "automatic_authority_expansion": false,
+    "authority_effect": "NONE"
+  },
+  "epistemic_rule": "Pattern detection may generate hypotheses. Only typed evidence may change claim state. No evidence class may silently coerce into another.",
+  "authority_effect": "NONE"
+}
