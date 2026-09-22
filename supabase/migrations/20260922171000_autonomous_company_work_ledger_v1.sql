@@ -82,7 +82,10 @@ create table if not exists public.company_operator_actions_v1 (
   max_cost_minor_units bigint,
   currency text,
   rollback text not null check (length(btrim(rollback)) > 0),
-  expires_generation bigint not null check (expires_generation >= 0),
+  created_generation bigint not null check (created_generation >= 0),
+  expires_generation bigint not null check (
+    expires_generation >= created_generation
+  ),
   decision text not null default 'PENDING'
     check (decision in ('PENDING','APPROVED','DENIED','EXPIRED','CANCELLED')),
   grant_id text,
