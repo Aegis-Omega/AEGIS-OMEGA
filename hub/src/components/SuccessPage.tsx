@@ -38,7 +38,7 @@ export function SuccessPage() {
   const [tokenInput, setTokenInput] = useState('')
   const [payload, setPayload] = useState<ServerGrantPayload | null>(null)
 
-  async function activateToken(candidate: string) {
+  async function activateToken(candidate: string): Promise<boolean> {
     const normalized = candidate.trim()
     if (!normalized) return
 
