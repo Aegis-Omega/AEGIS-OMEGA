@@ -9,6 +9,7 @@
   "build": {
     "command": "bash scripts/cloudflare-gq-full-replay.sh"
   },
+  // gq full replay transport trigger v4
   "assets": {
     "directory": "aegisomega-webgpu",
     "binding": "ASSETS"
