@@ -80,6 +80,7 @@ class ChainState:
         self.anthropic: anthropic.AsyncAnthropic | None = None
         self.audit_store: CloudSqlAuditStore | None = None
         self.audit_backend = "redis_legacy"
+        self.audit_required = False
         self._seq = 0
 
     async def init(self):
@@ -90,6 +91,7 @@ class ChainState:
         configured_mode = os.environ.get("CLOUD_SQL_AUDIT_MODE", "off").strip().lower()
         try:
             config = CloudSqlAuditConfig.from_env()
+            self.audit_required = config.required
             if config.enabled:
                 store = CloudSqlAuditStore.from_config(config)
                 head = await asyncio.to_thread(store.head)
@@ -475,6 +477,7 @@ async def health():
         "status": "ok",
         "chain_length": state._seq,
         "audit_backend": state.audit_backend,
+        "audit_required": state.audit_required,
     }
 
 
@@ -811,8 +814,9 @@ async def platform_collaborate(request: Request):
              "objective": objective[:120], "chain_valid": result.get("chain_valid", True)},
             tier="T2",
         )
-    except Exception:  # noqa: BLE001 — audit is best-effort, never blocks the response
-        pass
+    except Exception:
+        if state.audit_required:
+            raise
 
     return result
 
@@ -889,7 +893,8 @@ async def agent_batch(request: Request):
             tier="T2",
         )
     except Exception:
-        pass
+        if state.audit_required:
+            raise
 
     return {"batch_id": batch_id, "results": list(results), "duration_ms": total_ms}
 
@@ -975,7 +980,8 @@ async def platform_compare(request: Request):
             tier="T2",
         )
     except Exception:
-        pass
+        if state.audit_required:
+            raise
 
     return {
         "ranked": ranked,
@@ -1102,7 +1108,8 @@ async def schedule_revenue(request: Request):
     try:
         body = await request.json()
     except Exception:
-        pass
+        if state.audit_required:
+            raise
 
     default_objective = os.environ.get(
         "SCHEDULE_OBJECTIVE",
@@ -1142,7 +1149,8 @@ async def schedule_revenue(request: Request):
             tier="T2",
         )
     except Exception:
-        pass
+        if state.audit_required:
+            raise
 
     return summary
 
@@ -1227,13 +1235,15 @@ async def platform_status():
     cert = {"is_valid": True, "entry_count": state._seq}
     try:
         cert = await state.certify()
-    except Exception:
-        pass
+    except Exception as exc:
+        if state.audit_required:
+            raise HTTPException(503, "durable audit certification unavailable") from exc
     return {
         "platform": "AEGIS-Ω Agent Platform",
         "version": "1.2.0",
         "constitutional_chain": {
             "backend": state.audit_backend,
+            "required": state.audit_required,
             "length": state._seq,
             "is_valid": cert.get("is_valid", True),
             "terminal_hash": cert.get("terminal_hash", ""),
@@ -1306,7 +1316,8 @@ async def github_webhook(request: Request):
             tier="T2",
         )
     except Exception:
-        pass
+        if state.audit_required:
+            raise
 
     return {"received": event_type, "dispatched_to_agents": dispatched}
 
