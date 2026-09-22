@@ -3,11 +3,21 @@
 
 export type ConsequenceRiskV1 = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 export type ConsequenceCostV1 = 'NONE' | 'BOUNDED' | 'VARIABLE'
+export type ConsequentialActionClassV1 =
+  | 'EXTERNAL_MESSAGE'
+  | 'REPOSITORY_MUTATION'
+  | 'MERGE'
+  | 'DEPLOY'
+  | 'PRODUCTION_CONFIG'
+  | 'FINANCIAL'
+  | 'LEGAL_COMMITMENT'
+  | 'DELETE_DATA'
+  | 'IDENTITY_OR_CREDENTIAL'
 
 export interface ConsequentialActionPacketV1 {
   readonly packet_id: string
   readonly task_id: string
-  readonly action_class: string
+  readonly action_class: ConsequentialActionClassV1
   readonly target: string
   readonly action: string
   readonly reason: string
@@ -17,6 +27,7 @@ export interface ConsequentialActionPacketV1 {
   readonly max_cost_minor_units: number | null
   readonly currency: string | null
   readonly rollback: string
+  readonly created_generation: string
   readonly expires_generation: string
   readonly authority_effect: 'NONE'
 }
@@ -58,11 +69,34 @@ export async function createConsequentialActionPacketV1(
   text(input?.packet_id, 'packet_id')
   text(input?.task_id, 'task_id')
   text(input?.action_class, 'action_class')
+  if (![
+    'EXTERNAL_MESSAGE',
+    'REPOSITORY_MUTATION',
+    'MERGE',
+    'DEPLOY',
+    'PRODUCTION_CONFIG',
+    'FINANCIAL',
+    'LEGAL_COMMITMENT',
+    'DELETE_DATA',
+    'IDENTITY_OR_CREDENTIAL',
+  ].includes(input.action_class)) {
+    throw new TypeError('invalid consequential action_class')
+  }
   text(input?.target, 'target')
   text(input?.action, 'action')
   text(input?.reason, 'reason')
   text(input?.rollback, 'rollback')
-  generation(input?.expires_generation, 'expires_generation')
+  const createdGeneration = generation(
+    input?.created_generation,
+    'created_generation',
+  )
+  const expiresGeneration = generation(
+    input?.expires_generation,
+    'expires_generation',
+  )
+  if (expiresGeneration < createdGeneration) {
+    throw new TypeError('expires_generation precedes created_generation')
+  }
 
   if (!Array.isArray(input.evidence_refs) || input.evidence_refs.length === 0) {
     throw new TypeError('evidence_refs must be non-empty')
@@ -123,11 +157,13 @@ export async function verifyConsequentialActionGrantV1(
   if (recomputed !== expected) return false
 
   const now = generation(currentGeneration, 'current_generation')
+  const created = generation(packet.created_generation, 'created_generation')
   const expires = generation(packet.expires_generation, 'expires_generation')
 
-  if (now > expires) return false
+  if (now < created || now > expires) return false
   if (!grant || grant.decision !== 'APPROVED') return false
   text(grant.grant_id, 'grant_id')
-  generation(grant.granted_generation, 'granted_generation')
+  const granted = generation(grant.granted_generation, 'granted_generation')
+  if (granted < created || granted > now || granted > expires) return false
   return digest(grant.packet_digest, 'grant packet_digest') === expected
 }
