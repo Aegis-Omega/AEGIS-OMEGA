@@ -277,11 +277,11 @@ theorem weil_gauss_fixed_line_kernel_integrable_v10
       exact Filter.Eventually.of_forall (fun u hu => hu))
   filter_upwards [hpos_ae] with p hp
   have hu : 0 < p.2 := hp
-    unfold WeilGaussFixedLineKernelV10
-    rw [norm_mul]
-    have hg :=
-      gauss_fixed_line_norm_le_v10 c p.1 hc hu
-    calc
+  unfold WeilGaussFixedLineKernelV10
+  rw [norm_mul]
+  have hg :=
+    gauss_fixed_line_norm_le_v10 c p.1 hc hu
+  calc
       ‖gaussIntegrand
           ((((c : ℂ) + (p.1 : ℂ) * I) / 2)) p.2‖ *
           ‖WeilPairedMellinProfileV5 f c p.1‖
@@ -290,10 +290,10 @@ theorem weil_gauss_fixed_line_kernel_integrable_v10
           (1 + p.2) *
           Real.exp (-(min 1 (c / 2) * p.2))) *
           ‖WeilPairedMellinProfileV5 f c p.1‖ := by
-            gcongr
-      _ = 2 * T p.1 * U p.2 := by
-            simp [T, U]
-            ring
+          gcongr
+    _ = 2 * T p.1 * U p.2 := by
+          simp [T, U]
+          ring
 
 /-- The actual Gauss-kernel t/u Fubini swap. -/
 theorem weil_gauss_fixed_line_fubini_v10
