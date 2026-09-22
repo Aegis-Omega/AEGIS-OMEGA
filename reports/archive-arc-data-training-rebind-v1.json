@@ -63,5 +63,31 @@
     "receipt": "reports/archive-arc-training-100-smoke-v1.json",
     "receipt_sha256": "57b04cbb5d047c022269dea86df6db3b7418e7d47201fc1ed4c5d28e1de14038",
     "interpretation": "TRAINING_PATH_EXECUTION_ONLY_NOT_HELD_OUT_BENCHMARK"
+  },
+  "train_to_test_exact_audit_50": {
+    "command": "PYTHONPATH=. python scripts/evaluate-archive-arc-train-test.py --limit 50 --max-depth 8 --max-states 50000",
+    "status": "PASS",
+    "task_count": 50,
+    "selection_uses_test_outputs": false,
+    "search": {
+      "kind": "semantic_state_exhaustive_bfs",
+      "max_depth": 8,
+      "max_states_per_task": 50000,
+      "truncated_task_count": 0
+    },
+    "train_exact_program_found_count": 0,
+    "test_exact_solve_count": 0,
+    "test_exact_solve_rate": 0,
+    "receipt": "reports/archive-arc-train-test-exact-50-v1.json",
+    "receipt_file_sha256": "16843384d1a7187e46de3776112e6465e4137b3d5e72f5173e25ccbede563dd0",
+    "interpretation": "BOUNDED_PRIMITIVE_DSL_TRAIN_TO_TEST_EXACT_REPLAY_NOT_GENERAL_ARC_CAPABILITY"
+  },
+  "historical_evaluator_disposition": {
+    "path": "swarm_os/benchmark/arc_held_out_eval.py",
+    "status": "NOT_ADMISSIBLE_AS_GENERALIZATION_PROOF",
+    "reasons": [
+      "candidate selection scores against the same example output rather than locking a train-selected program and evaluating test",
+      "TRANSFORMATION_PROGRAMS operation IDs are inconsistent with swarm_os/arc/dsl/vocab.py"
+    ]
   }
 }

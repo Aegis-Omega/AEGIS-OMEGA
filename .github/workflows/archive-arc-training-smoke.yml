@@ -11,6 +11,7 @@ on:
       - "swarm_os/arc/tests/test_training_smoke.py"
       - "swarm_os/arc/requirements-training-smoke.txt"
       - "scripts/test-archive-arc-training-100.py"
+      - "scripts/evaluate-archive-arc-train-test.py"
       - ".github/workflows/archive-arc-training-smoke.yml"
   workflow_dispatch:
 
@@ -60,6 +61,18 @@ jobs:
           checkpoint=result.get("checkpoint",{})
           if checkpoint.get("committed") is not False or int(checkpoint.get("size_bytes",0)) <= 0:
               raise SystemExit("checkpoint contract failed")
+          PY
+      - name: Train-to-test exact audit (50 deterministic tasks)
+        run: |
+          PYTHONPATH=. python scripts/evaluate-archive-arc-train-test.py --limit 50 --max-depth 8 --max-states 50000 > /tmp/archive-arc-train-test.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result=json.loads(Path("/tmp/archive-arc-train-test.json").read_text())
+          if result.get("status")!="PASS" or result.get("selection_uses_test_outputs") is not False:
+              raise SystemExit("train/test separation contract failed")
+          if result.get("search",{}).get("truncated_task_count") != 0:
+              raise SystemExit("bounded audit truncated")
           PY
       - name: Authority boundary
         run: |
