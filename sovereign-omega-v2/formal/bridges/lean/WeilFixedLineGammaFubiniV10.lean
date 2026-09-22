@@ -268,13 +268,16 @@ theorem weil_gauss_fixed_line_kernel_integrable_v10
       fun_prop
     exact hGm.mul hHm
   refine hmajor.mono' hmeas ?_
+  have hpos_set :
+      MeasurableSet {p : ℝ × ℝ | 0 < p.2} := by
+    exact measurableSet_Ioi.preimage measurable_snd
   have hpos_ae :
       ∀ᵐ p ∂(volume.prod (volume.restrict (Ioi (0 : ℝ)))), 0 < p.2 := by
-    rw [Measure.ae_prod_mem_iff_ae_ae_mem
-      (measurable_snd measurableSet_Ioi)]
+    rw [Measure.ae_prod_mem_iff_ae_ae_mem hpos_set]
     exact Filter.Eventually.of_forall (fun _ => by
       rw [ae_restrict_iff' measurableSet_Ioi]
-      exact Filter.Eventually.of_forall (fun u hu => hu))
+      exact Filter.Eventually.of_forall (fun u hu => by
+        simpa using hu))
   filter_upwards [hpos_ae] with p hp
   have hu : 0 < p.2 := hp
   unfold WeilGaussFixedLineKernelV10
