@@ -28,10 +28,37 @@
       "reason": "derive equality/copy semantics required by tests and borrowed pattern matching for StrokeType"
     }
   ],
+  "local_static_audit": {
+    "status": "PASS",
+    "command": "python scripts/audit-archive-rust-restoration.py",
+    "receipt": "reports/archive-rust-static-audit-v1.json",
+    "receipt_file_sha256": "94da2e605da3f018c7cb2adda60b71f8dda2b4c6ffea6270ceec05672661a598",
+    "eccf": {
+      "source_files": 6,
+      "source_lines": 1180,
+      "test_functions": 27
+    },
+    "gcce": {
+      "source_files": 6,
+      "source_lines": 1893,
+      "test_functions": 41
+    },
+    "does_not_establish": [
+      "rustc typecheck",
+      "cargo dependency resolution",
+      "unit test execution"
+    ]
+  },
   "local_execution": {
     "cargo_available": false,
     "cargo_test": "NOT_RUN",
     "reason": "execution sandbox has no Rust toolchain"
+  },
+  "hosted_execution": {
+    "status": "NOT_ESTABLISHED",
+    "job_id": 106894239555,
+    "steps": 0,
+    "interpretation": "run-level failure is not a Cargo result"
   },
   "hosted_execution_required": [
     "cargo test --manifest-path eccf/Cargo.toml --all-targets",

@@ -6,7 +6,9 @@ on:
     paths:
       - "eccf/**"
       - "gcce/**"
+      - "scripts/audit-archive-rust-restoration.py"
       - "reports/archive-restoration-eccf-gcce-v1.json"
+      - "reports/archive-rust-static-audit-v1.json"
       - ".github/workflows/archive-restoration-rust.yml"
   workflow_dispatch:
 
@@ -19,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Static restoration contract
+        run: python scripts/audit-archive-rust-restoration.py
       - uses: dtolnay/rust-toolchain@stable
       - name: ECCF archive restoration tests
         run: cargo test --manifest-path eccf/Cargo.toml --all-targets
