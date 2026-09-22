@@ -108,13 +108,20 @@ export async function createConsequentialActionPacketV1(
   return Object.freeze({ packet, packet_digest })
 }
 
-export function verifyConsequentialActionGrantV1(
+export async function verifyConsequentialActionGrantV1(
   packetDigest: string,
   packet: ConsequentialActionPacketV1,
   grant: ConsequentialActionGrantV1 | null,
   currentGeneration: string,
-): boolean {
+  hash: (domain: string, value: unknown) => Promise<string>,
+): Promise<boolean> {
   const expected = digest(packetDigest, 'packet_digest')
+  const recomputed = digest(
+    await hash('AEGIS_CONSEQUENTIAL_ACTION_PACKET_V1', packet),
+    'recomputed packet_digest',
+  )
+  if (recomputed !== expected) return false
+
   const now = generation(currentGeneration, 'current_generation')
   const expires = generation(packet.expires_generation, 'expires_generation')
 
