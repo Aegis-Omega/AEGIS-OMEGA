@@ -5,7 +5,9 @@ on:
     branches: [main]
     paths:
       - "swarm_os/**"
+      - "scripts/test-archive-swarm-runtime.py"
       - "reports/archive-restoration-swarm-arc-v1.json"
+      - "reports/archive-swarm-runtime-smoke-v1.json"
       - ".github/workflows/archive-python-restoration.yml"
   workflow_dispatch:
 
@@ -23,6 +25,23 @@ jobs:
           python-version: "3.11"
       - name: Compile recovered source
         run: python -m compileall -q swarm_os
+      - name: Install bounded smoke dependencies
+        run: python -m pip install --disable-pip-version-check -r swarm_os/requirements-restoration-smoke.txt
+      - name: Execute bounded ARC/SWARM/biology runtime smoke
+        run: |
+          set -eo pipefail
+          PYTHONPATH=. python scripts/test-archive-swarm-runtime.py | tee /tmp/archive-swarm-smoke.out
+          tail -n 1 /tmp/archive-swarm-smoke.out > /tmp/archive-swarm-smoke.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          observed=json.loads(Path("/tmp/archive-swarm-smoke.json").read_text())
+          expected=json.loads(Path("reports/archive-swarm-runtime-smoke-v1.json").read_text())
+          if observed != expected:
+              raise SystemExit("archive runtime smoke drift")
+          if observed.get("status") != "PASS":
+              raise SystemExit("archive runtime smoke did not pass")
+          PY
       - name: Reject credential-shaped literals
         run: |
           python - <<'PY'

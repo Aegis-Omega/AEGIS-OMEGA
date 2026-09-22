@@ -26,12 +26,33 @@
     ]
   },
   "byte_identity": "HISTORICAL_GIT_BLOBS_REUSED_WITHOUT_SOURCE_EDITS",
+  "restored_dependency_manifests": [
+    "swarm_os/requirements.txt",
+    "swarm_os/requirements_swarm.txt",
+    "swarm_os/swarm/requirements.txt"
+  ],
   "local_verification": {
     "python_compileall": "PASS",
     "file_count": 65,
-    "credential_scan": "PASS_WITH_PLACEHOLDER_YOUR_NIM_KEY_ONLY"
+    "credential_scan": "PASS_WITH_PLACEHOLDER_YOUR_NIM_KEY_ONLY",
+    "bounded_runtime_smoke": {
+      "status": "PASS",
+      "command": "PYTHONPATH=. python scripts/test-archive-swarm-runtime.py",
+      "python": "3.13.5",
+      "receipt": "reports/archive-swarm-runtime-smoke-v1.json",
+      "receipt_sha256": "9ce330e680d6deb6ef43c4f78f65c85b5a5a316a0f242263e256a45d3927a683",
+      "establishes": [
+        "ARC DSL executes all 11 recovered primitives on a deterministic 2x2 grid",
+        "ARC MacroLibrary initializes all 11 primitive rules",
+        "SWARM QuantumManifold boots in isolated temporary state, registers an agent, ingests one edge, and emits audit entries",
+        "Cybernetic sensory/immune/HPA paths execute on bounded inputs",
+        "HDHistoryTracker executes four updates and returns the expected bounded summary"
+      ]
+    }
   },
-  "dependency_execution": "NOT_ESTABLISHED",
+  "dependency_execution": "BOUNDED_LOCAL_RUNTIME_SMOKE_PASS",
+  "full_dependency_environment": "NOT_ESTABLISHED",
+  "hosted_execution": "NOT_ESTABLISHED_ZERO_STEP_RUNNER",
   "production_wiring": "NOT_PERFORMED",
   "merge": "NOT_PERFORMED",
   "deploy": "NOT_PERFORMED",
