@@ -309,13 +309,27 @@ theorem psi0_integral_pos_v11 :
   simpa [psi0] using
     (ubump.integral_pos (μ := volume))
 
-/-- The targeted weighted transform is nonzero at every canonical nontrivial
-zeta zero. -/
+/-- Generic nonvanishing form: the targeted transform is nonzero at
+every spectral parameter distinct from 0 and 1. -/
+theorem targetPhi_weighted_integral_ne_zero_of_ne_zero_one_v11
+    (rho : ℂ) (hr0 : rho ≠ 0) (hr1 : rho ≠ 1) :
+    (∫ u : ℝ,
+      Complex.exp (u • rho) * TargetPhiV11 rho u) ≠ 0 := by
+  rw [targetPhi_weighted_integral_v11]
+  have hpoly : rho ^ 2 - rho ≠ 0 := by
+    rw [show rho ^ 2 - rho = rho * (rho - 1) by ring]
+    exact mul_ne_zero hr0 (sub_ne_zero.mpr hr1)
+  have hmassR : (∫ u : ℝ, psi0 u) ≠ 0 :=
+    ne_of_gt psi0_integral_pos_v11
+  have hmassC : (((∫ u : ℝ, psi0 u : ℝ) : ℂ)) ≠ 0 := by
+    exact_mod_cast hmassR
+  exact mul_ne_zero hpoly hmassC
+
+/-- Specialization to every canonical nontrivial zeta zero. -/
 theorem targetPhi_weighted_integral_ne_zero_v11
     (rho : RiemannNontrivialZeroIndexV2) :
     (∫ u : ℝ,
       Complex.exp (u • rho.1) * TargetPhiV11 rho.1 u) ≠ 0 := by
-  rw [targetPhi_weighted_integral_v11]
   have hstrip :=
     riemann_zeta_nontrivial_zero_critical_strip_v1
       rho.2.1 rho.2.2
@@ -324,19 +338,14 @@ theorem targetPhi_weighted_integral_ne_zero_v11
     have hre := congrArg Complex.re h
     simp at hre
     linarith [hstrip.1]
-  have hr1 : rho.1 - 1 ≠ 0 := by
+  have hr1 : rho.1 ≠ 1 := by
     intro h
     have hre := congrArg Complex.re h
     simp at hre
     linarith [hstrip.2]
-  have hpoly : rho.1 ^ 2 - rho.1 ≠ 0 := by
-    rw [show rho.1 ^ 2 - rho.1 = rho.1 * (rho.1 - 1) by ring]
-    exact mul_ne_zero hr0 hr1
-  have hmassR : (∫ u : ℝ, psi0 u) ≠ 0 :=
-    ne_of_gt psi0_integral_pos_v11
-  have hmassC : (((∫ u : ℝ, psi0 u : ℝ) : ℂ)) ≠ 0 := by
-    exact_mod_cast hmassR
-  exact mul_ne_zero hpoly hmassC
+  exact
+    targetPhi_weighted_integral_ne_zero_of_ne_zero_one_v11
+      rho.1 hr0 hr1
 
 end AEGIS.RestrictedWeilCriterionTargetWitnessV11
 
