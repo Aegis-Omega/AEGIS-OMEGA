@@ -8,6 +8,12 @@ on:
       - 'sovereign-omega-v2/formal/bridges/lean/WeilDigammaIntegralReductionV1.lean'
       - 'sovereign-omega-v2/formal/bridges/lean/WeilDigammaSeriesRealV1.lean'
       - 'sovereign-omega-v2/formal/bridges/lean/WeilDigammaSeriesHalfPlaneV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilFixedLineGammaCoreV10.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilFixedLineGammaFubiniV10.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilFixedLineGammaAssemblyV10.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilArchimedeanCorrectionV10.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilFixedLineGammaXSpaceV10.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilFixedLineCompletedGammaV10.lean'
       - '.github/workflows/rh-digamma-series-real-v1.yml'
   workflow_dispatch:
 
@@ -72,10 +78,22 @@ jobs:
           cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilDigammaIntegralReductionV1.lean .
           cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilDigammaSeriesRealV1.lean .
           cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilDigammaSeriesHalfPlaneV1.lean .
-          sha256sum WeilDigammaIntegralReductionV1.lean WeilDigammaSeriesRealV1.lean WeilDigammaSeriesHalfPlaneV1.lean >> exact-source.log
+          cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilFixedLineGammaCoreV10.lean .
+          cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilFixedLineGammaFubiniV10.lean .
+          cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilFixedLineGammaAssemblyV10.lean .
+          cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilArchimedeanCorrectionV10.lean .
+          cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilFixedLineGammaXSpaceV10.lean .
+          cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilFixedLineCompletedGammaV10.lean .
+          sha256sum WeilDigammaIntegralReductionV1.lean WeilDigammaSeriesRealV1.lean WeilDigammaSeriesHalfPlaneV1.lean WeilFixedLineGammaCoreV10.lean WeilFixedLineGammaFubiniV10.lean WeilFixedLineGammaAssemblyV10.lean WeilArchimedeanCorrectionV10.lean WeilFixedLineGammaXSpaceV10.lean WeilFixedLineCompletedGammaV10.lean >> exact-source.log
           lake env lean -o .lake/build/lib/lean/WeilDigammaIntegralReductionV1.olean WeilDigammaIntegralReductionV1.lean 2>&1 | tee evidence/reduction.log
           lake env lean -o .lake/build/lib/lean/WeilDigammaSeriesRealV1.olean WeilDigammaSeriesRealV1.lean 2>&1 | tee evidence/series-real.log
           lake env lean -o .lake/build/lib/lean/WeilDigammaSeriesHalfPlaneV1.olean WeilDigammaSeriesHalfPlaneV1.lean 2>&1 | tee evidence/series-half-plane.log
+          lake env lean -o .lake/build/lib/lean/WeilFixedLineGammaCoreV10.olean WeilFixedLineGammaCoreV10.lean 2>&1 | tee evidence/gamma-core.log
+          lake env lean -o .lake/build/lib/lean/WeilFixedLineGammaFubiniV10.olean WeilFixedLineGammaFubiniV10.lean 2>&1 | tee evidence/gamma-fubini.log
+          lake env lean -o .lake/build/lib/lean/WeilFixedLineGammaAssemblyV10.olean WeilFixedLineGammaAssemblyV10.lean 2>&1 | tee evidence/gamma-assembly.log
+          lake env lean -o .lake/build/lib/lean/WeilArchimedeanCorrectionV10.olean WeilArchimedeanCorrectionV10.lean 2>&1 | tee evidence/arch-correction.log
+          lake env lean -o .lake/build/lib/lean/WeilFixedLineGammaXSpaceV10.olean WeilFixedLineGammaXSpaceV10.lean 2>&1 | tee evidence/gamma-xspace.log
+          lake env lean -o .lake/build/lib/lean/WeilFixedLineCompletedGammaV10.olean WeilFixedLineCompletedGammaV10.lean 2>&1 | tee evidence/completed-gamma.log
 
       - name: Audit public theorem closures
         shell: bash
@@ -93,6 +111,12 @@ jobs:
           #print axioms AEGIS.WeilDigammaSeriesHalfPlaneV1.analyticOnNhd_digamma_add_gamma_v1
           #print axioms AEGIS.WeilDigammaSeriesHalfPlaneV1.digamma_series_halfPlane_v1
           #print axioms AEGIS.WeilDigammaSeriesHalfPlaneV1.gauss_digamma_integral_v1
+          #print axioms AEGIS.WeilFixedLineGammaCoreV10.weil_paired_profile_integral_one_v10
+          #print axioms AEGIS.WeilFixedLineGammaFubiniV10.weil_gauss_fixed_line_fubini_v10
+          #print axioms AEGIS.WeilFixedLineGammaAssemblyV10.weil_fixed_line_digamma_plus_gamma_log_integral_v10
+          #print axioms AEGIS.WeilArchimedeanCorrectionV10.integral_one_div_mul_one_add_v10
+          #print axioms AEGIS.WeilFixedLineGammaXSpaceV10.half_fixed_line_digamma_plus_gamma_eq_arch_v10
+          #print axioms AEGIS.WeilFixedLineCompletedGammaV10.weil_fixed_line_completed_gamma_eq_archimedean_v10
           EOF
           lake env lean WeilDigammaSeriesRealAudit.lean 2>&1 | tee evidence/axioms.log
           ! grep -F 'sorryAx' evidence/axioms.log
