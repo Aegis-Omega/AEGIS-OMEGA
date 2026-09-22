@@ -1,3 +1,5 @@
+import { ENTERPRISE_REPLAY_RECEIPT } from './generated-enterprise-replay'
+
 /**
  * AEGIS Omega — Cloudflare Worker Bridge
  *
@@ -167,6 +169,19 @@ export default {
 
     if (method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS })
+    }
+
+    // ── Hosted enterprise replay receipt (preview hosts only) ────────────────
+    if (pathname === '/__aegis/ci/enterprise-replay' && method === 'GET') {
+      const hostname = new URL(request.url).hostname
+      if (
+        !hostname.endsWith('.workers.dev') ||
+        ENTERPRISE_REPLAY_RECEIPT.branch !== 'feat/openai-sota-autonomous-company-v1' ||
+        ENTERPRISE_REPLAY_RECEIPT.status === 'UNVERIFIED_SOURCE_ONLY'
+      ) {
+        return err('Enterprise replay receipt is not available on this host/build.', 'CI_RECEIPT_NOT_AVAILABLE', 404)
+      }
+      return ok(ENTERPRISE_REPLAY_RECEIPT)
     }
 
     // ── Health & telemetry endpoints (used by hub every 5 s) ─────────────────
