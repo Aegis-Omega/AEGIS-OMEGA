@@ -1,0 +1,173 @@
+{
+  "schema": "AEGIS_RH_SPECTRAL_OPERATOR_REGISTRY_V1",
+  "observed_date": "2026-09-22",
+  "authority_effect": "NONE",
+  "claim_classes": [
+    "ESTABLISHED_MATH",
+    "AEGIS_FORMAL_RESULT",
+    "AEGIS_DERIVED_RESULT",
+    "CONDITIONAL_THEOREM",
+    "OPEN_CONSTRUCTION",
+    "ENVIRONMENT_RECEIPT",
+    "SECURITY_SUBSTRATE"
+  ],
+  "claims": [
+    {
+      "id": "XI_FUNCTIONAL_EQUATION",
+      "statement": "The completed Riemann xi-function satisfies xi(s)=xi(1-s).",
+      "claim_class": "ESTABLISHED_MATH",
+      "status": "ESTABLISHED",
+      "role": "Symmetry of the completed function about Re(s)=1/2.",
+      "does_not_establish": [
+        "that every nontrivial zero has real part 1/2",
+        "the existence of a Hilbert-Polya operator"
+      ]
+    },
+    {
+      "id": "TRIVIAL_ZERO_GAMMA_COMPLETION",
+      "statement": "The completed xi-function packages zeta, Gamma(s/2), pi^{-s/2}, and the s(s-1) factor into an entire function; the trivial-zero/Gamma-pole structure is handled by this completion.",
+      "claim_class": "ESTABLISHED_MATH",
+      "status": "ESTABLISHED",
+      "role": "Analytic normalization and separation of trivial-zero structure.",
+      "metaphor_boundary": "Calling this a polarizing aperture or frequency filter is architectural analogy, not a mathematical theorem."
+    },
+    {
+      "id": "N1_NORMALIZATION_OBSTACLE",
+      "statement": "xi(1/2) is strictly between 89/180 and 1/2.",
+      "claim_class": "AEGIS_FORMAL_RESULT",
+      "status": "LEGACY_VERIFIED_RECEIPT",
+      "legacy_exact_head": "8bad0360d329df374a582e1cb54ecce22dabf9564d767e43c9f92cdca42f95da",
+      "role": "Normalization obstacle; rejects an overstrong normalization route.",
+      "authority_ceiling": "SCOPED_MATHEMATICAL_RESULT_ONLY"
+    },
+    {
+      "id": "R2_REFLECTION_COUNTEREXAMPLE",
+      "statement": "Reflection symmetry alone does not force all zeros onto Re(s)=1/2; an explicit symmetric polynomial counterexample has off-line zeros.",
+      "claim_class": "AEGIS_DERIVED_RESULT",
+      "status": "LEGACY_DERIVED_PASS",
+      "legacy_exact_head": "8bad0360d329df374a582e1cb54ecce22dabf9564d767e43c9f92cdca42f95da",
+      "role": "Prevents invalid inference xi(s)=xi(1-s) => RH.",
+      "authority_ceiling": "SCOPED_MATHEMATICAL_RESULT_ONLY"
+    },
+    {
+      "id": "S2_CONDITIONAL_SPECTRAL_RH",
+      "statement": "For the declared self-adjoint Hilbert-Schmidt operator setting, a correct regularized-determinant identity with xi implies RH.",
+      "claim_class": "CONDITIONAL_THEOREM",
+      "status": "CONDITIONAL_CLOSED",
+      "legacy_exact_head": "8bad0360d329df374a582e1cb54ecce22dabf9564d767e43c9f92cdca42f95da",
+      "required_open_premises": [
+        "construct the required operator K",
+        "prove K is self-adjoint in the declared domain",
+        "establish the determinant class and normalization",
+        "prove F_K(s) identically equals xi(s)"
+      ],
+      "authority_ceiling": "CONDITIONAL_ONLY"
+    },
+    {
+      "id": "S4_NECESSARY_SPECTRUM_SYMMETRY",
+      "statement": "The proposed spectral representation imposes a necessary spectrum symmetry / trace-class compatibility condition.",
+      "claim_class": "AEGIS_DERIVED_RESULT",
+      "status": "NECESSARY_CONDITION_DERIVED",
+      "legacy_exact_head": "8bad0360d329df374a582e1cb54ecce22dabf9564d767e43c9f92cdca42f95da",
+      "authority_ceiling": "NECESSARY_CONDITION_ONLY"
+    },
+    {
+      "id": "HILBERT_POLYA_OPERATOR_K",
+      "statement": "Construct a specific operator K whose relevant spectrum corresponds to the imaginary parts of the nontrivial zeta zeros and prove K=K*.",
+      "claim_class": "OPEN_CONSTRUCTION",
+      "status": "NOT_ESTABLISHED",
+      "role": "Hilbert-Polya program target."
+    },
+    {
+      "id": "FREDHOLM_DET2_CONSTRUCTION",
+      "statement": "Construct the declared 2-modified regularized Fredholm determinant for the exact operator class and prove its analytic normalization.",
+      "claim_class": "OPEN_CONSTRUCTION",
+      "status": "NOT_ESTABLISHED",
+      "role": "Load-bearing spectral determinant construction."
+    },
+    {
+      "id": "SPECTRAL_IDENTITY_FK_EQ_XI",
+      "statement": "Prove the exact identity F_K(s) identically equals xi(s).",
+      "claim_class": "OPEN_CONSTRUCTION",
+      "status": "NOT_ESTABLISHED",
+      "role": "Load-bearing spectral identity."
+    },
+    {
+      "id": "COQ_SCALED_SINE_DERIVATIVE_351",
+      "statement": "Constructive CoRN IR derivative for a scaled single-frequency sine source.",
+      "claim_class": "AEGIS_FORMAL_RESULT",
+      "status": "VERIFIED_AT_EXACT_HEAD",
+      "exact_head": "8bc3b9884505881249bf79c96e2ccaf6650d7c5e",
+      "theorem": "scaled_sine_derivative_constructive_v1",
+      "declared_assumptions": 0,
+      "authority_ceiling": "FORMAL_MATH_EVIDENCE_ONLY"
+    },
+    {
+      "id": "COQ_CANONICAL_PRIME_SOURCE_361",
+      "statement": "Canonical finite all-integer von-Mangoldt weighted source slice with constructive derivative binding.",
+      "claim_class": "AEGIS_FORMAL_RESULT",
+      "status": "VERIFIED_IN_STATED_SCOPE",
+      "exact_head": "99d3700c2d5a2aab73a756109dda80de439d1baa",
+      "authority_ceiling": "FINITE_SOURCE_ONLY"
+    },
+    {
+      "id": "COQ_CORN_O0_COMPLETION_374",
+      "statement": "CoRN IR to O0 completion/reference carrier equivalence and preservation results.",
+      "claim_class": "AEGIS_FORMAL_RESULT",
+      "status": "VERIFIED_AT_EXACT_HEAD",
+      "exact_head": "e44297fc203020229524ca3a4fce59d38b117eff",
+      "declared_assumptions": 0,
+      "authority_ceiling": "CARRIER_EQUIVALENCE_ONLY"
+    },
+    {
+      "id": "COQ_GLOBALIZATION_307",
+      "statement": "Abstract finite-to-limit order theorem: GlobalizationReadyV1 QR QW eps implies GlobalizationTargetV1 QW.",
+      "claim_class": "AEGIS_FORMAL_RESULT",
+      "status": "VERIFIED_AT_EXACT_HEAD",
+      "exact_head": "41ad4ea70c09eb2b88c8457d3b7185c5db4f986a",
+      "authority_ceiling": "ABSTRACT_GLOBALIZATION_ONLY",
+      "does_not_establish": [
+        "identification of QW with the classical Weil quadratic form",
+        "concrete Weil criterion",
+        "RH"
+      ]
+    },
+    {
+      "id": "FORMALCONJECTURES_UPSTREAM_BUILD",
+      "statement": "The supplied upstream build log terminates successfully after 8907 jobs.",
+      "claim_class": "ENVIRONMENT_RECEIPT",
+      "status": "BUILD_SUCCESS",
+      "job_count": 8907,
+      "candidate_binding": "NOT_ESTABLISHED",
+      "authority_ceiling": "UPSTREAM_ENVIRONMENT_ONLY"
+    },
+    {
+      "id": "FIPS203_MLKEM",
+      "statement": "FIPS 203 standardizes ML-KEM, a Module-LWE-related key-encapsulation mechanism with ML-KEM-512/768/1024 parameter sets.",
+      "claim_class": "SECURITY_SUBSTRATE",
+      "status": "STANDARDIZED",
+      "aegis_role": "Post-quantum key establishment for telemetry/session transport; not the transport protocol itself."
+    },
+    {
+      "id": "FIPS204_MLDSA",
+      "statement": "FIPS 204 standardizes ML-DSA signatures; ML-DSA-65 signatures are 3309 bytes.",
+      "claim_class": "SECURITY_SUBSTRATE",
+      "status": "STANDARDIZED",
+      "aegis_role": "Sign model updates, receipts, and IFG outputs."
+    },
+    {
+      "id": "FIPS205_SLHDSA",
+      "statement": "FIPS 205 standardizes SLH-DSA, a stateless hash-based digital signature scheme.",
+      "claim_class": "SECURITY_SUBSTRATE",
+      "status": "STANDARDIZED",
+      "aegis_role": "Algorithm-diverse hash-based signature backup for long-lived audit artifacts; not a generic hash-function standard."
+    }
+  ],
+  "global_disposition": {
+    "rh_proven": false,
+    "hilbert_polya_operator_constructed": false,
+    "spectral_identity_fk_eq_xi_established": false,
+    "upstream_8907_build_binds_aegis_candidate": false,
+    "authority_effect": "NONE"
+  }
+}
