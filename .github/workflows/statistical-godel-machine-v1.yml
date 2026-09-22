@@ -1,0 +1,44 @@
+name: AEGIS Statistical Godel Machine V1
+
+on:
+  pull_request:
+    paths:
+      - "governance/statistical-godel-machine-v1.json"
+      - "sovereign-omega-v2/python/statistical_godel_machine.py"
+      - "sovereign-omega-v2/python/tests/test_statistical_godel_machine.py"
+      - "docs/research/statistical-godel-machine-v1.md"
+      - ".github/workflows/statistical-godel-machine-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sgm-v1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Bind exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$EXPECTED"
+          printf 'EXACT_HEAD=%s\n' "$EXPECTED"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile
+        run: |
+          python -m py_compile             sovereign-omega-v2/python/statistical_godel_machine.py             sovereign-omega-v2/python/tests/test_statistical_godel_machine.py
+
+      - name: Run fail-closed rewrite tests
+        env:
+          PYTHONPATH: sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_statistical_godel_machine.py -v
