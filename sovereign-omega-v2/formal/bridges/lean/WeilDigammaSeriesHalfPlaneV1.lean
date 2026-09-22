@@ -39,8 +39,7 @@ local notation "γ" => Real.eulerMascheroniConstant
 def RightHalfPlaneV1 : Set ℂ := {z : ℂ | 0 < z.re}
 
 theorem isOpen_rightHalfPlane_v1 : IsOpen RightHalfPlaneV1 := by
-  simpa [RightHalfPlaneV1] using
-    (Complex.continuous_re.isOpen_preimage (Ioi (0 : ℝ)) isOpen_Ioi)
+  exact Complex.continuous_re.isOpen_preimage (Ioi (0 : ℝ)) isOpen_Ioi
 
 theorem isPreconnected_rightHalfPlane_v1 : IsPreconnected RightHalfPlaneV1 := by
   simpa [RightHalfPlaneV1] using (convex_halfSpace_re_gt (0 : ℝ)).isPreconnected
@@ -48,17 +47,16 @@ theorem isPreconnected_rightHalfPlane_v1 : IsPreconnected RightHalfPlaneV1 := by
 private theorem seriesTerm_factor_v1 (z : ℂ) (hz : 0 < z.re) (n : ℕ) :
     seriesTerm z n =
       (z - 1) / (((n : ℂ) + 1) * (z + n)) := by
-  have hn1 : ((n : ℂ) + 1) ≠ 0 := by
-    intro h
-    have hre := congrArg Complex.re h
-    simp at hre
+  have hn1 : ((n : ℂ) + 1) ≠ 0 := Nat.cast_add_one_ne_zero n
   have hzn : z + (n : ℂ) ≠ 0 := by
     intro h
     have hre := congrArg Complex.re h
     simp at hre
     linarith
-  field_simp [seriesTerm, hn1, hzn]
-  <;> ring
+  unfold seriesTerm
+  rw [eq_div_iff (mul_ne_zero hn1 hzn)]
+  field_simp
+  ring
 
 private theorem seriesTerm_differentiableOn_v1 (n : ℕ) :
     DifferentiableOn ℂ (fun z : ℂ => seriesTerm z n) RightHalfPlaneV1 := by
@@ -69,10 +67,7 @@ private theorem seriesTerm_differentiableOn_v1 (n : ℕ) :
     simp [RightHalfPlaneV1] at hz
     simp at hre
     linarith
-  have hn1 : ((n : ℂ) + 1) ≠ 0 := by
-    intro h
-    have hre := congrArg Complex.re h
-    simp at hre
+  have hn1 : ((n : ℂ) + 1) ≠ 0 := Nat.cast_add_one_ne_zero n
   apply DifferentiableAt.differentiableWithinAt
   unfold seriesTerm
   fun_prop
@@ -97,7 +92,7 @@ private theorem differentiableAt_series_tsum_v1
   let U : Set ℂ := Metric.ball z0 δ
   have hUopen : IsOpen U := Metric.isOpen_ball
   have hz0U : z0 ∈ U := by
-    simpa [U] using Metric.mem_ball_self hδpos
+    simpa [U] using Metric.mem_ball_self (x := z0) hδpos
 
   let A : ℝ := δ + ‖z0 - 1‖
   have hA0 : 0 ≤ A := by
@@ -135,10 +130,7 @@ private theorem differentiableAt_series_tsum_v1
       have hre := congrArg Complex.re h
       simp at hre
       linarith
-    have hn1 : ((n : ℂ) + 1) ≠ 0 := by
-      intro h
-      have hre := congrArg Complex.re h
-      simp at hre
+    have hn1 : ((n : ℂ) + 1) ≠ 0 := Nat.cast_add_one_ne_zero n
     apply DifferentiableAt.differentiableWithinAt
     unfold seriesTerm
     fun_prop
@@ -175,7 +167,8 @@ private theorem differentiableAt_series_tsum_v1
     have hnormzn :
         (n : ℝ) + z.re ≤ ‖z + (n : ℂ)‖ := by
       have h := Complex.re_le_norm (z + (n : ℂ))
-      simpa [Complex.add_re] using h
+      simp [Complex.add_re] at h
+      linarith
     have hdenlower :
         δ * ((n : ℝ) + 1) ≤ ‖z + (n : ℂ)‖ :=
       hδn.trans hnormzn
@@ -198,13 +191,12 @@ private theorem differentiableAt_series_tsum_v1
                 hdenlower (by positivity)
       _ = (A / δ) * (1 / (((n : ℝ) + 1) ^ 2)) := by
             field_simp [hδpos.ne', hn1pos.ne']
-            ring
       _ = majorant n := by rfl
 
   have hdiff :
       DifferentiableOn ℂ
         (fun z : ℂ => ∑' n : ℕ, seriesTerm z n) U :=
-    differentiableOn_tsum_of_summable_norm
+    Complex.differentiableOn_tsum_of_summable_norm
       hmajorant hterm hUopen hbound
   exact hdiff.differentiableAt (hUopen.mem_nhds hz0U)
 
@@ -236,9 +228,12 @@ theorem analyticOnNhd_digamma_add_gamma_v1 :
     hGammaDiff.analyticOnNhd isOpen_rightHalfPlane_v1
   have hDigammaAnal :
       AnalyticOnNhd ℂ Complex.digamma RightHalfPlaneV1 := by
-    simpa [Complex.digamma_def, logDeriv_apply] using
-      hGammaAnal.deriv.div hGammaAnal
-        (fun z hz => Complex.Gamma_ne_zero_of_re_pos hz)
+    have hfun : Complex.digamma = fun z => deriv Complex.Gamma z / Complex.Gamma z := by
+      funext z
+      simp [Complex.digamma_def, logDeriv_apply]
+    rw [hfun]
+    exact hGammaAnal.deriv.div hGammaAnal
+      (fun z hz => Complex.Gamma_ne_zero_of_re_pos hz)
   exact hDigammaAnal.add analyticOnNhd_const
 
 private theorem one_mem_closure_real_axis_equalities_v1 :
@@ -252,7 +247,8 @@ private theorem one_mem_closure_real_axis_equalities_v1 :
     have hzero :
         Tendsto (fun n : ℕ => 1 / ((n + 1 : ℕ) : ℂ))
           atTop (𝓝 0) :=
-      tendsto_one_div_add_atTop_nhds_zero_nat (𝕜 := ℂ)
+      by simpa [Nat.cast_add, Nat.cast_one] using
+          tendsto_one_div_add_atTop_nhds_zero_nat (𝕜 := ℂ)
     simpa [s] using (tendsto_const_nhds.add hzero)
   refine mem_closure_of_tendsto hs_tend ?_
   exact Filter.Eventually.of_forall (fun n => by
@@ -263,7 +259,7 @@ private theorem one_mem_closure_real_axis_equalities_v1 :
         positivity
       have hreal := digamma_series_ofReal_v1 x hx
       simpa [s, x] using hreal
-    · simp [s])
+    · simpa [s] using (Nat.cast_add_one_ne_zero n : ((n : ℂ) + 1) ≠ 0))
 
 /-- The missing series representation of the complex digamma function on the
 entire open right half-plane. -/
