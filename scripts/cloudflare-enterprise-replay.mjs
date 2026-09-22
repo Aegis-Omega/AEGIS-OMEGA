@@ -3,6 +3,7 @@ import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const TARGET_BRANCH = 'feat/openai-sota-autonomous-company-v1'
+const EXPECTED_SUITE_COUNT = 22
 const OUT = resolve('worker-src/generated-enterprise-replay.ts')
 
 function receipt(value) {
@@ -139,6 +140,10 @@ try {
     'test/native-runtime/company-hosted-replay-admission.test.mjs',
   ]
 
+  if (tests.length !== EXPECTED_SUITE_COUNT) {
+    throw new Error(`SUITE_CONTRACT_DRIFT:${tests.length}!=${EXPECTED_SUITE_COUNT}`)
+  }
+
   run('node', ['--test', ...tests], cwd, 'NODE_TEST')
 
   receipt({
@@ -151,6 +156,7 @@ try {
     strict_typecheck: 'PASS',
     falsifiers: 'PASS',
     suite_count: tests.length,
+    suite_contract_count: EXPECTED_SUITE_COUNT,
     write_authority: 'NOT_GRANTED',
     merge_authority: 'NOT_GRANTED',
     deploy_authority: 'NOT_GRANTED',
