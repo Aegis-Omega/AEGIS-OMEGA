@@ -40,5 +40,28 @@
   "full_training": "NOT_RUN",
   "trained_checkpoint_quality": "NOT_ESTABLISHED",
   "production_wiring": "NOT_PERFORMED",
-  "authority_effect": "NONE"
+  "authority_effect": "NONE",
+  "deterministic_100_step_smoke": {
+    "command": "PYTHONPATH=. python scripts/test-archive-arc-training-100.py",
+    "status": "PASS",
+    "seed": 11,
+    "steps": 100,
+    "tasks_available": 800,
+    "metrics": {
+      "mean_acc": 0.3993,
+      "mean_cvs": 0.9163,
+      "hd_arc": 0.6007,
+      "best_acc": 0.91,
+      "curriculum_level": 1,
+      "tasks_seen": 800
+    },
+    "checkpoint": {
+      "size_bytes": 2908823,
+      "sha256": "2cd3e04f137506a4bee363d42e0acf94fde569eba53be6a41d1910f94d7551bf",
+      "committed": false
+    },
+    "receipt": "reports/archive-arc-training-100-smoke-v1.json",
+    "receipt_sha256": "57b04cbb5d047c022269dea86df6db3b7418e7d47201fc1ed4c5d28e1de14038",
+    "interpretation": "TRAINING_PATH_EXECUTION_ONLY_NOT_HELD_OUT_BENCHMARK"
+  }
 }
