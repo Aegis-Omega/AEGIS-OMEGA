@@ -208,3 +208,22 @@ def test_schema_uses_security_definer_cas_and_least_privilege_writer_role():
     assert "grant execute on function aegis_audit.append_constitutional_entry_v1" in sql
     assert "grant select, update on aegis_audit.constitutional_chain_head_v1" not in sql
     assert "grant select, insert on aegis_audit.constitutional_chain_v1" not in sql
+
+
+def test_serve_wires_cloud_sql_as_optional_authoritative_backend():
+    serve = (Path(__file__).resolve().parent / "serve.py").read_text()
+    assert "from cloudsql_audit import CloudSqlAuditConfig, CloudSqlAuditStore" in serve
+    assert 'self.audit_backend = "cloud_sql"' in serve
+    assert "asyncio.to_thread(" in serve
+    assert "self.audit_store.append" in serve
+    assert '"CLOUD_SQL_AUDIT_MODE", "off"' in serve
+    assert "CLOUD_SQL_AUDIT_REQUIRED_UNAVAILABLE" in serve
+    assert '"audit_backend": state.audit_backend' in serve
+
+
+def test_docker_pins_cloud_sql_connector_driver_and_sqlalchemy():
+    docker = (Path(__file__).resolve().parent / "Dockerfile").read_text()
+    assert "cloud-sql-python-connector[pg8000]==1.22.0" in docker
+    assert "pg8000==1.31.5" in docker
+    assert "SQLAlchemy==2.0.54" in docker
+    assert "COPY vertex/cloudsql_audit.py /app/cloudsql_audit.py" in docker
