@@ -1,17 +1,23 @@
 """AEGIS Ω Statistical Gödel Machine V1.
 
 This module evaluates self-rewrite proposals but never performs a rewrite.
-It is intentionally weaker than a classical Gödel-machine global-optimality
-claim: statistical evidence can support bounded improvement, not logical proof
+Statistical evidence can support bounded improvement; it is not a logical proof
 of globally optimal self-modification.
 
-A passing proposal is only ELIGIBLE_FOR_OPERATOR_APPROVAL_ONLY.
+A proposal must first carry a trusted EpistemicConservationReceiptV1 bound to the
+same parent state and semantic-lineage receipt. A passing proposal is only
+ELIGIBLE_FOR_OPERATOR_APPROVAL_ONLY.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
 import re
+
+from epistemic_conservation_kernel import (
+    TrustedEpistemicConservationStore,
+    trusted_receipt,
+)
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -42,6 +48,7 @@ class RewriteProposalV1:
     rewrite_class: RewriteClass
     utility_lcb_microunits: int
     semantic_lineage_receipt_sha256: str
+    conservation_receipt_sha256: str
     authority_before: str = NO_AUTHORITY
     authority_after: str = NO_AUTHORITY
 
@@ -50,7 +57,14 @@ class RewriteProposalV1:
             raise ValueError("PROPOSAL_ID_REQUIRED")
         for value, label in (
             (self.parent_state_sha256, "parent_state_sha256"),
-            (self.semantic_lineage_receipt_sha256, "semantic_lineage_receipt_sha256"),
+            (
+                self.semantic_lineage_receipt_sha256,
+                "semantic_lineage_receipt_sha256",
+            ),
+            (
+                self.conservation_receipt_sha256,
+                "conservation_receipt_sha256",
+            ),
         ):
             if SHA256_RE.fullmatch(value) is None:
                 raise ValueError(f"{label}: invalid digest")
@@ -58,7 +72,10 @@ class RewriteProposalV1:
             raise ValueError("TARGET_SURFACE_REQUIRED")
         if type(self.utility_lcb_microunits) is not int:
             raise ValueError("UTILITY_LCB_MUST_BE_INTEGER")
-        if self.authority_before != NO_AUTHORITY or self.authority_after != NO_AUTHORITY:
+        if (
+            self.authority_before != NO_AUTHORITY
+            or self.authority_after != NO_AUTHORITY
+        ):
             raise ValueError("SELF_REWRITE_AUTHORITY_EXPANSION_FORBIDDEN")
 
 
@@ -111,6 +128,8 @@ class RewriteDecisionV1:
 def evaluate_rewrite(
     proposal: RewriteProposalV1,
     evidence: FormalEvidenceV1 | StatisticalEvidenceV1,
+    *,
+    conservation_store: TrustedEpistemicConservationStore,
 ) -> RewriteDecisionV1:
     reasons: list[str] = []
 
@@ -118,11 +137,35 @@ def evaluate_rewrite(
         if code not in reasons:
             reasons.append(code)
 
+    conservation = trusted_receipt(
+        conservation_store,
+        proposal.conservation_receipt_sha256,
+    )
+    if conservation is None:
+        fail("CONSERVATION_RECEIPT_UNTRUSTED")
+    else:
+        if conservation.parent_state_sha256 != proposal.parent_state_sha256:
+            fail("CONSERVATION_PARENT_STATE_MISMATCH")
+        if (
+            conservation.semantic_lineage_receipt_sha256
+            != proposal.semantic_lineage_receipt_sha256
+        ):
+            fail("CONSERVATION_LINEAGE_MISMATCH")
+        if conservation.authority_non_amplifying is not True:
+            fail("CONSERVATION_AUTHORITY_NOT_PROVEN")
+        if conservation.semantic_accounting_pass is not True:
+            fail("CONSERVATION_SEMANTIC_ACCOUNTING_NOT_PASS")
+        if conservation.uncertainty_accounting_pass is not True:
+            fail("CONSERVATION_UNCERTAINTY_NOT_PASS")
+
     if proposal.target_surface in PROTECTED_SURFACES:
         fail("PROTECTED_SURFACE")
     if proposal.utility_lcb_microunits <= 0:
         fail("NONPOSITIVE_UTILITY_LOWER_BOUND")
-    if proposal.authority_before != NO_AUTHORITY or proposal.authority_after != NO_AUTHORITY:
+    if (
+        proposal.authority_before != NO_AUTHORITY
+        or proposal.authority_after != NO_AUTHORITY
+    ):
         fail("AUTHORITY_EXPANSION_FORBIDDEN")
 
     if proposal.rewrite_class == RewriteClass.FORMAL:
@@ -144,7 +187,10 @@ def evaluate_rewrite(
                 fail("INSUFFICIENT_SAMPLE_COUNT")
             if evidence.lower_confidence_bound_microunits <= 0:
                 fail("STATISTICAL_LCB_NOT_POSITIVE")
-            if evidence.lower_confidence_bound_microunits != proposal.utility_lcb_microunits:
+            if (
+                evidence.lower_confidence_bound_microunits
+                != proposal.utility_lcb_microunits
+            ):
                 fail("PROPOSAL_EVIDENCE_LCB_MISMATCH")
             if evidence.bounded_metric is not True:
                 fail("UNBOUNDED_METRIC")
