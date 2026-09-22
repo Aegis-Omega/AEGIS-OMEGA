@@ -59,14 +59,16 @@ test('all SHA-256 constraints are closed lowercase-hex regexes', () => {
   assert.ok(valid.length >= 8, 'expected all content-addressed fields to be constrained')
 })
 
-test('approval ledger binds packet, risk, cost, expiry and grant', () => {
+test('approval ledger binds packet, risk, cost, generation interval and grant', () => {
   for (const required of [
     'packet_id text not null',
     'packet_digest text not null unique',
     'packet jsonb not null',
     'risk_class text not null',
     'cost_class text not null',
+    'created_generation bigint not null',
     'expires_generation bigint not null',
+    'expires_generation >= created_generation',
     "decision = 'APPROVED'",
     'grant_id is not null',
     'granted_generation is not null',
