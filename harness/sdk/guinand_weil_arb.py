@@ -26,6 +26,7 @@ import flint
 from flint import acb, arb, arb_mat, ctx
 
 from harness.sdk.sovereign_execution import canonical_hash
+from harness.sdk.weil_convergence_bridge import ExactRationalV1
 
 SPEC_KIND = "AEGIS_ARB_GALERKIN_SPEC_V1"
 RECEIPT_KIND = "AEGIS_ARB_GALERKIN_RECEIPT_V1"
@@ -452,3 +453,273 @@ def bind_cutoff_free_galerkin_verification(
         error_code=None if verification.valid else "GALERKIN_INTERVAL_UNDETERMINED",
     )
     return ArbGalerkinTraceBindingV1(verification=verification, span=span)
+
+
+# ---------------------------------------------------------------------------
+# Moment-restricted bridge  M_N = S_N^T (K_N + eps_N G_N) S_N
+# ---------------------------------------------------------------------------
+#
+# This layer certifies the RESTRICTED matrix directly.  It deliberately does
+# NOT invoke the PSD transfer law ``A >= 0  =>  S^T A S >= 0``.  That law is
+# sound but useless here: it would require certifying the unrestricted
+# ``K_N + eps_N G_N``, which is strictly stronger than what is needed and is
+# expected to be false precisely because the moment correction exists to
+# remove the directions carrying the negativity.  So S_N is used to BUILD the
+# matrix, in ball arithmetic, and a fresh interval LDL^T certifies the
+# product.  Rectangularity of S_N is irrelevant to that argument.
+#
+# What a GREEN receipt here establishes, and nothing more:
+#
+#     M_N > 0   =>   for all z,   z^T K_N^res z  >  - eps_N * z^T G_N^res z
+#
+# i.e. q(h_N) > -eps_N ||h_N||^2 on the restricted span.  Passing to
+# q(h) >= 0 additionally needs eps_N -> 0 along a cofinal family, which this
+# module does not and cannot check from a single N.
+
+MOMENT_RESTRICTION_SPEC_KIND = "AEGIS_ARB_MOMENT_RESTRICTION_SPEC_V1"
+MOMENT_RESTRICTION_RECEIPT_KIND = "AEGIS_ARB_MOMENT_RESTRICTION_RECEIPT_V1"
+MOMENT_RESTRICTION_PROOF_SEMANTICS = (
+    "RIGOROUS_RESTRICTED_FORM_LOWER_BOUND_NOT_GLOBAL_WEIL_PROOF"
+)
+
+
+@dataclass(frozen=True)
+class MomentRestrictionSpecV1:
+    """One restricted finite obligation: kernel spec, S_N, G_N and eps_N.
+
+    ``restriction`` and ``gram`` are caller-supplied exact rationals.  The
+    module never synthesises them: identifying ``restriction`` with the
+    moment-corrected basis, and ``gram`` with the L^2 inner product on that
+    basis, are mathematical obligations that stay open in the receipt.
+    """
+
+    galerkin: ArbGalerkinSpecV1
+    restriction: tuple[tuple[ExactRationalV1, ...], ...]
+    gram: tuple[tuple[ExactRationalV1, ...], ...]
+    epsilon: ExactRationalV1
+    spec_kind: str = MOMENT_RESTRICTION_SPEC_KIND
+
+    def __post_init__(self) -> None:
+        if self.spec_kind != MOMENT_RESTRICTION_SPEC_KIND:
+            raise ArbGalerkinError("MOMENT_RESTRICTION_SPEC_KIND_MISMATCH")
+        if not isinstance(self.galerkin, ArbGalerkinSpecV1):
+            raise ArbGalerkinError("GALERKIN_SPEC_INVALID")
+
+        dim = 2 * self.galerkin.N + 1
+        if not self.restriction:
+            raise ArbGalerkinError("RESTRICTION_EMPTY")
+        if len(self.restriction) != dim:
+            raise ArbGalerkinError("RESTRICTION_ROWS_MISMATCH")
+        cols = len(self.restriction[0])
+        if not (1 <= cols <= dim):
+            raise ArbGalerkinError("RESTRICTION_COLUMNS_INVALID")
+        if any(len(row) != cols for row in self.restriction):
+            raise ArbGalerkinError("RESTRICTION_NOT_RECTANGULAR")
+        for row in self.restriction:
+            for value in row:
+                if not isinstance(value, ExactRationalV1):
+                    raise ArbGalerkinError("RESTRICTION_ENTRY_NOT_EXACT")
+
+        if len(self.gram) != dim or any(len(row) != dim for row in self.gram):
+            raise ArbGalerkinError("GRAM_DIMENSION_MISMATCH")
+        for row in self.gram:
+            for value in row:
+                if not isinstance(value, ExactRationalV1):
+                    raise ArbGalerkinError("GRAM_ENTRY_NOT_EXACT")
+        for i in range(dim):
+            for j in range(i + 1, dim):
+                if self.gram[i][j].fraction != self.gram[j][i].fraction:
+                    raise ArbGalerkinError("GRAM_NOT_SYMMETRIC")
+
+        if not isinstance(self.epsilon, ExactRationalV1):
+            raise ArbGalerkinError("EPSILON_NOT_EXACT")
+        if self.epsilon.fraction < 0:
+            raise ArbGalerkinError("EPSILON_NEGATIVE")
+
+    @property
+    def source_dimension(self) -> int:
+        return 2 * self.galerkin.N + 1
+
+    @property
+    def restricted_dimension(self) -> int:
+        return len(self.restriction[0])
+
+    @property
+    def prec_bits(self) -> int:
+        """Shared with the kernel spec so the Arb helpers bind to one precision."""
+        return self.galerkin.prec_bits
+
+    @property
+    def root(self) -> str:
+        return canonical_hash("AEGIS_ARB_MOMENT_RESTRICTION_SPEC_ROOT_V1", asdict(self))
+
+
+@dataclass(frozen=True)
+class MomentRestrictionVerificationV1:
+    receipt_kind: str
+    proof_semantics: str
+    subject_root: str
+    galerkin_spec_root: str
+    formula_id: str
+    formula_provenance_root: str
+    backend: str
+    c: int
+    N: int
+    source_dimension: int
+    restricted_dimension: int
+    prec_bits: int
+    epsilon_numerator: int
+    epsilon_denominator: int
+    valid: bool
+    status: str
+    restricted_entry_enclosures_verified: bool
+    interval_inertia_verified: bool
+    n_positive: int
+    n_negative: int
+    undetermined_pivot: Optional[int]
+    restricted_matrix_positive_definite_verified: bool
+    restricted_form_lower_bound_verified: bool
+    kernel_matrix_root: str
+    restricted_matrix_root: str
+    pivot_root: str
+    moment_basis_identification_verified: bool
+    gram_inner_product_identification_verified: bool
+    epsilon_cofinality_verified: bool
+    galerkin_semantics_verified: bool
+    global_weil_positivity_proven: bool
+    rh_proven: bool
+    errors: tuple[str, ...]
+    open_obligations: tuple[str, ...]
+
+    @property
+    def receipt_root(self) -> str:
+        return canonical_hash("AEGIS_ARB_MOMENT_RESTRICTION_RECEIPT_ROOT_V1", asdict(self))
+
+    def to_dict(self) -> dict[str, object]:
+        payload = asdict(self)
+        payload["receipt_root"] = self.receipt_root
+        return payload
+
+
+def _exact_to_arb(value: ExactRationalV1) -> arb:
+    """Enclose an exact rational as an Arb ball at the ambient precision."""
+    return arb(value.numerator) / arb(value.denominator)
+
+
+def _restrict_arb_matrix(
+    matrix: arb_mat, restriction: list[list[arb]], dim: int, cols: int
+) -> arb_mat:
+    """Return ``S^T A S`` as rigorous balls, symmetric by construction."""
+    product = arb_mat(dim, cols)
+    for i in range(dim):
+        for c in range(cols):
+            acc = arb(0)
+            for j in range(dim):
+                acc = acc + matrix[i, j] * restriction[j][c]
+            product[i, c] = acc
+
+    restricted = arb_mat(cols, cols)
+    for a in range(cols):
+        for b in range(a, cols):
+            acc = arb(0)
+            for i in range(dim):
+                acc = acc + restriction[i][a] * product[i, b]
+            restricted[a, b] = acc
+            restricted[b, a] = acc
+    return restricted
+
+
+def _build_moment_restricted_matrix(
+    spec: MomentRestrictionSpecV1,
+) -> tuple[arb_mat, int, str, str]:
+    """Assemble ``S^T (K + eps G) S`` from the cutoff-free kernel entries."""
+    kernel, dim, kernel_root = _build_cutoff_free_matrix(spec.galerkin)
+    ctx.prec = spec.prec_bits
+
+    epsilon = _exact_to_arb(spec.epsilon)
+    shifted = arb_mat(dim, dim)
+    for i in range(dim):
+        for j in range(i, dim):
+            value = kernel[i, j] + epsilon * _exact_to_arb(spec.gram[i][j])
+            shifted[i, j] = value
+            shifted[j, i] = value
+
+    cols = spec.restricted_dimension
+    restriction = [[_exact_to_arb(value) for value in row] for row in spec.restriction]
+    restricted = _restrict_arb_matrix(shifted, restriction, dim, cols)
+    return restricted, cols, kernel_root, _matrix_root(restricted, cols, spec)
+
+
+def verify_moment_restricted_galerkin(
+    spec: MomentRestrictionSpecV1,
+) -> MomentRestrictionVerificationV1:
+    """Certify ``S^T (K + eps G) S > 0`` by interval LDL^T on the product.
+
+    A valid receipt proves the restricted lower bound at this single ``N`` and
+    this single ``eps``.  It proves nothing about the limit: promoting it to
+    ``q(h) >= 0`` needs a cofinal family with ``eps_N -> 0``, which stays an
+    open obligation here.
+    """
+    restricted, cols, kernel_root, restricted_root = _build_moment_restricted_matrix(spec)
+    n_pos, n_neg, undetermined, pivot_root = _certify_interval_inertia(restricted, cols, spec)
+
+    inertia_verified = undetermined is None and n_pos + n_neg == cols
+    positive_definite = inertia_verified and n_neg == 0 and n_pos == cols
+
+    errors: list[str] = []
+    if not inertia_verified:
+        errors.append("INTERVAL_PIVOT_UNDETERMINED")
+
+    obligations = [
+        "MOMENT_BASIS_IDENTIFICATION_NOT_MACHINE_FORMALIZED",
+        "GRAM_TO_L2_INNER_PRODUCT_IDENTITY_NOT_MACHINE_FORMALIZED",
+        "EPSILON_COFINALITY_TO_ZERO_NOT_MACHINE_VERIFIED",
+        "FORMULA_TO_WEIL_OPERATOR_IDENTITY_NOT_MACHINE_FORMALIZED",
+        "CUTOFF_FREE_ARCHIMEDEAN_CLOSED_FORM_DERIVATION_NOT_MACHINE_FORMALIZED",
+        "FINITE_BAND_DOES_NOT_ESTABLISH_GLOBAL_WEIL_POSITIVITY",
+        "N_TO_INFINITY_GLOBALIZATION_NOT_MACHINE_VERIFIED",
+    ]
+    if not inertia_verified:
+        obligations.append("RAISE_ARB_PRECISION_OR_CHANGE_PIVOT_STRATEGY")
+
+    provenance_root = canonical_hash(
+        "AEGIS_GUINAND_WEIL_FORMULA_PROVENANCE_V1", FORMULA_PROVENANCE
+    )
+    valid = inertia_verified and positive_definite and not errors
+
+    return MomentRestrictionVerificationV1(
+        receipt_kind=MOMENT_RESTRICTION_RECEIPT_KIND,
+        proof_semantics=MOMENT_RESTRICTION_PROOF_SEMANTICS,
+        subject_root=spec.root,
+        galerkin_spec_root=spec.galerkin.root,
+        formula_id=FORMULA_ID,
+        formula_provenance_root=provenance_root,
+        backend=f"python-flint/{getattr(flint, '__version__', 'unknown')}",
+        c=spec.galerkin.c,
+        N=spec.galerkin.N,
+        source_dimension=spec.source_dimension,
+        restricted_dimension=cols,
+        prec_bits=spec.prec_bits,
+        epsilon_numerator=spec.epsilon.numerator,
+        epsilon_denominator=spec.epsilon.denominator,
+        valid=valid,
+        status="RESTRICTED_INTERVAL_INERTIA_VERIFIED" if valid else "UNDETERMINED",
+        restricted_entry_enclosures_verified=True,
+        interval_inertia_verified=inertia_verified,
+        n_positive=n_pos,
+        n_negative=n_neg,
+        undetermined_pivot=undetermined,
+        restricted_matrix_positive_definite_verified=positive_definite,
+        restricted_form_lower_bound_verified=positive_definite,
+        kernel_matrix_root=kernel_root,
+        restricted_matrix_root=restricted_root,
+        pivot_root=pivot_root,
+        moment_basis_identification_verified=False,
+        gram_inner_product_identification_verified=False,
+        epsilon_cofinality_verified=False,
+        galerkin_semantics_verified=False,
+        global_weil_positivity_proven=False,
+        rh_proven=False,
+        errors=tuple(sorted(set(errors))),
+        open_obligations=tuple(sorted(set(obligations))),
+    )
