@@ -1,0 +1,327 @@
+-- AEGIS Ω Scale OS Company Runtime V2
+-- SOURCE ONLY. This migration targets the EXISTING production scale_os schema.
+-- Do not apply without an explicit production schema grant.
+-- Existing July 2026 rows are preserved; v2 authority fields do not reinterpret them.
+
+alter table scale_os.tasks
+  add column if not exists task_digest_v2 text
+    check (task_digest_v2 is null or task_digest_v2 ~ '^[0-9a-f]{64}$'),
+  add column if not exists idempotency_key_v2 text,
+  add column if not exists generation_v2 bigint
+    check (generation_v2 is null or generation_v2 >= 0);
+
+create unique index if not exists scale_os_tasks_idempotency_key_v2_uidx
+  on scale_os.tasks(idempotency_key_v2)
+  where idempotency_key_v2 is not null;
+
+alter table scale_os.approvals
+  add column if not exists action_digest_v2 text
+    check (action_digest_v2 is null or action_digest_v2 ~ '^[0-9a-f]{64}$'),
+  add column if not exists approval_packet_v2 jsonb,
+  add column if not exists grant_id_v2 text,
+  add column if not exists grant_expires_at_v2 timestamptz;
+
+alter table scale_os.approvals
+  drop constraint if exists scale_os_approvals_v2_exact_grant;
+
+alter table scale_os.approvals
+  add constraint scale_os_approvals_v2_exact_grant
+  check (
+    decision <> 'approved'
+    or (
+      action_digest_v2 is not null
+      and approval_packet_v2 is not null
+      and grant_id_v2 is not null
+      and length(btrim(grant_id_v2)) > 0
+      and grant_expires_at_v2 is not null
+      and decision_at is not null
+      and grant_expires_at_v2 >= decision_at
+    )
+  ) not valid;
+
+create table if not exists scale_os.task_dependencies_v2 (
+  task_id uuid not null
+    references scale_os.tasks(id) on delete cascade,
+  depends_on_task_id uuid not null
+    references scale_os.tasks(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  primary key (task_id, depends_on_task_id),
+  check (task_id <> depends_on_task_id)
+);
+
+create table if not exists scale_os.task_leases_v2 (
+  task_id uuid primary key
+    references scale_os.tasks(id) on delete cascade,
+  worker_id text not null check (length(btrim(worker_id)) > 0),
+  task_digest text not null check (task_digest ~ '^[0-9a-f]{64}$'),
+  lease_digest text not null unique check (lease_digest ~ '^[0-9a-f]{64}$'),
+  acquired_generation bigint not null check (acquired_generation >= 0),
+  expires_generation bigint not null
+    check (expires_generation >= acquired_generation),
+  released_generation bigint
+    check (released_generation is null or released_generation >= acquired_generation),
+  lease_state text not null default 'active'
+    check (lease_state in ('active','released')),
+  external_authority text not null default 'NOT_GRANTED'
+    check (external_authority = 'NOT_GRANTED'),
+  authority_effect text not null default 'NONE'
+    check (authority_effect = 'NONE'),
+  updated_at timestamptz not null default now(),
+  check (
+    (lease_state = 'active' and released_generation is null)
+    or
+    (lease_state = 'released' and released_generation is not null)
+  )
+);
+
+create index if not exists scale_os_task_dependencies_v2_reverse_idx
+  on scale_os.task_dependencies_v2(depends_on_task_id, task_id);
+
+create index if not exists scale_os_task_leases_v2_expiry_idx
+  on scale_os.task_leases_v2(lease_state, expires_generation);
+
+alter table scale_os.task_dependencies_v2 enable row level security;
+alter table scale_os.task_leases_v2 enable row level security;
+alter table scale_os.task_dependencies_v2 force row level security;
+alter table scale_os.task_leases_v2 force row level security;
+
+revoke all on scale_os.task_dependencies_v2 from public, anon, authenticated;
+revoke all on scale_os.task_leases_v2 from public, anon, authenticated;
+grant select, insert, update, delete on scale_os.task_dependencies_v2 to service_role;
+grant select, insert, update, delete on scale_os.task_leases_v2 to service_role;
+
+create or replace function scale_os.claim_task_lease_v2(
+  p_task_id uuid,
+  p_worker_id text,
+  p_task_digest text,
+  p_lease_digest text,
+  p_current_generation bigint,
+  p_ttl_generations bigint
+)
+returns table (
+  outcome text,
+  granted_lease_digest text,
+  granted_expires_generation bigint
+)
+language plpgsql
+security definer
+set search_path = scale_os, pg_temp
+as $$
+declare
+  v_status text;
+  v_canonical_digest text;
+  v_has_lease boolean := false;
+  v_lease scale_os.task_leases_v2%rowtype;
+  v_expires bigint;
+begin
+  if p_worker_id is null or length(btrim(p_worker_id)) = 0 then
+    raise exception 'worker_id required';
+  end if;
+  if p_task_digest is null or p_task_digest !~ '^[0-9a-f]{64}$' then
+    raise exception 'invalid task_digest';
+  end if;
+  if p_lease_digest is null or p_lease_digest !~ '^[0-9a-f]{64}$' then
+    raise exception 'invalid lease_digest';
+  end if;
+  if p_current_generation is null or p_current_generation < 0 then
+    raise exception 'invalid current_generation';
+  end if;
+  if p_ttl_generations is null or p_ttl_generations < 1 or p_ttl_generations > 16 then
+    raise exception 'invalid ttl_generations';
+  end if;
+
+  select t.status, t.task_digest_v2
+    into v_status, v_canonical_digest
+    from scale_os.tasks as t
+   where t.id = p_task_id
+   for update;
+
+  if not found then
+    return query select 'DENIED_UNKNOWN_TASK'::text, null::text, null::bigint;
+    return;
+  end if;
+
+  if v_canonical_digest is null or v_canonical_digest <> p_task_digest then
+    return query select 'DENIED_TASK_DIGEST_MISMATCH'::text, null::text, null::bigint;
+    return;
+  end if;
+
+  if exists (
+    select 1
+      from scale_os.task_dependencies_v2 as d
+      join scale_os.tasks as dependency on dependency.id = d.depends_on_task_id
+     where d.task_id = p_task_id
+       and dependency.status <> 'completed'
+  ) then
+    return query select 'DENIED_DEPENDENCY_NOT_COMPLETED'::text, null::text, null::bigint;
+    return;
+  end if;
+
+  select l.*
+    into v_lease
+    from scale_os.task_leases_v2 as l
+   where l.task_id = p_task_id
+   for update;
+  v_has_lease := found;
+
+  if v_has_lease
+     and v_lease.lease_state = 'active'
+     and p_current_generation >= v_lease.acquired_generation
+     and p_current_generation <= v_lease.expires_generation then
+    if v_lease.worker_id = p_worker_id
+       and v_lease.task_digest = p_task_digest
+       and v_lease.lease_digest = p_lease_digest then
+      return query
+        select 'REPLAYED'::text, v_lease.lease_digest, v_lease.expires_generation;
+    else
+      return query
+        select 'DENIED_ALREADY_LEASED'::text, v_lease.lease_digest, v_lease.expires_generation;
+    end if;
+    return;
+  end if;
+
+  if v_status = 'running'
+     and (
+       not v_has_lease
+       or (
+         v_lease.lease_state = 'active'
+         and p_current_generation <= v_lease.expires_generation
+       )
+     ) then
+    return query select 'DENIED_INCONSISTENT_RUNNING'::text, null::text, null::bigint;
+    return;
+  end if;
+
+  if v_status not in ('queued','running') then
+    return query select 'DENIED_TASK_STATE'::text, null::text, null::bigint;
+    return;
+  end if;
+
+  v_expires := p_current_generation + p_ttl_generations;
+
+  insert into scale_os.task_leases_v2 (
+    task_id, worker_id, task_digest, lease_digest,
+    acquired_generation, expires_generation, released_generation,
+    lease_state, external_authority, authority_effect, updated_at
+  ) values (
+    p_task_id, p_worker_id, p_task_digest, p_lease_digest,
+    p_current_generation, v_expires, null,
+    'active', 'NOT_GRANTED', 'NONE', now()
+  )
+  on conflict (task_id) do update set
+    worker_id = excluded.worker_id,
+    task_digest = excluded.task_digest,
+    lease_digest = excluded.lease_digest,
+    acquired_generation = excluded.acquired_generation,
+    expires_generation = excluded.expires_generation,
+    released_generation = null,
+    lease_state = 'active',
+    external_authority = 'NOT_GRANTED',
+    authority_effect = 'NONE',
+    updated_at = now();
+
+  update scale_os.tasks
+     set status = 'running',
+         generation_v2 = p_current_generation,
+         updated_at = now()
+   where id = p_task_id;
+
+  return query select 'CLAIMED'::text, p_lease_digest, v_expires;
+end;
+$$;
+
+create or replace function scale_os.complete_task_lease_v2(
+  p_task_id uuid,
+  p_worker_id text,
+  p_lease_digest text,
+  p_current_generation bigint,
+  p_terminal_status text,
+  p_result jsonb
+)
+returns text
+language plpgsql
+security definer
+set search_path = scale_os, pg_temp
+as $$
+declare
+  v_task_status text;
+  v_lease scale_os.task_leases_v2%rowtype;
+begin
+  if p_terminal_status not in ('completed','failed','quarantined') then
+    raise exception 'invalid terminal status';
+  end if;
+  if p_worker_id is null or length(btrim(p_worker_id)) = 0 then
+    raise exception 'worker_id required';
+  end if;
+  if p_lease_digest is null or p_lease_digest !~ '^[0-9a-f]{64}$' then
+    raise exception 'invalid lease_digest';
+  end if;
+  if p_current_generation is null or p_current_generation < 0 then
+    raise exception 'invalid current_generation';
+  end if;
+  if p_result is null then
+    raise exception 'result required';
+  end if;
+
+  select t.status
+    into v_task_status
+    from scale_os.tasks as t
+   where t.id = p_task_id
+   for update;
+
+  if not found or v_task_status <> 'running' then
+    return 'DENIED_TASK_STATE';
+  end if;
+
+  select l.*
+    into v_lease
+    from scale_os.task_leases_v2 as l
+   where l.task_id = p_task_id
+   for update;
+
+  if not found then
+    return 'DENIED_LEASE_MISSING';
+  end if;
+  if v_lease.lease_state <> 'active' then
+    return 'DENIED_LEASE_INACTIVE';
+  end if;
+  if v_lease.worker_id <> p_worker_id or v_lease.lease_digest <> p_lease_digest then
+    return 'DENIED_LEASE_FENCE';
+  end if;
+  if p_current_generation < v_lease.acquired_generation
+     or p_current_generation > v_lease.expires_generation then
+    return 'DENIED_LEASE_EXPIRED';
+  end if;
+
+  update scale_os.tasks
+     set status = p_terminal_status,
+         result = p_result,
+         generation_v2 = p_current_generation,
+         updated_at = now()
+   where id = p_task_id;
+
+  update scale_os.task_leases_v2
+     set lease_state = 'released',
+         released_generation = p_current_generation,
+         updated_at = now()
+   where task_id = p_task_id;
+
+  return 'COMPLETED';
+end;
+$$;
+
+revoke all on function scale_os.claim_task_lease_v2(
+  uuid, text, text, text, bigint, bigint
+) from public, anon, authenticated;
+
+revoke all on function scale_os.complete_task_lease_v2(
+  uuid, text, text, bigint, text, jsonb
+) from public, anon, authenticated;
+
+grant execute on function scale_os.claim_task_lease_v2(
+  uuid, text, text, text, bigint, bigint
+) to service_role;
+
+grant execute on function scale_os.complete_task_lease_v2(
+  uuid, text, text, bigint, text, jsonb
+) to service_role;
