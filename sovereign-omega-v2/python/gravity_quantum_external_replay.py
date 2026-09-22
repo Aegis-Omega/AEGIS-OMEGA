@@ -9,9 +9,13 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping
 
-HEX64 = re.compile(r"^[0-9a-f]{64}$")\nGIT_OID = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
+HEX64 = re.compile(r"^[0-9a-f]{64}$")
+GIT_OID = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 
-ALLOWED_RECEIPT_KINDS = {\n    "AEGIS_GQ_CLOUDFLARE_LEAN_REPLAY_V1",\n    "AEGIS_GQ_FULL_CLOUDFLARE_REPLAY_V1",\n}
+ALLOWED_RECEIPT_KINDS = {
+    "AEGIS_GQ_CLOUDFLARE_LEAN_REPLAY_V1",
+    "AEGIS_GQ_FULL_CLOUDFLARE_REPLAY_V1",
+}
 EXPECTED_LEAN_TARGET = "4.33.1"
 EXPECTED_MATHLIB_SHA = "0df444a360eaa60ab8c11dca51a86af692955474"
 EXPECTED_MODULE = "GravityQuantumPureProductV1"
@@ -37,7 +41,7 @@ def verify_external_replay(
             "authority_effect": "NONE",
         }
 
-    if status.get("receipt_kind") != EXPECTED_RECEIPT_KIND:
+    if status.get("receipt_kind") not in ALLOWED_RECEIPT_KINDS:
         fail("WRONG_RECEIPT_KIND")
     if status.get("head_sha") != expected_head:
         fail("STALE_OR_WRONG_HEAD")
@@ -59,7 +63,7 @@ def verify_external_replay(
         fail("FORBIDDEN_GRAVITY_PROMOTION")
     if status.get("quantum_gravity_proven") is not False:
         fail("FORBIDDEN_QG_PROMOTION")
-    if not isinstance(expected_head, str) or HEX64.fullmatch(expected_head) is None:
+    if not isinstance(expected_head, str) or GIT_OID.fullmatch(expected_head) is None:
         fail("EXPECTED_HEAD_INVALID")
     if (
         not isinstance(expected_source_sha256, str)
