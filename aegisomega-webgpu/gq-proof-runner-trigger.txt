@@ -1,5 +1,6 @@
-AEGIS Gravity–Quantum F2b Lean replay trigger v1
+AEGIS Gravity–Quantum F2b Lean replay trigger v2
 target=GravityQuantumPureProductV1
+fix=copy_exact_source_into_pinned_mathlib_root
 lean=4.33.1
 mathlib=0df444a360eaa60ab8c11dca51a86af692955474
 authority_effect=NONE
