@@ -77,9 +77,22 @@ test('binding ignores user/partial content and rejects missing terminal assistan
       type: 'message',
       role: 'assistant',
       status: 'in_progress',
+      phase: 'final_answer',
       content: [{ type: 'output_text', text: 'partial' }],
     },
   ])
+  const binding = bindingModule.createOpenAIManagedAgentsClientBindingV1(api)
+  await assert.rejects(binding.finalOutput('s1'), /FINAL_OUTPUT_MISSING/)
+})
+
+test('completed commentary is not accepted as terminal output', async () => {
+  const api = client([{
+    type: 'message',
+    role: 'assistant',
+    status: 'completed',
+    phase: 'commentary',
+    content: [{ type: 'output_text', text: 'intermediate' }],
+  }])
   const binding = bindingModule.createOpenAIManagedAgentsClientBindingV1(api)
   await assert.rejects(binding.finalOutput('s1'), /FINAL_OUTPUT_MISSING/)
 })
