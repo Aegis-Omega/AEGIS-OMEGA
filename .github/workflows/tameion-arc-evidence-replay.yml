@@ -1,6 +1,18 @@
 name: Tameion Arc Evidence Replay
 
 on:
+  push:
+    branches:
+      - "hackathon/tameion-arc-treasury-witness-v1"
+    paths:
+      - "harness/sdk/arc_*.py"
+      - "harness/sdk/tameion_*.py"
+      - "harness/sdk/treasury_calibration.py"
+      - "harness/sdk/notebook_evidence.py"
+      - "sovereign-omega-v2/python/tests/test_arc_*.py"
+      - "sovereign-omega-v2/python/tests/test_tameion_*.py"
+      - "sovereign-omega-v2/python/tests/test_treasury_calibration.py"
+      - ".github/workflows/tameion-arc-evidence-replay.yml"
   pull_request:
     paths:
       - "harness/sdk/arc_*.py"
@@ -21,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout exact pull-request head
+      - name: Checkout exact head
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -40,4 +52,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m unittest -v             sovereign-omega-v2/python/tests/test_arc_treasury_witness.py             sovereign-omega-v2/python/tests/test_arc_treasury_execution.py             sovereign-omega-v2/python/tests/test_arc_erc20_call.py             sovereign-omega-v2/python/tests/test_tameion_openmeter_bridge.py             sovereign-omega-v2/python/tests/test_tameion_presettlement_bundle.py             sovereign-omega-v2/python/tests/test_tameion_evidence_chain.py             sovereign-omega-v2/python/tests/test_treasury_calibration.py             sovereign-omega-v2/python/tests/test_notebook_evidence.py
+          python -m unittest -v sovereign-omega-v2/python/tests/test_arc_treasury_witness.py sovereign-omega-v2/python/tests/test_arc_treasury_execution.py sovereign-omega-v2/python/tests/test_arc_erc20_call.py sovereign-omega-v2/python/tests/test_tameion_openmeter_bridge.py sovereign-omega-v2/python/tests/test_tameion_presettlement_bundle.py sovereign-omega-v2/python/tests/test_tameion_evidence_chain.py sovereign-omega-v2/python/tests/test_treasury_calibration.py sovereign-omega-v2/python/tests/test_notebook_evidence.py
