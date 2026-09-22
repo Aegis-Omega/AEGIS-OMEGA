@@ -9,9 +9,9 @@ from __future__ import annotations
 import re
 from typing import Any, Mapping
 
-HEX64 = re.compile(r"^[0-9a-f]{64}$")
+HEX64 = re.compile(r"^[0-9a-f]{64}$")\nGIT_OID = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 
-EXPECTED_RECEIPT_KIND = "AEGIS_GQ_CLOUDFLARE_LEAN_REPLAY_V1"
+ALLOWED_RECEIPT_KINDS = {\n    "AEGIS_GQ_CLOUDFLARE_LEAN_REPLAY_V1",\n    "AEGIS_GQ_FULL_CLOUDFLARE_REPLAY_V1",\n}
 EXPECTED_LEAN_TARGET = "4.33.1"
 EXPECTED_MATHLIB_SHA = "0df444a360eaa60ab8c11dca51a86af692955474"
 EXPECTED_MODULE = "GravityQuantumPureProductV1"
