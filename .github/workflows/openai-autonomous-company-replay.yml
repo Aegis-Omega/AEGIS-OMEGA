@@ -70,6 +70,7 @@ jobs:
             test/native-runtime/company-model-promotion.test.mjs \
             test/native-runtime/company-work-graph.test.mjs \
             test/native-runtime/scale-os-company-runtime-v2.test.mjs \
+            test/native-runtime/scale-os-enterprise-opportunities-v1.test.mjs \
             test/native-runtime/openai-complimentary-canary.test.mjs \
             test/native-runtime/company-enterprise-opportunity.test.mjs
 
@@ -109,11 +110,13 @@ jobs:
               'sovereign-omega-v2/test/native-runtime/company-model-promotion.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-work-graph.test.mjs',
               'sovereign-omega-v2/test/native-runtime/scale-os-company-runtime-v2.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/scale-os-enterprise-opportunities-v1.test.mjs',
               'sovereign-omega-v2/scripts/openai-complimentary-canary.mjs',
               'sovereign-omega-v2/test/native-runtime/openai-complimentary-canary.test.mjs',
               'sovereign-omega-v2/src/sovereignty/company-enterprise-opportunity.ts',
               'sovereign-omega-v2/test/native-runtime/company-enterprise-opportunity.test.mjs',
               'supabase/migrations/20260922193000_scale_os_company_runtime_v2.sql',
+              'supabase/migrations/20260922205500_scale_os_enterprise_opportunities_v1.sql',
               'vertex/cloudsql_audit.py',
               'vertex/serve.py',
               'vertex/Dockerfile',
@@ -148,11 +151,13 @@ jobs:
                   'company-model-promotion.test.mjs',
                   'company-work-graph.test.mjs',
                   'scale-os-company-runtime-v2.test.mjs',
+                  'scale-os-enterprise-opportunities-v1.test.mjs',
                   'openai-complimentary-canary.test.mjs',
                   'company-enterprise-opportunity.test.mjs',
               ],
               'cloud_sql_contract': 'PY_COMPILE_AND_OFFLINE_CONTRACT_PASS',
               'supabase_scale_os_migration': 'SOURCE_ONLY_NOT_APPLIED',
+              'enterprise_opportunity_persistence': 'SOURCE_ONLY_NOT_APPLIED',
               'cloud_sql_schema': 'SOURCE_ONLY_NOT_APPLIED',
               'live_openai_execution': 'NOT_PERFORMED',
               'write_authority': 'NOT_GRANTED',
