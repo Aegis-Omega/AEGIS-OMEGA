@@ -15,3 +15,6 @@ mathlib=0df444a360eaa60ab8c11dca51a86af692955474
 automatic_rewrite=false
 global_optimality_claimed=false
 authority_effect=NONE
+
+hot_replay_retrigger=2
+scientific_source_blob=f281ed559e35075a609a1231218902f0e292fa62
