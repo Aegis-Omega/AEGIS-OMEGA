@@ -1,0 +1,102 @@
+{
+  "contract": {
+    "sprint_id": "7fd3ad63ddca",
+    "directive": "Implement a zero-allocation memory pool for the runtime substrate",
+    "specifications": [
+      "INPUT: Implement a zero-allocation memory pool for the runtime substrate",
+      "CONSTRAINT: AGPL3_COMPLIANCE \u2192 All code must be AGPL-3.0 licensed",
+      "CONSTRAINT: GENESIS_SEAL \u2192 T0 ledger must match cryptographic seal",
+      "CONSTRAINT: ZERO_ALLOCATION \u2192 Hot paths must avoid heap allocation",
+      "CONSTRAINT: DOMAIN_ISOLATION \u2192 D0 core cannot be mutated by D1 overlay",
+      "PROCESS: Apply constitutional enforcer",
+      "PROCESS: Expand into modular components",
+      "PROCESS: Generate test harness",
+      "OUTPUT: Complete sprint deliverable"
+    ],
+    "success_criteria": [
+      "T0 Genesis Seal verified: fe165be1...",
+      "Constraint AGPL3_COMPLIANCE enforced",
+      "Constraint GENESIS_SEAL enforced",
+      "Constraint ZERO_ALLOCATION enforced",
+      "Constraint DOMAIN_ISOLATION enforced",
+      "Causal flow completed: 9 steps",
+      "Proportional scaling applied: \u03bb=7"
+    ],
+    "constraints": [
+      "AGPL3_COMPLIANCE",
+      "GENESIS_SEAL",
+      "ZERO_ALLOCATION",
+      "DOMAIN_ISOLATION"
+    ],
+    "complexity_lambda": 7,
+    "nuqta_seal": "fe165be1127b027dbf710b0eff47c3b60aa0ea38542f5ce1becb7c99da87919b",
+    "alif_references": [
+      "AGPL3_COMPLIANCE",
+      "GENESIS_SEAL",
+      "ZERO_ALLOCATION",
+      "DOMAIN_ISOLATION"
+    ],
+    "created_at": "2026-05-24T15:47:46.674695",
+    "expires_at": "2026-05-24T23:59:59.674695"
+  },
+  "expansion": {
+    "nuqta": {
+      "seal": "fe165be1127b027dbf710b0eff47c3b60aa0ea38542f5ce1becb7c99da87919b",
+      "verified": true
+    },
+    "alifs": [
+      {
+        "name": "AGPL3_COMPLIANCE",
+        "description": "All code must be AGPL-3.0 licensed",
+        "violation_action": "REJECT"
+      },
+      {
+        "name": "GENESIS_SEAL",
+        "description": "T0 ledger must match cryptographic seal",
+        "violation_action": "EXIT"
+      },
+      {
+        "name": "ZERO_ALLOCATION",
+        "description": "Hot paths must avoid heap allocation",
+        "violation_action": "REROLL"
+      },
+      {
+        "name": "DOMAIN_ISOLATION",
+        "description": "D0 core cannot be mutated by D1 overlay",
+        "violation_action": "REJECT"
+      }
+    ],
+    "rasm": [
+      "INPUT: Implement a zero-allocation memory pool for the runtime substrate",
+      "CONSTRAINT: AGPL3_COMPLIANCE \u2192 All code must be AGPL-3.0 licensed",
+      "CONSTRAINT: GENESIS_SEAL \u2192 T0 ledger must match cryptographic seal",
+      "CONSTRAINT: ZERO_ALLOCATION \u2192 Hot paths must avoid heap allocation",
+      "CONSTRAINT: DOMAIN_ISOLATION \u2192 D0 core cannot be mutated by D1 overlay",
+      "PROCESS: Apply constitutional enforcer",
+      "PROCESS: Expand into modular components",
+      "PROCESS: Generate test harness",
+      "OUTPUT: Complete sprint deliverable"
+    ],
+    "tashkeel": {
+      "confidence": 0.85,
+      "assumptions": [
+        "Directive is well-formed",
+        "Required dependencies are available",
+        "Execution environment is stable"
+      ],
+      "risk_factors": [],
+      "unknowns": []
+    },
+    "tanasub": {
+      "complexity_lambda": 7,
+      "scaled_effort": 1.4,
+      "estimated_tokens": 1400,
+      "fractal_depth": 7,
+      "golden_ratio_applied": true
+    }
+  },
+  "metadata": {
+    "node_id": "architect-alpha-001",
+    "constitution_version": "1.0.0"
+  }
+}
