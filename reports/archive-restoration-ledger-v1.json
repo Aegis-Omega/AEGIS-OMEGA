@@ -198,9 +198,21 @@
     "621": "ea6d5bab2210171fe40a2dc29f595b09b2f42759",
     "623": "9cd4535842aaa29c1658f5257a088078d249638a",
     "624": "79aae45cfcd98d594c5213460282ac2260ea7aec",
-    "626": "d4bed01873130b3b7ab196ae2a67d4a9b5953b71"
+    "626": "d4bed01873130b3b7ab196ae2a67d4a9b5953b71",
+    "627": "f95115235eaae61dd54da5eae3f5773d4cc30188"
   },
   "merge": "NOT_PERFORMED",
   "deploy": "NOT_PERFORMED",
-  "authority_effect": "NONE"
+  "authority_effect": "NONE",
+  "integration_candidate": {
+    "pr": 627,
+    "head": "f95115235eaae61dd54da5eae3f5773d4cc30188",
+    "exact_object_bindings_verified": 30,
+    "exact_object_binding_mismatches": 0,
+    "tree_truncated": false,
+    "hosted_execution": "NOT_ESTABLISHED_ZERO_STEP",
+    "merge": "NOT_PERFORMED",
+    "deployment": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  }
 }
