@@ -227,3 +227,17 @@ def test_docker_pins_cloud_sql_connector_driver_and_sqlalchemy():
     assert "pg8000==1.31.5" in docker
     assert "SQLAlchemy==2.0.54" in docker
     assert "COPY vertex/cloudsql_audit.py /app/cloudsql_audit.py" in docker
+
+
+def test_cloud_sql_schema_is_single_canonical_cas_contract():
+    sql = (Path(__file__).resolve().parent.parent / "gcp" / "cloudsql" / "001_constitutional_audit_chain_v1.sql").read_text()
+    lower = sql.lower()
+    assert lower.count("create table if not exists aegis_audit.constitutional_chain_head_v1") == 1
+    assert lower.count("create table if not exists aegis_audit.constitutional_chain_v1") == 1
+    assert lower.count("create or replace function aegis_audit.append_constitutional_entry_v1") == 1
+    assert lower.count("create or replace function aegis_audit.reject_constitutional_chain_mutation_v1") == 1
+    assert sql.count("$$") == 6
+    assert "^[0-9a-f]{64}$" in sql
+    assert "^[0-9a-f]{64}\n" not in sql
+    assert "grant select, insert on aegis_audit.constitutional_chain_v1" not in lower
+    assert "grant select, update on aegis_audit.constitutional_chain_head_v1" not in lower
