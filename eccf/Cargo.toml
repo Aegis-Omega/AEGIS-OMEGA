@@ -1,0 +1,16 @@
+[package]
+name = "eccf"
+version = "0.1.0"
+edition = "2021"
+description = "Ever-Evolving Crystalline Calligraphy Font - Post-quantum lattice rendering engine"
+
+[dependencies]
+sha3 = "0.10"  # Keccak
+num-bigint = "0.4"
+num-traits = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+hex = "0.4"
+
+[lib]
+path = "src/lib.rs"
