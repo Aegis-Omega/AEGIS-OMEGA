@@ -177,3 +177,88 @@ def test_receipt_never_promotes_to_a_global_claim():
     assert receipt.rh_proven is False
     assert "EPSILON_COFINALITY_TO_ZERO_NOT_MACHINE_VERIFIED" in receipt.open_obligations
     assert "MOMENT_BASIS_IDENTIFICATION_NOT_MACHINE_FORMALIZED" in receipt.open_obligations
+
+
+def test_non_rational_restriction_is_admitted_as_an_enclosure():
+    """The repo's own annihilator is not rational, so S must admit balls.
+
+    Entries given as decimal strings are parsed to Arb balls containing the
+    denoted value, so the assembled M encloses the true S^T A S.
+    """
+    galerkin = ArbGalerkinSpecV1(c=10, N=1, prec_bits=256)
+    inv_sqrt2 = "0.70710678118654752440084436210484903928483593768847"
+    restriction = (
+        (inv_sqrt2, ExactRationalV1(0)),
+        (ExactRationalV1(0), ExactRationalV1(1)),
+        (inv_sqrt2, ExactRationalV1(0)),
+    )
+    receipt = verify_moment_restricted_galerkin(
+        MomentRestrictionSpecV1(
+            galerkin=galerkin,
+            restriction=restriction,
+            gram=identity(3),
+            epsilon=ExactRationalV1(1, 100),
+        )
+    )
+    assert receipt.restricted_dimension == 2
+    assert receipt.restriction_entries_exact is False
+    assert receipt.gram_entries_exact is True
+    assert receipt.interval_inertia_verified is True
+
+
+def test_enclosure_restriction_agrees_with_the_exact_one_it_encloses():
+    """A decimal string denoting exactly 1/2 must certify what 1/2 certifies."""
+    ctx.prec = 256
+    matrix = arb_mat(2, 2)
+    matrix[0, 0] = arb(4)
+    matrix[0, 1] = arb(1)
+    matrix[1, 0] = arb(1)
+    matrix[1, 1] = arb(4)
+
+    exact = [[arb(1), arb(0)], [arb(1) / arb(2), arb(1)]]
+    from harness.sdk.guinand_weil_arb import _exact_to_arb
+
+    viadecimal = [
+        [_exact_to_arb(ExactRationalV1(1)), _exact_to_arb("0.0")],
+        [_exact_to_arb("0.5"), _exact_to_arb(ExactRationalV1(1))],
+    ]
+    a = _restrict_arb_matrix(matrix, exact, 2, 2)
+    b = _restrict_arb_matrix(matrix, viadecimal, 2, 2)
+    for i in range(2):
+        for j in range(2):
+            assert a[i, j] == b[i, j]
+
+
+def test_mixed_representation_is_not_treated_as_symmetric():
+    """An exact rational and a ball are never assumed to denote the same value."""
+    with pytest.raises(ArbGalerkinError) as excinfo:
+        MomentRestrictionSpecV1(
+            galerkin=ArbGalerkinSpecV1(c=10, N=1, prec_bits=128),
+            restriction=identity(3),
+            gram=(
+                (ExactRationalV1(1), "0.0", ExactRationalV1(0)),
+                (ExactRationalV1(0), ExactRationalV1(1), ExactRationalV1(0)),
+                (ExactRationalV1(0), ExactRationalV1(0), ExactRationalV1(1)),
+            ),
+            epsilon=ExactRationalV1(0),
+        )
+    assert excinfo.value.code == "GRAM_NOT_SYMMETRIC"
+
+
+@pytest.mark.parametrize(
+    "code,entry",
+    [
+        ("RESTRICTION_ENTRY_UNPARSEABLE", "not-a-number"),
+        ("RESTRICTION_ENTRY_NOT_EXACT", 0.5),
+    ],
+)
+def test_entry_rejection_is_fail_closed(code, entry):
+    """Binary floats are refused outright; a malformed decimal cannot parse."""
+    with pytest.raises(ArbGalerkinError) as excinfo:
+        MomentRestrictionSpecV1(
+            galerkin=ArbGalerkinSpecV1(c=10, N=1, prec_bits=128),
+            restriction=((entry,), (entry,), (entry,)),
+            gram=zeros(3),
+            epsilon=ExactRationalV1(0),
+        )
+    assert excinfo.value.code == code
