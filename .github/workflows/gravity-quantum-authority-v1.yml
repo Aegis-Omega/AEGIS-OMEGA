@@ -8,14 +8,17 @@ on:
       - "sovereign-omega-v2/python/gravity_quantum_authority.py"
       - "sovereign-omega-v2/python/gravity_quantum_policy.py"
       - "sovereign-omega-v2/python/gravity_quantum_discriminator.py"
+      - "sovereign-omega-v2/python/gravity_quantum_scaling.py"
       - "sovereign-omega-v2/python/gravity_quantum_measurement.py"
       - "sovereign-omega-v2/python/gravity_quantum_external_replay.py"
       - "sovereign-omega-v2/python/tests/test_cross_boundary_authority.py"
       - "sovereign-omega-v2/python/tests/test_gravity_quantum_authority.py"
+      - "sovereign-omega-v2/python/tests/test_gravity_quantum_scaling.py"
       - "sovereign-omega-v2/python/tests/test_gravity_quantum_measurement.py"
       - "sovereign-omega-v2/python/tests/test_gravity_quantum_external_replay.py"
       - "sovereign-omega-v2/formal/bridges/lean/GravityQuantumPureProductV1.lean"
       - "governance/gravity-quantum-tabletop-prereg-v1.json"
+      - "governance/gravity-quantum-model-registry-v1.json"
       - "docs/research/gravity-quantum-authority-v1.md"
       - ".github/workflows/gravity-quantum-authority-v1.yml"
   workflow_dispatch:
@@ -52,10 +55,12 @@ jobs:
             sovereign-omega-v2/python/gravity_quantum_authority.py \
             sovereign-omega-v2/python/gravity_quantum_policy.py \
             sovereign-omega-v2/python/gravity_quantum_discriminator.py \
+            sovereign-omega-v2/python/gravity_quantum_scaling.py \
             sovereign-omega-v2/python/gravity_quantum_measurement.py \
             sovereign-omega-v2/python/gravity_quantum_external_replay.py \
             sovereign-omega-v2/python/tests/test_cross_boundary_authority.py \
             sovereign-omega-v2/python/tests/test_gravity_quantum_authority.py \
+            sovereign-omega-v2/python/tests/test_gravity_quantum_scaling.py \
             sovereign-omega-v2/python/tests/test_gravity_quantum_measurement.py \
             sovereign-omega-v2/python/tests/test_gravity_quantum_external_replay.py
 
@@ -68,6 +73,11 @@ jobs:
         env:
           PYTHONPATH: sovereign-omega-v2/python
         run: python sovereign-omega-v2/python/tests/test_gravity_quantum_authority.py -v
+
+      - name: Run D1 scaling regressions
+        env:
+          PYTHONPATH: sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_gravity_quantum_scaling.py -v
 
       - name: Run tabletop measurement regressions
         env:
