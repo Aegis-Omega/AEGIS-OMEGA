@@ -1,0 +1,140 @@
+name: PR581 read-surface evidence replay
+
+on:
+  pull_request:
+    branches: [feat/sovereign-provider-mesh-v1]
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/provider-chatgpt-read-surface-replay.yml
+      - sovereign-omega-v2/src/sovereignty/**
+      - sovereign-omega-v2/src/core/**
+      - sovereign-omega-v2/test/unit/provider-chatgpt-connected-apps.test.ts
+      - sovereign-omega-v2/test/unit/provider-mesh.test.ts
+      - sovereign-omega-v2/test/setup.ts
+      - sovereign-omega-v2/vite.config.ts
+      - sovereign-omega-v2/package.json
+      - sovereign-omega-v2/package-lock.json
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    name: aegis / pr581-read-surface-replay
+    if: >-
+      github.repository == 'Aegis-Omega/AEGIS-OMEGA' &&
+      github.event.pull_request.number == 581 &&
+      github.event.pull_request.head.repo.full_name == 'Aegis-Omega/AEGIS-OMEGA' &&
+      github.event.pull_request.head.ref == 'feat/chatgpt-connected-surface-v1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+      CI: 'true'
+      PYTHONOPTIMIZE: '1'
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+
+      - name: Install locked dependencies
+        working-directory: sovereign-omega-v2
+        shell: bash
+        run: npm ci --ignore-scripts --include=dev --no-audit --no-fund
+
+      - name: Run and validate focused tests
+        id: focused
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from __future__ import annotations
+          import hashlib, json, os, re, subprocess, sys, time
+          from pathlib import Path
+          FILES=('test/unit/provider-chatgpt-connected-apps.test.ts','test/unit/provider-mesh.test.ts')
+          WF_PATH='.github/workflows/provider-chatgpt-read-surface-replay.yml'
+          def require(ok,message):
+              if not ok: raise ValueError(message)
+          def digest(data): return hashlib.sha256(data).hexdigest()
+          def validate_report(report,project):
+              require(isinstance(report,dict),'report must be an object')
+              require(report.get('success') is True,'report success is not true')
+              counters=('numTotalTests','numPassedTests','numFailedTests','numPendingTests','numTodoTests','numTotalTestSuites','numPassedTestSuites','numFailedTestSuites','numPendingTestSuites')
+              for key in counters: require(type(report.get(key)) is int and report[key]>=0,'invalid counter: '+key)
+              require(report['numTotalTests']>0,'no tests executed')
+              require(report['numPassedTests']==report['numTotalTests'],'not all tests passed')
+              for key in ('numFailedTests','numPendingTests','numTodoTests','numFailedTestSuites','numPendingTestSuites'): require(report[key]==0,'nonzero counter: '+key)
+              require(report['numTotalTestSuites']>=len(FILES),'too few suites')
+              require(report['numPassedTestSuites']==report['numTotalTestSuites'],'suite mismatch')
+              if 'numRuntimeErrorTestSuites' in report: require(type(report['numRuntimeErrorTestSuites']) is int and report['numRuntimeErrorTestSuites']==0,'runtime errors')
+              expected={str(project/path) for path in FILES}; results=report.get('testResults')
+              require(isinstance(results,list) and len(results)==len(FILES),'wrong file count')
+              names=[]; total=0
+              for result in results:
+                  require(isinstance(result,dict),'invalid file result'); name=result.get('name')
+                  require(isinstance(name,str) and name in expected,'unexpected file path')
+                  require(result.get('status')=='passed' and result.get('message')=='','file error')
+                  assertions=result.get('assertionResults'); require(isinstance(assertions,list) and len(assertions)>0,'empty assertions')
+                  for assertion in assertions:
+                      require(isinstance(assertion,dict),'invalid assertion')
+                      require(assertion.get('status')=='passed','non-passing assertion')
+                      require(assertion.get('failureMessages')==[],'assertion failure messages')
+                      require(isinstance(assertion.get('fullName'),str) and assertion['fullName'],'unnamed test')
+                  names.append(name); total+=len(assertions)
+              require(len(set(names))==len(FILES) and set(names)==expected,'duplicate/missing file')
+              require(total==report['numTotalTests'],'assertion total mismatch'); return total
+          def main():
+              root=Path.cwd().resolve(); project=root/'sovereign-omega-v2'; expected=os.environ['EXPECTED_HEAD']
+              require(re.fullmatch(r'[0-9a-f]{40}',expected),'invalid expected SHA')
+              require(os.environ.get('GITHUB_ACTIONS')=='true','not a GitHub Actions execution')
+              require(os.environ.get('RUNNER_ENVIRONMENT')=='github-hosted','not a GitHub-hosted runner')
+              event=json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text()); pr=event['pull_request']
+              require(os.environ.get('GITHUB_EVENT_NAME')=='pull_request','wrong event')
+              require(pr['number']==581,'wrong pull request'); require(pr['head']['sha']==expected,'event-head mismatch')
+              require(pr['head']['repo']['full_name']=='Aegis-Omega/AEGIS-OMEGA','wrong head repository')
+              require(pr['head']['ref']=='feat/chatgpt-connected-surface-v1','wrong head branch')
+              require(pr['base']['ref']=='feat/sovereign-provider-mesh-v1','wrong base branch')
+              def git(*args): return subprocess.check_output(['git',*args],cwd=root,text=True).strip()
+              require(git('rev-parse','HEAD')==expected,'checkout is not exact PR head')
+              require(git('status','--porcelain','--untracked-files=no')=='','tracked source is dirty')
+              out=Path(os.environ['RUNNER_TEMP'])/'pr581-read-evidence'; out.mkdir(exist_ok=False)
+              paths=[WF_PATH,'sovereign-omega-v2/package.json','sovereign-omega-v2/package-lock.json','sovereign-omega-v2/vite.config.ts','sovereign-omega-v2/test/setup.ts','sovereign-omega-v2/src/sovereignty/provider-mesh.ts','sovereign-omega-v2/src/sovereignty/provider-adapters/chatgpt-connected-apps.ts',*['sovereign-omega-v2/'+path for path in FILES]]
+              source_hashes={path:digest((root/path).read_bytes()) for path in paths}; workflow_bytes=(root/WF_PATH).read_bytes(); (out/'workflow.yml').write_bytes(workflow_bytes)
+              versions={'node':subprocess.check_output(['node','--version'],text=True).strip(),'npm':subprocess.check_output(['npm','--version'],text=True).strip(),'python':sys.version.split()[0]}
+              for name in ('vitest','vite','typescript'): versions[name]=json.loads((project/'node_modules'/name/'package.json').read_text())['version']
+              metadata={'repository':'Aegis-Omega/AEGIS-OMEGA','pull_request':581,'tested_head_sha':expected,'source_tree':git('rev-parse','HEAD^{tree}'),'base_sha':pr['base']['sha'],'run_id':int(os.environ['GITHUB_RUN_ID']),'run_attempt':int(os.environ['GITHUB_RUN_ATTEMPT']),'github_event_sha':os.environ['GITHUB_SHA'],'workflow_sha':os.environ['GITHUB_WORKFLOW_SHA'],'workflow_ref':os.environ['GITHUB_WORKFLOW_REF'],'workflow_path':WF_PATH,'workflow_sha256':digest(workflow_bytes),'project_root':str(project),'source_sha256':source_hashes,'runner_environment':os.environ['RUNNER_ENVIRONMENT'],'runner_name':os.environ['RUNNER_NAME'],'versions':versions}
+              (out/'metadata.json').write_text(json.dumps(metadata,indent=2)+'\n')
+              command=['npm','test','--',*FILES,'--allowOnly=false','--passWithNoTests=false','--reporter=default','--reporter=json','--outputFile.json='+str(out/'vitest.json')]
+              started=time.time_ns()
+              with (out/'vitest.log').open('wb') as log:
+                  proc=subprocess.Popen(command,cwd=project,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+                  for line in iter(proc.stdout.readline,b''): log.write(line); sys.stdout.buffer.write(line); sys.stdout.buffer.flush()
+                  code=proc.wait()
+              execution={'command':command,'exit_code':code,'started_unix_ns':str(started),'finished_unix_ns':str(time.time_ns())}; execution_bytes=(json.dumps(execution,indent=2)+'\n').encode(); (out/'execution.json').write_bytes(execution_bytes)
+              require(code==0,'focused test process returned nonzero exit code: '+str(code))
+              require(git('rev-parse','HEAD')==expected,'HEAD changed during tests'); require(git('status','--porcelain','--untracked-files=no')=='','tests changed tracked source')
+              require(all(digest((root/path).read_bytes())==value for path,value in source_hashes.items()),'source digest changed during tests')
+              report_bytes=(out/'vitest.json').read_bytes(); count=validate_report(json.loads(report_bytes),project)
+              receipt={**metadata,'schema':'AEGIS_PR581_HOSTED_READ_REPLAY_V1','status':'FOCUSED_TESTS_PASS_EXTERNAL_BINDING_PENDING','scope':'FIXTURE_CONTRACT_TESTS_ONLY','tests_passed':count,'test_files':list(FILES),'vitest_sha256':digest(report_bytes),'execution_sha256':digest(execution_bytes),'metadata_sha256':digest((out/'metadata.json').read_bytes()),'log_sha256':digest((out/'vitest.log').read_bytes()),'write_authority':'NOT_GRANTED','merge_authority':'NOT_GRANTED','deploy_authority':'NOT_GRANTED','authority_effect':'NONE','provider_live_probe':'NOT_RUN','production_router_e2e':'NOT_RUN','signature_admission':'NOT_ESTABLISHED','full_gate8':'NOT_RUN'}
+              (out/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n'); print('FOCUSED_TESTS_PASS_EXTERNAL_BINDING_PENDING; tests='+str(count))
+          if __name__=='__main__':
+              try: main()
+              except (ValueError,KeyError,OSError,json.JSONDecodeError,subprocess.SubprocessError) as exc:
+                  print('READ_REPLAY_NOT_ACCEPTED: '+str(exc),file=sys.stderr); raise SystemExit(1)
+          PY
+
+      - name: Upload replay evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pr581-read-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pr581-read-evidence/
+          if-no-files-found: error
+          retention-days: 14
