@@ -6,10 +6,17 @@ on:
       - "governance/statistical-godel-machine-v1.json"
       - "sovereign-omega-v2/python/statistical_godel_machine.py"
       - "sovereign-omega-v2/python/epistemic_authority_conservation.py"
+      - "sovereign-omega-v2/python/epistemic_accounting.py"
+      - "sovereign-omega-v2/python/epistemic_conservation_kernel.py"
       - "sovereign-omega-v2/python/tests/test_statistical_godel_machine.py"
       - "sovereign-omega-v2/python/tests/test_epistemic_authority_conservation.py"
+      - "sovereign-omega-v2/python/tests/test_epistemic_accounting.py"
+      - "sovereign-omega-v2/python/tests/test_epistemic_conservation_kernel.py"
       - "sovereign-omega-v2/formal/bridges/lean/EpistemicAuthorityConservationV1.lean"
+      - "sovereign-omega-v2/formal/bridges/lean/EpistemicAccountingV1.lean"
       - "docs/research/statistical-godel-machine-v1.md"
+      - "docs/research/epistemic-authority-conservation-v1.md"
+      - "docs/research/epistemic-accounting-v1.md"
       - ".github/workflows/statistical-godel-machine-v1.yml"
   workflow_dispatch:
 
@@ -17,9 +24,9 @@ permissions:
   contents: read
 
 jobs:
-  sgm-v1:
+  sgm-python:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,16 +44,124 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Compile
+      - name: Compile SGM sources
         run: |
-          python -m py_compile             sovereign-omega-v2/python/statistical_godel_machine.py             sovereign-omega-v2/python/tests/test_statistical_godel_machine.py
+          python -m py_compile \
+            sovereign-omega-v2/python/statistical_godel_machine.py \
+            sovereign-omega-v2/python/epistemic_authority_conservation.py \
+            sovereign-omega-v2/python/epistemic_accounting.py \
+            sovereign-omega-v2/python/epistemic_conservation_kernel.py \
+            sovereign-omega-v2/python/tests/test_statistical_godel_machine.py \
+            sovereign-omega-v2/python/tests/test_epistemic_authority_conservation.py \
+            sovereign-omega-v2/python/tests/test_epistemic_accounting.py \
+            sovereign-omega-v2/python/tests/test_epistemic_conservation_kernel.py
 
-      - name: Run fail-closed rewrite tests
+      - name: Run SGM rewrite tests
         env:
           PYTHONPATH: sovereign-omega-v2/python
         run: python sovereign-omega-v2/python/tests/test_statistical_godel_machine.py -v
 
-      - name: Run authority-conservation lattice tests
+      - name: Run authority conservation tests
         env:
           PYTHONPATH: sovereign-omega-v2/python
         run: python sovereign-omega-v2/python/tests/test_epistemic_authority_conservation.py -v
+
+      - name: Run semantic accounting tests
+        env:
+          PYTHONPATH: sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_epistemic_accounting.py -v
+
+      - name: Run combined conservation-kernel tests
+        env:
+          PYTHONPATH: sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_epistemic_conservation_kernel.py -v
+
+  sgm-lean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Bind exact head and theorem bytes
+        id: bind
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$EXPECTED"
+          SRC="$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean"
+          AUTH_SHA="$(sha256sum "$SRC/EpistemicAuthorityConservationV1.lean" | awk '{print $1}')"
+          ACC_SHA="$(sha256sum "$SRC/EpistemicAccountingV1.lean" | awk '{print $1}')"
+          printf 'EXACT_HEAD=%s\n' "$EXPECTED"
+          printf 'AUTHORITY_SOURCE_SHA256=%s\n' "$AUTH_SHA"
+          printf 'ACCOUNTING_SOURCE_SHA256=%s\n' "$ACC_SHA"
+          echo "authority_sha=$AUTH_SHA" >> "$GITHUB_OUTPUT"
+          echo "accounting_sha=$ACC_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Install exact Lean 4.33.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 2 \
+            https://github.com/leanprover/lean4/releases/download/v4.33.1/lean-4.33.1-linux.tar.zst \
+            -o /tmp/lean.tar.zst
+          echo "890afd185370f85666025b883914ab4f4b339136f8c96167b69cfb62aecaf235  /tmp/lean.tar.zst" | sha256sum -c -
+          mkdir -p /tmp/lean
+          tar --zstd -xf /tmp/lean.tar.zst -C /tmp/lean
+          echo "/tmp/lean/lean-4.33.1-linux/bin" >> "$GITHUB_PATH"
+
+      - name: Pin Mathlib
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/leanprover-community/mathlib4.git /tmp/mathlib
+          cd /tmp/mathlib
+          git fetch --depth 1 origin 0df444a360eaa60ab8c11dca51a86af692955474
+          git checkout --detach 0df444a360eaa60ab8c11dca51a86af692955474
+          test "$(git rev-parse HEAD)" = "0df444a360eaa60ab8c11dca51a86af692955474"
+          lake exe cache get
+
+      - name: Copy exact theorem bytes into Lean root
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean"
+          cp "$SRC/EpistemicAuthorityConservationV1.lean" /tmp/mathlib/
+          cp "$SRC/EpistemicAccountingV1.lean" /tmp/mathlib/
+          test "$(sha256sum /tmp/mathlib/EpistemicAuthorityConservationV1.lean | awk '{print $1}')" = "${{ steps.bind.outputs.authority_sha }}"
+          test "$(sha256sum /tmp/mathlib/EpistemicAccountingV1.lean | awk '{print $1}')" = "${{ steps.bind.outputs.accounting_sha }}"
+
+      - name: Kernel replay and axiom audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/mathlib
+          BASE_LEAN_PATH="$(lake env printenv LEAN_PATH)"
+          mkdir -p /tmp/sgm-olean
+          export LEAN_PATH="/tmp/sgm-olean:$BASE_LEAN_PATH"
+
+          lean -o /tmp/sgm-olean/EpistemicAuthorityConservationV1.olean \
+            /tmp/mathlib/EpistemicAuthorityConservationV1.lean \
+            2>&1 | tee /tmp/authority.log
+
+          lean -o /tmp/sgm-olean/EpistemicAccountingV1.olean \
+            /tmp/mathlib/EpistemicAccountingV1.lean \
+            2>&1 | tee /tmp/accounting.log
+
+          cat > /tmp/mathlib/SGMAudit.lean <<'LEAN'
+          import EpistemicAuthorityConservationV1
+          import EpistemicAccountingV1
+          #print axioms AEGIS.EpistemicAuthorityConservationV1.chainAuthority_le_initial
+          #print axioms AEGIS.EpistemicAuthorityConservationV1.zero_is_absorbing
+          #print axioms AEGIS.EpistemicAccountingV1.left_uncertainty_le_of_loss
+          #print axioms AEGIS.EpistemicAccountingV1.right_uncertainty_le_of_loss
+          #print axioms AEGIS.EpistemicAccountingV1.card_disjoint_partition
+          LEAN
+
+          lean /tmp/mathlib/SGMAudit.lean 2>&1 | tee /tmp/sgm-axioms.log
+          ! grep -q "sorryAx" /tmp/authority.log
+          ! grep -q "sorryAx" /tmp/accounting.log
+          ! grep -q "sorryAx" /tmp/sgm-axioms.log
+          printf 'SGM_LEAN_REPLAY=PASS\n'
