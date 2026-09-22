@@ -1,6 +1,5 @@
 {
   "schema": "AEGIS_AGENT_ACTION_AUDIT_BUYER_PACK_MANIFEST_V1",
-  "source_head": "553b70984144ca1e92a1063a068235efff25726e",
   "offer": {
     "name": "AEGIS Agent Action Boundary Audit",
     "scope": "one tool-using workflow",
@@ -53,5 +52,6 @@
     "financial_authority": "NOT_GRANTED",
     "exact_pack_binding_required": true
   },
-  "authority_effect": "NONE"
+  "authority_effect": "NONE",
+  "content_source_head": "553b70984144ca1e92a1063a068235efff25726e"
 }
