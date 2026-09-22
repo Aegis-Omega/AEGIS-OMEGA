@@ -1,0 +1,30 @@
+name: Archive Rust Restoration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "eccf/**"
+      - "gcce/**"
+      - "reports/archive-restoration-eccf-gcce-v1.json"
+      - ".github/workflows/archive-restoration-rust.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  restore-rust:
+    name: archive-restoration-rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: ECCF archive restoration tests
+        run: cargo test --manifest-path eccf/Cargo.toml --all-targets
+      - name: GCCE archive restoration tests
+        run: cargo test --manifest-path gcce/Cargo.toml --all-targets
+      - name: Authority boundary
+        run: |
+          echo "authority_effect=NONE"
+          echo "production_wiring=NOT_PERFORMED"
