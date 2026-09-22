@@ -268,9 +268,15 @@ theorem weil_gauss_fixed_line_kernel_integrable_v10
       fun_prop
     exact hGm.mul hHm
   refine hmajor.mono' hmeas ?_
-  rw [ae_restrict_iff' measurableSet_Ioi]
-  exact Filter.Eventually.of_forall (fun p hp => by
-    have hu : 0 < p.2 := hp
+  have hpos_ae :
+      ∀ᵐ p ∂(volume.prod (volume.restrict (Ioi (0 : ℝ)))), 0 < p.2 := by
+    rw [Measure.ae_prod_mem_iff_ae_ae_mem
+      (measurable_snd measurableSet_Ioi)]
+    exact Filter.Eventually.of_forall (fun _ => by
+      rw [ae_restrict_iff' measurableSet_Ioi]
+      exact Filter.Eventually.of_forall (fun u hu => hu))
+  filter_upwards [hpos_ae] with p hp
+  have hu : 0 < p.2 := hp
     unfold WeilGaussFixedLineKernelV10
     rw [norm_mul]
     have hg :=
@@ -287,7 +293,7 @@ theorem weil_gauss_fixed_line_kernel_integrable_v10
             gcongr
       _ = 2 * T p.1 * U p.2 := by
             simp [T, U]
-            ring)
+            ring
 
 /-- The actual Gauss-kernel t/u Fubini swap. -/
 theorem weil_gauss_fixed_line_fubini_v10
