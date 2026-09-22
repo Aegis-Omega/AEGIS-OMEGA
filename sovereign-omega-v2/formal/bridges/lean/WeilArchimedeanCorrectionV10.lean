@@ -47,6 +47,39 @@ private theorem correction_antideriv_tendsto_zero_v10 :
   simpa only [neg_sub] using
     (Real.tendsto_log_comp_add_sub_log 1).neg
 
+
+/-- Integrability of the scalar correction, obtained from the same monotone-FTC
+argument used for its exact value. -/
+theorem integrableOn_one_div_mul_one_add_v10 :
+    IntegrableOn
+      (fun x : ℝ => 1 / (x * (x + 1)))
+      (Ioi (1 : ℝ)) := by
+  have hderiv :
+      ∀ x ∈ Ici (1 : ℝ),
+        HasDerivAt
+          (fun y : ℝ => Real.log y - Real.log (y + 1))
+          (1 / x - 1 / (x + 1)) x :=
+    fun x hx => correction_antideriv_v10 x hx
+  have hpos :
+      ∀ x ∈ Ioi (1 : ℝ), 0 ≤ 1 / x - 1 / (x + 1) :=
+    fun x hx => correction_deriv_nonneg_v10 hx
+  have hdiff :
+      IntegrableOn
+        (fun x : ℝ => 1 / x - 1 / (x + 1))
+        (Ioi (1 : ℝ)) :=
+    integrableOn_Ioi_deriv_of_nonneg'
+      hderiv hpos correction_antideriv_tendsto_zero_v10
+  refine IntegrableOn.congr_fun hdiff ?_ measurableSet_Ioi
+  intro x hx
+  have hx0 : x ≠ 0 := by
+    rw [mem_Ioi] at hx
+    linarith
+  have hx1 : x + 1 ≠ 0 := by
+    rw [mem_Ioi] at hx
+    linarith
+  field_simp [hx0, hx1]
+  ring
+
 /-- Exact tail correction. -/
 theorem integral_one_div_mul_one_add_v10 :
     (∫ x : ℝ in Ioi (1 : ℝ), 1 / (x * (x + 1))) =
