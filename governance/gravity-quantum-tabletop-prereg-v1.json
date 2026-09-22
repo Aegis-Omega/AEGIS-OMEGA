@@ -1,0 +1,51 @@
+{
+  "schema": "AEGIS_GQ_TABLETOP_PREREGISTRATION_V1",
+  "program": "AEGIS_GRAVITY_QUANTUM_TABLETOP_V1",
+  "status": "PREREGISTERED_NOT_EXECUTED",
+  "primary_claim": "Distinguish registered low-energy gravity/quantum interaction models using preregistered phase, correlation, and witness observables without promoting model consistency to physical truth.",
+  "required_lanes": [
+    "GQ-Q1_CALIBRATION",
+    "GQ-Q2_NUISANCE",
+    "GQ-Q3_MEASUREMENT",
+    "GQ-Q4_WITNESS",
+    "GQ-Q5_REPLICATION",
+    "GQ-Q6_DISCRIMINATION",
+    "GQ-FORMAL",
+    "GQ-XB"
+  ],
+  "required_nuisance_channels": [
+    "electrostatic_patch",
+    "magnetic",
+    "casimir_dispersion",
+    "mechanical_cross_talk",
+    "seismic_vibration",
+    "laser_readout_cross_talk",
+    "thermal_common_bath",
+    "residual_gas",
+    "feedback_control",
+    "gravity_gradient_position",
+    "clock_timing"
+  ],
+  "witness_rule": {
+    "kind": "ONE_SIDED_UPPER_BOUND",
+    "admit_only_if": "estimate + total_uncertainty < threshold",
+    "point_estimate_alone_is_insufficient": true
+  },
+  "replication_rule": {
+    "independent_apparatus_required": true,
+    "independent_analysis_implementation_required": true,
+    "same_preregistered_claim_required": true
+  },
+  "model_discrimination_rule": {
+    "signal_existence_alone_is_insufficient": true,
+    "registered_competitors_required": true,
+    "nuisance_models_required": true
+  },
+  "nonclaims": [
+    "No physical measurement has been executed by this preregistration.",
+    "No gravity-mediated entanglement is established.",
+    "Gravity quantization is not established.",
+    "A complete fundamental theory of quantum gravity is not established."
+  ],
+  "authority_effect": "NONE"
+}
