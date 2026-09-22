@@ -1,0 +1,126 @@
+name: OpenAI Autonomous Company Exact-Head Replay
+
+'on':
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: ['feat/provider-native-sdk-runtime-v1']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openai-company-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  openai-company:
+    if: >-
+      github.event.pull_request.number == 607 &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'feat/openai-sota-autonomous-company-v1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+        working-directory: sovereign-omega-v2
+    env:
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Set up pinned Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.16.0'
+
+      - name: Bind exact source and install locked dependencies
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          npm ci --ignore-scripts --include=dev --no-audit --no-fund
+
+      - name: Strict typecheck new company runtime
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/tsc --noEmit --strict --target ES2022 --module ES2022 \
+            --moduleResolution bundler --lib ES2022,DOM \
+            src/sovereignty/provider-adapters/openai-managed-agents-api.ts \
+            src/sovereignty/provider-adapters/openai-managed-agents-client-binding.ts \
+            src/sovereignty/autonomous-company-loop.ts \
+            src/sovereignty/company-model-router.ts
+
+      - name: Execute autonomous-company falsifiers
+        run: |
+          set -euo pipefail
+          node --test \
+            test/native-runtime/openai-autonomous-company.test.mjs \
+            test/native-runtime/openai-company-production.test.mjs
+
+      - name: Validate durable-ledger migration is evidence-only
+        run: |
+          set -euo pipefail
+          migration=../supabase/migrations/20260922171000_autonomous_company_work_ledger_v1.sql
+          test -s "$migration"
+          grep -q "authority_effect = NONE" "$migration"
+          grep -q "enable row level security" "$migration"
+          grep -q "revoke all" "$migration"
+
+      - name: Emit exact-head receipt
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/aegis-openai-company"
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+
+          root = Path.cwd().parent
+          paths = [
+              'sovereign-omega-v2/src/sovereignty/provider-adapters/openai-managed-agents-api.ts',
+              'sovereign-omega-v2/src/sovereignty/provider-adapters/openai-managed-agents-client-binding.ts',
+              'sovereign-omega-v2/src/sovereignty/autonomous-company-loop.ts',
+              'sovereign-omega-v2/src/sovereignty/company-model-router.ts',
+              'sovereign-omega-v2/test/native-runtime/openai-autonomous-company.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/openai-company-production.test.mjs',
+              'supabase/migrations/20260922171000_autonomous_company_work_ledger_v1.sql',
+          ]
+          head = subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'], text=True).strip()
+          if head != os.environ['EXPECTED_HEAD']:
+              raise SystemExit('exact-head drift')
+          receipt = {
+              'schema': 'AEGIS_OPENAI_AUTONOMOUS_COMPANY_REPLAY_V1',
+              'head_sha': head,
+              'tree_sha': subprocess.check_output(
+                  ['git','-C',str(root),'rev-parse','HEAD^{tree}'], text=True
+              ).strip(),
+              'run_id': os.environ['GITHUB_RUN_ID'],
+              'job': os.environ['GITHUB_JOB'],
+              'sha256': {
+                  p: hashlib.sha256((root / p).read_bytes()).hexdigest()
+                  for p in paths
+              },
+              'local_contract': 'TYPECHECK_AND_FALSIFIERS_PASS',
+              'live_openai_execution': 'NOT_PERFORMED',
+              'write_authority': 'NOT_GRANTED',
+              'merge_authority': 'NOT_GRANTED',
+              'deploy_authority': 'NOT_GRANTED',
+              'financial_authority': 'NOT_GRANTED',
+              'authority_effect': 'NONE',
+          }
+          body = json.dumps(receipt, sort_keys=True, separators=(',', ':')).encode()
+          receipt['receipt_sha256'] = hashlib.sha256(body).hexdigest()
+          out = Path(os.environ['RUNNER_TEMP']) / 'aegis-openai-company' / 'receipt.json'
+          out.write_text(json.dumps(receipt, indent=2) + '\n')
+          print(out.read_text())
+          PY
+
+      - name: Preserve replay receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: openai-autonomous-company-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/aegis-openai-company/receipt.json
+          retention-days: 7
