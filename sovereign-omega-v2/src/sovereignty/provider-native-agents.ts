@@ -5,7 +5,7 @@
 // ============================================================
 
 import type { SHA256Hex } from '../core/types.js'
-import { canonicalizeJCS } from '../core/canonicalize.js'
+import { canonicalizeJCS, canonicalizeJCSString } from '../core/canonicalize.js'
 import { sha256Hex } from '../core/hashing.js'
 import {
   PROVIDER_MESH_SCHEMA_VERSION,
@@ -106,6 +106,11 @@ export async function selectProviderNativeAgentV1(
   registry: ProviderNativeAgentRegistryV1,
   request: ProviderSelectionRequestV1,
 ): Promise<ProviderNativeAgentSelectionReceiptV1> {
+  // Snapshot caller-owned inputs before asynchronous hashing and selection.
+  snapshot = structuredClone(snapshot)
+  registry = structuredClone(registry)
+  request = structuredClone(request)
+
   if (registry.schema_version !== PROVIDER_NATIVE_AGENT_SCHEMA_VERSION) {
     throw new TypeError('unsupported native provider agent registry schema')
   }
@@ -117,7 +122,9 @@ export async function selectProviderNativeAgentV1(
     snapshot.descriptors.filter(descriptor =>
       registry.agents.some(agent => agent.provider_id === descriptor.provider_id)),
   )
-  if (recomputed.registry_root !== registry.registry_root) {
+  // The derived root alone does not bind caller-supplied agent identity or authority.
+  if (recomputed.registry_root !== registry.registry_root ||
+      canonicalizeJCSString(recomputed) !== canonicalizeJCSString(registry)) {
     throw new TypeError('native provider agent registry_root verification failed')
   }
 
