@@ -1,6 +1,6 @@
 {
   "authority": "T1_NUMERICAL_DIAGNOSTIC",
-  "basis_dimension_sweep": [
+  "basis_dimension_sweep_under_probe_constraint": [
     {
       "k_basis_dim": 5,
       "lambda_min_interval": [
@@ -58,11 +58,10 @@
       "n_negative": 1
     }
   ],
-  "classification": "NEGATIVE_NUMERICAL_EVIDENCE",
-  "epsilon_tends_to_zero": false,
+  "classification": "PROBE_MOMENT_CONSTRAINT_MISSPECIFICATION",
   "extra_constraint_cases": [
     {
-      "kind": "pole",
+      "kind": "t_side_exponential",
       "lambda_min_interval": [
         -11.00834853758,
         -11.008326518905
@@ -72,7 +71,7 @@
       "reduced_dimension": 39
     },
     {
-      "kind": "pole",
+      "kind": "t_side_exponential",
       "lambda_min_interval": [
         -11.01589162615,
         -11.015869592388
@@ -82,7 +81,7 @@
       "reduced_dimension": 39
     },
     {
-      "kind": "pole",
+      "kind": "t_side_exponential",
       "lambda_min_interval": [
         -10.968309012748,
         -10.968287074152
@@ -104,25 +103,11 @@
   ],
   "global_weil_positivity_proven": false,
   "interlacing_caveat": "Cauchy interlacing: restricting to a subspace can only raise lambda_min, so shrinkage under added constraints is guaranteed and is not progress.",
-  "negative_direction": {
-    "coincides_with_negative_archimedean_weight_at_origin": true,
-    "l2_mass_fraction_within_5_interval": [
-      0.926695629572,
-      0.926697484965
-    ],
-    "lambda_min_interval": [
-      -11.024937779736,
-      -11.024915727882
-    ],
-    "peak_abscissa_interval": [
-      -0.025417067513,
-      -0.023417018679
-    ]
-  },
-  "observed_gap_limit_estimate": -11.22,
-  "obstruction_rank": 1,
-  "pole_moment_explains_obstruction": false,
-  "prime_cutoff_sweep": [
+  "obstruction_explained_by": "pole term -2 Re h(i/2)^2 of the explicit formula",
+  "obstruction_is_probe_constraint_artefact": true,
+  "obstruction_rank_under_probe_constraint": 1,
+  "pole_moment_explains_obstruction": true,
+  "prime_cutoff_sweep_under_probe_constraint": [
     {
       "lambda_min_interval": [
         -11.024935652971,
@@ -172,13 +157,161 @@
       ]
     }
   ],
+  "probe_constraint": "int h dt = 0 (not the Weil moment condition)",
   "probe_id": "WEIL-MOMENT-RESTRICTED-GAP-V1",
-  "receipt_sha256": "f837dff53450fcadb46555ad394cd8d4ba269427797f5c5e6b9fd31659e563af",
+  "receipt_sha256": "148e56b3c74193039197c283aa92d967343796d7ceda65a3f522c155e74a859f",
   "refutes": null,
+  "retracted_claims": [
+    {
+      "field": "pole_moment_explains_obstruction",
+      "now": true,
+      "reason": "the earlier pole test used the spectral-side weight e^{t/2}, not the pole functional h(i/2)",
+      "was": false
+    },
+    {
+      "field": "epsilon_tends_to_zero",
+      "now": "not applicable: the ~11.2 gap is the pole term under a misspecified constraint",
+      "reason": "with Re h(i/2) = 0 no negative eigenvalue remains",
+      "was": false
+    },
+    {
+      "field": "classification",
+      "now": "PROBE_MOMENT_CONSTRAINT_MISSPECIFICATION",
+      "reason": "the gap is not evidence against the route",
+      "was": "NEGATIVE_NUMERICAL_EVIDENCE"
+    }
+  ],
   "rh_authority": "NONE",
   "rh_proven": false,
   "scalar_shift_explains_obstruction": false,
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "source": "research/rh/weil_moment_restricted_gap_probe.py",
-  "target_obligation": "W8_DensityContinuityCoverage"
+  "target_obligation": "W8_DensityContinuityCoverage",
+  "weil_moment_condition": "h(-+i/2) = 0 in the spectral variable (Mellin at s = 0, 1)",
+  "weil_pole_constraint_sweep": [
+    {
+      "h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "k_basis_dim": 10,
+      "re_h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "tau": 1.0
+    },
+    {
+      "h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "k_basis_dim": 20,
+      "re_h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "tau": 1.0
+    },
+    {
+      "h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "k_basis_dim": 40,
+      "re_h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "tau": 1.0
+    },
+    {
+      "h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "k_basis_dim": 10,
+      "re_h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "tau": 2.0
+    },
+    {
+      "h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "k_basis_dim": 20,
+      "re_h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "tau": 2.0
+    },
+    {
+      "h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "k_basis_dim": 40,
+      "re_h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "tau": 2.0
+    },
+    {
+      "h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "k_basis_dim": 10,
+      "re_h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "tau": 3.0
+    },
+    {
+      "h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "k_basis_dim": 20,
+      "re_h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "tau": 3.0
+    },
+    {
+      "h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "k_basis_dim": 40,
+      "re_h_i_half_zero": {
+        "lambda_min_above": -1e-08,
+        "n_negative": 0
+      },
+      "tau": 3.0
+    }
+  ],
+  "zero_side_crosscheck": {
+    "caveat": "computed zeros lie on the critical line, so the zero sum is PSD by construction; this verifies the explicit formula and the probe, not RH",
+    "gamma_max": 236.5242296658162,
+    "lambda_min_probe_interval": [
+      -11.247602063936,
+      -11.247579566755
+    ],
+    "lambda_min_zeros_interval": [
+      -11.247968675251,
+      -11.245719304453
+    ],
+    "relative_frobenius_difference_below": 0.005,
+    "zero_source": "mpmath.zetazero(n).imag, n = 1..100, 15 decimals, verified at n = 1, 50, 100",
+    "zero_sum_is_psd": true,
+    "zeros_used": 100
+  }
 }
