@@ -27,7 +27,6 @@ jobs:
     env:
       CI: 'true'
       EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
-      EVIDENCE_DIR: ${{ runner.temp }}/pr598-native-runtime
     steps:
       - name: Checkout exact PR head
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -41,6 +40,8 @@ jobs:
       - name: Bind source and install locked dependencies
         run: |
           set -euo pipefail
+          export EVIDENCE_DIR="$RUNNER_TEMP/pr598-native-runtime"
+          printf 'EVIDENCE_DIR=%s\n' "$EVIDENCE_DIR" >> "$GITHUB_ENV"
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
           mkdir -p "$EVIDENCE_DIR"
           python3 - <<'PY_SOURCE'
