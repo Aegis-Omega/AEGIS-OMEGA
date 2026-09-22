@@ -107,7 +107,14 @@ jobs:
                   p: hashlib.sha256((root / p).read_bytes()).hexdigest()
                   for p in paths
               },
-              'execution_contract': 'TYPECHECK_AND_25_FALSIFIERS_PASS',
+              'execution_contract': 'TYPECHECK_AND_DECLARED_FALSIFIER_SUITES_PASS',
+              'falsifier_suites': [
+                  'openai-autonomous-company.test.mjs',
+                  'openai-company-production.test.mjs',
+                  'company-evidence-authority.test.mjs',
+                  'company-approval-packet.test.mjs',
+                  'company-ledger-migration.test.mjs',
+              ],
               'live_openai_execution': 'NOT_PERFORMED',
               'write_authority': 'NOT_GRANTED',
               'merge_authority': 'NOT_GRANTED',
