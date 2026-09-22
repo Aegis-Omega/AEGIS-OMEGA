@@ -12,9 +12,9 @@ CURRENT_HEAD = "dba46e59519e56670989dacc07294c7fbea3ff4c"
 SOURCE = "dc4be9af134b99346a8fc3b0a29bfb274328a2d202167b69fedde4928c839b00"
 
 
-def status_fixture(*, head=CURRENT_HEAD, verified=True, stage="VERIFIED_EXACT_SOURCE"):
+def status_fixture(*, head=CURRENT_HEAD, verified=True, stage="VERIFIED_EXACT_SOURCE", receipt_kind="AEGIS_GQ_CLOUDFLARE_LEAN_REPLAY_V1"):
     return {
-        "receipt_kind": "AEGIS_GQ_CLOUDFLARE_LEAN_REPLAY_V1",
+        "receipt_kind": receipt_kind,
         "head_sha": head,
         "source_sha256": SOURCE,
         "lean_target": "4.33.1",
@@ -47,6 +47,26 @@ class ExternalReplayTests(unittest.TestCase):
         self.assertEqual(result["decision"], "DENY")
         self.assertIn("REPLAY_NOT_VERIFIED", result["reason_codes"])
         self.assertIn("REPLAY_STAGE_NOT_VERIFIED", result["reason_codes"])
+
+    def test_full_replay_receipt_kind_and_git_sha1_are_accepted(self):
+        result = verify_external_replay(
+            status_fixture(
+                receipt_kind="AEGIS_GQ_FULL_CLOUDFLARE_REPLAY_V1"
+            ),
+            expected_head=CURRENT_HEAD,
+            expected_source_sha256=SOURCE,
+        )
+        self.assertEqual(result["decision"], "PASS")
+
+    def test_invalid_git_oid_length_denies(self):
+        bad_head = "a" * 39
+        result = verify_external_replay(
+            status_fixture(head=bad_head),
+            expected_head=bad_head,
+            expected_source_sha256=SOURCE,
+        )
+        self.assertEqual(result["decision"], "DENY")
+        self.assertIn("EXPECTED_HEAD_INVALID", result["reason_codes"])
 
     def test_matching_verified_receipt_can_mint_bounded_kernel_receipt(self):
         status = status_fixture()
