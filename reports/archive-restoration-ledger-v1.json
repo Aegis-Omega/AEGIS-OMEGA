@@ -127,12 +127,13 @@
     {
       "id": "F17",
       "component": "SWARM runtime, metacognition and HD benchmark",
-      "disposition": "RESTORED_SOURCE_AND_BOUNDED_RUNTIME_DRAFT",
+      "disposition": "RESTORED_SOURCE_RUNTIME_AND_BRIDGE_SOURCE_DRAFT",
       "evidence": [
         "PR #620 head 20a944f2da0e97ddda67196d05a64bbef725089d",
-        "PR #623 head 9cd4535842aaa29c1658f5257a088078d249638a"
+        "PR #623 head 9cd4535842aaa29c1658f5257a088078d249638a",
+        "PR #626 head d4bed01873130b3b7ab196ae2a67d4a9b5953b71"
       ],
-      "remaining": "Production wiring not performed"
+      "remaining": "Bridge source/image wiring is implemented but not deployed; hosted execution remains zero-step."
     },
     {
       "id": "F18",
@@ -196,7 +197,8 @@
     "620": "20a944f2da0e97ddda67196d05a64bbef725089d",
     "621": "ea6d5bab2210171fe40a2dc29f595b09b2f42759",
     "623": "9cd4535842aaa29c1658f5257a088078d249638a",
-    "624": "79aae45cfcd98d594c5213460282ac2260ea7aec"
+    "624": "79aae45cfcd98d594c5213460282ac2260ea7aec",
+    "626": "d4bed01873130b3b7ab196ae2a67d4a9b5953b71"
   },
   "merge": "NOT_PERFORMED",
   "deploy": "NOT_PERFORMED",
