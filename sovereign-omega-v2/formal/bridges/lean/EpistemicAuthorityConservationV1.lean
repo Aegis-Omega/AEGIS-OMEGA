@@ -1,28 +1,40 @@
 import Mathlib.Data.List.Basic
 import Mathlib.Data.Nat.Basic
+import Mathlib.Tactic
 
 namespace AEGIS.EpistemicAuthorityConservationV1
 
 def stepAuthority (source transform policy : Nat) : Nat :=
   min source (min transform policy)
 
-def chainAuthority (initial : Nat) (gates : List (Nat × Nat)) : Nat :=
-  gates.foldl (fun current gate => stepAuthority current gate.1 gate.2) initial
+def chainAuthority : Nat → List (Nat × Nat) → Nat
+  | initial, [] => initial
+  | initial, gate :: rest =>
+      chainAuthority (stepAuthority initial gate.1 gate.2) rest
 
 theorem stepAuthority_le_source
     (source transform policy : Nat) :
     stepAuthority source transform policy ≤ source := by
-  simp [stepAuthority]
+  simpa [stepAuthority] using
+    (min_le_left source (min transform policy))
 
 theorem stepAuthority_le_transform
     (source transform policy : Nat) :
     stepAuthority source transform policy ≤ transform := by
-  simp [stepAuthority, Nat.min_le_right, Nat.le_trans]
+  exact le_trans
+    (by
+      simpa [stepAuthority] using
+        (min_le_right source (min transform policy)))
+    (min_le_left transform policy)
 
 theorem stepAuthority_le_policy
     (source transform policy : Nat) :
     stepAuthority source transform policy ≤ policy := by
-  simp [stepAuthority]
+  exact le_trans
+    (by
+      simpa [stepAuthority] using
+        (min_le_right source (min transform policy)))
+    (min_le_right transform policy)
 
 theorem chainAuthority_le_initial
     (initial : Nat) (gates : List (Nat × Nat)) :
@@ -31,8 +43,8 @@ theorem chainAuthority_le_initial
   | nil =>
       simp [chainAuthority]
   | cons gate rest ih =>
-      simp [chainAuthority]
-      exact Nat.le_trans (ih (stepAuthority initial gate.1 gate.2))
+      exact le_trans
+        (ih (stepAuthority initial gate.1 gate.2))
         (stepAuthority_le_source initial gate.1 gate.2)
 
 theorem zero_is_absorbing
@@ -40,9 +52,9 @@ theorem zero_is_absorbing
     chainAuthority 0 gates = 0 := by
   induction gates with
   | nil =>
-      simp [chainAuthority]
+      rfl
   | cons gate rest ih =>
-      simp [chainAuthority, stepAuthority, ih]
+      simpa [chainAuthority, stepAuthority] using ih
 
 end AEGIS.EpistemicAuthorityConservationV1
 
