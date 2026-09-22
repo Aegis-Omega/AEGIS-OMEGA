@@ -5,6 +5,7 @@ ROOT="$(pwd)"
 ASSET_DIR="$ROOT/aegisomega-webgpu/gq-proof-runner"
 WORK="/tmp/aegis-gq-lean"
 LOG="$ASSET_DIR/replay.log"
+PYLOG="$ASSET_DIR/python.log"
 AXLOG="$ASSET_DIR/axioms.log"
 STATUS="$ASSET_DIR/status.json"
 mkdir -p "$ASSET_DIR"
@@ -20,15 +21,17 @@ MATHLIB_SHA="0df444a360eaa60ab8c11dca51a86af692955474"
 TARGET="GravityQuantumPureProductV1"
 SRC="$ROOT/sovereign-omega-v2/formal/bridges/lean"
 SOURCE_SHA256="$(sha256sum "$SRC/$TARGET.lean" | awk '{print $1}')"
+PYTHON_STATUS="NOT_RUN"
 
 write_status() {
-  python3 - "$STATUS" "$HEAD_SHA" "$SOURCE_SHA256" "$1" "$2" "$3" "$4" <<'PY'
+  python3 - "$STATUS" "$HEAD_SHA" "$SOURCE_SHA256" "$PYTHON_STATUS" "$1" "$2" "$3" "$4" <<'PY'
 import json,sys
-path,head,source_sha,stage,ok,leanv,detail=sys.argv[1:]
+path,head,source_sha,python_status,stage,ok,leanv,detail=sys.argv[1:]
 payload={
   "receipt_kind":"AEGIS_GQ_CLOUDFLARE_LEAN_REPLAY_V1",
   "head_sha":head,
   "source_sha256":source_sha,
+  "python_regressions":python_status,
   "lean_target":"4.33.1",
   "mathlib_sha":"0df444a360eaa60ab8c11dca51a86af692955474",
   "target_module":"GravityQuantumPureProductV1",
@@ -52,6 +55,21 @@ write_status "START" "false" "" "replay starting"
 
 echo "HEAD_SHA=$HEAD_SHA"
 echo "SOURCE_SHA256=$SOURCE_SHA256"
+
+echo "=== PYTHON CROSS-BOUNDARY REGRESSIONS ==="
+if ! PYTHONPATH="$ROOT/sovereign-omega-v2/python"   python3 "$ROOT/sovereign-omega-v2/python/tests/test_cross_boundary_authority.py" -v   2>&1 | tee "$PYLOG"; then
+  write_status "PYTHON_PARENT_REGRESSION_FAILED" "false" ""     "parent cross-boundary regressions failed"
+  exit 0
+fi
+
+echo "=== PYTHON GRAVITY AUTHORITY REGRESSIONS ==="
+if ! PYTHONPATH="$ROOT/sovereign-omega-v2/python"   python3 "$ROOT/sovereign-omega-v2/python/tests/test_gravity_quantum_authority.py" -v   2>&1 | tee -a "$PYLOG"; then
+  write_status "PYTHON_GRAVITY_REGRESSION_FAILED" "false" ""     "gravity authority regressions failed"
+  exit 0
+fi
+PYTHON_STATUS="PASS"
+echo "PYTHON_REGRESSIONS=PASS"
+
 echo "Downloading Lean $LEAN_VERSION"
 if ! curl -fL --retry 3 --retry-delay 2   "https://github.com/leanprover/lean4/releases/download/v4.33.1/lean-4.33.1-linux.tar.zst"   -o "$WORK/lean.tar.zst"; then
   write_status "LEAN_DOWNLOAD_FAILED" "false" "" "curl failed"
@@ -84,18 +102,22 @@ fi
 cd "$WORK/mathlib"
 if ! git fetch --depth 1 origin "$MATHLIB_SHA" ||
    ! git checkout --detach "$MATHLIB_SHA"; then
-  write_status "MATHLIB_CHECKOUT_FAILED" "false" "$LEANV" "exact pin checkout failed"
+  write_status "MATHLIB_CHECKOUT_FAILED" "false" "$LEANV"     "exact pin checkout failed"
   exit 0
 fi
-
+if [ "$(git rev-parse HEAD)" != "$MATHLIB_SHA" ]; then
+  write_status "MATHLIB_HEAD_MISMATCH" "false" "$LEANV"     "$(git rev-parse HEAD)"
+  exit 0
+fi
 echo "MATHLIB_HEAD=$(git rev-parse HEAD)"
+
 if ! lake exe cache get; then
-  write_status "MATHLIB_CACHE_FAILED" "false" "$LEANV" "lake cache get failed"
+  write_status "MATHLIB_CACHE_FAILED" "false" "$LEANV"     "lake cache get failed"
   exit 0
 fi
 
-# Lean 4.33 enforces that directly compiled files live under the active root.
-# Copy the exact source bytes into the pinned Mathlib root and verify byte identity.
+# Lean 4.33 requires a directly compiled file to be under the active root.
+# Copy exact repository bytes and immediately prove byte identity.
 cp "$SRC/$TARGET.lean" "$WORK/mathlib/$TARGET.lean"
 COPIED_SHA256="$(sha256sum "$WORK/mathlib/$TARGET.lean" | awk '{print $1}')"
 echo "COPIED_SOURCE_SHA256=$COPIED_SHA256"
@@ -125,7 +147,7 @@ LEAN
 
 echo "=== AXIOM AUDIT ==="
 if ! lean "$WORK/mathlib/Audit.lean" 2>&1 | tee "$AXLOG"; then
-  write_status "AXIOM_AUDIT_FAILED" "false" "$LEANV" "audit did not compile"
+  write_status "AXIOM_AUDIT_FAILED" "false" "$LEANV"     "audit did not compile"
   exit 0
 fi
 if grep -q "sorryAx" "$AXLOG"; then
@@ -133,6 +155,6 @@ if grep -q "sorryAx" "$AXLOG"; then
   exit 0
 fi
 
-write_status "VERIFIED_EXACT_SOURCE" "true" "$LEANV"   "exact source bytes copied into pinned Mathlib root; F2b compiled; no sorryAx"
+write_status "VERIFIED_EXACT_SOURCE" "true" "$LEANV"   "Python boundary regressions passed; exact source bytes compiled; axiom audit has no sorryAx"
 echo "AEGIS_GQ_CLOUDFLARE_LEAN_REPLAY=PASS"
 exit 0
