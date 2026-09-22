@@ -68,7 +68,8 @@ jobs:
             test/native-runtime/company-approval-packet.test.mjs \
             test/native-runtime/company-ledger-migration.test.mjs \
             test/native-runtime/company-model-promotion.test.mjs \
-            test/native-runtime/company-work-graph.test.mjs
+            test/native-runtime/company-work-graph.test.mjs \
+            test/native-runtime/company-task-lease-sql.test.mjs
 
       - name: Emit exact-head receipt
         run: |
@@ -95,7 +96,9 @@ jobs:
               'sovereign-omega-v2/test/native-runtime/company-ledger-migration.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-model-promotion.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-work-graph.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-task-lease-sql.test.mjs',
               'supabase/migrations/20260922171000_autonomous_company_work_ledger_v1.sql',
+              'supabase/migrations/20260922180000_company_task_lease_fencing_v1.sql',
           ]
           head = subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'], text=True).strip()
           if head != os.environ['EXPECTED_HEAD']:
@@ -124,6 +127,7 @@ jobs:
                   'company-ledger-migration.test.mjs',
                   'company-model-promotion.test.mjs',
                   'company-work-graph.test.mjs',
+                  'company-task-lease-sql.test.mjs',
               ],
               'live_openai_execution': 'NOT_PERFORMED',
               'write_authority': 'NOT_GRANTED',
