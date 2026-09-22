@@ -219,6 +219,9 @@ def test_serve_wires_cloud_sql_as_optional_authoritative_backend():
     assert '"CLOUD_SQL_AUDIT_MODE", "off"' in serve
     assert "CLOUD_SQL_AUDIT_REQUIRED_UNAVAILABLE" in serve
     assert '"audit_backend": state.audit_backend' in serve
+    assert "self.audit_required = config.required" in serve
+    assert serve.count("if state.audit_required:") >= 6
+    assert "durable audit certification unavailable" in serve
 
 
 def test_docker_pins_cloud_sql_connector_driver_and_sqlalchemy():
