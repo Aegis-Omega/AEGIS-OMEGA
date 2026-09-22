@@ -60,7 +60,7 @@ theorem summable_norm_seriesTerm_v1 (z : ℂ) (hz : 0 < z.re) :
     (fun n => ?_)
     (summable_integral_norm_kernelTerm z hz)
   rw [← integral_kernelTerm z hz n]
-  exact norm_integral_le_integral_norm _
+  exact MeasureTheory.norm_integral_le_integral_norm _
 
 /-- Local copy of the standard real-restriction uniqueness argument used
 privately in Mathlib's `GammaDeriv`: if a holomorphic function agrees with a
@@ -80,17 +80,17 @@ private lemma complex_deriv_of_real_restriction
 the derivative of `log Γ`. -/
 theorem digamma_ofReal_eq_logGamma_deriv_v1 (x : ℝ) (hx : 0 < x) :
     Complex.digamma (x : ℂ) =
-      (deriv (Real.log ∘ Real.Gamma) x : ℂ) := by
+      ((deriv (Real.log ∘ Real.Gamma) x : ℝ) : ℂ) := by
   let f : ℝ → ℝ := Real.log ∘ Real.Gamma
   have hGreal : DifferentiableAt ℝ Real.Gamma x :=
     Real.differentiableAt_Gamma (by
       intro m hm
-      have hmnonpos : -(m : ℝ) ≤ 0 := by positivity
+      have hmnonpos : -(m : ℝ) ≤ 0 := neg_nonpos.mpr (Nat.cast_nonneg m)
       linarith)
   have hGne : Real.Gamma x ≠ 0 :=
     Real.Gamma_ne_zero (by
       intro m hm
-      have hmnonpos : -(m : ℝ) ≤ 0 := by positivity
+      have hmnonpos : -(m : ℝ) ≤ 0 := neg_nonpos.mpr (Nat.cast_nonneg m)
       linarith)
   have hGcomplex : DifferentiableAt ℂ Complex.Gamma (x : ℂ) :=
     Complex.differentiableAt_Gamma _ (by
@@ -99,7 +99,7 @@ theorem digamma_ofReal_eq_logGamma_deriv_v1 (x : ℝ) (hx : 0 < x) :
       simp at hre
       linarith)
   have hGc :
-      HasDerivAt Complex.Gamma (deriv Real.Gamma x : ℂ) (x : ℂ) :=
+      HasDerivAt Complex.Gamma ((deriv Real.Gamma x : ℝ) : ℂ) (x : ℂ) :=
     complex_deriv_of_real_restriction
       hGcomplex hGreal.hasDerivAt (fun y => Complex.Gamma_ofReal y)
   have hGammaCast : Complex.Gamma (x : ℂ) = (Real.Gamma x : ℂ) :=
@@ -107,9 +107,9 @@ theorem digamma_ofReal_eq_logGamma_deriv_v1 (x : ℝ) (hx : 0 < x) :
   have hlogDeriv :
       deriv f x = deriv Real.Gamma x / Real.Gamma x := by
     simpa [f, Function.comp_def] using
-      Real.deriv.log hGreal hGne
-  rw [Complex.digamma_def, logDeriv_apply, hGc.deriv, hGammaCast, hlogDeriv]
-  push_cast
+      deriv.log hGreal hGne
+  rw [Complex.digamma_def, logDeriv_apply, hGc.deriv, hGammaCast, hlogDeriv,
+    Complex.ofReal_div]
 
 /-- Iterated logarithmic-Gamma derivative recurrence. -/
 private theorem logGamma_deriv_shift_v1 (x : ℝ) (hx : 0 < x) (n : ℕ) :
@@ -124,15 +124,15 @@ private theorem logGamma_deriv_shift_v1 (x : ℝ) (hx : 0 < x) (n : ℕ) :
   have hdiff {y : ℝ} (hy : 0 < y) : DifferentiableAt ℝ f y := by
     refine ((Real.differentiableAt_Gamma ?_).log (Real.Gamma_ne_zero ?_))
     · intro m hm
-      have hmnonpos : -(m : ℝ) ≤ 0 := by positivity
+      have hmnonpos : -(m : ℝ) ≤ 0 := neg_nonpos.mpr (Nat.cast_nonneg m)
       linarith
     · intro m hm
-      have hmnonpos : -(m : ℝ) ≤ 0 := by positivity
+      have hmnonpos : -(m : ℝ) ≤ 0 := neg_nonpos.mpr (Nat.cast_nonneg m)
       linarith
   have hderRec (y : ℝ) (hy : 0 < y) :
       deriv f (y + 1) = deriv f y + 1 / y := by
-    rw [← deriv_comp_add_const, one_div, ← deriv_log,
-      ← deriv_add (hdiff <| by positivity) (differentiableAt_log hy.ne')]
+    rw [← deriv_comp_add_const, one_div, ← Real.deriv_log,
+      ← deriv_add (hdiff <| by positivity) (Real.differentiableAt_log hy.ne')]
     apply EventuallyEq.deriv_eq
     filter_upwards [eventually_gt_nhds hy] using hrec
   induction n with
@@ -162,10 +162,10 @@ private theorem logGamma_deriv_shift_sub_log_tendsto_zero_v1
   have hdiff {y : ℝ} (hy : 0 < y) : DifferentiableAt ℝ f y := by
     refine ((Real.differentiableAt_Gamma ?_).log (Real.Gamma_ne_zero ?_))
     · intro m hm
-      have hmnonpos : -(m : ℝ) ≤ 0 := by positivity
+      have hmnonpos : -(m : ℝ) ≤ 0 := neg_nonpos.mpr (Nat.cast_nonneg m)
       linarith
     · intro m hm
-      have hmnonpos : -(m : ℝ) ≤ 0 := by positivity
+      have hmnonpos : -(m : ℝ) ≤ 0 := neg_nonpos.mpr (Nat.cast_nonneg m)
       linarith
   have hLB (n : ℕ) (hn : 0 < n) :
       Real.log ((n : ℝ) + (x - 1)) ≤ deriv f (x + (n : ℝ)) := by
@@ -295,8 +295,7 @@ theorem digamma_series_ofReal_v1 (x : ℝ) (hx : 0 < x) :
   calc
     Complex.digamma (x : ℂ) + (γ : ℂ) =
         ((deriv (Real.log ∘ Real.Gamma) x + γ : ℝ) : ℂ) := by
-          rw [digamma_ofReal_eq_logGamma_deriv_v1 x hx]
-          push_cast
+          rw [digamma_ofReal_eq_logGamma_deriv_v1 x hx, Complex.ofReal_add]
     _ = ((γ + deriv (Real.log ∘ Real.Gamma) x : ℝ) : ℂ) := by
           congr 1
           ring
