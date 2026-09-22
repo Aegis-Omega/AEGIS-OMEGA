@@ -206,11 +206,11 @@ export function SuccessPage() {
             <button
               type="button"
               onClick={() => { void activateToken(tokenInput) }}
-              disabled={!tokenInput.trim() || status === 'verifying-token'}
+              disabled={!tokenInput.trim()}
               className="w-full rounded-xl border px-4 py-3 text-sm font-semibold disabled:opacity-50"
               style={{ borderColor: '#374151', background: '#151821', color: '#F3F4F6' }}
             >
-              {status === 'verifying-token' ? 'Verifying…' : 'Verify signed token'}
+              Verify signed token
             </button>
           </div>
         )}
