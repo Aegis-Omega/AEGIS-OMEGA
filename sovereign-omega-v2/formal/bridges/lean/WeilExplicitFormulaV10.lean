@@ -78,8 +78,8 @@ private theorem pole_profile_integrable_v10
   exact (h0.add h1).congr
     (Filter.Eventually.of_forall fun t => by
       unfold PoleProfileV10
-      simp only [sub_zero]
-      ring)
+      simp only [sub_zero, Pi.add_apply]
+      ring_nf)
 
 private theorem gamma_profile_integrable_v10
     (f : WeilCompactSmoothGV1) (c : ℝ) (hc : 1 < c) :
@@ -94,7 +94,8 @@ private theorem zeta_profile_integrable_v10
   exact hn.neg.congr
     (Filter.Eventually.of_forall fun t => by
       unfold ZetaProfileV10
-      ring)
+      simp only [Pi.neg_apply]
+      ring_nf)
 
 /-- Pointwise decomposition of the doubled xi profile into the three
 normalized explicit-formula pieces. -/
@@ -161,7 +162,10 @@ theorem whole_explicit_formula_on_fixed_line_v10
       (∫ t : ℝ, PoleProfileV10 f c t) +
       (∫ t : ℝ, GammaProfileV10 f c t) +
       (∫ t : ℝ, ZetaProfileV10 f c t) := by
-    rw [integral_add (hP.add hG) hZ, integral_add hP hG]
+    have h1 := integral_add (hP.add hG) hZ
+    have h2 := integral_add hP hG
+    simp only [Pi.add_apply] at h1
+    rw [h1, h2]
 
   have hzero :=
     normalized_two_xi_logDeriv_eq_two_aegis_zero_tsum_v10
