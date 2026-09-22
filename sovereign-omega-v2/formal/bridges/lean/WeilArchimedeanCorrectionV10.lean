@@ -29,11 +29,17 @@ private theorem correction_antideriv_v10 (x : ℝ) (hx : 1 ≤ x) :
       (1 / x - 1 / (x + 1)) x := by
   have hx0 : x ≠ 0 := by linarith
   have hx1 : x + 1 ≠ 0 := by linarith
-  have hlogx := Real.hasDerivAt_log hx0
+  have hlogx :
+      HasDerivAt (fun y : ℝ => Real.log y) (1 / x) x := by
+    simpa [one_div] using
+      ((hasDerivAt_id x).log hx0)
+  have hlin :
+      HasDerivAt (fun y : ℝ => y + 1) 1 x := by
+    simpa using (hasDerivAt_id x).add_const 1
   have hlogx1 :
       HasDerivAt (fun y : ℝ => Real.log (y + 1)) (1 / (x + 1)) x := by
-    convert (Real.hasDerivAt_log hx1).comp_const_add 1 x using 1 <;> ring
-  convert hlogx.sub hlogx1 using 1 <;> ring
+    simpa [one_div] using hlin.log hx1
+  exact hlogx.sub hlogx1
 
 private theorem correction_deriv_nonneg_v10 {x : ℝ} (hx : 1 < x) :
     0 ≤ 1 / x - 1 / (x + 1) := by
@@ -69,7 +75,7 @@ theorem integrableOn_one_div_mul_one_add_v10 :
         (Ioi (1 : ℝ)) :=
     integrableOn_Ioi_deriv_of_nonneg'
       hderiv hpos correction_antideriv_tendsto_zero_v10
-  refine IntegrableOn.congr_fun hdiff ?_ measurableSet_Ioi
+  refine hdiff.congr_fun ?_ measurableSet_Ioi
   intro x hx
   have hx0 : x ≠ 0 := by
     rw [mem_Ioi] at hx
