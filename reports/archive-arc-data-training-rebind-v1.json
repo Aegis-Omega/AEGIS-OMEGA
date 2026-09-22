@@ -1,0 +1,44 @@
+{
+  "schema": "AEGIS_ARCHIVE_ARC_DATA_TRAINING_REBIND_V1",
+  "base_pr": 620,
+  "base_head": "20a944f2da0e97ddda67196d05a64bbef725089d",
+  "source_historical_commit": "81b0470bec975e86b7abb7d910d34d505920a7e5",
+  "corpus": {
+    "subtree_sha": "367c3f0ae50cd5da6ff1e4b6e8a12376920929ee",
+    "files": 804,
+    "task_json_files": 800,
+    "bytes": 20978436,
+    "canonical_sha256_root": "35d3088c6a4518f8ef85e4ef22b4ec22bba413ad43ec147fa6331293c50e5a17"
+  },
+  "historical_failure": {
+    "command": "PYTHONPATH=. python train.py --steps 1 --arc-data ./data/arc_data",
+    "result": "FAIL",
+    "cause": "in-place mutation of the autoregressive LongTensor invalidated saved embedding indices required by autograd"
+  },
+  "minimal_repair": {
+    "path": "swarm_os/arc/model/transformer_policy.py",
+    "change": "clone seq[:, :t + 1] before forward",
+    "semantic_scope": "autograd storage isolation only"
+  },
+  "post_repair_execution": {
+    "command": "PYTHONPATH=. python train.py --steps 1 --arc-data ./data/arc_data",
+    "status": "PASS_TO_COMPLETION",
+    "tasks_seen": 800,
+    "checkpoint_emitted": true,
+    "benchmark_interpretation": "NOT_PERMITTED_SINGLE_STOCHASTIC_TRAINING_SAMPLE"
+  },
+  "deterministic_regression": {
+    "command": "PYTHONPATH=. pytest -q tests/test_training_smoke.py",
+    "status": "PASS",
+    "result": "1 passed",
+    "establishes": "real archived ARC sample traverses encoder -> autoregressive policy -> DSL -> backward with finite policy gradients"
+  },
+  "dependency_gap": {
+    "historical_requirements_include_torch": false,
+    "smoke_contract": "swarm_os/arc/requirements-training-smoke.txt"
+  },
+  "full_training": "NOT_RUN",
+  "trained_checkpoint_quality": "NOT_ESTABLISHED",
+  "production_wiring": "NOT_PERFORMED",
+  "authority_effect": "NONE"
+}
