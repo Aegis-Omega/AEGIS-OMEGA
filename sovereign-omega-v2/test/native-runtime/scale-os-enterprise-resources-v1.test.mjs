@@ -22,6 +22,14 @@ test('eligibility and terms are explicit independent gates', () => {
   assert.ok(sql.includes("'DENIED_RESOURCE_REVIEW_INCOMPLETE'"))
 })
 
+test('eligibility promotion requires admitted evidence authority', () => {
+  assert.ok(sql.includes("p_evidence_authority not in ('DIRECT_OBSERVATION','PROVIDER_ATTESTATION','DERIVED_FROM_VERIFIED')"))
+  assert.ok(sql.includes("p_eligibility_state = 'ELIGIBLE'"))
+  assert.ok(sql.includes("p_evidence_authority not in ('DIRECT_OBSERVATION','DERIVED_FROM_VERIFIED')"))
+  assert.ok(sql.includes("'DENIED_ELIGIBILITY_EVIDENCE_AUTHORITY'"))
+  assert.ok(sql.includes("'evidence_authority', p_evidence_authority"))
+})
+
 test('offered to claimed to active transitions are sequential', () => {
   assert.ok(sql.includes("if v_current.state <> 'OFFERED'"))
   assert.ok(sql.includes("if v_current.state <> 'CLAIMED'"))
