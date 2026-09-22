@@ -92,10 +92,6 @@ theorem digamma_ofReal_eq_logGamma_deriv_v1 (x : ℝ) (hx : 0 < x) :
       intro m hm
       have hmnonpos : -(m : ℝ) ≤ 0 := by positivity
       linarith)
-  have hflog : HasDerivAt f (deriv f x) x :=
-    ((hGreal.log hGne).congr_of_eventuallyEq (by
-      filter_upwards with y
-      rfl)).hasDerivAt
   have hGcomplex : DifferentiableAt ℂ Complex.Gamma (x : ℂ) :=
     Complex.differentiableAt_Gamma _ (by
       intro m hm
@@ -175,7 +171,8 @@ private theorem logGamma_deriv_shift_sub_log_tendsto_zero_v1
       Real.log ((n : ℝ) + (x - 1)) ≤ deriv f (x + (n : ℝ)) := by
     let a : ℝ := x + (n : ℝ) - 1
     let b : ℝ := x + (n : ℝ)
-    have hn1 : (1 : ℝ) ≤ n := by exact_mod_cast hn
+    have hn1_nat : 1 ≤ n := Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt hn)
+    have hn1 : (1 : ℝ) ≤ (n : ℝ) := by exact_mod_cast hn1_nat
     have ha : 0 < a := by
       dsimp [a]
       linarith
@@ -197,8 +194,14 @@ private theorem logGamma_deriv_shift_sub_log_tendsto_zero_v1
         dsimp [a, b]
         ring
       rw [← hab2, hrec a ha, add_sub_cancel_left]
-    rw [← hslope]
-    exact hs
+    calc
+      Real.log ((n : ℝ) + (x - 1)) = Real.log a := by
+        congr 1
+        dsimp [a]
+        ring
+      _ = slope f a b := hslope.symm
+      _ ≤ deriv f b := hs
+      _ = deriv f (x + (n : ℝ)) := by rfl
   have hUB (n : ℕ) :
       deriv f (x + (n : ℝ)) ≤ Real.log ((n : ℝ) + x) := by
     let a : ℝ := x + (n : ℝ)
@@ -221,7 +224,7 @@ private theorem logGamma_deriv_shift_sub_log_tendsto_zero_v1
         ring
       rw [hab1, div_one]
       rw [show b = a + 1 by rfl, hrec a ha, add_sub_cancel_left]
-    exact hs.trans_eq hslope
+    simpa [a, add_comm] using hs.trans_eq hslope
   have hlow :
       Tendsto
         (fun n : ℕ =>
