@@ -205,26 +205,30 @@ The dedicated `Tameion Arc Evidence Replay` workflow was added because the
 repository-wide GitHub workflows were reporting top-level failures without
 executed steps.
 
-Observed dedicated run:
+Latest code-bearing exact-head replay receipts:
 
+- exact head: `e99bc481b647913f2a7a17a72c5cecab857c9443`
 - workflow: `Tameion Arc Evidence Replay`
-- run id: `35797742015`
-- exact head: `00d66b18fa1b0aa2f4c70a115a076d57f84853e9`
-- workflow conclusion: `failure`
-- job id: `106980836822`
-- job conclusion: `failure`
-- executed steps: **0**
-- job logs: **not available**
+- push run id: `35797866659`
+- push job id: `106981232450`
+- pull-request run id: `35797873008`
+- pull-request job id: `106981252693`
+- both workflow conclusions: `failure`
+- both job conclusions: `failure`
+- executed steps in both jobs: **0**
+- job logs for both jobs: **not available**
 
 Disposition:
 
 ```
 HOSTED_REPLAY_EXECUTED = false
-CODE_FAILURE_FROM_THIS_RUN = NOT_ESTABLISHED
+CODE_FAILURE_FROM_THESE_RUNS = NOT_ESTABLISHED
+RUNNER_OR_PROVIDER_PRE_STEP_FAILURE = OBSERVED
 ```
 
-This historical receipt applies only to the SHA above. Any later head requires a
-fresh hosted replay.
+This receipt applies to the code-bearing SHA above. The later runbook-only commit
+does not change the Python implementation, but any later code-bearing head still
+requires a fresh hosted replay.
 
 ## Hackathon eligibility boundary
 
