@@ -1,12 +1,14 @@
 import hashlib
 import importlib.util
 import json
+import sys
 from pathlib import Path
 
 MODULE = Path(__file__).resolve().parent / "cloudsql_audit.py"
 spec = importlib.util.spec_from_file_location("cloudsql_audit", MODULE)
 audit = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
+sys.modules[spec.name] = audit
 spec.loader.exec_module(audit)
 
 
@@ -109,12 +111,22 @@ class Tx:
         sql = str(statement)
         params = params or {}
         self.engine.calls.append((sql, dict(params)))
-        if "for update" in sql:
+        if "select next_sequence, terminal_hash" in sql:
             return Result([{
                 "next_sequence": self.engine.next_sequence,
                 "terminal_hash": self.engine.terminal_hash,
             }])
-        if sql.startswith("insert into aegis_audit.constitutional_chain_v1"):
+        if "append_constitutional_entry_v1" in sql:
+            if self.engine.reject_next_append:
+                self.engine.reject_next_append = False
+                self.engine.next_sequence += 1
+                self.engine.terminal_hash = "b" * 64
+                return Result([{"accepted": False}])
+            if (
+                params["sequence"] != self.engine.next_sequence
+                or params["previous_entry_hash"] != self.engine.terminal_hash
+            ):
+                return Result([{"accepted": False}])
             self.engine.entries.append({
                 "sequence": params["sequence"],
                 "previous_entry_hash": params["previous_entry_hash"],
@@ -123,16 +135,9 @@ class Tx:
                 "tier": params["tier"],
                 "timestamp_ms": params["timestamp_ms"],
             })
-            return Result(rowcount=1)
-        if sql.startswith("update aegis_audit.constitutional_chain_head_v1"):
-            self.engine.next_sequence = params["next_sequence"]
-            self.engine.terminal_hash = params["terminal_hash"]
-            return Result(rowcount=1)
-        if "where chain_id=:chain_id" in sql:
-            return Result([{
-                "next_sequence": self.engine.next_sequence,
-                "terminal_hash": self.engine.terminal_hash,
-            }])
+            self.engine.next_sequence += 1
+            self.engine.terminal_hash = params["entry_hash"]
+            return Result([{"accepted": True}])
         if "where sequence=:sequence" in sql:
             rows = [x for x in self.engine.entries if x["sequence"] == params["sequence"]]
             return Result(rows)
@@ -147,6 +152,7 @@ class Engine:
         self.entries = []
         self.next_sequence = 0
         self.terminal_hash = audit.GENESIS_HASH
+        self.reject_next_append = False
         self.disposed = False
 
     def begin(self):
@@ -159,7 +165,7 @@ class Engine:
         self.disposed = True
 
 
-def test_append_uses_locked_head_and_preserves_existing_hash_format():
+def test_append_uses_compare_and_swap_and_preserves_existing_hash_format():
     engine = Engine()
     store = audit.CloudSqlAuditStore(engine)
     first = store.append({"b": 2, "a": 1}, "T1", 1000, compute_hash)
@@ -168,7 +174,7 @@ def test_append_uses_locked_head_and_preserves_existing_hash_format():
     assert second["sequence"] == 1
     assert second["previous_entry_hash"] == first["entry_hash"]
     assert engine.next_sequence == 2
-    assert any("for update" in sql for sql, _ in engine.calls)
+    assert sum("append_constitutional_entry_v1" in sql for sql, _ in engine.calls) == 2
 
 
 def test_certify_detects_tamper_and_head_mismatch():
@@ -182,3 +188,23 @@ def test_certify_detects_tamper_and_head_mismatch():
 
 def test_no_password_field_exists_in_config():
     assert "password" not in audit.CloudSqlAuditConfig.__dataclass_fields__
+
+
+def test_append_retries_after_concurrent_writer_moves_head():
+    engine = Engine()
+    engine.reject_next_append = True
+    store = audit.CloudSqlAuditStore(engine)
+    entry = store.append({"worker": "second"}, "T1", 1000, compute_hash)
+    assert entry["sequence"] == 1
+    assert entry["previous_entry_hash"] == "b" * 64
+    assert sum("append_constitutional_entry_v1" in sql for sql, _ in engine.calls) == 2
+
+
+def test_schema_uses_security_definer_cas_and_least_privilege_writer_role():
+    sql = (Path(__file__).resolve().parent.parent / "gcp" / "cloudsql" / "001_constitutional_audit_chain_v1.sql").read_text()
+    assert "security definer" in sql.lower()
+    assert "for update" in sql.lower()
+    assert "return false" in sql.lower()
+    assert "grant execute on function aegis_audit.append_constitutional_entry_v1" in sql
+    assert "grant select, update on aegis_audit.constitutional_chain_head_v1" not in sql
+    assert "grant select, insert on aegis_audit.constitutional_chain_v1" not in sql
