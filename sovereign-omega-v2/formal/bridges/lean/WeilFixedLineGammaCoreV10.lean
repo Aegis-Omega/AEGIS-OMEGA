@@ -50,7 +50,7 @@ theorem weil_paired_profile_integral_one_v10
     intro t
     exact weil_paired_test_fixed_line_profile_v8 f c t
   simp_rw [hprofile] at h
-  simpa [WeilPairedTestV8, WeilReciprocalFnV8] using h
+  simpa [WeilPairedTestV8, WeilReciprocalFnV8, two_mul] using h
 
 /-- Mellin inversion for the actual paired profile at x=exp(u/2). -/
 theorem weil_paired_profile_exp_half_integral_v10
@@ -90,7 +90,6 @@ theorem weil_paired_profile_exp_half_integral_expanded_v10
   have hinv : (Real.exp (u / 2))⁻¹ = Real.exp (-(u / 2)) := by
     rw [← Real.exp_neg]
   rw [hinv]
-  simp
 
 end AEGIS.WeilFixedLineGammaCoreV10
 
