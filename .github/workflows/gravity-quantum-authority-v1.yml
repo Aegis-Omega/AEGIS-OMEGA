@@ -9,11 +9,13 @@ on:
       - "sovereign-omega-v2/python/gravity_quantum_policy.py"
       - "sovereign-omega-v2/python/gravity_quantum_discriminator.py"
       - "sovereign-omega-v2/python/gravity_quantum_scaling.py"
+      - "sovereign-omega-v2/python/gravity_quantum_registry.py"
       - "sovereign-omega-v2/python/gravity_quantum_measurement.py"
       - "sovereign-omega-v2/python/gravity_quantum_external_replay.py"
       - "sovereign-omega-v2/python/tests/test_cross_boundary_authority.py"
       - "sovereign-omega-v2/python/tests/test_gravity_quantum_authority.py"
       - "sovereign-omega-v2/python/tests/test_gravity_quantum_scaling.py"
+      - "sovereign-omega-v2/python/tests/test_gravity_quantum_registry.py"
       - "sovereign-omega-v2/python/tests/test_gravity_quantum_measurement.py"
       - "sovereign-omega-v2/python/tests/test_gravity_quantum_external_replay.py"
       - "sovereign-omega-v2/formal/bridges/lean/GravityQuantumPureProductV1.lean"
@@ -56,11 +58,13 @@ jobs:
             sovereign-omega-v2/python/gravity_quantum_policy.py \
             sovereign-omega-v2/python/gravity_quantum_discriminator.py \
             sovereign-omega-v2/python/gravity_quantum_scaling.py \
+            sovereign-omega-v2/python/gravity_quantum_registry.py \
             sovereign-omega-v2/python/gravity_quantum_measurement.py \
             sovereign-omega-v2/python/gravity_quantum_external_replay.py \
             sovereign-omega-v2/python/tests/test_cross_boundary_authority.py \
             sovereign-omega-v2/python/tests/test_gravity_quantum_authority.py \
             sovereign-omega-v2/python/tests/test_gravity_quantum_scaling.py \
+            sovereign-omega-v2/python/tests/test_gravity_quantum_registry.py \
             sovereign-omega-v2/python/tests/test_gravity_quantum_measurement.py \
             sovereign-omega-v2/python/tests/test_gravity_quantum_external_replay.py
 
@@ -78,6 +82,11 @@ jobs:
         env:
           PYTHONPATH: sovereign-omega-v2/python
         run: python sovereign-omega-v2/python/tests/test_gravity_quantum_scaling.py -v
+
+      - name: Validate contested-model registry
+        env:
+          PYTHONPATH: sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_gravity_quantum_registry.py -v
 
       - name: Run tabletop measurement regressions
         env:
