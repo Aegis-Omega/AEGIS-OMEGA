@@ -29,17 +29,11 @@ private theorem correction_antideriv_v10 (x : ℝ) (hx : 1 ≤ x) :
       (1 / x - 1 / (x + 1)) x := by
   have hx0 : x ≠ 0 := by linarith
   have hx1 : x + 1 ≠ 0 := by linarith
-  have hlogx :
-      HasDerivAt (fun y : ℝ => Real.log y) (1 / x) x := by
-    simpa [one_div] using
-      ((hasDerivAt_id x).log hx0)
-  have hlin :
-      HasDerivAt (fun y : ℝ => y + 1) 1 x := by
-    simpa using (hasDerivAt_id x).add_const 1
+  have hlogx := Real.hasDerivAt_log hx0
   have hlogx1 :
       HasDerivAt (fun y : ℝ => Real.log (y + 1)) (1 / (x + 1)) x := by
-    simpa [one_div] using hlin.log hx1
-  exact hlogx.sub hlogx1
+    simpa using ((hasDerivAt_id' x).add_const 1).log hx1
+  exact (hlogx.sub hlogx1).congr_deriv (by simp [one_div])
 
 private theorem correction_deriv_nonneg_v10 {x : ℝ} (hx : 1 < x) :
     0 ≤ 1 / x - 1 / (x + 1) := by
@@ -50,8 +44,8 @@ private theorem correction_antideriv_tendsto_zero_v10 :
     Tendsto
       (fun x : ℝ => Real.log x - Real.log (x + 1))
       atTop (𝓝 0) := by
-  simpa only [neg_sub] using
-    (Real.tendsto_log_comp_add_sub_log 1).neg
+  have h := (Real.tendsto_log_comp_add_sub_log 1).neg
+  simpa only [neg_sub, neg_zero] using h
 
 
 /-- Integrability of the scalar correction, obtained from the same monotone-FTC
@@ -75,7 +69,7 @@ theorem integrableOn_one_div_mul_one_add_v10 :
         (Ioi (1 : ℝ)) :=
     integrableOn_Ioi_deriv_of_nonneg'
       hderiv hpos correction_antideriv_tendsto_zero_v10
-  refine hdiff.congr_fun ?_ measurableSet_Ioi
+  refine IntegrableOn.congr_fun hdiff ?_ measurableSet_Ioi
   intro x hx
   have hx0 : x ≠ 0 := by
     rw [mem_Ioi] at hx
@@ -103,6 +97,7 @@ theorem integral_one_div_mul_one_add_v10 :
       ∀ x ∈ Ioi (1 : ℝ),
         1 / x - 1 / (x + 1) = 1 / (x * (x + 1)) := by
     intro x hx
+    have hx' : (1 : ℝ) < x := hx
     have hx0 : x ≠ 0 := by linarith
     have hx1 : x + 1 ≠ 0 := by linarith
     field_simp [hx0, hx1]
@@ -114,7 +109,7 @@ theorem integral_one_div_mul_one_add_v10 :
           intro x hx
           exact (hpoint x hx).symm
     _ = 0 - (Real.log 1 - Real.log (1 + 1)) := hbase
-    _ = Real.log 2 := by simp
+    _ = Real.log 2 := by norm_num
 
 end AEGIS.WeilArchimedeanCorrectionV10
 

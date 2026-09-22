@@ -36,11 +36,10 @@ noncomputable def aegisLiNontrivialZeroEquivV10 :
     rcases htriv with ⟨n, hn⟩
     have hpos : 0 < rho.1.re := rho.2.2.1
     have hre := congrArg Complex.re hn
-    have hnonpos :
-        (-(2 : ℂ) * ((n + 1 : ℕ) : ℂ)).re ≤ 0 := by
+    rw [hre] at hpos
+    have hnonpos : (-2 * ((n : ℂ) + 1)).re ≤ 0 := by
       simp
       positivity
-    rw [hre] at hpos
     exact (not_lt_of_ge hnonpos) hpos
   left_inv rho := by
     apply Subtype.ext

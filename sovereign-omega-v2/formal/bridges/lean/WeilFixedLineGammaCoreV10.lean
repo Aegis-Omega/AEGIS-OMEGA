@@ -50,7 +50,9 @@ theorem weil_paired_profile_integral_one_v10
     intro t
     exact weil_paired_test_fixed_line_profile_v8 f c t
   simp_rw [hprofile] at h
-  simpa [WeilPairedTestV8, WeilReciprocalFnV8, two_mul] using h
+  simp [WeilPairedTestV8, WeilReciprocalFnV8] at h ⊢
+  rw [h]
+  ring
 
 /-- Mellin inversion for the actual paired profile at x=exp(u/2). -/
 theorem weil_paired_profile_exp_half_integral_v10

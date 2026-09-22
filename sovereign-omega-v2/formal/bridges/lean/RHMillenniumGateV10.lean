@@ -59,8 +59,7 @@ theorem universal_zero_quadratic_iff_final_sign_v10 :
       AEGIS.RHFinalClosureV1.FinalSignResidualV1 := by
   simpa [UniversalZeroQuadraticNonnegativeV10] using
     (Iff.symm
-      AEGIS.WeilAutocorrelationExplicitFormulaV10
-        .final_sign_residual_iff_zero_quadratic_nonnegative_v10)
+      AEGIS.WeilAutocorrelationExplicitFormulaV10.final_sign_residual_iff_zero_quadratic_nonnegative_v10)
 
 /-- The same final sign target in the zero-shift RKHS component language. -/
 theorem universal_zero_quadratic_iff_zero_shift_dominance_v10 :
@@ -68,8 +67,7 @@ theorem universal_zero_quadratic_iff_zero_shift_dominance_v10 :
       AEGIS.RHTranslatedKernelDominanceV1.ZeroShiftComponentDominanceV1 := by
   rw [universal_zero_quadratic_iff_final_sign_v10]
   exact
-    AEGIS.RHTranslatedKernelDominanceV1
-      .zero_shift_component_dominance_iff_final_sign_v1.symm
+    AEGIS.RHTranslatedKernelDominanceV1.zero_shift_component_dominance_iff_final_sign_v1.symm
 
 /-- Formal target for kernelizing the mathematical restricted-Weil criterion.
 The mathematical proof note establishes this implication on paper, but this

@@ -1,4 +1,5 @@
 import WeilExplicitFormulaV10
+import RHFinalClosureSpineV1
 import WeilAutocorrelationClosureV1
 import WeilAutocorrelationPoleAggregationV1
 import WeilAutocorrelationRealityV1
@@ -48,7 +49,7 @@ theorem autocorrelation_explicit_formula_v10
         mellin (WeilAutocorrelationV1 g) 1 -
         WeilExplicitRightSideV1 (WeilAutocorrelationV1 g) at hEF
   rw [hpole, zero_sub] at hEF
-  exact neg_eq_iff_eq_neg.mpr hEF.symm
+  exact neg_eq_iff_eq_neg.mp hEF.symm
 
 /-- The final arithmetic sign is exactly nonnegativity of the real part of
 the canonical zero quadratic. -/
@@ -65,13 +66,13 @@ theorem autocorrelation_arithmetic_nonpositive_iff_zero_nonnegative_v10
 left: it is precisely universal nonnegativity of the canonical zero
 quadratic on the moment-zero compact-smooth class. -/
 theorem final_sign_residual_iff_zero_quadratic_nonnegative_v10 :
-    FinalSignResidualV1 ↔
+    AEGIS.RHFinalClosureV1.FinalSignResidualV1 ↔
       ∀ g : WeilCompactSmoothGV1,
         WeilMomentConditionsV1 g →
         0 ≤
           (∑' rho : RiemannNontrivialZeroIndexV2,
             WeilZeroIndexSummandV1 (WeilAutocorrelationV1 g) rho).re := by
-  unfold FinalSignResidualV1
+  unfold AEGIS.RHFinalClosureV1.FinalSignResidualV1
   constructor
   · intro h g hm
     exact
