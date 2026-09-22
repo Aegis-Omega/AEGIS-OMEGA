@@ -174,14 +174,26 @@ export default {
     // ── Hosted enterprise replay receipt (preview hosts only) ────────────────
     if (pathname === '/__aegis/ci/enterprise-replay' && method === 'GET') {
       const hostname = new URL(request.url).hostname
+      const receipt = ENTERPRISE_REPLAY_RECEIPT
+      const receiptStatusAdmissible = receipt.status === 'PASS' || receipt.status === 'FAIL'
+      const exactHeadInternallyBound =
+        typeof receipt.source_head === 'string' &&
+        receipt.source_head.length === 40 &&
+        receipt.source_head === receipt.workers_ci_commit_sha
+      const buildIdentityPresent =
+        typeof receipt.build_uuid === 'string' &&
+        receipt.build_uuid.length > 0
+
       if (
         !hostname.endsWith('.workers.dev') ||
-        ENTERPRISE_REPLAY_RECEIPT.branch !== 'feat/openai-sota-autonomous-company-v1' ||
-        ENTERPRISE_REPLAY_RECEIPT.status === 'UNVERIFIED_SOURCE_ONLY'
+        receipt.branch !== 'feat/openai-sota-autonomous-company-v1' ||
+        !receiptStatusAdmissible ||
+        !exactHeadInternallyBound ||
+        !buildIdentityPresent
       ) {
         return err('Enterprise replay receipt is not available on this host/build.', 'CI_RECEIPT_NOT_AVAILABLE', 404)
       }
-      return ok(ENTERPRISE_REPLAY_RECEIPT)
+      return ok(receipt)
     }
 
     // ── Health & telemetry endpoints (used by hub every 5 s) ─────────────────
