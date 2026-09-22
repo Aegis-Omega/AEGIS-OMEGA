@@ -5,7 +5,7 @@
   "models": [
     {
       "id": "PERTURBATIVE_QG_NEWTONIAN_SMALL_DX",
-      "evidence_class": "THEOREETICAL_MODEL",
+      "evidence_class": "THEORETICAL_MODEL",
       "source": {
         "doi": "10.1038/s41586-025-09595-7",
         "source_role": "Nature paper's perturbative-QG comparison formula"
