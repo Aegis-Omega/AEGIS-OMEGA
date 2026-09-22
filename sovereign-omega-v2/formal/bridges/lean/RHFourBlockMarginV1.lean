@@ -2,17 +2,18 @@ import RHFourBlockBoundObstructionV1
 import Mathlib.Tactic
 
 /-!
-AEGIS Ω — four-block margin target v1.
+AEGIS Ω — historical equal-coefficient four-block scalar budget v1.
 
-This isolates the exact scalar improvement required to extend the current
-three-block absolute-cross certificate to four consecutive blocks, while
-keeping the existing adjacent (51/100) and next-neighbour (9/25) bounds.
+Scope correction: 9/8 is ONLY the equal-coefficient scalar threshold after
+omitting the farthest pair. It is NOT an all-coefficient PSD or Gershgorin
+threshold. The existing theorem statements below remain unchanged for
+compatibility. Their arithmetic is valid; the earlier general interpretation
+was not. RHFourBlockComparisonV2 contains the exact counterexample and the
+complete six-pair sum-of-squares certificate.
 
-Current diagonal coercivity is 103/100.  The four-block absolute budget closes
-exactly at 9/8, so the missing per-diagonal margin is 19/200.
-
-This is a residual theorem only.  It does not assert that the stronger
-diagonal estimate is available, and it does not assert global Weil sign or RH.
+The 19/200 number is the increment from 103/100 to this truncated scalar
+threshold, not a sufficient analytic residual for arbitrary four-block tests.
+No stronger diagonal estimate, global Weil sign, or RH is asserted.
 
 AUTHORITY_EFFECT = NONE
 RH = NOT_PROVEN
@@ -22,20 +23,19 @@ set_option autoImplicit false
 
 namespace AEGIS.RHFourBlockMarginV1
 
-/-- Exact diagonal coefficient required by the current four-block
-Gershgorin/absolute-cross aggregation. -/
+/-- Historical name: equal-coefficient truncated scalar threshold only. -/
 theorem four_block_required_diagonal_v1 :
     (2 * (3 * ((51 : ℝ) / 100) + 2 * ((9 : ℝ) / 25))) / 4 =
       (9 : ℝ) / 8 := by
   norm_num
 
-/-- Exact improvement over the current 103/100 diagonal certificate. -/
+/-- Increment to the truncated equal-coefficient threshold, not a PSD proof. -/
 theorem four_block_required_increment_v1 :
     (9 : ℝ) / 8 - (103 : ℝ) / 100 = (19 : ℝ) / 200 := by
   norm_num
 
-/-- A 9/8 diagonal lower bound is sufficient to close the four-block
-absolute-cross scalar budget with the existing cross constants. -/
+/-- Closes only the displayed scalar inequality. This statement has neither
+four arbitrary coefficients nor a bound for the farthest pair. -/
 theorem four_block_budget_closes_at_nine_eighths_v1
     (E : ℝ) (hE : 0 ≤ E)
     (D : ℝ) (hD : (9 / 8 : ℝ) * E ≤ D) :
@@ -48,8 +48,7 @@ theorem four_block_budget_closes_at_nine_eighths_v1
   rw [hscalar]
   nlinarith
 
-/-- Equivalent residual formulation: improving 103/100 by 19/200 reaches
-exactly the four-block threshold. -/
+/-- Preserved arithmetic identity with the corrected scalar-only scope. -/
 theorem current_plus_missing_margin_eq_required_v1 :
     (103 : ℝ) / 100 + (19 : ℝ) / 200 = (9 : ℝ) / 8 := by
   norm_num
