@@ -382,3 +382,12 @@ grant execute on function scale_os.create_enterprise_opportunity_v1(
 grant execute on function scale_os.advance_enterprise_opportunity_v1(
   uuid, text, text, text, text, text, text, bigint
 ) to service_role;
+
+
+-- Explicit ownership is part of the direct-enterprise-event INSERT boundary.
+alter function scale_os.create_enterprise_opportunity_v1(
+  text, text, text, text, text, text, bigint
+) owner to postgres;
+alter function scale_os.advance_enterprise_opportunity_v1(
+  uuid, text, text, text, text, text, text, bigint
+) owner to postgres;
