@@ -141,8 +141,11 @@ private theorem xi_factorization_eventually_v10
     norm_num at hz
   have hGamma : Complex.Gammaℝ z ≠ 0 :=
     Complex.Gammaℝ_ne_zero_of_re_pos (lt_trans zero_lt_one hz)
-  have hxi :=
-    li_xi_eq_half_mul_completed_v1 hz0 hz1
+  have hxi :
+      LiCriterion.riemannXi z =
+        (1 / 2 : ℂ) * z * (z - 1) * completedRiemannZeta z := by
+    simpa [LiCriterion.riemannXi, XiZeros.riemannXi] using
+      (XiZeros.xi_eq_half_s_sm1_Lambda (s := z) hz0 hz1)
   have hzetaDef :=
     riemannZeta_def_of_ne_zero hz0
   have hcompleted :
