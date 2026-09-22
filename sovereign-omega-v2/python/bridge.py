@@ -1566,6 +1566,55 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 'description': 'Each agent gives the next agent a grace.',
             }))
 
+        elif self.path.startswith('/platform/archive/runtime'):
+            # Bounded recovered archive runtime. Status is public; compute paths
+            # require the existing platform API key. All operations are local,
+            # ephemeral, GET-only, and authority-neutral.
+            import uuid as _uuid_ar
+            import urllib.parse as _up_ar
+            from archive_runtime_api import (
+                discover_archive_runtime_root as _discover_archive_runtime_root,
+                dispatch_archive_runtime_get as _dispatch_archive_runtime_get,
+            )
+
+            _parsed_ar = _up_ar.urlparse(self.path)
+            _status_paths = {
+                '/platform/archive/runtime',
+                '/platform/archive/runtime/',
+                '/platform/archive/runtime/status',
+            }
+            if _parsed_ar.path not in _status_paths:
+                api_key = self.headers.get('x-api-key', '')
+                try:
+                    _email, _tier = _platform_verify_api_key(api_key)
+                except ValueError as exc:
+                    self._platform_respond(
+                        401, {'error': str(exc), 'code': 'UNAUTHORIZED'}
+                    )
+                    return
+
+            try:
+                _archive_root = _discover_archive_runtime_root(__file__)
+                _archive_code, _archive_payload = _dispatch_archive_runtime_get(
+                    self.path,
+                    repository_root=_archive_root,
+                )
+            except Exception:
+                self._platform_respond(503, {
+                    'error': 'archive runtime unavailable',
+                    'code': 'INVALID_OR_STALE',
+                    'authority_effect': 'NONE',
+                })
+                return
+
+            if _archive_code == 200:
+                _archive_eid = str(_uuid_ar.uuid4())
+                self._platform_respond(
+                    200, _platform_envelope(_archive_eid, _archive_payload)
+                )
+            else:
+                self._platform_respond(_archive_code, _archive_payload)
+
         elif self.path.startswith('/platform/compliance/export'):
             # GET /platform/compliance/export — HIPAA §164.312(b) audit trail export.
             # Returns tamper-evident AI governance records from revenue_cycles.

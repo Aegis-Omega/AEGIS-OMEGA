@@ -4,8 +4,10 @@ steps:
       - build
       - -t
       - gcr.io/$PROJECT_ID/aegis-vertex:latest
-      # Build context = sovereign-omega-v2/ so python/ and dist/ land in the image
-      - sovereign-omega-v2/
+      # Root build context is required for the bounded recovered runtime subset.
+      - -f
+      - sovereign-omega-v2/Dockerfile
+      - .
 
   - name: 'gcr.io/cloud-builders/docker'
     args: [push, gcr.io/$PROJECT_ID/aegis-vertex:latest]

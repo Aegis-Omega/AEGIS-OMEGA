@@ -1,0 +1,13 @@
+{
+  "schema": "AEGIS_SOVEREIGN_BRAIN_HISTORICAL_PROVENANCE_V1",
+  "source_archive": {
+    "filename": "Documents/AEGIS--.zip",
+    "sha256": "3d0e5e33545c38cadd294c1ca55a40542a91c5b6c9195f23ff920c1f7c5c73c4",
+    "historical_commit": "81b0470bec975e86b7abb7d910d34d505920a7e5"
+  },
+  "artifact_count": 7,
+  "destination": "reports/archive-provenance/sovereign-brain-v1/",
+  "active_specification": false,
+  "production_wiring": "NOT_PERFORMED",
+  "authority_effect": "NONE"
+}
