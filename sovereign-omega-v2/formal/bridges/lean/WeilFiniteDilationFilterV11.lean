@@ -152,6 +152,74 @@ theorem mellin_finiteDilationFilter_v11
   simp [FiniteDilationFactorV11, Complex.cpow_neg_one]
   norm_num
 
+
+/-- Algebraic factorization of the finite-dilation multiplier. -/
+theorem finiteDilationFactor_factor_v11 (s : ℂ) :
+    FiniteDilationFactorV11 s =
+      (1 - (2 : ℂ) ^ (-s)) *
+        (1 - (2 : ℂ) ^ (1 - s)) := by
+  have h4 :
+      (4 : ℂ) ^ (-s) =
+        (2 : ℂ) ^ (-s) * (2 : ℂ) ^ (-s) := by
+    calc
+      (4 : ℂ) ^ (-s)
+          = ((2 : ℂ) * (2 : ℂ)) ^ (-s) := by norm_num
+      _ = (2 : ℂ) ^ (-s) * (2 : ℂ) ^ (-s) := by
+          simpa using
+            (Complex.mul_cpow_ofReal_nonneg
+              (a := (2 : ℝ)) (b := (2 : ℝ))
+              (by norm_num) (by norm_num) (-s))
+  have h2 :
+      (2 : ℂ) ^ (1 - s) =
+        2 * (2 : ℂ) ^ (-s) := by
+    calc
+      (2 : ℂ) ^ (1 - s)
+          = (2 : ℂ) ^ ((1 : ℂ) + (-s)) := by congr 1 <;> ring
+      _ = (2 : ℂ) ^ (1 : ℂ) * (2 : ℂ) ^ (-s) := by
+          rw [Complex.cpow_add _ _ (by norm_num : (2 : ℂ) ≠ 0)]
+      _ = 2 * (2 : ℂ) ^ (-s) := by simp
+  rw [FiniteDilationFactorV11, h4, h2]
+  ring
+
+/-- NEW LOAD-BEARING PRODUCER: the two-moment filter does not kill any
+Mellin value in the strict critical strip. -/
+theorem finiteDilationFactor_ne_zero_in_strip_v11
+    {s : ℂ} (h0 : 0 < s.re) (h1 : s.re < 1) :
+    FiniteDilationFactorV11 s ≠ 0 := by
+  rw [finiteDilationFactor_factor_v11]
+  apply mul_ne_zero
+  · intro h
+    have heq : (2 : ℂ) ^ (-s) = 1 := by
+      exact (sub_eq_zero.mp h).symm
+    have hnorm :
+        ‖(2 : ℂ) ^ (-s)‖ < 1 := by
+      rw [Complex.norm_cpow_eq_rpow_re_of_pos (by norm_num : (0 : ℝ) < 2)]
+      simp only [neg_re]
+      exact Real.rpow_lt_one_of_one_lt_of_neg (by norm_num) (by linarith)
+    rw [heq, norm_one] at hnorm
+    exact (lt_irrefl (1 : ℝ)) hnorm
+  · intro h
+    have heq : (2 : ℂ) ^ (1 - s) = 1 := by
+      exact (sub_eq_zero.mp h).symm
+    have hnorm :
+        1 < ‖(2 : ℂ) ^ (1 - s)‖ := by
+      rw [Complex.norm_cpow_eq_rpow_re_of_pos (by norm_num : (0 : ℝ) < 2)]
+      apply Real.one_lt_rpow (by norm_num)
+      simp only [sub_re, one_re]
+      linarith
+    rw [heq, norm_one] at hnorm
+    exact (lt_irrefl (1 : ℝ)) hnorm
+
+/-- Filtering preserves nonvanishing at every strict-strip Mellin point. -/
+theorem finiteDilationFilter_mellin_ne_zero_in_strip_v11
+    (f : WeilCompactSmoothGV1) {s : ℂ}
+    (h0 : 0 < s.re) (h1 : s.re < 1)
+    (hf : mellin f.1 s ≠ 0) :
+    mellin (FiniteDilationFilterV11 f).1 s ≠ 0 := by
+  rw [mellin_finiteDilationFilter_v11]
+  exact mul_ne_zero
+    (finiteDilationFactor_ne_zero_in_strip_v11 h0 h1) hf
+
 /-- The filtered packet has Mellin value zero at s=0. -/
 theorem finiteDilationFilter_mellin_zero_v11
     (f : WeilCompactSmoothGV1) :
