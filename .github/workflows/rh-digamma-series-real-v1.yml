@@ -7,6 +7,7 @@ on:
     paths:
       - 'sovereign-omega-v2/formal/bridges/lean/WeilDigammaIntegralReductionV1.lean'
       - 'sovereign-omega-v2/formal/bridges/lean/WeilDigammaSeriesRealV1.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/WeilDigammaSeriesHalfPlaneV1.lean'
       - '.github/workflows/rh-digamma-series-real-v1.yml'
   workflow_dispatch:
 
@@ -70,22 +71,28 @@ jobs:
           mkdir -p .lake/build/lib/lean evidence
           cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilDigammaIntegralReductionV1.lean .
           cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilDigammaSeriesRealV1.lean .
-          sha256sum WeilDigammaIntegralReductionV1.lean WeilDigammaSeriesRealV1.lean >> exact-source.log
+          cp .aegis/sovereign-omega-v2/formal/bridges/lean/WeilDigammaSeriesHalfPlaneV1.lean .
+          sha256sum WeilDigammaIntegralReductionV1.lean WeilDigammaSeriesRealV1.lean WeilDigammaSeriesHalfPlaneV1.lean >> exact-source.log
           lake env lean -o .lake/build/lib/lean/WeilDigammaIntegralReductionV1.olean WeilDigammaIntegralReductionV1.lean 2>&1 | tee evidence/reduction.log
           lake env lean -o .lake/build/lib/lean/WeilDigammaSeriesRealV1.olean WeilDigammaSeriesRealV1.lean 2>&1 | tee evidence/series-real.log
+          lake env lean -o .lake/build/lib/lean/WeilDigammaSeriesHalfPlaneV1.olean WeilDigammaSeriesHalfPlaneV1.lean 2>&1 | tee evidence/series-half-plane.log
 
       - name: Audit public theorem closures
         shell: bash
         run: |
           set -euo pipefail
           cat > WeilDigammaSeriesRealAudit.lean <<'EOF'
-          import WeilDigammaSeriesRealV1
+          import WeilDigammaSeriesHalfPlaneV1
           #print axioms AEGIS.WeilDigammaSeriesRealV1.summable_norm_seriesTerm_v1
           #print axioms AEGIS.WeilDigammaSeriesRealV1.digamma_ofReal_eq_logGamma_deriv_v1
           #print axioms AEGIS.WeilDigammaSeriesRealV1.logGamma_deriv_shift_v1
           #print axioms AEGIS.WeilDigammaSeriesRealV1.logGamma_deriv_shift_sub_log_tendsto_zero_v1
           #print axioms AEGIS.WeilDigammaSeriesRealV1.real_digamma_series_v1
           #print axioms AEGIS.WeilDigammaSeriesRealV1.digamma_series_ofReal_v1
+          #print axioms AEGIS.WeilDigammaSeriesHalfPlaneV1.analyticOnNhd_series_tsum_v1
+          #print axioms AEGIS.WeilDigammaSeriesHalfPlaneV1.analyticOnNhd_digamma_add_gamma_v1
+          #print axioms AEGIS.WeilDigammaSeriesHalfPlaneV1.digamma_series_halfPlane_v1
+          #print axioms AEGIS.WeilDigammaSeriesHalfPlaneV1.gauss_digamma_integral_v1
           EOF
           lake env lean WeilDigammaSeriesRealAudit.lean 2>&1 | tee evidence/axioms.log
           ! grep -F 'sorryAx' evidence/axioms.log
