@@ -111,6 +111,7 @@ try {
     'src/sovereignty/company-enterprise-ledger-reconcile.ts',
     'src/sovereignty/company-enterprise-production-readiness.ts',
     'src/sovereignty/company-enterprise-prospect-admission.ts',
+    'src/sovereignty/company-hosted-replay-admission.ts',
   ], cwd, 'STRICT_TSC')
 
   const tests = [
@@ -135,6 +136,7 @@ try {
     'test/native-runtime/company-enterprise-ledger-reconcile.test.mjs',
     'test/native-runtime/company-enterprise-production-readiness.test.mjs',
     'test/native-runtime/company-enterprise-prospect-admission.test.mjs',
+    'test/native-runtime/company-hosted-replay-admission.test.mjs',
   ]
 
   run('node', ['--test', ...tests], cwd, 'NODE_TEST')
