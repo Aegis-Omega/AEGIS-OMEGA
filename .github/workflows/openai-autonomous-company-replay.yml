@@ -63,16 +63,8 @@ jobs:
             test/native-runtime/openai-autonomous-company.test.mjs \
             test/native-runtime/openai-company-production.test.mjs \
             test/native-runtime/company-evidence-authority.test.mjs \
-            test/native-runtime/company-approval-packet.test.mjs
-
-      - name: Validate durable-ledger migration is evidence-only
-        run: |
-          set -euo pipefail
-          migration=../supabase/migrations/20260922171000_autonomous_company_work_ledger_v1.sql
-          test -s "$migration"
-          grep -q "authority_effect = NONE" "$migration"
-          grep -q "enable row level security" "$migration"
-          grep -q "revoke all" "$migration"
+            test/native-runtime/company-approval-packet.test.mjs \
+            test/native-runtime/company-ledger-migration.test.mjs
 
       - name: Emit exact-head receipt
         run: |
@@ -94,11 +86,13 @@ jobs:
               'sovereign-omega-v2/test/native-runtime/company-approval-packet.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-evidence-authority.test.mjs',
               'sovereign-omega-v2/test/native-runtime/openai-company-production.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-ledger-migration.test.mjs',
               'supabase/migrations/20260922171000_autonomous_company_work_ledger_v1.sql',
           ]
           head = subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'], text=True).strip()
           if head != os.environ['EXPECTED_HEAD']:
               raise SystemExit('exact-head drift')
+
           receipt = {
               'schema': 'AEGIS_OPENAI_AUTONOMOUS_COMPANY_REPLAY_V1',
               'head_sha': head,
@@ -106,12 +100,14 @@ jobs:
                   ['git','-C',str(root),'rev-parse','HEAD^{tree}'], text=True
               ).strip(),
               'run_id': os.environ['GITHUB_RUN_ID'],
+              'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
               'job': os.environ['GITHUB_JOB'],
+              'workflow_ref': os.environ['GITHUB_WORKFLOW_REF'],
               'sha256': {
                   p: hashlib.sha256((root / p).read_bytes()).hexdigest()
                   for p in paths
               },
-              'local_contract': 'TYPECHECK_AND_FALSIFIERS_PASS',
+              'execution_contract': 'TYPECHECK_AND_25_FALSIFIERS_PASS',
               'live_openai_execution': 'NOT_PERFORMED',
               'write_authority': 'NOT_GRANTED',
               'merge_authority': 'NOT_GRANTED',
