@@ -425,3 +425,15 @@ grant execute on function scale_os.update_enterprise_resource_review_v1(
 grant execute on function scale_os.transition_enterprise_resource_state_v1(
   uuid, text, text, text, text
 ) to service_role;
+
+
+-- Explicit ownership is part of the direct-enterprise-event INSERT boundary.
+alter function scale_os.record_enterprise_resource_offer_v1(
+  text, text, text, bigint, text, text, text, text, timestamptz
+) owner to postgres;
+alter function scale_os.update_enterprise_resource_review_v1(
+  uuid, text, text, boolean, text, text, text
+) owner to postgres;
+alter function scale_os.transition_enterprise_resource_state_v1(
+  uuid, text, text, text, text
+) owner to postgres;
