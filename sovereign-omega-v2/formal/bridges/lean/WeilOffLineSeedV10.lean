@@ -1,4 +1,5 @@
 import WeilPairedZeroEvaluationV9
+import WeilMixedAlgebraV2
 import Mathlib.Analysis.Calculus.BumpFunction.Normed
 import Mathlib.Tactic
 
@@ -205,6 +206,50 @@ theorem seedPacket_mellin_ne_zero_v10 (s : ℂ) :
   rw [seedPacket_mellin_self_v10]
   exact Complex.ofReal_ne_zero.mpr
     (ne_of_gt seedBump_integral_pos_v10)
+
+
+/-- Mellin transform is additive on repository packets; convergence is
+automatic for the compact-smooth class. -/
+theorem mellin_addPacket_v10
+    (a b : WeilCompactSmoothGV1) (s : ℂ) :
+    mellin (AEGIS.WeilMixedAlgebraV2.addPacket a b).1 s =
+      mellin a.1 s + mellin b.1 s := by
+  have ha := weil_compact_smooth_mellin_convergent_all_v1 a s
+  have hb := weil_compact_smooth_mellin_convergent_all_v1 b s
+  have h := hasMellin_add ha hb
+  simpa [AEGIS.WeilMixedAlgebraV2.addPacket] using h.2
+
+/-- For any two prescribed spectral points there is one compact-smooth packet
+whose Mellin transform is nonzero at both.  No approximation or genericity
+argument is needed: one of seed(s), seed(t), or their sum works. -/
+theorem exists_packet_mellin_ne_zero_pair_v10
+    (s t : ℂ) :
+    ∃ g : WeilCompactSmoothGV1,
+      mellin g.1 s ≠ 0 ∧ mellin g.1 t ≠ 0 := by
+  let gs := seedPacketV10 s
+  let gt := seedPacketV10 t
+  have hss : mellin gs.1 s ≠ 0 := by
+    simpa [gs] using seedPacket_mellin_ne_zero_v10 s
+  have htt : mellin gt.1 t ≠ 0 := by
+    simpa [gt] using seedPacket_mellin_ne_zero_v10 t
+  by_cases hst : mellin gs.1 t ≠ 0
+  · exact ⟨gs, hss, hst⟩
+  · by_cases hts : mellin gt.1 s ≠ 0
+    · exact ⟨gt, hts, htt⟩
+    · let gsum := AEGIS.WeilMixedAlgebraV2.addPacket gs gt
+      have hs :
+          mellin gsum.1 s = mellin gs.1 s := by
+        rw [mellin_addPacket_v10]
+        simp [hts]
+      have ht :
+          mellin gsum.1 t = mellin gt.1 t := by
+        rw [mellin_addPacket_v10]
+        simp [hst]
+      refine ⟨gsum, ?_, ?_⟩
+      · rw [hs]
+        exact hss
+      · rw [ht]
+        exact htt
 
 end AEGIS.WeilOffLineSeedV10
 
