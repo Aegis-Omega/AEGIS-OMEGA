@@ -67,12 +67,22 @@ jobs:
             test/native-runtime/openai-company-production.test.mjs \
             test/native-runtime/company-evidence-authority.test.mjs \
             test/native-runtime/company-approval-packet.test.mjs \
-            test/native-runtime/company-ledger-migration.test.mjs \
             test/native-runtime/company-model-promotion.test.mjs \
             test/native-runtime/company-work-graph.test.mjs \
-            test/native-runtime/company-task-lease-sql.test.mjs \
+            test/native-runtime/scale-os-company-runtime-v2.test.mjs \
             test/native-runtime/openai-complimentary-canary.test.mjs \
             test/native-runtime/company-enterprise-opportunity.test.mjs
+
+      - name: Execute Cloud SQL audit source contracts
+        run: |
+          set -euo pipefail
+          cd ..
+          python3 -m py_compile \
+            vertex/cloudsql_audit.py \
+            vertex/serve.py \
+            vertex/test_cloudsql_audit.py \
+            vertex/run_cloudsql_audit_contract.py
+          python3 vertex/run_cloudsql_audit_contract.py
 
       - name: Emit exact-head receipt
         run: |
@@ -96,16 +106,20 @@ jobs:
               'sovereign-omega-v2/test/native-runtime/company-approval-packet.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-evidence-authority.test.mjs',
               'sovereign-omega-v2/test/native-runtime/openai-company-production.test.mjs',
-              'sovereign-omega-v2/test/native-runtime/company-ledger-migration.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-model-promotion.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-work-graph.test.mjs',
-              'sovereign-omega-v2/test/native-runtime/company-task-lease-sql.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/scale-os-company-runtime-v2.test.mjs',
               'sovereign-omega-v2/scripts/openai-complimentary-canary.mjs',
               'sovereign-omega-v2/test/native-runtime/openai-complimentary-canary.test.mjs',
               'sovereign-omega-v2/src/sovereignty/company-enterprise-opportunity.ts',
               'sovereign-omega-v2/test/native-runtime/company-enterprise-opportunity.test.mjs',
-              'supabase/migrations/20260922171000_autonomous_company_work_ledger_v1.sql',
-              'supabase/migrations/20260922180000_company_task_lease_fencing_v1.sql',
+              'supabase/migrations/20260922193000_scale_os_company_runtime_v2.sql',
+              'vertex/cloudsql_audit.py',
+              'vertex/serve.py',
+              'vertex/Dockerfile',
+              'vertex/test_cloudsql_audit.py',
+              'vertex/run_cloudsql_audit_contract.py',
+              'gcp/cloudsql/001_constitutional_audit_chain_v1.sql',
           ]
           head = subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'], text=True).strip()
           if head != os.environ['EXPECTED_HEAD']:
@@ -131,13 +145,15 @@ jobs:
                   'openai-company-production.test.mjs',
                   'company-evidence-authority.test.mjs',
                   'company-approval-packet.test.mjs',
-                  'company-ledger-migration.test.mjs',
                   'company-model-promotion.test.mjs',
                   'company-work-graph.test.mjs',
-                  'company-task-lease-sql.test.mjs',
+                  'scale-os-company-runtime-v2.test.mjs',
                   'openai-complimentary-canary.test.mjs',
                   'company-enterprise-opportunity.test.mjs',
               ],
+              'cloud_sql_contract': 'PY_COMPILE_AND_OFFLINE_CONTRACT_PASS',
+              'supabase_scale_os_migration': 'SOURCE_ONLY_NOT_APPLIED',
+              'cloud_sql_schema': 'SOURCE_ONLY_NOT_APPLIED',
               'live_openai_execution': 'NOT_PERFORMED',
               'write_authority': 'NOT_GRANTED',
               'merge_authority': 'NOT_GRANTED',
