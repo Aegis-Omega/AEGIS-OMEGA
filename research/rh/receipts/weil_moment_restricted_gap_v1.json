@@ -1,0 +1,184 @@
+{
+  "authority": "T1_NUMERICAL_DIAGNOSTIC",
+  "basis_dimension_sweep": [
+    {
+      "k_basis_dim": 5,
+      "lambda_min_interval": [
+        -10.518732390186,
+        -10.518711350742
+      ],
+      "n_negative": 1
+    },
+    {
+      "k_basis_dim": 10,
+      "lambda_min_interval": [
+        -10.853200621053,
+        -10.853178912674
+      ],
+      "n_negative": 1
+    },
+    {
+      "k_basis_dim": 20,
+      "lambda_min_interval": [
+        -11.024937779736,
+        -11.024915727882
+      ],
+      "n_negative": 1
+    },
+    {
+      "k_basis_dim": 40,
+      "lambda_min_interval": [
+        -11.129245193021,
+        -11.129222932553
+      ],
+      "n_negative": 1
+    },
+    {
+      "k_basis_dim": 60,
+      "lambda_min_interval": [
+        -11.17049643737,
+        -11.1704740944
+      ],
+      "n_negative": 1
+    },
+    {
+      "k_basis_dim": 80,
+      "lambda_min_interval": [
+        -11.190108194888,
+        -11.190085812694
+      ],
+      "n_negative": 1
+    },
+    {
+      "k_basis_dim": 120,
+      "lambda_min_interval": [
+        -11.210950314012,
+        -11.210927890133
+      ],
+      "n_negative": 1
+    }
+  ],
+  "classification": "NEGATIVE_NUMERICAL_EVIDENCE",
+  "epsilon_tends_to_zero": false,
+  "extra_constraint_cases": [
+    {
+      "kind": "pole",
+      "lambda_min_interval": [
+        -11.00834853758,
+        -11.008326518905
+      ],
+      "n_negative": 1,
+      "parameter": 10.0,
+      "reduced_dimension": 39
+    },
+    {
+      "kind": "pole",
+      "lambda_min_interval": [
+        -11.01589162615,
+        -11.015869592388
+      ],
+      "n_negative": 1,
+      "parameter": 20.0,
+      "reduced_dimension": 39
+    },
+    {
+      "kind": "pole",
+      "lambda_min_interval": [
+        -10.968309012748,
+        -10.968287074152
+      ],
+      "n_negative": 1,
+      "parameter": 40.0,
+      "reduced_dimension": 39
+    },
+    {
+      "kind": "point",
+      "lambda_min_interval": [
+        -0.183264907634,
+        -0.183264539104
+      ],
+      "n_negative": 1,
+      "parameter": 0.0,
+      "reduced_dimension": 39
+    }
+  ],
+  "global_weil_positivity_proven": false,
+  "interlacing_caveat": "Cauchy interlacing: restricting to a subspace can only raise lambda_min, so shrinkage under added constraints is guaranteed and is not progress.",
+  "negative_direction": {
+    "coincides_with_negative_archimedean_weight_at_origin": true,
+    "l2_mass_fraction_within_5_interval": [
+      0.926695629572,
+      0.926697484965
+    ],
+    "lambda_min_interval": [
+      -11.024937779736,
+      -11.024915727882
+    ],
+    "peak_abscissa_interval": [
+      -0.025417067513,
+      -0.023417018679
+    ]
+  },
+  "observed_gap_limit_estimate": -11.22,
+  "obstruction_rank": 1,
+  "pole_moment_explains_obstruction": false,
+  "prime_cutoff_sweep": [
+    {
+      "lambda_min_interval": [
+        -11.024935652971,
+        -11.024913601122
+      ],
+      "n_negative": 1,
+      "p_cutoff": 200,
+      "scalar_shift_S_P_0_interval": [
+        -57.704851930451,
+        -57.704736518863
+      ]
+    },
+    {
+      "lambda_min_interval": [
+        -11.024937779736,
+        -11.024915727882
+      ],
+      "n_negative": 1,
+      "p_cutoff": 1000,
+      "scalar_shift_S_P_0_interval": [
+        -126.387822743626,
+        -126.387569966233
+      ]
+    },
+    {
+      "lambda_min_interval": [
+        -11.024936186844,
+        -11.024914134993
+      ],
+      "n_negative": 1,
+      "p_cutoff": 5000,
+      "scalar_shift_S_P_0_interval": [
+        -282.836191870744,
+        -282.835626196926
+      ]
+    },
+    {
+      "lambda_min_interval": [
+        -11.024937478109,
+        -11.024915426256
+      ],
+      "n_negative": 1,
+      "p_cutoff": 20000,
+      "scalar_shift_S_P_0_interval": [
+        -565.377198312048,
+        -565.376067556782
+      ]
+    }
+  ],
+  "probe_id": "WEIL-MOMENT-RESTRICTED-GAP-V1",
+  "receipt_sha256": "f837dff53450fcadb46555ad394cd8d4ba269427797f5c5e6b9fd31659e563af",
+  "refutes": null,
+  "rh_authority": "NONE",
+  "rh_proven": false,
+  "scalar_shift_explains_obstruction": false,
+  "schema_version": "1.0.0",
+  "source": "research/rh/weil_moment_restricted_gap_probe.py",
+  "target_obligation": "W8_DensityContinuityCoverage"
+}
