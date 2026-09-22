@@ -175,3 +175,59 @@ test('state domain mismatch and excessive TTL fail closed', async () => {
     /ttl_generations/,
   )
 })
+
+
+test('active lease snapshot blocks a second worker until expiry', async () => {
+  const first = await api.createCompanyTaskLeaseV1({
+    graph,
+    states: { research: 'PLANNED', draft: 'PLANNED', verify: 'PLANNED' },
+    task_id: 'research',
+    worker_id: 'w1',
+    task_digest: taskDigest,
+    current_generation: '10',
+    ttl_generations: 2,
+  }, hash)
+
+  await assert.rejects(
+    api.createCompanyTaskLeaseV1({
+      graph,
+      states: { research: 'PLANNED', draft: 'PLANNED', verify: 'PLANNED' },
+      task_id: 'research',
+      worker_id: 'w2',
+      task_digest: taskDigest,
+      current_generation: '11',
+      ttl_generations: 2,
+      active_leases: [first],
+    }, hash),
+    /ALREADY_LEASED/,
+  )
+
+  const replacement = await api.createCompanyTaskLeaseV1({
+    graph,
+    states: { research: 'PLANNED', draft: 'PLANNED', verify: 'PLANNED' },
+    task_id: 'research',
+    worker_id: 'w2',
+    task_digest: taskDigest,
+    current_generation: '13',
+    ttl_generations: 2,
+    active_leases: [first],
+  }, hash)
+  assert.equal(replacement.worker_id, 'w2')
+})
+
+test('multiple simultaneous active lease records fail closed', async () => {
+  const first = await api.createCompanyTaskLeaseV1({
+    graph,
+    states: { research: 'PLANNED', draft: 'PLANNED', verify: 'PLANNED' },
+    task_id: 'research',
+    worker_id: 'w1',
+    task_digest: taskDigest,
+    current_generation: '10',
+    ttl_generations: 2,
+  }, hash)
+  const duplicate = { ...first, worker_id: 'w2', lease_digest: 'b'.repeat(64) }
+  assert.throws(
+    () => api.activeCompanyTaskLeaseV1([first, duplicate], 'research', '11'),
+    /MULTIPLE_ACTIVE/,
+  )
+})
