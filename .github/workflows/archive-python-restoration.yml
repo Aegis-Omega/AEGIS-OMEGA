@@ -1,0 +1,47 @@
+name: Archive Python Restoration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "swarm_os/**"
+      - "reports/archive-restoration-swarm-arc-v1.json"
+      - ".github/workflows/archive-python-restoration.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  restore-python:
+    name: archive-restoration-python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile recovered source
+        run: python -m compileall -q swarm_os
+      - name: Reject credential-shaped literals
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          patterns = [
+              re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+              re.compile(r"""(?i)(api[_-]?key|token|secret)\s*=\s*["'][^"']{20,}["']"""),
+          ]
+          allowed = {"YOUR_NIM_KEY"}
+          hits = []
+          for path in Path("swarm_os").rglob("*.py"):
+              for number, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
+                  if any(p.search(line) for p in patterns) and not any(x in line for x in allowed):
+                      hits.append(f"{path}:{number}")
+          if hits:
+              raise SystemExit("credential-shaped literals: " + ", ".join(hits))
+          PY
+      - name: Authority boundary
+        run: |
+          echo "authority_effect=NONE"
+          echo "production_wiring=NOT_PERFORMED"

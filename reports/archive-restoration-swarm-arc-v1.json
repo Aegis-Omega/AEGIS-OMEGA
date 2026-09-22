@@ -1,0 +1,39 @@
+{
+  "schema": "AEGIS_ARCHIVE_RESTORATION_V1",
+  "source_archive": {
+    "filename": "Documents/AEGIS--.zip",
+    "sha256": "3d0e5e33545c38cadd294c1ca55a40542a91c5b6c9195f23ff920c1f7c5c73c4",
+    "historical_commit": "81b0470bec975e86b7abb7d910d34d505920a7e5"
+  },
+  "repository": {
+    "name": "Aegis-Omega/AEGIS-OMEGA",
+    "base_main": "495bfd85d79abcb2b4f6898fe9c156488492426a"
+  },
+  "restoration_scope": {
+    "file_count": 65,
+    "includes": [
+      "ARC solver source",
+      "SWARM runtime",
+      "biology/metacognition",
+      "HD/benchmark source",
+      "swarm research tools"
+    ],
+    "excludes": [
+      "ARC datasets",
+      "vendored free-claude-code provider proxy",
+      "docs/archive copies",
+      "environment files"
+    ]
+  },
+  "byte_identity": "HISTORICAL_GIT_BLOBS_REUSED_WITHOUT_SOURCE_EDITS",
+  "local_verification": {
+    "python_compileall": "PASS",
+    "file_count": 65,
+    "credential_scan": "PASS_WITH_PLACEHOLDER_YOUR_NIM_KEY_ONLY"
+  },
+  "dependency_execution": "NOT_ESTABLISHED",
+  "production_wiring": "NOT_PERFORMED",
+  "merge": "NOT_PERFORMED",
+  "deploy": "NOT_PERFORMED",
+  "authority_effect": "NONE"
+}
