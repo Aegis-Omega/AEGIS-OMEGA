@@ -77,6 +77,7 @@ jobs:
             test/native-runtime/scale-os-company-runtime-v2.test.mjs \
             test/native-runtime/scale-os-enterprise-opportunities-v1.test.mjs \
             test/native-runtime/scale-os-enterprise-resources-v1.test.mjs \
+            test/native-runtime/scale-os-enterprise-event-immutability-v1.test.mjs \
             test/native-runtime/openai-complimentary-canary.test.mjs \
             test/native-runtime/company-enterprise-opportunity.test.mjs \
             test/native-runtime/company-enterprise-mail-ingest.test.mjs \
@@ -123,6 +124,7 @@ jobs:
               'sovereign-omega-v2/test/native-runtime/scale-os-company-runtime-v2.test.mjs',
               'sovereign-omega-v2/test/native-runtime/scale-os-enterprise-opportunities-v1.test.mjs',
               'sovereign-omega-v2/test/native-runtime/scale-os-enterprise-resources-v1.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/scale-os-enterprise-event-immutability-v1.test.mjs',
               'sovereign-omega-v2/scripts/openai-complimentary-canary.mjs',
               'sovereign-omega-v2/test/native-runtime/openai-complimentary-canary.test.mjs',
               'sovereign-omega-v2/src/sovereignty/company-enterprise-opportunity.ts',
@@ -140,6 +142,7 @@ jobs:
               'supabase/migrations/20260922193000_scale_os_company_runtime_v2.sql',
               'supabase/migrations/20260922205500_scale_os_enterprise_opportunities_v1.sql',
               'supabase/migrations/20260922211500_scale_os_enterprise_resources_v1.sql',
+              'supabase/migrations/20260922213000_scale_os_enterprise_event_immutability_v1.sql',
               'vertex/cloudsql_audit.py',
               'vertex/serve.py',
               'vertex/Dockerfile',
@@ -176,6 +179,7 @@ jobs:
                   'scale-os-company-runtime-v2.test.mjs',
                   'scale-os-enterprise-opportunities-v1.test.mjs',
                   'scale-os-enterprise-resources-v1.test.mjs',
+                  'scale-os-enterprise-event-immutability-v1.test.mjs',
                   'openai-complimentary-canary.test.mjs',
                   'company-enterprise-opportunity.test.mjs',
                   'company-enterprise-mail-ingest.test.mjs',
@@ -188,6 +192,7 @@ jobs:
               'supabase_scale_os_migration': 'SOURCE_ONLY_NOT_APPLIED',
               'enterprise_opportunity_persistence': 'SOURCE_ONLY_NOT_APPLIED',
               'enterprise_resource_persistence': 'SOURCE_ONLY_NOT_APPLIED',
+              'enterprise_event_immutability_guard': 'SOURCE_ONLY_NOT_APPLIED',
               'cloud_sql_schema': 'SOURCE_ONLY_NOT_APPLIED',
               'live_openai_execution': 'NOT_PERFORMED',
               'write_authority': 'NOT_GRANTED',
