@@ -68,9 +68,7 @@ private theorem paired_exp_profile_integrable_v10
       (-(((c : ℂ) + (t : ℂ) * I) * ((u / 2 : ℝ) : ℂ))).re =
         -(c * (u / 2)) := by
     simp
-    ring
   rw [hre]
-  rfl
 
 /-- Evaluate the u-integral first using the newly source-closed Gauss formula. -/
 theorem weil_gauss_kernel_inner_u_v10
@@ -86,6 +84,7 @@ theorem weil_gauss_kernel_inner_u_v10
     simp
     linarith
   unfold WeilGaussFixedLineKernelV10
+  dsimp only
   rw [integral_mul_const]
   rw [← gauss_digamma_integral_v1
     ((((c : ℂ) + (t : ℂ) * I) / 2)) hz]
@@ -107,12 +106,11 @@ theorem weil_gauss_kernel_inner_t_normalized_v10
   let a : ℂ := Complex.exp (-(u : ℂ))
   let d : ℂ := 1 - Complex.exp (-(u : ℂ))
   have hd : d ≠ 0 := by
-    intro h
-    have hre := congrArg Complex.re h
-    dsimp [d] at hre
-    simp at hre
-    have := Real.exp_lt_one_iff.mpr (by linarith : -u < 0)
-    linarith
+    have hlt : Real.exp (-u) < 1 := Real.exp_lt_one_iff.mpr (by linarith)
+    dsimp [d]
+    rw [← Complex.ofReal_neg, ← Complex.ofReal_exp, ← Complex.ofReal_one,
+      ← Complex.ofReal_sub]
+    exact_mod_cast (sub_pos.mpr hlt).ne'
   have hH : Integrable H := by
     exact (weil_paired_mellin_profile_has_vertical_norm_moments_two_v5 f c).1
   have hE : Integrable (fun t => E t * H t) := by
@@ -126,45 +124,29 @@ theorem weil_gauss_kernel_inner_t_normalized_v10
         fun t => (a / d) * H t - (1 / d) * (E t * H t) := by
     funext t
     unfold WeilGaussFixedLineKernelV10 gaussIntegrand
-    dsimp [H, E, a, d]
-    field_simp [hd]
-    ring
+    dsimp only
+    have hexp :
+        Complex.exp (-((((c : ℂ) + (t : ℂ) * I) / 2)) * (u : ℂ)) = E t := by
+      dsimp [E]
+      congr 1
+      push_cast
+      ring
+    rw [hexp]
+    dsimp [H, a, d]
+    field_simp
   rw [hshape, integral_sub h1 h2, integral_const_mul, integral_const_mul]
   have hHnorm :=
     weil_paired_profile_integral_one_v10 f c
   have hEnorm :=
     weil_paired_profile_exp_half_integral_v10 f c u
-  dsimp [H, E] at hHnorm hEnorm
-  dsimp [a, d]
-  calc
-    (1 / (2 * Real.pi) : ℂ) *
-        ((Complex.exp (-(u : ℂ)) /
-              (1 - Complex.exp (-(u : ℂ)))) *
-            ∫ t : ℝ, WeilPairedMellinProfileV5 f c t -
-          (1 / (1 - Complex.exp (-(u : ℂ)))) *
-            ∫ t : ℝ,
-              Complex.exp
-                (-(((c : ℂ) + (t : ℂ) * I) *
-                  ((u / 2 : ℝ) : ℂ))) *
-                WeilPairedMellinProfileV5 f c t)
-      =
-      (Complex.exp (-(u : ℂ)) *
-          ((1 / (2 * Real.pi) : ℂ) *
-            ∫ t : ℝ, WeilPairedMellinProfileV5 f c t) -
-        ((1 / (2 * Real.pi) : ℂ) *
-          ∫ t : ℝ,
-            Complex.exp
-              (-(((c : ℂ) + (t : ℂ) * I) *
-                ((u / 2 : ℝ) : ℂ))) *
-              WeilPairedMellinProfileV5 f c t)) /
-        (1 - Complex.exp (-(u : ℂ))) := by
-          field_simp [hd]
-          ring
-    _ =
-      (Complex.exp (-(u : ℂ)) * (2 * f.1 1) -
-        (WeilPairedTestV8 f).1 (Real.exp (u / 2))) /
-        (1 - Complex.exp (-(u : ℂ))) := by
-          rw [hHnorm, hEnorm]
+  rw [← hHnorm, ← hEnorm]
+  have hd' : (1 - Complex.exp (-(u : ℂ))) ≠ 0 := hd
+  have hpi : ((Real.pi : ℝ) : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr Real.pi_ne_zero
+  simp only [H, E, a, d]
+  field_simp
+  congr 2
+  funext t
+  ring_nf
 
 /-- Fubini plus both inner evaluations: the normalized fixed-line
 `ψ+γ` contribution equals the exact u-space paired-test integral. -/
