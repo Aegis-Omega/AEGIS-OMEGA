@@ -60,6 +60,8 @@ export type ProviderCapabilityV1 =
   | 'CLOUD_INFRASTRUCTURE_READ'
   | 'DATABASE_PLATFORM_READ'
   | 'MEETING_KNOWLEDGE_READ'
+  | 'APPLE_INTELLIGENCE_DEVELOPER_READ'
+  | 'APPLE_BUSINESS_DEPLOYMENT_READ'
 
 export type ProviderObservationStateV1 =
   | 'UNKNOWN'
@@ -208,6 +210,8 @@ const ALL_CAPABILITIES = new Set<ProviderCapabilityV1>([
   'CLOUD_INFRASTRUCTURE_READ',
   'DATABASE_PLATFORM_READ',
   'MEETING_KNOWLEDGE_READ',
+  'APPLE_INTELLIGENCE_DEVELOPER_READ',
+  'APPLE_BUSINESS_DEPLOYMENT_READ',
 ])
 const ALL_STATES = new Set<ProviderObservationStateV1>([
   'UNKNOWN',
@@ -965,6 +969,21 @@ export const DECLARED_PROVIDER_CATALOG_V1: readonly ProviderDescriptorV1[] = [
     provider_id: 'chatgpt-granola',
     planes: ['INTELLIGENCE'],
     declared_capabilities: ['MEETING_KNOWLEDGE_READ'],
+    authority_effect: 'NONE',
+  },
+
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'apple-developer-intelligence',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['APPLE_INTELLIGENCE_DEVELOPER_READ'],
+    authority_effect: 'NONE',
+  },
+  {
+    schema_version: PROVIDER_MESH_SCHEMA_VERSION,
+    provider_id: 'apple-business-ai',
+    planes: ['INTELLIGENCE'],
+    declared_capabilities: ['APPLE_BUSINESS_DEPLOYMENT_READ'],
     authority_effect: 'NONE',
   },
 
