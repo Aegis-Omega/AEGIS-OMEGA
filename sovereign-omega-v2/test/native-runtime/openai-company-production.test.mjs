@@ -97,7 +97,7 @@ test('completed commentary is not accepted as terminal output', async () => {
   await assert.rejects(binding.finalOutput('s1'), /FINAL_OUTPUT_MISSING/)
 })
 
-test('binding supports async-iterable cursor pages', async () => {
+test('binding supports async-iterable final-answer cursor pages', async () => {
   const api = client([])
   api.beta.agents.sessions.items.list = () => ({
     async *[Symbol.asyncIterator]() {
@@ -105,6 +105,7 @@ test('binding supports async-iterable cursor pages', async () => {
         type: 'message',
         role: 'assistant',
         status: 'completed',
+        phase: 'final_answer',
         content: [{ type: 'output_text', text: 'streamed' }],
       }
     },
