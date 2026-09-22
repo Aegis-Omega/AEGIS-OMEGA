@@ -208,16 +208,30 @@ theorem fixed_line_neg_zeta_logDeriv_integrable_v10
         exact lseries_term_vertical_norm_v1 a c t n
   have hmajor : Integrable (fun t : ℝ => C * ‖H t‖) :=
     hH.norm.const_mul C
+  have htermCont :
+      ∀ n : ℕ,
+        Continuous
+          (fun t : ℝ =>
+            LSeries.term a ((c : ℂ) + (t : ℂ) * I) n) := by
+    intro n
+    by_cases hn : n = 0
+    · subst n
+      simpa using
+        (continuous_const : Continuous (fun _ : ℝ => (0 : ℂ)))
+    · have hnC : (n : ℂ) ≠ 0 := Nat.cast_ne_zero.mpr hn
+      simp only [LSeries.term_of_ne_zero hn,
+        Complex.cpow_def_of_ne_zero hnC]
+      exact continuous_const.div (by fun_prop)
+        (fun _ => Complex.exp_ne_zero _)
   have hLmeas :
       AEStronglyMeasurable
         (fun t : ℝ =>
           LSeries a ((c : ℂ) + (t : ℂ) * I)) := by
-    have hcont :
-        Continuous
-          (fun t : ℝ =>
-            LSeries a ((c : ℂ) + (t : ℂ) * I)) := by
-      fun_prop
-    exact hcont.aestronglyMeasurable
+    apply Measurable.aestronglyMeasurable
+    unfold LSeries
+    apply Measurable.tsum
+    intro n
+    exact (htermCont n).measurable
   have hprod :
       Integrable
         (fun t : ℝ =>
