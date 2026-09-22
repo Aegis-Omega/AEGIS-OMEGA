@@ -1,0 +1,204 @@
+{
+  "schema": "AEGIS_ARCHIVE_RESTORATION_LEDGER_V1",
+  "archive": {
+    "filename": "Documents/AEGIS--.zip",
+    "bytes": 245999159,
+    "sha256": "3d0e5e33545c38cadd294c1ca55a40542a91c5b6c9195f23ff920c1f7c5c73c4",
+    "archive_head": "ad7f2090a1ca54494d7509021117264b0bb1bc04"
+  },
+  "repository": {
+    "name": "Aegis-Omega/AEGIS-OMEGA",
+    "canonical_main": "495bfd85d79abcb2b4f6898fe9c156488492426a"
+  },
+  "rule": "Every archive coverage group must have an explicit restoration disposition. Historical presence alone is not production admission.",
+  "groups": [
+    {
+      "id": "F01",
+      "component": "ECCF",
+      "disposition": "RESTORED_SOURCE_DRAFT",
+      "evidence": [
+        "PR #619",
+        "head dd97a1036b86fb2d24db1f22c4a94054a0634ef7"
+      ],
+      "remaining": "Rust execution not established because hosted job executed zero steps and local Rust toolchain is unavailable"
+    },
+    {
+      "id": "F02",
+      "component": "GCCE / Khatt",
+      "disposition": "RESTORED_SOURCE_DRAFT",
+      "evidence": [
+        "PR #619",
+        "head dd97a1036b86fb2d24db1f22c4a94054a0634ef7"
+      ],
+      "remaining": "Rust execution not established"
+    },
+    {
+      "id": "F03",
+      "component": "Coq + TLA+ archive formal package",
+      "disposition": "PRESENT_ON_CANONICAL_MAIN",
+      "remaining": "Production/runtime wiring is a separate concern"
+    },
+    {
+      "id": "F04",
+      "component": "Constitutional substrate",
+      "disposition": "PRESENT_ON_CANONICAL_MAIN",
+      "remaining": "Integration/admission is separate from archive recovery"
+    },
+    {
+      "id": "F05",
+      "component": "Deterministic WASM kernel",
+      "disposition": "PRESENT_ON_CANONICAL_MAIN",
+      "remaining": "Integration/admission is separate from archive recovery"
+    },
+    {
+      "id": "F06",
+      "component": "SITR / AOIE / SHP / CRDT",
+      "disposition": "PRESENT_ON_CANONICAL_MAIN",
+      "remaining": "Integration/admission is separate from archive recovery"
+    },
+    {
+      "id": "F07",
+      "component": "Frame kernel, invariants and Ralph loop",
+      "disposition": "PRESENT_ON_CANONICAL_MAIN",
+      "remaining": "Integration/admission is separate from archive recovery"
+    },
+    {
+      "id": "F08",
+      "component": "TypeScript skill-harness",
+      "disposition": "PRESENT_ON_CANONICAL_MAIN",
+      "remaining": "Integration/admission is separate from archive recovery"
+    },
+    {
+      "id": "F09",
+      "component": "Verifier registry and independence",
+      "disposition": "PRESENT_ON_CANONICAL_MAIN",
+      "remaining": "Integration/admission is separate from archive recovery"
+    },
+    {
+      "id": "F10",
+      "component": "CL-Ψ beyond four Abjad sources",
+      "disposition": "PRESENT_ON_CANONICAL_MAIN",
+      "remaining": "No archive recovery required"
+    },
+    {
+      "id": "F11",
+      "component": "Studio operator surfaces",
+      "disposition": "PRESENT_ON_CANONICAL_MAIN",
+      "remaining": "No archive recovery required"
+    },
+    {
+      "id": "F12",
+      "component": "Enterprise UI",
+      "disposition": "PRESENT_ON_CANONICAL_MAIN_DORMANT",
+      "remaining": "Product disposition separate from archive recovery"
+    },
+    {
+      "id": "F13",
+      "component": "Legacy licensing/access code",
+      "disposition": "SUPERSEDED_NOT_RESTORED",
+      "remaining": "Do not reactivate legacy authority/payment path without separate design review"
+    },
+    {
+      "id": "F14",
+      "component": "Glasswing and NLA",
+      "disposition": "PRESENT_ON_CANONICAL_MAIN",
+      "remaining": "No archive recovery required"
+    },
+    {
+      "id": "F15",
+      "component": "Architect / Artisan / Auditor P-G-E state",
+      "disposition": "RESTORED_AS_HISTORICAL_PROVENANCE",
+      "evidence": [
+        "PR #621",
+        "head ea6d5bab2210171fe40a2dc29f595b09b2f42759"
+      ],
+      "remaining": "Historical PASS fields are not current runtime authority"
+    },
+    {
+      "id": "F16",
+      "component": "Sovereign_Brain extra pages",
+      "disposition": "RESTORED_AS_HISTORICAL_PROVENANCE",
+      "evidence": [
+        "this PR",
+        "81b0470bec975e86b7abb7d910d34d505920a7e5"
+      ],
+      "remaining": "Not an active specification"
+    },
+    {
+      "id": "F17",
+      "component": "SWARM runtime, metacognition and HD benchmark",
+      "disposition": "RESTORED_SOURCE_AND_BOUNDED_RUNTIME_DRAFT",
+      "evidence": [
+        "PR #620 head 20a944f2da0e97ddda67196d05a64bbef725089d",
+        "PR #623 head 9cd4535842aaa29c1658f5257a088078d249638a"
+      ],
+      "remaining": "Production wiring not performed"
+    },
+    {
+      "id": "F18",
+      "component": "ARC graph/model/search/data",
+      "disposition": "RESTORED_SOURCE_DATA_AND_TRAINING_PATH_DRAFT",
+      "evidence": [
+        "PR #620",
+        "PR #624 head 79aae45cfcd98d594c5213460282ac2260ea7aec"
+      ],
+      "remaining": "Held-out/generalization capability not established; bounded 50-task primitive DSL audit found 0 exact train representations and 0 exact test solves"
+    },
+    {
+      "id": "F19",
+      "component": "SYSTEM_REBUILD Godot client",
+      "disposition": "INTENTIONALLY_PURGED_DEAD_NOT_RESTORED",
+      "evidence": [
+        "historical commit 315fb2c4"
+      ],
+      "remaining": "No recovery unless a new product requirement supersedes the purge decision"
+    },
+    {
+      "id": "F20",
+      "component": "AEGIS Digital Mushaf",
+      "disposition": "SUPERSEDED_BY_AEGIS_RUNTIME_NOT_RESTORED",
+      "evidence": [
+        "historical commit 69f4121f"
+      ],
+      "remaining": "Do not duplicate the replacement runtime"
+    },
+    {
+      "id": "F21",
+      "component": "Older Sovereign Omega lineage",
+      "disposition": "SUPERSEDED_OR_ABSORBED_IN_V2_NOT_RESTORED_AS_PARALLEL_RUNTIME",
+      "evidence": [
+        "historical import 03f2a365",
+        "historical purge/migration 315fb2c4"
+      ],
+      "remaining": "Historical knowledge retained separately; v2 remains active lineage"
+    },
+    {
+      "id": "F22",
+      "component": "Bundled provider proxy",
+      "disposition": "VENDORED_EXTERNAL_PROXY_EXCLUDED",
+      "remaining": "No archive recovery into canonical runtime"
+    },
+    {
+      "id": "F23",
+      "component": "Hypervisor policy/audit",
+      "disposition": "PRESENT_ON_CANONICAL_MAIN",
+      "remaining": "CI/production integration separate from archive recovery"
+    },
+    {
+      "id": "F24",
+      "component": "PricingTable saved PR path",
+      "disposition": "HISTORICAL_UI_PATH_NOT_RUNTIME_RECOVERY_CANDIDATE",
+      "remaining": "Current commercial UI must remain governed by current product source"
+    }
+  ],
+  "restoration_prs": {
+    "619": "dd97a1036b86fb2d24db1f22c4a94054a0634ef7",
+    "620": "20a944f2da0e97ddda67196d05a64bbef725089d",
+    "621": "ea6d5bab2210171fe40a2dc29f595b09b2f42759",
+    "623": "9cd4535842aaa29c1658f5257a088078d249638a",
+    "624": "79aae45cfcd98d594c5213460282ac2260ea7aec"
+  },
+  "merge": "NOT_PERFORMED",
+  "deploy": "NOT_PERFORMED",
+  "authority_effect": "NONE"
+}
