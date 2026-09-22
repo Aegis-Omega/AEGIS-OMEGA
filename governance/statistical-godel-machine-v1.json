@@ -1,9 +1,25 @@
 {
   "schema": "AEGIS_STATISTICAL_GODEL_MACHINE_V1",
-  "name": "Statistical Gödel Machine",
+  "name": "AEGIS Conservation-Qualified Statistical Gödel Machine",
   "prior_art_boundary": {
-    "classical_godel_machine": "Proof-search-driven self-rewrite after proving utility of rewrite under a formal axiomatic model.",
-    "aegis_variant": "Statistical proposal generation plus typed formal/statistical evidence gates under immutable authority boundaries.",
+    "classical_godel_machine": {
+      "source": "Schmidhuber Gödel Machine",
+      "role": "Formal proof-search-driven self-rewrite with a global-optimality result under the formalized utility/axiom setting."
+    },
+    "statistical_godel_machine_2025": {
+      "source": "arXiv:2510.10232",
+      "title": "SGM: A Statistical Godel Machine for Risk-Controlled Recursive Self-Modification",
+      "role": "Existing statistical self-modification gate using confidence tests/e-values and cumulative risk budgeting."
+    },
+    "aegis_candidate_differentiator": [
+      "trusted epistemic-conservation receipt required before benefit evaluation",
+      "MHP-style semantic claim partition and derivation accounting",
+      "non-amplifying authority meet across verified transitions",
+      "loss-uncertainty composition checks",
+      "protected authority/trust surfaces remain outside self-write authority",
+      "operator approval remains a separate transition"
+    ],
+    "novelty_status": "NOT_ESTABLISHED",
     "global_optimality_claimed": false
   },
   "representation_principle": {
@@ -44,5 +60,13 @@
     "authority_effect": "NONE"
   },
   "epistemic_rule": "Pattern detection may generate hypotheses. Only typed evidence may change claim state. No evidence class may silently coerce into another.",
-  "authority_effect": "NONE"
+  "authority_effect": "NONE",
+  "conservation_gate": {
+    "trusted_receipt_required": true,
+    "exact_parent_state_binding_required": true,
+    "exact_semantic_lineage_binding_required": true,
+    "authority_non_amplifying_required": true,
+    "semantic_accounting_pass_required": true,
+    "uncertainty_accounting_pass_required": true
+  }
 }
