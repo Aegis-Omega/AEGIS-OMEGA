@@ -382,7 +382,7 @@ No operator approval is needed unless the flow requests a consequential external
 
 Keep four memory classes separate:
 
-1. Event ledger: immutable observations and receipts.
+1. Event ledger: append-only semantics for admitted observations and receipts. Current production `scale_os.events` privileges still permit service-role UPDATE/DELETE; enterprise event immutability is therefore SOURCE_ONLY_NOT_APPLIED until the dedicated guard migration is admitted and applied.
 2. Work graph: objectives, tasks, dependencies, status.
 3. Evidence store: artifacts, hashes, sources, test/eval outputs.
 4. Semantic memory: summaries and lessons.
