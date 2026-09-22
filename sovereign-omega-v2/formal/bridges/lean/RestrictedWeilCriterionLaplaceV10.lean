@@ -441,7 +441,7 @@ theorem hasDerivAt_zero_kernel_laplace_v10
             (fun d : ℝ =>
               d ^ ((2 : ℝ) - 1) * Real.exp (-(r * d)))
             (Ioi (0 : ℝ)) :=
-        IntegrableOn.of_integral_ne_zero hnonzero
+        Integrable.of_integral_ne_zero hnonzero
       simpa using hi
     simpa [bound, mul_assoc] using hbase.const_mul C
 
