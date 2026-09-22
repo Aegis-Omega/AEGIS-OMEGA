@@ -61,7 +61,8 @@ jobs:
             src/sovereignty/company-enterprise-mail-ingest.ts \
             src/sovereignty/company-enterprise-resource-admission.ts \
             src/sovereignty/company-enterprise-followup-policy.ts \
-            src/sovereignty/company-enterprise-engagement-gate.ts
+            src/sovereignty/company-enterprise-engagement-gate.ts \
+            src/sovereignty/company-enterprise-action-packet.ts
 
       - name: Execute autonomous-company falsifiers
         run: |
@@ -81,7 +82,8 @@ jobs:
             test/native-runtime/company-enterprise-mail-ingest.test.mjs \
             test/native-runtime/company-enterprise-resource-admission.test.mjs \
             test/native-runtime/company-enterprise-followup-policy.test.mjs \
-            test/native-runtime/company-enterprise-engagement-gate.test.mjs
+            test/native-runtime/company-enterprise-engagement-gate.test.mjs \
+            test/native-runtime/company-enterprise-action-packet.test.mjs
 
       - name: Execute Cloud SQL audit source contracts
         run: |
@@ -128,11 +130,13 @@ jobs:
               'sovereign-omega-v2/src/sovereignty/company-enterprise-resource-admission.ts',
               'sovereign-omega-v2/src/sovereignty/company-enterprise-followup-policy.ts',
               'sovereign-omega-v2/src/sovereignty/company-enterprise-engagement-gate.ts',
+              'sovereign-omega-v2/src/sovereignty/company-enterprise-action-packet.ts',
               'sovereign-omega-v2/test/native-runtime/company-enterprise-opportunity.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-enterprise-mail-ingest.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-enterprise-resource-admission.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-enterprise-followup-policy.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-enterprise-engagement-gate.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-enterprise-action-packet.test.mjs',
               'supabase/migrations/20260922193000_scale_os_company_runtime_v2.sql',
               'supabase/migrations/20260922205500_scale_os_enterprise_opportunities_v1.sql',
               'supabase/migrations/20260922211500_scale_os_enterprise_resources_v1.sql',
@@ -178,6 +182,7 @@ jobs:
                   'company-enterprise-resource-admission.test.mjs',
                   'company-enterprise-followup-policy.test.mjs',
                   'company-enterprise-engagement-gate.test.mjs',
+                  'company-enterprise-action-packet.test.mjs',
               ],
               'cloud_sql_contract': 'PY_COMPILE_AND_OFFLINE_CONTRACT_PASS',
               'supabase_scale_os_migration': 'SOURCE_ONLY_NOT_APPLIED',
