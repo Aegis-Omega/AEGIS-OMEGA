@@ -88,6 +88,40 @@ private theorem completed_gamma_pointwise_split_v10
   push_cast
   ring
 
+/-- Public integrability surface for the completed-gamma contribution.
+This exposes an obligation already discharged internally by the Gauss-kernel
+product-integrability proof. -/
+theorem weil_fixed_line_completed_gamma_integrable_v10
+    (f : WeilCompactSmoothGV1) (c : ℝ) (hc : 1 < c) :
+    Integrable
+      (fun t : ℝ =>
+        WeilCompletedGammaFactorV10 c t *
+          WeilPairedMellinProfileV5 f c t) := by
+  have hplus :=
+    digamma_plus_gamma_profile_integrable_v10 f c hc
+  have hH :=
+    (weil_paired_mellin_profile_has_vertical_norm_moments_two_v5 f c).1
+  have hA :
+      Integrable
+        (fun t : ℝ =>
+          (1 / 2 : ℂ) *
+            ((Complex.digamma
+              ((((c : ℂ) + (t : ℂ) * I) / 2)) + (γ : ℂ)) *
+              WeilPairedMellinProfileV5 f c t) :=
+    hplus.const_mul (1 / 2 : ℂ)
+  have hB :
+      Integrable
+        (fun t : ℝ =>
+          (1 / 2 : ℂ) *
+            (((Real.log Real.pi + γ : ℝ) : ℂ) *
+              WeilPairedMellinProfileV5 f c t)) := by
+    exact
+      (hH.const_mul (((Real.log Real.pi + γ : ℝ) : ℂ))).const_mul
+        (1 / 2 : ℂ)
+  exact (hA.sub hB).congr
+    (Filter.Eventually.of_forall fun t =>
+      (completed_gamma_pointwise_split_v10 f c t).symm)
+
 /-- Exact repository-native completed-gamma contribution. -/
 theorem weil_fixed_line_completed_gamma_eq_archimedean_v10
     (f : WeilCompactSmoothGV1) (c : ℝ) (hc : 1 < c) :
