@@ -163,10 +163,10 @@ theorem translate_autocorrelation_eq_v10
       (Real.exp (-d / 2) : ℂ) *
           star (Real.exp (-d / 2) : ℂ) =
         (b : ℂ) := by
-    simp only [map_ofReal, starRingEnd_apply]
-    rw [← Complex.ofReal_mul, ← Real.exp_add]
-    congr 2
+    rw [Complex.star_def, Complex.conj_ofReal]
+    norm_cast
     dsimp [b]
+    rw [← Real.exp_add]
     congr 1
     ring
   calc
@@ -180,12 +180,23 @@ theorem translate_autocorrelation_eq_v10
             rw [← integral_const_mul]
             apply setIntegral_congr_fun measurableSet_Ioi
             intro y hy
-            simp only [translatePacket_apply, map_mul, map_ofReal,
-              starRingEnd_apply]
-            rw [hscalar]
-            dsimp [b]
-            congr 1
-            ring
+            simp only [translatePacket_apply, star_mul,
+              Complex.star_def, Complex.conj_ofReal]
+            calc
+              ((Real.exp (-d / 2) : ℂ) *
+                  g.1 (Real.exp (-d) * (x * y))) *
+                    ((Real.exp (-d / 2) : ℂ) *
+                      star (g.1 (Real.exp (-d) * y)))
+                  =
+                ((Real.exp (-d / 2) : ℂ) *
+                  star (Real.exp (-d / 2) : ℂ)) *
+                  (g.1 (x * (b * y)) * star (g.1 (b * y))) := by
+                    dsimp [b]
+                    ring
+              _ =
+                (b : ℂ) *
+                  (g.1 (x * (b * y)) * star (g.1 (b * y))) := by
+                    rw [hscalar]
     _ =
       ∫ u in Ioi (0 : ℝ), g.1 (x * u) * star (g.1 u) := by
         simpa [Complex.real_smul, b, mul_assoc] using hsubst
