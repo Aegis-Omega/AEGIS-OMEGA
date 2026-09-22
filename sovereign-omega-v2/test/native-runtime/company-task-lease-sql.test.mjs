@@ -61,3 +61,16 @@ test('lease tables force RLS and are not directly client-accessible', () => {
     assert.ok(sql.includes(`revoke all on public.${table} from anon, authenticated;`))
   }
 })
+
+
+test('claim binds request digest to canonical durable task digest', () => {
+  assert.ok(sql.includes('add column if not exists task_digest text'))
+  assert.ok(sql.includes('into v_status, v_canonical_task_digest'))
+  assert.ok(sql.includes("v_canonical_task_digest <> p_task_digest"))
+  assert.ok(sql.includes("'DENIED_TASK_DIGEST_MISMATCH'"))
+})
+
+test('idempotent replay is valid only inside the full acquired-to-expiry interval', () => {
+  assert.ok(sql.includes('p_current_generation >= v_lease.acquired_generation'))
+  assert.ok(sql.includes('p_current_generation <= v_lease.expires_generation'))
+})
