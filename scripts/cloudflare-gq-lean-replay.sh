@@ -94,18 +94,28 @@ if ! lake exe cache get; then
   exit 0
 fi
 
+# Lean 4.33 enforces that directly compiled files live under the active root.
+# Copy the exact source bytes into the pinned Mathlib root and verify byte identity.
+cp "$SRC/$TARGET.lean" "$WORK/mathlib/$TARGET.lean"
+COPIED_SHA256="$(sha256sum "$WORK/mathlib/$TARGET.lean" | awk '{print $1}')"
+echo "COPIED_SOURCE_SHA256=$COPIED_SHA256"
+if [ "$COPIED_SHA256" != "$SOURCE_SHA256" ]; then
+  write_status "SOURCE_COPY_MISMATCH" "false" "$LEANV" "$COPIED_SHA256"
+  exit 0
+fi
+
 BASE_LEAN_PATH="$(lake env printenv LEAN_PATH)"
 OUT="$WORK/aegis-olean"
 mkdir -p "$OUT"
-export LEAN_PATH="$OUT:$SRC:$BASE_LEAN_PATH"
+export LEAN_PATH="$OUT:$BASE_LEAN_PATH"
 
 echo "=== COMPILE $TARGET ==="
-if ! lean -o "$OUT/$TARGET.olean" "$SRC/$TARGET.lean"; then
+if ! lean -o "$OUT/$TARGET.olean" "$WORK/mathlib/$TARGET.lean"; then
   write_status "LEAN_COMPILE_FAILED" "false" "$LEANV" "see replay.log"
   exit 0
 fi
 
-cat > "$WORK/Audit.lean" <<'LEAN'
+cat > "$WORK/mathlib/Audit.lean" <<'LEAN'
 import GravityQuantumPureProductV1
 #print axioms AEGIS.GravityQuantumPureProductV1.pureProductCoeffs_imp_coeffDet_zero
 #print axioms AEGIS.GravityQuantumPureProductV1.coeffDet_zero_imp_pureProductCoeffs
@@ -114,7 +124,7 @@ import GravityQuantumPureProductV1
 LEAN
 
 echo "=== AXIOM AUDIT ==="
-if ! lean "$WORK/Audit.lean" 2>&1 | tee "$AXLOG"; then
+if ! lean "$WORK/mathlib/Audit.lean" 2>&1 | tee "$AXLOG"; then
   write_status "AXIOM_AUDIT_FAILED" "false" "$LEANV" "audit did not compile"
   exit 0
 fi
@@ -123,6 +133,6 @@ if grep -q "sorryAx" "$AXLOG"; then
   exit 0
 fi
 
-write_status "VERIFIED_EXACT_SOURCE" "true" "$LEANV"   "F2b source compiled and axiom audit contains no sorryAx"
+write_status "VERIFIED_EXACT_SOURCE" "true" "$LEANV"   "exact source bytes copied into pinned Mathlib root; F2b compiled; no sorryAx"
 echo "AEGIS_GQ_CLOUDFLARE_LEAN_REPLAY=PASS"
 exit 0
