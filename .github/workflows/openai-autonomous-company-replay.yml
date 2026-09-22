@@ -58,7 +58,8 @@ jobs:
             src/sovereignty/company-model-promotion.ts \
             src/sovereignty/company-work-graph.ts \
             src/sovereignty/company-enterprise-opportunity.ts \
-            src/sovereignty/company-enterprise-mail-ingest.ts
+            src/sovereignty/company-enterprise-mail-ingest.ts \
+            src/sovereignty/company-enterprise-resource-admission.ts
 
       - name: Execute autonomous-company falsifiers
         run: |
@@ -74,7 +75,8 @@ jobs:
             test/native-runtime/scale-os-enterprise-opportunities-v1.test.mjs \
             test/native-runtime/openai-complimentary-canary.test.mjs \
             test/native-runtime/company-enterprise-opportunity.test.mjs \
-            test/native-runtime/company-enterprise-mail-ingest.test.mjs
+            test/native-runtime/company-enterprise-mail-ingest.test.mjs \
+            test/native-runtime/company-enterprise-resource-admission.test.mjs
 
       - name: Execute Cloud SQL audit source contracts
         run: |
@@ -117,8 +119,10 @@ jobs:
               'sovereign-omega-v2/test/native-runtime/openai-complimentary-canary.test.mjs',
               'sovereign-omega-v2/src/sovereignty/company-enterprise-opportunity.ts',
               'sovereign-omega-v2/src/sovereignty/company-enterprise-mail-ingest.ts',
+              'sovereign-omega-v2/src/sovereignty/company-enterprise-resource-admission.ts',
               'sovereign-omega-v2/test/native-runtime/company-enterprise-opportunity.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-enterprise-mail-ingest.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-enterprise-resource-admission.test.mjs',
               'supabase/migrations/20260922193000_scale_os_company_runtime_v2.sql',
               'supabase/migrations/20260922205500_scale_os_enterprise_opportunities_v1.sql',
               'vertex/cloudsql_audit.py',
@@ -159,6 +163,7 @@ jobs:
                   'openai-complimentary-canary.test.mjs',
                   'company-enterprise-opportunity.test.mjs',
                   'company-enterprise-mail-ingest.test.mjs',
+                  'company-enterprise-resource-admission.test.mjs',
               ],
               'cloud_sql_contract': 'PY_COMPILE_AND_OFFLINE_CONTRACT_PASS',
               'supabase_scale_os_migration': 'SOURCE_ONLY_NOT_APPLIED',
