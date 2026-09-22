@@ -1,0 +1,35 @@
+{
+  "schema": "AEGIS_OPENAI_COMPANY_MODEL_POLICY_V1",
+  "as_of": "2026-09-22",
+  "authority_effect": "NONE",
+  "routing": {
+    "intake": {
+      "model": "gpt-5.6-luna",
+      "use_for": ["classification", "extraction", "deduplication", "high_volume_summarization"],
+      "complimentary_group": "10M_OR_2_5M_DEPENDING_ON_USAGE_TIER"
+    },
+    "operations": {
+      "model": "gpt-5.6-terra",
+      "use_for": ["routine_planning", "transformation", "standard_analysis"],
+      "complimentary_group": "10M_OR_2_5M_DEPENDING_ON_USAGE_TIER"
+    },
+    "deep_reasoning": {
+      "model": "gpt-5.6-sol",
+      "use_for": ["hard_reasoning", "research_synthesis", "independent_verification"],
+      "complimentary_group": "1M_OR_250K_DEPENDING_ON_USAGE_TIER"
+    },
+    "frontier_agent": {
+      "model": "gpt-6-astra",
+      "use_for": ["hardest_end_to_end_agent_work", "computer_use", "complex_coding", "frontier_research"],
+      "complimentary_group": "NOT_LISTED_AS_OF_2026_09_22"
+    }
+  },
+  "complimentary_constraints": {
+    "requires_eligible_data_sharing": true,
+    "tool_use_included": false,
+    "evals_included": false,
+    "fine_tuning_included": false,
+    "confirmation_source": "USAGE_DASHBOARD_SERVICE_TIER"
+  },
+  "consequential_actions_require_host_authorization": true
+}
