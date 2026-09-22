@@ -36,6 +36,7 @@ payload={
     "cross_boundary_authority",
     "gravity_quantum_authority",
     "gravity_quantum_scaling",
+    "gravity_quantum_registry",
     "gravity_quantum_measurement",
     "gravity_quantum_external_replay"
   ],
@@ -75,6 +76,7 @@ run_python_suite() {
   run_python_suite test_cross_boundary_authority.py &&
   run_python_suite test_gravity_quantum_authority.py &&
   run_python_suite test_gravity_quantum_scaling.py &&
+  run_python_suite test_gravity_quantum_registry.py &&
   run_python_suite test_gravity_quantum_measurement.py &&
   run_python_suite test_gravity_quantum_external_replay.py
 } 2>&1 | tee "$PYLOG"
