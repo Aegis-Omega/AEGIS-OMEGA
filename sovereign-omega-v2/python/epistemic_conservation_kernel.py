@@ -103,6 +103,30 @@ class EpistemicConservationReceiptV1:
             raise ValueError("INVALID_CONSERVATION_DECISION")
         if self.authority_effect != NO_AUTHORITY:
             raise ValueError("CONSERVATION_AUTHORITY_LEAK")
+        if self.authority_final not in {item.name for item in AuthorityLevel}:
+            raise ValueError("INVALID_AUTHORITY_FINAL")
+        if self.authority_global_meet not in {item.name for item in AuthorityLevel}:
+            raise ValueError("INVALID_AUTHORITY_GLOBAL_MEET")
+        for value in (
+            self.authority_non_amplifying,
+            self.semantic_accounting_pass,
+            self.uncertainty_accounting_pass,
+        ):
+            if type(value) is not bool:
+                raise ValueError("CONSERVATION_FLAGS_MUST_BE_BOOL")
+        if self.decision == PASS:
+            if self.reason_codes:
+                raise ValueError("PASS_RECEIPT_CANNOT_HAVE_FAILURE_REASONS")
+            if (
+                self.authority_non_amplifying is not True
+                or self.semantic_accounting_pass is not True
+                or self.uncertainty_accounting_pass is not True
+            ):
+                raise ValueError("PASS_RECEIPT_INVARIANT_FALSE")
+            if self.authority_final != self.authority_global_meet:
+                raise ValueError("PASS_RECEIPT_AUTHORITY_MEET_MISMATCH")
+        elif not self.reason_codes:
+            raise ValueError("DENY_RECEIPT_REQUIRES_REASON")
         for value, label in (
             (self.parent_state_sha256, "parent_state_sha256"),
             (
