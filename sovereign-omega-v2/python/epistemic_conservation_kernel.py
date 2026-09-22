@@ -6,7 +6,7 @@ rewrite and never grants operational authority.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from enum import Enum
 import hashlib
 import json
@@ -112,12 +112,26 @@ class EpistemicConservationReceiptV1:
         ):
             if SHA256_RE.fullmatch(value) is None:
                 raise ValueError(f"{label}: invalid digest")
-        material = asdict(self)
-        material.pop("receipt_sha256", None)
+        material = {
+            "parent_state_sha256": self.parent_state_sha256,
+            "semantic_lineage_receipt_sha256": self.semantic_lineage_receipt_sha256,
+            "authority_final": self.authority_final,
+            "authority_global_meet": self.authority_global_meet,
+            "authority_non_amplifying": self.authority_non_amplifying,
+            "semantic_accounting_pass": self.semantic_accounting_pass,
+            "uncertainty_accounting_pass": self.uncertainty_accounting_pass,
+            "reason_codes": list(self.reason_codes),
+            "decision": self.decision,
+            "authority_effect": self.authority_effect,
+            "schema": self.schema,
+        }
         object.__setattr__(
             self,
             "receipt_sha256",
-            _canonical_hash("AEGIS_EPISTEMIC_CONSERVATION_RECEIPT_V1", material),
+            _canonical_hash(
+                "AEGIS_EPISTEMIC_CONSERVATION_RECEIPT_V1",
+                material,
+            ),
         )
 
 
