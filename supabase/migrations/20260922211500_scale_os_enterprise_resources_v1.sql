@@ -188,6 +188,7 @@ create or replace function scale_os.update_enterprise_resource_review_v1(
   p_resource_id uuid,
   p_eligibility_state text,
   p_terms_state text,
+  p_evidence_authority text,
   p_activation_requires_payment_method boolean,
   p_evidence_ref text,
   p_source_system text,
@@ -211,6 +212,14 @@ begin
   end if;
   if p_terms_state not in ('NOT_REVIEWED','REVIEWED','NOT_APPLICABLE') then
     raise exception 'invalid terms_state';
+  end if;
+  if p_evidence_authority not in ('DIRECT_OBSERVATION','PROVIDER_ATTESTATION','DERIVED_FROM_VERIFIED') then
+    raise exception 'invalid evidence_authority';
+  end if;
+  if p_eligibility_state = 'ELIGIBLE'
+     and p_evidence_authority not in ('DIRECT_OBSERVATION','DERIVED_FROM_VERIFIED') then
+    return query select 'DENIED_ELIGIBILITY_EVIDENCE_AUTHORITY'::text, p_resource_id, null::uuid;
+    return;
   end if;
   if p_evidence_ref is null or length(btrim(p_evidence_ref)) = 0 then
     raise exception 'evidence_ref required';
@@ -265,6 +274,7 @@ begin
       'to_state', v_current.state,
       'eligibility_state', p_eligibility_state,
       'terms_state', p_terms_state,
+      'evidence_authority', p_evidence_authority,
       'activation_requires_payment_method', p_activation_requires_payment_method,
       'external_authority', 'NOT_GRANTED',
       'authority_effect', 'NONE'
@@ -410,7 +420,7 @@ revoke all on function scale_os.record_enterprise_resource_offer_v1(
   text, text, text, bigint, text, text, text, text, timestamptz
 ) from public, anon, authenticated;
 revoke all on function scale_os.update_enterprise_resource_review_v1(
-  uuid, text, text, boolean, text, text, text
+  uuid, text, text, text, boolean, text, text, text
 ) from public, anon, authenticated;
 revoke all on function scale_os.transition_enterprise_resource_state_v1(
   uuid, text, text, text, text
@@ -420,7 +430,7 @@ grant execute on function scale_os.record_enterprise_resource_offer_v1(
   text, text, text, bigint, text, text, text, text, timestamptz
 ) to service_role;
 grant execute on function scale_os.update_enterprise_resource_review_v1(
-  uuid, text, text, boolean, text, text, text
+  uuid, text, text, text, boolean, text, text, text
 ) to service_role;
 grant execute on function scale_os.transition_enterprise_resource_state_v1(
   uuid, text, text, text, text
@@ -432,7 +442,7 @@ alter function scale_os.record_enterprise_resource_offer_v1(
   text, text, text, bigint, text, text, text, text, timestamptz
 ) owner to postgres;
 alter function scale_os.update_enterprise_resource_review_v1(
-  uuid, text, text, boolean, text, text, text
+  uuid, text, text, text, boolean, text, text, text
 ) owner to postgres;
 alter function scale_os.transition_enterprise_resource_state_v1(
   uuid, text, text, text, text
