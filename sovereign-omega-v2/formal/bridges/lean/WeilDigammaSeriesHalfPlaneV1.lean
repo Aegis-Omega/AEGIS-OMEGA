@@ -129,11 +129,19 @@ private theorem differentiableAt_series_tsum_v1
     have hzre : δ < z.re := by
       have hlow := (abs_lt.mp hreldiff).1
       nlinarith
-    exact
-      (seriesTerm_differentiableOn_v1 n z
-        (show z ∈ RightHalfPlaneV1 by
-          exact lt_trans hδpos hzre)).mono
-        (by intro _ _; exact trivial)
+    have hzre0 : 0 < z.re := lt_trans hδpos hzre
+    have hzn : z + (n : ℂ) ≠ 0 := by
+      intro h
+      have hre := congrArg Complex.re h
+      simp at hre
+      linarith
+    have hn1 : ((n : ℂ) + 1) ≠ 0 := by
+      intro h
+      have hre := congrArg Complex.re h
+      simp at hre
+    apply DifferentiableAt.differentiableWithinAt
+    unfold seriesTerm
+    fun_prop
 
   have hbound :
       ∀ n : ℕ, ∀ z ∈ U, ‖seriesTerm z n‖ ≤ majorant n := by
@@ -183,11 +191,11 @@ private theorem differentiableAt_series_tsum_v1
           ≤ A / (((n : ℝ) + 1) *
               (δ * ((n : ℝ) + 1))) := by
             apply div_le_div₀
+            · exact hA0
             · exact hnum
+            · exact mul_pos hn1pos (mul_pos hδpos hn1pos)
             · exact mul_le_mul_of_nonneg_left
                 hdenlower (by positivity)
-            · positivity
-            · positivity
       _ = (A / δ) * (1 / (((n : ℝ) + 1) ^ 2)) := by
             field_simp [hδpos.ne', hn1pos.ne']
             ring
