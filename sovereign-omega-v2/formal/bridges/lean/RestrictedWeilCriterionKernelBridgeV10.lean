@@ -253,6 +253,48 @@ theorem universal_zero_quadratic_implies_translated_component_bounds_v10
   rw [← hexact]
   linarith
 
+/-- Arithmetic translated kernel used by the restricted criterion. -/
+def TranslatedArithmeticKernelV10
+    (g : WeilCompactSmoothGV1) (d : ℝ) : ℂ :=
+  ArithmeticCrossV1 g (translatePacket g d)
+
+/-- Its diagonal normalization. -/
+def TranslatedArithmeticDiagonalV10
+    (g : WeilCompactSmoothGV1) : ℝ :=
+  ArithmeticDiagonalV1 g
+
+/-- The component box implies a uniform norm bound.  The factor 2 is
+deliberately sufficient; the restricted criterion needs boundedness, not the
+sharp unit-disc constant. -/
+theorem translated_component_bounds_imply_norm_bound_v10
+    (g : WeilCompactSmoothGV1) (d : ℝ)
+    (hb : ArithmeticComponentBoundsV1 g (translatePacket g d)) :
+    ‖TranslatedArithmeticKernelV10 g d‖ ≤
+      2 * TranslatedArithmeticDiagonalV10 g := by
+  rcases hb with ⟨hre, him⟩
+  unfold TranslatedArithmeticKernelV10 TranslatedArithmeticDiagonalV10
+  calc
+    ‖ArithmeticCrossV1 g (translatePacket g d)‖
+        ≤ |(ArithmeticCrossV1 g (translatePacket g d)).re| +
+            |(ArithmeticCrossV1 g (translatePacket g d)).im| :=
+      Complex.norm_le_abs_re_add_abs_im _
+    _ ≤ 2 * ArithmeticDiagonalV1 g := by
+      linarith
+
+/-- Universal zero-quadratic positivity therefore makes the translated
+arithmetic kernel uniformly bounded on the entire real translation axis. -/
+theorem universal_zero_quadratic_implies_translated_kernel_bounded_v10
+    (hU : UniversalZeroQuadraticNonnegativeV10)
+    (g : WeilCompactSmoothGV1)
+    (hm : WeilMomentConditionsV1 g) :
+    ∀ d : ℝ,
+      ‖TranslatedArithmeticKernelV10 g d‖ ≤
+        2 * TranslatedArithmeticDiagonalV10 g := by
+  intro d
+  exact translated_component_bounds_imply_norm_bound_v10 g d
+    (universal_zero_quadratic_implies_translated_component_bounds_v10
+      hU g hm d)
+
 /-- Named universal translated-kernel target produced unconditionally from the
 universal zero-quadratic hypothesis. -/
 def TranslatedComponentDominanceV10 : Prop :=
@@ -275,4 +317,5 @@ end AEGIS.RestrictedWeilCriterionKernelBridgeV10
 #print axioms AEGIS.RestrictedWeilCriterionKernelBridgeV10.translate_autocorrelation_eq_v10
 #print axioms AEGIS.RestrictedWeilCriterionKernelBridgeV10.translate_B_diagonal_eq_v10
 #print axioms AEGIS.RestrictedWeilCriterionKernelBridgeV10.universal_zero_quadratic_implies_translated_component_bounds_v10
+#print axioms AEGIS.RestrictedWeilCriterionKernelBridgeV10.universal_zero_quadratic_implies_translated_kernel_bounded_v10
 #print axioms AEGIS.RestrictedWeilCriterionKernelBridgeV10.universal_zero_quadratic_implies_translated_component_dominance_v10
