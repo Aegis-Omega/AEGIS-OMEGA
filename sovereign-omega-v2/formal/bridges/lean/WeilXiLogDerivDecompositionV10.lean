@@ -57,7 +57,7 @@ theorem logDeriv_GammaR_v10 (s : ℂ) (hs : 0 < s.re) :
 
   have hpne : p s ≠ 0 := by
     dsimp [p]
-    exact Complex.cpow_ne_zero _ hpi
+    exact Complex.cpow_ne_zero_iff.mpr (Or.inl hpi)
 
   have hs2 : 0 < (s / 2).re := by
     simpa using (div_pos hs (by norm_num : (0 : ℝ) < 2))
