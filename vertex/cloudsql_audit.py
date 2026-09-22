@@ -111,11 +111,13 @@ def _sql(statement: str) -> Any:
 
 
 class CloudSqlAuditStore:
-    """Transactional, multi-instance-safe append store.
+    """Authoritative append store using a database compare-and-swap primitive.
 
-    The singleton chain head row is locked FOR UPDATE. Sequence and predecessor
-    are therefore allocated by PostgreSQL, while the application computes the
-    existing AEGIS hash format inside the same transaction.
+    The application reads the current head, computes the existing AEGIS hash
+    format, then calls a SECURITY DEFINER function. PostgreSQL locks the head row
+    and accepts the candidate only if its sequence and previous hash still match.
+    A bounded retry handles concurrent writers without granting direct UPDATE on
+    the durable head to the application role.
     """
 
     def __init__(self, engine: Any, connector: Any | None = None):
@@ -195,65 +197,43 @@ class CloudSqlAuditStore:
             ensure_ascii=False,
         )
 
-        with self._engine.begin() as conn:
-            head = conn.execute(
-                _sql(
-                    "select next_sequence, terminal_hash "
-                    "from aegis_audit.constitutional_chain_head_v1 "
-                    "where chain_id=:chain_id for update"
-                ),
-                {"chain_id": "constitutional"},
-            ).mappings().one()
-
-            sequence = int(head["next_sequence"])
-            previous_hash = str(head["terminal_hash"])
-            if not _SHA256.fullmatch(previous_hash):
-                raise RuntimeError("invalid durable audit head hash")
-
+        for _attempt in range(4):
+            head = self.head()
+            sequence = head["next_sequence"]
+            previous_hash = head["terminal_hash"]
             entry_hash = compute_hash(previous_hash, sequence, observation)
             if not _SHA256.fullmatch(entry_hash):
                 raise RuntimeError("audit hash callback returned invalid SHA-256")
 
-            conn.execute(
-                _sql(
-                    "insert into aegis_audit.constitutional_chain_v1 "
-                    "(sequence, previous_entry_hash, entry_hash, observation, tier, timestamp_ms) "
-                    "values (:sequence, :previous_entry_hash, :entry_hash, "
-                    "cast(:observation as jsonb), :tier, :timestamp_ms)"
-                ),
-                {
+            with self._engine.begin() as conn:
+                row = conn.execute(
+                    _sql(
+                        "select aegis_audit.append_constitutional_entry_v1("
+                        ":sequence, :previous_entry_hash, :entry_hash, "
+                        "cast(:observation as jsonb), :tier, :timestamp_ms"
+                        ") as accepted"
+                    ),
+                    {
+                        "sequence": sequence,
+                        "previous_entry_hash": previous_hash,
+                        "entry_hash": entry_hash,
+                        "observation": observation_json,
+                        "tier": tier,
+                        "timestamp_ms": timestamp_ms,
+                    },
+                ).mappings().one()
+
+            if bool(row["accepted"]):
+                return {
                     "sequence": sequence,
                     "previous_entry_hash": previous_hash,
                     "entry_hash": entry_hash,
-                    "observation": observation_json,
+                    "observation": observation,
                     "tier": tier,
                     "timestamp_ms": timestamp_ms,
-                },
-            )
-            result = conn.execute(
-                _sql(
-                    "update aegis_audit.constitutional_chain_head_v1 "
-                    "set next_sequence=:next_sequence, terminal_hash=:terminal_hash, updated_at=now() "
-                    "where chain_id=:chain_id and next_sequence=:expected_sequence"
-                ),
-                {
-                    "next_sequence": sequence + 1,
-                    "terminal_hash": entry_hash,
-                    "chain_id": "constitutional",
-                    "expected_sequence": sequence,
-                },
-            )
-            if getattr(result, "rowcount", 1) != 1:
-                raise RuntimeError("durable audit head update lost its fence")
+                }
 
-        return {
-            "sequence": sequence,
-            "previous_entry_hash": previous_hash,
-            "entry_hash": entry_hash,
-            "observation": observation,
-            "tier": tier,
-            "timestamp_ms": timestamp_ms,
-        }
+        raise RuntimeError("durable audit append exceeded compare-and-swap retry budget")
 
     def get_entry(self, sequence: int) -> dict[str, Any] | None:
         if not isinstance(sequence, int) or sequence < 0:
