@@ -16,3 +16,5 @@ mathlib=0df444a360eaa60ab8c11dca51a86af692955474
 automatic_rewrite=false
 global_optimality_claimed=false
 authority_effect=NONE
+
+transport_retrigger=1
