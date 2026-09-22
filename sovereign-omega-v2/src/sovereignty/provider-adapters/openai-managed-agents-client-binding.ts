@@ -84,6 +84,7 @@ async function collectItems(source: unknown): Promise<unknown[]> {
 function outputText(item: unknown): string | null {
   const value = object(item, 'OpenAI session item')
   if (value.type !== 'message' || value.role !== 'assistant' || value.status !== 'completed') return null
+  if (value.phase !== 'final_answer') return null
   if (!Array.isArray(value.content)) throw new TypeError('assistant message content must be array')
 
   const parts = value.content
