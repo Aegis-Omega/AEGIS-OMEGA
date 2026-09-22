@@ -5,6 +5,7 @@
 import {
   createConsequentialActionPacketV1,
   type ConsequentialActionPacketV1,
+  type ConsequentialActionClassV1,
 } from './company-approval-packet.js'
 import {
   evaluateEnterpriseEngagementV1,
@@ -107,6 +108,21 @@ export async function createEnterpriseConsequentialPacketV1(
     throw new Error(`ENTERPRISE_ACTION_NOT_PACKET_ELIGIBLE:${engagement.denial_code ?? engagement.status}`)
   }
 
+  let consequentialClass: ConsequentialActionClassV1
+  switch (engagement.action_class) {
+    case 'EXTERNAL_MESSAGE':
+      consequentialClass = 'EXTERNAL_MESSAGE'
+      break
+    case 'LEGAL_COMMITMENT':
+      consequentialClass = 'LEGAL_COMMITMENT'
+      break
+    case 'FINANCIAL':
+      consequentialClass = 'FINANCIAL'
+      break
+    default:
+      throw new Error(`ENTERPRISE_ACTION_CLASS_NOT_CONSEQUENTIAL:${engagement.action_class}`)
+  }
+
   const requiresTerms = input.action === 'SEND_COMMERCIAL_TERMS' || input.action === 'REQUEST_PAYMENT'
   const commercialTermsDigest = requiresTerms
     ? sha(input.commercial_terms_digest, 'commercial_terms_digest')
@@ -135,7 +151,7 @@ export async function createEnterpriseConsequentialPacketV1(
   const created = await createConsequentialActionPacketV1({
     packet_id: text(input.packet_id, 'packet_id'),
     task_id: text(input.task_id, 'task_id'),
-    action_class: engagement.action_class,
+    action_class: consequentialClass,
     target: exactTarget,
     action: actionText,
     reason,
