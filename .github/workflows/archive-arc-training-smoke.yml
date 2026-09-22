@@ -1,0 +1,81 @@
+name: Archive ARC Training Smoke
+
+on:
+  pull_request:
+    branches:
+      - main
+      - restore/archive-swarm-arc-v1
+    paths:
+      - "swarm_os/arc/data/**"
+      - "swarm_os/arc/model/transformer_policy.py"
+      - "swarm_os/arc/tests/test_training_smoke.py"
+      - "swarm_os/arc/requirements-training-smoke.txt"
+      - "scripts/test-archive-arc-training-100.py"
+      - "scripts/evaluate-archive-arc-train-test.py"
+      - ".github/workflows/archive-arc-training-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  archive-arc-training-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install bounded training dependencies
+        run: python -m pip install --disable-pip-version-check -r swarm_os/arc/requirements-training-smoke.txt
+      - name: Verify corpus count
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          files=list(Path("swarm_os/arc/data/arc_data").glob("*.json"))
+          if len(files) != 800:
+              raise SystemExit(f"expected 800 ARC tasks, got {len(files)}")
+          PY
+      - name: Regression — policy backward must be gradient-safe
+        run: |
+          cd swarm_os/arc
+          PYTHONPATH=. pytest -q tests/test_training_smoke.py
+      - name: 100-step deterministic training-path smoke
+        run: |
+          PYTHONPATH=. python scripts/test-archive-arc-training-100.py > /tmp/archive-arc-100.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result=json.loads(Path("/tmp/archive-arc-100.json").read_text())
+          required={
+              "schema":"AEGIS_ARCHIVE_ARC_TRAINING_100_SMOKE_V1",
+              "status":"PASS",
+              "steps":100,
+              "tasks_available":800,
+              "interpretation":"TRAINING_PATH_EXECUTION_ONLY_NOT_HELD_OUT_BENCHMARK",
+              "authority_effect":"NONE",
+          }
+          for key,value in required.items():
+              if result.get(key) != value:
+                  raise SystemExit(f"{key} mismatch: {result.get(key)!r}")
+          checkpoint=result.get("checkpoint",{})
+          if checkpoint.get("committed") is not False or int(checkpoint.get("size_bytes",0)) <= 0:
+              raise SystemExit("checkpoint contract failed")
+          PY
+      - name: Train-to-test exact audit (50 deterministic tasks)
+        run: |
+          PYTHONPATH=. python scripts/evaluate-archive-arc-train-test.py --limit 50 --max-depth 8 --max-states 50000 > /tmp/archive-arc-train-test.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result=json.loads(Path("/tmp/archive-arc-train-test.json").read_text())
+          if result.get("status")!="PASS" or result.get("selection_uses_test_outputs") is not False:
+              raise SystemExit("train/test separation contract failed")
+          if result.get("search",{}).get("truncated_task_count") != 0:
+              raise SystemExit("bounded audit truncated")
+          PY
+      - name: Authority boundary
+        run: |
+          echo "training_smoke_only=true"
+          echo "benchmark_claim=false"
+          echo "authority_effect=NONE"

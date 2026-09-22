@@ -76,7 +76,7 @@ class TransformerPolicy(nn.Module):
         log_probs = []
 
         for t in range(max_len):
-            logits = self.forward(z, seq[:, :t + 1])    # (1, t+1, V)
+            logits = self.forward(z, seq[:, :t + 1].clone())  # isolate saved embedding indices from later in-place writes
             probs  = F.softmax(logits[:, -1], dim=-1)   # (1, V)
             dist   = torch.distributions.Categorical(probs)
             token  = dist.sample()                      # (1,)
