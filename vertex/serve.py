@@ -36,6 +36,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 import httpx
 
+from cloudsql_audit import CloudSqlAuditConfig, CloudSqlAuditStore
+
 # Robust import path — works in dev (serve.py in vertex/, agents at ../agents)
 # and in the flattened container (serve.py at /app, agents at /app/agents).
 _SELF_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -76,23 +78,85 @@ class ChainState:
     def __init__(self):
         self.redis: aioredis.Redis | None = None
         self.anthropic: anthropic.AsyncAnthropic | None = None
+        self.audit_store: CloudSqlAuditStore | None = None
+        self.audit_backend = "redis_legacy"
         self._seq = 0
 
     async def init(self):
         self.redis = await aioredis.from_url(REDIS_URL, decode_responses=True)
         if ANTHROPIC_API_KEY:
             self.anthropic = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-        # restore sequence from Redis
-        length = await self.redis.llen(CHAIN_KEY)
-        self._seq = length
+
+        configured_mode = os.environ.get("CLOUD_SQL_AUDIT_MODE", "off").strip().lower()
+        try:
+            config = CloudSqlAuditConfig.from_env()
+            if config.enabled:
+                store = CloudSqlAuditStore.from_config(config)
+                head = await asyncio.to_thread(store.head)
+                self.audit_store = store
+                self.audit_backend = "cloud_sql"
+                self._seq = int(head["next_sequence"])
+        except Exception as exc:
+            if configured_mode == "required":
+                raise RuntimeError("CLOUD_SQL_AUDIT_REQUIRED_UNAVAILABLE") from exc
+            print(json.dumps({
+                "level": "warning",
+                "event": "cloud_sql_audit_unavailable",
+                "mode": configured_mode,
+                "error": str(exc),
+            }))
+
+        if self.audit_store is None:
+            length = await self.redis.llen(CHAIN_KEY)
+            self._seq = length
+
+    async def close(self):
+        if self.audit_store is not None:
+            await asyncio.to_thread(self.audit_store.close)
+        if self.redis is not None:
+            await self.redis.aclose()
+
+    async def _cache_entry(self, entry: dict) -> None:
+        if self.redis is None:
+            return
+        try:
+            raw = json.dumps(entry, separators=(",", ":"))
+            await self.redis.rpush(CHAIN_KEY, raw)
+            length = await self.redis.llen(CHAIN_KEY)
+            if length > MAX_CHAIN_ENTRIES:
+                await self.redis.ltrim(CHAIN_KEY, -MAX_CHAIN_ENTRIES, -1)
+        except Exception as exc:
+            if self.audit_store is None:
+                raise
+            print(json.dumps({
+                "level": "warning",
+                "event": "redis_audit_cache_write_failed",
+                "sequence": entry.get("sequence"),
+                "error": str(exc),
+            }))
 
     async def append(self, observation: dict, tier: str = "T1") -> dict:
+        timestamp_ms = int(time.time() * 1000)
+
+        if self.audit_store is not None:
+            entry = await asyncio.to_thread(
+                self.audit_store.append,
+                observation,
+                tier,
+                timestamp_ms,
+                compute_entry_hash,
+            )
+            self._seq = int(entry["sequence"]) + 1
+            await self._cache_entry(entry)
+            return entry
+
         seq = self._seq
-        # get last hash
         if seq == 0:
             prev_hash = GENESIS_HASH
         else:
             last_raw = await self.redis.lindex(CHAIN_KEY, -1)
+            if not last_raw:
+                raise RuntimeError("REDIS_AUDIT_HEAD_MISSING")
             last = json.loads(last_raw)
             prev_hash = last["entry_hash"]
 
@@ -103,16 +167,19 @@ class ChainState:
             "entry_hash": entry_hash,
             "observation": observation,
             "tier": tier,
-            "timestamp_ms": int(time.time() * 1000),
+            "timestamp_ms": timestamp_ms,
         }
-        raw = json.dumps(entry, separators=(",", ":"))
-        await self.redis.rpush(CHAIN_KEY, raw)
-        if seq % 1000 == 0 and seq > MAX_CHAIN_ENTRIES:
-            await self.redis.ltrim(CHAIN_KEY, -MAX_CHAIN_ENTRIES, -1)
+        await self._cache_entry(entry)
         self._seq = seq + 1
         return entry
 
     async def certify(self) -> dict:
+        if self.audit_store is not None:
+            return await asyncio.to_thread(
+                self.audit_store.certify,
+                compute_entry_hash,
+            )
+
         all_raw = await self.redis.lrange(CHAIN_KEY, 0, -1)
         entries = [json.loads(r) for r in all_raw]
         if not entries:
@@ -133,10 +200,14 @@ class ChainState:
         return {"is_valid": True, "entry_count": len(entries), "terminal_hash": prev}
 
     async def get_entry(self, seq: int) -> dict | None:
+        if self.audit_store is not None:
+            return await asyncio.to_thread(self.audit_store.get_entry, seq)
         raw = await self.redis.lindex(CHAIN_KEY, seq)
         return json.loads(raw) if raw else None
 
     async def full_chain(self, limit: int = 200) -> list[dict]:
+        if self.audit_store is not None:
+            return await asyncio.to_thread(self.audit_store.tail, limit)
         all_raw = await self.redis.lrange(CHAIN_KEY, -limit, -1)
         return [json.loads(r) for r in all_raw]
 
@@ -189,7 +260,10 @@ async def _persist_cycle_result(result: dict) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await state.init()
-    yield
+    try:
+        yield
+    finally:
+        await state.close()
 
 
 app = FastAPI(
@@ -397,7 +471,11 @@ async def _governed_inference(messages: list[dict], model: str, system: str | No
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "chain_length": state._seq}
+    return {
+        "status": "ok",
+        "chain_length": state._seq,
+        "audit_backend": state.audit_backend,
+    }
 
 
 @app.post("/predict")
@@ -1155,6 +1233,7 @@ async def platform_status():
         "platform": "AEGIS-Ω Agent Platform",
         "version": "1.2.0",
         "constitutional_chain": {
+            "backend": state.audit_backend,
             "length": state._seq,
             "is_valid": cert.get("is_valid", True),
             "terminal_hash": cert.get("terminal_hash", ""),
