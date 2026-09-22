@@ -187,7 +187,7 @@ private theorem gamma_u_majorant_integrable_v10
     have key :=
       Real.integral_rpow_mul_exp_neg_mul_Ioi
         (a := (2 : ℝ)) (r := m) (by norm_num) hm
-    refine IntegrableOn.of_integral_ne_zero ?_
+    refine Integrable.of_integral_ne_zero ?_
     have hpos :
         0 < (1 / m) ^ (2 : ℝ) * Real.Gamma 2 := by positivity
     have heq :
