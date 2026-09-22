@@ -5,7 +5,9 @@ import { fileURLToPath } from 'node:url'
 
 const here=dirname(fileURLToPath(import.meta.url))
 const manifestPath=resolve(here,'BUYER_PACK_MANIFEST_V1.json')
-const manifest=JSON.parse(readFileSync(manifestPath,'utf8'))
+const manifestBytes=readFileSync(manifestPath)
+const manifest=JSON.parse(manifestBytes.toString('utf8'))
+const sidecar=readFileSync(resolve(here,'BUYER_PACK_MANIFEST_V1.sha256'),'utf8').trim()
 
 function fail(message){
   process.stderr.write(`BUYER_PACK_VALIDATION_FAILED: ${message}\n`)
@@ -20,6 +22,10 @@ function gitBlobSha1(bytes){
 function text(name){ return readFileSync(resolve(here,name),'utf8') }
 
 if(manifest.schema!=='AEGIS_AGENT_ACTION_AUDIT_BUYER_PACK_MANIFEST_V1') fail('schema')
+if(typeof manifest.content_source_head!=='string'||!/^[0-9a-f]{40}$/.test(manifest.content_source_head)) fail('content_source_head')
+if('source_head' in manifest) fail('ambiguous source_head field forbidden')
+const manifestSha256=createHash('sha256').update(manifestBytes).digest('hex')
+if(sidecar!==`${manifestSha256}  BUYER_PACK_MANIFEST_V1.json`) fail('manifest sha256 sidecar drift')
 if(manifest.offer?.price_minor_units!==300000||manifest.offer?.currency!=='USD') fail('price manifest drift')
 if(manifest.offer?.scope!=='one tool-using workflow') fail('scope manifest drift')
 if(manifest.authority_effect!=='NONE') fail('authority effect')
@@ -65,7 +71,8 @@ for(const state of ['DEMONSTRATED_FAIL_CLOSED','DEMONSTRATED_FAIL_OPEN','NOT_VER
 process.stdout.write(JSON.stringify({
   schema:'AEGIS_AGENT_ACTION_AUDIT_BUYER_PACK_VALIDATION_V1',
   status:'PASS',
-  manifest_source_head:manifest.source_head,
+  content_source_head:manifest.content_source_head,
+  manifest_sha256:manifestSha256,
   file_count:manifest.files.length,
   price_minor_units:manifest.offer.price_minor_units,
   currency:manifest.offer.currency,
