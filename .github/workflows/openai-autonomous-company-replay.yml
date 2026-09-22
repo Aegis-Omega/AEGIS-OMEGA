@@ -52,14 +52,16 @@ jobs:
             src/sovereignty/provider-adapters/openai-managed-agents-api.ts \
             src/sovereignty/provider-adapters/openai-managed-agents-client-binding.ts \
             src/sovereignty/autonomous-company-loop.ts \
-            src/sovereignty/company-model-router.ts
+            src/sovereignty/company-model-router.ts \
+            src/sovereignty/company-evidence-authority.ts
 
       - name: Execute autonomous-company falsifiers
         run: |
           set -euo pipefail
           node --test \
             test/native-runtime/openai-autonomous-company.test.mjs \
-            test/native-runtime/openai-company-production.test.mjs
+            test/native-runtime/openai-company-production.test.mjs \
+            test/native-runtime/company-evidence-authority.test.mjs
 
       - name: Validate durable-ledger migration is evidence-only
         run: |
@@ -84,7 +86,9 @@ jobs:
               'sovereign-omega-v2/src/sovereignty/provider-adapters/openai-managed-agents-client-binding.ts',
               'sovereign-omega-v2/src/sovereignty/autonomous-company-loop.ts',
               'sovereign-omega-v2/src/sovereignty/company-model-router.ts',
+              'sovereign-omega-v2/src/sovereignty/company-evidence-authority.ts',
               'sovereign-omega-v2/test/native-runtime/openai-autonomous-company.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-evidence-authority.test.mjs',
               'sovereign-omega-v2/test/native-runtime/openai-company-production.test.mjs',
               'supabase/migrations/20260922171000_autonomous_company_work_ledger_v1.sql',
           ]
