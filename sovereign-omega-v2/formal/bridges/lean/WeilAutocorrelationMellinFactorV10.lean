@@ -65,8 +65,8 @@ theorem logCorrelationJointEnvelope_compact_v10
     IsCompact (logCorrelationJointEnvelopeV10 g) := by
   unfold logCorrelationJointEnvelopeV10
   exact
-    ((logLift_hasCompactSupport_v10 g).isCompact.prod
-      (logLift_hasCompactSupport_v10 g).isCompact).image
+    ((logLift_hasCompactSupport_v10 g).prod
+      (logLift_hasCompactSupport_v10 g)).image
       (by fun_prop)
 
 theorem logCorrelationJoint_support_subset_v10
