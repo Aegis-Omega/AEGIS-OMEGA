@@ -1,0 +1,78 @@
+{
+  "schema": "AEGIS_OPENAI_AUTONOMOUS_COMPANY_COMPOSED_REPLAY_V1",
+  "candidate_sha": "1c10f4c9e89c26c36b712e77019f2f795a5f7d60",
+  "candidate_tree_sha": "d5f54d8a9ad3c9a640fefde5d347717b380b9900",
+  "base_sha": "0030ef8114073b82cff2cfb5095d6cf1e0f227d1",
+  "execution_mode": "COMPOSED_INDEPENDENT_REPLAYS",
+  "composition_basis": {
+    "core_candidate_sha": "ce53ef73e316b91c7a07c0536d9c0cf4858b01f9",
+    "core_receipt_path": "sovereign-omega-v2/docs/evidence/openai-autonomous-company-local-replay-ce53ef73.json",
+    "core_receipt_sha256": "28f7a9184191033ee5752f164e2276369e63461f6cc77a2ae1f9f2d0c8039c3e",
+    "core_artifacts_changed_since_core_candidate": false,
+    "delta_ce53_to_candidate": [
+      ".github/workflows/openai-autonomous-company-replay.yml",
+      "sovereign-omega-v2/docs/evidence/openai-autonomous-company-local-replay-ce53ef73.json",
+      "sovereign-omega-v2/src/sovereignty/company-model-promotion.ts",
+      "sovereign-omega-v2/test/native-runtime/company-model-promotion.test.mjs"
+    ]
+  },
+  "components": [
+    {
+      "name": "AUTONOMOUS_COMPANY_CORE",
+      "type": "EXACT_BYTE_LOCAL_REPLAY",
+      "node": "22.16.0",
+      "typescript": "5.8.3",
+      "strict_typecheck_exit": 0,
+      "tests_total": 27,
+      "tests_passed": 27,
+      "tests_failed": 0,
+      "tests_skipped": 0,
+      "receipt_sha256": "28f7a9184191033ee5752f164e2276369e63461f6cc77a2ae1f9f2d0c8039c3e"
+    },
+    {
+      "name": "MODEL_PROMOTION_GATE",
+      "type": "EXACT_BYTE_LOCAL_REPLAY",
+      "node": "22.16.0",
+      "typescript": "5.8.3",
+      "strict_typecheck_exit": 0,
+      "tests_total": 7,
+      "tests_passed": 7,
+      "tests_failed": 0,
+      "tests_skipped": 0,
+      "artifacts": {
+        "sovereign-omega-v2/src/sovereignty/company-model-promotion.ts": {
+          "git_blob_sha1": "1a7e398bee9b2212878e21d439be64ce048e541c",
+          "sha256": "0048774353fbb69fdacddfd8dee47229a4820bbb60ac201f732a039776089b97"
+        },
+        "sovereign-omega-v2/test/native-runtime/company-model-promotion.test.mjs": {
+          "git_blob_sha1": "b0b98f8e837c965840f906509cceebb599258188",
+          "sha256": "f58855d10ef9157980c94f6e180d849cb37183e02d13ca89cbd2819870124bac"
+        }
+      }
+    }
+  ],
+  "aggregate": {
+    "tests_total": 34,
+    "tests_passed": 34,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "single_process_run": false
+  },
+  "model_promotion_effect": {
+    "admission_only": true,
+    "router_mutation": "NOT_PERFORMED",
+    "promotion_authority": "NOT_GRANTED"
+  },
+  "github_hosted_replay": {
+    "status_for_candidate": "NOT_YET_OBSERVED",
+    "runner_execution": "NOT_ESTABLISHED"
+  },
+  "live_openai_execution": "NOT_PERFORMED",
+  "migration_applied": false,
+  "write_authority": "NOT_GRANTED",
+  "merge_authority": "NOT_GRANTED",
+  "deploy_authority": "NOT_GRANTED",
+  "financial_authority": "NOT_GRANTED",
+  "authority_effect": "NONE",
+  "receipt_sha256": "9b900f16425920337aec3625a8b1ff6cc16d969972f00b70c49c613d71da1f23"
+}
