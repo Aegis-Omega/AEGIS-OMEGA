@@ -214,13 +214,16 @@ theorem autocorrelation_mellin_critical_normSq_v11
   have hmA := mellin_critical_eq_fourier_log_v11 A γ
   have hprof :
       (fun u : ℝ => CriticalLogProfileV11 A (-u)) =
-        fun u : ℝ => (Hstar ⋆[mul ℂ ℂ] H) u := by
+        fun u : ℝ => (Hstar ⋆[mul ℂ ℂ] H) (-u) := by
     funext u
-    change
-      MellinWeightedLogProfileV1 (WeilAutocorrelationV1 g) (1 / 2) (-u) =
-        (Hstar ⋆[mul ℂ ℂ] H) u
-    simpa [A, H, Hstar] using
-      autocorrelation_critical_profile_convolution_v11 g (-u)
+    have hw :=
+      critical_mellin_profile_eq_log_reflection_v11 A u
+    have hc :=
+      autocorrelation_critical_profile_convolution_v11 g u
+    change CriticalLogProfileV11 A (-u) =
+      (Hstar ⋆[mul ℂ ℂ] H) (-u)
+    rw [← hw]
+    simpa [A, H, Hstar] using hc
 
   rw [hprof] at hmA
   have hconv :=
@@ -251,10 +254,6 @@ theorem autocorrelation_mellin_critical_normSq_v11
         (-ξ)
     rw [hadj] at hc
     exact hc
-
-  have hAref :
-      𝓕 (fun u : ℝ => (Hstar ⋆[mul ℂ ℂ] H) u) ξ =
-        𝓕 (Hstar ⋆[mul ℂ ℂ] H) ξ := rfl
 
   rw [hmA]
   have hmAneg :
