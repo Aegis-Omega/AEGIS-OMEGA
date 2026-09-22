@@ -9,6 +9,7 @@ on:
       - "sovereign-omega-v2/python/epistemic_accounting.py"
       - "sovereign-omega-v2/python/epistemic_conservation_kernel.py"
       - "sovereign-omega-v2/python/tests/test_statistical_godel_machine.py"
+      - "sovereign-omega-v2/python/tests/test_statistical_godel_machine_spec.py"
       - "sovereign-omega-v2/python/tests/test_epistemic_authority_conservation.py"
       - "sovereign-omega-v2/python/tests/test_epistemic_accounting.py"
       - "sovereign-omega-v2/python/tests/test_epistemic_conservation_kernel.py"
@@ -52,6 +53,7 @@ jobs:
             sovereign-omega-v2/python/epistemic_accounting.py \
             sovereign-omega-v2/python/epistemic_conservation_kernel.py \
             sovereign-omega-v2/python/tests/test_statistical_godel_machine.py \
+            sovereign-omega-v2/python/tests/test_statistical_godel_machine_spec.py \
             sovereign-omega-v2/python/tests/test_epistemic_authority_conservation.py \
             sovereign-omega-v2/python/tests/test_epistemic_accounting.py \
             sovereign-omega-v2/python/tests/test_epistemic_conservation_kernel.py
@@ -60,6 +62,11 @@ jobs:
         env:
           PYTHONPATH: sovereign-omega-v2/python
         run: python sovereign-omega-v2/python/tests/test_statistical_godel_machine.py -v
+
+      - name: Run prior-art and conservation-qualified spec tests
+        env:
+          PYTHONPATH: sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_statistical_godel_machine_spec.py -v
 
       - name: Run authority conservation tests
         env:
