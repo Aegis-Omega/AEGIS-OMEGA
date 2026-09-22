@@ -1,0 +1,264 @@
+name: Provider Native Team PR599 Exact-Head Replay
+
+'on':
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: ['feat/provider-native-sdk-runtime-v1']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provider-native-team-pr599-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  native-runtime:
+    if: >-
+      github.event.pull_request.number == 599 &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'feat/provider-native-fanout-sdk-integration-v1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+        working-directory: sovereign-omega-v2
+    env:
+      CI: 'true'
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Set up pinned Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.16.0'
+      - name: Bind source and install locked dependencies
+        run: |
+          set -euo pipefail
+          export EVIDENCE_DIR="$RUNNER_TEMP/pr599-native-team"
+          printf 'EVIDENCE_DIR=%s\n' "$EVIDENCE_DIR" >> "$GITHUB_ENV"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          mkdir -p "$EVIDENCE_DIR"
+          test "$(git hash-object ../.github/workflows/provider-native-runtime-replay.yml)" = 9584405c303bdf22551b34a7173ddc82cf8c585c
+          python3 - <<'PY_SOURCE'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+          git = lambda *a: subprocess.check_output(['git', *a])
+          paths = git('ls-files', '-z', '--', 'src/core', 'src/sovereignty', 'test/unit',
+                      'test/native-runtime', 'test/contracts', 'test/integration',
+                      '../.github/workflows/provider-native-runtime-replay.yml',
+                      '../.github/workflows/provider-native-team-replay.yml', 'package.json', 'package-lock.json', 'vite.config.ts',
+                      'test/setup.ts').decode().strip('\0').split('\0')
+          if not paths or not all(paths):
+              raise SystemExit('No tracked source files')
+          record = {'head_sha': git('rev-parse', 'HEAD').decode().strip(),
+                    'tree_sha': git('rev-parse', 'HEAD^{tree}').decode().strip(),
+                    'sha256': {p: hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in sorted(paths)}}
+          (Path(os.environ['EVIDENCE_DIR']) / 'source-before.json').write_text(json.dumps(record, indent=2) + '\n')
+          PY_SOURCE
+          npm ci --ignore-scripts --include=dev --no-audit --no-fund 2>&1 | tee "$EVIDENCE_DIR/install.log"
+          { node --version; npm --version; ./node_modules/.bin/tsc --version; } > "$EVIDENCE_DIR/toolchain.txt"
+      - name: Typecheck standalone native runtime
+        id: typecheck
+        run: |
+          set -euo pipefail
+          set +e
+          ./node_modules/.bin/tsc --noEmit --strict --target ES2022 --module ES2022 \
+            --moduleResolution bundler --lib ES2022,DOM \
+            src/sovereignty/provider-adapters/provider-native-sdk-runtime.ts \
+            > "$EVIDENCE_DIR/typecheck.log" 2>&1
+          status=$?
+          set -e
+          printf '%s\n' "$status" > "$EVIDENCE_DIR/typecheck.exit"
+          cat "$EVIDENCE_DIR/typecheck.log"
+          exit "$status"
+      - name: Execute 50 native runtime and team contract tests
+        id: native_tests
+        run: |
+          set -euo pipefail
+          for suite in provider-native-sdk-runtime provider-native-agent-team; do
+            set +e
+            node --test --test-reporter=tap --test-reporter-destination="$EVIDENCE_DIR/$suite.tap" \
+              --test-reporter=junit --test-reporter-destination="$EVIDENCE_DIR/$suite.xml" \
+              "test/native-runtime/$suite.test.mjs" > "$EVIDENCE_DIR/$suite.log" 2>&1
+            status=$?
+            set -e
+            printf '%s\n' "$status" > "$EVIDENCE_DIR/$suite.exit"
+            cat "$EVIDENCE_DIR/$suite.log"
+            test ! -f "$EVIDENCE_DIR/$suite.tap" || tail -10 "$EVIDENCE_DIR/$suite.tap"
+            test "$status" -eq 0
+          done
+      - name: Execute focused provider units and 58 native fanout cases
+        id: provider_tests
+        run: |
+          set -euo pipefail
+          set +e
+          ./node_modules/.bin/vitest run \
+            test/unit/provider-chatgpt-connected-apps.test.ts \
+            test/unit/provider-mesh.test.ts \
+            test/unit/provider-native-conductor.test.ts \
+            test/unit/provider-openai-native-agent.test.ts \
+            test/unit/provider-openai-agents-sdk-runner.test.ts \
+            test/unit/provider-anthropic-native-agent.test.ts \
+            test/integration/provider-native-fanout-team.test.ts \
+            test/unit/provider-native-fanout.test.ts \
+            --reporter=default --reporter=json --outputFile.json="$EVIDENCE_DIR/vitest.json" \
+            > "$EVIDENCE_DIR/vitest.log" 2>&1
+          status=$?
+          set -e
+          printf '%s\n' "$status" > "$EVIDENCE_DIR/vitest.exit"
+          cat "$EVIDENCE_DIR/vitest.log"
+          exit "$status"
+      - name: Validate reports and emit evidence-only candidate receipt
+        id: receipt
+        run: |
+          set -euo pipefail
+          python3 - <<'PY_RECEIPT'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import subprocess
+          from xml.etree import ElementTree as ET
+
+          VITEST_FILES = (
+              'test/unit/provider-chatgpt-connected-apps.test.ts',
+              'test/unit/provider-mesh.test.ts',
+              'test/unit/provider-native-conductor.test.ts',
+              'test/unit/provider-openai-native-agent.test.ts',
+              'test/unit/provider-openai-agents-sdk-runner.test.ts',
+              'test/unit/provider-anthropic-native-agent.test.ts',
+              'test/integration/provider-native-fanout-team.test.ts',
+              'test/unit/provider-native-fanout.test.ts',
+          )
+          NATIVE_COUNTS = {'provider-native-sdk-runtime': 41, 'provider-native-agent-team': 9}
+
+          def require(ok, message):
+              if not ok:
+                  raise ValueError(message)
+
+          def unique_object(pairs):
+              result = {}
+              for key, value in pairs:
+                  require(key not in result, 'duplicate JSON key')
+                  result[key] = value
+              return result
+
+          def read_json(path):
+              require(0 < path.stat().st_size < 16_000_000, 'invalid report size')
+              return json.loads(path.read_text(), object_pairs_hook=unique_object)
+
+          def validate_reports(package, evidence):
+              for command in (*NATIVE_COUNTS, 'typecheck', 'vitest'):
+                  require((evidence / (command + '.exit')).read_text().strip() == '0',
+                          command + ' did not exit successfully')
+              for name, count in NATIVE_COUNTS.items():
+                  xml = evidence / (name + '.xml')
+                  require(0 < xml.stat().st_size < 16_000_000, 'invalid XML size')
+                  root = ET.parse(xml).getroot()
+                  cases = root.findall('.//testcase')
+                  require(root.tag == 'testsuites' and len(cases) == count, 'native test count mismatch')
+                  require(not any(root.findall('.//' + tag) for tag in ('failure', 'error', 'skipped')),
+                          'native tests contain failure/error/skip')
+                  names = [case.get('name', '') for case in cases]
+                  require(all(names) and len(set(names)) == count, 'missing/duplicate native case')
+              report = read_json(evidence / 'vitest.json')
+              require(isinstance(report, dict) and report.get('success') is True, 'Vitest not successful')
+              total = report.get('numTotalTests')
+              require(type(total) is int and total > 0, 'no Vitest tests executed')
+              require(type(report.get('numPassedTests')) is int and report['numPassedTests'] == total,
+                      'Vitest passed count mismatch')
+              for key in ('numFailedTests', 'numPendingTests', 'numTodoTests',
+                          'numFailedTestSuites', 'numPendingTestSuites'):
+                  require(type(report.get(key)) is int and report[key] == 0, key + ' is not zero')
+              results = report.get('testResults')
+              require(isinstance(results, list) and len(results) == len(VITEST_FILES), 'wrong Vitest files')
+              expected = {str(package.resolve() / file) for file in VITEST_FILES}
+              require(all(isinstance(result, dict) for result in results), 'invalid Vitest file result')
+              require({result.get('name') for result in results} == expected, 'wrong/duplicate Vitest file paths')
+              assertions = 0
+              for result in results:
+                  require(result.get('status') == 'passed' and result.get('message') == '', 'file runtime error')
+                  items = result.get('assertionResults')
+                  require(isinstance(items, list) and len(items) > 0, 'empty assertion results')
+                  for item in items:
+                      require(isinstance(item, dict) and item.get('status') == 'passed'
+                              and item.get('failureMessages') == [], 'assertion failed or not executed')
+                  assertions += len(items)
+              require(assertions == total, 'Vitest aggregate does not match individual assertions')
+              return {'native_tests': sum(NATIVE_COUNTS.values()), 'vitest_tests': total,
+                      'vitest_files': len(VITEST_FILES)}
+
+          def validate_pr599_reports(package, evidence):
+              summary = validate_reports(package, evidence)
+              report = read_json(evidence / 'vitest.json')
+              by_name = {item['name']: item for item in report['testResults']}
+              counts = {
+                  'test/integration/provider-native-fanout-team.test.ts': 27,
+                  'test/unit/provider-native-fanout.test.ts': 31,
+              }
+              for file, expected_count in counts.items():
+                  items = by_name[str(package.resolve() / file)]['assertionResults']
+                  require(len(items) == expected_count, 'PR599 per-file count mismatch: ' + file)
+                  names = [item.get('fullName') for item in items]
+                  require(all(isinstance(name, str) and name.strip() for name in names),
+                          'missing PR599 case name: ' + file)
+                  require(len(set(names)) == expected_count, 'duplicate PR599 case name: ' + file)
+              return {**summary, 'integration_tests': 27, 'fanout_regression_tests': 31}
+
+          def main():
+              package = Path(os.environ['GITHUB_WORKSPACE']) / 'sovereign-omega-v2'
+              evidence = Path(os.environ['EVIDENCE_DIR'])
+              summary = validate_pr599_reports(package, evidence)
+              expected = os.environ['EXPECTED_HEAD']
+              require(re.fullmatch('[0-9a-f]{40}', expected) is not None, 'invalid head SHA')
+              git = lambda *args: subprocess.check_output(['git', '-C', str(package), *args], text=True).strip()
+              require(git('rev-parse', 'HEAD') == expected, 'checkout head drift')
+              subprocess.run(['git', '-C', str(package), 'diff', '--exit-code', 'HEAD', '--'], check=True)
+              before = read_json(evidence / 'source-before.json')
+              require(before['head_sha'] == expected and before['tree_sha'] == git('rev-parse', 'HEAD^{tree}'),
+                      'source identity drift')
+              for file, digest in before['sha256'].items():
+                  require(hashlib.sha256((package / file).read_bytes()).hexdigest() == digest, 'source changed: ' + file)
+              require(os.environ.get('GITHUB_ACTIONS') == 'true', 'hosted producer environment missing')
+              files = sorted(p for p in evidence.iterdir() if p.is_file())
+              receipt = {
+                  'schema': 'AEGIS_NATIVE_TEAM_TEST_RECEIPT_V1',
+                  'status': 'OFFLINE_TESTS_PASS_HOSTED_BINDING_PENDING',
+                  'repository': os.environ['GITHUB_REPOSITORY'], 'pr_number': 599,
+                  'head_sha': expected, 'tree_sha': before['tree_sha'],
+                  'run_id': os.environ['GITHUB_RUN_ID'], 'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+                  'job_key': os.environ['GITHUB_JOB'],
+                  'workflow_ref': os.environ['GITHUB_WORKFLOW_REF'], 'workflow_sha': os.environ['GITHUB_WORKFLOW_SHA'],
+                  'runner_name': os.environ['RUNNER_NAME'], 'runner_os': os.environ['RUNNER_OS'],
+                  'counts': summary,
+                  'native_sdk_boundary': 'TEST_DOUBLES', 'team_boundary': 'REAL_AEGIS_COMPOSITION_WITH_EXTERNAL_SDK_MODULE_DOUBLES',
+                  'scope': 'OFFLINE_NATIVE_CONTRACTS_FOCUSED_PROVIDER_UNITS_AND_PR599_FANOUT_INTEGRATION',
+                  'live_provider_execution': 'NOT_PERFORMED', 'provider_freshness_refresh': 'NOT_PERFORMED',
+                  'hosted_binding': 'REQUIRES_INDEPENDENT_RUN_JOB_ARTIFACT_RECHECK',
+                  'write_authority': 'NOT_GRANTED', 'merge_authority': 'NOT_GRANTED',
+                  'deploy_authority': 'NOT_GRANTED', 'financial_authority': 'NOT_GRANTED', 'authority_effect': 'NONE',
+                  'files_sha256': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in files},
+              }
+              data = (json.dumps(receipt, indent=2, sort_keys=True) + '\n').encode()
+              (evidence / 'receipt.json').write_bytes(data)
+              (evidence / 'receipt.sha256').write_text(hashlib.sha256(data).hexdigest() + '  receipt.json\n')
+              print(json.dumps({'status': receipt['status'], **summary}))
+
+          if __name__ == '__main__':
+              main()
+          PY_RECEIPT
+      - name: Upload test evidence and startup diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pr599-native-team-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pr599-native-team/
+          if-no-files-found: error
+          retention-days: 7
