@@ -196,6 +196,30 @@ theorem mixed_translate_B_eq_neg_zero_tsum_v10
   simp only [zero_add, zero_sub] at hEF
   exact neg_eq_iff_eq_neg.mpr hEF.symm
 
+/-- Centered zero exponent used by the restricted Weil criterion. -/
+def CenteredZeroExponentV10
+    (rho : RiemannNontrivialZeroIndexV2) : ℂ :=
+  (1 / 2 : ℂ) - rho.1
+
+/-- The positive-real cpow translation factor is exactly the ordinary complex
+exponential of the centered zero. -/
+theorem translated_cpow_factor_eq_exp_centered_v10
+    (d : ℝ) (rho : RiemannNontrivialZeroIndexV2) :
+    (Real.exp (d / 2) : ℂ) *
+        ((Real.exp d : ℂ) ^ (-rho.1)) =
+      Complex.exp (CenteredZeroExponentV10 rho * (d : ℂ)) := by
+  have hbase : (Real.exp d : ℂ) ≠ 0 := by
+    exact Complex.ofReal_ne_zero.mpr (Real.exp_ne_zero d)
+  have hlog :
+      Complex.log (Real.exp d : ℂ) = (d : ℂ) := by
+    rw [← Complex.ofReal_log (Real.exp_pos d).le, Real.log_exp]
+  rw [Complex.cpow_def_of_ne_zero hbase, hlog, Complex.ofReal_exp,
+    ← Complex.exp_add]
+  unfold CenteredZeroExponentV10
+  congr 1
+  push_cast
+  ring
+
 /-- One translated zero exponential summand. -/
 def TranslatedZeroSummandV10
     (g : WeilCompactSmoothGV1) (d : ℝ)
@@ -205,11 +229,36 @@ def TranslatedZeroSummandV10
       ((Real.exp d : ℂ) ^ (-rho.1)) *
       mellin (WeilAutocorrelationV1 g) rho.1)
 
+/-- The translated summand in its centered exponential normal form. -/
+theorem translated_zero_summand_eq_centered_exp_v10
+    (g : WeilCompactSmoothGV1) (d : ℝ)
+    (rho : RiemannNontrivialZeroIndexV2) :
+    TranslatedZeroSummandV10 g d rho =
+      (analyticOrderNatAt riemannZeta rho.1 : ℂ) *
+        (Complex.exp (CenteredZeroExponentV10 rho * (d : ℂ)) *
+          mellin (WeilAutocorrelationV1 g) rho.1) := by
+  unfold TranslatedZeroSummandV10
+  rw [translated_cpow_factor_eq_exp_centered_v10]
+  ring
+
 /-- Canonical multiplicity-weighted translated zero exponential kernel. -/
 def TranslatedZeroKernelV10
     (g : WeilCompactSmoothGV1) (d : ℝ) : ℂ :=
   ∑' rho : RiemannNontrivialZeroIndexV2,
     TranslatedZeroSummandV10 g d rho
+
+/-- Centered exponential representation of the whole translated zero kernel. -/
+theorem translated_zero_kernel_eq_centered_exp_tsum_v10
+    (g : WeilCompactSmoothGV1) (d : ℝ) :
+    TranslatedZeroKernelV10 g d =
+      ∑' rho : RiemannNontrivialZeroIndexV2,
+        (analyticOrderNatAt riemannZeta rho.1 : ℂ) *
+          (Complex.exp (CenteredZeroExponentV10 rho * (d : ℂ)) *
+            mellin (WeilAutocorrelationV1 g) rho.1) := by
+  unfold TranslatedZeroKernelV10
+  apply tsum_congr
+  intro rho
+  exact translated_zero_summand_eq_centered_exp_v10 g d rho
 
 /-- The translated zero kernel is exactly the negative arithmetic mixed form. -/
 theorem translated_zero_kernel_eq_neg_B_v10
@@ -258,6 +307,8 @@ theorem universal_zero_quadratic_implies_zero_kernel_bounded_v10
 end AEGIS.RestrictedWeilCriterionZeroKernelV10
 
 #print axioms AEGIS.RestrictedWeilCriterionZeroKernelV10.mixed_translate_eq_scaled_autocorrelation_v10
+#print axioms AEGIS.RestrictedWeilCriterionZeroKernelV10.translated_cpow_factor_eq_exp_centered_v10
+#print axioms AEGIS.RestrictedWeilCriterionZeroKernelV10.translated_zero_kernel_eq_centered_exp_tsum_v10
 #print axioms AEGIS.RestrictedWeilCriterionZeroKernelV10.mellin_mixed_translate_v10
 #print axioms AEGIS.RestrictedWeilCriterionZeroKernelV10.mixed_translate_B_eq_neg_zero_tsum_v10
 #print axioms AEGIS.RestrictedWeilCriterionZeroKernelV10.translated_zero_kernel_eq_neg_B_v10
