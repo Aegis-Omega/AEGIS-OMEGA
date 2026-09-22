@@ -1,0 +1,13 @@
+AEGIS Gravity–Quantum full provider-neutral replay trigger v1
+python_suites=5
+d1_scaling=required
+d2_cross_spectrum=required
+measurement_gates=required
+external_anti_stale=required
+target=GravityQuantumPureProductV1
+copy_exact_source_into_pinned_mathlib_root=required
+lean=4.33.1
+lean_tarball_sha256=890afd185370f85666025b883914ab4f4b339136f8c96167b69cfb62aecaf235
+mathlib=0df444a360eaa60ab8c11dca51a86af692955474
+physical_measurement=NOT_PERFORMED
+authority_effect=NONE

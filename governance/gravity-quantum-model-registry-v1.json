@@ -11,13 +11,7 @@
         "source_role": "Nature paper's perturbative-QG comparison formula"
       },
       "formula_scope": "phi_bar = phi * Delta_x^2 / d^2 with phi = G M^2 t / (hbar d)",
-      "scaling_signature": {
-        "M": 2,
-        "t": 1,
-        "Delta_x": 2,
-        "d": -3,
-        "R": 0
-      },
+      "scaling_signature": {"M": 2, "t": 1, "Delta_x": 2, "d": -3, "R": 0},
       "interpretation_status": "MODEL_REFERENCE",
       "does_not_establish": [
         "fundamental quantum gravity",
@@ -27,18 +21,9 @@
     {
       "id": "AZIZ_HOWL_2025_EQ10_SMALL_DX",
       "evidence_class": "PEER_REVIEWED_PUBLISHED_MODEL",
-      "source": {
-        "doi": "10.1038/s41586-025-09595-7",
-        "equation": "10"
-      },
+      "source": {"doi": "10.1038/s41586-025-09595-7", "equation": "10"},
       "formula_scope": "sqrt(vartheta) proportional to M^3 R t / d at fixed constituent mass m; vartheta_bar = vartheta * Delta_x^2 / d^2",
-      "scaling_signature": {
-        "M": 6,
-        "t": 2,
-        "Delta_x": 2,
-        "d": -4,
-        "R": 2
-      },
+      "scaling_signature": {"M": 6, "t": 2, "Delta_x": 2, "d": -4, "R": 2},
       "interpretation_status": "CONTESTED_MODEL_PREDICTION",
       "dispute_group": "AZIZ_HOWL_CLASSICAL_ENTANGLEMENT_2025",
       "does_not_establish": [
@@ -50,9 +35,7 @@
     {
       "id": "MARLETTO_OPPENHEIM_VEDRAL_WILSON_2025_CRITIQUE",
       "evidence_class": "PREPRINT_CRITIQUE",
-      "source": {
-        "arxiv": "2511.07348"
-      },
+      "source": {"arxiv": "2511.07348"},
       "dispute_group": "AZIZ_HOWL_CLASSICAL_ENTANGLEMENT_2025",
       "claim_scope": "argues the Aziz-Howl model does not yield gravity-mediated entanglement and that any relevant mediation would be quantum matter",
       "interpretation_status": "CONTESTING_ANALYSIS"
@@ -60,9 +43,7 @@
     {
       "id": "SCHNEIDER_HUGGETT_LINNEMANN_2025_CRITIQUE",
       "evidence_class": "PREPRINT_CRITIQUE",
-      "source": {
-        "arxiv": "2511.19242"
-      },
+      "source": {"arxiv": "2511.19242"},
       "dispute_group": "AZIZ_HOWL_CLASSICAL_ENTANGLEMENT_2025",
       "claim_scope": "argues classical gravity cannot mediate the entanglement under a Newton-Cartan analysis",
       "interpretation_status": "CONTESTING_ANALYSIS"
@@ -70,9 +51,7 @@
     {
       "id": "GUNDHI_INFANTINO_BASSI_2026_CRITIQUE",
       "evidence_class": "PREPRINT_CRITIQUE",
-      "source": {
-        "arxiv": "2604.19696"
-      },
+      "source": {"arxiv": "2604.19696"},
       "dispute_group": "AZIZ_HOWL_CLASSICAL_ENTANGLEMENT_2025",
       "claim_scope": "argues the reported entanglement results from omitted transition amplitudes and disappears when they are retained",
       "interpretation_status": "CONTESTING_ANALYSIS"
