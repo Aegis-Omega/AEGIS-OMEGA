@@ -33,6 +33,7 @@ function packet(overrides = {}) {
     max_cost_minor_units: null,
     currency: null,
     rollback: 'cancel before send; no rollback after provider accepts message',
+    created_generation: '9',
     expires_generation: '12',
     ...overrides,
   }
@@ -94,6 +95,36 @@ test('packet substitution is rejected even with copied valid digest and grant', 
       made.packet_digest, substituted, grant, '11', sha,
     ),
     false,
+  )
+})
+
+test('future grant and unknown consequential class fail closed', async () => {
+  const made = await api.createConsequentialActionPacketV1(packet(), sha)
+  const futureGrant = {
+    packet_digest: made.packet_digest,
+    decision: 'APPROVED',
+    grant_id: 'future',
+    granted_generation: '12',
+  }
+  assert.equal(
+    await api.verifyConsequentialActionGrantV1(
+      made.packet_digest, made.packet, futureGrant, '11', sha,
+    ),
+    false,
+  )
+  await assert.rejects(
+    api.createConsequentialActionPacketV1(
+      packet({ action_class: 'UNKNOWN_EXTERNAL_ACTION' }),
+      sha,
+    ),
+    /invalid consequential action_class/,
+  )
+  await assert.rejects(
+    api.createConsequentialActionPacketV1(
+      packet({ created_generation: '13', expires_generation: '12' }),
+      sha,
+    ),
+    /precedes created_generation/,
   )
 })
 
