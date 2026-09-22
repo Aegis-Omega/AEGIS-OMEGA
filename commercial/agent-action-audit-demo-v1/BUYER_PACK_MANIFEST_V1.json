@@ -1,0 +1,57 @@
+{
+  "schema": "AEGIS_AGENT_ACTION_AUDIT_BUYER_PACK_MANIFEST_V1",
+  "offer": {
+    "name": "AEGIS Agent Action Boundary Audit",
+    "scope": "one tool-using workflow",
+    "price_minor_units": 300000,
+    "currency": "USD",
+    "status": "COMMERCIAL_DEMO_DRAFT"
+  },
+  "files": [
+    {
+      "path": "commercial/agent-action-audit-demo-v1/LANDING.md",
+      "blob_sha": "ad4ff793d7b467a58bbfdd148a31d5aec1ed61d4"
+    },
+    {
+      "path": "commercial/agent-action-audit-demo-v1/FAQ.md",
+      "blob_sha": "ee942c954e3aef53157df94348b86d55ce69c480"
+    },
+    {
+      "path": "commercial/agent-action-audit-demo-v1/DEMO_SCRIPT.md",
+      "blob_sha": "58da7806d0a3070672d3b6e4174b8625560da556"
+    },
+    {
+      "path": "commercial/agent-action-audit-demo-v1/SAMPLE_FINDINGS.md",
+      "blob_sha": "82b74189ebdb6fa754aeac67ba38b95821d29fd6"
+    },
+    {
+      "path": "commercial/agent-action-audit-demo-v1/AD_COPY.md",
+      "blob_sha": "a6d36e112eca32838f2dee98953494ff4f0759ee"
+    },
+    {
+      "path": "commercial/agent-action-audit-demo-v1/ENTERPRISE_DUE_DILIGENCE.md",
+      "blob_sha": "05def33e7562fb6f1c7bbdb44875e796c263ade0"
+    },
+    {
+      "path": "commercial/agent-action-audit-demo-v1/PILOT_SCOPE_WORKSHEET.md",
+      "blob_sha": "ce64c6b14e4598ca6d5e1994d43ffa3716bd1b98"
+    }
+  ],
+  "evidence_boundary": {
+    "certification_claim": false,
+    "compliance_attestation": false,
+    "customer_result_claim": false,
+    "platform_wide_safety_claim": false,
+    "production_enforcement_claim": false,
+    "raw_secret_request_allowed": false,
+    "production_access_required": false
+  },
+  "send_boundary": {
+    "external_message_authority": "NOT_GRANTED",
+    "legal_commitment_authority": "NOT_GRANTED",
+    "financial_authority": "NOT_GRANTED",
+    "exact_pack_binding_required": true
+  },
+  "authority_effect": "NONE",
+  "content_source_head": "553b70984144ca1e92a1063a068235efff25726e"
+}
