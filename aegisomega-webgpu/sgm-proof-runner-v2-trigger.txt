@@ -1,0 +1,15 @@
+AEGIS Conservation-Qualified SGM provider-neutral replay v2
+source_base=9ce76c44851dad08bf65473a493228687697ea32
+python_suites=5
+prior_art_guard=required
+novelty_status=NOT_ESTABLISHED
+authority_conservation=required
+semantic_accounting=required
+conservation_kernel=required
+sgm_anti_splicing=required
+lean=4.33.1
+lean_tarball_sha256=890afd185370f85666025b883914ab4f4b339136f8c96167b69cfb62aecaf235
+mathlib=0df444a360eaa60ab8c11dca51a86af692955474
+automatic_rewrite=false
+global_optimality_claimed=false
+authority_effect=NONE
