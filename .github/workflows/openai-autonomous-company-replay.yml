@@ -64,7 +64,8 @@ jobs:
             src/sovereignty/company-enterprise-engagement-gate.ts \
             src/sovereignty/company-enterprise-action-packet.ts \
             src/sovereignty/company-enterprise-ledger-reconcile.ts \
-            src/sovereignty/company-enterprise-production-readiness.ts
+            src/sovereignty/company-enterprise-production-readiness.ts \
+            src/sovereignty/company-enterprise-prospect-admission.ts
 
       - name: Execute autonomous-company falsifiers
         run: |
@@ -89,7 +90,8 @@ jobs:
             test/native-runtime/company-enterprise-engagement-gate.test.mjs \
             test/native-runtime/company-enterprise-action-packet.test.mjs \
             test/native-runtime/company-enterprise-ledger-reconcile.test.mjs \
-            test/native-runtime/company-enterprise-production-readiness.test.mjs
+            test/native-runtime/company-enterprise-production-readiness.test.mjs \
+            test/native-runtime/company-enterprise-prospect-admission.test.mjs
 
       - name: Execute Cloud SQL audit source contracts
         run: |
@@ -141,6 +143,7 @@ jobs:
               'sovereign-omega-v2/src/sovereignty/company-enterprise-action-packet.ts',
               'sovereign-omega-v2/src/sovereignty/company-enterprise-ledger-reconcile.ts',
               'sovereign-omega-v2/src/sovereignty/company-enterprise-production-readiness.ts',
+              'sovereign-omega-v2/src/sovereignty/company-enterprise-prospect-admission.ts',
               'sovereign-omega-v2/test/native-runtime/company-enterprise-opportunity.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-enterprise-mail-ingest.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-enterprise-resource-admission.test.mjs',
@@ -149,6 +152,7 @@ jobs:
               'sovereign-omega-v2/test/native-runtime/company-enterprise-action-packet.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-enterprise-ledger-reconcile.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-enterprise-production-readiness.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-enterprise-prospect-admission.test.mjs',
               'supabase/migrations/20260922193000_scale_os_company_runtime_v2.sql',
               'supabase/migrations/20260922205500_scale_os_enterprise_opportunities_v1.sql',
               'supabase/migrations/20260922211500_scale_os_enterprise_resources_v1.sql',
@@ -201,6 +205,7 @@ jobs:
                   'company-enterprise-action-packet.test.mjs',
                   'company-enterprise-ledger-reconcile.test.mjs',
                   'company-enterprise-production-readiness.test.mjs',
+                  'company-enterprise-prospect-admission.test.mjs',
               ],
               'cloud_sql_contract': 'PY_COMPILE_AND_OFFLINE_CONTRACT_PASS',
               'supabase_scale_os_migration': 'SOURCE_ONLY_NOT_APPLIED',
