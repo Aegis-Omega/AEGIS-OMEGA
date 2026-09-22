@@ -41,7 +41,247 @@ create table if not exists public.company_evidence_v1 (
   task_id text not null references public.company_tasks_v1(task_id) on delete cascade,
   kind text not null check (length(btrim(kind)) > 0),
   source_ref text,
-  sha256 text not null check (sha256 ~ '^[0-9a-f]{64}$'),
+  evidence_authority text not null check (evidence_authority in (
+    'DIRECT_OBSERVATION','PROVIDER_ATTESTATION','DERIVED_FROM_VERIFIED','UNVERIFIED'
+  )),
+  measurement_state text check (
+    measurement_state is null or
+    measurement_state in ('MEASURED','NOT_MEASURED','NOT_VERIFIED')
+  ),
+  sha256 text not null check (sha256 ~ '^[0-9a-f]{64}
+  created_at timestamptz not null default now(),
+  unique (task_id, sha256)
+);
+
+create table if not exists public.company_operator_actions_v1 (
+  id uuid primary key default gen_random_uuid(),
+  task_id text not null references public.company_tasks_v1(task_id) on delete cascade,
+  packet_id text not null check (length(btrim(packet_id)) > 0),
+  packet_digest text not null unique check (packet_digest ~ '^[0-9a-f]{64}
+
+create table if not exists public.company_events_v1 (
+  id bigint generated always as identity primary key,
+  source text not null check (length(btrim(source)) > 0),
+  source_ref text not null check (length(btrim(source_ref)) > 0),
+  observed_at timestamptz not null,
+  event_hash text not null unique check (event_hash ~ '^[0-9a-f]{64}$'),
+  payload_hash text not null check (payload_hash ~ '^[0-9a-f]{64}$'),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists company_tasks_status_idx
+  on public.company_tasks_v1(status, created_at);
+create index if not exists company_tasks_objective_idx
+  on public.company_tasks_v1(objective_id, created_at);
+create index if not exists company_operator_pending_idx
+  on public.company_operator_actions_v1(decision, created_at);
+create index if not exists company_events_observed_idx
+  on public.company_events_v1(observed_at desc);
+
+alter table public.company_objectives_v1 enable row level security;
+alter table public.company_tasks_v1 enable row level security;
+alter table public.company_evidence_v1 enable row level security;
+alter table public.company_operator_actions_v1 enable row level security;
+alter table public.company_events_v1 enable row level security;
+
+revoke all on public.company_objectives_v1 from anon, authenticated;
+revoke all on public.company_tasks_v1 from anon, authenticated;
+revoke all on public.company_evidence_v1 from anon, authenticated;
+revoke all on public.company_operator_actions_v1 from anon, authenticated;
+revoke all on public.company_events_v1 from anon, authenticated;
+),
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  unique (task_id, sha256)
+);
+
+create table if not exists public.company_operator_actions_v1 (
+  id uuid primary key default gen_random_uuid(),
+  task_id text not null references public.company_tasks_v1(task_id) on delete cascade,
+  action_digest text not null check (action_digest ~ '^[0-9a-f]{64}$'),
+  decision text not null default 'PENDING'
+    check (decision in ('PENDING','APPROVED','DENIED','EXPIRED','CANCELLED')),
+  expires_at timestamptz,
+  decided_at timestamptz,
+  decision_receipt_root text
+    check (decision_receipt_root is null or decision_receipt_root ~ '^[0-9a-f]{64}$'),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.company_events_v1 (
+  id bigint generated always as identity primary key,
+  source text not null check (length(btrim(source)) > 0),
+  source_ref text not null check (length(btrim(source_ref)) > 0),
+  observed_at timestamptz not null,
+  event_hash text not null unique check (event_hash ~ '^[0-9a-f]{64}$'),
+  payload_hash text not null check (payload_hash ~ '^[0-9a-f]{64}$'),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists company_tasks_status_idx
+  on public.company_tasks_v1(status, created_at);
+create index if not exists company_tasks_objective_idx
+  on public.company_tasks_v1(objective_id, created_at);
+create index if not exists company_operator_pending_idx
+  on public.company_operator_actions_v1(decision, created_at);
+create index if not exists company_events_observed_idx
+  on public.company_events_v1(observed_at desc);
+
+alter table public.company_objectives_v1 enable row level security;
+alter table public.company_tasks_v1 enable row level security;
+alter table public.company_evidence_v1 enable row level security;
+alter table public.company_operator_actions_v1 enable row level security;
+alter table public.company_events_v1 enable row level security;
+
+revoke all on public.company_objectives_v1 from anon, authenticated;
+revoke all on public.company_tasks_v1 from anon, authenticated;
+revoke all on public.company_evidence_v1 from anon, authenticated;
+revoke all on public.company_operator_actions_v1 from anon, authenticated;
+revoke all on public.company_events_v1 from anon, authenticated;
+),
+  packet jsonb not null,
+  risk_class text not null check (risk_class in ('LOW','MEDIUM','HIGH','CRITICAL')),
+  cost_class text not null check (cost_class in ('NONE','BOUNDED','VARIABLE')),
+  max_cost_minor_units bigint,
+  currency text,
+  rollback text not null check (length(btrim(rollback)) > 0),
+  expires_generation bigint not null check (expires_generation >= 0),
+  decision text not null default 'PENDING'
+    check (decision in ('PENDING','APPROVED','DENIED','EXPIRED','CANCELLED')),
+  grant_id text,
+  granted_generation bigint check (granted_generation is null or granted_generation >= 0),
+  decided_at timestamptz,
+  decision_receipt_root text
+    check (decision_receipt_root is null or decision_receipt_root ~ '^[0-9a-f]{64}
+
+create table if not exists public.company_events_v1 (
+  id bigint generated always as identity primary key,
+  source text not null check (length(btrim(source)) > 0),
+  source_ref text not null check (length(btrim(source_ref)) > 0),
+  observed_at timestamptz not null,
+  event_hash text not null unique check (event_hash ~ '^[0-9a-f]{64}$'),
+  payload_hash text not null check (payload_hash ~ '^[0-9a-f]{64}$'),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists company_tasks_status_idx
+  on public.company_tasks_v1(status, created_at);
+create index if not exists company_tasks_objective_idx
+  on public.company_tasks_v1(objective_id, created_at);
+create index if not exists company_operator_pending_idx
+  on public.company_operator_actions_v1(decision, created_at);
+create index if not exists company_events_observed_idx
+  on public.company_events_v1(observed_at desc);
+
+alter table public.company_objectives_v1 enable row level security;
+alter table public.company_tasks_v1 enable row level security;
+alter table public.company_evidence_v1 enable row level security;
+alter table public.company_operator_actions_v1 enable row level security;
+alter table public.company_events_v1 enable row level security;
+
+revoke all on public.company_objectives_v1 from anon, authenticated;
+revoke all on public.company_tasks_v1 from anon, authenticated;
+revoke all on public.company_evidence_v1 from anon, authenticated;
+revoke all on public.company_operator_actions_v1 from anon, authenticated;
+revoke all on public.company_events_v1 from anon, authenticated;
+),
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  unique (task_id, sha256)
+);
+
+create table if not exists public.company_operator_actions_v1 (
+  id uuid primary key default gen_random_uuid(),
+  task_id text not null references public.company_tasks_v1(task_id) on delete cascade,
+  action_digest text not null check (action_digest ~ '^[0-9a-f]{64}$'),
+  decision text not null default 'PENDING'
+    check (decision in ('PENDING','APPROVED','DENIED','EXPIRED','CANCELLED')),
+  expires_at timestamptz,
+  decided_at timestamptz,
+  decision_receipt_root text
+    check (decision_receipt_root is null or decision_receipt_root ~ '^[0-9a-f]{64}$'),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.company_events_v1 (
+  id bigint generated always as identity primary key,
+  source text not null check (length(btrim(source)) > 0),
+  source_ref text not null check (length(btrim(source_ref)) > 0),
+  observed_at timestamptz not null,
+  event_hash text not null unique check (event_hash ~ '^[0-9a-f]{64}$'),
+  payload_hash text not null check (payload_hash ~ '^[0-9a-f]{64}$'),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists company_tasks_status_idx
+  on public.company_tasks_v1(status, created_at);
+create index if not exists company_tasks_objective_idx
+  on public.company_tasks_v1(objective_id, created_at);
+create index if not exists company_operator_pending_idx
+  on public.company_operator_actions_v1(decision, created_at);
+create index if not exists company_events_observed_idx
+  on public.company_events_v1(observed_at desc);
+
+alter table public.company_objectives_v1 enable row level security;
+alter table public.company_tasks_v1 enable row level security;
+alter table public.company_evidence_v1 enable row level security;
+alter table public.company_operator_actions_v1 enable row level security;
+alter table public.company_events_v1 enable row level security;
+
+revoke all on public.company_objectives_v1 from anon, authenticated;
+revoke all on public.company_tasks_v1 from anon, authenticated;
+revoke all on public.company_evidence_v1 from anon, authenticated;
+revoke all on public.company_operator_actions_v1 from anon, authenticated;
+revoke all on public.company_events_v1 from anon, authenticated;
+),
+  created_at timestamptz not null default now(),
+  check (
+    (cost_class = 'NONE' and max_cost_minor_units is null and currency is null)
+    or
+    (cost_class in ('BOUNDED','VARIABLE')
+      and max_cost_minor_units is not null and max_cost_minor_units >= 0
+      and currency is not null and length(btrim(currency)) > 0)
+  ),
+  check (
+    (decision <> 'APPROVED' and grant_id is null and granted_generation is null)
+    or
+    (decision = 'APPROVED'
+      and grant_id is not null and length(btrim(grant_id)) > 0
+      and granted_generation is not null)
+  )
+);
+
+create table if not exists public.company_events_v1 (
+  id bigint generated always as identity primary key,
+  source text not null check (length(btrim(source)) > 0),
+  source_ref text not null check (length(btrim(source_ref)) > 0),
+  observed_at timestamptz not null,
+  event_hash text not null unique check (event_hash ~ '^[0-9a-f]{64}$'),
+  payload_hash text not null check (payload_hash ~ '^[0-9a-f]{64}$'),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists company_tasks_status_idx
+  on public.company_tasks_v1(status, created_at);
+create index if not exists company_tasks_objective_idx
+  on public.company_tasks_v1(objective_id, created_at);
+create index if not exists company_operator_pending_idx
+  on public.company_operator_actions_v1(decision, created_at);
+create index if not exists company_events_observed_idx
+  on public.company_events_v1(observed_at desc);
+
+alter table public.company_objectives_v1 enable row level security;
+alter table public.company_tasks_v1 enable row level security;
+alter table public.company_evidence_v1 enable row level security;
+alter table public.company_operator_actions_v1 enable row level security;
+alter table public.company_events_v1 enable row level security;
+
+revoke all on public.company_objectives_v1 from anon, authenticated;
+revoke all on public.company_tasks_v1 from anon, authenticated;
+revoke all on public.company_evidence_v1 from anon, authenticated;
+revoke all on public.company_operator_actions_v1 from anon, authenticated;
+revoke all on public.company_events_v1 from anon, authenticated;
+),
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   unique (task_id, sha256)
