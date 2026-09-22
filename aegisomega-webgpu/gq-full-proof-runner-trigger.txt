@@ -1,4 +1,4 @@
-AEGIS Gravity–Quantum full provider-neutral replay trigger v2
+AEGIS Gravity–Quantum full provider-neutral replay trigger v3
 python_suites=6
 authority_boundary=required
 d1_scaling=required
@@ -6,6 +6,8 @@ contested_model_registry=required
 d2_cross_spectrum=required
 measurement_gates=required
 external_anti_stale=required
+git_oid_validator=sha1_or_sha256
+allowed_receipts=legacy_gq_and_full_gq
 target=GravityQuantumPureProductV1
 copy_exact_source_into_pinned_mathlib_root=required
 lean=4.33.1
