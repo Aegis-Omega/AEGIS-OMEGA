@@ -487,15 +487,15 @@ MOMENT_RESTRICTION_PROOF_SEMANTICS = (
 class MomentRestrictionSpecV1:
     """One restricted finite obligation: kernel spec, S_N, G_N and eps_N.
 
-    ``restriction`` and ``gram`` are caller-supplied exact rationals.  The
-    module never synthesises them: identifying ``restriction`` with the
-    moment-corrected basis, and ``gram`` with the L^2 inner product on that
-    basis, are mathematical obligations that stay open in the receipt.
+    ``restriction`` and ``gram`` are caller-supplied.  The module never
+    synthesises them: identifying ``restriction`` with the moment-corrected
+    basis, and ``gram`` with the L^2 inner product on that basis, are
+    mathematical obligations that stay open in the receipt.
     """
 
     galerkin: ArbGalerkinSpecV1
-    restriction: tuple[tuple[ExactRationalV1, ...], ...]
-    gram: tuple[tuple[ExactRationalV1, ...], ...]
+    restriction: tuple[tuple[object, ...], ...]
+    gram: tuple[tuple[object, ...], ...]
     epsilon: ExactRationalV1
     spec_kind: str = MOMENT_RESTRICTION_SPEC_KIND
 
@@ -517,18 +517,16 @@ class MomentRestrictionSpecV1:
             raise ArbGalerkinError("RESTRICTION_NOT_RECTANGULAR")
         for row in self.restriction:
             for value in row:
-                if not isinstance(value, ExactRationalV1):
-                    raise ArbGalerkinError("RESTRICTION_ENTRY_NOT_EXACT")
+                _validate_entry(value, "RESTRICTION")
 
         if len(self.gram) != dim or any(len(row) != dim for row in self.gram):
             raise ArbGalerkinError("GRAM_DIMENSION_MISMATCH")
         for row in self.gram:
             for value in row:
-                if not isinstance(value, ExactRationalV1):
-                    raise ArbGalerkinError("GRAM_ENTRY_NOT_EXACT")
+                _validate_entry(value, "GRAM")
         for i in range(dim):
             for j in range(i + 1, dim):
-                if self.gram[i][j].fraction != self.gram[j][i].fraction:
+                if not _entries_agree(self.gram[i][j], self.gram[j][i]):
                     raise ArbGalerkinError("GRAM_NOT_SYMMETRIC")
 
         if not isinstance(self.epsilon, ExactRationalV1):
@@ -573,6 +571,8 @@ class MomentRestrictionVerificationV1:
     valid: bool
     status: str
     restricted_entry_enclosures_verified: bool
+    restriction_entries_exact: bool
+    gram_entries_exact: bool
     interval_inertia_verified: bool
     n_positive: int
     n_negative: int
@@ -601,9 +601,46 @@ class MomentRestrictionVerificationV1:
         return payload
 
 
-def _exact_to_arb(value: ExactRationalV1) -> arb:
-    """Enclose an exact rational as an Arb ball at the ambient precision."""
-    return arb(value.numerator) / arb(value.denominator)
+def _validate_entry(value: object, field: str) -> None:
+    """Accept an exact rational, or a decimal string parsed as an Arb ball.
+
+    The repository's own moment annihilator (``WeilMomentAnnihilatorV1``) is a
+    finite dilation filter whose action on a Galerkin band is not rational, so
+    restricting entries to ``ExactRationalV1`` would exclude it.  A decimal
+    string is admitted because Arb parses it to a ball that *contains* the
+    denoted value: the assembled ``M`` then encloses the true ``S^T A S``, and
+    a certified positive-definite enclosure implies the true matrix is
+    positive definite.  Soundness is preserved; only sharpness is spent.
+    """
+    if isinstance(value, ExactRationalV1):
+        return
+    if isinstance(value, str):
+        try:
+            arb(value)
+        except Exception as exc:  # pragma: no cover - backend parse detail
+            raise ArbGalerkinError(f"{field}_ENTRY_UNPARSEABLE") from exc
+        return
+    raise ArbGalerkinError(f"{field}_ENTRY_NOT_EXACT")
+
+
+def _entries_agree(left: object, right: object) -> bool:
+    """Symmetry test that never claims two distinct enclosures are equal."""
+    if isinstance(left, ExactRationalV1) and isinstance(right, ExactRationalV1):
+        return left.fraction == right.fraction
+    if isinstance(left, str) and isinstance(right, str):
+        return left == right
+    return False
+
+
+def _entry_is_exact(value: object) -> bool:
+    return isinstance(value, ExactRationalV1)
+
+
+def _exact_to_arb(value: object) -> arb:
+    """Enclose an entry as an Arb ball at the ambient precision."""
+    if isinstance(value, ExactRationalV1):
+        return arb(value.numerator) / arb(value.denominator)
+    return arb(value)
 
 
 def _restrict_arb_matrix(
@@ -705,6 +742,12 @@ def verify_moment_restricted_galerkin(
         valid=valid,
         status="RESTRICTED_INTERVAL_INERTIA_VERIFIED" if valid else "UNDETERMINED",
         restricted_entry_enclosures_verified=True,
+        restriction_entries_exact=all(
+            _entry_is_exact(value) for row in spec.restriction for value in row
+        ),
+        gram_entries_exact=all(
+            _entry_is_exact(value) for row in spec.gram for value in row
+        ),
         interval_inertia_verified=inertia_verified,
         n_positive=n_pos,
         n_negative=n_neg,
