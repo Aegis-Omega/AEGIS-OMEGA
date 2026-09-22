@@ -150,6 +150,72 @@ theorem mellin_finiteDilationFilter_v10
   unfold finiteDilationMultiplierV10
   ring
 
+/-- Algebraic factorization of the multiplier. -/
+theorem finiteDilationMultiplier_factor_v10 (s : ℂ) :
+    finiteDilationMultiplierV10 s =
+      (1 - (2 : ℂ) ^ (-s)) *
+        (1 - 2 * (2 : ℂ) ^ (-s)) := by
+  unfold finiteDilationMultiplierV10
+  ring
+
+/-- In the strict critical strip the dilation filter does not erase a Mellin
+value.  This is the load-bearing property used to detect an off-line zero. -/
+theorem finiteDilationMultiplier_ne_zero_of_strict_strip_v10
+    (s : ℂ) (hs0 : 0 < s.re) (hs1 : s.re < 1) :
+    finiteDilationMultiplierV10 s ≠ 0 := by
+  let z : ℂ := (2 : ℂ) ^ (-s)
+  have hnorm :
+      ‖z‖ = (2 : ℝ) ^ (-s.re) := by
+    dsimp [z]
+    rw [Complex.norm_cpow_eq_rpow_re_of_pos (by norm_num : (0 : ℝ) < 2)]
+    simp
+  have hlt1 : ‖z‖ < 1 := by
+    rw [hnorm]
+    have h :=
+      Real.rpow_lt_rpow_of_exponent_lt
+        (by norm_num : (1 : ℝ) < 2)
+        (show -s.re < 0 by linarith)
+    simpa using h
+  have hhalf : (1 / 2 : ℝ) < ‖z‖ := by
+    rw [hnorm]
+    have h :=
+      Real.rpow_lt_rpow_of_exponent_lt
+        (by norm_num : (1 : ℝ) < 2)
+        (show (-1 : ℝ) < -s.re by linarith)
+    simpa [Real.rpow_neg_one] using h
+  have hz1 : z ≠ 1 := by
+    intro hz
+    have hn := congrArg norm hz
+    norm_num at hn
+    linarith
+  have hzhalf : z ≠ (1 / 2 : ℂ) := by
+    intro hz
+    have hn := congrArg norm hz
+    have hnormhalf : ‖(1 / 2 : ℂ)‖ = (1 / 2 : ℝ) := by norm_num
+    rw [hnormhalf] at hn
+    linarith
+  rw [finiteDilationMultiplier_factor_v10]
+  apply mul_ne_zero
+  · exact sub_ne_zero.mpr (Ne.symm hz1)
+  · apply sub_ne_zero.mpr
+    intro h
+    apply hzhalf
+    apply (eq_div_iff (by norm_num : (2 : ℂ) ≠ 0)).2
+    calc
+      z * 2 = 2 * z := by ring
+      _ = 1 := h.symm
+
+/-- A nonzero Mellin value anywhere in the strict strip remains nonzero after
+the moment-killing filter. -/
+theorem finiteDilationFilter_mellin_ne_zero_v10
+    (g : WeilCompactSmoothGV1) (s : ℂ)
+    (hs0 : 0 < s.re) (hs1 : s.re < 1)
+    (hg : mellin g.1 s ≠ 0) :
+    mellin (finiteDilationFilterV10 g).1 s ≠ 0 := by
+  rw [mellin_finiteDilationFilter_v10]
+  exact mul_ne_zero
+    (finiteDilationMultiplier_ne_zero_of_strict_strip_v10 s hs0 hs1) hg
+
 /-- The filter multiplier vanishes at s=0. -/
 theorem finiteDilationMultiplier_zero_v10 :
     finiteDilationMultiplierV10 0 = 0 := by
