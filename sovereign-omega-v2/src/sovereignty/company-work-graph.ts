@@ -142,6 +142,38 @@ export function readyCompanyTasksV1(
   return Object.freeze(ready.slice(0, maxReady))
 }
 
+export function activeCompanyTaskLeaseV1(
+  leasesInput: readonly CompanyTaskLeaseV1[],
+  taskIdInput: string,
+  currentGenerationInput: string,
+): CompanyTaskLeaseV1 | null {
+  if (!Array.isArray(leasesInput)) throw new TypeError('active leases must be an array')
+  const taskId = text(taskIdInput, 'task_id')
+  const current = generation(currentGenerationInput, 'current_generation')
+  let active: CompanyTaskLeaseV1 | null = null
+
+  for (const lease of leasesInput) {
+    if (!lease || typeof lease !== 'object') throw new TypeError('lease must be object')
+    if (text(lease.task_id, 'lease task_id') !== taskId) continue
+    sha(lease.task_digest, 'lease task_digest')
+    sha(lease.lease_digest, 'lease_digest')
+    text(lease.worker_id, 'lease worker_id')
+    const acquired = generation(lease.acquired_generation, 'lease acquired_generation')
+    const expires = generation(lease.expires_generation, 'lease expires_generation')
+    if (expires < acquired) throw new TypeError('lease expires before acquisition')
+    if (
+      lease.external_authority !== 'NOT_GRANTED' ||
+      lease.authority_effect !== 'NONE'
+    ) throw new TypeError('lease authority invariant violated')
+
+    if (current >= acquired && current <= expires) {
+      if (active !== null) throw new Error('MULTIPLE_ACTIVE_COMPANY_TASK_LEASES')
+      active = lease
+    }
+  }
+  return active
+}
+
 export async function createCompanyTaskLeaseV1(
   input: {
     readonly graph: readonly CompanyWorkNodeV1[]
@@ -152,6 +184,7 @@ export async function createCompanyTaskLeaseV1(
     readonly current_generation: string
     readonly ttl_generations: number
     readonly max_ttl_generations?: number
+    readonly active_leases?: readonly CompanyTaskLeaseV1[]
   },
   hash: (domain: string, value: unknown) => Promise<string>,
 ): Promise<CompanyTaskLeaseV1> {
@@ -165,6 +198,12 @@ export async function createCompanyTaskLeaseV1(
     1024,
   )
   const ttl = positiveInteger(input?.ttl_generations, 'ttl_generations', maxTtl)
+  const active = activeCompanyTaskLeaseV1(
+    input.active_leases ?? [],
+    task_id,
+    input.current_generation,
+  )
+  if (active !== null) throw new Error('COMPANY_TASK_ALREADY_LEASED')
   const ready = readyCompanyTasksV1(input.graph, input.states, 256)
   if (!ready.includes(task_id)) throw new Error('COMPANY_TASK_NOT_READY_FOR_LEASE')
 
