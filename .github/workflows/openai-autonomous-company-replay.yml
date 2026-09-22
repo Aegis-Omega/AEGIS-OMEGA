@@ -54,7 +54,8 @@ jobs:
             src/sovereignty/autonomous-company-loop.ts \
             src/sovereignty/company-model-router.ts \
             src/sovereignty/company-evidence-authority.ts \
-            src/sovereignty/company-approval-packet.ts
+            src/sovereignty/company-approval-packet.ts \
+            src/sovereignty/company-model-promotion.ts
 
       - name: Execute autonomous-company falsifiers
         run: |
@@ -64,7 +65,8 @@ jobs:
             test/native-runtime/openai-company-production.test.mjs \
             test/native-runtime/company-evidence-authority.test.mjs \
             test/native-runtime/company-approval-packet.test.mjs \
-            test/native-runtime/company-ledger-migration.test.mjs
+            test/native-runtime/company-ledger-migration.test.mjs \
+            test/native-runtime/company-model-promotion.test.mjs
 
       - name: Emit exact-head receipt
         run: |
@@ -82,11 +84,13 @@ jobs:
               'sovereign-omega-v2/src/sovereignty/company-model-router.ts',
               'sovereign-omega-v2/src/sovereignty/company-evidence-authority.ts',
               'sovereign-omega-v2/src/sovereignty/company-approval-packet.ts',
+              'sovereign-omega-v2/src/sovereignty/company-model-promotion.ts',
               'sovereign-omega-v2/test/native-runtime/openai-autonomous-company.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-approval-packet.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-evidence-authority.test.mjs',
               'sovereign-omega-v2/test/native-runtime/openai-company-production.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-ledger-migration.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-model-promotion.test.mjs',
               'supabase/migrations/20260922171000_autonomous_company_work_ledger_v1.sql',
           ]
           head = subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'], text=True).strip()
@@ -114,6 +118,7 @@ jobs:
                   'company-evidence-authority.test.mjs',
                   'company-approval-packet.test.mjs',
                   'company-ledger-migration.test.mjs',
+                  'company-model-promotion.test.mjs',
               ],
               'live_openai_execution': 'NOT_PERFORMED',
               'write_authority': 'NOT_GRANTED',
