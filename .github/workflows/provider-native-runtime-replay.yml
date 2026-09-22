@@ -74,11 +74,11 @@ jobs:
           printf '%s\n' "$status" > "$EVIDENCE_DIR/typecheck.exit"
           cat "$EVIDENCE_DIR/typecheck.log"
           exit "$status"
-      - name: Execute 50 native runtime and team contract tests
+      - name: Execute 90 native, registry and actual-chain tests
         id: native_tests
         run: |
           set -euo pipefail
-          for suite in provider-native-sdk-runtime provider-native-agent-team; do
+          for suite in provider-native-sdk-runtime provider-native-agent-team provider-native-registry-integrity provider-native-chain; do
             set +e
             node --test --test-reporter=tap --test-reporter-destination="$EVIDENCE_DIR/$suite.tap" \
               --test-reporter=junit --test-reporter-destination="$EVIDENCE_DIR/$suite.xml" \
@@ -130,7 +130,10 @@ jobs:
               'test/unit/provider-openai-agents-sdk-runner.test.ts',
               'test/unit/provider-anthropic-native-agent.test.ts',
           )
-          NATIVE_COUNTS = {'provider-native-sdk-runtime': 41, 'provider-native-agent-team': 9}
+          NATIVE_COUNTS = {
+              'provider-native-sdk-runtime': 41, 'provider-native-agent-team': 9,
+              'provider-native-registry-integrity': 17, 'provider-native-chain': 23,
+          }
 
           def require(ok, message):
               if not ok:
@@ -215,7 +218,8 @@ jobs:
                   'runner_name': os.environ['RUNNER_NAME'], 'runner_os': os.environ['RUNNER_OS'],
                   'counts': summary,
                   'native_sdk_boundary': 'TEST_DOUBLES', 'team_boundary': 'CONDUCTOR_AND_ADAPTER_DOUBLES',
-                  'scope': 'OFFLINE_NATIVE_CONTRACTS_AND_FOCUSED_PROVIDER_UNIT_TESTS',
+                  'integration_boundary': 'REAL_AEGIS_CONTROL_PLANE_EXTERNAL_SDK_DOUBLES_ONLY',
+                  'scope': 'OFFLINE_NATIVE_CONTRACTS_REAL_CHAIN_AND_FOCUSED_PROVIDER_UNIT_TESTS',
                   'live_provider_execution': 'NOT_PERFORMED', 'provider_freshness_refresh': 'NOT_PERFORMED',
                   'hosted_binding': 'REQUIRES_INDEPENDENT_RUN_JOB_ARTIFACT_RECHECK',
                   'write_authority': 'NOT_GRANTED', 'merge_authority': 'NOT_GRANTED',
