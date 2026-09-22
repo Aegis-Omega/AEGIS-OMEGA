@@ -5,7 +5,10 @@ on:
     paths:
       - "governance/statistical-godel-machine-v1.json"
       - "sovereign-omega-v2/python/statistical_godel_machine.py"
+      - "sovereign-omega-v2/python/epistemic_authority_conservation.py"
       - "sovereign-omega-v2/python/tests/test_statistical_godel_machine.py"
+      - "sovereign-omega-v2/python/tests/test_epistemic_authority_conservation.py"
+      - "sovereign-omega-v2/formal/bridges/lean/EpistemicAuthorityConservationV1.lean"
       - "docs/research/statistical-godel-machine-v1.md"
       - ".github/workflows/statistical-godel-machine-v1.yml"
   workflow_dispatch:
@@ -42,3 +45,8 @@ jobs:
         env:
           PYTHONPATH: sovereign-omega-v2/python
         run: python sovereign-omega-v2/python/tests/test_statistical_godel_machine.py -v
+
+      - name: Run authority-conservation lattice tests
+        env:
+          PYTHONPATH: sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_epistemic_authority_conservation.py -v
