@@ -4,6 +4,7 @@
 // /console         → ConsolePage (live operator console — vortex · homeostasis · stream)
 // /docs           → DocsPage (API reference)
 // /pricing        → PricingPage (API key purchase via PayPal)
+// /success        → SuccessPage (purchase verification + access restore)
 // /claim-sponsor  → ClaimSponsorPage (GitHub Sponsors key claim)
 // /runtime        → AegisRuntime (constitutional consciousness showcase)
 // /compliance     → CompliancePage (EU AI Act · GDPR · constitutional law)
@@ -16,12 +17,14 @@ import { DocsPage }          from './components/DocsPage.js'
 import { HomepageLanding }   from './components/HomepageLanding.js'
 import { PlatformPage }      from './components/PlatformPage.js'
 import { PricingPage }       from './components/PricingPage.js'
+import { SuccessPage }       from './components/SuccessPage.js'
 import { ToolsPage }         from './components/ToolsPage.js'
 
 const path = window.location.pathname
 
 export default function App() {
   if (path === '/pricing')        return <PricingPage />
+  if (path === '/success')        return <SuccessPage />
   if (path === '/claim-sponsor')  return <ClaimSponsorPage />
   if (path === '/compliance')     return <CompliancePage />
   if (path === '/docs')           return <DocsPage />
