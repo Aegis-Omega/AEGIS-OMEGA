@@ -1,0 +1,72 @@
+{
+  "schema": "AEGIS_STATISTICAL_GODEL_MACHINE_V1",
+  "name": "AEGIS Conservation-Qualified Statistical Gödel Machine",
+  "prior_art_boundary": {
+    "classical_godel_machine": {
+      "source": "Schmidhuber Gödel Machine",
+      "role": "Formal proof-search-driven self-rewrite with a global-optimality result under the formalized utility/axiom setting."
+    },
+    "statistical_godel_machine_2025": {
+      "source": "arXiv:2510.10232",
+      "title": "SGM: A Statistical Godel Machine for Risk-Controlled Recursive Self-Modification",
+      "role": "Existing statistical self-modification gate using confidence tests/e-values and cumulative risk budgeting."
+    },
+    "aegis_candidate_differentiator": [
+      "trusted epistemic-conservation receipt required before benefit evaluation",
+      "MHP-style semantic claim partition and derivation accounting",
+      "non-amplifying authority meet across verified transitions",
+      "loss-uncertainty composition checks",
+      "protected authority/trust surfaces remain outside self-write authority",
+      "operator approval remains a separate transition"
+    ],
+    "novelty_status": "NOT_ESTABLISHED",
+    "global_optimality_claimed": false
+  },
+  "representation_principle": {
+    "canonical_encoding": "All machine-observed artifacts are reduced to canonical bytes/digests plus a semantic type.",
+    "pattern_space": "Statistical and structural relations may be proposed over typed representations.",
+    "proof_space": "Formal claims require kernel-verifiable proof receipts; statistical claims require bounded sequential evidence.",
+    "semantic_non_equivalence": "Equal or correlated numerical representations do not imply equal meaning, causality, or physical truth."
+  },
+  "rewrite_classes": [
+    "FORMAL",
+    "STATISTICAL"
+  ],
+  "protected_surfaces": [
+    "OPERATOR_ROOT",
+    "AUTHORITY_POLICY",
+    "TRUST_ROOTS",
+    "SIGNING_ROOTS",
+    "EVIDENCE_CLASSIFIER",
+    "CLAIM_PROMOTION_POLICY"
+  ],
+  "formal_gate": {
+    "kernel_verified_required": true,
+    "axiom_audit_required": true,
+    "sorryAx_forbidden": true,
+    "exact_source_binding_required": true
+  },
+  "statistical_gate": {
+    "minimum_samples": 100,
+    "lower_confidence_bound_microunits_must_exceed": 0,
+    "bounded_metric_required": true,
+    "independent_verifier_required": true,
+    "risk_budget_receipt_required": true
+  },
+  "rewrite_decision": {
+    "pass_result": "ELIGIBLE_FOR_OPERATOR_APPROVAL_ONLY",
+    "automatic_external_mutation": false,
+    "automatic_authority_expansion": false,
+    "authority_effect": "NONE"
+  },
+  "epistemic_rule": "Pattern detection may generate hypotheses. Only typed evidence may change claim state. No evidence class may silently coerce into another.",
+  "authority_effect": "NONE",
+  "conservation_gate": {
+    "trusted_receipt_required": true,
+    "exact_parent_state_binding_required": true,
+    "exact_semantic_lineage_binding_required": true,
+    "authority_non_amplifying_required": true,
+    "semantic_accounting_pass_required": true,
+    "uncertainty_accounting_pass_required": true
+  }
+}
