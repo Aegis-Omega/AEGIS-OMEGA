@@ -6,9 +6,13 @@
   "scripts": {
     "dev-backend": "npm run dev --prefix backend",
     "dev": "npm run dev-backend",
-    "postinstall": "node scripts/cloudflare-enterprise-replay.mjs"
+    "postinstall": "npm run ci:enterprise:hosted --silent",
+    "ci:enterprise:hosted": "node scripts/cloudflare-enterprise-replay.mjs"
   },
   "devDependencies": {
     "concurrently": "latest"
+  },
+  "engines": {
+    "node": "22.16.0"
   }
 }
