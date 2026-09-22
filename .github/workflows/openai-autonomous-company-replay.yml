@@ -99,6 +99,8 @@ jobs:
               'sovereign-omega-v2/test/native-runtime/company-task-lease-sql.test.mjs',
               'sovereign-omega-v2/scripts/openai-complimentary-canary.mjs',
               'sovereign-omega-v2/test/native-runtime/openai-complimentary-canary.test.mjs',
+              'sovereign-omega-v2/src/sovereignty/company-enterprise-opportunity.ts',
+              'sovereign-omega-v2/test/native-runtime/company-enterprise-opportunity.test.mjs',
               'supabase/migrations/20260922171000_autonomous_company_work_ledger_v1.sql',
               'supabase/migrations/20260922180000_company_task_lease_fencing_v1.sql',
           ]
@@ -131,6 +133,7 @@ jobs:
                   'company-work-graph.test.mjs',
                   'company-task-lease-sql.test.mjs',
                   'openai-complimentary-canary.test.mjs',
+                  'company-enterprise-opportunity.test.mjs',
               ],
               'live_openai_execution': 'NOT_PERFORMED',
               'write_authority': 'NOT_GRANTED',
