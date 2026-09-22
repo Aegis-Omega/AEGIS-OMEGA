@@ -21,16 +21,22 @@ create table if not exists aegis_audit.constitutional_chain_head_v1 (
 );
 
 insert into aegis_audit.constitutional_chain_head_v1 (
-  chain_id, next_sequence, terminal_hash
+  chain_id,
+  next_sequence,
+  terminal_hash
 ) values (
-  'constitutional', 0, repeat('0', 64)
+  'constitutional',
+  0,
+  repeat('0', 64)
 )
 on conflict (chain_id) do nothing;
 
 create table if not exists aegis_audit.constitutional_chain_v1 (
   sequence bigint primary key check (sequence >= 0),
-  previous_entry_hash text not null check (previous_entry_hash ~ '^[0-9a-f]{64}$'),
-  entry_hash text not null unique check (entry_hash ~ '^[0-9a-f]{64}$'),
+  previous_entry_hash text not null
+    check (previous_entry_hash ~ '^[0-9a-f]{64}$'),
+  entry_hash text not null unique
+    check (entry_hash ~ '^[0-9a-f]{64}$'),
   observation jsonb not null,
   tier text not null check (length(btrim(tier)) > 0),
   timestamp_ms bigint not null check (timestamp_ms >= 0),
@@ -69,7 +75,7 @@ returns boolean
 language plpgsql
 security definer
 set search_path = aegis_audit, pg_temp
-as $
+as $$
 declare
   v_next_sequence bigint;
   v_terminal_hash text;
@@ -77,39 +83,12 @@ begin
   if p_sequence is null or p_sequence < 0 then
     raise exception 'invalid sequence';
   end if;
-  if p_previous_entry_hash is null or p_previous_entry_hash !~ '^[0-9a-f]{64}
-revoke all on all tables in schema aegis_audit from public;
-revoke execute on all functions in schema aegis_audit from public;
-
-grant usage on schema aegis_audit to aegis_audit_writer;
-grant select on aegis_audit.constitutional_chain_v1 to aegis_audit_writer;
-grant select on aegis_audit.constitutional_chain_head_v1 to aegis_audit_writer;
-grant execute on function aegis_audit.append_constitutional_entry_v1(
-  bigint, text, text, jsonb, text, bigint
-) to aegis_audit_writer;
-
-alter default privileges in schema aegis_audit revoke all on tables from public;
-alter default privileges in schema aegis_audit revoke execute on functions from public;
-
--- REQUIRED SEPARATE BINDING (operator/deploy step, not encoded here):
--- GRANT aegis_audit_writer TO "<cloud-run-service-account-without-.gserviceaccount.com>";
- then
+  if p_previous_entry_hash is null
+     or p_previous_entry_hash !~ '^[0-9a-f]{64}$' then
     raise exception 'invalid previous_entry_hash';
   end if;
-  if p_entry_hash is null or p_entry_hash !~ '^[0-9a-f]{64}
-revoke all on all tables in schema aegis_audit from public;
-revoke execute on all functions in schema aegis_audit from public;
-
-grant usage on schema aegis_audit to aegis_audit_writer;
-grant select, insert on aegis_audit.constitutional_chain_v1 to aegis_audit_writer;
-grant select, update on aegis_audit.constitutional_chain_head_v1 to aegis_audit_writer;
-
-alter default privileges in schema aegis_audit revoke all on tables from public;
-alter default privileges in schema aegis_audit revoke execute on functions from public;
-
--- REQUIRED SEPARATE BINDING (operator/deploy step, not encoded here):
--- GRANT aegis_audit_writer TO "<cloud-run-service-account-without-.gserviceaccount.com>";
- then
+  if p_entry_hash is null
+     or p_entry_hash !~ '^[0-9a-f]{64}$' then
     raise exception 'invalid entry_hash';
   end if;
   if p_observation is null then
@@ -132,14 +111,25 @@ alter default privileges in schema aegis_audit revoke execute on functions from 
     raise exception 'constitutional chain head missing';
   end if;
 
-  if p_sequence <> v_next_sequence or p_previous_entry_hash <> v_terminal_hash then
+  if p_sequence <> v_next_sequence
+     or p_previous_entry_hash <> v_terminal_hash then
     return false;
   end if;
 
   insert into aegis_audit.constitutional_chain_v1 (
-    sequence, previous_entry_hash, entry_hash, observation, tier, timestamp_ms
+    sequence,
+    previous_entry_hash,
+    entry_hash,
+    observation,
+    tier,
+    timestamp_ms
   ) values (
-    p_sequence, p_previous_entry_hash, p_entry_hash, p_observation, p_tier, p_timestamp_ms
+    p_sequence,
+    p_previous_entry_hash,
+    p_entry_hash,
+    p_observation,
+    p_tier,
+    p_timestamp_ms
   );
 
   update aegis_audit.constitutional_chain_head_v1
@@ -150,18 +140,28 @@ alter default privileges in schema aegis_audit revoke execute on functions from 
 
   return true;
 end;
-$;
+$$;
 
 revoke all on schema aegis_audit from public;
 revoke all on all tables in schema aegis_audit from public;
 revoke execute on all functions in schema aegis_audit from public;
 
 grant usage on schema aegis_audit to aegis_audit_writer;
-grant select, insert on aegis_audit.constitutional_chain_v1 to aegis_audit_writer;
-grant select, update on aegis_audit.constitutional_chain_head_v1 to aegis_audit_writer;
+grant select on aegis_audit.constitutional_chain_v1 to aegis_audit_writer;
+grant select on aegis_audit.constitutional_chain_head_v1 to aegis_audit_writer;
+grant execute on function aegis_audit.append_constitutional_entry_v1(
+  bigint,
+  text,
+  text,
+  jsonb,
+  text,
+  bigint
+) to aegis_audit_writer;
 
-alter default privileges in schema aegis_audit revoke all on tables from public;
-alter default privileges in schema aegis_audit revoke execute on functions from public;
+alter default privileges in schema aegis_audit
+  revoke all on tables from public;
+alter default privileges in schema aegis_audit
+  revoke execute on functions from public;
 
 -- REQUIRED SEPARATE BINDING (operator/deploy step, not encoded here):
 -- GRANT aegis_audit_writer TO "<cloud-run-service-account-without-.gserviceaccount.com>";
