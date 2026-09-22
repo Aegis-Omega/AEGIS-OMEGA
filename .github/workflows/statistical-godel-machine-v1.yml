@@ -8,16 +8,20 @@ on:
       - "sovereign-omega-v2/python/epistemic_authority_conservation.py"
       - "sovereign-omega-v2/python/epistemic_accounting.py"
       - "sovereign-omega-v2/python/epistemic_conservation_kernel.py"
+      - "sovereign-omega-v2/python/conservative_epistemic_semilattice.py"
       - "sovereign-omega-v2/python/tests/test_statistical_godel_machine.py"
       - "sovereign-omega-v2/python/tests/test_statistical_godel_machine_spec.py"
       - "sovereign-omega-v2/python/tests/test_epistemic_authority_conservation.py"
       - "sovereign-omega-v2/python/tests/test_epistemic_accounting.py"
       - "sovereign-omega-v2/python/tests/test_epistemic_conservation_kernel.py"
+      - "sovereign-omega-v2/python/tests/test_conservative_epistemic_semilattice.py"
       - "sovereign-omega-v2/formal/bridges/lean/EpistemicAuthorityConservationV1.lean"
       - "sovereign-omega-v2/formal/bridges/lean/EpistemicAccountingV1.lean"
+      - "sovereign-omega-v2/formal/bridges/lean/ConservativeEpistemicSemilatticeV1.lean"
       - "docs/research/statistical-godel-machine-v1.md"
       - "docs/research/epistemic-authority-conservation-v1.md"
       - "docs/research/epistemic-accounting-v1.md"
+      - "docs/research/conservative-epistemic-semilattice-v1.md"
       - ".github/workflows/statistical-godel-machine-v1.yml"
   workflow_dispatch:
 
@@ -52,11 +56,13 @@ jobs:
             sovereign-omega-v2/python/epistemic_authority_conservation.py \
             sovereign-omega-v2/python/epistemic_accounting.py \
             sovereign-omega-v2/python/epistemic_conservation_kernel.py \
+            sovereign-omega-v2/python/conservative_epistemic_semilattice.py \
             sovereign-omega-v2/python/tests/test_statistical_godel_machine.py \
             sovereign-omega-v2/python/tests/test_statistical_godel_machine_spec.py \
             sovereign-omega-v2/python/tests/test_epistemic_authority_conservation.py \
             sovereign-omega-v2/python/tests/test_epistemic_accounting.py \
-            sovereign-omega-v2/python/tests/test_epistemic_conservation_kernel.py
+            sovereign-omega-v2/python/tests/test_epistemic_conservation_kernel.py \
+            sovereign-omega-v2/python/tests/test_conservative_epistemic_semilattice.py
 
       - name: Run SGM rewrite tests
         env:
@@ -83,6 +89,11 @@ jobs:
           PYTHONPATH: sovereign-omega-v2/python
         run: python sovereign-omega-v2/python/tests/test_epistemic_conservation_kernel.py -v
 
+      - name: Run conservative semilattice tests
+        env:
+          PYTHONPATH: sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_conservative_epistemic_semilattice.py -v
+
   sgm-lean:
     runs-on: ubuntu-latest
     timeout-minutes: 18
@@ -101,11 +112,13 @@ jobs:
           SRC="$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean"
           AUTH_SHA="$(sha256sum "$SRC/EpistemicAuthorityConservationV1.lean" | awk '{print $1}')"
           ACC_SHA="$(sha256sum "$SRC/EpistemicAccountingV1.lean" | awk '{print $1}')"
+          SEMI_SHA="$(sha256sum "$SRC/ConservativeEpistemicSemilatticeV1.lean" | awk '{print $1}')"
           printf 'EXACT_HEAD=%s\n' "$EXPECTED"
           printf 'AUTHORITY_SOURCE_SHA256=%s\n' "$AUTH_SHA"
           printf 'ACCOUNTING_SOURCE_SHA256=%s\n' "$ACC_SHA"
           echo "authority_sha=$AUTH_SHA" >> "$GITHUB_OUTPUT"
           echo "accounting_sha=$ACC_SHA" >> "$GITHUB_OUTPUT"
+          echo "semilattice_sha=$SEMI_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Install exact Lean 4.33.1
         shell: bash
@@ -137,8 +150,10 @@ jobs:
           SRC="$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean"
           cp "$SRC/EpistemicAuthorityConservationV1.lean" /tmp/mathlib/
           cp "$SRC/EpistemicAccountingV1.lean" /tmp/mathlib/
+          cp "$SRC/ConservativeEpistemicSemilatticeV1.lean" /tmp/mathlib/
           test "$(sha256sum /tmp/mathlib/EpistemicAuthorityConservationV1.lean | awk '{print $1}')" = "${{ steps.bind.outputs.authority_sha }}"
           test "$(sha256sum /tmp/mathlib/EpistemicAccountingV1.lean | awk '{print $1}')" = "${{ steps.bind.outputs.accounting_sha }}"
+          test "$(sha256sum /tmp/mathlib/ConservativeEpistemicSemilatticeV1.lean | awk '{print $1}')" = "${{ steps.bind.outputs.semilattice_sha }}"
 
       - name: Kernel replay and axiom audit
         shell: bash
@@ -157,18 +172,27 @@ jobs:
             /tmp/mathlib/EpistemicAccountingV1.lean \
             2>&1 | tee /tmp/accounting.log
 
+          lean -o /tmp/sgm-olean/ConservativeEpistemicSemilatticeV1.olean \
+            /tmp/mathlib/ConservativeEpistemicSemilatticeV1.lean \
+            2>&1 | tee /tmp/semilattice.log
+
           cat > /tmp/mathlib/SGMAudit.lean <<'LEAN'
           import EpistemicAuthorityConservationV1
           import EpistemicAccountingV1
+          import ConservativeEpistemicSemilatticeV1
           #print axioms AEGIS.EpistemicAuthorityConservationV1.chainAuthority_le_initial
           #print axioms AEGIS.EpistemicAuthorityConservationV1.zero_is_absorbing
           #print axioms AEGIS.EpistemicAccountingV1.left_uncertainty_le_of_loss
           #print axioms AEGIS.EpistemicAccountingV1.right_uncertainty_le_of_loss
           #print axioms AEGIS.EpistemicAccountingV1.card_disjoint_partition
+          #print axioms AEGIS.ConservativeEpistemicSemilatticeV1.merge_assoc
+          #print axioms AEGIS.ConservativeEpistemicSemilatticeV1.merge_comm
+          #print axioms AEGIS.ConservativeEpistemicSemilatticeV1.merge_idem
           LEAN
 
           lean /tmp/mathlib/SGMAudit.lean 2>&1 | tee /tmp/sgm-axioms.log
           ! grep -q "sorryAx" /tmp/authority.log
           ! grep -q "sorryAx" /tmp/accounting.log
+          ! grep -q "sorryAx" /tmp/semilattice.log
           ! grep -q "sorryAx" /tmp/sgm-axioms.log
           printf 'SGM_LEAN_REPLAY=PASS\n'
