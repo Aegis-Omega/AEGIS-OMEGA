@@ -1,0 +1,178 @@
+name: AEGIS Gravity Quantum Authority V1
+
+on:
+  pull_request:
+    paths:
+      - "sovereign-omega-v2/python/cross_boundary_authority.py"
+      - "sovereign-omega-v2/python/research_invariants.py"
+      - "sovereign-omega-v2/python/gravity_quantum_authority.py"
+      - "sovereign-omega-v2/python/gravity_quantum_policy.py"
+      - "sovereign-omega-v2/python/gravity_quantum_discriminator.py"
+      - "sovereign-omega-v2/python/gravity_quantum_scaling.py"
+      - "sovereign-omega-v2/python/gravity_quantum_registry.py"
+      - "sovereign-omega-v2/python/gravity_quantum_measurement.py"
+      - "sovereign-omega-v2/python/gravity_quantum_external_replay.py"
+      - "sovereign-omega-v2/python/tests/test_cross_boundary_authority.py"
+      - "sovereign-omega-v2/python/tests/test_gravity_quantum_authority.py"
+      - "sovereign-omega-v2/python/tests/test_gravity_quantum_scaling.py"
+      - "sovereign-omega-v2/python/tests/test_gravity_quantum_registry.py"
+      - "sovereign-omega-v2/python/tests/test_gravity_quantum_measurement.py"
+      - "sovereign-omega-v2/python/tests/test_gravity_quantum_external_replay.py"
+      - "sovereign-omega-v2/formal/bridges/lean/GravityQuantumPureProductV1.lean"
+      - "governance/gravity-quantum-tabletop-prereg-v1.json"
+      - "governance/gravity-quantum-model-registry-v1.json"
+      - "docs/research/gravity-quantum-authority-v1.md"
+      - ".github/workflows/gravity-quantum-authority-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gravity-authority:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Bind execution to exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$EXPECTED"
+          printf 'EXACT_HEAD=%s\n' "$EXPECTED"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile gravity authority sources
+        run: |
+          python -m py_compile \
+            sovereign-omega-v2/python/research_invariants.py \
+            sovereign-omega-v2/python/cross_boundary_authority.py \
+            sovereign-omega-v2/python/gravity_quantum_authority.py \
+            sovereign-omega-v2/python/gravity_quantum_policy.py \
+            sovereign-omega-v2/python/gravity_quantum_discriminator.py \
+            sovereign-omega-v2/python/gravity_quantum_scaling.py \
+            sovereign-omega-v2/python/gravity_quantum_registry.py \
+            sovereign-omega-v2/python/gravity_quantum_measurement.py \
+            sovereign-omega-v2/python/gravity_quantum_external_replay.py \
+            sovereign-omega-v2/python/tests/test_cross_boundary_authority.py \
+            sovereign-omega-v2/python/tests/test_gravity_quantum_authority.py \
+            sovereign-omega-v2/python/tests/test_gravity_quantum_scaling.py \
+            sovereign-omega-v2/python/tests/test_gravity_quantum_registry.py \
+            sovereign-omega-v2/python/tests/test_gravity_quantum_measurement.py \
+            sovereign-omega-v2/python/tests/test_gravity_quantum_external_replay.py
+
+      - name: Re-run inherited cross-boundary regressions
+        env:
+          PYTHONPATH: sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_cross_boundary_authority.py -v
+
+      - name: Run Gravity Quantum authority regressions
+        env:
+          PYTHONPATH: sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_gravity_quantum_authority.py -v
+
+      - name: Run D1 scaling regressions
+        env:
+          PYTHONPATH: sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_gravity_quantum_scaling.py -v
+
+      - name: Validate contested-model registry
+        env:
+          PYTHONPATH: sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_gravity_quantum_registry.py -v
+
+      - name: Run tabletop measurement regressions
+        env:
+          PYTHONPATH: sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_gravity_quantum_measurement.py -v
+
+      - name: Run external-replay anti-stale regressions
+        env:
+          PYTHONPATH: sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_gravity_quantum_external_replay.py -v
+
+  f2b-lean-kernel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Bind execution to exact head and source bytes
+        id: bind
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$EXPECTED"
+          SRC="$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/GravityQuantumPureProductV1.lean"
+          SOURCE_SHA="$(sha256sum "$SRC" | awk '{print $1}')"
+          printf 'EXACT_HEAD=%s\n' "$EXPECTED"
+          printf 'F2B_SOURCE_SHA256=%s\n' "$SOURCE_SHA"
+          echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Install exact Lean 4.33.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 2 \
+            https://github.com/leanprover/lean4/releases/download/v4.33.1/lean-4.33.1-linux.tar.zst \
+            -o /tmp/lean.tar.zst
+          echo "890afd185370f85666025b883914ab4f4b339136f8c96167b69cfb62aecaf235  /tmp/lean.tar.zst" | sha256sum -c -
+          mkdir -p /tmp/lean
+          tar --zstd -xf /tmp/lean.tar.zst -C /tmp/lean
+          echo "/tmp/lean/lean-4.33.1-linux/bin" >> "$GITHUB_PATH"
+
+      - name: Pin Mathlib
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/leanprover-community/mathlib4.git /tmp/mathlib
+          cd /tmp/mathlib
+          git fetch --depth 1 origin 0df444a360eaa60ab8c11dca51a86af692955474
+          git checkout --detach 0df444a360eaa60ab8c11dca51a86af692955474
+          test "$(git rev-parse HEAD)" = "0df444a360eaa60ab8c11dca51a86af692955474"
+          lake exe cache get
+
+      - name: Copy exact source into Lean root
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/GravityQuantumPureProductV1.lean"
+          cp "$SRC" /tmp/mathlib/GravityQuantumPureProductV1.lean
+          COPIED_SHA="$(sha256sum /tmp/mathlib/GravityQuantumPureProductV1.lean | awk '{print $1}')"
+          test "$COPIED_SHA" = "${{ steps.bind.outputs.source_sha }}"
+          printf 'COPIED_SOURCE_SHA256=%s\n' "$COPIED_SHA"
+
+      - name: Kernel replay F2b and audit axioms
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/mathlib
+          BASE_LEAN_PATH="$(lake env printenv LEAN_PATH)"
+          mkdir -p /tmp/gq-olean
+          export LEAN_PATH="/tmp/gq-olean:$BASE_LEAN_PATH"
+          lean -o /tmp/gq-olean/GravityQuantumPureProductV1.olean \
+            /tmp/mathlib/GravityQuantumPureProductV1.lean \
+            2>&1 | tee /tmp/f2b-compile.log
+
+          cat > /tmp/mathlib/F2BAudit.lean <<'LEAN'
+          import GravityQuantumPureProductV1
+          #print axioms AEGIS.GravityQuantumPureProductV1.pureProductCoeffs_imp_coeffDet_zero
+          #print axioms AEGIS.GravityQuantumPureProductV1.coeffDet_zero_imp_pureProductCoeffs
+          #print axioms AEGIS.GravityQuantumPureProductV1.coeffDet_eq_zero_iff_pureProductCoeffs
+          #print axioms AEGIS.GravityQuantumPureProductV1.coeffDet_ne_zero_iff_not_pureProductCoeffs
+          LEAN
+
+          lean /tmp/mathlib/F2BAudit.lean 2>&1 | tee /tmp/f2b-axioms.log
+          ! grep -q "sorryAx" /tmp/f2b-compile.log
+          ! grep -q "sorryAx" /tmp/f2b-axioms.log
+          printf 'F2B_KERNEL_REPLAY=PASS\n'
