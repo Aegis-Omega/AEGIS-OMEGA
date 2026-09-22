@@ -5,7 +5,7 @@ on:
     branches:
       - 'proof/rh-digamma-series-completion-v1'
     paths:
-      - 'sovereign-omega-v2/formal/bridges/lean/RestrictedWeilCriterionKernelBridgeV10.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/RestrictedWeilCriterion*.lean'
       - 'sovereign-omega-v2/formal/bridges/lean/RHMillenniumGateV10.lean'
       - 'sovereign-omega-v2/formal/bridges/lean/Weil*.lean'
       - 'sovereign-omega-v2/formal/bridges/lean/RH*.lean'
@@ -23,7 +23,7 @@ env:
   SOURCE_SHA: ${{ github.sha }}
   MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
   LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
-  TARGET_MODULE: RestrictedWeilCriterionKernelBridgeV10
+  TARGET_MODULE: RestrictedWeilCriterionZeroKernelV10
 
 jobs:
   verify:
@@ -144,7 +144,7 @@ jobs:
         run: |
           set -euo pipefail
           cat > RestrictedWeilCriterionAudit.lean <<'EOF'
-          import RestrictedWeilCriterionKernelBridgeV10
+          import RestrictedWeilCriterionZeroKernelV10
           #print axioms AEGIS.RestrictedWeilCriterionKernelBridgeV10.moment_conditions_iff_mellin_endpoints_zero_v10
           #print axioms AEGIS.RestrictedWeilCriterionKernelBridgeV10.combo_preserves_moments_v10
           #print axioms AEGIS.RestrictedWeilCriterionKernelBridgeV10.translate_autocorrelation_eq_v10
@@ -152,6 +152,10 @@ jobs:
           #print axioms AEGIS.RestrictedWeilCriterionKernelBridgeV10.universal_zero_quadratic_implies_twoPoint_translate_sign_v10
           #print axioms AEGIS.RestrictedWeilCriterionKernelBridgeV10.universal_zero_quadratic_implies_translated_component_bounds_v10
           #print axioms AEGIS.RestrictedWeilCriterionKernelBridgeV10.universal_zero_quadratic_implies_translated_component_dominance_v10
+          #print axioms AEGIS.RestrictedWeilCriterionZeroKernelV10.mixed_translate_eq_scaled_autocorrelation_v10
+          #print axioms AEGIS.RestrictedWeilCriterionZeroKernelV10.translated_cpow_factor_eq_exp_centered_v10
+          #print axioms AEGIS.RestrictedWeilCriterionZeroKernelV10.translated_zero_kernel_eq_neg_B_v10
+          #print axioms AEGIS.RestrictedWeilCriterionZeroKernelV10.universal_zero_quadratic_implies_zero_kernel_bounded_v10
           EOF
           lake env lean RestrictedWeilCriterionAudit.lean 2>&1 |
             tee evidence/axioms.log
@@ -163,7 +167,7 @@ jobs:
         run: |
           cat > evidence/DISPOSITION.txt <<EOF
           SOURCE_SHA=$SOURCE_SHA
-          TARGET=RestrictedWeilCriterionKernelBridgeV10
+          TARGET=RestrictedWeilCriterionZeroKernelV10
           TRANSLATED_KERNEL_HALF=TARGETED
           LAPLACE_POLE_OFFLINE_ZERO_CONTRADICTION=OPEN
           RESTRICTED_CRITERION_TO_RH=OPEN_UNTIL_LAPLACE_POLE_CHILD
