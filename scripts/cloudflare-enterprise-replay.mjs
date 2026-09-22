@@ -18,15 +18,29 @@ function receipt(value) {
   process.stdout.write(JSON.stringify(body) + '\n')
 }
 
-function run(command, args, cwd) {
+function run(command, args, cwd, stage) {
   const result = spawnSync(command, args, {
     cwd,
-    stdio: 'inherit',
     env: process.env,
+    encoding: 'utf8',
+    maxBuffer: 20 * 1024 * 1024,
   })
-  if (result.error) throw result.error
+  if (result.stdout) process.stdout.write(result.stdout)
+  if (result.stderr) process.stderr.write(result.stderr)
+  if (result.error) {
+    const error = new Error(`${stage}: ${result.error.message}`)
+    error.stage = stage
+    error.exitStatus = null
+    error.outputTail = ''
+    throw error
+  }
   if (result.status !== 0) {
-    throw new Error(`${command} exited ${result.status}`)
+    const combined = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+    const error = new Error(`${stage} exited ${result.status}`)
+    error.stage = stage
+    error.exitStatus = result.status
+    error.outputTail = combined.slice(-6000)
+    throw error
   }
 }
 
@@ -70,7 +84,7 @@ if (!/^[0-9a-f]{40}$/.test(injectedSha) || injectedSha !== gitSha) {
 const cwd = resolve('sovereign-omega-v2')
 
 try {
-  run('npm', ['ci', '--ignore-scripts', '--include=dev', '--no-audit', '--no-fund'], cwd)
+  run('npm', ['ci', '--ignore-scripts', '--include=dev', '--no-audit', '--no-fund'], cwd, 'NPM_CI')
 
   const tsc = resolve(cwd, 'node_modules/.bin/tsc')
   run(tsc, [
@@ -97,7 +111,7 @@ try {
     'src/sovereignty/company-enterprise-ledger-reconcile.ts',
     'src/sovereignty/company-enterprise-production-readiness.ts',
     'src/sovereignty/company-enterprise-prospect-admission.ts',
-  ], cwd)
+  ], cwd, 'STRICT_TSC')
 
   const tests = [
     'test/native-runtime/openai-autonomous-company.test.mjs',
@@ -123,7 +137,7 @@ try {
     'test/native-runtime/company-enterprise-prospect-admission.test.mjs',
   ]
 
-  run('node', ['--test', ...tests], cwd)
+  run('node', ['--test', ...tests], cwd, 'NODE_TEST')
 
   receipt({
     status: 'PASS',
@@ -151,6 +165,9 @@ try {
     strict_typecheck: 'NOT_ESTABLISHED',
     falsifiers: 'NOT_ESTABLISHED',
     failure: error instanceof Error ? error.message : String(error),
+    failure_stage: error && typeof error === 'object' && 'stage' in error ? error.stage : null,
+    failure_exit_status: error && typeof error === 'object' && 'exitStatus' in error ? error.exitStatus : null,
+    failure_output_tail: error && typeof error === 'object' && 'outputTail' in error ? error.outputTail : null,
     diagnostic_mode: true,
     build_gate: 'RECEIPT_STATUS_ONLY',
   })
