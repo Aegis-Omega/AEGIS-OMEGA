@@ -10,6 +10,7 @@ let package = Package(
         .library(name: "GemmaEdge", targets: ["GemmaEdge"]),
         .library(name: "PocketAuditorCore", targets: ["PocketAuditorCore"]),
         .library(name: "PocketAuditorRevenueCat", targets: ["PocketAuditorRevenueCat"]),
+        .library(name: "PocketAuditorUI", targets: ["PocketAuditorUI"]),
     ],
     dependencies: [
         .package(
@@ -32,6 +33,13 @@ let package = Package(
                     package: "purchases-ios-spm",
                     condition: .when(platforms: [.iOS, .macOS])
                 ),
+            ]
+        ),
+        .target(
+            name: "PocketAuditorUI",
+            dependencies: [
+                "PocketAuditorCore",
+                "PocketAuditorRevenueCat",
             ]
         ),
         .testTarget(name: "GemmaEdgeTests", dependencies: ["GemmaEdge"]),
