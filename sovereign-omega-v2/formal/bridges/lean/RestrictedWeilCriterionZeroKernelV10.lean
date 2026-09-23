@@ -112,7 +112,7 @@ theorem mixed_translate_eq_scaled_autocorrelation_v10
       (fun y : ℝ => (Real.exp (-d / 2) : ℂ) * H y) := by
     funext y
     dsimp [H]
-    rw [Complex.star_def, map_mul, Complex.conj_ofReal]
+    rw [map_mul, Complex.conj_ofReal]
     ring
   rw [hintegrand, integral_const_mul, ← hchangeC, ← mul_assoc, hscalar]
   rfl
@@ -194,7 +194,7 @@ theorem mixed_translate_B_eq_neg_zero_tsum_v10
       B g (translatePacket g d) at hEF
   rw [hend.1, hend.2] at hEF
   simp only [zero_add, zero_sub] at hEF
-  exact neg_eq_iff_eq_neg.mpr hEF.symm
+  exact neg_eq_iff_eq_neg.mp hEF.symm
 
 /-- Centered zero exponent used by the restricted Weil criterion. -/
 def CenteredZeroExponentV10
@@ -239,7 +239,6 @@ theorem translated_zero_summand_eq_centered_exp_v10
           mellin (WeilAutocorrelationV1 g) rho.1) := by
   unfold TranslatedZeroSummandV10
   rw [translated_cpow_factor_eq_exp_centered_v10]
-  ring
 
 /-- Canonical multiplicity-weighted translated zero exponential kernel. -/
 def TranslatedZeroKernelV10
@@ -275,7 +274,6 @@ theorem translated_zero_kernel_eq_neg_B_v10
   intro rho
   unfold TranslatedZeroSummandV10 WeilZeroIndexSummandV1
   rw [mellin_mixed_translate_v10]
-  ring
 
 /-- The norm of the translated zero kernel is the norm of the arithmetic
 cross coefficient used by the four-phase component box. -/
