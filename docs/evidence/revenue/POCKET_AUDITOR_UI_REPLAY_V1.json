@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "evidence_type": "POCKET_AUDITOR_UI_REPLAY_V1",
+  "authority_effect": "NONE",
+  "tested_github_source": "eef9fce3e01bf499e420516599bb7c7b6156b143",
+  "gitlab_project_id": 84781556,
+  "gitlab_pipeline_id": 2874236806,
+  "gitlab_job_id": 16675132994,
+  "pipeline_status": "success",
+  "job_status": "success",
+  "swift_version": "5.9.2",
+  "revenuecat_package_version": "5.90.2",
+  "tests_observed": 11,
+  "replay_marker": "POCKET_AUDITOR_SWIFT_REPLAY=PASS",
+  "build_observations": [
+    "PocketAuditorCore target emitted",
+    "PocketAuditorRevenueCat target emitted",
+    "PocketAuditorPurchaseController.swift compiled",
+    "PocketAuditorUI target emitted",
+    "PocketAuditorView.swift entered the Swift compilation step"
+  ],
+  "verification_boundary": {
+    "package_target_graph": "VERIFIED",
+    "linux_regression_build": "VERIFIED",
+    "core_unit_tests": "VERIFIED",
+    "swiftui_apple_conditional_body": "NOT_ESTABLISHED_BY_LINUX_REPLAY",
+    "ios_app_bundle": "NOT_CREATED",
+    "xcode_ios_build": "NOT_RUN",
+    "ios_simulator_run": "NOT_RUN",
+    "storekit_transaction": "NOT_RUN",
+    "real_purchase": "NOT_OBSERVED"
+  }
+}
