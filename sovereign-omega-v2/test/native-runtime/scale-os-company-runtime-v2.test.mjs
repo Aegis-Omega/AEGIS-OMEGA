@@ -148,6 +148,20 @@ test('approval-required task claim is exact-action bound and expiry checked', ()
   assert.ok(sql.includes("'DENIED_UNEXPECTED_APPROVAL_DIGEST'"))
 })
 
+test('V2 lease digest is server-derived and replay-bound to the exact claim envelope', () => {
+  assert.ok(sql.includes('create or replace function scale_os.company_task_lease_digest_v2'))
+  assert.ok(sql.includes("'AEGIS_SCALE_OS_TASK_LEASE_V2' || E'\\n'"))
+  const claimStart=sql.indexOf('create or replace function scale_os.claim_task_lease_v2(')
+  const claimEnd=sql.indexOf('create or replace function scale_os.complete_task_lease_v2(',claimStart)
+  const claimSection=sql.slice(claimStart,claimEnd)
+  assert.equal(claimSection.includes('p_lease_digest'),false)
+  assert.ok(claimSection.includes('v_candidate_lease_digest := scale_os.company_task_lease_digest_v2'))
+  assert.ok(claimSection.includes('v_lease.lease_digest = v_candidate_lease_digest'))
+  assert.ok(claimSection.includes("return query select 'CLAIMED'::text, v_candidate_lease_digest"))
+  assert.ok(sql.includes('uuid, text, text, text, bigint, bigint'))
+  assert.equal(sql.includes('uuid, text, text, text, text, bigint, bigint'),false)
+})
+
 test('claim is digest-bound idempotent and cross-worker fail-closed', () => {
   assert.ok(sql.includes('v_canonical_digest <> p_task_digest'))
   assert.ok(sql.includes("'DENIED_TASK_DIGEST_MISMATCH'"))
