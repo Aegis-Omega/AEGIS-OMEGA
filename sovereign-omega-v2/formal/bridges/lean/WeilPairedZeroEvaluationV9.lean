@@ -83,8 +83,16 @@ theorem mellin_eq_log_integral_v9
       rw [← mul_assoc, exp_real_cpow_sub_one_v9]
     _ = ∫ x : ℝ in Ioi (0 : ℝ),
           ((x : ℂ) ^ (a - 1)) * f.1 x := by
-      exact integral_comp_exp
+      have h := MeasureTheory.integral_image_eq_integral_abs_deriv_smul
+        MeasurableSet.univ
+        (fun x _ => (Real.hasDerivAt_exp x).hasDerivWithinAt)
+        Real.exp_injective.injOn
         (fun x : ℝ => ((x : ℂ) ^ (a - 1)) * f.1 x)
+      rw [Set.image_univ, Real.range_exp, Measure.restrict_univ] at h
+      rw [h]
+      congr 1
+      funext v
+      rw [abs_of_pos (Real.exp_pos v)]
 
 /-- Compact positive support makes every log-coordinate Mellin integrand
 integrable for every complex exponent. -/
@@ -111,6 +119,7 @@ private theorem log_mellin_integrable_v9
     simp [WeilLogMellinIntegrandV9, hf0]
   have hcompact : HasCompactSupport (WeilLogMellinIntegrandV9 f a) :=
     hK.of_isClosed_subset (isClosed_tsupport _) hsupp
+  have hfc : Continuous f.1 := f.2.1.continuous
   have hcont : Continuous (WeilLogMellinIntegrandV9 f a) := by
     unfold WeilLogMellinIntegrandV9
     fun_prop
@@ -133,9 +142,8 @@ theorem paired_test_exp_neg_v9
             f.1 ((Real.exp v)⁻¹))
   rw [Real.exp_neg, inv_inv]
   push_cast
-  have he : (((Real.exp v : ℝ) : ℂ) ≠ 0) :=
-    Complex.ofReal_ne_zero.mpr (Real.exp_ne_zero v)
-  rw [mul_add, mul_assoc, mul_inv_cancel₀ he, one_mul]
+  have he : Complex.exp (v : ℂ) ≠ 0 := Complex.exp_ne_zero _
+  rw [mul_add, ← mul_assoc, mul_inv_cancel₀ he, one_mul]
   ring
 
 /-- Reflection of the paired-test log-Mellin integrand exchanges a with 1-a. -/
@@ -144,7 +152,7 @@ theorem paired_log_reflection_v9
     WeilLogMellinIntegrandV9 (WeilPairedTestV8 f) a (-v) =
       WeilLogMellinIntegrandV9 (WeilPairedTestV8 f) (1 - a) v := by
   unfold WeilLogMellinIntegrandV9
-  rw [paired_test_exp_neg_v9, Complex.ofReal_exp, ← Complex.exp_add]
+  rw [paired_test_exp_neg_v9, Complex.ofReal_exp, ← mul_assoc, ← Complex.exp_add]
   congr 2
   push_cast
   ring
@@ -157,9 +165,11 @@ theorem paired_log_negative_eq_positive_v9
       WeilLogMellinIntegrandV9 (WeilPairedTestV8 f) a v) =
       ∫ v : ℝ in Ioi (0 : ℝ),
         WeilLogMellinIntegrandV9 (WeilPairedTestV8 f) (1 - a) v := by
-  rw [← integral_comp_neg_Ioi
+  have hneg0 := integral_comp_neg_Ioi
     (0 : ℝ)
-    (fun v : ℝ => WeilLogMellinIntegrandV9 (WeilPairedTestV8 f) a v)]
+    (fun v : ℝ => WeilLogMellinIntegrandV9 (WeilPairedTestV8 f) a v)
+  rw [neg_zero] at hneg0
+  rw [← hneg0]
   apply setIntegral_congr_fun measurableSet_Ioi
   intro v hv
   exact paired_log_reflection_v9 f a v
@@ -176,7 +186,7 @@ theorem paired_positive_log_tails_eq_mellin_pair_v9
   have hint :=
     log_mellin_integrable_v9 (WeilPairedTestV8 f) a
   have hsplit :=
-    integral_Iic_add_Ioi
+    intervalIntegral.integral_Iic_add_Ioi (b := (0 : ℝ))
       (f := WeilLogMellinIntegrandV9 (WeilPairedTestV8 f) a)
       hint.integrableOn hint.integrableOn
   have hneg := paired_log_negative_eq_positive_v9 f a
