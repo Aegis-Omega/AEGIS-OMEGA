@@ -32,6 +32,8 @@ jobs:
           npm run build
       - name: Verify GET-only bounded consumer
         run: python scripts/test-tactical-archive-runtime-contract.py
+      - name: Verify execution-init PlatformEnvelope contract
+        run: python scripts/test-tactical-execution-envelope.py
       - name: Boundary
         run: |
           echo "deployment=NOT_PERFORMED"
