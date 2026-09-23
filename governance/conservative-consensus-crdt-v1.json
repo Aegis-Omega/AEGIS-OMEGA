@@ -1,0 +1,30 @@
+{
+  "schema": "AEGIS_CONSERVATIVE_CONSENSUS_CRDT_V1",
+  "name": "Conservative Consensus CRDT V1",
+  "parent": "AEGIS_MULTI_AGENT_CONSERVATIVE_CONSENSUS_V1",
+  "epistemic_strength_order": "x <=E y iff x is no stronger than y",
+  "safety_order": "x <=S y iff y <=E x",
+  "merge": "conservativeMeet = (claim_intersection, min_authority, max_uncertainty)",
+  "crdt_interpretation": "Under the reversed safety order, conservativeMeet is the least upper bound.",
+  "local_update_rule": "CRDT-native local updates must be inflationary in the safety order, equivalently non-strengthening in the epistemic order.",
+  "forbidden_native_updates": [
+    "new exact claim without separate derivation",
+    "authority increase",
+    "loss-uncertainty reduction"
+  ],
+  "stronger_update_route": "AEGIS_PROOF_CARRYING_EPISTEMIC_PROMOTION_V1",
+  "convergence_claim": "Conditional algebraic convergence: replicas that receive the same set of states and merge with the semilattice join converge independent of delivery order and duplicates.",
+  "not_established": [
+    "network eventual delivery",
+    "Byzantine tolerance",
+    "causal consistency implementation",
+    "production deployment",
+    "application novelty"
+  ],
+  "prior_art_boundary": {
+    "crdt_join_semilattice": "ESTABLISHED_PRIOR_ART",
+    "state_based_crdt_convergence": "ESTABLISHED_PRIOR_ART",
+    "aegis_application_novelty": "NOT_ESTABLISHED"
+  },
+  "authority_effect": "NONE"
+}

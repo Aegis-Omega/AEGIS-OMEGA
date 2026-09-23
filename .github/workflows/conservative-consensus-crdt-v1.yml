@@ -1,0 +1,136 @@
+name: AEGIS Conservative Consensus CRDT V1
+
+on:
+  pull_request:
+    paths:
+      - "governance/conservative-consensus-crdt-v1.json"
+      - "sovereign-omega-v2/python/conservative_consensus_crdt.py"
+      - "sovereign-omega-v2/python/tests/test_conservative_consensus_crdt.py"
+      - "sovereign-omega-v2/formal/bridges/lean/NoFreeEpistemicGainV1.lean"
+      - "sovereign-omega-v2/formal/bridges/lean/MultiAgentConservativeConsensusV1.lean"
+      - "sovereign-omega-v2/formal/bridges/lean/ConservativeConsensusCRDTV1.lean"
+      - "docs/research/conservative-consensus-crdt-v1.md"
+      - ".github/workflows/conservative-consensus-crdt-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  crdt-python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Bind exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$EXPECTED"
+          printf 'EXACT_HEAD=%s\n' "$EXPECTED"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile
+        run: |
+          python -m py_compile \
+            sovereign-omega-v2/python/conservative_consensus_crdt.py \
+            sovereign-omega-v2/python/tests/test_conservative_consensus_crdt.py
+      - name: Run CRDT algebra and convergence tests
+        env:
+          PYTHONPATH: sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_conservative_consensus_crdt.py -v
+
+  crdt-lean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Bind exact head and source bytes
+        id: bind
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$EXPECTED"
+          SRC="$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean"
+          NFEG_SHA="$(sha256sum "$SRC/NoFreeEpistemicGainV1.lean" | awk '{print $1}')"
+          MACC_SHA="$(sha256sum "$SRC/MultiAgentConservativeConsensusV1.lean" | awk '{print $1}')"
+          CRDT_SHA="$(sha256sum "$SRC/ConservativeConsensusCRDTV1.lean" | awk '{print $1}')"
+          printf 'EXACT_HEAD=%s\n' "$EXPECTED"
+          printf 'NFEG_SOURCE_SHA256=%s\n' "$NFEG_SHA"
+          printf 'MACC_SOURCE_SHA256=%s\n' "$MACC_SHA"
+          printf 'CRDT_SOURCE_SHA256=%s\n' "$CRDT_SHA"
+          echo "nfeg_sha=$NFEG_SHA" >> "$GITHUB_OUTPUT"
+          echo "macc_sha=$MACC_SHA" >> "$GITHUB_OUTPUT"
+          echo "crdt_sha=$CRDT_SHA" >> "$GITHUB_OUTPUT"
+      - name: Install exact Lean 4.33.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 2 \
+            https://github.com/leanprover/lean4/releases/download/v4.33.1/lean-4.33.1-linux.tar.zst \
+            -o /tmp/lean.tar.zst
+          echo "890afd185370f85666025b883914ab4f4b339136f8c96167b69cfb62aecaf235  /tmp/lean.tar.zst" | sha256sum -c -
+          mkdir -p /tmp/lean
+          tar --zstd -xf /tmp/lean.tar.zst -C /tmp/lean
+          echo "/tmp/lean/lean-4.33.1-linux/bin" >> "$GITHUB_PATH"
+      - name: Pin Mathlib
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/leanprover-community/mathlib4.git /tmp/mathlib
+          cd /tmp/mathlib
+          git fetch --depth 1 origin 0df444a360eaa60ab8c11dca51a86af692955474
+          git checkout --detach 0df444a360eaa60ab8c11dca51a86af692955474
+          test "$(git rev-parse HEAD)" = "0df444a360eaa60ab8c11dca51a86af692955474"
+          lake exe cache get
+      - name: Copy exact theorem bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean"
+          cp "$SRC/NoFreeEpistemicGainV1.lean" /tmp/mathlib/
+          cp "$SRC/MultiAgentConservativeConsensusV1.lean" /tmp/mathlib/
+          cp "$SRC/ConservativeConsensusCRDTV1.lean" /tmp/mathlib/
+          test "$(sha256sum /tmp/mathlib/NoFreeEpistemicGainV1.lean | awk '{print $1}')" = "${{ steps.bind.outputs.nfeg_sha }}"
+          test "$(sha256sum /tmp/mathlib/MultiAgentConservativeConsensusV1.lean | awk '{print $1}')" = "${{ steps.bind.outputs.macc_sha }}"
+          test "$(sha256sum /tmp/mathlib/ConservativeConsensusCRDTV1.lean | awk '{print $1}')" = "${{ steps.bind.outputs.crdt_sha }}"
+      - name: Kernel replay and axiom audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/mathlib
+          BASE_LEAN_PATH="$(lake env printenv LEAN_PATH)"
+          mkdir -p /tmp/crdt-olean
+          export LEAN_PATH="/tmp/crdt-olean:$BASE_LEAN_PATH"
+
+          lean -o /tmp/crdt-olean/NoFreeEpistemicGainV1.olean \
+            /tmp/mathlib/NoFreeEpistemicGainV1.lean 2>&1 | tee /tmp/nfeg.log
+
+          lean -o /tmp/crdt-olean/MultiAgentConservativeConsensusV1.olean \
+            /tmp/mathlib/MultiAgentConservativeConsensusV1.lean 2>&1 | tee /tmp/macc.log
+
+          lean -o /tmp/crdt-olean/ConservativeConsensusCRDTV1.olean \
+            /tmp/mathlib/ConservativeConsensusCRDTV1.lean 2>&1 | tee /tmp/crdt.log
+
+          cat > /tmp/mathlib/CRDTAudit.lean <<'LEAN'
+          import ConservativeConsensusCRDTV1
+          #print axioms AEGIS.ConservativeConsensusCRDTV1.merge_least_upper_bound
+          #print axioms AEGIS.ConservativeConsensusCRDTV1.merge_comm
+          #print axioms AEGIS.ConservativeConsensusCRDTV1.merge_assoc
+          #print axioms AEGIS.ConservativeConsensusCRDTV1.merge_idem
+          #print axioms AEGIS.ConservativeConsensusCRDTV1.safe_update_components
+          LEAN
+
+          lean /tmp/mathlib/CRDTAudit.lean 2>&1 | tee /tmp/crdt-axioms.log
+          ! grep -q "sorryAx" /tmp/nfeg.log
+          ! grep -q "sorryAx" /tmp/macc.log
+          ! grep -q "sorryAx" /tmp/crdt.log
+          ! grep -q "sorryAx" /tmp/crdt-axioms.log
+          printf 'CONSERVATIVE_CONSENSUS_CRDT_LEAN=PASS\n'
