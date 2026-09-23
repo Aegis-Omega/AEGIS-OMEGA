@@ -1,0 +1,29 @@
+{
+  "schema": "AEGIS_PROOF_CARRYING_EPISTEMIC_PROMOTION_V1",
+  "name": "Proof-Carrying Epistemic Promotion V1",
+  "baseline": "No-Free Epistemic Gain conservative meet",
+  "promotion_dimensions": [
+    "CLAIM_GAIN",
+    "AUTHORITY_GAIN",
+    "UNCERTAINTY_REDUCTION"
+  ],
+  "rule": "Conservative meet requires no promotion evidence. Any stronger candidate must satisfy every exact-bound promotion obligation through a trusted content-addressed receipt.",
+  "receipt_binding": [
+    "left_state_sha256",
+    "right_state_sha256",
+    "candidate_state_sha256",
+    "obligation_id",
+    "evidence_sha256",
+    "verifier_root",
+    "policy_root"
+  ],
+  "decision_ceiling": "ELIGIBLE_FOR_SEPARATE_PROMOTION_ONLY",
+  "automatic_promotion": false,
+  "prior_art_boundary": {
+    "uncertain_information_fusion": "Established literature; DOI 10.1016/j.inffus.2016.02.006",
+    "bilattice_knowledge_combination": "Established literature; DOI 10.1016/S0169-023X(97)00012-8",
+    "proof_carrying_data": "Established cryptographic concept; IACR ePrint 2020/499",
+    "aegis_application_novelty": "NOT_ESTABLISHED"
+  },
+  "authority_effect": "NONE"
+}
