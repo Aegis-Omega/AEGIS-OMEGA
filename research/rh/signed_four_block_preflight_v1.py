@@ -1,60 +1,85 @@
 """Exact rational preformalization gate for RH_SIGNED_FOUR_BLOCK_V1.
 
-This script does not evaluate the full B-matrix numerically and does not prove
-RH.  It uses only already-proved source bounds to test whether retaining the
-signed Toeplitz structure can possibly rescue the old 103/100 diagonal
-certificate.
+Two objects are kept separate:
 
-For the dyadic four-block family, write normalized real cross entries as
-b1, b2, b3 for gaps log 2, 2 log 2, 3 log 2.  Existing source theorems give
-exact prime terms
+1. ACTUAL-B interval information derived from exact prime terms plus the existing
+   1/100 Archimedean error budget.
+2. A rational COMPARISON-ENVELOPE Toeplitz matrix using the proven absolute
+   cross bounds 51/100, 9/25, 13/50.
 
-  p1 = log(2)/sqrt(2)
-  p2 = log(2)/2
-  p3 = log(2)*sqrt(2)/4
+The comparison matrix is not asserted to be the actual B-matrix. Its LDL^T
+pivots certify exactly what the current bound package can and cannot prove.
 
-and Archimedean error norm at most 1/100 on each gap.
-
-Using conservative rational inequalities already present/provable in the
-repository:
-
-  log(2) > 693/1000,
-  sqrt(2) < 10/7,
-  sqrt(2) > 7/5,
-
-we obtain lower bounds
-
-  b1 > 4751/10000,
-  b2 >  673/2000,
-  b3 > 4651/20000.
-
-The all-ones Rayleigh quotient of the zero-diagonal 4x4 Toeplitz cross matrix is
-
-  (6*b1 + 4*b2 + 2*b3)/4 = 3/2*b1 + b2 + 1/2*b3.
-
-Its rigorous rational lower bound is 46617/40000 = 1.165425, exceeding
-103/100 by 5417/40000.
-
-Therefore the current 103/100 diagonal lower certificate is insufficient even
-after preserving the signed Toeplitz structure and allowing every Archimedean
-cross correction to take its most favorable sign within the existing 1/100
-norm budget.
-
-This is a certificate-of-insufficiency for that proof budget, not a statement
-about the exact unknown diagonal value of the concrete matrix.
+No RH conclusion is asserted.
 """
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from fractions import Fraction
+from typing import Iterable
 
 OLD_DIAGONAL = Fraction(103, 100)
 NARROW_DIAGONAL = Fraction(32, 25)
 ARCH_RADIUS = Fraction(1, 100)
 
+ADJACENT_UPPER = Fraction(51, 100)
+NEXT_UPPER = Fraction(9, 25)
+FAR_UPPER = Fraction(13, 50)
+
 LOG2_LOWER = Fraction(693, 1000)
 SQRT2_LOWER = Fraction(7, 5)
 SQRT2_UPPER = Fraction(10, 7)
+
+
+def comparison_matrix(diagonal: Fraction) -> tuple[tuple[Fraction, ...], ...]:
+    d = -diagonal
+    a, b, c = ADJACENT_UPPER, NEXT_UPPER, FAR_UPPER
+    return (
+        (d, a, b, c),
+        (a, d, a, b),
+        (b, a, d, a),
+        (c, b, a, d),
+    )
+
+
+def ldlt_pivots(
+    matrix: tuple[tuple[Fraction, ...], ...],
+) -> tuple[Fraction, ...]:
+    n = len(matrix)
+    if any(len(row) != n for row in matrix):
+        raise ValueError("matrix must be square")
+    if any(matrix[i][j] != matrix[j][i] for i in range(n) for j in range(n)):
+        raise ValueError("matrix must be symmetric")
+
+    L = [[Fraction(int(i == j), 1) for j in range(n)] for i in range(n)]
+    D = [Fraction(0, 1) for _ in range(n)]
+
+    for i in range(n):
+        D[i] = matrix[i][i] - sum(
+            L[i][k] * L[i][k] * D[k] for k in range(i)
+        )
+        if D[i] == 0 and i != n - 1:
+            raise ZeroDivisionError("zero LDL pivot")
+        for j in range(i + 1, n):
+            L[j][i] = (
+                matrix[j][i]
+                - sum(L[j][k] * L[i][k] * D[k] for k in range(i))
+            ) / D[i]
+    return tuple(D)
+
+
+def inertia_from_pivots(
+    pivots: Iterable[Fraction],
+) -> tuple[int, int, int]:
+    p = n = z = 0
+    for x in pivots:
+        if x > 0:
+            p += 1
+        elif x < 0:
+            n += 1
+        else:
+            z += 1
+    return p, n, z
 
 
 @dataclass(frozen=True)
@@ -68,14 +93,20 @@ class SignedFourBlockPreflightV1:
     narrow_diagonal: Fraction
     narrow_minus_rayleigh_lower: Fraction
     old_certificate_sufficient: bool
+    old_comparison_ldlt_pivots: tuple[Fraction, ...]
+    old_comparison_inertia: tuple[int, int, int]
+    narrow_comparison_ldlt_pivots: tuple[Fraction, ...]
+    narrow_comparison_inertia: tuple[int, int, int]
 
     def to_dict(self) -> dict[str, object]:
-        def q(x: Fraction) -> dict[str, int]:
-            return {"numerator": x.numerator, "denominator": x.denominator}
-        return {
-            k: q(v) if isinstance(v, Fraction) else v
-            for k, v in asdict(self).items()
-        }
+        def encode(v):
+            if isinstance(v, Fraction):
+                return {"numerator": v.numerator, "denominator": v.denominator}
+            if isinstance(v, tuple):
+                return [encode(x) for x in v]
+            return v
+
+        return {k: encode(v) for k, v in asdict(self).items()}
 
 
 def compute_preflight() -> SignedFourBlockPreflightV1:
@@ -84,6 +115,8 @@ def compute_preflight() -> SignedFourBlockPreflightV1:
     next_prime_lower = LOG2_LOWER / 2
     far_prime_lower = LOG2_LOWER * SQRT2_LOWER / 4
 
+    # Existing |arch| <= 1/100 * E permits the most favorable signed
+    # cancellation of exactly ARCH_RADIUS in a lower-bound preflight.
     adjacent_lower = adjacent_prime_lower - ARCH_RADIUS
     next_lower = next_prime_lower - ARCH_RADIUS
     far_lower = far_prime_lower - ARCH_RADIUS
@@ -94,6 +127,10 @@ def compute_preflight() -> SignedFourBlockPreflightV1:
         + Fraction(1, 2) * far_lower
     )
     old_gap = rayleigh - OLD_DIAGONAL
+
+    old_pivots = ldlt_pivots(comparison_matrix(OLD_DIAGONAL))
+    narrow_pivots = ldlt_pivots(comparison_matrix(NARROW_DIAGONAL))
+
     return SignedFourBlockPreflightV1(
         adjacent_lower=adjacent_lower,
         next_lower=next_lower,
@@ -104,6 +141,10 @@ def compute_preflight() -> SignedFourBlockPreflightV1:
         narrow_diagonal=NARROW_DIAGONAL,
         narrow_minus_rayleigh_lower=NARROW_DIAGONAL - rayleigh,
         old_certificate_sufficient=rayleigh <= OLD_DIAGONAL,
+        old_comparison_ldlt_pivots=old_pivots,
+        old_comparison_inertia=inertia_from_pivots(old_pivots),
+        narrow_comparison_ldlt_pivots=narrow_pivots,
+        narrow_comparison_inertia=inertia_from_pivots(narrow_pivots),
     )
 
 
