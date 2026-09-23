@@ -27,6 +27,22 @@ test('migration function structure is singular and approval regex is intact', ()
   assert.equal(sql.includes("p_action_digest !~ '^[0-9a-f]{64}  if exists"), false)
 })
 
+test('V2 approval digest is content-bound and grant generation is packet-bounded', () => {
+  assert.ok(sql.includes('create or replace function scale_os.canonical_jsonb_v2'))
+  assert.ok(sql.includes('create or replace function scale_os.consequential_action_packet_digest_v2'))
+  assert.ok(sql.includes("'AEGIS_CONSEQUENTIAL_ACTION_PACKET_V1' || E'\\n'"))
+  assert.ok(sql.includes('action_digest_v2 = scale_os.consequential_action_packet_digest_v2(approval_packet_v2)'))
+  assert.ok(sql.includes("approval_packet_v2 ->> 'task_id' = task_id::text"))
+  assert.ok(sql.includes("approval_packet_v2 ->> 'authority_effect' = 'NONE'"))
+  assert.ok(sql.includes('grant_generation_v2 bigint'))
+  assert.ok(sql.includes("grant_generation_v2 >= (approval_packet_v2 ->> 'created_generation')::bigint"))
+  assert.ok(sql.includes("grant_generation_v2 <= (approval_packet_v2 ->> 'expires_generation')::bigint"))
+  assert.ok(sql.includes('create or replace function scale_os.record_approval_v2'))
+  assert.ok(sql.includes('from public, anon, authenticated, service_role'))
+  assert.ok(sql.includes('scale_os.consequential_action_packet_digest_v2(a.approval_packet_v2) = a.action_digest_v2'))
+  assert.ok(sql.includes('a.grant_generation_v2 <= p_current_generation'))
+})
+
 test('V2 approval rows cannot be fabricated by service_role while legacy approvals remain compatible', () => {
   assert.ok(sql.includes('create or replace function scale_os.prevent_direct_v2_approval_mutation_v2'))
   assert.ok(sql.includes('create trigger scale_os_v2_approval_direct_mutation_guard'))
