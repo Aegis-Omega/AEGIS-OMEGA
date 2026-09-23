@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.0",
+  "evidence_type": "TAMEION_ARC_HOSTED_REPLAY_RECEIPT_V1",
+  "authority_effect": "NONE",
+  "source_repository": "https://github.com/Aegis-Omega/AEGIS-OMEGA.git",
+  "source_commit": "ef1c83742b6e0e5dd68f2c6b988961587b1d56a4",
+  "gitlab_project": "aegis-omega-group/AEGIS-OMEGA",
+  "gitlab_replay_branch": "hackathon/tameion-replay-20260923",
+  "gitlab_pipeline_id": 2873921164,
+  "pipeline_status": "success",
+  "validated_runs": 3,
+  "python_version": "3.12.3",
+  "test_count_per_run": 75,
+  "runs": [
+    {
+      "run_index": 1,
+      "job_id": 16672793773,
+      "status": "success",
+      "exact_head_verified": true,
+      "tests_ran": 75,
+      "test_result": "OK"
+    },
+    {
+      "run_index": 2,
+      "job_id": 16672793774,
+      "status": "success",
+      "exact_head_verified": true,
+      "tests_ran": 75,
+      "test_result": "OK"
+    },
+    {
+      "run_index": 3,
+      "job_id": 16672793775,
+      "status": "success",
+      "exact_head_verified": true,
+      "tests_ran": 75,
+      "test_result": "OK"
+    }
+  ],
+  "established": [
+    "Three independent hosted executions ran on separate GitLab runner instances.",
+    "Each execution fetched and detached-checkouted the exact GitHub source commit.",
+    "Each execution ran the same bounded Tameion/Arc Python unittest slice.",
+    "All three executions reported 75 tests and OK."
+  ],
+  "not_established": [
+    "OpenMeter production/test account observation.",
+    "Operator D3 approval for a concrete Arc Testnet transfer.",
+    "Signer identity or wallet ownership.",
+    "Transaction broadcast authority.",
+    "Arc Testnet settlement.",
+    "Mainnet readiness."
+  ]
+}

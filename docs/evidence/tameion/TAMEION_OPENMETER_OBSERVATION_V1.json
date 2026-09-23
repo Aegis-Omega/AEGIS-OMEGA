@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "evidence_type": "TAMEION_OPENMETER_OBSERVATION_V1",
+  "authority_effect": "NONE",
+  "network_effect": "LOCAL_OPENMETER_SANDBOX_ONLY",
+  "aegis_source_commit": "ef1c83742b6e0e5dd68f2c6b988961587b1d56a4",
+  "openmeter_source_commit": "99c94a9e3462fcd4bfa6c7e67d9a07a8b58d3c93",
+  "openmeter_image_digest": "sha256:96f7c746a7fc6ba754df68381c272a7f68d572a975bcc602c6f720bae5fb3110",
+  "gitlab_pipeline_id": 2873965293,
+  "gitlab_job_id": 16673104065,
+  "pipeline_status": "success",
+  "event_id": "aegis-tameion-openmeter-ef1c8374",
+  "subject": "aegis-tameion",
+  "meter_slug": "api_requests_total",
+  "ingest_http_status": 204,
+  "metered_value": 1,
+  "meter_response_sha256": "c4865c7a43538827497515dbb3e812ab72cf4d2cb208d21bde93942de8b8cd8b",
+  "meter_response_canonical_sha256": "45503e44596f9471d4dccc09f5385cdbb90366da400cb4d9ae127df1a9bda5a0",
+  "openmeter_observation_root": "2bad86e7885434c30e6c6f92ab5df0d6166e47894466c558e1336e974d530aac",
+  "runtime_checks": {
+    "openmeter_health": "healthy",
+    "sink_worker_health": "healthy"
+  },
+  "non_claims": [
+    "No OpenMeter Cloud credential was used.",
+    "No Circle API or Arc RPC call was made.",
+    "No signer was attached.",
+    "No transaction was broadcast.",
+    "No payment authority was granted."
+  ]
+}

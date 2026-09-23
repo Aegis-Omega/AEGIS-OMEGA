@@ -1,0 +1,68 @@
+{
+  "schema": "AEGIS_TAMEION_GITLAB_TRIPLE_REPLAY_V1",
+  "source_repository": "https://github.com/Aegis-Omega/AEGIS-OMEGA.git",
+  "source_commit": "ef1c83742b6e0e5dd68f2c6b988961587b1d56a4",
+  "gitlab_project_id": 84781556,
+  "gitlab_project": "aegis-omega-group/AEGIS-OMEGA",
+  "gitlab_branch": "evidence/tameion-arc-replay-ef1c8374",
+  "gitlab_ci_commit": "06a75bf9ab0d53f07bba60150a11b9ff337baa20",
+  "pipeline_id": 2873920600,
+  "pipeline_iid": 29,
+  "pipeline_status": "success",
+  "runtime": {
+    "executor": "GitLab SaaS shared runner",
+    "platform": "linux",
+    "architecture": "amd64",
+    "image": "ubuntu:24.04",
+    "python": "3.12.3"
+  },
+  "replays": [
+    {
+      "index": 1,
+      "job_id": 16672790736,
+      "status": "success",
+      "actual_head": "ef1c83742b6e0e5dd68f2c6b988961587b1d56a4",
+      "tests_run": 75,
+      "result": "PASS",
+      "duration_seconds": 27.64917
+    },
+    {
+      "index": 2,
+      "job_id": 16672790737,
+      "status": "success",
+      "actual_head": "ef1c83742b6e0e5dd68f2c6b988961587b1d56a4",
+      "tests_run": 75,
+      "result": "PASS",
+      "duration_seconds": 33.065866
+    },
+    {
+      "index": 3,
+      "job_id": 16672790738,
+      "status": "success",
+      "actual_head": "ef1c83742b6e0e5dd68f2c6b988961587b1d56a4",
+      "tests_run": 75,
+      "result": "PASS",
+      "duration_seconds": 27.925669
+    }
+  ],
+  "validated_runs": 3,
+  "hosted_replay_executed": true,
+  "network_effect": "CI_READ_ONLY_SOURCE_FETCH",
+  "treasury_effect": "NONE",
+  "signer_attached": false,
+  "broadcast_authority": "NOT_GRANTED",
+  "mainnet_authority": "NOT_GRANTED",
+  "authority_effect": "NONE",
+  "remaining_admission_blockers": [
+    "OPENMETER_OBSERVATION_MISSING",
+    "OPERATOR_APPROVAL_MISSING"
+  ],
+  "claims": {
+    "code_execution": "VERIFIED_ON_EXACT_SOURCE_COMMIT",
+    "three_independent_runs": "VERIFIED",
+    "openmeter_live_event": "NOT_OBSERVED",
+    "arc_transaction_broadcast": "NOT_PERFORMED",
+    "settlement_observation": "NOT_OBSERVED",
+    "capability_admitted": "NO"
+  }
+}

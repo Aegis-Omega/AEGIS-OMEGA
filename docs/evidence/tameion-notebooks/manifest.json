@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0",
+  "evidence_type": "external_notebook_catalog",
+  "authority_effect": "NONE",
+  "scope": "EVIDENCE_ONLY",
+  "canonical_kaggle_lineage": {
+    "source": "docs/evidence/kaggle-2026/manifest.json",
+    "metric": "Hallucination Delta",
+    "definition": "abs(claimed_correctness - actual_correctness)",
+    "submitted_notebook_sha256": "8cf6a5b6f889cb61c4419addd5fc1e486a4f3f1bea7ae1662c7fbaa4b67ea33f",
+    "archive_sha256": "517f9287dc9ae472a0edb37378c5314e0865ccf31ee287320d205eea1b34e380",
+    "status": "HISTORICAL_HASH_PINNED_NOT_RERUN"
+  },
+  "drive_working_notebooks": [
+    {
+      "title": "AGI Metacognition Benchmark1",
+      "sha256": "54e983f1a3f578eb1f94c77a97d216af99f85ea982252baac02f6417d106e3d6",
+      "cells": 971,
+      "code_cells": 291,
+      "markdown_cells": 680,
+      "selected_functions": ["calculate_hd", "calculate_rir", "run_truth_audit"],
+      "secret_scan": {
+        "status": "REDACTION_REQUIRED",
+        "credential_assignment_findings": 4,
+        "credential_json_findings": 1
+      },
+      "relationship_to_canonical_submission": "LATER_WORKING_NOTEBOOK_NOT_THE_HASH_PINNED_APRIL_SUBMISSION"
+    },
+    {
+      "title": "Copy of AGI Metacognition Benchmark1",
+      "sha256": "208f95c059512d1bca301ec2f383db0a488050732fb3b945c8419a60a7f0d53d",
+      "cells": 826,
+      "code_cells": 252,
+      "markdown_cells": 574,
+      "selected_functions": ["calculate_hd", "calculate_rir", "run_truth_audit"],
+      "secret_scan": {
+        "status": "REDACTION_REQUIRED",
+        "credential_assignment_findings": 4,
+        "credential_json_findings": 1
+      },
+      "relationship_to_canonical_submission": "LATER_WORKING_NOTEBOOK_NOT_THE_HASH_PINNED_APRIL_SUBMISSION"
+    },
+    {
+      "title": "Copy of mathematical_results.ipynb",
+      "sha256": "8a12ae0c1298af2382bd33107609af56c5479d9655310936c2c87003da748c18",
+      "cells": 129,
+      "code_cells": 93,
+      "markdown_cells": 36,
+      "selected_verifiers": [
+        "verify_tensor_decomposition",
+        "verify_hermite_combination",
+        "verify_sequence",
+        "verify_construction",
+        "verify_sphere_packing",
+        "verify_circles",
+        "verify_circles_disjoint"
+      ],
+      "secret_scan": {
+        "status": "STRUCTURALLY_SAFE",
+        "credential_assignment_findings": 0,
+        "credential_json_findings": 0
+      },
+      "relationship_to_aegis": "EXTERNAL_VERIFIER_PATTERN_REFERENCE_ONLY"
+    }
+  ],
+  "non_claims": [
+    "A notebook hash does not grant execution authority.",
+    "The later Drive notebooks are not the canonical April Kaggle submission.",
+    "RIR is not used as an authority score or payment gate.",
+    "The mathematical-results notebook does not prove any AEGIS or Tameion financial property.",
+    "Credential-like material detected in working notebooks must be redacted before distribution."
+  ]
+}

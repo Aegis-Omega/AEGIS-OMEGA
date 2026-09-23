@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "evidence_type": "TAMEION_ARC_OPERATOR_APPROVAL_REQUEST_V1",
+  "authority_effect": "NONE",
+  "request_status": "PENDING_OPERATOR_APPROVAL",
+  "request_root": "c8bdb514c0205ad91bf99786cf41eee232efe3b6b0e3d1e25fc24679067531b3",
+  "capability": "arc.testnet.transfer",
+  "action_class": "D3",
+  "authority_domain": "treasury.testnet",
+  "chain_id": "5042002",
+  "asset": "USDC",
+  "code_source_commit": "ef1c83742b6e0e5dd68f2c6b988961587b1d56a4",
+  "hosted_replay_receipt": "docs/evidence/tameion/TAMEION_ARC_HOSTED_REPLAY_RECEIPT_V1.json",
+  "openmeter_observation_receipt": "docs/evidence/tameion/TAMEION_OPENMETER_OBSERVATION_V1.json",
+  "openmeter_observation_root": "2bad86e7885434c30e6c6f92ab5df0d6166e47894466c558e1336e974d530aac",
+  "sender_wallet_observed": "0x8d8f6f06430bbc8a96368a97da9e95e565016b28",
+  "destination": null,
+  "amount_microunits": null,
+  "max_demo_amount_microunits": 1000000,
+  "signer_authority": "NOT_GRANTED",
+  "broadcast_authority": "NOT_GRANTED",
+  "mainnet_authority": "FORBIDDEN",
+  "missing_for_exact_approval": [
+    "destination",
+    "amount_microunits"
+  ]
+}
