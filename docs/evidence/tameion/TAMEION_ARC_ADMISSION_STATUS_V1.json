@@ -4,9 +4,10 @@
   "authority_effect": "NONE",
   "code_source_commit": "ef1c83742b6e0e5dd68f2c6b988961587b1d56a4",
   "hosted_replay_receipt": "docs/evidence/tameion/TAMEION_ARC_HOSTED_REPLAY_RECEIPT_V1.json",
+  "openmeter_observation_receipt": "docs/evidence/tameion/TAMEION_OPENMETER_OBSERVATION_V1.json",
   "validated_runs": 3,
   "hosted_replay_executed": true,
-  "openmeter_observation_root": null,
+  "openmeter_observation_root": "2bad86e7885434c30e6c6f92ab5df0d6166e47894466c558e1336e974d530aac",
   "operator_approval_root": null,
   "capability": "arc.testnet.transfer",
   "action_class": "D3",
@@ -14,12 +15,11 @@
   "tool": "arc-plan",
   "outcome": "NOT_ADMITTED",
   "denial_codes": [
-    "OPENMETER_OBSERVATION_MISSING",
     "OPERATOR_APPROVAL_MISSING"
   ],
   "explicit_non_claims": [
-    "Three test passes do not themselves grant payment authority.",
-    "No OpenMeter metered event has been observed from an authenticated OpenMeter runtime.",
+    "Three hosted test passes do not themselves grant payment authority.",
+    "The OpenMeter observation was produced in an isolated local OSS sandbox and grants no authority.",
     "No concrete D3 approval has been issued for a specific amount and destination.",
     "No signer or broadcast authority is attached.",
     "No Arc settlement is claimed."
