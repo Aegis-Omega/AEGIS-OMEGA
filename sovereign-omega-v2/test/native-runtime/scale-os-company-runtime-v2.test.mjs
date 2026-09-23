@@ -70,6 +70,16 @@ test('durable DAG and one-row-per-task lease are defined once', () => {
   assert.ok(sql.includes('primary key (task_id, depends_on_task_id)'))
 })
 
+test('nullable source fields stay inside the V2 digest boundary', () => {
+  const start=sql.indexOf('create or replace function scale_os.company_task_digest_v2(')
+  const end=sql.indexOf('alter function scale_os.canonical_jsonb_v2',start)
+  const fn=sql.slice(start,end)
+  assert.ok(fn.includes('called on null input'))
+  assert.equal(/\bstrict\b/i.test(fn),false)
+  assert.ok(fn.includes("nullif(btrim(coalesce(p_source_system,'')),'')"))
+  assert.ok(fn.includes("nullif(btrim(coalesce(p_source_object_id,'')),'')"))
+})
+
 test('V2 task digest is server-derived and high-risk admission is approval-gated', () => {
   assert.ok(sql.includes('create or replace function scale_os.company_task_digest_v2'))
   assert.ok(sql.includes("'AEGIS_SCALE_OS_TASK_V2' || E'\\n'"))
