@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "evidence_type": "POCKET_AUDITOR_SWIFT_REPLAY_V1",
+  "authority_effect": "NONE",
+  "tested_github_source": "bfc89603cb2934e6c2e8cb0b7b0f6cb09abf6b36",
+  "gitlab_project_id": 84781556,
+  "gitlab_pipeline_id": 2874138845,
+  "gitlab_job_id": 16674390896,
+  "pipeline_status": "success",
+  "job_status": "success",
+  "runner_platform": "linux-amd64",
+  "swift_version": "5.9.2",
+  "revenuecat_package_version": "5.90.2",
+  "tests_observed": 11,
+  "replay_marker": "POCKET_AUDITOR_SWIFT_REPLAY=PASS",
+  "verified_boundaries": [
+    "PocketAuditorCore compiles",
+    "PocketAuditorRevenueCat target compiles under Linux platform guard",
+    "Free tier does not expose premium reporting",
+    "Premium tier requires a positive entitlement checker result",
+    "A constitutional failure remains a failure even with premium access"
+  ],
+  "non_claims": [
+    "No RevenueCat project is configured by this receipt.",
+    "No product, offering, entitlement, purchase, payment, or subscription was created.",
+    "No App Store or Play Store release is claimed.",
+    "No purchase revenue is claimed."
+  ]
+}
