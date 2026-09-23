@@ -1,0 +1,61 @@
+{
+  "schema": "AEGIS_MACC_EXACT_SOURCE_REPLAY_RECEIPT_V1",
+  "scientific_head": "9649b1eada1ffff8740b8cf6c286f9ec961fc083",
+  "replay_head": "036548aafd7853b4e5e1efb37e3fa6b43c3cd63d",
+  "scientific_pr": 641,
+  "replay_pr": 650,
+  "transport_delta_only": true,
+  "source_sha256": {
+    "parent_nfeg": "c46bf6cf66fa8bc1890faec4c25a5e3b744a0ee2f75bafe61ee0e89ab7f4f280",
+    "child_macc": "64d026d81063ca7deb3be3b01f320ebe2ba967ebca6d3579f7ad7c2bbbd8ba1a"
+  },
+  "execution": {
+    "commit_preview": "https://5346d893-aegisomega.crimson-fire-3523.workers.dev",
+    "receipt_kind": "AEGIS_MULTI_AGENT_CONSERVATIVE_CONSENSUS_REPLAY_V3",
+    "stage": "VERIFIED_EXACT_SOURCE",
+    "verified": true,
+    "python_regressions": "PASS",
+    "python_tests": {
+      "passed": 6,
+      "failed": 0
+    },
+    "lean_target": "4.33.1",
+    "mathlib_sha": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "sorryAx_present": false
+  },
+  "formal_results": {
+    "AEGIS.MultiAgentConservativeConsensusV1.consensus_le_initial": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    "AEGIS.MultiAgentConservativeConsensusV1.consensus_le_member": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    "AEGIS.MultiAgentConservativeConsensusV1.consensus_greatest_lower_bound": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    }
+  },
+  "bounded_disposition": {
+    "multi_agent_consensus_glb": "KERNEL_VERIFIED_EXACT_SOURCE",
+    "finite_model_oracle": "HOSTED_EXECUTION_PASS",
+    "exact_claim_identity_only": true,
+    "semantic_equivalence_requires_separate_mhp_receipt": true,
+    "stronger_consensus_requires_pcep": true,
+    "novelty_status": "NOT_ESTABLISHED",
+    "authority_effect": "NONE"
+  }
+}
