@@ -27,6 +27,18 @@ test('migration function structure is singular and approval regex is intact', ()
   assert.equal(sql.includes("p_action_digest !~ '^[0-9a-f]{64}  if exists"), false)
 })
 
+test('V2 approval rows cannot be fabricated by service_role while legacy approvals remain compatible', () => {
+  assert.ok(sql.includes('create or replace function scale_os.prevent_direct_v2_approval_mutation_v2'))
+  assert.ok(sql.includes('create trigger scale_os_v2_approval_direct_mutation_guard'))
+  assert.ok(sql.includes("AEGIS_V2_APPROVAL_DIRECT_MUTATION_DENIED"))
+  assert.ok(sql.includes("current_user <> 'postgres' and (v_old_v2 or v_new_v2)"))
+  assert.ok(sql.includes('old.action_digest_v2 is not null'))
+  assert.ok(sql.includes('new.action_digest_v2 is not null'))
+  assert.ok(sql.includes('old.approval_packet_v2 is not null'))
+  assert.ok(sql.includes('new.approval_packet_v2 is not null'))
+  assert.ok(sql.includes('alter function scale_os.prevent_direct_v2_approval_mutation_v2()'))
+})
+
 test('new approvals require exact v2 digest packet grant and expiry without rewriting history', () => {
   assert.ok(sql.includes('action_digest_v2'))
   assert.ok(sql.includes('approval_packet_v2'))
