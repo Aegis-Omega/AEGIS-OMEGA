@@ -23,7 +23,7 @@ AUTHORITY_EFFECT = NONE.
 -/
 
 open Set Filter Topology Complex
-open scoped BigOperators
+open scoped BigOperators ComplexConjugate
 
 set_option autoImplicit false
 noncomputable section
@@ -64,11 +64,17 @@ theorem mellin_translatePacket_v11
       rw [← Complex.ofReal_log (Real.exp_pos (-d)).le, Real.log_exp]
     rw [hlog]
     congr 1
+    push_cast
     ring
-  rw [hpow, ← Complex.ofReal_exp, ← Complex.exp_add]
-  congr 1
-  push_cast
-  ring
+  have hexp :
+      ((Real.exp (-d / 2) : ℝ) : ℂ) *
+          Complex.exp (s * (d : ℂ)) =
+        Complex.exp ((s - (1 / 2 : ℂ)) * (d : ℂ)) := by
+    rw [Complex.ofReal_exp, ← Complex.exp_add]
+    congr 1
+    push_cast
+    ring
+  rw [hpow, ← mul_assoc, hexp]
 
 /-- Repository zero summand written in the full Mellin-factorized
 autocorrelation form. -/
