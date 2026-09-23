@@ -10,6 +10,7 @@ from harness.sdk.meaning_heritage import (
 from no_free_epistemic_gain import EpistemicStateV1
 from verified_semantic_quotient_consensus import (
     SemanticClassMembershipV1,
+    SemanticProjectionReceiptV1,
     issue_projection_receipt,
     project_state,
     semantic_quotient_consensus,
@@ -18,7 +19,6 @@ from verified_semantic_quotient_consensus import (
 A = "a" * 64
 B = "b" * 64
 C = "c" * 64
-D = "d" * 64
 V = "1" * 64
 P = "2" * 64
 
@@ -51,18 +51,20 @@ class VerifiedSemanticQuotientConsensusTests(unittest.TestCase):
             100,
         )
         membership = SemanticClassMembershipV1(
-            claim_digest=A,
-            claim_semantic_fingerprint="meaning:A",
-            canonical_claim_digest=A,
-            canonical_semantic_fingerprint="meaning:A",
+            A, "meaning:A", A, "meaning:A"
         )
         receipt = issue_projection_receipt(
             raw.claims,
             (membership,),
             store=Store(),
         )
-        projected = project_state(raw, receipt)
-        self.assertEqual(projected.semantic_class_ids, frozenset({A}))
+        projected = project_state(
+            raw, receipt, store=Store()
+        )
+        self.assertEqual(
+            projected.semantic_class_ids,
+            frozenset({A}),
+        )
 
     def test_different_claim_ids_can_meet_only_with_trusted_semantic_equivalence(self):
         proof = semeq(B, A, "meaning:B", "meaning:A")
@@ -99,8 +101,11 @@ class VerifiedSemanticQuotientConsensusTests(unittest.TestCase):
             store=Store(proof),
         )
         consensus = semantic_quotient_consensus(
-            project_state(left, left_receipt),
-            project_state(right, right_receipt),
+            left,
+            right,
+            left_receipt,
+            right_receipt,
+            store=Store(proof),
         )
         self.assertEqual(
             consensus.semantic_class_ids,
@@ -167,7 +172,6 @@ class VerifiedSemanticQuotientConsensusTests(unittest.TestCase):
             )
 
     def test_missing_projection_coverage_denies(self):
-        raw = frozenset({A, B})
         membership = SemanticClassMembershipV1(
             A, "meaning:A", A, "meaning:A"
         )
@@ -176,9 +180,56 @@ class VerifiedSemanticQuotientConsensusTests(unittest.TestCase):
             "PROJECTION_COVERAGE_MISMATCH",
         ):
             issue_projection_receipt(
-                raw,
+                frozenset({A, B}),
                 (membership,),
                 store=Store(),
+            )
+
+    def test_directly_constructed_untrusted_projection_is_replayed_and_denied(self):
+        forged = SemanticProjectionReceiptV1(
+            source_claim_digests=(B,),
+            memberships=(
+                SemanticClassMembershipV1(
+                    B,
+                    "meaning:B",
+                    A,
+                    "meaning:A",
+                    None,
+                ),
+            ),
+            semantic_class_ids=(A,),
+        )
+        raw = EpistemicStateV1(
+            frozenset({B}),
+            AuthorityLevel.EPISTEMIC,
+            0,
+        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "PROJECTION_RECEIPT_UNTRUSTED",
+        ):
+            project_state(
+                raw,
+                forged,
+                store=Store(),
+            )
+
+    def test_constructor_rejects_tampered_semantic_class_list(self):
+        with self.assertRaisesRegex(
+            ValueError,
+            "SEMANTIC_CLASSES_MISMATCH",
+        ):
+            SemanticProjectionReceiptV1(
+                source_claim_digests=(A,),
+                memberships=(
+                    SemanticClassMembershipV1(
+                        A,
+                        "meaning:A",
+                        A,
+                        "meaning:A",
+                    ),
+                ),
+                semantic_class_ids=(B,),
             )
 
     def test_unproved_similarity_does_not_create_semantic_consensus(self):
@@ -194,19 +245,33 @@ class VerifiedSemanticQuotientConsensusTests(unittest.TestCase):
         )
         left_receipt = issue_projection_receipt(
             left.claims,
-            (SemanticClassMembershipV1(A, "same words", A, "same words"),),
+            (
+                SemanticClassMembershipV1(
+                    A, "same words", A, "same words"
+                ),
+            ),
             store=Store(),
         )
         right_receipt = issue_projection_receipt(
             right.claims,
-            (SemanticClassMembershipV1(B, "same words", B, "same words"),),
+            (
+                SemanticClassMembershipV1(
+                    B, "same words", B, "same words"
+                ),
+            ),
             store=Store(),
         )
         consensus = semantic_quotient_consensus(
-            project_state(left, left_receipt),
-            project_state(right, right_receipt),
+            left,
+            right,
+            left_receipt,
+            right_receipt,
+            store=Store(),
         )
-        self.assertEqual(consensus.semantic_class_ids, frozenset())
+        self.assertEqual(
+            consensus.semantic_class_ids,
+            frozenset(),
+        )
 
 
 if __name__ == "__main__":
