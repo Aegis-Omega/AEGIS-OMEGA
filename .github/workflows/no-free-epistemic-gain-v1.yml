@@ -1,0 +1,116 @@
+name: AEGIS No-Free Epistemic Gain V1
+
+on:
+  pull_request:
+    paths:
+      - "governance/no-free-epistemic-gain-v1.json"
+      - "sovereign-omega-v2/python/no_free_epistemic_gain.py"
+      - "sovereign-omega-v2/python/tests/test_no_free_epistemic_gain.py"
+      - "sovereign-omega-v2/formal/bridges/lean/NoFreeEpistemicGainV1.lean"
+      - "docs/research/no-free-epistemic-gain-v1.md"
+      - ".github/workflows/no-free-epistemic-gain-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Bind exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$EXPECTED"
+          printf 'EXACT_HEAD=%s\n' "$EXPECTED"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile
+        run: |
+          python -m py_compile \
+            sovereign-omega-v2/python/no_free_epistemic_gain.py \
+            sovereign-omega-v2/python/tests/test_no_free_epistemic_gain.py
+      - name: Run finite-model falsification suite
+        env:
+          PYTHONPATH: sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_no_free_epistemic_gain.py -v
+
+  lean-kernel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Bind exact head and source
+        id: bind
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$EXPECTED"
+          SRC="$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/NoFreeEpistemicGainV1.lean"
+          SOURCE_SHA="$(sha256sum "$SRC" | awk '{print $1}')"
+          printf 'EXACT_HEAD=%s\n' "$EXPECTED"
+          printf 'SOURCE_SHA256=%s\n' "$SOURCE_SHA"
+          echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+      - name: Install exact Lean 4.33.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 2 \
+            https://github.com/leanprover/lean4/releases/download/v4.33.1/lean-4.33.1-linux.tar.zst \
+            -o /tmp/lean.tar.zst
+          echo "890afd185370f85666025b883914ab4f4b339136f8c96167b69cfb62aecaf235  /tmp/lean.tar.zst" | sha256sum -c -
+          mkdir -p /tmp/lean
+          tar --zstd -xf /tmp/lean.tar.zst -C /tmp/lean
+          echo "/tmp/lean/lean-4.33.1-linux/bin" >> "$GITHUB_PATH"
+      - name: Pin Mathlib
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/leanprover-community/mathlib4.git /tmp/mathlib
+          cd /tmp/mathlib
+          git fetch --depth 1 origin 0df444a360eaa60ab8c11dca51a86af692955474
+          git checkout --detach 0df444a360eaa60ab8c11dca51a86af692955474
+          test "$(git rev-parse HEAD)" = "0df444a360eaa60ab8c11dca51a86af692955474"
+          lake exe cache get
+      - name: Copy exact source into Lean root
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/NoFreeEpistemicGainV1.lean"
+          cp "$SRC" /tmp/mathlib/NoFreeEpistemicGainV1.lean
+          COPIED="$(sha256sum /tmp/mathlib/NoFreeEpistemicGainV1.lean | awk '{print $1}')"
+          test "$COPIED" = "${{ steps.bind.outputs.source_sha }}"
+      - name: Kernel replay and axiom audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/mathlib
+          BASE_LEAN_PATH="$(lake env printenv LEAN_PATH)"
+          mkdir -p /tmp/nfeg-olean
+          export LEAN_PATH="/tmp/nfeg-olean:$BASE_LEAN_PATH"
+
+          lean -o /tmp/nfeg-olean/NoFreeEpistemicGainV1.olean \
+            /tmp/mathlib/NoFreeEpistemicGainV1.lean \
+            2>&1 | tee /tmp/nfeg.log
+
+          cat > /tmp/mathlib/NFEGAudit.lean <<'LEAN'
+          import NoFreeEpistemicGainV1
+          #print axioms AEGIS.NoFreeEpistemicGainV1.le_meet_iff
+          #print axioms AEGIS.NoFreeEpistemicGainV1.no_free_epistemic_gain
+          #print axioms AEGIS.NoFreeEpistemicGainV1.meet_assoc
+          LEAN
+
+          lean /tmp/mathlib/NFEGAudit.lean 2>&1 | tee /tmp/nfeg-axioms.log
+          ! grep -q "sorryAx" /tmp/nfeg.log
+          ! grep -q "sorryAx" /tmp/nfeg-axioms.log
+          printf 'NO_FREE_EPISTEMIC_GAIN_LEAN=PASS\n'
