@@ -90,6 +90,135 @@ revoke all on scale_os.task_leases_v2 from public, anon, authenticated, service_
 grant select on scale_os.task_dependencies_v2 to service_role;
 grant select on scale_os.task_leases_v2 to service_role;
 
+create or replace function scale_os.prevent_direct_v2_task_mutation_v2()
+returns trigger
+language plpgsql
+security invoker
+set search_path = scale_os, pg_temp
+as $$
+begin
+  if current_user <> 'postgres' then
+    if tg_op = 'INSERT' and new.task_digest_v2 is not null then
+      raise exception 'AEGIS_V2_TASK_DIRECT_INSERT_DENIED:%', current_user
+        using errcode = '42501';
+    elsif tg_op = 'UPDATE'
+       and (old.task_digest_v2 is not null or new.task_digest_v2 is not null) then
+      raise exception 'AEGIS_V2_TASK_DIRECT_UPDATE_DENIED:%', current_user
+        using errcode = '42501';
+    elsif tg_op = 'DELETE' and old.task_digest_v2 is not null then
+      raise exception 'AEGIS_V2_TASK_DIRECT_DELETE_DENIED:%', current_user
+        using errcode = '42501';
+    end if;
+  end if;
+
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists scale_os_v2_task_direct_mutation_guard
+  on scale_os.tasks;
+
+create trigger scale_os_v2_task_direct_mutation_guard
+before insert or update or delete on scale_os.tasks
+for each row
+execute function scale_os.prevent_direct_v2_task_mutation_v2();
+
+create or replace function scale_os.create_task_v2(
+  p_task_type text,
+  p_risk_level text,
+  p_requires_approval boolean,
+  p_source_system text,
+  p_source_object_id text,
+  p_payload jsonb,
+  p_task_digest text,
+  p_idempotency_key text,
+  p_generation bigint
+)
+returns table (
+  outcome text,
+  task_id uuid
+)
+language plpgsql
+security definer
+set search_path = scale_os, pg_temp
+as $$
+declare
+  v_task_id uuid;
+  v_existing scale_os.tasks%rowtype;
+begin
+  if p_task_type is null or length(btrim(p_task_type)) = 0 then
+    raise exception 'task_type required';
+  end if;
+  if p_risk_level not in ('low','medium','high','critical') then
+    raise exception 'invalid risk_level';
+  end if;
+  if p_requires_approval is null then
+    raise exception 'requires_approval required';
+  end if;
+  if p_payload is null then
+    raise exception 'payload required';
+  end if;
+  if p_task_digest is null or p_task_digest !~ '^[0-9a-f]{64}$' then
+    raise exception 'invalid task_digest';
+  end if;
+  if p_idempotency_key is null or length(btrim(p_idempotency_key)) = 0 then
+    raise exception 'idempotency_key required';
+  end if;
+  if p_generation is null or p_generation < 0 then
+    raise exception 'invalid generation';
+  end if;
+
+  insert into scale_os.tasks(
+    task_type,status,risk_level,requires_approval,
+    source_system,source_object_id,payload,result,
+    task_digest_v2,idempotency_key_v2,generation_v2
+  ) values (
+    btrim(p_task_type),'queued',p_risk_level,p_requires_approval,
+    nullif(btrim(coalesce(p_source_system,'')),''),
+    nullif(btrim(coalesce(p_source_object_id,'')),''),
+    p_payload,'{}'::jsonb,
+    p_task_digest,btrim(p_idempotency_key),p_generation
+  )
+  on conflict (idempotency_key_v2)
+    where idempotency_key_v2 is not null
+  do nothing
+  returning id into v_task_id;
+
+  if v_task_id is not null then
+    return query select 'CREATED'::text, v_task_id;
+    return;
+  end if;
+
+  select *
+    into v_existing
+    from scale_os.tasks
+   where idempotency_key_v2 = btrim(p_idempotency_key)
+   for update;
+
+  if not found then
+    return query select 'DENIED_IDEMPOTENCY_LOOKUP_FAILED'::text, null::uuid;
+    return;
+  end if;
+
+  if v_existing.task_type <> btrim(p_task_type)
+     or v_existing.risk_level <> p_risk_level
+     or v_existing.requires_approval <> p_requires_approval
+     or v_existing.source_system is distinct from nullif(btrim(coalesce(p_source_system,'')),'')
+     or v_existing.source_object_id is distinct from nullif(btrim(coalesce(p_source_object_id,'')),'')
+     or v_existing.payload <> p_payload
+     or v_existing.task_digest_v2 <> p_task_digest
+     or v_existing.generation_v2 <> p_generation then
+    return query select 'DENIED_IDEMPOTENCY_COLLISION'::text, v_existing.id;
+    return;
+  end if;
+
+  return query select 'REPLAYED'::text, v_existing.id;
+end;
+$$;
+
 create or replace function scale_os.add_task_dependency_v2(
   p_task_id uuid,
   p_depends_on_task_id uuid
@@ -418,6 +547,10 @@ begin
 end;
 $$;
 
+revoke all on function scale_os.create_task_v2(
+  text, text, boolean, text, text, jsonb, text, text, bigint
+) from public, anon, authenticated;
+
 revoke all on function scale_os.add_task_dependency_v2(
   uuid, uuid
 ) from public, anon, authenticated;
@@ -430,6 +563,10 @@ revoke all on function scale_os.complete_task_lease_v2(
   uuid, text, text, bigint, text, jsonb
 ) from public, anon, authenticated;
 
+grant execute on function scale_os.create_task_v2(
+  text, text, boolean, text, text, jsonb, text, text, bigint
+) to service_role;
+
 grant execute on function scale_os.add_task_dependency_v2(
   uuid, uuid
 ) to service_role;
@@ -441,6 +578,13 @@ grant execute on function scale_os.claim_task_lease_v2(
 grant execute on function scale_os.complete_task_lease_v2(
   uuid, text, text, bigint, text, jsonb
 ) to service_role;
+
+alter function scale_os.prevent_direct_v2_task_mutation_v2()
+  owner to postgres;
+
+alter function scale_os.create_task_v2(
+  text, text, boolean, text, text, jsonb, text, text, bigint
+) owner to postgres;
 
 alter function scale_os.add_task_dependency_v2(
   uuid, uuid
