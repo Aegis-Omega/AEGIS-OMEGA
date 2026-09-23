@@ -1,0 +1,21 @@
+{
+  "schema": "AEGIS_NO_FREE_EPISTEMIC_GAIN_V1",
+  "name": "No-Free Epistemic Gain / Conservative Consensus V1",
+  "state": "(claim_set, authority, loss_uncertainty_bps)",
+  "order_definition": "x <=E y iff claims(x) subset claims(y), authority(x) <= authority(y), and uncertainty(x) >= uncertainty(y)",
+  "conservative_meet": "(claim_intersection, min_authority, max_uncertainty)",
+  "intended_property": "The conservative meet is the greatest lower bound. Any conservative common output cannot contain claims outside the intersection, authority above the minimum, or loss uncertainty below the maximum.",
+  "canonical_consensus_requires_exact_meet": true,
+  "promotion_boundary": "Any stronger output requires a separate verified derivation/evidence transition; it cannot be obtained for free by consensus.",
+  "prior_art_boundary": {
+    "product_lattice_mathematics": "STANDARD / NOT CLAIMED NOVEL",
+    "aegis_application_novelty": "NOT_ESTABLISHED"
+  },
+  "does_not_establish": [
+    "truth of retained claims",
+    "optimal probabilistic information fusion",
+    "independence of evidence sources",
+    "mathematical novelty"
+  ],
+  "authority_effect": "NONE"
+}
