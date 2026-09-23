@@ -3,7 +3,7 @@ import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const TARGET_BRANCH = 'feat/openai-sota-autonomous-company-v1'
-const EXPECTED_SUITE_COUNT = 22
+const EXPECTED_SUITE_COUNT = 23
 const OUT = resolve('worker-src/generated-enterprise-replay.ts')
 
 function receipt(value) {
@@ -138,6 +138,7 @@ try {
     'test/native-runtime/company-enterprise-production-readiness.test.mjs',
     'test/native-runtime/company-enterprise-prospect-admission.test.mjs',
     'test/native-runtime/company-hosted-replay-admission.test.mjs',
+    'test/native-runtime/supabase-advisor-performance-hardening-v1.test.mjs',
   ]
 
   if (tests.length !== EXPECTED_SUITE_COUNT) {
