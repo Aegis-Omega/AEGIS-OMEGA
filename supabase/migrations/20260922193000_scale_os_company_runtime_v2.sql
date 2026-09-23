@@ -39,6 +39,52 @@ alter table scale_os.approvals
     )
   ) not valid;
 
+create or replace function scale_os.prevent_direct_v2_approval_mutation_v2()
+returns trigger
+language plpgsql
+security invoker
+set search_path = scale_os, pg_temp
+as $$
+declare
+  v_old_v2 boolean := false;
+  v_new_v2 boolean := false;
+begin
+  if tg_op <> 'INSERT' then
+    v_old_v2 :=
+      old.action_digest_v2 is not null
+      or old.approval_packet_v2 is not null
+      or old.grant_id_v2 is not null
+      or old.grant_expires_at_v2 is not null;
+  end if;
+
+  if tg_op <> 'DELETE' then
+    v_new_v2 :=
+      new.action_digest_v2 is not null
+      or new.approval_packet_v2 is not null
+      or new.grant_id_v2 is not null
+      or new.grant_expires_at_v2 is not null;
+  end if;
+
+  if current_user <> 'postgres' and (v_old_v2 or v_new_v2) then
+    raise exception 'AEGIS_V2_APPROVAL_DIRECT_MUTATION_DENIED:%:%', current_user, tg_op
+      using errcode = '42501';
+  end if;
+
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists scale_os_v2_approval_direct_mutation_guard
+  on scale_os.approvals;
+
+create trigger scale_os_v2_approval_direct_mutation_guard
+before insert or update or delete on scale_os.approvals
+for each row
+execute function scale_os.prevent_direct_v2_approval_mutation_v2();
+
 create table if not exists scale_os.task_dependencies_v2 (
   task_id uuid not null
     references scale_os.tasks(id) on delete cascade,
@@ -578,6 +624,9 @@ grant execute on function scale_os.claim_task_lease_v2(
 grant execute on function scale_os.complete_task_lease_v2(
   uuid, text, text, bigint, text, jsonb
 ) to service_role;
+
+alter function scale_os.prevent_direct_v2_approval_mutation_v2()
+  owner to postgres;
 
 alter function scale_os.prevent_direct_v2_task_mutation_v2()
   owner to postgres;
