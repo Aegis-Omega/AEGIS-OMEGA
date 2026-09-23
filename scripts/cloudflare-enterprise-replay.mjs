@@ -4,6 +4,14 @@ import { resolve } from 'node:path'
 
 const TARGET_BRANCH = 'feat/openai-sota-autonomous-company-v1'
 const EXPECTED_SUITE_COUNT = 23
+const SOURCE_BLOB_CONTRACT = Object.freeze({
+  'supabase/migrations/20260922193000_scale_os_company_runtime_v2.sql': 'c5c17875ccec050f058d634fd8267a380584e31f',
+  'supabase/migrations/20260922205500_scale_os_enterprise_opportunities_v1.sql': '7db3fcbff9b7c3c8538d524690c57b2a4763ab85',
+  'supabase/migrations/20260922211500_scale_os_enterprise_resources_v1.sql': '5dbab3f199362560b8cde97f656e1cd1106d5eab',
+  'supabase/migrations/20260922213000_scale_os_enterprise_event_immutability_v1.sql': '82da850049a7cdc0d9701fe9182da02600b8ebe6',
+  'supabase/migrations/20260922214000_scale_os_enterprise_event_insert_guard_v1.sql': '9b140d8afda32146bbd80d9d4803155cd388826e',
+  'supabase/migrations/20260922220500_supabase_advisor_performance_hardening_v1.sql': '90c4ee638a11b2cbcf858d6e6cdb4395d94cddbf',
+})
 const OUT = resolve('worker-src/generated-enterprise-replay.ts')
 
 function receipt(value) {
@@ -83,6 +91,25 @@ if (!/^[0-9a-f]{40}$/.test(injectedSha) || injectedSha !== gitSha) {
 }
 
 const cwd = resolve('sovereign-omega-v2')
+const sourceBlobs = {}
+for (const [path, expected] of Object.entries(SOURCE_BLOB_CONTRACT)) {
+  const actual = execFileSync('git', ['hash-object', path], { encoding: 'utf8' }).trim()
+  sourceBlobs[path] = actual
+  if (actual !== expected) {
+    receipt({
+      status: 'FAIL',
+      source_head: gitSha,
+      workers_ci_commit_sha: injectedSha,
+      branch,
+      build_uuid: buildUuid,
+      strict_typecheck: 'NOT_RUN',
+      falsifiers: 'NOT_RUN',
+      source_blobs: sourceBlobs,
+      failure: `SOURCE_BLOB_CONTRACT_DRIFT:${path}:${actual}!=${expected}`,
+    })
+    process.exit(1)
+  }
+}
 
 try {
   run('npm', ['ci', '--ignore-scripts', '--include=dev', '--no-audit', '--no-fund'], cwd, 'NPM_CI')
@@ -158,6 +185,7 @@ try {
     falsifiers: 'PASS',
     suite_count: tests.length,
     suite_contract_count: EXPECTED_SUITE_COUNT,
+    source_blobs: sourceBlobs,
     write_authority: 'NOT_GRANTED',
     merge_authority: 'NOT_GRANTED',
     deploy_authority: 'NOT_GRANTED',
@@ -177,6 +205,7 @@ try {
     failure_stage: error && typeof error === 'object' && 'stage' in error ? error.stage : null,
     failure_exit_status: error && typeof error === 'object' && 'exitStatus' in error ? error.exitStatus : null,
     failure_output_tail: error && typeof error === 'object' && 'outputTail' in error ? error.outputTail : null,
+    source_blobs: sourceBlobs,
     diagnostic_mode: true,
     build_gate: 'RECEIPT_STATUS_ONLY',
   })
