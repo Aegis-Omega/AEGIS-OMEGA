@@ -62,6 +62,7 @@ theorem mellin_translatePacket_v11
     have hlog :
         Complex.log (((Real.exp (-d) : ℝ) : ℂ)) = (-d : ℂ) := by
       rw [← Complex.ofReal_log (Real.exp_pos (-d)).le, Real.log_exp]
+      norm_cast
     rw [hlog]
     congr 1
     push_cast
@@ -87,7 +88,6 @@ theorem autocorrelation_zero_summand_factorization_v11
           conj (mellin g.1 (1 - conj rho.1))) := by
   unfold WeilZeroIndexSummandV1
   rw [weil_autocorrelation_mellin_factorization_v11]
-  ring
 
 /-- The centered translation factors cancel pointwise in the autocorrelation
 zero summand. -/
@@ -108,7 +108,7 @@ theorem translated_autocorrelation_zero_summand_invariant_v11
           (((1 - conj rho.1) - (1 / 2 : ℂ)) * (d : ℂ))) =
         Complex.exp
           (-((rho.1 - (1 / 2 : ℂ)) * (d : ℂ))) := by
-    rw [map_exp]
+    rw [← Complex.exp_conj]
     congr 1
     push_cast
     ring
@@ -118,9 +118,17 @@ theorem translated_autocorrelation_zero_summand_invariant_v11
         Complex.exp (-((rho.1 - (1 / 2 : ℂ)) * (d : ℂ))) = 1 := by
     rw [← Complex.exp_add]
     simp
-  ring_nf
-  rw [hcancel]
-  ring
+  calc
+    _ =
+        (analyticOrderNatAt riemannZeta rho.1 : ℂ) *
+          (Complex.exp ((rho.1 - (1 / 2 : ℂ)) * (d : ℂ)) *
+            Complex.exp (-((rho.1 - (1 / 2 : ℂ)) * (d : ℂ)))) *
+          (mellin g.1 rho.1 *
+            conj (mellin g.1 (1 - conj rho.1))) := by
+              ring
+    _ = _ := by
+      rw [hcancel]
+      ring
 
 /-- Canonical zero quadratic attached to an autocorrelation. -/
 def WeilAutocorrelationZeroQuadraticV11
