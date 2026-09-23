@@ -131,8 +131,48 @@ $$;
 
 alter function scale_os.canonical_jsonb_v2(jsonb) owner to postgres;
 alter function scale_os.consequential_action_packet_digest_v2(jsonb) owner to postgres;
+create or replace function scale_os.company_task_lease_digest_v2(
+  p_task_id uuid,
+  p_worker_id text,
+  p_task_digest text,
+  p_acquired_generation bigint,
+  p_expires_generation bigint
+)
+returns text
+language sql
+immutable
+strict
+set search_path = pg_catalog, extensions
+as $$
+  select encode(
+    extensions.digest(
+      convert_to(
+        'AEGIS_SCALE_OS_TASK_LEASE_V2' || E'\n' ||
+        scale_os.canonical_jsonb_v2(
+          jsonb_build_object(
+            'schema_version','2.0.0',
+            'task_id',p_task_id::text,
+            'worker_id',btrim(p_worker_id),
+            'task_digest',p_task_digest,
+            'acquired_generation',p_acquired_generation::text,
+            'expires_generation',p_expires_generation::text,
+            'external_authority','NOT_GRANTED',
+            'authority_effect','NONE'
+          )
+        ),
+        'UTF8'
+      ),
+      'sha256'
+    ),
+    'hex'
+  );
+$$;
+
 alter function scale_os.company_task_digest_v2(
   text, text, boolean, text, text, jsonb, text, bigint
+) owner to postgres;
+alter function scale_os.company_task_lease_digest_v2(
+  uuid, text, text, bigint, bigint
 ) owner to postgres;
 
 alter table scale_os.approvals
@@ -579,7 +619,6 @@ create or replace function scale_os.claim_task_lease_v2(
   p_task_id uuid,
   p_worker_id text,
   p_task_digest text,
-  p_lease_digest text,
   p_action_digest text,
   p_current_generation bigint,
   p_ttl_generations bigint
@@ -600,15 +639,13 @@ declare
   v_has_lease boolean := false;
   v_lease scale_os.task_leases_v2%rowtype;
   v_expires bigint;
+  v_candidate_lease_digest text;
 begin
   if p_worker_id is null or length(btrim(p_worker_id)) = 0 then
     raise exception 'worker_id required';
   end if;
   if p_task_digest is null or p_task_digest !~ '^[0-9a-f]{64}$' then
     raise exception 'invalid task_digest';
-  end if;
-  if p_lease_digest is null or p_lease_digest !~ '^[0-9a-f]{64}$' then
-    raise exception 'invalid lease_digest';
   end if;
   if p_current_generation is null or p_current_generation < 0 then
     raise exception 'invalid current_generation';
@@ -682,6 +719,15 @@ begin
     return;
   end if;
 
+  v_expires := p_current_generation + p_ttl_generations;
+  v_candidate_lease_digest := scale_os.company_task_lease_digest_v2(
+    p_task_id,
+    p_worker_id,
+    p_task_digest,
+    p_current_generation,
+    v_expires
+  );
+
   select l.*
     into v_lease
     from scale_os.task_leases_v2 as l
@@ -695,7 +741,7 @@ begin
      and p_current_generation <= v_lease.expires_generation then
     if v_lease.worker_id = p_worker_id
        and v_lease.task_digest = p_task_digest
-       and v_lease.lease_digest = p_lease_digest then
+       and v_lease.lease_digest = v_candidate_lease_digest then
       return query
         select 'REPLAYED'::text, v_lease.lease_digest, v_lease.expires_generation;
     else
@@ -722,14 +768,12 @@ begin
     return;
   end if;
 
-  v_expires := p_current_generation + p_ttl_generations;
-
   insert into scale_os.task_leases_v2 (
     task_id, worker_id, task_digest, lease_digest,
     acquired_generation, expires_generation, released_generation,
     lease_state, external_authority, authority_effect, updated_at
   ) values (
-    p_task_id, p_worker_id, p_task_digest, p_lease_digest,
+    p_task_id, p_worker_id, p_task_digest, v_candidate_lease_digest,
     p_current_generation, v_expires, null,
     'active', 'NOT_GRANTED', 'NONE', now()
   )
@@ -751,7 +795,7 @@ begin
          updated_at = now()
    where id = p_task_id;
 
-  return query select 'CLAIMED'::text, p_lease_digest, v_expires;
+  return query select 'CLAIMED'::text, v_candidate_lease_digest, v_expires;
 end;
 $$;
 
@@ -848,7 +892,7 @@ revoke all on function scale_os.add_task_dependency_v2(
 ) from public, anon, authenticated;
 
 revoke all on function scale_os.claim_task_lease_v2(
-  uuid, text, text, text, text, bigint, bigint
+  uuid, text, text, text, bigint, bigint
 ) from public, anon, authenticated;
 
 revoke all on function scale_os.complete_task_lease_v2(
@@ -864,7 +908,7 @@ grant execute on function scale_os.add_task_dependency_v2(
 ) to service_role;
 
 grant execute on function scale_os.claim_task_lease_v2(
-  uuid, text, text, text, text, bigint, bigint
+  uuid, text, text, text, bigint, bigint
 ) to service_role;
 
 grant execute on function scale_os.complete_task_lease_v2(
@@ -890,7 +934,7 @@ alter function scale_os.add_task_dependency_v2(
 ) owner to postgres;
 
 alter function scale_os.claim_task_lease_v2(
-  uuid, text, text, text, text, bigint, bigint
+  uuid, text, text, text, bigint, bigint
 ) owner to postgres;
 
 alter function scale_os.complete_task_lease_v2(
