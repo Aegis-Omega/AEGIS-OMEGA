@@ -13,7 +13,6 @@ let package = Package(
     ],
     dependencies: [
         .package(
-            name: "purchases-ios-spm",
             url: "https://github.com/RevenueCat/purchases-ios-spm.git",
             from: "5.16.0"
         ),
@@ -28,7 +27,11 @@ let package = Package(
             name: "PocketAuditorRevenueCat",
             dependencies: [
                 "PocketAuditorCore",
-                .product(name: "RevenueCat", package: "purchases-ios-spm"),
+                .product(
+                    name: "RevenueCat",
+                    package: "purchases-ios-spm",
+                    condition: .when(platforms: [.iOS, .macOS])
+                ),
             ]
         ),
         .testTarget(name: "GemmaEdgeTests", dependencies: ["GemmaEdge"]),
