@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { parsePlatformEnvelope } from '../lib/platformEnvelope.js'
 
 const BRIDGE = (import.meta.env.VITE_BRIDGE_URL as string | undefined) ?? 'http://localhost:7890'
 
@@ -20,8 +21,6 @@ interface ArcProbePayload {
   output: number[][]
   authority_effect: string
 }
-
-interface Envelope<T> { data: T }
 
 export interface ArchiveRuntimeView {
   state: RuntimeState
@@ -56,9 +55,10 @@ export function useArchiveRuntime(apiKey: string): ArchiveRuntimeView {
           signal: AbortSignal.timeout(3000),
         })
         if (!res.ok) throw new Error(`status ${res.status}`)
-        const envelope = await res.json() as Envelope<RuntimeStatusPayload>
+        const body = await res.json()
+        const envelope = parsePlatformEnvelope<RuntimeStatusPayload>(body)
         const data = envelope.data
-        if (!data || data.authority_effect !== 'NONE') {
+        if (data.authority_effect !== 'NONE') {
           throw new Error('authority boundary mismatch')
         }
         if (cancelled) return
@@ -103,10 +103,10 @@ export function useArchiveRuntime(apiKey: string): ArchiveRuntimeView {
         const detail = await res.json().catch(() => ({ error: res.statusText })) as { error?: string }
         throw new Error(`${res.status}: ${detail.error ?? res.statusText}`)
       }
-      const envelope = await res.json() as Envelope<ArcProbePayload>
+      const body = await res.json()
+      const envelope = parsePlatformEnvelope<ArcProbePayload>(body)
       const data = envelope.data
       if (
-        !data ||
         data.authority_effect !== 'NONE' ||
         data.operation !== 'ROT90' ||
         JSON.stringify(data.output) !== JSON.stringify([[2, 4], [1, 3]])

@@ -13,14 +13,23 @@ required_hook=[
     "JSON.stringify([[1, 2], [3, 4]])",
     "JSON.stringify([[2, 4], [1, 3]])",
     "authority_effect !== 'NONE'",
+    "parsePlatformEnvelope<RuntimeStatusPayload>(body)",
+    "parsePlatformEnvelope<ArcProbePayload>(body)",
 ]
 missing=[item for item in required_hook if item not in hook]
 if missing:
     raise SystemExit("missing archive runtime consumer contract: "+", ".join(missing))
 
-for forbidden in ("method: 'POST'", "method: 'PUT'", "method: 'DELETE'"):
+for forbidden in (
+    "method: 'POST'",
+    "method: 'PUT'",
+    "method: 'DELETE'",
+    "interface Envelope<T>",
+    "as Envelope<RuntimeStatusPayload>",
+    "as Envelope<ArcProbePayload>",
+):
     if forbidden in hook:
-        raise SystemExit("mutation method present in archive runtime hook: "+forbidden)
+        raise SystemExit("unsafe archive runtime consumer surface present: "+forbidden)
 
 if "ArchiveRuntimePanel" not in app or "useArchiveRuntime(apiKey)" not in app:
     raise SystemExit("ArchiveRuntimePanel not wired into Tactical App")
