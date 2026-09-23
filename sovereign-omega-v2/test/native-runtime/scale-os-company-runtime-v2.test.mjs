@@ -40,6 +40,19 @@ test('claim locks task and lease and requires completed dependencies', () => {
   assert.ok(sql.includes("'DENIED_DEPENDENCY_NOT_COMPLETED'"))
 })
 
+test('approval-required task claim is exact-action bound and expiry checked', () => {
+  assert.ok(sql.includes('t.requires_approval'))
+  assert.ok(sql.includes("'DENIED_APPROVAL_DIGEST_REQUIRED'"))
+  assert.ok(sql.includes("a.decision = 'approved'"))
+  assert.ok(sql.includes('a.action_digest_v2 = p_action_digest'))
+  assert.ok(sql.includes("a.approval_packet_v2 ->> 'task_id' = p_task_id::text"))
+  assert.ok(sql.includes('a.grant_id_v2 is not null'))
+  assert.ok(sql.includes('now() >= a.decision_at'))
+  assert.ok(sql.includes('now() <= a.grant_expires_at_v2'))
+  assert.ok(sql.includes("'DENIED_APPROVAL_NOT_ADMITTED'"))
+  assert.ok(sql.includes("'DENIED_UNEXPECTED_APPROVAL_DIGEST'"))
+})
+
 test('claim is digest-bound idempotent and cross-worker fail-closed', () => {
   assert.ok(sql.includes('v_canonical_digest <> p_task_digest'))
   assert.ok(sql.includes("'DENIED_TASK_DIGEST_MISMATCH'"))
