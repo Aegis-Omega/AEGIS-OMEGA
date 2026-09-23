@@ -110,7 +110,7 @@ theorem translated_autocorrelation_zero_summand_invariant_v11
           (-((rho.1 - (1 / 2 : ℂ)) * (d : ℂ))) := by
     rw [← Complex.exp_conj]
     congr 1
-    simp [map_neg, map_add, map_mul, Complex.conj_ofReal]
+    simp [map_neg, map_add, map_mul, map_ofNat, Complex.conj_ofReal]
     ring
   rw [map_mul, hexp_conj, ← mul_assoc]
   have hcancel :
