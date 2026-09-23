@@ -8,7 +8,25 @@ alter table scale_os.tasks
     check (task_digest_v2 is null or task_digest_v2 ~ '^[0-9a-f]{64}$'),
   add column if not exists idempotency_key_v2 text,
   add column if not exists generation_v2 bigint
-    check (generation_v2 is null or generation_v2 >= 0);
+    check (generation_v2 is null or generation_v2 >= 0),
+  add column if not exists action_class_v2 text
+    check (
+      action_class_v2 is null
+      or action_class_v2 in ('RESEARCH_READ','ANALYZE','DRAFT','LOCAL_SANDBOX_WRITE','TEST','EVAL','PROPOSE','EXTERNAL_MESSAGE','REPOSITORY_MUTATION','MERGE','DEPLOY','PRODUCTION_CONFIG','FINANCIAL','LEGAL_COMMITMENT','DELETE_DATA','IDENTITY_OR_CREDENTIAL')
+    );
+
+alter table scale_os.tasks
+  drop constraint if exists scale_os_tasks_v2_authority_class;
+
+alter table scale_os.tasks
+  add constraint scale_os_tasks_v2_authority_class
+  check (
+    task_digest_v2 is null
+    or (
+      action_class_v2 is not null
+      and requires_approval = (action_class_v2 not in ('RESEARCH_READ','ANALYZE','DRAFT','LOCAL_SANDBOX_WRITE','TEST','EVAL','PROPOSE'))
+    )
+  ) not valid;
 
 create unique index if not exists scale_os_tasks_idempotency_key_v2_uidx
   on scale_os.tasks(idempotency_key_v2)
@@ -91,7 +109,7 @@ $$;
 create or replace function scale_os.company_task_digest_v2(
   p_task_type text,
   p_risk_level text,
-  p_requires_approval boolean,
+  p_action_class text,
   p_source_system text,
   p_source_object_id text,
   p_payload jsonb,
@@ -113,7 +131,8 @@ as $$
             'schema_version','2.0.0',
             'task_type',btrim(p_task_type),
             'risk_level',p_risk_level,
-            'requires_approval',p_requires_approval,
+            'action_class',p_action_class,
+            'requires_approval',(p_action_class not in ('RESEARCH_READ','ANALYZE','DRAFT','LOCAL_SANDBOX_WRITE','TEST','EVAL','PROPOSE')),
             'source_system',nullif(btrim(coalesce(p_source_system,'')),''),
             'source_object_id',nullif(btrim(coalesce(p_source_object_id,'')),''),
             'payload',p_payload,
@@ -169,7 +188,7 @@ as $$
 $$;
 
 alter function scale_os.company_task_digest_v2(
-  text, text, boolean, text, text, jsonb, text, bigint
+  text, text, text, text, text, jsonb, text, bigint
 ) owner to postgres;
 alter function scale_os.company_task_lease_digest_v2(
   uuid, text, text, bigint, bigint
@@ -274,6 +293,8 @@ declare
   v_digest text;
   v_created_generation bigint;
   v_expires_generation bigint;
+  v_task_action_class text;
+  v_task_risk_level text;
 begin
   if p_task_id is null then
     raise exception 'task_id required';
@@ -318,13 +339,24 @@ begin
   if p_decision_by is null or length(btrim(p_decision_by)) = 0 then
     raise exception 'decision_by required';
   end if;
-  if not exists (
-    select 1 from scale_os.tasks
-     where id = p_task_id
-       and requires_approval = true
-       and status in ('queued','awaiting_approval','approved')
-  ) then
+  select action_class_v2,risk_level
+    into v_task_action_class,v_task_risk_level
+    from scale_os.tasks
+   where id = p_task_id
+     and requires_approval = true
+     and status in ('queued','awaiting_approval','approved')
+   for update;
+
+  if not found then
     return query select 'DENIED_TASK_NOT_APPROVAL_ELIGIBLE'::text, null::uuid, null::text;
+    return;
+  end if;
+  if p_packet ->> 'action_class' <> v_task_action_class then
+    return query select 'DENIED_PACKET_ACTION_CLASS_MISMATCH'::text, null::uuid, null::text;
+    return;
+  end if;
+  if lower(coalesce(p_packet ->> 'risk_class','')) <> v_task_risk_level then
+    return query select 'DENIED_PACKET_RISK_MISMATCH'::text, null::uuid, null::text;
     return;
   end if;
 
@@ -404,14 +436,31 @@ set search_path = scale_os, pg_temp
 as $$
 begin
   if current_user <> 'postgres' then
-    if tg_op = 'INSERT' and new.task_digest_v2 is not null then
+    if tg_op = 'INSERT'
+       and (
+         new.task_digest_v2 is not null
+         or new.idempotency_key_v2 is not null
+         or new.generation_v2 is not null
+         or new.action_class_v2 is not null
+       ) then
       raise exception 'AEGIS_V2_TASK_DIRECT_INSERT_DENIED:%', current_user
         using errcode = '42501';
     elsif tg_op = 'UPDATE'
-       and (old.task_digest_v2 is not null or new.task_digest_v2 is not null) then
+       and (
+         old.task_digest_v2 is not null or new.task_digest_v2 is not null
+         or old.idempotency_key_v2 is not null or new.idempotency_key_v2 is not null
+         or old.generation_v2 is not null or new.generation_v2 is not null
+         or old.action_class_v2 is not null or new.action_class_v2 is not null
+       ) then
       raise exception 'AEGIS_V2_TASK_DIRECT_UPDATE_DENIED:%', current_user
         using errcode = '42501';
-    elsif tg_op = 'DELETE' and old.task_digest_v2 is not null then
+    elsif tg_op = 'DELETE'
+       and (
+         old.task_digest_v2 is not null
+         or old.idempotency_key_v2 is not null
+         or old.generation_v2 is not null
+         or old.action_class_v2 is not null
+       ) then
       raise exception 'AEGIS_V2_TASK_DIRECT_DELETE_DENIED:%', current_user
         using errcode = '42501';
     end if;
@@ -435,7 +484,7 @@ execute function scale_os.prevent_direct_v2_task_mutation_v2();
 create or replace function scale_os.create_task_v2(
   p_task_type text,
   p_risk_level text,
-  p_requires_approval boolean,
+  p_action_class text,
   p_source_system text,
   p_source_object_id text,
   p_payload jsonb,
@@ -454,6 +503,7 @@ as $$
 declare
   v_task_id uuid;
   v_task_digest text;
+  v_requires_approval boolean;
   v_existing scale_os.tasks%rowtype;
 begin
   if p_task_type is null or length(btrim(p_task_type)) = 0 then
@@ -462,15 +512,12 @@ begin
   if p_risk_level not in ('low','medium','high','critical') then
     raise exception 'invalid risk_level';
   end if;
-  if p_requires_approval is null then
-    raise exception 'requires_approval required';
+  if p_action_class not in ('RESEARCH_READ','ANALYZE','DRAFT','LOCAL_SANDBOX_WRITE','TEST','EVAL','PROPOSE','EXTERNAL_MESSAGE','REPOSITORY_MUTATION','MERGE','DEPLOY','PRODUCTION_CONFIG','FINANCIAL','LEGAL_COMMITMENT','DELETE_DATA','IDENTITY_OR_CREDENTIAL') then
+    raise exception 'invalid action_class';
   end if;
+  v_requires_approval := p_action_class not in ('RESEARCH_READ','ANALYZE','DRAFT','LOCAL_SANDBOX_WRITE','TEST','EVAL','PROPOSE');
   if p_payload is null then
     raise exception 'payload required';
-  end if;
-  if p_risk_level in ('high','critical') and not p_requires_approval then
-    return query select 'DENIED_APPROVAL_REQUIRED_FOR_RISK'::text, null::uuid, null::text;
-    return;
   end if;
   if p_idempotency_key is null or length(btrim(p_idempotency_key)) = 0 then
     raise exception 'idempotency_key required';
@@ -482,7 +529,7 @@ begin
   v_task_digest := scale_os.company_task_digest_v2(
     p_task_type,
     p_risk_level,
-    p_requires_approval,
+    p_action_class,
     p_source_system,
     p_source_object_id,
     p_payload,
@@ -493,13 +540,13 @@ begin
   insert into scale_os.tasks(
     task_type,status,risk_level,requires_approval,
     source_system,source_object_id,payload,result,
-    task_digest_v2,idempotency_key_v2,generation_v2
+    task_digest_v2,idempotency_key_v2,generation_v2,action_class_v2
   ) values (
-    btrim(p_task_type),'queued',p_risk_level,p_requires_approval,
+    btrim(p_task_type),'queued',p_risk_level,v_requires_approval,
     nullif(btrim(coalesce(p_source_system,'')),''),
     nullif(btrim(coalesce(p_source_object_id,'')),''),
     p_payload,'{}'::jsonb,
-    v_task_digest,btrim(p_idempotency_key),p_generation
+    v_task_digest,btrim(p_idempotency_key),p_generation,p_action_class
   )
   on conflict (idempotency_key_v2)
     where idempotency_key_v2 is not null
@@ -524,7 +571,8 @@ begin
 
   if v_existing.task_type <> btrim(p_task_type)
      or v_existing.risk_level <> p_risk_level
-     or v_existing.requires_approval <> p_requires_approval
+     or v_existing.action_class_v2 <> p_action_class
+     or v_existing.requires_approval <> v_requires_approval
      or v_existing.source_system is distinct from nullif(btrim(coalesce(p_source_system,'')),'')
      or v_existing.source_object_id is distinct from nullif(btrim(coalesce(p_source_object_id,'')),'')
      or v_existing.payload <> p_payload
@@ -636,6 +684,8 @@ declare
   v_status text;
   v_canonical_digest text;
   v_requires_approval boolean;
+  v_action_class text;
+  v_risk_level text;
   v_has_lease boolean := false;
   v_lease scale_os.task_leases_v2%rowtype;
   v_expires bigint;
@@ -654,8 +704,8 @@ begin
     raise exception 'invalid ttl_generations';
   end if;
 
-  select t.status, t.task_digest_v2, t.requires_approval
-    into v_status, v_canonical_digest, v_requires_approval
+  select t.status, t.task_digest_v2, t.requires_approval, t.action_class_v2, t.risk_level
+    into v_status, v_canonical_digest, v_requires_approval, v_action_class, v_risk_level
     from scale_os.tasks as t
    where t.id = p_task_id
    for update;
@@ -667,6 +717,14 @@ begin
 
   if v_canonical_digest is null or v_canonical_digest <> p_task_digest then
     return query select 'DENIED_TASK_DIGEST_MISMATCH'::text, null::text, null::bigint;
+    return;
+  end if;
+  if v_action_class is null then
+    return query select 'DENIED_ACTION_CLASS_MISSING'::text, null::text, null::bigint;
+    return;
+  end if;
+  if v_requires_approval <> (v_action_class not in ('RESEARCH_READ','ANALYZE','DRAFT','LOCAL_SANDBOX_WRITE','TEST','EVAL','PROPOSE')) then
+    return query select 'DENIED_APPROVAL_CLASS_INVARIANT'::text, null::text, null::bigint;
     return;
   end if;
 
@@ -685,6 +743,8 @@ begin
          and a.approval_packet_v2 is not null
          and scale_os.consequential_action_packet_digest_v2(a.approval_packet_v2) = a.action_digest_v2
          and a.approval_packet_v2 ->> 'task_id' = p_task_id::text
+         and a.approval_packet_v2 ->> 'action_class' = v_action_class
+         and lower(coalesce(a.approval_packet_v2 ->> 'risk_class','')) = v_risk_level
          and a.approval_packet_v2 ->> 'authority_effect' = 'NONE'
          and a.approval_packet_v2 ->> 'created_generation' ~ '^[0-9]+$'
          and a.approval_packet_v2 ->> 'expires_generation' ~ '^[0-9]+$'
@@ -884,7 +944,7 @@ revoke all on function scale_os.record_approval_v2(
 ) from public, anon, authenticated, service_role;
 
 revoke all on function scale_os.create_task_v2(
-  text, text, boolean, text, text, jsonb, text, bigint
+  text, text, text, text, text, jsonb, text, bigint
 ) from public, anon, authenticated;
 
 revoke all on function scale_os.add_task_dependency_v2(
@@ -900,7 +960,7 @@ revoke all on function scale_os.complete_task_lease_v2(
 ) from public, anon, authenticated;
 
 grant execute on function scale_os.create_task_v2(
-  text, text, boolean, text, text, jsonb, text, bigint
+  text, text, text, text, text, jsonb, text, bigint
 ) to service_role;
 
 grant execute on function scale_os.add_task_dependency_v2(
@@ -926,7 +986,7 @@ alter function scale_os.prevent_direct_v2_task_mutation_v2()
   owner to postgres;
 
 alter function scale_os.create_task_v2(
-  text, text, boolean, text, text, jsonb, text, bigint
+  text, text, text, text, text, jsonb, text, bigint
 ) owner to postgres;
 
 alter function scale_os.add_task_dependency_v2(
