@@ -1,0 +1,81 @@
+{
+  "schema": "AEGIS_NFEG_EXACT_SOURCE_REPLAY_RECEIPT_V1",
+  "scientific_head": "acdff800a64f1322221447c62d5b711e6299d5a5",
+  "replay_head": "c63d608bf1ce6ae870b698d5e46ce6d86ec34376",
+  "replay_pr": 643,
+  "scientific_pr": 634,
+  "transport_delta_only": true,
+  "transport_files": [
+    "aegisomega-webgpu/no-free-epistemic-gain-v3-trigger.txt",
+    "scripts/cloudflare-no-free-epistemic-gain-replay-v3.sh",
+    "wrangler.jsonc"
+  ],
+  "source": {
+    "path": "sovereign-omega-v2/formal/bridges/lean/NoFreeEpistemicGainV1.lean",
+    "sha256": "c46bf6cf66fa8bc1890faec4c25a5e3b744a0ee2f75bafe61ee0e89ab7f4f280"
+  },
+  "execution": {
+    "commit_preview": "https://aa68b400-aegisomega.crimson-fire-3523.workers.dev",
+    "receipt_kind": "AEGIS_NO_FREE_EPISTEMIC_GAIN_REPLAY_V3",
+    "stage": "VERIFIED_EXACT_SOURCE",
+    "verified": true,
+    "python_regressions": "PASS",
+    "python_tests": {
+      "passed": 10,
+      "failed": 0
+    },
+    "lean_target": "4.33.1",
+    "mathlib_sha": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "sorryAx_present": false
+  },
+  "formal_results": {
+    "AEGIS.NoFreeEpistemicGainV1.le_meet_iff": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    "AEGIS.NoFreeEpistemicGainV1.no_free_epistemic_gain": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    "AEGIS.NoFreeEpistemicGainV1.meet_assoc": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    "AEGIS.NoFreeEpistemicGainV1.meet_comm": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    "AEGIS.NoFreeEpistemicGainV1.meet_idem": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    }
+  },
+  "bounded_disposition": {
+    "no_free_epistemic_gain": "KERNEL_VERIFIED_EXACT_SOURCE",
+    "conservative_meet_glb": "KERNEL_VERIFIED_EXACT_SOURCE",
+    "exact_claim_identity_only": true,
+    "semantic_equivalence_requires_separate_mhp_receipt": true,
+    "mathematical_novelty": "NOT_CLAIMED",
+    "authority_effect": "NONE"
+  }
+}
