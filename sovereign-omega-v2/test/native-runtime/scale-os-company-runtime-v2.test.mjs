@@ -29,6 +29,17 @@ test('migration function structure is singular and approval regex is intact', ()
   assert.equal(claimSection.includes('p_lease_digest'),false)
   assert.ok(sql.includes("p_action_digest !~ '^[0-9a-f]{64}
 
+test('V2 approval packet schema is validated before digest admission', () => {
+  assert.ok(sql.includes('create or replace function scale_os.validate_consequential_action_packet_v2'))
+  assert.ok(sql.includes('v_evidence_count < 1'))
+  assert.ok(sql.includes('v_evidence_distinct <> v_evidence_count'))
+  assert.ok(sql.includes("p_packet ->> 'cost_class' = 'NONE'"))
+  assert.ok(sql.includes('9007199254740991'))
+  assert.ok(sql.includes("'DENIED_PACKET_SCHEMA'"))
+  assert.ok(sql.includes('scale_os.validate_consequential_action_packet_v2(approval_packet_v2)'))
+  assert.ok(sql.includes('scale_os.validate_consequential_action_packet_v2(a.approval_packet_v2)'))
+})
+
 test('V2 approval digest is content-bound and grant generation is packet-bounded', () => {
   assert.ok(sql.includes('create or replace function scale_os.canonical_jsonb_v2'))
   assert.ok(sql.includes('create or replace function scale_os.consequential_action_packet_digest_v2'))
