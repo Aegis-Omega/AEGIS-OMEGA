@@ -1,0 +1,76 @@
+{
+  "schema": "AEGIS_PCEP_EXACT_SOURCE_REPLAY_RECEIPT_V1",
+  "scientific_head": "31b9d6ea43ad84173653d54ad9387be8bfa469bd",
+  "replay_head": "c51f605eb19f20d73c90735e6ef2e4df3ca7f703",
+  "scientific_pr": 636,
+  "replay_pr": 644,
+  "transport_delta_only": true,
+  "source_sha256": {
+    "parent_nfeg": "c46bf6cf66fa8bc1890faec4c25a5e3b744a0ee2f75bafe61ee0e89ab7f4f280",
+    "child_pcep": "78626e14eaf6baff6fc680b9d6babad572c33166422e96cc516497a39e3ad0fb"
+  },
+  "execution": {
+    "commit_preview": "https://aa5165c4-aegisomega.crimson-fire-3523.workers.dev",
+    "receipt_kind": "AEGIS_PROOF_CARRYING_EPISTEMIC_PROMOTION_REPLAY_V3",
+    "stage": "VERIFIED_EXACT_SOURCE",
+    "verified": true,
+    "python_regressions": "PASS",
+    "python_tests": {
+      "passed": 11,
+      "failed": 0
+    },
+    "lean_target": "4.33.1",
+    "mathlib_sha": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "sorryAx_present": false
+  },
+  "formal_results": {
+    "AEGIS.ProofCarryingEpistemicPromotionV1.claim_gain_not_common_lower_bound": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    "AEGIS.ProofCarryingEpistemicPromotionV1.authority_gain_not_common_lower_bound": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    "AEGIS.ProofCarryingEpistemicPromotionV1.uncertainty_reduction_not_common_lower_bound": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    "AEGIS.ProofCarryingEpistemicPromotionV1.gain_not_common_lower_bound": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    }
+  },
+  "python_gate_results": {
+    "exact_meet_without_receipt": "PASS",
+    "missing_obligation_denied": "PASS",
+    "full_three_dimension_coverage": "PASS",
+    "untrusted_receipt_denied": "PASS",
+    "duplicate_obligation_denied": "PASS",
+    "state_splicing_denied": "PASS",
+    "extra_receipt_denied": "PASS"
+  },
+  "bounded_disposition": {
+    "proof_carrying_gain_theorems": "KERNEL_VERIFIED_EXACT_SOURCE",
+    "promotion_receipt_mechanics": "HOSTED_EXECUTION_PASS",
+    "automatic_promotion": false,
+    "application_novelty": "NOT_ESTABLISHED",
+    "authority_effect": "NONE"
+  }
+}
