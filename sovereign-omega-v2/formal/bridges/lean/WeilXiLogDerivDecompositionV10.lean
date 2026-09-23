@@ -52,12 +52,13 @@ theorem logDeriv_GammaR_v10 (s : ℂ) (hs : 0 < s.re) :
           Complex.log (Real.pi : ℂ) * (-1 / 2)) s := by
     have hlin :
         HasDerivAt (fun z : ℂ => -z / 2) (-1 / 2) s := by
-      convert (hasDerivAt_id s).neg.div_const 2 using 1 <;> ring
+      simpa using (hasDerivAt_id s).neg.div_const 2
     simpa [p] using hlin.const_cpow (Or.inl hpi)
 
   have hpne : p s ≠ 0 := by
     dsimp [p]
-    exact Complex.cpow_ne_zero_iff.mpr (Or.inl hpi)
+    rw [Complex.cpow_def_of_ne_zero hpi]
+    exact Complex.exp_ne_zero _
 
   have hs2 : 0 < (s / 2).re := by
     simpa using (div_pos hs (by norm_num : (0 : ℝ) < 2))
@@ -94,7 +95,6 @@ theorem logDeriv_GammaR_v10 (s : ℂ) (hs : 0 < s.re) :
     rw [hlog]
     dsimp [p] at hpne ⊢
     field_simp [hpne]
-    ring
 
   have hgLog :
       _root_.logDeriv g s =
@@ -178,11 +178,14 @@ theorem xi_logDeriv_decomposition_v10
     riemannZeta_ne_zero_of_one_lt_re hs
 
   have hGammaDiff : DifferentiableAt ℂ Complex.Gammaℝ s := by
-    rw [Complex.Gammaℝ_def]
+    have hGdef : Complex.Gammaℝ =
+        fun z : ℂ => (Real.pi : ℂ) ^ (-z / 2) * Complex.Gamma (z / 2) := by
+      funext z
+      exact Complex.Gammaℝ_def z
+    rw [hGdef]
     apply DifferentiableAt.mul
-    · exact (by fun_prop :
-        DifferentiableAt ℂ
-          (fun z : ℂ => (Real.pi : ℂ) ^ (-z / 2)) s)
+    · have hpi0 : (Real.pi : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr Real.pi_ne_zero
+      exact ((differentiableAt_id.neg).div_const 2).const_cpow (Or.inl hpi0)
     · have hs2 : 0 < (s / 2).re := by
         simpa using (div_pos (lt_trans zero_lt_one hs)
           (by norm_num : (0 : ℝ) < 2))
@@ -283,7 +286,6 @@ theorem xi_logDeriv_decomposition_v10
           rw [hABCD, hABC, hAB]
     _ = _ := by
       rw [hAlog, hBlog, hClog, hDlog]
-      ring
 
 /-- Fixed-line form consumed by the whole explicit-formula assembly. -/
 theorem xi_logDeriv_fixed_line_decomposition_v10
