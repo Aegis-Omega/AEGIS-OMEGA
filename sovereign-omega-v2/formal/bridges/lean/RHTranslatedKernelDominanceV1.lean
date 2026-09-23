@@ -31,6 +31,7 @@ must bind.  Generic supplied-matrix dominance by itself is not promoted.
 open Set MeasureTheory Complex
 
 set_option autoImplicit false
+open scoped ComplexConjugate
 noncomputable section
 
 namespace AEGIS.RHTranslatedKernelDominanceV1
@@ -79,15 +80,19 @@ theorem neg_actual_two_point_eq_weil_two_point_v1
         (ArithmeticDiagonalV1 g)
         (ArithmeticCrossV1 g h)
         c := by
+  unfold TwoPointPacketV1
   rw [AEGIS.WeilMixedAlgebraV2.actual_expansion]
-  unfold TwoPointPacketV1 ArithmeticDiagonalV1 ArithmeticCrossV1
+  unfold ArithmeticDiagonalV1 ArithmeticCrossV1
   unfold AEGIS.WeilThreeBlockComplexV2.diagonal
     AEGIS.WeilThreeBlockComplexV2.cross
     WeilTwoPointValueV1
-  simp only [norm_one, one_pow, norm_zero, zero_pow, mul_one, mul_zero,
-    zero_mul, add_zero, Complex.star_def, Complex.one_mul, Complex.zero_mul,
+  rw [AEGIS.WeilMixedAlgebraV2.B_hermitian g h]
+  simp only [norm_one, one_pow, norm_zero, mul_one, mul_zero,
+    zero_mul, add_zero, Complex.star_def, one_mul,
     Complex.add_re, Complex.mul_re, Complex.conj_re, Complex.conj_im,
-    Complex.neg_re, Complex.neg_im, Complex.normSq_apply]
+    Complex.neg_re, Complex.neg_im, Complex.one_re, Complex.one_im,
+    Complex.zero_re, Complex.zero_im, Complex.sq_norm, Complex.normSq_apply,
+    map_zero]
   rw [hdiag]
   ring
 
