@@ -1,0 +1,130 @@
+name: AEGIS Verified Semantic Quotient Consensus V1
+
+on:
+  pull_request:
+    paths:
+      - "governance/verified-semantic-quotient-consensus-v1.json"
+      - "sovereign-omega-v2/python/verified_semantic_quotient_consensus.py"
+      - "sovereign-omega-v2/python/tests/test_verified_semantic_quotient_consensus.py"
+      - "sovereign-omega-v2/formal/bridges/lean/VerifiedSemanticQuotientConsensusV1.lean"
+      - "harness/sdk/meaning_heritage.py"
+      - "docs/research/verified-semantic-quotient-consensus-v1.md"
+      - ".github/workflows/verified-semantic-quotient-consensus-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  semantic-quotient-python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Bind exact head and MHP dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$EXPECTED"
+          test "$(git rev-parse HEAD:harness/sdk/meaning_heritage.py)" = "2cbd3293c1264cc976009fc85e03333f1790043f"
+          printf 'EXACT_HEAD=%s\n' "$EXPECTED"
+          printf 'MHP_BLOB=%s\n' "$(git rev-parse HEAD:harness/sdk/meaning_heritage.py)"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile semantic quotient sources
+        env:
+          PYTHONPATH: .:sovereign-omega-v2/python
+        run: |
+          python -m py_compile \
+            harness/sdk/meaning_heritage.py \
+            sovereign-omega-v2/python/verified_semantic_quotient_consensus.py \
+            sovereign-omega-v2/python/tests/test_verified_semantic_quotient_consensus.py
+
+      - name: Run semantic quotient anti-forgery tests
+        env:
+          PYTHONPATH: .:sovereign-omega-v2/python
+        run: python sovereign-omega-v2/python/tests/test_verified_semantic_quotient_consensus.py -v
+
+  semantic-quotient-lean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Bind exact head and source
+        id: bind
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED="${{ github.event.pull_request.head.sha || github.sha }}"
+          test "$(git rev-parse HEAD)" = "$EXPECTED"
+          SRC="$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/VerifiedSemanticQuotientConsensusV1.lean"
+          SOURCE_SHA="$(sha256sum "$SRC" | awk '{print $1}')"
+          printf 'EXACT_HEAD=%s\n' "$EXPECTED"
+          printf 'SOURCE_SHA256=%s\n' "$SOURCE_SHA"
+          echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Install exact Lean 4.33.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 2 \
+            https://github.com/leanprover/lean4/releases/download/v4.33.1/lean-4.33.1-linux.tar.zst \
+            -o /tmp/lean.tar.zst
+          echo "890afd185370f85666025b883914ab4f4b339136f8c96167b69cfb62aecaf235  /tmp/lean.tar.zst" | sha256sum -c -
+          mkdir -p /tmp/lean
+          tar --zstd -xf /tmp/lean.tar.zst -C /tmp/lean
+          echo "/tmp/lean/lean-4.33.1-linux/bin" >> "$GITHUB_PATH"
+
+      - name: Pin Mathlib
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/leanprover-community/mathlib4.git /tmp/mathlib
+          cd /tmp/mathlib
+          git fetch --depth 1 origin 0df444a360eaa60ab8c11dca51a86af692955474
+          git checkout --detach 0df444a360eaa60ab8c11dca51a86af692955474
+          test "$(git rev-parse HEAD)" = "0df444a360eaa60ab8c11dca51a86af692955474"
+          lake exe cache get
+
+      - name: Copy exact theorem bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$GITHUB_WORKSPACE/sovereign-omega-v2/formal/bridges/lean/VerifiedSemanticQuotientConsensusV1.lean"
+          cp "$SRC" /tmp/mathlib/VerifiedSemanticQuotientConsensusV1.lean
+          test "$(sha256sum /tmp/mathlib/VerifiedSemanticQuotientConsensusV1.lean | awk '{print $1}')" = "${{ steps.bind.outputs.source_sha }}"
+
+      - name: Kernel replay and axiom audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/mathlib
+          BASE_LEAN_PATH="$(lake env printenv LEAN_PATH)"
+          mkdir -p /tmp/vsqc-olean
+          export LEAN_PATH="/tmp/vsqc-olean:$BASE_LEAN_PATH"
+
+          lean -o /tmp/vsqc-olean/VerifiedSemanticQuotientConsensusV1.olean \
+            /tmp/mathlib/VerifiedSemanticQuotientConsensusV1.lean \
+            2>&1 | tee /tmp/vsqc.log
+
+          cat > /tmp/mathlib/VSQCAudit.lean <<'LEAN'
+          import VerifiedSemanticQuotientConsensusV1
+          #print axioms AEGIS.VerifiedSemanticQuotientConsensusV1.retained_class_has_sound_pair
+          #print axioms AEGIS.VerifiedSemanticQuotientConsensusV1.no_retained_class_without_left_witness
+          #print axioms AEGIS.VerifiedSemanticQuotientConsensusV1.no_retained_class_without_right_witness
+          LEAN
+
+          lean /tmp/mathlib/VSQCAudit.lean 2>&1 | tee /tmp/vsqc-axioms.log
+          ! grep -q "sorryAx" /tmp/vsqc.log
+          ! grep -q "sorryAx" /tmp/vsqc-axioms.log
+          printf 'VERIFIED_SEMANTIC_QUOTIENT_CONSENSUS_LEAN=PASS\n'
