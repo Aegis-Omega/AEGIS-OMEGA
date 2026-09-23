@@ -1,0 +1,218 @@
+name: RH Millennium Moment Trace V1
+
+on:
+  push:
+    branches:
+      - 'evidence/rh-millennium-moment-589adf-v1'
+    paths:
+      - 'research/rh/RH_MILLENNIUM_MOMENT_TRACE_V1.json'
+      - '.github/workflows/rh-millennium-moment-trace-v1.yml'
+  pull_request:
+    paths:
+      - 'research/rh/RH_MILLENNIUM_MOMENT_TRACE_V1.json'
+      - '.github/workflows/rh-millennium-moment-trace-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PROOF_SOURCE_SHA: 589adf0480bd4d7c12c9828027ea6228398377f4
+  PROOF_BASE_SHA: cfe368ce2ffa0d196a4319c02b956997edf9f3fa
+  MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
+  LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
+  LEAN_TREE_SHA: a1fe450fc98f633fbef4c92364f970b17cdfa6fa
+  MILLENNIUM_GATE_BLOB_SHA: 9d562ffd211c6dae8df802c9aec23f065115def6
+  SOURCE_BINDING_DIGEST: 0a29ebeacee03df3637479b0107c23b6368debda2c3a497c2d555a51a6178f75
+
+jobs:
+  trace:
+    name: bind Millennium-moment candidate trace
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout evidence branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact source ancestry and immutable Lean tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "$PROOF_SOURCE_SHA^{commit}"
+          git merge-base --is-ancestor "$PROOF_SOURCE_SHA" HEAD
+          test "$(git rev-parse "$PROOF_SOURCE_SHA:sovereign-omega-v2/formal/bridges/lean")" = "$LEAN_TREE_SHA"
+          test "$(git rev-parse "HEAD:sovereign-omega-v2/formal/bridges/lean")" = "$LEAN_TREE_SHA"
+          test "$(git rev-parse "$PROOF_SOURCE_SHA:sovereign-omega-v2/formal/bridges/lean/RHMillenniumGateV10.lean")" = "$MILLENNIUM_GATE_BLOB_SHA"
+
+      - name: Validate machine-readable trace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+
+          path = Path("research/rh/RH_MILLENNIUM_MOMENT_TRACE_V1.json")
+          doc = json.loads(path.read_text(encoding="utf-8"))
+
+          assert doc["schema_version"] == "AEGIS_RH_MILLENNIUM_MOMENT_TRACE_V1"
+          assert doc["trace_kind"] == "EXACT_HEAD_MILLENNIUM_MOMENT_CANDIDATE_TRACE"
+          assert doc["source"]["repository"] == "Aegis-Omega/AEGIS-OMEGA"
+          assert doc["source"]["pull_request"] == 606
+          assert doc["source"]["proof_source_sha"] == "589adf0480bd4d7c12c9828027ea6228398377f4"
+          assert doc["source"]["base_sha"] == "cfe368ce2ffa0d196a4319c02b956997edf9f3fa"
+          assert doc["formal_environment"]["lean_toolchain"] == "leanprover/lean4:v4.33.1"
+          assert doc["formal_environment"]["mathlib_sha"] == "0df444a360eaa60ab8c11dca51a86af692955474"
+          assert doc["repository_binding"]["lean_bridge_tree_sha"] == "a1fe450fc98f633fbef4c92364f970b17cdfa6fa"
+          assert doc["repository_binding"]["lean_bridge_module_inventory_count"] == 131
+          assert doc["repository_binding"]["millennium_gate_blob_sha"] == "9d562ffd211c6dae8df802c9aec23f065115def6"
+
+          binding = {
+              "proof_source_sha": doc["source"]["proof_source_sha"],
+              "lean_tree_sha": doc["repository_binding"]["lean_bridge_tree_sha"],
+              "millennium_gate_blob_sha": doc["repository_binding"]["millennium_gate_blob_sha"],
+              "lean_toolchain": doc["formal_environment"]["lean_toolchain"],
+              "mathlib_sha": doc["formal_environment"]["mathlib_sha"],
+          }
+          digest = hashlib.sha256(
+              json.dumps(binding, sort_keys=True, separators=(",", ":")).encode("utf-8")
+          ).hexdigest()
+          assert digest == doc["repository_binding"]["source_binding_digest_sha256"]
+          assert digest == "0a29ebeacee03df3637479b0107c23b6368debda2c3a497c2d555a51a6178f75"
+
+          disposition = doc["disposition"]
+          assert disposition["trace_recorded"] is True
+          assert disposition["millennium_moment_reached"] is False
+          assert disposition["millennium_certificate_constructed"] is False
+          assert disposition["rh_proved_at_this_evidence_boundary"] is False
+          assert disposition["claim_promotion"] == "NOT_PERFORMED"
+          assert disposition["authority_effect"] == "NONE"
+
+          Path("evidence/source-binding-sha256.txt").write_text(digest + "\n")
+          PY
+
+      - name: Compute full terminal local Lean dependency closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re
+
+          root = Path("sovereign-omega-v2/formal/bridges/lean")
+          files = {p.stem: p for p in root.glob("*.lean")}
+          assert len(files) == 131, len(files)
+
+          targets = [
+              "RHMillenniumGateV10",
+              "RHZeroKernelLaplaceAnalyticV12",
+              "RestrictedWeilCriterionResidueCoefficientV11",
+              "RestrictedWeilCriterionPoleIsolationV10",
+              "RestrictedWeilCriterionResidueWitnessV11",
+              "RestrictedWeilCriterionTargetWitnessV11",
+              "MeromorphicIdentityPreconnectedV11",
+              "WeilRHImpliesFinalSignV11",
+          ]
+          for target in targets:
+              assert target in files, target
+
+          pat = re.compile(r"^\s*import\s+(.+?)\s*$")
+          deps = {}
+          for name, path in files.items():
+              local = []
+              for line in path.read_text(encoding="utf-8").splitlines():
+                  m = pat.match(line)
+                  if not m:
+                      continue
+                  for token in m.group(1).split():
+                      leaf = token.split(".")[-1]
+                      if leaf in files:
+                          local.append(leaf)
+              deps[name] = sorted(set(local))
+
+          temp, done, order = set(), set(), []
+          def visit(name):
+              if name in done:
+                  return
+              if name in temp:
+                  raise RuntimeError(f"local import cycle at {name}")
+              temp.add(name)
+              for dep in deps[name]:
+                  visit(dep)
+              temp.remove(name)
+              done.add(name)
+              order.append(name)
+
+          for target in targets:
+              visit(target)
+
+          out = Path("evidence")
+          (out / "modules.txt").write_text("\n".join(order) + "\n", encoding="utf-8")
+          (out / "targets.txt").write_text("\n".join(targets) + "\n", encoding="utf-8")
+          (out / "closure-count.txt").write_text(str(len(order)) + "\n", encoding="utf-8")
+          (out / "inventory-count.txt").write_text(str(len(files)) + "\n", encoding="utf-8")
+
+          receipt = {
+              "receipt_kind": "AEGIS_RH_MILLENNIUM_MOMENT_TRACE_RECEIPT_V1",
+              "proof_source_sha": "589adf0480bd4d7c12c9828027ea6228398377f4",
+              "lean_tree_sha": "a1fe450fc98f633fbef4c92364f970b17cdfa6fa",
+              "lean_inventory_count": len(files),
+              "terminal_dependency_closure_count": len(order),
+              "targets": targets,
+              "millennium_moment_reached": False,
+              "rh_proved": False,
+              "authority_effect": "NONE",
+          }
+          (out / "MILLENNIUM_MOMENT_TRACE.json").write_text(
+              json.dumps(receipt, sort_keys=True, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print("LEAN_INVENTORY_COUNT", len(files))
+          print("TERMINAL_DEPENDENCY_CLOSURE_COUNT", len(order))
+          PY
+
+      - name: Verify typed Millennium gate remains fail-closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          GATE=sovereign-omega-v2/formal/bridges/lean/RHMillenniumGateV10.lean
+          grep -F 'structure RHMillenniumCertificateV10 : Prop where' "$GATE"
+          grep -F 'def MillenniumMomentReachedV10 : Prop :=' "$GATE"
+          grep -F 'Nonempty RHMillenniumCertificateV10' "$GATE"
+          grep -F 'theorem millennium_certificate_proves_mathlib_rh_v10' "$GATE"
+          grep -F 'theorem millennium_moment_reached_implies_rh_v10' "$GATE"
+
+      - name: Emit bounded historical disposition
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p evidence
+          CLOSURE_COUNT="$(cat evidence/closure-count.txt 2>/dev/null || printf UNKNOWN)"
+          cat > evidence/DISPOSITION.txt <<EOF
+          TRACE_KIND=EXACT_HEAD_MILLENNIUM_MOMENT_CANDIDATE_TRACE
+          PROOF_SOURCE_SHA=$PROOF_SOURCE_SHA
+          PROOF_BASE_SHA=$PROOF_BASE_SHA
+          LEAN_TREE_SHA=$LEAN_TREE_SHA
+          LEAN_MODULE_INVENTORY=131
+          TERMINAL_DEPENDENCY_CLOSURE_COUNT=$CLOSURE_COUNT
+          MILLENNIUM_GATE=RHMillenniumGateV10.MillenniumMomentReachedV10
+          MILLENNIUM_MOMENT_TRACE=RECORDED
+          MILLENNIUM_MOMENT_REACHED=NOT_ESTABLISHED_AT_TRACE_BOUNDARY
+          RH_PROMOTION=NOT_PERFORMED
+          HOSTED_SOURCE_RUNS=RUNNERLESS_ZERO_STEP_AT_SNAPSHOT
+          AUTHORITY_EFFECT=NONE
+          EOF
+
+      - name: Upload Millennium-moment trace artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rh-millennium-moment-trace-589adf-${{ github.sha }}
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 90
