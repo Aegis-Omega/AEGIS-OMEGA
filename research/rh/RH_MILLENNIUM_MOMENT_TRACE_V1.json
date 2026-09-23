@@ -1,0 +1,57 @@
+{
+  "schema_version": "AEGIS_RH_MILLENNIUM_MOMENT_TRACE_V1",
+  "trace_kind": "EXACT_HEAD_MILLENNIUM_MOMENT_CANDIDATE_TRACE",
+  "recorded_date": "2026-09-23",
+  "source": {
+    "repository": "Aegis-Omega/AEGIS-OMEGA",
+    "pull_request": 606,
+    "branch": "proof/rh-digamma-series-completion-v1",
+    "proof_source_sha": "589adf0480bd4d7c12c9828027ea6228398377f4",
+    "base_sha": "cfe368ce2ffa0d196a4319c02b956997edf9f3fa"
+  },
+  "formal_environment": {
+    "lean_toolchain": "leanprover/lean4:v4.33.1",
+    "mathlib_sha": "0df444a360eaa60ab8c11dca51a86af692955474"
+  },
+  "repository_binding": {
+    "lean_bridge_tree_path": "sovereign-omega-v2/formal/bridges/lean",
+    "lean_bridge_tree_sha": "a1fe450fc98f633fbef4c92364f970b17cdfa6fa",
+    "lean_bridge_module_inventory_count": 131,
+    "millennium_gate_path": "sovereign-omega-v2/formal/bridges/lean/RHMillenniumGateV10.lean",
+    "millennium_gate_blob_sha": "9d562ffd211c6dae8df802c9aec23f065115def6",
+    "source_binding_digest_sha256": "0a29ebeacee03df3637479b0107c23b6368debda2c3a497c2d555a51a6178f75"
+  },
+  "millennium_gate": {
+    "certificate_type": "AEGIS.RHMillenniumGateV10.RHMillenniumCertificateV10",
+    "reached_proposition": "AEGIS.RHMillenniumGateV10.MillenniumMomentReachedV10",
+    "terminal_theorems": [
+      "AEGIS.RHMillenniumGateV10.millennium_certificate_proves_mathlib_rh_v10",
+      "AEGIS.RHMillenniumGateV10.millennium_moment_reached_implies_rh_v10"
+    ],
+    "gate_semantics": "MILLENNIUM_MOMENT_REQUIRES_NONEMPTY_FORMAL_CERTIFICATE"
+  },
+  "workflow_snapshot": {
+    "hosted_exact_head_execution": "RUNNERLESS_ZERO_STEP",
+    "observed_zero_step_runs": [
+      35800678184,
+      35800678135,
+      35800678212,
+      35800678118,
+      35800674442,
+      35800678102
+    ],
+    "external_exact_head_replay_observed": true,
+    "external_replay_authority": "EVIDENCE_ONLY"
+  },
+  "disposition": {
+    "trace_recorded": true,
+    "millennium_moment_reached": false,
+    "millennium_certificate_constructed": false,
+    "full_terminal_dependency_closure_replay": "PENDING",
+    "rh_proved_at_this_evidence_boundary": false,
+    "claim_promotion": "NOT_PERFORMED",
+    "merge": "NOT_PERFORMED",
+    "authority_effect": "NONE"
+  },
+  "historical_note": "This artifact records the exact-head Millennium-moment candidate state of PR #606 without converting metadata, workflow status, or partial replay into theorem authority. The accompanying workflow computes the terminal local Lean dependency closure from source imports and emits a bounded disposition."
+}
