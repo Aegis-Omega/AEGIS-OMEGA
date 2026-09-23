@@ -1,0 +1,11 @@
+AEGIS Multi-Agent Conservative Consensus provider-neutral replay v2
+source_base=b5d4d91e863f0f28bc4ac06a599842cf88fa20a0
+parent_blob=97c9180d3216571382d86afc4184a5ce6cd49337
+python_glb_suite=required
+parent_theorem=NoFreeEpistemicGainV1
+child_theorem=MultiAgentConservativeConsensusV1
+lean=4.33.1
+lean_tarball_sha256=890afd185370f85666025b883914ab4f4b339136f8c96167b69cfb62aecaf235
+mathlib=0df444a360eaa60ab8c11dca51a86af692955474
+novelty_status=NOT_ESTABLISHED
+authority_effect=NONE
