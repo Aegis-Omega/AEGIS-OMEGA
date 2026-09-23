@@ -1,0 +1,12 @@
+AEGIS Proof-Carrying Epistemic Promotion provider-neutral replay v2
+source_base=b725d1595cbe69ff5affcd15e2bd3982e4c5ea35
+parent_import_fix=Mathlib.Data.Finset.Lattice.Basic
+python_receipt_regressions=required
+parent_theorem=NoFreeEpistemicGainV1
+child_theorem=ProofCarryingEpistemicPromotionV1
+lean=4.33.1
+lean_tarball_sha256=890afd185370f85666025b883914ab4f4b339136f8c96167b69cfb62aecaf235
+mathlib=0df444a360eaa60ab8c11dca51a86af692955474
+automatic_promotion=false
+application_novelty=NOT_ESTABLISHED
+authority_effect=NONE
