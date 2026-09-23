@@ -1,0 +1,85 @@
+{
+  "schema": "AEGIS_CCRDT_EXACT_SOURCE_REPLAY_RECEIPT_V1",
+  "scientific_head": "4c25c8d7ebe4d55b2a1dc5c93196ee6498ba0210",
+  "replay_head": "cb16c42a7ec39a96544736daa17cb2f9ac0607b0",
+  "scientific_pr": 646,
+  "replay_pr": 651,
+  "transport_delta_only": true,
+  "source_sha256": {
+    "nfeg": "c46bf6cf66fa8bc1890faec4c25a5e3b744a0ee2f75bafe61ee0e89ab7f4f280",
+    "macc": "64d026d81063ca7deb3be3b01f320ebe2ba967ebca6d3579f7ad7c2bbbd8ba1a",
+    "crdt": "7e18097e36a1a525c8afbae63f8f9236ad8dbea3890b9e1ccf03893fe61e896c"
+  },
+  "execution": {
+    "commit_preview": "https://d31bfd28-aegisomega.crimson-fire-3523.workers.dev",
+    "receipt_kind": "AEGIS_CONSERVATIVE_CONSENSUS_CRDT_REPLAY_V2",
+    "stage": "VERIFIED_EXACT_SOURCE",
+    "verified": true,
+    "python_regressions": "PASS",
+    "python_tests": {
+      "passed": 9,
+      "failed": 0
+    },
+    "lean_target": "4.33.1",
+    "mathlib_sha": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "sorryAx_present": false
+  },
+  "formal_results": {
+    "AEGIS.ConservativeConsensusCRDTV1.merge_least_upper_bound": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    "AEGIS.ConservativeConsensusCRDTV1.merge_comm": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    "AEGIS.ConservativeConsensusCRDTV1.merge_assoc": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    "AEGIS.ConservativeConsensusCRDTV1.merge_idem": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    "AEGIS.ConservativeConsensusCRDTV1.safe_update_components": {
+      "status": "KERNEL_VERIFIED",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    }
+  },
+  "python_results": {
+    "merge_algebra": "PASS",
+    "strengthening_rejected_as_native_update": "PASS",
+    "duplicate_and_order_independence": "PASS",
+    "partition_heal_same_state": "PASS"
+  },
+  "bounded_disposition": {
+    "safety_order_join": "KERNEL_VERIFIED_EXACT_SOURCE",
+    "crdt_algebra_mechanics": "HOSTED_EXECUTION_PASS",
+    "network_eventual_delivery": "ASSUMED_NOT_VERIFIED",
+    "fairness": "NOT_VERIFIED",
+    "byzantine_tolerance": "NOT_ESTABLISHED",
+    "production_deployment": "NOT_ESTABLISHED",
+    "application_novelty": "NOT_ESTABLISHED",
+    "authority_effect": "NONE"
+  }
+}
