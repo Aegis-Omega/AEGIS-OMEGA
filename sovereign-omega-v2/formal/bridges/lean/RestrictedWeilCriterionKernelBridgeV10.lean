@@ -180,23 +180,16 @@ theorem translate_autocorrelation_eq_v10
             rw [← integral_const_mul]
             apply setIntegral_congr_fun measurableSet_Ioi
             intro y hy
-            simp only [translatePacket_apply, star_mul,
-              Complex.star_def, Complex.conj_ofReal]
-            calc
-              ((Real.exp (-d / 2) : ℂ) *
-                  g.1 (Real.exp (-d) * (x * y))) *
-                    ((Real.exp (-d / 2) : ℂ) *
-                      star (g.1 (Real.exp (-d) * y)))
-                  =
-                ((Real.exp (-d / 2) : ℂ) *
-                  star (Real.exp (-d / 2) : ℂ)) *
-                  (g.1 (x * (b * y)) * star (g.1 (b * y))) := by
-                    dsimp [b]
-                    ring
-              _ =
-                (b : ℂ) *
-                  (g.1 (x * (b * y)) * star (g.1 (b * y))) := by
-                    rw [hscalar]
+            simp only [translatePacket_apply]
+            have hb' : (b : ℂ) = (Real.exp (-d / 2) : ℂ) * (Real.exp (-d / 2) : ℂ) := by
+              rw [← hscalar, Complex.star_def, Complex.conj_ofReal]
+            have hxy : x * (b * y) = Real.exp (-d) * (x * y) := by
+              dsimp [b]
+              ring
+            have hy' : b * y = Real.exp (-d) * y := rfl
+            rw [hb', hxy, hy']
+            simp only [star_mul, Complex.star_def, Complex.conj_ofReal]
+            ring
     _ =
       ∫ u in Ioi (0 : ℝ), g.1 (x * u) * star (g.1 u) := by
         simpa [Complex.real_smul, b, mul_assoc] using hsubst
