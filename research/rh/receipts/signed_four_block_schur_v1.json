@@ -1,0 +1,51 @@
+{
+  "schema": "AEGIS_RH_SIGNED_FOUR_BLOCK_SCHUR_V1",
+  "authority_effect": "NONE",
+  "base_sha": "e61933f4a4eec0f01b41b09d7bf6c0c3f5aed598",
+  "matrix": {
+    "definition": "M_ij = B(translatePacket gFine (i*log 2), translatePacket gFine (j*log 2))",
+    "shape": "real-symmetric Toeplitz",
+    "normalized_negative_matrix": "A = -M / energy(gFine)",
+    "entries": [
+      ["d", "-r1", "-r2", "-r3"],
+      ["-r1", "d", "-r1", "-r2"],
+      ["-r2", "-r1", "d", "-r1"],
+      ["-r3", "-r2", "-r1", "d"]
+    ]
+  },
+  "source_bounds": {
+    "d_lower": "32/25",
+    "abs_r1_upper": "51/100",
+    "abs_r2_upper": "9/25",
+    "abs_r3_upper": "13/50",
+    "r1_lower": "4751/10000",
+    "r2_lower": "673/2000",
+    "r3_lower": "4651/20000"
+  },
+  "reversal_blocks": {
+    "even": [["d-r3", "-(r1+r2)"], ["-(r1+r2)", "d-r1"]],
+    "odd": [["d+r3", "-(r1-r2)"], ["-(r1-r2)", "d+r1"]]
+  },
+  "schur_certificate": {
+    "lambda": "2/125",
+    "shifted_d": "158/125",
+    "diag_far_lower": "251/250",
+    "diag_adj_lower": "377/500",
+    "offdiag_abs_upper": "87/100",
+    "unshifted_det_lower": "57/2000",
+    "shifted_det_lower": "29/250000",
+    "arithmetic_gate": "PASS"
+  },
+  "inertia": {
+    "A_if_energy_positive": [4, 0, 0],
+    "M_if_energy_positive": [0, 4, 0],
+    "convention": "[positive, negative, zero]"
+  },
+  "evidence_boundary": {
+    "exact_rational_arithmetic": "VERIFIED_BY_SCRIPT_AND_TEST",
+    "signed_reality_lean_kernel": "PENDING_HOSTED_REPLAY",
+    "source_bound_lean_kernel": "PENDING_HOSTED_REPLAY_ON_THIS_EXACT_COMPOSITE",
+    "energy_positive_kernel_binding": "PENDING_EXPLICIT_THEOREM_OR_REPLAY",
+    "rh_claim": "NONE"
+  }
+}
