@@ -106,6 +106,111 @@ as $$
   );
 $$;
 
+create or replace function scale_os.validate_consequential_action_packet_v2(
+  p_packet jsonb
+)
+returns boolean
+language plpgsql
+immutable
+strict
+set search_path = pg_catalog
+as $$
+declare
+  v_created bigint;
+  v_expires bigint;
+  v_evidence_count integer;
+  v_evidence_distinct integer;
+  v_max_cost numeric;
+begin
+  if jsonb_typeof(p_packet) <> 'object' then
+    return false;
+  end if;
+
+  if coalesce(btrim(p_packet ->> 'packet_id'),'') = ''
+     or coalesce(btrim(p_packet ->> 'task_id'),'') = ''
+     or coalesce(btrim(p_packet ->> 'target'),'') = ''
+     or coalesce(btrim(p_packet ->> 'action'),'') = ''
+     or coalesce(btrim(p_packet ->> 'reason'),'') = ''
+     or coalesce(btrim(p_packet ->> 'rollback'),'') = '' then
+    return false;
+  end if;
+
+  if p_packet ->> 'action_class' not in (
+    'EXTERNAL_MESSAGE','REPOSITORY_MUTATION','MERGE','DEPLOY','PRODUCTION_CONFIG',
+    'FINANCIAL','LEGAL_COMMITMENT','DELETE_DATA','IDENTITY_OR_CREDENTIAL'
+  ) then
+    return false;
+  end if;
+
+  if p_packet ->> 'risk_class' not in ('LOW','MEDIUM','HIGH','CRITICAL') then
+    return false;
+  end if;
+
+  if p_packet ->> 'cost_class' not in ('NONE','BOUNDED','VARIABLE') then
+    return false;
+  end if;
+
+  if p_packet ->> 'authority_effect' <> 'NONE' then
+    return false;
+  end if;
+
+  if jsonb_typeof(p_packet -> 'evidence_refs') <> 'array' then
+    return false;
+  end if;
+
+  select count(*),count(distinct value)
+    into v_evidence_count,v_evidence_distinct
+    from jsonb_array_elements_text(p_packet -> 'evidence_refs');
+
+  if v_evidence_count < 1 or v_evidence_distinct <> v_evidence_count then
+    return false;
+  end if;
+
+  if exists (
+    select 1 from jsonb_array_elements_text(p_packet -> 'evidence_refs') as e(value)
+     where length(btrim(e.value)) = 0
+  ) then
+    return false;
+  end if;
+
+  if coalesce(p_packet ->> 'created_generation','') !~ '^[0-9]+$'
+     or coalesce(p_packet ->> 'expires_generation','') !~ '^[0-9]+$' then
+    return false;
+  end if;
+
+  v_created := (p_packet ->> 'created_generation')::bigint;
+  v_expires := (p_packet ->> 'expires_generation')::bigint;
+  if v_expires < v_created then
+    return false;
+  end if;
+
+  if p_packet ->> 'cost_class' = 'NONE' then
+    if p_packet ->> 'max_cost_minor_units' is not null
+       or p_packet ->> 'currency' is not null then
+      return false;
+    end if;
+  else
+    if jsonb_typeof(p_packet -> 'max_cost_minor_units') <> 'number'
+       or coalesce(p_packet ->> 'max_cost_minor_units','') !~ '^[0-9]+$'
+       or coalesce(btrim(p_packet ->> 'currency'),'') = '' then
+      return false;
+    end if;
+    v_max_cost := (p_packet ->> 'max_cost_minor_units')::numeric;
+    if v_max_cost < 0 or v_max_cost > 9007199254740991 then
+      return false;
+    end if;
+  end if;
+
+  return true;
+exception
+  when others then
+    return false;
+end;
+$$;
+
+alter function scale_os.validate_consequential_action_packet_v2(jsonb)
+  owner to postgres;
+
 create or replace function scale_os.company_task_digest_v2(
   p_task_type text,
   p_risk_level text,
@@ -204,6 +309,7 @@ alter table scale_os.approvals
     or (
       action_digest_v2 is not null
       and approval_packet_v2 is not null
+      and scale_os.validate_consequential_action_packet_v2(approval_packet_v2)
       and action_digest_v2 = scale_os.consequential_action_packet_digest_v2(approval_packet_v2)
       and approval_packet_v2 ->> 'task_id' = task_id::text
       and approval_packet_v2 ->> 'authority_effect' = 'NONE'
@@ -301,6 +407,10 @@ begin
   end if;
   if p_packet is null or jsonb_typeof(p_packet) <> 'object' then
     raise exception 'packet object required';
+  end if;
+  if not scale_os.validate_consequential_action_packet_v2(p_packet) then
+    return query select 'DENIED_PACKET_SCHEMA'::text, null::uuid, null::text;
+    return;
   end if;
   if p_packet ->> 'task_id' <> p_task_id::text then
     return query select 'DENIED_PACKET_TASK_MISMATCH'::text, null::uuid, null::text;
@@ -741,6 +851,7 @@ begin
          and a.decision = 'approved'
          and a.action_digest_v2 = p_action_digest
          and a.approval_packet_v2 is not null
+         and scale_os.validate_consequential_action_packet_v2(a.approval_packet_v2)
          and scale_os.consequential_action_packet_digest_v2(a.approval_packet_v2) = a.action_digest_v2
          and a.approval_packet_v2 ->> 'task_id' = p_task_id::text
          and a.approval_packet_v2 ->> 'action_class' = v_action_class
