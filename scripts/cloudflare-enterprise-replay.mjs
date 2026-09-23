@@ -11,6 +11,7 @@ const SOURCE_BLOB_CONTRACT = Object.freeze({
   'supabase/migrations/20260922213000_scale_os_enterprise_event_immutability_v1.sql': '82da850049a7cdc0d9701fe9182da02600b8ebe6',
   'supabase/migrations/20260922214000_scale_os_enterprise_event_insert_guard_v1.sql': '9b140d8afda32146bbd80d9d4803155cd388826e',
   'supabase/migrations/20260922220500_supabase_advisor_performance_hardening_v1.sql': '90c4ee638a11b2cbcf858d6e6cdb4395d94cddbf',
+  'sovereign-omega-v2/test/native-runtime/scale-os-company-runtime-v2.test.mjs': 'a2e11c9d8113ca9ca0252a770fceb9fb7d88517c',
 })
 const OUT = resolve('worker-src/generated-enterprise-replay.ts')
 
