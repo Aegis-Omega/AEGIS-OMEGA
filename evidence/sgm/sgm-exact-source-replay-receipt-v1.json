@@ -1,0 +1,125 @@
+{
+  "schema": "AEGIS_SGM_EXACT_SOURCE_REPLAY_RECEIPT_V1",
+  "scientific_head": "aca2ee7dbf063de30d3ceb6b366f2dde37abf21f",
+  "replay_head": "5c736a30b51c941147de46ea3ce3df6105c67f41",
+  "merge_base": "2407099500aea8877fdf3d5e87bb81dc7e5995cf",
+  "replay_transport_pr": 617,
+  "scientific_pr": 613,
+  "source_equivalence": {
+    "authority_file": "sovereign-omega-v2/formal/bridges/lean/EpistemicAuthorityConservationV1.lean",
+    "authority_git_blob": "f281ed559e35075a609a1231218902f0e292fa62",
+    "exact_content_equal": true,
+    "science_delta_from_merge_base": [
+      "sovereign-omega-v2/formal/bridges/lean/EpistemicAuthorityConservationV1.lean"
+    ],
+    "replay_delta_from_merge_base": [
+      "aegisomega-webgpu/sgm-proof-runner-v3-trigger.txt",
+      "scripts/cloudflare-sgm-replay-v3.sh",
+      "sovereign-omega-v2/formal/bridges/lean/EpistemicAuthorityConservationV1.lean",
+      "wrangler.jsonc"
+    ],
+    "scientific_surface_equivalent": true,
+    "note": "The replay and current scientific heads have diverged commit history, but the only scientific file modified after their merge base is byte-identical on both heads. Other verified scientific sources are inherited unchanged from the same merge base."
+  },
+  "provider_neutral_execution": {
+    "commit_preview": "https://98fc75fe-aegisomega.crimson-fire-3523.workers.dev",
+    "receipt_head_sha": "5c736a30b51c941147de46ea3ce3df6105c67f41",
+    "receipt_kind": "AEGIS_SGM_CLOUDFLARE_REPLAY_V3",
+    "stage": "VERIFIED_EXACT_SOURCE",
+    "verified": true,
+    "python_regressions": "PASS",
+    "lean_target": "4.33.1",
+    "lean_version_observed": "Lean 4.33.1 x86_64-unknown-linux-gnu commit 819816b2e0a3bf405af45ae5c7af2491d8f5bee6",
+    "mathlib_sha": "0df444a360eaa60ab8c11dca51a86af692955474",
+    "source_sha256": {
+      "authority": "4ce836fb52a313813a7ed1600058e46ac251ee79cde903c98c922c1bf77d64a1",
+      "accounting": "3ab28b5f27d65f9c10b8d4137d136207739b1b842de35436f16cfeee6825f977",
+      "conservative_semilattice": "1da6551f0f2502c1c27e0e777e4a193f9607371b206206e229e656000bc6aa74"
+    }
+  },
+  "python_execution": {
+    "suites": [
+      {
+        "name": "epistemic_authority_conservation",
+        "tests": 5,
+        "status": "PASS"
+      },
+      {
+        "name": "epistemic_accounting",
+        "tests": 8,
+        "status": "PASS"
+      },
+      {
+        "name": "epistemic_conservation_kernel",
+        "tests": 6,
+        "status": "PASS"
+      },
+      {
+        "name": "statistical_godel_machine",
+        "tests": 9,
+        "status": "PASS"
+      },
+      {
+        "name": "statistical_godel_machine_spec",
+        "tests": 4,
+        "status": "PASS"
+      },
+      {
+        "name": "conservative_epistemic_semilattice",
+        "tests": 5,
+        "status": "PASS"
+      }
+    ],
+    "total_tests": 37,
+    "failures": 0,
+    "status": "PASS"
+  },
+  "lean_execution": {
+    "compiled_modules": [
+      "EpistemicAuthorityConservationV1",
+      "EpistemicAccountingV1",
+      "ConservativeEpistemicSemilatticeV1"
+    ],
+    "sorryAx_present": false,
+    "axioms": {
+      "AEGIS.EpistemicAuthorityConservationV1.chainAuthority_le_initial": [
+        "propext"
+      ],
+      "AEGIS.EpistemicAuthorityConservationV1.zero_is_absorbing": [
+        "propext"
+      ],
+      "AEGIS.EpistemicAccountingV1.left_uncertainty_le_of_loss": [
+        "propext"
+      ],
+      "AEGIS.EpistemicAccountingV1.right_uncertainty_le_of_loss": [
+        "propext"
+      ],
+      "AEGIS.EpistemicAccountingV1.card_disjoint_partition": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "AEGIS.ConservativeEpistemicSemilatticeV1.merge_assoc": [
+        "propext"
+      ],
+      "AEGIS.ConservativeEpistemicSemilatticeV1.merge_comm": [
+        "propext"
+      ],
+      "AEGIS.ConservativeEpistemicSemilatticeV1.merge_idem": [
+        "propext"
+      ]
+    },
+    "status": "KERNEL_COMPILED_AXIOM_AUDITED"
+  },
+  "dispositions": {
+    "epistemic_authority_conservation": "KERNEL_VERIFIED_SOURCE_EQUIVALENT_CURRENT_SCIENCE",
+    "epistemic_accounting": "KERNEL_VERIFIED_SOURCE_EQUIVALENT_CURRENT_SCIENCE",
+    "conservative_epistemic_semilattice": "KERNEL_VERIFIED_SOURCE_EQUIVALENT_CURRENT_SCIENCE",
+    "sgm_python_mechanics": "HOSTED_EXECUTION_PASS_SOURCE_EQUIVALENT_CURRENT_SCIENCE",
+    "statistical_godel_machine_novelty": "NOT_ESTABLISHED",
+    "conservative_semilattice_novelty": "NOT_ESTABLISHED",
+    "automatic_rewrite": false,
+    "global_optimality_claimed": false,
+    "authority_effect": "NONE"
+  }
+}
