@@ -107,7 +107,7 @@ theorem weil_fixed_line_completed_gamma_integrable_v10
           (1 / 2 : ℂ) *
             ((Complex.digamma
               ((((c : ℂ) + (t : ℂ) * I) / 2)) + (γ : ℂ)) *
-              WeilPairedMellinProfileV5 f c t) :=
+              WeilPairedMellinProfileV5 f c t)) :=
     hplus.const_mul (1 / 2 : ℂ)
   have hB :
       Integrable
@@ -141,7 +141,7 @@ theorem weil_fixed_line_completed_gamma_eq_archimedean_v10
           (1 / 2 : ℂ) *
             ((Complex.digamma
               ((((c : ℂ) + (t : ℂ) * I) / 2)) + (γ : ℂ)) *
-              WeilPairedMellinProfileV5 f c t) :=
+              WeilPairedMellinProfileV5 f c t)) :=
     hplus.const_mul (1 / 2 : ℂ)
   have hB :
       Integrable
@@ -160,7 +160,7 @@ theorem weil_fixed_line_completed_gamma_eq_archimedean_v10
         (1 / 2 : ℂ) *
           ((Complex.digamma
             ((((c : ℂ) + (t : ℂ) * I) / 2)) + (γ : ℂ)) *
-            WeilPairedMellinProfileV5 f c t) -
+            WeilPairedMellinProfileV5 f c t)) -
       (∫ t : ℝ,
         (1 / 2 : ℂ) *
           (((Real.log Real.pi + γ : ℝ) : ℂ) *
@@ -192,11 +192,11 @@ theorem weil_fixed_line_completed_gamma_eq_archimedean_v10
   unfold WeilArchimedeanConstantV1
   calc
     (1 / (2 * Real.pi) : ℂ) *
-      ((1 / 2 : ℂ) *
+      (((1 / 2 : ℂ) *
         ∫ t : ℝ,
           (Complex.digamma
             ((((c : ℂ) + (t : ℂ) * I) / 2)) + (γ : ℂ)) *
-            WeilPairedMellinProfileV5 f c t -
+            WeilPairedMellinProfileV5 f c t) -
         (1 / 2 : ℂ) *
           (((Real.log Real.pi + γ : ℝ) : ℂ) *
             ∫ t : ℝ, WeilPairedMellinProfileV5 f c t))
