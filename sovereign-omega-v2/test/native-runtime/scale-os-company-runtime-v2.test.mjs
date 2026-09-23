@@ -18,6 +18,15 @@ test('migration extends existing scale_os instead of creating parallel company s
   assert.equal(sql.includes('create schema'), false)
 })
 
+test('migration function structure is singular and approval regex is intact', () => {
+  assert.equal(count(/create or replace function scale_os\.claim_task_lease_v2/gi), 1)
+  assert.equal(count(/create or replace function scale_os\.complete_task_lease_v2/gi), 1)
+  assert.equal(count(/uuid, text, text, text, text, bigint, bigint/gi), 2)
+  assert.equal(count(/uuid, text, text, text, bigint, bigint/gi), 0)
+  assert.ok(sql.includes("p_action_digest !~ '^[0-9a-f]{64}$'"))
+  assert.equal(sql.includes("p_action_digest !~ '^[0-9a-f]{64}  if exists"), false)
+})
+
 test('new approvals require exact v2 digest packet grant and expiry without rewriting history', () => {
   assert.ok(sql.includes('action_digest_v2'))
   assert.ok(sql.includes('approval_packet_v2'))
