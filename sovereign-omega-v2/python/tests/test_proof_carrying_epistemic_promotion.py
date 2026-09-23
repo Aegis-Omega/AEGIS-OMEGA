@@ -6,7 +6,6 @@ from epistemic_authority_conservation import AuthorityLevel
 from no_free_epistemic_gain import (
     EpistemicStateV1,
     conservative_meet,
-    state_sha256 if False else conservative_meet,
 )
 from proof_carrying_epistemic_promotion import (
     PromotionReceiptV1,
@@ -244,6 +243,59 @@ class ProofCarryingEpistemicPromotionTests(unittest.TestCase):
             complete.decision,
             "ELIGIBLE_FOR_SEPARATE_PROMOTION_ONLY",
         )
+
+    def test_untrusted_receipt_denies(self):
+        candidate = state(
+            {"A", "B"},
+            AuthorityLevel.EPISTEMIC,
+            3000,
+        )
+        r = receipt(
+            "CLAIM_GAIN::B",
+            self.left,
+            self.right,
+            candidate,
+        )
+        result = evaluate_promotion(
+            self.left,
+            self.right,
+            candidate,
+            (r.receipt_sha256,),
+            store=Store(),
+        )
+        self.assertEqual(result.decision, "DENY")
+        self.assertIn("UNTRUSTED_RECEIPT", result.reason_codes)
+
+    def test_duplicate_obligation_with_distinct_roots_denies(self):
+        candidate = state(
+            {"A", "B"},
+            AuthorityLevel.EPISTEMIC,
+            3000,
+        )
+        r1 = receipt(
+            "CLAIM_GAIN::B",
+            self.left,
+            self.right,
+            candidate,
+        )
+        r2 = PromotionReceiptV1(
+            obligation_id="CLAIM_GAIN::B",
+            left_state_sha256=state_sha256(self.left),
+            right_state_sha256=state_sha256(self.right),
+            candidate_state_sha256=state_sha256(candidate),
+            evidence_sha256="4" * 64,
+            verifier_root=H2,
+            policy_root=H3,
+        )
+        result = evaluate_promotion(
+            self.left,
+            self.right,
+            candidate,
+            (r1.receipt_sha256, r2.receipt_sha256),
+            store=Store(r1, r2),
+        )
+        self.assertEqual(result.decision, "DENY")
+        self.assertIn("DUPLICATE_OBLIGATION", result.reason_codes)
 
     def test_spliced_receipt_denies(self):
         candidate = state(
