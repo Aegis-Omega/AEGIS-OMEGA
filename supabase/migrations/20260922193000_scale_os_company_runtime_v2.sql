@@ -126,6 +126,32 @@ begin
     return false;
   end if;
 
+  if not (
+    p_packet ?& array[
+      'packet_id','task_id','action_class','target','action','reason',
+      'evidence_refs','risk_class','cost_class','max_cost_minor_units',
+      'currency','rollback','created_generation','expires_generation',
+      'authority_effect'
+    ]
+  ) then
+    return false;
+  end if;
+
+  if jsonb_typeof(p_packet -> 'packet_id') <> 'string'
+     or jsonb_typeof(p_packet -> 'task_id') <> 'string'
+     or jsonb_typeof(p_packet -> 'action_class') <> 'string'
+     or jsonb_typeof(p_packet -> 'target') <> 'string'
+     or jsonb_typeof(p_packet -> 'action') <> 'string'
+     or jsonb_typeof(p_packet -> 'reason') <> 'string'
+     or jsonb_typeof(p_packet -> 'risk_class') <> 'string'
+     or jsonb_typeof(p_packet -> 'cost_class') <> 'string'
+     or jsonb_typeof(p_packet -> 'rollback') <> 'string'
+     or jsonb_typeof(p_packet -> 'created_generation') <> 'string'
+     or jsonb_typeof(p_packet -> 'expires_generation') <> 'string'
+     or jsonb_typeof(p_packet -> 'authority_effect') <> 'string' then
+    return false;
+  end if;
+
   if coalesce(btrim(p_packet ->> 'packet_id'),'') = ''
      or coalesce(btrim(p_packet ->> 'task_id'),'') = ''
      or coalesce(btrim(p_packet ->> 'target'),'') = ''
@@ -158,6 +184,14 @@ begin
     return false;
   end if;
 
+  if exists (
+    select 1
+      from jsonb_array_elements(p_packet -> 'evidence_refs') as e(value)
+     where jsonb_typeof(e.value) <> 'string'
+  ) then
+    return false;
+  end if;
+
   select count(*),count(distinct value)
     into v_evidence_count,v_evidence_distinct
     from jsonb_array_elements_text(p_packet -> 'evidence_refs');
@@ -185,12 +219,13 @@ begin
   end if;
 
   if p_packet ->> 'cost_class' = 'NONE' then
-    if p_packet ->> 'max_cost_minor_units' is not null
-       or p_packet ->> 'currency' is not null then
+    if jsonb_typeof(p_packet -> 'max_cost_minor_units') <> 'null'
+       or jsonb_typeof(p_packet -> 'currency') <> 'null' then
       return false;
     end if;
   else
     if jsonb_typeof(p_packet -> 'max_cost_minor_units') <> 'number'
+       or jsonb_typeof(p_packet -> 'currency') <> 'string'
        or coalesce(p_packet ->> 'max_cost_minor_units','') !~ '^[0-9]+$'
        or coalesce(btrim(p_packet ->> 'currency'),'') = '' then
       return false;
