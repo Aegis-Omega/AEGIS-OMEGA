@@ -5,7 +5,7 @@ import { resolve } from 'node:path'
 const TARGET_BRANCH = 'feat/openai-sota-autonomous-company-v1'
 const EXPECTED_SUITE_COUNT = 23
 const SOURCE_BLOB_CONTRACT = Object.freeze({
-  'supabase/migrations/20260922193000_scale_os_company_runtime_v2.sql': 'c5c17875ccec050f058d634fd8267a380584e31f',
+  'supabase/migrations/20260922193000_scale_os_company_runtime_v2.sql': '1efc1b08bb3065e2b6044db64d7f2e55713276c9',
   'supabase/migrations/20260922205500_scale_os_enterprise_opportunities_v1.sql': '7db3fcbff9b7c3c8538d524690c57b2a4763ab85',
   'supabase/migrations/20260922211500_scale_os_enterprise_resources_v1.sql': '5dbab3f199362560b8cde97f656e1cd1106d5eab',
   'supabase/migrations/20260922213000_scale_os_enterprise_event_immutability_v1.sql': '82da850049a7cdc0d9701fe9182da02600b8ebe6',
