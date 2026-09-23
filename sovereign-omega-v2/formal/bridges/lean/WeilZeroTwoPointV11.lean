@@ -123,10 +123,8 @@ theorem zero_translation_kernel_summable_v11
   have hs :=
     riemann_zeta_nontrivial_zero_critical_strip_v1
       rho.2.1 rho.2.2
-  have hre :
-      (((rho.1 - (1 / 2 : ℂ)) * (d : ℂ))).re ≤
-        |d| / 2 := by
-    change (rho.1.re - (1 / 2 : ℝ)) * d ≤ |d| / 2
+  have hre_real :
+      (rho.1.re - (1 / 2 : ℝ)) * d ≤ |d| / 2 := by
     have habs : |rho.1.re - 1 / 2| ≤ (1 / 2 : ℝ) := by
       rw [abs_le]
       constructor <;> linarith [hs.1, hs.2]
@@ -138,6 +136,10 @@ theorem zero_translation_kernel_summable_v11
       _ ≤ (1 / 2 : ℝ) * |d| := by
             gcongr
       _ = |d| / 2 := by ring
+  have hre :
+      (((rho.1 - (1 / 2 : ℂ)) * (d : ℂ))).re ≤
+        |d| / 2 := by
+    simpa [Complex.mul_re, Complex.sub_re] using hre_real
   have hfactor :
       ‖WeilZeroTranslationFactorV11 rho d‖ ≤ C := by
     unfold WeilZeroTranslationFactorV11 C
@@ -185,21 +187,19 @@ theorem twoPoint_zero_summand_expansion_v11
     mellin_twoPointTranslate_v11,
     map_mul, map_add, map_one, map_mul,
     reflected_translation_factor_v11]
-  have hcancel :
-      WeilZeroTranslationFactorV11 rho d *
-        WeilZeroTranslationFactorV11 rho (-d) = 1 := by
-    unfold WeilZeroTranslationFactorV11
-    rw [← Complex.exp_add]
-    congr 1
-    push_cast
-    ring
   simp only [WeilZeroTranslationFactorV11]
   ring_nf
-  have hcancel' :
-      Complex.exp ((rho.1 - (1 / 2 : ℂ)) * (d : ℂ)) *
-        Complex.exp ((rho.1 - (1 / 2 : ℂ)) * ((-d : ℝ) : ℂ)) = 1 := by
-    simpa [WeilZeroTranslationFactorV11] using hcancel
-  rw [hcancel']
+  have hcancel :
+      Complex.exp
+          (rho.1 * (d : ℂ) + (d : ℂ) * (-1 / 2 : ℂ)) *
+        Complex.exp
+          (rho.1 * ((-d : ℝ) : ℂ) +
+            ((-d : ℝ) : ℂ) * (-1 / 2 : ℂ)) = 1 := by
+    rw [← Complex.exp_add]
+    convert Complex.exp_zero using 1
+    push_cast
+    ring
+  rw [hcancel]
   ring
 
 /-- Canonical zero quadratic of a two-point translated packet. -/
@@ -260,9 +260,6 @@ theorem twoPoint_zero_quadratic_expansion_v11
         have h2 := hd.mul_left c
         have h3 := hnd.mul_left (conj c)
         rw [← h1.tsum_add h2, ← (h1.add h2).tsum_add h3]
-        apply tsum_congr
-        intro rho
-        ring
     _ = _ := by
       rfl
 
