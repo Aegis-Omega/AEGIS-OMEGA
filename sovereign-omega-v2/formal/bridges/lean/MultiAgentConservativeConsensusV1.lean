@@ -37,12 +37,16 @@ theorem consensus_le_member {α : Type} [DecidableEq α]
   induction rest generalizing initial with
   | nil =>
       simp at hmem
-  | cons head tail ih =>
-      rcases List.mem_cons.mp hmem with rfl | htail
-      · exact epistemic_le_trans
-          (consensus_le_initial (conservativeMeet initial head) tail)
-          (meet_le_right initial head)
-      · exact ih (initial := conservativeMeet initial head) htail
+  | cons first tail ih =>
+      simp only [List.mem_cons] at hmem
+      cases hmem with
+      | inl hEq =>
+          subst state
+          exact epistemic_le_trans
+            (consensus_le_initial (conservativeMeet initial first) tail)
+            (meet_le_right initial first)
+      | inr hTail =>
+          exact ih (initial := conservativeMeet initial first) hTail
 
 theorem common_lower_bound_le_consensus
     {α : Type} [DecidableEq α]
