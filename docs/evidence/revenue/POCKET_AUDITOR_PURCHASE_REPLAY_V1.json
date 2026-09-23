@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "evidence_type": "POCKET_AUDITOR_PURCHASE_REPLAY_V1",
+  "authority_effect": "NONE",
+  "tested_github_source": "b3d9e94f90092b1a9c552a47f11988e1d2406c40",
+  "gitlab_project_id": 84781556,
+  "gitlab_pipeline_id": 2874221605,
+  "gitlab_job_id": 16675023466,
+  "pipeline_status": "success",
+  "job_status": "success",
+  "swift_version": "5.9.2",
+  "revenuecat_package_version": "5.90.2",
+  "tests_observed": 11,
+  "replay_marker": "POCKET_AUDITOR_SWIFT_REPLAY=PASS",
+  "compiled_sources_observed": [
+    "PocketAuditorCore/PocketAuditor.swift",
+    "PocketAuditorRevenueCat/RevenueCatPremiumAccess.swift",
+    "PocketAuditorRevenueCat/PocketAuditorPurchaseController.swift"
+  ],
+  "source_capabilities": [
+    "runtime RevenueCat public API key configuration without hardcoding",
+    "current offering lookup",
+    "package selection",
+    "async purchase flow",
+    "user-cancelled handling",
+    "active entitlement verification",
+    "restore purchases flow",
+    "fail-closed error handling"
+  ],
+  "verification_boundary": {
+    "linux_swift_compile": "VERIFIED",
+    "core_unit_tests": "VERIFIED",
+    "revenuecat_purchase_controller_source_compile": "VERIFIED",
+    "apple_native_build": "NOT_RUN",
+    "storekit_transaction": "NOT_RUN",
+    "revenuecat_dashboard_configuration": "NOT_CONFIGURED",
+    "real_purchase": "NOT_OBSERVED"
+  }
+}
