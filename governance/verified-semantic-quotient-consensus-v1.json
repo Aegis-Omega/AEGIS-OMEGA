@@ -1,0 +1,25 @@
+{
+  "schema": "AEGIS_VERIFIED_SEMANTIC_QUOTIENT_CONSENSUS_V1",
+  "name": "Verified Semantic Quotient Consensus V1",
+  "parent": "AEGIS_NO_FREE_EPISTEMIC_GAIN_V1",
+  "runtime_reference": {
+    "pr": 566,
+    "module": "harness/sdk/epistemic_quotient.py",
+    "formal_reference": "AbjadFactorization.factors_iff_constant_on_fibres"
+  },
+  "projection_rule": "Every non-canonical claim must carry a trusted MHP SEMANTIC_EQUIVALENCE preservation receipt to its canonical representative.",
+  "accepted_relations": [
+    "EXACT_SELF_IDENTITY",
+    "SEMANTIC_EQUIVALENCE"
+  ],
+  "rejected_relations": [
+    "PARAPHRASE_ABSTRACTION"
+  ],
+  "quotient_consensus": "intersection of verified semantic class IDs, min authority, max loss uncertainty",
+  "safety_goal": "Every retained quotient class must have at least one verified-semantically-equivalent representative in each input.",
+  "false_negative_policy": "ALLOWED_SAFE",
+  "unproved_semantic_merge_policy": "DENY",
+  "semantic_equivalence_novelty": "NOT_CLAIMED",
+  "application_novelty": "NOT_ESTABLISHED",
+  "authority_effect": "NONE"
+}
