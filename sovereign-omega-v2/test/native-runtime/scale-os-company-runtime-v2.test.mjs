@@ -42,6 +42,24 @@ test('durable DAG and one-row-per-task lease are defined once', () => {
   assert.ok(sql.includes('primary key (task_id, depends_on_task_id)'))
 })
 
+test('V2 task admission preserves legacy rows while guarding V2-managed direct mutation', () => {
+  assert.ok(sql.includes('create or replace function scale_os.prevent_direct_v2_task_mutation_v2'))
+  assert.ok(sql.includes('create trigger scale_os_v2_task_direct_mutation_guard'))
+  assert.ok(sql.includes("current_user <> 'postgres'"))
+  assert.ok(sql.includes("'AEGIS_V2_TASK_DIRECT_INSERT_DENIED"))
+  assert.ok(sql.includes("'AEGIS_V2_TASK_DIRECT_UPDATE_DENIED"))
+  assert.ok(sql.includes("'AEGIS_V2_TASK_DIRECT_DELETE_DENIED"))
+  assert.ok(sql.includes('new.task_digest_v2 is not null'))
+  assert.ok(sql.includes('old.task_digest_v2 is not null'))
+  assert.ok(sql.includes('create or replace function scale_os.create_task_v2'))
+  assert.ok(sql.includes('on conflict (idempotency_key_v2)'))
+  assert.ok(sql.includes("'DENIED_IDEMPOTENCY_COLLISION'"))
+  assert.ok(sql.includes("return query select 'CREATED'::text"))
+  assert.ok(sql.includes("return query select 'REPLAYED'::text"))
+  assert.ok(sql.includes('alter function scale_os.create_task_v2'))
+  assert.ok(sql.includes('alter function scale_os.prevent_direct_v2_task_mutation_v2'))
+})
+
 test('new v2 tables are service-role read-only and mutate only through postgres-owned RPCs', () => {
   assert.ok(sql.includes('revoke all on scale_os.task_dependencies_v2 from public, anon, authenticated, service_role'))
   assert.ok(sql.includes('revoke all on scale_os.task_leases_v2 from public, anon, authenticated, service_role'))
