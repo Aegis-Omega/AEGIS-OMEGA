@@ -1,0 +1,19 @@
+{
+  "schema": "AEGIS_MULTI_AGENT_CONSERVATIVE_CONSENSUS_V1",
+  "name": "Multi-Agent Conservative Consensus V1",
+  "parent": "AEGIS_NO_FREE_EPISTEMIC_GAIN_V1",
+  "state": "(exact_claim_set, authority, loss_uncertainty_bps)",
+  "binary_meet": "(claim_intersection, min_authority, max_uncertainty)",
+  "n_agent_consensus": "nonempty fold of the binary conservative meet",
+  "theorem_target": "Consensus is a common lower bound of every input and is greater than or equal to every other common lower bound in the conservative epistemic order.",
+  "order_independence_basis": [
+    "binary meet commutative",
+    "binary meet associative",
+    "binary meet idempotent"
+  ],
+  "claim_identity": "EXACT_CANONICAL_IDENTITY_ONLY",
+  "semantic_equivalence_requires": "SEPARATE_MHP_RECEIPT",
+  "stronger_consensus_requires": "SEPARATE_PROOF_CARRYING_PROMOTION",
+  "novelty_status": "NOT_ESTABLISHED",
+  "authority_effect": "NONE"
+}
