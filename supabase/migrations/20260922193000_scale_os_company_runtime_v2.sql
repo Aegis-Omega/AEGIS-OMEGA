@@ -88,8 +88,52 @@ as $$
   );
 $$;
 
+create or replace function scale_os.company_task_digest_v2(
+  p_task_type text,
+  p_risk_level text,
+  p_requires_approval boolean,
+  p_source_system text,
+  p_source_object_id text,
+  p_payload jsonb,
+  p_idempotency_key text,
+  p_generation bigint
+)
+returns text
+language sql
+immutable
+strict
+set search_path = pg_catalog, extensions
+as $$
+  select encode(
+    extensions.digest(
+      convert_to(
+        'AEGIS_SCALE_OS_TASK_V2' || E'\n' ||
+        scale_os.canonical_jsonb_v2(
+          jsonb_build_object(
+            'schema_version','2.0.0',
+            'task_type',btrim(p_task_type),
+            'risk_level',p_risk_level,
+            'requires_approval',p_requires_approval,
+            'source_system',nullif(btrim(coalesce(p_source_system,'')),''),
+            'source_object_id',nullif(btrim(coalesce(p_source_object_id,'')),''),
+            'payload',p_payload,
+            'idempotency_key',btrim(p_idempotency_key),
+            'generation',p_generation::text
+          )
+        ),
+        'UTF8'
+      ),
+      'sha256'
+    ),
+    'hex'
+  );
+$$;
+
 alter function scale_os.canonical_jsonb_v2(jsonb) owner to postgres;
 alter function scale_os.consequential_action_packet_digest_v2(jsonb) owner to postgres;
+alter function scale_os.company_task_digest_v2(
+  text, text, boolean, text, text, jsonb, text, bigint
+) owner to postgres;
 
 alter table scale_os.approvals
   drop constraint if exists scale_os_approvals_v2_exact_grant;
@@ -355,13 +399,13 @@ create or replace function scale_os.create_task_v2(
   p_source_system text,
   p_source_object_id text,
   p_payload jsonb,
-  p_task_digest text,
   p_idempotency_key text,
   p_generation bigint
 )
 returns table (
   outcome text,
-  task_id uuid
+  task_id uuid,
+  task_digest text
 )
 language plpgsql
 security definer
@@ -369,6 +413,7 @@ set search_path = scale_os, pg_temp
 as $$
 declare
   v_task_id uuid;
+  v_task_digest text;
   v_existing scale_os.tasks%rowtype;
 begin
   if p_task_type is null or length(btrim(p_task_type)) = 0 then
@@ -383,8 +428,9 @@ begin
   if p_payload is null then
     raise exception 'payload required';
   end if;
-  if p_task_digest is null or p_task_digest !~ '^[0-9a-f]{64}$' then
-    raise exception 'invalid task_digest';
+  if p_risk_level in ('high','critical') and not p_requires_approval then
+    return query select 'DENIED_APPROVAL_REQUIRED_FOR_RISK'::text, null::uuid, null::text;
+    return;
   end if;
   if p_idempotency_key is null or length(btrim(p_idempotency_key)) = 0 then
     raise exception 'idempotency_key required';
@@ -392,6 +438,17 @@ begin
   if p_generation is null or p_generation < 0 then
     raise exception 'invalid generation';
   end if;
+
+  v_task_digest := scale_os.company_task_digest_v2(
+    p_task_type,
+    p_risk_level,
+    p_requires_approval,
+    p_source_system,
+    p_source_object_id,
+    p_payload,
+    p_idempotency_key,
+    p_generation
+  );
 
   insert into scale_os.tasks(
     task_type,status,risk_level,requires_approval,
@@ -402,7 +459,7 @@ begin
     nullif(btrim(coalesce(p_source_system,'')),''),
     nullif(btrim(coalesce(p_source_object_id,'')),''),
     p_payload,'{}'::jsonb,
-    p_task_digest,btrim(p_idempotency_key),p_generation
+    v_task_digest,btrim(p_idempotency_key),p_generation
   )
   on conflict (idempotency_key_v2)
     where idempotency_key_v2 is not null
@@ -410,7 +467,7 @@ begin
   returning id into v_task_id;
 
   if v_task_id is not null then
-    return query select 'CREATED'::text, v_task_id;
+    return query select 'CREATED'::text, v_task_id, v_task_digest;
     return;
   end if;
 
@@ -421,7 +478,7 @@ begin
    for update;
 
   if not found then
-    return query select 'DENIED_IDEMPOTENCY_LOOKUP_FAILED'::text, null::uuid;
+    return query select 'DENIED_IDEMPOTENCY_LOOKUP_FAILED'::text, null::uuid, null::text;
     return;
   end if;
 
@@ -431,13 +488,13 @@ begin
      or v_existing.source_system is distinct from nullif(btrim(coalesce(p_source_system,'')),'')
      or v_existing.source_object_id is distinct from nullif(btrim(coalesce(p_source_object_id,'')),'')
      or v_existing.payload <> p_payload
-     or v_existing.task_digest_v2 <> p_task_digest
+     or v_existing.task_digest_v2 <> v_task_digest
      or v_existing.generation_v2 <> p_generation then
-    return query select 'DENIED_IDEMPOTENCY_COLLISION'::text, v_existing.id;
+    return query select 'DENIED_IDEMPOTENCY_COLLISION'::text, v_existing.id, v_existing.task_digest_v2;
     return;
   end if;
 
-  return query select 'REPLAYED'::text, v_existing.id;
+  return query select 'REPLAYED'::text, v_existing.id, v_existing.task_digest_v2;
 end;
 $$;
 
@@ -783,7 +840,7 @@ revoke all on function scale_os.record_approval_v2(
 ) from public, anon, authenticated, service_role;
 
 revoke all on function scale_os.create_task_v2(
-  text, text, boolean, text, text, jsonb, text, text, bigint
+  text, text, boolean, text, text, jsonb, text, bigint
 ) from public, anon, authenticated;
 
 revoke all on function scale_os.add_task_dependency_v2(
@@ -799,7 +856,7 @@ revoke all on function scale_os.complete_task_lease_v2(
 ) from public, anon, authenticated;
 
 grant execute on function scale_os.create_task_v2(
-  text, text, boolean, text, text, jsonb, text, text, bigint
+  text, text, boolean, text, text, jsonb, text, bigint
 ) to service_role;
 
 grant execute on function scale_os.add_task_dependency_v2(
@@ -825,7 +882,7 @@ alter function scale_os.prevent_direct_v2_task_mutation_v2()
   owner to postgres;
 
 alter function scale_os.create_task_v2(
-  text, text, boolean, text, text, jsonb, text, text, bigint
+  text, text, boolean, text, text, jsonb, text, bigint
 ) owner to postgres;
 
 alter function scale_os.add_task_dependency_v2(
