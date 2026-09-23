@@ -136,7 +136,7 @@ theorem zero_translation_kernel_neg_eq_conj_v11
 
   apply Complex.ext
   · simp only [conj_re]
-    exact hre
+    exact hre.symm
   · simp only [conj_im]
     linarith
 
