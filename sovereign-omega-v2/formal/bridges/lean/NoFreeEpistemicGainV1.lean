@@ -1,5 +1,5 @@
 import Mathlib.Data.Finset.Lattice.Basic
-import Mathlib.Data.Nat.Lattice
+import Mathlib.Order.Lattice.Nat
 import Mathlib.Tactic
 
 namespace AEGIS.NoFreeEpistemicGainV1
@@ -8,6 +8,18 @@ structure EpistemicState (α : Type) where
   claims : Finset α
   authority : Nat
   uncertainty : Nat
+
+@[ext]
+theorem EpistemicState.ext_conservative
+    {α : Type}
+    {x y : EpistemicState α}
+    (hclaims : x.claims = y.claims)
+    (hauthority : x.authority = y.authority)
+    (huncertainty : x.uncertainty = y.uncertainty) :
+    x = y := by
+  cases x
+  cases y
+  simp_all
 
 def EpistemicLE {α : Type} [DecidableEq α]
     (x y : EpistemicState α) : Prop :=
@@ -95,18 +107,25 @@ theorem no_free_epistemic_gain {α : Type} [DecidableEq α]
 theorem meet_comm {α : Type} [DecidableEq α]
     (x y : EpistemicState α) :
     conservativeMeet x y = conservativeMeet y x := by
-  ext <;> simp [conservativeMeet, min_comm, max_comm, inter_comm]
+  apply EpistemicState.ext_conservative
+  · simp [conservativeMeet, Finset.inter_comm]
+  · simp [conservativeMeet, min_comm]
+  · simp [conservativeMeet, max_comm]
 
 theorem meet_assoc {α : Type} [DecidableEq α]
     (x y z : EpistemicState α) :
     conservativeMeet (conservativeMeet x y) z =
       conservativeMeet x (conservativeMeet y z) := by
-  ext <;> simp [conservativeMeet, min_assoc, max_assoc, inter_assoc]
+  apply EpistemicState.ext_conservative
+  · simp [conservativeMeet, Finset.inter_assoc]
+  · simp [conservativeMeet, min_assoc]
+  · simp [conservativeMeet, max_assoc]
 
 theorem meet_idem {α : Type} [DecidableEq α]
     (x : EpistemicState α) :
     conservativeMeet x x = x := by
-  ext <;> simp [conservativeMeet]
+  apply EpistemicState.ext_conservative <;>
+    simp [conservativeMeet]
 
 end AEGIS.NoFreeEpistemicGainV1
 
