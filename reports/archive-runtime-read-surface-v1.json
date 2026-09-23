@@ -1,0 +1,29 @@
+{
+  "schema": "AEGIS_ARCHIVE_RUNTIME_READ_SURFACE_V1",
+  "base_pr": 620,
+  "base_head": "20a944f2da0e97ddda67196d05a64bbef725089d",
+  "adapter": "harness/sdk/archive_runtime.py",
+  "scope": "LOCAL_EPHEMERAL_READ_COMPUTE_ONLY",
+  "exposed_operations": [
+    "ARC deterministic transform over recovered DSL primitives",
+    "SWARM isolated ephemeral observation with audit emission",
+    "biology bounded sensory/immune/HPA probe"
+  ],
+  "local_test": {
+    "command": "PYTHONPATH=. pytest -q harness/tests/test_archive_runtime.py",
+    "result": "5 passed",
+    "status": "PASS"
+  },
+  "fail_closed": [
+    "missing recovered runtime",
+    "invalid ARC operation id",
+    "empty/nonrectangular/noninteger ARC grid",
+    "invalid SWARM string inputs",
+    "invalid biology stimulus"
+  ],
+  "network_authority": false,
+  "persistent_state": false,
+  "repository_mutation": false,
+  "production_wiring": "NOT_PERFORMED",
+  "authority_effect": "NONE"
+}

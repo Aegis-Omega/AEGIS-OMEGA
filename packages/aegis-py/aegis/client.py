@@ -81,6 +81,16 @@ class PlatformStatus:
 
 
 @dataclass
+class ArchiveRuntimeStatus:
+    state: str
+    available: bool
+    scope: str
+    network_authority: bool
+    persistent_state: bool
+    authority_effect: str
+
+
+@dataclass
 class ExecutionHandle:
     """Returned by start_execution(); call stream() to consume SSE events."""
     execution_id: str
@@ -93,6 +103,46 @@ class ExecutionHandle:
     def result(self) -> CollaborationResult:
         return self._client.get_execution(self.execution_id)
 
+
+def _archive_arc_request(grid: list[list[int]], operation_id: int) -> tuple[str, dict[str, Any]]:
+    if isinstance(operation_id, bool) or not isinstance(operation_id, int) or not 0 <= operation_id <= 10:
+        raise ValueError("operation_id must be an integer in 0..10")
+    if not isinstance(grid, list) or not grid or len(grid) > 10:
+        raise ValueError("grid must contain 1..10 rows")
+    if not all(isinstance(row, list) and 1 <= len(row) <= 10 for row in grid):
+        raise ValueError("each grid row must contain 1..10 cells")
+    width = len(grid[0])
+    if any(len(row) != width for row in grid) or len(grid) * width > 100:
+        raise ValueError("grid must be rectangular and contain at most 100 cells")
+    if any(
+        isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 9
+        for row in grid for value in row
+    ):
+        raise ValueError("grid cells must be integers in 0..9")
+    return "/platform/archive/runtime/arc", {
+        "operation_id": operation_id,
+        "grid": grid,
+    }
+
+
+def _archive_text(value: str, *, name: str, limit: int) -> str:
+    if not isinstance(value, str) or not value or len(value) > limit or any(ord(ch) < 32 for ch in value):
+        raise ValueError(f"{name} must be 1..{limit} printable characters")
+    return value
+
+
+def _archive_swarm_request(subject: str, relation: str, obj: str) -> tuple[str, dict[str, Any]]:
+    return "/platform/archive/runtime/swarm", {
+        "subject": _archive_text(subject, name="subject", limit=64),
+        "relation": _archive_text(relation, name="relation", limit=64),
+        "object": _archive_text(obj, name="object", limit=64),
+    }
+
+
+def _archive_biology_request(stimulus: str) -> tuple[str, dict[str, Any]]:
+    return "/platform/archive/runtime/biology", {
+        "stimulus": _archive_text(stimulus, name="stimulus", limit=256),
+    }
 
 def _validate_envelope(raw: dict[str, Any]) -> Any:
     if raw.get("contract_version") != CONTRACT_VERSION:
@@ -169,6 +219,33 @@ class AegisClient:
             available=data["available"],
             reason=data.get("reason"),
         )
+
+    def archive_runtime_status(self) -> ArchiveRuntimeStatus:
+        """Return bounded recovered-runtime readiness. No mutation is performed."""
+        data = _validate_envelope(self._request("GET", "/platform/archive/runtime/status"))
+        return ArchiveRuntimeStatus(
+            state=data["state"],
+            available=bool(data["available"]),
+            scope=data["scope"],
+            network_authority=bool(data["network_authority"]),
+            persistent_state=bool(data["persistent_state"]),
+            authority_effect=data["authority_effect"],
+        )
+
+    def archive_arc_transform(self, grid: list[list[int]], operation_id: int) -> dict[str, Any]:
+        """Execute one bounded recovered ARC DSL primitive (ephemeral compute)."""
+        path, body = _archive_arc_request(grid, operation_id)
+        return _validate_envelope(self._request("POST", path, body))
+
+    def archive_swarm_observe(self, subject: str, relation: str, obj: str) -> dict[str, Any]:
+        """Run one ephemeral recovered SWARM observation with no durable state."""
+        path, body = _archive_swarm_request(subject, relation, obj)
+        return _validate_envelope(self._request("POST", path, body))
+
+    def archive_biology_probe(self, stimulus: str) -> dict[str, Any]:
+        """Run the bounded recovered biology probe; this is not medical advice or diagnosis."""
+        path, body = _archive_biology_request(stimulus)
+        return _validate_envelope(self._request("POST", path, body))
 
     def collaborate(self, objective: str, mode: Mode = "analysis", live: bool = False) -> CollaborationResult:
         """POST /platform/collaborate — synchronous 39-dept swarm.

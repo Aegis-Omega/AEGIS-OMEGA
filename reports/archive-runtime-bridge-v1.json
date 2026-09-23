@@ -1,0 +1,66 @@
+{
+  "schema": "AEGIS_ARCHIVE_RUNTIME_BRIDGE_V1",
+  "base_pr": 623,
+  "base_head": "9cd4535842aaa29c1658f5257a088078d249638a",
+  "endpoints": {
+    "status": "GET /platform/archive/runtime/status",
+    "arc": "POST /platform/archive/runtime/arc JSON {operation_id,grid}",
+    "swarm": "POST /platform/archive/runtime/swarm JSON {subject,relation,object}",
+    "biology": "POST /platform/archive/runtime/biology JSON {stimulus}"
+  },
+  "auth": {
+    "status": "PUBLIC_READ_ONLY",
+    "compute": "EXISTING_PLATFORM_API_KEY_REQUIRED"
+  },
+  "bounds": {
+    "grid_side_max": 10,
+    "grid_cells_max": 100,
+    "arc_cell_values": "integer 0..9",
+    "swarm_text_max": 64,
+    "biology_text_max": 256
+  },
+  "image": {
+    "build_context": "REPOSITORY_ROOT",
+    "copied_archive_runtime": [
+      "harness/sdk/archive_runtime.py",
+      "swarm_os/arc/dsl/",
+      "swarm_os/swarm/swarm_core.py",
+      "swarm_os/swarm/config.py",
+      "swarm_os/biology/cybernetic_core.py"
+    ],
+    "explicitly_not_copied": [
+      "swarm_os/arc/data/",
+      "swarm_os/benchmark/",
+      "vendored provider proxy",
+      "historical state"
+    ]
+  },
+  "local_evidence": {
+    "bounded_dispatcher_tests": "11 tests specified; local replay required after exact-head commit",
+    "image_contract": "PASS",
+    "recovered_runtime_execution": [
+      "ARC ROT90",
+      "SWARM ephemeral ingest/audit",
+      "biology bounded probe"
+    ],
+    "root_discovery": "PASS"
+  },
+  "production_wiring": "SOURCE_AND_IMAGE_CONTRACT_IMPLEMENTED_NOT_DEPLOYED",
+  "deployment": "NOT_PERFORMED",
+  "merge": "NOT_PERFORMED",
+  "authority_effect": "NONE",
+  "hosted_execution": {
+    "status": "NOT_ESTABLISHED",
+    "job_id": 106920266863,
+    "conclusion": "failure",
+    "steps": 0,
+    "interpretation": "RUNNER_LEVEL_ZERO_STEP_RESULT_NOT_A_TEST_FAILURE"
+  },
+  "transport": {
+    "status": "GET_PUBLIC",
+    "compute": "POST_JSON_BODY",
+    "query_payloads": "FORBIDDEN",
+    "cache_control": "no-store",
+    "max_request_body_bytes": 4096
+  }
+}

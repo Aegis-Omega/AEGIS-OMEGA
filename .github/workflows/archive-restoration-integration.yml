@@ -1,0 +1,34 @@
+name: Archive Restoration Integration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "eccf/**"
+      - "gcce/**"
+      - "swarm_os/**"
+      - "harness/sdk/archive_runtime.py"
+      - "sovereign-omega-v2/**"
+      - "reports/archive-**"
+      - "scripts/test-archive-**"
+      - ".github/workflows/archive-**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration-binding:
+    name: archive-restoration-integration-binding
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact source-object composition
+        run: python scripts/test-archive-restoration-integration.py
+      - name: Verify restored Rust static surface
+        run: python scripts/audit-archive-rust-restoration.py
+      - name: Authority boundary
+        run: |
+          echo "merge=NOT_PERFORMED"
+          echo "deployment=NOT_PERFORMED"
+          echo "authority_effect=NONE"
