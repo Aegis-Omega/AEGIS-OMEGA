@@ -66,7 +66,8 @@ theorem gamma_log_two_mul_eq_exp_smul_x_v10
     positivity
   have hxgt : 1 < x := by
     dsimp [x]
-    exact Real.one_lt_exp hv
+    have h := Real.exp_lt_exp.mpr hv
+    rwa [Real.exp_zero] at h
   have hxC0 : (x : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hxpos.ne'
   have hx2gt : (1 : ℝ) < x ^ 2 := by
     nlinarith
@@ -78,7 +79,7 @@ theorem gamma_log_two_mul_eq_exp_smul_x_v10
       Real.exp (-(2 * v)) = (x⁻¹) ^ 2 := by
     dsimp [x]
     rw [show -(2 * v) = (-v) + (-v) by ring, Real.exp_add,
-      Real.exp_neg, Real.exp_neg]
+      Real.exp_neg]
     ring
   have hexpneg :
       Complex.exp (-(((2 * v : ℝ) : ℂ))) =
@@ -95,8 +96,16 @@ theorem gamma_log_two_mul_eq_exp_smul_x_v10
     ring
   unfold WeilGammaLogIntegrandV10 WeilGammaXIntegrandV10
   rw [hexpneg, hexphalf, Complex.real_smul]
-  field_simp [hxC0, hxden]
-  ring
+  have hxe : Real.exp v = x := rfl
+  rw [hxe]
+  have hxden' : (-1 + (x : ℂ) ^ 2) ≠ 0 := by
+    rw [show (-1 + (x : ℂ) ^ 2) = (x : ℂ) ^ 2 - 1 by ring]
+    exact hxden
+  have hxinv : (1 - ((x : ℂ)⁻¹) ^ 2) ≠ 0 := by
+    rw [show (1 - ((x : ℂ)⁻¹) ^ 2) = ((x : ℂ) ^ 2 - 1) / (x : ℂ) ^ 2 by
+      field_simp]
+    exact div_ne_zero hxden (pow_ne_zero 2 hxC0)
+  field_simp
 
 /-- Half of the u-integral is exactly the x-space integral. -/
 theorem half_gamma_log_integral_eq_x_integral_v10
@@ -116,6 +125,7 @@ theorem half_gamma_log_integral_eq_x_integral_v10
         ∫ v : ℝ in Ioi (0 : ℝ),
           WeilGammaLogIntegrandV10 f (2 * v) := by
             rw [← hscale]
+            push_cast
             ring
     _ =
         ∫ v : ℝ in Ioi (0 : ℝ),
@@ -143,7 +153,14 @@ theorem gamma_x_integrand_eq_neg_arch_sub_correction_v10
     weil_paired_test_apply_v8]
   unfold WeilReciprocalFnV8 WeilGammaCorrectionXIntegrandV10
   push_cast
-  field_simp [hx0, hx1, hx2]
+  have hx0C : (x : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr hx0
+  have hx1C : (x : ℂ) + 1 ≠ 0 := by exact_mod_cast hx1
+  have hx2C : (x : ℂ) ^ 2 - 1 ≠ 0 := by exact_mod_cast hx2
+  have hx2C' : (-1 + (x : ℂ) ^ 2) ≠ 0 := by
+    rw [show (-1 + (x : ℂ) ^ 2) = (x : ℂ) ^ 2 - 1 by ring]
+    exact hx2C
+  have hx1C' : (1 + (x : ℂ)) ≠ 0 := by rw [add_comm]; exact hx1C
+  field_simp
   ring
 
 theorem gamma_correction_x_integrable_v10
@@ -162,8 +179,12 @@ theorem gamma_correction_x_integral_v10
       WeilGammaCorrectionXIntegrandV10 f x) =
       ((2 * Real.log 2 : ℝ) : ℂ) * f.1 1 := by
   unfold WeilGammaCorrectionXIntegrandV10
-  rw [integral_const_mul, integral_ofReal,
-    integral_one_div_mul_one_add_v10]
+  rw [integral_const_mul]
+  have hI :
+      (∫ a : ℝ in Ioi (1 : ℝ), (((1 / (a * (a + 1)) : ℝ)) : ℂ)) =
+        (((∫ a : ℝ in Ioi (1 : ℝ), 1 / (a * (a + 1))) : ℝ) : ℂ) :=
+    integral_ofReal
+  rw [hI, integral_one_div_mul_one_add_v10]
   push_cast
   ring
 
@@ -193,7 +214,7 @@ theorem gamma_x_integral_eq_arch_v10
         -WeilArchimedeanIntegrandV1 f.1 x) -
       (∫ x : ℝ in Ioi (1 : ℝ),
         WeilGammaCorrectionXIntegrandV10 f x) := by
-          rw [integral_sub harch.neg hcorr]
+          exact integral_sub harch.neg hcorr
     _ =
       -WeilArchimedeanIntegralV1 f.1 -
         ((2 * Real.log 2 : ℝ) : ℂ) * f.1 1 := by
