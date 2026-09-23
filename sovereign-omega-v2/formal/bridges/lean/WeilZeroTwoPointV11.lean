@@ -196,11 +196,17 @@ theorem twoPoint_zero_summand_expansion_v11
           (rho.1 * ((-d : ℝ) : ℂ) +
             ((-d : ℝ) : ℂ) * (-1 / 2 : ℂ)) = 1 := by
     rw [← Complex.exp_add]
-    convert Complex.exp_zero using 1
-    push_cast
-    ring
-  rw [hcancel]
-  ring
+    have hz :
+        (rho.1 * (d : ℂ) + (d : ℂ) * (-1 / 2 : ℂ)) +
+          (rho.1 * ((-d : ℝ) : ℂ) +
+            ((-d : ℝ) : ℂ) * (-1 / 2 : ℂ)) = 0 := by
+      push_cast
+      ring
+    rw [hz, Complex.exp_zero]
+  linear_combination
+    ((analyticOrderNatAt riemannZeta rho.1 : ℂ) *
+      c * conj c * mellin g.1 rho.1 *
+      conj (mellin g.1 (1 - conj rho.1))) * hcancel
 
 /-- Canonical zero quadratic of a two-point translated packet. -/
 theorem twoPoint_zero_quadratic_expansion_v11
