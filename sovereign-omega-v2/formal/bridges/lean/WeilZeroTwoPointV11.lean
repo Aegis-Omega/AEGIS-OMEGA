@@ -162,9 +162,9 @@ private theorem reflected_translation_factor_v11
         (((1 - conj rho.1) - (1 / 2 : ℂ)) * (d : ℂ))) =
       WeilZeroTranslationFactorV11 rho (-d) := by
   unfold WeilZeroTranslationFactorV11
-  rw [map_exp]
+  rw [← Complex.exp_conj]
   congr 1
-  push_cast
+  simp [map_neg, map_add, map_mul, map_ofNat, Complex.conj_ofReal]
   ring
 
 /-- Per-zero two-point expansion. -/
