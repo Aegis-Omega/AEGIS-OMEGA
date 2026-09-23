@@ -19,7 +19,77 @@ alter table scale_os.approvals
     check (action_digest_v2 is null or action_digest_v2 ~ '^[0-9a-f]{64}$'),
   add column if not exists approval_packet_v2 jsonb,
   add column if not exists grant_id_v2 text,
+  add column if not exists grant_generation_v2 bigint
+    check (grant_generation_v2 is null or grant_generation_v2 >= 0),
   add column if not exists grant_expires_at_v2 timestamptz;
+
+create or replace function scale_os.canonical_jsonb_v2(
+  p_value jsonb
+)
+returns text
+language plpgsql
+immutable
+strict
+set search_path = pg_catalog
+as $$
+declare
+  v_type text;
+  v_result text;
+begin
+  v_type := jsonb_typeof(p_value);
+
+  if v_type = 'object' then
+    select '{' || coalesce(
+      string_agg(
+        to_jsonb(e.key)::text || ':' || scale_os.canonical_jsonb_v2(e.value),
+        ',' order by e.key
+      ),
+      ''
+    ) || '}'
+      into v_result
+      from jsonb_each(p_value) as e;
+    return v_result;
+  elsif v_type = 'array' then
+    select '[' || coalesce(
+      string_agg(
+        scale_os.canonical_jsonb_v2(a.value),
+        ',' order by a.ordinality
+      ),
+      ''
+    ) || ']'
+      into v_result
+      from jsonb_array_elements(p_value) with ordinality as a(value, ordinality);
+    return v_result;
+  end if;
+
+  return p_value::text;
+end;
+$$;
+
+create or replace function scale_os.consequential_action_packet_digest_v2(
+  p_packet jsonb
+)
+returns text
+language sql
+immutable
+strict
+set search_path = pg_catalog, extensions
+as $$
+  select encode(
+    extensions.digest(
+      convert_to(
+        'AEGIS_CONSEQUENTIAL_ACTION_PACKET_V1' || E'\n' ||
+        scale_os.canonical_jsonb_v2(p_packet),
+        'UTF8'
+      ),
+      'sha256'
+    ),
+    'hex'
+  );
+$$;
+
+alter function scale_os.canonical_jsonb_v2(jsonb) owner to postgres;
+alter function scale_os.consequential_action_packet_digest_v2(jsonb) owner to postgres;
 
 alter table scale_os.approvals
   drop constraint if exists scale_os_approvals_v2_exact_grant;
@@ -31,8 +101,18 @@ alter table scale_os.approvals
     or (
       action_digest_v2 is not null
       and approval_packet_v2 is not null
+      and action_digest_v2 = scale_os.consequential_action_packet_digest_v2(approval_packet_v2)
+      and approval_packet_v2 ->> 'task_id' = task_id::text
+      and approval_packet_v2 ->> 'authority_effect' = 'NONE'
+      and approval_packet_v2 ->> 'created_generation' ~ '^[0-9]+$'
+      and approval_packet_v2 ->> 'expires_generation' ~ '^[0-9]+$'
+      and (approval_packet_v2 ->> 'created_generation')::bigint
+          <= (approval_packet_v2 ->> 'expires_generation')::bigint
       and grant_id_v2 is not null
       and length(btrim(grant_id_v2)) > 0
+      and grant_generation_v2 is not null
+      and grant_generation_v2 >= (approval_packet_v2 ->> 'created_generation')::bigint
+      and grant_generation_v2 <= (approval_packet_v2 ->> 'expires_generation')::bigint
       and grant_expires_at_v2 is not null
       and decision_at is not null
       and grant_expires_at_v2 >= decision_at
@@ -54,6 +134,7 @@ begin
       old.action_digest_v2 is not null
       or old.approval_packet_v2 is not null
       or old.grant_id_v2 is not null
+      or old.grant_generation_v2 is not null
       or old.grant_expires_at_v2 is not null;
   end if;
 
@@ -62,6 +143,7 @@ begin
       new.action_digest_v2 is not null
       or new.approval_packet_v2 is not null
       or new.grant_id_v2 is not null
+      or new.grant_generation_v2 is not null
       or new.grant_expires_at_v2 is not null;
   end if;
 
@@ -84,6 +166,100 @@ create trigger scale_os_v2_approval_direct_mutation_guard
 before insert or update or delete on scale_os.approvals
 for each row
 execute function scale_os.prevent_direct_v2_approval_mutation_v2();
+
+create or replace function scale_os.record_approval_v2(
+  p_task_id uuid,
+  p_packet jsonb,
+  p_grant_id text,
+  p_grant_generation bigint,
+  p_grant_expires_at timestamptz,
+  p_decision_by text,
+  p_notes text
+)
+returns table (
+  outcome text,
+  approval_id uuid,
+  action_digest text
+)
+language plpgsql
+security definer
+set search_path = scale_os, pg_temp
+as $$
+declare
+  v_approval_id uuid;
+  v_digest text;
+  v_created_generation bigint;
+  v_expires_generation bigint;
+begin
+  if p_task_id is null then
+    raise exception 'task_id required';
+  end if;
+  if p_packet is null or jsonb_typeof(p_packet) <> 'object' then
+    raise exception 'packet object required';
+  end if;
+  if p_packet ->> 'task_id' <> p_task_id::text then
+    return query select 'DENIED_PACKET_TASK_MISMATCH'::text, null::uuid, null::text;
+    return;
+  end if;
+  if p_packet ->> 'authority_effect' <> 'NONE' then
+    return query select 'DENIED_PACKET_AUTHORITY_EFFECT'::text, null::uuid, null::text;
+    return;
+  end if;
+  if coalesce(p_packet ->> 'created_generation','') !~ '^[0-9]+$'
+     or coalesce(p_packet ->> 'expires_generation','') !~ '^[0-9]+$' then
+    return query select 'DENIED_PACKET_GENERATION_FORMAT'::text, null::uuid, null::text;
+    return;
+  end if;
+
+  v_created_generation := (p_packet ->> 'created_generation')::bigint;
+  v_expires_generation := (p_packet ->> 'expires_generation')::bigint;
+
+  if v_expires_generation < v_created_generation then
+    return query select 'DENIED_PACKET_GENERATION_WINDOW'::text, null::uuid, null::text;
+    return;
+  end if;
+  if p_grant_id is null or length(btrim(p_grant_id)) = 0 then
+    raise exception 'grant_id required';
+  end if;
+  if p_grant_generation is null
+     or p_grant_generation < v_created_generation
+     or p_grant_generation > v_expires_generation then
+    return query select 'DENIED_GRANT_GENERATION'::text, null::uuid, null::text;
+    return;
+  end if;
+  if p_grant_expires_at is null or p_grant_expires_at < now() then
+    return query select 'DENIED_GRANT_EXPIRY'::text, null::uuid, null::text;
+    return;
+  end if;
+  if p_decision_by is null or length(btrim(p_decision_by)) = 0 then
+    raise exception 'decision_by required';
+  end if;
+  if not exists (
+    select 1 from scale_os.tasks
+     where id = p_task_id
+       and requires_approval = true
+       and status in ('queued','awaiting_approval','approved')
+  ) then
+    return query select 'DENIED_TASK_NOT_APPROVAL_ELIGIBLE'::text, null::uuid, null::text;
+    return;
+  end if;
+
+  v_digest := scale_os.consequential_action_packet_digest_v2(p_packet);
+
+  insert into scale_os.approvals(
+    task_id,decision,decision_by,decision_at,notes,action_digest,
+    action_digest_v2,approval_packet_v2,grant_id_v2,grant_generation_v2,
+    grant_expires_at_v2
+  ) values (
+    p_task_id,'approved',btrim(p_decision_by),now(),p_notes,null,
+    v_digest,p_packet,btrim(p_grant_id),p_grant_generation,
+    p_grant_expires_at
+  )
+  returning id into v_approval_id;
+
+  return query select 'APPROVED'::text, v_approval_id, v_digest;
+end;
+$$;
 
 create table if not exists scale_os.task_dependencies_v2 (
   task_id uuid not null
@@ -413,8 +589,17 @@ begin
          and a.decision = 'approved'
          and a.action_digest_v2 = p_action_digest
          and a.approval_packet_v2 is not null
+         and scale_os.consequential_action_packet_digest_v2(a.approval_packet_v2) = a.action_digest_v2
          and a.approval_packet_v2 ->> 'task_id' = p_task_id::text
+         and a.approval_packet_v2 ->> 'authority_effect' = 'NONE'
+         and a.approval_packet_v2 ->> 'created_generation' ~ '^[0-9]+$'
+         and a.approval_packet_v2 ->> 'expires_generation' ~ '^[0-9]+$'
+         and (a.approval_packet_v2 ->> 'created_generation')::bigint <= p_current_generation
+         and p_current_generation <= (a.approval_packet_v2 ->> 'expires_generation')::bigint
          and a.grant_id_v2 is not null
+         and a.grant_generation_v2 is not null
+         and a.grant_generation_v2 >= (a.approval_packet_v2 ->> 'created_generation')::bigint
+         and a.grant_generation_v2 <= p_current_generation
          and length(btrim(a.grant_id_v2)) > 0
          and a.decision_at is not null
          and a.grant_expires_at_v2 is not null
@@ -593,6 +778,10 @@ begin
 end;
 $$;
 
+revoke all on function scale_os.record_approval_v2(
+  uuid, jsonb, text, bigint, timestamptz, text, text
+) from public, anon, authenticated, service_role;
+
 revoke all on function scale_os.create_task_v2(
   text, text, boolean, text, text, jsonb, text, text, bigint
 ) from public, anon, authenticated;
@@ -624,6 +813,10 @@ grant execute on function scale_os.claim_task_lease_v2(
 grant execute on function scale_os.complete_task_lease_v2(
   uuid, text, text, bigint, text, jsonb
 ) to service_role;
+
+alter function scale_os.record_approval_v2(
+  uuid, jsonb, text, bigint, timestamptz, text, text
+) owner to postgres;
 
 alter function scale_os.prevent_direct_v2_approval_mutation_v2()
   owner to postgres;
