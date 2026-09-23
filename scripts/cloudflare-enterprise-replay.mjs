@@ -5,13 +5,13 @@ import { resolve } from 'node:path'
 const TARGET_BRANCH = 'feat/openai-sota-autonomous-company-v1'
 const EXPECTED_SUITE_COUNT = 23
 const SOURCE_BLOB_CONTRACT = Object.freeze({
-  'supabase/migrations/20260922193000_scale_os_company_runtime_v2.sql': 'd85e3f9182b79cf069cdeb28fe9e5c4a33900f5d',
+  'supabase/migrations/20260922193000_scale_os_company_runtime_v2.sql': '1b6d43c8c6b3ec7b898ec628be024a2c3050743b',
   'supabase/migrations/20260922205500_scale_os_enterprise_opportunities_v1.sql': '7db3fcbff9b7c3c8538d524690c57b2a4763ab85',
   'supabase/migrations/20260922211500_scale_os_enterprise_resources_v1.sql': '5dbab3f199362560b8cde97f656e1cd1106d5eab',
   'supabase/migrations/20260922213000_scale_os_enterprise_event_immutability_v1.sql': '82da850049a7cdc0d9701fe9182da02600b8ebe6',
   'supabase/migrations/20260922214000_scale_os_enterprise_event_insert_guard_v1.sql': '9b140d8afda32146bbd80d9d4803155cd388826e',
   'supabase/migrations/20260922220500_supabase_advisor_performance_hardening_v1.sql': '90c4ee638a11b2cbcf858d6e6cdb4395d94cddbf',
-  'sovereign-omega-v2/test/native-runtime/scale-os-company-runtime-v2.test.mjs': 'c46f8eec845cf49148d60f9ebab184bb1fe61d86',
+  'sovereign-omega-v2/test/native-runtime/scale-os-company-runtime-v2.test.mjs': '42962ef934ff821fcdb1adbf3faa8308e08e89bd',
 })
 const OUT = resolve('worker-src/generated-enterprise-replay.ts')
 
