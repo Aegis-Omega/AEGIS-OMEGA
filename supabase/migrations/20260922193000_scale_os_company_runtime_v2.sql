@@ -85,10 +85,87 @@ alter table scale_os.task_leases_v2 enable row level security;
 alter table scale_os.task_dependencies_v2 force row level security;
 alter table scale_os.task_leases_v2 force row level security;
 
-revoke all on scale_os.task_dependencies_v2 from public, anon, authenticated;
-revoke all on scale_os.task_leases_v2 from public, anon, authenticated;
-grant select, insert, update, delete on scale_os.task_dependencies_v2 to service_role;
-grant select, insert, update, delete on scale_os.task_leases_v2 to service_role;
+revoke all on scale_os.task_dependencies_v2 from public, anon, authenticated, service_role;
+revoke all on scale_os.task_leases_v2 from public, anon, authenticated, service_role;
+grant select on scale_os.task_dependencies_v2 to service_role;
+grant select on scale_os.task_leases_v2 to service_role;
+
+create or replace function scale_os.add_task_dependency_v2(
+  p_task_id uuid,
+  p_depends_on_task_id uuid
+)
+returns text
+language plpgsql
+security definer
+set search_path = scale_os, pg_temp
+as $$
+declare
+  v_task_status text;
+  v_dependency_exists boolean;
+  v_inserted integer := 0;
+begin
+  if p_task_id is null or p_depends_on_task_id is null then
+    raise exception 'task ids required';
+  end if;
+  if p_task_id = p_depends_on_task_id then
+    return 'DENIED_SELF_DEPENDENCY';
+  end if;
+
+  perform t.id
+    from scale_os.tasks as t
+   where t.id in (p_task_id, p_depends_on_task_id)
+   order by t.id
+   for update;
+
+  select t.status
+    into v_task_status
+    from scale_os.tasks as t
+   where t.id = p_task_id;
+
+  if not found then
+    return 'DENIED_UNKNOWN_TASK';
+  end if;
+
+  select exists (
+    select 1 from scale_os.tasks as t
+     where t.id = p_depends_on_task_id
+  ) into v_dependency_exists;
+
+  if not v_dependency_exists then
+    return 'DENIED_UNKNOWN_DEPENDENCY';
+  end if;
+
+  if v_task_status not in ('queued','awaiting_approval') then
+    return 'DENIED_TASK_ALREADY_STARTED';
+  end if;
+
+  if exists (
+    with recursive dependency_walk(task_id) as (
+      select d.depends_on_task_id
+        from scale_os.task_dependencies_v2 as d
+       where d.task_id = p_depends_on_task_id
+      union
+      select d.depends_on_task_id
+        from scale_os.task_dependencies_v2 as d
+        join dependency_walk as w on d.task_id = w.task_id
+    )
+    select 1 from dependency_walk where task_id = p_task_id
+  ) then
+    return 'DENIED_DEPENDENCY_CYCLE';
+  end if;
+
+  insert into scale_os.task_dependencies_v2(task_id, depends_on_task_id)
+  values (p_task_id, p_depends_on_task_id)
+  on conflict do nothing;
+
+  get diagnostics v_inserted = row_count;
+  if v_inserted = 0 then
+    return 'REPLAYED';
+  end if;
+
+  return 'ADDED';
+end;
+$$;
 
 create or replace function scale_os.claim_task_lease_v2(
   p_task_id uuid,
@@ -341,6 +418,10 @@ begin
 end;
 $$;
 
+revoke all on function scale_os.add_task_dependency_v2(
+  uuid, uuid
+) from public, anon, authenticated;
+
 revoke all on function scale_os.claim_task_lease_v2(
   uuid, text, text, text, text, bigint, bigint
 ) from public, anon, authenticated;
@@ -349,6 +430,10 @@ revoke all on function scale_os.complete_task_lease_v2(
   uuid, text, text, bigint, text, jsonb
 ) from public, anon, authenticated;
 
+grant execute on function scale_os.add_task_dependency_v2(
+  uuid, uuid
+) to service_role;
+
 grant execute on function scale_os.claim_task_lease_v2(
   uuid, text, text, text, text, bigint, bigint
 ) to service_role;
@@ -356,3 +441,15 @@ grant execute on function scale_os.claim_task_lease_v2(
 grant execute on function scale_os.complete_task_lease_v2(
   uuid, text, text, bigint, text, jsonb
 ) to service_role;
+
+alter function scale_os.add_task_dependency_v2(
+  uuid, uuid
+) owner to postgres;
+
+alter function scale_os.claim_task_lease_v2(
+  uuid, text, text, text, text, bigint, bigint
+) owner to postgres;
+
+alter function scale_os.complete_task_lease_v2(
+  uuid, text, text, bigint, text, jsonb
+) owner to postgres;
