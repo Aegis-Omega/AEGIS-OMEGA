@@ -77,8 +77,9 @@ theorem centered_transform_eq_mellin_v11
 private theorem logLift_continuous_v11
     (g : WeilCompactSmoothGV1) :
     Continuous (logLift g.1) := by
-  unfold logLift
-  fun_prop
+    have hg : Continuous g.1 := g.2.1.continuous
+    unfold logLift
+    fun_prop
 
 /-- Public compact-support fact for the logarithmic packet. -/
 theorem logLift_hasCompactSupport_v11
@@ -180,8 +181,9 @@ private theorem centered_correlation_inner_u_v11
           apply integral_congr_ae
           filter_upwards [] with u
           dsimp [F]
-          rw [← Complex.exp_add]
+          rw [← mul_assoc, ← Complex.exp_add, add_comm u v]
           congr 2
+          push_cast
           ring
       _ =
         Complex.exp (-(z * (v : ℂ))) *
@@ -195,8 +197,7 @@ private theorem centered_correlation_inner_u_v11
         Complex.exp (-(z * (v : ℂ))) *
           WeilCenteredTransformV11 g z := by
             rfl
-  rw [← integral_mul_const]
-  rw [hshift]
+  rw [integral_mul_const, hshift]
   ring
 
 /-- Conjugated reflected centered transform. -/
@@ -209,10 +210,9 @@ private theorem reflected_centered_transform_v11
   rw [WeilCenteredTransformV11, ← integral_conj]
   apply integral_congr_ae
   filter_upwards [] with v
-  rw [map_mul, map_exp]
-  simp
+  rw [map_mul, ← Complex.exp_conj]
   congr 2
-  ring
+  simp [map_neg, map_mul, Complex.conj_ofReal]
 
 /-- Bilateral transform of the log-autocorrelation factors exactly. -/
 theorem centered_correlation_transform_factorization_v11
@@ -234,14 +234,18 @@ theorem centered_correlation_transform_factorization_v11
           apply integral_congr_ae
           filter_upwards [] with u
           unfold logCorrelationV25 WeilCenteredCorrelationJointV11
-          rw [integral_const_mul]
-          rfl
+          rw [← integral_const_mul]
+          congr 1
+          funext v
+          simp only
+          ring
     _ =
     ∫ v : ℝ,
       ∫ u : ℝ,
         WeilCenteredCorrelationJointV11 g z (u, v) := by
-          simpa [Function.uncurry_def] using
-            integral_integral_swap hprod
+          exact integral_integral_swap
+            (f := fun u v => WeilCenteredCorrelationJointV11 g z (u, v))
+            (by simpa [Function.uncurry_def] using hprod)
     _ =
     ∫ v : ℝ,
       WeilCenteredTransformV11 g z *
@@ -287,20 +291,29 @@ theorem weil_autocorrelation_mellin_factorization_v11
     have he :
         (Real.exp (u / 2) : ℂ) ≠ 0 := by simp
     field_simp [he]
-    rw [← Complex.exp_add]
-    congr 2
-    push_cast
+    have hsplit :
+        Complex.exp (s * (u : ℂ)) =
+          Complex.exp ((u : ℂ) * (s * 2 - 1) / 2) *
+            Complex.exp (((u / 2 : ℝ) : ℂ)) := by
+      rw [← Complex.exp_add]
+      congr 1
+      push_cast
+      ring
+    rw [Complex.ofReal_exp, hsplit]
     ring
-  rw [hlog, hcorr,
+  rw [show mellin (WeilAutocorrelationV1 g) s = mellin A.1 s from rfl, hlog, hcorr,
     centered_correlation_transform_factorization_v11]
   rw [centered_transform_eq_mellin_v11,
     centered_transform_eq_mellin_v11]
   congr 2
   · ring
   · congr 2
+    have h2 : (starRingEnd ℂ) (2 : ℂ) = 2 := by
+      rw [show (2 : ℂ) = ((2 : ℝ) : ℂ) by norm_num, Complex.conj_ofReal]
+    simp [h2]
     ring
 
-end AEGIS.WeilAutocorrelationMellinV11
+  end AEGIS.WeilAutocorrelationMellinV11
 
 #print axioms AEGIS.WeilAutocorrelationMellinV11.centered_correlation_transform_factorization_v11
 #print axioms AEGIS.WeilAutocorrelationMellinV11.weil_autocorrelation_mellin_factorization_v11
