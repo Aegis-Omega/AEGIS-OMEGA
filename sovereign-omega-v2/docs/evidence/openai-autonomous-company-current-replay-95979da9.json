@@ -1,0 +1,138 @@
+{
+  "schema": "AEGIS_OPENAI_AUTONOMOUS_COMPANY_CURRENT_REPLAY_V1",
+  "candidate_sha": "95979da9a141d49f3bc79704d83898063a20040b",
+  "candidate_tree_sha": "b2311c8509114658d4ff1f6e16390efd0c416a72",
+  "source_candidate_sha": "d003ab792e378977c1d90e919361f13062cf6810",
+  "source_candidate_tree_sha": "8b941c5bc9aa62f1d66c632fc4260abe47987117",
+  "rebind_basis": {
+    "comparison": "d003ab792e378977c1d90e919361f13062cf6810...95979da9a141d49f3bc79704d83898063a20040b",
+    "changed_files": [
+      ".github/workflows/openai-autonomous-company-replay.yml"
+    ],
+    "replayed_artifacts_changed": false
+  },
+  "local_execution": {
+    "producer": "INDEPENDENT_LOCAL_EXECUTION_HOST",
+    "node": "22.16.0",
+    "typescript": "5.8.3",
+    "git_blob_identity": "18/18_PASS",
+    "strict_typecheck": "PASS",
+    "tests_total": 54,
+    "tests_passed": 54,
+    "tests_failed": 0,
+    "tests_skipped": 0,
+    "single_process_run": true
+  },
+  "supabase_postgres_execution": {
+    "project_ref": "rwehltdwpsncnwxzkwik",
+    "engine": "PostgreSQL 17.6",
+    "exact_repo_migrations_transactional_replay": "PASS",
+    "ledger_rolled_back": true,
+    "lease_rolled_back": true,
+    "claim_rpc_rolled_back": true,
+    "two_session_race": {
+      "worker_1": "CLAIMED",
+      "worker_2": "DENIED_ALREADY_LEASED",
+      "final_owner": "w1",
+      "final_task_state": "RUNNING",
+      "probe_schema_cleanup": true
+    },
+    "production_migration_applied": false
+  },
+  "gcp_cloud_sql": {
+    "infrastructure": "ESTABLISHED_BY_REPOSITORY_TERRAFORM",
+    "instance_name": "aegis-audit-db",
+    "region": "us-central1",
+    "database_version": "POSTGRES_16",
+    "iam_authentication": "ON",
+    "live_sql_execution": "NOT_PERFORMED",
+    "reason": "DIRECT_CLOUD_SQL_EXECUTION_CONNECTOR_NOT_EXPOSED_IN_CURRENT_SESSION"
+  },
+  "github_hosted_replay": {
+    "run_id": 35751864608,
+    "run_number": 22,
+    "status_at_receipt": "QUEUED",
+    "runner_execution": "NOT_YET_OBSERVED"
+  },
+  "live_openai_execution": "NOT_PERFORMED",
+  "write_authority": "NOT_GRANTED",
+  "merge_authority": "NOT_GRANTED",
+  "deploy_authority": "NOT_GRANTED",
+  "financial_authority": "NOT_GRANTED",
+  "authority_effect": "NONE",
+  "artifacts": {
+    "sovereign-omega-v2/src/sovereignty/provider-adapters/openai-managed-agents-api.ts": {
+      "sha256": "3ec87ea8207e2004575898c27136ad7c374cf42f2c397ce2b4fa7d269a059ba1",
+      "size_bytes": 6081
+    },
+    "sovereign-omega-v2/src/sovereignty/provider-adapters/openai-managed-agents-client-binding.ts": {
+      "sha256": "2fe0d744771354361015d65ae8fca36e5d03bcea03164823f0925180c16be03a",
+      "size_bytes": 4831
+    },
+    "sovereign-omega-v2/src/sovereignty/autonomous-company-loop.ts": {
+      "sha256": "b53c5a7051667ee0d620c9f31d4464856809584ff76baa6fc736dc6c81d53149",
+      "size_bytes": 5546
+    },
+    "sovereign-omega-v2/src/sovereignty/company-model-router.ts": {
+      "sha256": "4d586683cc000b14aba4c4364eca65aaef01d71c75ba03a5b230e9b8743451b4",
+      "size_bytes": 2337
+    },
+    "sovereign-omega-v2/src/sovereignty/company-evidence-authority.ts": {
+      "sha256": "4205483126a7f83c26714d06d353974c28738f45cbfde3b59c5e14c1b2760e18",
+      "size_bytes": 4691
+    },
+    "sovereign-omega-v2/src/sovereignty/company-approval-packet.ts": {
+      "sha256": "49855568e395190e2aa9ca025194b02262fdba669ac0777d70c69e2ac9d4f610",
+      "size_bytes": 5529
+    },
+    "sovereign-omega-v2/src/sovereignty/company-model-promotion.ts": {
+      "sha256": "0048774353fbb69fdacddfd8dee47229a4820bbb60ac201f732a039776089b97",
+      "size_bytes": 5582
+    },
+    "sovereign-omega-v2/src/sovereignty/company-work-graph.ts": {
+      "sha256": "c36f952a5b35ff3832094c4c6c1fb6f56e09a6dbd6999dee74a94e47854b59b9",
+      "size_bytes": 9588
+    },
+    "sovereign-omega-v2/test/native-runtime/openai-autonomous-company.test.mjs": {
+      "sha256": "f6f09398c976ed97dd5f66c0d69d48f4dcd3e55eb46f6f6d81866393ed91b43b",
+      "size_bytes": 4054
+    },
+    "sovereign-omega-v2/test/native-runtime/openai-company-production.test.mjs": {
+      "sha256": "f3d949beb307a2d298f131451c41b98afd16c6554d1b0ddb7002576fa82c6ef2",
+      "size_bytes": 4458
+    },
+    "sovereign-omega-v2/test/native-runtime/company-evidence-authority.test.mjs": {
+      "sha256": "ebb88882c6e6f3660035ca0c5cc63ae7c3f5898fceb45c7a0e3183579ebb7d0c",
+      "size_bytes": 2348
+    },
+    "sovereign-omega-v2/test/native-runtime/company-approval-packet.test.mjs": {
+      "sha256": "81bf6f3e2da5a5084f06906d9d5b7841b2750087d791d65880d3d9a0a15597ef",
+      "size_bytes": 4473
+    },
+    "sovereign-omega-v2/test/native-runtime/company-ledger-migration.test.mjs": {
+      "sha256": "bcae4b4a746af479abb151059b7b5bccb3634abed7e533202649b04ef6c2df7e",
+      "size_bytes": 3163
+    },
+    "sovereign-omega-v2/test/native-runtime/company-model-promotion.test.mjs": {
+      "sha256": "f58855d10ef9157980c94f6e180d849cb37183e02d13ca89cbd2819870124bac",
+      "size_bytes": 3647
+    },
+    "sovereign-omega-v2/test/native-runtime/company-work-graph.test.mjs": {
+      "sha256": "2b320f40b995d7ecaa1cc3b2962e34c782c56313284c39a77eee621f1b03d56d",
+      "size_bytes": 6740
+    },
+    "sovereign-omega-v2/test/native-runtime/company-task-lease-sql.test.mjs": {
+      "sha256": "17248c42647cfb7c6e75537bebd43f864315ae145a53b92ee750a03ed15cc1dc",
+      "size_bytes": 4354
+    },
+    "supabase/migrations/20260922171000_autonomous_company_work_ledger_v1.sql": {
+      "sha256": "93a4a4220359e537771c7eead492cfcdd8c76c66b68f01c0d38ac04d08ebdd25",
+      "size_bytes": 6562
+    },
+    "supabase/migrations/20260922180000_company_task_lease_fencing_v1.sql": {
+      "sha256": "76cb367a8f72d0f9106d35de4a01b9f8d85760aa762058bdc55e360960349586",
+      "size_bytes": 10347
+    }
+  },
+  "receipt_sha256": "91376e58bd956151f88c8b6006caa9c8350e43f7cb498e9a7b4ec1667821eaad"
+}

@@ -1,0 +1,245 @@
+name: OpenAI Autonomous Company Exact-Head Replay
+
+'on':
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: ['feat/provider-native-sdk-runtime-v1']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openai-company-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  openai-company:
+    if: >-
+      github.event.pull_request.number == 607 &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.head_ref == 'feat/openai-sota-autonomous-company-v1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+        working-directory: sovereign-omega-v2
+    env:
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Set up pinned Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.16.0'
+
+      - name: Bind exact source and install locked dependencies
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          npm ci --ignore-scripts --include=dev --no-audit --no-fund
+
+      - name: Strict typecheck new company runtime
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/tsc --noEmit --strict --target ES2022 --module ES2022 \
+            --moduleResolution bundler --lib ES2022,DOM \
+            src/sovereignty/provider-adapters/openai-managed-agents-api.ts \
+            src/sovereignty/provider-adapters/openai-managed-agents-client-binding.ts \
+            src/sovereignty/autonomous-company-loop.ts \
+            src/sovereignty/company-model-router.ts \
+            src/sovereignty/company-evidence-authority.ts \
+            src/sovereignty/company-approval-packet.ts \
+            src/sovereignty/company-model-promotion.ts \
+            src/sovereignty/company-work-graph.ts \
+            src/sovereignty/company-enterprise-opportunity.ts \
+            src/sovereignty/company-enterprise-mail-ingest.ts \
+            src/sovereignty/company-enterprise-resource-admission.ts \
+            src/sovereignty/company-enterprise-followup-policy.ts \
+            src/sovereignty/company-enterprise-engagement-gate.ts \
+            src/sovereignty/company-enterprise-action-packet.ts \
+            src/sovereignty/company-enterprise-ledger-reconcile.ts \
+            src/sovereignty/company-enterprise-production-readiness.ts \
+            src/sovereignty/company-enterprise-prospect-admission.ts \
+            src/sovereignty/company-hosted-replay-admission.ts
+
+      - name: Execute autonomous-company falsifiers
+        run: |
+          set -euo pipefail
+          node --test \
+            test/native-runtime/openai-autonomous-company.test.mjs \
+            test/native-runtime/openai-company-production.test.mjs \
+            test/native-runtime/company-evidence-authority.test.mjs \
+            test/native-runtime/company-approval-packet.test.mjs \
+            test/native-runtime/company-model-promotion.test.mjs \
+            test/native-runtime/company-work-graph.test.mjs \
+            test/native-runtime/scale-os-company-runtime-v2.test.mjs \
+            test/native-runtime/scale-os-enterprise-opportunities-v1.test.mjs \
+            test/native-runtime/scale-os-enterprise-resources-v1.test.mjs \
+            test/native-runtime/scale-os-enterprise-event-immutability-v1.test.mjs \
+            test/native-runtime/scale-os-enterprise-event-insert-guard-v1.test.mjs \
+            test/native-runtime/openai-complimentary-canary.test.mjs \
+            test/native-runtime/company-enterprise-opportunity.test.mjs \
+            test/native-runtime/company-enterprise-mail-ingest.test.mjs \
+            test/native-runtime/company-enterprise-resource-admission.test.mjs \
+            test/native-runtime/company-enterprise-followup-policy.test.mjs \
+            test/native-runtime/company-enterprise-engagement-gate.test.mjs \
+            test/native-runtime/company-enterprise-action-packet.test.mjs \
+            test/native-runtime/company-enterprise-ledger-reconcile.test.mjs \
+            test/native-runtime/company-enterprise-production-readiness.test.mjs \
+            test/native-runtime/company-enterprise-prospect-admission.test.mjs \
+            test/native-runtime/company-hosted-replay-admission.test.mjs \
+            test/native-runtime/supabase-advisor-performance-hardening-v1.test.mjs
+
+      - name: Execute Cloud SQL audit source contracts
+        run: |
+          set -euo pipefail
+          cd ..
+          python3 -m py_compile \
+            vertex/cloudsql_audit.py \
+            vertex/serve.py \
+            vertex/test_cloudsql_audit.py \
+            vertex/run_cloudsql_audit_contract.py
+          python3 vertex/run_cloudsql_audit_contract.py
+
+      - name: Emit exact-head receipt
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/aegis-openai-company"
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+
+          root = Path.cwd().parent
+          paths = [
+              'sovereign-omega-v2/src/sovereignty/provider-adapters/openai-managed-agents-api.ts',
+              'sovereign-omega-v2/src/sovereignty/provider-adapters/openai-managed-agents-client-binding.ts',
+              'sovereign-omega-v2/src/sovereignty/autonomous-company-loop.ts',
+              'sovereign-omega-v2/src/sovereignty/company-model-router.ts',
+              'sovereign-omega-v2/src/sovereignty/company-evidence-authority.ts',
+              'sovereign-omega-v2/src/sovereignty/company-approval-packet.ts',
+              'sovereign-omega-v2/src/sovereignty/company-model-promotion.ts',
+              'sovereign-omega-v2/src/sovereignty/company-work-graph.ts',
+              'sovereign-omega-v2/test/native-runtime/openai-autonomous-company.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-approval-packet.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-evidence-authority.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/openai-company-production.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-model-promotion.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-work-graph.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/scale-os-company-runtime-v2.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/scale-os-enterprise-opportunities-v1.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/scale-os-enterprise-resources-v1.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/scale-os-enterprise-event-immutability-v1.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/scale-os-enterprise-event-insert-guard-v1.test.mjs',
+              'sovereign-omega-v2/scripts/openai-complimentary-canary.mjs',
+              'sovereign-omega-v2/test/native-runtime/openai-complimentary-canary.test.mjs',
+              'sovereign-omega-v2/src/sovereignty/company-enterprise-opportunity.ts',
+              'sovereign-omega-v2/src/sovereignty/company-enterprise-mail-ingest.ts',
+              'sovereign-omega-v2/src/sovereignty/company-enterprise-resource-admission.ts',
+              'sovereign-omega-v2/src/sovereignty/company-enterprise-followup-policy.ts',
+              'sovereign-omega-v2/src/sovereignty/company-enterprise-engagement-gate.ts',
+              'sovereign-omega-v2/src/sovereignty/company-enterprise-action-packet.ts',
+              'sovereign-omega-v2/src/sovereignty/company-enterprise-ledger-reconcile.ts',
+              'sovereign-omega-v2/src/sovereignty/company-enterprise-production-readiness.ts',
+              'sovereign-omega-v2/src/sovereignty/company-enterprise-prospect-admission.ts',
+              'sovereign-omega-v2/src/sovereignty/company-hosted-replay-admission.ts',
+              'sovereign-omega-v2/test/native-runtime/company-enterprise-opportunity.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-enterprise-mail-ingest.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-enterprise-resource-admission.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-enterprise-followup-policy.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-enterprise-engagement-gate.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-enterprise-action-packet.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-enterprise-ledger-reconcile.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-enterprise-production-readiness.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-enterprise-prospect-admission.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/company-hosted-replay-admission.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/supabase-advisor-performance-hardening-v1.test.mjs',
+              'supabase/migrations/20260922193000_scale_os_company_runtime_v2.sql',
+              'supabase/migrations/20260922205500_scale_os_enterprise_opportunities_v1.sql',
+              'supabase/migrations/20260922211500_scale_os_enterprise_resources_v1.sql',
+              'supabase/migrations/20260922213000_scale_os_enterprise_event_immutability_v1.sql',
+              'supabase/migrations/20260922214000_scale_os_enterprise_event_insert_guard_v1.sql',
+              'supabase/migrations/20260922220500_supabase_advisor_performance_hardening_v1.sql',
+              'vertex/cloudsql_audit.py',
+              'vertex/serve.py',
+              'vertex/Dockerfile',
+              'vertex/test_cloudsql_audit.py',
+              'vertex/run_cloudsql_audit_contract.py',
+              'gcp/cloudsql/001_constitutional_audit_chain_v1.sql',
+          ]
+          head = subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'], text=True).strip()
+          if head != os.environ['EXPECTED_HEAD']:
+              raise SystemExit('exact-head drift')
+
+          receipt = {
+              'schema': 'AEGIS_OPENAI_AUTONOMOUS_COMPANY_REPLAY_V1',
+              'head_sha': head,
+              'tree_sha': subprocess.check_output(
+                  ['git','-C',str(root),'rev-parse','HEAD^{tree}'], text=True
+              ).strip(),
+              'run_id': os.environ['GITHUB_RUN_ID'],
+              'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'job': os.environ['GITHUB_JOB'],
+              'workflow_ref': os.environ['GITHUB_WORKFLOW_REF'],
+              'sha256': {
+                  p: hashlib.sha256((root / p).read_bytes()).hexdigest()
+                  for p in paths
+              },
+              'execution_contract': 'TYPECHECK_AND_DECLARED_FALSIFIER_SUITES_PASS',
+              'falsifier_suites': [
+                  'openai-autonomous-company.test.mjs',
+                  'openai-company-production.test.mjs',
+                  'company-evidence-authority.test.mjs',
+                  'company-approval-packet.test.mjs',
+                  'company-model-promotion.test.mjs',
+                  'company-work-graph.test.mjs',
+                  'scale-os-company-runtime-v2.test.mjs',
+                  'scale-os-enterprise-opportunities-v1.test.mjs',
+                  'scale-os-enterprise-resources-v1.test.mjs',
+                  'scale-os-enterprise-event-immutability-v1.test.mjs',
+                  'scale-os-enterprise-event-insert-guard-v1.test.mjs',
+                  'openai-complimentary-canary.test.mjs',
+                  'company-enterprise-opportunity.test.mjs',
+                  'company-enterprise-mail-ingest.test.mjs',
+                  'company-enterprise-resource-admission.test.mjs',
+                  'company-enterprise-followup-policy.test.mjs',
+                  'company-enterprise-engagement-gate.test.mjs',
+                  'company-enterprise-action-packet.test.mjs',
+                  'company-enterprise-ledger-reconcile.test.mjs',
+                  'company-enterprise-production-readiness.test.mjs',
+                  'company-enterprise-prospect-admission.test.mjs',
+                  'company-hosted-replay-admission.test.mjs',
+                  'supabase-advisor-performance-hardening-v1.test.mjs',
+              ],
+              'cloud_sql_contract': 'PY_COMPILE_AND_OFFLINE_CONTRACT_PASS',
+              'supabase_scale_os_migration': 'SOURCE_ONLY_NOT_APPLIED',
+              'enterprise_opportunity_persistence': 'SOURCE_ONLY_NOT_APPLIED',
+              'enterprise_resource_persistence': 'SOURCE_ONLY_NOT_APPLIED',
+              'enterprise_event_immutability_guard': 'SOURCE_ONLY_NOT_APPLIED',
+              'enterprise_event_insert_guard': 'SOURCE_ONLY_NOT_APPLIED',
+              'cloud_sql_schema': 'SOURCE_ONLY_NOT_APPLIED',
+              'live_openai_execution': 'NOT_PERFORMED',
+              'write_authority': 'NOT_GRANTED',
+              'merge_authority': 'NOT_GRANTED',
+              'deploy_authority': 'NOT_GRANTED',
+              'financial_authority': 'NOT_GRANTED',
+              'authority_effect': 'NONE',
+          }
+          body = json.dumps(receipt, sort_keys=True, separators=(',', ':')).encode()
+          receipt['receipt_sha256'] = hashlib.sha256(body).hexdigest()
+          out = Path(os.environ['RUNNER_TEMP']) / 'aegis-openai-company' / 'receipt.json'
+          out.write_text(json.dumps(receipt, indent=2) + '\n')
+          print(out.read_text())
+          PY
+
+      - name: Preserve replay receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: openai-autonomous-company-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/aegis-openai-company/receipt.json
+          retention-days: 7

@@ -1,11 +1,18 @@
 {
   "name": "aegis-tactical-dashboard",
-  "workspaces": ["backend"],
+  "workspaces": [
+    "backend"
+  ],
   "scripts": {
     "dev-backend": "npm run dev --prefix backend",
-    "dev": "npm run dev-backend"
+    "dev": "npm run dev-backend",
+    "postinstall": "npm run ci:enterprise:hosted --silent",
+    "ci:enterprise:hosted": "node scripts/cloudflare-enterprise-replay.mjs"
   },
   "devDependencies": {
     "concurrently": "latest"
+  },
+  "engines": {
+    "node": "22.16.0"
   }
 }

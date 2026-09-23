@@ -1,0 +1,73 @@
+{
+  "schema": "AEGIS_ENTERPRISE_PRODUCTION_READINESS_RECEIPT_V2",
+  "observed_date": "2026-09-22",
+  "source_exact_head": "64afbc79c20c2665338cdbaa0e4e531566172b52",
+  "supersedes_source_receipt": "5660fd7d3aea6ff080a60524740cef2bf66cef13",
+  "exact_head_execution": {
+    "workflow_run_id": 35775593701,
+    "run_number": 75,
+    "job_id": 106907862429,
+    "job_name": "openai-company",
+    "run_conclusion": "failure",
+    "job_conclusion": "failure",
+    "steps": null,
+    "runner_execution": "NOT_OBSERVED",
+    "code_failure": "NOT_ESTABLISHED"
+  },
+  "production_observation": {
+    "supabase_project_id": "rwehltdwpsncnwxzkwik",
+    "latest_applied_migration": "20260921155322_provider_selection_receipt_evidence_binding_v1",
+    "scale_os_runtime_v2": "NOT_APPLIED",
+    "opportunity_persistence_v1": "NOT_APPLIED",
+    "resource_persistence_v1": "NOT_APPLIED",
+    "enterprise_event_immutability_guard_v1": "NOT_APPLIED",
+    "enterprise_event_insert_guard_v1": "NOT_APPLIED",
+    "openai_vault_alias_count": 0,
+    "openai_live_canary": "NOT_OBSERVED"
+  },
+  "enterprise_controls": {
+    "opportunity_state_machine": "IMPLEMENTED_SOURCE",
+    "mail_ingest": "IMPLEMENTED_SOURCE",
+    "resource_admission": "IMPLEMENTED_SOURCE",
+    "followup_policy": "IMPLEMENTED_SOURCE",
+    "engagement_gate": "IMPLEMENTED_SOURCE",
+    "exact_action_packet_binding": "IMPLEMENTED_SOURCE",
+    "snapshot_ledger_reconciliation": "IMPLEMENTED_SOURCE",
+    "production_readiness_gate": "IMPLEMENTED_SOURCE",
+    "prospect_admission": "IMPLEMENTED_SOURCE"
+  },
+  "commercial": {
+    "enterprise_outbound_sent": 14,
+    "qualified_replies_observed": 0,
+    "new_reply_signals": 0,
+    "new_bounce_signals": 0,
+    "commercial_capacity_state": "NOT_VERIFIED",
+    "default_external_message_authority": "NOT_GRANTED",
+    "default_legal_authority": "NOT_GRANTED",
+    "default_financial_authority": "NOT_GRANTED"
+  },
+  "readiness": {
+    "status": "PRODUCTION_NOT_READY",
+    "blockers": [
+      "EXACT_HEAD_EXECUTION_NOT_VERIFIED",
+      "OPENAI_LIVE_CANARY_NOT_VERIFIED",
+      "SCALE_OS_RUNTIME_V2_NOT_APPLIED",
+      "OPPORTUNITY_PERSISTENCE_NOT_APPLIED",
+      "RESOURCE_PERSISTENCE_NOT_APPLIED",
+      "ENTERPRISE_EVENT_IMMUTABILITY_GUARD_NOT_APPLIED",
+      "ENTERPRISE_EVENT_INSERT_GUARD_NOT_APPLIED",
+      "COMMERCIAL_CAPACITY_NOT_VERIFIED"
+    ]
+  },
+  "mutation_boundary": {
+    "production_migration_applied": false,
+    "deployment_performed": false,
+    "merge_performed": false,
+    "openai_key_created": false,
+    "resource_claimed": false,
+    "payment_method_added": false,
+    "legal_commitment_made": false
+  },
+  "receipt_effect": "EVIDENCE_ONLY",
+  "authority_effect": "NONE"
+}

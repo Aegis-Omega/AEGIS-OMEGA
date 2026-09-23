@@ -1,0 +1,66 @@
+{
+  "schema": "AEGIS_ENTERPRISE_PRODUCTION_READINESS_RECEIPT_V1",
+  "observed_date": "2026-09-22",
+  "source_exact_head": "5660fd7d3aea6ff080a60524740cef2bf66cef13",
+  "source_blobs": {
+    "production_readiness_gate": "a7b200c9fdee653d4c9fd4691233ef3cc50820a8",
+    "scale_os_company_runtime_v2": "c5c17875ccec050f058d634fd8267a380584e31f",
+    "enterprise_opportunities_v1": "7db3fcbff9b7c3c8538d524690c57b2a4763ab85",
+    "enterprise_resources_v1": "5dbab3f199362560b8cde97f656e1cd1106d5eab",
+    "enterprise_event_immutability_v1": "82da850049a7cdc0d9701fe9182da02600b8ebe6",
+    "enterprise_event_insert_guard_v1": "9b140d8afda32146bbd80d9d4803155cd388826e",
+    "exact_head_replay_workflow": "2ac65ddaa7ac6ff102af258babb9fa101a8b0dac"
+  },
+  "observed_production": {
+    "supabase_project_id": "rwehltdwpsncnwxzkwik",
+    "latest_applied_migration": "20260921155322_provider_selection_receipt_evidence_binding_v1",
+    "scale_os_runtime_v2": "NOT_APPLIED",
+    "opportunity_persistence_v1": "NOT_APPLIED",
+    "resource_persistence_v1": "NOT_APPLIED",
+    "enterprise_event_immutability_guard_v1": "NOT_APPLIED",
+    "enterprise_event_insert_guard_v1": "NOT_APPLIED",
+    "openai_vault_alias_count": 0,
+    "openai_live_canary": "NOT_OBSERVED"
+  },
+  "exact_head_execution": {
+    "workflow_run_id": 35775052618,
+    "run_number": 71,
+    "run_conclusion": "failure",
+    "job_id": 106906034640,
+    "job_name": "openai-company",
+    "job_conclusion": "failure",
+    "steps": null,
+    "runner_execution": "NOT_OBSERVED",
+    "code_failure": "NOT_ESTABLISHED"
+  },
+  "commercial": {
+    "commercial_capacity_state": "NOT_VERIFIED",
+    "crm_sync_required": false,
+    "crm_write_state": "REQUIRES_REAUTHORIZATION",
+    "default_external_message_authority": "NOT_GRANTED",
+    "default_financial_authority": "NOT_GRANTED",
+    "default_legal_authority": "NOT_GRANTED"
+  },
+  "readiness": {
+    "status": "PRODUCTION_NOT_READY",
+    "blockers": [
+      "EXACT_HEAD_EXECUTION_NOT_VERIFIED",
+      "OPENAI_LIVE_CANARY_NOT_VERIFIED",
+      "SCALE_OS_RUNTIME_V2_NOT_APPLIED",
+      "OPPORTUNITY_PERSISTENCE_NOT_APPLIED",
+      "RESOURCE_PERSISTENCE_NOT_APPLIED",
+      "ENTERPRISE_EVENT_IMMUTABILITY_GUARD_NOT_APPLIED",
+      "ENTERPRISE_EVENT_INSERT_GUARD_NOT_APPLIED",
+      "COMMERCIAL_CAPACITY_NOT_VERIFIED"
+    ]
+  },
+  "mutation_boundary": {
+    "production_migration_applied": false,
+    "deploy_performed": false,
+    "merge_performed": false,
+    "openai_key_created": false,
+    "payment_method_added": false,
+    "resource_claimed": false
+  },
+  "authority_effect": "NONE"
+}
