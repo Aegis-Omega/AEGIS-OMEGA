@@ -54,7 +54,7 @@ private theorem one_sub_exp_neg_lower_v10 {u : ℝ} (hu : 0 < u) :
     simpa [add_comm] using Real.add_one_le_exp u
   have hinv : Real.exp (-u) ≤ 1 / (1 + u) := by
     rw [Real.exp_neg]
-    exact one_div_le_one_div_of_le h1u hexp
+    simpa [one_div] using one_div_le_one_div_of_le h1u hexp
   calc
     u / (1 + u) = 1 - 1 / (1 + u) := by
       field_simp [h1u.ne']
@@ -69,7 +69,7 @@ private theorem gauss_denominator_norm_lower_v10 {u : ℝ} (hu : 0 < u) :
   have hnorm :
       ‖1 - Complex.exp (-(u : ℂ))‖ =
         1 - Real.exp (-u) := by
-    rw [← Complex.ofReal_one, ← Complex.ofReal_exp,
+    rw [← Complex.ofReal_neg, ← Complex.ofReal_exp, ← Complex.ofReal_one,
       ← Complex.ofReal_sub, Complex.norm_real]
     exact Real.norm_of_nonneg (sub_nonneg.mpr hexplt.le)
   rw [hnorm]
@@ -89,12 +89,12 @@ private theorem half_line_shift_norm_le_v10 (c t : ℝ) :
         ≤ ‖((c / 2 - 1 : ℝ) : ℂ)‖ +
             ‖((t / 2 : ℝ) : ℂ) * I‖ := norm_add_le _ _
     _ = |c / 2 - 1| + |t / 2| := by
-        simp [Real.norm_eq_abs, norm_mul]
+        rw [Complex.norm_real, norm_mul, Complex.norm_I, mul_one, Complex.norm_real,
+          Real.norm_eq_abs, Real.norm_eq_abs]
     _ ≤ |c / 2 - 1| + |t| := by
         have ht : |t / 2| ≤ |t| := by
           rw [abs_div]
           norm_num
-          exact mul_le_of_le_one_right (abs_nonneg t) (by norm_num)
         linarith
 
 /-- Global Gauss-kernel majorant on the fixed line. -/
@@ -150,7 +150,7 @@ theorem gauss_fixed_line_norm_le_v10
           u * Real.exp (-(m * u))) /
         (u / (1 + u)) := by
           apply div_le_div₀
-          · exact norm_nonneg _
+          · positivity
           · exact hnum'
           · exact hsmallpos
           · exact hden
@@ -158,7 +158,6 @@ theorem gauss_fixed_line_norm_le_v10
       2 * (1 + |c / 2 - 1| + |t|) *
         (1 + u) * Real.exp (-(m * u)) := by
           field_simp [hu.ne', (by linarith : (1 + u) ≠ 0)]
-          ring
     _ =
       2 * (1 + |c / 2 - 1| + |t|) *
         (1 + u) *
@@ -184,21 +183,14 @@ private theorem gamma_u_majorant_integrable_v10
       IntegrableOn
         (fun u : ℝ => u * Real.exp (-(m * u)))
         (Ioi (0 : ℝ)) := by
-    have key :=
-      Real.integral_rpow_mul_exp_neg_mul_Ioi
-        (a := (2 : ℝ)) (r := m) (by norm_num) hm
-    refine Integrable.of_integral_ne_zero ?_
-    have hpos :
-        0 < (1 / m) ^ (2 : ℝ) * Real.Gamma 2 := by positivity
-    have heq :
-        (∫ u : ℝ in Ioi 0,
-          u * Real.exp (-(m * u))) =
-          (1 / m) ^ (2 : ℝ) * Real.Gamma 2 := by
-      simpa using key
-    rw [heq]
-    exact hpos.ne'
-  have hadd := h0.add h1
-  simpa [m, add_mul, neg_mul] using hadd
+    have hI :=
+      integrableOn_rpow_mul_exp_neg_mul_rpow (s := 1) (p := 1) (b := m)
+        (by norm_num) (by norm_num) hm
+    refine hI.congr_fun (fun u _ => ?_) measurableSet_Ioi
+    simp [Real.rpow_one]
+  refine (h0.add h1).congr (Filter.Eventually.of_forall fun u => ?_)
+  simp only [Pi.add_apply, m, neg_mul]
+  ring
 
 private theorem gamma_t_majorant_integrable_v10
     (f : WeilCompactSmoothGV1) (c : ℝ) :
@@ -219,8 +211,9 @@ private theorem gamma_t_majorant_integrable_v10
         (fun t : ℝ =>
           |t| * ‖WeilPairedMellinProfileV5 f c t‖) :=
     hH.2.1
-  have hadd := h0.add h1
-  simpa [A, add_mul, add_assoc] using hadd
+  refine (h0.add h1).congr (Filter.Eventually.of_forall fun t => ?_)
+  simp only [Pi.add_apply, A]
+  ring
 
 /-- Absolute product-integrability of the Gauss kernel against the actual V5
 paired Mellin profile. -/
@@ -268,16 +261,15 @@ theorem weil_gauss_fixed_line_kernel_integrable_v10
       fun_prop
     exact hGm.mul hHm
   refine hmajor.mono' hmeas ?_
-  have hpos_set :
-      MeasurableSet {p : ℝ × ℝ | 0 < p.2} := by
-    exact measurableSet_Ioi.preimage measurable_snd
   have hpos_ae :
-      ∀ᵐ p ∂(volume.prod (volume.restrict (Ioi (0 : ℝ)))), 0 < p.2 := by
-    rw [Measure.ae_prod_mem_iff_ae_ae_mem hpos_set]
+      ∀ᵐ p : ℝ × ℝ ∂(volume.prod (volume.restrict (Ioi (0 : ℝ)))), 0 < p.2 := by
+    change ∀ᵐ p : ℝ × ℝ ∂(volume.prod (volume.restrict (Ioi (0 : ℝ)))),
+        p ∈ Prod.snd ⁻¹' Ioi (0 : ℝ)
+    rw [Measure.ae_prod_mem_iff_ae_ae_mem
+      (measurable_snd measurableSet_Ioi)]
     exact Filter.Eventually.of_forall (fun _ => by
       rw [ae_restrict_iff' measurableSet_Ioi]
-      exact Filter.Eventually.of_forall (fun u hu => by
-        simpa using hu))
+      exact Filter.Eventually.of_forall (fun u hu => hu))
   filter_upwards [hpos_ae] with p hp
   have hu : 0 < p.2 := hp
   unfold WeilGaussFixedLineKernelV10
