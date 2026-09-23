@@ -20,5 +20,7 @@
   "network_authority": "NO_NEW_AUTHORITY",
   "publication": "NOT_PERFORMED",
   "deployment": "NOT_PERFORMED",
-  "authority_effect": "NONE"
+  "authority_effect": "NONE",
+  "compute_transport": "POST_JSON_BODY",
+  "compute_query_payloads": "FORBIDDEN"
 }

@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 import urllib.request
 import urllib.error
-import urllib.parse
 from dataclasses import dataclass, field
 from typing import Any, Generator, Literal
 
@@ -105,7 +104,7 @@ class ExecutionHandle:
         return self._client.get_execution(self.execution_id)
 
 
-def _archive_arc_path(grid: list[list[int]], operation_id: int) -> str:
+def _archive_arc_request(grid: list[list[int]], operation_id: int) -> tuple[str, dict[str, Any]]:
     if isinstance(operation_id, bool) or not isinstance(operation_id, int) or not 0 <= operation_id <= 10:
         raise ValueError("operation_id must be an integer in 0..10")
     if not isinstance(grid, list) or not grid or len(grid) > 10:
@@ -120,11 +119,10 @@ def _archive_arc_path(grid: list[list[int]], operation_id: int) -> str:
         for row in grid for value in row
     ):
         raise ValueError("grid cells must be integers in 0..9")
-    query = urllib.parse.urlencode({
-        "op": str(operation_id),
-        "grid": json.dumps(grid, separators=(",", ":")),
-    })
-    return f"/platform/archive/runtime/arc?{query}"
+    return "/platform/archive/runtime/arc", {
+        "operation_id": operation_id,
+        "grid": grid,
+    }
 
 
 def _archive_text(value: str, *, name: str, limit: int) -> str:
@@ -133,21 +131,18 @@ def _archive_text(value: str, *, name: str, limit: int) -> str:
     return value
 
 
-def _archive_swarm_path(subject: str, relation: str, obj: str) -> str:
-    query = urllib.parse.urlencode({
+def _archive_swarm_request(subject: str, relation: str, obj: str) -> tuple[str, dict[str, Any]]:
+    return "/platform/archive/runtime/swarm", {
         "subject": _archive_text(subject, name="subject", limit=64),
         "relation": _archive_text(relation, name="relation", limit=64),
         "object": _archive_text(obj, name="object", limit=64),
-    })
-    return f"/platform/archive/runtime/swarm?{query}"
+    }
 
 
-def _archive_biology_path(stimulus: str) -> str:
-    query = urllib.parse.urlencode({
+def _archive_biology_request(stimulus: str) -> tuple[str, dict[str, Any]]:
+    return "/platform/archive/runtime/biology", {
         "stimulus": _archive_text(stimulus, name="stimulus", limit=256),
-    })
-    return f"/platform/archive/runtime/biology?{query}"
-
+    }
 
 def _validate_envelope(raw: dict[str, Any]) -> Any:
     if raw.get("contract_version") != CONTRACT_VERSION:
@@ -238,16 +233,19 @@ class AegisClient:
         )
 
     def archive_arc_transform(self, grid: list[list[int]], operation_id: int) -> dict[str, Any]:
-        """Execute one bounded recovered ARC DSL primitive (GET-only)."""
-        return _validate_envelope(self._request("GET", _archive_arc_path(grid, operation_id)))
+        """Execute one bounded recovered ARC DSL primitive (ephemeral compute)."""
+        path, body = _archive_arc_request(grid, operation_id)
+        return _validate_envelope(self._request("POST", path, body))
 
     def archive_swarm_observe(self, subject: str, relation: str, obj: str) -> dict[str, Any]:
         """Run one ephemeral recovered SWARM observation with no durable state."""
-        return _validate_envelope(self._request("GET", _archive_swarm_path(subject, relation, obj)))
+        path, body = _archive_swarm_request(subject, relation, obj)
+        return _validate_envelope(self._request("POST", path, body))
 
     def archive_biology_probe(self, stimulus: str) -> dict[str, Any]:
         """Run the bounded recovered biology probe; this is not medical advice or diagnosis."""
-        return _validate_envelope(self._request("GET", _archive_biology_path(stimulus)))
+        path, body = _archive_biology_request(stimulus)
+        return _validate_envelope(self._request("POST", path, body))
 
     def collaborate(self, objective: str, mode: Mode = "analysis", live: bool = False) -> CollaborationResult:
         """POST /platform/collaborate — synchronous 39-dept swarm.

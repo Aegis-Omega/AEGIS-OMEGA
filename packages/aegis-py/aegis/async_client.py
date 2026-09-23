@@ -6,7 +6,7 @@ from typing import Any, AsyncGenerator, Literal
 from .client import (
     AegisError, CollaborationResult, ExecutionHandle, Mode,
     PlatformStatus, ArchiveRuntimeStatus, BASE_URL, CONTRACT_VERSION, _validate_envelope,
-    _archive_arc_path, _archive_swarm_path, _archive_biology_path,
+    _archive_arc_request, _archive_swarm_request, _archive_biology_request,
 )
 
 try:
@@ -85,13 +85,16 @@ class AsyncAegisClient:
         )
 
     async def archive_arc_transform(self, grid: list[list[int]], operation_id: int) -> dict[str, Any]:
-        return _validate_envelope(await self._request("GET", _archive_arc_path(grid, operation_id)))
+        path, body = _archive_arc_request(grid, operation_id)
+        return _validate_envelope(await self._request("POST", path, body))
 
     async def archive_swarm_observe(self, subject: str, relation: str, obj: str) -> dict[str, Any]:
-        return _validate_envelope(await self._request("GET", _archive_swarm_path(subject, relation, obj)))
+        path, body = _archive_swarm_request(subject, relation, obj)
+        return _validate_envelope(await self._request("POST", path, body))
 
     async def archive_biology_probe(self, stimulus: str) -> dict[str, Any]:
-        return _validate_envelope(await self._request("GET", _archive_biology_path(stimulus)))
+        path, body = _archive_biology_request(stimulus)
+        return _validate_envelope(await self._request("POST", path, body))
 
     async def collaborate(self, objective: str, mode: Mode = "analysis", live: bool = False) -> CollaborationResult:
         raw = await self._request("POST", "/platform/collaborate", {"objective": objective, "mode": mode, "live": live})

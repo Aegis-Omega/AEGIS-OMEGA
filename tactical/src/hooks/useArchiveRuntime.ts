@@ -88,15 +88,17 @@ export function useArchiveRuntime(apiKey: string): ArchiveRuntimeView {
     setProbeOutput(null)
     setError(null)
 
-    const params = new URLSearchParams({
-      op: '1',
-      grid: JSON.stringify([[1, 2], [3, 4]]),
-    })
-
     try {
-      const res = await fetch(`${BRIDGE}/platform/archive/runtime/arc?${params.toString()}`, {
-        method: 'GET',
-        headers: { 'x-api-key': apiKey },
+      const res = await fetch(`${BRIDGE}/platform/archive/runtime/arc`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          operation_id: 1,
+          grid: [[1, 2], [3, 4]],
+        }),
         signal: AbortSignal.timeout(5000),
       })
       if (!res.ok) {

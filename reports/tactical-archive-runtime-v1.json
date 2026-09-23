@@ -8,7 +8,7 @@
     "manual fixed ROT90 2x2 verification probe"
   ],
   "probe": {
-    "method": "GET",
+    "method": "POST",
     "input": [
       [
         1,
@@ -30,10 +30,12 @@
         3
       ]
     ],
-    "api_key": "EXISTING_TACTICAL_KEY"
+    "api_key": "EXISTING_TACTICAL_KEY",
+    "transport": "JSON_BODY"
   },
   "arbitrary_user_compute": false,
-  "mutation_methods": false,
   "deployment": "NOT_PERFORMED",
-  "authority_effect": "NONE"
+  "authority_effect": "NONE",
+  "durable_mutation": false,
+  "query_payloads": false
 }

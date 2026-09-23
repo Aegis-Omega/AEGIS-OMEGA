@@ -36,13 +36,22 @@ for forbidden in ("swarm_os/arc/data/", "swarm_os/benchmark/", "free-claude-code
 
 post = bridge.split("    def do_POST(self):", 1)[1].split("    def do_GET(self):", 1)[0]
 get = bridge.split("    def do_GET(self):", 1)[1].split("    def do_DELETE(self):", 1)[0]
-if "/platform/archive/runtime" in post:
-    raise SystemExit("archive runtime route leaked into mutation surface")
+if "/platform/archive/runtime" not in post:
+    raise SystemExit("archive runtime POST compute route missing")
+if "dispatch_archive_runtime_post" not in post:
+    raise SystemExit("bounded POST dispatcher not called")
+if "_platform_verify_api_key(api_key)" not in post:
+    raise SystemExit("compute POST route lacks API-key verifier")
+if "length > 4096" not in post:
+    raise SystemExit("archive runtime body-size guard missing")
 if "/platform/archive/runtime" not in get:
-    raise SystemExit("archive runtime GET route missing")
-if "_platform_verify_api_key(api_key)" not in get:
-    raise SystemExit("compute route lacks API-key verifier")
+    raise SystemExit("archive runtime GET status route missing")
 if "dispatch_archive_runtime_get" not in get:
-    raise SystemExit("bounded dispatcher not called")
+    raise SystemExit("bounded GET status dispatcher not called")
+if "Cache-Control" not in bridge or "no-store" not in bridge:
+    raise SystemExit("archive runtime no-store response contract missing")
+
+if "compute requires POST JSON" not in (ROOT / "sovereign-omega-v2" / "python" / "archive_runtime_api.py").read_text():
+    raise SystemExit("GET-compute denial contract missing")
 
 print("ARCHIVE_RUNTIME_BRIDGE_CONTRACT=PASS")

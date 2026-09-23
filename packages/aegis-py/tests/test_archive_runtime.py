@@ -1,6 +1,5 @@
 """Offline tests for the recovered archive runtime SDK surface."""
 import json
-import urllib.parse
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -46,7 +45,7 @@ def test_archive_runtime_status():
     assert status.authority_effect == "NONE"
 
 
-def test_archive_arc_transform_builds_bounded_get():
+def test_archive_arc_transform_uses_post_json_not_query():
     body = envelope({
         "schema": "AEGIS_ARCHIVE_ARC_TRANSFORM_V1",
         "operation": "ROT90",
@@ -57,11 +56,12 @@ def test_archive_arc_transform_builds_bounded_get():
     with patch("urllib.request.urlopen", return_value=response(body)) as mocked:
         result = client.archive_arc_transform([[1, 2], [3, 4]], 1)
     request = mocked.call_args.args[0]
-    parsed = urllib.parse.urlparse(request.full_url)
-    query = urllib.parse.parse_qs(parsed.query)
-    assert parsed.path == "/platform/archive/runtime/arc"
-    assert query["op"] == ["1"]
-    assert json.loads(query["grid"][0]) == [[1, 2], [3, 4]]
+    assert request.method == "POST"
+    assert request.full_url == BASE + "/platform/archive/runtime/arc"
+    assert json.loads(request.data.decode()) == {
+        "operation_id": 1,
+        "grid": [[1, 2], [3, 4]],
+    }
     assert result["operation"] == "ROT90"
 
 
@@ -73,7 +73,7 @@ def test_archive_arc_rejects_oversized_grid_before_network():
     mocked.assert_not_called()
 
 
-def test_archive_swarm_observe_encodes_inputs():
+def test_archive_swarm_observe_keeps_text_out_of_url():
     body = envelope({
         "schema": "AEGIS_ARCHIVE_SWARM_OBSERVATION_V1",
         "persistent_state": False,
@@ -84,10 +84,11 @@ def test_archive_swarm_observe_encodes_inputs():
     with patch("urllib.request.urlopen", return_value=response(body)) as mocked:
         result = client.archive_swarm_observe("alpha one", "relates_to", "beta/two")
     request = mocked.call_args.args[0]
-    parsed = urllib.parse.urlparse(request.full_url)
-    query = urllib.parse.parse_qs(parsed.query)
-    assert query["subject"] == ["alpha one"]
-    assert query["object"] == ["beta/two"]
+    assert request.method == "POST"
+    assert request.full_url == BASE + "/platform/archive/runtime/swarm"
+    payload = json.loads(request.data.decode())
+    assert payload == {"subject": "alpha one", "relation": "relates_to", "object": "beta/two"}
+    assert "alpha" not in request.full_url
     assert result["persistent_state"] is False
 
 

@@ -4,9 +4,9 @@
   "base_head": "9cd4535842aaa29c1658f5257a088078d249638a",
   "endpoints": {
     "status": "GET /platform/archive/runtime/status",
-    "arc": "GET /platform/archive/runtime/arc?op=<0..10>&grid=<json>",
-    "swarm": "GET /platform/archive/runtime/swarm?subject=<...>&relation=<...>&object=<...>",
-    "biology": "GET /platform/archive/runtime/biology?stimulus=<...>"
+    "arc": "POST /platform/archive/runtime/arc JSON {operation_id,grid}",
+    "swarm": "POST /platform/archive/runtime/swarm JSON {subject,relation,object}",
+    "biology": "POST /platform/archive/runtime/biology JSON {stimulus}"
   },
   "auth": {
     "status": "PUBLIC_READ_ONLY",
@@ -36,7 +36,7 @@
     ]
   },
   "local_evidence": {
-    "bounded_dispatcher_tests": "9 PASS",
+    "bounded_dispatcher_tests": "11 tests specified; local replay required after exact-head commit",
     "image_contract": "PASS",
     "recovered_runtime_execution": [
       "ARC ROT90",
@@ -55,5 +55,12 @@
     "conclusion": "failure",
     "steps": 0,
     "interpretation": "RUNNER_LEVEL_ZERO_STEP_RESULT_NOT_A_TEST_FAILURE"
+  },
+  "transport": {
+    "status": "GET_PUBLIC",
+    "compute": "POST_JSON_BODY",
+    "query_payloads": "FORBIDDEN",
+    "cache_control": "no-store",
+    "max_request_body_bytes": 4096
   }
 }

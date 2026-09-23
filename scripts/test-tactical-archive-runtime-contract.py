@@ -8,9 +8,12 @@ panel=(ROOT/"tactical/src/components/ArchiveRuntimePanel.tsx").read_text()
 
 required_hook=[
     "/platform/archive/runtime/status",
-    "/platform/archive/runtime/arc?",
+    "/platform/archive/runtime/arc",
+    "method: 'POST'",
+    "'Content-Type': 'application/json'",
     "'x-api-key': apiKey",
-    "JSON.stringify([[1, 2], [3, 4]])",
+    "operation_id: 1",
+    "grid: [[1, 2], [3, 4]]",
     "JSON.stringify([[2, 4], [1, 3]])",
     "authority_effect !== 'NONE'",
     "parsePlatformEnvelope<RuntimeStatusPayload>(body)",
@@ -21,9 +24,10 @@ if missing:
     raise SystemExit("missing archive runtime consumer contract: "+", ".join(missing))
 
 for forbidden in (
-    "method: 'POST'",
     "method: 'PUT'",
     "method: 'DELETE'",
+    "/platform/archive/runtime/arc?",
+    "URLSearchParams",
     "interface Envelope<T>",
     "as Envelope<RuntimeStatusPayload>",
     "as Envelope<ArcProbePayload>",
