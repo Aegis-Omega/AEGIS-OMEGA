@@ -1,4 +1,4 @@
-import Mathlib.Data.Finset.Lattice
+import Mathlib.Data.Finset.Lattice.Basic
 import Mathlib.Data.Nat.Lattice
 import Mathlib.Tactic
 
