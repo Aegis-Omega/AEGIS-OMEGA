@@ -93,7 +93,8 @@ jobs:
             test/native-runtime/company-enterprise-ledger-reconcile.test.mjs \
             test/native-runtime/company-enterprise-production-readiness.test.mjs \
             test/native-runtime/company-enterprise-prospect-admission.test.mjs \
-            test/native-runtime/company-hosted-replay-admission.test.mjs
+            test/native-runtime/company-hosted-replay-admission.test.mjs \
+            test/native-runtime/supabase-advisor-performance-hardening-v1.test.mjs
 
       - name: Execute Cloud SQL audit source contracts
         run: |
@@ -157,11 +158,13 @@ jobs:
               'sovereign-omega-v2/test/native-runtime/company-enterprise-production-readiness.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-enterprise-prospect-admission.test.mjs',
               'sovereign-omega-v2/test/native-runtime/company-hosted-replay-admission.test.mjs',
+              'sovereign-omega-v2/test/native-runtime/supabase-advisor-performance-hardening-v1.test.mjs',
               'supabase/migrations/20260922193000_scale_os_company_runtime_v2.sql',
               'supabase/migrations/20260922205500_scale_os_enterprise_opportunities_v1.sql',
               'supabase/migrations/20260922211500_scale_os_enterprise_resources_v1.sql',
               'supabase/migrations/20260922213000_scale_os_enterprise_event_immutability_v1.sql',
               'supabase/migrations/20260922214000_scale_os_enterprise_event_insert_guard_v1.sql',
+              'supabase/migrations/20260922220500_supabase_advisor_performance_hardening_v1.sql',
               'vertex/cloudsql_audit.py',
               'vertex/serve.py',
               'vertex/Dockerfile',
@@ -211,6 +214,7 @@ jobs:
                   'company-enterprise-production-readiness.test.mjs',
                   'company-enterprise-prospect-admission.test.mjs',
                   'company-hosted-replay-admission.test.mjs',
+                  'supabase-advisor-performance-hardening-v1.test.mjs',
               ],
               'cloud_sql_contract': 'PY_COMPILE_AND_OFFLINE_CONTRACT_PASS',
               'supabase_scale_os_migration': 'SOURCE_ONLY_NOT_APPLIED',
