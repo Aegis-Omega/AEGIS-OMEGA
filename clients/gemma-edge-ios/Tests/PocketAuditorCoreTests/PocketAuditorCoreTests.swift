@@ -6,10 +6,12 @@ private final class MockRunner: EdgeInferenceRunning {
     let output: String
     init(output: String) { self.output = output }
 
+    func initializeModel(named modelName: String) async throws {}
+
     func executeInference(
         prompt: String,
         maxTokens: Int,
-        temperature: Double
+        temperature: Float
     ) async throws -> String {
         output
     }
