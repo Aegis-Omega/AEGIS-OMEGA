@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "evidence_type": "TAMEION_ARC_ADMISSION_STATUS_V1",
+  "authority_effect": "NONE",
+  "code_source_commit": "ef1c83742b6e0e5dd68f2c6b988961587b1d56a4",
+  "hosted_replay_receipt": "docs/evidence/tameion/TAMEION_ARC_HOSTED_REPLAY_RECEIPT_V1.json",
+  "validated_runs": 3,
+  "hosted_replay_executed": true,
+  "openmeter_observation_root": null,
+  "operator_approval_root": null,
+  "capability": "arc.testnet.transfer",
+  "action_class": "D3",
+  "authority_domain": "treasury.testnet",
+  "tool": "arc-plan",
+  "outcome": "NOT_ADMITTED",
+  "denial_codes": [
+    "OPENMETER_OBSERVATION_MISSING",
+    "OPERATOR_APPROVAL_MISSING"
+  ],
+  "explicit_non_claims": [
+    "Three test passes do not themselves grant payment authority.",
+    "No OpenMeter metered event has been observed from an authenticated OpenMeter runtime.",
+    "No concrete D3 approval has been issued for a specific amount and destination.",
+    "No signer or broadcast authority is attached.",
+    "No Arc settlement is claimed."
+  ]
+}
