@@ -1,3 +1,4 @@
+#if canImport(RevenueCat)
 import Foundation
 import PocketAuditorCore
 import RevenueCat
@@ -17,3 +18,4 @@ public actor RevenueCatPremiumAccess: PremiumAccessChecking {
         }
     }
 }
+#endif
