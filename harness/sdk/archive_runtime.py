@@ -6,11 +6,9 @@ network, repository, deployment, or mutation authority.
 """
 from __future__ import annotations
 
-import contextlib
-import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 AUTHORITY_EFFECT = "NONE"
 SCOPE = "LOCAL_EPHEMERAL_READ_COMPUTE_ONLY"
@@ -33,27 +31,6 @@ class ArchiveRuntimeAdapter:
         if missing:
             raise ArchiveRuntimeError("RECOVERED_RUNTIME_MISSING:" + ",".join(missing))
 
-    @contextlib.contextmanager
-    def _legacy_import_roots(self) -> Iterator[None]:
-        roots = [
-            self.repository_root,
-            self.swarm_root / "arc",
-            self.swarm_root / "swarm",
-            self.swarm_root / "biology",
-        ]
-        inserted: list[str] = []
-        try:
-            for root in roots:
-                value = str(root)
-                if value not in sys.path:
-                    sys.path.insert(0, value)
-                    inserted.append(value)
-            yield
-        finally:
-            for value in inserted:
-                while value in sys.path:
-                    sys.path.remove(value)
-
     def arc_transform(self, *, operation_id: int, grid: list[list[int]]) -> dict[str, Any]:
         if not isinstance(operation_id, int) or isinstance(operation_id, bool):
             raise ArchiveRuntimeError("ARC_OPERATION_ID_INVALID")
@@ -65,38 +42,36 @@ class ArchiveRuntimeAdapter:
         if any(isinstance(v, bool) or not isinstance(v, int) for row in grid for v in row):
             raise ArchiveRuntimeError("ARC_GRID_VALUE_INVALID")
 
-        with self._legacy_import_roots():
-            import numpy as np
-            from swarm_os.arc.dsl.vocab import TOKENS
-            from swarm_os.arc.dsl.vm import DSLVM
+        import numpy as np
+        from swarm_os.arc.dsl.vocab import TOKENS
+        from swarm_os.arc.dsl.vm import DSLVM
 
-            if operation_id not in TOKENS:
-                raise ArchiveRuntimeError("ARC_OPERATION_UNKNOWN")
-            source = np.asarray(grid, dtype=int)
-            result = DSLVM().run([operation_id], source)
-            return {
-                "schema": "AEGIS_ARCHIVE_ARC_TRANSFORM_V1",
-                "operation_id": operation_id,
-                "operation": TOKENS[operation_id],
-                "input_shape": list(source.shape),
-                "output": result.tolist(),
-                "scope": SCOPE,
-                "authority_effect": AUTHORITY_EFFECT,
-            }
+        if operation_id not in TOKENS:
+            raise ArchiveRuntimeError("ARC_OPERATION_UNKNOWN")
+        source = np.asarray(grid, dtype=int)
+        result = DSLVM().run([operation_id], source)
+        return {
+            "schema": "AEGIS_ARCHIVE_ARC_TRANSFORM_V1",
+            "operation_id": operation_id,
+            "operation": TOKENS[operation_id],
+            "input_shape": list(source.shape),
+            "output": result.tolist(),
+            "scope": SCOPE,
+            "authority_effect": AUTHORITY_EFFECT,
+        }
 
     def swarm_observe(self, *, subject: str, relation: str, obj: str) -> dict[str, Any]:
         if not all(isinstance(v, str) and v for v in (subject, relation, obj)):
             raise ArchiveRuntimeError("SWARM_INPUT_INVALID")
-        with self._legacy_import_roots():
-            from swarm_os.swarm.swarm_core import QuantumManifold
+        from swarm_os.swarm.swarm_core import QuantumManifold
 
-            with tempfile.TemporaryDirectory(prefix="aegis-archive-swarm-") as td:
-                manifold = QuantumManifold(Path(td))
-                manifold.register_agent("archive-runtime-adapter", "read-compute")
-                edge_id = manifold.ingest(subject, relation, obj, ["archive-runtime-adapter"])
-                manifold.add_event("archive-runtime-adapter", "observation", "bounded adapter probe", 0)
-                snapshot = manifold.get_state_snapshot()
-                audit = manifold.read_audit()
+        with tempfile.TemporaryDirectory(prefix="aegis-archive-swarm-") as td:
+            manifold = QuantumManifold(Path(td))
+            manifold.register_agent("archive-runtime-adapter", "read-compute")
+            edge_id = manifold.ingest(subject, relation, obj, ["archive-runtime-adapter"])
+            manifold.add_event("archive-runtime-adapter", "observation", "bounded adapter probe", 0)
+            snapshot = manifold.get_state_snapshot()
+            audit = manifold.read_audit()
 
         return {
             "schema": "AEGIS_ARCHIVE_SWARM_OBSERVATION_V1",
@@ -114,20 +89,19 @@ class ArchiveRuntimeAdapter:
     def biology_probe(self, *, stimulus: str) -> dict[str, Any]:
         if not isinstance(stimulus, str) or not stimulus:
             raise ArchiveRuntimeError("BIOLOGY_STIMULUS_INVALID")
-        with self._legacy_import_roots():
-            from swarm_os.biology.cybernetic_core import (
-                EndocrineHPAAxis,
-                ImmuneNetwork,
-                SensoryCompressionGate,
-            )
+        from swarm_os.biology.cybernetic_core import (
+            EndocrineHPAAxis,
+            ImmuneNetwork,
+            SensoryCompressionGate,
+        )
 
-            sensory = SensoryCompressionGate().ingest_stimulus(stimulus)
-            immune = ImmuneNetwork()
-            entropy = immune.calculate_shannon_entropy(stimulus)
-            pathogen = immune.detect_pathogen(stimulus)
-            hpa = EndocrineHPAAxis()
-            hpa_status = hpa.secrete_hormone(0.5)
-            context_hd = hpa.compute_context_hd()
+        sensory = SensoryCompressionGate().ingest_stimulus(stimulus)
+        immune = ImmuneNetwork()
+        entropy = immune.calculate_shannon_entropy(stimulus)
+        pathogen = immune.detect_pathogen(stimulus)
+        hpa = EndocrineHPAAxis()
+        hpa_status = hpa.secrete_hormone(0.5)
+        context_hd = hpa.compute_context_hd()
 
         return {
             "schema": "AEGIS_ARCHIVE_BIOLOGY_PROBE_V1",

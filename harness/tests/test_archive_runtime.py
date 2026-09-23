@@ -1,4 +1,5 @@
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -42,3 +43,12 @@ def test_arc_rejects_malformed_grid():
     adapter = ArchiveRuntimeAdapter(ROOT)
     with pytest.raises(ArchiveRuntimeError, match="ARC_GRID_NON_RECTANGULAR"):
         adapter.arc_transform(operation_id=0, grid=[[1, 2], [3]])
+
+
+def test_adapter_does_not_mutate_sys_path():
+    before = tuple(sys.path)
+    adapter = ArchiveRuntimeAdapter(ROOT)
+    adapter.arc_transform(operation_id=1, grid=[[1, 2], [3, 4]])
+    adapter.swarm_observe(subject="alpha", relation="relates_to", obj="beta")
+    adapter.biology_probe(stimulus="normal input")
+    assert tuple(sys.path) == before

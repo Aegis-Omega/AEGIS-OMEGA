@@ -1,0 +1,12 @@
+{
+  "schema": "AEGIS_ARCHIVE_RUNTIME_IMPORT_HARDENING_V1",
+  "candidate_head_parent": "bb72590fc2cf837dd9792a14a0f135453c22e3a6",
+  "repair": {
+    "swarm_core": "prefer package-relative .config import with historical direct-script fallback",
+    "adapter": "remove per-request global sys.path mutation"
+  },
+  "concurrency_boundary": "NO_REQUEST_SCOPED_SYS_PATH_MUTATION",
+  "local_regression": "PENDING_REPLAY_IN_SESSION",
+  "deployment": "NOT_PERFORMED",
+  "authority_effect": "NONE"
+}

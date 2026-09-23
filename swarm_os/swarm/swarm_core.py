@@ -62,11 +62,18 @@ except Exception as e:
     print(f"[SWARM CORE] ChromaDB unavailable ({e}). Falling back to dict mode.")
     CHROMA_OK = False
 
-from config import (
-    Z_LEVELS, Z_HD_MAP, SWARM_SELF_AXIOM,
-    SIMILARITY_THRESHOLD, ETA_DEFAULT, EMBED_DIM,
-    FORGE_DIR, AUDIT_FILE, VERSION, MAX_EVENTS,
-)
+try:
+    from .config import (
+        Z_LEVELS, Z_HD_MAP, SWARM_SELF_AXIOM,
+        SIMILARITY_THRESHOLD, ETA_DEFAULT, EMBED_DIM,
+        FORGE_DIR, AUDIT_FILE, VERSION, MAX_EVENTS,
+    )
+except ImportError:  # Historical direct-script compatibility.
+    from config import (
+        Z_LEVELS, Z_HD_MAP, SWARM_SELF_AXIOM,
+        SIMILARITY_THRESHOLD, ETA_DEFAULT, EMBED_DIM,
+        FORGE_DIR, AUDIT_FILE, VERSION, MAX_EVENTS,
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
