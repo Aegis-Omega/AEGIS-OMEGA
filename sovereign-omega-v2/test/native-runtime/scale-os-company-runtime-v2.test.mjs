@@ -42,6 +42,21 @@ test('durable DAG and one-row-per-task lease are defined once', () => {
   assert.ok(sql.includes('primary key (task_id, depends_on_task_id)'))
 })
 
+test('new v2 tables are service-role read-only and mutate only through postgres-owned RPCs', () => {
+  assert.ok(sql.includes('revoke all on scale_os.task_dependencies_v2 from public, anon, authenticated, service_role'))
+  assert.ok(sql.includes('revoke all on scale_os.task_leases_v2 from public, anon, authenticated, service_role'))
+  assert.ok(sql.includes('grant select on scale_os.task_dependencies_v2 to service_role'))
+  assert.ok(sql.includes('grant select on scale_os.task_leases_v2 to service_role'))
+  assert.equal(/grant\s+select,\s*insert,\s*update,\s*delete\s+on\s+scale_os\.task_leases_v2/i.test(sql), false)
+  assert.equal(/grant\s+select,\s*insert,\s*update,\s*delete\s+on\s+scale_os\.task_dependencies_v2/i.test(sql), false)
+  assert.ok(sql.includes('create or replace function scale_os.add_task_dependency_v2'))
+  assert.ok(sql.includes("'DENIED_SELF_DEPENDENCY'"))
+  assert.ok(sql.includes("'DENIED_TASK_ALREADY_STARTED'"))
+  assert.ok(sql.includes("'DENIED_DEPENDENCY_CYCLE'"))
+  assert.ok(sql.includes("alter function scale_os.add_task_dependency_v2"))
+  assert.equal((sql.match(/owner to postgres/gi) ?? []).length >= 3, true)
+})
+
 test('claim locks task and lease and requires completed dependencies', () => {
   assert.ok(sql.includes('where t.id = p_task_id\n   for update'))
   assert.ok(sql.includes('where l.task_id = p_task_id\n   for update'))
