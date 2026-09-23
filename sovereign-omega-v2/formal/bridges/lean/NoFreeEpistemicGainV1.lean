@@ -8,7 +8,6 @@ structure EpistemicState (α : Type) where
   claims : Finset α
   authority : Nat
   uncertainty : Nat
-deriving DecidableEq
 
 def EpistemicLE {α : Type} [DecidableEq α]
     (x y : EpistemicState α) : Prop :=
@@ -21,6 +20,23 @@ def conservativeMeet {α : Type} [DecidableEq α]
   claims := x.claims ∩ y.claims
   authority := min x.authority y.authority
   uncertainty := max x.uncertainty y.uncertainty
+
+theorem epistemic_le_refl {α : Type} [DecidableEq α]
+    (x : EpistemicState α) :
+    EpistemicLE x x := by
+  exact ⟨fun _ h => h, le_rfl, le_rfl⟩
+
+theorem epistemic_le_trans {α : Type} [DecidableEq α]
+    {x y z : EpistemicState α}
+    (hxy : EpistemicLE x y)
+    (hyz : EpistemicLE y z) :
+    EpistemicLE x z := by
+  constructor
+  · intro a ha
+    exact hyz.1 (hxy.1 ha)
+  constructor
+  · exact le_trans hxy.2.1 hyz.2.1
+  · exact le_trans hyz.2.2 hxy.2.2
 
 theorem meet_le_left {α : Type} [DecidableEq α]
     (x y : EpistemicState α) :
@@ -61,8 +77,8 @@ theorem le_meet_iff {α : Type} [DecidableEq α]
   constructor
   · intro hz
     exact ⟨
-      le_trans hz (meet_le_left x y),
-      le_trans hz (meet_le_right x y)
+      epistemic_le_trans hz (meet_le_left x y),
+      epistemic_le_trans hz (meet_le_right x y)
     ⟩
   · rintro ⟨hzx, hzy⟩
     exact le_meet hzx hzy
@@ -79,13 +95,13 @@ theorem no_free_epistemic_gain {α : Type} [DecidableEq α]
 theorem meet_comm {α : Type} [DecidableEq α]
     (x y : EpistemicState α) :
     conservativeMeet x y = conservativeMeet y x := by
-  ext <;> simp [conservativeMeet, min_comm, max_comm, Finset.inter_comm]
+  ext <;> simp [conservativeMeet, min_comm, max_comm, inter_comm]
 
 theorem meet_assoc {α : Type} [DecidableEq α]
     (x y z : EpistemicState α) :
     conservativeMeet (conservativeMeet x y) z =
       conservativeMeet x (conservativeMeet y z) := by
-  ext <;> simp [conservativeMeet, min_assoc, max_assoc, Finset.inter_assoc]
+  ext <;> simp [conservativeMeet, min_assoc, max_assoc, inter_assoc]
 
 theorem meet_idem {α : Type} [DecidableEq α]
     (x : EpistemicState α) :
