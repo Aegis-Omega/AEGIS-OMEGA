@@ -70,6 +70,21 @@ test('durable DAG and one-row-per-task lease are defined once', () => {
   assert.ok(sql.includes('primary key (task_id, depends_on_task_id)'))
 })
 
+test('V2 task digest is server-derived and high-risk admission is approval-gated', () => {
+  assert.ok(sql.includes('create or replace function scale_os.company_task_digest_v2'))
+  assert.ok(sql.includes("'AEGIS_SCALE_OS_TASK_V2' || E'\\n'"))
+  assert.ok(sql.includes('v_task_digest := scale_os.company_task_digest_v2'))
+  assert.ok(sql.includes("'DENIED_APPROVAL_REQUIRED_FOR_RISK'"))
+  assert.ok(sql.includes("return query select 'CREATED'::text, v_task_id, v_task_digest"))
+  assert.ok(sql.includes("return query select 'REPLAYED'::text, v_existing.id, v_existing.task_digest_v2"))
+  const createStart=sql.indexOf('create or replace function scale_os.create_task_v2(')
+  const createEnd=sql.indexOf('create or replace function scale_os.add_task_dependency_v2(',createStart)
+  const createSection=sql.slice(createStart,createEnd)
+  assert.equal(createSection.includes('p_task_digest text'),false)
+  assert.equal(sql.includes('text, text, boolean, text, text, jsonb, text, text, bigint'),false)
+  assert.ok(sql.includes('text, text, boolean, text, text, jsonb, text, bigint'))
+})
+
 test('V2 task admission preserves legacy rows while guarding V2-managed direct mutation', () => {
   assert.ok(sql.includes('create or replace function scale_os.prevent_direct_v2_task_mutation_v2'))
   assert.ok(sql.includes('create trigger scale_os_v2_task_direct_mutation_guard'))
