@@ -101,7 +101,7 @@ create or replace function scale_os.company_task_digest_v2(
 returns text
 language sql
 immutable
-strict
+called on null input
 set search_path = pg_catalog, extensions
 as $$
   select encode(
