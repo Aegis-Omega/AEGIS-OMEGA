@@ -158,7 +158,7 @@ theorem paired_test_vonMangoldt_tsum_eq_primeSum_v10
     rw [hshift]
     exact weil_compact_smooth_prime_summable_v1 f
   have hsumR : Summable R := by
-    rwa [summable_nat_add_iff 1]
+    exact (summable_nat_add_iff 1).mp hsumShift
   unfold WeilPrimeSumV1
   calc
     (∑' n : ℕ,
@@ -208,30 +208,29 @@ theorem fixed_line_neg_zeta_logDeriv_integrable_v10
         exact lseries_term_vertical_norm_v1 a c t n
   have hmajor : Integrable (fun t : ℝ => C * ‖H t‖) :=
     hH.norm.const_mul C
-  have htermCont :
-      ∀ n : ℕ,
-        Continuous
-          (fun t : ℝ =>
-            LSeries.term a ((c : ℂ) + (t : ℂ) * I) n) := by
-    intro n
-    by_cases hn : n = 0
-    · subst n
-      simpa using
-        (continuous_const : Continuous (fun _ : ℝ => (0 : ℂ)))
-    · have hnC : (n : ℂ) ≠ 0 := Nat.cast_ne_zero.mpr hn
-      simp only [LSeries.term_of_ne_zero hn,
-        Complex.cpow_def_of_ne_zero hnC]
-      exact continuous_const.div (by fun_prop)
-        (fun _ => Complex.exp_ne_zero _)
   have hLmeas :
       AEStronglyMeasurable
         (fun t : ℝ =>
           LSeries a ((c : ℂ) + (t : ℂ) * I)) := by
-    apply Measurable.aestronglyMeasurable
-    unfold LSeries
-    apply Measurable.tsum
-    intro n
-    exact (htermCont n).measurable
+    have hcont :
+        Continuous
+          (fun t : ℝ =>
+            LSeries a ((c : ℂ) + (t : ℂ) * I)) := by
+              unfold LSeries
+              refine continuous_tsum (u := fun n => ‖LSeries.term a (c : ℂ) n‖)
+                (fun n => ?_) ha.norm (fun n t => ?_)
+              · rcases eq_or_ne n 0 with rfl | hn
+                · simp only [LSeries.term_zero]
+                  exact continuous_const
+                · simp only [LSeries.term_of_ne_zero hn]
+                  have hn' : (n : ℂ) ≠ 0 := Nat.cast_ne_zero.mpr hn
+                  refine continuous_const.div
+                    ((by fun_prop : Continuous fun t : ℝ => (c : ℂ) + (t : ℂ) * I).const_cpow
+                      (Or.inl hn')) (fun t => ?_)
+                  rw [Complex.cpow_def_of_ne_zero hn']
+                  exact Complex.exp_ne_zero _
+              · exact (lseries_term_vertical_norm_v1 a c t n).le
+    exact hcont.aestronglyMeasurable
   have hprod :
       Integrable
         (fun t : ℝ =>
@@ -248,7 +247,7 @@ theorem fixed_line_neg_zeta_logDeriv_integrable_v10
           (s := (c : ℂ) + (t : ℂ) * I)
           (by simpa using hc)
       dsimp [a, H] at hz ⊢
-      rw [hz])
+      rw [hz, neg_div])
 
 /-- The zeta logarithmic-derivative contribution is minus the repository
 prime-power sum. -/
@@ -296,10 +295,7 @@ theorem fixed_line_zeta_logDeriv_eq_neg_primeSum_v10
       -WeilPrimeSumV1 f.1
   have hp : ((1 / (2 * Real.pi) : ℝ) : ℂ) =
       (1 / (2 * Real.pi) : ℂ) := by norm_num
-  rw [← hp]
-  push_cast at hprime
-  rw [hprime, hsum]
-  ring
+  rw [← hp, mul_neg, ← Complex.real_smul, hprime, hsum]
 
 end AEGIS.WeilFixedLineArithmeticV10
 
