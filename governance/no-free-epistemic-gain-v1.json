@@ -17,5 +17,10 @@
     "independence of evidence sources",
     "mathematical novelty"
   ],
-  "authority_effect": "NONE"
+  "authority_effect": "NONE",
+  "claim_identity": {
+    "meet_semantics": "EXACT_CANONICAL_CLAIM_IDENTITY_ONLY",
+    "semantic_equivalence": "REQUIRES_SEPARATE_MHP_PRESERVATION_OR_EQUIVALENCE_RECEIPT",
+    "text_similarity": "INSUFFICIENT"
+  }
 }
