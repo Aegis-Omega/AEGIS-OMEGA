@@ -1,4 +1,5 @@
 import RHZeroKernelBoundV11
+import RestrictedWeilCriterionLaplaceV10
 import WeilFixedLineKernelIntegralV6
 import Mathlib.Analysis.SpecialFunctions.ImproperIntegrals
 import Mathlib.MeasureTheory.Integral.DominatedConvergence
@@ -51,7 +52,8 @@ theorem centered_zero_re_mem_v12
     riemann_zeta_nontrivial_zero_critical_strip_v1
       rho.2.1 rho.2.2
   unfold WeilCenteredZeroExponentV12
-  simp only [Complex.sub_re, Complex.ofReal_re]
+  have hhalf : ((1 / 2 : ℂ).re) = (1 / 2 : ℝ) := by norm_num
+  simp only [Complex.sub_re, hhalf]
   constructor <;> linarith
 
 /-- Absolute summability of the zero coefficients, inherited from the
@@ -91,12 +93,11 @@ theorem zero_laplace_term_integrable_v12
     integrableOn_exp_mul_complex_Ioi
       (a := -(w - WeilCenteredZeroExponentV12 rho))
       hneg 0
-  refine he.const_mul (WeilZeroCoefficientV11 g rho) |>.congr_fun ?_
-    measurableSet_Ioi
-  intro t ht
+  refine IntegrableOn.congr_fun
+    (he.const_mul (WeilZeroCoefficientV11 g rho))
+    (fun t ht => ?_) measurableSet_Ioi
   unfold WeilZeroLaplaceTermV12
   congr 2
-  push_cast
   ring
 
 /-- Exact integral of one Laplace term. -/
@@ -149,30 +150,31 @@ theorem zero_laplace_term_norm_integral_v12
       ‖WeilZeroLaplaceTermV12 g w rho t‖) =
       ‖WeilZeroCoefficientV11 g rho‖ /
         (w.re - (WeilCenteredZeroExponentV12 rho).re) := by
-  let delta : ℝ :=
-    w.re - (WeilCenteredZeroExponentV12 rho).re
-  have hdelta : 0 < delta := by
-    dsimp [delta]
+  have hrate :
+      (WeilCenteredZeroExponentV12 rho).re - w.re < 0 := by
+    linarith
+  have hden :
+      0 < w.re - (WeilCenteredZeroExponentV12 rho).re := by
     linarith
   have hfun :
       (fun t : ℝ =>
         ‖WeilZeroLaplaceTermV12 g w rho t‖) =
       (fun t : ℝ =>
         ‖WeilZeroCoefficientV11 g rho‖ *
-          Real.exp (-delta * t)) := by
+          Real.exp
+            (((WeilCenteredZeroExponentV12 rho).re - w.re) * t)) := by
     funext t
     unfold WeilZeroLaplaceTermV12
     rw [norm_mul, Complex.norm_exp]
     congr 1
-    congr 1
-    dsimp [delta]
     simp
     ring
   rw [hfun, integral_const_mul,
-    integral_exp_mul_Ioi (a := -delta) (by linarith) 0]
-  simp [hdelta.ne']
-  field_simp [hdelta.ne']
-  ring
+    integral_exp_mul_Ioi hrate 0]
+  rw [mul_zero, Real.exp_zero,
+    div_eq_mul_one_div (‖WeilZeroCoefficientV11 g rho‖)]
+  congr 1
+  rw [neg_div, ← div_neg, neg_sub]
 
 /-- The family of norm integrals is summable uniformly on each half-plane
 Re(w)>1/2. -/
@@ -234,9 +236,14 @@ theorem tsum_zero_laplace_term_eq_kernel_v12
   intro rho
   unfold WeilZeroLaplaceTermV12 WeilZeroTranslationFactorV11
     WeilCenteredZeroExponentV12
-  rw [← Complex.exp_add]
-  ring_nf
-  congr 1
+  have hsplit :
+      Complex.exp (-((w - (rho.1 - (1 / 2 : ℂ))) * (t : ℂ))) =
+        Complex.exp (-(w * (t : ℂ))) *
+          Complex.exp ((rho.1 - (1 / 2 : ℂ)) * (t : ℂ)) := by
+    rw [← Complex.exp_add]
+    congr 1
+    ring
+  rw [hsplit]
   ring
 
 /-- Resolvent sum on the initial right half-plane. -/
