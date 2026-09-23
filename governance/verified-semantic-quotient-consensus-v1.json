@@ -21,5 +21,16 @@
   "unproved_semantic_merge_policy": "DENY",
   "semantic_equivalence_novelty": "NOT_CLAIMED",
   "application_novelty": "NOT_ESTABLISHED",
-  "authority_effect": "NONE"
+  "authority_effect": "NONE",
+  "mhp_runtime_dependency": {
+    "path": "harness/sdk/meaning_heritage.py",
+    "git_blob": "2cbd3293c1264cc976009fc85e03333f1790043f",
+    "accepted_preservation_relation": "SEMANTIC_EQUIVALENCE",
+    "paraphrase_abstraction_accepted": false
+  },
+  "projection_receipt_trust": {
+    "content_addressed": true,
+    "caller_minted_object_is_not_trusted": true,
+    "membership_proofs_replayed_on_use": true
+  }
 }
