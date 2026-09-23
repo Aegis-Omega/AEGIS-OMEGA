@@ -1,3 +1,4 @@
+import ZeroHeightShellMassV1
 import RestrictedWeilCriterionZeroKernelV10
 import WeilAutocorrelationMellinV11
 import WeilAutocorrelationClosureV1
@@ -35,12 +36,25 @@ AUTHORITY_EFFECT = NONE.
 -/
 
 open Set Filter Complex MeasureTheory
-open scoped BigOperators
+open scoped BigOperators Topology
 
 set_option autoImplicit false
 noncomputable section
 
 namespace AEGIS.RestrictedWeilCriterionLaplaceV10
+
+/-- The nontrivial zeros form a countable type: they are the union of the
+finite canonical height shells. -/
+instance countable_nontrivialZeroIndex_v10 :
+    Countable RiemannNontrivialZeroIndexV2 := by
+  have hU : (Set.univ : Set RiemannNontrivialZeroIndexV2) =
+      ⋃ n : ℕ, ZeroHeightShellSetV1 n := by
+    ext rho
+    simp [ZeroHeightShellSetV1]
+  have hc : (Set.univ : Set RiemannNontrivialZeroIndexV2).Countable := by
+    rw [hU]
+    exact Set.countable_iUnion (fun n => (zero_height_shell_finite_v1 n).countable)
+  exact Set.countable_univ_iff.mp hc
 
 open AEGIS.RestrictedWeilCriterionZeroKernelV10
 open AEGIS.RestrictedWeilCriterionKernelBridgeV10
@@ -111,8 +125,14 @@ theorem laplace_zero_term_eq_v10
           ((CenteredZeroExponentV10 rho - w) * (d : ℂ)) := by
   unfold LaplaceZeroTermV10 ZeroCoefficientV10
   rw [translated_zero_summand_eq_centered_exp_v10]
-  rw [← Complex.exp_add]
-  congr 1
+  have hsplit :
+      Complex.exp ((CenteredZeroExponentV10 rho - w) * (d : ℂ)) =
+        Complex.exp (-(w * (d : ℂ))) *
+          Complex.exp (CenteredZeroExponentV10 rho * (d : ℂ)) := by
+    rw [← Complex.exp_add]
+    congr 1
+    ring
+  rw [hsplit]
   ring
 
 /-- Individual Laplace terms are integrable on Re(w)>1/2. -/
@@ -132,11 +152,10 @@ theorem laplace_zero_term_integrable_v10
     integrableOn_exp_mul_complex_Ioi
       (a := CenteredZeroExponentV10 rho - w)
       hrate 0
-  refine
-    (hexp.const_mul (ZeroCoefficientV10 g rho)).congr_fun
-      (fun d hd => ?_) measurableSet_Ioi
+  refine IntegrableOn.congr_fun
+    (hexp.const_mul (ZeroCoefficientV10 g rho))
+    (fun d hd => ?_) measurableSet_Ioi
   rw [laplace_zero_term_eq_v10]
-  ring
 
 /-- Exact integral of one Laplace zero term. -/
 theorem integral_laplace_zero_term_v10
@@ -169,8 +188,15 @@ theorem integral_laplace_zero_term_v10
     integral_const_mul,
     integral_exp_mul_complex_Ioi hrate 0]
   unfold ZeroCauchySummandV10
+  have hneq' : -w + CenteredZeroExponentV10 rho ≠ 0 := by
+    intro h
+    apply hneq
+    linear_combination -h
   simp
-  field_simp [hneq]
+  rw [div_eq_mul_one_div]
+  congr 1
+  rw [show CenteredZeroExponentV10 rho - w = -(w - CenteredZeroExponentV10 rho) by ring,
+    one_div, inv_neg]
   ring
 
 /-- Existing compact-smooth zero summability gives summability of the
@@ -182,7 +208,8 @@ theorem zero_coefficient_norm_summable_v10
   have h :=
     weil_compact_smooth_zero_norm_summable_v1
       (WeilAutocorrelationCompactSmoothV1 g)
-  simpa [ZeroCoefficientV10, WeilZeroIndexSummandV1] using h
+  refine h.congr (fun rho => ?_)
+  rfl
 
 /-- Exact norm integral for one term. -/
 theorem integral_norm_laplace_zero_term_v10
@@ -212,12 +239,11 @@ theorem integral_norm_laplace_zero_term_v10
     rw [norm_mul, Complex.norm_exp]
     congr 1
     simp
-    ring
   rw [hfun, integral_const_mul,
     integral_exp_mul_Ioi hrate 0]
-  simp
-  field_simp [hden.ne']
-  ring
+  rw [mul_zero, Real.exp_zero, div_eq_mul_one_div (‖ZeroCoefficientV10 g rho‖)]
+  congr 1
+  rw [neg_div, ← div_neg, neg_sub]
 
 /-- The integrals of term norms are summable uniformly on each fixed
 right-half-plane point Re(w)>1/2. -/
@@ -249,6 +275,7 @@ theorem laplace_zero_term_integral_norm_summable_v10
       1 / (w.re - (CenteredZeroExponentV10 rho).re) ≤
         1 / delta :=
     one_div_le_one_div_of_le hdelta hden
+  rw [div_eq_mul_one_div]
   exact mul_le_mul_of_nonneg_left hrecip (norm_nonneg _)
 
 /-- On Re(w)>1/2, sum/integral exchange is justified by absolute
@@ -277,7 +304,6 @@ theorem laplace_kernel_eq_tsum_terms_v10
         LaplaceZeroTermV10 g w rho d := by
   unfold TranslatedZeroKernelV10 LaplaceZeroTermV10
   rw [tsum_mul_left]
-  rfl
 
 /-- Measurability of the translated zero kernel, obtained from its centered
 exponential tsum representation. -/
@@ -285,8 +311,8 @@ theorem translated_zero_kernel_measurable_v10
     (g : WeilCompactSmoothGV1) :
     Measurable (TranslatedZeroKernelV10 g) := by
   have hfun :
-      (fun d : ℝ => TranslatedZeroKernelV10 g d) =
-        fun d : ℝ =>
+      TranslatedZeroKernelV10 g =
+      fun d : ℝ =>
           ∑' rho : RiemannNontrivialZeroIndexV2,
             (analyticOrderNatAt riemannZeta rho.1 : ℂ) *
               (Complex.exp
@@ -325,7 +351,9 @@ theorem zero_kernel_laplace_integrable_v10
     have he :=
       integrableOn_exp_mul_Ioi
         (a := -w.re) (by linarith) 0
-    simpa [neg_mul] using he.const_mul C
+    have h2 := he.const_mul C
+    simp only [neg_mul] at h2
+    exact h2
   refine htail.mono' ?_ ?_
   · have hKmeas :=
       (translated_zero_kernel_measurable_v10 g).aestronglyMeasurable
@@ -343,11 +371,11 @@ theorem zero_kernel_laplace_integrable_v10
       rw [norm_mul, Complex.norm_exp]
       have hre :
           (-(w * (d : ℂ))).re = -(w.re * d) := by
-        simp
-        ring
+            simp
       rw [hre]
       have hexp : 0 ≤ Real.exp (-(w.re * d)) :=
         (Real.exp_pos _).le
+      rw [mul_comm C]
       exact mul_le_mul_of_nonneg_left hKd hexp)
 
 /-- Derivative of the Laplace transform on the full right half-plane.
@@ -403,8 +431,7 @@ theorem hasDerivAt_zero_kernel_laplace_v10
 
   have hFint :
       Integrable (F w) (volume.restrict (Ioi (0 : ℝ))) := by
-    simpa [F] using zero_kernel_laplace_integrable_v10
-      hU g hm hw
+    exact zero_kernel_laplace_integrable_v10 hU g hm hw
 
   have hF'meas :
       AEStronglyMeasurable
@@ -428,21 +455,11 @@ theorem hasDerivAt_zero_kernel_laplace_v10
         IntegrableOn
           (fun d : ℝ => d * Real.exp (-(r * d)))
           (Ioi (0 : ℝ)) := by
-      have key :=
-        Real.integral_rpow_mul_exp_neg_mul_Ioi
-          (a := (2 : ℝ)) (r := r) (by norm_num) hr
-      have hnonzero :
-          (∫ d : ℝ in Ioi (0 : ℝ),
-            d ^ ((2 : ℝ) - 1) * Real.exp (-(r * d))) ≠ 0 := by
-        rw [key]
-        positivity
-      have hi :
-          IntegrableOn
-            (fun d : ℝ =>
-              d ^ ((2 : ℝ) - 1) * Real.exp (-(r * d)))
-            (Ioi (0 : ℝ)) :=
-        Integrable.of_integral_ne_zero hnonzero
-      simpa using hi
+      have hI :=
+        integrableOn_rpow_mul_exp_neg_mul_rpow (s := 1) (p := 1) (b := r)
+          (by norm_num) (by norm_num) hr
+      refine hI.congr_fun (fun d _ => ?_) measurableSet_Ioi
+      simp [Real.rpow_one]
     simpa [bound, mul_assoc] using hbase.const_mul C
 
   have hbound :
@@ -465,8 +482,7 @@ theorem hasDerivAt_zero_kernel_laplace_v10
         Complex.norm_real, Real.norm_eq_abs, abs_of_pos hd0]
       have hre :
           (-(z * (d : ℂ))).re = -(z.re * d) := by
-        simp
-        ring
+            simp
       rw [hre]
       have hexp :
           Real.exp (-(z.re * d)) ≤ Real.exp (-(r * d)) := by
@@ -490,7 +506,7 @@ theorem hasDerivAt_zero_kernel_laplace_v10
           HasDerivAt
             (fun q : ℂ => -(q * (d : ℂ)))
             (-(d : ℂ)) z := by
-        convert ((hasDerivAt_id z).mul_const (d : ℂ)).neg using 1 <;> ring
+        exact (hasDerivAt_mul_const (d : ℂ)).neg
       have he := hinner.cexp
       have hm :=
         he.mul_const (TranslatedZeroKernelV10 g d)
@@ -502,7 +518,7 @@ theorem hasDerivAt_zero_kernel_laplace_v10
       (F := F) (F' := F') (bound := bound)
       (Metric.ball_mem_nhds w hr)
       hFmeas hFint hF'meas hbound hboundInt hdiff
-  simpa [ZeroKernelLaplaceV10, F, F'] using main.2
+  exact main.2
 
 /-- The bounded-kernel Laplace transform is holomorphic throughout Re(w)>0. -/
 theorem zero_kernel_laplace_analyticOnNhd_v10
