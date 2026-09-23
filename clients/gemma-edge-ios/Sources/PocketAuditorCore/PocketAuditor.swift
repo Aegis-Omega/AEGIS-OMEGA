@@ -1,4 +1,5 @@
 import Foundation
+import GemmaEdge
 
 public enum PocketAuditTier: String, Codable, Sendable {
     case free
