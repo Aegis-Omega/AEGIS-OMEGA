@@ -201,34 +201,50 @@ Do not collapse these states:
 
 ## Current hosted replay boundary
 
-The dedicated `Tameion Arc Evidence Replay` workflow was added because the
-repository-wide GitHub workflows were reporting top-level failures without
-executed steps.
+GitHub Actions remained affected by a pre-step runner/provider failure, so a
+provider-neutral exact-source replay was executed on the existing private GitLab
+mirror using GitLab SaaS shared runners. Each job cloned the public GitHub
+repository and checked out the exact GitHub source commit before executing tests.
 
-Latest code-bearing exact-head replay receipts:
+Verified source commit:
 
-- exact head: `e99bc481b647913f2a7a17a72c5cecab857c9443`
-- workflow: `Tameion Arc Evidence Replay`
-- push run id: `35797866659`
-- push job id: `106981232450`
-- pull-request run id: `35797873008`
-- pull-request job id: `106981252693`
-- both workflow conclusions: `failure`
-- both job conclusions: `failure`
-- executed steps in both jobs: **0**
-- job logs for both jobs: **not available**
+- `ef1c83742b6e0e5dd68f2c6b988961587b1d56a4`
+
+GitLab replay:
+
+- project: `aegis-omega-group/AEGIS-OMEGA`
+- evidence branch: `evidence/tameion-arc-replay-ef1c8374`
+- GitLab CI commit: `06a75bf9ab0d53f07bba60150a11b9ff337baa20`
+- pipeline: `2873920600`
+- runtime: GitLab SaaS shared Linux/amd64 runner, Ubuntu 24.04, Python 3.12.3
+
+Independent jobs:
+
+- replay 1: job `16672790736` — **75 tests PASS**
+- replay 2: job `16672790737` — **75 tests PASS**
+- replay 3: job `16672790738` — **75 tests PASS**
+
+Each job recorded:
+
+```
+ACTUAL_HEAD=ef1c83742b6e0e5dd68f2c6b988961587b1d56a4
+TAMEION_EXACT_HEAD_REPLAY=PASS
+```
 
 Disposition:
 
 ```
-HOSTED_REPLAY_EXECUTED = false
-CODE_FAILURE_FROM_THESE_RUNS = NOT_ESTABLISHED
-RUNNER_OR_PROVIDER_PRE_STEP_FAILURE = OBSERVED
+VALIDATED_RUNS = 3
+HOSTED_REPLAY_EXECUTED = true
+EXACT_SOURCE_COMMIT_VERIFIED = true
+CODE_REPLAY = PASS
+AUTHORITY_EFFECT = NONE
 ```
 
-This receipt applies to the code-bearing SHA above. The later runbook-only commit
-does not change the Python implementation, but any later code-bearing head still
-requires a fresh hosted replay.
+The GitHub Actions zero-step failures remain historical infrastructure evidence,
+but they are no longer the current hosted-replay boundary for this exact source
+commit. The canonical receipt is recorded at
+`docs/evidence/tameion/TAMEION_GITLAB_TRIPLE_REPLAY_EF1C8374.json`.
 
 ## Hackathon eligibility boundary
 
