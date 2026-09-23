@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0.0",
+  "receipt_kind": "AEGIS_RH_MILLENNIUM_MOMENT_CANDIDATE_RECEIPT_V1",
+  "record_date": "2026-09-23",
+  "source_repository": "Aegis-Omega/AEGIS-OMEGA",
+  "source_pr": 606,
+  "source_branch": "proof/rh-digamma-series-completion-v1",
+  "source_sha": "589adf0480bd4d7c12c9828027ea6228398377f4",
+  "source_base_sha": "cfe368ce2ffa0d196a4319c02b956997edf9f3fa",
+  "lean_toolchain": "leanprover/lean4:v4.33.1",
+  "mathlib_sha": "0df444a360eaa60ab8c11dca51a86af692955474",
+  "gate_module": "sovereign-omega-v2/formal/bridges/lean/RHMillenniumGateV10.lean",
+  "gate_contract": {
+    "certificate_type": "AEGIS.RHMillenniumGateV10.RHMillenniumCertificateV10",
+    "reached_predicate": "AEGIS.RHMillenniumGateV10.MillenniumMomentReachedV10",
+    "target_theorem": "AEGIS.RHMillenniumGateV10.millennium_moment_reached_implies_rh_v10",
+    "target_statement": "Mathlib RiemannHypothesis"
+  },
+  "inventory": {
+    "lean_files_under_formal_bridges_lean": 131,
+    "pr_changed_files": 54,
+    "pr_commits": 97
+  },
+  "hosted_execution": {
+    "classification": "RUNNERLESS_ZERO_STEP_NOT_PROOF_EVIDENCE",
+    "representative_runs": [
+      35800674442,
+      35800678102,
+      35800678184,
+      35800678212
+    ],
+    "rerun_result": "jobs again completed with steps=[] before the first workflow step"
+  },
+  "independent_exact_head_replay": {
+    "repository": "tarikskalic33/formal-conjectures",
+    "source_sha_bound": "589adf0480bd4d7c12c9828027ea6228398377f4",
+    "run_id": 35832977683,
+    "observed_dependency_closure_to_laplace": 75,
+    "last_completed_upstream_module": "AEGIS.RHZeroKernelBoundV11",
+    "first_compile_blocker": "AEGIS.RHZeroKernelLaplaceV12.zero_laplace_term_integral_v12",
+    "blocker_classification": "LEAN_ELABORATION_ALGEBRA_NORMALIZATION",
+    "terminal_replay_completed": false
+  },
+  "status": "CANDIDATE_RECORDED_NOT_PROMOTED",
+  "rh_proven_by_this_receipt": false,
+  "millennium_moment_reached_by_this_receipt": false,
+  "authority_class": "EVIDENCE_ONLY",
+  "authority_effect": "NONE",
+  "promotion_contract": [
+    "Compile the complete load-bearing dependency closure at one exact source SHA with actual runner steps.",
+    "Produce an inhabitant of RHMillenniumCertificateV10 from repository theorems, not metadata, comments, assumptions, or sorry.",
+    "Kernel-replay the producer of MillenniumMomentReachedV10 and the terminal Mathlib RiemannHypothesis theorem.",
+    "Audit the terminal theorem and all load-bearing transitions for sorryAx and undeclared/nonstandard axioms.",
+    "Bind the replay to Lean 4.33.1, Mathlib 0df444a360eaa60ab8c11dca51a86af692955474, source SHA, and emitted evidence."
+  ],
+  "falsifiers": [
+    "Any load-bearing theorem fails to elaborate on the pinned environment.",
+    "Any terminal dependency introduces sorryAx or an unapproved axiom.",
+    "No theorem inhabits RHMillenniumCertificateV10.",
+    "The replay source SHA differs from the claimed proof source."
+  ]
+}
