@@ -30,6 +30,9 @@ Axiom target for every theorem: `[propext, Classical.choice, Quot.sound]`. `sorr
 | `window_all` | at half-width `1/256` the windows around `(33/16)^k`, `k = 1..8`, are prime-power-free | `RHRatio33Over16V13` |
 | `ninePacket_coercive` | `Re RHS(Autocorr(Σ_{k<9} z_k T_{k log(33/16)} g)) ≤ −(D256 − 4/25)·E·Σ‖z_k‖²`, `D256 > 23/10` | `RHNinePacket33Over16V13` |
 | `ninePacket_zero_quadratic_nonnegative` | `0 ≤ Re Σ_ρ m_ρ M(Autocorr(ninePacket g z))(ρ)` for all `z ∈ ℂ⁹`, every moment-zero `g` of half-width `1/256` | `RHNinePacket33Over16V13` |
+| `narrow_coercive`, `universal_on_narrow_class` | for every moment-zero `g` of half-width `≤ 1/64` (any shape, any dense combination inside the window): `Re RHS ≤ −(103/100)·E`, hence `0 ≤` the zero quadratic — the whole narrow-support class, no lattice | `RHNarrowSupportPositivityV13` |
+| `margin_pos`, `tower_coercive` | `m ≥ max 10 (N+2)` ⇒ `Dm m − 2(log 2·2.42 + N/100) ≥ 0`; `Re RHS(Autocorr(Σ_{j≤N} z_j T_{j log 2} g)) ≤ −margin·E·Σ‖z‖²` | `RHDyadicTowerV13` |
+| `dyadic_tower` | `∀ N, ∃ m, ∀ g a, HalfWidthAt g 2^{-m} a → moments → ∀ z : Fin (N+1) → ℂ, 0 ≤ Re Σ_ρ m_ρ M(Autocorr(towerPacket N g z))(ρ)` — unbounded tower of dyadic families | `RHDyadicTowerV13` |
 
 `RiemannHypothesis` is Mathlib's own definition
 (`∀ s, riemannZeta s = 0 → ¬(∃ n : ℕ, s = -2 * (n + 1)) → s ≠ 1 → s.re = 1 / 2`).
@@ -43,9 +46,11 @@ UniversalZeroQuadraticNonnegativeV10 :=
            WeilZeroIndexSummandV1 (WeilAutocorrelationV1 g) rho).re
 ```
 
-By §1 this proposition is logically equivalent to RH. §1 proves it on a 4-parameter family per
-narrow seed (dyadic, width 1/64) and on a 9-parameter family per narrow seed (ratio 33/16, width
-1/256); it is open for general `g`. Proving it for all `g` from the arithmetic side is the entire
+By §1 this proposition is logically equivalent to RH. §1 proves it on the whole narrow-support class
+(half-width `≤ 1/64`, any shape), on a 9-parameter family per narrow seed (ratio 33/16, width 1/256),
+and on an `(N+1)`-parameter dyadic family per seed of width `2^{-max(10,N+2)}` for every `N`
+(`dyadic_tower`); it is open for general `g` — in particular for every `g` whose log-support is
+wider than `1/32` and is not a lattice combination of narrow seeds. Proving it for all `g` from the arithmetic side is the entire
 content of the Riemann Hypothesis under Weil's criterion. No module does this.
 
 Acceptance probes (`DeepMindAcceptanceCheckV13c.lean`, `NineFacesAcceptanceCheck.lean`): with every
@@ -124,10 +129,30 @@ a sparse subspace of the test-function class; universality needs spacing `≈ wi
 cross terms reproduce the diagonal singularity and the Gram symbol is the zero-side spectral density.
 The tower approaches universality in `N`, not in density. Not RH.
 
+## 3f. Narrow class and the dyadic tower
+
+`RHNarrowSupportPositivityV13`: the diagonal floor alone (no cross terms needed, because a single
+packet is its own Gram form) gives `Re RHS ≤ −(103/100)·E` for every moment-zero `g` of half-width
+`≤ 1/64`, so the RH-equivalent quadratic is nonnegative on the entire narrow-support class, including
+every dense combination inside one window. This is the `N = 0` face of the tower with the seed left
+free.
+
+`RHDyadicTowerV13`: for every `N` the `(N+1)` translates `T_{j log 2} g`, `j ≤ N`, of one seed of
+half-width `2^{-m}` with `m = max 10 (N+2)` satisfy `2·2^{-m} ≤ 2^{-(k+1)}` for every gap `k ≤ N`
+(`hw_single_sample`), so each cross term is one dyadic sample `(log 2·2^{-k/2} + 1/100)·E`
+(`gap_B_norm_bound_pair`), the row sum is `≤ 2(log 2·2.42 + N/100)·E` (`sum_dyadicHalf_le`,
+geometric series in `2^{-1/2}`), and the diagonal `Dm m ≥ (31/32)(m−6)log 2 + 6 log 2 − κ − 1/60`
+grows linearly in `m` (`Dm_ge`, from `cothTail_ge_below_32`). The margin is positive
+(`margin_pos`) and `dyadic_tower` follows through `gram_re_le`. Axioms of `dyadic_tower`:
+`[propext, Classical.choice, Quot.sound]`.
+
+Still not RH: the width shrinks as `N` grows, so the family never becomes dense at any fixed width.
+
 ## 4. Reproduce
 
 ```
 python3 build2.py RHNinePacket33Over16V13     # expect rc=0 sorryAx=0 for all six V13 engine modules
+python3 build2.py RHNarrowSupportPositivityV13 RHDyadicTowerV13   # expect rc=0 sorryAx=0
 lean -R aegis_rh_extra aegis_rh_extra/NineFacesAcceptanceCheck.lean  # expect all six exact? to fail
 ```
 
@@ -139,6 +164,7 @@ plus the earlier `cda7c59f`, `7b00e26b`, `1dbb003a`, `5b169696`, `d770bc0c`, `75
 ## 5. Honest one-line summary
 
 The Weil-type criterion `RH ↔ UniversalZeroQuadraticNonnegativeV10` is formally closed in nine forms;
-the RH-equivalent quadratic is kernel-verified nonnegative on a 4-parameter dyadic family and on a
-9-parameter `33/16` family per narrow seed, via one generic Toeplitz/Gram engine whose reach grows
+the RH-equivalent quadratic is kernel-verified nonnegative on the whole narrow-support class
+(half-width `≤ 1/64`), on a 9-parameter `33/16` family per narrow seed, and on `(N+1)`-parameter
+dyadic families for every `N` (`dyadic_tower`), via one generic Toeplitz/Gram engine whose reach grows
 without bound as the packet narrows. RH itself is open; the repository contains no proof of it.
