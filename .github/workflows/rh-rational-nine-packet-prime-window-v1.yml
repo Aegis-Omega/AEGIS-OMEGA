@@ -7,6 +7,10 @@ on:
     paths:
       - 'sovereign-omega-v2/formal/bridges/lean/RHRationalNinePacketPrimeWindowV1.lean'
       - '.github/workflows/rh-rational-nine-packet-prime-window-v1.yml'
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/RHRationalNinePacketPrimeWindowV1.lean'
+      - '.github/workflows/rh-rational-nine-packet-prime-window-v1.yml'
   workflow_dispatch:
 
 permissions:
