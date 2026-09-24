@@ -8,6 +8,11 @@ on:
       - 'sovereign-omega-v2/formal/bridges/lean/RestrictedWeilCriterionMeromorphicV13.lean'
       - 'sovereign-omega-v2/formal/bridges/lean/RestrictedWeilCriterion*.lean'
       - '.github/workflows/rh-restricted-weil-meromorphic-v13.yml'
+  pull_request:
+    paths:
+      - 'sovereign-omega-v2/formal/bridges/lean/RestrictedWeilCriterionMeromorphicV13.lean'
+      - 'sovereign-omega-v2/formal/bridges/lean/RestrictedWeilCriterion*.lean'
+      - '.github/workflows/rh-restricted-weil-meromorphic-v13.yml'
   workflow_dispatch:
 
 permissions:
