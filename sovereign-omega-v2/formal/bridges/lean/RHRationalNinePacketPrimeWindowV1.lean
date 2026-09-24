@@ -346,9 +346,7 @@ theorem prime_sum_zero_of_window_vm_v1
         g a d1 d2 hw (n + 1) hm hfar
       unfold WeilPrimeTermV1
       dsimp
-      rw [show ((n : ℝ) + 1) = (((n + 1 : ℕ) : ℝ)) by norm_num,
-          show ((n : ℂ) + 1) = (((n + 1 : ℕ) : ℂ)) by norm_num,
-          hp, hi]
+      rw [hp, hi]
       simp
   rw [hterm]
   simp
