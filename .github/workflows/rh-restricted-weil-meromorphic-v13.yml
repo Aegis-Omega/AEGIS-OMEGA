@@ -26,7 +26,7 @@ env:
   SOURCE_SHA: ${{ github.sha }}
   MATHLIB_SHA: 0df444a360eaa60ab8c11dca51a86af692955474
   LEAN_TOOLCHAIN: leanprover/lean4:v4.33.1
-  TARGET_MODULE: RestrictedWeilCriterionMeromorphicV13
+  TARGET_MODULES: "RestrictedWeilCriterionMeromorphicV13 RestrictedWeilCriterionTargetSignV13"
 
 jobs:
   verify:
@@ -81,10 +81,11 @@ jobs:
           import hashlib, os, re
 
           root = Path(".aegis/sovereign-omega-v2/formal/bridges/lean")
-          target = os.environ["TARGET_MODULE"]
+          targets = os.environ["TARGET_MODULES"].split()
           files = {p.stem: p for p in root.glob("*.lean")}
-          if target not in files:
-              raise SystemExit(f"missing target module: {target}")
+          for target in targets:
+              if target not in files:
+                  raise SystemExit(f"missing target module: {target}")
 
           pat = re.compile(r"^\s*import\s+(.+?)\s*$")
           imports = {}
@@ -110,7 +111,8 @@ jobs:
               done.add(name)
               order.append(name)
 
-          visit(target)
+          for target in targets:
+              visit(target)
           Path("evidence/modules.txt").write_text("\n".join(order) + "\n")
           for name in order:
               src = files[name]
@@ -119,7 +121,7 @@ jobs:
               for name in order:
                   data = Path(f"{name}.lean").read_bytes()
                   out.write(f"{hashlib.sha256(data).hexdigest()}  {name}.lean\n")
-          print(f"dependency closure: {len(order)} modules")
+          print(f"dependency closure: {len(order)} modules for {targets}")
           PY
 
       - name: Compile dependency closure
@@ -138,8 +140,12 @@ jobs:
           set -euo pipefail
           cat > RestrictedWeilMeromorphicV13Audit.lean <<'EOF'
           import RestrictedWeilCriterionMeromorphicV13
+          import RestrictedWeilCriterionTargetSignV13
           #print axioms AEGIS.RestrictedWeilCriterionMeromorphicV13.zero_cauchy_remainder_continuousOn_ball_v13
           #print axioms AEGIS.RestrictedWeilCriterionMeromorphicV13.zero_cauchy_remainder_continuousAt_pole_v13
+          #print axioms AEGIS.RestrictedWeilCriterionTargetSignV13.twoPoint_translate_sign_implies_component_bounds_v13
+          #print axioms AEGIS.RestrictedWeilCriterionTargetSignV13.twoPoint_translate_sign_implies_kernel_bounded_v13
+          #print axioms AEGIS.RestrictedWeilCriterionTargetSignV13.residue_witness_exists_without_sign_v13
           EOF
           lake env lean RestrictedWeilMeromorphicV13Audit.lean 2>&1 | tee evidence/axioms.log
           ! grep -F 'sorryAx' evidence/axioms.log
