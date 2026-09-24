@@ -227,6 +227,233 @@ theorem gap_eight_vonMangoldt_zero_v1
   interval_cases m <;>
     simp [vm325_zero, vm326_zero, vm327_zero, vm328_zero, vm329_zero, vm330_zero]
 
+
+theorem exp_one_over_128_upper_v1 :
+    Real.exp (1 / 128 : ℝ) < (128 / 127 : ℝ) := by
+  calc
+    _ < 1 / (1 - (1 / 128 : ℝ)) :=
+      Real.exp_bound_div_one_sub_of_interval' (by norm_num) (by norm_num)
+    _ = _ := by norm_num
+
+theorem mixed_translate_zero_of_fine_width_v1
+    (g : WeilCompactSmoothGV1) (a d1 d2 u : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hu : (1 / 128 : ℝ) < |u + d2 - d1|) :
+    mixed (translatePacket g d1) (translatePacket g d2) (Real.exp u) = 0 := by
+  have h := exp_half_mul_mixed_translate_v28 g d1 d2 u
+  rw [logCorrelation_zero_of_fine_width_abs_v1 g a (u + d2 - d1) hw hu] at h
+  have he : (Real.exp (u / 2) : ℂ) ≠ 0 :=
+    Complex.ofReal_ne_zero.mpr (Real.exp_ne_zero _)
+  exact (mul_eq_zero.mp h).resolve_left he
+
+theorem mixed_nat_zero_of_positive_gap_v1
+    (g : WeilCompactSmoothGV1) (a d1 d2 : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hgap : (1 / 128 : ℝ) < d2 - d1)
+    (m : ℕ) (hm : 0 < m) :
+    mixed (translatePacket g d1) (translatePacket g d2) (m : ℝ) = 0 := by
+  have hmpos : (0 : ℝ) < (m : ℝ) := by exact_mod_cast hm
+  have hm1 : (1 : ℝ) ≤ (m : ℝ) := by
+    exact_mod_cast (Nat.one_le_iff_ne_zero.mpr (Nat.ne_of_gt hm))
+  have hlogm : 0 ≤ Real.log (m : ℝ) := Real.log_nonneg hm1
+  have harg : 0 < Real.log (m : ℝ) + d2 - d1 := by linarith
+  have hfar :
+      (1 / 128 : ℝ) < |Real.log (m : ℝ) + d2 - d1| := by
+    rw [abs_of_pos harg]
+    linarith
+  have hz := mixed_translate_zero_of_fine_width_v1
+    g a d1 d2 (Real.log (m : ℝ)) hw hfar
+  simpa only [Real.exp_log hmpos] using hz
+
+theorem mixed_inv_nat_zero_outside_gap_v1
+    (g : WeilCompactSmoothGV1) (a d1 d2 : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (m : ℕ) (hm : 0 < m)
+    (hfar0 : (1 / 128 : ℝ) <
+      |Real.log (m : ℝ) - (d2 - d1)|) :
+    mixed (translatePacket g d1) (translatePacket g d2) ((m : ℝ)⁻¹) = 0 := by
+  have harg :
+      -Real.log (m : ℝ) + d2 - d1 =
+        -(Real.log (m : ℝ) - (d2 - d1)) := by ring
+  have hfar :
+      (1 / 128 : ℝ) <
+        |-Real.log (m : ℝ) + d2 - d1| := by
+    rw [harg, abs_neg]
+    exact hfar0
+  have hz := mixed_translate_zero_of_fine_width_v1
+    g a d1 d2 (-Real.log (m : ℝ)) hw hfar
+  have he : Real.exp (-Real.log (m : ℝ)) = (m : ℝ)⁻¹ := by
+    rw [Real.exp_neg, Real.exp_log (by exact_mod_cast hm)]
+  simpa only [he] using hz
+
+theorem prime_sum_zero_of_window_vm_v1
+    (g : WeilCompactSmoothGV1) (a d1 d2 : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hgap : (1 / 128 : ℝ) < d2 - d1)
+    (hvm : ∀ m : ℕ, 0 < m →
+      |Real.log (m : ℝ) - (d2 - d1)| ≤ (1 / 128 : ℝ) →
+      ArithmeticFunction.vonMangoldt m = 0) :
+    WeilPrimeSumV1
+      (mixed (translatePacket g d1) (translatePacket g d2)) = 0 := by
+  unfold WeilPrimeSumV1
+  have hterm :
+      WeilPrimeTermV1
+        (mixed (translatePacket g d1) (translatePacket g d2)) =
+        (0 : ℕ → ℂ) := by
+    funext n
+    have hm : 0 < n + 1 := by omega
+    have hp := mixed_nat_zero_of_positive_gap_v1
+      g a d1 d2 hw hgap (n + 1) hm
+    by_cases hwin :
+        |Real.log ((n + 1 : ℕ) : ℝ) - (d2 - d1)| ≤ (1 / 128 : ℝ)
+    · have hv := hvm (n + 1) hm hwin
+      simp [WeilPrimeTermV1, hp, hv]
+    · have hfar :
+          (1 / 128 : ℝ) <
+            |Real.log ((n + 1 : ℕ) : ℝ) - (d2 - d1)| :=
+        lt_of_not_ge hwin
+      have hi := mixed_inv_nat_zero_outside_gap_v1
+        g a d1 d2 hw (n + 1) hm hfar
+      simp [WeilPrimeTermV1, hp, hi]
+  rw [hterm]
+  simp
+
+private theorem qNine_gap_one_gt_cutoff_v1 :
+    (1 / 128 : ℝ) < Real.log (qNineV1 ^ 1) := by
+  rw [Real.lt_log_iff_exp_lt (by norm_num [qNineV1])]
+  exact exp_one_over_128_upper_v1.trans (by norm_num [qNineV1])
+
+private theorem qNine_gap_two_gt_cutoff_v1 :
+    (1 / 128 : ℝ) < Real.log (qNineV1 ^ 2) := by
+  rw [Real.lt_log_iff_exp_lt (by norm_num [qNineV1])]
+  exact exp_one_over_128_upper_v1.trans (by norm_num [qNineV1])
+
+private theorem qNine_gap_three_gt_cutoff_v1 :
+    (1 / 128 : ℝ) < Real.log (qNineV1 ^ 3) := by
+  rw [Real.lt_log_iff_exp_lt (by norm_num [qNineV1])]
+  exact exp_one_over_128_upper_v1.trans (by norm_num [qNineV1])
+
+private theorem qNine_gap_four_gt_cutoff_v1 :
+    (1 / 128 : ℝ) < Real.log (qNineV1 ^ 4) := by
+  rw [Real.lt_log_iff_exp_lt (by norm_num [qNineV1])]
+  exact exp_one_over_128_upper_v1.trans (by norm_num [qNineV1])
+
+private theorem qNine_gap_five_gt_cutoff_v1 :
+    (1 / 128 : ℝ) < Real.log (qNineV1 ^ 5) := by
+  rw [Real.lt_log_iff_exp_lt (by norm_num [qNineV1])]
+  exact exp_one_over_128_upper_v1.trans (by norm_num [qNineV1])
+
+private theorem qNine_gap_six_gt_cutoff_v1 :
+    (1 / 128 : ℝ) < Real.log (qNineV1 ^ 6) := by
+  rw [Real.lt_log_iff_exp_lt (by norm_num [qNineV1])]
+  exact exp_one_over_128_upper_v1.trans (by norm_num [qNineV1])
+
+private theorem qNine_gap_seven_gt_cutoff_v1 :
+    (1 / 128 : ℝ) < Real.log (qNineV1 ^ 7) := by
+  rw [Real.lt_log_iff_exp_lt (by norm_num [qNineV1])]
+  exact exp_one_over_128_upper_v1.trans (by norm_num [qNineV1])
+
+private theorem qNine_gap_eight_gt_cutoff_v1 :
+    (1 / 128 : ℝ) < Real.log (qNineV1 ^ 8) := by
+  rw [Real.lt_log_iff_exp_lt (by norm_num [qNineV1])]
+  exact exp_one_over_128_upper_v1.trans (by norm_num [qNineV1])
+
+theorem gap_one_prime_sum_zero_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a) :
+    WeilPrimeSumV1
+      (mixed (translatePacket g 0)
+        (translatePacket g (Real.log (qNineV1 ^ 1)))) = 0 := by
+  apply prime_sum_zero_of_window_vm_v1 g a 0
+    (Real.log (qNineV1 ^ 1)) hw
+  · simpa using qNine_gap_one_gt_cutoff_v1
+  · intro m hm hwin
+    simpa using gap_one_vonMangoldt_zero_v1 hm hwin
+
+theorem gap_two_prime_sum_zero_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a) :
+    WeilPrimeSumV1
+      (mixed (translatePacket g 0)
+        (translatePacket g (Real.log (qNineV1 ^ 2)))) = 0 := by
+  apply prime_sum_zero_of_window_vm_v1 g a 0
+    (Real.log (qNineV1 ^ 2)) hw
+  · simpa using qNine_gap_two_gt_cutoff_v1
+  · intro m hm hwin
+    simpa using gap_two_vonMangoldt_zero_v1 hm hwin
+
+theorem gap_three_prime_sum_zero_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a) :
+    WeilPrimeSumV1
+      (mixed (translatePacket g 0)
+        (translatePacket g (Real.log (qNineV1 ^ 3)))) = 0 := by
+  apply prime_sum_zero_of_window_vm_v1 g a 0
+    (Real.log (qNineV1 ^ 3)) hw
+  · simpa using qNine_gap_three_gt_cutoff_v1
+  · intro m hm hwin
+    simpa using gap_three_vonMangoldt_zero_v1 hm hwin
+
+theorem gap_four_prime_sum_zero_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a) :
+    WeilPrimeSumV1
+      (mixed (translatePacket g 0)
+        (translatePacket g (Real.log (qNineV1 ^ 4)))) = 0 := by
+  apply prime_sum_zero_of_window_vm_v1 g a 0
+    (Real.log (qNineV1 ^ 4)) hw
+  · simpa using qNine_gap_four_gt_cutoff_v1
+  · intro m hm hwin
+    simpa using gap_four_vonMangoldt_zero_v1 hm hwin
+
+theorem gap_five_prime_sum_zero_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a) :
+    WeilPrimeSumV1
+      (mixed (translatePacket g 0)
+        (translatePacket g (Real.log (qNineV1 ^ 5)))) = 0 := by
+  apply prime_sum_zero_of_window_vm_v1 g a 0
+    (Real.log (qNineV1 ^ 5)) hw
+  · simpa using qNine_gap_five_gt_cutoff_v1
+  · intro m hm hwin
+    simpa using gap_five_vonMangoldt_zero_v1 hm hwin
+
+theorem gap_six_prime_sum_zero_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a) :
+    WeilPrimeSumV1
+      (mixed (translatePacket g 0)
+        (translatePacket g (Real.log (qNineV1 ^ 6)))) = 0 := by
+  apply prime_sum_zero_of_window_vm_v1 g a 0
+    (Real.log (qNineV1 ^ 6)) hw
+  · simpa using qNine_gap_six_gt_cutoff_v1
+  · intro m hm hwin
+    simpa using gap_six_vonMangoldt_zero_v1 hm hwin
+
+theorem gap_seven_prime_sum_zero_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a) :
+    WeilPrimeSumV1
+      (mixed (translatePacket g 0)
+        (translatePacket g (Real.log (qNineV1 ^ 7)))) = 0 := by
+  apply prime_sum_zero_of_window_vm_v1 g a 0
+    (Real.log (qNineV1 ^ 7)) hw
+  · simpa using qNine_gap_seven_gt_cutoff_v1
+  · intro m hm hwin
+    simpa using gap_seven_vonMangoldt_zero_v1 hm hwin
+
+theorem gap_eight_prime_sum_zero_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a) :
+    WeilPrimeSumV1
+      (mixed (translatePacket g 0)
+        (translatePacket g (Real.log (qNineV1 ^ 8)))) = 0 := by
+  apply prime_sum_zero_of_window_vm_v1 g a 0
+    (Real.log (qNineV1 ^ 8)) hw
+  · simpa using qNine_gap_eight_gt_cutoff_v1
+  · intro m hm hwin
+    simpa using gap_eight_vonMangoldt_zero_v1 hm hwin
+
 end AEGIS.RHRationalNinePacketPrimeWindowV1
 
 #print axioms AEGIS.RHRationalNinePacketPrimeWindowV1.gFine_width_one_one_twenty_eight_v1
