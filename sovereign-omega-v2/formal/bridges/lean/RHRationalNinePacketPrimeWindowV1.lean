@@ -33,6 +33,8 @@ open AEGIS.WeilDisjointEnergyV2
 open AEGIS.WeilThreeBlockTranslatedPacketsV22
 open AEGIS.WeilThreeBlockCrossPrimeV28
 open AEGIS.WeilSeparatedArchBridgeV31
+open AEGIS.WeilMixedAlgebraV2
+open AEGIS.WeilThreeBlockAnalyticConstantsV21
 open AEGIS.RHFineMomentPacketV3
 
 def WidthOneOneTwentyEightAt (g : WeilCompactSmoothGV1) (a : ℝ) : Prop :=
@@ -453,6 +455,178 @@ theorem gap_eight_prime_sum_zero_v1
   · simpa using qNine_gap_eight_gt_cutoff_v1
   · intro m hm hwin
     simpa using gap_eight_vonMangoldt_zero_v1 hm hwin
+
+
+theorem fine_width_implies_width_one_thirty_two_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a) :
+    WidthOneThirtyTwoAt g a := by
+  intro t ht
+  have h := hw ht
+  exact ⟨by linarith [h.1], by linarith [h.2]⟩
+
+theorem B_norm_le_one_hundred_of_prime_zero_fine_v1
+    (g : WeilCompactSmoothGV1) (a d1 d2 : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g)
+    (hgap : Real.log 2 ≤ d2 - d1)
+    (hprime :
+      WeilPrimeSumV1
+        (mixed (translatePacket g d1) (translatePacket g d2)) = 0) :
+    ‖B (translatePacket g d1) (translatePacket g d2)‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  have hcut : (1 / 128 : ℝ) < d2 - d1 := by
+    nlinarith [log_two_lower]
+  have hpos : 0 < d2 - d1 := lt_trans (by norm_num) hcut
+  have hfar : (1 / 128 : ℝ) < |(0 : ℝ) + d2 - d1| := by
+    rw [zero_add, abs_of_pos hpos]
+    exact hcut
+  have hz0 := mixed_translate_zero_of_fine_width_v1
+    g a d1 d2 0 hw hfar
+  have hzero :
+      mixed (translatePacket g d1) (translatePacket g d2) 1 = 0 := by
+    simpa only [Real.exp_zero] using hz0
+  have harch := translated_arch_norm_bound
+    g a d1 d2 (fine_width_implies_width_one_thirty_two_v1 g a hw) hm hgap
+  unfold B WeilExplicitRightSideV1
+  rw [hprime, hzero]
+  simpa using harch
+
+private theorem qNine_gap_one_log_two_v1 :
+    Real.log 2 ≤ Real.log (qNineV1 ^ 1) := by
+  exact le_of_lt ((Real.log_lt_log_iff (by norm_num)
+    (by norm_num [qNineV1])).2 (by norm_num [qNineV1]))
+
+private theorem qNine_gap_two_log_two_v1 :
+    Real.log 2 ≤ Real.log (qNineV1 ^ 2) := by
+  exact le_of_lt ((Real.log_lt_log_iff (by norm_num)
+    (by norm_num [qNineV1])).2 (by norm_num [qNineV1]))
+
+private theorem qNine_gap_three_log_two_v1 :
+    Real.log 2 ≤ Real.log (qNineV1 ^ 3) := by
+  exact le_of_lt ((Real.log_lt_log_iff (by norm_num)
+    (by norm_num [qNineV1])).2 (by norm_num [qNineV1]))
+
+private theorem qNine_gap_four_log_two_v1 :
+    Real.log 2 ≤ Real.log (qNineV1 ^ 4) := by
+  exact le_of_lt ((Real.log_lt_log_iff (by norm_num)
+    (by norm_num [qNineV1])).2 (by norm_num [qNineV1]))
+
+private theorem qNine_gap_five_log_two_v1 :
+    Real.log 2 ≤ Real.log (qNineV1 ^ 5) := by
+  exact le_of_lt ((Real.log_lt_log_iff (by norm_num)
+    (by norm_num [qNineV1])).2 (by norm_num [qNineV1]))
+
+private theorem qNine_gap_six_log_two_v1 :
+    Real.log 2 ≤ Real.log (qNineV1 ^ 6) := by
+  exact le_of_lt ((Real.log_lt_log_iff (by norm_num)
+    (by norm_num [qNineV1])).2 (by norm_num [qNineV1]))
+
+private theorem qNine_gap_seven_log_two_v1 :
+    Real.log 2 ≤ Real.log (qNineV1 ^ 7) := by
+  exact le_of_lt ((Real.log_lt_log_iff (by norm_num)
+    (by norm_num [qNineV1])).2 (by norm_num [qNineV1]))
+
+private theorem qNine_gap_eight_log_two_v1 :
+    Real.log 2 ≤ Real.log (qNineV1 ^ 8) := by
+  exact le_of_lt ((Real.log_lt_log_iff (by norm_num)
+    (by norm_num [qNineV1])).2 (by norm_num [qNineV1]))
+
+theorem gap_one_B_norm_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g) :
+    ‖B (translatePacket g 0)
+      (translatePacket g (Real.log (qNineV1 ^ 1)))‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  exact B_norm_le_one_hundred_of_prime_zero_fine_v1
+    g a 0 (Real.log (qNineV1 ^ 1)) hw hm
+    (by simpa using qNine_gap_one_log_two_v1)
+    (gap_one_prime_sum_zero_v1 g a hw)
+
+theorem gap_two_B_norm_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g) :
+    ‖B (translatePacket g 0)
+      (translatePacket g (Real.log (qNineV1 ^ 2)))‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  exact B_norm_le_one_hundred_of_prime_zero_fine_v1
+    g a 0 (Real.log (qNineV1 ^ 2)) hw hm
+    (by simpa using qNine_gap_two_log_two_v1)
+    (gap_two_prime_sum_zero_v1 g a hw)
+
+theorem gap_three_B_norm_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g) :
+    ‖B (translatePacket g 0)
+      (translatePacket g (Real.log (qNineV1 ^ 3)))‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  exact B_norm_le_one_hundred_of_prime_zero_fine_v1
+    g a 0 (Real.log (qNineV1 ^ 3)) hw hm
+    (by simpa using qNine_gap_three_log_two_v1)
+    (gap_three_prime_sum_zero_v1 g a hw)
+
+theorem gap_four_B_norm_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g) :
+    ‖B (translatePacket g 0)
+      (translatePacket g (Real.log (qNineV1 ^ 4)))‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  exact B_norm_le_one_hundred_of_prime_zero_fine_v1
+    g a 0 (Real.log (qNineV1 ^ 4)) hw hm
+    (by simpa using qNine_gap_four_log_two_v1)
+    (gap_four_prime_sum_zero_v1 g a hw)
+
+theorem gap_five_B_norm_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g) :
+    ‖B (translatePacket g 0)
+      (translatePacket g (Real.log (qNineV1 ^ 5)))‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  exact B_norm_le_one_hundred_of_prime_zero_fine_v1
+    g a 0 (Real.log (qNineV1 ^ 5)) hw hm
+    (by simpa using qNine_gap_five_log_two_v1)
+    (gap_five_prime_sum_zero_v1 g a hw)
+
+theorem gap_six_B_norm_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g) :
+    ‖B (translatePacket g 0)
+      (translatePacket g (Real.log (qNineV1 ^ 6)))‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  exact B_norm_le_one_hundred_of_prime_zero_fine_v1
+    g a 0 (Real.log (qNineV1 ^ 6)) hw hm
+    (by simpa using qNine_gap_six_log_two_v1)
+    (gap_six_prime_sum_zero_v1 g a hw)
+
+theorem gap_seven_B_norm_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g) :
+    ‖B (translatePacket g 0)
+      (translatePacket g (Real.log (qNineV1 ^ 7)))‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  exact B_norm_le_one_hundred_of_prime_zero_fine_v1
+    g a 0 (Real.log (qNineV1 ^ 7)) hw hm
+    (by simpa using qNine_gap_seven_log_two_v1)
+    (gap_seven_prime_sum_zero_v1 g a hw)
+
+theorem gap_eight_B_norm_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g) :
+    ‖B (translatePacket g 0)
+      (translatePacket g (Real.log (qNineV1 ^ 8)))‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  exact B_norm_le_one_hundred_of_prime_zero_fine_v1
+    g a 0 (Real.log (qNineV1 ^ 8)) hw hm
+    (by simpa using qNine_gap_eight_log_two_v1)
+    (gap_eight_prime_sum_zero_v1 g a hw)
 
 end AEGIS.RHRationalNinePacketPrimeWindowV1
 
