@@ -20,6 +20,7 @@ Axiom target for every theorem: `[propext, Classical.choice, Quot.sound]`. `sorr
 | `four_packet_coercive_v3` | width ≤ 1/64 ∧ moments ⇒ `Re RHS(Autocorr(fourPacket g z)) ≤ −(2/125)·E(g)·energy4‖z‖` | `RHFourBlockConcreteV3` |
 | `fourPacket_zero_quadratic_nonnegative_v13` | same hypotheses ⇒ `0 ≤ Re Σ_ρ m_ρ M(Autocorr(fourPacket g z))(ρ)` for all `z ∈ ℂ⁴` | `RHFourPacketZeroQuadraticV13` |
 | `canonical_zero_quadratic_nonnegative_v13` | the `gFine` instance (nonzero seed, width 1/64) | `RHFourPacketZeroQuadraticV13` |
+| `five_block_certificate_impossible` | the four-block certificate schema admits no five-block extension with the same constants | `RHFourBlockCertificateLimitV13` |
 
 `RiemannHypothesis` is Mathlib's own definition
 (`∀ s, riemannZeta s = 0 → ¬(∃ n : ℕ, s = -2 * (n + 1)) → s ≠ 1 → s.re = 1 / 2`).
@@ -28,7 +29,8 @@ Consequences:
 - the repository's Millennium gate `MillenniumMomentReachedV10` is **exactly** RH; the restricted
   Weil criterion is closed as an equivalence in both directions;
 - the RH-equivalent predicate is **verified unconditionally on the four-translate span
-  `{Σ_{k=0}^{3} z_k · T_{k·log 2} g}` of every moment-zero packet `g` of log-support width ≤ 1/64**.
+  `{Σ_{k=0}^{3} z_k · T_{k·log 2} g}` of every moment-zero packet `g` of log-support width ≤ 1/64**;
+- the method that produced that verification provably stops at four translates (§3c).
 
 ## 2. What is NOT proved — the single open target
 
@@ -70,6 +72,13 @@ Result: **the only unconditional, non-`↔` theorem whose conclusion lies in tha
 Every other producer either is an `↔` or takes a member of the class as a hypothesis.
 No `sorry`, no `axiom` anywhere in the 246 blobs.
 
+Phase-sensitive cross-term information (a bound on `Re B`, not `‖B‖`) exists in exactly three
+theorems, and each takes the target as hypothesis:
+`universal_zero_quadratic_implies_twoPoint_translate_sign_v10` (assumes Universal),
+`final_sign_implies_translate_component_bounds_v11` / `…_cross_bounds_v11` (assume FinalSign).
+`mixed_translate_B_eq_neg_zero_tsum_v10` identifies every translated cross term with the zero-side
+sum — the phase of a cross term *is* zero-side information.
+
 Modules that a `*Spec.lean` file `#check`s but that exist on **no** branch (the claims have no source):
 `WeilAbjadGramPositivityV1`, `GaussSeriesIntegralReductionV1`, `ZeroCountingOnePlusEpsilonV2`.
 
@@ -95,7 +104,7 @@ all compiled on the pinned toolchain (`Spec`/`AxiomCheck`/`Control`/`NonVacuity`
 | `ZeroNegativeIntegerClassificationV1` | 2 errors |
 | `WeilAutocorrelationPrimeWindowsV1`, `WeilThreeBlockPrimeWindowsV22`, `GravityQuantumPureProductV1` | 1 error each |
 
-### The four-translate family and why it does not globalize by itself
+### The four-translate family
 
 `RHFourBlockConcreteV3` derives, with **no analytic hypotheses beyond width ≤ 1/64 and the two
 moment conditions**:
@@ -107,13 +116,48 @@ moment conditions**:
 - SOS certificate `158/125 · energy4 − cross4 = comparisonSOS ≥ 0` (`RHFourBlockComparisonV2`),
   leaving coercivity margin `32/25 − 158/125 = 2/125`.
 
-The margin is `2/125 ≈ 0.016` out of a diagonal `1.28`. The Gershgorin row sum for four blocks is
-`0.51 + 0.36 + 0.26 = 1.13 < 1.28`. Adding a fifth translate with any nonnegative cross bound
-`c₄` gives interior row sums `≥ 2·0.51 + 2·0.36 + 0.26 = 2.0 > 1.28`; even the SOS route cannot
-recover a margin once the interior rows exceed the diagonal. So **this family is a finite-family
-verification, not the start of an exhaustion**: the constants themselves rule out extending the same
-scheme to `n → ∞` translates, and `WeilWindowExhaustionV1` (which reduces universality to
-"all windows `[-L, L]`") needs every window, i.e. arbitrarily many overlapping translates.
+## 3c. Where the method stops (kernel-checked + arithmetic)
+
+**Kernel-checked** (`RHFourBlockCertificateLimitV13`, axioms `[propext, Classical.choice, Quot.sound]`):
+
+- `five_block_all_ones_value`: with ceilings `51/100, 9/25, 13/50` and fourth-gap ceiling `0`, the
+  five-translate worst case on the all-ones vector is `5·32/25 − 7.28 = −22/25`.
+- `five_block_certificate_impossible (r) (hr : 0 ≤ r)`: for **every** nonnegative fourth-gap
+  ceiling, `¬ ∀ x, cross5 … r x ≤ 32/25 · energy5 x`. The five-block analogue of
+  `actual_four_block_bound_v2` is false as a statement about norm ceilings.
+- `interior_row_exceeds_diagonal`: `2·(51/100 + 9/25) > 32/25` — the interior of any chain of
+  ≥ 5 translates already violates Gershgorin with the first two ceilings alone.
+
+**Arithmetic** (the repository's own window rule, `mixed_translate_zero_of_width_v28`:
+the cross term at gap `k·log 2` sees only integers `m` with `|log m − k·log 2| ≤ 1/32`, and
+`mixed_translate_center_v28` gives each such sample weight `≈ 2^{k/2}·E`, so the prime side is
+`Σ_{m ∈ window} Λ(m)·2^{-k/2}·E` up to a bump factor ≤ 1):
+
+| gap `k` | integers in window with `Λ ≠ 0` | `Σ Λ(m)·2^{-k/2}` | repo ceiling |
+|---|---|---|---|
+| 1 | 2 | 0.490 | 0.51 |
+| 2 | 4 | 0.347 | 0.36 |
+| 3 | 8 | 0.245 | 0.26 |
+| 4 | 16 | 0.173 | — |
+| 5 | 32 | 0.123 | — |
+| 6 | 64 | 0.087 | — |
+| 7 | 125, 127, 128, 131 | **1.063** | — |
+| 8 | 251, 256, 257, 263 | 1.084 | — |
+| 9 | 499, 503, 509, 512, 521, 523 | 1.409 | — |
+| 10 | 997 … 1051 | 2.188 | — |
+| 12 | 3989 … 4219 | 3.780 | — |
+| 15 | 31769 … 33797 | 11.837 | — |
+
+For `k ≤ 6` the window contains a single dyadic sample and the ceiling decays like `2^{-k/2}`;
+that is exactly why the four-block lane works. From `k = 7` on, primes enter the window and the
+prime mass grows like `2^{k/2}·(1/16)` (prime number theorem in the interval
+`[2^k e^{-1/32}, 2^k e^{1/32}]`). **Any norm ceiling on wide-gap cross terms therefore grows
+exponentially in the gap.** The true cross term is small only through cancellation of
+`ψ(x) − x` over short intervals — and `mixed_translate_B_eq_neg_zero_tsum_v10` says that
+cancellation is, term for term, the zero-side sum. This is the precise point where the
+repository's method ends, and it is Weil's circularity, not a missing lemma: bounding the wide-gap
+cross terms from the arithmetic side requires prime distribution in short intervals of relative
+width `1/16`, i.e. zero-free-region input of RH strength.
 
 Partial sign results that also exist (all compile) and what they are not:
 
@@ -132,6 +176,7 @@ None of these produce `UniversalZeroQuadraticNonnegativeV10`.
 # sources: aegis_rh/*.lean next to the Mathlib checkout; oleans in aegis_rh_out/
 python3 build_target.py WeilRHImpliesFinalSignV13      # expect [118/118] rc=0 sorryAx=0 ALL BUILT
 python3 build2.py RHFourPacketZeroQuadraticV13          # expect rc=0 sorryAx=0 OK
+python3 build2.py RHFourBlockCertificateLimitV13        # expect rc=0 sorryAx=0 OK
 lean -R aegis_rh aegis_rh/DeepMindAcceptanceCheckV13c.lean   # expect both exact? to fail
 ```
 
@@ -142,6 +187,8 @@ Pushed blobs are byte-verified against the compiled sources:
 
 ## 5. Honest one-line summary
 
-The Weil-type criterion `RH ↔ UniversalZeroQuadraticNonnegativeV10` is formally closed, and the
-RH-equivalent quadratic is kernel-verified nonnegative on a 4-parameter family per narrow seed.
-RH itself is open; the repository contains no proof of it, and nothing in it is submitted upstream.
+The Weil-type criterion `RH ↔ UniversalZeroQuadraticNonnegativeV10` is formally closed; the
+RH-equivalent quadratic is kernel-verified nonnegative on a 4-parameter family per narrow seed; the
+method behind that verification is kernel-proved to stop at four translates, because wide-gap cross
+terms are governed by primes in short intervals. RH itself is open; the repository contains no proof
+of it, and nothing in it is submitted upstream.
