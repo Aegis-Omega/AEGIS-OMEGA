@@ -1,3 +1,9 @@
+import Mathlib.MeasureTheory.Integral.IntegralEqImproper
+import Mathlib.Analysis.SpecialFunctions.Log.Deriv
+import Mathlib.Analysis.Calculus.BumpFunction.InnerProduct
+import Mathlib.Tactic
+import WeilMomentKillerConstructionV1
+
 /-!
 AEGIS Ω — canonical log-transport adapter v1.
 
@@ -8,11 +14,6 @@ The legacy source subsequently restated WeilCompactSmoothGV1 and
 WeilMomentConditionsV1 for a standalone build.  Those restatements are
 intentionally excluded here.  This module introduces no RH-domain definition.
 -/
-import Mathlib.MeasureTheory.Integral.IntegralEqImproper
-import Mathlib.Analysis.SpecialFunctions.Log.Deriv
-import Mathlib.Analysis.Calculus.BumpFunction.InnerProduct
-import Mathlib.Tactic
-import WeilMomentKillerConstructionV1
 
 open MeasureTheory Set Filter
 open scoped ContDiff Topology
