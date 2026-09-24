@@ -125,7 +125,7 @@ theorem ten_packet_coercive_v1
       (57 / 100 : ℝ) * energy g.1 := by
     have hcanon := gap_nine_B_norm_v1 g a hw hm
     have hgap :
-        qNineShiftV1 9 - qNineShiftV1 0 = gapNineV1 := by
+        qNineShiftV1 9 - qNineShiftV1 0 = gapNineV1 - 0 := by
       simpa [gapNineV1] using qNineShift_gap_v1 0 9
     rw [B_translate_eq_of_gap_nine_v1 g
       (qNineShiftV1 0) (qNineShiftV1 9) 0 gapNineV1 hgap]
