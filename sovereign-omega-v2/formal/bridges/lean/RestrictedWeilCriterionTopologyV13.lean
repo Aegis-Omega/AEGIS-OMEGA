@@ -36,11 +36,13 @@ def RightHalfMinusCenteredZerosV13 : Set ℂ :=
   {w : ℂ | 0 < w.re} \ CenteredRiemannZeroSetV13
 
 def rightHalfParamV13 (z : ℂ) : ℂ :=
-  (Real.exp z.re : ℂ) + (z.im : ℂ) * I
+  Complex.ofReal (Real.exp z.re) + Complex.ofReal z.im * I
 
 theorem riemann_zeta_zeros_countable_v13 :
     riemannZetaZeros.Countable := by
-  exact countable_of_Lindelof_of_discrete (X := riemannZetaZeros)
+  exact
+    isClosed_riemannZetaZeros.isLindelof.countable_of_isDiscrete
+      isDiscrete_riemannZetaZeros
 
 theorem centered_riemann_zero_set_countable_v13 :
     CenteredRiemannZeroSetV13.Countable := by
@@ -59,7 +61,7 @@ theorem right_half_minus_centered_zeros_open_v13 :
     IsOpen RightHalfMinusCenteredZerosV13 := by
   have hhalf : IsOpen {w : ℂ | 0 < w.re} :=
     Complex.continuous_re.isOpen_preimage (Ioi (0 : ℝ)) isOpen_Ioi
-  exact hhalf.diff centered_riemann_zero_set_closed_v13
+  exact hhalf.sdiff centered_riemann_zero_set_closed_v13
 
 theorem rightHalfParam_re_v13 (z : ℂ) :
     (rightHalfParamV13 z).re = Real.exp z.re := by
@@ -137,7 +139,7 @@ theorem right_half_minus_centered_zeros_pathConnected_v13 :
 
 theorem right_half_minus_centered_zeros_preconnected_v13 :
     IsPreconnected RightHalfMinusCenteredZerosV13 :=
-  right_half_minus_centered_zeros_pathConnected_v13.isPreconnected
+  right_half_minus_centered_zeros_pathConnected_v13.isConnected.isPreconnected
 
 end AEGIS.RestrictedWeilCriterionTopologyV13
 
