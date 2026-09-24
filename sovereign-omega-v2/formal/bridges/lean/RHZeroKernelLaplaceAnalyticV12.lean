@@ -88,7 +88,11 @@ private theorem zero_kernel_term_local_bound_v12
     unfold WeilZeroTranslationFactorV11
     rw [Complex.norm_exp]
     exact Real.exp_le_exp.mpr hexpRe
-  exact mul_le_mul_of_nonneg_left hfactor (norm_nonneg _)
+  calc
+    ‖WeilZeroCoefficientV11 g rho‖ * ‖WeilZeroTranslationFactorV11 rho t‖
+      ≤ ‖WeilZeroCoefficientV11 g rho‖ * Real.exp ((|t0| + 1) / 2) :=
+        mul_le_mul_of_nonneg_left hfactor (norm_nonneg _)
+    _ = Real.exp ((|t0| + 1) / 2) * ‖WeilZeroCoefficientV11 g rho‖ := mul_comm _ _
 
 /-- The canonical zero translation kernel is a continuous function of the
 real translation parameter. -/
@@ -129,8 +133,7 @@ def ZeroLaplaceRightHalfPlaneV12 : Set ℂ :=
 
 theorem zeroLaplaceRightHalfPlane_isOpen_v12 :
     IsOpen ZeroLaplaceRightHalfPlaneV12 := by
-  simpa [ZeroLaplaceRightHalfPlaneV12] using
-    (Complex.continuous_re.isOpen_preimage (Ioi (0 : ℝ)) isOpen_Ioi)
+  exact Complex.continuous_re.isOpen_preimage (Ioi (0 : ℝ)) isOpen_Ioi
 
 /-- Final-sign bound in a compact form used by the Laplace estimates. -/
 private theorem zero_kernel_uniform_bound_v12
@@ -185,8 +188,7 @@ theorem zero_kernel_laplace_integrable_of_final_sign_v12
     have hre :
         (-(w * (t : ℂ))).re = -w.re * t := by
       simp
-      ring
-    rw [hre]
+    rw [hre, mul_comm B]
     exact mul_le_mul_of_nonneg_left hK (Real.exp_nonneg _))
 
 /-- An integrable first-moment exponential tail used to dominate the
@@ -202,18 +204,11 @@ private theorem first_moment_exp_tail_integrable_v12
       IntegrableOn
         (fun t : ℝ => t * Real.exp (-(δ * t)))
         (Ioi (0 : ℝ)) := by
-    have key :=
-      Real.integral_rpow_mul_exp_neg_mul_Ioi
-        (a := (2 : ℝ)) (r := δ) (by norm_num) hδ
-    apply IntegrableOn.of_integral_ne_zero
-    rw [show
-      (fun t : ℝ => t * Real.exp (-(δ * t))) =
-      (fun t : ℝ =>
-        t ^ ((2 : ℝ) - 1) * Real.exp (-(δ * t))) by
-          funext t
-          simp]
-    rw [key]
-    positivity
+    have hI :=
+      integrableOn_rpow_mul_exp_neg_mul_rpow (s := 1) (p := 1) (b := δ)
+        (by norm_num) (by norm_num) hδ
+    refine hI.congr_fun (fun t _ => ?_) measurableSet_Ioi
+    simp [Real.rpow_one]
   exact hbase.const_mul B
 
 /-- Differentiability of the bounded-kernel Laplace transform at every point
@@ -259,7 +254,7 @@ theorem zero_kernel_laplace_differentiableAt_v12
         ((by fun_prop :
           Continuous (fun t : ℝ =>
             Complex.exp (-(w * (t : ℂ))))).aestronglyMeasurable.mul
-          (zero_translation_kernel_continuous_v12 g).aestronglyMeasurable)
+          (zero_translation_kernel_continuous_v12 g).aestronglyMeasurable))
 
   have hFint :
       Integrable (F w0) (volume.restrict (Ioi (0 : ℝ))) := by
@@ -289,16 +284,15 @@ theorem zero_kernel_laplace_differentiableAt_v12
         simpa [Complex.sub_re] using Complex.abs_re_le_norm (w - w0)
       have hwre : δ ≤ w.re := by
         have hlo := (abs_lt.mp (lt_of_le_of_lt hreDiff hdist)).1
-        dsimp [δ]
+        dsimp only [δ] at hlo ⊢
         linarith
       have hK := zero_kernel_uniform_bound_v12 h g hm t
-      unfold F' bound
+      simp only [F', bound, B]
       rw [norm_mul, norm_mul, norm_neg, Complex.norm_real,
         Real.norm_eq_abs, abs_of_nonneg ht0, Complex.norm_exp]
       have hre :
           (-(w * (t : ℂ))).re = -w.re * t := by
         simp
-        ring
       rw [hre]
       have hexp :
           Real.exp (-w.re * t) ≤ Real.exp (-(δ * t)) := by
@@ -307,9 +301,11 @@ theorem zero_kernel_laplace_differentiableAt_v12
       calc
         t * Real.exp (-w.re * t) *
             ‖WeilZeroTranslationKernelV11 g t‖
-          ≤ t * Real.exp (-(δ * t)) * B := by
+          ≤ t * Real.exp (-(δ * t)) *
+              (2 * (WeilAutocorrelationZeroQuadraticV11 g).re) := by
               gcongr
-        _ = B * (t * Real.exp (-(δ * t))) := by ring)
+        _ = 2 * (WeilAutocorrelationZeroQuadraticV11 g).re *
+              (t * Real.exp (-(δ * t))) := by ring)
 
   have hboundInt :
       Integrable bound (volume.restrict (Ioi (0 : ℝ))) := by
@@ -321,14 +317,16 @@ theorem zero_kernel_laplace_differentiableAt_v12
           HasDerivAt (F · t) (F' w t) w := by
     rw [ae_restrict_iff' measurableSet_Ioi]
     exact Filter.Eventually.of_forall (fun t ht w hw => by
-      unfold F F'
+      simp only [F, F']
+      have hinner :
+          HasDerivAt (fun z : ℂ => -(z * (t : ℂ))) (-(t : ℂ)) w :=
+        (hasDerivAt_mul_const (t : ℂ)).neg
       have hExp :
           HasDerivAt
             (fun z : ℂ => Complex.exp (-(z * (t : ℂ))))
             (-(t : ℂ) *
-              Complex.exp (-(w * (t : ℂ)))) w := by
-        convert
-          ((hasDerivAt_id w).mul_const (t : ℂ)).neg.cexp using 1 <;> ring
+              Complex.exp (-(w * (t : ℂ)))) w :=
+        hinner.cexp.congr_deriv (by ring)
       exact hExp.mul_const
         (WeilZeroTranslationKernelV11 g t))
 
@@ -338,8 +336,7 @@ theorem zero_kernel_laplace_differentiableAt_v12
       (F := F) (F' := F') (bound := bound)
       hs hFmeas hFint hF'meas hbound hboundInt hdiff
 
-  have hder := main.2.differentiableAt
-  simpa [WeilZeroKernelLaplaceV12, F] using hder
+  exact main.2.differentiableAt
 
 /-- Under final sign, the zero-kernel Laplace transform is holomorphic on the
 entire open right half-plane. -/

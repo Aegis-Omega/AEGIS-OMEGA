@@ -22,7 +22,7 @@ AUTHORITY_EFFECT = NONE.
 -/
 
 open Set Filter Topology MeasureTheory Complex
-open scoped Topology
+open scoped Topology ContDiff ComplexConjugate
 
 set_option autoImplicit false
 noncomputable section
@@ -34,6 +34,7 @@ open AEGIS.RestrictedWeilCriterionKernelBridgeV10
 open AEGIS.WeilAutocorrelationMellinV11
 open AEGIS.WeilZeroTwoPointV11
 open AEGIS.WeilMomentKillerConstructionV1
+open AEGIS.WeilMixedAlgebraV2
 
 private theorem targetPsi_tsupport_subset_psi0_v11 (rho : ℂ) :
     tsupport (TargetPsiV11 rho) ⊆ tsupport psi0 := by
@@ -70,7 +71,7 @@ private theorem targetPhi_vanishes_below_v11
   simp [TargetPhiV11, h1, h2]
 
 private theorem targetPhi_vanishes_above_v11
-    (rho : ℂ) {u : ℝ} ((1 / 32 : ℝ) ≤ u) :
+    (rho : ℂ) {u : ℝ} (hu : (1 / 32 : ℝ) ≤ u) :
     TargetPhiV11 rho u = 0 := by
   have hnot0 : u ∉ tsupport psi0 := by
     rw [psi0_tsupport, Real.closedBall_eq_Icc]
@@ -163,13 +164,11 @@ theorem targetPacketFun_tsupport_subset_v11 (rho : ℂ) :
 
 theorem targetPacketFun_hasCompactSupport_v11 (rho : ℂ) :
     HasCompactSupport (TargetPacketFunV11 rho) := by
-  exact
-    (isCompact_Icc : IsCompact
-      (Icc (Real.exp (-(1 / 32 : ℝ)))
-        (Real.exp (1 / 32 : ℝ))))
-      .of_isClosed_subset
-        (isClosed_tsupport _)
-        (targetPacketFun_tsupport_subset_v11 rho)
+  have hK : IsCompact
+      (Icc (Real.exp (-(1 / 32 : ℝ))) (Real.exp (1 / 32 : ℝ))) :=
+    isCompact_Icc
+  exact hK.of_isClosed_subset (isClosed_tsupport _)
+    (targetPacketFun_tsupport_subset_v11 rho)
 
 theorem targetPacketFun_positive_support_v11 (rho : ℂ) :
     tsupport (TargetPacketFunV11 rho) ⊆ Ioi 0 := by
@@ -336,9 +335,8 @@ theorem exists_residue_packet_autocorrelation_mellin_ne_zero_v11
   obtain ⟨g, hm, hr, href⟩ :=
     exists_residue_packet_v11 rho
   refine ⟨g, hm, ?_⟩
-  rw [AEGIS.WeilAutocorrelationMellinV11
-    .weil_autocorrelation_mellin_factorization_v11]
-  exact mul_ne_zero hr (map_ne_zero conj href)
+  rw [weil_autocorrelation_mellin_factorization_v11]
+  exact mul_ne_zero hr ((map_ne_zero conj).mpr href)
 
 end AEGIS.RestrictedWeilCriterionResidueWitnessV11
 

@@ -23,7 +23,7 @@ AUTHORITY_EFFECT = NONE.
 -/
 
 open Set Filter Topology Complex
-open scoped BigOperators
+open scoped BigOperators ComplexConjugate
 
 set_option autoImplicit false
 noncomputable section
@@ -61,11 +61,13 @@ theorem mellin_translatePacket_v11
     rw [Complex.cpow_def_of_ne_zero hne]
     have hlog :
         Complex.log (((Real.exp (-d) : ℝ) : ℂ)) = (-d : ℂ) := by
-      rw [← Complex.ofReal_log (Real.exp_pos (-d)).le, Real.log_exp]
+      rw [← Complex.ofReal_log (Real.exp_pos (-d)).le, Real.log_exp,
+        Complex.ofReal_neg]
     rw [hlog]
     congr 1
     ring
-  rw [hpow, ← Complex.ofReal_exp, ← Complex.exp_add]
+  rw [hpow, Complex.ofReal_exp, ← mul_assoc, ← Complex.exp_add]
+  congr 1
   congr 1
   push_cast
   ring
@@ -81,7 +83,6 @@ theorem autocorrelation_zero_summand_factorization_v11
           conj (mellin g.1 (1 - conj rho.1))) := by
   unfold WeilZeroIndexSummandV1
   rw [weil_autocorrelation_mellin_factorization_v11]
-  ring
 
 /-- The centered translation factors cancel pointwise in the autocorrelation
 zero summand. -/
@@ -102,19 +103,20 @@ theorem translated_autocorrelation_zero_summand_invariant_v11
           (((1 - conj rho.1) - (1 / 2 : ℂ)) * (d : ℂ))) =
         Complex.exp
           (-((rho.1 - (1 / 2 : ℂ)) * (d : ℂ))) := by
-    rw [map_exp]
+    rw [← Complex.exp_conj]
     congr 1
-    push_cast
+    simp only [map_mul, map_sub, map_one, map_div₀, map_ofNat,
+      Complex.conj_conj, Complex.conj_ofReal]
     ring
-  rw [map_mul, hexp_conj, ← mul_assoc]
+  rw [map_mul, hexp_conj]
   have hcancel :
       Complex.exp ((rho.1 - (1 / 2 : ℂ)) * (d : ℂ)) *
         Complex.exp (-((rho.1 - (1 / 2 : ℂ)) * (d : ℂ))) = 1 := by
     rw [← Complex.exp_add]
     simp
-  ring_nf
-  rw [hcancel]
-  ring
+  linear_combination
+    ((analyticOrderNatAt riemannZeta rho.1 : ℂ) * mellin g.1 rho.1 *
+      conj (mellin g.1 (1 - conj rho.1))) * hcancel
 
 /-- Canonical zero quadratic attached to an autocorrelation. -/
 def WeilAutocorrelationZeroQuadraticV11

@@ -1,5 +1,6 @@
 import WeilMomentKillerConstructionV1
 import ZeroCriticalStripV1
+import ZeroHeightSummabilityBridgeV1
 import Mathlib.Analysis.Complex.RealDeriv
 import Mathlib.Analysis.Calculus.Deriv.Support
 import Mathlib.Analysis.Calculus.BumpFunction.Normed
@@ -32,7 +33,7 @@ AUTHORITY_EFFECT = NONE.
 -/
 
 open Set Filter MeasureTheory Complex
-open scoped Topology
+open scoped Topology ContDiff
 
 set_option autoImplicit false
 noncomputable section
@@ -66,7 +67,7 @@ theorem targetPsi_hasCompactSupport_v11 (rho : ℂ) :
     HasCompactSupport (TargetPsiV11 rho) := by
   have hbase :
       HasCompactSupport (fun u : ℝ => (psi0 u : ℂ)) :=
-    psi0_hasCompactSupport.comp_left rfl
+    psi0_hasCompactSupport.comp_left Complex.ofReal_zero
   exact hbase.mul_right
 
 theorem targetPhi_contDiff_v11 (rho : ℂ) :
@@ -97,7 +98,7 @@ private theorem integral_deriv_eq_zero_complex_v11
       hint.integrableOn hint.integrableOn
   rw [HasCompactSupport.integral_Iic_deriv_eq hF hFc 0,
     HasCompactSupport.integral_Ioi_deriv_eq hF hFc 0] at h
-  simpa using h
+  simpa using h.symm
 
 /-- First exact moment: D(D+1) integrates to zero. -/
 theorem targetPhi_integral_zero_v11 (rho : ℂ) :
@@ -142,8 +143,7 @@ theorem targetPhi_exp_integral_zero_v11 (rho : ℂ) :
     exact
       ((contDiff_deriv_complex_v11
         (targetPsi_contDiff_v11 rho)).of_le (by simp)).mul
-      (Complex.ofRealCLM.contDiff.comp
-        (Real.contDiff_exp.of_le (by simp)))
+      (Complex.ofRealCLM.contDiff.comp Real.contDiff_exp)
   have hFc : HasCompactSupport F := by
     dsimp [F]
     exact (targetPsi_hasCompactSupport_v11 rho).deriv.mul_right
@@ -158,7 +158,11 @@ theorem targetPhi_exp_integral_zero_v11 (rho : ℂ) :
     have h2 : HasDerivAt (fun x : ℝ => (Real.exp x : ℂ))
         (Real.exp u : ℂ) u :=
       (Real.hasDerivAt_exp u).ofReal_comp
-    have hd := h1.mul h2
+    have hd :
+        HasDerivAt F
+          (deriv (deriv (TargetPsiV11 rho)) u * (Real.exp u : ℂ) +
+            deriv (TargetPsiV11 rho) u * (Real.exp u : ℂ)) u :=
+      h1.mul h2
     rw [hd.deriv]
     unfold TargetPhiV11
     ring
@@ -179,9 +183,13 @@ theorem targetPsi_deriv_v11 (rho : ℂ) (u : ℝ) :
     hpsiR.ofReal_comp
   have hlin :
       HasDerivAt (fun x : ℝ => -(x • rho)) (-rho) u :=
-    ((hasDerivAt_id' u).smul_const rho).fun_neg
+    ((hasDerivAt_id' u).smul_const rho).fun_neg.congr_deriv (by simp)
   have hexp := hlin.cexp
-  have hprod := hpsi.mul hexp
+  have hprod :
+      HasDerivAt (fun x : ℝ => (psi0 x : ℂ) * Complex.exp (-(x • rho)))
+        (((deriv psi0 u : ℝ) : ℂ) * Complex.exp (-(u • rho)) +
+          (psi0 u : ℂ) * (Complex.exp (-(u • rho)) * -rho)) u :=
+    hpsi.mul hexp
   unfold TargetPsiV11
   rw [hprod.deriv]
   ring
@@ -216,9 +224,18 @@ theorem targetPsi_second_deriv_v11 (rho : ℂ) (u : ℝ) :
     hpsi1.sub (hpsi0.const_mul rho)
   have hlin :
       HasDerivAt (fun x : ℝ => -(x • rho)) (-rho) u :=
-    ((hasDerivAt_id' u).smul_const rho).fun_neg
+    ((hasDerivAt_id' u).smul_const rho).fun_neg.congr_deriv (by simp)
   have hexp := hlin.cexp
-  have hprod := hq.mul hexp
+  have hprod :
+      HasDerivAt
+        (fun x : ℝ =>
+          (((deriv psi0 x : ℝ) : ℂ) - rho * (psi0 x : ℂ)) *
+            Complex.exp (-(x • rho)))
+        ((((deriv (deriv psi0) u : ℝ) : ℂ) - rho * ((deriv psi0 u : ℝ) : ℂ)) *
+            Complex.exp (-(u • rho)) +
+          (((deriv psi0 u : ℝ) : ℂ) - rho * (psi0 u : ℂ)) *
+            (Complex.exp (-(u • rho)) * -rho)) u :=
+    hq.mul hexp
   have hfirst := targetPsi_deriv_v11 rho
   have hfun :
       deriv (TargetPsiV11 rho) =
@@ -245,9 +262,10 @@ theorem targetPhi_weighted_pointwise_v11 (rho : ℂ) (u : ℝ) :
           Complex.exp (-(u • rho)) = 1 := by
     rw [← Complex.exp_add]
     simp
-  ring_nf at hexp ⊢
-  rw [hexp]
-  ring
+  linear_combination
+    ((((deriv psi0 u : ℝ) : ℂ) - rho * (psi0 u : ℂ)) +
+      (((deriv (deriv psi0) u : ℝ) : ℂ) -
+        2 * rho * ((deriv psi0 u : ℝ) : ℂ) + rho ^ 2 * (psi0 u : ℂ))) * hexp
 
 /-- Exact targeted transform. -/
 theorem targetPhi_weighted_integral_v11 (rho : ℂ) :
@@ -262,14 +280,14 @@ theorem targetPhi_weighted_integral_v11 (rho : ℂ) :
     ((contDiff_deriv psi0_contDiff).continuous).integrable_of_hasCompactSupport
       psi0_hasCompactSupport.deriv
   have h2 : Integrable (deriv (deriv psi0)) :=
-    ((contDiff_deriv (contDiff_deriv psi0_contDiff)).continuous)
-      .integrable_of_hasCompactSupport psi0_hasCompactSupport.deriv.deriv
+    (contDiff_deriv (contDiff_deriv psi0_contDiff)).continuous.integrable_of_hasCompactSupport
+      psi0_hasCompactSupport.deriv.deriv
 
   have hi1 : ∫ u : ℝ, deriv psi0 u = 0 :=
-    integral_deriv_eq_zero psi0_contDiff psi0_hasCompactSupport
+    integral_deriv_eq_zero (psi0_contDiff.of_le (by simp)) psi0_hasCompactSupport
   have hi2 : ∫ u : ℝ, deriv (deriv psi0) u = 0 :=
     integral_deriv_eq_zero
-      (contDiff_deriv psi0_contDiff)
+      ((contDiff_deriv psi0_contDiff).of_le (by simp))
       psi0_hasCompactSupport.deriv
 
   calc
@@ -289,13 +307,19 @@ theorem targetPhi_weighted_integral_v11 (rho : ℂ) :
         (∫ u : ℝ, ((deriv psi0 u : ℝ) : ℂ)) +
       (rho ^ 2 - rho) *
         (∫ u : ℝ, (psi0 u : ℂ)) := by
-          rw [integral_add
-              (h2.ofReal)
-              ((h1.ofReal.const_mul (1 - 2 * rho)).add
-                (h0.ofReal.const_mul (rho ^ 2 - rho))),
-            integral_add,
-            integral_const_mul,
-            integral_const_mul]
+          have hA : Integrable (fun u : ℝ => ((deriv (deriv psi0) u : ℝ) : ℂ)) :=
+            h2.ofReal
+          have hB : Integrable
+              (fun u : ℝ => (1 - 2 * rho) * ((deriv psi0 u : ℝ) : ℂ)) :=
+            h1.ofReal.const_mul _
+          have hC : Integrable (fun u : ℝ => (rho ^ 2 - rho) * (psi0 u : ℂ)) :=
+            h0.ofReal.const_mul _
+          have hAB : Integrable
+              (fun u : ℝ => ((deriv (deriv psi0) u : ℝ) : ℂ) +
+                (1 - 2 * rho) * ((deriv psi0 u : ℝ) : ℂ)) :=
+            hA.add hB
+          rw [integral_add hAB hC, integral_add hA hB,
+            integral_const_mul, integral_const_mul]
     _ =
       (rho ^ 2 - rho) *
         ((∫ u : ℝ, psi0 u : ℝ) : ℂ) := by

@@ -16,6 +16,7 @@ AUTHORITY_EFFECT = NONE.
 -/
 
 open Set Filter Complex
+open scoped Topology
 
 set_option autoImplicit false
 noncomputable section
@@ -27,27 +28,27 @@ theorem continuous_cannot_equal_nonzero_simple_pole_v13
     (hF : ContinuousAt F z)
     (hH : ContinuousAt H z)
     (hc : c ≠ 0)
-    (heq : F =ᶠ[𝓝 z ⊓ 𝓟 ({z}ᶜ : Set ℂ)] fun w => c / (w - z) + H w) :
+    (heq : F =ᶠ[𝓝[≠] z] fun w => c / (w - z) + H w) :
     False := by
   have hsub :
-      Tendsto (fun w : ℂ => w - z) (𝓝 z ⊓ 𝓟 ({z}ᶜ : Set ℂ)) (𝓝 0) := by
+      Tendsto (fun w : ℂ => w - z) (𝓝[≠] z) (𝓝 0) := by
     have h :
         Tendsto (fun w : ℂ => w - z) (𝓝 z) (𝓝 (z - z)) :=
       tendsto_id.sub tendsto_const_nhds
     simpa using h.mono_left nhdsWithin_le_nhds
 
   have hFlim :
-      Tendsto (fun w : ℂ => (w - z) * F w) (𝓝 z ⊓ 𝓟 ({z}ᶜ : Set ℂ)) (𝓝 0) := by
+      Tendsto (fun w : ℂ => (w - z) * F w) (𝓝[≠] z) (𝓝 0) := by
     simpa using
       hsub.mul (hF.tendsto.mono_left nhdsWithin_le_nhds)
 
   have hHlim :
-      Tendsto (fun w : ℂ => (w - z) * H w) (𝓝 z ⊓ 𝓟 ({z}ᶜ : Set ℂ)) (𝓝 0) := by
+      Tendsto (fun w : ℂ => (w - z) * H w) (𝓝[≠] z) (𝓝 0) := by
     simpa using
       hsub.mul (hH.tendsto.mono_left nhdsWithin_le_nhds)
 
   have heqmul :
-      (fun w : ℂ => (w - z) * F w) =ᶠ[𝓝 z ⊓ 𝓟 ({z}ᶜ : Set ℂ)]
+      (fun w : ℂ => (w - z) * F w) =ᶠ[𝓝[≠] z]
         (fun w => c + (w - z) * H w) := by
     filter_upwards [heq, self_mem_nhdsWithin] with w hw hne
     have hwz : w ≠ z := by simpa using hne
@@ -57,11 +58,11 @@ theorem continuous_cannot_equal_nonzero_simple_pole_v13
     <;> ring
 
   have hRlim :
-      Tendsto (fun w : ℂ => c + (w - z) * H w) (𝓝 z ⊓ 𝓟 ({z}ᶜ : Set ℂ)) (𝓝 c) := by
+      Tendsto (fun w : ℂ => c + (w - z) * H w) (𝓝[≠] z) (𝓝 c) := by
     simpa using tendsto_const_nhds.add hHlim
 
   have hFlimC :
-      Tendsto (fun w : ℂ => (w - z) * F w) (𝓝 z ⊓ 𝓟 ({z}ᶜ : Set ℂ)) (𝓝 c) :=
+      Tendsto (fun w : ℂ => (w - z) * F w) (𝓝[≠] z) (𝓝 c) :=
     hRlim.congr' heqmul.symm
 
   have hzero : (0 : ℂ) = c :=
