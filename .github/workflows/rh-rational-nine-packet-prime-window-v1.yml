@@ -93,6 +93,7 @@ jobs:
             RHNineBlockComparisonV1
             RHNineBlockActualBridgeV1
             RHNineBlockActualExpansionV1
+            RHRationalNinePacketConcreteV1
           )
           : > evidence/modules.txt
           : > evidence/exact-source.log
@@ -150,6 +151,9 @@ jobs:
           #print axioms AEGIS.RHNineBlockActualBridgeV1.nine_value_bound_v1
           #print axioms AEGIS.RHNineBlockActualExpansionV1.actual_nine_block_expansion_v1
           #print axioms AEGIS.RHNineBlockActualExpansionV1.actual_nine_block_bound_v1
+          #print axioms AEGIS.RHRationalNinePacketConcreteV1.nine_packet_coercive_v1
+          #print axioms AEGIS.RHRationalNinePacketConcreteV1.canonical_nine_packet_coercive_v1
+          #print axioms AEGIS.RHRationalNinePacketConcreteV1.canonical_nine_packet_sign_v1
           EOF
           lake env lean RHRationalNinePacketPrimeWindowAudit.lean 2>&1 | tee evidence/axioms.log
           ! grep -F 'sorryAx' evidence/axioms.log
