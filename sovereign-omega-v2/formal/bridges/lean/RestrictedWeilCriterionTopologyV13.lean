@@ -39,10 +39,9 @@ def rightHalfParamV13 (z : ℂ) : ℂ :=
   Complex.ofReal (Real.exp z.re) + Complex.ofReal z.im * I
 
 theorem riemann_zeta_zeros_countable_v13 :
-    riemannZetaZeros.Countable := by
-  exact
-    isClosed_riemannZetaZeros.isLindelof.countable_of_isDiscrete
-      isDiscrete_riemannZetaZeros
+    riemannZetaZeros.Countable :=
+  isClosed_riemannZetaZeros.isLindelof.countable_of_isDiscrete
+    isDiscrete_riemannZetaZeros
 
 theorem centered_riemann_zero_set_countable_v13 :
     CenteredRiemannZeroSetV13.Countable := by
@@ -65,11 +64,11 @@ theorem right_half_minus_centered_zeros_open_v13 :
 
 theorem rightHalfParam_re_v13 (z : ℂ) :
     (rightHalfParamV13 z).re = Real.exp z.re := by
-  simp [rightHalfParamV13]
+  simp [rightHalfParamV13, Complex.ofReal_re]
 
 theorem rightHalfParam_im_v13 (z : ℂ) :
     (rightHalfParamV13 z).im = z.im := by
-  simp [rightHalfParamV13]
+  simp [rightHalfParamV13, Complex.ofReal_im]
 
 theorem rightHalfParam_continuous_v13 :
     Continuous rightHalfParamV13 := by
