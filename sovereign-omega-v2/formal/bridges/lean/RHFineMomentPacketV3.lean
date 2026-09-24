@@ -130,6 +130,9 @@ theorem gFine_moments_v3 : WeilMomentConditionsV1 gFine := by
       rw [← integral_complex_ofReal]
       apply setIntegral_congr_fun measurableSet_Ioi
       intro x hx
+      change finePacketFn x / (x : ℂ) =
+        ((x⁻¹ * fineRealPacket x : ℝ) : ℂ)
+      unfold finePacketFn
       change (fineRealPacket x : ℂ) / (x : ℂ) =
         ((x⁻¹ : ℝ) : ℂ) * (fineRealPacket x : ℂ)
       rw [Complex.ofReal_inv]
