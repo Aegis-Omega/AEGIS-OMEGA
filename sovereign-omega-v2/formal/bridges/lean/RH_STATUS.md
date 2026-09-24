@@ -33,6 +33,11 @@ Axiom target for every theorem: `[propext, Classical.choice, Quot.sound]`. `sorr
 | `narrow_coercive`, `universal_on_narrow_class` | for every moment-zero `g` of half-width `≤ 1/64` (any shape, any dense combination inside the window): `Re RHS ≤ −(103/100)·E`, hence `0 ≤` the zero quadratic — the whole narrow-support class, no lattice | `RHNarrowSupportPositivityV13` |
 | `margin_pos`, `tower_coercive` | `m ≥ max 10 (N+2)` ⇒ `Dm m − 2(log 2·2.42 + N/100) ≥ 0`; `Re RHS(Autocorr(Σ_{j≤N} z_j T_{j log 2} g)) ≤ −margin·E·Σ‖z‖²` | `RHDyadicTowerV13` |
 | `dyadic_tower` | `∀ N, ∃ m, ∀ g a, HalfWidthAt g 2^{-m} a → moments → ∀ z : Fin (N+1) → ℂ, 0 ≤ Re Σ_ρ m_ρ M(Autocorr(towerPacket N g z))(ρ)` — unbounded tower of dyadic families | `RHDyadicTowerV13` |
+| `moment_log_identity` | moments ⇒ `∫₀^∞ e^u·Re A(e^u)·(1 + e^{−u}) du = 0` (the two Mellin endpoint moments folded by the reciprocal symmetry `A(1/x) = x·conj A(x)`) | `RHMomentIdentityV13` |
+| `arch_moment_budget` | `r > 0`, half-width `r`, moments ⇒ `Re Arch ≤ E·(cothTail(2r) − 2cothTail(r) + (r/2)e^{r/2} + 4(cosh(r/2) − 1))` | `RHMomentGainV13` |
+| `moment_diagonal` | additionally `2r < log 2` ⇒ `Re RHS ≤ momentGain(r)·E`; the diagonal floor rises by `≈ log 4` at every width | `RHMomentGainV13` |
+| `momentGain_eighth`, `wide_coercive` | `momentGain(1/8) ≤ −1/5`; every moment-zero `g` of half-width `1/8` has `Re RHS ≤ −(1/5)·E` | `RHMomentNumericsV13`, `RHMomentGainV13` |
+| `wide_zero_quadratic_nonnegative`, `universal_on_wide_class` | `0 ≤` the zero quadratic for every moment-zero `g` of log-half-width `≤ 1/8` (log-support length `≤ 1/4`, any shape) — the narrow class widened eightfold | `RHMomentGainV13` |
 
 `RiemannHypothesis` is Mathlib's own definition
 (`∀ s, riemannZeta s = 0 → ¬(∃ n : ℕ, s = -2 * (n + 1)) → s ≠ 1 → s.re = 1 / 2`).
@@ -46,11 +51,11 @@ UniversalZeroQuadraticNonnegativeV10 :=
            WeilZeroIndexSummandV1 (WeilAutocorrelationV1 g) rho).re
 ```
 
-By §1 this proposition is logically equivalent to RH. §1 proves it on the whole narrow-support class
-(half-width `≤ 1/64`, any shape), on a 9-parameter family per narrow seed (ratio 33/16, width 1/256),
+By §1 this proposition is logically equivalent to RH. §1 proves it on the whole wide class
+(half-width `≤ 1/8`, any shape; `universal_on_wide_class`), on a 9-parameter family per narrow seed (ratio 33/16, width 1/256),
 and on an `(N+1)`-parameter dyadic family per seed of width `2^{-max(10,N+2)}` for every `N`
 (`dyadic_tower`); it is open for general `g` — in particular for every `g` whose log-support is
-wider than `1/32` and is not a lattice combination of narrow seeds. Proving it for all `g` from the arithmetic side is the entire
+wider than `1/4` and is not a lattice combination of narrow seeds. Proving it for all `g` from the arithmetic side is the entire
 content of the Riemann Hypothesis under Weil's criterion. No module does this.
 
 Acceptance probes (`DeepMindAcceptanceCheckV13c.lean`, `NineFacesAcceptanceCheck.lean`): with every
@@ -148,11 +153,44 @@ grows linearly in `m` (`Dm_ge`, from `cothTail_ge_below_32`). The margin is posi
 
 Still not RH: the width shrinks as `N` grows, so the family never becomes dense at any fixed width.
 
+## 3g. The moment gain and the wide class
+
+`RHMomentIdentityV13` turns the two moment conditions into one log-coordinate identity,
+`∫₀^∞ h(u)(1 + e^{−u}) du = 0` with `h(u) = e^u·Re A(e^u)`: the Mellin endpoints `s = 0, 1` are folded
+onto `u > 0` by the reciprocal symmetry `A(1/x) = x·conj A(x)`. `RHMomentGainV13` subtracts
+`λ·h(u)(1 + e^{−u})` from the Archimedean integrand with `λ = 1/(sinh r·(1 + e^{−r}))`, whose kernel
+changes sign exactly at `u = r`, and integrates the resulting majorants on `(0, r]`, `(r, 2r]`,
+`(2r, ∞)`. Result: `Re RHS ≤ momentGain(r)·E` whenever `2r < log 2` (no prime term reaches the window),
+and `momentGain(1/8) ≤ −1/5` (true value `≈ −0.2806`). So every moment-zero test function of
+log-support length `≤ 1/4` is Weil-positive — Yoshida's small-support theorem (1992; reproved by
+Bombieri) in kernel-checked form, with an explicit window.
+
+Numerical frontier of this route (support length `L = 2r`, energy units):
+
+| method | provable up to `L` |
+|---|---|
+| crude pointwise bound (§1, `diagonal_lower`) | `≈ 0.042` (formalized at `1/32`) |
+| moment identity, closed form (`momentGain`) | `≈ 0.322` (formalized at `1/4`) |
+| moment identity, exact linear program | `≈ 0.354` |
+| + Cauchy–Schwarz / Boas–Kac pointwise caps | `≈ 0.48` |
+| true worst case, no prime terms before `log 2` | margin `≈ 0.56·E` at `L = log 2` |
+
+The rest of the prime-free range (`0.48 < L < log 2`) needs positive-definiteness of the
+autocorrelation on the Fourier side, not pointwise caps. Beyond `L = log 2` prime terms enter every
+window; positivity for every `L` is RH.
+
+**Collision scan (not formalized).** Over all ratios `q ∈ [2, 4]` with denominator `≤ 128`, the longest
+run of prime-power-free gap windows `k·log q` is 5, 7, 8, 11, 11 at half-widths `1/64 … 1/1024`;
+`33/16` attains the optimum 8 at `1/256`, the dyadic ratio collides at every gap, and unrestricted
+shift sets found no larger families (9, 10, 12 packets at `1/256, 1/512, 1/1024`). Collision-free
+families grow like `log(1/width)`, never densely at a fixed width.
+
 ## 4. Reproduce
 
 ```
 python3 build2.py RHNinePacket33Over16V13     # expect rc=0 sorryAx=0 for all six V13 engine modules
 python3 build2.py RHNarrowSupportPositivityV13 RHDyadicTowerV13   # expect rc=0 sorryAx=0
+python3 build2.py RHMomentGainV13   # expect rc=0 sorryAx=0 for RHMomentIdentity/Pieces/Numerics/GainV13
 lean -R aegis_rh_extra aegis_rh_extra/NineFacesAcceptanceCheck.lean  # expect all six exact? to fail
 ```
 
@@ -164,7 +202,7 @@ plus the earlier `cda7c59f`, `7b00e26b`, `1dbb003a`, `5b169696`, `d770bc0c`, `75
 ## 5. Honest one-line summary
 
 The Weil-type criterion `RH ↔ UniversalZeroQuadraticNonnegativeV10` is formally closed in nine forms;
-the RH-equivalent quadratic is kernel-verified nonnegative on the whole narrow-support class
-(half-width `≤ 1/64`), on a 9-parameter `33/16` family per narrow seed, and on `(N+1)`-parameter
+the RH-equivalent quadratic is kernel-verified nonnegative on the whole wide class
+(half-width `≤ 1/8`, via the moment identity), on a 9-parameter `33/16` family per narrow seed, and on `(N+1)`-parameter
 dyadic families for every `N` (`dyadic_tower`), via one generic Toeplitz/Gram engine whose reach grows
 without bound as the packet narrows. RH itself is open; the repository contains no proof of it.
