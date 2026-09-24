@@ -249,55 +249,140 @@ theorem ten_value_bound_v1
       2 * ((z8 * star z9 * b89).re) ≤
         2 * E * ((1 / 100 : ℝ) * ‖z8‖ * ‖z9‖) := by
     nlinarith only [hp89]
+  have hrows :
+      (2 * ((z0 * star z1 * b01).re + (z0 * star z2 * b02).re + (z0 * star z3 * b03).re + (z0 * star z4 * b04).re + (z0 * star z5 * b05).re + (z0 * star z6 * b06).re + (z0 * star z7 * b07).re + (z0 * star z8 * b08).re + (z0 * star z9 * b09).re)) +
+        (2 * ((z1 * star z2 * b12).re + (z1 * star z3 * b13).re + (z1 * star z4 * b14).re + (z1 * star z5 * b15).re + (z1 * star z6 * b16).re + (z1 * star z7 * b17).re + (z1 * star z8 * b18).re + (z1 * star z9 * b19).re)) +
+        (2 * ((z2 * star z3 * b23).re + (z2 * star z4 * b24).re + (z2 * star z5 * b25).re + (z2 * star z6 * b26).re + (z2 * star z7 * b27).re + (z2 * star z8 * b28).re + (z2 * star z9 * b29).re)) +
+        (2 * ((z3 * star z4 * b34).re + (z3 * star z5 * b35).re + (z3 * star z6 * b36).re + (z3 * star z7 * b37).re + (z3 * star z8 * b38).re + (z3 * star z9 * b39).re)) +
+        (2 * ((z4 * star z5 * b45).re + (z4 * star z6 * b46).re + (z4 * star z7 * b47).re + (z4 * star z8 * b48).re + (z4 * star z9 * b49).re)) +
+        (2 * ((z5 * star z6 * b56).re + (z5 * star z7 * b57).re + (z5 * star z8 * b58).re + (z5 * star z9 * b59).re)) +
+        (2 * ((z6 * star z7 * b67).re + (z6 * star z8 * b68).re + (z6 * star z9 * b69).re)) +
+        (2 * ((z7 * star z8 * b78).re + (z7 * star z9 * b79).re)) +
+        (2 * ((z8 * star z9 * b89).re)) ≤
+      (2 * E * ((1 / 100 : ℝ) * ‖z0‖ * ‖z1‖ + (1 / 100 : ℝ) * ‖z0‖ * ‖z2‖ + (1 / 100 : ℝ) * ‖z0‖ * ‖z3‖ + (1 / 100 : ℝ) * ‖z0‖ * ‖z4‖ + (1 / 100 : ℝ) * ‖z0‖ * ‖z5‖ + (1 / 100 : ℝ) * ‖z0‖ * ‖z6‖ + (1 / 100 : ℝ) * ‖z0‖ * ‖z7‖ + (1 / 100 : ℝ) * ‖z0‖ * ‖z8‖ + (57 / 100 : ℝ) * ‖z0‖ * ‖z9‖)) +
+        (2 * E * ((1 / 100 : ℝ) * ‖z1‖ * ‖z2‖ + (1 / 100 : ℝ) * ‖z1‖ * ‖z3‖ + (1 / 100 : ℝ) * ‖z1‖ * ‖z4‖ + (1 / 100 : ℝ) * ‖z1‖ * ‖z5‖ + (1 / 100 : ℝ) * ‖z1‖ * ‖z6‖ + (1 / 100 : ℝ) * ‖z1‖ * ‖z7‖ + (1 / 100 : ℝ) * ‖z1‖ * ‖z8‖ + (1 / 100 : ℝ) * ‖z1‖ * ‖z9‖)) +
+        (2 * E * ((1 / 100 : ℝ) * ‖z2‖ * ‖z3‖ + (1 / 100 : ℝ) * ‖z2‖ * ‖z4‖ + (1 / 100 : ℝ) * ‖z2‖ * ‖z5‖ + (1 / 100 : ℝ) * ‖z2‖ * ‖z6‖ + (1 / 100 : ℝ) * ‖z2‖ * ‖z7‖ + (1 / 100 : ℝ) * ‖z2‖ * ‖z8‖ + (1 / 100 : ℝ) * ‖z2‖ * ‖z9‖)) +
+        (2 * E * ((1 / 100 : ℝ) * ‖z3‖ * ‖z4‖ + (1 / 100 : ℝ) * ‖z3‖ * ‖z5‖ + (1 / 100 : ℝ) * ‖z3‖ * ‖z6‖ + (1 / 100 : ℝ) * ‖z3‖ * ‖z7‖ + (1 / 100 : ℝ) * ‖z3‖ * ‖z8‖ + (1 / 100 : ℝ) * ‖z3‖ * ‖z9‖)) +
+        (2 * E * ((1 / 100 : ℝ) * ‖z4‖ * ‖z5‖ + (1 / 100 : ℝ) * ‖z4‖ * ‖z6‖ + (1 / 100 : ℝ) * ‖z4‖ * ‖z7‖ + (1 / 100 : ℝ) * ‖z4‖ * ‖z8‖ + (1 / 100 : ℝ) * ‖z4‖ * ‖z9‖)) +
+        (2 * E * ((1 / 100 : ℝ) * ‖z5‖ * ‖z6‖ + (1 / 100 : ℝ) * ‖z5‖ * ‖z7‖ + (1 / 100 : ℝ) * ‖z5‖ * ‖z8‖ + (1 / 100 : ℝ) * ‖z5‖ * ‖z9‖)) +
+        (2 * E * ((1 / 100 : ℝ) * ‖z6‖ * ‖z7‖ + (1 / 100 : ℝ) * ‖z6‖ * ‖z8‖ + (1 / 100 : ℝ) * ‖z6‖ * ‖z9‖)) +
+        (2 * E * ((1 / 100 : ℝ) * ‖z7‖ * ‖z8‖ + (1 / 100 : ℝ) * ‖z7‖ * ‖z9‖)) +
+        (2 * E * ((1 / 100 : ℝ) * ‖z8‖ * ‖z9‖)) := by
+    exact add_le_add (add_le_add (add_le_add (add_le_add (add_le_add (add_le_add (add_le_add (add_le_add (hrow0) hrow1) hrow2) hrow3) hrow4) hrow5) hrow6) hrow7) hrow8
   have hcross :
       2 * ((z0 * star z1 * b01).re +
-       (z0 * star z2 * b02).re +
-       (z0 * star z3 * b03).re +
-       (z0 * star z4 * b04).re +
-       (z0 * star z5 * b05).re +
-       (z0 * star z6 * b06).re +
-       (z0 * star z7 * b07).re +
-       (z0 * star z8 * b08).re +
-       (z0 * star z9 * b09).re +
-       (z1 * star z2 * b12).re +
-       (z1 * star z3 * b13).re +
-       (z1 * star z4 * b14).re +
-       (z1 * star z5 * b15).re +
-       (z1 * star z6 * b16).re +
-       (z1 * star z7 * b17).re +
-       (z1 * star z8 * b18).re +
-       (z1 * star z9 * b19).re +
-       (z2 * star z3 * b23).re +
-       (z2 * star z4 * b24).re +
-       (z2 * star z5 * b25).re +
-       (z2 * star z6 * b26).re +
-       (z2 * star z7 * b27).re +
-       (z2 * star z8 * b28).re +
-       (z2 * star z9 * b29).re +
-       (z3 * star z4 * b34).re +
-       (z3 * star z5 * b35).re +
-       (z3 * star z6 * b36).re +
-       (z3 * star z7 * b37).re +
-       (z3 * star z8 * b38).re +
-       (z3 * star z9 * b39).re +
-       (z4 * star z5 * b45).re +
-       (z4 * star z6 * b46).re +
-       (z4 * star z7 * b47).re +
-       (z4 * star z8 * b48).re +
-       (z4 * star z9 * b49).re +
-       (z5 * star z6 * b56).re +
-       (z5 * star z7 * b57).re +
-       (z5 * star z8 * b58).re +
-       (z5 * star z9 * b59).re +
-       (z6 * star z7 * b67).re +
-       (z6 * star z8 * b68).re +
-       (z6 * star z9 * b69).re +
-       (z7 * star z8 * b78).re +
-       (z7 * star z9 * b79).re +
-       (z8 * star z9 * b89).re) ≤
+        (z0 * star z2 * b02).re +
+        (z0 * star z3 * b03).re +
+        (z0 * star z4 * b04).re +
+        (z0 * star z5 * b05).re +
+        (z0 * star z6 * b06).re +
+        (z0 * star z7 * b07).re +
+        (z0 * star z8 * b08).re +
+        (z0 * star z9 * b09).re +
+        (z1 * star z2 * b12).re +
+        (z1 * star z3 * b13).re +
+        (z1 * star z4 * b14).re +
+        (z1 * star z5 * b15).re +
+        (z1 * star z6 * b16).re +
+        (z1 * star z7 * b17).re +
+        (z1 * star z8 * b18).re +
+        (z1 * star z9 * b19).re +
+        (z2 * star z3 * b23).re +
+        (z2 * star z4 * b24).re +
+        (z2 * star z5 * b25).re +
+        (z2 * star z6 * b26).re +
+        (z2 * star z7 * b27).re +
+        (z2 * star z8 * b28).re +
+        (z2 * star z9 * b29).re +
+        (z3 * star z4 * b34).re +
+        (z3 * star z5 * b35).re +
+        (z3 * star z6 * b36).re +
+        (z3 * star z7 * b37).re +
+        (z3 * star z8 * b38).re +
+        (z3 * star z9 * b39).re +
+        (z4 * star z5 * b45).re +
+        (z4 * star z6 * b46).re +
+        (z4 * star z7 * b47).re +
+        (z4 * star z8 * b48).re +
+        (z4 * star z9 * b49).re +
+        (z5 * star z6 * b56).re +
+        (z5 * star z7 * b57).re +
+        (z5 * star z8 * b58).re +
+        (z5 * star z9 * b59).re +
+        (z6 * star z7 * b67).re +
+        (z6 * star z8 * b68).re +
+        (z6 * star z9 * b69).re +
+        (z7 * star z8 * b78).re +
+        (z7 * star z9 * b79).re +
+        (z8 * star z9 * b89).re) ≤
         E * cross10 ‖z0‖ ‖z1‖ ‖z2‖ ‖z3‖ ‖z4‖ ‖z5‖ ‖z6‖ ‖z7‖ ‖z8‖ ‖z9‖ := by
-    unfold cross10 pairSum10
-    nlinarith only [hrow0, hrow1, hrow2, hrow3, hrow4, hrow5, hrow6, hrow7, hrow8]
+    calc
+      2 * ((z0 * star z1 * b01).re +
+        (z0 * star z2 * b02).re +
+        (z0 * star z3 * b03).re +
+        (z0 * star z4 * b04).re +
+        (z0 * star z5 * b05).re +
+        (z0 * star z6 * b06).re +
+        (z0 * star z7 * b07).re +
+        (z0 * star z8 * b08).re +
+        (z0 * star z9 * b09).re +
+        (z1 * star z2 * b12).re +
+        (z1 * star z3 * b13).re +
+        (z1 * star z4 * b14).re +
+        (z1 * star z5 * b15).re +
+        (z1 * star z6 * b16).re +
+        (z1 * star z7 * b17).re +
+        (z1 * star z8 * b18).re +
+        (z1 * star z9 * b19).re +
+        (z2 * star z3 * b23).re +
+        (z2 * star z4 * b24).re +
+        (z2 * star z5 * b25).re +
+        (z2 * star z6 * b26).re +
+        (z2 * star z7 * b27).re +
+        (z2 * star z8 * b28).re +
+        (z2 * star z9 * b29).re +
+        (z3 * star z4 * b34).re +
+        (z3 * star z5 * b35).re +
+        (z3 * star z6 * b36).re +
+        (z3 * star z7 * b37).re +
+        (z3 * star z8 * b38).re +
+        (z3 * star z9 * b39).re +
+        (z4 * star z5 * b45).re +
+        (z4 * star z6 * b46).re +
+        (z4 * star z7 * b47).re +
+        (z4 * star z8 * b48).re +
+        (z4 * star z9 * b49).re +
+        (z5 * star z6 * b56).re +
+        (z5 * star z7 * b57).re +
+        (z5 * star z8 * b58).re +
+        (z5 * star z9 * b59).re +
+        (z6 * star z7 * b67).re +
+        (z6 * star z8 * b68).re +
+        (z6 * star z9 * b69).re +
+        (z7 * star z8 * b78).re +
+        (z7 * star z9 * b79).re +
+        (z8 * star z9 * b89).re) =
+          (2 * ((z0 * star z1 * b01).re + (z0 * star z2 * b02).re + (z0 * star z3 * b03).re + (z0 * star z4 * b04).re + (z0 * star z5 * b05).re + (z0 * star z6 * b06).re + (z0 * star z7 * b07).re + (z0 * star z8 * b08).re + (z0 * star z9 * b09).re)) +
+        (2 * ((z1 * star z2 * b12).re + (z1 * star z3 * b13).re + (z1 * star z4 * b14).re + (z1 * star z5 * b15).re + (z1 * star z6 * b16).re + (z1 * star z7 * b17).re + (z1 * star z8 * b18).re + (z1 * star z9 * b19).re)) +
+        (2 * ((z2 * star z3 * b23).re + (z2 * star z4 * b24).re + (z2 * star z5 * b25).re + (z2 * star z6 * b26).re + (z2 * star z7 * b27).re + (z2 * star z8 * b28).re + (z2 * star z9 * b29).re)) +
+        (2 * ((z3 * star z4 * b34).re + (z3 * star z5 * b35).re + (z3 * star z6 * b36).re + (z3 * star z7 * b37).re + (z3 * star z8 * b38).re + (z3 * star z9 * b39).re)) +
+        (2 * ((z4 * star z5 * b45).re + (z4 * star z6 * b46).re + (z4 * star z7 * b47).re + (z4 * star z8 * b48).re + (z4 * star z9 * b49).re)) +
+        (2 * ((z5 * star z6 * b56).re + (z5 * star z7 * b57).re + (z5 * star z8 * b58).re + (z5 * star z9 * b59).re)) +
+        (2 * ((z6 * star z7 * b67).re + (z6 * star z8 * b68).re + (z6 * star z9 * b69).re)) +
+        (2 * ((z7 * star z8 * b78).re + (z7 * star z9 * b79).re)) +
+        (2 * ((z8 * star z9 * b89).re)) := by ring
+      _ ≤ (2 * E * ((1 / 100 : ℝ) * ‖z0‖ * ‖z1‖ + (1 / 100 : ℝ) * ‖z0‖ * ‖z2‖ + (1 / 100 : ℝ) * ‖z0‖ * ‖z3‖ + (1 / 100 : ℝ) * ‖z0‖ * ‖z4‖ + (1 / 100 : ℝ) * ‖z0‖ * ‖z5‖ + (1 / 100 : ℝ) * ‖z0‖ * ‖z6‖ + (1 / 100 : ℝ) * ‖z0‖ * ‖z7‖ + (1 / 100 : ℝ) * ‖z0‖ * ‖z8‖ + (57 / 100 : ℝ) * ‖z0‖ * ‖z9‖)) +
+        (2 * E * ((1 / 100 : ℝ) * ‖z1‖ * ‖z2‖ + (1 / 100 : ℝ) * ‖z1‖ * ‖z3‖ + (1 / 100 : ℝ) * ‖z1‖ * ‖z4‖ + (1 / 100 : ℝ) * ‖z1‖ * ‖z5‖ + (1 / 100 : ℝ) * ‖z1‖ * ‖z6‖ + (1 / 100 : ℝ) * ‖z1‖ * ‖z7‖ + (1 / 100 : ℝ) * ‖z1‖ * ‖z8‖ + (1 / 100 : ℝ) * ‖z1‖ * ‖z9‖)) +
+        (2 * E * ((1 / 100 : ℝ) * ‖z2‖ * ‖z3‖ + (1 / 100 : ℝ) * ‖z2‖ * ‖z4‖ + (1 / 100 : ℝ) * ‖z2‖ * ‖z5‖ + (1 / 100 : ℝ) * ‖z2‖ * ‖z6‖ + (1 / 100 : ℝ) * ‖z2‖ * ‖z7‖ + (1 / 100 : ℝ) * ‖z2‖ * ‖z8‖ + (1 / 100 : ℝ) * ‖z2‖ * ‖z9‖)) +
+        (2 * E * ((1 / 100 : ℝ) * ‖z3‖ * ‖z4‖ + (1 / 100 : ℝ) * ‖z3‖ * ‖z5‖ + (1 / 100 : ℝ) * ‖z3‖ * ‖z6‖ + (1 / 100 : ℝ) * ‖z3‖ * ‖z7‖ + (1 / 100 : ℝ) * ‖z3‖ * ‖z8‖ + (1 / 100 : ℝ) * ‖z3‖ * ‖z9‖)) +
+        (2 * E * ((1 / 100 : ℝ) * ‖z4‖ * ‖z5‖ + (1 / 100 : ℝ) * ‖z4‖ * ‖z6‖ + (1 / 100 : ℝ) * ‖z4‖ * ‖z7‖ + (1 / 100 : ℝ) * ‖z4‖ * ‖z8‖ + (1 / 100 : ℝ) * ‖z4‖ * ‖z9‖)) +
+        (2 * E * ((1 / 100 : ℝ) * ‖z5‖ * ‖z6‖ + (1 / 100 : ℝ) * ‖z5‖ * ‖z7‖ + (1 / 100 : ℝ) * ‖z5‖ * ‖z8‖ + (1 / 100 : ℝ) * ‖z5‖ * ‖z9‖)) +
+        (2 * E * ((1 / 100 : ℝ) * ‖z6‖ * ‖z7‖ + (1 / 100 : ℝ) * ‖z6‖ * ‖z8‖ + (1 / 100 : ℝ) * ‖z6‖ * ‖z9‖)) +
+        (2 * E * ((1 / 100 : ℝ) * ‖z7‖ * ‖z8‖ + (1 / 100 : ℝ) * ‖z7‖ * ‖z9‖)) +
+        (2 * E * ((1 / 100 : ℝ) * ‖z8‖ * ‖z9‖)) := hrows
+      _ = E * cross10 ‖z0‖ ‖z1‖ ‖z2‖ ‖z3‖ ‖z4‖ ‖z5‖ ‖z6‖ ‖z7‖ ‖z8‖ ‖z9‖ := by
+        unfold cross10 pairSum10
+        ring
   have hvalue := add_le_add hdiag hcross
   have hc := mul_le_mul_of_nonneg_left
     (cross_ten_le_thirteen_over_twenty_v1 ‖z0‖ ‖z1‖ ‖z2‖ ‖z3‖ ‖z4‖ ‖z5‖ ‖z6‖ ‖z7‖ ‖z8‖ ‖z9‖) hE
