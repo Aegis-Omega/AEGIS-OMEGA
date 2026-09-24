@@ -282,22 +282,46 @@ theorem prime_term_673_norm_v1
   have hp := mixed_nat_zero_of_positive_gap_v1
     g a 0 gapNineV1 hw (by simpa only [sub_zero] using gapNine_pos_v1) 673 (by norm_num)
   have hr := reciprocal_mixed_norm_le_one_over_25_v1 g 673 (by norm_num) (by norm_num)
-  change
-    ‖(((ArithmeticFunction.vonMangoldt 673 : ℝ) : ℂ) *
-      (mixed (translatePacket g 0) (translatePacket g gapNineV1) (673 : ℝ) +
-        (1 / (673 : ℂ)) *
+  have hp' :
+      mixed (translatePacket g 0) (translatePacket g gapNineV1) (673 : ℝ) = 0 := by
+    convert hp using 1 <;> norm_num
+  have hr' :
+      ‖(1 / (673 : ℂ)) *
+        mixed (translatePacket g 0) (translatePacket g gapNineV1)
+          ((673 : ℝ)⁻¹)‖ ≤
+        (1 / 25 : ℝ) * energy g.1 := by
+    convert hr using 1 <;> norm_num
+  have hterm :
+      WeilPrimeTermV1
+        (mixed (translatePacket g 0) (translatePacket g gapNineV1)) 672 =
+      (Real.log (673 : ℝ) : ℂ) *
+        ((1 / (673 : ℂ)) *
           mixed (translatePacket g 0) (translatePacket g gapNineV1)
-            ((673 : ℝ)⁻¹)))‖ ≤
-      (7 / 25 : ℝ) * energy g.1
-  rw [ArithmeticFunction.vonMangoldt_apply_prime prime_673_v1, hp]
-  simp only [zero_add, norm_mul, Complex.norm_real, Real.norm_eq_abs]
+            ((673 : ℝ)⁻¹)) := by
+    unfold WeilPrimeTermV1
+    dsimp
+    rw [ArithmeticFunction.vonMangoldt_apply_prime prime_673_v1]
+    change
+      (Real.log (673 : ℝ) : ℂ) *
+          (mixed (translatePacket g 0) (translatePacket g gapNineV1) (673 : ℝ) +
+            (1 / (673 : ℂ)) *
+              mixed (translatePacket g 0) (translatePacket g gapNineV1)
+                ((673 : ℝ)⁻¹)) =
+        (Real.log (673 : ℝ) : ℂ) *
+          ((1 / (673 : ℂ)) *
+            mixed (translatePacket g 0) (translatePacket g gapNineV1)
+              ((673 : ℝ)⁻¹))
+    rw [hp']
+    simp
+  rw [hterm]
+  simp only [norm_mul, Complex.norm_real, Real.norm_eq_abs]
   rw [abs_of_nonneg (Real.log_nonneg (by norm_num))]
   calc
     Real.log 673 *
         ‖(1 / (673 : ℂ)) *
           mixed (translatePacket g 0) (translatePacket g gapNineV1) ((673 : ℝ)⁻¹)‖
       ≤ 7 * ((1 / 25 : ℝ) * energy g.1) :=
-        mul_le_mul (le_of_lt log_673_lt_seven_v1) hr
+        mul_le_mul (le_of_lt log_673_lt_seven_v1) hr'
           (norm_nonneg _) (by positivity)
     _ = (7 / 25 : ℝ) * energy g.1 := by ring
 
@@ -310,22 +334,46 @@ theorem prime_term_677_norm_v1
   have hp := mixed_nat_zero_of_positive_gap_v1
     g a 0 gapNineV1 hw (by simpa only [sub_zero] using gapNine_pos_v1) 677 (by norm_num)
   have hr := reciprocal_mixed_norm_le_one_over_25_v1 g 677 (by norm_num) (by norm_num)
-  change
-    ‖(((ArithmeticFunction.vonMangoldt 677 : ℝ) : ℂ) *
-      (mixed (translatePacket g 0) (translatePacket g gapNineV1) (677 : ℝ) +
-        (1 / (677 : ℂ)) *
+  have hp' :
+      mixed (translatePacket g 0) (translatePacket g gapNineV1) (677 : ℝ) = 0 := by
+    convert hp using 1 <;> norm_num
+  have hr' :
+      ‖(1 / (677 : ℂ)) *
+        mixed (translatePacket g 0) (translatePacket g gapNineV1)
+          ((677 : ℝ)⁻¹)‖ ≤
+        (1 / 25 : ℝ) * energy g.1 := by
+    convert hr using 1 <;> norm_num
+  have hterm :
+      WeilPrimeTermV1
+        (mixed (translatePacket g 0) (translatePacket g gapNineV1)) 676 =
+      (Real.log (677 : ℝ) : ℂ) *
+        ((1 / (677 : ℂ)) *
           mixed (translatePacket g 0) (translatePacket g gapNineV1)
-            ((677 : ℝ)⁻¹)))‖ ≤
-      (7 / 25 : ℝ) * energy g.1
-  rw [ArithmeticFunction.vonMangoldt_apply_prime prime_677_v1, hp]
-  simp only [zero_add, norm_mul, Complex.norm_real, Real.norm_eq_abs]
+            ((677 : ℝ)⁻¹)) := by
+    unfold WeilPrimeTermV1
+    dsimp
+    rw [ArithmeticFunction.vonMangoldt_apply_prime prime_677_v1]
+    change
+      (Real.log (677 : ℝ) : ℂ) *
+          (mixed (translatePacket g 0) (translatePacket g gapNineV1) (677 : ℝ) +
+            (1 / (677 : ℂ)) *
+              mixed (translatePacket g 0) (translatePacket g gapNineV1)
+                ((677 : ℝ)⁻¹)) =
+        (Real.log (677 : ℝ) : ℂ) *
+          ((1 / (677 : ℂ)) *
+            mixed (translatePacket g 0) (translatePacket g gapNineV1)
+              ((677 : ℝ)⁻¹))
+    rw [hp']
+    simp
+  rw [hterm]
+  simp only [norm_mul, Complex.norm_real, Real.norm_eq_abs]
   rw [abs_of_nonneg (Real.log_nonneg (by norm_num))]
   calc
     Real.log 677 *
         ‖(1 / (677 : ℂ)) *
           mixed (translatePacket g 0) (translatePacket g gapNineV1) ((677 : ℝ)⁻¹)‖
       ≤ 7 * ((1 / 25 : ℝ) * energy g.1) :=
-        mul_le_mul (le_of_lt log_677_lt_seven_v1) hr
+        mul_le_mul (le_of_lt log_677_lt_seven_v1) hr'
           (norm_nonneg _) (by positivity)
     _ = (7 / 25 : ℝ) * energy g.1 := by ring
 
