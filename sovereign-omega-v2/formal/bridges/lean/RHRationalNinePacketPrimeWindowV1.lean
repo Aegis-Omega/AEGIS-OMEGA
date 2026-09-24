@@ -344,7 +344,12 @@ theorem prime_sum_zero_of_window_vm_v1
         lt_of_not_ge hwin
       have hi := mixed_inv_nat_zero_outside_gap_v1
         g a d1 d2 hw (n + 1) hm hfar
-      simp [WeilPrimeTermV1, hp, hi]
+      unfold WeilPrimeTermV1
+      dsimp
+      rw [show ((n : ℝ) + 1) = (((n + 1 : ℕ) : ℝ)) by norm_num,
+          show ((n : ℂ) + 1) = (((n + 1 : ℕ) : ℂ)) by norm_num,
+          hp, hi]
+      simp
   rw [hterm]
   simp
 
