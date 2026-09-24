@@ -30,6 +30,8 @@ noncomputable section
 namespace AEGIS.RHRationalNinePacketPrimeWindowV1
 
 open AEGIS.WeilDisjointEnergyV2
+open AEGIS.WeilLogCoordinateIsometryV21
+open AEGIS.WeilWidthArchCorrelationV25
 open AEGIS.WeilThreeBlockTranslatedPacketsV22
 open AEGIS.WeilThreeBlockCrossPrimeV28
 open AEGIS.WeilSeparatedArchBridgeV31
@@ -107,23 +109,48 @@ private theorem qNineV1_pos : 0 < qNineV1 := by norm_num [qNineV1]
 private theorem vm18_zero : ArithmeticFunction.vonMangoldt 18 = 0 := by
   exact ArithmeticFunction.vonMangoldt_eq_zero_iff.mpr (by decide)
 private theorem vm77_zero : ArithmeticFunction.vonMangoldt 77 = 0 := by
-  exact ArithmeticFunction.vonMangoldt_eq_zero_iff.mpr (by decide)
+  apply ArithmeticFunction.vonMangoldt_eq_zero_iff.mpr
+  intro hpp
+  obtain ⟨k, hk, hkpos, heq⟩ :=
+    (isPrimePow_nat_iff_bounded_log_minFac 77).mp hpp
+  norm_num at hk
+  interval_cases k <;> norm_num at heq
 private theorem vm158_zero : ArithmeticFunction.vonMangoldt 158 = 0 := by
   exact ArithmeticFunction.vonMangoldt_eq_zero_iff.mpr (by decide)
 private theorem vm159_zero : ArithmeticFunction.vonMangoldt 159 = 0 := by
-  exact ArithmeticFunction.vonMangoldt_eq_zero_iff.mpr (by decide)
+  apply ArithmeticFunction.vonMangoldt_eq_zero_iff.mpr
+  intro hpp
+  obtain ⟨k, hk, hkpos, heq⟩ :=
+    (isPrimePow_nat_iff_bounded_log_minFac 159).mp hpp
+  norm_num at hk
+  interval_cases k <;> norm_num at heq
 private theorem vm160_zero : ArithmeticFunction.vonMangoldt 160 = 0 := by
   exact ArithmeticFunction.vonMangoldt_eq_zero_iff.mpr (by decide)
 private theorem vm325_zero : ArithmeticFunction.vonMangoldt 325 = 0 := by
-  exact ArithmeticFunction.vonMangoldt_eq_zero_iff.mpr (by decide)
+  apply ArithmeticFunction.vonMangoldt_eq_zero_iff.mpr
+  intro hpp
+  obtain ⟨k, hk, hkpos, heq⟩ :=
+    (isPrimePow_nat_iff_bounded_log_minFac 325).mp hpp
+  norm_num at hk
+  interval_cases k <;> norm_num at heq
 private theorem vm326_zero : ArithmeticFunction.vonMangoldt 326 = 0 := by
   exact ArithmeticFunction.vonMangoldt_eq_zero_iff.mpr (by decide)
 private theorem vm327_zero : ArithmeticFunction.vonMangoldt 327 = 0 := by
-  exact ArithmeticFunction.vonMangoldt_eq_zero_iff.mpr (by decide)
+  apply ArithmeticFunction.vonMangoldt_eq_zero_iff.mpr
+  intro hpp
+  obtain ⟨k, hk, hkpos, heq⟩ :=
+    (isPrimePow_nat_iff_bounded_log_minFac 327).mp hpp
+  norm_num at hk
+  interval_cases k <;> norm_num at heq
 private theorem vm328_zero : ArithmeticFunction.vonMangoldt 328 = 0 := by
   exact ArithmeticFunction.vonMangoldt_eq_zero_iff.mpr (by decide)
 private theorem vm329_zero : ArithmeticFunction.vonMangoldt 329 = 0 := by
-  exact ArithmeticFunction.vonMangoldt_eq_zero_iff.mpr (by decide)
+  apply ArithmeticFunction.vonMangoldt_eq_zero_iff.mpr
+  intro hpp
+  obtain ⟨k, hk, hkpos, heq⟩ :=
+    (isPrimePow_nat_iff_bounded_log_minFac 329).mp hpp
+  norm_num at hk
+  interval_cases k <;> norm_num at heq
 private theorem vm330_zero : ArithmeticFunction.vonMangoldt 330 = 0 := by
   exact ArithmeticFunction.vonMangoldt_eq_zero_iff.mpr (by decide)
 
