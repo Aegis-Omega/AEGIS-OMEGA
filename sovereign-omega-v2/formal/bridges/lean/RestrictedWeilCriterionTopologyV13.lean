@@ -64,11 +64,15 @@ theorem right_half_minus_centered_zeros_open_v13 :
 
 theorem rightHalfParam_re_v13 (z : ℂ) :
     (rightHalfParamV13 z).re = Real.exp z.re := by
-  simp [rightHalfParamV13, Complex.ofReal_re]
+  unfold rightHalfParamV13
+  rw [add_re, ofReal_re, mul_re, ofReal_re, ofReal_im, I_re, I_im]
+  ring
 
 theorem rightHalfParam_im_v13 (z : ℂ) :
     (rightHalfParamV13 z).im = z.im := by
-  simp [rightHalfParamV13, Complex.ofReal_im]
+  unfold rightHalfParamV13
+  rw [add_im, ofReal_im, mul_im, ofReal_re, ofReal_im, I_re, I_im]
+  ring
 
 theorem rightHalfParam_continuous_v13 :
     Continuous rightHalfParamV13 := by
