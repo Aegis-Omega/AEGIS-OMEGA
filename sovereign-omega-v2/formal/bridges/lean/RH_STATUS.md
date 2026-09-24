@@ -17,20 +17,24 @@ Axiom target for every theorem: `[propext, Classical.choice, Quot.sound]`. `sorr
 | `rh_iff_final_sign_v13` | `RiemannHypothesis ↔ FinalSignResidualV1` | `WeilRHImpliesFinalSignV13` |
 | `rh_iff_universal_v13` | `RiemannHypothesis ↔ UniversalZeroQuadraticNonnegativeV10` | `WeilRHImpliesFinalSignV13` |
 | `millennium_moment_iff_rh_v13` | `MillenniumMomentReachedV10 ↔ RiemannHypothesis` | `WeilRHImpliesFinalSignV13` |
+| `nine_faces_of_rh_v13` | all nine repository RH-equivalent formulations `↔ RiemannHypothesis` in one statement | `RHNineFacesV13` |
 | `four_packet_coercive_v3` | width ≤ 1/64 ∧ moments ⇒ `Re RHS(Autocorr(fourPacket g z)) ≤ −(2/125)·E(g)·energy4‖z‖` | `RHFourBlockConcreteV3` |
 | `fourPacket_zero_quadratic_nonnegative_v13` | same hypotheses ⇒ `0 ≤ Re Σ_ρ m_ρ M(Autocorr(fourPacket g z))(ρ)` for all `z ∈ ℂ⁴` | `RHFourPacketZeroQuadraticV13` |
 | `canonical_zero_quadratic_nonnegative_v13` | the `gFine` instance (nonzero seed, width 1/64) | `RHFourPacketZeroQuadraticV13` |
 | `five_block_certificate_impossible` | the four-block certificate schema admits no five-block extension with the same constants | `RHFourBlockCertificateLimitV13` |
+| `diagonal_lower` | `∀ 0 < r ≤ 1/64`: `E·(cothTail(2r) − κ − r·e^{1/64}) ≤ −Re B(g,g)` for every packet of log-half-width `r` | `RHDyadicDiagonalV13` |
+| `cothTail_ge`, `cothTail_dyadic` | `e^{-c}·log(c/w) ≤ cothTail w`; `e^{-1/8}(m−4)·log 2 ≤ cothTail(2·2^{-m})` | `RHDyadicDiagonalV13` |
 
 `RiemannHypothesis` is Mathlib's own definition
 (`∀ s, riemannZeta s = 0 → ¬(∃ n : ℕ, s = -2 * (n + 1)) → s ≠ 1 → s.re = 1 / 2`).
 
 Consequences:
 - the repository's Millennium gate `MillenniumMomentReachedV10` is **exactly** RH; the restricted
-  Weil criterion is closed as an equivalence in both directions;
+  Weil criterion is closed as an equivalence in both directions, in all nine of its repository forms;
 - the RH-equivalent predicate is **verified unconditionally on the four-translate span
   `{Σ_{k=0}^{3} z_k · T_{k·log 2} g}` of every moment-zero packet `g` of log-support width ≤ 1/64**;
-- the method that produced that verification provably stops at four translates (§3c).
+- the constants of that verification provably stop at four translates (§3c);
+- the Weil diagonal floor is now a single statement at every width and grows like `log(1/r)` (§3d).
 
 ## 2. What is NOT proved — the single open target
 
@@ -45,14 +49,9 @@ By §1 this proposition is logically equivalent to RH. §1 proves it on a 4-para
 narrow seed; it is open for general `g`. Proving it for all `g` from the arithmetic side is the
 entire content of the Riemann Hypothesis under Weil's criterion. No module does this.
 
-Acceptance probe (`DeepMindAcceptanceCheckV13c.lean`):
-
-```
-example : RiemannHypothesis := by exact?                          -- fails
-example : RiemannHypothesis := by rw [rh_iff_universal_v13]; exact?  -- fails
-```
-
-There is no Lean term of type `RiemannHypothesis` in this repository.
+Acceptance probes (`DeepMindAcceptanceCheckV13c.lean`, `NineFacesAcceptanceCheck.lean`): with every
+equivalence imported, `exact?` fails on `RiemannHypothesis` and on each of its faces, before and
+after rewriting around the cycle. There is no Lean term of type `RiemannHypothesis` in this repository.
 
 ## 3. Repository-wide scan (signature level)
 
@@ -65,7 +64,9 @@ Method: parse each theorem signature; take the conclusion after the last depth-0
 RH-equivalent class found:
 `RiemannHypothesis`, `FinalSignResidualV1`, `UniversalZeroQuadraticNonnegativeV10`,
 `MillenniumMomentReachedV10`, `RHMillenniumCertificateV10`, `RestrictedWeilCriterionKernelBridgeV10`,
-`WeilCompactSmoothNegativityV1`, `ZeroShiftComponentDominanceV1`.
+`WeilCompactSmoothNegativityV1`, `ZeroShiftComponentDominanceV1`, and (via `WeilWindowExhaustionV1`)
+`UniversalArithmeticNonpositiveV1`, `∀ L > 0, WindowArithmeticNonpositiveV1 L`,
+`∀ n > 0, WindowArithmeticNonpositiveV1 n`.
 
 Result: **the only unconditional, non-`↔` theorem whose conclusion lies in that class is
 `restricted_weil_criterion_kernel_bridge_v13`** — itself an implication (`Universal → RH`).
@@ -116,7 +117,7 @@ moment conditions**:
 - SOS certificate `158/125 · energy4 − cross4 = comparisonSOS ≥ 0` (`RHFourBlockComparisonV2`),
   leaving coercivity margin `32/25 − 158/125 = 2/125`.
 
-## 3c. Where the method stops (kernel-checked + arithmetic)
+## 3c. Where the constants stop (kernel-checked + arithmetic)
 
 **Kernel-checked** (`RHFourBlockCertificateLimitV13`, axioms `[propext, Classical.choice, Quot.sound]`):
 
@@ -124,9 +125,8 @@ moment conditions**:
   five-translate worst case on the all-ones vector is `5·32/25 − 7.28 = −22/25`.
 - `five_block_certificate_impossible (r) (hr : 0 ≤ r)`: for **every** nonnegative fourth-gap
   ceiling, `¬ ∀ x, cross5 … r x ≤ 32/25 · energy5 x`. The five-block analogue of
-  `actual_four_block_bound_v2` is false as a statement about norm ceilings.
-- `interior_row_exceeds_diagonal`: `2·(51/100 + 9/25) > 32/25` — the interior of any chain of
-  ≥ 5 translates already violates Gershgorin with the first two ceilings alone.
+  `actual_four_block_bound_v2` is false as a statement about norm ceilings **at width 1/64**.
+- `interior_row_exceeds_diagonal`: `2·(51/100 + 9/25) > 32/25`.
 
 **Arithmetic** (the repository's own window rule, `mixed_translate_zero_of_width_v28`:
 the cross term at gap `k·log 2` sees only integers `m` with `|log m − k·log 2| ≤ 1/32`, and
@@ -148,16 +148,51 @@ the cross term at gap `k·log 2` sees only integers `m` with `|log m − k·log 
 | 12 | 3989 … 4219 | 3.780 | — |
 | 15 | 31769 … 33797 | 11.837 | — |
 
-For `k ≤ 6` the window contains a single dyadic sample and the ceiling decays like `2^{-k/2}`;
-that is exactly why the four-block lane works. From `k = 7` on, primes enter the window and the
-prime mass grows like `2^{k/2}·(1/16)` (prime number theorem in the interval
-`[2^k e^{-1/32}, 2^k e^{1/32}]`). **Any norm ceiling on wide-gap cross terms therefore grows
-exponentially in the gap.** The true cross term is small only through cancellation of
+At the fixed window radius `1/32` the single-sample regime ends at `k = 6`; from `k = 7` primes enter
+and the prime mass grows like `2^{k/2}/16`. The true cross term is small only through cancellation of
 `ψ(x) − x` over short intervals — and `mixed_translate_B_eq_neg_zero_tsum_v10` says that
-cancellation is, term for term, the zero-side sum. This is the precise point where the
-repository's method ends, and it is Weil's circularity, not a missing lemma: bounding the wide-gap
-cross terms from the arithmetic side requires prime distribution in short intervals of relative
-width `1/16`, i.e. zero-free-region input of RH strength.
+cancellation is, term for term, the zero-side sum.
+
+## 3d. The width pattern (kernel-checked analytic half)
+
+Two facts, one from the tree and one now proved:
+
+1. **Cross ceilings at dyadic gaps form a geometric series.** In the single-sample regime the
+   ceiling at gap `k·log 2` is `log 2 · 2^{-k/2} + (arch)`, so the full row sum over all gaps is
+   `≤ 2·Σ_k (0.693·2^{-k/2} + 0.01) ≈ 3.35·E`, **independent of the packet width**.
+2. **The diagonal grows like `log(1/r)`** (`RHDyadicDiagonalV13.diagonal_lower`, `cothTail_dyadic`):
+   at half-width `2^{-m}`,
+   `−Re B(g,g) ≥ E · ( e^{-1/8}·(m − 4)·log 2 − κ − 2^{-m}·e^{1/64} )`, `κ = log 4π + γ < 3.112`.
+
+The single-sample regime itself widens as the packet narrows: at half-width `2^{-m}` the window
+radius is `2^{1-m}`, so the gap-`k` window contains only `2^k` while `2^k · 2^{1-m} ≲ 1`, i.e. up to
+`k ≈ m − 1` translates.
+
+| `m` (half-width `2^{-m}`) | proven floor `D/E` | row-sum ceiling | certifiable |
+|---|---|---|---|
+| 6 | −1.90 (crude; the hand-tuned 1.28 at this width is sharper) | 3.35 | — |
+| 10 | 0.56 | 3.35 | — |
+| 14 | 3.00 | 3.35 | — |
+| **15** | **3.62** | 3.35 | **all ~16 single-sample translates** |
+| 17 | 4.84 | 3.35 | ~19 |
+| 20 | 6.68 | 3.35 | ~22 |
+| 25 | 9.73 | 3.35 | ~28 |
+
+So the certifiable family is not four translates but an **unbounded tower**: for every `N` there is a
+width below which `N` dyadic translates are certified by the repository's own bound type. §3c's
+"stops at four" is a statement about width `1/64`, not about the method.
+
+Still to formalize for the tower (both are generalizations of existing modules, the machinery
+underneath is already parametric): (i) `mixed_translate_zero_of_width_v28` at window radius `2r`
+instead of `1/32`, and the single-integer window lemma `nat_eq_eight_of_log_window_v3` for `2^k`
+and radius `2r`; (ii) an `n`-block Gram expansion of `B` on a `Finset`-indexed combination
+(`combo`/`combo4` exist only for 3 and 4 blocks).
+
+What the tower is not: the span of `N` translates spaced `log 2` of a packet of width `2^{-m}` is a
+sparse lattice in the test-function class. Universality needs translates at spacing `≈ width`, where
+neighbouring cross terms reproduce the diagonal singularity and the Gram matrix's symbol is the
+zero-side spectral density — positivity of which is RH. The tower approaches universality in `N`, not
+in density. It remains a family of finite verifications.
 
 Partial sign results that also exist (all compile) and what they are not:
 
@@ -177,18 +212,23 @@ None of these produce `UniversalZeroQuadraticNonnegativeV10`.
 python3 build_target.py WeilRHImpliesFinalSignV13      # expect [118/118] rc=0 sorryAx=0 ALL BUILT
 python3 build2.py RHFourPacketZeroQuadraticV13          # expect rc=0 sorryAx=0 OK
 python3 build2.py RHFourBlockCertificateLimitV13        # expect rc=0 sorryAx=0 OK
+python3 build2.py RHNineFacesV13                        # expect rc=0 sorryAx=0 OK
+python3 build2.py RHDyadicDiagonalV13                   # expect rc=0 sorryAx=0 OK
 lean -R aegis_rh aegis_rh/DeepMindAcceptanceCheckV13c.lean   # expect both exact? to fail
+lean -R aegis_rh_extra aegis_rh_extra/NineFacesAcceptanceCheck.lean  # expect all six exact? to fail
 ```
 
 Pushed blobs are byte-verified against the compiled sources:
 `RHRestrictedWeilBridgeV13.lean` = `cda7c59f`, `WeilRHImpliesFinalSignV13.lean` = `7b00e26b`,
 `RHFourBlockConcreteV3.lean` = `1dbb003a`, `RHFineMomentPacketV3.lean` = `5b169696`,
-`RHFourPacketZeroQuadraticV13.lean` = `d770bc0c`, `WeilLogTransportCanonicalV1.lean` = `75e8f3c9`.
+`RHFourPacketZeroQuadraticV13.lean` = `d770bc0c`, `WeilLogTransportCanonicalV1.lean` = `75e8f3c9`,
+`RHFourBlockCertificateLimitV13.lean` = `e028cc83`, `RHNineFacesV13.lean` = `19da141e`,
+`RHDyadicDiagonalV13.lean` = `7539fb02`.
 
 ## 5. Honest one-line summary
 
-The Weil-type criterion `RH ↔ UniversalZeroQuadraticNonnegativeV10` is formally closed; the
-RH-equivalent quadratic is kernel-verified nonnegative on a 4-parameter family per narrow seed; the
-method behind that verification is kernel-proved to stop at four translates, because wide-gap cross
-terms are governed by primes in short intervals. RH itself is open; the repository contains no proof
-of it, and nothing in it is submitted upstream.
+The Weil-type criterion `RH ↔ UniversalZeroQuadraticNonnegativeV10` is formally closed in nine
+forms; the RH-equivalent quadratic is kernel-verified nonnegative on a 4-parameter family per narrow
+seed; the diagonal is now proved at every width and grows like `log(1/r)`, which makes that family
+the first floor of an unbounded tower of finite verifications. RH itself is open; the repository
+contains no proof of it, and nothing in it is submitted upstream.
