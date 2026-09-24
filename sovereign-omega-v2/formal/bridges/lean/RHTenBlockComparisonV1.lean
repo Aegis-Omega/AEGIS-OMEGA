@@ -133,7 +133,7 @@ theorem comparison_sos_identity_ten_v1 (x0 : ℝ) (x1 : ℝ) (x2 : ℝ) (x3 : �
       cross10 x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 -
       (3591 / 3200 : ℝ) * energy10 x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 =
         comparisonSOS10 x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 := by
-  unfold energy10 pairSum10 cross10 comparisonSOS10
+  unfold energy10 cross10 pairSum10 comparisonSOS10
   ring
 
 theorem comparison_sos_nonnegative_ten_v1 (x0 : ℝ) (x1 : ℝ) (x2 : ℝ) (x3 : ℝ) (x4 : ℝ) (x5 : ℝ) (x6 : ℝ) (x7 : ℝ) (x8 : ℝ) (x9 : ℝ) :
