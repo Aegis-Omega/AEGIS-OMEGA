@@ -319,7 +319,7 @@ theorem eleven_value_bound_v1
           (2 * E * ((1 / 100 : ℝ) * ‖z7‖ * ‖z8‖ + (1 / 100 : ℝ) * ‖z7‖ * ‖z9‖ + (1 / 100 : ℝ) * ‖z7‖ * ‖z10‖)) +
           (2 * E * ((1 / 100 : ℝ) * ‖z8‖ * ‖z9‖ + (1 / 100 : ℝ) * ‖z8‖ * ‖z10‖)) +
           (2 * E * ((1 / 100 : ℝ) * ‖z9‖ * ‖z10‖)) := by
-        convert hrowsAll using 1 <;> try ring
+        convert hrowsAll using 1 <;> try ring <;> try rfl
       _ = E * cross11 ‖z0‖ ‖z1‖ ‖z2‖ ‖z3‖ ‖z4‖ ‖z5‖ ‖z6‖ ‖z7‖ ‖z8‖ ‖z9‖ ‖z10‖ := by
         unfold cross11 pairSum11
         ring
