@@ -62,7 +62,7 @@ theorem gap_nine_candidate_range_v1
     (hw : |Real.log (m : ℝ) - gapNineV1| ≤ (1 / 128 : ℝ)) :
     671 ≤ m ∧ m ≤ 680 := by
   have h := nat_envelope_of_log_window_v1 hm
-    (show 0 < qNineV1 ^ 9 by positivity) (by simpa [gapNineV1] using hw)
+    (by norm_num [qNineV1] : 0 < qNineV1 ^ 9) (by simpa [gapNineV1] using hw)
   have hlo : (670 : ℝ) < (m : ℝ) := by
     exact lt_of_lt_of_le (by norm_num [qNineV1]) h.1
   have hhi : (m : ℝ) < 681 := by
@@ -154,7 +154,7 @@ theorem gap_nine_prime_term_zero_outside_v1
       (mixed (translatePacket g 0) (translatePacket g gapNineV1)) n = 0 := by
   have hm : 0 < n + 1 := by omega
   have hp := mixed_nat_zero_of_positive_gap_v1
-    g a 0 gapNineV1 hw gapNine_pos_v1 (n + 1) hm
+    g a 0 gapNineV1 hw (by simpa only [sub_zero] using gapNine_pos_v1) (n + 1) hm
   by_cases hwin :
       |Real.log ((n + 1 : ℕ) : ℝ) - gapNineV1| ≤ (1 / 128 : ℝ)
   · have hr := gap_nine_candidate_range_v1 hm hwin
@@ -171,7 +171,7 @@ theorem gap_nine_prime_term_zero_outside_v1
           |Real.log ((n + 1 : ℕ) : ℝ) - gapNineV1| :=
       lt_of_not_ge hwin
     have hi := mixed_inv_nat_zero_outside_gap_v1
-      g a 0 gapNineV1 hw (n + 1) hm hfar
+      g a 0 gapNineV1 hw (n + 1) hm (by simpa only [sub_zero] using hfar)
     unfold WeilPrimeTermV1
     dsimp
     rw [hp, hi]
@@ -221,16 +221,18 @@ theorem reciprocal_mixed_norm_le_one_over_25_v1
     dsimp [α]
     simpa only [Real.exp_neg, Real.exp_log hmpos, zero_sub, sub_zero] using ht
   have hnormeq := congrArg norm ht'
+  have hnormα : ‖(α : ℂ)‖ = α := by
+    rw [Complex.norm_real, Real.norm_eq_abs, abs_of_nonneg hα0]
+  let M : ℝ := ‖mixed (translatePacket g 0)
+    (translatePacket g gapNineV1) ((m : ℝ)⁻¹)‖
   have hnormeq' :
-      α * ‖mixed (translatePacket g 0)
-        (translatePacket g gapNineV1) ((m : ℝ)⁻¹)‖ =
+      α * M =
         ‖logCorrelationV25 g (-Real.log (m : ℝ) + gapNineV1)‖ := by
-    simpa [α, abs_of_pos (Real.exp_pos _)] using hnormeq
+    dsimp [M]
+    simpa only [norm_mul, hnormα] using hnormeq
   have hcorr := norm_logCorrelation_le_energy_v25
     g (-Real.log (m : ℝ) + gapNineV1)
-  have hprod :
-      α * ‖mixed (translatePacket g 0)
-        (translatePacket g gapNineV1) ((m : ℝ)⁻¹)‖ ≤ energy g.1 := by
+  have hprod : α * M ≤ energy g.1 := by
     rw [hnormeq']
     exact hcorr
   have hinv : (m : ℝ)⁻¹ = α * α := by
@@ -243,11 +245,13 @@ theorem reciprocal_mixed_norm_le_one_over_25_v1
   rw [norm_mul]
   have hscalar : ‖(1 / (m : ℂ))‖ = (m : ℝ)⁻¹ := by
     simp [one_div]
-  rw [hscalar, hinv, mul_assoc]
+  rw [hscalar]
+  change (m : ℝ)⁻¹ * M ≤ (1 / 25 : ℝ) * energy g.1
   calc
-    α * (α * ‖mixed (translatePacket g 0)
-      (translatePacket g gapNineV1) ((m : ℝ)⁻¹)‖) ≤
-        α * energy g.1 := mul_le_mul_of_nonneg_left hprod hα0
+    (m : ℝ)⁻¹ * M = α * (α * M) := by
+      rw [hinv]
+      ring
+    _ ≤ α * energy g.1 := mul_le_mul_of_nonneg_left hprod hα0
     _ ≤ (1 / 25 : ℝ) * energy g.1 :=
       mul_le_mul_of_nonneg_right hα (energy_nonnegative g.1)
 
@@ -276,10 +280,10 @@ theorem prime_term_673_norm_v1
       (mixed (translatePacket g 0) (translatePacket g gapNineV1)) 672‖ ≤
       (7 / 25 : ℝ) * energy g.1 := by
   have hp := mixed_nat_zero_of_positive_gap_v1
-    g a 0 gapNineV1 hw gapNine_pos_v1 673 (by norm_num)
+    g a 0 gapNineV1 hw (by simpa only [sub_zero] using gapNine_pos_v1) 673 (by norm_num)
   have hr := reciprocal_mixed_norm_le_one_over_25_v1 g 673 (by norm_num) (by norm_num)
   unfold WeilPrimeTermV1
-  norm_num
+  dsimp
   rw [ArithmeticFunction.vonMangoldt_apply_prime prime_673_v1, hp]
   simp only [zero_add, norm_mul, Complex.norm_real, Real.norm_eq_abs]
   rw [abs_of_nonneg (Real.log_nonneg (by norm_num))]
@@ -299,10 +303,10 @@ theorem prime_term_677_norm_v1
       (mixed (translatePacket g 0) (translatePacket g gapNineV1)) 676‖ ≤
       (7 / 25 : ℝ) * energy g.1 := by
   have hp := mixed_nat_zero_of_positive_gap_v1
-    g a 0 gapNineV1 hw gapNine_pos_v1 677 (by norm_num)
+    g a 0 gapNineV1 hw (by simpa only [sub_zero] using gapNine_pos_v1) 677 (by norm_num)
   have hr := reciprocal_mixed_norm_le_one_over_25_v1 g 677 (by norm_num) (by norm_num)
   unfold WeilPrimeTermV1
-  norm_num
+  dsimp
   rw [ArithmeticFunction.vonMangoldt_apply_prime prime_677_v1, hp]
   simp only [zero_add, norm_mul, Complex.norm_real, Real.norm_eq_abs]
   rw [abs_of_nonneg (Real.log_nonneg (by norm_num))]
@@ -341,12 +345,15 @@ theorem gap_nine_B_norm_v1
   have harch := translated_arch_norm_bound
     g a 0 gapNineV1
     (fine_width_implies_width_one_thirty_two_v1 g a hw)
-    hm log_two_le_gapNine_v1
+    hm (by simpa only [sub_zero] using log_two_le_gapNine_v1)
   have hzero :
       mixed (translatePacket g 0) (translatePacket g gapNineV1) 1 = 0 := by
+    have hgap0 : 0 < gapNineV1 := by
+      linarith [gapNine_pos_v1]
+    have hfar : (1 / 128 : ℝ) < |(0 : ℝ) + gapNineV1 - 0| := by
+      simpa only [zero_add, sub_zero, abs_of_pos hgap0] using gapNine_pos_v1
     have hz := mixed_translate_zero_of_fine_width_v1
-      g a 0 gapNineV1 0 hw (by
-        simpa using gapNine_pos_v1)
+      g a 0 gapNineV1 0 hw hfar
     simpa only [Real.exp_zero] using hz
   unfold B WeilExplicitRightSideV1
   rw [hzero]
