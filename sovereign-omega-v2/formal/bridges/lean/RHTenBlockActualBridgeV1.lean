@@ -1,5 +1,4 @@
 import RHTenBlockComparisonV1
-import WeilMixedAlgebraV2
 import Mathlib.Tactic
 
 /-!
