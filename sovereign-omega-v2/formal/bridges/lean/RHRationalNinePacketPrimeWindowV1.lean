@@ -30,6 +30,7 @@ noncomputable section
 namespace AEGIS.RHRationalNinePacketPrimeWindowV1
 
 open AEGIS.WeilDisjointEnergyV2
+open AEGIS.WeilMixedClosureV2
 open AEGIS.WeilThreeBlockTranslatedPacketsV22
 open AEGIS.WeilThreeBlockCrossPrimeV28
 open AEGIS.WeilLogCoordinateIsometryV21
@@ -397,7 +398,8 @@ theorem gap_one_prime_sum_zero_v1
     (Real.log (qNineV1 ^ 1)) hw
   · simpa using qNine_gap_one_gt_cutoff_v1
   · intro m hm hwin
-    simpa using gap_one_vonMangoldt_zero_v1 hm hwin
+    exact gap_one_vonMangoldt_zero_v1 hm (by
+      simpa only [sub_zero] using hwin)
 
 theorem gap_two_prime_sum_zero_v1
     (g : WeilCompactSmoothGV1) (a : ℝ)
@@ -409,7 +411,8 @@ theorem gap_two_prime_sum_zero_v1
     (Real.log (qNineV1 ^ 2)) hw
   · simpa using qNine_gap_two_gt_cutoff_v1
   · intro m hm hwin
-    simpa using gap_two_vonMangoldt_zero_v1 hm hwin
+    exact gap_two_vonMangoldt_zero_v1 hm (by
+      simpa only [sub_zero] using hwin)
 
 theorem gap_three_prime_sum_zero_v1
     (g : WeilCompactSmoothGV1) (a : ℝ)
@@ -421,7 +424,8 @@ theorem gap_three_prime_sum_zero_v1
     (Real.log (qNineV1 ^ 3)) hw
   · simpa using qNine_gap_three_gt_cutoff_v1
   · intro m hm hwin
-    simpa using gap_three_vonMangoldt_zero_v1 hm hwin
+    exact gap_three_vonMangoldt_zero_v1 hm (by
+      simpa only [sub_zero] using hwin)
 
 theorem gap_four_prime_sum_zero_v1
     (g : WeilCompactSmoothGV1) (a : ℝ)
@@ -433,7 +437,8 @@ theorem gap_four_prime_sum_zero_v1
     (Real.log (qNineV1 ^ 4)) hw
   · simpa using qNine_gap_four_gt_cutoff_v1
   · intro m hm hwin
-    simpa using gap_four_vonMangoldt_zero_v1 hm hwin
+    exact gap_four_vonMangoldt_zero_v1 hm (by
+      simpa only [sub_zero] using hwin)
 
 theorem gap_five_prime_sum_zero_v1
     (g : WeilCompactSmoothGV1) (a : ℝ)
@@ -445,7 +450,8 @@ theorem gap_five_prime_sum_zero_v1
     (Real.log (qNineV1 ^ 5)) hw
   · simpa using qNine_gap_five_gt_cutoff_v1
   · intro m hm hwin
-    simpa using gap_five_vonMangoldt_zero_v1 hm hwin
+    exact gap_five_vonMangoldt_zero_v1 hm (by
+      simpa only [sub_zero] using hwin)
 
 theorem gap_six_prime_sum_zero_v1
     (g : WeilCompactSmoothGV1) (a : ℝ)
@@ -457,7 +463,8 @@ theorem gap_six_prime_sum_zero_v1
     (Real.log (qNineV1 ^ 6)) hw
   · simpa using qNine_gap_six_gt_cutoff_v1
   · intro m hm hwin
-    simpa using gap_six_vonMangoldt_zero_v1 hm hwin
+    exact gap_six_vonMangoldt_zero_v1 hm (by
+      simpa only [sub_zero] using hwin)
 
 theorem gap_seven_prime_sum_zero_v1
     (g : WeilCompactSmoothGV1) (a : ℝ)
@@ -469,7 +476,8 @@ theorem gap_seven_prime_sum_zero_v1
     (Real.log (qNineV1 ^ 7)) hw
   · simpa using qNine_gap_seven_gt_cutoff_v1
   · intro m hm hwin
-    simpa using gap_seven_vonMangoldt_zero_v1 hm hwin
+    exact gap_seven_vonMangoldt_zero_v1 hm (by
+      simpa only [sub_zero] using hwin)
 
 theorem gap_eight_prime_sum_zero_v1
     (g : WeilCompactSmoothGV1) (a : ℝ)
@@ -481,7 +489,8 @@ theorem gap_eight_prime_sum_zero_v1
     (Real.log (qNineV1 ^ 8)) hw
   · simpa using qNine_gap_eight_gt_cutoff_v1
   · intro m hm hwin
-    simpa using gap_eight_vonMangoldt_zero_v1 hm hwin
+    exact gap_eight_vonMangoldt_zero_v1 hm (by
+      simpa only [sub_zero] using hwin)
 
 
 theorem fine_width_implies_width_one_thirty_two_v1
