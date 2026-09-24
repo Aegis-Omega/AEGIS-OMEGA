@@ -67,8 +67,9 @@ theorem gap_nine_candidate_range_v1
     exact lt_of_lt_of_le (by norm_num [qNineV1]) h.1
   have hhi : (m : ℝ) < 681 := by
     exact h.2.trans_le (by norm_num [qNineV1])
-  constructor <;> exact_mod_cast (show (670 : ℕ) < m by exact_mod_cast hlo) <;>
-    omega
+  have hloN : (670 : ℕ) < m := by exact_mod_cast hlo
+  have hhiN : m < 681 := by exact_mod_cast hhi
+  omega
 
 private theorem vm_zero_of_not_prime_pow_671 :
     ArithmeticFunction.vonMangoldt 671 = 0 := by
