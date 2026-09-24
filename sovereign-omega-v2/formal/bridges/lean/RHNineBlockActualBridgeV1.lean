@@ -174,10 +174,63 @@ theorem nine_value_bound_v1
   have hp67 := pair_re_le_nine_v1 z6 z7 b67 (1 / 100) E h67
   have hp68 := pair_re_le_nine_v1 z6 z8 b68 (1 / 100) E h68
   have hp78 := pair_re_le_nine_v1 z7 z8 b78 (1 / 100) E h78
+  have hdiag :
+      -(‖z0‖ ^ 2 * D0 + ‖z1‖ ^ 2 * D1 + ‖z2‖ ^ 2 * D2 + ‖z3‖ ^ 2 * D3 + ‖z4‖ ^ 2 * D4 + ‖z5‖ ^ 2 * D5 + ‖z6‖ ^ 2 * D6 + ‖z7‖ ^ 2 * D7 + ‖z8‖ ^ 2 * D8) ≤
+        -(32 / 25 : ℝ) * E *
+          energy9 ‖z0‖ ‖z1‖ ‖z2‖ ‖z3‖ ‖z4‖ ‖z5‖ ‖z6‖ ‖z7‖ ‖z8‖ := by
+    unfold energy9
+    nlinarith only [hd0, hd1, hd2, hd3, hd4, hd5, hd6, hd7, hd8]
+  have hrow0 :
+      2 * ((z0 * star z1 * b01).re + (z0 * star z2 * b02).re + (z0 * star z3 * b03).re + (z0 * star z4 * b04).re + (z0 * star z5 * b05).re + (z0 * star z6 * b06).re + (z0 * star z7 * b07).re + (z0 * star z8 * b08).re) ≤
+        (2 / 100 : ℝ) * E * (‖z0‖ * ‖z1‖ + ‖z0‖ * ‖z2‖ + ‖z0‖ * ‖z3‖ + ‖z0‖ * ‖z4‖ + ‖z0‖ * ‖z5‖ + ‖z0‖ * ‖z6‖ + ‖z0‖ * ‖z7‖ + ‖z0‖ * ‖z8‖) := by
+    nlinarith only [hp01, hp02, hp03, hp04, hp05, hp06, hp07, hp08]
+  have hrow1 :
+      2 * ((z1 * star z2 * b12).re + (z1 * star z3 * b13).re + (z1 * star z4 * b14).re + (z1 * star z5 * b15).re + (z1 * star z6 * b16).re + (z1 * star z7 * b17).re + (z1 * star z8 * b18).re) ≤
+        (2 / 100 : ℝ) * E * (‖z1‖ * ‖z2‖ + ‖z1‖ * ‖z3‖ + ‖z1‖ * ‖z4‖ + ‖z1‖ * ‖z5‖ + ‖z1‖ * ‖z6‖ + ‖z1‖ * ‖z7‖ + ‖z1‖ * ‖z8‖) := by
+    nlinarith only [hp12, hp13, hp14, hp15, hp16, hp17, hp18]
+  have hrow2 :
+      2 * ((z2 * star z3 * b23).re + (z2 * star z4 * b24).re + (z2 * star z5 * b25).re + (z2 * star z6 * b26).re + (z2 * star z7 * b27).re + (z2 * star z8 * b28).re) ≤
+        (2 / 100 : ℝ) * E * (‖z2‖ * ‖z3‖ + ‖z2‖ * ‖z4‖ + ‖z2‖ * ‖z5‖ + ‖z2‖ * ‖z6‖ + ‖z2‖ * ‖z7‖ + ‖z2‖ * ‖z8‖) := by
+    nlinarith only [hp23, hp24, hp25, hp26, hp27, hp28]
+  have hrow3 :
+      2 * ((z3 * star z4 * b34).re + (z3 * star z5 * b35).re + (z3 * star z6 * b36).re + (z3 * star z7 * b37).re + (z3 * star z8 * b38).re) ≤
+        (2 / 100 : ℝ) * E * (‖z3‖ * ‖z4‖ + ‖z3‖ * ‖z5‖ + ‖z3‖ * ‖z6‖ + ‖z3‖ * ‖z7‖ + ‖z3‖ * ‖z8‖) := by
+    nlinarith only [hp34, hp35, hp36, hp37, hp38]
+  have hrow4 :
+      2 * ((z4 * star z5 * b45).re + (z4 * star z6 * b46).re + (z4 * star z7 * b47).re + (z4 * star z8 * b48).re) ≤
+        (2 / 100 : ℝ) * E * (‖z4‖ * ‖z5‖ + ‖z4‖ * ‖z6‖ + ‖z4‖ * ‖z7‖ + ‖z4‖ * ‖z8‖) := by
+    nlinarith only [hp45, hp46, hp47, hp48]
+  have hrow5 :
+      2 * ((z5 * star z6 * b56).re + (z5 * star z7 * b57).re + (z5 * star z8 * b58).re) ≤
+        (2 / 100 : ℝ) * E * (‖z5‖ * ‖z6‖ + ‖z5‖ * ‖z7‖ + ‖z5‖ * ‖z8‖) := by
+    nlinarith only [hp56, hp57, hp58]
+  have hrow6 :
+      2 * ((z6 * star z7 * b67).re + (z6 * star z8 * b68).re) ≤
+        (2 / 100 : ℝ) * E * (‖z6‖ * ‖z7‖ + ‖z6‖ * ‖z8‖) := by
+    nlinarith only [hp67, hp68]
+  have hrow7 :
+      2 * ((z7 * star z8 * b78).re) ≤
+        (2 / 100 : ℝ) * E * (‖z7‖ * ‖z8‖) := by
+    nlinarith only [hp78]
+  have hcross :
+      2 * ((z0 * star z1 * b01).re + (z0 * star z2 * b02).re + (z0 * star z3 * b03).re + (z0 * star z4 * b04).re + (z0 * star z5 * b05).re + (z0 * star z6 * b06).re + (z0 * star z7 * b07).re + (z0 * star z8 * b08).re + (z1 * star z2 * b12).re + (z1 * star z3 * b13).re + (z1 * star z4 * b14).re + (z1 * star z5 * b15).re + (z1 * star z6 * b16).re + (z1 * star z7 * b17).re + (z1 * star z8 * b18).re + (z2 * star z3 * b23).re + (z2 * star z4 * b24).re + (z2 * star z5 * b25).re + (z2 * star z6 * b26).re + (z2 * star z7 * b27).re + (z2 * star z8 * b28).re + (z3 * star z4 * b34).re + (z3 * star z5 * b35).re + (z3 * star z6 * b36).re + (z3 * star z7 * b37).re + (z3 * star z8 * b38).re + (z4 * star z5 * b45).re + (z4 * star z6 * b46).re + (z4 * star z7 * b47).re + (z4 * star z8 * b48).re + (z5 * star z6 * b56).re + (z5 * star z7 * b57).re + (z5 * star z8 * b58).re + (z6 * star z7 * b67).re + (z6 * star z8 * b68).re + (z7 * star z8 * b78).re) ≤
+        E * cross9 ‖z0‖ ‖z1‖ ‖z2‖ ‖z3‖ ‖z4‖ ‖z5‖ ‖z6‖ ‖z7‖ ‖z8‖ := by
+    unfold cross9 pairSum9
+    nlinarith only [hrow0, hrow1, hrow2, hrow3, hrow4, hrow5, hrow6, hrow7]
+  have hvalue := add_le_add hdiag hcross
   have hc := mul_le_mul_of_nonneg_left
     (cross_nine_le_two_over_25_v1 ‖z0‖ ‖z1‖ ‖z2‖ ‖z3‖ ‖z4‖ ‖z5‖ ‖z6‖ ‖z7‖ ‖z8‖) hE
-  unfold nineValue energy9 cross9 pairSum9 at *
-  nlinarith only [hd0, hd1, hd2, hd3, hd4, hd5, hd6, hd7, hd8, hp01, hp02, hp03, hp04, hp05, hp06, hp07, hp08, hp12, hp13, hp14, hp15, hp16, hp17, hp18, hp23, hp24, hp25, hp26, hp27, hp28, hp34, hp35, hp36, hp37, hp38, hp45, hp46, hp47, hp48, hp56, hp57, hp58, hp67, hp68, hp78, hc]
+  calc
+    nineValue z0 z1 z2 z3 z4 z5 z6 z7 z8
+      D0 D1 D2 D3 D4 D5 D6 D7 D8
+      b01 b02 b03 b04 b05 b06 b07 b08 b12 b13 b14 b15 b16 b17 b18 b23 b24 b25 b26 b27 b28 b34 b35 b36 b37 b38 b45 b46 b47 b48 b56 b57 b58 b67 b68 b78 ≤
+        -(32 / 25 : ℝ) * E *
+          energy9 ‖z0‖ ‖z1‖ ‖z2‖ ‖z3‖ ‖z4‖ ‖z5‖ ‖z6‖ ‖z7‖ ‖z8‖ +
+        E * cross9 ‖z0‖ ‖z1‖ ‖z2‖ ‖z3‖ ‖z4‖ ‖z5‖ ‖z6‖ ‖z7‖ ‖z8‖ := by
+          simpa [nineValue] using hvalue
+    _ ≤ -(6 / 5 : ℝ) * E *
+        energy9 ‖z0‖ ‖z1‖ ‖z2‖ ‖z3‖ ‖z4‖ ‖z5‖ ‖z6‖ ‖z7‖ ‖z8‖ := by
+          nlinarith only [hc]
 
 end AEGIS.RHNineBlockActualBridgeV1
 
