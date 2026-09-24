@@ -133,9 +133,7 @@ theorem gFine_moments_v3 : WeilMomentConditionsV1 gFine := by
       change finePacketFn x / (x : ℂ) =
         ((x⁻¹ * fineRealPacket x : ℝ) : ℂ)
       unfold finePacketFn
-      change (fineRealPacket x : ℂ) / (x : ℂ) =
-        ((x⁻¹ : ℝ) : ℂ) * (fineRealPacket x : ℂ)
-      rw [Complex.ofReal_inv]
+      rw [Complex.ofReal_mul, Complex.ofReal_inv]
       ring
     rw [hcast, hreal, Complex.ofReal_zero]
   · have hreal : ∫ x in Ioi (0 : ℝ), fineRealPacket x = 0 := by
