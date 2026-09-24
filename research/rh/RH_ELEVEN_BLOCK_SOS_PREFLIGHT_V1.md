@@ -18,18 +18,18 @@ For eleven translates at spacing base `33/16`:
 The symmetric row budgets are
 
 [
-r_0=r_{10}=rac{1621}{1850},
-qquad
-r_1=r_9=rac{33}{50},
-qquad
-r_2=cdots=r_8=rac1{10}.
+r_0=r_{10}=\frac{1621}{1850},
+\qquad
+r_1=r_9=\frac{33}{50},
+\qquad
+r_2=\cdots=r_8=\frac1{10}.
 ]
 
 Hence the endpoint row is extremal and the candidate coercive margin is
 
 [
-m=D-rac{1621}{1850}
-=oxed{rac{106083}{118400}}.
+m=D-\frac{1621}{1850}
+=\boxed{\frac{106083}{118400}}.
 ]
 
 ## Exact weighted-Laplacian certificate
@@ -37,22 +37,22 @@ m=D-rac{1621}{1850}
 Let `c_{ij}=c_{|i-j|}` and
 
 [
-C_{11}=2sum_{0le i<jle10}c_{ij}x_ix_j,
-qquad
-E_{11}=sum_{i=0}^{10}x_i^2.
+C_{11}=2\sum_{0\le i<j\le10}c_{ij}x_ix_j,
+\qquad
+E_{11}=\sum_{i=0}^{10}x_i^2.
 ]
 
 Then coefficient-by-coefficient over (mathbb Q),
 
 [
-oxed{
+\boxed{
 D E_{11}-C_{11}-mE_{11}
 =
-sum_{i<j}c_{ij}(x_i-x_j)^2
+\sum_{i<j}c_{ij}(x_i-x_j)^2
 +
-rac8{37}(x_1^2+x_9^2)
+\frac8{37}(x_1^2+x_9^2)
 +
-rac{718}{925}sum_{i=2}^{8}x_i^2
+\frac{718}{925}\sum_{i=2}^{8}x_i^2
 }.
 ]
 
