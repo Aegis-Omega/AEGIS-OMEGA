@@ -628,6 +628,163 @@ theorem gap_eight_B_norm_v1
     (by simpa using qNine_gap_eight_log_two_v1)
     (gap_eight_prime_sum_zero_v1 g a hw)
 
+
+/-- Positive-source carrier: mixed correlations vanish at nonpositive samples. -/
+theorem mixed_zero_of_nonpos_nine_v1
+    (p q : WeilCompactSmoothGV1) {x : ℝ} (hx : x ≤ 0) :
+    mixed p q x = 0 := by
+  unfold mixed
+  apply setIntegral_eq_zero_of_forall_eq_zero
+  intro y hy
+  have hz := packet_eq_zero_of_nonpos p
+    (mul_nonpos_of_nonpos_of_nonneg hx hy.le)
+  rw [hz, zero_mul]
+
+/-- The complete translated mixed correlation depends only on the translation gap. -/
+theorem mixed_translate_eq_of_gap_nine_v1
+    (g : WeilCompactSmoothGV1)
+    (d1 d2 e1 e2 : ℝ) (hgap : d2 - d1 = e2 - e1) :
+    mixed (translatePacket g d1) (translatePacket g d2) =
+      mixed (translatePacket g e1) (translatePacket g e2) := by
+  funext x
+  by_cases hx : 0 < x
+  · have h1 := exp_half_mul_mixed_translate_v28 g d1 d2 (Real.log x)
+    have h2 := exp_half_mul_mixed_translate_v28 g e1 e2 (Real.log x)
+    rw [Real.exp_log hx] at h1 h2
+    have ha : Real.log x + d2 - d1 = Real.log x + e2 - e1 := by
+      linarith
+    rw [ha] at h1
+    have he : (Real.exp (Real.log x / 2) : ℂ) ≠ 0 := by simp
+    exact mul_left_cancel₀ he (h1.trans h2.symm)
+  · rw [mixed_zero_of_nonpos_nine_v1 _ _ (le_of_not_gt hx),
+        mixed_zero_of_nonpos_nine_v1 _ _ (le_of_not_gt hx)]
+
+theorem B_translate_eq_of_gap_nine_v1
+    (g : WeilCompactSmoothGV1)
+    (d1 d2 e1 e2 : ℝ) (hgap : d2 - d1 = e2 - e1) :
+    B (translatePacket g d1) (translatePacket g d2) =
+      B (translatePacket g e1) (translatePacket g e2) := by
+  unfold B
+  rw [mixed_translate_eq_of_gap_nine_v1 g d1 d2 e1 e2 hgap]
+
+def qNineShiftV1 (j : ℕ) : ℝ :=
+  (j : ℝ) * Real.log qNineV1
+
+theorem log_qNine_pow_v1 (k : ℕ) :
+    Real.log (qNineV1 ^ k) = (k : ℝ) * Real.log qNineV1 := by
+  simpa using (Real.log_pow qNineV1 k)
+
+theorem qNineShift_gap_v1 (i k : ℕ) :
+    qNineShiftV1 (i + k) - qNineShiftV1 i =
+      Real.log (qNineV1 ^ k) := by
+  rw [log_qNine_pow_v1]
+  simp [qNineShiftV1, Nat.cast_add]
+  ring
+
+theorem shift_gap_one_B_norm_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g) (i : ℕ) :
+    ‖B (translatePacket g (qNineShiftV1 i))
+      (translatePacket g (qNineShiftV1 (i + 1)))‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  rw [B_translate_eq_of_gap_nine_v1 g
+    (qNineShiftV1 i) (qNineShiftV1 (i + 1))
+    0 (Real.log (qNineV1 ^ 1)) (by
+      simpa using qNineShift_gap_v1 i 1)]
+  exact gap_one_B_norm_v1 g a hw hm
+
+theorem shift_gap_two_B_norm_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g) (i : ℕ) :
+    ‖B (translatePacket g (qNineShiftV1 i))
+      (translatePacket g (qNineShiftV1 (i + 2)))‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  rw [B_translate_eq_of_gap_nine_v1 g
+    (qNineShiftV1 i) (qNineShiftV1 (i + 2))
+    0 (Real.log (qNineV1 ^ 2)) (by
+      simpa using qNineShift_gap_v1 i 2)]
+  exact gap_two_B_norm_v1 g a hw hm
+
+theorem shift_gap_three_B_norm_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g) (i : ℕ) :
+    ‖B (translatePacket g (qNineShiftV1 i))
+      (translatePacket g (qNineShiftV1 (i + 3)))‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  rw [B_translate_eq_of_gap_nine_v1 g
+    (qNineShiftV1 i) (qNineShiftV1 (i + 3))
+    0 (Real.log (qNineV1 ^ 3)) (by
+      simpa using qNineShift_gap_v1 i 3)]
+  exact gap_three_B_norm_v1 g a hw hm
+
+theorem shift_gap_four_B_norm_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g) (i : ℕ) :
+    ‖B (translatePacket g (qNineShiftV1 i))
+      (translatePacket g (qNineShiftV1 (i + 4)))‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  rw [B_translate_eq_of_gap_nine_v1 g
+    (qNineShiftV1 i) (qNineShiftV1 (i + 4))
+    0 (Real.log (qNineV1 ^ 4)) (by
+      simpa using qNineShift_gap_v1 i 4)]
+  exact gap_four_B_norm_v1 g a hw hm
+
+theorem shift_gap_five_B_norm_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g) (i : ℕ) :
+    ‖B (translatePacket g (qNineShiftV1 i))
+      (translatePacket g (qNineShiftV1 (i + 5)))‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  rw [B_translate_eq_of_gap_nine_v1 g
+    (qNineShiftV1 i) (qNineShiftV1 (i + 5))
+    0 (Real.log (qNineV1 ^ 5)) (by
+      simpa using qNineShift_gap_v1 i 5)]
+  exact gap_five_B_norm_v1 g a hw hm
+
+theorem shift_gap_six_B_norm_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g) (i : ℕ) :
+    ‖B (translatePacket g (qNineShiftV1 i))
+      (translatePacket g (qNineShiftV1 (i + 6)))‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  rw [B_translate_eq_of_gap_nine_v1 g
+    (qNineShiftV1 i) (qNineShiftV1 (i + 6))
+    0 (Real.log (qNineV1 ^ 6)) (by
+      simpa using qNineShift_gap_v1 i 6)]
+  exact gap_six_B_norm_v1 g a hw hm
+
+theorem shift_gap_seven_B_norm_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g) (i : ℕ) :
+    ‖B (translatePacket g (qNineShiftV1 i))
+      (translatePacket g (qNineShiftV1 (i + 7)))‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  rw [B_translate_eq_of_gap_nine_v1 g
+    (qNineShiftV1 i) (qNineShiftV1 (i + 7))
+    0 (Real.log (qNineV1 ^ 7)) (by
+      simpa using qNineShift_gap_v1 i 7)]
+  exact gap_seven_B_norm_v1 g a hw hm
+
+theorem shift_gap_eight_B_norm_v1
+    (g : WeilCompactSmoothGV1) (a : ℝ)
+    (hw : WidthOneOneTwentyEightAt g a)
+    (hm : WeilMomentConditionsV1 g) (i : ℕ) :
+    ‖B (translatePacket g (qNineShiftV1 i))
+      (translatePacket g (qNineShiftV1 (i + 8)))‖ ≤
+      (1 / 100 : ℝ) * energy g.1 := by
+  rw [B_translate_eq_of_gap_nine_v1 g
+    (qNineShiftV1 i) (qNineShiftV1 (i + 8))
+    0 (Real.log (qNineV1 ^ 8)) (by
+      simpa using qNineShift_gap_v1 i 8)]
+  exact gap_eight_B_norm_v1 g a hw hm
+
 end AEGIS.RHRationalNinePacketPrimeWindowV1
 
 #print axioms AEGIS.RHRationalNinePacketPrimeWindowV1.gFine_width_one_one_twenty_eight_v1
