@@ -102,31 +102,31 @@ theorem nine_value_bound_fine_v1
   let D8' : ℝ := D8 - (63 / 128 : ℝ) * E
   have h0' : (32 / 25 : ℝ) * E ≤ D0' := by
     dsimp [D0']
-    nlinarith [h0]
+    linarith [h0]
   have h1' : (32 / 25 : ℝ) * E ≤ D1' := by
     dsimp [D1']
-    nlinarith [h1]
+    linarith [h1]
   have h2' : (32 / 25 : ℝ) * E ≤ D2' := by
     dsimp [D2']
-    nlinarith [h2]
+    linarith [h2]
   have h3' : (32 / 25 : ℝ) * E ≤ D3' := by
     dsimp [D3']
-    nlinarith [h3]
+    linarith [h3]
   have h4' : (32 / 25 : ℝ) * E ≤ D4' := by
     dsimp [D4']
-    nlinarith [h4]
+    linarith [h4]
   have h5' : (32 / 25 : ℝ) * E ≤ D5' := by
     dsimp [D5']
-    nlinarith [h5]
+    linarith [h5]
   have h6' : (32 / 25 : ℝ) * E ≤ D6' := by
     dsimp [D6']
-    nlinarith [h6]
+    linarith [h6]
   have h7' : (32 / 25 : ℝ) * E ≤ D7' := by
     dsimp [D7']
-    nlinarith [h7]
+    linarith [h7]
   have h8' : (32 / 25 : ℝ) * E ≤ D8' := by
     dsimp [D8']
-    nlinarith [h8]
+    linarith [h8]
   have hold := nine_value_bound_v1
     z0 z1 z2 z3 z4 z5 z6 z7 z8
     D0' D1' D2' D3' D4' D5' D6' D7' D8' E
@@ -140,7 +140,7 @@ theorem nine_value_bound_fine_v1
     dsimp [D0', D1', D2', D3', D4', D5', D6', D7', D8']
     ring
   rw [hid]
-  nlinarith [hold]
+  linarith [hold]
 
 theorem actual_nine_block_bound_fine_v1
     (z0 : ℂ) (z1 : ℂ) (z2 : ℂ) (z3 : ℂ) (z4 : ℂ) (z5 : ℂ) (z6 : ℂ) (z7 : ℂ) (z8 : ℂ)
