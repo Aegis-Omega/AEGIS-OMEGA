@@ -22,6 +22,7 @@ namespace AEGIS.RHGapNineShiftTransportV1
 
 open AEGIS.WeilDisjointEnergyV2
 open AEGIS.WeilMixedAlgebraV2
+open AEGIS.WeilThreeBlockTranslatedPacketsV22
 open AEGIS.RHRationalNinePacketPrimeWindowV1
 open AEGIS.RHRationalGapNinePrimeBoundV1
 
