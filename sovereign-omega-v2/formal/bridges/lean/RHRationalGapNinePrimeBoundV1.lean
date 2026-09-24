@@ -314,7 +314,7 @@ theorem prime_term_673_norm_v1
     rw [hp']
     simp
   rw [hterm]
-  simp only [norm_mul, Complex.norm_real, Real.norm_eq_abs]
+  rw [norm_mul, Complex.norm_real, Real.norm_eq_abs]
   rw [abs_of_nonneg (Real.log_nonneg (by norm_num))]
   calc
     Real.log 673 *
@@ -366,7 +366,7 @@ theorem prime_term_677_norm_v1
     rw [hp']
     simp
   rw [hterm]
-  simp only [norm_mul, Complex.norm_real, Real.norm_eq_abs]
+  rw [norm_mul, Complex.norm_real, Real.norm_eq_abs]
   rw [abs_of_nonneg (Real.log_nonneg (by norm_num))]
   calc
     Real.log 677 *
