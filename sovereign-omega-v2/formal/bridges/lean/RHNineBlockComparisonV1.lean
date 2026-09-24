@@ -110,7 +110,7 @@ theorem comparison_sos_identity_nine_v1 (x0 : ℝ) (x1 : ℝ) (x2 : ℝ) (x3 : �
     (2 / 25 : ℝ) * energy9 x0 x1 x2 x3 x4 x5 x6 x7 x8 -
       cross9 x0 x1 x2 x3 x4 x5 x6 x7 x8 =
         comparisonSOS9 x0 x1 x2 x3 x4 x5 x6 x7 x8 := by
-  unfold energy9 pairSum9 cross9 comparisonSOS9
+  unfold energy9 cross9 pairSum9 comparisonSOS9
   ring
 
 theorem comparison_sos_nonnegative_nine_v1 (x0 : ℝ) (x1 : ℝ) (x2 : ℝ) (x3 : ℝ) (x4 : ℝ) (x5 : ℝ) (x6 : ℝ) (x7 : ℝ) (x8 : ℝ) :
