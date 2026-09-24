@@ -199,11 +199,10 @@ theorem cothTail_sub (w c : ℝ) (hw : 0 < w) (hwc : w ≤ c) :
 
 /-- On `[w, c]` the integrand dominates `e^{-c} / u`, so the tail exceeds
 `e^{-c} · log(c / w)`. -/
-theorem cothTail_ge (w c : ℝ) (hw : 0 < w) (hwc : w ≤ c) :
-    Real.exp (-c) * (Real.log c - Real.log w) ≤ cothTail w := by
+theorem cothTail_ge' (w c : ℝ) (hw : 0 < w) (hwc : w ≤ c) :
+    Real.exp (-c) * (Real.log c - Real.log w) + cothTail c ≤ cothTail w := by
   have hc : 0 < c := lt_of_lt_of_le hw hwc
   have hsub := cothTail_sub w c hw hwc
-  have hnn := cothTail_nonneg c hc
   have hcont1 : ContinuousOn (fun u : ℝ => Real.exp (-c) * u⁻¹) (Set.uIcc w c) := by
     rw [Set.uIcc_of_le hwc]
     apply continuousOn_const.mul
@@ -238,7 +237,24 @@ theorem cothTail_ge (w c : ℝ) (hw : 0 < w) (hwc : w ≤ c) :
   have heq : (∫ u in w..c, Real.exp (-c) * u⁻¹) = Real.exp (-c) * (Real.log c - Real.log w) := by
     rw [intervalIntegral.integral_const_mul, integral_inv_of_pos hw hc,
       Real.log_div (ne_of_gt hc) (ne_of_gt hw)]
-  linarith [heq, hmono, hsub, hnn]
+  linarith [heq, hmono, hsub]
+
+theorem cothTail_ge (w c : ℝ) (hw : 0 < w) (hwc : w ≤ c) :
+    Real.exp (-c) * (Real.log c - Real.log w) ≤ cothTail w := by
+  have := cothTail_ge' w c hw hwc
+  linarith [cothTail_nonneg c (lt_of_lt_of_le hw hwc)]
+
+/-- The repository's `1/32` tail constant, in `cothTail` form. -/
+theorem cothTail_one_div_32 : 6 * Real.log 2 < cothTail (1 / 32) := by
+  have := six_log_two_lt_integral_one_div_sinh_Ioi
+  rw [integral_one_div_sinh_Ioi (by norm_num : (0 : ℝ) < 1 / 32)] at this
+  exact this
+
+/-- Sharper floor below `1/32`: `e^{-1/32} · log(1/(32 w)) + 6 log 2 ≤ cothTail w`. -/
+theorem cothTail_ge_below_32 (w : ℝ) (hw : 0 < w) (hw32 : w ≤ 1 / 32) :
+    Real.exp (-(1 / 32 : ℝ)) * (Real.log (1 / 32) - Real.log w) + 6 * Real.log 2 ≤ cothTail w := by
+  have h := cothTail_ge' w (1 / 32) hw hw32
+  linarith [cothTail_one_div_32]
 
 /-- Dyadic form: half-width `2^{-m}` (window `2^{1-m}`), cutoff `1/8`. -/
 theorem cothTail_dyadic (m : ℕ) (hm : 4 ≤ m) :
@@ -276,3 +292,4 @@ end AEGIS.RHDyadicDiagonalV13
 #print axioms AEGIS.RHDyadicDiagonalV13.diagonal_lower_recovers_103_over_100
 #print axioms AEGIS.RHDyadicDiagonalV13.cothTail_ge
 #print axioms AEGIS.RHDyadicDiagonalV13.cothTail_dyadic
+#print axioms AEGIS.RHDyadicDiagonalV13.cothTail_ge_below_32
