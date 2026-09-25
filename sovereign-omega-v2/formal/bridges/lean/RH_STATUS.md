@@ -43,6 +43,11 @@ Axiom target for every theorem: `[propext, Classical.choice, Quot.sound]`. `sorr
 | `halfGain_11_64`, `universal_on_half_cap_class` | `halfGain(11/64) ≤ −1/20`; `0 ≤` the zero quadratic for every moment-zero `g` of log-half-width `≤ 11/64` (support length `≤ 11/32`) | `RHHalfCapClassV13` |
 | `arch_threshold_budget`, `threshold_diagonal` | the same budget with the kernel threshold `t ≤ r` free (multiplier `lamR t`): `Re RHS ≤ thrGain(t, r)·E` below `log 2` | `RHThresholdGainV13` |
 | `thrGain_5_32_one_fifth`, `universal_on_one_fifth_class` | `thrGain(5/32, 1/5) ≤ −1/100`; `0 ≤` the zero quadratic for every moment-zero `g` of log-half-width `≤ 1/5` (support length `≤ 2/5`) | `RHThresholdClassV13` |
+| `half_le_bonus`, `bonus_diagonal` | `(e^{u/2} − 1)/sinh u ≥ ½` on `(0, 1]`; kept on the lower-bound pieces: `Re RHS ≤ bonusGain(t, r)·E` | `RHBonusGainV13` |
+| `bonusGain_5_32_21_100`, `universal_on_bonus_class` | `bonusGain(5/32, 21/100) ≤ −1/50`; `0 ≤` the zero quadratic for log-half-width `≤ 21/100` | `RHBonusClassV13` |
+| `three_cell_logCorrelation` | `2r < 3u` ⇒ `‖logCorrelation g u‖ ≤ (71/100)·E` (three cells of length `u`, weighted AM–GM; the `n = 1` Boas–Kac case) | `RHThreeCellV13` |
+| `arch_cell_budget`, `cell_diagonal` | budget split at `2r/3, t, r, 2r` with three-cell cap, half-cap and bonus: `Re RHS ≤ cellGain(t, r)·E` | `RHThreeCellGainV13` |
+| `cellGain_5_32_7_32`, `universal_on_cell_class` | `cellGain(5/32, 7/32) ≤ −1/200`; `0 ≤` the zero quadratic for every moment-zero `g` of log-half-width `≤ 7/32` (support length `≤ 7/16`) | `RHThreeCellClassV13` |
 
 `RiemannHypothesis` is Mathlib's own definition
 (`∀ s, riemannZeta s = 0 → ¬(∃ n : ℕ, s = -2 * (n + 1)) → s ≠ 1 → s.re = 1 / 2`).
@@ -57,10 +62,10 @@ UniversalZeroQuadraticNonnegativeV10 :=
 ```
 
 By §1 this proposition is logically equivalent to RH. §1 proves it on the whole class of
-half-width `≤ 1/5` (any shape; `universal_on_one_fifth_class`), on a 9-parameter family per narrow seed (ratio 33/16, width 1/256),
+half-width `≤ 7/32` (any shape; `universal_on_cell_class`), on a 9-parameter family per narrow seed (ratio 33/16, width 1/256),
 and on an `(N+1)`-parameter dyadic family per seed of width `2^{-max(10,N+2)}` for every `N`
 (`dyadic_tower`); it is open for general `g` — in particular for every `g` whose log-support is
-wider than `2/5` and is not a lattice combination of narrow seeds. Proving it for all `g` from the arithmetic side is the entire
+wider than `7/16` and is not a lattice combination of narrow seeds. Proving it for all `g` from the arithmetic side is the entire
 content of the Riemann Hypothesis under Weil's criterion. No module does this.
 
 Acceptance probes (`DeepMindAcceptanceCheckV13c.lean`, `NineFacesAcceptanceCheck.lean`): with every
@@ -200,7 +205,20 @@ sign at the half-width: with `λ = lamR t`, `t ≤ r`, the kernel is `≥ 0` on 
 Formalized at `t = 5/32`, `r = 1/5`: `thrGain ≤ −1/100` (true `≈ −0.0237`), so every moment-zero packet
 of log-support length `≤ 2/5` is Weil-positive. The three-cell Boas–Kac cap `‖logCorrelation g u‖ ≤ E/√2`
 for `2r/3 < u ≤ r` (pointwise weighted AM–GM on cells of length `u`) would add `≈ 0.007` to the
-support length; the full Boas–Kac family gives the `≈ 0.48` row of the table. (Not formalized.)
+support length; the full Boas–Kac family gives the `≈ 0.48` row of the table.
+
+**Bonus and three-cell cap (`RHBonusGainV13`, `RHBonusClassV13`, `RHThreeCellV13`, `RHThreeCellGainV13`,
+`RHThreeCellClassV13`).** On the pieces where `h` is bounded below, the majorants had dropped
+`−c·E·(e^{u/2} − 1)/sinh u`; for `0 < u ≤ 1` it is `≤ −c·E/2` (`half_le_bonus`, equivalent to
+`(x² − 2x − 1)(x − 1)² ≤ 0` for `x = e^{u/2} ≤ 2`). Keeping it gives `bonusGain(t, r) = thrGain(t, r) − (r − t)/2 − r/4`,
+formalized at `r = 21/100` (`≤ −1/50`). The three-cell cap `‖logCorrelation g u‖ ≤ (71/100)·E` for `2r < 3u`
+(`three_cell_logCorrelation`: cut the support into cells of length `u` at `a − r + u`, `a − r + 2u`; weights
+`50/71` and `71/200` with product `1/4`) is used, relaxed to `3/4`, both as an upper bound on `(2r/3, t]` and as
+a lower bound on `(t, r]`; with rational coefficients the four `cothTail` terms combine into
+`(1/16)·log(2⁷³·X_r⁴X_{2r}⁸/(X_s³X_t²⁵)) − (73/16)·log 2`. Formalized at `t = 5/32`, `r = 7/32`:
+`cellGain ≤ −1/200` (closed form `≈ −0.0182`), so every moment-zero packet of log-support length `≤ 7/16` is
+Weil-positive. Closed-form ceiling of this ingredient set `≈ 0.223` in `r`; the remaining Boas–Kac cells
+(`cos(π/(n+2))` caps) reach `≈ 0.24`; beyond that the pointwise-cap route ends.
 
 **Hosted replay.** `tarikskalic33/formal-conjectures` PR #41, run 36146289581 (job 108108162762, real
 GitHub runner), replayed the union closure of all seven V13 result targets (114 modules) at AEGIS
@@ -218,6 +236,13 @@ probe again stops at `⊢ UniversalZeroQuadraticNonnegativeV10`. Artifact 108766
 `28b2469a151b15b697314223b29cd511106775911faa9df0e4fcc760fc76e963`. The runner's source hashes of the
 three half-cap modules equal the locally compiled ones. The `1/5` class (`RHThresholdClassV13`, pushed after
 this pin) is not yet hosted-replayed.
+
+Third hosted replay, same PR, commit `9abc47e1`: AEGIS pinned at `2dc728bc`, ninth target `RHThresholdClassV13`,
+union closure 119 modules, runs 36163799929 (push) and 36163804885 (pull_request) green; 42 theorems audited
+`ALL_STANDARD_AXIOMS_ONLY`; unconditional probe stops at `⊢ UniversalZeroQuadraticNonnegativeV10`; runner hashes of
+`RHThresholdGainV13`/`RHThresholdClassV13` equal the local ones. Artifact 10877786030, zip sha256
+`a728cc5002128067e493bbcdc483613bfc68b84eb3922ffcd7782bd4f026ccab`. The `21/100` and `7/32` classes are not yet
+hosted-replayed.
 
 **Other lanes (audit of 56 new modules, compiled at the pin).** One genuine extension:
 `ten_packet_coercive_v1` (`research/rh-eleven-block-actual-bridge-v1`) — ten translates on the `33/16`
@@ -247,6 +272,7 @@ python3 build2.py RHNarrowSupportPositivityV13 RHDyadicTowerV13   # expect rc=0 
 python3 build2.py RHMomentGainV13   # expect rc=0 sorryAx=0 for RHMomentIdentity/Pieces/Numerics/GainV13
 python3 build2.py RHHalfCapClassV13  # expect rc=0 sorryAx=0 for RHHalfCapV13/GainV13/ClassV13
 python3 build2.py RHThresholdClassV13  # expect rc=0 sorryAx=0 for RHThresholdGainV13/ClassV13
+python3 build2.py RHBonusClassV13 RHThreeCellClassV13  # expect rc=0 sorryAx=0 for the five bonus/three-cell modules
 lean -R aegis_rh_extra aegis_rh_extra/NineFacesAcceptanceCheck.lean  # expect all six exact? to fail
 ```
 
@@ -258,8 +284,8 @@ plus the earlier `cda7c59f`, `7b00e26b`, `1dbb003a`, `5b169696`, `d770bc0c`, `75
 ## 5. Honest one-line summary
 
 The Weil-type criterion `RH ↔ UniversalZeroQuadraticNonnegativeV10` is formally closed in nine forms;
-the RH-equivalent quadratic is kernel-verified nonnegative on the whole class of log-half-width `≤ 1/5`
-(support length `≤ 2/5`, via the moment identity, the Cauchy–Schwarz half-cap and a free kernel threshold;
-hosted-replayed through FormalConjectures up to the `≤ 11/64` class), on a 9-parameter `33/16` family per narrow seed, and on `(N+1)`-parameter
+the RH-equivalent quadratic is kernel-verified nonnegative on the whole class of log-half-width `≤ 7/32`
+(support length `≤ 7/16`, via the moment identity, the Cauchy–Schwarz half-cap, a free kernel threshold, the
+`½`-bonus and the three-cell Boas–Kac cap; hosted-replayed through FormalConjectures up to the `≤ 1/5` class), on a 9-parameter `33/16` family per narrow seed, and on `(N+1)`-parameter
 dyadic families for every `N` (`dyadic_tower`), via one generic Toeplitz/Gram engine whose reach grows
 without bound as the packet narrows. RH itself is open; the repository contains no proof of it.
