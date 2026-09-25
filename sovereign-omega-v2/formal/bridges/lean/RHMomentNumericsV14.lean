@@ -74,7 +74,14 @@ theorem cothTail_combo_nine_over_64_le :
         32 * ((1 + (869 / 1000 : ℝ) ^ 2) * (1 - (8687 / 10000 : ℝ))) ≤
           (23 / 20 : ℝ) * (1 + (8687 / 10000 : ℝ)) ^ 3 := by
       norm_num
-    nlinarith
+    calc
+      32 * ((1 + q ^ 2) * (1 - q))
+          ≤ 32 * ((1 + (869 / 1000 : ℝ) ^ 2) *
+              (1 - (8687 / 10000 : ℝ))) := by
+            exact mul_le_mul_of_nonneg_left hA (by norm_num)
+      _ ≤ (23 / 20 : ℝ) * (1 + (8687 / 10000 : ℝ)) ^ 3 := hnum
+      _ ≤ (23 / 20 : ℝ) * (1 + q) ^ 3 := by
+            exact mul_le_mul_of_nonneg_left hB (by norm_num)
   have hXY : X ≤ (23 / 20 : ℝ) * Y ^ 2 / 2 ^ 5 := by
     rw [hX, hY, div_pow, div_le_iff₀ h1q2]
     have hsq : (1 - q ^ 2) = (1 - q) * (1 + q) := by ring
@@ -82,7 +89,9 @@ theorem cothTail_combo_nine_over_64_le :
     have hpos2 : 0 < (1 - q) ^ 2 := by positivity
     rw [show (23 / 20 : ℝ) * ((1 + q) ^ 2 / (1 - q) ^ 2) / 2 ^ 5 *
         ((1 - q) * (1 + q)) =
-        (23 / 20 : ℝ) * (1 + q) ^ 3 / (32 * (1 - q)) by field_simp; ring]
+        (23 / 20 : ℝ) * (1 + q) ^ 3 / (32 * (1 - q)) by
+          field_simp [ne_of_gt h1q]
+          ring]
     rw [le_div_iff₀ (by positivity)]
     nlinarith
   have hlog : Real.log X ≤ Real.log ((23 / 20 : ℝ) * Y ^ 2 / 2 ^ 5) :=
