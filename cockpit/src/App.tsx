@@ -6,10 +6,11 @@ import { Sidebar } from './components/Sidebar.js'
 import { MessageList } from './components/MessageList.js'
 import { InputBar } from './components/InputBar.js'
 import { SkillMarketplace } from './components/SkillMarketplace.js'
+import { ControlledFailureCaseBuilder } from './components/ControlledFailureCaseBuilder.js'
 import type { Provider } from './lib/agent.js'
 import { CONSTITUTIONAL_SYSTEM } from './lib/constitutionalIdentity.js'
 
-type AppTab = 'chat' | 'skills'
+type AppTab = 'chat' | 'skills' | 'failure-case'
 
 const DEFAULT_SYSTEM = CONSTITUTIONAL_SYSTEM
 
@@ -133,7 +134,7 @@ export default function App() {
           className="flex items-center px-2"
           style={{ borderBottom: '1px solid #1E1E22', background: '#0C0C0E' }}
         >
-          {(['chat', 'skills'] as const).map(t => (
+          {(['chat', 'skills', 'failure-case'] as const).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -143,13 +144,15 @@ export default function App() {
                 borderBottom: tab === t ? '1px solid #C8A96E' : '1px solid transparent',
               }}
             >
-              {t}
+              {t === 'failure-case' ? 'Failure case' : t}
             </button>
           ))}
         </div>
 
         {tab === 'skills' ? (
           <SkillMarketplace />
+        ) : tab === 'failure-case' ? (
+          <ControlledFailureCaseBuilder />
         ) : (
           <>
             {/* Chat toolbar */}
