@@ -280,8 +280,13 @@ Fourth hosted replay, same PR, commit `e0056214`: AEGIS pinned at `3082f57f`, ta
 `RHThreeCellClassV13` added (eleven targets), union closure 124 modules, runs 36170422826 (push) and 36170427472
 (pull_request) green; 50 theorems audited `ALL_STANDARD_AXIOMS_ONLY`, 0 `sorryAx`; unconditional probe stops at
 `⊢ UniversalZeroQuadraticNonnegativeV10`; runner hashes of the five bonus/three-cell modules equal the local ones.
-Artifact 10880947148, zip sha256 `461324760e97308f2adbc231d573966e4e509d8c3a348f4f01b2b71f04039cc7`. The `1/4`
-and `3/10` classes (`RHHat*`) are not yet hosted-replayed.
+Artifact 10880947148, zip sha256 `461324760e97308f2adbc231d573966e4e509d8c3a348f4f01b2b71f04039cc7`.
+
+Fifth hosted replay, same PR, commit `c582c30c`: AEGIS pinned at `5509580a`, targets `RHHatClassV13` and
+`RHHatClass310V13` added (thirteen targets), union closure 130 modules, runs 36188674571 (push) and 36188680035
+(pull_request) green; 63 theorems audited `ALL_STANDARD_AXIOMS_ONLY`, 0 `sorryAx`; unconditional probe stops at
+`⊢ UniversalZeroQuadraticNonnegativeV10`; runner hashes of the six hat-kernel modules equal the local ones.
+Artifact 10888106932, zip sha256 `5128b9ae055f6d960e0be185af8d9cc69770f2dbe2e38a5242af0450e42186d9`.
 
 **Other lanes (audit of 56 new modules, compiled at the pin).** One genuine extension:
 `ten_packet_coercive_v1` (`research/rh-eleven-block-actual-bridge-v1`) — ten translates on the `33/16`
@@ -330,6 +335,6 @@ The Weil-type criterion `RH ↔ UniversalZeroQuadraticNonnegativeV10` is formall
 the RH-equivalent quadratic is kernel-verified nonnegative on the whole class of log-half-width `≤ 3/10`
 (support length `≤ 3/5`, via the moment identity, the Cauchy–Schwarz and three-cell caps, and a positive-definite
 hat-kernel certificate that goes past the pointwise-cap ceiling `≈ 0.24`; hosted-replayed through FormalConjectures
-up to the `≤ 7/32` class), on a 9-parameter `33/16` family per narrow seed, and on `(N+1)`-parameter
+up to the `≤ 3/10` class), on a 9-parameter `33/16` family per narrow seed, and on `(N+1)`-parameter
 dyadic families for every `N` (`dyadic_tower`), via one generic Toeplitz/Gram engine whose reach grows
 without bound as the packet narrows. RH itself is open; the repository contains no proof of it.
