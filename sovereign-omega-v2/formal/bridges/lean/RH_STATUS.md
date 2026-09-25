@@ -48,6 +48,12 @@ Axiom target for every theorem: `[propext, Classical.choice, Quot.sound]`. `sorr
 | `three_cell_logCorrelation` | `2r < 3u` ⇒ `‖logCorrelation g u‖ ≤ (71/100)·E` (three cells of length `u`, weighted AM–GM; the `n = 1` Boas–Kac case) | `RHThreeCellV13` |
 | `arch_cell_budget`, `cell_diagonal` | budget split at `2r/3, t, r, 2r` with three-cell cap, half-cap and bonus: `Re RHS ≤ cellGain(t, r)·E` | `RHThreeCellGainV13` |
 | `cellGain_5_32_7_32`, `universal_on_cell_class` | `cellGain(5/32, 7/32) ≤ −1/200`; `0 ≤` the zero quadratic for every moment-zero `g` of log-half-width `≤ 7/32` (support length `≤ 7/16`) | `RHThreeCellClassV13` |
+| `hat_posdef`, `hat_posdef_Ioi` | for continuous compactly supported `G`, `h ≥ 0`, real `v`: `0 ≤ Σᵢⱼ vᵢvⱼ ∫ Re C(u)·T_h(u − (i−j)h) du` (`T_h(x) = max 0 (h − |x|)`), also folded onto `u > 0` — hat kernels are positive definite against autocorrelations | `RHHatPosDefV13` |
+| `hatK_node`, `hatK_affine`, `hatK_run_integral` | `hatK(kh) = h·ρ_k` with `ρ_k = Σⱼ v_{j+k}vⱼ`; `hatK` affine on every cell `[kh,(k+1)h]`; trapezoid rule over runs of cells | `RHHatKernelV13` |
+| `hat_arch_budget`, `hat_diagonal` | moment multiplier `λ` + positive-definite hat kernel `σ·hatK` + caps `1, 71/100, 1/2`: if `Q(u) = e^{u/2}/sinh u − 2λcosh(u/2) + σ·hatK(u) ≥ 0` on `(0, 2r]` then `Re RHS ≤ hatGain·E` below `log 2` | `RHHatBudgetV13` |
+| `checkF`, `Q_of_checks` | `Q ≥ 0` on `(0, Nh]` follows from one rational inequality per sub-cell `[mh/s, (m+1)h/s]` (node values of `hatK`, monotonicity of `e^{u/2}/sinh u` and `cosh(u/2)`, fourth-order Taylor enclosures) | `RHHatCellsV13` |
+| `Q_all`, `gain_bound`, `hat_coercive`, `universal_on_class` | 25 integer weights, `h = 1/24`, 48 sub-cells: `hatGain(1/4) ≤ −1/20`; `Re RHS ≤ −E/20`; `0 ≤` the zero quadratic for every moment-zero `g` of log-half-width `≤ 1/4` (support length `≤ 1/2`) | `RHHatClassV13` |
+| `Q_all`, `gain_bound`, `hat_coercive`, `universal_on_class` | 49 integer weights, `h = 1/40`, 192 sub-cells: `hatGain(3/10) ≤ −1/50`; `Re RHS ≤ −E/50`; `0 ≤` the zero quadratic for every moment-zero `g` of log-half-width `≤ 3/10` (support length `≤ 3/5`) | `RHHatClass310V13` |
 
 `RiemannHypothesis` is Mathlib's own definition
 (`∀ s, riemannZeta s = 0 → ¬(∃ n : ℕ, s = -2 * (n + 1)) → s ≠ 1 → s.re = 1 / 2`).
@@ -62,10 +68,10 @@ UniversalZeroQuadraticNonnegativeV10 :=
 ```
 
 By §1 this proposition is logically equivalent to RH. §1 proves it on the whole class of
-half-width `≤ 7/32` (any shape; `universal_on_cell_class`), on a 9-parameter family per narrow seed (ratio 33/16, width 1/256),
+half-width `≤ 3/10` (any shape; `RHHatClass310V13.universal_on_class`), on a 9-parameter family per narrow seed (ratio 33/16, width 1/256),
 and on an `(N+1)`-parameter dyadic family per seed of width `2^{-max(10,N+2)}` for every `N`
 (`dyadic_tower`); it is open for general `g` — in particular for every `g` whose log-support is
-wider than `7/16` and is not a lattice combination of narrow seeds. Proving it for all `g` from the arithmetic side is the entire
+wider than `3/5` and is not a lattice combination of narrow seeds. Proving it for all `g` from the arithmetic side is the entire
 content of the Riemann Hypothesis under Weil's criterion. No module does this.
 
 Acceptance probes (`DeepMindAcceptanceCheckV13c.lean`, `NineFacesAcceptanceCheck.lean`): with every
@@ -183,11 +189,12 @@ Numerical frontier of this route (support length `L = 2r`, energy units):
 | moment identity, closed form (`momentGain`) | `≈ 0.322` (formalized at `1/4`) |
 | moment identity, exact linear program | `≈ 0.354` |
 | + Cauchy–Schwarz / Boas–Kac pointwise caps | `≈ 0.48` |
+| + positive-definite hat kernel (LP over positive-definite sequences) | `0.6` formalized (49 weights, 192 sub-cells, exact margin `0.0381·E`); `0.5` with 25 weights (`0.0965·E`) |
 | true worst case, no prime terms before `log 2` | margin `≈ 0.56·E` at `L = log 2` |
 
-The rest of the prime-free range (`0.48 < L < log 2`) needs positive-definiteness of the
-autocorrelation on the Fourier side, not pointwise caps. Beyond `L = log 2` prime terms enter every
-window; positivity for every `L` is RH.
+The rest of the prime-free range needs positive-definiteness of the autocorrelation, not pointwise caps;
+the hat-kernel certificate below supplies it and converges to the true margin as the grid refines.
+Beyond `L = log 2` prime terms enter every window; positivity for every `L` is RH.
 
 **Half-cap (`RHHalfCapV13`, `RHHalfCapGainV13`, `RHHalfCapClassV13`).** For a shift `u` beyond the
 half-width the factors `f(v)` and `f(v+u)` live on opposite sides of the centre, so pointwise AM–GM
@@ -220,6 +227,32 @@ a lower bound on `(t, r]`; with rational coefficients the four `cothTail` terms 
 Weil-positive. Closed-form ceiling of this ingredient set `≈ 0.223` in `r`; the remaining Boas–Kac cells
 (`cos(π/(n+2))` caps) reach `≈ 0.24`; beyond that the pointwise-cap route ends.
 
+**Positive-definite hat kernel (`RHHatPosDefV13`, `RHHatKernelV13`, `RHHatBudgetV13`, `RHHatCellsV13`,
+`RHHatClassV13`, `RHHatClass310V13`).**
+Pointwise caps ignore that `c(u) = Re C(u)` is positive definite. For block averages
+`aᵢ(s) = ∫_{(0,h]} G(s + ih + t) dt` one has `∫ |Σ vᵢ aᵢ(s)|² ds = Σᵢⱼ vᵢvⱼ ∫ c(u)·T_h(u − (i−j)h) du`
+(two Fubini swaps, a translation and the overlap length of two intervals), so every piecewise-linear
+interpolant `hatK` of a positive-definite sequence `ρ_k = Σⱼ v_{j+k}vⱼ` pairs nonnegatively with `c`.
+Subtracting `σ·c·hatK` together with the moment multiplier leaves the integrand
+`−E/sinh u + c(u)·Q(u)`; where `Q ≥ 0`, the caps bound it by
+`−(1 − cap)E/sinh u + cap·E·(1/2 + u/8 − 2λcosh(u/2) + σ·hatK(u))` (`w_upper`: `(e^{u/2} − 1)/sinh u ≤ 1/2 + u/8`).
+Each certificate comes from a linear program over `(λ, ρ)` with `ρ̂(θ) ≥ 0`, a Fejér–Riesz factor `v`
+rounded to integers (scale `10³`, `σ = 10⁻⁶`), and exact rational checks: `Q ≥ 0` sub-cell by sub-cell
+(`Q_of_checks`, one `interval_cases`/`norm_num` sweep), kernel integrals as exact trapezoid sums, and the gain.
+`r = 1/4`: `h = 1/24`, 25 weights, `λ = 11511/5000`, 48 sub-cells (minimum `0.018`), margin `0.0965`, stated
+as `≤ −1/20`. `r = 3/10`: `h = 1/40`, 49 weights, `λ = 21279/10000`, 192 sub-cells (minimum `0.0166`),
+margin `0.0381`, stated as `≤ −1/50`.
+Numerical reach of the method (formal caps, fine-grid LP, `Q ≥ 0` enforced): margin `+0.19` at `L = 0.5` with 25
+weights, `+0.045` at `L = 0.6` with 33; at `L = log 2` the LP without the sign constraint on `Q` is still at `−0.04`
+with 65 weights, against a true margin of `0.56·E`, so the whole prime-free range needs finer grids.
+
+**Beyond `log 2` (numerics, not formalized).** The minimum of the Weil form over moment-zero `f` of support
+length `L` (sine basis, exact digamma weight, prime terms included), in units of `E`: `0.555` at `log 2`,
+`0.24` at `0.8`, `0.014` at `1.0`, `8·10⁻⁵` at `1.2`, `0` to working precision from `1.4` on. The extremal
+functions have `f̂` nearly vanishing at the low zeta zeros: past `L ≈ 1.2` finite-window positivity is
+numerically the same as knowing where the zeros are. The x-space form used in the formal budget reproduces
+these values (`0.5596` at `log 2`).
+
 **Hosted replay.** `tarikskalic33/formal-conjectures` PR #41, run 36146289581 (job 108108162762, real
 GitHub runner), replayed the union closure of all seven V13 result targets (114 modules) at AEGIS
 `559e2a7f` in the pinned FormalConjectures environment: 31 load-bearing theorems audited
@@ -241,8 +274,14 @@ Third hosted replay, same PR, commit `9abc47e1`: AEGIS pinned at `2dc728bc`, nin
 union closure 119 modules, runs 36163799929 (push) and 36163804885 (pull_request) green; 42 theorems audited
 `ALL_STANDARD_AXIOMS_ONLY`; unconditional probe stops at `⊢ UniversalZeroQuadraticNonnegativeV10`; runner hashes of
 `RHThresholdGainV13`/`RHThresholdClassV13` equal the local ones. Artifact 10877786030, zip sha256
-`a728cc5002128067e493bbcdc483613bfc68b84eb3922ffcd7782bd4f026ccab`. The `21/100` and `7/32` classes are not yet
-hosted-replayed.
+`a728cc5002128067e493bbcdc483613bfc68b84eb3922ffcd7782bd4f026ccab`.
+
+Fourth hosted replay, same PR, commit `e0056214`: AEGIS pinned at `3082f57f`, targets `RHBonusClassV13` and
+`RHThreeCellClassV13` added (eleven targets), union closure 124 modules, runs 36170422826 (push) and 36170427472
+(pull_request) green; 50 theorems audited `ALL_STANDARD_AXIOMS_ONLY`, 0 `sorryAx`; unconditional probe stops at
+`⊢ UniversalZeroQuadraticNonnegativeV10`; runner hashes of the five bonus/three-cell modules equal the local ones.
+Artifact 10880947148, zip sha256 `461324760e97308f2adbc231d573966e4e509d8c3a348f4f01b2b71f04039cc7`. The `1/4`
+and `3/10` classes (`RHHat*`) are not yet hosted-replayed.
 
 **Other lanes (audit of 56 new modules, compiled at the pin).** One genuine extension:
 `ten_packet_coercive_v1` (`research/rh-eleven-block-actual-bridge-v1`) — ten translates on the `33/16`
@@ -273,6 +312,7 @@ python3 build2.py RHMomentGainV13   # expect rc=0 sorryAx=0 for RHMomentIdentity
 python3 build2.py RHHalfCapClassV13  # expect rc=0 sorryAx=0 for RHHalfCapV13/GainV13/ClassV13
 python3 build2.py RHThresholdClassV13  # expect rc=0 sorryAx=0 for RHThresholdGainV13/ClassV13
 python3 build2.py RHBonusClassV13 RHThreeCellClassV13  # expect rc=0 sorryAx=0 for the five bonus/three-cell modules
+python3 build2.py RHHatClassV13 RHHatClass310V13  # expect rc=0 sorryAx=0 for the six RHHat* modules
 lean -R aegis_rh_extra aegis_rh_extra/NineFacesAcceptanceCheck.lean  # expect all six exact? to fail
 ```
 
@@ -280,12 +320,16 @@ Pushed blobs are byte-verified against the compiled sources:
 `RHDyadicDiagonalV13` = `d80ebc02`, `RHDyadicWindowV13` = `37c33671`, `RHGramExpansionV13` = `684a7e8b`,
 `RHRatioWindowV13` = `18f83dac`, `RHRatio33Over16V13` = `52ddda77`, `RHNinePacket33Over16V13` = `4534a689`,
 plus the earlier `cda7c59f`, `7b00e26b`, `1dbb003a`, `5b169696`, `d770bc0c`, `75e8f3c9`, `e028cc83`, `19da141e`.
+Hat-kernel modules (sha256, commit `68862ad8`): `RHHatPosDefV13` = `5bce3460`, `RHHatKernelV13` = `6bf08c81`,
+`RHHatBudgetV13` = `9e407081`, `RHHatCellsV13` = `08d63064`, `RHHatClassV13` = `45e3434e`, `RHHatClass310V13` = `6c841393`;
+isolated rebuild of their closure from the pushed sources: 89 modules, 0 `sorryAx`.
 
 ## 5. Honest one-line summary
 
 The Weil-type criterion `RH ↔ UniversalZeroQuadraticNonnegativeV10` is formally closed in nine forms;
-the RH-equivalent quadratic is kernel-verified nonnegative on the whole class of log-half-width `≤ 7/32`
-(support length `≤ 7/16`, via the moment identity, the Cauchy–Schwarz half-cap, a free kernel threshold, the
-`½`-bonus and the three-cell Boas–Kac cap; hosted-replayed through FormalConjectures up to the `≤ 1/5` class), on a 9-parameter `33/16` family per narrow seed, and on `(N+1)`-parameter
+the RH-equivalent quadratic is kernel-verified nonnegative on the whole class of log-half-width `≤ 3/10`
+(support length `≤ 3/5`, via the moment identity, the Cauchy–Schwarz and three-cell caps, and a positive-definite
+hat-kernel certificate that goes past the pointwise-cap ceiling `≈ 0.24`; hosted-replayed through FormalConjectures
+up to the `≤ 7/32` class), on a 9-parameter `33/16` family per narrow seed, and on `(N+1)`-parameter
 dyadic families for every `N` (`dyadic_tower`), via one generic Toeplitz/Gram engine whose reach grows
 without bound as the packet narrows. RH itself is open; the repository contains no proof of it.
