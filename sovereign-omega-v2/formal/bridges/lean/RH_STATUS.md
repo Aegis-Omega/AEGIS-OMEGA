@@ -1,6 +1,6 @@
 # RH formal status — `proof/rh-restricted-weil-final-bridge-v13`
 
-Ledger as of 2026-09-24. Everything below is either a kernel-checked Lean fact on the
+Ledger as of 2026-09-25. Everything below is either a kernel-checked Lean fact on the
 pinned toolchain or a mechanical scan/compile result. Nothing here is interpretation.
 
 Toolchain pin: Lean 4.33.1 · Mathlib `0df444a360eaa60ab8c11dca51a86af692955474`.
@@ -41,6 +41,8 @@ Axiom target for every theorem: `[propext, Classical.choice, Quot.sound]`. `sorr
 | `half_cap_logCorrelation` | half-width `r`, shift `u > r` ⇒ `‖logCorrelation g u‖ ≤ E/2` (Cauchy–Schwarz on the two disjoint halves of the support) | `RHHalfCapV13` |
 | `arch_half_cap_budget`, `half_cap_diagonal` | moment gain with the half-cap on `(r, 2r]`: `Re RHS ≤ halfGain(r)·E` below `log 2` | `RHHalfCapGainV13` |
 | `halfGain_11_64`, `universal_on_half_cap_class` | `halfGain(11/64) ≤ −1/20`; `0 ≤` the zero quadratic for every moment-zero `g` of log-half-width `≤ 11/64` (support length `≤ 11/32`) | `RHHalfCapClassV13` |
+| `arch_threshold_budget`, `threshold_diagonal` | the same budget with the kernel threshold `t ≤ r` free (multiplier `lamR t`): `Re RHS ≤ thrGain(t, r)·E` below `log 2` | `RHThresholdGainV13` |
+| `thrGain_5_32_one_fifth`, `universal_on_one_fifth_class` | `thrGain(5/32, 1/5) ≤ −1/100`; `0 ≤` the zero quadratic for every moment-zero `g` of log-half-width `≤ 1/5` (support length `≤ 2/5`) | `RHThresholdClassV13` |
 
 `RiemannHypothesis` is Mathlib's own definition
 (`∀ s, riemannZeta s = 0 → ¬(∃ n : ℕ, s = -2 * (n + 1)) → s ≠ 1 → s.re = 1 / 2`).
@@ -54,11 +56,11 @@ UniversalZeroQuadraticNonnegativeV10 :=
            WeilZeroIndexSummandV1 (WeilAutocorrelationV1 g) rho).re
 ```
 
-By §1 this proposition is logically equivalent to RH. §1 proves it on the whole half-cap class
-(half-width `≤ 11/64`, any shape; `universal_on_half_cap_class`), on a 9-parameter family per narrow seed (ratio 33/16, width 1/256),
+By §1 this proposition is logically equivalent to RH. §1 proves it on the whole class of
+half-width `≤ 1/5` (any shape; `universal_on_one_fifth_class`), on a 9-parameter family per narrow seed (ratio 33/16, width 1/256),
 and on an `(N+1)`-parameter dyadic family per seed of width `2^{-max(10,N+2)}` for every `N`
 (`dyadic_tower`); it is open for general `g` — in particular for every `g` whose log-support is
-wider than `11/32` and is not a lattice combination of narrow seeds. Proving it for all `g` from the arithmetic side is the entire
+wider than `2/5` and is not a lattice combination of narrow seeds. Proving it for all `g` from the arithmetic side is the entire
 content of the Riemann Hypothesis under Weil's criterion. No module does this.
 
 Acceptance probes (`DeepMindAcceptanceCheckV13c.lean`, `NineFacesAcceptanceCheck.lean`): with every
@@ -190,6 +192,16 @@ to `r ≈ 0.195`; formalized at `r = 11/64` with `halfGain ≤ −1/20` (true `�
 positive-definiteness-type input beyond the pointwise cap; the frontier table's `+ Cauchy–Schwarz`
 row (`L ≈ 0.41` for the exact linear program) is the ceiling of this ingredient.
 
+**Free threshold (`RHThresholdGainV13`, `RHThresholdClassV13`).** The multiplier `λ` need not change
+sign at the half-width: with `λ = lamR t`, `t ≤ r`, the kernel is `≥ 0` on `(0, t]` and `≤ 0` beyond it;
+`h` is bounded below by the full cap on `(t, r]` and by the half-cap on `(r, 2r]`. Closed form:
+`thrGain(t, r) = κ + (t/2)e^{t/2} + lamR t·(2 sinh r + 2 sinh(r/2) − 8 sinh(t/2)) − 2 cothTail t + ½ cothTail r + ½ cothTail(2r)`,
+`thrGain(r, r) = halfGain(r)`, optimal `t ≈ 0.78 r`, negative up to `r ≈ 0.204` (support `≈ 0.409`).
+Formalized at `t = 5/32`, `r = 1/5`: `thrGain ≤ −1/100` (true `≈ −0.0237`), so every moment-zero packet
+of log-support length `≤ 2/5` is Weil-positive. The three-cell Boas–Kac cap `‖logCorrelation g u‖ ≤ E/√2`
+for `2r/3 < u ≤ r` (pointwise weighted AM–GM on cells of length `u`) would add `≈ 0.007` to the
+support length; the full Boas–Kac family gives the `≈ 0.48` row of the table. (Not formalized.)
+
 **Hosted replay.** `tarikskalic33/formal-conjectures` PR #41, run 36146289581 (job 108108162762, real
 GitHub runner), replayed the union closure of all seven V13 result targets (114 modules) at AEGIS
 `559e2a7f` in the pinned FormalConjectures environment: 31 load-bearing theorems audited
@@ -198,6 +210,14 @@ GitHub runner), replayed the union closure of all seven V13 result targets (114 
 `⊢ UniversalZeroQuadraticNonnegativeV10`. Artifact 10869549523, zip sha256
 `a6bf52dd548d46160fc9537d3bc7edb3ee101e501c586f07f2ef6db3b759904c`. (`RHNineFacesV13` needed
 `WeilWindowExhaustionV1`, absent from this branch until `559e2a7f`.)
+
+Second hosted replay, same PR, commit `c38e87e7`: AEGIS pinned at `b5d63c23`, eighth target
+`RHHalfCapClassV13`, union closure 117 modules, runs 36161489147 (push) and 36161496853 (pull_request) green;
+38 theorems audited `ALL_STANDARD_AXIOMS_ONLY` (the 31 above plus the seven half-cap theorems); unconditional
+probe again stops at `⊢ UniversalZeroQuadraticNonnegativeV10`. Artifact 10876657852, zip sha256
+`28b2469a151b15b697314223b29cd511106775911faa9df0e4fcc760fc76e963`. The runner's source hashes of the
+three half-cap modules equal the locally compiled ones. The `1/5` class (`RHThresholdClassV13`, pushed after
+this pin) is not yet hosted-replayed.
 
 **Other lanes (audit of 56 new modules, compiled at the pin).** One genuine extension:
 `ten_packet_coercive_v1` (`research/rh-eleven-block-actual-bridge-v1`) — ten translates on the `33/16`
@@ -226,6 +246,7 @@ python3 build2.py RHNinePacket33Over16V13     # expect rc=0 sorryAx=0 for all si
 python3 build2.py RHNarrowSupportPositivityV13 RHDyadicTowerV13   # expect rc=0 sorryAx=0
 python3 build2.py RHMomentGainV13   # expect rc=0 sorryAx=0 for RHMomentIdentity/Pieces/Numerics/GainV13
 python3 build2.py RHHalfCapClassV13  # expect rc=0 sorryAx=0 for RHHalfCapV13/GainV13/ClassV13
+python3 build2.py RHThresholdClassV13  # expect rc=0 sorryAx=0 for RHThresholdGainV13/ClassV13
 lean -R aegis_rh_extra aegis_rh_extra/NineFacesAcceptanceCheck.lean  # expect all six exact? to fail
 ```
 
@@ -237,8 +258,8 @@ plus the earlier `cda7c59f`, `7b00e26b`, `1dbb003a`, `5b169696`, `d770bc0c`, `75
 ## 5. Honest one-line summary
 
 The Weil-type criterion `RH ↔ UniversalZeroQuadraticNonnegativeV10` is formally closed in nine forms;
-the RH-equivalent quadratic is kernel-verified nonnegative on the whole half-cap class
-(half-width `≤ 11/64`, via the moment identity and the Cauchy–Schwarz half-cap; hosted-replayed through
-FormalConjectures for the `≤ 1/8` class), on a 9-parameter `33/16` family per narrow seed, and on `(N+1)`-parameter
+the RH-equivalent quadratic is kernel-verified nonnegative on the whole class of log-half-width `≤ 1/5`
+(support length `≤ 2/5`, via the moment identity, the Cauchy–Schwarz half-cap and a free kernel threshold;
+hosted-replayed through FormalConjectures up to the `≤ 11/64` class), on a 9-parameter `33/16` family per narrow seed, and on `(N+1)`-parameter
 dyadic families for every `N` (`dyadic_tower`), via one generic Toeplitz/Gram engine whose reach grows
 without bound as the packet narrows. RH itself is open; the repository contains no proof of it.
