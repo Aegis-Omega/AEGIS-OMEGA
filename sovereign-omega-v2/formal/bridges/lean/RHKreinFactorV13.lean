@@ -9,6 +9,10 @@ Put `G₁ = e^{−|·|/2} * G`, the Green's function of `1/4 − D²` applied to
 `G₁` also vanishes outside `[a, b]`. The reason is that on `x ≥ b` the kernel factors as
 `e^{−x/2}·e^{y/2}`, and on `x ≤ a` as `e^{x/2}·e^{−y/2}`.
 
+`kreinFactor_lift_support` states the same for the unitary log lift `G(t) = e^{t/2}·g(e^t)` of a
+multiplicative `g` supported in `[e^a, e^b]`, under the repository's moment conditions
+`∫_{x>0} g(x)/x dx = 0` and `∫_{x>0} g(x) dx = 0` (the two halves of `WeilMomentConditionsV1`).
+
 This is the support half of the factorisation `g = (1/4 − D²)g₁` used by the Fourier-side
 certificate in `RH_STATUS.md`. Not RH. AUTHORITY_EFFECT = NONE.
 -/
@@ -72,6 +76,63 @@ theorem kreinFactor_support (G : ℝ → ℂ) (a b : ℝ)
   · by_contra h
     exact hx (kreinFactor_eq_zero_of_le G a b hsupp hplus (not_lt.mp h))
 
+/-- The unitary log lift `G(t) = e^{t/2}·g(e^t)` (same as `WeilLogCoordinateIsometryV21.logLift`). -/
+def lift (g : ℝ → ℂ) (t : ℝ) : ℂ := (Real.exp (t / 2) : ℂ) * g (Real.exp t)
+
+/-- Whole-line exponential substitution for complex-valued integrands. -/
+theorem integral_exp_subst (f : ℝ → ℂ) :
+    (∫ t : ℝ, (Real.exp t : ℂ) * f (Real.exp t)) = ∫ x in Ioi (0 : ℝ), f x := by
+  have hcov :=
+    MeasureTheory.integral_image_eq_integral_abs_deriv_smul
+      (f := Real.exp) (f' := Real.exp) (s := Set.univ) MeasurableSet.univ
+      (fun x _ => (Real.hasDerivAt_exp x).hasDerivWithinAt)
+      (Set.injOn_of_injective Real.exp_injective) f
+  rw [Set.image_univ, Real.range_exp] at hcov
+  rw [hcov, Measure.restrict_univ]
+  congr 1
+  funext t
+  rw [abs_of_pos (Real.exp_pos t), Complex.real_smul]
+
+/-- `∫ e^{t/2}·G(t) dt = ∫_{x>0} g(x) dx`. -/
+theorem lift_moment_plus (g : ℝ → ℂ) :
+    (∫ t, (Real.exp (t / 2) : ℂ) * lift g t) = ∫ x in Ioi (0 : ℝ), g x := by
+  rw [← integral_exp_subst]
+  congr 1
+  funext t
+  unfold lift
+  rw [← mul_assoc, ← Complex.ofReal_mul, ← Real.exp_add]
+  congr 3
+  ring
+
+/-- `∫ e^{−t/2}·G(t) dt = ∫_{x>0} g(x)/x dx`. -/
+theorem lift_moment_minus (g : ℝ → ℂ) :
+    (∫ t, (Real.exp (-t / 2) : ℂ) * lift g t) = ∫ x in Ioi (0 : ℝ), g x / (x : ℂ) := by
+  rw [← integral_exp_subst]
+  congr 1
+  funext t
+  unfold lift
+  have hne : (Real.exp t : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr (Real.exp_pos t).ne'
+  rw [← mul_assoc, ← Complex.ofReal_mul, ← Real.exp_add]
+  have h0 : -t / 2 + t / 2 = 0 := by ring
+  rw [h0, Real.exp_zero, Complex.ofReal_one, one_mul]
+  field_simp
+
+/-- The repository's two moment conditions, for `g` supported in `[e^a, e^b]`, make
+`e^{−|·|/2} * G` vanish outside `(a, b)`, where `G` is the unitary log lift of `g`. -/
+theorem kreinFactor_lift_support (g : ℝ → ℂ) (a b : ℝ)
+    (hsupp : ∀ x, g x ≠ 0 → x ∈ Icc (Real.exp a) (Real.exp b))
+    (hinv : ∫ x in Ioi (0 : ℝ), g x / (x : ℂ) = 0)
+    (hone : ∫ x in Ioi (0 : ℝ), g x = 0) :
+    ∀ t, kreinFactor (lift g) t ≠ 0 → t ∈ Ioo a b := by
+  refine kreinFactor_support (lift g) a b ?_ (by rw [lift_moment_plus]; exact hone)
+    (by rw [lift_moment_minus]; exact hinv)
+  intro t ht
+  have hg : g (Real.exp t) ≠ 0 := by
+    intro h0; apply ht; simp [lift, h0]
+  have hmem := hsupp _ hg
+  exact ⟨Real.exp_le_exp.mp hmem.1, Real.exp_le_exp.mp hmem.2⟩
+
 end AEGIS.RHKreinFactorV13
 
 #print axioms AEGIS.RHKreinFactorV13.kreinFactor_support
+#print axioms AEGIS.RHKreinFactorV13.kreinFactor_lift_support
