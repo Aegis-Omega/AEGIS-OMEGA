@@ -7,6 +7,7 @@ on:
       - "gravity_quantum/test_qpy_curriculum_v1.py"
       - "gravity_quantum/cudaq_twoqubit_v1.py"
       - "gravity_quantum/crossframework_v1.py"
+      - "aegis_learning/**"
       - ".github/workflows/proof-carrying-qpy-curriculum.yml"
   workflow_dispatch:
 
@@ -44,6 +45,13 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Execute stdlib evidence-gradient compiler falsifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile             aegis_learning/evidence_gradient_compiler_v1.py             aegis_learning/test_evidence_gradient_compiler_v1.py
+          python -m unittest             aegis_learning.test_evidence_gradient_compiler_v1 -v
+
       - name: Install pinned witness runtimes
         shell: bash
         run: |
@@ -78,13 +86,17 @@ jobs:
               source_head_sha=os.environ["SOURCE_SHA"],
           )
           assert receipt["source_head_sha"] == os.environ["SOURCE_SHA"]
-          assert receipt["all_gradient_admissible"] is True
+          assert receipt["all_gradient_admissible"] is False
+          assert receipt["positive_gradient_count"] == 0
+          assert receipt["contrastive_count"] == 0
+          assert receipt["quarantine_count"] == receipt["record_count"]
+          assert receipt["formal_kernel_verified"] is False
           print(receipt["record_count"])
           PY
           python -m pip freeze             > artifacts/proof-carrying-qpy-curriculum/environment.lock.txt
           (
             cd artifacts/proof-carrying-qpy-curriculum
-            sha256sum *.qpy curriculum.jsonl receipt.json environment.lock.txt > SHA256SUMS
+            sha256sum               *.qpy               curriculum.jsonl               positive.jsonl               contrastive.jsonl               quarantine.jsonl               receipt.json               environment.lock.txt > SHA256SUMS
             sha256sum -c SHA256SUMS
           )
 
