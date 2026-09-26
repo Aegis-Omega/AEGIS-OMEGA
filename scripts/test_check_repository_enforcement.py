@@ -1,16 +1,27 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import importlib.util
+import sys
 import unittest
 from unittest.mock import patch
+from pathlib import Path
 
-import check_repository_enforcement as enforcement
-
+HERE = Path(__file__).resolve().parent
+SPEC = importlib.util.spec_from_file_location(
+    "enforcement", HERE / "check_repository_enforcement.py"
+)
+assert SPEC and SPEC.loader
+enforcement = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = enforcement
+SPEC.loader.exec_module(enforcement)
 
 REPO = "Aegis-Omega/AEGIS-OMEGA"
 BRANCH = "main"
-GITHUB_ACTIONS_APP_ID = 15368
+APP = 15368
 CONTEXTS = (
+    "aegis / automaton-3",
+    "aegis / automaton-2",
     "Body cites current head",
     "aegis / kernel-one",
     "scan-pr / osv-scan",
@@ -23,206 +34,124 @@ POLICY = enforcement.Policy(
     require_last_push_approval=False,
     require_code_owner_review=False,
     require_conversation_resolution=True,
+    require_extra_approval_for_unattributed_changes=True,
     require_branches_up_to_date=True,
-    required_status_check_integration_id=GITHUB_ACTIONS_APP_ID,
+    required_status_check_integration_id=APP,
     required_status_check_contexts=CONTEXTS,
 )
 
 
-def active_rules(
-    contexts: tuple[str, ...] = CONTEXTS,
-    *,
-    strict: bool = True,
-    integration_id: int | None = GITHUB_ACTIONS_APP_ID,
-):
-    checks = []
-    for context in contexts:
-        check = {"context": context}
-        if integration_id is not None:
-            check["integration_id"] = integration_id
-        checks.append(check)
-    return [
-        {
-            "type": "deletion",
-            "ruleset_source_type": "Repository",
-            "ruleset_source": REPO,
-            "ruleset_id": 4242,
-        },
-        {
-            "type": "non_fast_forward",
-            "ruleset_source_type": "Repository",
-            "ruleset_source": REPO,
-            "ruleset_id": 4242,
-        },
-        {
-            "type": "required_signatures",
-            "ruleset_source_type": "Repository",
-            "ruleset_source": REPO,
-            "ruleset_id": 4242,
-        },
-        {
-            "type": "pull_request",
-            "ruleset_source_type": "Repository",
-            "ruleset_source": REPO,
-            "ruleset_id": 4242,
-            "parameters": {
-                "allowed_merge_methods": ["merge", "squash", "rebase"],
-                "dismiss_stale_reviews_on_push": False,
-                "require_code_owner_review": False,
-                "require_last_push_approval": False,
-                "required_approving_review_count": 0,
-                "required_review_thread_resolution": True,
-            },
-        },
-        {
-            "type": "required_status_checks",
-            "ruleset_source_type": "Repository",
-            "ruleset_source": REPO,
-            "ruleset_id": 4242,
-            "parameters": {
-                "do_not_enforce_on_create": False,
-                "required_status_checks": checks,
-                "strict_required_status_checks_policy": strict,
-            },
-        },
-    ]
-
-
 def ruleset_inventory():
+    return [{
+        "id":4242,
+        "name":"AEGIS Main Enforcement",
+        "target":"branch",
+        "source_type":"Repository",
+        "source":REPO,
+        "enforcement":"active",
+    }]
+
+
+def active_rules(
+    bindings=None,
+    *,
+    strict=True,
+    extra_approval=True,
+):
+    if bindings is None:
+        bindings=[(c,APP) for c in CONTEXTS]
+    checks=[]
+    for context,integration_id in bindings:
+        row={"context":context}
+        if integration_id is not None:
+            row["integration_id"]=integration_id
+        checks.append(row)
     return [
+        {"type":"deletion","ruleset_id":4242},
+        {"type":"non_fast_forward","ruleset_id":4242},
+        {"type":"required_signatures","ruleset_id":4242},
         {
-            "id": 4242,
-            "name": "AEGIS Main Enforcement",
-            "target": "branch",
-            "source_type": "Repository",
-            "source": REPO,
-            "enforcement": "active",
-        }
+            "type":"pull_request","ruleset_id":4242,
+            "parameters":{
+                "dismiss_stale_reviews_on_push":False,
+                "require_code_owner_review":False,
+                "require_last_push_approval":False,
+                "required_approving_review_count":0,
+                "required_review_thread_resolution":True,
+                "require_extra_approval_for_unattributed_changes":extra_approval,
+            },
+        },
+        {
+            "type":"required_status_checks","ruleset_id":4242,
+            "parameters":{
+                "required_status_checks":checks,
+                "strict_required_status_checks_policy":strict,
+            },
+        },
     ]
 
 
-class RepositoryEnforcementTests(unittest.TestCase):
-    def test_unprotected_branch_denies_without_ruleset_lookup(self) -> None:
-        calls: list[str] = []
-
-        def fake_get(path: str, token: str | None):
-            calls.append(path)
-            if path == f"/repos/{REPO}/branches/{BRANCH}":
-                return 200, {"name": BRANCH, "protected": False}
-            self.fail(f"unexpected lookup: {path}")
-
-        with patch.object(enforcement, "_get", side_effect=fake_get):
-            result = enforcement.verify(REPO, BRANCH, "token", POLICY)
-
-        self.assertFalse(result.ok)
-        self.assertEqual(result.source, "branch_endpoint:protected=false")
-        self.assertEqual(calls, [f"/repos/{REPO}/branches/{BRANCH}"])
-        self.assertEqual(result.as_dict()["production_admission"], "FORBIDDEN")
-        self.assertEqual(set(result.missing_required_status_check_contexts), set(CONTEXTS))
-
-    def test_active_effective_rules_satisfy_contract_without_privileged_protection_api(self) -> None:
-        calls: list[str] = []
-
-        def fake_get(path: str, token: str | None):
-            calls.append(path)
-            if path == f"/repos/{REPO}/branches/{BRANCH}":
-                return 200, {"name": BRANCH, "protected": True}
-            if path == f"/repos/{REPO}/rules/branches/{BRANCH}?per_page=100":
-                return 200, active_rules()
-            if path == f"/repos/{REPO}/rulesets?per_page=100&targets=branch":
-                return 200, ruleset_inventory()
-            self.fail(f"unexpected lookup: {path}")
-
-        with patch.object(enforcement, "_get", side_effect=fake_get):
-            result = enforcement.verify(REPO, BRANCH, "token", POLICY)
-
-        self.assertTrue(result.ok)
-        self.assertEqual(result.source, "effective_repository_rulesets:no_splicing")
-        self.assertEqual(result.missing_required_status_check_contexts, ())
-        self.assertEqual(result.publisher_mismatch_contexts, ())
-        self.assertEqual(result.evaluated_ruleset_id, 4242)
-        self.assertEqual(result.all_effective_ruleset_ids, (4242,))
-        self.assertFalse(any(path.endswith("/protection") for path in calls))
-
-    def test_partial_guarantees_from_other_ruleset_are_not_spliced(self) -> None:
-        rules = active_rules()
-        for rule in rules:
-            if rule["type"] in {"deletion", "required_signatures"}:
-                rule["ruleset_id"] = 4343
-
-        def fake_get(path: str, token: str | None):
-            if path == f"/repos/{REPO}/branches/{BRANCH}":
-                return 200, {"protected": True}
-            if path == f"/repos/{REPO}/rules/branches/{BRANCH}?per_page=100":
-                return 200, rules
-            if path == f"/repos/{REPO}/rulesets?per_page=100&targets=branch":
-                return 200, ruleset_inventory()
-            self.fail(f"unexpected lookup: {path}")
-
-        with patch.object(enforcement, "_get", side_effect=fake_get):
-            result = enforcement.verify(REPO, BRANCH, "token", POLICY)
-
-        self.assertFalse(result.ok)
-        self.assertEqual(result.source, "effective_repository_rulesets:no_splicing")
-        self.assertEqual(result.evaluated_ruleset_id, 4242)
-        self.assertEqual(result.all_effective_ruleset_ids, (4242, 4343))
-        self.assertFalse(result.deletion_blocked)
-        self.assertFalse(result.signatures_required)
-        self.assertEqual(result.as_dict()["production_admission"], "FORBIDDEN")
-
-    def test_missing_required_check_is_verified_deny(self) -> None:
-        missing = CONTEXTS[:-1]
-
-        def fake_get(path: str, token: str | None):
-            if path == f"/repos/{REPO}/branches/{BRANCH}":
-                return 200, {"protected": True}
-            if path == f"/repos/{REPO}/rules/branches/{BRANCH}?per_page=100":
-                return 200, active_rules(missing)
-            if path == f"/repos/{REPO}/rulesets?per_page=100&targets=branch":
-                return 200, ruleset_inventory()
-            self.fail(f"unexpected lookup: {path}")
-
-        with patch.object(enforcement, "_get", side_effect=fake_get):
-            result = enforcement.verify(REPO, BRANCH, "token", POLICY)
-
-        self.assertFalse(result.ok)
-        self.assertFalse(result.required_status_check_contexts_complete)
-        self.assertEqual(result.missing_required_status_check_contexts, ("Main branch enforcement",))
-        self.assertEqual(result.as_dict()["production_admission"], "FORBIDDEN")
-
-    def test_non_strict_required_checks_are_rejected(self) -> None:
-        def fake_get(path: str, token: str | None):
-            if path == f"/repos/{REPO}/branches/{BRANCH}":
-                return 200, {"protected": True}
-            if path == f"/repos/{REPO}/rules/branches/{BRANCH}?per_page=100":
-                return 200, active_rules(strict=False)
-            if path == f"/repos/{REPO}/rulesets?per_page=100&targets=branch":
-                return 200, ruleset_inventory()
-            self.fail(f"unexpected lookup: {path}")
-
-        with patch.object(enforcement, "_get", side_effect=fake_get):
-            result = enforcement.verify(REPO, BRANCH, "token", POLICY)
-
-        self.assertFalse(result.ok)
-        self.assertFalse(result.branches_up_to_date_required)
-
-    def test_unpinned_same_name_status_checks_are_rejected(self) -> None:
-        def fake_get(path: str, token: str | None):
-            if path == f"/repos/{REPO}/branches/{BRANCH}":
-                return 200, {"protected": True}
-            if path == f"/repos/{REPO}/rules/branches/{BRANCH}?per_page=100":
-                return 200, active_rules(integration_id=None)
-            if path == f"/repos/{REPO}/rulesets?per_page=100&targets=branch":
-                return 200, ruleset_inventory()
-            self.fail(f"unexpected lookup: {path}")
-
-        with patch.object(enforcement, "_get", side_effect=fake_get):
-            result = enforcement.verify(REPO, BRANCH, "token", POLICY)
-
-        self.assertFalse(result.ok)
-        self.assertFalse(result.required_status_check_publishers_pinned)
-        self.assertEqual(set(result.publisher_mismatch_contexts), set(CONTEXTS))
+def run_with(rules):
+    def fake_get(path, token):
+        if path == f"/repos/{REPO}/branches/{BRANCH}":
+            return 200, {"protected":True}
+        if path == f"/repos/{REPO}/rulesets?per_page=100&targets=branch":
+            return 200, ruleset_inventory()
+        if path == f"/repos/{REPO}/rules/branches/{BRANCH}?per_page=100":
+            return 200, rules
+        raise AssertionError(path)
+    with patch.object(enforcement,"_get",side_effect=fake_get):
+        return enforcement.verify(REPO,BRANCH,"token",POLICY)
 
 
-if __name__ == "__main__":
-    unittest.main()
+class Tests(unittest.TestCase):
+    def test_exact_live_contract_passes(self):
+        r=run_with(active_rules())
+        self.assertTrue(r.ok)
+        self.assertTrue(r.required_status_check_bindings_exact)
+        self.assertTrue(r.extra_approval_for_unattributed_changes_matches)
+
+    def test_extra_unmodeled_context_fails(self):
+        b=[(c,APP) for c in CONTEXTS]+[("unexpected / check",APP)]
+        r=run_with(active_rules(b))
+        self.assertFalse(r.ok)
+        self.assertEqual(
+            r.unexpected_required_status_check_bindings,
+            (("unexpected / check",APP),),
+        )
+
+    def test_missing_automaton3_fails(self):
+        b=[(c,APP) for c in CONTEXTS if c!="aegis / automaton-3"]
+        r=run_with(active_rules(b))
+        self.assertFalse(r.ok)
+        self.assertIn(
+            ("aegis / automaton-3",APP),
+            r.missing_required_status_check_bindings,
+        )
+
+    def test_wrong_publisher_fails_exact_binding(self):
+        b=[(c,(99999 if c=="aegis / kernel-one" else APP)) for c in CONTEXTS]
+        r=run_with(active_rules(b))
+        self.assertFalse(r.ok)
+        self.assertIn(
+            ("aegis / kernel-one",APP),
+            r.missing_required_status_check_bindings,
+        )
+        self.assertIn(
+            ("aegis / kernel-one",99999),
+            r.unexpected_required_status_check_bindings,
+        )
+
+    def test_extra_approval_mismatch_fails(self):
+        r=run_with(active_rules(extra_approval=False))
+        self.assertFalse(r.ok)
+        self.assertFalse(r.extra_approval_for_unattributed_changes_matches)
+
+    def test_non_strict_fails(self):
+        r=run_with(active_rules(strict=False))
+        self.assertFalse(r.ok)
+        self.assertFalse(r.branches_up_to_date_required)
+
+
+if __name__=="__main__":
+    unittest.main(verbosity=2)

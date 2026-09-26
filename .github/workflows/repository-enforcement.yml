@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout exact candidate
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 1
 
@@ -32,6 +32,9 @@ jobs:
         working-directory: scripts
         run: python3 -m unittest test_check_repository_enforcement.py -v
 
+      - name: Run CI execution normalizer regressions
+        working-directory: scripts
+        run: python3 -m unittest test_normalize_ci_execution_evidence_v1.py -v
       - name: Verify GitHub enforcement boundary
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -45,7 +48,7 @@ jobs:
 
       - name: Upload enforcement evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: repository-enforcement-${{ github.sha }}
           path: ${{ runner.temp }}/repository-enforcement
