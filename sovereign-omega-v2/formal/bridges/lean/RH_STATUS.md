@@ -277,6 +277,49 @@ functions have `f̂` nearly vanishing at the low zeta zeros: past `L ≈ 1.2` fi
 numerically the same as knowing where the zeros are. The x-space form used in the formal budget reproduces
 these values (`0.5596` at `log 2`).
 
+**Past `log 2`: where the prime `2` must be paid (numerics, T2, not formalized).** For support length
+`log 2 < L < log 3` the only prime term is `−√2·log 2·Re A(log 2)`. Minimum over moment-zero `g` (units of `E`):
+
+| `L` | arch only | with `p = 2` | `p = 2` via end-cell AM–GM | arch − global half-cap |
+|---|---|---|---|---|
+| `0.70` | `0.547` | `0.547` | `0.547` | `0.057` |
+| `0.72` | `0.519` | `0.503` | `0.494` | `0.029` |
+| `0.75` | `0.478` | `0.402` | `0.391` | `−0.012` |
+| `0.80` | `0.413` | `0.245` | `0.237` | `−0.077` |
+
+These columns use the 30-mode sine basis. They are Ritz upper values: the moment-zero basis below finds
+`0.4795` at `0.72` and `0.2270` at `0.8`. The global half-cap `|A(log 2)| ≤ E/2` costs `0.49·E` and fails from
+`L ≈ 0.745` even with a perfect arch bound. `A(log 2)` only couples the two end cells of width `L − log 2`, and
+`|A(log 2)| ≤ ½(E_first + E_last)` loses at most `0.008·E` at `0.8`. The pointwise-cap hat LP reaches `1.7%`
+of the true arch margin at `log 2` (`0.0095` vs `0.555`), so it cannot pay `0.49·E` in any form.
+
+**Fourier-side (Krein) dual certificate.** Moment-zero `g` on `[0, L]` factors as `g = (1/4 − D²)g₁` with
+`g₁, g₁'` vanishing at both ends, so `ĝ(ξ) = (ξ² + 1/4)·ĝ₁(ξ)` and the moment conditions become part of the
+weight. If an even `H` supported in `|u| ≥ L` satisfies `(ξ² + 1/4)²·(S(ξ) − m) + Ĥ(ξ) ≥ 0` for all real `ξ`, with
+`S(ξ) = Re ψ(1/4 + iξ/2) − log π − √2·log 2·cos(ξ log 2)`, then the zero quadratic of `g` is `≥ m·E`. Here `H` is built from hats on `[L, L + 4]`
+plus `δ^{(j)}(u ∓ L)` for `j ≤ 4`; these pair to zero because `g₁ * g̃₁` vanishes to order 5 at `±L`. The `p = 2`
+term is kept exactly, with no cap. LP (HiGHS, 199 hats of width `0.02`, `ξ`-grid `0.01` up to `300`), re-checked on a
+`20×` finer grid up to `3000` with an explicit tail bound (the fine-grid slack
+lowers `m` by at most `4·10⁻⁵`). Dual `m` is a lower bound and a Ritz primal
+(24 moment-zero modes) an upper bound:
+
+| `L` | dual `m` (lower) | primal (upper) | fine-grid slack | tail slack |
+|---|---|---|---|---|
+| `log 2` | `0.5071` | `0.5475` | `−4·10⁻⁵` | `4.1` |
+| `0.72` | `0.3846` | `0.4795` | `−1·10⁻⁵` | `3.4` |
+| `0.80` | `0.1075` | `0.2270` | `−2·10⁻⁵` | `4.2` |
+
+So Weil positivity with the prime `2` inside the window has a numerical certificate up to `L = 0.8`, with margin
+`0.107·E`. At `log 2` it reaches `91%` of the true margin, against the pointwise-cap LP's `1.7%`. The formal ingredients it needs are:
+- `|ĝ|²` on the critical line (`autocorrelation_mellin_critical_normSq_v11` already gives it);
+- the fixed-line digamma form of the arch term (`half_fixed_line_digamma_plus_gamma_eq_arch_v10`);
+- a Parseval pairing for hats and boundary `δ^{(j)}`;
+- a rigorous lower bound for `Re ψ(1/4 + iξ/2)`;
+- a finite trigonometric check.
+
+Reproduce: `python3 research/rh/krein_dual_beyond_log2.py 0.6931 0.72 0.8`. This is a restricted class, not RH:
+positivity for every `L` is RH.
+
 **Hosted replay.** `tarikskalic33/formal-conjectures` PR #41, run 36146289581 (job 108108162762, real
 GitHub runner), replayed the union closure of all seven V13 result targets (114 modules) at AEGIS
 `559e2a7f` in the pinned FormalConjectures environment: 31 load-bearing theorems audited
