@@ -281,7 +281,16 @@ def build_curriculum_record(time_scaled: int) -> dict[str, Any]:
     }
 
 
-def build_curriculum_receipt() -> dict[str, Any]:
+def _normalize_source_head(source_head_sha: str | None) -> str:
+    if source_head_sha is None:
+        return "LOCAL_UNBOUND"
+    if re.fullmatch(r"[0-9a-f]{40}", source_head_sha) is None:
+        raise ValueError("SOURCE_HEAD_SHA_MUST_BE_LOWERCASE_HEX40")
+    return source_head_sha
+
+
+def build_curriculum_receipt(source_head_sha: str | None = None) -> dict[str, Any]:
+    source_head = _normalize_source_head(source_head_sha)
     qiskit_version = importlib.metadata.version("qiskit")
     if qiskit_version != EXPECTED_QISKIT_VERSION:
         raise ValueError("UNEXPECTED_QISKIT_VERSION")
@@ -293,6 +302,7 @@ def build_curriculum_receipt() -> dict[str, Any]:
     return {
         "schema": SCHEMA,
         "scope": "RESEARCH_ONLY_PROOF_CARRYING_CURRICULUM",
+        "source_head_sha": source_head,
         "record_count": len(records),
         "qiskit_version": qiskit_version,
         "qpy_format_version": QPY_FORMAT_VERSION,
@@ -307,9 +317,9 @@ def build_curriculum_receipt() -> dict[str, Any]:
     }
 
 
-def emit_bundle(output_dir: Path) -> dict[str, Any]:
+def emit_bundle(output_dir: Path, source_head_sha: str | None = None) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    receipt = build_curriculum_receipt()
+    receipt = build_curriculum_receipt(source_head_sha)
 
     curriculum_path = output_dir / "curriculum.jsonl"
     with curriculum_path.open("w", encoding="utf-8") as handle:
