@@ -33,7 +33,8 @@
         "require_code_owner_review": false,
         "require_last_push_approval": false,
         "required_approving_review_count": 0,
-        "required_review_thread_resolution": true
+        "required_review_thread_resolution": true,
+        "require_extra_approval_for_unattributed_changes": true
       }
     },
     {
@@ -41,6 +42,14 @@
       "parameters": {
         "do_not_enforce_on_create": false,
         "required_status_checks": [
+          {
+            "context": "aegis / automaton-3",
+            "integration_id": 15368
+          },
+          {
+            "context": "aegis / automaton-2",
+            "integration_id": 15368
+          },
           {
             "context": "Body cites current head",
             "integration_id": 15368
