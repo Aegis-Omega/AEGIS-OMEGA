@@ -572,3 +572,96 @@ def d20_fixed_witness_arithmetic_decomposition(
         "global_weil_positivity_proven": False,
         "rh_proven": False,
     }
+
+
+def _quadratic_character_at_prime(discriminant: int, prime: int) -> int:
+    """Kronecker (D/p) for a prime p and integral quadratic discriminant D."""
+    D = int(discriminant)
+    p = int(prime)
+    if not is_prime(p):
+        raise ValueError("prime must be prime")
+    if p == 2:
+        if D % 2 == 0:
+            return 0
+        residue = D % 8
+        return 1 if residue in (1, 7) else -1
+    if D % p == 0:
+        return 0
+    euler = pow(D % p, (p - 1) // 2, p)
+    if euler == 1:
+        return 1
+    if euler == p - 1:
+        return -1
+    raise RuntimeError("Euler criterion returned an invalid quadratic character value")
+
+
+def quadratic_euler_logder_prime_power_weight(
+    discriminant: int,
+    prime: int,
+    exponent: int,
+) -> float:
+    """Return Lambda_D(p^m) for zeta(s)L(s,chi_D).
+
+    The local logarithmic derivative coefficient is
+
+        log(p) * (1 + chi_D(p)^m).
+
+    Hence a split prime contributes at every power, a ramified prime contributes
+    the zeta-factor weight log(p), and an inert prime vanishes at odd powers but
+    reappears at even powers.
+    """
+    p = int(prime)
+    m = int(exponent)
+    if not is_prime(p):
+        raise ValueError("prime must be prime")
+    if m < 1:
+        raise ValueError("exponent must be >= 1")
+    chi = _quadratic_character_at_prime(int(discriminant), p)
+    return math.log(p) * (1.0 + float(chi**m))
+
+
+def quadratic_euler_first_impulse(
+    discriminant: int,
+    *,
+    search_limit: int = 256,
+) -> dict[str, object]:
+    """Find the first nonzero -F'/F mode for zeta(s)L(s,chi_D)."""
+    D = int(discriminant)
+    if D >= 0:
+        raise ValueError("discriminant must be negative")
+    if search_limit < 2:
+        raise ValueError("search_limit must be >= 2")
+
+    best: tuple[int, int, int, float, int] | None = None
+    for p in range(2, search_limit + 1):
+        if not is_prime(p):
+            continue
+        power = p
+        exponent = 1
+        while power <= search_limit:
+            weight = quadratic_euler_logder_prime_power_weight(D, p, exponent)
+            if weight != 0.0:
+                candidate = (power, p, exponent, weight, _quadratic_character_at_prime(D, p))
+                if best is None or candidate[0] < best[0]:
+                    best = candidate
+                break
+            if power > search_limit // p:
+                break
+            power *= p
+            exponent += 1
+
+    if best is None:
+        raise RuntimeError("no nonzero Euler impulse found within search_limit")
+    n, p, exponent, weight, chi = best
+    local_type = "ramified" if chi == 0 else ("split" if chi == 1 else "inert")
+    return {
+        "discriminant": D,
+        "first_n": n,
+        "prime": p,
+        "exponent": exponent,
+        "character_at_prime": chi,
+        "local_type": local_type,
+        "weight": weight,
+        "log_window": math.log(n),
+        "prime_power_only": True,
+    }
