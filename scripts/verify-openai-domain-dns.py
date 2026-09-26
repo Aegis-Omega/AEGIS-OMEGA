@@ -10,11 +10,13 @@ prove OpenAI has completed tenant-domain verification.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import sys
 import urllib.parse
 import urllib.request
 
 DOMAIN = "aegisomega.com"
+RECEIPT_PATH = Path("openai-domain-dns-receipt.json")
 EXPECTED = {
     "_openai-site-verification.aegisomega.com": (
         "openai-site-verification=zchKhAC2vSCoUTOKmlHN9tiwmpzfL81-vX2oA7-nG3c"
@@ -30,8 +32,6 @@ RESOLVERS = {
 
 def normalize_txt(value: str) -> str:
     value = value.strip()
-    # DoH JSON commonly returns TXT RDATA with surrounding quotes. Some
-    # implementations may split TXT strings into adjacent quoted chunks.
     if value.startswith('"') and value.endswith('"'):
         parts = []
         current = ""
@@ -61,7 +61,7 @@ def query_json(base: str, name: str) -> dict:
         f"{base}?{params}",
         headers={
             "Accept": "application/dns-json",
-            "User-Agent": "AEGIS-DNS-Verifier/1.0",
+            "User-Agent": "AEGIS-DNS-Verifier/1.1",
         },
     )
     with urllib.request.urlopen(req, timeout=12) as response:
@@ -95,7 +95,7 @@ def main() -> int:
                     "dns_status": payload.get("Status"),
                 }
                 all_match = all_match and matched
-            except Exception as exc:  # bounded diagnostic; no secret data
+            except Exception as exc:
                 observations[host]["resolvers"][resolver_name] = {
                     "matched": False,
                     "error": f"{type(exc).__name__}: {exc}",
@@ -114,7 +114,9 @@ def main() -> int:
             "UNVERIFIED may mean missing records, DNS propagation lag, or resolver/network failure.",
         ],
     }
-    print(json.dumps(receipt, indent=2, sort_keys=True))
+    encoded = json.dumps(receipt, indent=2, sort_keys=True) + "\n"
+    RECEIPT_PATH.write_text(encoded, encoding="utf-8")
+    print(encoded, end="")
     return 0 if all_match else 1
 
 
