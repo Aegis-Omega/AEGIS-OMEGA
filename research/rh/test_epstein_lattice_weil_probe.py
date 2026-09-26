@@ -1,0 +1,63 @@
+import math
+
+import numpy as np
+
+from harness.sdk.epstein_lattice_weil_probe import (
+    EpsteinWeilProbeConfig,
+    arithmetic_support_certificate,
+    d20_companion_coefficients,
+    d20_euler_coefficients,
+    d20_principal_coefficients,
+    generalized_log_derivative_coefficients,
+    run_d20_same_discriminant_control,
+)
+
+
+def test_d20_principal_starts_at_four_but_log_derivative_leaks_at_six() -> None:
+    a = d20_principal_coefficients(40)
+    assert a[1] == 1.0
+    assert a[2] == 0.0
+    assert a[3] == 0.0
+    assert a[4] == 1.0
+    assert a[5] == 1.0
+    assert a[6] == 2.0
+
+    lam = generalized_log_derivative_coefficients(a)
+    assert abs(lam[6] - 2.0 * math.log(6.0)) < 1e-12
+    cert = arithmetic_support_certificate(a)
+    assert cert["prime_power_only"] is False
+    assert 6 in cert["non_prime_power_support"]
+
+
+def test_d20_euler_classsum_log_derivative_is_prime_power_supported() -> None:
+    a = d20_euler_coefficients(128)
+    cert = arithmetic_support_certificate(a)
+    assert cert["prime_power_only"] is True
+    assert cert["non_prime_power_support"] == ()
+
+
+def test_d20_principal_decomposition_matches_two_euler_components_on_prefix() -> None:
+    max_n = 128
+    principal = 2.0 * d20_principal_coefficients(max_n)
+    classsum = d20_euler_coefficients(max_n)
+    companion = d20_companion_coefficients(max_n)
+    assert np.array_equal(principal[1:], (classsum + companion)[1:])
+
+
+def test_same_discriminant_spectral_control_separates_at_L_3p5() -> None:
+    receipt = run_d20_same_discriminant_control(
+        EpsteinWeilProbeConfig(
+            support_length=3.5,
+            basis_dim=24,
+            t_bound=600.0,
+            dt=0.05,
+            chunk_size=2048,
+        )
+    )
+    assert receipt["principal_lambda_min"] < -0.25
+    assert receipt["euler_classsum_lambda_min"] > 0.15
+    assert receipt["principal_minimizer_on_euler_classsum"] > 1.0
+    assert receipt["same_archimedean_factor"] is True
+    assert receipt["same_conductor"] is True
+    assert receipt["proof_authority"] is False
+    assert receipt["rh_proven"] is False
