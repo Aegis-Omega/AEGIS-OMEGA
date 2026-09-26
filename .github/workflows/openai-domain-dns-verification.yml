@@ -1,0 +1,42 @@
+name: OpenAI Domain DNS Verification
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - hardening/frontier-engineering-baseline-v1
+    paths:
+      - scripts/verify-openai-domain-dns.py
+      - .github/workflows/openai-domain-dns-verification.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - scripts/verify-openai-domain-dns.py
+      - .github/workflows/openai-domain-dns-verification.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: aegis / openai-domain-dns
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      CANDIDATE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+
+      - name: Query public DNS and verify OpenAI TXT records
+        run: python scripts/verify-openai-domain-dns.py
