@@ -13,8 +13,8 @@
   },
   "formal_source": {
     "path": "sovereign-omega-v2/formal/bridges/lean/ZeroRadialTruncationV1.lean",
-    "git_blob_sha": "35b31dca57d1ed41789cfe7bc1e3c1e8ca3e3d97",
-    "sha256": "d7b7a0e08315f64f597d92061a75f8cf1aed7d6fa2983318785f7fe01de8259d"
+    "git_blob_sha": "712531567f4e18c54413d9d99fd9ede01ed6859c",
+    "sha256": "19c07653b5b251ec0abb2faa2bc95db05fcced6a3989344992567b6b0e30b7d2"
   },
   "verification_mode": "COMPILE_EXACT_PARENT_SOURCE_THEN_CHILD_FRAGMENT",
   "scope": {
