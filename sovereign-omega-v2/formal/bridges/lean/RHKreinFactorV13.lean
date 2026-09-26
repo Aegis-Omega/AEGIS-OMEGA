@@ -19,7 +19,11 @@ twice differentiable with `G1/4 − G1'' = G` (`G1_ode`, fundamental theorem of 
 repository test function under `WeilMomentConditionsV1`.
 
 Together these give the factorisation `g = (1/4 − D²)g₁` with `g₁` supported in the same interval. The
-Fourier-side certificate in `RH_STATUS.md` uses it. Not RH. AUTHORITY_EFFECT = NONE.
+Fourier-side certificate in `RH_STATUS.md` uses it.
+
+`moment_zero_parametrization` is the smooth form. If `h` is `C^∞` with `tsupport h ⊆ [a, b]` and
+`∫ e^{±u/2} h(u) du = 0`, then `h = χ'' − χ/4` with `χ = −G1` smooth and `tsupport χ ⊆ [a, b]`. `G1` is the
+composition of the first-order inverses of `D + 1/2` and `D − 1/2`. Not RH. AUTHORITY_EFFECT = NONE.
 -/
 
 open Set MeasureTheory
@@ -284,6 +288,83 @@ theorem G1_lift (g : ℝ → ℂ) (hg : Continuous g) (a b : ℝ) (hab : a ≤ b
     congr 1; funext y; unfold ex; rw [show (-1/2 : ℝ) * y = -y / 2 by ring]
   exact ⟨G1_support (lift g) hG a b hsupp hplus hminus, fun x => (G1_ode (lift g) hG a b x).2⟩
 
+/-! ### Moment-zero parametrisation: smooth, same window
+
+`chi = −G1` is the support-preserving inverse of `D² − 1/4`. It is the composition of the
+first-order inverses of `D + 1/2` and `D − 1/2`. If `h` is smooth, supported in `[a, b]`, and both
+weighted moments `∫ e^{±u/2} h(u) du` vanish, then `chi` is smooth, supported in `[a, b]`, and
+`h = chi'' − chi/4`. -/
+
+open scoped ContDiff
+
+theorem contDiff_ex (c : ℝ) : ContDiff ℝ ∞ (ex c) :=
+  Complex.ofRealCLM.contDiff.comp (contDiff_const.mul contDiff_id).exp
+
+theorem contDiff_P (G : ℝ → ℂ) (hG : ContDiff ℝ ∞ G) (a : ℝ) : ContDiff ℝ ∞ (P G a) := by
+  rw [contDiff_infty_iff_deriv]
+  refine ⟨fun x => (hasDerivAt_P G hG.continuous a x).differentiableAt, ?_⟩
+  rw [show deriv (P G a) = fun x => ex (1/2) x * G x from
+    funext fun x => (hasDerivAt_P G hG.continuous a x).deriv]
+  exact (contDiff_ex _).mul hG
+
+theorem contDiff_Q (G : ℝ → ℂ) (hG : ContDiff ℝ ∞ G) (b : ℝ) : ContDiff ℝ ∞ (Q G b) := by
+  rw [contDiff_infty_iff_deriv]
+  refine ⟨fun x => (hasDerivAt_Q G hG.continuous b x).differentiableAt, ?_⟩
+  rw [show deriv (Q G b) = fun x => ex (-1/2) x * G x from
+    funext fun x => (hasDerivAt_Q G hG.continuous b x).deriv]
+  exact (contDiff_ex _).mul hG
+
+theorem contDiff_G1 (G : ℝ → ℂ) (hG : ContDiff ℝ ∞ G) (a b : ℝ) : ContDiff ℝ ∞ (G1 G a b) :=
+  ((contDiff_ex _).mul (contDiff_P G hG a)).sub ((contDiff_ex _).mul (contDiff_Q G hG b))
+
+/-- A continuous `h` with `tsupport h ⊆ [a, b]` vanishes at `a` and `b` as well. -/
+theorem ne_zero_mem_Ioo (h : ℝ → ℂ) (hc : Continuous h) (a b : ℝ)
+    (hs : tsupport h ⊆ Icc a b) : ∀ y, h y ≠ 0 → y ∈ Ioo a b := by
+  have hz : ∀ y, y ∉ Icc a b → h y = 0 := fun y hy =>
+    image_eq_zero_of_notMem_tsupport (fun h' => hy (hs h'))
+  have hcl : IsClosed {x | h x = 0} := isClosed_eq hc continuous_const
+  intro y hy
+  have hyI : y ∈ Icc a b := by by_contra h'; exact hy (hz y h')
+  refine ⟨lt_of_le_of_ne hyI.1 fun he => hy ?_, lt_of_le_of_ne hyI.2 fun he => hy ?_⟩
+  · have hsub : Iio a ⊆ {x | h x = 0} := fun x hx => hz x fun hm => absurd hm.1 (not_le.mpr hx)
+    have hcl' := hcl.closure_subset_iff.mpr hsub
+    rw [closure_Iio] at hcl'
+    rw [← he]; exact hcl' self_mem_Iic
+  · have hsub : Ioi b ⊆ {x | h x = 0} := fun x hx => hz x fun hm => absurd hm.2 (not_le.mpr hx)
+    have hcl' := hcl.closure_subset_iff.mpr hsub
+    rw [closure_Ioi] at hcl'
+    rw [he]; exact hcl' self_mem_Ici
+
+/-- **Moment-zero parametrisation.** If `h` is smooth with `tsupport h ⊆ [a, b]` and
+`∫ e^{−u/2} h(u) du = ∫ e^{u/2} h(u) du = 0`, then `h = chi'' − chi/4` for a smooth `chi` with
+`tsupport chi ⊆ [a, b]`, namely `chi = −G1`. -/
+theorem moment_zero_parametrization (h : ℝ → ℂ) (a b : ℝ) (hab : a ≤ b)
+    (hh : ContDiff ℝ ∞ h) (hs : tsupport h ⊆ Icc a b)
+    (hminus : ∫ u, (Real.exp (-u / 2) : ℂ) * h u = 0)
+    (hplus : ∫ u, (Real.exp (u / 2) : ℂ) * h u = 0) :
+    ∃ chi : ℝ → ℂ, ContDiff ℝ ∞ chi ∧ tsupport chi ⊆ Icc a b ∧
+      ∀ u, h u = deriv (deriv chi) u - (1/4 : ℂ) * chi u := by
+  have hc := hh.continuous
+  have hsupp := ne_zero_mem_Ioo h hc a b hs
+  have hz : ∀ c y, y ∉ Ioo a b → ex c y * h y = 0 := fun c y hy => by
+    have : h y = 0 := by by_contra h'; exact hy (hsupp y h')
+    rw [this, mul_zero]
+  have hp : (∫ y in a..b, ex (1/2) y * h y) = 0 := by
+    rw [interval_eq_whole _ a b hab (hz _), ← hplus]
+    congr 1; funext y; unfold ex; rw [show (1/2 : ℝ) * y = y / 2 by ring]
+  have hm : (∫ y in a..b, ex (-1/2) y * h y) = 0 := by
+    rw [interval_eq_whole _ a b hab (hz _), ← hminus]
+    congr 1; funext y; unfold ex; rw [show (-1/2 : ℝ) * y = -y / 2 by ring]
+  refine ⟨fun x => -G1 h a b x, (contDiff_G1 h hh a b).neg, ?_, fun u => ?_⟩
+  · refine closure_minimal (fun x hx => Ioo_subset_Icc_self ?_) isClosed_Icc
+    exact G1_support h hc a b hsupp hp hm x fun h0 => hx (by simp [h0])
+  · have hd : deriv (fun x => -G1 h a b x) = fun x => -G1' h a b x :=
+      funext fun x => (hasDerivAt_G1 h hc a b x).neg.deriv
+    rw [hd, show (fun x => -G1' h a b x) = -G1' h a b from rfl, deriv.neg,
+      (hasDerivAt_G1' h hc a b u).deriv]
+    show h u = -(G1 h a b u / 4 - h u) - (1/4 : ℂ) * -G1 h a b u
+    ring
+
 end AEGIS.RHKreinFactorV13
 
 #print axioms AEGIS.RHKreinFactorV13.kreinFactor_support
@@ -291,3 +372,5 @@ end AEGIS.RHKreinFactorV13
 #print axioms AEGIS.RHKreinFactorV13.G1_ode
 #print axioms AEGIS.RHKreinFactorV13.G1_support
 #print axioms AEGIS.RHKreinFactorV13.G1_lift
+#print axioms AEGIS.RHKreinFactorV13.contDiff_G1
+#print axioms AEGIS.RHKreinFactorV13.moment_zero_parametrization
