@@ -130,3 +130,35 @@ Export the 60-dimensional negative principal witness and certify its quadratic
 value with interval/ARB arithmetic, including a rigorous tail bound in (t).
 Only that negative witness needs certification; no claim of positivity for the
 Euler control is required for the falsifier.
+
+
+## Optimizer-free seven-mode witness
+
+A sparse integer witness removes generalized-eigensolver dependence from the
+sign separation.  In the even modes
+
+[
+k=(4,6,8,10,12,16,18)
+]
+
+use the integer coefficient vector
+
+[
+c=(22,10,6,3,2,-2,-1).
+]
+
+For the committed CI-sized quadrature ((L,N,T,dt)=(3.5,24,600,0.05)), direct
+Rayleigh evaluation gives approximately
+
+- principal (x^2+5y^2): (-0.071782623);
+- Euler class-sum (zeta(s)L(s,chi_{-20})): (+5.361928445).
+
+The same vector therefore gives a large same-discriminant sign contrast without
+calling an eigensolver during evaluation.  Independent stress checks show the
+principal value moving toward roughly (-0.065) as (T) is increased from
+600 to 20000, while halving the quadrature step from 0.05 to 0.0125 changes the
+(T=600) value by only about (5.2	imes10^{-9}).
+
+These stability checks are numerical, not interval bounds.  The next rigorous
+promotion is now narrower: certify this fixed seven-mode quadratic value and an
+upper bound for its omitted (t>T) tail.
