@@ -57,6 +57,9 @@ Axiom target for every theorem: `[propext, Classical.choice, Quot.sound]`. `sorr
 | `Q_all`, `gain_bound`, `hat_coercive`, `universal_on_class` | 289 integer weights (list `wL`, `ρ_k` by kernel evaluation of integer sums), `h = 1/72`, 192 sub-cells: `hatGain(1/3) ≤ −1/100`; `Re RHS ≤ −E/100`; `0 ≤` the zero quadratic for every moment-zero `g` of log-half-width `≤ 1/3` (support length `≤ 2/3`) | `RHHatClass13V13` |
 | `expNeg_sq_lower`, `cell_QW`, `Q_of_checksW` | `e^{−3b/2} ≥ (1 − x + x²/2 − x³/6 + x⁴/24 − x⁵/100)²` at `x = 3b/4`, `b ≤ 4/3`; the sub-cell sweep of `Q_of_checks` with this enclosure, valid up to `Nh ≤ 4/3` (the old one stops at `2/3`) | `RHHatCellsWideV13` |
 | `Q_all`, `gain_bound`, `hat_coercive`, `universal_on_class` | 505 integer weights, `h = 23/2800`, 336 sub-cells via `Q_of_checksW`: `hatGain(69/200) ≤ −1/200`; `Re RHS ≤ −E/200`; `0 ≤` the zero quadratic for every moment-zero `g` of log-half-width `≤ 69/200` (support length `≤ 0.69`, `99.5%` of the prime-free range `< log 2 ≈ 0.6931`) | `RHHatClass69200V13` |
+| `cell4_logCorrelation` … `cell7_logCorrelation` | `2r < N·u` ⇒ `‖logCorrelation g u‖ ≤ K_N·E` with `K_N = 81/100, 87/100, 91/100, 93/100 ≥ cos(π/(N+1))` for `N = 4 … 7` (weighted AM–GM along the Coxeter–Dynkin path `A_N`) | `RHCell4CapV13` … `RHCell7CapV13` (aggregated by `RHCellCapsV13`) |
+| `arch_le_hatIntegral`, `region_bound`, `hatcox_diagonal` | below `log 2`, `Re RHS(A) ≤ hatCoxGain·E` with `(0, 2r]` cut at `s₇ ≤ … ≤ s₂ ≤ 2r` and caps `1, 93/100, 91/100, 87/100, 81/100, 71/100, 1/2` | `RHHatCoxBudgetV13` |
+| `Q_all`, `gain_bound`, `hat_coercive`, `universal_on_class` | 433 integer weights, `h = 77/8000`, 288 sub-cells via `Q_of_checksW`: `hatCoxGain(693/2000) ≤ −1/200`; `Re RHS ≤ −E/200`; `0 ≤` the zero quadratic for every moment-zero `g` of log-half-width `≤ 693/2000` (support length `≤ 0.693`, `99.98%` of the prime-free range `< log 2 ≈ 0.693147`) | `RHHatCoxClass693V13` |
 
 `RiemannHypothesis` is Mathlib's own definition
 (`∀ s, riemannZeta s = 0 → ¬(∃ n : ℕ, s = -2 * (n + 1)) → s ≠ 1 → s.re = 1 / 2`).
@@ -71,10 +74,10 @@ UniversalZeroQuadraticNonnegativeV10 :=
 ```
 
 By §1 this proposition is logically equivalent to RH. §1 proves it on the whole class of
-half-width `≤ 69/200` (any shape; `RHHatClass69200V13.universal_on_class`), on a 9-parameter family per narrow seed (ratio 33/16, width 1/256),
+half-width `≤ 693/2000` (any shape; `RHHatCoxClass693V13.universal_on_class`), on a 9-parameter family per narrow seed (ratio 33/16, width 1/256),
 and on an `(N+1)`-parameter dyadic family per seed of width `2^{-max(10,N+2)}` for every `N`
 (`dyadic_tower`); it is open for general `g` — in particular for every `g` whose log-support is
-wider than `0.69` and is not a lattice combination of narrow seeds. Proving it for all `g` from the arithmetic side is the entire
+wider than `0.693` and is not a lattice combination of narrow seeds. Proving it for all `g` from the arithmetic side is the entire
 content of the Riemann Hypothesis under Weil's criterion. No module does this.
 
 Acceptance probes (`DeepMindAcceptanceCheckV13c.lean`, `NineFacesAcceptanceCheck.lean`): with every
@@ -193,6 +196,7 @@ Numerical frontier of this route (support length `L = 2r`, energy units):
 | moment identity, exact linear program | `≈ 0.354` |
 | + Cauchy–Schwarz / Boas–Kac pointwise caps | `≈ 0.48` |
 | + positive-definite hat kernel (LP over positive-definite sequences) | `0.69` formalized (505 weights, 336 sub-cells, exact margin `0.0103·E`); `2/3` with 289 weights (`0.0114·E`); `0.6` with 49 weights (`0.0381·E`); `0.5` with 25 weights (`0.0965·E`) |
+| + `A_N` Coxeter caps `N = 4 … 7` on top of the hat kernel | `0.693` formalized (433 weights, 288 sub-cells, exact margin `0.00528·E`) |
 | true worst case, no prime terms before `log 2` | margin `≈ 0.56·E` at `L = log 2` |
 
 The rest of the prime-free range needs positive-definiteness of the autocorrelation, not pointwise caps;
@@ -254,6 +258,17 @@ weights, `+0.045` at `L = 0.6` with 33, `+0.022` at `L = 2/3` with 289, `+0.0137
 way to `0.69`: the constant-term lift that makes the LP sequence positive definite (now `|min ρ̂| + 10⁻⁷ρ₀` on a
 30 000-point grid instead of `10⁻³ρ₀`) and the `cothTail` bound (exponents up to `12` instead of `5`). The remaining
 `0.0031` of the prime-free range is a grid-size question, not a new idea.
+
+**Coxeter caps and `L = 0.693` (`RHCell4CapV13` … `RHCell7CapV13`, `RHCellCapsV13`, `RHHatCoxBudgetV13`,
+`RHHatCoxClass693V13`).** The half cap (`N = 2`) and the three-cell cap (`N = 3`) are the first two members of one
+family: cut the support into `N` cells of length `u`, so a pair `(v, v + u)` lies in consecutive cells; weighted
+AM–GM with weights `A_k·B_{k+1} = 1/4` along the path bounds `‖C(u)‖` by `K_N·E` with `K_N ≥ cos(π/(N+1))`, the
+top eigenvalue of the Coxeter–Dynkin path `A_N` (`N = 4` gives `cos(π/5) = φ/2`). The budget now uses seven
+regions with caps `1, 93/100, 91/100, 87/100, 81/100, 71/100, 1/2`. `r = 693/2000`: `h = 77/8000`, 433 weights,
+`λ = 10227/5000`, cap boundaries `847/8000, 231/2000, 231/1600, 693/4000, 231/1000, 693/2000`, 288 sub-cells through
+`Q_of_checksW` (exact minimum `0.00505`), exact margin `0.00528`, stated as `≤ −1/200`. The LP spectral check needed a
+16 000-point θ grid; at 8 000 points the kernel dips between nodes and the constant-term lift eats the margin, and
+HiGHS fails at 30 000 with seven regions. With these caps the prime-free range left is `log 2 − 0.693 ≈ 1.5·10⁻⁴`.
 
 **Beyond `log 2` (numerics, not formalized).** The minimum of the Weil form over moment-zero `f` of support
 length `L` (sine basis, exact digamma weight, prime terms included), in units of `E`: `0.555` at `log 2`,
@@ -343,6 +358,7 @@ python3 build2.py RHHalfCapClassV13  # expect rc=0 sorryAx=0 for RHHalfCapV13/Ga
 python3 build2.py RHThresholdClassV13  # expect rc=0 sorryAx=0 for RHThresholdGainV13/ClassV13
 python3 build2.py RHBonusClassV13 RHThreeCellClassV13  # expect rc=0 sorryAx=0 for the five bonus/three-cell modules
 python3 build2.py RHHatClassV13 RHHatClass310V13 RHHatClass13V13 RHHatClass69200V13  # expect rc=0 sorryAx=0 for the nine RHHat* modules
+python3 build2.py RHHatCoxClass693V13  # expect rc=0 sorryAx=0 for RHCell4..7CapV13, RHCellCapsV13, RHHatCoxBudgetV13, RHHatCoxClass693V13 (run 2026-09-26: all seven OK)
 lean -R aegis_rh_extra aegis_rh_extra/NineFacesAcceptanceCheck.lean  # expect all six exact? to fail
 ```
 
@@ -355,12 +371,16 @@ Hat-kernel modules (sha256, commit `68862ad8`): `RHHatPosDefV13` = `5bce3460`, `
 isolated rebuild of their closure from the pushed sources: 89 modules, 0 `sorryAx`. `RHHatClass13V13` = `902af511`
 (commit `023a3e82`; isolated rebuild with it: 90 modules, standard axioms only). `RHHatCellsWideV13` = `6b047151`,
 `RHHatClass69200V13` = `1bea5d5f` (commit `6e40dfac`; isolated rebuild of its closure: 89 modules, standard axioms only).
+Coxeter-cap modules (sha256, commits `08125765` … `2516c8a6`): `RHCell4CapV13` = `9e5c960a`, `RHCell5CapV13` = `168336c9`,
+`RHCell6CapV13` = `c43203a6`, `RHCell7CapV13` = `f6cd2fce`, `RHCellCapsV13` = `443865d1`, `RHHatCoxBudgetV13` = `cffff679`,
+`RHHatCoxClass693V13` = `a0d39432`; isolated rebuild of its closure from the pushed sources: 95 modules, standard
+axioms only. Not yet hosted-replayed.
 
 ## 5. Honest one-line summary
 
 The Weil-type criterion `RH ↔ UniversalZeroQuadraticNonnegativeV10` is formally closed in nine forms;
-the RH-equivalent quadratic is kernel-verified nonnegative on the whole class of log-half-width `≤ 69/200`
-(support length `≤ 0.69`, `99.5%` of the prime-free range, via the moment identity, the Cauchy–Schwarz and three-cell caps, and a positive-definite
+the RH-equivalent quadratic is kernel-verified nonnegative on the whole class of log-half-width `≤ 693/2000`
+(support length `≤ 0.693`, `99.98%` of the prime-free range, via the moment identity, the Cauchy–Schwarz cap, the `A_N` Coxeter caps `N = 3 … 7`, and a positive-definite
 hat-kernel certificate that goes past the pointwise-cap ceiling `≈ 0.24`; hosted-replayed through FormalConjectures
 up to the `≤ 69/200` class), on a 9-parameter `33/16` family per narrow seed, and on `(N+1)`-parameter
 dyadic families for every `N` (`dyadic_tower`), via one generic Toeplitz/Gram engine whose reach grows
