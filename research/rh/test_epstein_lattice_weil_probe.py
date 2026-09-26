@@ -12,6 +12,7 @@ from harness.sdk.epstein_lattice_weil_probe import (
     run_d20_same_discriminant_control,
     evaluate_d20_fixed_integer_witness,
     d20_fixed_witness_arithmetic_decomposition,
+    quadratic_euler_first_impulse,
 )
 
 
@@ -99,3 +100,28 @@ def test_fixed_witness_arithmetic_decomposition_exposes_composite_leakage() -> N
     assert by_n[21]["prime_power"] is False
     assert receipt["proof_authority"] is False
     assert receipt["rh_proven"] is False
+
+
+def test_quadratic_euler_first_impulse_windows() -> None:
+    square = quadratic_euler_first_impulse(-4)
+    hexagonal = quadratic_euler_first_impulse(-3)
+    d19 = quadratic_euler_first_impulse(-19)
+    d163 = quadratic_euler_first_impulse(-163)
+
+    assert square["first_n"] == 2
+    assert square["local_type"] == "ramified"
+
+    assert hexagonal["first_n"] == 3
+    assert hexagonal["local_type"] == "ramified"
+
+    assert d19["first_n"] == 4
+    assert d19["prime"] == 2
+    assert d19["exponent"] == 2
+    assert d19["local_type"] == "inert"
+
+    assert d163["first_n"] == 4
+    assert d163["prime"] == 2
+    assert d163["exponent"] == 2
+    assert d163["local_type"] == "inert"
+
+    assert square["log_window"] < hexagonal["log_window"] < d19["log_window"]
