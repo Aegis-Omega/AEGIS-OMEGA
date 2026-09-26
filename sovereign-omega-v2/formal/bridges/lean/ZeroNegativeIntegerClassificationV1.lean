@@ -31,8 +31,9 @@ theorem bernoulli_two_mul_succ_ne_zero_v1 (m : ℕ) :
   have hzeta_ne :
       riemannZeta (2 * ((m + 1 : ℕ) : ℂ)) ≠ 0 := by
     apply riemannZeta_ne_zero_of_one_le_re
+    have hm0 : (0 : ℝ) ≤ (m : ℝ) := Nat.cast_nonneg m
     norm_num
-    positivity
+    linarith
   apply hzeta_ne
   rw [riemannZeta_two_mul_nat (k := m + 1) hk]
   simp [hB]
@@ -60,8 +61,9 @@ theorem riemann_zeta_neg_nat_zero_is_trivial_index_v1
       · apply mul_ne_zero
         · exact pow_ne_zero _ (by norm_num)
         · exact_mod_cast hBq
-      · norm_num
-        positivity
+      · have hpos : ((2 * m + 1 : ℕ) : ℂ) + 1 ≠ 0 := by
+          exact_mod_cast (show (2 * m + 1 : ℕ) + 1 ≠ 0 by omega)
+        simpa using hpos
     exact (hzeta_ne hz).elim
 
 #check bernoulli_two_mul_succ_ne_zero_v1
