@@ -32,5 +32,31 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
 
-      - name: Verify frontier engineering baseline
-        run: python scripts/verify-frontier-engineering-baseline.py
+      - name: Evaluate frontier engineering baseline
+        id: baseline
+        shell: bash
+        run: |
+          set -uo pipefail
+          receipt="$RUNNER_TEMP/FRONTIER_ENGINEERING_BASELINE_V2.json"
+          python scripts/verify-frontier-engineering-baseline.py \
+            --candidate-sha "$CANDIDATE_SHA" \
+            --json-output "$receipt"
+          rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          test -s "$receipt"
+          exit 0
+
+      - name: Upload baseline evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: frontier-engineering-baseline-${{ env.CANDIDATE_SHA }}
+          path: ${{ runner.temp }}/FRONTIER_ENGINEERING_BASELINE_V2.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Enforce fail-closed baseline verdict
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ steps.baseline.outputs.rc }}" = "0"
