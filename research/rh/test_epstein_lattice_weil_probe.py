@@ -11,6 +11,7 @@ from harness.sdk.epstein_lattice_weil_probe import (
     generalized_log_derivative_coefficients,
     run_d20_same_discriminant_control,
     evaluate_d20_fixed_integer_witness,
+    d20_fixed_witness_arithmetic_decomposition,
 )
 
 
@@ -79,5 +80,22 @@ def test_fixed_integer_witness_separates_same_discriminant_pair() -> None:
     assert receipt["optimizer_used_for_evaluation"] is False
     assert receipt["principal_rayleigh"] < -0.05
     assert receipt["euler_classsum_rayleigh"] > 5.0
+    assert receipt["proof_authority"] is False
+    assert receipt["rh_proven"] is False
+
+
+def test_fixed_witness_arithmetic_decomposition_exposes_composite_leakage() -> None:
+    receipt = d20_fixed_witness_arithmetic_decomposition(support_length=3.5)
+    by_n = {row["n"]: row for row in receipt["contributions"]}
+
+    assert receipt["t_grid_used"] is False
+    assert receipt["archimedean_difference"] == 0.0
+    assert receipt["tail_bound_needed_for_pairwise_difference"] is False
+    assert receipt["total_arithmetic_delta_principal_minus_euler"] < -5.4
+    assert receipt["non_prime_power_leakage_delta"] < -2.5
+    assert by_n[6]["prime_power"] is False
+    assert by_n[6]["delta_principal_minus_euler"] < -1.0
+    assert by_n[14]["prime_power"] is False
+    assert by_n[21]["prime_power"] is False
     assert receipt["proof_authority"] is False
     assert receipt["rh_proven"] is False
